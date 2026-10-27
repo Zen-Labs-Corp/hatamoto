@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Acme Blog</title>
+  <subtitle>News from Acme</subtitle>
+  <id>https://acme.example/</id>
+  <updated>1970-01-01T00:00:00Z</updated>
+  <author>
+    <name>Acme Blog</name>
+  </author>
+  <link href="https://acme.example/atom.xml" rel="self" type="application/atom+xml"></link>
+  <link href="https://acme.example/" rel="alternate" type="text/html"></link>
+</feed>

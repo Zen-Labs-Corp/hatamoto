@@ -1,0 +1,11 @@
+{
+  "type": "cta",
+  "id": "sec-cta",
+  "content": {
+    "headline": "Ready to build?",
+    "subheadline": "<p>Spin up a site in minutes.</p>",
+    "buttonText": "Start now",
+    "buttonUrl": "javascript:alert(1)",
+    "backgroundStyle": "dark"
+  }
+}

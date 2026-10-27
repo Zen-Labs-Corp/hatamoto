@@ -1,0 +1,7 @@
+{
+  "name": "frameplug",
+  "version": "0.1.0",
+  "sdk": "^0.8",
+  "description": "QA fixture: a UI-only plugin for the frame ticket browser script.",
+  "ui": { "title": "Frames", "entry": "index.html", "roles": ["owner", "editor"] }
+}

@@ -1,0 +1,22 @@
+/* tabs: stacked panels without script, a tablist once the island ran */
+.hm-tabs__l {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hm-space-1, 0.25rem);
+  border-bottom: 1px solid var(--hm-border, #ddd);
+  margin-bottom: var(--hm-space-3, 0.75rem);
+}
+.hm-tabs__l [role=tab] {
+  padding: var(--hm-space-2, 0.5rem) var(--hm-space-4, 1rem);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.hm-tabs__l [aria-selected=true] {
+  border-bottom-color: var(--hm-primary, #2455c3);
+  font-weight: 600;
+}
+.hm-tabs--js .hm-tp__t { display: none; }

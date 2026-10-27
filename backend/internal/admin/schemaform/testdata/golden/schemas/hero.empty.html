@@ -1,0 +1,69 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-eyebrow">Eyebrow</label>
+<input class="hm-field__control" type="text" id="sf-content-eyebrow" name="content.eyebrow" value="" placeholder="Enter Eyebrow">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-headline">Headline</label>
+<input class="hm-field__control" type="text" id="sf-content-headline" name="content.headline" value="" placeholder="Enter Headline">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheadline">Subheadline</label>
+<textarea class="hm-field__control" id="sf-content-subheadline" name="content.subheadline" rows="10" data-hm-editor="tiptap">
+</textarea>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-primaryCta">Primary button text</label>
+<input class="hm-field__control" type="text" id="sf-content-primaryCta" name="content.primaryCta" value="" placeholder="Enter Primary button text">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-ctaUrl">Primary button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-ctaUrl" name="content.ctaUrl" value="" placeholder="Enter Primary button URL">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-secondaryCta">Secondary button text</label>
+<input class="hm-field__control" type="text" id="sf-content-secondaryCta" name="content.secondaryCta" value="" placeholder="Enter Secondary button text">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-secondaryCtaUrl">Secondary button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-secondaryCtaUrl" name="content.secondaryCtaUrl" value="" placeholder="Enter Secondary button URL">
+</div>
+<fieldset class="hm-repeater" id="sf-content-ctas" data-hm-repeater data-path="content.ctas"><legend class="hm-field__label">Buttons (overrides the primary/secondary fields) <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.content.ctas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.ctas" value="1" formnovalidate>Add Buttons (overrides the primary/secondary fields) item</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-layout">Layout</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-layout" name="content.layout"><option value="">Select Layout</option><option value="centered">Centered</option><option value="split">Split</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-commandChip">Command chip</label>
+<input class="hm-field__control" type="text" id="sf-content-commandChip" name="content.commandChip" value="" placeholder="Enter Command chip">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-stripLabel">Strip label</label>
+<input class="hm-field__control" type="text" id="sf-content-stripLabel" name="content.stripLabel" value="" placeholder="Optional. Shown before the strip items; not shown without items." aria-describedby="sf-content-stripLabel-help">
+<p class="hm-field__help" id="sf-content-stripLabel-help">Optional. Shown before the strip items; not shown without items.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-stripItems">Strip items</label>
+<input type="hidden" name="_present.content.stripItems" value="1"><textarea class="hm-field__control" id="sf-content-stripItems" name="content.stripItems" rows="4" placeholder="One item per line" aria-describedby="sf-content-stripItems-help">
+</textarea>
+<p class="hm-field__help" id="sf-content-stripItems-help">Optional, shown under the buttons. One item per line; commas stay inside an item.</p>
+</div>
+<fieldset class="hm-sf-object" id="sf-content-panel"><legend class="hm-field__label">Code panel (split layout, no image)</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-panel-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-panel-title" name="content.panel.title" value="" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-meta">Meta</label>
+<input class="hm-field__control" type="text" id="sf-content-panel-meta" name="content.panel.meta" value="" placeholder="Enter Meta">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-language">Language</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-panel-language" name="content.panel.language"><option value="">Select Language</option><option value="go">Go</option><option value="js">Js</option><option value="html">Html</option><option value="sh">Sh</option><option value="json">Json</option><option value="text">Text</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-code">Code</label>
+<textarea class="hm-field__control hm-mono" id="sf-content-panel-code" name="content.panel.code" rows="6">
+</textarea>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-content-outputs" data-hm-repeater data-path="content.outputs"><legend class="hm-field__label">Panel outputs <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.content.outputs" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.outputs" value="1" formnovalidate>Add Panel outputs item</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heroImage">Image</label>
+<div class="hm-row"><input class="hm-field__control" type="url" id="sf-content-heroImage" name="content.heroImage" value="" placeholder="https://" data-hm-image><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-content-heroImage" hidden>Choose from library</button></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-imageAlt">Image alt text</label>
+<input class="hm-field__control" type="text" id="sf-content-imageAlt" name="content.imageAlt" value="" placeholder="Enter Image alt text">
+</div>

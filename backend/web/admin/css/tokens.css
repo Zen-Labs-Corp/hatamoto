@@ -1,0 +1,249 @@
+/* Hatamoto admin design tokens. Published unbundled at <prefix>/_/tokens.css
+   so plugin UIs can <link> it and inherit light + dark. Names are a contract
+   (TestTokensContract): add freely, rename never.
+   Values are the LIVE admin tokens (frontend/src/app/theme/*.css); the
+   --bg/--surface/... block is a set of aliases for the design handoff
+   vocabulary, so a later palette swap is a one-file change. */
+:root {
+  /* neutrals: shiro = app bg, paper = cards/inputs, kasumi = subtle fill,
+     kinu = hairlines, nezumi = strong borders, hai = secondary text,
+     sumi = primary text and primary buttons */
+  --color-shiro: #f9fafb;
+  --color-paper: #ffffff;
+  --color-kasumi: #f6f7f9;
+  --color-kinu: #e5e7eb;
+  --color-nezumi: #d1d5db;
+  --color-hai: #6b7280;
+  --color-sumi-soft: #374151;
+  --color-sumi: #111827;
+
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
+  --color-success: #2f6b4f;
+  --color-success-soft: #eaf3ee;
+  --color-warning: #8a5a12;
+  --color-warning-soft: #fbf3e6;
+  --color-device-tablet: #8a5a12;
+  --color-device-tablet-soft: #fbf3e6;
+  --color-device-phone: #0f6b6b;
+  --color-device-phone-soft: #e3f3f2;
+  --color-danger: #b23a2e;
+  --color-danger-soft: #fbecea;
+  --color-brand: #dc2626;
+  --admin-accent: #34508a;
+
+  /* six distinct hues plus slate Other (series 6), each >= 3:1 against --color-paper (TestTokenContrast);
+     series are also told apart by dash and point style, never colour alone */
+  --chart-1: #1d4ed8;
+  --chart-2: #0e7490;
+  --chart-3: #7c3aed;
+  --chart-4: #a21caf;
+  --chart-5: #b45309;
+  --chart-6: #64748b;
+  /* plugin-facing names, kept as aliases of the series above */
+  /* hm/barlist bar under sumi text (4.5:1 both themes, TestTokenContrast) */
+  --chart-bar-soft: #bfdbfe;
+  --chart-bar-quiet: #dbe4f5;
+  --chart-stack-1: var(--chart-1);
+  --chart-stack-2: var(--chart-2);
+  --chart-stack-3: var(--chart-3);
+  --chart-stack-4: var(--chart-4);
+  --chart-stack-5: var(--chart-5);
+  --chart-stack-other: var(--chart-6);
+
+  /* handoff vocabulary, aliased */
+  /* calm: one paper surface; dark pages sit on shiro under paper chrome */
+  --bg: var(--color-paper);
+  --surface: var(--color-paper);
+  --surface-hover: var(--color-kasumi);
+  --text: var(--color-sumi);
+  --text-body: var(--color-sumi-soft);
+  --text-muted: var(--color-hai);
+  --border: var(--color-kinu);
+  /* control borders must reach 3:1 against the surface (WCAG 1.4.11), which
+     the hairline nezumi neutral does not */
+  --border-control: #8b919a;
+  /* Soft border for text inputs, selects and textareas at rest (user decision, relaxes WCAG 1.4.11);
+     hover (--color-hai) and focus keep 3:1. Checkboxes, switches and secondary buttons keep --border-control. */
+  --border-field: #d1d5db;
+  --accent-link: var(--color-accent);
+
+  --radius-2xs: 2px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 24px;
+  --radius-nav: var(--radius-md); /* contract alias: kept, do not delete */
+  --radius-full: 9999px;
+
+  --control-h: 36px;
+  --control-h-sm: 32px;
+  --badge-h: 22px;
+  --chip-h: 1.5rem;
+  --sidebar-w: 224px;
+  --subnav-w: 208px;
+  /* page widths (base.css): narrow = one readable form column, wide = tables
+     and charts, full = editors */
+  --page-narrow: 760px;
+  --page-wide: 1440px;
+  --page-pad: var(--space-6);
+  --page-pad-x: 48px; /* kept for plugin and theme stylesheets (names are a contract) */
+  --page-pad-y: 32px;
+  --content-max: var(--page-wide); /* alias kept for plugins */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* stacking order; native dialog and popover use the top layer and need none */
+  --z-behind: -1;
+  --z-raised: 1;
+  --z-sticky: 5;
+  --z-header: 10;
+  --z-popup: 20;
+  --z-tooltip: 50;
+  --z-skip: 100;
+  --z-toast: 200;
+  --z-shield: 1000;
+
+  --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif; /* kept: contract name */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --focus-ring: 2px solid var(--color-accent);
+  --focus: var(--color-accent);
+  --tooltip-bg: var(--color-sumi);
+  --tooltip-fg: var(--color-paper);
+  /* native checkbox, radio and range fill: ink, like the primary button */
+  --control-accent: var(--color-sumi);
+  --scrim: rgb(0 0 0 / 0.45);
+  --scroll-shadow: color-mix(in srgb, var(--color-sumi) 14%, transparent);
+  --scroll-shadow-edge: color-mix(in srgb, var(--color-sumi) 6%, transparent);
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-2: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-3: 0 16px 48px rgb(0 0 0 / 0.18);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-title: 18px; /* dialog and empty-state titles */
+  --text-metric: 30px; /* KPI values */
+  --text-3xl: 2.25rem; /* editor title field */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-none: 1;
+  --leading-tight: 1.3;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-heading: 1.2;
+  --leading-5: 20px;
+  --leading-5-5: 22px;
+  --leading-6: 24px;
+  --leading-7: 28px;
+  --leading-8: 32px;
+  color-scheme: light;
+}
+
+:root[data-admin-theme="dark"] {
+  --bg: var(--color-shiro);
+  --color-shiro: #141416;
+  --color-paper: #1a1a1d;
+  --color-kasumi: #222226;
+  --color-kinu: #2c2c31;
+  --color-nezumi: #3a3a40;
+  --color-hai: #a3a3ab;
+  --color-sumi-soft: #c2c2c8;
+  --color-sumi: #d6d6da;
+
+  --color-accent: #6cb4ff;
+  --color-accent-soft: #132a44;
+  --color-success: #86c9a6;
+  --color-success-soft: #16261e;
+  --color-warning: #e3b872;
+  --color-warning-soft: #2a2112;
+  --color-device-tablet: #e3b872;
+  --color-device-tablet-soft: #2a2112;
+  --color-device-phone: #6fd0cb;
+  --color-device-phone-soft: #112a29;
+  --color-danger: #f0948a;
+  --color-danger-soft: #2e1714;
+  --admin-accent: #9db4e0;
+  --border-control: #6f6f78;
+  --border-field: #3a3a40;
+  --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
+  --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 16px 48px rgb(0 0 0 / 0.6);
+  --scroll-shadow: color-mix(in srgb, #000 45%, transparent);
+
+  --chart-1: #60a5fa;
+  --chart-2: #22d3ee;
+  --chart-3: #a78bfa;
+  --chart-4: #e879f9;
+  --chart-5: #fbbf24;
+  --chart-6: #94a3b8;
+  --chart-bar-soft: #1e3a8a;
+  --chart-bar-quiet: #1a3354;
+  color-scheme: dark;
+}
+
+/* No choice made yet: follow the browser. Keep in step with the dark block above (a test compares them). */
+@media (prefers-color-scheme: dark) {
+  :root[data-admin-theme="auto"] {
+    --bg: var(--color-shiro);
+    --color-shiro: #141416;
+    --color-paper: #1a1a1d;
+    --color-kasumi: #222226;
+    --color-kinu: #2c2c31;
+    --color-nezumi: #3a3a40;
+    --color-hai: #a3a3ab;
+    --color-sumi-soft: #c2c2c8;
+    --color-sumi: #d6d6da;
+
+    --color-accent: #6cb4ff;
+    --color-accent-soft: #132a44;
+    --color-success: #86c9a6;
+    --color-success-soft: #16261e;
+    --color-warning: #e3b872;
+    --color-warning-soft: #2a2112;
+    --color-device-tablet: #e3b872;
+    --color-device-tablet-soft: #2a2112;
+    --color-device-phone: #6fd0cb;
+    --color-device-phone-soft: #112a29;
+    --color-danger: #f0948a;
+    --color-danger-soft: #2e1714;
+    --admin-accent: #9db4e0;
+    --border-control: #6f6f78;
+    --border-field: #3a3a40;
+    --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
+    --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
+    --shadow-3: 0 16px 48px rgb(0 0 0 / 0.6);
+    --scroll-shadow: color-mix(in srgb, #000 45%, transparent);
+
+    --chart-1: #60a5fa;
+    --chart-2: #22d3ee;
+    --chart-3: #a78bfa;
+    --chart-4: #e879f9;
+    --chart-5: #fbbf24;
+    --chart-6: #94a3b8;
+    --chart-bar-soft: #1e3a8a;
+    --chart-bar-quiet: #1a3354;
+    color-scheme: dark;
+  }
+}

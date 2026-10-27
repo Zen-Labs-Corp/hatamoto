@@ -1,0 +1,6 @@
+{{/* hm/aia-tracker: a server-rendered hm/tracker with its caption, a Show data button at the top right and the data table. Data: dict ID, Caption, Tracker, Table.
+js/aia/tracker.js reveals the button and folds the table; without JS the table is the content, like hm/aia-chart. */}}
+{{define "hm/aia-tracker"}}<div data-hm-aia-tracker>
+<div class="hm-aia-lgrow"><p class="hm-aia-small hm-aia-trackcap">{{.Caption}}</p>{{template "hm/button" (dict "Label" "Show data" "Size" "sm" "Attrs" (attrmap "data-aia-sd" "" "hidden" "hidden" "aria-expanded" "false" "aria-controls" (printf "%s-data" .ID)))}}</div>
+{{template "hm/tracker" .Tracker}}
+<div class="hm-aia-trackdata" id="{{.ID}}-data" data-aia-data>{{template "hm/datatable" .Table}}</div></div>{{end}}

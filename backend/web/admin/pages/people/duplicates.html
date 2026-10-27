@@ -1,0 +1,13 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Possible duplicates" "Description" "People who look alike. Merging moves every post to the one you keep, deletes the others and cannot be undone." "CSRF" $.CSRF}}
+{{range .Duplicates}}<form method="post" action="{{adminPath}}/people/merge" class="hm-cardform">
+{{template "hm/card-start" dict "ID" (printf "dup-%d" .Index) "Title" "Possible duplicate" "Description" (printf "%s look like the same person." .Title)}}
+{{template "hm/csrf" $}}
+{{range .IDs}}<input type="hidden" name="ids" value="{{.}}">
+{{end}}{{template "hm/radiocard" (dict "Legend" "Keep this one" "Name" "keep" "IDPrefix" (printf "keep-%d" .Index) "Cols" 2 "Items" .Items)}}
+{{template "hm/card-foot"}}
+{{template "hm/button" (dict "Label" "Merge into the one you keep" "Variant" "danger" "Type" "submit" "Attrs" (attrmap "data-hm-confirm" "Every post moves to the person you keep and the others are deleted. This cannot be undone." "data-hm-confirm-label" "Merge" "data-hm-confirm-title" "Merge people?" "data-hm-danger" ""))}}
+{{template "hm/card-foot-end"}}
+</form>
+{{else}}{{template "hm/empty" dict "Icon" "users" "Title" "No possible duplicates" "Body" "Nobody on the list looks like somebody else."}}
+{{end}}{{end}}{{end}}

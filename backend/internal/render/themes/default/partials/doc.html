@@ -1,0 +1,26 @@
+{{/* doc-search is the sidebar search box: a plain GET form to /search. Type is the schema slug the results are limited to (the hidden input is omitted when empty). The input has no id so the two copies of the sidebar never duplicate one. */}}
+{{define "doc-search"}}<form class="hm-doc__search" role="search" action="/search" method="get"><input type="search" name="q" aria-label="Search docs" placeholder="Search docs...">{{with .Type}}<input type="hidden" name="type" value="{{.}}">{{end}}</form>{{end}}
+{{/* doc-nav renders the sidebar. Nav is a []NavItem, Cur the Href of the current page as it appears in the menu (empty when the page is not in the menu), Open the Href of the top-level item that starts open. A top-level item with children is a <details>: its summary holds the section name and the section's own link is the first entry inside, labelled "About" plus the section name, so it never reads like a guide called Overview. */}}
+{{define "doc-nav"}}{{if .Nav}}{{$cur := .Cur}}{{$open := .Open}}<ul class="hm-doc-nav">
+{{range .Nav}}{{if .Children}}<li><details{{if and $open (eq .Href $open)}} open{{end}}><summary>{{.Label}}</summary>
+<ul class="hm-doc-nav"><li>{{if and .Href (ne .Href "#")}}<a href="{{.Href}}"{{if and $cur (eq .Href $cur)}} aria-current="page"{{end}}>About {{.Label}}</a>{{end}}</li></ul>
+{{template "doc-tree" dict "Nav" .Children "Cur" $cur}}</details></li>
+{{else}}<li>{{template "doc-item" dict "Item" . "Cur" $cur}}</li>
+{{end}}{{end}}</ul>{{end}}{{end}}
+{{/* doc-tree renders nested levels. doc-item is one entry: a link, or a plain label when the menu item has no link (the renderer gives those the Href "#"), followed by its children. */}}
+{{define "doc-tree"}}{{if .Nav}}{{$cur := .Cur}}<ul class="hm-doc-nav">
+{{range .Nav}}<li>{{template "doc-item" dict "Item" . "Cur" $cur}}</li>
+{{end}}</ul>{{end}}{{end}}
+{{define "doc-item"}}{{$cur := .Cur}}{{with .Item}}{{if and .Href (ne .Href "#")}}<a href="{{.Href}}"{{if and $cur (eq .Href $cur)}} aria-current="page"{{end}}>{{.Label}}</a>{{else}}<span class="hm-doc-nav__group">{{.Label}}</span>{{end}}
+{{template "doc-tree" dict "Nav" .Children "Cur" $cur}}{{end}}{{end}}
+{{/* doc-cards renders the children of a section index (or the top level of the menu on the landing page) as card grids. Items is a []NavItem; children without a link are group labels (Guides, Reference) and get a heading and a grid of their own, direct children share the first grid. A and B are the two pages of a published entity query used for the card descriptions. */}}
+{{define "doc-cards"}}{{$a := .A}}{{$b := .B}}{{$first := index .Items 0}}{{if and $first.Href (ne $first.Href "#")}}{{if .Landing}}<h2 class="hm-doc-cards__label">Sections</h2>
+{{end}}<ul class="hm-doc-cards">
+{{range .Items}}{{if and .Href (ne .Href "#")}}{{template "doc-card" dict "Item" . "A" $a "B" $b}}{{end}}{{end}}</ul>
+{{end}}{{range .Items}}{{if or (not .Href) (eq .Href "#")}}{{if .Children}}<h2 class="hm-doc-cards__label">{{.Label}}</h2>
+<ul class="hm-doc-cards">
+{{range .Children}}{{template "doc-card" dict "Item" . "A" $a "B" $b}}{{end}}</ul>
+{{end}}{{end}}{{end}}{{end}}
+{{/* doc-card is one card: the title as a link and, when the page has one, its description (the excerpt of the matching entity). The body text is never used as a fallback: Excerpt is only trusted from the description attribute, so a card without a match shows the title only. */}}
+{{define "doc-card"}}{{with .Item}}{{$href := trimSuffix .Href "/"}}<li class="hm-doc-card"><a class="hm-doc-card__link" href="{{.Href}}">{{.Label}}</a>{{range $.A}}{{if eq (trimSuffix .URL "/") $href}}{{with .Excerpt}}<p>{{.}}</p>{{end}}{{end}}{{end}}{{range $.B}}{{if eq (trimSuffix .URL "/") $href}}{{with .Excerpt}}<p>{{.}}</p>{{end}}{{end}}{{end}}</li>
+{{end}}{{end}}

@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "index": 0,
+      "tag": "span",
+      "text": "Sit officia"
+    },
+    {
+      "index": 1,
+      "tag": "h3",
+      "text": "Est quis anim magna."
+    },
+    {
+      "index": 2,
+      "tag": "p",
+      "text": "Tempor sunt laborum qui do’id amet sed ad reprehenderit culpa cillum 48 minim. Id lorem, ea consectetur, amet ut culpa cupidatat id enim ullamco adipiscing."
+    },
+    {
+      "index": 3,
+      "tag": "a",
+      "text": "Non Et Nisi Culpa"
+    },
+    {
+      "index": 4,
+      "tag": "a",
+      "text": "Esse 200+ adipiscing ullamco aute Enim Sunt"
+    }
+  ],
+  "edits": [
+    {
+      "index": 0,
+      "expect": "Sit officia",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 1,
+          "tag": "h3",
+          "text": "Est quis anim magna."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Tempor sunt laborum qui do’id amet sed ad reprehenderit culpa cillum 48 minim. Id lorem, ea consectetur, amet ut culpa cupidatat id enim ullamco adipiscing."
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Non Et Nisi Culpa"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Esse 200+ adipiscing ullamco aute Enim Sunt"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "expect": "Tempor sunt laborum qui do’id amet sed ad reprehenderit culpa cillum 48 minim. Id lorem, ea consectetur, amet ut culpa cupidatat id enim ullamco adipiscing.",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Sit officia"
+        },
+        {
+          "index": 1,
+          "tag": "h3",
+          "text": "Est quis anim magna."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Non Et Nisi Culpa"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Esse 200+ adipiscing ullamco aute Enim Sunt"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "expect": "Esse 200+ adipiscing ullamco aute Enim Sunt",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Sit officia"
+        },
+        {
+          "index": 1,
+          "tag": "h3",
+          "text": "Est quis anim magna."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Tempor sunt laborum qui do’id amet sed ad reprehenderit culpa cillum 48 minim. Id lorem, ea consectetur, amet ut culpa cupidatat id enim ullamco adipiscing."
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Non Et Nisi Culpa"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        }
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "index": 0,
+      "expect": "wrong",
+      "value": "x",
+      "reason": "stale"
+    },
+    {
+      "index": 999,
+      "expect": "",
+      "value": "x",
+      "reason": "range"
+    },
+    {
+      "index": 0,
+      "expect": "Sit officia",
+      "value": "  ",
+      "reason": "blank"
+    }
+  ]
+}

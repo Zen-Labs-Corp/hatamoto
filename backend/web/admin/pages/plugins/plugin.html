@@ -1,0 +1,19 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{if .Data.Owner}}{{template "hm/pluginhead" .}}{{else}}{{template "hm/pageheader" dict "Title" .Title "CSRF" .CSRF}}{{end}}
+{{with .Data}}{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .HasSchema}}{{if .Inactive}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "This plugin is not active")}}Settings you save are stored, but it may need a fix and a server restart before they take effect.{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{adminPath}}/plugins/{{.Plugin.Name}}/settings" class="hm-stack">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+{{.Form}}
+<div class="hm-savebar">{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}</div>
+</form>{{end}}
+{{with .UI}}{{template "hm/card-start" dict "ID" "plugin-page" "Title" .Title "Heading" "h2"}}<div class="hm-pluginframe-host" data-hm-pluginframe data-src="{{.Src}}" data-plugin="{{.Name}}" data-bridge="{{.Bridge}}" data-functions="{{.Functions}}">
+<template><iframe class="hm-pluginframe" sandbox="allow-scripts" title="{{.Title}}" referrerpolicy="no-referrer"></iframe></template>
+<div role="alert">{{template "hm/callout" (dict "Kind" "warning" "Title" "Plugin page disconnected" "Body" "This plugin page navigated away from itself, so it was disconnected from the admin and reset. Reload the page to use it again." "Attrs" (attrmap "data-hm-pluginframe-notice" "" "hidden" "hidden"))}}</div>
+</div>
+<noscript><p class="hm-muted">This page needs JavaScript.</p></noscript>{{template "hm/card-end"}}{{end}}
+{{if and (not .HasSchema) (not .UI)}}{{template "plugin-nothing" .}}{{end}}
+{{end}}{{end}}
+{{define "plugin-nothing"}}{{if not .State.Active}}{{template "plugin-inactive" .}}{{else if .Plugin.UI}}{{template "hm/empty" dict "Icon" "settings" "Title" "Admin page not available to you" "Body" "This plugin's admin page is open to other roles only, so it is not shown to you. See the Permissions tab for what it may do."}}{{else if and .Plugin.Package .Plugin.Package.WidgetOnly}}{{template "hm/empty" dict "Icon" "settings" "Title" "Widgets only" "Body" "This plugin adds widgets to the page builder. It has no settings and no admin page. See the Permissions tab for what it may do."}}{{else}}{{template "hm/empty" dict "Icon" "settings" "Title" "Nothing to configure" "Body" "This plugin has no settings and no admin page. See the Permissions tab for what it may do."}}{{end}}{{end}}
+{{define "plugin-inactive"}}{{with .State.Badge.Label}}{{if eq . "Blocked"}}{{template "hm/callout" (dict "Kind" "danger" "Title" "This plugin is blocked" "Body" (printf "Policy blocks this plugin, so it is not running. Reason: %s" $.Plugin.Package.Blocked))}}{{else if eq . "Uninstalling"}}{{template "hm/empty" dict "Icon" "settings" "Title" "This plugin is being uninstalled" "Body" "This plugin is being uninstalled."}}{{else if eq . "Disabled"}}{{template "hm/empty" dict "Icon" "settings" "Title" "This plugin is turned off" "Body" "This plugin is turned off. Turn it on to use its settings and admin page."}}{{else}}{{template "hm/callout" (dict "Kind" "danger" "Title" "This plugin failed to start" "Body" "It is not running, so its settings and admin page are unavailable. Fix the problem shown above and restart the server.")}}{{end}}{{end}}{{end}}

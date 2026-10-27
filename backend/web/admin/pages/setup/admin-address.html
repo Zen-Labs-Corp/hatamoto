@@ -1,0 +1,28 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Admin address</h1>
+<p class="hm-muted">Where you sign in to manage your site.</p>
+{{template "hm/formerrors" dict "Errors" .Errors}}
+{{if .AddrLockText}}<div class="hm-stack">
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-current" "Name" "address" "Label" "Your admin address" "Value" .Address "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-current"))}}</div>
+<p class="hm-muted">{{.AddrLockText}}</p>
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Href" (adminPath "setup" "site")}}
+{{template "hm/foot-end"}}
+</div>
+{{else if .Addr.Danger}}{{template "hm/danger-confirm" .Addr.Danger}}
+{{else}}<form method="post" action="{{adminPath "setup" "admin-address"}}" class="hm-stack">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Continue</button>
+{{template "hm/radiocard" (dict "Legend" "Admin address" "Name" "mode" "Items" .Addr.Items)}}
+<input type="hidden" name="candidate" value="{{.Addr.Candidate}}">
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-candidate" "Name" "candidate_url" "Label" "Your private address" "Value" (print .Addr.Origin .Addr.Candidate) "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-candidate"))}}</div>
+{{template "hm/field" dict "ID" "custom" "Name" "custom" "Label" "Your own address" "Value" .Addr.Custom "Help" (printf "Used when Choose my own is selected. Your address will be %s/ followed by what you type: letters, digits and dashes." .Addr.Origin) "Attrs" (attrmap "autocomplete" "off" "hx-get" (adminPath "setup" "admin-address" "strength") "hx-trigger" "input changed delay:300ms" "hx-target" "#addr-strength" "hx-swap" "innerHTML" "hx-push-url" "false")}}
+<div id="addr-strength" aria-live="polite">{{.Addr.StrengthHTML}}</div>
+<p class="hm-muted">Bookmark this. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.</p>
+{{template "hm/foot"}}
+{{template "hm/button" (dict "Label" "Regenerate" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "setup" "admin-address" "regenerate") "formnovalidate" ""))}}
+{{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>{{end}}
+{{end}}{{end}}

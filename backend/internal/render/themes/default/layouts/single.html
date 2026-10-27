@@ -1,0 +1,1 @@
+{{define "content"}}{{if and .Entity (not (and .Blocks (or (not .Body) (eq .SchemaSlug "page"))))}}{{template "article" .}}{{else}}{{template "page-body" .}}{{end}}{{end}}

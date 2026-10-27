@@ -1,0 +1,105 @@
+/* Primary sidebar: the items in titled groups (Plugins has no children; its
+   pages live in the Plugins subnav) and a footer of profile link, theme button
+   and sign-out button. Under 768px it becomes a top bar: brand and footer on
+   row 1, the items icon over label on row 2, group titles hidden. */
+.hm-sidebar {
+  view-transition-name: hm-sidebar;
+  position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-5);
+  padding: var(--space-4) var(--space-3) var(--space-3);
+  background: var(--color-shiro); border-right: 1px solid var(--color-kinu);
+}
+.hm-sidebar__head { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.hm-sidebar__brand { flex: 1; min-width: 0; padding: var(--space-1) var(--space-2); color: var(--text); text-decoration: none; }
+.hm-sidebar__brand > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-sidebar__brand:focus-visible { outline: var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-nav); }
+.hm-nav-list, .hm-nav-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-0-5); }
+.hm-nav-groups { display: flex; flex-direction: column; gap: var(--space-4); }
+.hm-nav-group__title {
+  margin: 0 0 var(--space-1); padding: 0 var(--space-2);
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-regular);
+}
+.hm-nav-link {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-height: 34px; padding: 0 var(--space-2);
+  border-radius: var(--radius-nav); color: var(--text-body); text-decoration: none;
+  font-size: var(--text-sm); font-weight: var(--weight-regular);
+}
+.hm-nav-link .hm-icon { color: var(--color-sumi-soft); }
+.hm-nav-link:hover { background: var(--surface-hover); color: var(--text); }
+/* Active item: a faint white chip with a near-invisible ring. Ink text and
+   icon, weight 500; no accent colour and no indicator anywhere in the menu. */
+.hm-nav-link[aria-current="page"] {
+  background: var(--color-paper); color: var(--text); font-weight: var(--weight-medium); border-radius: var(--radius-nav);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-kinu) 80%, transparent);
+}
+.hm-nav-link:hover .hm-icon, .hm-nav-link[aria-current="page"] .hm-icon { color: var(--text); }
+.hm-nav-link__badge { margin-left: auto; font-size: var(--text-xs); color: var(--text-muted); }
+.hm-nav-link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+
+.hm-sidebar__foot {
+  margin-top: auto; display: flex; align-items: center; gap: var(--space-0-5);
+  padding-top: var(--space-3); border-top: 1px solid var(--border);
+}
+.hm-sidebar__foot form { display: contents; }
+.hm-sidebar__me {
+  display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; min-height: 36px;
+  padding: 0 var(--space-1); border-radius: var(--radius-nav);
+  color: var(--text); text-decoration: none; font-size: var(--text-sm); font-weight: var(--weight-medium);
+}
+.hm-sidebar__me:hover { background: var(--surface-hover); }
+.hm-sidebar__me:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-sidebar__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-avatar {
+  width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%;
+  background: var(--admin-accent); color: var(--color-paper); font-size: var(--text-xs); font-weight: var(--weight-semibold);
+}
+
+img.hm-avatar { object-fit: cover; }
+
+/* Large avatar of the profile photo row: initials until a photo exists, then the preview takes over. */
+.hm-avatar--lg { width: 72px; height: 72px; font-size: var(--text-xl); }
+.hm-photo-row:has(img.hm-photo-preview:not([hidden])) .hm-photo-avatar { display: none; }
+
+/* Initials are generated content: decorative, so the link's visible text is the name. */
+.hm-avatar[data-initials]::before { content: attr(data-initials); }
+
+/* The theme button shows the glyph of the theme it switches to. "auto" follows
+   the browser, so the dark media query decides there. */
+.hm-theme-icon { display: inline-flex; }
+.hm-theme-icon--dark { display: none; }
+:root[data-admin-theme="dark"] .hm-theme-icon--light { display: none; }
+:root[data-admin-theme="dark"] .hm-theme-icon--dark { display: inline-flex; }
+@media (prefers-color-scheme: dark) {
+  :root[data-admin-theme="auto"] .hm-theme-icon--light { display: none; }
+  :root[data-admin-theme="auto"] .hm-theme-icon--dark { display: inline-flex; }
+}
+
+@media (max-width: 768px) {
+  .hm-sidebar {
+    z-index: var(--z-popup); height: auto; overflow: visible; flex-flow: row wrap; align-items: center;
+    gap: var(--space-2); padding: var(--space-2) var(--space-3) 0;
+    border-right: 0; border-bottom: 1px solid var(--border);
+  }
+  .hm-sidebar__head { flex: 1; }
+  .hm-sidebar__foot { order: 2; margin: 0; padding: 0; border: 0; flex: none; }
+  .hm-sidebar__me { flex: none; padding: 0; }
+  .hm-sidebar__name { display: none; }
+  .hm-nav-groups { order: 3; flex-direction: row; flex-basis: 100%; gap: 0; }
+  .hm-nav-group, .hm-nav-groups .hm-nav-list { display: contents; }
+  .hm-nav-group__title { display: none; }
+  .hm-sidebar > .hm-nav-groups .hm-nav-list > li { flex: 1 1 0; min-width: 0; }
+  .hm-sidebar > .hm-nav-groups .hm-nav-list > li > .hm-nav-link {
+    flex-direction: column; justify-content: center; gap: var(--space-0-5); min-height: 52px;
+    padding: var(--space-1) var(--space-0-5); border-radius: 0; font-size: var(--text-xs); text-align: center;
+  }
+  .hm-sidebar > .hm-nav-groups .hm-nav-list > li > .hm-nav-link > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .hm-sidebar > .hm-nav-groups .hm-nav-list > li > .hm-nav-link[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--text); background: transparent; color: var(--text); }
+}
+
+/* Cross-document view transitions: the shell (sidebar, subnav) holds
+   still while only the page content cross-fades. Off for reduced motion. */
+@view-transition { navigation: auto; }
+.hm-subnav { view-transition-name: hm-subnav; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 120ms; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }

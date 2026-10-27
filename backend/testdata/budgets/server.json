@@ -1,0 +1,98 @@
+{
+  "metrics": {
+    "alloc_RenderNodesEndpoint_allocs": {
+      "value": 10200,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_RenderNodesEndpoint_bytes": {
+      "value": 685717,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    }
+  },
+  "history": [
+    {
+      "reason": "admin design pass PR-A review fixes: select focus, toast live regions, busy guard timer",
+      "date": "2026-10-21"
+    },
+    {
+      "reason": "admin-charts: legend, skeleton, theme redraw",
+      "date": "2026-10-22"
+    },
+    {
+      "reason": "admin-media-forms: dropzone, bulk select, form builder rows, menu undo",
+      "date": "2026-10-22"
+    },
+    {
+      "reason": "admin-editors: phone builder bar, panes, entity form save state; editor_js cap 128-\u003e132 KiB (declared in PR body)",
+      "date": "2026-10-23"
+    },
+    {
+      "reason": "admin-shell-auth: notices strip, segmented, radiocard, shell logic, auth pages",
+      "date": "2026-10-23"
+    },
+    {
+      "reason": "ai-analytics-redesign: SVG chart engine and five analytics sections replace Chart.js (-208 KB vendor)",
+      "date": "2026-10-23"
+    },
+    {
+      "reason": "builder-e0-budget-split: split editor_js_gzip into editor_js_first_gzip/editor_js_total_gzip (first-paint vs lazy)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e0-budget-split: idle prefetch of section-form chunks (first-paint +776 B)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: StyleSpec v2 all-keys page CSS metric",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: StyleSpec v2 Style tab (labels lazy in style.js, hiddenAt, host.js)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: review fixes",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e2-states: states, transform/filter/transition keys, force preview",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "e4 review fixes: v1 shape, clipboard on sections, visible refusals, menu rows (+1.2 KB total, +670 B first paint, canvas bridge +empty marker)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e5: inline rich text (bridge normaliser/format, host selection, lazy fmtbar) - provisional, bridge normaliser and rich editing",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e5: inline rich text (bridge normaliser/format, host selection, lazy fmtbar) - provisional, bridge selection and format",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "e5 review fixes: canonical inline html (canonHTML), repatch/fallback in the lazy inline chunk, selection el/link, fmtbar placement and link prefill, chunk-failure handling; first paint +~660 B for the failure handling and the bar/undo reset on swap",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-e6-element-settings review fixes: inline link/anchor explanations, lightbox warning, nameNodes in the lazy chunk",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "admin-consistency rebase onto main (incl. #271 builder-e6): re-baselines the builder JS (first-paint and total gzip) and admin.js for growth from this branch's own work, namely the hm/button and hm/callout template stamping in builder/dom.js, inspector.js and elementsettings.js (e6 anchor copy button and lightbox warning now use the shared templates) plus the admin.js mousedown fix that drops main's tabindex; CSS and template changes (tooltip, badge, segmented, tabs) only lower or leave the other budgets",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector rebased onto main: canvas_bridge_gzip 15249 to 15879 (+630 B) is main's port handshake added to the branch's v2 select, outline and Enter/heading bridge work; other budgets re-measured after the merge",
+      "date": "2026-10-27"
+    }
+  ]
+}

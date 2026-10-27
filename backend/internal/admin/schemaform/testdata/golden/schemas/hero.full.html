@@ -1,0 +1,104 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-eyebrow">Eyebrow</label>
+<input class="hm-field__control" type="text" id="sf-content-eyebrow" name="content.eyebrow" value="Sample eyebrow" placeholder="Enter Eyebrow">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-headline">Headline</label>
+<input class="hm-field__control" type="text" id="sf-content-headline" name="content.headline" value="Sample headline" placeholder="Enter Headline">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheadline">Subheadline</label>
+<textarea class="hm-field__control" id="sf-content-subheadline" name="content.subheadline" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;subheadline&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-primaryCta">Primary button text</label>
+<input class="hm-field__control" type="text" id="sf-content-primaryCta" name="content.primaryCta" value="Sample primaryCta" placeholder="Enter Primary button text">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-ctaUrl">Primary button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-ctaUrl" name="content.ctaUrl" value="https://example.com/ctaUrl" placeholder="Enter Primary button URL">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-secondaryCta">Secondary button text</label>
+<input class="hm-field__control" type="text" id="sf-content-secondaryCta" name="content.secondaryCta" value="Sample secondaryCta" placeholder="Enter Secondary button text">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-secondaryCtaUrl">Secondary button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-secondaryCtaUrl" name="content.secondaryCtaUrl" value="https://example.com/secondaryCtaUrl" placeholder="Enter Secondary button URL">
+</div>
+<fieldset class="hm-repeater" id="sf-content-ctas" data-hm-repeater data-path="content.ctas"><legend class="hm-field__label">Buttons (overrides the primary/secondary fields) <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.ctas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 1</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-ctas-0-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-ctas-0-text" name="content.ctas.0.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-ctas-0-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-ctas-0-url" name="content.ctas.0.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.ctas" value="0:up" formnovalidate aria-label="Move Buttons (overrides the primary/secondary fields) item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.ctas" value="0:down" formnovalidate aria-label="Move Buttons (overrides the primary/secondary fields) item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.ctas" value="0" formnovalidate aria-label="Remove Buttons (overrides the primary/secondary fields) item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 2</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-ctas-1-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-ctas-1-text" name="content.ctas.1.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-ctas-1-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-ctas-1-url" name="content.ctas.1.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.ctas" value="1:up" formnovalidate aria-label="Move Buttons (overrides the primary/secondary fields) item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.ctas" value="1:down" formnovalidate aria-label="Move Buttons (overrides the primary/secondary fields) item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.ctas" value="1" formnovalidate aria-label="Remove Buttons (overrides the primary/secondary fields) item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.ctas" value="1" formnovalidate>Add Buttons (overrides the primary/secondary fields) item</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-layout">Layout</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-layout" name="content.layout"><option value="">Select Layout</option><option value="centered">Centered</option><option value="split" selected>Split</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-commandChip">Command chip</label>
+<input class="hm-field__control" type="text" id="sf-content-commandChip" name="content.commandChip" value="Sample commandChip" placeholder="Enter Command chip">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-stripLabel">Strip label</label>
+<input class="hm-field__control" type="text" id="sf-content-stripLabel" name="content.stripLabel" value="Sample stripLabel" placeholder="Optional. Shown before the strip items; not shown without items." aria-describedby="sf-content-stripLabel-help">
+<p class="hm-field__help" id="sf-content-stripLabel-help">Optional. Shown before the strip items; not shown without items.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-stripItems">Strip items</label>
+<input type="hidden" name="_present.content.stripItems" value="1"><textarea class="hm-field__control" id="sf-content-stripItems" name="content.stripItems" rows="4" placeholder="One item per line" aria-describedby="sf-content-stripItems-help">
+alpha
+beta, with comma</textarea>
+<p class="hm-field__help" id="sf-content-stripItems-help">Optional, shown under the buttons. One item per line; commas stay inside an item.</p>
+</div>
+<fieldset class="hm-sf-object" id="sf-content-panel"><legend class="hm-field__label">Code panel (split layout, no image)</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-panel-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-panel-title" name="content.panel.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-meta">Meta</label>
+<input class="hm-field__control" type="text" id="sf-content-panel-meta" name="content.panel.meta" value="Sample meta" placeholder="Enter Meta">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-language">Language</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-panel-language" name="content.panel.language"><option value="">Select Language</option><option value="go">Go</option><option value="js">Js</option><option value="html">Html</option><option value="sh">Sh</option><option value="json">Json</option><option value="text" selected>Text</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-panel-code">Code</label>
+<textarea class="hm-field__control hm-mono" id="sf-content-panel-code" name="content.panel.code" rows="6">
+Line one of code
+Line two</textarea>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-content-outputs" data-hm-repeater data-path="content.outputs"><legend class="hm-field__label">Panel outputs <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.outputs" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample label</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-outputs-0-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-outputs-0-label" name="content.outputs.0.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-outputs-0-value">Value</label>
+<input class="hm-field__control" type="text" id="sf-content-outputs-0-value" name="content.outputs.0.value" value="Sample value" placeholder="Enter Value">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.outputs" value="0:up" formnovalidate aria-label="Move Panel outputs item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.outputs" value="0:down" formnovalidate aria-label="Move Panel outputs item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.outputs" value="0" formnovalidate aria-label="Remove Panel outputs item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample label</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-outputs-1-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-outputs-1-label" name="content.outputs.1.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-outputs-1-value">Value</label>
+<input class="hm-field__control" type="text" id="sf-content-outputs-1-value" name="content.outputs.1.value" value="Sample value" placeholder="Enter Value">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.outputs" value="1:up" formnovalidate aria-label="Move Panel outputs item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.outputs" value="1:down" formnovalidate aria-label="Move Panel outputs item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.outputs" value="1" formnovalidate aria-label="Remove Panel outputs item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.outputs" value="1" formnovalidate>Add Panel outputs item</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heroImage">Image</label>
+<img class="hm-sf-image" src="https://example.com/img/heroImage.png" alt="" loading="lazy"><div class="hm-row"><input class="hm-field__control" type="url" id="sf-content-heroImage" name="content.heroImage" value="https://example.com/img/heroImage.png" placeholder="https://" data-hm-image><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-content-heroImage" hidden>Choose from library</button></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-imageAlt">Image alt text</label>
+<input class="hm-field__control" type="text" id="sf-content-imageAlt" name="content.imageAlt" value="Sample imageAlt" placeholder="Enter Image alt text">
+</div>

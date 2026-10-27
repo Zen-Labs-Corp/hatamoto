@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-admin-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<meta name="admin-base" content="/admin">
+<meta name="htmx-config" content="{&#34;allowEval&#34;:false,&#34;allowScriptTags&#34;:false,&#34;historyCacheSize&#34;:0,&#34;includeIndicatorStyles&#34;:false,&#34;inlineScriptNonce&#34;:&#34;NONCE&#34;,&#34;inlineStyleNonce&#34;:&#34;NONCE&#34;,&#34;refreshOnHistoryMiss&#34;:true,&#34;responseHandling&#34;:[{&#34;code&#34;:&#34;204&#34;,&#34;swap&#34;:false},{&#34;code&#34;:&#34;[23]..&#34;,&#34;swap&#34;:true},{&#34;code&#34;:&#34;422&#34;,&#34;error&#34;:false,&#34;swap&#34;:true},{&#34;code&#34;:&#34;[45]..&#34;,&#34;error&#34;:true,&#34;swap&#34;:false}]}">
+<title>Set up your site · Hatamoto</title>
+<link rel="stylesheet" href="/admin/_/admin.HASH.css">
+<script type="importmap" nonce="NONCE">{…}</script>
+<link rel="modulepreload" href="/admin/_/js/dates.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/shelllogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/components.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/daterange.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/multiselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/select.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<main id="hm-main" class="hm-bare">
+<p class="hm-brand hm-bare__brand"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/></svg><span>Hatamoto setup</span></p>
+<div class="hm-bare__panel hm-bare__panel--wide">
+
+
+<div class="hm-stepper"><ol class="hm-steps" aria-label="Setup progress">
+<li class="hm-steps__item hm-steps__item--current" aria-current="step"><span class="hm-steps__num" aria-hidden="true">1</span><span class="hm-steps__label">Your account</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">2</span><span class="hm-steps__label">Admin address</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">3</span><span class="hm-steps__label">Your site</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">4</span><span class="hm-steps__label">Email</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">5</span><span class="hm-steps__label">Look</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">6</span><span class="hm-steps__label">Content</span></li>
+<li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">7</span><span class="hm-steps__label">Done</span></li>
+</ol><p class="hm-steps__count">Step 1 of 7</p></div>
+<h1>Set up your site</h1>
+<p class="hm-muted">Create the owner account. This screen only exists until the first account is made.</p>
+<div class="hm-formerrors" id="hm-form-errors" role="alert" tabindex="-1" data-hm-focus><h2 class="hm-formerrors__title">There are 5 problems with this form</h2><ul><li><a href="#code">Setup code: That code is not right. It is in the server log, or in HATAMOTO_SETUP_CODE.</a></li><li><a href="#name">Name: Enter your name</a></li><li><a href="#email">Email: Enter a valid email address</a></li><li><a href="#password">Password: Password must be at least 12 characters.</a></li><li><a href="#confirm">Repeat the password: The passwords do not match</a></li></ul></div>
+
+<form method="post" action="/admin/setup" class="hm-stack">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<div class="hm-field hm-field--invalid">
+<label class="hm-field__label" for="code">Setup code <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<input class="hm-field__control" type="text" id="code" name="code" value="nope" required aria-invalid="true" aria-describedby="code-help code-error" autocomplete="off" autofocus="autofocus">
+<p class="hm-field__help" id="code-help">Find it in the server log (&#34;setup code&#34;), or the value of HATAMOTO_SETUP_CODE.</p>
+<p class="hm-field__error" id="code-error">That code is not right. It is in the server log, or in HATAMOTO_SETUP_CODE.</p>
+</div>
+<div class="hm-field hm-field--invalid">
+<label class="hm-field__label" for="name">Name <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<input class="hm-field__control" type="text" id="name" name="name" required aria-invalid="true" aria-describedby="name-error" autocomplete="name">
+<p class="hm-field__error" id="name-error">Enter your name</p>
+</div>
+<div class="hm-field hm-field--invalid">
+<label class="hm-field__label" for="email">Email <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<input class="hm-field__control" type="email" id="email" name="email" value="bad" required aria-invalid="true" aria-describedby="email-error" autocomplete="username">
+<p class="hm-field__error" id="email-error">Enter a valid email address</p>
+</div>
+<div class="hm-field hm-field--invalid">
+<label class="hm-field__label" for="password">Password <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<input class="hm-field__control" type="password" id="password" name="password" required aria-invalid="true" aria-describedby="password-help password-error" autocomplete="new-password" minlength="12">
+<p class="hm-field__help" id="password-help">At least 12 characters.</p>
+<p class="hm-field__error" id="password-error">Password must be at least 12 characters.</p>
+</div>
+<div class="hm-field hm-field--invalid">
+<label class="hm-field__label" for="confirm">Repeat the password <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<input class="hm-field__control" type="password" id="confirm" name="confirm" required aria-invalid="true" aria-describedby="confirm-error" autocomplete="new-password" minlength="12">
+<p class="hm-field__error" id="confirm-error">The passwords do not match</p>
+</div>
+<footer class="hm-card__foot hm-card__foot--plain">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Create account</span></button>
+</footer>
+</form>
+
+</div>
+</main>
+<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--secondary" data-hm-confirm-cancel=""><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--danger" data-hm-confirm-ok=""><span>Confirm</span></button></div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
+</body>
+</html>
+

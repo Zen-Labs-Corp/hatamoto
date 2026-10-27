@@ -1,0 +1,445 @@
+{
+  "description": "Hatamoto is an open-source, schema-first CMS. Entities, Tiptap editing, JSON-LD, sitemaps, llms.txt, caching, analytics and AI agent analytics ship in core.",
+  "meta_title": "Hatamoto · The entity-first CMS for search and AI",
+  "meta_description": "Open-source, schema-first CMS. JSON-LD, sitemaps, llms.txt, caching, first-party analytics and AI agent analytics ship in core. Go API, Next.js front end.",
+  "page_sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "title": "Hero",
+      "content": {
+        "eyebrow": "Open-source CMS · Go API · Next.js",
+        "headline": "Model it once. Every engine reads it.",
+        "subheadline": "Hatamoto is a schema-first CMS. You define entities, and the same model drives your pages, JSON-LD, sitemaps and llms.txt. SEO, AI answer visibility, analytics and caching ship in core. You don't have to bolt on plugins to get them.",
+        "primaryCta": "Get started",
+        "ctaUrl": "https://hatamoto.dev/auth/register",
+        "secondaryCta": "Read the SDK",
+        "secondaryCtaUrl": "#sdk",
+        "heroImage": "",
+        "layout": "split",
+        "commandChip": "docker compose up",
+        "panel": {
+          "title": "schemas / service.json",
+          "meta": "Entity schema",
+          "language": "json",
+          "code": "// a JSON Schema with schema.org annotations\n{\n  \"type\": \"object\",\n  \"x-schema-org-type\": \"Service\",\n  \"properties\": {\n    \"name\": { \"type\": \"string\",\n      \"x-schema-org-property\": \"name\" },\n    \"summary\": { \"type\": \"string\",\n      \"x-schema-org-property\": \"description\" },\n    \"area\": { \"type\": \"string\",\n      \"x-schema-org-property\": \"areaServed\" }\n  },\n  \"required\": [\"name\"]\n}"
+        },
+        "outputs": [
+          {
+            "label": "JSON-LD",
+            "value": "@type: Service"
+          },
+          {
+            "label": "Sitemap",
+            "value": "canonical on every page"
+          },
+          {
+            "label": "llms.txt",
+            "value": "entity summary"
+          }
+        ]
+      },
+      "sort_order": 0,
+      "isVisible": true
+    },
+    {
+      "id": "stack",
+      "type": "tag_strip",
+      "title": "Stack",
+      "content": {
+        "label": "What it runs on",
+        "items": [
+          "Go API on chi",
+          "Next.js 14",
+          "Postgres",
+          "In-process cache",
+          "One docker compose up"
+        ]
+      },
+      "sort_order": 1,
+      "isVisible": true
+    },
+    {
+      "id": "features",
+      "type": "features",
+      "title": "Features",
+      "content": {
+        "eyebrow": "What ships in core",
+        "heading": "The plugin stack you'd normally assemble, already in the box.",
+        "subheading": "Each of these comes with Hatamoto out of the box and reads from the same entity model. Your schema markup can't drift from your sitemap, and your sitemap can't drift from the page.",
+        "variant": "bento",
+        "columns": 3,
+        "features": [
+          {
+            "number": "01",
+            "category": "Content model",
+            "title": "Schema-first entities",
+            "description": "Content types are JSON Schemas with schema.org annotations, plus a URL pattern. You edit them in the admin. Pages, posts, services and locations are all entities.",
+            "tags": "schemas · url patterns · taxonomies · versions"
+          },
+          {
+            "number": "02",
+            "category": "Editing",
+            "title": "A Tiptap editor that knows your site",
+            "description": "Rich text with tables, images, bubble and floating menus, HTML blocks, and entity links that stay valid when a slug changes.",
+            "tags": "tiptap · html blocks · entity links · scheduling"
+          },
+          {
+            "number": "03",
+            "category": "AEO / GEO",
+            "title": "Built for answer engines",
+            "description": "Typed JSON-LD for every entity, FAQ and Claim markup, a knowledge graph endpoint, and llms.txt with per-page opt-out.",
+            "tags": "json-ld · llms.txt · knowledge graph"
+          },
+          {
+            "number": "04",
+            "category": "SEO",
+            "title": "SEO isn't an add-on",
+            "description": "Every entity gets meta and canonical fields. Redirects are managed in the admin with 301 to 308, misses go to a 404 log, and rule-based internal links are built in.",
+            "tags": "redirects · 404 log · internal linking · gsc"
+          },
+          {
+            "number": "05",
+            "category": "Assets",
+            "title": "Media library",
+            "description": "Upload once. Hatamoto validates the file, creates resized variants and encodes WebP, and you can pick the image straight from the editor.",
+            "tags": "variants · webp · validation"
+          },
+          {
+            "number": "06",
+            "category": "Measurement",
+            "title": "First-party analytics",
+            "description": "Pageviews and AI-assistant referrals are rolled up per day in your own Postgres, with no cookies and no visitor records. Known bots are filtered out.",
+            "tags": "pageviews · AI referrals · agents"
+          },
+          {
+            "badge": "In development",
+            "number": "07",
+            "category": "AI visibility",
+            "title": "Agent analytics",
+            "description": "See which AI crawlers and assistants fetch your pages, why they fetch them, and whether the traffic is really from them.",
+            "tags": "training · search index · user fetch"
+          },
+          {
+            "number": "08",
+            "category": "Performance",
+            "title": "Caching built in",
+            "description": "An in-process cache holds rendered pages and sitemaps and is cleared when content changes. You don't need an extra cache plugin.",
+            "tags": "cache · page · sitemap"
+          },
+          {
+            "number": "09",
+            "category": "Discovery",
+            "title": "Sitemaps that know your content",
+            "description": "A sitemap index with a sub-sitemap for each content group, an XSL view for humans, and a sitemap.urls hook for plugins.",
+            "tags": "index · per-group · robots.txt"
+          }
+        ]
+      },
+      "sort_order": 2,
+      "isVisible": true
+    },
+    {
+      "id": "entities-first",
+      "type": "content",
+      "title": "Why entities first",
+      "content": {
+        "headline": "Search engines and LLMs read structure. Write it once, at the source.",
+        "body": "<p>Most CMSs store a page as a block of HTML and leave plugins to guess what it means afterwards. One plugin adds the schema markup, another builds the sitemap, and a third writes llms.txt. They all read the same page and they all reach slightly different conclusions.</p><p>Hatamoto works the other way round. You describe the thing first, for example a service, a location or a person, and say which schema.org type it is. The public page, the structured data, the sitemap entry and the AI summary are all generated from that one record, so they can't contradict each other.</p><h3>Typed fields, not page soup</h3><p>Fields are validated against the schema when you save. Rich text is sanitised on the way in, so it stays clean even when a plugin edits it through the <code>entity.before_save</code> filter.</p><h3>URLs are part of the model</h3><p>Each schema owns its URL pattern. Paths, archives and canonical URLs are worked out from the model, and redirects pick up the slack when content moves.</p>",
+        "layout": "essay",
+        "eyebrow": "Why entities first",
+        "asideGlyph": "実体",
+        "asideText": "Entities first. Every page is a typed record before it is HTML."
+      },
+      "sort_order": 3,
+      "isVisible": true
+    },
+    {
+      "id": "aeo",
+      "type": "split",
+      "title": "AEO",
+      "content": {
+        "eyebrow": "AEO · GEO · SEO",
+        "heading": "Rank in search. Get cited in answers.",
+        "lede": "<p>Classic SEO and AI answer visibility need the same thing: clean, structured, verifiable content. Hatamoto handles both from the core.</p>",
+        "rowsStyle": "definitions",
+        "rows": [
+          {
+            "term": "JSON-LD",
+            "description": "Generated from the schema for every entity, with FAQPage, Question, Answer and Claim markup. Plugins can enrich it through the jsonld.enrich filter."
+          },
+          {
+            "term": "llms.txt",
+            "description": "Served from the same model, with a summary for each entity and a per-page switch for content you'd rather leave out."
+          },
+          {
+            "term": "Knowledge graph",
+            "description": "A public endpoint that shows how your entities relate to each other."
+          },
+          {
+            "term": "Internal linking",
+            "description": "Rule-based link suggestions that you can preview and then insert into the editor with one click."
+          },
+          {
+            "term": "Redirects",
+            "description": "Admin-managed 301, 302, 307 and 308 rules, checked before page routing, with a 404 log so nothing slips through."
+          }
+        ],
+        "panel": {
+          "title": "GET /services/emergency-plumbing",
+          "meta": "rendered head",
+          "language": "html",
+          "code": "<!-- generated from the entity, not a plugin -->\n<link rel=\"canonical\" href=\"…/services/emergency-plumbing\">\n\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@graph\": [\n    { \"@type\": \"Service\",\n      \"name\": \"Emergency plumbing\",\n      \"areaServed\": \"Melbourne\" },\n    { \"@type\": \"FAQPage\",\n      \"mainEntity\": [{\n        \"@type\": \"Question\",\n        \"acceptedAnswer\": { \"@type\": \"Answer\" }\n      }] }\n  ]\n}\n</script>"
+        },
+        "outputs": [
+          {
+            "label": "/sitemap.xml",
+            "value": "index + per group"
+          },
+          {
+            "label": "/llms.txt",
+            "value": "entity summaries"
+          },
+          {
+            "label": "/knowledge-graph",
+            "value": "public JSON"
+          }
+        ],
+        "layout": "text-left",
+        "ratio": "even"
+      },
+      "sort_order": 4,
+      "isVisible": true
+    },
+    {
+      "id": "agents",
+      "type": "card_columns",
+      "title": "Agent analytics",
+      "content": {
+        "eyebrow": "Agent analytics · in development",
+        "heading": "Know when an AI reads your page, and why.",
+        "subheading": "Hatamoto already logs AI crawler visits on the server, with no JavaScript tracker. The next release sorts each hit by purpose, checks the bot's IP against the operator's published ranges, and ties every fetch to the entity it hit.",
+        "columnCount": 3,
+        "columns": [
+          {
+            "label": "Training",
+            "title": "Model crawlers",
+            "description": "Bulk crawls that feed future models. Allow or block them in robots.txt, right next to the data.",
+            "items": [
+              "GPTBot",
+              "ClaudeBot",
+              "CCBot"
+            ]
+          },
+          {
+            "label": "Search index",
+            "title": "Answer-engine indexers",
+            "description": "Crawlers that build the indexes AI search answers from. If they don't fetch a page, it can't be cited.",
+            "items": [
+              "OAI-SearchBot",
+              "Claude-SearchBot",
+              "PerplexityBot"
+            ]
+          },
+          {
+            "label": "User fetch",
+            "title": "Live assistant requests",
+            "description": "Someone asked an assistant a question and it opened your page to answer. This is the signal that matters most.",
+            "items": [
+              "ChatGPT-User",
+              "Claude-User",
+              "Perplexity-User"
+            ]
+          }
+        ],
+        "notes": [
+          {
+            "title": "Verified, not guessed",
+            "text": "The IP is checked against published ranges and confirmed with reverse DNS. Spoofed user agents are flagged."
+          },
+          {
+            "title": "Per entity",
+            "text": "The editor shows “last fetched by ChatGPT-User” on the page itself."
+          },
+          {
+            "title": "Publish to crawl",
+            "text": "See how long each agent takes to pick up a new or updated page."
+          },
+          {
+            "title": "AI referrals",
+            "text": "Visits from chatgpt.com, perplexity.ai and claude.ai are counted per assistant."
+          }
+        ]
+      },
+      "sort_order": 5,
+      "isVisible": true
+    },
+    {
+      "id": "compare",
+      "type": "comparison",
+      "title": "Comparison",
+      "content": {
+        "eyebrow": "Built in, not bolted on",
+        "heading": "One model instead of a plugin stack.",
+        "subheading": "Every plugin you add brings its own settings screen, its own update schedule and its own idea of what the page means. Hatamoto keeps all of that in one place.",
+        "sides": [
+          {
+            "tag": "Assembled",
+            "title": "A typical page-builder CMS",
+            "tone": "negative",
+            "items": [
+              "An SEO plugin for meta and canonicals",
+              "A schema plugin guessing JSON-LD from HTML",
+              "A sitemap plugin with its own exclusions",
+              "A cache plugin that has to be told what changed",
+              "A third-party analytics script, with consent banner",
+              "Server logs you never read for AI crawlers"
+            ]
+          },
+          {
+            "tag": "Hatamoto",
+            "title": "One entity model in core",
+            "tone": "positive",
+            "items": [
+              "Meta, canonicals and hreflang from the entity model",
+              "JSON-LD generated from the schema.org type you chose",
+              "Sitemaps and llms.txt from the same records",
+              "In-process caching for pages and sitemaps",
+              "First-party analytics in your own Postgres",
+              "AI agent visits tracked on the server"
+            ]
+          }
+        ]
+      },
+      "sort_order": 6,
+      "isVisible": true
+    },
+    {
+      "id": "sdk",
+      "type": "split",
+      "title": "Plugin SDK",
+      "content": {
+        "eyebrow": "Plugin SDK",
+        "heading": "Extend it with one import.",
+        "lede": "<p>Plugins import a single package, <code>hatamoto/core/pkg/sdk</code>. It has its own go.mod and depends only on chi, pgx and the standard library. Typed hooks, a manifest, and you're wired in.</p>",
+        "footnote": "<p>Plugins can also ship goose migrations, a settings form generated from a JSON Schema, admin and public bundles, and role-gated routes. A plugin that fails to wire is reported in the admin. The server still boots.</p>",
+        "rowsStyle": "chips-grid",
+        "rows": [
+          {
+            "term": "entity.published",
+            "description": "async action, after commit"
+          },
+          {
+            "term": "entity.before_save",
+            "description": "filter; return a Reject for a 422"
+          },
+          {
+            "term": "jsonld.enrich",
+            "description": "filter on generated JSON-LD"
+          },
+          {
+            "term": "sitemap.urls",
+            "description": "filter before caching"
+          },
+          {
+            "term": "entity.deleted",
+            "description": "async action"
+          },
+          {
+            "term": "entity.created",
+            "description": "async action, after commit"
+          }
+        ],
+        "panel": {
+          "title": "plugins/hello/plugin.go",
+          "meta": "Go",
+          "language": "go",
+          "code": "package hello\n\nimport (\n  \"context\"\n  \"hatamoto.dev/sdk\"\n)\n\nfunc init() { sdk.Register(&Plugin{}) }\n\ntype Plugin struct{ deps sdk.Deps }\n\nfunc (p *Plugin) Manifest() sdk.Manifest {\n  return sdk.Manifest{\n    Name: \"hello\", Version: \"0.1.0\", SDK: \"^0.1\",\n  }\n}\n\nfunc (p *Plugin) Wire(d sdk.Deps) error {\n  p.deps = d\n  sdk.OnAction(d.Hooks, sdk.EntityPublished, 10,\n    func(ctx context.Context, e sdk.EntityEvent) {\n      d.Logger.Info(\"published\", \"id\", e.ID)\n    })\n  return nil\n}"
+        },
+        "layout": "text-left",
+        "ratio": "wide-code"
+      },
+      "sort_order": 7,
+      "isVisible": true
+    },
+    {
+      "id": "quickstart",
+      "type": "process_steps",
+      "title": "Quickstart",
+      "content": {
+        "eyebrow": "Quickstart",
+        "heading": "Running locally in one command.",
+        "subheading": "The first boot starts Postgres, generates and saves your secrets, runs every migration, creates the site config and a starter home page, then serves the site.",
+        "layout": "cards",
+        "steps": [
+          {
+            "number": "01",
+            "title": "Clone and boot",
+            "description": "<p>Three services start: db, api and web.</p>",
+            "code": "git clone <repo> && cd hatamoto\ndocker compose up"
+          },
+          {
+            "number": "02",
+            "title": "Grab your admin login",
+            "description": "<p>Create the first admin from the command line.</p>",
+            "code": "docker compose exec hatamoto hatamoto user create --email you@example.com"
+          },
+          {
+            "number": "03",
+            "title": "Model your first entity",
+            "description": "<p>Open the admin, create a schema, publish. JSON-LD, sitemap and llms.txt follow.</p>",
+            "code": "open http://localhost:3000"
+          }
+        ]
+      },
+      "sort_order": 8,
+      "isVisible": true
+    },
+    {
+      "id": "faq",
+      "type": "faq",
+      "title": "FAQ",
+      "content": {
+        "heading": "Questions",
+        "faqs": [
+          {
+            "question": "What does schema-first mean in Hatamoto?",
+            "answer": "<p>Every content type is a JSON Schema annotated with a schema.org type. Pages, JSON-LD, sitemap entries and llms.txt summaries are all generated from the same typed record, so they stay in sync.</p>"
+          },
+          {
+            "question": "Do I need plugins for SEO, sitemaps or caching?",
+            "answer": "<p>No. Meta and canonical fields, redirects, a 404 log, internal linking, sitemaps with hreflang, llms.txt, caching and first-party analytics all ship in core.</p>"
+          },
+          {
+            "question": "What is agent analytics?",
+            "answer": "<p>Server-side tracking of AI crawlers and assistants. Hatamoto already logs known AI bots today. The next release adds purpose classification, IP verification and per-entity reporting.</p>"
+          },
+          {
+            "question": "How do plugins work?",
+            "answer": "<p>A plugin imports one Go package, <code>hatamoto/core/pkg/sdk</code>, registers itself in <code>init()</code> and subscribes to typed hooks. It can ship its own migrations, settings schema and admin or public bundles.</p>"
+          },
+          {
+            "question": "What does Hatamoto run on?",
+            "answer": "<p>A Go API, a Next.js 14 front end, Postgres. <code>docker compose up</code> boots the whole stack locally.</p>"
+          }
+        ]
+      },
+      "sort_order": 9,
+      "isVisible": true
+    },
+    {
+      "id": "close",
+      "type": "cta",
+      "title": "Closing CTA",
+      "content": {
+        "headline": "Stand close. Serve well.",
+        "subheadline": "An open-source CMS for teams who want to be found by search engines and cited by AI, without managing a pile of plugins.",
+        "buttonText": "Get started",
+        "buttonUrl": "https://hatamoto.dev/auth/register",
+        "backgroundStyle": "tinted"
+      },
+      "sort_order": 10,
+      "isVisible": true
+    }
+  ]
+}

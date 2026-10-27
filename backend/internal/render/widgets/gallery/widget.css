@@ -1,0 +1,12 @@
+/* gallery: a responsive grid of images. Selectors that can match a node element
+   use :where() so the per-node .hm-n-<id> rules (hide, width) always win. */
+.hm-gallery {
+  display: grid;
+  gap: var(--hm-space-3, 0.75rem);
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
+.hm-gallery > :where(img) {
+  display: block;
+  width: 100%;
+  height: auto;
+}

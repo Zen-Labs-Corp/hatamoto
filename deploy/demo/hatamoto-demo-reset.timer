@@ -1,0 +1,12 @@
+[Unit]
+Description=Reset the Hatamoto public demo every hour
+
+[Timer]
+# On the hour; the random delay keeps it off other jobs.
+OnCalendar=hourly
+RandomizedDelaySec=60
+Persistent=false
+Unit=hatamoto-demo-reset.service
+
+[Install]
+WantedBy=timers.target

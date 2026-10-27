@@ -1,0 +1,23 @@
+.hm-container.hm-plugin-directory { padding-block: clamp(4rem, 8vw, 7rem); }
+.hm-section--plugin_directory > .hm-container.hm-plugin-directory { padding-block: 0; }
+.hm-plugin-directory__header { max-width: 42rem; margin-bottom: 2.5rem; }
+.hm-plugin-directory__eyebrow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 1rem; }
+.hm-plugin-directory__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-plugin-directory__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+.hm-plugin-directory__btn--ghost { background: transparent; color: var(--hm-text); border-color: var(--ht-line); }
+.hm-plugin-directory__tools { margin-bottom: 1.5rem; }
+.hm-plugin-directory__search { width: 100%; max-width: 32rem; padding: 0.6rem 0.75rem; font: inherit; color: inherit; background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); }
+.hm-plugin-directory__count { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--ht-fg-muted); }
+.hm-plugin-directory__grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--hm-hair); border: 1px solid var(--hm-hair); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+.hm-plugin-directory__card { display: flex; flex-direction: column; gap: 0.5rem; padding: 1.75rem 1.75rem 2rem; background: var(--hm-bg); }
+.hm-plugin-directory__card:hover { background: var(--hm-shiro); }
+.hm-plugin-directory__card[hidden], .hm-plugin-directory__search[hidden], .hm-plugin-directory__count[hidden] { display: none; }
+.hm-plugin-directory__title { margin: 0; font-size: 1.125rem; }
+.hm-plugin-directory__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-plugin-directory__tier { padding: 0.1rem 0.5rem; border: 1px solid var(--hm-hair); border-radius: 999px; background: var(--hm-shiro); }
+.hm-plugin-directory__author { margin: 0; font-size: 0.875rem; color: var(--ht-fg-muted); }
+.hm-plugin-directory__description { margin: 0; color: var(--ht-fg-muted); }
+.hm-plugin-directory__needs { margin: 0; font-family: var(--hm-font-mono); font-size: 0.75rem; color: var(--hm-label); }
+.hm-plugin-directory__source { margin-top: auto; font-size: 0.875rem; font-weight: 500; }
+.hm-plugin-directory__state { padding: 1.5rem; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-md); background: var(--hm-shiro); color: var(--ht-fg-muted); }
+.hm-plugin-directory__hint { margin: 1.5rem 0 0; font-family: var(--hm-font-mono); font-size: 0.8125rem; color: var(--hm-label); }

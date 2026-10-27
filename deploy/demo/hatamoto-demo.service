@@ -1,0 +1,55 @@
+# The public demo (demo.hatamoto.dev): its own unit, user, Postgres cluster and data dir, kept
+# apart from the main site's hatamoto-api. The owner installs it (docs/deploy/public-demo.md).
+[Unit]
+Description=Hatamoto public demo
+After=network-online.target hatamoto-demo-pg.service
+Wants=network-online.target hatamoto-demo-pg.service
+# hatamoto-demo-reset.service stops and starts this unit once an hour.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=hatamoto-demo
+Group=hatamoto-demo
+WorkingDirectory=/var/lib/hatamoto-demo
+EnvironmentFile=/etc/hatamoto-demo/demo.env
+# `serve`, not `supervise`: the demo never updates itself.
+ExecStart=/opt/hatamoto-demo/bin/hatamoto serve
+Restart=on-failure
+RestartSec=5
+
+# Isolation: this process sees its own data dir and nothing of the main site.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+# Only the live data dir is writable: the template (what every reset restores) is not.
+ReadWritePaths=/var/lib/hatamoto-demo/data
+ReadOnlyPaths=/var/lib/hatamoto-demo/template-data
+InaccessiblePaths=-/opt/hatamoto -/etc/hatamoto -/var/lib/hatamoto-demo/pg
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0027
+
+# It must never starve the main site on the same box.
+MemoryMax=768M
+TasksMax=512
+CPUQuota=100%
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

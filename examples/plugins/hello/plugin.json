@@ -1,0 +1,8 @@
+{
+  "name": "hello",
+  "version": "0.2.0",
+  "sdk": "^0.8",
+  "description": "Reference plugin: logs published entities and enriches JSON-LD.",
+  "config": { "greeting": "konnichiwa" },
+  "limits": { "memory_pages": 256, "hook_timeouts_ms": { "entity.published": 2000, "jsonld.enrich": 250 }, "max_instances": 4 }
+}

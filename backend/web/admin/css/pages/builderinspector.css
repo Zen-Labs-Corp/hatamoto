@@ -1,0 +1,46 @@
+/* builderinspector.css: UX-2 inspector rules (header, Class row, chips, Show on, box model). Tokens only. */
+.hm-bs-header { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin-bottom: var(--space-2); }
+.hm-bs-header .hm-bs-name { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-more { flex: 0 0 auto; }
+.hm-bs-class { margin-bottom: var(--space-3); }
+.hm-bs-classrow { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.hm-bs-classrow .hm-field__label { margin: 0; }
+.hm-bs-classrow .hm-field__control { flex: 1 1 8rem; min-width: 0; width: auto; }
+.hm-bs-classform { margin-top: var(--space-2); }
+.hm-bs-classform[hidden] { display: none; }
+
+/* Style tab: State switch on one row, Essentials, then one disclosure for every other group. */
+.hm-bs-states.hm-bs-states { flex-wrap: nowrap; }
+.hm-bs-states .hm-bs-opt { flex: 1 1 0; min-width: 0; padding-inline: var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-essentials { display: flex; flex-direction: column; gap: var(--space-3); margin-block: var(--space-3); }
+.hm-bs-more-opts { margin-top: var(--space-3); }
+.hm-bs-more-opts > summary { cursor: pointer; font-weight: var(--weight-semibold); padding-block: var(--space-2); }
+.hm-bs-more-opts > summary:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+
+/* Source chips: where the shown value comes from (a plain badge clone, one per control). */
+.hm-bs-src[data-source="inherited"] { border-style: dashed; }
+.hm-bs-src[data-source="custom"] { font-weight: var(--weight-semibold); }
+
+/* Show on: three switches in a row, the width being edited ringed. */
+.hm-bs-showon.hm-bs-showon { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2) var(--space-4); }
+.hm-bs-showon > .hm-field__label { flex: 1 0 100%; }
+.hm-bs-showon > label:has([aria-current="true"]) { outline: 2px solid var(--color-sumi); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+/* Box model: padding nested in margin, the element in the middle; quick 0 / auto under each side; link toggles as icon buttons. */
+.hm-bs-ring__g { grid-template-areas: ". t ." "l c r" ". b ."; }
+.hm-bs-ring__c { grid-area: c; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.hm-bs-ring--outer > .hm-bs-ring__g { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr); }
+.hm-bs-ring__c > .hm-bs-ring { flex: 1 1 auto; }
+.hm-bs-ring__el { padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--color-kasumi); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
+.hm-bs-side__q { display: flex; justify-content: center; gap: var(--space-1); margin-top: var(--space-1); }
+.hm-bs-quick.hm-bs-quick { min-width: 1.5rem; min-height: 1.5rem; padding: 0 var(--space-1); font-size: var(--text-xs); } /* 24 px: WCAG 2.5.8 */
+.hm-bs-links { display: inline-flex; gap: var(--space-1); }
+.hm-bs-linkbtn { min-width: 2rem; }
+.hm-bs-linkbtn::before { content: "\25A3"; }
+.hm-bs-linkbtn[data-link="vertical"]::before { content: "\2195"; }
+.hm-bs-linkbtn[data-link="horizontal"]::before { content: "\2194"; }
+.hm-bs-linkbtn[aria-pressed="true"] { background: var(--color-sumi); border-color: var(--color-sumi); color: var(--color-paper); }
+
+/* Pressed and checked options use the ink fill of the segmented control (readable in light and dark; accent text on a light surface was not). */
+.hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-sumi); border-color: var(--color-sumi); color: var(--color-paper); }
+.hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

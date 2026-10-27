@@ -1,0 +1,4 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"s1","t":"stat","p":{"value":"1,200","label":"Happy <b>readers</b>","prefix":"~","suffix":"+"},"s":{"base":{"ta":"center"},"sm":{"fs":"lg"}}},
+  {"id":"s2","t":"stat","p":{"value":"42"}}
+]}]}

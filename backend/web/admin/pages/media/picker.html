@@ -1,0 +1,15 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}<div id="hm-picker" class="hm-picker hm-stack">
+<form class="hm-row" role="search" method="get" action="{{adminPath}}/media/picker" hx-get="{{adminPath}}/media/picker" hx-target="#hm-picker" hx-swap="outerHTML" hx-trigger="submit, input changed delay:300ms from:#picker-q" hx-indicator="#picker-busy">
+<label class="hm-visually-hidden" for="picker-q">Search images</label><input class="hm-field__control" type="search" id="picker-q" name="q" value="{{.Q}}" placeholder="Search images">{{template "hm/button" dict "Label" "Search" "Type" "submit"}}{{template "hm/indicator" dict "ID" "picker-busy" "Text" "Searching"}}
+</form>
+{{if .Tiles}}<ul class="hm-media-grid hm-media-grid--picker" role="list">
+{{range .Tiles}}<li><button type="button" class="hm-pickertile" data-hm-pick="{{.URL}}" data-hm-pick-alt="{{.Alt}}"><img src="{{or .Thumb .URL}}" alt="" loading="lazy"><span class="hm-mediatile__name">{{.Filename}}</span><span class="hm-muted">{{.Meta}}</span><span class="hm-pickertile__check" aria-hidden="true">{{icon "check"}}</span></button></li>
+{{end}}</ul>
+{{else}}{{template "hm/empty" (dict "Title" "No images match" "Body" "Upload one below." "Compact" true)}}{{end}}
+{{if or .Prev .Next}}<nav class="hm-row hm-picker__pages" aria-label="Picker pages"><span class="hm-muted">Page {{.Page}} of {{.Pages}}</span>{{if .Prev}}{{template "hm/button" dict "Label" "Previous" "Size" "sm" "Href" .Prev "Attrs" (attrmap "hx-get" .Prev "hx-indicator" "#picker-busy" "hx-target" "#hm-picker" "hx-swap" "outerHTML")}}{{end}}{{if .Next}}{{template "hm/button" dict "Label" "Next" "Size" "sm" "Href" .Next "Attrs" (attrmap "hx-get" .Next "hx-indicator" "#picker-busy" "hx-target" "#hm-picker" "hx-swap" "outerHTML")}}{{end}}</nav>{{end}}
+<form class="hm-picker__upload" method="post" enctype="multipart/form-data" action="{{adminPath}}/media/upload?picker=1" hx-post="{{adminPath}}/media/upload?picker=1" hx-encoding="multipart/form-data" hx-indicator="#picker-busy" hx-target="#hm-picker" hx-swap="outerHTML" data-hm-dropzone>{{template "hm/csrf" $}}
+{{template "hm/dropzone" dict "ID" "picker-file" "Compact" true "Accept" "image/jpeg,image/png,image/gif,image/webp" "MaxMB" .MaxMB "Help" (printf "JPEG, PNG, GIF or WebP, up to %d MB each." .MaxMB)}}{{template "hm/button" dict "Label" "Upload" "Variant" "primary" "Type" "submit"}}
+</form>
+</div>
+{{end}}{{end}}

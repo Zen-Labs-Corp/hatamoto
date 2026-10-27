@@ -1,0 +1,69 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/repeater @hm/content @hm/entityform{{end}}
+{{define "scripts"}}sortablejs{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Subtitle "CSRF" $.CSRF "Actions" .Actions}}
+{{if not .New}}{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}{{end}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{if .New}}{{adminPath}}/entities{{else}}{{adminPath}}/entities/{{.ID}}{{end}}" class="hm-stack hm-entityform" novalidate>
+{{template "hm/csrf" $}}
+{{if .New}}<input type="hidden" name="type" value="{{.SchemaSlug}}">{{end}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+{{template "hm/card-start" dict "ID" "content" "Title" "Content"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" "Used in the address. Leave it empty to make one from the name." "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" (or (and .New (not .Slug) "1") "0"))}}
+{{.Attrs}}
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "publishing" "Title" "Publishing"}}
+<div class="hm-stack">
+{{if .IsPerson}}<p class="hm-muted">This person is shown on your site when Public is switched on.</p>
+{{else}}{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .StatusOptions "Error" (index .Errors "status")}}
+{{template "hm/field" dict "ID" "schedule" "Name" "schedule" "Label" "Publish at" "Type" "datetime-local" "Value" .Schedule "Help" (printf "Used when the status is Scheduled. Times are in %s." .Zone) "Error" (index .Errors "schedule")}}
+{{end}}{{if .ShowParent}}<div class="hm-field{{if index .Errors "parent"}} hm-field--invalid{{end}}" id="parent-picker">
+<label class="hm-field__label" for="parent">Parent</label>
+<input type="hidden" name="parent_orig" value="{{.ParentOrig}}">
+<details class="hm-parentpick"{{if index .Errors "parent"}} open{{end}}>
+<summary class="hm-parentpick__summary"><span data-hm-parent-chip>{{$parent := ""}}{{range .Parent.Options}}{{if .Selected}}{{$parent = .Label}}{{end}}{{end}}{{template "hm/badge" (dict "Label" $parent "Plain" true "Wrap" true)}}</span><span class="hm-parentpick__change" aria-hidden="true"><span class="hm-parentpick__open">Change</span><span class="hm-parentpick__done">Done</span></span><span class="hm-visually-hidden">Change parent</span></summary>
+<input class="hm-field__control" type="search" id="parent_q" name="parent_q" value="{{.Parent.Q}}" placeholder="Search entities by name" autocomplete="off" aria-label="Search for a parent" data-hm-noenter hidden hx-get="{{adminPath}}/entities/parent-options" hx-trigger="input changed delay:300ms, search" hx-target="#parent-select" hx-swap="innerHTML" hx-include="#parent, #parent-exclude" hx-sync="this:replace" hx-indicator="#parent-busy">
+<input type="hidden" id="parent-exclude" name="exclude" value="{{.Parent.Exclude}}">
+{{template "hm/indicator" dict "ID" "parent-busy" "Text" "Searching"}}
+<div id="parent-select" aria-live="polite">{{template "hm/parentselect" .Parent}}</div>
+</details>
+<p class="hm-field__help" id="parent-help">Where this page sits in the address.</p>
+{{with index .Errors "parent"}}<p class="hm-field__error" id="parent-error">{{.}}</p>{{end}}</div>{{end}}
+{{if .ShowAuthor}}{{template "hm/field" dict "ID" "author" "Name" "author" "Label" "Author" "Control" "select" "Options" .AuthorOptions}}
+{{template "hm/field" dict "ID" "new_author" "Name" "new_author" "Label" "Or add a new author" "Value" .NewAuthor "Help" "Type a name to create an author and use it for this entity." "Attrs" (attrmap "autocomplete" "off")}}{{end}}
+</div>
+{{template "hm/card-end"}}
+{{if .ShowTerms}}{{template "hm/card-start" dict "ID" "terms" "Title" "Terms" "Description" "Tags, categories and other taxonomies."}}
+<div class="hm-stack">
+<input type="hidden" name="_terms" value="1">
+{{range .TermGroups}}<fieldset class="hm-terms" data-hm-multiselect><legend class="hm-field__label">{{.Kind}}</legend>
+<ul class="hm-terms__list" role="list">{{range .Terms}}<li class="hm-depth-{{.Depth}}"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="{{.ID}}"{{if .Checked}} checked{{end}}><span>{{.Name}}</span></label></li>
+{{end}}</ul></fieldset>
+{{else}}{{template "hm/empty" (dict "Title" "No terms yet" "Body" (cond .CanCreateTerm "Add one below." "") "Compact" true)}}{{end}}
+{{if .CanCreateTerm}}<div class="hm-row hm-row--top">
+{{template "hm/field" dict "ID" "new_term_name" "Name" "new_term_name" "Label" "New term" "Value" .NewTermName "Error" (index .Errors "new_term_name") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "new_term_kind" "Name" "new_term_kind" "Label" "Kind" "Control" "select" "Options" .KindOptions}}
+</div>{{end}}
+</div>
+{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "ID" "seo" "Title" "Search and social" "Description" "How this page appears in search results and when shared."}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "seo_title" "Name" "seo_title" "Label" "SEO title" "Value" .SEO.Title "Help" "Shown in search results. About 60 characters." "Error" (index .Errors "seo_title") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
+{{template "hm/field" dict "ID" "seo_canonical" "Name" "seo_canonical" "Label" "Canonical address" "Value" .SEO.Canonical "Help" "Only when this content also lives at another address." "Error" (index .Errors "seo_canonical") "Attrs" (attrmap "autocomplete" "off")}}
+<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="seo_og_image" hidden>Choose from library</button></div>
+{{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
+{{template "hm/field" dict "ID" "seo_noindex" "Name" "seo_noindex" "Label" "Ask search engines not to list this page" "Control" "switch" "Value" "true" "Checked" .SEO.NoIndex}}
+</div>
+{{template "hm/card-end"}}
+<div class="hm-savebar">
+<span class="hm-savebar__aside">{{if not .New}}{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/entities/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" "This entity and its version history will be deleted. This cannot be undone." "data-hm-confirm-label" "Delete entity" "data-hm-post" (printf "%s/entities/%s/delete" adminPath .ID) "data-hm-danger" "")}}{{end}}<span data-hm-ef-status>{{if .UpdatedAt}}{{template "hm/savestate" (dict "State" "saved" "Text" (printf "Saved %s" .UpdatedAt))}}{{else if .Errors}}{{template "hm/savestate" (dict "State" "unsaved" "Text" "Unsaved changes")}}{{else}}{{template "hm/savestate" (dict "State" "idle" "Text" "")}}{{end}}</span></span>
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "entities")}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+</div>
+</form>
+{{end}}{{end}}

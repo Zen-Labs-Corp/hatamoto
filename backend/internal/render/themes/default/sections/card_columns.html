@@ -1,0 +1,15 @@
+{{define "section-card_columns"}}{{$c := .Content}}<div class="hm-container hm-card-columns hm-card-columns--cols-{{default 3 $c.columnCount}}">
+  {{template "section-head" .}}
+  {{if $c.columns}}<div class="hm-card-columns__grid">
+    {{range $i, $col := $c.columns}}<article class="hm-card-columns__col">
+      {{with $col.label}}<p class="hm-card-columns__label" {{hmf "columns" $i "label"}}>{{.}}</p>{{end}}
+      {{with $col.title}}<h3 class="hm-card-columns__title" {{hmf "columns" $i "title"}}>{{.}}</h3>{{end}}
+      {{with $col.description}}<p class="hm-card-columns__description" {{hmf "columns" $i "description"}}>{{.}}</p>{{end}}
+      {{if $col.items}}<ul class="hm-card-columns__items">{{range $j, $it := $col.items}}<li {{hmf "columns" $i "items" $j}}>{{$it}}</li>{{end}}</ul>{{end}}
+    </article>{{end}}
+  </div>{{end}}
+  {{if $c.notes}}<div class="hm-card-columns__notes">{{range $i, $n := $c.notes}}<div class="hm-card-columns__note">
+    {{with $n.title}}<h4 class="hm-card-columns__note-title" {{hmf "notes" $i "title"}}>{{.}}</h4>{{end}}
+    {{with $n.text}}<p class="hm-card-columns__note-text" {{hmf "notes" $i "text"}}>{{.}}</p>{{end}}
+  </div>{{end}}</div>{{end}}
+</div>{{end}}

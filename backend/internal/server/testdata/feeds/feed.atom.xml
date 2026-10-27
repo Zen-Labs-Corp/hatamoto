@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Acme Blog</title>
+  <subtitle>News from Acme</subtitle>
+  <id>https://acme.example/</id>
+  <updated>2026-10-13T01:00:00Z</updated>
+  <author>
+    <name>Acme Blog</name>
+  </author>
+  <link href="https://acme.example/atom.xml" rel="self" type="application/atom+xml"></link>
+  <link href="https://acme.example/" rel="alternate" type="text/html"></link>
+  <entry>
+    <title>Second &amp; best</title>
+    <id>urn:uuid:00000000-0000-0000-0000-000000000002</id>
+    <link href="https://acme.example/blog/second" rel="alternate" type="text/html"></link>
+    <published>2026-10-12T09:30:00Z</published>
+    <updated>2026-10-13T01:00:00Z</updated>
+    <author>
+      <name>Ada</name>
+    </author>
+    <summary>The &lt;b&gt;second&lt;/b&gt; post.</summary>
+    <content type="html">&lt;p&gt;Hello &lt;a href=&#34;https://acme.example/blog/first&#34;&gt;first&lt;/a&gt; &amp; ]]&gt; done.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>First</title>
+    <id>urn:uuid:00000000-0000-0000-0000-000000000001</id>
+    <link href="https://acme.example/blog/first" rel="alternate" type="text/html"></link>
+    <published>2026-10-01T00:00:00Z</published>
+    <updated>2026-10-01T00:00:00Z</updated>
+    <content type="html">&lt;p&gt;One&lt;/p&gt;</content>
+  </entry>
+</feed>

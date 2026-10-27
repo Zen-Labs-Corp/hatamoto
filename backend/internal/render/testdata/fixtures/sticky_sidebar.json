@@ -1,0 +1,13 @@
+{
+  "type": "sticky_sidebar", "id": "sec-sticky-sidebar", "title": "Guide",
+  "content": {
+    "headline": "Planning your project",
+    "subheading": "What to know before you start.",
+    "content": "<p>Start with a <strong>clear scope</strong>.</p><script>alert(1)</script><p>Then iterate.</p>",
+    "sidebar": {
+      "title": "Quick facts",
+      "quick_facts": [{"label": "Duration", "value": "4 weeks"}, {"label": "Team size", "value": "3 people"}],
+      "cta": {"text": "Contact us", "url": "/contact"}
+    }
+  }
+}

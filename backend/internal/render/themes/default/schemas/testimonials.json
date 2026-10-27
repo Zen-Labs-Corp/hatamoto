@@ -1,0 +1,20 @@
+{
+  "x-hm-section": {"title": "Testimonials", "description": "Customer quotes in a grid"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["grid", "featured"], "default": "grid"},
+    "testimonials": {
+      "type": "array", "title": "Testimonials", "x-hm-alias": ["items"],
+      "items": {"type": "object", "properties": {
+        "quote": {"type": "string", "title": "Quote", "x-hm-field": "plaintext"},
+        "name": {"type": "string", "title": "Name", "x-hm-alias": ["author"], "x-hm-field": "plaintext"},
+        "title": {"type": "string", "title": "Role", "x-hm-alias": ["role"], "x-hm-field": "plaintext"},
+        "company": {"type": "string", "title": "Company", "x-hm-field": "plaintext"},
+        "avatar": {"type": "string", "title": "Avatar", "x-hm-field": "image"},
+        "rating": {"type": "number", "title": "Rating (1-5)", "x-hm-field": "plaintext"}
+      }}
+    }
+  }
+}

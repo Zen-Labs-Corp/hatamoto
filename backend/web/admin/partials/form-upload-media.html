@@ -1,0 +1,6 @@
+{{/* The media upload form with its dropzone (dialog and /new page). Data: Upload, CSRF, MaxMB, View ("list" keeps the list view after upload), Foot (the page shows Cancel and Upload buttons inside the form; the dialog has its own footer). */}}
+{{define "hm/form-upload-media"}}<form class="hm-upload" id="upload-form" method="post" enctype="multipart/form-data" action="{{.Upload}}" hx-post="{{adminPath}}/media/upload" hx-encoding="multipart/form-data" hx-indicator="#upload-busy" data-hm-dropzone>{{template "hm/csrf" .}}
+{{with .View}}<input type="hidden" name="view" value="{{.}}">{{end}}{{template "hm/dropzone" dict "ID" "upload-file" "Accept" "image/jpeg,image/png,image/gif,image/webp,application/pdf,video/mp4,video/webm" "MaxMB" .MaxMB "Help" (printf "JPEG, PNG, GIF, WebP, PDF, MP4 and WebM, up to %d MB each." .MaxMB)}}
+<progress class="hm-progress" data-hm-progress max="100" value="0" hidden aria-label="Upload progress"></progress><span class="hm-muted hm-upload__status" data-hm-progress-text role="status"></span>{{template "hm/indicator" dict "ID" "upload-busy" "Text" "Uploading"}}
+{{if .Foot}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "media")}}{{template "hm/button" dict "Label" "Upload" "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+{{end}}</form>{{end}}

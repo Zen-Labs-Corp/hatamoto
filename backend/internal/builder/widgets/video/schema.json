@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Video",
+    "hint": "A YouTube or Vimeo video that loads when played",
+    "group": "Media",
+    "order": 40,
+    "default": {"title": "Video"}
+  },
+  "properties": {
+    "url": {"type": "string", "maxLength": 2048},
+    "title": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "poster": {"type": "string", "maxLength": 2048, "x-hm-widget": "media"},
+    "hidden": {"type": "boolean"}
+  }
+}

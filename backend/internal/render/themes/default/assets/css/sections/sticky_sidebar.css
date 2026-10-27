@@ -1,0 +1,12 @@
+.hm-sticky-sidebar { display: grid; gap: 2rem; }
+.hm-sticky-sidebar__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-sticky-sidebar__aside { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-lg); padding: 1.5rem; background: var(--ht-surface-2); align-self: start; }
+.hm-sticky-sidebar__facts { margin: 0 0 1.25rem; }
+.hm-sticky-sidebar__fact { padding: 0.5rem 0; border-bottom: 1px solid var(--ht-line); }
+.hm-sticky-sidebar__fact dt { font-size: 0.85rem; color: var(--ht-fg-muted); }
+.hm-sticky-sidebar__fact dd { margin: 0; font-weight: 600; }
+.hm-sticky-sidebar__cta { display: block; text-align: center; }
+@media (min-width: 60rem) {
+  .hm-sticky-sidebar { grid-template-columns: minmax(0, 1fr) 20rem; gap: 3rem; }
+  .hm-sticky-sidebar__aside { position: sticky; top: 1.5rem; }
+}

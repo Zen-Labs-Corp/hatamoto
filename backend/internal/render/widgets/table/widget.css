@@ -1,0 +1,9 @@
+/* table: plain data table */
+.hm-table { width: 100%; border-collapse: collapse; }
+.hm-table caption { text-align: left; font-weight: 600; padding-bottom: var(--hm-space-2, 0.5rem); }
+.hm-table th, .hm-table td {
+  text-align: left;
+  padding: var(--hm-space-2, 0.5rem) var(--hm-space-3, 0.75rem);
+  border-bottom: 1px solid var(--hm-border, #ddd);
+}
+.hm-table th { font-weight: 600; }

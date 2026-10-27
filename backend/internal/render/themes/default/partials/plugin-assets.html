@@ -1,0 +1,11 @@
+{{/*
+  Plugin public-asset slots. base.html calls "plugin-head" just before </head>
+  and "plugin-body" just before </body>. The host fills .PluginHead and
+  .PluginBody with the stylesheet/script tags of active plugins (v1-18); both
+  are empty until then, so these partials render nothing today. A theme keeps
+  plugin assets working by calling both partials from its own base.html.
+*/}}
+{{define "plugin-head"}}{{with .PluginHead}}{{.}}
+{{end}}{{end}}
+{{define "plugin-body"}}{{with .PluginBody}}{{.}}
+{{end}}{{end}}

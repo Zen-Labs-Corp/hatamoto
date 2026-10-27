@@ -1,0 +1,67 @@
+{
+  "type": "theme_directory",
+  "id": "sec-theme-directory",
+  "title": "Themes",
+  "content": {
+    "eyebrow": "Themes",
+    "heading": "Themes",
+    "intro": "Change how your site looks.",
+    "writeUrl": "https://example.org/docs/writing-themes",
+    "submitUrl": "http://example.org/not-https",
+    "otherUrl": "/plugins",
+    "otherLabel": "Browse plugins",
+    "installHint": "Install: Admin > Settings > Theme > Browse registry",
+    "showSearch": true
+  },
+  "theme_directory": {
+    "State": "ok",
+    "Cards": [
+      {
+        "Name": "sunrise",
+        "Title": "Sunrise",
+        "Version": "v2.0.0",
+        "Tier": "first-party",
+        "TierLabel": "First-party",
+        "Description": "Warm editorial theme.",
+        "Source": "https://example.org/sunrise",
+        "Screenshot": "https://example.org/screenshots/sunrise.webp",
+        "Search": "sunrise sunrise warm editorial theme. "
+      },
+      {
+        "Name": "kumo",
+        "Title": "Kumo",
+        "Version": "v1.1.0",
+        "Tier": "community",
+        "TierLabel": "Community",
+        "Author": "tanaka",
+        "Description": "Minimal docs theme.",
+        "Source": "https://example.org/kumo",
+        "Screenshot": "https://example.org/screenshots/kumo.png",
+        "Search": "kumo kumo minimal docs theme. tanaka"
+      },
+      {
+        "Name": "hostile",
+        "Title": "<img src=x onerror=alert(1)>",
+        "Version": "v0.1.0",
+        "Tier": "community",
+        "TierLabel": "Community",
+        "Author": "<b>eve</b>",
+        "Description": "Adds <script>alert(1)</script> & \"quotes\".",
+        "Source": "javascript:alert(1)",
+        "Screenshot": "http://example.org/insecure.png",
+        "Search": "<img src=x onerror=alert(1)> hostile adds <script>alert(1)</script> & \"quotes\". <b>eve</b>"
+      },
+      {
+        "Name": "plain",
+        "Version": "v0.2.0",
+        "Tier": "community",
+        "TierLabel": "Community",
+        "Author": "bob",
+        "Description": "No screenshot and a non-https source.",
+        "Source": "http://example.org/plain",
+        "Screenshot": "",
+        "Search": " plain no screenshot and a non-https source. bob"
+      }
+    ]
+  }
+}

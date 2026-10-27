@@ -1,0 +1,261 @@
+package mcpserver
+
+import (
+	"context"
+	"encoding/json"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/agents"
+	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/entity"
+)
+
+const (
+	reportScope = hmauth.ScopeReadReports
+	dayLayout   = "2006-01-02"
+	maxRange    = 366 * 24 * time.Hour
+	// maxPreview caps the text a preview returns to the agent.
+	maxPreview = 64 * 1024
+)
+
+var subSitemap = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
+
+// dateRange reads from/to (YYYY-MM-DD, inclusive, UTC); the default is the
+// last 30 days.
+func dateRange(from, to string) (agents.Range, error) {
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	rg := agents.Range{From: today.AddDate(0, 0, -29), To: today}
+	parse := func(name, v string, dst *time.Time) error {
+		if v == "" {
+			return nil
+		}
+		t, err := time.Parse(dayLayout, v)
+		if err != nil {
+			return userErr("%s must be YYYY-MM-DD", name)
+		}
+		*dst = t
+		return nil
+	}
+	if err := parse("from", from, &rg.From); err != nil {
+		return rg, err
+	}
+	if err := parse("to", to, &rg.To); err != nil {
+		return rg, err
+	}
+	if to != "" && from == "" {
+		rg.From = rg.To.AddDate(0, 0, -29)
+	}
+	if rg.From.After(rg.To) {
+		return rg, userErr("from must not be after to")
+	}
+	if rg.To.Sub(rg.From) > maxRange {
+		return rg, userErr("range must not exceed 366 days")
+	}
+	return rg, nil
+}
+
+func (s *Server) registerInsight() {
+	type rangeIn struct {
+		From string `json:"from,omitempty" jsonschema:"YYYY-MM-DD, inclusive (default: 29 days before to)"`
+		To   string `json:"to,omitempty" jsonschema:"YYYY-MM-DD, inclusive (default: today, UTC)"`
+	}
+
+	type hitsIn struct {
+		rangeIn
+		EntityID string `json:"entity_id,omitempty" jsonschema:"also report this one page: last fetch per AI agent, first crawl, user fetches"`
+		Limit    int    `json:"limit,omitempty" jsonschema:"pages to return (default 20, max 100)"`
+	}
+	register(s, toolSpec{name: "analytics_crawler_hits", description: "AI-crawler fetches of the site: per page and per agent over a date range (served responses only for pages). With entity_id, also that page's per-agent last fetch and first crawl.", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in hitsIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			pages, totalPages, err := s.d.Crawlers.TopPages(ctx, rg, agents.Page{Limit: clampLimit(in.Limit, 20)})
+			if err != nil {
+				return nil, err
+			}
+			byAgent, err := s.d.Crawlers.Agents(ctx, rg)
+			if err != nil {
+				return nil, err
+			}
+			out := object{"from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout), "pages": pages, "total_pages": totalPages, "agents": byAgent}
+			if in.EntityID != "" {
+				id, err := parseID("entity_id", in.EntityID)
+				if err != nil {
+					return nil, err
+				}
+				act, err := s.pageActivity(ctx, id)
+				if err != nil {
+					return nil, err
+				}
+				out["page"] = act
+			}
+			return out, nil
+		})
+
+	type firstIn struct {
+		rangeIn
+		Limit int `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
+	}
+	register(s, toolSpec{name: "analytics_first_crawls", description: "Pages whose first AI crawl happened in the range: which agent, and how long after publishing.", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in firstIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			rows, total, err := s.d.Crawlers.FirstCrawls(ctx, rg, agents.Page{Limit: clampLimit(in.Limit, 20)})
+			if err != nil {
+				return nil, err
+			}
+			return object{"items": rows, "total": total}, nil
+		})
+
+	register(s, toolSpec{name: "analytics_ai_referrals", description: "Visits sent by AI assistants (ChatGPT, Perplexity, ...) per day. Counted per assistant and day only: the site keeps no per-page or per-visitor referral data.", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			days, err := s.d.Referrals.AIReferrals(ctx, rg.From, rg.To)
+			if err != nil {
+				return nil, err
+			}
+			var total int64
+			for _, d := range days {
+				total += d.Visits
+			}
+			return object{"days": days, "total_visits": total}, nil
+		})
+
+	type sitemapIn struct {
+		Sub string `json:"sub,omitempty" jsonschema:"child sitemap name (e.g. posts); empty = the sitemap index"`
+	}
+	register(s, toolSpec{name: "sitemap_preview", description: "The sitemap XML as crawlers get it now (index, or one child sitemap).", scope: readScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in sitemapIn) (any, error) {
+			path := "/sitemap.xml"
+			if in.Sub != "" {
+				if !subSitemap.MatchString(in.Sub) {
+					return nil, userErr("sub may only hold lowercase letters, digits, - and _")
+				}
+				path = "/sitemap-" + in.Sub + ".xml"
+			}
+			return s.preview(ctx, path, func(body string) object {
+				return object{"urls": strings.Count(body, "<url>"), "sitemaps": strings.Count(body, "<sitemap>")}
+			})
+		})
+	register(s, toolSpec{name: "llms_txt_preview", description: "The /llms.txt manifest as AI crawlers get it now.", scope: readScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, _ struct{}) (any, error) {
+			return s.preview(ctx, "/llms.txt", nil)
+		})
+
+	type ldIn struct {
+		EntityID string `json:"entity_id"`
+	}
+	register(s, toolSpec{name: "jsonld_validate", description: "Render a page's JSON-LD (the live page when published, otherwise generated from the draft) and check it: valid JSON, @context, @type, and the fields Google expects per type.", scope: readScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in ldIn) (any, error) {
+			id, err := parseID("entity_id", in.EntityID)
+			if err != nil {
+				return nil, err
+			}
+			e, err := s.d.Entities.GetEntity(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			blocks, source, err := s.pageJSONLD(ctx, e)
+			if err != nil {
+				return nil, err
+			}
+			rep := ValidateJSONLD(blocks)
+			return object{"entity_id": id, "source": source, "url": s.d.PageURL(ctx, e), "report": rep}, nil
+		})
+}
+
+// pageActivity is one page's AI activity (the editor's AI Agents card).
+func (s *Server) pageActivity(ctx context.Context, id uuid.UUID) (any, error) {
+	var ids []string
+	for _, a := range agents.Default().Agents {
+		if a.Purpose.IsAI() && len(a.UA) > 0 {
+			ids = append(ids, a.ID)
+		}
+	}
+	d, err := s.d.Crawlers.EntityActivity(ctx, id, ids, time.Now().UTC().Truncate(24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+	if !d.Exists {
+		return nil, userErr("entity not found")
+	}
+	type agentRow struct {
+		AgentID     string     `json:"agent_id"`
+		LastFetchAt *time.Time `json:"last_fetch_at"`
+		LastStatus  *int       `json:"last_status"`
+	}
+	rows := []agentRow{}
+	for _, aid := range ids {
+		if lf, ok := d.Last[aid]; ok {
+			at := lf.At
+			rows = append(rows, agentRow{aid, &at, lf.Status})
+		}
+	}
+	return object{"first_crawl_at": d.FirstAt, "published_at": d.PublishedAt, "user_fetch_7d": d.UserFetch7d, "user_fetch_30d": d.UserFetch30d, "agents_seen": rows}, nil
+}
+
+// preview fetches a public path in process and returns its (capped) text.
+func (s *Server) preview(ctx context.Context, path string, stats func(body string) object) (any, error) {
+	resp, err := s.d.Fetch(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	body := string(resp.Body)
+	out := object{"path": path, "status": resp.Status, "bytes": len(resp.Body)}
+	if stats != nil {
+		for k, v := range stats(body) {
+			out[k] = v
+		}
+	}
+	if len(body) > maxPreview {
+		body, out["truncated"] = strings.ToValidUTF8(body[:maxPreview], ""), true
+	}
+	out["body"] = body
+	return out, nil
+}
+
+var ldScript = regexp.MustCompile(`(?s)<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>`)
+
+// ExtractJSONLD returns the contents of every JSON-LD script block in html.
+func ExtractJSONLD(html []byte) [][]byte {
+	var out [][]byte
+	for _, m := range ldScript.FindAllSubmatch(html, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// pageJSONLD returns the JSON-LD blocks of the entity's page. A published
+// entity is read from its rendered page; any other is generated the same way
+// the page loader does.
+func (s *Server) pageJSONLD(ctx context.Context, e *entity.Entity) ([][]byte, string, error) {
+	if e.Status == entity.StatusPublished {
+		resp, err := s.d.Fetch(ctx, s.d.PageURL(ctx, e))
+		if err != nil {
+			return nil, "", err
+		}
+		if resp.Status == 200 {
+			return ExtractJSONLD(resp.Body), "rendered page", nil
+		}
+	}
+	doc, err := entity.GenerateJSONLDWithFAQ(e, "", nil)
+	if err != nil {
+		return nil, "", err
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return nil, "", err
+	}
+	return [][]byte{raw}, "generated from the entity (not published, or page unavailable)", nil
+}

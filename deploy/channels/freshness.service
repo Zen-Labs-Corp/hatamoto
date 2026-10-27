@@ -1,0 +1,21 @@
+# Independent expiry alarm for the signed channel manifests: a read-only check
+# of the LIVE files (scripts/check-channel-freshness.sh, installed as
+# ~/.local/bin/hatamoto-check-channel-freshness). It exists because the weekly
+# channels-freshness GitHub workflow does not run while Actions is off, and is
+# disabled after 60 days of repository inactivity. It cannot sign or write.
+#
+# Install as a USER unit named hatamoto-channels-freshness (see
+# deploy/channels/README.md). On failure it posts to $ALERT_WEBHOOK_URL (a
+# Slack/Discord/ntfy-style endpoint taking the message as the body) and/or mails
+# $ALERT_MAIL, both read from ~/.config/hatamoto/freshness.env (optional file).
+[Unit]
+Description=Hatamoto channel manifest freshness check
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/hatamoto/freshness.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/hatamoto-check-channel-freshness --min-days 7
+# $SERVICE_RESULT is "success" only when the check passed.
+ExecStopPost=/bin/sh -c 'test "$SERVICE_RESULT" = success && exit 0; msg="hatamoto channel manifests are close to expiring or unreachable ($(hostname)): run journalctl --user -u hatamoto-channels-freshness"; if test -n "$ALERT_WEBHOOK_URL"; then curl -fsS --max-time 20 -d "$msg" "$ALERT_WEBHOOK_URL" || true; fi; if test -n "$ALERT_MAIL"; then echo "$msg" | mail -s "hatamoto channels: freshness check failed" "$ALERT_MAIL" || true; fi; true'

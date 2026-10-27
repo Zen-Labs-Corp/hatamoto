@@ -1,0 +1,7 @@
+{{define "section-cta"}}{{$c := .Content}}
+<div class="hm-container hm-cta hm-cta--{{default "plain" $c.backgroundStyle}}">
+  <h2 class="hm-cta__headline" {{hmf "headline"}}>{{$c.headline}}</h2>
+  {{with $c.subheadline}}<div class="hm-cta__subheadline" {{hmf "subheadline"}} data-hm-kind="richtext">{{.}}</div>{{end}}
+  {{with $c.buttonText}}<p class="hm-cta__actions"><a class="hm-btn" href="{{cta $c.buttonUrl}}" {{hmf "buttonText"}}>{{.}}</a></p>{{end}}
+</div>
+{{end}}

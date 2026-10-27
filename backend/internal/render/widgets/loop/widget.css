@@ -1,0 +1,24 @@
+/* loop: one template per item. Selectors that can match a node element use
+   :where() so the per-node .hm-n-<id> rules (cols, gap, hide) always win. */
+.hm-loop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hm-space-4, 1rem);
+}
+.hm-loop > :where(.hm-pager) {
+  grid-column: 1 / -1;
+}
+.hm-loop__none {
+  padding: var(--hm-space-3, 0.75rem);
+  border: 1px dashed var(--hm-border, #ddd);
+  text-align: center;
+}
+.hm-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.hm-pager > :where(a[aria-current="page"]) {
+  font-weight: 700;
+  text-decoration: none;
+}

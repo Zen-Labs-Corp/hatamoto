@@ -1,0 +1,49 @@
+backend/web/vendor/** -text
+
+# --- Public snapshot (scripts/public-snapshot.sh) ---------------------------
+# Paths marked export-ignore are left out of `git archive`, and so out of the
+# public tree. They stay tracked here: this repository is the working repo.
+# scripts/check-neutral.sh scans exactly what is NOT export-ignored.
+# Each directory is listed twice: `dir` drops it from `git archive`, `dir/**`
+# makes `git check-attr` report every file inside it as well.
+
+# working notes and plans (private)
+/.pi export-ignore
+/.pi/** export-ignore
+/CLAUDE.md export-ignore
+/.neutral-private export-ignore
+/scripts/pipeline-gate.sh export-ignore
+/scripts/pipeline-worktree.sh export-ignore
+
+# design mockups and handoff material (screenshots, prompts)
+/design export-ignore
+/design/** export-ignore
+
+# Next.js build leftovers (no longer tracked; kept out of any old ref too)
+/backend/.next export-ignore
+/backend/.next/** export-ignore
+
+# one-off operations notes for the project's own deploy box, and the QA
+# screenshot log compared against a private mockup server
+/docs/deploy/cutover-v1-15.md export-ignore
+/docs/deploy/site-infra export-ignore
+/docs/deploy/site-infra/** export-ignore
+/scripts/verify-cutover.sh export-ignore
+/docs/qa/admin-v1-23a-shots.md export-ignore
+
+# local QA output (also gitignored)
+/scripts/admin-qa/results export-ignore
+/scripts/admin-qa/results/** export-ignore
+/scripts/admin-qa/shots-out export-ignore
+/scripts/admin-qa/shots-out/** export-ignore
+/docs/deploy/public-demo.md export-ignore
+
+# Channel signing state lives in the PRIVATE ops repository, never in the public
+# one: the unsigned channel sources, the workflow that signs and uploads them (it
+# runs with the manifest key and the deploy key) and its freshness alarm. They
+# stay tracked here until the W3 cut-over, when this repository becomes the ops
+# repository (docs/site/migrate-contribute/release-process.md, "Channel signing").
+/releases/channels export-ignore
+/releases/channels/** export-ignore
+/.github/workflows/channels.yml export-ignore
+/.github/workflows/channels-freshness.yml export-ignore

@@ -1,0 +1,14 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{if .Running}}{{template "hm/sectionheadact" dict "V" $}}{{else}}{{template "hm/sectionheadact" dict "V" $ "Action" (dict "Label" "Back up now" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "backup-form"))}}{{end}}
+{{template "hm/callout" (dict "Kind" "warning" "ID" "backups-secrets" "Body" "A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.")}}
+<p class="hm-muted">{{.Keeping}}{{if .FreeDisk}} {{.FreeDisk}}{{end}}</p>
+{{/* While a backup runs the panel asks again every 3 seconds and swaps itself; when idle there is no trigger, so nothing polls. */}}
+<div id="backups-live"{{if .Running}} hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="this" hx-select="#backups-live" hx-swap="outerHTML" hx-indicator="#backups-busy"{{end}}>
+{{if .Running}}{{template "hm/indicator" dict "ID" "backups-busy" "Text" ""}}
+<div role="status"><p>A backup is running. You can leave this page; it carries on.</p>
+{{template "hm/progress" .Progress}}</div>
+{{end}}{{template "hm/table" .Table}}
+</div>
+<p class="hm-muted">Dates are in the site time zone: {{.Zone}}.</p>
+{{if not .Running}}<form id="backup-form" method="post" action="{{adminPath}}/settings/backups">{{template "hm/csrf" $}}</form>{{end}}
+{{end}}{{end}}

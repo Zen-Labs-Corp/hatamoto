@@ -1,0 +1,45 @@
+name: scorecard
+
+# OpenSSF Scorecard. publish_results sends the score to the public OpenSSF API
+# (it feeds the README badge) and needs the id-token permission; the job only
+# runs on the default branch and on a schedule, never on pull requests.
+
+on:
+  push:
+    branches: [main]
+  branch_protection_rule:
+  schedule:
+    - cron: "21 5 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    # Code-scanning uploads need GitHub Advanced Security on a private repository
+    # and fail without it, so this only runs once the repository is public. The owner sets the
+    # repository variable HATAMOTO_PUBLIC=true at cut-over (W3). A variable is
+    # used because the schedule event payload has no repository object.
+    if: vars.HATAMOTO_PUBLIC == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: results.sarif

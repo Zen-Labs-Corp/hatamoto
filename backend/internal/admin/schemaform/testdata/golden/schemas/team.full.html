@@ -1,0 +1,95 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="Sample heading" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheading">Subheading</label>
+<input class="hm-field__control" type="text" id="sf-content-subheading" name="content.subheading" value="Sample subheading" placeholder="Enter Subheading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-variant">Variant</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-variant" name="content.variant"><option value="">Select Variant</option><option value="cards">Cards</option><option value="simple">Simple</option><option value="centered" selected>Centered</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-columns">Columns</label>
+<input class="hm-field__control" type="number" id="sf-content-columns" name="content.columns" value="7" step="1">
+</div>
+<div class="hm-field"><input type="hidden" name="_present.content.showBios" value="1"><label class="hm-field__check hm-switch" for="sf-content-showBios"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-showBios" name="content.showBios" value="true" checked><span>Show bios</span></label></div>
+
+<div class="hm-field"><input type="hidden" name="_present.content.showSocialLinks" value="1"><label class="hm-field__check hm-switch" for="sf-content-showSocialLinks"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-showSocialLinks" name="content.showSocialLinks" value="true" checked><span>Show social links</span></label></div>
+
+<fieldset class="hm-repeater" id="sf-content-members" data-hm-repeater data-path="content.members"><legend class="hm-field__label">Members <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.members" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample name</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-content-members-0-name" name="content.members.0.name" value="Sample name" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-members-0-title" name="content.members.0.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-photo">Photo</label>
+<img class="hm-sf-image" src="https://example.com/img/photo.png" alt="" loading="lazy"><div class="hm-row"><input class="hm-field__control" type="url" id="sf-content-members-0-photo" name="content.members.0.photo" value="https://example.com/img/photo.png" placeholder="https://" data-hm-image><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-content-members-0-photo" hidden>Choose from library</button></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-bio">Bio</label>
+<textarea class="hm-field__control" id="sf-content-members-0-bio" name="content.members.0.bio" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;bio&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><fieldset class="hm-repeater" id="sf-content-members-0-socialLinks" data-hm-repeater data-path="content.members.0.socialLinks"><legend class="hm-field__label">Social links <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.members.0.socialLinks" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 1</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-socialLinks-0-platform">Platform</label>
+<input class="hm-field__control" type="text" id="sf-content-members-0-socialLinks-0-platform" name="content.members.0.socialLinks.0.platform" value="Sample platform" placeholder="Enter Platform">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-socialLinks-0-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-members-0-socialLinks-0-url" name="content.members.0.socialLinks.0.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.0.socialLinks" value="0:up" formnovalidate aria-label="Move Social links item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.0.socialLinks" value="0:down" formnovalidate aria-label="Move Social links item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members.0.socialLinks" value="0" formnovalidate aria-label="Remove Social links item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 2</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-socialLinks-1-platform">Platform</label>
+<input class="hm-field__control" type="text" id="sf-content-members-0-socialLinks-1-platform" name="content.members.0.socialLinks.1.platform" value="Sample platform" placeholder="Enter Platform">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-0-socialLinks-1-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-members-0-socialLinks-1-url" name="content.members.0.socialLinks.1.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.0.socialLinks" value="1:up" formnovalidate aria-label="Move Social links item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.0.socialLinks" value="1:down" formnovalidate aria-label="Move Social links item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members.0.socialLinks" value="1" formnovalidate aria-label="Remove Social links item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.members.0.socialLinks" value="1" formnovalidate>Add Social links item</button>
+</fieldset>
+</div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members" value="0:up" formnovalidate aria-label="Move Members item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members" value="0:down" formnovalidate aria-label="Move Members item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members" value="0" formnovalidate aria-label="Remove Members item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample name</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-content-members-1-name" name="content.members.1.name" value="Sample name" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-members-1-title" name="content.members.1.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-photo">Photo</label>
+<img class="hm-sf-image" src="https://example.com/img/photo.png" alt="" loading="lazy"><div class="hm-row"><input class="hm-field__control" type="url" id="sf-content-members-1-photo" name="content.members.1.photo" value="https://example.com/img/photo.png" placeholder="https://" data-hm-image><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-content-members-1-photo" hidden>Choose from library</button></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-bio">Bio</label>
+<textarea class="hm-field__control" id="sf-content-members-1-bio" name="content.members.1.bio" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;bio&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><fieldset class="hm-repeater" id="sf-content-members-1-socialLinks" data-hm-repeater data-path="content.members.1.socialLinks"><legend class="hm-field__label">Social links <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.members.1.socialLinks" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 1</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-socialLinks-0-platform">Platform</label>
+<input class="hm-field__control" type="text" id="sf-content-members-1-socialLinks-0-platform" name="content.members.1.socialLinks.0.platform" value="Sample platform" placeholder="Enter Platform">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-socialLinks-0-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-members-1-socialLinks-0-url" name="content.members.1.socialLinks.0.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.1.socialLinks" value="0:up" formnovalidate aria-label="Move Social links item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.1.socialLinks" value="0:down" formnovalidate aria-label="Move Social links item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members.1.socialLinks" value="0" formnovalidate aria-label="Remove Social links item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 2</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-socialLinks-1-platform">Platform</label>
+<input class="hm-field__control" type="text" id="sf-content-members-1-socialLinks-1-platform" name="content.members.1.socialLinks.1.platform" value="Sample platform" placeholder="Enter Platform">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-members-1-socialLinks-1-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-members-1-socialLinks-1-url" name="content.members.1.socialLinks.1.url" value="https://example.com/url" placeholder="Enter URL">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.1.socialLinks" value="1:up" formnovalidate aria-label="Move Social links item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members.1.socialLinks" value="1:down" formnovalidate aria-label="Move Social links item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members.1.socialLinks" value="1" formnovalidate aria-label="Remove Social links item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.members.1.socialLinks" value="1" formnovalidate>Add Social links item</button>
+</fieldset>
+</div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members" value="1:up" formnovalidate aria-label="Move Members item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.members" value="1:down" formnovalidate aria-label="Move Members item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.members" value="1" formnovalidate aria-label="Remove Members item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.members" value="1" formnovalidate>Add Members item</button>
+</fieldset>
+

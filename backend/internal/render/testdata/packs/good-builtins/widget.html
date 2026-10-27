@@ -1,0 +1,1 @@
+<div {{.Attrs}}>{{if and (ne .P.title "") (not (eq (len .P.title) 0)) (or .P.a (gt (len .P.title) 1))}}{{.P.title}}{{end}}</div>

@@ -1,0 +1,15 @@
+.hm-contact-info__heading { margin-bottom: 1.5rem; }
+.hm-contact-info__body { display: grid; gap: 1.5rem; }
+.hm-contact-info__address { font-style: normal; }
+.hm-contact-info__line { display: block; }
+.hm-contact-info__channels { list-style: none; margin: 0; padding: 0; }
+.hm-contact-info__hours { margin: 0; }
+.hm-contact-info__hours-row { display: flex; gap: 1rem; justify-content: space-between; max-width: 20rem; padding: 0.2rem 0; border-bottom: 1px solid var(--ht-line); }
+.hm-contact-info__hours dt { font-weight: 600; }
+.hm-contact-info__hours dd { margin: 0; color: var(--ht-fg-muted); }
+.hm-contact-info__map { margin-top: 1.5rem; }
+.hm-contact-info__map iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--hm-radius-md); }
+@media (min-width: 48rem) {
+  .hm-contact-info--inline .hm-contact-info__body { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+}
+.hm-contact-info--card .hm-contact-info__body { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-lg); padding: 1.75rem; background: var(--ht-surface); }

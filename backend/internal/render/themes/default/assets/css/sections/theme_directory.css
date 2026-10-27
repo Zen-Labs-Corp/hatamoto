@@ -1,0 +1,3 @@
+.hm-theme-directory__shot { width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
+.hm-plugin-directory__other { display: inline-block; margin-top: 1rem; font-size: 0.875rem; font-weight: 500; }
+.hm-section--theme_directory > .hm-container.hm-plugin-directory { padding-block: 0; }

@@ -1,0 +1,9 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "People" "Description" "The authors of your posts and the faces of your site." "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/table" .Table}}
+{{template "hm/dialog-start" dict "ID" "new-person" "Title" "Add person" "Static" true}}
+<form id="new-person-form" method="post" action="{{adminPath}}/people">{{template "hm/csrf" $}}
+{{template "hm/form-person" .Form}}
+</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Add person" "PrimaryAttrs" (attrmap "form" "new-person-form")}}
+{{end}}{{end}}

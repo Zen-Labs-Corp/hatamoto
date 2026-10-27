@@ -1,0 +1,12 @@
+/* accorditem: one native details item */
+.hm-acc__i {
+  border-bottom: 1px solid var(--hm-border, #ddd);
+  padding: var(--hm-space-3, 0.75rem) 0;
+}
+.hm-acc__i > :where(summary) {
+  cursor: pointer;
+  font-weight: 600;
+}
+.hm-acc__i[open] > :where(summary) {
+  margin-bottom: var(--hm-space-3, 0.75rem);
+}

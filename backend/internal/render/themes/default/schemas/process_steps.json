@@ -1,0 +1,17 @@
+{
+  "x-hm-section": {"title": "Process steps", "description": "Numbered steps; also emits HowTo structured data"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "default": "Our Process", "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "layout": {"type": "string", "title": "Layout", "enum": ["list", "cards"], "default": "list"},
+    "steps": {"type": "array", "title": "Steps", "x-hm-alias": ["items"], "items": {"type": "object", "properties": {
+      "number": {"type": "string", "title": "Number", "x-hm-field": "plaintext"},
+      "label": {"type": "string", "title": "Label (replaces number)", "x-hm-field": "plaintext"},
+      "title": {"type": "string", "title": "Title", "x-hm-alias": ["heading"], "x-hm-field": "plaintext"},
+      "description": {"type": "string", "title": "Description", "x-hm-field": "richtext"},
+      "code": {"type": "string", "title": "Code (cards layout)", "x-hm-field": "code"}
+    }}}
+  }
+}

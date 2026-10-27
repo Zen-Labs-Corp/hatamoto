@@ -1,0 +1,14 @@
+{{define "section-sticky_sidebar"}}{{$c := .Content}}{{$s := $c.sidebar}}<div class="hm-container hm-sticky-sidebar">
+  <div class="hm-sticky-sidebar__main">
+    {{if $c.heading}}<h2 class="hm-sticky-sidebar__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-sticky-sidebar__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+    {{if $c.body}}<div class="hm-sticky-sidebar__body hm-html-body" {{hmf "body"}} data-hm-kind="richtext">{{$c.body}}</div>{{end}}
+  </div>
+  {{if $s}}<aside class="hm-sticky-sidebar__aside">
+    {{if $s.title}}<h3 class="hm-sticky-sidebar__title" {{hmf "sidebar" "title"}}>{{$s.title}}</h3>{{end}}
+    {{if $s.facts}}<dl class="hm-sticky-sidebar__facts">
+      {{range $i, $f := $s.facts}}<div class="hm-sticky-sidebar__fact"><dt {{hmf "sidebar" "facts" $i "label"}}>{{$f.label}}</dt><dd {{hmf "sidebar" "facts" $i "value"}}>{{$f.value}}</dd></div>{{end}}
+    </dl>{{end}}
+    {{if and $s.cta $s.cta.text}}<a class="hm-btn hm-sticky-sidebar__cta" href="{{cta $s.cta.url}}" {{hmf "sidebar" "cta" "text"}}>{{$s.cta.text}}</a>{{end}}
+  </aside>{{end}}
+</div>{{end}}

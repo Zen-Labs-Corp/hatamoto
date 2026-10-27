@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Form",
+    "hint": "A form defined under Forms, by its slug",
+    "group": "Data",
+    "order": 10
+  },
+  "properties": {
+    "slug": {"type": "string", "maxLength": 100, "x-hm-widget": "datalist:forms"},
+    "hidden": {"type": "boolean"}
+  }
+}

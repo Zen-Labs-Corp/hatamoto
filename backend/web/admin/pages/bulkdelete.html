@@ -1,0 +1,9 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Delete %d %s%s?" .Count .Noun (cond (ne .Count 1) "s" "")) "CSRF" $.CSRF}}
+<div class="hm-stack">
+{{template "hm/callout" dict "Kind" "danger" "Title" "This cannot be undone" "Body" (printf "%s deleted for good." (cond (eq .Count 1) (printf "This %s is" .Noun) (printf "These %ss are" .Noun)))}}
+<form method="post" action="{{.Post}}" class="hm-stack">
+{{template "hm/csrf" $}}<input type="hidden" name="action" value="{{.Action}}"><input type="hidden" name="confirm" value="1">
+{{range .IDs}}<input type="hidden" name="id" value="{{.}}">{{end}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" "Delete" "Variant" "danger" "Type" "submit"}}{{template "hm/foot-end"}}
+</form></div>{{end}}{{end}}

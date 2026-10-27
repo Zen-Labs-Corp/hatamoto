@@ -1,0 +1,18 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}<h1>Confirm it's you</h1>
+<p>You're about to change a security setting. Confirm your password to continue. You won't be asked again for 10 minutes.</p>
+<p class="hm-muted">Signed in as {{.Email}}</p>
+<form method="post" action="{{.Action}}" class="hm-stack">
+{{template "hm/csrf" $}}
+{{if .Next}}<input type="hidden" name="next" value="{{.Next}}">{{end}}
+{{if .Resubmit}}<input type="hidden" name="resubmit" value="1">{{end}}
+{{with .Notice}}<div id="sudo-notice">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{end}}
+{{with .Status}}<div id="sudo-status">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{end}}
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Password" "Type" "password" "Required" true "Attrs" (cond .HasStatus (attrmap "autocomplete" "current-password" "autofocus" "autofocus" "aria-describedby" "sudo-status") (attrmap "autocomplete" "current-password" "autofocus" "autofocus"))}}
+{{if .HasSecondFactor}}{{template "hm/field" dict "ID" "code" "Name" "code" "Label" "Code from your app" "Required" true "Attrs" (cond .HasStatus (attrmap "autocomplete" "one-time-code" "inputmode" "numeric" "aria-describedby" "sudo-status") (attrmap "autocomplete" "one-time-code" "inputmode" "numeric"))}}{{end}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" .Home}}
+{{template "hm/button" dict "Label" "Confirm" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

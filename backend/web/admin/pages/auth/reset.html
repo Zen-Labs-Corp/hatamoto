@@ -1,0 +1,13 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{if .Valid}}<h1>Choose a new password</h1>
+<p class="hm-muted">Use at least 12 characters. Signing in again is required on other devices.</p>
+<form method="post" action="{{adminPath}}/reset" class="hm-stack hm-bare__form">
+{{template "hm/csrf" $}}
+<input type="hidden" name="token" value="{{.Token}}">
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "New password" "Type" "password" "Required" true "Error" .Error "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12" "autofocus" "autofocus")}}
+{{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the new password" "Type" "password" "Required" true "Error" .Match "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Save password" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>{{else}}{{template "hm/empty" (dict "Plain" true "H1" true "Icon" "alert" "Title" "This link no longer works" "Body" "Reset links work once and expire after an hour." "Actions" (list (dict "Dict" (dict "Label" "Ask for a new link" "Variant" "primary" "Href" (adminPath "forgot")))))}}{{end}}
+{{end}}{{end}}

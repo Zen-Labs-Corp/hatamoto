@@ -1,0 +1,78 @@
+{
+  "entity": {
+    "id": "<uuid>",
+    "schema_id": "<uuid>",
+    "name": "home",
+    "slug": "home",
+    "locale": "en",
+    "status": "published",
+    "attributes": {
+      "og_image": "/media/og.png",
+      "page_sections": [
+        {
+          "id": "s-hero",
+          "type": "hero",
+          "title": "Hero",
+          "content": {
+            "headline": "Hello",
+            "subheadline": "World"
+          },
+          "isVisible": true,
+          "sort_order": 0
+        },
+        {
+          "id": "s-faq",
+          "type": "faq",
+          "title": "FAQ",
+          "content": {
+            "faqs": [
+              {
+                "answer": "A.",
+                "question": "Q?"
+              }
+            ]
+          },
+          "isVisible": true,
+          "sort_order": 1
+        }
+      ],
+      "meta_description": "A described page"
+    },
+    "metadata": {},
+    "editorial": {},
+    "version": 1,
+    "created_at": "<time>",
+    "updated_at": "<time>",
+    "published_at": "<time>",
+    "schema": {
+      "id": "<uuid>",
+      "name": "pj-note",
+      "slug": "pj-note",
+      "schema": {
+        "type": "object"
+      },
+      "is_builtin": false,
+      "created_at": "<time>",
+      "updated_at": "<time>",
+      "settings": {
+        "url_pattern": "/notes/{slug}",
+        "archive_path": "/notes"
+      }
+    }
+  },
+  "json_ld": {
+    "@context": "https://schema.org",
+    "@id": "http://example.com/#thing",
+    "@type": "Thing",
+    "name": "home",
+    "url": "http://example.com/"
+  },
+  "meta": {
+    "title": "home",
+    "description": "A described page",
+    "og_image": "/media/og.png",
+    "canonical_url": "http://example.com/"
+  },
+  "breadcrumb": null,
+  "ai_crawler_comment": "\u003c!--\n  ENTITY: home\n  TYPE: pj-note\n  LAST VERIFIED: <month>\n\n  KEY FACTS:\n  - Name: home\n\n  For machine-readable data: the Schema.org JSON-LD in this page's head\n  For all entities: http://example.com/llms.txt\n--\u003e"
+}

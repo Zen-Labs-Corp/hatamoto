@@ -1,0 +1,42 @@
+/* Forms builder and submissions */
+.hm-fieldlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fieldlist__item { position: relative; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fieldlist__row > summary { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; list-style: none; min-height: var(--control-h); flex-wrap: wrap; }
+.hm-fieldlist__row > summary::-webkit-details-marker { display: none; }
+/* the marker is hidden, so the row shows its own chevron, turned down when open */
+.hm-fieldlist__chev { display: inline-flex; flex: none; color: var(--text-muted); transition: transform 120ms var(--ease); }
+.hm-fieldlist__row[open] > summary .hm-fieldlist__chev { transform: rotate(90deg); }
+.hm-fieldlist__row > summary:hover .hm-fieldlist__chev { color: var(--text); }
+.hm-fieldlist__row > summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fieldlist__label { font-weight: var(--weight-medium); color: var(--text); overflow-wrap: anywhere; }
+.hm-fieldlist__row > summary code { color: var(--text-muted); font-size: var(--text-xs); }
+.hm-fieldlist__handle { cursor: grab; color: var(--text-muted); display: inline-flex; order: -1; }
+.hm-fieldlist__body { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
+/* Move up, Move down and the menu sit in the row header, over the right end of the summary, which leaves room for them. */
+.hm-fieldlist__ops { position: absolute; top: var(--space-4); inset-inline-end: var(--space-4); flex-wrap: nowrap; gap: var(--space-0-5); }
+.hm-fieldlist__row > summary { padding-inline-end: calc(var(--space-8) * 3 + var(--space-2)); }
+.hm-fieldlist__item.sortable-ghost { opacity: 0.5; }
+/* Choices only apply to list types; the server renders data-type, the page script keeps it current. */
+.hm-fieldlist__item .hm-fieldlist__choices { display: none; }
+.hm-fieldlist__item[data-type="select"] .hm-fieldlist__choices, .hm-fieldlist__item[data-type="radio"] .hm-fieldlist__choices, .hm-fieldlist__item[data-type="checkbox"] .hm-fieldlist__choices { display: block; }
+.hm-fieldlist__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); align-items: start; }
+.hm-fieldlist__opts { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-code { background: var(--color-kasumi); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); overflow: auto; margin: 0; }
+.hm-dl { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; }
+.hm-dl dt { color: var(--text-muted); }
+.hm-dl dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.hm-plugin__error { color: var(--color-danger); }
+@media (max-width: 480px) {
+  .hm-dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .hm-dl dd { margin-bottom: var(--space-3); }
+}
+
+/* the last card must clear the sticky save bar */
+.hm-formbuilder { padding-bottom: var(--space-8); scroll-padding-bottom: calc(var(--space-8) * 2); }
+.hm-copyrow { align-items: flex-end; }
+.hm-copyrow .hm-field { flex: 1 1 auto; min-width: 0; }
+.hm-submissions__filters { flex-wrap: wrap; margin-bottom: var(--space-4); }
+/* The hidden tooltip of the blocks nearest the edge is wider than the card and made the page scroll sideways; clip it on the tracker. */
+.hm-submissions__tracker { overflow-x: clip; }
+/* repeater drag handle, injected by repeater.js */
+.hm-repeater__grip { display: inline-flex; vertical-align: middle; margin-inline-end: var(--space-2); color: var(--text-muted); cursor: grab; }

@@ -1,0 +1,24 @@
+{
+  "x-hm-section": {"title": "Contact info", "description": "Address, phone, email and opening hours"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["stacked", "inline", "card"], "default": "stacked"},
+    "address": {"type": "object", "title": "Address", "properties": {
+      "street": {"type": "string", "title": "Street", "x-hm-field": "plaintext"},
+      "city": {"type": "string", "title": "City", "x-hm-field": "plaintext"},
+      "state": {"type": "string", "title": "State / region", "x-hm-field": "plaintext"},
+      "postal_code": {"type": "string", "title": "Postal code", "x-hm-field": "plaintext"},
+      "country": {"type": "string", "title": "Country", "x-hm-field": "plaintext"}
+    }},
+    "phone": {"type": "string", "title": "Phone", "x-hm-field": "plaintext"},
+    "email": {"type": "string", "title": "Email", "x-hm-field": "plaintext"},
+    "hours": {"type": "array", "title": "Opening hours", "items": {"type": "object", "properties": {
+      "day": {"type": "string", "title": "Day", "x-hm-field": "plaintext"},
+      "open": {"type": "string", "title": "Opens", "x-hm-field": "plaintext"},
+      "close": {"type": "string", "title": "Closes", "x-hm-field": "plaintext"}
+    }}},
+    "showMap": {"type": "boolean", "title": "Show embedded map", "default": true},
+    "mapEmbedUrl": {"type": "string", "title": "Embed URL (https, allow-listed hosts only)", "x-hm-field": "url"}
+  }
+}

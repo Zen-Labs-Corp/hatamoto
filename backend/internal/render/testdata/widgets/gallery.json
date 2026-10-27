@@ -1,0 +1,5 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"g1","t":"gallery","c":[
+    {"id":"g1a","t":"image","p":{"src":"/media/a.jpg","alt":"A"}},
+    {"id":"g1b","t":"image","p":{"src":"/media/b.jpg","alt":"B"}}]}
+]}]}

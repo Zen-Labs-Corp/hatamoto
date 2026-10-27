@@ -1,0 +1,37 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-variant">Variant</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-variant" name="content.variant"><option value="">Select Variant</option><option value="stacked">Stacked</option><option value="inline">Inline</option><option value="card">Card</option></select></div>
+</div>
+<fieldset class="hm-sf-object" id="sf-content-address"><legend class="hm-field__label">Address</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-address-street">Street</label>
+<input class="hm-field__control" type="text" id="sf-content-address-street" name="content.address.street" value="" placeholder="Enter Street">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-address-city">City</label>
+<input class="hm-field__control" type="text" id="sf-content-address-city" name="content.address.city" value="" placeholder="Enter City">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-address-state">State / region</label>
+<input class="hm-field__control" type="text" id="sf-content-address-state" name="content.address.state" value="" placeholder="Enter State / region">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-address-postal_code">Postal code</label>
+<input class="hm-field__control" type="text" id="sf-content-address-postal_code" name="content.address.postal_code" value="" placeholder="Enter Postal code">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-address-country">Country</label>
+<input class="hm-field__control" type="text" id="sf-content-address-country" name="content.address.country" value="" placeholder="Enter Country">
+</div></fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-phone">Phone</label>
+<input class="hm-field__control" type="text" id="sf-content-phone" name="content.phone" value="" placeholder="Enter Phone">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-email">Email</label>
+<input class="hm-field__control" type="text" id="sf-content-email" name="content.email" value="" placeholder="Enter Email">
+</div>
+<fieldset class="hm-repeater" id="sf-content-hours" data-hm-repeater data-path="content.hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.content.hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.hours" value="1" formnovalidate>Add Opening hours item</button>
+</fieldset>
+
+<div class="hm-field"><input type="hidden" name="_present.content.showMap" value="default"><label class="hm-field__check hm-switch" for="sf-content-showMap"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-showMap" name="content.showMap" value="true" checked><span>Show embedded map</span></label></div>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-content-mapEmbedUrl">Embed URL (https, allow-listed hosts only)</label>
+<input class="hm-field__control" type="url" id="sf-content-mapEmbedUrl" name="content.mapEmbedUrl" value="" placeholder="Enter Embed URL (https, allow-listed hosts only)">
+</div>

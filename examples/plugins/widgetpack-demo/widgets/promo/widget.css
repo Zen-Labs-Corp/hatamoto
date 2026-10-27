@@ -1,0 +1,6 @@
+.hm-widgetpack-demo_promo{display:flex;flex-wrap:wrap;align-items:center;gap:var(--hm-space-3,.75rem);padding:var(--hm-space-3,.75rem) var(--hm-space-4,1rem);border-radius:var(--hm-radius,.5rem);background:var(--hm-color-surface,#eef4ff);color:var(--hm-color-text,#12233f)}
+.hm-widgetpack-demo_promo .t{font-weight:700}
+.hm-widgetpack-demo_promo .a{margin-inline-start:auto;font-weight:600}
+.hm-widgetpack-demo_promo .d{margin-inline-start:.5rem;cursor:pointer}
+.hm-widgetpack-demo_promo[hidden]{display:none}
+@media (max-width:600px){.hm-widgetpack-demo_promo{flex-direction:column;align-items:flex-start}.hm-widgetpack-demo_promo .a{margin-inline-start:0}}

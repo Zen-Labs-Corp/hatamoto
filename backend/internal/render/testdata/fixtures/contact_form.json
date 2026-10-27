@@ -1,0 +1,112 @@
+{
+  "type": "contact_form",
+  "id": "sec-form",
+  "content": {
+    "headline": "Get in touch",
+    "description": "We reply within two working days.",
+    "formSlug": "contact"
+  },
+  "submitted": true,
+  "forms": {
+    "contact": {
+      "Slug": "contact",
+      "Name": "Contact",
+      "SubmitLabel": "Send message",
+      "SuccessNotice": "Thanks, we will be in touch.",
+      "Fields": [
+        {
+          "Name": "name",
+          "Label": "Your name",
+          "Type": "text",
+          "Required": true,
+          "Placeholder": "Jane Doe"
+        },
+        {
+          "Name": "email",
+          "Label": "Email",
+          "Type": "email",
+          "Required": true,
+          "HelpText": "We never share it."
+        },
+        {
+          "Name": "phone",
+          "Label": "Phone",
+          "Type": "phone"
+        },
+        {
+          "Name": "topic",
+          "Label": "Topic",
+          "Type": "select",
+          "Options": [
+            {
+              "Value": "sales",
+              "Label": "Sales"
+            },
+            {
+              "Value": "support",
+              "Label": "Support"
+            }
+          ]
+        },
+        {
+          "Name": "contact_pref",
+          "Label": "Preferred contact",
+          "Type": "radio",
+          "Options": [
+            {
+              "Value": "email",
+              "Label": "Email"
+            },
+            {
+              "Value": "phone",
+              "Label": "Phone"
+            }
+          ]
+        },
+        {
+          "Name": "message",
+          "Label": "Message",
+          "Type": "textarea",
+          "Required": true
+        },
+        {
+          "Name": "consent",
+          "Label": "I agree to be contacted",
+          "Type": "checkbox",
+          "Required": true
+        },
+        {
+          "Name": "interests",
+          "Label": "Interests",
+          "Type": "checkbox",
+          "Options": [
+            {
+              "Value": "seo",
+              "Label": "SEO"
+            },
+            {
+              "Value": "geo",
+              "Label": "AI visibility"
+            }
+          ]
+        },
+        {
+          "Name": "budget",
+          "Label": "Budget",
+          "Type": "number"
+        },
+        {
+          "Name": "site",
+          "Label": "Website",
+          "Type": "url"
+        },
+        {
+          "Name": "start",
+          "Label": "Start date",
+          "Type": "date"
+        }
+      ]
+    }
+  },
+  "form_error": true
+}

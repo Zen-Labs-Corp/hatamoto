@@ -1,0 +1,28 @@
+{
+  "x-hm-section": {"title": "Split", "description": "Text column beside a code panel"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "lede": {"type": "string", "title": "Lede", "x-hm-field": "richtext"},
+    "footnote": {"type": "string", "title": "Footnote", "x-hm-field": "richtext"},
+    "layout": {"type": "string", "title": "Layout", "enum": ["text-left", "text-right"], "default": "text-left"},
+    "ratio": {"type": "string", "title": "Column ratio", "enum": ["even", "wide-code"], "default": "even"},
+    "panelHeight": {"type": "string", "title": "Panel height", "description": "match stretches the code panel to the height of the text column", "enum": ["auto", "match"], "default": "auto"},
+    "rowsStyle": {"type": "string", "title": "Rows style", "enum": ["definitions", "chips-grid"], "default": "definitions"},
+    "rows": {"type": "array", "title": "Rows", "items": {"type": "object", "properties": {
+      "term": {"type": "string", "title": "Term", "x-hm-field": "plaintext"},
+      "description": {"type": "string", "title": "Description", "x-hm-field": "plaintext"}
+    }}},
+    "panel": {"type": "object", "title": "Code panel", "properties": {
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "meta": {"type": "string", "title": "Meta", "x-hm-field": "plaintext"},
+      "language": {"type": "string", "title": "Language", "enum": ["go", "js", "html", "sh", "json", "text"]},
+      "code": {"type": "string", "title": "Code", "x-hm-field": "code"}
+    }},
+    "outputs": {"type": "array", "title": "Outputs", "items": {"type": "object", "properties": {
+      "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+      "value": {"type": "string", "title": "Value", "x-hm-field": "plaintext"}
+    }}}
+  }
+}

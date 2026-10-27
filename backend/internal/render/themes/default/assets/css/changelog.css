@@ -1,0 +1,15 @@
+/* Changelog archive (archive-release layout) */
+.hm-changelog__release { scroll-margin-top: 5rem; padding: 1.5rem 0 2rem; border-bottom: 1px solid var(--hm-hair); }
+.hm-changelog__release:target { background: var(--hm-kasumi); box-shadow: -1rem 0 0 var(--hm-kasumi), 1rem 0 0 var(--hm-kasumi); border-radius: var(--hm-radius-sm); }
+.hm-changelog__version { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0 0 1rem; font-size: 1.5rem; }
+.hm-changelog__date { margin-left: auto; font-size: 0.9375rem; font-weight: 400; }
+.hm-changelog__channel { font-weight: 400; }
+.hm-changelog__yanked { font-weight: 400; border-color: var(--hm-shu); color: var(--hm-shu); }
+.hm-changelog__summary { margin: 0 0 1rem; color: var(--hm-hai); }
+.hm-changelog__group { margin: 1.25rem 0 0.5rem; font-size: 0.8125rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hm-hai); }
+.hm-changelog__list { margin: 0; padding-left: 1.25rem; line-height: 1.6; }
+.hm-changelog__list li + li { margin-top: 0.25rem; }
+@media (max-width: 40rem) {
+  .hm-changelog__version { font-size: 1.25rem; }
+  .hm-changelog__date { margin-left: 0; flex-basis: 100%; }
+}

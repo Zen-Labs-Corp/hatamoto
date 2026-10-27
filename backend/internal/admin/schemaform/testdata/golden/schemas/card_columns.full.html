@@ -1,0 +1,70 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-eyebrow">Eyebrow</label>
+<input class="hm-field__control" type="text" id="sf-content-eyebrow" name="content.eyebrow" value="Sample eyebrow" placeholder="Enter Eyebrow">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="Sample heading" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheading">Subheading</label>
+<input class="hm-field__control" type="text" id="sf-content-subheading" name="content.subheading" value="Sample subheading" placeholder="Enter Subheading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-columnCount">Columns</label>
+<input class="hm-field__control" type="number" id="sf-content-columnCount" name="content.columnCount" value="7" step="1">
+</div>
+<fieldset class="hm-repeater" id="sf-content-columns" data-hm-repeater data-path="content.columns"><legend class="hm-field__label">Columns <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.columns" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample title</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-0-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-columns-0-label" name="content.columns.0.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-0-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-columns-0-title" name="content.columns.0.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-0-description">Description</label>
+<textarea class="hm-field__control" id="sf-content-columns-0-description" name="content.columns.0.description" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;description&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-0-items">Items</label>
+<input type="hidden" name="_present.content.columns.0.items" value="1"><input class="hm-field__control" type="text" id="sf-content-columns-0-items" name="content.columns.0.items" value="alpha, beta" data-hm-tags placeholder="Separate with commas">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.columns" value="0:up" formnovalidate aria-label="Move Columns item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.columns" value="0:down" formnovalidate aria-label="Move Columns item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.columns" value="0" formnovalidate aria-label="Remove Columns item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample title</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-1-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-columns-1-label" name="content.columns.1.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-1-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-columns-1-title" name="content.columns.1.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-1-description">Description</label>
+<textarea class="hm-field__control" id="sf-content-columns-1-description" name="content.columns.1.description" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;description&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-columns-1-items">Items</label>
+<input type="hidden" name="_present.content.columns.1.items" value="1"><input class="hm-field__control" type="text" id="sf-content-columns-1-items" name="content.columns.1.items" value="alpha, beta" data-hm-tags placeholder="Separate with commas">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.columns" value="1:up" formnovalidate aria-label="Move Columns item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.columns" value="1:down" formnovalidate aria-label="Move Columns item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.columns" value="1" formnovalidate aria-label="Remove Columns item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.columns" value="1" formnovalidate>Add Columns item</button>
+</fieldset>
+
+<fieldset class="hm-repeater" id="sf-content-notes" data-hm-repeater data-path="content.notes"><legend class="hm-field__label">Notes <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.notes" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample title</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-notes-0-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-notes-0-title" name="content.notes.0.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-notes-0-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-notes-0-text" name="content.notes.0.text" value="Sample text" placeholder="Enter Text">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.notes" value="0:up" formnovalidate aria-label="Move Notes item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.notes" value="0:down" formnovalidate aria-label="Move Notes item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.notes" value="0" formnovalidate aria-label="Remove Notes item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample title</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-notes-1-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-notes-1-title" name="content.notes.1.title" value="Sample title" placeholder="Enter Title">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-notes-1-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-notes-1-text" name="content.notes.1.text" value="Sample text" placeholder="Enter Text">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.notes" value="1:up" formnovalidate aria-label="Move Notes item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.notes" value="1:down" formnovalidate aria-label="Move Notes item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.notes" value="1" formnovalidate aria-label="Remove Notes item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.notes" value="1" formnovalidate>Add Notes item</button>
+</fieldset>
+

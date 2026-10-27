@@ -1,0 +1,12 @@
+{{define "section-process_steps"}}{{$c := .Content}}{{$name := default "Our Process" (default .Title $c.heading)}}
+<div class="hm-container hm-process{{if eq $c.layout "cards"}} hm-process--cards{{end}}">
+  {{with $c.eyebrow}}<p class="hm-process__eyebrow" {{hmf "eyebrow"}}>{{.}}</p>{{end}}
+  <h2 class="hm-process__heading" {{hmf "heading"}}>{{$name}}</h2>
+  {{with $c.subheading}}<p class="hm-process__subheading" {{hmf "subheading"}}>{{.}}</p>{{end}}
+  <ol class="hm-process__steps">
+    {{range $i, $s := $c.steps}}{{if eq $c.layout "cards"}}<li class="hm-process__step"><span class="hm-process__marker" {{if $s.label}}{{hmf "steps" $i "label"}}{{else}}{{hmf "steps" $i "number"}}{{end}}>{{if $s.label}}{{$s.label}}{{else}}{{$s.number}}{{end}}</span><div class="hm-process__content"><h3 class="hm-process__title" {{hmf "steps" $i "title"}}>{{$s.title}}</h3>{{with $s.description}}<div class="hm-process__description hm-prose" {{hmf "steps" $i "description"}} data-hm-kind="richtext">{{.}}</div>{{end}}{{with $s.code}}<pre class="hm-code"><code data-hm-kind="code" {{hmf "steps" $i "code"}}>{{.}}</code></pre>{{end}}</div></li>{{else}}<li class="hm-process__step"><span class="hm-process__marker" aria-hidden="true">{{if $s.label}}{{$s.label}}{{else if $s.number}}{{$s.number}}{{end}}</span><div class="hm-process__content"><h3 class="hm-process__title" {{hmf "steps" $i "title"}}>{{$s.title}}</h3>{{with $s.description}}<div class="hm-process__description hm-prose" {{hmf "steps" $i "description"}} data-hm-kind="richtext">{{.}}</div>{{end}}</div></li>{{end}}
+    {{end}}
+  </ol>
+  {{if $c.steps}}<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":{{$name}},"step":[{{range $i, $s := $c.steps}}{{if $i}},{{end}}{"@type":"HowToStep","name":{{$s.title}}}{{end}}]}</script>{{end}}
+</div>
+{{end}}

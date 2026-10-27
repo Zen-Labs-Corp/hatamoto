@@ -1,0 +1,375 @@
+#!/usr/bin/env bash
+# pre-push: the gates (minutes), run in a temporary worktree of each pushed commit so
+# uncommitted files cannot fake a pass. Install with `make hooks`. A push runs the AFFECTED gates
+# (changed Go packages + dependents, the check suites whose paths changed: lib/affected.sh) or,
+# on a force-full trigger, a push to refs/heads/main or HATAMOTO_PREPUSH_FULL=1, FULL (everything); scripts/ship.sh runs the
+# full suite once per tree before the merge.
+#   HATAMOTO_SKIP_INTEGRATION=1  the only skip: no Postgres integration tests
+#   HATAMOTO_PREPUSH_RACE=1      also run the race detector over wasmhost and pluginhost (slow; CI had it)
+#   REAL_CADDY, PG_BIN           passed through to make check / the integration gate
+#   HATAMOTO_PREPUSH_FULL=1      run every gate on everything (the full suite) and, when all pass, record `full-suite` for the tree
+#   HATAMOTO_GATE_CACHE=off      re-run gates that already passed on the same tree (lib/gate-cache.sh)
+#   HATAMOTO_PERF_STRICT         default 0 here: the absolute perf goals are noise on a shared or loaded
+#                                machine; the regression bounds still apply (=1 restores them)
+#
+# The quick gates (gofmt, gitleaks, DCO) run first; if they pass, every heavy gate runs AT THE SAME
+# TIME (the go-queue wrapper spreads them over the build hosts) and the results print in a fixed order.
+# A gate that already passed on the same tree is reported "cached" and not re-run. Heavy gates
+# share HATAMOTO_FARM_SLOTS host-wide slots (lib/farm.sh); the first red gate cancels the others.
+# Each prints `skipped: N (log <path>)`; logs are kept in <git-common-dir>/hatamoto-gate-logs.
+set -uo pipefail
+# --hook-api: the version of this hook's contract. 2 = HATAMOTO_PREPUSH_FULL and the full-suite record;
+# 3 = HATAMOTO_PREPUSH_SINCE=<rev>: gitleaks and DCO check exactly <rev>..<pushed sha>, ignoring remote-tracking refs;
+# scripts/ship.sh and scripts/pipeline-gate.sh refuse a snapshot that does not print it ("run make hooks").
+[[ ${1:-} != --hook-api ]] || { echo 3; exit 0; }
+remote=${1:-origin}
+# Hooks inherit GIT_DIR and friends; the worktree must use its own.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+repo=$(git rev-parse --show-toplevel)
+cd "$repo"
+# shellcheck source=lib/go-targets.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/go-targets.sh"
+# shellcheck source=lib/affected.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/affected.sh"
+# shellcheck source=lib/farm.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/farm.sh"
+# shellcheck source=lib/gate-cache.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/gate-cache.sh"
+export HATAMOTO_PERF_STRICT=${HATAMOTO_PERF_STRICT:-0}
+zero=0000000000000000000000000000000000000000
+
+# Distinct pushed commits that bring something new, with their base.
+declare -A base_of=() rsha_of=() branch_of=() to_main=()
+while read -r lref lsha rref rsha; do
+  [[ -n ${lsha:-} && $lsha != "$zero" ]] || continue            # branch delete
+  [[ $rref != refs/heads/main ]] || to_main[$lsha]=1       # (before the dedup: the same commit may go to two refs)
+  [[ -z ${base_of[$lsha]:-} ]] || continue
+  if [[ $rsha != "$zero" ]] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+    base=$rsha
+  elif git rev-parse -q --verify origin/main >/dev/null; then
+    base=$(git merge-base origin/main "$lsha")
+  else
+    base=$(git rev-list --max-parents=0 "$lsha" | tail -1)
+  fi
+  [[ -n $(git rev-list -1 "$base..$lsha" 2>/dev/null) ]] || continue   # nothing new (tag on an old commit, ...)
+  base_of[$lsha]=$base
+  rsha_of[$lsha]=$rsha
+  branch_of[$lsha]=${lref#refs/heads/}
+done
+((${#base_of[@]})) || { echo "pre-push: nothing new to check"; exit 0; }
+
+wt_parent=$(mktemp -d "${TMPDIR:-/tmp}/pre-push.XXXXXX")
+wt=$wt_parent/wt
+cleanup() { hm_farm_release; git -C "$repo" worktree remove --force "$wt" >/dev/null 2>&1; rm -rf "$wt_parent"; git -C "$repo" worktree prune; }
+trap cleanup EXIT
+export TMPDIR=$wt_parent                                           # tests and clusters clean up with the worktree
+
+overall=0
+hm_gc_prune
+# gate [--nocache] [--ctx CONTEXT] name command...: start a gate in the background (gate_wait
+# collects it). A pass is recorded for the pushed tree; a recorded pass skips the gate.
+# Each gate runs in its own process group (set -m around the launch only: with job control on for
+# the hook's own foreground commands, a terminal Ctrl-C would not reach the hook), so a cancel
+# reaches everything it started.
+# The first heavy gate with uncached work takes a farm slot (phase 2 only: `heavy=1`); the quick
+# gates and a run where everything is cached never wait for one.
+heavy=0 g_seq=0
+g_names=() g_pids=() g_logs=() g_done=() g_rc=() g_secs=() g_cancelled=()
+gate() {
+  local cache=1 ctx=""
+  while [[ $1 == --* ]]; do
+    case $1 in --nocache) cache=0; shift ;; --ctx) ctx=$2; shift 2 ;; *) break ;; esac
+  done
+  local name=$1; shift
+  if ((cache)) && hm_gc_hit "$sha" "$name" "$ctx"; then
+    printf 'pre-push: ok   %-12s cached (passed on this tree before)%s\n' "$name" "$( ((heavy)) && echo '  skipped: -')"
+    return 0
+  fi
+  ((heavy)) && hm_farm_acquire "pre-push ${HATAMOTO_FARM_BRANCH:-}"
+  local log=$wt_parent/gate.$((++g_seq)).log        # never reused: gate_wait treats $log.rc as "finished"
+  set -m
+  ( t0=$SECONDS
+    if (cd "$wt" && "$@") >"$log" 2>&1; then
+      rc=0; ((cache)) && hm_gc_record "$sha" "$name" "$ctx"
+    else rc=1; fi
+    echo "$rc $((SECONDS - t0))" >"$log.rc" ) 200>&- &
+  g_pids+=($!); set +m
+  g_names+=("$name"); g_logs+=("$log")
+}
+# cancel_gates: TERM the process group of every gate still running (go-test-shard and
+# integration-gate clean up in their TERM handlers), give them 5 s, then KILL what is left.
+cancel_gates() {
+  local i n=0 live
+  for i in "${!g_pids[@]}"; do
+    [[ -z ${g_done[$i]:-} ]] || continue
+    [[ ! -e ${g_logs[$i]}.rc ]] || continue         # already finished (red or green): not ours to cancel
+    g_cancelled[$i]=1; kill -TERM -- "-${g_pids[$i]}" 2>/dev/null
+  done
+  while ((n++ < 25)); do
+    live=0
+    for i in "${!g_pids[@]}"; do [[ -n ${g_cancelled[$i]:-} ]] && kill -0 -- "-${g_pids[$i]}" 2>/dev/null && live=1; done
+    ((live)) || break
+    sleep 0.2
+  done
+  for i in "${!g_pids[@]}"; do
+    [[ -n ${g_cancelled[$i]:-} ]] && kill -KILL -- "-${g_pids[$i]}" 2>/dev/null
+    [[ -n ${g_cancelled[$i]:-} ]] && wait "${g_pids[$i]}" 2>/dev/null
+  done
+}
+# keep_log <gate index>: copy the gate log out of the temp worktree, so it outlives the hook, and
+# print its skipped-test count. Newest 20 logs stay (<git-common-dir>/hatamoto-gate-logs).
+gate_logs=$(cd "$(git rev-parse --git-common-dir)" && pwd)/hatamoto-gate-logs
+keep_log() {
+  local i=$1 n kept
+  n=$(grep -cE '^\s*--- SKIP' "${g_logs[$i]}" 2>/dev/null)
+  kept=$gate_logs/${sha:0:12}-${g_names[$i]//[^A-Za-z0-9._-]/_}.log
+  mkdir -p "$gate_logs" 2>/dev/null && cp "${g_logs[$i]}" "$kept" 2>/dev/null || { printf 'skipped: %s\n' "${n:-0}"; return; }
+  # shellcheck disable=SC2012
+  ls -t "$gate_logs" 2>/dev/null | tail -n +21 | while IFS= read -r f; do rm -f "${gate_logs:?}/$f"; done
+  printf 'skipped: %s (log %s)\n' "${n:-0}" "$kept"
+}
+trap 'cancel_gates; exit 130' INT
+trap 'cancel_gates; exit 143' TERM
+trap 'cancel_gates; exit 129' HUP
+# gate_wait [keep]: collect the gates in start order for printing, but watch them all: the first red one
+# cancels the others, so a failure does not leave minutes of doomed work running on the farm. With
+# `keep` (the quick gates: seconds) nothing is cancelled, so every red gate is reported.
+gate_wait() {
+  local i left failed cancelled=0 rc secs
+  [[ ${1:-} != keep ]] || cancelled=1
+  while :; do
+    left=0 failed=0
+    for i in "${!g_pids[@]}"; do
+      if [[ -z ${g_done[$i]:-} ]]; then
+        if [[ -e ${g_logs[$i]}.rc ]] || ! kill -0 "${g_pids[$i]}" 2>/dev/null; then
+          wait "${g_pids[$i]}" 2>/dev/null
+          g_done[$i]=1
+          { read -r rc secs <"${g_logs[$i]}.rc"; } 2>/dev/null || { rc=1; secs=0; }
+          g_rc[$i]=$rc g_secs[$i]=$secs
+        else left=1; continue; fi
+      fi
+      ((${g_rc[$i]} == 0)) || [[ -n ${g_cancelled[$i]:-} ]] || failed=1
+    done
+    ((left)) || break
+    if ((failed && !cancelled)); then cancel_gates; cancelled=1; continue; fi
+    sleep 0.2      # not `wait -n`: a gate that exits between the scan and the wait is missed until the next exit
+  done
+  for i in "${!g_pids[@]}"; do
+    if ((${g_rc[$i]} == 0)); then
+      printf 'pre-push: ok   %-12s %4ds  %s\n' "${g_names[$i]}" "${g_secs[$i]}" "$( ((heavy)) && keep_log "$i")"
+    elif [[ -n ${g_cancelled[$i]:-} ]]; then
+      printf 'pre-push: cancelled %-12s (another gate failed)\n' "${g_names[$i]}"
+    else
+      printf 'pre-push: FAIL %-12s %4ds  %s\n' "${g_names[$i]}" "${g_secs[$i]}" "$( ((heavy)) && keep_log "$i")"
+      tail -40 "${g_logs[$i]}" | sed 's/^/    | /'
+      overall=1
+    fi
+  done
+  g_names=() g_pids=() g_logs=() g_done=() g_rc=() g_secs=() g_cancelled=()
+}
+
+for sha in "${!base_of[@]}"; do
+  base=${base_of[$sha]}
+  # "Already published" = reachable from ANY remote-tracking ref (origin may be a fork, the remote may
+  # not be called origin) or from the sha the remote has now. Everything else is this push's own work.
+  export HATAMOTO_FARM_BRANCH=${branch_of[$sha]}
+  rsha=${rsha_of[$sha]}; [[ $rsha != "$zero" ]] && git cat-file -e "$rsha^{commit}" 2>/dev/null || rsha=
+  # HATAMOTO_PREPUSH_SINCE=<rev>: the commits to inspect are exactly <rev>..<sha>, even when a remote-tracking
+  # ref already holds them (ship and pipeline-gate feed an already-fetched PR head). Unresolvable: fail closed.
+  excl=(--remotes ${rsha:+"$rsha"}); since_bad=0
+  if [[ -n ${HATAMOTO_PREPUSH_SINCE:-} ]]; then
+    if since=$(git rev-parse -q --verify "${HATAMOTO_PREPUSH_SINCE}^{commit}"); then excl=("$since")
+    else echo "pre-push: FAIL HATAMOTO_PREPUSH_SINCE=$HATAMOTO_PREPUSH_SINCE does not resolve to a commit" >&2; overall=1; since_bad=1; fi
+  fi
+  echo "pre-push: checking ${sha:0:12} (base ${base:0:12}) for $remote"
+  rm -rf "$wt"; git worktree prune
+  git worktree add --detach "$wt" "$sha" >/dev/null 2>&1 || { echo "pre-push: cannot create a worktree of $sha" >&2; exit 1; }
+  # The gates are the pushed commit's own. One that predates them cannot be checked: say so and refuse.
+  missing=()
+  for f in Makefile scripts/go-test-flaky.sh scripts/integration-gate.sh scripts/check-dco.sh scripts/check-suites.sh; do [[ -e $wt/$f ]] || missing+=("$f"); done
+  if ((${#missing[@]})); then
+    echo "pre-push: FAIL ${sha:0:12} predates the local gates: it lacks ${missing[*]}. Rebase it on origin/main and push again." >&2
+    overall=1; git worktree remove --force "$wt" >/dev/null 2>&1; continue
+  fi
+
+  # Phase 1, seconds: the cheap gates. A failure here stops before the minutes of phase 2.
+  # Commits made by rebase, cherry-pick, merge or --no-verify skip the commit hooks: gofmt and secrets are checked here too.
+  gate gofmt         bash -c 'bad=$(gofmt -l . 2>&1 | grep -v -x "backend/migrations/202610231005_backfill_people.go"); [[ -z $bad ]] || { echo "gofmt needed:"; echo "$bad"; exit 1; }'
+  # gitleaks also scans merge commits (against their first parent: what the merge itself added).
+  gl=$(command -v gitleaks || true); [[ -n $gl || ! -x $HOME/go/bin/gitleaks ]] || gl=$HOME/go/bin/gitleaks
+  if ((since_bad)); then :
+  elif [[ -z $gl ]]; then echo "pre-push: FAIL gitleaks not found (go install github.com/zricethezav/gitleaks/v8@v8.30.1)" >&2; overall=1
+  else gate --nocache gitleaks bash -c 'for c in $(git rev-list "$2" --not "${@:3}"); do "$1" git --config .gitleaks.toml --redact --no-banner --log-opts="-1 --diff-merges=first-parent $c" || exit 1; done' _ "$gl" "$sha" "${excl[@]}"; fi
+  # DCO: only this push's own commits, not ones already on a remote branch. After a rebase onto
+  # a newer main or a merge of main, rsha..lsha also holds main's commits (not all signed off).
+  ((since_bad)) || gate --nocache dco bash -c 'rc=0; for c in $(git rev-list --no-merges "$1" --not "${@:2}"); do
+                                bash scripts/check-dco.sh --commit "$c" >&2 || rc=1; done; exit $rc' _ "$sha" "${excl[@]}"
+  sc=$(command -v staticcheck || true); [[ -n $sc || ! -x $HOME/go/bin/staticcheck ]] || sc=$HOME/go/bin/staticcheck
+  [[ -n $sc ]] || { echo "pre-push: FAIL staticcheck not found (go install honnef.co/go/tools/cmd/staticcheck@v0.8.2)" >&2; overall=1; }
+  gate_wait keep
+  heavy=1
+  if ((overall)); then
+    echo "pre-push: heavy gates not run for ${sha:0:12}: fix the failures above first" >&2
+    git worktree remove --force "$wt" >/dev/null 2>&1
+    heavy=0
+    continue
+  fi
+
+  # Phase 2, minutes: everything else, concurrently.
+  # Tests of the Go packages changed against origin/main, each module from its own directory.
+  # The backend module needs Postgres (integration gate); the others do not.
+  ref=origin/main; git rev-parse -q --verify "$ref" >/dev/null || ref=$base
+  targets=$(hm_go_targets "$wt" "$ref...$sha")
+  # Always named: a renamed or moved test must fail the gate (integration-gate reports it missing), never switch the check off.
+  must_run='./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant'
+  backend_int=()
+  mapfile -t backend_int < <(awk -F'\t' '$1 == "backend" { print $2 }' <<<"$targets")
+  # The integration-tagged run is a superset of the plain one for a package (no test file is
+  # tagged !integration), so the plain `go test` skips the packages the integration gate runs.
+  dedup=()
+  if ((${#backend_int[@]})) && [[ ${HATAMOTO_SKIP_INTEGRATION:-} != 1 ]] \
+     && ! grep -rlq --include='*_test.go' '^//go:build.*!integration' "$wt/backend" 2>/dev/null; then
+    dedup=("${backend_int[@]}")
+  fi
+
+  # What this push has to test: the packages the diff touches plus their dependents, or everything
+  # (a force-full path, an unmappable file, a broken `go list`, or a large affected set: lib/affected.sh).
+  hm_affected "$wt" "$ref...$sha"
+  if [[ ${HATAMOTO_PREPUSH_FULL:-} == 1 && $HM_MODE != full ]]; then HM_MODE=full HM_REASON=forced; fi
+  if [[ -n ${to_main[$sha]:-} && $HM_MODE != full ]]; then HM_MODE=full HM_REASON='push to the default branch'; fi
+  full=0; [[ $HM_MODE == full ]] && full=1
+  # A full-suite pass is only recorded when nothing was skipped for environment reasons.
+  full_complete=$full
+  [[ ${HATAMOTO_SKIP_INTEGRATION:-} != 1 ]] || full_complete=0
+  # A swapped suite list or flake list is not the full suite either.
+  [[ -z ${HATAMOTO_CHECK_SUITES:-} && -z ${HATAMOTO_FLAKES_FILE:-} ]] || full_complete=0
+  if ((full)); then
+    echo "pre-push: mode: FULL ($HM_REASON): go test ./..., vet ./..., staticcheck ./..., every check suite"
+  else
+    while IFS= read -r mod; do
+      [[ -n $mod ]] || continue
+      mapfile -t seeds < <(awk -F'\t' -v m="$mod" '$1 == m { print $2 }' <<<"$HM_SEEDS")
+      mapfile -t aff < <(hm_affected_pkgs "$mod")
+      echo "pre-push: affected: $mod ${seeds[*]} (+$((${#aff[@]} - ${#seeds[@]})) dependents)"
+    done < <(cut -f1 <<<"$HM_AFFECTED" | sort -u)
+    [[ -n $HM_AFFECTED ]] || echo "pre-push: affected: no Go package is touched or read by a test"
+    # Packages a test reads files of (embeds, scripts/affected-readers.txt) count as changed for the integration gate too.
+    targets=$(printf '%s\n%s\n' "$targets" "$HM_SEEDS" | grep . | sort -u)
+    mapfile -t backend_int < <(awk -F'\t' '$1 == "backend" { print $2 }' <<<"$targets")
+    dedup=()
+    if ((${#backend_int[@]})) && [[ ${HATAMOTO_SKIP_INTEGRATION:-} != 1 ]] \
+       && ! grep -rlq --include='*_test.go' '^//go:build.*!integration' "$wt/backend" 2>/dev/null; then
+      dedup=("${backend_int[@]}")
+    fi
+  fi
+  mapfile -t aff_backend < <(hm_affected_pkgs backend)
+
+  # make check runs here, not on a build host: with go-test's shards syncing the same worktree to the
+  # hosts at the same time, a remote make check saw a spurious "[build failed]". The suites runner is
+  # `make check` minus ui-lint (it runs in the integration gate's packages); a push runs the suites whose paths changed.
+  if ((full)); then
+    gate --ctx "mode:full" make-check env GO_QUEUE_FORCE_LOCAL=1 bash scripts/check-suites.sh
+  else
+    all_suites=$(cd "$wt" && bash scripts/check-suites.sh --list | tr '\n' ' ')
+    run_suites=$(cd "$wt" && bash scripts/check-suites.sh --list --changed "$ref...$sha" | tr '\n' ' ')
+    skipped_suites=$(comm -23 <(tr ' ' '\n' <<<"$all_suites" | sort) <(tr ' ' '\n' <<<"$run_suites" | sort) | grep . | tr '\n' ' ')
+    echo "pre-push: check suites: skipped ${skipped_suites:-none}"
+    gate --ctx "mode:affected:$run_suites" make-check env GO_QUEUE_FORCE_LOCAL=1 bash scripts/check-suites.sh --changed "$ref...$sha"
+  fi
+  export -f hm_valid_pkgs
+  if ((full)); then
+    gate --ctx "$(hm_affected_ctx backend)|${dedup[*]}|perf=$HATAMOTO_PERF_STRICT" go-test bash -c 'cd backend && if (($# == 0)); then exec bash ../scripts/go-test-flaky.sh "" ./...; fi
+                                skip=$(go list "$@") || exit 1
+                                mapfile -t p < <(go list ./... | grep -vxF -f <(printf "%s\n" "$skip"))
+                                echo "go-test: $# package(s) left to the integration gate: $*"
+                                ((${#p[@]})) || { echo "go-test: nothing else to test"; exit 0; }
+                                exec bash ../scripts/go-test-flaky.sh "" "${p[@]}"' _ "${dedup[@]}"
+  else
+    # Affected packages minus the ones the integration gate runs (its tagged run is a superset).
+    test_pkgs=()
+    if ((${#aff_backend[@]})); then
+      mapfile -t test_pkgs < <(printf '%s\n' "${aff_backend[@]}" | grep -vxF -f <(printf '%s\n' "${dedup[@]}" ''))
+    fi
+    if ((${#test_pkgs[@]})); then
+      gate --ctx "$(hm_affected_ctx backend)|${dedup[*]}|perf=$HATAMOTO_PERF_STRICT" go-test bash -c 'cd backend && mapfile -t p < <(hm_valid_pkgs "" "$@")
+                                ((${#p[@]})) || { echo "go-test: nothing to test"; exit 0; }
+                                echo "go-test: ${#p[@]} affected package(s)"
+                                exec bash ../scripts/go-test-flaky.sh "" "${p[@]}"' _ "${test_pkgs[@]}"
+    else
+      echo "pre-push: ok   go-test      no affected package left for plain tests"
+    fi
+  fi
+  # What the retired CI ran besides `go test ./...`: vet, the SDK module, staticcheck, race (opt-in).
+  if ((full)); then
+    gate --ctx "$(hm_affected_ctx backend)" vet bash -c 'cd backend && go vet -tags=integration ./...'
+  elif ((${#aff_backend[@]})); then
+    gate --ctx "$(hm_affected_ctx backend)" vet bash -c 'cd backend && mapfile -t p < <(hm_valid_pkgs integration "$@")
+                                ((${#p[@]})) || exit 0
+                                go vet -tags=integration "${p[@]}"' _ "${aff_backend[@]}"
+  else
+    echo "pre-push: ok   vet          no affected package"
+  fi
+  # The SDK module is untouched in an affected run (any SDK path forces FULL) and nothing in it imports the backend.
+  if ((full)) && [[ -f $wt/backend/pkg/sdk/go.mod ]]; then
+    gate sdk           bash -c 'cd backend/pkg/sdk && go vet ./... && { [[ ! -d guest ]] || GOOS=wasip1 GOARCH=wasm go vet ./guest; } && go test -count=1 ./...'
+  fi
+  # Pinned: v0.8.2, the same version CI runs (.github/workflows/ci.yml); another version is refused.
+  # Runs in the backend, SDK and docs-publish modules, with and without the integration tag.
+  sc_args=() sc_ctx=
+  for mod in backend backend/pkg/sdk backend/tools/docs-publish; do
+    [[ -f $wt/$mod/go.mod ]] || continue
+    if ((full)); then lst=./...; else lst=$(hm_affected_pkgs "$mod"); [[ -n $lst ]] || continue; fi
+    sc_args+=("$mod" "$lst"); sc_ctx+="$mod:$(hm_affected_ctx "$mod")|"
+  done
+  if ((${#sc_args[@]})); then
+    gate --ctx "$sc_ctx" staticcheck bash -c '"$1" -version | grep -q "(0.8.2)" || { echo "staticcheck must be v0.8.2 (go install honnef.co/go/tools/cmd/staticcheck@v0.8.2)"; exit 1; }
+                                 sc=$1; shift
+                                 while (($#)); do
+                                   m=$1; mapfile -t want <<<"$2"; shift 2
+                                   for tags in "" integration; do
+                                     if [[ ${want[0]} == ./... ]]; then p=("${want[@]}"); else mapfile -t p < <(cd "$m" && hm_valid_pkgs "$tags" "${want[@]}"); fi
+                                     ((${#p[@]})) || continue
+                                     (cd "$m" && "$sc" ${tags:+-tags "$tags"} "${p[@]}") || exit 1
+                                   done
+                                 done' _ "$sc" "${sc_args[@]}"
+  else
+    echo "pre-push: ok   staticcheck  no affected package"
+  fi
+  if [[ ${HATAMOTO_PREPUSH_RACE:-} == 1 ]]; then
+    gate race          bash -c 'cd backend && go test -race -count=1 ./internal/wasmhost ./internal/pluginhost'
+  else
+    echo "pre-push: note race detector skipped (HATAMOTO_PREPUSH_RACE=1 runs it over wasmhost and pluginhost)"
+  fi
+  # (TestUILint runs inside make check: `check` depends on `ui-lint`.)
+  if [[ -z $targets ]]; then
+    echo "pre-push: ok   integration  no Go packages changed"
+  fi
+  # E3: the SDK builds from outside the repo (local mode). E9: what CI's "Must-run tests" step names must
+  # run and pass, not just compile; they ride on the integration gate (Postgres), so only when backend changed.
+  # Local only: its scratch module replaces the SDK with a path in this worktree, which a build host
+# (the go wrapper sends builds there when the local slots are busy) does not have.
+  ((full)) && [[ -e $wt/scripts/test-sdk-external.sh ]] && gate sdk-external env GO_QUEUE_FORCE_LOCAL=1 bash scripts/test-sdk-external.sh
+  while IFS= read -r mod; do
+    [[ -n $mod ]] || continue
+    mapfile -t pkgs < <(awk -F'\t' -v m="$mod" '$1 == m { print $2 }' <<<"$targets")
+    if [[ $mod == backend ]]; then
+      if [[ ${HATAMOTO_SKIP_INTEGRATION:-} == 1 ]]; then
+        echo "pre-push: !!!! SKIPPED integration tests (HATAMOTO_SKIP_INTEGRATION=1) !!!!" >&2
+      else
+        gate --ctx "${pkgs[*]}|$must_run" integration env INTEGRATION_MUST_RUN="$must_run" bash scripts/integration-gate.sh "$wt" "${pkgs[@]}"
+      fi
+    elif [[ $mod == examples/plugins/* || $mod == examples/plugin-template ]]; then   # wasip1 guests: they must build and vet
+      gate --ctx "${pkgs[*]}" "vet:$mod" bash -c 'cd "$1" && GOOS=wasip1 GOARCH=wasm go vet "${@:2}"' _ "$mod" "${pkgs[@]}"
+    else
+      gate --ctx "${pkgs[*]}" "test:$mod" bash -c 'cd "$1" && bash "$2/scripts/go-test-flaky.sh" "-tags=integration" "${@:3}"' _ "$mod" "$wt" "${pkgs[@]}"
+    fi
+  done < <(cut -f1 <<<"$targets" | sort -u)
+  gate_wait
+  # The full suite ships once per tree: only a FULL run with every gate green and none skipped records it.
+  ((full && full_complete && overall == 0)) && hm_gc_record "$sha" full-suite
+  heavy=0; hm_farm_release
+  git worktree remove --force "$wt" >/dev/null 2>&1
+done
+
+((overall == 0)) || { echo "pre-push: REFUSED. Fix the failures above (--no-verify exists; reviewers reject PRs pushed with it)." >&2; exit 1; }
+echo "pre-push: all gates passed"

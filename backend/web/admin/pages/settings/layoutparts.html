@@ -1,0 +1,23 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<p class="hm-muted">Build the header, footer and page layouts of your site in the builder, then choose them here. A theme shows them only if it supports them; otherwise it keeps its own.</p>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Unsupported}}{{template "hm/callout" (dict "Kind" "info" "ID" "parts-unsupported" "Body" .)}}
+{{end}}<form method="post" action="{{adminPath}}/theme/parts" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{range $r := .Rows}}{{template "hm/card-start" dict "ID" (printf "part-card-%s" $r.Slot) "Title" $r.Title "Description" $r.Help}}
+{{template "hm/field" dict "ID" (printf "part-%s" $r.Slot) "Name" (printf "part_%s" $r.Slot) "Label" (printf "%s part" $r.Title) "Control" "select" "Options" $r.Options "Error" $r.Error}}
+{{with $r.Notice}}{{template "hm/callout" (dict "Kind" "info" "Body" .)}}{{end}}
+{{with $r.EditHref}}<p><a href="{{.}}">Edit this part in the builder</a></p>{{end}}
+{{template "hm/card-end"}}
+{{end}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Save layout parts" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{if .Available}}{{template "hm/card-start" dict "ID" "parts-create" "Title" "Create a part" "Description" "A new part opens in the builder. Save it there, then choose it above."}}
+<div class="hm-row">
+{{range $r := .Rows}}<form method="post" action="{{adminPath}}/entities/drafts">{{template "hm/csrf" $}}<input type="hidden" name="type" value="theme_part"><input type="hidden" name="slot" value="{{$r.Slot}}">{{template "hm/button" (dict "Label" (printf "Create %s part" $r.Slot) "Type" "submit")}}</form>
+{{end}}</div>
+{{template "hm/card-end"}}{{end}}
+{{end}}{{end}}

@@ -1,0 +1,8 @@
+{
+  "x-hm-section": {"title": "Tag strip", "description": "Label plus a row of short items"},
+  "type": "object",
+  "properties": {
+    "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+    "items": {"type": "array", "title": "Items", "description": "One item per line; commas stay inside an item.", "x-hm-field": "lines", "items": {"type": "string"}}
+  }
+}

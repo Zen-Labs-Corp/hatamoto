@@ -1,0 +1,2 @@
+{{/* hm/indicator: the busy state of an in-page htmx request. htmx marks it with .htmx-request (hx-indicator="#ID"); components.js puts Text in the role=status region while the request runs and sets aria-busy on the target. It always occupies its box, so nothing shifts. An empty Text stays silent (polling). */}}
+{{define "hm/indicator"}}<span class="hm-indicator" id="{{.ID}}" role="status" data-hm-busy-text="{{.Text}}"><span class="hm-visually-hidden" data-hm-busy-label></span></span>{{end}}

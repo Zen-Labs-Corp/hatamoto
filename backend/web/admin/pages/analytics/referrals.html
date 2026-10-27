@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/aia{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{with .Body}}<div class="hm-stack">
+<h2 class="hm-visually-hidden">Referral activity</h2>
+{{template "hm/aia-chart" .Hero}}
+<div class="hm-grid2">
+{{template "hm/card-start" (dict "ID" "w-rf-by" "Title" "By assistant" "Description" "Share of AI-referred visits." "Heading" "h3")}}
+{{template "hm/barlist" .ByAssistant}}
+{{template "hm/card-end"}}
+{{template "hm/aia-chart" .Share}}
+</div>
+{{template "hm/callout" (dict "Kind" "info" "Compact" true "Body" "Landing pages from AI assistants are not recorded yet. Referrals are counted per day per assistant.")}}
+</div>{{end}}
+{{end}}{{end}}

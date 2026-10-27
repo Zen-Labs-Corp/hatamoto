@@ -1,0 +1,38 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+<div class="hm-themes">
+{{range .Themes}}<section class="hm-card hm-theme{{if .Active}} hm-theme--active{{end}}" id="theme-{{.Name}}" aria-labelledby="theme-{{.Name}}-title">
+{{$first := index .Palette 0}}<svg class="hm-theme__strip" viewBox="0 0 100 10" preserveAspectRatio="none"{{if $first.Hex}} role="img" aria-label="Brand colours of the live theme"{{else}} aria-hidden="true" focusable="false"{{end}}>{{range .Palette}}<rect{{if .Hex}} fill="{{.Hex}}"{{else}} class="hm-theme__swatch--none"{{end}} x="{{.X}}" width="20" height="10"/>{{end}}</svg>
+<div class="hm-card__body">
+<div class="hm-row hm-row--between"><h2 class="hm-card__title" id="theme-{{.Name}}-title">{{.Name}}</h2>{{if .Active}}{{template "hm/badge" dict "Label" "Live" "Kind" "success"}}{{end}}</div>
+<p class="hm-muted">{{if .Builtin}}Built in. Always available.{{else}}v{{.Version}}{{if .Description}}: {{.Description}}{{end}}{{end}}</p>
+{{if not .Builtin}}<p class="hm-muted">{{if .Signed}}Signed by <code>{{.Signer}}</code>.{{else}}<strong>Unsigned.</strong>{{end}}</p>{{end}}
+{{if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}
+{{template "hm/card-foot"}}<div class="hm-card__foot-note">{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "more" "AriaLabel" (printf "More actions for %s" .Name) "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" (printf "menu-theme-%s" .Name)))}}
+<div class="hm-menu" popover id="menu-theme-{{.Name}}" role="menu" aria-label="{{.Name}}">
+{{$t := dict "CSRF" $.CSRF}}{{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" "Preview" "Icon" "eye" "Href" (printf "%s/preview/theme/%s" adminPath .Name) "NewTab" true)}}
+{{if .HasSettings}}{{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" "Settings" "Icon" "settings" "Href" (printf "%s/theme/themes/%s/settings" adminPath .Name))}}
+{{end}}{{if and .Update (not .Active)}}{{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" (printf "Update to %s" .Update) "Icon" "refresh" "Post" (adminPath "theme" "themes" "fetch") "Fields" (dict "name" .Name))}}
+{{end}}{{if and (not .Builtin) (not .Active)}}<div role="separator"></div>
+{{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" "Uninstall" "Icon" "trash" "Href" (printf "%s/theme/themes/%s/uninstall" adminPath .Name) "Danger" true)}}
+{{end}}</div></div>
+{{if not .Active}}{{template "hm/button" dict "Label" "Activate" "Href" (printf "%s/theme/themes/%s/activate" adminPath .Name) "Variant" "primary"}}
+{{else if .Update}}<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" (printf "Update to %s" .Update) "Variant" "primary" "Type" "submit"}}</form>
+{{end}}{{template "hm/card-foot-end"}}
+{{end}}</div>
+{{template "hm/card-start" dict "ID" "registry" "Title" "Available themes" "Description" "From the registry. Installing a theme does not change your site; activate it when you are ready."}}
+{{if .RegistryOff}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "No registry is set up")}}Set <code>HATAMOTO_REGISTRY_URL</code> to browse packages. You can still upload a package.{{template "hm/callout-end"}}
+{{else if .RegistryErr}}<div class="hm-empty"><p><strong>No registry is available right now.</strong></p>
+<p class="hm-muted">Hatamoto could not load the theme list from {{or .RegistryHost "the registry"}}. You can still upload a signed .hmp.</p>
+<div class="hm-row">{{template "hm/button" dict "Label" "Upload .hmp" "Href" (adminPath "plugins" "upload") "Attrs" (attrmap "data-hm-open" "upload-pkg")}}</div>
+<details><summary>Details</summary><code>{{.RegistryErr}}</code></details></div>
+{{else if not .Available}}<p class="hm-muted">Every theme in the registry is installed and up to date.</p>{{end}}
+{{range .Available}}{{if not .Installed}}<div class="hm-pkg"><div><strong><code>{{.Name}}</code></strong> <span class="hm-muted">v{{.Version}}</span>{{if .Description}}<p class="hm-muted">{{.Description}}</p>{{end}}</div>
+<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" "Install" "Type" "submit"}}</form></div>{{end}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/dialog-start" dict "ID" "upload-pkg" "Title" "Upload theme" "Static" true}}
+<form id="upload-pkg-form" method="post" action="{{adminPath}}/plugins/upload" enctype="multipart/form-data" class="hm-stack">{{template "hm/csrf" $}}
+<p class="hm-muted">A <code>.hmp</code> theme file.{{if not .AllowUnsigned}} Unsigned themes are refused unless you allow them under <a href="{{adminPath}}/plugins#unsigned">Plugins</a>.{{else}} Unsigned packages are currently allowed.{{end}}</p>
+{{template "hm/form-upload-pkg" dict "Label" "Theme file"}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Upload" "PrimaryAttrs" (attrmap "form" "upload-pkg-form")}}
+{{end}}{{end}}

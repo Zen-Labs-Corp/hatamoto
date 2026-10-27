@@ -1,0 +1,13 @@
+{
+  "type": "process_steps",
+  "id": "sec-process",
+  "title": "How it works",
+  "content": {
+    "eyebrow": "Process",
+    "steps": [
+      {"number": "1", "heading": "Plan", "description": "<p>Agree the <em>scope</em>.</p>"},
+      {"title": "Build \"fast\" </script>", "label": "A", "description": "<p>Ship it.</p>"},
+      {"title": "Launch"}
+    ]
+  }
+}

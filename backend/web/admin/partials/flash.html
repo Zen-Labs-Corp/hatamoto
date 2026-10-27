@@ -1,0 +1,1 @@
+{{define "hm/flash"}}{{if and . .Message}}<div class="hm-flash hm-flash--{{.Kind}}"{{if not .Inline}} data-hm-flash="{{.Kind}}"{{end}} role="{{if eq .Kind "error"}}alert{{else}}status{{end}}">{{.Message}}</div>{{end}}{{end}}

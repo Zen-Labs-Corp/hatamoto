@@ -1,0 +1,49 @@
+/* AI analytics time chart (js/aia/timechart.js). Series colour comes from the
+   hm-viz--series-N / hm-viz--danger classes, which set --viz, so light and dark
+   follow the theme with no redraw. Geometry numbers (stroke widths, fill
+   opacities, dashes) are SVG attributes from js/aia/paths.js. */
+.hm-aia-chart { --viz: var(--chart-1); } /* default series colour; the hm-viz--* classes override it per element */
+.hm-aia-chart [data-aia-plot] { position: relative; width: 100%; }
+.hm-aia-plot { display: block; width: 100%; overflow: visible; border-radius: var(--radius-xs); }
+
+.hm-aia-grid { stroke: var(--border); }
+.hm-aia-axis { font-size: var(--text-xs); fill: var(--text-muted); }
+.hm-aia-panel-label { font-size: var(--text-xs); font-weight: var(--weight-medium); fill: var(--text); }
+
+.hm-aia-line { fill: none; stroke: var(--viz); }
+.hm-aia-line--muted { stroke: var(--color-hai); }
+.hm-aia-area, .hm-aia-col { fill: var(--viz); stroke: none; }
+.hm-aia-marker { fill: var(--viz); stroke: var(--color-paper); }
+.hm-aia-marker--cross { fill: none; stroke: var(--viz); }
+.hm-aia-hover { pointer-events: none; }
+.hm-aia-cursor { stroke: var(--border-control); }
+
+/* Legend rows are cloned from the server's template; state is on aria-pressed. */
+.hm-aia-lgi { flex: none; }
+.hm-aia-chart [data-aia-legend-list] [aria-pressed="false"] { color: var(--text-muted); text-decoration: line-through; }
+.hm-aia-chart [data-aia-legend-list] [aria-pressed="false"] .hm-aia-lgi { opacity: 0.4; }
+.hm-aia-chart [data-aia-legend-list] [aria-disabled="true"] { cursor: not-allowed; }
+
+/* Tooltip (no shadow: UI-04 only lists known popup selectors; the 1px border carries it). Inside [data-aia-plot] (position: relative). */
+.hm-aia-tt {
+  position: absolute; top: var(--space-1); z-index: var(--z-popup); min-width: 180px; pointer-events: none;
+  padding: var(--space-2) var(--space-3); border: 1px solid var(--border-control); border-radius: var(--radius-sm);
+  background: var(--color-paper); color: var(--text);
+  font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--leading-normal);
+}
+.hm-aia-tt[hidden] { display: none; }
+.hm-aia-tt__date { font-weight: var(--weight-semibold); margin-bottom: var(--space-1); }
+.hm-aia-tt__head { color: var(--text-muted); margin-top: var(--space-1-5); }
+.hm-aia-tt__row { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.hm-aia-tt__row b { margin-left: auto; padding-left: var(--space-4); font-weight: var(--weight-semibold); }
+.hm-aia-tt__row--muted { color: var(--text-muted); }
+.hm-aia-tt__row--total { border-top: 1px solid var(--border); margin-top: var(--space-1); padding-top: var(--space-1); }
+.hm-aia-sq { display: inline-block; flex: none; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-2xs); background: var(--viz); }
+.hm-aia-sq--previous { background: none; border: 1px dashed var(--color-hai); }
+
+/* Loading fills the reserved plot box (js/aia/page.js); empty and error are hm/empty and hm/callout. */
+.hm-aia-skeleton { height: 100%; min-height: inherit; border-radius: var(--radius-md); background: var(--color-kinu); animation: hm-chart-pulse 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-aia-chart *, .hm-aia-skeleton { transition: none; animation: none; }
+}

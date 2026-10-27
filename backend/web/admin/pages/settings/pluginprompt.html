@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Install %s" .Sum.Name) "Description" .Sum.Description "CSRF" $.CSRF}}
+{{with .Sum.Confirm}}{{template "hm/pkgconfirm" .}}{{end}}
+{{if .Sum.Problem}}{{template "hm/callout" (dict "Kind" "danger" "Title" "It will not be installed" "Body" .Sum.Problem)}}{{end}}
+<form method="post" action="{{adminPath}}/plugins/install" class="hm-stack">
+{{template "hm/csrf" $}}<input type="hidden" name="staged" value="{{.Staged}}">
+{{template "hm/card-start" dict "ID" "summary-card" "Title" "Package" "Heading" "h2"}}<p><code>{{.Sum.Name}}</code> <span class="hm-muted">v{{.Sum.Version}}{{if .Sum.Updating}}, replacing v{{.Sum.InstalledVersion}}{{end}}</span></p>
+{{if .Sum.Signed}}<p class="hm-muted">Signed by <code>{{.Sum.Signer}}</code>.</p>{{else}}{{template "hm/callout" (dict "Kind" "danger" "Title" "This package is not signed." "Body" "Nobody has vouched for it. Only install it if you wrote it or have read it.")}}{{end}}
+{{with .Sum.Confirm}}{{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Control" "checkbox" "Value" "1" "Required" true "Label" "I understand and want to replace the installed plugin."}}{{end}}{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "perms-card" "Title" "Permissions" "Heading" "h2"}}<fieldset class="hm-field__group"><legend class="hm-visually-hidden">Permissions</legend>
+{{if .Perms}}<p class="hm-muted">This plugin asks for the permissions below. Untick anything you do not want it to have; you can change this later.</p>
+{{range $i, $p := .Perms}}<label class="hm-field__check" for="perm-{{$i}}"><input class="hm-field__box" type="checkbox" id="perm-{{$i}}" name="permission" value="{{$p.Name}}"{{if $p.Ticked}} checked{{end}}><span>{{if $p.Warn}}{{template "hm/badge" (dict "Kind" "danger" "Label" (or (and (eq $p.Name "builder.island") "Runs JavaScript on your site's pages.") (and (eq $p.Name "site.scripts") "JavaScript on every public page.") "Any web address."))}} {{end}}<code>{{$p.Name}}</code>{{if $p.Help}}: {{$p.Help}}{{end}}{{if $p.New}} <strong>(new in this version)</strong>{{end}}</span></label>
+{{end}}{{else}}<p class="hm-muted">It asks for no permissions.</p>{{end}}</fieldset>{{template "hm/card-end"}}
+{{if .Sum.AllowedHosts}}{{template "hm/card-start" dict "ID" "hosts-card" "Title" "Web addresses it may call" "Heading" "h2"}}<ul role="list" class="hm-badgelist">{{range .Sum.AllowedHosts}}{{if ne . "*"}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}{{end}}</ul>
+{{range .Sum.AllowedHosts}}{{if eq . "*"}}{{template "hm/callout" (dict "Kind" "warning" "Title" "Any public web address (ports 80 and 443)" "Body" "It may call every public web address, not a short list.")}}{{end}}{{end}}{{template "hm/card-end"}}{{end}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "plugins")}}{{if not .Sum.Problem}}{{template "hm/button" dict "Label" (or (and .Sum.Updating "Update plugin") "Install plugin") "Variant" "primary" "Type" "submit"}}{{end}}{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

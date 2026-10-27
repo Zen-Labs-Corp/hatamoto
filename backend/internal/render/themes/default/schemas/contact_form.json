@@ -1,0 +1,10 @@
+{
+  "x-hm-section": {"title": "Contact form", "description": "Server-rendered form from a form definition"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-alias": ["description"], "x-hm-field": "plaintext"},
+    "form_slug": {"type": "string", "title": "Form slug", "x-hm-alias": ["formSlug"], "default": "contact"},
+    "variant": {"type": "string", "title": "Layout", "enum": ["centered", "split"], "default": "centered"}
+  }
+}

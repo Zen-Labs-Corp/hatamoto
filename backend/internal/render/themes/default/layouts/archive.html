@@ -1,0 +1,8 @@
+{{define "content"}}<div class="hm-container hm-listing">
+<header class="hm-listing__header">
+<p class="hm-listing__eyebrow">Archive</p>
+<h1 class="hm-listing__title">{{.Page.Name}}</h1>
+{{with .Page.Description}}<p class="hm-listing__lede">{{.}}</p>
+{{end}}{{template "term-chips" dict "Terms" (terms "category" 12) "Label" "Categories"}}</header>
+{{template "post-list" .}}
+</div>{{end}}

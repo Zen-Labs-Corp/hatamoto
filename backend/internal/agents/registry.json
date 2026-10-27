@@ -1,0 +1,800 @@
+{
+  "version": 2,
+  "generic_ua_hints": [
+    "bot",
+    "crawler",
+    "spider",
+    "fetch"
+  ],
+  "ip_range_sources": {
+    "google": {
+      "urls": [
+        "https://developers.google.com/static/crawling/ipranges/common-crawlers.json",
+        "https://developers.google.com/static/crawling/ipranges/special-crawlers.json",
+        "https://developers.google.com/static/crawling/ipranges/user-triggered-fetchers.json",
+        "https://developers.google.com/static/crawling/ipranges/user-triggered-fetchers-google.json"
+      ],
+      "format": "prefixes"
+    },
+    "bing": {
+      "urls": [
+        "https://www.bing.com/toolbox/bingbot.json"
+      ],
+      "format": "prefixes"
+    },
+    "openai-gptbot": {
+      "urls": [
+        "https://openai.com/gptbot.json"
+      ],
+      "format": "prefixes"
+    },
+    "openai-search": {
+      "urls": [
+        "https://openai.com/searchbot.json"
+      ],
+      "format": "prefixes"
+    },
+    "openai-user": {
+      "urls": [
+        "https://openai.com/chatgpt-user.json"
+      ],
+      "format": "prefixes"
+    },
+    "perplexity-bot": {
+      "urls": [
+        "https://www.perplexity.ai/perplexitybot.json"
+      ],
+      "format": "prefixes"
+    },
+    "perplexity-user": {
+      "urls": [
+        "https://www.perplexity.ai/perplexity-user.json"
+      ],
+      "format": "prefixes"
+    },
+    "anthropic": {
+      "urls": [
+        "https://claude.com/crawling/bots.json"
+      ],
+      "format": "prefixes"
+    },
+    "ccbot": {
+      "urls": [
+        "https://index.commoncrawl.org/ccbot.json"
+      ],
+      "format": "prefixes"
+    },
+    "duckduckbot": {
+      "urls": [
+        "https://duckduckgo.com/duckduckbot.json"
+      ],
+      "format": "prefixes"
+    },
+    "applebot": {
+      "urls": [
+        "https://search.developer.apple.com/applebot.json"
+      ],
+      "format": "prefixes"
+    },
+    "ahrefs": {
+      "urls": [
+        "https://api.ahrefs.com/v3/public/crawler-ip-ranges"
+      ],
+      "format": "prefixes"
+    }
+  },
+  "ai_referrers": [
+    {
+      "source": "chatgpt",
+      "hosts": [
+        "chatgpt.com",
+        "chat.openai.com"
+      ],
+      "utm": [
+        "chatgpt.com",
+        "chatgpt"
+      ]
+    },
+    {
+      "source": "perplexity",
+      "hosts": [
+        "perplexity.ai"
+      ],
+      "utm": [
+        "perplexity.ai",
+        "perplexity"
+      ]
+    },
+    {
+      "source": "claude",
+      "hosts": [
+        "claude.ai"
+      ],
+      "utm": [
+        "claude.ai",
+        "claude"
+      ]
+    },
+    {
+      "source": "gemini",
+      "hosts": [
+        "gemini.google.com"
+      ],
+      "utm": [
+        "gemini.google.com",
+        "gemini"
+      ]
+    },
+    {
+      "source": "copilot",
+      "hosts": [
+        "copilot.microsoft.com"
+      ],
+      "utm": [
+        "copilot.microsoft.com",
+        "copilot"
+      ]
+    },
+    {
+      "source": "grok",
+      "hosts": [
+        "grok.com"
+      ],
+      "utm": [
+        "grok.com",
+        "grok"
+      ]
+    },
+    {
+      "source": "meta_ai",
+      "hosts": [
+        "meta.ai"
+      ],
+      "utm": [
+        "meta.ai",
+        "meta_ai"
+      ]
+    },
+    {
+      "source": "deepseek",
+      "hosts": [
+        "chat.deepseek.com"
+      ],
+      "utm": [
+        "chat.deepseek.com",
+        "deepseek"
+      ]
+    },
+    {
+      "source": "mistral",
+      "hosts": [
+        "chat.mistral.ai"
+      ],
+      "utm": [
+        "chat.mistral.ai",
+        "mistral"
+      ]
+    }
+  ],
+  "agents": [
+    {
+      "id": "chatgpt-user",
+      "name": "ChatGPT-User",
+      "operator": "OpenAI",
+      "purpose": "user_fetch",
+      "ua": [
+        "chatgpt-user"
+      ],
+      "robots_token": "ChatGPT-User",
+      "ip_ranges": [
+        "openai-user"
+      ],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "claude-user",
+      "name": "Claude-User",
+      "operator": "Anthropic",
+      "purpose": "user_fetch",
+      "ua": [
+        "claude-user"
+      ],
+      "robots_token": "Claude-User",
+      "ip_ranges": [
+        "anthropic"
+      ],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "perplexity-user",
+      "name": "Perplexity-User",
+      "operator": "Perplexity",
+      "purpose": "user_fetch",
+      "ua": [
+        "perplexity-user"
+      ],
+      "robots_token": "Perplexity-User",
+      "ip_ranges": [
+        "perplexity-user"
+      ],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "mistralai-user",
+      "name": "MistralAI-User",
+      "operator": "Mistral",
+      "purpose": "user_fetch",
+      "ua": [
+        "mistralai-user"
+      ],
+      "robots_token": "MistralAI-User",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "duckassistbot",
+      "name": "DuckAssistBot",
+      "operator": "DuckDuckGo",
+      "purpose": "user_fetch",
+      "ua": [
+        "duckassistbot"
+      ],
+      "robots_token": "DuckAssistBot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "meta-externalfetcher",
+      "name": "Meta-ExternalFetcher",
+      "operator": "Meta",
+      "purpose": "user_fetch",
+      "ua": [
+        "meta-externalfetcher"
+      ],
+      "robots_token": "Meta-ExternalFetcher",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": true
+    },
+    {
+      "id": "oai-searchbot",
+      "name": "OAI-SearchBot",
+      "operator": "OpenAI",
+      "purpose": "search_index",
+      "ua": [
+        "oai-searchbot"
+      ],
+      "robots_token": "OAI-SearchBot",
+      "ip_ranges": [
+        "openai-search"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "claude-searchbot",
+      "name": "Claude-SearchBot",
+      "operator": "Anthropic",
+      "purpose": "search_index",
+      "ua": [
+        "claude-searchbot"
+      ],
+      "robots_token": "Claude-SearchBot",
+      "ip_ranges": [
+        "anthropic"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "perplexitybot",
+      "name": "PerplexityBot",
+      "operator": "Perplexity",
+      "purpose": "search_index",
+      "ua": [
+        "perplexitybot"
+      ],
+      "robots_token": "PerplexityBot",
+      "ip_ranges": [
+        "perplexity-bot"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "gptbot",
+      "name": "GPTBot",
+      "operator": "OpenAI",
+      "purpose": "training",
+      "ua": [
+        "gptbot"
+      ],
+      "robots_token": "GPTBot",
+      "ip_ranges": [
+        "openai-gptbot"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "claudebot",
+      "name": "ClaudeBot",
+      "operator": "Anthropic",
+      "purpose": "training",
+      "ua": [
+        "claudebot",
+        "anthropic-ai"
+      ],
+      "robots_token": "ClaudeBot",
+      "ip_ranges": [
+        "anthropic"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "ccbot",
+      "name": "CCBot",
+      "operator": "Common Crawl",
+      "purpose": "training",
+      "ua": [
+        "ccbot"
+      ],
+      "robots_token": "CCBot",
+      "ip_ranges": [
+        "ccbot"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "meta-externalagent",
+      "name": "Meta-ExternalAgent",
+      "operator": "Meta",
+      "purpose": "training",
+      "ua": [
+        "meta-externalagent"
+      ],
+      "robots_token": "Meta-ExternalAgent",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "bytespider",
+      "name": "Bytespider",
+      "operator": "ByteDance",
+      "purpose": "training",
+      "ua": [
+        "bytespider"
+      ],
+      "robots_token": "Bytespider",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "amazonbot",
+      "name": "Amazonbot",
+      "operator": "Amazon",
+      "purpose": "training",
+      "ua": [
+        "amazonbot"
+      ],
+      "robots_token": "Amazonbot",
+      "ip_ranges": [],
+      "rdns": [
+        ".crawl.amazonbot.amazon"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "cohere-ai",
+      "name": "cohere-ai",
+      "operator": "Cohere",
+      "purpose": "training",
+      "ua": [
+        "cohere-ai"
+      ],
+      "robots_token": "cohere-ai",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "diffbot",
+      "name": "Diffbot",
+      "operator": "Diffbot",
+      "purpose": "training",
+      "ua": [
+        "diffbot"
+      ],
+      "robots_token": "Diffbot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "google-extended",
+      "name": "Google-Extended",
+      "operator": "Google",
+      "purpose": "training",
+      "ua": [],
+      "robots_token": "Google-Extended",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "applebot-extended",
+      "name": "Applebot-Extended",
+      "operator": "Apple",
+      "purpose": "training",
+      "ua": [],
+      "robots_token": "Applebot-Extended",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "googleother",
+      "name": "GoogleOther",
+      "operator": "Google",
+      "purpose": "other_ai",
+      "ua": [
+        "googleother",
+        "google-notebooklm",
+        "google-cloudvertexbot"
+      ],
+      "robots_token": "GoogleOther",
+      "ip_ranges": [
+        "google"
+      ],
+      "rdns": [
+        ".googlebot.com",
+        ".google.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "googlebot",
+      "name": "Googlebot",
+      "operator": "Google",
+      "purpose": "search",
+      "ua": [
+        "googlebot",
+        "google-inspectiontool",
+        "adsbot-google"
+      ],
+      "robots_token": "Googlebot",
+      "ip_ranges": [
+        "google"
+      ],
+      "rdns": [
+        ".googlebot.com",
+        ".google.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "bingbot",
+      "name": "Bingbot",
+      "operator": "Microsoft",
+      "purpose": "search",
+      "ua": [
+        "bingbot",
+        "bingpreview",
+        "msnbot"
+      ],
+      "robots_token": "Bingbot",
+      "ip_ranges": [
+        "bing"
+      ],
+      "rdns": [
+        ".search.msn.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "duckduckbot",
+      "name": "DuckDuckBot",
+      "operator": "DuckDuckGo",
+      "purpose": "search",
+      "ua": [
+        "duckduckbot"
+      ],
+      "robots_token": "DuckDuckBot",
+      "ip_ranges": [
+        "duckduckbot"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "applebot",
+      "name": "Applebot",
+      "operator": "Apple",
+      "purpose": "search",
+      "ua": [
+        "applebot"
+      ],
+      "robots_token": "Applebot",
+      "ip_ranges": [
+        "applebot"
+      ],
+      "rdns": [
+        ".applebot.apple.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "yandexbot",
+      "name": "YandexBot",
+      "operator": "Yandex",
+      "purpose": "search",
+      "ua": [
+        "yandex"
+      ],
+      "robots_token": "YandexBot",
+      "ip_ranges": [],
+      "rdns": [
+        ".yandex.ru",
+        ".yandex.net",
+        ".yandex.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "baiduspider",
+      "name": "Baiduspider",
+      "operator": "Baidu",
+      "purpose": "search",
+      "ua": [
+        "baiduspider"
+      ],
+      "robots_token": "Baiduspider",
+      "ip_ranges": [],
+      "rdns": [
+        ".baidu.com",
+        ".baidu.jp"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "petalbot",
+      "name": "PetalBot",
+      "operator": "Huawei",
+      "purpose": "search",
+      "ua": [
+        "petalbot"
+      ],
+      "robots_token": "PetalBot",
+      "ip_ranges": [],
+      "rdns": [
+        ".petalsearch.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "sogou",
+      "name": "Sogou",
+      "operator": "Sogou",
+      "purpose": "search",
+      "ua": [
+        "sogou"
+      ],
+      "robots_token": "Sogou",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "ahrefsbot",
+      "name": "AhrefsBot",
+      "operator": "Ahrefs",
+      "purpose": "seo",
+      "ua": [
+        "ahrefsbot",
+        "ahrefssiteaudit"
+      ],
+      "robots_token": "AhrefsBot",
+      "ip_ranges": [
+        "ahrefs"
+      ],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "semrushbot",
+      "name": "SemrushBot",
+      "operator": "Semrush",
+      "purpose": "seo",
+      "ua": [
+        "semrushbot"
+      ],
+      "robots_token": "SemrushBot",
+      "ip_ranges": [],
+      "rdns": [
+        ".semrush.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "mj12bot",
+      "name": "MJ12bot",
+      "operator": "Majestic",
+      "purpose": "seo",
+      "ua": [
+        "mj12bot"
+      ],
+      "robots_token": "MJ12bot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "dotbot",
+      "name": "DotBot",
+      "operator": "Moz",
+      "purpose": "seo",
+      "ua": [
+        "dotbot"
+      ],
+      "robots_token": "DotBot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "screaming-frog",
+      "name": "Screaming Frog",
+      "operator": "Screaming Frog",
+      "purpose": "seo",
+      "ua": [
+        "screaming frog"
+      ],
+      "robots_token": "",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "facebookexternalhit",
+      "name": "facebookexternalhit",
+      "operator": "Meta",
+      "purpose": "social",
+      "ua": [
+        "facebookexternalhit"
+      ],
+      "robots_token": "facebookexternalhit",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "facebookbot",
+      "name": "FacebookBot",
+      "operator": "Meta",
+      "purpose": "training",
+      "ua": [
+        "facebookbot"
+      ],
+      "robots_token": "FacebookBot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "twitterbot",
+      "name": "Twitterbot",
+      "operator": "X",
+      "purpose": "social",
+      "ua": [
+        "twitterbot"
+      ],
+      "robots_token": "Twitterbot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "linkedinbot",
+      "name": "LinkedInBot",
+      "operator": "LinkedIn",
+      "purpose": "social",
+      "ua": [
+        "linkedinbot"
+      ],
+      "robots_token": "LinkedInBot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "pinterestbot",
+      "name": "Pinterestbot",
+      "operator": "Pinterest",
+      "purpose": "social",
+      "ua": [
+        "pinterestbot"
+      ],
+      "robots_token": "Pinterestbot",
+      "ip_ranges": [],
+      "rdns": [
+        ".pinterest.com"
+      ],
+      "ignores_robots": false
+    },
+    {
+      "id": "slackbot",
+      "name": "Slackbot",
+      "operator": "Slack",
+      "purpose": "social",
+      "ua": [
+        "slackbot"
+      ],
+      "robots_token": "Slackbot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "discordbot",
+      "name": "Discordbot",
+      "operator": "Discord",
+      "purpose": "social",
+      "ua": [
+        "discordbot"
+      ],
+      "robots_token": "Discordbot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "telegrambot",
+      "name": "TelegramBot",
+      "operator": "Telegram",
+      "purpose": "social",
+      "ua": [
+        "telegrambot"
+      ],
+      "robots_token": "TelegramBot",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp",
+      "operator": "Meta",
+      "purpose": "social",
+      "ua": [
+        "whatsapp"
+      ],
+      "robots_token": "",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    },
+    {
+      "id": "internet-archive",
+      "name": "Internet Archive",
+      "operator": "Internet Archive",
+      "purpose": "archive",
+      "ua": [
+        "ia_archiver",
+        "archive.org_bot"
+      ],
+      "robots_token": "ia_archiver",
+      "ip_ranges": [],
+      "rdns": [],
+      "ignores_robots": false
+    }
+  ]
+}

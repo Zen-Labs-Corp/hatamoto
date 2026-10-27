@@ -1,0 +1,14 @@
+{{define "content"}}<div class="hm-container hm-listing">
+<header class="hm-listing__header hm-author-head">
+{{with .Author.Avatar}}<img class="hm-avatar hm-avatar--lg" src="{{imgsrc .}}" alt="" width="72" height="72">
+{{end}}<div>
+<p class="hm-listing__eyebrow">Author</p>
+<h1 class="hm-listing__title">{{.Author.Name}}</h1>
+{{with .Author.JobTitle}}<p class="hm-listing__lede hm-author-job">{{.}}</p>
+{{end}}{{with .Author.Bio}}<p class="hm-listing__lede">{{.}}</p>
+{{end}}{{with .Author.Links}}<ul class="hm-chips" aria-label="Find {{$.Author.Name}} elsewhere">{{range .}}<li><a class="hm-chip" href="{{.URL}}" rel="me noopener">{{.Label}}</a></li>{{end}}</ul>
+{{end}}{{with .Pagination}}{{if .Total}}<p class="hm-listing__lede">{{.Total}} {{if eq .Total 1}}post{{else}}posts{{end}}</p>
+{{end}}{{end}}</div>
+</header>
+{{if .Items}}{{template "post-list" .}}{{end}}
+</div>{{end}}

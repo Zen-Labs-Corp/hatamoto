@@ -1,0 +1,13 @@
+{
+  "type": "contact_info", "id": "sec-contact-info", "title": "Contact",
+  "content": {
+    "heading": "Visit or call us",
+    "variant": "card",
+    "address": {"street": "1 Example Street", "city": "Springfield", "state": "IL", "postal_code": "62701", "country": "USA"},
+    "phone": "+1 555 0100",
+    "email": "hello@example.test",
+    "hours": [{"day": "Mon–Fri", "open": "09:00", "close": "17:00"}, {"day": "Sat", "open": "10:00", "close": "14:00"}],
+    "showMap": true,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=abc"
+  }
+}

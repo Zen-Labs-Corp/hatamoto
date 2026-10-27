@@ -1,0 +1,20 @@
+.hm-contact-form { max-width: 40rem; }
+.hm-contact-form--split { max-width: var(--hm-container); display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+.hm-contact-form__subheading { color: var(--ht-fg-muted); }
+.hm-form { display: grid; gap: 1rem; }
+.hm-form__field { display: grid; gap: 0.35rem; }
+.hm-form__label, .hm-form__group legend { font-weight: 600; }
+.hm-form input[type="text"], .hm-form input[type="email"], .hm-form input[type="tel"], .hm-form textarea, .hm-form select {
+  width: 100%; padding: 0.6rem 0.75rem; font: inherit; color: inherit; background: var(--hm-bg);
+  border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md);
+}
+.hm-form__group { border: 0; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+.hm-form__check { display: flex; gap: 0.5rem; align-items: baseline; }
+.hm-form__help { color: var(--ht-fg-muted); }
+.hm-form__submit { justify-self: start; cursor: pointer; font: inherit; font-size: 0.875rem; font-weight: 500; }
+.hm-form__captcha { min-height: 1px; }
+.hm-form__error { padding: 0.75rem 1rem; border-radius: var(--hm-radius-md); border: 1px solid var(--ht-line); }
+.hm-form__success { padding: 0.75rem 1rem; border-radius: var(--hm-radius-md); background: var(--ht-surface-2); border: 1px solid var(--ht-line); }
+/* Honeypot: off-screen, not display:none, so naive bots still fill it. */
+.hm-form__hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+@media (max-width: 48rem) { .hm-contact-form--split { grid-template-columns: 1fr; } }

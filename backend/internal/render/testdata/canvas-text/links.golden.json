@@ -1,0 +1,387 @@
+{
+  "nodes": [
+    {
+      "index": 0,
+      "tag": "span",
+      "text": "Laborum"
+    },
+    {
+      "index": 1,
+      "tag": "h2",
+      "text": "Anim aute magna pariatur."
+    },
+    {
+      "index": 2,
+      "tag": "p",
+      "text": "Qui proident sint est consequat Consectetur Sit."
+    },
+    {
+      "index": 3,
+      "tag": "h4",
+      "text": "Anim ipsum"
+    },
+    {
+      "index": 4,
+      "tag": "a",
+      "text": "Tempor Qui"
+    },
+    {
+      "index": 5,
+      "tag": "a",
+      "text": "Pariatur Non"
+    },
+    {
+      "index": 6,
+      "tag": "a",
+      "text": "Proident Sed"
+    },
+    {
+      "index": 7,
+      "tag": "a",
+      "text": "Dolore Sit"
+    },
+    {
+      "index": 8,
+      "tag": "a",
+      "text": "Cupidatat Est"
+    },
+    {
+      "index": 9,
+      "tag": "h4",
+      "text": "SED"
+    },
+    {
+      "index": 10,
+      "tag": "a",
+      "text": "QUI Proident"
+    },
+    {
+      "index": 11,
+      "tag": "a",
+      "text": "Excepteur EST"
+    },
+    {
+      "index": 12,
+      "tag": "a",
+      "text": "Incididunt QUI"
+    },
+    {
+      "index": 13,
+      "tag": "h4",
+      "text": "Sit \u0026 Non"
+    },
+    {
+      "index": 14,
+      "tag": "a",
+      "text": "Est Veniam"
+    },
+    {
+      "index": 15,
+      "tag": "a",
+      "text": "Aliquip"
+    },
+    {
+      "index": 16,
+      "tag": "a",
+      "text": "Voluptate"
+    }
+  ],
+  "edits": [
+    {
+      "index": 0,
+      "expect": "Laborum",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Anim aute magna pariatur."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Qui proident sint est consequat Consectetur Sit."
+        },
+        {
+          "index": 3,
+          "tag": "h4",
+          "text": "Anim ipsum"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Tempor Qui"
+        },
+        {
+          "index": 5,
+          "tag": "a",
+          "text": "Pariatur Non"
+        },
+        {
+          "index": 6,
+          "tag": "a",
+          "text": "Proident Sed"
+        },
+        {
+          "index": 7,
+          "tag": "a",
+          "text": "Dolore Sit"
+        },
+        {
+          "index": 8,
+          "tag": "a",
+          "text": "Cupidatat Est"
+        },
+        {
+          "index": 9,
+          "tag": "h4",
+          "text": "SED"
+        },
+        {
+          "index": 10,
+          "tag": "a",
+          "text": "QUI Proident"
+        },
+        {
+          "index": 11,
+          "tag": "a",
+          "text": "Excepteur EST"
+        },
+        {
+          "index": 12,
+          "tag": "a",
+          "text": "Incididunt QUI"
+        },
+        {
+          "index": 13,
+          "tag": "h4",
+          "text": "Sit \u0026 Non"
+        },
+        {
+          "index": 14,
+          "tag": "a",
+          "text": "Est Veniam"
+        },
+        {
+          "index": 15,
+          "tag": "a",
+          "text": "Aliquip"
+        },
+        {
+          "index": 16,
+          "tag": "a",
+          "text": "Voluptate"
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "expect": "Cupidatat Est",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Laborum"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Anim aute magna pariatur."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Qui proident sint est consequat Consectetur Sit."
+        },
+        {
+          "index": 3,
+          "tag": "h4",
+          "text": "Anim ipsum"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Tempor Qui"
+        },
+        {
+          "index": 5,
+          "tag": "a",
+          "text": "Pariatur Non"
+        },
+        {
+          "index": 6,
+          "tag": "a",
+          "text": "Proident Sed"
+        },
+        {
+          "index": 7,
+          "tag": "a",
+          "text": "Dolore Sit"
+        },
+        {
+          "index": 8,
+          "tag": "a",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 9,
+          "tag": "h4",
+          "text": "SED"
+        },
+        {
+          "index": 10,
+          "tag": "a",
+          "text": "QUI Proident"
+        },
+        {
+          "index": 11,
+          "tag": "a",
+          "text": "Excepteur EST"
+        },
+        {
+          "index": 12,
+          "tag": "a",
+          "text": "Incididunt QUI"
+        },
+        {
+          "index": 13,
+          "tag": "h4",
+          "text": "Sit \u0026 Non"
+        },
+        {
+          "index": 14,
+          "tag": "a",
+          "text": "Est Veniam"
+        },
+        {
+          "index": 15,
+          "tag": "a",
+          "text": "Aliquip"
+        },
+        {
+          "index": 16,
+          "tag": "a",
+          "text": "Voluptate"
+        }
+      ]
+    },
+    {
+      "index": 16,
+      "expect": "Voluptate",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Laborum"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Anim aute magna pariatur."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Qui proident sint est consequat Consectetur Sit."
+        },
+        {
+          "index": 3,
+          "tag": "h4",
+          "text": "Anim ipsum"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Tempor Qui"
+        },
+        {
+          "index": 5,
+          "tag": "a",
+          "text": "Pariatur Non"
+        },
+        {
+          "index": 6,
+          "tag": "a",
+          "text": "Proident Sed"
+        },
+        {
+          "index": 7,
+          "tag": "a",
+          "text": "Dolore Sit"
+        },
+        {
+          "index": 8,
+          "tag": "a",
+          "text": "Cupidatat Est"
+        },
+        {
+          "index": 9,
+          "tag": "h4",
+          "text": "SED"
+        },
+        {
+          "index": 10,
+          "tag": "a",
+          "text": "QUI Proident"
+        },
+        {
+          "index": 11,
+          "tag": "a",
+          "text": "Excepteur EST"
+        },
+        {
+          "index": 12,
+          "tag": "a",
+          "text": "Incididunt QUI"
+        },
+        {
+          "index": 13,
+          "tag": "h4",
+          "text": "Sit \u0026 Non"
+        },
+        {
+          "index": 14,
+          "tag": "a",
+          "text": "Est Veniam"
+        },
+        {
+          "index": 15,
+          "tag": "a",
+          "text": "Aliquip"
+        },
+        {
+          "index": 16,
+          "tag": "a",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        }
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "index": 0,
+      "expect": "wrong",
+      "value": "x",
+      "reason": "stale"
+    },
+    {
+      "index": 999,
+      "expect": "",
+      "value": "x",
+      "reason": "range"
+    },
+    {
+      "index": 0,
+      "expect": "Laborum",
+      "value": "  ",
+      "reason": "blank"
+    }
+  ]
+}

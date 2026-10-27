@@ -1,0 +1,5 @@
+{{/* Fields of the invite form (dialog and /new page): intro, email, role and the password alternative. Data: InviteForm, Roles. */}}
+{{define "hm/form-invite"}}<p class="hm-muted">They get a link to choose their own password.</p>
+{{template "hm/field" dict "ID" "invite-email" "Name" "email" "Label" "Email" "Type" "email" "Value" .InviteForm.Email "Required" true "Error" .InviteForm.Error "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "invite-role" "Name" "role" "Label" "Role" "Control" "select" "Options" .Roles "Help" "Editors manage content. Owners also manage users and settings."}}
+<p class="hm-invite__alt">{{template "hm/button" (dict "Label" "Add with a password instead" "Variant" "ghost" "Href" (adminPath "settings" "users" "new") "Attrs" (attrmap "data-hm-carry" "invite-email"))}}</p>{{end}}

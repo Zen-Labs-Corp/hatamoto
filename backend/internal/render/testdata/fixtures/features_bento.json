@@ -1,0 +1,14 @@
+{
+  "type": "features", "id": "sec-features-bento", "title": "Features",
+  "content": {
+    "variant": "bento",
+    "eyebrow": "Platform",
+    "heading": "Built for structured content",
+    "subheading": "Eight cells, one grid.",
+    "features": [
+      {"number": "01", "category": "Schema", "title": "Schema-first", "description": "Every type declares its fields.", "tags": "JSON Schema · Go"},
+      {"number": "02", "category": "Render", "title": "Server rendered", "description": "Fast pages with clean markup."},
+      {"number": "07", "category": "Analytics", "title": "Agent analytics", "description": "Who reads your pages.", "tags": "logs · reports", "badge": "In development"}
+    ]
+  }
+}

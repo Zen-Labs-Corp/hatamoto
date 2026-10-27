@@ -1,0 +1,19 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Set up your site</h1>
+<p class="hm-muted">Create the owner account. This screen only exists until the first account is made.</p>
+{{template "hm/formerrors" dict "Errors" .Errors}}
+{{if not .CodeHint}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "No setup code is active")}}Restart the server to get one, or run:
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "setup-command" "Name" "command" "Label" "Command" "Value" "hatamoto user create" "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "setup-command"))}}</div>{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{adminPath}}/setup" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "code" "Name" "code" "Label" "Setup code" "Value" .Code "Required" true "Help" "Find it in the server log (\"setup code\"), or the value of HATAMOTO_SETUP_CODE." "Error" .CodeErr "Attrs" (cond .CodeHint (attrmap "autocomplete" "off" "autofocus" "autofocus") (attrmap "autocomplete" "off" "autofocus" "autofocus" "disabled" "disabled"))}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" .NameErr "Attrs" (cond .CodeHint (attrmap "autocomplete" "name") (attrmap "autocomplete" "name" "disabled" "disabled"))}}
+{{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Email" "Type" "email" "Value" .Email "Required" true "Error" .EmailErr "Attrs" (cond .CodeHint (attrmap "autocomplete" "username") (attrmap "autocomplete" "username" "disabled" "disabled"))}}
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Password" "Type" "password" "Required" true "Help" "At least 12 characters." "Error" .PassErr "Attrs" (cond .CodeHint (attrmap "autocomplete" "new-password" "minlength" "12") (attrmap "autocomplete" "new-password" "minlength" "12" "disabled" "disabled"))}}
+{{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the password" "Type" "password" "Required" true "Error" .MatchErr "Attrs" (cond .CodeHint (attrmap "autocomplete" "new-password" "minlength" "12") (attrmap "autocomplete" "new-password" "minlength" "12" "disabled" "disabled"))}}
+{{template "hm/foot"}}
+{{template "hm/button" (dict "Label" "Create account" "Variant" "primary" "Type" "submit" "Attrs" (cond .CodeHint (attrmap) (attrmap "disabled" "disabled")))}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

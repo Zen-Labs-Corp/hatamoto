@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Pricing card",
+    "hint": "A plan with a price and a list of features inside",
+    "children": true,
+    "default": {"plan": "Starter", "price": "$9", "period": "per month"}
+  },
+  "properties": {
+    "plan": {"type": "string", "maxLength": 60, "x-hm-bind": "text"},
+    "price": {"type": "string", "maxLength": 20, "x-hm-bind": "text"},
+    "period": {"type": "string", "maxLength": 40},
+    "hidden": {"type": "boolean"}
+  }
+}

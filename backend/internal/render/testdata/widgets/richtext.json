@@ -1,0 +1,3 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"r1","t":"richtext","p":{"html":"<p>Hello <strong>world</strong> <a href=\"/x\">link</a></p><script>alert(1)</script><p onclick=\"x()\">Click</p>"}}
+]}]}

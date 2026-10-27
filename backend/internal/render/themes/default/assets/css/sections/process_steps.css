@@ -1,0 +1,19 @@
+.hm-process { max-width: 52rem; }
+.hm-process__eyebrow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 1rem; }
+.hm-process__subheading { color: var(--ht-fg-muted); }
+.hm-process__steps { list-style: none; counter-reset: hm-step; margin: 1.5rem 0 0; padding: 0; display: grid; gap: 1.25rem; }
+.hm-process__step { counter-increment: hm-step; display: grid; grid-template-columns: 2.5rem 1fr; gap: 1rem; }
+.hm-process__marker {
+  display: inline-flex; align-items: center; justify-content: center; height: 2.5rem; min-width: 2.5rem; padding: 0 0.4rem;
+  border-radius: 999px; border: 1px solid var(--hm-hair); background: var(--hm-bg); color: var(--hm-text); font-family: var(--hm-font-mono); font-size: 0.8125rem; font-weight: 500;
+}
+.hm-process__marker:empty::before { content: counter(hm-step); }
+.hm-process__title { margin-bottom: 0.25rem; }
+.hm-process__description { color: var(--ht-fg-muted); }
+
+/* cards: adds a command box per step; keeps the .hm-container width cap like every other section. */
+.hm-process--cards { max-width: var(--hm-container); }
+.hm-process--cards .hm-process__steps { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1px; background: var(--hm-hair); border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); overflow: hidden; }
+.hm-process--cards .hm-process__step { display: block; background: var(--hm-bg); padding: 1.75rem; }
+.hm-process--cards .hm-process__marker { margin-bottom: 1rem; border-radius: var(--hm-radius-sm); }
+.hm-process--cards .hm-code { margin-top: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-md); background: var(--hm-kasumi); }

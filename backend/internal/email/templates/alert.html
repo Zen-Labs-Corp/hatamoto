@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.AlertName}} - Alert Notification</title>
+    <style>
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; }
+        body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5;">
+        <tr>
+            <td style="padding: 40px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <!-- Logo Header -->
+                    <tr>
+                        <td style="padding: 24px 32px; background-color: #1e3a5f; border-radius: 8px 8px 0 0;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td>
+                                        <span style="font-size: 24px; font-weight: 700; color: #ffffff;">{{.SiteName}}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Alert Type Badge -->
+                    <tr>
+                        <td style="padding: 32px 32px 0;">
+                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td>
+                                        {{if eq .AlertType "Score Drop"}}
+                                        <span style="display: inline-block; padding: 6px 14px; background-color: #fef2f2; color: #dc2626; border-radius: 9999px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #fecaca;">
+                                            Score Drop Alert
+                                        </span>
+                                        {{else if eq .AlertType "Threshold Breach"}}
+                                        <span style="display: inline-block; padding: 6px 14px; background-color: #fffbeb; color: #d97706; border-radius: 9999px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #fde68a;">
+                                            Threshold Alert
+                                        </span>
+                                        {{else if eq .AlertType "Competitor Mention"}}
+                                        <span style="display: inline-block; padding: 6px 14px; background-color: #f0fdf4; color: #16a34a; border-radius: 9999px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #bbf7d0;">
+                                            Competitor Alert
+                                        </span>
+                                        {{else}}
+                                        <span style="display: inline-block; padding: 6px 14px; background-color: #eff6ff; color: #2563eb; border-radius: 9999px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #bfdbfe;">
+                                            {{.AlertType}}
+                                        </span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Alert Title -->
+                    <tr>
+                        <td style="padding: 20px 32px 24px;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #111827; line-height: 1.2;">
+                                {{.AlertName}}
+                            </h1>
+                            {{if .EntityName}}
+                            <p style="margin: 8px 0 0; font-size: 16px; color: #6b7280;">
+                                Entity: <strong style="color: #374151;">{{.EntityName}}</strong>
+                            </p>
+                            {{end}}
+                        </td>
+                    </tr>
+
+                    <!-- Metric Display Card -->
+                    <tr>
+                        <td style="padding: 0 32px 24px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <!-- Current Value -->
+                                                <td style="width: 50%; vertical-align: top;">
+                                                    <p style="margin: 0 0 6px; font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
+                                                        {{.MetricName}}
+                                                    </p>
+                                                    <p style="margin: 0; font-size: 40px; font-weight: 700; color: {{if .IsScoreDrop}}#dc2626{{else}}#111827{{end}}; line-height: 1;">
+                                                        {{printf "%.1f" .MetricValue}}
+                                                    </p>
+                                                </td>
+
+                                                {{if and .IsScoreDrop (gt .ChangePercent 0.0)}}
+                                                <!-- Change Indicator -->
+                                                <td style="width: 50%; text-align: right; vertical-align: top;">
+                                                    <p style="margin: 0 0 6px; font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
+                                                        Change
+                                                    </p>
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #dc2626; line-height: 1;">
+                                                        <span style="font-size: 20px;">&#8595;</span>
+                                                        {{printf "%.1f" .ChangePercent}}%
+                                                    </p>
+                                                </td>
+                                                {{end}}
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Message -->
+                    <tr>
+                        <td style="padding: 0 32px 24px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #fefce8; border-radius: 8px; border-left: 4px solid #eab308;">
+                                <tr>
+                                    <td style="padding: 16px 20px;">
+                                        <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #713f12;">
+                                            {{.TriggerMessage}}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Timestamp -->
+                    <tr>
+                        <td style="padding: 0 32px 32px;">
+                            <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                                <strong>Triggered:</strong> {{.TriggeredAt.Format "January 2, 2006 at 3:04 PM MST"}}
+                            </p>
+                        </td>
+                    </tr>
+
+                    {{if .AdminURL}}
+                    <!-- Call to Action -->
+                    <tr>
+                        <td style="padding: 0 32px 32px;">
+                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="border-radius: 8px; background-color: #2563eb;">
+                                        <a href="{{.AdminURL}}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">
+                                            View in Dashboard &rarr;
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    {{end}}
+
+                    <!-- Recommendations Section -->
+                    <tr>
+                        <td style="padding: 0 32px 32px;">
+                            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #111827;">
+                                Recommended Actions
+                            </h3>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                {{if .IsScoreDrop}}
+                                <tr>
+                                    <td style="padding: 12px 16px; background-color: #f9fafb; border-radius: 8px; margin-bottom: 8px;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td style="width: 24px; vertical-align: top; padding-right: 12px;">
+                                                    <span style="font-size: 16px;">1.</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                                                        <strong>Review recent content changes</strong> that may have affected your AI visibility score.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr><td style="height: 8px;"></td></tr>
+                                <tr>
+                                    <td style="padding: 12px 16px; background-color: #f9fafb; border-radius: 8px;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td style="width: 24px; vertical-align: top; padding-right: 12px;">
+                                                    <span style="font-size: 16px;">2.</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                                                        <strong>Check competitor activity</strong> to see if they've improved their positioning.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr><td style="height: 8px;"></td></tr>
+                                <tr>
+                                    <td style="padding: 12px 16px; background-color: #f9fafb; border-radius: 8px;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td style="width: 24px; vertical-align: top; padding-right: 12px;">
+                                                    <span style="font-size: 16px;">3.</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                                                        <strong>Update your GEO implementations</strong> with fresh, authoritative content.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {{else}}
+                                <tr>
+                                    <td style="padding: 12px 16px; background-color: #f9fafb; border-radius: 8px;">
+                                        <p style="margin: 0; font-size: 14px; color: #374151;">
+                                            Review your AI visibility dashboard to understand the context of this alert and take appropriate action.
+                                        </p>
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td>
+                                        <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; text-align: center;">
+                                            This alert was triggered by your <strong>{{.SiteName}}</strong>.
+                                        </p>
+                                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                                            You can manage your alert preferences in the
+                                            <a href="{{.AdminURL}}/settings/alerts" style="color: #2563eb; text-decoration: none;">dashboard settings</a>.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Unsubscribe Footer -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 24px auto 0;">
+                    <tr>
+                        <td style="text-align: center;">
+                            <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                You're receiving this email because you have alert notifications enabled.
+                                <br>
+                                <a href="#" style="color: #6b7280; text-decoration: underline;">Unsubscribe</a> |
+                                <a href="#" style="color: #6b7280; text-decoration: underline;">Manage Preferences</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

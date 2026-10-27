@@ -1,0 +1,2 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/empty" (dict "H1" true "Icon" .Icon "Code" .Code "Title" .Heading "Body" .Message "Actions" .Actions)}}{{end}}{{end}}

@@ -1,0 +1,2 @@
+/* tabpanel: one panel; its label shows only until the tabs island builds the tablist */
+.hm-tp__t { margin: 0 0 var(--hm-space-2, 0.5rem); font-weight: 600; }

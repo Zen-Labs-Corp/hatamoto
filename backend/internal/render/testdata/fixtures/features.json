@@ -1,0 +1,13 @@
+{
+  "type": "features", "id": "sec-features", "title": "Features",
+  "content": {
+    "headline": "Everything you need to publish",
+    "subheading": "Structured content, fast pages.",
+    "columns": 3,
+    "items": [
+      {"icon": "⚡", "title": "Fast by default", "description": "Pages are rendered on the server and cached."},
+      {"icon": "🔍", "title": "Search friendly", "description": "Clean markup and structured data.", "link": "/docs/seo", "linkText": "Read more"},
+      {"title": "Bad <b>link</b>", "description": "Unsafe link falls back to #.", "link": "javascript:alert(1)"}
+    ]
+  }
+}

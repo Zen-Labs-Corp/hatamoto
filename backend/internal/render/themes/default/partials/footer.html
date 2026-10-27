@@ -1,0 +1,14 @@
+{{define "footer"}}<footer class="hm-footer">
+<div class="hm-container">
+{{if .Site.FooterNav}}<nav class="hm-footer__cols" aria-label="Footer">
+{{range .Site.FooterNav}}<div class="hm-footer__col">
+{{if .Children}}<p class="hm-footer__title">{{.Label}}</p>
+<ul>{{range .Children}}<li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li>{{end}}</ul>{{else}}<ul><li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li></ul>{{end}}
+</div>
+{{end}}</nav>
+{{end}}{{if .Site.SocialLinks}}<ul class="hm-social">
+{{range .Site.SocialLinks}}<li><a href="{{cta .URL}}" target="_blank" rel="noopener noreferrer">{{.Label}}</a></li>
+{{end}}</ul>
+{{end}}<p class="hm-footer__legal">&copy; {{year}} {{.Site.Name}}</p>
+</div>
+</footer>{{end}}

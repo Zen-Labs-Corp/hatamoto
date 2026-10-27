@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Table",
+    "hint": "Paste rows from a spreadsheet; the first row can be the header",
+    "group": "Content",
+    "order": 50,
+    "default": {"rows": "Name\tValue\nOne\t1\nTwo\t2", "header": true}
+  },
+  "properties": {
+    "rows": {"type": "string", "maxLength": 100000, "x-hm-widget": "textarea"},
+    "header": {"type": "boolean"},
+    "caption": {"x-hm-bind": "text", "type": "string", "maxLength": 300},
+    "hidden": {"type": "boolean"}
+  }
+}

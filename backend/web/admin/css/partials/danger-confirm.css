@@ -1,0 +1,4 @@
+/* DangerConfirm. Token values only; the contract is components.json. */
+.hm-danger-confirm { font-size: var(--text-sm); padding-left: 0; padding-right: 0; border-top-left-radius: 0; }
+/* The card stays grey; danger shows in the title, like .hm-dialog--danger. */
+.hm-danger-confirm__card .hm-card__title { color: var(--color-danger); }

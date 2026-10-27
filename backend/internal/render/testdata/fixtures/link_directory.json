@@ -1,0 +1,12 @@
+{
+  "type": "link_directory", "id": "sec-link-directory", "title": "Directory",
+  "content": {
+    "eyebrow": "Explore",
+    "heading": "Site directory",
+    "subheading": "Find what you need.",
+    "columns": [
+      {"heading": "Product", "links": [{"text": "Features", "href": "/features"}, {"text": "Pricing", "href": "/pricing"}]},
+      {"heading": "Company", "links": [{"text": "About", "href": "/about"}, {"text": "Blog", "href": "https://blog.example.com"}, {"text": "Bad", "href": "javascript:alert(1)"}]}
+    ]
+  }
+}

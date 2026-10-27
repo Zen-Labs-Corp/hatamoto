@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Columns",
+    "hint": "Two to six columns that stack on small screens",
+    "group": "Layout",
+    "order": 10,
+    "children": true,
+    "default": {"count": 2},
+    "seed": [{"t": "container"}, {"t": "container"}]
+  },
+  "properties": {
+    "count": {"type": "integer", "minimum": 2, "maximum": 6},
+    "hidden": {"type": "boolean"}
+  }
+}

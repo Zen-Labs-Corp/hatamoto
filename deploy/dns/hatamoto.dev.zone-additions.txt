@@ -1,0 +1,44 @@
+; DNS records for hatamoto.dev (G6/G7), as they stand. DNS is hosted at Cloudflare; enter
+; each as a record in the dashboard (DNS > Records), or `flarectl`/API. Mail is Google
+; Workspace (not Cloudflare Email Routing). Mail records are DNS only (grey cloud).
+; Do not touch existing A/AAAA/CNAME records. deploy/dns/check.sh verifies all of this.
+;
+; MX: ONLY Google's. DELETE any other MX (a Cloudflare route*.mx.cloudflare.net left over
+; from Email Routing, or a "_dc-mx.<id>.hatamoto.dev." that resolves to the origin server):
+; check.sh fails on any non-Google MX.
+hatamoto.dev.          300 IN MX    1  aspmx.l.google.com.
+hatamoto.dev.          300 IN MX    5  alt1.aspmx.l.google.com.
+hatamoto.dev.          300 IN MX    5  alt2.aspmx.l.google.com.
+hatamoto.dev.          300 IN MX    10 alt3.aspmx.l.google.com.
+hatamoto.dev.          300 IN MX    10 alt4.aspmx.l.google.com.
+
+; --- SPF (one TXT record at the apex) ---
+; Google sends and receives; ~all (softfail) is what Google documents. The app itself may
+; also send (SMTP_FROM): add that provider's include BEFORE ~all (owner runbook, G6 step 0).
+; Keep exactly ONE SPF TXT record.
+hatamoto.dev.          300 IN TXT   "v=spf1 include:_spf.google.com ~all"
+
+; --- DKIM (2048-bit, generated in Workspace Admin > Apps > Gmail > Authenticate email) ---
+; The value is the one Google shows; "p=..." below is a placeholder, never copy it.
+google._domainkey.hatamoto.dev. 300 IN TXT "v=DKIM1; k=rsa; p=<public key from the Admin console>"
+
+; --- DMARC. rua mailbox: dmarc@hatamoto.dev (an alias of a@hatamoto.dev, runbook G7) ---
+; Start at p=none: nothing is rejected or quarantined while the aggregate reports (rua) show
+; whether any legitimate sender (the app's SMTP provider, a forwarder) fails SPF/DKIM.
+; After 2 weeks of clean reports change p=none to p=quarantine (later p=reject).
+_dmarc.hatamoto.dev.   300 IN TXT   "v=DMARC1; p=none; rua=mailto:dmarc@hatamoto.dev; fo=1"
+; (after 2 clean weeks: "v=DMARC1; p=quarantine; rua=mailto:dmarc@hatamoto.dev; fo=1")
+
+; --- CAA: Let's Encrypt (Caddy's ACME CA) may issue; no wildcard certificates; violations reported ---
+; The origin certificate comes from Caddy (Let's Encrypt; Caddy falls back to ZeroSSL if it
+; fails: add `0 issue "sectigo.com"` only if you see that happen). The zone is proxied by
+; Cloudflare, whose edge certificates come from its own CAs; Cloudflare adds those CAA
+; records itself once any CAA exists, so extra issue lines in the live zone are expected.
+; After changing CAA, confirm in the dashboard (SSL/TLS > Edge Certificates) that the
+; certificate still shows Active.
+hatamoto.dev.          300 IN CAA 0 issue "letsencrypt.org"
+hatamoto.dev.          300 IN CAA 0 issuewild ";"
+hatamoto.dev.          300 IN CAA 0 iodef "mailto:security@hatamoto.dev"
+
+; --- DNSSEC: enabled at Cloudflare (DNS > Settings > DNSSEC). The DS record shown there must
+; be added at the registrar; until then check.sh prints "note DS: pending". ---

@@ -1,0 +1,14 @@
+{{define "section-features"}}{{$c := .Content}}<div class="hm-container hm-features hm-features--{{default "cards" $c.variant}} hm-features--cols-{{default 3 $c.columns}}">
+  {{if eq (default "cards" $c.variant) "bento"}}{{template "section-head" .}}{{else if or $c.heading $c.subheading}}<header class="hm-features__header">
+    {{if $c.heading}}<h2 class="hm-features__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-features__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.features}}<ul class="hm-features__list">
+    {{range $i, $f := $c.features}}<li class="hm-features__item">{{with $f.number}}<span class="hm-features__number" {{hmf "features" $i "number"}}>{{.}}</span>{{end}}{{with $f.category}}<span class="hm-features__category" {{hmf "features" $i "category"}}>{{.}}</span>{{end}}{{with $f.badge}}<span class="hm-features__badge" {{hmf "features" $i "badge"}}>{{.}}</span>{{end}}
+      {{if $f.icon}}<span class="hm-features__icon" aria-hidden="true" {{hmf "features" $i "icon"}}>{{$f.icon}}</span>{{end}}
+      <h3 class="hm-features__title" {{hmf "features" $i "title"}}>{{$f.title}}</h3>
+      {{if $f.description}}<p class="hm-features__description" {{hmf "features" $i "description"}}>{{$f.description}}</p>{{end}}
+      {{if $f.link}}<a class="hm-features__link" href="{{cta $f.link}}" {{hmf "features" $i "linkText"}}>{{default "Learn more" $f.linkText}}</a>{{end}}{{with $f.tags}}<div class="hm-features__tags" {{hmf "features" $i "tags"}}>{{.}}</div>{{end}}
+    </li>{{end}}
+  </ul>{{end}}
+</div>{{end}}

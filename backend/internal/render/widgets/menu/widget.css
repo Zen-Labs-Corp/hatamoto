@@ -1,0 +1,5 @@
+/* menu: a plain list of links, nested lists indented */
+.hm-menu__l, .hm-menu__s { list-style: none; margin: 0; padding: 0; }
+.hm-menu__l { display: flex; flex-wrap: wrap; gap: var(--hm-space-2, 0.5rem) var(--hm-space-4, 1rem); }
+.hm-menu__s { padding-left: var(--hm-space-3, 0.75rem); }
+.hm-ph { margin: 0; padding: var(--hm-space-3, 0.75rem); border: 1px dashed var(--hm-border, #bbb); color: var(--hm-muted-text, #555); }

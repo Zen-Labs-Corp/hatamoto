@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{if .DeliveryOff}}{{template "hm/callout" (dict "Kind" "warning" "ID" "webhooks-off" "Body" "Webhook delivery is switched off on this server. Events are still queued, but nothing is sent until the background worker runs.")}}{{end}}
+{{template "hm/table" .Table}}
+</section>
+{{end}}{{end}}

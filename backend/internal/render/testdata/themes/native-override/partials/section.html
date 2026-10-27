@@ -1,0 +1,1 @@
+{{define "section"}}{{if .Comment}}{{.CommentHTML}}{{else}}<div class="custom-wrap" data-theme-section="{{.Type}}">{{template "section-dispatch" .}}</div>{{end}}{{end}}

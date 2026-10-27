@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Inbound links") "Description" (printf "%d %s to %s in your content." .Total (cond (eq .Total 1) "link" "links") .Target) "Actions" .Actions "CSRF" $.CSRF}}
+{{template "hm/card-start" dict "ID" "inb"}}{{template "hm/datatable" .Table}}{{template "hm/card-end"}}
+{{end}}{{end}}

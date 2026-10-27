@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "CSRF" $.CSRF}}
+{{template "hm/confirmcard-start" dict "Post" .Post "Hidden" .Hidden "CSRF" $.CSRF}}<p>{{.Message}}</p>{{template "hm/confirmcard-end" dict "Back" .Back "Label" .Label "Danger" .Danger}}
+{{end}}{{end}}

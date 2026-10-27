@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Submission") "CSRF" $.CSRF}}
+<section class="hm-card" aria-labelledby="sub-answers"><div class="hm-card__head"><h2 class="hm-card__title" id="sub-answers">Answers</h2>
+<p class="hm-muted">Received {{.Received}} · {{template "hm/badge" .Status}}</p></div>
+<div class="hm-card__body">
+{{if .Answers}}<dl class="hm-dl">{{range .Answers}}<dt>{{.Label}}</dt><dd>{{if .Value}}{{.Value}}{{else}}<span class="hm-muted">No answer</span>{{end}}</dd>
+{{end}}</dl>{{else}}<p class="hm-muted">This submission holds no answers.</p>{{end}}
+{{if or .Sub.Metadata.PageURL .Sub.Metadata.Referrer}}<dl class="hm-dl">{{if .Sub.Metadata.PageURL}}<dt>Sent from</dt><dd>{{.Sub.Metadata.PageURL}}</dd>{{end}}{{if .Sub.Metadata.Referrer}}<dt>Referrer</dt><dd>{{.Sub.Metadata.Referrer}}</dd>{{end}}</dl>{{end}}
+</div></section>
+{{template "hm/card-start" dict "ID" "sub-status" "Title" "Status"}}{{$cur := .Sub.Status}}{{template "hm/segmented" (dict "Label" "Status" "Action" (printf "%s/%s/status" .Base .Sub.ID) "Name" "status" "CSRF" $.CSRF "Items" (list (dict "Label" "New" "Value" "new" "Pressed" (eq $cur "new")) (dict "Label" "Read" "Value" "read" "Pressed" (eq $cur "read")) (dict "Label" "Archived" "Value" "archived" "Pressed" (eq $cur "archived")) (dict "Label" "Spam" "Value" "spam" "Pressed" (eq $cur "spam"))))}}{{template "hm/card-end"}}
+{{if .MailOn}}<form method="post" action="{{.Base}}/{{.Sub.ID}}/email" class="hm-cardform">
+{{template "hm/card-start" dict "ID" "sub-email" "Title" "Email this submission"}}{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "to" "Name" "to" "Label" "Send to" "Value" .MailTo "Required" true "Help" "Up to 10 email addresses, separated by commas." "Error" .MailErr "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Send email" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{else}}{{template "hm/card-start" dict "ID" "sub-email" "Title" "Email this submission"}}<p class="hm-muted">Email is not set up on this server. <a href="{{adminPath}}/settings/email">See the email settings</a>.</p>{{template "hm/card-end"}}{{end}}
+<div class="hm-row">{{template "hm/button" dict "Label" "Back to submissions" "Href" .ListURL}}{{template "hm/button" dict "Label" "Delete submission" "Variant" "ghost" "Href" (printf "%s/%s/delete" .Base .Sub.ID)}}</div>
+{{end}}{{end}}

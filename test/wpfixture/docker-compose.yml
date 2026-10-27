@@ -1,0 +1,78 @@
+# WordPress fixture for the importer tests (used by CI; run-local.sh is the
+# no-Docker equivalent). Everything is pinned.
+#
+#   test/wpfixture/docker-up.sh           # bring up, seed, print WP_FIXTURE_* variables
+#   docker compose -f test/wpfixture/docker-compose.yml down -v
+name: hatamoto-wpfixture
+
+# wp-config.php reads these at run time, so the wp-cli container needs the same values.
+x-wordpress-env: &wordpress-env
+  WORDPRESS_DB_HOST: db
+  WORDPRESS_DB_USER: wp
+  WORDPRESS_DB_PASSWORD: wp
+  WORDPRESS_DB_NAME: wordpress
+  # Application passwords over plain http are only allowed in a local environment.
+  WORDPRESS_CONFIG_EXTRA: |
+    define('WP_ENVIRONMENT_TYPE', 'local');
+    define('DISABLE_WP_CRON', true);
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+
+services:
+  db:
+    image: mariadb:11.4@sha256:1292844148b311e4ed4300022a996d39083f415a963e970cf47cad1b3b18e3a6
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  wordpress:
+    image: wordpress:7.1.3-php8.4-apache@sha256:309307430abf80009378a63a79df73554a6449b700fac59a991b4959e6dda8ca
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WPFIXTURE_PORT:-8089}:80"
+    environment: *wordpress-env
+    volumes:
+      - wp:/var/www/html
+
+  # Seeds the site and exits. Run by docker-up.sh (`docker compose run --rm wpcli`).
+  wpcli:
+    image: wordpress:cli-2.12.0-php8.4@sha256:668db37ba48bc8d8ec4ca2f22163a1c74d17216c97bf509e327168963a687117
+    profiles: ["seed"]
+    user: "33:33" # www-data of the apache image, so files written here are writable there
+    depends_on:
+      - wordpress
+    environment:
+      <<: *wordpress-env
+      HOME: /tmp
+      WP_URL: http://127.0.0.1:${WPFIXTURE_PORT:-8089}
+      HARD_REWRITE: "1"
+      HERE: /fixture
+      ENV_OUT: /out/wpfixture.env
+    volumes:
+      - wp:/var/www/html
+      - ./:/fixture:ro
+      - ./out:/out
+    working_dir: /var/www/html
+    entrypoint: ["bash", "-c"]
+    command:
+      - |
+        # Bounded waits: a stuck fixture must fail loudly, not hang the job.
+        for i in $(seq 1 90); do [ -f wp-config.php ] && break; sleep 2; done
+        [ -f wp-config.php ] || { echo "wpfixture: wp-config.php never appeared"; exit 1; }
+        # mysqli from PHP itself: wp db check needs a mysql client that may refuse MariaDB's TLS,
+        # and wp eval refuses to run before WordPress is installed.
+        dbok='exit(@mysqli_connect(getenv("WORDPRESS_DB_HOST"), getenv("WORDPRESS_DB_USER"), getenv("WORDPRESS_DB_PASSWORD"), getenv("WORDPRESS_DB_NAME")) ? 0 : 1);'
+        for i in $$(seq 1 90); do php -r "$$dbok" && break; sleep 2; done
+        php -r "$$dbok" || { echo "wpfixture: database never became reachable"; exit 1; }
+        exec bash /fixture/seed.sh
+
+volumes:
+  wp:

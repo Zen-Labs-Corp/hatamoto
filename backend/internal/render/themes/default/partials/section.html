@@ -1,0 +1,1 @@
+{{define "section"}}{{if .Comment}}{{.CommentHTML}}{{else}}<section {{hmsec .}} class="hm-section hm-section--{{.Type}}">{{template "section-dispatch" .}}</section>{{end}}{{end}}

@@ -1,0 +1,21 @@
+{{define "content"}}{{$rel := query (dict "schema" "release" "order" "-attr:version_sort" "limit" 100)}}
+<div class="hm-container hm-listing hm-changelog">
+<header class="hm-listing__header">
+<h1 class="hm-listing__title">{{.Page.Name}}</h1>
+{{with .Page.Description}}<p class="hm-listing__lede">{{.}}</p>
+{{end}}</header>
+{{range $i := $rel.Items}}{{$a := $i.Attrs}}
+<section class="hm-changelog__release" id="{{$a.version}}">
+<h2 class="hm-changelog__version">{{$a.version}}
+{{with $a.channel}}<span class="hm-chip hm-changelog__channel">{{.}}</span>{{end}}
+{{if $a.yanked}}<span class="hm-chip hm-changelog__yanked">yanked</span>{{end}}
+{{with $a.released_at}}<time class="hm-meta hm-changelog__date" datetime="{{.}}">{{formatDate . "2 Jan 2006"}}</time>{{end}}</h2>
+{{with $a.summary}}<p class="hm-changelog__summary">{{.}}</p>{{end}}
+{{/* Each group is an array of strings; a plain string is rendered as sanitised HTML. */}}
+{{with $a.features}}<h3 class="hm-changelog__group">Features</h3>{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
+{{with $a.fixes}}<h3 class="hm-changelog__group">Fixes</h3>{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
+{{if or $a.docs $a.chores}}<h3 class="hm-changelog__group">Docs / Chores</h3>
+{{with $a.docs}}{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
+{{with $a.chores}}{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}{{end}}
+</section>{{end}}
+</div>{{end}}

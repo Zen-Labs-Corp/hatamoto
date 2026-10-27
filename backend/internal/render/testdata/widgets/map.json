@@ -1,0 +1,4 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"m1","t":"map","p":{"query":"1 Main St & Co","image":"/media/map.png","alt":"Map of the office"}},
+  {"id":"m2","t":"map","p":{"query":"Hobart","href":"https://example.org/where"}}
+]}]}

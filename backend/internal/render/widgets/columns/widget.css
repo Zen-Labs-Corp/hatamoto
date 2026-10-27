@@ -1,0 +1,16 @@
+/* columns: N equal columns, fewer on narrow screens */
+.hm-cols {
+  display: grid;
+  gap: var(--hm-space-6, 1.5rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.hm-cols--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hm-cols--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.hm-cols--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.hm-cols--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1024px) {
+  .hm-cols--4, .hm-cols--5, .hm-cols--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .hm-cols, .hm-cols--3, .hm-cols--4, .hm-cols--5, .hm-cols--6 { grid-template-columns: minmax(0, 1fr); }
+}

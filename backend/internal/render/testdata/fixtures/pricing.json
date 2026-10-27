@@ -1,0 +1,17 @@
+{
+  "type": "pricing", "id": "sec-pricing", "title": "Pricing",
+  "content": {
+    "heading": "Simple pricing",
+    "subheading": "Pick a plan.",
+    "items": [
+      {"name": "Starter", "description": "For small sites", "price": 0, "currency": "$", "billingPeriod": "month",
+       "features": [{"text": "1 site"}, {"text": "Community support"}, {"text": "Custom domain", "included": false, "tooltip": "Not in Starter"}],
+       "ctaText": "Start free", "ctaLink": "/signup"},
+      {"name": "Pro", "price": 49.5, "currency": "$", "billingPeriod": "month", "isPopular": true,
+       "features": [{"text": "10 sites"}, {"text": "Priority support"}],
+       "ctaText": "Choose Pro", "ctaLink": "/signup?plan=pro"},
+      {"name": "Enterprise", "description": "Talk to us", "price": null,
+       "features": [{"text": "Unlimited sites"}], "ctaText": "Contact us", "ctaLink": "/contact"}
+    ]
+  }
+}

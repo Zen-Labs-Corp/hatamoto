@@ -1,0 +1,15 @@
+{
+  "x-hm-section": {"title": "Overview", "description": "Eyebrow, heading, body, highlight list and optional image"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "headline": {"type": "string", "title": "Heading", "x-hm-alias": ["heading"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "body": {"type": "string", "title": "Body", "x-hm-field": "richtext"},
+    "items": {"type": "array", "title": "Highlights", "items": {"type": "object", "properties": {
+      "text": {"type": "string", "title": "Text", "x-hm-field": "plaintext"},
+      "bold": {"type": "boolean", "title": "Bold"}
+    }}},
+    "image": {"type": "string", "title": "Image", "x-hm-field": "image"}
+  }
+}

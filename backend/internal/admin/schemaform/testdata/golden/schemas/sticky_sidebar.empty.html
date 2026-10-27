@@ -1,0 +1,27 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheading">Subheading</label>
+<input class="hm-field__control" type="text" id="sf-content-subheading" name="content.subheading" value="" placeholder="Enter Subheading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-body">Body</label>
+<textarea class="hm-field__control" id="sf-content-body" name="content.body" rows="10" data-hm-editor="tiptap">
+</textarea>
+</div>
+<fieldset class="hm-sf-object" id="sf-content-sidebar"><legend class="hm-field__label">Sidebar</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-title" name="content.sidebar.title" value="" placeholder="Enter Title">
+</div><fieldset class="hm-repeater" id="sf-content-sidebar-facts" data-hm-repeater data-path="content.sidebar.facts"><legend class="hm-field__label">Quick facts <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.content.sidebar.facts" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.sidebar.facts" value="1" formnovalidate>Add Quick facts item</button>
+</fieldset>
+<fieldset class="hm-sf-object" id="sf-content-sidebar-cta"><legend class="hm-field__label">Button</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-cta-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-cta-text" name="content.sidebar.cta.text" value="" placeholder="Enter Text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-cta-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-sidebar-cta-url" name="content.sidebar.cta.url" value="" placeholder="Enter URL">
+</div></fieldset>
+</fieldset>
+

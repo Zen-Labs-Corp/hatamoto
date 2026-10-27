@@ -1,0 +1,7 @@
+/* form: fallback layout; a theme's .hm-form rules take over the fields */
+.hm-formw { max-width: 40rem; }
+.hm-formw .hm-form__field { display: flex; flex-direction: column; gap: var(--hm-space-1, 0.25rem); margin-bottom: var(--hm-space-3, 0.75rem); }
+.hm-formw .hm-form__hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.hm-formw .hm-form__captcha { margin-bottom: var(--hm-space-3, 0.75rem); }
+.hm-formw .hm-form__error { color: var(--hm-danger, #b00020); }
+.hm-ph { margin: 0; padding: var(--hm-space-3, 0.75rem); border: 1px dashed var(--hm-border, #bbb); color: var(--hm-muted-text, #555); }

@@ -1,0 +1,7 @@
+{{define "content"}}<article class="post">
+<h1>{{.Attrs.title}}</h1>
+<p class="meta"><time>{{formatDate .PublishedAt "2 January 2006"}}</time> · {{readingTime .Attrs.content}} min read · {{.SchemaSlug}}</p>
+<div class="body">{{sanitisedHTML .Attrs.content}}</div>
+<p class="missing">[{{sanitisedHTML .Attrs.nope}}]</p>
+</article>
+{{end}}

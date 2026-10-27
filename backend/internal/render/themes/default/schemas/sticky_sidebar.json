@@ -1,0 +1,20 @@
+{
+  "x-hm-section": {"title": "Article with sidebar", "description": "Rich-text body next to a sticky facts rail"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "body": {"type": "string", "title": "Body", "x-hm-alias": ["content"], "x-hm-field": "richtext"},
+    "sidebar": {"type": "object", "title": "Sidebar", "properties": {
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "facts": {"type": "array", "title": "Quick facts", "x-hm-alias": ["quick_facts"], "items": {"type": "object", "properties": {
+        "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+        "value": {"type": "string", "title": "Value", "x-hm-field": "plaintext"}
+      }}},
+      "cta": {"type": "object", "title": "Button", "properties": {
+        "text": {"type": "string", "title": "Text", "default": "Contact us", "x-hm-field": "plaintext"},
+        "url": {"type": "string", "title": "URL", "x-hm-field": "url"}
+      }}
+    }}
+  }
+}

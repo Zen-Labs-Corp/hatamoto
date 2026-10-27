@@ -1,0 +1,28 @@
+/* hero — also defines .hm-btn--secondary, reused by other sections. */
+.hm-btn--secondary { background: var(--hm-bg); color: var(--hm-text); border-color: var(--hm-hair); }
+.hm-btn--secondary:hover { border-color: var(--hm-text); filter: none; }
+.hm-hero { display: grid; gap: 3.5rem; align-items: center; }
+.hm-section--hero { padding-block: clamp(3.5rem, 7vw, 6rem); border-top: 0; }
+.hm-hero__headline { max-width: 16ch; margin: 0; }
+.hm-hero--centered { text-align: center; justify-items: center; }
+.hm-hero--centered .hm-hero__body { max-width: 48rem; }
+.hm-hero--centered .hm-hero__headline { margin-inline: auto; }
+.hm-hero--split { grid-template-columns: 1fr 1fr; }
+.hm-hero__eyebrow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 1rem; }
+.hm-hero__subheadline { max-width: 68ch; margin-top: 1.5rem; font-size: 1.125rem; line-height: 1.6; color: var(--hm-hai); }
+.hm-hero--centered .hm-hero__subheadline { margin-inline: auto; }
+.hm-hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; align-items: center; }
+.hm-hero--centered .hm-hero__actions { justify-content: center; }
+.hm-hero__image { display: block; width: 100%; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); }
+@media (max-width: 48rem) { .hm-hero--split { grid-template-columns: 1fr; } }
+
+.hm-hero__chip { display: inline-block; margin-top: 1.25rem; padding: 0.4rem 0.75rem; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-sm); background: var(--hm-kasumi); font-size: 0.8125rem; color: var(--hm-sumi-soft); }
+.hm-hero__media--panel { min-width: 0; text-align: left; }
+
+/* optional strip (stripLabel + stripItems): label on its own row, items wrapping under it. */
+.hm-hero__strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.75rem; margin-top: 2rem; }
+.hm-hero--centered .hm-hero__strip { justify-content: center; }
+.hm-hero__strip-label { flex: 0 0 100%; font-family: var(--hm-font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-hero__strip-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; }
+.hm-hero--centered .hm-hero__strip-items { justify-content: center; }
+.hm-hero__strip-items li { font-size: 0.9375rem; color: var(--hm-text); }

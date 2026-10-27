@@ -1,0 +1,53 @@
+{{define "hm/builderoutline"}}{{with .Data}}<section class="hm-bo" aria-labelledby="bo-title">
+<h2 class="hm-bo__h" id="bo-title">Page outline</h2>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Conflict}}{{template "hm/flash" (dict "Kind" "error" "Message" . "Inline" true)}}{{end}}
+{{with .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.}}{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" id="hm-bo" novalidate>
+{{template "hm/csrf" $}}
+<input type="hidden" name="version" value="{{.Version}}">
+<input type="hidden" name="doc" value="{{.Doc}}">
+{{if .Outline}}<input type="hidden" name="outline" value="1">{{end}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "bo-name" "Name" "name" "Label" "Page title" "Value" .Name "Attrs" (attrmap "maxlength" "255" "autocomplete" "off")}}
+{{if .Nodes}}<div class="hm-bo__tree">{{range .Nodes}}{{template "hm/builderoutlinenode" dict "N" . "Kinds" $.Data.Kinds}}{{end}}</div>
+{{else}}<p class="hm-muted">This page has no elements yet. Add one below.</p>{{end}}
+<fieldset class="hm-bo__add"><legend class="hm-bo__legend">Add to the end of the page</legend>
+<div class="hm-field"><label class="hm-field__label" for="bo-add-kind">Kind of element</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="bo-add-kind" name="add_kind"><option value="">Choose a kind</option>{{range .Kinds}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/button" (dict "Label" "Add to the end" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "add" "formnovalidate" "formnovalidate"))}}
+</fieldset>
+{{template "hm/foot"}}
+{{template "hm/button" (dict "Label" "Page details" "Variant" "ghost" "Href" .DetailsHref)}}
+{{if not .Published}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}
+{{if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "publish"))}}{{end}}
+{{else}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save"))}}{{end}}
+{{template "hm/foot-end"}}
+</div>
+</form>
+</section>{{end}}{{end}}
+
+{{define "hm/builderoutlinenode"}}{{$n := .N}}{{$k := .Kinds}}<fieldset class="hm-bo__node" id="bo-{{$n.ID}}">
+<legend class="hm-bo__legend">{{$n.Legend}}</legend>
+<input type="hidden" name="node" value="{{$n.ID}}">
+<div class="hm-stack hm-stack--tight">
+{{range $n.Props}}{{if eq .Control "checkbox"}}<input type="hidden" name="{{.Name}}" value="off">
+{{template "hm/field" dict "ID" .ID "Name" .Name "Label" .Label "Control" "switch" "Value" "on" "Checked" .Checked "Error" .Error}}
+{{else}}{{template "hm/field" dict "ID" .ID "Name" .Name "Label" .Label "Control" .Control "Type" .Type "Value" .Value "Options" .Options "Attrs" .Attrs "Help" .Help "Error" .Error}}
+{{end}}{{with .Bind}}{{template "hm/field" dict "ID" .ID "Name" .Name "Label" .Label "Control" "select" "Options" .Options}}
+{{if .ShowPath}}{{template "hm/field" dict "ID" .PathID "Name" .PathName "Label" "Attribute path" "Value" .PathValue "Attrs" (attrmap "maxlength" "300" "autocomplete" "off")}}{{end}}{{end}}{{end}}
+{{if $n.Orphan}}<p class="hm-muted">Widget “{{$n.Kind}}” is not installed. Its content is kept as it is; you can still move or delete it.</p>{{end}}
+{{if $n.Form}}{{$n.Form}}{{else if eq $n.Kind "component"}}{{if $n.Unknown}}<p class="hm-muted">The active theme has no section of this type, so its content is kept as it is.</p>{{end}}{{end}}
+</div>
+{{if $n.Children}}<div class="hm-bo__children">{{range $n.Children}}{{template "hm/builderoutlinenode" dict "N" . "Kinds" $k}}{{end}}</div>{{end}}
+<div class="hm-bo__ops" role="group" aria-label="Actions for {{$n.Legend}}">
+{{if $n.First}}{{template "hm/button" (dict "Label" "Move up" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "up.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Move up %s" $n.Legend) "disabled" "disabled"))}}{{else}}{{template "hm/button" (dict "Label" "Move up" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "up.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Move up %s" $n.Legend)))}}{{end}}
+{{if $n.Last}}{{template "hm/button" (dict "Label" "Move down" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "down.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Move down %s" $n.Legend) "disabled" "disabled"))}}{{else}}{{template "hm/button" (dict "Label" "Move down" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "down.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Move down %s" $n.Legend)))}}{{end}}
+{{template "hm/button" (dict "Label" "Remove" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "del.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Remove %s" $n.Legend)))}}
+<label class="hm-visually-hidden" for="bo-kind-{{$n.ID}}">Kind of element to add next to {{$n.Legend}}</label>
+<div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control hm-bo__kind" id="bo-kind-{{$n.ID}}" name="kind.{{$n.ID}}"><option value="">Choose a kind</option>{{range $k}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
+{{template "hm/button" (dict "Label" "Add after" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "after.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Add after %s" $n.Legend)))}}
+{{if $n.CanNest}}{{template "hm/button" (dict "Label" "Add inside" "Size" "sm" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "into.%s" $n.ID) "formnovalidate" "formnovalidate" "aria-label" (printf "Add inside %s" $n.Legend)))}}{{end}}
+</div>
+</fieldset>{{end}}

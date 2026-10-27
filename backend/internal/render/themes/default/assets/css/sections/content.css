@@ -1,0 +1,21 @@
+/* .hm-prose is the shared rich-text flow styling (content, overview). */
+.hm-prose > :last-child { margin-bottom: 0; }
+.hm-prose img { border-radius: var(--hm-radius-md); }
+.hm-prose ul, .hm-prose ol { padding-left: 1.4rem; margin: 0 0 1em; }
+.hm-prose blockquote { margin: 0 0 1em; padding-left: 1rem; border-left: 3px solid var(--ht-line); color: var(--ht-fg-muted); }
+.hm-content { max-width: 48rem; }
+.hm-content__headline { margin-bottom: 0.75em; }
+
+/* essay: sticky aside + long-form prose column. */
+.hm-content--essay { max-width: var(--hm-container); display: grid; grid-template-columns: 16rem minmax(0, 44rem); gap: 3rem 5rem; align-items: start; }
+.hm-content--essay .hm-content__aside { position: sticky; top: 6rem; }
+.hm-content__glyph { display: block; font-family: var(--hm-font-kanji); font-size: 3.5rem; line-height: 1; color: var(--hm-shu); margin-bottom: 1rem; }
+.hm-content__aside-text { margin: 0; font-family: var(--hm-font-mono); font-size: 0.8125rem; line-height: 1.6; color: var(--hm-hai); }
+.hm-content__eyebrow { margin: 0 0 1rem; font-family: var(--hm-font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-content--essay .hm-prose { font-size: 1.0625rem; line-height: 1.7; }
+.hm-content--essay .hm-prose h3 { margin: 2em 0 0.5em; font-size: 1.25rem; }
+.hm-content--essay .hm-prose code { padding: 0.1em 0.35em; border-radius: var(--hm-radius-sm); background: var(--hm-kasumi); font-size: 0.9em; }
+@media (max-width: 960px) {
+  .hm-content--essay { grid-template-columns: minmax(0, 1fr); }
+  .hm-content--essay .hm-content__aside { display: none; }
+}

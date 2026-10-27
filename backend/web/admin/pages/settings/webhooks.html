@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+<section class="hm-stack">
+{{with .Secret}}{{template "hm/secretbanner" .}}{{end}}{{if .SecretGone}}{{template "hm/secretgone" "This secret was shown once and can no longer be displayed. Create a new secret if you lost it."}}{{end}}
+{{if .DeliveryOff}}{{template "hm/callout" (dict "Kind" "warning" "ID" "webhooks-off" "Body" "Webhook delivery is switched off on this server. Events are still queued, but nothing is sent until the background worker runs.")}}{{end}}
+{{if .PluginLeft}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "webhooks-plugin")}}A plugin named webhooks is still installed. Webhooks are part of Hatamoto now, and this plugin was not moved over automatically. Recreate its subscriptions here, then uninstall the plugin from <a href="{{adminPath}}/plugins">Plugins</a>. Until then both may send.{{template "hm/callout-end"}}{{end}}{{template "hm/table" .Table}}
+</section>
+{{template "hm/dialog-start" dict "ID" "new-webhook" "Title" "New webhook"}}
+<form id="new-webhook-form" method="post" action="{{adminPath}}/settings/webhooks">{{template "hm/csrf" $}}{{template "hm/form-webhook" .Form}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create webhook" "PrimaryAttrs" (attrmap "form" "new-webhook-form")}}
+{{end}}{{end}}

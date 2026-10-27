@@ -1,0 +1,7 @@
+/* buttons: a wrapping row of buttons */
+.hm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hm-space-3, 0.75rem);
+}

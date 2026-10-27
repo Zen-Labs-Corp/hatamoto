@@ -1,0 +1,9 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Activate %s?" .Name) "CSRF" $.CSRF}}
+{{template "hm/confirmcard-start" dict "Post" (printf "%s/theme/themes/%s/activate" adminPath .Name) "CSRF" $.CSRF}}{{if .Missing}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "This theme cannot show some of your content as designed.")}}Your content uses these section types, which {{.Name}} does not have. They will not appear on the pages that use them until you switch back or change the content.{{template "hm/callout-end"}}
+<table class="hm-table"><caption class="hm-visually-hidden">Section types the theme lacks</caption><thead><tr><th scope="col">Section type</th><th scope="col">Used</th></tr></thead><tbody>
+{{range .Missing}}<tr><th scope="row"><code>{{.Type}}</code></th><td>{{.Uses}} time{{if ne .Uses 1}}s{{end}}</td></tr>{{end}}</tbody></table>
+{{else}}<p>Every section type your content uses is available in this theme.</p>{{end}}
+<p class="hm-muted">You can <a href="{{adminPath}}/preview/theme/{{.Name}}" target="_blank" rel="noopener">preview the theme</a> on your site first. Switching back is one click.</p>
+{{template "hm/confirmcard-end" dict "Back" (adminPath "theme" "themes") "Label" (or (and .Missing "Activate anyway") "Activate")}}
+{{end}}{{end}}

@@ -1,0 +1,17 @@
+{{define "section-team"}}{{$c := .Content}}{{$bios := ne (printf "%v" $c.showBios) "false"}}{{$social := ne (printf "%v" $c.showSocialLinks) "false"}}<div class="hm-container hm-team hm-team--{{default "cards" $c.variant}} hm-team--cols-{{default 3 $c.columns}}">
+  {{if or $c.heading $c.subheading}}<header class="hm-team__header">
+    {{if $c.heading}}<h2 class="hm-team__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-team__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.members}}<ul class="hm-team__list">
+    {{range $i, $m := $c.members}}<li class="hm-team__member">
+      {{if $m.photo}}{{with imgsrc $m.photo}}<img class="hm-team__photo" src="{{.}}" alt="{{$m.name}}" loading="lazy">{{end}}{{end}}
+      <h3 class="hm-team__name" {{hmf "members" $i "name"}}>{{$m.name}}</h3>
+      {{if $m.title}}<p class="hm-team__title" {{hmf "members" $i "title"}}>{{$m.title}}</p>{{end}}
+      {{if and $bios $m.bio}}<p class="hm-team__bio" {{hmf "members" $i "bio"}}>{{$m.bio}}</p>{{end}}
+      {{if and $social $m.socialLinks}}<ul class="hm-team__social">
+        {{range $j, $l := $m.socialLinks}}<li><a href="{{cta $l.url}}" rel="noopener" {{hmf "members" $i "socialLinks" $j "platform"}}>{{$l.platform}}</a></li>{{end}}
+      </ul>{{end}}
+    </li>{{end}}
+  </ul>{{end}}
+</div>{{end}}

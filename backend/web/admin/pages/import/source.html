@@ -1,0 +1,26 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Import from WordPress" "Description" "Copy your WordPress site here and keep every old address working. Nothing is written until you have seen the scan report." "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/import/wordpress" enctype="multipart/form-data" class="hm-stack">
+{{template "hm/csrf" $}}
+<div class="hm-import__source hm-stack">
+{{template "hm/field" dict "ID" "kind" "Name" "kind" "Label" "Where is the site?" "Control" "radio" "Options" .Kinds "Help" "Reading it from its address is recommended: it includes menus, settings and, with an application password, drafts. An export file comes from Tools, Export, All content in WordPress."}}
+{{template "hm/card-start" dict "Title" "From the site's address" "ID" "rest" "Heading" "h2"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .URL "Placeholder" "https://old-site.example.com" "Help" "The address visitors use today." "Error" (index .Errors "url") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "user" "Name" "user" "Label" "WordPress username" "Value" .User "Help" "Optional. With an application password the scan also sees drafts and private posts." "Error" (index .Errors "user") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Application password" "Type" "password" "Help" "Create one under Users, Profile, Application Passwords in WordPress. It is used for this import only, kept encrypted until the import completes so it can be resumed, and never shown again." "Error" (index .Errors "password") "Attrs" (attrmap "autocomplete" "off")}}
+</div>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Scan the site" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+{{template "hm/card-start" dict "Title" "From an export file" "ID" "wxr-card" "Heading" "h2"}}
+{{template "hm/field" dict "ID" "wxr" "Name" "wxr" "Label" "Export file (.xml)" "Type" "file" "Help" (printf "Up to %d MB. Images are downloaded from the addresses inside the file, so the old site must still be online." .MaxMB) "Error" (index .Errors "wxr") "Attrs" (attrmap "accept" ".xml,text/xml,application/xml")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Scan the site" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</div>
+</form>
+{{if .Recent}}{{template "hm/card-start" dict "Title" "Earlier imports" "ID" "runs" "Heading" "h2"}}{{template "hm/tracker" .Trend}}
+<div class="hm-table__scroll" role="region" aria-label="Earlier imports" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Earlier imports</caption>
+<thead><tr><th scope="col">Source</th><th scope="col">Started</th><th scope="col">State</th></tr></thead>
+<tbody>{{range .Recent}}<tr><th scope="row" class="hm-table__rowhead"><a href="{{.Href}}">{{.Source}}</a></th><td data-label="Started">{{.Started}}</td><td data-label="State">{{template "hm/badge" .Status}}</td></tr>
+{{end}}</tbody></table></div>{{template "hm/card-end"}}{{end}}
+{{end}}{{end}}

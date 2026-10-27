@@ -1,0 +1,5 @@
+{{define "hm/datatable"}}{{if .Rows}}{{if and (gt (len .Rows) 8) (not .Flat)}}<p class="hm-muted">{{len .Rows}} rows. Scroll inside the table to see them all.</p>{{end}}<div class="hm-table__scroll hm-datatable{{if .Flat}} hm-datatable--flat{{end}}" role="region" aria-label="{{required "hm/datatable Caption" .Caption}}" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">{{.Caption}}</caption>
+<thead><tr>{{range $i, $c := .Columns}}<th scope="col"{{if $i}} class="hm-table__right"{{end}}>{{$c}}</th>{{end}}</tr></thead>
+<tbody>{{range .Rows}}<tr><th scope="row" class="hm-table__rowhead">{{.Label}}</th>{{range .Cells}}<td class="hm-table__right">{{.}}</td>{{end}}</tr>
+{{end}}</tbody>{{with .Total}}<tfoot><tr><th scope="row">{{.Label}}</th>{{range .Cells}}<td class="hm-table__right">{{.}}</td>{{end}}</tr></tfoot>{{end}}</table></div>
+{{else}}{{template "hm/empty" (dict "Title" (or .Empty "No data in this range.") "Compact" true)}}{{end}}{{end}}

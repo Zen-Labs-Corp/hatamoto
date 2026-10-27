@@ -1,0 +1,7 @@
+{
+  "name": "uiplug",
+  "version": "0.1.0",
+  "sdk": "^0.8",
+  "description": "Attack fixture: a UI-only plugin whose admin page is the positive control for plugin frame tickets.",
+  "ui": { "title": "Frames", "entry": "index.html", "roles": ["owner", "editor"] }
+}

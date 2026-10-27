@@ -1,0 +1,9 @@
+{{define "section-split"}}{{$c := .Content}}<div class="hm-container hm-split hm-split--{{default "text-left" $c.layout}} hm-split--{{default "even" $c.ratio}}{{if eq $c.panelHeight "match"}} hm-split--match{{end}}">
+  <div class="hm-split__text">
+    {{if or $c.eyebrow $c.heading}}<div class="hm-split__head">{{with $c.eyebrow}}<p class="hm-section-head__eyebrow" {{hmf "eyebrow"}}>{{.}}</p>{{end}}{{with $c.heading}}<h2 class="hm-split__heading" {{hmf "heading"}}>{{.}}</h2>{{end}}</div>{{end}}
+    {{with $c.lede}}<div class="hm-split__lede hm-prose" data-hm-kind="richtext" {{hmf "lede"}}>{{.}}</div>{{end}}
+    {{if $c.rows}}{{if eq $c.rowsStyle "chips-grid"}}<ul class="hm-split__chips">{{range $i, $r := $c.rows}}<li><code class="hm-split__chip" {{hmf "rows" $i "term"}}>{{$r.term}}</code>{{with $r.description}}<span class="hm-split__caption" {{hmf "rows" $i "description"}}>{{.}}</span>{{end}}</li>{{end}}</ul>{{else}}<dl class="hm-split__defs">{{range $i, $r := $c.rows}}<div><dt {{hmf "rows" $i "term"}}>{{$r.term}}</dt>{{with $r.description}}<dd {{hmf "rows" $i "description"}}>{{.}}</dd>{{end}}</div>{{end}}</dl>{{end}}{{end}}
+    {{with $c.footnote}}<div class="hm-split__footnote hm-prose" data-hm-kind="richtext" {{hmf "footnote"}}>{{.}}</div>{{end}}
+  </div>
+  {{if or $c.panel $c.outputs}}<div class="hm-split__panel">{{template "code-panel" $c}}</div>{{end}}
+</div>{{end}}

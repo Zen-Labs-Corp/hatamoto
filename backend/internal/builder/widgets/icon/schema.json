@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Icon",
+    "hint": "A small symbol; add a label when it carries meaning",
+    "group": "Media",
+    "order": 30,
+    "default": {"name": "check"}
+  },
+  "properties": {
+    "name": {"enum": ["alert", "alert-circle", "arrow-right", "calendar", "check", "check-circle", "chevron-right", "clock", "cloud", "code", "download", "external", "globe", "help", "home", "info", "key", "link", "lock", "mail", "search", "shield-check", "sparkles", "user"]},
+    "label": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "hidden": {"type": "boolean"}
+  }
+}

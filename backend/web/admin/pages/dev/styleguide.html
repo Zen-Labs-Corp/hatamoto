@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}<div class="hm-stack">
+<h1>Styleguide</h1>
+<p class="hm-muted">Every component in components.json, in each variant. Development only.</p>
+{{range .}}<section class="hm-sg__section" id="sg-{{.Name}}" aria-labelledby="sg-{{.Name}}-title">
+<h2 id="sg-{{.Name}}-title">{{.Name}} <code>{{.Selector}}</code></h2>
+<div class="hm-sg__samples">
+{{range .Samples}}<div class="hm-sg__sample"><p class="hm-sg__label">{{.Label}}</p>{{.HTML}}</div>
+{{end}}</div>
+</section>
+{{end}}</div>{{end}}{{end}}

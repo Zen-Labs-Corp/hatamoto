@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Hatamoto channel manifest freshness check
+
+[Timer]
+# Offset from the 03:17 UTC re-sign so a failed re-sign is seen the same day.
+OnCalendar=*-*-* 09:23:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Empty state",
+    "hint": "Shown when the loop finds nothing",
+    "group": "Data",
+    "order": 11,
+    "children": true,
+    "only_in": "loop"
+  },
+  "properties": {
+    "hidden": {"type": "boolean"}
+  }
+}

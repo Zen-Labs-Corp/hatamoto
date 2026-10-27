@@ -1,0 +1,29 @@
+/* Floating option list: the editor slash menu (.hm-slash). Focus stays in the editor; the active option is tracked with
+   aria-selected / aria-activedescendant by the editor script. */
+.hm-slash {
+  font: var(--weight-regular) var(--text-md)/var(--leading-snug) var(--font-ui); position: absolute; z-index: var(--z-popup); width: 320px;
+  border: 1px solid var(--color-kinu); border-radius: var(--radius-md); overflow: hidden;
+  background: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-3);
+}
+.hm-slash__list { max-height: 340px; overflow-y: auto; padding: var(--space-1); }
+.hm-slash__grouptitle { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-hai); }
+.hm-slash__item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1-5) var(--space-2); border-radius: var(--radius-sm); cursor: pointer; }
+.hm-slash__glyph { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--color-kinu); border-radius: var(--radius-sm); background: var(--color-shiro); color: var(--color-sumi-soft); }
+.hm-slash__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hm-slash__label { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.hm-slash__desc { display: block; font-size: var(--text-xs); color: var(--color-hai); font-weight: var(--weight-regular); }
+.hm-slash__hint { flex: none; font-size: var(--text-xs); color: var(--color-hai); }
+.hm-slash__item:hover, .hm-slash__item[aria-selected="true"] { background: var(--color-kasumi); }
+.hm-slash__item[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--color-sumi); }
+.hm-slash__foot { display: flex; gap: var(--space-4); padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-kinu); font-size: var(--text-xs); color: var(--color-hai); }
+
+/* Selection toolbar (editor bubble): ink bubble with paper icons. */
+.hm-bubble { position: absolute; z-index: calc(var(--z-popup) + 1); display: inline-flex; gap: var(--space-0-5); padding: var(--space-1); border-radius: var(--radius-sm); background: var(--color-sumi); box-shadow: var(--shadow-2); }
+.hm-bubble button, .hm-bubble .hm-btn {
+  width: 30px; height: 30px; min-width: 30px; padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--color-paper); cursor: pointer;
+}
+.hm-bubble button:hover, .hm-bubble button[aria-pressed="true"] { background: color-mix(in srgb, var(--color-paper) 20%, transparent); }
+.hm-bubble button:focus-visible { outline: 2px solid var(--color-paper); outline-offset: 1px; }
+.hm-bubble__sep { align-self: stretch; width: 1px; margin: var(--space-1) var(--space-0-5); background: color-mix(in srgb, var(--color-paper) 30%, transparent); }
+.hm-bubble .hm-icon { width: 16px; height: 16px; }

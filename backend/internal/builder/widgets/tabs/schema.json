@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Tabs",
+    "hint": "Panels shown one at a time",
+    "group": "Interactive",
+    "order": 10,
+    "children": true,
+    "seed": [{"t": "tabpanel", "p": {"label": "Tab 1"}}, {"t": "tabpanel", "p": {"label": "Tab 2"}}]
+  },
+  "properties": {
+    "hidden": {"type": "boolean"}
+  }
+}

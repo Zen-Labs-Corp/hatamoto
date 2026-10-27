@@ -1,0 +1,159 @@
+name: image
+
+# Publishes ghcr.io/zen-labs-corp/hatamoto for a release that is ALREADY signed
+# offline and published. It never runs on a tag push: only a maintainer starts
+# it, after `release.sh publish`, with
+#
+#   gh workflow run image.yml --ref main -f tag=vX.Y.Z
+#
+# A workflow_dispatch run takes this file from the branch it is dispatched on, so
+# a tag cannot bring its own copy of the checks. The job refuses unless the ref is
+# refs/heads/main, and it sits behind the `release-image` environment (owner: add
+# required reviewers and limit it to the main branch at W3, see RUNBOOK). The
+# scripts and allowed_signers it trusts are read from main, never from the tag.
+#
+# Before building it requires: a valid tag signature (always checked in a public
+# repository, `--require`), the tag's commit on main, and a published (not draft)
+# GitHub release for the tag, which only exists once the record was signed. Then:
+# linux/amd64 + linux/arm64 from the Dockerfile at the tag's commit, a keyless
+# cosign signature, an SPDX SBOM attestation, `:vX.Y.Z`, and `:latest` only for a
+# release that is not a prerelease and is the newest release. Each signature carries
+# the annotations version=vX.Y.Z and commit=<sha>. `cosign attest` takes none: the
+# SBOM attestation is bound to the image digest, which the annotated signature covers. The certificate identity of every signature is
+# this file at refs/heads/main (docs/site/updates/verify-a-download.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish as an image, e.g. v0.31.0 (dispatch from main only)'
+        required: true
+        type: string
+
+permissions: {}
+
+# One image run at a time, so two dispatches cannot race over :latest.
+concurrency:
+  group: image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    environment: release-image
+    permissions:
+      contents: read   # fetch the tag, read the release
+      packages: write  # push the image
+      id-token: write  # the keyless signing identity
+    env:
+      IMAGE: ghcr.io/zen-labs-corp/hatamoto
+      TAG: ${{ inputs.tag }}
+      REF: ${{ github.ref }}
+      PRIVATE: ${{ github.event.repository.private }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Only from main, only for a plain version
+        run: |
+          [ "$REF" = refs/heads/main ] || { echo "image.yml runs from refs/heads/main only (got $REF)" >&2; exit 1; }
+          [ "$PRIVATE" = false ] || { echo "images are published from the public repository only" >&2; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "tag is not vMAJOR.MINOR.PATCH[-prerelease]" >&2; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Trusted copies of the verifier and the signer list, taken from main's own
+      # checkout before the work tree moves to the tag.
+      - name: Verify the tag
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" fetch --quiet --no-tags origin "+refs/tags/$TAG:refs/tags/$TAG" "+refs/heads/main:refs/remotes/origin/main"
+          cp scripts/verify-tag-signature.sh "$RUNNER_TEMP/verify-tag-signature.sh"
+          git show origin/main:.github/allowed_signers > "$RUNNER_TEMP/allowed_signers"
+          bash "$RUNNER_TEMP/verify-tag-signature.sh" --require --allowed-signers "$RUNNER_TEMP/allowed_signers" "$TAG"
+          commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          git merge-base --is-ancestor "$commit" refs/remotes/origin/main || { echo "$TAG is not on main" >&2; exit 1; }
+          echo "COMMIT=$commit" >> "$GITHUB_ENV"
+          git checkout --quiet --detach "$commit"
+
+      # The offline-signed release comes first: a draft, or no release, is refused.
+      # "Published" stands in for "record signed offline", so the signature file
+      # must be on the release too (a sequencing guard, not a trust root).
+      - name: Require the published release
+        run: |
+          state=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets --jq '"\(.isDraft) \(.isPrerelease) \([.assets[].name] | index("release.json.sig") != null)"') \
+            || { echo "no GitHub release for $TAG: run release.sh publish first" >&2; exit 1; }
+          read -r draft pre signed <<< "$state"
+          [ "$draft" = false ] || { echo "release $TAG is still a draft: sign and publish it first" >&2; exit 1; }
+          [ "$signed" = true ] || { echo "release $TAG has no release.json.sig: sign the record first" >&2; exit 1; }
+          # :latest only when this tag IS the newest published release, so an older
+          # backport or a retried run never moves it backwards.
+          latest=no
+          if [ "$pre" = false ]; then case "$TAG" in *-*) ;; *)
+            newest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+            [ "$newest" = "$TAG" ] && latest=yes ;;
+          esac; fi
+          echo "LATEST=$latest" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Image tags
+        id: tags
+        run: |
+          { echo "list<<EOF"; echo "$IMAGE:$TAG"
+            [ "$LATEST" = yes ] && echo "$IMAGE:latest"
+            echo "EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: |
+            VERSION=${{ env.TAG }}
+            COMMIT=${{ env.COMMIT }}
+          provenance: mode=max
+          sbom: false
+
+      - name: Sign the image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        # The annotations bind the signature to this version: a signed older digest
+        # re-tagged as a newer version fails `cosign verify -a version=...`.
+        run: cosign sign --yes -a "version=$TAG" -a "commit=$COMMIT" "$IMAGE@$DIGEST"
+
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          syft-version: v1.55.0
+          format: spdx-json
+          output-file: image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Attest the SBOM
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign attest --yes --type spdxjson --predicate image.spdx.json "$IMAGE@$DIGEST"
+
+      - name: Verify what was pushed
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          id="https://github.com/$GITHUB_REPOSITORY/.github/workflows/image.yml@refs/heads/main"
+          issuer=https://token.actions.githubusercontent.com
+          cosign verify -a "version=$TAG" -a "commit=$COMMIT" --certificate-identity "$id" --certificate-oidc-issuer "$issuer" "$IMAGE@$DIGEST" >/dev/null
+          cosign verify-attestation --type spdxjson --certificate-identity "$id" --certificate-oidc-issuer "$issuer" "$IMAGE@$DIGEST" >/dev/null
+          docker buildx imagetools inspect "$IMAGE@$DIGEST" | tee -a "$GITHUB_STEP_SUMMARY"

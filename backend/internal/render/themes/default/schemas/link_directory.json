@@ -1,0 +1,16 @@
+{
+  "x-hm-section": {"title": "Link directory", "description": "Columns of grouped links, like a sitemap"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "columns": {"type": "array", "title": "Columns", "items": {"type": "object", "properties": {
+      "heading": {"type": "string", "title": "Column heading", "x-hm-field": "plaintext"},
+      "links": {"type": "array", "title": "Links", "items": {"type": "object", "properties": {
+        "text": {"type": "string", "title": "Text", "x-hm-field": "plaintext"},
+        "href": {"type": "string", "title": "URL", "x-hm-field": "url"}
+      }}}
+    }}}
+  }
+}

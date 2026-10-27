@@ -1,0 +1,7 @@
+.hm-faq { max-width: 48rem; }
+.hm-faq__subheading { color: var(--ht-fg-muted); }
+.hm-faq__item { border-bottom: 1px solid var(--ht-line); padding: 0.9rem 0; }
+.hm-faq__question { cursor: pointer; font-weight: 500; }
+.hm-faq__answer { margin-top: 0.6rem; color: var(--ht-fg-muted); }
+.hm-faq--cards .hm-faq__list { display: grid; gap: 0.75rem; }
+.hm-faq--cards .hm-faq__item { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.9rem 1.1rem; }

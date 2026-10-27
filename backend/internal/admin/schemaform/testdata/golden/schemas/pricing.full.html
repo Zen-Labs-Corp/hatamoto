@@ -1,0 +1,110 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="Sample heading" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheading">Subheading</label>
+<input class="hm-field__control" type="text" id="sf-content-subheading" name="content.subheading" value="Sample subheading" placeholder="Enter Subheading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-variant">Variant</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-content-variant" name="content.variant"><option value="">Select Variant</option><option value="cards">Cards</option><option value="table" selected>Table</option></select></div>
+</div>
+<fieldset class="hm-repeater" id="sf-content-tiers" data-hm-repeater data-path="content.tiers"><legend class="hm-field__label">Tiers <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.tiers" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample name</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-name" name="content.tiers.0.name" value="Sample name" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-description">Description</label>
+<textarea class="hm-field__control" id="sf-content-tiers-0-description" name="content.tiers.0.description" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;description&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-price">Price (empty = custom)</label>
+<input class="hm-field__control" type="number" id="sf-content-tiers-0-price" name="content.tiers.0.price" value="3.5" step="any">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-currency">Currency symbol</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-currency" name="content.tiers.0.currency" value="Sample currency" placeholder="Enter Currency symbol">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-billingPeriod">Billing period</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-billingPeriod" name="content.tiers.0.billingPeriod" value="Sample billingPeriod" placeholder="Enter Billing period">
+</div><fieldset class="hm-repeater" id="sf-content-tiers-0-features" data-hm-repeater data-path="content.tiers.0.features"><legend class="hm-field__label">Features <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.tiers.0.features" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 1</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-features-0-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-features-0-text" name="content.tiers.0.features.0.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.0.features.0.included" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-0-features-0-included"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-0-features-0-included" name="content.tiers.0.features.0.included" value="true" checked><span>Included</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-features-0-tooltip">Tooltip</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-features-0-tooltip" name="content.tiers.0.features.0.tooltip" value="Sample tooltip" placeholder="Enter Tooltip">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.0.features" value="0:up" formnovalidate aria-label="Move Features item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.0.features" value="0:down" formnovalidate aria-label="Move Features item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers.0.features" value="0" formnovalidate aria-label="Remove Features item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 2</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-features-1-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-features-1-text" name="content.tiers.0.features.1.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.0.features.1.included" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-0-features-1-included"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-0-features-1-included" name="content.tiers.0.features.1.included" value="true" checked><span>Included</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-features-1-tooltip">Tooltip</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-features-1-tooltip" name="content.tiers.0.features.1.tooltip" value="Sample tooltip" placeholder="Enter Tooltip">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.0.features" value="1:up" formnovalidate aria-label="Move Features item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.0.features" value="1:down" formnovalidate aria-label="Move Features item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers.0.features" value="1" formnovalidate aria-label="Remove Features item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.tiers.0.features" value="1" formnovalidate>Add Features item</button>
+</fieldset>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-ctaText">Button text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-ctaText" name="content.tiers.0.ctaText" value="Sample ctaText" placeholder="Enter Button text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-ctaLink">Button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-tiers-0-ctaLink" name="content.tiers.0.ctaLink" value="https://example.com/ctaLink" placeholder="Enter Button URL">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.0.isPopular" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-0-isPopular"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-0-isPopular" name="content.tiers.0.isPopular" value="true" checked><span>Highlight as popular</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-0-badgeText">Badge text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-0-badgeText" name="content.tiers.0.badgeText" value="Sample badgeText" placeholder="Enter Badge text">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers" value="0:up" formnovalidate aria-label="Move Tiers item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers" value="0:down" formnovalidate aria-label="Move Tiers item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers" value="0" formnovalidate aria-label="Remove Tiers item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample name</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-name" name="content.tiers.1.name" value="Sample name" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-description">Description</label>
+<textarea class="hm-field__control" id="sf-content-tiers-1-description" name="content.tiers.1.description" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;description&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-price">Price (empty = custom)</label>
+<input class="hm-field__control" type="number" id="sf-content-tiers-1-price" name="content.tiers.1.price" value="3.5" step="any">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-currency">Currency symbol</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-currency" name="content.tiers.1.currency" value="Sample currency" placeholder="Enter Currency symbol">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-billingPeriod">Billing period</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-billingPeriod" name="content.tiers.1.billingPeriod" value="Sample billingPeriod" placeholder="Enter Billing period">
+</div><fieldset class="hm-repeater" id="sf-content-tiers-1-features" data-hm-repeater data-path="content.tiers.1.features"><legend class="hm-field__label">Features <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.tiers.1.features" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 1</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-features-0-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-features-0-text" name="content.tiers.1.features.0.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.1.features.0.included" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-1-features-0-included"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-1-features-0-included" name="content.tiers.1.features.0.included" value="true" checked><span>Included</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-features-0-tooltip">Tooltip</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-features-0-tooltip" name="content.tiers.1.features.0.tooltip" value="Sample tooltip" placeholder="Enter Tooltip">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.1.features" value="0:up" formnovalidate aria-label="Move Features item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.1.features" value="0:down" formnovalidate aria-label="Move Features item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers.1.features" value="0" formnovalidate aria-label="Remove Features item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Item 2</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-features-1-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-features-1-text" name="content.tiers.1.features.1.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.1.features.1.included" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-1-features-1-included"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-1-features-1-included" name="content.tiers.1.features.1.included" value="true" checked><span>Included</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-features-1-tooltip">Tooltip</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-features-1-tooltip" name="content.tiers.1.features.1.tooltip" value="Sample tooltip" placeholder="Enter Tooltip">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.1.features" value="1:up" formnovalidate aria-label="Move Features item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers.1.features" value="1:down" formnovalidate aria-label="Move Features item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers.1.features" value="1" formnovalidate aria-label="Remove Features item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.tiers.1.features" value="1" formnovalidate>Add Features item</button>
+</fieldset>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-ctaText">Button text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-ctaText" name="content.tiers.1.ctaText" value="Sample ctaText" placeholder="Enter Button text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-ctaLink">Button URL</label>
+<input class="hm-field__control" type="url" id="sf-content-tiers-1-ctaLink" name="content.tiers.1.ctaLink" value="https://example.com/ctaLink" placeholder="Enter Button URL">
+</div><div class="hm-field"><input type="hidden" name="_present.content.tiers.1.isPopular" value="1"><label class="hm-field__check hm-switch" for="sf-content-tiers-1-isPopular"><input class="hm-field__box" type="checkbox" role="switch" id="sf-content-tiers-1-isPopular" name="content.tiers.1.isPopular" value="true" checked><span>Highlight as popular</span></label></div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-tiers-1-badgeText">Badge text</label>
+<input class="hm-field__control" type="text" id="sf-content-tiers-1-badgeText" name="content.tiers.1.badgeText" value="Sample badgeText" placeholder="Enter Badge text">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers" value="1:up" formnovalidate aria-label="Move Tiers item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.tiers" value="1:down" formnovalidate aria-label="Move Tiers item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.tiers" value="1" formnovalidate aria-label="Remove Tiers item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.tiers" value="1" formnovalidate>Add Tiers item</button>
+</fieldset>
+

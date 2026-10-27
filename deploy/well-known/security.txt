@@ -1,0 +1,10 @@
+# Security contact for Hatamoto and hatamoto.dev (RFC 9116).
+# Installed at /opt/hatamoto/public/.well-known/security.txt; renew Expires
+# before it passes (deploy/monitor/check.sh warns 30 days ahead). Contact lines
+# are in order of preference. The human-readable page is https://hatamoto.dev/security.
+Contact: https://github.com/Zen-Labs-Corp/hatamoto/security/advisories/new
+Contact: mailto:security@hatamoto.dev
+Expires: 2027-10-24T00:00:00.000Z
+Preferred-Languages: en
+Policy: https://github.com/Zen-Labs-Corp/hatamoto/security/policy
+Canonical: https://hatamoto.dev/.well-known/security.txt

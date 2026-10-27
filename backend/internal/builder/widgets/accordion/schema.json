@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Accordion",
+    "hint": "Items that open and close",
+    "group": "Interactive",
+    "order": 20,
+    "children": true,
+    "seed": [{"t": "accorditem", "p": {"title": "Item 1"}}, {"t": "accorditem", "p": {"title": "Item 2"}}]
+  },
+  "properties": {
+    "single": {"type": "boolean"},
+    "hidden": {"type": "boolean"}
+  }
+}

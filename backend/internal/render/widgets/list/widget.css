@@ -1,0 +1,5 @@
+/* list: bulleted, numbered or with an icon per item */
+.hm-list { margin: 0; padding-left: 1.5em; }
+.hm-list--icons { list-style: none; padding-left: 0; }
+.hm-list--icons li { display: flex; gap: var(--hm-space-2, 0.5rem); align-items: baseline; }
+.hm-list__i { flex: none; width: 1em; height: 1em; align-self: center; }

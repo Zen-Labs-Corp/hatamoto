@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Promo banner",
+    "hint": "A dismissible strip with a call to action",
+    "default": {"title": "Spring sale", "text": "Two weeks only.", "link_text": "Shop now"}
+  },
+  "properties": {
+    "title": {"type": "string", "maxLength": 80, "x-hm-bind": "text"},
+    "text": {"type": "string", "maxLength": 240, "x-hm-bind": "text"},
+    "link_text": {"type": "string", "maxLength": 40},
+    "href": {"type": "string", "maxLength": 300, "x-hm-bind": "url"},
+    "tone": {"enum": ["info", "warn"]},
+    "hidden": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "hero",
+  "id": "sec-hero-panel",
+  "content": {
+    "layout": "split",
+    "headline": "Model it once",
+    "primaryCta": "Get started",
+    "ctaUrl": "/docs",
+    "commandChip": "docker compose up",
+    "panel": {"title": "entity.json", "meta": "schema", "language": "json", "code": "{\"type\": \"page\", \"ok\": true}"}
+  }
+}

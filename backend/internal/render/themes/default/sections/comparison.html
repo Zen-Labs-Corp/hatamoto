@@ -1,0 +1,10 @@
+{{define "section-comparison"}}{{$c := .Content}}<div class="hm-container hm-comparison">
+  {{template "section-head" .}}
+  {{if $c.sides}}<div class="hm-comparison__sides">
+    {{range $i, $s := $c.sides}}<article class="hm-comparison__side hm-comparison__side--{{default "negative" $s.tone}}">
+      {{with $s.tag}}<p class="hm-comparison__tag" {{hmf "sides" $i "tag"}}>{{.}}</p>{{end}}
+      {{with $s.title}}<h3 class="hm-comparison__title" {{hmf "sides" $i "title"}}>{{.}}</h3>{{end}}
+      {{if $s.items}}<ul class="hm-comparison__items">{{range $j, $it := $s.items}}<li {{hmf "sides" $i "items" $j}}>{{$it}}</li>{{end}}</ul>{{end}}
+    </article>{{end}}
+  </div>{{end}}
+</div>{{end}}

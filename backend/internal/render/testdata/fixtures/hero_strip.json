@@ -1,0 +1,14 @@
+{
+  "type": "hero",
+  "id": "sec-hero-strip",
+  "content": {
+    "headline": "The CMS that AI can read, write and measure",
+    "subheadline": "<p>Built for the web that software reads as much as people do.</p>",
+    "ctas": [{"text": "Try it in five minutes", "url": "/docs/getting-started"}],
+    "commandChip": "docker compose up",
+    "stripLabel": "Runs on",
+    "stripItems": ["One Go binary", "Postgres 16", "htmx admin, no Node", "WASM plugins", "One docker compose up", "<b>x</b> \"q\""],
+    "heroImage": "/media/hero.png",
+    "imageAlt": "Analytics screenshot"
+  }
+}

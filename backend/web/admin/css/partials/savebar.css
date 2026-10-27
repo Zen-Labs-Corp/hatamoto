@@ -1,0 +1,13 @@
+/* Sticky form footer: the actions stay in reach at the bottom of a long form.
+   Flat like the card footer (no shadow, no radius); the class name is also used by
+   components.js and base.css. The buttons are ordinary submit buttons, so the form
+   works without JS. */
+.hm-savebar {
+  position: sticky; bottom: 0; z-index: var(--z-sticky);
+  display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5); border: 0; border-top: 1px solid var(--border); border-radius: 0;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(var(--space-2)); box-shadow: none;
+}
+@supports not (backdrop-filter: blur(1px)) { .hm-savebar { background: var(--surface); } }
+.hm-savebar__aside { margin-inline-end: auto; }
+@media (max-width: 640px) { .hm-savebar { padding: var(--space-2) var(--space-3); } }

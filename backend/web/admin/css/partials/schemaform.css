@@ -1,0 +1,20 @@
+/* Markup contract of internal/admin/schemaform: .hm-field* come from field.css;
+   these are the extras for objects, repeaters and image fields. */
+.hm-sf-object, .hm-repeater { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); margin: 0; display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.hm-sf-object > legend, .hm-repeater > legend { padding: 0 var(--space-2); }
+.hm-repeater__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-repeater__item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-repeater__item details { padding: 0; }
+.hm-repeater__summary { cursor: pointer; padding: var(--space-3) var(--space-4); font-weight: var(--weight-medium); border-radius: var(--radius-md); }
+.hm-repeater__summary:hover { background: var(--surface-hover); }
+.hm-repeater__summary:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-repeater__fields { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); border-top: 1px solid var(--border); }
+.hm-repeater__item > details > .hm-row { padding: 0 var(--space-4) var(--space-4); }
+.hm-repeater__item.sortable-ghost { opacity: 0.5; }
+.hm-sf-image { max-width: 240px; max-height: 160px; border-radius: var(--radius-md); border: 1px solid var(--border); object-fit: cover; }
+.hm-field__counter { text-align: right; font-size: var(--text-xs); }
+.hm-sf-group { margin-top: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--border); }
+
+/* Long field titles: let the repeater's Add button and legends wrap instead of overflowing narrow containers (builder inspector). */
+.hm-repeater > .hm-btn { white-space: normal; height: auto; min-height: var(--control-h-sm); padding-block: var(--space-1); line-height: var(--leading-tight); text-align: start; max-width: 100%; }
+.hm-sf-object > legend, .hm-repeater > legend, .hm-field__label { overflow-wrap: anywhere; }

@@ -1,0 +1,7 @@
+/* Development styleguide (HATAMOTO_DEV=1): every component in components.json. */
+.hm-sg__section { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-sg__samples { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
+.hm-sg__sample { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.hm-sg__label { color: var(--text-muted); font-size: var(--text-xs); }
+/* Popup lists are absolutely placed under their trigger; here they sit in the flow. */
+.hm-sg__sample .hm-select__list, .hm-sg__sample .hm-searchselect__list { position: static; }

@@ -1,0 +1,509 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      HATAMOTO_TEST_DB_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      EMAIL_DISABLED: "true"
+      # SITEMAP_GOLDEN_DB is intentionally unset: that test needs a seeded dataset and skips.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Apply migrations
+        run: go run ./cmd/hatamoto migrate
+      - run: go vet -tags=integration ./...
+      # Builds examples/plugins/hello and the hostile test guests (each its own
+      # module) with GOOS=wasip1.
+      - run: go test -tags=integration ./...
+      # The sandbox tests are the v1-16 done criterion: fail if they were skipped or not built.
+      - name: Hostile plugin tests really run
+        run: |
+          go test -count=1 -v -run 'TestHostileGuests|TestSpinningPlugin|TestOversizedOutput' ./internal/wasmhost ./internal/pluginhost | tee /tmp/hostile.log
+          grep -q -e '^--- PASS: TestHostileGuests ' /tmp/hostile.log
+          grep -q -e '^--- PASS: TestSpinningPluginDoesNotStarveLaterPlugins ' /tmp/hostile.log
+      # The spike's remaining tests and the v1-16 plan criteria: per-hook
+      # timeouts (zero refused), the 2x memory ceiling, concurrent bombs,
+      # neighbours not stalled, 50 load/unload cycles without a leak, v1 -> v2
+      # swap without a failed call, warm compile cache <= 100 ms, render.page p50.
+      - name: Runtime limit, leak and swap tests really run
+        run: |
+          T='TestPerHookTimeouts|TestMemoryCeilingIsTwiceMaxPages|TestConcurrentMemoryBombsBounded|TestHostileDoesNotStallNeighbours|TestLoadUnloadNoLeak|TestSwapUnderLoadFailsNoCalls|TestCompileCacheWarmLoad|TestLargePayloadRoundTrips|TestRenderPageP50|TestSitemapOutputIsBounded'
+          go test -count=1 -v -run "$T" ./internal/wasmhost ./internal/pluginhost | tee /tmp/limits.log
+          for t in $(echo "$T" | tr '|' ' '); do
+            grep -q -e "^--- PASS: $t " /tmp/limits.log
+          done
+      # v1-17 done criteria: a plugin cannot read core tables with crafted SQL
+      # (as a non-superuser application role), not even with the SQL guard
+      # switched off (the plugin runs as its own LOGIN role on its own pool),
+      # and denied capabilities return typed errors; the plugin host runs clean
+      # under the race detector.
+      - name: Plugin capability tests really run
+        run: |
+          go test -count=1 -v -tags=integration -run 'TestPluginCannotReadCoreTables|TestPluginEscapesHoldWithoutTheGuard|TestPluginMigrationCannotTouchCore|TestPluginSessionStateDoesNotLeak|TestPluginRoleHasNoCorePrivileges|TestPluginPasswordRotation|TestTwoDatabasesOneCluster|TestMigrationRevokesProceduresAndAggregates|TestDeniedUntilGranted|TestFetchBlocksPrivateTargets' ./internal/pluginhost | tee /tmp/caps.log
+          # Both provisioning modes must run (a missing psql would skip bootstrap).
+          for t in TestPluginCannotReadCoreTables TestPluginEscapesHoldWithoutTheGuard TestPluginMigrationCannotTouchCore TestPluginSessionStateDoesNotLeak TestPluginRoleHasNoCorePrivileges TestTwoDatabasesOneCluster; do
+            grep -q -e "^ *--- PASS: $t/createrole " /tmp/caps.log
+            grep -q -e "^ *--- PASS: $t/bootstrap " /tmp/caps.log
+          done
+          for t in TestPluginPasswordRotation TestMigrationRevokesProceduresAndAggregates TestDeniedUntilGranted TestFetchBlocksPrivateTargets; do
+            grep -q -e "^--- PASS: $t " /tmp/caps.log
+          done
+      - run: go test -race -count=1 ./internal/wasmhost ./internal/pluginhost
+      # v1-18 done criteria: a plugin and a theme install from a signed registry
+      # without a restart, uninstall changes no core table, hostile packages
+      # (zip slip, bomb, bad signature, wrong signer, oversized) are refused.
+      - name: Package tests really run
+        run: |
+          go test -count=1 -v -tags=integration -run 'TestPluginAndThemeInstallFromSignedRegistryWithoutRestart|TestHostilePackagesAreNotInstalled|TestMissingSectionsBlockActivation|TestReconcilePicksUpAnotherProcessesInstall|TestHostileArchivesAreRefused|TestZipBombIsRefused|TestVerifyRefusals' ./internal/packages | tee /tmp/pkg.log
+          for t in TestPluginAndThemeInstallFromSignedRegistryWithoutRestart TestHostilePackagesAreNotInstalled TestMissingSectionsBlockActivation TestReconcilePicksUpAnotherProcessesInstall TestHostileArchivesAreRefused TestZipBombIsRefused TestVerifyRefusals; do
+            grep -q -e "^--- PASS: $t " /tmp/pkg.log
+          done
+          go test -count=1 -v -tags=integration -run TestPackagesIntegration ./internal/server | tee /tmp/pkgsrv.log
+          grep -q -e '^--- PASS: TestPackagesIntegration ' /tmp/pkgsrv.log
+      # Outgoing webhooks are core. A skipped integration test (no DATABASE_URL)
+      # passes silently, so each name must show as PASSed.
+      - name: Core webhook tests really run
+        run: |
+          go test -count=1 -v -tags=integration -run 'TestWebhooksCore' ./internal/webhook | tee /tmp/wh.log
+          for t in TestWebhooksCoreDeliversSignedPayloadsAndRetries TestWebhooksCoreBurstIsQueuedWholeAndDelivered TestWebhooksCoreHungReceiverNeitherTrapsNorBlocksCapture TestWebhooksCoreDeadClaimCountsAsAnAttempt TestWebhooksCoreScheduledPublishEnqueues TestWebhooksCoreFormSubmittedCarriesNoFields; do
+            grep -q -e "^--- PASS: $t " /tmp/wh.log
+          done
+          go test -count=1 -v -tags=integration -run 'TestWebhooksCore_' ./migrations | tee /tmp/whm.log
+          for t in TestWebhooksCore_CopiesHandoverAndKeepsTable TestWebhooksCore_OldHandoverRowsArePaused TestWebhooksCore_OverlongByteNameIsPaused TestWebhooksCore_DownRefusesWhileRowsExist TestWebhooksCore_DownThenOlderDownWorks; do
+            grep -q -e "^--- PASS: $t " /tmp/whm.log
+          done
+          go test -count=1 -v -tags=integration -run 'TestWebhooksLegacy' ./internal/server | tee /tmp/whl.log
+          for t in TestWebhooksLegacyPluginIsCopiedAndUninstalled TestWebhooksLegacyCopyFailureKeepsThePlugin TestWebhooksLegacyImportIsPausedUnlessThePluginWasSending TestWebhooksLegacyOnlyRetiresTheFirstPartyPlugin TestWebhooksLegacyRetiredFirstPartyKeyIsRetired TestWebhooksLegacyPluginLeftBehindIsReported TestWebhooksLegacyPluginLeftBehindIgnoresFirstParty; do
+            grep -q -e "^--- PASS: $t " /tmp/whl.log
+          done
+          go test -count=1 -v -tags=integration -run "TestPluginNamedWebhooks" ./internal/packages | tee /tmp/whr.log
+          for t in TestPluginNamedWebhooksIsReserved TestPluginNamedWebhooksCanStillBeUninstalled; do grep -q -e "^--- PASS: $t " /tmp/whr.log; done
+          # A skipped guarded test (no DATABASE_URL) must fail the step even if a PASS line is also present.
+          if grep -h -e '--- SKIP' /tmp/wh.log /tmp/whm.log /tmp/whl.log /tmp/whr.log; then echo 'a guarded webhook test was skipped' >&2; exit 1; fi
+      # A named test that is missing, renamed or skipped must fail the job, not
+      # pass silently. must_run <pkg> <Test>...: runs exactly those tests and
+      # requires a "--- PASS" line for each (and no SKIP).
+      - name: Must-run tests
+        run: |
+          must_run() {
+            pkg=$1; shift
+            names=$(IFS='|'; echo "$*")
+            log=$(mktemp)
+            go test -count=1 -v -tags=integration -run "^($names)\$" "$pkg" | tee "$log"
+            for t in "$@"; do
+              grep -q -e "^--- PASS: $t " "$log" || { echo "must-run test missing or not passing: $t" >&2; exit 1; }
+              if grep -q -e "^--- SKIP: $t " "$log"; then echo "must-run test skipped: $t" >&2; exit 1; fi
+            done
+          }
+          # A4: a plugin whose plugin.js would call /admin/... is not linked without the site.scripts
+          # grant, and its section and partial templates need the grant too.
+          must_run ./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant
+          must_run ./internal/wasmhost TestHostileGuests
+          # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
+          bash ../scripts/test-sdk-external.sh
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Vendored JS matches vendor.json
+        run: go run ./tools/vendor verify
+      - name: Go module licences are all permissive
+        run: go run ./tools/licenses
+      - name: Build the example plugins
+        run: make -C .. plugins
+      # The first-party plugins live in their own repos and are built from manifests
+      # (make registry COMMUNITY_DIR=...); here only the build script's offline fixture test runs.
+      - name: Registry build tests
+        run: |
+          ../registry/test-build-community.sh
+          ../registry/test-build-community-themes.sh
+
+  # v1-25b: the previous release's binary must boot and serve on this tree's
+  # schema (docs/UPGRADES.md, Schema rules). Needs the full history (tags and the
+  # merge-base with origin/main), so fetch-depth is 0. Repo root, not backend/.
+  n-1:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      EMAIL_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Migration linter
+        run: bash scripts/check-migrations.sh
+      - name: Previous release on this schema
+        run: bash scripts/n-1.sh
+
+  # Go supports the two newest majors. The SDK is a public module, so it is
+  # tested on both. The 1.26 leg only runs while backend/pkg/sdk/go.mod declares
+  # go <= 1.26 (a newer go line would make a 1.26 toolchain try to download 1.27).
+  sdk:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.26", "1.27"]
+    env:
+      GOTOOLCHAIN: local
+    defaults:
+      run:
+        working-directory: backend/pkg/sdk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Does this leg apply?
+        id: gate
+        env:
+          LEG: ${{ matrix.go }}
+        run: |
+          # major.minor only: go 1.26, 1.26.0 and 1.26.3 all mean 1.26.
+          declared=$(awk '$1 == "go" { print $2; exit }' go.mod | cut -d. -f1,2)
+          if [ "$(printf '%s\n%s\n' "$declared" "$LEG" | sort -V | tail -1)" = "$LEG" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$LEG" = "1.27" ]; then
+            # The newest leg must never be skipped: that would run no SDK checks at all.
+            echo "go.mod declares go $declared, newer than the newest leg ($LEG): add a leg" >&2
+            exit 1
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "go.mod declares go $declared: skipping the Go $LEG leg"
+          fi
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: backend/pkg/sdk/go.sum
+      - if: steps.gate.outputs.run == 'true'
+        run: go vet ./...
+      - if: steps.gate.outputs.run == 'true'
+        run: GOOS=wasip1 GOARCH=wasm go vet ./guest
+      - if: steps.gate.outputs.run == 'true'
+        run: go test ./...
+      - if: steps.gate.outputs.run == 'true'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  # Repository hygiene: formatting, static analysis, the neutral-site rules, the
+  # public-snapshot rules and the three LICENSE copies.
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      # One shipped migration predates the formatter rule and is already applied
+      # on real installs, so it is the only exception.
+      - name: gofmt
+        run: |
+          bad=$(gofmt -l . | grep -v -x 'backend/migrations/202610231005_backfill_people.go' || true)
+          if [ -n "$bad" ]; then echo "gofmt needed:" >&2; echo "$bad" >&2; exit 1; fi
+      # Same version as the pre-push hook (.githooks/pre-push).
+      # The backend, SDK and docs-publish modules, each with and without the
+      # integration tag (97 files are behind it).
+      - name: staticcheck
+        run: |
+          for m in backend backend/pkg/sdk backend/tools/docs-publish; do
+            for tags in "" integration; do
+              (cd "$m" && go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ${tags:+-tags "$tags"} ./...)
+            done
+          done
+      - name: Neutral-site rules
+        run: bash scripts/check-neutral.sh
+      - name: Public snapshot
+        run: bash scripts/test-public-snapshot.sh
+      - name: LICENSE copies are identical
+        run: cmp LICENSE backend/LICENSE && cmp LICENSE backend/pkg/sdk/LICENSE
+
+  # Lints the workflows themselves: syntax and expressions (actionlint), then
+  # security (zizmor: injection, unpinned actions, token scope).
+  workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      # actionlint runs shellcheck on every run: block when it is missing.
+      - name: shellcheck is available
+        run: shellcheck --version
+      - name: actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
+      - name: zizmor
+        run: pipx run zizmor==1.31.1 --offline --format plain .github/workflows/*.yml
+
+  # Admin UI consistency (docs/ADMIN_UI_RULES.md): a real server, seeded, and
+  # computed-style checks in Chrome. Any violation fails the job; the screenshots,
+  # JSON results and server log are kept as an artifact either way.
+  admin-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      # The service database is throwaway: seed.sh refuses a DATABASE_URL without this.
+      QA_USE_DATABASE_URL: "1"
+      EMAIL_DISABLED: "true"
+      BASE: http://127.0.0.1:8191
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+      - name: Build hatamoto
+        run: cd backend && go build -o "$RUNNER_TEMP/hatamoto" ./cmd/hatamoto
+      - name: Install the QA harness
+        working-directory: scripts/admin-qa
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      # serve writes ./data/secrets in its cwd: run it from a temp dir. Do not set
+      # HATAMOTO_ADMIN_DIR: it re-parses every admin template on every request
+      # (about 1s each, 2s+ per asset under load), so a cold builder page with its
+      # ~120 module requests blew the 30s navigation timeout. The binary just built
+      # embeds the same files.
+      - name: Start the server
+        run: |
+          work=$(mktemp -d)
+          cd "$work"
+          # The QA harness pins the legacy address; real installs get a random one.
+          HATAMOTO_ADMIN_PATH=/admin API_HOST=127.0.0.1 API_PORT=8191 \
+            "$RUNNER_TEMP/hatamoto" serve > "$RUNNER_TEMP/hatamoto-server.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -fs -o /dev/null "$BASE/health" && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/hatamoto-server.log"
+          echo "server did not come up" >&2
+          exit 1
+      - name: Seed
+        run: HATAMOTO_BIN="$RUNNER_TEMP/hatamoto" bash scripts/admin-qa/seed.sh
+      - name: Consistency self-test (planted violations must fire)
+        run: PW="$GITHUB_WORKSPACE/scripts/admin-qa/node_modules/playwright-core" CHROME=$(which google-chrome) node scripts/admin-qa/consistency.mjs --self-test
+      - name: Consistency checks
+        run: |
+          PW="$GITHUB_WORKSPACE/scripts/admin-qa/node_modules/playwright-core" CHROME=$(which google-chrome) QA_STRICT=1 \
+            node scripts/admin-qa/consistency.mjs
+      - name: Keep screenshots, results and server log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: admin-ui
+          path: |
+            scripts/admin-qa/results/
+            ${{ runner.temp }}/hatamoto-server.log
+          if-no-files-found: warn
+
+  # Admin attack suite (test/admin-attack/README.md): headless Chromium attacks the sealed admin from a
+  # public page with a self-built plugin granted site.scripts; every attack must fail and every positive
+  # control must succeed. Required check: add "admin-attack" to the ruleset.
+  # There is no workflow-level `paths:` filter on purpose: a workflow skipped by a path filter leaves a
+  # required check pending forever. The job always runs and reports; the first step decides from the
+  # changed files whether the rest does anything (a skipped step is a success).
+  admin-attack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      # The service database is throwaway: seed.sh refuses a DATABASE_URL without this.
+      QA_USE_DATABASE_URL: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Decide whether the attack suite applies
+        id: rel
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA"); then
+            if printf '%s\n' "$files" | grep -Eq '^(backend/internal/(admin|render|middleware|auth|adminpath|server|session|recovery|packages|config|httpx|pluginhost)/|backend/go\.(mod|sum)$|backend/web/admin/|test/admin-attack/|scripts/admin-qa/|\.github/workflows/ci\.yml$)'; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "relevant=false" >> "$GITHUB_OUTPUT"
+              echo "No admin, render, middleware, auth, session, config or related change: attack suite skipped."
+            fi
+          else
+            # The diff failed: fail safe and run the suite.
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: steps.rel.outputs.relevant == 'true'
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.rel.outputs.relevant == 'true'
+        with:
+          node-version: 20
+      - name: Install the QA harness (playwright-core)
+        if: steps.rel.outputs.relevant == 'true'
+        working-directory: scripts/admin-qa
+        run: npm ci --no-audit --no-fund
+      - name: Run the attack suite
+        if: steps.rel.outputs.relevant == 'true'
+        run: |
+          ATTACK_OUT="$RUNNER_TEMP/admin-attack" \
+            PW="$GITHUB_WORKSPACE/scripts/admin-qa/node_modules/playwright-core" CHROME="$(which google-chrome)" \
+            bash test/admin-attack/run.sh
+      - name: Keep the summary and server logs
+        if: always() && steps.rel.outputs.relevant == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: admin-attack
+          path: ${{ runner.temp }}/admin-attack/
+          if-no-files-found: warn
+
+  # v1-22: the WordPress importer against a real, seeded WordPress (WordPress +
+  # MariaDB + wp-cli in Docker) and a scratch Postgres. Slower than the rest, so
+  # it is its own job; test/wpfixture/README.md describes the fixture.
+  wordpress-importer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      EMAIL_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Start and seed the WordPress fixture
+        working-directory: .
+        timeout-minutes: 20
+        run: test/wpfixture/docker-up.sh
+      - name: Export the fixture variables
+        working-directory: .
+        run: cat test/wpfixture/out/wpfixture.env.host >> "$GITHUB_ENV"
+      - run: go run ./cmd/hatamoto migrate
+      - name: Importer integration tests
+        run: |
+          go test -count=1 -v -tags=integration -timeout 20m -run 'WordPress' ./app | tee /tmp/wpimport.log
+          # A skipped test would make the done criteria vacuous.
+          for t in TestWordPressFixtureImport_Integration TestWordPressFixtureWXR_Integration TestWordPressFixtureRedirects_Integration TestWordPressCLIScanOnly_Integration TestWordPressImportEmptySite_Integration TestWordPressImportSiteWithContent_Integration TestWordPressResumeOfAnotherSourceFails_Integration; do
+            grep -q -e "^--- PASS: $t " /tmp/wpimport.log
+          done
+      # v1-22b: the admin wizard drives the same import end to end (httptest +
+      # a real session) and migrates its own scratch database.
+      - name: Import wizard integration test
+        run: |
+          go test -count=1 -v -tags=integration -timeout 20m -run 'WordPressWizard' ./internal/server | tee /tmp/wpwizard.log
+          grep -q -e "^--- PASS: TestWordPressWizardImport_Integration " /tmp/wpwizard.log
+      - name: Fixture logs
+        if: failure()
+        working-directory: .
+        run: docker compose -f test/wpfixture/docker-compose.yml logs --no-color --tail=200

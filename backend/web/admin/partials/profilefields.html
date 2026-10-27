@@ -1,0 +1,12 @@
+{{/* The profile form fields shared by "Your profile" and "Complete your profile". Data: profileData. The photo is a round preview with a library button; the media picker (content.js) fills the address input and swaps the preview. The address input stays for no-JS and is hidden once the picker is available. */}}
+{{define "hm/profilefields"}}{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Required" true "Value" .Name "Error" .NameErr "Attrs" (attrmap "autocomplete" "name" "maxlength" "120")}}
+<div class="hm-field{{if .PhotoErr}} hm-field--invalid{{end}}"><label class="hm-field__label" for="photo">Photo{{if .PhotoRequired}} <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span>{{end}}</label>
+<div class="hm-row hm-photo-row"><span class="hm-avatar hm-avatar--lg hm-photo-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span><img class="hm-sf-image hm-photo-preview" src="{{.Photo}}" alt="Your photo" data-hm-photo{{if not .Photo}} hidden{{end}}>{{template "hm/button" dict "Label" "Upload" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "photo" "hidden" "hidden")}}</div>
+<div data-hm-photo-address><input class="hm-field__control" type="text" id="photo" name="photo" value="{{.Photo}}" placeholder="Address of your photo" data-hm-image autocomplete="off"{{if .PhotoErr}} aria-invalid="true" aria-describedby="photo-error"{{end}}></div>
+{{if .PhotoErr}}<p class="hm-field__error" id="photo-error">{{.PhotoErr}}</p>
+{{end}}</div>
+{{template "hm/field" dict "ID" "job_title" "Name" "job_title" "Label" "Job title" "Value" .JobTitle "Error" .JobTitleErr "Attrs" (attrmap "maxlength" "120")}}
+{{template "hm/field" dict "ID" "short_bio" "Name" "short_bio" "Label" "Short bio" "Control" "textarea" "Rows" 3 "Value" .ShortBio "Error" .ShortBioErr "Help" "Up to 300 characters." "Attrs" (attrmap "maxlength" "300")}}
+{{template "hm/field" dict "ID" "linkedin" "Name" "linkedin" "Label" "LinkedIn" "Type" "url" "Value" .LinkedIn "Error" .LinkedInErr "Placeholder" "https://www.linkedin.com/in/" "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "public" "Name" "public" "Control" "switch" "Label" "Show my public profile" "Value" "true" "OffValue" "false" "Checked" .Public "Help" (printf "Your page %s %s. Off keeps it hidden from visitors." (or (and .SlugFixed "is") "will be") .PublicURL) "Attrs" (attrmap "data-hm-page-path" .PublicURL "data-hm-page-slug" .Slug "data-hm-page-follows" (or (and (not .SlugFixed) "name") ""))}}
+{{end}}

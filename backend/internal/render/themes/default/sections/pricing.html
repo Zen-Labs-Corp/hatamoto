@@ -1,0 +1,19 @@
+{{define "pricing-num"}}{{if eq (printf "%T" .) "float64"}}{{if lt . 1000000.0}}{{.}}{{else}}{{printf "%.0f" .}}{{end}}{{else}}{{.}}{{end}}{{end}}
+{{define "section-pricing"}}{{$c := .Content}}<div class="hm-container hm-pricing hm-pricing--{{default "cards" $c.variant}}">
+  {{if or $c.heading $c.subheading}}<header class="hm-pricing__header">
+    {{if $c.heading}}<h2 class="hm-pricing__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-pricing__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.tiers}}<ul class="hm-pricing__tiers">
+    {{range $i, $t := $c.tiers}}<li class="hm-pricing__tier{{if $t.isPopular}} hm-pricing__tier--popular{{end}}">
+      {{if $t.isPopular}}<span class="hm-pricing__badge" {{hmf "tiers" $i "badgeText"}}>{{default "Most popular" $t.badgeText}}</span>{{end}}
+      <h3 class="hm-pricing__name" {{hmf "tiers" $i "name"}}>{{$t.name}}</h3>
+      {{if $t.description}}<p class="hm-pricing__description" {{hmf "tiers" $i "description"}}>{{$t.description}}</p>{{end}}
+      <p class="hm-pricing__price">{{if ne (printf "%v" $t.price) "<nil>"}}{{if $t.currency}}<span class="hm-pricing__currency" {{hmf "tiers" $i "currency"}}>{{$t.currency}}</span>{{end}}<span class="hm-pricing__amount" {{hmf "tiers" $i "price"}}>{{template "pricing-num" $t.price}}</span>{{if $t.billingPeriod}}<span class="hm-pricing__period" {{hmf "tiers" $i "billingPeriod"}}>/{{$t.billingPeriod}}</span>{{end}}{{else}}<span class="hm-pricing__amount">Custom</span>{{end}}</p>
+      {{if $t.features}}<ul class="hm-pricing__features">
+        {{range $j, $f := $t.features}}<li class="hm-pricing__feature{{if eq (printf "%v" (index $f "included")) "false"}} hm-pricing__feature--excluded{{end}}"{{if $f.tooltip}} title="{{$f.tooltip}}"{{end}}><span {{hmf "tiers" $i "features" $j "text"}}>{{$f.text}}</span></li>{{end}}
+      </ul>{{end}}
+      {{if $t.ctaText}}<a class="hm-btn hm-pricing__cta" href="{{cta $t.ctaLink}}" {{hmf "tiers" $i "ctaText"}}>{{$t.ctaText}}</a>{{end}}
+    </li>{{end}}
+  </ul>{{end}}
+</div>{{end}}

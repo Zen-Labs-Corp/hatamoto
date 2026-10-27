@@ -1,0 +1,28 @@
+{
+  "x-hm-section": {"title": "Pricing", "description": "Pricing tiers as cards or a comparison table"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["cards", "table"], "default": "cards"},
+    "tiers": {
+      "type": "array", "title": "Tiers", "x-hm-alias": ["items"],
+      "items": {"type": "object", "properties": {
+        "name": {"type": "string", "title": "Name", "x-hm-field": "plaintext"},
+        "description": {"type": "string", "title": "Description", "x-hm-field": "plaintext"},
+        "price": {"type": "number", "title": "Price (empty = custom)", "x-hm-field": "plaintext"},
+        "currency": {"type": "string", "title": "Currency symbol", "x-hm-field": "plaintext"},
+        "billingPeriod": {"type": "string", "title": "Billing period", "x-hm-field": "plaintext"},
+        "features": {"type": "array", "title": "Features", "items": {"type": "object", "properties": {
+          "text": {"type": "string", "title": "Text", "x-hm-field": "plaintext"},
+          "included": {"type": "boolean", "title": "Included", "default": true},
+          "tooltip": {"type": "string", "title": "Tooltip", "x-hm-field": "plaintext"}
+        }}},
+        "ctaText": {"type": "string", "title": "Button text", "x-hm-field": "plaintext"},
+        "ctaLink": {"type": "string", "title": "Button URL", "x-hm-field": "url"},
+        "isPopular": {"type": "boolean", "title": "Highlight as popular"},
+        "badgeText": {"type": "string", "title": "Badge text", "x-hm-field": "plaintext"}
+      }}
+    }
+  }
+}

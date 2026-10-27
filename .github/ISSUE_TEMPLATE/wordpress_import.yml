@@ -1,0 +1,52 @@
+name: WordPress import problem
+description: Importing a WordPress site went wrong or lost something.
+labels: [wordpress-import]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Do not attach your export file or paste private content here.**
+        Describe the problem and, if you can, reproduce it with a small made-up export.
+        Security problems go to SECURITY.md, not here. Remove passwords, tokens and private hostnames from logs.
+  - type: input
+    id: version
+    attributes:
+      label: Hatamoto version
+      description: Output of `hatamoto version`.
+      placeholder: v0.30.0 (commit abc1234)
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: How did you import?
+      options:
+        - Admin import wizard, from a WXR export file
+        - Admin import wizard, from the WordPress REST API
+        - Command line (`hatamoto import`)
+    validations:
+      required: true
+  - type: input
+    id: wp
+    attributes:
+      label: WordPress version and notable plugins
+      description: For example "WordPress 6.6, Yoast SEO, WooCommerce". Page builders and e-commerce are not imported, see the import docs.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected to come across, and what did or did not. Name the kind of content (posts, pages, media, categories, redirects).
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Import report or log lines
+      description: The summary and warnings the import printed, redacted.
+      render: text
+  - type: textarea
+    id: sample
+    attributes:
+      label: A minimal example
+      description: The smallest made-up post or page markup that shows the problem, if you can share one.
+      render: html

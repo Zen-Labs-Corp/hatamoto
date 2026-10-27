@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Replace theme %s?" .Sum.Name) "CSRF" $.CSRF}}
+{{template "hm/confirmcard-start" dict "Post" (adminPath "theme" "themes" "install") "CSRF" $.CSRF}}<input type="hidden" name="staged" value="{{.Staged}}">
+{{template "hm/pkgconfirm" .Sum.Confirm}}
+{{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Control" "checkbox" "Value" "1" "Required" true "Label" "I understand and want to replace the installed theme."}}
+{{template "hm/confirmcard-end" dict "Back" (adminPath "theme" "themes") "Label" "Replace theme" "Danger" true}}
+{{end}}{{end}}

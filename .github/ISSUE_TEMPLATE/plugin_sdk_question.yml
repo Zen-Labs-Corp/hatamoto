@@ -1,0 +1,45 @@
+name: Plugin SDK question
+description: A question about writing a plugin with the Hatamoto SDK.
+labels: [sdk, question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Questions about building plugins are welcome here or in GitHub Discussions.
+        A bug in the SDK itself is a bug report; a bug in someone else's plugin belongs in that plugin's repository.
+  - type: input
+    id: sdk
+    attributes:
+      label: SDK version
+      description: The `hatamoto.dev/sdk` version in your `go.mod`, and the output of `hatamoto version` for the server that runs the plugin.
+      placeholder: sdk v0.13.0, hatamoto vX.Y.Z
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is the question about?
+      options:
+        - Manifest and capabilities
+        - Hooks and events
+        - Database (db.*) access
+        - Fetching from the web (http.fetch)
+        - Admin pages or settings
+        - Templates, sections or browser scripts
+        - Building, signing or installing
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to build, what did you try, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code or manifest
+      description: The smallest piece of your plugin that shows the problem. Remove secrets.
+      render: go

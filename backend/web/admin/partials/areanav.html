@@ -1,0 +1,11 @@
+{{define "hm/areanav"}}{{$cur := .Section}}{{$g := ""}}<nav class="hm-subnav" aria-label="{{.AreaLabel}}">
+<h2 class="hm-subnav__title">{{.AreaLabel}}</h2>
+<ul class="hm-subnav__list" role="list">{{range .AreaNav}}{{if and .Group (ne .Group $g)}}{{$g = .Group}}<li class="hm-subnav__group" role="presentation">{{.Group}}</li>
+{{end}}<li><a class="hm-subnav__link" href="{{.Href}}"{{if eq .ID $cur}} aria-current="page"{{end}}>{{icon .Icon}}<span>{{.Label}}</span></a></li>
+{{end}}</ul>
+</nav>
+<form class="hm-subnav-select" method="get" action="{{.AreaEntry}}">{{range $k, $vs := .AreaCarry}}{{range $vs}}<input type="hidden" name="{{$k}}" value="{{.}}">{{end}}{{end}}
+<label for="hm-{{.AreaID}}-section">{{.AreaLabel}} section</label>
+<div class="hm-subnav-select__row"><select class="hm-field__control" id="hm-{{.AreaID}}-section" name="section">{{$g := ""}}{{range .AreaNav}}{{if and .Group (ne .Group $g)}}{{if $g}}</optgroup>{{end}}{{$g = .Group}}<optgroup label="{{.Group}}">{{end}}<option value="{{.ID}}"{{if eq .ID $cur}} selected{{end}}>{{.Label}}</option>
+{{end}}{{if $g}}</optgroup>{{end}}</select>{{template "hm/button" (dict "Label" "Go" "Type" "submit")}}</div>
+</form>{{end}}

@@ -1,0 +1,5 @@
+/* quote: a pull quote with its source */
+.hm-quote { margin: 0; padding-left: 1em; border-left: 4px solid var(--hm-border, #ddd); }
+.hm-quote blockquote { margin: 0; font-size: var(--hm-fs-xl, 1.25rem); font-style: italic; }
+.hm-quote blockquote p { margin: 0; }
+.hm-quote figcaption { margin-top: var(--hm-space-2, 0.5rem); color: var(--hm-muted-text, #555); }

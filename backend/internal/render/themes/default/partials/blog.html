@@ -1,0 +1,45 @@
+{{define "page-body"}}{{range .Blocks}}{{template "section" .}}
+{{end}}{{if and .Body (not .Blocks)}}<div class="hm-container hm-page-body"><div class="hm-prose hm-entry">{{.Body}}</div></div>{{end}}{{end}}
+{{define "article"}}{{$e := .Entity}}<article class="hm-container hm-article">
+<header class="hm-article__header">
+{{if $e}}{{template "term-chips" dict "Terms" $e.Categories}}{{end}}<h1 class="hm-article__title">{{if $e}}{{$e.Title}}{{else}}{{.Page.Name}}{{end}}</h1>
+{{if $e}}{{with $e.Excerpt}}<p class="hm-article__lede">{{.}}</p>
+{{end}}{{if ne $e.Schema "page"}}{{template "entry-meta" dict "Author" $e.Author "PublishedAt" $e.PublishedAt "Words" .Body}}{{end}}{{end}}</header>
+{{if $e}}{{with $e.Image}}<figure class="hm-article__image"><img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 60rem, 100vw"{{end}} alt="{{with $e.Attributes.featured_image_alt}}{{.}}{{end}}" fetchpriority="high"></figure>
+{{end}}{{end}}{{if .Body}}<div class="hm-prose hm-entry">{{.Body}}</div>
+{{end}}{{range .Blocks}}{{template "section" .}}
+{{end}}{{if $e}}{{with $e.Tags}}<footer class="hm-article__footer">{{template "term-chips" dict "Terms" . "Label" "Tags"}}</footer>
+{{end}}{{if and $e.Author (ne $e.Schema "page")}}<aside class="hm-author-box" aria-label="About the author">
+{{with $e.Author.Avatar}}<img class="hm-avatar" src="{{imgsrc .}}" alt="" width="48" height="48">
+{{end}}<div><p>Written by {{if $e.Author.URL}}<a href="{{$e.Author.URL}}">{{$e.Author.Name}}</a>{{else}}{{$e.Author.Name}}{{end}}</p>
+{{with $e.Author.JobTitle}}<p class="hm-meta">{{.}}</p>
+{{end}}{{with $e.Author.Bio}}<p class="hm-author-bio">{{.}}</p>
+{{end}}</div>
+</aside>
+{{end}}{{end}}</article>
+{{if and $e (ne $e.Schema "page")}}{{with related . 3}}<section class="hm-container hm-related" aria-labelledby="hm-related-h">
+<h2 id="hm-related-h" class="hm-related__title">Keep reading</h2>
+<div class="hm-cards">{{range .}}{{template "post-card-h3" .}}{{end}}</div>
+</section>
+{{end}}{{end}}{{end}}
+{{define "entry-meta"}}<p class="hm-meta">{{with .Author}}<span class="hm-meta__author">{{with .Avatar}}<img class="hm-avatar hm-avatar--sm" src="{{imgsrc .}}" alt="" width="24" height="24">{{end}}{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>{{end}}{{if not .PublishedAt.IsZero}}<time datetime="{{formatDate .PublishedAt "2006-01-02"}}">{{formatDate .PublishedAt "2 January 2006"}}</time>{{end}}{{with readingTime .Words}}<span>{{.}} min read</span>{{end}}</p>{{end}}
+{{define "term-chips"}}{{if .Terms}}<ul class="hm-chips"{{with .Label}} aria-label="{{.}}"{{end}}>{{range .Terms}}<li><a class="hm-chip" href="{{.URL}}">{{.Name}}</a></li>{{end}}</ul>
+{{end}}{{end}}
+{{/* post-card is a card under an h1 listing title; post-card-h3 sits under an h2 (the heading level must not skip). Both take a RelatedItem. */}}
+{{define "post-card"}}{{template "card" dict "Item" . "Level" 2}}{{end}}
+{{define "post-card-h3"}}{{template "card" dict "Item" . "Level" 3}}{{end}}
+{{define "card"}}{{$i := .Item}}<article class="hm-card">
+{{with $i.Image}}<a class="hm-card__media" href="{{$i.URL}}" tabindex="-1" aria-hidden="true"><img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 24rem, (min-width: 40rem) 50vw, 100vw"{{end}} alt="" loading="lazy"></a>
+{{end}}<div class="hm-card__body">
+{{with $i.Category}}<p class="hm-card__cat">{{.}}</p>
+{{end}}{{if eq .Level 3}}<h3 class="hm-card__title"><a href="{{$i.URL}}">{{$i.Title}}</a></h3>{{else}}<h2 class="hm-card__title"><a href="{{$i.URL}}">{{$i.Title}}</a></h2>{{end}}
+{{with $i.Excerpt}}<p class="hm-card__excerpt">{{.}}</p>
+{{end}}{{if or $i.Author (not $i.PublishedAt.IsZero)}}<p class="hm-meta">{{with $i.Author}}<span>{{if $i.AuthorURL}}<a href="{{$i.AuthorURL}}">{{.}}</a>{{else}}{{.}}{{end}}</span>{{end}}{{if not $i.PublishedAt.IsZero}}<time datetime="{{formatDate $i.PublishedAt "2006-01-02"}}">{{formatDate $i.PublishedAt "2 January 2006"}}</time>{{end}}</p>
+{{end}}</div>
+</article>{{end}}
+{{define "post-list"}}{{if .Items}}<div class="hm-cards">{{range .Items}}{{template "post-card" .}}{{end}}</div>
+{{template "pagination" .}}{{else}}<p class="hm-empty">{{if .Query}}No results for &ldquo;{{.Query}}&rdquo;.{{else}}Nothing here yet &mdash; check back soon.{{end}}</p>{{end}}{{end}}
+{{define "pagination"}}{{with .Pagination}}{{if gt .TotalPages 1}}<nav class="hm-pagination" aria-label="Pagination">
+<ul>{{if .HasPrev}}<li><a rel="prev" href="{{.PrevURL}}">Previous</a></li>{{end}}{{range paginate .}}{{if .Gap}}<li><span aria-hidden="true">&hellip;</span></li>{{else if .Current}}<li><a href="{{.URL}}" aria-current="page" aria-label="Page {{.N}}, current page">{{.N}}</a></li>{{else}}<li><a href="{{.URL}}" aria-label="Page {{.N}}">{{.N}}</a></li>{{end}}{{end}}{{if .HasNext}}<li><a rel="next" href="{{.NextURL}}">Next</a></li>{{end}}</ul>
+</nav>
+{{end}}{{end}}{{end}}

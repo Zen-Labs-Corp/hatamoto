@@ -1,0 +1,15 @@
+/* Settings row list: one row per setting (name and help left, control right),
+   hairlines between rows. Rows stack under 640px. */
+.hm-setlist { display: flex; flex-direction: column; }
+.hm-setrow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); padding: var(--space-4) 0; border-top: 1px solid var(--color-kinu); }
+.hm-setrow:first-child { border-top: 0; }
+.hm-setrow__text { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-setrow__name { margin: 0; font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--color-sumi); }
+.hm-setrow__text .hm-field__help { margin: 0; overflow-wrap: anywhere; }
+.hm-setrow__control { flex: none; display: flex; align-items: center; gap: var(--space-2); }
+@media (max-width: 640px) { .hm-setrow { flex-direction: column; align-items: flex-start; gap: var(--space-3); } }
+.hm-setrow__control .hm-field__control { width: auto; min-width: 9rem; }
+.hm-setrow__control .hm-select { min-width: 9rem; }
+.hm-setrow__control input[type="number"] { width: 7rem; min-width: 0; }
+.hm-setrow__unit { font-size: var(--text-sm); color: var(--color-hai); }
+.hm-setrow__text .hm-field__error { margin: 0; }

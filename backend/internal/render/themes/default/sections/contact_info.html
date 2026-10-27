@@ -1,0 +1,19 @@
+{{define "section-contact_info"}}{{$c := .Content}}{{$a := $c.address}}<div class="hm-container hm-contact-info hm-contact-info--{{default "stacked" $c.variant}}">
+  {{if $c.heading}}<h2 class="hm-contact-info__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+  <div class="hm-contact-info__body">
+    {{if $a}}{{if or $a.street $a.city $a.state $a.postal_code $a.country}}<address class="hm-contact-info__address">
+      {{if $a.street}}<span class="hm-contact-info__line" {{hmf "address" "street"}}>{{$a.street}}</span>{{end}}
+      {{if or $a.city $a.state $a.postal_code}}<span class="hm-contact-info__line">{{if $a.city}}<span {{hmf "address" "city"}}>{{$a.city}}</span>{{end}}{{if and $a.city $a.state}}, {{end}}{{if $a.state}}<span {{hmf "address" "state"}}>{{$a.state}}</span>{{end}}{{if $a.postal_code}} <span {{hmf "address" "postal_code"}}>{{$a.postal_code}}</span>{{end}}</span>{{end}}
+      {{if $a.country}}<span class="hm-contact-info__line" {{hmf "address" "country"}}>{{$a.country}}</span>{{end}}
+    </address>{{end}}{{end}}
+    {{if or $c.phone $c.email}}<ul class="hm-contact-info__channels">
+      {{if $c.phone}}<li><a class="hm-contact-info__phone" href="{{telHref $c.phone}}" {{hmf "phone"}}>{{$c.phone}}</a></li>{{end}}
+      {{if $c.email}}<li><a class="hm-contact-info__email" href="{{safeHref (printf "mailto:%s" $c.email)}}" {{hmf "email"}}>{{$c.email}}</a></li>{{end}}
+    </ul>{{end}}
+    {{if $c.hours}}<dl class="hm-contact-info__hours">
+      {{range $i, $h := $c.hours}}<div class="hm-contact-info__hours-row"><dt {{hmf "hours" $i "day"}}>{{$h.day}}</dt><dd>{{if $h.open}}<span {{hmf "hours" $i "open"}}>{{$h.open}}</span>{{end}}{{if and $h.open $h.close}} – {{end}}{{if $h.close}}<span {{hmf "hours" $i "close"}}>{{$h.close}}</span>{{end}}</dd></div>{{end}}
+    </dl>{{end}}
+  </div>
+  {{/* Map: iframe only for allow-listed embed hosts (embedAllowed); any other URL becomes a plain link. */}}
+  {{with $c.mapEmbedUrl}}{{if ne (printf "%v" $c.showMap) "false"}}{{if embedAllowed .}}<div class="hm-contact-info__map"><iframe src="{{.}}" title="Map" loading="lazy" referrerpolicy="no-referrer"></iframe></div>{{else}}<p class="hm-contact-info__map-link"><a href="{{safeHref .}}" rel="noopener">View map</a></p>{{end}}{{end}}{{end}}
+</div>{{end}}

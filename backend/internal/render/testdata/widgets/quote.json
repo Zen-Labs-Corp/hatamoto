@@ -1,0 +1,4 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"q1","t":"quote","p":{"text":"Less is <more>.","cite":"A. Person","role":"Editor"}},
+  {"id":"q2","t":"quote","p":{"text":"Plain."}}
+]}]}

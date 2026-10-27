@@ -1,0 +1,5 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Upload files") "CSRF" $.CSRF}}
+{{template "hm/form-upload-media" dict "Upload" .Upload "CSRF" $.CSRF "MaxMB" .MaxMB "Foot" true}}
+{{end}}{{end}}

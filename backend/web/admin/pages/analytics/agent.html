@@ -1,0 +1,32 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/aia{{end}}
+{{define "main"}}{{with .Data}}{{$chips := ""}}{{with .Body}}{{$chips = .Chips}}{{end}}{{template "hm/pageheader" dict "Title" .Title "Chips" $chips "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{with .Body}}<div class="hm-stack">
+{{if .PolicyOnly}}<h2 class="hm-visually-hidden">Fetches</h2>
+{{template "hm/card-start" (dict "ID" "w-ag-none" "Title" "Fetches" "Heading" "h3")}}{{template "hm/empty" (dict "Title" "No fetches recorded. This is a robots.txt name only." "Compact" true "Regular" true)}}{{template "hm/card-end"}}
+{{else}}<h2 class="hm-visually-hidden">Key figures</h2>
+{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}
+{{template "hm/aia-chart" .Hero}}
+<div class="hm-grid2">
+{{template "hm/card-start" (dict "ID" "w-ag-pages" "Title" "Most fetched pages" "Description" "The pages this agent read most." "Heading" "h3")}}{{template "hm/barlist" .Pages}}{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-ag-resp" "Title" "Responses by status class" "Description" "How your site answered this agent." "Heading" "h3")}}
+{{if .Responses}}{{template "hm/categorybar" .Responses}}{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-ag-ver" "Title" "Verification" "Description" "Fetches by verification result." "Heading" "h3")}}
+{{if .Verification}}{{template "hm/categorybar" .Verification}}{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-ag-track" "Title" "Activity tracker" "Description" "Days this agent fetched pages." "Heading" "h3")}}
+{{template "hm/aia-tracker" (dict "ID" "w-ag-track" "Caption" .TrackerCaption "Tracker" .Tracker "Table" .TrackerTable)}}
+{{template "hm/card-end"}}
+</div>
+{{end}}
+{{if .HasPolicy}}{{with .Policy}}{{$pol := .}}{{template "hm/card-start" (dict "ID" "w-ag-pol" "Title" "Robots policy" "Description" "The policy applies to the whole purpose. Save it from the bar at the bottom of the page." "Heading" "h3")}}
+{{$form := dict "CSRF" $.CSRF "Owner" .Form.Owner "Return" .Form.Return}}{{template "hm/aia-policy-start" $form}}
+{{if $form.Owner}}<input type="hidden" name="scope" value="one">{{end}}
+<dl class="hm-aia-kv"><dt>robots.txt name</dt><dd><code class="hm-aia-mono">{{.Token}}</code></dd><dt>Policy</dt><dd>{{template "hm/aia-policybadge" (dict "Purpose" .Purpose "Blocked" .Blocked)}}</dd></dl>
+{{with .Control}}<div class="hm-aia-polrow"><p class="hm-aia-small">{{$pol.Note}}</p>{{template "hm/aia-policy" .}}</div>{{end}}
+{{with .Callout}}{{template "hm/callout" .}}{{end}}
+{{template "hm/aia-policy-end" $form}}
+{{template "hm/card-end"}}{{end}}{{end}}
+</div>{{end}}
+{{end}}{{end}}

@@ -1,0 +1,15 @@
+.hm-stats__header { max-width: 42rem; margin-bottom: 2.5rem; }
+.hm-stats__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-stats__list { display: grid; gap: 1.5rem; margin: 0; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+@media (min-width: 48rem) {
+  .hm-stats--cols-2 .hm-stats__list { grid-template-columns: repeat(2, 1fr); }
+  .hm-stats--cols-3 .hm-stats__list { grid-template-columns: repeat(3, 1fr); }
+  .hm-stats--cols-4 .hm-stats__list { grid-template-columns: repeat(4, 1fr); }
+}
+.hm-stats__item { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 0.25rem; }
+.hm-stats__value { margin: 0; display: flex; flex-direction: column; }
+.hm-stats__number { font-family: var(--hm-font-heading); font-size: clamp(2rem, 4vw, 3rem); font-weight: 450; line-height: 1.1; letter-spacing: -0.05em; }
+.hm-stats__label { color: var(--hm-label); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+.hm-stats__description { color: var(--ht-fg-muted); font-size: 0.9rem; }
+.hm-stats--cards .hm-stats__item { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-lg); padding: 1.5rem; background: var(--ht-surface-2); }
+.hm-stats--bordered .hm-stats__item { border-left: 1px solid var(--hm-text); padding-left: 1rem; }

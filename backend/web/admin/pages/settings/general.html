@@ -1,0 +1,70 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/searchselect{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<nav class="hm-jumpnav" aria-label="On this page"><a href="#identity">Identity</a><a href="#homepage-section">Homepage</a><a href="#contact">Contact details</a><a href="#email">Email</a></nav>
+<section id="identity" class="hm-stack">
+<form method="post" action="{{adminPath}}/settings/general/identity" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "identity-card" "Title" "Identity" "Description" "The name, address and language of your site. Brand colours live in Appearance."}}
+{{template "hm/formerrors" dict "Errors" .Ident.Summary}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Site name" "Value" .Ident.Site.Name "Required" true "Error" (index .Ident.SiteErrs "name")}}
+{{template "hm/field" dict "ID" "tagline" "Name" "tagline" "Label" "Tagline" "Value" .Ident.Tagline "Error" (index .Ident.SiteErrs "tagline")}}
+{{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .Ident.Site.URL "Help" "The public address, like https://example.com. Used in links and emails." "Error" (index .Ident.SiteErrs "url")}}
+{{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com." "Error" (index .Ident.SiteErrs "domain")}}
+{{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Ident.Languages "Error" (index .Ident.SiteErrs "language")}}
+{{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Ident.Timezones "Error" (index .Ident.SiteErrs "timezone")}}
+{{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png." "Error" (index .Ident.SiteErrs "logo")}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Save identity" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+
+<section id="homepage-section" class="hm-stack">
+<form method="post" action="{{adminPath}}/settings/general/homepage" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "homepage-card" "Title" "Homepage" "Description" "Choose which page is shown at the root of your site."}}
+{{template "hm/searchselect" dict "ID" "homepage" "Name" "homepage" "Label" "Homepage" "Required" true "Value" .Home.Current "Selected" .Home.CurrentLabel "Src" (adminPath "pick" "entities") "Error" .Home.Error}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Save homepage" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+
+<section id="contact" class="hm-stack">
+<form method="post" action="{{adminPath}}/settings/general/contact" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "contact-card" "Title" "Contact details" "Description" "Where messages go and how visitors can reach you."}}
+{{template "hm/formerrors" dict "Errors" .Contact.Summary}}
+<fieldset class="hm-field__group"><legend class="hm-field__label">Reach</legend>
+<div class="hm-fieldgrid">
+{{template "hm/field" dict "ID" "notify" "Name" "notify" "Label" "Notification email" "Type" "email" "Value" .Contact.Contact.NotifyEmail "Help" "Where form messages and alerts go." "Error" (index .Contact.ContactErrs "notify")}}
+{{template "hm/field" dict "ID" "phone" "Name" "phone" "Label" "Phone" "Type" "tel" "Value" .Contact.Contact.Phone "Error" (index .Contact.ContactErrs "phone")}}
+{{template "hm/field" dict "ID" "hours" "Name" "hours" "Label" "Business hours" "Value" .Contact.Contact.Hours "Help" "Free text, like Mon to Fri 9 to 5." "Error" (index .Contact.ContactErrs "hours")}}
+</div></fieldset>
+<fieldset class="hm-field__group"><legend class="hm-field__label">Address</legend>
+<div class="hm-fieldgrid hm-fieldgrid--2">
+{{template "hm/field" dict "ID" "street" "Name" "street" "Label" "Street" "Value" .Contact.Contact.Street "Error" (index .Contact.ContactErrs "street")}}
+{{template "hm/field" dict "ID" "city" "Name" "city" "Label" "City" "Value" .Contact.Contact.City "Error" (index .Contact.ContactErrs "city")}}
+{{template "hm/field" dict "ID" "state" "Name" "state" "Label" "State or region" "Value" .Contact.Contact.State "Error" (index .Contact.ContactErrs "state")}}
+{{template "hm/field" dict "ID" "postal" "Name" "postal" "Label" "Postal code" "Value" .Contact.Contact.Postal "Error" (index .Contact.ContactErrs "postal")}}
+{{template "hm/field" dict "ID" "country" "Name" "country" "Label" "Country" "Value" .Contact.Contact.Country "Error" (index .Contact.ContactErrs "country")}}
+</div></fieldset>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Save contact details" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+
+<section id="email" class="hm-stack">
+{{template "hm/card-start" dict "ID" "email-card" "Title" "Email" "Heading" "h2" "Description" "Password resets, invitations and form notifications."}}
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
+<p>{{if .MailOn}}{{template "hm/badge" dict "Label" "Email is set up" "Kind" "success"}}{{else}}{{template "hm/badge" dict "Label" "Email is not set up" "Kind" "warning"}}{{end}}</p></div>
+<div class="hm-setrow__control">{{template "hm/button" dict "Label" "Manage email" "Href" (adminPath "settings" "email")}}</div>
+</div></div>
+{{if not .MailOn}}{{template "hm/callout" (dict "Kind" "info" "Body" "Without email, password resets use the command line and invitations show you a link to send yourself.")}}
+{{end}}{{template "hm/card-end"}}
+</section>
+
+{{end}}{{end}}

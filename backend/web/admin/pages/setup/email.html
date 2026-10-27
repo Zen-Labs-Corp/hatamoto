@@ -1,0 +1,16 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" dict "Items" .Steps}}
+<h1>Email</h1>
+<p class="hm-muted">Password resets, invitations and form notices. Saving checks the connection first. You can skip this and set it up later in Settings.</p>
+{{template "hm/formerrors" dict "Errors" .Errors}}
+{{if .EmailCheck}}{{template "hm/flash" (dict "Kind" "error" "Message" .EmailCheck "Inline" true)}}
+{{end}}<form method="post" action="{{adminPath}}/setup/email" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/emailfields" .MailForm}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+<a href="{{adminPath}}/setup/theme">Skip</a>
+{{template "hm/button" dict "Label" "Save and continue" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

@@ -1,0 +1,13 @@
+.hm-comparison__sides { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); background: var(--hm-hair); border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); overflow: hidden; }
+.hm-comparison__side { background: var(--hm-bg); padding: 2rem 1.75rem; }
+.hm-comparison__side--positive { background: var(--hm-shiro); }
+.hm-comparison__tag { margin: 0 0 0.75rem; font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-comparison__side--positive .hm-comparison__tag { color: var(--hm-shu); }
+.hm-comparison__title { margin: 0 0 1.25rem; font-size: 1.375rem; }
+.hm-comparison__items { list-style: none; margin: 0; padding: 0; }
+.hm-comparison__items li { position: relative; padding: 0.625rem 0 0.625rem 1.75rem; border-top: 1px solid var(--hm-hair); }
+/* Glyphs are pseudo-elements so the canvas editor never edits them. */
+.hm-comparison__items li::before { position: absolute; left: 0; top: 0.625rem; font-family: var(--hm-font-mono); }
+.hm-comparison__side--negative .hm-comparison__items li { color: var(--hm-hai); text-decoration: line-through; }
+.hm-comparison__side--negative .hm-comparison__items li::before { content: "\00d7"; color: var(--hm-label); }
+.hm-comparison__side--positive .hm-comparison__items li::before { content: "\2713"; color: var(--hm-shu); }

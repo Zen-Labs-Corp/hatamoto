@@ -1,0 +1,38 @@
+# affected-readers.txt - files that tests read BY PATH (not go:embed), so a change to the
+# file must run those tests at push. Read by .githooks/lib/affected.sh from the pushed tree.
+#   <path glob>   <module dir>   <package>
+# Globs are repo-relative; `**` and `*` both match across directories. A package is
+# module-relative, as `go list` prints it. A non-Go file under backend/ that is neither
+# embedded nor listed here makes the push run the full suite, so a missing row costs
+# time, never coverage. Paths that force a full run anyway (migrations, the SDK, examples,
+# deploy/sql, .github/workflows, the gate scripts) need no row.
+# scripts/test-affected.sh fails when a test reads a path no row, embed or force-full rule covers.
+backend/web/admin/**                                       backend  ./internal/admin
+backend/web/admin/css/**                                   backend  ./internal/admin/a11y
+docs/ADMIN_UI_RULES.md                                     backend  ./internal/admin
+docs/CANVAS.md                                             backend  ./internal/admin
+scripts/admin-qa/**                                        backend  ./internal/admin
+backend/internal/admin/testdata/canvas_protocol_cases.json backend  ./internal/render
+backend/internal/render/themes/default/schemas/**          backend  ./internal/admin/schemaform
+backend/internal/entity/testdata/inline_href_cases.json    backend  ./internal/render
+backend/testdata/inline/**                                 backend  ./internal/entity
+backend/testdata/stylespec/**                              backend  ./internal/builder
+backend/internal/render/testdata/packs/**                  backend  ./internal/packages
+backend/internal/wasmhost/testdata/**                      backend  ./internal/pluginhost
+backend/internal/wasmhost/testdata/**                      backend  ./internal/wasmhost
+design/**                                                  backend  ./internal/render
+backend/internal/render/widgets/**                         backend  ./internal/builder
+backend/internal/builder/widgets/**                        backend  ./internal/render
+docs/UPGRADES.md                                           backend  ./internal/release
+README.md                                                  backend  ./internal/release
+docs/site/**                                               backend  ./internal/release
+docs/site/**                                               backend/tools/docs-publish  .
+docs/MCP.md                                                backend  ./internal/server
+scripts/check-channel-freshness.sh                         backend  ./internal/release
+releases/channels/**                                       backend  ./tools/release
+docker-compose.yml                                         backend  ./app
+backend/cmd/hatamoto/**                                    backend  ./app
+backend/web/vendor/**                                      backend  ./tools/vendor
+backend/internal/server/admin_*.go                         backend  ./internal/admin
+backend/internal/server/render_admin_handlers.go           backend  ./internal/admin
+scripts/admin-qa/**                                        backend  ./internal/admin

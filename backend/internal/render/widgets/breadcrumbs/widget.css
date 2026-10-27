@@ -1,0 +1,3 @@
+/* breadcrumbs: a trail separated by slashes */
+.hm-crumbs ol { display: flex; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; gap: var(--hm-space-2, 0.5rem); }
+.hm-crumbs li + li::before { content: "/"; margin-right: var(--hm-space-2, 0.5rem); color: var(--hm-muted-text, #555); }

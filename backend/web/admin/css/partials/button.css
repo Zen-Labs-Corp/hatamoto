@@ -1,0 +1,45 @@
+/* Buttons keep the hm-btn--* class API; the mockup's look is ported onto it.
+   Icon-only buttons need aria-label and keep a control-h target (2.5.8). */
+.hm-btn {
+  --h: var(--control-h);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  height: var(--h); min-width: var(--h); padding: 0 var(--space-3);
+  border: 1px solid var(--border-control); border-radius: var(--radius-sm);
+  background: var(--color-paper); color: var(--color-sumi);
+  font-family: var(--font-ui); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-none); white-space: nowrap;
+  text-decoration: none; cursor: pointer;
+  transition: background-color 120ms var(--ease), border-color 120ms var(--ease);
+}
+.hm-btn:hover { background: var(--color-kasumi); }
+.hm-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; position: relative; z-index: var(--z-raised); }
+.hm-btn[disabled], .hm-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+.hm-btn[aria-pressed="true"] { background: var(--color-kasumi); border-color: var(--color-sumi); }
+.hm-btn--primary { background: var(--color-sumi); color: var(--color-paper); border-color: var(--color-sumi); }
+.hm-btn--primary:hover { background: var(--color-sumi-soft); border-color: var(--color-sumi-soft); }
+.hm-btn--ghost { background: transparent; border-color: transparent; }
+.hm-btn--ghost:hover { background: var(--color-kasumi); }
+.hm-btn--danger { background: var(--color-danger); color: var(--color-paper); border-color: var(--color-danger); }
+.hm-btn--danger:hover { background: var(--color-danger); filter: brightness(0.92); }
+.hm-btn--danger-text { color: var(--color-danger); }
+.hm-btn--danger-text:hover, .hm-btn--danger-text:focus-visible { color: var(--color-danger); background: var(--color-kasumi); }
+.hm-btn--sm { --h: var(--control-h-sm); padding: 0 var(--space-2); }
+.hm-btn--icon, .hm-btn[data-icon-only] { padding: 0; width: var(--h); }
+
+/* Busy state (htmx request or a plain form post in flight): the label stays visible, so the
+   accessible name survives, and a spinner follows it. The CSP forbids an injected <style>.
+   One spinner recipe serves buttons and hm/indicator. */
+.hm-btn.htmx-request, .hm-btn[aria-busy="true"] { opacity: 0.7; }
+.hm-btn.htmx-request { pointer-events: none; }
+.hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after, .hm-indicator::after {
+  content: ""; border-radius: 50%;
+  border: 2px solid var(--text-muted); border-top-color: transparent;
+}
+.hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after { flex: none; width: 14px; height: 14px; box-sizing: border-box; }
+.hm-btn--primary.htmx-request::after, .hm-btn--primary[aria-busy="true"]::after { border-color: var(--color-paper); border-top-color: transparent; }
+.hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after, .hm-indicator.htmx-request::after { animation: hm-spin 0.7s linear infinite; }
+/* hm/indicator: a spinner that always takes its 16px box (opacity only, no layout shift). */
+.hm-indicator { display: inline-block; flex: none; position: relative; width: 16px; height: 16px; opacity: 0; transition: opacity 120ms var(--ease); }
+.hm-indicator::after { position: absolute; inset: 1px; }
+.hm-indicator.htmx-request { opacity: 1; }
+@keyframes hm-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .hm-indicator.htmx-request::after, .hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after { animation-duration: 2.4s; } }

@@ -1,0 +1,13 @@
+{{/* Dialog pattern for a small create, inlined hidden in the list page:
+{{template "hm/dialog-start" dict "ID" "new-thing" "Title" "New thing"}}
+<form id="new-thing-form" method="post" action="/things">{{template "hm/csrf" .}} ...fields...</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create thing" "PrimaryAttrs" (attrmap "form" "new-thing-form")}}
+The header "New thing" is an <a href="/things/new" data-hm-open="new-thing">: with JS it opens this dialog (components.js), without JS it goes to the /new page that renders the same fields. */}}
+{{/* Static: the dialog holds input, so a click on the backdrop does not close it. Description: one sentence that names what the dialog does, announced with the title. */}}
+{{define "hm/dialog-start"}}<dialog class="hm-dialog{{if .Danger}} hm-dialog--danger{{end}}" id="{{required "hm/dialog ID" .ID}}" aria-labelledby="{{.ID}}-title"{{if .Description}} aria-describedby="{{.ID}}-desc"{{end}}{{if .Static}} data-hm-static{{end}}>
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="{{.ID}}-title">{{required "hm/dialog Title" .Title}}</h2>
+{{with .Description}}<p class="hm-muted" id="{{$.ID}}-desc">{{.}}</p>{{end}}<div class="hm-dialog__body">{{end}}
+{{/* Primary renders a submit inside form method=dialog, so on its own it only closes the dialog. To act, pass PrimaryAttrs with form=<id of the form to submit> (or formaction). */}}
+{{define "hm/dialog-end"}}</div>
+<form method="dialog" class="hm-dialog__foot">{{template "hm/button" (dict "Label" (or .CloseLabel "Cancel") "Type" "submit")}}{{if .Primary}}{{template "hm/button" (dict "Label" .Primary "Variant" (or .PrimaryVariant "primary") "Type" "submit" "Attrs" .PrimaryAttrs)}}{{end}}</form>
+</div></dialog>{{end}}

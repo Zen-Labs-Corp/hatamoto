@@ -1,0 +1,4 @@
+{{/* hm/empty: Icon, Code (a status like 404, muted above the title), Title, Body, Actions ([]ui.Button), H1 (the title is the page heading), Compact (left aligned, no frame), Plain (centred, no frame, for use inside a panel), Regular (title in normal weight). */}}
+{{define "hm/empty"}}<div class="hm-empty{{if .Compact}} hm-empty--compact{{end}}{{if .Plain}} hm-empty--plain{{end}}{{if .Regular}} hm-empty--regular{{end}}">{{if .Icon}}<span class="hm-empty__icon">{{icon .Icon}}</span>{{end}}
+{{with .Code}}<p class="hm-empty__code">{{.}}</p>{{end}}{{if .Title}}{{if .H1}}<h1 class="hm-empty__title">{{.Title}}</h1>{{else}}<p class="hm-empty__title">{{.Title}}</p>{{end}}{{end}}{{if .Body}}<p class="hm-muted">{{.Body}}</p>{{end}}
+{{if .Actions}}<div class="hm-row">{{range .Actions}}{{template "hm/button" .Dict}}{{end}}</div>{{end}}</div>{{end}}

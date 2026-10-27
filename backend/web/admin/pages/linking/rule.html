@@ -1,0 +1,29 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/searchselect{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Linking rule") "CSRF" $.CSRF}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{$action := cond .New (adminPath "settings" "linking" "rules") (printf "%s/settings/linking/rules/%s" adminPath .ID)}}
+<form method="post" action="{{$action}}" class="hm-cardform">
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save rule</button>
+{{template "hm/card-start" dict}}
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "phrase" "Name" "phrase" "Label" "Phrase" "Value" .Phrase "Required" true "Help" "The words to look for in your content, for example: web design." "Error" (index .Errors "phrase") "Attrs" (attrmap "maxlength" "200" "autocomplete" "off")}}
+{{template "hm/searchselect" dict "ID" "target" "Name" "target" "Label" "Links to" "Required" true "Value" .Target "Selected" .TargetLabel "Src" (adminPath "pick" "entities") "Help" "The page the phrase links to." "Error" (index .Errors "target")}}
+{{template "hm/field" dict "ID" "anchor" "Name" "anchor" "Label" "Link text (optional)" "Value" .Anchor "Help" "Leave empty to use the phrase itself as the link text." "Error" (index .Errors "anchor") "Attrs" (attrmap "maxlength" "200" "autocomplete" "off")}}
+<div class="hm-row">
+{{template "hm/field" dict "ID" "priority" "Name" "priority" "Label" "Priority (1 to 100)" "Type" "number" "Value" .Priority "Help" "Higher priority rules are offered first." "Error" (index .Errors "priority") "Attrs" (attrmap "inputmode" "numeric" "min" "1" "max" "100")}}
+{{template "hm/field" dict "ID" "maxlinks" "Name" "maxlinks" "Label" "Links per page" "Type" "number" "Value" .MaxLinks "Help" "How many times a page may link this phrase." "Error" (index .Errors "maxlinks") "Attrs" (attrmap "inputmode" "numeric" "min" "1" "max" "20")}}
+</div>
+{{template "hm/field" dict "ID" "active" "Name" "active" "Label" "Rule is on" "Control" "switch" "Value" "1" "Checked" .Active}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "linking")}}
+{{template "hm/button" dict "Label" "Preview matches" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "preview" "formnovalidate" "" "formaction" (printf "%s#preview" $action))}}
+{{template "hm/button" dict "Label" "Save rule" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+{{with .Preview}}<section id="preview" class="hm-stack" aria-label="Preview">{{template "hm/stats" dict "Variant" "ticker" "Items" $.Data.PreviewStats}}
+{{template "hm/card-start" dict "ID" "preview-card" "Title" "Preview"}}{{if $.Data.PreviewRows}}<div class="hm-table__scroll" role="region" aria-label="Pages that mention the phrase" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Pages that mention the phrase</caption>
+<thead><tr><th scope="col">Page</th><th scope="col">Type</th><th scope="col">What would happen</th></tr></thead>
+<tbody>{{range $.Data.PreviewRows}}<tr><th scope="row" class="hm-table__rowhead">{{.Name}} (/{{.Slug}})</th><td data-label="Type">{{.Schema}}</td><td data-label="What would happen">{{template "hm/badge" .Badge}}{{if .Reason}} <span class="hm-muted">{{.Reason}}</span>{{end}}</td></tr>
+{{end}}</tbody></table></div>{{else}}{{template "hm/empty" (dict "Title" "No page mentions this phrase" "Compact" true)}}{{end}}{{template "hm/card-end"}}</section>{{end}}
+{{end}}{{end}}

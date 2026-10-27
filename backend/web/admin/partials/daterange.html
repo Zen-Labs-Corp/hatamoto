@@ -1,0 +1,19 @@
+{{/* hm/daterange: a preset range picker (Tremor style):
+     a button opening a popover with a preset list and From/To dates. Apply is the
+     existing GET form for the custom dates; a preset is a plain link that applies
+     at once. The popover is native, so nothing here needs JS. */}}
+{{define "hm/daterange"}}{{$id := or .ID "range"}}<div class="hm-daterange">
+<button type="button" class="hm-btn hm-daterange__button" popovertarget="{{$id}}-pop" aria-haspopup="dialog">{{icon "calendar"}}<span>{{.Label}}{{with .Compare}}{{if and .On .Label2}}<span class="hm-daterange__vs">{{.Label2}}</span>{{end}}{{end}}</span></button>
+<div class="hm-popover-panel hm-daterange__pop" popover id="{{$id}}-pop" role="dialog" aria-label="Choose a date range" data-hm-daterange>
+<form method="get" action="{{required "hm/daterange Action" .Action}}">
+{{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
+<div class="hm-daterange__grid">
+<ul class="hm-daterange__presets" aria-label="Presets">{{range .Quick}}<li><a class="hm-daterange__preset" href="{{.Href}}"{{if .Active}} aria-current="true"{{end}}>{{.Label}}</a></li>{{end}}</ul>
+<fieldset class="hm-daterange__dates"><legend class="hm-field__label">Custom range</legend>
+<div class="hm-field"><label class="hm-field__label" for="{{$id}}-from">From</label><input class="hm-field__control" type="date" id="{{$id}}-from" name="from" value="{{.From}}" min="{{.Min}}" max="{{.Max}}" required></div>
+<div class="hm-field"><label class="hm-field__label" for="{{$id}}-to">To</label><input class="hm-field__control" type="date" id="{{$id}}-to" name="to" value="{{.To}}" min="{{.From}}" max="{{.Max}}" required></div>
+<div class="hm-daterange__actions">{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "popovertarget" (print $id "-pop") "popovertargetaction" "hide"))}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Type" "submit")}}</div>
+</fieldset></div>
+{{with .Compare}}<div class="hm-daterange__compare">{{template "hm/field" (dict "ID" (print $id "-compare") "Control" "switch" "Name" .Field "Value" "1" "Label" "Compare to previous period" "Checked" .On "Disabled" .Disabled "Help" .Help)}}</div>
+{{end}}</form></div>
+</div>{{end}}

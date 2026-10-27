@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" data-admin-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<meta name="admin-base" content="/admin">
+<meta name="htmx-config" content="{&#34;allowEval&#34;:false,&#34;allowScriptTags&#34;:false,&#34;historyCacheSize&#34;:0,&#34;includeIndicatorStyles&#34;:false,&#34;inlineScriptNonce&#34;:&#34;NONCE&#34;,&#34;inlineStyleNonce&#34;:&#34;NONCE&#34;,&#34;refreshOnHistoryMiss&#34;:true,&#34;responseHandling&#34;:[{&#34;code&#34;:&#34;204&#34;,&#34;swap&#34;:false},{&#34;code&#34;:&#34;[23]..&#34;,&#34;swap&#34;:true},{&#34;code&#34;:&#34;422&#34;,&#34;error&#34;:false,&#34;swap&#34;:true},{&#34;code&#34;:&#34;[45]..&#34;,&#34;error&#34;:true,&#34;swap&#34;:false}]}">
+<title>Overview · Hatamoto</title>
+<link rel="stylesheet" href="/admin/_/admin.HASH.css">
+<script type="importmap" nonce="NONCE">{…}</script>
+<link rel="modulepreload" href="/admin/_/js/dates.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/shelllogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/components.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/daterange.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/multiselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/select.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<div class="hm-shell">
+<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
+<div class="hm-sidebar__head">
+<a class="hm-brand hm-sidebar__brand" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/></svg><span>Acme Site</span></a>
+<a class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" href="https://acme.example/" aria-label="Open site in a new window" data-tooltip="Open site" data-tooltip-align="end" rel="noopener" target="_blank"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+</div>
+<div class="hm-nav-groups">
+<div class="hm-nav-group">
+<ul class="hm-nav-list" role="list">
+<li><a class="hm-nav-link" href="/admin" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Overview</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g1">Site</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g1">
+<li><a class="hm-nav-link" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Entities</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/analytics"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>AI analytics</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g2">Customize</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g2">
+<li><a class="hm-nav-link" href="/admin/plugins"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg><span>Plugins</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/theme"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Theme</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/settings"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a>
+</li>
+</ul>
+</div>
+</div>
+<div class="hm-sidebar__foot">
+<a class="hm-sidebar__me" href="/admin/profile" aria-label="Owner Olga, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="OO" aria-hidden="true"></span><span class="hm-sidebar__name">Owner Olga</span></a>
+
+<form method="post" action="/admin/theme"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only data-hm-theme-toggle aria-label="Switch theme" data-tooltip="Switch theme" data-tooltip-align="end"><span class="hm-theme-icon hm-theme-icon--light"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><span class="hm-theme-icon hm-theme-icon--dark"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span></button></form>
+<form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Sign out" data-tooltip="Sign out" data-tooltip-align="end"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></form>
+</div>
+</nav>
+<div class="hm-shell__main">
+<div class="hm-topbar"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Toggle sidebar" aria-controls="hm-sidebar" aria-expanded="true" data-hm-sidebar-toggle="" hidden=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button><span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="/admin">Home</a></li><li aria-current="page">Overview</li></ol></nav><div class="hm-topbar__chip"><button type="button" class="hm-updchip" aria-label="No check yet. Update history" aria-haspopup="dialog" aria-expanded="false" popovertarget="hm-update-chip"><span class="hm-updchip__version"></span></button>
+<div class="hm-popover-panel hm-updchip__panel" popover id="hm-update-chip" role="dialog" aria-label="Update history"><header><h2>No check yet</h2></header>
+<div class="hm-popover-panel__body"><p class="hm-updchip__note">No updates installed yet.</p></div>
+<footer><a href="/admin/settings/updates">Update settings <span aria-hidden="true">&rsaquo;</span></a></footer></div></div></div>
+<main id="hm-main" class="hm-content">
+
+<div class="hm-page" data-width="wide">
+
+<header class="hm-pageheader">
+<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Overview</h1></div><p class="hm-muted">The last 7 days on your site.</p></div>
+<div class="hm-row"></div></div>
+</header>
+<div class="hm-statgrid hm-dash__kpis"><div class="hm-dash__kpi"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Published</dt><dd class="hm-statcard__value">0</dd>
+<dd class="hm-statcard__note hm-muted">Pages and posts that are live.</dd><dd class="hm-statcard__more"><a href="/admin/entities?status=published">View pages <span aria-hidden="true">&rsaquo;</span></a></dd></dl>
+</div><div class="hm-dash__kpi"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Drafts</dt><dd class="hm-statcard__value">0</dd>
+<dd class="hm-statcard__note hm-muted">Waiting to be published.</dd><dd class="hm-statcard__more"><a href="/admin/entities?status=draft">Review <span aria-hidden="true">&rsaquo;</span></a></dd></dl>
+</div><div class="hm-dash__kpi"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">New submissions</dt><dd class="hm-statcard__value">0</dd>
+<dd class="hm-statcard__note hm-muted">Last 7 days, spam left out.</dd></dl>
+</div><div class="hm-dash__kpi"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">AI-referred visits</dt><dd class="hm-statcard__value">0</dd>
+<dd class="hm-statcard__note hm-muted">Visits from AI assistants, last 7 days.</dd></dl>
+</div><div class="hm-dash__kpi"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Missing pages</dt><dd class="hm-statcard__value">0</dd>
+<dd class="hm-statcard__note hm-muted">Not redirected or ignored, last 7 days.</dd></dl>
+</div></div>
+<div class="hm-dash hm-dash--health hm-dash--n3">
+<section class="hm-card" id="dash-health" aria-labelledby="dash-health-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="dash-health-title">Site health</h2><p class="hm-muted">3 of 5 passing</p></div>
+<div class="hm-card__body">
+<h3 class="hm-dash__group">Delivery</h3>
+<ul class="hm-dash__rows hm-dash__health" role="list"><li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--success" aria-hidden="true"></span><span class="hm-visually-hidden">OK: </span><span class="hm-dash__label">Spam filter</span><span class="hm-dash__value hm-muted">0 caught this week</span></li></ul><h3 class="hm-dash__group">AI crawlers</h3>
+<ul class="hm-dash__rows hm-dash__health" role="list"><li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--success" aria-hidden="true"></span><span class="hm-visually-hidden">OK: </span><span class="hm-dash__label">Verified fetches</span><span class="hm-dash__value hm-muted">75%</span></li><li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--warning" aria-hidden="true"></span><span class="hm-visually-hidden">Check: </span><span class="hm-dash__label">Errors served</span><a class="hm-dash__value" href="/admin/analytics/health#w-h-fail">7.3%</a></li><li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--warning" aria-hidden="true"></span><span class="hm-visually-hidden">Check: </span><span class="hm-dash__label">robots.txt</span><a class="hm-dash__value" href="/admin/analytics/crawlers#w-cr-list">1 agent ignores it</a></li></ul><h3 class="hm-dash__group">Site</h3>
+<ul class="hm-dash__rows hm-dash__health" role="list"><li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--success" aria-hidden="true"></span><span class="hm-visually-hidden">OK: </span><span class="hm-dash__label">Published URLs</span><span class="hm-dash__value hm-muted">120</span></li></ul>
+
+
+</div></section>
+<section class="hm-card" id="dash-pages" aria-labelledby="dash-pages-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="dash-pages-title">Pages AI crawlers fetch most</h2><p class="hm-muted">Last 30 days.</p></div>
+<div class="hm-card__body">
+<div class="hm-empty hm-empty--compact"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span>
+<p class="hm-empty__title">No AI crawler fetches yet</p><p class="hm-muted">Pages that AI crawlers read will show here.</p>
+</div>
+
+<p class="hm-dash__more"><a href="/admin/analytics/crawlers">All pages <span aria-hidden="true">&rsaquo;</span></a></p>
+</div></section>
+<section class="hm-card" id="dash-missing" aria-labelledby="dash-missing-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="dash-missing-title">Missing pages</h2><p class="hm-muted">Addresses visitors asked for that do not exist, seen in the last 7 days.</p></div>
+<div class="hm-card__body">
+<div class="hm-empty hm-empty--compact"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span>
+<p class="hm-empty__title">No missing pages this week</p><p class="hm-muted">Addresses visitors asked for that did not exist will show here.</p>
+</div>
+
+<p class="hm-dash__more"><a href="/admin/settings/redirects/404">All missing pages <span aria-hidden="true">&rsaquo;</span></a></p>
+</div></section>
+<section class="hm-card" id="dash-submissions" aria-labelledby="dash-submissions-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="dash-submissions-title">Recent submissions</h2><p class="hm-muted">The last 14 days, newest first.</p></div>
+<div class="hm-card__body">
+<div class="hm-empty hm-empty--compact"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+<p class="hm-empty__title">No recent submissions</p><p class="hm-muted">Messages sent through your forms will show here.</p>
+</div>
+
+<p class="hm-dash__more"><a href="/admin/settings/submissions">All submissions <span aria-hidden="true">&rsaquo;</span></a></p>
+</div></section>
+<section class="hm-card" id="dash-activity" aria-labelledby="dash-activity-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="dash-activity-title">Activity</h2><p class="hm-muted">The latest changes in the admin, newest first.</p></div>
+<div class="hm-card__body">
+<div class="hm-empty hm-empty--compact"><span class="hm-empty__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+<p class="hm-empty__title">No activity yet</p><p class="hm-muted">Changes made in the admin and updates will show here.</p>
+</div>
+
+
+</div></section></div>
+
+</div>
+</main>
+</div>
+</div>
+<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--secondary" data-hm-confirm-cancel=""><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--danger" data-hm-confirm-ok=""><span>Confirm</span></button></div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
+</body>
+</html>
+

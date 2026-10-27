@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Breadcrumbs",
+    "hint": "The path to this page",
+    "group": "Data",
+    "order": 30
+  },
+  "properties": {
+    "hidden": {"type": "boolean"}
+  }
+}

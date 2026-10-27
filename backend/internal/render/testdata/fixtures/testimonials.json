@@ -1,0 +1,11 @@
+{
+  "type": "testimonials", "id": "sec-testimonials", "title": "Testimonials",
+  "content": {
+    "heading": "What customers say",
+    "items": [
+      {"quote": "Setup took an afternoon, not a quarter.", "author": "Ada Lovelace", "role": "CTO", "company": "Analytical Co", "rating": 5, "avatar": "/img/ada.jpg"},
+      {"quote": "Pages load instantly <i>everywhere</i>.", "name": "Grace Hopper", "title": "Engineer", "avatar": "javascript:alert(1)"},
+      {"quote": "Great support.", "name": "Alan Turing", "company": "Bletchley Ltd", "rating": 4.5}
+    ]
+  }
+}

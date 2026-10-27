@@ -1,0 +1,58 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" (printf "%s" .Run.URL) "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
+<p>{{template "hm/badge" .Badge}}{{if .SiteMode}} <span class="hm-muted">Target site was {{if eq .SiteMode "existing"}}a site with content{{else}}empty{{end}} when the import began.</span>{{end}}</p>
+{{if .Failed}}{{if .Run.Error}}{{template "hm/flash" (dict "Kind" "error" "Message" .Run.Error "Inline" true)}}{{end}}
+{{if eq .Run.Status "interrupted"}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "Import interrupted")}}The server restarted while this import was running. What was imported stays; resuming skips finished work.{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{.ResumeTo}}" enctype="multipart/form-data" class="hm-stack">
+{{template "hm/csrf" $}}
+{{if .Run.NeedsCredentials}}{{if eq .Run.Kind "wxr"}}{{template "hm/field" dict "ID" "wxr" "Name" "wxr" "Label" "Export file (.xml)" "Type" "file" "Required" true "Help" "The uploaded file is no longer on the server. Upload the same file again." "Attrs" (attrmap "accept" ".xml,text/xml,application/xml")}}
+{{else}}{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Application password" "Type" "password" "Required" true "Help" "The stored password is gone. Enter it again; it is not shown or kept beyond this import." "Attrs" (attrmap "autocomplete" "off")}}{{end}}{{end}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Start over" "Variant" "ghost" "Href" (adminPath "settings" "import" "wordpress")}}{{template "hm/button" dict "Label" (cond (ne .Run.Report nil) "Resume the import" "Scan again") "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+</form>{{end}}
+{{if .Res}}
+{{template "hm/stats" dict "Variant" "ticker" "Items" .Stats}}
+{{if .Errors}}{{template "hm/card-start" dict "Title" "Items that failed" "ID" "errors" "Heading" "h2"}}
+<div class="hm-table__scroll" role="region" aria-label="Items that failed" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Items that failed to import, with the reason</caption>
+<thead><tr><th scope="col">Item</th><th scope="col">Kind</th><th scope="col">What went wrong</th></tr></thead>
+<tbody>{{range .Errors}}<tr><th scope="row" class="hm-table__rowhead">{{.Item}}</th><td data-label="Kind">{{.Kind}}</td><td data-label="What went wrong">{{.Message}}</td></tr>
+{{end}}</tbody></table></div>{{if .MoreErrs}}<p class="hm-muted">And {{.MoreErrs}} more.</p>{{end}}
+{{template "hm/card-end"}}{{end}}
+{{if .Warnings}}{{template "hm/card-start" dict "Title" "Warnings" "ID" "warnings" "Heading" "h2"}}<ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "Title" "URL audit" "ID" "audit" "Heading" "h2"}}
+{{if .Audit}}<p class="hm-muted">{{.Audit.Checked}} old addresses checked.</p>{{template "hm/categorybar" $.Data.AuditBar}}
+{{if .AuditBad}}<div class="hm-table__scroll" role="region" aria-label="Addresses that do not resolve" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Old addresses that do not resolve on this site</caption>
+<thead><tr><th scope="col">Old address</th><th scope="col">Problem</th></tr></thead>
+<tbody>{{range .AuditBad}}<tr><th scope="row" class="hm-table__rowhead">{{if .Link}}<a href="{{.Link}}" target="_blank" rel="noopener">{{.Path}}</a>{{else}}{{.Path}}{{end}}</th><td data-label="Problem">{{.Note}}</td></tr>
+{{end}}</tbody></table></div>{{end}}
+{{if .AuditHidden}}<h3>Author pages hidden until the person is public</h3><p class="hm-muted">These old author addresses answer "not found" on purpose. Make the person public under People, then run the import again to redirect them.</p><ul>{{range .AuditHidden}}<li>{{.Path}}</li>{{end}}</ul>{{end}}{{else}}<p class="hm-muted">The audit did not run{{if .Failed}}: the import did not finish{{end}}.</p>{{end}}
+{{if .Conflicts}}<h3>Addresses a live page already answers</h3><div class="hm-table__scroll" role="region" aria-label="Addresses a live page already answers" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Old addresses that could not be redirected</caption>
+<thead><tr><th scope="col">Old address</th><th scope="col">Why</th></tr></thead>
+<tbody>{{range .Conflicts}}<tr><th scope="row" class="hm-table__rowhead">{{if .Link}}<a href="{{.Link}}" target="_blank" rel="noopener">{{.Path}}</a>{{else}}{{.Path}}{{end}}</th><td data-label="Why">{{.Note}}</td></tr>
+{{end}}</tbody></table></div>{{end}}
+{{template "hm/card-end"}}
+{{if .Edits}}{{template "hm/card-start" dict "Title" "Edits made here" "ID" "edits" "Heading" "h2"}}<p>{{.EditsNote}}</p><ul>{{range .Edits}}<li>{{.}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{if .Left}}{{template "hm/card-start" dict "Title" "wp-content addresses left in the text" "ID" "left" "Heading" "h2"}}<p>These should not exist. Edit the pages that contain them.</p><ul>{{range .Left}}<li><code>{{.}}</code></li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "Title" "Redirects created" "ID" "redirects" "Heading" "h2"}}
+{{if .Redirects}}<div class="hm-table__scroll" role="region" aria-label="Redirects created" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Redirects this import created or confirmed</caption>
+<thead><tr><th scope="col">From</th><th scope="col">Redirect</th></tr></thead>
+<tbody>{{range .Redirects}}<tr><th scope="row" class="hm-table__rowhead">{{if .Link}}<a href="{{.Link}}" target="_blank" rel="noopener">{{.Path}}</a>{{else}}{{.Path}}{{end}}</th><td data-label="Redirect">{{.Note}}</td></tr>
+{{end}}</tbody></table></div><p class="hm-muted"><a href="{{adminPath}}/settings/redirects">Manage all redirects</a></p>
+{{else}}<p class="hm-muted">None were needed: the old addresses are served as they are.</p>{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Pages to review" "ID" "low" "Heading" "h2"}}
+{{if .Low}}<p>These imported with some loss. Open each one to check it.</p>
+<div class="hm-table__scroll" role="region" aria-label="Pages to review" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Imported pages that need a review, with the reason</caption>
+<thead><tr><th scope="col">Page</th><th scope="col">Why</th></tr></thead>
+<tbody>{{range .Low}}<tr><th scope="row" class="hm-table__rowhead">{{if .Edit}}<a href="{{.Edit}}">{{.Title}}</a>{{else}}{{.Title}}{{end}}</th><td data-label="Why">{{.Reason}}</td></tr>
+{{end}}</tbody></table></div>{{if .MoreLow}}<p class="hm-muted">And {{.MoreLow}} more.</p>{{end}}
+{{else}}<p class="hm-muted">Nothing needs a review.</p>{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "All counts" "ID" "summary" "Heading" "h2"}}
+<dl class="hm-dl">{{range .Summary}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>
+{{end}}</dl>
+{{template "hm/card-end"}}
+{{end}}
+{{if .Res}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Open the site" "Variant" "ghost" "Href" "/"}}{{template "hm/button" dict "Label" "Re-sync from the old site" "Variant" "secondary" "Href" .ResyncURL}}{{template "hm/foot-end"}}
+<p class="hm-muted">A re-sync updates what was imported and never duplicates it. Content you edited here since the import is overwritten unless you choose to keep it. Re-sync only before the cut-over.</p>{{end}}
+{{end}}{{end}}

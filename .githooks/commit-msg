@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# commit-msg: Signed-off-by trailer matching the author, conventional subject.
+set -uo pipefail
+msg=$1
+# The message as git will store it: nothing after the scissors line (git commit -v puts the diff
+# there), no comment lines. Honours core.commentChar ("auto" is not resolvable here: use #).
+cc=$(git config --get core.commentChar || true); [[ -n $cc && $cc != auto ]] || cc='#'
+body=$(awk -v c="$cc" 'index($0, c " ------------------------ >8 ------------------------") == 1 { exit }
+                       substr($0, 1, length(c)) == c { next } { print }' "$msg")
+subject=$(sed -n '/./{p;q}' <<<"$body")
+fail=0
+
+case $subject in
+  'Merge '*|'Revert '*|'fixup! '*|'squash! '*|'amend! '*) ;;
+  *)
+    if ! [[ $subject =~ ^(feat|fix|docs|chore|ci|build|test|refactor|style|perf|revert)(\([^\)]+\))?\!?:\  ]]; then
+      echo "commit-msg: subject must be a Conventional Commit: type(scope): text" >&2
+      echo "            types: feat fix docs chore ci build test refactor style perf revert" >&2
+      fail=1
+    fi ;;
+esac
+
+# A merge commit needs no sign-off (scripts/check-dco.sh skips merges too).
+git rev-parse -q --verify MERGE_HEAD >/dev/null && exit $fail
+
+author=$(git var GIT_AUTHOR_IDENT | sed -n 's/.*<\(.*\)>.*/\1/p' | tr '[:upper:]' '[:lower:]')
+if ! git interpret-trailers --parse <<<"$body" | grep -i '^Signed-off-by:' \
+    | tr '[:upper:]' '[:lower:]' | grep -qF "<$author>"; then
+  echo "commit-msg: no Signed-off-by trailer for the author <$author> (use git commit -s)" >&2
+  fail=1
+fi
+exit $fail

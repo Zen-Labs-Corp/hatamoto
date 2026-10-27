@@ -1,0 +1,109 @@
+/* WordPress compatibility: the core Gutenberg block classes that imported or
+   pasted content carries. Scoped to .hm-entry / .hm-prose so they only style
+   rich-text bodies. Colours come from the theme tokens. */
+
+/* Alignment. alignwide and alignfull break out of the 46rem article column. */
+.hm-entry .alignleft { float: left; margin: 0.25em 1.5em 1em 0; max-width: 50%; }
+.hm-entry .alignright { float: right; margin: 0.25em 0 1em 1.5em; max-width: 50%; }
+.hm-entry .aligncenter { display: block; margin-left: auto; margin-right: auto; text-align: center; }
+.hm-entry .alignwide { width: min(75rem, calc(100vw - 3rem)); max-width: none; margin-left: 50%; transform: translateX(-50%); }
+.hm-entry .alignfull { width: 100vw; max-width: none; margin-left: 50%; transform: translateX(-50%); }
+/* A wide image stays a banner, not a full screen: cap its height and crop. */
+.hm-entry img.alignwide, .hm-entry img.alignfull, .hm-entry .alignwide img, .hm-entry .alignfull img { width: 100%; max-height: min(32rem, 70vh); object-fit: cover; }
+.hm-entry::after { content: ""; display: table; clear: both; }
+
+/* Images and captions */
+.wp-block-image, .wp-block-gallery figure { margin: 1.75em 0; }
+.wp-block-image img { display: block; max-width: 100%; height: auto; }
+.wp-block-image.aligncenter img { margin-inline: auto; }
+.wp-block-image figcaption, figure.wp-caption figcaption, .wp-element-caption, .wp-caption-text { margin-top: 0.6em; font-size: 0.8125rem; color: var(--hm-label); text-align: center; }
+.wp-block-gallery { display: flex; flex-wrap: wrap; gap: 1rem; list-style: none; padding: 0; margin: 1.75em 0; }
+.wp-block-gallery .wp-block-image { flex: 1 1 12rem; margin: 0; }
+
+/* Quote */
+.wp-block-quote { margin: 1.75em 0; padding: 0.25em 0 0.25em 1.25em; border-left: 3px solid var(--hm-primary); color: var(--hm-hai); font-size: 1.125em; }
+.wp-block-quote p { margin: 0 0 0.5em; }
+.wp-block-quote cite, .wp-block-quote__citation { display: block; font-size: 0.8125rem; font-style: normal; color: var(--hm-label); }
+.wp-block-pullquote { margin: 2em 0; padding: 1.5em 0; border-block: 1px solid var(--hm-hair); text-align: center; font-size: 1.375em; }
+.wp-block-pullquote blockquote { margin: 0; padding: 0; border: 0; }
+
+/* Table. Cells keep a readable minimum width, so a wide table scrolls sideways
+   inside its own box (never the page) and edge shadows hint that there is more. */
+.wp-block-table, .hm-entry > table {
+  margin: 1.75em 0; max-width: 100%; overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--hm-bg) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--hm-bg) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.28), transparent) left / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.28), transparent) right / 0.75rem 100% no-repeat scroll;
+}
+.hm-entry > table { display: block; width: max-content; border-collapse: collapse; font-size: 0.9375rem; }
+.wp-block-table table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.hm-entry th, .hm-entry td { min-width: 7rem; }
+.wp-block-table th, .wp-block-table td, .hm-entry > table th, .hm-entry > table td { padding: 0.5rem 0.75rem; border: 1px solid var(--hm-hair); text-align: left; }
+.wp-block-table thead th, .hm-entry > table thead th { background: var(--hm-kasumi); }
+.wp-block-table.is-style-stripes tbody tr:nth-child(odd) { background: var(--hm-kasumi); }
+.wp-block-table figcaption { margin-top: 0.6em; font-size: 0.8125rem; color: var(--hm-label); text-align: center; }
+
+/* Columns */
+.wp-block-columns { display: flex; flex-wrap: wrap; gap: 1.5rem 2rem; margin: 1.75em 0; }
+.wp-block-column { flex: 1 1 14rem; min-width: 0; }
+.wp-block-column > :first-child { margin-top: 0; }
+.wp-block-column > :last-child { margin-bottom: 0; }
+@media (min-width: 48rem) { .wp-block-columns { flex-wrap: nowrap; } }
+
+/* Buttons */
+.wp-block-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5em 0; }
+.wp-block-button__link { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1.25rem; border: 1px solid var(--hm-primary); border-radius: 999px; background: var(--hm-primary); color: #fff; font-size: 0.875rem; font-weight: 500; text-decoration: none; }
+.wp-block-button__link:hover { filter: brightness(0.88); }
+.wp-block-button.is-style-outline .wp-block-button__link { background: transparent; color: var(--hm-primary); }
+.hm-entry .wp-block-button__link { color: #fff; }
+.hm-entry .wp-block-button.is-style-outline .wp-block-button__link { color: var(--hm-primary); }
+
+/* Embeds: responsive 16:9 by default */
+.wp-block-embed { margin: 1.75em 0; }
+.wp-block-embed__wrapper { position: relative; }
+.wp-embed-aspect-16-9 .wp-block-embed__wrapper, .wp-has-aspect-ratio .wp-block-embed__wrapper { aspect-ratio: 16 / 9; }
+.wp-embed-aspect-4-3 .wp-block-embed__wrapper { aspect-ratio: 4 / 3; }
+.wp-embed-aspect-1-1 .wp-block-embed__wrapper { aspect-ratio: 1 / 1; }
+.wp-block-embed iframe, .wp-block-embed video { width: 100%; height: 100%; border: 0; }
+.wp-block-embed:not([class*="wp-embed-aspect"]) iframe { aspect-ratio: 16 / 9; height: auto; }
+.wp-block-embed figcaption { margin-top: 0.6em; font-size: 0.8125rem; color: var(--hm-label); text-align: center; }
+
+/* Misc core blocks */
+.wp-block-separator { border: 0; border-top: 1px solid var(--hm-hair); margin: 2.5em auto; }
+.wp-block-code, .wp-block-preformatted { overflow-x: auto; }
+.wp-block-group { margin: 1.75em 0; }
+.wp-block-group.has-background { padding: 1.5rem; border-radius: var(--hm-radius-md); }
+.wp-block-cover { position: relative; display: flex; align-items: center; justify-content: center; min-height: 14rem; padding: 2rem; margin: 1.75em 0; overflow: hidden; border-radius: var(--hm-radius-md); background: var(--hm-sumi-soft); color: #fff; }
+.wp-block-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.wp-block-cover__inner-container { position: relative; }
+.has-text-align-center { text-align: center; }
+.has-text-align-right { text-align: right; }
+.has-text-align-left { text-align: left; }
+.screen-reader-text { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Colour classes: the editor's default palette on the theme's own ink */
+.has-black-color { color: #141417; }
+.has-white-color { color: #ffffff; }
+.has-gray-color, .has-cyan-bluish-gray-color { color: #66666c; }
+.has-vivid-red-color, .has-red-color { color: #cf2e2e; }
+.has-vivid-green-cyan-color, .has-green-color { color: #00a96e; }
+.has-vivid-cyan-blue-color, .has-blue-color { color: #0693e3; }
+.has-black-background-color { background-color: #141417; }
+.has-white-background-color { background-color: #ffffff; }
+.has-gray-background-color, .has-cyan-bluish-gray-background-color { background-color: #abb8c3; }
+.has-vivid-red-background-color, .has-red-background-color { background-color: #cf2e2e; }
+.has-vivid-green-cyan-background-color, .has-green-background-color { background-color: #00a96e; }
+.has-vivid-cyan-blue-background-color, .has-blue-background-color { background-color: #0693e3; }
+.has-background:not(.has-text-color) { color: var(--hm-sumi); }
+.has-black-background-color, .has-vivid-red-background-color, .has-vivid-cyan-blue-background-color { color: #fff; }
+.has-small-font-size { font-size: 0.8125em; }
+.has-medium-font-size { font-size: 1.125em; }
+.has-large-font-size { font-size: 1.5em; }
+.has-x-large-font-size { font-size: 2em; }
+
+[data-theme="dark"] .has-black-color { color: #ececea; }
+@media (max-width: 47.99rem) {
+  .hm-entry .alignleft, .hm-entry .alignright { float: none; max-width: 100%; margin: 1em 0; }
+}

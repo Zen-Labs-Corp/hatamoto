@@ -1,0 +1,31 @@
+# gitleaks configuration. Inline `gitleaks:allow` comments (for example the
+# public first-party registry key in backend/internal/config/packages.go) stay
+# the way to allow a single line; this file extends the default rules and
+# allows only what is reviewed below.
+title = "hatamoto gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Private working notes: export-ignored, never in the public repository"
+paths = ['''^\.pi/''']
+
+# Rule-scoped on purpose: a global allowlist with `paths` makes `gitleaks dir`
+# skip the whole file before detection, so the AND condition is never applied.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "A throwaway password for the in-process SMTP sink in an integration test"
+paths = ['''^backend/internal/server/email_live_integration_test\.go$''']
+condition = "AND"
+regexTarget = "line"
+regexes = ['''const password = ".*"''']
+
+[[rules.allowlists]]
+description = "Trusted registry signer keys in docs are public keys (ed25519), not secrets"
+paths = ['''^docs/site/.*\.md$''']
+condition = "AND"
+regexTarget = "line"
+regexes = ['''HATAMOTO_TRUSTED_KEYS=[A-Za-z0-9+/]{43}=''']

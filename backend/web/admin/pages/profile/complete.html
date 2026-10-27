@@ -1,0 +1,14 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}<h1>Complete your profile</h1>
+<p class="hm-muted">This is how you appear as an author on the site.</p>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/profile/complete" class="hm-stack" novalidate>
+{{template "hm/csrf" $}}
+<input type="hidden" name="next" value="{{.Next}}">
+{{template "hm/profilefields" .}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Save and continue" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+<div class="hm-row hm-bare__links">{{template "hm/themelogoutlabelled" $}}</div>
+{{end}}{{end}}

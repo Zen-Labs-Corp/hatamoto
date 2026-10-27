@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "HTML",
+    "hint": "Custom markup, sanitised like an html section",
+    "group": "Content",
+    "order": 90,
+    "default": {"html": "<p>Custom markup</p>"}
+  },
+  "properties": {
+    "html": {"type": "string", "maxLength": 100000, "x-hm-widget": "code"},
+    "hidden": {"type": "boolean"}
+  }
+}

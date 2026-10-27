@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Gallery",
+    "hint": "A grid of images",
+    "group": "Media",
+    "order": 20,
+    "children": true
+  },
+  "properties": {
+    "lightbox": {"type": "boolean"},
+    "hidden": {"type": "boolean"}
+  }
+}

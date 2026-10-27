@@ -1,0 +1,4 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"t1","t":"table","p":{"rows":"Name\tQty\nApple\t3\nPear <i>\n\n\tonly second","header":true,"caption":"Fruit & more"}},
+  {"id":"t2","t":"table","p":{"rows":"a\tb\nc\td"}}
+]}]}

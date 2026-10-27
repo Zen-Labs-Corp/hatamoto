@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "New form" "CSRF" $.CSRF}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/forms" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "120" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Identifier" "Value" .Slug "Help" "Used in the form's address. Leave empty to make it from the name." "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 3 "Value" .Description "Help" "Only shown here, to you." "Error" (index .Errors "description")}}
+</div>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "forms")}}
+{{template "hm/button" dict "Label" "Create form" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

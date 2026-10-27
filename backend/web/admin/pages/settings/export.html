@@ -1,0 +1,16 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/card-start" dict "ID" "export-card" "Title" "Export this site" "Description" "A backup, or everything you need to move to another host. Run it on the server."}}
+{{template "hm/copyfield" (dict "ID" "cmd-export" "Value" .ExportCmd "Label" "Export command")}}
+<p class="hm-muted">The archive holds content, entity types, taxonomies, menus, forms, redirects, settings, users (without passwords) and media files.</p>
+{{template "hm/callout-start" (dict "Kind" "warning" "Title" "Form submissions contain visitor data")}}They are included by default. Add <code>--no-submissions</code> for an archive you will share:{{template "hm/callout-end"}}
+{{template "hm/copyfield" (dict "ID" "cmd-export-nosub" "Value" .ExportNoSubmissionsCmd "Label" "Export command without form submissions")}}
+<p class="hm-muted">API keys, sessions, analytics, crawler hits and installed plugin settings are not included.</p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "import-card" "Title" "Import a site export" "Description" "Rebuilds the site in an empty database."}}
+{{template "hm/copyfield" (dict "ID" "cmd-import" "Value" .ImportCmd "Label" "Import command")}}
+<p class="hm-muted">Passwords are never exported, so set one for each person who needs to sign in on the new host.</p>
+{{template "hm/copyfield" (dict "ID" "cmd-reset" "Value" .ResetCmd "Label" "Command to set a password")}}
+{{template "hm/card-end"}}
+<p class="hm-muted">The full list of what is included and the archive format are in <code>docs/EXPORT.md</code>.</p>
+{{end}}{{end}}

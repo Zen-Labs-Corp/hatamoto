@@ -1,0 +1,16 @@
+/* Page header: h1 with an optional badge, one-line description, actions top-aligned on the right. */
+.hm-pageheader { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-pageheader__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+/* The text column takes the room the actions leave and wraps the lede, so a long description never pushes the actions onto their own line. */
+.hm-pageheader__text { display: flex; flex-direction: column; gap: var(--space-1); min-width: min(100%, 16rem); flex: 1 1 0; }
+/* With a date range the lede gives way to the two-line date button instead of pushing it down. */
+.hm-pageheader__row:has(.hm-daterange) .hm-pageheader__text { flex: 1 1 24rem; }
+.hm-pageheader__chips { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+.hm-pageheader__title { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.hm-pageheader__text p { color: var(--color-hai); }
+.hm-crumbs { min-width: 0; overflow-wrap: anywhere; }
+.hm-crumbs__list { display: flex; gap: var(--space-1-5); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-crumbs__list li + li::before { content: "/"; margin-right: var(--space-1-5); }
+.hm-crumbs__list a { color: var(--color-hai); text-decoration: none; }
+.hm-crumbs__list a:hover { color: var(--color-sumi); text-decoration: underline; }
+.hm-crumbs__list a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }

@@ -1,0 +1,32 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF}}
+<div class="hm-media-detail">
+<div class="hm-card hm-media-detail__preview">{{if .IsImage}}<img src="{{.URL}}" alt="{{.Alt}}">{{else}}<div class="hm-stack hm-media-detail__file">{{icon "file-text"}}<p class="hm-muted">{{.Mime}}</p><p><a href="{{.URL}}">Open the file</a></p></div>{{end}}</div>
+<div class="hm-stack">
+{{$confirm := "It is deleted from the library and the server. This cannot be undone."}}{{if .Usage}}{{$confirm = printf "This file is used in %d %s: deleting it leaves broken images. %s" (len .Usage) (cond (eq (len .Usage) 1) "place" "places") $confirm}}{{end}}
+<form method="post" action="{{adminPath}}/media/{{.ID}}" class="hm-cardform">
+{{template "hm/card-start" dict "ID" "details" "Title" "Details"}}
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "alt_text" "Name" "alt_text" "Label" "Alt text" "Value" .Alt "Help" "Describes the image for people who cannot see it. Leave empty for a purely decorative image." "Error" .Error "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "caption" "Name" "caption" "Label" "Caption" "Control" "textarea" "Rows" 3 "Value" .Caption}}
+{{template "hm/card-foot"}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/media/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" $confirm "data-hm-confirm-label" "Delete file" "data-hm-post" (printf "%s/media/%s/delete" adminPath .ID) "data-hm-danger" "")}}</span>
+{{template "hm/button" (dict "Label" "Download" "Href" .URL "Attrs" (attrmap "download" ""))}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+{{template "hm/card-start" dict "ID" "info" "Title" "File"}}
+{{template "hm/field" dict "ID" "file-address" "Name" "address" "Label" "Address" "Value" .URL "Attrs" (attrmap "readonly" "")}}
+{{template "hm/button" (dict "Size" "sm" "Label" "Copy address" "Attrs" (attrmap "data-hm-copy-url" .URL "hidden" ""))}}
+<dl class="hm-dl"><dt>Type</dt><dd>{{.Mime}}</dd><dt>Size</dt><dd>{{.Size}}</dd>{{if .Dims}}<dt>Dimensions</dt><dd>{{.Dims}}</dd>{{end}}<dt>Uploaded</dt><dd>{{.Uploaded}}</dd></dl>
+<details class="hm-disclosure"><summary>Technical details</summary><div class="hm-disclosure__body"><dl class="hm-dl"><dt>Original name</dt><dd>{{.Name}}</dd><dt>Stored as</dt><dd>{{.Filename}}</dd>{{range .Variants}}<dt>{{.Size}} version</dt><dd>{{.Width}} × {{.Height}} px · <a href="{{.URL}}">open</a></dd>{{end}}</dl></div></details>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "usage" "Title" "Where it is used"}}
+{{if .UsageErr}}<p class="hm-field__error">Usage could not be checked right now.</p>
+{{else if .Usage}}<ul class="hm-usage" role="list">{{range .Usage}}<li>{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} <span class="hm-muted">{{.Type}}</span></li>
+{{end}}</ul>
+{{else}}<p class="hm-muted">Not used by any entity, author, site setting, menu or plugin setting. Places that embed the file by another address are not detected.</p>{{end}}
+{{template "hm/card-end"}}
+</div></div>
+{{end}}{{end}}

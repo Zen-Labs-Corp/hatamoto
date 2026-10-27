@@ -1,0 +1,68 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{template "hm/stats" dict "Variant" "ticker" "Items" .Stats}}
+{{with .CacheUse}}{{template "hm/progress" .}}
+{{end}}<form method="post" action="{{adminPath}}/settings/performance" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+{{template "hm/card-start" dict "ID" "performance-card" "Title" "Page cache" "Heading" "h2" "Description" "Keeps finished pages in memory. The cache lives in this server process; each app instance has its own. Clear cache removes every cached page; they are rebuilt on the next visit."}}<div class="hm-setlist">
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="page-cache">Enable page cache</label>
+<p class="hm-field__help">Keeps finished pages in memory so repeat visits are fast.</p>
+{{if .NoBaseURL}}<p class="hm-field__help">Pages are only cached once the site address is fixed. Set <code>PUBLIC_BASE_URL</code> in your deployment settings and restart.</p>
+{{end}}{{with index .Errs "page-cache"}}<p class="hm-field__error" id="page-cache-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "page-cache" "Name" "enabled" "Value" "on" "Label" "Enable page cache" "Bare" true "OffValue" "off" "Checked" .Enabled "Error" (index .Errs "page-cache"))}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="ttl">Keep pages for</label>
+<p class="hm-field__help" id="ttl-help">Edits made here clear the cache at once; changes made elsewhere (another instance, the CLI, plugin data) show after this time.</p>
+<p class="hm-field__help hm-muted">{{.TTLSource}} · 5 min … 30 days. Long lifetimes suit mostly static sites.</p>
+{{with index .Errs "ttl"}}<p class="hm-field__error" id="ttl-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="ttl" name="ttl"{{if index .Errs "ttl"}} aria-invalid="true"{{end}} aria-describedby="ttl-help{{if index .Errs "ttl"}} ttl-error{{end}}">{{range .TTLOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="max-mb">Max cache size</label>
+<p class="hm-field__help" id="max-mb-help">Empty = no limit.</p>
+{{with index .Errs "max-mb"}}<p class="hm-field__error" id="max-mb-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control"><input class="hm-field__control" type="number" id="max-mb" name="max_mb"{{if .MaxMB}} value="{{.MaxMB}}"{{end}} min="1" max="102400" step="1"{{if index .Errs "max-mb"}} aria-invalid="true"{{end}} aria-describedby="max-mb-help max-mb-unit{{if index .Errs "max-mb"}} max-mb-error{{end}}"{{if not .Enabled}} disabled{{end}}><span class="hm-setrow__unit" id="max-mb-unit">MB</span></div>
+</div>
+</div>{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Clear cache" "Type" "submit" "Attrs" (attrmap "form" "clear-form")}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+{{template "hm/card-start" dict "ID" "preload-card" "Title" "Preload" "Heading" "h2" "Description" "Builds pages ahead of visitors."}}<div class="hm-setlist">
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="preload">Enable preload</label>
+{{with index .Errs "preload"}}<p class="hm-field__error" id="preload-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "preload" "Name" "preload" "Value" "on" "Label" "Enable preload" "Bare" true "OffValue" "off" "Error" (index .Errs "preload") "Checked" .PreloadEnabled "Disabled" (not .Enabled))}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="preload-mode">Pages to build</label>
+<p class="hm-field__help" id="preload-mode-help">Only missing skips pages that are already cached, so it does not refresh them.</p>
+{{with index .Errs "preload-mode"}}<p class="hm-field__error" id="preload-mode-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="preload-mode" name="mode"{{if index .Errs "preload-mode"}} aria-invalid="true"{{end}} aria-describedby="preload-mode-help{{if index .Errs "preload-mode"}} preload-mode-error{{end}}"{{if not .Enabled}} disabled{{end}}>{{range .ModeOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="preload-after-changes">After content changes</label>
+<p class="hm-field__help">Refills the cache about 2 min after an edit empties it.</p>
+{{with index .Errs "preload-after-changes"}}<p class="hm-field__error" id="preload-after-changes-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "preload-after-changes" "Name" "after_changes" "Value" "on" "Label" "After content changes" "Bare" true "OffValue" "off" "Error" (index .Errs "preload-after-changes") "Checked" .AfterChanges "Disabled" (not .Enabled))}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="preload-interval">Preload every</label>
+{{if .NoScheduler}}<p class="hm-field__help" id="preload-interval-help">Background jobs are off on this server, so a preload interval has no effect. Preload now still works.</p>
+{{end}}{{with index .Errs "preload-interval"}}<p class="hm-field__error" id="preload-interval-error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="preload-interval" name="interval"{{if index .Errs "preload-interval"}} aria-invalid="true" aria-describedby="preload-interval-error"{{end}}{{if not .Enabled}} disabled{{end}}>{{range .IntervalOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">{{if .Running}}Preloading now{{else}}Last result{{end}}</p>
+{{if .Running}}<p class="hm-field__help">{{.Running}}</p>{{with .PreloadProgress}}{{template "hm/progress" .}}{{end}}
+{{else if .LastPreload}}<p class="hm-field__help">{{.LastPreload}}</p>
+{{if .StoppedLine}}<p class="hm-field__help">{{.StoppedLine}}</p>
+{{end}}{{end}}</div>
+<div class="hm-setrow__control">{{if .Enabled}}{{template "hm/button" dict "Label" "Preload now" "Type" "submit" "Attrs" (attrmap "form" "preload-form")}}{{else}}{{template "hm/button" dict "Label" "Preload now" "Type" "submit" "Attrs" (attrmap "disabled" "disabled")}}{{end}}</div>
+</div>
+</div>{{if and .FailedLine (not .Running)}}{{template "hm/callout" (dict "Kind" "warning" "ID" "preload-failures" "Title" "Some pages could not be built" "Body" .FailedLine)}}
+{{end}}{{template "hm/card-end"}}
+</form>
+<form id="clear-form" method="post" action="{{adminPath}}/settings/performance/clear">{{template "hm/csrf" $}}</form>
+<form id="preload-form" method="post" action="{{adminPath}}/settings/performance/preload">{{template "hm/csrf" $}}</form>
+{{end}}{{end}}

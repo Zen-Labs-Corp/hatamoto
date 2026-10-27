@@ -1,0 +1,24 @@
+.hm-dialog { border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); padding: 0; background: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-3); width: min(560px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 64px); max-height: calc(100dvh - 64px); }
+.hm-dialog[open] { display: flex; flex-direction: column; overflow: auto; }
+/* Dialogs with a scrolling .hm-dialog__body pin their title and footer; any other dialog scrolls as a whole. */
+.hm-dialog[open]:has(.hm-dialog__body) { overflow: hidden; }
+.hm-dialog[data-size="sm"] { width: min(420px, calc(100vw - 32px)); }
+.hm-dialog[data-size="lg"] { width: min(960px, calc(100vw - 32px)); }
+.hm-dialog[open] { animation: hm-dialog-in 150ms var(--ease); }
+.hm-dialog::backdrop { background: var(--scrim); }
+@keyframes hm-dialog-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.hm-dialog__panel { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); flex: 1 1 auto; min-height: 0; }
+.hm-dialog__title { font-size: var(--text-title); }
+.hm-dialog--danger .hm-dialog__title { color: var(--color-danger); }
+.hm-dialog__body, .hm-dialog__body > form { display: flex; flex-direction: column; gap: var(--space-3); }
+/* A long body scrolls under the pinned title and footer; the padding keeps focus rings from being clipped. */
+.hm-dialog__body { overflow-y: auto; min-height: 0; padding: var(--space-1); margin: calc(-1 * var(--space-1)); }
+.hm-dialog__foot { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.hm-disclosure { padding: 0; }
+.hm-disclosure > summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: var(--space-2) var(--space-6); font-weight: var(--weight-semibold); cursor: pointer; list-style: none; border-radius: var(--radius-lg); }
+.hm-disclosure > summary::-webkit-details-marker { display: none; }
+.hm-disclosure > summary::before { content: "+"; font-weight: var(--weight-regular); width: 1ch; }
+.hm-disclosure[open] > summary::before { content: "−"; }
+.hm-disclosure > summary:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-disclosure__body { padding: 0 var(--space-6) var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+

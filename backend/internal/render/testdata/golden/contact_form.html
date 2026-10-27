@@ -1,0 +1,87 @@
+<section id="sec-form" data-hm-section="sec-form" data-hm-type="contact_form" class="hm-section hm-section--contact_form">
+<div class="hm-container hm-contact-form hm-contact-form--centered">
+  <div class="hm-contact-form__intro">
+    <h2 class="hm-contact-form__heading" data-hm-field="heading">Get in touch</h2>
+    <p class="hm-contact-form__subheading" data-hm-field="subheading">We reply within two working days.</p>
+  </div>
+  
+  <p class="hm-form__success" role="status">Thanks, we will be in touch.</p>
+  <p class="hm-form__error" role="alert">Sorry, your message could not be sent. Please check the form and try again.</p>
+  <form class="hm-form" method="post" action="/forms/contact/submit" data-hm-form="contact">
+    <input type="hidden" name="_redirect" value="/fixture">
+    <input type="hidden" name="page_url" value="/fixture">
+    <div class="hm-form__hp" aria-hidden="true"><label>Leave this empty<input type="text" name="hm_website" tabindex="-1" autocomplete="off"></label></div>
+    
+    <div class="hm-form__field hm-form__field--text">
+      <label class="hm-form__label" for="hm-form-contact-name">Your name <abbr title="required">*</abbr></label>
+      <input id="hm-form-contact-name" name="name" type="text" placeholder="Jane Doe" required>
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--email">
+      <label class="hm-form__label" for="hm-form-contact-email">Email <abbr title="required">*</abbr></label>
+      <input id="hm-form-contact-email" name="email" type="email" required>
+      <small class="hm-form__help">We never share it.</small>
+    </div>
+    
+    <div class="hm-form__field hm-form__field--phone">
+      <label class="hm-form__label" for="hm-form-contact-phone">Phone</label>
+      <input id="hm-form-contact-phone" name="phone" type="tel">
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--select">
+      <label class="hm-form__label" for="hm-form-contact-topic">Topic</label>
+      <select id="hm-form-contact-topic" name="topic"><option value="">Select…</option><option value="sales">Sales</option><option value="support">Support</option></select>
+      
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--radio">
+      <fieldset class="hm-form__group"><legend>Preferred contact</legend><label class="hm-form__check"><input type="radio" name="contact_pref" value="email"> <span>Email</span></label><label class="hm-form__check"><input type="radio" name="contact_pref" value="phone"> <span>Phone</span></label></fieldset>
+      
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--textarea">
+      <label class="hm-form__label" for="hm-form-contact-message">Message <abbr title="required">*</abbr></label>
+      <textarea id="hm-form-contact-message" name="message" rows="5" required></textarea>
+      
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--checkbox">
+      <label class="hm-form__check"><input type="checkbox" id="hm-form-contact-consent" name="consent" value="true" required> <span>I agree to be contacted <abbr title="required">*</abbr></span></label>
+      
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--checkbox">
+      <fieldset class="hm-form__group"><legend>Interests</legend><label class="hm-form__check"><input type="checkbox" name="interests" value="seo"> <span>SEO</span></label><label class="hm-form__check"><input type="checkbox" name="interests" value="geo"> <span>AI visibility</span></label></fieldset>
+      
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--number">
+      <label class="hm-form__label" for="hm-form-contact-budget">Budget</label>
+      <input id="hm-form-contact-budget" name="budget" type="number">
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--url">
+      <label class="hm-form__label" for="hm-form-contact-site">Website</label>
+      <input id="hm-form-contact-site" name="site" type="url">
+      
+    </div>
+    
+    <div class="hm-form__field hm-form__field--date">
+      <label class="hm-form__label" for="hm-form-contact-start">Start date</label>
+      <input id="hm-form-contact-start" name="start" type="date">
+      
+    </div>
+    
+    <button class="hm-btn hm-form__submit" type="submit">Send message</button>
+  </form>
+  
+</div>
+</section>

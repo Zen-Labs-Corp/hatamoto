@@ -1,0 +1,8 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+{{template "hm/tabs" dict "Label" "Internal linking sections" "Items" .Tabs}}
+{{template "hm/stats" dict "Variant" "ticker" "Items" .Stats}}
+{{if .Tiers.Segments}}<div class="hm-grid2">{{template "hm/card-start" dict "ID" "equity-top" "Title" "Most linked pages"}}{{template "hm/barlist" .Top}}{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "equity-tiers" "Title" "Tier mix"}}{{template "hm/categorybar" .Tiers}}{{template "hm/card-end"}}</div>{{end}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

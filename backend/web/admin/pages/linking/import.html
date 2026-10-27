@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+{{template "hm/tabs" dict "Label" "Internal linking sections" "Items" .Tabs}}
+{{if .Result}}{{template "hm/flash" (dict "Kind" "success" "Message" .Result "Inline" true)}}{{end}}
+{{if .Skipped}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%d %s skipped: %s." (len .Skipped) (cond (eq (len .Skipped) 1) "line was" "lines were") (join .Skipped "; ")) "Inline" true)}}{{end}}
+<form method="post" action="{{adminPath}}/settings/linking/import" class="hm-cardform">
+{{template "hm/card-start" dict}}
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "rules" "Name" "rules" "Label" "Rules" "Control" "textarea" "Rows" 10 "Placeholder" "web design, services/web-design, 80" "Value" .Text "Required" true "Help" "One rule per line: phrase, page slug, priority (priority is optional, default 50). Lines starting with # are skipped." "Error" .Err "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Import rules" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

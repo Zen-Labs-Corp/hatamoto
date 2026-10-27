@@ -1,0 +1,66 @@
+{{template "base" .}}
+
+{{define "title"}}New Form Submission: {{.FormName}}{{end}}
+
+{{define "header_title"}}New Form Submission{{end}}
+
+{{define "content"}}
+<h2>{{.FormName}}</h2>
+
+<p>A new form submission has been received. Here are the details:</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
+    <tbody>
+        {{range .Fields}}
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 500; color: #374151; width: 35%; vertical-align: top;">
+                {{.Label}}
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1f2937;">
+                {{nl2br .Value}}
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+<div style="background-color: #f9fafb; border-radius: 6px; padding: 16px; margin: 24px 0;">
+    <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em;">
+        Submission Details
+    </h3>
+    <table style="width: 100%; font-size: 14px;">
+        <tr>
+            <td style="padding: 4px 0; color: #6b7280;">Submission ID:</td>
+            <td style="padding: 4px 0; color: #1f2937; font-family: monospace;">{{.SubmissionID}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 4px 0; color: #6b7280;">Submitted:</td>
+            <td style="padding: 4px 0; color: #1f2937;">{{formatTime .SubmittedAt}}</td>
+        </tr>
+        {{if .SubmitterIP}}
+        <tr>
+            <td style="padding: 4px 0; color: #6b7280;">IP Address:</td>
+            <td style="padding: 4px 0; color: #1f2937;">{{.SubmitterIP}}</td>
+        </tr>
+        {{end}}
+        {{if .SubmitterPage}}
+        <tr>
+            <td style="padding: 4px 0; color: #6b7280;">Page URL:</td>
+            <td style="padding: 4px 0; color: #1f2937;">{{.SubmitterPage}}</td>
+        </tr>
+        {{end}}
+    </table>
+</div>
+
+{{if .AdminURL}}
+<div style="text-align: center;">
+    <a href="{{.AdminURL}}" class="button" style="display: inline-block; background-color: #0ea5e9; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+        View Submission in Admin
+    </a>
+</div>
+{{end}}
+
+<p class="muted" style="margin-top: 24px; font-size: 14px; color: #6b7280;">
+    This is an automated notification from your {{.SiteName}} form "{{.FormName}}" ({{.FormSlug}}).
+</p>
+{{end}}

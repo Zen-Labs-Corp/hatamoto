@@ -1,0 +1,21 @@
+tx	base=10px md=-50% sm=0
+tx	.hm-n-g{transform:translateX(10px);}@media (max-width:1024px){.hm-n-g{transform:translateX(-50%);}}@media (max-width:640px){.hm-n-g{transform:translateX(0);}}
+tx+preset	.hm-n-g.hm-n-g{transform:translateX(10px);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:translateX(-50%);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:translateX(0);}}
+ty	base=-4px md=5% sm=0
+ty	.hm-n-g{transform:translateY(-4px);}@media (max-width:1024px){.hm-n-g{transform:translateY(5%);}}@media (max-width:640px){.hm-n-g{transform:translateY(0);}}
+ty+preset	.hm-n-g.hm-n-g{transform:translateY(-4px);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:translateY(5%);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:translateY(0);}}
+sc	base=1.02 md=0.5 sm=2
+sc	.hm-n-g{transform:scale(1.02);}@media (max-width:1024px){.hm-n-g{transform:scale(0.5);}}@media (max-width:640px){.hm-n-g{transform:scale(2);}}
+sc+preset	.hm-n-g.hm-n-g{transform:scale(1.02);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:scale(0.5);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:scale(2);}}
+rot	base=-15deg md=90deg sm=360deg
+rot	.hm-n-g{transform:rotate(-15deg);}@media (max-width:1024px){.hm-n-g{transform:rotate(90deg);}}@media (max-width:640px){.hm-n-g{transform:rotate(360deg);}}
+rot+preset	.hm-n-g.hm-n-g{transform:rotate(-15deg);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:rotate(90deg);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:rotate(360deg);}}
+skx	base=10deg md=-45deg sm=0deg
+skx	.hm-n-g{transform:skewX(10deg);}@media (max-width:1024px){.hm-n-g{transform:skewX(-45deg);}}@media (max-width:640px){.hm-n-g{transform:skewX(0deg);}}
+skx+preset	.hm-n-g.hm-n-g{transform:skewX(10deg);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:skewX(-45deg);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:skewX(0deg);}}
+sky	base=-5deg md=45deg sm=0deg
+sky	.hm-n-g{transform:skewY(-5deg);}@media (max-width:1024px){.hm-n-g{transform:skewY(45deg);}}@media (max-width:640px){.hm-n-g{transform:skewY(0deg);}}
+sky+preset	.hm-n-g.hm-n-g{transform:skewY(-5deg);}@media (max-width:1024px){.hm-n-g.hm-n-g{transform:skewY(45deg);}}@media (max-width:640px){.hm-n-g.hm-n-g{transform:skewY(0deg);}}
+torigin	base=center md=top-left sm=bottom-right
+torigin	.hm-n-g{transform-origin:center;}@media (max-width:1024px){.hm-n-g{transform-origin:left top;}}@media (max-width:640px){.hm-n-g{transform-origin:right bottom;}}
+torigin+preset	.hm-n-g.hm-n-g{transform-origin:center;}@media (max-width:1024px){.hm-n-g.hm-n-g{transform-origin:left top;}}@media (max-width:640px){.hm-n-g.hm-n-g{transform-origin:right bottom;}}

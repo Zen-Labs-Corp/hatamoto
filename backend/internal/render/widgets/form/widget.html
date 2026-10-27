@@ -1,0 +1,15 @@
+<div {{.Attrs}}>{{if .X.Slug}}{{if .X.Submitted}}<p class="hm-form__success" role="status">{{.X.Success}}</p>{{end}}{{if .X.Failed}}<p class="hm-form__error" role="alert">Sorry, your message could not be sent. Please check the form and try again.</p>{{end}}<form class="hm-form" method="post" action="/forms/{{.X.Slug}}/submit"{{if .Canvas}} data-hm-form="{{.X.Slug}}"{{end}}>
+<input type="hidden" name="_redirect" value="{{.X.Path}}"><input type="hidden" name="page_url" value="{{.X.Path}}">
+<div class="hm-form__hp" aria-hidden="true"><label>Leave this empty<input type="text" name="hm_website" tabindex="-1" autocomplete="off"></label></div>
+{{range .X.Fields}}<div class="hm-form__field hm-form__field--{{.Type}}">
+{{if and (eq .Type "checkbox") .Options}}<fieldset class="hm-form__group"><legend>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</legend>{{$n := .Name}}{{range .Options}}<label class="hm-form__check"><input type="checkbox" name="{{$n}}" value="{{.Value}}"> <span>{{.Label}}</span></label>{{end}}</fieldset>
+{{else if eq .Type "checkbox"}}<label class="hm-form__check"><input type="checkbox" id="{{.ID}}" name="{{.Name}}" value="true"{{if .Required}} required{{end}}> <span>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</span></label>
+{{else if eq .Type "radio"}}<fieldset class="hm-form__group"><legend>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</legend>{{$req := .Required}}{{$n := .Name}}{{range .Options}}<label class="hm-form__check"><input type="radio" name="{{$n}}" value="{{.Value}}"{{if $req}} required{{end}}> <span>{{.Label}}</span></label>{{end}}</fieldset>
+{{else}}<label class="hm-form__label" for="{{.ID}}">{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</label>
+{{if eq .Type "textarea"}}<textarea id="{{.ID}}" name="{{.Name}}" rows="5"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}></textarea>
+{{else if eq .Type "select"}}<select id="{{.ID}}" name="{{.Name}}"{{if .Required}} required{{end}}><option value="">{{if .Placeholder}}{{.Placeholder}}{{else}}Select…{{end}}</option>{{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
+{{else}}<input id="{{.ID}}" name="{{.Name}}" type="{{.InputType}}"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}>{{end}}{{end}}
+{{with .HelpText}}<small class="hm-form__help">{{.}}</small>{{end}}
+</div>
+{{end}}{{if .X.Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{.X.CaptchaProvider}}" data-sitekey="{{.X.CaptchaSiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit">{{.X.Submit}}</button>
+</form>{{else}}<p class="hm-ph">Form not found</p>{{end}}</div>

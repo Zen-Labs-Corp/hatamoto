@@ -1,0 +1,61 @@
+{{template "layouts/editor" .}}
+{{define "modules"}}@hm/builder @hm/builder/screen @hm/canvas/host{{end}}
+{{define "scripts"}}sortablejs{{end}}
+{{define "editorbar"}}{{with .Data}}<a class="hm-editor-bar__back" href="{{if .Shell}}{{.Shell.ListHref}}{{else}}{{adminPath}}/entities{{end}}" aria-label="Back to pages">{{icon "chevron-left"}}</a>
+{{if .Shell}}<input type="text" class="hm-field__control hm-editor-bar__title" id="bs-name" data-hm-bs-title hidden data-hm-bs-js value="{{.Name}}" maxlength="255" aria-label="{{or .Shell.TitleLabel "Page title"}}" placeholder="{{or .Shell.TitleLabel "Page title"}}">
+<noscript><span class="hm-editor-bar__title">{{.Name}}</span></noscript>
+{{with .Shell.StatusBadge}}<span data-hm-bs-status>{{template "hm/badge" .}}</span>{{end}}
+<span class="hm-editor-bar__state" data-hm-bs-state>{{template "hm/savestate" (dict "State" "saved" "Text" "Saved")}}</span>
+<span class="hm-editor-bar__spacer"></span>
+<span class="hm-bs__tools" hidden data-hm-bs-js>
+{{template "hm/button" (dict "Label" "Undo" "AriaLabel" "Undo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-undo" "" "data-flip" "" "disabled" "disabled" "title" "Undo (Ctrl/Cmd + Z)"))}}
+{{template "hm/button" (dict "Label" "Redo" "AriaLabel" "Redo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-redo" "" "disabled" "disabled" "title" "Redo (Ctrl/Cmd + Shift + Z)"))}}
+{{template "hm/button" (dict "Label" "History" "AriaLabel" "History" "IconOnly" true "Icon" "clock" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-history" "" "aria-haspopup" "dialog" "title" "History (Ctrl/Cmd + H)"))}}
+<span class="hm-bs__panes" role="group" aria-label="Side panes">
+{{template "hm/button" (dict "Label" "Navigator" "Icon" "panel-left" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-toggle" "nav" "aria-expanded" "true" "aria-controls" "hm-bs-nav" "title" "Show or hide the navigator pane (Ctrl/Cmd+Alt+[)"))}}
+{{template "hm/button" (dict "Label" "Inspector" "Icon" "settings" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-toggle" "insp" "aria-expanded" "true" "aria-controls" "hm-bs-inspector" "title" "Show or hide the inspector pane (Ctrl/Cmd+Alt+])"))}}
+</span>
+{{template "hm/button" (dict "Label" "Shortcuts" "AriaLabel" "Shortcuts" "IconOnly" true "Icon" "help" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-keys" "" "aria-haspopup" "dialog" "title" "Keyboard shortcuts (?)"))}}
+<span class="hm-bs__devices">{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-bs-device" "base")) (dict "Label" "Tablet" "Attrs" (attrmap "data-hm-bs-device" "md")) (dict "Label" "Phone" "Attrs" (attrmap "data-hm-bs-device" "sm"))))}}<span class="hm-bs__device" hidden data-hm-bs-device-chip></span></span>
+</span>
+{{template "hm/button" (dict "Label" "More actions" "AriaLabel" "More actions" "IconOnly" true "Icon" "more" "Variant" "ghost" "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" "bs-more"))}}
+<div class="hm-menu" id="bs-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.Shell.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Page settings</a><button type="button" role="menuitem" hidden data-hm-bs-sitestyles>Site styles</button>{{if and (not .Shell.SaveLabel) (not .Published) .CanPublish}}<button type="button" role="menuitem" hidden data-hm-bs-proxy="[data-hm-bs-save=save]">Save draft</button>{{end}}<button type="button" role="menuitem" hidden data-hm-bs-proxy="[data-hm-bs-undo]">Undo</button><button type="button" role="menuitem" hidden data-hm-bs-proxy="[data-hm-bs-redo]">Redo</button><button type="button" role="menuitem" hidden data-hm-bs-proxy="[data-hm-bs-history]">History</button><button type="button" role="menuitem" data-hm-bs-always data-hm-bs-proxy="[data-hm-bs-keys]">Keyboard shortcuts</button>{{$noun := or .Shell.Role "page"}}{{with .Shell.DeleteHref}}<div role="separator"></div><a role="menuitem" href="{{.}}" data-hm-confirm="This {{$noun}} and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete {{$noun}}" data-hm-post="{{.}}" data-tone="danger" data-hm-danger>Delete {{$noun}}</a>{{end}}</div>
+{{if .Shell.SaveLabel}}{{template "hm/button" (dict "Label" .Shell.SaveLabel "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save"))}}
+{{else if .Published}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save"))}}
+{{else}}{{template "hm/button" (dict "Label" "Save draft" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "save" "data-hm-phone-fold" (printf "%t" .CanPublish)))}}
+{{if .CanPublish}}{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-bs-save" "publish"))}}{{end}}{{end}}
+{{else}}<span class="hm-editor-bar__title">{{.Name}}</span>{{end}}{{end}}{{end}}
+{{define "main"}}<h1 class="hm-visually-hidden">Edit {{.Data.Name}}</h1>
+{{if .Data.Shell}}<div class="hm-bs" id="hm-builder" data-hm-builder data-hm-entity="{{.Data.ID}}" data-hm-bs-tab="canvas">
+<template data-hm-bs-badge>{{template "hm/badge" (dict "Label" "" "Mono" true)}}</template>
+<template data-hm-bs-chip>{{template "hm/badge" (dict "Label" "" "Plain" true)}}</template>
+<template data-hm-bs-act>{{template "hm/button" (dict "Label" "Action" "Size" "sm")}}</template>
+<template data-hm-bs-actp>{{template "hm/button" (dict "Label" "Action" "Size" "sm" "Variant" "primary")}}</template>
+<template data-hm-bs-warn>{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{template "hm/callout-end"}}</template>
+<template data-hm-bs-hidden-badge>{{template "hm/badge" (dict "Label" "Hidden")}}</template>
+<div class="hm-bs__dock" aria-label="Builder panes" hidden data-hm-bs-js data-hm-bs-dock>
+<button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-nav" aria-controls="hm-bs-nav" data-hm-bs-dock="nav">Navigator</button>
+<button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-add" aria-controls="hm-bs-nav" data-hm-bs-dock="add">Add</button>
+<button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-insp" aria-controls="hm-bs-inspector" data-hm-bs-dock="insp">Inspector</button>
+</div>
+<div class="hm-bs__nav" id="hm-bs-nav" data-hm-bs-pane="nav">
+<div class="hm-bs__ltabs" hidden data-hm-bs-js><div class="hm-tablist" role="tablist" aria-label="Left pane" data-hm-bs-ltabs>
+<button type="button" class="hm-tablist__tab" role="tab" id="hm-bs-ltab-nav" aria-selected="true" aria-controls="hm-bs-lp-nav" data-hm-bs-ltab="nav">Navigator</button>
+<button type="button" class="hm-tablist__tab" role="tab" id="hm-bs-ltab-add" aria-selected="false" tabindex="-1" aria-controls="hm-bs-lp-add" data-hm-bs-ltab="add">Add</button>
+</div></div>
+<div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-nav" aria-labelledby="hm-bs-ltab-nav" data-hm-bs-lpanel="nav"><nav aria-label="Navigator">
+<div class="hm-bs__navbar" hidden data-hm-bs-js data-hm-bs-navbar><input type="search" class="hm-field__control" placeholder="Filter elements…" aria-label="Filter elements" data-hm-bs-filter>{{template "hm/button" (dict "Label" "Collapse all" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-collapse" ""))}}{{template "hm/button" (dict "Label" "Rename" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-rename" "" "disabled" "disabled"))}}</div>
+<div data-hm-bs-tree></div></nav>
+{{if .Data.Shell.UsageLoaded}}<details class="hm-bs__usage" data-hm-bs-usage><summary>{{.Data.Shell.UsageLabel}}</summary>
+{{if .Data.Shell.Usage}}<ul>{{range .Data.Shell.Usage}}<li><a href="{{.Href}}">{{.Name}}</a> <span class="hm-muted">{{.Type}}, {{.Status}}</span></li>{{end}}</ul>
+<p class="hm-muted">Deleting this block leaves a "Missing block" note where it is used.</p>{{else}}{{template "hm/empty" (dict "Title" "No page uses this block yet" "Compact" true)}}{{end}}</details>{{end}}</div>
+<div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-add" aria-labelledby="hm-bs-ltab-add" hidden data-hm-bs-lpanel="add"><section class="hm-bs__pal" aria-label="Add" data-hm-bs-palette></section><div data-hm-bs-reuse></div></div>
+<footer class="hm-bs__navfoot" hidden data-hm-bs-js>{{template "hm/button" (dict "Label" "Add element" "Icon" "plus" "Size" "sm" "Attrs" (attrmap "data-hm-bs-addbtn" "" "aria-keyshortcuts" "/"))}}<span class="hm-editor-bar__spacer"></span>{{template "hm/button" (dict "Label" "Ctrl K" "AriaLabel" "Ctrl K: open command palette" "Icon" "search" "Size" "sm" "Attrs" (attrmap "data-hm-bs-cmdk" "" "aria-keyshortcuts" "Control+K Meta+K" "title" "Search and run commands (Ctrl/Cmd + K)"))}}</footer>
+</div>
+<div class="hm-bs__split hm-bs__split--nav" role="separator" aria-orientation="vertical" aria-label="Resize the navigator pane" aria-controls="hm-bs-nav" tabindex="0" hidden data-hm-bs-js data-hm-bs-split="nav"></div>
+<section class="hm-bs__canvas" id="hm-bs-canvas" aria-label="Page canvas" data-hm-bs-canvas><div class="hm-bs__banner" data-hm-bs-banner></div></section>
+<div class="hm-bs__split hm-bs__split--insp" role="separator" aria-orientation="vertical" aria-label="Resize the inspector pane" aria-controls="hm-bs-inspector" tabindex="0" hidden data-hm-bs-js data-hm-bs-split="insp"></div>
+<aside class="hm-bs__inspector" id="hm-bs-inspector" data-hm-bs-pane="insp" aria-label="Inspector"><h2 class="hm-bs__h">Inspector</h2><div data-hm-bs-panel><p class="hm-muted">Select an element on the page to edit it.</p></div></aside>
+{{.Data.Shell.Boot}}
+</div>
+<noscript>{{template "hm/builderoutline" .}}</noscript>{{else}}{{template "hm/builderoutline" .}}{{end}}{{end}}

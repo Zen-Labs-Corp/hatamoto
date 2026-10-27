@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# pre-commit: fast guards (seconds). Install with `make hooks`.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=lib/resolve.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/resolve.sh"
+fail=0
+
+# gofmt on staged Go files (migration 202610231005_backfill_people.go predates the rule: see ci.yml).
+mapfile -d '' staged < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.go')
+# gofmt reads the STAGED content (not the working file); a syntax error is a failure too.
+for f in "${staged[@]}"; do
+  [[ $f == backend/migrations/202610231005_backfill_people.go ]] && continue
+  if ! out=$(git show ":$f" | gofmt -l 2>&1); then
+    echo "pre-commit: $f does not parse:" >&2; echo "$out" >&2; fail=1
+  elif [[ -n $out ]]; then
+    echo "pre-commit: gofmt needed on the staged $f (run gofmt -w, then git add)" >&2; fail=1
+  fi
+done
+
+neutral_script=$(hm_file scripts/check-neutral.sh) || exit 1
+neutral=$(bash "$neutral_script" 2>&1) || { echo "$neutral" >&2; fail=1; }
+
+gl=$(command -v gitleaks || true)
+[[ -n $gl || ! -x $HOME/go/bin/gitleaks ]] || gl=$HOME/go/bin/gitleaks
+if [[ -z $gl ]]; then
+  echo "pre-commit: gitleaks not found. Install it: go install github.com/zricethezav/gitleaks/v8@v8.30.1 (adds ~/go/bin/gitleaks)" >&2
+  fail=1
+else
+  gl_config=$(hm_file .gitleaks.toml) || exit 1
+  leaks=$("$gl" git --staged --config "$gl_config" --redact --no-banner 2>&1) \
+    || { echo "$leaks" >&2; echo "pre-commit: gitleaks found a secret in the staged changes" >&2; fail=1; }
+fi
+
+exit $fail

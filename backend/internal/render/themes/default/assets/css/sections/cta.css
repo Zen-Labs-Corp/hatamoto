@@ -1,0 +1,8 @@
+.hm-cta { text-align: center; padding-top: 1rem; padding-bottom: 1rem; }
+.hm-cta__headline { max-width: 20ch; margin-inline: auto; }
+.hm-cta__subheadline { max-width: 52ch; margin: 1rem auto 0; font-size: 1.0625rem; color: var(--hm-hai); }
+.hm-cta__actions { margin: 1.25rem 0 0; }
+.hm-cta--tinted { background: var(--ht-surface-2); border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); padding: 3.5rem 1.5rem; }
+.hm-cta--dark { background: var(--hm-sumi); color: #fff; border-radius: var(--hm-radius-lg); padding: 3.5rem 1.5rem; }
+.hm-cta--dark h2 { color: #fff; }
+.hm-cta--dark .hm-cta__subheadline { color: rgba(255, 255, 255, 0.8); }

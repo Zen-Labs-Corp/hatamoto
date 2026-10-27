@@ -1,0 +1,3 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"p1","t":"tabpanel","p":{"label":"Alone"},"c":[{"id":"p1t","t":"text","p":{"text":"Body"}}]}
+]}]}

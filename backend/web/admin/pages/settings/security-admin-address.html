@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/card-start" dict "ID" "admin-address-card" "Title" "Admin address" "Heading" "h2" "Description" "Where you sign in to manage your site. Keep it private: visitors and scanners get a plain page not found."}}<div class="hm-setlist">
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "admin-address-url" "Name" "address" "Label" "Address" "Value" .Address "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "admin-address-url"))}}</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Strength: {{template "hm/badge" .Strength}}</p>
+{{if .Reasons}}<ul class="hm-field__help">{{range .Reasons}}<li>{{.}}</li>{{end}}</ul>{{end}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">{{.Chosen}}</p></div>
+</div>
+{{if .LockText}}<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-field__help">{{.LockText}}</p></div>
+</div>{{end}}
+</div>{{if .ChangeHref}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">(asks for your password first)</span>{{template "hm/button" dict "Label" "Change address" "Variant" "primary" "Href" .ChangeHref}}{{template "hm/card-foot-end"}}
+{{end}}{{template "hm/card-end"}}
+{{end}}{{end}}

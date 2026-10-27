@@ -1,0 +1,15 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Choose a look</h1>
+{{template "hm/formerrors" dict "Errors" .Errors}}
+<form method="post" action="{{adminPath}}/setup/theme" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/radiocard" (dict "Legend" "Theme" "Name" "theme" "Cols" 2 "Items" .ThemeItems)}}
+{{if lt (len .ThemeItems) 2}}<p class="hm-muted">More themes are in <a href="{{adminPath}}/theme/themes">Settings &rsaquo; Appearance</a>.</p>{{end}}
+{{template "hm/field" dict "ID" "colour" "Name" "colour" "Label" "Brand colour" "Type" "color" "Value" .Colour "Help" "Used for links and buttons on your site." "Error" .ColourErr}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+{{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

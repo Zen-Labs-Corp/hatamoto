@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+{{template "hm/tabs" dict "Label" "Redirect tools" "Items" .Tabs}}
+{{if .Top.Items}}{{template "hm/card-start" dict "ID" "notfound-top" "Title" "Most requested missing pages" "Description" "Select an address to create a redirect for it."}}{{template "hm/barlist" .Top}}{{template "hm/card-end"}}{{end}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

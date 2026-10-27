@@ -1,0 +1,46 @@
+name: codeql
+
+# CodeQL static analysis for the Go code (security-and-quality queries). Results
+# appear under Security > Code scanning.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "29 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    # Code-scanning uploads need GitHub Advanced Security on a private repository
+    # and fail without it, so this only runs once the repository is public. The owner sets the
+    # repository variable HATAMOTO_PUBLIC=true at cut-over (W3). A variable is
+    # used because the schedule event payload has no repository object.
+    if: vars.HATAMOTO_PUBLIC == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: go
+          build-mode: manual
+          queries: security-and-quality
+      - name: Build
+        working-directory: backend
+        run: go build ./...
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: "/language:go"

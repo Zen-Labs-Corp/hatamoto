@@ -1,0 +1,7 @@
+{
+  "x-hm-section": {"title": "HTML", "description": "Free-form sanitised HTML block"},
+  "type": "object",
+  "properties": {
+    "body": {"type": "string", "title": "HTML", "x-hm-field": "html"}
+  }
+}

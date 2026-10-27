@@ -1,0 +1,27 @@
+/* Tooltip: visual label for icon-only controls. The accessible name is the
+   control's aria-label; the tooltip repeats it for sighted mouse and keyboard
+   users. Shows on hover and keyboard focus, stays while hovered (it is part of
+   the control's box), and Esc hides it (js/components.js), WCAG 1.4.13. */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip); display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: var(--z-tooltip);
+  padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--tooltip-bg); color: var(--tooltip-fg);
+  font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--leading-tight); width: max-content; max-width: min(20rem, calc(100vw - var(--space-8))); white-space: normal; pointer-events: none;
+}
+[data-tooltip-align="end"]::after { left: auto; right: 0; transform: none; }
+/* Hidden is display: none, not opacity: a laid-out but invisible ::after widened the page. */
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { display: block; animation: hm-tip-in 120ms var(--ease) 300ms both; }
+@keyframes hm-tip-in { from { opacity: 0; } to { opacity: 1; } }
+/* A table's scroll box would clip a tooltip (and grow its own scroll area): from 641px up, inside it the tip opens above the control and grows leftwards from its right edge.
+   At 640px and below a table is cards (it never scrolls sideways, so the box does not clip): the tip hangs from the card, not the badge, whose place in a card is not fixed,
+   starts at the card's left edge and is as wide as the card at most, so it stays on screen wherever the badge wrapped to. */
+@media (min-width: 40.0625rem) { .hm-table__scroll [data-tooltip]::after { top: auto; bottom: calc(100% + 6px); left: auto; right: 0; transform: none; } }
+@media (max-width: 640px) {
+  .hm-table__scroll:has(> .hm-table--cards [data-tooltip]) { overflow: visible; }
+  .hm-table--cards tr:has([data-tooltip]) { position: relative; }
+  .hm-table--cards [data-tooltip] { position: static; }
+  .hm-table--cards [data-tooltip]::after { left: 0; right: auto; transform: none; max-width: min(20rem, 100%); }
+}
+html[data-tooltips-hidden] [data-tooltip]::after { display: none; }
+@media (max-width: 768px) { [data-tooltip]::after { bottom: auto; top: calc(100% + 6px); } }
+@media (prefers-reduced-motion: reduce) { [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { animation: none; } }

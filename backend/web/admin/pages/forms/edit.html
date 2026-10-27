@@ -1,0 +1,83 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "scripts"}}sortablejs{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit form") "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{adminPath}}/settings/forms/{{.ID}}/edit" class="hm-stack hm-formbuilder">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save form</button>
+{{template "hm/card-start" dict "ID" "form-details" "Title" "Details"}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "120" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .Statuses "Error" (index .Errors "status")}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 2 "Value" .Description "Help" "Only shown here, to you."}}
+<p class="hm-muted">Identifier <code>{{.Slug}}</code>.</p>
+<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Endpoint "Help" "Visitors send this form here." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy endpoint" "Attrs" (attrmap "data-hm-copy-url" .Endpoint "hidden" "")}}</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-fields" "Title" "Fields" "Description" "Fields appear in this order. Nothing changes on your site until you save the form."}}
+{{if index .Errors "fields"}}<p class="hm-field__error">{{index .Errors "fields"}}</p>{{end}}
+{{if not .Fields}}{{template "hm/empty" dict "Icon" "inbox" "Title" "This form has no fields" "Body" "Add the first field below."}}{{end}}
+<ol class="hm-fieldlist" id="form-fields-list" data-hm-fieldlist>
+{{range .Fields}}{{template "forms/field" .}}{{end}}
+</ol>
+<div class="hm-row hm-menutree__add">
+<div class="hm-field"><label class="hm-field__label" for="add-type">New field</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type">{{range .AddTypes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/button" dict "Label" "Add field" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "add" "formnovalidate" "")}}
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-after" "Title" "After someone sends it"}}
+{{template "hm/field" dict "ID" "submit_text" "Name" "submit_text" "Label" "Button text" "Value" .SubmitText "Placeholder" "Submit" "Attrs" (attrmap "maxlength" "60")}}
+{{template "hm/field" dict "ID" "success_message" "Name" "success_message" "Label" "Success message" "Control" "textarea" "Rows" 2 "Value" .SuccessMsg "Help" "Shown after a successful send. Default: Thank you for your submission!"}}
+{{template "hm/field" dict "ID" "redirect" "Name" "redirect_url" "Label" "Redirect to" "Value" .RedirectURL "Help" "Optional. A path like /thank-you or a full address; replaces the success message." "Error" (index .Errors "redirect")}}
+{{template "hm/field" dict "ID" "notify" "Name" "notify_email" "Label" "Email notifications to" "Value" .NotifyEmail "Help" "Separate several addresses with commas. Leave empty to use the notification email in Settings." "Error" (index .Errors "notify") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "store" "Name" "store" "Label" "Keep submissions in the admin" "Control" "switch" "Value" "1" "Checked" .Store}}
+{{template "hm/field" dict "ID" "confirmation" "Name" "confirmation" "Label" "Send the visitor a confirmation email" "Control" "switch" "Value" "1" "Checked" .Confirmation}}
+{{template "hm/field" dict "ID" "confirmation_message" "Name" "confirmation_message" "Label" "Confirmation email text" "Control" "textarea" "Rows" 3 "Value" .ConfirmMsg "Help" "Used when the confirmation email is on. Empty uses the success message."}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-spam" "Title" "Spam protection"}}
+{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/settings/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
+{{end}}{{template "hm/field" dict "ID" "captcha" "Name" "captcha" "Label" "Require the spam check (captcha)" "Control" "switch" "Value" "1" "Checked" .Captcha "Help" "Submissions without a passed check are refused."}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-embed" "Title" "Embed" "Description" "To build the form by hand in a template, post to the address above. Fields are sent by their name."}}{{template "hm/field" dict "ID" "embed-code" "Name" "embed_code" "Label" "Embed code" "Control" "textarea" "Rows" 5 "Value" .EmbedCode "Attrs" (attrmap "readonly" "")}}
+{{template "hm/button" dict "Label" "Copy embed code" "Attrs" (attrmap "data-hm-copy-field" "embed-code")}}{{template "hm/card-end"}}
+<div class="hm-savebar">
+<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete form" "Variant" "danger-text" "Href" (printf "%s/settings/forms/%s/delete" adminPath .ID)}}</span>
+{{template "hm/button" dict "Label" "Save form" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
+</div>
+</form>
+{{end}}{{end}}
+{{define "forms/field"}}{{$n := .N}}<li class="hm-fieldlist__item" data-hm-field data-type="{{.Type}}">
+<input type="hidden" name="f.{{$n}}.id" value="{{.ID}}">
+<details class="hm-fieldlist__row"{{if .Open}} open{{end}}>
+<summary><span class="hm-fieldlist__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span><span class="hm-fieldlist__chev" aria-hidden="true">{{icon "chevron-right"}}</span>{{icon .TypeIcon}}<span class="hm-fieldlist__label" data-hm-field-label>{{or .Label "Untitled field"}}</span>{{if .Name}}<code>{{.Name}}</code>{{end}}{{if .Required}}{{template "hm/badge" dict "Label" "Required"}}{{end}}</summary>
+<div class="hm-fieldlist__body">
+<div class="hm-fieldlist__fields">
+{{template "hm/field" dict "ID" (printf "f-%d-label" $n) "Name" (printf "f.%d.label" $n) "Label" "Label" "Value" .Label "Required" true "Error" (index .Err "label") "Attrs" (attrmap "maxlength" "200" "autocomplete" "off")}}
+<div class="hm-field"><label class="hm-field__label" for="f-{{$n}}-type">Type</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-{{$n}}-type" name="f.{{$n}}.type">{{range .Types}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/field" dict "ID" (printf "f-%d-name" $n) "Name" (printf "f.%d.name" $n) "Label" "Field name" "Value" .Name "Help" "Used to store and send the answer. Leave empty to make it from the label." "Error" (index .Err "name") "Attrs" (attrmap "autocomplete" "off")}}
+<div class="hm-field"><label class="hm-field__label" for="f-{{$n}}-width">Width</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-{{$n}}-width" name="f.{{$n}}.width">{{range .Widths}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/field" dict "ID" (printf "f-%d-placeholder" $n) "Name" (printf "f.%d.placeholder" $n) "Label" "Placeholder" "Value" .Placeholder "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" (printf "f-%d-help" $n) "Name" (printf "f.%d.help" $n) "Label" "Help text" "Value" .Help "Attrs" (attrmap "autocomplete" "off")}}
+</div>
+<div class="hm-fieldlist__opts">
+<div class="hm-fieldlist__choices">{{template "hm/field" dict "ID" (printf "f-%d-options" $n) "Name" (printf "f.%d.options" $n) "Label" "Choices" "Control" "textarea" "Rows" 3 "Value" .Options "Help" "One per line, as Label or Label | value." "Error" (index .Err "options")}}</div>
+<details class="hm-disclosure"><summary>Checks</summary><div class="hm-disclosure__body hm-fieldlist__fields">
+{{template "hm/field" dict "ID" (printf "f-%d-minlen" $n) "Name" (printf "f.%d.minlen" $n) "Label" "Shortest answer" "Value" .MinLen "Error" (index .Err "minlen") "Attrs" (attrmap "inputmode" "numeric")}}
+{{template "hm/field" dict "ID" (printf "f-%d-maxlen" $n) "Name" (printf "f.%d.maxlen" $n) "Label" "Longest answer" "Value" .MaxLen "Error" (index .Err "maxlen") "Attrs" (attrmap "inputmode" "numeric")}}
+{{template "hm/field" dict "ID" (printf "f-%d-pattern" $n) "Name" (printf "f.%d.pattern" $n) "Label" "Answer must match (pattern)" "Help" "The whole answer must match, for example [A-Z]{3}. Checked when the form is sent." "Value" .Pattern "Error" (index .Err "pattern") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" (printf "f-%d-message" $n) "Name" (printf "f.%d.message" $n) "Label" "Message when a check fails" "Value" .Message "Attrs" (attrmap "autocomplete" "off")}}
+</div></details>
+{{template "hm/field" dict "ID" (printf "f-%d-required" $n) "Name" (printf "f.%d.required" $n) "Label" "Required" "Control" "switch" "Value" "1" "Checked" .Required}}
+</div>
+</div>
+</details>
+<div class="hm-row hm-fieldlist__ops">
+{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "arrow-up" "AriaLabel" (printf "Move up field %d" (add $n 1)) "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "up.%d" $n) "formnovalidate" ""))}}
+{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "arrow-down" "AriaLabel" (printf "Move down field %d" (add $n 1)) "Type" "submit" "Attrs" (attrmap "name" "_op" "value" (printf "down.%d" $n) "formnovalidate" ""))}}
+{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "more" "AriaLabel" (printf "More actions for field %d" (add $n 1)) "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" (printf "f-%d-menu" $n)))}}
+<div class="hm-menu" popover id="f-{{$n}}-menu" role="menu" aria-label="Actions for field {{add $n 1}}">
+<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.{{$n}}" formnovalidate>{{icon "trash"}}Remove<span class="hm-visually-hidden"> field {{add $n 1}}</span></button>
+</div>
+</div>
+</li>{{end}}

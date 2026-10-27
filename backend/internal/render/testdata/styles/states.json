@@ -1,0 +1,218 @@
+{
+ "v": 2,
+ "nodes": [
+  {
+   "id": "s1",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "display": "grid",
+     "cols": "3",
+     "gap": "space-4"
+    },
+    "sm": {
+     "cols": "1"
+    }
+   },
+   "c": [
+    {
+     "id": "c1",
+     "t": "container",
+     "p": {
+      "tag": "div"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-4",
+       "pl": "space-4",
+       "pr": "space-4",
+       "bg": "surface",
+       "radius": "md",
+       "shadow": "sm",
+       "trans": "transform-shadow",
+       "tdur": "200",
+       "tease": "ease-out"
+      },
+      "base:hover": {
+       "ty": "-4px",
+       "shadow": "lg"
+      },
+      "base:active": {
+       "ty": "0",
+       "sc": "0.98"
+      },
+      "md:hover": {
+       "ty": "-2px"
+      },
+      "sm:hover": {
+       "ty": "0",
+       "shadow": "md"
+      }
+     },
+     "c": [
+      {
+       "id": "c1t",
+       "t": "heading",
+       "p": {
+        "text": "One",
+        "level": 3
+       },
+       "s": {
+        "base": {
+         "color": "text"
+        },
+        "base:parent-hover": {
+         "color": "accent"
+        },
+        "sm:parent-hover": {
+         "color": "primary"
+        }
+       }
+      },
+      {
+       "id": "c1b",
+       "t": "text",
+       "p": {
+        "text": "Hover-lift card"
+       },
+       "s": {
+        "base": {
+         "op": "0.8",
+         "trans": "opacity",
+         "tdur": "150"
+        },
+        "base:parent-hover": {
+         "op": "1"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "c2",
+     "t": "container",
+     "p": {
+      "tag": "div"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-4",
+       "pl": "space-4",
+       "pr": "space-4",
+       "bg": "surface",
+       "radius": "md",
+       "shadow": "sm",
+       "trans": "transform-shadow",
+       "tdur": "200",
+       "tease": "ease-out"
+      },
+      "base:hover": {
+       "ty": "-4px",
+       "shadow": "lg"
+      },
+      "base:active": {
+       "ty": "0",
+       "sc": "0.98"
+      },
+      "md:hover": {
+       "ty": "-2px"
+      },
+      "sm:hover": {
+       "ty": "0",
+       "shadow": "md"
+      }
+     },
+     "c": [
+      {
+       "id": "c2t",
+       "t": "heading",
+       "p": {
+        "text": "Two",
+        "level": 3
+       },
+       "s": {
+        "base": {
+         "color": "text"
+        },
+        "base:parent-hover": {
+         "color": "accent"
+        },
+        "sm:parent-hover": {
+         "color": "primary"
+        }
+       }
+      },
+      {
+       "id": "c2b",
+       "t": "text",
+       "p": {
+        "text": "Hover-lift card"
+       },
+       "s": {
+        "base": {
+         "op": "0.8",
+         "trans": "opacity",
+         "tdur": "150"
+        },
+        "base:parent-hover": {
+         "op": "1"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "c3",
+     "t": "container",
+     "p": {
+      "tag": "div",
+      "preset": "lift"
+     },
+     "s": {
+      "base": {
+       "bg": "muted"
+      },
+      "base:hover": {
+       "bg": "primary"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "b1",
+   "t": "button",
+   "p": {
+    "text": "Go",
+    "href": "/go"
+   },
+   "s": {
+    "base": {
+     "bg": "accent",
+     "color": "bg",
+     "rot": "0deg",
+     "trans": "colors",
+     "tdur": "150"
+    },
+    "base:hover": {
+     "bg": "primary",
+     "rot": "-2deg",
+     "bright": "110%"
+    },
+    "base:focus": {
+     "bc": "text",
+     "bw": "2",
+     "bs": "solid"
+    },
+    "md:hover": {
+     "sc": "1.05"
+    }
+   }
+  }
+ ]
+}

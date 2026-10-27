@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/apikeys{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+<section class="hm-stack">
+{{with .Secret}}{{template "hm/secretbanner" .}}{{end}}{{if .SecretGone}}{{template "hm/secretgone" "This key was shown once and can no longer be displayed. Create a new secret if you lost it."}}{{end}}
+{{template "hm/table" .Table}}
+</section>
+{{template "hm/dialog-start" dict "ID" "new-key" "Title" "New API key" "Static" true}}
+<form id="new-key-form" method="post" action="{{adminPath}}/settings/api-keys">{{template "hm/csrf" $}}{{template "hm/form-apikey" .}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create key" "PrimaryAttrs" (attrmap "form" "new-key-form")}}
+{{end}}{{end}}

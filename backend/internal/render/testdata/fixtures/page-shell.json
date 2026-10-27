@@ -1,0 +1,40 @@
+{
+  "Site": {
+    "Name": "Acme Docs",
+    "Tagline": "Docs for everyone",
+    "Language": "en",
+    "Nav": [
+      {"Label": "Docs", "Href": "/docs"},
+      {"Label": "Product", "Href": "/product", "Children": [
+        {"Label": "Pricing", "Href": "/pricing"},
+        {"Label": "Blog", "Href": "https://blog.example.com", "Target": "_blank"}
+      ]},
+      {"Label": "Bad", "Href": "javascript:alert(1)"}
+    ],
+    "FooterNav": [
+      {"Label": "Company", "Href": "", "Children": [
+        {"Label": "About", "Href": "/about"},
+        {"Label": "Contact", "Href": "/contact"}
+      ]},
+      {"Label": "Privacy", "Href": "/privacy"}
+    ],
+    "SocialLinks": [
+      {"Label": "GitHub", "URL": "https://github.com/acme"}
+    ],
+    "HeaderCTA": {"Label": "Get started", "URL": "/start"},
+    "Tokens": {"Primary": "#0ea5e9", "Font": "Inter, sans-serif", "RadiusMd": "10px"}
+  },
+  "Page": {
+    "Title": "Shell test page",
+    "Description": "Checks the layout, header, nav and footer.",
+    "OGType": "website"
+  },
+  "BaseURL": "https://acme.example.com",
+  "Path": "/shell",
+  "EntityID": "11111111-2222-3333-4444-555555555555",
+  "Sections": [
+    {"ID": "s2", "Type": "not_in_theme", "SortOrder": 2},
+    {"ID": "s1", "Type": "also_missing", "SortOrder": 1},
+    {"ID": "hidden", "Type": "nope", "IsVisible": false}
+  ]
+}

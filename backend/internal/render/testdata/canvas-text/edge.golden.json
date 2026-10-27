@@ -1,0 +1,327 @@
+{
+  "nodes": [
+    {
+      "index": 0,
+      "tag": "div",
+      "text": "Lead text at root\n"
+    },
+    {
+      "index": 1,
+      "tag": "p",
+      "text": "Para with "
+    },
+    {
+      "index": 2,
+      "tag": "p",
+      "text": " and "
+    },
+    {
+      "index": 3,
+      "tag": "b",
+      "text": "bold"
+    },
+    {
+      "index": 4,
+      "tag": "p",
+      "text": " tail \u0026 \u003ctag\u003e 'q'"
+    },
+    {
+      "index": 5,
+      "tag": "button",
+      "text": "Click me"
+    },
+    {
+      "index": 6,
+      "tag": "span",
+      "text": " mixed nbsp "
+    },
+    {
+      "index": 7,
+      "tag": "p",
+      "text": "line one"
+    },
+    {
+      "index": 8,
+      "tag": "p",
+      "text": "line two"
+    },
+    {
+      "index": 9,
+      "tag": "summary",
+      "text": "Question?"
+    },
+    {
+      "index": 10,
+      "tag": "p",
+      "text": "Answer text"
+    },
+    {
+      "index": 11,
+      "tag": "td",
+      "text": "cell a"
+    },
+    {
+      "index": 12,
+      "tag": "td",
+      "text": "cell b"
+    },
+    {
+      "index": 13,
+      "tag": "p",
+      "text": "日本語のテキスト 😀 emoji"
+    }
+  ],
+  "edits": [
+    {
+      "index": 0,
+      "expect": "Lead text at root\n",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "div",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 1,
+          "tag": "p",
+          "text": "Para with "
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": " and "
+        },
+        {
+          "index": 3,
+          "tag": "b",
+          "text": "bold"
+        },
+        {
+          "index": 4,
+          "tag": "p",
+          "text": " tail \u0026 \u003ctag\u003e 'q'"
+        },
+        {
+          "index": 5,
+          "tag": "button",
+          "text": "Click me"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": " mixed nbsp "
+        },
+        {
+          "index": 7,
+          "tag": "p",
+          "text": "line one"
+        },
+        {
+          "index": 8,
+          "tag": "p",
+          "text": "line two"
+        },
+        {
+          "index": 9,
+          "tag": "summary",
+          "text": "Question?"
+        },
+        {
+          "index": 10,
+          "tag": "p",
+          "text": "Answer text"
+        },
+        {
+          "index": 11,
+          "tag": "td",
+          "text": "cell a"
+        },
+        {
+          "index": 12,
+          "tag": "td",
+          "text": "cell b"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "日本語のテキスト 😀 emoji"
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "expect": "line one",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "div",
+          "text": "Lead text at root\n"
+        },
+        {
+          "index": 1,
+          "tag": "p",
+          "text": "Para with "
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": " and "
+        },
+        {
+          "index": 3,
+          "tag": "b",
+          "text": "bold"
+        },
+        {
+          "index": 4,
+          "tag": "p",
+          "text": " tail \u0026 \u003ctag\u003e 'q'"
+        },
+        {
+          "index": 5,
+          "tag": "button",
+          "text": "Click me"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": " mixed nbsp "
+        },
+        {
+          "index": 7,
+          "tag": "p",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 8,
+          "tag": "p",
+          "text": "line two"
+        },
+        {
+          "index": 9,
+          "tag": "summary",
+          "text": "Question?"
+        },
+        {
+          "index": 10,
+          "tag": "p",
+          "text": "Answer text"
+        },
+        {
+          "index": 11,
+          "tag": "td",
+          "text": "cell a"
+        },
+        {
+          "index": 12,
+          "tag": "td",
+          "text": "cell b"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "日本語のテキスト 😀 emoji"
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "expect": "日本語のテキスト 😀 emoji",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "div",
+          "text": "Lead text at root\n"
+        },
+        {
+          "index": 1,
+          "tag": "p",
+          "text": "Para with "
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": " and "
+        },
+        {
+          "index": 3,
+          "tag": "b",
+          "text": "bold"
+        },
+        {
+          "index": 4,
+          "tag": "p",
+          "text": " tail \u0026 \u003ctag\u003e 'q'"
+        },
+        {
+          "index": 5,
+          "tag": "button",
+          "text": "Click me"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": " mixed nbsp "
+        },
+        {
+          "index": 7,
+          "tag": "p",
+          "text": "line one"
+        },
+        {
+          "index": 8,
+          "tag": "p",
+          "text": "line two"
+        },
+        {
+          "index": 9,
+          "tag": "summary",
+          "text": "Question?"
+        },
+        {
+          "index": 10,
+          "tag": "p",
+          "text": "Answer text"
+        },
+        {
+          "index": 11,
+          "tag": "td",
+          "text": "cell a"
+        },
+        {
+          "index": 12,
+          "tag": "td",
+          "text": "cell b"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        }
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "index": 0,
+      "expect": "wrong",
+      "value": "x",
+      "reason": "stale"
+    },
+    {
+      "index": 999,
+      "expect": "",
+      "value": "x",
+      "reason": "range"
+    },
+    {
+      "index": 0,
+      "expect": "Lead text at root\n",
+      "value": "  ",
+      "reason": "blank"
+    }
+  ]
+}

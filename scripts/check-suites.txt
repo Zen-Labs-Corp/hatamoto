@@ -1,0 +1,41 @@
+# check-suites.txt - the suites `make check` runs, one per line, in run order.
+#   <id>  <path globs, comma-separated | *>  <command, run by bash from the repo root>
+# Fields are separated by whitespace (the command is the rest of the line). A glob is
+# a git-style path pattern; `**` and `*` both match across directories. `*` = always.
+# scripts/check-suites.sh runs them all by hand and only the matching ones at push
+# (`--changed <range>`). Changing this file, check-suites.sh or the Makefile runs all.
+# ui-lint is not here: `make check` and the pre-push hook run it as their own step.
+# A new suite goes here, nowhere else (scripts/test-check-suites.sh keeps this honest).
+neutral          *                                                  bash scripts/check-neutral.sh
+stability        *                                                  cmp STABILITY.md backend/pkg/sdk/STABILITY.md
+t-snapshot       scripts/public-snapshot.sh,scripts/check-neutral.sh,.gitattributes,scripts/test-public-snapshot.sh   bash scripts/test-public-snapshot.sh
+t-neutral-priv   scripts/check-neutral.sh,scripts/test-check-neutral-private.sh   bash scripts/test-check-neutral-private.sh
+t-neutral        scripts/check-neutral.sh,scripts/test-check-neutral.sh   bash scripts/test-check-neutral.sh
+t-dco            scripts/check-dco.sh,scripts/test-check-dco.sh     bash scripts/test-check-dco.sh
+t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scripts/check-neutral.sh,scripts/check-dco.sh,scripts/go-test-flaky.sh,scripts/integration-gate.sh,scripts/known-flakes.txt,scripts/check-suites.sh,scripts/check-suites.txt,scripts/affected-readers.txt   bash scripts/test-hooks.sh
+migrations       *                                                  bash scripts/check-migrations.sh
+t-migrations     scripts/check-migrations.sh,scripts/baseline-ref.sh,scripts/test-check-migrations.sh   bash scripts/test-check-migrations.sh
+t-version        scripts/version.sh,scripts/test-version.sh        bash scripts/test-version.sh
+t-publish-rel    scripts/publish-release.sh,backend/tools/release/**,scripts/version.sh,scripts/test-publish-release.sh   bash scripts/test-publish-release.sh
+t-publish-reg    scripts/publish-registry.sh,scripts/deploy-host.sh,scripts/test-publish-registry.sh   bash scripts/test-publish-registry.sh
+t-publish-sdk    scripts/publish-sdk.sh,scripts/test-publish-sdk.sh   bash scripts/test-publish-sdk.sh
+t-tag-release    scripts/tag-release.sh,scripts/verify-tag-signature.sh,scripts/version.sh,.github/workflows/release.yml,.github/allowed_signers,scripts/test-tag-release.sh   bash scripts/test-tag-release.sh
+t-channel-fresh  scripts/check-channel-freshness.sh,scripts/test-check-channel-freshness.sh   bash scripts/test-check-channel-freshness.sh
+t-licenses-sh    scripts/third-party-licenses.sh,scripts/test-third-party-licenses.sh,backend/go.mod   bash scripts/test-third-party-licenses.sh
+t-channels-priv  *                                                  bash scripts/test-channels-private.sh
+t-staging-check  scripts/staging-update-check.sh,scripts/test-staging-update-check.sh   bash scripts/test-staging-update-check.sh
+t-check-suites   scripts/check-suites.sh,scripts/check-suites.txt,scripts/test-check-suites.sh,Makefile   bash scripts/test-check-suites.sh
+t-affected       .githooks/lib/affected.sh,scripts/affected-readers.txt,scripts/test-affected.sh,scripts/check-suites.txt   bash scripts/test-affected.sh
+t-farm           .githooks/lib/farm.sh,scripts/test-farm.sh,scripts/check-suites.txt   bash scripts/test-farm.sh
+t-caddy          deploy/apply-caddy.sh,deploy/caddy/**,deploy/caddy-others.jq,deploy/test-apply-caddy.sh   bash deploy/test-apply-caddy.sh
+t-dns            deploy/dns/**                                      bash deploy/dns/test-check.sh
+vendor-verify    backend/web/vendor/**,backend/tools/vendor/**,backend/go.mod   make vendor-verify
+vuln             backend/go.mod,backend/go.sum,backend/pkg/sdk/go.mod,backend/pkg/sdk/go.sum   make vuln
+licenses         backend/go.mod,backend/go.sum,backend/tools/licenses/**   cd backend && go run ./tools/licenses
+notice           NOTICE,backend/go.mod,backend/go.sum,backend/tools/licenses/**   cd backend && go run ./tools/licenses -check-notice ../NOTICE
+docs-publish-t   backend/tools/docs-publish/**,docs/site/**       make docs-publish-test
+docs-lint        docs/site/**,backend/tools/docs-publish/**        cd backend/tools/docs-publish && go run . --lint --root ../../../docs/site
+budgets          backend/**                                         make budgets
+t-pipe-full     scripts/pipeline-gate.sh,.githooks/lib/gate-cache.sh,scripts/test-pipeline-gate-full.sh   bash scripts/test-pipeline-gate-full.sh
+t-caddy-hdrs    deploy/caddy/**,deploy/well-known/security.txt,deploy/test-caddy-headers.sh   bash deploy/test-caddy-headers.sh
+t-verify-cut   scripts/verify-cutover.sh,scripts/test-verify-cutover.sh   bash scripts/test-verify-cutover.sh

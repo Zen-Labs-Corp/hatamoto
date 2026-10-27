@@ -1,0 +1,7 @@
+{
+  "type": "html",
+  "id": "sec-html",
+  "content": {
+    "body": "<div data-hm-section=\"forged\" data-hm-field=\"x\" style=\"color:red\"><p class=\"lead\">Hello</p></div><script>alert(1)</script><details><summary>More</summary><p>Hidden text</p></details>"
+  }
+}

@@ -1,0 +1,23 @@
+{"v":2,"nodes":[
+  {"id":"hero","t":"container","p":{"tag":"section","anchor":"pricing","aria":"Pricing plans","tip":"Our plans"},"c":[
+    {"id":"buy","t":"button","p":{"text":"Buy","href":"#pricing","target":"_blank","rel":"nofollow sponsored","tip":"Opens in a new tab"}},
+    {"id":"docs","t":"button","p":{"text":"Docs","href":"/docs","rel":"ugc nofollow ugc","aria":"Read the docs"}},
+    {"id":"plain","t":"image","p":{"src":"/media/a.jpg","alt":"Plain","tip":"Plain tip","aria":"ignored on a bare image","anchor":"plain-img"}},
+    {"id":"cap","t":"image","p":{"src":"/media/b.jpg","alt":"Captioned","caption":"Our studio, 2026"}},
+    {"id":"link","t":"image","p":{"src":"/media/c.jpg","alt":"Linked","href":"/gallery","target":"_blank","rel":"sponsored"}},
+    {"id":"linkcap","t":"image","p":{"src":"/media/d.jpg","alt":"","decorative":true,"href":"/story","caption":"The story","aria":"Read the story"}},
+    {"id":"light","t":"image","p":{"src":"/media/e.jpg","alt":"Opens large","lightbox":true,"caption":"Large one"}},
+    {"id":"lightdeco","t":"image","p":{"src":"/media/f.jpg","alt":"","decorative":true,"lightbox":true,"aria":"Enlarge the photo"}}
+  ]},
+  {"id":"card","t":"container","p":{"href":"/more","target":"_blank","rel":"nofollow","anchor":"more"},"c":[
+    {"id":"cardh","t":"heading","p":{"text":"Read more","level":3}},
+    {"id":"cardt","t":"text","p":{"text":"Plain text inside a linked container."}}
+  ]},
+  {"id":"badcard","t":"container","p":{"href":"/x"},"c":[
+    {"id":"badbtn","t":"button","p":{"text":"Inner","href":"/y"}}
+  ]},
+  {"id":"gal","t":"gallery","p":{"lightbox":true},"c":[
+    {"id":"ga","t":"image","p":{"src":"/media/g1.jpg","alt":"One"}},
+    {"id":"gb","t":"image","p":{"src":"/media/g2.jpg","alt":"Two","caption":"Second"}}
+  ]}
+]}

@@ -1,0 +1,15 @@
+<div id="hm-picker" class="hm-picker hm-stack">
+<form class="hm-row" role="search" method="get" action="/admin/media/picker" hx-get="/admin/media/picker" hx-target="#hm-picker" hx-swap="outerHTML" hx-trigger="submit, input changed delay:300ms from:#picker-q" hx-indicator="#picker-busy">
+<label class="hm-visually-hidden" for="picker-q">Search images</label><input class="hm-field__control" type="search" id="picker-q" name="q" value="logo" placeholder="Search images"><button type="submit" class="hm-btn hm-btn--secondary"><span>Search</span></button><span class="hm-indicator" id="picker-busy" role="status" data-hm-busy-text="Searching"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
+</form>
+<ul class="hm-media-grid hm-media-grid--picker" role="list">
+<li><button type="button" class="hm-pickertile" data-hm-pick="/media/x/file-52.png" data-hm-pick-alt=""><img src="/media/x/file-52_thumbnail.png" alt="" loading="lazy"><span class="hm-mediatile__name">logo.png</span><span class="hm-muted">2 KB · 800×600</span><span class="hm-pickertile__check" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span></button></li>
+</ul>
+
+
+<form class="hm-picker__upload" method="post" enctype="multipart/form-data" action="/admin/media/upload?picker=1" hx-post="/admin/media/upload?picker=1" hx-encoding="multipart/form-data" hx-indicator="#picker-busy" hx-target="#hm-picker" hx-swap="outerHTML" data-hm-dropzone><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<label class="hm-dropzone hm-dropzone--compact" for="picker-file" data-hm-dropzone-area><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Drop files here, or <u>browse</u>.</span><span class="hm-field__help" id="picker-file-help">JPEG, PNG, GIF or WebP, up to 10 MB each.</span><input class="hm-visually-hidden" type="file" id="picker-file" name="file" multiple required accept="image/jpeg,image/png,image/gif,image/webp" aria-describedby="picker-file-help" data-hm-max-mb="10"></label>
+<ul class="hm-dropzone__files" data-hm-dropzone-files role="list" aria-live="polite"></ul>
+<template data-hm-dropzone-tpl><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm" data-hm-remove=""><span>Remove</span></button><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm" data-hm-retry=""><span>Try again</span></button></template><button type="submit" class="hm-btn hm-btn--primary"><span>Upload</span></button>
+</form>
+</div>

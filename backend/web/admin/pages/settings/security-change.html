@@ -1,0 +1,25 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/formerrors" dict "Errors" .Errors}}
+{{if .Addr.Danger}}{{template "hm/danger-confirm" .Addr.Danger}}
+{{else}}<form method="post" action="{{.Action}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Change address</button>
+{{template "hm/card-start" dict "ID" "change-address" "Title" "Change admin address" "Description" "The old address stops working right away and answers with a plain page not found. Every owner gets an email with the new one."}}
+<div class="hm-stack">
+{{template "hm/radiocard" (dict "Legend" "Admin address" "Name" "mode" "Items" .Addr.Items)}}
+<input type="hidden" name="candidate" value="{{.Addr.Candidate}}">
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-candidate" "Name" "candidate_url" "Label" "Your private address" "Value" (print .Addr.Origin .Addr.Candidate) "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-candidate"))}}</div>
+{{template "hm/field" dict "ID" "custom" "Name" "custom" "Label" "Your own address" "Value" .Addr.Custom "Help" (printf "Used when Choose my own is selected. Your address will be %s/ followed by what you type: letters, digits and dashes." .Addr.Origin) "Attrs" (attrmap "autocomplete" "off" "hx-get" .Strength "hx-trigger" "input changed delay:300ms" "hx-target" "#addr-strength" "hx-swap" "innerHTML" "hx-push-url" "false")}}
+<div id="addr-strength" aria-live="polite">{{.Addr.StrengthHTML}}</div>
+<p class="hm-muted">Bookmark the new address. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.</p>
+</div>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}
+{{template "hm/button" (dict "Label" "Regenerate" "Type" "submit" "Attrs" (attrmap "formaction" .Regenerate "formnovalidate" ""))}}
+{{template "hm/button" dict "Label" "Change address" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>{{end}}
+</section>
+{{end}}{{end}}

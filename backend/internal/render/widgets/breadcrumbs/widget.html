@@ -1,0 +1,1 @@
+<nav {{.Attrs}} aria-label="Breadcrumb"><ol>{{range .X.Crumbs}}<li>{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<span{{if .Current}} aria-current="page"{{end}}>{{.Name}}</span>{{end}}</li>{{end}}</ol></nav>

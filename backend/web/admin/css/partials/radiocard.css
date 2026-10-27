@@ -1,0 +1,20 @@
+/* Radio cards: a stack (or a two-column grid) of bordered choices. The selected card carries an
+   ink ring; the native radio stays in the card for keyboard and no-script use. Token values only;
+   the contract is components.json. */
+.hm-radiocards { display: grid; gap: var(--space-3); margin: 0; padding: 0; border: 0; min-width: 0; }
+.hm-radiocards > legend { padding: 0; margin-bottom: var(--space-2); }
+.hm-radiocards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hm-radiocards--2 > legend { grid-column: 1 / -1; }
+@media (max-width: 640px) { .hm-radiocards--2 { grid-template-columns: minmax(0, 1fr); } }
+.hm-radiocard {
+  display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4);
+  border: 1px solid var(--border-control); border-radius: var(--radius-md);
+  background: var(--color-paper); color: var(--color-sumi); font-size: var(--text-sm); cursor: pointer;
+  transition: background-color 120ms var(--ease);
+}
+.hm-radiocard:hover { background: var(--surface-hover); }
+.hm-radiocard:has(input:checked) { border-color: var(--color-sumi); box-shadow: inset 0 0 0 1px var(--color-sumi); }
+.hm-radiocard:has(input:focus-visible) { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-radiocard__input { flex: none; margin: var(--space-0-5) 0 0; accent-color: var(--color-sumi); }
+.hm-radiocard__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.hm-radiocard__title { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-weight: var(--weight-medium); }

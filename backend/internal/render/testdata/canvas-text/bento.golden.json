@@ -1,0 +1,587 @@
+{
+  "nodes": [
+    {
+      "index": 0,
+      "tag": "span",
+      "text": "Enim laboris"
+    },
+    {
+      "index": 1,
+      "tag": "h2",
+      "text": "Labore Sit eiusmod nisi sed commodo."
+    },
+    {
+      "index": 2,
+      "tag": "p",
+      "text": "Quis ipsum deserunt enim excepteur duis officia."
+    },
+    {
+      "index": 3,
+      "tag": "span",
+      "text": "Magna \u0026 exercitation"
+    },
+    {
+      "index": 4,
+      "tag": "h3",
+      "text": "Nostrud Exercitation"
+    },
+    {
+      "index": 5,
+      "tag": "p",
+      "text": "4,994% pariatur ut Veniam Non elit ullamco"
+    },
+    {
+      "index": 6,
+      "tag": "span",
+      "text": "Nisi amet velit"
+    },
+    {
+      "index": 7,
+      "tag": "span",
+      "text": "Aliquip \u0026 voluptate"
+    },
+    {
+      "index": 8,
+      "tag": "h3",
+      "text": "Irure Magna"
+    },
+    {
+      "index": 9,
+      "tag": "p",
+      "text": "109% occaecat et nisi commodo"
+    },
+    {
+      "index": 10,
+      "tag": "span",
+      "text": "Esse quis nulla"
+    },
+    {
+      "index": 11,
+      "tag": "span",
+      "text": "Culpa \u0026 elit reprehenderit"
+    },
+    {
+      "index": 12,
+      "tag": "h3",
+      "text": "Voluptate Ea Ex"
+    },
+    {
+      "index": 13,
+      "tag": "p",
+      "text": "178% occaecat et cillum commodo"
+    },
+    {
+      "index": 14,
+      "tag": "span",
+      "text": "Sunt duis dolor"
+    },
+    {
+      "index": 15,
+      "tag": "span",
+      "text": "Consectetur magna"
+    },
+    {
+      "index": 16,
+      "tag": "h3",
+      "text": "Ipsum Culpa"
+    },
+    {
+      "index": 17,
+      "tag": "p",
+      "text": "370% pariatur ea sunt consectetur"
+    },
+    {
+      "index": 18,
+      "tag": "span",
+      "text": "Elit sint magna"
+    },
+    {
+      "index": 19,
+      "tag": "span",
+      "text": "Voluptate"
+    },
+    {
+      "index": 20,
+      "tag": "h3",
+      "text": "Velit"
+    },
+    {
+      "index": 21,
+      "tag": "p",
+      "text": "1000% Proident ad Lorem"
+    },
+    {
+      "index": 22,
+      "tag": "span",
+      "text": "Sunt duis magna"
+    },
+    {
+      "index": 23,
+      "tag": "span",
+      "text": "Incididunt nostrud excepteur"
+    },
+    {
+      "index": 24,
+      "tag": "h3",
+      "text": "Pariatur"
+    },
+    {
+      "index": 25,
+      "tag": "p",
+      "text": "50% deserunt do excepteur sunt"
+    },
+    {
+      "index": 26,
+      "tag": "span",
+      "text": "Duis elit velit"
+    }
+  ],
+  "edits": [
+    {
+      "index": 0,
+      "expect": "Enim laboris",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Labore Sit eiusmod nisi sed commodo."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Quis ipsum deserunt enim excepteur duis officia."
+        },
+        {
+          "index": 3,
+          "tag": "span",
+          "text": "Magna \u0026 exercitation"
+        },
+        {
+          "index": 4,
+          "tag": "h3",
+          "text": "Nostrud Exercitation"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "4,994% pariatur ut Veniam Non elit ullamco"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Nisi amet velit"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Aliquip \u0026 voluptate"
+        },
+        {
+          "index": 8,
+          "tag": "h3",
+          "text": "Irure Magna"
+        },
+        {
+          "index": 9,
+          "tag": "p",
+          "text": "109% occaecat et nisi commodo"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Esse quis nulla"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Culpa \u0026 elit reprehenderit"
+        },
+        {
+          "index": 12,
+          "tag": "h3",
+          "text": "Voluptate Ea Ex"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "178% occaecat et cillum commodo"
+        },
+        {
+          "index": 14,
+          "tag": "span",
+          "text": "Sunt duis dolor"
+        },
+        {
+          "index": 15,
+          "tag": "span",
+          "text": "Consectetur magna"
+        },
+        {
+          "index": 16,
+          "tag": "h3",
+          "text": "Ipsum Culpa"
+        },
+        {
+          "index": 17,
+          "tag": "p",
+          "text": "370% pariatur ea sunt consectetur"
+        },
+        {
+          "index": 18,
+          "tag": "span",
+          "text": "Elit sint magna"
+        },
+        {
+          "index": 19,
+          "tag": "span",
+          "text": "Voluptate"
+        },
+        {
+          "index": 20,
+          "tag": "h3",
+          "text": "Velit"
+        },
+        {
+          "index": 21,
+          "tag": "p",
+          "text": "1000% Proident ad Lorem"
+        },
+        {
+          "index": 22,
+          "tag": "span",
+          "text": "Sunt duis magna"
+        },
+        {
+          "index": 23,
+          "tag": "span",
+          "text": "Incididunt nostrud excepteur"
+        },
+        {
+          "index": 24,
+          "tag": "h3",
+          "text": "Pariatur"
+        },
+        {
+          "index": 25,
+          "tag": "p",
+          "text": "50% deserunt do excepteur sunt"
+        },
+        {
+          "index": 26,
+          "tag": "span",
+          "text": "Duis elit velit"
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "expect": "178% occaecat et cillum commodo",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Enim laboris"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Labore Sit eiusmod nisi sed commodo."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Quis ipsum deserunt enim excepteur duis officia."
+        },
+        {
+          "index": 3,
+          "tag": "span",
+          "text": "Magna \u0026 exercitation"
+        },
+        {
+          "index": 4,
+          "tag": "h3",
+          "text": "Nostrud Exercitation"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "4,994% pariatur ut Veniam Non elit ullamco"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Nisi amet velit"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Aliquip \u0026 voluptate"
+        },
+        {
+          "index": 8,
+          "tag": "h3",
+          "text": "Irure Magna"
+        },
+        {
+          "index": 9,
+          "tag": "p",
+          "text": "109% occaecat et nisi commodo"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Esse quis nulla"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Culpa \u0026 elit reprehenderit"
+        },
+        {
+          "index": 12,
+          "tag": "h3",
+          "text": "Voluptate Ea Ex"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 14,
+          "tag": "span",
+          "text": "Sunt duis dolor"
+        },
+        {
+          "index": 15,
+          "tag": "span",
+          "text": "Consectetur magna"
+        },
+        {
+          "index": 16,
+          "tag": "h3",
+          "text": "Ipsum Culpa"
+        },
+        {
+          "index": 17,
+          "tag": "p",
+          "text": "370% pariatur ea sunt consectetur"
+        },
+        {
+          "index": 18,
+          "tag": "span",
+          "text": "Elit sint magna"
+        },
+        {
+          "index": 19,
+          "tag": "span",
+          "text": "Voluptate"
+        },
+        {
+          "index": 20,
+          "tag": "h3",
+          "text": "Velit"
+        },
+        {
+          "index": 21,
+          "tag": "p",
+          "text": "1000% Proident ad Lorem"
+        },
+        {
+          "index": 22,
+          "tag": "span",
+          "text": "Sunt duis magna"
+        },
+        {
+          "index": 23,
+          "tag": "span",
+          "text": "Incididunt nostrud excepteur"
+        },
+        {
+          "index": 24,
+          "tag": "h3",
+          "text": "Pariatur"
+        },
+        {
+          "index": 25,
+          "tag": "p",
+          "text": "50% deserunt do excepteur sunt"
+        },
+        {
+          "index": 26,
+          "tag": "span",
+          "text": "Duis elit velit"
+        }
+      ]
+    },
+    {
+      "index": 26,
+      "expect": "Duis elit velit",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Enim laboris"
+        },
+        {
+          "index": 1,
+          "tag": "h2",
+          "text": "Labore Sit eiusmod nisi sed commodo."
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Quis ipsum deserunt enim excepteur duis officia."
+        },
+        {
+          "index": 3,
+          "tag": "span",
+          "text": "Magna \u0026 exercitation"
+        },
+        {
+          "index": 4,
+          "tag": "h3",
+          "text": "Nostrud Exercitation"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "4,994% pariatur ut Veniam Non elit ullamco"
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Nisi amet velit"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Aliquip \u0026 voluptate"
+        },
+        {
+          "index": 8,
+          "tag": "h3",
+          "text": "Irure Magna"
+        },
+        {
+          "index": 9,
+          "tag": "p",
+          "text": "109% occaecat et nisi commodo"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Esse quis nulla"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Culpa \u0026 elit reprehenderit"
+        },
+        {
+          "index": 12,
+          "tag": "h3",
+          "text": "Voluptate Ea Ex"
+        },
+        {
+          "index": 13,
+          "tag": "p",
+          "text": "178% occaecat et cillum commodo"
+        },
+        {
+          "index": 14,
+          "tag": "span",
+          "text": "Sunt duis dolor"
+        },
+        {
+          "index": 15,
+          "tag": "span",
+          "text": "Consectetur magna"
+        },
+        {
+          "index": 16,
+          "tag": "h3",
+          "text": "Ipsum Culpa"
+        },
+        {
+          "index": 17,
+          "tag": "p",
+          "text": "370% pariatur ea sunt consectetur"
+        },
+        {
+          "index": 18,
+          "tag": "span",
+          "text": "Elit sint magna"
+        },
+        {
+          "index": 19,
+          "tag": "span",
+          "text": "Voluptate"
+        },
+        {
+          "index": 20,
+          "tag": "h3",
+          "text": "Velit"
+        },
+        {
+          "index": 21,
+          "tag": "p",
+          "text": "1000% Proident ad Lorem"
+        },
+        {
+          "index": 22,
+          "tag": "span",
+          "text": "Sunt duis magna"
+        },
+        {
+          "index": 23,
+          "tag": "span",
+          "text": "Incididunt nostrud excepteur"
+        },
+        {
+          "index": 24,
+          "tag": "h3",
+          "text": "Pariatur"
+        },
+        {
+          "index": 25,
+          "tag": "p",
+          "text": "50% deserunt do excepteur sunt"
+        },
+        {
+          "index": 26,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        }
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "index": 0,
+      "expect": "wrong",
+      "value": "x",
+      "reason": "stale"
+    },
+    {
+      "index": 999,
+      "expect": "",
+      "value": "x",
+      "reason": "range"
+    },
+    {
+      "index": 0,
+      "expect": "Enim laboris",
+      "value": "  ",
+      "reason": "blank"
+    }
+  ]
+}

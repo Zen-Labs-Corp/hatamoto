@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+{{if gt .Count 0}}{{template "hm/card-start" dict "ID" "versions-history" "Title" "History"}}{{template "hm/tracker" .History}}{{template "hm/card-end"}}
+<form class="hm-card hm-row hm-compare" method="get" action="{{adminPath}}/entities/{{.ID}}/versions/compare">
+{{template "hm/field" dict "ID" "cmp-from" "Name" "from" "Label" "Compare" "Control" "select" "Options" .Compare.Options}}
+{{template "hm/field" dict "ID" "cmp-to" "Name" "to" "Label" "with" "Control" "select" "Options" .Compare.Options2}}
+{{template "hm/button" dict "Label" "Compare versions" "Type" "submit"}}
+</form>{{end}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

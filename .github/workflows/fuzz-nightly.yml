@@ -1,0 +1,84 @@
+name: fuzz-nightly
+
+# Every Fuzz target in the core module runs for 30 seconds each night. A
+# failure opens (or comments on) an issue from a separate job, so the job that
+# runs the fuzz code is read-only. The issue never carries the crashing input
+# and no artifact is uploaded: the repository is public, and a crash in package
+# parsing can be a denial of service that must be reported privately first.
+# Run it by hand from the Actions tab (workflow_dispatch) to try it.
+#
+# Targets are found by name (`go test -list '^Fuzz'` in every package), so a new
+# FuzzX in a _test.go file needs no entry here. Today: packages (Parse,
+# ReadArchive, ParseIndex), release (Verify, VerifyRecord, VerifyManifest),
+# wpimport (ParseWXR), entity (SanitizeHTML), pluginhost (HostCall), render
+# (ScanMarkup) and builder (PackKindName).
+
+on:
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      failed: ${{ steps.fuzz.outputs.failed }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Fuzz every target for 30 seconds
+        id: fuzz
+        run: |
+          status=0
+          failed=""
+          count=0
+          for pkg in $(go list ./...); do
+            for target in $(go test -list '^Fuzz' "$pkg" | grep '^Fuzz' || true); do
+              count=$((count + 1))
+              echo "::group::$pkg $target"
+              go test -run '^$' -fuzz "^${target}\$" -fuzztime 30s "$pkg" || { status=1; failed="$failed $pkg.$target"; }
+              echo "::endgroup::"
+            done
+          done
+          echo "fuzzed $count target(s)"
+          # Target names only, never the failing input.
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          [ "$count" -gt 0 ] || { echo "no Fuzz targets found" >&2; exit 1; }
+          exit $status
+
+  issue:
+    name: Open an issue
+    needs: fuzz
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAILED: ${{ needs.fuzz.outputs.failed }}
+          TITLE: Nightly fuzzing failed
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still failing: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "The nightly fuzz run failed. Target(s):${FAILED:- unknown, see the run} Run: $RUN_URL. Treat this as a potential security issue: reproduce locally and report privately per SECURITY.md. Do not post the failing input here."
+          fi

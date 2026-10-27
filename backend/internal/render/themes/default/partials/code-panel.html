@@ -1,0 +1,4 @@
+{{define "code-panel"}}{{with .panel}}<div class="hm-frame">
+  <div class="hm-frame__bar"><span class="hm-frame__dots" aria-hidden="true"><i></i><i></i><i></i></span>{{if .title}}<span class="hm-frame__title" {{hmf "panel" "title"}}>{{.title}}</span>{{end}}{{if .meta}}<span class="hm-frame__meta" {{hmf "panel" "meta"}}>{{.meta}}</span>{{end}}</div>
+  <pre class="hm-code"><code data-hm-kind="code" {{hmf "panel" "code"}}>{{hl .language .code}}</code></pre>
+</div>{{end}}{{with .outputs}}<dl class="hm-outs">{{range $i, $o := .}}<div><dt {{hmf "outputs" $i "label"}}>{{$o.label}}</dt><dd {{hmf "outputs" $i "value"}}>{{$o.value}}</dd></div>{{end}}</dl>{{end}}{{end}}

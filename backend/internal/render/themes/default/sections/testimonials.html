@@ -1,0 +1,21 @@
+{{define "section-testimonials"}}{{$c := .Content}}<div class="hm-container hm-testimonials hm-testimonials--{{default "grid" $c.variant}}">
+  {{if or $c.heading $c.subheading}}<header class="hm-testimonials__header">
+    {{if $c.heading}}<h2 class="hm-testimonials__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-testimonials__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.testimonials}}<ul class="hm-testimonials__list">
+    {{range $i, $t := $c.testimonials}}<li class="hm-testimonials__item">
+      <figure class="hm-testimonials__figure">
+        {{if $t.rating}}<p class="hm-testimonials__rating" role="img" aria-label="Rated {{$t.rating}} out of 5"><span aria-hidden="true">★ <span {{hmf "testimonials" $i "rating"}}>{{$t.rating}}</span>/5</span></p>{{end}}
+        <blockquote class="hm-testimonials__quote" {{hmf "testimonials" $i "quote"}}>{{$t.quote}}</blockquote>
+        <figcaption class="hm-testimonials__author">
+          {{if $t.avatar}}{{with imgsrc $t.avatar}}<img class="hm-testimonials__avatar" src="{{.}}" alt="" width="48" height="48" loading="lazy">{{end}}{{end}}
+          <span class="hm-testimonials__person">
+            <strong class="hm-testimonials__name" {{hmf "testimonials" $i "name"}}>{{$t.name}}</strong>
+            {{if or $t.title $t.company}}<span class="hm-testimonials__role">{{if $t.title}}<span {{hmf "testimonials" $i "title"}}>{{$t.title}}</span>{{end}}{{if and $t.title $t.company}}, {{end}}{{if $t.company}}<span {{hmf "testimonials" $i "company"}}>{{$t.company}}</span>{{end}}</span>{{end}}
+          </span>
+        </figcaption>
+      </figure>
+    </li>{{end}}
+  </ul>{{end}}
+</div>{{end}}

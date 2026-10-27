@@ -1,0 +1,6 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"v1","t":"video","p":{"url":"https://youtu.be/dQw4w9WgXcQ","title":"Intro <clip>","poster":"/media/poster.jpg"}},
+  {"id":"v2","t":"video","p":{"url":"https://vimeo.com/76979871","title":"Second"}},
+  {"id":"v3","t":"video","p":{"url":"https://example.org/movie.mp4","title":"Other"}},
+  {"id":"v4","t":"video","p":{"url":"javascript:alert(1)","title":"Bad"}}
+]}]}

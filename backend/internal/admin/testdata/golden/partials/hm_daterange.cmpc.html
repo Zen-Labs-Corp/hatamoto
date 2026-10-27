@@ -1,0 +1,18 @@
+<div class="hm-daterange">
+<button type="button" class="hm-btn hm-daterange__button" popovertarget="range-pop" aria-haspopup="dialog"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Last 30 days · 24 Sep – 23 Oct<span class="hm-daterange__vs">vs 25 Aug – 23 Sep</span></span></button>
+<div class="hm-popover-panel hm-daterange__pop" popover id="range-pop" role="dialog" aria-label="Choose a date range" data-hm-daterange>
+<form method="get" action="/admin/analytics">
+
+<div class="hm-daterange__grid">
+<ul class="hm-daterange__presets" aria-label="Presets"></ul>
+<fieldset class="hm-daterange__dates"><legend class="hm-field__label">Custom range</legend>
+<div class="hm-field"><label class="hm-field__label" for="range-from">From</label><input class="hm-field__control" type="date" id="range-from" name="from" value="2026-09-24" min="2020-01-01" max="2026-10-23" required></div>
+<div class="hm-field"><label class="hm-field__label" for="range-to">To</label><input class="hm-field__control" type="date" id="range-to" name="to" value="2026-10-23" min="2026-09-24" max="2026-10-23" required></div>
+<div class="hm-daterange__actions"><button type="button" class="hm-btn hm-btn--secondary" popovertarget="range-pop" popovertargetaction="hide"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button></div>
+</fieldset></div>
+<div class="hm-daterange__compare"><div class="hm-field">
+<label class="hm-field__check hm-switch" for="range-compare"><input class="hm-field__box" type="checkbox" role="switch" id="range-compare" name="compare" value="1" checked aria-describedby="range-compare-help"><span>Compare to previous period</span></label>
+<p class="hm-field__help" id="range-compare-help">Compared with 25 Aug – 23 Sep.</p>
+</div></div>
+</form></div>
+</div>

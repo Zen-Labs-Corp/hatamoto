@@ -1,0 +1,20 @@
+{{define "layouts/editor"}}<!doctype html>
+<html lang="{{.Lang}}" data-admin-theme="{{.Theme}}">
+<head>
+{{template "layouts/head" .}}
+</head>
+<body class="hm-editor-page">
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<header class="hm-editor-bar">
+{{block "editorbar" .}}<a class="hm-editor-bar__back" href="{{adminPath}}/entities">{{icon "chevron-left"}}<span>Entities</span></a>
+<span class="hm-editor-bar__site">{{.SiteName}}</span>{{end}}
+</header>
+<main id="hm-main" class="hm-content">
+<div class="hm-page" data-width="{{.Width}}">
+{{template "hm/flash" .Flash}}
+{{template "main" .}}
+</div>
+</main>
+{{template "layouts/toasts" .}}
+</body>
+</html>{{end}}

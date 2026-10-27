@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Button group",
+    "hint": "Buttons side by side",
+    "group": "Content",
+    "order": 20,
+    "children": true,
+    "seed": [{"t": "button", "p": {"text": "Button", "href": "#"}}, {"t": "button", "p": {"text": "Button", "href": "#"}}]
+  },
+  "properties": {
+    "hidden": {"type": "boolean"}
+  }
+}

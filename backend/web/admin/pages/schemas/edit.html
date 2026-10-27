@@ -1,0 +1,91 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "scripts"}}sortablejs{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF}}
+{{if .ReadOnly}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Read-only")}}This is a built-in entity type. It can be viewed, but not changed or deleted.{{template "hm/callout-end"}}{{else if .Builtin}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Built-in type")}}You can add fields and change its addresses and archive settings. Its own fields cannot be removed or changed, and the type cannot be deleted.{{template "hm/callout-end"}}{{end}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{if .New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{.ID}}{{end}}" class="hm-stack hm-schemaform" novalidate>
+{{template "hm/csrf" $}}
+{{if not .ReadOnly}}<button type="submit" name="op" value="save" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>{{end}}
+<fieldset class="hm-plainset"{{if .ReadOnly}} disabled{{end}}>
+<legend class="hm-visually-hidden">Entity type</legend>
+<div class="hm-stack hm-stack--loose">
+{{template "hm/card-start" dict "ID" "basics" "Title" "Basics"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" .LockAttrs}}
+{{if .New}}{{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" "Identifies the type in addresses and the API. It cannot be changed later. Leave it empty to make one from the name." "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" "1")}}
+{{else}}<p><span class="hm-field__label">Slug</span><br><code>{{.Slug}}</code>{{if gt .Entities 0}} <span class="hm-muted">· {{.Entities}} {{if eq .Entities 1}}entity uses{{else}}entities use{{end}} this type</span>{{end}}</p>{{end}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 2 "Value" .Desc "Attrs" .LockOnly}}
+</div>
+{{template "hm/card-end"}}
+
+{{template "hm/card-start" dict "ID" "fields" "Title" "Fields" "Description" "What an editor fills in for this kind of content."}}
+<div class="hm-stack">
+{{if index .Errors "fields"}}<p class="hm-field__error">{{index .Errors "fields"}}</p>{{end}}
+{{if not .Fields}}{{template "hm/empty" (dict "Title" "No fields yet" "Body" "Add the first one below." "Compact" true)}}{{end}}
+<ol class="hm-fieldlist" role="list" data-hm-field-list>
+{{range $i, $f := .Fields}}<li class="hm-fieldrow" id="row-{{$f.Key}}" data-hm-field-row>
+<input type="hidden" name="field" value="{{$f.Key}}"><input type="hidden" name="f.{{$f.Key}}.raw" value="{{$f.Raw}}">
+<details{{if or $f.Open $f.Err}} open{{end}}><summary class="hm-fieldrow__summary"><span class="hm-fieldrow__handle" aria-hidden="true" hidden>⠿</span> <span class="hm-fieldrow__title">{{or $f.Title $f.Name "New field"}}</span> <span class="hm-muted">{{$f.KindLabel}}{{if $f.Name}} · <code>{{$f.Name}}</code>{{end}}{{if $f.Required}} · required{{end}}</span></summary>
+<div class="hm-fieldrow__body hm-stack">
+{{template "hm/field" dict "ID" (printf "f-%s-title" $f.Key) "Name" (printf "f.%s.title" $f.Key) "Label" "Label" "Value" $f.Title "Help" "Shown above the field in the editor." "Attrs" (attrmap "autocomplete" "off" "data-hm-name-from" (printf "f-%s-name" $f.Key))}}
+{{template "hm/field" dict "ID" (printf "f-%s-name" $f.Key) "Name" (printf "f.%s.name" $f.Key) "Label" "Field name" "Value" $f.Name "Required" true "Help" "Used in the data and the API. Renaming a field hides what was saved under the old name." "Error" $f.Err "Attrs" $f.LockAttrs}}
+<div class="hm-field"><label class="hm-field__label" for="f-{{$f.Key}}-kind">Kind</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-{{$f.Key}}-kind" name="f.{{$f.Key}}.kind" data-hm-kind{{if $f.Core}} disabled{{end}}>
+{{range $.Data.Kinds}}<option value="{{.Value}}"{{if eq .Value $f.Kind}} selected{{end}}>{{.Label}}</option>{{end}}{{if eq $f.Kind "custom"}}<option value="custom" selected>Custom (kept as it is; edit it in the JSON below)</option>{{end}}</select></div>{{if $f.Core}}<input type="hidden" name="f.{{$f.Key}}.kind" value="{{$f.Kind}}"><p class="hm-field__help">Part of the built-in type: the name and kind cannot change.</p>{{end}}</div>
+{{template "hm/field" dict "ID" (printf "f-%s-help" $f.Key) "Name" (printf "f.%s.help" $f.Key) "Label" "Help text" "Value" $f.Help "Attrs" (attrmap "autocomplete" "off")}}
+<div class="hm-field" data-hm-for="select"><label class="hm-field__label" for="f-{{$f.Key}}-options">Choices (one per line)</label><textarea class="hm-field__control" id="f-{{$f.Key}}-options" name="f.{{$f.Key}}.options" rows="4">{{$f.Options}}</textarea></div>
+<div class="hm-field" data-hm-for="reference"><label class="hm-field__label" for="f-{{$f.Key}}-ref">Links to</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-{{$f.Key}}-ref" name="f.{{$f.Key}}.ref"><option value="">Choose an entity type</option>{{range $.Data.Refs}}<option value="{{.}}"{{if eq . $f.Ref}} selected{{end}}>{{.}}</option>{{end}}</select></div></div>
+<div class="hm-field" data-hm-for="repeater"><label class="hm-field__label" for="f-{{$f.Key}}-item">Each item holds</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-{{$f.Key}}-item" name="f.{{$f.Key}}.item"><option value="">Choose</option>{{range $.Data.Items}}<option value="{{.Value}}"{{if eq .Value $f.Item}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/field" dict "ID" (printf "f-%s-required" $f.Key) "Name" (printf "f.%s.required" $f.Key) "Label" "Required" "Control" "switch" "Value" "true" "Checked" $f.Required}}
+{{if not $.Data.ReadOnly}}<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="op" value="up:{{$f.Key}}" formnovalidate formaction="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}#row-{{$f.Key}}" hx-post="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}" hx-include="closest form" hx-target="#fields" hx-select="#fields" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this" data-hm-reorder{{if eq $.Data.FocusOp (printf "up:%s" $f.Key)}} autofocus{{end}} aria-label="Move {{or $f.Title $f.Name "field"}} up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="op" value="down:{{$f.Key}}" formnovalidate formaction="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}#row-{{$f.Key}}" hx-post="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}" hx-include="closest form" hx-target="#fields" hx-select="#fields" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this" data-hm-reorder{{if eq $.Data.FocusOp (printf "down:%s" $f.Key)}} autofocus{{end}} aria-label="Move {{or $f.Title $f.Name "field"}} down">Move down</button>{{if not $f.Core}}<button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="op" value="remove:{{$f.Key}}" formnovalidate formaction="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}#fields" hx-post="{{if $.Data.New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{$.Data.ID}}{{end}}" hx-include="closest form" hx-target="#fields" hx-select="#fields" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this" data-hm-reorder aria-label="Remove {{or $f.Title $f.Name "field"}}">Remove</button>{{end}}</div>{{end}}
+</div></details></li>
+{{end}}</ol>
+{{if not .ReadOnly}}<div class="hm-row hm-row--end">
+<div class="hm-field"><label class="hm-field__label" for="add_kind">Add a field</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="add_kind" name="add_kind">{{range .Kinds}}<option value="{{.Value}}"{{if eq .Value $.Data.AddKind}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
+{{template "hm/button" dict "Label" "Add field" "Type" "submit" "Attrs" (attrmap "name" "op" "value" "add" "formnovalidate" "")}}</div>{{end}}
+</div>
+{{template "hm/card-end"}}
+
+{{template "hm/card-start" dict "ID" "addresses" "Title" "Addresses and search" "Description" "How entities of this type appear on the site, in the sitemap and to search engines."}}
+<div class="hm-stack">
+<div class="hm-field{{if index .Errors "url_pattern"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="url_pattern">Address pattern</label>
+<input class="hm-field__control" type="text" id="url_pattern" name="url_pattern" value="{{.Settings.URLPattern}}" autocomplete="off" aria-describedby="url_pattern-help url_pattern-preview{{if index .Errors "url_pattern"}} url_pattern-error{{end}}"{{if index .Errors "url_pattern"}} aria-invalid="true"{{end}} hx-get="{{adminPath}}/settings/types/preview-pattern" hx-trigger="input changed delay:300ms" hx-target="#url_pattern-preview" hx-swap="innerHTML" hx-push-url="false" hx-indicator="#pattern-busy">
+<p class="hm-field__help" id="url_pattern-help">Must start with / and end with {slug} or {path}. Other tokens: {parent}, {year}, {month}, {day}. Leave empty for the built-in address.</p>
+{{template "hm/indicator" dict "ID" "pattern-busy" "Text" "Checking"}}<p class="hm-field__help" id="url_pattern-preview" aria-live="polite">{{if .Settings.URLPattern}}Press Save to check this pattern.{{else}}<span class="hm-muted">Built-in address: /{slug}, or /blog/{slug} for posts.</span>{{end}}</p>
+{{with index .Errors "url_pattern"}}<p class="hm-field__error" id="url_pattern-error">{{.}}</p>{{end}}</div>
+{{template "hm/field" dict "ID" "archive_path" "Name" "archive_path" "Label" "Archive address" "Value" .Settings.ArchivePath "Help" "The listing page of this type, for example /blog." "Error" (index .Errors "archive_path") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "archive_title" "Name" "archive_title" "Label" "Archive title" "Value" .Settings.ArchiveTitle "Error" (index .Errors "archive_title") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "archive_crumb_label" "Name" "archive_crumb_label" "Label" "Breadcrumb label" "Help" "Shown in the breadcrumb above an entry. Defaults to the archive title, then the content type name." "Value" .Settings.ArchiveCrumbLabel "Error" (index .Errors "archive_crumb_label") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "archive_description" "Name" "archive_description" "Label" "Archive description" "Control" "textarea" "Rows" 2 "Value" .Settings.ArchiveDescription "Error" (index .Errors "archive_description")}}
+{{template "hm/field" dict "ID" "aliases" "Name" "aliases" "Label" "Other slugs served by this pattern" "Value" .Settings.Aliases "Help" "Comma separated." "Error" (index .Errors "aliases") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "section_pages" "Name" "section_pages" "Label" "Entities named like the archive address become section pages" "Control" "switch" "Value" "true" "Checked" .Settings.SectionPages}}
+<div class="hm-field{{if index .Errors "schema_org_type"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="schema_org_type">Structured data type (JSON-LD)</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema_org_type" name="schema_org_type"{{with index .Errors "schema_org_type"}} aria-invalid="true" aria-describedby="schema_org_type-error"{{end}}><option value="">Automatic</option>{{range .SchemaOrgTypes}}<option value="{{.}}"{{if eq . $.Data.Settings.SchemaOrgType}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+{{with index .Errors "schema_org_type"}}<p class="hm-field__error" id="schema_org_type-error">{{.}}</p>{{end}}</div>
+<div class="hm-field{{if index .Errors "editor"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="editor">Editor</label>
+{{if .BuiltinPostEditor}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor" disabled><option>Post editor (built in)</option></select></div>{{else}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor"{{with index .Errors "editor"}} aria-invalid="true" aria-describedby="editor-error"{{end}}><option value="">Form</option><option value="post"{{if eq .Settings.Editor "post"}} selected{{end}}>Post editor</option></select></div>{{end}}
+{{with index .Errors "editor"}}<p class="hm-field__error" id="editor-error">{{.}}</p>{{end}}</div>
+{{template "hm/field" dict "ID" "sitemap_exclude" "Name" "sitemap_exclude" "Label" "Leave this type out of the sitemap" "Control" "switch" "Value" "true" "Checked" .Settings.Exclude}}
+{{template "hm/field" dict "ID" "sitemap_group" "Name" "sitemap_group" "Label" "Sitemap group" "Value" .Settings.SitemapGroup "Attrs" (attrmap "autocomplete" "off")}}
+<div class="hm-row hm-row--top">
+{{template "hm/field" dict "ID" "priority" "Name" "priority" "Label" "Sitemap priority" "Value" .Settings.Priority "Help" "0 to 1." "Error" (index .Errors "priority") "Attrs" (attrmap "inputmode" "decimal" "autocomplete" "off")}}
+<div class="hm-field"><label class="hm-field__label" for="changefreq">Sitemap change frequency</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="changefreq" name="changefreq"><option value="">Default</option>{{range .ChangeFreqs}}<option value="{{.}}"{{if eq . $.Data.Settings.ChangeFreq}} selected{{end}}>{{.}}</option>{{end}}</select></div></div>
+</div>
+</div>
+{{template "hm/card-end"}}
+
+<details class="hm-card hm-disclosure" id="advanced"{{if .JSONErr}} open{{end}}><summary>Advanced: edit the JSON Schema directly</summary>
+<div class="hm-disclosure__body hm-stack">
+<p class="hm-muted">For fields the builder cannot make, such as groups of fields. Saving this replaces the field list above.</p>
+{{template "hm/field" dict "ID" "schema_json" "Name" "schema_json" "Label" "JSON Schema" "Control" "textarea" "Rows" 14 "Value" .JSON "Error" (index .Errors "schema_json")}}
+{{if not .ReadOnly}}<div class="hm-row">{{template "hm/button" dict "Label" (or (and .New "Create from JSON") "Save JSON schema") "Type" "submit" "Attrs" (attrmap "name" "op" "value" "save_json")}}</div>{{end}}
+</div></details>
+</div>
+</fieldset>
+{{if not .ReadOnly}}<div class="hm-savebar">
+{{if and (not .New) (not .Builtin)}}<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/settings/types/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" "This entity type will be deleted. This only works while no entities use it." "data-hm-confirm-label" "Delete entity type" "data-hm-post" (printf "%s/settings/types/%s/delete" adminPath .ID) "data-hm-danger" "")}}</span>{{end}}
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "types")}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "op" "value" "save")}}
+</div>{{end}}
+</form>
+{{end}}{{end}}

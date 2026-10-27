@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Installed by `make hooks` as pre-commit, commit-msg and pre-push in
+# <git-common-dir>/hatamoto-hooks/. It runs the snapshot of .githooks taken at install
+# time, so a main checkout that is moved or sits on an old commit cannot switch the gates off.
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+real=$here/snapshot/.githooks/$(basename "$0")
+[[ -x $real ]] || { echo "hooks missing: run make hooks" >&2; exit 1; }
+exec "$real" "$@"

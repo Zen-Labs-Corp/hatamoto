@@ -1,0 +1,7 @@
+.hm-link-directory__header { max-width: 42rem; margin-bottom: 2.5rem; }
+.hm-link-directory__eyebrow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 1rem; }
+.hm-link-directory__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-link-directory__columns { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+.hm-link-directory__column-heading { font-size: 1rem; margin-bottom: 0.75rem; }
+.hm-link-directory__links { list-style: none; margin: 0; padding: 0; }
+.hm-link-directory__links li { margin: 0.35rem 0; }

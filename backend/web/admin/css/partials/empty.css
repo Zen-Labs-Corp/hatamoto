@@ -1,0 +1,13 @@
+/* Empty state: icon, title, one sentence, one primary action. */
+.hm-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-12) var(--space-6); text-align: center; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--color-paper); }
+.hm-tablecard > .hm-empty { border: 0; border-radius: 0; }
+.hm-empty--compact { padding: var(--space-3) 0; align-items: flex-start; text-align: left; border: 0; border-radius: 0; background: none; }
+.hm-empty--compact .hm-empty__title { font-size: var(--text-md); }
+.hm-empty p { max-width: 42ch; font-size: var(--text-md); }
+.hm-empty__icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--color-kasumi); color: var(--color-hai); margin-bottom: var(--space-2); }
+.hm-empty__title { font-weight: var(--weight-semibold); font-size: var(--text-title); margin: 0; }
+.hm-empty .hm-row { margin-top: var(--space-3); justify-content: center; }
+.hm-empty--plain { padding: var(--space-2) 0; border: 0; border-radius: 0; background: none; }
+.hm-empty__code { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-muted); }
+.hm-errorpage { padding: var(--space-6); }
+.hm-empty--regular .hm-empty__title { font-weight: var(--weight-regular); color: var(--text-muted); }

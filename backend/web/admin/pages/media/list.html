@@ -1,0 +1,29 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+<div class="hm-media-toolbar">
+<form class="hm-row hm-media-toolbar__filters" role="search" method="get" action="{{adminPath}}/settings/media" hx-get="{{adminPath}}/settings/media" hx-trigger="input changed delay:300ms from:#media-q, change" hx-target="#media-results" hx-select="#media-results" hx-select-oob="#media-tabs" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#media-busy">
+<input type="hidden" name="view" value="{{.View}}">
+<label class="hm-visually-hidden" for="media-q">Search files</label><input class="hm-field__control hm-table__search" type="search" id="media-q" name="q" value="{{.Q}}" placeholder="Search files">
+<label class="hm-visually-hidden" for="media-type">File type</label><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="media-type" name="type">{{range .Types}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+{{template "hm/button" dict "Label" "Filter" "Type" "submit" "Attrs" (attrmap "data-hm-apply" "")}}{{template "hm/indicator" dict "ID" "media-busy" "Text" "Loading files"}}
+</form>
+<div class="hm-media-toolbar__view"><div id="media-tabs">{{template "hm/tabs" dict "Label" "View" "Variant" "segmented" "Changes" "view" "Items" .Tabs}}</div></div>
+</div>
+<div id="media-main">
+{{if .Storage}}<div class="hm-media-storage">{{with .StorageSize}}<p class="hm-media-storage__total">Storage <strong>{{.}}</strong></p>{{end}}{{template "hm/categorybar" .Storage}}{{if .StorageNote}}<p class="hm-muted">{{.StorageNote}}</p>{{end}}</div>
+{{end}}<div id="media-results">
+{{if eq .View "list"}}{{template "hm/table" .Table}}
+{{else if not .Tiles}}{{template "hm/empty" dict "Icon" "image" "Title" "No files match" "Body" "Upload a file, or try another search."}}
+{{else}}<div class="hm-tablecard" id="media-grid">
+{{template "hm/mediabulk" dict "ID" "bulk-media-grid" "CSRF" $.CSRF "Back" .Back}}
+<ul class="hm-media-grid" role="list">
+{{range .Tiles}}<li>{{template "hm/mediatile" dict "ID" .ID "URL" .Href "Thumb" .Thumb "Filename" .Filename "Alt" .Alt "Meta" .Meta "Ext" .Ext "New" .New "Selectable" true "Form" "bulk-media-grid"}}</li>
+{{end}}</ul>
+{{if gt .Page.Total .Page.PerPage}}{{template "hm/pagination" .Page}}{{end}}</div>{{end}}
+</div>
+</div>
+{{template "hm/dialog-start" dict "ID" "upload" "Title" "Upload files" "Static" true}}
+{{template "hm/form-upload-media" dict "Upload" .Upload "CSRF" $.CSRF "MaxMB" .MaxMB "View" .UpView}}
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Upload" "PrimaryAttrs" (attrmap "form" "upload-form")}}
+{{end}}{{end}}

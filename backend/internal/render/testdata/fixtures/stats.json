@@ -1,0 +1,13 @@
+{
+  "type": "stats", "id": "sec-stats", "title": "Stats",
+  "content": {
+    "heading": "Trusted at scale",
+    "variant": "bordered",
+    "items": [
+      {"value": 1200000, "suffix": "+", "label": "Pages served"},
+      {"value": 99.9, "suffix": "%", "label": "Uptime", "description": "Last twelve months"},
+      {"value": 4, "prefix": "<", "suffix": "ms", "label": "Median render time"},
+      {"value": "24/7", "label": "Monitoring"}
+    ]
+  }
+}

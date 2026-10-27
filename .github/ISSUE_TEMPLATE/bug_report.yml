@@ -1,0 +1,54 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Security problems go to SECURITY.md, not here.**
+        Remove passwords, tokens, API keys and private hostnames from logs before pasting.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `hatamoto version` (or the image tag).
+      placeholder: v0.28.0 (commit abc1234)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options:
+        - Release binary (systemd or similar)
+        - Docker / docker compose
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open /admin/...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant server log lines (redacted).
+      render: text
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Postgres version, browser if it is an admin problem, plugins installed.

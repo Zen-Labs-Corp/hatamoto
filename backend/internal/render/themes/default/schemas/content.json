@@ -1,0 +1,12 @@
+{
+  "x-hm-section": {"title": "Content", "description": "Heading with a rich-text body"},
+  "type": "object",
+  "properties": {
+    "layout": {"type": "string", "title": "Layout", "enum": ["stack", "essay"], "default": "stack"},
+    "eyebrow": {"type": "string", "title": "Eyebrow (essay)", "x-hm-field": "plaintext"},
+    "asideGlyph": {"type": "string", "title": "Aside glyph (essay)", "x-hm-field": "plaintext"},
+    "asideText": {"type": "string", "title": "Aside text (essay)", "x-hm-field": "plaintext"},
+    "headline": {"type": "string", "title": "Heading", "x-hm-alias": ["heading"], "x-hm-field": "plaintext"},
+    "body": {"type": "string", "title": "Body", "x-hm-field": "richtext"}
+  }
+}

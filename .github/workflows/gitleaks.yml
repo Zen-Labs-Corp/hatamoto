@@ -1,0 +1,37 @@
+name: gitleaks
+
+# Secret scan. The current tree on every push; the commits a pull request adds
+# on pull requests. The binary is built from a pinned module version (the
+# gitleaks-action needs a licence for organisations). .gitleaks.toml holds the
+# reviewed allows; single lines use an inline `gitleaks:allow` comment.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache: false
+      - name: Install gitleaks
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - name: Scan the tree
+        run: gitleaks dir --config .gitleaks.toml --redact --no-banner .
+      - name: Scan the commits of the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gitleaks git --config .gitleaks.toml --redact --no-banner --log-opts "$BASE_SHA..$HEAD_SHA" .

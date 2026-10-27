@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Stat",
+    "hint": "A figure with a caption",
+    "group": "Content",
+    "order": 40,
+    "default": {"value": "100", "label": "Label"}
+  },
+  "properties": {
+    "value": {"x-hm-bind": "text", "type": "string", "maxLength": 40},
+    "label": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "prefix": {"type": "string", "maxLength": 20},
+    "suffix": {"type": "string", "maxLength": 20},
+    "hidden": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,9 @@
+{{define "hm/sectionhead"}}{{with .CurrentSection}}<header class="hm-section-head">
+<div class="hm-section-head__titles"><h1>{{.Label}}</h1><p class="hm-muted">{{.Desc}}</p></div>
+{{with $.SectionTabs}}{{template "hm/tabs" dict "Label" $.CurrentSection.Label "Items" .}}{{end}}
+</header>{{end}}{{end}}
+{{define "hm/sectionheadact"}}{{with .V.CurrentSection}}<header class="hm-section-head">
+<div class="hm-section-head__row"><div class="hm-section-head__titles"><h1>{{.Label}}</h1><p class="hm-muted">{{.Desc}}</p></div>
+{{if or $.Actions $.Action $.Primary}}<div class="hm-row">{{range $.Actions}}{{template "hm/button" .Dict}}{{end}}{{with $.Action}}{{template "hm/button" .}}{{end}}{{with $.Primary}}<form method="post" action="{{.Post}}">{{template "hm/csrf" $.V}}{{range $k, $v := .Fields}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{template "hm/button" (dict "Variant" "primary" "Type" "submit" "Icon" .Icon "Label" .Label)}}</form>{{end}}</div>{{end}}</div>
+{{with $.V.SectionTabs}}{{template "hm/tabs" dict "Label" $.V.CurrentSection.Label "Items" .}}{{end}}
+</header>{{end}}{{end}}

@@ -1,0 +1,25 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/callout" (dict "Kind" "info" "Body" "Applied by the live theme to every page.")}}
+<p class="hm-muted">The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="{{adminPath}}/theme/design-system">Accent under Design system</a>.</p>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/theme/colours" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "colours-card" "Title" "Colours" "Heading" "h2" "Description" "Brand, background and text colours. The brand colour is your main one, used for buttons, links and highlights."}}<div class="hm-fieldgrid hm-fieldgrid--swatches">
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "primary" "Name" "primary" "Label" "Brand colour" "Type" "color" "Value" .Form.Primary "Error" (index .Errs "primary")}}<code class="hm-swatchrow__hex">{{.Form.Primary}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "secondary" "Name" "secondary" "Label" "Secondary colour (for themes that use it)" "Type" "color" "Value" .Form.Secondary "Error" (index .Errs "secondary")}}<code class="hm-swatchrow__hex">{{.Form.Secondary}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "accent" "Name" "accent" "Label" "Theme accent (for themes that use it)" "Type" "color" "Value" .Form.Accent "Error" (index .Errs "accent")}}<code class="hm-swatchrow__hex">{{.Form.Accent}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "background" "Name" "background" "Label" "Background colour" "Type" "color" "Value" .Form.Background "Error" (index .Errs "background")}}<code class="hm-swatchrow__hex">{{.Form.Background}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "text" "Name" "text" "Label" "Text colour" "Type" "color" "Value" .Form.Text "Error" (index .Errs "text")}}<code class="hm-swatchrow__hex">{{.Form.Text}}</code></div></div>{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "fonts-card" "Title" "Fonts" "Heading" "h2" "Description" "Font stacks for body text and headings."}}<div class="hm-fieldgrid">
+{{template "hm/field" dict "ID" "font" "Name" "font" "Label" "Body font" "Value" .Form.Font "Required" true "Help" "A font stack, for example: Inter, sans-serif." "Error" (index .Errs "font")}}
+{{template "hm/field" dict "ID" "heading_font" "Name" "heading_font" "Label" "Heading font" "Value" .Form.HeadingFont "Required" true "Error" (index .Errs "heading_font")}}</div>{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "corners-card" "Title" "Corners" "Heading" "h2" "Description" "How round buttons, inputs and cards are."}}<div class="hm-fieldgrid">
+{{template "hm/field" dict "ID" "radius_sm" "Name" "radius_sm" "Label" "Small corners" "Value" .Form.RadiusSm "Required" true "Help" "A size like 4px or 0.25rem." "Error" (index .Errs "radius_sm")}}
+{{template "hm/field" dict "ID" "radius_md" "Name" "radius_md" "Label" "Medium corners" "Value" .Form.RadiusMd "Required" true "Error" (index .Errs "radius_md")}}
+{{template "hm/field" dict "ID" "radius_lg" "Name" "radius_lg" "Label" "Large corners" "Value" .Form.RadiusLg "Required" true "Error" (index .Errs "radius_lg")}}</div>{{template "hm/card-end"}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Save colours and fonts" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

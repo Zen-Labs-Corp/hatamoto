@@ -1,0 +1,6 @@
+/* loopempty: the state a loop shows when it finds nothing */
+.hm-loopempty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hm-space-3, 0.75rem);
+}

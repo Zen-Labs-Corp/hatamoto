@@ -1,0 +1,250 @@
+{
+  "metrics": {
+    "alloc_Loop12_allocs": {
+      "value": 14,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_Loop12_bytes": {
+      "value": 633,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
+    "alloc_RenderNode10_allocs": {
+      "value": 11,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_RenderNode10_bytes": {
+      "value": 2561,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
+    "alloc_RenderPage72_allocs": {
+      "value": 554,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_RenderPage72_bytes": {
+      "value": 71669,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
+    "alloc_RenderPageStat72_allocs": {
+      "value": 2169,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_RenderPageStat72_bytes": {
+      "value": 177529,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
+    "alloc_RenderTop10_allocs": {
+      "value": 46,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_RenderTop10_bytes": {
+      "value": 7442,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
+    "canvas_bridge_gzip": {
+      "value": 15879,
+      "unit": "bytes",
+      "tol_abs": 512
+    },
+    "golden_cta_bytes": {
+      "value": 473,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_faq_bytes": {
+      "value": 846,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_features_bytes": {
+      "value": 1693,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_hero_bytes": {
+      "value": 995,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_page-shell_bytes": {
+      "value": 4044,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_pricing_bytes": {
+      "value": 2922,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_tpl-archive_bytes": {
+      "value": 1562,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_tpl-home_bytes": {
+      "value": 98,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "golden_tpl-single_bytes": {
+      "value": 1734,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "page_allwidgets_html_bytes": {
+      "value": 37280,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "page_css_allstylekeys_gzip": {
+      "value": 1861,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 8192
+    },
+    "page_css_allwidgets_gzip": {
+      "value": 2394,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 8192
+    },
+    "page_css_parts_blocks_gzip": {
+      "value": 2441,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 8192
+    },
+    "page_css_states_gzip": {
+      "value": 885,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 8192
+    },
+    "page_css_tokens_presets_gzip": {
+      "value": 2693,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 8192
+    },
+    "page_settings_html_bytes": {
+      "value": 7006,
+      "unit": "bytes",
+      "tol_pct": 5
+    },
+    "public_builder_js_scripts": {
+      "value": 0,
+      "unit": "count"
+    },
+    "theme_default_css_gzip": {
+      "value": 13259,
+      "unit": "bytes",
+      "tol_abs": 1024
+    },
+    "theme_default_js_gzip": {
+      "value": 5085,
+      "unit": "bytes",
+      "tol_abs": 512
+    }
+  },
+  "history": [
+    {
+      "reason": "builder-e0-budget-split: idle prefetch of section-form chunks (first-paint +776 B)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: StyleSpec v2 all-keys page CSS metric",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: StyleSpec v2 Style tab (labels lazy in style.js, hiddenAt, host.js)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e1-style-depth: review fixes",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e2-states: page_css_states_gzip, the hover-lift states page",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e2-states: states, transform/filter/transition keys, force preview",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e4-direct-manipulation: bridge posts contextmenu and select.ctrl, forwards clipboard/wrap keys",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e4: ctxmenu/clipops/picker/history chunks, contextmenu bridge msg, host handle, moveSubject, empty-node floor",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "e4 review fixes: v1 shape, clipboard on sections, visible refusals, menu rows (+1.2 KB total, +670 B first paint, canvas bridge +empty marker)",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e5: inline rich text (bridge normaliser/format, host selection, lazy fmtbar) - provisional, bridge normaliser and rich editing",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e5: inline rich text (bridge normaliser/format, host selection, lazy fmtbar) - provisional, bridge selection and format",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "builder-e5-inline-rich-text: inline rich text editing in the canvas bridge, lazy formatting bar",
+      "date": "2026-10-24"
+    },
+    {
+      "reason": "e5 review fixes: canonical inline html (canonHTML), repatch/fallback in the lazy inline chunk, selection el/link, fmtbar placement and link prefill, chunk-failure handling; first paint +~660 B for the failure handling and the bar/undo reset on swap",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-e5-inline-rich-text: first-paint trim",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-e6-element-settings: lazy element settings inspector chunk, settings golden, lightbox island",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-e6-element-settings review fixes: inline link/anchor explanations, lightbox warning, nameNodes in the lazy chunk",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "admin-consistency rebase onto main (incl. #271 builder-e6): re-baselines the builder JS (first-paint and total gzip) and admin.js for growth from this branch's own work, namely the hm/button and hm/callout template stamping in builder/dom.js, inspector.js and elementsettings.js (e6 anchor copy button and lightbox warning now use the shared templates) plus the admin.js mousedown fix that drops main's tabindex; CSS and template changes (tooltip, badge, segmented, tabs) only lower or leave the other budgets",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: canvas bridge gains Enter-to-edit, Ctrl+K forward, selection kind and per-format undo snapshots (canvas_bridge_gzip 14503 to ~15.2 KB)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector rebased onto main: canvas_bridge_gzip 15249 to 15879 (+630 B) is main's port handshake added to the branch's v2 select, outline and Enter/heading bridge work; other budgets re-measured after the merge",
+      "date": "2026-10-27"
+    }
+  ]
+}

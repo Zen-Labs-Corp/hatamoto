@@ -1,0 +1,26 @@
+.hm-features__header { max-width: 42rem; margin-bottom: 2.5rem; }
+.hm-features__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-features__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--hm-hair); border: 1px solid var(--hm-hair); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.hm-features--cols-2 .hm-features__list { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+@media (min-width: 48rem) {
+  .hm-features--cols-2 .hm-features__list { grid-template-columns: repeat(2, 1fr); }
+  .hm-features--cols-3 .hm-features__list { grid-template-columns: repeat(3, 1fr); }
+  .hm-features--cols-4 .hm-features__list { grid-template-columns: repeat(4, 1fr); }
+}
+.hm-features__item { background: var(--hm-bg); padding: 1.75rem 1.75rem 2rem; }
+.hm-features__item:hover { background: var(--hm-shiro); }
+.hm-features__icon { display: inline-block; font-size: 1.75rem; line-height: 1; margin-bottom: 0.75rem; }
+.hm-features__title { margin-bottom: 0.35em; }
+.hm-features__description { color: var(--ht-fg-muted); margin-bottom: 0.75em; }
+.hm-features__link { font-weight: 600; }
+
+.hm-features--centered .hm-features__header, .hm-features--centered .hm-features__item { text-align: center; }
+.hm-features--centered .hm-features__header { margin-left: auto; margin-right: auto; }
+
+/* bento: framed cells with number, category, description and a tag footer. */
+.hm-features--bento .hm-features__list { border-radius: var(--hm-radius-lg); overflow: hidden; }
+.hm-features--bento .hm-features__item { min-height: 236px; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+.hm-features--bento .hm-features__number { font-family: var(--hm-font-mono); font-size: 0.75rem; color: var(--hm-label); }
+.hm-features--bento .hm-features__category { font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-features--bento .hm-features__badge { position: absolute; top: 1.25rem; right: 1.25rem; padding: 0.15rem 0.6rem; border-radius: 999px; border: 1px solid var(--hm-hair); background: var(--hm-kasumi); font-family: var(--hm-font-mono); font-size: 0.6875rem; color: var(--hm-hai); }
+.hm-features__tags { margin-top: auto; padding-top: 1rem; font-family: var(--hm-font-mono); font-size: 0.75rem; color: var(--hm-hai); }

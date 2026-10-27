@@ -1,0 +1,17 @@
+# One reset of the public demo: stop, recreate the database from the template, in the demo's own cluster, empty the data
+# dir, start, health check (deploy/demo/reset.sh). Run by hatamoto-demo-reset.timer.
+[Unit]
+Description=Reset the Hatamoto public demo
+After=hatamoto-demo-pg.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/hatamoto-demo/reset.sh
+# It needs root only to stop and start the demo unit and to give the data dir back to its user.
+TimeoutStartSec=300
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hatamoto-demo /run
+InaccessiblePaths=-/opt/hatamoto -/etc/hatamoto

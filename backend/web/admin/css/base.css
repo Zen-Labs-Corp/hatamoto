@@ -1,0 +1,164 @@
+/* Reset, typography, layout grid, focus ring, utilities. No inline styles are
+   allowed in templates (CSP), so layout lives here. */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+/* Focus not obscured (WCAG 2.4.11): reserve room for the phone top bar. */
+@media (max-width: 768px) { html { scroll-padding-top: 120px; } }
+/* Focus not obscured by the sticky save bar. */
+html:has(.hm-savebar) { scroll-padding-bottom: 96px; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--weight-regular) var(--text-md)/var(--leading-5) var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: var(--text-xl); line-height: var(--leading-7); font-weight: var(--weight-semibold); letter-spacing: 0; }
+@media (min-width: 960px) { h1 { font-size: var(--text-2xl); line-height: var(--leading-8); } }
+h2 { font-size: var(--text-lg); line-height: var(--leading-6); font-weight: var(--weight-semibold); }
+h3 { font-size: var(--text-md); line-height: var(--leading-5-5); font-weight: var(--weight-semibold); }
+/* Links stay underlined (WCAG 1.4.1: colour is not the only cue): a quiet line
+   that firms up on hover. Navigation and row titles opt out with their own
+   rules (.hm-table__rowhead). */
+a { color: var(--color-accent); text-decoration-line: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+a:hover { text-decoration-color: currentColor; }
+.hm-table__rowhead > a { text-decoration-line: none; color: var(--color-accent); font-weight: var(--weight-medium); }
+.hm-table__rowhead > a:hover { text-decoration-line: underline; }
+img, svg { display: block; max-width: 100%; }
+code, kbd, samp, pre { font-family: var(--font-mono); font-size: var(--text-sm); }
+kbd { border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); padding: 0 var(--space-1); background: var(--color-paper); }
+button, input, select, textarea { font: inherit; color: inherit; }
+/* Every native checkbox and radio: one size, the ink accent, no UA blue. */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0; flex: none; accent-color: var(--control-accent); cursor: pointer; }
+hr { border: 0; border-top: 1px solid var(--border); margin: var(--space-6) 0; }
+ul[role="list"], ol[role="list"] { list-style: none; margin: 0; padding: 0; }
+
+:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+[tabindex="-1"]:focus { outline: none; }
+
+.hm-skip {
+  position: absolute; left: var(--space-2); top: -64px; z-index: var(--z-skip);
+  background: var(--color-sumi); color: var(--color-paper);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+}
+.hm-skip:focus { top: var(--space-2); }
+
+.hm-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.hm-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.hm-stack--tight { gap: var(--space-2); }
+/* Forms stay at a readable measure on wide screens. */
+form.hm-stack { max-width: 46rem; }
+.hm-stack--loose { gap: var(--space-6); }
+.hm-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+/* A read-only command with its Copy button: the same row as .hm-secretbanner__row; the command
+   stays monospace and takes the free width (it wraps inside the field, never shrinks to 20ch). */
+.hm-copyrow { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
+.hm-copyrow > .hm-field { flex: 1 1 280px; min-width: 0; }
+.hm-copyrow .hm-field__control { font-family: var(--font-mono); }
+/* A long command wraps inside its field (a textarea) instead of being clipped on a phone. */
+.hm-copyrow textarea.hm-field__control { min-height: 0; resize: none; overflow-wrap: anywhere; field-sizing: content; }
+/* A ghost link under a field: its text, not its padding, sits on the field's left edge. */
+.hm-invite__alt { margin-inline-start: calc(-1 * var(--space-3)); }
+.hm-row--between { justify-content: space-between; }
+.hm-muted { color: var(--text-muted); }
+.hm-mono { font-family: var(--font-mono); }
+.hm-icon { width: 16px; height: 16px; flex: none; }
+[hidden] { display: none !important; }
+
+/* app shell */
+.hm-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; min-height: 100dvh; }
+.hm-shell__main { min-width: 0; }
+/* Editor layout: no sidebar, a 56px sticky bar with a way back. */
+.hm-editor-bar { position: sticky; top: 0; z-index: var(--z-header); display: flex; align-items: center; gap: var(--space-4); height: 56px; padding: 0 var(--space-6); background: var(--surface); border-bottom: 1px solid var(--border); }
+.hm-editor-bar__back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 32px; color: var(--text-body); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none; }
+.hm-editor-bar__back:hover { color: var(--text); }
+.hm-editor-bar__back:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.hm-editor-bar__spacer { margin-inline-start: auto; }
+.hm-editor-bar__site { color: var(--text-muted); font-size: var(--text-sm); }
+/* Phones: the crumbs give way and the save state shrinks to one ellipsed line; it is never
+   display:none, so it stays seen and announced. The bar wraps its buttons. */
+@media (max-width: 45rem) {
+  .hm-editor-bar { height: auto; min-height: 56px; flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-4); }
+  .hm-editor-bar__crumbs { display: none; }
+  .hm-editor-bar__state { max-inline-size: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); }
+}
+.hm-content { min-width: 0; }
+/* Top bar: sidebar toggle and the breadcrumb, a hairline below. The toggle
+   needs script, so it stays hidden until admin.js shows it. */
+.hm-topbar { display: flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-kinu); background: var(--color-paper); }
+.hm-topbar__sep { width: 1px; height: 16px; background: var(--color-kinu); }
+.hm-topbar__chip { margin-inline-start: auto; }
+.hm-topbar__crumbs ol { display: flex; gap: var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-topbar__crumbs li + li::before { content: "\203A"; margin-right: var(--space-2); display: inline-block; transform: translateY(-1px); }
+.hm-topbar__crumbs a { color: var(--color-hai); text-decoration: none; }
+.hm-topbar__crumbs a:hover { color: var(--color-sumi); text-decoration: underline; }
+.hm-topbar__crumbs a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.hm-topbar__crumbs [aria-current] { color: var(--color-sumi); font-weight: var(--weight-medium); }
+/* Only where the toggle exists: a stored "collapsed" must not hide the phone top bar after a rotate. */
+@media (min-width: 769px) {
+  .hm-shell[data-sidebar="collapsed"] { grid-template-columns: minmax(0, 1fr); }
+  .hm-shell[data-sidebar="collapsed"] > .hm-sidebar { display: none; }
+}
+/* Phones: the sidebar is already a top bar, so the toggle goes and the trail shrinks to a
+   back link to the parent ("\2039 Taxonomies"). A trail of one shows as is. */
+@media (max-width: 768px) {
+  .hm-topbar { height: auto; min-height: 40px; padding: var(--space-2) var(--space-4); }
+  .hm-topbar > .hm-btn, .hm-topbar__sep { display: none; }
+  .hm-topbar__crumbs { min-width: 0; }
+  .hm-topbar__crumbs li { display: none; }
+  .hm-topbar__crumbs li:nth-last-child(2), .hm-topbar__crumbs li:only-child { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hm-topbar__crumbs li + li::before { content: none; margin: 0; }
+  .hm-topbar__crumbs li:nth-last-child(2)::before { content: "\2039"; margin-right: var(--space-2); }
+}
+/* Page widths: <div class="hm-page" data-width="narrow|compact|wide|full"> inside
+   main. narrow = one readable form column, wide = tables and charts, full =
+   editors, compact = narrow that stays narrow inside Settings (see partials/settings.css). The shell centres the page beside the sidebar. */
+.hm-page {
+  width: 100%; max-width: var(--page-wide); margin-inline: auto;
+  padding: var(--page-pad);
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+/* Standing notices: one full-width strip above the page column, same width on every page. */
+.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--page-pad) var(--page-pad) 0; }
+.hm-notices:has(.hm-callout) + .hm-settings > .hm-page, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }
+/* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
+.hm-notices:not(:has(.hm-callout)) { display: none; }
+@media (max-width: 960px) { .hm-notices { padding: var(--space-4) var(--space-4) 0; } }
+.hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
+.hm-page:not([data-width="narrow"], [data-width="compact"]) { max-width: none; }
+.hm-page[data-width="full"] { max-width: none; }
+.hm-bare {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4);
+  padding: var(--space-6) var(--space-4); background: var(--color-shiro);
+}
+.hm-bare__brand { justify-content: center; }
+.hm-bare__panel h1 { font-size: var(--text-2xl); }
+.hm-bare__form .hm-btn--primary { width: 100%; }
+.hm-bare__aside { align-self: flex-end; font-size: var(--text-sm); }
+.hm-bare__links { display: flex; justify-content: center; gap: var(--space-4); font-size: var(--text-sm); color: var(--text-muted); }
+.hm-bare__panel {
+  width: 100%; max-width: 420px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-8);
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+.hm-bare__panel--wide { max-width: 560px; }
+.hm-brand { font-weight: var(--weight-semibold); font-size: var(--text-lg); display: flex; align-items: center; gap: var(--space-2); }
+
+/* The sidebar becomes a top bar at 768px (see partials/sidebar.css). */
+@media (max-width: 768px) {
+  /* Stacked top bar over the page: the bar keeps its own height on a short page. */
+  .hm-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+}
+@media (max-width: 960px) {
+  .hm-page { padding: var(--space-6) var(--space-4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

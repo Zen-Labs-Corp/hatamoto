@@ -1,0 +1,32 @@
+{
+  "Site": {
+    "Name": "Hatamoto",
+    "Tagline": "Model it once. Every engine reads it.",
+    "LogoURL": "/media/logo.svg",
+    "Language": "en-AU",
+    "Phone": "+61 2 5550 0100",
+    "Hours": "Mon-Fri 9:00-17:30",
+    "Address": {"Street": "1 Example St", "City": "Sydney", "State": "NSW", "PostalCode": "2000", "Country": "AU"},
+    "SocialLinks": [
+      {"Label": "GitHub", "URL": "https://github.com/example-org"},
+      {"Label": "Mail", "URL": "mailto:hi@example.com"}
+    ]
+  },
+  "Page": {
+    "Name": "Platform",
+    "Title": "Hatamoto CMS",
+    "Description": "A \"typed\" content platform <for> everyone",
+    "OGImage": "https://cdn.example.com/og.png",
+    "OGType": "website"
+  },
+  "BaseURL": "https://hatamoto.dev",
+  "Path": "/platform",
+  "Breadcrumb": [
+    {"Name": "Home", "URL": "/"},
+    {"Name": "Platform", "URL": "/platform"}
+  ],
+  "JSONLD": [
+    {"@context": "https://schema.org", "@type": "WebPage", "name": "</script><b>x</b>"}
+  ],
+  "AICrawlerComment": "Machine-readable summary -- see /llms.txt"
+}

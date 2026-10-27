@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Kinds" "Items" .Tabs "Variant" "sub" "ShowZero" true}}
+{{template "hm/table" .Table}}
+{{template "hm/dialog-start" dict "ID" "new-term" "Title" "New term" "Static" true}}
+<form id="new-term-form" method="post" action="{{adminPath}}/settings/taxonomies/terms">
+{{template "hm/csrf" $}}
+{{template "hm/form-term" .Form}}
+</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Add term" "PrimaryAttrs" (attrmap "form" "new-term-form")}}
+{{end}}{{end}}

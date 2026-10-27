@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "List",
+    "hint": "One item per line, bulleted or numbered",
+    "group": "Content",
+    "order": 30,
+    "default": {"items": "First item\nSecond item\nThird item"}
+  },
+  "properties": {
+    "items": {"type": "string", "maxLength": 20000, "x-hm-widget": "lines"},
+    "ordered": {"type": "boolean"},
+    "icon": {"enum": ["alert", "alert-circle", "arrow-right", "calendar", "check", "check-circle", "chevron-right", "clock", "cloud", "code", "download", "external", "globe", "help", "home", "info", "key", "link", "lock", "mail", "search", "shield-check", "sparkles", "user"]},
+    "hidden": {"type": "boolean"}
+  }
+}

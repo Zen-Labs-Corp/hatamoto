@@ -1,0 +1,14 @@
+.git
+backend/bin
+*.log
+.pi
+plans
+mockups
+# Root-level patterns only match the build-context root by default; use
+# **/ so nested env files are excluded from the build too.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example

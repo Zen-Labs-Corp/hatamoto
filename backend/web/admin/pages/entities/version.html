@@ -1,0 +1,9 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Version %s" .Label) "Description" .Name "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+{{if .Fields}}<div class="hm-card hm-tablecard"><div class="hm-table__scroll" role="region" aria-label="Content of this version" tabindex="0"><table class="hm-table hm-diff"><caption class="hm-visually-hidden">Content of {{.Label}}</caption>
+<thead><tr><th scope="col">Field</th><th scope="col">Value</th></tr></thead>
+<tbody>{{range .Fields}}<tr><th scope="row" class="hm-diff__field"><code>{{.Path}}</code></th><td><pre class="hm-diff__value">{{.Left}}</pre></td></tr>
+{{end}}</tbody></table></div></div>
+{{else}}{{template "hm/empty" dict "Icon" "file-text" "Title" "No content in this version" "Body" "Nothing was saved in this version."}}{{end}}
+{{end}}{{end}}

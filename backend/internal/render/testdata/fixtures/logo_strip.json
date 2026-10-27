@@ -1,0 +1,13 @@
+{
+  "type": "logo_strip", "id": "sec-logo-strip", "title": "Logos",
+  "content": {
+    "heading": "Trusted by teams at",
+    "variant": "marquee",
+    "logos": [
+      {"name": "Acme", "image": "/img/acme.svg", "link": "https://acme.example", "size": "lg"},
+      {"name": "Globex", "image": "https://cdn.example/globex.png"},
+      {"name": "Bad", "image": "javascript:alert(1)"},
+      {"name": "Initech", "image": "/img/initech.svg", "size": "sm"}
+    ]
+  }
+}

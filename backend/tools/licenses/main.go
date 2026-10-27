@@ -1,0 +1,291 @@
+// Command licenses scans the licences of every Go module that is compiled into
+// the hatamoto binary, its tests, or the plugin SDK, and optionally writes a
+// bundle of their licence texts. Stdlib only; it reads the module cache.
+//
+//	go run ./tools/licenses                       # table; exit 1 on a non-permissive or unknown licence
+//	go run ./tools/licenses -out ../build/licenses  # also write the bundle (per-module texts + THIRD_PARTY_LICENSES.md)
+//	go run ./tools/licenses -check-notice ../NOTICE # every NOTICE of a module in the hatamoto binary is reproduced there
+//
+// Run from backend/ after `go mod download` (or any build). The classifier
+// matches distinctive phrases of the licence text, not a full SPDX database:
+// anything it does not recognise is reported as UNKNOWN and fails the run, so a
+// human reads it. Copyleft (GPL, AGPL, LGPL, SSPL, MPL, EUPL) always fails.
+package main
+
+import (
+	"bytes"
+	"flag"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// roots are the module directories scanned, relative to backend/.
+var roots = []string{".", "pkg/sdk"}
+
+type module struct {
+	Path, Version, Dir string
+	Licence            string // SPDX id, or UNKNOWN / a flagged copyleft id
+	Files              []string
+}
+
+var licenceFile = regexp.MustCompile(`(?i)^(licen[cs]e|copying|unlicense|notice)([-._].*)?$`)
+
+type rule struct {
+	id    string
+	match []string // all must appear, lower-cased, whitespace-collapsed
+}
+
+// Order matters: copyleft first, then the permissive ones.
+var rules = []rule{
+	{"AGPL", []string{"gnu affero general public license"}},
+	{"LGPL", []string{"gnu lesser general public license"}},
+	{"GPL", []string{"gnu general public license"}},
+	{"SSPL", []string{"server side public license"}},
+	{"MPL", []string{"mozilla public license"}},
+	{"EUPL", []string{"european union public licen"}},
+	{"Apache-2.0", []string{"apache license", "version 2.0"}},
+	{"MIT", []string{"permission is hereby granted, free of charge"}},
+	{"ISC", []string{"permission to use, copy, modify, and/or distribute"}},
+	{"BSD-3-Clause", []string{"redistribution and use in source and binary forms", "neither the name"}},
+	{"BSD-2-Clause", []string{"redistribution and use in source and binary forms", "this list of conditions and the following disclaimer"}},
+	{"Unlicense", []string{"this is free and unencumbered software released into the public domain"}},
+}
+
+var permissive = map[string]bool{"Apache-2.0": true, "MIT": true, "ISC": true, "BSD-3-Clause": true, "BSD-2-Clause": true, "Unlicense": true}
+
+func classify(text string) string {
+	t := strings.Join(strings.Fields(strings.ToLower(text)), " ")
+	for _, r := range rules {
+		ok := true
+		for _, m := range r.match {
+			if !strings.Contains(t, m) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return r.id
+		}
+	}
+	return "UNKNOWN"
+}
+
+// modules lists the modules that provide packages to the build or tests of root.
+// The plugin guest (go-pdk) only builds for wasip1, so goos selects the platform.
+// test adds the test-only dependencies; pattern is the package pattern.
+func modules(root, goos, pattern string, test bool) ([]module, error) {
+	args := []string{"list", "-deps"}
+	if test {
+		args = append(args, "-test")
+	}
+	args = append(args, "-f", "{{with .Module}}{{if not .Main}}{{.Path}}\t{{.Version}}\t{{.Dir}}\t{{if .Replace}}{{.Replace.Path}}{{end}}{{end}}{{end}}", pattern)
+	cmd := exec.Command("go", args...)
+	cmd.Dir = root
+	cmd.Env = os.Environ()
+	if goos != "" {
+		cmd.Env = append(cmd.Env, "GOOS="+goos, "GOARCH=wasm")
+	}
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("go list in %s: %v\n%s", root, err, errb.String())
+	}
+	seen := map[string]bool{}
+	var mods []module
+	for _, line := range strings.Split(out.String(), "\n") {
+		f := strings.Split(line, "\t")
+		if len(f) < 4 || seen[f[0]] {
+			continue
+		}
+		seen[f[0]] = true
+		if f[3] != "" { // replaced by a local path: the project's own module
+			continue
+		}
+		mods = append(mods, module{Path: f[0], Version: f[1], Dir: f[2]})
+	}
+	return mods, nil
+}
+
+func scan(m *module) error {
+	ents, err := os.ReadDir(m.Dir)
+	if err != nil {
+		return err
+	}
+	var all strings.Builder
+	for _, e := range ents {
+		if e.IsDir() || !licenceFile.MatchString(e.Name()) {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(m.Dir, e.Name()))
+		if err != nil {
+			return err
+		}
+		m.Files = append(m.Files, e.Name())
+		if !strings.HasPrefix(strings.ToUpper(e.Name()), "NOTICE") {
+			all.Write(b)
+			all.WriteString("\n")
+		}
+	}
+	m.Licence = "UNKNOWN"
+	if len(m.Files) > 0 {
+		m.Licence = classify(all.String())
+	}
+	return nil
+}
+
+func writeBundle(dir string, mods []module) error {
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	var idx strings.Builder
+	idx.WriteString("# Third-party Go module licences\n\nGenerated by `go run ./tools/licenses`. Texts are in the per-module directories.\n\n| Module | Version | Licence |\n|---|---|---|\n")
+	for _, m := range mods {
+		fmt.Fprintf(&idx, "| `%s` | %s | %s |\n", m.Path, m.Version, m.Licence)
+		for _, f := range m.Files {
+			b, err := os.ReadFile(filepath.Join(m.Dir, f))
+			if err != nil {
+				return err
+			}
+			dst := filepath.Join(dir, filepath.FromSlash(m.Path), f)
+			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(dst, b, 0o644); err != nil {
+				return err
+			}
+		}
+	}
+	return os.WriteFile(filepath.Join(dir, "THIRD_PARTY_LICENSES.md"), []byte(idx.String()), 0o644)
+}
+
+func main() {
+	out := flag.String("out", "", "write the licence bundle to this directory")
+	notice := flag.String("check-notice", "", "check that this NOTICE file reproduces the NOTICE of every module compiled into ./cmd/hatamoto")
+	flag.Parse()
+	if *notice != "" {
+		os.Exit(runCheckNotice(*notice))
+	}
+	byPath := map[string]module{}
+	for _, r := range roots {
+		for _, goos := range []string{"", "wasip1"} {
+			mods, err := modules(r, goos, "./...", true)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(2)
+			}
+			for _, m := range mods {
+				byPath[m.Path] = m
+			}
+		}
+	}
+	var mods []module
+	for _, m := range byPath {
+		if err := scan(&m); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v (run go mod download)\n", m.Path, err)
+			os.Exit(2)
+		}
+		mods = append(mods, m)
+	}
+	sort.Slice(mods, func(i, j int) bool { return mods[i].Path < mods[j].Path })
+	bad := 0
+	for _, m := range mods {
+		mark := ""
+		if !permissive[m.Licence] {
+			mark = "  <-- NOT PERMISSIVE / UNKNOWN"
+			bad++
+		}
+		fmt.Printf("%-12s %-60s %s%s\n", m.Licence, m.Path, m.Version, mark)
+	}
+	if *out != "" {
+		if err := writeBundle(*out, mods); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		fmt.Printf("wrote %s (%d modules)\n", *out, len(mods))
+	}
+	if bad > 0 {
+		fmt.Fprintf(os.Stderr, "%d module(s) need a human look\n", bad)
+		os.Exit(1)
+	}
+}
+
+// Attributions the NOTICE must carry that no Go module brings along: the Lucide
+// icons are generated into internal/admin/icons_lucide.go, so they are not in
+// `go list`. Each needs its name and its licence id in the NOTICE.
+var embeddedAttributions = [][2]string{{"Lucide", "ISC"}}
+
+func collapse(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// checkNotice returns one problem per module that ships a NOTICE file the
+// notice text does not name and reproduce (Apache-2.0 section 4(d)), and per
+// embedded attribution that is missing. Only the compiled-in modules are
+// passed: a NOTICE of a test-only dependency is not redistributed.
+func checkNotice(notice string, mods []module) []string {
+	var problems []string
+	flat := collapse(notice)
+	for _, m := range mods {
+		for _, f := range m.Files {
+			if !strings.HasPrefix(strings.ToUpper(f), "NOTICE") {
+				continue
+			}
+			b, err := os.ReadFile(filepath.Join(m.Dir, f))
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("%s: %v", m.Path, err))
+				continue
+			}
+			if !strings.Contains(notice, m.Path) {
+				problems = append(problems, fmt.Sprintf("%s (%s) has a %s file but NOTICE does not name the module", m.Path, m.Version, f))
+			}
+			if !strings.Contains(flat, collapse(string(b))) {
+				problems = append(problems, fmt.Sprintf("%s (%s): the text of its %s file is not reproduced in NOTICE", m.Path, m.Version, f))
+			}
+		}
+	}
+	for _, a := range embeddedAttributions {
+		if !strings.Contains(notice, a[0]) || !strings.Contains(notice, a[1]) {
+			problems = append(problems, fmt.Sprintf("NOTICE must attribute %s (%s)", a[0], a[1]))
+		}
+	}
+	return problems
+}
+
+func runCheckNotice(path string) int {
+	text, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	mods, err := modules(".", "", "./cmd/hatamoto", false)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	for i := range mods {
+		if err := scan(&mods[i]); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v (run go mod download)\n", mods[i].Path, err)
+			return 2
+		}
+	}
+	problems := checkNotice(string(text), mods)
+	for _, p := range problems {
+		fmt.Fprintln(os.Stderr, "NOTICE:", p)
+	}
+	if len(problems) > 0 {
+		return 1
+	}
+	n := 0
+	for _, m := range mods {
+		for _, f := range m.Files {
+			if strings.HasPrefix(strings.ToUpper(f), "NOTICE") {
+				n++
+			}
+		}
+	}
+	fmt.Printf("NOTICE ok: %d module(s) compiled into hatamoto, %d with a NOTICE file (all reproduced), embedded attributions present\n", len(mods), n)
+	return 0
+}

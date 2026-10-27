@@ -1,0 +1,21 @@
+h	base=50vh md=container sm=full
+h	.hm-n-g{height:50vh;}@media (max-width:1024px){.hm-n-g{height:var(--hm-container,72rem);}}@media (max-width:640px){.hm-n-g{height:100%;}}
+h+preset	.hm-n-g.hm-n-g{height:50vh;}@media (max-width:1024px){.hm-n-g.hm-n-g{height:var(--hm-container,72rem);}}@media (max-width:640px){.hm-n-g.hm-n-g{height:100%;}}
+maxh	base=40rem md=full sm=90%
+maxh	.hm-n-g{max-height:40rem;}@media (max-width:1024px){.hm-n-g{max-height:100%;}}@media (max-width:640px){.hm-n-g{max-height:90%;}}
+maxh+preset	.hm-n-g.hm-n-g{max-height:40rem;}@media (max-width:1024px){.hm-n-g.hm-n-g{max-height:100%;}}@media (max-width:640px){.hm-n-g.hm-n-g{max-height:90%;}}
+minw	base=10rem md=container sm=0
+minw	.hm-n-g{min-width:10rem;}@media (max-width:1024px){.hm-n-g{min-width:var(--hm-container,72rem);}}@media (max-width:640px){.hm-n-g{min-width:0;}}
+minw+preset	.hm-n-g.hm-n-g{min-width:10rem;}@media (max-width:1024px){.hm-n-g.hm-n-g{min-width:var(--hm-container,72rem);}}@media (max-width:640px){.hm-n-g.hm-n-g{min-width:0;}}
+aspect	base=16/9 md=1/1 sm=auto
+aspect	.hm-n-g{aspect-ratio:16 / 9;}@media (max-width:1024px){.hm-n-g{aspect-ratio:1 / 1;}}@media (max-width:640px){.hm-n-g{aspect-ratio:auto;}}
+aspect+preset	.hm-n-g.hm-n-g{aspect-ratio:16 / 9;}@media (max-width:1024px){.hm-n-g.hm-n-g{aspect-ratio:1 / 1;}}@media (max-width:640px){.hm-n-g.hm-n-g{aspect-ratio:auto;}}
+fit	base=cover md=contain sm=fill
+fit	.hm-n-g{object-fit:cover;}@media (max-width:1024px){.hm-n-g{object-fit:contain;}}@media (max-width:640px){.hm-n-g{object-fit:fill;}}
+fit+preset	.hm-n-g.hm-n-g{object-fit:cover;}@media (max-width:1024px){.hm-n-g.hm-n-g{object-fit:contain;}}@media (max-width:640px){.hm-n-g.hm-n-g{object-fit:fill;}}
+objpos	base=center md=top-left sm=bottom-right
+objpos	.hm-n-g{object-position:center;}@media (max-width:1024px){.hm-n-g{object-position:left top;}}@media (max-width:640px){.hm-n-g{object-position:right bottom;}}
+objpos+preset	.hm-n-g.hm-n-g{object-position:center;}@media (max-width:1024px){.hm-n-g.hm-n-g{object-position:left top;}}@media (max-width:640px){.hm-n-g.hm-n-g{object-position:right bottom;}}
+overflow	base=hidden md=auto sm=clip
+overflow	.hm-n-g{overflow:hidden;}@media (max-width:1024px){.hm-n-g{overflow:auto;}}@media (max-width:640px){.hm-n-g{overflow:clip;}}
+overflow+preset	.hm-n-g.hm-n-g{overflow:hidden;}@media (max-width:1024px){.hm-n-g.hm-n-g{overflow:auto;}}@media (max-width:640px){.hm-n-g.hm-n-g{overflow:clip;}}

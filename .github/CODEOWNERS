@@ -1,0 +1,16 @@
+# Default reviewers for every path. The handles are the ones in MAINTAINERS.md:
+# when a maintainer is added there, add them here (or use a team handle).
+*                       @zenlabscorp
+
+# Security-sensitive areas: review by a maintainer is required.
+/backend/internal/updater/    @zenlabscorp
+/backend/internal/supervisor/ @zenlabscorp
+/backend/internal/release/    @zenlabscorp
+/backend/internal/wasmhost/   @zenlabscorp
+/backend/internal/pluginhost/ @zenlabscorp
+/backend/internal/middleware/ @zenlabscorp
+/backend/migrations/          @zenlabscorp
+/.github/                     @zenlabscorp
+/scripts/check-dco.sh         @zenlabscorp
+/scripts/check-neutral.sh     @zenlabscorp
+/scripts/public-snapshot.sh   @zenlabscorp

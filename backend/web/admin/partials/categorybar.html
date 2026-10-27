@@ -1,0 +1,4 @@
+{{define "hm/categorybar"}}<figure class="hm-catbar" aria-label="{{required "hm/categorybar Label" .Label}}">
+<svg class="hm-catbar__bar" aria-hidden="true" focusable="false">{{range .Segs}}<rect class="hm-catbar__seg hm-viz--{{.Class}}" x="{{.X}}%" width="{{.Width}}%" y="4" height="8"{{if or .First .Last}} rx="3"{{end}}/>{{end}}{{with .MarkerAt}}<rect class="hm-catbar__marker" x="{{.}}%" transform="translate(-2 0)" y="0" width="4" height="16" rx="2"/>{{end}}</svg>
+<ul class="hm-catbar__legend{{if .Columns}} hm-catbar__legend--cols{{end}}">{{range .Legend}}<li><span class="hm-catbar__swatch hm-viz--{{.Class}}" aria-hidden="true"></span>{{.Label}} <span class="hm-catbar__value">{{.Value}}</span>{{if $.Columns}}<span class="hm-catbar__share">{{.Share}}</span>{{end}}</li>{{end}}{{with .Marker}}<li><span class="hm-catbar__swatch hm-catbar__swatch--marker" aria-hidden="true"></span>{{.Label}}</li>{{end}}</ul>
+</figure>{{end}}

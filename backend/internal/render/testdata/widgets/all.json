@@ -1,0 +1,1510 @@
+{
+ "v": 2,
+ "nodes": [
+  {
+   "id": "n1",
+   "t": "heading",
+   "p": {
+    "text": "All widgets",
+    "level": 1
+   },
+   "s": {
+    "base": {
+     "pt": "space-4",
+     "pb": "space-6",
+     "bg": "surface",
+     "radius": "md",
+     "ta": "center",
+     "fs": "3xl"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   }
+  },
+  {
+   "id": "n8",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-4",
+     "pb": "space-6",
+     "bg": "surface",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n7",
+     "t": "heading",
+     "p": {
+      "text": "Basics",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n2",
+     "t": "text",
+     "p": {
+      "text": "Plain paragraph"
+     },
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "muted",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n3",
+     "t": "button",
+     "p": {
+      "text": "Go",
+      "href": "/go"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "accent",
+       "radius": "full",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n4",
+     "t": "image",
+     "p": {
+      "src": "/media/a.jpg",
+      "alt": "A photo"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "bg",
+       "radius": "md",
+       "ta": "left",
+       "maxw": "container"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n5",
+     "t": "spacer"
+    },
+    {
+     "id": "n6",
+     "t": "divider",
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "text",
+       "radius": "md",
+       "ta": "left",
+       "mt": "space-2"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n58",
+     "t": "component",
+     "p": {
+      "type": "content",
+      "content": {
+       "body": "<p>Section body</p>"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "n22",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-2",
+     "pb": "space-4",
+     "bg": "accent",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n21",
+     "t": "heading",
+     "p": {
+      "text": "Layout",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "muted",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n13",
+     "t": "columns",
+     "p": {
+      "count": 3
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left",
+       "gap": "space-6"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n10",
+       "t": "container",
+       "s": {
+        "base": {
+         "pt": "space-2",
+         "pb": "space-4",
+         "bg": "accent",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n9",
+         "t": "text",
+         "p": {
+          "text": "One"
+         },
+         "s": {
+          "base": {
+           "pt": "space-6",
+           "pb": "space-2",
+           "bg": "muted",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      },
+      {
+       "id": "n11",
+       "t": "container",
+       "s": {
+        "base": {
+         "pt": "space-4",
+         "pb": "space-6",
+         "bg": "bg",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      },
+      {
+       "id": "n12",
+       "t": "container",
+       "s": {
+        "base": {
+         "pt": "space-6",
+         "pb": "space-2",
+         "bg": "text",
+         "radius": "md",
+         "ta": "left",
+         "span": "2"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "n16",
+     "t": "container",
+     "p": {
+      "layout": "grid"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "accent",
+       "radius": "md",
+       "ta": "left",
+       "cols": "3",
+       "rows": "2",
+       "gap": "space-4"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n14",
+       "t": "stat",
+       "p": {
+        "value": "10",
+        "label": "Users"
+       },
+       "s": {
+        "base": {
+         "pt": "space-4",
+         "pb": "space-6",
+         "bg": "surface",
+         "radius": "md",
+         "ta": "left",
+         "span": "2",
+         "as": "center"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      },
+      {
+       "id": "n15",
+       "t": "stat",
+       "p": {
+        "value": "20",
+        "label": "Posts"
+       },
+       "s": {
+        "base": {
+         "pt": "space-6",
+         "pb": "space-2",
+         "bg": "muted",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "n20",
+     "t": "container",
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "surface",
+       "radius": "md",
+       "ta": "left",
+       "dir": "row",
+       "wrap": "wrap",
+       "jc": "center",
+       "ai": "baseline"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n19",
+       "t": "buttons",
+       "s": {
+        "base": {
+         "pt": "space-2",
+         "pb": "space-4",
+         "bg": "primary",
+         "radius": "md",
+         "ta": "left",
+         "jc": "between",
+         "ai": "center"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n17",
+         "t": "button",
+         "p": {
+          "text": "A",
+          "href": "/a"
+         },
+         "s": {
+          "base": {
+           "pt": "space-4",
+           "pb": "space-6",
+           "bg": "bg",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        },
+        {
+         "id": "n18",
+         "t": "button",
+         "p": {
+          "text": "B",
+          "href": "/b"
+         },
+         "s": {
+          "base": {
+           "pt": "space-6",
+           "pb": "space-2",
+           "bg": "text",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "n31",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-6",
+     "pb": "space-2",
+     "bg": "text",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n30",
+     "t": "heading",
+     "p": {
+      "text": "Text",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "bg",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n23",
+     "t": "richtext",
+     "p": {
+      "html": "<p>Rich <strong>text</strong> and a <a href=\"/x\">link</a>.</p><script>alert(1)</script>"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "bg",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n24",
+     "t": "html",
+     "p": {
+      "html": "<div class=\"x\">Custom</div>"
+     }
+    },
+    {
+     "id": "n25",
+     "t": "list",
+     "p": {
+      "items": "One\nTwo\nThree"
+     },
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "text",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n26",
+     "t": "list",
+     "p": {
+      "items": "A\nB",
+      "icon": "check-circle"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n27",
+     "t": "table",
+     "p": {
+      "rows": "Name\tQty\nApple\t3\nPear\t4",
+      "header": true,
+      "caption": "Fruit"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "surface",
+       "radius": "md",
+       "ta": "left",
+       "maxw": "full"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n28",
+     "t": "quote",
+     "p": {
+      "text": "Be brief.",
+      "cite": "Someone",
+      "role": "Writer"
+     },
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "muted",
+       "radius": "md",
+       "ta": "left",
+       "fs": "lg"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n29",
+     "t": "icon",
+     "p": {
+      "name": "mail",
+      "label": "Mail"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "accent",
+       "radius": "md",
+       "ta": "left",
+       "color": "primary"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "n40",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-6",
+     "pb": "space-2",
+     "bg": "muted",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n39",
+     "t": "heading",
+     "p": {
+      "text": "Media",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "surface",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n35",
+     "t": "gallery",
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "accent",
+       "radius": "md",
+       "ta": "left",
+       "gap": "space-2",
+       "wrap": "wrap"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n32",
+       "t": "image",
+       "p": {
+        "src": "/media/a.jpg",
+        "alt": "a"
+       },
+       "s": {
+        "base": {
+         "pt": "space-2",
+         "pb": "space-4",
+         "bg": "primary",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      },
+      {
+       "id": "n33",
+       "t": "image",
+       "p": {
+        "src": "/media/b.jpg",
+        "alt": "b"
+       },
+       "s": {
+        "base": {
+         "pt": "space-4",
+         "pb": "space-6",
+         "bg": "surface",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      },
+      {
+       "id": "n34",
+       "t": "image",
+       "p": {
+        "src": "/media/c.jpg",
+        "alt": "c"
+       },
+       "s": {
+        "base": {
+         "pt": "space-6",
+         "pb": "space-2",
+         "bg": "muted",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "n36",
+     "t": "map",
+     "p": {
+      "query": "Hobart",
+      "image": "/media/map.png",
+      "alt": "Map of Hobart"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "bg",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n37",
+     "t": "video",
+     "p": {
+      "url": "https://youtu.be/dQw4w9WgXcQ",
+      "title": "Intro clip",
+      "poster": "/media/poster.jpg"
+     },
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "text",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n38",
+     "t": "video",
+     "p": {
+      "url": "https://vimeo.com/76979871",
+      "title": "Second clip"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "n52",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-6",
+     "pb": "space-2",
+     "bg": "muted",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n51",
+     "t": "heading",
+     "p": {
+      "text": "Interactive",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "surface",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n45",
+     "t": "accordion",
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "surface",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n42",
+       "t": "accorditem",
+       "p": {
+        "title": "Q1",
+        "open": true
+       },
+       "s": {
+        "base": {
+         "pt": "space-4",
+         "pb": "space-6",
+         "bg": "bg",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n41",
+         "t": "text",
+         "p": {
+          "text": "Answer 1"
+         },
+         "s": {
+          "base": {
+           "pt": "space-2",
+           "pb": "space-4",
+           "bg": "accent",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      },
+      {
+       "id": "n44",
+       "t": "accorditem",
+       "p": {
+        "title": "Q2",
+        "open": false
+       },
+       "s": {
+        "base": {
+         "pt": "space-2",
+         "pb": "space-4",
+         "bg": "primary",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n43",
+         "t": "text",
+         "p": {
+          "text": "Answer 2"
+         },
+         "s": {
+          "base": {
+           "pt": "space-6",
+           "pb": "space-2",
+           "bg": "text",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "n50",
+     "t": "tabs",
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     },
+     "c": [
+      {
+       "id": "n47",
+       "t": "tabpanel",
+       "p": {
+        "label": "Tab 1"
+       },
+       "s": {
+        "base": {
+         "pt": "space-2",
+         "pb": "space-4",
+         "bg": "accent",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n46",
+         "t": "text",
+         "p": {
+          "text": "Panel 1"
+         },
+         "s": {
+          "base": {
+           "pt": "space-6",
+           "pb": "space-2",
+           "bg": "muted",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      },
+      {
+       "id": "n49",
+       "t": "tabpanel",
+       "p": {
+        "label": "Tab 2"
+       },
+       "s": {
+        "base": {
+         "pt": "space-6",
+         "pb": "space-2",
+         "bg": "text",
+         "radius": "md",
+         "ta": "left"
+        },
+        "md": {
+         "pt": "space-4",
+         "pb": "space-4"
+        },
+        "sm": {
+         "pt": "space-2",
+         "pb": "space-2",
+         "fs": "sm"
+        }
+       },
+       "c": [
+        {
+         "id": "n48",
+         "t": "text",
+         "p": {
+          "text": "Panel 2"
+         },
+         "s": {
+          "base": {
+           "pt": "space-4",
+           "pb": "space-6",
+           "bg": "bg",
+           "radius": "md",
+           "ta": "left"
+          },
+          "md": {
+           "pt": "space-4",
+           "pb": "space-4"
+          },
+          "sm": {
+           "pt": "space-2",
+           "pb": "space-2",
+           "fs": "sm"
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "n57",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pt": "space-4",
+     "pb": "space-6",
+     "bg": "surface",
+     "radius": "md",
+     "ta": "left",
+     "gap": "space-4",
+     "dir": "column"
+    },
+    "md": {
+     "pt": "space-4",
+     "pb": "space-4"
+    },
+    "sm": {
+     "pt": "space-2",
+     "pb": "space-2",
+     "fs": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "n56",
+     "t": "heading",
+     "p": {
+      "text": "Data",
+      "level": 2
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "primary",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n53",
+     "t": "form",
+     "p": {
+      "slug": "contact"
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "bg": "accent",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n54",
+     "t": "menu",
+     "p": {
+      "location": "primary"
+     },
+     "s": {
+      "base": {
+       "pt": "space-4",
+       "pb": "space-6",
+       "bg": "bg",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    },
+    {
+     "id": "n55",
+     "t": "breadcrumbs",
+     "s": {
+      "base": {
+       "pt": "space-6",
+       "pb": "space-2",
+       "bg": "text",
+       "radius": "md",
+       "ta": "left"
+      },
+      "md": {
+       "pt": "space-4",
+       "pb": "space-4"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2",
+       "fs": "sm"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "n901",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "c": [
+    {
+     "id": "n902",
+     "t": "loop",
+     "p": {
+      "from": "archive"
+     },
+     "c": [
+      {
+       "id": "n903",
+       "t": "heading",
+       "p": {
+        "level": 3
+       },
+       "b": {
+        "text": "loop.item.title"
+       }
+      },
+      {
+       "id": "n904",
+       "t": "loopempty",
+       "c": [
+        {
+         "id": "n905",
+         "t": "text",
+         "p": {
+          "text": "Nothing here yet."
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

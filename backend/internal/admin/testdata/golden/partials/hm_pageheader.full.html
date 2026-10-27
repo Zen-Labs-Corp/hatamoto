@@ -1,0 +1,5 @@
+<header class="hm-pageheader">
+<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Users</h1></div><p class="hm-muted">People who can sign in</p></div>
+<div class="hm-row"><a class="hm-btn hm-btn--primary" href="/admin/users/invite"><span>Invite user</span></a><button type="button" class="hm-btn hm-btn--ghost hm-btn--icon" aria-label="More actions" popovertarget="hm-overflow"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div class="hm-menu" id="hm-overflow" popover role="menu"><a role="menuitem" class="hm-menu__item" href="/admin/users.csv">Export</a><form method="post" action="/admin/users/purge"><input type="hidden" name="_csrf" value="tok"><input type="hidden" name="scope" value="all"><button role="menuitem" type="submit" class="hm-menu__item hm-menu__item--danger">Purge</button></form></div></div></div>
+</header>

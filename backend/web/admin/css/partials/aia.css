@@ -1,0 +1,60 @@
+/* AI analytics page parts (partials aia-chart, aia-table). Only
+   hm-aia-* classes; shared components (cards, buttons, badges) are composed from
+   their partials and not restyled here. Chart drawing lives in aia-chart.css. */
+
+/* Chart card: legend row above the plot, the data table below. */
+.hm-aia-chart { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.hm-aia-lgrow { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.hm-aia-legend { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-0-5) var(--space-1); margin-inline-start: calc(-1 * var(--space-2)); }
+.hm-aia-lg {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 28px; padding: 0 var(--space-2);
+  border: 0; border-radius: var(--radius-sm); background: none; font: inherit; font-size: var(--text-sm); color: var(--text); cursor: pointer;
+}
+.hm-aia-lg:hover { background: var(--surface-hover); }
+.hm-aia-lg:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-aia-lg--static { cursor: default; color: var(--color-sumi-soft); }
+.hm-aia-lg--static:hover { background: none; }
+.hm-aia-data { min-width: 0; }
+
+/* Agents by purpose rides on the shared table (table.css); these are the cell helpers. */
+.hm-aia-small { font-size: var(--text-xs); color: var(--text-muted); }
+.hm-aia-tip { cursor: help; border-radius: var(--radius-full); }
+.hm-aia-tip:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-aia-other { margin-top: var(--space-8); }
+.hm-aia-other__list { list-style: none; margin: var(--space-1) 0 0; padding: 0; }
+.hm-aia-other__row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+@media (max-width: 719px) {
+  .hm-aia-other__row { flex-direction: column; align-items: flex-start; } /* every row stacks the control under the label, whatever the description's length */
+}
+
+/* Policy control layout: the Allow / Block radios are hm/segmented (radio mode) and stay in the
+   form, so they post without JS. */
+.hm-aia-polhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--space-3) var(--space-6); }
+.hm-aia-polctl { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1-5); }
+.hm-aia-pol { display: flex; align-items: center; gap: var(--space-2); }
+.hm-aia-unsaved[hidden] { display: none; }
+.hm-aia-policyform { display: block; min-width: 0; }
+.hm-aia-policyform [data-aia-pending] { margin-top: var(--space-4); }
+@media (max-width: 719px) {
+  .hm-aia-polctl { align-items: flex-start; }
+}
+
+/* Link rows and notes inside cards (the page rhythm is hm-stack / hm-grid2). */
+.hm-aia-more { margin: var(--space-4) 0 0; }
+.hm-aia-note { margin: var(--space-3) 0 0; }
+.hm-aia-mono { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.hm-aia-lead { margin: 0 0 var(--space-3); }
+/* A quiet note under a group of cards, as wide as the group. */
+/* The errors tracker's caption and its data, under the Responses bar. */
+.hm-aia-trackcap { margin: 0; align-self: center; }
+[data-hm-aia-tracker] > .hm-aia-lgrow { margin-bottom: var(--space-3); }
+.hm-aia-trackdata { margin-top: var(--space-3); }
+/* Agent page: the back link above the title, and the robots policy card's rows. */
+.hm-aia-kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-6); margin: 0 0 var(--space-4); font-size: var(--text-sm); align-items: center; }
+.hm-aia-kv dt { color: var(--text-muted); }
+.hm-aia-kv dd { margin: 0; }
+.hm-aia-polrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.hm-aia-polrow p { margin: 0; }
+@media (max-width: 640px) {
+  .hm-table--cards .hm-aia-robots:not(:has(.hm-row > :not([hidden]))) { display: none; }
+}

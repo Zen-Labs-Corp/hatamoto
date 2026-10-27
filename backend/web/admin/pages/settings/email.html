@@ -1,0 +1,25 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .CheckFailed}}{{template "hm/flash" (dict "Kind" "error" "Message" .CheckFailed "Inline" true)}}
+{{end}}{{if .Disabled}}{{template "hm/callout-start" (dict "Kind" "warning")}}Email is switched off by the server (EMAIL_DISABLED), so nothing is sent.{{template "hm/callout-end"}}
+{{end}}{{if .Form.PasswordLost}}{{template "hm/callout-start" (dict "Kind" "warning")}}Re-enter your SMTP password. The saved one can no longer be read, so the server's settings are used for now.{{template "hm/callout-end"}}
+{{end}}<form method="post" action="{{adminPath}}/settings/email" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "email" "Title" "Email" "Heading" "h2" "Description" "Password resets, invitations and form notices."}}
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
+<p class="hm-field__help">Using: {{.Using}}</p></div>
+<div class="hm-setrow__control">{{if .Configured}}{{template "hm/badge" dict "Label" "Email is set up" "Kind" "success"}}{{else}}{{template "hm/badge" dict "Label" "Email is not set up" "Kind" "warning"}}{{end}}</div>
+</div></div>
+{{template "hm/emailfields" .Form}}
+<p class="hm-field__help">Saving checks the connection first. Nothing is saved if it fails.</p>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{if .Configured}}{{template "hm/button" dict "Label" "Send a test email" "Type" "submit" "Attrs" (attrmap "form" "email-test-form")}}{{end}}
+{{if .Saved}}{{template "hm/button" dict "Label" "Use the server's SMTP_* settings instead" "Type" "submit" "Attrs" (attrmap "form" "email-reset-form")}}{{end}}
+{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+</form>
+<form id="email-test-form" method="post" action="{{adminPath}}/settings/email/test">{{template "hm/csrf" $}}</form>
+<form id="email-reset-form" method="post" action="{{adminPath}}/settings/email/reset">{{template "hm/csrf" $}}</form>
+{{end}}{{end}}

@@ -1,0 +1,4 @@
+{{define "section-tag_strip"}}{{$c := .Content}}<div class="hm-container hm-tag-strip">
+  {{with $c.label}}<span class="hm-tag-strip__label" id="{{$.ID}}-strip-label" {{hmf "label"}}>{{.}}</span>{{end}}
+  <ul class="hm-tag-strip__items"{{if $c.label}} aria-labelledby="{{.ID}}-strip-label"{{end}}>{{range $i, $t := $c.items}}<li {{hmf "items" $i}}>{{$t}}</li>{{end}}</ul>
+</div>{{end}}

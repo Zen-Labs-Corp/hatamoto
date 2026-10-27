@@ -1,0 +1,5 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"t1","t":"tabs","c":[
+    {"id":"t1a","t":"tabpanel","p":{"label":"One"},"c":[{"id":"t1at","t":"text","p":{"text":"First"}}]},
+    {"id":"t1b","t":"tabpanel","p":{"label":"Two <b>"},"c":[{"id":"t1bt","t":"text","p":{"text":"Second"}}]}]}
+]}]}

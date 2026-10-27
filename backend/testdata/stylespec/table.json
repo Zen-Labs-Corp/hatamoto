@@ -1,0 +1,1403 @@
+[
+ {
+  "key": "ac",
+  "kind": "enum",
+  "props": [
+   "align-content"
+  ],
+  "enum": {
+   "around": "space-around",
+   "between": "space-between",
+   "center": "center",
+   "end": "flex-end",
+   "evenly": "space-evenly",
+   "start": "flex-start",
+   "stretch": "stretch"
+  }
+ },
+ {
+  "key": "ai",
+  "kind": "enum",
+  "props": [
+   "align-items"
+  ],
+  "enum": {
+   "baseline": "baseline",
+   "center": "center",
+   "end": "flex-end",
+   "start": "flex-start",
+   "stretch": "stretch"
+  }
+ },
+ {
+  "key": "as",
+  "kind": "enum",
+  "props": [
+   "align-self"
+  ],
+  "enum": {
+   "center": "center",
+   "end": "flex-end",
+   "start": "flex-start",
+   "stretch": "stretch"
+  }
+ },
+ {
+  "key": "aspect",
+  "kind": "enum",
+  "props": [
+   "aspect-ratio"
+  ],
+  "enum": {
+   "1/1": "1 / 1",
+   "16/9": "16 / 9",
+   "2/3": "2 / 3",
+   "21/9": "21 / 9",
+   "3/2": "3 / 2",
+   "3/4": "3 / 4",
+   "4/3": "4 / 3",
+   "9/16": "9 / 16",
+   "auto": "auto"
+  }
+ },
+ {
+  "key": "bblur",
+  "kind": "lit",
+  "props": [
+   "backdrop-filter",
+   "-webkit-backdrop-filter"
+  ],
+  "pattern": "^(0|([0-9]|[1-3][0-9])(\\.[0-9]{1,2})?px|40px)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "bc",
+  "kind": "color",
+  "props": [
+   "border-color"
+  ],
+  "tokens": {
+   "accent": "var(--hm-accent,#c8102e)",
+   "bg": "var(--hm-bg)",
+   "muted": "var(--hm-muted,#eef0f4)",
+   "primary": "var(--hm-primary)",
+   "surface": "var(--hm-surface,#fff)",
+   "text": "var(--hm-text)"
+  },
+  "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+  "states": true
+ },
+ {
+  "key": "bg",
+  "kind": "color",
+  "props": [
+   "background-color"
+  ],
+  "tokens": {
+   "accent": "var(--hm-accent,#c8102e)",
+   "bg": "var(--hm-bg)",
+   "muted": "var(--hm-muted,#eef0f4)",
+   "primary": "var(--hm-primary)",
+   "surface": "var(--hm-surface,#fff)",
+   "text": "var(--hm-text)"
+  },
+  "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+  "states": true
+ },
+ {
+  "key": "bgatt",
+  "kind": "enum",
+  "props": [
+   "background-attachment"
+  ],
+  "enum": {
+   "fixed": "fixed",
+   "scroll": "scroll"
+  }
+ },
+ {
+  "key": "bgimg",
+  "kind": "media",
+  "props": [
+   "background-image"
+  ],
+  "pattern": "^/media/([A-Za-z0-9_-]{1,40}/){0,2}[A-Za-z0-9_-]{1,64}\\.(png|jpe?g|webp|avif|gif)$",
+  "settle": true
+ },
+ {
+  "key": "bgpos",
+  "kind": "enum",
+  "props": [
+   "background-position"
+  ],
+  "enum": {
+   "bottom": "bottom",
+   "bottom-left": "left bottom",
+   "bottom-right": "right bottom",
+   "center": "center",
+   "left": "left",
+   "right": "right",
+   "top": "top",
+   "top-left": "left top",
+   "top-right": "right top"
+  }
+ },
+ {
+  "key": "bgrep",
+  "kind": "enum",
+  "props": [
+   "background-repeat"
+  ],
+  "enum": {
+   "no-repeat": "no-repeat",
+   "repeat": "repeat",
+   "repeat-x": "repeat-x",
+   "repeat-y": "repeat-y"
+  }
+ },
+ {
+  "key": "bgsize",
+  "kind": "enum",
+  "props": [
+   "background-size"
+  ],
+  "enum": {
+   "auto": "auto",
+   "contain": "contain",
+   "cover": "cover"
+  }
+ },
+ {
+  "key": "blend",
+  "kind": "enum",
+  "props": [
+   "mix-blend-mode"
+  ],
+  "enum": {
+   "color-burn": "color-burn",
+   "color-dodge": "color-dodge",
+   "darken": "darken",
+   "difference": "difference",
+   "lighten": "lighten",
+   "luminosity": "luminosity",
+   "multiply": "multiply",
+   "normal": "normal",
+   "screen": "screen"
+  },
+  "states": true
+ },
+ {
+  "key": "blur",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "bottom",
+  "kind": "space",
+  "props": [
+   "bottom"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "bright",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(([0-9]|[1-9][0-9]|1[0-9][0-9])(\\.[0-9]{1,2})?|200)%$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "bs",
+  "kind": "enum",
+  "props": [
+   "border-style"
+  ],
+  "enum": {
+   "dashed": "dashed",
+   "dotted": "dotted",
+   "double": "double",
+   "none": "none",
+   "solid": "solid"
+  },
+  "states": true
+ },
+ {
+  "key": "bw",
+  "kind": "lit",
+  "props": [
+   "border-width"
+  ],
+  "tokens": {
+   "0": "0",
+   "1": "1px",
+   "2": "2px",
+   "4": "4px"
+  },
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "states": true
+ },
+ {
+  "key": "bwb",
+  "kind": "lit",
+  "props": [
+   "border-bottom-width"
+  ],
+  "tokens": {
+   "0": "0",
+   "1": "1px",
+   "2": "2px",
+   "4": "4px"
+  },
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "states": true
+ },
+ {
+  "key": "bwl",
+  "kind": "lit",
+  "props": [
+   "border-left-width"
+  ],
+  "tokens": {
+   "0": "0",
+   "1": "1px",
+   "2": "2px",
+   "4": "4px"
+  },
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "states": true
+ },
+ {
+  "key": "bwr",
+  "kind": "lit",
+  "props": [
+   "border-right-width"
+  ],
+  "tokens": {
+   "0": "0",
+   "1": "1px",
+   "2": "2px",
+   "4": "4px"
+  },
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "states": true
+ },
+ {
+  "key": "bwt",
+  "kind": "lit",
+  "props": [
+   "border-top-width"
+  ],
+  "tokens": {
+   "0": "0",
+   "1": "1px",
+   "2": "2px",
+   "4": "4px"
+  },
+  "pattern": "^(0|([0-9]|1[0-9])(\\.[0-9]{1,2})?px|20px)$",
+  "states": true
+ },
+ {
+  "key": "cgap",
+  "kind": "space",
+  "props": [
+   "column-gap"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "color",
+  "kind": "color",
+  "props": [
+   "color"
+  ],
+  "tokens": {
+   "accent": "var(--hm-accent,#c8102e)",
+   "bg": "var(--hm-bg)",
+   "muted": "var(--hm-muted,#eef0f4)",
+   "primary": "var(--hm-primary)",
+   "surface": "var(--hm-surface,#fff)",
+   "text": "var(--hm-text)"
+  },
+  "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+  "states": true
+ },
+ {
+  "key": "cols",
+  "kind": "count",
+  "props": [
+   "grid-template-columns"
+  ],
+  "min": 1,
+  "max": 12,
+  "tpl": "repeat(%d,minmax(0,1fr))",
+  "settle": true
+ },
+ {
+  "key": "contrast",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(([0-9]|[1-9][0-9]|1[0-9][0-9])(\\.[0-9]{1,2})?|200)%$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "cs",
+  "kind": "count",
+  "props": [
+   "grid-column-start"
+  ],
+  "min": 1,
+  "max": 13,
+  "tpl": "%d"
+ },
+ {
+  "key": "dir",
+  "kind": "enum",
+  "props": [
+   "flex-direction"
+  ],
+  "enum": {
+   "column": "column",
+   "column-reverse": "column-reverse",
+   "row": "row",
+   "row-reverse": "row-reverse"
+  }
+ },
+ {
+  "key": "display",
+  "kind": "enum",
+  "props": [
+   "display"
+  ],
+  "enum": {
+   "block": "block",
+   "flex": "flex",
+   "grid": "grid",
+   "inline": "inline",
+   "inline-block": "inline-block",
+   "none": "none",
+   "table": "table"
+  },
+  "settle": true
+ },
+ {
+  "key": "ff",
+  "kind": "enum",
+  "props": [
+   "font-family"
+  ],
+  "enum": {
+   "body": "var(--hm-font,inherit)",
+   "heading": "var(--hm-font-heading,var(--hm-font,inherit))",
+   "mono": "var(--hm-font-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace)"
+  }
+ },
+ {
+  "key": "fit",
+  "kind": "enum",
+  "props": [
+   "object-fit"
+  ],
+  "enum": {
+   "contain": "contain",
+   "cover": "cover",
+   "fill": "fill",
+   "none": "none",
+   "scale-down": "scale-down"
+  }
+ },
+ {
+  "key": "fs",
+  "kind": "fs",
+  "props": [
+   "font-size"
+  ],
+  "tokens": {
+   "2xl": "2rem",
+   "3xl": "2.5rem",
+   "4xl": "3.25rem",
+   "lg": "1.25rem",
+   "md": "1rem",
+   "sm": "0.875rem",
+   "xl": "1.5rem",
+   "xs": "0.75rem"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "fst",
+  "kind": "enum",
+  "props": [
+   "font-style"
+  ],
+  "enum": {
+   "italic": "italic",
+   "normal": "normal"
+  }
+ },
+ {
+  "key": "fw",
+  "kind": "enum",
+  "props": [
+   "font-weight"
+  ],
+  "enum": {
+   "100": "100",
+   "200": "200",
+   "300": "300",
+   "400": "400",
+   "500": "500",
+   "600": "600",
+   "700": "700",
+   "800": "800",
+   "900": "900",
+   "bold": "bold",
+   "normal": "normal"
+  },
+  "states": true
+ },
+ {
+  "key": "gap",
+  "kind": "space",
+  "props": [
+   "gap"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "grad",
+  "kind": "grad",
+  "props": [
+   "background-image"
+  ],
+  "pattern": "^(linear-([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))?|radial-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(-(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))?)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "gray",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(([0-9]|[1-9][0-9])(\\.[0-9]{1,2})?|100)%$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "gtc",
+  "kind": "gtc",
+  "props": [
+   "grid-template-columns"
+  ],
+  "pattern": "^(auto|([1-9]|1[0-2])fr)( (auto|([1-9]|1[0-2])fr)){0,5}$",
+  "settle": true
+ },
+ {
+  "key": "h",
+  "kind": "len",
+  "props": [
+   "height"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "hide",
+  "kind": "enum",
+  "props": [
+   "display"
+  ],
+  "enum": {
+   "1": "none"
+  },
+  "settle": true
+ },
+ {
+  "key": "hue",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9])(\\.[0-9]{1,2})?|360)deg$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "jc",
+  "kind": "enum",
+  "props": [
+   "justify-content"
+  ],
+  "enum": {
+   "around": "space-around",
+   "between": "space-between",
+   "center": "center",
+   "end": "flex-end",
+   "evenly": "space-evenly",
+   "start": "flex-start"
+  }
+ },
+ {
+  "key": "js",
+  "kind": "enum",
+  "props": [
+   "justify-self"
+  ],
+  "enum": {
+   "center": "center",
+   "end": "end",
+   "start": "start",
+   "stretch": "stretch"
+  }
+ },
+ {
+  "key": "left",
+  "kind": "space",
+  "props": [
+   "left"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "lh",
+  "kind": "lit",
+  "props": [
+   "line-height"
+  ],
+  "tokens": {
+   "loose": "2",
+   "normal": "1.5",
+   "relaxed": "1.65",
+   "snug": "1.25",
+   "tight": "1.1"
+  },
+  "pattern": "^(0\\.[89][0-9]?|[12](\\.[0-9]{1,2})?|3(\\.0{1,2})?)$"
+ },
+ {
+  "key": "ls",
+  "kind": "lit",
+  "props": [
+   "letter-spacing"
+  ],
+  "tokens": {
+   "normal": "normal"
+  },
+  "pattern": "^(0|-?([0-9]|[1-9][0-9])(\\.[0-9]{1,2})?(px|rem|em))$"
+ },
+ {
+  "key": "maxh",
+  "kind": "len",
+  "props": [
+   "max-height"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "maxw",
+  "kind": "len",
+  "props": [
+   "max-width"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "mb",
+  "kind": "space",
+  "props": [
+   "margin-bottom"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "minh",
+  "kind": "len",
+  "props": [
+   "min-height"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "minw",
+  "kind": "len",
+  "props": [
+   "min-width"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "ml",
+  "kind": "space",
+  "props": [
+   "margin-left"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "mr",
+  "kind": "space",
+  "props": [
+   "margin-right"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "mt",
+  "kind": "space",
+  "props": [
+   "margin-top"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "objpos",
+  "kind": "enum",
+  "props": [
+   "object-position"
+  ],
+  "enum": {
+   "bottom": "bottom",
+   "bottom-left": "left bottom",
+   "bottom-right": "right bottom",
+   "center": "center",
+   "left": "left",
+   "right": "right",
+   "top": "top",
+   "top-left": "left top",
+   "top-right": "right top"
+  }
+ },
+ {
+  "key": "op",
+  "kind": "enum",
+  "props": [
+   "opacity"
+  ],
+  "enum": {
+   "0": "0",
+   "0.05": "0.05",
+   "0.1": "0.1",
+   "0.15": "0.15",
+   "0.2": "0.2",
+   "0.25": "0.25",
+   "0.3": "0.3",
+   "0.35": "0.35",
+   "0.4": "0.4",
+   "0.45": "0.45",
+   "0.5": "0.5",
+   "0.55": "0.55",
+   "0.6": "0.6",
+   "0.65": "0.65",
+   "0.7": "0.7",
+   "0.75": "0.75",
+   "0.8": "0.8",
+   "0.85": "0.85",
+   "0.9": "0.9",
+   "0.95": "0.95",
+   "1": "1"
+  },
+  "states": true
+ },
+ {
+  "key": "order",
+  "kind": "count",
+  "props": [
+   "order"
+  ],
+  "min": -1,
+  "max": 12,
+  "tpl": "%d"
+ },
+ {
+  "key": "overflow",
+  "kind": "enum",
+  "props": [
+   "overflow"
+  ],
+  "enum": {
+   "auto": "auto",
+   "clip": "clip",
+   "hidden": "hidden",
+   "visible": "visible"
+  }
+ },
+ {
+  "key": "pb",
+  "kind": "space",
+  "props": [
+   "padding-bottom"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "pl",
+  "kind": "space",
+  "props": [
+   "padding-left"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "pos",
+  "kind": "enum",
+  "props": [
+   "position"
+  ],
+  "enum": {
+   "absolute": "absolute",
+   "relative": "relative",
+   "static": "static",
+   "sticky": "sticky"
+  }
+ },
+ {
+  "key": "pr",
+  "kind": "space",
+  "props": [
+   "padding-right"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "pt",
+  "kind": "space",
+  "props": [
+   "padding-top"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "radius",
+  "kind": "radius",
+  "props": [
+   "border-radius"
+  ],
+  "tokens": {
+   "full": "999px",
+   "lg": "var(--hm-radius-lg)",
+   "md": "var(--hm-radius-md)",
+   "sm": "var(--hm-radius-sm)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$",
+  "states": true
+ },
+ {
+  "key": "rbl",
+  "kind": "radius",
+  "props": [
+   "border-bottom-left-radius"
+  ],
+  "tokens": {
+   "full": "999px",
+   "lg": "var(--hm-radius-lg)",
+   "md": "var(--hm-radius-md)",
+   "sm": "var(--hm-radius-sm)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$",
+  "states": true
+ },
+ {
+  "key": "rbr",
+  "kind": "radius",
+  "props": [
+   "border-bottom-right-radius"
+  ],
+  "tokens": {
+   "full": "999px",
+   "lg": "var(--hm-radius-lg)",
+   "md": "var(--hm-radius-md)",
+   "sm": "var(--hm-radius-sm)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$",
+  "states": true
+ },
+ {
+  "key": "rgap",
+  "kind": "space",
+  "props": [
+   "row-gap"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "right",
+  "kind": "space",
+  "props": [
+   "right"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "rot",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^-?(0|[1-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)deg$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "rows",
+  "kind": "count",
+  "props": [
+   "grid-template-rows"
+  ],
+  "min": 1,
+  "max": 12,
+  "tpl": "repeat(%d,auto)"
+ },
+ {
+  "key": "rs",
+  "kind": "count",
+  "props": [
+   "grid-row"
+  ],
+  "min": 1,
+  "max": 12,
+  "tpl": "span %d"
+ },
+ {
+  "key": "rtl",
+  "kind": "radius",
+  "props": [
+   "border-top-left-radius"
+  ],
+  "tokens": {
+   "full": "999px",
+   "lg": "var(--hm-radius-lg)",
+   "md": "var(--hm-radius-md)",
+   "sm": "var(--hm-radius-sm)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$",
+  "states": true
+ },
+ {
+  "key": "rtr",
+  "kind": "radius",
+  "props": [
+   "border-top-right-radius"
+  ],
+  "tokens": {
+   "full": "999px",
+   "lg": "var(--hm-radius-lg)",
+   "md": "var(--hm-radius-md)",
+   "sm": "var(--hm-radius-sm)"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$",
+  "states": true
+ },
+ {
+  "key": "sat",
+  "kind": "lit",
+  "props": [
+   "filter"
+  ],
+  "pattern": "^(([0-9]|[1-9][0-9]|1[0-9][0-9])(\\.[0-9]{1,2})?|200)%$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "sc",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^(0\\.[5-9][0-9]?|1(\\.[0-9]{1,2})?|2(\\.0{1,2})?)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "scrollmt",
+  "kind": "lit",
+  "props": [
+   "scroll-margin-top"
+  ],
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|vh|vw))$"
+ },
+ {
+  "key": "shadow",
+  "kind": "enum",
+  "props": [
+   "box-shadow"
+  ],
+  "enum": {
+   "lg": "var(--hm-shadow-lg,0 12px 32px rgba(0,0,0,.14))",
+   "md": "var(--hm-shadow-md,0 4px 12px rgba(0,0,0,.1))",
+   "none": "none",
+   "sm": "var(--hm-shadow-sm,0 1px 2px rgba(0,0,0,.08))"
+  },
+  "states": true
+ },
+ {
+  "key": "skx",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^-?([0-9]|[1-3][0-9]|4[0-5])deg$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "sky",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^-?([0-9]|[1-3][0-9]|4[0-5])deg$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "span",
+  "kind": "count",
+  "props": [
+   "grid-column"
+  ],
+  "min": 1,
+  "max": 12,
+  "tpl": "span %d"
+ },
+ {
+  "key": "ta",
+  "kind": "enum",
+  "props": [
+   "text-align"
+  ],
+  "enum": {
+   "center": "center",
+   "justify": "justify",
+   "left": "left",
+   "right": "right"
+  }
+ },
+ {
+  "key": "td",
+  "kind": "enum",
+  "props": [
+   "text-decoration"
+  ],
+  "enum": {
+   "line-through": "line-through",
+   "none": "none",
+   "underline": "underline"
+  },
+  "states": true
+ },
+ {
+  "key": "tdelay",
+  "kind": "enum",
+  "props": [
+   "transition-delay"
+  ],
+  "enum": {
+   "0": "0ms",
+   "100": "100ms",
+   "150": "150ms",
+   "200": "200ms",
+   "300": "300ms",
+   "500": "500ms",
+   "75": "75ms"
+  },
+  "settle": true
+ },
+ {
+  "key": "tdur",
+  "kind": "enum",
+  "props": [
+   "transition-duration"
+  ],
+  "enum": {
+   "100": "100ms",
+   "1000": "1000ms",
+   "150": "150ms",
+   "200": "200ms",
+   "300": "300ms",
+   "500": "500ms",
+   "700": "700ms",
+   "75": "75ms"
+  },
+  "settle": true
+ },
+ {
+  "key": "tease",
+  "kind": "enum",
+  "props": [
+   "transition-timing-function"
+  ],
+  "enum": {
+   "ease": "ease",
+   "ease-in": "ease-in",
+   "ease-in-out": "ease-in-out",
+   "ease-out": "ease-out",
+   "linear": "linear"
+  },
+  "settle": true
+ },
+ {
+  "key": "top",
+  "kind": "space",
+  "props": [
+   "top"
+  ],
+  "tokens": {
+   "space-0": "var(--hm-space-0,0)",
+   "space-1": "var(--hm-space-1,0.25rem)",
+   "space-10": "var(--hm-space-10,4rem)",
+   "space-11": "var(--hm-space-11,5rem)",
+   "space-12": "var(--hm-space-12,6rem)",
+   "space-2": "var(--hm-space-2,0.5rem)",
+   "space-3": "var(--hm-space-3,0.75rem)",
+   "space-4": "var(--hm-space-4,1rem)",
+   "space-5": "var(--hm-space-5,1.25rem)",
+   "space-6": "var(--hm-space-6,1.5rem)",
+   "space-7": "var(--hm-space-7,2rem)",
+   "space-8": "var(--hm-space-8,2.5rem)",
+   "space-9": "var(--hm-space-9,3rem)"
+  },
+  "pattern": "^(auto|0|-?[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "torigin",
+  "kind": "enum",
+  "props": [
+   "transform-origin"
+  ],
+  "enum": {
+   "bottom": "bottom",
+   "bottom-left": "left bottom",
+   "bottom-right": "right bottom",
+   "center": "center",
+   "left": "left",
+   "right": "right",
+   "top": "top",
+   "top-left": "left top",
+   "top-right": "right top"
+  },
+  "states": true
+ },
+ {
+  "key": "trans",
+  "kind": "enum",
+  "props": [
+   "transition-property"
+  ],
+  "enum": {
+   "all": "all",
+   "colors": "color,background-color,border-color,text-decoration-color",
+   "none": "none",
+   "opacity": "opacity",
+   "shadow": "box-shadow",
+   "transform": "transform",
+   "transform-shadow": "transform,box-shadow"
+  },
+  "settle": true
+ },
+ {
+  "key": "tt",
+  "kind": "enum",
+  "props": [
+   "text-transform"
+  ],
+  "enum": {
+   "capitalize": "capitalize",
+   "lowercase": "lowercase",
+   "none": "none",
+   "uppercase": "uppercase"
+  }
+ },
+ {
+  "key": "tx",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^(0|-?(([0-9]|[1-9][0-9]|[1-3][0-9][0-9])(\\.[0-9]{1,2})?|400)px|-?(([0-9]|[1-9][0-9])(\\.[0-9]{1,2})?|100)%)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "ty",
+  "kind": "lit",
+  "props": [
+   "transform"
+  ],
+  "pattern": "^(0|-?(([0-9]|[1-9][0-9]|[1-3][0-9][0-9])(\\.[0-9]{1,2})?|400)px|-?(([0-9]|[1-9][0-9])(\\.[0-9]{1,2})?|100)%)$",
+  "settle": true,
+  "states": true
+ },
+ {
+  "key": "w",
+  "kind": "len",
+  "props": [
+   "width"
+  ],
+  "tokens": {
+   "container": "var(--hm-container,72rem)",
+   "full": "100%"
+  },
+  "pattern": "^(0|[0-9]{1,4}(\\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$"
+ },
+ {
+  "key": "wrap",
+  "kind": "enum",
+  "props": [
+   "flex-wrap"
+  ],
+  "enum": {
+   "nowrap": "nowrap",
+   "wrap": "wrap"
+  }
+ },
+ {
+  "key": "z",
+  "kind": "count",
+  "props": [
+   "z-index"
+  ],
+  "min": 0,
+  "max": 100,
+  "tpl": "%d"
+ }
+]

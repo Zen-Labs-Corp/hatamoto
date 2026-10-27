@@ -1,0 +1,4 @@
+.hm-widgetpack-demo_pricing{padding:var(--hm-space-4,1rem);border:1px solid var(--hm-color-border,#d5dbe6);border-radius:var(--hm-radius,.5rem);max-width:22rem}
+.hm-widgetpack-demo_pricing .p{margin:0 0 .25rem;font-size:1.125rem}
+.hm-widgetpack-demo_pricing .v{margin:0 0 .75rem;font-size:2rem;font-weight:700}
+.hm-widgetpack-demo_pricing .v small{font-size:.875rem;font-weight:400}

@@ -1,0 +1,5 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"b1","t":"buttons","c":[
+    {"id":"b1a","t":"button","p":{"text":"Buy","href":"/buy"}},
+    {"id":"b1b","t":"button","p":{"text":"Read <more>","href":"javascript:alert(1)"}}]}
+]}]}

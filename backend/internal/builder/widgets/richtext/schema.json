@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Rich text",
+    "hint": "Formatted text with links and lists",
+    "group": "Content",
+    "order": 10,
+    "default": {"html": "<p>Write something.</p>"}
+  },
+  "properties": {
+    "html": {"type": "string", "maxLength": 100000, "x-hm-widget": "richtext"},
+    "hidden": {"type": "boolean"}
+  }
+}

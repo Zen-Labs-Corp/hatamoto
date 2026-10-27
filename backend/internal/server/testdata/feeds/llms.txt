@@ -1,0 +1,19 @@
+# Acme
+
+> Machine-readable index of all published content for LLM and AI crawler consumption. Last updated 2026-10-13. 16 total published entities across 3 content types.
+
+## Knowledge Graph
+
+- [All entities (JSON-LD @graph)](https://acme.example/api/v1/public/knowledge-graph): paginated `application/ld+json` feed of every published entity. Use `?page=N&per_page=50` (max 100) to walk the full set.
+- [Sitemap (XML)](https://acme.example/sitemap.xml): canonical URL index.
+- [Posts feed (RSS)](https://acme.example/feed.xml): the newest posts with full text. An Atom version is at https://acme.example/atom.xml.
+
+## Content Types
+
+- [Page](https://acme.example/api/v1/public/knowledge-graph?schema=page): 3 entities as JSON-LD.
+- [Post](https://acme.example/api/v1/public/knowledge-graph?schema=post): 12 entities as JSON-LD.
+- [Case Study](https://acme.example/api/v1/public/knowledge-graph?schema=case-study): 1 entities as JSON-LD.
+
+## Per-Page Structured Data
+
+Every HTML page on this site embeds Schema.org JSON-LD in a `<script type="application/ld+json">` block in the document head. Parse the HTML or request the page with `Accept: application/ld+json` for the structured payload only.

@@ -1,0 +1,5 @@
+{"ClientIP":"20.171.206.1","ClientRequestURI":"/media/abc/hero.png?w=800","ClientRequestMethod":"GET","ClientRequestUserAgent":"Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)","EdgeResponseStatus":200,"EdgeResponseBytes":5120,"EdgeStartTimestamp":1760000000000000000}
+{"ClientIP":"20.171.206.1","ClientRequestURI":"/pricing","ClientRequestMethod":"GET","ClientRequestUserAgent":"Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)","EdgeResponseStatus":200,"EdgeResponseBytes":900,"EdgeStartTimestamp":1760000001000000000}
+{"ClientIP":"20.171.206.1","ClientRequestURI":"/pricing?x=1","ClientRequestMethod":"GET","ClientRequestUserAgent":"Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)","EdgeResponseStatus":503,"EdgeResponseBytes":0,"EdgeStartTimestamp":"2025-10-09T08:53:22Z"}
+{"ClientIP":"2001:db8::1","ClientRequestURI":"/media/x.webp","ClientRequestMethod":"GET","ClientRequestUserAgent":"ClaudeBot/1.0","EdgeResponseStatus":404,"EdgeResponseBytes":10,"EdgeStartTimestamp":1760000003000000000}
+this is not json

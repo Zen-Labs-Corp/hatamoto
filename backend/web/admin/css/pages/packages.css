@@ -1,0 +1,32 @@
+/* Plugins, themes and the plugin admin page */
+.hm-pkg { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.hm-pkg:first-of-type { border-top: 0; }
+.hm-pkg p { margin: var(--space-1) 0 0; }
+.hm-pluginlist { list-style: none; margin: 0 0 var(--space-6); padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-pluginlist--card { margin: 0; border: 0; border-radius: 0; background: none; }
+.hm-pluginlist__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.hm-pluginlist__row:first-child { border-top: 0; }
+.hm-pluginlist__main { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; overflow-wrap: anywhere; }
+.hm-pluginlist__title { display: block; }
+.hm-pluginlist__desc { font-size: var(--text-sm); }
+.hm-pluginlist__note { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.hm-pluginlist__badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.hm-pluginlist__bulk { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
+.hm-pluginlist__update { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); font-size: var(--text-sm); }
+.hm-pluginlist__uptodate { font-size: var(--text-sm); margin-left: var(--space-2); }
+.hm-pluginlist__issue { text-decoration: none; }
+.hm-pluginlist__link { white-space: nowrap; }
+@media (max-width: 480px) {
+  .hm-pluginlist__row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-3); }
+  .hm-pluginlist__main { grid-column: 1 / -1; }
+  .hm-pluginlist__badges { justify-self: start; }
+}
+.hm-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }
+.hm-theme { display: flex; flex-direction: column; gap: var(--space-3); overflow: hidden; }
+.hm-theme--active { box-shadow: 0 0 0 2px var(--admin-accent); }
+.hm-theme__strip { display: block; width: 100%; height: var(--space-3); }
+.hm-theme__swatch--none { fill: var(--border); }
+.hm-pluginframe { width: 100%; min-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-pluginframe-host [data-hm-pluginframe-notice][hidden] { display: none; }
+.hm-pluginhead { align-items: center; margin-block: var(--space-2) var(--space-4); }
+/* Routes and hosts are long identifiers: let them wrap inside the chip instead of widening the page at 390px. */

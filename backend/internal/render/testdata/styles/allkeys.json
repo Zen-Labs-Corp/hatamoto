@@ -1,0 +1,508 @@
+{
+ "v": 2,
+ "nodes": [
+  {
+   "id": "k1",
+   "t": "container",
+   "p": {
+    "tag": "header"
+   },
+   "s": {
+    "base": {
+     "pos": "sticky",
+     "top": "0",
+     "z": "10",
+     "bg": "surface",
+     "bwb": "1",
+     "bs": "solid",
+     "bc": "muted",
+     "display": "flex",
+     "jc": "between",
+     "ai": "center",
+     "pl": "space-4",
+     "pr": "space-4"
+    },
+    "sm": {
+     "pl": "space-2",
+     "pr": "space-2"
+    }
+   },
+   "c": [
+    {
+     "id": "k2",
+     "t": "text",
+     "p": {
+      "text": "Sticky header"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k3",
+   "t": "text",
+   "p": {
+    "text": "Phone only banner"
+   },
+   "s": {
+    "base": {
+     "hide": "1",
+     "ta": "center"
+    },
+    "sm": {
+     "display": "block",
+     "bg": "accent",
+     "color": "bg"
+    }
+   }
+  },
+  {
+   "id": "k4",
+   "t": "text",
+   "p": {
+    "text": "Desktop only note"
+   },
+   "s": {
+    "md": {
+     "hide": "1"
+    }
+   }
+  },
+  {
+   "id": "k5",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "bgimg": "/media/a.jpg",
+     "grad": "linear-180-000-accent",
+     "bgpos": "center",
+     "bgsize": "cover",
+     "bgrep": "no-repeat",
+     "minh": "50vh",
+     "pt": "space-9",
+     "pb": "space-9",
+     "color": "bg"
+    },
+    "sm": {
+     "grad": "radial-000-primary",
+     "minh": "30vh"
+    }
+   },
+   "c": [
+    {
+     "id": "k6",
+     "t": "heading",
+     "p": {
+      "text": "Hero",
+      "level": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "k7",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "ml": "auto",
+     "mr": "auto",
+     "mt": "auto",
+     "mb": "-0.5rem"
+    },
+    "md": {
+     "ml": "-1rem",
+     "mr": "-2%",
+     "mt": "-10px",
+     "mb": "auto"
+    },
+    "sm": {
+     "ml": "space-4",
+     "mr": "space-0",
+     "mt": "space-2",
+     "mb": "space-12"
+    }
+   },
+   "c": [
+    {
+     "id": "k8",
+     "t": "text",
+     "p": {
+      "text": "Style group spacing"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k9",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "h": "50vh",
+     "maxh": "40rem",
+     "minw": "10rem",
+     "aspect": "16/9",
+     "fit": "cover",
+     "objpos": "center",
+     "overflow": "hidden"
+    },
+    "md": {
+     "h": "container",
+     "maxh": "full",
+     "minw": "container",
+     "aspect": "1/1",
+     "fit": "contain",
+     "objpos": "top-left",
+     "overflow": "auto"
+    },
+    "sm": {
+     "h": "full",
+     "maxh": "90%",
+     "minw": "0",
+     "aspect": "auto",
+     "fit": "fill",
+     "objpos": "bottom-right",
+     "overflow": "clip"
+    }
+   },
+   "c": [
+    {
+     "id": "k10",
+     "t": "text",
+     "p": {
+      "text": "Style group size"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k11",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "pos": "sticky",
+     "top": "0",
+     "right": "0",
+     "bottom": "-10px",
+     "left": "50%",
+     "z": "0",
+     "scrollmt": "5rem"
+    },
+    "md": {
+     "pos": "relative",
+     "top": "-1rem",
+     "right": "1rem",
+     "bottom": "space-1",
+     "left": "auto",
+     "z": "10",
+     "scrollmt": "0"
+    },
+    "sm": {
+     "pos": "absolute",
+     "top": "space-4",
+     "right": "auto",
+     "bottom": "0",
+     "left": "-5%",
+     "z": "100",
+     "scrollmt": "80px"
+    }
+   },
+   "c": [
+    {
+     "id": "k12",
+     "t": "text",
+     "p": {
+      "text": "Style group position"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k13",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "ff": "body",
+     "fw": "700",
+     "lh": "normal",
+     "ls": "normal",
+     "tt": "uppercase",
+     "td": "underline",
+     "fst": "italic",
+     "ta": "justify"
+    },
+    "md": {
+     "ff": "heading",
+     "fw": "400",
+     "lh": "1.4",
+     "ls": "0.05em",
+     "tt": "none",
+     "td": "none",
+     "fst": "normal",
+     "ta": "left"
+    },
+    "sm": {
+     "ff": "mono",
+     "fw": "bold",
+     "lh": "tight",
+     "ls": "-1px",
+     "tt": "lowercase",
+     "td": "line-through",
+     "fst": "italic",
+     "ta": "center"
+    }
+   },
+   "c": [
+    {
+     "id": "k14",
+     "t": "text",
+     "p": {
+      "text": "Style group typography"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k15",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "bw": "1",
+     "bwt": "2",
+     "bwr": "4",
+     "bwb": "1",
+     "bwl": "2",
+     "bs": "solid",
+     "bc": "accent",
+     "rtl": "md",
+     "rtr": "sm",
+     "rbr": "lg",
+     "rbl": "full"
+    },
+    "md": {
+     "bw": "0",
+     "bwt": "1px",
+     "bwr": "10px",
+     "bwb": "0",
+     "bwl": "7.5px",
+     "bs": "dashed",
+     "bc": "#c8102e",
+     "rtl": "4px",
+     "rtr": "0",
+     "rbr": "8px",
+     "rbl": "0"
+    },
+    "sm": {
+     "bw": "2",
+     "bwt": "0",
+     "bwr": "1",
+     "bwb": "20px",
+     "bwl": "4",
+     "bs": "dotted",
+     "bc": "muted",
+     "rtl": "full",
+     "rtr": "lg",
+     "rbr": "md",
+     "rbl": "sm"
+    }
+   },
+   "c": [
+    {
+     "id": "k16",
+     "t": "text",
+     "p": {
+      "text": "Style group border"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k17",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "bgimg": "/media/a.jpg",
+     "grad": "linear-180-000-accent",
+     "bgpos": "center",
+     "bgsize": "cover",
+     "bgrep": "no-repeat",
+     "bgatt": "scroll"
+    },
+    "md": {
+     "bgimg": "/media/d/h_800.png",
+     "grad": "radial-fff-primary",
+     "bgpos": "top-left",
+     "bgsize": "contain",
+     "bgrep": "repeat",
+     "bgatt": "fixed"
+    },
+    "sm": {
+     "bgimg": "/media/x/y/z.webp",
+     "grad": "linear-0-ABCDEF-surface-muted",
+     "bgpos": "bottom",
+     "bgsize": "auto",
+     "bgrep": "repeat-x",
+     "bgatt": "scroll"
+    }
+   },
+   "c": [
+    {
+     "id": "k18",
+     "t": "text",
+     "p": {
+      "text": "Style group background"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k19",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "op": "0.5"
+    },
+    "md": {
+     "op": "1"
+    },
+    "sm": {
+     "op": "0.25"
+    }
+   },
+   "c": [
+    {
+     "id": "k20",
+     "t": "text",
+     "p": {
+      "text": "Style group effects"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k21",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "display": "flex",
+     "dir": "row-reverse",
+     "order": "-1",
+     "rgap": "space-2",
+     "cgap": "space-3",
+     "gtc": "1fr 2fr",
+     "gap": "space-1",
+     "span": "2",
+     "cs": "1",
+     "rs": "1",
+     "js": "start",
+     "ac": "start"
+    },
+    "md": {
+     "display": "block",
+     "dir": "column",
+     "order": "0",
+     "rgap": "1rem",
+     "cgap": "2rem",
+     "gtc": "auto 1fr",
+     "gap": "space-2",
+     "span": "3",
+     "cs": "13",
+     "rs": "12",
+     "js": "center",
+     "ac": "center"
+    },
+    "sm": {
+     "display": "grid",
+     "dir": "column-reverse",
+     "order": "12",
+     "rgap": "0",
+     "cgap": "0",
+     "gtc": "1fr",
+     "gap": "space-3",
+     "span": "4",
+     "cs": "5",
+     "rs": "3",
+     "js": "end",
+     "ac": "between"
+    }
+   },
+   "c": [
+    {
+     "id": "k22",
+     "t": "text",
+     "p": {
+      "text": "Style group layout"
+     }
+    }
+   ]
+  },
+  {
+   "id": "k90",
+   "t": "container",
+   "p": {
+    "tag": "section"
+   },
+   "s": {
+    "base": {
+     "tx": "4px",
+     "ty": "-4px",
+     "sc": "1.02",
+     "rot": "-2deg",
+     "skx": "3deg",
+     "sky": "-3deg",
+     "torigin": "top-left",
+     "blur": "2px",
+     "bright": "110%",
+     "contrast": "105%",
+     "sat": "120%",
+     "gray": "10%",
+     "hue": "15deg",
+     "bblur": "8px",
+     "blend": "multiply",
+     "trans": "transform-shadow",
+     "tdur": "200",
+     "tease": "ease-out",
+     "tdelay": "75"
+    },
+    "sm": {
+     "ty": "0",
+     "tdur": "100"
+    }
+   },
+   "c": [
+    {
+     "id": "k91",
+     "t": "text",
+     "p": {
+      "text": "Lifted card"
+     }
+    }
+   ]
+  }
+ ]
+}

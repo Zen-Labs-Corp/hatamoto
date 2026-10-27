@@ -1,0 +1,35 @@
+/* video: a link-first facade, an iframe once played */
+.hm-vid {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--hm-text, #111);
+}
+.hm-vid__b {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hm-bg, #fff);
+  text-decoration: none;
+}
+.hm-vid__b img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hm-vid__l {
+  position: relative;
+  padding: var(--hm-space-2, 0.5rem) var(--hm-space-4, 1rem);
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: var(--hm-radius-md, 0.5rem);
+}
+.hm-vid iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}

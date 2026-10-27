@@ -1,0 +1,15 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Comparing %s → %s" .FromLabel .ToLabel) "Description" .Name "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+{{with .Layout}}{{if .Note}}<p class="hm-muted">{{.Note}}</p>{{end}}{{if .Rows}}<div class="hm-card hm-tablecard"><div class="hm-table__scroll" role="region" aria-label="Layout changes" tabindex="0"><table class="hm-table hm-nodediff"><caption class="hm-visually-hidden">Layout changes between {{$.Data.FromLabel}} and {{$.Data.ToLabel}}</caption>
+<thead><tr><th scope="col">Layout changes</th><th scope="col">Change</th><th scope="col">Details</th><th scope="col">Restore</th></tr></thead>
+<tbody>{{$base := .BaseVersion}}{{range .Rows}}<tr><th scope="row">{{.Name}}</th><td>{{template "hm/badge" dict "Kind" .BadgeKind "Label" .OpLabel}}{{with .Where}} <span class="hm-muted">{{.}}</span>{{end}}</td><td>{{if .Detail}}<ul class="hm-nodediff__detail">{{range .Detail}}<li>{{.}}</li>{{end}}</ul>{{end}}</td>
+<td>{{if .RestoreAction}}<form method="post" action="{{.RestoreAction}}">{{template "hm/csrf" $}}<input type="hidden" name="base_version" value="{{$base}}">{{template "hm/button" dict "Type" "submit" "Size" "sm" "Label" .RestoreLabel}}</form>{{end}}</td></tr>
+{{end}}</tbody></table></div></div>
+{{if .More}}<p class="hm-muted">and {{.More}} more {{if eq .More 1}}change{{else}}changes{{end}}.</p>{{end}}{{end}}{{end}}{{if .Identical}}{{template "hm/empty" dict "Icon" "check" "Title" "No differences" "Body" "These two versions have the same content."}}
+{{else if .Rows}}<div class="hm-card hm-tablecard"><div class="hm-table__scroll" role="region" aria-label="Differences" tabindex="0"><table class="hm-table hm-diff"><caption class="hm-visually-hidden">Differences between {{.FromLabel}} and {{.ToLabel}}</caption>
+<thead><tr><th scope="col">Field</th><th scope="col">{{.FromLabel}}</th><th scope="col">{{.ToLabel}}</th><th scope="col">Change</th></tr></thead>
+<tbody>{{range .Rows}}<tr class="hm-diff__row hm-diff__row--{{.Kind}}"><th scope="row" class="hm-diff__field"><code>{{.Path}}</code></th><td><pre class="hm-diff__value">{{.Left}}</pre></td><td><pre class="hm-diff__value">{{.Right}}</pre></td><td>{{template "hm/badge" dict "Kind" .BadgeKind "Label" .OpLabel}}</td></tr>
+{{end}}</tbody></table></div></div>
+{{if .Same}}<p class="hm-muted">{{.Same}} unchanged {{if eq .Same 1}}field is{{else}}fields are{{end}} not shown.</p>{{end}}{{end}}
+{{end}}{{end}}

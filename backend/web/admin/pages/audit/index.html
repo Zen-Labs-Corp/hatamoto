@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Audit log" "Description" "Who changed what in the admin, newest first." "CSRF" $.CSRF}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

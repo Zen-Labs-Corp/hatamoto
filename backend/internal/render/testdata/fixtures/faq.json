@@ -1,0 +1,11 @@
+{
+  "type": "faq",
+  "id": "sec-faq",
+  "content": {
+    "headline": "Questions we hear a lot",
+    "items": [
+      {"question": "Is it open source?", "answer": "<p>Yes, <strong>fully</strong>.</p><script>alert(1)</script>"},
+      {"question": "Can I self-host <it>?", "answer": "<p>Yes, a single binary.</p>"}
+    ]
+  }
+}

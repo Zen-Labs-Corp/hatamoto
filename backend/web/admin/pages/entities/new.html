@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "New entity" "Description" "Choose what kind of content to create." "CSRF" $.CSRF}}
+{{if .Choices}}<ul class="hm-choices" role="list">
+{{range .Choices}}<li class="hm-card hm-choice">{{if .Draft}}<form method="post" action="{{adminPath}}/entities/drafts">{{template "hm/csrf" $}}<input type="hidden" name="type" value="{{.Slug}}"><button class="hm-choice__link" type="submit"><span class="hm-choice__head"><span class="hm-choice__icon" aria-hidden="true">{{icon .Icon}}</span><span class="hm-choice__name">{{.Name}}</span></span>{{if .Description}}<span class="hm-muted">{{.Description}}</span>{{end}}</button></form>{{else}}<a class="hm-choice__link" href="{{.Href}}"><span class="hm-choice__head"><span class="hm-choice__icon" aria-hidden="true">{{icon .Icon}}</span><span class="hm-choice__name">{{.Name}}</span></span>{{if .Description}}<span class="hm-muted">{{.Description}}</span>{{end}}</a>{{end}}</li>
+{{end}}</ul>
+{{else}}{{template "hm/empty" .Empty}}{{end}}
+{{end}}{{end}}

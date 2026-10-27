@@ -1,0 +1,39 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<p class="hm-muted">A preset is a named set of styles. Blocks use it by name in the page editor, so changing a preset restyles every page that uses it, with no page saved again. Leave a setting empty to not set it.</p>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Presets}}<form method="post" action="{{adminPath}}/theme/presets" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{range $p := .Presets}}{{template "hm/card-start" dict "ID" (printf "preset-%s" $p.Name) "Title" $p.Label "Description" (printf "%s · %s" $p.Name $p.SetLine)}}
+<details{{if $p.Open}} open{{end}}><summary>Edit styles</summary>
+{{if $p.StateNote}}<p class="hm-muted">{{$p.StateNote}}</p>
+{{end}}{{template "hm/field" dict "ID" $p.LabelField.ID "Name" $p.LabelField.Name "Label" $p.LabelField.Label "Value" $p.LabelField.Value "Error" $p.LabelField.Error}}
+{{range $g := $p.Groups}}<fieldset class="hm-field__group"><legend><h3>{{$g.Title}}</h3></legend>
+{{range $f := $g.Fields}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Value" $f.Value "Error" $f.Error "Attrs" (attrmap "list" $f.ListID)}}
+{{end}}</fieldset>
+{{end}}<fieldset class="hm-field__group"><legend><h3>Add a setting</h3></legend>
+{{template "hm/field" dict "ID" $p.AddKey.ID "Name" $p.AddKey.Name "Label" $p.AddKey.Label "Control" "select" "Options" $p.AddKeyOpts "Error" $p.AddKey.Error}}
+{{range $f := $p.AddValues}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Value" $f.Value "Error" $f.Error}}
+{{end}}</fieldset></details>
+{{template "hm/card-foot"}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete preset" "Variant" "danger-text" "Href" $p.DeleteHref}}</span>
+{{template "hm/card-foot-end"}}
+{{end}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Save presets" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>{{else}}{{template "hm/empty" (dict "Title" "No presets yet" "Body" "Add the first one below." "Compact" true)}}{{end}}
+<form method="post" action="{{adminPath}}/theme/presets/new" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "preset-add" "Title" "Add a preset" "Description" "Start with one setting; you can add more after it is created."}}
+{{template "hm/field" dict "ID" .NewName.ID "Name" .NewName.Name "Label" .NewName.Label "Value" .NewName.Value "Required" true "Help" "Lowercase letters, digits and hyphens, for example: card." "Error" .NewName.Error}}
+{{template "hm/field" dict "ID" .NewLabel.ID "Name" .NewLabel.Name "Label" .NewLabel.Label "Value" .NewLabel.Value "Error" .NewLabel.Error}}
+{{template "hm/field" dict "ID" "new-key" "Name" "new_key" "Label" "Setting" "Control" "select" "Options" .NewKey}}
+{{template "hm/field" dict "ID" .NewValue.ID "Name" .NewValue.Name "Label" .NewValue.Label "Value" .NewValue.Value "Required" true "Help" "A token such as space-4, or a size like 1rem or a #hex colour." "Error" .NewValue.Error}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Add preset" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+{{range $l := .Lists}}<datalist id="{{$l.ID}}">{{range $o := $l.Options}}<option value="{{$o}}"></option>{{end}}</datalist>
+{{end}}
+{{end}}{{end}}

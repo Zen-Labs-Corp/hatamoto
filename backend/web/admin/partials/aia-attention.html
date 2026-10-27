@@ -1,0 +1,3 @@
+{{/* hm/aia-attention: the "Needs attention" strip, built on the stat card. Data: []ui.AiaAttention, already ranked. The action is a link, so it works without JavaScript. */}}
+{{define "hm/aia-attention"}}<ul class="hm-statgrid hm-statgrid--strip">{{range .}}<li class="hm-statcard hm-statcard--attention">{{template "hm/badge" .Badge}}<p class="hm-statcard__value">{{.Count}}</p><p class="hm-statcard__label">{{.Text}}</p>{{if .Rate}}<p class="hm-statcard__note hm-muted">{{.Rate}}</p>{{end}}{{if .Note}}<p class="hm-statcard__note hm-muted">{{.Note}}</p>{{end}}
+{{if and .Sev .Href}}<span class="hm-statcard__action">{{template "hm/button" (dict "Label" .Action "Href" .Href "Size" "sm")}}</span>{{end}}</li>{{end}}</ul>{{end}}

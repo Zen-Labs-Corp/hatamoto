@@ -1,0 +1,242 @@
+/* Default theme base styles. Brand-neutral; values from the ht-tokens palette.
+   theme_config overrides arrive as --hm-* custom properties on :root. */
+/* Fonts are self-hosted (SIL OFL 1.1, see fonts/OFL.txt); no third-party requests. */
+@font-face { font-family: "Geist"; src: url("/theme/assets/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/theme/assets/fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+
+:root {
+  /* shiro / sumi palette. Colour is scarce: shu (red) is only the mark and the primary CTA. */
+  --hm-shu: #c23b22;
+  --hm-shu-dark: #a02f1a;
+  --hm-sumi: #141417;
+  --hm-hai: #66666c;
+  --hm-label: #6e6e73;
+  --hm-hair: #e6e6e6;
+  --hm-shiro: #fafaf8;
+  --hm-kinu: #e4e3de;
+  --hm-kasumi: #f4f3ef;
+  --hm-sumi-soft: #2a2a2f;
+
+  --ht-fg: var(--hm-text);
+  --ht-fg-muted: var(--hm-hai);
+  --ht-line: var(--hm-hair);
+  --ht-surface: var(--hm-bg);
+  --ht-surface-2: var(--hm-shiro);
+
+  /* theme_config overrides land on these. --hm-primary colours the primary CTA only. */
+  --hm-primary: var(--hm-shu);
+  --hm-bg: #ffffff;
+  --hm-text: var(--hm-sumi);
+  --hm-font: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --hm-font-heading: var(--hm-font);
+  --hm-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --hm-font-kanji: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "Meiryo", sans-serif;
+  --hm-radius-sm: 6px;
+  --hm-radius-md: 10px;
+  --hm-radius-lg: 16px;
+  --hm-container: 75rem;
+  --color-brand: var(--hm-primary);
+  --hm-focus: var(--hm-sumi);
+  color-scheme: light;
+}
+
+/* Dark mode is opt-in: light is the default whatever the OS prefers, and the
+   header toggle sets data-theme="dark" on <html> (remembered in localStorage).
+   The inline token style only carries values the owner chose (never the stock
+   defaults), so a site that sets its own background or text colour wins here by
+   being emitted after this sheet. */
+:root[data-theme="dark"] {
+  --hm-sumi: #ececea;
+  --hm-sumi-soft: #d4d4d0;
+  --hm-hai: #a3a3a8;
+  --hm-label: #8a8a90;
+  --hm-hair: #2c2c31;
+  --hm-shiro: #1b1b1f;
+  --hm-kinu: #2f2f35;
+  --hm-kasumi: #1e1e22;
+  --hm-bg: #111114;
+  --hm-focus: #fafaf8;
+  --ht-surface-2: var(--hm-shiro);
+  color-scheme: dark;
+}
+[data-theme="dark"] .hm-tok--k { color: #b9a6f0; }
+[data-theme="dark"] .hm-tok--s { color: #8fcf9d; }
+[data-theme="dark"] .hm-tok--c { color: #77777e; }
+[data-theme="dark"] .hm-cta--dark { background: #26262b; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; /* short pages keep the footer at the bottom */
+  margin: 0;
+  overflow-x: clip; /* alignfull/alignwide use 100vw, which includes a classic scrollbar */
+  background: var(--hm-bg);
+  color: var(--hm-text);
+  font-family: var(--hm-font);
+  font-size: 1rem;
+  line-height: 1.6;
+  font-kerning: normal;
+  font-feature-settings: "rlig" 1, "calt" 0, "ss11" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-family: var(--hm-font-heading); font-weight: 450; line-height: 1.15; letter-spacing: -0.04em; margin: 0 0 0.5em; text-wrap: balance; }
+h1 { font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.02; letter-spacing: -0.06em; }
+h2 { font-size: clamp(1.875rem, 3vw, 2.5rem); line-height: 1.12; }
+h3 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; line-height: 1.25; }
+p { margin: 0 0 1em; text-wrap: pretty; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+:focus-visible { outline: 2px solid var(--hm-focus); outline-offset: 3px; border-radius: 2px; }
+code, kbd, pre, samp { font-family: var(--hm-font-mono); }
+img, svg, video { max-width: 100%; height: auto; }
+
+.hm-container { width: 100%; max-width: var(--hm-container); margin: 0 auto; padding: 0 1.5rem; }
+
+.hm-skip {
+  position: absolute; left: -999px; top: 0; z-index: 100;
+  background: var(--ht-fg); color: var(--hm-bg); padding: 0.5rem 1rem;
+}
+.hm-skip:focus { left: 0.5rem; top: 0.5rem; }
+main { flex: 1 0 auto; }
+main:focus { outline: none; } /* focus target of the skip link, not a control */
+.hm-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Sections: hairline separated bands. */
+.hm-section { padding: clamp(4rem, 8vw, 7rem) 0; border-top: 1px solid var(--hm-hair); }
+.hm-section:first-child { border-top: 0; }
+
+/* Buttons: pill, shu fill for the primary CTA, hairline outline for the rest. */
+.hm-btn {
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; padding: 0 1.1rem; border-radius: 999px;
+  background: var(--hm-primary); color: #fff; text-decoration: none; font-size: 0.875rem; font-weight: 500; line-height: 1.2;
+  border: 1px solid var(--hm-primary); transition: background 0.15s, border-color 0.15s, filter 0.15s;
+}
+.hm-btn:hover { filter: brightness(0.88); }
+
+/* Header + nav */
+.hm-header {
+  position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--hm-hair);
+  background: color-mix(in srgb, var(--hm-bg) 92%, transparent); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px);
+}
+.hm-header__inner { display: flex; align-items: center; gap: 1.5rem; height: 4rem; }
+.hm-logo { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.65rem; color: var(--hm-text); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; text-decoration: none; }
+.hm-logo__mark { font-family: var(--hm-font-kanji); font-weight: 700; font-size: 1.25rem; letter-spacing: 0.04em; text-transform: none; color: var(--hm-shu); }
+.hm-logo img { display: block; }
+.hm-nav-wrap { margin-left: auto; }
+.hm-nav { position: relative; font-size: 0.875rem; }
+.hm-nav__toggle { cursor: pointer; list-style: none; padding: 0.4rem 0.2rem; font-weight: 500; color: var(--hm-hai); }
+.hm-nav__toggle::-webkit-details-marker { display: none; }
+.hm-nav__list, .hm-nav__sub { list-style: none; margin: 0; padding: 0; }
+.hm-nav__list {
+  position: absolute; right: 0; top: 100%; min-width: 14rem; z-index: 50;
+  background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.5rem;
+}
+.hm-nav__list a { display: block; padding: 0.35rem 0.5rem; color: var(--hm-hai); text-decoration: none; }
+.hm-nav__list a:hover { color: var(--hm-text); background: var(--ht-surface-2); border-radius: var(--hm-radius-sm); }
+.hm-nav__sub { padding-left: 0.75rem; }
+.hm-nav__toggle:focus-visible { outline: 2px solid var(--hm-focus); outline-offset: 2px; }
+/* Mobile: a scrim behind the open menu. The header's backdrop-filter makes it the
+   containing block of fixed children, so this covers the viewport only while the
+   sticky header is at the top, which it always is. z-index -1 keeps it under the header content. */
+@media (max-width: 47.99rem) {
+  .hm-nav[open]::before { content: ""; position: fixed; z-index: -1; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.35); }
+}
+.hm-nav a[aria-current="page"], .hm-footer a[aria-current="page"] { color: var(--hm-text); font-weight: 500; }
+
+@media (min-width: 48rem) {
+  .hm-nav > summary { display: none; }
+  .hm-nav::details-content { content-visibility: visible; display: contents; } /* no-JS: list shows without [open] */
+  .hm-nav > .hm-nav__list { display: flex; }
+  .hm-nav > .hm-nav__list {
+    position: static; border: 0; padding: 0; min-width: 0; background: transparent; gap: 1.75rem; align-items: center;
+  }
+  .hm-header__cta { min-height: 2.125rem; padding: 0 0.9rem; font-size: 0.8125rem; }
+  .hm-nav__list > li { position: relative; }
+  .hm-nav__sub {
+    display: none; position: absolute; left: 0; top: 100%; min-width: 12rem; padding: 0.5rem;
+    background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md);
+  }
+  .hm-nav__list > li:hover > .hm-nav__sub, .hm-nav__list > li:focus-within > .hm-nav__sub { display: block; }
+}
+
+/* Footer */
+.hm-footer { border-top: 1px solid var(--hm-hair); background: var(--hm-bg); padding: 3rem 0 2.25rem; color: var(--hm-hai); font-size: 0.8125rem; }
+.hm-footer a { color: var(--hm-hai); text-decoration: none; }
+.hm-footer a:hover { color: var(--hm-text); }
+.hm-footer__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+.hm-footer__title { color: var(--hm-text); font-weight: 500; margin-bottom: 0.5rem; }
+.hm-footer ul { list-style: none; margin: 0; padding: 0; }
+.hm-footer li { margin: 0.25rem 0; }
+.hm-social { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem !important; }
+.hm-footer__legal { margin: 0; }
+
+/* Errors */
+.hm-error { padding: 6rem 0; text-align: center; }
+.hm-error__code { font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 0.5rem; }
+
+/* Sanitised html / rich-text bodies */
+.hm-html-body { line-height: 1.7; }
+.hm-html-body > :first-child { margin-top: 0; }
+.hm-html-body > :last-child { margin-bottom: 0; }
+.hm-html-body h2 { margin-top: 2em; }
+.hm-html-body h3 { margin-top: 1.5em; }
+.hm-html-body ul, .hm-html-body ol { padding-left: 1.4em; margin: 0 0 1em; }
+.hm-html-body li { margin: 0.25em 0; }
+.hm-html-body blockquote { margin: 1.5em 0; padding: 0 1em; border-left: 3px solid var(--ht-line); color: var(--ht-fg-muted); }
+.hm-html-body pre, .hm-html-body code { font-family: var(--hm-font-mono); font-size: 0.9em; }
+.hm-html-body pre { background: var(--ht-surface-2); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 1rem; overflow-x: auto; }
+.hm-html-body :not(pre) > code { background: var(--ht-surface-2); padding: 0.1em 0.35em; border-radius: var(--hm-radius-sm); }
+.hm-html-body table { border-collapse: collapse; width: 100%; margin: 1.5em 0; }
+.hm-html-body th, .hm-html-body td { border: 1px solid var(--ht-line); padding: 0.5rem 0.75rem; text-align: left; }
+.hm-html-body details { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.hm-html-body summary { cursor: pointer; font-weight: 600; }
+.hm-html-body hr { border: 0; border-top: 1px solid var(--ht-line); margin: 2em 0; }
+.hm-html-body img { border-radius: var(--hm-radius-md); }
+
+.hm-prose, .hm-html-body { color: var(--hm-hai); }
+
+/* Light/dark toggle in the header: invisible until the head script wires it up. It keeps its box meanwhile
+   (visibility, not display), so showing it does not push the nav sideways (layout shift). */
+.hm-theme-toggle {
+  flex: none; display: inline-grid; place-items: center; width: 2.125rem; height: 2.125rem; padding: 0;
+  border: 1px solid var(--hm-hair); border-radius: 999px; background: transparent; color: var(--hm-hai); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.hm-theme-toggle[hidden] { display: inline-grid; visibility: hidden; }
+.hm-theme-toggle:hover { color: var(--hm-text); border-color: var(--hm-text); }
+.hm-theme-toggle:focus-visible { outline: 2px solid var(--hm-focus); outline-offset: 2px; }
+.hm-theme-toggle svg { width: 1rem; height: 1rem; }
+.hm-theme-toggle__sun, [data-theme="dark"] .hm-theme-toggle__moon { display: none; }
+[data-theme="dark"] .hm-theme-toggle__sun { display: block; }
+
+@media (max-width: 47.99rem) {
+  .hm-header__inner { gap: 0.75rem; }
+  .hm-logo { letter-spacing: 0.18em; gap: 0.5rem; }
+}
+
+/* Shared section partials: section-head, code-panel. */
+.hm-section-head { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem 4rem; align-items: end; margin-bottom: 3rem; }
+.hm-section-head__eyebrow { margin: 0 0 1rem; font-family: var(--hm-font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-section-head__heading { margin: 0; font-size: clamp(1.75rem, 3.4vw, 2.75rem); }
+.hm-section-head__subheading { margin: 0; color: var(--hm-hai); font-size: 1.0625rem; line-height: 1.6; }
+.hm-frame { min-width: 0; max-width: 100%; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-lg); background: var(--hm-kasumi); overflow: hidden; }
+.hm-frame__bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1rem; border-bottom: 1px solid var(--hm-hair); background: var(--hm-shiro); font-family: var(--hm-font-mono); font-size: 0.75rem; color: var(--hm-hai); }
+.hm-frame__dots { display: inline-flex; gap: 0.35rem; }
+.hm-frame__dots i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--hm-kinu); }
+.hm-frame__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--hm-text); }
+.hm-frame__meta { flex-shrink: 0; margin-left: auto; white-space: nowrap; color: var(--hm-label); }
+.hm-frame .hm-code { max-width: 100%; } /* long lines scroll inside the card instead of being clipped */
+.hm-code { margin: 0; padding: 1.25rem; overflow-x: auto; font-size: 0.8125rem; line-height: 1.65; color: var(--hm-sumi-soft); tab-size: 2; }
+.hm-code code { font-family: inherit; white-space: pre; }
+.hm-tok--k { color: #5b4a8a; }
+.hm-tok--s { color: #3f6e4a; }
+.hm-tok--c { color: #9a9a9f; }
+.hm-outs { display: flex; flex-wrap: wrap; gap: 1px; margin: 1rem 0 0; background: var(--hm-hair); border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-md); overflow: hidden; }
+.hm-outs > div { flex: 1 1 8rem; padding: 0.75rem 1rem; background: var(--hm-bg); }
+.hm-outs dt { font-family: var(--hm-font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hm-label); }
+.hm-outs dd { margin: 0.25rem 0 0; font-size: 0.9375rem; }
+@media (max-width: 960px) { .hm-section-head { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; } }

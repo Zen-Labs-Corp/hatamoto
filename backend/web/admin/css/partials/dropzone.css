@@ -1,0 +1,13 @@
+/* Dropzone. Token values only; the contract is components.json. Neutral at rest, accent only while dragging over or focused. */
+.hm-dropzone {
+  border: 2px dashed var(--border-control); border-radius: var(--radius-md); padding: var(--space-6) var(--space-4);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2);
+  cursor: pointer; color: var(--text-body); font-size: var(--text-sm);
+}
+.hm-dropzone--compact { padding: var(--space-3) var(--space-4); }
+.hm-dropzone:focus-within { border-color: var(--color-accent); outline: var(--focus-ring); outline-offset: 2px; }
+.hm-dropzone--over { border-color: var(--color-accent); background: var(--color-accent-soft); }
+.hm-dropzone__files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-dropzone__files:empty { display: none; }
+.hm-dropzone__file { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+.hm-dropzone__file span:first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }

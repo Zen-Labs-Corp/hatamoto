@@ -1,0 +1,13 @@
+{{define "content"}}<div class="hm-container hm-listing">
+<header class="hm-listing__header">
+<h1 class="hm-listing__title">Search</h1>
+<form class="hm-search" role="search" action="/search" method="get">
+<label class="hm-visually-hidden" for="hm-search-q">Search the site</label>
+<input id="hm-search-q" class="hm-search__input" type="search" name="q" value="{{.Query}}" placeholder="Search" autocomplete="off">
+{{with .SearchType}}<input type="hidden" name="type" value="{{.}}">
+{{end}}<button class="hm-btn" type="submit">Search</button>
+</form>
+{{if .Query}}{{with .Pagination}}{{if gt .Total 0}}<p class="hm-listing__lede" role="status">{{.Total}} {{if eq .Total 1}}result{{else}}results{{end}} for &ldquo;{{$.Query}}&rdquo;</p>
+{{end}}{{end}}{{end}}</header>
+{{if .Query}}{{template "post-list" .}}{{else}}<p class="hm-empty">Type a word or phrase to search.</p>{{end}}
+</div>{{end}}

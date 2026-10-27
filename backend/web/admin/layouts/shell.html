@@ -1,0 +1,32 @@
+{{define "layouts/shell"}}<!doctype html>
+<html lang="{{.Lang}}" data-admin-theme="{{.Theme}}">
+<head>
+{{template "layouts/head" .}}
+<script type="speculationrules" nonce="{{.Nonce}}">{{.SpeculationRules}}</script>
+{{if .Refresh}}<noscript><meta http-equiv="refresh" content="{{.Refresh}}"></noscript>{{end}}
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<div class="hm-shell">
+{{template "hm/sidebar" .}}
+<div class="hm-shell__main">
+<div class="hm-topbar">{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "panel-left" "AriaLabel" "Toggle sidebar" "Attrs" (attrmap "data-hm-sidebar-toggle" "" "hidden" "" "aria-expanded" "true" "aria-controls" "hm-sidebar"))}}<span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="{{adminPath}}">Home</a></li>{{if .Crumbs}}{{$last := sub (len .Crumbs) 1}}{{range $i, $c := .Crumbs}}{{if eq $i $last}}<li aria-current="page">{{$c.Label}}</li>{{else if $c.Href}}<li><a href="{{$c.Href}}">{{$c.Label}}</a></li>{{else}}<li>{{$c.Label}}</li>{{end}}{{end}}{{else}}{{range .Nav}}{{if .Current}}{{if ne .Label $.Title}}<li><a href="{{.Href}}">{{.Label}}</a></li>{{end}}{{end}}{{end}}{{if .Title}}<li aria-current="page">{{.Title}}</li>{{end}}{{end}}</ol></nav>{{with .UpdateChip}}{{template "hm/updatechip" .}}{{end}}</div>
+<main id="hm-main" class="hm-content">{{if .DemoBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{.DemoBanner}}{{template "hm/callout-end"}}{{end}}
+{{if and .User (streq .User.Role "owner") (or .SetupPending .NoSiteAddress .UpdateBanner .AddressBanner)}}<div class="hm-notices">
+{{if and .SetupPending .User (streq .User.Role "owner")}}{{template "hm/callout-start" (dict "Kind" "info" "Compact" true "DismissKey" "setup-pending")}}Setup is not finished. <a href="{{adminPath}}/setup/site">Continue setting up your site</a>.{{template "hm/callout-end"}}{{end}}
+{{if and .NoSiteAddress .User (streq .User.Role "owner")}}{{template "hm/callout-start" (dict "Kind" "info" "Compact" true "DismissKey" "site-address")}}Set your site address so password-reset and invitation emails can be sent. <a href="{{adminPath}}/settings/general#identity">Open site settings</a>.{{template "hm/callout-end"}}{{end}}
+{{if and .UpdateBanner .User (streq .User.Role "owner")}}{{template "hm/callout-start" (dict "Kind" .UpdateBanner.CalloutKind "Compact" true "DismissKey" .UpdateBanner.DismissKey "Attrs" (attrmap "data-hm-update-banner" .UpdateBanner.Kind))}}{{.UpdateBanner.Message}} <a href="{{.UpdateBanner.Href}}">{{.UpdateBanner.Label}} ›</a>{{template "hm/callout-end"}}{{end}}{{if and .AddressBanner .User (streq .User.Role "owner")}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true "Attrs" (attrmap "data-hm-address-banner" ""))}}Your admin is at {{.AddressBanner.Path}}, the first address bots try. {{template "hm/button" (dict "Label" "Choose a private address" "Size" "sm" "Href" .AddressBanner.ChooseHref)}} {{template "hm/button" (dict "Label" .AddressBanner.KeepLabel "Size" "sm" "Href" .AddressBanner.KeepHref)}}{{template "hm/callout-end"}}{{end}}
+</div>{{end}}
+{{if .HasSubnav}}<div class="hm-settings">
+{{if .AreaNav}}{{template "hm/areanav" .}}{{else if .EntitiesNav}}{{template "hm/entitiesnav" .}}{{else}}{{template "hm/pluginsnav" .}}{{end}}
+{{end}}<div class="hm-page" data-width="{{.Width}}">
+{{template "hm/flash" .Flash}}
+{{template "main" .}}
+</div>
+{{if .HasSubnav}}</div>
+{{end}}</main>
+</div>
+</div>
+{{template "layouts/toasts" .}}
+</body>
+</html>{{end}}

@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Start a new %s" .Noun) "Description" "A draft opens in the editor. Nothing is published." "CSRF" $.CSRF}}
+<form method="post" action="{{adminPath}}/entities/drafts" class="hm-stack">
+{{template "hm/csrf" dict "CSRF" $.CSRF}}<input type="hidden" name="type" value="{{.Type}}">
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "entities")}}{{template "hm/button" dict "Label" (printf "Start a new %s" .Noun) "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

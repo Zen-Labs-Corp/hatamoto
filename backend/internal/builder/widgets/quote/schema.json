@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Quote",
+    "hint": "A pull quote with its source",
+    "group": "Content",
+    "order": 25,
+    "default": {"text": "A memorable line."}
+  },
+  "properties": {
+    "text": {"x-hm-bind": "text", "type": "string", "maxLength": 5000, "x-hm-widget": "textarea"},
+    "cite": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "role": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "hidden": {"type": "boolean"}
+  }
+}

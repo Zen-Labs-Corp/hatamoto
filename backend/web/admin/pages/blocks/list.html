@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Primary" .Primary}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

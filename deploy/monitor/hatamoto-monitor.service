@@ -1,0 +1,8 @@
+[Unit]
+Description=Hatamoto public endpoint check (channels, registry, go-import, security.txt)
+
+[Service]
+Type=oneshot
+# Optional BASE_URL, ALERT_WEBHOOK_URL, HEALTHCHECK_URL, EXPIRY_DAYS (see check.sh).
+EnvironmentFile=-%E/hatamoto/monitor.env
+ExecStart=/usr/local/bin/hatamoto-monitor

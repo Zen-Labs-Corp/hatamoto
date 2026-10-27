@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="{{default "en" .Site.Language}}" data-hm-contract="1"{{if .Preview}} data-hm-preview="true"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{template "head" .Head}}
+<link rel="stylesheet" href="{{.CSSHref}}">
+{{if .Tokens.Any}}<style>:root{ {{with .Tokens.Primary}}--hm-primary:{{.}};{{end}}{{with .Tokens.Background}}--hm-bg:{{.}};{{end}}{{with .Tokens.Text}}--hm-text:{{.}};{{end}}{{with .Tokens.Font}}--hm-font:{{.}};{{end}}{{with .Tokens.FontHeading}}--hm-font-heading:{{.}};{{end}}{{with .Tokens.RadiusSm}}--hm-radius-sm:{{.}};{{end}}{{with .Tokens.RadiusMd}}--hm-radius-md:{{.}};{{end}}{{with .Tokens.RadiusLg}}--hm-radius-lg:{{.}};{{end}} }</style>
+{{end}}{{template "plugin-head" .}}</head>
+<body>
+<a class="hm-skip" href="#main-content">Skip to content</a>
+{{template "header" .}}
+<main id="main-content" tabindex="-1"{{with .EntityID}} {{hment .}}{{end}}>
+{{template "content" .}}
+</main>
+{{template "footer" .}}
+{{template "scripts" .}}
+{{template "plugin-body" .}}</body>
+</html>

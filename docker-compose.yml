@@ -1,0 +1,59 @@
+# Local/demo stack for hatamoto core (single-tenant, core-only OSS build).
+# `docker compose up` boots db -> hatamoto (migrates, generates secrets, serves
+# the site and the admin on :8090). Open http://localhost:8090/admin and enter
+# the setup code printed in `docker compose logs hatamoto`.
+# Not a production topology — see README "Production hardening".
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hatamoto
+      # Local-demo default only — change this for any real/internet-facing
+      # deploy. The compose stack is not a production topology (see README
+      # "Production hardening").
+      POSTGRES_PASSWORD: hatamoto
+      POSTGRES_DB: hatamoto
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hatamoto"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      # Bound to localhost only — do not publish on 0.0.0.0 with this
+      # default password on any internet-facing host.
+      - "127.0.0.1:5432:5432"
+
+  hatamoto:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://hatamoto:hatamoto@db:5432/hatamoto?sslmode=disable
+      API_HOST: 0.0.0.0
+      API_PORT: 8090
+      CSP_ENFORCE: "false"
+      SECURITY_HEADERS_DISABLED: "false"
+    # The supervisor is PID 1: if it ever exits, Docker brings it back.
+    restart: unless-stopped
+    # The supervisor stops the app within 40 s; leave it room.
+    stop_grace_period: 45s
+    volumes:
+      # /data is the data dir (HATAMOTO_DATA): the releases the supervisor
+      # manages live there. The secrets keep their own volume, nested at
+      # /data/secrets, exactly where older stacks mounted it, so pulling this
+      # file and running `up` keeps the server secret. Do not drop it.
+      - data:/data
+      - secrets:/data/secrets
+      - uploads:/app/uploads
+    ports:
+      - "8090:8090"
+
+volumes:
+  pgdata:
+  secrets:
+  uploads:
+  data:

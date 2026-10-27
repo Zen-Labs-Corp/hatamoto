@@ -1,0 +1,21 @@
+{
+  "type": "plugin_directory", "id": "sec-plugin-directory", "title": "Plugins",
+  "content": {
+    "eyebrow": "Plugins",
+    "heading": "Plugins",
+    "intro": "Extend your site. Every plugin here was reviewed and signed.",
+    "writeUrl": "https://example.org/docs/writing-plugins",
+    "submitUrl": "http://example.org/not-https",
+    "installHint": "Install: Admin > Plugins > Browse registry",
+    "showSearch": true
+  },
+  "plugin_directory": {
+    "State": "ok",
+    "Cards": [
+      {"Name": "alpha", "Title": "Alpha Analytics", "Version": "v1.2.0", "Tier": "first-party", "TierLabel": "First-party", "Description": "Privacy friendly page statistics.", "Permissions": ["db", "kv"], "Source": "https://example.org/alpha", "Search": "alpha analytics alpha privacy friendly page statistics."},
+      {"Name": "beta", "Version": "v0.3.0", "Tier": "community", "TierLabel": "Community", "Author": "acme", "Description": "Adds <script>alert(1)</script> & \"quotes\" to pages.", "Permissions": ["settings"], "Source": "https://example.org/beta", "Search": "beta adds <script>alert(1)</script> & \"quotes\" to pages."},
+      {"Name": "gamma", "Title": "Gamma", "Version": "v2.0.0", "Tier": "community", "TierLabel": "Community", "Author": "carol", "Description": "Source is not https, so no link.", "Source": "http://example.org/gamma", "Search": "gamma gamma source is not https, so no link."},
+      {"Name": "delta", "Title": "Delta", "Version": "v1.0.0", "Tier": "first-party", "TierLabel": "First-party", "Description": "Hostile source scheme.", "Source": "javascript:alert(1)", "Search": "delta delta hostile source scheme."}
+    ]
+  }
+}

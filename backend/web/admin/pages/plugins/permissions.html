@@ -1,0 +1,24 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{template "hm/pluginhead" .}}
+{{with .Data}}{{$p := .Plugin}}
+{{template "hm/card-start" dict "ID" "hooks-card" "Title" "Hooks" "Heading" "h2"}}{{if $p.Hooks}}<ul class="hm-badgelist" role="list">{{range $p.Hooks}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{else}}<p class="hm-muted">It handles no hooks.</p>{{end}}{{template "hm/card-end"}}
+{{if .Perms}}<form method="post" action="{{adminPath}}/plugins/{{$p.Name}}/grant" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "Title" "Permissions" "ID" "perm-card" "Heading" "h2"}}{{with .Granted}}{{template "hm/progress" .}}{{end}}
+<fieldset class="hm-field__group"><legend class="hm-visually-hidden">Permissions for {{$p.Name}}</legend>
+{{range $i, $perm := .Perms}}<label class="hm-field__check" for="perm-{{$p.Name}}-{{$i}}"><input class="hm-field__box" type="checkbox" id="perm-{{$p.Name}}-{{$i}}" name="permission" value="{{$perm.Name}}"{{if $perm.Granted}} checked{{end}}{{if $perm.Refused}} disabled{{end}}><span><code>{{$perm.Name}}</code>{{if $perm.Help}}: {{$perm.Help}}{{end}}{{if $perm.Refused}} <span class="hm-muted">Not allowed for community plugins</span>{{end}}</span></label>
+{{end}}</fieldset>
+{{template "hm/card-foot"}}<span class="hm-muted hm-card__foot-note">{{if .Askable}}{{.GrantedCount}} of {{.Askable}} allowed. Nothing is allowed until you tick it.{{else}}Community plugins cannot use these permissions yet.{{end}}</span>{{template "hm/button" dict "Label" "Save permissions" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>
+{{else}}{{template "hm/card-start" dict "ID" "perm-card" "Title" "Permissions" "Heading" "h2"}}<p class="hm-muted">It asks for no permissions.</p>{{template "hm/card-end"}}{{end}}
+{{if $p.AllowedHosts}}{{template "hm/card-start" dict "ID" "hosts-card" "Title" "Web addresses it may call" "Heading" "h2"}}<ul role="list" class="hm-badgelist">{{range $p.AllowedHosts}}{{if ne . "*"}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}{{end}}</ul>
+{{range $p.AllowedHosts}}{{if eq . "*"}}{{template "hm/callout" (dict "Kind" "warning" "Title" "Any public web address (ports 80 and 443)" "Body" "It may call every public web address, not a short list.")}}{{end}}{{end}}{{template "hm/card-end"}}{{end}}
+{{if $p.Routes}}{{template "hm/card-start" dict "ID" "routes-card" "Title" "Pages and endpoints it adds" "Heading" "h2"}}<ul class="hm-badgelist" role="list">{{range $p.Routes}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{if $p.Cron}}{{template "hm/card-start" dict "ID" "cron-card" "Title" "Scheduled jobs" "Heading" "h2"}}<ul class="hm-badgelist" role="list">{{range $p.Cron}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{if $p.Cookies}}{{template "hm/card-start" dict "ID" "cookies-card" "Title" "Cookies it may set" "Heading" "h2"}}<ul class="hm-badgelist" role="list">{{range $p.Cookies}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{if $p.Funcs}}{{template "hm/card-start" dict "ID" "funcs-card" "Title" "Template functions" "Heading" "h2"}}<ul class="hm-badgelist" role="list">{{range $p.Funcs}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{with $p.Package}}{{template "hm/card-start" dict "ID" "package-card" "Title" "Package" "Heading" "h2"}}
+{{if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not loaded" "Body" (printf "%s The package is kept, not deleted." .Blocked))}}{{end}}
+{{if .Uninstalling}}{{template "hm/callout" (dict "Kind" "danger" "Title" "An uninstall did not finish." "Body" "The plugin is off. Use Uninstall to finish it.")}}{{end}}
+<p class="hm-muted">{{if .Signed}}Signed by <code>{{.Signer}}</code>.{{else}}<strong>Unsigned.</strong>{{end}} Installed from {{.Source}}.</p>
+{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Uninstall" "Href" (printf "%s/plugins/%s/uninstall" adminPath $p.Name) "Variant" "danger"}}</span>{{template "hm/card-foot-end"}}{{end}}
+{{end}}{{end}}

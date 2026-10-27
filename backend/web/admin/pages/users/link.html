@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Heading "CSRF" $.CSRF}}
+{{if .Emailed}}{{template "hm/flash" (dict "Kind" "success" "Message" "We also emailed it." "Inline" true)}}{{else if .NoAddress}}{{template "hm/callout-start" (dict "Kind" "info")}}The site address is not set, so nothing was emailed. Set it under Settings &gt; Site (or PUBLIC_BASE_URL), or copy the link and send it yourself.{{template "hm/callout-end"}}{{else}}{{template "hm/callout-start" (dict "Kind" "info")}}Email is not set up on this site, so nothing was sent. Set it up in <a href="{{adminPath}}/settings/email">Settings &gt; Email</a>, or copy the link and send it yourself.{{template "hm/callout-end"}}{{end}}
+{{template "hm/secretbanner" .Secret}}
+<p>{{template "hm/button" dict "Label" .BackLabel "Href" .Back}}</p>
+{{end}}{{end}}

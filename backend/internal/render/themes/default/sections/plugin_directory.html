@@ -1,0 +1,30 @@
+{{define "section-plugin_directory"}}{{$c := .Content}}{{$d := .Page.PluginDirectory}}<div class="hm-container hm-plugin-directory" data-hm-directory>
+  {{if or $c.eyebrow $c.heading $c.subheading $c.writeUrl $c.submitUrl $c.otherUrl}}<header class="hm-plugin-directory__header">
+    {{if $c.eyebrow}}<p class="hm-plugin-directory__eyebrow" {{hmf "eyebrow"}}>{{$c.eyebrow}}</p>{{end}}
+    {{if $c.heading}}<h2 class="hm-plugin-directory__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-plugin-directory__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+    {{if or $c.writeUrl $c.submitUrl}}<p class="hm-plugin-directory__actions">
+      {{with $c.writeUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn" href="{{cta .}}" rel="noopener noreferrer">Write a plugin</a>{{end}}{{end}}
+      {{with $c.submitUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn hm-plugin-directory__btn--ghost" href="{{cta .}}" rel="noopener noreferrer">Submit a plugin</a>{{end}}{{end}}
+    </p>{{end}}{{with $c.otherUrl}}{{if or (hasPrefix . "https://") (and (hasPrefix . "/") (not (hasPrefix . "//")))}}<a class="hm-plugin-directory__other" href="{{cta .}}">{{if $c.otherLabel}}{{$c.otherLabel}}{{else}}More{{end}}</a>{{end}}{{end}}
+  </header>{{end}}
+  {{if and $d (eq $d.State "ok")}}
+  {{if ne (printf "%v" $c.showSearch) "false"}}<div class="hm-plugin-directory__tools">
+    <input class="hm-plugin-directory__search" type="search" hidden aria-label="Search plugins" placeholder="Search plugins" autocomplete="off" data-hm-plugin-search>
+    <p class="hm-plugin-directory__count" hidden aria-live="polite" data-hm-plugin-count></p>
+  </div>{{end}}
+  <ul class="hm-plugin-directory__grid">
+    {{range $d.Cards}}<li class="hm-plugin-directory__card" data-search="{{.Search}}">
+      <h3 class="hm-plugin-directory__title">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</h3>
+      <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
+      {{if .Author}}<p class="hm-plugin-directory__author">by @{{.Author}}</p>{{end}}
+      {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
+      {{if .Permissions}}<p class="hm-plugin-directory__needs">Needs: {{range $i, $p := .Permissions}}{{if $i}}, {{end}}{{$p}}{{end}}</p>{{end}}
+      {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">Source</a>{{end}}{{end}}
+    </li>{{end}}
+  </ul>
+  {{else if and $d (eq $d.State "empty")}}<p class="hm-plugin-directory__state">No plugins are listed yet.</p>
+  {{else if and $d (eq $d.State "off")}}<p class="hm-plugin-directory__state">No plugin registry is configured.</p>
+  {{else}}<p class="hm-plugin-directory__state">The plugin directory is unavailable right now.</p>{{end}}
+  {{with $c.installHint}}<p class="hm-plugin-directory__hint" {{hmf "installHint"}}>{{.}}</p>{{end}}
+</div>{{end}}

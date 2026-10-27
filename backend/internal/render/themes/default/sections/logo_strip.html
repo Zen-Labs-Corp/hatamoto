@@ -1,0 +1,11 @@
+{{define "section-logo_strip"}}{{$c := .Content}}<div class="hm-container hm-logo-strip hm-logo-strip--{{default "static" $c.variant}}">
+  {{if $c.heading}}<h2 class="hm-logo-strip__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+  {{if $c.logos}}<div class="hm-logo-strip__viewport">
+    <ul class="hm-logo-strip__track">
+      {{range $i, $l := $c.logos}}{{with imgsrc $l.image}}<li class="hm-logo-strip__item hm-logo-strip__item--{{default "md" $l.size}}">{{if $l.link}}<a href="{{cta $l.link}}" rel="noopener">{{end}}<img src="{{.}}" alt="{{$l.name}}" loading="lazy" {{hmf "logos" $i "image"}}>{{if $l.link}}</a>{{end}}</li>{{end}}{{end}}
+    </ul>
+    {{if eq (default "static" $c.variant) "marquee"}}<ul class="hm-logo-strip__track hm-logo-strip__track--clone" aria-hidden="true">
+      {{range $i, $l := $c.logos}}{{with imgsrc $l.image}}<li class="hm-logo-strip__item hm-logo-strip__item--{{default "md" $l.size}}"><img src="{{.}}" alt="" loading="lazy"></li>{{end}}{{end}}
+    </ul>{{end}}
+  </div>{{end}}
+</div>{{end}}

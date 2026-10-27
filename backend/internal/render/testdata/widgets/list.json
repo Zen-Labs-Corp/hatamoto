@@ -1,0 +1,5 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"l1","t":"list","p":{"items":"One\n\n  Two <b>\nThree"}},
+  {"id":"l2","t":"list","p":{"items":"First\nSecond","ordered":true}},
+  {"id":"l3","t":"list","p":{"items":"Done\nAlso done","icon":"check-circle"}}
+]}]}

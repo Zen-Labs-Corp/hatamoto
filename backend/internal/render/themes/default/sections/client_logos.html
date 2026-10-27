@@ -1,0 +1,8 @@
+{{define "section-client_logos"}}{{$c := .Content}}<div class="hm-container hm-logo-strip hm-logo-strip--static">
+  {{if $c.heading}}<h2 class="hm-logo-strip__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+  {{if $c.logos}}<div class="hm-logo-strip__viewport">
+    <ul class="hm-logo-strip__track">
+      {{range $i, $l := $c.logos}}{{with imgsrc $l.image}}<li class="hm-logo-strip__item hm-logo-strip__item--md">{{if $l.link}}<a href="{{cta $l.link}}" rel="noopener">{{end}}<img src="{{.}}" alt="{{$l.name}}" loading="lazy" {{hmf "logos" $i "image"}}>{{if $l.link}}</a>{{end}}</li>{{end}}{{end}}
+    </ul>
+  </div>{{end}}
+</div>{{end}}

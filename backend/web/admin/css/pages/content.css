@@ -1,0 +1,127 @@
+/* Entities, schemas, taxonomies and media (v1-11). Tokens only. */
+.hm-plainset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.hm-row--top { align-items: flex-start; }
+.hm-row--end { align-items: flex-end; }
+.hm-compare { padding: var(--space-3) var(--space-4); align-items: flex-end; margin: var(--space-4) 0; }
+.hm-table__filterlabel { font-size: var(--text-sm); color: var(--text-muted); }
+.hm-table__date { width: auto; }
+
+/* terms picker: nested checkboxes, depth as indentation */
+.hm-terms { border: 0; padding: 0; margin: 0; }
+.hm-terms__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-depth-0 { padding-left: 0; }
+.hm-depth-1 { padding-left: var(--space-6); }
+.hm-depth-2 { padding-left: calc(var(--space-6) * 2); }
+.hm-depth-3 { padding-left: calc(var(--space-6) * 3); }
+.hm-depth-4 { padding-left: calc(var(--space-6) * 4); }
+.hm-depth-5 { padding-left: calc(var(--space-6) * 5); }
+.hm-depth-6 { padding-left: calc(var(--space-6) * 6); }
+.hm-depth-7 { padding-left: calc(var(--space-6) * 7); }
+.hm-depth-8 { padding-left: calc(var(--space-6) * 8); }
+
+/* entity type chooser */
+.hm-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.hm-choice { padding: 0; }
+.hm-choice__link { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4); text-decoration: none; color: inherit; border-radius: var(--radius-lg); }
+button.hm-choice__link { width: 100%; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; }
+.hm-choice__link:hover { background: var(--surface-hover); }
+.hm-choice__link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-choice__head { display: flex; align-items: center; gap: var(--space-2); }
+.hm-choice__icon { display: inline-flex; color: var(--text-muted); }
+.hm-choice__name { font-weight: var(--weight-semibold); color: var(--color-accent); }
+
+/* version comparison */
+.hm-diff__value { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: var(--text-sm); max-width: 36ch; }
+.hm-diff__field code { word-break: break-all; }
+.hm-diff__row--added > td:nth-child(3), .hm-diff__row--changed > td:nth-child(3) { background: var(--color-success-soft); }
+.hm-diff__row--removed > td:nth-child(2), .hm-diff__row--changed > td:nth-child(2) { background: var(--color-danger-soft); }
+
+/* version compare: per-node layout changes */
+.hm-nodediff td, .hm-nodediff th { vertical-align: top; }
+.hm-nodediff__detail { margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.hm-nodediff td:last-child { white-space: nowrap; }
+
+/* schema editor */
+.hm-fieldlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-fieldrow { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-fieldrow__summary { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); cursor: pointer; }
+.hm-fieldrow__summary:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-fieldrow__handle { cursor: grab; color: var(--text-muted); }
+.hm-fieldrow__title { font-weight: var(--weight-semibold); }
+.hm-fieldrow__body { padding: 0 var(--space-4) var(--space-4); }
+.hm-fieldrow.sortable-ghost { opacity: 0.5; }
+[data-hm-for][hidden] { display: none; }
+
+/* media library */
+.hm-media-grid { list-style: none; margin: var(--space-4) 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.hm-media-grid--picker { grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr)); margin: 0; }
+/* The library is loading: a grid of resting tiles. */
+.hm-media-skeleton { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr)); gap: var(--space-3); }
+.hm-media-skeleton > i { aspect-ratio: 4 / 3; border-radius: var(--radius-md); background: var(--color-kinu); animation: hm-chart-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .hm-media-skeleton > i { animation: none; } }
+.hm-mediatile__thumb--file { display: flex; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; }
+.hm-mediatile__thumb--file .hm-icon { width: 32px; height: 32px; }
+.hm-upload { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-4) 0; }
+.hm-media-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-4) 0; }
+.hm-media-toolbar__filters { flex: 1 1 auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin: 0; }
+.hm-media-toolbar__filters .hm-select { width: auto; flex: 0 1 180px; }
+.hm-progress { width: 12rem; height: 8px; accent-color: var(--color-accent); }
+.hm-media-detail { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .hm-media-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.hm-media-detail__preview { padding: var(--space-4); display: flex; align-items: center; justify-content: center; align-self: start; }
+.hm-media-detail__preview img { max-height: 70vh; object-fit: contain; }
+.hm-dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+.hm-dl dt { color: var(--text-muted); }
+.hm-dl dd { margin: 0; word-break: break-all; }
+.hm-usage { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* picker dialog */
+.hm-picker { min-width: 0; max-width: 100%; }
+.hm-picker .hm-row { flex-wrap: wrap; min-width: 0; }
+.hm-picker .hm-field__control { min-width: 0; max-width: 100%; flex: 1 1 12rem; }
+#hm-media-picker { max-width: min(44rem, calc(100vw - 32px)); }
+#hm-media-picker .hm-dialog__panel, #hm-media-picker .hm-dialog__body { min-width: 0; }
+.hm-pickertile { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-2); background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; font: inherit; }
+.hm-pickertile:hover { border-color: var(--color-accent); }
+.hm-pickertile:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-pickertile img { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-kasumi); }
+.hm-sf-image { max-height: 160px; width: auto; border-radius: var(--radius-sm); margin-bottom: var(--space-2); }
+
+/* parent picker: the search box sits above the select */
+#parent-picker { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* version compare: readable columns on a narrow screen (the table scrolls) */
+.hm-diff td { min-width: 12rem; vertical-align: top; }
+.hm-diff__field { min-width: 8rem; }
+.hm-diff td:last-child { white-space: nowrap; min-width: 0; }
+.hm-diff__value { overflow-wrap: anywhere; word-break: normal; }
+
+/* file inputs: the browser control, styled and kept inside its box */
+input[type="file"].hm-field__control { max-width: 100%; padding: var(--space-1); }
+input[type="file"]::file-selector-button { margin-right: var(--space-3); padding: var(--space-1) var(--space-3); font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: var(--radius-md); cursor: pointer; }
+
+
+/* the long forms keep Save in reach */
+.hm-progress + .hm-muted { margin-left: var(--space-2); }
+.hm-pageheader + form, .hm-pageheader + .hm-formerrors { margin-top: var(--space-4); }
+
+/* Profile photo: a round preview beside the Upload button. */
+.hm-photo-row { align-items: center; }
+.hm-photo-preview { width: 72px; height: 72px; max-width: none; max-height: none; border-radius: 50%; object-fit: cover; margin: 0; }
+
+/* Parent picker: the current parent as a chip with Change; the search and list open under it (native details, so it works without JavaScript). */
+.hm-parentpick { display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-parentpick__summary { display: flex; align-items: center; gap: var(--space-3); list-style: none; cursor: pointer; min-height: var(--space-8); }
+.hm-parentpick__summary::-webkit-details-marker { display: none; }
+.hm-parentpick__summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.hm-parentpick__change { color: var(--color-accent); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.hm-parentpick__done, .hm-parentpick[open] .hm-parentpick__open, .hm-parentpick[open] [data-hm-parent-chip] { display: none; }
+.hm-parentpick[open] .hm-parentpick__done { display: inline; }
+
+/* Entities list: tighter rows, a fixed meta column, and the phone-only Type filter. */
+@media (min-width: 40.0625rem) { .hm-entities .hm-table th, .hm-entities .hm-table td { padding-block: var(--space-1-5); } }
+.hm-entities .hm-table th.hm-table__check, .hm-entities .hm-table td.hm-table__check { vertical-align: middle; }
+.hm-entities .hm-table td[data-label="Status"], .hm-entities .hm-table td[data-label="Updated"] { min-inline-size: 8rem; }
+.hm-subnav__link--empty .hm-subnav__text, .hm-subnav__link--empty .hm-subnav__marker { color: var(--text-muted); }
+@media (min-width: 40.0625rem) { .hm-filterbar .hm-select:has(select[name="type"]) { display: none; } }
+.hm-entities-head { display: flex; flex-direction: column; gap: var(--space-6); }

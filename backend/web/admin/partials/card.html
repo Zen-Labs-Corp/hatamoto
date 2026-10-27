@@ -1,0 +1,8 @@
+{{define "hm/card-start"}}<section class="hm-card{{if .Class}} {{.Class}}{{end}}"{{if .ID}} id="{{.ID}}"{{end}}{{if .Title}} aria-labelledby="{{or .ID "card"}}-title"{{end}}>
+{{if .Title}}<div class="hm-card__head">{{if streq .Heading "h3"}}<h3 class="hm-card__title" id="{{or .ID "card"}}-title">{{.Title}}</h3>{{else}}<h2 class="hm-card__title" id="{{or .ID "card"}}-title">{{.Title}}</h2>{{end}}{{if .Description}}<p class="hm-muted">{{.Description}}</p>{{end}}</div>
+{{end}}<div class="hm-card__body">{{end}}
+{{define "hm/card-end"}}</div></section>{{end}}
+{{define "hm/card-foot"}}</div><footer class="hm-card__foot">{{end}}
+{{define "hm/card-foot-end"}}</footer></section>{{end}}
+{{define "hm/foot"}}<footer class="hm-card__foot hm-card__foot--plain">{{end}}
+{{define "hm/foot-end"}}</footer>{{end}}

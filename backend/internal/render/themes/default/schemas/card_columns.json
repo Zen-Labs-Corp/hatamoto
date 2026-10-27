@@ -1,0 +1,20 @@
+{
+  "x-hm-section": {"title": "Card columns", "description": "Framed columns with bullet lists and a notes strip"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "columnCount": {"type": "integer", "title": "Columns", "enum": [2, 3, 4], "default": 3},
+    "columns": {"type": "array", "title": "Columns", "items": {"type": "object", "properties": {
+      "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "description": {"type": "string", "title": "Description", "x-hm-field": "plaintext"},
+      "items": {"type": "array", "title": "Items", "items": {"type": "string"}}
+    }}},
+    "notes": {"type": "array", "title": "Notes", "items": {"type": "object", "properties": {
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "text": {"type": "string", "title": "Text", "x-hm-field": "plaintext"}
+    }}}
+  }
+}

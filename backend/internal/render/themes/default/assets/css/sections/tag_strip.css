@@ -1,0 +1,6 @@
+.hm-section--tag_strip { padding: 1.75rem 0; }
+.hm-tag-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; }
+.hm-tag-strip__label { font-family: var(--hm-font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hm-label); }
+.hm-tag-strip__items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 0; }
+.hm-tag-strip__items li { padding: 0 1.25rem; border-left: 1px solid var(--hm-hair); font-size: 0.9375rem; color: var(--hm-text); }
+.hm-tag-strip__items li:first-child { padding-left: 0; border-left: 0; }

@@ -1,0 +1,2 @@
+{{/* The package file field of the plugin and theme upload (dialog and /new page). Data: Label (field label). */}}
+{{define "hm/form-upload-pkg"}}<div class="hm-field"><label class="hm-field__label" for="package">{{or .Label "Package file"}}</label><input class="hm-field__control" type="file" id="package" name="package" accept=".hmp,application/zip" required></div>{{end}}

@@ -1,0 +1,14 @@
+{
+  "type": "theme_directory",
+  "id": "sec-theme-directory-off",
+  "title": "Themes",
+  "content": {
+    "heading": "Themes",
+    "installHint": "Install: Admin > Settings > Theme > Browse registry",
+    "otherUrl": "javascript:alert(1)",
+    "showSearch": true
+  },
+  "theme_directory": {
+    "State": "off"
+  }
+}

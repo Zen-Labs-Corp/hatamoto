@@ -1,0 +1,52 @@
+/* Link tabs (each tab is a URL, so a nav with aria-current, not role=tab). .hm-tablist / .hm-tablist__tab
+   are the same recipe for JS role=tablist rows (buttons with aria-selected): editor and inspector tabs.
+   Ink underline on the current tab; Variant "segmented" is the compact filter
+   toggle (date ranges, view switches). A long row scrolls sideways inside its own strip (scrollbar hidden,
+   no edge fade). The hairline is a background, so the underline at bottom 0 never
+   makes the row overflow vertically. */
+.hm-tabs { max-width: 100%; min-width: 0; }
+.hm-tabs__list, .hm-tablist { display: flex; flex-wrap: nowrap; gap: var(--space-1); list-style: none; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  /* the hairline, inset like the padding so it ends where the content does */
+  background: linear-gradient(var(--color-kinu), var(--color-kinu)) var(--space-2) 100% / calc(100% - 2 * var(--space-2)) 1px no-repeat; }
+.hm-tabs__list::-webkit-scrollbar, .hm-tablist::-webkit-scrollbar { display: none; }
+.hm-tabs__list > li { flex: none; }
+.hm-tabs__tab, .hm-tablist__tab {
+  position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: var(--space-1-5); padding: var(--space-2) var(--space-2) var(--space-2-5);
+  font-size: var(--text-sm); font-weight: var(--weight-medium); white-space: nowrap; color: var(--color-hai); text-decoration: none;
+}
+.hm-tabs__tab:hover, .hm-tablist__tab:hover { color: var(--color-sumi); }
+/* Tremor TabNavigation: a soft pill behind the label on hover, above the underline. */
+.hm-tabs__tab::before, .hm-tablist__tab::before { content: ""; position: absolute; inset: 3px 0 7px; z-index: var(--z-behind); border-radius: var(--radius-sm); background: var(--surface-hover); opacity: 0; transition: opacity 120ms var(--ease); }
+.hm-tabs__tab:hover::before, .hm-tablist__tab:hover::before { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .hm-tabs__tab::before, .hm-tablist__tab::before { transition: none; } }
+.hm-tabs__tab:focus-visible, .hm-tablist__tab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
+.hm-tabs__tab[aria-current="page"], .hm-tablist__tab[aria-selected="true"] { color: var(--color-accent); }
+.hm-tabs__tab[aria-current="page"]::after, .hm-tablist__tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--space-2); right: var(--space-2); bottom: 0; height: 2px; background: var(--color-accent); border-radius: var(--radius-2xs); }
+.hm-tabs__count { font-size: var(--text-xs); color: var(--color-hai); background: var(--color-kasumi); border-radius: var(--radius-full); padding: 0 var(--space-1-5); }
+.hm-tablist { flex: none; } /* overflow-y: hidden would let a flex column squeeze the row to 0 height */
+/* A bar above panels (blog editor): sticky, paper behind, content inset like the panels, the hairline edge to edge. */
+.hm-tablist--bar { position: sticky; top: 0; z-index: var(--z-raised); margin: 0; padding-inline: var(--space-4); background-color: var(--color-paper); background-position: 0 100%; background-size: 100% 1px; }
+.hm-tablist__tab { appearance: none; background: none; border: 0; cursor: pointer; }
+.hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); overflow: visible; box-shadow: none; }
+.hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: var(--control-h-sm); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--color-sumi); }
+.hm-tabs[data-variant="segmented"] .hm-tabs__tab:hover { background: var(--surface-hover); }
+.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-sumi); color: var(--color-paper); box-shadow: none; }
+.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]::after, .hm-tabs[data-variant="segmented"] .hm-tabs__tab::before { display: none; }
+/* Level 2: a smaller underline row directly under a level-1 row. */
+.hm-tabs[data-variant="sub"] .hm-tabs__list { gap: var(--space-0-5); background: none; }
+/* It abuts the level-1 hairline: the page gap is pulled back to a small step and the sub row has no hairline of its own.
+   The row follows the level-1 tabs directly (analytics) or the section head that holds them (settings). */
+.hm-tabs + .hm-tabs[data-variant="sub"], .hm-section-head + .hm-tabs[data-variant="sub"] { margin-top: calc(var(--space-1) - var(--space-6)); }
+.hm-tabs[data-variant="sub"] .hm-tabs__tab { font-size: var(--text-xs); padding: var(--space-1-5) var(--space-2) var(--space-2); }
+.hm-tabs[data-variant="sub"] .hm-tabs__tab::before { inset: 2px 0 4px; }
+/* Overflow: the last tab opens a menu of the remaining tabs (filterable, scrolls inside). */
+.hm-tabs__more { border: 0; background: transparent; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.hm-tabs__more .hm-icon { width: 14px; height: 14px; }
+.hm-tabs__menu { width: 280px; max-height: min(420px, 70vh); }
+.hm-tabs__menu:popover-open { gap: var(--space-1); }
+.hm-tabs__filter { flex: none; height: 32px; font-size: var(--text-sm); }
+.hm-tabs__menu-list { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
+.hm-tabs__menu [role="menuitem"] { justify-content: space-between; flex: none; }
+.hm-tabs__menu [role="menuitem"][aria-current="page"] { color: var(--color-accent); font-weight: var(--weight-medium); }
+.hm-tabs__menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-tabs__menu-empty { margin: 0; padding: var(--space-2); font-size: var(--text-sm); }

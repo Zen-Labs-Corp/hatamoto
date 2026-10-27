@@ -1,0 +1,162 @@
+# Desired Caddy config for hatamoto.dev. apply-caddy.sh splices these two site
+# blocks into the server's Caddyfile (every other site there is left alone).
+#
+# One Go binary (hatamoto serve, :8090) serves everything: the public site, the
+# admin (/admin), the API (/api), /media and the theme assets. Caddy only
+# terminates TLS, adds the security headers and compresses; it is a plain
+# reverse proxy to that one port. Caddy also serves /releases/** statically from
+# /opt/hatamoto/public/releases (signed channel manifests and immutable release
+# files, written by the channels deploy key and scripts/publish-release.sh), and
+# the package registry (/registry.json, /packages/*) from /opt/hatamoto/registry.
+# /plugins is an ordinary CMS page (the "Plugin directory" section), so it is
+# proxied to the app like every other page.
+# /themes is likewise an ordinary CMS page (the "Theme directory" section), proxied
+# to the app. Only the theme screenshots are static: /screenshots/<name>.(png|webp|jpg)
+# from the same root, with strict names so nothing else there is exposed.
+# /archive/* (every signed community .hmp ever built, uploaded append-only by
+# scripts/publish-registry.sh) is served from the same root as immutable files.
+#
+# Security headers have one owner per response. The app sets X-Content-Type-Options,
+# X-Frame-Options and Referrer-Policy on everything it serves (self-hosters without
+# this Caddy need them), so Caddy does NOT repeat them on proxied responses; it sets
+# them only on the static files it serves itself (@static_hardening), where no app
+# runs, and on error responses Caddy generates itself (handle_errors: 404 on a static
+# path, 502 with the app down). HSTS is Caddy's: a plain site-level header, with the
+# app's max-age=31536000 copy stripped at the proxy (header_down), so every response
+# has the 2-year preload value once. (A deferred ">" header was tried: Caddy skips it
+# on its own error responses.) /.well-known/security.txt (RFC 9116) is served from
+# /opt/hatamoto/public/.well-known/ (source: deploy/well-known/security.txt).
+#
+# Caddy also answers the Go import paths: `go get hatamoto.dev/sdk` and
+# `hatamoto.dev/core` ask https://hatamoto.dev/sdk?go-get=1 (or /core...) where
+# the code lives. Caddy answers those requests (only when ?go-get=1 is present)
+# with a go-import meta tag: "<import path> git <repo URL> [<module directory>]".
+# Moving the repository means changing the repo URL here and nothing else; no
+# plugin's imports change. hatamoto.dev/sdk is the public repository
+# Zen-Labs-Corp/hatamoto-sdk, a root module, so its line has no module directory and
+# its tags are plain vX.Y.Z (scripts/publish-sdk.sh exports backend/pkg/sdk there).
+# hatamoto.dev/core is a module in a subdirectory of the code repository, so its tags
+# would carry that directory as a prefix. See docs/PLUGIN_API.md.
+# NOTE: the box keeps the old go-import target until the owner applies this file (runbook 3.12).
+
+www.hatamoto.dev {
+    header -Server
+    header -Via
+    redir https://hatamoto.dev{uri} permanent
+}
+
+hatamoto.dev {
+    # No Server or Via header on any response (nothing names the software; the app sets none).
+    header -Server
+    header -Via
+    # Plain (not deferred) so Caddy's own error responses keep it; the app's copy
+    # is removed at the proxy (header_down below).
+    header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    @static_hardening path /registry.json /packages/* /releases/* /.well-known/security.txt /security /security/
+    header @static_hardening {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+    # Responses Caddy itself generates for an error (file_server 404, proxy 502
+    # with the app down) carry the same hardening as the files it serves (?: only if
+    # the route did not already set it, e.g. /archive keeps DENY).
+    handle_errors {
+        header -Server
+        header -Via
+        header ?X-Content-Type-Options "nosniff"
+        header ?X-Frame-Options "SAMEORIGIN"
+        header ?Referrer-Policy "strict-origin-when-cross-origin"
+        header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        respond "{err.status_code} {err.status_text}"
+    }
+    encode gzip
+    @registry path /registry.json /packages/*
+    handle @registry {
+        root * /opt/hatamoto/registry
+        header Cache-Control "public, max-age=300"
+        file_server
+    }
+    handle /.well-known/security.txt {
+        root * /opt/hatamoto/public
+        header Cache-Control "public, max-age=3600"
+        file_server
+    }
+    handle /archive/* {
+        root * /opt/hatamoto/registry
+        # Repeated here so these responses keep their hardening if the site-level block changes.
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "DENY"
+        header Referrer-Policy "strict-origin-when-cross-origin"
+        header Content-Security-Policy "frame-ancestors 'none'"
+        # Immutable only for files that exist: a 404 must not be cached for a year.
+        @archive_exists file
+        header @archive_exists Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    @screenshots path_regexp shot ^/screenshots/[a-z][a-z0-9-]{1,39}\.(png|webp|jpg)$
+    handle @screenshots {
+        root * /opt/hatamoto/registry
+        header Cache-Control "public, max-age=300"
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "DENY"
+        header Referrer-Policy "strict-origin-when-cross-origin"
+        header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+        file_server
+    }
+    # A bare release URL (the notes_url in a release manifest) lands on its entry
+    # in the changelog page. Release files below it (release.json...) are untouched.
+    @relnotes path_regexp relnotes ^/releases/(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)/?$
+    handle @relnotes {
+        redir * /changelog#{re.relnotes.1} 301
+    }
+    # /security is the human-readable security policy: the docs page published from
+    # docs/site/operate/security.md. security.txt points at it.
+    @security path /security /security/
+    handle @security {
+        redir * /docs/operate/security 301
+    }
+    handle /releases/channels/* {
+        root * /opt/hatamoto/public
+        header Cache-Control "public, max-age=300"
+        file_server
+    }
+    handle /releases/v* {
+        root * /opt/hatamoto/public
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    handle /releases/* {
+        respond "not found" 404
+    }
+
+    @goget_sdk {
+        path /sdk /sdk/*
+        query go-get=1
+    }
+    handle @goget_sdk {
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "SAMEORIGIN"
+        header Referrer-Policy "strict-origin-when-cross-origin"
+        header Content-Type "text/html; charset=utf-8"
+        respond `<!doctype html><html><head><meta name="go-import" content="hatamoto.dev/sdk git https://github.com/Zen-Labs-Corp/hatamoto-sdk"></head><body>go get hatamoto.dev/sdk</body></html>` 200
+    }
+
+    @goget_core {
+        path /core /core/*
+        query go-get=1
+    }
+    handle @goget_core {
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "SAMEORIGIN"
+        header Referrer-Policy "strict-origin-when-cross-origin"
+        header Content-Type "text/html; charset=utf-8"
+        respond `<!doctype html><html><head><meta name="go-import" content="hatamoto.dev/core git https://github.com/Zen-Labs-Corp/hatamoto backend"></head><body>go get hatamoto.dev/core</body></html>` 200
+    }
+
+    handle {
+        reverse_proxy localhost:8090 {
+            header_down -Strict-Transport-Security
+        }
+    }
+}

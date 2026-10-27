@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Menu",
+    "hint": "The navigation menu at a location",
+    "group": "Data",
+    "order": 20,
+    "default": {"location": "primary"}
+  },
+  "properties": {
+    "location": {"type": "string", "maxLength": 64, "x-hm-widget": "datalist:menus"},
+    "label": {"type": "string", "maxLength": 100},
+    "hidden": {"type": "boolean"}
+  }
+}

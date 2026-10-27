@@ -1,0 +1,33 @@
+# Caddy site block for the public demo. The OWNER applies it (docs/deploy/public-demo.md);
+# nothing in this repository touches the box. It is a plain reverse proxy to the demo service
+# (hatamoto-demo.service, 127.0.0.1:8091) and is a separate site: deploy/apply-caddy.sh never
+# changes it, and it never changes hatamoto.dev.
+#
+# Headers follow the main site's split: the app sets X-Content-Type-Options, X-Frame-Options and
+# Referrer-Policy, so they are not repeated here; Caddy sets HSTS, and header_down removes the
+# app's own HSTS so the browser sees exactly one.
+demo.hatamoto.dev {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		# A throwaway site that resets every hour must not appear in search results.
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+	encode gzip
+
+	# Crawlers are asked to stay away too (the header above is what search engines honour).
+	handle /robots.txt {
+		header Content-Type "text/plain; charset=utf-8"
+		respond "User-agent: *\nDisallow: /\n" 200
+	}
+
+	# Uploads are capped at 2 MB by the app (MEDIA_MAX_SIZE_MB); this keeps bigger bodies off it.
+	request_body {
+		max_size 3MB
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8091 {
+			header_down -Strict-Transport-Security
+		}
+	}
+}

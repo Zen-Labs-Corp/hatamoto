@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question or share an idea
+    url: https://github.com/Zen-Labs-Corp/hatamoto/discussions
+    about: Use GitHub Discussions for how-to questions, ideas and showing your site. See SUPPORT.md.
+  - name: Report a security vulnerability
+    url: https://github.com/Zen-Labs-Corp/hatamoto/security/advisories/new
+    about: Report it privately here, never in a public issue. You can also write to security@hatamoto.dev. See SECURITY.md.
+  - name: Documentation
+    url: https://hatamoto.dev/docs
+    about: Install, upgrade, themes, plugins, the import and the API.

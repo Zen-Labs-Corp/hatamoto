@@ -1,0 +1,15 @@
+{
+  "x-hm-section": {"title": "Comparison", "description": "Two sides compared point by point"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "sides": {"type": "array", "title": "Sides", "items": {"type": "object", "properties": {
+      "tag": {"type": "string", "title": "Tag", "x-hm-field": "plaintext"},
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "tone": {"type": "string", "title": "Tone", "enum": ["negative", "positive"], "default": "negative"},
+      "items": {"type": "array", "title": "Items", "items": {"type": "string"}}
+    }}}
+  }
+}

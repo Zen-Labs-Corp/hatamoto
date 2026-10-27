@@ -1,0 +1,14 @@
+<div class="hm-daterange">
+<button type="button" class="hm-btn hm-daterange__button" popovertarget="cmp-pop" aria-haspopup="dialog"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>1 Sep – 30 Sep</span></button>
+<div class="hm-popover-panel hm-daterange__pop" popover id="cmp-pop" role="dialog" aria-label="Choose a date range" data-hm-daterange>
+<form method="get" action="/admin/analytics/crawlers">
+
+<div class="hm-daterange__grid">
+<ul class="hm-daterange__presets" aria-label="Presets"></ul>
+<fieldset class="hm-daterange__dates"><legend class="hm-field__label">Custom range</legend>
+<div class="hm-field"><label class="hm-field__label" for="cmp-from">From</label><input class="hm-field__control" type="date" id="cmp-from" name="from" value="2026-09-01" min="2026-01-01" max="2026-10-22" required></div>
+<div class="hm-field"><label class="hm-field__label" for="cmp-to">To</label><input class="hm-field__control" type="date" id="cmp-to" name="to" value="2026-09-30" min="2026-09-01" max="2026-10-22" required></div>
+<div class="hm-daterange__actions"><button type="button" class="hm-btn hm-btn--secondary" popovertarget="cmp-pop" popovertargetaction="hide"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button></div>
+</fieldset></div>
+</form></div>
+</div>

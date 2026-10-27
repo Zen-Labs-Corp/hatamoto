@@ -1,0 +1,1 @@
+document.querySelectorAll(".hm-pp_w").forEach(function(e){e.dataset.on="1"});

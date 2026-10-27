@@ -1,0 +1,327 @@
+{
+  "nodes": [
+    {
+      "index": 0,
+      "tag": "span",
+      "text": "Amet · Cupidatat · Consectetur Sed Labore"
+    },
+    {
+      "index": 1,
+      "tag": "h1",
+      "text": "Consectetur Non Fugiat"
+    },
+    {
+      "index": 2,
+      "tag": "p",
+      "text": "Irure sint Aliqua Non ullamco quis qui consectetur non proident. Id qui sit Tempor Est sed qui nulla non magna sed consectetur sit voluptate, est sed id laboris non."
+    },
+    {
+      "index": 3,
+      "tag": "a",
+      "text": "Est Enim Pariatur Officia"
+    },
+    {
+      "index": 4,
+      "tag": "a",
+      "text": "Elit aliquip"
+    },
+    {
+      "index": 5,
+      "tag": "p",
+      "text": "Enim Sunt Duis ullamco, ex qui fugiat."
+    },
+    {
+      "index": 6,
+      "tag": "span",
+      "text": "Cillum"
+    },
+    {
+      "index": 7,
+      "tag": "span",
+      "text": "Veniam aliquip"
+    },
+    {
+      "index": 8,
+      "tag": "span",
+      "text": "Adipiscing"
+    },
+    {
+      "index": 9,
+      "tag": "span",
+      "text": "Ullamco Ad-Est magna qui nisi"
+    },
+    {
+      "index": 10,
+      "tag": "span",
+      "text": "Occaecat"
+    },
+    {
+      "index": 11,
+      "tag": "span",
+      "text": "Dolore, Deserunt, Nostrud, Eiusmod, Pariatur, Magna, Duis"
+    },
+    {
+      "index": 12,
+      "tag": "span",
+      "text": "Aliquip velit"
+    },
+    {
+      "index": 13,
+      "tag": "span",
+      "text": "$50–100/non est ad nulla do magna"
+    }
+  ],
+  "edits": [
+    {
+      "index": 0,
+      "expect": "Amet · Cupidatat · Consectetur Sed Labore",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 1,
+          "tag": "h1",
+          "text": "Consectetur Non Fugiat"
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Irure sint Aliqua Non ullamco quis qui consectetur non proident. Id qui sit Tempor Est sed qui nulla non magna sed consectetur sit voluptate, est sed id laboris non."
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Est Enim Pariatur Officia"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Elit aliquip"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "Enim Sunt Duis ullamco, ex qui fugiat."
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Cillum"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Veniam aliquip"
+        },
+        {
+          "index": 8,
+          "tag": "span",
+          "text": "Adipiscing"
+        },
+        {
+          "index": 9,
+          "tag": "span",
+          "text": "Ullamco Ad-Est magna qui nisi"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Occaecat"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Dolore, Deserunt, Nostrud, Eiusmod, Pariatur, Magna, Duis"
+        },
+        {
+          "index": 12,
+          "tag": "span",
+          "text": "Aliquip velit"
+        },
+        {
+          "index": 13,
+          "tag": "span",
+          "text": "$50–100/non est ad nulla do magna"
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "expect": "Veniam aliquip",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Amet · Cupidatat · Consectetur Sed Labore"
+        },
+        {
+          "index": 1,
+          "tag": "h1",
+          "text": "Consectetur Non Fugiat"
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Irure sint Aliqua Non ullamco quis qui consectetur non proident. Id qui sit Tempor Est sed qui nulla non magna sed consectetur sit voluptate, est sed id laboris non."
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Est Enim Pariatur Officia"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Elit aliquip"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "Enim Sunt Duis ullamco, ex qui fugiat."
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Cillum"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        },
+        {
+          "index": 8,
+          "tag": "span",
+          "text": "Adipiscing"
+        },
+        {
+          "index": 9,
+          "tag": "span",
+          "text": "Ullamco Ad-Est magna qui nisi"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Occaecat"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Dolore, Deserunt, Nostrud, Eiusmod, Pariatur, Magna, Duis"
+        },
+        {
+          "index": 12,
+          "tag": "span",
+          "text": "Aliquip velit"
+        },
+        {
+          "index": 13,
+          "tag": "span",
+          "text": "$50–100/non est ad nulla do magna"
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "expect": "$50–100/non est ad nulla do magna",
+      "value": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀",
+      "nodesAfter": [
+        {
+          "index": 0,
+          "tag": "span",
+          "text": "Amet · Cupidatat · Consectetur Sed Labore"
+        },
+        {
+          "index": 1,
+          "tag": "h1",
+          "text": "Consectetur Non Fugiat"
+        },
+        {
+          "index": 2,
+          "tag": "p",
+          "text": "Irure sint Aliqua Non ullamco quis qui consectetur non proident. Id qui sit Tempor Est sed qui nulla non magna sed consectetur sit voluptate, est sed id laboris non."
+        },
+        {
+          "index": 3,
+          "tag": "a",
+          "text": "Est Enim Pariatur Officia"
+        },
+        {
+          "index": 4,
+          "tag": "a",
+          "text": "Elit aliquip"
+        },
+        {
+          "index": 5,
+          "tag": "p",
+          "text": "Enim Sunt Duis ullamco, ex qui fugiat."
+        },
+        {
+          "index": 6,
+          "tag": "span",
+          "text": "Cillum"
+        },
+        {
+          "index": 7,
+          "tag": "span",
+          "text": "Veniam aliquip"
+        },
+        {
+          "index": 8,
+          "tag": "span",
+          "text": "Adipiscing"
+        },
+        {
+          "index": 9,
+          "tag": "span",
+          "text": "Ullamco Ad-Est magna qui nisi"
+        },
+        {
+          "index": 10,
+          "tag": "span",
+          "text": "Occaecat"
+        },
+        {
+          "index": 11,
+          "tag": "span",
+          "text": "Dolore, Deserunt, Nostrud, Eiusmod, Pariatur, Magna, Duis"
+        },
+        {
+          "index": 12,
+          "tag": "span",
+          "text": "Aliquip velit"
+        },
+        {
+          "index": 13,
+          "tag": "span",
+          "text": "Edited \u003cb\u003e\u0026\u003c/b\u003e \"q\" 'q' 日本 😀"
+        }
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "index": 0,
+      "expect": "wrong",
+      "value": "x",
+      "reason": "stale"
+    },
+    {
+      "index": 999,
+      "expect": "",
+      "value": "x",
+      "reason": "range"
+    },
+    {
+      "index": 0,
+      "expect": "Amet · Cupidatat · Consectetur Sed Labore",
+      "value": "  ",
+      "reason": "blank"
+    }
+  ]
+}

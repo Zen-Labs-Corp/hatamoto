@@ -1,0 +1,91 @@
+{
+  "entity": {
+    "id": "<uuid>",
+    "schema_id": "<uuid>",
+    "name": "pj-page",
+    "slug": "pj-page",
+    "locale": "en",
+    "status": "published",
+    "attributes": {
+      "og_image": "/media/og.png",
+      "page_sections": [
+        {
+          "id": "s-hero",
+          "type": "hero",
+          "title": "Hero",
+          "content": {
+            "headline": "Hello",
+            "subheadline": "World"
+          },
+          "isVisible": true,
+          "sort_order": 0
+        },
+        {
+          "id": "s-faq",
+          "type": "faq",
+          "title": "FAQ",
+          "content": {
+            "faqs": [
+              {
+                "answer": "A.",
+                "question": "Q?"
+              }
+            ]
+          },
+          "isVisible": true,
+          "sort_order": 1
+        }
+      ],
+      "meta_description": "A described page"
+    },
+    "metadata": {},
+    "editorial": {},
+    "version": 1,
+    "created_at": "<time>",
+    "updated_at": "<time>",
+    "published_at": "<time>",
+    "schema": {
+      "id": "<uuid>",
+      "name": "pj-note",
+      "slug": "pj-note",
+      "schema": {
+        "type": "object"
+      },
+      "is_builtin": false,
+      "created_at": "<time>",
+      "updated_at": "<time>",
+      "settings": {
+        "url_pattern": "/notes/{slug}",
+        "archive_path": "/notes"
+      }
+    }
+  },
+  "json_ld": {
+    "@context": "https://schema.org",
+    "@id": "http://example.com/notes/pj-page#thing",
+    "@type": "Thing",
+    "name": "pj-page",
+    "url": "http://example.com/notes/pj-page"
+  },
+  "meta": {
+    "title": "pj-page",
+    "description": "A described page",
+    "og_image": "/media/og.png",
+    "canonical_url": "http://example.com/notes/pj-page"
+  },
+  "breadcrumb": [
+    {
+      "label": "Home",
+      "href": "/"
+    },
+    {
+      "label": "pj-note",
+      "href": "/notes"
+    },
+    {
+      "label": "pj-page",
+      "href": "/notes/pj-page"
+    }
+  ],
+  "ai_crawler_comment": "\u003c!--\n  ENTITY: pj-page\n  TYPE: pj-note\n  LAST VERIFIED: <month>\n\n  KEY FACTS:\n  - Name: pj-page\n\n  For machine-readable data: the Schema.org JSON-LD in this page's head\n  For all entities: http://example.com/llms.txt\n--\u003e"
+}

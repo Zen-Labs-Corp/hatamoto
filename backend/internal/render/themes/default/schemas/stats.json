@@ -1,0 +1,20 @@
+{
+  "x-hm-section": {"title": "Stats", "description": "Row of headline numbers"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["simple", "cards", "bordered"], "default": "simple"},
+    "columns": {"type": "integer", "title": "Columns", "enum": [2, 3, 4], "default": 4},
+    "stats": {
+      "type": "array", "title": "Stats", "x-hm-alias": ["items"],
+      "items": {"type": "object", "properties": {
+        "value": {"type": "number", "title": "Value", "x-hm-field": "plaintext"},
+        "prefix": {"type": "string", "title": "Prefix", "x-hm-field": "plaintext"},
+        "suffix": {"type": "string", "title": "Suffix", "x-hm-field": "plaintext"},
+        "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+        "description": {"type": "string", "title": "Description", "x-hm-field": "plaintext"}
+      }}
+    }
+  }
+}

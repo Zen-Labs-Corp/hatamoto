@@ -1,0 +1,9 @@
+/* richtext: sanitised formatted text */
+.hm-richtext > :first-child { margin-top: 0; }
+.hm-richtext > :last-child { margin-bottom: 0; }
+.hm-richtext img { max-width: 100%; height: auto; }
+.hm-richtext blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--hm-border, #ddd);
+}

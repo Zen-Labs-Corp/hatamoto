@@ -1,0 +1,21 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}<h1>{{if .Sent}}Check your email{{else}}Reset your password{{end}}</h1>
+{{if .Sent}}<p>If that address has an account, we sent a link to choose a new password. It works once and expires in an hour.</p>
+{{else if not .Configured}}<p>Email is not set up on this site, so we cannot send a reset link. Ask an owner to run this command:</p>
+<form method="get" action="{{adminPath}}/forgot" class="hm-stack hm-bare__form">
+{{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Your email" "Type" "email" "Value" .Email "Help" "We fill it into the command below." "Attrs" (attrmap "autocomplete" "email")}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Show the command" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "reset-command" "Name" "command" "Label" "Command" "Control" "textarea" "Rows" 2 "Value" .Command "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "reset-command"))}}</div>
+{{else}}<p class="hm-muted">Enter the email address of your account and we will send you a link.</p>
+<form method="post" action="{{adminPath}}/forgot" class="hm-stack hm-bare__form">
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Email" "Type" "email" "Value" .Email "Required" true "Attrs" (attrmap "autocomplete" "email" "autofocus" "autofocus")}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Send reset link" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>{{end}}
+<p class="hm-bare__links"><a href="{{adminPath}}/login">Back to sign in</a></p>
+{{end}}{{end}}

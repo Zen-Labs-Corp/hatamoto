@@ -1,0 +1,110 @@
+/* Shared by the builder and the other editors. Canvas host marks (js/canvas/host.js) and the shared Tiptap kit (editor/kit.js). Tokens only. */
+.hm-pe__stage { position: relative; margin: 0 auto; }
+.hm-pe__frame { position: absolute; left: 0; top: 0; border: 0; background: #fff; transform-origin: top left; }
+.hm-pe__frame--idle { visibility: hidden; pointer-events: none; }
+/* The strip (breadcrumbs, zoom, device label) is sticky over the scroller and takes no clicks itself; its buttons do. */
+.hm-pe__strip { position: sticky; top: calc(-1 * var(--space-3)); z-index: var(--z-raised); display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2); padding: var(--space-1) var(--space-3); background: var(--color-kasumi); pointer-events: none; }
+.hm-pe__strip > * { pointer-events: auto; }
+.hm-pe__crumbnav { min-width: 0; overflow: hidden; }
+.hm-pe__crumbs { display: flex; flex-wrap: nowrap; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; font-size: var(--text-xs); }
+.hm-pe__crumbitem { display: inline-flex; align-items: center; min-width: 0; }
+.hm-pe__crumbitem + .hm-pe__crumbitem::before { content: "\203A"; padding: 0 var(--space-1); color: var(--text-muted); }
+.hm-pe__crumb { all: unset; box-sizing: border-box; padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
+.hm-pe__crumb:hover { color: var(--text); background: var(--surface-hover); }
+.hm-pe__crumb[aria-current="true"] { color: var(--text); font-weight: var(--weight-semibold); cursor: default; }
+.hm-pe__crumb:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.hm-pe__bandlabel { flex: 1 0 100%; order: -1; padding: var(--space-0-5) var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-xs); } /* its own row above the crumbs: they keep the full width */
+.hm-pe__bandlabel[hidden] { display: none; }
+.hm-pe__crumbnav { flex: 1 1 14rem; }
+.hm-pe__zoom { flex: 0 0 auto; align-self: center; }
+/* The device band: a 4 px bar over the page and its label. An absent data-hm-device is Desktop (no band). */
+[data-hm-device="md"] .hm-pe__stage::before, [data-hm-device="sm"] .hm-pe__stage::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 4px; pointer-events: none; }
+[data-hm-device="md"] .hm-pe__stage::before { background: var(--color-device-tablet); }
+[data-hm-device="sm"] .hm-pe__stage::before { background: var(--color-device-phone); }
+[data-hm-device="md"] .hm-pe__bandlabel { color: var(--color-device-tablet); background: var(--color-device-tablet-soft); }
+[data-hm-device="sm"] .hm-pe__bandlabel { color: var(--color-device-phone); background: var(--color-device-phone-soft); }
+.hm-pe__marks { position: absolute; inset: 0; pointer-events: none; }
+.hm-pe__outline { position: absolute; left: 0; right: 0; border: 2px solid var(--color-accent); border-radius: var(--radius-sm); pointer-events: none; }
+.hm-pe__hover { position: absolute; border: 1px dashed var(--color-hai); pointer-events: none; }
+/* The element toolbar floats outside the element (built once, moved by place()); its buttons take clicks, the gaps do too, so it never lets a press through to text under it. */
+.hm-pe__toolbar { position: absolute; z-index: calc(var(--z-raised) + 1); /* over the "+" buttons */ display: flex; align-items: center; gap: var(--space-1); width: max-content; max-width: 100vw; padding: var(--space-0-5) var(--space-1); background: var(--surface); color: var(--text); border: 1px solid var(--border-control); border-radius: var(--radius-sm); box-shadow: var(--shadow-2); font-size: var(--text-xs); pointer-events: auto; }
+.hm-pe__toolbar[hidden], .hm-pe__tactions[hidden], .hm-pe__thint[hidden], .hm-pe__handle[hidden] { display: none; }
+.hm-pe__tname { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-semibold); }
+.hm-pe__tactions { display: flex; gap: var(--space-0-5); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.hm-pe__tbtn { all: unset; box-sizing: border-box; padding: var(--space-0-5) var(--space-2); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.hm-pe__tbtn:hover { background: var(--surface-hover); }
+.hm-pe__tbtn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.hm-pe__tbtn[disabled] { opacity: .45; cursor: default; }
+.hm-pe__thint { color: var(--text-muted); white-space: nowrap; }
+.hm-pe__outline--member { border-style: dashed; }
+.hm-pe__handle { all: unset; box-sizing: border-box; display: inline-block; padding: 0 var(--space-1); cursor: grab; pointer-events: auto; touch-action: none; border-radius: var(--radius-sm); }
+.hm-pe__handle:hover, .hm-pe__handle:focus-visible { background: var(--surface-hover); }
+.hm-pe__handle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+/* The "+" buttons: a 32 px hit target centred on the insertion point, faint until hovered (bold by the selection and in an empty container); the line shows where the element lands. Only the buttons take clicks. */
+.hm-pe__pluses { position: absolute; inset: 0; pointer-events: none; }
+.hm-pe__plus { all: unset; box-sizing: border-box; position: absolute; width: 32px; height: 32px; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: none; opacity: 0; }
+/* only a visible button takes the pointer: an invisible one would swallow clicks meant for the text under it */
+.hm-pe__plus[data-show] { opacity: .85; pointer-events: auto; }
+.hm-pe__plus[data-show="hover"] { opacity: .55; }
+.hm-pe__pluses[hidden] { display: none; }
+.hm-pe__plus:hover, .hm-pe__plus:focus-visible { opacity: 1; z-index: var(--z-raised); }
+.hm-pe__plus:focus-visible .hm-pe__plusmark { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-pe__plusmark { width: 22px; height: 22px; border-radius: 50%; background: var(--color-accent); color: var(--surface); display: flex; align-items: center; justify-content: center; font-size: var(--text-md); font-weight: var(--weight-semibold); box-shadow: 0 0 0 2px var(--surface); }
+.hm-pe__plusline { position: absolute; left: 50%; top: 50%; display: none; background: var(--color-accent); pointer-events: none; transform: translate(-50%, -50%); }
+.hm-pe__plus[data-dir="column"] .hm-pe__plusline { height: 2px; }
+.hm-pe__plus[data-dir="row"] .hm-pe__plusline { width: 2px; }
+.hm-pe__plus:hover .hm-pe__plusline, .hm-pe__plus:focus-visible .hm-pe__plusline { display: block; }
+.hm-pe__hint { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: var(--text-sm); }
+
+/* Shared Tiptap kit (editor/kit.js): toolbar, content area, html tabs. */
+.hm-ed { border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--surface); }
+.hm-ed__bar { display: flex; flex-wrap: wrap; gap: var(--space-0-5); padding: var(--space-1); border-bottom: 1px solid var(--border); }
+/* The formatting toolbar stays mounted (Ctrl+K and the slash commands click its buttons) but is
+   neither seen nor focusable until Ctrl+Shift+T or the Toolbar button shows it. */
+.hm-ed[data-hm-bar="hidden"] > .hm-ed__bar { position: absolute; visibility: hidden; pointer-events: none; }
+.hm-ed__btn { min-width: 2rem; height: 2rem; padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.hm-ed__btn:hover { background: var(--surface-hover); }
+.hm-ed__btn[aria-pressed="true"] { background: var(--color-accent-soft); border-color: var(--color-accent); }
+.hm-ed__btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.hm-ed__btn:disabled { opacity: .45; cursor: default; }
+.hm-ed__content { padding: var(--space-3); min-height: 8rem; }
+.hm-ed__content .ProseMirror { outline: none; min-height: 6rem; }
+.hm-ed__content .ProseMirror:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-ed__content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-muted); float: left; height: 0; pointer-events: none; }
+.hm-ed__content img { max-width: 100%; height: auto; }
+.hm-ed__content .tiptap-table td, .hm-ed__content .tiptap-table th { border: 1px solid var(--border); padding: var(--space-1) var(--space-2); }
+.hm-ed__tabs { display: flex; gap: var(--space-1); padding: var(--space-1); border-bottom: 1px solid var(--border); }
+.hm-ed__tab[aria-selected="true"] { background: var(--color-accent-soft); border-color: var(--color-accent); }
+.hm-ed__linkform { display: flex; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2); border-bottom: 1px solid var(--border); align-items: flex-end; }
+.hm-ed__error { color: var(--color-danger); font-size: var(--text-sm); margin: 0; flex-basis: 100%; }
+.hm-ed__raw { margin: var(--space-2) 0; padding: var(--space-2); border: 1px dashed var(--border-control); background: var(--bg); }
+.hm-ed__rawhead { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-muted); }
+.hm-ed__rawpreview { overflow: auto; }
+.hm-ed__rawsrc { width: 100%; min-height: 7rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.hm-ed__container { margin: var(--space-2) 0; padding: var(--space-2); border: 1px dashed var(--border-control); }
+.hm-ed__tag { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); user-select: none; }
+.hm-ed__preview { width: 100%; min-height: 20rem; border: 1px solid var(--border); background: #fff; }
+.hm-ed__fields { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); }
+.hm-ed__group > summary { cursor: pointer; font-weight: var(--weight-semibold); }
+
+/* ProseMirror's own base rules, here because Tiptap's injected <style> is refused by the admin CSP (injectCSS: false). */
+.ProseMirror { position: relative; word-wrap: break-word; white-space: pre-wrap; white-space: break-spaces; font-variant-ligatures: none; font-feature-settings: "liga" 0; }
+.ProseMirror pre { white-space: pre-wrap; }
+.ProseMirror-hideselection *::selection { background: transparent; }
+.ProseMirror-selectednode { outline: 2px solid var(--color-accent); }
+.ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; margin: 0; }
+.ProseMirror-gapcursor::after { content: ""; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid currentColor; animation: hm-pm-blink 1.1s steps(2, start) infinite; }
+.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+@keyframes hm-pm-blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .ProseMirror-gapcursor::after { animation: none; } }
+.ProseMirror table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+.ProseMirror .selectedCell::after { content: ""; position: absolute; inset: 0; background: var(--color-accent-soft); pointer-events: none; }
+.hm-pe__fmt { position: absolute; z-index: var(--z-raised); width: max-content; max-width: 100%; padding: var(--space-1); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-2); }
+.hm-pe__fmt[hidden], .hm-pe__fmt-link[hidden] { display: none; }
+.hm-pe__fmt-row { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.hm-pe__fmt-row [hidden] { display: none; }
+/* The link panel never grows past 360 px: the address takes a row of its own, the options and buttons wrap under it. */
+.hm-pe__fmt-link { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); box-sizing: border-box; width: 360px; max-width: 100%; }
+.hm-pe__fmt-addr { flex: 0 0 100%; }
+.hm-pe__fmt-link #hm-fmt-href { flex: 1 1 100%; min-width: 0; }
+.hm-pe__fmt-tab { display: inline-flex; align-items: center; gap: var(--space-1); }

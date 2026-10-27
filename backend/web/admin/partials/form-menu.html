@@ -1,0 +1,3 @@
+{{/* Fields of the create menu form (dialog and /new page). Data: Name, Errors, Locations. */}}
+{{define "hm/form-menu"}}{{template "hm/field" dict "ID" "menu-name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "100" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "menu-location" "Name" "location" "Label" "Location" "Control" "select" "Options" .Locations "Error" (index .Errors "location") "Help" "Where your theme shows this menu. You can change it later."}}{{end}}

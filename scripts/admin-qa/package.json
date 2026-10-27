@@ -1,0 +1,9 @@
+{
+  "name": "hatamoto-admin-qa",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only browser QA harness for the Go admin (axe, keyboard, perf, navigation, screenshots). Not shipped.",
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}

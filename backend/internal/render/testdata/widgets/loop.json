@@ -1,0 +1,8 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"lp","t":"loop","p":{"from":"archive"},"c":[
+    {"id":"lpi","t":"container","p":{"tag":"article"},"c":[
+      {"id":"lph","t":"heading","p":{"level":3},"b":{"text":"loop.item.title"}},
+      {"id":"lpt","t":"text","b":{"text":"loop.item.excerpt"}},
+      {"id":"lpb","t":"button","p":{"text":"Read more"},"b":{"href":"loop.item.url"}}]},
+    {"id":"lpe","t":"loopempty","c":[{"id":"lpet","t":"text","p":{"text":"Nothing here yet."}}]}]}
+]}]}

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Tab",
+    "hint": "One panel of a tabs widget",
+    "group": "Interactive",
+    "order": 11,
+    "children": true,
+    "default": {"label": "Tab"}
+  },
+  "properties": {
+    "label": {"x-hm-bind": "text", "type": "string", "maxLength": 100},
+    "hidden": {"type": "boolean"}
+  }
+}

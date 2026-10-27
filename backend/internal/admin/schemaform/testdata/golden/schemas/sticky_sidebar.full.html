@@ -1,0 +1,44 @@
+<div class="hm-field"><label class="hm-field__label" for="sf-content-heading">Heading</label>
+<input class="hm-field__control" type="text" id="sf-content-heading" name="content.heading" value="Sample heading" placeholder="Enter Heading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-subheading">Subheading</label>
+<input class="hm-field__control" type="text" id="sf-content-subheading" name="content.subheading" value="Sample subheading" placeholder="Enter Subheading">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-body">Body</label>
+<textarea class="hm-field__control" id="sf-content-body" name="content.body" rows="10" data-hm-editor="tiptap">
+&lt;p&gt;Hello &lt;strong&gt;body&lt;/strong&gt; &amp;amp; &#34;friends&#34;&lt;/p&gt;
+&lt;p&gt;Second&lt;/p&gt;</textarea>
+</div>
+<fieldset class="hm-sf-object" id="sf-content-sidebar"><legend class="hm-field__label">Sidebar</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-title">Title</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-title" name="content.sidebar.title" value="Sample title" placeholder="Enter Title">
+</div><fieldset class="hm-repeater" id="sf-content-sidebar-facts" data-hm-repeater data-path="content.sidebar.facts"><legend class="hm-field__label">Quick facts <span class="hm-muted">(2 items)</span></legend>
+<input type="hidden" name="_present.content.sidebar.facts" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample label</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-facts-0-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-facts-0-label" name="content.sidebar.facts.0.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-facts-0-value">Value</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-facts-0-value" name="content.sidebar.facts.0.value" value="Sample value" placeholder="Enter Value">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.sidebar.facts" value="0:up" formnovalidate aria-label="Move Quick facts item 1 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.sidebar.facts" value="0:down" formnovalidate aria-label="Move Quick facts item 1 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.sidebar.facts" value="0" formnovalidate aria-label="Remove Quick facts item 1">Remove</button></div>
+</details></li>
+<li class="hm-repeater__item" data-hm-item><details><summary class="hm-repeater__summary">Sample label</summary>
+<div class="hm-repeater__fields"><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-facts-1-label">Label</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-facts-1-label" name="content.sidebar.facts.1.label" value="Sample label" placeholder="Enter Label">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-facts-1-value">Value</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-facts-1-value" name="content.sidebar.facts.1.value" value="Sample value" placeholder="Enter Value">
+</div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.sidebar.facts" value="1:up" formnovalidate aria-label="Move Quick facts item 2 up">Move up</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost" name="_move.content.sidebar.facts" value="1:down" formnovalidate aria-label="Move Quick facts item 2 down">Move down</button><button type="submit" class="hm-btn hm-btn--sm hm-btn--ghost hm-btn--danger-text" name="_remove.content.sidebar.facts" value="1" formnovalidate aria-label="Remove Quick facts item 2">Remove</button></div>
+</details></li>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.content.sidebar.facts" value="1" formnovalidate>Add Quick facts item</button>
+</fieldset>
+<fieldset class="hm-sf-object" id="sf-content-sidebar-cta"><legend class="hm-field__label">Button</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-cta-text">Text</label>
+<input class="hm-field__control" type="text" id="sf-content-sidebar-cta-text" name="content.sidebar.cta.text" value="Sample text" placeholder="Enter Text">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-content-sidebar-cta-url">URL</label>
+<input class="hm-field__control" type="url" id="sf-content-sidebar-cta-url" name="content.sidebar.cta.url" value="https://example.com/url" placeholder="Enter URL">
+</div></fieldset>
+</fieldset>
+

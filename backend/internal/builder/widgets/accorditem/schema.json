@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Accordion item",
+    "hint": "One item of an accordion",
+    "group": "Interactive",
+    "order": 21,
+    "children": true,
+    "default": {"title": "Item"}
+  },
+  "properties": {
+    "title": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "open": {"type": "boolean"},
+    "hidden": {"type": "boolean"}
+  }
+}

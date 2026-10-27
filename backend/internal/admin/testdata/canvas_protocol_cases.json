@@ -1,0 +1,3563 @@
+{
+ "note": "Shared by the Go reference test and the node run of protocol.js. dir=in: parseFrameMessage(msg) must equal expect (or null when valid=false). dir=out: validToBridge(msg) must equal valid. JSON cannot carry NaN/Infinity, so the non-finite number rules are covered by the Go and node tests directly. Large values are written as {\"$str\":[char,n]} and {\"$repeat\":[element,n]}; both runners expand them before use.",
+ "cases": [
+  {
+   "name": "v1 ready",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:ready",
+    "contract": "1"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:ready",
+    "contract": "1"
+   }
+  },
+  {
+   "name": "v1 layout",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:layout",
+    "docHeight": 900,
+    "sections": [
+     {
+      "id": "a",
+      "type": "hero",
+      "top": 0,
+      "height": 100
+     }
+    ]
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:layout",
+    "docHeight": 900,
+    "sections": [
+     {
+      "id": "a",
+      "type": "hero",
+      "top": 0,
+      "height": 100
+     }
+    ]
+   }
+  },
+  {
+   "name": "v1 select with path",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:select",
+    "sectionId": "a",
+    "path": "s.0.c.heading"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:select",
+    "sectionId": "a",
+    "path": "s.0.c.heading"
+   }
+  },
+  {
+   "name": "v1 select without path",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:select",
+    "sectionId": "a"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:select",
+    "sectionId": "a"
+   }
+  },
+  {
+   "name": "v1 edit",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:edit",
+    "sectionId": "a",
+    "path": "p",
+    "value": "x",
+    "kind": "plaintext"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:edit",
+    "sectionId": "a",
+    "path": "p",
+    "value": "x",
+    "kind": "plaintext"
+   }
+  },
+  {
+   "name": "v1 edit wrong kind",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 1,
+    "type": "hm:edit",
+    "sectionId": "a",
+    "path": "p",
+    "value": "x",
+    "kind": "html"
+   }
+  },
+  {
+   "name": "v1 edit-text",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:edit-text",
+    "sectionId": "a",
+    "path": "p",
+    "index": 3,
+    "value": "x",
+    "expect": "y"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:edit-text",
+    "sectionId": "a",
+    "path": "p",
+    "index": 3,
+    "value": "x",
+    "expect": "y"
+   }
+  },
+  {
+   "name": "v1 edit-text negative index",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 1,
+    "type": "hm:edit-text",
+    "sectionId": "a",
+    "path": "p",
+    "index": -1,
+    "value": "x",
+    "expect": "y"
+   }
+  },
+  {
+   "name": "v1 rich-open",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:rich-open",
+    "sectionId": "a",
+    "path": "p",
+    "rect": {
+     "top": 1,
+     "left": 2,
+     "width": 3,
+     "height": 4
+    }
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:rich-open",
+    "sectionId": "a",
+    "path": "p",
+    "rect": {
+     "top": 1,
+     "left": 2,
+     "width": 3,
+     "height": 4
+    }
+   }
+  },
+  {
+   "name": "v1 chrome-click",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:chrome-click",
+    "area": "header"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:chrome-click",
+    "area": "header"
+   }
+  },
+  {
+   "name": "v1 chrome-click bad area",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 1,
+    "type": "hm:chrome-click",
+    "area": "sidebar"
+   }
+  },
+  {
+   "name": "v1 scroll",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:scroll",
+    "y": 120
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:scroll",
+    "y": 120
+   }
+  },
+  {
+   "name": "v1 save",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:save"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:save"
+   }
+  },
+  {
+   "name": "v1 details-open",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:details-open",
+    "fields": [
+     {
+      "sectionId": "a",
+      "path": "p"
+     }
+    ]
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:details-open",
+    "fields": [
+     {
+      "sectionId": "a",
+      "path": "p"
+     }
+    ]
+   }
+  },
+  {
+   "name": "v1 extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 1,
+    "type": "hm:scroll",
+    "y": 1,
+    "evil": "<script>"
+   },
+   "expect": {
+    "hm": 1,
+    "type": "hm:scroll",
+    "y": 1
+   }
+  },
+  {
+   "name": "v2 ready",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "ready",
+    "contract": "2"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "ready",
+    "contract": "2"
+   }
+  },
+  {
+   "name": "v2 ready no contract",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "ready"
+   }
+  },
+  {
+   "name": "v2 layout",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     },
+     {
+      "id": "h1",
+      "k": "n",
+      "t": "heading",
+      "p": "c-hero",
+      "x": 0,
+      "y": 20,
+      "w": 400,
+      "h": 40,
+      "c": 1,
+      "dir": "row"
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     },
+     {
+      "id": "h1",
+      "k": "n",
+      "t": "heading",
+      "p": "c-hero",
+      "x": 0,
+      "y": 20,
+      "w": 400,
+      "h": 40,
+      "c": 1,
+      "dir": "row"
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000
+   }
+  },
+  {
+   "name": "v2 layout empty",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 0
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 0
+   }
+  },
+  {
+   "name": "v2 layout extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300,
+      "evil": 1
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000,
+     "z": 1
+    },
+    "docH": 5,
+    "scrollY": 9,
+    "x": 1
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 5
+   }
+  },
+  {
+   "name": "v2 layout 5001 nodes",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": {
+     "$repeat": [
+      {
+       "id": "c-hero",
+       "k": "s",
+       "t": "hero",
+       "p": "",
+       "x": 0,
+       "y": 10.5,
+       "w": 800,
+       "h": 300
+      },
+      5001
+     ]
+    },
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout 5000 nodes",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": {
+     "$repeat": [
+      {
+       "id": "c-hero",
+       "k": "s",
+       "t": "hero",
+       "p": "",
+       "x": 0,
+       "y": 10.5,
+       "w": 800,
+       "h": 300
+      },
+      5000
+     ]
+    },
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": {
+     "$repeat": [
+      {
+       "id": "c-hero",
+       "k": "s",
+       "t": "hero",
+       "p": "",
+       "x": 0,
+       "y": 10.5,
+       "w": 800,
+       "h": 300
+      },
+      5000
+     ]
+    },
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout bad rect",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": "800",
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout bad kind",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "x",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout bad dir",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "h1",
+      "k": "n",
+      "t": "heading",
+      "p": "c-hero",
+      "x": 0,
+      "y": 20,
+      "w": 400,
+      "h": 40,
+      "c": 1,
+      "dir": "diagonal"
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout bad parent id",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "a b",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout no main",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [],
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 layout nodes not array",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": {},
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 1
+   }
+  },
+  {
+   "name": "v2 hover",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "hover",
+    "id": "h1",
+    "k": "n"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "hover",
+    "id": "h1",
+    "k": "n"
+   }
+  },
+  {
+   "name": "v2 hover null",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "hover",
+    "id": null
+   },
+   "expect": {
+    "hm": 2,
+    "type": "hover",
+    "id": null
+   }
+  },
+  {
+   "name": "v2 hover missing kind",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "hover",
+    "id": "h1"
+   }
+  },
+  {
+   "name": "v2 hover missing id",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "hover",
+    "k": "n"
+   }
+  },
+  {
+   "name": "v2 select",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false,
+    "ctrl": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select shift not bool",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": "no",
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select ctrl",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false,
+    "ctrl": true
+   },
+   "expect": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false,
+    "ctrl": true
+   }
+  },
+  {
+   "name": "v2 select ctrl not bool",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false,
+    "ctrl": "yes"
+   }
+  },
+  {
+   "name": "v2 select ctrl missing",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "c-hero",
+    "k": "s",
+    "shift": false
+   }
+  },
+  {
+   "name": "v2 contextmenu",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "c-hero",
+    "k": "n",
+    "x": 120.5,
+    "y": 8
+   },
+   "expect": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "c-hero",
+    "k": "n",
+    "x": 120.5,
+    "y": 8
+   }
+  },
+  {
+   "name": "v2 contextmenu x string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "c-hero",
+    "k": "n",
+    "x": "1",
+    "y": 8
+   }
+  },
+  {
+   "name": "v2 contextmenu y missing",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "c-hero",
+    "k": "n",
+    "x": 1
+   }
+  },
+  {
+   "name": "v2 contextmenu bad id",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "a b",
+    "k": "n",
+    "x": 1,
+    "y": 2
+   }
+  },
+  {
+   "name": "v2 contextmenu bad kind",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "a",
+    "k": "x",
+    "x": 1,
+    "y": 2
+   }
+  },
+  {
+   "name": "v2 contextmenu extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "a",
+    "k": "s",
+    "x": -3,
+    "y": 2,
+    "clientX": 9
+   },
+   "expect": {
+    "hm": 2,
+    "type": "contextmenu",
+    "id": "a",
+    "k": "s",
+    "x": -3,
+    "y": 2
+   }
+  },
+  {
+   "name": "v2 key copy",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "c",
+    "shift": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "c",
+    "shift": false
+   }
+  },
+  {
+   "name": "v2 key group",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "G",
+    "shift": true
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "G",
+    "shift": true
+   }
+  },
+  {
+   "name": "v2 text",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": "Hello"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": "Hello"
+   }
+  },
+  {
+   "name": "v2 textend",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "textend",
+    "id": "h1",
+    "k": "n",
+    "prop": "text"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "textend",
+    "id": "h1",
+    "k": "n",
+    "prop": "text"
+   }
+  },
+  {
+   "name": "v2 textlimit",
+   "dir": "in",
+   "valid": true,
+   "msg": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "html"},
+   "expect": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "html"}
+  },
+  {
+   "name": "v2 textlimit bad prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "a b"}
+  },
+  {
+   "name": "v2 textend bad prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "textend",
+    "id": "h1",
+    "k": "n",
+    "prop": "a b"
+   }
+  },
+  {
+   "name": "v2 text oversized value",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": {
+     "$str": [
+      "x",
+      20001
+     ]
+    }
+   }
+  },
+  {
+   "name": "v2 text max value",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": {
+     "$str": [
+      "x",
+      20000
+     ]
+    }
+   },
+   "expect": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": {
+     "$str": [
+      "x",
+      20000
+     ]
+    }
+   }
+  },
+  {
+   "name": "v2 text html",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": "a <strong>b</strong>"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": "a <strong>b</strong>"
+   }
+  },
+  {
+   "name": "v2 text html extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": "x",
+    "extra": 1
+   },
+   "expect": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": "x"
+   }
+  },
+  {
+   "name": "v2 text max html",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": {
+     "$str": [
+      "x",
+      20000
+     ]
+    }
+   },
+   "expect": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": {
+     "$str": [
+      "x",
+      20000
+     ]
+    }
+   }
+  },
+  {
+   "name": "v2 text oversized html",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": {
+     "$str": [
+      "x",
+      20001
+     ]
+    }
+   }
+  },
+  {
+   "name": "v2 text value and html",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "value": "a",
+    "html": "b"
+   }
+  },
+  {
+   "name": "v2 text value and html on text prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "value": "a",
+    "html": "b"
+   }
+  },
+  {
+   "name": "v2 text neither value nor html",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html"
+   }
+  },
+  {
+   "name": "v2 text html on a non-html prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "html": "<b>x</b>"
+   }
+  },
+  {
+   "name": "v2 text value on the html prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "value": "x"
+   }
+  },
+  {
+   "name": "v2 text html not a string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "html": 5
+   }
+  },
+  {
+   "name": "v2 selection",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection no marks",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": []
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": []
+   }
+  },
+  {
+   "name": "v2 selection all marks",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "italic",
+     "underline",
+     "strike",
+     "code",
+     "link"
+    ]
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "italic",
+     "underline",
+     "strike",
+     "code",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection with element box and link",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "el": {
+     "x": 0,
+     "y": 10,
+     "w": 300,
+     "h": 40
+    },
+    "link": {
+     "href": "/x?a=1",
+     "blank": true
+    }
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "el": {
+     "x": 0,
+     "y": 10,
+     "w": 300,
+     "h": 40
+    },
+    "link": {
+     "href": "/x?a=1",
+     "blank": true
+    }
+   }
+  },
+  {
+   "name": "v2 selection link not blank",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "link": {
+     "href": "https://a.test",
+     "blank": false
+    }
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "link": {
+     "href": "https://a.test",
+     "blank": false
+    }
+   }
+  },
+  {
+   "name": "v2 selection kind heading",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": "heading"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": "heading"
+   }
+  },
+  {
+   "name": "v2 selection kind text",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": "text"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": "text"
+   }
+  },
+  {
+   "name": "v2 selection kind unknown",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": "x"
+   }
+  },
+  {
+   "name": "v2 selection kind not a string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [],
+    "kind": 3
+   }
+  },
+  {
+   "name": "v2 selection bad element box",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "el": {
+     "x": 0,
+     "y": 10,
+     "w": "300",
+     "h": 40
+    }
+   }
+  },
+  {
+   "name": "v2 selection link without blank",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "link": {
+     "href": "/x"
+    }
+   }
+  },
+  {
+   "name": "v2 selection link href too long",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "link": {
+     "href": {
+      "$str": [
+       "x",
+       2001
+      ]
+     },
+     "blank": false
+    }
+   }
+  },
+  {
+   "name": "v2 selection link not an object",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "link"
+    ],
+    "link": "/x"
+   }
+  },
+  {
+   "name": "v2 selection extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ],
+    "extra": true
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection text prop",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   },
+   "expect": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "text",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection bad prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "a b",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection bad id",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "a b",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection bad kind",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "x",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection no rect",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection short rect",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 1,
+     "y": 2,
+     "w": 3
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection string rect field",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 1,
+     "y": 2,
+     "w": "3",
+     "h": 4
+    },
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection rect not an object",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "marks": [
+     "bold",
+     "link"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection unknown mark",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "blink"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection duplicate mark",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "bold"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection too many marks",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     "bold",
+     "italic",
+     "underline",
+     "strike",
+     "code",
+     "link",
+     "bold"
+    ]
+   }
+  },
+  {
+   "name": "v2 selection marks not an array",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": "bold"
+   }
+  },
+  {
+   "name": "v2 selection mark not a string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    },
+    "marks": [
+     1
+    ]
+   }
+  },
+  {
+   "name": "v2 selection no marks field",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "selection",
+    "id": "h1",
+    "k": "n",
+    "prop": "html",
+    "rect": {
+     "x": 10,
+     "y": 20,
+     "w": 100,
+     "h": 24
+    }
+   }
+  },
+  {
+   "name": "v2 text bad prop",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "text",
+    "id": "h1",
+    "k": "n",
+    "prop": "te xt",
+    "value": "v"
+   }
+  },
+  {
+   "name": "v2 painted",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 3
+   },
+   "expect": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 3,
+    "ok": true
+   }
+  },
+  {
+   "name": "v2 painted failed",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 4,
+    "ok": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 4,
+    "ok": false
+   }
+  },
+  {
+   "name": "v2 painted non-boolean ok",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 4,
+    "ok": "no"
+   }
+  },
+  {
+   "name": "v2 painted fractional seq",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "painted",
+    "seq": 1.5
+   }
+  },
+  {
+   "name": "v2 painted negative seq",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "painted",
+    "seq": -1
+   }
+  },
+  {
+   "name": "v2 key",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "z",
+    "shift": true
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "z",
+    "shift": true
+   }
+  },
+  {
+   "name": "v2 key palette",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "k",
+    "shift": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "k",
+    "shift": false
+   }
+  },
+  {
+   "name": "v2 key empty",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "",
+    "shift": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'a\"b'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a\"b",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'a b'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a b",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id ''",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'a/b'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a/b",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'a<b>'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a<b>",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select bad id 'a\\n'",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a\n",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select 64 char id",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "select",
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select id not string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": 7,
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "v2 select extras dropped",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "id": "a",
+    "k": "n",
+    "shift": false,
+    "ctrl": false,
+    "x": "y"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "select",
+    "id": "a",
+    "k": "n",
+    "shift": false,
+    "ctrl": false
+   }
+  },
+  {
+   "name": "unknown v2 type",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "explode"
+   }
+  },
+  {
+   "name": "v1 type under hm 2",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "hm:save"
+   }
+  },
+  {
+   "name": "v2 type under hm 1",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 1,
+    "type": "ready",
+    "contract": "2"
+   }
+  },
+  {
+   "name": "hm 3",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 3,
+    "type": "ready",
+    "contract": "2"
+   }
+  },
+  {
+   "name": "hm string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": "2",
+    "type": "ready",
+    "contract": "2"
+   }
+  },
+  {
+   "name": "hm missing",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "type": "ready",
+    "contract": "2"
+   }
+  },
+  {
+   "name": "type missing",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2
+   }
+  },
+  {
+   "name": "type not string",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": 5
+   }
+  },
+  {
+   "name": "array body",
+   "dir": "in",
+   "valid": false,
+   "msg": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "null body",
+   "dir": "in",
+   "valid": false,
+   "msg": null
+  },
+  {
+   "name": "string body",
+   "dir": "in",
+   "valid": false,
+   "msg": "hm:save"
+  },
+  {
+   "name": "out init",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "init",
+    "editable": true,
+    "selectedKey": null
+   }
+  },
+  {
+   "name": "out init selected",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "init",
+    "editable": true,
+    "selectedKey": "c-hero"
+   }
+  },
+  {
+   "name": "out init bad key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "init",
+    "editable": true,
+    "selectedKey": "a b"
+   }
+  },
+  {
+   "name": "out patch",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "patch",
+    "sel": "section",
+    "key": "hero",
+    "html": "<p>x</p>",
+    "css": {
+     "h1": "a{}"
+    },
+    "seq": 2
+   }
+  },
+  {
+   "name": "out patch html too long",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "patch",
+    "sel": "section",
+    "key": "hero",
+    "html": {
+     "$str": [
+      "x",
+      1000001
+     ]
+    }
+   }
+  },
+  {
+   "name": "out patch html max",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "patch",
+    "sel": "section",
+    "key": "hero",
+    "html": {
+     "$str": [
+      "x",
+      1000000
+     ]
+    }
+   }
+  },
+  {
+   "name": "out patch bad sel",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "patch",
+    "sel": "body",
+    "key": "hero",
+    "html": "x"
+   }
+  },
+  {
+   "name": "out patch main subject",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "patch",
+    "sel": "main",
+    "html": "x"
+   }
+  },
+  {
+   "name": "out insert after",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>",
+    "after": {
+     "sel": "section",
+     "key": "a"
+    }
+   }
+  },
+  {
+   "name": "out insert before node",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>",
+    "before": {
+     "sel": "node",
+     "key": "a"
+    }
+   }
+  },
+  {
+   "name": "out insert in main",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>",
+    "parent": {
+     "sel": "main"
+    }
+   }
+  },
+  {
+   "name": "out insert no place",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>"
+   }
+  },
+  {
+   "name": "out insert two places",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>",
+    "after": {
+     "sel": "main"
+    },
+    "before": {
+     "sel": "main"
+    }
+   }
+  },
+  {
+   "name": "out insert bad place key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "insert",
+    "html": "<p/>",
+    "after": {
+     "sel": "section",
+     "key": "a\"b"
+    }
+   }
+  },
+  {
+   "name": "out move",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "move",
+    "sel": "section",
+    "key": "a",
+    "before": {
+     "sel": "section",
+     "key": "b"
+    }
+   }
+  },
+  {
+   "name": "out move no place",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "move",
+    "sel": "section",
+    "key": "a"
+   }
+  },
+  {
+   "name": "out remove",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "remove",
+    "sel": "node",
+    "key": "h1"
+   }
+  },
+  {
+   "name": "out remove bad key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "remove",
+    "sel": "node",
+    "key": "x y"
+   }
+  },
+  {
+   "name": "out edit",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "edit",
+    "sel": "node",
+    "key": "h1"
+   }
+  },
+  {
+   "name": "out setVar",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": [
+     [
+      "padding-top",
+      "8px"
+     ],
+     [
+      "color",
+      null
+     ]
+    ]
+   }
+  },
+  {
+   "name": "out setVar bad prop",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": [
+     [
+      "Padding",
+      "8px"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "out setVar value too long",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": [
+     [
+      "color",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "out setVar 51 decls",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": {
+     "$repeat": [
+      [
+       "color",
+       "red"
+      ],
+      51
+     ]
+    }
+   }
+  },
+  {
+   "name": "out setVar 50 decls",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": {
+     "$repeat": [
+      [
+       "color",
+       "red"
+      ],
+      50
+     ]
+    }
+   }
+  },
+  {
+   "name": "out setVar pair too long",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "setVar",
+    "sel": "node",
+    "key": "h1",
+    "decls": [
+     [
+      "color",
+      "red",
+      "x"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "out css",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "css",
+    "sel": "node",
+    "key": "h1",
+    "css": {
+     "h1": ".hm-n-h1{color:red}"
+    }
+   }
+  },
+  {
+   "name": "out css 201 entries",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "css",
+    "sel": "node",
+    "key": "h1",
+    "css": {
+     "k0": "a{}",
+     "k1": "a{}",
+     "k2": "a{}",
+     "k3": "a{}",
+     "k4": "a{}",
+     "k5": "a{}",
+     "k6": "a{}",
+     "k7": "a{}",
+     "k8": "a{}",
+     "k9": "a{}",
+     "k10": "a{}",
+     "k11": "a{}",
+     "k12": "a{}",
+     "k13": "a{}",
+     "k14": "a{}",
+     "k15": "a{}",
+     "k16": "a{}",
+     "k17": "a{}",
+     "k18": "a{}",
+     "k19": "a{}",
+     "k20": "a{}",
+     "k21": "a{}",
+     "k22": "a{}",
+     "k23": "a{}",
+     "k24": "a{}",
+     "k25": "a{}",
+     "k26": "a{}",
+     "k27": "a{}",
+     "k28": "a{}",
+     "k29": "a{}",
+     "k30": "a{}",
+     "k31": "a{}",
+     "k32": "a{}",
+     "k33": "a{}",
+     "k34": "a{}",
+     "k35": "a{}",
+     "k36": "a{}",
+     "k37": "a{}",
+     "k38": "a{}",
+     "k39": "a{}",
+     "k40": "a{}",
+     "k41": "a{}",
+     "k42": "a{}",
+     "k43": "a{}",
+     "k44": "a{}",
+     "k45": "a{}",
+     "k46": "a{}",
+     "k47": "a{}",
+     "k48": "a{}",
+     "k49": "a{}",
+     "k50": "a{}",
+     "k51": "a{}",
+     "k52": "a{}",
+     "k53": "a{}",
+     "k54": "a{}",
+     "k55": "a{}",
+     "k56": "a{}",
+     "k57": "a{}",
+     "k58": "a{}",
+     "k59": "a{}",
+     "k60": "a{}",
+     "k61": "a{}",
+     "k62": "a{}",
+     "k63": "a{}",
+     "k64": "a{}",
+     "k65": "a{}",
+     "k66": "a{}",
+     "k67": "a{}",
+     "k68": "a{}",
+     "k69": "a{}",
+     "k70": "a{}",
+     "k71": "a{}",
+     "k72": "a{}",
+     "k73": "a{}",
+     "k74": "a{}",
+     "k75": "a{}",
+     "k76": "a{}",
+     "k77": "a{}",
+     "k78": "a{}",
+     "k79": "a{}",
+     "k80": "a{}",
+     "k81": "a{}",
+     "k82": "a{}",
+     "k83": "a{}",
+     "k84": "a{}",
+     "k85": "a{}",
+     "k86": "a{}",
+     "k87": "a{}",
+     "k88": "a{}",
+     "k89": "a{}",
+     "k90": "a{}",
+     "k91": "a{}",
+     "k92": "a{}",
+     "k93": "a{}",
+     "k94": "a{}",
+     "k95": "a{}",
+     "k96": "a{}",
+     "k97": "a{}",
+     "k98": "a{}",
+     "k99": "a{}",
+     "k100": "a{}",
+     "k101": "a{}",
+     "k102": "a{}",
+     "k103": "a{}",
+     "k104": "a{}",
+     "k105": "a{}",
+     "k106": "a{}",
+     "k107": "a{}",
+     "k108": "a{}",
+     "k109": "a{}",
+     "k110": "a{}",
+     "k111": "a{}",
+     "k112": "a{}",
+     "k113": "a{}",
+     "k114": "a{}",
+     "k115": "a{}",
+     "k116": "a{}",
+     "k117": "a{}",
+     "k118": "a{}",
+     "k119": "a{}",
+     "k120": "a{}",
+     "k121": "a{}",
+     "k122": "a{}",
+     "k123": "a{}",
+     "k124": "a{}",
+     "k125": "a{}",
+     "k126": "a{}",
+     "k127": "a{}",
+     "k128": "a{}",
+     "k129": "a{}",
+     "k130": "a{}",
+     "k131": "a{}",
+     "k132": "a{}",
+     "k133": "a{}",
+     "k134": "a{}",
+     "k135": "a{}",
+     "k136": "a{}",
+     "k137": "a{}",
+     "k138": "a{}",
+     "k139": "a{}",
+     "k140": "a{}",
+     "k141": "a{}",
+     "k142": "a{}",
+     "k143": "a{}",
+     "k144": "a{}",
+     "k145": "a{}",
+     "k146": "a{}",
+     "k147": "a{}",
+     "k148": "a{}",
+     "k149": "a{}",
+     "k150": "a{}",
+     "k151": "a{}",
+     "k152": "a{}",
+     "k153": "a{}",
+     "k154": "a{}",
+     "k155": "a{}",
+     "k156": "a{}",
+     "k157": "a{}",
+     "k158": "a{}",
+     "k159": "a{}",
+     "k160": "a{}",
+     "k161": "a{}",
+     "k162": "a{}",
+     "k163": "a{}",
+     "k164": "a{}",
+     "k165": "a{}",
+     "k166": "a{}",
+     "k167": "a{}",
+     "k168": "a{}",
+     "k169": "a{}",
+     "k170": "a{}",
+     "k171": "a{}",
+     "k172": "a{}",
+     "k173": "a{}",
+     "k174": "a{}",
+     "k175": "a{}",
+     "k176": "a{}",
+     "k177": "a{}",
+     "k178": "a{}",
+     "k179": "a{}",
+     "k180": "a{}",
+     "k181": "a{}",
+     "k182": "a{}",
+     "k183": "a{}",
+     "k184": "a{}",
+     "k185": "a{}",
+     "k186": "a{}",
+     "k187": "a{}",
+     "k188": "a{}",
+     "k189": "a{}",
+     "k190": "a{}",
+     "k191": "a{}",
+     "k192": "a{}",
+     "k193": "a{}",
+     "k194": "a{}",
+     "k195": "a{}",
+     "k196": "a{}",
+     "k197": "a{}",
+     "k198": "a{}",
+     "k199": "a{}",
+     "k200": "a{}"
+    }
+   }
+  },
+  {
+   "name": "out css rule too long",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "css",
+    "sel": "node",
+    "key": "h1",
+    "css": {
+     "h1": {
+      "$str": [
+       "x",
+       100001
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "out css bad id key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "css",
+    "sel": "node",
+    "key": "h1",
+    "css": {
+     "a b": "x"
+    }
+   }
+  },
+  {
+   "name": "out select",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "sel": "section",
+    "key": "a",
+    "scrollIntoView": true
+   }
+  },
+  {
+   "name": "out select no flag",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "select",
+    "sel": "section",
+    "key": "a"
+   }
+  },
+  {
+   "name": "out scrollTo",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "scrollTo",
+    "y": 240
+   }
+  },
+  {
+   "name": "out scrollTo not number",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "scrollTo",
+    "y": "240"
+   }
+  },
+  {
+   "name": "out unknown type",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "eval",
+    "code": "1"
+   }
+  },
+  {
+   "name": "out wrong hm",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 1,
+    "type": "init",
+    "editable": true,
+    "selectedKey": null
+   }
+  },
+  {
+   "name": "out bad seq",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "remove",
+    "sel": "node",
+    "key": "h1",
+    "seq": -2
+   }
+  },
+  {
+   "name": "out force null",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": null
+   }
+  },
+  {
+   "name": "out force hover",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "hover"
+   }
+  },
+  {
+   "name": "out force focus",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "focus"
+   }
+  },
+  {
+   "name": "out force active",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "active"
+   }
+  },
+  {
+   "name": "out force parent-hover",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "parent-hover"
+   }
+  },
+  {
+   "name": "out force with seq",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "hover",
+    "seq": 3
+   }
+  },
+  {
+   "name": "out force visited",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "visited"
+   }
+  },
+  {
+   "name": "out force uppercase",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": "HOVER"
+   }
+  },
+  {
+   "name": "out force number state",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": 1
+   }
+  },
+  {
+   "name": "out force empty state",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": ""
+   }
+  },
+  {
+   "name": "out force missing state",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1"
+   }
+  },
+  {
+   "name": "out force bad sel",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "main",
+    "key": "h1",
+    "state": "hover"
+   }
+  },
+  {
+   "name": "out force bad key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "x y",
+    "state": "hover"
+   }
+  },
+  {
+   "name": "out force state not a string",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "force",
+    "sel": "node",
+    "key": "h1",
+    "state": [
+     "hover"
+    ]
+   }
+  },
+  {
+   "name": "out format bold",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "bold"
+   }
+  },
+  {
+   "name": "out format italic",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "italic"
+   }
+  },
+  {
+   "name": "out format underline",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "underline"
+   }
+  },
+  {
+   "name": "out format strike",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "strike"
+   }
+  },
+  {
+   "name": "out format code",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "code"
+   }
+  },
+  {
+   "name": "out format unlink",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "unlink"
+   }
+  },
+  {
+   "name": "out format clear",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "clear"
+   }
+  },
+  {
+   "name": "out format done",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "done"
+   }
+  },
+  {
+   "name": "out format link",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": "https://example.com/x"
+   }
+  },
+  {
+   "name": "out format link new tab",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": "/x",
+    "newTab": true
+   }
+  },
+  {
+   "name": "out format link new tab false",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": "/x",
+    "newTab": false
+   }
+  },
+  {
+   "name": "out format section ref",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "section",
+    "key": "s1",
+    "cmd": "bold"
+   }
+  },
+  {
+   "name": "out format max href",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": {
+     "$str": [
+      "h",
+      2000
+     ]
+    }
+   }
+  },
+  {
+   "name": "out format with seq",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "bold",
+    "seq": 3
+   }
+  },
+  {
+   "name": "out format link without href",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link"
+   }
+  },
+  {
+   "name": "out format href too long",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": {
+     "$str": [
+      "h",
+      2001
+     ]
+    }
+   }
+  },
+  {
+   "name": "out format empty href",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": ""
+   }
+  },
+  {
+   "name": "out format href not a string",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": 3
+   }
+  },
+  {
+   "name": "out format newTab not a boolean",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "link",
+    "href": "/x",
+    "newTab": "yes"
+   }
+  },
+  {
+   "name": "out format unknown cmd",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "bolder"
+   }
+  },
+  {
+   "name": "out format cmd wrong case",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1",
+    "cmd": "Bold"
+   }
+  },
+  {
+   "name": "out format no cmd",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "h1"
+   }
+  },
+  {
+   "name": "out format bad sel",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "main",
+    "key": "h1",
+    "cmd": "bold"
+   }
+  },
+  {
+   "name": "out format bad key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "format",
+    "sel": "node",
+    "key": "x y",
+    "cmd": "bold"
+   }
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{{define "hm/pluginsnav"}}<nav class="hm-subnav" aria-label="Plugins">
+<h2 class="hm-subnav__title">Plugins</h2>
+<ul class="hm-subnav__list" role="list">{{range .PluginsNav}}<li><a class="hm-subnav__link{{if .Muted}} hm-subnav__link--muted{{end}}" href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}><span class="hm-subnav__text">{{.Label}}</span>{{if .Marker}}<span class="hm-subnav__marker">{{.Marker}}</span>{{end}}</a></li>
+{{end}}</ul>
+</nav>
+<form class="hm-subnav-select" method="get" action="{{adminPath}}/plugins/go">
+<label for="hm-plugins-plugin">Plugin</label>
+<div class="hm-subnav-select__row"><select class="hm-field__control" id="hm-plugins-plugin" name="plugin">{{range .PluginsNav}}<option value="{{.ID}}"{{if .Current}} selected{{end}}>{{.Label}}{{if .Marker}} ({{.Marker}}){{end}}</option>
+{{end}}</select>{{template "hm/button" (dict "Label" "Go" "Type" "submit")}}</div>
+</form>{{end}}

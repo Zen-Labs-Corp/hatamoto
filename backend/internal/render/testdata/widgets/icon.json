@@ -1,0 +1,4 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"i1","t":"icon","p":{"name":"mail"}},
+  {"id":"i2","t":"icon","p":{"name":"info","label":"More \"info\""}}
+]}]}

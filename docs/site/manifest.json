@@ -1,0 +1,195 @@
+{
+  "root": "docs",
+  "sections": [
+    {
+      "slug": "getting-started",
+      "title": "Getting started",
+      "description": "Install Hatamoto on your own server, finish the setup wizard and add the people who will run your site.",
+      "guides": [
+        "before-you-install",
+        "install-binary",
+        "install-docker",
+        "first-run",
+        "create-users"
+      ],
+      "reference": [
+        "requirements-and-secrets",
+        "one-site-one-language"
+      ]
+    },
+    {
+      "slug": "admin",
+      "title": "Using the admin",
+      "description": "Write and publish pages and posts, manage media and menus, invite people and change site settings.",
+      "guides": [
+        "tour",
+        "content",
+        "page-editor",
+        "blog-and-people",
+        "media-menus-redirects",
+        "users-and-api-keys"
+      ],
+      "reference": [
+        {"slug": "settings-users-email", "title": "Settings reference"},
+        "entity-types-and-taxonomies",
+        "builder-reference",
+        "accessibility-and-security",
+        "accessibility",
+        "webhooks",
+        "performance-cache"
+      ]
+    },
+    {
+      "slug": "themes",
+      "title": "Themes",
+      "description": "Build and change the look of your site: layouts, sections, colours and fonts, then preview and package your theme.",
+      "guides": [
+        "your-first-theme",
+        "overview",
+        "change-colours-and-fonts",
+        "add-a-section",
+        "preview-and-dev",
+        "packaging"
+      ],
+      "reference": [
+        "layout",
+        "template-funcs",
+        "sections",
+        "builder-contract",
+        "assets-icons-feeds",
+        "engine-details",
+        "preview-api",
+        "package-format"
+      ]
+    },
+    {
+      "slug": "plugins",
+      "title": "Plugins",
+      "description": "Add features to your site with plugins: react to events, store data, add admin pages, then package and install them.",
+      "guides": [
+        "overview",
+        "hello-plugin",
+        "react-to-events",
+        "keep-data-and-routes",
+        "add-an-admin-page",
+        "package-and-install"
+      ],
+      "reference": [
+        "manifest",
+        "hooks-and-events",
+        "host-api",
+        "data-routes-cron",
+        "admin-pages-and-templates",
+        "packaging-signing",
+        "first-party-and-other-languages"
+      ]
+    },
+    {
+      "slug": "architecture",
+      "title": "Architecture",
+      "description": "How the server answers a request, where your data is stored and how the parts of the program fit together.",
+      "guides": [
+        "overview",
+        "how-a-page-is-served",
+        "where-your-data-lives"
+      ],
+      "reference": [
+        "request-flow",
+        "data-model",
+        "database-migrations",
+        "auth-and-security",
+        "plugin-runtime",
+        "worker-and-background",
+        "dependencies",
+        "package-map"
+      ]
+    },
+    {
+      "slug": "updates",
+      "title": "How updates work",
+      "description": "Check for and apply updates, pin a version or turn updates off, and roll back safely when something goes wrong.",
+      "guides": [
+        "overview",
+        "check-and-apply-an-update",
+        "pin-or-turn-off-updates",
+        "backups-and-rollback",
+        "upgrading-self-hosted",
+        "verify-a-download"
+      ],
+      "reference": [
+        "manual-update-cli",
+        "update-agent",
+        "supervisor",
+        "trust-and-signing",
+        "keys",
+        "upgrade-rules-and-support"
+      ]
+    },
+    {
+      "slug": "operate",
+      "title": "Operating it",
+      "description": "Deploy with Docker or systemd, put it behind HTTPS, back it up, lock it down and send email.",
+      "guides": [
+        "deploy-docker",
+        "deploy-systemd",
+        "reverse-proxy-tls",
+        "backups",
+        "hardening",
+        "email"
+      ],
+      "reference": [
+        "configuration-reference",
+        "cli-reference",
+        "multi-replica-and-health",
+        "outbound-connections",
+        {"slug": "security", "title": "Security policy"}
+      ]
+    },
+    {
+      "slug": "ai-seo",
+      "title": "AI and SEO",
+      "description": "Decide what AI crawlers may use, see their visits, connect an AI agent and check your page addresses and sitemaps.",
+      "guides": [
+        "overview",
+        "control-ai-crawlers",
+        "see-ai-crawler-visits",
+        "connect-an-ai-agent",
+        "set-page-addresses",
+        "check-sitemap-and-structured-data"
+      ],
+      "reference": [
+        "mcp",
+        "crawler-analytics",
+        "robots-llms",
+        "access-log-ingest",
+        "json-ld",
+        "sitemaps",
+        "url-patterns"
+      ]
+    },
+    {
+      "slug": "migrate-contribute",
+      "title": "Migrate and contribute",
+      "description": "Move an existing site into Hatamoto and keep its old links working, or help build Hatamoto itself.",
+      "guides": [
+        "move-your-site",
+        "wordpress-import",
+        "export-import",
+        "redirects-after-migration",
+        "contributing"
+      ],
+      "reference": [
+        "wordpress-import-reference",
+        "wordpress-not-imported",
+        "archive-format",
+        "redirect-rules",
+        "testing",
+        "writing-migrations",
+        "release-process",
+        "sdk-and-registry",
+        "how-these-docs-are-made"
+      ]
+    }
+  ],
+  "moved": {}
+}

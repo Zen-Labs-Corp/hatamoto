@@ -1,0 +1,6 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"a1","t":"accordion","p":{"single":true},"c":[
+    {"id":"a1a","t":"accorditem","p":{"title":"First <i>one</i>","open":true},"c":[{"id":"a1at","t":"text","p":{"text":"Body one"}}]},
+    {"id":"a1b","t":"accorditem","p":{"title":"Second"},"c":[{"id":"a1bt","t":"text","p":{"text":"Body two"}}]}]},
+  {"id":"a2","t":"accordion","c":[{"id":"a2a","t":"accorditem","p":{"title":"Free"}}]}
+]}]}

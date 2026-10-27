@@ -1,0 +1,22 @@
+{{define "layouts/head"}}<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="{{.CSRF}}">
+<meta name="admin-base" content="{{adminPath}}">
+<meta name="htmx-config" content="{{.HTMXConfig}}">
+<title>{{if .Title}}{{.Title}} · {{end}}Hatamoto</title>
+<link rel="stylesheet" href="{{.Assets.CSSURL}}">
+<script type="importmap" nonce="{{.Nonce}}">{{.Assets.Importmap}}</script>
+{{range .Preloads}}<link rel="modulepreload" href="{{.URL}}" integrity="{{.Integrity}}">
+{{end}}{{range .Assets.Scripts .Scripts}}<script nonce="{{$.Nonce}}" defer src="{{.URL}}" integrity="{{.Integrity}}"></script>
+{{end}}<script type="module" nonce="{{.Nonce}}" src="{{.Assets.JSURL "admin"}}"></script>{{range .BootModules}}
+<script type="module" nonce="{{$.Nonce}}" src="{{.URL}}" integrity="{{.Integrity}}"></script>{{end}}{{end}}
+
+{{define "layouts/toasts"}}<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot">{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "data-hm-confirm-cancel" ""))}}{{template "hm/button" (dict "Label" "Confirm" "Variant" "danger" "Type" "submit" "Attrs" (attrmap "data-hm-confirm-ok" ""))}}</div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success">{{icon "check-circle"}}</span><span data-hm-toast-icon="error">{{icon "alert-circle"}}</span><span data-hm-toast-icon="warning">{{icon "alert"}}</span><span data-hm-toast-icon="info">{{icon "info"}}</span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification">{{icon "x"}}</button></div></template>{{end}}

@@ -1,0 +1,23 @@
+# Known flaky tests on main, read by scripts/go-test-flaky.sh (pre-push gate).
+# Format: <package path suffix> <exact top-level test name>. '#' starts a comment.
+# The suffix matches whole path elements. A listed test that fails cleanly
+# (`--- FAIL`, no panic) is re-run once alone, then the REST of its package is
+# re-run with that test skipped; both must pass. A package that panicked or did
+# not finish fails whatever is listed. Names are exact (no regex), one per line.
+internal/server TestRetiredPrefixRedirects_ProdSnapshot_Integration
+internal/server TestReuseStoredCyclesRenderAndFinish_Integration
+internal/supervisor TestAppendEventLinesParse
+internal/supervisor TestAppendEventKeepsGivenID
+internal/supervisor TestAppendEventConcurrent
+# Timing assertions (p50 / warm-load latency): they pass alone, but fail while other builds load the machine.
+internal/pluginhost TestRenderPageP50
+internal/wasmhost TestCompileCacheWarmLoad
+# A wasm plugin call over its deadline under load leaves the filter out; passes alone.
+internal/server TestRenderPagePlugin
+# Wall-clock bounds (500 ms / 50 ms) on Record; a loaded host misses them, passes alone.
+internal/agents TestRecordDropsWhenFull
+# Load-sensitive packages: per-call wasm deadlines and latency bounds that fail when the
+# pre-push gates and other worktrees share the build hosts. A clean failure re-runs the
+# WHOLE package once; it must pass. A panic or timeout still fails.
+internal/pluginhost *
+internal/wasmhost *

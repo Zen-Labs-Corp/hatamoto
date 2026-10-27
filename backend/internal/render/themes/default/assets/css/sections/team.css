@@ -1,0 +1,19 @@
+.hm-team__header { max-width: 42rem; margin-bottom: 2.5rem; }
+.hm-team__subheading { color: var(--ht-fg-muted); font-size: 1.1rem; }
+.hm-team__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+@media (min-width: 48rem) {
+  .hm-team--cols-2 .hm-team__list { grid-template-columns: repeat(2, 1fr); }
+  .hm-team--cols-3 .hm-team__list { grid-template-columns: repeat(3, 1fr); }
+  .hm-team--cols-4 .hm-team__list { grid-template-columns: repeat(4, 1fr); }
+}
+.hm-team__photo { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--hm-radius-md); margin-bottom: 1rem; }
+.hm-team__name { margin-bottom: 0.15em; }
+.hm-team__title { color: var(--ht-fg-muted); margin-bottom: 0.5em; }
+.hm-team__bio { font-size: 0.95rem; }
+.hm-team__social { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.9rem; }
+.hm-team--cards .hm-team__member { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-lg); padding: 1.25rem; background: var(--ht-surface); }
+.hm-team--centered .hm-team__member, .hm-team--centered .hm-team__header { text-align: center; }
+.hm-team--centered .hm-team__header { margin-left: auto; margin-right: auto; }
+.hm-team--centered .hm-team__photo { width: 8rem; height: 8rem; border-radius: 50%; margin-left: auto; margin-right: auto; }
+.hm-team--centered .hm-team__social { justify-content: center; }
+.hm-team--simple .hm-team__photo { display: none; }

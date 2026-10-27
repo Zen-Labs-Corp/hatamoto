@@ -1,0 +1,7 @@
+{{define "hm/entitiesnav"}}<nav class="hm-subnav hm-subnav--entities" aria-label="Entities">
+<h2 class="hm-subnav__title hm-visually-hidden">Entities</h2>
+<ul class="hm-subnav__list" role="list">{{range .EntitiesNav}}<li><a class="hm-subnav__link{{if not .Count}} hm-subnav__link--empty{{end}}" href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}><span class="hm-subnav__text">{{.Label}}</span><span class="hm-subnav__marker">{{.Count}}</span></a></li>
+{{end}}</ul>
+{{if .EntitiesNavManage}}<div class="hm-subnav__sep" role="separator"></div>
+<ul class="hm-subnav__list" role="list"><li><a class="hm-subnav__link" href="{{adminPath}}/settings/types"><span class="hm-subnav__text">Manage entity types</span></a></li></ul>
+{{end}}</nav>{{end}}

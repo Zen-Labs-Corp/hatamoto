@@ -1,0 +1,8 @@
+.hm-overview { display: grid; gap: 2.5rem; align-items: center; }
+.hm-overview--with-image { grid-template-columns: 1fr 1fr; }
+.hm-overview__eyebrow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); margin-bottom: 1rem; }
+.hm-overview__subheading { font-size: 1.15rem; color: var(--ht-fg-muted); }
+.hm-overview__items { margin: 1rem 0 0; padding-left: 1.2rem; }
+.hm-overview__item + .hm-overview__item { margin-top: 0.35rem; }
+.hm-overview__image { display: block; width: 100%; border-radius: var(--hm-radius-lg); }
+@media (max-width: 48rem) { .hm-overview--with-image { grid-template-columns: 1fr; } }

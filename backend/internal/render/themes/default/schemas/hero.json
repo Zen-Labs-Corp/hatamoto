@@ -1,0 +1,33 @@
+{
+  "x-hm-section": {"title": "Hero", "description": "Page opener with headline, subheadline and call-to-action buttons"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "headline": {"type": "string", "title": "Headline", "x-hm-field": "plaintext"},
+    "subheadline": {"type": "string", "title": "Subheadline", "x-hm-field": "richtext"},
+    "primaryCta": {"type": "string", "title": "Primary button text", "x-hm-field": "plaintext"},
+    "ctaUrl": {"type": "string", "title": "Primary button URL", "x-hm-field": "url"},
+    "secondaryCta": {"type": "string", "title": "Secondary button text", "x-hm-field": "plaintext"},
+    "secondaryCtaUrl": {"type": "string", "title": "Secondary button URL", "x-hm-field": "url"},
+    "ctas": {"type": "array", "title": "Buttons (overrides the primary/secondary fields)", "items": {"type": "object", "properties": {
+      "text": {"type": "string", "title": "Text", "x-hm-field": "plaintext"},
+      "url": {"type": "string", "title": "URL", "x-hm-field": "url"}
+    }}},
+    "layout": {"type": "string", "title": "Layout", "enum": ["centered", "split"], "default": "centered"},
+    "commandChip": {"type": "string", "title": "Command chip", "x-hm-field": "plaintext"},
+    "stripLabel": {"type": "string", "title": "Strip label", "description": "Optional. Shown before the strip items; not shown without items.", "x-hm-field": "plaintext"},
+    "stripItems": {"type": "array", "title": "Strip items", "description": "Optional, shown under the buttons. One item per line; commas stay inside an item.", "x-hm-field": "lines", "items": {"type": "string"}},
+    "panel": {"type": "object", "title": "Code panel (split layout, no image)", "properties": {
+      "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+      "meta": {"type": "string", "title": "Meta", "x-hm-field": "plaintext"},
+      "language": {"type": "string", "title": "Language", "enum": ["go", "js", "html", "sh", "json", "text"]},
+      "code": {"type": "string", "title": "Code", "x-hm-field": "code"}
+    }},
+    "outputs": {"type": "array", "title": "Panel outputs", "items": {"type": "object", "properties": {
+      "label": {"type": "string", "title": "Label", "x-hm-field": "plaintext"},
+      "value": {"type": "string", "title": "Value", "x-hm-field": "plaintext"}
+    }}},
+    "heroImage": {"type": "string", "title": "Image", "x-hm-field": "image"},
+    "imageAlt": {"type": "string", "title": "Image alt text", "x-hm-field": "plaintext"}
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "content",
+  "id": "sec-content",
+  "content": {
+    "heading": "Why we built it",
+    "body": "<p>Plain <em>rich</em> text with a <a href=\"/about\">link</a>.</p><ul><li>One</li><li>Two</li></ul><script>alert(1)</script>",
+    "playbookCapture": {"entityId": "x", "title": "ignored"}
+  }
+}

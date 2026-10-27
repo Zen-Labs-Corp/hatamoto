@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (print "Upload " (or (and .Theme "theme") "package")) "Description" (or (and .Theme "A .hmp theme file. It stays inactive until you activate it.") "A .hmp plugin or theme file. You choose which permissions it gets before it is installed.")}}
+<form method="post" action="{{adminPath}}/plugins/upload" enctype="multipart/form-data" class="hm-stack">{{template "hm/csrf" $}}
+{{if not .AllowUnsigned}}<p class="hm-muted">Unsigned packages are refused unless you allow them under <a href="{{adminPath}}/plugins#unsigned">Plugins</a>.</p>{{end}}
+{{template "hm/form-upload-pkg" dict "Label" (or (and .Theme "Theme file") "Package file")}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (or (and .Theme (adminPath "theme" "themes")) (adminPath "plugins"))}}{{template "hm/button" dict "Label" "Upload" "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+</form>{{end}}{{end}}

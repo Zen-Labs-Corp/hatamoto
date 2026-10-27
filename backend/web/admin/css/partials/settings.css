@@ -1,0 +1,70 @@
+/* Settings and Plugins frame: the section sidebar beside the page, and the section head
+   (title, description, link tabs). The page keeps its own width and sits next
+   to the subnav. Under 640px the list becomes a select and a Go button, a
+   plain GET form with no change-to-navigate (WCAG 3.2.2). */
+.hm-settings { display: grid; grid-template-columns: var(--subnav-w) minmax(0, 1fr); align-items: start; min-height: 100vh; }
+.hm-settings > .hm-page { margin-inline: 0; }
+/* Settings pages share the wide column (narrow, wide or full alike), except data-width="compact" pages (Performance, Updates, General, Email), which keep the narrow 760px column. The attribute selector outranks the per-width rules in base.css. */
+.hm-settings > .hm-page[data-width] { max-width: var(--page-wide); }
+.hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
+/* Cards in one .hm-cardform sit in a single block; give them the page rhythm. */
+.hm-settings .hm-cardform > .hm-card + .hm-card { margin-top: var(--space-6); }
+.hm-subnav {
+  position: sticky; top: 0; min-height: 100vh;
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-8) var(--space-3) var(--space-4); background: var(--color-paper); border-right: 1px solid var(--border);
+}
+.hm-subnav__title { padding: 0 var(--space-2); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); letter-spacing: 0; }
+.hm-subnav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-0-5); }
+.hm-subnav__link {
+  display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 var(--space-2);
+  border-radius: var(--radius-nav); color: var(--text-body); text-decoration: none; font-size: var(--text-sm); font-weight: var(--weight-medium);
+}
+.hm-subnav__link .hm-icon { color: var(--text-muted); }
+.hm-subnav__link:hover { background: var(--surface-hover); color: var(--text); }
+.hm-subnav__link[aria-current="page"] { background: var(--surface-hover); color: var(--text); }
+.hm-subnav__link[aria-current="page"] .hm-icon { color: var(--text); }
+.hm-subnav__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.hm-subnav__marker { font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--text-muted); }
+.hm-subnav--entities .hm-subnav__marker { font-variant-numeric: tabular-nums; }
+.hm-subnav--entities .hm-subnav__link[aria-current="page"] .hm-subnav__marker { color: var(--text); }
+.hm-subnav__group { padding: var(--space-3) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
+.hm-subnav__list > .hm-subnav__group:first-child { padding-top: 0; }
+.hm-subnav__sep { height: 1px; background: var(--border); margin: var(--space-2) var(--space-3); }
+.hm-subnav__link--muted { color: var(--text-muted); }
+.hm-subnav__link--muted:hover, .hm-subnav__link--muted[aria-current="page"] { color: var(--text); }
+.hm-subnav__link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-subnav-select { display: none; }
+
+.hm-section-head { display: flex; flex-direction: column; gap: var(--space-4); }
+.hm-section-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.hm-section-head__titles { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+
+.hm-jumpnav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+.hm-fieldgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-4); }
+/* Design tokens: compact inputs, as many columns as fit. */
+.hm-fieldgrid--tokens { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-3) var(--space-4); }
+.hm-fieldgrid--tokens .hm-field__control:not([type="color"]) { height: var(--control-h-sm); }
+/* API key scopes: Select all sits under the legend, not stretched across the column. */
+[data-hm-scopes-all] { align-self: flex-start; }
+[data-hm-scopes-all][hidden] { display: none; }
+.hm-fieldgrid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
+/* The current hex sits under the swatch, in normal flow, and wraps if the cell is narrow. */
+.hm-swatchrow { min-width: 0; }
+.hm-swatchrow__hex { display: block; margin-top: var(--space-1); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+
+@media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .hm-fieldgrid--tokens, .hm-fieldgrid--2 { grid-template-columns: minmax(0, 1fr); }
+  .hm-settings { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .hm-subnav { display: none; }
+  .hm-subnav-select {
+    display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .hm-subnav-select label { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
+  .hm-subnav-select__row { display: flex; gap: var(--space-2); }
+  .hm-subnav-select__row .hm-field__control { flex: 1; min-width: 0; }
+  .hm-subnav-select__manage { font-size: var(--text-sm); }
+}

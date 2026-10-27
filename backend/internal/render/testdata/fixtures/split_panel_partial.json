@@ -1,0 +1,4 @@
+{
+  "type": "split", "id": "sec-split",
+  "content": {"heading": "Partial panel", "panel": {"title": "main.go"}}
+}

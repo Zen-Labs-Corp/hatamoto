@@ -1,0 +1,20 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+{{template "hm/tabs" dict "Label" "Redirect tools" "Items" .Tabs}}
+<form method="get" action="{{adminPath}}/settings/redirects/explain" class="hm-row hm-explain__form" role="search">
+{{template "hm/field" dict "ID" "path" "Name" "path" "Label" "Address path" "Value" .Path "Placeholder" "/old-page" "Required" true "Help" "The path of an address on your site, starting with /." "Error" .Err "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/button" dict "Label" "Explain" "Variant" "primary" "Type" "submit"}}
+</form>
+{{if and .Asked (not .Err)}}
+{{template "hm/card-start" dict "ID" "explain-result" "Title" "Result"}}
+{{template "hm/callout" (dict "Kind" .VerdictKind "Title" .VerdictTitle "Body" .Verdict)}}
+{{if .PagePath}}<p class="hm-muted">Canonical address <code>{{.PagePath}}</code>{{if .PageSchema}} · {{.PageSchema}}{{end}}</p>{{end}}
+{{if .CreateURL}}<div class="hm-row">{{template "hm/button" dict "Label" "Create a redirect for it" "Variant" "primary" "Href" .CreateURL}}</div>{{end}}
+{{if .Stages}}<div class="hm-table__scroll" role="region" aria-label="How each step answered" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">How each redirect step answered for {{.Normalised}}</caption>
+<thead><tr><th scope="col">Step</th><th scope="col">Answer</th><th scope="col">Rule</th></tr></thead>
+<tbody>{{range .Stages}}<tr><th scope="row" class="hm-table__rowhead">{{.Provider}}</th><td data-label="Answer">{{if .Matched}}{{template "hm/badge" (dict "Label" "Matched" "Kind" "success")}} {{.Result}}{{if .Variant}} ({{.Variant}}){{end}}{{else}}{{template "hm/badge" (dict "Label" "No match" "Kind" "neutral")}}{{end}}</td><td data-label="Rule">{{.Rule}}</td></tr>
+{{end}}</tbody></table></div>{{end}}
+<p class="hm-muted">Address checked as <code>{{.Normalised}}</code> (repeated slashes and a trailing slash are ignored).</p>
+{{template "hm/card-end"}}
+{{end}}
+{{end}}{{end}}

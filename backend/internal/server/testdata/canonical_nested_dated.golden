@@ -1,0 +1,8 @@
+root page => http://example.test/about
+child page => http://example.test/services/seo
+grandchild page => http://example.test/services/seo/local
+same slug, other branch => http://example.test/services/pt/local
+dated post => http://example.test/2024/05/hello-world
+post at year end => http://example.test/2024/12/year-end
+post stamped with an offset (read in UTC) => http://example.test/2024/05/offset
+day-dated note => http://example.test/notes/2025/03/09/late-note

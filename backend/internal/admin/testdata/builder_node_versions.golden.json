@@ -1,0 +1,25 @@
+[
+  {
+    "version": 12,
+    "saved": "2026-10-26T16:02:00Z",
+    "by": "Ana",
+    "summary": "Saved",
+    "node": {
+      "t": "heading",
+      "p": {
+        "level": 2,
+        "text": "Welcome"
+      },
+      "s": {
+        "base": {
+          "fs": "xl"
+        }
+      },
+      "b": {
+        "text": "page.title"
+      }
+    },
+    "parent": "hero",
+    "index": 1
+  }
+]

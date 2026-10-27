@@ -1,0 +1,10 @@
+{{define "section-faq"}}{{$c := .Content}}
+<div class="hm-container hm-faq hm-faq--{{default "accordion" $c.variant}}">
+  <h2 class="hm-faq__heading" {{hmf "heading"}}>{{default "Frequently Asked Questions" $c.heading}}</h2>
+  {{with $c.subheading}}<p class="hm-faq__subheading" {{hmf "subheading"}}>{{.}}</p>{{end}}
+  <div class="hm-faq__list">
+    {{range $i, $f := $c.faqs}}<details class="hm-faq__item"><summary class="hm-faq__question" {{hmf "faqs" $i "question"}}>{{$f.question}}</summary><div class="hm-faq__answer hm-prose" {{hmf "faqs" $i "answer"}} data-hm-kind="richtext">{{$f.answer}}</div></details>
+    {{end}}
+  </div>
+</div>
+{{end}}

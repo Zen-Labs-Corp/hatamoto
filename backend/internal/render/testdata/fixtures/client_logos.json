@@ -1,0 +1,10 @@
+{
+  "type": "client_logos", "id": "sec-client-logos", "title": "Clients",
+  "content": {
+    "headline": "Our clients",
+    "logos": [
+      {"altText": "Acme", "imageUrl": "/img/acme.svg", "link": "https://acme.example"},
+      {"altText": "Globex", "imageUrl": "/img/globex.svg"}
+    ]
+  }
+}

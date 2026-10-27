@@ -1,0 +1,11 @@
+{
+  "x-hm-section": {"title": "Call to action", "description": "Closing banner with a headline and one button"},
+  "type": "object",
+  "properties": {
+    "headline": {"type": "string", "title": "Headline", "x-hm-field": "plaintext"},
+    "subheadline": {"type": "string", "title": "Subheadline", "x-hm-field": "richtext"},
+    "buttonText": {"type": "string", "title": "Button text", "x-hm-field": "plaintext"},
+    "buttonUrl": {"type": "string", "title": "Button URL", "x-hm-field": "url"},
+    "backgroundStyle": {"type": "string", "title": "Background", "enum": ["plain", "tinted", "dark"], "default": "plain"}
+  }
+}

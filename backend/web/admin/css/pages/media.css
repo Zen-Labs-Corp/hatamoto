@@ -1,0 +1,55 @@
+/* media library: upload form */
+.hm-upload { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-4) 0; }
+.hm-progress { width: 12rem; height: 8px; accent-color: var(--color-accent); }
+.hm-progress + .hm-muted { margin-left: var(--space-2); }
+.hm-upload__status:empty { display: none; }
+
+/* media library: grid, toolbar, detail */
+.hm-media-grid { list-style: none; margin: var(--space-4) 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.hm-media-grid--picker { grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr)); margin: 0; }
+.hm-mediatile__thumb--file { display: flex; flex-direction: column; gap: var(--space-2); align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; }
+.hm-mediatile__thumb--file .hm-icon { width: 32px; height: 32px; }
+.hm-media-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-4) 0 0; }
+.hm-media-toolbar__filters { flex: 1 1 auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin: 0; }
+.hm-media-toolbar__filters .hm-select { width: auto; flex: 0 1 180px; }
+.hm-media-detail { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .hm-media-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.hm-media-detail__preview { padding: var(--space-4); display: flex; align-items: center; justify-content: center; align-self: start; }
+.hm-media-detail__preview { min-height: 16rem; background-color: var(--surface-hover); background-image: conic-gradient(var(--border) 25%, transparent 0 50%, var(--border) 0 75%, transparent 0); background-size: var(--space-4) var(--space-4); }
+.hm-media-detail__preview img { max-height: 70vh; max-width: 100%; object-fit: contain; }
+.hm-media-detail__file { align-items: center; text-align: center; }
+.hm-media-detail__file .hm-icon { width: 48px; height: 48px; color: var(--text-muted); }
+/* The view toggle sits at the right end of the toolbar; on a phone the search takes a row and the type filter and the toggle share the next. */
+.hm-media-toolbar__view { margin-inline-start: auto; }
+@media (max-width: 640px) {
+  .hm-media-toolbar__filters { display: contents; }
+  .hm-media-toolbar__filters .hm-table__search { flex: 1 1 100%; }
+}
+.hm-usage { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* picker dialog */
+.hm-picker { min-width: 0; max-width: 100%; }
+.hm-picker .hm-row { flex-wrap: wrap; min-width: 0; }
+.hm-picker .hm-field__control { min-width: 0; max-width: 100%; flex: 1 1 12rem; }
+#hm-media-picker { max-width: min(44rem, calc(100vw - 32px)); }
+#hm-media-picker .hm-dialog__panel, #hm-media-picker .hm-dialog__body { min-width: 0; }
+.hm-pickertile { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-2); background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; font: inherit; }
+.hm-pickertile { position: relative; }
+.hm-pickertile__check { display: none; position: absolute; top: var(--space-3); right: var(--space-3); padding: var(--space-0-5); border-radius: var(--radius-full); background: var(--color-sumi); color: var(--color-paper); }
+.hm-pickertile[aria-pressed="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); } /* the library tile's ring (mediatile.css) */
+.hm-pickertile[aria-pressed="true"] .hm-pickertile__check { display: inline-flex; }
+.hm-pickertile__check .hm-icon { width: 14px; height: 14px; }
+.hm-picker__pages { justify-content: space-between; }
+/* the compact dropzone takes the row, the Upload button keeps its own width beside it, the chosen files wrap below */
+.hm-picker__upload { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.hm-picker__upload > [data-hm-dropzone-area] { flex: 1 1 14rem; }
+.hm-picker__upload > [data-hm-dropzone-files] { flex: 1 1 100%; order: 3; }
+.hm-pickertile:hover { border-color: var(--color-accent); }
+.hm-pickertile:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-pickertile img { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-kasumi); }
+
+/* tiles: extension badge, New badge, storage bar */
+.hm-mediatile__badge { position: absolute; top: var(--space-2); right: var(--space-2); }
+.hm-media-storage { margin: var(--space-2) 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-media-storage__total { margin: 0; color: var(--text-muted); }
+.hm-media-storage__total strong { color: var(--text); font-weight: var(--weight-semibold); }

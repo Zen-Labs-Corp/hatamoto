@@ -1,0 +1,215 @@
+name: release
+
+# A v* tag builds the four release artifacts, their bundles, an SBOM per binary
+# and an unsigned record into a DRAFT release. Signing happens offline (RUNBOOK
+# section 2); no key or secret is used here. Each job holds only the permission
+# it needs: build reads, attest signs build provenance and SBOM attestations with
+# the job's OIDC identity (public repositories only: GitHub does not offer
+# attestations to private repositories on every plan, and the private flow must
+# keep working), and only the draft job can write, to create the draft. The
+# draft job alone decides whether the run is green: attest is continue-on-error,
+# so a failed attestation (an Actions allowlist, an outage) never leaves
+# release.sh stuck at `gh run watch --exit-status`; it is reported as an error
+# annotation and in the run summary instead.
+#
+# The container image is NOT built here. A tag push runs the workflow file of the
+# tagged commit, so a job in it cannot be trusted to have kept its own checks.
+# The image comes from .github/workflows/image.yml, dispatched from main after the
+# release is signed and published.
+#
+# The tag itself must be a signed annotated tag from a key in
+# .github/allowed_signers (scripts/tag-release.sh makes it). The check runs
+# before anything is built. While that file lists no key it only warns.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Nothing runs before the tag is known to be a plain version: a tag name
+      # can carry quotes, semicolons and backticks.
+      - name: Check the tag
+        run: |
+          if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "tag is not vMAJOR.MINOR.PATCH[-prerelease]" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # The tag object is fetched again by name (checkout may turn an annotated
+      # tag into a lightweight one) and the signers are read from main, not from
+      # the tagged commit, so a tag cannot bring its own signer list. .git holds
+      # no credentials, so the token is passed for these two fetches only.
+      - name: Verify the tag signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          fetch() { git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" fetch --quiet --no-tags --depth=1 origin "$@"; }
+          fetch "+refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          fetch "+refs/heads/main:refs/remotes/origin/main"
+          test "$(git rev-parse "refs/tags/$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA" || { echo "tag moved since the run started" >&2; exit 1; }
+          git show origin/main:.github/allowed_signers > "$RUNNER_TEMP/allowed_signers" || { echo ".github/allowed_signers is missing on main" >&2; exit 1; }
+          # A public repository fails closed: a forgotten signer line cannot turn
+          # enforcement off there. Only the private repository may warn and pass.
+          require=--require; [ "$REPO_PRIVATE" = true ] && require=
+          bash scripts/verify-tag-signature.sh $require --allowed-signers "$RUNNER_TEMP/allowed_signers" "$GITHUB_REF_NAME"
+
+      # No build cache: a cache written by another workflow must not be able to
+      # change what a release is built from.
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache: false
+
+      # The build flags live in the Makefile, so a local rebuild is identical.
+      - name: Build the four artifacts
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: make release-build
+
+      - name: Record the build environment
+        working-directory: backend
+        run: |
+          tc=$(awk '/^toolchain /{print $2}' go.mod)
+          { echo '```'; GOENV=off GOTOOLCHAIN="$tc" go env GOVERSION GOFLAGS GOEXPERIMENT; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Read build facts
+        run: dist/hatamoto-linux-amd64 version --json > dist/facts.json
+
+      # rollback_floor and min_from are placeholders; `record --check` flags
+      # them for review before the record is signed. The kind follows the
+      # version: x.0.0 major, x.y.0 minor, otherwise patch.
+      - name: Build the unsigned record
+        working-directory: backend
+        run: |
+          core="${GITHUB_REF_NAME#v}"; core="${core%%-*}"
+          IFS=. read -r _ minor patch <<< "$core"
+          if [ "$patch" != 0 ]; then kind="patch"; elif [ "$minor" != 0 ]; then kind="minor"; else kind="major"; fi
+          go run ./tools/release record \
+            --version "$GITHUB_REF_NAME" --kind "$kind" \
+            --facts ../dist/facts.json \
+            --rollback-floor "$GITHUB_REF_NAME" --min-from "$GITHUB_REF_NAME" \
+            --notes-url "https://hatamoto.dev/releases/$GITHUB_REF_NAME" \
+            --dir ../dist --out ../dist/release.json
+
+      # One SPDX and one CycloneDX document per binary, read from the Go build
+      # info embedded in it. They ride in the release next to the binary, and the
+      # attest job signs them.
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        id: syft
+        with:
+          syft-version: v1.55.0
+      - name: SBOM per binary
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: |
+          for b in dist/hatamoto-*-*; do
+            case "$b" in *.tar.gz) continue ;; esac
+            "$SYFT" scan "file:$b" --quiet -o "spdx-json=$b.spdx.json" -o "cyclonedx-json=$b.cdx.json"
+          done
+          ls dist
+
+      # SHA256SUMS lists every hatamoto-* file (binaries, bundles, SBOMs) and
+      # ships with the release. release.json is left out: a maintainer amends it
+      # before signing, so its hash here would go stale; its signature is its proof.
+      - name: Checksums
+        run: |
+          (cd dist && sha256sum hatamoto-* > SHA256SUMS)
+          { cat dist/SHA256SUMS; (cd dist && sha256sum release.json); } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # Build provenance for the binary, its bundle and its SBOMs, and the SBOM
+  # attestations (SPDX and CycloneDX), one matrix leg per platform, plus
+  # SHA256SUMS once. Verify with `gh attestation verify`
+  # (docs/site/updates/verify-a-download.md). release.json is not attested: it is
+  # amended and signed offline, and that signature is its proof.
+  #
+  # continue-on-error: the offline signature is the release's trust root, the
+  # attestation is an extra proof. If it fails, the draft is still made and the
+  # run stays green so the draft is made; the failure is an error annotation
+  # and a summary line (not written if the job dies at set-up, e.g. an Actions
+  # allowlist), so release.sh must read the attest jobs' conclusions before
+  # publish (gh run view --json jobs; see the PR notes), and `gh attestation verify` on the published release
+  # shows what is missing (re-run the failed job to add it).
+  attest:
+    needs: build
+    if: ${{ !github.event.repository.private }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write      # the OIDC identity the attestation is signed with
+      attestations: write  # store the attestation
+    strategy:
+      fail-fast: false   # one failing leg must not cancel the others (a cancelled leg says nothing)
+      matrix:
+        platform: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64]
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/hatamoto-${{ matrix.platform }}*
+      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/hatamoto-${{ matrix.platform }}
+          sbom-path: dist/hatamoto-${{ matrix.platform }}.spdx.json
+      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/hatamoto-${{ matrix.platform }}
+          sbom-path: dist/hatamoto-${{ matrix.platform }}.cdx.json
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: ${{ matrix.platform == 'linux-amd64' }}
+        with:
+          subject-path: dist/SHA256SUMS
+      - name: Say so when attestation failed
+        if: ${{ always() && job.status != 'success' }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          echo "::error title=attestation failed::$PLATFORM has no attestation; the draft was still created. Re-run this job."
+          echo "ATTESTATION FAILED for $PLATFORM: the release has no build provenance for it yet." >> "$GITHUB_STEP_SUMMARY"
+
+  # The only job that can write, and the one that decides the run's conclusion:
+  # it needs the build only, so attest can neither stop nor fail it.
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # create the draft release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in *-*) flags="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/hatamoto-* dist/SHA256SUMS dist/release.json \
+            --draft --verify-tag $flags --title "$GITHUB_REF_NAME" \
+            --notes "Unsigned draft. See RUNBOOK section 2."

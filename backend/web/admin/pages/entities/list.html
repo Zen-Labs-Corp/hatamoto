@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/content{{end}}
+{{define "main"}}{{with .Data}}<div id="entities-head" class="hm-entities-head">{{template "hm/pageheader" dict "Title" .Title "Description" .Description "CSRF" $.CSRF "Menu" .Menu "Primary" .Primary}}
+{{if .StatusTabs}}{{template "hm/tabs" dict "Label" "Status" "Items" .StatusTabs}}{{end}}</div>
+<div class="hm-entities">{{template "hm/table" .Table}}</div>
+{{end}}{{end}}

@@ -1,0 +1,25 @@
+{
+  "x-hm-section": {"title": "Team", "description": "Grid of team members"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["cards", "simple", "centered"], "default": "cards"},
+    "columns": {"type": "integer", "title": "Columns", "enum": [2, 3, 4], "default": 3},
+    "showBios": {"type": "boolean", "title": "Show bios", "default": true},
+    "showSocialLinks": {"type": "boolean", "title": "Show social links", "default": true},
+    "members": {
+      "type": "array", "title": "Members", "x-hm-alias": ["items"],
+      "items": {"type": "object", "properties": {
+        "name": {"type": "string", "title": "Name", "x-hm-field": "plaintext"},
+        "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+        "photo": {"type": "string", "title": "Photo", "x-hm-field": "image"},
+        "bio": {"type": "string", "title": "Bio", "x-hm-field": "plaintext"},
+        "socialLinks": {"type": "array", "title": "Social links", "items": {"type": "object", "properties": {
+          "platform": {"type": "string", "title": "Platform", "x-hm-field": "plaintext"},
+          "url": {"type": "string", "title": "URL", "x-hm-field": "url"}
+        }}}
+      }}
+    }
+  }
+}

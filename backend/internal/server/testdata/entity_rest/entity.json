@@ -1,0 +1,28 @@
+{
+  "id": "<uuid>",
+  "schema_id": "<uuid>",
+  "name": "About",
+  "slug": "about",
+  "locale": "en",
+  "status": "draft",
+  "attributes": {},
+  "metadata": {},
+  "version": 1,
+  "created_by": "<uuid>",
+  "updated_by": "<uuid>",
+  "created_at": "<time>",
+  "updated_at": "<time>",
+  "schema": {
+    "id": "<uuid>",
+    "name": "ERG Note",
+    "slug": "erg-note",
+    "schema": {
+      "type": "object"
+    },
+    "is_builtin": false,
+    "created_at": "<time>",
+    "updated_at": "<time>",
+    "settings": {}
+  }
+}
+

@@ -1,0 +1,9 @@
+{{/* hm/confirmcard: the one confirm page body (generic confirm, theme replace,
+     theme activate, uninstall). Open with hm/confirmcard-start (Post, Hidden,
+     CSRF), put the page's text, table or field in the body, close with
+     hm/confirmcard-end (Back, Label, Danger). The page title is the pageheader
+     above it. hm/confirmcard is the plain form: a Message and nothing else. */}}
+{{define "hm/confirmcard-start"}}<form method="post" action="{{required "hm/confirmcard Post" .Post}}" class="hm-confirmcard">{{template "hm/csrf" .}}{{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+{{template "hm/card-start" (dict "Class" "hm-confirmcard__card")}}{{end}}
+{{define "hm/confirmcard-end"}}{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" (or .CancelLabel "Cancel") "Href" (required "hm/confirmcard Back" .Back))}}{{template "hm/button" (dict "Label" (required "hm/confirmcard Label" .Label) "Variant" (or (and .Danger "danger") "primary") "Type" "submit")}}{{template "hm/card-foot-end"}}</form>{{end}}
+{{define "hm/confirmcard"}}{{template "hm/confirmcard-start" .}}<p>{{.Message}}</p>{{template "hm/confirmcard-end" .}}{{end}}

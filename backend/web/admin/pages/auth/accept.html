@@ -1,0 +1,14 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{if .Valid}}<h1>Accept your invitation</h1>
+<p class="hm-muted">You are joining as <strong>{{.Role}}</strong> with <strong>{{.Email}}</strong>.</p>
+<form method="post" action="{{adminPath}}/accept" class="hm-stack hm-bare__form">
+{{template "hm/csrf" $}}
+<input type="hidden" name="token" value="{{.Token}}">
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Attrs" (attrmap "autocomplete" "name" "autofocus" "autofocus")}}
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Choose a password" "Type" "password" "Required" true "Help" "At least 12 characters." "Error" .Error "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
+{{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the password" "Type" "password" "Required" true "Error" .Match "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Create account" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>{{else if .Exists}}{{template "hm/empty" (dict "Plain" true "H1" true "Icon" "check-circle" "Title" "You already have an account" "Body" "An account with this email address already exists. Sign in to continue." "Actions" (list (dict "Dict" (dict "Label" "Sign in" "Variant" "primary" "Href" (adminPath "login")))))}}{{else}}{{template "hm/empty" (dict "Plain" true "H1" true "Icon" "alert" "Title" "This invitation no longer works" "Body" "Invitations work once and expire after seven days. Ask an owner to send a new one." "Actions" (list (dict "Dict" (dict "Label" "Go to sign in" "Variant" "primary" "Href" (adminPath "login")))))}}{{end}}
+{{end}}{{end}}

@@ -1,0 +1,12 @@
+# Knowledge Base
+
+> Machine-readable index of all published content for LLM and AI crawler consumption. Last updated 2026-10-13. 0 total published entities across 0 content types.
+
+## Knowledge Graph
+
+- [All entities (JSON-LD @graph)](https://acme.example/api/v1/public/knowledge-graph): paginated `application/ld+json` feed of every published entity. Use `?page=N&per_page=50` (max 100) to walk the full set.
+- [Sitemap (XML)](https://acme.example/sitemap.xml): canonical URL index.
+
+## Per-Page Structured Data
+
+Every HTML page on this site embeds Schema.org JSON-LD in a `<script type="application/ld+json">` block in the document head. Parse the HTML or request the page with `Accept: application/ld+json` for the structured payload only.

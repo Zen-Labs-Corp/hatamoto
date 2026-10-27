@@ -1,0 +1,149 @@
+{{template "layouts/editor" .}}
+{{define "modules"}}@hm/blogeditor @hm/repeater @hm/content @hm/editor/kit @hm/editor/blocks @hm/editor/slash @hm/editor/bubble @hm/editor/upload @hm/editor/paste @hm/editor/embed{{end}}
+{{define "scripts"}}sortablejs{{end}}
+{{define "editorbar"}}{{with .Data}}<a class="hm-editor-bar__back" href="{{.ListHref}}" aria-label="Back to posts">{{icon "chevron-left"}}</a>
+<nav class="hm-crumbs hm-editor-bar__crumbs" aria-label="Breadcrumb"><ol class="hm-crumbs__list"><li><a href="{{adminPath}}/entities">Entities</a></li><li><a href="{{.ListHref}}">{{.SchemaName}}</a></li><li><span aria-current="page">{{or .Name (printf "Untitled %s" .Noun)}}</span></li></ol></nav>
+{{with .StatusBadge}}{{template "hm/badge" .}}{{end}}
+<span class="hm-editor-bar__state" data-hm-be-status>{{if .UpdatedAt}}{{template "hm/savestate" (dict "State" "saved" "Text" (printf "Saved %s" .UpdatedAt))}}{{else}}{{template "hm/savestate" (dict "State" "idle" "Text" "")}}{{end}}</span><span class="hm-visually-hidden" role="status" aria-live="polite" data-hm-be-notice></span>
+<span class="hm-editor-bar__spacer"></span>
+<span class="hm-be__tools hm-row" hidden data-hm-be-tools>
+<span class="hm-be__bar-settings" hidden data-hm-be-drawer-js>{{template "hm/button" (dict "Label" "Settings" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-settings" ""))}}</span>
+{{template "hm/button" (dict "Label" "Focus" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-focus" "" "aria-pressed" "false"))}}
+{{template "hm/button" (dict "Label" "Toolbar" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-toolbar" "" "aria-pressed" "true" "title" "Show or hide the formatting toolbar (Alt+Shift+T)"))}}
+{{if .CanPreview}}{{template "hm/button" (dict "Label" "Preview" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-preview-toggle" "" "aria-haspopup" "dialog"))}}{{end}}
+{{if not .Published}}{{template "hm/button" (dict "Label" "Schedule" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-schedule" ""))}}{{end}}
+</span>
+{{if .Published}}{{template "hm/button" (dict "Label" "Update" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
+{{else}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
+{{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}
+{{template "hm/button" (dict "Label" "More actions" "AriaLabel" "More actions" "IconOnly" true "Icon" "more" "Variant" "ghost" "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" "be-more"))}}
+<div class="hm-menu" id="be-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Details</a>{{with .ViewHref}}<a role="menuitem" href="{{.}}">View on site</a>{{end}}
+<button type="button" role="menuitem" class="hm-be__menu-drawer" hidden data-hm-be-settings>Settings</button>
+<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="focus">Focus mode</button>
+<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="toolbar">Formatting toolbar</button>
+{{if .CanPreview}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="preview-toggle">Preview</button>
+<button type="submit" role="menuitem" form="hm-be" formaction="{{adminPath}}/entities/{{.ID}}/edit/preview" formtarget="_blank" formnovalidate name="_op" value="preview">Open preview in a new tab</button>{{end}}
+{{if not .Published}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="schedule">Schedule</button>{{end}}
+<div role="separator"></div><a role="menuitem" href="{{adminPath}}/entities/{{.ID}}/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-post="{{adminPath}}/entities/{{.ID}}/delete" data-tone="danger" data-hm-danger>Delete</a></div>
+{{end}}{{end}}
+{{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Write {{or .Name (printf "Untitled %s" .Noun)}}</h1>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Conflict}}{{template "hm/flash" (dict "Kind" "error" "Message" . "Inline" true)}}{{end}}
+<form method="post" action="{{adminPath}}/entities/{{.ID}}/edit" class="hm-be" id="hm-be" novalidate data-hm-blog-editor data-hm-entity="{{.ID}}" data-hm-status="{{.Status}}"{{with $.User}} data-hm-user="{{.ID}}"{{end}} data-hm-version="{{.Version}}" data-hm-recovery-url="{{adminPath}}/entities/{{.ID}}/edit/recovery" data-hm-recovery-discard-url="{{adminPath}}/entities/{{.ID}}/edit/recovery/discard"{{if .CanPreview}} data-hm-preview="{{adminPath}}/entities/{{.ID}}/edit/preview"{{end}}>
+{{template "hm/csrf" $}}
+<input type="hidden" name="version" value="{{.Version}}">
+{{with .RecoveryScript}}{{.}}{{end}}
+<input type="hidden" name="_seo_llms" value="1">
+{{if .SlugAuto}}<input type="hidden" name="slug_auto" value="">{{end}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
+<div class="hm-be__recover" hidden data-hm-be-recover>{{template "hm/callout-start" (dict "Kind" "info" "Compact" true)}}<span data-hm-be-recover-text>Unsaved changes to this post were kept for you.</span>
+{{template "hm/button" (dict "Label" "Restore it" "Size" "sm" "Attrs" (attrmap "data-hm-be-recover-use" ""))}} {{template "hm/button" (dict "Label" "Discard it" "Size" "sm" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-recover-drop" ""))}}{{template "hm/callout-end"}}</div>
+<dialog class="hm-dialog hm-be__dialog" id="be-preview" aria-labelledby="be-preview-t" data-hm-be-preview-pane>
+<div class="hm-be__dialog-head"><h2 class="hm-dialog__title" id="be-preview-t">Preview</h2>
+<div class="hm-row hm-be__dialog-tools">{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-be-width" "1100")) (dict "Label" "Mobile" "Attrs" (attrmap "data-hm-be-width" "390"))))}}{{template "hm/button" (dict "Label" "Refresh preview" "Size" "sm" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-width" "refresh"))}}</div>
+{{template "hm/button" (dict "Label" "Close" "Size" "sm" "Attrs" (attrmap "data-hm-be-preview-close" ""))}}</div>
+<div class="hm-be__stage" data-hm-be-stage></div>
+</dialog>
+<div class="hm-be__grid">
+<div class="hm-be__main">
+<div class="hm-field{{if index .Errors "name"}} hm-field--invalid{{end}}">
+<label class="hm-field__label hm-visually-hidden" for="name">Title</label>
+<textarea class="hm-be__title" id="name" name="name" rows="1" placeholder="Untitled {{.Noun}}" maxlength="255" autocomplete="off"{{with index .Errors "name"}} aria-invalid="true" aria-describedby="name-error"{{end}}>{{.Name}}</textarea>
+{{with index .Errors "name"}}<p class="hm-field__error" id="name-error">{{.}}</p>{{end}}</div>
+<p class="hm-be__meta"><span data-hm-be-count>{{.Panel.Words}} words · {{.Panel.ReadingMinutes}} min read</span>{{with .EditedBy}}<span aria-hidden="true">·</span><span>Last edited by {{.}}</span>{{end}}</p>
+<div class="hm-field"><label class="hm-field__label" for="content">Body</label>
+<textarea class="hm-field__control hm-be__body" id="content" name="content" rows="24" data-hm-editor="blog" data-hm-site-hosts="{{.SiteHost}}">{{.Content}}</textarea>
+<p class="hm-field__help" id="content-help">Rich text. Type / for blocks (headings, lists, images, embeds, FAQ). Without JavaScript this is plain HTML.</p></div>
+</div>
+<aside class="hm-be__side" aria-label="Post settings">
+<div class="hm-be__side-head" hidden data-hm-be-drawer-js><h2 class="hm-be__side-title">Post settings</h2>{{template "hm/button" (dict "Label" "Close" "Size" "sm" "Attrs" (attrmap "data-hm-be-settings-close" ""))}}</div>
+{{template "hm/tabs" (dict "Variant" "tablist" "Label" "Post settings" "Class" "hm-tablist--bar hm-be__tabrow" "Attrs" (attrmap "hidden" "hidden" "data-hm-be-tabs" "") "Items" (list (dict "ID" "be-tab-post" "Controls" "be-tabpanel-post" "Label" "Post" "Active" true) (dict "ID" "be-tab-seo" "Controls" "be-tabpanel-seo" "Label" "SEO and AEO")))}}
+<section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-post" aria-labelledby="be-tab-post" data-hm-be-panel>
+<h2 class="hm-be__panel-h" data-hm-be-panel-h>Post</h2>
+{{template "hm/card-start" dict "ID" "be-publish" "Title" "Publish"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .StatusOptions "Error" (index .Errors "status")}}
+<div data-hm-be-sched>
+{{template "hm/field" dict "ID" "schedule" "Name" "schedule" "Label" "Publish at" "Type" "datetime-local" "Value" .Schedule "Help" (printf "Used when the status is Scheduled. Times are in %s." .Zone) "Error" (index .Errors "schedule")}}
+</div>
+<div class="hm-field" data-hm-be-sched-js data-hm-zone="{{.Zone}}" hidden>
+<span class="hm-field__label" id="be-sched-label">Publish at</span>
+{{template "hm/button" (dict "Label" "Not scheduled" "Icon" "calendar" "Attrs" (attrmap "popovertarget" "be-sched-pop" "aria-haspopup" "dialog" "aria-describedby" "be-sched-label be-sched-help" "data-hm-be-sched-button" ""))}}
+<p class="hm-field__help" id="be-sched-help">Used when the status is Scheduled. Times are in {{.Zone}}.</p>
+<div class="hm-popover-panel hm-be__sched-pop" popover id="be-sched-pop" role="dialog" aria-label="Choose when to publish" data-hm-be-sched-pop>
+<div class="hm-daterange__grid">
+<ul class="hm-daterange__presets" aria-label="Presets"><li><button type="button" class="hm-daterange__preset" data-hm-be-sched-preset="now">Now</button></li><li><button type="button" class="hm-daterange__preset" data-hm-be-sched-preset="tomorrow">Tomorrow 9:00</button></li><li><button type="button" class="hm-daterange__preset" data-hm-be-sched-preset="monday">Next Monday 9:00</button></li><li><button type="button" class="hm-daterange__preset" data-hm-be-sched-preset="week">In a week</button></li><li><button type="button" class="hm-daterange__preset" data-hm-be-sched-preset="clear">Not scheduled</button></li></ul>
+<fieldset class="hm-daterange__dates"><legend class="hm-field__label">Custom time</legend>
+<div class="hm-field"><label class="hm-field__label" for="be-sched-date">Date</label><input class="hm-field__control" type="date" id="be-sched-date" name="_sched_date" data-hm-be-sched-date></div>
+<div class="hm-field"><label class="hm-field__label" for="be-sched-time">Time ({{.Zone}})</label><input class="hm-field__control" type="time" id="be-sched-time" name="_sched_time" data-hm-be-sched-time></div>
+</fieldset></div>
+<footer>{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "popovertarget" "be-sched-pop" "popovertargetaction" "hide"))}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Attrs" (attrmap "data-hm-be-sched-apply" ""))}}</footer>
+</div>
+</div>
+{{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" (or (and .SlugAuto "Follows the title until you change it.") "The address of this post. Changing it after publishing breaks links.") "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" (or (and .SlugAuto "1") "0"))}}
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "be-image" "Title" "Featured image"}}
+<div class="hm-stack">
+<div class="hm-field"><label class="hm-field__label" for="featured_image">Image address</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="featured_image" name="featured_image" value="{{.Featured}}" data-hm-image autocomplete="off">{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "featured_image" "hidden" "hidden"))}}</div></div>
+{{template "hm/field" dict "ID" "excerpt" "Name" "excerpt" "Label" "Excerpt" "Control" "textarea" "Rows" 3 "Value" .Excerpt "Help" "A short summary for lists and, when there is no search description, for search results."}}
+<p class="hm-be__count hm-muted" data-hm-be-excerpt-count hidden></p>
+</div>
+{{template "hm/card-end"}}
+{{if .ShowTerms}}{{template "hm/card-start" dict "ID" "be-terms" "Title" "Categories and tags"}}
+<div class="hm-stack" data-hm-terms{{if .CanCreateTerm}} data-hm-terms-create{{end}}>
+<input type="hidden" name="_terms" value="1">
+{{range .TermGroups}}<fieldset class="hm-terms" data-hm-terms-kind="{{.Kind}}"><legend class="hm-field__label">{{.Kind}}</legend>
+<ul class="hm-terms__list" role="list">{{range .Terms}}<li class="hm-depth-{{.Depth}}"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="{{.ID}}"{{if .Checked}} checked{{end}}><span>{{.Name}}</span></label></li>
+{{end}}</ul></fieldset>
+{{else}}{{template "hm/empty" (dict "Title" "No categories or tags yet" "Body" (cond .CanCreateTerm "Add one below." "") "Compact" true)}}{{end}}
+{{if .CanCreateTerm}}<div class="hm-row hm-row--top" data-hm-terms-new>
+{{template "hm/field" dict "ID" "new_term_name" "Name" "new_term_name" "Label" "New term" "Value" .NewTermName "Error" (index .Errors "new_term_name") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "new_term_kind" "Name" "new_term_kind" "Label" "Kind" "Control" "select" "Options" .KindOptions}}
+</div>{{end}}
+</div>
+{{template "hm/card-end"}}{{end}}
+{{if .ShowAuthor}}{{template "hm/card-start" dict "ID" "be-author" "Title" "Author"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "author" "Name" "author" "Label" "Author" "Control" "select" "Options" .AuthorOptions}}
+{{template "hm/field" dict "ID" "new_author" "Name" "new_author" "Label" "Or add a new author" "Value" .NewAuthor "Help" "Type a name to create an author and use it for this post." "Attrs" (attrmap "autocomplete" "off")}}
+</div>
+{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "ID" "be-visibility" "Title" "Address and indexing"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "seo_canonical" "Name" "seo_canonical" "Label" "Canonical address" "Value" .SEO.Canonical "Help" "Only when this post also lives at another address." "Error" (index .Errors "seo_canonical") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "seo_noindex" "Name" "seo_noindex" "Label" "Ask search engines not to list this post" "Control" "switch" "Value" "true" "Checked" .SEO.NoIndex}}
+</div>
+{{template "hm/card-end"}}
+</section>
+<section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-seo" aria-labelledby="be-tab-seo" data-hm-be-panel>
+<h2 class="hm-be__panel-h" data-hm-be-panel-h>SEO and AEO</h2>
+{{template "hm/card-start" dict "ID" "be-seo" "Title" "Search and social" "Description" "How this post appears in search results and when shared."}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "seo_keyword" "Name" "seo_keyword" "Label" "Focus keyword" "Value" .Keyword "Help" "The phrase this post should rank for. The checks below look for it." "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "seo_title" "Name" "seo_title" "Label" "SEO title" "Value" .SEO.Title "Help" "Shown in search results. About 60 characters." "Error" (index .Errors "seo_title") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/seocount" dict "ID" "seo-title-count" "Len" .Panel.SERP.TitleLen "Max" 60 "Status" .Panel.SERP.TitleStatus "Msg" .Panel.SERP.TitleMsg}}
+{{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
+{{template "hm/seocount" dict "ID" "seo-description-count" "Len" .Panel.SERP.DescLen "Max" 160 "Status" .Panel.SERP.DescStatus "Msg" .Panel.SERP.DescMsg}}
+<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "seo_og_image" "hidden" "hidden"))}}</div>
+{{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
+{{template "hm/field" dict "ID" "seo_llms" "Name" "seo_llms" "Label" "Include in /llms.txt" "Control" "switch" "Value" "true" "Checked" .InLLMs "Help" "Lists this post for AI assistants that read /llms.txt."}}
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "be-checks" "Title" "Search and answer checks" "Description" "Updates as you write."}}
+{{template "hm/indicator" dict "ID" "analyze-busy" "Text" "Checking"}}
+<div id="be-panel" aria-live="polite" hx-post="{{adminPath}}/entities/{{.ID}}/edit/analyze" hx-trigger="input changed delay:1500ms from:#hm-be, change from:#hm-be" hx-include="#hm-be" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy">{{template "hm/blogpanel" .}}</div>
+{{template "hm/card-end"}}
+{{if .Crawlers}}{{template "hm/card-start" dict "ID" "be-crawlers" "Title" "AI crawlers" "Description" "Assistants that fetched this post."}}
+{{if .Crawlers.Error}}<p class="hm-muted">Crawler activity could not be loaded.</p>
+{{else}}<p class="hm-be__crawl"><strong>{{.Crawlers.Fetch7d}}</strong> fetches in 7 days · <strong>{{.Crawlers.Fetch30d}}</strong> in 30 days{{with .Crawlers.FirstCrawl}} · first crawled {{.}}{{end}}</p>
+{{if .Crawlers.Rows}}<ul class="hm-bp__list" role="list">{{range .Crawlers.Rows}}<li class="hm-bp__item"><span><strong>{{.Name}}</strong> ({{.Operator}}) last fetched {{.Last}}{{with .Status}} · status {{.}}{{end}}</span></li>
+{{end}}</ul>{{else}}{{template "hm/empty" (dict "Title" "No AI crawler has fetched this post yet" "Compact" true)}}{{end}}{{end}}
+{{template "hm/card-end"}}{{end}}
+</section>
+</aside>
+</div>
+</form>
+{{end}}{{end}}

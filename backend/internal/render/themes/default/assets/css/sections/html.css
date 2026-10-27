@@ -1,0 +1,7 @@
+.hm-html-body { overflow-wrap: anywhere; }
+.hm-html-body > :last-child { margin-bottom: 0; }
+.hm-html-body details { border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.75rem 1rem; margin: 0 0 0.75rem; }
+.hm-html-body summary { cursor: pointer; font-weight: 600; }
+/* Bespoke html blocks that bring their own full-width section chrome: avoid doubling the band padding and rule. */
+.hm-section--html:has(> .hm-container > .hm-html-body > section:only-child) { padding-block: 0; border-top: 0; }
+.hm-section--html:has(> .hm-container > .hm-html-body > section:only-child) > .hm-container { max-width: none; padding: 0; }

@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Section template") "CSRF" $.CSRF}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/theme/templates/{{.ID}}" class="hm-cardform">
+{{template "hm/card-start" dict}}
+{{template "hm/csrf" $}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "255" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 3 "Value" .Description "Error" (index .Errors "description")}}
+{{template "hm/field" dict "ID" "tags" "Name" "tags" "Label" "Tags" "Value" .Tags "Help" "Separate tags with commas." "Error" (index .Errors "tags") "Attrs" (attrmap "autocomplete" "off")}}
+<p class="hm-muted">{{if .Layout}}Layout template from the builder{{else}}Section type <code>{{.Type}}</code>{{end}} · used {{.Used}} {{if eq .Used 1}}time{{else}}times{{end}}. To change what it contains, build it on a page and save it as a template again.</p>
+{{template "hm/card-foot"}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete template" "Variant" "danger-text" "Href" (printf "%s/theme/templates/%s/delete" adminPath .ID)}}</span>
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "theme" "templates")}}
+{{template "hm/button" dict "Label" "Save template" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+{{template "hm/card-start" dict "ID" "sec-content" "Title" "Saved content"}}<pre class="hm-code" tabindex="0"><code>{{.Content}}</code></pre>{{template "hm/card-end"}}
+{{end}}{{end}}

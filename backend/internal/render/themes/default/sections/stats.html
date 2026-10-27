@@ -1,0 +1,14 @@
+{{define "stats-num"}}{{if eq (printf "%T" .) "float64"}}{{if lt . 1000000.0}}{{.}}{{else}}{{printf "%.0f" .}}{{end}}{{else}}{{.}}{{end}}{{end}}
+{{define "section-stats"}}{{$c := .Content}}<div class="hm-container hm-stats hm-stats--{{default "simple" $c.variant}} hm-stats--cols-{{default 4 $c.columns}}">
+  {{if or $c.heading $c.subheading}}<header class="hm-stats__header">
+    {{if $c.heading}}<h2 class="hm-stats__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-stats__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.stats}}<dl class="hm-stats__list">
+    {{range $i, $s := $c.stats}}<div class="hm-stats__item">
+      <dt class="hm-stats__label" {{hmf "stats" $i "label"}}>{{$s.label}}</dt>
+      <dd class="hm-stats__value"><span class="hm-stats__number">{{if $s.prefix}}<span {{hmf "stats" $i "prefix"}}>{{$s.prefix}}</span>{{end}}<span {{hmf "stats" $i "value"}}>{{template "stats-num" $s.value}}</span>{{if $s.suffix}}<span {{hmf "stats" $i "suffix"}}>{{$s.suffix}}</span>{{end}}</span>
+        {{if $s.description}}<span class="hm-stats__description" {{hmf "stats" $i "description"}}>{{$s.description}}</span>{{end}}</dd>
+    </div>{{end}}
+  </dl>{{end}}
+</div>{{end}}

@@ -1,0 +1,22 @@
+{{define "content"}}{{$nav := menu "sidebar"}}{{$pos := navPos $nav .Path}}{{$b := docBody .Body}}{{$cur := ""}}{{$open := ""}}{{with $pos.Current}}{{$cur = .Href}}{{$open = .Href}}{{end}}{{with $pos.Trail}}{{$open = (index . 0).Href}}{{end}}{{$type := .SchemaSlug}}{{$cards := ""}}{{with $pos.Current}}{{if .Children}}{{$cards = "children"}}{{end}}{{else}}{{if and $nav (hasPrefix (index $nav 0).Href (printf "%s/" (trimSuffix .Path "/")))}}{{$cards = "landing"}}{{end}}{{end}}<div class="hm-doc">
+<details class="hm-doc__navm"><summary>Documentation menu</summary>
+<nav aria-label="Documentation">{{template "doc-search" dict "Type" $type}}{{template "doc-nav" dict "Nav" $nav "Cur" $cur "Open" $open}}</nav></details>
+<article class="hm-doc__main">
+{{if or $pos.Current $pos.Trail (gt (len .Breadcrumb) 2)}}<nav class="hm-doc__crumbs" aria-label="Breadcrumb"><ol>
+{{if gt (len .Breadcrumb) 2}}{{with index .Breadcrumb 1}}<li><a href="{{.URL}}">{{.Name}}</a></li>
+{{end}}{{end}}{{range $pos.Trail}}{{if and .Href (ne .Href "#")}}<li><a href="{{.Href}}">{{.Label}}</a></li>
+{{end}}{{end}}{{with $pos.Current}}<li><span aria-current="page">{{.Label}}</span></li>
+{{end}}</ol></nav>
+{{end}}<h1 class="hm-doc__title">{{if .Entity}}{{.Entity.Title}}{{else}}{{.Page.Name}}{{end}}</h1>
+{{if $b.HTML}}<div class="hm-prose hm-entry">{{$b.HTML}}</div>
+{{end}}{{range .Blocks}}{{template "section" .}}
+{{end}}{{if $cards}}{{$q1 := query (dict "schema" .SchemaSlug "limit" 100 "page" 1)}}{{$more := slice $q1.Items 0 0}}{{if gt $q1.Pages 1}}{{$q2 := query (dict "schema" .SchemaSlug "limit" 100 "page" 2)}}{{$more = $q2.Items}}{{end}}{{$items := $nav}}{{with $pos.Current}}{{$items = .Children}}{{end}}{{template "doc-cards" dict "Landing" (eq $cards "landing") "Items" $items "A" $q1.Items "B" $more}}
+{{end}}{{if or $pos.Prev $pos.Next}}<nav class="hm-doc__pager" aria-label="Pages">
+{{with $pos.Prev}}<a class="hm-doc__prev" rel="prev" href="{{.Href}}"><span>Previous</span> {{.Label}}</a>{{end}}{{with $pos.Next}}<a class="hm-doc__next" rel="next" href="{{.Href}}"><span>Next</span> {{.Label}}</a>{{end}}</nav>{{end}}
+</article>
+<aside class="hm-doc__nav">
+<nav aria-label="Documentation">{{template "doc-search" dict "Type" $type}}{{template "doc-nav" dict "Nav" $nav "Cur" $cur "Open" $open}}</nav></aside>
+{{if $b.TOC}}<nav class="hm-doc__toc" aria-label="On this page"><p class="hm-doc__toc-title" aria-hidden="true">On this page</p><ol>
+{{range $b.TOC}}<li class="hm-doc__toc-l{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>
+{{end}}</ol></nav>
+{{end}}</div>{{end}}

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Map",
+    "hint": "A static map image that links to a map",
+    "group": "Media",
+    "order": 50,
+    "default": {"query": "Sydney"}
+  },
+  "properties": {
+    "query": {"x-hm-bind": "text", "type": "string", "maxLength": 300},
+    "image": {"type": "string", "maxLength": 2048, "x-hm-widget": "media"},
+    "href": {"type": "string", "maxLength": 2048},
+    "alt": {"type": "string", "maxLength": 2000},
+    "hidden": {"type": "boolean"}
+  }
+}

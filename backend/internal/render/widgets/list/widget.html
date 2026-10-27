@@ -1,0 +1,1 @@
+{{if .X.Ordered}}<ol {{.Attrs}}>{{template "items" .X.Items}}</ol>{{else}}<ul {{.Attrs}}>{{template "items" .X.Items}}</ul>{{end}}{{define "items"}}{{range .}}<li>{{.Icon}}<span>{{.Text}}</span></li>{{end}}{{end}}

@@ -1,0 +1,27 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/aia{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{with .Body}}<div class="hm-stack">
+<h2 class="hm-visually-hidden">Content activity</h2>
+{{template "hm/aia-chart" .Hero}}
+<div class="hm-grid2">
+{{template "hm/card-start" (dict "ID" "w-ct-cov" "Title" "Coverage" "Description" "Published pages fetched at least once. As of today, not filtered by the date range." "Heading" "h3")}}
+{{if .Coverage}}{{template "hm/categorybar" .Coverage}}<p class="hm-aia-small hm-aia-note">{{.CoverageNote}}</p>
+{{if .NeverByType.Items}}<h4 class="hm-card__subtitle">Never fetched, by page type</h4>{{template "hm/barlist" .NeverByType}}{{end}}{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-ct-ttf" "Title" "Time to first fetch" "Description" "Days from publish to the first AI fetch." "Heading" "h3")}}
+{{if .FirstFetch}}{{template "hm/categorybar" .FirstFetch}}{{if .FirstBy.Items}}<h4 class="hm-card__subtitle">First fetched by</h4>{{template "hm/barlist" .FirstBy}}{{end}}{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-ct-top" "Title" "Most fetched pages" "Description" "Top 10 pages over the selected period." "Heading" "h3")}}
+{{template "hm/barlist" .TopPages}}
+{{template "hm/card-end"}}
+{{template "hm/aia-chart" .FirstCrawl}}
+</div>
+{{template "hm/card-start" (dict "ID" "w-ct-never" "Title" "Published pages no AI agent has fetched" "Description" "Newest first. Pages have no importance score yet, so this list is sorted by publish date." "Heading" "h3")}}
+<p class="hm-aia-small hm-aia-note hm-aia-lead">These pages have not been fetched since tracking began. The list is not filtered by the date range.</p>
+{{template "hm/aia-rows" .Never}}
+{{template "hm/card-end"}}
+</div>{{end}}
+{{end}}{{end}}

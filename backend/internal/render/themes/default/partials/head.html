@@ -1,0 +1,18 @@
+{{define "head"}}<title>{{.Title}}</title>
+{{with .Description}}<meta name="description" content="{{.}}">
+{{end}}<link rel="canonical" href="{{.Canonical}}">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-icon.png">
+{{with .Prev}}<link rel="prev" href="{{.}}">
+{{end}}{{with .Next}}<link rel="next" href="{{.}}">
+{{end}}{{with .Robots}}<meta name="robots" content="{{.}}">
+{{end}}{{range .Feeds}}<link rel="alternate" type="{{.Type}}" title="{{.Title}}" href="{{.Href}}">
+{{end}}{{range .OG}}<meta property="{{.Key}}" content="{{.Content}}">
+{{end}}{{range .Twitter}}<meta name="{{.Key}}" content="{{.Content}}">
+{{end}}{{range .Ext}}{{if eq .Kind "meta"}}<meta{{with .Name}} name="{{.}}"{{end}}{{with .Property}} property="{{.}}"{{end}}{{with .Content}} content="{{.}}"{{end}}>
+{{else if eq .Kind "link"}}<link rel="{{.Rel}}" href="{{.Href}}"{{with .Type}} type="{{.}}"{{end}}{{with .Hreflang}} hreflang="{{.}}"{{end}}{{with .Crossorigin}} crossorigin="{{.}}"{{end}}>
+{{else if eq .Kind "script-src"}}<script src="{{.Src}}"{{with .Crossorigin}} crossorigin="{{.}}"{{end}}></script>
+{{end}}{{end}}{{range .Scripts}}{{.}}
+{{end}}{{with .Comment}}{{.}}
+{{end}}{{end}}

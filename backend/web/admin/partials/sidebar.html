@@ -1,0 +1,25 @@
+{{define "hm/sidebar"}}<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
+<div class="hm-sidebar__head">
+<a class="hm-brand hm-sidebar__brand" href="{{adminPath}}/entities">{{icon "mark"}}<span>{{.SiteName}}</span></a>
+{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "external" "Label" "Open site" "Href" (or .SiteURL "/") "AriaLabel" "Open site in a new window" "Attrs" (attrmap "target" "_blank" "rel" "noopener" "data-tooltip" "Open site" "data-tooltip-align" "end"))}}
+</div>
+<div class="hm-nav-groups">
+{{range $i, $g := .NavGroups}}<div class="hm-nav-group">{{if $g.Label}}<p class="hm-nav-group__title" id="hm-nav-g{{$i}}">{{$g.Label}}</p>{{end}}
+<ul class="hm-nav-list" role="list"{{if $g.Label}} aria-labelledby="hm-nav-g{{$i}}"{{end}}>
+{{range $g.Items}}<li><a class="hm-nav-link" href="{{.Href}}"{{if .Current}} aria-current="{{.Current}}"{{end}}>{{icon (or .Icon "puzzle")}}<span>{{.Label}}</span>{{if .Badge}}<span class="hm-nav-link__badge">{{.Badge}}</span>{{end}}</a>
+</li>
+{{end}}</ul>
+</div>
+{{end}}</div>
+{{with .User}}<div class="hm-sidebar__foot">
+<a class="hm-sidebar__me" href="{{adminPath}}/profile" aria-label="{{.Name}}, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span><span class="hm-sidebar__name">{{.Name}}</span></a>
+{{template "hm/themelogout" $}}
+</div>{{end}}
+</nav>{{end}}
+
+{{/* The colour-scheme toggle and the sign-out button: the sidebar footer (icons, beside the user's name), and the forced "Complete your profile" step that has no sidebar (hm/themelogoutlabelled: text labels, since a tooltip never shows on touch). Both take the page view (Theme, csrf). */}}
+{{define "hm/themelogout"}}{{template "hm/themelogoutforms" (dict "V" $ "Labelled" false)}}{{end}}
+{{define "hm/themelogoutlabelled"}}{{template "hm/themelogoutforms" (dict "V" $ "Labelled" true)}}{{end}}
+{{define "hm/themelogoutforms"}}{{$v := .V}}{{$label := "Switch theme"}}{{if eq $v.Theme "dark"}}{{$label = "Light theme"}}{{else if eq $v.Theme "light"}}{{$label = "Dark theme"}}{{end}}
+<form method="post" action="{{adminPath}}/theme">{{template "hm/csrf" $v}}<button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm"{{if .Labelled}} data-hm-theme-toggle{{else}} data-icon-only data-hm-theme-toggle aria-label="{{$label}}" data-tooltip="{{$label}}" data-tooltip-align="end"{{end}}><span class="hm-theme-icon hm-theme-icon--light">{{icon "moon"}}</span><span class="hm-theme-icon hm-theme-icon--dark">{{icon "sun"}}</span>{{if .Labelled}}<span>{{$label}}</span>{{end}}</button></form>
+<form method="post" action="{{adminPath}}/logout">{{template "hm/csrf" $v}}{{$tip := attrmap}}{{if not .Labelled}}{{$tip = attrmap "data-tooltip" "Sign out" "data-tooltip-align" "end"}}{{end}}{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" (not .Labelled) "Icon" "log-out" "Label" "Sign out" "Type" "submit" "AriaLabel" "Sign out" "Attrs" $tip)}}</form>{{end}}

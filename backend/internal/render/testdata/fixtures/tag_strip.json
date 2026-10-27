@@ -1,0 +1,7 @@
+{
+  "type": "tag_strip", "id": "sec-tags",
+  "content": {
+    "label": "What it runs on",
+    "items": ["Go", "PostgreSQL", "Next.js", "Docker <b>x</b>", "Caddy"]
+  }
+}

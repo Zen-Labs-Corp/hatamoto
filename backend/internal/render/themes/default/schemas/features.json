@@ -1,0 +1,25 @@
+{
+  "x-hm-section": {"title": "Features", "description": "Grid of feature cards with optional icon and link"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow (bento)", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["cards", "minimal", "centered", "bento"], "default": "cards"},
+    "columns": {"type": "integer", "title": "Columns", "enum": [2, 3, 4], "default": 3},
+    "features": {
+      "type": "array", "title": "Features", "x-hm-alias": ["items"],
+      "items": {"type": "object", "properties": {
+        "number": {"type": "string", "title": "Number (bento)", "x-hm-field": "plaintext"},
+        "category": {"type": "string", "title": "Category (bento)", "x-hm-field": "plaintext"},
+        "badge": {"type": "string", "title": "Badge (bento)", "x-hm-field": "plaintext"},
+        "tags": {"type": "string", "title": "Tags (bento)", "x-hm-field": "plaintext"},
+        "icon": {"type": "string", "title": "Icon (emoji or short text)", "x-hm-field": "plaintext"},
+        "title": {"type": "string", "title": "Title", "x-hm-field": "plaintext"},
+        "description": {"type": "string", "title": "Description", "x-hm-field": "plaintext"},
+        "link": {"type": "string", "title": "Link URL", "x-hm-field": "url"},
+        "linkText": {"type": "string", "title": "Link text", "x-hm-field": "plaintext"}
+      }}
+    }
+  }
+}

@@ -1,0 +1,16 @@
+/* The paper panel. Head and body are optional; the stat tiles live in chart.css. */
+.hm-card { background: var(--color-paper); border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); min-width: 0; }
+.hm-card__head { padding: var(--space-4) var(--space-5) 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-card__head p { color: var(--color-hai); font-size: var(--text-sm); }
+.hm-card__body { padding: var(--space-4) var(--space-5) var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+.hm-card__subtitle { margin: var(--space-5) 0 var(--space-2); font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text); }
+.hm-card__title { font-size: var(--text-lg); line-height: var(--leading-6); }
+/* Form footer: always the last child of the card, actions right-aligned, secondary before primary.
+   .hm-cardform lets a <form> wrap the card. The card keeps the width of its sibling cards; only the
+   fields inside the body keep the 46rem measure the old form.hm-stack had. Tables, their scroll
+   wrappers and setting lists stay full width so switches line up with the card edge and the footer. The footer stays full width. */
+.hm-cardform { display: block; }
+.hm-cardform .hm-card__body > :not(table, .hm-setlist, .hm-table__scroll) { max-width: 46rem; }
+.hm-card__foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+.hm-card__foot--plain { border-top: 0; padding-inline: 0; }
+.hm-card__foot-note { margin-inline-end: auto; }

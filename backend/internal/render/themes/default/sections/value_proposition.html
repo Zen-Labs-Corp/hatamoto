@@ -1,0 +1,6 @@
+{{define "section-value_proposition"}}{{$c := .Content}}
+<div class="hm-container hm-value-proposition">
+  {{with $c.headline}}<h2 class="hm-value-proposition__headline" {{hmf "headline"}}>{{.}}</h2>{{end}}
+  {{with $c.paragraph}}<p class="hm-value-proposition__paragraph" {{hmf "paragraph"}}>{{.}}</p>{{end}}
+</div>
+{{end}}

@@ -1,0 +1,13 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Description" (printf "Everything tagged “%s” is tagged with the term you choose instead, then “%s” is deleted. This cannot be undone." .Name .Name)}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/taxonomies/terms/{{.ID}}/merge" class="hm-cardform">
+{{template "hm/csrf" $}}
+<div class="hm-stack">
+{{template "hm/callout" dict "Kind" "warning" "Title" "This cannot be undone" "Body" .Warning}}
+{{template "hm/card-start" dict}}
+{{template "hm/field" dict "ID" "into" "Name" "into" "Label" "Merge into" "Control" "select" "Options" .Targets "Required" true "Error" .Error}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (printf "%s/settings/taxonomies?kind=%s" adminPath .Kind)}}{{template "hm/button" dict "Label" "Merge terms" "Variant" "danger" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</div>
+</form>
+{{end}}{{end}}

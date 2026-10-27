@@ -1,0 +1,15 @@
+{{/* Fields of the webhook form. Shared by the dialog on the list, the /new page and the edit page so they cannot drift. Data: webhookForm (Name, URL, Events, Active, AllowHTTP, MaxRetries, RetryDelay, Timeout, Headers, Errs). */}}
+{{define "hm/form-webhook"}}{{template "hm/field" dict "ID" "webhook-name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Help" "What this webhook is for, like Zapier." "Error" (index .Errs "name")}}
+{{template "hm/field" dict "ID" "webhook-url" "Name" "url" "Label" "Address" "Type" "url" "Value" .URL "Required" true "Placeholder" "https://example.com/hooks/hatamoto" "Help" "Where Hatamoto sends the POST." "Error" (index .Errs "url")}}
+<div class="hm-field"><fieldset class="hm-field__group" id="webhook-events"><legend class="hm-field__label">Events</legend>
+{{range $i, $e := .EventOptions}}{{template "hm/field" dict "ID" (printf "event-%d" $i) "Name" "events" "Label" $e.Label "Control" "checkbox" "Value" $e.Value "Checked" $e.Checked}}{{end}}
+{{with index .Errs "events"}}<p class="hm-field__error">{{.}}</p>{{end}}
+</fieldset></div>
+{{template "hm/field" dict "ID" "webhook-active" "Name" "active" "Label" "Active" "Control" "switch" "Value" "true" "Checked" .Active}}
+{{template "hm/field" dict "ID" "webhook-allow-http" "Name" "allow_http" "Label" "Allow plain http (payload and signature travel unencrypted)" "Control" "switch" "Value" "true" "Checked" .AllowHTTP}}
+<details{{if or (index .Errs "max_retries") (index .Errs "retry_delay_seconds") (index .Errs "timeout_seconds") (index .Errs "headers")}} open{{end}}><summary>More options</summary>
+{{template "hm/field" dict "ID" "webhook-max-retries" "Name" "max_retries" "Label" "Retries" "Type" "number" "Value" .MaxRetries "Help" "0 to 10 more attempts after a failure." "Error" (index .Errs "max_retries") "Attrs" (attrmap "min" "0" "max" "10")}}
+{{template "hm/field" dict "ID" "webhook-retry-delay" "Name" "retry_delay_seconds" "Label" "First retry after (seconds)" "Type" "number" "Value" .RetryDelay "Help" "Each later retry waits twice as long." "Error" (index .Errs "retry_delay_seconds") "Attrs" (attrmap "min" "0" "max" "3600")}}
+{{template "hm/field" dict "ID" "webhook-timeout" "Name" "timeout_seconds" "Label" "Timeout (seconds)" "Type" "number" "Value" .Timeout "Help" "1 to 5 seconds per attempt." "Error" (index .Errs "timeout_seconds") "Attrs" (attrmap "min" "1" "max" "5")}}
+{{template "hm/field" dict "ID" "webhook-headers" "Name" "headers" "Label" "Custom headers" "Control" "textarea" "Value" .Headers "Placeholder" "Authorization: Bearer abc" "Help" "One per line, as Name: value." "Error" (index .Errs "headers")}}
+</details>{{end}}

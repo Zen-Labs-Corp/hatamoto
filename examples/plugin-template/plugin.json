@@ -1,0 +1,8 @@
+{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "sdk": "^0.11",
+  "description": "Describe what the plugin does in one sentence.",
+  "config": { "greeting": "hello" },
+  "limits": { "memory_pages": 256, "hook_timeouts_ms": { "entity.published": 2000, "jsonld.enrich": 250 }, "max_instances": 4 }
+}

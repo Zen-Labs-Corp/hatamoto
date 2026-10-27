@@ -1,0 +1,9 @@
+{
+  "type": "plugin_directory", "id": "sec-plugin-directory-off", "title": "Plugins",
+  "content": {
+    "heading": "Plugins",
+    "installHint": "Install: Admin > Plugins > Browse registry",
+    "showSearch": true
+  },
+  "plugin_directory": {"State": "off"}
+}

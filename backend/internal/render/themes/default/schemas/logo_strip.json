@@ -1,0 +1,17 @@
+{
+  "x-hm-section": {"title": "Logo strip", "description": "Row of partner or customer logos, optionally scrolling"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "variant": {"type": "string", "title": "Variant", "enum": ["static", "marquee"], "default": "static"},
+    "logos": {
+      "type": "array", "title": "Logos",
+      "items": {"type": "object", "properties": {
+        "name": {"type": "string", "title": "Name (alt text)", "x-hm-alias": ["altText"], "x-hm-field": "plaintext"},
+        "image": {"type": "string", "title": "Image", "x-hm-alias": ["imageUrl"], "x-hm-field": "image"},
+        "link": {"type": "string", "title": "Link URL", "x-hm-field": "url"},
+        "size": {"type": "string", "title": "Size", "enum": ["sm", "md", "lg"], "default": "md"}
+      }}
+    }
+  }
+}

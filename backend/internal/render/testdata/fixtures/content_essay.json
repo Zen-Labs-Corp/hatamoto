@@ -1,0 +1,12 @@
+{
+  "type": "content",
+  "id": "sec-content-essay",
+  "content": {
+    "layout": "essay",
+    "eyebrow": "Philosophy",
+    "headline": "Entities first",
+    "asideGlyph": "本",
+    "asideText": "Model the thing, then render it.",
+    "body": "<p>Start from the <strong>entity</strong>.</p><h3>Why</h3><p>Use <code>schemas</code>.</p><script>alert(1)</script>"
+  }
+}

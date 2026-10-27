@@ -1,0 +1,13 @@
+{
+  "type": "team", "id": "sec-team", "title": "Team",
+  "content": {
+    "heading": "Meet the team",
+    "subheading": "The people behind the product.",
+    "variant": "cards",
+    "items": [
+      {"name": "Margaret Hamilton", "title": "Lead engineer", "photo": "/img/margaret.jpg", "bio": "Writes software that has to work the first time.",
+       "socialLinks": [{"platform": "LinkedIn", "url": "https://linkedin.com/in/example"}, {"platform": "Bad", "url": "javascript:alert(1)"}]},
+      {"name": "Linus T.", "title": "Maintainer", "bio": "Reviews patches."}
+    ]
+  }
+}

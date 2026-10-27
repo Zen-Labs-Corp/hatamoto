@@ -1,0 +1,27 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/aia{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{with .Body}}<div class="hm-stack">
+<h2 class="hm-visually-hidden">Crawler health</h2>
+{{template "hm/aia-chart" .Hero}}
+<div class="hm-grid2">
+{{template "hm/card-start" (dict "ID" "w-h-ver" "Title" "Verification" "Description" "Fetches by verification result." "Heading" "h3")}}
+{{if .Verification}}{{template "hm/categorybar" .Verification}}<h4 class="hm-card__subtitle">Spoofed fetches by claimed agent</h4>{{template "hm/barlist" .Spoofed}}{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-h-stat" "Title" "Responses" "Description" "Status classes served to AI crawlers." "Heading" "h3")}}
+{{if .Responses}}{{template "hm/categorybar" .Responses}}
+{{template "hm/aia-tracker" (dict "ID" "w-h-trk" "Caption" .TrackerCaption "Tracker" .Tracker "Table" .TrackerTable)}}
+{{else}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}
+{{template "hm/card-end"}}
+</div>
+{{template "hm/card-start" (dict "ID" "w-h-fail" "Title" "Failing paths" "Description" "Pages that answered AI crawlers with an error." "Heading" "h3")}}
+{{template "hm/aia-rows" .Failing}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-h-rob" "Title" "Robots.txt compliance" "Description" "Whether each agent honours robots.txt, and the policy you have set for its purpose." "Heading" "h3")}}
+{{template "hm/aia-rows" .Compliance.Rows}}
+{{if .Compliance.Rows.Rows}}<p class="hm-aia-small hm-aia-note">Policy is set per purpose. <a href="{{.Compliance.PolicyHref}}">Change policy</a></p>{{end}}
+{{template "hm/card-end"}}
+</div>{{end}}
+{{end}}{{end}}

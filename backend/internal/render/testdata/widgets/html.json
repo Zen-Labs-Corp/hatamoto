@@ -1,0 +1,3 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"h1","t":"html","p":{"html":"<div class=\"x\" style=\"color:red\">Custom</div><script>alert(1)</script><img src=x onerror=alert(1)>"}}
+]}]}

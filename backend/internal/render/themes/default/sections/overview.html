@@ -1,0 +1,12 @@
+{{define "section-overview"}}{{$c := .Content}}
+<div class="hm-container hm-overview{{if $c.image}} hm-overview--with-image{{end}}">
+  <div class="hm-overview__main">
+    {{with $c.eyebrow}}<p class="hm-overview__eyebrow" {{hmf "eyebrow"}}>{{.}}</p>{{end}}
+    {{with $c.headline}}<h2 class="hm-overview__headline" {{hmf "headline"}}>{{.}}</h2>{{end}}
+    {{with $c.subheading}}<p class="hm-overview__subheading" {{hmf "subheading"}}>{{.}}</p>{{end}}
+    {{with $c.body}}<div class="hm-overview__body hm-prose" {{hmf "body"}} data-hm-kind="richtext">{{.}}</div>{{end}}
+    {{with $c.items}}<ul class="hm-overview__items">{{range $i, $it := .}}<li class="hm-overview__item"><span {{hmf "items" $i "text"}}>{{if $it.bold}}<strong>{{$it.text}}</strong>{{else}}{{$it.text}}{{end}}</span></li>{{end}}</ul>{{end}}
+  </div>
+  {{with $c.image}}{{with imgsrc .}}<div class="hm-overview__media"><img class="hm-overview__image" src="{{.}}" alt="" loading="lazy" decoding="async"></div>{{end}}{{end}}
+</div>
+{{end}}

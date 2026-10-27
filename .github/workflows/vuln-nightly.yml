@@ -1,0 +1,59 @@
+name: vuln-nightly
+
+# govulncheck every night against the current vulnerability database, so a new
+# advisory shows up even when nobody pushed. A failure opens (or comments on) an
+# issue from a separate job, so the job that runs the tool is read-only. Run it
+# by hand from the Actions tab (workflow_dispatch) to try it.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache: false
+      - name: govulncheck (core, SDK, docs-publish tool)
+        run: |
+          status=0
+          for m in backend backend/pkg/sdk backend/tools/docs-publish; do
+            echo "::group::$m"
+            (cd "$m" && go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...) || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+  issue:
+    name: Open an issue
+    needs: govulncheck
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: Nightly govulncheck found vulnerabilities
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still failing: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "The nightly govulncheck run failed: $RUN_URL"
+          fi

@@ -1,0 +1,11 @@
+{{define "hm/pluginhead"}}{{$p := .Data.Plugin}}{{$pk := $p.Package}}{{template "hm/pageheader" dict "Title" $p.Name "Description" $p.Description "CSRF" .CSRF "Primary" (and $pk $pk.Update (dict "Post" (adminPath "plugins" "fetch") "Fields" (dict "name" $p.Name) "Label" (printf "Update to %s" $pk.Update)))}}
+<div class="hm-row hm-pluginhead">
+{{template "hm/badge" .Data.State.Badge}}
+{{if $p.Version}}<span class="hm-muted">v{{$p.Version}}</span>{{end}}
+{{with $pk}}{{if .Update}}{{template "hm/badge" dict "Label" (printf "%s available" .Update) "Kind" "info"}}{{end}}
+<form method="post" action="{{adminPath}}/plugins/{{$p.Name}}/{{if .Enabled}}disable{{else}}enable{{end}}">{{template "hm/csrf" $}}{{template "hm/button" (dict "Variant" "secondary" "Type" "submit" "Label" (or (and .Enabled "Turn off") "Turn on"))}}</form>{{end}}
+</div>
+{{with $p.Package}}{{if or .ScriptsBlocked .MarkupStopped}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "needs-attention" "Title" "Needs attention")}}{{if .ScriptsBlocked}}<p>Its JavaScript is not running on your public pages: <code>site.scripts</code> is off.</p>{{end}}{{if .MarkupStopped}}<p>Some of its page sections are not shown, because they contain scripts and it does not hold <code>site.scripts</code>: {{range $i, $l := .MarkupStopped}}{{if $i}}; {{end}}<code>{{$l}}</code>{{end}}.</p>{{end}}{{if .AsksScripts}}<p>Allowing it lets the plugin run JavaScript on every public page with full access to the site, including signed-in admins. <a href="{{adminPath}}/plugins/{{$p.Name}}/permissions">Review its permissions</a>.</p>{{else}}<p>It needs an update from its author that asks for <code>site.scripts</code>.</p>{{end}}{{template "hm/callout-end"}}{{end}}{{end}}
+{{if $p.Error}}{{template "hm/callout-start" (dict "Kind" "danger" "Title" (or (and $p.Loaded "The last reload failed") "It did not load"))}}<code>{{$p.Error}}</code>{{template "hm/callout-end"}}{{end}}
+{{if $p.DataError}}{{template "hm/callout-start" (dict "Kind" "danger" "Title" "Its data is not ready")}}<code>{{$p.DataError}}</code>{{template "hm/callout-end"}}{{end}}
+{{template "hm/tabs" dict "Label" "Plugin sections" "Items" .Data.Tabs}}{{end}}

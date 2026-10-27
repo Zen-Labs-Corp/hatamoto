@@ -1,0 +1,12 @@
+{{define "hm/pkgconfirm"}}{{template "hm/callout-start" (dict "Kind" "danger" "Title" (printf "Replacing %s needs your confirmation." .Name))}}
+{{if .Downgrade}} Version <strong>{{.NewVersion}}</strong> is not newer than the installed <strong>{{.OldVersion}}</strong>. An older build can bring back a bug that was fixed.{{end}}
+{{if .SignerChange}} It is signed by <code>{{or .NewSigner "nobody (unsigned)"}}</code>, not by the signer of the installed package (<code>{{.OldSigner}}</code>). The installed one was vouched for by someone else.{{end}}
+{{if .WidenedAccess}} This version can reach further than the installed one:{{if .NewFetchAny}} it asks for <code>http.fetch.any</code>, which lets it call <strong>any public web address</strong>.{{end}}{{if .NewIsland}} it asks for <code>builder.island</code>, which lets its widgets <strong>run JavaScript on your site's pages</strong>.{{end}}{{if .NewScripts}} it asks for <code>site.scripts</code>, which <strong>runs JavaScript on every public page with full access to the site, including signed-in admins</strong>.{{end}}{{if .NewHosts}} New addresses: {{range $i, $h := .NewHosts}}{{if $i}}, {{end}}<code>{{$h}}</code>{{end}}.{{end}}{{end}}
+{{if .Missing}} This theme is live, and the new version does not have the section types below. They stop showing on the pages that use them.{{end}}{{template "hm/callout-end"}}
+<table class="hm-table"><caption class="hm-visually-hidden">What changes</caption><thead><tr><th scope="col"></th><th scope="col">Installed</th><th scope="col">This package</th></tr></thead><tbody>
+<tr><th scope="row">Version</th><td>{{.OldVersion}}</td><td>{{.NewVersion}}</td></tr>
+<tr><th scope="row">Signed by</th><td>{{if .OldSigner}}<code>{{.OldSigner}}</code>{{else}}nobody{{end}}</td><td>{{if .NewSigner}}<code>{{.NewSigner}}</code>{{else}}nobody{{end}}</td></tr></tbody></table>
+{{if .SignerChange}}<p>Because the signer changed, <strong>every permission already granted is cleared</strong>. Grant them again only if you trust the new signer.</p>{{end}}
+{{if .WidenedAccess}}<p>Because it can reach further, <strong>every permission already granted is cleared</strong>. Tick again only what you are happy with.</p>{{end}}
+{{if .Missing}}<table class="hm-table"><caption class="hm-visually-hidden">Section types the new version lacks</caption><thead><tr><th scope="col">Section type</th><th scope="col">Used</th></tr></thead><tbody>
+{{range .Missing}}<tr><th scope="row"><code>{{.Type}}</code></th><td>{{.Uses}} time{{if ne .Uses 1}}s{{end}}</td></tr>{{end}}</tbody></table>{{end}}{{end}}

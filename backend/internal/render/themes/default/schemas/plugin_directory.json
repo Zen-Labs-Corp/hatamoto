@@ -1,0 +1,15 @@
+{
+  "x-hm-section": {"title": "Plugin directory", "description": "Cards for the plugins in the signed registry, with optional search"},
+  "type": "object",
+  "properties": {
+    "eyebrow": {"type": "string", "title": "Eyebrow", "x-hm-field": "plaintext"},
+    "heading": {"type": "string", "title": "Heading", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-alias": ["intro"], "x-hm-field": "plaintext"},
+    "writeUrl": {"type": "string", "title": "Write a plugin link (https)", "x-hm-field": "url"},
+    "submitUrl": {"type": "string", "title": "Submit a plugin link (https)", "x-hm-field": "url"},
+    "installHint": {"type": "string", "title": "Install hint", "x-hm-field": "plaintext"},
+    "otherUrl": {"type": "string", "title": "Cross-link URL (https or site path)", "x-hm-field": "url"},
+    "otherLabel": {"type": "string", "title": "Cross-link label", "x-hm-field": "plaintext"},
+    "showSearch": {"type": "boolean", "title": "Show search box", "default": true}
+  }
+}

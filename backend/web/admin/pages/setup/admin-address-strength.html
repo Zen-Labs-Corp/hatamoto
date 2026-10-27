@@ -1,0 +1,4 @@
+{{template "layouts/bare" .}}
+{{/* The strength block, rendered through "main" only: inside admin-address.html and as the htmx fragment behind the custom field. */}}
+{{define "main"}}{{with .Data}}<p>Strength: {{template "hm/badge" (dict "Label" .Label "Kind" .Kind)}}</p>
+{{if .Reasons}}<ul>{{range .Reasons}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}{{end}}

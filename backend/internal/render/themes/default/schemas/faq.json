@@ -1,0 +1,13 @@
+{
+  "x-hm-section": {"title": "FAQ", "description": "Accordion of questions and answers"},
+  "type": "object",
+  "properties": {
+    "heading": {"type": "string", "title": "Heading", "default": "Frequently Asked Questions", "x-hm-alias": ["headline"], "x-hm-field": "plaintext"},
+    "subheading": {"type": "string", "title": "Subheading", "x-hm-field": "plaintext"},
+    "faqs": {"type": "array", "title": "Questions", "x-hm-alias": ["items"], "items": {"type": "object", "properties": {
+      "question": {"type": "string", "title": "Question", "x-hm-field": "plaintext"},
+      "answer": {"type": "string", "title": "Answer", "x-hm-field": "richtext"}
+    }}},
+    "variant": {"type": "string", "title": "Variant", "enum": ["accordion", "cards"], "default": "accordion"}
+  }
+}

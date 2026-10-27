@@ -1,0 +1,11 @@
+{
+  "name": "default",
+  "version": "1.0.0",
+  "csp": {
+    "strictScripts": true
+  },
+  "settings_schema": {
+    "type": "object",
+    "properties": {}
+  }
+}

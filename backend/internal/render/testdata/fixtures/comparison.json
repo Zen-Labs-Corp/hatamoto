@@ -1,0 +1,12 @@
+{
+  "type": "comparison", "id": "sec-compare",
+  "content": {
+    "eyebrow": "Compare",
+    "heading": "Hand-built versus modelled",
+    "subheading": "Two ways to ship.",
+    "sides": [
+      {"tag": "Before", "title": "Templates in the CMS", "tone": "negative", "items": ["Copy and paste", "Drift <b>x</b>"]},
+      {"tag": "After", "title": "Typed sections", "tone": "positive", "items": ["One schema", "Many pages"]}
+    ]
+  }
+}

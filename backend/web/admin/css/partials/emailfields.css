@@ -1,0 +1,3 @@
+/* Provider-specific fields of the email form: only the field set for the chosen provider shows. */
+form:has(#provider option:checked:not([value="ses"])) [data-email-only="ses"],
+form:has(#provider option:checked:not([value="custom"])) [data-email-only="custom"] { display: none; }

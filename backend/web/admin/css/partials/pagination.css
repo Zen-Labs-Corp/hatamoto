@@ -1,0 +1,12 @@
+/* Pagination: nav landmark, the current page has aria-current. */
+.hm-pagination { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-kinu); flex-wrap: wrap; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-pagination__list { display: flex; gap: var(--space-0-5); list-style: none; margin: 0; padding: 0; align-items: center; flex-wrap: wrap; }
+.hm-pagination__link {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px;
+  padding: 0 var(--space-2); border-radius: var(--radius-sm); color: var(--color-sumi); text-decoration: none; font-variant-numeric: tabular-nums;
+}
+a.hm-pagination__link:hover { background: var(--color-kasumi); }
+a.hm-pagination__link:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.hm-pagination__link[aria-current="page"] { background: var(--color-sumi); color: var(--color-paper); font-weight: var(--weight-medium); }
+.hm-pagination__link[aria-disabled="true"] { color: var(--color-hai); pointer-events: none; }
+.hm-pagination__gap { color: var(--color-hai); padding: 0 var(--space-1); }

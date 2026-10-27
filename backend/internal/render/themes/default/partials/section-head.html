@@ -1,0 +1,7 @@
+{{define "section-head"}}{{$c := .Content}}{{if or $c.eyebrow $c.heading $c.subheading}}<header class="hm-section-head">
+  <div class="hm-section-head__lead">
+    {{if $c.eyebrow}}<p class="hm-section-head__eyebrow" {{hmf "eyebrow"}}>{{$c.eyebrow}}</p>{{end}}
+    {{if $c.heading}}<h2 class="hm-section-head__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+  </div>
+  {{if $c.subheading}}<p class="hm-section-head__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+</header>{{end}}{{end}}

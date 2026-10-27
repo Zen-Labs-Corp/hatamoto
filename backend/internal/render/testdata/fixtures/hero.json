@@ -1,0 +1,16 @@
+{
+  "type": "hero",
+  "id": "sec-hero",
+  "content": {
+    "eyebrow": "Open-source CMS",
+    "headline": "Publish fast, own your stack",
+    "subheadline": "<p>A <strong>headless-first</strong> CMS with a themeable, server-rendered front end.</p><script>alert(1)</script>",
+    "primaryCta": "Get started",
+    "ctaUrl": "/docs/getting-started",
+    "secondaryCta": "View on GitHub",
+    "secondaryCtaUrl": "https://github.com/example-org/hatamoto",
+    "layout": "split",
+    "heroImage": "/media/hero.png",
+    "imageAlt": "Dashboard screenshot"
+  }
+}

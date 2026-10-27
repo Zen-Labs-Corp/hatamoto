@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" "This runs in the background: you can leave this page and come back to it from Import from WordPress." "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
+{{/* The poll swaps the steps and the log text only: the Activity <details>, the links and keyboard focus stay put, and the live region is one stable element whose text changes. */}}
+<div id="import-progress" class="hm-import__progress" hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="#import-steps" hx-select="#import-steps" hx-swap="innerHTML" hx-select-oob="#import-log-text:innerHTML" hx-indicator="#import-busy">
+{{template "hm/indicator" dict "ID" "import-busy" "Text" ""}}
+<div id="import-steps" role="status">
+{{if .Scanning}}{{template "hm/callout" (dict "Kind" "info" "Title" .Phase "Body" "Reading the old site. A large site can take several minutes.")}}
+{{else}}{{template "hm/progress" .Progress}}{{template "hm/tracker" .Tracker}}{{end}}
+</div>
+<details class="hm-import__log"><summary>Activity</summary><pre class="hm-code" tabindex="0" id="import-log-text">{{range .Log}}{{.}}
+{{end}}</pre></details>
+</div>
+{{template "hm/foot"}}
+<span class="hm-muted hm-card__foot-note">Stopping keeps what was already imported; you can resume later.</span>
+{{template "hm/button" dict "Label" "Stop the import" "Variant" "danger" "Href" .CancelTo}}
+{{template "hm/foot-end"}}
+{{end}}{{end}}

@@ -1,0 +1,6 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Uninstall %s?" .Name) "CSRF" $.CSRF}}
+{{template "hm/confirmcard-start" dict "Post" (printf "%s/plugins/%s/uninstall" adminPath .Name) "CSRF" $.CSRF}}<p>The plugin stops working at once. Your pages, posts, media and settings of the site are not touched.</p>
+{{template "hm/field" dict "ID" "drop-data" "Name" "drop_data" "Label" "What happens to the plugin's data" "Control" "radio" "Options" .DataOptions}}
+{{template "hm/confirmcard-end" dict "Back" (adminPath "plugins") "Label" "Uninstall" "Danger" true}}
+{{end}}{{end}}

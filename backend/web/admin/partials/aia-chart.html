@@ -1,0 +1,14 @@
+{{/* hm/aia-chart: a time chart card. Data: ui.AiaChart. Contract with js/aia/timechart.js and page.js (see the header of both):
+the server renders the table, the legend and state templates and the Show data button (hidden until JS enhances it);
+JS draws the SVG into [data-aia-plot] and toggles hidden on [data-aia-data]. Without JS the table is the content. */}}
+{{define "hm/aia-chart"}}{{template "hm/card-start" (dict "ID" .ID "Title" .Title "Description" .Description "Heading" "h3")}}
+<figure class="hm-aia-chart" id="{{.ID}}-fig" data-hm-aia-chart="time" data-src="{{.Src}}" data-chart="{{.Chart}}" data-title="{{.Title}}"{{if .Panels}} data-panels="{{.Panels}}"{{end}}{{if .Srcs}} data-endpoints="{{.Srcs}}"{{end}}{{if .PanelLabels}} data-panel-labels="{{.PanelLabels}}"{{end}}{{if .Sum}} data-sum="{{.Sum}}"{{end}}{{if .Ratio}} data-ratio="{{.Ratio}}" data-ratio-label="{{.RatioLabel}}"{{end}}{{if .Override}} data-override="{{.Override}}"{{end}}{{if .Hero}} data-hero{{end}}{{if .Cols}} data-cols{{end}}{{if .Compare}} data-compare{{end}} aria-labelledby="{{.ID}}-title">
+<div class="hm-aia-lgrow"><div class="hm-aia-legend" role="group" aria-label="Show or hide series" data-aia-legend-list></div>{{template "hm/button" (dict "Label" "Show data" "Size" "sm" "Attrs" (attrmap "data-aia-sd" "" "hidden" "hidden" "aria-expanded" "false" "aria-controls" (printf "%s-data" .ID)))}}</div>
+<div data-aia-plot></div>
+<div class="hm-aia-data" id="{{.ID}}-data" data-aia-data>{{template "hm/datatable" .Table}}</div>
+<template data-aia-legend><button type="button" class="hm-aia-lg" aria-pressed="true"><span data-aia-swatch></span><span data-aia-name>Series</span></button></template>
+<template data-aia-legend-static><span class="hm-aia-lg hm-aia-lg--static"><span data-aia-swatch></span><span data-aia-name>Series</span></span></template>
+<template data-aia-empty>{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}</template>
+<template data-aia-error>{{template "hm/callout-start" (dict "Kind" "error" "Compact" true)}}This part of the dashboard could not be loaded. Try again in a moment. {{template "hm/button" (dict "Label" "Retry" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-aia-retry" ""))}}{{template "hm/callout-end"}}</template>
+</figure>
+{{template "hm/card-end"}}{{end}}

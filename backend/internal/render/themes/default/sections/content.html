@@ -1,0 +1,14 @@
+{{define "section-content"}}{{$c := .Content}}
+{{if eq $c.layout "essay"}}<div class="hm-container hm-content hm-content--essay">
+  <aside class="hm-content__aside">{{with $c.asideGlyph}}<span class="hm-content__glyph" aria-hidden="true" {{hmf "asideGlyph"}}>{{.}}</span>{{end}}{{with $c.asideText}}<p class="hm-content__aside-text" {{hmf "asideText"}}>{{.}}</p>{{end}}</aside>
+  <div class="hm-content__main">
+    {{with $c.eyebrow}}<p class="hm-content__eyebrow" {{hmf "eyebrow"}}>{{.}}</p>{{end}}
+    {{with $c.headline}}<h2 class="hm-content__headline" {{hmf "headline"}}>{{.}}</h2>{{end}}
+    <div class="hm-content__body hm-prose" {{hmf "body"}} data-hm-kind="richtext">{{$c.body}}</div>
+  </div>
+</div>
+{{else}}<div class="hm-container hm-content">
+  {{with $c.headline}}<h2 class="hm-content__headline" {{hmf "headline"}}>{{.}}</h2>{{end}}
+  <div class="hm-content__body hm-prose" {{hmf "body"}} data-hm-kind="richtext">{{$c.body}}</div>
+</div>
+{{end}}{{end}}

@@ -1,0 +1,7 @@
+{
+  "name": "attackplug",
+  "version": "0.1.0",
+  "sdk": "^0.8",
+  "description": "Attack fixture: a self-built plugin granted site.scripts whose browser script attacks the admin from public pages.",
+  "permissions": ["site.scripts"]
+}

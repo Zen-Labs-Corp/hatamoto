@@ -1,0 +1,13 @@
+# Release tag signers: one line per key, in `ssh-keygen -Y` allowed_signers format:
+#
+#   release@hatamoto.dev namespaces="git" sk-ssh-ed25519@openssh.com AAAA... comment
+#
+# release.yml (scripts/verify-tag-signature.sh) refuses to build a tag that is not
+# an annotated tag signed by one of these keys. While this file has no key line,
+# the check only warns and passes. The first key line below turns the check on:
+# every later tag must be signed by a listed key. The 2026-10-23 key is a software
+# ed25519 key held offline by the release owner. A rotation adds the new line
+# first and removes the old one after. Get the line with: ssh-keygen -L -f ~/.ssh/<key>.pub
+# (the fingerprint is published in docs/site/updates/keys.md).
+# Never put a private key here.
+release@hatamoto.dev namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIr0op536fg9H0YC+3UN3xEyGjYPynxDAjkSLMV13aG3 release@hatamoto.dev tag key 2026-10-23

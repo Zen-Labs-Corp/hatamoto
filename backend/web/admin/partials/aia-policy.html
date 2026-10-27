@@ -1,0 +1,14 @@
+{{/* hm/aia-policy: Allow / Block for one purpose. Data: ui.AiaPolicy. The owner gets radios named purpose.<id>, so the plain form post carries every purpose;
+js/aia/policy.js reads data-aia-saved to show the pending bar. Anyone else gets a badge. */}}
+{{define "hm/aia-policy"}}{{if .Owner}}<div class="hm-aia-pol">{{$saved := "allow"}}{{if .Deny}}{{$saved = "deny"}}{{end}}{{template "hm/segmented" (dict "Mode" "radio" "Label" .Legend "Name" (printf "purpose.%s" .Purpose) "Attrs" (attrmap "data-aia-saved" $saved) "Items" (list (dict "Label" "Allow" "Value" "allow" "Pressed" (not .Deny)) (dict "Label" "Block" "Value" "deny" "Pressed" .Deny)))}}
+<span class="hm-aia-unsaved" data-aia-unsaved hidden>{{template "hm/badge" (dict "Label" "Unsaved change" "Kind" "info")}}</span></div>
+{{else if .Deny}}{{template "hm/badge" (dict "Label" "Blocked")}}{{else}}{{template "hm/badge" (dict "Label" "Allowed" "Kind" "success")}}{{end}}{{end}}
+
+{{/* hm/aia-policy-start and -end: the one form around the agents table (and any other place a policy control shows). Data: ui.AiaPolicyForm.
+Without JS the bar is visible, so Save always works; policy.js hides it until a choice changes. Not an owner: no form, no bar. */}}
+{{define "hm/aia-policy-start"}}{{if .Owner}}<form class="hm-aia-policyform" method="post" action="{{adminPath}}/analytics/crawlers/robots" data-aia-policy>{{template "hm/csrf" .}}<input type="hidden" name="return" value="{{.Return}}">{{else}}<div class="hm-aia-policyform">{{end}}{{end}}
+{{define "hm/aia-policy-end"}}{{if .Owner}}<p class="hm-visually-hidden" role="status" data-aia-live></p><div class="hm-savebar" data-aia-pending><p class="hm-savebar__aside" data-aia-count>Save applies every choice here to robots.txt.</p>{{template "hm/button" (dict "Label" "Discard" "Attrs" (attrmap "data-aia-discard" "" "hidden" "hidden"))}}{{template "hm/button" (dict "Label" "Save" "Variant" "primary" "Type" "submit")}}</div></form>{{else}}</div>{{end}}{{end}}
+
+{{/* hm/aia-policybadge: Allowed or Blocked for a purpose, both server-rendered with the data-aia-blocked / data-aia-allowed hooks js/aia/policy.js
+shows and hides as the policy form changes. Data: dict "Purpose" id "Blocked" bool. */}}
+{{define "hm/aia-policybadge"}}<span data-aia-blocked="{{.Purpose}}"{{if not .Blocked}} hidden{{end}}>{{template "hm/badge" (dict "Label" "Blocked")}}</span><span data-aia-allowed="{{.Purpose}}"{{if .Blocked}} hidden{{end}}>{{template "hm/badge" (dict "Label" "Allowed" "Kind" "success")}}</span>{{end}}

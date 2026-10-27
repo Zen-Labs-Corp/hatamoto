@@ -1,0 +1,37 @@
+.hm-flash {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.hm-flash--success { background: var(--color-success-soft); color: var(--color-success); border-color: var(--color-success); }
+.hm-flash--error { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger); }
+.hm-flash--warning { background: var(--color-warning-soft); color: var(--color-warning); border-color: var(--color-warning); }
+.hm-flash--info { background: var(--color-accent-soft); color: var(--color-accent); border-color: var(--color-accent); }
+
+.hm-toasts {
+  position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: var(--z-toast);
+  display: flex; flex-direction: column; max-width: 360px;
+}
+#hm-toasts-alert:not(:empty) { margin-top: var(--space-2); }
+/* Two persistent live regions (polite, alert) so toasts are announced when they are inserted. */
+#hm-toasts, #hm-toasts-alert { display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-toast {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  background: var(--color-sumi); color: var(--color-paper);
+  box-shadow: var(--shadow-3); animation: hm-toast-in 200ms var(--ease);
+}
+@media (max-width: 600px) {
+  .hm-toasts { left: var(--space-4); max-width: none; }
+}
+.hm-toast__icon { display: inline-flex; flex: none; padding-top: var(--space-0-5); }
+.hm-toast--error { background: var(--color-danger); color: var(--color-paper); }
+.hm-toast--success .hm-toast__icon { color: var(--color-success-soft); }
+.hm-toast--warning .hm-toast__icon { color: var(--color-warning-soft); }
+.hm-toast--info .hm-toast__icon { color: var(--color-accent-soft); }
+.hm-toast__close {
+  margin-left: auto; background: transparent; border: 0; color: inherit; cursor: pointer;
+  min-width: 24px; min-height: 24px; border-radius: var(--radius-sm);
+}
+.hm-toast__close:focus-visible { outline: 2px solid currentColor; }
+@keyframes hm-toast-in { from { opacity: 0; transform: translateY(8px); } }

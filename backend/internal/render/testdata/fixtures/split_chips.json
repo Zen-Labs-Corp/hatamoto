@@ -1,0 +1,11 @@
+{
+  "type": "split", "id": "sec-split-chips",
+  "content": {
+    "layout": "text-right", "ratio": "wide-code",
+    "heading": "A typed SDK",
+    "rowsStyle": "chips-grid",
+    "rows": [{"term": "client.Entities()", "description": "List and fetch"}, {"term": "client.Render()", "description": "Preview pages"}],
+    "footnote": "<p>Generated from <code>openapi.json</code>.</p>",
+    "panel": {"title": "main.go", "language": "go", "code": "func main() {\n\t// list\n\tc := hatamoto.New(\"https://x\")\n\treturn\n}"}
+  }
+}

@@ -1,0 +1,3 @@
+{{/* Field of the Add person form (dialog and /new page). Data: Name, NameErr. */}}
+{{define "hm/form-person"}}<p class="hm-muted">A person added here has no login. Add the photo and bio on the next screen.</p>
+{{template "hm/field" dict "ID" "person-name" "Name" "name" "Label" "Name" "Required" true "Value" .Name "Error" .NameErr "Attrs" (attrmap "autocomplete" "off" "maxlength" "120")}}{{end}}

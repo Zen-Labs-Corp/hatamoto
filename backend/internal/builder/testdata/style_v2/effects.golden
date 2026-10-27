@@ -1,0 +1,3 @@
+op	base=0 md=0.5 sm=1
+op	.hm-n-g{opacity:0;}@media (max-width:1024px){.hm-n-g{opacity:0.5;}}@media (max-width:640px){.hm-n-g{opacity:1;}}
+op+preset	.hm-n-g.hm-n-g{opacity:0;}@media (max-width:1024px){.hm-n-g.hm-n-g{opacity:0.5;}}@media (max-width:640px){.hm-n-g.hm-n-g{opacity:1;}}

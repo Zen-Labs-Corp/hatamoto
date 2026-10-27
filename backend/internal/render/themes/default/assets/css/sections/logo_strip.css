@@ -1,0 +1,16 @@
+.hm-logo-strip__heading { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hm-label); text-align: center; margin-bottom: 1.5rem; }
+.hm-logo-strip__viewport { display: flex; overflow: hidden; }
+.hm-logo-strip__track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.5rem 3rem; flex: 1 0 auto; }
+.hm-logo-strip__item img { display: block; width: auto; max-width: 100%; object-fit: contain; filter: grayscale(1); opacity: 0.75; transition: opacity 0.15s, filter 0.15s; }
+.hm-logo-strip__item img:hover { filter: none; opacity: 1; }
+.hm-logo-strip__item--sm img { height: 1.5rem; }
+.hm-logo-strip__item--md img { height: 2.25rem; }
+.hm-logo-strip__item--lg img { height: 3.25rem; }
+/* Marquee: two identical tracks slide left by their own width, looping seamlessly. */
+.hm-logo-strip--marquee .hm-logo-strip__track { flex-wrap: nowrap; justify-content: space-around; padding-right: 3rem; animation: hm-logo-marquee 40s linear infinite; }
+.hm-logo-strip--marquee .hm-logo-strip__viewport:hover .hm-logo-strip__track { animation-play-state: paused; }
+@keyframes hm-logo-marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .hm-logo-strip--marquee .hm-logo-strip__track { animation: none; flex-wrap: wrap; padding-right: 0; }
+  .hm-logo-strip__track--clone { display: none; }
+}

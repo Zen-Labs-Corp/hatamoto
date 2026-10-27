@@ -1,0 +1,15 @@
+{
+  "type": "overview",
+  "id": "sec-overview",
+  "content": {
+    "eyebrow": "Overview",
+    "headline": "What you get",
+    "subheading": "The short version",
+    "body": "<p>A themeable <strong>server-rendered</strong> site.</p>",
+    "items": [
+      {"text": "Fast by default", "bold": true},
+      {"text": "Editable in place"}
+    ],
+    "image": "/media/overview.png"
+  }
+}

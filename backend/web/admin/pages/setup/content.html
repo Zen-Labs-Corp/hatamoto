@@ -1,0 +1,13 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Start with content</h1>
+{{if .Failed}}{{template "hm/flash" (dict "Kind" "error" "Message" .Failed "Inline" true)}}{{end}}
+<form method="post" action="{{adminPath}}/setup/content" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/radiocard" (dict "Legend" "What should your site start with?" "Name" "content" "Items" .ContentItems)}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+{{template "hm/button" dict "Label" "Finish setup" "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

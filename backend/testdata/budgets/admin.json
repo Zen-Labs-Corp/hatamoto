@@ -1,0 +1,124 @@
+{
+  "metrics": {
+    "admin_css_gzip": {
+      "value": 45256,
+      "unit": "bytes",
+      "tol_abs": 1024
+    },
+    "canvas_host_gzip": {
+      "value": 7908,
+      "unit": "bytes",
+      "tol_abs": 512
+    },
+    "editor_js_first_gzip": {
+      "value": 91907,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 93351
+    },
+    "editor_js_total_gzip": {
+      "value": 239136,
+      "unit": "bytes",
+      "tol_abs": 1024,
+      "cap": 241978
+    },
+    "vendor_htmx_bytes": {
+      "value": 52182,
+      "unit": "bytes"
+    },
+    "vendor_sortablejs_bytes": {
+      "value": 45478,
+      "unit": "bytes"
+    },
+    "vendor_tiptap_bytes": {
+      "value": 560546,
+      "unit": "bytes"
+    },
+    "vendor_total_bytes": {
+      "value": 658206,
+      "unit": "bytes"
+    }
+  },
+  "history": [
+    {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
+    {
+      "reason": "builder recovery moves from browser storage to a server copy: fetch client replaces the storage client (+1.1 KB gzip first paint)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "admin-storage review fixes: recovery client retry, hold and byte limit",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "Site health rows laid out as dot, label, value like the mockup: admin css gzip grows about 1 KB",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-shell: rebase onto main; editor_js_first_gzip 88511 to 93213 (+4702 B, within the earlier +4989 B), cap 93351 = 89255 + 4096; editor_js_total_gzip 191001 to 214906, admin_css_gzip 41158 to 43172",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: inspector first-paint split (inspcontent, inspheader lazy)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: canvas strip (breadcrumbs, zoom, device band) in lazy canvas/chrome, host zoom state; canvas_host_gzip 7147 to ~7.9 KB (within +1,024 B)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: floating element toolbar in lazy canvas/chrome (replaces the selection tag)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: '+' handles and picker rows (lazy canvas/chrome mountHandles, canvas/points), addbar removed from host",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: inspector header, Class row and menu in lazy chunks; editor_js_total_gzip cap 225280 -\u003e 235520 (+4.5%): the Phase C inspector modules (header, essentials, source chips, Show on, box model) are all lazy",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: Style tab Essentials (lazy essentials.js), More style options disclosure",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: source chips per control (plain badge clone), Local tag and bold override note removed",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: Show on switches (lazy showon.js); bp.js drops the single-width hideToggle/hideStates",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: box model rings (nested, quick 0/auto, link toggles)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: colour control recents/None, content order, Use data toggle (lazy chunks)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: columns ops and items panel (lazy chunks)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector: lazy element restore dialog and ops (noderestore, restoreops), cap 230 -\u003e 240 KiB for the remaining inspector/canvas work",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "forge 1A canvas fixes: gap-placed + points with dedupe and wrapped-row rule, Add after toolbar button, Hide/Show label, docPos/addTarget guards, ownsText, Enter/heading bridge guards",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector forge 1B: editor_js_total_gzip 237554 to 238906 (+1352 B: nested box model, restore dialog, switches, Use data toggle); cap lowered 245760 to 241978 (current + 3 KiB) so further growth needs a reason; the old cap of 240 KiB had 6.8 KiB of unused room. admin_css_gzip 44999 to 45143 (+144 B: device badge modifiers, 24 px quick buttons, quiet Use data toggle)",
+      "date": "2026-10-26"
+    },
+    {
+      "reason": "builder-ux-canvas-inspector rebased onto main: canvas_bridge_gzip 15249 to 15879 (+630 B) is main's port handshake added to the branch's v2 select, outline and Enter/heading bridge work; other budgets re-measured after the merge",
+      "date": "2026-10-27"
+    }
+  ]
+}

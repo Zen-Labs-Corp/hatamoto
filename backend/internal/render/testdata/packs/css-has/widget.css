@@ -1,0 +1,1 @@
+.hm-pp_w:is(:root:has(input[name=csrf][value^=a]) *) img.a{display:block}

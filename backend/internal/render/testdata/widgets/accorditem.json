@@ -1,0 +1,3 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"ai","t":"accorditem","p":{"title":"Standalone"},"c":[{"id":"ait","t":"text","p":{"text":"Body"}}]}
+]}]}

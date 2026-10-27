@@ -1,0 +1,28 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Import options" "Description" "Choose what comes across. You can run the import again later to pick up changes." "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
+{{if .Error}}{{template "hm/flash" (dict "Kind" "error" "Message" .Error "Inline" true)}}{{end}}
+<form method="post" action="{{.Action}}" class="hm-stack">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "Title" "Content" "ID" "opt-content" "Heading" "h2"}}<div class="hm-stack">
+<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">What to import</legend>
+{{range .Types}}<label class="hm-field__check" for="{{.ID}}"><input class="hm-field__box" type="checkbox" id="{{.ID}}" name="{{.Name}}" value="{{.Value}}"{{if .Checked}} checked{{end}}><span>{{.Label}}</span></label>
+{{end}}
+</fieldset></div>
+{{template "hm/field" dict "ID" "menus" "Name" "menus" "Label" "Menus" "Control" "switch" "Value" "1" "Checked" .Menus}}
+{{template "hm/field" dict "ID" "drafts" "Name" "drafts" "Label" "Drafts and private content" "Control" "switch" "Value" "1" "Checked" .Drafts "Help" "Imported as drafts, including password-protected items."}}
+</div>{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Files" "ID" "opt-files" "Heading" "h2"}}
+{{template "hm/field" dict "ID" "media" "Name" "media" "Label" "Download images and files" "Control" "switch" "Value" "1" "Checked" .Media "Help" "Off: no file is copied, and images and attachments are left out of the text."}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "URLs" "ID" "opt-urls" "Heading" "h2"}}
+{{if .Existing}}{{template "hm/callout-start" (dict "Kind" "info")}}This site already has content, so its URL patterns stay as they are and every old address that moves gets a 301 redirect.{{template "hm/callout-end"}}
+<input type="hidden" name="patterns" value="keep">
+{{else}}{{template "hm/field" dict "ID" "patterns" "Name" "patterns" "Label" "URL structure" "Control" "radio" "Options" .Patterns "Help" (cond (ne .Pattern "") (printf "WordPress permalinks become the pattern %s." .Pattern) "WordPress permalinks cannot be copied as a pattern, so every old address redirects.")}}{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Re-import" "ID" "opt-reimport" "Heading" "h2"}}
+{{template "hm/field" dict "ID" "keep_edited" "Name" "keep_edited" "Label" "Keep my edits on re-import" "Control" "switch" "Value" "1" "Checked" .Edited "Help" "Pages you edited here since the last import are left alone. Without this, a re-import overwrites such edits and lists them."}}
+{{template "hm/card-end"}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Back to the scan report" "Variant" "ghost" "Href" .Back}}{{template "hm/button" dict "Label" "Start the import" "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

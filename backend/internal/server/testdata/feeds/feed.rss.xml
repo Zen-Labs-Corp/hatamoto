@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Acme Blog</title>
+    <link>https://acme.example/</link>
+    <description>News from Acme</description>
+    <language>en</language>
+    <lastBuildDate>Tue, 13 Oct 2026 01:00:00 +0000</lastBuildDate>
+    <atom:link href="https://acme.example/feed.xml" rel="self" type="application/rss+xml"></atom:link>
+    <item>
+      <title>Second &amp; best</title>
+      <link>https://acme.example/blog/second</link>
+      <guid isPermaLink="false">urn:uuid:00000000-0000-0000-0000-000000000002</guid>
+      <pubDate>Mon, 12 Oct 2026 09:30:00 +0000</pubDate>
+      <dc:creator>Ada</dc:creator>
+      <description>The &lt;b&gt;second&lt;/b&gt; post.</description>
+      <content:encoded><![CDATA[<p>Hello <a href="https://acme.example/blog/first">first</a> & ]]]]><![CDATA[> done.</p>]]></content:encoded>
+    </item>
+    <item>
+      <title>First</title>
+      <link>https://acme.example/blog/first</link>
+      <guid isPermaLink="false">urn:uuid:00000000-0000-0000-0000-000000000001</guid>
+      <pubDate>Thu, 01 Oct 2026 00:00:00 +0000</pubDate>
+      <content:encoded><![CDATA[<p>One</p>]]></content:encoded>
+    </item>
+  </channel>
+</rss>

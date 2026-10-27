@@ -1,0 +1,3 @@
+{{define "hm/steps"}}{{$n := len .Items}}{{$cur := 0}}{{range $i, $s := .Items}}{{if $s.Current}}{{$cur = add $i 1}}{{end}}{{end}}<div class="hm-stepper"><ol class="hm-steps" aria-label="{{or .Label "Progress"}}">
+{{range $i, $s := .Items}}<li class="hm-steps__item{{if $s.Current}} hm-steps__item--current{{end}}{{if $s.Done}} hm-steps__item--done{{end}}"{{if $s.Current}} aria-current="step"{{end}}><span class="hm-steps__num" aria-hidden="true">{{if $s.Done}}{{icon "check"}}{{else}}{{add $i 1}}{{end}}</span><span class="hm-steps__label">{{$s.Label}}{{if $s.Done}}<span class="hm-visually-hidden"> (done)</span>{{end}}</span></li>
+{{end}}</ol>{{if $cur}}<p class="hm-steps__count">Step {{$cur}} of {{$n}}</p>{{end}}</div>{{end}}

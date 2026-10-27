@@ -1,0 +1,24 @@
+{
+  "name": "Doc",
+  "slug": "doc",
+  "description": "Documentation pages published by the docs-publish tool.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "content": {"type": "string", "title": "Content", "x-hm-field": "richtext"},
+      "description": {"type": "string", "title": "Description"},
+      "nav_title": {"type": "string", "title": "Navigation title"},
+      "source_hash": {"type": "string", "title": "Source hash"}
+    }
+  },
+  "settings": {
+    "url_pattern": "/docs/{path}",
+    "archive_path": "/docs",
+    "archive_title": "Documentation",
+    "archive_crumb_label": "Docs",
+    "section_pages": true,
+    "sitemap_group": "docs",
+    "schema_org_type": "Article",
+    "editor": "post"
+  }
+}

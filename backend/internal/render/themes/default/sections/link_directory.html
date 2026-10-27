@@ -1,0 +1,15 @@
+{{define "section-link_directory"}}{{$c := .Content}}<div class="hm-container hm-link-directory">
+  {{if or $c.eyebrow $c.heading $c.subheading}}<header class="hm-link-directory__header">
+    {{if $c.eyebrow}}<p class="hm-link-directory__eyebrow" {{hmf "eyebrow"}}>{{$c.eyebrow}}</p>{{end}}
+    {{if $c.heading}}<h2 class="hm-link-directory__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
+    {{if $c.subheading}}<p class="hm-link-directory__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
+  </header>{{end}}
+  {{if $c.columns}}<div class="hm-link-directory__columns">
+    {{range $i, $col := $c.columns}}<div class="hm-link-directory__column">
+      {{if $col.heading}}<h3 class="hm-link-directory__column-heading" {{hmf "columns" $i "heading"}}>{{$col.heading}}</h3>{{end}}
+      {{if $col.links}}<ul class="hm-link-directory__links">
+        {{range $j, $l := $col.links}}<li><a href="{{cta $l.href}}" {{hmf "columns" $i "links" $j "text"}}>{{$l.text}}</a></li>{{end}}
+      </ul>{{end}}
+    </div>{{end}}
+  </div>{{end}}
+</div>{{end}}

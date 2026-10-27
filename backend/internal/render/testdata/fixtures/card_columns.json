@@ -1,0 +1,15 @@
+{
+  "type": "card_columns", "id": "sec-cards",
+  "content": {
+    "eyebrow": "Agent analytics · in development",
+    "heading": "See who reads your site",
+    "subheading": "Humans and agents.",
+    "columnCount": 3,
+    "columns": [
+      {"label": "Capture", "title": "Every request", "description": "Logged at the edge.", "items": ["User agent", "Path <x>", "Status"]},
+      {"label": "Classify", "title": "Who is it", "items": ["Search", "Assistant"]},
+      {"label": "Report", "title": "What changed"}
+    ],
+    "notes": [{"title": "Privacy", "text": "No cookies."}, {"title": "Retention", "text": "30 days."}]
+  }
+}

@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/searchselect{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+{{template "hm/tabs" dict "Label" "Internal linking sections" "Items" .Tabs}}
+<form method="get" action="{{adminPath}}/settings/linking/suggestions" class="hm-row hm-explain__form" role="search">
+{{template "hm/searchselect" dict "ID" "entity" "Name" "entity" "Label" "Page" "Required" true "Value" .Entity "Selected" .Label "Src" (adminPath "pick" "entities") "Help" "Choose the page to look at."}}
+{{template "hm/button" dict "Label" "Find suggestions" "Variant" "primary" "Type" "submit"}}
+</form>
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{else if .Asked}}
+{{template "hm/card-start" dict "ID" "sugg" "Title" (printf "Suggestions for %s" .Label) "Description" (printf "%d can be linked, %d already linked, %d skipped. Inserting changes the page's saved content; edit the page to review it." .Counts.Insertable .Counts.Linked .Counts.Skipped)}}{{if .Rows}}{{template "hm/categorybar" $.Data.Mix}}
+<div class="hm-table__scroll" role="region" aria-label="Link suggestions" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Link suggestions for {{.Label}}</caption>
+<thead><tr><th scope="col">Phrase</th><th scope="col">Links to</th><th scope="col">Result</th><th scope="col"><span class="hm-visually-hidden">Action</span></th></tr></thead>
+<tbody>{{range .Rows}}<tr><th scope="row" class="hm-table__rowhead">{{.Anchor}}</th><td data-label="Links to">{{.Target}} <span class="hm-muted">{{.URL}}</span></td><td data-label="Result">{{template "hm/badge" .Badge}}{{if .Reason}} <span class="hm-muted">{{.Reason}}</span>{{end}}</td>
+<td class="hm-table__actions">{{if .Insertable}}<form method="post" action="{{adminPath}}/settings/linking/suggestions/insert" class="hm-inline">{{template "hm/csrf" $}}<input type="hidden" name="source" value="{{$.Data.Entity}}"><input type="hidden" name="label" value="{{$.Data.Label}}"><input type="hidden" name="target" value="{{.TargetID}}"><input type="hidden" name="anchor" value="{{.Anchor}}"><button type="submit" class="hm-btn hm-btn--sm"><span>Insert link</span><span class="hm-visually-hidden"> for {{.Anchor}}</span></button></form>{{end}}</td></tr>
+{{end}}</tbody></table></div>{{else}}{{template "hm/empty" (dict "Title" "No rule applies to this page" "Body" "Add rules on the Rules tab." "Compact" true)}}{{end}}{{template "hm/card-end"}}
+{{end}}
+{{end}}{{end}}

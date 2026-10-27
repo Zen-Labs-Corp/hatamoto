@@ -1,0 +1,108 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Private key files are never tracked
+*.key
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.outd
+bin/
+vendor/
+# the Go admin ships its pinned browser assets (backend/web/vendor, see vendor.json)
+!backend/web/vendor/
+!backend/web/vendor/**
+# ... and the tool that maintains them
+!backend/tools/vendor/
+!scripts/admin-qa/vendor/
+!scripts/admin-qa/vendor/**
+!backend/tools/vendor/**
+# Compiled Go binaries (build to backend/bin/ via the Makefile, never commit)
+backend/api
+backend/main
+backend/mockup-migration
+backend/mockup-migration-linux
+backend/wordpress_import
+backend/wp-restore
+
+# Build outputs
+*.log
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+
+# Uploads (local dev)
+uploads/
+
+# Coverage
+coverage/
+.nyc_output/
+/docs/Case studies.pdf
+/txt
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Deploy host ssh alias (never committed; see Makefile / scripts/ship.sh)
+/.deploy-host
+
+# Changelog generator and bootstrap credentials (see docs/CHANGELOG_SITE.md)
+/.hatamoto-changelog.env
+backend/hatamoto
+
+# vendored admin assets keep their dist/ directories (after the generic dist/ rule above)
+!backend/web/vendor/**/dist/
+!backend/web/vendor/**/dist/**
+
+# WordPress importer fixture output
+test/wpfixture/out/
+
+# built plugins and the built registry (signed with a key that is not in the repo; `make registry`)
+examples/plugins/*/build/
+registry/packages/
+registry/archive/
+registry/registry.json
+registry/plugins/
+registry/screenshots/
+registry/meta.json
+registry/meta.tmp
+registry/.hatamoto
+
+# Server state (HATAMOTO_DATA default ./data): the compile cache lands here,
+# also under a package directory when its tests boot a server.
+**/data/cache/
+
+# admin QA harness (scripts/admin-qa): dev-only, never committed
+scripts/admin-qa/node_modules/
+scripts/admin-qa/results/
+scripts/admin-qa/shots-out/
+
+# docs-publish build output
+backend/tools/docs-publish/docs-publish
+
+# Next.js leftovers
+backend/.next/

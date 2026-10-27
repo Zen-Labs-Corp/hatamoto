@@ -1,0 +1,2 @@
+{{/* hm/errorpage: a failed fragment. Data: Title, Message, RetryURL. Built on hm/empty; its Actions take anything with a Dict, so the retry button is a one-key map. */}}
+{{define "hm/errorpage"}}<div class="hm-errorpage" role="alert">{{template "hm/empty" (dict "Icon" "alert" "Compact" true "Title" (or .Title "Something went wrong") "Body" .Message "Actions" (cond (ne .RetryURL "") (list (dict "Dict" (dict "Label" "Try again" "Size" "sm" "Href" .RetryURL))) nil))}}</div>{{end}}

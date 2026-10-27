@@ -1,0 +1,50 @@
+/* Menu editor: the tree is a flat ordered list; data-depth indents it. */
+.hm-menutree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-menutree__item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-menutree__item[data-depth="1"] { margin-left: var(--space-8); }
+.hm-menutree__item[data-depth="2"] { margin-left: calc(var(--space-8) * 2); }
+.hm-menutree__item[data-depth="3"] { margin-left: calc(var(--space-8) * 3); }
+.hm-menutree__item[data-depth="4"] { margin-left: calc(var(--space-8) * 4); }
+.hm-menutree__item[data-depth="5"] { margin-left: calc(var(--space-8) * 5); }
+.hm-menutree__head { display: flex; align-items: center; gap: var(--space-2); }
+.hm-menutree__titles { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.hm-menutree__title { font-weight: var(--weight-medium); color: var(--text); overflow-wrap: anywhere; }
+.hm-menutree__level { color: var(--text-muted); font-size: var(--text-xs); }
+.hm-menutree__ops { flex-wrap: nowrap; gap: var(--space-0-5); margin-left: auto; }
+.hm-menutree__edit > summary { display: flex; align-items: center; gap: var(--space-2); list-style: none; cursor: pointer; font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-1) 0; }
+.hm-menutree__edit > summary::-webkit-details-marker { display: none; }
+/* the same chevron as the form builder rows, turned down when open */
+.hm-menutree__chev { display: inline-flex; flex: none; transition: transform 120ms var(--ease); }
+.hm-menutree__edit[open] > summary .hm-menutree__chev { transform: rotate(90deg); }
+.hm-menutree__edit > summary:hover { color: var(--text); }
+.hm-menutree__edit[open] > summary { margin-bottom: var(--space-3); }
+.hm-menutree__edit > summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-menutree__handle { display: inline-flex; color: var(--text-muted); cursor: grab; padding: 0 var(--space-1); user-select: none; }
+.hm-menutree__handle[hidden] { display: none; }
+.hm-menutree__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); align-items: start; }
+.hm-menutree__item.sortable-ghost { opacity: 0.5; }
+.hm-menutree__item.sortable-chosen { border-color: var(--text); box-shadow: inset 3px 0 0 var(--text); }
+.hm-menutree__add { align-items: flex-end; }
+/* Only the control for the chosen type shows, with or without JavaScript. The
+   server renders data-type; without JS "Update link fields" re-renders it. */
+.hm-menutree .hm-menutree__item[data-type="entity"] .hm-menutree__t-custom,
+.hm-menutree .hm-menutree__item[data-type="entity"] .hm-menutree__t-archive,
+.hm-menutree .hm-menutree__item[data-type="custom"] .hm-menutree__t-entity,
+.hm-menutree .hm-menutree__item[data-type="custom"] .hm-menutree__t-archive,
+.hm-menutree .hm-menutree__item[data-type="archive"] .hm-menutree__t-entity,
+.hm-menutree .hm-menutree__item[data-type="archive"] .hm-menutree__t-custom { display: none; }
+/* Narrow screens: less indentation per level, so level 3 and deeper keep usable fields. */
+@media (max-width: 640px) {
+  .hm-menutree__item[data-depth="1"] { margin-left: var(--space-3); }
+  .hm-menutree__item[data-depth="2"] { margin-left: calc(var(--space-3) * 2); }
+  .hm-menutree__item[data-depth="3"] { margin-left: calc(var(--space-3) * 3); }
+  .hm-menutree__item[data-depth="4"] { margin-left: calc(var(--space-3) * 4); }
+  .hm-menutree__item[data-depth="5"] { margin-left: calc(var(--space-3) * 5); }
+  .hm-menutree__item { padding: var(--space-3); }
+}
+/* row summary: type icon, title and where it links */
+.hm-menutree__head > .hm-icon { color: var(--text-muted); flex: none; }
+.hm-menutree__target-summary { color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.hm-menutree__undo { align-items: center; margin-top: var(--space-2); }
+.hm-menutree__undo[hidden] { display: none; }
+.hm-menutree .hm-menu [role="menuitem"]:disabled { color: var(--text-muted); cursor: not-allowed; background: transparent; }

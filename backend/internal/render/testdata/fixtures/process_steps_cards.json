@@ -1,0 +1,14 @@
+{
+  "type": "process_steps",
+  "id": "sec-process-cards",
+  "content": {
+    "layout": "cards",
+    "eyebrow": "Quickstart",
+    "heading": "Up in three steps",
+    "steps": [
+      {"number": "01", "title": "Clone", "description": "<p>Get the code.</p>", "code": "git clone https://example.test/app.git"},
+      {"number": "02", "title": "Run", "code": "docker compose up <-d>"},
+      {"label": "03", "title": "Open"}
+    ]
+  }
+}

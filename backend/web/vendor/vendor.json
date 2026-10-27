@@ -1,0 +1,588 @@
+{
+  "schema": 1,
+  "generated_by": "go run ./tools/vendor",
+  "assets": [
+    {
+      "name": "htmx",
+      "version": "2.0.11",
+      "license": "0BSD",
+      "kind": "script",
+      "url": "https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js",
+      "file": "htmx-2.0.11.min.js",
+      "sha256": "d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717",
+      "bytes": 52182
+    },
+    {
+      "name": "sortablejs",
+      "version": "1.15.7",
+      "license": "MIT",
+      "kind": "script",
+      "url": "https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js",
+      "file": "sortable-1.15.7.min.js",
+      "sha256": "bf4241bc73fef7f11c59a283a69fe8051cdd31c6d8ff5a2b9ba219e7831fcf76",
+      "bytes": 45478
+    },
+    {
+      "name": "tiptap",
+      "version": "3.31.3",
+      "license": "MIT",
+      "kind": "module-graph",
+      "dir": "tiptap-3.31.3",
+      "roots": {
+        "@tiptap/core": "/@tiptap/core@3.31.3?target=es2022",
+        "@tiptap/extension-bubble-menu": "/@tiptap/extension-bubble-menu@3.31.3?target=es2022",
+        "@tiptap/extension-image": "/@tiptap/extension-image@3.31.3?target=es2022",
+        "@tiptap/extension-link": "/@tiptap/extension-link@3.31.3?target=es2022",
+        "@tiptap/extension-placeholder": "/@tiptap/extension-placeholder@3.31.3?target=es2022",
+        "@tiptap/extension-table": "/@tiptap/extension-table@3.31.3?target=es2022",
+        "@tiptap/extension-table-cell": "/@tiptap/extension-table-cell@3.31.3?target=es2022",
+        "@tiptap/extension-table-header": "/@tiptap/extension-table-header@3.31.3?target=es2022",
+        "@tiptap/extension-table-row": "/@tiptap/extension-table-row@3.31.3?target=es2022",
+        "@tiptap/extensions": "/@tiptap/extensions@3.31.3?target=es2022",
+        "@tiptap/pm/commands": "/@tiptap/pm@3.31.3/commands?target=es2022",
+        "@tiptap/pm/dropcursor": "/@tiptap/pm@3.31.3/dropcursor?target=es2022",
+        "@tiptap/pm/gapcursor": "/@tiptap/pm@3.31.3/gapcursor?target=es2022",
+        "@tiptap/pm/history": "/@tiptap/pm@3.31.3/history?target=es2022",
+        "@tiptap/pm/keymap": "/@tiptap/pm@3.31.3/keymap?target=es2022",
+        "@tiptap/pm/model": "/@tiptap/pm@3.31.3/model?target=es2022",
+        "@tiptap/pm/schema-list": "/@tiptap/pm@3.31.3/schema-list?target=es2022",
+        "@tiptap/pm/state": "/@tiptap/pm@3.31.3/state?target=es2022",
+        "@tiptap/pm/tables": "/@tiptap/pm@3.31.3/tables?target=es2022",
+        "@tiptap/pm/transform": "/@tiptap/pm@3.31.3/transform?target=es2022",
+        "@tiptap/pm/view": "/@tiptap/pm@3.31.3/view?target=es2022",
+        "@tiptap/starter-kit": "/@tiptap/starter-kit@3.31.3?target=es2022",
+        "@tiptap/suggestion": "/@tiptap/suggestion@3.31.3?target=es2022"
+      },
+      "importmap": {
+        "@tiptap/core": "tiptap-3.31.3/@tiptap/core@3.31.3/es2022/core.mjs",
+        "@tiptap/extension-bubble-menu": "tiptap-3.31.3/@tiptap/extension-bubble-menu@3.31.3/es2022/extension-bubble-menu.mjs",
+        "@tiptap/extension-image": "tiptap-3.31.3/@tiptap/extension-image@3.31.3/es2022/extension-image.mjs",
+        "@tiptap/extension-link": "tiptap-3.31.3/@tiptap/extension-link@3.31.3/es2022/extension-link.mjs",
+        "@tiptap/extension-placeholder": "tiptap-3.31.3/@tiptap/extension-placeholder@3.31.3/es2022/extension-placeholder.mjs",
+        "@tiptap/extension-table": "tiptap-3.31.3/@tiptap/extension-table@3.31.3/es2022/extension-table.mjs",
+        "@tiptap/extension-table-cell": "tiptap-3.31.3/@tiptap/extension-table-cell@3.31.3/es2022/extension-table-cell.mjs",
+        "@tiptap/extension-table-header": "tiptap-3.31.3/@tiptap/extension-table-header@3.31.3/es2022/extension-table-header.mjs",
+        "@tiptap/extension-table-row": "tiptap-3.31.3/@tiptap/extension-table-row@3.31.3/es2022/extension-table-row.mjs",
+        "@tiptap/extensions": "tiptap-3.31.3/@tiptap/extensions@3.31.3/es2022/extensions.mjs",
+        "@tiptap/pm/commands": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/commands.mjs",
+        "@tiptap/pm/dropcursor": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/dropcursor.mjs",
+        "@tiptap/pm/gapcursor": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/gapcursor.mjs",
+        "@tiptap/pm/history": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/history.mjs",
+        "@tiptap/pm/keymap": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/keymap.mjs",
+        "@tiptap/pm/model": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/model.mjs",
+        "@tiptap/pm/schema-list": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/schema-list.mjs",
+        "@tiptap/pm/state": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/state.mjs",
+        "@tiptap/pm/tables": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/tables.mjs",
+        "@tiptap/pm/transform": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/transform.mjs",
+        "@tiptap/pm/view": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/view.mjs",
+        "@tiptap/starter-kit": "tiptap-3.31.3/@tiptap/starter-kit@3.31.3/es2022/starter-kit.mjs",
+        "@tiptap/suggestion": "tiptap-3.31.3/@tiptap/suggestion@3.31.3/es2022/suggestion.mjs"
+      },
+      "files": [
+        {
+          "path": "tiptap-3.31.3/@floating-ui/core@1.8.0/es2022/core.mjs",
+          "sha256": "46fcedca538c9b6d3f41f0dc5abcb5add1fdbdaca2a8b4490745ace0c1053386",
+          "bytes": 11246
+        },
+        {
+          "path": "tiptap-3.31.3/@floating-ui/dom@1.8.0/es2022/dom.mjs",
+          "sha256": "d71aa449d754ac893da9e1d52e029ad563a9232047438f977edffcc46bf5be1a",
+          "bytes": 8140
+        },
+        {
+          "path": "tiptap-3.31.3/@floating-ui/utils@0.2.12/es2022/dom.mjs",
+          "sha256": "0880403add1492ea38c907a2069c782cf00274cd045206093e1b03701cd16822",
+          "bytes": 2722
+        },
+        {
+          "path": "tiptap-3.31.3/@floating-ui/utils@0.2.12/es2022/utils.mjs",
+          "sha256": "447ebe8cf3fc57347c955d71edd83b2aeedcdd84214014e740d0f0cc7ee149fe",
+          "bytes": 2130
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/core@3.31.3/es2022/core.mjs",
+          "sha256": "d34897649fed1707e4863069c860cb49f629d41dca72b2b77298230bdaad8876",
+          "bytes": 116372
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/core@3.31.3/es2022/dist/jsx-runtime/jsx-runtime.mjs",
+          "sha256": "ba2ec702bd54c596c3c0f87fbf985eb3233e06568d5bd78e5618903d554e3b36",
+          "bytes": 930
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/core@3.31.3/es2022/jsx-runtime.mjs",
+          "sha256": "9321a490a0aeff917b4afc185cdcc9124d5c5a7fdfc265261e560d7a5e395706",
+          "bytes": 136
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-blockquote@3.31.3/es2022/extension-blockquote.mjs",
+          "sha256": "9da8a9e1ed92aafc494f24e99d9a17c61624098a17f3c163d920a3e02bf01f52",
+          "bytes": 2122
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-bold@3.31.3/es2022/extension-bold.mjs",
+          "sha256": "16c1fc8c31018a711a61f752f0d7a9fc874f6a36f57d167230535f77483e212d",
+          "bytes": 1695
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-bubble-menu@3.31.3/es2022/extension-bubble-menu.mjs",
+          "sha256": "244fd5bf59f7c2e4bc0bfaad0250fe0c457d86724596752c3c7fe55699f2d0f8",
+          "bytes": 9050
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-code-block@3.31.3/es2022/extension-code-block.mjs",
+          "sha256": "3ff92ede3b028762667cfc11f3bcd74b6fab4e4f5a8710ebdfe48892510ba148",
+          "bytes": 5242
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-code@3.31.3/es2022/extension-code.mjs",
+          "sha256": "cb98da47a025d52983396dcb9b2fe10e5d45708cb0f26cda558b5c74a8abb66f",
+          "bytes": 1408
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-document@3.31.3/es2022/extension-document.mjs",
+          "sha256": "a66c3871a87683caa5c9df66e59cb13612ad406db6cf6364e87ac8492a6c253a",
+          "bytes": 318
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-hard-break@3.31.3/es2022/extension-hard-break.mjs",
+          "sha256": "1e2251b50c88adb2f54adaf527bc9b96b55c8eaba70873a8ce02b256234720d6",
+          "bytes": 1228
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-heading@3.31.3/es2022/extension-heading.mjs",
+          "sha256": "a5d324b216c408c93caa9f341e45a6da2fe4ccd380f3271788367c9ee81bd23b",
+          "bytes": 1495
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-horizontal-rule@3.31.3/es2022/extension-horizontal-rule.mjs",
+          "sha256": "36498739d5705310249775a5e155cfac9426d6f77705d59432742b7c955b6866",
+          "bytes": 1475
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-image@3.31.3/es2022/extension-image.mjs",
+          "sha256": "8355883a5c07c038dcaef341a67a51daa3fd99a934cdf140045e311c0a40cdb3",
+          "bytes": 2989
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-italic@3.31.3/es2022/extension-italic.mjs",
+          "sha256": "1a8f5e79600c7cafb453084df64725ceeb24f6ef4248509f94d63dd01c8e3f61",
+          "bytes": 1532
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-link@3.31.3/es2022/extension-link.mjs",
+          "sha256": "b7b0877cb567d5ffb75b2ba0823744167024df097e87c649e8bf3c9b5735162d",
+          "bytes": 9776
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-list@3.31.3/es2022/extension-list.mjs",
+          "sha256": "58e40619660bd1708fa5bb18dc9077b51b47b0910d8c790683c779bd700b3c6e",
+          "bytes": 22996
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-paragraph@3.31.3/es2022/extension-paragraph.mjs",
+          "sha256": "6a75d08c02f5789857e0ed978cf39089cf66184071fb9fbff386f9ac53d3e549",
+          "bytes": 1348
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-placeholder@3.31.3/es2022/extension-placeholder.mjs",
+          "sha256": "180fc7b890fab7f440c5541a0c100ecf1e389c8d5d48dc0335529d818cf5a673",
+          "bytes": 242
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-strike@3.31.3/es2022/extension-strike.mjs",
+          "sha256": "31242591518f40340fd94d74911225a040e60958c718d3ebeb0af904d806b687",
+          "bytes": 1191
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-table-cell@3.31.3/es2022/extension-table-cell.mjs",
+          "sha256": "175d785e5b7f5bdf13147737797eb91822122820835ed67ce2a9283fa26faaa5",
+          "bytes": 244
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-table-header@3.31.3/es2022/extension-table-header.mjs",
+          "sha256": "4096a9ffd20bc7008b1dfe964d722bfc538af43fa1e4fb1e5c33e923f52b68b4",
+          "bytes": 254
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-table-row@3.31.3/es2022/extension-table-row.mjs",
+          "sha256": "7851e5d782e2b3bd73f7ebd78c13160ddc8bf2e54851841c6988c0610c203fb6",
+          "bytes": 239
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-table@3.31.3/es2022/extension-table.mjs",
+          "sha256": "f27d7d853eac9376e4397ea353579b22668a94cd83971119ece670a5badb11cd",
+          "bytes": 12716
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-text@3.31.3/es2022/extension-text.mjs",
+          "sha256": "bf5b1168c5307f3115ec07f0520e63278f294fed8243c6d053d9110f90e68838",
+          "bytes": 304
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extension-underline@3.31.3/es2022/extension-underline.mjs",
+          "sha256": "4487a3b3b8eb36567318c4d9209263b9cc67f3250be838864b714206ca85952e",
+          "bytes": 1198
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/extensions@3.31.3/es2022/extensions.mjs",
+          "sha256": "d5d94b97d083a6da68b5f3aa71bf0bed347cdd8b93b6ea92da5c5d8faf7dc071",
+          "bytes": 9734
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/commands.mjs",
+          "sha256": "ad5156282c1bcd3335876c77154c63ed9f2ce2ce30da054a2b20f217d6a9d459",
+          "bytes": 161
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/dropcursor.mjs",
+          "sha256": "17d161dced03d19c6ed01d1cf40fcc001c6bdf2c9f49d64328ef58366231819c",
+          "bytes": 169
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/gapcursor.mjs",
+          "sha256": "cd623d6108933458feb06484e1faf78b55a79471181c4fee7f5d34b1afd969df",
+          "bytes": 165
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/history.mjs",
+          "sha256": "3c82c051e0bb43f6f5004c0e3c42116eacd4a2e9bef94aab496bee1f8eefb4a7",
+          "bytes": 157
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/keymap.mjs",
+          "sha256": "574751dea94cd7230fc40ac639d651baf00a22a02bc32ec638146c300338a552",
+          "bytes": 153
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/model.mjs",
+          "sha256": "727e1e3bd844b00fa12a644da32fc4ddc6f32b2c0c2be062bb8ec262c636b175",
+          "bytes": 151
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/schema-list.mjs",
+          "sha256": "9a72ba09a14d891e3bee4830411afa0885c3199f0203c3128f47ff5c43bd87ab",
+          "bytes": 173
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/state.mjs",
+          "sha256": "820cd5320879fc599827a8edd0455773fd22edc7fe28d98b6d1b108f006ac772",
+          "bytes": 149
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/tables.mjs",
+          "sha256": "3c290dd19f84a71d5bc2154735b18223711099893158284769277ca5dc633079",
+          "bytes": 153
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/transform.mjs",
+          "sha256": "481c760c64c7b097ce56834f0628ccf09d907f93c6eb33d043e197555c0e0c6a",
+          "bytes": 166
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/pm@3.31.3/es2022/view.mjs",
+          "sha256": "d65aae75070fb6dcf0dde668a0ca9a6d9b8e52d7239a8dccf788444bd14db6c5",
+          "bytes": 146
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/starter-kit@3.31.3/es2022/starter-kit.mjs",
+          "sha256": "6afc2cf17b59a55ad346e4562c73d79a2110a810f9ce7be6e0f58a565fc3398d",
+          "bytes": 3470
+        },
+        {
+          "path": "tiptap-3.31.3/@tiptap/suggestion@3.31.3/es2022/suggestion.mjs",
+          "sha256": "5718e7465dce4264fd7bbe8da8d4a131d3e511aa3f1af760c7b4e2498194875b",
+          "bytes": 9848
+        },
+        {
+          "path": "tiptap-3.31.3/linkifyjs@4.3.3/es2022/linkifyjs.mjs",
+          "sha256": "61dc0221cb0b6970183e55ab6ca3e4371efa56aa053e3d2542475ed54b3fd198",
+          "bytes": 20892
+        },
+        {
+          "path": "tiptap-3.31.3/node/async_hooks.mjs",
+          "sha256": "b7862dbfba8bbbca956f19e4e08280b529e4b27468779775a9093aef8c92dc1d",
+          "bytes": 2938
+        },
+        {
+          "path": "tiptap-3.31.3/node/events.mjs",
+          "sha256": "1283706bbf95f2c545f1623df66cfcc309ae2902ad266c7f96bd55dfce019e18",
+          "bytes": 12118
+        },
+        {
+          "path": "tiptap-3.31.3/node/process.mjs",
+          "sha256": "981e47d1d8121380c2db5704163f22aa03804b4d147dd44a99a6582dfeddd548",
+          "bytes": 7853
+        },
+        {
+          "path": "tiptap-3.31.3/node/tty.mjs",
+          "sha256": "c66ff4b406bad449bfb2ced355f15badf16f4d9e035d2d300e33b5aeee64e3be",
+          "bytes": 685
+        },
+        {
+          "path": "tiptap-3.31.3/orderedmap@2.1.1/es2022/orderedmap.mjs",
+          "sha256": "aa27393bc0402b0994c073b949d710bbe2b44fac7182986e3db8fc9b5d148308",
+          "bytes": 1531
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-commands@1.7.2/es2022/prosemirror-commands.mjs",
+          "sha256": "1a8adedcc92fbbc636b5e5d444da51ef77140f3ce9886b6ebf2d8f08422b82f4",
+          "bytes": 13015
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-dropcursor@1.8.4/es2022/prosemirror-dropcursor.mjs",
+          "sha256": "92ef72ae2edc1e1dacd73b402f3d20196f8a4c3c6e5622ab2b7d5759e52d7e2e",
+          "bytes": 3545
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-gapcursor@1.4.1/es2022/prosemirror-gapcursor.mjs",
+          "sha256": "d4c9dace44a10430e215184a6dea10d4f4d3a33fe706a36cec3dc749900da842",
+          "bytes": 4076
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-history@1.5.1/es2022/prosemirror-history.mjs",
+          "sha256": "a1f69c1ddb6b5fdeda1ff544e7381855f78be7604ae9878af6ed60977cc48c47",
+          "bytes": 6402
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-keymap@1.2.3/es2022/prosemirror-keymap.mjs",
+          "sha256": "738c27ce374790f7ee8e246c9e355ff3baf66687e95998f505eceee7668ca1a0",
+          "bytes": 1493
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-model@1.25.12/es2022/prosemirror-model.mjs",
+          "sha256": "0f80da5773eb1b1367ede75e75460997f42565badce1f5a1bb02ba4863b94916",
+          "bytes": 45082
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-schema-list@1.5.1/es2022/prosemirror-schema-list.mjs",
+          "sha256": "923eb9b61b5ac35fb38e10c0082e3592c7176563611e2e6b8795996434756a14",
+          "bytes": 5062
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-state@1.4.4/es2022/prosemirror-state.mjs",
+          "sha256": "a00c39b46dd362bb2171dbed6075c0f1a62be996dd0941d382afc4dc7fb3d217",
+          "bytes": 12277
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-tables@1.8.5/es2022/prosemirror-tables.mjs",
+          "sha256": "e898659c5cc518646be04374aac33ac544e735cd1604b4abc94541a3e983e738",
+          "bytes": 42742
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-transform@1.12.2/es2022/prosemirror-transform.mjs",
+          "sha256": "381f72193a547b9006b08284d3d0e855352cf64d23fed82b7e53d53d84370bc5",
+          "bytes": 31876
+        },
+        {
+          "path": "tiptap-3.31.3/prosemirror-view@1.42.6/es2022/prosemirror-view.mjs",
+          "sha256": "b084865905a7854003d596be1d8d3aa784ed9f0a40161612a0d0320349e800a7",
+          "bytes": 98352
+        },
+        {
+          "path": "tiptap-3.31.3/rope-sequence@1.3.4/es2022/rope-sequence.mjs",
+          "sha256": "6404e224ececaecd3f25d15254943b050f75d54882b44b0443866a454caec30a",
+          "bytes": 3486
+        },
+        {
+          "path": "tiptap-3.31.3/w3c-keyname@2.2.8/es2022/w3c-keyname.mjs",
+          "sha256": "99a47c27230eb51799d1b8dc53b17f50b46aae275423c9a19e5a1dbb0cce787a",
+          "bytes": 1588
+        }
+      ],
+      "origin": "https://esm.sh"
+    }
+  ],
+  "licenses": [
+    {
+      "package": "htmx.org",
+      "version": "2.0.11",
+      "spdx": "0BSD",
+      "url": "https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/LICENSE",
+      "file": "htmx.org-2.0.11.txt",
+      "sha256": "d3d2456f76414f2456104660ebd65aff1c04cd7966b942bdabd63f3cdb316a38",
+      "bytes": 642
+    },
+    {
+      "package": "sortablejs",
+      "version": "1.15.7",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/LICENSE",
+      "file": "sortablejs-1.15.7.txt",
+      "sha256": "e94dfc31e800d169257569db270457c9f028440c9ccae41e7eb78b2db18f1298",
+      "bytes": 1106
+    },
+    {
+      "package": "@tiptap/core",
+      "version": "3.31.3",
+      "spdx": "MIT",
+      "covers": "@tiptap/* (all packages share this text)",
+      "url": "https://cdn.jsdelivr.net/npm/@tiptap/core@3.31.3/LICENSE.md",
+      "file": "tiptap-core-3.31.3.txt",
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9",
+      "bytes": 1069
+    },
+    {
+      "package": "linkifyjs",
+      "version": "4.3.3",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/linkifyjs@4.3.3/LICENSE",
+      "file": "linkifyjs-4.3.3.txt",
+      "sha256": "58e6f3677452cca096ce5328ebf7de37a1406bbeeb2f263c1b2ededc8c7d0228",
+      "bytes": 1056
+    },
+    {
+      "package": "@floating-ui/core",
+      "version": "1.8.0",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@floating-ui/core@1.8.0/LICENSE",
+      "file": "floating-ui-core-1.8.0.txt",
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce",
+      "bytes": 1089
+    },
+    {
+      "package": "@floating-ui/dom",
+      "version": "1.8.0",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.8.0/LICENSE",
+      "file": "floating-ui-dom-1.8.0.txt",
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce",
+      "bytes": 1089
+    },
+    {
+      "package": "@floating-ui/utils",
+      "version": "0.2.12",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@floating-ui/utils@0.2.12/LICENSE",
+      "file": "floating-ui-utils-0.2.12.txt",
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce",
+      "bytes": 1089
+    },
+    {
+      "package": "orderedmap",
+      "version": "2.1.1",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/orderedmap@2.1.1/LICENSE",
+      "file": "orderedmap-2.1.1.txt",
+      "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884",
+      "bytes": 1100
+    },
+    {
+      "package": "prosemirror-commands",
+      "version": "1.7.2",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-commands@1.7.2/LICENSE",
+      "file": "prosemirror-commands-1.7.2.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-dropcursor",
+      "version": "1.8.4",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-dropcursor@1.8.4/LICENSE",
+      "file": "prosemirror-dropcursor-1.8.4.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-gapcursor",
+      "version": "1.4.1",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-gapcursor@1.4.1/LICENSE",
+      "file": "prosemirror-gapcursor-1.4.1.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-history",
+      "version": "1.5.1",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-history@1.5.1/LICENSE",
+      "file": "prosemirror-history-1.5.1.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-keymap",
+      "version": "1.2.3",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-keymap@1.2.3/LICENSE",
+      "file": "prosemirror-keymap-1.2.3.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-model",
+      "version": "1.25.12",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-model@1.25.12/LICENSE",
+      "file": "prosemirror-model-1.25.12.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-schema-list",
+      "version": "1.5.1",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-schema-list@1.5.1/LICENSE",
+      "file": "prosemirror-schema-list-1.5.1.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-state",
+      "version": "1.4.4",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-state@1.4.4/LICENSE",
+      "file": "prosemirror-state-1.4.4.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-tables",
+      "version": "1.8.5",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-tables@1.8.5/LICENSE",
+      "file": "prosemirror-tables-1.8.5.txt",
+      "sha256": "d1d2046ebbe6362f9ad8fd4d62e9074f2553f289c0e1de895a650f10ba5f4239",
+      "bytes": 1099
+    },
+    {
+      "package": "prosemirror-transform",
+      "version": "1.12.2",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-transform@1.12.2/LICENSE",
+      "file": "prosemirror-transform-1.12.2.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "prosemirror-view",
+      "version": "1.42.6",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/prosemirror-view@1.42.6/LICENSE",
+      "file": "prosemirror-view-1.42.6.txt",
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8",
+      "bytes": 1105
+    },
+    {
+      "package": "rope-sequence",
+      "version": "1.3.4",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/rope-sequence@1.3.4/LICENSE",
+      "file": "rope-sequence-1.3.4.txt",
+      "sha256": "530424aebdd0e73f53238d1f89df250057bc8d8ce090cf5954197fadce5bf226",
+      "bytes": 1089
+    },
+    {
+      "package": "w3c-keyname",
+      "version": "2.2.8",
+      "spdx": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/w3c-keyname@2.2.8/LICENSE",
+      "file": "w3c-keyname-2.2.8.txt",
+      "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884",
+      "bytes": 1100
+    }
+  ]
+}

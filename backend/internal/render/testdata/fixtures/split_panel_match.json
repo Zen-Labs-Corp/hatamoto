@@ -1,0 +1,37 @@
+{
+  "type": "split",
+  "id": "sec-split-match",
+  "content": {
+    "eyebrow": "AEO",
+    "heading": "Answer engines read your head",
+    "lede": "<p>Structured data, <code>rendered</code> server side.</p><script>alert(1)</script>",
+    "rowsStyle": "definitions",
+    "rows": [
+      {
+        "term": "JSON-LD",
+        "description": "Schema.org graph in the head."
+      },
+      {
+        "term": "llms.txt",
+        "description": "Machine-readable index."
+      }
+    ],
+    "panel": {
+      "title": "GET /blog/emergency-plumbing",
+      "meta": "rendered head",
+      "language": "html",
+      "code": "<script type=\"application/ld+json\">{\"@type\":\"Service\"}</script>\n<!-- done -->"
+    },
+    "outputs": [
+      {
+        "label": "Schema",
+        "value": "Service"
+      },
+      {
+        "label": "Score",
+        "value": "A"
+      }
+    ],
+    "panelHeight": "match"
+  }
+}

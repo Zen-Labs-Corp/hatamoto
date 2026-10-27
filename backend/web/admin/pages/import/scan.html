@@ -1,0 +1,38 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Scan report" "Description" (printf "What the old site at %s holds and what will not survive the move." .Rep.Site.URL) "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
+{{template "hm/card-start" dict "Title" .ModeTitle "ID" "mode" "Heading" "h2"}}
+<p>{{template "hm/badge" (dict "Label" (cond .Existing "Site with content" "Empty site") "Kind" (cond .Existing "warning" "success"))}}</p>
+<p>{{.ModeText}}</p>
+{{if .Rep.ModeNote}}<p class="hm-muted">{{.Rep.ModeNote}}</p>{{end}}
+{{template "hm/card-end"}}
+{{template "hm/stats" dict "Variant" "ticker" "Items" .Stats}}
+{{template "hm/card-start" dict "Title" "What is there" "ID" "counts" "Heading" "h2"}}
+<dl class="hm-dl">{{range .Counts}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>
+{{end}}</dl>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Addresses" "ID" "permalinks" "Heading" "h2"}}
+<dl class="hm-dl"><dt>WordPress permalinks</dt><dd>{{if .Rep.Permalink}}<code>{{.Rep.Permalink}}</code>{{else}}Plain (<code>?p=12</code>) or not detected{{end}}</dd>
+<dt>As a URL pattern here</dt><dd>{{if .Rep.PermalinkPattern}}<code>{{.Rep.PermalinkPattern}}</code>{{else}}Cannot be a pattern: posts keep this site's pattern and every old address gets a 301 redirect{{end}}</dd></dl>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Plugins and builders" "ID" "plugins" "Heading" "h2"}}
+<dl class="hm-dl">
+<dt>SEO plugin</dt><dd>{{if .SEO}}{{.SEO}}: titles, descriptions, canonical addresses and noindex are imported{{else}}None found{{end}}</dd>
+<dt>Page builders</dt><dd>{{if .Rep.PageBuilders}}{{join .Rep.PageBuilders ", "}}: the text is kept, the layout is not; those pages are listed below{{else}}None found{{end}}</dd>
+<dt>Forms</dt><dd>{{if .Rep.Forms}}{{join .Rep.Forms ", "}}: form markup is removed; recreate each form under Forms{{else}}None found{{end}}</dd>
+<dt>Languages</dt><dd>{{if .Rep.Multilingual}}{{join .Rep.Multilingual ", "}}: only the default language{{if .Rep.DefaultLang}} ({{.Rep.DefaultLang}}){{end}} is imported, a Hatamoto site has one language{{else}}One language{{end}}</dd>
+<dt>Other plugins</dt><dd>{{if .Rep.UnsupportedPlugins}}{{join .Rep.UnsupportedPlugins ", "}}: not imported{{else}}None found{{end}}</dd>
+<dt>Shortcodes left in text</dt><dd>{{if .Shortcodes}}<ul class="hm-badgelist">{{range .Shortcodes}}<li>{{template "hm/badge" (dict "Label" (printf "%s × %v" .Label .Value) "Mono" true)}}</li>{{end}}</ul>{{else}}None{{end}}</dd>
+</dl>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "Expected fidelity" "ID" "fidelity" "Heading" "h2"}}
+{{if .FidelityText}}<p class="hm-row">{{template "hm/ring" dict "Pct" .FidelityPct}}<span>{{.FidelityText}}</span></p>
+{{template "hm/categorybar" .Fidelity}}{{else}}{{template "hm/empty" (dict "Title" "Nothing to import" "Compact" true)}}{{end}}
+{{if .Low}}<div class="hm-table__scroll" role="region" aria-label="Content that needs a look" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Content that will not import without loss</caption>
+<thead><tr><th scope="col">Title</th><th scope="col">Why</th></tr></thead>
+<tbody>{{range .Low}}<tr><th scope="row" class="hm-table__rowhead">{{.Title}}</th><td data-label="Why">{{.Reason}}</td></tr>
+{{end}}</tbody></table></div>{{if .MoreLow}}<p class="hm-muted">And {{.MoreLow}} more.</p>{{end}}{{end}}
+{{template "hm/card-end"}}
+{{if .Rep.Warnings}}{{template "hm/card-start" dict "Title" "Warnings" "ID" "warnings" "Heading" "h2"}}<ul>{{range .Rep.Warnings}}<li>{{.}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Use another source" "Variant" "ghost" "Href" (adminPath "settings" "import" "wordpress")}}{{template "hm/button" dict "Label" "Choose what to import" "Variant" "primary" "Href" .OptionsURL}}{{template "hm/foot-end"}}
+{{end}}{{end}}

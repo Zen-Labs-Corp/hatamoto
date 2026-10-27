@@ -1,0 +1,30 @@
+{{define "section-contact_form"}}{{$c := .Content}}{{$slug := default "" $c.form_slug}}{{$f := index .Page.Forms $slug}}
+<div class="hm-container hm-contact-form hm-contact-form--{{default "centered" $c.variant}}">
+  <div class="hm-contact-form__intro">
+    {{with $c.heading}}<h2 class="hm-contact-form__heading" {{hmf "heading"}}>{{.}}</h2>{{end}}
+    {{with $c.subheading}}<p class="hm-contact-form__subheading" {{hmf "subheading"}}>{{.}}</p>{{end}}
+  </div>
+  {{if $f.Slug}}
+  {{if .Page.Submitted}}<p class="hm-form__success" role="status">{{default "Thank you, your message has been sent." $f.SuccessNotice}}</p>{{end}}
+  {{if .Page.FormError}}<p class="hm-form__error" role="alert">Sorry, your message could not be sent. Please check the form and try again.</p>{{end}}
+  <form class="hm-form" method="post" action="/forms/{{$f.Slug}}/submit" data-hm-form="{{$f.Slug}}">
+    <input type="hidden" name="_redirect" value="{{.Page.Path}}">
+    <input type="hidden" name="page_url" value="{{.Page.Path}}">
+    <div class="hm-form__hp" aria-hidden="true"><label>Leave this empty<input type="text" name="hm_website" tabindex="-1" autocomplete="off"></label></div>
+    {{range $f.Fields}}{{$id := print "hm-form-" $f.Slug "-" .Name}}
+    <div class="hm-form__field hm-form__field--{{.Type}}">
+      {{if and (eq .Type "checkbox") .Options}}<fieldset class="hm-form__group"><legend>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</legend>{{$n := .Name}}{{range .Options}}<label class="hm-form__check"><input type="checkbox" name="{{$n}}" value="{{.Value}}"> <span>{{.Label}}</span></label>{{end}}</fieldset>
+      {{else if eq .Type "checkbox"}}<label class="hm-form__check"><input type="checkbox" id="{{$id}}" name="{{.Name}}" value="true"{{if .Required}} required{{end}}> <span>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</span></label>
+      {{else if eq .Type "radio"}}<fieldset class="hm-form__group"><legend>{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</legend>{{$req := .Required}}{{$n := .Name}}{{range .Options}}<label class="hm-form__check"><input type="radio" name="{{$n}}" value="{{.Value}}"{{if $req}} required{{end}}> <span>{{.Label}}</span></label>{{end}}</fieldset>
+      {{else}}<label class="hm-form__label" for="{{$id}}">{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</label>
+      {{if eq .Type "textarea"}}<textarea id="{{$id}}" name="{{.Name}}" rows="5"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}></textarea>
+      {{else if eq .Type "select"}}<select id="{{$id}}" name="{{.Name}}"{{if .Required}} required{{end}}><option value="">{{default "Select…" .Placeholder}}</option>{{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
+      {{else}}<input id="{{$id}}" name="{{.Name}}" type="{{if eq .Type "email"}}email{{else if or (eq .Type "tel") (eq .Type "phone")}}tel{{else if eq .Type "date"}}date{{else if eq .Type "number"}}number{{else if eq .Type "url"}}url{{else}}text{{end}}"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}>{{end}}{{end}}
+      {{with .HelpText}}<small class="hm-form__help">{{.}}</small>{{end}}
+    </div>
+    {{end}}
+    {{if $f.Captcha}}<div class="hm-form__captcha" data-hm-captcha="{{$f.CaptchaProvider}}" data-sitekey="{{$f.CaptchaSiteKey}}"></div>{{end}}<button class="hm-btn hm-form__submit" type="submit">{{default "Send" $f.SubmitLabel}}</button>
+  </form>
+  {{else}}<!-- contact_form: form definition unavailable -->{{end}}
+</div>
+{{end}}

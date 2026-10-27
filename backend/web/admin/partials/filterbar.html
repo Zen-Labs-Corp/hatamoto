@@ -1,0 +1,19 @@
+{{/* hm/filterbar: search + primary selects + a Filters popover (dates, author,
+     term) and the removable chips of the active popover filters. One real GET
+     form: it works without JS. Search and the primary selects apply live; the
+     popover fields never trigger a request (the swap would close the popover and
+     drop focus), they apply on Apply or Enter, which submit the form. */}}
+{{define "hm/filterbar"}}<form class="hm-table__filters hm-filterbar" role="search" method="get" action="{{.BaseURL}}" hx-get="{{.BaseURL}}" hx-trigger="input changed delay:300ms from:#{{.ID}}-q, change from:#{{.ID}}-q{{range $i, $f := .PrimaryFilters}}, change from:#{{$.ID}}-p{{$i}}{{end}}, submit" hx-target="#{{.ID}}" hx-select="#{{.ID}}" hx-select-oob="#{{.ID}}-head" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#{{.ID}}-busy">{{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{if .SortKey}}<input type="hidden" name="sort" value="{{.SortKey}}"><input type="hidden" name="dir" value="{{.SortDir}}">{{end}}
+{{if .SearchLabel}}<label class="hm-visually-hidden" for="{{.ID}}-q">{{.SearchLabel}}</label><input class="hm-field__control hm-table__search" type="search" id="{{.ID}}-q" name="q" value="{{.Query}}" placeholder="{{.SearchLabel}}">{{end}}
+{{range $i, $f := .PrimaryFilters}}<label class="hm-visually-hidden" for="{{$.ID}}-p{{$i}}">{{$f.Label}}</label>{{template "hm/select" (dict "ID" (printf "%s-p%d" $.ID $i) "Name" $f.Name "Options" $f.Options)}}
+{{end}}{{if .PopoverFilters}}<button type="button" class="hm-btn" popovertarget="{{.ID}}-filters" aria-haspopup="dialog">{{icon "filter"}}Filters{{if .Chips}} <span class="hm-btn-count"><span class="hm-visually-hidden">, </span>{{len .Chips}}<span class="hm-visually-hidden"> active</span></span>{{end}}</button>
+<div class="hm-popover-panel" popover id="{{.ID}}-filters" role="dialog" aria-labelledby="{{.ID}}-filters-t">
+<header><h2 id="{{.ID}}-filters-t">Filters</h2></header>
+<div class="hm-popover-panel__body">{{range $i, $f := .PopoverFilters}}{{if $f.Input}}<div class="hm-field"><label class="hm-field__label" for="{{$.ID}}-f{{$i}}">{{$f.Label}}</label><input class="hm-field__control" type="{{$f.Input}}" id="{{$.ID}}-f{{$i}}" name="{{$f.Name}}" value="{{$f.Value}}"></div>
+{{else}}<div class="hm-field"><label class="hm-field__label" for="{{$.ID}}-f{{$i}}">{{$f.Label}}</label>{{template "hm/select" (dict "ID" (printf "%s-f%d" $.ID $i) "Name" $f.Name "Options" $f.Options)}}</div>
+{{end}}{{end}}</div>
+<footer>{{if not .Chips}}{{template "hm/button" (dict "Label" "Clear all" "Variant" "ghost" "Href" .ClearHref)}}{{end}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Type" "submit")}}</footer>
+</div>{{end}}
+<noscript>{{template "hm/button" (dict "Label" "Apply filters" "Size" "sm" "Type" "submit" "Attrs" (attrmap "data-hm-apply" ""))}}</noscript>
+{{if .Chips}}<ul class="hm-filter-chips hm-filterbar__chips" aria-label="Active filters">{{range .Chips}}<li class="hm-filter-chip">{{.Label}}<a class="hm-filter-chip__x" href="{{.RemoveHref}}" aria-label="Remove filter: {{.Label}}">{{icon "x"}}</a></li>{{end}}<li><a href="{{.ClearHref}}">Clear all</a></li></ul>{{end}}
+{{template "hm/indicator" dict "ID" (printf "%s-busy" .ID) "Text" "Loading results"}}</form>{{end}}

@@ -1,0 +1,35 @@
+# hatamoto (API, site, admin, worker) on the deploy box. The unit name stays
+# hatamoto-api. Installed idempotently by `make deploy` / scripts/ship.sh.
+[Unit]
+Description=Hatamoto
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Keep retrying forever (e.g. database down at boot) instead of giving up after 5 fast failures.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# Install keeps the User= and Group= of the unit already on the box
+# (deploy/install-unit.sh); these values only apply to a fresh install.
+User=hatamoto
+Group=hatamoto
+WorkingDirectory=/opt/hatamoto
+# Explicit, so the data dir does not depend on the working directory. The env
+# file below overrides it when it sets HATAMOTO_DATA itself.
+Environment=HATAMOTO_DATA=/opt/hatamoto/data
+EnvironmentFile=/opt/hatamoto/config/hatamoto.env
+# The supervisor runs `serve` as its child, switches releases under a health
+# gate and rolls back on its own. KillMode=mixed: systemd stops only the
+# supervisor, which forwards SIGTERM to the child and waits for it (up to 40 s);
+# TimeoutStopSec stays above that.
+ExecStart=/opt/hatamoto/bin/hatamoto supervise
+KillMode=mixed
+TimeoutStopSec=60
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

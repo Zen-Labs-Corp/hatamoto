@@ -1,0 +1,4 @@
+/* accordion: a stack of native details items */
+.hm-acc {
+  border-top: 1px solid var(--hm-border, #ddd);
+}

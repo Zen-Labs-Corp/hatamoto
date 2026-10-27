@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Action" (dict "Label" "Invite user" "Icon" "plus" "Variant" "primary" "Href" (adminPath "settings" "users" "invite") "Attrs" (attrmap "data-hm-open" "invite"))}}
+{{with .Secret}}{{template "hm/secretbanner" .}}{{end}}{{if .SecretGone}}{{template "hm/secretgone" "This invite link was shown once and can no longer be displayed. Invite the person again if you lost it."}}{{end}}
+{{template "hm/table" .Table}}
+{{if .HasInvites}}<div class="hm-row"><h2>Pending invitations</h2>{{if not .Invites.Error}}{{template "hm/badge" (dict "Label" (printf "%d" .InviteCount) "Kind" "neutral")}}{{end}}</div>{{template "hm/table" .Invites}}{{end}}
+{{template "hm/dialog-start" dict "ID" "invite" "Title" "Invite someone" "Static" true}}
+<form id="invite-form" method="post" action="{{adminPath}}/settings/users/invite">
+{{template "hm/csrf" $}}
+{{template "hm/form-invite" .}}
+</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Send invitation" "PrimaryAttrs" (attrmap "form" "invite-form")}}
+{{end}}{{end}}

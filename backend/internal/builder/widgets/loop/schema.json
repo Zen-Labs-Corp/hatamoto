@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Query loop",
+    "hint": "A list of entities, one template per item",
+    "group": "Data",
+    "order": 10,
+    "children": true,
+    "default": {"from": "query", "order": "newest", "limit": 12, "paging": "none"},
+    "seed": [
+      {"t": "container", "p": {"tag": "article"}, "c": [
+        {"t": "heading", "b": {"text": "loop.item.title"}},
+        {"t": "text", "b": {"text": "loop.item.excerpt"}},
+        {"t": "button", "p": {"text": "Read more"}, "b": {"href": "loop.item.url"}}
+      ]},
+      {"t": "loopempty", "c": [{"t": "text", "p": {"text": "Nothing here yet."}}]}
+    ]
+  },
+  "properties": {
+    "from": {"enum": ["query", "archive", "source"]},
+    "source": {"type": "string", "maxLength": 90, "pattern": "^ext\\.[a-z][a-z0-9-]{1,39}\\.[a-z][a-z0-9_-]{0,31}$", "x-hm-widget": "datalist:sources"},
+    "schema": {"type": "string", "maxLength": 64, "pattern": "^[a-z][a-z0-9_-]*$", "x-hm-widget": "datalist:schemas"},
+    "context": {"type": "boolean"},
+    "term": {"type": "string", "maxLength": 100, "pattern": "^[a-z][a-z0-9_-]{0,31}:[a-z0-9-]+$", "x-hm-widget": "datalist:terms"},
+    "author": {"type": "string", "maxLength": 100, "pattern": "^[a-z0-9-]+$"},
+    "order": {"enum": ["newest", "oldest", "updated", "name", "name_desc"]},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 48},
+    "offset": {"type": "integer", "minimum": 0, "maximum": 1000},
+    "paging": {"enum": ["none", "pages"]},
+    "exclude_current": {"type": "boolean"},
+    "hidden": {"type": "boolean"}
+  }
+}

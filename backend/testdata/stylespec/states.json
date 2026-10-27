@@ -1,0 +1,94 @@
+[
+ {
+  "name": "hover-lift card",
+  "s": {
+   "base": {
+    "shadow": "sm",
+    "tdur": "200",
+    "tease": "ease-out",
+    "trans": "transform-shadow"
+   },
+   "base:hover": {
+    "shadow": "lg",
+    "ty": "-4px"
+   }
+  },
+  "css": ".hm-n-g{box-shadow:var(--hm-shadow-sm,0 1px 2px rgba(0,0,0,.08));}@media (prefers-reduced-motion:no-preference){.hm-n-g{transition-property:transform,box-shadow;transition-duration:200ms;transition-timing-function:ease-out;transition-delay:0ms;}}.hm-n-g:hover{box-shadow:var(--hm-shadow-lg,0 12px 32px rgba(0,0,0,.14));transform:translateY(-4px);}"
+ },
+ {
+  "name": "focus and active",
+  "s": {
+   "base:active": {
+    "op": "0.8",
+    "sc": "0.98"
+   },
+   "base:focus": {
+    "bc": "accent",
+    "bs": "solid",
+    "bw": "2"
+   }
+  },
+  "css": ".hm-n-g:focus-visible{border-color:var(--hm-accent,#c8102e);border-style:solid;border-width:2px;}.hm-n-g:active{opacity:0.8;transform:scale(0.98);}"
+ },
+ {
+  "name": "parent hover",
+  "s": {
+   "base:parent-hover": {
+    "color": "accent",
+    "td": "underline"
+   },
+   "sm:parent-hover": {
+    "color": "primary"
+   }
+  },
+  "parent": true,
+  "css": ".hm-n-p:hover .hm-n-g{color:var(--hm-accent,#c8102e);text-decoration:underline;}@media (max-width:640px){.hm-n-p:hover .hm-n-g{color:var(--hm-primary);}}"
+ },
+ {
+  "name": "transform keeps the base rotation",
+  "s": {
+   "base": {
+    "rot": "10deg"
+   },
+   "base:hover": {
+    "ty": "-4px"
+   },
+   "md:hover": {
+    "sc": "1.1"
+   }
+  },
+  "css": ".hm-n-g{transform:rotate(10deg);}.hm-n-g:hover{transform:translateY(-4px) rotate(10deg);}@media (max-width:1024px){.hm-n-g:hover{transform:translateY(-4px) rotate(10deg) scale(1.1);}}"
+ },
+ {
+  "name": "filter and backdrop",
+  "s": {
+   "base:hover": {
+    "bblur": "8px",
+    "blend": "multiply",
+    "blur": "2px",
+    "bright": "120%"
+   }
+  },
+  "css": ".hm-n-g:hover{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);mix-blend-mode:multiply;filter:blur(2px) brightness(120%);}"
+ },
+ {
+  "name": "states without a parent give nothing",
+  "s": {
+   "base:parent-hover": {
+    "op": "0.5"
+   }
+  },
+  "css": ""
+ },
+ {
+  "name": "a layout key in a state is ignored",
+  "s": {
+   "base:hover": {
+    "bg": "accent",
+    "display": "none",
+    "pt": "space-2"
+   }
+  },
+  "css": ".hm-n-g:hover{background-color:var(--hm-accent,#c8102e);}"
+ }
+]

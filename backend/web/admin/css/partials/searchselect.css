@@ -1,0 +1,14 @@
+/* hm/searchselect: a text search box that picks one result (entity, term).
+   Without JavaScript it is a plain text box the server resolves on save. */
+.hm-searchselect { position: relative; }
+.hm-searchselect__list {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: var(--z-popup); margin: var(--space-1) 0 0; padding: var(--space-1);
+  list-style: none; background: var(--surface); border: 1px solid var(--color-kinu); border-radius: var(--radius-md);
+  max-height: 260px; overflow: auto; box-shadow: var(--shadow-2);
+}
+.hm-searchselect__option { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; display: flex; justify-content: space-between; gap: var(--space-3); }
+/* Tremor select items: a neutral highlight, not a blue one. */
+.hm-searchselect__option { font-size: var(--text-sm); }
+.hm-searchselect__option[aria-selected="true"], .hm-searchselect__option:hover { background: var(--surface-hover); color: var(--color-sumi); }
+.hm-searchselect__hint { color: var(--text-muted); font-size: var(--text-xs); }
+.hm-searchselect__none { padding: var(--space-2) var(--space-3); color: var(--text-muted); }

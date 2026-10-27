@@ -1,0 +1,45 @@
+# The demo's own Postgres cluster (deploy/demo/postgresql.demo.conf): its data dir is on the
+# size-capped demo filesystem, so the demo database can never grow past it and never shares a
+# disk, a port, a role or a connection with the main site's cluster.
+# The owner installs it (docs/deploy/public-demo.md). Adjust the path of postgres to your version.
+[Unit]
+Description=Hatamoto public demo: its own PostgreSQL cluster
+After=network.target
+RequiresMountsFor=/var/lib/hatamoto-demo
+
+[Service]
+Type=simple
+User=hatamoto-demo-pg
+Group=hatamoto-demo-pg
+RuntimeDirectory=hatamoto-demo-pg
+RuntimeDirectoryMode=0700
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /var/lib/hatamoto-demo/pg -p 5442 -k /run/hatamoto-demo-pg
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=5
+OOMScoreAdjust=-900
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hatamoto-demo/pg
+InaccessiblePaths=-/opt/hatamoto -/etc/hatamoto -/etc/hatamoto-demo
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+
+# It must never starve the main site on the same box.
+MemoryMax=1G
+TasksMax=256
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

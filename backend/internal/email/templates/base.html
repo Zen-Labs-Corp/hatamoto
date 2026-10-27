@@ -1,0 +1,131 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}{{.SiteName}}{{end}}</title>
+    <style>
+        /* Reset */
+        body, table, td, p, a, li {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+        }
+
+        /* Base styles */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #1f2937;
+            background-color: #f3f4f6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .email-wrapper {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #0ea5e9;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .content {
+            padding: 32px 24px;
+        }
+
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #0ea5e9;
+            text-decoration: none;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #0ea5e9;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            margin: 16px 0;
+        }
+
+        .button:hover {
+            background-color: #0284c7;
+        }
+
+        h2 {
+            color: #111827;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        p {
+            margin: 0 0 16px 0;
+        }
+
+        .muted {
+            color: #6b7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="email-wrapper">
+            <div class="header">
+                <h1>{{block "header_title" .}}{{.SiteName}}{{end}}</h1>
+            </div>
+            <div class="content">
+                {{block "content" .}}{{end}}
+            </div>
+            <div class="footer">
+                <p>This email was sent by <a href="#">{{.SiteName}}</a></p>
+                <p class="muted">You are receiving this email because you have notifications enabled.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+{{end}}

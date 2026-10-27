@@ -1,0 +1,58 @@
+version: 2
+
+# Weekly, one grouped pull request per ecosystem and directory. wazero is held on
+# purpose (docs/DEPENDENCIES.md): only patch releases are proposed. Extism's
+# host SDK is kept out of the group and gets its own pull request: a new release
+# can require a newer wazero, and the module resolver would then raise wazero
+# even though the ignore rule below only blocks direct wazero updates.
+
+updates:
+  - package-ecosystem: gomod
+    # version PRs paused while GitHub checks are off; restore at cut-over (W3)
+    open-pull-requests-limit: 0
+    directories:
+      - /backend
+      - /backend/pkg/sdk
+      - /backend/tools/docs-publish
+      - /examples/plugins/*
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns: ["*"]
+        exclude-patterns: ["github.com/extism/go-sdk"]
+    ignore:
+      - dependency-name: github.com/tetratelabs/wazero
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+
+  - package-ecosystem: github-actions
+    # version PRs paused while GitHub checks are off; restore at cut-over (W3)
+    open-pull-requests-limit: 0
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    # version PRs paused while GitHub checks are off; restore at cut-over (W3)
+    open-pull-requests-limit: 0
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    # version PRs paused while GitHub checks are off; restore at cut-over (W3)
+    open-pull-requests-limit: 0
+    directory: /scripts/admin-qa
+    schedule:
+      interval: weekly
+    groups:
+      admin-qa:
+        patterns: ["*"]

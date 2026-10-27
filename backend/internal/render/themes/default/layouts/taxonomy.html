@@ -1,0 +1,8 @@
+{{define "content"}}<div class="hm-container hm-listing">
+<header class="hm-listing__header">
+<p class="hm-listing__eyebrow">{{if eq .Term.Kind "tag"}}Tag{{else}}Category{{end}}</p>
+<h1 class="hm-listing__title">{{.Term.Name}}</h1>
+{{with .Pagination}}<p class="hm-listing__lede">{{.Total}} {{if eq .Total 1}}post{{else}}posts{{end}}</p>
+{{end}}</header>
+{{template "post-list" .}}
+</div>{{end}}
