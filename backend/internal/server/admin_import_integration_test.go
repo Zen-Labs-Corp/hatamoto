@@ -119,8 +119,14 @@ func TestWordPressWizardImport_Integration(t *testing.T) {
 	if rec := do(srv, editorTok, "GET", "/admin/settings/import/wordpress", nil); rec.Code != http.StatusForbidden {
 		t.Fatalf("editor: %d", rec.Code)
 	}
-	if rec := do(srv, "", "GET", "/admin/settings/import/wordpress", nil); rec.Code != http.StatusSeeOther {
-		t.Fatalf("signed out: %d", rec.Code)
+	{ // signed out: a browser navigation is sent to sign in (anything else is refused)
+		req := httptest.NewRequest("GET", "/admin/settings/import/wordpress", nil)
+		navigation(req)
+		rec := httptest.NewRecorder()
+		srv.router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("signed out: %d", rec.Code)
+		}
 	}
 	if rec := do(srv, ownerTok, "GET", "/admin/settings/import/wordpress", nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), "Scan the site") {
 		t.Fatalf("source step: %d", rec.Code)
