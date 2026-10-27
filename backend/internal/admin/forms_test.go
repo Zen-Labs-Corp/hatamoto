@@ -42,11 +42,14 @@ func (f *fakeForms) addSub(fm *form.Form, status string, at time.Time, data map[
 	return s
 }
 
+// ListForms orders by name like the repository, so a capped scan cuts the same
+// forms on every run instead of whichever the map yields last.
 func (f *fakeForms) ListForms(context.Context, string) ([]*form.Form, error) {
 	var out []*form.Form
 	for _, fm := range f.forms {
 		out = append(out, fm)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
 }
 func (f *fakeForms) GetForm(_ context.Context, id uuid.UUID) (*form.Form, error) {
