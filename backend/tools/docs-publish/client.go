@@ -57,9 +57,13 @@ func NewClient(cfg Config) *Client {
 // newHTTPClient returns a client that never follows a redirect: the key is a
 // custom header that Go would copy to any redirect target, including another
 // host or plain http, and a redirected POST would silently turn into a GET.
+// It has its own transport: http.DefaultTransport is shared by the whole process,
+// and anything that closes its idle connections (httptest.Server.Close does)
+// would break a request in flight.
 func newHTTPClient() *http.Client {
 	return &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout:   60 * time.Second,
+		Transport: http.DefaultTransport.(*http.Transport).Clone(),
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
 			return fmt.Errorf("the site redirected to %s; set HATAMOTO_URL to the final address (the API key is never sent to a redirect)", req.URL.Redacted())
 		},
