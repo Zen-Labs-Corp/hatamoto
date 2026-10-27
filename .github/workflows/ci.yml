@@ -45,8 +45,9 @@ jobs:
         run: go run ./cmd/hatamoto migrate
       - run: go vet -tags=integration ./...
       # Builds examples/plugins/hello and the hostile test guests (each its own
-      # module) with GOOS=wasip1.
-      - run: go test -tags=integration ./...
+      # module) with GOOS=wasip1. internal/admin and internal/server each take
+      # close to Go's 10 minute default on a hosted runner.
+      - run: go test -tags=integration -timeout 30m ./...
       # The sandbox tests are the v1-16 done criterion: fail if they were skipped or not built.
       - name: Hostile plugin tests really run
         run: |
