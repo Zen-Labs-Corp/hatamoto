@@ -270,6 +270,8 @@ get() { curl -s --path-as-is -D "$work/h" -o "$work/b" "http://127.0.0.1:$port$1
 grep -qi '^cache-control: public, max-age=300' "$work/h" || fail "channel Cache-Control wrong"
 [[ $(get /releases/v0.0.0/release.json) == 200 ]] || fail "release file not served"
 grep -qi '^cache-control: public, max-age=31536000, immutable' "$work/h" || fail "release Cache-Control wrong"
+[[ $(get /releases/v0.0.1/release.json) == 404 ]] || fail "unpublished release file not 404"
+grep -qi '^cache-control:.*immutable' "$work/h" && fail "unpublished release file got the immutable header"
 [[ $(get /registry.json) == 200 ]] && grep -q '"reg"' "$work/b" || fail "registry.json not served from the registry root"
 grep -qi '^cache-control: public, max-age=300' "$work/h" || fail "registry.json Cache-Control wrong"
 [[ $(get /packages/x) == 200 ]] && grep -q pkg-x "$work/b" || fail "/packages/x not served from the registry root"
