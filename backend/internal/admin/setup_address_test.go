@@ -44,7 +44,7 @@ func TestSetupStepperListsAdminAddressSecond(t *testing.T) {
 		addr = strings.Index(body, "hm-steps__item--current")
 	}
 	site := strings.Index(body, "Your site")
-	if !(account < addr && addr < site) || !strings.Contains(body, "Step 2 of 7") {
+	if !(account < addr && addr < site) || !strings.Contains(body, "Step 2 of 8") {
 		t.Errorf("stepper order wrong (%d %d %d):\n%s", account, addr, site, body)
 	}
 }

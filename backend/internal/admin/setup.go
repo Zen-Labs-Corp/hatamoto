@@ -15,7 +15,7 @@ import (
 	"hatamoto.dev/core/internal/user"
 )
 
-var setupSteps = []string{"Your account", "Admin address", "Your site", "Email", "Look", "Content", "Done"}
+var setupSteps = []string{"Your account", "Admin address", "Your site", "Email", "Look", "Stats", "Content", "Done"}
 
 func steps(current int) []ui.Step {
 	out := make([]ui.Step, len(setupSteps))
@@ -51,6 +51,9 @@ type setupData struct {
 	ThemeItems        []ui.RadioCardItem
 	// ContentItems are the three content choices as radio cards.
 	ContentItems []ui.RadioCardItem
+	// stats
+	StatsJSON   string // the exact request body shown before the owner chooses
+	StatsNeeded bool   // the form was posted without choosing Yes or No
 	// Back is the previous step's address; empty on the first steps.
 	Back string
 	// content
@@ -89,6 +92,8 @@ func (a *Admin) mountSetup(public, authed *httpx.Group) {
 	owner.HandleFunc("POST /setup/email", a.handleSetupEmail)
 	owner.HandleFunc("GET /setup/theme", a.handleSetupThemeForm)
 	owner.HandleFunc("POST /setup/theme", a.handleSetupTheme)
+	owner.HandleFunc("GET /setup/stats", a.handleSetupStatsForm)
+	owner.HandleFunc("POST /setup/stats", a.handleSetupStats)
 	owner.HandleFunc("GET /setup/content", a.handleSetupContentForm)
 	owner.HandleFunc("POST /setup/content", a.handleSetupContent)
 	authed.Group("", a.RequireRole("owner")).HandleFunc("GET /setup/done", a.handleSetupDone)
@@ -409,6 +414,83 @@ func (a *Admin) handleSetupTheme(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.invalidate(r.Context())
+	http.Redirect(w, r, a.setupAfterTheme(r.Context()), http.StatusSeeOther)
+}
+
+// setupStatsStep reports whether the Stats step is part of this wizard: it is
+// skipped when the build has no install stats service or the server
+// configuration turns them off (HATAMOTO_TELEMETRY=off). Like the Email step,
+// a skipped step's form sends the owner straight forward again.
+func (a *Admin) setupStatsStep(ctx context.Context) bool {
+	if a.deps.Stats == nil {
+		return false
+	}
+	v, err := a.deps.Stats.View(ctx)
+	return err == nil && !v.ForcedOff
+}
+
+// setupAfterTheme is where the Look step goes on to.
+func (a *Admin) setupAfterTheme(ctx context.Context) string {
+	if a.setupStatsStep(ctx) {
+		return a.adminPath + "/setup/stats"
+	}
+	return a.adminPath + "/setup/content"
+}
+
+// setupBackToStats is where Back on the Content step goes.
+func (a *Admin) setupBackToStats(ctx context.Context) string {
+	if a.setupStatsStep(ctx) {
+		return a.adminPath + "/setup/stats"
+	}
+	return a.adminPath + "/setup/theme"
+}
+
+func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, v StatsView, needed bool) {
+	nv := a.NewView(w, r, "Help improve Hatamoto")
+	nv.Wide = true
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsJSON: v.PreviewJSON, StatsNeeded: needed}
+	a.Render(w, r, status, "setup/stats", nv)
+}
+
+// The Stats step is optional and never ends setup: the owner may skip past it
+// with consent left unset, and the Content step finishes the wizard.
+func (a *Admin) handleSetupStatsForm(w http.ResponseWriter, r *http.Request) {
+	if !a.setupStatsStep(r.Context()) {
+		http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
+		return
+	}
+	v, err := a.deps.Stats.View(r.Context())
+	if err != nil {
+		a.logger().Error("setup: stats view", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+		return
+	}
+	a.renderSetupStats(w, r, http.StatusOK, v, false)
+}
+
+func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
+	if !a.setupStatsStep(r.Context()) {
+		http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
+		return
+	}
+	choice := r.PostFormValue("choice")
+	if choice != "yes" && choice != "no" {
+		// Neither answer is a default: Enter on the form, or a bare post, asks again.
+		v, err := a.deps.Stats.View(r.Context())
+		if err != nil {
+			a.logger().Error("setup: stats view", "err", err)
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+			return
+		}
+		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, v, true)
+		return
+	}
+	if err := a.deps.Stats.Choose(r.Context(), choice == "yes"); err != nil {
+		a.logger().Error("setup: stats choose", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your choice could not be saved.")
+		return
+	}
+	a.audit(r, "stats.consent", "stats", map[string]any{"choice": choice})
 	http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
 }
 
@@ -427,7 +509,7 @@ func (a *Admin) renderContent(w http.ResponseWriter, r *http.Request, status int
 	}
 	v := a.NewView(w, r, "Start with content")
 	v.Wide = true
-	v.Data = setupData{Steps: steps(5), Choice: choice, Failed: failed, ContentItems: contentItems(choice), Back: a.adminPath + "/setup/theme"}
+	v.Data = setupData{Steps: steps(6), Choice: choice, Failed: failed, ContentItems: contentItems(choice), Back: a.setupBackToStats(r.Context())}
 	a.Render(w, r, status, "setup/content", v)
 }
 
@@ -476,7 +558,7 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) handleSetupDone(w http.ResponseWriter, r *http.Request) {
 	v := a.NewView(w, r, "You are all set")
 	v.Wide = true
-	d := setupData{Steps: steps(6), Home: "/", Mail: a.mailConfigured(), Links: []doneLink{
+	d := setupData{Steps: steps(7), Home: "/", Mail: a.mailConfigured(), Links: []doneLink{
 		{Icon: "external", Title: "View your site", Href: "/"},
 		{Icon: "edit", Title: "Edit pages and posts", Href: a.adminPath + "/entities"},
 		{Icon: "users", Title: "Invite someone", Href: a.adminPath + "/settings/users"},

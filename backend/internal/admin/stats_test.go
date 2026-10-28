@@ -38,6 +38,9 @@ func (f *fakeStats) Reset(context.Context) error {
 
 const statsTestID = "0123456789abcdef0123456789abcdef"
 
+// statsTestPreview is a request body as the wizard shows it.
+const statsTestPreview = "{\n  \"install\": \"6f1c0a9e5b7d4e28a3c1f09d7b2e4a65\",\n  \"version\": \"v1.4.1\",\n  \"channel\": \"stable\"\n}"
+
 func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	t.Helper()
 	u := newUpdatesRig(t, baseUpdates())
@@ -210,5 +213,135 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 			}
 			compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
 		})
+	}
+}
+
+func newSetupStatsRig(t *testing.T, view StatsView) (*setupRig, *fakeStats) {
+	t.Helper()
+	g := newSetupRig(t)
+	g.count.n = 1
+	f := &fakeStats{view: view}
+	g.a.deps.Stats = f
+	return g, f
+}
+
+func TestSetupStatsStepShowsExactJSONAndPreselectsNothing(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"Help improve Hatamoto", "&#34;install&#34;: &#34;6f1c0a9e5b7d4e28a3c1f09d7b2e4a65&#34;", "No site address, no content, no names.", `name="choice" value="no"`, `name="choice" value="yes"`, "Step 6 of 8"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("stats step lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "checked") {
+		t.Error("a choice is preselected")
+	}
+	if len(f.chosen) != 0 {
+		t.Error("viewing the step stored a choice")
+	}
+	// Look goes on to it, and the owner can go on past it without ever choosing.
+	rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/stats" {
+		t.Errorf("theme goes to %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestSetupStatsChoice(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		choice string
+		want   bool
+	}{{"yes", true}, {"no", false}} {
+		g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+		var events []AuditEvent
+		g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+		rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {c.choice}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+			t.Fatalf("%s: %d %s", c.choice, rec.Code, rec.Header().Get("Location"))
+		}
+		if len(f.chosen) != 1 || f.chosen[0] != c.want {
+			t.Errorf("%s: Choose calls = %v", c.choice, f.chosen)
+		}
+		if len(events) != 1 || events[0].Action != "stats.consent" || events[0].Detail["choice"] != c.choice {
+			t.Errorf("%s: audit = %+v", c.choice, events)
+		}
+		if g.site.cfg.SetupCompletedAt != nil {
+			t.Error("the Stats step finished setup")
+		}
+	}
+}
+
+func TestSetupStatsWithoutAChoiceAsksAgain(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}} {
+		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose No thanks or Send stats.") {
+			t.Errorf("post %v = %d", form, rec.Code)
+		}
+	}
+	if len(f.chosen) != 0 {
+		t.Errorf("an unanswered form chose %v", f.chosen)
+	}
+}
+
+func TestSetupStatsSkippedUnderEnvOffOrWithoutService(t *testing.T) {
+	t.Parallel()
+
+	for name, setup := range map[string]func(g *setupRig, f *fakeStats){
+		"forced off": func(g *setupRig, f *fakeStats) { f.view.ForcedOff = true },
+		"no service": func(g *setupRig, f *fakeStats) { g.a.deps.Stats = nil },
+	} {
+		g, f := newSetupStatsRig(t, StatsView{Consent: "no"})
+		setup(g, f)
+		for _, m := range []string{"GET", "POST"} {
+			rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"yes"}}, nil)
+			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+				t.Errorf("%s %s = %d %s", name, m, rec.Code, rec.Header().Get("Location"))
+			}
+		}
+		if len(f.chosen) != 0 {
+			t.Errorf("%s: Choose called %v", name, f.chosen)
+		}
+		rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+			t.Errorf("%s: theme goes to %s", name, rec.Header().Get("Location"))
+		}
+		body := g.do("GET", "/admin/setup/content", "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, `href="/admin/setup/theme"><span>Back</span>`) || strings.Contains(body, "/admin/setup/stats") {
+			t.Errorf("%s: Back from Content must skip the Stats step", name)
+		}
+	}
+}
+
+// The seed script posts Look and Content directly: the Stats step is optional
+// and leaves the choice unset.
+func TestSetupCompletesWithoutTheStatsStep(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+	if rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil); rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/done" || g.site.cfg.SetupCompletedAt == nil {
+		t.Errorf("content: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(f.chosen) != 0 {
+		t.Error("finishing setup chose for the owner")
+	}
+}
+
+func TestSetupStatsIsOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+	for _, m := range []string{"GET", "POST"} {
+		if rec := g.do(m, "/admin/setup/stats", "editor-token", url.Values{"choice": {"yes"}}, nil); rec.Code != 403 {
+			t.Errorf("editor %s = %d, want 403", m, rec.Code)
+		}
+	}
+	if len(f.chosen) != 0 {
+		t.Error("an editor chose")
 	}
 }
