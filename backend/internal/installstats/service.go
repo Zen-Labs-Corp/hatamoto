@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -94,6 +95,14 @@ func newClient(allowPrivate bool) *http.Client {
 	return c
 }
 
+// devVersion matches the versions a source build stamps: a "dev." prerelease
+// segment (scripts/version.sh) and a Go pseudo-version (VCS stamping).
+var devVersion = regexp.MustCompile(`[.-]dev\.|[.-]\d{14}-[0-9a-f]{12}$`)
+
+// isRelease reports whether v names a published release, not a build from a
+// source checkout.
+func isRelease(v string) bool { return release.ValidVersion(v) && !devVersion.MatchString(v) }
+
 // View is what the admin shows.
 type View struct {
 	State       State
@@ -141,8 +150,8 @@ func (s *Service) Reset(ctx context.Context) error {
 }
 
 // Enforce applies HATAMOTO_TELEMETRY=off: consent becomes no and the ID is
-// deleted. Lifting the variable later does not resume sending; the owner is
-// asked again.
+// deleted. Lifting the variable later does not resume sending; the owner
+// turns it on again in Settings > Updates.
 func (s *Service) Enforce(ctx context.Context) error {
 	if !ForcedOff(s.getenv) {
 		return nil
@@ -162,7 +171,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return nil
 	}
 	// A development build is not a release; it never reports.
-	if !release.ValidVersion(s.version) {
+	if !isRelease(s.version) {
 		return nil
 	}
 	id, ok, err := s.store.Claim(ctx)

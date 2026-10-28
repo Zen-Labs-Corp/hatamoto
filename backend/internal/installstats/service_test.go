@@ -124,6 +124,31 @@ func TestRunSendsNothingWithoutConsent(t *testing.T) {
 	}
 }
 
+func TestRunNeverSendsFromASourceBuild(t *testing.T) {
+	ctx := context.Background()
+	for _, version := range []string{
+		"dev", "v1.4.3-dev.7", "v0.0.0-dev.0", "v1.5.0-rc.1.dev.2", "v1.5.0-pre.dev.3",
+		"v0.0.0-20261027123456-abcdef123456", "v1.4.3-0.20261027123456-abcdef123456",
+		"v1.4.3+dirty", "1.4.3", "",
+	} {
+		s, _, r := rig(t, nil, version)
+		_ = s.Choose(ctx, true)
+		if err := s.Run(ctx); err != nil {
+			t.Fatalf("%q: %v", version, err)
+		}
+		if len(r.reqs) != 0 {
+			t.Errorf("%q: %d requests, want 0", version, len(r.reqs))
+		}
+	}
+	for _, version := range []string{"v1.5.0", "v1.5.0-rc.1"} {
+		s, _, r := rig(t, nil, version)
+		_ = s.Choose(ctx, true)
+		if err := s.Run(ctx); err != nil || len(r.reqs) != 1 {
+			t.Errorf("%q: err %v, %d requests, want 1", version, err, len(r.reqs))
+		}
+	}
+}
+
 func TestEnforceDeletesTheID(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
