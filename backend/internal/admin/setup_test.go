@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -109,6 +110,34 @@ func TestSetupCodeNormalisation(t *testing.T) {
 	gen, display := NewSetupCode()
 	if len(display) != 9 || !gen.Verify(display) || !gen.Verify(strings.ToLower(display)) {
 		t.Errorf("generated code %q", display)
+	}
+}
+
+// The setup code may arrive in the URL fragment (never sent to the server); the page loads an
+// SRI-covered external module for it and must not echo a ?code= query value.
+func TestSetupPagePrefillModuleAndNoQueryEcho(t *testing.T) {
+	t.Parallel()
+
+	g := newSetupRig(t)
+	g.count.n = 0
+	body := g.do("GET", "/admin/setup", "", nil, nil).Body.String()
+	if !regexp.MustCompile(`<script type="module" nonce="[^"]+" src="[^"]*/setupcode\.[0-9a-f]+\.js" integrity="sha256-[^"]+"`).MatchString(body) {
+		t.Errorf("setup page must load setupcode.js as an SRI module:\n%s", body)
+	}
+	if !strings.Contains(body, `id="code"`) {
+		t.Error("setup page must have the code field")
+	}
+	for _, m := range regexp.MustCompile(`<script[^>]*>`).FindAllString(body, -1) {
+		if !strings.Contains(m, "nonce=") {
+			t.Errorf("script tag without nonce: %s", m)
+		}
+		if !strings.Contains(m, "src=") && !strings.Contains(m, "importmap") {
+			t.Errorf("unexpected inline script: %s", m)
+		}
+	}
+	rec := g.do("GET", "/admin/setup?code=ZZZZ-ZZZZ-ZZZZ", "", nil, nil)
+	if rec.Code != 200 || strings.Contains(rec.Body.String(), "ZZZZ") {
+		t.Errorf("a ?code= query must not be echoed (status %d)", rec.Code)
 	}
 }
 
