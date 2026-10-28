@@ -50,7 +50,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `PUBLIC_API_PREFIX` | empty | An extra path where the public forms and page-view endpoints are also served, so the theme script calls it instead of `/api/v1/public`. Lower-case `a-z`, `0-9`, `-` and `_`, at least two segments (for example `/x/v1`), no trailing slash, and the first segment must not be one the server owns (`admin`, `api`, `p`, `media`, `theme`, `health`, `ready`, `forms`, `auth`, `mcp`, `plugin-ui`, `uploads`, or a feed, sitemap, `robots.txt` or `llms.txt` file). An invalid value stops the server at boot. `/api/v1/public` stays mounted either way. A page at the same path is shadowed by the API. |
 | `HATAMOTO_PAGE_CACHE_TTL` | `5m` | How long rendered public pages stay in the HTML cache. Go duration from `30s` to `720h`; an invalid or out-of-range value falls back to the default and logs a warning at boot. A lifetime saved in **Settings > Performance** wins. |
 | `HATAMOTO_WORKER` | on | The in-process scheduler runs unless this is `off` (case-insensitive). |
-| `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md). |
+| `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md); `stats_ping` is the install stats job. |
 | `WORKER_DRAIN` | unset | `1`, `true`, `yes` or `on` (case-insensitive) stops the worker loops from starting. For maintenance windows. |
 | `REPORT_OUTPUT_DIR` | `./reports` | Read into the configuration but not used by any current feature. Leave it alone. |
 
@@ -141,8 +141,10 @@ What these settings do is described under [Email delivery](#email-delivery).
 | `HATAMOTO_UPDATE_CHANNEL` | `stable` | `stable`, `edge` or `canary`. An invalid value is ignored with a warning. |
 | `HATAMOTO_UPDATE_URL` | `https://hatamoto.dev/releases` | Base URL of the release channels and files. https only. |
 | `HATAMOTO_UPDATE_BACKUP` | on | `0` turns off the database dump taken before an update. |
+| `HATAMOTO_TELEMETRY` | unset | `off` (in any case) turns [install stats](install-stats.md) off for good: nothing is sent, a stored install ID is deleted, the setup step and the banner are left out, and the switch in Settings > Updates is locked. Unset means the owner is asked. No value turns stats on: only the owner's choice does. |
+| `HATAMOTO_TELEMETRY_URL` | `https://hatamoto.dev/p/stats/v1/ping` | Where install stats are sent. For testing. A plain `https://host/path` with no user, query or fragment; anything else is ignored with a warning and the default is used. |
 
-How these are used is described in [How updates work](../updates/index.md).
+How these are used is described in [How updates work](../updates/index.md) and [Install stats](install-stats.md).
 
 ## Crawler analytics ingest
 
