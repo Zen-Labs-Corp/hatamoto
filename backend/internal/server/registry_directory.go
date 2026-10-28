@@ -241,7 +241,6 @@ func screenshotURL(registryURL, rel string) string {
 	return packages.SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
 }
 
-// directoryView maps the plugin entries of idx to cards, sorted by name.
 // permissionCard maps permission names to the card's count, warning badges
 // (one per distinct short label) and plain-English lines. The ⚠ badge already
 // signals the risk, so the "WARNING: " prefix of the admin wording is dropped.
@@ -258,6 +257,7 @@ func permissionCard(perms []string) (int, []string, []render.PermLine) {
 	return len(perms), warn, lines
 }
 
+// directoryView maps the plugin entries of idx to cards, sorted by name.
 func directoryView(idx *packages.Index) render.PluginDirectoryView {
 	var cards []render.PluginCard
 	for _, e := range idx.Packages {
