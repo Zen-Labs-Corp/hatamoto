@@ -81,7 +81,7 @@ func TestRegistryPageWritesTheDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"hello v1.0.0", "Community", "by @acme", "Says hello", "Needs: db", "Acme plugins", "https://example.org/write"} {
+	for _, want := range []string{"hello v1.0.0", "Community", "by @acme", "Says hello", "1 permission", "Acme plugins", "https://example.org/write"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("page lacks %q", want)
 		}

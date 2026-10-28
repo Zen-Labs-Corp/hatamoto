@@ -26,7 +26,11 @@ h1{font-size:40px;line-height:1.1;margin:8px 0 12px;font-weight:600}
 .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--soft)}
 .badge{border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--label)}
 .desc{margin:0;color:var(--soft)}
-.needs{font-size:13px;color:var(--soft)}
+.needs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--soft)}
+.warn{border:1px solid currentColor;border-radius:999px;padding:1px 8px;font-size:12px;color:var(--ink)}
+.lines{font-size:13px;color:var(--soft)}
+.lines summary{cursor:pointer;color:var(--label)}
+.lines ul{margin:6px 0 0;padding-left:18px}
 .card a{color:var(--ink)}
 .hint{margin-top:32px;color:var(--soft)}
 </style>
@@ -46,7 +50,8 @@ h1{font-size:40px;line-height:1.1;margin:8px 0 12px;font-weight:600}
 <h2>{{.Heading}}</h2>
 <div class="meta"><span class="mono">{{.Name}} {{.Version}}</span>{{if .TierLabel}}<span class="badge">{{.TierLabel}}</span>{{end}}{{if .Author}}<span>by @{{.Author}}</span>{{end}}</div>
 {{if .Description}}<p class="desc">{{.Description}}</p>{{end}}
-<div class="needs">{{if .Permissions}}Needs: {{.Permissions}}{{else}}No permissions{{end}}</div>
+{{if .PermCount}}<div class="needs"><span>{{.PermCount}} permission{{if ne .PermCount 1}}s{{end}}</span>{{range .PermWarn}}<span class="warn">⚠ {{.}}</span>{{end}}</div>
+<details class="lines"><summary>Show permissions</summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<span class="mono">{{.Name}}</span> {{.Text}}</li>{{end}}</ul></details>{{else}}<div class="needs">No permissions</div>{{end}}
 {{if .Source}}<a href="{{.Source}}" rel="noopener noreferrer">Source &rarr;</a>{{end}}
 </article>
 {{end}}</div>
