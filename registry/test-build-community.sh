@@ -611,6 +611,7 @@ if command -v zip >/dev/null; then
   grep -q 'keys must be lowercase identifiers' "$work/ar.log" || fail "archive key: $(cat "$work/ar.log")"
   echo "ok: description (archive)"
 else
+  [ -z "${CI:-}" ] || fail "description (archive): zip is required in CI"
   echo "skip: description (archive): zip not installed"
 fi
 
