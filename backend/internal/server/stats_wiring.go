@@ -47,8 +47,10 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	}, nil
 }
 
-func (a adminStats) Choose(ctx context.Context, yes bool) error { return a.svc.Choose(ctx, yes) }
-func (a adminStats) Reset(ctx context.Context) error            { return a.svc.Reset(ctx) }
+func (a adminStats) Unanswered(ctx context.Context) (bool, error) { return a.svc.Unanswered(ctx) }
+func (a adminStats) ForcedOff() bool                              { return a.svc.ForcedOff() }
+func (a adminStats) Choose(ctx context.Context, yes bool) error   { return a.svc.Choose(ctx, yes) }
+func (a adminStats) Reset(ctx context.Context) error              { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: once a day, the first
 // one 5 to 15 minutes after start. Nothing is scheduled in a public demo or

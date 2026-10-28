@@ -14,6 +14,12 @@ type StatsService interface {
 	// View is the stored choice, whether the server configuration forces it
 	// off, and the exact payload the daily ping would send.
 	View(ctx context.Context) (StatsView, error)
+	// Unanswered reports whether the owner still has to answer: the server
+	// configuration does not turn stats off and the choice is unset. It must
+	// be cheap, the banner asks it on every owner page.
+	Unanswered(ctx context.Context) (bool, error)
+	// ForcedOff reports HATAMOTO_TELEMETRY=off. It reads no state.
+	ForcedOff() bool
 	// Choose stores the owner's answer. Yes creates the install ID, No (or
 	// switching off) deletes it.
 	Choose(ctx context.Context, yes bool) error
@@ -142,8 +148,7 @@ func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) 
 	if strings.HasPrefix(r.URL.Path, a.adminPath+updatesPath) {
 		return nil
 	}
-	v, err := a.deps.Stats.View(r.Context())
-	if err != nil || v.ForcedOff || v.Consent != "unset" {
+	if ask, err := a.deps.Stats.Unanswered(r.Context()); err != nil || !ask {
 		return nil
 	}
 	return &StatsBanner{PreviewHref: a.adminPath + updatesPath + "#updates-stats"}

@@ -17,6 +17,7 @@ type fakeStats struct {
 	chooseE error
 	resetE  error
 	views   int
+	asks    int
 	chosen  []bool
 	resets  int
 }
@@ -25,6 +26,13 @@ func (f *fakeStats) View(context.Context) (StatsView, error) {
 	f.views++
 	return f.view, f.viewErr
 }
+
+func (f *fakeStats) Unanswered(context.Context) (bool, error) {
+	f.asks++
+	return f.view.Consent == "unset" && !f.view.ForcedOff, f.viewErr
+}
+
+func (f *fakeStats) ForcedOff() bool { return f.view.ForcedOff }
 
 func (f *fakeStats) Choose(_ context.Context, yes bool) error {
 	f.chosen = append(f.chosen, yes)

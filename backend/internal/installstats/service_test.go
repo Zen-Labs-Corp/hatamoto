@@ -226,6 +226,31 @@ func TestRunStatusNeverHoldsTheID(t *testing.T) {
 	}
 }
 
+func TestUnansweredReadsOnlyTheChoice(t *testing.T) {
+	ctx := context.Background()
+	for _, c := range []struct {
+		name string
+		env  map[string]string
+		yes  *bool
+		want bool
+	}{
+		{"unset", nil, nil, true},
+		{"yes", nil, ptr(true), false},
+		{"no", nil, ptr(false), false},
+		{"forced off", map[string]string{EnvTelemetry: "off"}, nil, false},
+	} {
+		s, _, _ := rig(t, c.env, "v1.2.3")
+		if c.yes != nil {
+			_ = s.Choose(ctx, *c.yes)
+		}
+		if got, err := s.Unanswered(ctx); err != nil || got != c.want {
+			t.Errorf("%s: Unanswered = %v, %v; want %v", c.name, got, err, c.want)
+		}
+	}
+}
+
+func ptr(b bool) *bool { return &b }
+
 func TestViewPreview(t *testing.T) {
 	ctx := context.Background()
 	s, m, _ := rig(t, nil, "v1.2.3")

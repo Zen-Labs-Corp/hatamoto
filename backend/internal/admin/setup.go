@@ -425,8 +425,8 @@ func (a *Admin) setupStatsStep(ctx context.Context) bool {
 	if a.deps.Stats == nil {
 		return false
 	}
-	v, err := a.deps.Stats.View(ctx)
-	return err == nil && !v.ForcedOff
+	// Only the server configuration matters here, not the stored choice.
+	return !a.deps.Stats.ForcedOff()
 }
 
 // setupAfterTheme is where the Look step goes on to.

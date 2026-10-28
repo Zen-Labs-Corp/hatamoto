@@ -128,6 +128,20 @@ func (s *Service) View(ctx context.Context) (View, error) {
 	return View{State: st, ForcedOff: forced, Preview: p, PreviewJSON: p.Pretty()}, nil
 }
 
+// ForcedOff reports whether HATAMOTO_TELEMETRY=off is set.
+func (s *Service) ForcedOff() bool { return ForcedOff(s.getenv) }
+
+// Unanswered reports whether the owner still has to answer: the variable is
+// not off and the stored choice is unset. It reads the choice only; it builds
+// no preview, so it is cheap enough for every page view.
+func (s *Service) Unanswered(ctx context.Context) (bool, error) {
+	if s.ForcedOff() {
+		return false, nil
+	}
+	st, err := s.store.Load(ctx)
+	return err == nil && st.Consent == ConsentUnset, err
+}
+
 // Choose records the owner's answer. Yes creates the install ID; No deletes it.
 func (s *Service) Choose(ctx context.Context, yes bool) error {
 	if ForcedOff(s.getenv) {

@@ -54,9 +54,12 @@ func TestStatsBannerAbsent(t *testing.T) {
 		"env off":     {Consent: "unset", ForcedOff: true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			g, _ := statsBannerRig(t, view)
+			g, f := statsBannerRig(t, view)
 			if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); strings.Contains(body, statsBannerMarker) {
 				t.Error("the banner is shown")
+			}
+			if f.views != 0 || f.asks == 0 {
+				t.Errorf("banner used View %d times and Unanswered %d times, want 0 and a cheap ask", f.views, f.asks)
 			}
 		})
 	}
