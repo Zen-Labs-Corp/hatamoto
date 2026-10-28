@@ -467,6 +467,135 @@ for ownerdir in zen-labs-corp Zen-Labs-Corp; do
 done
 echo "ok: first-party build"
 
+# Listing rules (author, name, title): each case isolates one rule and must publish nothing.
+# The repo owner of an https manifest is the owner in its URL; a file repo uses the parent directory.
+ln0=$n
+neg "author is not the owner" "acme-seo" "$(base acme-seo https://github.com/someoneelse/x $good | jq '.author="google"')" "author must equal the repo owner"
+neg "name with a banned token" "acme-demo" "$(base acme-demo $https $good)" "banned word \"demo\""
+neg "reserved name" "forms" "$(base forms $https $good)" "name is reserved"
+neg "brand-prefixed name" "stripe-checkout" "$(base stripe-checkout $https $good)" "must not start with the brand \"stripe\""
+neg "brand-glued name" "stripecheckout" "$(base stripecheckout $https $good)" "must not start with the brand \"stripe\""
+neg "look-alike of a reserved name" "seos" "$(base seos $https $good)" "looks like \"seo\""
+neg "look-alike with digits" "s3o" "$(base s3o $https $good)" "looks like \"seo\""
+# A sibling manifest in manifests/themes/ is a look-alike target too.
+d="$work/lookalike"; manifest "$d" acme-seo "$(base acme-seo $https $good)"
+mkdir -p "$d/manifests/themes"; printf '{}' >"$d/manifests/themes/acme-seq.json"
+refuses "look-alike of a theme" 'looks like "acme-seq"' "$d"
+# ...and of a plugin manifest that COMMUNITY_SKIP leaves out of the build.
+d="$work/lookalike2"; manifest "$d" acme-seo "$(base acme-seo $https $good)"; manifest "$d" acme-sea "$(base acme-sea $https $good)"
+if out=$(COMMUNITY_SKIP=acme-sea "$script" "$d" "$bin" "$key" "$work/out-pk" "$work/out-meta.json" 2>&1); then fail "look-alike of a skipped manifest accepted"; fi
+grep -q 'looks like "acme-sea"' <<<"$out" || fail "skipped look-alike: $out"
+neg "title with a separator pile" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO, Leads & Email"')" "more than one separator"
+neg "the example title" "acme-seo" "$(base acme-seo $https $good | jq '.title="Lead Delivery: HubSpot, Zapier, Webhooks & Email"')" "bad title"
+neg "title with brackets" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO [Beta]"')" "must not contain brackets"
+neg "title with an emoji" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO \ud83d\ude80"')" "emoji, symbols or invisible"
+neg "title with a symbol" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO ★"')" "emoji, symbols or invisible"
+neg "title mixing scripts" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO 定期定額"')" "mixes scripts"
+neg "title with a look-alike letter mix" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO Кyrillic"')" "mixes scripts"
+neg "title with a banned word" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO Pro"')" "banned word \"pro\""
+neg "title with a folded banned word" "acme-seo" "$(base acme-seo $https $good | jq '.title="тор"')" "banned word \"top\""
+neg "title starting with a brand" "acme-seo" "$(base acme-seo $https $good | jq '.title="Stripe Acme SEO"')" "must not start with the brand \"stripe\""
+neg "title sharing no word" "acme-seo" "$(base acme-seo $https $good | jq '.title="Lead Delivery"')" "share a word"
+neg "title sharing only a number" "acme-seo-2" "$(base acme-seo-2 $https $good | jq '.title="Seven 2"')" "share a word"
+neg "title with fullwidth forms" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO！"')" "fullwidth"
+echo "ok: $((n - ln0)) listing rule negative cases"
+# The owner comparison ignores case; a brand the owner is listed for is fine (the build then
+# fails at the fetch of a missing repo, which proves pass 1 accepted the manifest).
+d="$work/listok"; manifest "$d" acme-seo "$(base acme-seo "file://$work/nonexistent" $good | jq '.author="ACME"')"
+out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/lo-pk" "$work/lo-meta.json" 2>&1) && fail "listing case built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "author ACME rejected: $out"
+d="$work/listok2"; manifest "$d" google-notes "$(base google-notes "file://$work/zen-labs-corp/x" $good | jq '.author="zen-labs-corp" | .title="Google Notes"')"
+out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/lo-pk" "$work/lo-meta.json" 2>&1) && fail "owner brand built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "brand owner rejected: $out"
+neg "brand without its owner" "google-notes" "$(base google-notes $https $good | jq '.title="Google Notes"')" "must not start with the brand \"google\""
+
+# Policy: missing, empty, symlinked or unreadable lists stop the build before pass 1.
+mkpol() { # mkpol <dir>: a registry dir with one valid manifest and a copy of the policy
+  rm -rf "$1"; manifest "$1" acme-seo "$(base acme-seo $https $good)"
+}
+d="$work/pol-none"; rm -rf "$d"; mkdir -p "$d/manifests"; printf '%s' "$(base acme-seo $https $good)" >"$d/manifests/acme-seo.json"
+refuses "no policy dir" "missing policy" "$d"
+d="$work/pol-nomanifests"; rm -rf "$d"; mkdir -p "$d/manifests"
+refuses "no policy dir, no manifests" "missing policy" "$d"
+for f in reserved-names banned-tokens banned-words brands placeholders; do
+  d="$work/pol-miss-$f"; mkpol "$d"; rm "$d/policy/$f.txt"
+  refuses "missing $f" "missing policy: $f.txt" "$d"
+done
+for f in reserved-names banned-tokens banned-words brands; do
+  d="$work/pol-empty-$f"; mkpol "$d"; : >"$d/policy/$f.txt"
+  refuses "empty $f" "empty policy: $f.txt" "$d"
+  printf '# only a comment\n\n   \n' >"$d/policy/$f.txt"
+  refuses "comment-only $f" "empty policy: $f.txt" "$d"
+done
+# placeholders.txt may be empty: pass 1 then accepts the manifest and fails at the fetch.
+d="$work/pol-empty-ph"; manifest "$d" acme-seo "$(base acme-seo "file://$work/nonexistent" $good)"; : >"$d/policy/placeholders.txt"
+out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/ph-pk" "$work/ph-meta.json" 2>&1) && fail "empty placeholders built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "empty placeholders: $out"
+d="$work/pol-link"; mkpol "$d"; mv "$d/policy/brands.txt" "$work/brands-real.txt"; ln -s "$work/brands-real.txt" "$d/policy/brands.txt"
+refuses "symlinked policy file" "missing policy: brands.txt" "$d"
+d="$work/pol-linkdir"; mkpol "$d"; mv "$d/policy" "$work/policy-real"; ln -s "$work/policy-real" "$d/policy"
+refuses "symlinked policy dir" "missing policy" "$d"
+if [ "$(id -u)" -ne 0 ]; then
+  d="$work/pol-unread"; mkpol "$d"; chmod 000 "$d/policy/banned-words.txt"
+  refuses "unreadable policy file" "missing policy: banned-words.txt" "$d"
+  chmod 644 "$d/policy/banned-words.txt"
+fi
+# A symlinked manifest is refused.
+d="$work/man-link"; rm -rf "$d"; mkdir -p "$d/manifests"; printf '%s' "$(base acme-seo $https $good)" >"$work/real-manifest.json"
+manifest "$d" other "{}"; rm "$d/manifests/other.json"; ln -s "$work/real-manifest.json" "$d/manifests/acme-seo.json"
+refuses "symlinked manifest" "manifest is a symlink" "$d"
+echo "ok: policy"
+
+# Descriptions are judged on the built plugin.json (first-party too), before anything is packed.
+# desc_neg <label> <substring> <description> [title]
+desc_neg() {
+  local v; dn=$((dn + 1)); v=$(variant "desc$dn" sh -c 'jq --arg d "$1" ".description=\$d" plugin.json >p.new && mv p.new plugin.json' sh "$3")
+  manifest "$work/descreg$dn" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)" | jq --arg t "${4:-Acme Notes}" '.title=$t')"
+  rm -f "$work/bn-meta.json"; rm -rf "$work/bn-pk"
+  build_neg "$1" "$2" "$work/descreg$dn"
+  [ ! -e "$work/bn-meta.json" ] && ! ls "$work"/bn-pk/*.hmp >/dev/null 2>&1 || fail "$1: published"
+}
+dn=0
+desc_neg "description of 400 characters" "20 to 160 characters" "$(printf 'x%.0s' $(seq 400))"
+desc_neg "short description" "20 to 160 characters" "too short"
+desc_neg "description with a URL" "URL or domain" "Syncs notes, see https://example.com for details"
+desc_neg "description with a domain" "URL or domain" "Syncs notes from example.com into the site"
+desc_neg "description from the SDK example" "placeholder" "One sentence a site owner will read in the plugin directory."
+desc_neg "description equal to the title" "equal the title" "Acme Notes Sync Tool Kit" "Acme Notes Sync Tool Kit"
+desc_neg "description with many sentences" "sentence terminators" "Syncs notes. Fast. Simple. Done."
+desc_neg "description with a symbol" "may contain only letters" "Syncs notes to the site ★ with care"
+desc_neg "description with a banned word" "banned word \"best\"" "The best way to keep notes on your site"
+desc_neg "description with four brands" "more than 3 brands" "Works with stripe, paypal, shopify and hubspot orders"
+v=$(variant nodesc sh -c 'jq "del(.description)" plugin.json >p.new && mv p.new plugin.json')
+manifest "$work/nodesc" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+build_neg "missing description" "description must be a string" "$work/nodesc"
+# A banned description is refused for a first-party plugin too.
+v=$(variant fpdesc sh -c 'jq ".name=\"gtm\" | .description=\"The best way to tag your site\"" plugin.json >p.new && mv p.new plugin.json')
+mkdir -p "$work/zen-labs-corp"; rm -rf "$work/zen-labs-corp/gtm"; cp -r "$v" "$work/zen-labs-corp/gtm"
+manifest "$work/fpdesc" gtm "$(fp gtm "file://$work/zen-labs-corp/gtm" | jq --arg c "$(git -C "$v" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager"')"
+if out=$(FIRST_PARTY_OWNERS="Zen-Labs-Corp" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" "$script" "$work/fpdesc" "$bin" "$key" "$work/fpd-pk" "$work/fpd-meta.json" 2>&1); then fail "first-party banned description accepted"; fi
+grep -q 'banned word "best"' <<<"$out" || fail "first-party description: $out"
+echo "ok: description (build)"
+
+# The same rule holds when the package is reused from the archive: a tampered-in-place
+# plugin.json inside an archived .hmp (sidecar sha256 refreshed) is refused before reuse.
+if command -v zip >/dev/null; then
+  arch2="$work/archive-desc"; rm -rf "$arch2"; cp -r "$arch" "$arch2"
+  z="$work/zipwork"; rm -rf "$z"; mkdir "$z"
+  unzip -q -o "$arch2/acme-notes/$af.hmp" plugin.json -d "$z"
+  jq '.description="The best way to keep notes on your site"' "$z/plugin.json" >"$z/p.new" && mv "$z/p.new" "$z/plugin.json"
+  (cd "$z" && zip -q "$arch2/acme-notes/$af.hmp" plugin.json)
+  jq --arg h "$(sha256sum "$arch2/acme-notes/$af.hmp" | cut -d' ' -f1)" '.sha256=$h' "$arch2/acme-notes/$af.json" >"$z/side.json" && mv "$z/side.json" "$arch2/acme-notes/$af.json"
+  offline=1
+  reuse_run "$reg" "$work/ad-pk" "$work/ad-meta.json" "$arch2" && fail "archived package with a banned description reused"
+  offline=
+  grep -q 'banned word "best"' "$work/ar.log" || fail "archive description: $(cat "$work/ar.log")"
+  [ ! -e "$work/ad-meta.json" ] && [ ! -e "$work/ad-pk/acme-notes.hmp" ] || fail "archive description: published"
+  echo "ok: description (archive)"
+else
+  echo "skip: description (archive): zip not installed"
+fi
+
 printf '{"existing":{"tier":"first-party"}}' >"$work/pos-meta.json"
 HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \
   "$script" "$reg" "$bin" "$key" "$work/pos-pk" "$work/pos-meta.json"
