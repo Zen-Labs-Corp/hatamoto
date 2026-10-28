@@ -27,6 +27,7 @@ echo "systemctl $*" >> "$CALLS"
 F
 run() { # run ROOT FN [ENV...]
   local r="$1" fn="$2"; shift 2
+  # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
   env PATH="$bin:$PATH" CALLS="$tmp/calls" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 "$@" sh -c '. "$1"; "$2"' _ "$fb" "$fn"
 }
 mkroot() { # mkroot NAME KB [swaps-lines]
@@ -37,6 +38,7 @@ mkroot() { # mkroot NAME KB [swaps-lines]
 }
 
 for case in "1gb 1000000 1048576" "2gb 2097152 2097152" "mid 1500000 1500000"; do
+  # shellcheck disable=SC2086 # $case is split on purpose into positional parameters
   set -- $case
   r="$(mkroot "$1" "$2")"; : > "$tmp/calls"
   run "$r" setup_swap >/dev/null 2>&1 || fail "$1: swap failed"
@@ -49,7 +51,7 @@ done
 r="$(mkroot small 500000)"; : > "$tmp/calls"; run "$r" setup_swap >/dev/null 2>&1
 grep -q 'fallocate -l 1048576K' "$tmp/calls" || fail "minimum is 1 GiB"
 r="$(mkroot big 4000000)"; : > "$tmp/calls"; run "$r" setup_swap >/dev/null 2>&1
-[ ! -s "$tmp/calls" ] && [ ! -e "$r/swapfile" ] || fail "4 GB machine got swap"
+{ [ ! -s "$tmp/calls" ] && [ ! -e "$r/swapfile" ]; } || fail "4 GB machine got swap"
 pass "swap minimum 1 GiB; none above 2 GiB RAM"
 r="$(mkroot active 1000000)"; echo '/dev/vda2 partition 1 0 -2' >> "$r/proc/swaps"; : > "$tmp/calls"
 run "$r" setup_swap >/dev/null 2>&1; [ ! -e "$r/swapfile" ] || fail "swap added though active"
@@ -58,7 +60,7 @@ r="$(mkroot twice 1000000)"; run "$r" setup_swap >/dev/null 2>&1; run "$r" setup
 pass "active swap respected; rerun keeps one fstab line"
 r="$(mkroot nocontainer 1000000)"
 run "$r" setup_swap FAKE_SWAPON_FAIL=1 >"$tmp/o" 2>&1 || fail "swapon failure fatal"
-[ ! -e "$r/swapfile" ] && [ ! -e "$r/etc/fstab" ] || fail "leftovers after swapon failure"
+{ [ ! -e "$r/swapfile" ] && [ ! -e "$r/etc/fstab" ]; } || fail "leftovers after swapon failure"
 grep -q 'continuing without it' "$tmp/o" || fail "no warning"
 pass "swapon failure warns and cleans up"
 
@@ -75,7 +77,7 @@ pass "backup units"
 before="$(sha256sum "$s" "$t")"; run "$r" setup_backups HATAMOTO_BACKUPS=1 >/dev/null 2>&1
 [ "$before" = "$(sha256sum "$s" "$t")" ] || fail "rerun changed units"
 : > "$tmp/calls"; run "$r" setup_backups HATAMOTO_BACKUPS=0 >/dev/null 2>&1
-[ ! -e "$s" ] && [ ! -e "$t" ] || fail "units kept with backups off"
+{ [ ! -e "$s" ] && [ ! -e "$t" ]; } || fail "units kept with backups off"
 grep -qx 'systemctl disable --now hatamoto-backup.timer' "$tmp/calls" || fail "timer not disabled"
 r="$(mkroot off 4000000)"; run "$r" setup_backups HATAMOTO_BACKUPS=0 >/dev/null 2>&1
 [ -z "$(find "$r/etc" -type f)" ] || fail "backups off wrote files"

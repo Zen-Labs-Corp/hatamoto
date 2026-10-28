@@ -14,19 +14,30 @@
 #   HATAMOTO_RELEASE_BASE   release site (signatures still bind)
 set -eu
 
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_DOMAIN="${HATAMOTO_DOMAIN:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_VERSION="${HATAMOTO_VERSION:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_EMAIL="${HATAMOTO_ADMIN_EMAIL:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_SETUP_CODE="${HATAMOTO_SETUP_CODE:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_BACKUPS="${HATAMOTO_BACKUPS:-1}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_PUBLIC_IP="${HATAMOTO_PUBLIC_IP:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_TLS="${HATAMOTO_TLS:-auto}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_FIREWALL="${HATAMOTO_FIREWALL:-1}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 RELEASE_BASE="${HATAMOTO_RELEASE_BASE:-https://hatamoto.dev/releases}"
 
 # R prefixes every path the installer writes; empty on a real host.
 R="${HATAMOTO_INSTALL_ROOT:-}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 LIB_DIR=/usr/local/lib/hatamoto
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 STATE_DIR=/var/lib/hatamoto-install
 
 log() { printf '%s\n' "hatamoto: $*"; }

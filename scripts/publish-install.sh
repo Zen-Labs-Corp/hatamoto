@@ -67,10 +67,13 @@ want=$(sha "$T/built/install.sh")
 
 # 4. Upload under a temporary name, verify there, then rename.
 scp -q "$T/asset/install.sh" "$HOST:$REMOTE/.install.sh.new"
+# shellcheck disable=SC2029 # $REMOTE is meant to expand locally
 got=$(ssh "$HOST" "sha256sum -- '$REMOTE/.install.sh.new'" | awk '{print $1}')
 if [[ "$got" != "$want" ]]; then
+  # shellcheck disable=SC2029 # $REMOTE is meant to expand locally
   ssh "$HOST" "rm -f -- '$REMOTE/.install.sh.new'" || true
   die "after upload, the server copy does not match; install.sh was not replaced"
 fi
+# shellcheck disable=SC2029 # $REMOTE is meant to expand locally
 ssh "$HOST" "chmod 0644 -- '$REMOTE/.install.sh.new' && mv -f -- '$REMOTE/.install.sh.new' '$REMOTE/install.sh'"
 echo "published install.sh from $TAG (sha256 $want)"

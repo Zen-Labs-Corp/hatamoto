@@ -12,6 +12,7 @@ BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upg
 build_os() {
   bo_file="$(dest /etc/os-release)"
   [ -r "$bo_file" ] || die "cannot read /etc/os-release: supported systems are Ubuntu 24.04 and Debian 12"
+  # shellcheck source=/dev/null
   bo_line="$( . "$bo_file" && printf '%s %s %s' "${ID:-}" "${VERSION_ID:-}" "${VERSION_CODENAME:-}" )"
   case "$bo_line" in
     "ubuntu 24.04 "* | "debian 12 "*) printf '%s\n' "$bo_line" ;;

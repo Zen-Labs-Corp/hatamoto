@@ -64,7 +64,7 @@ mirror_add() {
   done
   core="${v#v}"; core="${core%%-*}"
   patch="${core##*.}"; minor="${core#*.}"; minor="${minor%%.*}"
-  if [ "$patch" != 0 ]; then kind=patch; elif [ "$minor" != 0 ]; then kind=minor; else kind=major; fi
+  if [ "$patch" != 0 ]; then kind="patch"; elif [ "$minor" != 0 ]; then kind="minor"; else kind="major"; fi
   printf '{"version":"%s","commit":"test","sdk":"1.0.0","schema_head":1}\n' "$v" > "$M_DIR/facts-$v.json"
   mirror_tool record --version "$v" --kind "$kind" --facts "$M_DIR/facts-$v.json" \
     --rollback-floor "$v" --min-from "$v" --allow-same --notes-url https://example.test/notes \
@@ -82,12 +82,12 @@ mirror_publish() {
 
 # mirror_serve starts the site on a free loopback port: M_URL, M_PID.
 mirror_serve() {
-  local port i
+  local port
   port="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')"
   python3 -m http.server --bind 127.0.0.1 --directory "$M_SITE" "$port" >/dev/null 2>&1 &
   M_PID=$!
   M_URL="http://127.0.0.1:$port/releases"
-  for i in $(seq 1 40); do
+  for _ in $(seq 1 40); do
     if curl -fsS -o /dev/null "$M_URL/channels/stable.json" 2>/dev/null; then return 0; fi
     sleep 0.25
   done

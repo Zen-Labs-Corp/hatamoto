@@ -9,7 +9,7 @@ tmp="$(mktemp -d)"
 cleanup() { mirror_stop 2>/dev/null || true; rm -rf "$tmp"; }
 trap cleanup EXIT
 
-# shellcheck source=testlib/mirror.sh
+# shellcheck source=/dev/null # mirror.sh is checked on its own
 . "$here/testlib/mirror.sh"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -62,6 +62,7 @@ refused() {
   pass "refused: $name"
 }
 
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 picked() { env HATAMOTO_RELEASE_BASE="$M_URL" HATAMOTO_INSTALL_SOURCE_ONLY=1 "$@" sh -c '. "$1"; trust_pick_version' _ "$script" 2>"$tmp/err"; }
 
 # --- good paths
@@ -97,7 +98,9 @@ pass "nothing usable: dies with a hint"
 mirror_stop
 # Back to the first mirror's files and key set.
 rm -rf "$tmp/m2" "$tmp/m3"
-M_DIR="$tmp/m"; M_SRC="$M_DIR/src"; M_SITE="$M_DIR/site"; M_TRUST="$M_DIR/trust"; M_PRIV="$M_DIR/priv"; M_TOOL="$M_DIR/release-tool"
+M_DIR="$tmp/m"; M_SRC="$M_DIR/src"; M_SITE="$M_DIR/site"; M_TRUST="$M_DIR/trust"; M_PRIV="$M_DIR/priv"
+# shellcheck disable=SC2034 # M_TOOL is read by testlib/mirror.sh
+M_TOOL="$M_DIR/release-tool"
 mirror_serve
 
 # --- refusals

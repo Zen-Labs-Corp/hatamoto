@@ -48,7 +48,7 @@ fb_gen_hex() {
 # 12 characters once normalised, at least 4 distinct, not one short unit repeated.
 fb_check_code() {
   printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9-]+$' || { echo "use letters, digits and dashes only" >&2; return 1; }
-  fcc_norm="$(printf '%s' "$1" | tr 'a-z' 'A-Z' | tr -d '-')"
+  fcc_norm="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]' | tr -d '-')"
   [ "${#fcc_norm}" -ge 12 ] || { echo "it needs at least 12 letters or digits (dashes do not count)" >&2; return 1; }
   fcc_distinct="$(printf '%s' "$fcc_norm" | fold -w1 | sort -u | wc -l | tr -d ' ')"
   [ "$fcc_distinct" -ge 4 ] || { echo "it needs at least 4 different characters" >&2; return 1; }
@@ -353,7 +353,7 @@ stage_firstboot() {
   fs_host="$(fb_sslip_name "$fs_ip")"
   fs_pending=""
   if [ -n "$IN_DOMAIN" ]; then
-    fs_domain="$(printf '%s' "$IN_DOMAIN" | tr 'A-Z' 'a-z')"
+    fs_domain="$(printf '%s' "$IN_DOMAIN" | tr '[:upper:]' '[:lower:]')"
     fb_valid_domain "$fs_domain" || die "HATAMOTO_DOMAIN is not a valid host name: $IN_DOMAIN"
     if fb_dns_matches "$fs_domain" "$fs_ip"; then
       fs_host="$fs_domain"
@@ -363,8 +363,11 @@ stage_firstboot() {
     fi
   fi
   # The parts below (and the DNS switch) read these.
+  # shellcheck disable=SC2034 # read by the DNS-switch part
   FB_IP="$fs_ip"
+  # shellcheck disable=SC2034 # read by the DNS-switch part
   FB_HOST="$fs_host"
+  # shellcheck disable=SC2034 # read by the DNS-switch part
   FB_PENDING_DOMAIN="$fs_pending"
   if [ "$IN_TLS" = off ]; then fs_base="http://$fs_host"; else fs_base="https://$fs_host"; fi
 
@@ -374,7 +377,9 @@ stage_firstboot() {
     fs_dbpw="$(fb_env_get "$fs_envfile" DATABASE_URL | sed -n 's#^postgres://[^:]*:\([^@]*\)@.*#\1#p')"
     fs_secret="$(fb_env_get "$fs_envfile" HATAMOTO_SECRET)"
     fs_code="$(fb_env_get "$fs_envfile" HATAMOTO_SETUP_CODE)"
-    [ -n "$fs_dbpw" ] && [ -n "$fs_code" ] || die "the existing env file is incomplete: remove $fs_envfile and run again"
+    if [ -z "$fs_dbpw" ] || [ -z "$fs_code" ]; then
+      die "the existing env file is incomplete: remove $fs_envfile and run again"
+    fi
     log "resuming a first boot that did not finish"
   else
     fs_dbpw="$(fb_gen_hex 24)"

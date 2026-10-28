@@ -125,6 +125,7 @@ mkroot() { # mkroot NAME
 run_fb() {
   local root="$1"; shift
   rm -rf "$tmp/state"; mkdir -p "$tmp/state"
+  # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
   env PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$root" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
     HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 "$@" \
     sh -c '. "$1"
@@ -213,7 +214,7 @@ grep -q 'Updates:    automatic (stable channel)' "$tmp/out" || fail "banner upda
 if grep -q 'Domain:' "$tmp/out"; then fail "domain line without a domain"; fi
 [ "$(stat -c %a "$r/var/lib/hatamoto-install/link")" = 600 ] || fail "link file mode"
 [ "$(cat "$r/var/lib/hatamoto-install/link")" = "https://203-0-113-7.sslip.io/k7qm-x2rf-9tdc" ] || fail "link file content"
-grep -qx 'install_motd' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls" || fail "housekeeping parts not called"
+{ grep -qx 'install_motd' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls"; } || fail "housekeeping parts not called"
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker missing"
 pass "banner, link file, parts, done marker"
 
@@ -313,9 +314,9 @@ pip() { PATH="$bin:$PATH" CALLS=/dev/null pure fb_public_ip 2>"$tmp/pip.err"; }
 [ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5 198.51.100.20" FAKE_ROUTE_SRC=198.51.100.20 pip)" = 198.51.100.20 ] || fail "ipify answer bound locally not used"
 [ ! -s "$tmp/pip.err" ] || fail "warning for a matching answer: $(cat "$tmp/pip.err")"
 [ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "a differing ipify answer beat the local public address"
-grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '203.0.113.9' "$tmp/pip.err" || fail "mismatch warning must name both: $(cat "$tmp/pip.err")"
+{ grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '203.0.113.9' "$tmp/pip.err"; } || fail "mismatch warning must name both: $(cat "$tmp/pip.err")"
 [ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5" FAKE_ROUTE_SRC=10.0.0.5 pip)" = 198.51.100.20 ] || fail "NAT: ipify answer not used"
-grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '10.0.0.5' "$tmp/pip.err" && grep -q 'HATAMOTO_PUBLIC_IP' "$tmp/pip.err" || fail "NAT warning: $(cat "$tmp/pip.err")"
+{ grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '10.0.0.5' "$tmp/pip.err" && grep -q 'HATAMOTO_PUBLIC_IP' "$tmp/pip.err"; } || fail "NAT warning: $(cat "$tmp/pip.err")"
 for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1; do
   [ "$(FAKE_IP=$badip FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "ipify answer $badip accepted"
   grep -q 'not a public address' "$tmp/pip.err" || fail "no message for $badip"
@@ -333,6 +334,7 @@ first="$(cat "$r/opt/hatamoto/config/hatamoto.env")"
 # run_fb recreates the state dir; keep the role/db markers a real server would still have.
 : > "$tmp/calls"
 rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/state/db"; : > "$tmp/state/migrate-failed"
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 env PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 sh -c '. "$1"
     install_motd() { :; }; install_dns_switch() { :; }; setup_swap() { :; }; setup_backups() { :; }
@@ -353,6 +355,7 @@ if grep -q 'SETUP_CODE\|k7m2' "$saved"; then fail "the setup code was saved in t
 # The resumed run (the unit) starts with only what the file holds, as systemd's EnvironmentFile would.
 mapfile -t fromfile < "$saved"
 rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/state/db"; : > "$tmp/state/migrate-failed"
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 run_resume() { env -i PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 "${fromfile[@]}" sh -c '. "$1"
     install_motd() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
@@ -367,7 +370,7 @@ pass "a failed run saves its inputs (0600, no setup code) and the resume sees th
 r="$(mkroot inputs-keep)"
 mkdir -p "$r/etc/default"; printf 'HATAMOTO_TLS=internal\n' > "$r/etc/default/hatamoto-install"
 run_fb "$r" HATAMOTO_TLS=off HATAMOTO_DOMAIN=cms.example.com || fail "keep run failed: $(cat "$tmp/err")"
-[ "$(grep -c '^HATAMOTO_TLS=' "$r/etc/default/hatamoto-install")" = 1 ] && grep -qx 'HATAMOTO_TLS=internal' "$r/etc/default/hatamoto-install" || fail "saved TLS value was replaced"
+{ [ "$(grep -c '^HATAMOTO_TLS=' "$r/etc/default/hatamoto-install")" = 1 ] && grep -qx 'HATAMOTO_TLS=internal' "$r/etc/default/hatamoto-install"; } || fail "saved TLS value was replaced"
 grep -qx 'HATAMOTO_DOMAIN=cms.example.com' "$r/etc/default/hatamoto-install" || fail "missing input not added"
 pass "values already in the inputs file are kept"
 

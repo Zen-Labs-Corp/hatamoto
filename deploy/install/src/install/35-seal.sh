@@ -78,7 +78,9 @@ stage_seal() {
   seal_lock_passwords
 
   # Packages and temp files.
-  rm -rf "$(dest /var/lib/apt/lists)"/* "$(dest /var/cache/apt)"/*.bin "$(dest /var/cache/apt/archives)"/*.deb
+  # ${:?} guards the globs: dest always yields a non-empty path, so this never expands to /*.
+  seal_apt_lists="$(dest /var/lib/apt/lists)"
+  rm -rf "${seal_apt_lists:?}"/* "$(dest /var/cache/apt)"/*.bin "$(dest /var/cache/apt/archives)"/*.deb
   if [ -d "$(dest /tmp)" ]; then find "$(dest /tmp)" -mindepth 1 -delete; fi
   if [ -d "$(dest /var/tmp)" ]; then find "$(dest /var/tmp)" -mindepth 1 -delete; fi
 

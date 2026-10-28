@@ -48,6 +48,7 @@ violation() {
 }
 
 violation host-key ssh-host-keys touch etc/ssh/ssh_host_ed25519_key
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 violation authorized authorized-keys sh -c 'echo "ssh-ed25519 AAAA key" > "$hd/.ssh/authorized_keys"'
 violation private-key ssh-private-keys touch root/.ssh/id_rsa
 violation known-hosts ssh-private-keys touch "$hd/.ssh/known_hosts"
@@ -83,6 +84,7 @@ pass "firewall item can be skipped"
 bash "$here/build-install.sh" --out "$tmp/asm" >/dev/null
 dirty="$tmp/dirty"
 clean_tree "$dirty"
+# shellcheck disable=SC2016 # the $ are literal shadow hash fields
 printf 'root:$6$salt$hash:19000:0:99999:7:::\ndev:$6$s$h:19000:0:99999:7:::\n' > "$dirty/etc/shadow"
 touch "$dirty/etc/ssh/ssh_host_rsa_key" "$dirty/etc/ssh/ssh_host_rsa_key.pub" "$dirty/root/.ssh/id_ed25519" "$dirty/$hd/.ssh/known_hosts"
 echo "ssh-ed25519 AAAA key" > "$dirty/root/.ssh/authorized_keys"
@@ -111,7 +113,7 @@ refuse() { # refuse NAME STUB SETUP...
   [ -f "$r/var/lib/systemd/random-seed" ] || fail "seal touched the machine before refusing ($name)"
   pass "stage_seal refuses: $name"
 }
-refuse done '' sh -c 'rm opt/hatamoto/config/hatamoto.env; mkdir -p var/lib/hatamoto-install && touch var/lib/hatamoto-install/firstboot.done'
+refuse 'done' '' sh -c 'rm opt/hatamoto/config/hatamoto.env; mkdir -p var/lib/hatamoto-install && touch var/lib/hatamoto-install/firstboot.done'
 refuse env-file '' true
 refuse unit '' sh -c 'rm opt/hatamoto/config/hatamoto.env; mkdir -p etc/systemd/system/multi-user.target.wants && touch etc/systemd/system/multi-user.target.wants/hatamoto-api.service'
 refuse pg-role 'seal_pg_install_exists() { return 0; };' sh -c 'rm opt/hatamoto/config/hatamoto.env'
@@ -122,7 +124,7 @@ seal "$dirty" "seal_pg_install_exists() { return 1; };" >"$tmp/seal.out" 2>&1 ||
   fail "stage_seal failed: $(cat "$tmp/seal.out")"
 IMG_CHECK_DENY=decoy-secret-value check "$dirty" >"$tmp/out" || fail "sealed tree fails the check: $(cat "$tmp/out")"
 pass "stage_seal output passes img-check"
-[ ! -e "$dirty/etc/ssl/private/ssl-cert-snakeoil.key" ] && [ ! -e "$dirty/var/lib/systemd/random-seed" ] || fail "seal left the snakeoil key or the random seed"
+{ [ ! -e "$dirty/etc/ssl/private/ssl-cert-snakeoil.key" ] && [ ! -e "$dirty/var/lib/systemd/random-seed" ]; } || fail "seal left the snakeoil key or the random seed"
 grep -q '^root:!:' "$dirty/etc/shadow" || fail "root password not locked"
 
 # Sealing twice is harmless.

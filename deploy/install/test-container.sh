@@ -68,7 +68,7 @@ trap cleanup EXIT INT TERM
 for t in go python3 jq openssl; do command -v "$t" >/dev/null || { echo "missing tool: $t" >&2; exit 2; }; done
 
 # ---- release mirror with a real binary, throwaway keys, tampered copy -------
-# shellcheck source=testlib/mirror.sh
+# shellcheck source=/dev/null # mirror.sh is checked on its own
 . "$here/testlib/mirror.sh"
 arch="$(cd "$repo/backend" && go env GOARCH)"
 VER=v1.0.1
@@ -190,7 +190,11 @@ run_distro() { # run_distro NAME BASE
   # to boot it for real below (Caddy is already running by then, as on a provider).
   ex sh -c 'printf "%s\n" HATAMOTO_TLS=internal HATAMOTO_PUBLIC_IP=203.0.113.50 HATAMOTO_FIREWALL=0 > /etc/default/hatamoto-install'
   sealed_img="hatamoto-install-sealed:$name-$$"
-  dk commit "$C" "$sealed_img" >/dev/null && IMAGES+=("$sealed_img") || { fail "$name: cannot snapshot the sealed container"; return 0; }
+  if dk commit "$C" "$sealed_img" >/dev/null; then
+    IMAGES+=("$sealed_img")
+  else
+    fail "$name: cannot snapshot the sealed container"; return 0
+  fi
   ex rm -f /etc/default/hatamoto-install
 
   # shellcheck disable=SC2046 # fb_env prints words on purpose

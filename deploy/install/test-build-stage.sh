@@ -61,6 +61,7 @@ chmod +x "$bin/id" "$bin/install" "$bin/pg_dump"
 # run_build ROOT [ENV...]: source the script, stub the trust functions, run stage_build.
 run_build() {
   local root="$1"; shift
+  # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
   env PATH="$bin:$PATH" CALLS="$tmp/calls" HATAMOTO_INSTALL_ROOT="$root" HATAMOTO_INSTALL_SOURCE_ONLY=1 "$@" \
     sh -c '. "$1"
       trust_pick_version() { echo v1.2.3; }
