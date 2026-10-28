@@ -7,7 +7,6 @@ toolchain go1.27.3
 require (
 	github.com/extism/go-sdk v1.7.1
 	github.com/google/uuid v1.6.0
-	hatamoto.dev/sdk v0.0.0-00010101000000-000000000000
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -16,9 +15,10 @@ require (
 	github.com/tetratelabs/wazero v1.9.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.47.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
+	hatamoto.dev/sdk v0.0.0-00010101000000-000000000000
 )
 
 require (
