@@ -27,6 +27,8 @@ type PageView struct {
 	Term   *TermView
 	Author *AuthorView
 	Query  string
+	// Registry is set on registry detail views (KindRegistry).
+	Registry *RegistryPageView
 	// SearchType is the schema slug a search is limited to ("" for the whole site).
 	SearchType string
 	// Dynamic marks a view built from per-request data (taxonomy, author,
@@ -193,6 +195,9 @@ const (
 	KindTaxonomy = "taxonomy"
 	KindAuthor   = "author"
 	KindSearch   = "search"
+	// KindRegistry is a plugin or theme detail page built from the verified
+	// registry index (see PageView.Registry).
+	KindRegistry = "registry"
 )
 
 // EntityView is the whitelisted view of the entity a page shows.
@@ -466,8 +471,12 @@ type ThemeDirectoryView struct {
 // ThemeCard is one theme entry of the directory. Source and Screenshot are
 // already restricted to safe https URLs; Search is the lowercased text the
 // search box matches against.
+//
+// About holds the optional manifest text as plain paragraphs and Features its
+// bullets; both are untrusted text, to be rendered escaped.
 type ThemeCard struct {
 	Name, Title, Version, Description, Source, Screenshot, Tier, TierLabel, Author, Search string
+	About, Features                                                                        []string
 }
 
 // PluginCard is one plugin entry of the directory. Source is already
@@ -488,6 +497,19 @@ type PluginCard struct {
 	// reads it; it is kept for theme overrides written against older cores.
 	Permissions []string
 	Search      string
+	// About holds the optional manifest text as plain paragraphs and Features
+	// its bullets; both are untrusted text, to be rendered escaped.
+	About, Features []string
+}
+
+// RegistryPageView is the plugin or theme behind a registry detail page. Type
+// is "plugin" or "theme"; Plugin or Theme is set accordingly. ListName and
+// ListURL name the directory page the breadcrumb points back to.
+type RegistryPageView struct {
+	Type              string
+	ListName, ListURL string
+	Plugin            *PluginCard
+	Theme             *ThemeCard
 }
 
 // PermLine is one permission of a plugin card: its name, the plain-English

@@ -1,0 +1,30 @@
+{{define "content"}}{{with .Registry}}{{$card := .}}<div class="hm-container hm-registry" data-hm-directory>
+<nav class="hm-registry__crumbs" aria-label="Breadcrumb"><a href="{{.ListURL}}">{{.ListName}}</a> / <span aria-current="page">{{if eq .Type "theme"}}{{with .Theme}}{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}{{end}}{{else}}{{with .Plugin}}{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}{{end}}{{end}}</span></nav>
+{{if eq .Type "theme"}}{{with .Theme}}{{template "registry-body" (dict "Item" . "Theme" true)}}{{end}}{{else}}{{with .Plugin}}{{template "registry-body" (dict "Item" . "Theme" false)}}{{end}}{{end}}
+</div>{{end}}{{end}}
+
+{{define "registry-body"}}{{$i := .Item}}<header class="hm-registry__header">
+<h1 class="hm-registry__title">{{if $i.Title}}{{$i.Title}}{{else}}{{$i.Name}}{{end}}</h1>
+<p class="hm-registry__meta">{{if $i.TierLabel}}<span class="hm-registry__tier">{{$i.TierLabel}}</span> {{end}}<span>{{$i.Version}}</span></p>
+{{with $i.Description}}<p class="hm-registry__lede">{{.}}</p>{{end}}
+</header>
+<div class="hm-registry__cols">
+<div class="hm-registry__main">
+{{if .Theme}}{{with $i.Screenshot}}{{if hasPrefix . "https://"}}<img class="hm-registry__shot" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}{{end}}
+{{with $i.About}}<h2 class="hm-registry__h">About</h2>
+{{range .}}<p>{{.}}</p>
+{{end}}{{end}}{{with $i.Features}}<h2 class="hm-registry__h">Features</h2>
+<ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
+{{end}}</div>
+<aside class="hm-registry__side" aria-label="Details">
+<dl class="hm-registry__facts">
+<dt>Version</dt><dd>{{$i.Version}}</dd>
+{{if $i.Author}}<dt>Author</dt><dd>{{$i.Author}}</dd>
+{{end}}{{if $i.TierLabel}}<dt>Tier</dt><dd>{{$i.TierLabel}}</dd>
+{{end}}{{with $i.Source}}{{if hasPrefix . "https://"}}<dt>Source</dt><dd><a href="{{cta .}}" rel="noopener noreferrer">Source &rarr;</a></dd>
+{{end}}{{end}}</dl>
+{{if not .Theme}}{{if $i.PermLines}}<h2 class="hm-registry__h">Permissions ({{len $i.PermLines}})</h2>
+<ul class="hm-registry__perms">{{range $i.PermLines}}<li>{{if .Warn}}<strong class="hm-registry__warn">Warning:</strong> {{end}}{{.Text}}</li>{{end}}</ul>
+{{end}}{{end}}</aside>
+</div>
+<p class="hm-registry__install">Install: {{if .Theme}}Admin &gt; Themes{{else}}Admin &gt; Plugins &gt; Browse registry{{end}}</p>{{end}}

@@ -47,7 +47,7 @@ func (e *Engine) smokeRender(chain Chain) error {
 	if err != nil {
 		return err
 	}
-	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, "404", "error"} {
+	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, KindRegistry, "404", "error"} {
 		v := smokeView(kind)
 		cands := layoutCandidates(kind, "post")
 		status := 200
@@ -86,6 +86,14 @@ func smokeView(kind string) *PageView {
 		PostsByAuthor: func(_, page int) PostsPage {
 			return PostsPage{Items: smokeItems, Total: 1, Page: page, Pages: 1}
 		},
+	}
+	if kind == KindRegistry {
+		v.Registry = &RegistryPageView{Type: "plugin", ListName: "Plugins", ListURL: "/plugins", Plugin: &PluginCard{
+			Name: "example", Title: "Example", Version: "v1.0.0", Tier: "community", TierLabel: "Community",
+			Author: "ada", Description: "d", Source: "https://example.test/src", PermCount: 1,
+			PermLines: []PermLine{{Name: "site.scripts", Text: "Add scripts", Warn: true}},
+			About:     []string{"About."}, Features: []string{"A feature"},
+		}}
 	}
 	if kind == KindSingle || kind == KindHome {
 		v.EntityID, v.SchemaSlug = "e1", "post"
