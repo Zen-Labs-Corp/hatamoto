@@ -37,8 +37,9 @@ build_policy_restore() {
 }
 
 # build_apt runs apt-get non-interactively; a failure removes the policy file and dies.
+# A fresh cloud image holds the dpkg lock for its first minutes (apt-daily, cloud-init): wait for it.
 build_apt() {
-  if ! DEBIAN_FRONTEND=noninteractive apt-get "$@"; then
+  if ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 "$@"; then
     build_policy_restore
     die "apt-get $1 failed"
   fi

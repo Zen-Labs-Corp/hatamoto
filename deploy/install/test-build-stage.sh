@@ -21,7 +21,8 @@ for c in apt-get dpkg ufw systemctl curl useradd; do
 #!/bin/sh
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$CALLS"
 case "$(basename "$0")" in
-  apt-get) [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $1" >> "$CALLS" ;;
+  apt-get) # the verb follows the -o option
+    [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
   curl) # the PGDG key: write the -o/--output file
     while [ $# -gt 0 ]; do [ "$1" != --output ] || { printf 'KEY\n' > "$2"; break; }; shift; done ;;
@@ -80,9 +81,13 @@ snapshot() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum);
 ub="$(mkroot ubuntu ubuntu 24.04 noble)"
 : > "$tmp/calls"
 run_build "$ub" >/dev/null 2>"$tmp/err" || fail "ubuntu build failed: $(cat "$tmp/err")"
-want="install -y --no-install-recommends -o Dpkg::Options::=--force-confold ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades postgresql-16 caddy"
+want="-o DPkg::Lock::Timeout=600 install -y --no-install-recommends -o Dpkg::Options::=--force-confold ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades postgresql-16 caddy"
 grep -qxF "apt-get $want" "$tmp/calls" || fail "package list differs: $(grep apt-get "$tmp/calls")"
 pass "package list"
+[ "$(grep -c '^apt-get ' "$tmp/calls")" = "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 ' "$tmp/calls")" ] || fail "an apt-get call has no lock timeout"
+# The seal stage only runs apt-get on a real host, so check its source.
+if grep -h 'apt-get ' "$here/src/install/35-seal.sh" | grep -v '^ *#' | grep -v 'DPkg::Lock::Timeout=600'; then fail "seal calls apt-get without a lock timeout"; fi
+pass "every apt-get call waits for the dpkg lock"
 grep -q 'policy-rc.d present during install' "$tmp/calls" || fail "services were not held back during install"
 [ ! -e "$ub/usr/sbin/policy-rc.d" ] || fail "policy-rc.d left behind"
 pass "services held back during install, policy removed after"
@@ -130,7 +135,7 @@ run_build "$de" >/dev/null 2>"$tmp/err" || fail "debian build failed: $(cat "$tm
 grep -qxF 'deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' "$de/etc/apt/sources.list.d/pgdg.list" || fail "pgdg list wrong"
 [ -s "$de/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg key not stored"
 grep -q -- '--proto =https' "$tmp/calls" || fail "key fetched without https pin"
-[ "$(grep -c '^apt-get update' "$tmp/calls")" = 2 ] || fail "debian must update again after adding PGDG"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "debian must update again after adding PGDG"
 pass "PGDG on debian only, key over https"
 
 # --- refusals

@@ -36,9 +36,9 @@ stage_seal() {
   log "sealing the image"
   if [ -z "$R" ]; then
     # Bring security updates in before the package lists go.
-    DEBIAN_FRONTEND=noninteractive apt-get update -qq || warn "apt-get update failed before sealing"
-    DEBIAN_FRONTEND=noninteractive apt-get -y -qq -o Dpkg::Options::=--force-confold upgrade || warn "apt-get upgrade failed before sealing"
-    apt-get clean
+    DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq || warn "apt-get update failed before sealing"
+    DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 -y -qq -o Dpkg::Options::=--force-confold upgrade || warn "apt-get upgrade failed before sealing"
+    apt-get -o DPkg::Lock::Timeout=600 clean
   fi
 
   # Host identity.
