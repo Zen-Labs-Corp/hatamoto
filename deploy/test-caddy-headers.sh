@@ -20,6 +20,7 @@ app=$(port); front=$(port)
 mkdir -p "$w/public/.well-known" "$w/public/releases/channels" "$w/registry"
 cp "$here/well-known/security.txt" "$w/public/.well-known/"
 echo '{}' >"$w/public/releases/channels/stable.json"
+printf '#!/bin/sh\necho installer\n' >"$w/public/install.sh"
 echo '{}' >"$w/registry/registry.json"
 
 # Stub app: same headers as backend/internal/server securityHeadersMiddleware.
@@ -76,6 +77,7 @@ check /.well-known/other 200             # proxied (only security.txt is Caddy's
 check /registry.json 200                 # static: Caddy's headers
 check /releases/channels/stable.json 200
 check /.well-known/security.txt 200
+check /install.sh 200                   # static installer script
 check /security 301                      # Caddy redirect to the docs page
 check /security/ 301
 check '/sdk?go-get=1' 200                # answered by Caddy (respond)
@@ -95,3 +97,6 @@ echo "ok: exactly one of each security header and no Server or Via header on eve
 curl -s "http://127.0.0.1:$front/.well-known/security.txt" | cmp - "$here/well-known/security.txt" || fail "security.txt differs"
 curl -sI "http://127.0.0.1:$front/.well-known/security.txt" | grep -qi '^content-type: text/plain' || fail "security.txt not text/plain"
 echo "ok security.txt served as text/plain"
+curl -sI "http://127.0.0.1:$front/install.sh" | grep -qi '^content-type: text/plain' || fail "install.sh not text/plain"
+curl -s "http://127.0.0.1:$front/install.sh" | cmp - "$w/public/install.sh" || fail "install.sh differs"
+echo "ok install.sh served as text/plain"
