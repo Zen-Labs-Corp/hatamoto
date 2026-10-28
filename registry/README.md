@@ -79,6 +79,12 @@ and bidi controls); it does not check for emoji or symbols. A client clears an i
 value without dropping the package. The same rules belong in the listing repository's
 manifest validator.
 
+The `hatamoto` binary that runs `registry index --meta` must be at least the version that
+knows `about` and `features`: `--meta` is parsed strictly, so an older binary aborts with
+`unknown field "about"` once a manifest carries either key. `make registry` builds that
+binary from the same checkout (`registry/.hatamoto`); a job that uses an installed or cached
+binary must upgrade it first.
+
 `meta.json` (a first-party entry is `{title, about, features, source, commit, tier: first-party}`, no author) is passed to `registry index --meta`, so the signed index carries
 the descriptive fields. A site shows the directory with the core "Plugin directory"
 section on a normal CMS page (see `docs/site/themes/sections.md`), which reads the
