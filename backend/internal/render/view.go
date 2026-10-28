@@ -476,13 +476,18 @@ type ThemeCard struct {
 //
 // PermCount is the number of permissions the plugin asks for, PermWarn the
 // short labels of the risky ones (empty: no warning badge) and PermLines the
-// plain-English lines shown in the collapsed list.
+// plain-English lines shown in the collapsed list. Permissions holds the raw
+// names; the default theme no longer reads it, it is kept for theme overrides
+// written against older cores.
 type PluginCard struct {
 	Name, Title, Version, Tier, TierLabel, Author, Description, Source string
 	PermCount                                                          int
 	PermWarn                                                           []string
 	PermLines                                                          []PermLine
-	Search                                                             string
+	// Permissions lists the raw permission names. The default theme no longer
+	// reads it; it is kept for theme overrides written against older cores.
+	Permissions []string
+	Search      string
 }
 
 // PermLine is one permission of a plugin card: its name, the plain-English

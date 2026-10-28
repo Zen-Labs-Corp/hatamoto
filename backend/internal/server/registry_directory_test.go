@@ -434,6 +434,9 @@ func TestRegistryDirectoryPermissionCard(t *testing.T) {
 	if tags.PermCount != 4 || len(tags.PermLines) != 4 {
 		t.Fatalf("tags = %+v", tags)
 	}
+	if got := strings.Join(tags.Permissions, ","); got != "settings,site.scripts,http.fetch.any,future.perm" {
+		t.Errorf("Permissions (kept for theme overrides) = %q", got)
+	}
 	if got := strings.Join(tags.PermWarn, "|"); got != "JavaScript on every public page.|Any web address." {
 		t.Errorf("warn badges = %q", got)
 	}

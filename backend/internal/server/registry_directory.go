@@ -270,6 +270,7 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
 		}
 		c.PermCount, c.PermWarn, c.PermLines = permissionCard(e.Permissions)
+		c.Permissions = e.Permissions
 		switch e.Tier {
 		case packages.TierFirstParty:
 			c.Tier, c.TierLabel = e.Tier, "First-party"
