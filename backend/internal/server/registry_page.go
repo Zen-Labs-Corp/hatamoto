@@ -24,10 +24,10 @@ type registryRoute struct {
 type hostPageFunc func(listPath string) (*routeResult, pageOutcome, error)
 
 // hasDirectorySection reports whether sections (or the doc's components)
-// include a directory of type typ ("plugin_directory" or "theme_directory").
+// include a visible directory of type typ ("plugin_directory" or "theme_directory").
 func hasDirectorySection(sections []render.Section, typ string) bool {
 	for _, sec := range sections {
-		if sec.Type == typ {
+		if sec.Type == typ && (sec.IsVisible == nil || *sec.IsVisible) {
 			return true
 		}
 	}

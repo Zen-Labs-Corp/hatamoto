@@ -91,3 +91,12 @@ func TestDirectoryLinkedOnlyOnServingPath(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectoriesForSkipsHiddenSection(t *testing.T) {
+	s := directoryServer(newDirRig(t))
+	hidden := false
+	pd, td := s.directoriesFor(context.Background(), []render.Section{{Type: "plugin_directory", IsVisible: &hidden}}, nil)
+	if pd != nil || td != nil {
+		t.Fatalf("hidden section fed a directory: %+v %+v", pd, td)
+	}
+}

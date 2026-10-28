@@ -25,6 +25,7 @@ type registryRig struct {
 	cms      map[string]*routeResult
 	listing  map[string]string // list path -> directory section type, "" for a page without one
 	hostHits int
+	hidden   bool // the listing page's directory section is not visible
 }
 
 func hostPage(sectionType string) *routeResult {
@@ -56,7 +57,11 @@ func newRegistryRig(t *testing.T, entries ...packages.Entry) *registryRig {
 			if !ok {
 				return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
 			}
-			return hostPage(sec), pageOutcome{Status: 200}, nil
+			rr := hostPage(sec)
+			if g.hidden {
+				rr.Page.Entity.Attributes = json.RawMessage(`{"page_sections":[{"id":"s1","type":"` + sec + `","isVisible":false,"content":{}}]}`)
+			}
+			return rr, pageOutcome{Status: 200}, nil
 		})
 		if err != nil || reg == nil {
 			return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, err
@@ -131,6 +136,7 @@ func TestRegistryPageNotFound(t *testing.T) {
 		"no host page":            func(g *registryRig) { delete(g.listing, "/plugins") },
 		"host page lacks section": func(g *registryRig) { g.listing["/plugins"] = "" },
 		"host has the other kind": func(g *registryRig) { g.listing["/plugins"] = "theme_directory" },
+		"hidden section":          func(g *registryRig) { g.hidden = true },
 		"unknown name":            func(g *registryRig) {},
 		"registry failing":        func(g *registryRig) { g.dir.fail() },
 		"registry off": func(g *registryRig) {

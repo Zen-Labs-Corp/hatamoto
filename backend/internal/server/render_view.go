@@ -236,6 +236,9 @@ func (s *Server) applyPluginDirectory(ctx context.Context, v *render.PageView) {
 func (s *Server) directoriesFor(ctx context.Context, sections []render.Section, doc *builder.Doc) (*render.PluginDirectoryView, *render.ThemeDirectoryView) {
 	var wantPlugins, wantThemes bool
 	for _, sec := range viewSections(sections, doc) {
+		if sec.IsVisible != nil && !*sec.IsVisible {
+			continue
+		}
 		switch sec.Type {
 		case "plugin_directory":
 			wantPlugins = true
