@@ -16,7 +16,7 @@
   <ul class="hm-plugin-directory__grid">
     {{range $d.Cards}}<li class="hm-plugin-directory__card" data-search="{{.Search}}">
       {{with .Screenshot}}{{if hasPrefix . "https://"}}<img class="hm-theme-directory__shot" src="{{.}}" alt="" loading="lazy" width="640" height="400">{{end}}{{end}}
-      <h3 class="hm-plugin-directory__title">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</h3>
+      <h3 class="hm-plugin-directory__title"><a href="/themes/{{.Name}}">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</a></h3>
       <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
       {{if .Author}}<p class="hm-plugin-directory__author">by {{.Author}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
