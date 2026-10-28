@@ -284,7 +284,13 @@ fb_ensure_host_keys() {
 # config points at (the seal removes the image's; a shared key would be no secret).
 fb_fresh_snakeoil() {
   command -v make-ssl-cert >/dev/null 2>&1 || return 0
-  ffs_out="$(make-ssl-cert generate-default-snakeoil --force-overwrite 2>&1)" || die "cannot generate the TLS key PostgreSQL needs: $ffs_out"
+  # make-ssl-cert reads debconf, which another package job may hold locked for a while at boot.
+  ffs_i=0
+  until ffs_out="$(make-ssl-cert generate-default-snakeoil --force-overwrite 2>&1)"; do
+    ffs_i=$((ffs_i + 1))
+    [ "$ffs_i" -lt 120 ] || die "cannot generate the TLS key PostgreSQL needs: $ffs_out"
+    fb_sleep
+  done
 }
 
 # fb_persist_one FILE NAME VALUE appends NAME=VALUE unless the file already has NAME

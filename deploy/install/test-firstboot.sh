@@ -63,6 +63,9 @@ FAKE
 mk make-ssl-cert <<'FAKE'
 #!/bin/sh
 printf 'make-ssl-cert %s\n' "$*" >> "$CALLS"
+# a lock held by another job for the first calls
+n="$(cat "$TMPD/sslcalls" 2>/dev/null || echo 0)"; echo $((n + 1)) > "$TMPD/sslcalls"
+[ "$n" -ge "${FAKE_SSL_BUSY:-0}" ] || { echo "debconf: config.dat is locked by another process" >&2; exit 1; }
 FAKE
 mk ip <<'FAKE'
 #!/bin/sh
@@ -178,7 +181,7 @@ pass "Caddyfile for each TLS mode, with and without email"
 # --- full run ---------------------------------------------------------------------
 r="$(mkroot full)"
 : > "$tmp/calls"
-FAKE_ADMIN_NOTREADY=2 run_fb "$r" HATAMOTO_SETUP_CODE=k7m2-rt9p-qw4x HATAMOTO_ADMIN_EMAIL=ops@example.com || fail "first boot failed: $(cat "$tmp/err")"
+FAKE_SSL_BUSY=2 FAKE_ADMIN_NOTREADY=2 run_fb "$r" HATAMOTO_SETUP_CODE=k7m2-rt9p-qw4x HATAMOTO_ADMIN_EMAIL=ops@example.com || fail "first boot failed: $(cat "$tmp/err")"
 envf="$r/opt/hatamoto/config/hatamoto.env"
 [ "$(stat -c %a "$envf")" = 640 ] || fail "env file mode $(stat -c %a "$envf")"
 grep -qE '^install -m 0640 -o root -g hatamoto .*/opt/hatamoto/config/hatamoto.env$' "$tmp/calls" || fail "env owner/mode not root:hatamoto 0640"
@@ -195,7 +198,8 @@ pass "Caddyfile written, original kept"
 
 order="$(grep -nE '^systemctl (enable --now postgresql|enable caddy|restart caddy|enable hatamoto-api|restart hatamoto-api)$' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
 [ "$order" = "systemctl enable --now postgresql,systemctl enable caddy,systemctl restart caddy,systemctl enable hatamoto-api,systemctl restart hatamoto-api," ] || fail "service order (running services must be restarted): $order"
-snake="$(grep -nE '^(make-ssl-cert generate-default-snakeoil --force-overwrite|systemctl enable --now postgresql|systemctl restart postgresql)$' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
+[ "$(grep -c '^make-ssl-cert' "$tmp/calls")" = 3 ] || fail "make-ssl-cert not retried while debconf was locked"
+snake="$(grep -nE '^(make-ssl-cert generate-default-snakeoil --force-overwrite|systemctl enable --now postgresql|systemctl restart postgresql)$' "$tmp/calls" | sed 's/^[0-9]*://' | uniq | tr '\n' ',')"
 [ "$snake" = "make-ssl-cert generate-default-snakeoil --force-overwrite,systemctl enable --now postgresql,systemctl restart postgresql," ] || fail "a fresh snakeoil pair must exist before PostgreSQL starts: $snake"
 grep -qx 'hatamoto migrate user=hatamoto db=set' "$tmp/calls" || fail "migrate not run as hatamoto with the env"
 if grep -E '^hatamoto ' "$tmp/calls" | grep -vq 'user=hatamoto'; then fail "hatamoto ran as another user"; fi
