@@ -24,7 +24,10 @@
 # PR template's two boxes); this backstop holds even when PR CI was bypassed.
 #
 # The manifest rules mirror manifests/schema.json and scripts/validate-manifest.sh
-# in the hatamoto-plugins repo; keep them in sync. Only Go plugins are built.
+# in the hatamoto-plugins repo; keep them in sync. The listing rules read their word
+# lists from <plugins-repo-dir>/policy/ (the same files the validator reads); a missing,
+# unreadable, symlinked or empty list stops the build before anything is fetched.
+# Only Go plugins are built.
 #
 # Required environment:
 #   HATAMOTO_BUILD_GOTOOLCHAIN=goX.Y[.Z]  the toolchain every plugin is built with
@@ -132,6 +135,100 @@ owner_allowed() { local w; for w in ${fp_owners[@]+"${fp_owners[@]}"}; do [ "$w"
 
 # field <file> <key>: the string value, or empty when absent or not a string.
 field() { jq -r --arg k "$2" 'if (.[$k] | type) == "string" then .[$k] else "" end' "$1"; }
+
+# Listing policy: the word lists behind the listing rules are read from
+# <plugins-repo-dir>/policy/ (data only; nothing in that checkout is executed).
+# Fail closed: a missing, unreadable, symlinked or empty list stops the build before
+# pass 1. Only placeholders.txt may be empty.
+# The functions below are copied from hatamoto-plugins scripts/validate-manifest.sh.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+pol="$repo_dir/policy"
+[ -d "$pol" ] && [ ! -L "$pol" ] || die "missing policy: $pol"
+# Oniguruma classes (\p{L}, \p{Cf}, ...) drive the title and description rules.
+jq -n '"a" | test("\\p{L}")' >/dev/null 2>&1 || die "jq lacks \\p{} regex support"
+for p in reserved-names banned-tokens banned-words brands placeholders; do
+  { [ -f "$pol/$p.txt" ] && [ -r "$pol/$p.txt" ] && [ ! -L "$pol/$p.txt" ]; } || die "missing policy: $p.txt"
+done
+# plist <list>: entries, trimmed and lowercased, without blank lines and "# " comments.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+plist() {
+  jq -Rr 'ascii_downcase | gsub("\r"; "") | gsub("^\\s+|\\s+$"; "") | select(. != "" and . != "#" and (startswith("# ") | not))' "$pol/$1.txt"
+}
+reserved_names=$(plist reserved-names) || die "unreadable policy: reserved-names.txt"
+banned_tokens=$(plist banned-tokens) || die "unreadable policy: banned-tokens.txt"
+banned_words=$(plist banned-words) || die "unreadable policy: banned-words.txt"
+brands=$(plist brands) || die "unreadable policy: brands.txt"
+placeholders=$(plist placeholders) || die "unreadable policy: placeholders.txt"
+# An empty list would switch its rule off; only the placeholders may be empty.
+for p in reserved_names banned_tokens banned_words brands; do
+  [ -n "${!p}" ] || die "empty policy: ${p//_/-}.txt"
+done
+# inlist <newline separated list> <word>: exact whole-line membership.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+inlist() { [[ $'\n'$1$'\n' == *$'\n'"$2"$'\n'* ]]; }
+# brand_owned <brand> <owner>: the brand is listed with that owner.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+brand_owned() {
+  local b o owners
+  while read -r -a owners; do
+    [ "${owners[0]:-}" = "$1" ] || continue
+    for o in "${owners[@]:1}"; do [ "$o" = "$2" ] && return 0; done
+  done <<<"$brands"
+  return 1
+}
+# brand_match <word>: print the brand in brands.txt that the word starts with, if any.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+brand_match() {
+  local b rest
+  while read -r b rest; do
+    if [ -n "$b" ] && [[ $1 == "$b"* ]]; then printf '%s' "$b"; return 0; fi
+  done <<<"$brands"
+  return 1
+}
+# brand_listed <word>: the word is exactly a brand in brands.txt.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+brand_listed() {
+  local b rest
+  while read -r b rest; do [ "$b" = "$1" ] && return 0; done <<<"$brands"
+  return 1
+}
+# lev1 <a> <b>: edit distance of at most 1.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+lev1() {
+  local a=$1 b=$2 i=0
+  [ "$a" = "$b" ] && return 0
+  while [ "$i" -lt "${#a}" ] && [ "$i" -lt "${#b}" ] && [ "${a:i:1}" = "${b:i:1}" ]; do i=$((i + 1)); done
+  a=${a:i}; b=${b:i}
+  while [ -n "$a" ] && [ -n "$b" ] && [ "${a: -1}" = "${b: -1}" ]; do a=${a%?}; b=${b%?}; done
+  [ "${#a}" -le 1 ] && [ "${#b}" -le 1 ]
+}
+# lkey <name>: hyphens removed, 0 1 3 5 folded to o l e s.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+lkey() { printf '%s' "$1" | tr -d '-' | tr '0135' 'oles'; }
+# jv <value> <jq filter> <label> [jq args...]: true when the filter holds. The
+# filter is a literal; the value only enters as --arg t. A jq failure stops the build.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+jv() {
+  local v=$1 f=$2 l=$3 r
+  shift 3
+  r=$(jq -n --arg t "$v" "$@" "$f") || die "$l could not be checked"
+  [ "$r" = true ]
+}
+# fold: look-alike letters (Cyrillic, Greek, a few Latin) to ASCII, for the word and brand
+# comparisons only. Pairs of code points: look-alike, ASCII letter.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+fold_def='def fold:
+  ([[1072,97],[1074,98],[1077,101],[1109,115],[1110,105],[1112,106],[1082,107],[1084,109],[1085,104],[1086,111],[1088,112],[1089,99],[1090,116],[1091,121],[1093,120],[1231,108],
+    [1040,97],[1042,98],[1045,101],[1029,115],[1030,105],[1032,106],[1050,107],[1052,109],[1053,104],[1054,111],[1056,112],[1057,99],[1058,116],[1059,121],[1061,120],[1216,108],
+    [959,111],[945,97],[949,101],[953,105],[954,107],[957,118],[961,112],[964,116],[965,117],[967,120],
+    [927,111],[913,97],[917,101],[921,105],[922,107],[925,110],[929,112],[932,116],[933,121],[935,120],[914,98],[918,122],[919,104],[924,109],
+    [609,103],[305,105],[304,105],[593,97]]
+   | map({(.[0] | tostring): .[1]}) | add) as $m
+  | explode | map($m[tostring] // .) | implode | ascii_downcase;
+'
+# Emoji, symbols and invisible characters (not \p{Emoji}: that is true for digits).
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}")'
 
 # Pass 1: validate every manifest before touching the network or running a build.
 shopt -s nullglob
