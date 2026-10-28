@@ -27,7 +27,7 @@ type redirectHit struct {
 }
 
 // routeResult is the typed outcome of resolving a public URL path. Exactly
-// one of Redirect, NotFound, Page, Archive or Listing describes the answer.
+// one of Redirect, NotFound, Page, Archive, Listing or Registry describes the answer.
 type routeResult struct {
 	Redirect *redirectHit
 	NotFound bool
@@ -35,6 +35,9 @@ type routeResult struct {
 	Archive  *resolvedArchive
 	// Listing is a built-in taxonomy, author or search listing (render only).
 	Listing *listingRoute
+	// Registry is a plugin or theme detail page of the verified registry
+	// (render only).
+	Registry *registryRoute
 	// Kind is resolveKindEntity, resolveKindHome or resolveKindArchive.
 	Kind         string
 	CanonicalURL string

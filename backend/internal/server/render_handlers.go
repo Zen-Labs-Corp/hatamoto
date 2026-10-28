@@ -327,7 +327,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 
-	if rr.Page == nil && rr.Archive == nil && rr.Listing == nil {
+	if rr.Page == nil && rr.Archive == nil && rr.Listing == nil && rr.Registry == nil {
 		// A route that resolved without any page data must never become a
 		// cached blank 200.
 		h.logger.ErrorContext(r.Context(), "render: route resolved without page data", "path", path)
