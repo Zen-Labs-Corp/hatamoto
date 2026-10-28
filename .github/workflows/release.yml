@@ -122,12 +122,23 @@ jobs:
           done
           ls dist
 
+      # The installer script is assembled from the tagged tree, with the trusted
+      # keys generated from backend/internal/release/keys. It is named install.sh
+      # (not hatamoto-*) so users fetch it by that name; it gets its own
+      # attestation below and its own line in SHA256SUMS.
+      - name: Assemble install.sh
+        run: |
+          bash deploy/install/build-install.sh --out dist-install
+          cp dist-install/install.sh dist/install.sh
+
       # SHA256SUMS lists every hatamoto-* file (binaries, bundles, SBOMs) and
-      # ships with the release. release.json is left out: a maintainer amends it
-      # before signing, so its hash here would go stale; its signature is its proof.
+      # install.sh, and ships with the release. release.json is left out: a
+      # maintainer amends it before signing, so its hash here would go stale; its
+      # signature is its proof.
       - name: Checksums
         run: |
           (cd dist && sha256sum hatamoto-* > SHA256SUMS)
+          (cd dist && sha256sum install.sh >> SHA256SUMS)
           { cat dist/SHA256SUMS; (cd dist && sha256sum release.json); } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -138,7 +149,7 @@ jobs:
 
   # Build provenance for the binary, its bundle and its SBOMs, and the SBOM
   # attestations (SPDX and CycloneDX), one matrix leg per platform, plus
-  # SHA256SUMS once. Verify with `gh attestation verify`
+  # SHA256SUMS and install.sh once. Verify with `gh attestation verify`
   # (docs/site/updates/verify-a-download.md). release.json is not attested: it is
   # amended and signed offline, and that signature is its proof.
   #
@@ -182,6 +193,10 @@ jobs:
         if: ${{ matrix.platform == 'linux-amd64' }}
         with:
           subject-path: dist/SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: ${{ matrix.platform == 'linux-amd64' }}
+        with:
+          subject-path: dist/install.sh
       - name: Say so when attestation failed
         if: ${{ always() && job.status != 'success' }}
         env:
@@ -210,6 +225,6 @@ jobs:
         run: |
           flags=""
           case "$GITHUB_REF_NAME" in *-*) flags="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" dist/hatamoto-* dist/SHA256SUMS dist/release.json \
+          gh release create "$GITHUB_REF_NAME" dist/hatamoto-* dist/SHA256SUMS dist/install.sh dist/release.json \
             --draft --verify-tag $flags --title "$GITHUB_REF_NAME" \
             --notes "Unsigned draft. See RUNBOOK section 2."
