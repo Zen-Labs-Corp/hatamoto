@@ -49,7 +49,7 @@ In a cloud-init file or launch script, put the same names after `env` in the ins
 | `HATAMOTO_BACKUPS` | `1` for nightly backups, `0` for none. | `1` |
 | `HATAMOTO_TLS` | `auto` for real certificates, `internal` for test certificates, `off` for plain HTTP. | `auto` |
 | `HATAMOTO_FIREWALL` | `0` leaves the server's firewall alone, for hosts with a provider firewall only. | `1` |
-| `HATAMOTO_PUBLIC_IP` | The server's public address, if it cannot be found by itself. | detected |
+| `HATAMOTO_PUBLIC_IP` | The server's public address. Detected by asking an outside service and checking the answer against the addresses on the server. If they differ, the server's own public address wins. If the server has none (providers that put it behind NAT, such as Amazon Lightsail), the outside answer is used and a warning names both. Set this to decide yourself. | detected |
 
 If you build a machine image for others to launch (`build --seal`), never put `HATAMOTO_SETUP_CODE` in it, not even in `/etc/default/hatamoto-install`. Everyone who launches the image would share that code, and the image's author could read it. Leave it out and each server generates its own at first start.
 

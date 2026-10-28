@@ -64,6 +64,13 @@ mk make-ssl-cert <<'FAKE'
 #!/bin/sh
 printf 'make-ssl-cert %s\n' "$*" >> "$CALLS"
 FAKE
+mk ip <<'FAKE'
+#!/bin/sh
+case "$*" in
+  *"route get"*) [ -z "${FAKE_ROUTE_SRC:-}" ] || echo "1.1.1.1 via 10.0.0.1 dev eth0 src $FAKE_ROUTE_SRC uid 0" ;;
+  *addr*) for a in ${FAKE_LOCAL_IPS:-}; do echo "2: eth0    inet $a/24 brd 255.255.255.255 scope global eth0"; done ;;
+esac
+FAKE
 mk ufw <<'FAKE'
 #!/bin/sh
 printf 'ufw %s\n' "$*" >> "$CALLS"
@@ -296,6 +303,23 @@ r="$(mkroot ipdetect)"
 run_fb "$r" HATAMOTO_PUBLIC_IP= FAKE_IP=198.51.100.20 || fail "ip detection run failed: $(cat "$tmp/err")"
 grep -q '198-51-100-20.sslip.io' "$r/etc/caddy/Caddyfile" || fail "detected IP not used"
 pass "public IP detection"
+
+# fb_public_ip against fake ip and curl: out=stdout, $tmp/pip.err=stderr
+pip() { PATH="$bin:$PATH" CALLS=/dev/null pure fb_public_ip 2>"$tmp/pip.err"; }
+[ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5 198.51.100.20" FAKE_ROUTE_SRC=198.51.100.20 pip)" = 198.51.100.20 ] || fail "ipify answer bound locally not used"
+[ ! -s "$tmp/pip.err" ] || fail "warning for a matching answer: $(cat "$tmp/pip.err")"
+[ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "a differing ipify answer beat the local public address"
+grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '203.0.113.9' "$tmp/pip.err" || fail "mismatch warning must name both: $(cat "$tmp/pip.err")"
+[ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5" FAKE_ROUTE_SRC=10.0.0.5 pip)" = 198.51.100.20 ] || fail "NAT: ipify answer not used"
+grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '10.0.0.5' "$tmp/pip.err" && grep -q 'HATAMOTO_PUBLIC_IP' "$tmp/pip.err" || fail "NAT warning: $(cat "$tmp/pip.err")"
+for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1; do
+  [ "$(FAKE_IP=$badip FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "ipify answer $badip accepted"
+  grep -q 'not a public address' "$tmp/pip.err" || fail "no message for $badip"
+done
+[ "$(FAKE_IP=172.32.0.1 FAKE_LOCAL_IPS="172.32.0.1" pip)" = 172.32.0.1 ] || fail "172.32.0.1 is public"
+[ "$(FAKE_LOCAL_IPS="" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "no ipify answer: route source not used"
+[ "$(HATAMOTO_PUBLIC_IP=192.0.2.1 FAKE_IP=198.51.100.20 pip)" = 192.0.2.1 ] || fail "explicit HATAMOTO_PUBLIC_IP lost"
+pass "public IP: ipify answer cross-checked against local addresses"
 
 # --- resume after a failed migrate keeps the secrets ------------------------------------------
 r="$(mkroot resume)"

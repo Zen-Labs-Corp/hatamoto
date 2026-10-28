@@ -116,19 +116,69 @@ fb_banner() {
   printf '  This message disappears once the owner account exists.\n\n'
 }
 
-# fb_public_ip prints this machine's public IPv4 address.
+# fb_is_public IP succeeds for a valid IPv4 address outside the private, loopback,
+# link-local and "this network" ranges.
+fb_is_public() {
+  fb_valid_ip "$1" || return 1
+  case "$1" in
+    0.* | 10.* | 127.* | 169.254.* | 192.168.*) return 1 ;;
+    172.*) fip_o="$(printf '%s' "$1" | cut -d. -f2)"; [ "$fip_o" -lt 16 ] || [ "$fip_o" -gt 31 ] ;;
+    *) return 0 ;;
+  esac
+}
+
+# fb_local_ips prints the IPv4 addresses bound to this machine's interfaces.
+fb_local_ips() {
+  ip -4 -o addr show scope global 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "inet") { sub(/\/.*/, "", $(i + 1)); print $(i + 1) } }'
+}
+
+# fb_route_src prints the address this machine uses to reach the internet.
+fb_route_src() {
+  ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }'
+}
+
+# fb_public_ip prints this machine's public IPv4 address. The setup link and the
+# site name are built from it, so the answer of a third party (ipify) is not trusted blindly:
+#   - HATAMOTO_PUBLIC_IP wins, unchecked;
+#   - an ipify answer that is private, loopback or 0.0.0.0 is ignored;
+#   - an ipify answer that is bound to a local interface is used;
+#   - one that differs from a public address bound here loses to the local address (a warning names both);
+#   - with no public address bound here (NAT providers such as EC2 or Lightsail) it is used, with a
+#     warning naming both: set HATAMOTO_PUBLIC_IP to silence it;
+#   - without an answer, the source address of the default route.
 fb_public_ip() {
   if [ -n "$IN_PUBLIC_IP" ]; then
     fb_valid_ip "$IN_PUBLIC_IP" || die "HATAMOTO_PUBLIC_IP is not an IPv4 address: $IN_PUBLIC_IP"
     printf '%s\n' "$IN_PUBLIC_IP"
     return 0
   fi
-  fpi_ip="$(curl -4 --silent --fail --max-time 8 --retry 2 --proto '=https' --tlsv1.2 https://api.ipify.org 2>/dev/null || true)"
-  if ! fb_valid_ip "$fpi_ip"; then
-    fpi_ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }')"
+  fpi_net="$(curl -4 --silent --fail --max-time 8 --retry 2 --proto '=https' --tlsv1.2 https://api.ipify.org 2>/dev/null || true)"
+  fpi_src="$(fb_route_src)"
+  if fb_valid_ip "$fpi_net" && ! fb_is_public "$fpi_net"; then
+    warn "ignoring $fpi_net from api.ipify.org: not a public address"
+    fpi_net=""
   fi
-  fb_valid_ip "$fpi_ip" || die "cannot find the public IP address: set HATAMOTO_PUBLIC_IP"
-  printf '%s\n' "$fpi_ip"
+  if fb_valid_ip "$fpi_net"; then
+    fpi_bound=0
+    fpi_pub=""
+    fb_is_public "$fpi_src" && fpi_pub="$fpi_src"
+    for fpi_a in $(fb_local_ips); do
+      [ "$fpi_a" != "$fpi_net" ] || fpi_bound=1
+      [ -n "$fpi_pub" ] || ! fb_is_public "$fpi_a" || fpi_pub="$fpi_a"
+    done
+    if [ "$fpi_bound" = 1 ] || { [ "$fpi_pub" = "$fpi_net" ] && [ -n "$fpi_pub" ]; }; then
+      printf '%s\n' "$fpi_net"
+    elif [ -n "$fpi_pub" ]; then
+      warn "api.ipify.org says $fpi_net but this machine has the public address $fpi_pub: using $fpi_pub (set HATAMOTO_PUBLIC_IP to choose)"
+      printf '%s\n' "$fpi_pub"
+    else
+      warn "api.ipify.org says $fpi_net, which is not bound on this machine (behind NAT, source address ${fpi_src:-unknown}): using it; set HATAMOTO_PUBLIC_IP if it is wrong"
+      printf '%s\n' "$fpi_net"
+    fi
+    return 0
+  fi
+  fb_valid_ip "$fpi_src" || die "cannot find the public IP address: set HATAMOTO_PUBLIC_IP"
+  printf '%s\n' "$fpi_src"
 }
 
 # fb_dns_matches DOMAIN IP succeeds when DOMAIN has an A record equal to IP.
