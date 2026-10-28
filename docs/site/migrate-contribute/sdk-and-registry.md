@@ -133,7 +133,7 @@ To test locally, serve the outputs over plain HTTP and add `HATAMOTO_REGISTRY_AL
 
 ## The first-party registry
 
-The default registry lists the plugins the project ships, `searchconsole` and `gtm` (first-party, each in its own repository under `Zen-Labs-Corp`), plus the approved community plugins. All of them are built from manifests in the plugins repository. They are signed with the first-party key, whose **public** half is a constant in the server (`FirstPartyKey` in `backend/internal/config/packages.go`), so every server trusts it and the plugins install with one click. The **private** half is held by the release manager outside the repository and must never be committed.
+The default registry lists the plugins the project ships, `searchconsole` and `gtm` (first-party, each in its own folder of the monorepo `Zen-Labs-Corp/hatamoto-first-party`), plus the approved community plugins. All of them are built from manifests in the plugins repository. They are signed with the first-party key, whose **public** half is a constant in the server (`FirstPartyKey` in `backend/internal/config/packages.go`), so every server trusts it and the plugins install with one click. The **private** half is held by the release manager outside the repository and must never be committed.
 
 ```bash
 git -C ~/src/hatamoto-plugins pull
