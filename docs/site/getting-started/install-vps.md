@@ -51,6 +51,8 @@ In a cloud-init file or launch script, put the same names after `env` in the ins
 | `HATAMOTO_FIREWALL` | `0` leaves the server's firewall alone, for hosts with a provider firewall only. | `1` |
 | `HATAMOTO_PUBLIC_IP` | The server's public address, if it cannot be found by itself. | detected |
 
+If you build a machine image for others to launch (`build --seal`), never put `HATAMOTO_SETUP_CODE` in it, not even in `/etc/default/hatamoto-install`. Everyone who launches the image would share that code, and the image's author could read it. Leave it out and each server generates its own at first start.
+
 If you set `HATAMOTO_DOMAIN`, create a DNS record for it first. **DNS** is the system that maps a domain name to a server address: add an `A` record pointing the domain at the server's address. If the record is not ready yet, Hatamoto starts on the sslip.io name and switches to your domain within minutes of the record working.
 
 The sslip.io names are shared by many servers and may hit shared certificate limits. Use your own domain for production.

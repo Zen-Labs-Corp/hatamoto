@@ -32,7 +32,25 @@ seal_lock_passwords() {
   done
 }
 
+# seal_pg_install_exists succeeds when this machine's PostgreSQL already holds an
+# install of Hatamoto (only answerable while the server runs; a test replaces it).
+seal_pg_install_exists() {
+  command -v psql >/dev/null 2>&1 || return 1
+  [ -n "$(sudo -n -u postgres psql -X -tA -c "select 1 from pg_roles where rolname = 'hatamoto' union all select 1 from pg_database where datname = 'hatamoto'" 2>/dev/null)" ]
+}
+
+# seal_refuse_used dies when first boot already ran here: the snapshot would carry that
+# install's database and password hash, which no scrub below removes.
+seal_refuse_used() {
+  for sru_f in "$(dest "$STATE_DIR")/firstboot.done" "$(dest "$APP_DIR/config/hatamoto.env")" \
+    "$(dest /etc/systemd/system/multi-user.target.wants/hatamoto-api.service)"; do
+    [ ! -e "$sru_f" ] || die "this machine already ran first boot ($sru_f exists): seal a fresh build, not an installed server"
+  done
+  ! seal_pg_install_exists || die "this machine's PostgreSQL already has a hatamoto role or database: seal a fresh build, not an installed server"
+}
+
 stage_seal() {
+  seal_refuse_used
   log "sealing the image"
   if [ -z "$R" ]; then
     # Bring security updates in before the package lists go.
@@ -48,6 +66,9 @@ stage_seal() {
   mkdir -p "$(dest /etc)"
   : > "$(dest /etc/machine-id)"
   rm -f "$(dest /var/lib/dbus/machine-id)"
+  # Shared by every clone otherwise: the RNG seed and the TLS key PostgreSQL uses
+  # (first boot makes a new pair).
+  rm -f "$(dest /var/lib/systemd/random-seed)" "$(dest /etc/ssl/private/ssl-cert-snakeoil.key)" "$(dest /etc/ssl/certs/ssl-cert-snakeoil.pem)"
 
   # Per-user traces: keys, known hosts, history.
   seal_homes | while IFS= read -r ss_home; do

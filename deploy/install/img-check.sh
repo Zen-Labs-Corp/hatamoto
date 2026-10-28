@@ -126,6 +126,18 @@ fi
 if [ -f "$ROOT/etc/caddy/Caddyfile" ] && grep -q '127\.0\.0\.1:8090' "$ROOT/etc/caddy/Caddyfile"; then found+=("$ROOT/etc/caddy/Caddyfile"); fi
 verdict caddy-state "${found[@]}"
 
+# 9b. state that every clone would share: the PostgreSQL TLS key, the RNG seed,
+# and a pinned setup code (readable by whoever built the image)
+mapfile -t found < <(existing "$ROOT/etc/ssl/private/ssl-cert-snakeoil.key")
+verdict snakeoil-key "${found[@]}"
+mapfile -t found < <(existing "$ROOT/var/lib/systemd/random-seed")
+verdict random-seed "${found[@]}"
+found=()
+if [ -f "$ROOT/etc/default/hatamoto-install" ] && grep -Eq '^[[:space:]]*(export[[:space:]]+)?HATAMOTO_SETUP_CODE=' "$ROOT/etc/default/hatamoto-install"; then
+  found+=("$ROOT/etc/default/hatamoto-install")
+fi
+verdict pinned-setup-code "${found[@]}"
+
 # 10. cloud-init must run again on a new instance
 mapfile -t found < <(existing "$ROOT"/var/lib/cloud/instance "$ROOT"/var/lib/cloud/instances)
 verdict cloud-init "${found[@]}"

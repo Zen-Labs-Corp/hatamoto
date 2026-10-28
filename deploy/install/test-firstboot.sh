@@ -60,6 +60,10 @@ mk ssh-keygen <<'FAKE'
 #!/bin/sh
 printf 'ssh-keygen %s\n' "$*" >> "$CALLS"
 FAKE
+mk make-ssl-cert <<'FAKE'
+#!/bin/sh
+printf 'make-ssl-cert %s\n' "$*" >> "$CALLS"
+FAKE
 mk ufw <<'FAKE'
 #!/bin/sh
 printf 'ufw %s\n' "$*" >> "$CALLS"
@@ -184,6 +188,8 @@ pass "Caddyfile written, original kept"
 
 order="$(grep -nE '^systemctl (enable --now postgresql|enable caddy|restart caddy|enable hatamoto-api|restart hatamoto-api)$' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
 [ "$order" = "systemctl enable --now postgresql,systemctl enable caddy,systemctl restart caddy,systemctl enable hatamoto-api,systemctl restart hatamoto-api," ] || fail "service order (running services must be restarted): $order"
+snake="$(grep -nE '^(make-ssl-cert generate-default-snakeoil --force-overwrite|systemctl enable --now postgresql|systemctl restart postgresql)$' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
+[ "$snake" = "make-ssl-cert generate-default-snakeoil --force-overwrite,systemctl enable --now postgresql,systemctl restart postgresql," ] || fail "a fresh snakeoil pair must exist before PostgreSQL starts: $snake"
 grep -qx 'hatamoto migrate user=hatamoto db=set' "$tmp/calls" || fail "migrate not run as hatamoto with the env"
 if grep -E '^hatamoto ' "$tmp/calls" | grep -vq 'user=hatamoto'; then fail "hatamoto ran as another user"; fi
 [ "$(grep -c '^hatamoto admin-url' "$tmp/calls")" = 3 ] || fail "admin-url not retried until it is a URL"

@@ -65,6 +65,9 @@ violation secrets-dir hatamoto-secrets mkdir opt/hatamoto/data/secrets
 violation install-id hatamoto-secrets touch opt/hatamoto/data/install_id
 violation state-dir hatamoto-secrets sh -c 'mkdir -p var/lib/hatamoto-install && touch var/lib/hatamoto-install/firstboot.done'
 violation acme caddy-state sh -c 'mkdir -p var/lib/caddy/.local/share/caddy && touch var/lib/caddy/.local/share/caddy/acme'
+violation snakeoil-key snakeoil-key sh -c 'mkdir -p etc/ssl/private && touch etc/ssl/private/ssl-cert-snakeoil.key'
+violation random-seed random-seed sh -c 'mkdir -p var/lib/systemd && touch var/lib/systemd/random-seed'
+violation pinned-code pinned-setup-code sh -c 'mkdir -p etc/default && echo HATAMOTO_SETUP_CODE=ABCD-EFGH-JKMN > etc/default/hatamoto-install'
 violation cloud-init cloud-init mkdir -p var/lib/cloud/instances
 violation firewall firewall sh -c 'echo ENABLED=no > etc/ufw/ufw.conf'
 DENY=decoy-secret-value violation decoy secret-scan sh -c 'echo "token=decoy-secret-value" > etc/foo.conf'
@@ -93,15 +96,37 @@ mkdir -p "$dirty/var/lib/hatamoto-install" "$dirty/opt/hatamoto/data/secrets" "$
 touch "$dirty/var/lib/hatamoto-install/firstboot.done" "$dirty/opt/hatamoto/data/install_id" "$dirty/var/log/journal/abc/system.journal"
 printf 'DATABASE_URL=postgres://hatamoto:decoy-secret-value@127.0.0.1/hatamoto\n' > "$dirty/opt/hatamoto/config/hatamoto.env"
 head -c 500 /dev/zero | tr '\0' x > "$dirty/var/log/syslog"
+mkdir -p "$dirty/etc/ssl/private" "$dirty/etc/ssl/certs" "$dirty/var/lib/systemd"
+touch "$dirty/etc/ssl/private/ssl-cert-snakeoil.key" "$dirty/etc/ssl/certs/ssl-cert-snakeoil.pem" "$dirty/var/lib/systemd/random-seed"
+# seal() runs stage_seal on a fixture root; a test may stub functions through $2.
+seal() { env HATAMOTO_INSTALL_ROOT="$1" HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c ". \"\$1\"; $2 stage_seal" _ "$tmp/asm/install.sh"; }
+
+# stage_seal refuses a machine that already ran first boot; nothing is touched.
+refuse() { # refuse NAME STUB SETUP...
+  local name="$1" stub="$2"; shift 2
+  local r="$tmp/refuse-$name"; rm -rf "$r"; cp -a "$dirty" "$r"
+  ( cd "$r" && "$@" )
+  if seal "$r" "$stub" >"$tmp/seal.out" 2>&1; then fail "seal accepted a used machine ($name)"; fi
+  grep -q 'seal a fresh build' "$tmp/seal.out" || fail "refusal message ($name): $(cat "$tmp/seal.out")"
+  [ -f "$r/var/lib/systemd/random-seed" ] || fail "seal touched the machine before refusing ($name)"
+  pass "stage_seal refuses: $name"
+}
+refuse done '' sh -c 'rm opt/hatamoto/config/hatamoto.env; mkdir -p var/lib/hatamoto-install && touch var/lib/hatamoto-install/firstboot.done'
+refuse env-file '' true
+refuse unit '' sh -c 'rm opt/hatamoto/config/hatamoto.env; mkdir -p etc/systemd/system/multi-user.target.wants && touch etc/systemd/system/multi-user.target.wants/hatamoto-api.service'
+refuse pg-role 'seal_pg_install_exists() { return 0; };' sh -c 'rm opt/hatamoto/config/hatamoto.env'
 if IMG_CHECK_DENY=decoy-secret-value check "$dirty" >/dev/null; then fail "dirty fixture passed"; fi
-env HATAMOTO_INSTALL_ROOT="$dirty" HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; stage_seal' _ "$tmp/asm/install.sh" >"$tmp/seal.out" 2>&1 ||
+# (the first-boot state of the fixture is what a refused machine has: drop it for the real seal)
+rm -rf "$dirty/var/lib/hatamoto-install"; rm -f "$dirty/opt/hatamoto/config/hatamoto.env"
+seal "$dirty" "seal_pg_install_exists() { return 1; };" >"$tmp/seal.out" 2>&1 ||
   fail "stage_seal failed: $(cat "$tmp/seal.out")"
 IMG_CHECK_DENY=decoy-secret-value check "$dirty" >"$tmp/out" || fail "sealed tree fails the check: $(cat "$tmp/out")"
-pass "stage_seal output passes img-check (decoy secret gone with the env file)"
+pass "stage_seal output passes img-check"
+[ ! -e "$dirty/etc/ssl/private/ssl-cert-snakeoil.key" ] && [ ! -e "$dirty/var/lib/systemd/random-seed" ] || fail "seal left the snakeoil key or the random seed"
 grep -q '^root:!:' "$dirty/etc/shadow" || fail "root password not locked"
 
 # Sealing twice is harmless.
-env HATAMOTO_INSTALL_ROOT="$dirty" HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; stage_seal' _ "$tmp/asm/install.sh" >/dev/null 2>&1 || fail "second seal failed"
+seal "$dirty" "seal_pg_install_exists() { return 1; };" >/dev/null 2>&1 || fail "second seal failed"
 check "$dirty" >/dev/null || fail "twice-sealed tree fails"
 pass "sealing twice is harmless"
 

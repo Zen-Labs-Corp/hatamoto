@@ -113,7 +113,7 @@ start_container() { # start_container IMAGE NAME
     if ex systemctl is-system-running 2>/dev/null | grep -Eq 'running|degraded'; then break; fi
     sleep 1
   done
-  ex systemctl is-system-running 2>/dev/null | grep -Eq 'running|degraded' || { echo "container did not boot systemd" >&2; return 1; }
+  ex systemctl is-system-running 2>/dev/null | grep -Eq 'running|degraded' || { echo "container did not boot systemd" >&2; ex journalctl -b --no-pager -u hatamoto-firstboot -u postgresql -u "postgresql@*" 2>&1 | tail -n 40 >&2; return 1; }
   dk cp "$E/asm/install.sh" "$C:/root/install.sh"
   dk cp "$E/img-check.sh" "$C:/root/img-check.sh"
   dk cp "$E/site-good" "$C:/srv-good"
@@ -216,6 +216,7 @@ run_distro() { # run_distro NAME BASE
     fail "$name: first boot did not finish on the sealed image"; ex journalctl -u hatamoto-firstboot --no-pager | tail -n 30; return 0
   fi
   assert_stack "$name/sealed-boot" 203.0.113.50
+  check "$name/sealed-boot: first boot made a new PostgreSQL TLS key" ex test -s /etc/ssl/private/ssl-cert-snakeoil.key
   dk rm -f -v "$C" >/dev/null 2>&1 || true
 
   # Container 2: the all-in-one path, script read from stdin like curl | sh.

@@ -230,6 +230,13 @@ fb_ensure_host_keys() {
   systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1 || true
 }
 
+# fb_fresh_snakeoil makes this instance's own copy of the key PostgreSQL's default
+# config points at (the seal removes the image's; a shared key would be no secret).
+fb_fresh_snakeoil() {
+  command -v make-ssl-cert >/dev/null 2>&1 || return 0
+  ffs_out="$(make-ssl-cert generate-default-snakeoil --force-overwrite 2>&1)" || die "cannot generate the TLS key PostgreSQL needs: $ffs_out"
+}
+
 # fb_stage NAME runs a stage defined by another part.
 fb_stage() {
   command -v "$1" >/dev/null 2>&1 || die "stage not available in this build: $1"
@@ -294,7 +301,10 @@ stage_firstboot() {
     fi
   fi
 
+  fb_fresh_snakeoil
   systemctl enable --now postgresql >/dev/null 2>&1 || die "cannot start postgresql"
+  # A sealed image started PostgreSQL at boot without the key: bring it up again.
+  systemctl restart postgresql >/dev/null 2>&1 || die "cannot restart postgresql"
   fb_database "$fs_dbpw"
 
   fb_render_env "$fs_dbpw" "$fs_secret" "$fs_code" "$fs_base" > "$FB_TMP/hatamoto.env"
