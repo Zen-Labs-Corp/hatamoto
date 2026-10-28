@@ -141,6 +141,7 @@ GET /admin/setup/content -> admin.(*Admin).handleSetupContentForm-fm
 GET /admin/setup/done -> admin.(*Admin).handleSetupDone-fm
 GET /admin/setup/email -> admin.(*Admin).handleSetupEmailForm-fm
 GET /admin/setup/site -> admin.(*Admin).handleSetupSiteForm-fm
+GET /admin/setup/stats -> admin.(*Admin).handleSetupStatsForm-fm
 GET /admin/setup/theme -> admin.(*Admin).handleSetupThemeForm-fm
 GET /admin/sudo -> admin.(*Admin).handleSudoPage-fm
 GET /admin/theme -> admin.(*Admin).areaEntry.func1
@@ -300,6 +301,7 @@ POST /admin/setup/admin-address/regenerate -> admin.(*Admin).handleSetupAddressR
 POST /admin/setup/content -> admin.(*Admin).handleSetupContent-fm
 POST /admin/setup/email -> admin.(*Admin).handleSetupEmail-fm
 POST /admin/setup/site -> admin.(*Admin).handleSetupSite-fm
+POST /admin/setup/stats -> admin.(*Admin).handleSetupStats-fm
 POST /admin/setup/theme -> admin.(*Admin).handleSetupTheme-fm
 POST /admin/sudo -> admin.(*Admin).handleSudo-fm
 POST /admin/theme -> admin.(*Admin).handleTheme-fm
