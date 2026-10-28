@@ -28,7 +28,7 @@ There are two ways. Pick one.
   curl -fsSL https://hatamoto.dev/install.sh | sudo sh
   ```
 
-- **Paste a cloud-init file.** Many providers have a box named user-data, launch script or startup script, where you paste a file that runs once when the server first starts. The page of provider examples has a ready file for each provider.
+- **Paste a cloud-init file.** Many providers have a box named user-data, launch script or startup script, where you paste a file that runs once when the server first starts. The [VPS provider examples](vps-provider-examples.md) page has a ready file for each provider.
 
 ### Set your options (optional)
 
@@ -38,7 +38,7 @@ Without options the installer picks safe defaults. To change one, set it as an *
 curl -fsSL https://hatamoto.dev/install.sh | sudo env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh
 ```
 
-In a cloud-init file, put the same names in the environment file the example describes.
+In a cloud-init file or launch script, put the same names after `env` in the install command, as the provider examples do.
 
 | Name | What it does | Default |
 |---|---|---|

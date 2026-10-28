@@ -15,7 +15,8 @@
       ],
       "reference": [
         "requirements-and-secrets",
-        "one-site-one-language"
+        "one-site-one-language",
+        "vps-provider-examples"
       ]
     },
     {
