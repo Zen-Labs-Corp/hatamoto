@@ -56,3 +56,9 @@ func Lookup(name string) Text {
 	}
 	return Text{Help: name}
 }
+
+// Help returns the full sentence for a known permission and "" for a name this
+// build does not know, so the admin shows the bare name instead of repeating it.
+func Help(name string) string {
+	return texts[name].Help
+}

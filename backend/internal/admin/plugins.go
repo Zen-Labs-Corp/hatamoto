@@ -371,7 +371,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 	for _, perm := range p.Permissions {
 		refused := slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
-		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Lookup(perm).Help, Granted: g, Refused: refused})
+		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused})
 		switch {
 		case refused:
 		case g:

@@ -37,3 +37,12 @@ func TestUnknownFallsBackToName(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestHelpEmptyForUnknown(t *testing.T) {
+	if got := Help("future.perm"); got != "" {
+		t.Fatalf("unknown Help = %q, want empty", got)
+	}
+	if got := Help(sdk.PermDB); got != "Keep its own data tables" {
+		t.Fatalf("db Help = %q", got)
+	}
+}

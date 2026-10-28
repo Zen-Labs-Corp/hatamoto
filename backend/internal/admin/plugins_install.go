@@ -269,7 +269,7 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 			ticked = sum.Updating && granted && !reset
 		}
 		t := permtext.Lookup(p)
-		d.Perms = append(d.Perms, promptPerm{Name: p, Help: t.Help, Ticked: ticked, New: sum.Updating && !granted && !reset, Warn: t.Warn})
+		d.Perms = append(d.Perms, promptPerm{Name: p, Help: permtext.Help(p), Ticked: ticked, New: sum.Updating && !granted && !reset, Warn: t.Warn})
 	}
 	v := a.NewView(w, r, "Install "+sum.Name)
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: sum.Name}}
