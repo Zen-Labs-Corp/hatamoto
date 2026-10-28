@@ -11,7 +11,9 @@
 #   3. first boot: /health through Caddy is 200, /setup serves the form with the
 #      setupcode module, the login message shows the link, the backup timer is
 #      enabled, nothing but loopback listens on :8090
-#   4. a second fresh container runs the all-in-one path (`sh < install.sh`) with the same checks
+#   4. the sealed image is booted for real: hatamoto-firstboot.service runs by itself
+#      while Caddy is already up, and the same checks pass
+#   5. a second fresh container runs the all-in-one path (`sh < install.sh`) with the same checks
 #
 # Needs: docker (also through `sg docker -c`), go, python3, jq, openssl, network
 # access for apt. Without docker it prints SKIP and exits 0, unless
@@ -184,6 +186,13 @@ run_distro() { # run_distro NAME BASE
   fi
   ex rm -f /opt/hatamoto/config/hatamoto.env
 
+  # Snapshot the sealed machine with the inputs a marketplace image author would bake in,
+  # to boot it for real below (Caddy is already running by then, as on a provider).
+  ex sh -c 'printf "%s\n" HATAMOTO_TLS=internal HATAMOTO_PUBLIC_IP=203.0.113.50 HATAMOTO_FIREWALL=0 > /etc/default/hatamoto-install'
+  sealed_img="hatamoto-install-sealed:$name-$$"
+  dk commit "$C" "$sealed_img" >/dev/null && IMAGES+=("$sealed_img") || { fail "$name: cannot snapshot the sealed container"; return 0; }
+  ex rm -f /etc/default/hatamoto-install
+
   # shellcheck disable=SC2046 # fb_env prints words on purpose
   if ex env $(fb_env "$ip") sh /root/install.sh first-boot >"$E/first-boot-$name.log" 2>&1; then
     pass "$name: first boot succeeds"
@@ -191,6 +200,22 @@ run_distro() { # run_distro NAME BASE
     fail "$name: first boot failed (tail of the log below)"; tail -n 30 "$E/first-boot-$name.log"; return 0
   fi
   assert_stack "$name/sealed+first-boot" "$ip"
+  dk rm -f -v "$C" >/dev/null 2>&1 || true
+
+  # Container 3: the sealed image boots, hatamoto-firstboot.service runs by itself and must
+  # replace the package Caddy config of the already-running Caddy.
+  start_container "$sealed_img" "hm-inst-$name-c-$$" || { fail "$name: the sealed image did not boot"; return 0; }
+  local i
+  for i in $(seq 1 120); do
+    ex test -e /var/lib/hatamoto-install/firstboot.done && break
+    sleep 2
+  done
+  if ex test -e /var/lib/hatamoto-install/firstboot.done; then
+    pass "$name: hatamoto-firstboot.service finished on the sealed image"
+  else
+    fail "$name: first boot did not finish on the sealed image"; ex journalctl -u hatamoto-firstboot --no-pager | tail -n 30; return 0
+  fi
+  assert_stack "$name/sealed-boot" 203.0.113.50
   dk rm -f -v "$C" >/dev/null 2>&1 || true
 
   # Container 2: the all-in-one path, script read from stdin like curl | sh.

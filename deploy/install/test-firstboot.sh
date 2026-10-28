@@ -46,6 +46,7 @@ mk curl <<'FAKE'
 #!/bin/sh
 printf 'curl %s\n' "$*" >> "$CALLS"
 case "$*" in
+  *--resolve*) [ -z "${FAKE_PROXY_FAIL:-}" ] || exit 22; echo ok ;;
   *api.ipify.org*) [ -n "${FAKE_IP:-}" ] && echo "$FAKE_IP" || exit 22 ;;
   *) echo ok ;;
 esac
@@ -181,8 +182,8 @@ grep -qx $'\temail ops@example.com' "$r/etc/caddy/Caddyfile" || fail "caddyfile 
 [ "$(cat "$r/etc/caddy/Caddyfile.orig")" = "# package default" ] || fail "package Caddyfile not kept"
 pass "Caddyfile written, original kept"
 
-order="$(grep -nE '^systemctl enable --now (postgresql|caddy|hatamoto-api)' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
-[ "$order" = "systemctl enable --now postgresql,systemctl enable --now caddy,systemctl enable --now hatamoto-api," ] || fail "service order: $order"
+order="$(grep -nE '^systemctl (enable --now postgresql|enable caddy|restart caddy|enable hatamoto-api|restart hatamoto-api)$' "$tmp/calls" | sed 's/^[0-9]*://' | tr '\n' ',')"
+[ "$order" = "systemctl enable --now postgresql,systemctl enable caddy,systemctl restart caddy,systemctl enable hatamoto-api,systemctl restart hatamoto-api," ] || fail "service order (running services must be restarted): $order"
 grep -qx 'hatamoto migrate user=hatamoto db=set' "$tmp/calls" || fail "migrate not run as hatamoto with the env"
 if grep -E '^hatamoto ' "$tmp/calls" | grep -vq 'user=hatamoto'; then fail "hatamoto ran as another user"; fi
 [ "$(grep -c '^hatamoto admin-url' "$tmp/calls")" = 3 ] || fail "admin-url not retried until it is a URL"
@@ -271,6 +272,18 @@ run_fb "$r" HATAMOTO_TLS=off || fail "off run failed"
 grep -qx 'http://203-0-113-7.sslip.io {' "$r/etc/caddy/Caddyfile" || fail "http site"
 grep -qx 'PUBLIC_BASE_URL=http://203-0-113-7.sslip.io' "$r/opt/hatamoto/config/hatamoto.env" || fail "http base url"
 pass "TLS modes end to end"
+
+# No answer through Caddy: a failure for internal/off, a warning for auto.
+for m in internal off; do
+  r="$(mkroot "noproxy$m")"
+  if run_fb "$r" HATAMOTO_TLS=$m FAKE_PROXY_FAIL=1; then fail "TLS=$m: a missing answer through Caddy was accepted"; fi
+  grep -q 'no answer through Caddy' "$tmp/err" || fail "TLS=$m: message: $(cat "$tmp/err")"
+  [ ! -e "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "TLS=$m: done marker after a proxy failure"
+done
+r="$(mkroot noproxyauto)"
+run_fb "$r" FAKE_PROXY_FAIL=1 || fail "TLS=auto: a pending certificate must only warn: $(cat "$tmp/err")"
+grep -q 'warning: no answer through Caddy yet' "$tmp/err" || fail "TLS=auto warning missing"
+pass "no answer through Caddy: failure for internal/off, warning for auto"
 
 # --- public IP detection --------------------------------------------------------------------
 r="$(mkroot ipdetect)"

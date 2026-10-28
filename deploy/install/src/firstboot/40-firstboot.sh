@@ -309,8 +309,12 @@ stage_firstboot() {
   fb_render_caddyfile "$fs_host" "$IN_TLS" "$IN_EMAIL" > "$FB_TMP/Caddyfile"
   install -m 0644 "$FB_TMP/Caddyfile" "$fs_caddy"
 
-  systemctl enable --now caddy >/dev/null 2>&1 || die "cannot start caddy: see journalctl -u caddy"
-  systemctl enable --now hatamoto-api >/dev/null 2>&1 || die "cannot start hatamoto-api: see journalctl -u hatamoto-api"
+  # Restart, not just start: on a sealed image or a resumed run both services may
+  # already be running with the package default config / the old env file.
+  systemctl enable caddy >/dev/null 2>&1 || die "cannot enable caddy"
+  systemctl restart caddy >/dev/null 2>&1 || die "cannot start caddy: see journalctl -u caddy"
+  systemctl enable hatamoto-api >/dev/null 2>&1 || die "cannot enable hatamoto-api"
+  systemctl restart hatamoto-api >/dev/null 2>&1 || die "cannot start hatamoto-api: see journalctl -u hatamoto-api"
   fb_wait_ready
 
   fs_admin="$(fb_admin_url)"
@@ -319,6 +323,8 @@ stage_firstboot() {
   fs_link="$fs_admin/setup#code=$fs_code"
 
   if ! fb_wait_proxy "$fs_host"; then
+    # With a public certificate the issuance may still be pending; with Caddy's own CA or plain http nothing can be.
+    [ "$IN_TLS" = auto ] || die "no answer through Caddy: see journalctl -u caddy"
     warn "no answer through Caddy yet: the certificate may still be pending (Caddy keeps retrying); see journalctl -u caddy"
   fi
 
