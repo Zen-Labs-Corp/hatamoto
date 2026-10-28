@@ -314,6 +314,35 @@ grep -q 'ALTER ROLE hatamoto' "$tmp/state/psql-stdin" || fail "resume did not re
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "resume did not finish"
 pass "resume keeps secrets and finishes"
 
+# --- a failed run keeps the inputs for the resume at the next boot ----------------------------------
+r="$(mkroot inputs)"
+inputs=(HATAMOTO_DOMAIN=cms.example.com HATAMOTO_TLS=internal HATAMOTO_BACKUPS=0 HATAMOTO_FIREWALL=0 HATAMOTO_ADMIN_EMAIL=ops@example.com HATAMOTO_VERSION=v1.2.3)
+if FAKE_MIGRATE_FAIL=1 run_fb "$r" "${inputs[@]}" HATAMOTO_SETUP_CODE=k7m2-rt9p-qw4x; then fail "migrate failure ignored"; fi
+saved="$r/etc/default/hatamoto-install"
+[ "$(stat -c %a "$saved")" = 600 ] || fail "saved inputs mode $(stat -c %a "$saved" 2>&1)"
+for want in "${inputs[@]}" HATAMOTO_PUBLIC_IP=203.0.113.7; do grep -qxF "$want" "$saved" || fail "saved inputs lack $want: $(cat "$saved")"; done
+if grep -q 'SETUP_CODE\|k7m2' "$saved"; then fail "the setup code was saved in the inputs file"; fi
+# The resumed run (the unit) starts with only what the file holds, as systemd's EnvironmentFile would.
+mapfile -t fromfile < "$saved"
+rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/state/db"; : > "$tmp/state/migrate-failed"
+run_resume() { env -i PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
+  HATAMOTO_FIRSTBOOT_POLL=0 "${fromfile[@]}" sh -c '. "$1"
+    install_motd() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
+    stage_firstboot' _ "$fbscript" >"$tmp/out" 2>"$tmp/err"; }
+: > "$tmp/calls"
+run_resume || fail "resume from the saved inputs failed: $(cat "$tmp/err")"
+grep -qxF $'\ttls internal' "$r/etc/caddy/Caddyfile" || fail "resume lost HATAMOTO_TLS"
+grep -qxF $'\temail ops@example.com' "$r/etc/caddy/Caddyfile" || fail "resume lost HATAMOTO_ADMIN_EMAIL"
+grep -qx 'pending=cms.example.com' "$tmp/calls" || fail "resume lost HATAMOTO_DOMAIN"
+pass "a failed run saves its inputs (0600, no setup code) and the resume sees them"
+# An image author's value is never replaced.
+r="$(mkroot inputs-keep)"
+mkdir -p "$r/etc/default"; printf 'HATAMOTO_TLS=internal\n' > "$r/etc/default/hatamoto-install"
+run_fb "$r" HATAMOTO_TLS=off HATAMOTO_DOMAIN=cms.example.com || fail "keep run failed: $(cat "$tmp/err")"
+[ "$(grep -c '^HATAMOTO_TLS=' "$r/etc/default/hatamoto-install")" = 1 ] && grep -qx 'HATAMOTO_TLS=internal' "$r/etc/default/hatamoto-install" || fail "saved TLS value was replaced"
+grep -qx 'HATAMOTO_DOMAIN=cms.example.com' "$r/etc/default/hatamoto-install" || fail "missing input not added"
+pass "values already in the inputs file are kept"
+
 # --- host keys of a sealed image ----------------------------------------------------------------
 r="$(mkroot keys)"; rm "$r/etc/ssh/ssh_host_ed25519_key"
 : > "$tmp/calls"

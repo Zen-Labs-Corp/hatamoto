@@ -237,6 +237,35 @@ fb_fresh_snakeoil() {
   ffs_out="$(make-ssl-cert generate-default-snakeoil --force-overwrite 2>&1)" || die "cannot generate the TLS key PostgreSQL needs: $ffs_out"
 }
 
+# fb_persist_one FILE NAME VALUE appends NAME=VALUE unless the file already has NAME
+# (an image author's value wins) or VALUE is empty or not plain enough for systemd's
+# EnvironmentFile and sh alike.
+fb_persist_one() {
+  [ -n "$3" ] || return 0
+  ! grep -q "^$2=" "$1" || return 0
+  case "$3" in
+    *[!A-Za-z0-9@._:/+%-]*) warn "$2 has unusual characters: not saved for a resumed run"; return 0 ;;
+  esac
+  printf '%s=%s\n' "$2" "$3" >> "$1"
+}
+
+# fb_persist_inputs saves the non-secret inputs where hatamoto-firstboot.service reads them,
+# so a run that fails and resumes at the next boot sees what the user asked for.
+# Never the setup code or any secret.
+fb_persist_inputs() {
+  fpi_file="$(dest /etc/default/hatamoto-install)"
+  mkdir -p "$(dirname "$fpi_file")"
+  [ -e "$fpi_file" ] || : > "$fpi_file"
+  chmod 0600 "$fpi_file"
+  fb_persist_one "$fpi_file" HATAMOTO_DOMAIN "${HATAMOTO_DOMAIN:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_TLS "${HATAMOTO_TLS:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_BACKUPS "${HATAMOTO_BACKUPS:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_PUBLIC_IP "${HATAMOTO_PUBLIC_IP:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_FIREWALL "${HATAMOTO_FIREWALL:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_ADMIN_EMAIL "${HATAMOTO_ADMIN_EMAIL:-}"
+  fb_persist_one "$fpi_file" HATAMOTO_VERSION "${HATAMOTO_VERSION:-}"
+}
+
 # fb_stage NAME runs a stage defined by another part.
 fb_stage() {
   command -v "$1" >/dev/null 2>&1 || die "stage not available in this build: $1"
@@ -256,6 +285,7 @@ stage_firstboot() {
   need_cmd sudo
   need_cmd curl
   case "$IN_TLS" in auto | internal | off) ;; *) die "HATAMOTO_TLS must be auto, internal or off" ;; esac
+  fb_persist_inputs
 
   FB_TMP="$(mktemp -d)"
   trap 'rm -rf "$FB_TMP"' EXIT
