@@ -5,6 +5,6 @@
   "description": "Dev-only generator for the homepage screenshots (seeded demo, framed WebPs). Not shipped.",
   "dependencies": {
     "playwright-core": "^1.49.0",
-    "sharp": "^0.33.5"
+    "sharp": "^0.35.5"
   }
 }
