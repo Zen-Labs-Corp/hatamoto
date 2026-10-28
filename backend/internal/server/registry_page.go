@@ -9,8 +9,9 @@ import (
 )
 
 // registryPathRe matches /plugins/<name> and /themes/<name>; it runs first so
-// a path that cannot be a registry page costs nothing.
-var registryPathRe = regexp.MustCompile(`^/(plugins|themes)/([a-z0-9][a-z0-9-]*)$`)
+// a path that cannot be a registry page costs nothing. The name part is
+// sdk.NamePattern.
+var registryPathRe = regexp.MustCompile(`^/(plugins|themes)/([a-z][a-z0-9-]{1,39})$`)
 
 // registryRoute is a plugin or theme detail page: the verified registry
 // entry's card for Name. Type is "plugin" or "theme"; Plugin or Theme is set.
@@ -53,6 +54,11 @@ func (s *Server) resolveRegistryWith(ctx context.Context, path string, hostPage 
 	if m[1] == "themes" {
 		typ, dirType = "theme", "theme_directory"
 	}
+	// With a warm directory an unknown name is a 404 before any page load, so
+	// random names cost no database work.
+	if vs, ok := s.pluginDirectory().cached(); ok && vs.route(typ, name) == nil {
+		return nil, nil
+	}
 	rr, _, err := hostPage(listPath)
 	if err != nil {
 		return nil, err
@@ -65,32 +71,32 @@ func (s *Server) resolveRegistryWith(ctx context.Context, path string, hostPage 
 	if !hasDirectorySection(viewSections(sections, doc), dirType) {
 		return nil, nil
 	}
-	vs := s.pluginDirectory().Views(ctx)
-	route := &registryRoute{Type: typ, Name: name}
-	switch typ {
-	case "plugin":
+	return s.pluginDirectory().Views(ctx).route(typ, name), nil
+}
+
+// route is the registry route of the named entry, nil when the directory is not
+// ok or has no such entry.
+func (vs directoryViews) route(typ, name string) *registryRoute {
+	if typ == "plugin" {
 		if vs.plugins.State != render.PluginDirectoryOK {
-			return nil, nil
+			return nil
 		}
 		for i := range vs.plugins.Cards {
 			if vs.plugins.Cards[i].Name == name {
-				route.Plugin = &vs.plugins.Cards[i]
+				return &registryRoute{Type: typ, Name: name, Plugin: &vs.plugins.Cards[i]}
 			}
 		}
-	default:
-		if vs.themes.State != render.PluginDirectoryOK {
-			return nil, nil
-		}
-		for i := range vs.themes.Cards {
-			if vs.themes.Cards[i].Name == name {
-				route.Theme = &vs.themes.Cards[i]
-			}
+		return nil
+	}
+	if vs.themes.State != render.PluginDirectoryOK {
+		return nil
+	}
+	for i := range vs.themes.Cards {
+		if vs.themes.Cards[i].Name == name {
+			return &registryRoute{Type: typ, Name: name, Theme: &vs.themes.Cards[i]}
 		}
 	}
-	if route.Plugin == nil && route.Theme == nil {
-		return nil, nil
-	}
-	return route, nil
+	return nil
 }
 
 // fillRegistry turns v into the detail page of rt: kind, card, SEO meta and

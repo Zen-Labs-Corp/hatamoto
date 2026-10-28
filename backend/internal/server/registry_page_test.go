@@ -175,7 +175,8 @@ func TestRegistryPageNotFound(t *testing.T) {
 // A name that cannot be a registry name is refused before any page lookup.
 func TestRegistryPageBadNameSkipsLookup(t *testing.T) {
 	g := newRegistryRig(t, registryEntries...)
-	for _, p := range []string{"/plugins/Tagger", "/plugins/-x", "/plugins/a_b", "/plugins/a/b", "/plugins", "/other/tagger"} {
+	long := "/plugins/a" + strings.Repeat("b", 40)
+	for _, p := range []string{long, "/plugins/a", "/plugins/9x", "/plugins/Tagger", "/plugins/-x", "/plugins/a_b", "/plugins/a/b", "/plugins", "/other/tagger"} {
 		if w := g.f.get(p); w.Code != 404 {
 			t.Errorf("%s: status %d, want 404", p, w.Code)
 		}
@@ -200,5 +201,21 @@ func TestRegistryPageCMSPageWins(t *testing.T) {
 	w := g.f.get("/plugins/tagger")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Own page") || strings.Contains(w.Body.String(), "hm-registry") {
 		t.Fatalf("CMS page did not win: %d\n%s", w.Code, w.Body.String())
+	}
+}
+
+// With the directory warm, an unknown name is refused before the host page
+// is loaded; a known name still resolves through it.
+func TestRegistryPageUnknownNameSkipsPageLoad(t *testing.T) {
+	g := newRegistryRig(t, registryEntries...)
+	g.s.pluginDirectory().Views(context.Background())
+	if w := g.f.get("/plugins/nope"); w.Code != 404 {
+		t.Fatalf("status %d, want 404", w.Code)
+	}
+	if g.hostHits != 0 {
+		t.Errorf("host page loaded %d times for an unknown name", g.hostHits)
+	}
+	if w := g.f.get("/plugins/tagger"); w.Code != 200 || g.hostHits != 1 {
+		t.Errorf("known name: status %d, host loads %d", w.Code, g.hostHits)
 	}
 }

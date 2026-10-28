@@ -104,6 +104,17 @@ func (d *registryDirectory) Views(ctx context.Context) directoryViews {
 	}
 }
 
+// cached returns the current snapshot without fetching; ok is false when it is
+// missing or stale.
+func (d *registryDirectory) cached() (directoryViews, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.now().Before(d.snap.until) {
+		return d.snap.views, true
+	}
+	return directoryViews{}, false
+}
+
 func unavailableDirectory() directoryViews {
 	return directoryViews{
 		plugins: render.PluginDirectoryView{State: render.PluginDirectoryUnavailable},
