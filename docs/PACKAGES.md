@@ -241,8 +241,8 @@ by a manifest with `"tier": "first-party"` (no `author`), like every other plugi
 
 | Plugin | Repository | What it does |
 |---|---|---|
-| `searchconsole` | [Zen-Labs-Corp/hatamoto-plugin-searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-plugin-searchconsole) | Google Search Console: OAuth, sites, sitemap submit, URL inspection, daily performance import |
-| `gtm` | [Zen-Labs-Corp/hatamoto-plugin-gtm](https://github.com/Zen-Labs-Corp/hatamoto-plugin-gtm) | Google Tag Manager: loads your container on every public page from a container ID in the plugin settings (`settings` permission only) |
+| `searchconsole` | [Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) | Google Search Console: OAuth, sites, sitemap submit, URL inspection, daily performance import |
+| `gtm` | [Zen-Labs-Corp/hatamoto-first-party/plugins/gtm](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) | Google Tag Manager: loads your container on every public page from a container ID in the plugin settings (`settings` permission only) |
 
 Their source is the reference for real-world plugins. The `tier` is only the
 label in the plugin directory: `registry/build-community.sh` accepts it for a

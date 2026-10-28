@@ -30,7 +30,7 @@ all: build
 # WASM plugins under examples/plugins/<name>: plugin.wasm (standard Go, wasip1
 # reactor) plus plugin.json, migrations/, ui/ and assets/, staged in <name>/build/ ready
 # for `hatamoto plugin pack`. hello is the reference (datasource-demo the builder data source). The
-# first-party plugins (gtm, searchconsole) live in their own repos and reach the registry through
+# first-party plugins (gtm, searchconsole) live in the hatamoto-first-party monorepo and reach the registry through
 # the plugins repo manifests, like every other plugin.
 PLUGINS := hello datasource-demo
 

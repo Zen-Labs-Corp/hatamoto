@@ -21,7 +21,7 @@ captures every shot, and writes the contact sheet. Result in `scripts/homepage-s
 ## Prerequisites
 
 Go, Node 20+, Postgres 17 or 18 binaries (`initdb`, `pg_ctl`, `psql`), Google Chrome at
-`/usr/bin/google-chrome`, and the gtm plugin checked out at `../hatamoto-plugin-gtm (a sibling checkout)`.
+`/usr/bin/google-chrome`, and the gtm plugin from a sibling `hatamoto-first-party` checkout (`../hatamoto-first-party/plugins/gtm`).
 `npm ci` runs on first use. The gtm package is built into a temporary copy and signed with a key
 generated for the run (or reused from `SHOTS_CACHE` if set); the server trusts only that key (`HATAMOTO_TRUSTED_KEYS`). No real key is read.
 
@@ -33,7 +33,7 @@ generated for the run (or reused from `SHOTS_CACHE` if set); the server trusts o
 | `QA_VERSION` | `v0.26.0` | version stamped into the build (Settings > Updates leaves the dev-build state) |
 | `CHROME` | `/usr/bin/google-chrome` | browser |
 | `PG_BIN` | newest `/usr/lib/postgresql/*/bin` | Postgres binaries |
-| `GTM_REPO` | `../hatamoto-plugin-gtm (a sibling checkout)` | plugin source |
+| `GTM_REPO` | `../hatamoto-first-party/plugins/gtm` (in a sibling checkout) | plugin source |
 | `ONLY` | all | comma separated slots to capture |
 | `HATAMOTO_BIN` | build from source | a prebuilt binary (must be stamped with `QA_VERSION`) |
 | `SHOTS_CACHE` | none | directory that caches the demo signing key (`demo.key`, `demo.pub`) and the built `gtm.hmp` between runs, so reruns skip the plugin build. Dev only: it is a throwaway demo key trusted only by the local throwaway server, never put a real key there. Must be outside the repo (run.sh refuses a path inside it) |

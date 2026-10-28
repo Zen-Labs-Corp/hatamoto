@@ -1,8 +1,8 @@
 # Plugin registry
 
 The default registry (`https://hatamoto.dev/registry.json`) lists the plugins
-Hatamoto ships (`searchconsole` and `gtm`, first-party, each in its own repo under
-`Zen-Labs-Corp`) and the approved community plugins, all built from manifests in the
+Hatamoto ships (`searchconsole` and `gtm`, first-party, each in its own folder of the
+monorepo `Zen-Labs-Corp/hatamoto-first-party`) and the approved community plugins, all built from manifests in the
 plugins repository and signed with the **hatamoto first-party** key.
 
 ```sh

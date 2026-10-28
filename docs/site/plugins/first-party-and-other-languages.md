@@ -12,8 +12,8 @@ The best documentation for a real plugin is a real plugin. Two integrations ship
 
 | Plugin | Source | Permissions | What it does |
 |---|---|---|---|
-| `gtm` | [Zen-Labs-Corp/hatamoto-plugin-gtm](https://github.com/Zen-Labs-Corp/hatamoto-plugin-gtm) | `settings` | Loads your Google Tag Manager container on every public page from a container ID in the plugin settings. |
-| `searchconsole` | [Zen-Labs-Corp/hatamoto-plugin-searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-plugin-searchconsole) | `db`, `kv`, `http.fetch`, `settings`, `log` | Google Search Console: OAuth, site selection, sitemap submission, URL inspection and a daily performance import. |
+| `gtm` | [Zen-Labs-Corp/hatamoto-first-party/plugins/gtm](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) | `settings` | Loads your Google Tag Manager container on every public page from a container ID in the plugin settings. |
+| `searchconsole` | [Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) | `db`, `kv`, `http.fetch`, `settings`, `log` | Google Search Console: OAuth, site selection, sitemap submission, URL inspection and a daily performance import. |
 
 Both are listed in the public plugins repository by a manifest with `"tier": "first-party"`, built from their pinned commit and signed with the first-party key into the default registry (`make registry`), which every server trusts. The private key is never in a repository. They build against the public SDK like any other plugin. The `hello` plugin is the reference for the basics, and the two above show real-world patterns. Two more examples cover the page builder: `examples/plugins/datasource-demo` answers the `builder.data` filter, and `examples/plugins/widgetpack-demo` is a widget pack with no code. `make plugins` builds `hello` and `datasource-demo`.
 

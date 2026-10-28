@@ -53,7 +53,7 @@ Hatamoto is licensed under Apache-2.0 and developed in the open. In this guide y
    | `backend/migrations` | Embedded schema migrations. See [Writing migrations](writing-migrations.md). |
    | `backend/web` | Admin templates, CSS and JavaScript, plus byte-pinned vendored browser assets. |
    | `backend/tools` | Developer tools such as `release`, `licenses`, `vendor` and `docs-publish`, never linked into the program. |
-   | `examples/plugins` | The reference plugin `hello` and the demo plugins. The first-party plugins have their own repositories. |
+   | `examples/plugins` | The reference plugin `hello` and the demo plugins. The first-party plugins live in the first-party monorepo, `Zen-Labs-Corp/hatamoto-first-party`. |
    | `deploy`, `Dockerfile`, `docker-compose.yml` | Packaging and deployment files. |
    | `docs`, `docs/site` | Developer documents, and these published docs. |
    | `scripts` | Guards and release helpers. |

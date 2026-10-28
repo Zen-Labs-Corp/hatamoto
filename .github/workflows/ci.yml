@@ -141,7 +141,7 @@ jobs:
         run: go run ./tools/licenses
       - name: Build the example plugins
         run: make -C .. plugins
-      # The first-party plugins live in their own repos and are built from manifests
+      # The first-party plugins live in the hatamoto-first-party monorepo and are built from manifests
       # (make registry COMMUNITY_DIR=...); here only the build script's offline fixture test runs.
       - name: Registry build tests
         run: |

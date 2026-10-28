@@ -80,7 +80,7 @@ One install = one site = one language.
 | Observability | `slog`, `/health`, `/ready` | keep | custom OTLP tracer |
 | Email | SMTP (optional; CLI fallback for password reset) | keep | SES webhook |
 | Forms | forms, submissions, CSV export | keep | lead CRM |
-| Integrations | Search Console as a first-party registry plugin (its own repo, `Zen-Labs-Corp/hatamoto-plugin-searchconsole`); webhooks built in (see `docs/WEBHOOKS.md`) | move | in-core packages |
+| Integrations | Search Console as a first-party registry plugin (in the first-party monorepo, `Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole`); webhooks built in (see `docs/WEBHOOKS.md`) | move | in-core packages |
 | WordPress import | REST + WXR importer with a URL audit | add | — |
 | Backup / portability | `hatamoto export` / `import` full-site archive (JSON + media) | add | — |
 | Tests | stdlib `testing`, `httptest`, golden files, Postgres integration tests; never compiled into the binary | keep | testify, vitest, chromedp |

@@ -4,7 +4,7 @@
 # Usage: scripts/homepage-shots/run.sh
 # Env: OUT_DIR (default scripts/homepage-shots/out), QA_VERSION (default
 # v0.26.0, stamped into the build so Settings > Updates leaves the dev-build state),
-# CHROME, PG_BIN, GTM_REPO (default ../hatamoto-plugin-gtm), ONLY (comma
+# CHROME, PG_BIN, GTM_REPO (default ../hatamoto-first-party/plugins/gtm), ONLY (comma
 # separated slots), HATAMOTO_BIN (prebuilt binary stamped with QA_VERSION, skips the build),
 # SHOTS_CACHE (dir that keeps the demo key and gtm.hmp between runs, for iterating; dev only,
 # the key is a throwaway demo key, never put a real key there; must be outside the repo),
