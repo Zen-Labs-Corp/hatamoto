@@ -121,6 +121,42 @@ neg "bad author" acme-seo "$(base acme-seo $https $good | jq '.author="-x"')" "b
 neg "empty title" acme-seo "$(base acme-seo $https $good | jq '.title=""')" "bad title"
 neg "padded title" acme-seo "$(base acme-seo $https $good | jq '.title="a "')" "bad title"
 neg "control title" acme-seo "$(base acme-seo $https $good | jq '.title="a\u0007b"')" "bad title"
+# about and features (optional): one negative per rule (same rules and wording as build-community.sh).
+an0=$n
+longabout=$(printf 'x%.0s' $(seq 1501))
+elevenp=$(printf 'p\n%.0s' $(seq 11))
+f9=$(jq -nc '[range(9) | "item \(.)"]')
+f121=$(jq -nc --arg s "$(printf 'x%.0s' $(seq 121))" '[$s]')
+aneg() { # aneg <label> <jq-filter> <substring>
+  neg "$1" acme-seo "$(base acme-seo $https $good | jq --arg la "$longabout" --arg ep "$elevenp" --argjson f9 "$f9" --argjson f121 "$f121" "$2")" "$3"
+}
+aneg "about too long" '.about=$la' "about must be 1 to 1500"
+aneg "about empty" '.about=""' "about must be 1 to 1500"
+aneg "about not a string" '.about=5' "about must be a string"
+aneg "about control char" '.about="a\u0007b"' "about must not contain control"
+aneg "about tab" '.about="a\tb"' "about must not contain control"
+aneg "about carriage return" '.about="a\r\nb"' "about must not contain control"
+aneg "about url" '.about="see https://example.test/x"' "about must not contain a URL"
+aneg "about www" '.about="see www.example.test"' "about must not contain a URL"
+aneg "about angle bracket" '.about="a <b> c"' "about must not contain < or >"
+aneg "about empty paragraph" '.about="one\n\ntwo"' "about must not have an empty paragraph"
+aneg "about edge space" '.about=" one"' "about must not start or end with whitespace"
+aneg "about eleven paragraphs" '.about=$ep' "about must have at most 10 paragraphs"
+aneg "about emoji" '.about="Great \ud83d\ude80 theme"' "about must not contain emoji"
+aneg "features not a list" '.features="a"' "features must be a list of strings"
+aneg "features non-string item" '.features=["a",5]' "features must be a list of strings"
+aneg "features empty list" '.features=[]' "features must list 1 to 8"
+aneg "features nine items" '.features=$f9' "features must list 1 to 8"
+aneg "features long item" '.features=$f121' "each feature must be 1 to 120"
+aneg "features empty item" '.features=["a",""]' "each feature must be 1 to 120"
+aneg "features newline" '.features=["a\nb"]' "a feature must not contain control"
+aneg "features url" '.features=["see https://example.test"]' "a feature must not contain a URL"
+aneg "features angle bracket" '.features=["<b>"]' "a feature must not contain < or >"
+aneg "features edge space" '.features=["a "]' "a feature must not start or end with whitespace"
+aneg "features duplicate" '.features=["Fast","fast"]' "features must not repeat an item"
+aneg "features emoji" '.features=["Fast \ud83d\ude80"]' "a feature must not contain emoji"
+neg "still unknown field" acme-seo "$(base acme-seo $https $good | jq '.about="ok" | .abstract="x"')" "unknown field"
+echo "ok: $((n - an0)) about/features negative cases"
 neg "http repo" acme-seo "$(base acme-seo http://example.com/a/b $good)" "repo must be"
 neg "ip repo" acme-seo "$(base acme-seo https://10.0.0.1/a/b $good)" "repo must be"
 neg "localhost repo" acme-seo "$(base acme-seo https://localhost/a/b $good)" "repo must be"
@@ -168,7 +204,7 @@ mktheme "$work/arcsrc" cirrus 0.3.0
 arcsha=$(sha256sum "$work/cirrus.zip" | cut -d' ' -f1)
 reg="$work/reg"
 manifest "$reg" aurora "$(base aurora "file://$src1" "$sha1")"
-manifest "$reg" boreal "$(base boreal "file://$src2" "$sha2" sub/deep | jq '.title="Boreal Lights"')"
+manifest "$reg" boreal "$(base boreal "file://$src2" "$sha2" sub/deep | jq '.title="Boreal Lights" | .about="Calm colours.\nDark mode too." | .features=["Dark mode","Wide layout"]')"
 manifest "$reg" cirrus "$(abase cirrus "file://$work/cirrus.zip" "$arcsha")"
 printf '# readme\n' >"$reg/manifests/themes/README.md"
 printf '{"existing":{"tier":"first-party"}}' >"$work/meta.in"
@@ -183,7 +219,7 @@ for t in aurora boreal cirrus; do
 done
 kid=$(jq -r .key_id "$key")
 jq -e --arg c "$sha1" '.existing.tier == "first-party" and .aurora == {author:"acme",source:"file:///'"${src1#/}"'",commit:$c,tier:"community",screenshot:"screenshots/aurora.png"}' "$work/o/meta.json" >/dev/null || fail "aurora meta: $(cat "$work/o/meta.json")"
-jq -e '.boreal.title == "Boreal Lights" and .boreal.screenshot == "screenshots/boreal.png" and .boreal.commit == "'"$sha2"'"' "$work/o/meta.json" >/dev/null || fail "boreal meta"
+jq -e '.boreal.title == "Boreal Lights" and .boreal.about == "Calm colours.\nDark mode too." and .boreal.features == ["Dark mode","Wide layout"] and .boreal.screenshot == "screenshots/boreal.png" and .boreal.commit == "'"$sha2"'"' "$work/o/meta.json" >/dev/null || fail "boreal meta"
 jq -e --arg u "file://$work/cirrus.zip" '.cirrus == {author:"acme",source:$u,tier:"community",screenshot:"screenshots/cirrus.png"}' "$work/o/meta.json" >/dev/null || fail "cirrus meta (archive: no commit)"
 # Archive layout and sidecars.
 af="aurora-1.0.0-${sha1:0:12}-$kid"
