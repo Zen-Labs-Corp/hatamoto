@@ -6,6 +6,7 @@
 .hm-registry__tier { padding: 0.1rem 0.5rem; border: 1px solid var(--hm-hair); border-radius: 999px; background: var(--hm-shiro); }
 .hm-registry__lede { margin: 0.75rem 0 0; font-size: 1.1rem; color: var(--ht-fg-muted); }
 .hm-registry__cols { display: grid; gap: 2rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+.hm-registry__cols--single { grid-template-columns: minmax(0, 1fr); }
 .hm-registry__shot { display: block; max-width: 100%; height: auto; margin-bottom: 1.5rem; border: 1px solid var(--hm-hair); border-radius: var(--hm-radius-md); }
 .hm-registry__h { font-size: 1.125rem; margin: 1.5rem 0 0.5rem; }
 .hm-registry__main > .hm-registry__h:first-child { margin-top: 0; }

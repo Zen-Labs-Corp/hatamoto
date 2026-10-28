@@ -8,14 +8,14 @@
 <p class="hm-registry__meta">{{if $i.TierLabel}}<span class="hm-registry__tier">{{$i.TierLabel}}</span> {{end}}<span>{{$i.Version}}</span></p>
 {{with $i.Description}}<p class="hm-registry__lede">{{.}}</p>{{end}}
 </header>
-<div class="hm-registry__cols">
-<div class="hm-registry__main">
+{{$shot := false}}{{if .Theme}}{{if hasPrefix $i.Screenshot "https://"}}{{$shot = true}}{{end}}{{end}}{{$main := or $shot $i.About $i.Features}}<div class="hm-registry__cols{{if not $main}} hm-registry__cols--single{{end}}">
+{{if $main}}<div class="hm-registry__main">
 {{if .Theme}}{{with $i.Screenshot}}{{if hasPrefix . "https://"}}<img class="hm-registry__shot" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}{{end}}
 {{with $i.About}}<h2 class="hm-registry__h">About</h2>
 {{range .}}<p>{{.}}</p>
 {{end}}{{end}}{{with $i.Features}}<h2 class="hm-registry__h">Features</h2>
 <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
-{{end}}</div>
+{{end}}</div>{{end}}
 <aside class="hm-registry__side" aria-label="Details">
 <dl class="hm-registry__facts">
 <dt>Version</dt><dd>{{$i.Version}}</dd>

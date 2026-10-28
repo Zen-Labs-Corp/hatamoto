@@ -69,6 +69,24 @@ func TestRegistryPagePlugin(t *testing.T) {
 	}
 }
 
+func TestRegistryPageSingleColumnWhenMainEmpty(t *testing.T) {
+	e, _ := New(Options{})
+	v := registryPluginView()
+	out := renderRegistry(t, e, v)
+	if strings.Contains(out, "hm-registry__cols--single") || !strings.Contains(out, `class="hm-registry__main"`) {
+		t.Errorf("about and features present: want two columns:\n%s", mainInner(t, out))
+	}
+	v = registryPluginView()
+	v.Registry.Plugin.About, v.Registry.Plugin.Features = nil, nil
+	out = renderRegistry(t, e, v)
+	if !strings.Contains(out, "hm-registry__cols--single") || strings.Contains(out, "hm-registry__main") {
+		t.Errorf("nothing for the main column: want single column without it:\n%s", mainInner(t, out))
+	}
+	if !strings.Contains(out, `class="hm-registry__side"`) {
+		t.Error("aside missing")
+	}
+}
+
 func TestRegistryPageTheme(t *testing.T) {
 	e, _ := New(Options{})
 	v := minimalView()
