@@ -566,6 +566,13 @@ desc_neg "description with many sentences" "sentence terminators" "Syncs notes. 
 desc_neg "description with a symbol" "may contain only letters" "Syncs notes to the site ★ with care"
 desc_neg "description with a banned word" "banned word \"best\"" "The best way to keep notes on your site"
 desc_neg "description with four brands" "more than 3 brands" "Works with stripe, paypal, shopify and hubspot orders"
+# Go's decoder folds key case (and U+017F to s), jq does not: such keys are refused.
+v=$(variant keycase sh -c 'jq ". + {Description: \"BEST FREE SEO now for every site\"}" plugin.json >p.new && mv p.new plugin.json')
+manifest "$work/keycase" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+build_neg "description key with a capital" "keys must be lowercase identifiers" "$work/keycase"
+v=$(variant keyfold sh -c 'jq ". + {\"deſcription\": \"BEST FREE SEO now for every site\"}" plugin.json >p.new && mv p.new plugin.json')
+manifest "$work/keyfold" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+build_neg "description key with U+017F" "keys must be lowercase identifiers" "$work/keyfold"
 v=$(variant nodesc sh -c 'jq "del(.description)" plugin.json >p.new && mv p.new plugin.json')
 manifest "$work/nodesc" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "missing description" "description must be a string" "$work/nodesc"
@@ -591,6 +598,17 @@ if command -v zip >/dev/null; then
   offline=
   grep -q 'banned word "best"' "$work/ar.log" || fail "archive description: $(cat "$work/ar.log")"
   [ ! -e "$work/ad-meta.json" ] && [ ! -e "$work/ad-pk/acme-notes.hmp" ] || fail "archive description: published"
+  # A case-variant key in an archived plugin.json is refused too.
+  arch3="$work/archive-key"; rm -rf "$arch3"; cp -r "$arch" "$arch3"
+  rm -rf "$z"; mkdir "$z"
+  unzip -q -o "$arch3/acme-notes/$af.hmp" plugin.json -d "$z"
+  jq '. + {Description: "BEST FREE SEO now for every site"}' "$z/plugin.json" >"$z/p.new" && mv "$z/p.new" "$z/plugin.json"
+  (cd "$z" && zip -q "$arch3/acme-notes/$af.hmp" plugin.json)
+  jq --arg h "$(sha256sum "$arch3/acme-notes/$af.hmp" | cut -d' ' -f1)" '.sha256=$h' "$arch3/acme-notes/$af.json" >"$z/side.json" && mv "$z/side.json" "$arch3/acme-notes/$af.json"
+  offline=1
+  reuse_run "$reg" "$work/ak-pk" "$work/ak-meta.json" "$arch3" && fail "archived package with a capital key reused"
+  offline=
+  grep -q 'keys must be lowercase identifiers' "$work/ar.log" || fail "archive key: $(cat "$work/ar.log")"
   echo "ok: description (archive)"
 else
   echo "skip: description (archive): zip not installed"

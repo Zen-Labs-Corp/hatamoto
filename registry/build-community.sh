@@ -330,9 +330,16 @@ check_title() {
 # check_description <plugin.json> <title> <name>: the listing rules for the description in
 # the built plugin.json (also for first-party plugins). Run on every path that publishes a
 # package: a fresh build and a reused archive. Values only enter jq as --arg.
-# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh (follow-up there: it needs
+# the same top-level key check, or a case-variant key bypasses the description rule)
 check_description() {
   local pj=$1 title=$2 name=$3 pdesc jd dnorm desc_words seen_brands nbrands w
+  # jq matches keys exactly, but the signed index is built by Go's encoding/json, which
+  # matches them case-insensitively (and folds U+017F to s). Refuse any key that could
+  # differ: every sdk.Manifest json tag is a lowercase identifier.
+  if ! jq -e 'type == "object" and (keys | all(test("^[a-z][a-z0-9_]*$")))' "$pj" >/dev/null 2>&1; then
+    die "$name: plugin.json keys must be lowercase identifiers"
+  fi
   if ! jq -e '.description | type == "string"' "$pj" >/dev/null 2>&1; then
     die "$name: plugin.json description must be a string of 20 to 160 characters"
   fi
