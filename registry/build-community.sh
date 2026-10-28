@@ -327,6 +327,56 @@ check_title() {
   fi
 }
 
+# check_description <plugin.json> <title> <name>: the listing rules for the description in
+# the built plugin.json (also for first-party plugins). Run on every path that publishes a
+# package: a fresh build and a reused archive. Values only enter jq as --arg.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+check_description() {
+  local pj=$1 title=$2 name=$3 pdesc jd dnorm desc_words seen_brands nbrands w
+  if ! jq -e '.description | type == "string"' "$pj" >/dev/null 2>&1; then
+    die "$name: plugin.json description must be a string of 20 to 160 characters"
+  fi
+  pdesc=$(jq -r '.description' "$pj")
+  jd() { jv "$pdesc" "$1" "$name: description" "${@:2}"; }
+  # Length and control characters are judged on the raw value: command substitution
+  # drops NULs and trailing newlines.
+  if ! jq -e '.description | (length >= 20 and length <= 160 and (test("\\p{Cc}") | not))' "$pj" >/dev/null 2>&1; then
+    die "$name: plugin.json description must be 20 to 160 characters without control characters"
+  fi
+  if jd '[$t | scan("[.!?。！？]")] | length > 2'; then
+    die "$name: plugin.json description must have at most two sentence terminators"
+  fi
+  if jd '$t | test("://|www\\.|[A-Za-z0-9-]+[.\u3002\uFF0E\uFF61\u2024][A-Za-z]{2,}"; "i")'; then
+    die "$name: plugin.json description must not contain a URL or domain"
+  fi
+  if jd '$t | test("\\p{M}|[\uFF00-\uFFEF]") or ($t | test("^[\\p{L}\\p{N} \u0021-\u007E\u3001\u3002\u2019]*$") | not)'; then
+    die "$name: plugin.json description may contain only letters, digits, spaces, ASCII punctuation and 。 、 (no combining marks, fullwidth forms or symbols)"
+  fi
+  if jd "$unsafe_chars_filter"; then
+    die "$name: plugin.json description must not contain emoji, symbols or invisible characters"
+  fi
+  if jd '($t | ascii_downcase | gsub("^\\s+|\\s+$"; "")) as $d | $d == ($title | ascii_downcase) or $d == $name' --arg title "$title" --arg name "$name"; then
+    die "$name: plugin.json description must not equal the title or the name"
+  fi
+  dnorm=$(jq -nr --arg t "$pdesc" '$t | ascii_downcase | gsub("^\\s+|\\s+$"; "")') || dnorm=""
+  if inlist "$placeholders" "$dnorm"; then die "$name: plugin.json description is a placeholder"; fi
+  desc_words=$(jq -nr --arg t "$pdesc" "$fold_def"'$t | fold | scan("[\\p{L}\\p{N}#]+")') \
+    || die "$name: description could not be checked"
+  seen_brands=" "
+  nbrands=0
+  while read -r w; do
+    [ -n "$w" ] || continue
+    if [ "$w" != free ] && [ "$w" != plugin ] && inlist "$banned_words" "$w"; then
+      die "$name: plugin.json description contains the banned word \"$w\""
+    fi
+    if brand_listed "$w" && [[ $seen_brands != *" $w "* ]]; then
+      seen_brands="$seen_brands$w "
+      nbrands=$((nbrands + 1))
+    fi
+  done <<<"$desc_words"
+  if [ "$nbrands" -gt 3 ]; then die "$name: plugin.json description names more than 3 brands"; fi
+}
+
 # Pass 1: validate every manifest before touching the network or running a build.
 shopt -s nullglob
 manifests=()
@@ -451,6 +501,7 @@ build_plugin() {
   done
   [ -f "$src/plugin.json" ] || die "$name: no plugin.json in the pinned source"
   [ "$(jq -r '.name // empty' "$src/plugin.json")" = "$name" ] || die "$name: plugin.json name does not match the manifest"
+  check_description "$src/plugin.json" "$title" "$name"
   # The package must be built against the real SDK from a plain module: no
   # go.work, no replace of hatamoto.dev/sdk (to any target), no local-path replace.
   # This runs before the HATAMOTO_SDK_REPLACE test hook is applied.
@@ -535,6 +586,9 @@ reuse_archive() {
     inner=$(unzip -p "$hmp" plugin.json 2>/dev/null | jq -r '[.name, .version] | join(" ")' 2>/dev/null) || inner=
     [ "$inner" = "$name $sv" ] || die "$name: archived $hmp holds plugin.json \"$inner\" but its sidecar says \"$name $sv\""
     [ "$(basename "$hmp")" = "$name-$sv-${commit:0:12}-$key_id.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
+    # The archived package is held to the description rule too: it must not bypass it.
+    unzip -p "$hmp" plugin.json >"$stage/work/$name-archived-plugin.json" 2>/dev/null || die "$name: cannot read plugin.json from archived $hmp"
+    check_description "$stage/work/$name-archived-plugin.json" "$title" "$name"
     authenticate_archive "$sv"
     cp "$hmp" "$stage/packages/$name.hmp"
     echo "build-community: $name: reusing archived $(basename "$hmp")"

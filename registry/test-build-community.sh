@@ -244,7 +244,7 @@ module example.com/vend
 go 1.22
 EOF
 printf 'package main\n\nfunc main() {}\n' >"$vup/main.go"
-printf '{"name":"vend","version":"0.1.0","sdk":"^0.10"}\n' >"$vup/plugin.json"
+printf '{"name":"vend","version":"0.1.0","sdk":"^0.10","description":"Fixture that builds without dependencies."}\n' >"$vup/plugin.json"
 git -C "$vup" init -q; git -C "$vup" add -A
 git -C "$vup" -c user.name=t -c user.email=t@example.com commit -q -m init
 vsha=$(git -C "$vup" rev-parse HEAD)
@@ -256,7 +256,7 @@ mirror_run "vendored" "$vreg" "$mb" "$work/v-pk" "$work/v-meta.json" HATAMOTO_TR
 grep -q "WARNING: HATAMOTO_TRUST_MIRROR_VENDOR=1" "$work/mr.log" || fail "trust mode: no warning: $(cat "$work/mr.log")"
 # A vendor/modules.txt that disagrees with go.mod proves -mod=vendor was in effect.
 v2up="$work/up-vend2"; cp -r "$vup" "$v2up"
-printf '{"name":"vend2","version":"0.1.0","sdk":"^0.10"}\n' >"$v2up/plugin.json"
+printf '{"name":"vend2","version":"0.1.0","sdk":"^0.10","description":"Fixture that builds without dependencies."}\n' >"$v2up/plugin.json"
 git -C "$v2up" -c user.name=t -c user.email=t@example.com commit -q -am vend2
 mkmirror vend2 "$v2up" "$mb" sh -c 'mkdir vendor; printf "# example.com/x v1.0.0\n## explicit\nexample.com/x\n" >vendor/modules.txt'
 manifest "$work/vend2-reg" vend2 "$(base vend2 "file://$work/does-not-exist" "$(git -C "$v2up" rev-parse HEAD)")"
@@ -267,7 +267,7 @@ mirror_run "vendor ignored" "$work/vend2-reg" "$mb" "$work/v2-pk" "$work/v2-meta
 ! grep -q "TRUST_MIRROR_VENDOR" "$work/mr.log" || fail "default build warned about trust mode"
 # A vendor/ in the pinned commit itself is never trusted.
 v3up="$work/up-vend3"; cp -r "$vup" "$v3up"
-printf '{"name":"vend3","version":"0.1.0","sdk":"^0.10"}\n' >"$v3up/plugin.json"
+printf '{"name":"vend3","version":"0.1.0","sdk":"^0.10","description":"Fixture that builds without dependencies."}\n' >"$v3up/plugin.json"
 mkdir "$v3up/vendor"; printf '# no dependencies\n' >"$v3up/vendor/modules.txt"
 git -C "$v3up" add -A; git -C "$v3up" -c user.name=t -c user.email=t@example.com commit -q -am vend3
 mkmirror vend3 "$v3up" "$mb" sh -c 'echo "{}" >MIRROR.json'
@@ -280,7 +280,7 @@ echo "ok: vendored mirror"
 # (neither the root vendor/ nor a sibling prefix such as sub/vendor-x/).
 sup="$work/up-sub"; mkdir -p "$sup/sub"
 cp "$vup/go.mod" "$vup/main.go" "$sup/sub/"
-printf '{"name":"vsub","version":"0.1.0","sdk":"^0.10"}\n' >"$sup/sub/plugin.json"
+printf '{"name":"vsub","version":"0.1.0","sdk":"^0.10","description":"Fixture that builds without dependencies."}\n' >"$sup/sub/plugin.json"
 git -C "$sup" init -q; git -C "$sup" add -A
 git -C "$sup" -c user.name=t -c user.email=t@example.com commit -q -m init
 ssha=$(git -C "$sup" rev-parse HEAD)
