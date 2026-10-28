@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fakeStats is a StatsService that records what the handlers asked of it.
@@ -177,5 +178,37 @@ func TestStatsServiceErrorsAre500AndNotAudited(t *testing.T) {
 	f.chooseE, f.resetE = nil, errors.New("boom")
 	if rec := u.do("POST", "/admin/settings/updates/stats/reset", "owner-token", url.Values{}, nil); rec.Code != 500 {
 		t.Errorf("reset error = %d, want 500", rec.Code)
+	}
+}
+
+func TestUpdatesInstallStatsCardStates(t *testing.T) {
+	sent := updatesClock.Add(-3 * time.Hour)
+	preview := "{\n  \"install\": \"" + statsTestID + "\",\n  \"version\": \"v1.4.1\",\n  \"channel\": \"stable\"\n}"
+	for _, c := range []struct {
+		name    string
+		view    StatsView
+		wants   []string
+		absents []string
+	}{
+		{"unset", StatsView{Consent: "unset", PreviewJSON: preview}, []string{`id="updates-stats"`, "Send install stats", `role="switch"`, "A real ID is created when you turn this on.", "Nothing sent yet.", "&#34;install&#34;"}, []string{"Reset ID", `value="on" checked`, "server configuration"}},
+		{"yes", StatsView{Consent: "yes", PreviewJSON: preview, LastSent: &sent, LastStatus: "ok"}, []string{"This is the exact request body.", `value="on" checked`, "Reset ID", `id="reset-stats-form"`, "ok"}, []string{"Nothing sent yet.", "A real ID is created"}},
+		{"no", StatsView{Consent: "no", PreviewJSON: preview}, []string{`role="switch"`}, []string{`value="on" checked`, "Reset ID"}},
+		{"forced_off", StatsView{Consent: "no", ForcedOff: true, PreviewJSON: preview}, []string{"Turned off by the server configuration.", "hm-badge"}, []string{`role="switch"`, `id="stats-form"`, "Reset ID"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := &fakeStats{view: c.view}
+			body := newStatsRig(t, f).get(t)
+			for _, w := range c.wants {
+				if !strings.Contains(body, w) {
+					t.Errorf("page lacks %q", w)
+				}
+			}
+			for _, b := range c.absents {
+				if strings.Contains(body, b) {
+					t.Errorf("page has %q", b)
+				}
+			}
+			compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
+		})
 	}
 }

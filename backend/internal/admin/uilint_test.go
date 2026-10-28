@@ -87,6 +87,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Check now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Unpin"`, Reason: "setting row action bound to its own form by the form attribute"},
+	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Reset ID"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Install"`, Reason: "list row action in a package row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `Update all (`, Reason: "list action above the plugin list, a form of its own that updates every plugin without a review step"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
@@ -123,6 +124,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="nobackup-form"`, Reason: "Update without a backup, a row action of the status card that opens a confirm page and is not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="apply-form"`, Reason: "Update now, a row action of the status card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="unpin-form"`, Reason: "Unpin, a row action of the policy card and not a create form"},
+	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="stats-form"`, Reason: "the Install stats switch, a settings form and not a create form"},
+	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="reset-stats-form"`, Reason: "Reset ID, a row action of the Install stats card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 
 	// UI-02: selectors that name the class, not markup that uses it.
