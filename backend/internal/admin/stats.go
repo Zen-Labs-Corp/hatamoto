@@ -1,0 +1,124 @@
+package admin
+
+import (
+	"context"
+	"net/http"
+	"time"
+)
+
+// StatsService is the opt-in install stats as Settings > Updates, the setup
+// wizard and the owner banner use it. The server implements it on top of the
+// installstats package; the admin only validates forms and calls through.
+type StatsService interface {
+	// View is the stored choice, whether the server configuration forces it
+	// off, and the exact payload the daily ping would send.
+	View(ctx context.Context) (StatsView, error)
+	// Choose stores the owner's answer. Yes creates the install ID, No (or
+	// switching off) deletes it.
+	Choose(ctx context.Context, yes bool) error
+	// Reset replaces the install ID with a new one.
+	Reset(ctx context.Context) error
+}
+
+// StatsView is what the admin shows about install stats.
+type StatsView struct {
+	Consent     string // "unset", "yes" or "no"
+	ForcedOff   bool   // HATAMOTO_TELEMETRY=off: the owner cannot change it
+	PreviewJSON string // the exact request body
+	LastSent    *time.Time
+	LastStatus  string
+}
+
+// SetStats sets the install stats service after New, like SetUpdates. Call it
+// only with a non-nil service: a typed nil would defeat the nil checks.
+func (a *Admin) SetStats(svc StatsService) {
+	a.deps.Stats = svc
+}
+
+const statsForcedOffNote = "Turned off by the server configuration."
+
+// statsView loads the stats view for a POST handler. It answers the request
+// itself and returns false when the service is missing or fails.
+func (a *Admin) statsView(w http.ResponseWriter, r *http.Request) (StatsView, bool) {
+	if a.deps.Stats == nil {
+		a.unavailable(w, r, "Install stats")
+		return StatsView{}, false
+	}
+	v, err := a.deps.Stats.View(r.Context())
+	if err != nil {
+		a.logger().Error("stats view", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+		return StatsView{}, false
+	}
+	return v, true
+}
+
+// statsChoose applies yes or no. Under a forced-off server it changes nothing.
+func (a *Admin) statsChoose(w http.ResponseWriter, r *http.Request, yes bool) {
+	v, ok := a.statsView(w, r)
+	if !ok {
+		return
+	}
+	if v.ForcedOff {
+		a.SetFlash(w, r, "info", statsForcedOffNote)
+		http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+		return
+	}
+	if err := a.deps.Stats.Choose(r.Context(), yes); err != nil {
+		a.logger().Error("stats choose", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your choice could not be saved.")
+		return
+	}
+	choice := "no"
+	if yes {
+		choice = "yes"
+	}
+	a.audit(r, "stats.consent", "stats", map[string]any{"choice": choice})
+	if yes {
+		a.SetFlash(w, r, "success", "Install stats are on.")
+	} else {
+		a.SetFlash(w, r, "success", "Install stats are off.")
+	}
+	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+}
+
+// handleStatsSwitch is the Settings > Updates switch: stats=on or stats=off
+// (an unchecked switch posts the off value).
+func (a *Admin) handleStatsSwitch(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	a.statsChoose(w, r, r.PostFormValue("stats") == "on")
+}
+
+// handleStatsChoice is the banner and wizard answer: choice=yes or choice=no.
+// Anything else is refused, never read as a default.
+func (a *Admin) handleStatsChoice(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	switch r.PostFormValue("choice") {
+	case "yes":
+		a.statsChoose(w, r, true)
+	case "no":
+		a.statsChoose(w, r, false)
+	default:
+		a.Error(w, r, http.StatusBadRequest, "Choose Yes or No", "Pick one of the two answers.")
+	}
+}
+
+func (a *Admin) handleStatsReset(w http.ResponseWriter, r *http.Request) {
+	v, ok := a.statsView(w, r)
+	if !ok {
+		return
+	}
+	if v.ForcedOff {
+		a.SetFlash(w, r, "info", statsForcedOffNote)
+		http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+		return
+	}
+	if err := a.deps.Stats.Reset(r.Context()); err != nil {
+		a.logger().Error("stats reset", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install ID could not be reset.")
+		return
+	}
+	a.audit(r, "stats.reset", "stats", nil)
+	a.SetFlash(w, r, "success", "Install ID reset.")
+	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+}

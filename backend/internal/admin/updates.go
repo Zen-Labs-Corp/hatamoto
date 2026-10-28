@@ -417,6 +417,7 @@ type updatesData struct {
 	DeferOptions             []ui.Option
 	Pin                      string
 	History                  ui.Table
+	InstallStats             *StatsView // nil when there is no stats service or it failed
 }
 
 func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
@@ -427,6 +428,9 @@ func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/updates/apply-without-backup", a.handleUpdatesApplyWithoutBackup)
 	owner.HandleFunc("POST /settings/updates/apply-without-backup", a.handleUpdatesApplyWithoutBackup)
 	owner.HandleFunc("POST /settings/updates/unpin", a.handleUpdatesUnpin)
+	owner.HandleFunc("POST /settings/updates/stats", a.handleStatsSwitch)
+	owner.HandleFunc("POST /settings/updates/stats/choice", a.handleStatsChoice)
+	owner.HandleFunc("POST /settings/updates/stats/reset", a.handleStatsReset)
 }
 
 // updatesCheckTimeout bounds Check now: it only fetches and decides.
@@ -738,6 +742,13 @@ func (a *Admin) renderUpdates(w http.ResponseWriter, r *http.Request, status int
 		}
 	} else {
 		a.fillUpdates(&d, *st, in, loc)
+	}
+	if a.deps.Stats != nil {
+		if sv, err := a.deps.Stats.View(ctx); err != nil {
+			a.logger().Error("stats view", "err", err)
+		} else {
+			d.InstallStats = &sv
+		}
 	}
 	v := a.NewView(w, r, "Updates")
 	v.Section, v.Tab = "updates", "updates"

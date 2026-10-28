@@ -218,6 +218,16 @@ func (h *adminHolder) SetUpdates(svc admin.UpdatesService, problem string) {
 	}
 }
 
+// SetStats sets the install stats service.
+func (h *adminHolder) SetStats(svc admin.StatsService) {
+	h.s.adminMu.Lock()
+	defer h.s.adminMu.Unlock()
+	h.s.adminDeps.Stats = svc
+	if b := h.s.adminBundle.Load(); b != nil {
+		b.a.SetStats(svc)
+	}
+}
+
 // SetBackups sets the backup service.
 func (h *adminHolder) SetBackups(svc admin.BackupsService) {
 	h.s.adminMu.Lock()

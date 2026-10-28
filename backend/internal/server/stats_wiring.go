@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/installstats"
 )
 
@@ -26,8 +27,28 @@ func (s *Server) SetStats(svc *installstats.Service) {
 	if err := svc.Enforce(ctx); err != nil {
 		s.logger.Warn("install stats: could not apply HATAMOTO_TELEMETRY", "error", err)
 	}
+	if s.admin != nil {
+		s.admin.SetStats(adminStats{svc})
+	}
 	s.scheduleStats()
 }
+
+// adminStats presents the install stats service to the admin.
+type adminStats struct{ svc *installstats.Service }
+
+func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
+	v, err := a.svc.View(ctx)
+	if err != nil {
+		return admin.StatsView{}, err
+	}
+	return admin.StatsView{
+		Consent: string(v.State.Consent), ForcedOff: v.ForcedOff, PreviewJSON: v.PreviewJSON,
+		LastSent: v.State.LastSentAt, LastStatus: v.State.LastStatus,
+	}, nil
+}
+
+func (a adminStats) Choose(ctx context.Context, yes bool) error { return a.svc.Choose(ctx, yes) }
+func (a adminStats) Reset(ctx context.Context) error            { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: once a day, the first
 // one 5 to 15 minutes after start. Nothing is scheduled in a public demo or
