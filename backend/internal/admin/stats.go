@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -121,4 +122,29 @@ func (a *Admin) handleStatsReset(w http.ResponseWriter, r *http.Request) {
 	a.audit(r, "stats.reset", "stats", nil)
 	a.SetFlash(w, r, "success", "Install ID reset.")
 	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+}
+
+// StatsBanner is the owner's one-time question about install stats on an
+// install that has not answered it yet.
+type StatsBanner struct {
+	PreviewHref string // Settings > Updates, at the card that shows what is sent
+}
+
+// statsBanner is the banner for a page view: nil unless the owner is on a GET
+// page of a finished setup, the choice is still unset and the server
+// configuration does not turn stats off. Editors never reach the service, and
+// the Updates page already shows the question as its Install stats card. The
+// answer is a POST (see handleStatsChoice), not a browser-side dismissal.
+func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) *StatsBanner {
+	if a.deps.Stats == nil || u == nil || u.Role != "owner" || setupPending {
+		return nil
+	}
+	if strings.HasPrefix(r.URL.Path, a.adminPath+updatesPath) {
+		return nil
+	}
+	v, err := a.deps.Stats.View(r.Context())
+	if err != nil || v.ForcedOff || v.Consent != "unset" {
+		return nil
+	}
+	return &StatsBanner{PreviewHref: a.adminPath + updatesPath + "#updates-stats"}
 }
