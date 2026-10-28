@@ -11,7 +11,7 @@ A self-updating program is only as trustworthy as its verification. Hatamoto sep
 | Key | Signs | Held by | Embedded in the binary as |
 |---|---|---|---|
 | Release key | Each release **record**: the version, kind, rollback floor, minimum starting version, SDK range, schema head and the SHA-256 and size of every binary | Offline, used only when a release is cut | `release-primary.pub`, `release-backup.pub` |
-| Manifest key | The short **channel manifest** that says which releases a channel offers, at what rollout, and which are halted or yanked | An automated CI job | `manifest.pub` |
+| Manifest key | The short **channel manifest** that says which releases a channel offers, at what rollout, and which are halted or yanked | The maintainer's signing machine (never CI) | `manifest.pub` |
 
 Their fingerprints are on [Signing keys and fingerprints](keys.md). The public keys live in `backend/internal/release/keys/` and are embedded with `go:embed`. The loader refuses any embedded key that carries private material or whose id does not match its public key. Release keys are matched by the `<key_id>:<base64 signature>` prefix in each channel entry, so a second release key can be added for rotation without breaking older binaries.
 

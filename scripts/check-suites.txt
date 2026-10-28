@@ -22,7 +22,7 @@ t-publish-sdk    scripts/publish-sdk.sh,scripts/test-publish-sdk.sh   bash scrip
 t-tag-release    scripts/tag-release.sh,scripts/verify-tag-signature.sh,scripts/version.sh,.github/workflows/release.yml,.github/allowed_signers,scripts/test-tag-release.sh   bash scripts/test-tag-release.sh
 t-channel-fresh  scripts/check-channel-freshness.sh,scripts/test-check-channel-freshness.sh   bash scripts/test-check-channel-freshness.sh
 t-licenses-sh    scripts/third-party-licenses.sh,scripts/test-third-party-licenses.sh,backend/go.mod   bash scripts/test-third-party-licenses.sh
-t-channels-priv  *                                                  bash scripts/test-channels-private.sh
+t-channels-pub   *                                                  bash scripts/test-channels-public.sh
 t-staging-check  scripts/staging-update-check.sh,scripts/test-staging-update-check.sh   bash scripts/test-staging-update-check.sh
 t-check-suites   scripts/check-suites.sh,scripts/check-suites.txt,scripts/test-check-suites.sh,Makefile   bash scripts/test-check-suites.sh
 t-affected       .githooks/lib/affected.sh,scripts/affected-readers.txt,scripts/test-affected.sh,scripts/check-suites.txt   bash scripts/test-affected.sh

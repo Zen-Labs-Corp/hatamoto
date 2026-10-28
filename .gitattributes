@@ -37,13 +37,3 @@ backend/web/vendor/** -text
 /scripts/admin-qa/shots-out export-ignore
 /scripts/admin-qa/shots-out/** export-ignore
 /docs/deploy/public-demo.md export-ignore
-
-# Channel signing state lives in the PRIVATE ops repository, never in the public
-# one: the unsigned channel sources, the workflow that signs and uploads them (it
-# runs with the manifest key and the deploy key) and its freshness alarm. They
-# stay tracked here until the W3 cut-over, when this repository becomes the ops
-# repository (docs/site/migrate-contribute/release-process.md, "Channel signing").
-/releases/channels export-ignore
-/releases/channels/** export-ignore
-/.github/workflows/channels.yml export-ignore
-/.github/workflows/channels-freshness.yml export-ignore

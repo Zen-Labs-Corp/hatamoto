@@ -1,0 +1,87 @@
+name: channels-freshness
+
+# Daily alarm for the signed channel manifests served at
+# https://hatamoto.dev/releases/channels/. They are valid for 14 days and are
+# re-signed every day off GitHub, on the maintainer's signing machine (no key
+# is ever stored here). If re-signing stops, boxes stop updating when the
+# manifests expire. This job is the check that does not depend on that machine:
+# it reads the public files, holds no secret, and can only write an issue.
+#
+#   under WARN_DAYS (11) left, about three missed re-signs: open the
+#     `channels-freshness` issue (or comment on the open one);
+#   under FAIL_DAYS (5) left: the run fails as well;
+#   fresh again: the open issue is closed.
+
+on:
+  schedule:
+    - cron: '30 10 * * *'
+  workflow_dispatch:
+    inputs:
+      warn_days:
+        description: 'Open the issue when a manifest has fewer days left than this'
+        required: false
+        default: '11'
+      fail_days:
+        description: 'Fail the run when a manifest has fewer days left than this'
+        required: false
+        default: '5'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # check out the script
+      issues: write   # open, comment on and close the alarm issue
+    env:
+      WARN_DAYS: ${{ inputs.warn_days || '11' }}
+      FAIL_DAYS: ${{ inputs.fail_days || '5' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check every manifest has WARN_DAYS left
+        id: check
+        run: |
+          if bash scripts/check-channel-freshness.sh --min-days "$WARN_DAYS" >"$RUNNER_TEMP/report.txt" 2>&1; then
+            echo "stale=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "stale=true" >>"$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/report.txt"
+
+      - name: Open, update or close the channels-freshness issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STALE: ${{ steps.check.outputs.stale }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --label channels-freshness --state open --json number --jq '.[0].number // empty')
+          if [ "$STALE" = true ]; then
+            {
+              echo "A signed channel manifest has fewer than $WARN_DAYS days left (run: $RUN_URL)."
+              echo
+              echo '```'
+              cat "$RUNNER_TEMP/report.txt"
+              echo '```'
+              echo
+              echo "Manifests are re-signed daily off GitHub. Check the signing machine and re-sign (release process, channel freshness)."
+            } >"$RUNNER_TEMP/body.md"
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body-file "$RUNNER_TEMP/body.md"
+            else
+              gh issue create --title "Channel manifests are close to expiring" --label channels-freshness --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Every channel manifest has at least $WARN_DAYS days left again (run: $RUN_URL)."
+          fi
+
+      - name: Fail when a manifest has under FAIL_DAYS left
+        run: bash scripts/check-channel-freshness.sh --min-days "$FAIL_DAYS"

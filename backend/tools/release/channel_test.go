@@ -343,11 +343,8 @@ func TestResignDoesNotModifySource(t *testing.T) {
 }
 
 func TestCommittedChannelSourcesParse(t *testing.T) {
-	// The public tree has no channel state (export-ignore, see scripts/test-channels-private.sh,
-	// which asserts the private repository does track these files).
-	if _, err := os.Stat(filepath.Join("..", "..", "..", "releases", "channels")); os.IsNotExist(err) {
-		t.Skip("releases/channels is not in this repository (public tree)")
-	}
+	// The channel sources are tracked here (scripts/test-channels-public.sh); every
+	// change to them must still load with the strict channel loader.
 	for _, c := range channelNames {
 		m, err := loadChannel(filepath.Join("..", "..", "..", "releases", "channels", c+".json"), c)
 		if err != nil {

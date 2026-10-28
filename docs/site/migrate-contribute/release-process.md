@@ -132,24 +132,29 @@ go run ./tools/release channel yank stable v1.2.3 --reason "bad migration" --to 
 
 Ramp steps are `TIME:PERCENT`, where the time is `now`, `+Nd` or `+Nh`. Percentages never fall and times strictly rise.
 
-The two keys are deliberately separate. The release key signs what a release is and lives offline. The manifest key signs which release is currently offered and lives in CI. Compromising CI can therefore halt or delay a rollout, but it cannot make a client accept a binary that the release key did not sign. Clients check both signatures. See [Trust and signing](../updates/trust-and-signing.md).
+The two keys are deliberately separate. The release key signs what a release is and lives offline. The manifest key signs which release is currently offered and lives on the maintainer's signing machine, never in CI. Compromising the manifest key can therefore halt or delay a rollout, but it cannot make a client accept a binary that the release key did not sign. Clients check both signatures. See [Trust and signing](../updates/trust-and-signing.md).
 
 ## Channel signing
 
-Channel state does not live in this repository. The unsigned channel sources, the workflow that signs them (`channels`) with the manifest key and uploads them with a deploy key pinned to the channels directory of the release server, and the freshness alarm below all live in a private operations repository, together with the secrets they use. This repository has none of them: the public snapshot leaves them out and `scripts/test-channels-private.sh` (part of `make check`) proves it. The reason is blast radius. A leaked CI secret or a change to a channel should never travel with the source, and an outside contributor's pull request should never be able to reach a workflow that holds the manifest key.
+The unsigned channel sources are public: `releases/channels/{canary,edge,stable}.json` in this repository. They change only through pull requests made with `go run ./tools/release channel ...`, never by hand, and `TestCommittedChannelSourcesParse` checks them on every change.
 
-The `channels` workflow runs when a channel source changes on `main` and once a day, because a signed manifest is valid for 14 days and must never go stale. Signed files are published with `rsync` under a restricted key, and a run that is not for the head of `main` publishes nothing, so a stale run cannot overwrite newer state.
+Signing and upload happen off GitHub, on the maintainer's signing machine. After a channel change is merged, and once a day, that machine signs the three channel files at the head of `main` with the manifest key, verifies each one against the embedded trust, and uploads them with a deploy key that the release server pins to the channels directory (`rrsync -wo -munge`, `--no-links`). A run that signed an older `main` than the current head publishes nothing, so a stale run cannot overwrite newer state. Neither key, nor any workflow that could use one, is in this repository: `scripts/test-channels-public.sh` (part of `make check`) fails on a channel signing workflow, a channel secret name or a tracked key file. An outside contributor's pull request can therefore never reach the manifest key.
+
+A signed manifest is valid for 14 days, so boxes keep updating for two weeks even if the signing machine is down.
 
 ### Freshness alarm
 
-Re-signing can stop without anyone noticing: a failed daily run, a disabled schedule (GitHub switches scheduled workflows off after 60 days without repository activity), an expired secret. Boxes then stop updating when the manifest expires. A weekly workflow in the operations repository runs `scripts/check-channel-freshness.sh`, which downloads the three **live** manifests from `https://hatamoto.dev/releases/channels/` and fails, with an error annotation per channel, when any `expires_at` is less than 7 days away. A healthy channel is never closer than 13 days. It reads the files that boxes read, so it also catches a broken upload. Run it by hand any time:
+Re-signing can stop without anyone noticing: a failed daily run, a machine that is off or lost. Boxes then stop updating when the manifest expires. Two alarms run `scripts/check-channel-freshness.sh`, which downloads the three **live** manifests from `https://hatamoto.dev/releases/channels/` and fails, with an error annotation per channel, when any `expires_at` is too close. A healthy channel is never closer than 13 days. It reads the files that boxes read, so it also catches a broken upload.
+
+- The `channels-freshness` workflow in this repository runs daily. It needs no secret and does not depend on the signing machine. Under 11 days left (about three missed re-signs) it opens the `channels-freshness` issue, or comments on the open one; under 5 days the run fails too; once the manifests are fresh again it closes the issue.
+- A user timer on the signing machine (`deploy/channels/`) runs the same check daily with a 7 day limit.
+
+Run it by hand any time:
 
 ```bash
 scripts/check-channel-freshness.sh                 # all three channels, 7 days
 scripts/check-channel-freshness.sh --min-days 12   # stricter, e.g. right after a re-sign
 ```
-
-The same script can run from any other scheduler (a systemd timer or an uptime monitor), which is the second alarm to keep for the case where the schedule itself was switched off.
 
 ## Checklist for a maintainer
 
@@ -159,6 +164,6 @@ The same script can run from any other scheduler (a systemd timer or an uptime m
 4. Review the record, set `rollback_floor` and `min_from`, and sign it offline.
 5. Publish the signed files with `scripts/publish-release.sh`.
 6. Verify the attestations, add the signature to the draft and publish the GitHub release (above), then publish the installer with `scripts/publish-install.sh`.
-7. Add the release to `canary`, `edge` and `stable` with a ramp in the operations repository, and merge the channel change there.
+7. Add the release to `canary`, `edge` and `stable` with a ramp (`releases/channels/` in this repository), merge the channel change, then re-sign and upload the channels on the signing machine.
 8. Watch the update status of a test install. Halt the ramp if anything regresses.
 9. If the first-party plugin registry is near expiry, rebuild it. See [SDK and registry](sdk-and-registry.md).

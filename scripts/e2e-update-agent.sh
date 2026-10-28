@@ -56,10 +56,10 @@ want() { [ "$ONLY" = all ] || [ "$ONLY" = "$1" ]; }
 wantbox() { case " $BOXES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# The channel manifests live in the private ops repository (export-ignore): the
-# public tree has none to seed the fake sites from, so there is nothing to run.
+# The fake sites are seeded from releases/channels/*.json; without them there is
+# nothing to run.
 if ! ls "$ROOT"/releases/channels/*.json >/dev/null 2>&1; then
-  echo "e2e-update-agent: no releases/channels/*.json here (public tree); run this from the ops repository checkout" >&2
+  echo "e2e-update-agent: no releases/channels/*.json here" >&2
   exit 0
 fi
 ID="$$"

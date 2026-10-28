@@ -1,8 +1,7 @@
 # Independent expiry alarm for the signed channel manifests: a read-only check
 # of the LIVE files (scripts/check-channel-freshness.sh, installed as
-# ~/.local/bin/hatamoto-check-channel-freshness). It exists because the weekly
-# channels-freshness GitHub workflow does not run while Actions is off, and is
-# disabled after 60 days of repository inactivity. It cannot sign or write.
+# ~/.local/bin/hatamoto-check-channel-freshness), run on the signing machine
+# next to the daily channels-freshness GitHub workflow. It cannot sign or write.
 #
 # Install as a USER unit named hatamoto-channels-freshness (see
 # deploy/channels/README.md). On failure it posts to $ALERT_WEBHOOK_URL (a

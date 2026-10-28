@@ -14,8 +14,8 @@
 # re-signs failed: boxes stop updating when it reaches zero ("release manifest has
 # expired"). Reads the LIVE files, so it also catches a broken upload, not only
 # a broken signer. Exit 1 on any stale, missing or unreadable manifest; 0 when all
-# are fresh. Needs curl, jq and GNU date. It runs weekly from the ops repository's
-# channels-freshness workflow (docs/site/migrate-contribute/release-process.md).
+# are fresh. Needs curl, jq and GNU date. It runs daily from the channels-freshness
+# workflow and the signing machine's timer (docs/site/migrate-contribute/release-process.md).
 set -Eeuo pipefail
 
 base=https://hatamoto.dev/releases/channels min=7 chans=()
