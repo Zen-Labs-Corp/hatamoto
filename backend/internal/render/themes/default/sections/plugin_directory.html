@@ -19,7 +19,8 @@
       <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
       {{if .Author}}<p class="hm-plugin-directory__author">by @{{.Author}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
-      {{if .Permissions}}<p class="hm-plugin-directory__needs">Needs: {{range $i, $p := .Permissions}}{{if $i}}, {{end}}{{$p}}{{end}}</p>{{end}}
+      {{if .PermCount}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{.PermCount}} permission{{if ne .PermCount 1}}s{{end}}</span>{{range .PermWarn}} <span class="hm-plugin-directory__warn">⚠ {{.}}</span>{{end}}</p>
+      <details class="hm-plugin-directory__lines"><summary>Show permissions</summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<code>{{.Name}}</code> {{.Text}}</li>{{end}}</ul></details>{{end}}
       {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">Source</a>{{end}}{{end}}
     </li>{{end}}
   </ul>

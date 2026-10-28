@@ -249,7 +249,7 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 		}
 		c := render.PluginCard{
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
-			Permissions: e.Permissions, Source: packages.SafeHTTPS(e.Source),
+			Source: packages.SafeHTTPS(e.Source),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
 		}
 		switch e.Tier {
