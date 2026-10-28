@@ -142,6 +142,7 @@
         "cli-reference",
         "multi-replica-and-health",
         "outbound-connections",
+        "install-stats",
         {"slug": "security", "title": "Security policy"}
       ]
     },

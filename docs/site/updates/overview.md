@@ -25,7 +25,7 @@ In this guide you look at the parts of your server that handle updates, one at a
    https://hatamoto.dev/releases/channels/stable.json
    ```
 
-   It is a plain anonymous request with no query string, cookie or install identifier. Nothing about your site is sent, and Hatamoto sends no other telemetry.
+   It is a plain anonymous request with no query string, cookie or install identifier. Nothing about your site is sent. The check stays anonymous whatever you choose about the optional [install stats](../operate/install-stats.md), which are a separate request that is off until an owner opts in.
 
 3. Learn what an install does. When the list offers a newer patch or minor release of the major version you run, the agent downloads it, checks its signature against keys built into your program, takes a database dump and hands it to the supervisor. Not every site gets a release at the same moment: releases reach installs gradually over a few days. A new major version is never installed on its own. [Trust and signing](trust-and-signing.md) lists every check.
 

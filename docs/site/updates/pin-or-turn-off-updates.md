@@ -11,7 +11,7 @@ By default your server installs new patch and minor releases on its own. In this
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-- An owner account in the admin. The update settings are on **Settings > Updates** (`<admin>/settings/updates`).
+- An owner account in the admin. The update settings are on **Settings > Updates** (`<admin>/settings/updates`). The same page has the **Install stats** section, which is separate from the update policy; see [Install stats](../operate/install-stats.md).
 - For pinning, a shell on the server as the service user with the service's settings loaded. With systemd:
 
   ```bash

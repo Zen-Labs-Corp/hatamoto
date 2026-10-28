@@ -33,7 +33,7 @@ This page lists what the server needs, the release files you download, the one s
 | A supported platform | Linux or macOS, on 64-bit x86 or 64-bit ARM. See [Release files](#release-files). |
 | Memory and CPU | No special demands. The server is one program file. A small virtual server is enough for a typical site. |
 
-You do not need Node, Redis, a separate web server or a Go toolchain on the target machine. There is no telemetry. On its own Hatamoto makes the signed update check (`HATAMOTO_UPDATES=off` removes it) and the daily download of AI-crawler IP ranges (`HATAMOTO_AGENT_RANGES=off`) and reverse-DNS lookups of addresses that claim to be known crawlers (`WORKER_DISABLE_JOBS=agent_verify`); it reads the plugin registry only when an admin browses or installs from it, or a page shows the plugin directory. [Outbound connections](../operate/outbound-connections.md) lists every call. See also [How updates work](../updates/overview.md).
+You do not need Node, Redis, a separate web server or a Go toolchain on the target machine. No telemetry unless you turn it on. On its own Hatamoto makes the signed update check (`HATAMOTO_UPDATES=off` removes it) and the daily download of AI-crawler IP ranges (`HATAMOTO_AGENT_RANGES=off`) and reverse-DNS lookups of addresses that claim to be known crawlers (`WORKER_DISABLE_JOBS=agent_verify`); it reads the plugin registry only when an admin browses or installs from it, or a page shows the plugin directory. The one optional report, [install stats](../operate/install-stats.md), is off until an owner opts in, and `HATAMOTO_TELEMETRY=off` rules it out. [Outbound connections](../operate/outbound-connections.md) lists every call. See also [How updates work](../updates/overview.md).
 
 ## Release files
 

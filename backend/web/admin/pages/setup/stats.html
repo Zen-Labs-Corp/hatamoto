@@ -1,0 +1,17 @@
+{{template "layouts/bare" .}}
+{{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
+<h1>Help improve Hatamoto</h1>
+{{if .StatsNeeded}}{{template "hm/flash" (dict "Kind" "error" "Message" "Choose No thanks or Send stats." "Inline" true)}}{{end}}
+<form method="post" action="{{adminPath}}/setup/stats" class="hm-stack">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Continue</button>
+<p>Send anonymous install stats to hatamoto.dev once a day. This is everything that is sent:</p>
+<pre class="hm-code" tabindex="0">{{.StatsJSON}}</pre>
+<p class="hm-muted">No site address, no content, no names. Change this any time in Settings &gt; Updates.</p>
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+{{template "hm/button" dict "Label" "No thanks" "Type" "submit" "Attrs" (attrmap "name" "choice" "value" "no")}}
+{{template "hm/button" dict "Label" "Send stats" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "choice" "value" "yes")}}
+{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}

@@ -5,7 +5,7 @@
 <p align="center">
 The batteries-included CMS for the agentic era: builder, SEO, caching, forms, redirects,
 AI analytics and MCP in one Go binary plus Postgres.<br>
-Open source, no plugin stack, no PHP, no Node, no telemetry.
+Open source, no plugin stack, no PHP, no Node, no telemetry unless you turn it on.
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ Open **http://localhost:8090/admin**. The setup code is printed in the server lo
 | systemd or Docker | [Deploy with systemd](docs/site/operate/deploy-systemd.md), [Deploy with Docker](docs/site/operate/deploy-docker.md) |
 | Backups and updates | [Backups](docs/site/operate/backups.md), [Updates](docs/site/updates/index.md) |
 
-No telemetry, no usage reports. Every connection the server makes, with the switch that turns it off, is listed in
+No telemetry unless you turn it on. The one optional install count is off until an owner opts in, and `HATAMOTO_TELEMETRY=off` rules it out. Every connection the server makes, with the switch that turns it off, is listed in
 [Outbound connections](docs/site/operate/outbound-connections.md). Updates can stop entirely: set `HATAMOTO_UPDATES`
 to `off` (no network call at all).
 

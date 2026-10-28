@@ -35,6 +35,7 @@ Each process runs an in-process scheduler for maintenance jobs unless you turn i
 - `agent_hits_partition`, `agent_hits_maintenance`, `agent_ranges_refresh`, `agent_verify`: crawler analytics upkeep.
 - `update_check`: the scheduled update check.
 - `webhook_deliver`, `webhook_prune`: outgoing webhook delivery and log retention. See [Webhooks](../admin/webhooks.md).
+- `stats_ping`: the opt-in install stats ping. See [Install stats](install-stats.md).
 - Plugin cron jobs run on the same scheduler.
 
 Three switches control it:

@@ -1,11 +1,11 @@
 ---
 title: First run
 nav_title: First run
-description: Claim your new site with the setup code, create your owner account and choose its name, language, email, colour and starting content.
+description: Claim your new site with the setup code, create your owner account and choose its name, language, email, colour, install stats and starting content.
 next: create-users.md, ../admin/tour.md, ../admin/content.md
 ---
 
-In this guide you claim your new Hatamoto site in the browser. A wizard of six screens creates your owner account and asks for your site's name, address, language, email, colour and content. At the end you are signed in and your site shows its name.
+In this guide you claim your new Hatamoto site in the browser. A wizard of eight screens creates your owner account and asks for your site's name, address, language, email, colour, install stats and content. At the end you are signed in and your site shows its name.
 
 ## Before you start
 
@@ -31,13 +31,15 @@ In this guide you claim your new Hatamoto site in the browser. A wizard of six s
 
    The code has eight letters and digits in two groups of four. Case and the dash do not matter. A new code is made at each start until the first account exists. If you set `HATAMOTO_SETUP_CODE` yourself, the log does not print a code: use the value you set.
 
-2. Open the setup address from that log line in your browser. If you lost it, run `hatamoto admin-url` to print your admin address and add `/setup` to it, which is `<admin>/setup`. A fresh install opens the wizard there. A bar at the top shows the six steps: **Your account**, **Your site**, **Email**, **Look**, **Content** and **Done**.
+2. Open the setup address from that log line in your browser. If you lost it, run `hatamoto admin-url` to print your admin address and add `/setup` to it, which is `<admin>/setup`. A fresh install opens the wizard there. A bar at the top shows the eight steps: **Your account**, **Admin address**, **Your site**, **Email**, **Look**, **Stats**, **Content** and **Done**.
 
 3. On **Your account**, enter the setup code, your name, your email address and a password of at least 12 characters, twice. Select **Create account**.
 
    This creates your account with the owner **role**, the set of things an account may do: an owner can do everything. You are signed in at once.
 
-4. On **Your site**, fill in the four fields and select **Continue**. You can change all of them later in **Settings**.
+4. On **Admin address**, keep the private address Hatamoto suggests (select **Regenerate** for another, or choose your own) and select **Continue**. This is where you sign in to manage your site; bookmark it. You can always print it on the server with `hatamoto admin-url`. The step shows the address read-only when the server environment fixes it.
+
+5. On **Your site**, fill in the four fields and select **Continue**. You can change all of them later in **Settings**.
 
    | Field | What to enter |
    |---|---|
@@ -46,19 +48,21 @@ In this guide you claim your new Hatamoto site in the browser. A wizard of six s
    | Language | The one language of your whole site; see [One site, one language](one-site-one-language.md). It starts as `en`. |
    | Time zone | It starts as `UTC`. Pick the zone your site works in. |
 
-5. On **Email**, enter your mail provider's details so password resets and form notices reach people, and select **Save and continue**. Hatamoto checks the connection first and saves nothing if it fails. Or select **Skip** to set email up later at **Settings > Email**, or to keep using the server's `SMTP_*` settings; see [Set up email](../operate/email.md).
+6. On **Email**, enter your mail provider's details so password resets and form notices reach people, and select **Save and continue**. Hatamoto checks the connection first and saves nothing if it fails. Or select **Skip** to set email up later at **Settings > Email**, or to keep using the server's `SMTP_*` settings; see [Set up email](../operate/email.md).
 
-6. On **Look**, pick a **Brand colour** for the built-in theme and select **Continue**. It is a six-digit colour code and starts as `#0060df`.
+7. On **Look**, pick a **Brand colour** for the built-in theme and select **Continue**. It is a six-digit colour code and starts as `#0060df`.
 
-7. On **Content**, choose what your site starts with and select **Finish setup**:
+8. On **Help improve Hatamoto** (the **Stats** step), choose **No thanks** or **Send stats**. Nothing is sent unless you choose **Send stats**, and the step shows the exact data before you choose: see [Install stats](../operate/install-stats.md). You can change your mind any time in **Settings > Updates**. The step is left out when the server sets `HATAMOTO_TELEMETRY=off`.
+
+9. On **Content**, choose what your site starts with and select **Finish setup**:
 
    - **Start empty**: keep only the starter home page.
    - **Install starter content**: adds a sample home page, About and Contact pages, two blog posts, header and footer menus and a contact form. If it stops part way, choose it again: finished items are skipped.
    - **Import from WordPress**: finishes the setup and opens the WordPress import wizard. See [WordPress import](../migrate-contribute/wordpress-import.md).
 
-8. **Done** links to your site, your content, user invitations and settings. When email is set up, it also offers **Send me a test email**.
+10. **Done** links to your site, your content, user invitations and settings. When email is set up, it also offers **Send me a test email**.
 
-After **Finish setup** the wizard is closed for good: `<admin>/setup` and the screens before **Done** answer "Page not found". If you leave before that, sign in again and open `<admin>/setup` to go back to **Your site**.
+After **Finish setup** the wizard is closed for good: `<admin>/setup` and the screens before **Done** answer "Page not found". If you leave before that, sign in again and open `<admin>/setup` to go back to **Admin address**.
 
 ## Check it worked
 

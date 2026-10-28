@@ -602,7 +602,7 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 	_, pages := g.a.state()
 	covered := map[string]bool{
 		"errors/error": true, "errors/bare": true, "auth/login": true, "auth/forgot": true, "auth/reset": true, "auth/accept": true, "auth/sudo": true, // sudo: sudo_test.go
-		"setup/account": true, "setup/admin-address": true, "setup/admin-address-strength": true, "setup/site": true, "setup/email": true, "setup/theme": true, "setup/content": true, "setup/done": true,
+		"setup/account": true, "setup/admin-address": true, "setup/admin-address-strength": true, "setup/site": true, "setup/email": true, "setup/theme": true, "setup/stats": true, "setup/content": true, "setup/done": true,
 		"users/list": true, "users/edit": true, "users/delete": true, "users/link": true, "profile/index": true, "profile/complete": true, "people/list": true, "people/new": true, "people/duplicates": true,
 		"settings/general": true, "settings/security-keep": true, "settings/security-change": true, "settings/security-admin-address": true, "settings/export": true, "settings/performance": true, "settings/spam": true, "settings/email": true, "settings/updates": true, "settings/backups": true, "settings/apikeynew": true, "settings/api": true, "settings/webhooks": true, "settings/webhooknew": true, "settings/webhookdeliveries": true, "users/invite": true, "confirm": true, "audit/index": true, // audit_log_test.go
 		// v1-11: content_test.go
