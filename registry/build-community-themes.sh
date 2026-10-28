@@ -8,7 +8,7 @@
 # pinned zip archive), have `hatamoto theme pack ... --registry` check it (theme.json
 # rules, screenshot, no wasm, Limits) and sign it into <packages-dir>/<name>.hmp,
 # put its screenshot into <screenshots-dir>/<name>.<ext> and add an entry
-# {title (when given), author, source, commit (git only), tier: "community",
+# {title, about, features (when given), author, source, commit (git only), tier: "community",
 # screenshot: "screenshots/<name>.<ext>"} to <meta-file> (created when absent;
 # other keys are kept). Everything is built in a temp dir first; the results are
 # copied into place only after every manifest succeeded, so a failed run publishes
@@ -110,6 +110,48 @@ archive_ok() { { [[ $1 =~ $url_re ]] && host_ok "$1"; } || { [ "${HATAMOTO_ALLOW
 
 # field <file> <key>: the string value, or empty when absent or not a string.
 field() { jq -r --arg k "$2" 'if (.[$k] | type) == "string" then .[$k] else "" end' "$1"; }
+# Emoji, symbols and invisible characters (copy of build-community.sh).
+unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}")'
+
+# check_about_features <name> <manifest>: the rules for the optional manifest keys "about"
+# (plain text, paragraphs separated by one newline) and "features" (a list of short lines).
+# Caps match Meta.validate in backend/internal/packages/indexbuild.go; the brand, banned-word
+# and script rules are for title and description only. The value only enters jq as input.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh
+check_about_features() {
+  local name=$1 f=$2 r
+  r=$(jq -r '
+    def unsafe: '"${unsafe_chars_filter#\$t | }"';
+    def line_problem:
+      if test("[<>]") then "must not contain < or >"
+      elif (ascii_downcase | contains("://") or contains("www.")) then "must not contain a URL"
+      elif . != gsub("^\\s+|\\s+$"; "") then "must not start or end with whitespace"
+      elif unsafe then "must not contain emoji, symbols or invisible characters"
+      else empty end;
+    def has_control($keep): explode | any(. != $keep and (. < 32 or (. >= 127 and . <= 159)));
+    (if has("about") then
+      .about as $a
+      | if ($a | type) != "string" then "about must be a string"
+        elif ($a | length) < 1 or ($a | length) > 1500 then "about must be 1 to 1500 characters"
+        elif ($a | has_control(10)) then "about must not contain control characters other than a newline between paragraphs"
+        elif ($a | split("\n") | length) > 10 then "about must have at most 10 paragraphs"
+        elif ($a | split("\n") | any(. == "")) then "about must not have an empty paragraph"
+        else ($a | split("\n") | map(line_problem) | first) as $p | if $p then "about \($p)" else empty end end
+    else empty end),
+    (if has("features") then
+      .features as $l
+      | if ($l | type) != "array" or ($l | any(type != "string")) then "features must be a list of strings"
+        elif ($l | length) < 1 or ($l | length) > 8 then "features must list 1 to 8 items"
+        elif ($l | any(length < 1 or length > 120)) then "each feature must be 1 to 120 characters"
+        elif ($l | any(has_control(-1))) then "a feature must not contain control characters"
+        else ($l | map(line_problem) | first) as $p
+          | if $p then "a feature \($p)"
+            elif ($l | map(ascii_downcase) | unique | length) != ($l | length) then "features must not repeat an item"
+            else empty end end
+    else empty end)' "$f" | head -n 1) || die "$name: about and features could not be checked"
+  [ -z "$r" ] || die "$name: $r"
+}
+
 has() { jq -e --arg k "$2" 'has($k)' "$1" >/dev/null; }
 
 # Pass 1: validate every manifest before touching the network.
@@ -132,9 +174,9 @@ fi
 for f in ${manifests[@]+"${manifests[@]}"}; do
   base=$(basename "$f" .json)
   jq -e 'type == "object"' "$f" >/dev/null 2>&1 || die "$base: manifest is not a JSON object"
-  extra=$(jq -r '[keys[] | select(IN("name","author","license","homepage","subdir","repo","commit","archive","sha256","title","archive_grant") | not)] | join(", ")' "$f")
+  extra=$(jq -r '[keys[] | select(IN("name","author","license","homepage","subdir","repo","commit","archive","sha256","title","archive_grant","about","features") | not)] | join(", ")' "$f")
   [ -z "$extra" ] || die "$base: unknown field(s): $extra (a theme manifest has no tier)"
-  for k in name author license title homepage subdir repo commit archive sha256; do
+  for k in name author license title homepage subdir repo commit archive sha256 about; do
     ! has "$f" "$k" || jq -e --arg k "$k" '.[$k] | type == "string"' "$f" >/dev/null || die "$base: $k must be a string"
   done
   name=$(field "$f" name); author=$(field "$f" author); license=$(field "$f" license)
@@ -157,6 +199,7 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
       die "$name: bad title (1 to 60 characters, no control characters, no leading or trailing space)"
     fi
   fi
+  check_about_features "$name" "$f"
   if has "$f" homepage; then [[ $homepage =~ ^https:// ]] || die "$name: homepage must start with https://"; fi
   if has "$f" subdir; then
     if ! [[ $subdir =~ ^[A-Za-z0-9._/-]+$ ]] || [[ $subdir == /* ]] || [[ $subdir =~ (^|/)\.\.(/|$) ]]; then
@@ -313,7 +356,8 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
       >"$stage/archive/$name/$af.json"
   fi
   jq --arg n "$name" --arg a "$author" --arg t "$title" --arg s "$source_url" --arg c "$commit" --arg p "screenshots/$shot" \
-    '.[$n] = ({author: $a, source: $s} + (if $c != "" then {commit: $c} else {} end) + {tier: "community", screenshot: $p} + (if $t != "" then {title: $t} else {} end))' \
+    --arg about "$(field "$f" about)" --argjson feat "$(jq -c '.features // null' "$f")" \
+    '.[$n] = ({author: $a, source: $s} + (if $c != "" then {commit: $c} else {} end) + {tier: "community", screenshot: $p} + (if $t != "" then {title: $t} else {} end) + (if $about != "" then {about: $about} else {} end) + (if $feat != null then {features: $feat} else {} end))' \
     "$stage/meta.json" >"$stage/meta.next" || die "$name: meta merge failed"
   mv "$stage/meta.next" "$stage/meta.json"
 done

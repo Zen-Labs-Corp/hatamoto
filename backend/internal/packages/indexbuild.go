@@ -41,6 +41,9 @@ type Meta struct {
 	Tier   string `json:"tier"`
 	// Screenshot is screenshots/<name>.(png|webp|jpg); themes only.
 	Screenshot string `json:"screenshot,omitempty"`
+	// About and Features: see Entry; the caps are the same as the build scripts.
+	About    string   `json:"about,omitempty"`
+	Features []string `json:"features,omitempty"`
 }
 
 // BuildOptions are the optional inputs of BuildIndexWith.
@@ -87,6 +90,16 @@ func (m Meta) validate(name string, kind Kind) error {
 			}
 		}
 	}
+	if m.About != "" {
+		if err := validateAbout(m.About); err != nil {
+			return fmt.Errorf("about: %w", err)
+		}
+	}
+	if m.Features != nil {
+		if err := validateFeatures(m.Features); err != nil {
+			return fmt.Errorf("features: %w", err)
+		}
+	}
 	if m.Author != "" && !metaAuthorPattern.MatchString(m.Author) {
 		return fmt.Errorf("author %q is not allowed", m.Author)
 	}
@@ -106,6 +119,69 @@ func (m Meta) validate(name string, kind Kind) error {
 		if !regexp.MustCompile(`^screenshots/` + regexp.QuoteMeta(name) + `\.(png|webp|jpg)$`).MatchString(m.Screenshot) {
 			return fmt.Errorf("screenshot %q must be screenshots/%s.png, .webp or .jpg", m.Screenshot, name)
 		}
+	}
+	return nil
+}
+
+// proseProblem names what is wrong with a line of about/features text, or "".
+func proseProblem(s string) string {
+	switch {
+	case strings.ContainsAny(s, "<>"):
+		return "must not contain < or >"
+	case strings.Contains(s, "://") || strings.Contains(strings.ToLower(s), "www."):
+		return "must not contain a URL"
+	case s != strings.TrimSpace(s):
+		return "must not start or end with whitespace"
+	case strings.IndexFunc(s, func(r rune) bool { return unicode.Is(unicode.Cf, r) }) >= 0:
+		return "must not contain invisible format characters (zero-width, bidi override)"
+	}
+	return ""
+}
+
+func validateAbout(about string) error {
+	if n := utf8.RuneCountInString(about); n > maxAbout {
+		return fmt.Errorf("must be 1 to %d characters, got %d", maxAbout, n)
+	}
+	if hasControl(about, '\n') {
+		return fmt.Errorf("must not contain control characters other than a newline between paragraphs")
+	}
+	if p := proseProblem(about); p != "" {
+		return fmt.Errorf("%s", p)
+	}
+	paras := strings.Split(about, "\n")
+	if len(paras) > maxAboutParas {
+		return fmt.Errorf("must have at most %d paragraphs", maxAboutParas)
+	}
+	for _, p := range paras {
+		if p == "" {
+			return fmt.Errorf("must not have an empty paragraph")
+		}
+		if strings.TrimSpace(p) != p {
+			return fmt.Errorf("a paragraph must not start or end with whitespace")
+		}
+	}
+	return nil
+}
+
+func validateFeatures(features []string) error {
+	if len(features) == 0 || len(features) > maxFeatures {
+		return fmt.Errorf("must list 1 to %d items", maxFeatures)
+	}
+	seen := make(map[string]bool, len(features))
+	for _, f := range features {
+		if n := utf8.RuneCountInString(f); n < 1 || n > maxFeature {
+			return fmt.Errorf("item %q must be 1 to %d characters", f, maxFeature)
+		}
+		if hasControl(f, -1) {
+			return fmt.Errorf("item %q has a control character", f)
+		}
+		if p := proseProblem(f); p != "" {
+			return fmt.Errorf("item %q %s", f, p)
+		}
+		if seen[f] {
+			return fmt.Errorf("item %q is listed twice", f)
+		}
+		seen[f] = true
 	}
 	return nil
 }
@@ -168,6 +244,7 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 				return nil, fmt.Errorf("meta for %s: %w", p.Name, err)
 			}
 			e.Title, e.Author, e.Source, e.Commit, e.Tier, e.Screenshot = m.Title, m.Author, m.Source, m.Commit, m.Tier, m.Screenshot
+			e.About, e.Features = m.About, m.Features
 		}
 		idx.Packages = append(idx.Packages, e)
 	}

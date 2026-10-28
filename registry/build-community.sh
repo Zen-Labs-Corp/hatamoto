@@ -7,9 +7,9 @@
 # any other file name must be a valid plugin name): validate the manifest, fetch
 # the pinned commit, build it like `make plugin-<name>` into a fresh directory
 # in the stage, pack and sign it into <packages-dir>/<name>.hmp, and add an entry
-# {title (when given), author, source, commit, tier: "community"} to <meta-file> (created when
+# {title and about and features (when given), author, source, commit, tier: "community"} to <meta-file> (created when
 # absent; other keys are kept). A manifest with "tier": "first-party" gets
-# {title (when given), source, commit, tier: "first-party"} instead (no author, and a
+# {title, about, features (when given), source, commit, tier: "first-party"} instead (no author, and a
 # manifest "author" is refused); it is accepted only when the repo owner is listed in
 # FIRST_PARTY_OWNERS, never silently downgraded. The tier is a label: trust is the signature. A name that already exists in <packages-dir> or
 # <meta-file> (a first-party plugin) is refused, never replaced. Everything is
@@ -327,6 +327,45 @@ check_title() {
   fi
 }
 
+# check_about_features <name> <manifest>: the rules for the optional manifest keys "about"
+# (plain text, paragraphs separated by one newline) and "features" (a list of short lines).
+# Caps match Meta.validate in backend/internal/packages/indexbuild.go; the brand, banned-word
+# and script rules are for title and description only. The value only enters jq as input.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+check_about_features() {
+  local name=$1 f=$2 r
+  r=$(jq -r '
+    def unsafe: '"${unsafe_chars_filter#\$t | }"';
+    def line_problem:
+      if test("[<>]") then "must not contain < or >"
+      elif (ascii_downcase | contains("://") or contains("www.")) then "must not contain a URL"
+      elif . != gsub("^\\s+|\\s+$"; "") then "must not start or end with whitespace"
+      elif unsafe then "must not contain emoji, symbols or invisible characters"
+      else empty end;
+    def has_control($keep): explode | any(. != $keep and (. < 32 or (. >= 127 and . <= 159)));
+    (if has("about") then
+      .about as $a
+      | if ($a | type) != "string" then "about must be a string"
+        elif ($a | length) < 1 or ($a | length) > 1500 then "about must be 1 to 1500 characters"
+        elif ($a | has_control(10)) then "about must not contain control characters other than a newline between paragraphs"
+        elif ($a | split("\n") | length) > 10 then "about must have at most 10 paragraphs"
+        elif ($a | split("\n") | any(. == "")) then "about must not have an empty paragraph"
+        else ($a | split("\n") | map(line_problem) | first) as $p | if $p then "about \($p)" else empty end end
+    else empty end),
+    (if has("features") then
+      .features as $l
+      | if ($l | type) != "array" or ($l | any(type != "string")) then "features must be a list of strings"
+        elif ($l | length) < 1 or ($l | length) > 8 then "features must list 1 to 8 items"
+        elif ($l | any(length < 1 or length > 120)) then "each feature must be 1 to 120 characters"
+        elif ($l | any(has_control(-1))) then "a feature must not contain control characters"
+        else ($l | map(line_problem) | first) as $p
+          | if $p then "a feature \($p)"
+            elif ($l | map(ascii_downcase) | unique | length) != ($l | length) then "features must not repeat an item"
+            else empty end end
+    else empty end)' "$f" | head -n 1) || die "$name: about and features could not be checked"
+  [ -z "$r" ] || die "$name: $r"
+}
+
 # check_description <plugin.json> <title> <name>: the listing rules for the description in
 # the built plugin.json (also for first-party plugins). Run on every path that publishes a
 # package: a fresh build and a reused archive. Values only enter jq as --arg.
@@ -457,6 +496,7 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   fpx=0; [ -n "$tier" ] && [ -n "$owner_ok" ] && fpx=1
   check_name "$name" "$(repo_owner "$repo")" "$fpx" "$base"
   if [ -n "$title" ]; then check_title "$name" "$title" "$(repo_owner "$repo")" "$fpx"; fi
+  check_about_features "$name" "$f"
 done
 
 # Pass 2: build. Every go call below uses the pinned toolchain, no workspace and
@@ -629,7 +669,8 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
     if [ "$built_from" = mirror ] || git "${git_opts[@]}" ls-remote --exit-code "$m" "refs/tags/src/$commit" >/dev/null 2>&1; then source_url=$m; fi
   fi
   jq --arg n "$name" --arg a "$author" --arg t "$title" --arg s "$source_url" --arg c "$commit" --arg k "$tier" \
-    '.[$n] = ((if $k == "first-party" then {source: $s, commit: $c, tier: $k} else {author: $a, source: $s, commit: $c, tier: $k} end) + (if $t != "" then {title: $t} else {} end))' "$stage/meta.json" >"$stage/meta.next" \
+    --arg about "$(field "$f" about)" --argjson feat "$(jq -c '.features // null' "$f")" \
+    '.[$n] = ((if $k == "first-party" then {source: $s, commit: $c, tier: $k} else {author: $a, source: $s, commit: $c, tier: $k} end) + (if $t != "" then {title: $t} else {} end) + (if $about != "" then {about: $about} else {} end) + (if $feat != null then {features: $feat} else {} end))' "$stage/meta.json" >"$stage/meta.next" \
     || die "$name: meta merge failed"
   mv "$stage/meta.next" "$stage/meta.json"
 done

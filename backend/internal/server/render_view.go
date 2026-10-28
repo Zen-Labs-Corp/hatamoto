@@ -210,6 +210,18 @@ func (s *Server) applyPluginDirectory(ctx context.Context, v *render.PageView) {
 	if pd == nil && td == nil {
 		return
 	}
+	// The views are shared (cached): link on a copy. Detail pages are served
+	// only for the directory on /plugins resp. /themes.
+	if pd != nil {
+		c := *pd
+		c.Linked = v.Path == "/plugins"
+		pd = &c
+	}
+	if td != nil {
+		c := *td
+		c.Linked = v.Path == "/themes"
+		td = &c
+	}
 	v.PluginDirectory, v.ThemeDirectory = pd, td
 	v.MaxCacheAge = pluginDirectoryCacheAge
 	// An unavailable directory is served but not cached, so recovery shows on
@@ -224,6 +236,9 @@ func (s *Server) applyPluginDirectory(ctx context.Context, v *render.PageView) {
 func (s *Server) directoriesFor(ctx context.Context, sections []render.Section, doc *builder.Doc) (*render.PluginDirectoryView, *render.ThemeDirectoryView) {
 	var wantPlugins, wantThemes bool
 	for _, sec := range viewSections(sections, doc) {
+		if sec.IsVisible != nil && !*sec.IsVisible {
+			continue
+		}
 		switch sec.Type {
 		case "plugin_directory":
 			wantPlugins = true

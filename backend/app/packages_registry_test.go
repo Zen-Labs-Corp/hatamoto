@@ -58,7 +58,7 @@ func TestRegistryIndexMetaEndToEnd(t *testing.T) {
 	if err := runRegistryIndex([]string{pkgs, "--key", keyFile, "--out", indexFile, "--meta", metaFile}, io.Discard); err == nil || !strings.Contains(err.Error(), "ghost") {
 		t.Fatalf("a meta name outside the dir: %v", err)
 	}
-	write(`{"hello":{"author":"acme","source":"https://example.org/acme/hello","commit":"` + strings.Repeat("a", 40) + `","tier":"community"}}`)
+	write(`{"hello":{"author":"acme","source":"https://example.org/acme/hello","commit":"` + strings.Repeat("a", 40) + `","tier":"community","about":"First.\nSecond.","features":["Fast","Small"]}}`)
 	if err := runRegistryIndex([]string{pkgs, "--key", keyFile, "--out", indexFile, "--meta", metaFile}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestRegistryIndexMetaEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e, _ := idx.Find(packages.KindPlugin, "hello"); e.Author != "acme" || e.Tier != packages.TierCommunity || e.Commit != strings.Repeat("a", 40) {
+	if e, _ := idx.Find(packages.KindPlugin, "hello"); e.Author != "acme" || e.Tier != packages.TierCommunity || e.Commit != strings.Repeat("a", 40) || e.About != "First.\nSecond." || len(e.Features) != 2 {
 		t.Errorf("entry = %+v", e)
 	}
 }

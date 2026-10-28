@@ -53,7 +53,7 @@ var requiredTemplates = []string{"head", "header", "nav", "footer", "section", "
 
 // fixedLayouts are the layouts a theme may ship; the embedded default ships
 // all of them, so the lookup always ends somewhere.
-var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "404", "error"}
+var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "registry", "404", "error"}
 
 // layoutPrefixes name the family layouts: single-<schema>, archive-<schema>
 // and taxonomy-<kind>.
@@ -90,6 +90,7 @@ func isLayoutName(name string) bool {
 //	taxonomy: taxonomy-<kind> -> taxonomy -> page
 //	author:   author -> page
 //	search:   search -> page
+//	registry: registry -> page
 //
 // schema is the schema slug (single, archive) or the term kind (taxonomy).
 func layoutCandidates(kind, schema string) []string {
@@ -113,6 +114,11 @@ func layoutCandidates(kind, schema string) []string {
 		out = append(out, "taxonomy")
 	case KindAuthor, KindSearch:
 		out = append(out, kind)
+	case KindRegistry:
+		// No generic page fallback: a theme's own page.html knows nothing of
+		// .Registry and would win the layer-first pick over the embedded
+		// default registry layout, which every chain ends with.
+		return []string{kind}
 	}
 	return append(out, "page")
 }

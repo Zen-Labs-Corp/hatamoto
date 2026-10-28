@@ -70,3 +70,33 @@ func TestThemeDirectoryDocComponentDetected(t *testing.T) {
 		t.Fatalf("pd=%+v td=%+v", pd, td)
 	}
 }
+
+// Card titles link to the detail pages only on the page that serves them:
+// the plugin directory on /plugins, the theme directory on /themes.
+func TestDirectoryLinkedOnlyOnServingPath(t *testing.T) {
+	rig := newDirRig(t)
+	rig.publish(24*time.Hour,
+		packages.Entry{Kind: packages.KindPlugin, Name: "zeta", Version: "1.0.0"},
+		packages.Entry{Kind: packages.KindTheme, Name: "zen", Version: "1.0.0"})
+	s := directoryServer(rig)
+	both := []render.Section{{ID: "a", Type: "plugin_directory"}, {ID: "b", Type: "theme_directory"}}
+	for _, c := range []struct {
+		path            string
+		plugins, themes bool
+	}{{"/plugins", true, false}, {"/themes", false, true}, {"/extensions", false, false}, {"/", false, false}} {
+		v := &render.PageView{Path: c.path, Sections: both, Uncacheable: new(bool)}
+		s.applyPluginDirectory(context.Background(), v)
+		if v.PluginDirectory.Linked != c.plugins || v.ThemeDirectory.Linked != c.themes {
+			t.Errorf("%s: plugins linked=%v themes linked=%v, want %v %v", c.path, v.PluginDirectory.Linked, v.ThemeDirectory.Linked, c.plugins, c.themes)
+		}
+	}
+}
+
+func TestDirectoriesForSkipsHiddenSection(t *testing.T) {
+	s := directoryServer(newDirRig(t))
+	hidden := false
+	pd, td := s.directoriesFor(context.Background(), []render.Section{{Type: "plugin_directory", IsVisible: &hidden}}, nil)
+	if pd != nil || td != nil {
+		t.Fatalf("hidden section fed a directory: %+v %+v", pd, td)
+	}
+}

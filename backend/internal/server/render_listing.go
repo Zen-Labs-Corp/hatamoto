@@ -53,8 +53,9 @@ type listingRoute struct {
 	NoType bool
 }
 
-// resolveForRender is resolveRouteForRender plus the built-in listings: they
-// only answer paths the resolver reported as not found.
+// resolveForRender is resolveRouteForRender plus the built-in listings and the
+// registry detail pages: they only answer paths the resolver reported as not
+// found, in that order (a CMS page wins, then a listing, then a registry page).
 func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error) {
 	rr, outcome, err := s.resolveRouteForRender(ctx, path, r)
 	if err != nil || rr == nil || !rr.NotFound {
@@ -66,10 +67,19 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
-	if lr == nil {
-		return rr, outcome, nil
+	if lr != nil {
+		return &routeResult{Listing: lr}, pageOutcome{Status: http.StatusOK}, nil
 	}
-	return &routeResult{Listing: lr}, pageOutcome{Status: http.StatusOK}, nil
+	reg, err := s.resolveRegistry(ctx, path, r)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "render: resolve registry page", "error", err, "path", path)
+		return nil, pageOutcome{Status: http.StatusInternalServerError},
+			&pageError{http.StatusInternalServerError, "failed to resolve path"}
+	}
+	if reg != nil {
+		return &routeResult{Registry: reg}, pageOutcome{Status: http.StatusOK}, nil
+	}
+	return rr, outcome, nil
 }
 
 // resolveListing maps /category/{slug}, /tag/{slug} and /search
@@ -202,6 +212,8 @@ func (s *Server) fillView(ctx context.Context, r *http.Request, rr *routeResult,
 		return s.fillArchive(ctx, r, rr, v)
 	case rr.Listing != nil:
 		return s.fillListing(ctx, r, rr.Listing, v)
+	case rr.Registry != nil:
+		fillRegistry(v, rr.Registry)
 	}
 	return nil
 }

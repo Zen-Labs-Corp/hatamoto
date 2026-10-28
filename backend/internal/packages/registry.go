@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Entry is one package a registry offers.
@@ -41,6 +43,53 @@ type Entry struct {
 	Tier   string `json:"tier,omitempty"`
 	// Screenshot is a registry-relative path to a theme preview image.
 	Screenshot string `json:"screenshot,omitempty"`
+	// About (plain text, paragraphs split by a single newline) and Features
+	// feed the public detail page. Both are optional: servers that predate
+	// them ignore the keys.
+	About    string   `json:"about,omitempty"`
+	Features []string `json:"features,omitempty"`
+}
+
+// Caps of Entry.About and Entry.Features, shared by the index build
+// (Meta.validate) and the client sanitiser (ParseIndex).
+const (
+	maxAbout      = 1500
+	maxAboutParas = 10
+	maxFeatures   = 8
+	maxFeature    = 120
+)
+
+// hasControl reports whether s holds a control character other than keep.
+func hasControl(s string, keep rune) bool {
+	for _, r := range s {
+		if unicode.IsControl(r) && r != keep {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanAbout returns about, or "" when it is over the caps or holds a control
+// character other than the paragraph newline.
+func cleanAbout(about string) string {
+	if utf8.RuneCountInString(about) > maxAbout || strings.Count(about, "\n")+1 > maxAboutParas || hasControl(about, '\n') {
+		return ""
+	}
+	return about
+}
+
+// cleanFeatures keeps at most the first maxFeatures usable items.
+func cleanFeatures(in []string) []string {
+	var out []string
+	for _, f := range in {
+		if f == "" || utf8.RuneCountInString(f) > maxFeature || hasControl(f, -1) {
+			continue
+		}
+		if out = append(out, f); len(out) == maxFeatures {
+			break
+		}
+	}
+	return out
 }
 
 // screenshotPathPattern is the only shape of Entry.Screenshot a client keeps,
@@ -200,6 +249,7 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 			if !screenshotPathPattern.MatchString(e.Screenshot) {
 				e.Screenshot = ""
 			}
+			e.About, e.Features = cleanAbout(e.About), cleanFeatures(e.Features)
 			valid = append(valid, e)
 		}
 	}

@@ -190,10 +190,13 @@ index and an ed25519 signature over its compact JSON.
        "url": "seo-tools-1.2.0.hmp", "sha256": "<hex of the .hmp>", "size": 123456,
        "permissions": ["entities.read", "kv"], "homepage": "https://...",
        "title": "SEO Tools", "author": "acme", "source": "https://github.com/acme/seo-tools",
+       "about": "Adds structured data to every page.\nWorks without configuration.",
+       "features": ["JSON-LD for pages", "Sitemap hints"],
        "commit": "<40 hex>", "tier": "community"},
       {"kind": "theme", "name": "kumo", "version": "1.0.0", "description": "...",
        "url": "kumo-1.0.0.hmp", "sha256": "<hex of the .hmp>", "size": 98765,
        "title": "Kumo", "author": "tanaka", "source": "https://github.com/tanaka/kumo",
+       "about": "A calm, light theme for blogs.", "features": ["Dark mode"],
        "commit": "<40 hex>", "tier": "community", "screenshot": "screenshots/kumo.webp"}
     ]
   },
@@ -204,7 +207,11 @@ index and an ed25519 signature over its compact JSON.
 ```
 
 `screenshot` (themes only) is a path of the form `screenshots/<name>.png`, `.webp` or `.jpg`, relative to the index; a client drops any other value. `title` (1 to 60 characters, no control characters, no leading or trailing space, the card heading in the plugin directory), `author` (shown as "by @author" on plugin cards and "by author" on theme cards, for community packages only; a first-party entry has none), `source` (an `https` link), `commit` and `tier` (`first-party` or `community`) are
-optional descriptive fields; older servers ignore them. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
+optional descriptive fields; older servers ignore them. So are `about` (plain text, 1 to 1500
+characters, at most 10 paragraphs separated by a single newline) and `features` (1 to 8 distinct
+lines of 1 to 120 characters), the text of a package's detail page. Neither may contain `<`, `>`
+or a URL, and no line may start or end with whitespace. `registry index` refuses a `--meta` value
+that breaks these rules; a client clears an invalid `about` or `features` and keeps the entry. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
 the index. The server refuses an expired index, one issued in the future or one
 without both times, so an old copy cannot be replayed to hide newer versions.
 `HATAMOTO_REGISTRY_URL` must be `https://` (an explicit test override aside).
@@ -220,7 +227,8 @@ To publish: `pack` and sign each package into one directory, host the files, and
 build the signed index with `hatamoto registry index <dir> --key F --url-prefix
 packages/ --out registry.json` (it lists every `.hmp` in the directory; the
 index is valid 90 days, `--valid-days` 1 to 180, so re-run it on a schedule).
-`--meta F` adds the descriptive fields from a JSON file keyed by package name
+`--meta F` adds the descriptive fields (`title`, `about`, `features`, `author`, `source`, `commit`,
+`tier`, `screenshot`) from a JSON file keyed by package name
 (`{"seo-tools": {"title": "SEO Tools", "author": "acme", "source": "https://...", "commit": "...", "tier": "community"}}`).
 For a theme, add `"screenshot": "screenshots/<name>.webp"` there; the host serves the image next to the index.
 The "Plugin directory" page section (see `docs/site/themes/sections.md`) shows the plugins of

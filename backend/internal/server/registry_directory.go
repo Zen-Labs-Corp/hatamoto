@@ -104,6 +104,17 @@ func (d *registryDirectory) Views(ctx context.Context) directoryViews {
 	}
 }
 
+// cached returns the current snapshot without fetching; ok is false when it is
+// missing or stale.
+func (d *registryDirectory) cached() (directoryViews, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.now().Before(d.snap.until) {
+		return d.snap.views, true
+	}
+	return directoryViews{}, false
+}
+
 func unavailableDirectory() directoryViews {
 	return directoryViews{
 		plugins: render.PluginDirectoryView{State: render.PluginDirectoryUnavailable},
@@ -212,6 +223,7 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
 			Source: packages.SafeHTTPS(e.Source), Screenshot: screenshotURL(registryURL, e.Screenshot),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description + " " + e.Author),
+			About:  aboutParagraphs(e.About), Features: e.Features,
 		}
 		switch e.Tier {
 		case packages.TierFirstParty:
@@ -268,6 +280,7 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
 			Source: packages.SafeHTTPS(e.Source),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
+			About:  aboutParagraphs(e.About), Features: e.Features,
 		}
 		c.PermCount, c.PermWarn, c.PermLines = permissionCard(e.Permissions)
 		c.Permissions = e.Permissions
@@ -284,6 +297,15 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 		return render.PluginDirectoryView{State: render.PluginDirectoryEmpty}
 	}
 	return render.PluginDirectoryView{State: render.PluginDirectoryOK, Cards: cards}
+}
+
+// aboutParagraphs splits the index's about text (paragraphs joined by a single
+// newline) for the detail page; no text, no paragraphs.
+func aboutParagraphs(about string) []string {
+	if about == "" {
+		return nil
+	}
+	return strings.Split(about, "\n")
 }
 
 // displayVersion shows a version as "v1.2.0" whether or not the index has the "v".
