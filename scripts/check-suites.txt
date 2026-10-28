@@ -39,3 +39,5 @@ budgets          backend/**                                         make budgets
 t-pipe-full     scripts/pipeline-gate.sh,.githooks/lib/gate-cache.sh,scripts/test-pipeline-gate-full.sh   bash scripts/test-pipeline-gate-full.sh
 t-caddy-hdrs    deploy/caddy/**,deploy/well-known/security.txt,deploy/test-caddy-headers.sh   bash deploy/test-caddy-headers.sh
 t-verify-cut   scripts/verify-cutover.sh,scripts/test-verify-cutover.sh   bash scripts/test-verify-cutover.sh
+t-installer     deploy/install/**,deploy/systemd/**,deploy/install-unit.sh,backend/internal/release/keys/**   bash deploy/install/test-all.sh
+t-publish-install scripts/publish-install.sh,scripts/test-publish-install.sh,deploy/install/**   bash scripts/test-publish-install.sh

@@ -109,7 +109,8 @@ pass "first-boot unit and script"
 if find "$ub" \( -name hatamoto.env -o -name secrets -o -name 'secrets.env' -o -name install_id -o -name Caddyfile -o -name 'setup*code*' \) | grep .; then
   fail "secret or site file written by the build stage"
 fi
-if grep -rIl -e 'HATAMOTO_SETUP_CODE=' -e 'DATABASE_URL=' "$ub" 2>/dev/null | grep .; then fail "build stage wrote a secret-looking line"; fi
+# firstboot.sh is shipped on purpose and holds the env file template text; it must not hold real values.
+if grep -rIl --exclude=firstboot.sh -e 'HATAMOTO_SETUP_CODE=' -e 'DATABASE_URL=' "$ub" 2>/dev/null | grep .; then fail "build stage wrote a secret-looking line"; fi
 pass "no env file, secret or Caddy site"
 
 # --- rerun is a no-op

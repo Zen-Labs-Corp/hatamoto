@@ -38,6 +38,8 @@ expected=(
   'cd backend/tools/docs-publish && go run . --lint --root ../../../docs/site'
   'make budgets'
   'bash scripts/test-check-suites.sh'
+  'bash deploy/install/test-all.sh'
+  'bash scripts/test-publish-install.sh'
   'bash scripts/test-affected.sh'
   'bash scripts/test-farm.sh'
 )
