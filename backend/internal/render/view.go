@@ -459,6 +459,9 @@ const (
 type PluginDirectoryView struct {
 	State string
 	Cards []PluginCard
+	// Linked is set when the page serves the detail pages (/plugins); card
+	// titles link to them only then.
+	Linked bool
 }
 
 // ThemeDirectoryView is the verified registry's theme list for
@@ -466,6 +469,9 @@ type PluginDirectoryView struct {
 type ThemeDirectoryView struct {
 	State string
 	Cards []ThemeCard
+	// Linked is set when the page serves the detail pages (/themes); card
+	// titles link to them only then.
+	Linked bool
 }
 
 // ThemeCard is one theme entry of the directory. Source and Screenshot are

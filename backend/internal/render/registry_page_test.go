@@ -123,3 +123,19 @@ func TestRegistryPageIgnoresCustomPageLayout(t *testing.T) {
 		t.Errorf("custom page.html hijacked the registry layout:\n%s", out)
 	}
 }
+
+func TestDirectoryCardLinkFollowsLinked(t *testing.T) {
+	e, _ := New(Options{})
+	for _, linked := range []bool{false, true} {
+		v := minimalView()
+		v.Sections = []Section{{ID: "p", Type: "plugin_directory", Content: map[string]any{}}, {ID: "t", Type: "theme_directory", Content: map[string]any{}}}
+		v.PluginDirectory = &PluginDirectoryView{State: PluginDirectoryOK, Linked: linked, Cards: []PluginCard{{Name: "zeta"}}}
+		v.ThemeDirectory = &ThemeDirectoryView{State: PluginDirectoryOK, Linked: linked, Cards: []ThemeCard{{Name: "zen"}}}
+		out := renderRegistry(t, e, v)
+		for _, href := range []string{`href="/plugins/zeta"`, `href="/themes/zen"`} {
+			if strings.Contains(out, href) != linked {
+				t.Errorf("linked=%v: %s present=%v", linked, href, !linked)
+			}
+		}
+	}
+}
