@@ -26,6 +26,8 @@
 # has the 2-year preload value once. (A deferred ">" header was tried: Caddy skips it
 # on its own error responses.) /.well-known/security.txt (RFC 9116) is served from
 # /opt/hatamoto/public/.well-known/ (source: deploy/well-known/security.txt).
+# /install.sh (the VPS installer, a static text/plain file copied there by
+# scripts/publish-install.sh) is served from /opt/hatamoto/public too.
 #
 # Caddy also answers the Go import paths: `go get hatamoto.dev/sdk` and
 # `hatamoto.dev/core` ask https://hatamoto.dev/sdk?go-get=1 (or /core...) where
@@ -52,7 +54,7 @@ hatamoto.dev {
     # Plain (not deferred) so Caddy's own error responses keep it; the app's copy
     # is removed at the proxy (header_down below).
     header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-    @static_hardening path /registry.json /packages/* /releases/* /.well-known/security.txt /security /security/
+    @static_hardening path /registry.json /packages/* /releases/* /.well-known/security.txt /install.sh /security /security/
     header @static_hardening {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
@@ -80,6 +82,12 @@ hatamoto.dev {
     handle /.well-known/security.txt {
         root * /opt/hatamoto/public
         header Cache-Control "public, max-age=3600"
+        file_server
+    }
+    handle /install.sh {
+        root * /opt/hatamoto/public
+        header Cache-Control "public, max-age=300"
+        header Content-Type "text/plain; charset=utf-8"
         file_server
     }
     handle /archive/* {

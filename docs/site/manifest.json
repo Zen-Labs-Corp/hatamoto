@@ -9,12 +9,14 @@
         "before-you-install",
         "install-binary",
         "install-docker",
+        "install-vps",
         "first-run",
         "create-users"
       ],
       "reference": [
         "requirements-and-secrets",
-        "one-site-one-language"
+        "one-site-one-language",
+        "vps-provider-examples"
       ]
     },
     {

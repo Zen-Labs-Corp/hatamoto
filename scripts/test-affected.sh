@@ -164,4 +164,9 @@ if ((${#uncovered[@]})); then
   printf 'uncovered test reader: %s\n' "${uncovered[@]}" | sort -u >&2
   fail "a test reads a path that neither a force-full rule nor scripts/affected-readers.txt covers"
 fi
+# the real table maps files below deploy/install to the installer-key test
+for f in deploy/install/src/install/20-trust.sh deploy/install/build-install.sh; do
+  [[ $(hm_readers_match "$top/scripts/affected-readers.txt" "$f") == $'backend\t./internal/release' ]] \
+    || fail "affected-readers.txt has no ./internal/release row for $f"
+done
 echo "test-affected: ok"

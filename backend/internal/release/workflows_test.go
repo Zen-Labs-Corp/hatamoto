@@ -132,6 +132,11 @@ func TestWorkflowsStatic(t *testing.T) {
 	if strings.Contains(workflowJob(t, rel, "draft"), "attest") {
 		t.Error("the draft job must not depend on attest")
 	}
+	// install.sh is assembled in the build job, attested once beside SHA256SUMS
+	// and attached to the draft; the sums line is separate from the hatamoto-* glob.
+	mustContain(t, "release.yml (build)", workflowJob(t, rel, "build"), "bash deploy/install/build-install.sh --out dist-install", "cp dist-install/install.sh dist/install.sh", "sha256sum install.sh >> SHA256SUMS")
+	mustContain(t, "release.yml (attest)", workflowJob(t, rel, "attest"), "subject-path: dist/install.sh")
+	mustContain(t, "release.yml (draft)", workflowJob(t, rel, "draft"), "dist/install.sh")
 	// A public repository passes --require on its own.
 	mustContain(t, "release.yml", rel, "REPO_PRIVATE", "--require")
 	if strings.Count(rel, "id-token: write") != 1 {

@@ -263,6 +263,8 @@ jobs:
           done
       - name: Neutral-site rules
         run: bash scripts/check-neutral.sh
+      - name: Installer shellcheck
+        run: HATAMOTO_REQUIRE_SHELLCHECK=1 bash deploy/install/test-shellcheck.sh
       - name: Public snapshot
         run: bash scripts/test-public-snapshot.sh
       - name: LICENSE copies are identical
@@ -287,6 +289,28 @@ jobs:
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
       - name: zizmor
         run: pipx run zizmor==1.31.1 --offline --format plain .github/workflows/*.yml
+
+  # The installer end to end in a systemd container, once per supported distro.
+  installer-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu2404, debian12]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Installer container test
+        env:
+          HATAMOTO_REQUIRE_DOCKER: "1"
+          DISTRO: ${{ matrix.distro }}
+        run: bash deploy/install/test-container.sh "$DISTRO"
 
   # Admin UI consistency (docs/ADMIN_UI_RULES.md): a real server, seeded, and
   # computed-style checks in Chrome. Any violation fails the job; the screenshots,

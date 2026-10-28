@@ -80,6 +80,19 @@ In this guide you check a Hatamoto download against three independent proofs bef
 
    The identity is the same for every release, so `-a version=vX.Y.Z` is what ties the signature to the version: we sign each image with `version` and `commit` annotations, and an older signed image that someone re-tagged as `vX.Y.Z` fails this check. Use the version you meant to install, not the tag you pulled. Use `cosign verify-attestation --type spdxjson` with the two identity flags for the SBOM (it cannot carry annotations; it is bound to the image digest that the annotated signature covers). Pin the image by the digest that command prints when you deploy it. An identity ending in a tag (`@refs/tags/...`) or in another workflow file is not ours: do not run that image. The image workflow refuses a tag that is not signed by a listed maintainer key, not on `main`, or without a published release, but the cosign identity itself only proves "built by the image workflow on main". The signed release record is still the proof that we released a version. The image's binary is rebuilt from the verified tag by the Dockerfile, so it is not the binary `release.json` hashes: the record proves the release, not the image's bytes, and the annotated signature and digest are the proof for the image.
 
+## Check the installer script
+
+If you install on a new server with the `install.sh` script (see [Install on a VPS](../getting-started/install-vps.md)), you can check that script the same way before you run it. It is attached to each release and attested by the same workflow:
+
+```bash
+curl -fsSLO https://hatamoto.dev/install.sh
+gh attestation verify install.sh \
+  --repo Zen-Labs-Corp/hatamoto \
+  --signer-workflow Zen-Labs-Corp/hatamoto/.github/workflows/release.yml
+```
+
+The script is not tied to one version: it carries the three public keys (the release primary, the release backup and the manifest key, see [the two keys](trust-and-signing.md#the-two-keys)) and uses them to check the release list and the binary it installs, so it picks the newest stable release unless you set `HATAMOTO_VERSION`. Because the keys are inside the script, a key rotation means we publish a new installer: an old copy keeps trusting the old keys.
+
 ## Check it worked
 
 Step 1 ends with `Verification succeeded!`, step 2 prints `OK` for each file, step 3 prints `Signature Verified Successfully` and step 4 shows two identical hashes. Three agreeing proofs mean the file is what we built, listed and signed.

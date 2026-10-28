@@ -36,3 +36,6 @@ backend/web/vendor/**                                      backend  ./tools/vend
 backend/internal/server/admin_*.go                         backend  ./internal/admin
 backend/internal/server/render_admin_handlers.go           backend  ./internal/admin
 scripts/admin-qa/**                                        backend  ./internal/admin
+deploy/install/**                                          backend  ./internal/release
+deploy/install-unit.sh                                     backend  ./internal/release
+deploy/systemd/hatamoto-api.service                        backend  ./internal/release
