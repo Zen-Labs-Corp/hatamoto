@@ -132,6 +132,8 @@ func proseProblem(s string) string {
 		return "must not contain a URL"
 	case s != strings.TrimSpace(s):
 		return "must not start or end with whitespace"
+	case strings.IndexFunc(s, func(r rune) bool { return unicode.Is(unicode.Cf, r) }) >= 0:
+		return "must not contain invisible format characters (zero-width, bidi override)"
 	}
 	return ""
 }

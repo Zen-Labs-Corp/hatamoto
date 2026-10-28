@@ -69,11 +69,15 @@ page of a package. Both are plain text, never HTML or Markdown. `about` is 1 to 
 characters in at most 10 paragraphs separated by a single newline (no empty paragraph,
 no leading or trailing space, no control character other than that newline); `features`
 is a list of 1 to 8 distinct items of 1 to 120 characters each (no control character,
-no leading or trailing space). Neither may contain `<`, `>`, a URL (`://`, `www.`),
-emoji, symbols or invisible characters. `build-community.sh` and
-`build-community-themes.sh` refuse a manifest that breaks a rule, and so do
-`registry index` and `--meta`; a client clears an invalid value without dropping the
-package. The same rules belong in the listing repository's manifest validator.
+no leading or trailing space). Neither may contain `<`, `>` or a URL (`://`, `www.`).
+`build-community.sh` and `build-community-themes.sh` refuse a manifest that breaks any
+rule, and additionally refuse emoji and symbols (Unicode classes So, Sk, Co, Cs, Cf and
+Extended_Pictographic) and case-folded duplicate features. The
+Go side (`registry index` and `--meta`) enforces the length and count caps, `<`, `>`,
+URLs, edge whitespace, control characters and Unicode format characters (zero-width
+and bidi controls); it does not check for emoji or symbols. A client clears an invalid
+value without dropping the package. The same rules belong in the listing repository's
+manifest validator.
 
 `meta.json` (a first-party entry is `{title, about, features, source, commit, tier: first-party}`, no author) is passed to `registry index --meta`, so the signed index carries
 the descriptive fields. A site shows the directory with the core "Plugin directory"

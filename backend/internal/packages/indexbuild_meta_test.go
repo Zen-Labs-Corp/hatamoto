@@ -235,6 +235,9 @@ func TestMetaAboutAndFeatures(t *testing.T) {
 		"newline feature": with(func(m *Meta) { m.Features = []string{"a\nb"} }),
 		"angle feature":   with(func(m *Meta) { m.Features = []string{"<b>"} }),
 		"url feature":     with(func(m *Meta) { m.Features = []string{"http://example.test"} }),
+		"bidi about":      with(func(m *Meta) { m.About = "a\u202eb" }),
+		"zero width":      with(func(m *Meta) { m.About = "a\u200bb" }),
+		"bidi feature":    with(func(m *Meta) { m.Features = []string{"a\u2066b"} }),
 		"padded feature":  with(func(m *Meta) { m.Features = []string{"a "} }),
 	}
 	for name, meta := range bad {
