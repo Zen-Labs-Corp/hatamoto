@@ -61,7 +61,7 @@ echo "ship dry-run ok"
 # --- origin assertion: a clone of another repository, or one GitHub resolves to
 # another name (a renamed repository), stops before any PR is read or merged.
 dry() { PATH="$STUBS:$PATH" DEPLOY_HOST=stub SHIP_REEXEC=1 bash scripts/ship.sh --dry-run 1 2>&1; }
-if O=$(SHIP_EXPECTED_ORIGIN="Zen-Labs-Corp/hatamoto" dry); then echo "$O"; echo "FAIL: ship accepted an unexpected origin"; exit 1; fi
+if O=$(SHIP_EXPECTED_ORIGIN="example/not-this-repo" dry); then echo "$O"; echo "FAIL: ship accepted an unexpected origin"; exit 1; fi
 grep -q "SHIP-H ABORT: origin is" <<< "$O" || { echo "$O"; echo "FAIL: wrong origin not reported"; exit 1; }
 grep -q "== step" <<< "$O" && { echo "$O"; echo "FAIL: wrong origin reached step 1"; exit 1; }
 if O=$(STUB_NWO=owner/renamed dry); then echo "$O"; echo "FAIL: ship accepted an origin that resolves to another repository"; exit 1; fi
@@ -69,7 +69,7 @@ grep -q "resolves to owner/renamed" <<< "$O" || { echo "$O"; echo "FAIL: renamed
 O=$(SHIP_EXPECTED_ORIGIN="other/x ${SHIP_EXPECTED_ORIGIN^^}" dry) || { echo "$O"; echo "FAIL: case-insensitive list match refused"; exit 1; }
 [[ "$(slug_of git@github.com:Zen-Labs-Corp/hatamoto.git) $(slug_of https://github.com/example/hatamoto) $(slug_of ssh://git@github.com/a/b.git/)" == "Zen-Labs-Corp/hatamoto example/hatamoto a/b" ]] \
   || { echo "FAIL: slug parsing"; exit 1; }
-grep -q "SHIP_EXPECTED_ORIGIN:-Zen-Labs-Corp/hatamoto zenlabscorp/hatamoto}" scripts/ship.sh || { echo "FAIL: default expected origin changed"; exit 1; }
+grep -q "SHIP_EXPECTED_ORIGIN:-Zen-Labs-Corp/hatamoto}" scripts/ship.sh || { echo "FAIL: default expected origin changed"; exit 1; }
 echo "ship origin assertion ok"
 
 # --- OPEN PR: ship refuses failing, pending or missing admin-ui checks and

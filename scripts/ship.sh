@@ -23,7 +23,7 @@
 #   SITE_URL                  default https://hatamoto.dev
 #   SHIP_EXPECTED_ORIGIN      space-separated OWNER/NAME list the clone's origin must
 #                             be (case-insensitive); default
-#                             "Zen-Labs-Corp/hatamoto zenlabscorp/hatamoto". Both the
+#                             "Zen-Labs-Corp/hatamoto". Both the
 #                             origin URL and the repository gh resolves it to must be
 #                             in the list, so a clone of a renamed repository (GitHub
 #                             redirects the old name) is refused. Tests set it.
@@ -78,7 +78,7 @@ cd "$REPO"
 # Ship only from a clone of the core repository: if the repository a clone points
 # at is ever renamed, GitHub redirects the old name, so a stale clone would still
 # merge there. Read-only, so it runs in --dry-run too.
-EXPECTED_ORIGIN=${SHIP_EXPECTED_ORIGIN:-Zen-Labs-Corp/hatamoto zenlabscorp/hatamoto}
+EXPECTED_ORIGIN=${SHIP_EXPECTED_ORIGIN:-Zen-Labs-Corp/hatamoto}
 origin_slug() { # URL -> OWNER/NAME (ssh, https or a local path)
   local u=${1%/}; u=${u%.git}; u=${u//:/\/}
   awk -F/ 'NF >= 2 {print $(NF-1) "/" $NF}' <<< "$u"
