@@ -9,7 +9,8 @@ import (
 // the in-process worker. WORKER_DISABLE_JOBS is a comma-separated list of job
 // names to skip (publish, retention_purge,
 // prune, entity_versions, agent_hits_partition,
-// agent_hits_maintenance, agent_ranges_refresh, agent_verify, update_check, webhook_deliver, webhook_prune) — e.g. so an operator can adopt an
+// agent_hits_maintenance, agent_ranges_refresh, agent_verify, update_check, webhook_deliver, webhook_prune,
+// stats_ping) — e.g. so an operator can adopt an
 // existing database without immediately applying new retention deletes.
 //
 // HATAMOTO_AGENT_RANGES=off also turns off agent_ranges_refresh, the only job
@@ -27,7 +28,7 @@ func workerJobEnabled(name string) bool {
 }
 
 // knownWorkerJobs are the names workerJobEnabled is called with.
-var knownWorkerJobs = []string{"publish", "retention_purge", "prune", "entity_versions", "agent_hits_partition", "agent_hits_maintenance", "agent_ranges_refresh", "agent_verify", updateJob, webhookDeliverJob, webhookPruneJob}
+var knownWorkerJobs = []string{"publish", "retention_purge", "prune", "entity_versions", "agent_hits_partition", "agent_hits_maintenance", "agent_ranges_refresh", "agent_verify", updateJob, webhookDeliverJob, webhookPruneJob, statsJob}
 
 // disabledWorkerJobs lists the known jobs WORKER_DISABLE_JOBS turns off, for a
 // startup log line so operators can see the effect.

@@ -33,6 +33,7 @@ import (
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/importjob"
+	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
@@ -133,6 +134,7 @@ type Server struct {
 	// Background workers
 	scheduler *worker.Scheduler
 	updater   *updater.Updater
+	stats     *installstats.Service
 	// webhooks queues and manages outgoing webhooks; webhookDeliverer sends them.
 	webhooks         *webhook.Service
 	webhookDeliverer *webhook.Deliverer

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/updater"
 	"hatamoto.dev/core/internal/wpimport"
@@ -41,6 +42,24 @@ func updaterEnv(pool *pgxpool.Pool, eng *backup.Engine, logger *slog.Logger) (up
 	}, nil
 }
 
+// installStats builds the opt-in install stats service. Its channel is the
+// update channel; the update mode does not matter, stats have their own switch.
+func installStats(pool *pgxpool.Pool, version string, logger *slog.Logger) *installstats.Service {
+	us := updater.NewStore(pool)
+	return installstats.New(installstats.Config{
+		Store:   installstats.NewStore(pool),
+		Version: version,
+		Channel: func(ctx context.Context) string {
+			set, _, err := us.Load(ctx)
+			if err != nil {
+				return ""
+			}
+			return set.Effective(os.Getenv).Channel
+		},
+		Log: logger,
+	})
+}
+
 // startUpdater hands the update agent to the server. A problem here (say an
 // unusable update URL) is logged and never stops the site from starting.
 func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo bool, logger *slog.Logger) {
@@ -48,6 +67,7 @@ func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo 
 	version, _ := buildInfo()
 	eng := newBackupEngine(pool, mediaDir, version, logger)
 	srv.SetBackups(eng)
+	srv.SetStats(installStats(pool, version, logger))
 	if demo {
 		// Public demo: no update check, no apply. The Updates page says so.
 		srv.NoUpdater(errors.New("updates are switched off in the public demo"))
