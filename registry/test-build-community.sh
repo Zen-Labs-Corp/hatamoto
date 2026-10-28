@@ -114,7 +114,7 @@ git -C "$plug" add -A
 git -C "$plug" -c user.name=t -c user.email=t@example.com commit -q -m init
 sha=$(git -C "$plug" rev-parse HEAD)
 reg="$work/registry-repo"
-manifest "$reg" acme-notes "$(base acme-notes "file://$plug" "$sha" | jq '.title="Acme Notes"')"
+manifest "$reg" acme-notes "$(base acme-notes "file://$plug" "$sha" | jq '.title="Acme Notes" | .about="First paragraph.\nSecond paragraph." | .features=["Fast","Tiny"]')"
 
 # A name mismatch with plugin.json must fail before anything is published.
 mm="$work/mismatch"
@@ -457,12 +457,12 @@ for ownerdir in zen-labs-corp Zen-Labs-Corp; do
   jq '.name = "gtm"' "$fpup/plugin.json" >"$fpup/plugin.json.new" && mv "$fpup/plugin.json.new" "$fpup/plugin.json"
   git -C "$fpup" init -q; git -C "$fpup" add -A
   git -C "$fpup" -c user.name=t -c user.email=t@example.com commit -q -m init
-  manifest "$work/fp-ok" gtm "$(fp gtm "file://$fpup" | jq --arg c "$(git -C "$fpup" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager"')"
+  manifest "$work/fp-ok" gtm "$(fp gtm "file://$fpup" | jq --arg c "$(git -C "$fpup" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager" | .about="Tags for every page." | .features=["One tag"]')"
   rm -rf "$work/fp-ok-pk" "$work/fp-ok-meta.json"
   FIRST_PARTY_OWNERS=Zen-Labs-Corp HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \
     "$script" "$work/fp-ok" "$bin" "$key" "$work/fp-ok-pk" "$work/fp-ok-meta.json" >"$work/fp.log" 2>&1 || fail "first-party build ($ownerdir): $(cat "$work/fp.log")"
   [ -s "$work/fp-ok-pk/gtm.hmp" ] || fail "first-party build: no package"
-  jq -e --arg s "file://$fpup" '.gtm == {source: $s, commit: .gtm.commit, tier: "first-party", title: "Google Tag Manager"} and (.gtm | has("author") | not)' "$work/fp-ok-meta.json" >/dev/null \
+  jq -e --arg s "file://$fpup" '.gtm == {source: $s, commit: .gtm.commit, tier: "first-party", title: "Google Tag Manager", about: "Tags for every page.", features: ["One tag"]} and (.gtm | has("author") | not)' "$work/fp-ok-meta.json" >/dev/null \
     || fail "first-party meta wrong: $(cat "$work/fp-ok-meta.json")"
 done
 echo "ok: first-party build"
@@ -499,6 +499,41 @@ neg "title sharing no word" "acme-seo" "$(base acme-seo $https $good | jq '.titl
 neg "title sharing only a number" "acme-seo-2" "$(base acme-seo-2 $https $good | jq '.title="Seven 2"')" "share a word"
 neg "title with fullwidth forms" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO！"')" "fullwidth"
 echo "ok: $((n - ln0)) listing rule negative cases"
+# about and features (optional): one negative per rule.
+an0=$n
+longabout=$(printf 'x%.0s' $(seq 1501))
+elevenp=$(printf 'p\n%.0s' $(seq 11))
+f9=$(jq -nc '[range(9) | "item \(.)"]')
+f121=$(jq -nc --arg s "$(printf 'x%.0s' $(seq 121))" '[$s]')
+aneg() { # aneg <label> <jq-filter> <substring>
+  neg "$1" "acme-seo" "$(base acme-seo $https $good | jq --arg la "$longabout" --arg ep "$elevenp" --argjson f9 "$f9" --argjson f121 "$f121" "$2")" "$3"
+}
+aneg "about too long" '.about=$la' "about must be 1 to 1500"
+aneg "about empty" '.about=""' "about must be 1 to 1500"
+aneg "about not a string" '.about=5' "about must be a string"
+aneg "about control char" '.about="a\u0007b"' "about must not contain control"
+aneg "about tab" '.about="a\tb"' "about must not contain control"
+aneg "about carriage return" '.about="a\r\nb"' "about must not contain control"
+aneg "about url" '.about="see https://example.test/x"' "about must not contain a URL"
+aneg "about www" '.about="see www.example.test"' "about must not contain a URL"
+aneg "about angle bracket" '.about="a <b> c"' "about must not contain < or >"
+aneg "about empty paragraph" '.about="one\n\ntwo"' "about must not have an empty paragraph"
+aneg "about edge space" '.about=" one"' "about must not start or end with whitespace"
+aneg "about eleven paragraphs" '.about=$ep' "about must have at most 10 paragraphs"
+aneg "about emoji" '.about="Great \ud83d\ude80 plugin"' "about must not contain emoji"
+aneg "features not a list" '.features="a"' "features must be a list of strings"
+aneg "features non-string item" '.features=["a",5]' "features must be a list of strings"
+aneg "features empty list" '.features=[]' "features must list 1 to 8"
+aneg "features nine items" '.features=$f9' "features must list 1 to 8"
+aneg "features long item" '.features=$f121' "each feature must be 1 to 120"
+aneg "features empty item" '.features=["a",""]' "each feature must be 1 to 120"
+aneg "features newline" '.features=["a\nb"]' "a feature must not contain control"
+aneg "features url" '.features=["see https://example.test"]' "a feature must not contain a URL"
+aneg "features angle bracket" '.features=["<b>"]' "a feature must not contain < or >"
+aneg "features edge space" '.features=["a "]' "a feature must not start or end with whitespace"
+aneg "features duplicate" '.features=["Fast","fast"]' "features must not repeat an item"
+aneg "features emoji" '.features=["Fast \ud83d\ude80"]' "a feature must not contain emoji"
+echo "ok: $((n - an0)) about/features negative cases"
 # The owner comparison ignores case; a brand the owner is listed for is fine (the build then
 # fails at the fetch of a missing repo, which proves pass 1 accepted the manifest).
 d="$work/listok"; manifest "$d" acme-seo "$(base acme-seo "file://$work/nonexistent" $good | jq '.author="ACME"')"
@@ -619,6 +654,8 @@ printf '{"existing":{"tier":"first-party"}}' >"$work/pos-meta.json"
 HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \
   "$script" "$reg" "$bin" "$key" "$work/pos-pk" "$work/pos-meta.json"
 [ -s "$work/pos-pk/acme-notes.hmp" ] || fail "acme-notes.hmp not built"
+jq -e '."acme-notes".about == "First paragraph.\nSecond paragraph." and ."acme-notes".features == ["Fast", "Tiny"]' "$work/pos-meta.json" >/dev/null \
+  || fail "about/features not in meta: $(cat "$work/pos-meta.json")"
 jq -e --arg c "$sha" '."acme-notes".commit == $c and ."acme-notes".tier == "community" and ."acme-notes".author == "acme" and ."acme-notes".title == "Acme Notes" and .existing.tier == "first-party"' "$work/pos-meta.json" >/dev/null \
   || fail "meta.json wrong: $(cat "$work/pos-meta.json")"
 echo "ok: positive build"
