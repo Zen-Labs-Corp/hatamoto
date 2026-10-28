@@ -149,3 +149,41 @@ func TestParseIndexSanitisesScreenshot(t *testing.T) {
 		}
 	}
 }
+
+func TestParseIndexAboutFeaturesRoundTripAndSanitise(t *testing.T) {
+	key := newKey(t)
+	many := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}
+	cases := map[string]Entry{
+		"good":    {About: "one\ntwo", Features: []string{"x", "y"}},
+		"long":    {About: strings.Repeat("a", 1501), Features: many},
+		"paras":   {About: strings.TrimSuffix(strings.Repeat("a\n", 11), "\n")},
+		"control": {About: "a\tb", Features: []string{"ok", "", strings.Repeat("f", 121), "a\nb", "z"}},
+	}
+	doc := signedIndex(t, key, func(idx *Index) {
+		idx.Packages = nil
+		for name, e := range cases {
+			e.Kind, e.Name, e.Version, e.URL, e.SHA256 = KindPlugin, "p-"+name, "v1.0.0", "p/x.hmp", strings.Repeat("a", 64)
+			idx.Packages = append(idx.Packages, e)
+		}
+	})
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.Packages) != len(cases) {
+		t.Fatalf("entries dropped: %d", len(idx.Packages))
+	}
+	get := func(n string) Entry { e, _ := idx.Find(KindPlugin, "p-"+n); return e }
+	if e := get("good"); e.About != "one\ntwo" || len(e.Features) != 2 {
+		t.Errorf("good = %+v", e)
+	}
+	if e := get("long"); e.About != "" || len(e.Features) != 8 || e.Features[7] != "h" {
+		t.Errorf("long = %+v", e)
+	}
+	if e := get("paras"); e.About != "" {
+		t.Errorf("paras about kept")
+	}
+	if e := get("control"); e.About != "" || len(e.Features) != 2 || e.Features[1] != "z" {
+		t.Errorf("control = %+v", e)
+	}
+}

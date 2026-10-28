@@ -208,3 +208,67 @@ func TestBuildIndexScreenshotMeta(t *testing.T) {
 		t.Error("plugin with screenshot accepted")
 	}
 }
+
+func TestMetaAboutAndFeatures(t *testing.T) {
+	dir := metaDir(t)
+	with := func(edit func(*Meta)) map[string]Meta {
+		m := goodMeta()
+		edit(&m)
+		return map[string]Meta{"hello": m}
+	}
+	bad := map[string]map[string]Meta{
+		"long about":      with(func(m *Meta) { m.About = strings.Repeat("a", 1501) }),
+		"cr":              with(func(m *Meta) { m.About = "a\r\nb" }),
+		"tab":             with(func(m *Meta) { m.About = "a\tb" }),
+		"empty paragraph": with(func(m *Meta) { m.About = "a\n\nb" }),
+		"edge newline":    with(func(m *Meta) { m.About = "a\n" }),
+		"edge space":      with(func(m *Meta) { m.About = " a" }),
+		"angle":           with(func(m *Meta) { m.About = "a <b>" }),
+		"url":             with(func(m *Meta) { m.About = "see https://example.test" }),
+		"www":             with(func(m *Meta) { m.About = "see WWW.example.test" }),
+		"eleven paras":    with(func(m *Meta) { m.About = strings.TrimSuffix(strings.Repeat("a\n", 11), "\n") }),
+		"nine features":   with(func(m *Meta) { m.Features = strings.Split("a b c d e f g h i", " ") }),
+		"empty features":  with(func(m *Meta) { m.Features = []string{} }),
+		"empty feature":   with(func(m *Meta) { m.Features = []string{""} }),
+		"long feature":    with(func(m *Meta) { m.Features = []string{strings.Repeat("f", 121)} }),
+		"duplicate":       with(func(m *Meta) { m.Features = []string{"a", "a"} }),
+		"newline feature": with(func(m *Meta) { m.Features = []string{"a\nb"} }),
+		"angle feature":   with(func(m *Meta) { m.Features = []string{"<b>"} }),
+		"url feature":     with(func(m *Meta) { m.Features = []string{"http://example.test"} }),
+		"padded feature":  with(func(m *Meta) { m.Features = []string{"a "} }),
+	}
+	for name, meta := range bad {
+		if _, err := buildMeta(t, dir, meta); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	m := goodMeta()
+	m.About = strings.TrimSuffix(strings.Repeat("\u65e5\n", 10), "\n")
+	m.Features = []string{strings.Repeat("\u65e5", 120), "b", "c", "d", "e", "f", "g", "h"}
+	raw, err := buildMeta(t, dir, map[string]Meta{"hello": m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		t.Fatal(err)
+	}
+	if e, _ := idx.Find(KindPlugin, "hello"); e.About != m.About || len(e.Features) != 8 || e.Features[1] != "b" {
+		t.Errorf("entry did not carry about/features: %+v", e)
+	}
+	if _, err := ParseMeta([]byte(`{"hello":{"tier":"community","about":"x","features":["y"]}}`)); err != nil {
+		t.Errorf("ParseMeta: %v", err)
+	}
+}
+
+func TestIndexWithoutAboutFeaturesUnchanged(t *testing.T) {
+	raw, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": goodMeta()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{`"about"`, `"features"`} {
+		if strings.Contains(string(raw), k) {
+			t.Errorf("index without about/features contains %s", k)
+		}
+	}
+}
