@@ -561,7 +561,8 @@ existing card fields are unchanged. The default directory sections link each
 card title to its page; a theme that overrides `plugin_directory.html` or
 `theme_directory.html` adds its own link, and without one the cards simply stay
 unlinked. A theme without `layouts/registry.html` renders the page through the
-embedded default layout. The root of the layout carries `data-hm-directory`,
+embedded default layout, even when it ships its own `layouts/page.html`
+(`registry` never falls back to `page`). The root of the layout carries `data-hm-directory`,
 which gives the page the short shared-cache lifetime. `data-hm-contract` is
 unchanged.
 

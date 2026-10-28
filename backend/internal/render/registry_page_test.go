@@ -106,3 +106,20 @@ func TestRegistryPageCustomThemeFallsBack(t *testing.T) {
 		t.Errorf("custom theme did not fall back to the default registry layout:\n%s", out)
 	}
 }
+
+// A custom theme that ships layouts/page.html but no registry.html must still
+// get a registry layout: its page.html cannot show .Registry.
+func TestRegistryPageIgnoresCustomPageLayout(t *testing.T) {
+	custom := fstest.MapFS{
+		"theme.json":        mapFile(`{"name":"custom","version":"1.0.0"}`),
+		"layouts/page.html": mapFile(`{{define "content"}}CUSTOMPAGE{{end}}`),
+	}
+	e, err := New(Options{Layers: []fs.FS{custom}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := renderRegistry(t, e, registryPluginView())
+	if !strings.Contains(out, `<h1 class="hm-registry__title">Example</h1>`) || strings.Contains(out, "CUSTOMPAGE") {
+		t.Errorf("custom page.html hijacked the registry layout:\n%s", out)
+	}
+}

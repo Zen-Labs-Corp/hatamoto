@@ -112,8 +112,13 @@ func layoutCandidates(kind, schema string) []string {
 	case KindTaxonomy:
 		specific("taxonomy-")
 		out = append(out, "taxonomy")
-	case KindAuthor, KindSearch, KindRegistry:
+	case KindAuthor, KindSearch:
 		out = append(out, kind)
+	case KindRegistry:
+		// No generic page fallback: a theme's own page.html knows nothing of
+		// .Registry and would win the layer-first pick over the embedded
+		// default registry layout, which every chain ends with.
+		return []string{kind}
 	}
 	return append(out, "page")
 }
