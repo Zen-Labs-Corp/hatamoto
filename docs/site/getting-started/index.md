@@ -13,7 +13,7 @@ Once the site runs, the usual next jobs are to put it behind HTTPS with [Reverse
 Follow these in order the first time:
 
 1. [Before you install](before-you-install.md): check your server and gather what the install asks for.
-2. [Install the binary](install-binary.md) for a server you will keep, or [Install with Docker](install-docker.md) to try Hatamoto on your own computer: either way your site starts and prints a setup code.
+2. [Install the binary](install-binary.md) for a server you will keep, or [Install with Docker](install-docker.md) to try Hatamoto on your own computer: either way your site starts and prints a setup code. To rent a server and install in one step, use [Install on a VPS](install-vps.md).
 3. [First run](first-run.md): create your owner account, name your site and set up email.
 4. [Create users](create-users.md): add the people who will work on the site, and reset a password.
 5. [A tour of the admin](../admin/tour.md): find your way around the screens you will use.

@@ -9,6 +9,7 @@
         "before-you-install",
         "install-binary",
         "install-docker",
+        "install-vps",
         "first-run",
         "create-users"
       ],
