@@ -1,4 +1,5 @@
 {{template "layouts/bare" .}}
+{{define "modules"}}@hm/setupcode{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
 <h1>Set up your site</h1>
 <p class="hm-muted">Create the owner account. This screen only exists until the first account is made.</p>
