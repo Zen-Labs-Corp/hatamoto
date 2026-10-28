@@ -230,6 +230,103 @@ fold_def='def fold:
 # keep in sync with hatamoto-plugins scripts/validate-manifest.sh
 unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}")'
 
+# check_name <name> <owner> <fpx> <own-file-base>: the listing rules for a name (the name
+# pattern is checked by the caller). fpx=1: first-party exempt from the brand and reserved rules.
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+check_name() {
+  local name=$1 owner=$2 fpx=$3 base=$4 ntoks t b sib sname r nkey
+  IFS=- read -ra ntoks <<<"$name"
+  for t in "${ntoks[@]}"; do
+    if inlist "$banned_tokens" "$t"; then die "$name: name contains the banned word \"$t\""; fi
+  done
+  if [ "$fpx" -eq 0 ]; then
+    if inlist "$reserved_names" "$name"; then die "$name: name is reserved"; fi
+    if b=$(brand_match "${ntoks[0]}") && ! brand_owned "$b" "$owner"; then
+      die "$name: name must not start with the brand \"$b\""
+    fi
+  fi
+  # Look-alikes: every other manifest (plugins and themes, whether or not it is part of
+  # this build) and, unless first-party exempt, the reserved names.
+  nkey=$(lkey "$name")
+  look() { # look <other name>
+    [ "$1" != "$name" ] || return 0
+    if [ "$(lkey "$1")" = "$nkey" ] || lev1 "$name" "$1"; then die "$name: name looks like \"$1\""; fi
+  }
+  for sib in "$repo_dir"/manifests/*.json "$repo_dir"/manifests/themes/*.json; do
+    sname=$(basename "$sib" .json)
+    [ "$sname" != "$base" ] && [ "$sname" != schema ] || continue
+    [[ $sname =~ ^[a-z][a-z0-9-]{1,39}$ ]] || continue
+    look "$sname"
+  done
+  if [ "$fpx" -eq 0 ]; then
+    while read -r r; do
+      if [[ $r =~ ^[a-z][a-z0-9-]{1,39}$ ]]; then look "$r"; fi
+    done <<<"$reserved_names"
+  fi
+}
+
+# check_title <name> <title> <owner> <fpx>: the listing rules for a non-empty title
+# (length and control characters are checked by the caller).
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
+check_title() {
+  local name=$1 title=$2 owner=$3 fpx=$4 jt scripts title_words first_word w b shared t ntoks
+  jt() { jv "$title" "$1" "$name: title"; }
+  if jt "$unsafe_chars_filter"; then
+    die "$name: title must not contain emoji, symbols or invisible characters"
+  fi
+  if jt '[$t | scan("[:,&/|+]| - ")] | length > 1'; then
+    die "$name: title \"$title\" has more than one separator (: , & / | + and a spaced hyphen)"
+  fi
+  if jt '$t | test("[\\[\\](){}<>]|\\p{Ps}|\\p{Pe}")'; then
+    die "$name: title must not contain brackets"
+  fi
+  if jt '$t | test("[\uFF00-\uFFEF]")'; then
+    die "$name: title must not contain fullwidth or halfwidth forms"
+  fi
+  if jt '$t | test("^[\\p{L}\\p{N} .,:&/|+\u0027!?-]*$") | not'; then
+    die "$name: title may contain only letters, digits, spaces and . , : & / | + ' ! ? -"
+  fi
+  # One script: Han with Kana or Hangul counts as one group, Kana with Hangul does not.
+  scripts=$(jq -nr --arg t "$title" '
+    def has($re): $t | test($re);
+    [ (if has("\\p{Latin}") then "Latin" else empty end),
+      (if has("[\\p{Han}\\p{Hiragana}\\p{Katakana}\\p{Hangul}ー]")
+       then (if has("[\\p{Hiragana}\\p{Katakana}ー]") and has("\\p{Hangul}") then "Kana", "Hangul" else "Han/Kana/Hangul" end)
+       else empty end),
+      (if has("\\p{Cyrillic}") then "Cyrillic" else empty end),
+      (if has("\\p{Arabic}") then "Arabic" else empty end),
+      (if has("\\p{Greek}") then "Greek" else empty end),
+      (if has("\\p{Hebrew}") then "Hebrew" else empty end),
+      (if has("[^\\p{Latin}\\p{Han}\\p{Hiragana}\\p{Katakana}\\p{Hangul}ー\\p{Cyrillic}\\p{Arabic}\\p{Greek}\\p{Hebrew}\\P{L}]") then "other" else empty end)
+    ] | join(" ")') || die "$name: title could not be checked"
+  case $scripts in
+    *other*) die "$name: title uses a script that is not accepted" ;;
+    *" "*) die "$name: title mixes scripts: $scripts" ;;
+  esac
+  # Words: lowercase alphanumeric tokens ('#' kept so "#1" is a word).
+  title_words=$(jq -nr --arg t "$title" "$fold_def"'$t | fold | scan("[\\p{L}\\p{N}#]+")') \
+    || die "$name: title could not be checked"
+  first_word=""
+  while read -r w; do
+    [ -n "$w" ] || continue
+    [ -n "$first_word" ] || first_word=$w
+    if inlist "$banned_words" "$w"; then die "$name: title contains the banned word \"$w\""; fi
+  done <<<"$title_words"
+  if [ "$fpx" -eq 0 ]; then
+    if [ -n "$first_word" ] && b=$(brand_match "$first_word") && ! brand_owned "$b" "$owner"; then
+      die "$name: title must not start with the brand \"$b\""
+    fi
+    # The title must share an alphanumeric word with the name.
+    shared=0
+    IFS=- read -ra ntoks <<<"$name"
+    while read -r w; do
+      # A word made of digits only does not count.
+      for t in "${ntoks[@]}"; do [ "$w" = "$t" ] && [[ $w =~ [^0-9] ]] && shared=1; done
+    done <<<"$(jq -nr --arg t "$title" '$t | ascii_downcase | scan("[\\p{L}\\p{N}]+")' || true)"
+    [ "$shared" -eq 1 ] || die "$name: title must share a word with the name"
+  fi
+}
+
 # Pass 1: validate every manifest before touching the network or running a build.
 shopt -s nullglob
 manifests=()
@@ -254,6 +351,7 @@ if [ -n "${COMMUNITY_SKIP:-}" ]; then
 fi
 for f in ${manifests[@]+"${manifests[@]}"}; do
   base=$(basename "$f" .json)
+  [ ! -L "$f" ] || die "$base: manifest is a symlink"
   jq -e 'type == "object"' "$f" >/dev/null 2>&1 || die "$base: manifest is not a JSON object"
   name=$(field "$f" name); repo=$(field "$f" repo); commit=$(field "$f" commit)
   subdir=$(field "$f" subdir); author=$(field "$f" author); license=$(field "$f" license)
@@ -272,8 +370,8 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
     fi
   fi
   if jq -e 'has("title")' "$f" >/dev/null; then
-    if [ -z "$title" ] || [ "${#title}" -gt 60 ] || [[ $title =~ [[:cntrl:]] ]] || [[ $title == " "* ]] || [[ $title == *" " ]]; then
-      die "$name: bad title (1 to 60 characters, no control characters, no leading or trailing space)"
+    if [ -z "$title" ] || [ "${#title}" -gt 40 ] || [[ $title =~ [[:cntrl:]] ]] || [[ $title == " "* ]] || [[ $title == *" " ]]; then
+      die "$name: bad title (1 to 40 characters, no control characters, no leading or trailing space)"
     fi
   fi
   # Tier, owner and reserved names (keep in sync with the hatamoto-plugins validator and schema).
@@ -293,9 +391,15 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
     ! jq -e 'has("author")' "$f" >/dev/null || die "$name: a first-party manifest must not have an author"
   else
     [[ $author =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]] || die "$name: bad author"
+    # A community listing is published by the owner of the repo (case-insensitive).
+    [ "${author,,}" = "$(repo_owner "$repo")" ] || die "$name: author must equal the repo owner (author \"$author\", owner \"$(repo_owner "$repo")\")"
   fi
   jq -e '.archive_grant == true' "$f" >/dev/null || die "$name: archive_grant must be true"
   [[ $license =~ $license_re ]] || die "$name: license not allowed: \"$license\""
+  # Listing rules (first-party from an allowed owner is exempt from the brand and reserved rules).
+  fpx=0; [ -n "$tier" ] && [ -n "$owner_ok" ] && fpx=1
+  check_name "$name" "$(repo_owner "$repo")" "$fpx" "$base"
+  if [ -n "$title" ]; then check_title "$name" "$title" "$(repo_owner "$repo")" "$fpx"; fi
 done
 
 # Pass 2: build. Every go call below uses the pinned toolchain, no workspace and

@@ -83,13 +83,13 @@ echo "ok: $n negative cases"
 # (Pass 1 then fails at the fetch of a missing repo, which proves the title was accepted.)
 for t in $'Acme SEO Caf\u00e9' "Acme SEO $(printf 'x%.0s' $(seq 31))" "Seo Tools"; do
   d="$work/titleok"; rm -rf "$d"
-  manifest "$d" acme-seo "$(base acme-seo file:///nonexistent $good | jq --arg t "$t" '.title=$t')"
+  manifest "$d" acme-seo "$(base acme-seo file://$work/nonexistent $good | jq --arg t "$t" '.title=$t')"
   out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/t-pk" "$work/t-meta.json" 2>&1) && fail "title case built nothing"
   ! grep -q "bad title" <<<"$out" || fail "title '$t' rejected: $out"
   grep -q "cannot fetch" <<<"$out" || fail "title '$t': unexpected error: $out"
 done
 # An allowlisted license passes pass 1 (it then fails at the fetch).
-d="$work/licok"; manifest "$d" acme-seo "$(base acme-seo file:///nonexistent $good | jq '.license="GPL-3.0-or-later"')"
+d="$work/licok"; manifest "$d" acme-seo "$(base acme-seo file://$work/nonexistent $good | jq '.license="GPL-3.0-or-later"')"
 out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/l-pk" "$work/l-meta.json" 2>&1) && fail "license case built nothing"
 grep -q "cannot fetch" <<<"$out" || fail "GPL-3.0-or-later rejected: $out"
 echo "ok: title rule"
@@ -189,7 +189,7 @@ build_neg "newer toolchain" "requires go >= 1.99" "$work/newgo"
 echo "ok: build negatives"
 
 # COMMUNITY_SKIP leaves a manifest out (even a broken one) and says so.
-manifest "$work/skip" gone "$(base gone "file:///nonexistent" "$good")"
+manifest "$work/skip" gone "$(base gone "file://$work/nonexistent" "$good")"
 out=$(COMMUNITY_SKIP="gone" HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$work/skip" "$bin" "$key" "$work/skip-pk" "$work/skip-meta.json" 2>&1) || fail "skip: $out"
 grep -q "SKIPPING gone" <<<"$out" || fail "skip not logged: $out"
 for bad in "nosuch" "*" "gone nosuch" "schema"; do
