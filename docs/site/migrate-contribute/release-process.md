@@ -108,6 +108,16 @@ gh release edit vX.Y.Z --draft=false --verify-tag
 
 The published release then carries the four binaries and bundles, `SHA256SUMS`, one SPDX and one CycloneDX SBOM per binary, `release.json` and `release.json.sig`, and the build attestations that GitHub stores for them. Anyone can check them with [Verify a download](../updates/verify-a-download.md). Turn on the repository setting for immutable releases so a published release cannot be edited.
 
+### Publish the installer script
+
+The VPS installer, `install.sh`, is assembled from the parts under `deploy/install/` by `deploy/install/build-install.sh`, so its embedded public keys always match `backend/internal/release/keys/`. The release workflow attaches it to the draft and attests it. After the release is published, put the same bytes on the website:
+
+```bash
+scripts/publish-install.sh vX.Y.Z
+```
+
+The script refuses to run unless the checked-out commit is the tag. It rebuilds the installer, downloads the release's `install.sh`, compares the two checksums, copies the file to the server and replaces the live one in a single step after checking the checksum there. Use `--dry-run` to see the steps first. When the Caddy handle for `/install.sh` changed, apply the Caddy file with `deploy/apply-caddy.sh` as well. Republish the installer after any change to the signing keys, because it carries them.
+
 ## Channels
 
 Rollout is controlled by three channel manifests, `canary`, `edge` and `stable`. Each lists releases with a **ramp**: percentages of installs that are offered the release from given times, for example 5 percent now, 25 percent after two days and 100 percent after four. A channel can also halt a release or yank one with a reason and a replacement. The commands edit the unsigned channel sources (`channel.json` files in a directory you pass with `--dir`):
@@ -148,7 +158,7 @@ The same script can run from any other scheduler (a systemd timer or an uptime m
 3. Wait for the draft release, then rebuild locally and compare sha256 sums if you want to confirm reproducibility.
 4. Review the record, set `rollback_floor` and `min_from`, and sign it offline.
 5. Publish the signed files with `scripts/publish-release.sh`.
-6. Verify the attestations, add the signature to the draft and publish the GitHub release (above).
+6. Verify the attestations, add the signature to the draft and publish the GitHub release (above), then publish the installer with `scripts/publish-install.sh`.
 7. Add the release to `canary`, `edge` and `stable` with a ramp in the operations repository, and merge the channel change there.
 8. Watch the update status of a test install. Halt the ramp if anything regresses.
 9. If the first-party plugin registry is near expiry, rebuild it. See [SDK and registry](sdk-and-registry.md).
