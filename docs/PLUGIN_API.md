@@ -634,11 +634,11 @@ func httpHandle() int32 { return guest.Run(guest.HTTPExport) }
 
 ## First-party plugins (reference code)
 
-The two first-party plugins live in their own public repositories under `Zen-Labs-Corp`:
+The first-party plugins live in the public `Zen-Labs-Corp/hatamoto-first-party` monorepo, one folder each:
 
-- [`hatamoto-plugin-searchconsole`](https://github.com/Zen-Labs-Corp/hatamoto-plugin-searchconsole)
+- [`hatamoto-first-party/plugins/searchconsole`](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole)
   is a complete, signed plugin that exercises most of the above; it has a README.
-- [`hatamoto-plugin-gtm`](https://github.com/Zen-Labs-Corp/hatamoto-plugin-gtm) is the smallest real
+- [`hatamoto-first-party/plugins/gtm`](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) is the smallest real
   one: a `settings_schema`, a `render.head` filter that adds a `<meta>` tag, and an
   `assets/plugin.js` the core links on every public page.
 

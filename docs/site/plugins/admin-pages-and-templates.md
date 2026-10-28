@@ -56,7 +56,7 @@ A route body that is not valid UTF-8 comes back base64-encoded, with `encoding: 
 
 > **Residual risk.** A sandboxed frame can still navigate itself once, so a plugin page can leak what it can read (what the bridge returned to it) through that navigation. The policy cannot stop it. Install only plugins you trust with what their page can see.
 
-The Search Console plugin ships a `ui/` page built this way: see its [`ui/app.js`](https://github.com/Zen-Labs-Corp/hatamoto-plugin-searchconsole/blob/main/ui/app.js) for working bridge code.
+The Search Console plugin ships a `ui/` page built this way: see its [`ui/app.js`](https://github.com/Zen-Labs-Corp/hatamoto-first-party/blob/main/plugins/searchconsole/ui/app.js) for working bridge code.
 
 ## Settings
 

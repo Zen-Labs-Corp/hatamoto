@@ -26,8 +26,8 @@ PDK side for `GOOS=wasip1`.
 Everything about writing a plugin (export names, JSON schemas of every payload,
 manifest, limits, the Go quick start) is in the plugin documentation on
 <https://hatamoto.dev/docs> (the plugin API reference ships with Hatamoto core). The first-party plugins
-[gtm](https://github.com/Zen-Labs-Corp/hatamoto-plugin-gtm) and
-[searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-plugin-searchconsole) are real
+[gtm](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) and
+[searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) are real
 examples built on this module.
 
 ## Versioning
