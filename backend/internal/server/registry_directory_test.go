@@ -416,3 +416,34 @@ func TestScreenshotURL(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistryDirectoryPermissionCard(t *testing.T) {
+	r := newDirRig(t)
+	r.publish(24*time.Hour,
+		packages.Entry{Kind: packages.KindPlugin, Name: "tags", Version: "1.0.0", Permissions: []string{"settings", "site.scripts", "http.fetch.any", "future.perm"}},
+		packages.Entry{Kind: packages.KindPlugin, Name: "plain", Version: "1.0.0"},
+	)
+	v := r.dir.View(context.Background())
+	if len(v.Cards) != 2 {
+		t.Fatalf("cards = %+v", v.Cards)
+	}
+	plain, tags := v.Cards[0], v.Cards[1]
+	if plain.PermCount != 0 || len(plain.PermWarn) != 0 || len(plain.PermLines) != 0 {
+		t.Errorf("plain = %+v", plain)
+	}
+	if tags.PermCount != 4 || len(tags.PermLines) != 4 {
+		t.Fatalf("tags = %+v", tags)
+	}
+	if got := strings.Join(tags.PermWarn, "|"); got != "JavaScript on every public page.|Any web address." {
+		t.Errorf("warn badges = %q", got)
+	}
+	if l := tags.PermLines[1]; !l.Warn || l.Name != "site.scripts" {
+		t.Errorf("line = %+v", l)
+	}
+	if l := tags.PermLines[2]; !l.Warn || strings.HasPrefix(l.Text, "WARNING:") || !strings.HasPrefix(l.Text, "send requests") {
+		t.Errorf("WARNING prefix not stripped: %+v", l)
+	}
+	if l := tags.PermLines[3]; l.Text != "future.perm" || l.Warn {
+		t.Errorf("unknown permission line = %+v", l)
+	}
+}
