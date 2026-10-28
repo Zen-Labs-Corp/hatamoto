@@ -545,7 +545,7 @@ site's published `/plugins` (or `/themes`) page has a `plugin_directory` (or
 else, including a registry that is off, unavailable or empty, is a normal 404.
 Like a directory page it is cached for at most 60 seconds.
 
-The layout `registry` receives `.Page.Registry`:
+The layout `registry` receives `.Registry`:
 
 | Field | Meaning |
 | --- | --- |
