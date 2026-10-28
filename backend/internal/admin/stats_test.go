@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"testing"
@@ -176,19 +177,42 @@ func TestStatsResetCallsServiceOnce(t *testing.T) {
 	}
 }
 
-func TestStatsServiceErrorsAre500AndNotAudited(t *testing.T) {
-	f := &fakeStats{view: StatsView{Consent: "unset"}, chooseE: errors.New("db down " + statsTestID)}
-	u := newStatsRig(t, f)
-	rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {"yes"}}, nil)
-	if rec.Code != 500 || strings.Contains(rec.Body.String(), statsTestID) {
-		t.Errorf("choose error = %d, body leaks: %v", rec.Code, strings.Contains(rec.Body.String(), statsTestID))
+func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
+	boom := errors.New("db down " + statsTestID)
+	for _, c := range []struct {
+		name string
+		f    *fakeStats
+		path string
+	}{
+		{"choose", &fakeStats{view: StatsView{Consent: "unset"}, chooseE: boom}, "/stats/choice"},
+		{"switch", &fakeStats{view: StatsView{Consent: "yes"}, chooseE: boom}, "/stats"},
+		{"view", &fakeStats{viewErr: boom}, "/stats/choice"},
+		{"reset view", &fakeStats{viewErr: boom}, "/stats/reset"},
+		{"reset", &fakeStats{view: StatsView{Consent: "yes"}, resetE: boom}, "/stats/reset"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			u := newStatsRig(t, c.f)
+			rec := u.do("POST", "/admin/settings/updates"+c.path, "owner-token", url.Values{"choice": {"yes"}, "stats": {"on"}}, nil)
+			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" {
+				t.Fatalf("= %d %s, want a quiet 303 to Settings > Updates", rec.Code, rec.Header().Get("Location"))
+			}
+			if rec.Header().Get("Set-Cookie") != "" {
+				t.Errorf("a flash was set: %v", rec.Header().Get("Set-Cookie"))
+			}
+			if body := rec.Body.String(); strings.Contains(body, statsTestID) || strings.Contains(body, "went wrong") {
+				t.Errorf("body shows the failure: %q", body)
+			}
+			if len(u.events) != 0 {
+				t.Error("a failed change was audited")
+			}
+		})
 	}
-	if len(u.events) != 0 {
-		t.Error("a failed choice was audited")
-	}
-	f.chooseE, f.resetE = nil, errors.New("boom")
-	if rec := u.do("POST", "/admin/settings/updates/stats/reset", "owner-token", url.Values{}, nil); rec.Code != 500 {
-		t.Errorf("reset error = %d, want 500", rec.Code)
+}
+
+func TestStatsServiceStillRefusesWithoutServiceOrChoice(t *testing.T) {
+	u := newStatsRig(t, &fakeStats{view: StatsView{Consent: "unset"}})
+	if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {"maybe"}}, nil); rec.Code != 400 {
+		t.Errorf("bad choice = %d, want 400", rec.Code)
 	}
 }
 
@@ -201,9 +225,10 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 		wants   []string
 		absents []string
 	}{
-		{"unset", StatsView{Consent: "unset", PreviewJSON: preview}, []string{`id="updates-stats"`, "Send install stats", `role="switch"`, "A real ID is created when you turn this on.", "Nothing sent yet.", "&#34;install&#34;"}, []string{"Reset ID", `value="on" checked`, "server configuration"}},
-		{"yes", StatsView{Consent: "yes", PreviewJSON: preview, LastSent: &sent, LastStatus: "ok"}, []string{"This is the exact request body.", `value="on" checked`, "Reset ID", `id="reset-stats-form"`, "ok"}, []string{"Nothing sent yet.", "A real ID is created"}},
-		{"no", StatsView{Consent: "no", PreviewJSON: preview}, []string{`role="switch"`}, []string{`value="on" checked`, "Reset ID"}},
+		{"unset", StatsView{Consent: "unset", PreviewJSON: preview}, []string{`id="updates-stats"`, "Send install stats", `role="switch"`, "A real ID is created when you turn this on.", "&#34;install&#34;", "Nothing is sent while this is off."}, []string{"Reset ID", `value="on" checked`, "server configuration", "Last sent", "Not sent yet.", "Turn off to stop."}},
+		{"yes", StatsView{Consent: "yes", PreviewJSON: preview, LastSent: &sent}, []string{"This is the exact request body.", `value="on" checked`, "Reset ID", `id="reset-stats-form"`, "Last sent", "Turn off to stop."}, []string{"Not sent yet.", "A real ID is created", "Nothing is sent while this is off.", "error: "}},
+		{"yes_never_sent", StatsView{Consent: "yes", PreviewJSON: preview}, []string{"Last sent", "Not sent yet. Hatamoto tries again once a day.", "Turn off to stop."}, []string{"Nothing is sent while this is off.", "error: "}},
+		{"no", StatsView{Consent: "no", PreviewJSON: preview}, []string{`role="switch"`, "Nothing is sent while this is off."}, []string{`value="on" checked`, "Reset ID", "Last sent", "Turn off to stop."}},
 		{"forced_off", StatsView{Consent: "no", ForcedOff: true, PreviewJSON: preview}, []string{"Turned off by the server configuration.", "hm-badge"}, []string{`role="switch"`, `id="stats-form"`, "Reset ID"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -219,8 +244,18 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 					t.Errorf("page has %q", b)
 				}
 			}
-			compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
+			if c.name != "yes_never_sent" {
+				compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
+			}
 		})
+	}
+}
+
+func TestStatsCardAbsentInDemo(t *testing.T) {
+	u := newStatsRig(t, &fakeStats{view: StatsView{Consent: "unset", PreviewJSON: statsTestPreview}})
+	u.a.deps.Demo.Enabled = true
+	if body := u.get(t); strings.Contains(body, `id="updates-stats"`) {
+		t.Error("the demo shows the Install stats card")
 	}
 }
 
@@ -351,5 +386,61 @@ func TestSetupStatsIsOwnerOnly(t *testing.T) {
 	}
 	if len(f.chosen) != 0 {
 		t.Error("an editor chose")
+	}
+}
+
+func TestSetupStatsStoreErrorsContinueToContent(t *testing.T) {
+	t.Parallel()
+
+	boom := errors.New("db down " + statsTestID)
+	for _, c := range []struct {
+		name   string
+		method string
+		form   url.Values
+		setup  func(f *fakeStats)
+	}{
+		{"get view", "GET", nil, func(f *fakeStats) { f.viewErr = boom }},
+		{"post view", "POST", url.Values{}, func(f *fakeStats) { f.viewErr = boom }},
+		{"post choose", "POST", url.Values{"choice": {"yes"}}, func(f *fakeStats) { f.chooseE = boom }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+			c.setup(f)
+			var logs strings.Builder
+			g.a.deps.Logger = slog.New(slog.NewTextHandler(&logs, nil))
+			var events []AuditEvent
+			g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+			rec := g.do(c.method, "/admin/setup/stats", "owner-token", c.form, nil)
+			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+				t.Fatalf("= %d %s, want 303 to Content", rec.Code, rec.Header().Get("Location"))
+			}
+			if len(events) != 0 {
+				t.Errorf("audit = %+v", events)
+			}
+			if !strings.Contains(logs.String(), "level=WARN") {
+				t.Errorf("log = %q, want a warning", logs.String())
+			}
+		})
+	}
+}
+
+func TestSetupStatsSkippedInDemo(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+	g.a.deps.Demo.Enabled = true
+	for _, m := range []string{"GET", "POST"} {
+		rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"yes"}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+			t.Errorf("%s = %d %s", m, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+	if len(f.chosen) != 0 {
+		t.Errorf("Choose called %v", f.chosen)
+	}
+	rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
+	if rec.Header().Get("Location") != "/admin/setup/content" {
+		t.Errorf("theme goes to %s", rec.Header().Get("Location"))
 	}
 }

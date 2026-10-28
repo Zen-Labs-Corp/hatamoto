@@ -43,7 +43,7 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	}
 	return admin.StatsView{
 		Consent: string(v.State.Consent), ForcedOff: v.ForcedOff, PreviewJSON: v.PreviewJSON,
-		LastSent: v.State.LastSentAt, LastStatus: v.State.LastStatus,
+		LastSent: v.State.LastOKAt,
 	}, nil
 }
 
