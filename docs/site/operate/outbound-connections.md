@@ -31,7 +31,7 @@ Plugin calls, webhooks and the import are checked against private, loopback and 
 |---|---|
 | Update check, schedule | `backend/internal/updater/run.go:43` (`checkEvery`, `checkJitter`), first run at `:137` |
 | Update fetches | `backend/internal/updater/fetch.go:23` (default host), `:45` (no headers of its own), `:120` (manifest), `:128` (record), `:147` (download) |
-| Install stats | `backend/internal/installstats/service.go:157` (`Run`), `:24` (user agent), `:91` (10 second client), `:93` (no redirects), `:188` (POST); `backend/internal/installstats/env.go:20` (default URL); `backend/internal/server/stats_wiring.go:36` (daily schedule), `:13` (`stats_ping` job); `backend/internal/server/worker_jobs.go:31` (job list) |
+| Install stats | `backend/internal/installstats/service.go:157` (`Run`), `:24` (user agent), `:91` (10 second client), `:93` (no redirects), `:188` (POST); `backend/internal/installstats/env.go:20` (default URL); `backend/internal/server/stats_wiring.go:62` (daily schedule), `:14` (`stats_ping` job); `backend/internal/server/worker_jobs.go:31` (job list) |
 | `HATAMOTO_UPDATES` | `backend/internal/updater/types.go:31` and `:84` |
 | Registry | `backend/internal/config/packages.go:13` (default URL), `:24` (`off`); `backend/internal/packages/registry.go:154`; `backend/internal/server/admin_packages.go:61`; `backend/internal/server/registry_directory.go:148` |
 | IP ranges | `backend/internal/agents/registry.json` (hosts); `backend/internal/agents/refresh.go:14` and `:108` (user agent); `backend/internal/worker/scheduler.go:343` (daily, 90 s after start); `backend/internal/server/worker_jobs.go:18` and `:47` (`HATAMOTO_AGENT_RANGES=off`) |
