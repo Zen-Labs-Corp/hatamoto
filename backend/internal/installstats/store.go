@@ -38,6 +38,7 @@ type State struct {
 	Consent    Consent
 	InstallID  string
 	LastSentAt *time.Time
+	LastOKAt   *time.Time // last successful report; unchanged by failed attempts
 	LastStatus string
 }
 
@@ -56,8 +57,8 @@ func (s *Store) Load(ctx context.Context) (State, error) {
 		id *string
 	)
 	err := s.db.QueryRow(ctx, `
-		SELECT consent, install_id, last_sent_at, last_status
-		FROM hatamoto_install_stats WHERE id`).Scan(&st.Consent, &id, &st.LastSentAt, &st.LastStatus)
+		SELECT consent, install_id, last_sent_at, last_ok_at, last_status
+		FROM hatamoto_install_stats WHERE id`).Scan(&st.Consent, &id, &st.LastSentAt, &st.LastOKAt, &st.LastStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return State{Consent: ConsentUnset}, nil
 	}
@@ -131,10 +132,13 @@ func (s *Store) Claim(ctx context.Context) (id string, ok bool, err error) {
 	return id, true, nil
 }
 
-// RecordResult stores the outcome of the last send. The text must not contain
+// RecordResult stores the outcome of the last send and, on "ok", the time of
+// the success. A failed send leaves the last success time alone. The text must not contain
 // the install ID.
 func (s *Store) RecordResult(ctx context.Context, status string) error {
-	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET last_status = $1 WHERE id`, status); err != nil {
+	if _, err := s.db.Exec(ctx, `
+		UPDATE hatamoto_install_stats SET last_status = $1,
+			last_ok_at = CASE WHEN $1 = 'ok' THEN now() ELSE last_ok_at END WHERE id`, status); err != nil {
 		return fmt.Errorf("record install stats result: %w", err)
 	}
 	return nil

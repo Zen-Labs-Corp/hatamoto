@@ -66,6 +66,10 @@ func (m *memStore) RecordResult(_ context.Context, s string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.LastStatus = s
+	if s == "ok" {
+		now := time.Now()
+		m.st.LastOKAt = &now
+	}
 	return nil
 }
 
@@ -203,6 +207,24 @@ func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 	// A second run inside the interval, as after a restart, sends nothing.
 	if err := s.Run(ctx); err != nil || len(r.reqs) != 1 {
 		t.Errorf("second run: %v, %d requests", err, len(r.reqs))
+	}
+}
+
+func TestRunErrorKeepsLastSuccessTime(t *testing.T) {
+	ctx := context.Background()
+	s, m, r := rig(t, nil, "v1.2.3")
+	_ = s.Choose(ctx, true)
+	if err := s.Run(ctx); err != nil || m.st.LastOKAt == nil {
+		t.Fatalf("ok run: %v, last ok %v", err, m.st.LastOKAt)
+	}
+	first := *m.st.LastOKAt
+	m.claimedAt = time.Now().Add(-21 * time.Hour)
+	r.status = 404
+	if err := s.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if m.st.LastStatus != "error: http 404" || m.st.LastOKAt == nil || !m.st.LastOKAt.Equal(first) {
+		t.Errorf("status %q, last ok %v, want unchanged %v", m.st.LastStatus, m.st.LastOKAt, first)
 	}
 }
 
