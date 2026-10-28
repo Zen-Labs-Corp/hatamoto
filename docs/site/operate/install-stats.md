@@ -36,7 +36,7 @@ An owner chooses in one of three places, and can change the choice at any time:
 
 - On a new site, the setup wizard has a **Help improve Hatamoto** step after **Look**. **No thanks** and **Send stats** are the two answers. See [First run](../getting-started/first-run.md).
 - On an install that has not answered yet, a banner asks the owner once. **No thanks** or **Send stats** answers it, and **See what is sent** opens the section below.
-- **Settings > Updates** has an **Install stats** section with a **Send install stats** switch, the exact request body, and when it was last sent. Editors do not see the question.
+- **Settings > Updates** has an **Install stats** section with a **Send install stats** switch, the exact request body, and when it was last sent successfully. Editors do not see the question.
 
 Choosing **Send stats** creates the install ID. Switching off deletes it. While it is on, **Reset ID** replaces the ID with a new random one, so earlier reports can no longer be linked to later ones. Until an owner opts in, the preview shows an example ID.
 
@@ -51,4 +51,4 @@ To skip the daily job without touching the choice, add `stats_ping` to `WORKER_D
 
 ## Where it is stored
 
-In one row of the site's database, next to the other site settings: the choice, the install ID while it is on, and the time and result of the last report (`ok`, `error: http <code>` or `error: network`). All replicas share it, and a report is sent by one of them at most once a day. The ID and the endpoint are never written to the log. A backup of the database carries the row, so a restore keeps the choice and the ID.
+In one row of the site's database, next to the other site settings: the choice, the install ID while it is on, the time of the last successful report and the result of the last attempt (`ok`, `error: http <code>` or `error: network`). A failed attempt shows nothing in the admin and is tried again about a day later. All replicas share it, and a report is sent by one of them at most once a day. The ID and the endpoint are never written to the log. A backup of the database carries the row, so a restore keeps the choice and the ID.

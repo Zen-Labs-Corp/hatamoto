@@ -422,7 +422,7 @@ func (a *Admin) handleSetupTheme(w http.ResponseWriter, r *http.Request) {
 // configuration turns them off (HATAMOTO_TELEMETRY=off). Like the Email step,
 // a skipped step's form sends the owner straight forward again.
 func (a *Admin) setupStatsStep(ctx context.Context) bool {
-	if a.deps.Stats == nil {
+	if a.deps.Stats == nil || a.deps.Demo.Enabled {
 		return false
 	}
 	// Only the server configuration matters here, not the stored choice.
@@ -452,6 +452,13 @@ func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status 
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
+// setupStatsSkip handles a stats store error in the wizard: warn and go on to
+// Content, so the optional step can never block setup.
+func (a *Admin) setupStatsSkip(w http.ResponseWriter, r *http.Request, msg string, err error) {
+	a.logger().Warn(msg, "err", err)
+	http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
+}
+
 // The Stats step is optional and never ends setup: the owner may skip past it
 // with consent left unset, and the Content step finishes the wizard.
 func (a *Admin) handleSetupStatsForm(w http.ResponseWriter, r *http.Request) {
@@ -461,8 +468,7 @@ func (a *Admin) handleSetupStatsForm(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.deps.Stats.View(r.Context())
 	if err != nil {
-		a.logger().Error("setup: stats view", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+		a.setupStatsSkip(w, r, "setup: stats view", err)
 		return
 	}
 	a.renderSetupStats(w, r, http.StatusOK, v, false)
@@ -478,16 +484,14 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 		// Neither answer is a default: Enter on the form, or a bare post, asks again.
 		v, err := a.deps.Stats.View(r.Context())
 		if err != nil {
-			a.logger().Error("setup: stats view", "err", err)
-			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+			a.setupStatsSkip(w, r, "setup: stats view", err)
 			return
 		}
 		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, v, true)
 		return
 	}
 	if err := a.deps.Stats.Choose(r.Context(), choice == "yes"); err != nil {
-		a.logger().Error("setup: stats choose", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your choice could not be saved.")
+		a.setupStatsSkip(w, r, "setup: stats choose", err)
 		return
 	}
 	a.audit(r, "stats.consent", "stats", map[string]any{"choice": choice})

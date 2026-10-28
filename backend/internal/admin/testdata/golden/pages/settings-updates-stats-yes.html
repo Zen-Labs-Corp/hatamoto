@@ -181,10 +181,10 @@
 </div>
 
 </div></div></section>
-<form id="check-form" method="post" action="/admin/settings/updates/check"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
+<div hidden><form id="check-form" method="post" action="/admin/settings/updates/check"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="apply-form" method="post" action="/admin/settings/updates/apply"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="nobackup-form" method="post" action="/admin/settings/updates/apply-without-backup"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
-<form id="unpin-form" method="post" action="/admin/settings/updates/unpin"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
+<form id="unpin-form" method="post" action="/admin/settings/updates/unpin"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form></div>
 <form method="post" action="/admin/settings/updates/stats" class="hm-cardform" id="stats-form">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
@@ -193,7 +193,7 @@
 <div class="hm-card__body"><div class="hm-setlist">
 <div class="hm-setrow">
 <div class="hm-setrow__text"><label class="hm-setrow__name" for="stats-on">Send install stats</label>
-<p class="hm-field__help">Send anonymous install stats to hatamoto.dev once a day. Nothing is sent while this is off.</p></div>
+<p class="hm-field__help">Sends anonymous install stats to hatamoto.dev once a day. Turn off to stop.</p></div>
 <div class="hm-setrow__control"><div class="hm-field">
 <label class="hm-field__check hm-switch" for="stats-on"><input class="hm-field__box" type="checkbox" role="switch" id="stats-on" name="stats" value="on" checked></label><input type="hidden" name="stats" value="off">
 </div></div>
@@ -209,12 +209,12 @@
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Last sent</p>
-<p class="hm-field__help">16 Oct 2026 20:00 · ok</p></div>
+<p class="hm-field__help">16 Oct 2026 20:00</p></div>
 <div class="hm-setrow__control"><button type="submit" class="hm-btn hm-btn--secondary" form="reset-stats-form"><span>Reset ID</span></button></div>
 </div>
 </div></div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
-<form id="reset-stats-form" method="post" action="/admin/settings/updates/stats/reset"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
+<div hidden><form id="reset-stats-form" method="post" action="/admin/settings/updates/stats/reset"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form></div>
 
 </div>
 </div>

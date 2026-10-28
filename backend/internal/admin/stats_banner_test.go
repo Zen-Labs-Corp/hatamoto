@@ -63,6 +63,16 @@ func TestStatsBannerAbsent(t *testing.T) {
 			}
 		})
 	}
+	t.Run("demo", func(t *testing.T) {
+		g, f := statsBannerRig(t, StatsView{Consent: "unset"})
+		g.a.deps.Demo.Enabled = true
+		if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); strings.Contains(body, statsBannerMarker) {
+			t.Error("the banner is shown in the demo")
+		}
+		if f.views != 0 || f.asks != 0 {
+			t.Errorf("demo asked the service: View %d, Unanswered %d", f.views, f.asks)
+		}
+	})
 	t.Run("updates page", func(t *testing.T) {
 		g, _ := statsBannerRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
 		body := g.do("GET", "/admin/settings/updates", "owner-token", nil, nil).Body.String()

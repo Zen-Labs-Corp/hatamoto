@@ -418,7 +418,7 @@ type updatesData struct {
 	Pin                      string
 	History                  ui.Table
 	InstallStats             *StatsView // nil when there is no stats service or it failed
-	StatsLastSent            string     // "when · result" of the last ping, "" before the first
+	StatsLastSent            string     // time of the last successful report, "" before the first
 }
 
 func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
@@ -744,16 +744,13 @@ func (a *Admin) renderUpdates(w http.ResponseWriter, r *http.Request, status int
 	} else {
 		a.fillUpdates(&d, *st, in, loc)
 	}
-	if a.deps.Stats != nil {
+	if a.deps.Stats != nil && !a.deps.Demo.Enabled {
 		if sv, err := a.deps.Stats.View(ctx); err != nil {
-			a.logger().Error("stats view", "err", err)
+			a.logger().Warn("stats view", "err", err)
 		} else {
 			d.InstallStats = &sv
 			if sv.LastSent != nil {
 				d.StatsLastSent = fmtDateTime(sv.LastSent.In(loc))
-				if sv.LastStatus != "" {
-					d.StatsLastSent += " · " + sv.LastStatus
-				}
 			}
 		}
 	}

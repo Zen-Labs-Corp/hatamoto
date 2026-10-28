@@ -46,13 +46,15 @@ func scratchPool(t *testing.T) *pgxpool.Pool {
 		_, _ = admin.Exec(ctx, "DROP DATABASE "+name+" WITH (FORCE)")
 		admin.Close(ctx)
 	})
-	sqlText, err := os.ReadFile("../../migrations/202610280900_install_stats.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	up, _, _ := strings.Cut(strings.TrimPrefix(string(sqlText), "-- +goose Up"), "-- +goose Down")
-	if _, err := pool.Exec(ctx, up); err != nil {
-		t.Fatal(err)
+	for _, f := range []string{"202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql"} {
+		sqlText, err := os.ReadFile("../../migrations/" + f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		up, _, _ := strings.Cut(strings.TrimPrefix(string(sqlText), "-- +goose Up"), "-- +goose Down")
+		if _, err := pool.Exec(ctx, up); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return pool
 }
@@ -154,8 +156,15 @@ func TestStoreClaim_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(ctx)
-	if got.LastStatus != "ok" || got.LastSentAt == nil {
+	if got.LastStatus != "ok" || got.LastSentAt == nil || got.LastOKAt == nil {
 		t.Fatalf("result not stored: %+v", got)
+	}
+	if err := st.RecordResult(ctx, "error: http 404"); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := st.Load(ctx)
+	if after.LastStatus != "error: http 404" || after.LastOKAt == nil || !after.LastOKAt.Equal(*got.LastOKAt) {
+		t.Fatalf("an error changed the last success time: before %+v after %+v", got, after)
 	}
 
 	if err := st.Disable(ctx); err != nil {

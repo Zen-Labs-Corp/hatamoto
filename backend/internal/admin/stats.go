@@ -29,11 +29,10 @@ type StatsService interface {
 
 // StatsView is what the admin shows about install stats.
 type StatsView struct {
-	Consent     string // "unset", "yes" or "no"
-	ForcedOff   bool   // HATAMOTO_TELEMETRY=off: the owner cannot change it
-	PreviewJSON string // the exact request body
-	LastSent    *time.Time
-	LastStatus  string
+	Consent     string     // "unset", "yes" or "no"
+	ForcedOff   bool       // HATAMOTO_TELEMETRY=off: the owner cannot change it
+	PreviewJSON string     // the exact request body
+	LastSent    *time.Time // time of the last successful report
 }
 
 // SetStats sets the install stats service after New, like SetUpdates. Call it
@@ -44,8 +43,15 @@ func (a *Admin) SetStats(svc StatsService) {
 
 const statsForcedOffNote = "Turned off by the server configuration."
 
+// Store errors are never shown: they are logged at Warn and the owner goes on
+// (a quiet redirect, no flash, no audit entry) and can simply try again.
+func (a *Admin) statsQuietRedirect(w http.ResponseWriter, r *http.Request, msg string, err error) {
+	a.logger().Warn(msg, "err", err)
+	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+}
+
 // statsView loads the stats view for a POST handler. It answers the request
-// itself and returns false when the service is missing or fails.
+// itself and returns false when the service is missing or the store fails.
 func (a *Admin) statsView(w http.ResponseWriter, r *http.Request) (StatsView, bool) {
 	if a.deps.Stats == nil {
 		a.unavailable(w, r, "Install stats")
@@ -53,8 +59,7 @@ func (a *Admin) statsView(w http.ResponseWriter, r *http.Request) (StatsView, bo
 	}
 	v, err := a.deps.Stats.View(r.Context())
 	if err != nil {
-		a.logger().Error("stats view", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install stats settings could not be loaded.")
+		a.statsQuietRedirect(w, r, "stats view", err)
 		return StatsView{}, false
 	}
 	return v, true
@@ -72,8 +77,7 @@ func (a *Admin) statsChoose(w http.ResponseWriter, r *http.Request, yes bool) {
 		return
 	}
 	if err := a.deps.Stats.Choose(r.Context(), yes); err != nil {
-		a.logger().Error("stats choose", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your choice could not be saved.")
+		a.statsQuietRedirect(w, r, "stats choose", err)
 		return
 	}
 	choice := "no"
@@ -121,8 +125,7 @@ func (a *Admin) handleStatsReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.deps.Stats.Reset(r.Context()); err != nil {
-		a.logger().Error("stats reset", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The install ID could not be reset.")
+		a.statsQuietRedirect(w, r, "stats reset", err)
 		return
 	}
 	a.audit(r, "stats.reset", "stats", nil)
@@ -142,7 +145,7 @@ type StatsBanner struct {
 // the Updates page already shows the question as its Install stats card. The
 // answer is a POST (see handleStatsChoice), not a browser-side dismissal.
 func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) *StatsBanner {
-	if a.deps.Stats == nil || u == nil || u.Role != "owner" || setupPending {
+	if a.deps.Stats == nil || a.deps.Demo.Enabled || u == nil || u.Role != "owner" || setupPending {
 		return nil
 	}
 	if strings.HasPrefix(r.URL.Path, a.adminPath+updatesPath) {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/worker"
@@ -25,6 +26,17 @@ func (m *memStats) Disable(context.Context) error {
 func (m *memStats) Reset(context.Context) (installstats.State, error) { return m.st, nil }
 func (m *memStats) Claim(context.Context) (string, bool, error)       { return "", false, nil }
 func (m *memStats) RecordResult(context.Context, string) error        { return nil }
+
+func TestAdminStatsViewShowsLastSuccess(t *testing.T) {
+	s, m := statsTestServer(false)
+	ok := time.Date(2026, 10, 27, 4, 12, 0, 0, time.UTC)
+	claimed := ok.Add(30 * time.Hour)
+	m.st = installstats.State{Consent: installstats.ConsentYes, LastSentAt: &claimed, LastOKAt: &ok, LastStatus: "error: http 404"}
+	v, err := adminStats{s.stats}.View(context.Background())
+	if err != nil || v.LastSent == nil || !v.LastSent.Equal(ok) {
+		t.Fatalf("LastSent = %v, err %v, want the last success %v", v.LastSent, err, ok)
+	}
+}
 
 func statsTestServer(withScheduler bool) (*Server, *memStats) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
