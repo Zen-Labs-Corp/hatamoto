@@ -9,8 +9,12 @@ export LC_ALL=C.UTF-8
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(dirname "$here")
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+# File repos take their owner from the parent directory name: the fixtures live under "acme",
+# the author of the fixture manifests.
+top=$(mktemp -d)
+work=$top/acme
+mkdir -p "$work"
+trap 'rm -rf "$top"' EXIT
 script="$here/build-community.sh"
 # The build is pinned to the backend's toolchain, as the Makefile does.
 export HATAMOTO_BUILD_GOTOOLCHAIN=$(awk '/^toolchain/{print $2}' "$root/backend/go.mod")
@@ -26,7 +30,10 @@ key=$work/t.key
 
 good=0123456789abcdef0123456789abcdef01234567
 # manifest <dir> <file-name> <json>
-manifest() { mkdir -p "$1/manifests"; printf '%s' "$3" >"$1/manifests/$2.json"; }
+manifest() {
+  mkdir -p "$1/manifests"
+  [ -d "$1/policy" ] || cp -r "$here/testdata/policy" "$1/policy"
+  printf '%s' "$3" >"$1/manifests/$2.json"; }
 base() { # base <name> <repo> <commit> [subdir]
   jq -n --arg n "$1" --arg r "$2" --arg c "$3" --arg s "${4:-}" \
     '{name:$n,repo:$r,commit:$c,author:"acme",license:"MIT",archive_grant:true,sdk:"^0.10"} + (if $s != "" then {subdir:$s} else {} end)'
@@ -71,9 +78,10 @@ neg "padded title" "acme-seo" "$(base acme-seo $https $good | jq '.title="a "')"
 neg "non-string title" "acme-seo" "$(base acme-seo $https $good | jq '.title=5')" "bad title"
 echo "ok: $n negative cases"
 
-# Titles that must pass pass 1: no-break space, emoji with a ZWJ, 25 Japanese characters.
+# Titles that must pass pass 1: accents, a title of exactly 40 characters, a title that
+# only shares one word with the name.
 # (Pass 1 then fails at the fetch of a missing repo, which proves the title was accepted.)
-for t in $'Dev\u00a0Tools' $'Code \U0001F468\u200d\U0001F4BB' "$(printf '\u65e5%.0s' $(seq 25))"; do
+for t in $'Acme SEO Caf\u00e9' "Acme SEO $(printf 'x%.0s' $(seq 31))" "Seo Tools"; do
   d="$work/titleok"; rm -rf "$d"
   manifest "$d" acme-seo "$(base acme-seo file:///nonexistent $good | jq --arg t "$t" '.title=$t')"
   out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/t-pk" "$work/t-meta.json" 2>&1) && fail "title case built nothing"
@@ -94,19 +102,19 @@ done
 echo "ok: toolchain pin"
 
 
-# Positive case: a local repo holding a copy of the demo example.
+# Positive case: a local repo holding a copy of the hello example.
 plug="$work/plugrepo"
 mkdir -p "$plug"
 cp -r "$root/examples/plugins/hello/." "$plug/"
 (cd "$plug" && go mod edit -dropreplace hatamoto.dev/sdk)
-# "hello" is a reserved name (core ships the example), so the fixture plugin is called "demo".
-jq '.name = "demo"' "$plug/plugin.json" >"$plug/plugin.json.new" && mv "$plug/plugin.json.new" "$plug/plugin.json"
+# "hello" is a reserved name (core ships the example), so the fixture plugin is called "acme-notes".
+jq '.name = "acme-notes"' "$plug/plugin.json" >"$plug/plugin.json.new" && mv "$plug/plugin.json.new" "$plug/plugin.json"
 git -C "$plug" init -q
 git -C "$plug" add -A
 git -C "$plug" -c user.name=t -c user.email=t@example.com commit -q -m init
 sha=$(git -C "$plug" rev-parse HEAD)
 reg="$work/registry-repo"
-manifest "$reg" demo "$(base demo "file://$plug" "$sha" | jq '.title="Hello Plugin"')"
+manifest "$reg" acme-notes "$(base acme-notes "file://$plug" "$sha" | jq '.title="Acme Notes"')"
 
 # A name mismatch with plugin.json must fail before anything is published.
 mm="$work/mismatch"
@@ -127,7 +135,7 @@ build_neg() {
   if out=$(HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" "$script" "$3" "$bin" "$key" "$pk" "$mt" 2>&1); then fail "$1: accepted"; fi
   grep -q "$2" <<<"$out" || fail "$1: wrong error: $out"
 }
-# plugrepo_variant <name> <mutator-command...>: a committed copy of the demo repo, changed by the command run inside it.
+# plugrepo_variant <name> <mutator-command...>: a committed copy of the example repo, changed by the command run inside it.
 variant() {
   local v="$work/var-$1"; shift
   cp -r "$plug" "$v"; rm -rf "$v/.git"
@@ -138,45 +146,45 @@ variant() {
 }
 
 # A first-party name already in packages or meta is refused, not replaced.
-mkdir -p "$work/col-pk"; echo old >"$work/col-pk/demo.hmp"
+mkdir -p "$work/col-pk"; echo old >"$work/col-pk/acme-notes.hmp"
 build_neg "package collision" "first-party name collision" "$reg" "$work/col-pk" "$work/col-meta.json"
-[ "$(cat "$work/col-pk/demo.hmp")" = old ] || fail "collision replaced the package"
-printf '{"demo":{"tier":"first-party"}}' >"$work/col-meta2.json"
+[ "$(cat "$work/col-pk/acme-notes.hmp")" = old ] || fail "collision replaced the package"
+printf '{"acme-notes":{"tier":"first-party"}}' >"$work/col-meta2.json"
 build_neg "meta collision" "first-party name collision" "$reg" "$work/col-pk2" "$work/col-meta2.json"
-[ "$(jq -r .demo.tier "$work/col-meta2.json")" = first-party ] || fail "collision changed meta"
+[ "$(jq -r '.["acme-notes"].tier' "$work/col-meta2.json")" = first-party ] || fail "collision changed meta"
 
 # A symlinked build source is refused.
 v=$(variant symui sh -c 'rm -rf ui; ln -s /tmp ui')
 sha2=$(git -C "$v" rev-parse HEAD)
-manifest "$work/symrepo" demo "$(base demo "file://$v" "$sha2")"
+manifest "$work/symrepo" acme-notes "$(base acme-notes "file://$v" "$sha2")"
 build_neg "symlinked ui" "ui is a symlink" "$work/symrepo"
 v=$(variant symsub sh -c 'mkdir -p real; mv main.go go.mod go.sum plugin.json real/; ln -s real sub')
-manifest "$work/symsub" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)" sub)"
+manifest "$work/symsub" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)" sub)"
 build_neg "symlinked subdir" "symlink or resolves outside" "$work/symsub"
 
 # A committed prebuilt wasm must not be signed when the source does not compile.
 v=$(variant broken sh -c 'mkdir -p build; echo fake >build/plugin.wasm; echo "package main; func main() { undefined() }" >main.go')
-manifest "$work/broken" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+manifest "$work/broken" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "non-compiling source" "build failed" "$work/broken"
 
 # A local-path replace is refused.
 v=$(variant repl go mod edit -replace example.com/x=../x)
-manifest "$work/repl" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+manifest "$work/repl" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "local replace" "local-path replace" "$work/repl"
 
 # A replace of the SDK to any target (here a module path), or a go.work, is refused.
 v=$(variant sdkrepl go mod edit -replace hatamoto.dev/sdk=github.com/someone/sdk@v0.10.0)
-manifest "$work/sdkrepl" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+manifest "$work/sdkrepl" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "sdk module replace" "replaces hatamoto.dev/sdk" "$work/sdkrepl"
 v=$(variant gowork sh -c 'printf "go 1.22\nuse .\n" >go.work')
-manifest "$work/gowork" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+manifest "$work/gowork" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "go.work at the root" "go.work is not allowed" "$work/gowork"
 v=$(variant gowsub sh -c 'mkdir -p real; mv main.go go.mod go.sum plugin.json real/; printf "go 1.22\nuse ./real\n" >go.work')
-manifest "$work/gowsub" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)" real)"
+manifest "$work/gowsub" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)" real)"
 build_neg "go.work above the subdir" "go.work is not allowed" "$work/gowsub"
 # A plugin that needs a newer Go than the pin fails clearly and downloads nothing.
 v=$(variant newgo go mod edit -go 1.99.0)
-manifest "$work/newgo" demo "$(base demo "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+manifest "$work/newgo" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 build_neg "newer toolchain" "requires go >= 1.99" "$work/newgo"
 echo "ok: build negatives"
 
@@ -214,17 +222,17 @@ for bad in "http://github.com/o" "https://github.com/o/r" "https://example.com/o
 done
 
 # Upstream deleted, mirror alive: the plugin builds from the mirror and source is the mirror.
-up="$work/up-demo"; cp -r "$plug" "$up"
+up="$work/up-notes"; cp -r "$plug" "$up"
 mb="$work/mirrors"; mkdir -p "$mb"
-mkmirror demo "$up" "$mb" sh -c 'echo "{}" >MIRROR.json'
+mkmirror acme-notes "$up" "$mb" sh -c 'echo "{}" >MIRROR.json'
 ghost="$work/ghost-reg"
-manifest "$ghost" demo "$(base demo "file://$work/does-not-exist" "$sha")"
+manifest "$ghost" acme-notes "$(base acme-notes "file://$work/does-not-exist" "$sha")"
 mirror_run "mirror build" "$ghost" "$mb" "$work/m-pk" "$work/m-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" || fail "mirror build: $(cat "$work/mr.log")"
-[ -s "$work/m-pk/demo.hmp" ] || fail "mirror build: no package"
-jq -e --arg s "file://$mb/demo" '.demo.source == $s' "$work/m-meta.json" >/dev/null || fail "mirror source: $(cat "$work/m-meta.json")"
+[ -s "$work/m-pk/acme-notes.hmp" ] || fail "mirror build: no package"
+jq -e --arg s "file://$mb/acme-notes" '."acme-notes".source == $s' "$work/m-meta.json" >/dev/null || fail "mirror source: $(cat "$work/m-meta.json")"
 # Upstream alive: source stays the author's repo.
 mirror_run "upstream source" "$reg" "$mb" "$work/m2-pk" "$work/m2-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" || fail "upstream source: $(cat "$work/mr.log")"
-jq -e --arg s "file://$plug" '.demo.source == $s' "$work/m2-meta.json" >/dev/null || fail "upstream source: $(cat "$work/m2-meta.json")"
+jq -e --arg s "file://$plug" '."acme-notes".source == $s' "$work/m2-meta.json" >/dev/null || fail "upstream source: $(cat "$work/m2-meta.json")"
 echo "ok: mirror build"
 
 # A mirror's vendor/ is ignored by default (-mod=readonly) and used only with
@@ -293,14 +301,14 @@ echo "ok: subdir mirror"
 # A tampered mirror (tag present, wrong content or parent) stops the run, even with a live upstream.
 # A missing tag or repo is a miss and falls back to upstream.
 bp="$work/mirrors-bad"; mkdir -p "$bp"
-mkmirror demo "$up" "$bp" sh -c 'echo x >main.go'
+mkmirror acme-notes "$up" "$bp" sh -c 'echo x >main.go'
 mirror_run "non-vendor path" "$ghost" "$bp" "$work/b1-pk" "$work/b1-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" && fail "non-vendor top commit accepted"
 grep -q "possible tampering" "$work/mr.log" && ! grep -q "cannot fetch" "$work/mr.log" || fail "non-vendor path: $(cat "$work/mr.log")"
 bp2="$work/mirrors-bad2"; mkdir -p "$bp2"
-git clone -q "$up" "$bp2/demo"
-git -C "$bp2/demo" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m a
-git -C "$bp2/demo" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m b
-git -C "$bp2/demo" -c user.name=t -c user.email=t@example.com tag -a -m x "src/$sha"
+git clone -q "$up" "$bp2/acme-notes"
+git -C "$bp2/acme-notes" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m a
+git -C "$bp2/acme-notes" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m b
+git -C "$bp2/acme-notes" -c user.name=t -c user.email=t@example.com tag -a -m x "src/$sha"
 mirror_run "bad parent" "$ghost" "$bp2" "$work/b2-pk" "$work/b2-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" && fail "mirror with the wrong parent accepted"
 grep -q "possible tampering" "$work/mr.log" || fail "bad parent: $(cat "$work/mr.log")"
 # Mirror missing entirely and upstream dead: still "cannot fetch".
@@ -309,7 +317,7 @@ grep -q "cannot fetch" "$work/mr.log" || fail "no mirror: $(cat "$work/mr.log")"
 # A tampered mirror with a live upstream still stops; a mirror lacking the tag falls back and succeeds.
 mirror_run "tamper live" "$reg" "$bp" "$work/b4-pk" "$work/b4-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" && fail "tampered mirror ignored"
 grep -q "possible tampering" "$work/mr.log" || fail "tamper live: $(cat "$work/mr.log")"
-[ ! -e "$work/b4-pk/demo.hmp" ] || fail "tamper published"
+[ ! -e "$work/b4-pk/acme-notes.hmp" ] || fail "tamper published"
 mirror_run "fallback" "$reg" "$work/mirrors" "$work/b5-pk" "$work/b5-meta.json" HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" HATAMOTO_MIRROR_BASE="file://$work/mirrors-none" || fail "fallback to upstream: $(cat "$work/mr.log")"
 grep -q "no mirror tag" "$work/mr.log" || fail "fallback not logged: $(cat "$work/mr.log")"
 echo "ok: mirror verification"
@@ -319,11 +327,11 @@ arch="$work/archive"
 sdkenv=(HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk")
 env "${sdkenv[@]}" ARCHIVE_DIR="$arch" "$script" "$reg" "$bin" "$key" "$work/a1-pk" "$work/a1-meta.json" >/dev/null || fail "archive build"
 kid=$(jq -r .key_id "$key")
-af="demo-0.2.0-${sha:0:12}-$kid"
-[ -s "$arch/demo/$af.hmp" ] || fail "archive: no .hmp in $(find "$arch")"
-jq -e --arg c "$sha" --arg k "$kid" --arg h "$(sha256sum "$arch/demo/$af.hmp" | cut -d' ' -f1)" \
-  '.name == "demo" and .version == "0.2.0" and .commit == $c and .key_id == $k and .sha256 == $h' "$arch/demo/$af.json" >/dev/null || fail "archive sidecar: $(cat "$arch/demo/$af.json")"
-cmp "$arch/demo/$af.hmp" "$work/a1-pk/demo.hmp" || fail "archived .hmp differs from the package"
+af="acme-notes-0.2.0-${sha:0:12}-$kid"
+[ -s "$arch/acme-notes/$af.hmp" ] || fail "archive: no .hmp in $(find "$arch")"
+jq -e --arg c "$sha" --arg k "$kid" --arg h "$(sha256sum "$arch/acme-notes/$af.hmp" | cut -d' ' -f1)" \
+  '.name == "acme-notes" and .version == "0.2.0" and .commit == $c and .key_id == $k and .sha256 == $h' "$arch/acme-notes/$af.json" >/dev/null || fail "archive sidecar: $(cat "$arch/acme-notes/$af.json")"
+cmp "$arch/acme-notes/$af.hmp" "$work/a1-pk/acme-notes.hmp" || fail "archived .hmp differs from the package"
 # Upstream gone, no mirror, and a go that must not run: the archived bytes are reused.
 shim="$work/shim"; mkdir -p "$shim"
 printf '#!/bin/sh\necho "go must not run" >&2\nexit 99\n' >"$shim/go"; chmod +x "$shim/go"
@@ -335,21 +343,21 @@ reuse_run "$ghost" "$work/a2-pk" "$work/a2-meta.json" && fail "archive reused al
 grep -q "cannot reach the mirror" "$work/ar.log" || fail "offline refusal: $(cat "$work/ar.log")"
 offline=1
 reuse_run "$ghost" "$work/a2-pk" "$work/a2-meta.json" || fail "archive reuse: $(cat "$work/ar.log")"
-cmp "$arch/demo/$af.hmp" "$work/a2-pk/demo.hmp" || fail "reused .hmp differs"
+cmp "$arch/acme-notes/$af.hmp" "$work/a2-pk/acme-notes.hmp" || fail "reused .hmp differs"
 grep -q "reusing archived" "$work/ar.log" || fail "reuse not logged"
 grep -q "NOT checked" "$work/ar.log" || fail "offline reuse: no warning"
 offline=
-jq -e --arg c "$sha" '.demo.commit == $c and .demo.tier == "community"' "$work/a2-meta.json" >/dev/null || fail "reuse meta: $(cat "$work/a2-meta.json")"
+jq -e --arg c "$sha" '."acme-notes".commit == $c and ."acme-notes".tier == "community"' "$work/a2-meta.json" >/dev/null || fail "reuse meta: $(cat "$work/a2-meta.json")"
 # A sidecar for another commit is not a match: it rebuilds (here: cannot fetch).
 cp -r "$arch" "$work/arch-mm"
-jq '.commit = "ffffffffffffffffffffffffffffffffffffffff"' "$arch/demo/$af.json" >"$work/arch-mm/demo/$af.json"
+jq '.commit = "ffffffffffffffffffffffffffffffffffffffff"' "$arch/acme-notes/$af.json" >"$work/arch-mm/acme-notes/$af.json"
 reuse_run "$ghost" "$work/a3-pk" "$work/a3-meta.json" "$work/arch-mm" && fail "mismatched sidecar reused"
 grep -q "cannot fetch" "$work/ar.log" || fail "sidecar mismatch: $(cat "$work/ar.log")"
 # ...and the rebuild may not overwrite the different archived file (append-only).
 if env "${sdkenv[@]}" ARCHIVE_DIR="$work/arch-mm" "$script" "$reg" "$bin" "$key" "$work/a4-pk" "$work/a4-meta.json" >"$work/ar.log" 2>&1; then fail "append-only violated"; fi
 grep -q "append-only" "$work/ar.log" || fail "append-only: $(cat "$work/ar.log")"
-[ ! -e "$work/a4-pk/demo.hmp" ] && [ ! -e "$work/a4-meta.json" ] || fail "append-only refusal published"
-[ "$(jq -r .commit "$work/arch-mm/demo/$af.json")" = ffffffffffffffffffffffffffffffffffffffff ] || fail "append-only changed the sidecar"
+[ ! -e "$work/a4-pk/acme-notes.hmp" ] && [ ! -e "$work/a4-meta.json" ] || fail "append-only refusal published"
+[ "$(jq -r .commit "$work/arch-mm/acme-notes/$af.json")" = ffffffffffffffffffffffffffffffffffffffff ] || fail "append-only changed the sidecar"
 # Key rotation: a build signed by another key is never reused; it is rebuilt into its own file.
 (cd "$root/backend" && go run ./cmd/hatamoto keys generate --name t2 --dir "$work" >/dev/null)
 key2=$work/t2.key; kid2=$(jq -r .key_id "$key2"); [ "$kid2" != "$kid" ] || fail "rotation: same key id"
@@ -357,58 +365,58 @@ if PATH="$shim:$PATH" HATAMOTO_ALLOW_FILE_REPOS=1 ARCHIVE_DIR="$arch" "$script" 
 grep -q "cannot fetch" "$work/ar.log" || fail "rotation reuse: $(cat "$work/ar.log")"
 cp -r "$arch" "$work/arch-rot"
 env "${sdkenv[@]}" ARCHIVE_DIR="$work/arch-rot" "$script" "$reg" "$bin" "$key2" "$work/k2-pk" "$work/k2-meta.json" >"$work/ar.log" 2>&1 || fail "rotation rebuild: $(cat "$work/ar.log")"
-af2="demo-0.2.0-${sha:0:12}-$kid2"
-[ -s "$work/arch-rot/demo/$af2.hmp" ] && [ -s "$work/arch-rot/demo/$af.hmp" ] || fail "rotation: expected both files: $(ls "$work/arch-rot/demo")"
-cmp "$arch/demo/$af.hmp" "$work/arch-rot/demo/$af.hmp" || fail "rotation changed the old archive file"
-jq -e --arg k "$kid2" '.key_id == $k' "$work/arch-rot/demo/$af2.json" >/dev/null || fail "rotation sidecar"
+af2="acme-notes-0.2.0-${sha:0:12}-$kid2"
+[ -s "$work/arch-rot/acme-notes/$af2.hmp" ] && [ -s "$work/arch-rot/acme-notes/$af.hmp" ] || fail "rotation: expected both files: $(ls "$work/arch-rot/acme-notes")"
+cmp "$arch/acme-notes/$af.hmp" "$work/arch-rot/acme-notes/$af.hmp" || fail "rotation changed the old archive file"
+jq -e --arg k "$kid2" '.key_id == $k' "$work/arch-rot/acme-notes/$af2.json" >/dev/null || fail "rotation sidecar"
 # Both keys now archived: each reuses its own build.
 PATH="$shim:$PATH" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_ARCHIVE_OFFLINE=1 ARCHIVE_DIR="$work/arch-rot" "$script" "$ghost" "$bin" "$key2" "$work/k3-pk" "$work/k3-meta.json" >/dev/null 2>&1 || fail "rotation: key2 reuse"
-cmp "$work/arch-rot/demo/$af2.hmp" "$work/k3-pk/demo.hmp" || fail "rotation: key2 reused the wrong file"
+cmp "$work/arch-rot/acme-notes/$af2.hmp" "$work/k3-pk/acme-notes.hmp" || fail "rotation: key2 reused the wrong file"
 # A sidecar that lies about the package (version, or a file name that does not fit) dies.
-cp -r "$arch" "$work/arch-ver"; jq '.version = "9.9.9"' "$arch/demo/$af.json" >"$work/arch-ver/demo/$af.json"
+cp -r "$arch" "$work/arch-ver"; jq '.version = "9.9.9"' "$arch/acme-notes/$af.json" >"$work/arch-ver/acme-notes/$af.json"
 reuse_run "$reg" "$work/s1-pk" "$work/s1-meta.json" "$work/arch-ver" && fail "sidecar with a wrong version reused"
 grep -q "holds plugin.json" "$work/ar.log" || fail "sidecar version: $(cat "$work/ar.log")"
-cp -r "$arch" "$work/arch-fn"; wrong="demo-0.2.0-${sha:0:11}z-$kid"
-mv "$work/arch-fn/demo/$af.hmp" "$work/arch-fn/demo/$wrong.hmp"; mv "$work/arch-fn/demo/$af.json" "$work/arch-fn/demo/$wrong.json"
+cp -r "$arch" "$work/arch-fn"; wrong="acme-notes-0.2.0-${sha:0:11}z-$kid"
+mv "$work/arch-fn/acme-notes/$af.hmp" "$work/arch-fn/acme-notes/$wrong.hmp"; mv "$work/arch-fn/acme-notes/$af.json" "$work/arch-fn/acme-notes/$wrong.json"
 reuse_run "$reg" "$work/s2-pk" "$work/s2-meta.json" "$work/arch-fn" && fail "misnamed archive file reused"
 grep -q "file name .* does not match" "$work/ar.log" || fail "sidecar file name: $(cat "$work/ar.log")"
 # A tampered archived .hmp dies.
-cp -r "$arch" "$work/arch-bad"; echo x >>"$work/arch-bad/demo/$af.hmp"
+cp -r "$arch" "$work/arch-bad"; echo x >>"$work/arch-bad/acme-notes/$af.hmp"
 reuse_run "$reg" "$work/a5-pk" "$work/a5-meta.json" "$work/arch-bad" && fail "tampered .hmp reused"
 grep -q "sidecar sha256" "$work/ar.log" || fail "tamper: $(cat "$work/ar.log")"
 # Rollback: an old genuine .hmp renamed to a newer commit with a forged sidecar is refused
 # when upstream is reachable (plugin.json at the claimed commit says another version)...
 v=$(variant newer sh -c 'sed -i "s/0.2.0/0.3.0/" plugin.json')
-nsha=$(git -C "$v" rev-parse HEAD); nreg="$work/newer-reg"; manifest "$nreg" demo "$(base demo "file://$v" "$nsha")"
+nsha=$(git -C "$v" rev-parse HEAD); nreg="$work/newer-reg"; manifest "$nreg" acme-notes "$(base acme-notes "file://$v" "$nsha")"
 cp -r "$arch" "$work/arch-rb"
-rb="demo-0.2.0-${nsha:0:12}-$kid"
-mv "$work/arch-rb/demo/$af.hmp" "$work/arch-rb/demo/$rb.hmp"; rm "$work/arch-rb/demo/$af.json"
-jq --arg c "$nsha" '.commit = $c' "$arch/demo/$af.json" >"$work/arch-rb/demo/$rb.json"
+rb="acme-notes-0.2.0-${nsha:0:12}-$kid"
+mv "$work/arch-rb/acme-notes/$af.hmp" "$work/arch-rb/acme-notes/$rb.hmp"; rm "$work/arch-rb/acme-notes/$af.json"
+jq --arg c "$nsha" '.commit = $c' "$arch/acme-notes/$af.json" >"$work/arch-rb/acme-notes/$rb.json"
 reuse_run "$nreg" "$work/rb-pk" "$work/rb-meta.json" "$work/arch-rb" && fail "rolled-back .hmp reused"
 grep -q "does not match plugin.json" "$work/ar.log" || fail "rollback upstream: $(cat "$work/ar.log")"
 # ...and when the commit is only reachable through the mirror.
-mkdir -p "$work/mirrors-rb"; mkmirror demo "$v" "$work/mirrors-rb" sh -c 'echo "{}" >MIRROR.json'
-manifest "$work/ghost-newer" demo "$(base demo "file://$work/does-not-exist" "$nsha")"
+mkdir -p "$work/mirrors-rb"; mkmirror acme-notes "$v" "$work/mirrors-rb" sh -c 'echo "{}" >MIRROR.json'
+manifest "$work/ghost-newer" acme-notes "$(base acme-notes "file://$work/does-not-exist" "$nsha")"
 mirror_run "rollback via mirror" "$work/ghost-newer" "$work/mirrors-rb" "$work/rb2-pk" "$work/rb2-meta.json" ARCHIVE_DIR="$work/arch-rb" && fail "rolled-back .hmp reused (mirror)"
 grep -q "does not match plugin.json" "$work/mr.log" || fail "rollback mirror: $(cat "$work/mr.log")"
 # A genuine archive through the mirror alone is accepted (the upstream is gone).
 mirror_run "genuine via mirror" "$ghost" "$mb" "$work/g-pk" "$work/g-meta.json" ARCHIVE_DIR="$arch" || fail "genuine via mirror: $(cat "$work/mr.log")"
 # No temp files are left in the archive.
 ! find "$arch" -name '*.tmp.*' | grep -q . || fail "temp files left in the archive"
-# A failed run archives nothing: demo builds, then a broken plugin fails.
+# A failed run archives nothing: acme-notes builds, then a broken plugin fails.
 v=$(variant broken2 sh -c 'echo "package main; func main() { undefined() }" >main.go')
-fr="$work/failreg"; manifest "$fr" demo "$(base demo "file://$plug" "$sha")"
+fr="$work/failreg"; manifest "$fr" acme-notes "$(base acme-notes "file://$plug" "$sha")"
 manifest "$fr" zzz "$(base zzz "file://$v" "$(git -C "$v" rev-parse HEAD)")"
-sed -i 's/"demo"/"zzz"/' "$v/plugin.json"; git -C "$v" -c user.name=t -c user.email=t@example.com commit -q -am n; manifest "$fr" zzz "$(base zzz "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+sed -i 's/"acme-notes"/"zzz"/' "$v/plugin.json"; git -C "$v" -c user.name=t -c user.email=t@example.com commit -q -am n; manifest "$fr" zzz "$(base zzz "file://$v" "$(git -C "$v" rev-parse HEAD)")"
 if env "${sdkenv[@]}" ARCHIVE_DIR="$work/arch-fail" "$script" "$fr" "$bin" "$key" "$work/f-pk" "$work/f-meta.json" >"$work/ar.log" 2>&1; then fail "failing run succeeded"; fi
 grep -q "zzz: build failed" "$work/ar.log" || fail "failing run: $(cat "$work/ar.log")"
 [ ! -e "$work/arch-fail" ] || fail "failed run archived: $(find "$work/arch-fail")"
 # Source follows the mirror only when the mirror has the commit: an archive reuse with a
 # mirror base that lacks the tag keeps the (dead) author repo; one that has it points there.
 mirror_run "source nomirror" "$ghost" "$work/mirrors-none" "$work/sm1-pk" "$work/sm1-meta.json" ARCHIVE_DIR="$arch" HATAMOTO_ARCHIVE_OFFLINE=1 || fail "source nomirror: $(cat "$work/mr.log")"
-jq -e --arg s "file://$work/does-not-exist" '.demo.source == $s' "$work/sm1-meta.json" >/dev/null || fail "source without a mirror: $(cat "$work/sm1-meta.json")"
+jq -e --arg s "file://$work/does-not-exist" '."acme-notes".source == $s' "$work/sm1-meta.json" >/dev/null || fail "source without a mirror: $(cat "$work/sm1-meta.json")"
 mirror_run "source mirror" "$ghost" "$mb" "$work/sm2-pk" "$work/sm2-meta.json" ARCHIVE_DIR="$arch" || fail "source mirror: $(cat "$work/mr.log")"
-jq -e --arg s "file://$mb/demo" '.demo.source == $s' "$work/sm2-meta.json" >/dev/null || fail "source with a mirror: $(cat "$work/sm2-meta.json")"
+jq -e --arg s "file://$mb/acme-notes" '."acme-notes".source == $s' "$work/sm2-meta.json" >/dev/null || fail "source with a mirror: $(cat "$work/sm2-meta.json")"
 echo "ok: archive"
 
 # Tier first-party: label only, accepted for allowlisted owners, never silently downgraded,
@@ -462,8 +470,8 @@ echo "ok: first-party build"
 printf '{"existing":{"tier":"first-party"}}' >"$work/pos-meta.json"
 HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \
   "$script" "$reg" "$bin" "$key" "$work/pos-pk" "$work/pos-meta.json"
-[ -s "$work/pos-pk/demo.hmp" ] || fail "demo.hmp not built"
-jq -e --arg c "$sha" '.demo.commit == $c and .demo.tier == "community" and .demo.author == "acme" and .demo.title == "Hello Plugin" and .existing.tier == "first-party"' "$work/pos-meta.json" >/dev/null \
+[ -s "$work/pos-pk/acme-notes.hmp" ] || fail "acme-notes.hmp not built"
+jq -e --arg c "$sha" '."acme-notes".commit == $c and ."acme-notes".tier == "community" and ."acme-notes".author == "acme" and ."acme-notes".title == "Acme Notes" and .existing.tier == "first-party"' "$work/pos-meta.json" >/dev/null \
   || fail "meta.json wrong: $(cat "$work/pos-meta.json")"
 echo "ok: positive build"
 echo "PASS"

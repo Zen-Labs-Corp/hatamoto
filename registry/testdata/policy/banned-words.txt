@@ -1,0 +1,14 @@
+# Words a title may not contain (whole words, case-insensitive).
+# Descriptions may use "free" and "plugin".
+hatamoto
+official
+best
+ultimate
+#1
+top
+free
+premium
+pro
+alternative
+wordpress
+plugin
