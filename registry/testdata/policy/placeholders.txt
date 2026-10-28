@@ -1,0 +1,5 @@
+# Descriptions that are unfilled templates (whole line, case-insensitive).
+One sentence a site owner will read in the plugin directory.
+A Hatamoto plugin.
+TODO
+lorem ipsum

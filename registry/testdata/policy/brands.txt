@@ -1,0 +1,24 @@
+# brand [owner ...]
+# A name or title may not start with a brand unless the repo owner (a GitHub
+# login, lowercase) is listed after it.
+stripe
+google zenlabscorp zen-labs-corp
+hubspot
+zapier
+shopify
+paypal
+mailchimp
+slack
+notion
+github
+openai
+cloudflare
+twilio
+sendgrid
+woocommerce
+wordpress
+facebook
+instagram
+tiktok
+microsoft
+amazon

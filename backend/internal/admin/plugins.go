@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/permtext"
 )
 
 // ErrPluginNotFound, ErrBadGrant and ErrCommunityGrant are what PluginAdmin.Grant answers.
@@ -21,19 +22,6 @@ var (
 	// ErrCommunityGrant is a permission a community plugin may not be given.
 	ErrCommunityGrant = errors.New("permission not allowed for a community plugin")
 )
-
-var permissionHelp = map[string]string{
-	"entities.read": "Read pages, posts and other content", "entities.write": "Create and change content",
-	"terms.read": "Read categories and tags", "terms.write": "Create and change categories and tags",
-	"menus.read": "Read menus", "menus.write": "Change menus", "media.read": "Read the media library", "media.write": "Upload and change media",
-	"redirects.read": "Read redirects", "redirects.write": "Create and change redirects", "forms.read": "Hear about form submissions",
-	"settings": "Store its own settings", "log": "Write to the server log", "mail.send": "Send email", "http.fetch": "Call other web addresses it lists",
-	"http.fetch.any": "WARNING: send requests to ANY public web address, including addresses typed into its settings. Treat it as a way out to the internet from this server.",
-	"kv":             "Keep small values of its own",
-	"builder.data":   "Offer data sources to the page builder",
-	"site.scripts":   "Runs its JavaScript on every public page, with full access to the site, including signed-in admins. Without it the plugin's script is not loaded.",
-	"builder.island": "WARNING: runs JavaScript on your site's pages, with the same access as the pages themselves. Without it the widgets still render, but their script is not served.",
-}
 
 func (a *Admin) mountPlugins(authed *httpx.Group) {
 	owner := authed.Group("", a.RequireRole("owner"))
@@ -383,7 +371,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 	for _, perm := range p.Permissions {
 		refused := slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
-		d.Perms = append(d.Perms, permRow{Name: perm, Help: permissionHelp[perm], Granted: g, Refused: refused})
+		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused})
 		switch {
 		case refused:
 		case g:

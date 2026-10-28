@@ -54,6 +54,10 @@ throwaway environment; the key file is only passed to `plugin pack`. Every run
 rebuilds the whole index, so `make registry` refuses to run without `COMMUNITY_DIR`.
 `registry/test-build-community.sh` is the offline test of the script.
 
+The build also reads the listing rules in `<COMMUNITY_DIR>/policy/` (a missing or empty
+list stops the build) and checks every manifest and its siblings, so a policy or theme
+change in the plugins repository can stop it. The fix belongs there, not in `COMMUNITY_SKIP`.
+
 A manifest may carry `"tier": "first-party"` (and then no `author`). The script accepts it
 only when the repository owner is in `FIRST_PARTY_OWNERS` (space separated, case-insensitive;
 the Makefile fixes it to `zenlabscorp Zen-Labs-Corp` (the first only until the plugin manifests move) with `override`, so only an edit of the Makefile changes it; the script's own default is nobody) and dies otherwise.

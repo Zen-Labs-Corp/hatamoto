@@ -473,10 +473,28 @@ type ThemeCard struct {
 // PluginCard is one plugin entry of the directory. Source is already
 // restricted to safe https URLs; Search is the lowercased text the search box
 // matches against.
+//
+// PermCount is the number of permissions the plugin asks for, PermWarn the
+// short labels of the risky ones (empty: no warning badge) and PermLines the
+// plain-English lines shown in the collapsed list. Permissions holds the raw
+// names; the default theme no longer reads it, it is kept for theme overrides
+// written against older cores.
 type PluginCard struct {
 	Name, Title, Version, Tier, TierLabel, Author, Description, Source string
-	Permissions                                                        []string
-	Search                                                             string
+	PermCount                                                          int
+	PermWarn                                                           []string
+	PermLines                                                          []PermLine
+	// Permissions lists the raw permission names. The default theme no longer
+	// reads it; it is kept for theme overrides written against older cores.
+	Permissions []string
+	Search      string
+}
+
+// PermLine is one permission of a plugin card: its name, the plain-English
+// text and whether it is a risky one.
+type PermLine struct {
+	Name, Text string
+	Warn       bool
 }
 
 // FormView is a public form definition used by contact_form sections.

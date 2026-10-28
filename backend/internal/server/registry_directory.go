@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -240,6 +241,22 @@ func screenshotURL(registryURL, rel string) string {
 	return packages.SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
 }
 
+// permissionCard maps permission names to the card's count, warning badges
+// (one per distinct short label) and plain-English lines. The ⚠ badge already
+// signals the risk, so the "WARNING: " prefix of the admin wording is dropped.
+func permissionCard(perms []string) (int, []string, []render.PermLine) {
+	var warn []string
+	var lines []render.PermLine
+	for _, p := range perms {
+		t := permtext.Lookup(p)
+		if t.Warn && !slices.Contains(warn, t.Short) {
+			warn = append(warn, t.Short)
+		}
+		lines = append(lines, render.PermLine{Name: p, Text: strings.TrimPrefix(t.Help, "WARNING: "), Warn: t.Warn})
+	}
+	return len(perms), warn, lines
+}
+
 // directoryView maps the plugin entries of idx to cards, sorted by name.
 func directoryView(idx *packages.Index) render.PluginDirectoryView {
 	var cards []render.PluginCard
@@ -249,9 +266,11 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 		}
 		c := render.PluginCard{
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
-			Permissions: e.Permissions, Source: packages.SafeHTTPS(e.Source),
+			Source: packages.SafeHTTPS(e.Source),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
 		}
+		c.PermCount, c.PermWarn, c.PermLines = permissionCard(e.Permissions)
+		c.Permissions = e.Permissions
 		switch e.Tier {
 		case packages.TierFirstParty:
 			c.Tier, c.TierLabel = e.Tier, "First-party"

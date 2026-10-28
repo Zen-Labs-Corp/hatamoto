@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	"slices"
 	"strings"
+
+	"hatamoto.dev/core/internal/permtext"
 )
 
 //go:embed page.html.tmpl
@@ -47,7 +50,17 @@ type PageOptions struct {
 }
 
 type pageCard struct {
-	Heading, Name, Version, Description, Author, TierLabel, Permissions, Source, Search string
+	Heading, Name, Version, Description, Author, TierLabel, Source, Search string
+	PermCount                                                              int
+	PermWarn                                                               []string
+	PermLines                                                              []pageLine
+}
+
+// pageLine is one permission of a card in plain English. The "WARNING: "
+// prefix of the admin wording is dropped: the warning badge says it.
+type pageLine struct {
+	Name, Text string
+	Warn       bool
 }
 
 type pageData struct {
@@ -86,8 +99,15 @@ func RenderPage(idx *Index, opts PageOptions) ([]byte, error) {
 		}
 		c := pageCard{
 			Heading: cmp.Or(e.Title, e.Name), Name: e.Name, Version: displayVersion(e.Version), Description: e.Description,
-			Permissions: strings.Join(e.Permissions, ", "), Source: SafeHTTPS(e.Source),
+			Source: SafeHTTPS(e.Source), PermCount: len(e.Permissions),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
+		}
+		for _, p := range e.Permissions {
+			t := permtext.Lookup(p)
+			if t.Warn && !slices.Contains(c.PermWarn, t.Short) {
+				c.PermWarn = append(c.PermWarn, t.Short)
+			}
+			c.PermLines = append(c.PermLines, pageLine{Name: p, Text: strings.TrimPrefix(t.Help, "WARNING: "), Warn: t.Warn})
 		}
 		switch e.Tier {
 		case TierFirstParty:

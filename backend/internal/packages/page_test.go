@@ -31,7 +31,7 @@ func TestRenderPageCardsForPluginsOnly(t *testing.T) {
 	if n := strings.Count(out, "<article"); n != 2 {
 		t.Fatalf("%d cards, want 2", n)
 	}
-	for _, want := range []string{"alpha v1.2.0", "beta v0.1.0", "Community", "First-party", "by @acme", "Does alpha things", "Needs: db, http", "No permissions", `href="https://example.org/acme/alpha"`, `id="q"`, "addEventListener"} {
+	for _, want := range []string{"alpha v1.2.0", "beta v0.1.0", "Community", "First-party", "by @acme", "Does alpha things", "2 permissions", "<details", "Keep its own data tables", "No permissions", `href="https://example.org/acme/alpha"`, `id="q"`, "addEventListener"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("page lacks %q", want)
 		}
@@ -192,5 +192,18 @@ func TestRenderPageCSPHashDetectsAnEditedBlock(t *testing.T) {
 		if len(blocks) != 1 || strings.Contains(csp, cspHash(blocks[0])) {
 			t.Errorf("an edited <%s> block still matches the CSP", tag)
 		}
+	}
+}
+
+func TestRenderPagePermissionWarning(t *testing.T) {
+	idx := &Index{Packages: []Entry{{Kind: KindPlugin, Name: "tags", Version: "1.0.0", Permissions: []string{"http.fetch.any", "site.scripts"}}}}
+	out := renderPage(t, idx, PageOptions{})
+	for _, want := range []string{"2 permissions", "⚠ Any web address.", "⚠ JavaScript on every public page.", "send requests to ANY public web address"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(out, "WARNING:") || strings.Contains(out, "Needs:") || strings.Contains(out, "<details open") {
+		t.Error("page has a WARNING: prefix, a Needs: line or an open details")
 	}
 }

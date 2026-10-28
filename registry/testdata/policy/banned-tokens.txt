@@ -1,0 +1,13 @@
+# Words no hyphen-separated token of a plugin name may equal.
+hatamoto
+plugin
+official
+beta
+alpha
+dev
+test
+demo
+lite
+pro
+free
+premium

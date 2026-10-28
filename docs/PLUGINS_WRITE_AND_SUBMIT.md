@@ -350,7 +350,7 @@ Add `manifests/<name>.json`, where `<name>` is the `name` in your `plugin.json`:
 | `repo` | yes | `https://github.com/<owner>/<repo>` |
 | `commit` | yes | full 40 character lowercase hex commit id |
 | `subdir` | no | plugin folder inside the repo; no `..`, no leading `/` |
-| `title` | no | display name for the directory card, 1 to 60 characters, no control characters, no leading or trailing space; without it the card shows `name` |
+| `title` | no | display name for the directory card, 1 to 40 characters, no control characters, no leading or trailing space, plus the title rules below; without it the card shows `name` |
 | `author` | yes | your GitHub name, shown as "by @author" |
 | `license` | yes | one of: `MIT`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MPL-2.0`, `GPL-2.0`, `GPL-3.0`, `LGPL-2.1`, `LGPL-3.0`, `AGPL-3.0` (the GPL, LGPL and AGPL ids also with `-only` or `-or-later`) |
 | `archive_grant` | yes | must be `true`: you grant us the right to keep a copy of the source at the pinned commit and its builds (see above) |
@@ -370,6 +370,45 @@ scripts/validate-manifest.sh manifests/acme-seo.json --remote   # run in a clone
 
 `--remote` also fetches your repo and confirms the commit exists and that
 `plugin.json` at that commit has the same name.
+
+### Listing rules
+
+The plugin directory is the shop window, so listings are held to a few rules. The
+validator in the plugins repository checks your manifest, and the registry build
+checks it again before anything is signed, so a listing that breaks a rule never
+reaches the index. The word lists behind the rules live in the `policy/` folder of
+the plugins repository; change them in their own pull request.
+
+- **Author.** For a community plugin, `author` must equal the owner of `repo`
+  (case does not matter).
+- **Name.** No part of the name (split at hyphens) may be a banned word, and the
+  name may not be a reserved name. The first part may not be a brand from the
+  brand list unless you are that brand's owner (for example `stripe-checkout`). A
+  name may not be one character away from, or only differ by look-alike letters
+  from, another listed plugin or theme, or a reserved name.
+- **Title.** At most 40 characters, one script only (no mixing Latin with
+  Cyrillic, for example), at most one separator out of `: , & / | +` and a
+  spaced hyphen, and only letters, digits, spaces and `. , : & / | + ' ! ? -`. No
+  brackets, emoji, symbols, invisible or fullwidth characters, no banned words, no
+  brand as the first word unless you own it, and the title must share a word with
+  the name.
+- **Description** (the `description` in `plugin.json` at the pinned commit): 20
+  to 160 characters, at most two sentence terminators, no URL or domain, only
+  letters, digits, spaces and ASCII punctuation (plus `。` and `、`), no emoji or
+  symbols, not equal to the title or the name, not an unfilled template text, no
+  banned words other than `free` and `plugin`, and at most 3 brands.
+- **First-party plugins** are exempt from the brand and reserved-name rules, and
+  from the title-shares-a-word-with-the-name rule. The rest apply to everyone.
+
+A person also reads every submission. Reasons to ask for changes or to decline:
+
+- **One listing per product.** Betas ship as prerelease versions of the same
+  plugin, and a suite is one plugin, not one listing per feature.
+- **No listings that only point elsewhere**, such as "install from npm".
+- **A paid external service must be stated** in the description.
+- **No near-duplicates** from the same author.
+- **Repeated spam.** After a second rejection for spam, that author's future pull
+  requests are closed.
 
 ### The pull request
 
