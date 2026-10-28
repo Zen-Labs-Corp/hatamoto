@@ -48,7 +48,7 @@ make registry COMMUNITY_DIR=~/src/hatamoto-plugins HATAMOTO_REGISTRY_KEY_FILE=/p
 
 `registry/build-community.sh` validates every manifest, clones each pinned commit,
 builds it with the `plugin-%` recipe, packs and signs it into `registry/packages/`
-and merges `{title, author, source, commit, tier}` (`title` only when the manifest has one; no `author` for a first-party manifest) into `registry/meta.json`. Nothing is
+and merges `{title, about, features, author, source, commit, tier}` (`title`, `about` and `features` only when the manifest has them; no `author` for a first-party manifest) into `registry/meta.json`. Nothing is
 published unless every manifest builds. It runs the authors' build, so do it in a
 throwaway environment; the key file is only passed to `plugin pack`. Every run
 rebuilds the whole index, so `make registry` refuses to run without `COMMUNITY_DIR`.
@@ -64,7 +64,18 @@ the Makefile fixes it to `zenlabscorp Zen-Labs-Corp` (the first only until the p
 The names `gtm` and `searchconsole` are reserved for such manifests, `webhooks` and `hello`
 for everyone. The tier is only the label on the page: trust is the signature.
 
-`meta.json` (a first-party entry is `{title, source, commit, tier: first-party}`, no author) is passed to `registry index --meta`, so the signed index carries
+The optional manifest keys `about` and `features` (plugins and themes) feed the detail
+page of a package. Both are plain text, never HTML or Markdown. `about` is 1 to 1500
+characters in at most 10 paragraphs separated by a single newline (no empty paragraph,
+no leading or trailing space, no control character other than that newline); `features`
+is a list of 1 to 8 distinct items of 1 to 120 characters each (no control character,
+no leading or trailing space). Neither may contain `<`, `>`, a URL (`://`, `www.`),
+emoji, symbols or invisible characters. `build-community.sh` and
+`build-community-themes.sh` refuse a manifest that breaks a rule, and so do
+`registry index` and `--meta`; a client clears an invalid value without dropping the
+package. The same rules belong in the listing repository's manifest validator.
+
+`meta.json` (a first-party entry is `{title, about, features, source, commit, tier: first-party}`, no author) is passed to `registry index --meta`, so the signed index carries
 the descriptive fields. A site shows the directory with the core "Plugin directory"
 section on a normal CMS page (see `docs/site/themes/sections.md`), which reads the
 published index. An operator without a CMS page can run `make registry REGISTRY_PAGE=1`
@@ -179,7 +190,7 @@ The source is either a pinned git commit or a zip archive pinned by sha256
 source, runs `hatamoto theme pack ... --registry` (theme.json rules, the required
 screenshot, package limits) and signs the result into `registry/packages/<name>.hmp`.
 It copies the screenshot to `registry/screenshots/<name>.<png|webp|jpg>` and adds
-`{title, author, source, commit (git only), tier: community, screenshot:
+`{title, about, features, author, source, commit (git only), tier: community, screenshot:
 "screenshots/<name>.<ext>"}` to `registry/meta.json`, so the index entry carries the
 `screenshot` path. The name may not already exist as a package, a meta entry or a
 plugin manifest. As with plugins, nothing is published unless every manifest builds.
