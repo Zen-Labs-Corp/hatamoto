@@ -35,7 +35,7 @@ var (
 	ErrUnsignedNotAllowed = errors.New("this package is not signed; installing unsigned packages is switched off (an owner can allow it in Admin > Plugins)")
 	ErrDevDisabled        = errors.New("development packages are disabled in production")
 	ErrThemeActive        = errors.New("this theme is active; activate another theme first")
-	ErrReservedName       = errors.New("that name is reserved (the built-in theme, or the webhooks that moved into core)")
+	ErrReservedName       = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
 	ErrPermission         = errors.New("permission not requested by the plugin")
 	ErrUnknownSource      = errors.New("unknown package source")
 	ErrUninstalling       = errors.New("this package is being uninstalled; finish the uninstall first")
@@ -46,6 +46,10 @@ var (
 // Webhooks are core now and the boot step retires a plugin by this name, so no
 // new plugin may take it.
 const ReservedPluginName = "webhooks"
+
+// reservedPluginPaths are plugin names the admin uses as /plugins/<name>
+// pages, so a plugin of that name would be shadowed.
+var reservedPluginPaths = []string{"browse", "security"}
 
 // ConfirmationRequired is returned by Install when replacing the installed
 // package needs the owner's explicit say-so: an older (or same) version, a
@@ -261,7 +265,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 			}
 		}
 	case KindPlugin:
-		if p.Name == ReservedPluginName {
+		if p.Name == ReservedPluginName || slices.Contains(reservedPluginPaths, p.Name) {
 			return nil, ErrReservedName
 		}
 		man, _ := p.PluginManifest()
@@ -818,12 +822,22 @@ func (m *Manager) ScriptsBlocked(name string) bool {
 // registered because they carry script constructs and it lacks site.scripts.
 func (m *Manager) MarkupStopped(name string) []string { return render.PluginMarkupStopped(name) }
 
-// SetAllowUnsigned stores the owner's opt-in for unsigned packages.
-func (m *Manager) SetAllowUnsigned(ctx context.Context, on bool) error {
-	if err := m.store.SetAllowUnsigned(ctx, on); err != nil {
+// SetAllowUnsigned stores the owner's opt-in for unsigned packages. until ends
+// a timed opt-in (nil: until turned off); duration is its label for the audit
+// row ("1h", "24h", "forever"; empty when turning it off).
+func (m *Manager) SetAllowUnsigned(ctx context.Context, on bool, until *time.Time, duration string) error {
+	if err := m.store.SetAllowUnsignedUntil(ctx, on, until); err != nil {
 		return err
 	}
-	m.Audit(ctx, "package.allow_unsigned", "package_config", map[string]any{"allow": on})
+	detail := map[string]any{"allow": on}
+	if on {
+		detail["until"] = "never"
+		if until != nil {
+			detail["until"] = until.UTC().Format(time.RFC3339)
+		}
+		detail["duration"] = duration
+	}
+	m.Audit(ctx, "package.allow_unsigned", "package_config", detail)
 	return nil
 }
 

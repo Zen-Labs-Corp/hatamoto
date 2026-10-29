@@ -42,7 +42,7 @@ func actorCtx(ctx context.Context) context.Context {
 		return ctx
 	}
 	id, _ := uuid.Parse(u.ID)
-	return packages.WithActor(ctx, packages.Actor{ID: id, Email: u.Email})
+	return packages.WithActor(ctx, packages.Actor{ID: id, Email: u.Email, Name: u.Name})
 }
 
 // index is the verified registry index, cached briefly so one page view reads
@@ -227,7 +227,7 @@ func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
 }
 
 func (p *packageAdmin) SetAllowUnsigned(ctx context.Context, on bool) error {
-	return p.mgr().SetAllowUnsigned(actorCtx(ctx), on)
+	return p.mgr().SetAllowUnsigned(actorCtx(ctx), on, nil, "")
 }
 
 func (p *packageAdmin) Themes(ctx context.Context) ([]admin.ThemeInfo, error) {

@@ -407,14 +407,14 @@ func TestHostilePackagesAreNotInstalled(t *testing.T) {
 		if count() != 0 {
 			t.Fatal("a refused package was stored")
 		}
-		if err := r.mgr.SetAllowUnsigned(ctx, true); err != nil {
+		if err := r.mgr.SetAllowUnsigned(ctx, true, nil, ""); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := r.mgr.Install(ctx, raw, InstallRequest{Source: SourceUpload}); err != nil {
 			t.Fatalf("opted in: %v", err)
 		}
 		_ = r.mgr.Uninstall(ctx, KindTheme, "sunrise", false)
-		_ = r.mgr.SetAllowUnsigned(ctx, false)
+		_ = r.mgr.SetAllowUnsigned(ctx, false, nil, "")
 	})
 	t.Run("wrong signer", func(t *testing.T) {
 		if _, err := r.mgr.Install(ctx, pack(r.theme("1.0.0"), &other), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrUntrustedKey) {

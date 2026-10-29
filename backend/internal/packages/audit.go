@@ -11,6 +11,7 @@ import (
 type Actor struct {
 	ID    uuid.UUID // uuid.Nil for the CLI
 	Email string    // "cli" for the CLI
+	Name  string    // display name; empty for the CLI
 }
 
 type actorKey struct{}
@@ -36,6 +37,9 @@ func (m *Manager) Audit(ctx context.Context, action, target string, detail map[s
 		detail = map[string]any{}
 	}
 	a := actorFrom(ctx)
+	if a.Name != "" {
+		detail["by"] = a.Name
+	}
 	raw, _ := json.Marshal(detail)
 	var actorID *uuid.UUID
 	if a.ID != uuid.Nil {
