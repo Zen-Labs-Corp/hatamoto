@@ -190,7 +190,13 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		p.addGroupRow(ensure(group), groupRow{e: e, path: path, priority: priority, changeFreq: changeFreq})
 	}
 
-	// Drop groups that ended up with nothing to list; misc is always kept, last.
+	// Drop groups that ended up with nothing to list; misc is always kept,
+	// last. A multi-locale plan prunes while splitting: the rows of a bare group
+	// may all sit in its per-locale files (prefix-all, a fr-only schema).
+	if p.multi() {
+		p.splitByLocale(misc)
+		return p
+	}
 	var kept []*sitemapGroup
 	for _, g := range p.groups {
 		if g == misc {
@@ -203,9 +209,6 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		}
 	}
 	p.groups = append(kept, misc)
-	if p.multi() {
-		p.splitByLocale(misc)
-	}
 	return p
 }
 
@@ -253,8 +256,10 @@ func (p *sitemapPlan) splitByLocale(misc *sitemapGroup) {
 			if b == misc {
 				continue
 			}
-			if g, ok := p.byKey[p.localized(b, tag).key]; ok && len(g.rows) > 0 {
+			if g := p.localized(b, tag); len(g.rows) > 0 {
 				p.groups = append(p.groups, g)
+			} else {
+				delete(p.byKey, g.key)
 			}
 		}
 		p.groups = append(p.groups, p.localized(misc, tag))

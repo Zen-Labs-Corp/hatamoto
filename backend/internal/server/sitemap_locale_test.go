@@ -115,3 +115,59 @@ func TestPlanSitemap_IndexMultiGolden(t *testing.T) {
 		t.Errorf("index_multi differs:\n%s", got)
 	}
 }
+
+// A schema with its own sitemap group is listed per locale even when the bare
+// group has no rows: under prefix-all, and when only fr has content.
+func TestPlanSitemap_OwnGroupPerLocaleInIndex(t *testing.T) {
+	snapFor := func(t *testing.T, prefixAll bool) *entity.URLSnapshot {
+		t.Helper()
+		enSeg := ""
+		if prefixAll {
+			enSeg = "en"
+		}
+		set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{{Tag: "en", Segment: enSeg}, {Tag: "fr", Segment: "fr"}}, prefixAll, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		reg := entity.NewURLRegistry(schemaLister{sitemapSchema("post", "")}, nil)
+		reg.SetLocales(func(context.Context) *entity.LocaleSet { return set })
+		snap, err := reg.Snapshot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snap
+	}
+	post := func(slug, locale string) *entity.SitemapEntry {
+		e := localeEntry(slug, locale, nil)
+		e.SchemaSlug = "post"
+		return e
+	}
+	index := func(plan *sitemapPlan) string {
+		var locs []string
+		for _, e := range plan.Index().Sitemaps {
+			locs = append(locs, strings.TrimPrefix(e.Loc, "https://x.io/sitemap-"))
+		}
+		return strings.Join(locs, ",")
+	}
+
+	t.Run("prefix all", func(t *testing.T) {
+		plan := planSitemap(sitemapInput{Snap: snapFor(t, true), BaseURL: "https://x.io", Today: testToday,
+			Entries: []*entity.SitemapEntry{post("hello", "en"), post("bonjour", "fr")}})
+		if got, want := index(plan), "en-blog.xml,en-misc.xml,fr-blog.xml,fr-misc.xml"; got != want {
+			t.Fatalf("index = %s, want %s", got, want)
+		}
+		if urls, ok := plan.GroupURLs("fr-blog"); !ok || len(urls) != 2 || urls[1].Loc != "https://x.io/fr/blog/bonjour" {
+			t.Fatalf("fr-blog = %+v, %v", urls, ok)
+		}
+	})
+	t.Run("fr only content", func(t *testing.T) {
+		plan := planSitemap(sitemapInput{Snap: snapFor(t, false), BaseURL: "https://x.io", Today: testToday,
+			Entries: []*entity.SitemapEntry{post("bonjour", "fr")}})
+		if got, want := index(plan), "misc.xml,fr-blog.xml,fr-misc.xml"; got != want {
+			t.Fatalf("index = %s, want %s", got, want)
+		}
+		if plan.HasGroup("blog") {
+			t.Error("empty bare group still routable")
+		}
+	})
+}
