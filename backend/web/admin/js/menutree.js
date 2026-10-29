@@ -217,6 +217,9 @@ function init(root) {
     const issueAt = { err: -1, warn: -1 };
 
     document.querySelectorAll("[data-hm-editor-only]").forEach((el) => { el.hidden = false; });
+    // The layout rules in menueditor.css apply only from here: without this script the form stays as the server renders it.
+    form.setAttribute("data-hm-js", "");
+    document.getElementById("menu-details")?.setAttribute("data-hm-inline", "");
     tree.querySelectorAll("[data-hm-handle]").forEach((h) => { h.hidden = false; });
 
     const dirty = () => edited || undoStack.length > 0;
