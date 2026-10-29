@@ -139,7 +139,7 @@ Both answer with one row per purpose: `purpose`, `action` (`allow` or `deny`), `
 
 | Control | Stored as | Default | Effect |
 |---|---|---|---|
-| **Ask search engines not to list this page** (generic editor, **Search and social** card) or **this post** (post editor, **Advanced** tab of the **SEO and AEO** panel) | `attributes.no_index` | off | Left out of the sitemap, site search and the RSS and Atom feeds. The page head carries `noindex,follow`. |
+| **Ask search engines not to list this page** (generic editor, **Advanced** tab of the **SEO** panel) or **this post** (post editor, **Advanced** tab of the **SEO and AEO** panel) | `attributes.no_index` | off | Left out of the sitemap, site search and the RSS and Atom feeds. The page head carries `noindex,follow`. |
 | **Include in /llms.txt** (post editor, **SEO and AEO** tab) | `attributes.seo.include_in_llms_txt` | on | Off removes the entity from `llms.txt`, from the knowledge-graph feed and from the AI crawler comment. |
 
 Other values have the same no-index effect: `attributes.seo.robots` containing `noindex`, or `metadata.no_index` set to true. The page head follows the two attribute values; the sitemap, search and feed listings also follow `metadata.no_index`. Switching **Ask search engines not to list** off also removes `noindex` from `attributes.seo.robots`, keeping its other directives.

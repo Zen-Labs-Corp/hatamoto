@@ -273,7 +273,7 @@ Entity types that use the post editor open in the blog editor at `<admin>/entiti
 | Slug, Featured image, Excerpt | The address slug, the image shown with the post, and its short summary |
 | Categories and tags | Owners can create a term inline. |
 | Author | A picker listing people and the site organisation. **Or add a new author** creates a person who is not public and has no login. Choosing the site name credits the organisation. |
-| Search and social | Focus keyword, SEO title, SEO description, canonical address, social image, "Ask search engines not to list this post" and **Include in /llms.txt** |
+| SEO | Search tab: focus keyword, SEO title, SEO description. Social tab: social image. Advanced tab: canonical address, "Ask search engines not to list this post" and **Include in /llms.txt** |
 
 A draft has **Save draft** and **Publish**; a published post has **Update**. Without JavaScript the body is a plain HTML text area and every field still saves.
 

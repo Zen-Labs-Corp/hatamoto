@@ -57,7 +57,7 @@ A **crawler** is a program that fetches web pages automatically, for a search en
 
    The switch is in the post editor only. For pages and other content, a developer can set the same flag through the API; see [robots.txt and llms.txt](robots-llms.md#per-page-controls).
 
-8. If you also want a page left out of search results, open it and switch on **Ask search engines not to list this page** in the **Search and social** card (for a post, **Ask search engines not to list this post** in the **Advanced** tab of the **SEO and AEO** panel). Save. The page leaves the sitemap and site search, and tells search engines not to list it.
+8. If you also want a page left out of search results, open it and switch on **Ask search engines not to list this page** in the **Advanced** tab of the **SEO** panel (for a post, **Ask search engines not to list this post** in the **Advanced** tab of the **SEO and AEO** panel). Save. The page leaves the sitemap and site search, and tells search engines not to list it.
 
 ## Check it worked
 

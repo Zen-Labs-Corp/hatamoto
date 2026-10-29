@@ -345,7 +345,7 @@ See [BUILDER.md](BUILDER.md#reuse).
 
 ## Blog editor (v1-13)
 
-`GET|POST <admin>/entities/{id}/edit` for the post types (`blog_editor.go`, `blogseo.go`,
+`GET|POST <admin>/entities/{id}/edit` for the post types (`blog_editor.go`, `seo_panel.go`,
 `js/blogeditor.js`). One form: inline title (`name`), body (`content` textarea, rich text
 with JavaScript), and a sidebar: status and schedule, slug, featured image and excerpt,
 categories and tags (owners can create a term inline), author, search and social (focus
@@ -417,7 +417,7 @@ keyword, SEO title and description, canonical, social image, noindex, include in
   style-based bold/italic/underline/strike, Word `Mso` list paragraphs to real lists,
   comments, `o:*` tags, classes, styles and ids removed, `h1` to `h2`, only the sanitiser's
   tags and URL schemes kept. A convenience: the server sanitiser still runs on every save.
-* **Search and answer panel.** `blogseo.go` is pure: search-result preview with title (50 to 60)
+* **Search and answer panel.** `seo_panel.go` is pure: search-result preview with title (50 to 60)
   and description (120 to 160) checks; focus keyword in title, first paragraph, description,
   slug, a subheading and its density; heading order, image descriptions, internal and
   external links, length, readability; answer checks (question headings, short direct
@@ -703,7 +703,7 @@ points to `hatamoto user reset-password`.
 Settings > SEO (owner-only) has two tabs. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
-the homepage, archive, author, date, search and not-found titles, a title and description
+the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
 template per content type and a title template per term kind. A title or description written on
 an entry always wins over a template; with the defaults, pages render exactly as before. The
 archive title and description of a type are the same values as in the type's settings. Saving

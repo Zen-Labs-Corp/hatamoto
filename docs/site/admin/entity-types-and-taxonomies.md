@@ -67,7 +67,7 @@ The form is one POST and contains:
 | Parent | Shown only when the type's address pattern uses `{path}` or `{parent}` (a page tree). A search box. |
 | Author | A person. **Or add a new author** creates one. |
 | Terms | Categories, tags and any custom taxonomy. Owners can add a new term here; editors can only pick existing ones. |
-| Search and social | SEO title, SEO description, canonical address, social image and a switch that asks search engines not to list the page. Stored on the entity as `meta_title`, `meta_description`, `canonical_url`, `og_image` and `no_index`, the keys the public site reads, and not repeated among the type's own fields. |
+| SEO panel | Tabs for Search (SEO title, SEO description), Social (social image), Schema and Advanced (canonical address and a switch that asks search engines not to list the page). Stored on the entity as `meta_title`, `meta_description`, `canonical_url`, `og_image` and `no_index`, the keys the public site reads, and not repeated among the type's own fields. |
 | The type's own fields | Generated from the type's JSON Schema: text, long text, numbers, switches, images, lists and so on. |
 
 Buttons for adding, moving and removing repeated rows re-render the form without saving. The form's subtitle shows the type and the current version number. Image fields and the social image use the media picker (`<admin>/media/picker`), which opens as a dialog when JavaScript is on. The page, builder and blog editors also refuse a stale save; see the [Editor reference](builder-reference.md).
