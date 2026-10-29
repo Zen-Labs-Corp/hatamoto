@@ -275,9 +275,9 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		d.EmptyActions = d.Actions[:1]
 		d.Overflow = append(d.Overflow, check)
 		if a.deps.AuditLog != nil {
-			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Href: a.adminPath + auditRel})
+			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Hint: "Installs, updates, permission changes", Href: a.adminPath + auditRel})
 		}
-		d.Overflow = append(d.Overflow, ui.Action{Label: "Package security", Href: a.adminPath + "/plugins/security"})
+		d.Overflow = append(d.Overflow, ui.Action{Label: "Package security", Hint: "Trusted signers and unsigned packages", Href: a.adminPath + "/plugins/security"})
 	}
 	v := a.NewView(w, r, "Plugins")
 	v.Data = d
