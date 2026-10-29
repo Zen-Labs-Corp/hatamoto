@@ -76,15 +76,12 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   root.addEventListener("change", edited);
   root.querySelector("[data-hm-seodrawer-close]")?.addEventListener("click", () => close());
   btn.addEventListener("click", () => (isOpen() ? close() : open()));
-  doc.addEventListener(
-    "keydown",
-    (e) => {
-      if (e.key !== "Escape" || !isOpen() || root.querySelector(":popover-open")) return;
-      e.preventDefault();
-      e.stopPropagation(); // the builder's own Escape (deselect) must not also run
-      close();
-    },
-    true,
-  );
+  // Escape is the drawer's only while it has the key: a dialog, a popover or a handler deeper in the drawer owns its own.
+  root.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.defaultPrevented || !isOpen() || doc.querySelector(":popover-open, dialog[open]")) return;
+    e.preventDefault();
+    e.stopPropagation(); // the builder's own Escape (deselect) must not also run
+    close();
+  });
   return { open, close, isOpen };
 }

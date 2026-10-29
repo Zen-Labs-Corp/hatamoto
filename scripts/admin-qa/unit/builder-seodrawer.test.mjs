@@ -19,7 +19,7 @@ function rig() {
   const log = [];
   const on = {};
   const docOn = [];
-  const doc = { addEventListener: (t, f) => docOn.push([t, f]) };
+  const doc = { addEventListener: (t, f) => docOn.push([t, f]), querySelector: () => doc.open ?? null };
   const body = { innerHTML: "" };
   const close = { addEventListener: (t, f) => (close.fn = f), focus: () => log.push("focus close") };
   const fields = { seo_title: { value: "T" }, seo_description: { value: "D" }, seo_canonical: { value: "" }, seo_og_image: { value: "" }, seo_noindex: { checked: true } };
@@ -47,8 +47,8 @@ function rig() {
     onEdit: (v) => edits.push(v),
     fetch: async (u, o) => (fetched.push([u, o]), { ok: true, text: async () => "<div data-hm-seo></div>" }),
   });
-  const esc = (e) => docOn.filter(([t]) => t === "keydown").forEach(([, f]) => f(e));
-  return { d, root, btn, body, log, edits, fetched, on, close, esc };
+  const esc = (e) => on.keydown(e);
+  return { doc, d, root, btn, body, log, edits, fetched, on, close, esc };
 }
 
 test("the first open fetches the fragment as an htmx request, later opens reuse it", async () => {
@@ -76,6 +76,25 @@ test("Escape closes the drawer and returns focus to the SEO button; Close does t
   r.close.fn();
   assert.equal(r.root.hidden, true);
   assert.deepEqual(r.log.slice(-1), ["focus btn"]);
+});
+
+test("Escape is left to an open dialog or popover, and to a handler that already took it", async () => {
+  const r = rig();
+  await r.d.open();
+  let taken = false;
+  const e = { key: "Escape", preventDefault: () => (taken = true), stopPropagation: () => (taken = true) };
+  r.esc(e);
+  assert.ok(taken && r.root.hidden);
+  await r.d.open();
+  taken = false;
+  r.doc.open = {};
+  r.esc(e);
+  assert.equal(taken, false);
+  assert.equal(r.root.hidden, false);
+  r.doc.open = null;
+  r.esc({ key: "Escape", defaultPrevented: true, preventDefault: () => (taken = true), stopPropagation: () => (taken = true) });
+  assert.equal(taken, false);
+  assert.equal(r.root.hidden, false);
 });
 
 test("Escape does nothing while the drawer is shut", () => {
