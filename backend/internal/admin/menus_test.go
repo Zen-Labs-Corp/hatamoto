@@ -732,3 +732,25 @@ func TestMenuRefusedOpRendersAWarningCallout(t *testing.T) {
 		}
 	}
 }
+
+func TestMenuOpsRefuseAtTheItemLimit(t *testing.T) {
+	t.Parallel()
+
+	full := make([]string, maxMenuItems)
+	for i := range full {
+		full[i] = "X:0"
+	}
+	for _, op := range []string{"add", "dup.0"} {
+		rows := treeRows(full...)
+		got, msg := applyMenuOp(rows, op, "", "")
+		if msg != "A menu holds at most 200 items." || len(got) != maxMenuItems {
+			t.Errorf("%s at the limit: %d rows, %q", op, len(got), msg)
+		}
+		if k := menuNoticeKind(op, msg, rows, got); k != "warning" {
+			t.Errorf("%s at the limit: kind %q, want warning", op, k)
+		}
+	}
+	if _, msg := applyMenuOp(treeRows(full[1:]...), "add", "", ""); strings.Contains(msg, "at most") {
+		t.Errorf("add below the limit refused: %q", msg)
+	}
+}

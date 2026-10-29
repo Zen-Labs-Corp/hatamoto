@@ -305,6 +305,21 @@ try {
   const axeBad = await scan.evaluate(async () => (await axe.run("#menu-tree", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] }, rules: { "color-contrast": { enabled: false } } })).violations.map((v) => `${v.id} x${v.nodes.length} ${v.nodes[0].target.join(" ")} ${v.nodes[0].html.slice(0, 80)}`));
   ok(axeBad.length === 0, `tree: axe finds no violation in the tree (${axeBad.join(", ")})`);
 
+  // ---- the item limit: Add (button and keyboard) and Duplicate refuse in the server's words ----
+  const count = (await rowsOf(page)).length;
+  await page.evaluate((n) => { window.__stay = 1; document.querySelector("form[data-hm-editor]").dataset.maxItems = String(n); }, count);
+  const refusal = `A menu holds at most ${count} items.`;
+  const notice = () => page.locator("[data-hm-notice]").innerText().then((t) => t.replace(/\s+/g, " ").trim());
+  await page.locator('button[name="_op"][value="add"]').click();
+  ok((await notice()).includes(refusal) && (await rowsOf(page)).length === count && (await page.evaluate(() => window.__stay)) === 1, "limit: the Add button refuses at the limit, in the server's words");
+  await page.locator("[data-hm-notice]").evaluate((n) => n.replaceChildren());
+  await (await byLabel(page, "Docs")).focus();
+  await page.keyboard.press("Alt+n");
+  ok((await notice()).includes(refusal) && (await page.evaluate(() => window.__stay)) === 1, "limit: Alt+N refuses at the limit");
+  await page.keyboard.press("Control+d");
+  ok((await notice()).includes(refusal) && (await rowsOf(page)).length === count, "limit: Duplicate refuses at the limit, in the server's words");
+  await page.evaluate(() => { document.querySelector("form[data-hm-editor]").dataset.maxItems = "200"; });
+
   // ---- Enter in a field confirms it and does not save the menu ---------------------
   await page.evaluate(() => { window.__stay = 1; });
   await page.locator("[data-hm-filter]").fill("Sec");

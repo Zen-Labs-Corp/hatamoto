@@ -22,6 +22,9 @@ import (
 const (
 	maxMenuItems = 200
 	maxMenuDepth = 5
+	// menuLimitNotice is the refusal for an edit that would pass maxMenuItems; the
+	// editor script says the same (menutree.js).
+	menuLimitNotice = "A menu holds at most 200 items."
 	// The menu and menu_items columns: name and label varchar(100), url varchar(500).
 	maxNameLen  = 100
 	maxLabelLen = 100
@@ -471,6 +474,9 @@ func blockEnd(rows []menuRow, i int) int {
 // target is the chosen destination of "moveto": the index of a top-level row, or "top".
 func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string) {
 	if op == "add" {
+		if len(rows) >= maxMenuItems {
+			return rows, menuLimitNotice
+		}
 		if addType != "custom" && addType != "archive" && addType != menu.LinkTypeNone {
 			addType = "entity"
 		}
@@ -493,6 +499,9 @@ func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string)
 		// The item goes with everything under it.
 		return append(rows[:i:i], rows[end:]...), "Item removed with its sub-items. It is not saved yet."
 	case "dup":
+		if len(rows)+end-i > maxMenuItems {
+			return rows, menuLimitNotice
+		}
 		out := make([]menuRow, 0, len(rows)+end-i)
 		out = append(out, rows[:end]...)
 		for _, r := range rows[i:end] {
@@ -673,9 +682,9 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 }
 
 // menuNoticeKind is "warning" for a refused structural edit: a message with
-// the rows unchanged. add and refresh are never refusals.
+// the rows unchanged. refresh is never a refusal.
 func menuNoticeKind(op, notice string, before, after []menuRow) string {
-	if notice == "" || op == "add" || op == "refresh" {
+	if notice == "" || op == "refresh" {
 		return "info"
 	}
 	if slices.EqualFunc(before, after, func(a, b menuRow) bool { return reflect.DeepEqual(a, b) }) {

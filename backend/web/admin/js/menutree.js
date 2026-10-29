@@ -25,6 +25,7 @@ const DONE = {
   moveto: "Item moved. It is not saved yet.",
   remove: "Item removed with its sub-items. It is not saved yet.",
 };
+const limitNotice = (max) => `A menu holds at most ${max} items.`;
 const REFUSED = {
   up: "This item is already first.",
   down: "This item is already last.",
@@ -306,7 +307,7 @@ function init(root) {
         case "outdent": next = outdentBlock(rows, i); if (!next) return REFUSED.outdent; break;
         case "remove": next = removeBlock(rows, i)?.rows; break;
         case "dup":
-          if (rows.length + blockEnd(rows, i) - i > maxItems) return `A menu holds at most ${maxItems} items`;
+          if (rows.length + blockEnd(rows, i) - i > maxItems) return limitNotice(maxItems);
           next = duplicateBlock(rows, i);
           break;
         case "moveto": {
@@ -428,7 +429,16 @@ function init(root) {
       else undo();
     });
 
-    form.addEventListener("submit", () => { leaving = true; });
+    // Add posts to the server, which refuses at the limit in the same words; say it here first.
+    form.addEventListener("submit", (evt) => {
+      const max = Number(form.dataset.maxItems) || Infinity;
+      if (evt.submitter?.value === "add" && items(tree).length >= max) {
+        evt.preventDefault();
+        showNotice(limitNotice(max));
+        return;
+      }
+      leaving = true;
+    });
     window.addEventListener("beforeunload", (evt) => {
       if (!leaving && form.isConnected && dirty()) {
         evt.preventDefault();
