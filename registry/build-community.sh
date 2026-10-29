@@ -416,14 +416,21 @@ check_about_features() {
 # check_description <plugin.json> <title> <name>: the listing rules for the description in
 # the built plugin.json (also for first-party plugins). Run on every path that publishes a
 # package: a fresh build and a reused archive. Values only enter jq as --arg.
-# keep in sync with hatamoto-plugins scripts/validate-manifest.sh (follow-up there: it needs
-# the same top-level key check, or a case-variant key bypasses the description rule)
+# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
 check_description() {
-  local pj=$1 title=$2 name=$3 pdesc jd dnorm desc_words seen_brands nbrands w
-  # jq matches keys exactly, but the signed index is built by Go's encoding/json, which
-  # matches them case-insensitively (and folds U+017F to s). Refuse any key that could
-  # differ: every sdk.Manifest json tag is a lowercase identifier.
-  if ! jq -e 'type == "object" and (keys | all(test("^[a-z][a-z0-9_]*$")))' "$pj" >/dev/null 2>&1; then
+  local pj=$1 title=$2 name=$3 pdesc jd dnorm desc_words desc_joined seen_brands nbrands w
+  count_brand() { # count_brand <word>: count each listed brand once
+    local b
+    if b=$(brand_match_lk "$1" exact) && [[ $seen_brands != *" $b "* ]]; then
+      seen_brands="$seen_brands$b "
+      nbrands=$((nbrands + 1))
+    fi
+  }
+  # The file must hold exactly one JSON object. jq matches keys exactly, but the signed index
+  # is built by Go's encoding/json, which matches them case-insensitively (and folds U+017F
+  # to s). Refuse any key that could differ: every sdk.Manifest json tag is a lowercase
+  # identifier.
+  if ! jq -se 'length == 1 and (.[0] | type == "object" and (keys | all(test("^[a-z][a-z0-9_]*$"))))' "$pj" >/dev/null 2>&1; then
     die "$name: plugin.json keys must be lowercase identifiers"
   fi
   if ! jq -e '.description | type == "string"' "$pj" >/dev/null 2>&1; then
@@ -439,7 +446,12 @@ check_description() {
   if jd '[$t | scan("[.!?。！？]")] | length > 2'; then
     die "$name: plugin.json description must have at most two sentence terminators"
   fi
-  if jd '$t | test("://|www\\.|[A-Za-z0-9-]+[.\u3002\uFF0E\uFF61\u2024][A-Za-z]{2,}"; "i")'; then
+  # Domain-like tokens: any script around an ASCII dot; the ideographic full stop after a Latin
+  # letter or digit and before any letters, since IDNA reads it as a dot; the other dot-likes
+  # after ASCII only. A Kana or Han label before 。 stays allowed, and so does Han, Kana or
+  # Hangul right after it, so a Japanese sentence end is not a domain; known gaps: テスト。com
+  # and example。中国 are accepted.
+  if jd '$t | test("://|www\\.|[\\p{L}\\p{N}-]+[.]\\p{L}{2,}|[\\p{Latin}\\p{N}-]+\u3002(?:(?![\\p{Han}\\p{Hiragana}\\p{Katakana}\\p{Hangul}])\\p{L}){2,}|[A-Za-z0-9-]+[\uFF0E\uFF61\u2024][A-Za-z]{2,}"; "i")'; then
     die "$name: plugin.json description must not contain a URL or domain"
   fi
   if jd '$t | test("\\p{M}|[\uFF00-\uFFEF]") or ($t | test("^[\\p{L}\\p{N} \u0021-\u007E\u3001\u3002\u2019]*$") | not)'; then
@@ -455,6 +467,9 @@ check_description() {
   if inlist "$placeholders" "$dnorm"; then die "$name: plugin.json description is a placeholder"; fi
   desc_words=$(jq -nr --arg t "$pdesc" "$fold_def"'$t | fold | scan("[\\p{L}\\p{N}#]+")') \
     || die "$name: description could not be checked"
+  # Whitespace tokens with - . ' removed, so "str-ipe" is one word again (brands only).
+  desc_joined=$(jq -nr --arg t "$pdesc" "$fold_def"'$t | fold | gsub("[-.\u0027\u2019]"; "") | scan("[\\p{L}\\p{N}#]+")') \
+    || die "$name: description could not be checked"
   seen_brands=" "
   nbrands=0
   while read -r w; do
@@ -462,11 +477,11 @@ check_description() {
     if [ "$w" != free ] && [ "$w" != plugin ] && inlist "$banned_words" "$w"; then
       die "$name: plugin.json description contains the banned word \"$w\""
     fi
-    if brand_listed "$w" && [[ $seen_brands != *" $w "* ]]; then
-      seen_brands="$seen_brands$w "
-      nbrands=$((nbrands + 1))
-    fi
+    count_brand "$w"
   done <<<"$desc_words"
+  while read -r w; do
+    [ -n "$w" ] && count_brand "$w"
+  done <<<"$desc_joined"
   if [ "$nbrands" -gt 3 ]; then die "$name: plugin.json description names more than 3 brands"; fi
 }
 
@@ -594,8 +609,9 @@ build_plugin() {
     [ ! -L "$src/$e" ] || die "$name: $e is a symlink"
   done
   [ -f "$src/plugin.json" ] || die "$name: no plugin.json in the pinned source"
-  [ "$(jq -r '.name // empty' "$src/plugin.json")" = "$name" ] || die "$name: plugin.json name does not match the manifest"
+  # The shape check inside check_description comes first: .name is only read from one object.
   check_description "$src/plugin.json" "$title" "$name"
+  [ "$(jq -r '.name // empty' "$src/plugin.json")" = "$name" ] || die "$name: plugin.json name does not match the manifest"
   # The package must be built against the real SDK from a plain module: no
   # go.work, no replace of hatamoto.dev/sdk (to any target), no local-path replace.
   # This runs before the HATAMOTO_SDK_REPLACE test hook is applied.
@@ -674,15 +690,16 @@ reuse_archive() {
     [ -f "$hmp" ] || die "$name: archive sidecar $side has no .hmp"
     sum=$(sha256sum "$hmp" | cut -d' ' -f1)
     [ "$sum" = "$(jq -r '.sha256 // empty' "$side")" ] || die "$name: archived $hmp does not match its sidecar sha256"
+    # The archived package is held to the description rule too: it must not bypass it. The shape
+    # check inside comes first: name and version are only read from one object.
+    unzip -p "$hmp" plugin.json >"$stage/work/$name-archived-plugin.json" 2>/dev/null || die "$name: cannot read plugin.json from archived $hmp"
+    check_description "$stage/work/$name-archived-plugin.json" "$title" "$name"
     # The sidecar is unauthenticated: the package's own plugin.json and the file name must agree with it.
     local inner sv
     sv=$(jq -r '.version // empty' "$side")
     inner=$(unzip -p "$hmp" plugin.json 2>/dev/null | jq -r '[.name, .version] | join(" ")' 2>/dev/null) || inner=
     [ "$inner" = "$name $sv" ] || die "$name: archived $hmp holds plugin.json \"$inner\" but its sidecar says \"$name $sv\""
     [ "$(basename "$hmp")" = "$name-$sv-${commit:0:12}-$key_id.hmp" ] || die "$name: archived file name $(basename "$hmp") does not match its sidecar"
-    # The archived package is held to the description rule too: it must not bypass it.
-    unzip -p "$hmp" plugin.json >"$stage/work/$name-archived-plugin.json" 2>/dev/null || die "$name: cannot read plugin.json from archived $hmp"
-    check_description "$stage/work/$name-archived-plugin.json" "$title" "$name"
     authenticate_archive "$sv"
     cp "$hmp" "$stage/packages/$name.hmp"
     echo "build-community: $name: reusing archived $(basename "$hmp")"
