@@ -106,7 +106,7 @@ func patchSEOAttrs(in *entity.UpdateEntityInput, s builderSEO) error {
 			work[k] = v
 		}
 	}
-	seoForm{Title: s.Title, Description: s.Description, Canonical: s.Canonical, OGImage: s.OGImage, NoIndex: s.NoIndex}.merge(work)
+	seoForm(s).merge(work)
 	for _, k := range touched {
 		v, ok := work[k]
 		if !ok {
