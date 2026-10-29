@@ -65,6 +65,28 @@ want_proof 1 "no status text" "$NOW" ""
 echo "PASS: halt_proof needs a fresh successful check that is up to date or halted"
 grep -q 'update check by hand exits 0' "$S" || fail "--halt does not assert the hand check exits 0"
 
+# The normal wait stops early only when the box can no longer reach --expect.
+eval "$(sed -n '/^# BEGIN stuck_reason/,/^# END stuck_reason/p' "$S")"
+st() { printf 'version     v1.0.0-dev.1 (channel canary, mode auto)\nstatus      %s\nlast check  2026-10-28T12:27:23Z %s\n' "$1" "${2:-ok}"; }
+want_stuck() { # want_stuck <0|1> <label> <status text> [current]
+  local rc=0; stuck_reason "$3" "${4:-}" v1.0.2 >/dev/null || rc=$?
+  [ "$rc" = "$1" ] || fail "stuck_reason: $2 (rc=$rc, want $1)"
+}
+want_stuck 0 "major needs a human" "$(st 'available major: v1.0.2 is a major release; apply it by hand')"
+want_stuck 0 "switched to another release" "$(st 'busy: v0.32.0 has not been proven yet' skipped)" v0.32.0
+want_stuck 0 "up to date" "$(st 'up to date: v1.0.0-dev.1 is already running')"
+want_stuck 0 "blocked" "$(st 'blocked: v1.0.2 needs v1.0.1 first')"
+want_stuck 0 "rolled back" "$(st 'rolled back v1.0.2: health gate failed')"
+want_stuck 0 "check errored" "$(st 'no check yet' error)"
+want_stuck 1 "no check yet" "$(printf 'status      no check yet\nlast check  never\n')"
+want_stuck 1 "scheduled" "$(st 'scheduled: v1.0.2 at 2026-10-28T12:30:00Z')"
+want_stuck 1 "applying" "$(st 'applying: v1.0.2')"
+want_stuck 1 "staged" "$(st staged)"
+want_stuck 1 "busy on the dev build" "$(st 'busy: switching' skipped)" v1.0.0-dev.1
+want_stuck 1 "already on the target" "$(st 'busy: v1.0.2 has not been proven yet' skipped)" v1.0.2
+want_stuck 1 "no status text" ""
+echo "PASS: stuck_reason stops the wait only for states the box cannot leave by itself"
+
 # The script must stay a production-only check.
 if grep -nE 'echo "HATAMOTO_(TEST_|UPDATE_URL)|-e "?HATAMOTO_(TEST_|UPDATE_URL)|-tags[ =]|TAGS=' "$S"; then
   fail "the staging script sets a test seam or an update URL"
