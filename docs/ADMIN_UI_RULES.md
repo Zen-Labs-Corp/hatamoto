@@ -155,7 +155,14 @@ Contract: `button` in components.json
 Rules: house rules 1 to 3, UI-01, UI-05, UI-06, DC-02
 
 Height 36px (`--sm` 32px), radius `--radius-sm`, 13px text, weight 500. Variants: secondary (default),
-`primary` (ink fill), `ghost`, `danger`, `danger-text`. Only `css/partials/button.css` may set these values;
+`primary` (ink fill), `ghost`, `danger`, `danger-text`. Secondary is a paper fill with sumi text and no
+border: an inset ring `--segment-ring` in the pixel the old border used, plus a 2px inset bevel
+`--segment-bevel` (the selected-segment pill's look). Hover is a shiro fill with the ring `--segment-bevel`;
+active is a kasumi fill with the ring only; pressed (`aria-pressed`) is kasumi with a 1px sumi ring.
+`primary` keeps the ink fill with an inset bottom edge `--btn-edge-primary` (hover `--color-sumi-soft`),
+`danger` is solid with an inset bottom edge `--btn-edge-danger`, `ghost` has no ring, and `danger-text` is
+the secondary frame with a red label. Inline padding adds `--space-px`, so the text stays where the 1px
+border had it. Forced colors: a 1px `ButtonText` outline and a `Highlight` focus ring. Only `css/partials/button.css` may set these values;
 other files may set layout (width, margin) but not radius, padding, type or borders on `.hm-btn`.
 
 ### Input
@@ -166,7 +173,7 @@ Rules: UI-11, DC-02
 
 Text inputs, selects and textareas are calm at rest: a soft hairline border from
 `--border-field`. Hover darkens the border to `--color-hai` (or `--border-control`). Focus draws the blue
-ring. Checkboxes, switches and secondary buttons keep `--border-control`.
+ring. Checkboxes and switches keep `--border-control`.
 
 This is a deliberate relaxation of WCAG 1.4.11 (non-text contrast) for the resting
 border of a field: `--border-field` is lighter than the 3:1 that `--border-control`
@@ -516,7 +523,7 @@ How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a v
 
 One rule for what "selected" looks like, so no screen invents its own:
 
-- **A choice among siblings** (one value out of a short row) is a **paper pill with a hairline ring and a bottom bevel** and a semibold label: `hm/segmented` and the pill row `hm/tabs` `Variant "segmented"`. The standalone builder toggles (the phone dock tabs, the inspector value and link buttons) use a kasumi fill with an ink edge; a hovered unselected inspector option only darkens its border. In forced-colors mode every selected control also gets a `Highlight` outline.
+- **A choice among siblings** (one value out of a short row) is a **paper pill with a hairline ring and a bottom bevel** and a semibold label: `hm/segmented` and the pill row `hm/tabs` `Variant "segmented"`. The standalone builder toggles (the phone dock tabs, the inspector value and link buttons) use a kasumi fill with a 1px ink ring; a hovered unselected inspector option gets the shiro fill and a darker ring. In forced-colors mode every selected control also gets a `Highlight` outline.
 - **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
 - **An item in a list or grid** (media tiles, the media picker tile, radio cards) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
 
@@ -524,9 +531,9 @@ Accent is for tabs, links and focus; ink is for selection. Both inks invert in d
 
 **Deliberate exceptions** (parked, each with its reason; do not copy them into new screens):
 
-- `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps) and the phone dock tabs: a kasumi fill with an ink edge, not a paper pill. They are standalone buttons in a dense inspector, not a track of siblings.
+- `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps) and the phone dock tabs: a kasumi fill with an ink ring, not a paper pill. They are standalone buttons in a dense inspector, not a track of siblings.
 - `.hm-theme--active` (Themes page): an accent 2px ring on the active theme card. It marks "in use on the site", not a pending choice, so it follows the accent of the Active badge it carries.
-- `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the ink border and kasumi fill of a pressed button.
+- `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the 1px ink ring and kasumi fill of a pressed button.
 - `.hm-aia-lg` legend toggles (chart series): the toggle shows a series on or off, and its swatch carries the series colour, so the pressed state is dimming, not a fill.
 
 ### Radiocard
@@ -669,7 +676,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-01 | Every submit button in a `<form>` sits inside a footer region (`hm/card-foot`, `hm/foot`, `.hm-savebar`, `.hm-dialog__foot` or `hm/dialog-end`). `.hm-row` and `.hm-stack` submit groups are not footers. A primary or danger submit must not come before a Cancel or secondary in the same footer. Only two kinds of form skip the rule, and both skip it because they change nothing: `method="get"` (or no method, which is GET) and `method="dialog"`. A class (`hm-inline`) or `role="search"` does not skip it. A form with an htmx verb or a templated method is checked. Partials are checked too. Every other exception, such as one-button POST forms in rows, menus and headers, is a named allowlist entry with a reason. |
 | UI-02 | The class strings `hm-savebar` and `hm-card__foot` appear only in their partials, their CSS, the four sticky editor templates, the menu editor (`pages/menus/edit.html`, whose sticky save bar keeps Save and Discard in reach beside a long tree) and the analytics dirty bar (`partials/aia-policy.html`: the robots policy form's `hm-savebar`, hidden until a choice changes, shared by Crawlers, Health and the agent page). |
 | UI-03 | No raw `type="checkbox"` and no `hm/field` Control `checkbox`, except allowlisted multi-pick lists and consent gates. |
-| UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. |
+| UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. A button's inset ring plus inset bevel (and the primary/danger inset bottom edge) is allowed; there is still no drop shadow. |
 | UI-05 | No `hm-btn`, `hm-card` or `hm-badge` class token in markup written by hand (`partials/badge.html` is the component): `class="..."`, `class='...'` or an unquoted class in pages, layouts and schemaform templates; and any `hm-btn`, `hm-card` or `hm-badge` token in JS strings and template literals (`class="hm-btn"`, `` `${base} hm-btn` ``, `className = "hm-badge"`); badges come from a server-rendered `<template>` of `hm/badge`. A leading dot (`querySelector(".hm-btn")`) is a selector and is not flagged. Allowlisted entries are the exception. |
 | UI-06 | `css/pages/*.css` and other partial CSS may not set visual properties (colour, background, border, shadow, font, padding, height, outline, opacity, text-transform) on a shared component (any class block in the selector of a `components.json` entry, with its `__element` and `--modifier` classes: `.hm-btn*`, `.hm-card*`, `.hm-field*`, `.hm-switch*`, `.hm-table*`, `.hm-menu*`, `.hm-dialog*`, ...) unless the file is that component's `owner`. A page that needs another look adds a modifier in the owner's CSS (`.hm-tablist--bar`); the few layout-plus-padding uses are allowlisted with a reason. This covers descendant selectors (`.page .hm-btn`), compound selectors (`.hm-btn.page-x`, `.hm-card.is-x`, `.hm-btn[data-x]`, `.hm-btn:not(.x)`) and functional forms (`:is(.hm-btn, .x)`, `:where(.hm-card)`). A lone component class with only simple pseudos (`.hm-btn:hover`, `.hm-btn::after`) is the component's own state and is allowed. Layout-only declarations (width, margin, flex, gap) are allowed. |
 | UI-07 | In a `<form>` with more than one submit button, the first submit in source order is the primary action or a hidden default submit (`hm-visually-hidden`), never a secondary such as Preview, because Enter presses the first submit. Buttons that belong to another form through `form="..."` are not counted. A bare `<input type="submit">` is never counted as primary. |
