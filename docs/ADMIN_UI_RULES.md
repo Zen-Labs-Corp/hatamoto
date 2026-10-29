@@ -6,9 +6,16 @@ They are enforced, not advisory:
 
 This page writes the admin address as `<admin>`. Tests and the QA harness pin `HATAMOTO_ADMIN_PATH=/admin`; real installs get a random address (`hatamoto admin-url`).
 
-- `cd backend && go test ./internal/admin -run UILint` checks the templates, JS
-  strings and CSS statically (rule ids UI-01 to UI-11). `go test ./internal/admin -run
-  DesignContract` checks the component contract in `components.json` (DC-01 to DC-04).
+- `make design-check` runs every static design check in a few seconds, with no
+  database: the templates, JS strings and CSS (rule ids UI-01 to UI-11), the
+  component contract in `components.json` (DC-01 to DC-04), flash copy, literal
+  colours, tokens and contrast, retired primitives, classes without a rule, and the
+  single-purpose CSS guards. The checks are the tests of
+  `backend/internal/admin/designcheck` plus `backend/internal/admin/a11y`, so a new
+  static check goes in that package and runs everywhere with no list to update;
+  `TestDesignChecksLiveHere` fails for a test in `internal/admin` that reads admin CSS.
+  It runs after each edit (`scripts/check-changed.sh`, the pipeline `todo` gate), in
+  `make check`, at push (the affected Go tests) and in the ship gate.
 - `scripts/admin-qa/consistency.mjs` loads every admin screen in Chrome, light and
   dark, at 1440 and 390 pixels wide, and checks computed styles (rule ids UI-D1 to
   UI-D14). `scripts/admin-qa/run-local.sh consistency.mjs` boots a seeded instance and
@@ -28,11 +35,11 @@ This page writes the admin address as `<admin>`. Tests and the QA harness pin `H
   Postgres on `PATH`). It refuses an ambient `DATABASE_URL`; set
   `QA_USE_DATABASE_URL=1` to allow a local one. A non-local host is always
   refused, because seeding adds an owner with a public password.
-- Shipping: GitHub checks are off for now; the local git hooks (`make hooks`, CONTRIBUTING.md "Local gates") run `make check`, the tests and `TestUILint` before every push. The GitHub `ci` workflow is disabled on purpose, so `scripts/ship.sh` picks
+- Shipping: GitHub checks are off for now; the local git hooks (`make hooks`, CONTRIBUTING.md "Local gates") run `make check` (with `make design-check`) and the tests before every push. The GitHub `ci` workflow is disabled on purpose, so `scripts/ship.sh` picks
   its gate from the workflow state (`gh workflow list --all --json name,state`).
   `ci` active: every PR check must be green and `admin-ui` must be SUCCESS. `ci` not
   active: ship runs the local UI gate on the PR head commit in a temporary worktree
-  (`go test -run TestUILint ./internal/admin`, then `scripts/admin-qa/run-local.sh`,
+  (`make design-check`, then `scripts/admin-qa/run-local.sh`,
   strict) and aborts on failure. There it never skips: missing Postgres or Chrome
   abort the ship, and there is no override. `--dry-run` prints
   `DRY: would run local UI gate on <sha>` instead of running it. The merge is pinned
@@ -103,9 +110,13 @@ handoff material are stale, do not copy them.
 
 ## Components
 
-Component values are declared once in `backend/web/admin/components.json` and checked by
-`TestDesignContract` (DC-01 to DC-04) and by UI-D14 in Chrome. The table is generated from the
-JSON: after editing it run `cd backend && go test ./internal/admin -run TestDesignContractDocsTable -update`.
+Components are declared once in `backend/web/admin/components.json`: the selector, the owner
+CSS file and the contract values. It is the only registry of who owns a component: UI-06 and
+DC-02 both read their owners from it (every class block in the base selector belongs to the
+owner file). A component with empty props and no variants only names its owner; it needs no
+styleguide sample. Values are checked by `TestDesignContract` (DC-01 to DC-04) and by UI-D14 in
+Chrome. The table is generated from the JSON: after editing it run
+`cd backend && go test ./internal/admin/designcheck -run TestDesignContractDocsTable -update`.
 A change to one component edits only its own subsection below and its entry in the JSON.
 
 <!-- components:begin -->
@@ -123,10 +134,15 @@ A change to one component edits only its own subsection below and its entry in t
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-3)` |
 | popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-3)` |
 | radiocard | `.hm-radiocard` | `css/partials/radiocard.css` | `hm/radiocard` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
+| savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
 | savestate | `.hm-savestate` | `css/partials/savestate.css` | `hm/savestate` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 | searchselect-list | `.hm-searchselect__list` | `css/partials/searchselect.css` | `hm/searchselect` | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
 | segmented | `.hm-segmented__btn` | `css/partials/segmented.css` | `hm/segmented` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-segmented__input:checked + .hm-segmented__btn`: `background-color: var(--color-sumi)`; `.hm-segmented__btn[aria-pressed="true"]`: `background-color: var(--color-sumi)` |
 | select-list | `.hm-select__list` | `css/partials/select.css` | `hm/select` | `border-top-color: var(--border-control)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
+| statcard | `.hm-statcard` | `css/partials/chart.css` | `hm/stat` |  |
+| statgrid | `.hm-statgrid` | `css/partials/chart.css` | `hm/stats` |  |
+| switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
+| table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
 | tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
 | updatechip | `.hm-updchip` | `css/partials/updatechip.css` | `hm/updatechip` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-xs)`, `height: var(--space-8)`, `padding-left: var(--space-2-5)` |
 <!-- components:end -->
@@ -649,7 +665,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-03 | No raw `type="checkbox"` and no `hm/field` Control `checkbox`, except allowlisted multi-pick lists and consent gates. |
 | UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. |
 | UI-05 | No `hm-btn`, `hm-card` or `hm-badge` class token in markup written by hand (`partials/badge.html` is the component): `class="..."`, `class='...'` or an unquoted class in pages, layouts and schemaform templates; and any `hm-btn`, `hm-card` or `hm-badge` token in JS strings and template literals (`class="hm-btn"`, `` `${base} hm-btn` ``, `className = "hm-badge"`); badges come from a server-rendered `<template>` of `hm/badge`. A leading dot (`querySelector(".hm-btn")`) is a selector and is not flagged. Allowlisted entries are the exception. |
-| UI-06 | `css/pages/*.css` and other partial CSS may not set visual properties (colour, background, border, shadow, font, padding, height, outline, opacity, text-transform) on a shared component (`.hm-btn`, `.hm-card*`, `.hm-switch`, `.hm-field*`, `.hm-savebar`, `.hm-segmented*` (segmented.css), `.hm-tablist*` and `.hm-tabs*` (tabs.css), `.hm-table*` (table.css), `.hm-badge*` (badge.css), `.hm-statcard*` and `.hm-statgrid*` (chart.css)) unless the file is that component's own partial CSS. A page that needs another look adds a modifier in the owner's CSS (`.hm-tablist--bar`); the few layout-plus-padding uses are allowlisted with a reason. This covers descendant selectors (`.page .hm-btn`), compound selectors (`.hm-btn.page-x`, `.hm-card.is-x`, `.hm-btn[data-x]`, `.hm-btn:not(.x)`) and functional forms (`:is(.hm-btn, .x)`, `:where(.hm-card)`). A lone component class with only simple pseudos (`.hm-btn:hover`, `.hm-btn::after`) is the component's own state and is allowed. Layout-only declarations (width, margin, flex, gap) are allowed. |
+| UI-06 | `css/pages/*.css` and other partial CSS may not set visual properties (colour, background, border, shadow, font, padding, height, outline, opacity, text-transform) on a shared component (any class block in the selector of a `components.json` entry, with its `__element` and `--modifier` classes: `.hm-btn*`, `.hm-card*`, `.hm-field*`, `.hm-switch*`, `.hm-table*`, `.hm-menu*`, `.hm-dialog*`, ...) unless the file is that component's `owner`. A page that needs another look adds a modifier in the owner's CSS (`.hm-tablist--bar`); the few layout-plus-padding uses are allowlisted with a reason. This covers descendant selectors (`.page .hm-btn`), compound selectors (`.hm-btn.page-x`, `.hm-card.is-x`, `.hm-btn[data-x]`, `.hm-btn:not(.x)`) and functional forms (`:is(.hm-btn, .x)`, `:where(.hm-card)`). A lone component class with only simple pseudos (`.hm-btn:hover`, `.hm-btn::after`) is the component's own state and is allowed. Layout-only declarations (width, margin, flex, gap) are allowed. |
 | UI-07 | In a `<form>` with more than one submit button, the first submit in source order is the primary action or a hidden default submit (`hm-visually-hidden`), never a secondary such as Preview, because Enter presses the first submit. Buttons that belong to another form through `form="..."` are not counted. A bare `<input type="submit">` is never counted as primary. |
 | UI-08 | A `hm/tabs` row is an underline row (no `Variant`) or the level-2 `sub` row, because its items navigate. `Variant "segmented"` is only for rows that declare what their items change: `"Changes" "view"`, one or more of `group`, `from`, `to`, `range`, `view`. `Variant` must be a literal in the template, and `Variant "tablist"` is the JS role=tablist row (buttons that switch panels in place, see JS tablists below); any value other than empty, `segmented`, `sub` or `tablist` is rejected. Chrome (UI-D9) checks the path and that the rendered links change only the declared params; the lint does not see the items. See Tabs below. |
 | UI-09 | The top bar is the only place a breadcrumb trail renders. `partials/pageheader.html` mentions no `Crumbs`, and no page or layout passes `"Crumbs"` to `hm/pageheader` or writes `class="hm-crumbs"`, except the editor bar of `layouts/editor` and the editor template `blogedit.html`. Handlers set `View.Crumbs`. |
@@ -682,7 +698,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 ## Allowlist
 
 Some markup cannot be expressed through a partial. These stay raw and are listed
-by name in the allowlist in `backend/internal/admin/uilint_test.go`, each with a
+by name in the allowlist in `backend/internal/admin/designcheck/uilint_test.go`, each with a
 reason:
 
 | Entry | Reason |
@@ -706,7 +722,7 @@ reason:
    the partial (and its whitelist, if the attribute is plain HTML) rather than
    bypass it.
 2. Otherwise add one entry to the allowlist in
-   `backend/internal/admin/uilint_test.go`: rule id, file, a needle that matches
+   `backend/internal/admin/designcheck/uilint_test.go`: rule id, file, a needle that matches
    the offending line, and a one sentence reason. The needle must identify the
    element (a data hook, an id, a label, a unique class), never the rule's own
    trigger such as `hm-btn` or `class="hm-btn`.

@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -13,7 +13,7 @@ func TestNavHasNoAccent(t *testing.T) {
 	t.Parallel()
 
 	for _, f := range []string{"sidebar.css", "settings.css"} {
-		b, err := os.ReadFile("../../web/admin/css/partials/" + f)
+		b, err := os.ReadFile("../../../web/admin/css/partials/" + f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func TestNavHasNoAccent(t *testing.T) {
 func TestSubTabsAbutLevelOne(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/tabs.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/tabs.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestSubTabsAbutLevelOne(t *testing.T) {
 func TestSubnavMarkerStylesAreEntitiesOnly(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/settings.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/settings.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestSubnavMarkerStylesAreEntitiesOnly(t *testing.T) {
 func TestMobileNavActiveOutranksSubnavRule(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/sidebar.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
 	if err != nil {
 		t.Fatal(err)
 	}

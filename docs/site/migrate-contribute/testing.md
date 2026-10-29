@@ -75,11 +75,13 @@ The flag is defined per package, for example in `internal/render`, `internal/adm
 
 ## The admin UI checks
 
-Admin template and CSS rules are enforced by a static test that needs no database:
+Admin template, CSS and component rules are enforced by static tests that need no database and run in a few seconds:
 
 ```bash
-make ui-lint
+make design-check
 ```
+
+They are the tests of `backend/internal/admin/designcheck` and `backend/internal/admin/a11y`. A new static design check goes in `designcheck`; the target picks it up with no list to update.
 
 A second check measures computed styles in a real browser against a local instance. It needs Chrome, Postgres and the small QA harness under `scripts/admin-qa`, and CI runs it as the `admin-ui` job. The harness is the only place Node is used, and it is not part of the build.
 
@@ -107,7 +109,7 @@ The tests check the done criteria of the importer: every old URL answers 200 or 
 
 | Guard | What it catches |
 |---|---|
-| `make ui-lint` | Admin template and CSS rule violations, with no database. |
+| `make design-check` | Admin template, CSS, token and component rule violations, with no database. |
 | `scripts/check-neutral.sh` | Site-specific or fork-specific names in tracked files, locale-code path literals, a few retired schema names, and `hx-on`, `js:` values and trigger filters in admin templates (they need script evaluation, which the strict content security policy and the htmx setting `allowEval: false` forbid). |
 | `scripts/check-migrations.sh` and `scripts/test-check-migrations.sh` | New migrations that would break the previous release, and the linter's own fixture tests. |
 | `scripts/test-version.sh`, `scripts/test-publish-release.sh`, `scripts/test-staging-update-check.sh`, `deploy/test-apply-caddy.sh` | Fixture tests for the release scripts and the Caddy splice. |

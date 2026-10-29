@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"io/fs"
@@ -42,7 +42,7 @@ var unstyledHooks = map[string]bool{
 func TestTemplateClassesHaveCSSRules(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "web", "admin")
+	root := filepath.Join("..", "..", "..", "web", "admin")
 	have := map[string]bool{}
 	used := map[string]string{} // class -> first template
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {

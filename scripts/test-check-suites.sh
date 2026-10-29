@@ -65,7 +65,7 @@ dups=$(grep -vE '^(#|$)' "$txt" | awk '{print $1}' | sort | uniq -d)
 # --- the Makefile and the hook snapshot are wired to the runner ---
 mk=$(make -n check 2>/dev/null || true)
 grep -q 'scripts/check-suites.sh' <<<"$mk" || fail "make check does not call check-suites.sh"
-grep -q 'TestUILint' <<<"$mk" || fail "make check lost ui-lint"
+grep -q 'internal/admin/designcheck' <<<"$mk" || fail "make check lost design-check"
 grep -q 'scripts/check-suites.sh' <(sed -n '/^hooks:/,/^hooks-off:/p' Makefile) || fail "make hooks does not snapshot check-suites.sh"
 grep -q 'scripts/check-suites.txt' <(sed -n '/^hooks:/,/^hooks-off:/p' Makefile) || fail "make hooks does not snapshot check-suites.txt"
 

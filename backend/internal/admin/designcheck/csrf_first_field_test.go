@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"io/fs"
@@ -35,7 +35,7 @@ func misplacedCSRF(src string) []string {
 func TestUILintMultipartFormsPutCSRFFirst(t *testing.T) {
 	t.Parallel()
 
-	fsys := os.DirFS("../../web/admin")
+	fsys := os.DirFS(webAdmin)
 	forms := 0
 	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".html") {

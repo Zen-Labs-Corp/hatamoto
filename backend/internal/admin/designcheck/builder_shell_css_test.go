@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 // builderCSS is css/pages/builder.css as written (the layout rules the QA harness checks in a browser).
 func builderCSS(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "web", "admin", "css", "pages", "builder.css"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "admin", "css", "pages", "builder.css"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestBuilderCommandHintReadsOnActiveRow(t *testing.T) {
 func TestDarkFieldBorderStaysSofterThanControl(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile(filepath.Join("..", "..", "web", "admin", "css", "tokens.css"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "admin", "css", "tokens.css"))
 	if err != nil {
 		t.Fatal(err)
 	}

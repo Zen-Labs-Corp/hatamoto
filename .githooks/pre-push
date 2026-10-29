@@ -266,7 +266,7 @@ for sha in "${!base_of[@]}"; do
 
   # make check runs here, not on a build host: with go-test's shards syncing the same worktree to the
   # hosts at the same time, a remote make check saw a spurious "[build failed]". The suites runner is
-  # `make check` minus ui-lint (it runs in the integration gate's packages); a push runs the suites whose paths changed.
+  # `make check` minus design-check (its packages run with the affected Go tests); a push runs the suites whose paths changed.
   if ((full)); then
     gate --ctx "mode:full" make-check env GO_QUEUE_FORCE_LOCAL=1 bash scripts/check-suites.sh
   else
@@ -340,7 +340,8 @@ for sha in "${!base_of[@]}"; do
   else
     echo "pre-push: note race detector skipped (HATAMOTO_PREPUSH_RACE=1 runs it over wasmhost and pluginhost)"
   fi
-  # (TestUILint runs inside make check: `check` depends on `ui-lint`.)
+  # (The design checks run as Go tests of internal/admin/designcheck and a11y, picked by
+  # scripts/affected-readers.txt when backend/web/admin or internal/admin changes.)
   if [[ -z $targets ]]; then
     echo "pre-push: ok   integration  no Go packages changed"
   fi

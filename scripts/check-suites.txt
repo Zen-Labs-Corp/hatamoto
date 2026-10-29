@@ -4,7 +4,8 @@
 # a git-style path pattern; `**` and `*` both match across directories. `*` = always.
 # scripts/check-suites.sh runs them all by hand and only the matching ones at push
 # (`--changed <range>`). Changing this file, check-suites.sh or the Makefile runs all.
-# ui-lint is not here: `make check` and the pre-push hook run it as their own step.
+# design-check is not here: `make check` runs it as its own step, and at push its packages
+# run with the affected Go tests (scripts/affected-readers.txt maps backend/web/admin/** to them).
 # A new suite goes here, nowhere else (scripts/test-check-suites.sh keeps this honest).
 neutral          *                                                  bash scripts/check-neutral.sh
 stability        *                                                  cmp STABILITY.md backend/pkg/sdk/STABILITY.md

@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"strings"
@@ -10,7 +10,7 @@ import (
 func TestStepsCSSWraps(t *testing.T) {
 	t.Parallel()
 
-	css := readCSSNormalised(t, "../../web/admin/css/partials/steps.css")
+	css := readCSSNormalised(t, "../../../web/admin/css/partials/steps.css")
 	rule := css[strings.Index(css, ".hm-steps {"):]
 	rule = rule[:strings.Index(rule, "}")]
 	if !strings.Contains(rule, "flex-wrap: wrap") {

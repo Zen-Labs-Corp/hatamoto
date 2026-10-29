@@ -36,7 +36,9 @@ func TestStyleguideServedOnlyInDev(t *testing.T) {
 	}
 }
 
-// Every component in the spec needs samples, or UI-D14 never sees its variants.
+// Every component in the spec with a contract (props or variants) needs samples, or
+// UI-D14 never sees its variants. A component with neither only names its owner
+// (UI-06, DC-02): there is nothing for UI-D14 to check, so it needs no sample.
 func TestStyleguideCoversTheSpec(t *testing.T) {
 	t.Parallel()
 
@@ -44,12 +46,15 @@ func TestStyleguideCoversTheSpec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var spec map[string]struct{ Variants map[string]string }
+	var spec map[string]struct {
+		Variants map[string]string
+		Props    map[string]string
+	}
 	if err := json.Unmarshal(raw, &spec); err != nil {
 		t.Fatal(err)
 	}
 	for name, c := range spec {
-		if len(styleguide[name]) == 0 {
+		if len(styleguide[name]) == 0 && (len(c.Props) > 0 || len(c.Variants) > 0) {
 			t.Errorf("components.json has %q but styleguide.go has no samples for it", name)
 		}
 		shown := map[string]bool{}

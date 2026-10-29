@@ -229,7 +229,7 @@ Residual risks, stated plainly:
 | The site's base URL follows forwarded headers only from trusted proxies | `internal/server` | `TestDetermineBaseURLHonoursForwardedHeadersOnlyFromTrustedProxies` |
 | Unsafe admin methods need a session-bound synchronizer token. The admin sets no readable CSRF cookie; the legacy `hatamoto_csrf` cookie is only cleared | `internal/admin` | `TestCSRFOnUnsafeMethods`, `TestGuardUnsafeNeedsToken` |
 | The JSON API's optional cookie (`ENABLE_COOKIE_AUTH=true`) needs a CSRF token on unsafe methods; API-key calls are exempt and cookie calls are not | `internal/middleware` | `TestCSRF`, `TestCSRFEmptyKeyNeverMatches`, `TestCSRFSkippedForAPIKeyAuthType` |
-| A CSRF token is never read from a URL, including multipart forms, in the `X-CSRF-Token` header or as the first multipart field | `internal/admin` | `TestMultipartCSRFNeverFromQuery`, `TestImportWizardCSRFNeverFromQuery`, `TestUILintMultipartFormsPutCSRFFirst` |
+| A CSRF token is never read from a URL, including multipart forms, in the `X-CSRF-Token` header or as the first multipart field | `internal/admin`, `internal/admin/designcheck` | `TestMultipartCSRFNeverFromQuery`, `TestImportWizardCSRFNeverFromQuery`, `TestUILintMultipartFormsPutCSRFFirst` |
 
 **Docker note.** Behind a proxy container, the server sees the proxy's bridge
 address, not loopback. Set `HATAMOTO_TRUSTED_PROXIES` to that address, or the

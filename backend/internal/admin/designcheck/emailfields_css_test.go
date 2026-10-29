@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -13,8 +13,8 @@ import (
 func TestEmailFieldsHideRule(t *testing.T) {
 	t.Parallel()
 
-	css := readCSSNormalised(t, "../../web/admin/css/partials/emailfields.css")
-	html, err := os.ReadFile("../../web/admin/partials/emailfields.html")
+	css := readCSSNormalised(t, "../../../web/admin/css/partials/emailfields.css")
+	html, err := os.ReadFile("../../../web/admin/partials/emailfields.html")
 	if err != nil {
 		t.Fatal(err)
 	}

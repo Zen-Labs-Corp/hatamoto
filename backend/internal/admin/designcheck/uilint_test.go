@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"fmt"
@@ -201,6 +201,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-06", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 2, Reason: "native colour input needs its own box"},
 	{Rule: "UI-05", File: "js/canvas/fmtbar.js", Needle: `class: "hm-btn`, Max: 3, Reason: reasonEditor},
 	{Rule: "UI-06", File: "css/partials/listbox.css", Needle: ".hm-bubble .hm-btn", Reason: "editor bubble buttons"},
+	{Rule: "UI-06", File: "css/pages/blogeditor.css", Needle: ".hm-be__links > .hm-dialog__foot", Reason: "the links dialog is a flex column with a scrolling body; its footer pads to the list's inset and keeps a hairline above it (TestBlogEditorDialogLayout)"},
+	{Rule: "UI-06", File: "css/pages/menus.css", Needle: ".hm-menutree .hm-menu", Reason: "disabled Indent/Outdent in the menu tree must not look clickable (TestMenuTreeStylesDisabledMenuItems); follow-up: a :disabled state in menu.css for every menu"},
 	{Rule: "UI-06", File: "css/partials/popover.css", Needle: ".hm-btn .hm-btn-count", Reason: "count badge inside the filters button"},
 	{Rule: "UI-06", File: "css/partials/schemaform.css", Needle: ".hm-repeater > .hm-btn", Reason: "repeater Add button carries the long schema title and must wrap in the narrow builder inspector"},
 
@@ -226,28 +228,24 @@ var uiPopupRe = func() *regexp.Regexp {
 }()
 
 var (
-	uiFormOpen    = regexp.MustCompile(`<form\b[^>]*>`)
-	uiFormID      = regexp.MustCompile(`\bid="([^"]+)"`)
-	uiButtonTag   = regexp.MustCompile(`<button\b[^>]*>`)
-	uiInputSubmit = regexp.MustCompile(`<input\b[^>]*type="submit"[^>]*>`)
-	uiButtonCall  = regexp.MustCompile(`(?s)\{\{template "hm/button"[^}]*\}\}`)
-	uiPrimaryCall = regexp.MustCompile(`"Variant" "(primary|danger)"`)
-	uiPrimaryRaw  = regexp.MustCompile(`hm-btn--(primary|danger)([^\w-]|$)`)
-	uiSavebarCls  = regexp.MustCompile(`(hm-savebar|hm-card__foot)(?:--plain)?([^\w-]|$)`)
-	uiCheckboxTag = regexp.MustCompile(`<input\b[^>]*type="checkbox"[^>]*>`)
-	uiCheckboxCtl = regexp.MustCompile(`"Control" "checkbox"`)
-	uiClassAttr   = regexp.MustCompile(`class\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+)`)
-	uiMethodAttr  = regexp.MustCompile(`\bmethod\s*=\s*"([^"]*)"`)
-	uiHTMXVerb    = regexp.MustCompile(`\bhx-(?:post|put|patch|delete)\b`)
-	uiShadowDecl  = regexp.MustCompile(`box-shadow\s*:\s*([^;}]*)`)
-	uiBannedFx    = regexp.MustCompile(`drop-shadow\(|text-shadow`)
-	uiJSToken     = regexp.MustCompile(`(^|[^\w.-])hm-(btn|card|badge)($|[^\w-])`)
-	uiCSSRule     = regexp.MustCompile(`(?s)([^{}]+)\{`)
-	// uiComponent matches a whole component class token; group 3 is non-empty
-	// when the match is only a prefix (.hm-btn-count), which is not the component.
-	uiComponent    = regexp.MustCompile(`\.(hm-btn|hm-card|hm-switch|hm-field|hm-savebar|hm-segmented|hm-tablist|hm-tabs|hm-table|hm-badge|hm-statcard|hm-statgrid)((?:__|--)[\w-]*)?([\w-]*)`)
+	uiFormOpen     = regexp.MustCompile(`<form\b[^>]*>`)
+	uiFormID       = regexp.MustCompile(`\bid="([^"]+)"`)
+	uiButtonTag    = regexp.MustCompile(`<button\b[^>]*>`)
+	uiInputSubmit  = regexp.MustCompile(`<input\b[^>]*type="submit"[^>]*>`)
+	uiButtonCall   = regexp.MustCompile(`(?s)\{\{template "hm/button"[^}]*\}\}`)
+	uiPrimaryCall  = regexp.MustCompile(`"Variant" "(primary|danger)"`)
+	uiPrimaryRaw   = regexp.MustCompile(`hm-btn--(primary|danger)([^\w-]|$)`)
+	uiSavebarCls   = regexp.MustCompile(`(hm-savebar|hm-card__foot)(?:--plain)?([^\w-]|$)`)
+	uiCheckboxTag  = regexp.MustCompile(`<input\b[^>]*type="checkbox"[^>]*>`)
+	uiCheckboxCtl  = regexp.MustCompile(`"Control" "checkbox"`)
+	uiClassAttr    = regexp.MustCompile(`class\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+)`)
+	uiMethodAttr   = regexp.MustCompile(`\bmethod\s*=\s*"([^"]*)"`)
+	uiHTMXVerb     = regexp.MustCompile(`\bhx-(?:post|put|patch|delete)\b`)
+	uiShadowDecl   = regexp.MustCompile(`box-shadow\s*:\s*([^;}]*)`)
+	uiBannedFx     = regexp.MustCompile(`drop-shadow\(|text-shadow`)
+	uiJSToken      = regexp.MustCompile(`(^|[^\w.-])hm-(btn|card|badge)($|[^\w-])`)
+	uiCSSRule      = regexp.MustCompile(`(?s)([^{}]+)\{`)
 	uiSimplePseudo = regexp.MustCompile(`::?[\w-]+(?:\([^().#\[\]]*\))?`)
-	uiLoneComp     = regexp.MustCompile(`^\.(hm-btn|hm-card|hm-switch|hm-field|hm-savebar|hm-segmented|hm-tablist|hm-tabs|hm-table|hm-badge|hm-statcard|hm-statgrid)(?:(?:__|--)[\w-]+)?$`)
 	uiAsideOpen    = regexp.MustCompile(`<span class="[^"]*(?:hm-card__foot-note|hm-savebar__aside)[^"]*">`)
 	uiRestyleProp  = regexp.MustCompile(`(?:^|[{;\s])(?:background[\w-]*|border[\w-]*|color|box-shadow|font[\w-]*|height|min-height|padding[\w-]*|text-transform|opacity|outline[\w-]*)\s*:`)
 	uiTemplateAct  = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
@@ -272,21 +270,52 @@ var uiComponentPartials = map[string]bool{
 	"partials/badge.html":  true,
 }
 
-// CSS files that define a component may style it any way they like.
-var uiCSSOwner = map[string]string{
-	"hm-btn":     "css/partials/button.css",
-	"hm-card":    "css/partials/card.css",
-	"hm-switch":  "css/partials/field.css",
-	"hm-field":   "css/partials/field.css",
-	"hm-savebar": "css/partials/savebar.css",
-	// Families the consistency work made canonical: one CSS owner each.
-	"hm-segmented": "css/partials/segmented.css",
-	"hm-tablist":   "css/partials/tabs.css",
-	"hm-tabs":      "css/partials/tabs.css",
-	"hm-table":     "css/partials/table.css",
-	"hm-badge":     "css/partials/badge.css",
-	"hm-statcard":  "css/partials/chart.css",
-	"hm-statgrid":  "css/partials/chart.css",
+// Component ownership comes from components.json, the one registry: every
+// class block in a component's base selector (.hm-field__control -> hm-field)
+// belongs to that component's owner file, which may style it any way it likes
+// (UI-06). uiComponent matches a whole block token; group 3 is non-empty when
+// the match is only a prefix (.hm-btn-count), which is not the component.
+// uiLoneComp is one block class with an optional element or modifier.
+var (
+	uiCSSOwner  = uiOwnersFromSpec()
+	uiComponent = regexp.MustCompile(`\.(` + uiOwnerAlt(uiCSSOwner) + `)((?:__|--)[\w-]*)?([\w-]*)`)
+	uiLoneComp  = regexp.MustCompile(`^\.(` + uiOwnerAlt(uiCSSOwner) + `)(?:(?:__|--)[\w-]+)?$`)
+)
+
+var uiSpecBlock = regexp.MustCompile(`\.(hm-[a-z0-9]+(?:-[a-z0-9]+)*)`)
+
+func uiOwnersFromSpec() map[string]string {
+	spec, err := loadComponents(web.Admin())
+	if err != nil {
+		panic(err)
+	}
+	owners := map[string]string{}
+	for _, name := range sortedNames(spec) {
+		c := spec[name]
+		for _, m := range uiSpecBlock.FindAllStringSubmatch(c.Selector, -1) {
+			if o, ok := owners[m[1]]; ok && o != c.Owner {
+				panic(fmt.Sprintf("components.json: .%s is owned by both %s and %s", m[1], o, c.Owner))
+			}
+			owners[m[1]] = c.Owner
+		}
+	}
+	return owners
+}
+
+// uiOwnerAlt is the owned blocks as a regexp alternation, longest first so a
+// block never loses to a shorter one it starts with.
+func uiOwnerAlt(owners map[string]string) string {
+	blocks := make([]string, 0, len(owners))
+	for b := range owners {
+		blocks = append(blocks, regexp.QuoteMeta(b))
+	}
+	sort.Slice(blocks, func(i, j int) bool {
+		if len(blocks[i]) != len(blocks[j]) {
+			return len(blocks[i]) > len(blocks[j])
+		}
+		return blocks[i] < blocks[j]
+	})
+	return strings.Join(blocks, "|")
 }
 
 type uiFile struct {
@@ -1022,7 +1051,7 @@ func TestUILintAllowlistHasReasons(t *testing.T) {
 func TestUILintRulesDocumented(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../../docs/ADMIN_UI_RULES.md")
+	b, err := os.ReadFile("../../../../docs/ADMIN_UI_RULES.md")
 	if err != nil {
 		t.Fatal(err)
 	}

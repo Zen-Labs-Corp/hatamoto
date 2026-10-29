@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 // Visual-acceptance regressions of the shell and auth CSS (screens/README.md of admin-shell-auth).
 func cssSource(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile("../../web/admin/css/" + name)
+	b, err := os.ReadFile("../../../web/admin/css/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestCommandFieldWraps(t *testing.T) {
 	if css := cssSource(t, "base.css"); !strings.Contains(css, ".hm-copyrow textarea.hm-field__control") {
 		t.Error("base.css: .hm-copyrow needs a rule for the wrapping textarea")
 	}
-	b, err := os.ReadFile("../../web/admin/pages/auth/forgot.html")
+	b, err := os.ReadFile("../../../web/admin/pages/auth/forgot.html")
 	if err != nil {
 		t.Fatal(err)
 	}

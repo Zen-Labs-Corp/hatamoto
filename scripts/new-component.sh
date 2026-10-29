@@ -19,7 +19,7 @@ self_test() {
   done
   (cd "$tmp/wt" && bash scripts/new-component.sh demo)
   grep -q '^### Demo$' "$tmp/wt/docs/ADMIN_UI_RULES.md" || { echo "self-test FAILED: docs lack the ### Demo subsection" >&2; exit 1; }
-  (cd "$tmp/wt/backend" && go test ./internal/admin)
+  (cd "$tmp/wt/backend" && go test ./internal/admin ./internal/admin/designcheck ./internal/admin/a11y)
   echo "new-component self-test OK"
 }
 
@@ -119,5 +119,5 @@ gofmt -w "$sg"
 
 cd "$ROOT/backend"
 go test ./internal/admin -run "TestPartial$camel\$" -update
-go test ./internal/admin -run 'TestDesignContractDocsTable' -update
+go test ./internal/admin/designcheck -run 'TestDesignContractDocsTable' -update
 echo "scaffolded $name: review git status, then fill in the partial, the contract and the docs."

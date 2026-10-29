@@ -10,6 +10,9 @@
 backend/web/admin/**                                       backend  ./internal/admin
 backend/web/admin/css/**                                   backend  ./internal/admin/a11y
 docs/ADMIN_UI_RULES.md                                     backend  ./internal/admin
+backend/web/admin/**                                       backend  ./internal/admin/designcheck
+docs/ADMIN_UI_RULES.md                                     backend  ./internal/admin/designcheck
+backend/internal/admin/*                                   backend  ./internal/admin/designcheck
 docs/CANVAS.md                                             backend  ./internal/admin
 scripts/admin-qa/**                                        backend  ./internal/admin
 backend/internal/admin/testdata/canvas_protocol_cases.json backend  ./internal/render

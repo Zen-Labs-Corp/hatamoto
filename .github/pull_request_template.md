@@ -11,6 +11,6 @@
 - [ ] Every commit is signed off (`git commit -s`): I agree to the [Developer Certificate of Origin](https://developercertificate.org/) (see CONTRIBUTING.md).
 - [ ] `cd backend && go test ./...` and `make check` pass.
 - [ ] Tests cover the change (a bug fix starts with a failing test).
-- [ ] Admin changes follow docs/ADMIN_UI_RULES.md (`go test ./internal/admin -run UILint`).
+- [ ] Admin changes follow docs/ADMIN_UI_RULES.md (`make design-check`).
 - [ ] No migration that has already shipped was edited.
 - [ ] Docs updated where behaviour changed.

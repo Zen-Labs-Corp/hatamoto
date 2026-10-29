@@ -3,7 +3,6 @@ package admin
 import (
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -432,24 +431,6 @@ func TestPluginWithoutSiteScriptsGrantShowsBanner(t *testing.T) {
 	page := g.do("GET", "/admin/plugins/gtmlike/permissions", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(page, `id="needs-attention"`) || !strings.Contains(page, "hm-callout--warning") || !strings.Contains(page, "Its JavaScript is not running on your public pages") || !strings.Contains(page, `href="/admin/plugins/gtmlike/permissions">Review its permissions`) {
 		t.Errorf("plugin page has no banner: %.300s", page)
-	}
-}
-
-// The sidebar list and the phone select are never both exposed: each is
-// display:none where the other shows, so a screen reader meets one.
-func TestSettingsNavAndSelectAreNeverBothShown(t *testing.T) {
-	t.Parallel()
-
-	css, err := os.ReadFile("../../web/admin/css/partials/settings.css")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := string(css)
-	if !strings.Contains(s, ".hm-subnav-select { display: none; }") {
-		t.Error("the select is not hidden on wide screens")
-	}
-	if !strings.Contains(s, "@media (max-width: 640px)") || !strings.Contains(s, "  .hm-subnav { display: none; }") {
-		t.Error("the sidebar list is not hidden at the phone width where the select shows")
 	}
 }
 

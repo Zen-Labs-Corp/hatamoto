@@ -11,7 +11,7 @@
 # Build toolchain is LOCAL (Go only, no Node); the box has no Go: the binary is
 # built here and scp'd. One binary serves the site, the admin and the API.
 
-.PHONY: need-staticcheck all plugins registry registry-guard registry-pull-archive build build-api release-build release-bundles need-host deploy upload-api install-unit check-unit restart-api migrate check budgets budgets-update vendor vendor-verify vuln licenses ui-lint ui-check help docs-publish docs-publish-test hooks hooks-off test-hooks
+.PHONY: need-staticcheck all plugins registry registry-guard registry-pull-archive build build-api release-build release-bundles need-host deploy upload-api install-unit check-unit restart-api migrate check budgets budgets-update vendor vendor-verify vuln licenses design-check ui-check help docs-publish docs-publish-test hooks hooks-off test-hooks
 
 DEPLOY_HOST ?= $(shell cat .deploy-host 2>/dev/null)
 REMOTE_DIR  := /opt/hatamoto
@@ -233,9 +233,12 @@ vuln:
 licenses:
 	cd backend && go run ./tools/licenses -out ../build/licenses
 
-# Admin template and CSS rules (docs/ADMIN_UI_RULES.md): static, no database.
-ui-lint:
-	cd backend && go test -count=1 -run 'TestUILint' ./internal/admin
+# Every static admin design check (docs/ADMIN_UI_RULES.md): UI and DC rules, tokens,
+# literals, contrast, retired primitives, orphan classes, component ownership
+# (components.json) and the CSS guards. Seconds, no database. A new check goes in
+# backend/internal/admin/designcheck and runs here with no list to update.
+design-check:
+	cd backend && go test -count=1 ./internal/admin/designcheck ./internal/admin/a11y
 
 # Computed-style checks in a real browser against a local instance
 # (needs Chrome and Postgres: see scripts/admin-qa/run-local.sh).
@@ -272,9 +275,9 @@ budgets-update:
 	@test -n "$$REASON" || { echo "set REASON=\"why the budgets change\"" >&2; exit 1; }
 	cd backend && HM_BUDGETS_UPDATE=1 HM_BUDGETS_REASON="$$REASON" go test -count=1 -run TestBudget ./internal/admin ./internal/render ./internal/server
 
-# check: ui-lint, then every suite in scripts/check-suites.txt (the pre-push hook runs
+# check: design-check, then every suite in scripts/check-suites.txt (the pre-push hook runs
 # only the suites whose paths changed: scripts/check-suites.sh --changed <range>).
-check: need-staticcheck ui-lint
+check: need-staticcheck design-check
 	bash scripts/check-suites.sh
 
 # Local gates (CONTRIBUTING.md, "Local gates"): git hooks in .githooks. core.hooksPath is
@@ -308,5 +311,5 @@ test-hooks: need-staticcheck
 	bash scripts/test-hooks.sh
 
 help:
-	@echo "Hatamoto Core targets: build build-api release-build deploy migrate check ui-lint ui-check hooks hooks-off budgets budgets-update vendor vendor-verify vuln licenses docs-publish docs-publish-test plugin-hello"
+	@echo "Hatamoto Core targets: build build-api release-build deploy migrate check design-check ui-check hooks hooks-off budgets budgets-update vendor vendor-verify vuln licenses docs-publish docs-publish-test plugin-hello"
 	@echo "Deploys target /opt/hatamoto + the hatamoto-api service only. Host: DEPLOY_HOST or .deploy-host."

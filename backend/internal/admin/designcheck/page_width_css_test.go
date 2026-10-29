@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"strings"
@@ -10,7 +10,7 @@ import (
 func TestPageWidthCSS(t *testing.T) {
 	t.Parallel()
 
-	base := readCSSNormalised(t, "../../web/admin/css/base.css")
+	base := readCSSNormalised(t, "../../../web/admin/css/base.css")
 	const cap = `.hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }`
 	if !strings.Contains(base, cap) {
 		t.Errorf("base.css lacks the narrow+compact cap rule %q", cap)
@@ -20,7 +20,7 @@ func TestPageWidthCSS(t *testing.T) {
 		t.Errorf("base.css lacks the uncapped rule %q", uncap)
 	}
 
-	settings := readCSSNormalised(t, "../../web/admin/css/partials/settings.css")
+	settings := readCSSNormalised(t, "../../../web/admin/css/partials/settings.css")
 	const wide = `.hm-settings > .hm-page[data-width] { max-width: var(--page-wide); }`
 	const compact = `.hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }`
 	w, c := strings.Index(settings, wide), strings.Index(settings, compact)
