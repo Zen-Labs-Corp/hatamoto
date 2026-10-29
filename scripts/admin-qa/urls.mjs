@@ -55,6 +55,7 @@ export const screens = [
     { name: "context-menu", click: '[data-hm-bs-tree] [role="treeitem"]', press: "Shift+F10" }, // the element actions menu at the row
     { name: "history-open", click: "[data-hm-bs-history]" },
     { name: "structure-picker", click: "[data-hm-pe-plus]" }, // the layouts under the first "+"
+    { name: "seo-drawer", click: "[data-hm-bs-seo]" }, // the SEO slide-over (last: it sits over the canvas; the shared panel, loaded on first open)
   ] },
   { name: "builder-outline", path: "/admin/entities/{page}/edit?outline=1", mock: null, roles: OE },
   { name: "entity-details-post", path: "/admin/entities/{post}", mock: null, roles: OE }, // the details form: its savebar carries Delete (UI-D12)

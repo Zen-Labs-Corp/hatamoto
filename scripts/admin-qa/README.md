@@ -88,6 +88,7 @@ concurrently: `QA_JOBS` (default 4; `QA_JOBS=1` is the old serial run).
 | `tooltip-clip.mjs` | Hovering the agents table's "Ignores robots.txt" tooltip (`.hm-table__scroll [data-tooltip]`) at 390, 700 and 1440 leaves the scroll box and page scroll size unchanged (a clipped tip grew the scroll area) |
 | `frame-tickets.mjs` | Frame tickets (A3): builder canvas, blog preview and a plugin page load with their one-time ticket (screenshots in `SHOTS`); an iframe without a ticket or with a reused one gets the admin 404, from an admin page and from a public page. `run-local.sh` points `HATAMOTO_PLUGIN_DIR` at `fixtures/frame-plugin` (a UI-only plugin with an empty wasm module) when this script is requested |
 | `tabs.mjs` | No tab or pill row (`.hm-tabs__list`) has scrollHeight > clientHeight on analytics crawlers, settings types/redirects, plugins, 1440 and 390, light and dark |
+| `seo-panel-editors.mjs` | One SEO panel everywhere (A2): the post editor, the page entity form, a term edit page (created as "QA SEO term" when missing) and the builder SEO drawer all show the Search, Social, Schema and Advanced tabs and one `hm-seopanel` root; the term panel has no body checks; Escape closes the drawer and returns focus to the SEO button; a title edited in the drawer and saved with the page persists after a reload (B1) |
 
 Every script exits non-zero when a bar is missed and writes JSON to
 `results/` (gitignored); paste the numbers into the QA table of the docs todo.
