@@ -1,20 +1,20 @@
 /* Segmented: one grey track holding joined buttons (posting, radio or script-toggled); the pressed or
    checked one is a paper pill with a hairline ring and a bottom bevel. Token values only; the contract is components.json. */
 .hm-segmented { display: inline-flex; align-self: flex-start; min-width: 0; margin: 0; flex-wrap: wrap; }
-.hm-segmented { gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); }
+.hm-segmented { gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--color-kasumi); }
 .hm-segmented__opt { position: relative; display: inline-flex; }
 /* input[type=radio] in base.css sizes every radio 16px at higher specificity; this one covers its whole label. */
 .hm-segmented .hm-segmented__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .hm-segmented__btn {
   display: inline-flex; align-items: center; justify-content: center;
-  height: var(--control-h-sm); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm);
+  height: var(--control-h-xs); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm);
   background: transparent; color: var(--color-sumi);
   font-family: var(--font-ui); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-none);
   cursor: pointer; transition: background-color 120ms var(--ease);
 }
 .hm-segmented__btn:hover, .hm-segmented__opt:hover .hm-segmented__btn { background: var(--surface-hover); }
-.hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
-.hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
+.hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border), inset 0 -1px 0 var(--border-field); }
+.hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border), inset 0 -1px 0 var(--border-field); }
 .hm-segmented__btn:focus-visible, .hm-segmented__input:focus-visible + .hm-segmented__btn { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
