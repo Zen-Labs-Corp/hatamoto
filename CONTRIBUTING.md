@@ -149,7 +149,12 @@ workflow or `deploy/sql` changes, when a non-Go file under `backend/` maps to no
 skipped for the environment (so not with `HATAMOTO_SKIP_INTEGRATION=1`) records `full-suite`
 for the tree; an affected push never does.
 
-**The full suite runs once, at ship.** `scripts/ship.sh` runs the full suite on the PR head
+**The full suite runs once.** With the GitHub `ci` workflow active, `scripts/ship.sh` waits
+for the PR head's checks (`SHIP_CI_WAIT`, default 3600 s), stops at the first failed one, and
+merges only when every check is green, `backend` (the whole Go suite with `-tags=integration`)
+and `admin-ui` included: those checks are the full suite, so nothing is re-run locally. Run
+`scripts/pipeline-gate.sh full` once before the push if you want the suite locally first.
+With `ci` disabled, `scripts/ship.sh` runs the full suite on the PR head
 before it merges (also with `--no-deploy`): it runs the installed pre-push snapshot with
 `HATAMOTO_PREPUSH_FULL=1`, reuses a `full-suite` record for the same tree (from
 `pipeline-gate.sh full` or an earlier ship; it prints `cached`), and aborts on a red run.
