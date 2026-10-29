@@ -233,13 +233,12 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 			}
 			return nil
 		},
-		Tune: func(in *entity.UpdateEntityInput) {
+		Tune: func(in *entity.UpdateEntityInput) error {
 			setPageName(in, e, title)
 			if seo != nil && isPage {
-				if err := patchSEOAttrs(in, *seo); err != nil {
-					a.logger().Error("admin: builder seo patch failed", "err", err)
-				}
+				return patchSEOAttrs(in, *seo)
 			}
+			return nil
 		},
 		PublishGate: func(saved *entity.Entity) string {
 			if generatedSlug(saved.Slug) {
