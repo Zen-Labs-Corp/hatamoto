@@ -3,27 +3,35 @@
 .hm-btn {
   --h: var(--control-h);
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
-  height: var(--h); min-width: var(--h); padding: 0 var(--space-3);
-  border: 1px solid var(--border-control); border-radius: var(--radius-sm);
+  height: var(--h); min-width: var(--h); padding: 0 calc(var(--space-3) + var(--space-px));
+  border: 0; border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--segment-ring), inset 0 -2px 0 var(--segment-bevel);
   background: var(--color-paper); color: var(--color-sumi);
   font-family: var(--font-ui); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-none); white-space: nowrap;
   text-decoration: none; cursor: pointer;
-  transition: background-color 120ms var(--ease), border-color 120ms var(--ease);
+  transition: background-color 120ms var(--ease), box-shadow 120ms var(--ease);
 }
-.hm-btn:hover { background: var(--color-kasumi); }
+.hm-btn:hover { background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--segment-bevel), inset 0 -2px 0 var(--segment-bevel); }
+.hm-btn:active { background: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--segment-bevel); }
 .hm-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; position: relative; z-index: var(--z-raised); }
 .hm-btn[disabled], .hm-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
-.hm-btn[aria-pressed="true"] { background: var(--color-kasumi); border-color: var(--color-sumi); }
-.hm-btn--primary { background: var(--color-sumi); color: var(--color-paper); border-color: var(--color-sumi); }
-.hm-btn--primary:hover { background: var(--color-sumi-soft); border-color: var(--color-sumi-soft); }
-.hm-btn--ghost { background: transparent; border-color: transparent; }
-.hm-btn--ghost:hover { background: var(--color-kasumi); }
-.hm-btn--danger { background: var(--color-danger); color: var(--color-paper); border-color: var(--color-danger); }
-.hm-btn--danger:hover { background: var(--color-danger); filter: brightness(0.92); }
+.hm-btn[aria-pressed="true"] { background: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--color-sumi); }
+.hm-btn--primary { background: var(--color-sumi); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
+.hm-btn--primary:hover { background: var(--color-sumi-soft); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
+.hm-btn--ghost { background: transparent; box-shadow: none; }
+.hm-btn--ghost:hover { background: var(--color-kasumi); box-shadow: none; }
+.hm-btn--danger { background: var(--color-danger); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
+.hm-btn--danger:hover { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); filter: brightness(0.92); }
 .hm-btn--danger-text { color: var(--color-danger); }
 .hm-btn--danger-text:hover, .hm-btn--danger-text:focus-visible { color: var(--color-danger); background: var(--color-kasumi); }
-.hm-btn--sm { --h: var(--control-h-sm); padding: 0 var(--space-2); }
+.hm-btn--sm { --h: var(--control-h-sm); padding: 0 calc(var(--space-2) + var(--space-px)); }
 .hm-btn--icon, .hm-btn[data-icon-only] { padding: 0; width: var(--h); }
+.hm-bubble .hm-btn { box-shadow: none; } /* the ink toolbar keeps its flat icon buttons */
+@media (forced-colors: active) {
+  .hm-btn { outline: 1px solid ButtonText; outline-offset: -1px; }
+  .hm-btn:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  .hm-btn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
+}
 
 /* Busy state (htmx request or a plain form post in flight): the label stays visible, so the
    accessible name survives, and a spinner follows it. The CSP forbids an injected <style>.

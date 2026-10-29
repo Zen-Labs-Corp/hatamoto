@@ -564,11 +564,13 @@ Names are a contract (`TestTokensContract`): add freely, never rename.
 * Neutrals `--color-shiro --color-paper --color-kasumi --color-kinu
   --color-nezumi --color-hai --color-sumi-soft --color-sumi`; accent and status
   `--color-accent(-soft) --color-success|warning|danger(-soft) --admin-accent`;
-  `--border-control` (a 3:1 border for checkboxes, switches and secondary
-  buttons, unlike the hairline `--color-nezumi`); `--border-field` (the soft
+  `--border-control` (a 3:1 border for checkboxes and switches, unlike the hairline `--color-nezumi`); `--border-field` (the soft
   resting border of text inputs, selects and textareas; hover uses `--color-hai`
   and focus the blue ring, both keep 3:1); `--segment-ring` and `--segment-bevel`
-  (the selected segment's ring and bottom bevel, lifted in dark).
+  (the selected segment's ring and bottom bevel, lifted in dark);
+  `--btn-edge-primary` and `--btn-edge-danger` (the darker bottom edge of the ink
+  and danger buttons, themed); `--space-px` (1px, so a 1px border can be offset
+  in padding).
 * Radii `--radius-sm|md|lg|xl|full` (6, 8, 12, 24 px and a pill) and
   `--radius-nav`, a kept alias of `--radius-md`; sizes `--control-h
   --control-h-sm --control-h-xs --sidebar-w --content-max --page-pad-x|y` (kept for plugins); spacing `--space-1..8` plus the

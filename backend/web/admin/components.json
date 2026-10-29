@@ -12,33 +12,33 @@
       "pressed": ".hm-btn[aria-pressed=\"true\"]"
     },
     "props": {
-      "border-top-color": "var(--border-control)",
       "border-top-left-radius": "var(--radius-sm)",
+      "box-shadow": "inset 0 0 0 1px var(--segment-ring), inset 0 -2px 0 var(--segment-bevel)",
       "font-size": "var(--text-sm)",
       "font-weight": "var(--weight-medium)",
-      "padding-left": "var(--space-3)",
-      "padding-right": "var(--space-3)"
+      "padding-left": "calc(var(--space-3) + var(--space-px))",
+      "padding-right": "calc(var(--space-3) + var(--space-px))"
     },
     "variantProps": {
       "sm": {
-        "padding-left": "var(--space-2)",
-        "padding-right": "var(--space-2)"
+        "padding-left": "calc(var(--space-2) + var(--space-px))",
+        "padding-right": "calc(var(--space-2) + var(--space-px))"
       },
       "primary": {
-        "border-top-color": "var(--color-sumi)"
+        "box-shadow": "inset 0 -1px 0 var(--btn-edge-primary)"
       },
       "ghost": {
-        "border-top-color": "transparent"
+        "box-shadow": "none"
       },
       "danger": {
-        "border-top-color": "var(--color-danger)"
+        "box-shadow": "inset 0 -1px 0 var(--btn-edge-danger)"
       },
       "icon": {
         "padding-left": "0",
         "padding-right": "0"
       },
       "pressed": {
-        "border-top-color": "var(--color-sumi)"
+        "box-shadow": "inset 0 0 0 1px var(--color-sumi)"
       }
     }
   },
