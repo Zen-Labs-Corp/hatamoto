@@ -25,6 +25,15 @@ type SchemaRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context) ([]*EntitySchema, error)
 	CountEntities(ctx context.Context, schemaID uuid.UUID) (int, error)
+
+	// InTx runs fn in one transaction: it commits when fn returns nil and
+	// rolls back otherwise.
+	InTx(ctx context.Context, fn func(tx pgx.Tx) error) error
+	// GetByIDForUpdate reads a schema and locks its row until tx ends, so a
+	// read-modify-write of its settings cannot interleave with another one.
+	GetByIDForUpdate(ctx context.Context, tx pgx.Tx, id uuid.UUID) (*EntitySchema, error)
+	// UpdateTx is Update inside tx.
+	UpdateTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, input *UpdateSchemaInput) (*EntitySchema, error)
 }
 
 // EntityRepository defines the interface for entity data operations.
@@ -96,6 +105,27 @@ func (r *PostgresSchemaRepository) Create(ctx context.Context, input *CreateSche
 	return &s, nil
 }
 
+// schemaQuerier is the QueryRow slice shared by a pooled connection and a tx.
+type schemaQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+const schemaColumns = `id, name, slug, description, schema, is_builtin, created_at, updated_at, settings`
+
+func getSchemaByID(ctx context.Context, q schemaQuerier, id uuid.UUID, suffix string) (*EntitySchema, error) {
+	var s EntitySchema
+	err := q.QueryRow(ctx, `SELECT `+schemaColumns+` FROM hatamoto_entity_schemas WHERE id = $1`+suffix, id).Scan(
+		&s.ID, &s.Name, &s.Slug, &s.Description, &s.Schema, &s.IsBuiltin, &s.CreatedAt, &s.UpdatedAt, &s.Settings,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSchemaNotFound
+		}
+		return nil, fmt.Errorf("failed to get entity schema: %w", err)
+	}
+	return &s, nil
+}
+
 // GetByID retrieves an entity schema by ID.
 func (r *PostgresSchemaRepository) GetByID(ctx context.Context, id uuid.UUID) (*EntitySchema, error) {
 	conn, err := r.db.GetConn(ctx)
@@ -103,26 +133,17 @@ func (r *PostgresSchemaRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 		return nil, err
 	}
 	defer conn.Release()
+	return getSchemaByID(ctx, conn, id, "")
+}
 
-	query := `
-		SELECT id, name, slug, description, schema, is_builtin, created_at, updated_at, settings
-		FROM hatamoto_entity_schemas
-		WHERE id = $1
-	`
+// InTx runs fn in one transaction.
+func (r *PostgresSchemaRepository) InTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	return r.db.WithTx(ctx, fn)
+}
 
-	var s EntitySchema
-	err = conn.QueryRow(ctx, query, id).Scan(
-		&s.ID, &s.Name, &s.Slug, &s.Description, &s.Schema, &s.IsBuiltin, &s.CreatedAt, &s.UpdatedAt, &s.Settings,
-	)
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrSchemaNotFound
-		}
-		return nil, fmt.Errorf("failed to get entity schema: %w", err)
-	}
-
-	return &s, nil
+// GetByIDForUpdate reads a schema and locks its row until tx ends.
+func (r *PostgresSchemaRepository) GetByIDForUpdate(ctx context.Context, tx pgx.Tx, id uuid.UUID) (*EntitySchema, error) {
+	return getSchemaByID(ctx, tx, id, " FOR UPDATE")
 }
 
 // GetBySlug retrieves an entity schema by slug.
@@ -161,7 +182,15 @@ func (r *PostgresSchemaRepository) Update(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 	defer conn.Release()
+	return r.update(ctx, conn, id, input)
+}
 
+// UpdateTx is Update inside tx.
+func (r *PostgresSchemaRepository) UpdateTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, input *UpdateSchemaInput) (*EntitySchema, error) {
+	return r.update(ctx, tx, id, input)
+}
+
+func (r *PostgresSchemaRepository) update(ctx context.Context, q schemaQuerier, id uuid.UUID, input *UpdateSchemaInput) (*EntitySchema, error) {
 	query := `
 		UPDATE hatamoto_entity_schemas
 		SET name = COALESCE($2, name),
@@ -170,11 +199,10 @@ func (r *PostgresSchemaRepository) Update(ctx context.Context, id uuid.UUID, inp
 		    settings = COALESCE($5, settings),
 		    updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, name, slug, description, schema, is_builtin, created_at, updated_at, settings
-	`
+		RETURNING ` + schemaColumns
 
 	var s EntitySchema
-	err = conn.QueryRow(ctx, query, id, input.Name, input.Description, input.Schema, input.Settings).Scan(
+	err := q.QueryRow(ctx, query, id, input.Name, input.Description, input.Schema, input.Settings).Scan(
 		&s.ID, &s.Name, &s.Slug, &s.Description, &s.Schema, &s.IsBuiltin, &s.CreatedAt, &s.UpdatedAt, &s.Settings,
 	)
 

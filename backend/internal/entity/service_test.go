@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/testutil"
 )
 
@@ -74,6 +75,20 @@ func (m *mockSchemaRepository) GetByID(_ context.Context, id uuid.UUID) (*Entity
 		return nil, ErrSchemaNotFound
 	}
 	return s, nil
+}
+
+// InTx has no real transaction to open: fn runs with a nil tx, which the
+// mock's *Tx methods ignore.
+func (m *mockSchemaRepository) InTx(_ context.Context, fn func(tx pgx.Tx) error) error {
+	return fn(nil)
+}
+
+func (m *mockSchemaRepository) GetByIDForUpdate(ctx context.Context, _ pgx.Tx, id uuid.UUID) (*EntitySchema, error) {
+	return m.GetByID(ctx, id)
+}
+
+func (m *mockSchemaRepository) UpdateTx(ctx context.Context, _ pgx.Tx, id uuid.UUID, input *UpdateSchemaInput) (*EntitySchema, error) {
+	return m.Update(ctx, id, input)
 }
 
 func (m *mockSchemaRepository) GetBySlug(_ context.Context, slug string) (*EntitySchema, error) {
