@@ -30,7 +30,13 @@
 {{template "hm/card-end"}}
 <div class="hm-menueditor__aux" hidden data-hm-editor-only>
 {{template "hm/card-start" dict "ID" "menu-inspector" "Title" "Item settings"}}<div data-hm-inspector></div>{{template "hm/card-end"}}
-{{template "hm/card-start" dict "ID" "menu-preview" "Title" "Preview"}}<div data-hm-preview></div>{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "menu-preview" "Class" "hm-menueditor__wide" "Title" "Preview" "Description" "How your theme shows this menu, with the changes you have not saved yet. Select a link in the preview to select its item."}}<div class="hm-stack" data-hm-preview data-action="{{adminPath "theme" "menus" "preview"}}">
+<div class="hm-row">
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-preview-width" "desktop")) (dict "Label" "Mobile" "Attrs" (attrmap "data-hm-preview-width" "mobile"))))}}
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview colours" "Items" (list (dict "Label" "Light" "Pressed" true "Attrs" (attrmap "data-hm-preview-scheme" "light")) (dict "Label" "Dark" "Attrs" (attrmap "data-hm-preview-scheme" "dark"))))}}
+</div>
+<div class="hm-menupreview__scroll"><iframe class="hm-menupreview__frame" name="menu-preview" title="Preview of the menu" sandbox="allow-same-origin" data-hm-preview-frame></iframe></div>
+</div>{{template "hm/card-end"}}
 </div>
 <template data-hm-tpl="inspector"><div class="hm-stack hm-menuinspector">
 <p class="hm-muted" data-hm-ins-empty>Select an item in the list to change its settings. Hold Shift or Ctrl and click to select several.</p>
