@@ -14,6 +14,7 @@
 #
 # Environment:
 #   DEPLOY_HOST      ssh host alias; else .deploy-host (see scripts/deploy-host.sh)
+#   GH_REPO          owner/name of the GitHub repo; else taken from the origin remote
 #   REMOTE_PUBLIC    server directory (default /opt/hatamoto/public)
 set -Eeuo pipefail
 
@@ -24,7 +25,7 @@ DRY=0; TAG=""
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; usage ;;
     *) if [[ -z "$TAG" ]]; then TAG=$a; else usage; fi ;;
   esac
@@ -38,29 +39,42 @@ REMOTE=${REMOTE_PUBLIC:-/opt/hatamoto/public}
 [[ "$REMOTE" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "REMOTE_PUBLIC must be a plain absolute path"
 
 # 1. The tree must be the tag, unmodified.
-[[ "$(git -C "$REPO" describe --exact-match --tags 2>/dev/null || true)" == "$TAG" ]] || die "HEAD is not tagged $TAG; check out the tag first"
+# (HEAD may carry several tags, e.g. vX and backend/vX.)
+tags=$(git -C "$REPO" tag --points-at HEAD)
+grep -Fxq -- "$TAG" <<<"$tags" || die "HEAD is not tagged $TAG; check out the tag first"
+echo "publish-install: tag $TAG at HEAD ok"
 [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "working tree is not clean"
 
 # 2. Host (never printed, never stored in the repo).
 HOST=$("$HERE/deploy-host.sh") || die "no deploy host"
 
-if (( DRY )); then
-  echo "DRY: bash deploy/install/build-install.sh --out <tmp>/built"
-  echo "DRY: gh release download $TAG --pattern install.sh --dir <tmp>/asset"
-  echo "DRY: compare sha256 of the built file and the release asset"
-  echo "DRY: scp install.sh <host>:$REMOTE/.install.sh.new"
-  echo "DRY: ssh <host> sha256sum $REMOTE/.install.sh.new (must match)"
-  echo "DRY: ssh <host> mv -f $REMOTE/.install.sh.new $REMOTE/install.sh"
-  exit 0
-fi
+# GitHub repo for `gh release download -R`: GH_REPO, else the origin remote.
+slug_of() { local u=${1%/}; u=${u%.git}; u=${u//:/\/}; awk -F/ 'NF >= 2 {print $(NF-1) "/" $NF}' <<< "$u"; }
+SLUG=${GH_REPO:-}
+[[ -n "$SLUG" ]] || SLUG=$(slug_of "$(git -C "$REPO" remote get-url origin 2>/dev/null || true)")
+[[ "$SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || die "cannot work out the GitHub repo; set GH_REPO=owner/name"
 
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 sha() { sha256sum "$1" | awk '{print $1}'; }
 
+if (( DRY )); then
+  ( cd "$REPO" && bash deploy/install/build-install.sh --out "$T/built" ) >/dev/null
+  [[ -f "$T/built/install.sh" ]] || die "build-install.sh did not produce install.sh"
+  echo "DRY: bash deploy/install/build-install.sh --out <tmp>/built"
+  echo "DRY: gh release download $TAG -R $SLUG --pattern install.sh --dir <tmp>/asset"
+  echo "DRY: expected sha256 $(sha "$T/built/install.sh") (rebuilt from this checkout)"
+  echo "DRY: compare sha256 of the built file and the release asset"
+  echo "DRY: scp install.sh <host>:$REMOTE/.install.sh.new"
+  echo "DRY: ssh <host> sha256sum $REMOTE/.install.sh.new (must match)"
+  echo "DRY: ssh <host> mv -f $REMOTE/.install.sh.new $REMOTE/install.sh"
+  echo "DRY: target <host>:$REMOTE/install.sh (atomic rename)"
+  exit 0
+fi
+
 # 3. Build at the tag, fetch the attested asset, compare.
 ( cd "$REPO" && bash deploy/install/build-install.sh --out "$T/built" ) >/dev/null
 [[ -f "$T/built/install.sh" ]] || die "build-install.sh did not produce install.sh"
-gh release download "$TAG" --pattern install.sh --dir "$T/asset"
+gh release download "$TAG" -R "$SLUG" --pattern install.sh --dir "$T/asset"
 [[ -f "$T/asset/install.sh" ]] || die "release $TAG has no install.sh asset"
 want=$(sha "$T/built/install.sh")
 [[ "$(sha "$T/asset/install.sh")" == "$want" ]] || die "built install.sh differs from the $TAG release asset; nothing was uploaded"
