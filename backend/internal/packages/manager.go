@@ -48,7 +48,8 @@ var (
 const ReservedPluginName = "webhooks"
 
 // reservedPluginPaths are plugin names the admin uses as /plugins/<name>
-// pages, so a plugin of that name would be shadowed.
+// pages, so a new plugin of that name would be shadowed. One already installed
+// still updates and uninstalls: those routes are POST /plugins/<name>/<action>.
 var reservedPluginPaths = []string{"browse", "security"}
 
 // ConfirmationRequired is returned by Install when replacing the installed
@@ -265,7 +266,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 			}
 		}
 	case KindPlugin:
-		if p.Name == ReservedPluginName || slices.Contains(reservedPluginPaths, p.Name) {
+		if p.Name == ReservedPluginName {
 			return nil, ErrReservedName
 		}
 		man, _ := p.PluginManifest()
@@ -292,6 +293,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	if updating && prev.State == StateUninstalling {
 		return nil, ErrUninstalling
+	}
+	// A plugin installed before these names were reserved keeps updating; only
+	// a new install is refused.
+	if !updating && p.Kind == KindPlugin && slices.Contains(reservedPluginPaths, p.Name) {
+		return nil, ErrReservedName
 	}
 	var need *ConfirmationRequired
 	if updating {

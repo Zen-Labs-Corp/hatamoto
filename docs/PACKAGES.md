@@ -36,6 +36,7 @@ semver version, `sdk` range, see PLUGIN_API.md). A theme package needs
 `settings_schema` and `screenshot` (a preview image under `assets/`; an invalid one is ignored on install, and only `--registry` checks and requires it, see [THEMES.md](THEMES.md#writing-and-submitting-a-theme)), and must not hold `plugin.wasm` or `widgets/`. The name `default` is reserved
 for the built-in theme. Install and update are keyed by `(kind, name)`:
 installing version 1.1.0 of an installed package replaces 1.0.0.
+Plugin names `browse`, `security` and `webhooks` are reserved too (the admin serves `/plugins/browse` and `/plugins/security`; webhooks are part of core): a new install under one of them is refused. A plugin already installed as `browse` or `security` can still be updated and uninstalled.
 
 ### Widget packs
 

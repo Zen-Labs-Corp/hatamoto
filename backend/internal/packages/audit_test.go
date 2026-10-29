@@ -93,3 +93,35 @@ func TestAdminPathNamesAreReservedForPlugins(t *testing.T) {
 		}
 	}
 }
+
+// A plugin installed under a name that was reserved later is not stranded:
+// it still updates and uninstalls.
+func TestInstalledReservedNameStillUpdatesAndUninstalls(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	pack := func(version string) []byte {
+		files := r.plugin(version)
+		files[PluginManifest] = mustJSON(sdk.Manifest{Name: "browse", Version: version, SDK: "^0.7", Permissions: []string{sdk.PermLog}})
+		raw, err := PackFiles(files, &r.key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	old, err := Parse(pack("1.0.0"), DefaultLimits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.store.Put(ctx, old, SourceUpload, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.mgr.Install(ctx, pack("1.1.0"), InstallRequest{Source: SourceUpload}); err != nil {
+		t.Fatalf("update of an installed reserved name: %v", err)
+	}
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "browse", false); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	if _, err := r.mgr.Install(ctx, pack("1.0.0"), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrReservedName) {
+		t.Fatalf("new install after removal: err = %v, want ErrReservedName", err)
+	}
+}

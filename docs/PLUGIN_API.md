@@ -371,7 +371,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 
 | Field | Meaning |
 |---|---|
-| `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name |
+| `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
 | `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.13.0 and also serves `^0.5` to `^0.12` plugins |
 | `description` | optional |
