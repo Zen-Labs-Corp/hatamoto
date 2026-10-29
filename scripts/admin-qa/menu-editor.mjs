@@ -128,7 +128,12 @@ try {
   ok(await page.locator("[data-hm-ins-single]").isVisible(), "A1: selecting an item opens the inspector");
   await page.locator('[data-hm-ins-type="none"]').click();
   ok((await state(page)) === "unsaved", "A1: changing the link type marks the menu unsaved");
+  dialogs.length = 0;
   await save(page);
+  ok(!dialogs.includes("beforeunload"), "leave warning: Save does not ask before it leaves the page");
+  await page.goto(`${base}/admin`);
+  ok(!dialogs.includes("beforeunload"), "leave warning: no warning after a Save, leaving the page is silent");
+  await page.goto(base + footerHref);
   const foot = await publicFooter();
   ok(/<span[^>]*>Press<\/span>/.test(foot) && !/<a [^>]*href="#"[^>]*>Press/.test(foot), "A1: the public footer shows Press as a span with no link");
   await reopen();
