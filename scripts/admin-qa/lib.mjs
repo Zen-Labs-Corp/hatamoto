@@ -31,8 +31,9 @@ export const sizes = { 1440: { width: 1440, height: 900 }, 390: { width: 390, he
 // newSession returns a signed-in page. The theme is set through the hm_theme
 // cookie the server reads ("light" or "dark"), which is what POST /admin/theme
 // stores, so the first paint already has data-admin-theme without a toggle.
-export async function newSession(browser, { theme = "light", width = 1440, signedIn = true, bypassCSP = false } = {}) {
-  const ctx = await browser.newContext({ viewport: sizes[width], deviceScaleFactor: width === 390 ? 2 : 1, bypassCSP });
+// javaScriptEnabled: false is the no-JS browser (the pages' plain-form path).
+export async function newSession(browser, { theme = "light", width = 1440, signedIn = true, bypassCSP = false, javaScriptEnabled = true } = {}) {
+  const ctx = await browser.newContext({ viewport: sizes[width], deviceScaleFactor: width === 390 ? 2 : 1, bypassCSP, javaScriptEnabled });
   await ctx.addCookies([{ name: "hm_theme", value: theme, url: base }]);
   const page = await ctx.newPage();
   if (signedIn) await login(page);
