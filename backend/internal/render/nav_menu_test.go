@@ -1,6 +1,7 @@
 package render
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -56,8 +57,11 @@ func TestNoLinkParentIsFocusable(t *testing.T) {
 		{Label: "Loose", Href: "#", NoLink: true},
 	}
 	out := renderShell(t, v)
-	if want := `<li><span tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">Product</span><ul class="hm-nav__sub">`; !strings.Contains(out, want) {
+	if want := `<li><span tabindex="0" role="button">Product</span><ul class="hm-nav__sub">`; !strings.Contains(out, want) {
 		t.Errorf("missing %s in:\n%s", want, out)
+	}
+	if strings.Contains(out, "aria-haspopup") || strings.Contains(out, "aria-expanded") {
+		t.Errorf("the sub-list is plain links and the JS-off state is not known: no haspopup, no static expanded:\n%s", out)
 	}
 	if want := `<li><span>Loose</span></li>`; !strings.Contains(out, want) {
 		t.Errorf("a childless no-link item must stay a plain span:\n%s", out)
@@ -84,5 +88,18 @@ func TestMenuWidgetCarriesClassesAndNoLink(t *testing.T) {
 		if !strings.Contains(pub, want) {
 			t.Errorf("widget missing %s in:\n%s", want, pub)
 		}
+	}
+}
+
+// aria-expanded must re-sync for events that start inside the sub-list, or it
+// stays "true" after focus or the pointer leaves through a sub-link.
+func TestNavDisclosureSyncsFromAnywhereInTheList(t *testing.T) {
+	b, err := os.ReadFile("themes/default/assets/js/hm.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(b)
+	if !strings.Contains(js, "closest('.hm-nav__list')) setTimeout(syncParents") || strings.Contains(js, ":scope > [aria-expanded]") {
+		t.Error("hm.js must call syncParents for any event inside .hm-nav__list")
 	}
 }
