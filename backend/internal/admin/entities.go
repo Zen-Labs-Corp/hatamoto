@@ -50,6 +50,7 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("POST /entities", a.handleEntityCreate)
 	authed.HandleFunc("GET /entities/{id}", a.handleEntityEdit)
 	authed.HandleFunc("POST /entities/{id}", a.handleEntitySave)
+	authed.HandleFunc("POST /entities/{id}/analyze", a.handleEntityAnalyze)
 	authed.HandleFunc("POST /entities/{id}/status", a.handleEntityStatus)
 	authed.HandleFunc("GET /entities/{id}/delete", a.handleEntityDeleteConfirm)
 	authed.HandleFunc("POST /entities/{id}/delete", a.handleEntityDelete)

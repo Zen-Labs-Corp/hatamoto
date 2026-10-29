@@ -164,7 +164,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "schemaform/field.html", Needle: "$.Orderable", Reason: "repeater row operations with the item number in the label"},
 	{Rule: "UI-05", File: "schemaform/field.html", Needle: `_add.{{.Name}}`, Reason: "repeater add button with the field label"},
 	{Rule: "UI-05", File: "schemaform/field.html", Needle: "data-hm-media-picker", Reason: "hidden-until-JS media picker button"},
-	{Rule: "UI-05", File: "pages/entities/edit.html", Needle: "data-hm-media-picker", Reason: "media picker button, hidden until JS enhances it"},
 	{Rule: "UI-05", File: "pages/linking/suggestions.html", Needle: "suggestions/insert", Reason: "row action with a visually hidden suffix naming the phrase"},
 	{Rule: "UI-05", File: "js/blogeditor.js", Needle: "over.className", Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/blogeditor.js", Needle: "reload.className", Reason: reasonEditor},

@@ -46,6 +46,9 @@ type seoInput struct {
 	Canonical, BaseURL, Path                                  string
 	InLLMs, Published                                         bool
 	Mode                                                      PanelMode
+	// NoKeyword and NoLLMs leave out the focus-keyword and llms.txt checks for
+	// a form that has no such field to act on.
+	NoKeyword, NoLLMs bool
 
 	// SEO, when set, resolves the preview title and description with the same
 	// function the public head uses, so the preview matches the live page.
@@ -320,7 +323,9 @@ func buildPanel(in seoInput) seoPanel {
 	// Focus keyword.
 	kw := strings.TrimSpace(in.Keyword)
 	if kw == "" {
-		p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this post should rank for."))
+		if !in.NoKeyword {
+			p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this post should rank for."))
+		}
 	} else {
 		first := ""
 		if len(st.Paragraphs) > 0 {
@@ -520,6 +525,7 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 		out = append(out, check("faq", "FAQ block", checkWarn, "No FAQ block. Add one with / then FAQ to publish FAQPage structured data."))
 	}
 	switch {
+	case in.NoLLMs:
 	case !in.InLLMs:
 		out = append(out, check("llms", "llms.txt", checkWarn, "This post is left out of /llms.txt. Tick the box in the sidebar to list it."))
 	case in.Published:

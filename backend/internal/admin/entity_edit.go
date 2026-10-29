@@ -96,6 +96,11 @@ type entityForm struct {
 	Version              int
 	Actions              []ui.Button
 	Subtitle             string
+	// Panel is the shared SEO panel; AnalyzeURL is where it refreshes (empty on
+	// a new entity, which has no address yet) and Noun what the entry is called.
+	Panel      seoPanel
+	AnalyzeURL string
+	Noun       string
 }
 
 func (a *Admin) loadEntity(w http.ResponseWriter, r *http.Request) (*entity.Entity, *entity.EntitySchema, bool) {
@@ -395,6 +400,11 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	if f.Errors == nil {
 		f.Errors = map[string]string{}
 	}
+	f.Noun = draftNoun(sc)
+	if !f.New {
+		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
+	}
+	f.Panel = a.entityPanel(r, e, sc, f, values)
 	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -420,6 +430,69 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	v.Data = f
 	v.Crumbs = []Crumb{{Label: "Entities", Href: a.adminPath + "/entities"}, {Label: title}}
 	a.Render(w, r, status, "entities/edit", v)
+}
+
+// bodyProperty is the schema's text property the SEO checks read as the body:
+// "content" or "body" when the type has one of type string, else "".
+func bodyProperty(sc *entity.EntitySchema) string {
+	var s struct {
+		Properties map[string]struct {
+			Type string `json:"type"`
+		} `json:"properties"`
+	}
+	if json.Unmarshal(sc.Schema, &s) != nil {
+		return ""
+	}
+	for _, name := range []string{"content", "body"} {
+		if s.Properties[name].Type == "string" {
+			return name
+		}
+	}
+	return ""
+}
+
+// entityPanel builds the shared SEO panel for the entity as the form holds it.
+// A type with no text body is checked on its title, description and address
+// only. e is nil on a new entity.
+func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, f *entityForm, attrs map[string]any) seoPanel {
+	in := seoInput{
+		Title: f.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: f.Slug, Excerpt: str(attrs, "excerpt"),
+		Canonical: f.SEO.Canonical, Published: f.Status == string(entity.StatusPublished), Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true,
+	}
+	if prop := bodyProperty(sc); prop != "" {
+		in.Mode, in.Content = ModeBody, str(attrs, prop)
+	}
+	if a.deps.BaseURL != nil {
+		in.BaseURL = a.deps.BaseURL(r)
+	}
+	if e != nil && a.deps.Content.PublicPath != nil {
+		ee := *e
+		ee.Schema, ee.Name, ee.Slug = sc, f.Name, f.Slug
+		in.Path = a.deps.Content.PublicPath(r.Context(), &ee)
+	}
+	if in.Path == "" {
+		in.Path = "/" + f.Slug
+	}
+	a.withSEOSettings(r, &in, sc.Slug)
+	panel := buildPanel(in)
+	if e != nil {
+		panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: f, attrs: attrs}, in)
+	}
+	return panel
+}
+
+// handleEntityAnalyze is POST /admin/entities/{id}/analyze: the SEO panel for
+// the entity form as posted, an htmx fragment.
+func (a *Admin) handleEntityAnalyze(w http.ResponseWriter, r *http.Request) {
+	e, sc, ok := a.loadEntity(w, r)
+	if !ok {
+		return
+	}
+	p := a.readEntityForm(r, sc, attrsMap(e.Attributes), false)
+	p.f.ID, p.f.Status = e.ID.String(), string(e.Status)
+	v := a.NewView(w, r, "Search checks")
+	v.Data = struct{ Panel seoPanel }{a.entityPanel(r, e, sc, p.f, p.attrs)}
+	a.Render(w, r, http.StatusOK, "entities/seopanel", v)
 }
 
 func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {

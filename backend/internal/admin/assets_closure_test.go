@@ -154,7 +154,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"analytics/agent":     {"@hm/aia"},
 		"entities/blogedit":   {"@hm/blogeditor", "@hm/seopanel", "@hm/editor/slash"},
 		"entities/builder":    {"@hm/builder", "@hm/builder/screen", "@hm/canvas/host"},
-		"entities/edit":       {"@hm/repeater", "@hm/content", "@hm/entityform"},
+		"entities/edit":       {"@hm/repeater", "@hm/content", "@hm/entityform", "@hm/seopanel"},
 		"entities/list":       {"@hm/content"},
 		"forms/edit":          {"@hm/content"},
 		"forms/submissions":   {"@hm/content"},

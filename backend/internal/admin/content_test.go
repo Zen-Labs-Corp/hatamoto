@@ -304,7 +304,7 @@ func TestEntityEditGoldenSaveAndSEO(t *testing.T) {
 	c := newContentRig(t)
 	id := fid(11).String()
 	body := c.get(t, "owner-token", "/admin/entities/"+id, "entity-edit")
-	has(t, body, `value="Alpha service"`, `data-hm-media-picker="sf-attr-hero_image"`, "Search and social", `name="parent"`, `name="author"`,
+	has(t, body, `value="Alpha service"`, `data-hm-media-picker="sf-attr-hero_image"`, `data-hm-seo-tabs`, `name="parent"`, `name="author"`,
 		`name="term" value="`+fid(32).String()+`" checked`, `name="new_term_name"`)
 	// SEO keys are edited in the panel, not duplicated by the attribute form
 	lacks(t, body, `name="attr.meta_title"`)
