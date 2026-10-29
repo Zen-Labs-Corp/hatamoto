@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -405,6 +406,13 @@ type menuItemIn struct {
 	Attrs *menu.MenuItemAttrs `json:"attrs,omitempty"`
 }
 
+// menuUpdateOut is the menus_update result: the menu fields stay at the top
+// level (embedding keeps the JSON flat) plus warnings, always present.
+type menuUpdateOut struct {
+	*menu.Menu
+	Warnings []string `json:"warnings"`
+}
+
 func (s *Server) registerMenus() {
 	register(s, toolSpec{name: "menus_list", description: "List the menus (header, footer, ...).", scope: readScope, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, _ struct{}) (any, error) {
@@ -436,7 +444,7 @@ func (s *Server) registerMenus() {
 			if err != nil {
 				return nil, err
 			}
-			plan, err := planMenuItems(in.Items)
+			plan, warnings, err := planMenuItems(in.Items)
 			if err != nil {
 				return nil, err
 			}
@@ -452,7 +460,7 @@ func (s *Server) registerMenus() {
 				return nil, err
 			}
 			s.d.Changed(ctx)
-			return m, nil
+			return menuUpdateOut{Menu: m, Warnings: warnings}, nil
 		})
 }
 
@@ -473,41 +481,47 @@ func (s *Server) findMenu(ctx context.Context, id, slug, location string) (*menu
 }
 
 // planMenuItems validates the whole list before the menu is touched. A nil
-// list stays nil (items are left alone).
-func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, error) {
+// list stays nil (items are left alone). The warnings name items that are
+// accepted but render as plain text because they have no target; the slice is
+// never nil.
+func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, []string, error) {
+	warnings := []string{}
 	if items == nil {
-		return nil, nil
+		return nil, warnings, nil
 	}
 	index := map[string]int{}
 	out := make([]menu.ReplaceItem, 0, len(items))
 	for i, it := range items {
 		p := menu.ReplaceItem{Label: it.Label, LinkType: it.LinkType, OpenInNewTab: it.OpenInNewTab, Parent: -1}
 		if strings.TrimSpace(it.Label) == "" {
-			return nil, userErr("items[%d]: label is required", i)
+			return nil, nil, userErr("items[%d]: label is required", i)
 		}
 		if !menu.ValidLinkType(it.LinkType) {
-			return nil, userErr("items[%d]: link_type must be entity, external, archive, custom or none", i)
+			return nil, nil, userErr("items[%d]: link_type must be entity, external, archive, custom or none", i)
 		}
 		if it.EntityID != "" {
 			id, err := parseID("items["+itoa(i)+"].entity_id", it.EntityID)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			p.EntityID = &id
 		}
 		if it.LinkType == menu.LinkTypeExternal && it.URL == "" {
-			return nil, userErr("items[%d]: external links need url", i)
+			return nil, nil, userErr("items[%d]: external links need url", i)
+		}
+		if menuItemMissingTarget(it) {
+			warnings = append(warnings, fmt.Sprintf("items[%d] %q: no target, it renders as plain text", i, it.Label))
 		}
 		if it.Attrs != nil {
 			if err := it.Attrs.Validate(); err != nil {
-				return nil, userErr("items[%d]: %v", i, err)
+				return nil, nil, userErr("items[%d]: %v", i, err)
 			}
 			p.Attrs = it.Attrs.Normalize()
 		}
 		if it.CSSClasses != "" {
 			classes, err := menu.ValidateCSSClasses(it.CSSClasses)
 			if err != nil {
-				return nil, userErr("items[%d]: %v", i, err)
+				return nil, nil, userErr("items[%d]: %v", i, err)
 			}
 			p.CSSClasses = &classes
 		}
@@ -520,7 +534,7 @@ func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, error) {
 		if it.ParentKey != "" {
 			parent, ok := index[it.ParentKey]
 			if !ok {
-				return nil, userErr("items[%d]: parent_key %q must be the key of an earlier item", i, it.ParentKey)
+				return nil, nil, userErr("items[%d]: parent_key %q must be the key of an earlier item", i, it.ParentKey)
 			}
 			p.Parent = parent
 		}
@@ -529,7 +543,21 @@ func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, error) {
 		}
 		out = append(out, p)
 	}
-	return out, nil
+	return out, warnings, nil
+}
+
+// menuItemMissingTarget reports a link type that needs a target the item lacks.
+// External links without a url are rejected earlier; "none" is never flagged.
+func menuItemMissingTarget(it menuItemIn) bool {
+	switch it.LinkType {
+	case menu.LinkTypeEntity:
+		return it.EntityID == ""
+	case menu.LinkTypeArchive:
+		return it.SchemaSlug == "" && it.URL == ""
+	case menu.LinkTypeCustom:
+		return it.URL == ""
+	}
+	return false
 }
 
 func (s *Server) registerRedirects() {

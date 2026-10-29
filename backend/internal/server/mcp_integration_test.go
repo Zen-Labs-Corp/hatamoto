@@ -313,6 +313,12 @@ func TestMCPIntegration(t *testing.T) {
 		map[string]any{"key": "h", "label": "Product", "link_type": "none", "css_classes": "footer-cta", "attrs": map[string]any{"style": "button", "rel": []string{"nofollow"}}},
 		map[string]any{"parent_key": "h", "label": "Empty", "link_type": "entity"},
 	}})
+	if w, _ := nl["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), `items[1] "Empty"`) {
+		t.Errorf("warnings for the empty target: %v", nl["warnings"])
+	}
+	if w, ok := m["warnings"].([]any); !ok || len(w) != 0 {
+		t.Errorf("warnings must be present and empty: %v", m["warnings"])
+	}
 	top, _ := nl["items"].([]any)
 	if len(top) != 1 {
 		t.Fatalf("none menu: %v", nl["items"])
