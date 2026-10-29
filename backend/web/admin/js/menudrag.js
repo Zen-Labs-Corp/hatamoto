@@ -45,15 +45,23 @@ export function init(tree, api) {
     line.hidden = true;
     if (slots.length === 0) return;
     const rest = rows.filter((_, k) => k < from || k >= end).map((r) => r.li);
-    const gap = rest.filter((li) => {
-      const box = li.getBoundingClientRect();
-      return evt.clientY > box.top + box.height / 2;
-    }).length;
+    // Rows the view hides (collapsed or filtered) have no box: they count as passed
+    // when the visible row before them is.
+    let gap = 0;
+    let passed = false;
+    rest.forEach((li, k) => {
+      if (li.getClientRects().length) {
+        const box = li.getBoundingClientRect();
+        passed = evt.clientY > box.top + box.height / 2;
+      }
+      if (passed) gap = k + 1;
+    });
     const slot = slots.reduce((best, s) => (Math.abs(s.index - gap) < Math.abs(best.index - gap) ? s : best), slots[0]);
     drag.slot = slot;
     const box = tree.getBoundingClientRect();
-    const before = rest[slot.index]?.getBoundingClientRect();
-    const after = rest[slot.index - 1]?.getBoundingClientRect();
+    const shown = (li) => li?.getClientRects().length > 0;
+    const before = rest.slice(slot.index).find(shown)?.getBoundingClientRect();
+    const after = rest.slice(0, slot.index).reverse().find(shown)?.getBoundingClientRect();
     const y = before ? before.top : after ? after.bottom : box.top;
     const x = box.left + slot.depth * drag.indent;
     line.style.top = `${Math.round(y - (before ? 4 : -4))}px`;

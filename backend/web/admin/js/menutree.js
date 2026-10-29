@@ -8,6 +8,7 @@
 import { renumberOp, renumberRef } from "@hm/listlogic";
 import { duplicateBlock, indentBlock, moveBlock, moveToParent, outdentBlock, removeBlock, blockEnd } from "@hm/menulogic";
 import { init as initDrag } from "@hm/menudrag";
+import { init as initKeys } from "@hm/menukeys";
 import { init as initSearchSelect } from "@hm/searchselect";
 
 const DEFAULT_MAX_DEPTH = 5;
@@ -56,6 +57,9 @@ function cloneItem(li) {
   const copy = li.cloneNode(true);
   const id = field(copy, "id");
   if (id) id.value = "";
+  copy.removeAttribute("hidden");
+  copy.removeAttribute("data-hm-selected");
+  copy.removeAttribute("data-hm-collapsed");
   copy.querySelectorAll("[data-hm-searchselect]").forEach((box) => box.removeAttribute("data-hm-ready"));
   return copy;
 }
@@ -70,8 +74,11 @@ function place(tree, rows) {
     li.dataset.depth = String(r.depth);
     return li;
   });
+  // Moving nodes drops focus; the control that had it gets it back.
+  const focused = tree.contains(document.activeElement) ? document.activeElement : null;
   tree.replaceChildren(...lis);
   lis.forEach((li) => initSearchSelect(li));
+  if (focused?.isConnected) focused.focus();
 }
 
 // renumber rewrites every i.N / i-N / op value to match the DOM order, keeps
@@ -201,6 +208,7 @@ function init(root) {
       discard: document.querySelector("[data-hm-discard]"),
       notice: form.querySelector("[data-hm-notice]"),
     };
+    let keys = null; // set once the keyboard module is wired, after the first refresh
     const undoStack = [];
     const redoStack = [];
     let edited = form.hasAttribute("data-hm-dirty"); // a server edit or a failed save is unsaved work
@@ -244,7 +252,7 @@ function init(root) {
       ui.issues.replaceChildren(...chips);
     }
 
-    const refresh = () => { renumber(tree); refreshIssues(); refreshBar(); };
+    const refresh = () => { renumber(tree); refreshIssues(); refreshBar(); keys?.refresh(); };
 
     function showNotice(message) {
       if (!ui.notice) return;
@@ -257,7 +265,12 @@ function init(root) {
     }
 
     // commit records the tree as it was before an edit, so Undo can restore it.
+    let batch = null; // while set, edits are one undo step: {before}
     function commit(before) {
+      if (batch) {
+        batch.before ??= before;
+        return;
+      }
       undoStack.push(before);
       redoStack.length = 0;
       refresh();
@@ -310,19 +323,47 @@ function init(root) {
       return "";
     }
 
+    // applyOp runs one structural edit on an item, shows the refusal or the
+    // done message, and returns the refusal text ("" when it was applied).
+    function applyOp(name, li) {
+      const refused = runOp(name, items(tree).indexOf(li));
+      showNotice(refused);
+      if (!refused) announce(DONE[name]);
+      return refused;
+    }
+
+    // opMany applies one edit to several items as a single undo step.
+    function opMany(name, lis) {
+      const all = items(tree);
+      const order = lis.filter((li) => all.includes(li)).sort((a, b) => all.indexOf(a) - all.indexOf(b));
+      if (name !== "indent" && name !== "up") order.reverse(); // the rest go bottom first, so earlier edits do not move later items
+      batch = {};
+      let refused = "";
+      try {
+        order.forEach((li) => {
+          if (items(tree).includes(li)) refused = runOp(name, items(tree).indexOf(li)) || refused;
+        });
+      } finally {
+        const done = batch;
+        batch = null;
+        if (done.before) commit(done.before);
+      }
+      showNotice(refused);
+      if (!refused) announce(DONE[name]);
+      return refused;
+    }
+    document.addEventListener("hm:op", (evt) => opMany(evt.detail.op, evt.detail.items));
+
     form.addEventListener("click", (evt) => {
       const btn = evt.target.closest('button[name="_op"]');
       const m = btn && tree.contains(btn) ? OP_RE.exec(btn.value) : null;
       if (!m) return;
       const li = btn.closest("[data-hm-item]");
       const name = m[1];
-      const all = items(tree);
-      const at = all.indexOf(li);
+      const at = items(tree).indexOf(li);
       btn.closest("[popover]")?.hidePopover?.();
       evt.preventDefault();
-      const refused = runOp(name, at);
-      showNotice(refused);
-      if (!refused) announce(DONE[name]);
+      applyOp(name, li);
       const now = items(tree);
       const target = name === "remove" ? (now[at] ?? now[at - 1]) : li;
       // The moved item keeps focus: on the same button, or on its menu when that button lives in the menu.
@@ -396,6 +437,13 @@ function init(root) {
       const all = items(tree);
       [...target.options].forEach((o) => { if (/^\d+$/.test(o.value)) o.hmLi = all[Number(o.value)]; });
     }
+
+    keys = initKeys(tree, {
+      form,
+      items: () => items(tree),
+      apply: applyOp,
+      many: opMany,
+    });
 
     initDrag(tree, {
       rows: () => model(tree),
