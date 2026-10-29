@@ -306,3 +306,20 @@ func TestSEOPagesGolden(t *testing.T) {
 	compareGolden(t, "pages/settings-seo-general.html", normalizePage(s.get(t, "/admin/settings/seo/general")))
 	compareGolden(t, "pages/settings-seo-titles.html", normalizePage(s.get(t, "/admin/settings/seo/titles")))
 }
+
+func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {
+	stored := titlesState{Set: seo.Defaults()}
+	stored.Set.Types["news"] = seo.TypeTemplates{Title: "%title% News"}
+	stored.Types = []seoTypeRow{{
+		Slug: "news", Title: "%title% News", ArchiveTitle: "All news", ArchiveDescription: "Latest",
+		storedArchiveTitle: "All news", storedArchiveDescript: "Latest",
+	}}
+	next := seoTitlesFromForm(url.Values{"separator": {"-"}}, stored)
+	row := next.Types[0]
+	if row.ArchiveTitle != "All news" || row.ArchiveDescription != "Latest" || row.Title != "%title% News" {
+		t.Errorf("row = %+v, want the stored values", row)
+	}
+	if next.Set.Types["news"].Title != "%title% News" {
+		t.Errorf("template = %+v, want it kept", next.Set.Types["news"])
+	}
+}

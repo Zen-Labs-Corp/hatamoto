@@ -355,6 +355,12 @@ func seoTitlesFromForm(form url.Values, stored titlesState) titlesState {
 	}
 	for _, row := range stored.Types {
 		p := "type[" + row.Slug + "]"
+		if !form.Has(p + "[title]") {
+			// The type was not on the page that was posted (created or
+			// renamed since): keep what is stored.
+			next.Types = append(next.Types, row)
+			continue
+		}
 		row.Title = strings.TrimSpace(form.Get(p + "[title]"))
 		row.Description = strings.TrimSpace(form.Get(p + "[description]"))
 		if !row.ArchiveReadOnly {
