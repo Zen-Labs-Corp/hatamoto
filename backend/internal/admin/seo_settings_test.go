@@ -80,6 +80,16 @@ func (s *seoRig) get(t *testing.T, path string) string {
 	return body
 }
 
+// seoControlTag returns the opening tag of the control posted as name.
+func seoControlTag(body, name string) string {
+	i := strings.Index(body, `name="`+name+`"`)
+	if i < 0 {
+		return ""
+	}
+	start := strings.LastIndex(body[:i], "<")
+	return body[start : i+strings.Index(body[i:], ">")+1]
+}
+
 func TestSEOTitlesPageLists(t *testing.T) {
 	s := newSEORig(t, newFakeSEO())
 	body := s.get(t, "/admin/settings/seo/titles")
@@ -92,10 +102,15 @@ func TestSEOTitlesPageLists(t *testing.T) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	// A built-in type other than person shows its archive values read-only.
-	i := strings.Index(body, `name="type[page][archive_title]"`)
-	if i < 0 || !strings.Contains(body[i:i+200], "readonly") {
-		t.Error("built-in archive title is not read-only")
+	// A built-in type other than person shows its archive values read-only
+	// and disabled, so they look inert; a custom type's stay editable.
+	for _, name := range []string{"archive_title", "archive_description"} {
+		if tag := seoControlTag(body, "type[page]["+name+"]"); !strings.Contains(tag, "readonly") || !strings.Contains(tag, "disabled") {
+			t.Errorf("built-in %s is not read-only and disabled: %s", name, tag)
+		}
+		if tag := seoControlTag(body, "type[service]["+name+"]"); strings.Contains(tag, "readonly") || strings.Contains(tag, "disabled") {
+			t.Errorf("custom %s is not editable: %s", name, tag)
+		}
 	}
 	if strings.Contains(body, "theme_part") {
 		t.Error("reuse types are listed")
