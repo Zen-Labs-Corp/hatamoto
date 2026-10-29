@@ -463,7 +463,7 @@ func TestDashboardOwnerPage(t *testing.T) {
 	}
 	body := rec.Body.String()
 	for _, want := range []string{"<h1>Overview</h1>", "Published", "Drafts", "New submissions", "AI-referred visits", "Missing pages",
-		"Pages AI crawlers fetch most", "Recent submissions", "hm-topbar__chip",
+		"Pages AI crawlers fetch most", "Recent submissions", `class="hm-colophon"`,
 		`href="/admin/settings/redirects/new?log=` + fid(1).String() + `&amp;source=%2Fold-pricing"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("owner page lacks %q", want)
@@ -472,8 +472,8 @@ func TestDashboardOwnerPage(t *testing.T) {
 	if strings.Contains(body, "Pageviews") {
 		t.Error("the KPI row is five cards: no Pageviews")
 	}
-	if strings.Contains(body, "dash-updates") || strings.Contains(body, "Update history, latest releases") {
-		t.Error("the Updates card is the top-bar chip now")
+	if strings.Contains(body, "dash-updates") || strings.Contains(body, "Update history, latest releases") || strings.Contains(body, "hm-updchip") {
+		t.Error("the overview has no Updates card and the top bar no update chip")
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)

@@ -35,6 +35,9 @@ type AdminConfig struct {
 	// Resolved is the address the server mounts the admin at. App boot sets it
 	// after reading the environment and the database; empty means /admin.
 	Resolved string
+	// Version is the running build's version (app.Version), shown in the
+	// admin's colophon. App boot sets it; it is never read from the environment.
+	Version string
 	// NotFoundPerMin is HATAMOTO_NOTFOUND_PER_MIN: how many not-found
 	// responses one client IP may cause per minute before it is blocked from
 	// the admin address (default 60, 0 disables the throttle).

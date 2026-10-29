@@ -41,10 +41,13 @@ type View struct {
 	adminPath string
 	// speculation is the instance's prebuilt speculation rules JSON; empty for a hand-made View.
 	speculation template.HTML
-	Nonce       string
-	CSRF        string
-	Assets      *Assets
-	Scripts     []string // extra vendored scripts, e.g. "sortablejs"
+	// appVersion is the running build as the colophon shows it ("v1.4.2" or
+	// "dev build"); read it with AppVersion.
+	appVersion string
+	Nonce      string
+	CSRF       string
+	Assets     *Assets
+	Scripts    []string // extra vendored scripts, e.g. "sortablejs"
 	// AreaCarry is the query the secondary sidebar's links and phone select
 	// keep (the analytics range and compare switch); empty elsewhere.
 	AreaCarry url.Values
@@ -84,9 +87,6 @@ type View struct {
 	// UpdateBanner is the owner's update notice (nil when nothing needs
 	// attention); NewView fills it for owner GET requests off the Updates page.
 	UpdateBanner *UpdateBanner
-	// UpdateChip is the owner's top-bar update status (nil for editors and
-	// sites without an update service); NewView fills it for GET requests.
-	UpdateChip *UpdateChip
 	// AddressBanner nags the owner about a weak admin address nobody accepted
 	// (nil otherwise); NewView fills it for owner GET requests off the Security pages.
 	AddressBanner *AddressBanner
@@ -358,7 +358,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	as, _ := a.state()
 	ctx := r.Context()
 	v := &View{
-		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation,
+		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
 		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx),
 	}
 	if a.deps.Demo.Enabled {
@@ -392,7 +392,6 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		v.Flash = a.takeFlash(w, r)
 		v.UpdateBanner = a.updateBanner(r, v.User)
-		v.UpdateChip = a.updateChip(r, v.User)
 		v.AddressBanner = a.addressBanner(r, v.User)
 		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
 	}

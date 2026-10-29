@@ -681,8 +681,10 @@ named by `auditLabel`, falling back to the raw action. Recorded: `entity.publish
 saves), plus backups, email, cache, spam and update settings actions. Automatic updates
 and CLI actions appear under their own actor ("Auto update").
 
-The top bar's update chip (owner only) shows the running version and recent releases from the
-cached update glance; see `ADMIN_UI_RULES.md`.
+Every shell page ends with a colophon at the bottom right of the content area: the running
+version ("Hatamoto v1.4.2", or "dev build" for an unstamped or between-tags build) linking to
+hatamoto.dev. Update status lives on Settings > Updates and in the update banner; see
+`ADMIN_UI_RULES.md`.
 
 ## Settings, users and email
 

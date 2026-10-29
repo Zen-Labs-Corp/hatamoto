@@ -169,16 +169,10 @@
       "padding-right": "var(--space-2)"
     }
   },
-  "updatechip": {
-    "selector": ".hm-updchip",
-    "owner": "css/partials/updatechip.css",
-    "partial": "hm/updatechip",
-    "props": {
-      "border-top-left-radius": "var(--radius-md)",
-      "font-size": "var(--text-xs)",
-      "height": "var(--space-8)",
-      "padding-left": "var(--space-2-5)"
-    }
+  "colophon": {
+    "selector": ".hm-colophon",
+    "owner": "css/partials/colophon.css",
+    "props": {}
   },
   "dropzone": {
     "selector": ".hm-dropzone",

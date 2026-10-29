@@ -1,7 +1,0 @@
-{{/* hm/updatechip: the owner's update status in the top bar. A native popover
-     (no script of its own: js/components.js places and focuses any
-     .hm-popover-panel). The blocks are decoration; the button's name says it. */}}
-{{define "hm/updatechip"}}<div class="hm-topbar__chip"><button type="button" class="hm-updchip" aria-label="{{.Name}}" aria-haspopup="dialog" aria-expanded="false" popovertarget="{{.ID}}">{{if .Blocks}}<span class="hm-updchip__blocks" aria-hidden="true">{{range .Blocks}}<span class="hm-updchip__block hm-updchip__block--{{.Kind}}"></span>{{end}}</span>{{end}}<span class="hm-updchip__version">{{.Version}}</span></button>
-<div class="hm-popover-panel hm-updchip__panel" popover id="{{.ID}}" role="dialog" aria-label="Update history"><header><h2>{{.Title}}</h2>{{if .Channel}}<span class="hm-updchip__channel">{{.Channel}}</span>{{end}}</header>
-<div class="hm-popover-panel__body">{{if .Note}}<p class="hm-updchip__note">{{.Note}}</p>{{end}}{{if .Rows}}<ul class="hm-updchip__rows">{{range .Rows}}<li>{{template "hm/badge" (dict "Kind" .Badge "Label" .Text)}}<time>{{.When}}</time></li>{{end}}</ul>{{else if not .Note}}<p class="hm-updchip__note">No updates installed yet.</p>{{end}}</div>
-<footer><a href="{{.Href}}">{{.Label}} <span aria-hidden="true">&rsaquo;</span></a></footer></div></div>{{end}}

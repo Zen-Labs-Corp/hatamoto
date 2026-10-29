@@ -10,7 +10,7 @@
 <div class="hm-shell">
 {{template "hm/sidebar" .}}
 <div class="hm-shell__main">
-<div class="hm-topbar">{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "panel-left" "AriaLabel" "Toggle sidebar" "Attrs" (attrmap "data-hm-sidebar-toggle" "" "hidden" "" "aria-expanded" "true" "aria-controls" "hm-sidebar"))}}<span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="{{adminPath}}">Home</a></li>{{if .Crumbs}}{{$last := sub (len .Crumbs) 1}}{{range $i, $c := .Crumbs}}{{if eq $i $last}}<li aria-current="page">{{$c.Label}}</li>{{else if $c.Href}}<li><a href="{{$c.Href}}">{{$c.Label}}</a></li>{{else}}<li>{{$c.Label}}</li>{{end}}{{end}}{{else}}{{range .Nav}}{{if .Current}}{{if ne .Label $.Title}}<li><a href="{{.Href}}">{{.Label}}</a></li>{{end}}{{end}}{{end}}{{if .Title}}<li aria-current="page">{{.Title}}</li>{{end}}{{end}}</ol></nav>{{with .UpdateChip}}{{template "hm/updatechip" .}}{{end}}</div>
+<div class="hm-topbar">{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "panel-left" "AriaLabel" "Toggle sidebar" "Attrs" (attrmap "data-hm-sidebar-toggle" "" "hidden" "" "aria-expanded" "true" "aria-controls" "hm-sidebar"))}}<span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="{{adminPath}}">Home</a></li>{{if .Crumbs}}{{$last := sub (len .Crumbs) 1}}{{range $i, $c := .Crumbs}}{{if eq $i $last}}<li aria-current="page">{{$c.Label}}</li>{{else if $c.Href}}<li><a href="{{$c.Href}}">{{$c.Label}}</a></li>{{else}}<li>{{$c.Label}}</li>{{end}}{{end}}{{else}}{{range .Nav}}{{if .Current}}{{if ne .Label $.Title}}<li><a href="{{.Href}}">{{.Label}}</a></li>{{end}}{{end}}{{end}}{{if .Title}}<li aria-current="page">{{.Title}}</li>{{end}}{{end}}</ol></nav></div>
 <main id="hm-main" class="hm-content">{{if .DemoBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{.DemoBanner}}{{template "hm/callout-end"}}{{end}}
 {{if and .User (streq .User.Role "owner") (or .SetupPending .NoSiteAddress .UpdateBanner .AddressBanner .StatsBanner)}}<div class="hm-notices">
 {{if and .SetupPending .User (streq .User.Role "owner")}}{{template "hm/callout-start" (dict "Kind" "info" "Compact" true "DismissKey" "setup-pending")}}Setup is not finished. <a href="{{adminPath}}/setup/site">Continue setting up your site</a>.{{template "hm/callout-end"}}{{end}}
@@ -25,6 +25,7 @@
 </div>
 {{if .HasSubnav}}</div>
 {{end}}</main>
+<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto {{.AppVersion}}">Hatamoto {{.AppVersion}} <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
 </div>
 </div>
 {{template "layouts/toasts" .}}

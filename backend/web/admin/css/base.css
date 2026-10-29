@@ -92,7 +92,6 @@ form.hm-stack { max-width: 46rem; }
    needs script, so it stays hidden until admin.js shows it. */
 .hm-topbar { display: flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-kinu); background: var(--color-paper); }
 .hm-topbar__sep { width: 1px; height: 16px; background: var(--color-kinu); }
-.hm-topbar__chip { margin-inline-start: auto; }
 .hm-topbar__crumbs ol { display: flex; gap: var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-topbar__crumbs li + li::before { content: "\203A"; margin-right: var(--space-2); display: inline-block; transform: translateY(-1px); }
 .hm-topbar__crumbs a { color: var(--color-hai); text-decoration: none; }

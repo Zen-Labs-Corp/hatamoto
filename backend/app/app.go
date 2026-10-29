@@ -377,6 +377,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	cfg.Admin.Resolved = adminAddr
+	cfg.Admin.Version, _ = buildInfo()
 	if err := config.CheckPrefixAgainstAdmin(cfg.PublicSite.APIPrefix, adminAddr); err != nil {
 		return err
 	}

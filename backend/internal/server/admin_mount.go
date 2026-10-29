@@ -59,6 +59,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		SiteNameFallback: s.cfg.Hatamoto.SiteName,
 		FlashKey:         s.adminFlashKey(),
 		Dev:              s.cfg.Admin.Dev,
+		AppVersion:       s.cfg.Admin.Version,
 		PublicAPIPrefix:  s.cfg.PublicSite.APIPrefix,
 		Demo:             s.cfg.Demo,
 	}
