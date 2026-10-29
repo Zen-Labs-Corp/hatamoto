@@ -46,6 +46,7 @@
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   /* An inherited option keeps its dashed border as the only edge: a solid outline would paint over it. */
-  .hm-bs-opt:not(.hm-bs-opt--inherited), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
+  /* Keep :focus-visible out: builder.css gives it the 2px ring at the same specificity, and this file loads later. */
+  .hm-bs-opt:not(.hm-bs-opt--inherited, :focus-visible), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-linkbtn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
