@@ -34,6 +34,11 @@ case "$*" in
   *) # SQL on stdin: keep it outside the fixture root
     sql="$(cat)"
     printf '%s\n' "$sql" >> "$TMPD/psql-stdin"
+    if [ -n "${FAKE_PSQL_FAIL:-}" ]; then
+      echo "ERROR:  boom" >&2
+      case "$*" in *VERBOSITY=terse*) ;; *) printf 'LINE 1: %s\n' "$sql" >&2 ;; esac
+      exit 1
+    fi
     case "$sql" in *"CREATE ROLE"*) : > "$TMPD/role" ;; esac
     case "$sql" in *"CREATE DATABASE"*) : > "$TMPD/db" ;; esac ;;
 esac
@@ -218,6 +223,13 @@ if grep -q 'Domain:' "$tmp/out"; then fail "domain line without a domain"; fi
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker missing"
 pass "banner, link file, parts, done marker"
 
+# Swap exists before PostgreSQL starts and before migrate.
+swapn="$(grep -nx 'setup_swap' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+pgn="$(grep -nx 'systemctl enable --now postgresql' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+mign="$(grep -n '^hatamoto migrate' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+{ [ -n "$swapn" ] && [ "$swapn" -lt "$pgn" ] && [ "$swapn" -lt "$mign" ]; } || fail "setup_swap must run before postgresql ($pgn) and migrate ($mign): $swapn"
+pass "swap before PostgreSQL and migrate"
+
 # The database password lives in the env file only.
 dbpw="$(sed -n 's#^DATABASE_URL=postgres://hatamoto:\([^@]*\)@.*#\1#p' "$envf")"
 [ "${#dbpw}" -ge 32 ] || fail "database password too short"
@@ -227,6 +239,7 @@ if grep -q -e "$dbpw" "$tmp/calls" "$tmp/out" "$tmp/err"; then fail "database pa
 secret="$(sed -n 's/^HATAMOTO_SECRET=//p' "$envf")"
 if grep -rl -e "$secret" "$r" | grep -v 'config/hatamoto.env$' | grep .; then fail "server secret found outside the env file"; fi
 grep -q 'CREATE ROLE hatamoto WITH LOGIN CREATEROLE PASSWORD' "$tmp/state/psql-stdin" || fail "role statement"
+grep -q 'SET log_min_error_statement' "$tmp/state/psql-stdin" || fail "server statement logging not turned down"
 if grep -qi 'SUPERUSER' "$tmp/state/psql-stdin"; then fail "role is a superuser"; fi
 pass "secrets only in the env file"
 
@@ -317,14 +330,45 @@ pip() { PATH="$bin:$PATH" CALLS=/dev/null pure fb_public_ip 2>"$tmp/pip.err"; }
 { grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '203.0.113.9' "$tmp/pip.err"; } || fail "mismatch warning must name both: $(cat "$tmp/pip.err")"
 [ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5" FAKE_ROUTE_SRC=10.0.0.5 pip)" = 198.51.100.20 ] || fail "NAT: ipify answer not used"
 { grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '10.0.0.5' "$tmp/pip.err" && grep -q 'HATAMOTO_PUBLIC_IP' "$tmp/pip.err"; } || fail "NAT warning: $(cat "$tmp/pip.err")"
-for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1; do
+for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1 100.64.0.1 100.127.255.254; do
   [ "$(FAKE_IP=$badip FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "ipify answer $badip accepted"
   grep -q 'not a public address' "$tmp/pip.err" || fail "no message for $badip"
 done
 [ "$(FAKE_IP=172.32.0.1 FAKE_LOCAL_IPS="172.32.0.1" pip)" = 172.32.0.1 ] || fail "172.32.0.1 is public"
+for goodip in 100.63.0.1 100.128.0.1; do
+  [ "$(FAKE_IP=$goodip FAKE_LOCAL_IPS="$goodip" pip)" = "$goodip" ] || fail "$goodip is public"
+done
 [ "$(FAKE_LOCAL_IPS="" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "no ipify answer: route source not used"
 [ "$(HATAMOTO_PUBLIC_IP=192.0.2.1 FAKE_IP=198.51.100.20 pip)" = 192.0.2.1 ] || fail "explicit HATAMOTO_PUBLIC_IP lost"
 pass "public IP: ipify answer cross-checked against local addresses"
+
+# --- admin email validation
+for good in ops@example.com a.b+c@sub.example.org; do pure fb_valid_email "$good" || fail "good email refused: $good"; done
+for bad in 'a b@x.com' 'x@' 'x@y' 'ops@example.com}' $'ops@example.com\nx@example.com' '@example.com'; do
+  if pure fb_valid_email "$bad"; then fail "bad email accepted: $bad"; fi
+done
+r="$(mkroot badmail)"
+if run_fb "$r" HATAMOTO_ADMIN_EMAIL='a b@x.com'; then fail "bad email accepted by the stage"; fi
+grep -q 'HATAMOTO_ADMIN_EMAIL is not an email address' "$tmp/err" || fail "bad email not explained: $(cat "$tmp/err")"
+[ ! -e "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker after a bad email"
+pass "admin email validated"
+
+# --- the saved inputs file may lack a final newline
+r="$(mkroot nonl)"
+mkdir -p "$r/etc/default"; printf 'HATAMOTO_TLS=auto' > "$r/etc/default/hatamoto-install"
+run_fb "$r" HATAMOTO_DOMAIN=cms.example.com || fail "no-newline run failed: $(cat "$tmp/err")"
+{ grep -qx 'HATAMOTO_TLS=auto' "$r/etc/default/hatamoto-install" && grep -qx 'HATAMOTO_DOMAIN=cms.example.com' "$r/etc/default/hatamoto-install"; } || fail "inputs glued onto one line: $(cat "$r/etc/default/hatamoto-install")"
+pass "inputs appended on their own line"
+
+# --- a failing role statement never shows the password
+r="$(mkroot psqlfail)"
+if run_fb "$r" FAKE_PSQL_FAIL=1; then fail "psql failure ignored"; fi
+dbpw="$(sed -n "s/.*PASSWORD '\([^']*\)'.*/\1/p" "$tmp/state/psql-stdin")"
+[ "${#dbpw}" -ge 32 ] || fail "no password to look for"
+grep -q 'boom' "$tmp/err" || fail "psql error not shown"
+if grep -q -e "$dbpw" "$tmp/out" "$tmp/err"; then fail "database password in the output of a failed psql"; fi
+grep -q -e '-v VERBOSITY=terse' "$tmp/calls" || fail "psql not run with terse errors"
+pass "psql errors are terse"
 
 # --- resume after a failed migrate keeps the secrets ------------------------------------------
 r="$(mkroot resume)"
