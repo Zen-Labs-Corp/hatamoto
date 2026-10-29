@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -129,8 +130,8 @@ func validateTermSEO(in TermSEO) (*TermSEO, error) {
 	in.MetaDescription = strings.TrimSpace(in.MetaDescription)
 	in.CanonicalURL = strings.TrimSpace(in.CanonicalURL)
 	in.OGImage = strings.TrimSpace(in.OGImage)
-	if len(in.MetaTitle) > maxSEOTitleLen || len(in.MetaDescription) > maxSEODescriptionLen ||
-		len(in.CanonicalURL) > maxSEOURLLen || len(in.OGImage) > maxSEOURLLen {
+	if utf8.RuneCountInString(in.MetaTitle) > maxSEOTitleLen || utf8.RuneCountInString(in.MetaDescription) > maxSEODescriptionLen ||
+		utf8.RuneCountInString(in.CanonicalURL) > maxSEOURLLen || utf8.RuneCountInString(in.OGImage) > maxSEOURLLen {
 		return nil, ErrInvalidSEO
 	}
 	if c := in.CanonicalURL; c != "" && !validCanonical(c) {

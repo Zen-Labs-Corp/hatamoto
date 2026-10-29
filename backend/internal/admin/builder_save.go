@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -58,11 +59,11 @@ func (s builderSEO) check() *entity.DocProblem {
 	}
 	t := func(v string) string { return strings.TrimSpace(v) }
 	switch {
-	case len(t(s.Title)) > builderSEOTitleMax:
+	case utf8.RuneCountInString(t(s.Title)) > builderSEOTitleMax:
 		return bad("Use at most 255 characters for the SEO title.")
-	case len(t(s.Description)) > builderSEODescMax:
+	case utf8.RuneCountInString(t(s.Description)) > builderSEODescMax:
 		return bad("Use at most 500 characters for the meta description.")
-	case len(t(s.OGImage)) > builderSEOURLMax, len(t(s.Canonical)) > builderSEOURLMax:
+	case utf8.RuneCountInString(t(s.OGImage)) > builderSEOURLMax, utf8.RuneCountInString(t(s.Canonical)) > builderSEOURLMax:
 		return bad("Use at most 2048 characters for an address.")
 	}
 	if c := t(s.Canonical); c != "" && !validSEOCanonical(c) {

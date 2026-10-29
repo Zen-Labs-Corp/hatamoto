@@ -646,6 +646,21 @@ func TestServiceUpdateTerm_RejectsInvalidSEO(t *testing.T) {
 	}
 }
 
+func TestServiceUpdateTerm_SEOCapsCountCharacters(t *testing.T) {
+	ctx := context.Background()
+	svc := NewService(newFakeRepo(), nil)
+	term, _ := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: "Guides"})
+	// Three bytes a character: over the cap in bytes, within it in characters.
+	in := TermSEO{MetaTitle: strings.Repeat("日", maxSEOTitleLen), MetaDescription: strings.Repeat("日", maxSEODescriptionLen)}
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &in}); err != nil {
+		t.Errorf("a title at the character cap: %v", err)
+	}
+	in.MetaTitle += "日"
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &in}); !errors.Is(err, ErrInvalidSEO) {
+		t.Errorf("a title over the cap: %v", err)
+	}
+}
+
 func TestTermJSONOmitsEmptySEO(t *testing.T) {
 	b, _ := json.Marshal(Term{Name: "x"})
 	if strings.Contains(string(b), "seo") {

@@ -419,6 +419,22 @@ func TestBuilderSaveSEOInvalidCanonical(t *testing.T) {
 	}
 }
 
+func TestBuilderSaveSEOCapsCountCharacters(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	// 90 characters, 270 bytes: within the 255-character cap.
+	seo := `,"seo":{"title":"` + strings.Repeat("日", 90) + `"}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK {
+		t.Fatalf("a 90-character title: %d %+v", code, out)
+	}
+	r = newSaveRig(t)
+	seo = `,"seo":{"title":"` + strings.Repeat("日", 256) + `"}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != http.StatusUnprocessableEntity {
+		t.Errorf("a 256-character title: %d %+v", code, out)
+	}
+}
+
 func TestBuilderSaveSEOIgnoredForReuseBlocks(t *testing.T) {
 	t.Parallel()
 
