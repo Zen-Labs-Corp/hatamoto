@@ -33,6 +33,7 @@ for b in "${blocks[@]}"; do
     '#cloud-config' | '#!/bin/sh') ;;
     *) fail "$name: first line must be #cloud-config or #!/bin/sh, got: $first" ;;
   esac
+  if grep -Eq 'curl[^|]*\|[^|]*sh' "$b"; then fail "$name: pipes curl into a shell (a failed download would pass): download to a file first"; fi
   grep -q 'https://hatamoto.dev/install.sh' "$b" || fail "$name: does not reference the installer URL"
   while read -r var; do
     [[ "$var" =~ ^$allowed$ ]] || fail "$name: unknown input $var"
@@ -58,3 +59,18 @@ if grep -Eq 'SETUP_CODE=[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}' "$page"; then
   fail "page contains a literal setup code"
 fi
 pass "no literal setup code"
+
+# The banner in the install guide is the text first boot prints (link, code and domain values aside).
+guide="${DOCS_GUIDE_PAGE:-$here/../../docs/site/getting-started/install-vps.md}"
+[ -f "$guide" ] || fail "missing page: $guide"
+norm() {
+  sed -e 's/^[[:space:]]*//' -e '/^$/d' \
+    -e 's#^https://.*#LINK#' -e 's#^Setup code:.*#Setup code: CODE#' \
+    -e 's#^Domain:.*#Domain: DOMAIN#'
+}
+awk '/^```text$/ { blk = ""; inb = 1; next } /^```$/ { if (inb && blk ~ /Hatamoto is ready\./) { printf "%s", blk; exit } inb = 0; next } inb { blk = blk $0 "\n" }' "$guide" | norm > "$tmp/doc-banner"
+[ -s "$tmp/doc-banner" ] || fail "no banner block in the install guide"
+bash "$here/build-install.sh" --out "$tmp/asm" >/dev/null
+HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; fb_banner https://x.example/setup "K7M2" example.com 203.0.113.7' _ "$tmp/asm/firstboot.sh" | norm > "$tmp/real-banner"
+diff -u "$tmp/real-banner" "$tmp/doc-banner" >&2 || fail "the banner in the install guide differs from the one first boot prints"
+pass "install guide banner matches fb_banner"

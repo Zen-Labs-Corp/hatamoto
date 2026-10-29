@@ -76,13 +76,21 @@ When the install ends, the console prints a block like this:
 ```text
 Hatamoto is ready.
 
-Finish setup in your browser:
-https://203-0-113-7.sslip.io/k7qm-x2rf-9tdc/setup#code=K7M2-RT9P-QW4X
+Open this link to create your owner account
+(the setup code is already filled in):
+
+  https://203-0-113-7.sslip.io/k7qm-x2rf-9tdc/setup#code=K7M2-RT9P-QW4X
 
 Setup code: K7M2-RT9P-QW4X
+Domain:     cms.example.com (waiting for DNS -> 203.0.113.7;
+            will switch automatically)
+Updates:    automatic (stable channel)
+Status:     systemctl status hatamoto-api
+
+This message disappears once the owner account exists.
 ```
 
-Open the link. The setup wizard shows the code already filled in, because the part after `#` stays in your browser and is never sent to the server. The same message shows each time you sign in to the server, until you create the owner account. Continue with [First run](first-run.md).
+The `Domain:` line only appears while your domain does not point at the server yet; the site then moves to it by itself. Open the link. The setup wizard shows the code already filled in, because the part after `#` stays in your browser and is never sent to the server. The same message shows each time you sign in to the server, until you create the owner account. Continue with [First run](first-run.md).
 
 ## Check it worked
 
