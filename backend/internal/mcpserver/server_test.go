@@ -16,6 +16,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/menu"
 )
 
 type fakeKeys struct{ scopes []hmauth.APIKeyScope }
@@ -239,5 +240,38 @@ func TestPublicError_BadLocaleKeepsItsText(t *testing.T) {
 	}
 	if got := publicError(nil, "entities_create", err); got.Error() != err.Error() {
 		t.Errorf("publicError = %q, want %q", got, err)
+	}
+}
+
+func TestPlanMenuItemsNoneAndSettings(t *testing.T) {
+	got, err := planMenuItems([]menuItemIn{
+		{Label: "Product", LinkType: "none"},
+		{Label: "Page", LinkType: "entity"}, // no target: stored, renders as text
+		{Label: "Go", LinkType: "external", URL: "/go", CSSClasses: "footer-cta  extra",
+			Attrs: &menu.MenuItemAttrs{Style: "button", ShowOn: "all", Rel: []string{"nofollow"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].LinkType != "none" || got[1].EntityID != nil {
+		t.Errorf("none and empty entity: %+v %+v", got[0], got[1])
+	}
+	if got[2].CSSClasses == nil || *got[2].CSSClasses != "footer-cta extra" || got[2].Attrs.Style != "button" || got[2].Attrs.ShowOn != "" {
+		t.Errorf("settings not mapped: %+v", got[2])
+	}
+	// Old payloads carry none of the new keys and keep their meaning.
+	old, err := planMenuItems([]menuItemIn{{Label: "A", LinkType: "custom", URL: "/a"}})
+	if err != nil || old[0].CSSClasses != nil || old[0].Attrs.Style != "" || len(old[0].Attrs.Rel) != 0 {
+		t.Errorf("old payload changed: %+v %v", old, err)
+	}
+	for name, bad := range map[string]menuItemIn{
+		"external needs url": {Label: "X", LinkType: "external"},
+		"bad class":          {Label: "X", LinkType: "none", CSSClasses: "1bad"},
+		"bad rel":            {Label: "X", LinkType: "none", Attrs: &menu.MenuItemAttrs{Rel: []string{"evil"}}},
+		"bad type":           {Label: "X", LinkType: "nope"},
+	} {
+		if _, err := planMenuItems([]menuItemIn{bad}); err == nil {
+			t.Errorf("%s accepted", name)
+		}
 	}
 }
