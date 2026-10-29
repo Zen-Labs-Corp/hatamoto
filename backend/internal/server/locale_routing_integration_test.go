@@ -70,6 +70,7 @@ func TestLocaleRouting_Integration(t *testing.T) {
 	ins(uuid.New(), slug, "fr", "HEADLINE-FR-ABOUT")
 	ins(uuid.New(), sharedSlug, "und", "HEADLINE-SHARED")
 	ins(uuid.New(), "only-fr-"+sfx, "fr", "HEADLINE-ONLY-FR")
+	ins(uuid.New(), "only-en-"+sfx, "en", "HEADLINE-ONLY-EN")
 
 	var prev struct {
 		name, lang, xdef string
@@ -159,4 +160,26 @@ func TestLocaleRouting_Integration(t *testing.T) {
 	expect("/fr/"+slug, 200, "HEADLINE-FR-ABOUT")
 	expect("/"+slug, 404)
 	expect("/"+sharedSlug, 200, "HEADLINE-SHARED")
+
+	// Under prefix-all the unprefixed listings the theme links to (/search)
+	// list the default locale + shared rows; a prefixed one keeps its locale.
+	search := func(path string) string { return do(http.MethodGet, path+"?q="+sfx).Body.String() }
+	enAll := search("/search")
+	for _, w := range []string{"only-en-" + sfx, sharedSlug} {
+		if !strings.Contains(enAll, w) {
+			t.Errorf("prefix-all /search lacks %q", w)
+		}
+	}
+	if strings.Contains(enAll, "only-fr-"+sfx) {
+		t.Errorf("prefix-all /search lists an fr row")
+	}
+	frAll := search("/fr/search")
+	for _, w := range []string{"only-fr-" + sfx, sharedSlug} {
+		if !strings.Contains(frAll, w) {
+			t.Errorf("prefix-all /fr/search lacks %q", w)
+		}
+	}
+	if strings.Contains(frAll, "only-en-"+sfx) {
+		t.Errorf("prefix-all /fr/search lists an en row")
+	}
 }

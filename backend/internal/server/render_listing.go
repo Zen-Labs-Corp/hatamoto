@@ -67,6 +67,15 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 	if rr.Rest != "" {
 		bare = rr.Rest
 	}
+	// Under prefix-all an unprefixed path resolved to the shared scope, but the
+	// listings the theme links to unprefixed (/search, term archives) belong to
+	// the default locale: they list its rows and the shared ones.
+	locale := rr.Locale
+	if locale == entity.LocaleShared {
+		if def := s.urlSnapshot(ctx).Locales().Default(); def != "" {
+			locale = def
+		}
+	}
 	lr, err := s.resolveListing(ctx, bare, r)
 	if lr != nil {
 		lr.Path = path
@@ -77,7 +86,7 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if lr != nil {
-		return &routeResult{Listing: lr, Locale: rr.Locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Listing: lr, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	reg, err := s.resolveRegistry(ctx, bare, r)
 	if err != nil {
@@ -86,7 +95,7 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if reg != nil {
-		return &routeResult{Registry: reg, Locale: rr.Locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Registry: reg, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	return rr, outcome, nil
 }
