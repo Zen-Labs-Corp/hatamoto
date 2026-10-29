@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
@@ -19,8 +20,40 @@ import (
 )
 
 // pageSet is one page template plus the shared layouts and partials, parsed
-// into its own set so pages never collide on {{define "main"}}.
-type pageSet struct{ t *template.Template }
+// into its own set so pages never collide on {{define "main"}}. src is parsed
+// once and never executed (with embedded templates it is shared by every Admin
+// in the process); each Admin clones it on first use and binds its own funcs,
+// because html/template escapes a set in place the first time it runs.
+type pageSet struct {
+	src  *template.Template
+	fm   template.FuncMap
+	once sync.Once
+	t    *template.Template
+}
+
+// tmpl returns this Admin's executable copy of the page set.
+func (ps *pageSet) tmpl() *template.Template {
+	ps.once.Do(func() {
+		t, err := ps.src.Clone()
+		if err != nil {
+			// src is never executed, so Clone cannot fail.
+			panic(fmt.Sprintf("admin: clone page set: %v", err))
+		}
+		ps.t = t.Funcs(ps.fm)
+	})
+	return ps.t
+}
+
+// embedded caches what build derives from the embedded admin tree (no template
+// dir): it cannot change within a process, and parsing it is most of what New
+// costs. The assets are keyed by admin path, the URL prefix they are built for.
+var embedded struct {
+	once   sync.Once
+	pages  map[string]*template.Template
+	err    error
+	mu     sync.Mutex
+	assets map[string]*Assets
+}
 
 // Crumb is one breadcrumb.
 type Crumb = ui.Crumb
@@ -280,63 +313,102 @@ func (a *Admin) funcMap() template.FuncMap {
 }
 
 func (a *Admin) build() error {
-	as, err := buildAssets(a.adminFS, web.Vendor(), a.adminPath)
+	as, err := a.buildAssets()
 	if err != nil {
 		return fmt.Errorf("admin assets: %w", err)
 	}
-	shared := map[string]string{}
+	var srcs map[string]*template.Template
+	if a.deps.Dir == "" {
+		embedded.once.Do(func() { embedded.pages, embedded.err = parsePages(a.adminFS) })
+		srcs, err = embedded.pages, embedded.err
+	} else {
+		srcs, err = parsePages(a.adminFS)
+	}
+	if err != nil {
+		return err
+	}
+	fm := a.funcMap()
+	pages := make(map[string]*pageSet, len(srcs))
+	for key, src := range srcs {
+		pages[key] = &pageSet{src: src, fm: fm}
+	}
+	a.mu.Lock()
+	a.assets, a.pages, a.loaded = as, pages, true
+	a.mu.Unlock()
+	return nil
+}
+
+// buildAssets builds the asset bundle, once per admin path for the embedded tree.
+func (a *Admin) buildAssets() (*Assets, error) {
+	if a.deps.Dir != "" {
+		return buildAssets(a.adminFS, web.Vendor(), a.adminPath)
+	}
+	embedded.mu.Lock()
+	defer embedded.mu.Unlock()
+	if as, ok := embedded.assets[a.adminPath]; ok {
+		return as, nil
+	}
+	as, err := buildAssets(a.adminFS, web.Vendor(), a.adminPath)
+	if err != nil {
+		return nil, err
+	}
+	if embedded.assets == nil {
+		embedded.assets = map[string]*Assets{}
+	}
+	embedded.assets[a.adminPath] = as
+	return as, nil
+}
+
+// parsePages parses every page under pages/ with the shared layouts and
+// partials. The shared files are parsed once and cloned into each page's set.
+// The templates are parsed with placeholder funcs (only the names matter to the
+// parser) and never executed here: pageSet.tmpl clones them and binds an
+// Admin's real funcs.
+func parsePages(fsys fs.FS) (map[string]*template.Template, error) {
+	base := template.New("").Funcs((&Admin{}).funcMap())
 	for _, dir := range []string{"layouts", "partials"} {
-		names, err := fs.Glob(a.adminFS, dir+"/*.html")
+		names, err := fs.Glob(fsys, dir+"/*.html")
 		if err != nil {
-			return err
+			return nil, err
 		}
+		sort.Strings(names)
 		for _, n := range names {
-			b, err := fs.ReadFile(a.adminFS, n)
+			b, err := fs.ReadFile(fsys, n)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			shared[n] = string(b)
+			if _, err := base.New(n).Parse(string(b)); err != nil {
+				return nil, fmt.Errorf("admin template %s: %w", n, err)
+			}
 		}
 	}
 	var pageFiles []string
-	err = fs.WalkDir(a.adminFS, "pages", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, "pages", func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".html") {
 			pageFiles = append(pageFiles, p)
 		}
 		return err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sort.Strings(pageFiles)
-	sharedNames := make([]string, 0, len(shared))
-	for n := range shared {
-		sharedNames = append(sharedNames, n)
-	}
-	sort.Strings(sharedNames)
-
-	pages := map[string]*pageSet{}
+	pages := make(map[string]*template.Template, len(pageFiles))
 	for _, pf := range pageFiles {
-		body, err := fs.ReadFile(a.adminFS, pf)
+		body, err := fs.ReadFile(fsys, pf)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		t := template.New("").Funcs(a.funcMap())
-		for _, n := range sharedNames {
-			if _, err := t.New(n).Parse(shared[n]); err != nil {
-				return fmt.Errorf("admin template %s: %w", n, err)
-			}
+		t, err := base.Clone()
+		if err != nil {
+			return nil, err
 		}
 		if _, err := t.New("page").Parse(string(body)); err != nil {
-			return fmt.Errorf("admin template %s: %w", pf, err)
+			return nil, fmt.Errorf("admin template %s: %w", pf, err)
 		}
-		key := strings.TrimSuffix(strings.TrimPrefix(pf, "pages/"), ".html")
-		pages[key] = &pageSet{t: t}
+		pages[strings.TrimSuffix(strings.TrimPrefix(pf, "pages/"), ".html")] = t
 	}
-	a.mu.Lock()
-	a.assets, a.pages, a.loaded = as, pages, true
-	a.mu.Unlock()
-	return nil
+	return pages, nil
 }
 
 // state returns the current assets and pages; with a template dir it rebuilds
@@ -416,14 +488,14 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	if isFragment(r) {
 		name = "main"
 	}
-	mods, err := pageModules(ps.t, as)
+	mods, err := pageModules(ps.tmpl(), as)
 	if err != nil {
 		a.logger().Error("admin: page modules", "page", page, "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	v.Modules = mods
-	scripts, err := pageScripts(ps.t)
+	scripts, err := pageScripts(ps.tmpl())
 	if err != nil {
 		a.logger().Error("admin: page scripts", "page", page, "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -432,7 +504,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	v.Scripts = append(v.Scripts, scripts...)
 	v.Width = pageWidth(v.Width)
 	var buf bytes.Buffer
-	if err := ps.t.ExecuteTemplate(&buf, name, v); err != nil {
+	if err := ps.tmpl().ExecuteTemplate(&buf, name, v); err != nil {
 		a.logger().Error("admin: render failed", "page", page, "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -441,7 +513,7 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 		// The markup carries hooks (schemaform fields) whose scripts the page
 		// did not declare: the head is rendered again with them.
 		buf.Reset()
-		if err := ps.t.ExecuteTemplate(&buf, name, v); err != nil {
+		if err := ps.tmpl().ExecuteTemplate(&buf, name, v); err != nil {
 			a.logger().Error("admin: render failed", "page", page, "err", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -473,7 +545,7 @@ func (a *Admin) RenderPartial(name string, data any) (template.HTML, error) {
 	_, pages := a.state()
 	for _, ps := range pages {
 		var buf bytes.Buffer
-		if err := ps.t.ExecuteTemplate(&buf, name, data); err != nil {
+		if err := ps.tmpl().ExecuteTemplate(&buf, name, data); err != nil {
 			return "", err
 		}
 		return template.HTML(buf.String()), nil //nolint:gosec // produced by html/template
