@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ type fakeUpdates struct {
 	unpins    int
 	noBackup  int
 	bannerGet int
-	glanceGet int
+	glanceGet atomic.Int64 // Glance runs concurrently (the dashboard widgets)
 }
 
 func (f *fakeUpdates) View(context.Context) (UpdatesState, error) { return f.state, f.viewErr }
@@ -60,7 +61,7 @@ func (f *fakeUpdates) Banner(context.Context) (*UpdateBanner, error) {
 
 // Glance mirrors View, as the real service derives both from the same row.
 func (f *fakeUpdates) Glance(context.Context) (UpdatesGlance, error) {
-	f.glanceGet++
+	f.glanceGet.Add(1)
 	st := f.state
 	return UpdatesGlance{Running: st.Running, Dev: st.Dev, Mode: st.Mode, Channel: st.Channel, Status: st.Status, OffSince: st.OffSince, History: st.History}, f.viewErr
 }
