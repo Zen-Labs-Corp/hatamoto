@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,6 +49,9 @@ func (a *Admin) handleBuilderSEO(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "entities/builderseo", v)
 }
 
+// analyzeFormSlack is the room the SEO fields take next to the doc.
+const analyzeFormSlack = 64 << 10
+
 // handleBuilderAnalyze is POST /admin/entities/{id}/builder/analyze: the SEO
 // panel for the draft in the request. It renders the posted doc through the
 // preview, reads the page's <main> and runs the body checks on it. Nothing is
@@ -61,9 +65,16 @@ func (a *Admin) handleBuilderAnalyze(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusNotFound, "No preview", "The page preview is not available.")
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, builderSaveMaxBody)
+	// The doc travels as a form field, where each of its quotes, braces and
+	// colons takes three bytes: the cap leaves room for a doc that saves.
+	r.Body = http.MaxBytesReader(w, r.Body, 3*builder.MaxBytes+analyzeFormSlack)
 	if err := r.ParseForm(); err != nil {
-		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "This page is too large to analyse.")
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "This page is too large to analyse.")
+			return
+		}
+		a.Error(w, r, http.StatusBadRequest, "Bad request", "The request could not be read.")
 		return
 	}
 	doc := []byte(r.PostForm.Get("doc"))

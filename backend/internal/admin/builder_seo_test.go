@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -159,5 +160,32 @@ func TestBuilderSEOSchemaTabHasTheNamedPagesData(t *testing.T) {
 		}
 		lacks(t, rec.Body.String(), "until the entry has a name")
 		has(t, rec.Body.String(), "Structured data:")
+	}
+}
+
+func TestBuilderAnalyzeSizeAndParseErrors(t *testing.T) {
+	t.Parallel()
+
+	r := newBSEORig(t, seoPreviewHTML)
+	// 800 KB of quotes: a doc that saves, and 2.4 MiB once form-encoded.
+	var nodes []string
+	for i := 0; i < 40; i++ {
+		nodes = append(nodes, fmt.Sprintf(`{"id":"h%d","t":"heading","p":{"text":"%s","level":2}}`, i, strings.Repeat(`\"`, 10000)))
+	}
+	doc := `{"v":2,"nodes":[` + strings.Join(nodes, ",") + `]}`
+	if rec := r.analyze("owner-token", r.page, doc); rec.Code != http.StatusOK {
+		t.Errorf("a doc that saves: %d %.300s", rec.Code, rec.Body)
+	}
+	if rec := r.analyze("owner-token", r.page, strings.Repeat("a", 4*builderSaveMaxBody)); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("a doc over the cap: %d", rec.Code)
+	}
+	bad := httptest.NewRequest("POST", r.url(r.page, "/builder/analyze"), strings.NewReader("doc=%zz"))
+	bad.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	bad.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	r.addFetchMeta(bad, "owner-token", htmxHdr)
+	rec := httptest.NewRecorder()
+	r.h.ServeHTTP(rec, bad)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("a malformed body: %d", rec.Code)
 	}
 }
