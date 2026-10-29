@@ -124,6 +124,22 @@ func TestLocaleRouting_Integration(t *testing.T) {
 	expect("/nl/"+slug, 404) // no nl copy
 	expect("/frx/"+slug, 404)
 	expect("/fr/search?q=x", 200)
+
+	// Listings under a locale prefix keep the locale scope: /fr/search lists fr
+	// and shared rows only and renders lang=fr; the default one lists en + shared.
+	frSearch := do(http.MethodGet, "/fr/search?q="+sfx).Body.String()
+	for _, w := range []string{`lang="fr"`, "only-fr-" + sfx, sharedSlug} {
+		if !strings.Contains(frSearch, w) {
+			t.Errorf("/fr/search lacks %q", w)
+		}
+	}
+	if strings.Contains(frSearch, `href="/`+slug) {
+		t.Errorf("/fr/search links the unprefixed en copy of %s", slug)
+	}
+	enSearch := do(http.MethodGet, "/search?q="+sfx).Body.String()
+	if strings.Contains(enSearch, "only-fr-"+sfx) || !strings.Contains(enSearch, sharedSlug) {
+		t.Errorf("/search does not list en + shared rows only")
+	}
 	if rec := do(http.MethodGet, "/fr/"+slug); !strings.Contains(rec.Body.String(), `https://locale-it.example.test/fr/`+slug) {
 		t.Errorf("/fr/%s canonical is not prefixed", slug)
 	}

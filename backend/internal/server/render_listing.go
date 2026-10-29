@@ -77,7 +77,7 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if lr != nil {
-		return &routeResult{Listing: lr}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Listing: lr, Locale: rr.Locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	reg, err := s.resolveRegistry(ctx, bare, r)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if reg != nil {
-		return &routeResult{Registry: reg}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Registry: reg, Locale: rr.Locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	return rr, outcome, nil
 }
