@@ -45,6 +45,6 @@
 .hm-bs-opt--inherited[aria-pressed="true"], .hm-bs-opt--inherited[aria-checked="true"] { border-color: var(--color-sumi); box-shadow: none; }
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
-  .hm-bs-opt { outline: 1px solid ButtonText; outline-offset: -1px; }
+  .hm-bs-opt, .hm-bs-opt:focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-linkbtn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
