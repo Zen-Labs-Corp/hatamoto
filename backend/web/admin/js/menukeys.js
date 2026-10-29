@@ -143,6 +143,13 @@ export function init(tree, api) {
       save();
       return;
     }
+    // Enter in a field of the tree, the inspector or the filter confirms the field.
+    // It must not reach the form's default button, which saves the whole menu.
+    if (evt.key === "Enter" && !mod && !evt.altKey && evt.target.matches?.("input:not([type=checkbox], [type=radio], [type=button], [type=submit])") && evt.target.closest("[data-hm-menutree], [data-hm-inspector], [data-hm-filter]")) {
+      evt.preventDefault();
+      if (evt.target.matches('[data-hm-inspector] [data-hm-ins="label"]')) cursor?.focus();
+      return;
+    }
     if (inField || evt.target.closest?.("dialog, [popover]:popover-open")) return;
     const li = evt.target.closest?.("[data-hm-item]");
     if (!li || !tree.contains(li)) {

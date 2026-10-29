@@ -271,6 +271,19 @@ try {
   await frame.locator("footer a", { hasText: "Security" }).click();
   ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").inputValue()) === "Security", "preview: a click on a link selects its item and does not leave the editor");
 
+  // ---- Enter in a field confirms it and does not save the menu ---------------------
+  await page.evaluate(() => { window.__stay = 1; });
+  await page.locator("[data-hm-filter]").fill("Sec");
+  await page.keyboard.press("Enter");
+  await clickRow(page, "Security");
+  await page.locator("#ins-label").fill("Security notes");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(400);
+  ok((await page.evaluate(() => window.__stay)) === 1 && (await state(page)) === "unsaved" && (await rowsOf(page)).some((r) => r[1] === "Security notes"), "Enter in the filter or in a rename field does not save the menu");
+  ok(await page.evaluate(() => document.activeElement?.matches("[data-hm-item]")), "Enter in the inspector label returns focus to the row");
+  await page.locator("[data-hm-filter]").fill("");
+  await page.locator("#ins-label").fill("Security");
+
   // ---- the save bar and the leave warning ----------------------------------------
   const issues = page.locator("[data-hm-issues] .hm-badge").first();
   ok(await issues.count() === 1, "item 1: the issue count is an hm/badge");
