@@ -241,6 +241,9 @@ type Deps struct {
 	// PublicAPIPrefix is the extra public API prefix (PUBLIC_API_PREFIX), empty
 	// when only /api/v1/public is served. Form addresses shown in the admin use it.
 	PublicAPIPrefix string
+	// AppVersion is the running build's version (app.Version, stamped by the
+	// Makefile); empty or a development build shows as "dev build".
+	AppVersion string
 	// Dev turns on the development-only pages (the styleguide, HATAMOTO_DEV=1).
 	Dev bool
 	// Demo is the public demo mode (HATAMOTO_DEMO=1): a fixed banner, the
@@ -286,6 +289,8 @@ type Admin struct {
 	noFetchMetaLogged atomic.Int64
 	// speculation is the shell's speculation rules JSON under adminPath, built once.
 	speculation template.HTML
+	// appVersion is Deps.AppVersion as the shell's colophon shows it.
+	appVersion string
 
 	mu     sync.RWMutex
 	assets *Assets
@@ -337,6 +342,7 @@ func New(d Deps) (*Admin, error) {
 		legacy:        legacyRulesFor(adminPath),
 		robotsReturns: robotsReturnsFor(adminPath),
 		speculation:   speculationRulesFor(adminPath),
+		appVersion:    displayAppVersion(d.AppVersion),
 		csrfKey:       deriveCSRFKey(d.FlashKey),
 	}
 	a.sudo.store = &d.Sudo.s

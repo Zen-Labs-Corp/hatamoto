@@ -126,6 +126,7 @@ A change to one component edits only its own subsection below and its entry in t
 | button | `.hm-btn` | `css/partials/button.css` | `hm/button` | `border-top-color: var(--border-control)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-btn--danger`: `border-top-color: var(--color-danger)`; `.hm-btn--ghost`: `border-top-color: transparent`; `.hm-btn--icon, .hm-btn[data-icon-only]`: `padding-left: 0`, `padding-right: 0`; `.hm-btn[aria-pressed="true"]`: `border-top-color: var(--color-sumi)`; `.hm-btn--primary`: `border-top-color: var(--color-sumi)`; `.hm-btn--sm`: `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
 | card | `.hm-card` | `css/partials/card.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)` |
 | chip | `.hm-msel__chip, .hm-msel__more, .hm-filter-chip` | `css/partials/multiselect.css` | none | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--chip-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
+| colophon | `.hm-colophon` | `css/partials/colophon.css` | none |  |
 | confirmcard | `.hm-confirmcard` | `css/partials/confirmcard.css` | `hm/confirmcard` | `display: flex`, `flex-direction: column`, `gap: var(--space-4)` |
 | danger-confirm | `.hm-danger-confirm` | `css/partials/danger-confirm.css` | `hm/danger-confirm` | `border-top-left-radius: 0`, `font-size: var(--text-sm)`, `padding-left: 0`, `padding-right: 0` |
 | dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
@@ -144,7 +145,6 @@ A change to one component edits only its own subsection below and its entry in t
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
 | tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
-| updatechip | `.hm-updchip` | `css/partials/updatechip.css` | `hm/updatechip` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-xs)`, `height: var(--space-8)`, `padding-left: var(--space-2-5)` |
 <!-- components:end -->
 
 ### Button
@@ -403,7 +403,7 @@ its data table; the script draws the SVG over it. No charting library is shipped
 ### Dashboard (overview)
 
 `GET <admin>` is the Overview, built in `internal/admin/dashboard.go` from existing
-stores and shipped partials only: no new table; the update chip (`hm/updatechip`), the
+stores and shipped partials only: no new table; the
 Site health and Activity cards and the owner-only Audit log page are the additions. A KPI row
 of five `hm/stat` ticker cards (Published, Drafts, New submissions, Missing pages,
 AI-referred visits) is followed by the card grid (below). Each KPI shows its `Note`
@@ -433,14 +433,9 @@ colour that is not a token; anything a second page needs becomes a partial.
 - **Split spark.** A KPI with a comparison draws the previous period as a grey
   `.hm-spark__prev` line left of a `.hm-spark__divider`, the current period in the accent
   line; the note says what is compared. Only Submissions and AI-referred visits have one.
-- **Update chip (`hm/updatechip`).** Owner only, and only in the shell (top bar, after the
-  crumbs); it never appears on auth or error pages. It reads the cached update glance, not
-  the update service, so a page view makes no extra call. Release blocks (`success`,
-  `danger`, `info` for a ready update) are decoration; the button's `aria-label` carries the
-  state, and the popover (`hm/popover` handling, no script of its own) lists the last 6
-  releases and links to Update settings. The top banner is narrowed to what needs an
-  action: `rolled_back`, `blocked`, `backup_failed`. A major release and updates off for
-  90+ days are told by the chip only.
+- **Update status.** The overview has no updates card and the top bar no update chip. The
+  top banner is narrowed to what needs an action: `rolled_back`, `blocked`, `backup_failed`.
+  A major release and updates off for 90+ days are shown on Settings › Updates only.
 
 | Read | Bound |
 |---|---|
@@ -449,7 +444,6 @@ colour that is not a token; anything a second page needs becomes a partial.
 | Missing pages | one read-only query: open entries seen in the last 7 days, 51 rows at most ("50+" when full) |
 | AI-referred visits | one 14-day window |
 | Pages AI crawlers fetch most | 8 rows, last 30 days |
-| Updates (chip) | cached glance, latest 6 history rows |
 | Site health | the existing health checks, grouped; read-only |
 | Activity | newest 6 of the audit log merged with update history; one source failing leaves the other |
 
@@ -496,6 +490,7 @@ a page never adds a second form or a second primary button inside the card. The 
 - **`hm/tabs` `ShowZero`.** A row opts in to showing a count of 0 (taxonomy kinds); by default 0 stays hidden.
 - **`#hm-confirm` is the one hand-written dialog.** `components.js` fills a single shared node, so it is not built with `hm/dialog-start`. A link or menu item with `data-hm-confirm` opens it; so does a submit `button[data-hm-confirm]` inside a form, which then posts that form's fields (without `_csrf`). Without script the button submits directly, so its card must already say what happens.
 - **`data-hm-carry="<input id>"`** on a link appends that input's value as `?email=` when clicked (the invite form's "Add with a password instead"); without script it is a plain link.
+- **Colophon.** Every shell page (never the bare or editor layouts) ends with `.hm-colophon` after `</main>`: one muted `--text-xs` link, "Hatamoto <version> · Stand close. Serve well.", to https://hatamoto.dev (`View.AppVersion`: `app.Version` with one leading v, or "dev build"). `.hm-shell__main` is a flex column with `.hm-content` growing, so the line sits at the foot of a short page and after the content of a long one; centred under 768px (`css/partials/colophon.css`).
 - **The sidebar** is sticky at `100dvh`; its collapsed state persists in `localStorage` (`hm-sidebar`) on desktop. Under 768px it is a top bar and has no toggle. When a subnav is shown, only the subnav item carries the active chip.
 
 ### Segmented

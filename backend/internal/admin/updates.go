@@ -155,9 +155,6 @@ var ErrNoUpdate = errors.New("there is no update to install")
 
 const updatesPath = "/settings/updates"
 
-// offBannerAfter is how long updates must have been off before the chip says so.
-const offBannerAfter = 90 * 24 * time.Hour
-
 // ApplyTarget is the version "Update now" installs: a major the owner has to
 // start by hand, a scheduled or notified release that skips the ramp, window
 // and defer, or the target of an Update now that did not finish (so it can be

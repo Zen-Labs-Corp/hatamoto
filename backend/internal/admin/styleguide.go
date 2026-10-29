@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"net/http"
 	"sort"
-	"time"
 
 	"hatamoto.dev/core/internal/admin/ui"
 )
@@ -55,8 +54,8 @@ func styleguideSamples(prefix string) map[string][]sample {
 		"chip": {
 			{Label: "Chip and more", HTML: `<span class="hm-msel__chip">Design</span> <span class="hm-msel__more">+2 more</span>`},
 		},
-		"updatechip": {
-			{Label: "Update chip", Data: sgUpdateChip(prefix)},
+		"colophon": {
+			{Label: "Colophon", HTML: `<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto v1.4.3">Hatamoto v1.4.3 <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>`},
 		},
 		"dialog": {
 			{Label: "Dialog panel", HTML: `<div class="hm-dialog" role="group" aria-label="Dialog sample"><div class="hm-dialog__panel"><h3 class="hm-dialog__title">Dialog title</h3><p class="hm-dialog__body">Dialog body.</p></div></div>`},
@@ -184,15 +183,4 @@ func (a *Admin) handleStyleguide(w http.ResponseWriter, r *http.Request) {
 	v := a.NewView(w, r, "Styleguide")
 	v.Data = secs
 	a.Render(w, r, http.StatusOK, "dev/styleguide", v)
-}
-
-// sgUpdateChip is the top-bar update chip for a healthy install that has had
-// one update, under its own popover id so it never clashes with a live chip.
-func sgUpdateChip(prefix string) *UpdateChip {
-	now := time.Date(2026, 2, 25, 12, 0, 0, 0, time.UTC)
-	c := buildUpdateChip(UpdatesGlance{Running: "v1.4.3", Mode: "auto", Channel: "stable",
-		Status:  UpdatesStatus{Decision: "up_to_date"},
-		History: []UpdatesHistoryRow{{When: now.Add(-24 * time.Hour), From: "v1.4.2", To: "v1.4.3", Phase: "success"}}}, prefix, time.UTC, now)
-	c.ID = "sg-update-chip"
-	return c
 }

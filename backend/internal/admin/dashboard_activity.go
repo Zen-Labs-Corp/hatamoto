@@ -41,7 +41,7 @@ func auditEvents(rows []AuditRow) []activityEvent {
 func updateEvents(rows []UpdatesHistoryRow) []activityEvent {
 	out := make([]activityEvent, 0, len(rows))
 	for _, h := range rows {
-		out = append(out, activityEvent{At: h.When, Who: autoUpdateActor, Target: chipVersion(h.To), Badge: updatesHistoryBadge(h)})
+		out = append(out, activityEvent{At: h.When, Who: autoUpdateActor, Target: displayVersion(h.To), Badge: updatesHistoryBadge(h)})
 	}
 	return out
 }
