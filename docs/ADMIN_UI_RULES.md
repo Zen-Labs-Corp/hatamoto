@@ -162,8 +162,15 @@ active is a kasumi fill with the ring only; pressed (`aria-pressed`) is kasumi w
 `primary` keeps the ink fill with an inset bottom edge `--btn-edge-primary` (hover `--color-sumi-soft`),
 `danger` is solid with an inset bottom edge `--btn-edge-danger`, `ghost` has no ring, and `danger-text` is
 the secondary frame with a red label. Inline padding adds `--space-px`, so the text stays where the 1px
-border had it. Forced colors: a 1px `ButtonText` outline and a `Highlight` focus ring. Only `css/partials/button.css` may set these values;
+border had it. Forced colors: every button, ghost and danger-text included, gets a 1px system-colour
+outline as its edge (`GrayText` when disabled; the ring shadows are dropped there) and a `Highlight` focus ring.
+Only `css/partials/button.css` may set these values;
 other files may set layout (width, margin) but not radius, padding, type or borders on `.hm-btn`.
+
+Like the Input relaxation below, the resting secondary edge is a deliberate relaxation of WCAG 1.4.11:
+`--segment-ring` is a hairline well below the 3:1 that `--border-control` met, chosen so a button matches the
+selected segmented pill. The label, the fill and the position identify the button; hover and focus keep a
+stronger ring. Do not move it back to `--border-control`.
 
 ### Input
 
