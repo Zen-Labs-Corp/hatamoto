@@ -416,11 +416,27 @@ type ThemeTokens struct {
 }
 
 // NavItem is a navigation entry, optionally with children.
+//
+// Href is "#" for an item without a link and NoLink is set, so a theme that
+// ignores NoLink keeps today's behaviour. Class already joins the item's own
+// classes with the theme's style, colour and show-on classes. Badge is the
+// badge text and BadgeClass the theme's class for it; Icon is a preset id the
+// theme declares; Show is "desktop", "mobile" or empty (always).
 type NavItem struct {
-	Label    string
-	Href     string
-	Target   string
-	Children []NavItem
+	Label      string
+	Href       string
+	Target     string
+	Children   []NavItem
+	Class      string
+	ID         string
+	Title      string
+	AriaLabel  string
+	Rel        string
+	Badge      string
+	BadgeClass string
+	Icon       string
+	Show       string
+	NoLink     bool
 }
 
 // Link is a labelled URL.
