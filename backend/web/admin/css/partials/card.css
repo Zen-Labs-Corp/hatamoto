@@ -14,3 +14,7 @@
 .hm-card__foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
 .hm-card__foot--plain { border-top: 0; padding-inline: 0; }
 .hm-card__foot-note { margin-inline-end: auto; }
+/* Inline modifier: the card dissolves into a bare row of fields (no frame, no heading). */
+.hm-card[data-hm-inline] { border: 0; background: none; }
+.hm-card[data-hm-inline] .hm-card__head { display: none; }
+.hm-card[data-hm-inline] .hm-card__body { padding: 0; flex-direction: row; gap: var(--space-3); align-items: flex-end; }
