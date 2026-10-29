@@ -69,7 +69,9 @@ export const screens = [
   // Populated only with QA_SEED_ANALYTICS=1; without rows the page still answers 200 with empty cards.
   { name: "analytics-agent", path: "/admin/analytics/agents/gptbot", mock: null, roles: OE },
   // Plugins
-  { name: "plugins", path: "/admin/plugins", legacy: "/admin/settings/plugins", mock: "plugins", roles: O, primary: true, list: true, states: [newDialog] }, // UI-D10 exempts the Install row forms (.hm-pkg) and the unsigned packages setting (#unsigned) by name, so it holds with or without registry data
+  { name: "plugins", path: "/admin/plugins", legacy: "/admin/settings/plugins", mock: "plugins", roles: O, primary: true, states: [newDialog] }, // not a list screen (UI-D10): the header offers Browse and Upload, and the page also carries the update strip and the unsigned banner; the Upload opener is the dialog state
+  { name: "plugins-browse", path: "/admin/plugins/browse", mock: null, roles: O, expect: ".hm-callout, .hm-pluginbrowse" }, // the harness has no registry: the "No registry is set up" callout; with one, the search form
+  { name: "plugins-security", path: "/admin/plugins/security", mock: null, roles: O, expect: "#signers-card", states: [{ name: "unsigned-open", click: ".hm-pluginsecurity__advanced > summary" }] }, // the allow-unsigned form sits in a closed disclosure
   { name: "settings-plugins-upload", path: "/admin/plugins/upload", mock: null, roles: O },
   // Settings: General, API, Entity models
   { name: "settings-general", path: "/admin/settings/general", legacy: "/admin/settings/site", mock: "settings-general", roles: O, primary: true, hover: true },
@@ -207,4 +209,5 @@ export const primaryScreens = () => inventory().filter((s) => s.primary);
 export const crawlIgnore = [
   { re: /^\/admin\/plugins\/[^/?]+\/settings$/, reason: "plugin settings need an installed plugin; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/settings\/import\/wordpress\/[^/?]+\/options$/, reason: "import options need a finished WordPress scan (see Not inventoried above)" },
+  { re: /^\/admin\/plugins\/[^/?]+\/about$/, reason: "the plugin detail page needs a registry entry; the harness has no registry" },
 ];

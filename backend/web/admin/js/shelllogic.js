@@ -65,6 +65,14 @@ export const photoFailed = (img) => img.complete && !img.naturalWidth;
 // DangerConfirm phrase check. Exact match, like the server: no trim, no case folding.
 export const phraseMatches = (typed, phrase) => phrase !== "" && typed === phrase;
 
+// Allow-unsigned form (data-hm-gate): true when every gate has an answer. It only
+// enables the submit button; the server checks all four gates again. The address
+// is compared the way the server does, trimmed and ignoring case; an empty site
+// address never matches, and a password only has to be present here.
+export const UNSIGNED_DURATIONS = ["1h", "24h", "forever"];
+export const unsignedGatesMet = ({ ack, host, siteHost, password, duration }) =>
+  ack === true && siteHost !== "" && String(host).trim().toLowerCase() === siteHost.toLowerCase() && UNSIGNED_DURATIONS.includes(duration) && String(password) !== "";
+
 // Admin fetches carry the token.
 export function installCsrfFetch(g, base, token) {
   const f = g.fetch;
