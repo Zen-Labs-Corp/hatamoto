@@ -421,7 +421,7 @@ and archives through its own `page.html`, not the default's `single.html`.
 
 | Field | Meaning |
 | --- | --- |
-| `.Kind` | `single`, `home`, `archive`, `taxonomy`, `author`, `search` or `page` |
+| `.Kind` | `single`, `home`, `archive`, `taxonomy`, `author`, `search`, `notfound` (404 pages) or `page` |
 | `.Entity` | entity pages: `.Title`, `.Slug`, `.URL`, `.Schema`, `.Excerpt`, `.Image`, `.Attributes` (same as `.Attrs`), `.Terms` (plus `.Categories`, `.Tags`), `.Author`, `.PublishedAt`, `.UpdatedAt`. Nil on listings |
 | `.Body` | `attributes.content` sanitised with the rich-text policy **at render time** (stored content is never trusted); empty when there is none. A post with only `attributes.content` renders from this |
 | `.Blocks` | the prepared sections of the page, derived from its `page_doc` (a page without a doc: its legacy `page_sections`) |
