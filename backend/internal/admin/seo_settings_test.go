@@ -21,10 +21,13 @@ type fakeSEO struct {
 	merges  int
 	patches map[uuid.UUID]entity.SchemaSEOPatch
 	builtin map[uuid.UUID]bool
-	// failPatchFor makes the patch of that schema fail; failMerge makes the
-	// templates merge fail after every patch went through.
-	failPatchFor uuid.UUID
-	failMerge    error
+	// failLastPatch makes the last patch of a save fail after the earlier ones
+	// were applied; failMerge makes the templates merge fail after every patch
+	// went through.
+	failLastPatch bool
+	failMerge     error
+	// appliedBeforeFailure counts the patches written before failLastPatch hit.
+	appliedBeforeFailure int
 }
 
 func newFakeSEO() *fakeSEO {
@@ -47,11 +50,14 @@ func (f *fakeSEO) Merge(_ context.Context, fn func(*seo.Settings)) error {
 // leaves the patches and the settings as they were.
 func (f *fakeSEO) SaveTitles(ctx context.Context, patches []SEOTitlePatch, fn func(*seo.Settings)) error {
 	saved := maps.Clone(f.patches)
-	for _, p := range patches {
+	for i, p := range patches {
 		if f.builtin[p.ID] {
+			f.patches = saved
 			return &SEOPatchError{ID: p.ID, Err: entity.ErrCannotModifyBuiltin}
 		}
-		if p.ID == f.failPatchFor {
+		if f.failLastPatch && i == len(patches)-1 {
+			f.appliedBeforeFailure = i
+			f.patches = saved
 			return &SEOPatchError{ID: p.ID, Err: errors.New("write failed")}
 		}
 		f.patches[p.ID] = p.Patch
@@ -376,8 +382,8 @@ func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {
 // change, no cache purge and no audit entry.
 func TestSEOTitlesSaveRollsBackOnFailurePartway(t *testing.T) {
 	for name, arrange := range map[string]func(*seoRig){
-		"second patch": func(s *seoRig) { s.svc.failPatchFor = s.person.ID },
-		"templates":    func(s *seoRig) { s.svc.failMerge = errors.New("merge failed") },
+		"last patch": func(s *seoRig) { s.svc.failLastPatch = true },
+		"templates":  func(s *seoRig) { s.svc.failMerge = errors.New("merge failed") },
 	} {
 		s := newSEORig(t, newFakeSEO())
 		arrange(s)
@@ -386,6 +392,9 @@ func TestSEOTitlesSaveRollsBackOnFailurePartway(t *testing.T) {
 		rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", form, nil)
 		if rec.Code != 500 {
 			t.Fatalf("%s: status %d, want 500", name, rec.Code)
+		}
+		if name == "last patch" && s.svc.appliedBeforeFailure == 0 {
+			t.Fatalf("%s: no patch was written before the failing one, the case proves nothing", name)
 		}
 		if len(s.svc.patches) != 0 || s.svc.merges != 0 || s.flushed != 0 || len(s.events) != 0 {
 			t.Errorf("%s: patches=%d merges=%d purges=%d audit=%d, want none", name, len(s.svc.patches), s.svc.merges, s.flushed, len(s.events))
