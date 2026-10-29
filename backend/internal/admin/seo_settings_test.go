@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"maps"
 	"net/url"
 	"strings"
 	"testing"
@@ -19,6 +21,13 @@ type fakeSEO struct {
 	merges  int
 	patches map[uuid.UUID]entity.SchemaSEOPatch
 	builtin map[uuid.UUID]bool
+	// failLastPatch makes the last patch of a save fail after the earlier ones
+	// were applied; failMerge makes the templates merge fail after every patch
+	// went through.
+	failLastPatch bool
+	failMerge     error
+	// appliedBeforeFailure counts the patches written before failLastPatch hit.
+	appliedBeforeFailure int
 }
 
 func newFakeSEO() *fakeSEO {
@@ -36,17 +45,38 @@ func (f *fakeSEO) Merge(_ context.Context, fn func(*seo.Settings)) error {
 	f.merges++
 	return nil
 }
-func (f *fakeSEO) UpdateSchemaSEO(_ context.Context, id uuid.UUID, p entity.SchemaSEOPatch) error {
-	if f.builtin[id] {
-		return entity.ErrCannotModifyBuiltin
+
+// SaveTitles is all-or-nothing like the real one: a failing patch or merge
+// leaves the patches and the settings as they were.
+func (f *fakeSEO) SaveTitles(ctx context.Context, patches []SEOTitlePatch, fn func(*seo.Settings)) error {
+	saved := maps.Clone(f.patches)
+	for i, p := range patches {
+		if f.builtin[p.ID] {
+			f.patches = saved
+			return &SEOPatchError{ID: p.ID, Err: entity.ErrCannotModifyBuiltin}
+		}
+		if f.failLastPatch && i == len(patches)-1 {
+			f.appliedBeforeFailure = i
+			f.patches = saved
+			return &SEOPatchError{ID: p.ID, Err: errors.New("write failed")}
+		}
+		f.patches[p.ID] = p.Patch
 	}
-	f.patches[id] = p
+	if f.failMerge != nil {
+		f.patches = saved
+		return f.failMerge
+	}
+	if err := f.Merge(ctx, fn); err != nil {
+		f.patches = saved
+		return err
+	}
 	return nil
 }
 
 type seoRig struct {
 	*contentRig
 	svc     *fakeSEO
+	person  *entity.EntitySchema
 	events  []AuditEvent
 	flushed int
 }
@@ -55,6 +85,8 @@ func newSEORig(t *testing.T, svc *fakeSEO) *seoRig {
 	t.Helper()
 	c := newContentRig(t)
 	s := &seoRig{contentRig: c, svc: svc}
+	// A person type is a built-in whose archive values stay editable.
+	s.person = c.ents.addSchema(4, "Person", "person", `{"type":"object","properties":{}}`, `{"url_pattern":"/author/{slug}"}`, true)
 	if svc != nil {
 		c.a.deps.SEO = svc
 		svc.builtin[c.page.ID] = true
@@ -166,6 +198,13 @@ func goodTitlesForm() url.Values {
 		"type[page][archive_title]": {"ignored"},
 		"taxonomy[tag]":             {"Tagged %term% %sep% %sitename%"}, "taxonomy[category]": {""},
 	}
+}
+
+// personTitlesForm adds the person row the page posts, with a new archive title.
+func personTitlesForm(form url.Values, archiveTitle string) {
+	form.Set("type[person][title]", "")
+	form.Set("type[person][description]", "")
+	form.Set("type[person][archive_title]", archiveTitle)
 }
 
 func TestSEOTitlesSave(t *testing.T) {
@@ -336,5 +375,51 @@ func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {
 	}
 	if next.Set.Types["news"].Title != "%title% News" {
 		t.Errorf("template = %+v, want it kept", next.Set.Types["news"])
+	}
+}
+
+// A failure partway through the save leaves no archive patch, no settings
+// change, no cache purge and no audit entry.
+func TestSEOTitlesSaveRollsBackOnFailurePartway(t *testing.T) {
+	for name, arrange := range map[string]func(*seoRig){
+		"last patch": func(s *seoRig) { s.svc.failLastPatch = true },
+		"templates":  func(s *seoRig) { s.svc.failMerge = errors.New("merge failed") },
+	} {
+		s := newSEORig(t, newFakeSEO())
+		arrange(s)
+		form := goodTitlesForm()
+		personTitlesForm(form, "All people")
+		rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", form, nil)
+		if rec.Code != 500 {
+			t.Fatalf("%s: status %d, want 500", name, rec.Code)
+		}
+		if name == "last patch" && s.svc.appliedBeforeFailure == 0 {
+			t.Fatalf("%s: no patch was written before the failing one, the case proves nothing", name)
+		}
+		if len(s.svc.patches) != 0 || s.svc.merges != 0 || s.flushed != 0 || len(s.events) != 0 {
+			t.Errorf("%s: patches=%d merges=%d purges=%d audit=%d, want none", name, len(s.svc.patches), s.svc.merges, s.flushed, len(s.events))
+		}
+	}
+}
+
+// The person type is built in, yet its archive controls are editable and a
+// save patches it.
+func TestSEOTitlesArchiveFieldsEditableForPersonType(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	body := s.get(t, "/admin/settings/seo/titles")
+	for _, name := range []string{"archive_title", "archive_description"} {
+		tag := seoControlTag(body, "type[person]["+name+"]")
+		if tag == "" || strings.Contains(tag, "readonly") || strings.Contains(tag, "disabled") {
+			t.Errorf("person %s is not editable: %q", name, tag)
+		}
+	}
+	form := goodTitlesForm()
+	personTitlesForm(form, "Our people")
+	if rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	p, ok := s.svc.patches[s.person.ID]
+	if !ok || p.ArchiveTitle == nil || *p.ArchiveTitle != "Our people" {
+		t.Errorf("person patch = %+v", p)
 	}
 }

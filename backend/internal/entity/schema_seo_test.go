@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func strp(s string) *string { return &s }
@@ -95,5 +97,39 @@ func TestUpdateSchemaSEOSettingsRejectsNonObject(t *testing.T) {
 	t.Parallel()
 	if _, err := patchSchemaSEOSettings(json.RawMessage(`[1]`), SchemaSEOPatch{ArchiveTitle: strp("X")}); err == nil {
 		t.Fatal("want error")
+	}
+}
+
+// PatchSchemaSEOTx runs no hooks (the caller fires SchemaChanged after its
+// commit); UpdateSchemaSEOSettings fires them once, and not when it fails.
+func TestPatchSchemaSEOTxRunsNoHooks(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	existing := seedSchema(t, sr)
+	calls := 0
+	svc.SetOnSchemaChange(func() { calls++ })
+
+	if err := svc.PatchSchemaSEOTx(context.Background(), nil, existing.ID, SchemaSEOPatch{ArchiveTitle: strp("Docs")}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("hook ran %d times inside the tx, want 0", calls)
+	}
+	svc.SchemaChanged()
+	if calls != 1 {
+		t.Fatalf("SchemaChanged ran the hook %d times, want 1", calls)
+	}
+
+	if err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{ArchiveTitle: strp("More")}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("hook calls = %d after a committed patch, want 2", calls)
+	}
+	if err := svc.UpdateSchemaSEOSettings(context.Background(), uuid.New(), SchemaSEOPatch{ArchiveTitle: strp("X")}); err == nil {
+		t.Fatal("want error for a missing schema")
+	}
+	if calls != 2 {
+		t.Fatalf("hook ran for a failed patch: %d calls", calls)
 	}
 }

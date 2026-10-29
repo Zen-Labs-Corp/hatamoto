@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // SchemaSEOPatch changes the archive title and description of a schema. A nil
@@ -17,11 +18,25 @@ type SchemaSEOPatch struct {
 
 // UpdateSchemaSEOSettings writes the archive title and description into the
 // schema's settings without touching any other key, so the SEO settings page
-// and the schema editor edit the same stored values. It goes through
-// UpdateSchema: the same validators, the built-in guard (a built-in type other
-// than person returns ErrCannotModifyBuiltin) and the URL registry invalidation.
+// and the schema editor edit the same stored values. It runs PatchSchemaSEOTx
+// in its own transaction, then the URL registry invalidation.
 func (s *Service) UpdateSchemaSEOSettings(ctx context.Context, id uuid.UUID, p SchemaSEOPatch) error {
-	existing, err := s.schemaRepo.GetByID(ctx, id)
+	if err := s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+		return s.PatchSchemaSEOTx(ctx, tx, id, p)
+	}); err != nil {
+		return err
+	}
+	s.schemaChanged()
+	return nil
+}
+
+// PatchSchemaSEOTx is UpdateSchemaSEOSettings inside the caller's transaction:
+// it locks the schema row, patches the archive keys and writes with the same
+// validators and built-in guard as UpdateSchema (a built-in type other than
+// person returns ErrCannotModifyBuiltin). It runs no hooks: after the commit
+// the caller must call SchemaChanged.
+func (s *Service) PatchSchemaSEOTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, p SchemaSEOPatch) error {
+	existing, err := s.schemaRepo.GetByIDForUpdate(ctx, tx, id)
 	if err != nil {
 		return err
 	}
@@ -29,9 +44,13 @@ func (s *Service) UpdateSchemaSEOSettings(ctx context.Context, id uuid.UUID, p S
 	if err != nil {
 		return err
 	}
-	_, err = s.UpdateSchema(ctx, id, &UpdateSchemaInput{Settings: &merged})
+	_, err = s.writeSchemaTx(ctx, tx, existing, &UpdateSchemaInput{Settings: &merged})
 	return err
 }
+
+// SchemaChanged invalidates the URL registry after a committed schema write
+// made through PatchSchemaSEOTx.
+func (s *Service) SchemaChanged() { s.schemaChanged() }
 
 // patchSchemaSEOSettings applies p to raw, keeping every key it does not own.
 func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMessage, error) {

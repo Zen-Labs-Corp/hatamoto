@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -159,14 +160,39 @@ func (s *Service) GetSchemaBySlug(ctx context.Context, slug string) (*EntitySche
 	return s.schemaRepo.GetBySlug(ctx, slug)
 }
 
-// UpdateSchema modifies an entity schema.
+// UpdateSchema modifies an entity schema. The read, the validation and the
+// write run in one transaction holding the schema row lock, so they cannot
+// interleave with the SEO settings patch (PatchSchemaSEOTx). The URL registry
+// and pattern hooks run after the commit.
 func (s *Service) UpdateSchema(ctx context.Context, id uuid.UUID, input *UpdateSchemaInput) (*EntitySchema, error) {
-	// Check if schema exists; a built-in one only changes as checkBuiltinUpdate allows
-	existing, err := s.schemaRepo.GetByID(ctx, id)
+	var existing, schema *EntitySchema
+	err := s.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		if existing, err = s.schemaRepo.GetByIDForUpdate(ctx, tx, id); err != nil {
+			return err
+		}
+		schema, err = s.writeSchemaTx(ctx, tx, existing, input)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
+	s.schemaChanged()
+	if s.patternChanged != nil && urlRouting(existing.Settings) != urlRouting(schema.Settings) {
+		s.patternChanged(ctx, existing, schema)
+	}
 
+	s.logger.Info("updated entity schema",
+		slog.String("schema_id", schema.ID.String()),
+		slog.String("name", schema.Name),
+	)
+
+	return schema, nil
+}
+
+// writeSchemaTx validates input against the locked existing schema and writes
+// it inside tx. A built-in schema only changes as checkBuiltinUpdate allows.
+func (s *Service) writeSchemaTx(ctx context.Context, tx pgx.Tx, existing *EntitySchema, input *UpdateSchemaInput) (*EntitySchema, error) {
 	if existing.IsBuiltin {
 		if err := checkBuiltinUpdate(existing, input); err != nil {
 			return nil, err
@@ -199,24 +225,14 @@ func (s *Service) UpdateSchema(ctx context.Context, id uuid.UUID, input *UpdateS
 		}
 	}
 
-	schema, err := s.schemaRepo.Update(ctx, id, input)
+	schema, err := s.schemaRepo.UpdateTx(ctx, tx, existing.ID, input)
 	if err != nil {
 		s.logger.Error("failed to update schema",
-			slog.String("schema_id", id.String()),
+			slog.String("schema_id", existing.ID.String()),
 			slog.String("error", err.Error()),
 		)
 		return nil, err
 	}
-	s.schemaChanged()
-	if s.patternChanged != nil && urlRouting(existing.Settings) != urlRouting(schema.Settings) {
-		s.patternChanged(ctx, existing, schema)
-	}
-
-	s.logger.Info("updated entity schema",
-		slog.String("schema_id", schema.ID.String()),
-		slog.String("name", schema.Name),
-	)
-
 	return schema, nil
 }
 
