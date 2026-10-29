@@ -105,6 +105,8 @@ GET /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddres
 GET /admin/settings/security/admin-address/change/strength -> admin.(*Admin).handleSetupAddressStrength-fm
 GET /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeep-fm
 GET /admin/settings/seo -> admin.(*Admin).mountSettingsFrame.func1
+GET /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneral-fm
+GET /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitles-fm
 GET /admin/settings/spam -> admin.(*Admin).handleSpam-fm
 GET /admin/settings/submissions -> admin.(*Admin).handleSubmissions-fm
 GET /admin/settings/submissions/export.csv -> admin.(*Admin).handleSubmissionsExport-fm
@@ -259,6 +261,9 @@ POST /admin/settings/redirects/{id}/toggle -> admin.(*Admin).handleRedirectToggl
 POST /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddressChangeSave-fm
 POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).handleAddressChangeRegen-fm
 POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeepSave-fm
+POST /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneralSave-fm
+POST /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitlesSave-fm
+POST /admin/settings/seo/titles/preview -> admin.(*Admin).handleSEOTitlesPreview-fm
 POST /admin/settings/spam -> admin.(*Admin).handleSpamSave-fm
 POST /admin/settings/spam/test -> admin.(*Admin).handleSpamTest-fm
 POST /admin/settings/submissions/bulk -> admin.(*Admin).handleSubmissionsBulk-fm

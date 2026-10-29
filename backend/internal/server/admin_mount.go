@@ -107,6 +107,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
 	}
+	if s.seoStore != nil && s.entityService != nil {
+		d.SEO = seoAdmin{store: s.seoStore, entities: s.entityService}
+	}
 	if s.backups != nil {
 		d.Backups = s.backups
 	}

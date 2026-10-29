@@ -611,7 +611,8 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 		"media/list": true, "media/new": true, "settings/upload": true, "media/detail": true, "media/picker": true,
 		"entities/parent":   true,                             // a fragment: content_forge_test.go
 		"entities/blogedit": true, "entities/blogpanel": true, // v1-13: blog_editor_test.go
-		"dev/styleguide": true, // styleguide_test.go (Dev only)
+		"dev/styleguide":       true,                              // styleguide_test.go (Dev only)
+		"settings/seo-general": true, "settings/seo-titles": true, // seo_settings_test.go
 	}
 	for _, names := range areaPages {
 		for _, n := range names {
