@@ -365,7 +365,7 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <div class="hm-savebar" id="d12b" style="display:flex;justify-content:flex-end"><div class="hm-savebar__aside" style="margin-left:40px"><a class="hm-btn hm-btn--danger-text" id="d12bdel" href="/y/delete">Delete</a></div></div>
 <button data-hm-open="d13"></button><dialog id="d13"></dialog>
 <button data-hm-open="d13b" id="d13bo"></button><div id="d13b"></div>
-<style>:root{--color-sumi:#111827;--color-paper:#ffffff;--border:#e5e7eb;--border-field:#d1d5db;--segment-ring:var(--border);--segment-bevel:var(--border-field);--border-control:#8b919a;--shadow-1:0 1px 2px rgba(0,0,0,.2);--color-hai:#4b5563}</style>
+<style>:root{--color-sumi:#111827;--color-paper:#ffffff;--border:#e5e7eb;--border-field:#d1d5db;--segment-ring:var(--border);--segment-bevel:var(--border-field);--border-control:#8b919a;--shadow-1:0 1px 2px rgba(0,0,0,.2);--color-hai:#4b5563;--btn-edge-primary:rgb(0 0 0 / .35)}</style>
 <nav aria-label="Breadcrumb" id="d7a"><ol><li>Home</li></ol></nav><nav aria-label="Breadcrumb" id="d7b"><ol><li>Home</li></ol></nav>
 <div class="hm-topbar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
 <nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#e5e7eb;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
@@ -375,7 +375,7 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <nav class="hm-tabs" data-variant="segmented" id="d9none"><ul><li><a href="/x">A</a></li></ul></nav>
 <nav class="hm-tabs" id="d9t1"><ul><li><a href="/p">P</a></li></ul></nav><nav class="hm-tabs" data-variant="sub" id="d9t2" style="margin-top:40px"><ul><li><a href="/p/a">A</a></li></ul></nav><nav class="hm-tabs" id="d9t3"><ul><li><a href="/p/b">B</a></li></ul></nav>
 <div class="hm-page"><header class="hm-pageheader"><h1>List</h1><a class="hm-btn hm-btn--primary" href="/things/new" style="height:36px;border-radius:6px;display:inline-block">New</a></header><div class="hm-table" id="d10t">rows</div><form method="post" action="/things" id="d10"></form><div class="hm-pkg"><form method="post" action="/pkg/fetch" id="d10pkg"></form></div></div>
-<style>:root{--radius-sm:6px}</style><button class="hm-btn" id="d14" style="border-radius:2px">Plant</button><button class="hm-btn" id="d14ok" style="border:1px solid #8b919a;border-radius:6px;font-size:16px;padding:0">Compliant</button>
+<style>:root{--radius-sm:6px}</style><button class="hm-btn" id="d14" style="border-radius:2px">Plant</button><button class="hm-btn" id="d14ok" style="border:0;border-radius:6px;font-size:16px;padding:0;box-shadow:inset 0 0 0 1px var(--segment-ring),inset 0 -2px 0 var(--segment-bevel)">Compliant</button><button class="hm-btn" id="d14b" style="border:1px solid #8b919a;border-radius:6px;font-size:16px;padding:0;box-shadow:none">Old</button><button class="hm-btn hm-btn--primary" id="d14pok" style="border:0;border-radius:6px;font-size:16px;padding:0;box-shadow:inset 0 -1px 0 var(--btn-edge-primary)">Primary</button>
 <input class="hm-field__control" id="d11" style="border:1px solid #8b919a">
 <input class="hm-field__control" id="d11h" style="border:1px solid #d1d5db">
 <style>#d11r:hover{border-color:red!important}#d11ok:hover{border-color:var(--color-hai)!important}</style>
@@ -397,12 +397,13 @@ if (selfTest) {
   await sb.close();
   // A button that follows the contract must not be reported by UI-D14.
   if (found.some((v) => v[0] === "UI-D14" && v[1].endsWith("#d14ok"))) { console.log("self-test FAILED: UI-D14 flagged a compliant button (#d14ok)"); process.exit(1); }
+  if (found.some((v) => v[0] === "UI-D14" && v[1].endsWith("#d14pok"))) { console.log("self-test FAILED: UI-D14 flagged a compliant button (#d14pok)"); process.exit(1); }
   // The real selected-pill recipe must pass UI-D8.
   if (found.some((v) => v[0] === "UI-D8" && v[1].endsWith("#d8ok"))) { console.log("self-test FAILED: UI-D8 flagged the real pill recipe (#d8ok)"); process.exit(1); }
   // A registry Install row form is a row action: it must not be reported.
   if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10pkg"))) { console.log("self-test FAILED: UI-D10 flagged a registry row form (#d10pkg)"); process.exit(1); }
   // Each rule must fire on its own planted element, not just somewhere in the fixture.
-  const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": "#d14~button border-top-left-radius" };
+  const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": ["#d14~button border-top-left-radius", "#d14b~button box-shadow"] };
   const fired = [...new Set(found.map((v) => v[0]))].sort();
   const missing = Object.entries(own).flatMap(([r, ids]) => [ids].flat().map((id) => [r, id])).filter(([r, id]) => { const [sid, frag] = id.split("~"); return !found.some((v) => v[0] === r && v[1].endsWith(sid) && (!frag || v[2].includes(frag))); }).map(([r, id]) => `${r} on ${id}`);
   console.log(`self-test: fired ${fired.join(" ")}`);
