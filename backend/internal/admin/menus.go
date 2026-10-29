@@ -111,19 +111,14 @@ func locationOptions(selected string) []ui.Option {
 	}
 }
 
-// typeOptions lists the types with selected marked. "No link" is listed only on
-// the rows that already have it, until the editor offers it on every item, so
-// that a save keeps them.
+// typeOptions lists the types, "No link" last, with selected marked.
 func typeOptions(selected string) []ui.Option {
-	out := make([]ui.Option, len(menuTypes))
+	out := make([]ui.Option, len(menuTypes), len(menuTypes)+1)
 	for i, o := range menuTypes {
 		o.Selected = o.Value == selected
 		out[i] = o
 	}
-	if selected == menu.LinkTypeNone {
-		out = append(out, ui.Option{Value: menu.LinkTypeNone, Label: "No link", Selected: true})
-	}
-	return out
+	return append(out, ui.Option{Value: menu.LinkTypeNone, Label: "No link", Selected: selected == menu.LinkTypeNone})
 }
 
 func locationLabel(loc *string) string {
@@ -356,6 +351,9 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 	}
 	for i := range f.Items {
 		f.Items[i].N = i
+		if len(f.Items[i].Err) == 0 {
+			f.Items[i].Warn = menuRowWarning(f.Items[i])
+		}
 		f.Items[i].Types = typeOptions(f.Items[i].Type)
 		f.Items[i].Subtree = i+1 < len(f.Items) && f.Items[i+1].Depth > f.Items[i].Depth
 		f.Items[i].TypeIcon, f.Items[i].Target = menuTarget(f.Items[i])
@@ -492,7 +490,7 @@ func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string)
 		out := make([]menuRow, 0, len(rows)+end-i)
 		out = append(out, rows[:end]...)
 		for _, r := range rows[i:end] {
-			r.Err = nil
+			r.Err, r.HTMLID = nil, "" // an id is unique on the page
 			out = append(out, r)
 		}
 		return append(out, rows[end:]...), "Item duplicated. It is not saved yet."

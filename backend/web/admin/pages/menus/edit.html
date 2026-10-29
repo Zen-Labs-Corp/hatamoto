@@ -1,11 +1,12 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/menutree @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
+{{define "scripts"}}sortablejs{{end}}
 {{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
 <form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform" data-hm-editor data-max-depth="{{.MaxDepth}}" data-max-items="{{.MaxItems}}">
 {{template "hm/csrf" $}}
-<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save menu</button>
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
 {{template "hm/card-start" dict "ID" "menu-details" "Title" "Details"}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "100" "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "location" "Name" "location" "Label" "Location" "Control" "select" "Options" .Locations "Help" "Where your theme shows this menu."}}
@@ -19,7 +20,7 @@
 <p class="hm-menutree__undo hm-row" role="status" data-hm-undo hidden><span data-hm-undo-text></span>{{template "hm/button" dict "Label" "Undo" "Size" "sm" "Attrs" (attrmap "data-hm-undo-btn" "")}}</p>
 <div class="hm-menutree__add hm-row">
 <div class="hm-field"><label class="hm-field__label" for="add-type">New item links to</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type">{{range .AddTypes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}<option value="none"{{if streq .AddType "none"}} selected{{end}}>No link</option></select></div></div>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type">{{range .AddTypes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
 {{template "hm/button" dict "Label" "Add item" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "add" "formnovalidate" "")}}
 </div>
 {{if .Items}}<div class="hm-menutree__move hm-row">
@@ -61,19 +62,19 @@
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.{{$n}}" formnovalidate data-hm-op="down">{{icon "arrow-down"}}<span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 {{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "more" "AriaLabel" (printf "Actions for %s" (or $it.Label "Untitled item")) "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" (printf "i-%d-menu" $n)))}}
 <div class="hm-menu" popover id="i-{{$n}}-menu" role="menu" aria-label="{{printf "Actions for %s" (or $it.Label "Untitled item")}}">
-<button type="submit" role="menuitem" name="_op" value="outdent.{{$n}}" formnovalidate data-hm-op="outdent"{{if $it.NoOutdent}} disabled{{end}}>{{icon "outdent"}}Outdent<span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
+<button type="submit" role="menuitem" name="_op" value="outdent.{{$n}}" formnovalidate{{if $it.NoOutdent}} disabled{{end}}>{{icon "outdent"}}Outdent<span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 <button type="submit" role="menuitem" name="_op" value="indent.{{$n}}" formnovalidate data-hm-op="indent"{{if $it.NoIndent}} disabled{{end}}>{{icon "indent"}}Indent<span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 <div role="separator"></div>
 <button type="submit" role="menuitem" name="_op" value="dup.{{$n}}" formnovalidate>{{icon "copy"}}Duplicate<span class="hm-visually-hidden"> item {{add $n 1}}{{if $it.Subtree}} and its sub-items{{end}}</span></button>
 <button type="submit" role="menuitem" name="_op" value="moveto.{{$n}}" formnovalidate>{{icon "arrow-right"}}Move to<span class="hm-visually-hidden"> the place chosen below the items, item {{add $n 1}}</span></button>
 <div role="separator"></div>
-<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.{{$n}}" formnovalidate data-hm-op="remove">{{icon "trash"}}Remove<span class="hm-visually-hidden"> item {{add $n 1}}{{if $it.Subtree}} and its sub-items{{end}}</span></button>
+<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.{{$n}}" formnovalidate>{{icon "trash"}}Remove<span class="hm-visually-hidden"> item {{add $n 1}}{{if $it.Subtree}} and its sub-items{{end}}</span></button>
 </div>
 </div></div>
 <details class="hm-menutree__edit"{{if or $it.Err (not $it.Label)}} open{{end}}><summary><span class="hm-menutree__chev" aria-hidden="true">{{icon "chevron-right"}}</span>Edit<span class="hm-visually-hidden"> item {{add $n 1}}</span></summary>
 <div class="hm-menutree__fields">
 {{template "hm/field" dict "ID" (printf "i-%d-label" $n) "Name" (printf "i.%d.label" $n) "Label" "Label" "Value" $it.Label "Required" true "Error" (index $it.Err "label") "Attrs" (attrmap "maxlength" "100" "autocomplete" "off")}}
-<div class="hm-field">{{template "hm/segmented" (dict "Mode" "radio" "Label" "Links to" "Name" (printf "i.%d.type" $n) "Items" (list
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span>{{template "hm/segmented" (dict "Mode" "radio" "Label" "Links to" "Name" (printf "i.%d.type" $n) "Items" (list
   (dict "Label" "Page" "Value" "entity" "Pressed" (streq $it.Type "entity") "Attrs" (attrmap "data-hm-type" ""))
   (dict "Label" "Address" "Value" "custom" "Pressed" (streq $it.Type "custom") "Attrs" (attrmap "data-hm-type" ""))
   (dict "Label" "Archive" "Value" "archive" "Pressed" (streq $it.Type "archive") "Attrs" (attrmap "data-hm-type" ""))

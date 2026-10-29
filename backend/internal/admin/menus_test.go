@@ -466,7 +466,7 @@ func TestMenuEditPageA11yAndDelete(t *testing.T) {
 	if n := strings.Count(body, `<span>Save</span>`); n != 1 {
 		t.Errorf("want one visible Save button, got %d", n)
 	}
-	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate data-hm-op="outdent" disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
+	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("edit page lacks %s", want)
 		}
@@ -648,5 +648,32 @@ func TestMenuSavesClassesAndSettings(t *testing.T) {
 		if rec.Code != 422 || len(fm.replaced) != 2 {
 			t.Errorf("%s=%q: want 422 and no save, got %d (saved %d)", field, val, rec.Code, len(fm.replaced))
 		}
+	}
+}
+
+// A structural edit rebuilds the rows from the post; the warning of an item
+// without a link, the copy's HTML id and the Add select must still be right.
+func TestMenuOpsKeepWarningsAndDropDuplicateIDs(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newMenuRig(t)
+	m := fm.add("Main", "")
+	f := itemForm("Main", [4]string{"Pricing", "custom", "0", ""})
+	f.Set("i.0.id", "cta")
+	f.Set("_op", "dup.0")
+	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || strings.Count(body, "Without a link") != 2 {
+		t.Errorf("duplicate: %d, want 2 warnings, got %d", rec.Code, strings.Count(body, "Without a link"))
+	}
+	if strings.Count(body, `name="i.0.id" value="cta"`) != 1 || strings.Contains(body, `name="i.1.id" value="cta"`) {
+		t.Error("the copy must not carry the HTML id")
+	}
+	f = itemForm("Main")
+	f.Set("add_type", "none")
+	f.Set("_op", "add")
+	body = g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
+	if n := strings.Count(body, `>No link</option>`); n != 1 {
+		t.Errorf("the Add select lists No link %d times", n)
 	}
 }
