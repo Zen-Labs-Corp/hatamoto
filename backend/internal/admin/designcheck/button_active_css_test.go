@@ -24,3 +24,20 @@ func TestButtonVariantsHaveActiveRule(t *testing.T) {
 		}
 	}
 }
+
+// The ghost hover and active rules reset box-shadow at the same specificity as
+// .hm-btn[aria-pressed="true"], so a pressed ghost toggle lost its ring under the pointer.
+// The pressed hover/active rule must follow every variant rule.
+func TestButtonPressedRingSurvivesHoverAndActive(t *testing.T) {
+	t.Parallel()
+
+	css := cssSource(t, "partials/button.css")
+	const sel = `.hm-btn[aria-pressed="true"]:hover, .hm-btn[aria-pressed="true"]:active {`
+	at := strings.Index(css, sel)
+	if at < 0 {
+		t.Fatalf("missing the pressed hover/active rule %q", sel)
+	}
+	if last := strings.LastIndex(css, "\n.hm-btn--danger:active {"); last > at {
+		t.Errorf("the pressed hover/active rule must come after the variant :active rules")
+	}
+}
