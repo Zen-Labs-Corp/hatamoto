@@ -39,12 +39,13 @@ build_policy_restore() {
 
 # build_apt_update runs apt-get update, retrying only while another process holds the
 # package lists lock (DPkg::Lock::Timeout does not cover it): apt then says so on stderr.
+# LC_ALL=C keeps that message untranslated; warnings of a successful update are still shown.
 # Any other failure (network, bad repository) ends at once. At most HATAMOTO_APT_TRIES
 # attempts (default 30), HATAMOTO_APT_RETRY_SLEEP seconds apart (default 10).
 build_apt_update() {
   bau_try=1
   bau_err="$(mktemp)"
-  while ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq 2> "$bau_err"; do
+  while ! LC_ALL=C DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq 2> "$bau_err"; do
     cat "$bau_err" >&2
     if ! grep -Eq 'Could not get lock /var/lib/apt/lists|Unable to lock directory /var/lib/apt/lists' "$bau_err"; then
       rm -f "$bau_err"
@@ -57,6 +58,7 @@ build_apt_update() {
     bau_try=$((bau_try + 1))
     sleep "${HATAMOTO_APT_RETRY_SLEEP:-10}"
   done
+  cat "$bau_err" >&2
   rm -f "$bau_err"
 }
 

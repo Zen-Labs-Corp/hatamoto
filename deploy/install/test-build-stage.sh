@@ -23,6 +23,8 @@ printf '%s %s\n' "$(basename "$0")" "$*" >> "$CALLS"
 case "$(basename "$0")" in
   apt-get) # the verb follows the -o option
     if [ "$3" = update ]; then
+      printf 'LC_ALL=%s\n' "${LC_ALL:-}" >> "$CALLS"
+      [ -z "${FAKE_APT_UPDATE_WARN:-}" ] || echo "W: fake repository warning" >&2
       lockmsg="E: Could not get lock /var/lib/apt/lists/lock. It is held by process 42 (apt-get)"
       [ -z "${FAKE_APT_UPDATE_FAIL:-}" ] || { echo "E: Failed to fetch https://example.invalid 503" >&2; exit 100; }
       [ -z "${FAKE_APT_UPDATE_DOWN:-}" ] || { echo "$lockmsg" >&2; exit 100; }
@@ -161,6 +163,12 @@ rt="$(mkroot retryfail ubuntu 24.04 noble)"
 if run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 HATAMOTO_APT_TRIES=3 FAKE_APT_UPDATE_FAIL=1 >/dev/null 2>"$tmp/err"; then fail "a failing update was ignored"; fi
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 1 ] || fail "a non-lock update failure was retried"
 grep -q 'apt-get update failed' "$tmp/err" || fail "update failure not named: $(cat "$tmp/err")"
+rt="$(mkroot retrywarn ubuntu 24.04 noble)"
+: > "$tmp/calls"
+run_build "$rt" FAKE_APT_UPDATE_WARN=1 >/dev/null 2>"$tmp/err" || fail "a warning broke a successful update"
+grep -q 'W: fake repository warning' "$tmp/err" || fail "warning of a successful update was dropped: $(cat "$tmp/err")"
+grep -qx 'LC_ALL=C' "$tmp/calls" || fail "apt-get update did not run with LC_ALL=C"
+! grep '^LC_ALL=' "$tmp/calls" | grep -qvx 'LC_ALL=C' || fail "an update ran without LC_ALL=C"
 pass "apt update retried on the lists lock only, bounded, install not retried"
 
 # --- refusals
