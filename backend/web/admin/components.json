@@ -165,7 +165,7 @@
         "background-color": "var(--color-paper)",
         "color": "var(--color-sumi)",
         "font-weight": "var(--weight-semibold)",
-        "box-shadow": "0 0 0 1px var(--border), inset 0 -1px 0 var(--border-field)"
+        "box-shadow": "0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)"
       },
       "sub": {
         "font-size": "var(--text-xs)"
@@ -241,13 +241,13 @@
         "background-color": "var(--color-paper)",
         "color": "var(--color-sumi)",
         "font-weight": "var(--weight-semibold)",
-        "box-shadow": "0 0 0 1px var(--border), inset 0 -1px 0 var(--border-field)"
+        "box-shadow": "0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)"
       },
       "checked": {
         "background-color": "var(--color-paper)",
         "color": "var(--color-sumi)",
         "font-weight": "var(--weight-semibold)",
-        "box-shadow": "0 0 0 1px var(--border), inset 0 -1px 0 var(--border-field)"
+        "box-shadow": "0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)"
       }
     }
   },

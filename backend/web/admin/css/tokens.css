@@ -66,6 +66,9 @@
   /* Soft border for text inputs, selects and textareas at rest (user decision, relaxes WCAG 1.4.11);
      hover (--color-hai) and focus keep 3:1. Checkboxes, switches and secondary buttons keep --border-control. */
   --border-field: #d1d5db;
+  /* Selected segment: hairline ring and bottom bevel; dark lifts both so the paper pill stays visible on the track. */
+  --segment-ring: var(--border);
+  --segment-bevel: var(--border-field);
   --accent-link: var(--color-accent);
 
   --radius-2xs: 2px;
@@ -186,6 +189,8 @@
   --admin-accent: #9db4e0;
   --border-control: #6f6f78;
   --border-field: #3a3a40;
+  --segment-ring: var(--border-field);
+  --segment-bevel: var(--border-control);
   --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
   --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
@@ -231,6 +236,8 @@
     --admin-accent: #9db4e0;
     --border-control: #6f6f78;
     --border-field: #3a3a40;
+    --segment-ring: var(--border-field);
+    --segment-bevel: var(--border-control);
     --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
     --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
