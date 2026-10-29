@@ -79,9 +79,10 @@ PUBLIC_BASE_URL=$4
 API_HOST=127.0.0.1
 MEDIA_UPLOAD_DIR=$APP_DIR/uploads
 HATAMOTO_CONFIG_FILE=$APP_DIR/config/hatamoto.env
-HATAMOTO_SETUP_CODE=$3
 HATAMOTO_SECRET=$2
 HM_ENV
+  # No code once the owner exists (the clean-up removed it): nothing to write back.
+  [ -z "$3" ] || printf 'HATAMOTO_SETUP_CODE=%s\n' "$3"
 }
 
 # fb_render_caddyfile HOST TLS EMAIL prints the Caddyfile: one site in front of the app.
@@ -117,12 +118,13 @@ fb_banner() {
 }
 
 # fb_is_public IP succeeds for a valid IPv4 address outside the private, loopback,
-# link-local and "this network" ranges.
+# link-local, shared (100.64.0.0/10) and "this network" ranges.
 fb_is_public() {
   fb_valid_ip "$1" || return 1
   case "$1" in
     0.* | 10.* | 127.* | 169.254.* | 192.168.*) return 1 ;;
     172.*) fip_o="$(printf '%s' "$1" | cut -d. -f2)"; [ "$fip_o" -lt 16 ] || [ "$fip_o" -gt 31 ] ;;
+    100.*) fip_o="$(printf '%s' "$1" | cut -d. -f2)"; [ "$fip_o" -lt 64 ] || [ "$fip_o" -gt 127 ] ;;
     *) return 0 ;;
   esac
 }
@@ -191,9 +193,34 @@ fb_env_get() {
   sed -n "s/^$2=//p" "$1" | head -n 1
 }
 
+# fb_env_edit FILE FUNC [ARG...] rewrites FILE with the output of "FUNC FILE ARG...".
+# Every root-side read-modify-write of the env file goes through here: one flock on a
+# lock file under /run (skipped when flock is missing), a unique temp file in the same
+# directory that starts as a copy of the file (cp -p: same owner and mode), then an
+# atomic rename. Two timers editing the file at once cannot lose each other's edit.
+fb_env_edit() {
+  fee_file="$1"
+  fee_fn="$2"
+  shift 2
+  fee_lock="$(dest /run/hatamoto-env.lock)"
+  mkdir -p "$(dirname "$fee_lock")"
+  (
+    if command -v flock >/dev/null 2>&1; then
+      exec 9> "$fee_lock"
+      flock 9 || exit 1
+    fi
+    fee_tmp="$(mktemp "$fee_file.XXXXXX")" || exit 1
+    trap 'rm -f "$fee_tmp"' EXIT
+    cp -p "$fee_file" "$fee_tmp" || exit 1
+    "$fee_fn" "$fee_file" "$@" > "$fee_tmp" || exit 1
+    mv -f "$fee_tmp" "$fee_file"
+  )
+}
+
 # fb_psql runs psql as the postgres superuser; SQL comes on stdin so no secret is in a process list.
+# Terse errors keep psql from echoing the failed statement (a password) to the console and logs.
 fb_psql() {
-  sudo -u postgres psql -X -q -v ON_ERROR_STOP=1 "$@"
+  sudo -u postgres psql -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=terse "$@"
 }
 
 # fb_as_app CMD... runs the hatamoto binary as the service user from the app
@@ -218,9 +245,9 @@ fb_database() {
   done
   [ "$fd_ready" = 1 ] || die "PostgreSQL does not answer: check systemctl status postgresql"
   if [ "$(fb_psql -tA -c "select 1 from pg_roles where rolname = '$APP_USER'")" = 1 ]; then
-    printf "ALTER ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_USER" "$fd_pw" | fb_psql
+    printf "SET log_min_error_statement = panic;\nALTER ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_USER" "$fd_pw" | fb_psql
   else
-    printf "CREATE ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_USER" "$fd_pw" | fb_psql
+    printf "SET log_min_error_statement = panic;\nCREATE ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_USER" "$fd_pw" | fb_psql
   fi
   if [ "$(fb_psql -tA -c "select 1 from pg_database where datname = '$APP_USER'")" != 1 ]; then
     printf 'CREATE DATABASE %s OWNER %s;\n' "$APP_USER" "$APP_USER" | fb_psql
@@ -293,6 +320,14 @@ fb_fresh_snakeoil() {
   done
 }
 
+# fb_valid_email ADDR succeeds for a plain single-line address (no spaces, braces or newline).
+fb_valid_email() {
+  case "$1" in *'
+'*) return 1 ;; esac
+  [ "${#1}" -le 254 ] || return 1
+  printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._%+-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9]$'
+}
+
 # fb_persist_one FILE NAME VALUE appends NAME=VALUE unless the file already has NAME
 # (an image author's value wins) or VALUE is empty or not plain enough for systemd's
 # EnvironmentFile and sh alike.
@@ -302,6 +337,8 @@ fb_persist_one() {
   case "$3" in
     *[!A-Za-z0-9@._:/+%-]*) warn "$2 has unusual characters: not saved for a resumed run"; return 0 ;;
   esac
+  # A hand-written file may lack the final newline: do not glue onto its last line.
+  [ ! -s "$1" ] || [ -z "$(tail -c1 "$1")" ] || printf '\n' >> "$1"
   printf '%s=%s\n' "$2" "$3" >> "$1"
 }
 
@@ -341,6 +378,7 @@ stage_firstboot() {
   need_cmd sudo
   need_cmd curl
   case "$IN_TLS" in auto | internal | off) ;; *) die "HATAMOTO_TLS must be auto, internal or off" ;; esac
+  [ -z "$IN_EMAIL" ] || fb_valid_email "$IN_EMAIL" || die "HATAMOTO_ADMIN_EMAIL is not an email address: $IN_EMAIL"
   fb_persist_inputs
 
   FB_TMP="$(mktemp -d)"
@@ -377,7 +415,9 @@ stage_firstboot() {
     fs_dbpw="$(fb_env_get "$fs_envfile" DATABASE_URL | sed -n 's#^postgres://[^:]*:\([^@]*\)@.*#\1#p')"
     fs_secret="$(fb_env_get "$fs_envfile" HATAMOTO_SECRET)"
     fs_code="$(fb_env_get "$fs_envfile" HATAMOTO_SETUP_CODE)"
-    if [ -z "$fs_dbpw" ] || [ -z "$fs_code" ]; then
+    # A missing code is fine once the owner exists (checked below, with PostgreSQL up):
+    # the clean-up timer removed it before this resumed run.
+    if [ -z "$fs_dbpw" ]; then
       die "the existing env file is incomplete: remove $fs_envfile and run again"
     fi
     log "resuming a first boot that did not finish"
@@ -393,10 +433,16 @@ stage_firstboot() {
   fi
 
   fb_fresh_snakeoil
+  # Swap before PostgreSQL, migrate and Caddy: a 1 GB machine can run out of memory in them.
+  fb_stage setup_swap
   systemctl enable --now postgresql >/dev/null 2>&1 || die "cannot start postgresql"
   # A sealed image started PostgreSQL at boot without the key: bring it up again.
   systemctl restart postgresql >/dev/null 2>&1 || die "cannot restart postgresql"
   fb_database "$fs_dbpw"
+  if [ -z "$fs_code" ]; then
+    fs_owners="$(cd / && fb_psql -d hatamoto -tAc 'select count(*) from hatamoto_users' 2>/dev/null)" || fs_owners=0
+    case "$fs_owners" in '' | 0 | *[!0-9]*) die "the existing env file is incomplete: remove $fs_envfile and run again" ;; esac
+  fi
 
   fb_render_env "$fs_dbpw" "$fs_secret" "$fs_code" "$fs_base" > "$FB_TMP/hatamoto.env"
   install -m 0640 -o root -g "$APP_USER" "$FB_TMP/hatamoto.env" "$fs_envfile"
@@ -432,12 +478,17 @@ stage_firstboot() {
   # Housekeeping parts, then the done marker last.
   fb_stage install_motd
   fb_stage install_dns_switch
-  fb_stage setup_swap
   fb_stage setup_backups
+  # Last, so a failed earlier part never leaves the timer to delete a code the resume needs.
+  fb_stage install_setupcode_clean
 
-  fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip"
-  if [ -z "$R" ] && [ -w /dev/console ]; then
-    fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip" > /dev/console 2>/dev/null || true
+  if [ -n "$fs_code" ]; then
+    fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip"
+    if [ -z "$R" ] && [ -w /dev/console ]; then
+      fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip" > /dev/console 2>/dev/null || true
+    fi
+  else
+    log "the owner account already exists: no setup code to show"
   fi
   : > "$fs_done"
   log "first boot done"

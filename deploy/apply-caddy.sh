@@ -23,15 +23,30 @@
 #      change also writes <Caddyfile>.bak.<timestamp>) and restored + reloaded if
 #      the reload fails.
 #
-# Usage:  sudo deploy/apply-caddy.sh [/etc/caddy/Caddyfile]
+# Usage:  sudo deploy/apply-caddy.sh [--dry-run] [/etc/caddy/Caddyfile]
+# Flags:  --dry-run  validate and print the diff, change nothing
 # Env:    CADDY_BIN  caddy binary (default: caddy)
-#         DRY_RUN=1  validate and print the diff, change nothing
+#         DRY_RUN=1  same as --dry-run (sudo drops the environment: write
+#                    `sudo DRY_RUN=1 deploy/apply-caddy.sh`, or use the flag)
 # Needs:  caddy, jq, awk
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 src=${CADDY_SNIPPET:-$here/caddy/hatamoto.dev.caddy}
-target=${1:-/etc/caddy/Caddyfile}
+dry=${DRY_RUN:-}
+target=""
+for a in "$@"; do
+	case $a in
+	--dry-run) dry=1 ;;
+	-h | --help) sed -n '2,/^set /{/^set /!p}' "$0"; exit 0 ;;
+	-*) echo "apply-caddy: unknown flag: $a" >&2; exit 64 ;;
+	*)
+		[[ -z $target ]] || { echo "usage: apply-caddy.sh [--dry-run] [Caddyfile]" >&2; exit 64; }
+		target=$a
+		;;
+	esac
+done
+target=${target:-/etc/caddy/Caddyfile}
 caddy=${CADDY_BIN:-caddy}
 
 [[ -f $src ]] || { echo "missing $src" >&2; exit 1; }
@@ -200,7 +215,7 @@ if cmp -s "$tmp" "$target"; then
 	exit 0
 fi
 diff -u "$target" "$tmp" || true
-if [[ ${DRY_RUN:-} == 1 ]]; then
+if [[ $dry == 1 ]]; then
 	echo "DRY_RUN: $target left untouched"
 	exit 0
 fi

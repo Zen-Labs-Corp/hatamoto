@@ -22,6 +22,14 @@ for c in apt-get dpkg ufw systemctl curl useradd; do
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$CALLS"
 case "$(basename "$0")" in
   apt-get) # the verb follows the -o option
+    if [ "$3" = update ]; then
+      printf 'LC_ALL=%s\n' "${LC_ALL:-}" >> "$CALLS"
+      [ -z "${FAKE_APT_UPDATE_WARN:-}" ] || echo "W: fake repository warning" >&2
+      lockmsg="E: Could not get lock /var/lib/apt/lists/lock. It is held by process 42 (apt-get)"
+      [ -z "${FAKE_APT_UPDATE_FAIL:-}" ] || { echo "E: Failed to fetch https://example.invalid 503" >&2; exit 100; }
+      [ -z "${FAKE_APT_UPDATE_DOWN:-}" ] || { echo "$lockmsg" >&2; exit 100; }
+      if [ -n "${FAKE_APT_UPDATE_ONCE:-}" ] && [ ! -e "$FAKE_APT_UPDATE_ONCE" ]; then : > "$FAKE_APT_UPDATE_ONCE"; echo "$lockmsg" >&2; exit 100; fi
+    fi
     [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
   curl) # the PGDG key: write the -o/--output file
@@ -87,7 +95,7 @@ grep -qxF "apt-get $want" "$tmp/calls" || fail "package list differs: $(grep apt
 pass "package list"
 [ "$(grep -c '^apt-get ' "$tmp/calls")" = "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 ' "$tmp/calls")" ] || fail "an apt-get call has no lock timeout"
 # The seal stage only runs apt-get on a real host, so check its source.
-if grep -h 'apt-get ' "$here/src/install/35-seal.sh" | grep -v '^ *#' | grep -v 'DPkg::Lock::Timeout=600'; then fail "seal calls apt-get without a lock timeout"; fi
+if grep -h 'apt-get ' "$here/src/install/35-seal.sh" | grep -v '^ *#' | grep -v 'build_apt_update' | grep -v 'DPkg::Lock::Timeout=600'; then fail "seal calls apt-get without a lock timeout"; fi
 pass "every apt-get call waits for the dpkg lock"
 grep -q 'policy-rc.d present during install' "$tmp/calls" || fail "services were not held back during install"
 [ ! -e "$ub/usr/sbin/policy-rc.d" ] || fail "policy-rc.d left behind"
@@ -138,6 +146,30 @@ grep -qxF 'deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] ht
 grep -q -- '--proto =https' "$tmp/calls" || fail "key fetched without https pin"
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "debian must update again after adding PGDG"
 pass "PGDG on debian only, key over https"
+
+# --- apt update retries while the lists lock is held
+rt="$(mkroot retry ubuntu 24.04 noble)"
+: > "$tmp/calls"
+run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 FAKE_APT_UPDATE_ONCE="$tmp/update-once" >/dev/null 2>"$tmp/err" || fail "a busy first update was not retried: $(cat "$tmp/err")"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "update not retried exactly once"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 install' "$tmp/calls")" = 2 ] || fail "install was retried or skipped: $(grep "^apt-get" "$tmp/calls")"
+rt="$(mkroot retrydown ubuntu 24.04 noble)"
+: > "$tmp/calls"
+if run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 HATAMOTO_APT_TRIES=3 FAKE_APT_UPDATE_DOWN=1 >/dev/null 2>"$tmp/err"; then fail "a failing update was ignored"; fi
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 3 ] || fail "update retries not bounded by HATAMOTO_APT_TRIES"
+grep -q 'apt-get update failed' "$tmp/err" || fail "update failure not named: $(cat "$tmp/err")"
+rt="$(mkroot retryfail ubuntu 24.04 noble)"
+: > "$tmp/calls"
+if run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 HATAMOTO_APT_TRIES=3 FAKE_APT_UPDATE_FAIL=1 >/dev/null 2>"$tmp/err"; then fail "a failing update was ignored"; fi
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 1 ] || fail "a non-lock update failure was retried"
+grep -q 'apt-get update failed' "$tmp/err" || fail "update failure not named: $(cat "$tmp/err")"
+rt="$(mkroot retrywarn ubuntu 24.04 noble)"
+: > "$tmp/calls"
+run_build "$rt" FAKE_APT_UPDATE_WARN=1 >/dev/null 2>"$tmp/err" || fail "a warning broke a successful update"
+grep -q 'W: fake repository warning' "$tmp/err" || fail "warning of a successful update was dropped: $(cat "$tmp/err")"
+grep -qx 'LC_ALL=C' "$tmp/calls" || fail "apt-get update did not run with LC_ALL=C"
+! grep '^LC_ALL=' "$tmp/calls" | grep -qvx 'LC_ALL=C' || fail "an update ran without LC_ALL=C"
+pass "apt update retried on the lists lock only, bounded, install not retried"
 
 # --- refusals
 ol="$(mkroot old ubuntu 22.04 jammy)"

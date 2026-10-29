@@ -31,9 +31,15 @@ case "$*" in
   *"select 1 from pg_roles"*) [ ! -e "$TMPD/role" ] || echo 1 ;;
   *"select 1 from pg_database"*) [ ! -e "$TMPD/db" ] || echo 1 ;;
   *"select 1"*) echo 1 ;;
+  *"count(*) from hatamoto_users"*) echo "${FAKE_OWNERS:-0}" ;;
   *) # SQL on stdin: keep it outside the fixture root
     sql="$(cat)"
     printf '%s\n' "$sql" >> "$TMPD/psql-stdin"
+    if [ -n "${FAKE_PSQL_FAIL:-}" ]; then
+      echo "ERROR:  boom" >&2
+      case "$*" in *VERBOSITY=terse*) ;; *) printf 'LINE 1: %s\n' "$sql" >&2 ;; esac
+      exit 1
+    fi
     case "$sql" in *"CREATE ROLE"*) : > "$TMPD/role" ;; esac
     case "$sql" in *"CREATE DATABASE"*) : > "$TMPD/db" ;; esac ;;
 esac
@@ -130,6 +136,7 @@ run_fb() {
     HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 "$@" \
     sh -c '. "$1"
       install_motd() { echo "install_motd" >> "$CALLS"; }
+      install_setupcode_clean() { echo "install_setupcode_clean" >> "$CALLS"; }
       install_dns_switch() { echo "install_dns_switch pending=$FB_PENDING_DOMAIN host=$FB_HOST ip=$FB_IP" >> "$CALLS"; }
       setup_swap() { echo "setup_swap" >> "$CALLS"; }
       setup_backups() { echo "setup_backups" >> "$CALLS"; }
@@ -214,9 +221,16 @@ grep -q 'Updates:    automatic (stable channel)' "$tmp/out" || fail "banner upda
 if grep -q 'Domain:' "$tmp/out"; then fail "domain line without a domain"; fi
 [ "$(stat -c %a "$r/var/lib/hatamoto-install/link")" = 600 ] || fail "link file mode"
 [ "$(cat "$r/var/lib/hatamoto-install/link")" = "https://203-0-113-7.sslip.io/k7qm-x2rf-9tdc" ] || fail "link file content"
-{ grep -qx 'install_motd' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls"; } || fail "housekeeping parts not called"
+{ grep -qx 'install_motd' "$tmp/calls" && grep -qx 'install_setupcode_clean' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls"; } || fail "housekeeping parts not called"
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker missing"
 pass "banner, link file, parts, done marker"
+
+# Swap exists before PostgreSQL starts and before migrate.
+swapn="$(grep -nx 'setup_swap' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+pgn="$(grep -nx 'systemctl enable --now postgresql' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+mign="$(grep -n '^hatamoto migrate' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+{ [ -n "$swapn" ] && [ "$swapn" -lt "$pgn" ] && [ "$swapn" -lt "$mign" ]; } || fail "setup_swap must run before postgresql ($pgn) and migrate ($mign): $swapn"
+pass "swap before PostgreSQL and migrate"
 
 # The database password lives in the env file only.
 dbpw="$(sed -n 's#^DATABASE_URL=postgres://hatamoto:\([^@]*\)@.*#\1#p' "$envf")"
@@ -227,6 +241,7 @@ if grep -q -e "$dbpw" "$tmp/calls" "$tmp/out" "$tmp/err"; then fail "database pa
 secret="$(sed -n 's/^HATAMOTO_SECRET=//p' "$envf")"
 if grep -rl -e "$secret" "$r" | grep -v 'config/hatamoto.env$' | grep .; then fail "server secret found outside the env file"; fi
 grep -q 'CREATE ROLE hatamoto WITH LOGIN CREATEROLE PASSWORD' "$tmp/state/psql-stdin" || fail "role statement"
+grep -q 'SET log_min_error_statement' "$tmp/state/psql-stdin" || fail "server statement logging not turned down"
 if grep -qi 'SUPERUSER' "$tmp/state/psql-stdin"; then fail "role is a superuser"; fi
 pass "secrets only in the env file"
 
@@ -317,14 +332,45 @@ pip() { PATH="$bin:$PATH" CALLS=/dev/null pure fb_public_ip 2>"$tmp/pip.err"; }
 { grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '203.0.113.9' "$tmp/pip.err"; } || fail "mismatch warning must name both: $(cat "$tmp/pip.err")"
 [ "$(FAKE_IP=198.51.100.20 FAKE_LOCAL_IPS="10.0.0.5" FAKE_ROUTE_SRC=10.0.0.5 pip)" = 198.51.100.20 ] || fail "NAT: ipify answer not used"
 { grep -q '198.51.100.20' "$tmp/pip.err" && grep -q '10.0.0.5' "$tmp/pip.err" && grep -q 'HATAMOTO_PUBLIC_IP' "$tmp/pip.err"; } || fail "NAT warning: $(cat "$tmp/pip.err")"
-for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1; do
+for badip in 10.1.2.3 192.168.1.1 172.20.0.1 127.0.0.1 0.0.0.0 169.254.1.1 100.64.0.1 100.127.255.254; do
   [ "$(FAKE_IP=$badip FAKE_LOCAL_IPS="203.0.113.9" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "ipify answer $badip accepted"
   grep -q 'not a public address' "$tmp/pip.err" || fail "no message for $badip"
 done
 [ "$(FAKE_IP=172.32.0.1 FAKE_LOCAL_IPS="172.32.0.1" pip)" = 172.32.0.1 ] || fail "172.32.0.1 is public"
+for goodip in 100.63.0.1 100.128.0.1; do
+  [ "$(FAKE_IP=$goodip FAKE_LOCAL_IPS="$goodip" pip)" = "$goodip" ] || fail "$goodip is public"
+done
 [ "$(FAKE_LOCAL_IPS="" FAKE_ROUTE_SRC=203.0.113.9 pip)" = 203.0.113.9 ] || fail "no ipify answer: route source not used"
 [ "$(HATAMOTO_PUBLIC_IP=192.0.2.1 FAKE_IP=198.51.100.20 pip)" = 192.0.2.1 ] || fail "explicit HATAMOTO_PUBLIC_IP lost"
 pass "public IP: ipify answer cross-checked against local addresses"
+
+# --- admin email validation
+for good in ops@example.com a.b+c@sub.example.org ops@example.xn--p1ai; do pure fb_valid_email "$good" || fail "good email refused: $good"; done
+for bad in ops@example.c ops@example.1com ops@example.com- ops@example.-com 'a b@x.com' 'x@' 'x@y' 'ops@example.com}' $'ops@example.com\nx@example.com' '@example.com'; do
+  if pure fb_valid_email "$bad"; then fail "bad email accepted: $bad"; fi
+done
+r="$(mkroot badmail)"
+if run_fb "$r" HATAMOTO_ADMIN_EMAIL='a b@x.com'; then fail "bad email accepted by the stage"; fi
+grep -q 'HATAMOTO_ADMIN_EMAIL is not an email address' "$tmp/err" || fail "bad email not explained: $(cat "$tmp/err")"
+[ ! -e "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker after a bad email"
+pass "admin email validated"
+
+# --- the saved inputs file may lack a final newline
+r="$(mkroot nonl)"
+mkdir -p "$r/etc/default"; printf 'HATAMOTO_TLS=auto' > "$r/etc/default/hatamoto-install"
+run_fb "$r" HATAMOTO_DOMAIN=cms.example.com || fail "no-newline run failed: $(cat "$tmp/err")"
+{ grep -qx 'HATAMOTO_TLS=auto' "$r/etc/default/hatamoto-install" && grep -qx 'HATAMOTO_DOMAIN=cms.example.com' "$r/etc/default/hatamoto-install"; } || fail "inputs glued onto one line: $(cat "$r/etc/default/hatamoto-install")"
+pass "inputs appended on their own line"
+
+# --- a failing role statement never shows the password
+r="$(mkroot psqlfail)"
+if run_fb "$r" FAKE_PSQL_FAIL=1; then fail "psql failure ignored"; fi
+dbpw="$(sed -n "s/.*PASSWORD '\([^']*\)'.*/\1/p" "$tmp/state/psql-stdin")"
+[ "${#dbpw}" -ge 32 ] || fail "no password to look for"
+grep -q 'boom' "$tmp/err" || fail "psql error not shown"
+if grep -q -e "$dbpw" "$tmp/out" "$tmp/err"; then fail "database password in the output of a failed psql"; fi
+grep -q -e '-v VERBOSITY=terse' "$tmp/calls" || fail "psql not run with terse errors"
+pass "psql errors are terse"
 
 # --- resume after a failed migrate keeps the secrets ------------------------------------------
 r="$(mkroot resume)"
@@ -337,12 +383,32 @@ rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/sta
 # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 env PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 sh -c '. "$1"
-    install_motd() { :; }; install_dns_switch() { :; }; setup_swap() { :; }; setup_backups() { :; }
+    install_motd() { :; }; install_setupcode_clean() { :; }; install_dns_switch() { :; }; setup_swap() { :; }; setup_backups() { :; }
     stage_firstboot' _ "$fbscript" >"$tmp/out" 2>"$tmp/err" || fail "resume failed: $(cat "$tmp/err")"
 [ "$(cat "$r/opt/hatamoto/config/hatamoto.env")" = "$first" ] || fail "resume changed the secrets"
 grep -q 'ALTER ROLE hatamoto' "$tmp/state/psql-stdin" || fail "resume did not reset the role password"
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "resume did not finish"
 pass "resume keeps secrets and finishes"
+
+# --- resume after the clean-up timer removed the setup code ----------------------------------------
+r="$(mkroot nocode)"
+if FAKE_MIGRATE_FAIL=1 run_fb "$r"; then fail "migrate failure ignored"; fi
+envf="$r/opt/hatamoto/config/hatamoto.env"
+grep -v '^HATAMOTO_SETUP_CODE=' "$envf" > "$tmp/env.nocode"; cp "$tmp/env.nocode" "$envf"
+if run_fb "$r" FAKE_OWNERS=0; then fail "a missing code was accepted with no owner"; fi
+grep -q 'incomplete' "$tmp/err" || fail "no-owner refusal not explained: $(cat "$tmp/err")"
+[ ! -e "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker without code or owner"
+: > "$tmp/calls"
+run_fb "$r" FAKE_OWNERS=1 || fail "resume without a code but with an owner failed: $(cat "$tmp/err")"
+[ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "resume did not finish"
+if grep -q 'SETUP_CODE' "$envf"; then fail "setup code written back"; fi
+if grep -q 'Setup code' "$tmp/out"; then fail "banner printed without a code"; fi
+pass "resume accepts a removed setup code once the owner exists"
+# The clean timer is installed after the backups part, just before the done marker.
+bn="$(grep -nx 'setup_backups' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+cn="$(grep -nx 'install_setupcode_clean' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+{ [ -n "$bn" ] && [ -n "$cn" ] && [ "$bn" -lt "$cn" ]; } || fail "clean timer not installed after setup_backups"
+pass "setup code clean timer installed last"
 
 # --- a failed run keeps the inputs for the resume at the next boot ----------------------------------
 r="$(mkroot inputs)"
@@ -358,7 +424,7 @@ rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/sta
 # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 run_resume() { env -i PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 "${fromfile[@]}" sh -c '. "$1"
-    install_motd() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
+    install_motd() { :; }; install_setupcode_clean() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
     stage_firstboot' _ "$fbscript" >"$tmp/out" 2>"$tmp/err"; }
 : > "$tmp/calls"
 run_resume || fail "resume from the saved inputs failed: $(cat "$tmp/err")"

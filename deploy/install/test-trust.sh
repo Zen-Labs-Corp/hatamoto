@@ -137,6 +137,22 @@ rm -f "$tmp/out.bin"
 if env HATAMOTO_RELEASE_BASE=http://example.com/releases sh "$script" download v0.2.0 "$tmp/out.bin" 2>"$tmp/err"; then fail "non-loopback http accepted"; fi
 grep -q 'https' "$tmp/err" || fail "http refusal not explained"
 pass "refused: non-loopback http base"
+for tb_bad in http://127.0.0.1:80@example.com/releases http://127.0.0.1:x@evil/ http://127.0.0.1.evil.com/; do
+  if env HATAMOTO_RELEASE_BASE="$tb_bad" sh "$script" download v0.2.0 "$tmp/out.bin" 2>"$tmp/err"; then fail "base $tb_bad accepted"; fi
+  grep -q 'https' "$tmp/err" || fail "base $tb_bad refusal not explained"
+done
+pass "refused: loopback look-alike http bases"
+for tb_bad in $'http://127.0.0.1:1\n.evil.com/releases' $'https://example.com/releases\r' $'https://example.com\n/releases'; do
+  if env HATAMOTO_RELEASE_BASE="$tb_bad" sh "$script" download v0.2.0 "$tmp/out.bin" 2>"$tmp/err"; then fail "base with a line break accepted"; fi
+  grep -q 'release base must be an https URL' "$tmp/err" || fail "line-break base not refused by the base check: $(cat "$tmp/err")"
+done
+pass "refused: release base with a newline or CR"
+
+# Oversized index and record are refused (1 MiB cap).
+head -c 2000000 /dev/zero | tr '\0' ' ' >> "$M_SITE/releases/channels/stable.json"
+refused index-download "$script" v0.2.0; restore
+head -c 2000000 /dev/zero | tr '\0' ' ' >> "$M_SITE/releases/v0.2.0/release.json"
+refused record-download "$script" v0.2.0; restore
 
 # Escaped & in a yank reason: jq re-encodes it, so the signature no longer matches. Documented fail-closed.
 mirror_tool channel yank stable v0.1.0 --reason "fix & retest" --dir "$M_SRC" >/dev/null

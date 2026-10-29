@@ -41,6 +41,13 @@ if bash "$here/build-install.sh" --keys-dir "$tmp/keys" --out "$tmp/c" 2>"$tmp/e
 grep -q 'unexpected key file name: stray.pub' "$tmp/err" || fail "stray key error not named: $(cat "$tmp/err")"
 rm "$tmp/keys/stray.pub"
 
+# Files that are not *.pub are invisible, as to the Go loader: the output does not change.
+echo 'not a key' > "$tmp/keys/README"
+echo 'junk' > "$tmp/keys/release-extra"
+bash "$here/build-install.sh" --keys-dir "$tmp/keys" --out "$tmp/e" || fail "non-.pub files broke the build"
+cmp -s "$tmp/a/install.sh" "$tmp/e/install.sh" || fail "non-.pub files changed install.sh"
+rm "$tmp/keys/README" "$tmp/keys/release-extra"
+
 # A key_id that does not match the key is refused.
 jq '.key_id = "0000000000000000"' "$tmp/keys/manifest.pub" > "$tmp/manifest.new"
 mv "$tmp/manifest.new" "$tmp/keys/manifest.pub"

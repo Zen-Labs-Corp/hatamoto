@@ -37,10 +37,38 @@ build_policy_restore() {
   BUILD_POLICY=""
 }
 
+# build_apt_update runs apt-get update, retrying only while another process holds the
+# package lists lock (DPkg::Lock::Timeout does not cover it): apt then says so on stderr.
+# LC_ALL=C keeps that message untranslated; warnings of a successful update are still shown.
+# Any other failure (network, bad repository) ends at once. At most HATAMOTO_APT_TRIES
+# attempts (default 30), HATAMOTO_APT_RETRY_SLEEP seconds apart (default 10).
+build_apt_update() {
+  bau_try=1
+  bau_err="$(mktemp)"
+  while ! LC_ALL=C DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq 2> "$bau_err"; do
+    cat "$bau_err" >&2
+    if ! grep -Eq 'Could not get lock /var/lib/apt/lists|Unable to lock directory /var/lib/apt/lists' "$bau_err"; then
+      rm -f "$bau_err"
+      return 1
+    fi
+    if [ "$bau_try" -ge "${HATAMOTO_APT_TRIES:-30}" ]; then
+      rm -f "$bau_err"
+      return 1
+    fi
+    bau_try=$((bau_try + 1))
+    sleep "${HATAMOTO_APT_RETRY_SLEEP:-10}"
+  done
+  cat "$bau_err" >&2
+  rm -f "$bau_err"
+}
+
 # build_apt runs apt-get non-interactively; a failure removes the policy file and dies.
 # A fresh cloud image holds the dpkg lock for its first minutes (apt-daily, cloud-init): wait for it.
+# "update" goes through build_apt_update; the other verbs are not retried.
 build_apt() {
-  if ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 "$@"; then
+  if [ "$1" = update ]; then
+    build_apt_update || { build_policy_restore; die "apt-get update failed"; }
+  elif ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 "$@"; then
     build_policy_restore
     die "apt-get $1 failed"
   fi

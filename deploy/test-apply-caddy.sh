@@ -215,6 +215,25 @@ DRY_RUN=1 "$here/apply-caddy.sh" "$work/dry" >/dev/null
 cmp "$work/dry" "$work/dry.orig" || fail "DRY_RUN wrote the file"
 ls "$work"/dry.bak* >/dev/null 2>&1 && fail "DRY_RUN wrote a backup"
 
+# 11b. --dry-run (no env), before or after the path, changes nothing; unknown flags are refused.
+sample "$work/dry2"
+cp "$work/dry2" "$work/dry2.orig"
+: >"$work/calls.log"; rm -f "$work/calls.log.reloads"
+env -u DRY_RUN "$here/apply-caddy.sh" --dry-run "$work/dry2" >/dev/null
+cmp "$work/dry2" "$work/dry2.orig" || fail "--dry-run wrote the file"
+ls "$work"/dry2.bak* >/dev/null 2>&1 && fail "--dry-run wrote a backup"
+grep -q '^reload ' "$work/calls.log" && fail "--dry-run reloaded caddy"
+sample "$work/dry3"
+cp "$work/dry3" "$work/dry3.orig"
+env -u DRY_RUN "$here/apply-caddy.sh" "$work/dry3" --dry-run >/dev/null
+cmp "$work/dry3" "$work/dry3.orig" || fail "path --dry-run wrote the file"
+ls "$work"/dry3.bak* >/dev/null 2>&1 && fail "path --dry-run wrote a backup"
+rc=0; env -u DRY_RUN "$here/apply-caddy.sh" --bogus >/dev/null 2>&1 || rc=$?
+[[ $rc == 64 ]] || fail "unknown flag exit $rc, want 64"
+[[ ! -e --bogus ]] || fail "unknown flag used as a path"
+rc=0; env -u DRY_RUN "$here/apply-caddy.sh" "$work/dry3" "$work/dry2" >/dev/null 2>&1 || rc=$?
+[[ $rc == 64 ]] || fail "two paths exit $rc, want 64"
+
 # 12. The script's own safety net: if its splice changed another site it must refuse.
 #     (A tampered snippet that also defines a second site simulates that.)
 sample "$work/net"

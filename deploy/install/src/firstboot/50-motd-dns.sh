@@ -82,14 +82,15 @@ fb_dns_matches "$domain" "$ip" || exit 0
 log "$domain now points here: switching the site to it"
 if [ "$tls" = off ]; then base="http://$domain"; else base="https://$domain"; fi
 envfile="$(dest /opt/hatamoto/config/hatamoto.env)"
-tmp="$envfile.new"
-cp -p "$envfile" "$tmp"
-if grep -q '^PUBLIC_BASE_URL=' "$envfile"; then
-  sed "s#^PUBLIC_BASE_URL=.*#PUBLIC_BASE_URL=$base#" "$envfile" > "$tmp"
-else
-  { cat "$envfile"; printf 'PUBLIC_BASE_URL=%s\n' "$base"; } > "$tmp"
-fi
-mv -f "$tmp" "$envfile"
+set_base_url() {
+  if grep -q '^PUBLIC_BASE_URL=' "$1"; then
+    sed "s#^PUBLIC_BASE_URL=.*#PUBLIC_BASE_URL=$2#" "$1"
+  else
+    cat "$1"
+    printf 'PUBLIC_BASE_URL=%s\n' "$2"
+  fi
+}
+fb_env_edit "$envfile" set_base_url "$base"
 
 caddyfile="$(dest /etc/caddy/Caddyfile)"
 fb_render_caddyfile "$domain" "$tls" "$email" > "$caddyfile.new"

@@ -23,9 +23,12 @@ the same root, with the same hardening headers as `/archive`; any other name und
 ## Apply
 
 ```bash
-sudo deploy/apply-caddy.sh                  # /etc/caddy/Caddyfile
-DRY_RUN=1 deploy/apply-caddy.sh ./Caddyfile # validate and show the diff only
+sudo deploy/apply-caddy.sh             # /etc/caddy/Caddyfile
+sudo deploy/apply-caddy.sh --dry-run   # validate and show the diff only
 ```
+
+`sudo DRY_RUN=1 deploy/apply-caddy.sh` works too. `DRY_RUN=1 sudo ...` does not:
+sudo resets the environment, so that form applies for real.
 
 The script finds the blocks with a brace-depth parser (trailing `} # comments`,
 CRLF, braces in strings/comments, placeholders, nested handles, snippets and

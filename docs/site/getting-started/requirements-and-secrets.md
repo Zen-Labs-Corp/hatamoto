@@ -159,6 +159,7 @@ The setup code stops whoever reaches a brand-new install first from claiming the
 | Matching | Case, spaces and dashes are ignored, so `k7m2 rt9p` works. |
 | Storage | The server keeps only a hash of the code in memory. |
 | After the first user | Once any user exists there is no code, and the wizard's first step refuses new accounts with "Setup already completed". |
+| In the env file | A VPS install made with this installer version or later removes the `HATAMOTO_SETUP_CODE` line from the env file a few minutes after the owner account exists, so the code is not kept there or in backups of that file. On an older install, delete that line by hand once the owner exists. |
 | Later wizard steps | Steps 2 to 5 of the wizard are open to owners only. Once setup is finished, `<admin>/setup` and the steps before **Done** answer "Page not found". |
 
 The wizard itself is described in [First run](first-run.md).

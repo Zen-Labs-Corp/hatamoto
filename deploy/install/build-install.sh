@@ -47,15 +47,16 @@ cat_parts() {
   done
 }
 
-# key_block prints the two shell variables holding the trusted keys. The file
-# name picks the set exactly like backend/internal/release/trust.go.
+# key_block prints the two shell variables holding the trusted keys. Only *.pub
+# files are keys (the Go loader embeds keys/*.pub); the file name picks the set
+# exactly like backend/internal/release/trust.go.
 key_block() {
   local f name set id pub raw rel="" man=""
-  for f in "$keys_dir"/*; do
+  for f in "$keys_dir"/*.pub; do
     [ -e "$f" ] || continue
     name="$(basename "$f")"
     case "$name" in
-      release-*) set=release ;;
+      release-*.pub) set=release ;;
       manifest.pub | manifest-*.pub) set=manifest ;;
       *) die "unexpected key file name: $name" ;;
     esac

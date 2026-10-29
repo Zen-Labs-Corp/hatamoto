@@ -224,7 +224,7 @@ menu entry if it must be indexed.
 ## 5. Runbook after merge
 
 1. `scripts/ship.sh <PR>` (deploys the embedded layout).
-2. Caddy is not touched by ship: on the server `sudo DRY_RUN=1 deploy/apply-caddy.sh`,
+2. Caddy is not touched by ship: on the server `sudo deploy/apply-caddy.sh --dry-run` (or `sudo DRY_RUN=1 deploy/apply-caddy.sh`),
    review, then `sudo deploy/apply-caddy.sh`.
 3. `scripts/changelog-bootstrap.sh` (or steps 1-2 by hand), then create the key (step 3).
 4. Backfill from the live channel manifests:
