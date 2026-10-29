@@ -46,9 +46,12 @@ GET /admin/people/new -> admin.(*Admin).handlePersonNew-fm
 GET /admin/pick/entities -> admin.(*Admin).handlePickEntities-fm
 GET /admin/pick/terms -> admin.(*Admin).handlePickTerms-fm
 GET /admin/plugins -> admin.(*Admin).handlePlugins-fm
+GET /admin/plugins/browse -> admin.(*Admin).handleBrowse-fm
 GET /admin/plugins/go -> admin.(*Admin).handlePluginsGo-fm
+GET /admin/plugins/security -> admin.(*Admin).handlePackageSecurity-fm
 GET /admin/plugins/upload -> admin.(*Admin).handleUploadPage-fm
 GET /admin/plugins/{name} -> admin.(*Admin).handlePluginRedirect-fm
+GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm
 GET /admin/plugins/{name}/permissions -> admin.(*Admin).handlePluginPermissions-fm
 GET /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettings-fm
 GET /admin/plugins/{name}/ui -> admin.(*Admin).handlePluginUIRedirect-fm
@@ -205,9 +208,11 @@ POST /admin/media/{id} -> admin.(*Admin).handleMediaUpdate-fm
 POST /admin/media/{id}/delete -> admin.(*Admin).handleMediaDelete-fm
 POST /admin/people -> admin.(*Admin).handlePersonCreate-fm
 POST /admin/people/merge -> admin.(*Admin).handlePeopleMerge-fm
+POST /admin/plugins/check-updates -> admin.(*Admin).handleCheckUpdates-fm
 POST /admin/plugins/fetch -> admin.(*Admin).handlePluginFetch-fm
 POST /admin/plugins/install -> admin.(*Admin).handlePluginInstall-fm
 POST /admin/plugins/unsigned -> admin.(*Admin).handleAllowUnsigned-fm
+POST /admin/plugins/unsigned/off -> admin.(*Admin).handleStopUnsigned-fm
 POST /admin/plugins/update-all -> admin.(*Admin).handlePluginUpdateAll-fm
 POST /admin/plugins/upload -> admin.(*Admin).handlePackageUpload-fm
 POST /admin/plugins/{name}/bridge -> admin.(*Admin).handlePluginBridge-fm

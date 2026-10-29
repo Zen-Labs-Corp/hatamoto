@@ -29,6 +29,8 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	a.mountMoreSettings(owner)
 	owner.HandleFunc("GET /plugins", a.handlePlugins)
 	a.mountPluginInstall(owner)
+	a.mountPluginBrowse(owner)
+	a.mountPluginSecurity(owner)
 	a.mountPluginUIScreens(authed)
 	// "go" is a literal segment: it wins over {name} in the mux.
 	both.HandleFunc("GET /plugins/go", a.handlePluginsGo)

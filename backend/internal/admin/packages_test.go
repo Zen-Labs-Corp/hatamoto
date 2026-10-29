@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/admin/schemaform"
@@ -33,6 +34,9 @@ type installCall struct {
 type fakePackages struct {
 	registry    RegistryView
 	unsigned    bool
+	unsignedEnd *time.Time // end of a timed opt-in, with unsigned
+	signers     []SignerInfo
+	refreshed   int // RefreshRegistry calls
 	installed   []installCall
 	enabled     map[string]bool
 	removed     []string
@@ -60,6 +64,10 @@ type fakePackages struct {
 const themeSchemaJSON = `{"type":"object","properties":{"accent":{"type":"string","title":"Accent word","default":"teal"}}}`
 
 func (f *fakePackages) Registry(context.Context) RegistryView { return f.registry }
+func (f *fakePackages) RefreshRegistry(context.Context) RegistryView {
+	f.refreshed++
+	return f.registry
+}
 func (f *fakePackages) Fetch(_ context.Context, kind, name string) ([]byte, error) {
 	if name == "nope" {
 		return nil, &Refusal{Msg: "the registry has no plugin \"nope\""}
@@ -137,10 +145,14 @@ func (f *fakePackages) Uninstall(_ context.Context, kind, name string, drop bool
 	return nil
 }
 func (f *fakePackages) AllowUnsigned(context.Context) bool { return f.unsigned }
-func (f *fakePackages) SetAllowUnsigned(_ context.Context, on bool) error {
-	f.unsigned = on
+func (f *fakePackages) UnsignedState(context.Context) UnsignedState {
+	return UnsignedState{On: f.unsigned, Until: f.unsignedEnd}
+}
+func (f *fakePackages) SetAllowUnsigned(_ context.Context, on bool, until *time.Time, _ string) error {
+	f.unsigned, f.unsignedEnd = on, until
 	return nil
 }
+func (f *fakePackages) Signers(context.Context) []SignerInfo        { return f.signers }
 func (f *fakePackages) Themes(context.Context) ([]ThemeInfo, error) { return f.themes, nil }
 func (f *fakePackages) MissingSections(_ context.Context, theme string) ([]MissingSection, error) {
 	if theme == "ghost" {
@@ -922,5 +934,28 @@ func TestPluginsUnsignedAllowedIsACallout(t *testing.T) {
 	pk.unsigned = false
 	if body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String(); !strings.Contains(body, ">Not allowed<") {
 		t.Error("the off state lacks its badge")
+	}
+}
+
+// The Browse, detail, check-updates and Package security routes are owner only,
+// and mounting them next to the /plugins/{name}/... routes does not conflict
+// (the mux panics at mount otherwise, so any rig proves it).
+func TestPluginAdminRoutesAreOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Plugins = &fakePlugins{settings: map[string]map[string]any{}}
+		d.Growth.Packages = &fakePackages{enabled: map[string]bool{}}
+	})
+	for _, tc := range []struct{ method, path string }{
+		{"GET", "/admin/plugins/browse"},
+		{"GET", "/admin/plugins/hello/about"},
+		{"GET", "/admin/plugins/security"},
+		{"POST", "/admin/plugins/check-updates"},
+		{"POST", "/admin/plugins/unsigned/off"},
+	} {
+		if rec := g.do(tc.method, tc.path, "editor-token", nil, nil); rec.Code != http.StatusForbidden {
+			t.Errorf("editor %s %s = %d, want 403", tc.method, tc.path, rec.Code)
+		}
 	}
 }

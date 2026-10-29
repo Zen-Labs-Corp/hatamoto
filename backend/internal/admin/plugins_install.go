@@ -319,7 +319,7 @@ func (a *Admin) handleAllowUnsigned(w http.ResponseWriter, r *http.Request) {
 		a.ErrorBack(w, r, http.StatusUnprocessableEntity, "Tick the box to continue", "Unsigned packages can only be allowed after you confirm that you understand the risk.", a.adminPath+"/plugins#unsigned", "Back to plugins")
 		return
 	}
-	if err := pk.SetAllowUnsigned(r.Context(), on); err != nil {
+	if err := pk.SetAllowUnsigned(r.Context(), on, nil, ""); err != nil {
 		a.logger().Error("set allow unsigned failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
 		return
