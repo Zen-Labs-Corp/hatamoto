@@ -578,6 +578,13 @@ func (f *fakeTerms) UpdateTerm(_ context.Context, in taxonomy.UpdateTermInput) (
 		if in.Description != nil {
 			t.Description = *in.Description
 		}
+		if in.SEO != nil {
+			if c := in.SEO.CanonicalURL; c != "" && !strings.HasPrefix(c, "http") && !strings.HasPrefix(c, "/") {
+				return nil, taxonomy.ErrInvalidSEO
+			}
+			s := *in.SEO
+			t.SEO = &s
+		}
 		if in.ClearParent {
 			t.ParentID = nil
 		}

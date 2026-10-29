@@ -174,6 +174,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"setup/account":       {"@hm/setupcode"},
 		"taxonomies/list":     {"@hm/content"},
 		"taxonomies/new":      {"@hm/content"},
+		"taxonomies/term":     {"@hm/seopanel"},
 	}
 	for page, mods := range want {
 		for _, m := range mods {

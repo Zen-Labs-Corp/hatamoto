@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/taxonomy"
 )
 
@@ -36,6 +37,8 @@ type termForm struct {
 	ParentOptions, KindOptions              []ui.Option
 	Back                                    string
 	Crumbs                                  []ui.Crumb
+	SEO                                     seoForm
+	Panel                                   seoPanel
 }
 
 type taxonomiesData struct {
@@ -189,7 +192,7 @@ func (a *Admin) renderTermNew(w http.ResponseWriter, r *http.Request, status int
 	}
 	f = termFormOptions(nodes, kinds, kind, f)
 	f.Back = a.taxBase(kind)
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"new_kind", "New kind"}, {"parent", "Parent"}, {"description", "Description"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"new_kind", "New kind"}, {"parent", "Parent"}, {"description", "Description"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -254,6 +257,8 @@ func termFieldError(f *termForm, err error) bool {
 		f.Errors["slug"] = "Use lower-case letters, digits and hyphens"
 	case errors.Is(err, taxonomy.ErrInvalidDescription):
 		f.Errors["description"] = "Use at most 2000 characters"
+	case errors.Is(err, taxonomy.ErrInvalidSEO):
+		f.Errors["seo_canonical"] = "Use a full address starting with https:// or a path starting with /"
 	default:
 		return false
 	}
@@ -263,7 +268,7 @@ func termFieldError(f *termForm, err error) bool {
 func readTermForm(r *http.Request) termForm {
 	_ = r.ParseForm()
 	g := func(k string) string { return strings.TrimSpace(r.PostFormValue(k)) }
-	return termForm{Kind: g("kind"), NewKind: strings.ToLower(g("new_kind")), Name: g("name"), Slug: g("slug"), Desc: g("description"), Parent: g("parent"), Errors: map[string]string{}}
+	return termForm{Kind: g("kind"), NewKind: strings.ToLower(g("new_kind")), Name: g("name"), Slug: g("slug"), Desc: g("description"), Parent: g("parent"), SEO: seoFromForm(r), Errors: map[string]string{}}
 }
 
 func (a *Admin) handleTermCreate(w http.ResponseWriter, r *http.Request) {
@@ -328,16 +333,42 @@ func (a *Admin) renderTermEdit(w http.ResponseWriter, r *http.Request, status in
 		f.Errors = map[string]string{}
 	}
 	f.Summary = nil
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"parent", "Parent"}, {"description", "Description"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"parent", "Parent"}, {"description", "Description"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
 	}
+	in := seoInput{Title: t.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: t.Slug, Canonical: f.SEO.Canonical,
+		Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true, Kind: seo.KindTaxonomy, TermKind: t.Kind, Term: t.Name,
+		BaseURL: a.deps.BaseURL(r), Path: termPath(nodes, t)}
+	a.withSEOSettings(r, &in, "")
+	f.Panel = buildPanel(in)
 	v := a.NewView(w, r, "Edit "+t.Name)
 	v.Data = f
 	v.Width = "narrow"
 	v.Crumbs = f.Crumbs
 	a.Render(w, r, status, "taxonomies/term", v)
+}
+
+// termPath is the public path of a term: its kind, then the slugs from the
+// top-level ancestor down to the term.
+func termPath(nodes []termNode, t *taxonomy.Term) string {
+	byID := make(map[uuid.UUID]termNode, len(nodes))
+	for _, n := range nodes {
+		byID[n.ID] = n
+	}
+	chain := []string{t.Slug}
+	seen := map[uuid.UUID]bool{t.ID: true}
+	for pid := t.ParentID; pid != nil && !seen[*pid]; {
+		p, ok := byID[*pid]
+		if !ok {
+			break
+		}
+		seen[p.ID] = true
+		chain = append([]string{p.Slug}, chain...)
+		pid = p.ParentID
+	}
+	return "/" + t.Kind + "/" + strings.Join(chain, "/")
 }
 
 func (a *Admin) handleTermEdit(w http.ResponseWriter, r *http.Request) {
@@ -346,6 +377,9 @@ func (a *Admin) handleTermEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := termForm{Name: t.Name, Slug: t.Slug, Desc: t.Description}
+	if t.SEO != nil {
+		f.SEO = seoForm{Title: t.SEO.MetaTitle, Description: t.SEO.MetaDescription, Canonical: t.SEO.CanonicalURL, OGImage: t.SEO.OGImage, NoIndex: t.SEO.NoIndex}
+	}
 	if t.ParentID != nil {
 		f.Parent = t.ParentID.String()
 	}
@@ -364,7 +398,8 @@ func (a *Admin) handleTermSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	desc := f.Desc
-	in := taxonomy.UpdateTermInput{ID: t.ID, Name: f.Name, Slug: f.Slug, Description: &desc}
+	in := taxonomy.UpdateTermInput{ID: t.ID, Name: f.Name, Slug: f.Slug, Description: &desc,
+		SEO: &taxonomy.TermSEO{MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, CanonicalURL: f.SEO.Canonical, OGImage: f.SEO.OGImage, NoIndex: f.SEO.NoIndex}}
 	if pid, err := uuid.Parse(f.Parent); err == nil {
 		in.ParentID = &pid
 	} else {
