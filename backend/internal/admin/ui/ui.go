@@ -72,6 +72,8 @@ type Action struct {
 	Post   string // form action; the CSRF token is added
 	Icon   string // optional icon name shown before the label in a row menu
 	Danger bool
+	// Hint is a second, muted line under the label of a pageheader overflow item.
+	Hint   string
 	NewTab bool              // open Href in a new tab (a link menu item only)
 	Fields map[string]string // hidden fields sent with a Post action
 	// Confirm makes the action ask first. Href is then the confirmation page

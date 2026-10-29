@@ -14,5 +14,8 @@
 .hm-menu [data-tone="danger"], .hm-menu [data-tone="danger"] .hm-icon, .hm-menu__item--danger { color: var(--color-danger); }
 .hm-menu [data-tone="danger"]:hover, .hm-menu__item--danger:hover { background: var(--color-danger-soft); }
 .hm-menu [data-tone="danger"]:focus-visible { background: var(--color-danger-soft); box-shadow: inset 3px 0 0 var(--color-danger); }
+/* A menu item with a second line: the label above a muted hint. */
+.hm-menu__text { display: flex; flex-direction: column; padding-block: var(--space-1); }
+.hm-menu__hint { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-menu form { display: contents; }
 .hm-menu [role="separator"] { height: 1px; margin: var(--space-1) calc(-1 * var(--space-1)); background: var(--color-kinu); }
