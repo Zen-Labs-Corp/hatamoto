@@ -4,9 +4,10 @@
 // remove) in the page, with the same pure operations the server runs
 // (@hm/menulogic), and keeps undo and redo, the unsaved state and the list of
 // items that need attention. Without it the same buttons post to the server,
-// which applies the edit and re-renders. Dragging uses SortableJS for now.
+// which applies the edit and re-renders. Dragging lives in @hm/menudrag.
 import { renumberOp, renumberRef } from "@hm/listlogic";
 import { duplicateBlock, indentBlock, moveBlock, moveToParent, outdentBlock, removeBlock, blockEnd } from "@hm/menulogic";
+import { init as initDrag } from "@hm/menudrag";
 import { init as initSearchSelect } from "@hm/searchselect";
 
 const DEFAULT_MAX_DEPTH = 5;
@@ -45,15 +46,6 @@ function setDepth(li, d) {
 }
 
 const maxDepthOf = (tree) => Number(tree.closest("form")?.dataset.maxDepth) || DEFAULT_MAX_DEPTH;
-
-// block is an item and the deeper items that follow it.
-function block(tree, li) {
-  const all = items(tree);
-  const start = all.indexOf(li);
-  const out = [li];
-  for (let k = start + 1; k < all.length && depthOf(all[k]) > depthOf(li); k++) out.push(all[k]);
-  return out;
-}
 
 // model is the tree as rows for @hm/menulogic; each row keeps its <li>.
 const model = (tree) => items(tree).map((li) => ({ depth: depthOf(li), li }));
@@ -405,25 +397,16 @@ function init(root) {
       [...target.options].forEach((o) => { if (/^\d+$/.test(o.value)) o.hmLi = all[Number(o.value)]; });
     }
 
-    if (window.Sortable) {
-      let carried = [];
-      let before = null;
-      window.Sortable.create(tree, {
-        draggable: "[data-hm-item]",
-        handle: "[data-hm-handle]",
-        animation: 120,
-        onStart: (evt) => {
-          // The sub-items travel with the item.
-          before = model(tree);
-          carried = block(tree, evt.item).slice(1);
-        },
-        onEnd: (evt) => {
-          carried.reverse().forEach((el) => evt.item.after(el));
-          carried = [];
-          commit(before);
-        },
-      });
-    }
+    initDrag(tree, {
+      rows: () => model(tree),
+      place: (rows) => place(tree, rows),
+      commit,
+      maxDepth: () => maxDepthOf(tree),
+      done: (message) => {
+        showNotice("");
+        announce(message);
+      },
+    });
 
     refresh();
   });

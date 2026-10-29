@@ -1,6 +1,5 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/menutree @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
-{{define "scripts"}}sortablejs{{end}}
 {{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" (or .NoticeKind "info"))}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
@@ -37,6 +36,7 @@
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn">{{template "hm/badge" dict "Label" "without a link" "Kind" "warning" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err">{{template "hm/badge" dict "Label" "to fix" "Kind" "danger" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="notice">{{template "hm/callout-start" dict "Kind" "warning"}}{{template "hm/callout-end"}}</template>
+<template data-hm-tpl="dropline"><div class="hm-menutree__dropline" hidden aria-hidden="true"><span class="hm-menutree__droplabel" data-hm-droplabel></span></div></template>
 <template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
 <template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
 {{template "hm/dialog-start" dict "ID" "menu-shortcuts" "Title" "Keyboard shortcuts"}}
