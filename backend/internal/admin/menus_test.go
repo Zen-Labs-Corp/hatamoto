@@ -467,7 +467,7 @@ func TestMenuEditPageA11yAndDelete(t *testing.T) {
 	if n := strings.Count(body, `<span>Save</span>`); n != 1 {
 		t.Errorf("want one visible Save button, got %d", n)
 	}
-	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
+	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo-all`, `data-hm-savestate`, `data-hm-issues`, `id="menu-inspector"`, `id="menu-preview"`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("edit page lacks %s", want)
 		}
@@ -706,5 +706,24 @@ func TestMenuNoticeKind(t *testing.T) {
 	rows := treeRows("A:0", "B:0")
 	if _, msg := applyMenuOp(rows, "moveto.0", "", ""); msg != "Choose where to move this item, then use Move to again." {
 		t.Errorf("moveto message: %q", msg)
+	}
+}
+
+func TestMenuRefusedOpRendersAWarningCallout(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newMenuRig(t)
+	m := fm.add("Main", "")
+	form := itemForm("Main", [4]string{"A", "custom", "0", "/a"}, [4]string{"B", "custom", "0", "/b"})
+	for op, want := range map[string]string{"indent.0": "hm-callout--warning", "outdent.1": "hm-callout--warning", "down.1": "hm-callout--warning", "dup.0": "hm-callout--info"} {
+		f := url.Values{}
+		for k, v := range form {
+			f[k] = v
+		}
+		f.Set("_op", op)
+		body := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
+		if !strings.Contains(body, want) {
+			t.Errorf("%s: want %s in the notice", op, want)
+		}
 	}
 }

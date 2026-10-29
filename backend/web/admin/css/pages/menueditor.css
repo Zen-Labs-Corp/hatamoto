@@ -2,10 +2,12 @@
    the script shows it, so the page without JavaScript is the plain form. */
 .hm-menueditor__aux { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
 .hm-menueditor__aux[hidden] { display: none; }
-.hm-menueditor__inspector, .hm-menueditor__preview { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: var(--space-3); min-width: 0; }
-.hm-menueditor__state, .hm-menueditor__issues { font-size: var(--text-sm); color: var(--text-muted); }
+.hm-menueditor__aux > .hm-card { min-width: 0; }
+.hm-menueditor__state, .hm-menueditor__issues { display: inline-flex; align-items: center; gap: var(--space-2); }
 .hm-menueditor__state[hidden], .hm-menueditor__issues[hidden] { display: none; }
-.hm-menueditor__issues { color: var(--color-warning); }
+/* An issue count is a badge that cycles to the next issue when clicked. */
+.hm-menueditor__issue { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; border-radius: var(--radius-md); }
+.hm-menueditor__issue:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-menuform [data-hm-editor-only][hidden] { display: none; }
 /* Inspector stacks under the tree on narrow screens. */
 @media (max-width: 640px) { .hm-menueditor__aux { grid-template-columns: minmax(0, 1fr); } }

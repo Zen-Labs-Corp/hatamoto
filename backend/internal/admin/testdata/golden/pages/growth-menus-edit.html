@@ -434,11 +434,16 @@
 </div>
 </div></section>
 <div class="hm-menueditor__aux" hidden data-hm-editor-only>
-<aside class="hm-menueditor__inspector" aria-label="Item settings" data-hm-inspector></aside>
-<section class="hm-menueditor__preview" aria-label="Preview" data-hm-preview></section>
+<section class="hm-card" id="menu-inspector" aria-labelledby="menu-inspector-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="menu-inspector-title">Item settings</h2></div>
+<div class="hm-card__body"><div data-hm-inspector></div></div></section>
+<section class="hm-card" id="menu-preview" aria-labelledby="menu-preview-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="menu-preview-title">Preview</h2></div>
+<div class="hm-card__body"><div data-hm-preview></div></div></section>
 </div>
 <template data-hm-tpl="chip"><span class="hm-badge hm-badge--neutral hm-badge--plain"></span></template>
-<template data-hm-tpl="problem"><span class="hm-badge hm-badge--warning"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span></span></template>
+<template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn"><span class="hm-badge hm-badge--warning"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>without a link</span></button></template>
+<template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err"><span class="hm-badge hm-badge--danger"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>to fix</span></button></template>
 <template data-hm-tpl="undo"><p class="hm-menutree__undo hm-row" role="status"><span data-hm-undo-text></span><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-undo-btn=""><span>Undo</span></button></p></template>
 <template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
 <template data-hm-tpl="add-tabs"><div class="hm-tablist" role="tablist" aria-label="Add an item"><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-pages" aria-controls="add-panel-pages" aria-selected="true" tabindex="0">Pages</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-address" aria-controls="add-panel-address" aria-selected="false" tabindex="-1">Address</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-heading" aria-controls="add-panel-heading" aria-selected="false" tabindex="-1">Heading</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-archive" aria-controls="add-panel-archive" aria-selected="false" tabindex="-1">Archive</button></div><div id="add-panel-pages" role="tabpanel" aria-labelledby="add-tab-pages" hidden></div><div id="add-panel-address" role="tabpanel" aria-labelledby="add-tab-address" hidden></div><div id="add-panel-heading" role="tabpanel" aria-labelledby="add-tab-heading" hidden></div><div id="add-panel-archive" role="tabpanel" aria-labelledby="add-tab-archive" hidden></div></template>
@@ -451,11 +456,11 @@
 </div></dialog>
 <div class="hm-savebar">
 <span class="hm-savebar__aside"><a class="hm-btn hm-btn--danger-text" href="/admin/theme/menus/00000000-0000-4000-8000-000000000001/delete"><span>Delete menu</span></a></span>
-<span class="hm-menueditor__state" role="status" hidden data-hm-editor-only data-hm-state>Saved</span>
+<span class="hm-menueditor__state" hidden data-hm-editor-only data-hm-state><span class="hm-savestate" data-state="saved" role="status" aria-live="polite" data-hm-savestate><span class="hm-savestate__dot" aria-hidden="true"></span><span class="hm-savestate__text">All changes saved</span></span></span>
 <span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
-<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-undo-all="" hidden=""><span>Undo</span></button>
-<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-redo="" hidden=""><span>Redo</span></button>
-<button type="button" class="hm-btn hm-btn--ghost" data-hm-discard="" data-hm-editor-only="" hidden=""><span>Discard changes</span></button>
+<button type="button" class="hm-btn hm-btn--secondary" data-hm-editor-only="" data-hm-undo-all="" hidden=""><span>Undo</span></button>
+<button type="button" class="hm-btn hm-btn--secondary" data-hm-editor-only="" data-hm-redo="" hidden=""><span>Redo</span></button>
+<button type="button" class="hm-btn hm-btn--secondary" data-hm-discard="" data-hm-editor-only="" hidden=""><span>Discard changes</span></button>
 <a class="hm-btn hm-btn--ghost" href="/admin/theme/menus"><span>Back to menus</span></a>
 <button type="submit" class="hm-btn hm-btn--primary" name="_op" value="save"><span>Save</span></button>
 </div>
