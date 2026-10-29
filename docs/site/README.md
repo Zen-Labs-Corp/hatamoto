@@ -198,7 +198,7 @@ source the service's env file first). Write the key outside the repository:
 ```bash
 hatamoto apikey create --name docs \
   --scopes read:entities,write:entities,write:menus \
-  --out ~/.config/hatamoto/docs-publish.key
+  --out ~/keys/hatamoto/docs-publish.key
 ```
 
 `read:entities` covers every read, including the redirect list of a dry run.
@@ -212,7 +212,7 @@ file `.docs-publish.env` is ignored by git (the `*.env` rule); keep it that way.
 {
   echo 'HATAMOTO_URL=https://example.com'
   printf 'HATAMOTO_API_KEY='
-  cat ~/.config/hatamoto/docs-publish.key
+  cat ~/keys/hatamoto/docs-publish.key
   echo 'HATAMOTO_DOC_SCHEMA_ID=<id of the doc schema>'
 } > .docs-publish.env
 chmod 600 .docs-publish.env
