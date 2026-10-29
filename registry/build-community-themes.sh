@@ -83,6 +83,23 @@ export GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null G
 git_opts=(-c core.hooksPath=/dev/null -c submodule.recurse=false -c protocol.allow=never -c protocol.https.allow=always)
 [ "${HATAMOTO_ALLOW_FILE_REPOS:-}" = 1 ] && git_opts+=(-c protocol.file.allow=always)
 
+# Listing policy: the reserved names are read from <plugins-repo-dir>/policy/reserved-names.txt
+# (data only; nothing in that checkout is executed). Fail closed: a missing, unreadable,
+# symlinked or empty list stops the build before pass 1.
+pol="$repo_dir/policy"
+[ -d "$pol" ] && [ ! -L "$pol" ] || die "missing policy: $pol"
+{ [ -f "$pol/reserved-names.txt" ] && [ -r "$pol/reserved-names.txt" ] && [ ! -L "$pol/reserved-names.txt" ]; } || die "missing policy: reserved-names.txt"
+# plist <list>: entries, trimmed and lowercased, without blank lines and "# " comments.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+plist() {
+  jq -Rr 'ascii_downcase | gsub("\r"; "") | gsub("^\\s+|\\s+$"; "") | select(. != "" and . != "#" and (startswith("# ") | not))' "$pol/$1.txt"
+}
+reserved_names=$(plist reserved-names) || die "unreadable policy: reserved-names.txt"
+[ -n "$reserved_names" ] || die "empty policy: reserved-names.txt"
+# inlist <newline separated list> <word>: exact whole-line membership.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+inlist() { [[ $'\n'$1$'\n' == *$'\n'"$2"$'\n'* ]]; }
+
 # Allowed SPDX licenses; keep in sync with scripts/validate-theme-manifest.sh in the hatamoto-plugins repo.
 licenses=(MIT Apache-2.0 BSD-2-Clause BSD-3-Clause ISC MPL-2.0)
 for l in GPL-2.0 GPL-3.0 LGPL-2.1 LGPL-3.0 AGPL-3.0; do
@@ -185,6 +202,7 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   [[ $name =~ ^[a-z][a-z0-9-]{1,39}$ ]] || die "$base: bad name"
   [ "$name" = "$base" ] || die "$base: name \"$name\" must equal the file name"
   case $name in default|webhooks|hello|gtm|searchconsole) die "$name: name is reserved" ;; esac
+  ! inlist "$reserved_names" "$name" || die "$name: name is reserved"
   # Cross-kind uniqueness: plugins (manifest, built package, meta) and first-party packages.
   [ ! -e "$repo_dir/manifests/$name.json" ] || die "$name: already used by a plugin (manifests/$name.json)"
   [ ! -e "$packages/$name.hmp" ] || die "$name: already in $packages (name collision)"

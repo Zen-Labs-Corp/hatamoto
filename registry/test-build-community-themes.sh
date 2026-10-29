@@ -79,7 +79,10 @@ gitinit() { git -C "$1" init -q; git -C "$1" add -A; git -C "$1" -c user.name=t 
 good=0123456789abcdef0123456789abcdef01234567
 goodsha=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 https=https://example.com/acme/theme
-manifest() { mkdir -p "$1/manifests/themes"; printf '%s' "$3" >"$1/manifests/themes/$2.json"; }
+manifest() {
+  mkdir -p "$1/manifests/themes"; printf '%s' "$3" >"$1/manifests/themes/$2.json"
+  [ -d "$1/policy" ] || cp -r "$here/testdata/policy" "$1/policy"
+}
 base() { # base <name> <repo> <commit> [subdir]
   jq -n --arg n "$1" --arg r "$2" --arg c "$3" --arg s "${4:-}" \
     '{name:$n,repo:$r,commit:$c,author:"acme",license:"MIT",archive_grant:true} + (if $s != "" then {subdir:$s} else {} end)'
@@ -195,6 +198,33 @@ echo "ok: collisions"
 # No themes dir: success, nothing written.
 d="$work/nothemes"; mkdir -p "$d/manifests"
 out=$(run "$d") || fail "no themes dir failed: $out"; untouched "no themes dir"
+
+# Policy: a missing, symlinked, unreadable or empty reserved-names list stops the build before pass 1.
+mkpol() { rm -rf "$1"; manifest "$1" acme-seo "$(base acme-seo $https $good)"; }
+d="$work/pol-none"; mkpol "$d"; rm -rf "$d/policy"
+refuses "no policy dir" "missing policy" "$d"
+d="$work/pol-miss"; mkpol "$d"; rm "$d/policy/reserved-names.txt"
+refuses "missing reserved-names" "missing policy: reserved-names.txt" "$d"
+d="$work/pol-empty"; mkpol "$d"; : >"$d/policy/reserved-names.txt"
+refuses "empty reserved-names" "empty policy: reserved-names.txt" "$d"
+printf '# only a comment\n\n   \n' >"$d/policy/reserved-names.txt"
+refuses "comment-only reserved-names" "empty policy: reserved-names.txt" "$d"
+d="$work/pol-link"; mkpol "$d"; mv "$d/policy/reserved-names.txt" "$work/rn-real.txt"; ln -s "$work/rn-real.txt" "$d/policy/reserved-names.txt"
+refuses "symlinked policy file" "missing policy: reserved-names.txt" "$d"
+d="$work/pol-linkdir"; mkpol "$d"; mv "$d/policy" "$work/policy-real"; ln -s "$work/policy-real" "$d/policy"
+refuses "symlinked policy dir" "missing policy" "$d"
+if [ "$(id -u)" -ne 0 ]; then
+  d="$work/pol-unread"; mkpol "$d"; chmod 000 "$d/policy/reserved-names.txt"
+  refuses "unreadable reserved-names" "missing policy: reserved-names.txt" "$d"
+  chmod 644 "$d/policy/reserved-names.txt"
+else echo "skip: unreadable policy (running as root)"; fi
+# Only reserved-names.txt is needed: a theme build does not require the other lists.
+d="$work/pol-only"; manifest "$d" acme-seo "$(base acme-seo "file://$work/nonexistent" $good)"; rm "$d/policy/banned-words.txt"
+out=$(HATAMOTO_ALLOW_FILE_REPOS=1 run "$d" HATAMOTO_ALLOW_FILE_REPOS=1) && fail "missing banned-words built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "missing banned-words stopped the theme build: $out"
+rm -rf "$work/o"
+neg "policy reserved name" forms "$(base forms $https $good)" "reserved"
+echo "ok: policy"
 
 # --- Positives: git, git+subdir (with title), archive. ---
 src1="$work/src1"; mktheme "$src1" aurora 1.0.0; sha1=$(gitinit "$src1")
@@ -378,6 +408,7 @@ refuses "unfetchable commit" "cannot fetch" "$work/r10" HATAMOTO_ALLOW_FILE_REPO
 mkdir -p "$work/mix/manifests/themes"
 cp "$reg/manifests/themes/aurora.json" "$work/mix/manifests/themes/"
 cp "$work/r1/manifests/themes/nosnap.json" "$work/mix/manifests/themes/"
+cp -r "$here/testdata/policy" "$work/mix/policy"
 refuses "mixed run" "screenshot" "$work/mix" HATAMOTO_ALLOW_FILE_REPOS=1
 echo "ok: CLI refusals"
 
