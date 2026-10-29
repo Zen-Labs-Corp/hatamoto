@@ -4,13 +4,14 @@
 // the form. The frame is same-origin without scripts (sandbox attribute), so
 // this page can read it: it sets the light or dark scheme on the frame's page
 // and turns a click on a link into a selection of the matching row. The page
-// works the same when the preview is not available: the card is hidden.
+// works the same when the preview is not available: the card is hidden until a
+// render works.
 const DELAY = 300;
 
 function init(root) {
   root.querySelectorAll("[data-hm-preview]").forEach((box) => {
     if (box.dataset.hmReady) return;
-    const frame = box.querySelector("[data-hm-preview-frame]");
+    let frame = box.querySelector("[data-hm-preview-frame]");
     const form = box.closest("form");
     const tree = form?.querySelector("[data-hm-menutree]");
     if (!frame || !form || !tree) return;
@@ -22,10 +23,11 @@ function init(root) {
     submit.type = "submit";
     submit.hidden = true;
     submit.formAction = box.dataset.action;
-    submit.formTarget = frame.name;
     submit.formNoValidate = true;
     form.append(submit);
     let timer = 0;
+    let pending = null; // the frame the next render is loading into
+    let serial = 0;
     let scheme = "light";
 
     const paint = () => {
@@ -35,9 +37,26 @@ function init(root) {
       else html.removeAttribute("data-theme");
     };
 
+    // A form posted into a frame that has already loaded adds a history entry,
+    // and Back would then step through the previews. Each render goes into a new
+    // frame, whose first navigation replaces its entry, and takes the place of
+    // the shown one once it has loaded.
+    const render = () => {
+      pending?.remove();
+      const next = frame.cloneNode(false);
+      next.name = `menu-preview-${++serial}`;
+      next.hidden = true;
+      frame.after(next);
+      // Added after the frame is in the page, so its first (blank) load is not seen.
+      next.addEventListener("load", () => loaded(next));
+      pending = next;
+      submit.formTarget = next.name;
+      form.requestSubmit(submit);
+    };
+
     const request = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => form.requestSubmit(submit), DELAY);
+      timer = setTimeout(render, DELAY);
     };
 
     // The preview posts the editor form, which is not a save: keep the editor's
@@ -46,13 +65,21 @@ function init(root) {
       if (evt.submitter === submit) evt.stopImmediatePropagation();
     }, true);
 
-    frame.addEventListener("load", () => {
-      const doc = frame.contentDocument;
-      // No document to read, or an error text instead of a page: nothing to show.
+    const loaded = (next) => {
+      const doc = next.contentDocument;
+      if (next !== pending || doc?.location.href === "about:blank") return;
+      pending = null;
+      // No document to read, or an error text instead of a page: nothing to show
+      // for now. The card comes back with the next render that works.
       if (!doc || doc.contentType !== "text/html" || !doc.documentElement.querySelector("body *")) {
+        next.remove();
         card.hidden = true;
         return;
       }
+      next.dataset.width = frame.dataset.width;
+      frame.remove();
+      next.hidden = false;
+      frame = next;
       paint();
       doc.addEventListener("click", (evt) => {
         const hit = evt.target.closest?.('[id^="menu-pv-"]');
@@ -61,7 +88,7 @@ function init(root) {
         const row = [...tree.querySelectorAll(":scope > [data-hm-item]")][Number(hit.id.slice("menu-pv-".length))];
         if (row) document.dispatchEvent(new CustomEvent("hm:select", { detail: { items: [row] } }));
       });
-    });
+    };
 
     box.querySelectorAll("[data-hm-preview-width]").forEach((b) => b.addEventListener("click", () => {
       frame.dataset.width = b.dataset.hmPreviewWidth;

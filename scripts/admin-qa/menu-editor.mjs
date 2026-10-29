@@ -283,18 +283,28 @@ try {
   await clickRow(page, LOOSE);
   await page.locator("#ins-label").fill("Press room");
   await page.waitForFunction(() => {
-    const f = document.querySelector("iframe[name=menu-preview]");
+    const f = document.querySelector("iframe[data-hm-preview-frame]:not([hidden])");
     return f?.contentDocument?.body?.textContent.includes("Press room");
   });
-  const frame = page.frame({ name: "menu-preview" });
+  const shown = () => page.locator("iframe[data-hm-preview-frame]:not([hidden])");
+  const frame = await (await shown().elementHandle()).contentFrame();
   ok(await frame.evaluate(() => { const s = [...document.querySelectorAll("footer span")].find((e) => e.textContent === "Press room"); return Boolean(s) && !s.closest("a"); }), "preview: the unsaved label shows in the theme's footer, the none item as a span");
   await page.locator("[data-hm-preview-scheme=dark]").click();
   ok((await frame.evaluate(() => document.documentElement.dataset.theme)) === "dark", "preview: Dark sets the scheme of the previewed page");
   await page.locator("[data-hm-preview-scheme=light]").click();
   await page.locator("[data-hm-preview-width=mobile]").click();
-  ok((await page.locator("iframe[name=menu-preview]").boundingBox()).width < 500, "preview: Mobile narrows the frame");
+  ok((await shown().boundingBox()).width < 500, "preview: Mobile narrows the frame");
   await page.locator("[data-hm-preview-width=desktop]").click();
-  await frame.locator("footer a", { hasText: "Security" }).click();
+  // Preview refreshes replace the frame's history entry: Back leaves the page, and a bad render is recovered from.
+  const settle = (text) => page.waitForFunction((t) => document.querySelector("iframe[data-hm-preview-frame]:not([hidden])")?.contentDocument?.body?.textContent.includes(t), text);
+  const entries = await page.evaluate(() => history.length);
+  for (const text of ["Press one", "Press two", "Press three"]) {
+    await page.locator("#ins-label").fill(text);
+    await settle(text);
+  }
+  ok((await page.evaluate(() => history.length)) === entries, "preview: refreshing adds no history entry, so Back leaves the page");
+  const again = await (await shown().elementHandle()).contentFrame();
+  await again.locator("footer a", { hasText: "Security" }).click();
   ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").inputValue()) === "Security", "preview: a click on a link selects its item and does not leave the editor");
 
   // axe accepts the tree pattern on the editor's rows.
