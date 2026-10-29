@@ -154,6 +154,9 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "schemaform/field.html", Needle: `__clear`, Reason: "clear the stored value, a destructive tick and not a setting"},
 
 	// UI-04: shadows outside the popup list.
+	{Rule: "UI-04", File: "css/partials/segmented.css", Needle: `[aria-pressed="true"]`, Reason: "selected segment is a raised paper pill on the grey track"},
+	{Rule: "UI-04", File: "css/partials/segmented.css", Needle: `__input:checked`, Reason: "selected segment is a raised paper pill on the grey track"},
+	{Rule: "UI-04", File: "css/partials/tabs.css", Needle: `[aria-current="page"] { background-color: var(--color-paper)`, Reason: "selected segmented tab is a raised paper pill on the grey track"},
 	{Rule: "UI-04", File: "css/pages/blogeditor.css", Needle: ".hm-ed__bar", Reason: "sticky blog editor toolbar; editor_polish_test.go asserts blogeditor.css"},
 
 	// UI-05: markup that cannot go through hm/button or hm/card-start. Needles name
