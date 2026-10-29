@@ -134,12 +134,12 @@ func TestSiteSettings_OneLocaleResponseUnchanged(t *testing.T) {
 }
 
 func TestReservedSegmentReason(t *testing.T) {
-	for _, seg := range []string{"api", "media", "admin", "search", "category", "tag", "sitemap-x", "auth", "authors", "feed", "p"} {
+	for _, seg := range []string{"api", "media", "admin", "search", "category", "tag", "sitemap-x", "auth", "authors", "feed", "p", "plugin-ui", "forms"} {
 		if reservedSegmentReason(seg) == "" {
 			t.Errorf("%q is not reserved", seg)
 		}
 	}
-	for _, seg := range []string{"fr", "nl", "pt-br", "en"} {
+	for _, seg := range []string{"fr", "nl", "pt-br", "en", "zh-hans-cn"} {
 		if reservedSegmentReason(seg) != "" {
 			t.Errorf("%q is reserved", seg)
 		}

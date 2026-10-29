@@ -5,23 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
-// reservedLocaleSegments are first URL segments the site already routes, so a
-// locale on one of them would be unreachable or would shadow a built-in route.
-// Segments are lowercase words without dots, so file roots (robots.txt,
-// favicon.ico, feed.xml) cannot collide; "sitemap" and "auth" also reserve
-// their prefixes.
-var reservedLocaleSegments = []string{
-	"api", "media", "theme", "admin", "search", "category", "tag", "author", "feed", "health", "ready",
-	"static", "mcp", "robots", "llms", "preview", "page", "forms", "p",
-}
+// extraReservedLocaleSegments are first URL segments the site routes that the
+// term-kind reservation (taxonomy.ReservedSegment) does not cover: the built-in
+// kinds' own archives and the root plugin UI mount. Segments are lowercase
+// words without dots, so file roots (robots.txt, favicon.ico, feed.xml) cannot
+// collide; "sitemap" also reserves its prefix (sitemap-*.xml).
+var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui"}
 
 // localeSettingsRequest is the part of a site settings change the locale
 // checks look at: the default locale plus the list, prefix-all and x-default.
@@ -151,12 +150,10 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 
 // reservedSegmentReason says why seg is a route of its own, or "".
 func reservedSegmentReason(seg string) string {
-	for _, r := range reservedLocaleSegments {
-		if seg == r {
-			return "a route of its own"
-		}
+	if taxonomy.ReservedSegment(seg) || slices.Contains(extraReservedLocaleSegments, seg) {
+		return "a route of its own"
 	}
-	if strings.HasPrefix(seg, "sitemap") || strings.HasPrefix(seg, "auth") {
+	if strings.HasPrefix(seg, "sitemap") {
 		return "reserved for a route of its own"
 	}
 	return ""
