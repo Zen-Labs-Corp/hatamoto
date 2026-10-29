@@ -369,7 +369,7 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <nav aria-label="Breadcrumb" id="d7a"><ol><li>Home</li></ol></nav><nav aria-label="Breadcrumb" id="d7b"><ol><li>Home</li></ol></nav>
 <div class="hm-topbar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
 <nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#e5e7eb;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
-<button type="button" class="hm-segmented__btn" id="d8ok" aria-pressed="true" style="border:0;background:var(--color-paper);color:var(--color-sumi);box-shadow:0 0 0 1px var(--border-control),inset 0 -1px 0 var(--border-control)">On</button>
+<button type="button" class="hm-segmented__btn" id="d8ok" aria-pressed="true" style="border:0;background:var(--color-paper);color:var(--color-sumi);box-shadow:0 0 0 1px var(--border),inset 0 -1px 0 var(--border-field)">On</button>
 <nav class="hm-tabs" data-variant="segmented" id="d9seg"><ul><li><a href="/x?view=a">A</a></li><li><a href="/y?view=a">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" data-changes="group" id="d9undecl"><ul><li><a href="/x?view=a">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" id="d9none"><ul><li><a href="/x">A</a></li></ul></nav>

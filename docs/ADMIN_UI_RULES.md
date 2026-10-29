@@ -245,7 +245,7 @@ the page is, or only how the same data is shown?
 - **Pills rearrange in place.** Picking an item changes the order, grouping, period
   or view of data that stays on the page: `group`, `from` and `to`, `range`,
   `view`. Pills are `hm/tabs` with `"Variant" "segmented"`: the same look as
-  `hm/segmented`: a `--border-control` grey track and a selected chip that is a paper pill with a hairline ring, a bottom bevel and a semibold label. They sit inside the
+  `hm/segmented`: a hairline `--border` track and a selected chip that is a paper pill with a hairline ring, a bottom bevel and a semibold label. They sit inside the
   content next to what they change. The period is not a pill row: it is the date
   picker (`hm/daterange` inside `hm/pageheader`), because it applies to the whole
   page and its preset list already covers the common periods.
@@ -504,7 +504,7 @@ Partial: `hm/segmented`. Contract: `components.json` key `segmented`.
 
 Rules: use it for one value out of a short list. Three modes, one look: `Mode ""` (post: each button is its own submit and no script is needed, the submission status), `"radio"` (a fieldset of radios a surrounding form posts, the Allow/Block policy) and `"buttons"` (`aria-pressed` buttons a script reads, the builder and blog editor width switches). The selected option is a paper pill (`--color-paper` fill, `--color-sumi` semibold text) with a hairline ring and a bottom bevel (ring and inset shadows only), no border, in every mode. Forced-colors mode adds a `Highlight` outline. It is not navigation (use `hm/tabs`) and never holds more than five choices. Never hand-build a row of `aria-pressed` buttons (the parked exceptions under Selected state aside).
 
-How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: `--border-control` track, paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
+How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: hairline `--border` track, 28px tall (`--control-h-xs`), paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
 
 ### Selected state
 
