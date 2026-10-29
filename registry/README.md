@@ -106,7 +106,7 @@ system Go may be older and Go downloads the pinned one). The pin is exact, never
 
 ### Source mirror and archive
 
-Every approved plugin is kept in places we control, so an author deleting their
+Every approved community plugin is kept in places we control, so an author deleting their
 repo or force-pushing away the pinned commit cannot break a publish.
 
 - **Source mirror.** When a manifest is merged, CI in the plugins repository copies the
@@ -128,6 +128,10 @@ repo or force-pushing away the pinned commit cannot break a publish.
   whoever can push to the mirror, and prints a loud warning. It is refused when
   the pinned commit itself contains `vendor/`. In the
   signed index `source` is the author's repo while it answers, else the mirror.
+  First-party plugins (tier `first-party`, from
+  `Zen-Labs-Corp/hatamoto-first-party`) are not mirrored: that monorepo is
+  their source of record, `mirror-plugin.sh` skips them, and `make registry`
+  finds no mirror tag and builds them from the monorepo.
 - **Signed build archive.** `ARCHIVE_DIR` (default `registry/archive`) keeps every
   signed build forever as `<name>/<name>-<version>-<commit12>-<keyid>.hmp` plus a
   sidecar `.json` with `{name, version, commit, key_id, sha256}`. A manifest whose
@@ -156,6 +160,9 @@ With the mirror and archive this no longer blocks a publish: the archived
 before the mirror existed, or merged while mirroring was down, can still fail with
 `cannot fetch <commit>`. Fix it by running the mirror workflow for that manifest
 (`workflow_dispatch` in the plugins repository) if the commit is still reachable.
+First-party plugins have no mirror to fall back to; their source of record is
+`Zen-Labs-Corp/hatamoto-first-party`, and a missing commit there is fixed in
+that repository.
 
 As a last resort, pass `COMMUNITY_SKIP="name1 name2"` to `make registry` (the
 skipped names are logged loudly and are left out of the index), then publish as
