@@ -328,6 +328,7 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 	if in.Path == "" {
 		in.Path = "/" + p.f.Slug
 	}
+	a.withSEOSettings(r, &in, sc.Slug)
 	panel := buildPanel(in)
 	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, p, in)
 	return panel
@@ -688,7 +689,7 @@ func (a *Admin) handleBlogAnalyze(w http.ResponseWriter, r *http.Request) {
 	d := a.buildBlogView(r, e, sc, p, b, e.Version, false)
 	v := a.NewView(w, r, "Search and answer checks")
 	v.Data = d
-	a.Render(w, r, http.StatusOK, "entities/blogpanel", v)
+	a.Render(w, r, http.StatusOK, "entities/seopanel", v)
 }
 
 // blogPreviewRequest is the render-preview body for the writing view's draft.

@@ -128,6 +128,8 @@ export const screens = [
   { name: "media-detail", path: "/admin/media/{media}", mock: null, roles: OE, optional: true },
   { name: "settings-email", path: "/admin/settings/email", mock: null, roles: O },
   { name: "settings-spam", path: "/admin/settings/spam", mock: null, roles: O },
+  { name: "settings-seo-general", path: "/admin/settings/seo/general", mock: null, roles: O },
+  { name: "settings-seo-titles", path: "/admin/settings/seo/titles", mock: null, roles: O },
   { name: "settings-import", path: "/admin/settings/import", legacy: "/admin/import", mock: "settings-import", roles: O },
   { name: "settings-export", path: "/admin/settings/export", legacy: null, mock: "settings-export", roles: O },
   // Account, errors, signed-out

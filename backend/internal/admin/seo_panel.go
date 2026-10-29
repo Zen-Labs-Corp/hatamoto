@@ -2,15 +2,17 @@ package admin
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"unicode"
 
 	"golang.org/x/net/html"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/seo"
 )
 
-// The blog editor's SEO and AEO panel: a port of the React seo-analysis-panel
+// The shared SEO panel (blog editor, entity form): a port of the React seo-analysis-panel
 // (length checks, focus keyword, headings, images, links, readability) plus the
 // answerability checks that make a post easy for an assistant to quote.
 // It is pure: the handler feeds it the draft as posted and renders the result,
@@ -25,12 +27,34 @@ const (
 
 type seoCheck struct{ ID, Name, Status, Message string }
 
+// PanelMode says what the panel analyses.
+type PanelMode int
+
+const (
+	// ModeBody runs every check, including the ones that read the body.
+	ModeBody PanelMode = iota
+	// ModeMetaOnly runs the search-result length checks and the keyword checks
+	// on the title, description and address only. For content with no body
+	// (taxonomy terms, entries without a text field).
+	ModeMetaOnly
+)
+
 // seoInput is the draft as the panel sees it.
 type seoInput struct {
 	Title, MetaTitle, MetaDescription, Slug, Excerpt, Content string
 	Keyword                                                   string
 	Canonical, BaseURL, Path                                  string
 	InLLMs, Published                                         bool
+	Mode                                                      PanelMode
+	// NoKeyword and NoLLMs leave out the focus-keyword and llms.txt checks for
+	// a form that has no such field to act on.
+	NoKeyword, NoLLMs bool
+
+	// SEO, when set, resolves the preview title and description with the same
+	// function the public head uses, so the preview matches the live page.
+	// SchemaSlug picks the type's templates.
+	SEO                           *seo.Settings
+	SchemaSlug, SiteName, Tagline string
 }
 
 type serpPreview struct {
@@ -47,8 +71,8 @@ type seoPanel struct {
 	ReadingMinutes int
 	FAQ            int
 	// Pass, Warn, Fail and Total count every check the panel shows (the two
-	// search-result length checks, the search checks and the answer checks). There
-	// is no score: only how many of the real checks pass.
+	// search-result length checks, the search checks and the answer checks).
+	// Score turns the counts into one number.
 	Pass, Warn, Fail, Total int
 	// JSONLD is the structured data the published page will carry (pretty
 	// printed), JSONLDType its type(s); empty when it cannot be built.
@@ -256,6 +280,17 @@ func buildPanel(in seoInput) seoPanel {
 	if desc == "" {
 		desc = strings.TrimSpace(in.Excerpt)
 	}
+	// The length and keyword checks measure what the author typed; the
+	// preview shows what the page head will carry, site suffix included.
+	checked := title
+	if in.SEO != nil {
+		r := seo.Resolve(in.SEO, in.resolverInput())
+		title = strings.TrimSpace(r.Title)
+		if r.Description != "" {
+			desc = strings.TrimSpace(r.Description)
+		}
+	}
+	meta := in.Mode == ModeMetaOnly
 	p := seoPanel{Words: st.Words, ReadingMinutes: readingMinutes(st.Words), FAQ: st.FAQ}
 
 	// Search-result preview and its length checks.
@@ -263,7 +298,7 @@ func buildPanel(in seoInput) seoPanel {
 	if in.Canonical != "" {
 		addr = in.Canonical
 	}
-	tl, dl := len([]rune(title)), len([]rune(desc))
+	tl, dl := len([]rune(checked)), len([]rune(desc))
 	p.SERP = serpPreview{Title: title, URL: addr, Description: desc, TitleLen: tl, DescLen: dl}
 	switch {
 	case tl == 0:
@@ -291,7 +326,9 @@ func buildPanel(in seoInput) seoPanel {
 	// Focus keyword.
 	kw := strings.TrimSpace(in.Keyword)
 	if kw == "" {
-		p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this post should rank for."))
+		if !in.NoKeyword {
+			p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this entry should rank for."))
+		}
 	} else {
 		first := ""
 		if len(st.Paragraphs) > 0 {
@@ -303,71 +340,77 @@ func buildPanel(in seoInput) seoPanel {
 			}
 			return checkFail, bad
 		}
-		s, m := yes(containsFold(title, kw), "The keyword is in the title.", "The keyword is not in the title.")
+		s, m := yes(containsFold(checked, kw), "The keyword is in the title.", "The keyword is not in the title.")
 		p.SEO = append(p.SEO, check("keyword-title", "Keyword in title", s, m))
-		s, m = yes(containsFold(first, kw), "The keyword is in the first paragraph.", "The keyword is not in the first paragraph.")
-		p.SEO = append(p.SEO, check("keyword-intro", "Keyword in first paragraph", s, m))
+		if !meta {
+			s, m = yes(containsFold(first, kw), "The keyword is in the first paragraph.", "The keyword is not in the first paragraph.")
+			p.SEO = append(p.SEO, check("keyword-intro", "Keyword in first paragraph", s, m))
+		}
 		s, m = yes(containsFold(desc, kw), "The keyword is in the description.", "The keyword is not in the description.")
 		p.SEO = append(p.SEO, check("keyword-description", "Keyword in description", s, m))
 		s, m = yes(strings.Contains(in.Slug, slugWords(kw)), "The keyword is in the address.", "The keyword is not in the address.")
 		p.SEO = append(p.SEO, check("keyword-slug", "Keyword in address", s, m))
-		inHead := false
-		for _, h := range st.Headings {
-			inHead = inHead || containsFold(h.Text, kw)
+		if !meta {
+			inHead := false
+			for _, h := range st.Headings {
+				inHead = inHead || containsFold(h.Text, kw)
+			}
+			s, m = yes(inHead, "The keyword is in a subheading.", "The keyword is not in any subheading.")
+			p.SEO = append(p.SEO, check("keyword-heading", "Keyword in a subheading", s, m))
+			n := strings.Count(strings.ToLower(st.Text), strings.ToLower(kw))
+			switch {
+			case n == 0:
+				p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkWarn, "The keyword does not appear in the text."))
+			case st.Words > 0 && float64(n*countWords(kw))/float64(st.Words) > 0.03:
+				p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkWarn, fmt.Sprintf("The keyword appears %d times: that reads as stuffing. Use it naturally.", n)))
+			default:
+				p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkPass, fmt.Sprintf("The keyword appears %d times.", n)))
+			}
 		}
-		s, m = yes(inHead, "The keyword is in a subheading.", "The keyword is not in any subheading.")
-		p.SEO = append(p.SEO, check("keyword-heading", "Keyword in a subheading", s, m))
-		n := strings.Count(strings.ToLower(st.Text), strings.ToLower(kw))
+	}
+
+	if !meta {
+		// Structure and content.
+		p.SEO = append(p.SEO, headingCheck(st))
 		switch {
-		case n == 0:
-			p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkWarn, "The keyword does not appear in the text."))
-		case st.Words > 0 && float64(n*countWords(kw))/float64(st.Words) > 0.03:
-			p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkWarn, fmt.Sprintf("The keyword appears %d times: that reads as stuffing. Use it naturally.", n)))
+		case st.Images == 0:
+			p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkWarn, "No images. A picture helps readers and search results."))
+		case st.NoAlt > 0:
+			p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkFail, fmt.Sprintf("%d of %d images have no description (alt text).", st.NoAlt, st.Images)))
 		default:
-			p.SEO = append(p.SEO, check("keyword-density", "Keyword use", checkPass, fmt.Sprintf("The keyword appears %d times.", n)))
+			p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkPass, fmt.Sprintf("All %d images have a description.", st.Images)))
 		}
-	}
-
-	// Structure and content.
-	p.SEO = append(p.SEO, headingCheck(st))
-	switch {
-	case st.Images == 0:
-		p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkWarn, "No images. A picture helps readers and search results."))
-	case st.NoAlt > 0:
-		p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkFail, fmt.Sprintf("%d of %d images have no description (alt text).", st.NoAlt, st.Images)))
-	default:
-		p.SEO = append(p.SEO, check("image-alt", "Image descriptions", checkPass, fmt.Sprintf("All %d images have a description.", st.Images)))
-	}
-	if st.Internal == 0 {
-		p.SEO = append(p.SEO, check("links-internal", "Internal links", checkWarn, "No links to other pages of your site."))
-	} else {
-		p.SEO = append(p.SEO, check("links-internal", "Internal links", checkPass, fmt.Sprintf("%d links to your own pages.", st.Internal)))
-	}
-	if st.External == 0 {
-		p.SEO = append(p.SEO, check("links-external", "External links", checkWarn, "No links to other sites. Cite a source where you can."))
-	} else {
-		p.SEO = append(p.SEO, check("links-external", "External links", checkPass, fmt.Sprintf("%d links to other sites.", st.External)))
-	}
-	switch {
-	case st.Words < 300:
-		p.SEO = append(p.SEO, check("length", "Length", checkFail, fmt.Sprintf("%d words. Posts under 300 words rarely rank.", st.Words)))
-	case st.Words < 600:
-		p.SEO = append(p.SEO, check("length", "Length", checkWarn, fmt.Sprintf("%d words. 600 or more covers a topic better.", st.Words)))
-	default:
-		p.SEO = append(p.SEO, check("length", "Length", checkPass, fmt.Sprintf("%d words (about %d minutes to read).", st.Words, p.ReadingMinutes)))
-	}
-	if st.Words >= 30 {
-		switch score := fleschReadingEase(st.Text); {
-		case score < 30:
-			p.SEO = append(p.SEO, check("readability", "Readability", checkFail, fmt.Sprintf("Reading ease %d: hard going. Use shorter sentences and words.", score)))
-		case score < 50:
-			p.SEO = append(p.SEO, check("readability", "Readability", checkWarn, fmt.Sprintf("Reading ease %d: fairly difficult.", score)))
+		if st.Internal == 0 {
+			p.SEO = append(p.SEO, check("links-internal", "Internal links", checkWarn, "No links to other pages of your site."))
+		} else {
+			p.SEO = append(p.SEO, check("links-internal", "Internal links", checkPass, fmt.Sprintf("%d links to your own pages.", st.Internal)))
+		}
+		if st.External == 0 {
+			p.SEO = append(p.SEO, check("links-external", "External links", checkWarn, "No links to other sites. Cite a source where you can."))
+		} else {
+			p.SEO = append(p.SEO, check("links-external", "External links", checkPass, fmt.Sprintf("%d links to other sites.", st.External)))
+		}
+		switch {
+		case st.Words < 300:
+			p.SEO = append(p.SEO, check("length", "Length", checkFail, fmt.Sprintf("%d words. Entries under 300 words rarely rank.", st.Words)))
+		case st.Words < 600:
+			p.SEO = append(p.SEO, check("length", "Length", checkWarn, fmt.Sprintf("%d words. 600 or more covers a topic better.", st.Words)))
 		default:
-			p.SEO = append(p.SEO, check("readability", "Readability", checkPass, fmt.Sprintf("Reading ease %d: easy to read.", score)))
+			p.SEO = append(p.SEO, check("length", "Length", checkPass, fmt.Sprintf("%d words (about %d minutes to read).", st.Words, p.ReadingMinutes)))
 		}
-	}
+		if st.Words >= 30 {
+			switch score := fleschReadingEase(st.Text); {
+			case score < 30:
+				p.SEO = append(p.SEO, check("readability", "Readability", checkFail, fmt.Sprintf("Reading ease %d: hard going. Use shorter sentences and words.", score)))
+			case score < 50:
+				p.SEO = append(p.SEO, check("readability", "Readability", checkWarn, fmt.Sprintf("Reading ease %d: fairly difficult.", score)))
+			default:
+				p.SEO = append(p.SEO, check("readability", "Readability", checkPass, fmt.Sprintf("Reading ease %d: easy to read.", score)))
+			}
+		}
 
-	p.Answer = answerChecks(st, in)
+		p.Answer = answerChecks(st, in)
+	}
 	p.tally()
 	return p
 }
@@ -396,15 +439,40 @@ func (p *seoPanel) tally() {
 	p.Total = p.Pass + p.Warn + p.Fail
 }
 
+// Score is a 0 to 100 summary of the checks: a pass counts 1, a warning 0.5 and
+// a failure 0 of the Total, rounded to the nearest whole number. A panel with
+// no checks scores 0. The counts stay the source of truth; the score only
+// summarises them.
+func (p seoPanel) Score() int {
+	if p.Total == 0 {
+		return 0
+	}
+	return (200*p.Pass + 100*p.Warn + p.Total) / (2 * p.Total)
+}
+
+// ScoreTone is the colour band of the score: "pass" from 80, "warn" from 50,
+// else "fail"; "" when there are no checks.
+func (p seoPanel) ScoreTone() string {
+	switch s := p.Score(); {
+	case p.Total == 0:
+		return ""
+	case s >= 80:
+		return checkPass
+	case s >= 50:
+		return checkWarn
+	}
+	return checkFail
+}
+
 // ToFix is how many checks are not passing.
 func (p seoPanel) ToFix() int { return p.Warn + p.Fail }
 
 func headingCheck(st docStats) seoCheck {
 	if len(st.Headings) == 0 {
 		if st.Words > 300 {
-			return check("headings", "Headings", checkWarn, "No subheadings. Break a long post up with H2 headings.")
+			return check("headings", "Headings", checkWarn, "No subheadings. Break a long entry up with H2 headings.")
 		}
-		return check("headings", "Headings", checkPass, "A short post needs no subheadings.")
+		return check("headings", "Headings", checkPass, "A short entry needs no subheadings.")
 	}
 	prev := 1 // the title is the H1
 	for _, h := range st.Headings {
@@ -451,7 +519,7 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 		case w > 60:
 			out = append(out, check("lead", "Opening summary", checkWarn, fmt.Sprintf("The first paragraph is %d words. Open with a summary of 60 words or fewer.", w)))
 		default:
-			out = append(out, check("lead", "Opening summary", checkPass, "The post opens with a short summary."))
+			out = append(out, check("lead", "Opening summary", checkPass, "The entry opens with a short summary."))
 		}
 	}
 	if st.FAQ > 0 {
@@ -460,12 +528,46 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 		out = append(out, check("faq", "FAQ block", checkWarn, "No FAQ block. Add one with / then FAQ to publish FAQPage structured data."))
 	}
 	switch {
+	case in.NoLLMs:
 	case !in.InLLMs:
-		out = append(out, check("llms", "llms.txt", checkWarn, "This post is left out of /llms.txt. Tick the box in the sidebar to list it."))
+		out = append(out, check("llms", "llms.txt", checkWarn, "This entry is left out of /llms.txt. Tick the box in the sidebar to list it."))
 	case in.Published:
-		out = append(out, check("llms", "llms.txt", checkPass, "This post is listed in /llms.txt."))
+		out = append(out, check("llms", "llms.txt", checkPass, "This entry is listed in /llms.txt."))
 	default:
-		out = append(out, check("llms", "llms.txt", checkPass, "This post will be listed in /llms.txt once it is published."))
+		out = append(out, check("llms", "llms.txt", checkPass, "This entry will be listed in /llms.txt once it is published."))
 	}
 	return out
+}
+
+// resolverInput describes the page for the template resolver. The entry is a single
+// page: the same kind the public head resolves it as.
+func (in seoInput) resolverInput() seo.Input {
+	return seo.Input{
+		Kind:            seo.KindSingle,
+		SchemaSlug:      in.SchemaSlug,
+		HandTitle:       strings.TrimSpace(in.MetaTitle),
+		HandDescription: strings.TrimSpace(in.MetaDescription),
+		TitleSet:        strings.TrimSpace(in.MetaTitle) != "",
+		DescriptionSet:  strings.TrimSpace(in.MetaDescription) != "",
+		Vars:            seo.Vars{Title: strings.TrimSpace(in.Title), SiteName: in.SiteName, Tagline: in.Tagline, Excerpt: in.Excerpt},
+	}
+}
+
+// withSEOSettings fills in what the preview needs to match the live head: the
+// stored SEO settings, the type and the site name. A missing store or a read
+// error leaves the preview on the entry's own values.
+func (a *Admin) withSEOSettings(r *http.Request, in *seoInput, schemaSlug string) {
+	if a.deps.SEO == nil {
+		return
+	}
+	set, err := a.deps.SEO.Get(r.Context())
+	if err != nil {
+		return
+	}
+	in.SEO, in.SchemaSlug = &set, schemaSlug
+	if a.deps.Site != nil {
+		if cfg, err := a.deps.Site.Get(r.Context()); err == nil && cfg != nil {
+			in.SiteName, in.Tagline = cfg.CompanyName, cfg.Tagline
+		}
+	}
 }

@@ -46,7 +46,7 @@ In this guide you look at the files and screens that decide what search engines 
 
 6. Sign in to the admin and open **AI analytics** in the sidebar. The **Crawlers** tab shows which AI crawlers fetched your pages, and whether each visit really came from the company it claims. The **Referrals** tab counts people who reached you by clicking a link inside an AI assistant such as ChatGPT. [See AI crawler visits](see-ai-crawler-visits.md) walks through each view.
 
-7. Open a post in the editor and choose the **SEO and AEO** tab. The **Include in /llms.txt** switch removes this post from `llms.txt` and from the feed it links to. The **Address and indexing** card on the **Post** tab has **Ask search engines not to list this post**, which keeps it out of the sitemap and site search. Pages have the same no-index switch in their **Search and social** card.
+7. Open a post in the editor and choose the **SEO and AEO** tab. The **Include in /llms.txt** switch (in the **Advanced** tab of the panel) removes this post from `llms.txt` and from the feed it links to. The same tab has **Ask search engines not to list this post**, which keeps it out of the sitemap and site search. Pages have the same no-index switch in the **Advanced** tab of their **SEO** panel.
 
 8. Note the address `https://example.com/mcp`. It is where an AI agent connects through **MCP**, the Model Context Protocol, a standard way for AI tools to read and change your site. An agent needs an API key you create. [Connect an AI agent](connect-an-ai-agent.md) covers it.
 

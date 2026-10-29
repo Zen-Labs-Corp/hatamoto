@@ -740,6 +740,7 @@ func (e *Engine) RenderPage(w io.Writer, v *PageView) error {
 func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil
+	nv.Kind = KindNotFound
 	nv.Page.NoIndex = true
 	if nv.Page.Title == "" {
 		nv.Page.Title = "Page not found"

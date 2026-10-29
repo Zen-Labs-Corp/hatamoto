@@ -33,7 +33,7 @@ In this guide you write a blog post, check how it will look in search results, p
    - **Categories and tags**, the groups the post belongs to. Owners can create a new one here; editors pick from the existing ones.
    - **Author**, covered in the next part of this guide.
 
-5. Fill in **Search and social**: a **Focus keyword** (the phrase you want the post to be found for), the **SEO title** and **SEO description** that search results show, and the **Include in /llms.txt** switch, which lists the post in a file that AI tools read.
+5. Fill in the **SEO** panel: on its **Search** tab a **Focus keyword** (the phrase you want the post to be found for), the **SEO title** and **SEO description** that search results show; on its **Advanced** tab the **Include in /llms.txt** switch, which lists the post in a file that AI tools read.
 
 6. Read the checks in the panel below. A few seconds after you stop typing, it shows a preview of the search result, whether the title and description have a good length, whether the keyword appears in the right places, and tips that help AI assistants quote your answer.
 

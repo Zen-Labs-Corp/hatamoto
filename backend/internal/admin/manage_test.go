@@ -609,9 +609,10 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 		"entities/list": true, "entities/new": true, "entities/start": true, "entities/builder": true, "entities/edit": true, "entities/versions": true, "entities/compare": true, "entities/version": true,
 		"schemas/list": true, "schemas/edit": true, "taxonomies/list": true, "taxonomies/new": true, "taxonomies/term": true, "taxonomies/merge": true,
 		"media/list": true, "media/new": true, "settings/upload": true, "media/detail": true, "media/picker": true,
-		"entities/parent":   true,                             // a fragment: content_forge_test.go
-		"entities/blogedit": true, "entities/blogpanel": true, // v1-13: blog_editor_test.go
-		"dev/styleguide": true, // styleguide_test.go (Dev only)
+		"entities/parent":   true,                            // a fragment: content_forge_test.go
+		"entities/blogedit": true, "entities/seopanel": true, // v1-13: blog_editor_test.go
+		"dev/styleguide":       true,                              // styleguide_test.go (Dev only)
+		"settings/seo-general": true, "settings/seo-titles": true, // seo_settings_test.go
 	}
 	for _, names := range areaPages {
 		for _, n := range names {

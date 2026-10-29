@@ -37,7 +37,7 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
    - **Parent**, for types where pages sit inside other pages. Type a few letters and pick the page this one belongs under.
    - **Author**, and the **terms**. A **taxonomy** is a way to group content, such as categories or tags, and a term is one group in it, such as the category "News".
-   - **Search and social**: the title and description shown in search results, a canonical address (the main address, when the same content has several), a social image for when the page is shared, and a switch that asks search engines not to list the page.
+   - **SEO** panel: its **Search** tab holds the title and description shown in search results, **Social** a social image for when the page is shared, and **Advanced** a canonical address (the main address, when the same content has several) and a switch that asks search engines not to list the page.
    - The type's own fields, such as text, images, numbers and lists. Image fields open the media library as a picker.
 
 6. Press **Save**. Every save creates a version, so nothing you replace is lost.

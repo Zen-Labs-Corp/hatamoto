@@ -1,0 +1,12 @@
+/* The shared SEO panel (hm/seopanel). Layout and the score only: the tab row is hm/tabs, the fields hm/field. */
+.hm-seo { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-seo__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.hm-seo__title { margin: 0; font-size: var(--text-md); }
+.hm-seo__panel { min-width: 0; }
+.hm-seo__panel-h { margin: 0; font-size: var(--text-md); }
+.hm-seo__score { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.hm-seo__score strong { font-size: var(--text-title); }
+.hm-seo__score--pass strong { color: var(--color-success); }
+.hm-seo__score--warn strong { color: var(--color-warning); }
+.hm-seo__score--fail strong { color: var(--color-danger); }
+.hm-seo__score-max { margin-inline-start: var(--space-0-5); }

@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{template "hm/card-start" dict "ID" "identity" "Title" "Site identity" "Heading" "h2" "Description" "The site name and tagline fill %sitename% and %tagline%. Change them under Settings > General."}}
+<p>{{or .SiteName "No site name set"}}{{with .Tagline}}<br><span class="hm-muted">{{.}}</span>{{end}}</p>
+<p>{{template "hm/button" dict "Label" "Open general settings" "Href" (adminPath "settings" "general")}}</p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "variables-list" "Title" "Variables" "Heading" "h2" "Description" "Use these in a title or description template. Write them between percent signs, for example %title% %sep% %sitename%. A variable that is unknown is left as written."}}
+{{range .Builtins}}<p><code>%{{.Name}}%</code> <span class="hm-muted">{{.Desc}}</span></p>
+{{end}}{{template "hm/card-end"}}
+<form method="post" action="{{adminPath}}/settings/seo/general" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "custom" "Title" "Custom variables" "Heading" "h2" "Description" "Your own variables, written %cv_name%. Use them for text you repeat in many templates, such as a brand line. Names use lowercase letters, digits and underscores."}}
+{{range .Rows}}{{template "hm/field" dict "ID" (printf "variable-%d-name" .Index) "Name" "variable_name" "Label" (printf "Variable %d name" (add .Index 1)) "Value" .Name "Error" (index $.Data.Errs (printf "variable-%d-name" .Index)) "Attrs" (attrmap "maxlength" "24" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" (printf "variable-%d-value" .Index) "Name" "variable_value" "Label" (printf "Variable %d value" (add .Index 1)) "Value" .Value "Error" (index $.Data.Errs (printf "variable-%d-value" .Index)) "Attrs" (attrmap "maxlength" "200" "autocomplete" "off")}}
+{{end}}{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

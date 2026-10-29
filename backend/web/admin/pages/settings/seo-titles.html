@@ -1,0 +1,29 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/seo/titles" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "general" "Title" "Titles" "Heading" "h2" "Description" "Templates build the page title and description for entries that have none written by hand. A title or description written on an entry always wins. Variables such as %title% are listed under General."}}
+{{template "hm/field" dict "ID" "separator" "Name" "separator" "Label" "Separator" "Control" "radio" "Options" .Separators "Error" (index .Errs "separator")}}
+{{template "hm/field" dict "ID" "home" "Name" "home" "Label" "Homepage title" "Value" .Home "Help" (printf "Default: %s" .DefaultTitle) "Error" (index .Errs "home") "Attrs" (attrmap "maxlength" (printf "%d" .MaxTemplate))}}
+{{range .Archives}}{{template "hm/field" dict "ID" (printf "archives-%s" .Key) "Name" (printf "archives[%s]" .Key) "Label" (printf "%s title" .Label) "Value" .Value "Error" (index $.Data.Errs (printf "archives-%s" .Key)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{end}}{{template "hm/card-end"}}
+{{range .Types}}{{template "hm/card-start" dict "ID" (printf "seo-type-%s" .Slug) "Title" .Name "Heading" "h2"}}
+{{template "hm/field" dict "ID" (printf "type-%s-title" .Slug) "Name" (printf "type[%s][title]" .Slug) "Label" "Title template" "Value" .Title "Placeholder" $.Data.DefaultTitle "Error" (index $.Data.Errs (printf "type-%s-title" .Slug)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{template "hm/field" dict "ID" (printf "type-%s-description" .Slug) "Name" (printf "type[%s][description]" .Slug) "Label" "Description template" "Control" "textarea" "Rows" 2 "Value" .Description "Help" "Used when the entry has no description of its own. Left empty, the page keeps its usual description." "Error" (index $.Data.Errs (printf "type-%s-description" .Slug)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{if .ArchiveReadOnly}}{{template "hm/field" dict "ID" (printf "type-%s-archive-title" .Slug) "Name" (printf "type[%s][archive_title]" .Slug) "Label" "Archive title" "Value" .ArchiveTitle "Help" "This built-in type keeps its archive title; it cannot be changed here." "Attrs" (attrmap "readonly" "readonly" "disabled" "disabled")}}
+{{template "hm/field" dict "ID" (printf "type-%s-archive-description" .Slug) "Name" (printf "type[%s][archive_description]" .Slug) "Label" "Archive description" "Value" .ArchiveDescription "Attrs" (attrmap "readonly" "readonly" "disabled" "disabled")}}
+{{else}}{{template "hm/field" dict "ID" (printf "type-%s-archive-title" .Slug) "Name" (printf "type[%s][archive_title]" .Slug) "Label" "Archive title" "Value" .ArchiveTitle "Help" "The heading and title of this type's archive page. The same value as in the type's settings." "Error" (index $.Data.Errs (printf "type-%s-archive-title" .Slug))}}
+{{template "hm/field" dict "ID" (printf "type-%s-archive-description" .Slug) "Name" (printf "type[%s][archive_description]" .Slug) "Label" "Archive description" "Control" "textarea" "Rows" 2 "Value" .ArchiveDescription "Error" (index $.Data.Errs (printf "type-%s-archive-description" .Slug))}}
+{{end}}{{template "hm/card-end"}}
+{{end}}{{if .Terms}}{{template "hm/card-start" dict "ID" "taxonomy" "Title" "Taxonomies" "Heading" "h2" "Description" "The title of a term page, such as a category or tag."}}
+{{range .Terms}}{{template "hm/field" dict "ID" (printf "taxonomy-%s" .Kind) "Name" (printf "taxonomy[%s]" .Kind) "Label" (printf "%s title" .Label) "Value" .Title "Placeholder" $.Data.DefaultTitle "Error" (index $.Data.Errs (printf "taxonomy-%s" .Kind)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{end}}{{template "hm/card-end"}}
+{{end}}{{template "hm/card-start" dict "ID" "preview" "Title" "Preview" "Heading" "h2" "Description" "A sample page of each kind, resolved the way the public site does it."}}
+<p>{{template "hm/button" dict "Label" "Update preview" "Type" "button" "Attrs" (attrmap "hx-post" (adminPath "settings" "seo" "titles" "preview") "hx-include" "closest form" "hx-target" "#seo-preview" "hx-select" "#seo-preview" "hx-swap" "outerHTML" "hx-push-url" "false" "hx-indicator" "this")}}</p>
+<div id="seo-preview" aria-live="polite">
+{{range .Preview}}<p><strong>{{.Label}}</strong><br>{{.Title}}{{with .Description}}<br><span class="hm-muted">{{.}}</span>{{end}}</p>
+{{end}}</div>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

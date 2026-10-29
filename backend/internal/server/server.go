@@ -44,6 +44,7 @@ import (
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/sectiontemplate"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/spam"
@@ -92,6 +93,8 @@ type Server struct {
 	formService            *form.Service
 	spam                   *spam.Pipeline // nil in tests that skip spam checks
 	spamStore              *spam.Store
+	seoStore               *seo.Store // site-wide SEO templates; nil in tests that skip them
+	seoLogOnce             sync.Once
 	spamVerifier           *spam.HTTPVerifier
 	emailService           *email.Service
 	mailStore              smtpSettingsStore
@@ -371,6 +374,7 @@ func (s *Server) setupDependencies() {
 	// Form service
 	formRepo := form.NewPostgresRepository(s.db)
 	s.formService = form.NewService(formRepo, s.logger)
+	s.seoStore = seo.NewStore(s.db.Pool())
 	spamStore := spam.NewStore(s.db.Pool())
 	spamVerifier := spam.NewHTTPVerifier(spam.NewClient(), nil)
 	s.spamStore, s.spamVerifier = spamStore, spamVerifier

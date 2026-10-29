@@ -1,0 +1,69 @@
+{{/* hm/seopanel: the shared SEO panel of the entity form and the blog editor. Data: Panel (the analysis), SEO (Title, Description, Canonical, OGImage, NoIndex), Errors, Noun ("post", "page"), AnalyzeURL (the htmx endpoint that returns hm/seopanel-fragment; empty turns the live refresh off), Include (selector of the form the endpoint reads), and optional Keyword and ShowKeyword, InLLMs and ShowLLMs. Four tabs (Search, Social, Schema, Advanced) switch in place through the @hm/seopanel module; without JavaScript the four panels show stacked under their headings. */}}
+{{define "hm/seopanel"}}<div class="hm-seo" data-hm-seo>
+<div class="hm-seo__head"><h3 class="hm-seo__title">SEO</h3>{{template "hm/seopanel-score" dict "Panel" .Panel}}</div>
+{{template "hm/tabs" (dict "Variant" "tablist" "Label" "SEO settings" "Attrs" (attrmap "hidden" "hidden" "data-hm-seo-tabs" "") "Items" (list (dict "ID" "seo-tab-search" "Controls" "seo-tabpanel-search" "Label" "Search" "Active" true) (dict "ID" "seo-tab-social" "Controls" "seo-tabpanel-social" "Label" "Social") (dict "ID" "seo-tab-schema" "Controls" "seo-tabpanel-schema" "Label" "Schema") (dict "ID" "seo-tab-advanced" "Controls" "seo-tabpanel-advanced" "Label" "Advanced")))}}
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-search" aria-labelledby="seo-tab-search" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Search</h4>
+{{if .ShowKeyword}}{{template "hm/field" dict "ID" "seo_keyword" "Name" "seo_keyword" "Label" "Focus keyword" "Value" .Keyword "Help" (printf "The phrase this %s should rank for. The checks below look for it." .Noun) "Attrs" (attrmap "autocomplete" "off")}}
+{{end}}{{template "hm/field" dict "ID" "seo_title" "Name" "seo_title" "Label" "SEO title" "Value" .SEO.Title "Help" "Shown in search results. About 60 characters." "Error" (index .Errors "seo_title") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/seocount" dict "ID" "seo-title-count" "Len" .Panel.SERP.TitleLen "Max" 60 "Status" .Panel.SERP.TitleStatus "Msg" .Panel.SERP.TitleMsg}}
+{{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
+{{template "hm/seocount" dict "ID" "seo-description-count" "Len" .Panel.SERP.DescLen "Max" 160 "Status" .Panel.SERP.DescStatus "Msg" .Panel.SERP.DescMsg}}
+{{template "hm/indicator" dict "ID" "analyze-busy" "Text" "Checking"}}
+<div id="be-panel" aria-live="polite"{{if .AnalyzeURL}} hx-post="{{.AnalyzeURL}}" hx-trigger="input changed delay:1500ms from:{{.Include}}, change from:{{.Include}}" hx-include="{{.Include}}" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"{{end}}>{{template "hm/seopanel-results" .Panel}}</div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
+<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "seo_og_image" "hidden" "hidden"))}}</div>
+{{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
+{{template "hm/seopanel-schema" dict "Panel" .Panel}}
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Advanced</h4>
+{{template "hm/field" dict "ID" "seo_canonical" "Name" "seo_canonical" "Label" "Canonical address" "Value" .SEO.Canonical "Help" (printf "Only when this %s also lives at another address." .Noun) "Error" (index .Errors "seo_canonical") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "seo_noindex" "Name" "seo_noindex" "Label" (printf "Ask search engines not to list this %s" .Noun) "Control" "switch" "Value" "true" "Checked" .SEO.NoIndex}}
+{{if .ShowLLMs}}{{template "hm/field" dict "ID" "seo_llms" "Name" "seo_llms" "Label" "Include in /llms.txt" "Control" "switch" "Value" "true" "Checked" .InLLMs "Help" (printf "Lists this %s for AI assistants that read /llms.txt." .Noun)}}
+{{end}}</section>
+</div>{{end}}
+
+{{/* hm/seopanel-score: the panel's 0 to 100 score. OOB swaps it in place with the checks. */}}
+{{define "hm/seopanel-score"}}{{with .Panel}}<p class="hm-seo__score hm-seo__score--{{.ScoreTone}}" id="seo-score"{{if $.OOB}} hx-swap-oob="true"{{end}}><strong>{{.Score}}</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p>{{end}}{{end}}
+
+{{/* hm/seopanel-schema: the structured data the published page will carry. */}}
+{{define "hm/seopanel-schema"}}{{with .Panel}}<div id="seo-schema"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{if .JSONLD}}<details class="hm-bp__ld" open><summary>Structured data: {{.JSONLDType}}</summary><pre class="hm-bp__pre" tabindex="0">{{.JSONLD}}</pre></details>{{else}}<p class="hm-muted">No structured data can be built until the entry has a name.</p>{{end}}</div>{{end}}{{end}}
+
+{{/* hm/seopanel-results: the analysis (summary, search-result preview and the checks) that the analyze endpoint swaps into #be-panel. Data: the panel. */}}
+{{define "hm/seopanel-results"}}<div class="hm-bp">
+<p class="hm-bp__summary{{if .Fail}} hm-bp__summary--fail{{else if .Warn}} hm-bp__summary--warn{{else}} hm-bp__summary--pass{{end}}" data-hm-bp-summary><strong>{{.Pass}} of {{.Total}} checks pass</strong>{{if .ToFix}}, {{.ToFix}} to fix{{end}}</p>
+<h5 class="hm-bp__h">Search result preview</h5>
+<div class="hm-bp__serp" role="group" aria-label="Search result preview">
+<p class="hm-bp__serp-url">{{.SERP.URL}}</p>
+<p class="hm-bp__serp-title">{{if .SERP.Title}}{{.SERP.Title}}{{else}}Untitled{{end}}</p>
+<p class="hm-bp__serp-desc">{{if .SERP.Description}}{{.SERP.Description}}{{else}}No description yet.{{end}}</p>
+</div>
+<h5 class="hm-bp__h">Search checks</h5>
+<ul class="hm-bp__list" role="list">
+<li class="hm-bp__item hm-bp__item--{{.SERP.TitleStatus}}"><span class="hm-bp__mark">{{template "hm/checkmark" .SERP.TitleStatus}}</span><span><strong>Title</strong>: {{.SERP.TitleMsg}}</span></li>
+<li class="hm-bp__item hm-bp__item--{{.SERP.DescStatus}}"><span class="hm-bp__mark">{{template "hm/checkmark" .SERP.DescStatus}}</span><span><strong>Description</strong>: {{.SERP.DescMsg}}</span></li>
+{{range .SEO}}<li class="hm-bp__item hm-bp__item--{{.Status}}"><span class="hm-bp__mark">{{template "hm/checkmark" .Status}}</span><span><strong>{{.Name}}</strong>: {{.Message}}</span></li>
+{{end}}</ul>
+{{if .Answer}}<h5 class="hm-bp__h">Answerability (AEO)</h5>
+<p class="hm-muted">How easily an assistant can quote this page.</p>
+<ul class="hm-bp__list" role="list">{{range .Answer}}<li class="hm-bp__item hm-bp__item--{{.Status}}"><span class="hm-bp__mark">{{template "hm/checkmark" .Status}}</span><span><strong>{{.Name}}</strong>: {{.Message}}</span></li>
+{{end}}</ul>{{end}}
+</div>{{end}}
+
+{{/* hm/seopanel-fragment: what the analyze endpoint returns: the results for #be-panel plus out-of-band swaps for the score, the two length counters and the structured data. Data: the panel. */}}
+{{define "hm/seopanel-fragment"}}{{template "hm/seopanel-results" .}}
+{{template "hm/seopanel-score" dict "Panel" . "OOB" true}}
+{{template "hm/seocount" dict "ID" "seo-title-count" "Len" .SERP.TitleLen "Max" 60 "Status" .SERP.TitleStatus "Msg" .SERP.TitleMsg "OOB" true}}
+{{template "hm/seocount" dict "ID" "seo-description-count" "Len" .SERP.DescLen "Max" 160 "Status" .SERP.DescStatus "Msg" .SERP.DescMsg "OOB" true}}
+{{template "hm/seopanel-schema" dict "Panel" . "OOB" true}}{{end}}
+
+{{/* The length of the title and description as the server measured it, with the reason when it is off. */}}
+{{define "hm/seocount"}}<p class="hm-be__count hm-be__count--{{.Status}}" id="{{.ID}}"{{if .OOB}} hx-swap-oob="true"{{end}}><span>{{.Len}} / {{.Max}}</span>{{if ne .Status "pass"}} <span class="hm-be__count-msg">{{.Msg}}</span>{{end}}</p>{{end}}
+{{define "hm/checkmark"}}{{if eq . "pass"}}<span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span>{{else if eq . "fail"}}<span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span>{{else}}<span aria-hidden="true">!</span><span class="hm-visually-hidden">Could be better:</span>{{end}}{{end}}

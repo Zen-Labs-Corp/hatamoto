@@ -1,10 +1,10 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/repeater @hm/content @hm/entityform{{end}}
+{{define "modules"}}@hm/repeater @hm/content @hm/entityform @hm/seopanel{{end}}
 {{define "scripts"}}sortablejs{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Subtitle "CSRF" $.CSRF "Actions" .Actions}}
 {{if not .New}}{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}{{end}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
-<form method="post" action="{{if .New}}{{adminPath}}/entities{{else}}{{adminPath}}/entities/{{.ID}}{{end}}" class="hm-stack hm-entityform" novalidate>
+<form method="post" action="{{if .New}}{{adminPath}}/entities{{else}}{{adminPath}}/entities/{{.ID}}{{end}}" id="hm-entityform" class="hm-stack hm-entityform" novalidate>
 {{template "hm/csrf" $}}
 {{if .New}}<input type="hidden" name="type" value="{{.SchemaSlug}}">{{end}}
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
@@ -49,16 +49,8 @@
 </div>{{end}}
 </div>
 {{template "hm/card-end"}}{{end}}
-{{template "hm/card-start" dict "ID" "seo" "Title" "Search and social" "Description" "How this page appears in search results and when shared."}}
-<div class="hm-stack">
-{{template "hm/field" dict "ID" "seo_title" "Name" "seo_title" "Label" "SEO title" "Value" .SEO.Title "Help" "Shown in search results. About 60 characters." "Error" (index .Errors "seo_title") "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
-{{template "hm/field" dict "ID" "seo_canonical" "Name" "seo_canonical" "Label" "Canonical address" "Value" .SEO.Canonical "Help" "Only when this content also lives at another address." "Error" (index .Errors "seo_canonical") "Attrs" (attrmap "autocomplete" "off")}}
-<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
-<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="seo_og_image" hidden>Choose from library</button></div>
-{{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
-{{template "hm/field" dict "ID" "seo_noindex" "Name" "seo_noindex" "Label" "Ask search engines not to list this page" "Control" "switch" "Value" "true" "Checked" .SEO.NoIndex}}
-</div>
+{{template "hm/card-start" dict "ID" "seo"}}
+{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" .AnalyzeURL "Include" "#hm-entityform"}}
 {{template "hm/card-end"}}
 <div class="hm-savebar">
 <span class="hm-savebar__aside">{{if not .New}}{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/entities/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" "This entity and its version history will be deleted. This cannot be undone." "data-hm-confirm-label" "Delete entity" "data-hm-post" (printf "%s/entities/%s/delete" adminPath .ID) "data-hm-danger" "")}}{{end}}<span data-hm-ef-status>{{if .UpdatedAt}}{{template "hm/savestate" (dict "State" "saved" "Text" (printf "Saved %s" .UpdatedAt))}}{{else if .Errors}}{{template "hm/savestate" (dict "State" "unsaved" "Text" "Unsaved changes")}}{{else}}{{template "hm/savestate" (dict "State" "idle" "Text" "")}}{{end}}</span></span>
