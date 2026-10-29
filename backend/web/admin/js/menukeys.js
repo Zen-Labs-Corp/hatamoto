@@ -176,7 +176,7 @@ export function init(tree, api) {
       li.focus();
     } else if (evt.altKey && evt.code === "KeyN") {
       evt.preventDefault();
-      api.form.requestSubmit(api.form.querySelector('button[name="_op"][value="add"]'));
+      document.querySelector("[data-hm-add-open]")?.click();
     } else if (mod && !evt.altKey && evt.key.toLowerCase() === "d") {
       evt.preventDefault();
       api.many("dup", targets(li));

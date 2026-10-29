@@ -140,8 +140,8 @@ try {
   ok((await (await byLabel(page, LOOSE)).getAttribute("data-type")) === "none", "A1: the type No link is kept after the save");
 
   // ---- A2: a Page item with no target warns, the count cycles ----------------
-  await page.locator('#add-type').selectOption("entity");
-  await Promise.all([page.waitForNavigation(), page.locator('button[name="_op"][value="add"]').click()]);
+  // The server's own Add item (hidden when scripts run) still works: press it the way a no-script form does.
+  await Promise.all([page.waitForNavigation(), page.locator('button[name="_op"][value="add"]').evaluate((b) => b.click())]);
   await page.waitForSelector("[data-hm-item]");
   const rowsAfterAdd = await rowsOf(page);
   const newIndex = rowsAfterAdd.length - 1;
@@ -335,12 +335,17 @@ try {
   await page.evaluate((n) => { window.__stay = 1; document.querySelector("form[data-hm-editor]").dataset.maxItems = String(n); }, count);
   const refusal = `A menu holds at most ${count} items.`;
   const notice = () => page.locator("[data-hm-notice]").innerText().then((t) => t.replace(/\s+/g, " ").trim());
-  await page.locator('button[name="_op"][value="add"]').click();
+  await page.locator('button[name="_op"][value="add"]').evaluate((b) => b.click());
   ok((await notice()).includes(refusal) && (await rowsOf(page)).length === count && (await page.evaluate(() => window.__stay)) === 1, "limit: the Add button refuses at the limit, in the server's words");
   await page.locator("[data-hm-notice]").evaluate((n) => n.replaceChildren());
   await (await byLabel(page, "Docs")).focus();
   await page.keyboard.press("Alt+n");
-  ok((await notice()).includes(refusal) && (await page.evaluate(() => window.__stay)) === 1, "limit: Alt+N refuses at the limit");
+  await page.locator("#menu-add:popover-open").waitFor();
+  await page.locator("#add-tab-heading").click();
+  await page.locator('[data-hm-add-label="heading"]').fill("Over the limit");
+  await page.locator('[data-hm-add-confirm="heading"]').click();
+  ok((await notice()).includes(refusal) && (await rowsOf(page)).length === count && (await page.evaluate(() => window.__stay)) === 1, "limit: Alt+N opens Add, which refuses at the limit");
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Control+d");
   ok((await notice()).includes(refusal) && (await rowsOf(page)).length === count, "limit: Duplicate refuses at the limit, in the server's words");
   await page.evaluate(() => { document.querySelector("form[data-hm-editor]").dataset.maxItems = "200"; });

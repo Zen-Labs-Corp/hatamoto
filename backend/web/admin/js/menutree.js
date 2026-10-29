@@ -7,6 +7,7 @@
 // which applies the edit and re-renders. Dragging lives in @hm/menudrag.
 import { renumberOp, renumberRef } from "@hm/listlogic";
 import { duplicateBlock, indentBlock, moveBlock, moveToParent, outdentBlock, removeBlock, blockEnd } from "@hm/menulogic";
+import { init as initAdd } from "@hm/menuadd";
 import { init as initDrag } from "@hm/menudrag";
 import { init as initKeys } from "@hm/menukeys";
 import { init as initSearchSelect } from "@hm/searchselect";
@@ -24,6 +25,7 @@ const DONE = {
   dup: "Item duplicated. It is not saved yet.",
   moveto: "Item moved. It is not saved yet.",
   remove: "Item removed with its sub-items. It is not saved yet.",
+  add: "Item added. It is not saved yet.",
 };
 const limitNotice = (max) => `A menu holds at most ${max} items.`;
 const REFUSED = {
@@ -233,7 +235,8 @@ function refreshRow(li) {
   const summary = li.querySelector(".hm-menutree__target-summary");
   if (summary) summary.textContent = targetSummary(li);
   const name = `Actions for ${label || UNTITLED}`;
-  li.querySelector("[popovertarget]")?.setAttribute("aria-label", name);
+  li.querySelector("[data-hm-add-after]")?.setAttribute("aria-label", `Add an item after ${label || UNTITLED}`);
+  li.querySelector('[popovertarget][aria-haspopup="menu"]')?.setAttribute("aria-label", name);
   li.querySelector(".hm-menu")?.setAttribute("aria-label", name);
   const warn = problemOf(li) === "warn";
   const mark = li.querySelector("[data-hm-warn]");
@@ -248,6 +251,29 @@ function announce(msg) {
 }
 
 const clone = (name) => document.querySelector(`template[data-hm-tpl="${name}"]`)?.content.firstElementChild.cloneNode(true);
+
+// newRow copies the page's blank item and fills it from spec. The script's own
+// switches are turned on as they are for the rows the server rendered.
+function newRow(spec, depth) {
+  const li = clone("newitem");
+  if (!li) return {};
+  li.querySelectorAll("[data-hm-editor-only]").forEach((el) => { el.hidden = false; });
+  li.querySelectorAll("[data-hm-handle]").forEach((el) => { el.hidden = false; });
+  const type = spec.type ?? "entity";
+  li.dataset.type = type;
+  li.querySelectorAll("[data-hm-type]").forEach((r) => { r.checked = r.value === type; });
+  const set = (suffix, value) => { const f = field(li, suffix); if (f && value) f.value = value; };
+  set("label", spec.label);
+  set("url", spec.url);
+  // A typed name without a pick is kept too: the server resolves it on save, as for a search box.
+  const key = type === "entity" ? "entity" : type === "archive" ? "term" : "";
+  if (key) {
+    set(key, spec[key]);
+    set(`${key}_q`, spec.name);
+    set(`${key}_prev`, spec.name);
+  }
+  return { depth, li };
+}
 
 function init(root) {
   root.querySelectorAll("[data-hm-menutree]").forEach((tree) => {
@@ -398,6 +424,32 @@ function init(root) {
       return refused;
     }
 
+    // addRows puts new rows into the tree as one undo step: after the block of
+    // the item at index after, or at the end. Each row is a copy of the page's
+    // blank item with the fields of its spec ({type, label, entity, term, url, name}) filled in.
+    // It returns the new rows, or none when the menu is full.
+    function addRows(specs, after = -1) {
+      const maxItems = Number(form.dataset.maxItems) || Infinity;
+      const rows = model(tree);
+      if (rows.length + specs.length > maxItems) {
+        showNotice(limitNotice(maxItems));
+        return [];
+      }
+      const at = after >= 0 && after < rows.length ? blockEnd(rows, after) : rows.length;
+      const depth = at > 0 && after >= 0 ? rows[after].depth : 0;
+      const fresh = specs.map((spec) => newRow(spec, depth));
+      if (fresh.some((r) => !r.li)) return [];
+      const next = [...rows.slice(0, at), ...fresh, ...rows.slice(at)];
+      tree.hidden = false;
+      tree.parentElement.querySelector(":scope > .hm-empty")?.setAttribute("hidden", "");
+      place(tree, next);
+      commit(rows);
+      showNotice("");
+      announce(fresh.length === 1 ? DONE.add : `${fresh.length} items added. They are not saved yet.`);
+      return fresh.map((r) => r.li);
+    }
+    document.addEventListener("hm:op", (evt) => opMany(evt.detail.op, evt.detail.items));
+
     // opMany applies one edit to several items as a single undo step.
     function opMany(name, lis) {
       const all = items(tree);
@@ -418,8 +470,6 @@ function init(root) {
       if (!refused) announce(DONE[name]);
       return refused;
     }
-    document.addEventListener("hm:op", (evt) => opMany(evt.detail.op, evt.detail.items));
-
     form.addEventListener("click", (evt) => {
       const btn = evt.target.closest('button[name="_op"]');
       const m = btn && tree.contains(btn) ? OP_RE.exec(btn.value) : null;
@@ -434,7 +484,7 @@ function init(root) {
       const target = name === "remove" ? (now[at] ?? now[at - 1]) : li;
       // The moved item keeps focus: on the same button, or on its menu when that button lives in the menu.
       const focus = name === "up" || name === "down" ? target?.querySelector(`.hm-menutree__ops > [data-hm-op="${name}"]`) : null;
-      (focus ?? target?.querySelector("[popovertarget]") ?? document.getElementById("add-type"))?.focus();
+      (focus ?? target?.querySelector('[popovertarget][aria-haspopup="menu"]'))?.focus();
     });
 
     // A closed <details> hides its invalid field and no browser opens it, so
@@ -526,6 +576,12 @@ function init(root) {
       items: () => items(tree),
       apply: applyOp,
       many: opMany,
+    });
+
+    initAdd(form, {
+      addRows,
+      items: () => items(tree),
+      focusRow: (li) => document.dispatchEvent(new CustomEvent("hm:select", { detail: { items: [li] } })),
     });
 
     initDrag(tree, {

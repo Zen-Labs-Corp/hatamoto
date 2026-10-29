@@ -81,12 +81,15 @@ type menuForm struct {
 	ID, Name, Location string
 	New                bool
 	Items              []menuRow
-	Locations          []ui.Option
-	Errors             map[string]string
-	Summary            []ui.FieldError
-	AddType            string
-	AddTypes           []ui.Option
-	Notice             string // structural edit applied but not saved yet
+	// Blank is the row the editor script copies when it adds an item without a
+	// round trip (the page keeps it in a template, never in the visible form).
+	Blank     menuRow
+	Locations []ui.Option
+	Errors    map[string]string
+	Summary   []ui.FieldError
+	AddType   string
+	AddTypes  []ui.Option
+	Notice    string // structural edit applied but not saved yet
 	// NoticeKind is "warning" when the edit was refused (the rows did not
 	// change) and "info" otherwise.
 	NoticeKind string
@@ -369,6 +372,11 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 		f.Items[i].NoOutdent = f.Items[i].Depth == 0
 		f.Items[i].NoIndent = i == 0 || f.Items[i].Depth > f.Items[i-1].Depth || f.Items[i].Depth >= maxMenuDepth
 	}
+	// N is past the last row a menu can hold, so the ids in the copy are unique on the page;
+	// the script renumbers the copy when it is added.
+	f.Blank = menuRow{N: maxMenuItems, Type: "entity", NoIndent: true, NoOutdent: true}
+	f.Blank.Types = typeOptions(f.Blank.Type)
+	f.Blank.TypeIcon, f.Blank.Target = menuTarget(f.Blank)
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})

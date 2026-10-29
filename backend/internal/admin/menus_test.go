@@ -669,8 +669,9 @@ func TestMenuOpsKeepWarningsAndDropDuplicateIDs(t *testing.T) {
 	f.Set("_op", "dup.0")
 	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
 	body := rec.Body.String()
-	if rec.Code != 200 || strings.Count(body, "Without a link") != 2 {
-		t.Errorf("duplicate: %d, want 2 warnings, got %d", rec.Code, strings.Count(body, "Without a link"))
+	// The blank item the script copies for Add sits in a template and carries the same words once more.
+	if rec.Code != 200 || strings.Count(body, "Without a link") != 3 {
+		t.Errorf("duplicate: %d, want 2 warnings and the template's, got %d", rec.Code, strings.Count(body, "Without a link"))
 	}
 	if strings.Count(body, `name="i.0.id" value="cta"`) != 1 || strings.Contains(body, `name="i.1.id" value="cta"`) {
 		t.Error("the copy must not carry the HTML id")

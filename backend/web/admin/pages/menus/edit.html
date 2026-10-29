@@ -1,5 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/menutree @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
+{{define "modules"}}@hm/menutree @hm/menuadd @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
 {{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" (or .NoticeKind "info"))}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
@@ -86,9 +86,33 @@
 <input class="hm-field__control" type="search" id="menu-filter" name="filter" placeholder="Filter" aria-label="Filter items" autocomplete="off" data-hm-filter>
 {{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-right" "AriaLabel" "Collapse all" "Attrs" (attrmap "data-hm-collapse-all" "")}}
 {{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-down" "AriaLabel" "Expand all" "Attrs" (attrmap "data-hm-expand-all" "")}}
-{{template "hm/button" dict "Variant" "primary" "Size" "sm" "Icon" "plus" "Label" "Add" "Attrs" (attrmap "data-hm-add-open" "" "popovertarget" "menu-add" "hidden" "")}}</div></template>
+{{template "hm/button" dict "Variant" "primary" "Size" "sm" "Icon" "plus" "Label" "Add" "Attrs" (attrmap "data-hm-add-open" "" "popovertarget" "menu-add")}}</div></template>
 <template data-hm-tpl="treefoot"><p class="hm-menutree__foot hm-muted">Drag the grip to reorder, or hold Alt and use the arrow keys. {{template "hm/button" dict "Label" "Keyboard shortcuts" "Variant" "ghost" "Size" "sm" "Icon" "help" "Attrs" (attrmap "data-hm-open" "menu-shortcuts")}}</p></template>
-<template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
+<template data-hm-tpl="add"><div class="hm-popover-panel hm-menuadd" popover id="menu-add" role="dialog" aria-label="Add an item"><div class="hm-popover-panel__body">
+{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}
+<div id="add-panel-pages" role="tabpanel" aria-labelledby="add-tab-pages" class="hm-stack">
+<input class="hm-field__control" type="search" id="add-search" name="add_search" aria-label="Search pages" placeholder="Search pages" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="add-pages-list" aria-autocomplete="list" data-hm-add-search data-src="{{adminPath "pick" "entities"}}">
+<ul class="hm-menuadd__list" id="add-pages-list" role="listbox" aria-multiselectable="true" aria-label="Pages" data-hm-add-list></ul>
+<div class="hm-menuadd__picked" data-hm-add-picked></div>
+<p class="hm-muted" role="status" data-hm-add-status></p>
+{{template "hm/button" dict "Label" "Add selected pages" "Variant" "primary" "Attrs" (attrmap "data-hm-add-confirm" "pages" "disabled" "")}}
+</div>
+<div id="add-panel-address" role="tabpanel" aria-labelledby="add-tab-address" class="hm-stack" hidden>
+{{template "hm/field" dict "ID" "add-address-label" "Name" "add-address-label" "Label" "Label" "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-add-label" "address")}}
+{{template "hm/field" dict "ID" "add-address-url" "Name" "add-address-url" "Label" "Address" "Help" "A path like /about or a full address." "Attrs" (attrmap "maxlength" "500" "autocomplete" "off" "data-hm-add-url" "")}}
+{{template "hm/button" dict "Label" "Add address" "Variant" "primary" "Attrs" (attrmap "data-hm-add-confirm" "address")}}
+</div>
+<div id="add-panel-heading" role="tabpanel" aria-labelledby="add-tab-heading" class="hm-stack" hidden>
+{{template "hm/field" dict "ID" "add-heading-label" "Name" "add-heading-label" "Label" "Label" "Help" "Shown as plain text above a group of links." "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-add-label" "heading")}}
+{{template "hm/button" dict "Label" "Add heading" "Variant" "primary" "Attrs" (attrmap "data-hm-add-confirm" "heading")}}
+</div>
+<div id="add-panel-archive" role="tabpanel" aria-labelledby="add-tab-archive" class="hm-stack" hidden>
+{{template "hm/searchselect" dict "ID" "add-archive-term" "Name" "add-archive-term" "Label" "Category or tag" "Src" (adminPath "pick" "terms") "Help" "The item links to the archive of this category or tag."}}
+{{template "hm/button" dict "Label" "Add archive" "Variant" "primary" "Attrs" (attrmap "data-hm-add-confirm" "archive")}}
+</div>
+</div></div></template>
+<template data-hm-tpl="add-option"><li class="hm-menuadd__opt" role="option" aria-selected="false"><span class="hm-menuadd__check" aria-hidden="true">{{icon "check"}}</span><span data-hm-add-name></span><span class="hm-menuadd__hint" data-hm-add-hint></span></li></template>
+<template data-hm-tpl="newitem">{{template "menus/item" dict "It" .Blank "CSRF" $.CSRF "Decl" $decl}}</template>
 <div class="hm-savebar">
 <span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>
 <span class="hm-menueditor__state" hidden data-hm-editor-only data-hm-state>{{template "hm/savestate" dict "State" "saved" "Text" "All changes saved"}}</span>
@@ -129,6 +153,7 @@
 <div class="hm-menutree__ops hm-row">
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="up.{{$n}}" formnovalidate data-hm-op="up">{{icon "arrow-up"}}<span class="hm-visually-hidden">Move up</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.{{$n}}" formnovalidate data-hm-op="down">{{icon "arrow-down"}}<span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
+{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "plus" "AriaLabel" (printf "Add an item after %s" (or $it.Label "Untitled item")) "Attrs" (attrmap "hidden" "" "data-hm-editor-only" "" "data-hm-add-after" ""))}}
 {{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "more" "AriaLabel" (printf "Actions for %s" (or $it.Label "Untitled item")) "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" (printf "i-%d-menu" $n)))}}
 <div class="hm-menu" popover id="i-{{$n}}-menu" role="menu" aria-label="{{printf "Actions for %s" (or $it.Label "Untitled item")}}">
 <button type="submit" role="menuitem" name="_op" value="outdent.{{$n}}" formnovalidate{{if $it.NoOutdent}} disabled{{end}}>{{icon "outdent"}}Outdent<span class="hm-visually-hidden"> item {{add $n 1}}</span></button>

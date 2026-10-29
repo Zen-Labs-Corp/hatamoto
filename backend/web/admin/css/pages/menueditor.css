@@ -25,6 +25,8 @@
 .hm-menuform[data-hm-js] #menu-items { grid-area: items; }
 .hm-menuform[data-hm-js] #menu-inspector { grid-area: inspector; position: sticky; top: var(--space-4); max-height: calc(100dvh - 8rem); overflow-y: auto; }
 .hm-menuform[data-hm-js] #menu-preview { grid-area: preview; }
+/* The Add popover takes over from the server's select and Add item button. */
+.hm-menuform[data-hm-js] .hm-menutree__add { display: none; }
 /* the script marks the save bar, which has the last row */
 .hm-menuform[data-hm-js] > [data-hm-bar] { grid-area: bar; }
 @media (max-width: 70rem) {

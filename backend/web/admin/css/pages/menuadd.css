@@ -1,0 +1,10 @@
+/* Add popover of the menu editor: layout only. The panel itself is hm-popover-panel. */
+.hm-menuadd { width: min(30rem, calc(100vw - 16px)); }
+.hm-menuadd__list { list-style: none; margin: 0; padding: 0; block-size: 14rem; overflow-y: auto; }
+.hm-menuadd__opt { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm); }
+.hm-menuadd__opt:hover, .hm-menuadd__opt[data-active] { background: var(--surface-hover); }
+.hm-menuadd__check { display: inline-flex; flex: none; inline-size: 1rem; visibility: hidden; }
+.hm-menuadd__opt[aria-selected="true"] .hm-menuadd__check { visibility: visible; }
+.hm-menuadd__hint { margin-inline-start: auto; color: var(--text-muted); font-size: var(--text-xs); }
+.hm-menuadd__picked { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.hm-menuadd [role="tabpanel"][hidden] { display: none; }
