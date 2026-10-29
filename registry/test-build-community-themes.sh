@@ -79,7 +79,10 @@ gitinit() { git -C "$1" init -q; git -C "$1" add -A; git -C "$1" -c user.name=t 
 good=0123456789abcdef0123456789abcdef01234567
 goodsha=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 https=https://example.com/acme/theme
-manifest() { mkdir -p "$1/manifests/themes"; printf '%s' "$3" >"$1/manifests/themes/$2.json"; }
+manifest() {
+  mkdir -p "$1/manifests/themes"; printf '%s' "$3" >"$1/manifests/themes/$2.json"
+  [ -d "$1/policy" ] || cp -r "$here/testdata/policy" "$1/policy"
+}
 base() { # base <name> <repo> <commit> [subdir]
   jq -n --arg n "$1" --arg r "$2" --arg c "$3" --arg s "${4:-}" \
     '{name:$n,repo:$r,commit:$c,author:"acme",license:"MIT",archive_grant:true} + (if $s != "" then {subdir:$s} else {} end)'
@@ -142,6 +145,8 @@ aneg "about angle bracket" '.about="a <b> c"' "about must not contain < or >"
 aneg "about empty paragraph" '.about="one\n\ntwo"' "about must not have an empty paragraph"
 aneg "about edge space" '.about=" one"' "about must not start or end with whitespace"
 aneg "about eleven paragraphs" '.about=$ep' "about must have at most 10 paragraphs"
+aneg "about invisible filler" '.about="Clean\u3164layout"' "about must not contain emoji"
+aneg "about modifier letters" '.about="\u02e2\u1d57\u02b3\u2071\u1d56\u1d49"' "about must not contain emoji"
 aneg "about emoji" '.about="Great \ud83d\ude80 theme"' "about must not contain emoji"
 aneg "features not a list" '.features="a"' "features must be a list of strings"
 aneg "features non-string item" '.features=["a",5]' "features must be a list of strings"
@@ -154,6 +159,7 @@ aneg "features url" '.features=["see https://example.test"]' "a feature must not
 aneg "features angle bracket" '.features=["<b>"]' "a feature must not contain < or >"
 aneg "features edge space" '.features=["a "]' "a feature must not start or end with whitespace"
 aneg "features duplicate" '.features=["Fast","fast"]' "features must not repeat an item"
+aneg "feature invisible filler" '.features=["Fast\u3164lines"]' "a feature must not contain emoji"
 aneg "features emoji" '.features=["Fast \ud83d\ude80"]' "a feature must not contain emoji"
 neg "still unknown field" acme-seo "$(base acme-seo $https $good | jq '.about="ok" | .abstract="x"')" "unknown field"
 echo "ok: $((n - an0)) about/features negative cases"
@@ -195,6 +201,33 @@ echo "ok: collisions"
 # No themes dir: success, nothing written.
 d="$work/nothemes"; mkdir -p "$d/manifests"
 out=$(run "$d") || fail "no themes dir failed: $out"; untouched "no themes dir"
+
+# Policy: a missing, symlinked, unreadable or empty reserved-names list stops the build before pass 1.
+mkpol() { rm -rf "$1"; manifest "$1" acme-seo "$(base acme-seo $https $good)"; }
+d="$work/pol-none"; mkpol "$d"; rm -rf "$d/policy"
+refuses "no policy dir" "missing policy" "$d"
+d="$work/pol-miss"; mkpol "$d"; rm "$d/policy/reserved-names.txt"
+refuses "missing reserved-names" "missing policy: reserved-names.txt" "$d"
+d="$work/pol-empty"; mkpol "$d"; : >"$d/policy/reserved-names.txt"
+refuses "empty reserved-names" "empty policy: reserved-names.txt" "$d"
+printf '# only a comment\n\n   \n' >"$d/policy/reserved-names.txt"
+refuses "comment-only reserved-names" "empty policy: reserved-names.txt" "$d"
+d="$work/pol-link"; mkpol "$d"; mv "$d/policy/reserved-names.txt" "$work/rn-real.txt"; ln -s "$work/rn-real.txt" "$d/policy/reserved-names.txt"
+refuses "symlinked policy file" "missing policy: reserved-names.txt" "$d"
+d="$work/pol-linkdir"; mkpol "$d"; mv "$d/policy" "$work/policy-real"; ln -s "$work/policy-real" "$d/policy"
+refuses "symlinked policy dir" "missing policy" "$d"
+if [ "$(id -u)" -ne 0 ]; then
+  d="$work/pol-unread"; mkpol "$d"; chmod 000 "$d/policy/reserved-names.txt"
+  refuses "unreadable reserved-names" "missing policy: reserved-names.txt" "$d"
+  chmod 644 "$d/policy/reserved-names.txt"
+else echo "skip: unreadable policy (running as root)"; fi
+# Only reserved-names.txt is needed: a theme build does not require the other lists.
+d="$work/pol-only"; manifest "$d" acme-seo "$(base acme-seo "file://$work/nonexistent" $good)"; rm "$d/policy/banned-words.txt"
+out=$(HATAMOTO_ALLOW_FILE_REPOS=1 run "$d" HATAMOTO_ALLOW_FILE_REPOS=1) && fail "missing banned-words built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "missing banned-words stopped the theme build: $out"
+rm -rf "$work/o"
+neg "policy reserved name" forms "$(base forms $https $good)" "reserved"
+echo "ok: policy"
 
 # --- Positives: git, git+subdir (with title), archive. ---
 src1="$work/src1"; mktheme "$src1" aurora 1.0.0; sha1=$(gitinit "$src1")
@@ -271,6 +304,57 @@ tamper "sidecar version" "different name or version" side_version
 swap_pkg() { cp "$work/first/arch/boreal/boreal-2.1.0-${sha2:0:12}-$kid.hmp" "$a/$af.hmp"; jq --arg h "$(sha256sum "$a/$af.hmp" | cut -d' ' -f1)" '.sha256=$h' "$a/$af.json" >"$a/$af.json.n" && mv "$a/$af.json.n" "$a/$af.json"; }
 tamper "swapped package" "is refused" swap_pkg
 echo "ok: tampered archive refused"
+
+# Look-alike names: one edit from, or equal after folding to, a plugin, reserved or sibling theme name.
+la() { # la <label> <theme> <other-kind: plugin|theme|none> <other-name> <substring> [env...]
+  local l=$1 t=$2 k=$3 o=$4 s=$5; shift 5
+  local d="$work/la-$t-$o"; rm -rf "$d"
+  manifest "$d" "$t" "$(base "$t" $https $good)"
+  case $k in
+    plugin) printf '{}' >"$d/manifests/$o.json" ;;
+    theme) manifest "$d" "$o" "$(base "$o" $https $good)" ;;
+  esac
+  refuses "$l" "$s" "$d" "$@"
+}
+la "one edit from a plugin" gtn plugin gtm 'looks like "gtm"'
+la "hyphen form of a plugin" g-tm plugin gtm 'looks like "gtm"'
+la "digit swap of a plugin" kum0 plugin kumo 'looks like "kumo"'
+la "folds equal, two edits from a plugin" g--tm plugin gtm 'looks like "gtm"'
+la "folds equal, two edits from a sibling theme" han-sh-i theme hanshi 'name looks like'
+la "one edit from a built-in name" webhook none none 'looks like "webhooks"'
+la "one edit from a policy name" formz none none 'looks like "forms"'
+la "one edit from a sibling theme" hanshl theme hanshi 'name looks like'
+la "sibling theme left out of the build" hanshl theme hanshi 'looks like "hanshi"' HATAMOTO_THEMES_SKIP=hanshi
+# The archive path runs the same pass 1: a look-alike plugin added after the build stops a reuse.
+d="$work/la-reuse"; rm -rf "$d"; cp -r "$reg" "$d"; printf '{}' >"$d/manifests/auroro.json"
+rm -rf "$work/o"; mkdir -p "$work/o"; cp -r "$work/first/arch" "$work/o/arch"
+if out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_ALLOW_FILE_ARCHIVES=1); then fail "look-alike reuse accepted"; fi
+grep -q 'looks like "auroro"' <<<"$out" || fail "look-alike reuse: $out"
+# A clear name beside a plugin and a theme passes pass 1 (it fails later at the fetch).
+d="$work/la-ok"; manifest "$d" kumoyama "$(base kumoyama "file://$work/nonexistent" $good)"
+manifest "$d" hanshi "$(base hanshi "file://$work/nonexistent" $good)"; printf '{}' >"$d/manifests/gtm.json"
+out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_THEMES_SKIP=hanshi) && fail "kumoyama built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "kumoyama refused: $out"
+rm -rf "$work/o"
+echo "ok: look-alike names"
+
+# The shared helpers are copies of the hatamoto-plugins validator's (skipped without a checkout).
+fn_body() { awk -v n="$2" 'index($0,n"() {")==1{p=1; if ($0 ~ /\}[[:space:]]*$/ && $0 !~ /\{[[:space:]]*$/){print;exit}} p{print} p&&$0=="}"{exit}' "$1"; }
+if [ -z "${HATAMOTO_PLUGINS_DIR:-}" ]; then echo "skip: validator sync: HATAMOTO_PLUGINS_DIR not set"
+else
+  vm=$HATAMOTO_PLUGINS_DIR/scripts/validate-theme-manifest.sh
+  [ -r "$vm" ] || fail "sync: $vm missing"
+  for fn in plist inlist lev1 lkey; do
+    a=$(fn_body "$script" $fn); b=$(fn_body "$vm" $fn)
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: $fn differs from the validator: $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b"))"
+  done
+  # Validators before the about/features rules (036cb3e) have no filter to compare.
+  if grep -q '^unsafe_chars_filter=' "$vm"; then
+    a=$(grep -m1 '^unsafe_chars_filter=' "$script"); b=$(grep -m1 '^unsafe_chars_filter=' "$vm")
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: unsafe_chars_filter differs from the validator"
+  fi
+  echo "ok: validator sync"
+fi
 
 # Append-only: a fresh build whose archived name already exists with other content.
 rm -rf "$work/o"; mkdir -p "$work/o"; cp -r "$work/first/arch" "$work/o/arch"
@@ -378,6 +462,7 @@ refuses "unfetchable commit" "cannot fetch" "$work/r10" HATAMOTO_ALLOW_FILE_REPO
 mkdir -p "$work/mix/manifests/themes"
 cp "$reg/manifests/themes/aurora.json" "$work/mix/manifests/themes/"
 cp "$work/r1/manifests/themes/nosnap.json" "$work/mix/manifests/themes/"
+cp -r "$here/testdata/policy" "$work/mix/policy"
 refuses "mixed run" "screenshot" "$work/mix" HATAMOTO_ALLOW_FILE_REPOS=1
 echo "ok: CLI refusals"
 

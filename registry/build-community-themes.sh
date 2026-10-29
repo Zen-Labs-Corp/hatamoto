@@ -62,6 +62,9 @@ repo_dir=$1 bin=$2 key=$3 packages=$4 meta=$5 shots_dir=$6 archive_dir=$7
 die() { echo "build-community-themes: $*" >&2; exit 1; }
 
 command -v jq >/dev/null || die "jq not found"
+jq -n '"a" | test("\\p{L}")' >/dev/null 2>&1 || die "jq lacks \\p{} regex support"
+jq -n '"\u3164" | test("\\p{Default_Ignorable_Code_Point}")' 2>/dev/null | grep -qx true \
+  || die "jq lacks \\p{Default_Ignorable_Code_Point} support (needs jq 1.7+)"
 command -v git >/dev/null || die "git not found"
 command -v curl >/dev/null || die "curl not found"
 [ -d "$repo_dir" ] || die "$repo_dir not found"
@@ -82,6 +85,58 @@ if [ -f "$meta" ]; then cp "$meta" "$stage/meta.json"; else printf '{}' >"$stage
 export GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_LFS_SKIP_SMUDGE=1
 git_opts=(-c core.hooksPath=/dev/null -c submodule.recurse=false -c protocol.allow=never -c protocol.https.allow=always)
 [ "${HATAMOTO_ALLOW_FILE_REPOS:-}" = 1 ] && git_opts+=(-c protocol.file.allow=always)
+
+# Listing policy: the reserved names are read from <plugins-repo-dir>/policy/reserved-names.txt
+# (data only; nothing in that checkout is executed). Fail closed: a missing, unreadable,
+# symlinked or empty list stops the build before pass 1.
+pol="$repo_dir/policy"
+[ -d "$pol" ] && [ ! -L "$pol" ] || die "missing policy: $pol"
+{ [ -f "$pol/reserved-names.txt" ] && [ -r "$pol/reserved-names.txt" ] && [ ! -L "$pol/reserved-names.txt" ]; } || die "missing policy: reserved-names.txt"
+# plist <list>: entries, trimmed and lowercased, without blank lines and "# " comments.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+plist() {
+  jq -Rr 'ascii_downcase | gsub("\r"; "") | gsub("^\\s+|\\s+$"; "") | select(. != "" and . != "#" and (startswith("# ") | not))' "$pol/$1.txt"
+}
+reserved_names=$(plist reserved-names) || die "unreadable policy: reserved-names.txt"
+[ -n "$reserved_names" ] || die "empty policy: reserved-names.txt"
+# inlist <newline separated list> <word>: exact whole-line membership.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+inlist() { [[ $'\n'$1$'\n' == *$'\n'"$2"$'\n'* ]]; }
+
+# lev1 <a> <b>: edit distance of at most 1.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+lev1() {
+  local a=$1 b=$2 i=0
+  [ "$a" = "$b" ] && return 0
+  while [ "$i" -lt "${#a}" ] && [ "$i" -lt "${#b}" ] && [ "${a:i:1}" = "${b:i:1}" ]; do i=$((i + 1)); done
+  a=${a:i}; b=${b:i}
+  while [ -n "$a" ] && [ -n "$b" ] && [ "${a: -1}" = "${b: -1}" ]; do a=${a%?}; b=${b%?}; done
+  [ "${#a}" -le 1 ] && [ "${#b}" -le 1 ]
+}
+# lkey <name>: hyphens removed, 0 1 3 5 folded to o l e s.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+lkey() { printf '%s' "$1" | tr -d '-' | tr '0135' 'oles'; }
+
+# check_theme_name <name> <own-file-base>: the name must not be one edit from, or equal after
+# look-alike folding to, a plugin name, a theme name (also one left out of this build), a
+# built-in name or a reserved name. Exact matches are refused earlier.
+check_theme_name() {
+  local name=$1 base=$2 nkey o on r
+  nkey=$(lkey "$name")
+  look() {
+    [ "$1" != "$name" ] || return 0
+    if [ "$(lkey "$1")" = "$nkey" ] || lev1 "$name" "$1"; then die "$name: name looks like \"$1\""; fi
+  }
+  for o in "$repo_dir"/manifests/*.json "$repo_dir"/manifests/themes/*.json; do
+    [ -e "$o" ] || continue
+    on=$(basename "$o" .json)
+    [ "$on" != "$base" ] && [ "$on" != schema ] || continue
+    [[ $on =~ ^[a-z][a-z0-9-]{1,39}$ ]] && look "$on"
+  done
+  for r in default webhooks hello gtm searchconsole; do look "$r"; done
+  while read -r r; do [[ $r =~ ^[a-z][a-z0-9-]{1,39}$ ]] && look "$r"; done <<<"$reserved_names"
+  return 0
+}
 
 # Allowed SPDX licenses; keep in sync with scripts/validate-theme-manifest.sh in the hatamoto-plugins repo.
 licenses=(MIT Apache-2.0 BSD-2-Clause BSD-3-Clause ISC MPL-2.0)
@@ -110,8 +165,8 @@ archive_ok() { { [[ $1 =~ $url_re ]] && host_ok "$1"; } || { [ "${HATAMOTO_ALLOW
 
 # field <file> <key>: the string value, or empty when absent or not a string.
 field() { jq -r --arg k "$2" 'if (.[$k] | type) == "string" then .[$k] else "" end' "$1"; }
-# Emoji, symbols and invisible characters (copy of build-community.sh).
-unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}")'
+# Emoji, symbols and invisible characters (copy of build-community.sh and the validator's unsafe_chars_filter).
+unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}|\\p{Default_Ignorable_Code_Point}|(?![\u0640\u3005\u3031-\u3035\u303B\u309D\u309E\u30FC-\u30FE])\\p{Lm}")'
 
 # check_about_features <name> <manifest>: the rules for the optional manifest keys "about"
 # (plain text, paragraphs separated by one newline) and "features" (a list of short lines).
@@ -185,10 +240,12 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   [[ $name =~ ^[a-z][a-z0-9-]{1,39}$ ]] || die "$base: bad name"
   [ "$name" = "$base" ] || die "$base: name \"$name\" must equal the file name"
   case $name in default|webhooks|hello|gtm|searchconsole) die "$name: name is reserved" ;; esac
+  ! inlist "$reserved_names" "$name" || die "$name: name is reserved"
   # Cross-kind uniqueness: plugins (manifest, built package, meta) and first-party packages.
   [ ! -e "$repo_dir/manifests/$name.json" ] || die "$name: already used by a plugin (manifests/$name.json)"
   [ ! -e "$packages/$name.hmp" ] || die "$name: already in $packages (name collision)"
   jq -e --arg n "$name" 'has($n) | not' "$stage/meta.json" >/dev/null || die "$name: already in the meta file (name collision)"
+  check_theme_name "$name" "$base"
   [[ $author =~ ^[A-Za-z0-9][A-Za-z0-9\ ._@-]{0,60}$ ]] || die "$name: bad author"
   jq -e '.archive_grant == true' "$f" >/dev/null || die "$name: archive_grant must be true"
   allowed=

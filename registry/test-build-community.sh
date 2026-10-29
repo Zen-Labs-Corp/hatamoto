@@ -20,6 +20,61 @@ script="$here/build-community.sh"
 export HATAMOTO_BUILD_GOTOOLCHAIN=$(awk '/^toolchain/{print $2}' "$root/backend/go.mod")
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+# fn_body <file> <name>: the function as written in the script (a one-liner closes on its own line).
+fn_body() { awk -v n="$2" 'index($0,n"() {")==1{p=1; if ($0 ~ /\}[[:space:]]*$/ && $0 !~ /\{[[:space:]]*$/){print;exit}} p{print} p&&$0=="}"{exit}' "$1"; }
+var_fold() { awk '/^fold_def=/{p=1} p{print} p&&$0=="'"'"'"{exit}' "$1"; }
+var_unsafe() { grep -m1 '^unsafe_chars_filter=' "$1"; }
+
+# The helpers shared with hatamoto-plugins must stay byte-identical (checked against 036cb3e).
+if [ -z "${HATAMOTO_PLUGINS_DIR:-}" ]; then
+  echo "skip: validator sync: HATAMOTO_PLUGINS_DIR not set"
+else
+  vm=$HATAMOTO_PLUGINS_DIR/scripts/validate-manifest.sh
+  [ -r "$vm" ] || fail "sync: $vm missing"
+  for fn in plist inlist brand_owned has_letter brand_match_lk lev1 lkey; do
+    a=$(fn_body "$script" "$fn"); b=$(fn_body "$vm" "$fn")
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: $fn differs: $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") || true)"
+  done
+  a=$(var_fold "$script"); b=$(var_fold "$vm")
+  [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: fold_def differs"
+  a=$(var_unsafe "$script"); b=$(var_unsafe "$vm")
+  [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: unsafe_chars_filter differs"
+  echo "ok: validator sync"
+fi
+
+# The build needs jq with \p{Default_Ignorable_Code_Point} (jq 1.7+).
+jq -n '"\u3164" | test("\\p{Default_Ignorable_Code_Point}")' 2>/dev/null | grep -qx true \
+  || fail "this jq lacks \\p{Default_Ignorable_Code_Point} (needs jq 1.7+)"
+grep -q 'jq lacks .*Default_Ignorable_Code_Point' "$script" || fail "build lacks the jq property probe"
+
+# fold unit cases (the validator's tests/run.sh fold_t).
+eval "$(var_fold "$script")"
+fold_t() { # fold_t <input> <expected>
+  local got; got=$(jq -nr --arg t "$1" "$fold_def"'$t | fold')
+  [ "$got" = "$2" ] || fail "fold: got '$got', want '$2'"
+}
+fold_t "$(printf '\U1D42C\U1D42D\U1D42B\U1D422\U1D429\U1D41E')" stripe
+fold_t "$(printf '\U1D5A2')" c
+fold_t "$(printf '\U1D7CE\U1D7FF')" 09
+fold_t "$(printf '\u017f')" s
+fold_t "$(printf '\u212a')" k
+fold_t "$(printf '\u212b')" a
+fold_t "$(printf '\u1d00')" a
+fold_t "$(printf '\u0299\u0262\u029c\u026a\u029f\u0274\u0280\u028f')" bghilnry
+fold_t "$(printf '\ufb01')" fi
+fold_t "$(printf '\ufb02')" fl
+fold_t "$(printf '\ufb03')" ffi
+fold_t "$(printf '\u0133')" ij
+fold_t "$(printf '\u2171')" ii
+fold_t "$(printf '\u2172')" iii
+fold_t "$(printf '\u2173')" iv
+fold_t "$(printf '\u217a')" xi
+fold_t "$(printf '\u2170')" i
+fold_t "$(printf '\u212f\u210a\u210e\u2113\u2102\u210d\u2115\u2119\u211a\u211d\u2124\u212c\u2130\u2131\u210b\u2110\u2112\u2133\u211b\u212d\u210c\u2111\u211c\u2128\u2134')" eghlchnpqrzbefhilmrchirzo
+fold_t "$(printf '\ua730\ua731\ua7af')" fsq
+fold_t "Plain Text" "plain text"
+echo "ok: fold cases"
+
 if [ -n "${HATAMOTO_BIN:-}" ]; then bin=$HATAMOTO_BIN; else
   (cd "$root/backend" && go build -o "$work/hatamoto" ./cmd/hatamoto)
   bin=$work/hatamoto
@@ -498,6 +553,31 @@ neg "title starting with a brand" "acme-seo" "$(base acme-seo $https $good | jq 
 neg "title sharing no word" "acme-seo" "$(base acme-seo $https $good | jq '.title="Lead Delivery"')" "share a word"
 neg "title sharing only a number" "acme-seo-2" "$(base acme-seo-2 $https $good | jq '.title="Seven 2"')" "share a word"
 neg "title with fullwidth forms" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO！"')" "fullwidth"
+# Brand variants (digit swaps, hyphens, dots, small capitals) and title separators, as in the validator.
+nt() { # nt <name> <title> <substring> [label]: a community title that must be refused
+  neg "${4:-title $2}" "$1" "$(base "$1" $https $good | jq --arg t "$2" '.title=$t')" "$3"
+}
+b='must not start with the brand'
+neg "name brand with digits" "str1pe-sync" "$(base str1pe-sync $https $good | jq '.title="Str1pe Sync"')" "name $b \"stripe\""
+neg "name brand split by a hyphen" "str-ipe" "$(base str-ipe $https $good | jq '.title="Str Ipe"')" "name $b \"stripe\""
+neg "name brand with zeros" "g00gle-sync" "$(base g00gle-sync $https $good | jq '.title="Sync G00gle"')" "name $b \"google\""
+neg "name brand split by hyphens" "open-ai-tool" "$(base open-ai-tool $https $good | jq '.title="Open Ai Tool"')" "name $b \"openai\""
+nt checkout "Str1pe checkout" "title $b \"stripe\""
+nt sync-tool "Str-ipe Sync Tool" "title $b \"stripe\""
+nt sync-tool "S.tripe Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe: Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe, Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe/Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe-x Sync" "title $b \"stripe\""
+nt pay-1 "Str1pe 1" "title $b \"stripe\""
+nt sync-tool "$(printf '\ua731\u1d1b\u0280\u026a\u1d18\u1d07') Sync Tool" "title $b \"stripe\"" "title in small capitals"
+nt acme-sync "Acme -- Sync -- Notes" "more than one separator"
+nt acme-sync "Acme - Sync - Notes" "more than one separator"
+for cp in '\u3164' '\u115f' '\u1160' '\uffa0'; do
+  nt acme-sync "Acme$(printf "$cp")Sync" "invisible characters" "title with the filler $cp"
+done
+nt sync-tool "$(printf '\u02e2\u1d57\u02b3\u2071\u1d56\u1d49') Sync Tool" "invisible characters" "title in modifier letters"
+fp_neg "first-party Hangul title with a filler" acme-seo "$(fp acme-seo $zl/x | jq --arg t "$(printf '\ube14\ub85c\uadf8\u3164\ub3c4\uad6c')" '.title=$t')" "invisible characters"
 echo "ok: $((n - ln0)) listing rule negative cases"
 # about and features (optional): one negative per rule.
 an0=$n
@@ -543,6 +623,28 @@ d="$work/listok2"; manifest "$d" google-notes "$(base google-notes "file://$work
 out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/lo-pk" "$work/lo-meta.json" 2>&1) && fail "owner brand built nothing"
 grep -q "cannot fetch" <<<"$out" || fail "brand owner rejected: $out"
 neg "brand without its owner" "google-notes" "$(base google-notes $https $good | jq '.title="Google Notes"')" "must not start with the brand \"google\""
+# Look-alike words that are not brands, and separators counted once, still pass pass 1.
+tok() { # tok <name> <title> [first-party]
+  local d="$work/titleok2" j
+  rm -rf "$d"
+  if [ "${3:-}" = fp ]; then j=$(fp "$1" "file://$work/zen-labs-corp/nonexistent" | jq --arg t "$2" '.title=$t')
+  else j=$(base "$1" file://$work/nonexistent $good | jq --arg t "$2" '.title=$t'); fi
+  manifest "$d" "$1" "$j"
+  out=$(FIRST_PARTY_OWNERS=Zen-Labs-Corp HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/t-pk" "$work/t-meta.json" 2>&1) && fail "title case built nothing"
+  grep -q "cannot fetch" <<<"$out" || fail "title '$2' ($1) rejected: $out"
+}
+tok open-alerts "Open Alerts"
+tok openal-player "OpenAL Player"
+tok open-air-events "Open Air Events"
+tok open-air-events "Open-Air Events"
+tok open-air-events "Open Air: Events"
+tok viewer-3d "Viewer 3D"
+tok five-sync "Five Sync 5g"
+tok acme-sync "Acme -- Sync"
+tok acme-sync "Acme--Sync"
+tok acme-sync "Acme - Sync"
+tok acme-seo "$(printf '\u65e5\u3005\u30e1\u30e2\u309d\u30fc')" fp
+echo "ok: title rule (brands, separators)"
 
 # Policy: missing, empty, symlinked or unreadable lists stop the build before pass 1.
 mkpol() { # mkpol <dir>: a registry dir with one valid manifest and a copy of the policy
@@ -617,6 +719,24 @@ mkdir -p "$work/zen-labs-corp"; rm -rf "$work/zen-labs-corp/gtm"; cp -r "$v" "$w
 manifest "$work/fpdesc" gtm "$(fp gtm "file://$work/zen-labs-corp/gtm" | jq --arg c "$(git -C "$v" rev-parse HEAD)" '.commit=$c | .title="Google Tag Manager"')"
 if out=$(FIRST_PARTY_OWNERS="Zen-Labs-Corp" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" "$script" "$work/fpdesc" "$bin" "$key" "$work/fpd-pk" "$work/fpd-meta.json" 2>&1); then fail "first-party banned description accepted"; fi
 grep -q 'banned word "best"' <<<"$out" || fail "first-party description: $out"
+# Raw plugin.json text (not one JSON object, or odd keys) through the full build.
+raw_neg() { # raw_neg <label> <substring> <raw plugin.json text>
+  local v; dn=$((dn + 1)); v=$(variant "raw$dn" sh -c 'printf "%s" "$1" >plugin.json' sh "$3")
+  manifest "$work/rawreg$dn" acme-notes "$(base acme-notes "file://$v" "$(git -C "$v" rev-parse HEAD)")"
+  build_neg "$1" "$2" "$work/rawreg$dn"
+}
+k='keys must be lowercase identifiers'
+raw_neg "plugin.json is an array" "$k" '[]'
+raw_neg "plugin.json is a string" "$k" '"deſcription"'
+raw_neg "plugin.json with a capital Name key" "$k" '{"Name":"acme-notes","sdk":"^0.10","description":"Adds a contact page to a site."}'
+raw_neg "plugin.json with a capital Description key" "$k" '{"name":"acme-notes","sdk":"^0.10","Description":"A calendar sync tool"}'
+raw_neg "plugin.json with an escaped long s key" "$k" '{"name":"acme-notes","sdk":"^0.10","de\u017fcription":"A calendar sync tool"}'
+raw_neg "plugin.json with two values" "$k" '{"Description":"spam"} {"name":"acme-notes","sdk":"^0.10","description":"Adds a contact page to a site."}'
+# The rules that need the brand and look-alike helpers, through the full build.
+desc_neg "description with variant brands" "more than 3 brands" "Works with str1pe, g00gle, hubspot and zapier."
+desc_neg "description with hyphen-split brands" "more than 3 brands" "Works with str-ipe, g-oogle, hub-spot and zap-ier."
+desc_neg "description with a filler" "invisible characters" "$(printf 'Adds a calendar\u3164sync to a site.')"
+desc_neg "description with a non-ASCII domain" "URL or domain" "$(printf 'Visit caf\u00e9.com for help today.')"
 echo "ok: description (build)"
 
 # The same rule holds when the package is reused from the archive: a tampered-in-place
@@ -644,11 +764,112 @@ if command -v zip >/dev/null; then
   reuse_run "$reg" "$work/ak-pk" "$work/ak-meta.json" "$arch3" && fail "archived package with a capital key reused"
   offline=
   grep -q 'keys must be lowercase identifiers' "$work/ar.log" || fail "archive key: $(cat "$work/ar.log")"
+  # Shapes jq's key check alone would miss, repacked into an archived plugin.json.
+  n_ar=0
+  reuse_raw() { # reuse_raw <label> <raw plugin.json text>
+    local ad="$work/archive-raw$n_ar"; n_ar=$((n_ar + 1))
+    rm -rf "$ad" "$z"; cp -r "$arch" "$ad"; mkdir "$z"
+    unzip -q -o "$ad/acme-notes/$af.hmp" plugin.json -d "$z"
+    printf '%s' "$2" >"$z/plugin.json"
+    (cd "$z" && zip -q "$ad/acme-notes/$af.hmp" plugin.json)
+    jq --arg h "$(sha256sum "$ad/acme-notes/$af.hmp" | cut -d' ' -f1)" '.sha256=$h' "$ad/acme-notes/$af.json" >"$z/side.json" && mv "$z/side.json" "$ad/acme-notes/$af.json"
+    offline=1
+    reuse_run "$reg" "$work/akr$n_ar-pk" "$work/akr$n_ar-meta.json" "$ad" && fail "archived package reused: $1"
+    offline=
+    grep -q 'keys must be lowercase identifiers' "$work/ar.log" || fail "archive $1: $(cat "$work/ar.log")"
+  }
+  reuse_raw "array" '[]'
+  reuse_raw "string" '"deſcription"'
+  reuse_raw "two values" '{"Description":"spam"} {"name":"acme-notes","sdk":"^0.10","description":"Adds a contact page to a site."}'
+  reuse_raw "escaped long s key" '{"name":"acme-notes","sdk":"^0.10","de\u017fcription":"A calendar sync tool"}'
   echo "ok: description (archive)"
 else
   [ -z "${CI:-}" ] || fail "description (archive): zip is required in CI"
   echo "skip: description (archive): zip not installed"
 fi
+
+# check_description alone on a plugin.json of its own, so the accept cases need no wasm build.
+# The functions come out of the shipped script, so the rules under test are the shipped ones.
+harness="$work/desc-harness.sh"
+{
+  echo 'die() { echo "$*" >&2; exit 1; }'
+  for fn in plist inlist brand_owned has_letter brand_match_lk lev1 lkey jv check_description; do fn_body "$script" "$fn"; done
+  var_fold "$script"
+  var_unsafe "$script"
+  cat <<'H'
+pol=$1; shift
+banned_words=$(plist banned-words); brands=$(plist brands); placeholders=$(plist placeholders)
+check_description "$@"
+H
+} >"$harness"
+dd_n=0
+# rj <accept|reject> <label> <raw plugin.json text> [substring]
+rj() {
+  local want=$1 label=$2 raw=$3 msg=${4:-} out
+  dd_n=$((dd_n + 1)); printf '%s' "$raw" >"$work/pj$dd_n.json"
+  if out=$(bash "$harness" "$here/testdata/policy" "$work/pj$dd_n.json" "Descy Tools" descy 2>&1); then
+    [ "$want" = accept ] || fail "description accepted: $label"
+  else
+    [ "$want" = reject ] || fail "description rejected: $label: $out"
+    grep -qF -- "$msg" <<<"$out" || fail "description rejected: $label: wrong error: $out"
+  fi
+}
+# rd <accept|reject> <label> <description as JSON, or "-" for none> [substring]
+rd() {
+  local raw
+  if [ "$3" = "-" ]; then raw=$(jq -nc '{name: "descy", sdk: "^0.10"}')
+  else raw=$(jq -nc --argjson d "$3" '{name: "descy", sdk: "^0.10", description: $d}'); fi
+  rj "$1" "$2" "$raw" "${4:-}"
+}
+rj reject "array" '[]' "$k"
+rj reject "Description key" '{"name":"descy","sdk":"^0.10","Description":"A calendar sync tool"}' "$k"
+rj reject "Name key" '{"Name":"descy","sdk":"^0.10"}' "$k"
+rj reject "long-s key" '{"name":"descy","sdk":"^0.10","de\u017fcription":"A calendar sync tool"}' "$k"
+rj reject "string" '"deſcription"' "$k"
+rj reject "two values in the file" '{"Description":"spam"} {"name":"descy","sdk":"^0.10","description":"Adds a contact page to a site."}' "$k"
+rj accept "lowercase object" '{"name":"descy","sdk":"^0.10","description":"Adds a contact page to a site."}'
+M=$(printf '\U1D42C\U1D42D\U1D42B\U1D422\U1D429\U1D41E')
+rd reject "maths-bold brand is the 4th" "\"Works with $M, google, hubspot and zapier.\"" "names more than 3 brands"
+rd reject "ligature brand" '"Works with cloud\ufb02are, stripe, google and hubspot."' "names more than 3 brands"
+rd reject "Kelvin and small-capital brand" "\"Works with $(printf 's\u1d1b\u0280ipe'), google, hubspot and tikto$(printf '\u212a').\"" "names more than 3 brands"
+rd reject "letterlike script banned word" "\"The $(printf '\U0001D4B7\u212f\U0001D4C8\U0001D4C9') calendar sync for sites.\"" 'banned word "best"'
+rd reject "letterlike brand" "\"Works with stripe, $(printf '\U0001D4F0\U0001D4F8\U0001D4F8\U0001D4F0\U0001D4F5\u212f'), hubspot and zapier.\"" "names more than 3 brands"
+rd reject "modifier letters in description" "\"Works with $(printf '\u02e2\u1d57\u02b3\u2071\u1d56\u1d49') for your site today.\"" "invisible characters"
+rd accept "Japanese iteration marks" "\"$(printf '\u65e5\u3005\u306e\u30e1\u30e2\u3092\u30b5\u30a4\u30c8\u306b\u8ffd\u52a0\u3057\u307e\u3059\u30fc\u3002\u7c21\u5358\u306b\u4f7f\u3048\u307e\u3059')\""
+rd reject "Kelvin brand" "\"Works with stripe, google, hubspot and tikto$(printf '\u212a').\"" "names more than 3 brands"
+rd reject "variant brands counted" '"Works with str1pe, g00gle, hubspot and zapier."' "names more than 3 brands"
+rd reject "variant brands count once per brand" '"Works with str1pe, stripe, g00gle, hubspot, zapier."' "names more than 3 brands"
+rd reject "brands split by hyphens" '"Works with str-ipe, g-oogle, hub-spot and zap-ier."' "names more than 3 brands"
+rd reject "brands split by apostrophes" "\"Works with str$(printf '\u2019')ipe, g$(printf '\u2019')oogle, hub$(printf '\u2019')spot and zap$(printf '\u2019')ier.\"" "names more than 3 brands"
+rd accept "openal is not the brand openai" '"Uses openal, stripe, google and hubspot for audio"'
+rd accept "digit tokens are not brands" '"Rated 5g 2024 3d 10 135 s3 a1 for sites."'
+rd accept "variant of one brand twice" '"Works with str1pe and stripe and g00gle and hubspot."'
+for cp in '\u3164' '\u115f' '\u1160'; do
+  rd reject "filler $cp in description" "\"Adds a calendar$(printf "$cp")sync to a site.\"" "invisible characters"
+done
+# U+FFA0 is a halfwidth form: the character-set rule fires before the invisible-characters one (the validator reports both).
+rd reject "filler U+FFA0 in description" "\"Adds a calendar$(printf '\uffa0')sync to a site.\"" "may contain only letters"
+rd reject "non-ASCII label before the dot" "\"Visit caf$(printf '\u00e9').com for help today.\"" "must not contain a URL or domain"
+rd reject "CJK label before the dot" "\"See $(printf '\u4f8b\u3048').com for the docs.\"" "must not contain a URL or domain"
+rd reject "non-ASCII TLD" "\"Docs at example.$(printf '\u0440\u0444') for you.\"" "must not contain a URL or domain"
+rd accept "prose with e.g." '"Works with e.g tools and v1.0x of the site"'
+rd accept "plain sentence" '"Adds a contact page to a site."'
+rd accept "two sentences" '"Adds a contact page. Works with any theme."'
+rd accept "free and plugin allowed" '"A free plugin that adds a contact page."'
+rd accept "two brands" '"Sends form entries to Slack and Zapier."'
+rd accept "Japanese" '"お問い合わせページをサイトに追加します。簡単に使えます。"'
+rd reject "missing" - "must be a string"
+rd reject "not a string" '5' "must be a string"
+rd reject "too short" '"Too short."' "20 to 160"
+rd reject "three terminators" '"Adds a page. Works well. Is fast!"' "terminators"
+rd accept "Latin word, 。, Japanese" "\"iPhone$(printf '\u3002\u7c21\u5358\u306b\u4f7f\u3048\u308b\u30d7\u30e9\u30b0\u30a4\u30f3\u3067\u3059')\""
+rd accept "Latin word, 。, Kana" "\"Version 2$(printf '\u3002\u65b0\u3057\u3044\u6a5f\u80fd\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f')\""
+rd reject "ideographic full stop domain" "\"Get the full version at spamsite$(printf '\u3002')com today\"" "URL"
+rd reject "ideographic full stop, accented label" "\"Docs at exampl$(printf '\u00e9\u3002')com for you now\"" "URL"
+rd reject "ideographic full stop, Cyrillic TLD" "\"Docs at example$(printf '\u3002\u0440\u0444') for you now\"" "URL"
+rd reject "four brands" '"Connects Slack, Zapier, Notion and Github now"' "more than 3 brands"
+rd reject "banned word" '"The best contact page for your site"' 'banned word "best"'
+echo "ok: description rules ($dd_n cases)"
 
 printf '{"existing":{"tier":"first-party"}}' >"$work/pos-meta.json"
 HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_SDK_REPLACE="$root/backend/pkg/sdk" \

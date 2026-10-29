@@ -53,6 +53,11 @@ published unless every manifest builds. It runs the authors' build, so do it in 
 throwaway environment; the key file is only passed to `plugin pack`. Every run
 rebuilds the whole index, so `make registry` refuses to run without `COMMUNITY_DIR`.
 `registry/test-build-community.sh` is the offline test of the script.
+Its listing rules mirror the hatamoto-plugins validator: the shared helpers are copied
+byte for byte, and with `HATAMOTO_PLUGINS_DIR` set to a checkout of that repository the
+tests diff them against its `scripts/validate-manifest.sh` (the check is skipped when the
+variable is unset). The build needs jq 1.7 or newer with `\p{Default_Ignorable_Code_Point}`
+support and stops at startup with a clear message when it is missing.
 
 The build also reads the listing rules in `<COMMUNITY_DIR>/policy/` (a missing or empty
 list stops the build) and checks every manifest and its siblings, so a policy or theme
@@ -226,6 +231,11 @@ not archived yet.
 - **Skipping.** `make registry THEMES_SKIP="name1 name2"` (env `HATAMOTO_THEMES_SKIP`)
   leaves the named themes out of the index, logged loudly; each name must have a
   manifest. It is the theme counterpart of `COMMUNITY_SKIP`, for a last-resort publish.
+- **Policy and look-alikes.** The theme build reads `<COMMUNITY_DIR>/policy/reserved-names.txt`
+  (a missing, unreadable, symlinked or empty file stops the build) and refuses a theme name
+  that is one edit from, or equal after look-alike folding to, a plugin, a reserved name or
+  another theme. With `HATAMOTO_PLUGINS_DIR` set, the test also diffs the shared helpers
+  against `scripts/validate-theme-manifest.sh` there (skipped when unset).
 - **Test.** `registry/test-build-community-themes.sh` is the offline test, run in CI with
   a throwaway key.
 - **Screenshots on the host.** Caddy serves `/screenshots/<name>.(png|webp|jpg)` from the

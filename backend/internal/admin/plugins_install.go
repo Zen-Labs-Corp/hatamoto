@@ -56,6 +56,7 @@ func (a *Admin) refused(w http.ResponseWriter, r *http.Request, err error, back,
 
 type promptPerm struct {
 	Name, Help string
+	Short      string // badge label of a risky permission
 	Ticked     bool
 	New        bool // requested by an update and not granted before
 	Warn       bool // reaches far beyond the plugin's own data; shown as a warning
@@ -269,7 +270,7 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 			ticked = sum.Updating && granted && !reset
 		}
 		t := permtext.Lookup(p)
-		d.Perms = append(d.Perms, promptPerm{Name: p, Help: permtext.Help(p), Ticked: ticked, New: sum.Updating && !granted && !reset, Warn: t.Warn})
+		d.Perms = append(d.Perms, promptPerm{Name: p, Help: permtext.Help(p), Ticked: ticked, New: sum.Updating && !granted && !reset, Warn: t.Warn, Short: t.Short})
 	}
 	v := a.NewView(w, r, "Install "+sum.Name)
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: sum.Name}}

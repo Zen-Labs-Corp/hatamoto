@@ -31,6 +31,25 @@ func TestPluginDirectoryGoldenAccessible(t *testing.T) {
 	checkDirectoryGoldenAccessible(t, "plugin_directory")
 }
 
+// The permission warning is an icon beside the count with the warning words
+// visually hidden, and cards without permissions say so.
+func TestPluginDirectoryWarnIconOnly(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "golden", "plugin_directory.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(raw)
+	if !strings.Contains(out, `aria-hidden="true">⚠</span><span class="hm-visually-hidden">Warning:`) {
+		t.Error("warning icon with hidden words missing")
+	}
+	if !strings.Contains(out, "No permissions") {
+		t.Error("empty card lacks the No permissions line")
+	}
+	if strings.Contains(out, `hm-plugin-directory__warn">⚠ `) {
+		t.Error("warning words are visible beside the count")
+	}
+}
+
 // The theme directory golden meets the same bar (and its screenshots are
 // decorative, so every img carries an empty alt).
 func TestThemeDirectoryGoldenAccessible(t *testing.T) {
