@@ -39,8 +39,8 @@
 .hm-bs-linkbtn::before { content: "\25A3"; }
 .hm-bs-linkbtn[data-link="vertical"]::before { content: "\2195"; }
 .hm-bs-linkbtn[data-link="horizontal"]::before { content: "\2194"; }
-.hm-bs-linkbtn[aria-pressed="true"] { background: var(--color-sumi); border-color: var(--color-sumi); color: var(--color-paper); }
+.hm-bs-linkbtn[aria-pressed="true"] { background: var(--color-kasumi); border-color: var(--color-sumi); color: var(--color-sumi); }
 
-/* Pressed and checked options use the ink fill of the segmented control (readable in light and dark; accent text on a light surface was not). */
-.hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-sumi); border-color: var(--color-sumi); color: var(--color-paper); }
+/* Pressed and checked options: a light grey fill and an ink edge, ink text (readable in light and dark; accent text on a light surface was not). */
+.hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-kasumi); border-color: var(--color-sumi); color: var(--color-sumi); }
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

@@ -231,10 +231,14 @@
     },
     "variantProps": {
       "pressed": {
-        "background-color": "var(--color-sumi)"
+        "background-color": "var(--color-paper)",
+        "color": "var(--color-sumi)",
+        "box-shadow": "var(--shadow-1)"
       },
       "checked": {
-        "background-color": "var(--color-sumi)"
+        "background-color": "var(--color-paper)",
+        "color": "var(--color-sumi)",
+        "box-shadow": "var(--shadow-1)"
       }
     }
   },
