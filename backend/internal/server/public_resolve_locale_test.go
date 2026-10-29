@@ -49,7 +49,7 @@ func newLocaleRouteFixture(t *testing.T, prefixAll bool, entries ...entity.Local
 		if err != nil {
 			t.Fatal(err)
 		}
-		reg.SetLocales(func(context.Context) *entity.LocaleSet { return set })
+		reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
 	}
 	about := fixtureEntity("page", "about", "")
 	about.Locale = "fr"

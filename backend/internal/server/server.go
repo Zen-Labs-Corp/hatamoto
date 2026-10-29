@@ -345,10 +345,11 @@ func (s *Server) setupDependencies() {
 	})
 
 	// The public locale prefix is read from the site settings.
-	s.entityService.URLRegistry().SetLocales(func(ctx context.Context) *entity.LocaleSet {
+	s.entityService.URLRegistry().SetLocales(func(ctx context.Context) (*entity.LocaleSet, error) {
 		cfg, err := s.siteConfig.Get(ctx)
 		if err != nil {
-			return nil
+			s.logger.Error("url registry: load site settings for the locale set", "error", err)
+			return nil, err
 		}
 		entries := make([]entity.LocaleEntry, len(cfg.Locales))
 		for i, l := range cfg.Locales {
@@ -357,9 +358,9 @@ func (s *Server) setupDependencies() {
 		set, err := entity.NewLocaleSet(cfg.Language, entries, cfg.PrefixAll, cfg.XDefaultLocale)
 		if err != nil {
 			s.logger.Warn("invalid locale settings; serving a single locale", "error", err)
-			return nil
+			return nil, nil
 		}
-		return set
+		return set, nil
 	})
 
 	// Media service

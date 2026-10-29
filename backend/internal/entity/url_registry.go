@@ -131,8 +131,10 @@ type URLRegistry struct {
 
 	// timezone returns the site time zone name ("" or an unknown name: UTC).
 	timezone func(context.Context) string
-	// locales returns the public locale set (nil: single-locale install).
-	locales func(context.Context) *LocaleSet
+	// locales returns the public locale set (nil: single-locale install). An
+	// error fails the snapshot build, so a failed read is never cached as a
+	// one-locale site.
+	locales func(context.Context) (*LocaleSet, error)
 
 	mu       sync.Mutex
 	snap     *URLSnapshot
@@ -152,7 +154,7 @@ func (r *URLRegistry) SetTimezone(fn func(context.Context) string) {
 // SetLocales installs the source of the public locale set that prefixes
 // entity paths. Like SetTimezone it takes effect when the snapshot next
 // reloads, or at once after Invalidate.
-func (r *URLRegistry) SetLocales(fn func(context.Context) *LocaleSet) {
+func (r *URLRegistry) SetLocales(fn func(context.Context) (*LocaleSet, error)) {
 	r.mu.Lock()
 	r.locales = fn
 	r.snap = nil
@@ -199,7 +201,11 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 		}
 	}
 	if r.locales != nil {
-		snap.locales = r.locales(ctx)
+		set, err := r.locales(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("load locales for url registry: %w", err)
+		}
+		snap.locales = set
 	}
 	r.snap, r.loadedAt = snap, r.now()
 	return snap, nil

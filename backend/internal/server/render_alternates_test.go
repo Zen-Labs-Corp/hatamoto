@@ -20,7 +20,7 @@ func altSet(t *testing.T, xdef string) *entity.LocaleSet {
 func TestHomeAlternates_OrderAndXDefault(t *testing.T) {
 	set := altSet(t, "")
 	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
-	reg.SetLocales(func(context.Context) *entity.LocaleSet { return set })
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
 	snap, err := reg.Snapshot(context.Background())
 	if err != nil {
 		t.Fatal(err)

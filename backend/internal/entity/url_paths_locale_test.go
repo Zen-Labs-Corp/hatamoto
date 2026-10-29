@@ -2,6 +2,8 @@ package entity
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
 
 	"hatamoto.dev/core/internal/urlpattern"
@@ -89,9 +91,33 @@ func TestURLRegistry_SetLocales(t *testing.T) {
 	t.Parallel()
 	reg := NewURLRegistry(staticLister{[]*EntitySchema{{Slug: "page", Name: "Page"}}}, nil)
 	set, _ := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}}, false, "")
-	reg.SetLocales(func(context.Context) *LocaleSet { return set })
+	reg.SetLocales(func(context.Context) (*LocaleSet, error) { return set, nil })
 	snap, err := reg.Snapshot(context.Background())
 	if err != nil || snap.Locales() != set {
 		t.Fatalf("snapshot locales = %v, %v", snap.Locales(), err)
+	}
+}
+
+// A failed locale read fails the snapshot and is not cached: the next call
+// reloads instead of serving one-locale behaviour for the whole TTL.
+func TestURLRegistry_LocalesErrorIsNotCached(t *testing.T) {
+	t.Parallel()
+	reg := NewURLRegistry(staticLister{[]*EntitySchema{{Slug: "page", Name: "Page"}}}, nil)
+	set, _ := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}}, false, "")
+	var fail atomic.Bool
+	fail.Store(true)
+	reg.SetLocales(func(context.Context) (*LocaleSet, error) {
+		if fail.Load() {
+			return nil, errors.New("config unavailable")
+		}
+		return set, nil
+	})
+	if _, err := reg.Snapshot(context.Background()); err == nil {
+		t.Fatal("snapshot built from a failed locale read")
+	}
+	fail.Store(false)
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil || snap.Locales() != set {
+		t.Fatalf("after recovery: locales = %v, %v", snap.Locales(), err)
 	}
 }

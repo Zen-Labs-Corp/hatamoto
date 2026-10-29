@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -728,5 +729,29 @@ func TestWriteHTMLSandboxCSP(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+// A real snapshot error on a request is a 500 and never cached, for the home
+// and every other path; only a build without an entity service (the route
+// table) behaves as one locale.
+func TestRenderSnapshotErrorIs500(t *testing.T) {
+	for _, path := range []string{"/", "/about"} {
+		t.Run(path, func(t *testing.T) {
+			f := newRenderFixture(t)
+			f.next = okPage("About")
+			f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
+			if w := f.get(path); w.Code != http.StatusInternalServerError {
+				t.Fatalf("status %d, want 500", w.Code)
+			}
+			if len(f.cache.sets) != 0 {
+				t.Errorf("an error page was cached: %v", f.cache.sets)
+			}
+
+			f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errNoEntityService }
+			if w := f.get(path); w.Code != http.StatusOK {
+				t.Fatalf("no entity service: status %d, want 200", w.Code)
+			}
+		})
 	}
 }

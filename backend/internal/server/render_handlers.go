@@ -198,7 +198,12 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	}
 	// With prefix-all every locale, the default included, lives under its own
 	// segment: the bare root points at the default locale's home. Never cached.
-	if set := h.localeSet(r.Context()); set.Multi() {
+	set, err := h.localeSet(r.Context())
+	if err != nil {
+		h.snapshotFailed(w, r, err)
+		return
+	}
+	if set.Multi() {
 		if prefix := set.Prefix(set.Default()); prefix != "" {
 			w.Header().Set("Cache-Control", "no-store")
 			target := prefix
@@ -215,16 +220,27 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 }
 
 // localeSet is the public locale set; nil (safe to call) on a single-locale
-// install or when the snapshot is unavailable.
-func (h *renderHandlers) localeSet(ctx context.Context) *entity.LocaleSet {
+// install and in a route-table build, which has no entity service. Any other
+// snapshot error is returned: the site must not fall back to one locale.
+func (h *renderHandlers) localeSet(ctx context.Context) (*entity.LocaleSet, error) {
 	if h.snapshot == nil {
-		return nil
+		return nil, nil
 	}
 	snap, err := h.snapshot(ctx)
-	if err != nil {
-		return nil
+	if errors.Is(err, errNoEntityService) {
+		return nil, nil
 	}
-	return snap.Locales()
+	if err != nil {
+		return nil, err
+	}
+	return snap.Locales(), nil
+}
+
+// snapshotFailed answers 500 for a request whose URL snapshot could not load.
+// Nothing is cached.
+func (h *renderHandlers) snapshotFailed(w http.ResponseWriter, r *http.Request, err error) {
+	h.logger.ErrorContext(r.Context(), "render: url snapshot unavailable", "error", err, "path", r.URL.Path)
+	h.writeError(w, r, http.StatusInternalServerError, nil)
 }
 
 // homeRoute wraps a homepage load as a route, the way the public "/" handler
@@ -256,8 +272,13 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 			return h.resolve(r.Context(), path, r)
 		})
 	})
+	set, err := h.localeSet(r.Context())
+	if err != nil {
+		h.snapshotFailed(w, r, err)
+		return
+	}
 	bare := path // the path without its locale segment
-	if _, rest, ok := h.localeSet(r.Context()).Resolve(path); ok {
+	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest
 	}
 	if bare == searchPath && r.URL.Query().Get("q") != "" && h.searchLimit != nil {
@@ -673,11 +694,14 @@ func (s *Server) captchaProvider(ctx context.Context) string {
 	return set.Provider
 }
 
+var errNoEntityService = errors.New("no entity service")
+
 // urlSnapshotOrErr is the URL snapshot, or an error when the server has no
-// entity service (route-table builds); callers treat that as a one-locale site.
+// entity service (route-table builds, errNoEntityService); callers treat that
+// as a one-locale site.
 func (s *Server) urlSnapshotOrErr(ctx context.Context) (*entity.URLSnapshot, error) {
 	if s.entityService == nil {
-		return nil, errors.New("no entity service")
+		return nil, errNoEntityService
 	}
 	return s.entityService.URLRegistry().Snapshot(ctx)
 }

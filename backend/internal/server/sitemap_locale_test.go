@@ -23,7 +23,7 @@ func multiSitemapSnap(t *testing.T, prefixAll bool) *entity.URLSnapshot {
 		t.Fatal(err)
 	}
 	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
-	reg.SetLocales(func(context.Context) *entity.LocaleSet { return set })
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
 	snap, err := reg.Snapshot(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func TestPlanSitemap_OwnGroupPerLocaleInIndex(t *testing.T) {
 			t.Fatal(err)
 		}
 		reg := entity.NewURLRegistry(schemaLister{sitemapSchema("post", "")}, nil)
-		reg.SetLocales(func(context.Context) *entity.LocaleSet { return set })
+		reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
 		snap, err := reg.Snapshot(context.Background())
 		if err != nil {
 			t.Fatal(err)
