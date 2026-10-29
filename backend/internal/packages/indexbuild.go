@@ -44,6 +44,9 @@ type Meta struct {
 	// About and Features: see Entry; the caps are the same as the build scripts.
 	About    string   `json:"about,omitempty"`
 	Features []string `json:"features,omitempty"`
+	// Category must be one of Categories; Featured pins the package on Browse.
+	Category string `json:"category,omitempty"`
+	Featured bool   `json:"featured,omitempty"`
 }
 
 // BuildOptions are the optional inputs of BuildIndexWith.
@@ -99,6 +102,9 @@ func (m Meta) validate(name string, kind Kind) error {
 		if err := validateFeatures(m.Features); err != nil {
 			return fmt.Errorf("features: %w", err)
 		}
+	}
+	if m.Category != "" && !ValidCategory(m.Category) {
+		return fmt.Errorf("category %q must be one of %s", m.Category, strings.Join(Categories, ", "))
 	}
 	if m.Author != "" && !metaAuthorPattern.MatchString(m.Author) {
 		return fmt.Errorf("author %q is not allowed", m.Author)
@@ -245,6 +251,7 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 			}
 			e.Title, e.Author, e.Source, e.Commit, e.Tier, e.Screenshot = m.Title, m.Author, m.Source, m.Commit, m.Tier, m.Screenshot
 			e.About, e.Features = m.About, m.Features
+			e.Category, e.Featured = m.Category, m.Featured
 		}
 		idx.Packages = append(idx.Packages, e)
 	}

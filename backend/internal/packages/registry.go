@@ -48,6 +48,23 @@ type Entry struct {
 	// them ignore the keys.
 	About    string   `json:"about,omitempty"`
 	Features []string `json:"features,omitempty"`
+	// Category (one of Categories) and Featured feed the admin Browse page.
+	// Both are optional: servers that predate them ignore the keys.
+	Category string `json:"category,omitempty"`
+	Featured bool   `json:"featured,omitempty"`
+}
+
+// Categories is the fixed list of package categories, exact case.
+var Categories = []string{"SEO", "Analytics", "Marketing", "Forms", "Commerce", "Content", "Media", "Developer", "Security", "Integrations"}
+
+// ValidCategory reports whether s is one of Categories.
+func ValidCategory(s string) bool {
+	for _, c := range Categories {
+		if c == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Caps of Entry.About and Entry.Features, shared by the index build
@@ -224,7 +241,7 @@ func (r *Registry) Fetch(ctx context.Context) (*Index, error) {
 // ParseIndex verifies a signed registry.json document against trust, checks
 // its version and freshness at now and drops entries that are malformed. An
 // unsigned, tampered, expired or untrusted index is refused. An unknown tier is
-// cleared; the entry stays.
+// cleared, and so is an unknown category; the entry stays.
 func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 	raw, err := trust.VerifyIndex(doc)
 	if err != nil {
@@ -248,6 +265,9 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 			}
 			if !screenshotPathPattern.MatchString(e.Screenshot) {
 				e.Screenshot = ""
+			}
+			if e.Category != "" && !ValidCategory(e.Category) {
+				e.Category = ""
 			}
 			e.About, e.Features = cleanAbout(e.About), cleanFeatures(e.Features)
 			valid = append(valid, e)

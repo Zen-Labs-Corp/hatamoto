@@ -211,7 +211,11 @@ optional descriptive fields; older servers ignore them. So are `about` (plain te
 characters, at most 10 paragraphs separated by a single newline) and `features` (1 to 8 distinct
 lines of 1 to 120 characters), the text of a package's detail page. Neither may contain `<`, `>`
 or a URL, and no line may start or end with whitespace. `registry index` refuses a `--meta` value
-that breaks these rules; a client clears an invalid `about` or `features` and keeps the entry. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
+that breaks these rules; a client clears an invalid `about` or `features` and keeps the entry.
+`category` and `featured` are optional too and feed the admin Browse page: `category` is one of
+`SEO`, `Analytics`, `Marketing`, `Forms`, `Commerce`, `Content`, `Media`, `Developer`, `Security`,
+`Integrations` (exact case), and `featured: true` pins the package in the Featured row. `registry
+index` refuses any other category; a client clears an unknown one and keeps the entry. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
 the index. The server refuses an expired index, one issued in the future or one
 without both times, so an old copy cannot be replayed to hide newer versions.
 `HATAMOTO_REGISTRY_URL` must be `https://` (an explicit test override aside).
@@ -227,7 +231,7 @@ To publish: `pack` and sign each package into one directory, host the files, and
 build the signed index with `hatamoto registry index <dir> --key F --url-prefix
 packages/ --out registry.json` (it lists every `.hmp` in the directory; the
 index is valid 90 days, `--valid-days` 1 to 180, so re-run it on a schedule).
-`--meta F` adds the descriptive fields (`title`, `about`, `features`, `author`, `source`, `commit`,
+`--meta F` adds the descriptive fields (`title`, `about`, `features`, `category`, `featured`, `author`, `source`, `commit`,
 `tier`, `screenshot`) from a JSON file keyed by package name
 (`{"seo-tools": {"title": "SEO Tools", "author": "acme", "source": "https://...", "commit": "...", "tier": "community"}}`).
 For a theme, add `"screenshot": "screenshots/<name>.webp"` there; the host serves the image next to the index.

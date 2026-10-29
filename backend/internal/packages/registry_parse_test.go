@@ -187,3 +187,32 @@ func TestParseIndexAboutFeaturesRoundTripAndSanitise(t *testing.T) {
 		t.Errorf("control = %+v", e)
 	}
 }
+
+func TestParseIndexCategoryAndFeatured(t *testing.T) {
+	key := newKey(t)
+	doc := signedIndex(t, key, func(i *Index) {
+		i.Packages[0].Category, i.Packages[0].Featured = "SEO", true
+		i.Packages[1].Category = "seo"
+	})
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := idx.Find(KindPlugin, "alpha")
+	if a.Category != "SEO" || !a.Featured {
+		t.Errorf("valid category/featured not kept: %+v", a)
+	}
+	b, ok := idx.Find(KindPlugin, "beta")
+	if !ok || b.Category != "" {
+		t.Errorf("invalid category must be cleared and the entry kept: %+v ok=%v", b, ok)
+	}
+}
+
+func TestIndexWithoutCategoryUnchanged(t *testing.T) {
+	key := newKey(t)
+	for _, k := range []string{`"category"`, `"featured"`} {
+		if strings.Contains(string(signedIndex(t, key, nil)), k) {
+			t.Errorf("index without category/featured contains %s", k)
+		}
+	}
+}
