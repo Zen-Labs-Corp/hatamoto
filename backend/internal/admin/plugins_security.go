@@ -173,7 +173,9 @@ func (a *Admin) handleAllowUnsigned(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleStopUnsigned turns the opt-in off. One click and no other gate: making
-// the site safer never needs a password.
+// the site safer never needs a password. The Installed page's banner posts
+// return=plugins to come back to the list; any other value (or none) lands on
+// the security page.
 func (a *Admin) handleStopUnsigned(w http.ResponseWriter, r *http.Request) {
 	pk, ok := a.packageAdmin(w, r)
 	if !ok {
@@ -185,5 +187,9 @@ func (a *Admin) handleStopUnsigned(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Unsigned packages are no longer accepted.")
-	http.Redirect(w, r, a.adminPath+"/plugins/security", http.StatusSeeOther)
+	to := a.adminPath + "/plugins/security"
+	if r.PostFormValue("return") == "plugins" {
+		to = a.adminPath + "/plugins"
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }

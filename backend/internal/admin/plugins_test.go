@@ -387,5 +387,7 @@ func TestPluginsPageTabsFilterAndEmpty(t *testing.T) {
 	pk.unsigned = true
 	if on := get(""); !strings.Contains(on, "unsigned-banner") || !strings.Contains(on, "Unsigned packages are allowed until you turn it off.") {
 		t.Error("banner missing while the opt-in is on")
+	} else if !strings.Contains(on, `name="return" value="plugins"`) {
+		t.Error("the banner's Turn off now does not ask to come back to the list")
 	}
 }

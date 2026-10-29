@@ -133,6 +133,33 @@ func TestStopUnsignedIsOneClick(t *testing.T) {
 	}
 }
 
+// The Installed page's banner returns to the list; the security page and any
+// unknown value return to the security page.
+func TestStopUnsignedReturnsWhereItWasPosted(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		form url.Values
+		want string
+	}{
+		"installed banner": {url.Values{"return": {"plugins"}}, "/admin/plugins"},
+		"security page":    {url.Values{}, "/admin/plugins/security"},
+		"unknown value":    {url.Values{"return": {"https://elsewhere.example/"}}, "/admin/plugins/security"},
+		"another known":    {url.Values{"return": {"browse"}}, "/admin/plugins/security"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fp, _ := unsignedRig(t)
+			fp.unsigned = true
+			rec := g.do("POST", "/admin/plugins/unsigned/off", "owner-token", tc.form, nil)
+			if rec.Code != 303 || rec.Header().Get("Location") != tc.want || fp.unsigned {
+				t.Fatalf("status %d to %q, unsigned %v; want 303 to %q", rec.Code, rec.Header().Get("Location"), fp.unsigned, tc.want)
+			}
+		})
+	}
+}
+
 func TestUnsignedRoutesAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 	t.Parallel()
 
