@@ -367,8 +367,9 @@ func menuPreviewView(ctx context.Context, links *navLinks, site render.SiteView,
 }
 
 // resolveMenuEntities fills the slug and schema of each linked entity, as the
-// stored menu does. A target that is not published is left unresolved, like on
-// the public site, and so renders as text.
+// stored menu does. A target that is not published is left unresolved and so
+// renders as text. The public site does not filter by status, so a draft target
+// still links there.
 func resolveMenuEntities(ctx context.Context, links *navLinks, items []*menu.MenuItem) {
 	for _, it := range items {
 		if it.EntityID != nil && it.LinkType == menu.LinkTypeEntity && links.repo != nil {
