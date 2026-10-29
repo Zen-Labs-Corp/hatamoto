@@ -37,10 +37,25 @@ build_policy_restore() {
   BUILD_POLICY=""
 }
 
+# build_apt_update runs apt-get update, retrying while another process holds the
+# package lists lock (DPkg::Lock::Timeout only covers the dpkg lock). At most
+# HATAMOTO_APT_TRIES attempts (default 30), HATAMOTO_APT_RETRY_SLEEP seconds apart (default 10).
+build_apt_update() {
+  bau_try=1
+  while ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq; do
+    [ "$bau_try" -lt "${HATAMOTO_APT_TRIES:-30}" ] || return 1
+    bau_try=$((bau_try + 1))
+    sleep "${HATAMOTO_APT_RETRY_SLEEP:-10}"
+  done
+}
+
 # build_apt runs apt-get non-interactively; a failure removes the policy file and dies.
 # A fresh cloud image holds the dpkg lock for its first minutes (apt-daily, cloud-init): wait for it.
+# "update" goes through build_apt_update; the other verbs are not retried.
 build_apt() {
-  if ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 "$@"; then
+  if [ "$1" = update ]; then
+    build_apt_update || { build_policy_restore; die "apt-get update failed"; }
+  elif ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 "$@"; then
     build_policy_restore
     die "apt-get $1 failed"
   fi
