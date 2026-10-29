@@ -442,6 +442,20 @@ func (p seoPanel) Score() int {
 	return (200*p.Pass + 100*p.Warn + p.Total) / (2 * p.Total)
 }
 
+// ScoreTone is the colour band of the score: "pass" from 80, "warn" from 50,
+// else "fail"; "" when there are no checks.
+func (p seoPanel) ScoreTone() string {
+	switch s := p.Score(); {
+	case p.Total == 0:
+		return ""
+	case s >= 80:
+		return checkPass
+	case s >= 50:
+		return checkWarn
+	}
+	return checkFail
+}
+
 // ToFix is how many checks are not passing.
 func (p seoPanel) ToFix() int { return p.Warn + p.Fail }
 

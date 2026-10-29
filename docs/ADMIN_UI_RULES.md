@@ -248,11 +248,15 @@ the page is, or only how the same data is shown?
   page and its preset list already covers the common periods.
 - **At most two tab levels.** Level 1 is the underline row. Level 2 is a smaller
   underline row directly under it, `"Variant" "sub"`. A third level is a sign the
-  page should be split.
+  page should be split. The one exception is a JS tablist that sits inside a panel
+  of another JS tablist: the shared SEO panel's tabs inside the blog editor's
+  SEO and AEO tab. They are different kinds of row (the outer one is the page's
+  tablist bar, the inner one a section of the panel), and the inner one never navigates.
 - **JS tablists** switch panels in the same document and are not `hm/tabs`
-  rows (they are buttons with `aria-selected`, not links). Two of them, the blog
-  editor's Post / SEO and AEO tabs and the builder inspector's Content / Style / Advanced
-  tabs, use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
+  rows (they are buttons with `aria-selected`, not links). Three of them, the blog
+  editor's Post / SEO and AEO tabs, the builder inspector's Content / Style / Advanced
+  tabs and the shared SEO panel's Search / Social / Schema / Advanced tabs (`hm/seopanel`,
+  module `@hm/seopanel`, shown stacked under their headings without JavaScript), use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
   accent underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
   rules. The builder's phone tabs (Sections, Settings, Preview, below 960px) borrow the segmented
   look: a grey track with an ink-filled selected chip. They sit in the
@@ -506,7 +510,7 @@ How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a v
 One rule for what "selected" looks like, so no screen invents its own:
 
 - **A choice among siblings** (one value out of a short row) is an **ink fill**: `hm/segmented`, the pill row `hm/tabs` `Variant "segmented"` and the builder phone tabs.
-- **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector).
+- **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
 - **An item in a list or grid** (media tiles, the media picker tile, radio cards) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
 
 Accent is for tabs, links and focus; ink is for selection. Both inks invert in dark mode through the tokens.

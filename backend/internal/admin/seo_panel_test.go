@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/seo"
@@ -82,5 +83,36 @@ func TestSEOPanelPreviewUsesTheResolver(t *testing.T) {
 	p = buildPanel(in)
 	if p.SERP.Title != "Hand written | Example" || p.SERP.Description != "My own." {
 		t.Errorf("hand-written values = %q / %q", p.SERP.Title, p.SERP.Description)
+	}
+}
+
+func TestPartialSEOPanel(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	panel := buildPanel(seoInput{Title: "Go servers in production", Slug: "go-servers", Keyword: "Go servers", Content: "<p>Go servers are easy to ship.</p>", BaseURL: "https://example.test", Path: "/go-servers"})
+	data := map[string]any{
+		"Panel": panel, "SEO": seoForm{Title: "Go servers", Canonical: "https://example.test/go"}, "Errors": map[string]string{},
+		"Noun": "post", "AnalyzeURL": "/admin/entities/x/edit/analyze", "Include": "#form",
+		"Keyword": "Go servers", "ShowKeyword": true, "InLLMs": true, "ShowLLMs": true,
+	}
+	s := checkPartial(t, a, "hm/seopanel", "default", data)
+	for _, want := range []string{
+		`data-hm-seo-tabs`, `id="seo-tab-search"`, `id="seo-tab-social"`, `id="seo-tab-schema"`, `id="seo-tab-advanced"`,
+		`id="seo-score"`, `name="seo_keyword"`, `name="seo_llms"`, `name="seo_canonical"`, `name="seo_og_image"`,
+		`hx-post="/admin/entities/x/edit/analyze"`, `id="be-panel"`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	data["ShowKeyword"], data["ShowLLMs"] = false, false
+	s = checkPartial(t, a, "hm/seopanel", "no-keyword", data)
+	if strings.Contains(s, `name="seo_keyword"`) || strings.Contains(s, `name="seo_llms"`) {
+		t.Error("the keyword and llms fields show only when asked for")
+	}
+	frag := checkPartial(t, a, "hm/seopanel-fragment", "default", panel)
+	if strings.Count(frag, `hx-swap-oob="true"`) != 4 {
+		t.Errorf("the fragment swaps the score, two counters and the structured data out of band: %s", frag)
 	}
 }

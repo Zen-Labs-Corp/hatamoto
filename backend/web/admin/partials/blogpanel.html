@@ -18,6 +18,3 @@
 {{end}}</ul>
 {{if .JSONLD}}<details class="hm-bp__ld"><summary>Structured data: {{.JSONLDType}}</summary><pre class="hm-bp__pre" tabindex="0">{{.JSONLD}}</pre></details>{{end}}
 </div>{{end}}{{end}}
-{{/* The length of the title and description as the server measured it, with the reason when it is off. */}}
-{{define "hm/seocount"}}<p class="hm-be__count hm-be__count--{{.Status}}" id="{{.ID}}"{{if .OOB}} hx-swap-oob="true"{{end}}><span>{{.Len}} / {{.Max}}</span>{{if ne .Status "pass"}} <span class="hm-be__count-msg">{{.Msg}}</span>{{end}}</p>{{end}}
-{{define "hm/checkmark"}}{{if eq . "pass"}}<span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span>{{else if eq . "fail"}}<span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span>{{else}}<span aria-hidden="true">!</span><span class="hm-visually-hidden">Could be better:</span>{{end}}{{end}}
