@@ -37,6 +37,14 @@ type PageView struct {
 	Dynamic bool
 	Site    SiteView
 	Page    PageMeta
+	// Locale is the locale tag of the page being rendered ("" on a one-locale
+	// site).
+	Locale string
+	// Alternates lists the page in every configured locale, in settings order.
+	// It is nil on a one-locale site. XDefaultHref is the absolute URL for the
+	// hreflang x-default entry ("" for none).
+	Alternates   []Alternate
+	XDefaultHref string
 	// SEO holds the site-wide title and description templates. Nil keeps the
 	// built-in "<title> | <site>" head.
 	SEO      *seo.Settings
@@ -465,6 +473,21 @@ type PageMeta struct {
 	// without these flags a written value cannot be told from a fallback; the
 	// SEO templates only fill in values that were not written.
 	TitleSet, DescriptionSet bool
+}
+
+// Alternate is one locale version of the current page. It is the contract
+// between the server and the theme's language switcher and hreflang head.
+// Href is absolute. Lang is the BCP 47 tag written to hreflang. Current marks
+// the page being rendered. Missing marks a locale with no copy of this page:
+// Href is then that locale's home, and no hreflang is emitted for it. Default
+// marks the site's default locale.
+type Alternate struct {
+	Locale  string
+	Lang    string
+	Href    string
+	Current bool
+	Missing bool
+	Default bool
 }
 
 // Crumb is one breadcrumb step.

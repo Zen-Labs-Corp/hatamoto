@@ -6,6 +6,7 @@
 <link rel="apple-touch-icon" href="/apple-icon.png">
 {{with .Prev}}<link rel="prev" href="{{.}}">
 {{end}}{{with .Next}}<link rel="next" href="{{.}}">
+{{end}}{{range .Alt}}<link rel="alternate" hreflang="{{.Lang}}" href="{{.Href}}">
 {{end}}{{with .Robots}}<meta name="robots" content="{{.}}">
 {{end}}{{range .Feeds}}<link rel="alternate" type="{{.Type}}" title="{{.Title}}" href="{{.Href}}">
 {{end}}{{range .OG}}<meta property="{{.Key}}" content="{{.Content}}">
