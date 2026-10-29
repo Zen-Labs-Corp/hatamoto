@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
 	"hatamoto.dev/core/internal/render"
@@ -112,6 +113,11 @@ type ContentDeps struct {
 	// colours, badges, icons, class suggestions). Nil, or a zero value, leaves
 	// the menu editor with only the class and advanced fields.
 	MenuTheme func() render.MenuDecl
+	// MenuPreview renders the unsaved menu m, shown at location, inside the
+	// site's page as a full HTML document with the Content-Security-Policy to
+	// serve it under. It returns ErrMenuPreviewOff when rendering is off. Nil
+	// turns the menu preview off.
+	MenuPreview func(r *http.Request, location string, m *menu.Menu) (html []byte, csp string, err error)
 	// Preview renders unsaved attributes: it answers a POST with the JSON body
 	// of /api/v1/render/preview (entity_id, schema, attributes, path, canvas)
 	// with the full HTML document. Nil turns the live preview off.

@@ -100,6 +100,7 @@ func (a *Admin) mountMenus(authed *httpx.Group) {
 	authed.HandleFunc("GET /theme/menus/new", a.handleMenuNew)
 	authed.HandleFunc("POST /theme/menus", a.handleMenuCreate)
 	authed.HandleFunc("GET /theme/menus/{id}", a.handleMenuEdit)
+	authed.HandleFunc("POST /theme/menus/preview", a.handleMenuPreview)
 	authed.HandleFunc("POST /theme/menus/{id}", a.handleMenuSave)
 	authed.HandleFunc("GET /theme/menus/{id}/delete", a.handleMenuDeleteForm)
 	authed.HandleFunc("POST /theme/menus/{id}/delete", a.handleMenuDelete)
