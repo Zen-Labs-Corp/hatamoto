@@ -2,6 +2,7 @@ package render
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -101,5 +102,63 @@ func TestNavDisclosureSyncsFromAnywhereInTheList(t *testing.T) {
 	js := string(b)
 	if !strings.Contains(js, "closest('.hm-nav__list')) setTimeout(syncParents") || strings.Contains(js, ":scope > [aria-expanded]") {
 		t.Error("hm.js must call syncParents for any event inside .hm-nav__list")
+	}
+}
+
+// A button-style item with a colour class keeps readable text: the colour fills
+// the button and the label uses the page background, in light and dark.
+func TestButtonColourContrast(t *testing.T) {
+	raw, err := os.ReadFile("themes/default/assets/css/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(raw)
+	body := func(re string) string {
+		m := regexp.MustCompile(re).FindStringSubmatch(css)
+		if m == nil {
+			t.Fatalf("block %q not found", re)
+		}
+		return m[1]
+	}
+	light := body(`(?s):root \{(.*?)\n\}`)
+	dark := body(`(?s):root\[data-theme="dark"\] \{(.*?)\n\}`)
+	decl := func(block, name string) string {
+		m := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(name) + `:\s*([^;]+);`).FindStringSubmatch(block)
+		if m == nil {
+			return ""
+		}
+		return strings.TrimSpace(m[1])
+	}
+	// resolve follows var() chains; the dark block overrides the light one.
+	var resolve func(blocks []string, name string) string
+	resolve = func(blocks []string, name string) string {
+		for _, b := range blocks {
+			v := decl(b, name)
+			if v == "" {
+				continue
+			}
+			if m := regexp.MustCompile(`^var\((--[a-z-]+)\)$`).FindStringSubmatch(v); m != nil {
+				return resolve(blocks, m[1])
+			}
+			return v
+		}
+		t.Fatalf("%s is not defined", name)
+		return ""
+	}
+	for _, colour := range []string{"accent", "ink", "muted", "danger"} {
+		re := `:is\(a, span, p\)\.hm-nav__item--button\.hm-nav-color--` + colour + ` \{ background: var\((--[a-z-]+)\); color: (var\(--[a-z-]+\)|#[0-9a-f]{6}); \}`
+		m := regexp.MustCompile(re).FindStringSubmatch(css)
+		if m == nil {
+			t.Fatalf("no button rule for colour %s", colour)
+		}
+		for mode, blocks := range map[string][]string{"light": {light}, "dark": {dark, light}} {
+			bg, fg := resolve(blocks, m[1]), m[2]
+			if !strings.HasPrefix(fg, "#") {
+				fg = resolve(blocks, strings.TrimSuffix(strings.TrimPrefix(fg, "var("), ")"))
+			}
+			if r := contrastRatio(t, fg, bg); r < 4.5 {
+				t.Errorf("%s/%s: %s on %s = %.2f:1, want >= 4.5", mode, colour, fg, bg, r)
+			}
+		}
 	}
 }

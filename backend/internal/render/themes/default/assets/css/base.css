@@ -179,6 +179,12 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 :is(a, span, p).hm-nav-color--ink { color: var(--hm-text); }
 :is(a, span, p).hm-nav-color--muted { color: var(--hm-label); }
 :is(a, span, p).hm-nav-color--danger { color: var(--hm-shu-dark); }
+/* A button keeps its fill: a colour class on a button recolours the fill (never the text, which
+   would match the primary fill) and the label is white on the red fills, the page background on ink and muted (both flip with the dark set). */
+:is(a, span, p).hm-nav__item--button.hm-nav-color--accent { background: var(--hm-primary); color: #ffffff; }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--ink { background: var(--hm-text); color: var(--hm-bg); }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--muted { background: var(--hm-label); color: var(--hm-bg); }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--danger { background: var(--hm-shu-dark); color: #ffffff; }
 .hm-nav__badge {
   display: inline-block; margin-left: 0.35em; padding: 0 0.4em; border: 1px solid var(--hm-hair);
   border-radius: var(--hm-radius-sm); font-size: 0.6875rem; font-weight: 500; line-height: 1.5; vertical-align: middle;
