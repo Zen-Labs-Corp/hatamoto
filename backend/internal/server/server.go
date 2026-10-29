@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -347,6 +348,11 @@ func (s *Server) setupDependencies() {
 	// The public locale prefix is read from the site settings.
 	s.entityService.URLRegistry().SetLocales(func(ctx context.Context) (*entity.LocaleSet, error) {
 		cfg, err := s.siteConfig.Get(ctx)
+		if errors.Is(err, siteconfig.ErrNotConfigured) {
+			// No settings row means no locales were configured: a single-locale
+			// site, which is a stable answer (unlike a failed read) and cacheable.
+			return nil, nil
+		}
 		if err != nil {
 			return nil, err
 		}
