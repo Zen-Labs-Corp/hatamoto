@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/seo"
 )
 
 // maxPreviewBodySize bounds a preview request: unsaved attributes of a long
@@ -50,6 +51,9 @@ type renderAdminHandlers struct {
 	resolve   func(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error)
 	loadHome  func(r *http.Request) (*PublicPageResponse, pageOutcome, error)
 	buildView func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error)
+	// seoSettings is the site's SEO templates, so an attributes-only preview
+	// resolves the same title and description as the live page. Nil means none.
+	seoSettings func(ctx context.Context) *seo.Settings
 	// captchaProvider is the configured captcha provider, so the preview's CSP
 	// lets the widget load as it does on the public site. Nil means none.
 	captchaProvider func(ctx context.Context) string
@@ -69,6 +73,7 @@ func (s *Server) newRenderAdminHandlers(engine themeRenderer) *renderAdminHandle
 		},
 		baseURL:     s.publicBaseURL,
 		directories: s.directoriesFor,
+		seoSettings: s.seoSettings,
 		resolve:     s.resolveRouteForRender,
 		loadHome:    s.loadHomepage,
 		buildView:   s.buildPageView,
@@ -206,7 +211,14 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 		Sections:   sections,
 		Doc:        doc,
 		Attrs:      attrsForView(req.Attributes),
-		Page:       render.PageMeta{Name: firstNonEmpty(meta.Name, req.Name), Title: meta.Title, Description: meta.Description},
+		Page: render.PageMeta{
+			Name: firstNonEmpty(meta.Name, req.Name), Title: meta.Title, Description: meta.Description,
+			TitleSet:       strings.TrimSpace(meta.Title) != "",
+			DescriptionSet: strings.TrimSpace(meta.Description) != "",
+		},
+	}
+	if h.seoSettings != nil {
+		v.SEO = h.seoSettings(r.Context())
 	}
 	if req.PublishedAt != nil {
 		v.PublishedAt = *req.PublishedAt

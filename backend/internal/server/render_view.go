@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/urlpattern"
 )
@@ -39,6 +40,7 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 		return nil, err
 	}
 	v.Site = site
+	v.SEO = s.seoSettings(ctx)
 	if err := s.fillView(ctx, r, rr, v); err != nil {
 		return nil, err
 	}
@@ -53,6 +55,20 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 		v.PostsByAuthor = s.postsByAuthorFunc(ctx, v.Entity.Slug, v.Page.Name, v.PageNum, v.Uncacheable, v.PagedLoop, v.LoopOutOfRange)
 	}
 	return v, nil
+}
+
+// seoSettings returns the site's SEO templates from the cached store, or nil
+// when there is no store. A read error serves the last good copy or the
+// defaults (see seo.Store.Get) and is logged once.
+func (s *Server) seoSettings(ctx context.Context) *seo.Settings {
+	if s.seoStore == nil {
+		return nil
+	}
+	set, err := s.seoStore.Get(ctx)
+	if err != nil {
+		s.seoLogOnce.Do(func() { s.logger.Warn("seo settings unavailable, using the last good copy or defaults", "error", err) })
+	}
+	return &set
 }
 
 // requestPath is the request path without a trailing slash ("/" stays "/").
@@ -282,6 +298,7 @@ func timeVal(t *time.Time) time.Time {
 func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL string) {
 	var a struct {
 		MetaTitle    string `json:"meta_title"`
+		MetaDesc     string `json:"meta_description"`
 		CanonicalURL string `json:"canonical_url"`
 		NoIndex      bool   `json:"no_index"`
 		SEO          struct {
@@ -292,8 +309,9 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 		return
 	}
 	if t := strings.TrimSpace(a.MetaTitle); t != "" {
-		m.Title = t
+		m.Title, m.TitleSet = t, true
 	}
+	m.DescriptionSet = strings.TrimSpace(a.MetaDesc) != ""
 	if c := canonicalFromAttribute(a.CanonicalURL, baseURL); c != "" {
 		m.CanonicalURL = c
 	}
