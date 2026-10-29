@@ -171,13 +171,13 @@ export function stateLine(q, { draft, at = "", status = "" } = {}) {
 }
 
 /**
- * createSaver({urls, csrf, boot, getDoc, getName, onState, onAdopt, fetch, timers, delay})
+ * createSaver({urls, csrf, boot, getDoc, getName, getSEO, onState, onAdopt, fetch, timers, delay})
  * boot: {entity, status, version, name, doc, recovery?}; recovery is the copy the server kept: {content, version, name, at}. onState(q): q.state is
  * idle|pending|saving|saved|error|conflict|stopped. onAdopt(doc): the server stored a
  * different doc (its sanitiser), the client takes it. Returns {changed, save, resolve,
  * restorable, discardLocal, dirty, flushLocal, q}; q.keep says whether the server holds the latest unsaved copy.
  */
-export function createSaver({ urls, csrf = () => "", boot, getDoc, getName = () => boot.name, onState = () => {}, onAdopt = () => {}, fetch: f = (...a) => globalThis.fetch(...a), timers, delay = 3000 }) {
+export function createSaver({ urls, csrf = () => "", boot, getDoc, getName = () => boot.name, getSEO = () => null, onState = () => {}, onAdopt = () => {}, fetch: f = (...a) => globalThis.fetch(...a), timers, delay = 3000 }) {
   // A block or layout part is saved explicitly (it is live in every page that uses it): no autosave.
   const manual = boot.reuse?.role === "block" || boot.reuse?.role === "part";
   const draft = boot.status === "draft" && !manual;
@@ -206,13 +206,19 @@ export function createSaver({ urls, csrf = () => "", boot, getDoc, getName = () 
     onState(q);
   };
 
+  // The SEO values travel only once the drawer changed a field: a save without them leaves the stored ones alone.
+  const seoMember = () => {
+    const seo = getSEO();
+    return seo ? { seo } : {};
+  };
+
   async function post(op, v) {
     const sent = edits;
     let res;
     const own = op !== "autosave";
     if (own) recovery.suspend(); // a copy written during the save could land after it and bring the old doc back
     try {
-      const r = await f(urls.save, jsonPost(csrf, { version: v, doc: getDoc(), op, name: getName() }));
+      const r = await f(urls.save, jsonPost(csrf, { version: v, doc: getDoc(), op, name: getName(), ...seoMember() }));
       res = mapSaveReply(r.status, await r.json().catch(() => ({})));
       if (res.code === "invalid_page_doc") res.message = (await import("@hm/builder/elementsettings")).nameNodes(res.message, getDoc()); // loaded only to explain a refusal
     } catch (err) {

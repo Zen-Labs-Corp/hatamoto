@@ -25,8 +25,8 @@ const (
 	// builderFirstCap only seeds the first-paint cap in the budget file (measured 87,207 B + 2 KiB, E0);
 	// the cap stored in admin.json is the one enforced.
 	builderFirstCap = 87207 + 2048
-	// builderTotalCap is the cap of static + lazy JS: measured 238,906 B + 3 KiB (forge 1B; it was 240 KiB).
-	builderTotalCap = 238906 + 3*1024
+	// builderTotalCap is the cap of static + lazy JS: measured 242,008 B + 3 KiB (SEO drawer; it was 238,906 B + 3 KiB).
+	builderTotalCap = 242008 + 3*1024
 )
 
 // hmImportRx finds a static or dynamic import of a first-party module. Vendored
@@ -39,7 +39,7 @@ var hmStaticRx = regexp.MustCompile(`(?:\bfrom|\bimport)\s*["'](@hm/[a-z/]+)["']
 
 // lazyOnly are modules that must stay out of first paint and in the total graph. A static
 // import creeping back from a core module, or a builder.html module tag, fails here.
-var lazyOnly = []string{"editor/kit", "editor/mount", "content", "repeater", "listlogic", "builder/style", "builder/reuse", "builder/keys", "builder/fields", "builder/presetpanel", "builder/designops", "builder/controls", "builder/controlsui", "builder/boxmodel", "builder/presetsrc", "builder/clipops", "builder/ctxmenu", "builder/banners", "builder/drag", "builder/picker", "builder/history", "builder/historylabel", "builder/addtab", "builder/savedialog", "builder/commandk", "builder/recent", "builder/patterns", "builder/startpanel", "builder/coachmarks", "builder/sitestyles", "builder/colournames", "builder/inlinehtml", "builder/inlinefield", "builder/fieldjump", "builder/elementsettings", "canvas/fmtbar", "canvas/chrome", "canvas/points", "builder/inspcontent", "builder/inspheader", "builder/essentials", "builder/showon", "builder/columnsops", "builder/items", "builder/restoreops", "builder/noderestore"}
+var lazyOnly = []string{"editor/kit", "editor/mount", "content", "repeater", "listlogic", "builder/style", "builder/reuse", "builder/keys", "builder/fields", "builder/presetpanel", "builder/designops", "builder/controls", "builder/controlsui", "builder/boxmodel", "builder/presetsrc", "builder/clipops", "builder/ctxmenu", "builder/banners", "builder/drag", "builder/picker", "builder/history", "builder/historylabel", "builder/addtab", "builder/savedialog", "builder/commandk", "builder/recent", "builder/patterns", "builder/startpanel", "builder/coachmarks", "builder/sitestyles", "builder/colournames", "builder/inlinehtml", "builder/inlinefield", "builder/fieldjump", "builder/elementsettings", "canvas/fmtbar", "canvas/chrome", "canvas/points", "builder/inspcontent", "builder/inspheader", "builder/essentials", "builder/showon", "builder/columnsops", "builder/items", "builder/restoreops", "builder/noderestore", "builder/seodrawer"}
 
 // The builder screen's first-party JS (entry, preloads and everything they
 // import, the Tiptap kit modules included, the vendored libraries excluded) stays
