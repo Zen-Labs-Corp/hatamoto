@@ -116,7 +116,7 @@ The VPS installer, `install.sh`, is assembled from the parts under `deploy/insta
 scripts/publish-install.sh vX.Y.Z
 ```
 
-The script refuses to run unless the checked-out commit is the tag. It rebuilds the installer, downloads the release's `install.sh`, compares the two checksums, copies the file to the server and replaces the live one in a single step after checking the checksum there. Use `--dry-run` to see the steps first. When the Caddy handle for `/install.sh` changed, apply the Caddy file with `deploy/apply-caddy.sh` as well. Republish the installer after any change to the signing keys, because it carries them.
+The script refuses to run unless the checked-out commit is the tag; the commit may also carry the `backend/vX.Y.Z` tag. The GitHub repository comes from the `origin` remote; set `GH_REPO=<owner>/<repo>` to override it. It rebuilds the installer, downloads the release's `install.sh`, compares the two checksums, copies the file to the server and replaces the live one in a single step after checking the checksum there. Use `--dry-run` to see the steps first: it prints the expected checksum and the target path (`<host>:/opt/hatamoto/public/install.sh`) and calls nothing remote. When the Caddy handle for `/install.sh` changed, apply the Caddy file with `deploy/apply-caddy.sh` as well (`--dry-run` validates and shows the diff only). Republish the installer after any change to the signing keys, because it carries them.
 
 ## Channels
 
