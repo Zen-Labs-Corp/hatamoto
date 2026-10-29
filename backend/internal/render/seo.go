@@ -5,6 +5,8 @@ import (
 	"html/template"
 	"net/url"
 	"strings"
+
+	"hatamoto.dev/core/internal/seo"
 )
 
 // metaPair is one <meta> tag, keyed by name= or property=.
@@ -43,6 +45,9 @@ func seoHead(v *PageView, replaceSiteGraph bool) headView {
 	rawTitle := firstNonEmpty(v.Page.Title, v.Page.Name, v.Site.Name)
 	h.Title = titleWithSite(rawTitle, v.Site.Name) // "<title> | <site>", like the Next.js title template
 	h.Description = v.Page.Description
+	if v.SEO != nil {
+		applySEOTemplates(&h, v, rawTitle)
+	}
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
 	if v.Page.NoIndex || v.Preview {
 		h.Robots = "noindex,follow"
@@ -268,6 +273,75 @@ func commentText(s string) string {
 	}
 	s = strings.TrimRight(s, "-! ")
 	return strings.NewReplacer("\x00", "").Replace(s)
+}
+
+// seoInput describes the page for the template resolver.
+func seoInput(v *PageView, rawTitle string) seo.Input {
+	kind := v.Kind
+	if kind == "" {
+		kind = KindPage
+		if v.EntityID != "" {
+			kind = KindSingle
+		}
+	}
+	in := seo.Input{
+		Kind:            seo.Kind(kind),
+		SchemaSlug:      v.SchemaSlug,
+		HandTitle:       v.Page.Title,
+		HandDescription: v.Page.Description,
+		TitleSet:        v.Page.TitleSet,
+		DescriptionSet:  v.Page.DescriptionSet,
+		Vars: seo.Vars{
+			Title:    rawTitle,
+			SiteName: v.Site.Name,
+			Tagline:  v.Site.Tagline,
+			Archive:  v.Page.Name,
+		},
+	}
+	if e := v.Entity; e != nil {
+		in.Vars.Excerpt = e.Excerpt
+		if !e.PublishedAt.IsZero() {
+			in.Vars.Date = e.PublishedAt.UTC().Format("2006-01-02")
+		}
+		if e.Author != nil {
+			in.Vars.Author = e.Author.Name
+		}
+	}
+	if v.Author != nil {
+		in.Vars.Author = v.Author.Name
+	}
+	if v.Term != nil {
+		in.TermKind = v.Term.Kind
+		in.Vars.Term = v.Term.Name
+	}
+	in.Vars.SearchPhrase = v.Query
+	if p := v.Pagination; p != nil {
+		if p.Page > 1 {
+			in.Vars.Page = p.Page
+		}
+		if p.TotalPages > 1 {
+			in.Vars.PageTotal = p.TotalPages
+		}
+	}
+	return in
+}
+
+// applySEOTemplates sets the title and description from the site's templates.
+// With the default templates and no description template it changes nothing and
+// allocates nothing, so the legacy head stays byte-identical.
+func applySEOTemplates(h *headView, v *PageView, rawTitle string) {
+	in := seoInput(v, rawTitle)
+	legacy := seo.IsLegacyTitle(v.SEO, in)
+	if legacy && !seo.HasDescriptionTemplate(v.SEO, in) {
+		return
+	}
+	r := seo.Resolve(v.SEO, in)
+	if !legacy {
+		h.Title = r.Title
+	}
+	if r.Description != "" {
+		h.Description = r.Description
+	}
 }
 
 // titleWithSite appends " | <site>" to a page title, matching the Next.js

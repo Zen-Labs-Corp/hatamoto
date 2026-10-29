@@ -73,6 +73,13 @@ func IsLegacyTitle(s *Settings, in Input) bool {
 	return s.Separator == DefaultSeparator && titleTemplate(s, in) == DefaultTitle
 }
 
+// HasDescriptionTemplate reports whether in has a description template that
+// would be used when the entry has no written description.
+func HasDescriptionTemplate(s *Settings, in Input) bool {
+	return !in.DescriptionSet && (in.Kind == KindPage || in.Kind == KindSingle) &&
+		s.Types[in.SchemaSlug].Description != ""
+}
+
 // Resolve returns the title and description for a page. A value an editor wrote
 // on the entry is kept as written (the title still gets the site suffix); the
 // templates only fill in what was left empty.

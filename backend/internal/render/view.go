@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/seo"
 )
 
 // PageView is everything a layout needs to render one page. The server builds
@@ -33,9 +34,12 @@ type PageView struct {
 	SearchType string
 	// Dynamic marks a view built from per-request data (taxonomy, author,
 	// search) that no entity event invalidates: the server never caches it.
-	Dynamic  bool
-	Site     SiteView
-	Page     PageMeta
+	Dynamic bool
+	Site    SiteView
+	Page    PageMeta
+	// SEO holds the site-wide title and description templates. Nil keeps the
+	// built-in "<title> | <site>" head.
+	SEO      *seo.Settings
 	Sections []Section
 	// Doc is a page_doc v2 tree. When set it replaces Sections: v1-shaped nodes
 	// render through the theme section partial, the rest natively.
@@ -438,6 +442,11 @@ type PageMeta struct {
 	OGType       string
 	CanonicalURL string
 	NoIndex      bool
+	// TitleSet and DescriptionSet say an editor wrote the meta title or
+	// description on the entry. Title and Description merge in fallbacks, so
+	// without these flags a written value cannot be told from a fallback; the
+	// SEO templates only fill in values that were not written.
+	TitleSet, DescriptionSet bool
 }
 
 // Crumb is one breadcrumb step.
