@@ -613,7 +613,7 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
 * **SEO drawer** (pages only; blocks and parts have no SEO button): the **SEO** button in the top bar (also in More on a phone)
   opens a slide-over on the right of the canvas (`seodrawer.js`, a lazy module that is not part of first paint). The first
   open fetches `GET <admin>/entities/{id}/builder/seo` (a bare fragment for a request with `HX-Request` and `HX-Target`) and
-  loads `@hm/seopanel`; later opens reuse it. Escape or Close hides it and returns focus to the SEO button. The live checks
+  loads `@hm/seopanel`; later opens reuse it. Escape or Close hides it and returns focus to the control that opened it. The live checks run on every open and on every field edit, and
   post the draft doc with the panel's fields to `POST <admin>/entities/{id}/builder/analyze`, which renders the draft
   through the preview and analyses its `<main>` (the `<body>` when the theme has none); nothing is written. Editing a field
   marks the page changed, and from then on every save carries a `seo` object; before the first edit no save sends one, so a

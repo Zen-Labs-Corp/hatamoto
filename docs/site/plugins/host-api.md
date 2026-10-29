@@ -129,6 +129,7 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 
 Notes on specific functions:
 
+- **`terms.save`** never reads or changes a term's `seo`. A Term result carries it, but sending it back does nothing: the search appearance of a term is edited on its admin page only.
 - **`media.upload`** stores a file whose type is sniffed from the bytes (`mime_type` is advisory). It must be an allowed type (images except SVG, PDF, MP4 or WebM) whose extension matches the filename. The 1 MiB request cap means about 750 KB of file.
 - **`log`** allows 10 lines per second (burst 20), then `rate_limited`. Messages are cut at 4 KiB.
 - **`mail.send`** goes through the site's mail service and From identity, allows 6 recipients per minute (burst 10), and answers `unavailable` when mail is not configured.

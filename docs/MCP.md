@@ -31,6 +31,8 @@ Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:ent
 
 `entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update` and `redirects_delete` are marked destructive in the tool annotations, so clients can ask before running them.
 
+A term in `terms_list` carries its `seo` when one is saved. It is read-only here: `terms_create` takes no `seo`, and a term's search appearance is edited on its admin page.
+
 Entity writes are attributed to the key's creator and tagged `[mcp:<key name>]` in the version history.
 
 ## Behaviour
