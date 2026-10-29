@@ -27,7 +27,7 @@
 /* A bar above panels (blog editor): sticky, paper behind, content inset like the panels, the hairline edge to edge. */
 .hm-tablist--bar { position: sticky; top: 0; z-index: var(--z-raised); margin: 0; padding-inline: var(--space-4); background-color: var(--color-paper); background-position: 0 100%; background-size: 100% 1px; }
 .hm-tablist__tab { appearance: none; background: none; border: 0; cursor: pointer; }
-.hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); overflow: visible; box-shadow: none; }
+.hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); max-width: 100%; overflow-x: auto; overflow-y: hidden; box-shadow: none; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: var(--control-h-sm); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--color-sumi); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab:hover { background: var(--surface-hover); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-sumi); color: var(--color-paper); box-shadow: none; }
