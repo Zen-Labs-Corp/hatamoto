@@ -234,6 +234,14 @@ func HiddenPersonFor(ph string) string {
 	AND ` + visibleLocaleSQL(ph) + `)`
 }
 
+// scopedLocaleFirstSQL orders the rows of the scoped locale (the first visible
+// locale) before shared ones, so an unprefixed path that both the default
+// locale and shared content serve answers with the default locale's row. Every
+// row ties without a scope.
+func scopedLocaleFirstSQL(ph string) string {
+	return `(e.locale = COALESCE((` + ph + `::text[])[1], e.locale)) DESC`
+}
+
 // visibleLocaleSQL is the locale term of HiddenPersonFor for queries that do
 // not join the schema.
 func visibleLocaleSQL(ph string) string {

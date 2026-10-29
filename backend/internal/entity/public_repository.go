@@ -137,7 +137,7 @@ func (r *PostgresPublicRepository) GetPublishedBySlug(ctx context.Context, slug 
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
 		WHERE e.slug = $1 AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$2") + `
-		ORDER BY e.created_at, e.id
+		ORDER BY ` + scopedLocaleFirstSQL("$2") + `, e.created_at, e.id
 		LIMIT 1
 	`
 
@@ -744,7 +744,7 @@ func (r *PostgresPublicRepository) GetPublishedByPath(ctx context.Context, segme
 		JOIN hatamoto_entities e ON e.id = c.id
 		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
 		WHERE c.depth = cardinality($1::text[]) AND e.status = 'published' AND s.slug = ANY($2) AND `+HiddenPersonFor("$3")+`
-		ORDER BY e.created_at, e.id LIMIT 1`, segments, schemaSlugs, VisibleLocales(ctx)).Scan(&id)
+		ORDER BY `+scopedLocaleFirstSQL("$3")+`, e.created_at, e.id LIMIT 1`, segments, schemaSlugs, VisibleLocales(ctx)).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrEntityNotFound
 	}
@@ -778,7 +778,7 @@ func (r *PostgresPublicRepository) GetPublishedBySlugAndSchemas(ctx context.Cont
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
 		WHERE e.slug = $1 AND s.slug = ANY($2) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$3") + `
-		ORDER BY e.created_at, e.id
+		ORDER BY ` + scopedLocaleFirstSQL("$3") + `, e.created_at, e.id
 		LIMIT 1
 	`
 
