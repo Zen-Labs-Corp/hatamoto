@@ -187,6 +187,28 @@
 <input class="hm-field__control" type="text" id="type-page-archive-description" name="type[page][archive_description]" disabled="disabled" readonly="readonly">
 </div>
 </div></section>
+<section class="hm-card" id="seo-type-person" aria-labelledby="seo-type-person-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-person-title">Person</h2></div>
+<div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__label" for="type-person-title">Title template</label>
+<input class="hm-field__control" type="text" id="type-person-title" name="type[person][title]" placeholder="%title% %sep% %sitename%" maxlength="300">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="type-person-description">Description template</label>
+<textarea class="hm-field__control" id="type-person-description" name="type[person][description]" rows="2" aria-describedby="type-person-description-help" maxlength="300"></textarea>
+<p class="hm-field__help" id="type-person-description-help">Used when the entry has no description of its own. Left empty, the page keeps its usual description.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="type-person-archive-title">Archive title</label>
+<input class="hm-field__control" type="text" id="type-person-archive-title" name="type[person][archive_title]" aria-describedby="type-person-archive-title-help">
+<p class="hm-field__help" id="type-person-archive-title-help">The heading and title of this type&#39;s archive page. The same value as in the type&#39;s settings.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="type-person-archive-description">Archive description</label>
+<textarea class="hm-field__control" id="type-person-archive-description" name="type[person][archive_description]" rows="2"></textarea>
+</div>
+</div></section>
 <section class="hm-card" id="seo-type-recipe" aria-labelledby="seo-type-recipe-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-recipe-title">Recipe</h2></div>
 <div class="hm-card__body">
@@ -250,6 +272,7 @@
 <div id="seo-preview" aria-live="polite">
 <p><strong>Homepage</strong><br>Acme Site</p>
 <p><strong>Page</strong><br>Sample title | Acme Site</p>
+<p><strong>Person</strong><br>Sample title | Acme Site</p>
 <p><strong>Recipe</strong><br>Sample title | Acme Site</p>
 <p><strong>Service</strong><br>Sample title | Services<br><span class="hm-muted">Read about Sample title.</span></p>
 <p><strong>Categories</strong><br>Sample title | Acme Site</p>

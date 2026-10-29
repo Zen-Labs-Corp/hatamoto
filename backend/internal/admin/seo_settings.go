@@ -33,10 +33,27 @@ type SEOService interface {
 	Get(ctx context.Context) (seo.Settings, error)
 	// Merge changes the keys a tab owns on a fresh read of the stored settings.
 	Merge(ctx context.Context, fn func(*seo.Settings)) error
-	// UpdateSchemaSEO writes a type's archive title and description into the
-	// schema settings, the values the schema editor shows.
-	UpdateSchemaSEO(ctx context.Context, id uuid.UUID, p entity.SchemaSEOPatch) error
+	// SaveTitles writes the archive title and description of each patched type
+	// into the schema settings (the values the schema editor shows) and merges
+	// the templates, all in one transaction: either everything is saved or
+	// nothing is. A failing patch comes back as a *SEOPatchError.
+	SaveTitles(ctx context.Context, patches []SEOTitlePatch, fn func(*seo.Settings)) error
 }
+
+// SEOTitlePatch is one type's archive title and description change.
+type SEOTitlePatch struct {
+	ID    uuid.UUID
+	Patch entity.SchemaSEOPatch
+}
+
+// SEOPatchError names the type whose archive patch made SaveTitles fail.
+type SEOPatchError struct {
+	ID  uuid.UUID
+	Err error
+}
+
+func (e *SEOPatchError) Error() string { return "seo archive patch: " + e.Err.Error() }
+func (e *SEOPatchError) Unwrap() error { return e.Err }
 
 // seoVarHelp describes the built-in variables, in the order they are listed.
 var seoVarHelp = []struct{ Name, Desc string }{
@@ -93,11 +110,16 @@ func (a *Admin) seoSave(w http.ResponseWriter, r *http.Request, fn func(*seo.Set
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The SEO settings could not be saved.")
 		return false
 	}
+	a.seoSaved(r, audit)
+	return true
+}
+
+// seoSaved runs after a committed save: audit, then clear the page cache.
+func (a *Admin) seoSaved(r *http.Request, audit map[string]any) {
 	a.audit(r, "seo.settings", "seo", audit)
 	if a.deps.Invalidate != nil {
-		a.deps.Invalidate(ctx)
+		a.deps.Invalidate(r.Context())
 	}
-	return true
 }
 
 // ---- General ----------------------------------------------------------------
@@ -451,22 +473,14 @@ func (a *Admin) handleSEOTitlesSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var patches []SEOTitlePatch
+	rowOf := map[uuid.UUID]seoTypeRow{}
 	for _, row := range next.Types {
 		if row.ArchiveReadOnly || (row.ArchiveTitle == row.storedArchiveTitle && row.ArchiveDescription == row.storedArchiveDescript) {
 			continue
 		}
-		patch := entity.SchemaSEOPatch{ArchiveTitle: &row.ArchiveTitle, ArchiveDescription: &row.ArchiveDescription}
-		if err := a.deps.SEO.UpdateSchemaSEO(ctx, row.ID, patch); err != nil {
-			var se *entity.SettingsError
-			if errors.As(err, &se) {
-				id := "type-" + row.Slug + "-" + strings.ReplaceAll(se.Field, "_", "-")
-				a.renderSEOTitles(w, r, http.StatusUnprocessableEntity, next, []ui.FieldError{{ID: id, Label: row.Name + " archive", Message: se.Msg}})
-				return
-			}
-			a.logger().Error("seo settings archive save", "err", err, "type", row.Slug)
-			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The SEO settings could not be saved.")
-			return
-		}
+		rowOf[row.ID] = row
+		patches = append(patches, SEOTitlePatch{ID: row.ID, Patch: entity.SchemaSEOPatch{ArchiveTitle: &row.ArchiveTitle, ArchiveDescription: &row.ArchiveDescription}})
 	}
 
 	n := next.Set
@@ -487,9 +501,20 @@ func (a *Admin) handleSEOTitlesSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if !a.seoSave(w, r, apply, map[string]any{"tab": "titles", "separator": n.Separator, "types": len(n.Types)}) {
+	if err := a.deps.SEO.SaveTitles(ctx, patches, apply); err != nil {
+		var pe *SEOPatchError
+		var se *entity.SettingsError
+		if errors.As(err, &pe) && errors.As(err, &se) {
+			row := rowOf[pe.ID]
+			id := "type-" + row.Slug + "-" + strings.ReplaceAll(se.Field, "_", "-")
+			a.renderSEOTitles(w, r, http.StatusUnprocessableEntity, next, []ui.FieldError{{ID: id, Label: row.Name + " archive", Message: se.Msg}})
+			return
+		}
+		a.logger().Error("seo settings titles save", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The SEO settings could not be saved.")
 		return
 	}
+	a.seoSaved(r, map[string]any{"tab": "titles", "separator": n.Separator, "types": len(n.Types)})
 	a.SetFlash(w, r, "success", "SEO settings saved.")
 	http.Redirect(w, r, a.adminPath+seoTitlesPath, http.StatusSeeOther)
 }
