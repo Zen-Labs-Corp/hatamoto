@@ -330,7 +330,7 @@ func TestMCPIntegration(t *testing.T) {
 		t.Errorf("attrs missing on an item without settings: %v", kid)
 	}
 	if _, err := call(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{
-		map[string]any{"label": "Bad", "link_type": "none", "css_classes": "1bad"}}}); err == nil {
+		map[string]any{"label": "Bad", "link_type": "none", "css_classes": "a<b"}}}); err == nil {
 		t.Error("bad css class accepted")
 	}
 	mustCall(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{

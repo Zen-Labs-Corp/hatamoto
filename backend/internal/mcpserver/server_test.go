@@ -266,7 +266,7 @@ func TestPlanMenuItemsNoneAndSettings(t *testing.T) {
 	}
 	for name, bad := range map[string]menuItemIn{
 		"external needs url": {Label: "X", LinkType: "external"},
-		"bad class":          {Label: "X", LinkType: "none", CSSClasses: "1bad"},
+		"bad class":          {Label: "X", LinkType: "none", CSSClasses: `a"b`},
 		"bad rel":            {Label: "X", LinkType: "none", Attrs: &menu.MenuItemAttrs{Rel: []string{"evil"}}},
 		"bad type":           {Label: "X", LinkType: "nope"},
 	} {
