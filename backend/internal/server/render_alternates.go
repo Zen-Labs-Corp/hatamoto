@@ -1,0 +1,115 @@
+package server
+
+import (
+	"context"
+
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/render"
+)
+
+// applyLocale fills the locale part of a page view on a multi-locale site:
+// PageView.Locale, the per-request site language, and the alternates with the
+// x-default URL. It does nothing on a one-locale site, and never changes the
+// shared SiteView (v.Site is a per-request copy).
+func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.PageView, baseURL string) {
+	if rr == nil {
+		return
+	}
+	snap := s.urlSnapshot(ctx)
+	set := snap.Locales()
+	if !set.Multi() {
+		return
+	}
+	var ent *entity.Entity
+	if rr.Page != nil {
+		ent = rr.Page.Entity
+	}
+	loc := rr.Locale
+	if ent != nil && ent.Locale != entity.LocaleShared {
+		loc = ent.Locale
+	}
+	if loc == entity.LocaleShared || loc == "" {
+		loc = set.Default()
+	}
+	v.Locale = loc
+	v.Site.Language = loc
+
+	switch {
+	case ent == nil:
+	case rr.Kind == resolveKindHome:
+		v.Alternates, v.XDefaultHref = homeAlternates(snap, set, baseURL, loc)
+	case ent.Locale != entity.LocaleShared && s.db != nil:
+		v.Alternates, v.XDefaultHref = s.alternatesFor(ctx, snap, baseURL, ent)
+	}
+}
+
+// homeAlternates lists every locale home in settings order.
+func homeAlternates(snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL, current string) ([]render.Alternate, string) {
+	var alts []render.Alternate
+	for _, tag := range set.Tags() {
+		alts = append(alts, render.Alternate{
+			Locale: tag, Lang: tag, Href: baseURL + snap.WithLocale(tag, "/"),
+			Current: tag == current, Default: tag == set.Default(),
+		})
+	}
+	return alts, xDefaultHref(set, alts, func(a render.Alternate) bool { return true })
+}
+
+// alternatesFor lists the copies of ent in every locale, in settings order. A
+// locale without a live copy points at its home and is marked Missing. The
+// x-default is the configured locale when it has a copy, else the first copy.
+func (s *Server) alternatesFor(ctx context.Context, snap *entity.URLSnapshot, baseURL string, ent *entity.Entity) ([]render.Alternate, string) {
+	set := snap.Locales()
+	sibs, err := entity.NewGroupStore(s.db.Pool()).LiveSiblings(ctx, ent.ID, set.Tags())
+	if err != nil {
+		s.logger.Warn("render: translation siblings unavailable, no alternates", "error", err)
+		return nil, ""
+	}
+	repo := entity.NewPostgresPublicRepository(s.db)
+	hrefs := map[string]string{ent.Locale: baseURL + locateEntity(ctx, snap, repo, ent).Path}
+	for _, sb := range sibs {
+		if sb.ID == ent.ID || hrefs[sb.Locale] != "" {
+			continue
+		}
+		other, err := repo.GetPublishedByID(entity.WithVisibleLocales(ctx, sb.Locale), sb.ID)
+		if err != nil {
+			continue
+		}
+		hrefs[sb.Locale] = baseURL + locateEntity(entity.WithVisibleLocales(ctx, sb.Locale), snap, repo, other).Path
+	}
+	var alts []render.Alternate
+	for _, tag := range set.Tags() {
+		a := render.Alternate{Locale: tag, Lang: tag, Current: tag == ent.Locale, Default: tag == set.Default()}
+		if href, ok := hrefs[tag]; ok {
+			a.Href = href
+		} else {
+			a.Href, a.Missing = baseURL+snap.WithLocale(tag, "/"), true
+		}
+		alts = append(alts, a)
+	}
+	return alts, xDefaultHref(set, alts, func(a render.Alternate) bool { return !a.Missing })
+}
+
+// xDefaultHref picks the x-default URL among the alternates that pass live.
+func xDefaultHref(set *entity.LocaleSet, alts []render.Alternate, live func(render.Alternate) bool) string {
+	first := ""
+	for _, a := range alts {
+		if !live(a) {
+			continue
+		}
+		if a.Locale == set.XDefault() {
+			return a.Href
+		}
+		if first == "" {
+			first = a.Href
+		}
+	}
+	if set.XDefault() == "" {
+		for _, a := range alts {
+			if a.Default && live(a) {
+				return a.Href
+			}
+		}
+	}
+	return first
+}

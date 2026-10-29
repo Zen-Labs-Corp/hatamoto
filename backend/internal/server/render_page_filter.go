@@ -29,7 +29,7 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 		}
 	}
 	if e := v.Entity; e != nil {
-		in.Entity = &sdk.EntitySummary{ID: e.ID, SchemaSlug: e.Schema, Slug: e.Slug, Name: e.Title, Locale: v.Site.Language}
+		in.Entity = &sdk.EntitySummary{ID: e.ID, SchemaSlug: e.Schema, Slug: e.Slug, Name: e.Title, Locale: firstNonEmpty(v.Locale, v.Site.Language)}
 	}
 	byID := map[string]render.Section{}
 	for _, s := range v.Sections {

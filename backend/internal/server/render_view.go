@@ -44,6 +44,7 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	if err := s.fillView(ctx, r, rr, v); err != nil {
 		return nil, err
 	}
+	s.applyLocale(ctx, rr, v, v.BaseURL)
 	v.Forms = s.formsForSections(ctx, formSections(v.Sections, v.Doc))
 	v.EntityLinks = s.entityLinkTargets(ctx, v)
 	v.Uncacheable = new(bool)
