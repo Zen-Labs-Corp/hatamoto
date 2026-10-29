@@ -16,5 +16,5 @@
 .hm-sf-group { margin-top: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--border); }
 
 /* Long field titles: let the repeater's Add button and legends wrap instead of overflowing narrow containers (builder inspector). */
-.hm-repeater > .hm-btn { white-space: normal; height: auto; min-height: var(--control-h-sm); padding-block: var(--space-1); line-height: var(--leading-tight); text-align: start; max-width: 100%; }
+.hm-repeater > .hm-btn { white-space: normal; height: auto; min-height: var(--control-h-sm); padding-block: calc(var(--space-1) + var(--space-px)); line-height: var(--leading-tight); text-align: start; max-width: 100%; }
 .hm-sf-object > legend, .hm-repeater > legend, .hm-field__label { overflow-wrap: anywhere; }
