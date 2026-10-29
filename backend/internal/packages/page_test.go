@@ -198,12 +198,20 @@ func TestRenderPageCSPHashDetectsAnEditedBlock(t *testing.T) {
 func TestRenderPagePermissionWarning(t *testing.T) {
 	idx := &Index{Packages: []Entry{{Kind: KindPlugin, Name: "tags", Version: "1.0.0", Permissions: []string{"http.fetch.any", "site.scripts"}}}}
 	out := renderPage(t, idx, PageOptions{})
-	for _, want := range []string{"2 permissions", "⚠ Any web address.", "⚠ JavaScript on every public page.", "send requests to ANY public web address"} {
+	for _, want := range []string{"2 permissions", `aria-hidden="true">⚠</span><span class="vh">Warning: Any web address. JavaScript on every public page.</span>`, "⚠ <span class=\"mono\">http.fetch.any</span>", "send requests to ANY public web address"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
 	if strings.Contains(out, "WARNING:") || strings.Contains(out, "Needs:") || strings.Contains(out, "<details open") {
 		t.Error("page has a WARNING: prefix, a Needs: line or an open details")
+	}
+}
+
+func TestRenderPageNoPermissionsCard(t *testing.T) {
+	idx := &Index{Packages: []Entry{{Kind: KindPlugin, Name: "hello", Version: "1.0.0"}}}
+	out := renderPage(t, idx, PageOptions{})
+	if !strings.Contains(out, "No permissions") || strings.Contains(out, "<details") {
+		t.Error("an empty card must say No permissions and have no details box")
 	}
 }

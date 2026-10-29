@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
-	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/permtext"
@@ -53,14 +52,7 @@ type pageCard struct {
 	Heading, Name, Version, Description, Author, TierLabel, Source, Search string
 	PermCount                                                              int
 	PermWarn                                                               []string
-	PermLines                                                              []pageLine
-}
-
-// pageLine is one permission of a card in plain English. The "WARNING: "
-// prefix of the admin wording is dropped: the warning badge says it.
-type pageLine struct {
-	Name, Text string
-	Warn       bool
+	PermLines                                                              []permtext.Line
 }
 
 type pageData struct {
@@ -102,13 +94,8 @@ func RenderPage(idx *Index, opts PageOptions) ([]byte, error) {
 			Source: SafeHTTPS(e.Source), PermCount: len(e.Permissions),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
 		}
-		for _, p := range e.Permissions {
-			t := permtext.Lookup(p)
-			if t.Warn && !slices.Contains(c.PermWarn, t.Short) {
-				c.PermWarn = append(c.PermWarn, t.Short)
-			}
-			c.PermLines = append(c.PermLines, pageLine{Name: p, Text: strings.TrimPrefix(t.Help, "WARNING: "), Warn: t.Warn})
-		}
+		pc := permtext.ForCard(e.Permissions)
+		c.PermWarn, c.PermLines = pc.Warn, pc.Lines
 		switch e.Tier {
 		case TierFirstParty:
 			c.TierLabel = "First-party"
