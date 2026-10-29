@@ -86,9 +86,10 @@
 
 <header class="hm-pageheader">
 <div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Plugins</h1></div><p class="hm-muted">Plugins add features to your site. Each one asks for the permissions it needs; you decide what it gets.</p></div>
-<div class="hm-row"></div></div>
+<div class="hm-row"><a class="hm-btn hm-btn--primary" href="/admin/plugins/browse"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>Browse plugins</span></a><a class="hm-btn hm-btn--secondary" href="/admin/plugins/upload" data-hm-open="upload-pkg"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Upload</span></a><button type="button" class="hm-btn hm-btn--ghost hm-btn--icon" aria-label="More actions" popovertarget="hm-overflow"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div class="hm-menu" id="hm-overflow" popover role="menu"><form method="post" action="/admin/plugins/check-updates"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button role="menuitem" type="submit" class="hm-menu__item"><span class="hm-menu__text">Check for updates<span class="hm-menu__hint">Last checked 3 hours ago</span></span></button></form><a role="menuitem" class="hm-menu__item" href="/admin/plugins/security">Package security</a></div></div></div>
 </header>
-
+<div class="hm-callout hm-callout--danger" id="unsigned-banner" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><span class="hm-row"><span><strong>Unsigned packages are allowed until 5 Mar 2026 05:06 UTC.</strong> Anything you upload now can run code nobody has vouched for.</span><form method="post" action="/admin/plugins/unsigned/off"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm"><span>Turn off now</span></button></form></span></div></div></div>
 
 <div class="hm-pluginlist__filters"><nav class="hm-tabs" data-variant="segmented" data-changes="view" aria-label="Show plugins"><ul class="hm-tabs__list" role="list">
 <li><a class="hm-tabs__tab" href="/admin/plugins" aria-current="page">All <span class="hm-tabs__count">1</span></a></li>
@@ -112,12 +113,12 @@
 </li>
 
 </ul></div></section>
-
+<p class="hm-muted">Looking for something new? <a href="/admin/plugins/browse">Browse the plugin registry.</a></p>
 <dialog class="hm-dialog" id="upload-pkg" aria-labelledby="upload-pkg-title" data-hm-static>
 <div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="upload-pkg-title">Upload package</h2>
 <div class="hm-dialog__body">
 <form id="upload-pkg-form" method="post" action="/admin/plugins/upload" enctype="multipart/form-data" class="hm-stack"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<p class="hm-muted">A .hmp plugin or theme file. Unsigned packages are refused unless an owner allows them.</p>
+<p class="hm-muted">A .hmp plugin or theme file.</p>
 <div class="hm-field"><label class="hm-field__label" for="package">Package file</label><input class="hm-field__control" type="file" id="package" name="package" accept=".hmp,application/zip" required></div></form>
 </div>
 <form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="upload-pkg-form"><span>Upload</span></button></form>
