@@ -698,6 +698,19 @@ Email step after Your site, with Skip. Without email, invitations
 and resets show a one-time link for the owner to pass on, and "forgot password"
 points to `hatamoto user reset-password`.
 
+### SEO
+
+Settings > SEO (owner-only) has two tabs. General (`<admin>/settings/seo/general`) lists the
+built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
+variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
+the homepage, archive, author, date, search and not-found titles, a title and description
+template per content type and a title template per term kind. A title or description written on
+an entry always wins over a template; with the defaults, pages render exactly as before. The
+archive title and description of a type are the same values as in the type's settings. Saving
+merges only the keys a tab owns, writes one `seo.settings` audit entry and clears the page
+cache. Update preview resolves a sample page of each kind through the same function the public
+head uses, without saving.
+
 ### Performance
 
 Settings > Performance (`<admin>/settings/performance`, owner only) controls the

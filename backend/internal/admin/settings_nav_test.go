@@ -26,7 +26,7 @@ func TestSettingsForRoles(t *testing.T) {
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
 		"general": "general", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
-		"redirects": "redirects", "linking": "linking", "users": "users", "api": "api",
+		"seo": "seo-general seo-titles", "redirects": "redirects", "linking": "linking", "users": "users", "api": "api",
 		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {
@@ -44,7 +44,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("Settings still has the section %s, which moved to Theme", id)
 		}
 	}
-	for _, id := range []string{"general", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
+	for _, id := range []string{"general", "seo", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
 		if _, ok := editor[id]; ok {
 			t.Errorf("editor sees section %s", id)
 		}
@@ -93,12 +93,13 @@ func TestSettingsEntryRedirects(t *testing.T) {
 	}{
 		{"owner-token", "/admin/settings", 303, "/admin/settings/general"},
 		{"editor-token", "/admin/settings", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/media"},
 		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/media"},
 		{"editor-token", "/admin/settings?section=forms", 303, "/admin/settings/forms"},
 		{"owner-token", "/admin/settings/entity-models", 302, "/admin/settings/types"},
 		{"owner-token", "/admin/settings/content-model", 302, "/admin/settings/types"},
-		{"editor-token", "/admin/settings/seo", 302, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings/seo", 403, ""},
+		{"owner-token", "/admin/settings/seo", 302, "/admin/settings/seo/general"},
 		{"owner-token", "/admin/settings?section=appearance", 303, "/admin/theme/themes"},
 		{"owner-token", "/admin/settings?section=menus", 303, "/admin/theme/menus"},
 		{"owner-token", "/admin/settings?section=menus-forms", 303, "/admin/theme/menus"},
@@ -228,7 +229,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	}
 	for g, want := range map[string]string{
 		"Site":    "general email users",
-		"Content": "media entity-models forms redirects linking",
+		"Content": "media entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups import-export security",
 	} {
 		if got := strings.Join(members[g], " "); got != want {

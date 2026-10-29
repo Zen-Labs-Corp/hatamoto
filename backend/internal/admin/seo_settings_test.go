@@ -298,3 +298,11 @@ func TestSEOGeneralRejectsBadVariables(t *testing.T) {
 		}
 	}
 }
+
+func TestSEOPagesGolden(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	s.svc.set.Variables["brand"] = "Acme"
+	s.svc.set.Types["service"] = seo.TypeTemplates{Title: "%title% %sep% Services", Description: "Read about %title%."}
+	compareGolden(t, "pages/settings-seo-general.html", normalizePage(s.get(t, "/admin/settings/seo/general")))
+	compareGolden(t, "pages/settings-seo-titles.html", normalizePage(s.get(t, "/admin/settings/seo/titles")))
+}

@@ -52,6 +52,7 @@ var settingsLive = map[string]bool{
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-crawlers": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
+	"seo-general": true, "seo-titles": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -85,6 +86,10 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "forms", Label: "Forms", Final: "/settings/forms"},
 		{ID: "submissions", Label: "Submissions", Final: "/settings/submissions"},
 		{ID: "spam", Label: "Spam protection", Final: "/settings/spam", Roles: ownerOnly},
+	}},
+	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
+		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Roles: ownerOnly},
+		{ID: "seo-titles", Label: "Titles & meta", Final: "/settings/seo/titles", Roles: ownerOnly},
 	}},
 	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},
@@ -208,7 +213,7 @@ func areaOfTab(tab string) *adminArea {
 // settingsSectionAliases are the section IDs before the v1-26 split; their
 // <prefix>/settings/<id> entry URLs (and ?section=) still land on the new home.
 var settingsSectionAliases = map[string]string{
-	"content-model": "entity-models", "seo": "redirects", "team": "users",
+	"content-model": "entity-models", "team": "users",
 }
 
 func settingsFor(prefix, role string) []SettingsSection { return settingsArea.forPrefix(prefix, role) }
