@@ -136,7 +136,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 	as, pages := g.a.state()
 	declared := map[string][]string{}
 	for name, ps := range pages {
-		mods, err := pageModules(ps.t, as)
+		mods, err := pageModules(ps.tmpl(), as)
 		if err != nil {
 			t.Errorf("page %s: %v", name, err)
 		}
@@ -188,7 +188,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 	}
 	// SortableJS is a head script only for the pages whose modules drive it.
 	for name, ps := range pages {
-		scripts, err := pageScripts(ps.t)
+		scripts, err := pageScripts(ps.tmpl())
 		if err != nil {
 			t.Errorf("page %s: %v", name, err)
 		}
