@@ -135,6 +135,7 @@ run_fb() {
     HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 "$@" \
     sh -c '. "$1"
       install_motd() { echo "install_motd" >> "$CALLS"; }
+      install_setupcode_clean() { echo "install_setupcode_clean" >> "$CALLS"; }
       install_dns_switch() { echo "install_dns_switch pending=$FB_PENDING_DOMAIN host=$FB_HOST ip=$FB_IP" >> "$CALLS"; }
       setup_swap() { echo "setup_swap" >> "$CALLS"; }
       setup_backups() { echo "setup_backups" >> "$CALLS"; }
@@ -219,7 +220,7 @@ grep -q 'Updates:    automatic (stable channel)' "$tmp/out" || fail "banner upda
 if grep -q 'Domain:' "$tmp/out"; then fail "domain line without a domain"; fi
 [ "$(stat -c %a "$r/var/lib/hatamoto-install/link")" = 600 ] || fail "link file mode"
 [ "$(cat "$r/var/lib/hatamoto-install/link")" = "https://203-0-113-7.sslip.io/k7qm-x2rf-9tdc" ] || fail "link file content"
-{ grep -qx 'install_motd' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls"; } || fail "housekeeping parts not called"
+{ grep -qx 'install_motd' "$tmp/calls" && grep -qx 'install_setupcode_clean' "$tmp/calls" && grep -qx 'setup_swap' "$tmp/calls" && grep -qx 'setup_backups' "$tmp/calls"; } || fail "housekeeping parts not called"
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker missing"
 pass "banner, link file, parts, done marker"
 
@@ -381,7 +382,7 @@ rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/sta
 # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 env PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 HATAMOTO_PUBLIC_IP=203.0.113.7 sh -c '. "$1"
-    install_motd() { :; }; install_dns_switch() { :; }; setup_swap() { :; }; setup_backups() { :; }
+    install_motd() { :; }; install_setupcode_clean() { :; }; install_dns_switch() { :; }; setup_swap() { :; }; setup_backups() { :; }
     stage_firstboot' _ "$fbscript" >"$tmp/out" 2>"$tmp/err" || fail "resume failed: $(cat "$tmp/err")"
 [ "$(cat "$r/opt/hatamoto/config/hatamoto.env")" = "$first" ] || fail "resume changed the secrets"
 grep -q 'ALTER ROLE hatamoto' "$tmp/state/psql-stdin" || fail "resume did not reset the role password"
@@ -402,7 +403,7 @@ rm -rf "$tmp/state"; mkdir -p "$tmp/state"; : > "$tmp/state/role"; : > "$tmp/sta
 # shellcheck disable=SC2016 # the single-quoted script expands in the child shell
 run_resume() { env -i PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT="$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 \
   HATAMOTO_FIRSTBOOT_POLL=0 "${fromfile[@]}" sh -c '. "$1"
-    install_motd() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
+    install_motd() { :; }; install_setupcode_clean() { :; }; install_dns_switch() { echo "pending=$FB_PENDING_DOMAIN" >> "$CALLS"; }; setup_swap() { :; }; setup_backups() { :; }
     stage_firstboot' _ "$fbscript" >"$tmp/out" 2>"$tmp/err"; }
 : > "$tmp/calls"
 run_resume || fail "resume from the saved inputs failed: $(cat "$tmp/err")"

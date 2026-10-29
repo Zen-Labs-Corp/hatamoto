@@ -447,6 +447,7 @@ stage_firstboot() {
   # Housekeeping parts, then the done marker last.
   fb_stage install_motd
   fb_stage install_dns_switch
+  fb_stage install_setupcode_clean
   fb_stage setup_backups
 
   fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip"

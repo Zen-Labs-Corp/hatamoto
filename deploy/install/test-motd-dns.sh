@@ -135,4 +135,33 @@ r="$(mkroot stale)"; setup "$r" example.com >/dev/null 2>&1; setup "$r" "" >/dev
 { [ ! -e "$r/etc/systemd/system/hatamoto-dns-switch.timer" ] && [ ! -e "$r/var/lib/hatamoto-install/dns-pending" ]; } || fail "stale timer kept"
 pass "no pending domain removes the timer"
 
+# --- setup code clean-up
+r="$(mkroot clean)"; : > "$tmp/calls"
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
+envrun "$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; install_setupcode_clean' _ "$fb" >/dev/null 2>&1 || fail "clean setup failed"
+c="$r/etc/systemd/system/hatamoto-setupcode-clean"
+{ grep -q 'OnUnitActiveSec=5min' "$c.timer" && grep -q 'Type=oneshot' "$c.service" && [ -x "$r/usr/local/lib/hatamoto/setupcode-clean.sh" ]; } || fail "clean units or script missing"
+grep -qx 'systemctl enable --now hatamoto-setupcode-clean.timer' "$tmp/calls" || fail "clean timer not enabled"
+envf="$r/opt/hatamoto/config/hatamoto.env"
+printf 'ONLY=after\n' >> "$envf"
+cl() { envrun "$r" "$@" sh "$r/usr/local/lib/hatamoto/setupcode-clean.sh"; }
+cp "$envf" "$tmp/env.before"; : > "$tmp/calls"
+cl FAKE_OWNERS=0 >"$tmp/o" 2>&1 || fail "no-owner run failed"
+cmp -s "$envf" "$tmp/env.before" || fail "env changed with no owner"
+if grep -q 'disable' "$tmp/calls"; then fail "timer disabled with no owner"; fi
+pass "no owner yet: the setup code stays"
+cl FAKE_OWNERS=1 >"$tmp/o" 2>&1 || fail "owner run failed: $(cat "$tmp/o")"
+if grep -q 'SETUP_CODE' "$envf"; then fail "setup code kept"; fi
+grep -v '^HATAMOTO_SETUP_CODE=' "$tmp/env.before" | cmp -s - "$envf" || fail "other lines changed"
+[ "$(stat -c %a "$envf")" = 640 ] || fail "env perms $(stat -c %a "$envf")"
+[ ! -e "$envf.new" ] || fail "temp file left behind"
+grep -qx 'systemctl disable --now hatamoto-setupcode-clean.timer' "$tmp/calls" || fail "timer not disabled"
+if grep -q 'K7M2' "$tmp/o"; then fail "code printed by the clean-up script"; fi
+pass "owner exists: only the setup code line is removed, mode kept, timer disabled, nothing printed"
+h="$(sha256sum "$envf")"; : > "$tmp/calls"
+cl FAKE_OWNERS=1 >/dev/null 2>&1 || fail "rerun failed"
+[ "$h" = "$(sha256sum "$envf")" ] || fail "rerun changed the env file"
+if grep -q 'restart' "$tmp/calls"; then fail "rerun restarted something"; fi
+pass "rerun is a no-op"
+
 echo "ok: test-motd-dns"
