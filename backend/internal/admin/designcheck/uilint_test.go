@@ -88,7 +88,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Check now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Unpin"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Reset ID"`, Reason: "setting row action bound to its own form by the form attribute"},
-	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Install"`, Reason: "list row action in a package row"},
+	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Turn off now"`, Reason: "banner action in its own form: turns the opt-in off at once"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `Update all (`, Reason: "list action above the plugin list, a form of its own that updates every plugin without a review step"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Review update to v%s"`, Reason: "list row action in a plugin row"},
@@ -135,7 +135,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-02", File: "css/base.css", Needle: "html:has(.hm-savebar)", Reason: "reserves scroll space when a sticky footer exists"},
 
 	// UI-03: checkboxes that are not a lone on/off setting.
-	{Rule: "UI-03", File: "pages/settings/plugins.html", Needle: `"understand"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "tier"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "cat"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "perm"`, Reason: reasonMulti},

@@ -290,9 +290,8 @@ func TestPluginsPageShowsPackageControls(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	for _, want := range []string{
-		"Unsigned packages", "Allow unsigned packages", // the opt-in, off by default
-		">Disabled<", `href="/admin/plugins/upload"`, `data-hm-open="upload-pkg"`, `href="#registry"`, `id="unsigned"`, `id="registry"`, `id="upload-pkg"`,
-		"Available plugins", "seo-tools", "SEO &lt;extras&gt;", "Upload package", `enctype="multipart/form-data"`,
+		">Disabled<", `href="/admin/plugins/upload"`, `data-hm-open="upload-pkg"`, `href="/admin/plugins/browse"`, `id="upload-pkg"`,
+		"Upload package", `enctype="multipart/form-data"`, "Unsigned packages are refused unless an owner allows them.",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
@@ -355,7 +354,7 @@ func TestUnsignedOptInNeedsAcknowledgement(t *testing.T) {
 		t.Fatalf("with the tick: %d unsigned=%v", rec.Code, pk.unsigned)
 	}
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Unsigned packages are allowed") || !strings.Contains(body, "Stop allowing unsigned packages") {
+	if !strings.Contains(body, "Unsigned packages are allowed") || !strings.Contains(body, "Turn off now") {
 		t.Error("the page must warn clearly while unsigned packages are allowed")
 	}
 	if rec := g.do("POST", "/admin/plugins/unsigned", "owner-token", url.Values{"allow": {"0"}}, nil); rec.Code != 303 || pk.unsigned {
@@ -873,7 +872,7 @@ func TestRegistryErrorShowsAFriendlyEmptyState(t *testing.T) {
 
 	g, pk, _ := newPackageRig(t)
 	pk.registry = RegistryView{Err: "registry: https://hatamoto.dev/registry.json answered 404 Not Found", Host: "hatamoto.dev"}
-	for path, kind := range map[string]string{"/admin/plugins": "plugin", "/admin/theme/themes": "theme"} {
+	for path, kind := range map[string]string{"/admin/theme/themes": "theme"} {
 		rec := g.do("GET", path, "owner-token", nil, nil)
 		body := rec.Body.String()
 		if rec.Code != 200 {
@@ -922,7 +921,7 @@ func TestPluginsUnsignedAllowedIsACallout(t *testing.T) {
 	g, pk, _ := newPackageRig(t)
 	pk.unsigned = true
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{">Allowed<", "hm-callout--danger", "Unsigned packages are allowed.", "Stop allowing unsigned packages", `id="installed"`} {
+	for _, want := range []string{"hm-callout--danger", "Unsigned packages are allowed until you turn it off.", "Turn off now", `action="/admin/plugins/unsigned/off"`, `id="installed"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -932,8 +931,8 @@ func TestPluginsUnsignedAllowedIsACallout(t *testing.T) {
 	}
 	a11yOK(t, body)
 	pk.unsigned = false
-	if body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String(); !strings.Contains(body, ">Not allowed<") {
-		t.Error("the off state lacks its badge")
+	if body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String(); strings.Contains(body, "unsigned-banner") || strings.Contains(body, "Available plugins") || strings.Contains(body, "/plugins#unsigned") {
+		t.Error("the banner shows while the opt-in is off, or an old section is back")
 	}
 }
 

@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
@@ -80,9 +83,19 @@ type pluginRow struct {
 	UpdateNew []string
 	// UpToDate: the registry lists this plugin and offers nothing newer.
 	UpToDate bool
+	// FirstParty marks a package signed by the project's own key; Initial is
+	// the letter of the row's neutral tile.
+	FirstParty bool
+	Initial    string
 	// updatable: takesUpdate said yes, so the row may show update state.
 	updatable bool
 }
+
+// attention says the row needs the owner: a stopped script or section.
+func (r pluginRow) attention() bool { return r.ScriptsBlocked || r.SectionsStopped }
+
+// disabled says the owner turned the plugin off.
+func (r pluginRow) disabled() bool { return r.State.Badge.Label == "Disabled" }
 
 // CanUpdate is the one-click state: a newer version that adds no permissions.
 func (r pluginRow) CanUpdate() bool { return r.Update != "" && len(r.UpdateNew) == 0 }
@@ -94,20 +107,41 @@ func takesUpdate(p PluginInfo) bool {
 	return p.Package != nil && p.Name != legacyWebhooksPlugin && p.Package.Blocked == "" && !p.Package.Uninstalling
 }
 
+// Views of the installed list, the ?view= values of its tabs.
+const (
+	pluginsViewAll       = "all"
+	pluginsViewUpdates   = "updates"
+	pluginsViewAttention = "attention"
+	pluginsViewDisabled  = "disabled"
+)
+
 type pluginsPage struct {
 	Plugins []pluginRow
-	// UpdateAll is how many rows have a one-click update; the header offers
-	// "Update all" when it is more than zero.
-	UpdateAll int
-	// Actions are the header's upload (opens the dialog) and registry links.
-	Actions []ui.Button
-	// Available are registry plugins that are not installed yet.
-	Available     []RegistryEntry
-	RegistryErr   string
-	RegistryHost  string
-	RegistryOff   bool
-	CanInstall    bool
+	// Total is how many plugins are installed, before the view and search narrow the list.
+	Total int
+	// UpdateAll is how many rows have a one-click update; the strip offers
+	// "Update all" when it is more than zero. Updates counts every row with a
+	// newer version, including those that need a review.
+	UpdateAll, Updates int
+	UpdatesText        string
+	Tabs               []ui.Tab
+	View, Q            string
+	// Actions are the header's Browse and Upload buttons; Overflow its menu.
+	Actions  []ui.Button
+	Overflow []ui.Action
+	// EmptyActions is the empty state's Browse button.
+	EmptyActions []ui.Button
+	// CanInstall is set when a package manager is wired: browsing, uploading
+	// and the package pages exist.
+	CanInstall bool
+	// Unsigned is the opt-in for unsigned packages; UnsignedUntil says when a
+	// timed one ends ("" when it lasts until it is turned off).
+	Unsigned      UnsignedState
+	UnsignedUntil string
 	AllowUnsigned bool
+	BrowseHref    string
+	// Filtered is true when a tab other than All or a search narrows the list.
+	Filtered bool
 }
 
 // pluginHead is what the plugin pages share: the plugin, its status and the
@@ -138,9 +172,17 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d := pluginsPage{}
+	q := r.URL.Query()
+	d := pluginsPage{View: pluginsViewAll, Q: strings.TrimSpace(q.Get("q")), BrowseHref: a.adminPath + "/plugins/browse"}
+	if v := q.Get("view"); slices.Contains([]string{pluginsViewUpdates, pluginsViewAttention, pluginsViewDisabled}, v) {
+		d.View = v
+	}
+	var rows []pluginRow
 	for _, p := range pa.Plugins() {
 		row := pluginRow{Name: p.Name, Description: p.Description, Version: p.Version, Href: a.pluginURL(p.Name, "settings"), State: pluginStatus(p)}
+		if r, _ := utf8.DecodeRuneInString(p.Name); r != utf8.RuneError {
+			row.Initial = string(unicode.ToUpper(r))
+		}
 		if p.Name == legacyWebhooksPlugin {
 			row.Legacy, row.RemoveHref = "other", a.pluginURL(p.Name, "uninstall")
 			if p.Package != nil && p.Package.FirstParty {
@@ -153,6 +195,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if p.Package != nil {
+			row.FirstParty = p.Package.FirstParty
 			row.ScriptsBlocked, row.AsksScripts = p.Package.ScriptsBlocked, p.Package.AsksScripts
 			row.SectionsStopped = len(p.Package.MarkupStopped) > 0
 		}
@@ -160,35 +203,107 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 			row.updatable = true
 			row.Update, row.UpdateNew = p.Package.Update, p.Package.UpdateNew
 		}
-		d.Plugins = append(d.Plugins, row)
+		rows = append(rows, row)
 	}
+	var checked time.Time
 	if pk := a.deps.Growth.Packages; pk != nil {
-		d.CanInstall, d.AllowUnsigned = true, pk.AllowUnsigned(r.Context())
-		d.Actions = []ui.Button{{Label: "Upload package", Href: a.adminPath + "/plugins/upload", Variant: "primary", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}}, {Label: "Browse registry", Href: "#registry", Icon: "search"}}
+		d.CanInstall = true
+		d.Unsigned = pk.UnsignedState(r.Context())
+		d.AllowUnsigned = d.Unsigned.On
+		if d.Unsigned.On && d.Unsigned.Until != nil {
+			d.UnsignedUntil = d.Unsigned.Until.UTC().Format("2 Jan 2006 15:04 UTC")
+		}
 		reg := pk.Registry(r.Context())
-		d.RegistryErr, d.RegistryOff, d.RegistryHost = reg.Err, reg.Off, reg.Host
+		checked = reg.FetchedAt
 		listed := map[string]bool{}
 		for _, e := range reg.Entries {
-			if e.Kind != "plugin" {
-				continue
-			}
-			if !e.Installed {
-				d.Available = append(d.Available, e)
-			} else if !e.Update {
+			if e.Kind == "plugin" && e.Installed && !e.Update {
 				listed[e.Name] = true
 			}
 		}
-		for i := range d.Plugins {
-			row := &d.Plugins[i]
+		for i := range rows {
+			row := &rows[i]
 			row.UpToDate = row.updatable && listed[row.Name] && row.Update == "" && row.Legacy == ""
-			if row.CanUpdate() {
-				d.UpdateAll++
-			}
 		}
+	}
+	counts := map[string]int{pluginsViewAll: len(rows)}
+	for _, row := range rows {
+		if row.CanUpdate() {
+			d.UpdateAll++
+		}
+		if row.Update != "" {
+			counts[pluginsViewUpdates]++
+		}
+		if row.attention() {
+			counts[pluginsViewAttention]++
+		}
+		if row.disabled() {
+			counts[pluginsViewDisabled]++
+		}
+	}
+	d.Total, d.Updates = len(rows), counts[pluginsViewUpdates]
+	d.UpdatesText = countNoun(d.Updates, "update") + " ready to install."
+	needle := strings.ToLower(d.Q)
+	for _, row := range rows {
+		keep := true
+		switch d.View {
+		case pluginsViewUpdates:
+			keep = row.Update != ""
+		case pluginsViewAttention:
+			keep = row.attention()
+		case pluginsViewDisabled:
+			keep = row.disabled()
+		}
+		if keep && needle != "" {
+			keep = strings.Contains(strings.ToLower(row.Name), needle) || strings.Contains(strings.ToLower(row.Description), needle)
+		}
+		if keep {
+			d.Plugins = append(d.Plugins, row)
+		}
+	}
+	d.Filtered = d.View != pluginsViewAll || d.Q != ""
+	d.Tabs = a.pluginsTabs(d, counts)
+	if d.CanInstall {
+		d.Actions = []ui.Button{
+			{Label: "Browse plugins", Href: d.BrowseHref, Variant: "primary", Icon: "search"},
+			{Label: "Upload", Href: a.adminPath + "/plugins/upload", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+		}
+		check := ui.Action{Label: "Check for updates", Post: a.adminPath + "/plugins/check-updates"}
+		if !checked.IsZero() {
+			check.Hint = "Last checked " + agoText(pluginsNow().Sub(checked))
+		}
+		d.EmptyActions = d.Actions[:1]
+		d.Overflow = append(d.Overflow, check)
+		if a.deps.AuditLog != nil {
+			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Href: a.adminPath + auditRel})
+		}
+		d.Overflow = append(d.Overflow, ui.Action{Label: "Package security", Href: a.adminPath + "/plugins/security"})
 	}
 	v := a.NewView(w, r, "Plugins")
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/plugins", v)
+}
+
+// pluginsTabs is the view switch of the installed list; a search carries over.
+func (a *Admin) pluginsTabs(d pluginsPage, counts map[string]int) []ui.Tab {
+	var tabs []ui.Tab
+	for _, t := range []struct{ view, label string }{
+		{pluginsViewAll, "All"}, {pluginsViewUpdates, "Updates"}, {pluginsViewAttention, "Needs attention"}, {pluginsViewDisabled, "Disabled"},
+	} {
+		href := a.adminPath + "/plugins"
+		qs := url.Values{}
+		if t.view != pluginsViewAll {
+			qs.Set("view", t.view)
+		}
+		if d.Q != "" {
+			qs.Set("q", d.Q)
+		}
+		if len(qs) > 0 {
+			href += "?" + qs.Encode()
+		}
+		tabs = append(tabs, ui.Tab{Label: t.label, Href: href, Count: counts[t.view], Active: d.View == t.view})
+	}
+	return tabs
 }
 
 // pluginState is a plugin's status as the list, the plugin page and the
