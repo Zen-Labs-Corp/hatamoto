@@ -82,8 +82,8 @@ handoff material are stale, do not copy them.
    hairline), and `--shadow-2` or `--shadow-3` on popups only: dialogs, menus,
    popover panels, the slash menu and bubble, toasts, search-select lists, styled-select lists (`.hm-select__list`), the
    token list and the page editor rich popup. The selected
-   segment of every segmented control (`hm/segmented`, and the pill row `hm/tabs` `Variant "segmented"`) is an
-   ink fill with no border and no shadow. One named exception: the sticky blog editor
+   segment of every segmented control (`hm/segmented`, and the pill row `hm/tabs` `Variant "segmented"`) is a
+   paper pill on the grey track with a hairline ring (`0 0 0 1px`), an inset bottom bevel and a semibold label, and no drop shadow. One named exception: the sticky blog editor
    toolbar (`.hm-ed__bar`) carries `--shadow-1`. Nothing else may use `--shadow-1`.
    Tooltips share one type and radius (`--text-xs`, `--weight-medium`, `--radius-sm`); the analytics chart
    tooltip (`.hm-aia-tt`) keeps its paper fill and 1px border, with no shadow, because it holds rows of data.
@@ -139,13 +139,13 @@ A change to one component edits only its own subsection below and its entry in t
 | savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
 | savestate | `.hm-savestate` | `css/partials/savestate.css` | `hm/savestate` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 | searchselect-list | `.hm-searchselect__list` | `css/partials/searchselect.css` | `hm/searchselect` | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
-| segmented | `.hm-segmented__btn` | `css/partials/segmented.css` | `hm/segmented` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-segmented__input:checked + .hm-segmented__btn`: `background-color: var(--color-sumi)`; `.hm-segmented__btn[aria-pressed="true"]`: `background-color: var(--color-sumi)` |
+| segmented | `.hm-segmented__btn` | `css/partials/segmented.css` | `hm/segmented` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-segmented__input:checked + .hm-segmented__btn`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-segmented__btn[aria-pressed="true"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)` |
 | select-list | `.hm-select__list` | `css/partials/select.css` | `hm/select` | `border-top-color: var(--border-control)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
 | statcard | `.hm-statcard` | `css/partials/chart.css` | `hm/stat` |  |
 | statgrid | `.hm-statgrid` | `css/partials/chart.css` | `hm/stats` |  |
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
-| tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
+| tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
 <!-- components:end -->
 
 ### Button
@@ -245,7 +245,7 @@ the page is, or only how the same data is shown?
 - **Pills rearrange in place.** Picking an item changes the order, grouping, period
   or view of data that stays on the page: `group`, `from` and `to`, `range`,
   `view`. Pills are `hm/tabs` with `"Variant" "segmented"`: the same look as
-  `hm/segmented`: a `--border-control` grey track and an ink-filled selected chip with no border and no shadow. They sit inside the
+  `hm/segmented`: a `--border-control` grey track and a selected chip that is a paper pill with a hairline ring, a bottom bevel and a semibold label. They sit inside the
   content next to what they change. The period is not a pill row: it is the date
   picker (`hm/daterange` inside `hm/pageheader`), because it applies to the whole
   page and its preset list already covers the common periods.
@@ -261,9 +261,7 @@ the page is, or only how the same data is shown?
   tabs and the shared SEO panel's Search / Social / Schema / Advanced tabs (`hm/seopanel`,
   module `@hm/seopanel`, shown stacked under their headings without JavaScript), use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
   accent underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
-  rules. The builder's phone tabs (Sections, Settings, Preview, below 960px) borrow the segmented
-  look: a grey track with an ink-filled selected chip. They sit in the
-  flow under the editor bar, never sticky.
+  rules. The builder's phone tabs (Navigator, Add, Inspector, below 960px) are not segmented: they are `.hm-bs__dock-btn` buttons in a fixed bottom bar, and the selected tab has a kasumi fill with an ink top line (see Selected state).
 
 | Choice | Row | Why |
 |---|---|---|
@@ -504,15 +502,15 @@ a page never adds a second form or a second primary button inside the card. The 
 
 Partial: `hm/segmented`. Contract: `components.json` key `segmented`.
 
-Rules: use it for one value out of a short list. Three modes, one look: `Mode ""` (post: each button is its own submit and no script is needed, the submission status), `"radio"` (a fieldset of radios a surrounding form posts, the Allow/Block policy) and `"buttons"` (`aria-pressed` buttons a script reads, the builder and blog editor width switches). The selected option has the ink fill (`--color-sumi`, paper text), no border and no shadow, in every mode. It is not navigation (use `hm/tabs`) and never holds more than five choices. Never hand-build a row of `aria-pressed` buttons (the parked exceptions under Selected state aside).
+Rules: use it for one value out of a short list. Three modes, one look: `Mode ""` (post: each button is its own submit and no script is needed, the submission status), `"radio"` (a fieldset of radios a surrounding form posts, the Allow/Block policy) and `"buttons"` (`aria-pressed` buttons a script reads, the builder and blog editor width switches). The selected option is a paper pill (`--color-paper` fill, `--color-sumi` semibold text) with a hairline ring and a bottom bevel (ring and inset shadows only), no border, in every mode. Forced-colors mode adds a `Highlight` outline. It is not navigation (use `hm/tabs`) and never holds more than five choices. Never hand-build a row of `aria-pressed` buttons (the parked exceptions under Selected state aside).
 
-How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: `--border-control` track, ink fill on the selected option, no shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
+How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: `--border-control` track, paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
 
 ### Selected state
 
 One rule for what "selected" looks like, so no screen invents its own:
 
-- **A choice among siblings** (one value out of a short row) is an **ink fill**: `hm/segmented`, the pill row `hm/tabs` `Variant "segmented"` and the builder phone tabs.
+- **A choice among siblings** (one value out of a short row) is a **paper pill with a hairline ring and a bottom bevel** and a semibold label: `hm/segmented` and the pill row `hm/tabs` `Variant "segmented"`. The standalone builder toggles (the phone dock tabs, the inspector value and link buttons) use a kasumi fill with an ink edge; a hovered unselected inspector option only darkens its border. In forced-colors mode every selected control also gets a `Highlight` outline.
 - **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
 - **An item in a list or grid** (media tiles, the media picker tile, radio cards) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
 
@@ -520,7 +518,7 @@ Accent is for tabs, links and focus; ink is for selection. Both inks invert in d
 
 **Deliberate exceptions** (parked, each with its reason; do not copy them into new screens):
 
-- `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps): an accent fill. They sit in a dense inspector next to the canvas selection outline, which is also accent, so the pressed value reads as the same "this is applied" cue; converging them on ink is a one-line change when the inspector is next redesigned.
+- `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps) and the phone dock tabs: a kasumi fill with an ink edge, not a paper pill. They are standalone buttons in a dense inspector, not a track of siblings.
 - `.hm-theme--active` (Themes page): an accent 2px ring on the active theme card. It marks "in use on the site", not a pending choice, so it follows the accent of the Active badge it carries.
 - `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the ink border and kasumi fill of a pressed button.
 - `.hm-aia-lg` legend toggles (chart series): the toggle shows a series on or off, and its swatch carries the series colour, so the pressed state is dimming, not a fill.
@@ -689,7 +687,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-D5 | At most one primary button per footer, per dialog footer and per page header. |
 | UI-D6 | A card footer is never inside the card body, and is as wide as the card. |
 | UI-D7 | Exactly one visible `nav[aria-label="Breadcrumb"]` per screen at 1440 and 390: the top bar trail (compact on phones), or the editor bar trail on the editor screens, whose back link stands in for it on phones. A second visible trail in the panel, or a trail hidden by CSS, is the violation. |
-| UI-D8 | The selected item of a segmented control (pill row, radio or button) is an ink fill (`--color-sumi`) with paper text, no border and no shadow (compared against the resolved tokens, light and dark). |
+| UI-D8 | The selected item of a segmented control (pill row, radio or button) is a paper pill (`--color-paper` fill, `--color-sumi` text) with no border and a hairline ring (ring and inset shadow parts only, no drop shadow), compared against the resolved tokens, light and dark. |
 | UI-D9 | Tabs navigate, pills rearrange in place. A segmented row stays on one path and its items differ only in the params it declares with `Changes` (`group`, `from`, `to`, `range`, `view`); a segmented row with no `Changes` fails. A page has at most two tab rows, and a `sub` row sits under an underline row. |
 | UI-D10 | On list screens (`list: true` in `urls.mjs`) the first content block after the header is the list, no post form sits beside it outside a dialog (the bulk action form of the table, `id="bulk-..."`, and forms inside rows are not beside it), and the header has exactly one primary that opens a create page (`/new`, `/upload` or `/invite`). |
 | UI-D11 | Text inputs, selects and textareas at rest have the computed border colour of `--border-field`, not `--border-control`. On `hover: true` screens the border darkens to `--color-hai` or `--border-control` under the pointer. |

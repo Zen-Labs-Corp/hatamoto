@@ -1116,7 +1116,7 @@ func TestUILintSelfTestDetections(t *testing.T) {
 		{"dialogue is not a popup", "css/pages/x.css", ".hm-dialogue { box-shadow: var(--shadow-3); }", []string{"1 UI-04"}},
 		{"menu is a popup", "css/pages/x.css", ".hm-menu { box-shadow: var(--shadow-2); }\n.hm-menu__item { box-shadow: var(--shadow-2); }\n.hm-dialog--wide { box-shadow: var(--shadow-3); }", nil},
 
-		// UI-04: --shadow-1 has no exception left (the selected segment is an ink fill, no lift).
+		// UI-04: --shadow-1 has no exception left (the selected segment is a paper pill drawn with a ring and a bevel, no lift).
 		{"selected segment has no lift", "css/partials/tabs.css", `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { box-shadow: var(--shadow-1); }`, []string{"1 UI-04"}},
 		{"shadow-1 on a card", "css/pages/x.css", ".hm-card { box-shadow: var(--shadow-1); }", []string{"1 UI-04"}},
 		{"shadow-1 on a tab hover", "css/pages/x.css", ".hm-tabs__tab:hover { box-shadow: var(--shadow-1); }", []string{"1 UI-04"}},
