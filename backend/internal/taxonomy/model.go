@@ -82,6 +82,24 @@ type Term struct {
 	// Path is the slash-joined slugs from the root term down to this one
 	// ("tutorials/go"); set by Repository.FillPaths, empty otherwise.
 	Path string `json:"path,omitempty"`
+
+	// SEO holds the per-term search values; nil when none are saved.
+	SEO *TermSEO `json:"seo,omitempty"`
+}
+
+// TermSEO is the per-term SEO document. The keys match the entry attributes
+// of the same name.
+type TermSEO struct {
+	MetaTitle       string `json:"meta_title,omitempty"`
+	MetaDescription string `json:"meta_description,omitempty"`
+	CanonicalURL    string `json:"canonical_url,omitempty"`
+	OGImage         string `json:"og_image,omitempty"`
+	NoIndex         bool   `json:"no_index,omitempty"`
+}
+
+// IsZero reports whether no value is set (a nil receiver counts as empty).
+func (s *TermSEO) IsZero() bool {
+	return s == nil || *s == TermSEO{}
 }
 
 // TermWithCount augments a term with the count of entities currently

@@ -2,6 +2,7 @@ package taxonomy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -67,6 +68,7 @@ func (f *fakeRepo) UpdateTerm(_ context.Context, t *Term) error {
 	existing.Slug = t.Slug
 	existing.Description = t.Description
 	existing.ParentID = t.ParentID
+	existing.SEO = t.SEO
 	existing.UpdatedAt = time.Now()
 	f.bySlug[newKey] = existing
 	return nil
@@ -595,5 +597,76 @@ func TestServiceWritesNotifyChangeObserver(t *testing.T) {
 	// A refused write must not purge.
 	if _, err := svc.CreateTerm(ctx, CreateTermInput{Kind: "tag", Name: ""}); err == nil || calls != 4 {
 		t.Fatalf("invalid create: err=%v calls=%d", err, calls)
+	}
+}
+
+func TestServiceUpdateTerm_SEO(t *testing.T) {
+	ctx := context.Background()
+	svc := NewService(newFakeRepo(), nil)
+	term, _ := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: "Guides"})
+
+	got, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides",
+		SEO: &TermSEO{MetaTitle: "  Guides  ", CanonicalURL: "https://example.com/g", NoIndex: true}})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if got.SEO == nil || got.SEO.MetaTitle != "Guides" || !got.SEO.NoIndex {
+		t.Fatalf("seo not stored/trimmed: %+v", got.SEO)
+	}
+
+	got, err = svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides 2"})
+	if err != nil || got.SEO == nil || got.SEO.MetaTitle != "Guides" {
+		t.Fatalf("nil SEO must keep stored value: %+v, %v", got.SEO, err)
+	}
+
+	got, err = svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides 2", SEO: &TermSEO{}})
+	if err != nil || got.SEO != nil {
+		t.Fatalf("zero SEO must clear: %+v, %v", got.SEO, err)
+	}
+}
+
+func TestServiceUpdateTerm_RejectsInvalidSEO(t *testing.T) {
+	ctx := context.Background()
+	svc := NewService(newFakeRepo(), nil)
+	term, _ := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: "Guides"})
+	for _, in := range []TermSEO{
+		{CanonicalURL: "javascript:alert(1)"},
+		{CanonicalURL: "example.com/x"},
+		{CanonicalURL: "//evil.test/x"},
+		{MetaTitle: strings.Repeat("a", maxSEOTitleLen+1)},
+		{MetaDescription: strings.Repeat("a", maxSEODescriptionLen+1)},
+	} {
+		in := in
+		if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &in}); !errors.Is(err, ErrInvalidSEO) {
+			t.Errorf("%+v: err = %v, want ErrInvalidSEO", in, err)
+		}
+	}
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &TermSEO{CanonicalURL: "/guides"}}); err != nil {
+		t.Errorf("root-relative canonical rejected: %v", err)
+	}
+}
+
+func TestTermJSONOmitsEmptySEO(t *testing.T) {
+	b, _ := json.Marshal(Term{Name: "x"})
+	if strings.Contains(string(b), "seo") {
+		t.Errorf("empty SEO leaked into JSON: %s", b)
+	}
+	b, _ = json.Marshal(Term{SEO: &TermSEO{MetaTitle: "t"}})
+	if !strings.Contains(string(b), `"seo":{"meta_title":"t"}`) {
+		t.Errorf("SEO missing: %s", b)
+	}
+}
+
+func TestTermSEOCodec(t *testing.T) {
+	if s, err := decodeTermSEO([]byte("{}")); s != nil || err != nil {
+		t.Errorf("{} => %v, %v", s, err)
+	}
+	raw, _ := encodeTermSEO(nil)
+	if string(raw) != "{}" {
+		t.Errorf("nil encodes to %s", raw)
+	}
+	raw, _ = encodeTermSEO(&TermSEO{OGImage: "/a.png"})
+	if s, _ := decodeTermSEO(raw); s == nil || s.OGImage != "/a.png" {
+		t.Errorf("roundtrip: %s => %v", raw, s)
 	}
 }
