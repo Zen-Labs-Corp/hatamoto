@@ -111,6 +111,7 @@ The field editor builds the schema from rows. You can drag rows to reorder them 
 
 **Settings > Entity models > Taxonomies** (`<admin>/settings/taxonomies`, owners) manages categories, tags and any custom kinds. Each kind is a tab, and its terms are a tree you can nest. Open a term at `<admin>/settings/taxonomies/terms/{id}` to rename it, change its parent, merge it into another term or delete it.
 
+- A term's edit page has a **Search appearance** card: the SEO title, SEO description, canonical address, social image and the switch that asks search engines not to list the archive, in the same tabs as the entity form. Terms have no body, so the content checks (such as internal links) are not shown. What you save is used by the term's public archive page: the title and description go into its head, the canonical address only on the first page of the archive, and "do not list" adds `noindex`. A description is never copied from the term's own description; leave the field empty and the archive has none, as before.
 - A merge moves every entity to the target term and sends the old archive address to the new one with a redirect.
 - Renaming a term or giving it another parent also redirects the archive paths of the term and its children.
 - Editors can assign existing terms from the entity form but cannot create terms there. Owners can.

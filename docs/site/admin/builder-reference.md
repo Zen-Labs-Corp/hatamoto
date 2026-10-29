@@ -49,7 +49,9 @@ On a screen 959 pixels wide or less the panes stack and a dock at the bottom swi
 
 **Hints.** Two one-time notes ("Click to select. Double-click text to type." and "Press / or use Add to insert anything.") show until you press **Got it** or make your first insert, and are remembered per user in this browser.
 
-**More menu.** **Versions**, **Page settings** (slug and SEO, on the entity form), **Site styles** (owners only), **Keyboard shortcuts**, then in red **Delete page** (**Delete block** or **Delete part** on those screens), always behind a confirmation.
+**More menu.** **Versions**, **SEO** (the drawer above), **Page settings** (slug and the rest, on the entity form), **Site styles** (owners only), **Keyboard shortcuts**, then in red **Delete page** (**Delete block** or **Delete part** on those screens), always behind a confirmation.
+
+**SEO drawer.** On a page, **SEO** in the top bar opens a panel on the right, over the preview, with the same Search, Social, Schema and Advanced tabs as the other editors: SEO title, SEO description, social image, canonical address and the switch that asks search engines not to list the page. The checks read the page as you have it now, including changes you have not saved, and look at the page's main content. Edits are saved with the page by **Save draft**, **Update page** or the automatic save. Press Esc or **Close** to hide the drawer; focus goes back to the **SEO** button. Blocks and layout parts have no SEO button.
 
 **Command palette.** `Ctrl/Cmd+K` opens a centred search from anywhere, even from a text box. It lists Recent, Patterns, Elements, Blocks and Commands: Undo, Redo, Desktop, Tablet, Phone, Show or hide Navigator, Show or hide Inspector, History, Keyboard shortcuts, Save as block…, Save as template…, Site styles (owners) and Preview (pages with a public address). Enter runs the chosen row; Shift+Enter on an element or pattern inserts it and leaves the palette open. Typing ranks matches by name first. `Ctrl/Cmd+K` also works while focus is on the page itself, inside the canvas frame. In a text edit on the canvas it is the link shortcut instead.
 

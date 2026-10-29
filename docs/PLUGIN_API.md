@@ -463,6 +463,8 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows": [[..]], "truncated"? }` (at most 1,000 rows and 1 MiB) |
 | `db.exec` | `{ "sql", "args"? }` | `{ "rows_affected" }` |
 
+A **Term** may carry an optional `seo` object, `{ "meta_title", "meta_description", "canonical_url", "og_image", "no_index" }` (every member optional, the whole object left out when nothing is saved): the search appearance an owner set on the term's edit page. It is an additive field of `terms.get`, `terms.list` and `terms.save` results; `terms.save` never changes a saved `seo`.
+
 Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
 
 **`render.head` runs once per render.** A page served from the cache does not run it at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
