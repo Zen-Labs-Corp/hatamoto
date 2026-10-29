@@ -46,19 +46,23 @@ func settingsOf(t *testing.T, svc *Service, id uuid.UUID) map[string]json.RawMes
 	return m
 }
 
-// waitForSchemaLockWaiters polls (10s deadline) until n sessions wait on a lock
-// in a statement that touches the schema table, so a holder is released only
-// once every waiter really queues behind it.
-func waitForSchemaLockWaiters(t *testing.T, n int) {
+// waitForSchemaLockWaiters polls (10s deadline) until n sessions are blocked by
+// the holder's backend pid, directly or by queueing behind another waiter, so
+// a holder is released only once every waiter really queues behind it
+// (sessions of parallel runs are not counted).
+func waitForSchemaLockWaiters(t *testing.T, holderPID, n int) {
 	t.Helper()
 	db := newIntegrationDB(t)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		var got int
 		err := db.Pool().QueryRow(context.Background(), `
-			SELECT count(*) FROM pg_stat_activity
-			WHERE datname = current_database() AND wait_event_type = 'Lock'
-			  AND query LIKE '%hatamoto_entity_schemas%' AND pid <> pg_backend_pid()`).Scan(&got)
+			WITH RECURSIVE queued(pid) AS (
+				SELECT pid FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))
+				UNION
+				SELECT a.pid FROM pg_stat_activity a JOIN queued q ON q.pid = ANY(pg_blocking_pids(a.pid))
+			)
+			SELECT count(*) FROM queued`, holderPID).Scan(&got)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -73,8 +77,9 @@ func waitForSchemaLockWaiters(t *testing.T, n int) {
 }
 
 // holdSchemaRow locks the schema row in a transaction until the returned
-// release is called, which commits and reports the holder's error.
-func holdSchemaRow(t *testing.T, svc *Service, id uuid.UUID) (release func() error) {
+// release is called, which commits and reports the holder's error. It also
+// returns the holder's backend pid.
+func holdSchemaRow(t *testing.T, svc *Service, id uuid.UUID) (release func() error, holderPID int) {
 	t.Helper()
 	ctx := context.Background()
 	gate := make(chan struct{})
@@ -86,12 +91,20 @@ func holdSchemaRow(t *testing.T, svc *Service, id uuid.UUID) (release func() err
 				close(locked)
 				return err
 			}
+			if err := tx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
+				close(locked)
+				return err
+			}
 			close(locked)
 			<-gate
 			return nil
 		})
 	}()
 	<-locked
+	if holderPID == 0 {
+		close(gate)
+		t.Fatal("could not lock the schema row or read the holder pid")
+	}
 	var once sync.Once
 	var result error
 	release = func() error {
@@ -102,7 +115,7 @@ func holdSchemaRow(t *testing.T, svc *Service, id uuid.UUID) (release func() err
 		return result
 	}
 	t.Cleanup(func() { _ = release() }) // a failed test must not leave the lock held
-	return release
+	return release, holderPID
 }
 
 // Two archive patches on one schema row, both blocked behind a test
@@ -110,7 +123,7 @@ func holdSchemaRow(t *testing.T, svc *Service, id uuid.UUID) (release func() err
 func TestUpdateSchemaSEOSettingsConcurrentWithSchemaEdit(t *testing.T) {
 	ctx := context.Background()
 	svc, sc := newSEOIntegrationService(t)
-	release := holdSchemaRow(t, svc, sc.ID)
+	release, holderPID := holdSchemaRow(t, svc, sc.ID)
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
@@ -124,7 +137,7 @@ func TestUpdateSchemaSEOSettingsConcurrentWithSchemaEdit(t *testing.T) {
 			errs <- svc.UpdateSchemaSEOSettings(ctx, sc.ID, p)
 		}()
 	}
-	waitForSchemaLockWaiters(t, 2)
+	waitForSchemaLockWaiters(t, holderPID, 2)
 	if err := release(); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +164,7 @@ func TestUpdateSchemaSEOSettingsConcurrentWithSchemaEdit(t *testing.T) {
 func TestUpdateSchemaTakesTheSchemaRowLock(t *testing.T) {
 	ctx := context.Background()
 	svc, sc := newSEOIntegrationService(t)
-	release := holdSchemaRow(t, svc, sc.ID)
+	release, holderPID := holdSchemaRow(t, svc, sc.ID)
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
@@ -162,13 +175,13 @@ func TestUpdateSchemaTakesTheSchemaRowLock(t *testing.T) {
 		_, err := svc.UpdateSchema(ctx, sc.ID, &UpdateSchemaInput{Settings: &settings})
 		errs <- err
 	}()
-	waitForSchemaLockWaiters(t, 1)
+	waitForSchemaLockWaiters(t, holderPID, 1)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		errs <- svc.UpdateSchemaSEOSettings(ctx, sc.ID, SchemaSEOPatch{ArchiveTitle: strp("After edit")})
 	}()
-	waitForSchemaLockWaiters(t, 2)
+	waitForSchemaLockWaiters(t, holderPID, 2)
 	if err := release(); err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +205,7 @@ func TestSchemaRowLockDoesNotBlockEntityInsert(t *testing.T) {
 	ctx := context.Background()
 	svc, sc := newSEOIntegrationService(t)
 
-	release := holdSchemaRow(t, svc, sc.ID)
+	release, _ := holdSchemaRow(t, svc, sc.ID)
 
 	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

@@ -60,17 +60,21 @@ func lockSEORow(t *testing.T, pool *pgxpool.Pool) {
 	})
 }
 
-// waitForSEOLockWaiters polls (10s deadline) until n sessions wait on a lock in
-// a statement that touches the SEO settings table.
-func waitForSEOLockWaiters(t *testing.T, pool *pgxpool.Pool, n int) {
+// waitForSEOLockWaiters polls (10s deadline) until n sessions are blocked by
+// the holder's backend pid, directly or by queueing behind another waiter
+// (sessions of parallel runs are not counted).
+func waitForSEOLockWaiters(t *testing.T, pool *pgxpool.Pool, holderPID, n int) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		var got int
 		err := pool.QueryRow(context.Background(), `
-			SELECT count(*) FROM pg_stat_activity
-			WHERE datname = current_database() AND wait_event_type = 'Lock'
-			  AND query LIKE '%hatamoto_seo_settings%' AND pid <> pg_backend_pid()`).Scan(&got)
+			WITH RECURSIVE queued(pid) AS (
+				SELECT pid FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))
+				UNION
+				SELECT a.pid FROM pg_stat_activity a JOIN queued q ON q.pid = ANY(pg_blocking_pids(a.pid))
+			)
+			SELECT count(*) FROM queued`, holderPID).Scan(&got)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,8 +136,14 @@ func TestStoreMergeConcurrentSavesKeepBothTabs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// Registered after the restore cleanup, so it runs first (LIFO): a
+			// failed wait must not leave the barrier holding the lock.
+			t.Cleanup(func() { _ = barrier.Rollback(context.Background()) })
+			var barrierPID int
+			if err := barrier.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&barrierPID); err != nil {
+				t.Fatal(err)
+			}
 			if err := st.MergeTx(ctx, barrier, func(s *Settings) { s.Home = "%title%" }); err != nil {
-				barrier.Rollback(ctx)
 				t.Fatal(err)
 			}
 
@@ -146,7 +156,7 @@ func TestStoreMergeConcurrentSavesKeepBothTabs(t *testing.T) {
 					errs <- st.Merge(ctx, func(s *Settings) { s.Variables[key] = "v-" + key })
 				}()
 			}
-			waitForSEOLockWaiters(t, pool, 2) // both queue behind the barrier; their order is irrelevant to the assertion
+			waitForSEOLockWaiters(t, pool, barrierPID, 2) // both queue behind the barrier; their order is irrelevant to the assertion
 			if err := barrier.Commit(ctx); err != nil {
 				t.Fatal(err)
 			}
