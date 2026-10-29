@@ -4,6 +4,7 @@
 // with a real pointer and keyboard, saves, reloads and compares the tree with what the
 // editor showed, and reads the public footer. The Footer menu is put back at the end.
 // node scripts/admin-qa/menu-editor.mjs   Exit 1 on a failed check.
+import fs from "node:fs";
 import { launch, newSession, base } from "./lib.mjs";
 
 const b = await launch();
@@ -63,6 +64,20 @@ async function postSave(p, fields) {
 async function save(p) {
   await Promise.all([p.waitForNavigation(), p.locator('.hm-savebar button[name="_op"][value="save"]').click()]);
 }
+
+// treeSemantics reports what assistive technology reads from the tree: the roles,
+// each row's level, its selection and, on a parent, whether it is expanded.
+const treeSemantics = (p) => p.$eval("[data-hm-menutree]", (t) => {
+  const lis = [...t.querySelectorAll(":scope > [data-hm-item]")];
+  return t.getAttribute("role") === "tree" && lis.every((l, i) => {
+    const d = Number(l.dataset.depth);
+    const parent = i + 1 < lis.length && Number(lis[i + 1].dataset.depth) > d;
+    return l.getAttribute("role") === "treeitem"
+      && l.getAttribute("aria-level") === String(d + 1)
+      && l.getAttribute("aria-selected") === String(l.hasAttribute("data-hm-selected"))
+      && (parent ? ["true", "false"].includes(l.getAttribute("aria-expanded")) : !l.hasAttribute("aria-expanded"));
+  });
+});
 
 async function publicFooter() {
   const res = await page.request.get(`${base}/`);
@@ -231,6 +246,7 @@ try {
   await (await byLabel(page, "Versus Beta")).focus();
   await page.keyboard.press("Alt+ArrowUp");
   ok(await names(), "item 6: the names are right after an indent and a reorder");
+  ok(await treeSemantics(page), "tree: roles and levels follow an indent and a reorder");
   await reopen();
 
   // ---- A7: Remove takes the group, Undo gives it back ----------------------------
@@ -243,10 +259,12 @@ try {
   ok(await page.locator("[data-hm-undo-all]").isEnabled(), "A7: the save bar Undo is ready");
   await page.locator("[data-hm-undo-all]").click();
   ok(same(await rowsOf(page), full), "A7: Undo restores the same order and depths");
+  ok(await treeSemantics(page), "tree: roles, levels, selection and expanded state are right after an undo");
   ok((await state(page)) === "saved", "A7: after Undo the menu reads saved again");
   await (await byLabel(page, "Trust")).focus();
   await page.keyboard.press("Delete");
   ok((await rowsOf(page)).length === full.length - 7, "A7: Delete on a focused item removes it with its sub-items");
+  ok(await treeSemantics(page), "tree: roles, levels, selection and expanded state are right after a removal");
   await page.keyboard.press("Control+z");
   ok(same(await rowsOf(page), full), "A7: Ctrl+Z undoes the removal");
   await page.keyboard.press("Control+Shift+z");
@@ -270,6 +288,14 @@ try {
   await page.locator("[data-hm-preview-width=desktop]").click();
   await frame.locator("footer a", { hasText: "Security" }).click();
   ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").inputValue()) === "Security", "preview: a click on a link selects its item and does not leave the editor");
+
+  // axe accepts the tree pattern on the editor's rows.
+  const scan = await newSession(b, { theme: "light", width: 1440, bypassCSP: true });
+  await scan.goto(base + footerHref);
+  await scan.waitForSelector("[data-hm-item][role=treeitem]");
+  await scan.addScriptTag({ content: fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8") });
+  const axeBad = await scan.evaluate(async () => (await axe.run("#menu-tree", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] }, rules: { "color-contrast": { enabled: false } } })).violations.map((v) => `${v.id} x${v.nodes.length} ${v.nodes[0].target.join(" ")} ${v.nodes[0].html.slice(0, 80)}`));
+  ok(axeBad.length === 0, `tree: axe finds no violation in the tree (${axeBad.join(", ")})`);
 
   // ---- Enter in a field confirms it and does not save the menu ---------------------
   await page.evaluate(() => { window.__stay = 1; });

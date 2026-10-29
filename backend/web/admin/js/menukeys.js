@@ -40,6 +40,9 @@ export function init(tree, api) {
     selected = selected.filter((li) => all.includes(li));
     if (!all.includes(cursor)) cursor = selected[0] ?? all[0] ?? null;
     all.forEach((li) => {
+      li.setAttribute("role", "treeitem");
+      li.setAttribute("aria-selected", String(selected.includes(li)));
+      li.setAttribute("aria-level", String(depthOf(li) + 1));
       li.toggleAttribute("data-hm-selected", selected.includes(li));
       li.toggleAttribute("data-hm-collapsed", collapsed.has(li));
       li.tabIndex = li === cursor ? 0 : -1;
@@ -83,6 +86,8 @@ export function init(tree, api) {
     all.forEach((li, i) => {
       li.hidden = !shown.has(li);
       const parent = i + 1 < all.length && depthOf(all[i + 1]) > depthOf(li);
+      if (parent) li.setAttribute("aria-expanded", String(!collapsed.has(li)));
+      else li.removeAttribute("aria-expanded");
       const toggle = li.querySelector("[data-hm-collapse]");
       if (toggle) {
         toggle.hidden = !parent;
@@ -256,6 +261,12 @@ export function init(tree, api) {
     const list = (evt.detail?.items ?? []).filter((li) => rows().includes(li));
     select(list, list.at(-1), false);
   });
+
+  // The rows are a tree for assistive technology: the server's list stays a plain
+  // list without this script. A row is named by its content, led by its title.
+  tree.setAttribute("role", "tree");
+  tree.setAttribute("aria-label", "Menu items");
+  tree.setAttribute("aria-multiselectable", "true");
 
   // The view controls come from the server and stay hidden until this script runs.
   const tools = clone("treetools");
