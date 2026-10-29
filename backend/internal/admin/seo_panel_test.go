@@ -138,3 +138,18 @@ func TestSEOPanelChecksMeasureTheTypedTitle(t *testing.T) {
 		}
 	}
 }
+
+// The panel also serves pages and custom entity types, so no check message
+// may say "post".
+func TestSEOPanelCheckCopyIsKindNeutral(t *testing.T) {
+	t.Parallel()
+
+	for _, content := range []string{"<p>Short.</p>", strings.Repeat("<p>word </p>", 5)} {
+		p := buildPanel(seoInput{Title: "About", Slug: "about", Content: content, SchemaSlug: "page", BaseURL: "https://example.test", Path: "/about", InLLMs: true})
+		for _, c := range append(append([]seoCheck{}, p.SEO...), p.Answer...) {
+			if strings.Contains(strings.ToLower(c.Message), "post") {
+				t.Errorf("check %q says post: %q", c.ID, c.Message)
+			}
+		}
+	}
+}

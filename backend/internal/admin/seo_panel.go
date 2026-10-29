@@ -327,7 +327,7 @@ func buildPanel(in seoInput) seoPanel {
 	kw := strings.TrimSpace(in.Keyword)
 	if kw == "" {
 		if !in.NoKeyword {
-			p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this post should rank for."))
+			p.SEO = append(p.SEO, check("keyword", "Focus keyword", checkWarn, "No focus keyword set. Enter the phrase this entry should rank for."))
 		}
 	} else {
 		first := ""
@@ -392,7 +392,7 @@ func buildPanel(in seoInput) seoPanel {
 		}
 		switch {
 		case st.Words < 300:
-			p.SEO = append(p.SEO, check("length", "Length", checkFail, fmt.Sprintf("%d words. Posts under 300 words rarely rank.", st.Words)))
+			p.SEO = append(p.SEO, check("length", "Length", checkFail, fmt.Sprintf("%d words. Entries under 300 words rarely rank.", st.Words)))
 		case st.Words < 600:
 			p.SEO = append(p.SEO, check("length", "Length", checkWarn, fmt.Sprintf("%d words. 600 or more covers a topic better.", st.Words)))
 		default:
@@ -470,9 +470,9 @@ func (p seoPanel) ToFix() int { return p.Warn + p.Fail }
 func headingCheck(st docStats) seoCheck {
 	if len(st.Headings) == 0 {
 		if st.Words > 300 {
-			return check("headings", "Headings", checkWarn, "No subheadings. Break a long post up with H2 headings.")
+			return check("headings", "Headings", checkWarn, "No subheadings. Break a long entry up with H2 headings.")
 		}
-		return check("headings", "Headings", checkPass, "A short post needs no subheadings.")
+		return check("headings", "Headings", checkPass, "A short entry needs no subheadings.")
 	}
 	prev := 1 // the title is the H1
 	for _, h := range st.Headings {
@@ -519,7 +519,7 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 		case w > 60:
 			out = append(out, check("lead", "Opening summary", checkWarn, fmt.Sprintf("The first paragraph is %d words. Open with a summary of 60 words or fewer.", w)))
 		default:
-			out = append(out, check("lead", "Opening summary", checkPass, "The post opens with a short summary."))
+			out = append(out, check("lead", "Opening summary", checkPass, "The entry opens with a short summary."))
 		}
 	}
 	if st.FAQ > 0 {
@@ -530,11 +530,11 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 	switch {
 	case in.NoLLMs:
 	case !in.InLLMs:
-		out = append(out, check("llms", "llms.txt", checkWarn, "This post is left out of /llms.txt. Tick the box in the sidebar to list it."))
+		out = append(out, check("llms", "llms.txt", checkWarn, "This entry is left out of /llms.txt. Tick the box in the sidebar to list it."))
 	case in.Published:
-		out = append(out, check("llms", "llms.txt", checkPass, "This post is listed in /llms.txt."))
+		out = append(out, check("llms", "llms.txt", checkPass, "This entry is listed in /llms.txt."))
 	default:
-		out = append(out, check("llms", "llms.txt", checkPass, "This post will be listed in /llms.txt once it is published."))
+		out = append(out, check("llms", "llms.txt", checkPass, "This entry will be listed in /llms.txt once it is published."))
 	}
 	return out
 }
