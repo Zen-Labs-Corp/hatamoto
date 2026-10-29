@@ -33,7 +33,7 @@
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]::after, .hm-tabs[data-variant="segmented"] .hm-tabs__tab::before { display: none; }
 @media (forced-colors: active) {
-  .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
+  .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]:not(:focus-visible) { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 /* Level 2: a smaller underline row directly under a level-1 row. */
 .hm-tabs[data-variant="sub"] .hm-tabs__list { gap: var(--space-0-5); background: none; }
