@@ -85,6 +85,9 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Segmented", Variant: "segmented", Data: map[string]any{"Label": "Styleguide segmented tabs", "Variant": "segmented", "Changes": "view", "Items": []map[string]any{
 				{"Href": "?view=one", "Label": "One", "Active": true}, {"Href": "?view=two", "Label": "Two"},
 			}}},
+			{Label: "Segmented, current tab", Variant: "segmented-current", Data: map[string]any{"Label": "Styleguide segmented current tab", "Variant": "segmented", "Changes": "view", "Items": []map[string]any{
+				{"Href": "?view=one", "Label": "One"}, {"Href": "?view=two", "Label": "Two", "Active": true}, {"Href": "?view=three", "Label": "Three"},
+			}}},
 			{Label: "Sub row", Variant: "sub", Data: map[string]any{"Label": "Styleguide sub tabs", "Variant": "sub", "Items": []map[string]any{
 				{"Href": "#one", "Label": "One", "Active": true}, {"Href": "#two", "Label": "Two"},
 			}}},
