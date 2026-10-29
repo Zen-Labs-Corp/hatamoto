@@ -922,6 +922,49 @@ failure may be transient. Each section is currently executed twice per
 uncached render (a trial pass, then the page), so plugin template funcs must
 be side-effect free.
 
+### Menu declaration (`menu`)
+
+`theme.json` may carry a `"menu"` object that tells the menu editor which presets the theme styles. Every key is
+optional and a malformed entry is dropped, so a typo never stops the theme from loading.
+
+| Key | Entries | Notes |
+|---|---|---|
+| `styles`, `colors`, `badges` | `{ "id", "label", "class" }`; colours also need `"swatch": "#rrggbb"` | `id` is `[a-z0-9-]` up to 32 characters, `class` is one or more space separated class names. |
+| `icons` | `{ "id", "label" }` | No class; the id reaches the template as `Icon`. |
+| `classes` | list of class names | Suggested for the free `css_classes` field. |
+
+At most 24 presets per list and 64 classes are kept. Items store the preset id, not the class, so switching themes
+never leaves a stale class behind; an id the active theme does not declare is kept and not shown. The default theme
+declares styles, colours, badges, icons and suggested classes in its `theme.json`.
+
+**`NavItem` fields.** Menus reach templates as `[]NavItem` (`.Site.Nav`, `menu "header"`, `Children` for the tree):
+
+| Field | Meaning |
+|---|---|
+| `Label` | Visible text. |
+| `Href` | Link address; `"#"` for an item without a link. |
+| `Target` | `_blank` or empty. |
+| `Children` | Child `[]NavItem`. |
+| `Class` | The item's own classes joined with the theme's style, colour and show-on classes. |
+| `ID`, `Title`, `AriaLabel` | The `id`, `title` and `aria-label` attributes. |
+| `Rel` | Space separated `rel` tokens (`nofollow`, `sponsored`, `ugc`, `me`). |
+| `Badge`, `BadgeClass` | Badge text and the theme's class for the chosen badge. |
+| `Icon` | Icon preset id the theme declares. |
+| `Show` | `desktop`, `mobile` or empty (all devices). |
+| `NoLink` | True for an item with no link. |
+
+**Show on.** An item limited to one device gets the class `hm-show-desktop` or `hm-show-mobile` in `Class`. The theme
+hides the other device with CSS, so a theme that wants the feature must style both classes. The default theme hides
+`hm-show-desktop` below `48rem` and `hm-show-mobile` from `48rem` up.
+
+**No-link items.** A no-link item has `NoLink` true and `Href "#"`. The sentinel keeps a theme that ignores `NoLink`
+rendering a harmless link; a theme that honours it renders text instead of an `<a>`. When such an item has children,
+make it a disclosure so keyboard and screen reader users can open it: the default theme renders
+`<span tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">` and its `hm.js` keeps `aria-expanded`
+in step with hover and focus on wide screens (the sub-list opens by CSS the same way) and sets it to `true` where the
+sub-list is always shown. A no-link item without children is a plain `<span>`. An item of type `entity`, `archive` or
+`custom` saved without a target is rendered the same way.
+
 ### Design tokens (`builder.tokens`)
 
 `theme.json` may carry `"builder": {"tokens": true}`. A theme that sets it gets the site's design tokens as CSS

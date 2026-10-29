@@ -133,7 +133,7 @@ workflow runs both scripts with full git history so the baseline resolves.
 
 ## Menus: no-link items and rollback
 
-Menu items gained a `none` link type (text only), and the migration turns existing `#` items into it. The schema change is expand-only, so rolling back to the previous release works and public rendering is unaffected. The previous release's admin cannot save a menu that contains a no-link item, though: it asks for an address on those items. Retype them as `#` there, or stay on this release, until you move forward again.
+Menu items gained a `none` link type (text only), and the migration turns existing `#` items into it. The schema change is expand-only, so rolling back to the previous release works and public rendering is unaffected. The previous release's admin cannot save a menu that contains a no-link item, though: it asks for an address on those items. Retype them as `#` there, or stay on this release, until you move forward again. The same holds for entity, page, archive and custom items saved without a target (this release accepts them and renders them as plain text): the previous release's admin refuses to save a menu that contains one until you choose a target for it.
 
 ## People (person profiles)
 
