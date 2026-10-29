@@ -19,6 +19,7 @@ func demoRig(t *testing.T) *rig {
 var demoPosts = []struct{ name, path string }{
 	{"upload", "/admin/plugins/upload"},
 	{"allow unsigned", "/admin/plugins/unsigned"},
+	{"stop unsigned", "/admin/plugins/unsigned/off"},
 	{"create user", "/admin/settings/users"},
 	{"invite", "/admin/settings/users/invite"},
 	{"change user", "/admin/settings/users/7"},

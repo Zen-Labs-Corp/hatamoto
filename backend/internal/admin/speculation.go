@@ -22,7 +22,7 @@ var speculationExcluded = []string{
 	"/*/revoke*", "/*/regenerate*", "/*/resend*", "/*/activate*", "/*/status*",
 	"/*/toggle*", "/*/ignore*", "/*/restore*", "/*/email*", "/*/bulk*",
 	"/*/start*", "/*/resume*", "/*/cancel*", "/*/fetch*", "/*/upload*",
-	"/*/install*", "/*/unsigned*", "/*/enable*", "/*/disable*", "/*/grant*",
+	"/*/install*", "/*/unsigned*", "/*/check-updates*", "/*/enable*", "/*/disable*", "/*/grant*",
 	"/settings/submissions/*", "/entities/*/edit*", "/entities/new*", "/entities/drafts*",
 	"/*/insert*", "/*/uninstall*", "/*/autosave*", "/*/analyze*",
 }
