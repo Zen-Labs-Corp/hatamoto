@@ -10,6 +10,7 @@
 
 TRUST_TMP=""
 TRUST_MAX_SIZE=268435456
+TRUST_MAX_META=1048576
 TRUST_CHANNEL=stable
 
 # trust_die removes the work directory, then dies naming the failed check.
@@ -26,21 +27,38 @@ trust_valid_version() {
   printf '%s\n' "$1" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$'
 }
 
-# trust_get URL OUTFILE downloads over https (or http on loopback, for tests).
+# trust_base_ok succeeds when RELEASE_BASE is https, or plain http on the
+# loopback address itself (127.0.0.1 or 127.0.0.1:PORT, for tests). The host is
+# the whole authority, so "127.0.0.1:80@evil" and "127.0.0.1.evil" do not pass.
+trust_base_ok() {
+  case "$RELEASE_BASE" in
+    https://*) return 0 ;;
+    http://*)
+      tb_auth="${RELEASE_BASE#http://}"
+      tb_auth="${tb_auth%%/*}"
+      printf '%s\n' "$tb_auth" | grep -Eq '^127\.0\.0\.1(:[0-9]+)?$' ;;
+    *) return 1 ;;
+  esac
+}
+
+# trust_get URL OUTFILE downloads a signed metadata file (index or record) over
+# https (or http on loopback, for tests), refusing anything over TRUST_MAX_META.
 trust_get() {
+  trust_base_ok || die "release base must be an https URL: $RELEASE_BASE"
   case "$RELEASE_BASE" in
     https://*)
       curl --fail --silent --show-error --retry 3 --proto '=https' --proto-redir '=https' --tlsv1.2 --location \
-        --output "$2" "$1" ;;
-    http://127.0.0.1 | http://127.0.0.1/* | http://127.0.0.1:*)
-      curl --fail --silent --show-error --retry 3 --proto '=http' --output "$2" "$1" ;;
+        --max-filesize "$TRUST_MAX_META" --output "$2" "$1" || return 1 ;;
     *)
-      die "release base must be an https URL: $RELEASE_BASE" ;;
+      curl --fail --silent --show-error --retry 3 --proto '=http' \
+        --max-filesize "$TRUST_MAX_META" --output "$2" "$1" || return 1 ;;
   esac
+  [ "$(wc -c < "$2")" -le "$TRUST_MAX_META" ] || return 1
 }
 
 # trust_get_max URL OUTFILE MAXBYTES is trust_get with a size cap.
 trust_get_max() {
+  trust_base_ok || die "release base must be an https URL: $RELEASE_BASE"
   case "$RELEASE_BASE" in
     https://*)
       curl --fail --silent --show-error --retry 3 --proto '=https' --proto-redir '=https' --tlsv1.2 --location \
@@ -61,10 +79,7 @@ trust_check_tools() {
   need_cmd awk
   need_cmd wc
   need_cmd tr
-  case "$RELEASE_BASE" in
-    https://* | http://127.0.0.1 | http://127.0.0.1/* | http://127.0.0.1:*) ;;
-    *) die "release base must be an https URL: $RELEASE_BASE" ;;
-  esac
+  trust_base_ok || die "release base must be an https URL: $RELEASE_BASE"
 }
 
 # trust_key_b64 SET ID prints the base64 public key of ID in SET, or fails.
