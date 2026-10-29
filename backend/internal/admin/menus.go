@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -82,6 +84,9 @@ type menuForm struct {
 	AddType            string
 	AddTypes           []ui.Option
 	Notice             string // structural edit applied but not saved yet
+	// NoticeKind is "warning" when the edit was refused (the rows did not
+	// change) and "info" otherwise.
+	NoticeKind string
 	// Decl is what the active theme declares for menu items; zero when it
 	// declares nothing, so the editor offers only classes and advanced fields.
 	Decl render.MenuDecl
@@ -555,7 +560,7 @@ func moveMenuBlock(rows []menuRow, i, end int, target string) ([]menuRow, string
 	if target != "top" {
 		n, err := strconv.Atoi(target)
 		if err != nil || n < 0 || n >= len(rows) || rows[n].Depth != 0 {
-			return rows, "Choose a top-level item to move this item under."
+			return rows, "Choose where to move this item, then use Move to again."
 		}
 		if n >= i && n < end {
 			return rows, "An item cannot move under itself."
@@ -612,7 +617,9 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	f := menuForm{ID: m.ID.String(), Name: strings.TrimSpace(r.PostFormValue("name")), Location: r.PostFormValue("location"),
 		Items: parseMenuItems(r.PostForm), Errors: map[string]string{}, AddType: r.PostFormValue("add_type")}
 	if op := r.PostFormValue("_op"); op != "" && op != "save" {
+		before := slices.Clone(f.Items)
 		f.Items, f.Notice = applyMenuOp(f.Items, op, f.AddType, r.PostFormValue("moveto_target"))
+		f.NoticeKind = menuNoticeKind(op, f.Notice, before, f.Items)
 		normaliseDepths(f.Items)
 		f.Errors = nil
 		a.renderMenuForm(w, r, http.StatusOK, f)
@@ -662,6 +669,18 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Menu saved.")
 	http.Redirect(w, r, a.adminPath+"/theme/menus/"+m.ID.String(), http.StatusSeeOther)
+}
+
+// menuNoticeKind is "warning" for a refused structural edit: a message with
+// the rows unchanged. add and refresh are never refusals.
+func menuNoticeKind(op, notice string, before, after []menuRow) string {
+	if notice == "" || op == "add" || op == "refresh" {
+		return "info"
+	}
+	if slices.EqualFunc(before, after, func(a, b menuRow) bool { return reflect.DeepEqual(a, b) }) {
+		return "warning"
+	}
+	return "info"
 }
 
 type replaceResult struct {

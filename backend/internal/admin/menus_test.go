@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -675,5 +676,35 @@ func TestMenuOpsKeepWarningsAndDropDuplicateIDs(t *testing.T) {
 	body = g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
 	if n := strings.Count(body, `>No link</option>`); n != 1 {
 		t.Errorf("the Add select lists No link %d times", n)
+	}
+}
+
+func TestMenuNoticeKind(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		op, target string
+		in         []string
+		want       string
+	}{
+		"refused indent warns":            {"indent.0", "", []string{"A:0", "B:0"}, "warning"},
+		"refused move without target":     {"moveto.0", "", []string{"A:0", "B:0"}, "warning"},
+		"refused move under itself warns": {"moveto.0", "0", []string{"A:0", "A1:1"}, "warning"},
+		"applied indent is info":          {"indent.1", "", []string{"A:0", "B:0"}, "info"},
+		"applied move is info":            {"moveto.0", "1", []string{"A:0", "B:0"}, "info"},
+		"add is info":                     {"add", "", []string{"A:0"}, "info"},
+		"refresh is info":                 {"refresh", "", []string{"A:0"}, "info"},
+	}
+	for name, tc := range tests {
+		rows := treeRows(tc.in...)
+		before := slices.Clone(rows)
+		got, msg := applyMenuOp(rows, tc.op, "", tc.target)
+		if k := menuNoticeKind(tc.op, msg, before, got); k != tc.want {
+			t.Errorf("%s: kind %q (%q), want %q", name, k, msg, tc.want)
+		}
+	}
+	rows := treeRows("A:0", "B:0")
+	if _, msg := applyMenuOp(rows, "moveto.0", "", ""); msg != "Choose where to move this item, then use Move to again." {
+		t.Errorf("moveto message: %q", msg)
 	}
 }
