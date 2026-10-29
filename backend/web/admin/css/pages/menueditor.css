@@ -17,7 +17,7 @@
    the sticky inspector, the preview and the save bar below. Without it none of
    this matches and the form stays the single column it always was. An empty
    notice region takes no row. */
-.hm-menuform[data-hm-js] { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1.6fr) minmax(20rem, 1fr); grid-template-areas: "notice notice" "head head" "items inspector" "preview preview" "bar bar"; align-items: start; }
+.hm-menuform[data-hm-js] { max-width: none; display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1.6fr) minmax(20rem, 1fr); grid-template-areas: "notice notice" "head head" "items inspector" "preview preview" "bar bar"; align-items: start; }
 .hm-menuform[data-hm-js] > [data-hm-notice] { grid-area: notice; }
 .hm-menuform[data-hm-js] > [data-hm-notice]:empty { display: contents; }
 .hm-menuform[data-hm-js] .hm-menueditor__aux:not([hidden]) { display: contents; }

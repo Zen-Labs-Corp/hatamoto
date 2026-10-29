@@ -120,9 +120,9 @@
 <span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>
 <span class="hm-menueditor__state" hidden data-hm-editor-only data-hm-state>{{template "hm/savestate" dict "State" "saved" "Text" "All changes saved"}}</span>
 <span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
-{{template "hm/button" dict "Label" "Undo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-undo-all" "" "hidden" "")}}
-{{template "hm/button" dict "Label" "Redo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-redo" "" "hidden" "")}}
-{{template "hm/button" dict "Label" "Discard changes" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-discard" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Undo" "Size" "sm" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-undo-all" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Redo" "Size" "sm" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-redo" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Discard changes" "Size" "sm" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-discard" "" "hidden" "")}}
 {{template "hm/button" dict "Label" "Back to menus" "Variant" "ghost" "Href" (adminPath "theme" "menus")}}
 {{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
 </div>
