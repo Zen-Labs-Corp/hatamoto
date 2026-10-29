@@ -18,10 +18,13 @@
 .hm-btn[aria-pressed="true"] { background: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--color-sumi); }
 .hm-btn--primary { background: var(--color-sumi); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
 .hm-btn--primary:hover { background: var(--color-sumi-soft); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
+.hm-btn--primary:active { background: var(--color-sumi); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
 .hm-btn--ghost { background: transparent; box-shadow: none; }
 .hm-btn--ghost:hover { background: var(--color-kasumi); box-shadow: none; }
+.hm-btn--ghost:active { background: var(--color-kasumi); box-shadow: none; }
 .hm-btn--danger { background: var(--color-danger); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
 .hm-btn--danger:hover { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); filter: brightness(0.92); }
+.hm-btn--danger:active { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
 .hm-btn--danger-text { color: var(--color-danger); }
 .hm-btn--danger-text:hover, .hm-btn--danger-text:focus-visible { color: var(--color-danger); background: var(--color-kasumi); }
 .hm-btn--sm { --h: var(--control-h-sm); padding: 0 calc(var(--space-2) + var(--space-px)); }
