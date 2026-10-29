@@ -19,8 +19,13 @@
 <link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/seopanel.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/content.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/seopanel.HASH.js" integrity="sha256-kk2no2j8h7tdfQI2DTFBaRArChUDuUtAmnQYxMh1YbU="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-HQc4/hqx5Rb/IW&#43;cRV1YYVjxL0oYkssSNh9Zco&#43;NRtA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
@@ -120,7 +125,7 @@
 <div class="hm-row"></div></div>
 </header>
 
-<form method="post" action="/admin/settings/taxonomies/terms/00000000-0000-0000-0000-000000000032" class="hm-cardform">
+<form method="post" action="/admin/settings/taxonomies/terms/00000000-0000-0000-0000-000000000032" id="hm-termform" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <section class="hm-card">
 <div class="hm-card__body">
@@ -142,7 +147,69 @@
 <label class="hm-field__label" for="description">Description</label>
 <textarea class="hm-field__control" id="description" name="description" rows="3"></textarea>
 </div>
-</div><footer class="hm-card__foot"><a class="hm-btn hm-btn--secondary" href="/admin/settings/taxonomies?kind=category"><span>Cancel</span></a><a class="hm-btn hm-btn--secondary" href="/admin/settings/taxonomies/terms/00000000-0000-0000-0000-000000000032/merge"><span>Merge into another term</span></a><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</div></section>
+<section class="hm-card" id="seo" aria-labelledby="seo-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="seo-title">Search appearance</h2></div>
+<div class="hm-card__body">
+<div class="hm-seo" data-hm-seo>
+<div class="hm-seo__head"><h3 class="hm-seo__title">SEO</h3><p class="hm-seo__score hm-seo__score--fail" id="seo-score"><strong>0</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p></div>
+<div class="hm-tablist" role="tablist" aria-label="SEO settings" data-hm-seo-tabs="" hidden="hidden"><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-search" aria-controls="seo-tabpanel-search" aria-selected="true" tabindex="0">Search</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-social" aria-controls="seo-tabpanel-social" aria-selected="false" tabindex="-1">Social</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-schema" aria-controls="seo-tabpanel-schema" aria-selected="false" tabindex="-1">Schema</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-advanced" aria-controls="seo-tabpanel-advanced" aria-selected="false" tabindex="-1">Advanced</button></div>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-search" aria-labelledby="seo-tab-search" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Search</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_title">SEO title</label>
+<input class="hm-field__control" type="text" id="seo_title" name="seo_title" aria-describedby="seo_title-help" autocomplete="off">
+<p class="hm-field__help" id="seo_title-help">Shown in search results. About 60 characters.</p>
+</div>
+<p class="hm-be__count hm-be__count--fail" id="seo-title-count"><span>5 / 60</span> <span class="hm-be__count-msg">Title is too short (5 characters). Aim for 50 to 60.</span></p>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_description">SEO description</label>
+<textarea class="hm-field__control" id="seo_description" name="seo_description" rows="3" aria-describedby="seo_description-help"></textarea>
+<p class="hm-field__help" id="seo_description-help">A short summary for search results. About 155 characters.</p>
+</div>
+<p class="hm-be__count hm-be__count--fail" id="seo-description-count"><span>0 / 160</span> <span class="hm-be__count-msg">No description. Write one of 120 to 160 characters.</span></p>
+<span class="hm-indicator" id="analyze-busy" role="status" data-hm-busy-text="Checking"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
+<div id="be-panel" aria-live="polite"><div class="hm-bp">
+<p class="hm-bp__summary hm-bp__summary--fail" data-hm-bp-summary><strong>0 of 2 checks pass</strong>, 2 to fix</p>
+<h5 class="hm-bp__h">Search result preview</h5>
+<div class="hm-bp__serp" role="group" aria-label="Search result preview">
+<p class="hm-bp__serp-url">https://acme.example/category/news/press</p>
+<p class="hm-bp__serp-title">Press</p>
+<p class="hm-bp__serp-desc">No description yet.</p>
+</div>
+<h5 class="hm-bp__h">Search checks</h5>
+<ul class="hm-bp__list" role="list">
+<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Title</strong>: Title is too short (5 characters). Aim for 50 to 60.</span></li>
+<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Description</strong>: No description. Write one of 120 to 160 characters.</span></li>
+</ul>
+
+</div></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
+<div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
+</div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
+<div id="seo-schema"><p class="hm-muted">The public archive page adds its own structured data: a collection page and breadcrumbs.</p></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Advanced</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_canonical">Canonical address</label>
+<input class="hm-field__control" type="text" id="seo_canonical" name="seo_canonical" aria-describedby="seo_canonical-help" autocomplete="off">
+<p class="hm-field__help" id="seo_canonical-help">Only when this term also lives at another address.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this term</span></label>
+</div>
+</section>
+</div>
+</div></section>
+<section class="hm-card">
+<div class="hm-card__body"></div><footer class="hm-card__foot"><a class="hm-btn hm-btn--secondary" href="/admin/settings/taxonomies?kind=category"><span>Cancel</span></a><a class="hm-btn hm-btn--secondary" href="/admin/settings/taxonomies/terms/00000000-0000-0000-0000-000000000032/merge"><span>Merge into another term</span></a><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
 
 </div>
@@ -161,4 +228,5 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 

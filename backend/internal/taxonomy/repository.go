@@ -2,6 +2,7 @@ package taxonomy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,7 @@ var (
 	ErrInvalidName        = errors.New("invalid_name")
 	ErrInvalidSlug        = errors.New("invalid_slug")
 	ErrInvalidDescription = errors.New("invalid_description")
+	ErrInvalidSEO         = errors.New("invalid_seo")
 )
 
 // ErrTermParentNotFound is returned when the parent term does not exist.
@@ -125,6 +127,10 @@ func (r *PostgresRepository) CreateTerm(ctx context.Context, t *Term) error {
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
 	}
+	seoJSON, err := encodeTermSEO(t.SEO)
+	if err != nil {
+		return err
+	}
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return err
@@ -132,9 +138,9 @@ func (r *PostgresRepository) CreateTerm(ctx context.Context, t *Term) error {
 	defer conn.Release()
 	now := time.Now()
 	if _, err := conn.Exec(ctx, `
-        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-    `, t.ID, t.Kind, t.Slug, t.Name, t.Description, t.ParentID, now); err != nil {
+        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, seo, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+    `, t.ID, t.Kind, t.Slug, t.Name, t.Description, t.ParentID, seoJSON, now); err != nil {
 		if uniqueViolation(err) {
 			return ErrTermSlugConflict
 		}
@@ -160,6 +166,10 @@ func (r *PostgresRepository) UpdateTerm(ctx context.Context, t *Term) error {
 	if strings.TrimSpace(t.Name) == "" || len(t.Name) > MaxNameLen {
 		return fmt.Errorf("invalid name")
 	}
+	seoJSON, err := encodeTermSEO(t.SEO)
+	if err != nil {
+		return err
+	}
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return err
@@ -167,9 +177,9 @@ func (r *PostgresRepository) UpdateTerm(ctx context.Context, t *Term) error {
 	defer conn.Release()
 	tag, err := conn.Exec(ctx, `
         UPDATE hatamoto_terms
-           SET slug = $2, name = $3, description = $4, parent_id = $5, updated_at = NOW()
+           SET slug = $2, name = $3, description = $4, parent_id = $5, seo = $6, updated_at = NOW()
          WHERE id = $1
-    `, t.ID, t.Slug, t.Name, t.Description, t.ParentID)
+    `, t.ID, t.Slug, t.Name, t.Description, t.ParentID, seoJSON)
 	if err != nil {
 		if uniqueViolation(err) {
 			return ErrTermSlugConflict
@@ -205,15 +215,19 @@ func (r *PostgresRepository) GetTerm(ctx context.Context, id uuid.UUID) (*Term, 
 	}
 	defer conn.Release()
 	t := &Term{}
+	var raw []byte
 	err = conn.QueryRow(ctx, `
-        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at
+        SELECT `+termCols+`
           FROM hatamoto_terms
          WHERE id = $1
-    `, id).Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt)
+    `, id).Scan(termDest(t, &raw)...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTermNotFound
 		}
+		return nil, err
+	}
+	if t.SEO, err = decodeTermSEO(raw); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -227,15 +241,19 @@ func (r *PostgresRepository) GetTermBySlug(ctx context.Context, kind, slug strin
 	}
 	defer conn.Release()
 	t := &Term{}
+	var raw []byte
 	err = conn.QueryRow(ctx, `
-        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at
+        SELECT `+termCols+`
           FROM hatamoto_terms
          WHERE kind = $1 AND slug = $2
-    `, kind, slug).Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt)
+    `, kind, slug).Scan(termDest(t, &raw)...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTermNotFound
 		}
+		return nil, err
+	}
+	if t.SEO, err = decodeTermSEO(raw); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -284,7 +302,7 @@ func (r *PostgresRepository) ListTerms(ctx context.Context, kind, search string,
 
 	args = append(args, perPage, offset)
 	listSQL := fmt.Sprintf(`
-        SELECT t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at,
+        SELECT `+termColsT+`,
                COALESCE(c.n, 0)
           FROM hatamoto_terms t
           LEFT JOIN (
@@ -305,7 +323,7 @@ func (r *PostgresRepository) ListTerms(ctx context.Context, kind, search string,
 	items := make([]*TermWithCount, 0, perPage)
 	for rows.Next() {
 		tc := &TermWithCount{}
-		if err := rows.Scan(&tc.ID, &tc.Kind, &tc.Slug, &tc.Name, &tc.Description, &tc.ParentID, &tc.CreatedAt, &tc.UpdatedAt, &tc.EntityCount); err != nil {
+		if err := scanTerm(rows, &tc.Term, nil, &tc.EntityCount); err != nil {
 			return nil, err
 		}
 		items = append(items, tc)
@@ -332,7 +350,7 @@ func (r *PostgresRepository) ListTermsByIDs(ctx context.Context, ids []uuid.UUID
 	}
 	defer conn.Release()
 	rows, err := conn.Query(ctx, `
-        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at
+        SELECT `+termCols+`
           FROM hatamoto_terms
          WHERE id = ANY($1)
     `, ids)
@@ -343,7 +361,7 @@ func (r *PostgresRepository) ListTermsByIDs(ctx context.Context, ids []uuid.UUID
 	out := make([]*Term, 0, len(ids))
 	for rows.Next() {
 		t := &Term{}
-		if err := rows.Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTerm(rows, t, nil); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -361,7 +379,7 @@ func (r *PostgresRepository) ListTermsForEntity(ctx context.Context, entityID uu
 	}
 	defer conn.Release()
 	rows, err := conn.Query(ctx, `
-        SELECT t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at
+        SELECT `+termColsT+`
           FROM hatamoto_terms t
           JOIN hatamoto_entity_terms et ON et.term_id = t.id
          WHERE et.entity_id = $1
@@ -374,7 +392,7 @@ func (r *PostgresRepository) ListTermsForEntity(ctx context.Context, entityID uu
 	out := []*Term{}
 	for rows.Next() {
 		t := &Term{}
-		if err := rows.Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTerm(rows, t, nil); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -575,7 +593,7 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
 	}
 	defer conn.Release()
 	rows, err := conn.Query(ctx, `
-        SELECT t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at, COUNT(e.id)
+        SELECT `+termColsT+`, COUNT(e.id)
           FROM hatamoto_terms t
           JOIN hatamoto_entity_terms et ON et.term_id = t.id
           JOIN hatamoto_entities e ON e.id = et.entity_id
@@ -593,7 +611,7 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
 	out := []*TermWithCount{}
 	for rows.Next() {
 		t := &TermWithCount{}
-		if err := rows.Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt, &t.EntityCount); err != nil {
+		if err := scanTerm(rows, &t.Term, nil, &t.EntityCount); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -628,7 +646,7 @@ func (r *PostgresRepository) Chains(ctx context.Context, ids []uuid.UUID) (map[u
               FROM up JOIN hatamoto_terms p ON p.id = up.id
              WHERE p.parent_id IS NOT NULL AND up.depth < $2
         )
-        SELECT up.start_id, t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at
+        SELECT up.start_id, `+termColsT+`
           FROM up JOIN hatamoto_terms t ON t.id = up.id
          ORDER BY up.start_id, up.depth DESC
     `, ids, MaxDepth+1)
@@ -639,7 +657,7 @@ func (r *PostgresRepository) Chains(ctx context.Context, ids []uuid.UUID) (map[u
 	for rows.Next() {
 		var start uuid.UUID
 		t := &Term{}
-		if err := rows.Scan(&start, &t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTerm(rows, t, []any{&start}); err != nil {
 			return nil, err
 		}
 		out[start] = append(out[start], t)
@@ -661,7 +679,7 @@ func (r *PostgresRepository) Descendants(ctx context.Context, id uuid.UUID) ([]*
             UNION ALL
             SELECT t.id, down.depth + 1 FROM hatamoto_terms t JOIN down ON t.parent_id = down.id WHERE down.depth < $2
         )
-        SELECT DISTINCT t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at
+        SELECT DISTINCT `+termColsT+`
           FROM down JOIN hatamoto_terms t ON t.id = down.id WHERE t.id <> $1
     `, id, MaxDepth+1)
 	if err != nil {
@@ -671,7 +689,7 @@ func (r *PostgresRepository) Descendants(ctx context.Context, id uuid.UUID) ([]*
 	var out []*Term
 	for rows.Next() {
 		t := &Term{}
-		if err := rows.Scan(&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTerm(rows, t, nil); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -716,4 +734,53 @@ func FillPaths(ctx context.Context, r Repository, terms ...*Term) error {
 		t.Path = strings.Join(slugs, "/")
 	}
 	return nil
+}
+
+// termCols lists the hatamoto_terms columns scanTerm reads, in order.
+const termCols = `id, kind, slug, name, description, parent_id, created_at, updated_at, seo`
+
+// termColsT is termCols for queries that alias the table as t.
+const termColsT = `t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at, t.seo`
+
+// termDest returns the Scan destinations matching termCols; the seo jsonb
+// lands in raw and is decoded by decodeTermSEO.
+func termDest(t *Term, raw *[]byte) []any {
+	return []any{&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt, raw}
+}
+
+type rowScanner interface{ Scan(dest ...any) error }
+
+// scanTerm scans one row shaped as prefix columns, termCols, suffix columns.
+func scanTerm(s rowScanner, t *Term, prefix []any, suffix ...any) error {
+	var raw []byte
+	dest := append(append(prefix, termDest(t, &raw)...), suffix...)
+	if err := s.Scan(dest...); err != nil {
+		return err
+	}
+	var err error
+	t.SEO, err = decodeTermSEO(raw)
+	return err
+}
+
+// decodeTermSEO maps the stored jsonb to a TermSEO; an empty document is nil.
+func decodeTermSEO(raw []byte) (*TermSEO, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s TermSEO
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, fmt.Errorf("decode term seo: %w", err)
+	}
+	if s.IsZero() {
+		return nil, nil
+	}
+	return &s, nil
+}
+
+// encodeTermSEO is the inverse of decodeTermSEO: nil becomes '{}'.
+func encodeTermSEO(s *TermSEO) ([]byte, error) {
+	if s == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(s)
 }

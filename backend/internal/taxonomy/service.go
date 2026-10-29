@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -114,6 +116,61 @@ type CreateTermInput struct {
 // MaxDescriptionLen caps a term description.
 const MaxDescriptionLen = 2000
 
+// Caps of the per-term SEO values, the same as the entry form's.
+const (
+	maxSEOTitleLen       = 255
+	maxSEODescriptionLen = 500
+	maxSEOURLLen         = 2048
+)
+
+// The SEOFieldError.Field values.
+const (
+	SEOFieldTitle       = "title"
+	SEOFieldDescription = "description"
+	SEOFieldCanonical   = "canonical"
+	SEOFieldOGImage     = "og_image"
+)
+
+// SEOFieldError says which SEO value was refused. It matches ErrInvalidSEO.
+type SEOFieldError struct{ Field string }
+
+func (e *SEOFieldError) Error() string { return "invalid_seo: " + e.Field }
+func (e *SEOFieldError) Unwrap() error { return ErrInvalidSEO }
+
+// validateTermSEO trims and checks the values. A canonical must be an
+// absolute http(s) URL or a root-relative path. All empty returns nil.
+func validateTermSEO(in TermSEO) (*TermSEO, error) {
+	in.MetaTitle = strings.TrimSpace(in.MetaTitle)
+	in.MetaDescription = strings.TrimSpace(in.MetaDescription)
+	in.CanonicalURL = strings.TrimSpace(in.CanonicalURL)
+	in.OGImage = strings.TrimSpace(in.OGImage)
+	for _, f := range []struct {
+		field string
+		value string
+		max   int
+	}{{SEOFieldTitle, in.MetaTitle, maxSEOTitleLen}, {SEOFieldDescription, in.MetaDescription, maxSEODescriptionLen},
+		{SEOFieldCanonical, in.CanonicalURL, maxSEOURLLen}, {SEOFieldOGImage, in.OGImage, maxSEOURLLen}} {
+		if utf8.RuneCountInString(f.value) > f.max {
+			return nil, &SEOFieldError{Field: f.field}
+		}
+	}
+	if c := in.CanonicalURL; c != "" && !validCanonical(c) {
+		return nil, &SEOFieldError{Field: SEOFieldCanonical}
+	}
+	if in.IsZero() {
+		return nil, nil
+	}
+	return &in, nil
+}
+
+func validCanonical(c string) bool {
+	if strings.HasPrefix(c, "/") {
+		return !strings.HasPrefix(c, "//") && !strings.ContainsAny(c, "\\ \r\n")
+	}
+	u, err := url.Parse(c)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
 // checkParent verifies a parent term: it exists, has the same kind, and
 // neither makes a cycle (self is the term being updated, uuid.Nil for a new
 // one) nor nests deeper than MaxDepth.
@@ -195,6 +252,9 @@ type UpdateTermInput struct {
 	// Both unset leaves the parent alone.
 	ParentID    *uuid.UUID
 	ClearParent bool
+	// SEO replaces the stored SEO values when non-nil; a pointer to the
+	// zero value clears them. Nil keeps what is stored.
+	SEO *TermSEO
 }
 
 // UpdateTerm patches name + slug. Empty slug auto-slugifies from name.
@@ -221,7 +281,14 @@ func (s *Service) UpdateTerm(ctx context.Context, in UpdateTermInput) (*Term, er
 		return nil, ErrInvalidName
 	}
 	patched := &Term{ID: in.ID, Kind: existing.Kind, Name: in.Name, Slug: in.Slug,
-		Description: existing.Description, ParentID: existing.ParentID}
+		Description: existing.Description, ParentID: existing.ParentID, SEO: existing.SEO}
+	if in.SEO != nil {
+		seo, err := validateTermSEO(*in.SEO)
+		if err != nil {
+			return nil, err
+		}
+		patched.SEO = seo
+	}
 	if in.Description != nil {
 		patched.Description = strings.TrimSpace(*in.Description)
 		if len(patched.Description) > MaxDescriptionLen {

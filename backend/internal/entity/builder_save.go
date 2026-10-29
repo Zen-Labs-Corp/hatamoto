@@ -200,7 +200,8 @@ type SaveOpts struct {
 	AfterParse  func(role string) *DocProblem
 	BeforeWrite func() *DocProblem
 	// Tune changes the update before it is written (the admin sets the title).
-	Tune func(in *UpdateEntityInput)
+	// An error refuses the save: nothing is written.
+	Tune func(in *UpdateEntityInput) error
 	// PublishGate returns why a requested publish is skipped ("" publishes).
 	PublishGate func(saved *Entity) string
 }
@@ -264,7 +265,9 @@ func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *E
 		in.Autosave = true
 	}
 	if opts.Tune != nil {
-		opts.Tune(in)
+		if err := opts.Tune(in); err != nil {
+			return nil, nil, err
+		}
 	}
 	out := &SavedDoc{Parsed: parsed}
 	updated, err := st.UpdateEntity(ctx, e.ID, actor, in)

@@ -193,11 +193,19 @@ func TestSaveBuilderDocHooksAndOutcomes(t *testing.T) {
 			t.Errorf("skipped=%q status=%q", saved.PublishSkipped, st.statusSet)
 		}
 	})
+	t.Run("a Tune error refuses the save before any write", func(t *testing.T) {
+		st, page := newStore()
+		boom := errors.New("boom")
+		saved, p, err := SaveBuilderDoc(ctx, st, nil, page, good, SaveOpts{Tune: func(*UpdateEntityInput) error { return boom }})
+		if saved != nil || p != nil || !errors.Is(err, boom) || st.updated != nil {
+			t.Fatalf("saved=%+v p=%v err=%v updated=%v", saved, p, err, st.updated)
+		}
+	})
 	t.Run("a taken address is dropped and reported", func(t *testing.T) {
 		st, page := newStore()
 		taken := &takenSlugStore{fakeBuilderStore: st}
 		slug := "news"
-		saved, p, err := SaveBuilderDoc(ctx, taken, nil, page, good, SaveOpts{Tune: func(in *UpdateEntityInput) { in.Slug = &slug }})
+		saved, p, err := SaveBuilderDoc(ctx, taken, nil, page, good, SaveOpts{Tune: func(in *UpdateEntityInput) error { in.Slug = &slug; return nil }})
 		if p != nil || err != nil || saved.TakenSlug != "news" || taken.calls != 2 {
 			t.Fatalf("saved=%+v p=%v err=%v calls=%d", saved, p, err, taken.calls)
 		}

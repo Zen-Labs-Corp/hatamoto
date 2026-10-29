@@ -10,7 +10,7 @@
 {{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
 {{template "hm/seocount" dict "ID" "seo-description-count" "Len" .Panel.SERP.DescLen "Max" 160 "Status" .Panel.SERP.DescStatus "Msg" .Panel.SERP.DescMsg}}
 {{template "hm/indicator" dict "ID" "analyze-busy" "Text" "Checking"}}
-<div id="be-panel" aria-live="polite"{{if .AnalyzeURL}} hx-post="{{.AnalyzeURL}}" hx-trigger="input changed delay:1500ms from:{{.Include}}, change from:{{.Include}}" hx-include="{{.Include}}" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"{{end}}>{{template "hm/seopanel-results" .Panel}}</div>
+<div id="be-panel" aria-live="polite"{{if .AnalyzeURL}} hx-post="{{.AnalyzeURL}}" hx-trigger="input changed delay:1500ms from:{{.Include}}, change from:{{.Include}}, hm:analyze" hx-include="{{.Include}}" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"{{end}}>{{template "hm/seopanel-results" .Panel}}</div>
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
@@ -34,7 +34,7 @@
 {{define "hm/seopanel-score"}}{{with .Panel}}<p class="hm-seo__score hm-seo__score--{{.ScoreTone}}" id="seo-score"{{if $.OOB}} hx-swap-oob="true"{{end}}><strong>{{.Score}}</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p>{{end}}{{end}}
 
 {{/* hm/seopanel-schema: the structured data the published page will carry. */}}
-{{define "hm/seopanel-schema"}}{{with .Panel}}<div id="seo-schema"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{if .JSONLD}}<details class="hm-bp__ld" open><summary>Structured data: {{.JSONLDType}}</summary><pre class="hm-bp__pre" tabindex="0">{{.JSONLD}}</pre></details>{{else}}<p class="hm-muted">No structured data can be built until the entry has a name.</p>{{end}}</div>{{end}}{{end}}
+{{define "hm/seopanel-schema"}}{{with .Panel}}<div id="seo-schema"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{if .JSONLD}}<details class="hm-bp__ld" open><summary>Structured data: {{.JSONLDType}}</summary><pre class="hm-bp__pre" tabindex="0">{{.JSONLD}}</pre></details>{{else}}<p class="hm-muted">{{or .JSONLDNote "No structured data can be built until the entry has a name."}}</p>{{end}}</div>{{end}}{{end}}
 
 {{/* hm/seopanel-results: the analysis (summary, search-result preview and the checks) that the analyze endpoint swaps into #be-panel. Data: the panel. */}}
 {{define "hm/seopanel-results"}}<div class="hm-bp">

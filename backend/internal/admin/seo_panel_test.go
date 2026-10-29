@@ -1,8 +1,11 @@
 package admin
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/seo"
 )
@@ -151,5 +154,67 @@ func TestSEOPanelCheckCopyIsKindNeutral(t *testing.T) {
 				t.Errorf("check %q says post: %q", c.ID, c.Message)
 			}
 		}
+	}
+}
+
+func TestSEOPanelPreviewKinds(t *testing.T) {
+	t.Parallel()
+
+	set := seo.Defaults()
+	set.Home = "Home: %sitename% - %tagline%"
+	set.Taxonomy = map[string]string{"category": "Category %term% %sep% %sitename%"}
+	base := seoInput{Title: "Welcome", Slug: "welcome", SEO: &set, SiteName: "Example", Tagline: "Fast"}
+
+	home := base
+	home.Home = true
+	if got := buildPanel(home).SERP.Title; got != "Home: Example - Fast" {
+		t.Errorf("home preview = %q, want the Home template", got)
+	}
+
+	term := base
+	term.Kind, term.TermKind, term.Term = seo.KindTaxonomy, "category", "Guides"
+	if got := buildPanel(term).SERP.Title; got != "Category Guides | Example" {
+		t.Errorf("term preview = %q, want the taxonomy template", got)
+	}
+
+	if got := base.resolverInput().Kind; got != seo.KindSingle {
+		t.Errorf("default kind = %q, want single", got)
+	}
+}
+
+type fakeHomeExplain struct{ id string }
+
+func (f fakeHomeExplain) ExplainURL(context.Context, string) (URLExplanation, error) {
+	return URLExplanation{Page: PageAnswer{Kind: "home", EntityID: f.id}}, nil
+}
+
+func TestMarkHome(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	id, other := uuid.New(), uuid.New()
+	mark := func(a *Admin, e uuid.UUID) bool {
+		in := seoInput{}
+		a.markHome(ctx, &in, e)
+		return in.Home
+	}
+
+	if mark(&Admin{}, id) {
+		t.Error("no stores: must not be home")
+	}
+
+	site := newFakeSite("Example")
+	site.cfg.HomepageEntityID = id
+	a := &Admin{deps: Deps{Site: site, Growth: GrowthDeps{Explain: fakeHomeExplain{id: other.String()}}}}
+	if !mark(a, id) || mark(a, other) {
+		t.Error("a chosen homepage decides, whatever the explainer says")
+	}
+	if mark(a, uuid.Nil) {
+		t.Error("a new entry is never the homepage")
+	}
+
+	site.cfg.HomepageEntityID = uuid.Nil
+	if !mark(a, other) || mark(a, id) {
+		t.Error("with none chosen the page served at / is the homepage")
 	}
 }

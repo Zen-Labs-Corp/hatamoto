@@ -46,7 +46,9 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 9. Save. On a draft, **Save draft** stores your work and **Publish** makes it live. Drafts also save themselves a few seconds after each change. Once a page is published, the button becomes **Update page**, and nothing changes on the live page until you press it.
 
-10. Open the **More** menu (the three dots) for **Versions**, **Page settings** (the address and search details), **Keyboard shortcuts**, and, for owners, **Site styles**. At the bottom, in red, is **Delete page**; it asks you to confirm first. When you edit a block or a layout part, the same entry reads **Delete block** or **Delete part**.
+10. Set how the page looks in search results. Press **SEO** in the top bar to open the SEO drawer on the right: write the SEO title and description, pick a social image, and set a canonical address or ask search engines not to list the page. The checks run each time you open the drawer and again as you type in its fields, using your unsaved changes. The values are saved with the page. Press Esc to close the drawer.
+
+11. Open the **More** menu (the three dots) for **Versions**, **Page settings** (the address and search details), **Keyboard shortcuts**, and, for owners, **Site styles**. At the bottom, in red, is **Delete page**; it asks you to confirm first. When you edit a block or a layout part, the same entry reads **Delete block** or **Delete part**.
 
 Two small tips show once, the first time you use the builder: one about selecting and typing, one about adding. Press **Got it** to dismiss them; they do not come back.
 

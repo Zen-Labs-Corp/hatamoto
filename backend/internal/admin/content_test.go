@@ -825,13 +825,29 @@ func TestTaxonomyScreens(t *testing.T) {
 	has(t, c.get(t, "owner-token", "/admin/settings/taxonomies?kind=genre", ""), "Jazz", `href="/admin/settings/taxonomies?kind=genre"`)
 	// edit
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+fid(32).String(), "taxonomy-term")
-	has(t, body, `value="Press"`)
+	has(t, body, `value="Press"`, "hm-seo", "seo_title")
+	lacks(t, body, "Internal links")
 	lacks(t, body, `value="`+fid(32).String()+`">Press`) // a term cannot be its own parent
 	if rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "parent": {""}}); rec.Code != 303 {
 		t.Fatalf("edit: %d", rec.Code)
 	}
 	if tm := c.terms.terms[1]; tm.Name != "Press room" || tm.ParentID != nil {
 		t.Errorf("after edit: %+v", tm)
+	}
+	// SEO values are stored; a bad canonical is refused
+	if rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "seo_title": {"Press"}, "seo_description": {"All press"}, "seo_noindex": {"true"}}); rec.Code != 303 {
+		t.Fatalf("seo save: %d", rec.Code)
+	}
+	if sv := c.terms.terms[1].SEO; sv == nil || sv.MetaTitle != "Press" || sv.MetaDescription != "All press" || !sv.NoIndex {
+		t.Errorf("seo stored: %+v", sv)
+	}
+	if rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "seo_canonical": {"nope"}}); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Use a full address") {
+		t.Errorf("bad canonical: %d", rec.Code)
+	}
+	// a too-long title is reported on the title, not on the canonical
+	rec = c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "seo_title": {strings.Repeat("a", 256)}})
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "SEO title") || strings.Contains(rec.Body.String(), "Use a full address") {
+		t.Errorf("long title: %d", rec.Code)
 	}
 	// merge Releases into News (Releases has no children)
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+rel.String()+"/merge", "taxonomy-merge")

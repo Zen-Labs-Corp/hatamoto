@@ -319,3 +319,130 @@ func TestBuilderSaveNotesUnnamedLightboxImages(t *testing.T) {
 		t.Errorf("an autosave got a note: %q", out.Note)
 	}
 }
+
+const seoStored = `{"title":"T","meta_title":"Old","meta_description":"Old d","no_index":true,"seo":{"robots":"noindex, follow","x":1.50},"page_doc":{"v":2,"nodes":[]},"page_sections":[]}`
+
+func attrsOf(t *testing.T, raw json.RawMessage) map[string]json.RawMessage {
+	t.Helper()
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func TestBuilderSaveSEOWritesInOneUpdate(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.page.Attributes = json.RawMessage(`{"title":"T","price":1.50,"page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	seo := `,"seo":{"title":" Hello ","description":"D","canonical":"/c","og_image":"/i.png","no_index":true}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK || out.Version != 2 {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	if len(r.rec.inputs) != 1 || r.rec.inputs[0].ExpectedVersion == nil || *r.rec.inputs[0].ExpectedVersion != 1 {
+		t.Fatalf("want one update at version 1: %+v", r.rec.inputs)
+	}
+	m := attrsOf(t, *r.rec.inputs[0].Attributes)
+	for k, want := range map[string]string{"meta_title": `"Hello"`, "meta_description": `"D"`, "canonical_url": `"/c"`, "og_image": `"/i.png"`, "no_index": `true`, "price": `1.50`, "title": `"T"`} {
+		if string(m[k]) != want {
+			t.Errorf("%s = %s, want %s", k, m[k], want)
+		}
+	}
+}
+
+func TestBuilderSaveWithoutSEOLeavesStoredValues(t *testing.T) {
+	t.Parallel()
+
+	for _, op := range []string{"autosave", "save"} {
+		r := newSaveRig(t)
+		r.page.Attributes = json.RawMessage(seoStored)
+		if code, out := r.save(t, r.page, saveBody(1, saveDoc, op, "")); code != 200 || !out.OK {
+			t.Fatalf("%s: %d %+v", op, code, out)
+		}
+		m := attrsOf(t, r.ents.ents[r.page.ID].Attributes)
+		if string(m["meta_title"]) != `"Old"` || string(m["meta_description"]) != `"Old d"` || string(m["no_index"]) != `true` || !strings.Contains(string(m["seo"]), "noindex") {
+			t.Errorf("%s changed stored SEO: %s", op, r.ents.ents[r.page.ID].Attributes)
+		}
+	}
+}
+
+func TestBuilderSaveSEOEmptyDeletesAndNoIndexOff(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.page.Attributes = json.RawMessage(seoStored)
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"title":"","description":" ","canonical":"","og_image":"","no_index":false}`)); code != 200 || !out.OK {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	m := attrsOf(t, *r.rec.inputs[0].Attributes)
+	for _, k := range []string{"meta_title", "meta_description", "canonical_url", "og_image", "no_index"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("%s was kept: %s", k, m[k])
+		}
+	}
+	if strings.Contains(string(m["seo"]), "robots") && strings.Contains(strings.ToLower(string(m["seo"])), "noindex") {
+		t.Errorf("noindex robots kept: %s", m["seo"])
+	}
+	if !strings.Contains(string(m["seo"]), `"follow"`) {
+		t.Errorf("other robots directives dropped: %s", m["seo"])
+	}
+}
+
+func TestBuilderSaveSEOStaleVersionWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.page.Attributes = json.RawMessage(seoStored)
+	before := string(r.page.Attributes)
+	code, out := r.save(t, r.page, saveBody(7, saveDoc, "save", `,"seo":{"title":"New"}`))
+	if code != http.StatusConflict || !out.Conflict {
+		t.Fatalf("stale: %d %+v", code, out)
+	}
+	if len(r.rec.inputs) != 0 || string(r.ents.ents[r.page.ID].Attributes) != before {
+		t.Error("a stale save wrote")
+	}
+}
+
+func TestBuilderSaveSEOInvalidCanonical(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []string{"javascript:alert(1)", "//evil.example", "not a url"} {
+		r := newSaveRig(t)
+		code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"canonical":"`+c+`"}`))
+		if code != http.StatusUnprocessableEntity || out.Code != "invalid" {
+			t.Errorf("%q: %d %+v", c, code, out)
+		}
+		if len(r.rec.inputs) != 0 {
+			t.Errorf("%q: a refused save wrote", c)
+		}
+	}
+}
+
+func TestBuilderSaveSEOCapsCountCharacters(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	// 90 characters, 270 bytes: within the 255-character cap.
+	seo := `,"seo":{"title":"` + strings.Repeat("日", 90) + `"}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK {
+		t.Fatalf("a 90-character title: %d %+v", code, out)
+	}
+	r = newSaveRig(t)
+	seo = `,"seo":{"title":"` + strings.Repeat("日", 256) + `"}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != http.StatusUnprocessableEntity {
+		t.Errorf("a 256-character title: %d %+v", code, out)
+	}
+}
+
+func TestBuilderSaveSEOIgnoredForReuseBlocks(t *testing.T) {
+	t.Parallel()
+
+	r := newReuseRig(t)
+	if code, out := r.save(t, r.block, saveBody(1, blockDoc, "save", `,"seo":{"title":"Nope"}`)); code != 200 || !out.OK {
+		t.Fatalf("block save: %d %+v", code, out)
+	}
+	if _, ok := attrsOf(t, *r.rec.inputs[0].Attributes)["meta_title"]; ok {
+		t.Error("a reuse block got SEO attributes")
+	}
+}

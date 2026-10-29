@@ -178,6 +178,9 @@ handler tests run on in-memory fakes; the real services are exercised by
   nothing to redirect).
 * **Taxonomies** (owners): kinds are tabs, terms a tree (`terms_tree.go`);
   merge moves entities and reports the old archive path to the move observer.
+  A term's edit page carries a **Search appearance** card, the shared SEO panel
+  without body checks (`seo_panel.go`, meta-only mode); the values live in the term's
+  `seo` column and shape the public archive head (see the user guide's taxonomies section).
 * **Media**: the library is `<admin>/settings/media`; the detail page, upload and picker stay under `<admin>/media/`. Uploads are `multipart/form-data` to `POST <admin>/media/upload`.
   The CSRF check never parses a whole multipart body (it runs before the
   session check), so an upload carries the token in the `X-CSRF-Token` header
@@ -239,7 +242,9 @@ Routes (all in the session and CSRF group; each answers 404 for an entity the bu
 | `POST /entities/{id}/edit/render` with `Content-Type: application/json` | node fragments for a posted doc and ops ([CANVAS.md](CANVAS.md#json-doc-mode-the-builder)); form posts keep the B2 mode |
 | `POST /entities/{id}/builder/stage` | `{doc}` -> `{url}` of the staged canvas page |
 | `POST /entities/{id}/builder/component` | `mode=form` -> `{html}`; `mode=decode` -> `{content, errors, structural, html?}` through `decodeComponent` |
-| `POST /entities/{id}/builder/save` | version-checked autosave, save and publish |
+| `POST /entities/{id}/builder/save` | version-checked autosave, save and publish; an optional `seo` object (`title`, `description`, `canonical`, `og_image`, `no_index`) is written into the page's attributes by the same single update |
+| `GET /entities/{id}/builder/seo` | the shared SEO panel (inputs, tabs, checks) for the SEO drawer; a bare fragment for an htmx-style request (`HX-Request` and `HX-Target` headers), pages only |
+| `POST /entities/{id}/builder/analyze` | the panel's live checks for the posted draft (`doc` form field plus the `seo_*` fields): the draft is rendered through the preview and only its `<main>` is analysed; writes nothing |
 | `POST /entities/{id}/builder/paste` | clipboard envelope -> `{nodes, missingBlocks}`: validated, sanitised, fresh ids; writes nothing |
 | `GET /builder/stylespec` | the StyleSpec table (shared with B2) |
 | `POST /entities/{id}/edit` | no-JS outline form (`_op`: `up down after into add del save publish`) |

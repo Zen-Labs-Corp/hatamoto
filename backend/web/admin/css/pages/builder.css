@@ -11,6 +11,11 @@
 /* Shell: navigator | canvas | inspector. Stacked on narrow screens. */
 .hm-page:has(.hm-bs) { max-width: none; padding: 0; gap: 0; }
 .hm-bs { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+/* The SEO drawer: a slide-over on the right, over the canvas. Hidden until the SEO button opens it. */
+.hm-bs__seo { position: fixed; inset-block: 56px 0; inset-inline-end: 0; z-index: var(--z-popup); inline-size: min(28rem, 100%); display: flex; flex-direction: column; background: var(--surface); border-inline-start: 1px solid var(--border); }
+.hm-bs__seo[hidden] { display: none; }
+.hm-bs__seo-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--border); }
+.hm-bs__seo-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--space-3); }
 .hm-bs__banner:empty { display: none; }
 /* Banners float over the top of the canvas: a zero-height sticky strip, so showing one moves nothing. */
 .hm-bs__banner { position: sticky; inset-block-start: 0; z-index: var(--z-header); block-size: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -41,6 +46,8 @@
 .hm-bs__canvas { order: 0; }
 .hm-bs__inspector { order: 2; }
 @media (min-width: 960px) {
+  .hm-bs { position: relative; }
+  .hm-bs__seo { position: absolute; inset-block: 0; }
   .hm-bs { --hm-bs-nav: 16rem; --hm-bs-insp: 24rem; --hm-bs-nav-split: 8px; --hm-bs-insp-split: 8px; grid-template-columns: var(--hm-bs-nav) var(--hm-bs-nav-split) minmax(0, 1fr) var(--hm-bs-insp-split) var(--hm-bs-insp); grid-template-rows: minmax(0, 1fr); height: calc(100vh - 56px); }
   .hm-bs__nav { grid-column: 1; }
   .hm-bs__split--nav { grid-column: 2; }

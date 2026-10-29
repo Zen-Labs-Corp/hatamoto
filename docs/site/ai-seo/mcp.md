@@ -95,7 +95,7 @@ Lists return at most 100 rows. The default page size is 20 for `entities_list` a
 | `entities_update` | `id`, `name`, `slug`, `locale`, `attributes`, `change_summary`, byline fields | Stores a new version. `attributes` replaces the whole object. |
 | `entities_publish`, `entities_unpublish` | `id` | Publish puts the entity at its URL, in the sitemap and in `llms.txt`. Unpublish returns it to draft. |
 | `schemas_list`, `schemas_get` | `slug` | Content types, their JSON Schema and URL settings. Read `schemas_get` first to learn which attributes a type takes. |
-| `terms_list`, `terms_create` | `kind` (`tag` or `category`), `name`, `slug`, `search` | Tags and categories with usage counts. |
+| `terms_list`, `terms_create` | `kind` (`tag` or `category`), `name`, `slug`, `search` | Tags and categories with usage counts. A listed term carries its `seo` when one is saved, but `terms_create` takes none: a term's search appearance is edited on its admin page only. |
 | `menus_list`, `menus_get`, `menus_update` | `id`, `slug` or `location` (`header`, `footer` or `sidebar`); `name`, `items` | Menus and their nested items. |
 | `redirects_list`, `redirects_create`, `redirects_delete` | `source_path`, `target_url`, `status_code`, `id` | Redirect rules. Status is `301` (default), `302`, `307` or `308`. Whole-segment `*` and a trailing `**` are wildcards. |
 | `media_upload` | `filename`, `data_base64`, `alt_text`, `caption` | Adds a file to the media library. |

@@ -228,6 +228,12 @@ title when there is none) and returns to the opener on close; UI-D13 checks both
 Row and bulk confirmations all go through `openConfirm` in `components.js`, which
 fills the shared `#hm-confirm` dialog; do not build a second confirm.
 
+A page may also host a slide-over drawer that is not modal and leaves the page usable beside it:
+the builder's SEO drawer (`.hm-bs__seo`, page-local in `builder.css`, content loaded on first
+open). It follows the same keyboard contract as a dialog: focus moves into it on open, Esc and
+its Close button hide it and focus returns to the button that opened it (`aria-expanded` on the
+opener). Its controls are the shared `hm/*` partials, never bespoke ones.
+
 ### Tabs
 
 Partial: `hm/tabs`  

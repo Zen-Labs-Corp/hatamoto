@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 92440,
+      "value": 92822,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 93351
     },
     "editor_js_total_gzip": {
-      "value": 239669,
+      "value": 242541,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 241978
+      "cap": 245613
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,6 +40,10 @@
     }
   },
   "history": [
+    {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
     {
       "reason": "builder recovery moves from browser storage to a server copy: fetch client replaces the storage client (+1.1 KB gzip first paint)",
       "date": "2026-10-26"
@@ -118,6 +122,10 @@
     },
     {
       "reason": "plugins redesign rebased onto main: admin CSS gzip grew with the plugin pages",
+      "date": "2026-10-29"
+    },
+    {
+      "reason": "builder SEO drawer: lazy seodrawer module and screen/sync wiring; editor_js_total_gzip 239136 to 242008 (+2872 B), editor_js_first_gzip 91907 to 92289 (+382 B), cap 241978 to 245080 (current + 3 KiB); builder CSS for the drawer",
       "date": "2026-10-29"
     }
   ]

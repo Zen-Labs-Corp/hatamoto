@@ -69,6 +69,8 @@ function start(root, boot) {
   const redoBtn = $(bar, "[data-hm-bs-redo]");
   const historyBtn = $(bar, "[data-hm-bs-history]");
   const canvasEl = $(root, "[data-hm-bs-canvas]");
+  const seoBtn = $(bar, "[data-hm-bs-seo]");
+  const seoRoot = $(root, "[data-hm-bs-seo-drawer]");
   const live = h("div", { class: "hm-visually-hidden", role: "status", "aria-live": "polite" });
   root.append(live);
   const announce = (msg) => {
@@ -94,6 +96,7 @@ function start(root, boot) {
   const startChunk = lazy(() => import("@hm/builder/startpanel")); // the empty-page start panel
   const hintChunk = lazy(() => import("@hm/builder/coachmarks")); // the two one-time hints
   const siteChunk = lazy(() => import("@hm/builder/sitestyles")); // Site styles, owners only
+  const seoChunk = lazy(() => import("@hm/builder/seodrawer")); // the page's SEO drawer (a page only)
   $$(bar, "[data-hm-bs-js]").forEach((el) => {
     el.hidden = false;
   });
@@ -403,12 +406,14 @@ function start(root, boot) {
     },
   });
 
+  let seoState = null; // the drawer's values once a field was edited; null keeps the stored ones out of every save
   const saver = createSaver({
     urls: boot.urls,
     csrf,
     boot,
     getDoc: () => st.doc,
     getName: () => nameInput?.value ?? boot.name,
+    getSEO: () => seoState,
     onAdopt: (doc) => {
       st = createStore(doc); // the server's sanitiser changed the doc: it is the truth, history restarts
       clipboard.clear();
@@ -905,6 +910,29 @@ function start(root, boot) {
       siteBtn.closest("[popover]")?.hidePopover?.();
       siteChunk().then((m) => m.open({ boot, csrf: csrf(), onSaved: saved })).catch(() => warn("Site styles did not load. Reload the page."));
     });
+  }
+  if (seoBtn && seoRoot) {
+    // Mounted on first use: the drawer module and the SEO panel stay out of first paint.
+    let seoDrawer = null;
+    seoBtn.addEventListener("click", () =>
+      seoChunk()
+        .then((m) => {
+          if (seoDrawer) return;
+          seoDrawer = m.mountSEODrawer({
+            btn: seoBtn,
+            root: seoRoot,
+            urls: boot.urls,
+            getDoc: () => st.doc,
+            onEdit: (v) => {
+              seoState = v;
+              saver.changed();
+            },
+            onError: () => warn("The SEO panel did not load. Reload the page."),
+          });
+          return seoDrawer.open();
+        })
+        .catch(() => warn("The SEO panel did not load. Reload the page.")),
+    );
   }
   undoBtn?.addEventListener("click", doUndo);
   redoBtn?.addEventListener("click", doRedo);

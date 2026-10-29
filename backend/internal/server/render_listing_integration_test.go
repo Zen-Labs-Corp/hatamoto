@@ -210,6 +210,17 @@ func TestRenderListingsIntegration(t *testing.T) {
 		}
 	}
 
+	// Saved term SEO wins over the archive defaults (page 1 only for the canonical).
+	exec(`UPDATE hatamoto_terms SET seo = $2::jsonb WHERE id = $1`, termCat,
+		`{"meta_title":"News SEO Title","meta_description":"News SEO description.","canonical_url":"/news-canonical","no_index":true}`)
+	body = mustGet("/category/"+catSlug, 200)
+	for _, want := range []string{"News SEO Title", `content="News SEO description."`,
+		`<link rel="canonical" href="https://listing-it.example.test/news-canonical">`, "noindex"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("term with saved SEO: missing %q\n%s", want, body)
+		}
+	}
+
 	// A schema entity at /tag/{slug} wins over the built-in tag listing.
 	if body := mustGet("/tag/"+tagSlug, 200); !strings.Contains(body, "SHADOWWINS") || count(body) != 0 {
 		t.Errorf("/tag/%s: entity must shadow the built-in page\n%s", tagSlug, body)
