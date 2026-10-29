@@ -18,7 +18,7 @@
 .hm-plugin-directory__author { margin: 0; font-size: 0.875rem; color: var(--ht-fg-muted); }
 .hm-plugin-directory__description { margin: 0; color: var(--ht-fg-muted); }
 .hm-plugin-directory__perms { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; margin: 0; font-family: var(--hm-font-mono); font-size: 0.75rem; color: var(--hm-label); }
-.hm-plugin-directory__warn { padding: 0.1rem 0.5rem; border: 1px solid var(--hm-shu); border-radius: 999px; color: var(--hm-shu); }
+.hm-plugin-directory__warn { border: 0; padding: 0; color: var(--hm-shu); }
 .hm-plugin-directory__lines { font-size: 0.8125rem; color: var(--ht-fg-muted); }
 .hm-plugin-directory__lines summary { cursor: pointer; color: var(--hm-label); }
 .hm-plugin-directory__lines ul { margin: 0.5rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.375rem; }

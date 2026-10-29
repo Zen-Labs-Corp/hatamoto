@@ -19,8 +19,8 @@
       <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
       {{if .Author}}<p class="hm-plugin-directory__author">by @{{.Author}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
-      {{if .PermCount}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{.PermCount}} permission{{if ne .PermCount 1}}s{{end}}</span>{{range .PermWarn}} <span class="hm-plugin-directory__warn">⚠ {{.}}</span>{{end}}</p>
-      <details class="hm-plugin-directory__lines"><summary>Show permissions<span class="hm-visually-hidden"> for {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</span></summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<code>{{.Name}}</code> {{.Text}}</li>{{end}}</ul></details>{{end}}
+      {{if .PermCount}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{.PermCount}} permission{{if ne .PermCount 1}}s{{end}}</span>{{if .PermWarn}} <span class="hm-plugin-directory__warn"><span aria-hidden="true">⚠</span><span class="hm-visually-hidden">Warning: {{range $i, $w := .PermWarn}}{{if $i}} {{end}}{{$w}}{{end}}</span></span>{{end}}</p>
+      <details class="hm-plugin-directory__lines"><summary>Show permissions<span class="hm-visually-hidden"> for {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</span></summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<code>{{.Name}}</code> {{.Text}}</li>{{end}}</ul></details>{{else}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">No permissions</span></p>{{end}}
       {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">Source</a>{{end}}{{end}}
     </li>{{end}}
   </ul>
