@@ -31,6 +31,9 @@ trust_valid_version() {
 # loopback address itself (127.0.0.1 or 127.0.0.1:PORT, for tests). The host is
 # the whole authority, so "127.0.0.1:80@evil" and "127.0.0.1.evil" do not pass.
 trust_base_ok() {
+  # The loopback check below is line-based: a newline or CR could hide a second line.
+  case "$RELEASE_BASE" in *'
+'* | *"$(printf '\r')"*) return 1 ;; esac
   case "$RELEASE_BASE" in
     https://*) return 0 ;;
     http://*)
