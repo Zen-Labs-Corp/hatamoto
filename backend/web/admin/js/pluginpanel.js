@@ -31,7 +31,7 @@ async function load(href, dlg, body) {
   loading.textContent = "Loading...";
   body.replaceChildren(loading);
   try {
-    const res = await fetch(href, { headers: { "HX-Request": "true" }, credentials: "same-origin" });
+    const res = await fetch(href, { headers: { "HX-Request": "true", "HX-Target": "plugin-panel" }, credentials: "same-origin" });
     if (!res.ok) throw new Error(String(res.status));
     const doc = new DOMParser().parseFromString(await res.text(), "text/html");
     if (mine !== latest) return;

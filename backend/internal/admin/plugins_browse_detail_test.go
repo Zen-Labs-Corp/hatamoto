@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -120,6 +121,23 @@ func TestBrowseDetailFragment(t *testing.T) {
 	}
 	if !strings.Contains(full, "<html") {
 		t.Error("full page lacks the shell")
+	}
+	// HX-Request alone is not a fragment request: the drawer must name its target.
+	if _, noTarget := getAbout(g, "fresh", map[string]string{"HX-Request": "true"}); !strings.Contains(noTarget, "<html") {
+		t.Error("HX-Request without HX-Target must get the full page")
+	}
+}
+
+// The drawer's fetch must send the HX-Target the server needs to answer with a fragment.
+func TestPluginPanelJSSendsHXTarget(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../web/admin/js/pluginpanel.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src := string(b); !strings.Contains(src, `"HX-Request": "true"`) || !strings.Contains(src, `"HX-Target": "plugin-panel"`) {
+		t.Error("pluginpanel.js must send HX-Request and HX-Target so the server returns the fragment")
 	}
 }
 
