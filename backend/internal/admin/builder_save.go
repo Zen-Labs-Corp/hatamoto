@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -30,6 +31,100 @@ type builderSaveRequest struct {
 	Doc     json.RawMessage `json:"doc"`
 	Op      string          `json:"op"`
 	Name    *string         `json:"name"`
+	// SEO is the SEO drawer's values; nil leaves the stored ones alone.
+	SEO *builderSEO `json:"seo"`
+}
+
+// builderSEO is the SEO drawer's panel, saved with the page.
+type builderSEO struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Canonical   string `json:"canonical"`
+	OGImage     string `json:"og_image"`
+	NoIndex     bool   `json:"no_index"`
+}
+
+// Caps of the SEO values, as the term SEO fields have them.
+const (
+	builderSEOTitleMax = 255
+	builderSEODescMax  = 500
+	builderSEOURLMax   = 2048
+)
+
+// check refuses values the public head could not use.
+func (s builderSEO) check() *entity.DocProblem {
+	bad := func(msg string) *entity.DocProblem {
+		return &entity.DocProblem{Status: http.StatusUnprocessableEntity, Code: "invalid", Msg: msg}
+	}
+	t := func(v string) string { return strings.TrimSpace(v) }
+	switch {
+	case len(t(s.Title)) > builderSEOTitleMax:
+		return bad("Use at most 255 characters for the SEO title.")
+	case len(t(s.Description)) > builderSEODescMax:
+		return bad("Use at most 500 characters for the meta description.")
+	case len(t(s.OGImage)) > builderSEOURLMax, len(t(s.Canonical)) > builderSEOURLMax:
+		return bad("Use at most 2048 characters for an address.")
+	}
+	if c := t(s.Canonical); c != "" && !validSEOCanonical(c) {
+		return bad("The canonical address must be a full http(s) address or start with /.")
+	}
+	return nil
+}
+
+func validSEOCanonical(c string) bool {
+	if strings.HasPrefix(c, "/") {
+		return !strings.HasPrefix(c, "//") && !strings.ContainsAny(c, "\\ \r\n")
+	}
+	u, err := url.Parse(c)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// patchSEOAttrs writes the drawer's values into the attributes of the update
+// with the entity form's rules (empty deletes, no_index drops a noindex
+// robots directive). Only the SEO keys are touched: every other attribute
+// keeps its stored bytes.
+func patchSEOAttrs(in *entity.UpdateEntityInput, s builderSEO) error {
+	if in.Attributes == nil {
+		return nil
+	}
+	attrs := map[string]json.RawMessage{}
+	if err := json.Unmarshal(*in.Attributes, &attrs); err != nil {
+		return err
+	}
+	if attrs == nil {
+		attrs = map[string]json.RawMessage{}
+	}
+	touched := append([]string{"seo"}, seoKeys...)
+	work := map[string]any{}
+	for _, k := range touched {
+		if raw, ok := attrs[k]; ok {
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return err
+			}
+			work[k] = v
+		}
+	}
+	seoForm{Title: s.Title, Description: s.Description, Canonical: s.Canonical, OGImage: s.OGImage, NoIndex: s.NoIndex}.merge(work)
+	for _, k := range touched {
+		v, ok := work[k]
+		if !ok {
+			delete(attrs, k)
+			continue
+		}
+		raw, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		attrs[k] = raw
+	}
+	out, err := json.Marshal(attrs)
+	if err != nil {
+		return err
+	}
+	raw := json.RawMessage(out)
+	in.Attributes = &raw
+	return nil
 }
 
 type builderSaveReply struct {
@@ -86,6 +181,12 @@ func (a *Admin) saveBuilderDoc(ctx context.Context, actor *uuid.UUID, e *entity.
 // saveBuilderDocAs is saveBuilderDoc with the version's change summary named
 // by the caller ("" keeps "Updated in the builder"; autosaves keep theirs).
 func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc json.RawMessage, op string, name *string, changeSummary string) (*savedPage, error) {
+	return a.saveBuilderDocSEO(ctx, actor, e, doc, op, name, changeSummary, nil)
+}
+
+// saveBuilderDocSEO is saveBuilderDocAs that also stores the SEO drawer's
+// values (page role only) in the same single update; nil leaves them alone.
+func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc json.RawMessage, op string, name *string, changeSummary string, seo *builderSEO) (*savedPage, error) {
 	c := a.deps.Content
 	if op != opAutosave && op != opSave && op != opPublish {
 		return nil, &saveProblem{http.StatusBadRequest, "invalid_op", "Unknown save operation.", 0}
@@ -102,6 +203,7 @@ func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entit
 			title = t
 		}
 	}
+	isPage := false
 	// The rules and the write are the shared builder save; the admin adds its
 	// own gates around them, in the order the builder has always reported them.
 	res, prob, err := entity.SaveBuilderDoc(ctx, c.Entities, actor, e, doc, entity.SaveOpts{
@@ -110,12 +212,18 @@ func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entit
 		Publish:         op == opPublish,
 		ExpectedVersion: &e.Version,
 		AfterParse: func(role string) *entity.DocProblem {
+			isPage = role == rolePage
 			if role != rolePage && op != opSave {
 				return &entity.DocProblem{Status: http.StatusConflict, Code: "not_savable_op", Msg: "A " + role + " is saved explicitly with Save " + role + "; it is never published."}
 			}
 			return nil
 		},
 		BeforeWrite: func() *entity.DocProblem {
+			if seo != nil && isPage {
+				if p := seo.check(); p != nil {
+					return p
+				}
+			}
 			if len([]rune(title)) > 255 {
 				return &entity.DocProblem{Status: http.StatusUnprocessableEntity, Code: "invalid_name", Msg: "Use at most 255 characters for the title."}
 			}
@@ -124,7 +232,14 @@ func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entit
 			}
 			return nil
 		},
-		Tune: func(in *entity.UpdateEntityInput) { setPageName(in, e, title) },
+		Tune: func(in *entity.UpdateEntityInput) {
+			setPageName(in, e, title)
+			if seo != nil && isPage {
+				if err := patchSEOAttrs(in, *seo); err != nil {
+					a.logger().Error("admin: builder seo patch failed", "err", err)
+				}
+			}
+		},
 		PublishGate: func(saved *entity.Entity) string {
 			if generatedSlug(saved.Slug) {
 				return "generated address"
@@ -223,7 +338,7 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		reply(http.StatusConflict, builderSaveReply{Conflict: true, Version: e.Version, Error: staleMessage(req.Version, e.Version)})
 		return
 	}
-	saved, err := a.saveBuilderDoc(r.Context(), actorID(r), e, req.Doc, req.Op, req.Name)
+	saved, err := a.saveBuilderDocSEO(r.Context(), actorID(r), e, req.Doc, req.Op, req.Name, "", req.SEO)
 	if err != nil {
 		var p *saveProblem
 		if errors.As(err, &p) {
