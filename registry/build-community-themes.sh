@@ -100,6 +100,41 @@ reserved_names=$(plist reserved-names) || die "unreadable policy: reserved-names
 # keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
 inlist() { [[ $'\n'$1$'\n' == *$'\n'"$2"$'\n'* ]]; }
 
+# lev1 <a> <b>: edit distance of at most 1.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+lev1() {
+  local a=$1 b=$2 i=0
+  [ "$a" = "$b" ] && return 0
+  while [ "$i" -lt "${#a}" ] && [ "$i" -lt "${#b}" ] && [ "${a:i:1}" = "${b:i:1}" ]; do i=$((i + 1)); done
+  a=${a:i}; b=${b:i}
+  while [ -n "$a" ] && [ -n "$b" ] && [ "${a: -1}" = "${b: -1}" ]; do a=${a%?}; b=${b%?}; done
+  [ "${#a}" -le 1 ] && [ "${#b}" -le 1 ]
+}
+# lkey <name>: hyphens removed, 0 1 3 5 folded to o l e s.
+# keep in sync with hatamoto-plugins scripts/validate-theme-manifest.sh and registry/build-community.sh
+lkey() { printf '%s' "$1" | tr -d '-' | tr '0135' 'oles'; }
+
+# check_theme_name <name> <own-file-base>: the name must not be one edit from, or equal after
+# look-alike folding to, a plugin name, a theme name (also one left out of this build), a
+# built-in name or a reserved name. Exact matches are refused earlier.
+check_theme_name() {
+  local name=$1 base=$2 nkey o on r
+  nkey=$(lkey "$name")
+  look() {
+    [ "$1" != "$name" ] || return 0
+    if [ "$(lkey "$1")" = "$nkey" ] || lev1 "$name" "$1"; then die "$name: name looks like \"$1\""; fi
+  }
+  for o in "$repo_dir"/manifests/*.json "$repo_dir"/manifests/themes/*.json; do
+    [ -e "$o" ] || continue
+    on=$(basename "$o" .json)
+    [ "$on" != "$base" ] && [ "$on" != schema ] || continue
+    [[ $on =~ ^[a-z][a-z0-9-]{1,39}$ ]] && look "$on"
+  done
+  for r in default webhooks hello gtm searchconsole; do look "$r"; done
+  while read -r r; do [[ $r =~ ^[a-z][a-z0-9-]{1,39}$ ]] && look "$r"; done <<<"$reserved_names"
+  return 0
+}
+
 # Allowed SPDX licenses; keep in sync with scripts/validate-theme-manifest.sh in the hatamoto-plugins repo.
 licenses=(MIT Apache-2.0 BSD-2-Clause BSD-3-Clause ISC MPL-2.0)
 for l in GPL-2.0 GPL-3.0 LGPL-2.1 LGPL-3.0 AGPL-3.0; do
@@ -207,6 +242,7 @@ for f in ${manifests[@]+"${manifests[@]}"}; do
   [ ! -e "$repo_dir/manifests/$name.json" ] || die "$name: already used by a plugin (manifests/$name.json)"
   [ ! -e "$packages/$name.hmp" ] || die "$name: already in $packages (name collision)"
   jq -e --arg n "$name" 'has($n) | not' "$stage/meta.json" >/dev/null || die "$name: already in the meta file (name collision)"
+  check_theme_name "$name" "$base"
   [[ $author =~ ^[A-Za-z0-9][A-Za-z0-9\ ._@-]{0,60}$ ]] || die "$name: bad author"
   jq -e '.archive_grant == true' "$f" >/dev/null || die "$name: archive_grant must be true"
   allowed=

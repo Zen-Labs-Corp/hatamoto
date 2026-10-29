@@ -302,6 +302,50 @@ swap_pkg() { cp "$work/first/arch/boreal/boreal-2.1.0-${sha2:0:12}-$kid.hmp" "$a
 tamper "swapped package" "is refused" swap_pkg
 echo "ok: tampered archive refused"
 
+# Look-alike names: one edit from, or equal after folding to, a plugin, reserved or sibling theme name.
+la() { # la <label> <theme> <other-kind: plugin|theme|none> <other-name> <substring> [env...]
+  local l=$1 t=$2 k=$3 o=$4 s=$5; shift 5
+  local d="$work/la-$t-$o"; rm -rf "$d"
+  manifest "$d" "$t" "$(base "$t" $https $good)"
+  case $k in
+    plugin) printf '{}' >"$d/manifests/$o.json" ;;
+    theme) manifest "$d" "$o" "$(base "$o" $https $good)" ;;
+  esac
+  refuses "$l" "$s" "$d" "$@"
+}
+la "one edit from a plugin" gtn plugin gtm 'looks like "gtm"'
+la "hyphen form of a plugin" g-tm plugin gtm 'looks like "gtm"'
+la "digit swap of a plugin" kum0 plugin kumo 'looks like "kumo"'
+la "one edit from a built-in name" webhook none none 'looks like "webhooks"'
+la "one edit from a policy name" formz none none 'looks like "forms"'
+la "one edit from a sibling theme" hanshl theme hanshi 'name looks like'
+la "sibling theme left out of the build" hanshl theme hanshi 'looks like "hanshi"' HATAMOTO_THEMES_SKIP=hanshi
+# The archive path runs the same pass 1: a look-alike plugin added after the build stops a reuse.
+d="$work/la-reuse"; rm -rf "$d"; cp -r "$reg" "$d"; printf '{}' >"$d/manifests/auroro.json"
+rm -rf "$work/o"; mkdir -p "$work/o"; cp -r "$work/first/arch" "$work/o/arch"
+if out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_ALLOW_FILE_ARCHIVES=1); then fail "look-alike reuse accepted"; fi
+grep -q 'looks like "auroro"' <<<"$out" || fail "look-alike reuse: $out"
+# A clear name beside a plugin and a theme passes pass 1 (it fails later at the fetch).
+d="$work/la-ok"; manifest "$d" kumoyama "$(base kumoyama "file://$work/nonexistent" $good)"
+manifest "$d" hanshi "$(base hanshi "file://$work/nonexistent" $good)"; printf '{}' >"$d/manifests/gtm.json"
+out=$(run "$d" HATAMOTO_ALLOW_FILE_REPOS=1 HATAMOTO_THEMES_SKIP=hanshi) && fail "kumoyama built nothing"
+grep -q "cannot fetch" <<<"$out" || fail "kumoyama refused: $out"
+rm -rf "$work/o"
+echo "ok: look-alike names"
+
+# The shared helpers are copies of the hatamoto-plugins validator's (skipped without a checkout).
+fn_body() { awk -v n="$2" 'index($0,n"() {")==1{p=1; if ($0 ~ /\}[[:space:]]*$/ && $0 !~ /\{[[:space:]]*$/){print;exit}} p{print} p&&$0=="}"{exit}' "$1"; }
+if [ -z "${HATAMOTO_PLUGINS_DIR:-}" ]; then echo "skip: validator sync: HATAMOTO_PLUGINS_DIR not set"
+else
+  vm=$HATAMOTO_PLUGINS_DIR/scripts/validate-theme-manifest.sh
+  [ -r "$vm" ] || fail "sync: $vm missing"
+  for fn in plist inlist lev1 lkey; do
+    a=$(fn_body "$script" $fn); b=$(fn_body "$vm" $fn)
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: $fn differs from the validator: $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b"))"
+  done
+  echo "ok: validator sync"
+fi
+
 # Append-only: a fresh build whose archived name already exists with other content.
 rm -rf "$work/o"; mkdir -p "$work/o"; cp -r "$work/first/arch" "$work/o/arch"
 mv "$src1.gone" "$src1"
