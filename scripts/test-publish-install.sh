@@ -3,6 +3,9 @@
 # repo with a fake assembler and fake gh/ssh/scp on PATH; a local directory
 # stands in for the server. No real host, no network.
 set -Eeuo pipefail
+# The cases set GH_REPO themselves; one inherited from the caller (scripts/ship.sh exports it) would
+# override the origin the throwaway repo is given.
+unset GH_REPO
 cd "$(git rev-parse --show-toplevel)"
 ROOT=$PWD
 bash -n "$ROOT/scripts/publish-install.sh"
