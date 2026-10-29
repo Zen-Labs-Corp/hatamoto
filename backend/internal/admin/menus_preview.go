@@ -52,6 +52,10 @@ func (a *Admin) handleMenuPreview(w http.ResponseWriter, r *http.Request) {
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Frame-Options", "SAMEORIGIN")
 	h.Set("Content-Security-Policy", csp) // the theme's own policy replaces the admin's
+	// A second header: every CSP header is enforced, so a direct navigation never
+	// runs scripts in the admin origin. allow-same-origin keeps the editor's
+	// access to the frame document (click to select, dark mode).
+	h.Add("Content-Security-Policy", "sandbox allow-same-origin; script-src 'none'")
 	h.Set("X-Robots-Tag", "noindex")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)

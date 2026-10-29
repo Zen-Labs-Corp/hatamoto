@@ -48,6 +48,9 @@ func TestMenuPreviewBuildsTheTreeFromTheForm(t *testing.T) {
 		h.Get("Content-Security-Policy") != "default-src 'self'" || !strings.HasPrefix(h.Get("Content-Type"), "text/html") {
 		t.Errorf("headers: %v", h)
 	}
+	if csp := h.Values("Content-Security-Policy"); len(csp) != 2 || csp[1] != "sandbox allow-same-origin; script-src 'none'" {
+		t.Errorf("the preview needs a second, sandboxing CSP header: %q", csp)
+	}
 	if got.location != "footer" || len(got.items) != 4 {
 		t.Fatalf("call: %q, %d top items", got.location, len(got.items))
 	}
