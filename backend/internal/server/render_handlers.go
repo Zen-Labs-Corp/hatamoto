@@ -131,7 +131,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		// Host, so such pages must never be cached (see renderHandlers).
 		baseURLPinned: s.cfg != nil && strings.TrimSpace(s.cfg.PublicSite.BaseURL) != "",
 		loadHome:      func(r *http.Request) (*PublicPageResponse, pageOutcome, error) { return s.loadHomepage(r) },
-		snapshot:      s.entityService.URLRegistry().Snapshot,
+		snapshot:      s.urlSnapshotOrErr,
 		resolve:       s.resolveForRender,
 		buildView:     s.buildPageView,
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
@@ -164,7 +164,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 // of "not found".
 func (s *Server) resolveRouteForRender(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error) {
 	deps := routeDeps{
-		snapshot: s.entityService.URLRegistry().Snapshot,
+		snapshot: s.urlSnapshotOrErr,
 		repo:     entity.NewPostgresPublicRepository(s.db),
 		loadPage: s.loadPublicPage,
 		loadHome: s.loadHomepage,
@@ -671,4 +671,13 @@ func (s *Server) captchaProvider(ctx context.Context) string {
 		return ""
 	}
 	return set.Provider
+}
+
+// urlSnapshotOrErr is the URL snapshot, or an error when the server has no
+// entity service (route-table builds); callers treat that as a one-locale site.
+func (s *Server) urlSnapshotOrErr(ctx context.Context) (*entity.URLSnapshot, error) {
+	if s.entityService == nil {
+		return nil, errors.New("no entity service")
+	}
+	return s.entityService.URLRegistry().Snapshot(ctx)
 }
