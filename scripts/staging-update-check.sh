@@ -15,13 +15,15 @@
 #
 # Normal mode waits (up to --timeout, default 1500 s; the first check runs 1-10
 # minutes after start) until the box runs --expect by itself, then checks the
-# health gate, / and the service. --halt is the halt drill: the box must NOT
+# health gate, / and the service. It fails early when the box gets stuck
+# (stuck_reason: switched to another release, or a check ended up to date,
+# blocked, major, rolled back, failed...), since the next check is hours away. --halt is the halt drill: the box must NOT
 # download --expect (the release is halted on the channel) within the window, AND
 # must prove it checked: a fresh last check (after the script started, result ok)
 # whose status is "up to date" or names the halt, plus no releases/<expect> staged
 # on the box. A box that never checked, or whose check failed, fails the drill.
 #
-# Usage:   scripts/staging-update-check.sh --expect vX.Y.Z [--box a|b|both] [--channel canary|edge|stable] [--halt] [--timeout SECONDS] [--bootstrap-version vX.Y.Z-dev.N]
+# Usage:   [STAGING_SERIAL=1] scripts/staging-update-check.sh --expect vX.Y.Z [--box a|b|both] [--channel canary|edge|stable] [--halt] [--timeout SECONDS] [--bootstrap-version vX.Y.Z-dev.N]
 # Needs:   go, python3, curl, psql with DATABASE_URL (a role that can CREATE
 #          DATABASE) for box a, systemctl --user (a), docker with the postgres:16
 #          image (b; through `sg docker -c` when this shell lacks the group),
@@ -39,6 +41,7 @@ set -euo pipefail
 
 EXPECT="" BOXES="a b" HALT=0 CHAN=edge TIMEOUT=1500 DEV_VERSION=v0.0.0-dev.1
 usage() { grep '^# Usage:' "$0" | cut -c3- >&2; exit 64; }
+ORIG_ARGS=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --expect) EXPECT="${2:-}"; shift 2 ;;
@@ -47,7 +50,7 @@ while [ $# -gt 0 ]; do
     --halt) HALT=1; shift ;;
     --timeout) TIMEOUT="${2:-}"; shift 2 ;;
     --bootstrap-version) DEV_VERSION="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^# Helpers/p' "$0" | sed '$d'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage ;;
   esac
 done
@@ -100,6 +103,25 @@ if want_box b; then
   dk image inspect postgres:16 >/dev/null 2>&1 || die "image postgres:16 is not available locally"
 fi
 curl -fsS -o /dev/null --max-time 15 https://hatamoto.dev/releases/channels/$CHAN.json || die "the release site is not reachable"
+
+# Both boxes: run a and b at the same time (each waits minutes for its first check,
+# so serial doubles the wall time). Each child has its own ID, temp dir, ports,
+# database and containers. STAGING_SERIAL=1 keeps the old one-after-the-other run.
+if [ "$BOXES" = "a b" ] && [ -z "${STAGING_SERIAL:-}" ]; then
+  mkdir -p "${STAGING_TMP:-$HOME/hatamoto-staging-tmp}"
+  L="$(mktemp -d "${STAGING_TMP:-$HOME/hatamoto-staging-tmp}/hm-stg-par.XXXXXX")"
+  echo "== boxes a and b run in parallel (logs: $L/a.log, $L/b.log; STAGING_SERIAL=1 runs them in turn)"
+  STAGING_CHILD=1 bash "$0" "${ORIG_ARGS[@]}" --box a >"$L/a.log" 2>&1 & PA=$!
+  STAGING_CHILD=1 bash "$0" "${ORIG_ARGS[@]}" --box b >"$L/b.log" 2>&1 & PB=$!
+  trap 'kill "$PA" "$PB" 2>/dev/null; wait; exit 130' INT TERM
+  RA=0 RB=0
+  wait "$PA" || RA=$?
+  wait "$PB" || RB=$?
+  for x in a b; do echo; echo "==== box $x"; cat "$L/$x.log"; done
+  echo
+  if [ "$RA" = 0 ] && [ "$RB" = 0 ]; then echo "STAGING RESULT: PASS"; exit 0; fi
+  echo "STAGING RESULT: FAIL (box a exit $RA, box b exit $RB)"; exit 1
+fi
 
 ROOT="$(cd "${0%/*}/.." && pwd)"
 ID="$$"
@@ -367,12 +389,53 @@ raw_report() {
   echo "-- end ($BOX_TAG)"
 }
 
+# BEGIN stuck_reason
+# stuck_reason <update status text> <current release> <expect>: succeeds (and
+# prints why) when the box can no longer reach <expect> by itself within the
+# wait: it switched to another release, or its check ended in a decision that
+# stays until the next scheduled check (hours away) or needs a human. Transient
+# states (no check yet, scheduled, waiting, staged, applying, busy) are not stuck.
+stuck_reason() {
+  local st="$1" cur="$2" want="$3" line res status
+  if [[ "$cur" =~ ^v[0-9] && "$cur" != "$want" && "$cur" != *-dev.* ]]; then echo "the box switched to $cur, not $want"; return 0; fi
+  line="$(grep '^last check' <<<"$st" | head -1 || true)"
+  read -r _ _ _ res <<<"$line"
+  [ "${res:-}" = error ] && { echo "the update check failed: $(grep '^status' <<<"$st" | head -1)"; return 0; }
+  status="$(grep '^status' <<<"$st" | head -1 || true)"
+  if grep -Eiq '^status +(up to date|blocked|available major|rolled back|backup failed|update failed|off|notify|rollback pending)\b' <<<"$status"; then
+    echo "${status#status }" | sed 's/^ *//'; return 0
+  fi
+  return 1
+}
+# END stuck_reason
+
+# wait_for_update <seconds>: 0 once the gate passed for $EXPECT, 1 on timeout, 2 when
+# the box is stuck (STUCK says why). Status is read every 15 s, the gate every second.
+STUCK=""
+wait_for_update() {
+  local end=$((SECONDS + $1)) next=0
+  while [ "$SECONDS" -lt "$end" ]; do
+    gate_passed "$EXPECT" && return 0
+    if [ "$SECONDS" -ge "$next" ]; then
+      next=$((SECONDS + 15))
+      if STUCK="$(stuck_reason "$(box_cli update status || true)" "$(box_current)" "$EXPECT")"; then
+        gate_passed "$EXPECT" && return 0
+        return 2
+      fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 run_normal() {
-  local tag="$BOX_TAG" ok=0 st
+  local tag="$BOX_TAG" ok=0 st rc=0
   check "[$tag] the dev build $DEV_VERSION serves / 200" "$BOX_URL/" serving 180
-  echo "-- waiting up to ${TIMEOUT}s for the box to update itself to $EXPECT"
-  wait_until "$TIMEOUT" gate_passed "$EXPECT" && ok=1
-  check "[$tag] the box moved to $EXPECT by itself and its health gate passed" "current=$(box_current), phase=$(state_field "s.get('phase')" || true) run=$(state_field "s.get('run')" || true)" [ "$ok" = 1 ]
+  echo "-- waiting up to ${TIMEOUT}s for the box to update itself to $EXPECT (stops early if it gets stuck)"
+  wait_for_update "$TIMEOUT" || rc=$?
+  [ "$rc" = 0 ] && ok=1
+  [ "$rc" = 2 ] && echo "-- stopped waiting after ${SECONDS}s: $STUCK"
+  check "[$tag] the box moved to $EXPECT by itself and its health gate passed" "current=$(box_current), phase=$(state_field "s.get('phase')" || true) run=$(state_field "s.get('run')" || true)${STUCK:+, stuck: $STUCK}" [ "$ok" = 1 ]
   [ "$ok" = 1 ] || { raw_report; return; }
   check "[$tag] $EXPECT serves / 200" "$BOX_URL/" serving 120
   st="$(box_cli update status)"
@@ -460,4 +523,5 @@ fi
 for b in $BOXES; do run_box "$b"; done
 
 echo
-if [ "$FAILS" = 0 ]; then echo "STAGING RESULT: PASS"; else echo "STAGING RESULT: FAIL ($FAILS failed)"; exit 1; fi
+R="STAGING RESULT"; [ -n "${STAGING_CHILD:-}" ] && R="BOX $BOXES RESULT"
+if [ "$FAILS" = 0 ]; then echo "$R: PASS"; else echo "$R: FAIL ($FAILS failed)"; exit 1; fi
