@@ -30,8 +30,11 @@
 .hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); max-width: 100%; overflow-x: auto; overflow-y: hidden; box-shadow: none; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: var(--control-h-sm); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--color-sumi); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab:hover { background: var(--surface-hover); }
-.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-1); }
+.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]::after, .hm-tabs[data-variant="segmented"] .hm-tabs__tab::before { display: none; }
+@media (forced-colors: active) {
+  .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
 /* Level 2: a smaller underline row directly under a level-1 row. */
 .hm-tabs[data-variant="sub"] .hm-tabs__list { gap: var(--space-0-5); background: none; }
 /* It abuts the level-1 hairline: the page gap is pulled back to a small step and the sub row has no hairline of its own.

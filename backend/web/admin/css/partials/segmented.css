@@ -1,5 +1,5 @@
 /* Segmented: one grey track holding joined buttons (posting, radio or script-toggled); the pressed or
-   checked one is a raised paper pill. Token values only; the contract is components.json. */
+   checked one is a paper pill with a hairline ring and a bottom bevel. Token values only; the contract is components.json. */
 .hm-segmented { display: inline-flex; align-self: flex-start; min-width: 0; margin: 0; flex-wrap: wrap; }
 .hm-segmented { gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--color-kasumi); }
 .hm-segmented__opt { position: relative; display: inline-flex; }
@@ -13,6 +13,9 @@
   cursor: pointer; transition: background-color 120ms var(--ease);
 }
 .hm-segmented__btn:hover, .hm-segmented__opt:hover .hm-segmented__btn { background: var(--surface-hover); }
-.hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-1); }
-.hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-1); }
+.hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
+.hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
 .hm-segmented__btn:focus-visible, .hm-segmented__input:focus-visible + .hm-segmented__btn { outline: var(--focus-ring); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { outline: 2px solid Highlight; outline-offset: -2px; }
+}

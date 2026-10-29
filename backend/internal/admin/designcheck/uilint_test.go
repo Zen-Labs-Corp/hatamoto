@@ -154,9 +154,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "schemaform/field.html", Needle: `__clear`, Reason: "clear the stored value, a destructive tick and not a setting"},
 
 	// UI-04: shadows outside the popup list.
-	{Rule: "UI-04", File: "css/partials/segmented.css", Needle: `[aria-pressed="true"]`, Reason: "selected segment is a raised paper pill on the grey track"},
-	{Rule: "UI-04", File: "css/partials/segmented.css", Needle: `__input:checked`, Reason: "selected segment is a raised paper pill on the grey track"},
-	{Rule: "UI-04", File: "css/partials/tabs.css", Needle: `[aria-current="page"] { background-color: var(--color-paper)`, Reason: "selected segmented tab is a raised paper pill on the grey track"},
 	{Rule: "UI-04", File: "css/pages/blogeditor.css", Needle: ".hm-ed__bar", Reason: "sticky blog editor toolbar; editor_polish_test.go asserts blogeditor.css"},
 
 	// UI-05: markup that cannot go through hm/button or hm/card-start. Needles name
@@ -1119,7 +1116,7 @@ func TestUILintSelfTestDetections(t *testing.T) {
 		{"dialogue is not a popup", "css/pages/x.css", ".hm-dialogue { box-shadow: var(--shadow-3); }", []string{"1 UI-04"}},
 		{"menu is a popup", "css/pages/x.css", ".hm-menu { box-shadow: var(--shadow-2); }\n.hm-menu__item { box-shadow: var(--shadow-2); }\n.hm-dialog--wide { box-shadow: var(--shadow-3); }", nil},
 
-		// UI-04: --shadow-1 has no exception left (the selected segment is an ink fill, no lift).
+		// UI-04: --shadow-1 has no exception left (the selected segment is a paper pill drawn with a ring and a bevel, no lift).
 		{"selected segment has no lift", "css/partials/tabs.css", `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { box-shadow: var(--shadow-1); }`, []string{"1 UI-04"}},
 		{"shadow-1 on a card", "css/pages/x.css", ".hm-card { box-shadow: var(--shadow-1); }", []string{"1 UI-04"}},
 		{"shadow-1 on a tab hover", "css/pages/x.css", ".hm-tabs__tab:hover { box-shadow: var(--shadow-1); }", []string{"1 UI-04"}},

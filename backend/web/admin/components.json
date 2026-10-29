@@ -146,6 +146,7 @@
     "partial": "hm/tabs",
     "variants": {
       "segmented": ".hm-tabs[data-variant=\"segmented\"] .hm-tabs__tab",
+      "segmented-current": ".hm-tabs[data-variant=\"segmented\"] .hm-tabs__tab[aria-current=\"page\"]",
       "sub": ".hm-tabs[data-variant=\"sub\"] .hm-tabs__tab",
       "tablist": ".hm-tablist__tab"
     },
@@ -159,6 +160,12 @@
       "segmented": {
         "padding-left": "var(--space-3)",
         "padding-right": "var(--space-3)"
+      },
+      "segmented-current": {
+        "background-color": "var(--color-paper)",
+        "color": "var(--color-sumi)",
+        "font-weight": "var(--weight-semibold)",
+        "box-shadow": "0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)"
       },
       "sub": {
         "font-size": "var(--text-xs)"
@@ -233,12 +240,14 @@
       "pressed": {
         "background-color": "var(--color-paper)",
         "color": "var(--color-sumi)",
-        "box-shadow": "var(--shadow-1)"
+        "font-weight": "var(--weight-semibold)",
+        "box-shadow": "0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)"
       },
       "checked": {
         "background-color": "var(--color-paper)",
         "color": "var(--color-sumi)",
-        "box-shadow": "var(--shadow-1)"
+        "font-weight": "var(--weight-semibold)",
+        "box-shadow": "0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)"
       }
     }
   },

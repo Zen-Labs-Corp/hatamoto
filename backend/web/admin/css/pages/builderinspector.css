@@ -44,3 +44,6 @@
 /* Pressed and checked options: a light grey fill and an ink edge, ink text (readable in light and dark; accent text on a light surface was not). */
 .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-kasumi); border-color: var(--color-sumi); color: var(--color-sumi); }
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-linkbtn[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
