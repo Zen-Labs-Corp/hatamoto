@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -63,6 +64,9 @@ type groupRow struct {
 
 type sitemapGroup struct {
 	key string
+	// base is the bare group name and locale the locale tag of the file; both
+	// are only set on a multi-locale site, where key is "<segment>-<base>".
+	base, locale string
 	// archive is the group's index path ("/post") from archive_path or a plugin.
 	archive string
 	rows    []groupRow
@@ -75,10 +79,15 @@ type sitemapPlan struct {
 	junk    map[string]bool
 	defPat  *urlpattern.Pattern
 	maxDate map[string]string // per group key
+	// copies lists, per translation group, the locale and path of every listed
+	// copy; GroupURLs turns them into alternates.
+	copies map[uuid.UUID][]localeCopy
 }
 
+type localeCopy struct{ locale, path string }
+
 func planSitemap(in sitemapInput) *sitemapPlan {
-	p := &sitemapPlan{in: in, byKey: map[string]*sitemapGroup{}, junk: map[string]bool{}, maxDate: map[string]string{}}
+	p := &sitemapPlan{in: in, byKey: map[string]*sitemapGroup{}, junk: map[string]bool{}, maxDate: map[string]string{}, copies: map[uuid.UUID][]localeCopy{}}
 	p.defPat, _ = urlpattern.Parse(defaultPattern)
 
 	ensure := func(key string) *sitemapGroup {
@@ -193,7 +202,67 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		}
 	}
 	p.groups = append(kept, misc)
+	if p.multi() {
+		p.splitByLocale(misc)
+	}
 	return p
+}
+
+func (p *sitemapPlan) locales() *entity.LocaleSet { return p.in.Snap.Locales() }
+
+func (p *sitemapPlan) multi() bool { return p.locales().Multi() }
+
+// fileLocale is the locale whose sitemap files list e: its own, shared rows go
+// with the default locale.
+func (p *sitemapPlan) fileLocale(e *entity.SitemapEntry) string {
+	if e.Locale == "" || e.Locale == entity.LocaleShared {
+		return p.locales().Default()
+	}
+	return e.Locale
+}
+
+// localized returns the per-locale file group of base, creating it. Its key is
+// the bare group for an unprefixed default locale, else "<segment>-<group>".
+func (p *sitemapPlan) localized(base *sitemapGroup, tag string) *sitemapGroup {
+	key := base.key
+	if seg := strings.TrimPrefix(p.locales().Prefix(tag), "/"); seg != "" {
+		key = seg + "-" + base.key
+	}
+	if g, ok := p.byKey[key]; ok {
+		if g.locale == "" {
+			g.base, g.locale = base.key, tag // the unprefixed default file keeps the bare name
+		}
+		return g
+	}
+	g := &sitemapGroup{key: key, base: base.key, locale: tag}
+	if base.archive != "" {
+		g.archive = p.in.Snap.WithLocale(tag, base.archive)
+	}
+	p.byKey[key] = g
+	return g
+}
+
+// splitByLocale replaces the bare groups by their per-locale files, locales in
+// settings order and groups in plan order inside each, misc last.
+func (p *sitemapPlan) splitByLocale(misc *sitemapGroup) {
+	bare := p.groups
+	p.groups = nil
+	for _, tag := range p.locales().Tags() {
+		for _, b := range bare {
+			if b == misc {
+				continue
+			}
+			if g, ok := p.byKey[p.localized(b, tag).key]; ok && len(g.rows) > 0 {
+				p.groups = append(p.groups, g)
+			}
+		}
+		p.groups = append(p.groups, p.localized(misc, tag))
+	}
+	for _, b := range bare {
+		if p.byKey[b.key] == b && !slices.Contains(p.groups, b) {
+			delete(p.byKey, b.key)
+		}
+	}
 }
 
 const miscSitemapGroupKey = "misc"
@@ -206,8 +275,16 @@ func (p *sitemapPlan) entryDate(e *entity.SitemapEntry) string {
 }
 
 func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
+	if p.multi() {
+		tag := p.fileLocale(r.e)
+		r.path = p.in.Snap.WithLocale(r.e.Locale, r.path)
+		g = p.localized(g, tag)
+	}
 	if p.in.Redirected != nil && p.in.Redirected(r.path) {
 		return
+	}
+	if p.multi() && r.e.Group != nil && r.e.Locale != entity.LocaleShared && !r.section {
+		p.copies[*r.e.Group] = append(p.copies[*r.e.Group], localeCopy{r.e.Locale, r.path})
 	}
 	g.rows = append(g.rows, r)
 	if d := p.entryDate(r.e); d > p.maxDate["group:"+g.key] {
@@ -218,6 +295,9 @@ func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
 // isHomepage reports whether e is the entity served at "/": the configured
 // homepage, else the entity with the conventional slug "home".
 func (p *sitemapPlan) isHomepage(e *entity.SitemapEntry) bool {
+	if p.multi() && e.Slug == "home" && p.fileLocale(e) != p.locales().Default() {
+		return true // each other locale has its own home
+	}
 	if p.in.HomepageID != uuid.Nil {
 		return e.ID == p.in.HomepageID
 	}
@@ -278,13 +358,22 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 	}
 	base := p.in.BaseURL
 
-	if key == miscSitemapGroupKey {
+	if g.base == miscSitemapGroupKey || key == miscSitemapGroupKey {
+		if g.locale != "" && g.locale != p.locales().Default() {
+			return p.rowURLs(g, urls), true
+		}
 		for _, r := range p.in.Plugins.Static {
 			loc := fmt.Sprintf("%s/%s", base, r.Path)
 			urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: r.ChangeFreq, Priority: r.Priority})
 		}
 	}
 
+	return p.rowURLs(g, urls), true
+}
+
+// rowURLs appends the archive page and the rows of g to urls.
+func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
+	base := p.in.BaseURL
 	sectionPaths := map[string]bool{}
 	for _, r := range g.rows {
 		if r.section {
@@ -302,8 +391,40 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 				continue
 			}
 			loc := base + r.path
-			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: r.changeFreq, Priority: r.priority})
+			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: r.changeFreq, Priority: r.priority, Links: p.alternates(r.e)})
 		}
 	}
-	return urls, true
+	return urls
+}
+
+// alternates lists every listed copy of e's translation group, in settings
+// order, plus x-default; nil unless two or more copies are listed.
+func (p *sitemapPlan) alternates(e *entity.SitemapEntry) []HrefLang {
+	if e.Group == nil {
+		return nil
+	}
+	cs := p.copies[*e.Group]
+	if len(cs) < 2 {
+		return nil
+	}
+	set := p.locales()
+	var out []HrefLang
+	xdef := ""
+	for _, tag := range set.Tags() {
+		for _, c := range cs {
+			if c.locale != tag {
+				continue
+			}
+			href := p.in.BaseURL + c.path
+			out = append(out, HrefLang{Rel: "alternate", HrefLang: tag, Href: href})
+			if xdef == "" || tag == set.XDefault() {
+				xdef = href
+			}
+			break
+		}
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	return append(out, HrefLang{Rel: "alternate", HrefLang: "x-default", Href: xdef})
 }

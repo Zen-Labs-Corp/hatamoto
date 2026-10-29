@@ -82,6 +82,10 @@ type SitemapEntry struct {
 	ChangeFreq    string    `json:"change_freq"`
 	NoIndex       bool      `json:"no_index"`
 	IncludeInLLMs bool      `json:"include_in_llms"`
+	// Locale and Group place the entry in a locale and a translation group for
+	// the per-locale sitemaps (not serialised).
+	Locale string     `json:"-"`
+	Group  *uuid.UUID `json:"-"`
 	// EntityFormat is the value of attributes.format, used by the sitemap
 	// generator to route playbook entities with format='online_report' to
 	// /reports/{slug} instead of /playbooks/{slug} — reports have their
@@ -466,6 +470,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 			COALESCE(p.slug, '') AS parent_slug,
 			COALESCE(anc.path, '') AS ancestor_path,
 			COALESCE(e.published_at, e.created_at) AS dated_at,
+			e.locale, e.translation_group,
 			COALESCE((SELECT jsonb_object_agg(k, e.attributes->k) FROM unnest($1::text[]) k WHERE e.attributes ? k), '{}'::jsonb) AS attrs
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
@@ -498,7 +503,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 		var e SitemapEntry
 		var updatedAt time.Time
 		var attrsJSON []byte
-		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &attrsJSON); err != nil {
+		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &e.Locale, &e.Group, &attrsJSON); err != nil {
 			return nil, fmt.Errorf("failed to scan sitemap entry: %w", err)
 		}
 		if len(attrKeys) > 0 {

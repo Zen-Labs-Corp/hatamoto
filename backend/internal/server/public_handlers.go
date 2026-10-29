@@ -202,7 +202,11 @@ func (s *Server) loadSitemapInput(r *http.Request) (sitemapInput, error) {
 func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitemapInput, error) {
 	snap := s.urlSnapshot(ctx)
 	repo := entity.NewPostgresPublicRepository(s.db)
-	entries, err := repo.ListAllPublishedWithAttrs(ctx, snap.OverrideAttributes())
+	listCtx := ctx
+	if set := snap.Locales(); set.Multi() {
+		listCtx = entity.WithVisibleLocaleSet(ctx, set.Tags()...)
+	}
+	entries, err := repo.ListAllPublishedWithAttrs(listCtx, snap.OverrideAttributes())
 	if err != nil {
 		return sitemapInput{}, err
 	}
@@ -294,7 +298,7 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	groupURLs, _ := plan.GroupURLs(sub)
-	urls := s.applySitemapFilter(r.Context(), sub, groupURLs)
+	urls := s.applySitemapFilterFor(r.Context(), plan.byKey[sub], groupURLs)
 
 	// The xhtml namespace is declared only when a sitemap.urls filter added alternates.
 	urlSet := URLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}
