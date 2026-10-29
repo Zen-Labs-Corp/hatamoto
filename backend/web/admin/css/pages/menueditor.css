@@ -47,5 +47,9 @@
 .hm-menutree__head { user-select: none; }
 .hm-menutree__head > [data-hm-collapse][hidden] { display: none; }
 .hm-menutree__head > [data-hm-collapse][aria-expanded="false"] .hm-icon { transform: rotate(-90deg); }
-.hm-menutree__tools { align-items: flex-end; margin-bottom: var(--space-3); }
+.hm-menutree__tools { align-items: center; margin-bottom: var(--space-3); }
+.hm-menutree__tools > [hidden] { display: none; }
+.hm-menutree__tools > [data-hm-filter] { flex: 1; min-width: 8rem; }
+.hm-menutree__count { margin-inline-end: auto; color: var(--text-muted); font-size: var(--text-sm); white-space: nowrap; }
+.hm-menutree__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: var(--text-sm); }
 .hm-menutree__tools[hidden] { display: none; }

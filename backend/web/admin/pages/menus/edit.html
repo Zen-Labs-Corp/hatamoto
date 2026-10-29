@@ -82,10 +82,12 @@
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err">{{template "hm/badge" dict "Label" "to fix" "Kind" "danger" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="notice">{{template "hm/callout-start" dict "Kind" "warning"}}{{template "hm/callout-end"}}</template>
 <template data-hm-tpl="dropline"><div class="hm-menutree__dropline" hidden aria-hidden="true"><span class="hm-menutree__droplabel" data-hm-droplabel></span></div></template>
-<template data-hm-tpl="treetools"><div class="hm-menutree__tools hm-row"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div>
-{{template "hm/button" dict "Label" "Collapse all" "Size" "sm" "Attrs" (attrmap "data-hm-collapse-all" "")}}
-{{template "hm/button" dict "Label" "Expand all" "Size" "sm" "Attrs" (attrmap "data-hm-expand-all" "")}}
-{{template "hm/button" dict "Label" "Keyboard shortcuts" "Size" "sm" "Icon" "help" "Attrs" (attrmap "data-hm-open" "menu-shortcuts")}}</div></template>
+<template data-hm-tpl="treetools"><div class="hm-menutree__tools hm-row"><span class="hm-menutree__count" role="status" data-hm-count data-one="item" data-other="items"></span>
+<input class="hm-field__control" type="search" id="menu-filter" name="filter" placeholder="Filter" aria-label="Filter items" autocomplete="off" data-hm-filter>
+{{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-right" "AriaLabel" "Collapse all" "Attrs" (attrmap "data-hm-collapse-all" "")}}
+{{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-down" "AriaLabel" "Expand all" "Attrs" (attrmap "data-hm-expand-all" "")}}
+{{template "hm/button" dict "Variant" "primary" "Size" "sm" "Icon" "plus" "Label" "Add" "Attrs" (attrmap "data-hm-add-open" "" "popovertarget" "menu-add" "hidden" "")}}</div></template>
+<template data-hm-tpl="treefoot"><p class="hm-menutree__foot hm-muted">Drag the grip to reorder, or hold Alt and use the arrow keys. {{template "hm/button" dict "Label" "Keyboard shortcuts" "Variant" "ghost" "Size" "sm" "Icon" "help" "Attrs" (attrmap "data-hm-open" "menu-shortcuts")}}</p></template>
 <template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
 <div class="hm-savebar">
 <span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>

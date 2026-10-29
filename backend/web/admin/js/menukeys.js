@@ -105,6 +105,8 @@ export function init(tree, api) {
       }
     });
     if (cursor?.hidden) cursor = visible()[0] ?? cursor;
+    const count = document.querySelector("[data-hm-count]");
+    if (count) count.textContent = `${all.length} ${all.length === 1 ? count.dataset.one : count.dataset.other}`;
     paint();
   }
 
@@ -295,6 +297,8 @@ export function init(tree, api) {
       view();
     });
   }
+  const foot = clone("treefoot");
+  if (foot) tree.after(foot);
 
   select([], rows()[0], false);
   view();
