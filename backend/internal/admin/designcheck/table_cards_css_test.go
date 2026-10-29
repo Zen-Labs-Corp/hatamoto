@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 // phoneTableBlock returns the (max-width: 640px) block of the table partial CSS.
 func phoneTableBlock(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile("../../web/admin/css/partials/table.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/table.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestPhoneTableCardsAreOptIn(t *testing.T) {
 			}
 		}
 	}
-	b, err := os.ReadFile("../../web/admin/partials/table.html")
+	b, err := os.ReadFile("../../../web/admin/partials/table.html")
 	if err != nil {
 		t.Fatal(err)
 	}

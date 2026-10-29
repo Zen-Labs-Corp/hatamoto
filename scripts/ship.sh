@@ -209,9 +209,9 @@ local_ui_gate() {
     chrome=${CHROME:-/usr/bin/google-chrome}
     [[ -x "$chrome" ]] || command -v "$chrome" >/dev/null \
       || { echo "SHIP-H ABORT: local UI gate needs Chrome; set CHROME. Not skipping: it is the only UI gate" >&2; exit 1; }
-    echo "local UI gate on $sha: TestUILint"
-    (cd backend && go test -count=1 -run TestUILint ./internal/admin) \
-      || { echo "SHIP-H ABORT: TestUILint failed on $sha" >&2; exit 1; }
+    echo "local UI gate on $sha: make design-check"
+    make design-check \
+      || { echo "SHIP-H ABORT: design-check failed on $sha" >&2; exit 1; }
     echo "local UI gate on $sha: admin-qa run-local.sh (self-test + consistency, strict)"
     QA_STRICT=1 bash scripts/admin-qa/run-local.sh \
       || { echo "SHIP-H ABORT: admin-qa consistency failed on $sha" >&2; exit 1; }

@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"go/ast"
@@ -12,8 +12,8 @@ import (
 )
 
 // Flashes are sentences: a message written as a literal ends with ".", "!" or
-// "?" (docs/ADMIN_UI_RULES.md, Copy). The lint reads every non-test file of the
-// package and checks the message argument of each SetFlash call:
+// "?" (docs/ADMIN_UI_RULES.md, Copy). The lint reads every non-test file of
+// internal/admin and checks the message argument of each SetFlash call:
 //
 //   - a string literal, or a concatenation ending in one, must end in a stop;
 //   - fmt.Sprintf is judged by its format string;
@@ -108,7 +108,7 @@ func isIdent(e ast.Expr, name string) bool {
 func TestFlashCopy(t *testing.T) {
 	t.Parallel()
 
-	files, err := filepath.Glob("*.go")
+	files, err := filepath.Glob(filepath.Join("..", "*.go"))
 	if err != nil || len(files) < 50 {
 		t.Fatalf("found %d Go files: wrong directory? (%v)", len(files), err)
 	}
@@ -121,7 +121,7 @@ func TestFlashCopy(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		vs = append(vs, lintFlashes(t, name, src)...)
+		vs = append(vs, lintFlashes(t, filepath.Base(name), src)...)
 	}
 	left, bad := applyAllow(flashAllow, vs)
 	for _, v := range left {

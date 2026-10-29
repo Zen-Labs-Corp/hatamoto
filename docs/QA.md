@@ -496,7 +496,7 @@ owner and an editor), then run the commands under "Harness".
 * **Pastel overrides**: the "delete the pastel override classes" item is a **verified
   no-op**. `rg 'bg-(green|red)-' backend/web/admin` finds nothing, and no admin CSS holds
   such a rule; they left with the Next admin. A Go test keeps it empty.
-* **No literals**: `go test ./internal/admin -run CSSLiterals` fails on a hex, `rgb(` or
+* **No literals**: `go test ./internal/admin/designcheck -run CSSLiterals` fails on a hex, `rgb(` or
   `hsl(` colour outside `tokens.css`, except the white preview frames and the dialog scrim.
 * **Charts**: each `--chart-1` to `--chart-6` has at least 3:1 against the paper in light
   and dark (`TestTokenContrast`); line series differ by dash and point shape as well as

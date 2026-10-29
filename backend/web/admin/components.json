@@ -257,5 +257,34 @@
       "padding-left": "0",
       "padding-right": "0"
     }
+  },
+  "switch": {
+    "selector": ".hm-switch .hm-field__box",
+    "owner": "css/partials/field.css",
+    "partial": "hm/field",
+    "props": {}
+  },
+  "savebar": {
+    "selector": ".hm-savebar",
+    "owner": "css/partials/savebar.css",
+    "props": {}
+  },
+  "table": {
+    "selector": ".hm-table",
+    "owner": "css/partials/table.css",
+    "partial": "hm/table",
+    "props": {}
+  },
+  "statcard": {
+    "selector": ".hm-statcard",
+    "owner": "css/partials/chart.css",
+    "partial": "hm/stat",
+    "props": {}
+  },
+  "statgrid": {
+    "selector": ".hm-statgrid",
+    "owner": "css/partials/chart.css",
+    "partial": "hm/stats",
+    "props": {}
   }
 }

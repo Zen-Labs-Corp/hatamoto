@@ -54,7 +54,7 @@ order, switches, spacing, colours) are in
 [`docs/ADMIN_UI_RULES.md`](docs/ADMIN_UI_RULES.md) and are enforced:
 
 ```sh
-cd backend && go test ./internal/admin -run UILint      # static, no database
+make design-check                                       # every static design check, seconds, no database
 bash scripts/admin-qa/run-local.sh consistency.mjs      # Chrome + Postgres, see scripts/admin-qa/README.md
 ```
 

@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 
 func partialCSS(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile("../../web/admin/css/partials/" + name)
+	b, err := os.ReadFile("../../../web/admin/css/partials/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,20 +59,6 @@ func TestOtherCrawlersRowsStackOnPhones(t *testing.T) {
 	i := strings.Index(aia, "@media (max-width: 719px) {")
 	if i < 0 || !strings.Contains(aia[i:], ".hm-aia-other__row { flex-direction: column; align-items: flex-start; }") {
 		t.Error("aia.css: the 719px block must stack .hm-aia-other__row in a column")
-	}
-}
-
-// Every table header is styled once, in table.css; analytics must not restyle .hm-table.
-func TestAnalyticsDoesNotRestyleTables(t *testing.T) {
-	t.Parallel()
-
-	aia := partialCSS(t, "aia.css")
-	for _, line := range strings.Split(aia, "\n") {
-		if strings.Contains(line, ".hm-table ") || strings.Contains(line, ".hm-table{") || strings.Contains(line, ".hm-card .hm-table__scroll") {
-			if !strings.Contains(line, ".hm-table--cards") {
-				t.Errorf("aia.css restyles the shared table: %q", strings.TrimSpace(line))
-			}
-		}
 	}
 }
 

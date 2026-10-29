@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"encoding/json"
@@ -895,7 +895,7 @@ func TestLoadComponentsRejectsOrphanVariantProps(t *testing.T) {
 }
 
 const (
-	docsPath       = "../../../docs/ADMIN_UI_RULES.md"
+	docsPath       = "../../../../docs/ADMIN_UI_RULES.md"
 	docsTableBegin = "<!-- components:begin -->"
 	docsTableEnd   = "<!-- components:end -->"
 )
@@ -936,7 +936,7 @@ func lintDC04(spec map[string]componentSpec, doc string) []uiViolation {
 	have := strings.TrimSpace(doc[i+len(docsTableBegin) : j])
 	if have != strings.TrimSpace(contractTable(spec)) {
 		return []uiViolation{{File: "docs/ADMIN_UI_RULES.md", Line: lineOf(doc, i), Rule: "DC-04",
-			Msg: "components table is stale: run go test ./internal/admin -run TestDesignContractDocsTable -update"}}
+			Msg: "components table is stale: run go test ./internal/admin/designcheck -run TestDesignContractDocsTable -update"}}
 	}
 	return nil
 }

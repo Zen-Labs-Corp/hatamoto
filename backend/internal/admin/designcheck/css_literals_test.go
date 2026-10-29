@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"io/fs"
@@ -24,7 +24,7 @@ var previewFrames = map[string][]string{
 func TestCSSLiterals(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "web", "admin")
+	root := filepath.Join("..", "..", "..", "web", "admin")
 	var files []string
 	err := filepath.WalkDir(filepath.Join(root, "css"), func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".css") && d.Name() != "tokens.css" {
@@ -64,7 +64,7 @@ func TestNoPastelUtilityClasses(t *testing.T) {
 	t.Parallel()
 
 	pastel := regexp.MustCompile(`bg-(green|red)-`)
-	err := filepath.WalkDir(filepath.Join("..", "..", "web", "admin"), func(p string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(filepath.Join("..", "..", "..", "web", "admin"), func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || strings.Contains(p, string(filepath.Separator)+"vendor"+string(filepath.Separator)) {
 			return err
 		}
@@ -84,7 +84,7 @@ func TestNoPastelUtilityClasses(t *testing.T) {
 func TestTabsRowsNeverOverflowVertically(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile(filepath.Join("..", "..", "web", "admin", "css", "partials", "tabs.css"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "admin", "css", "partials", "tabs.css"))
 	if err != nil {
 		t.Fatal(err)
 	}

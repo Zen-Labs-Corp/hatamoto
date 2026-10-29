@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"io/fs"
@@ -20,7 +20,7 @@ import (
 var removedPrefixes = []string{
 	"hm-aia-kpi", "hm-aia-att", "hm-aia-seg", "hm-aia-agt", "hm-aia-stack", "hm-aia-g2", "hm-aia-gh",
 	"hm-aia-notecard", "hm-aia-back", "hm-bs-act", "hm-bs-warn", "hm-taglist", "hm-parentchip",
-	"hm-bs-chip", "hm-bs-badge", "hm-pe__widths", "js/aia/spark.js", "aia/spark",
+	"hm-bs-chip", "hm-bs-badge", "hm-pe__widths", "js/aia/spark.js", "aia/spark", "hm-seg__", "hm-seg--",
 }
 
 // Whole tokens only, because a live sibling shares the start: hm-be__tabrow, hm-bs-tab-canvas,
@@ -28,6 +28,7 @@ var removedPrefixes = []string{
 // "-" is never a token start, so the prefixes above leave them alone.)
 var removedTokens = []string{
 	"hm-aia-sectiontitle", "hm-aia-sub", "hm-be__tab", "hm-bs-tab", "data-aia-showall",
+	"hm-seg", "hm/seg", // the old setrow pill control and its partial; hm/segmented replaced them
 }
 
 func removedPrimitiveRE() *regexp.Regexp {
@@ -52,12 +53,12 @@ func removedHit(re *regexp.Regexp, line string) string {
 func TestNoDuplicatePrimitives(t *testing.T) {
 	re := removedPrimitiveRE()
 	roots := []string{
-		filepath.Join("..", "..", "web", "admin", "css"),
-		filepath.Join("..", "..", "web", "admin", "js"),
-		filepath.Join("..", "..", "web", "admin", "pages"),
-		filepath.Join("..", "..", "web", "admin", "partials"),
-		".",        // the Go code that emits class strings; the *_test.go files name these on purpose
-		"testdata", // goldens
+		filepath.Join("..", "..", "..", "web", "admin", "css"),
+		filepath.Join("..", "..", "..", "web", "admin", "js"),
+		filepath.Join("..", "..", "..", "web", "admin", "pages"),
+		filepath.Join("..", "..", "..", "web", "admin", "partials"),
+		"..",                            // internal/admin: the Go code that emits class strings; *_test.go files name these on purpose
+		filepath.Join("..", "testdata"), // goldens
 	}
 	for _, root := range roots {
 		err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -65,12 +66,12 @@ func TestNoDuplicatePrimitives(t *testing.T) {
 				return err
 			}
 			if d.IsDir() {
-				if root == "." && p != root { // "." stays flat: only this package's own files
+				if root == ".." && p != root { // ".." stays flat: only internal/admin's own files
 					return fs.SkipDir
 				}
 				return nil
 			}
-			if root == "." && (!strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go")) {
+			if root == ".." && (!strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go")) {
 				return nil
 			}
 			b, err := os.ReadFile(p)
@@ -112,6 +113,9 @@ func TestRemovedPrimitivePatternCatchesSubClasses(t *testing.T) {
 		`<span class="hm-bs-badge-x">`,
 		`<script src="/admin/js/aia/spark.js"></script>`,
 		`<div class="hm-be__tab">`,
+		`.hm-seg { display: flex; }`,
+		`<span class="hm-seg__opt">`,
+		`{{template "hm/seg" .}}`,
 	} {
 		if removedHit(re, line) == "" {
 			t.Errorf("not caught: %s", line)
@@ -121,6 +125,7 @@ func TestRemovedPrimitivePatternCatchesSubClasses(t *testing.T) {
 		`<div class="hm-be__tabrow" data-hm-bs-act data-hm-bs-warn data-hm-bs-badge>`,
 		`id="hm-bs-tab-canvas" data-hm-bs-tab data-hm-bs-tabs`,
 		`<div class="hm-segmented hm-tablist hm-statcard hm-badge hm-aia-chart">`,
+		`<span class="hm-segmented__opt">{{template "hm/segmented" .}}`,
 	} {
 		if n := removedHit(re, line); n != "" {
 			t.Errorf("%q is a live name, reported as %q", line, n)
@@ -129,7 +134,7 @@ func TestRemovedPrimitivePatternCatchesSubClasses(t *testing.T) {
 }
 
 func TestSparkJSIsGone(t *testing.T) {
-	if _, err := os.Stat(filepath.Join("..", "..", "web", "admin", "js", "aia", "spark.js")); err == nil {
+	if _, err := os.Stat(filepath.Join("..", "..", "..", "web", "admin", "js", "aia", "spark.js")); err == nil {
 		t.Error("js/aia/spark.js is back; sparklines come from hm/stats (Spark.Live) and the shared chart code")
 	}
 }

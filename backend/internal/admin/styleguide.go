@@ -156,6 +156,9 @@ func (a *Admin) styleguideSections() ([]styleguideSection, error) {
 	samples := styleguideSamples(a.adminPath)
 	var out []styleguideSection
 	for _, n := range names {
+		if len(samples[n]) == 0 {
+			continue // ownership only, no contract to show (TestStyleguideCoversTheSpec)
+		}
 		sec := styleguideSection{Name: n, Selector: spec[n].Selector}
 		for _, s := range samples[n] {
 			h := s.HTML

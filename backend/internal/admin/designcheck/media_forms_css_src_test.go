@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 
 func readAdminCSS(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile("../../web/admin/css/pages/" + name)
+	b, err := os.ReadFile("../../../web/admin/css/pages/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestPickerDoesNotClipFocusRings(t *testing.T) {
 func TestTableCardsShowLabelsWithoutTrailingDot(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/table.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/table.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestTableCardsShowLabelsWithoutTrailingDot(t *testing.T) {
 func TestTooltipHiddenHasNoBox(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/tooltip.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/tooltip.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestPickerTileSelectedRingMatchesLibraryTile(t *testing.T) {
 		t.Fatalf("no %s rule", selector)
 		return ""
 	}
-	lib, err := os.ReadFile("../../web/admin/css/partials/mediatile.css")
+	lib, err := os.ReadFile("../../../web/admin/css/partials/mediatile.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestPickerTileSelectedRingMatchesLibraryTile(t *testing.T) {
 // control from its right edge (641px and up), and a card-mode table (no sideways scroll, 640px and
 // below) does not clip and hangs the tip from the card row so it stays on screen.
 func TestTooltipInsideATableIsNotClipped(t *testing.T) {
-	b, err := os.ReadFile("../../web/admin/css/partials/tooltip.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/tooltip.css")
 	if err != nil {
 		t.Fatal(err)
 	}

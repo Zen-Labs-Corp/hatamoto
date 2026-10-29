@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 func TestMenuTreeStylesDisabledMenuItems(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/pages/menus.css")
+	b, err := os.ReadFile("../../../web/admin/css/pages/menus.css")
 	if err != nil {
 		t.Fatal(err)
 	}

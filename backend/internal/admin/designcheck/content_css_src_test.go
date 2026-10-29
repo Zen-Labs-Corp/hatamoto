@@ -1,20 +1,10 @@
-package admin
+package designcheck
 
 import (
 	"os"
 	"strings"
 	"testing"
 )
-
-// PR-C owns content.css (runbook §1); the media and forms rules live in media.css and forms.css.
-// This branch had rewritten the media block there under a "definition lists" heading.
-func TestMediaFormsDoNotEditContentCSS(t *testing.T) {
-	t.Parallel()
-
-	if strings.Contains(readAdminCSS(t, "content.css"), "/* definition lists */") {
-		t.Error("content.css carries this branch's edit; keep the rules in media.css or forms.css")
-	}
-}
 
 // css/partials/dropzone.css is the only owner of .hm-dropzone: pages/* load after partials/*,
 // so a second rule there silently overrides Compact padding and the neutral hover.
@@ -26,7 +16,7 @@ func TestDropzoneCSSHasASingleOwner(t *testing.T) {
 			t.Errorf("%s styles .hm-dropzone; the owner is css/partials/dropzone.css", f)
 		}
 	}
-	own, err := os.ReadFile("../../web/admin/css/partials/dropzone.css")
+	own, err := os.ReadFile("../../../web/admin/css/partials/dropzone.css")
 	if err != nil {
 		t.Fatal(err)
 	}

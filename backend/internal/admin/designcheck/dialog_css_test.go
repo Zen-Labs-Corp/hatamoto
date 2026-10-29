@@ -1,4 +1,4 @@
-package admin
+package designcheck
 
 import (
 	"os"
@@ -12,7 +12,7 @@ import (
 func TestDialogOverflowOnlyHiddenWithBody(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../web/admin/css/partials/dialog.css")
+	b, err := os.ReadFile("../../../web/admin/css/partials/dialog.css")
 	if err != nil {
 		t.Fatal(err)
 	}
