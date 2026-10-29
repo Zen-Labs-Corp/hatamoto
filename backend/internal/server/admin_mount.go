@@ -89,7 +89,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	}
 	d.BaseURL = s.configuredBaseURL
 	d.CookieSecure = s.cfg.AdminCookieSecure
-	d.Invalidate = s.invalidateRendered
+	d.Invalidate = s.invalidateSiteSettings
 	d.ValidateLocales = func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string) ([]siteconfig.LocaleEntry, string, error) {
 		return validateLocaleSettings(ctx, localeSettingsRequest{Default: def, Entries: entries, PrefixAll: prefixAll, XDefault: xdef}, s.checkLocaleSegments)
 	}

@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/entity"
 )
 
 // Through the real middleware stack the admin's strict CSP wins over the
@@ -49,5 +52,42 @@ func TestAdminEncodedSlashIsRefusedThroughRouter(t *testing.T) {
 		if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" {
 			t.Errorf("%s: %d %q, want the 404 refusal", path, rec.Code, rec.Header().Get("Location"))
 		}
+	}
+}
+
+type countingSchemaLister struct {
+	entity.SchemaRepository
+	calls int
+}
+
+func (l *countingSchemaLister) List(context.Context) ([]*entity.EntitySchema, error) {
+	l.calls++
+	return nil, nil
+}
+
+// The admin settings forms reset the URL snapshot: it holds the locale set and
+// the time zone, so a stale one would serve and cache the old URLs.
+func TestAdminInvalidateResetsURLSnapshot(t *testing.T) {
+	s, err := routeShell()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lister := &countingSchemaLister{}
+	s.entityService = entity.NewService(lister, nil, s.logger)
+	d, err := s.buildAdminDeps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	reg := s.entityService.URLRegistry()
+	if _, err := reg.Snapshot(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reg.Snapshot(ctx); err != nil || lister.calls != 1 {
+		t.Fatalf("snapshot not cached: %d loads, %v", lister.calls, err)
+	}
+	d.Invalidate(ctx)
+	if _, err := reg.Snapshot(ctx); err != nil || lister.calls != 2 {
+		t.Fatalf("admin invalidate left the snapshot: %d loads, %v", lister.calls, err)
 	}
 }

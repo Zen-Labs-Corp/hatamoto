@@ -134,7 +134,9 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 // reads the time zone for {month} and {day}, so it is rebuilt first: pages
 // rendered after the purge must not cache URLs in the old zone.
 func (s *Server) invalidateSiteSettings(ctx context.Context) {
-	s.entityService.URLRegistry().Invalidate()
+	if s.entityService != nil {
+		s.entityService.URLRegistry().Invalidate()
+	}
 	s.invalidateRendered(ctx)
 }
 
