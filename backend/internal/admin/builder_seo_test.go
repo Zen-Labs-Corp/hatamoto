@@ -145,3 +145,19 @@ func TestBuilderSEOFragment(t *testing.T) {
 	has(t, body, `name="seo_title"`, "Stored title", `role="tab"`, `id="hm-bs-seo"`, "/builder/analyze")
 	lacks(t, body, "<html", "<nav", "hm-sidebar")
 }
+
+func TestBuilderSEOSchemaTabHasTheNamedPagesData(t *testing.T) {
+	t.Parallel()
+
+	r := newBSEORig(t, seoPreviewHTML)
+	for name, rec := range map[string]*httptest.ResponseRecorder{
+		"panel":   r.do("GET", r.url(r.page, "/builder/seo"), "owner-token", nil, htmxHdr),
+		"analyze": r.analyze("owner-token", r.page, stageDoc),
+	} {
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", name, rec.Code, rec.Body)
+		}
+		lacks(t, rec.Body.String(), "until the entry has a name")
+		has(t, rec.Body.String(), "Structured data:")
+	}
+}

@@ -88,6 +88,8 @@ type seoPanel struct {
 	// JSONLD is the structured data the published page will carry (pretty
 	// printed), JSONLDType its type(s); empty when it cannot be built.
 	JSONLD, JSONLDType string
+	// JSONLDNote replaces the "no name" message when no preview is built.
+	JSONLDNote string
 }
 
 type heading struct {

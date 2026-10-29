@@ -44,7 +44,7 @@ func (a *Admin) handleBuilderSEO(w http.ResponseWriter, r *http.Request) {
 		Errors     map[string]string
 		Noun       string
 		AnalyzeURL string
-	}{buildPanel(in), f, nil, "page", a.adminPath + "/entities/" + e.ID.String() + "/builder/analyze"}
+	}{a.builderPanel(e, sc, in), f, nil, "page", a.adminPath + "/entities/" + e.ID.String() + "/builder/analyze"}
 	a.Render(w, r, http.StatusOK, "entities/builderseo", v)
 }
 
@@ -86,8 +86,16 @@ func (a *Admin) handleBuilderAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 	in := a.builderSEOInput(r, e, sc, seoFromForm(r), mainHTML(rec.Body.Bytes()))
 	v := a.NewView(w, r, "Search checks")
-	v.Data = struct{ Panel seoPanel }{buildPanel(in)}
+	v.Data = struct{ Panel seoPanel }{a.builderPanel(e, sc, in)}
 	a.Render(w, r, http.StatusOK, "entities/seopanel", v)
+}
+
+// builderPanel is the panel for in with the structured data the stored page
+// will carry, built as the entity form builds it.
+func (a *Admin) builderPanel(e *entity.Entity, sc *entity.EntitySchema, in seoInput) seoPanel {
+	panel := buildPanel(in)
+	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: &entityForm{Name: e.Name, Slug: e.Slug}, attrs: attrsMap(e.Attributes)}, in)
+	return panel
 }
 
 // builderSEOInput is the panel input the two routes share: the page as named

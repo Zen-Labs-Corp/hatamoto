@@ -352,9 +352,13 @@ func (a *Admin) renderTermEdit(w http.ResponseWriter, r *http.Request, status in
 	}
 	in := seoInput{Title: t.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: t.Slug, Canonical: f.SEO.Canonical,
 		Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true, Kind: seo.KindTaxonomy, TermKind: t.Kind, Term: t.Name,
-		BaseURL: a.deps.BaseURL(r), Path: termPath(nodes, t)}
+		Path: termPath(nodes, t)}
+	if a.deps.BaseURL != nil {
+		in.BaseURL = a.deps.BaseURL(r)
+	}
 	a.withSEOSettings(r, &in, "")
 	f.Panel = buildPanel(in)
+	f.Panel.JSONLDNote = "The public archive page adds its own structured data: a collection page and breadcrumbs."
 	v := a.NewView(w, r, "Edit "+t.Name)
 	v.Data = f
 	v.Width = "narrow"
