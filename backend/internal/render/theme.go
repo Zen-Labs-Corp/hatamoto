@@ -49,6 +49,10 @@ type Theme struct {
 	// to the public policy without 'unsafe-inline' in script-src. It promises the
 	// theme emits no inline executable script and no on*= handler on public pages.
 	StrictScripts bool
+	// Menu is what the theme declares for menu items (theme.json "menu"):
+	// style, colour, badge and icon presets and suggested classes. Zero when
+	// the theme declares nothing.
+	Menu MenuDecl
 
 	chain Chain
 }
@@ -64,6 +68,7 @@ type themeManifest struct {
 	CSP struct {
 		StrictScripts bool `json:"strictScripts"`
 	} `json:"csp"`
+	Menu json.RawMessage `json:"menu"`
 }
 
 // LoadTheme resolves theme.json (highest-precedence copy) and discovers section
@@ -80,6 +85,7 @@ func LoadTheme(c Chain) (*Theme, error) {
 		t.Name, t.Version, t.Settings = m.Name, m.Version, m.SettingsSchema
 		t.BuilderTokens = m.Builder.Tokens
 		t.StrictScripts = m.CSP.StrictScripts
+		t.Menu = parseMenuDecl(m.Menu)
 		for _, p := range m.Builder.Parts {
 			if builder.ValidPartSlot(p) { // unknown names are ignored
 				if t.BuilderParts == nil {

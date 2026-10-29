@@ -4,6 +4,30 @@
   "csp": {
     "strictScripts": true
   },
+  "menu": {
+    "styles": [
+      { "id": "default", "label": "Default", "class": "hm-nav__item--default" },
+      { "id": "button", "label": "Button", "class": "hm-nav__item--button" },
+      { "id": "link", "label": "Link", "class": "hm-nav__item--link" },
+      { "id": "muted", "label": "Muted", "class": "hm-nav__item--muted" }
+    ],
+    "colors": [
+      { "id": "accent", "label": "Accent", "class": "hm-nav-color--accent", "swatch": "#2563eb" },
+      { "id": "ink", "label": "Ink", "class": "hm-nav-color--ink", "swatch": "#111827" },
+      { "id": "muted", "label": "Muted", "class": "hm-nav-color--muted", "swatch": "#6b7280" },
+      { "id": "danger", "label": "Danger", "class": "hm-nav-color--danger", "swatch": "#b91c1c" }
+    ],
+    "badges": [
+      { "id": "new", "label": "New", "class": "hm-nav__badge--new" },
+      { "id": "beta", "label": "Beta", "class": "hm-nav__badge--beta" }
+    ],
+    "icons": [
+      { "id": "arrow", "label": "Arrow" },
+      { "id": "external", "label": "External link" },
+      { "id": "doc", "label": "Document" }
+    ],
+    "classes": ["footer-cta", "header-cta", "nav-highlight"]
+  },
   "settings_schema": {
     "type": "object",
     "properties": {}

@@ -810,6 +810,10 @@ func (e *Engine) BuilderParts() []string {
 	return out
 }
 
+// MenuDecl is what the live theme declares for menu items (theme.json
+// "menu"); the zero value when it declares nothing.
+func (e *Engine) MenuDecl() MenuDecl { return e.current().theme.Menu }
+
 // Version is the content hash of the effective theme files; it keys the HTML cache.
 func (e *Engine) Version() string { return e.current().version }
 
