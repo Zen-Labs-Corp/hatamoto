@@ -32,6 +32,7 @@
 .hm-bubble .hm-btn { box-shadow: none; } /* the ink toolbar keeps its flat icon buttons */
 @media (forced-colors: active) {
   .hm-btn, .hm-btn:focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; } /* the reset in base.css is (0,2,0) and would drop the only edge */
+  .hm-btn[disabled], .hm-btn[disabled]:focus:not(:focus-visible), .hm-btn[aria-disabled="true"], .hm-btn[aria-disabled="true"]:focus:not(:focus-visible) { outline-color: GrayText; }
   .hm-btn:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
   .hm-btn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
