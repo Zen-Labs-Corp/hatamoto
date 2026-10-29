@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -753,5 +754,44 @@ func TestRenderSnapshotErrorIs500(t *testing.T) {
 				t.Fatalf("no entity service: status %d, want 200", w.Code)
 			}
 		})
+	}
+}
+
+// On a multi-locale site the unprefixed home is the default locale's home and
+// reads [default, und] like every other unprefixed path; a one-locale site
+// keeps the unscoped read.
+func TestRenderHomeLocaleScope(t *testing.T) {
+	var loadScope, viewScope []string
+	setup := func(f *renderFixture, snap *entity.URLSnapshot) {
+		f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return snap, nil }
+		f.h.loadHome = func(r *http.Request) (*PublicPageResponse, pageOutcome, error) {
+			loadScope = entity.VisibleLocales(r.Context())
+			return pageResponse("Home"), pageOutcome{Status: 200}, nil
+		}
+		build := f.h.buildView
+		f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+			viewScope = entity.VisibleLocales(ctx)
+			return build(ctx, r, rr)
+		}
+	}
+
+	f := newRenderFixture(t)
+	setup(f, multiSitemapSnap(t, false))
+	if w := f.get("/"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	want := []string{"en", "und"}
+	if !reflect.DeepEqual(loadScope, want) || !reflect.DeepEqual(viewScope, want) {
+		t.Errorf("multi-locale home scope: load %v, view %v, want %v", loadScope, viewScope, want)
+	}
+
+	loadScope, viewScope = nil, nil
+	f = newRenderFixture(t)
+	setup(f, entity.DefaultURLSnapshot())
+	if w := f.get("/"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	if loadScope != nil || viewScope != nil {
+		t.Errorf("one-locale home was scoped: load %v, view %v", loadScope, viewScope)
 	}
 }

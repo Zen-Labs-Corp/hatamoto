@@ -215,7 +215,17 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 		}
 	}
 	h.serve(w, r, "/", func() (*routeResult, pageOutcome, error) {
-		return homeRoute(h.loadHome(r))
+		if !set.Multi() {
+			return homeRoute(h.loadHome(r))
+		}
+		// The unprefixed home is the default locale's, like every other
+		// unprefixed path: it sees the default locale's rows and the shared ones.
+		def := set.Default()
+		rr, outcome, err := homeRoute(h.loadHome(r.WithContext(entity.WithVisibleLocales(r.Context(), def))))
+		if rr != nil {
+			rr.Locale, rr.Rest = def, "/"
+		}
+		return rr, outcome, err
 	})
 }
 
