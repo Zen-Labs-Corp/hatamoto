@@ -7,7 +7,7 @@
 .hm-table__bulk[hidden] { display: none; }
 .hm-table__search { flex: 1 1 240px; max-width: 420px; }
 .hm-table__filters .hm-select { width: auto; flex: 0 1 220px; min-width: 160px; }
-/* Bulk bar: accent-soft tint, ink text, paper buttons with control borders. */
+/* Bulk bar: accent-soft tint, ink text, paper buttons (hairline ring). */
 .hm-table__bulk { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-accent-soft); color: var(--color-sumi); font-size: var(--text-sm); border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
 .hm-table__bulk [data-hm-bulk-count] { font-weight: var(--weight-medium); margin-right: auto; white-space: nowrap; }
 /* position: relative anchors the visually-hidden spans inside cells to the scroller; without
