@@ -16,18 +16,22 @@ export function readSEO(root) {
 
 /**
  * mountSEODrawer({doc, btn, root, urls, getDoc, onEdit, onError, load, fetch})
- * btn opens and closes root (the dialog element); focus moves into the drawer on open and back to btn on Escape or Close.
+ * btn opens and closes root (the dialog element); focus moves into the drawer on open and back to the opener (btn, or the More menu when btn is hidden) on Escape or Close.
  * onEdit(values) runs after a field changed. Returns {open, close, isOpen}.
  */
 export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
   let loaded = null;
   let busy = false;
+  let opener = null; // what had focus when the drawer opened: the SEO button, or its More-menu proxy on a phone
   const isOpen = () => !root.hidden;
+  const shown = (el) => !!el && el.getClientRects().length > 0;
+  // The first of them on screen: the button is hidden on a phone and the menu item once its menu closed.
+  const returnFocus = () => [opener, btn, doc.querySelector("[popovertarget=bs-more]")].find(shown)?.focus();
   const close = (back = true) => {
     if (!isOpen()) return;
     root.hidden = true;
     btn.setAttribute("aria-expanded", "false");
-    if (back) btn.focus();
+    if (back) returnFocus();
   };
   const fill = async () => {
     // The fragment page answers a bare panel only to an htmx-style request.
@@ -45,6 +49,7 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   };
   const open = async () => {
     if (isOpen() || busy) return;
+    opener = doc.activeElement;
     busy = true;
     try {
       loaded ??= fill().catch((e) => {

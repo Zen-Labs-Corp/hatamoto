@@ -16,10 +16,11 @@ const { mountSEODrawer, readSEO } = await import(new URL("../../../backend/web/a
 const { createSaver } = await import(new URL("../../../backend/web/admin/js/builder/sync.js", import.meta.url));
 
 function rig() {
+  const more = { getClientRects: () => [1], focus: () => log.push("focus more") };
   const log = [];
   const on = {};
   const docOn = [];
-  const doc = { addEventListener: (t, f) => docOn.push([t, f]), querySelector: () => doc.open ?? null };
+  const doc = { addEventListener: (t, f) => docOn.push([t, f]), querySelector: (sel) => (sel === "[popovertarget=bs-more]" ? more : (doc.open ?? null)), activeElement: null };
   const body = { innerHTML: "" };
   const close = { addEventListener: (t, f) => (close.fn = f), focus: () => log.push("focus close") };
   const fields = { seo_title: { value: "T" }, seo_description: { value: "D" }, seo_canonical: { value: "" }, seo_og_image: { value: "" }, seo_noindex: { checked: true } };
@@ -35,7 +36,7 @@ function rig() {
       return m ? fields[m[1]] : null; // no tab and no open popover in this stub
     },
   };
-  const btn = { attrs: {}, setAttribute: (k, v) => (btn.attrs[k] = v), focus: () => log.push("focus btn"), addEventListener: (t, f) => (btn.fn = f) };
+  const btn = { getClientRects: () => [1], attrs: {}, setAttribute: (k, v) => (btn.attrs[k] = v), focus: () => log.push("focus btn"), addEventListener: (t, f) => (btn.fn = f) };
   const edits = [];
   const fetched = [];
   const d = mountSEODrawer({
@@ -48,7 +49,7 @@ function rig() {
     fetch: async (u, o) => (fetched.push([u, o]), { ok: true, text: async () => "<div data-hm-seo></div>" }),
   });
   const esc = (e) => on.keydown(e);
-  return { doc, d, root, btn, body, log, edits, fetched, on, close, esc };
+  return { more, doc, d, root, btn, body, log, edits, fetched, on, close, esc };
 }
 
 test("the first open fetches the fragment as an htmx request, later opens reuse it", async () => {
@@ -147,4 +148,18 @@ test("every open asks for the checks of the current draft", async () => {
     delete globalThis.htmx;
   }
   assert.deepEqual(fired, [[panel, "hm:analyze"], [panel, "hm:analyze"]]);
+});
+
+test("closing returns focus to the opener, and to the More button when the SEO button is hidden", async () => {
+  const r = rig();
+  const proxy = { getClientRects: () => [], focus: () => r.log.push("focus proxy") };
+  r.doc.activeElement = proxy;
+  r.btn.getClientRects = () => [];
+  await r.d.open();
+  r.d.close();
+  assert.deepEqual(r.log.slice(-1), ["focus more"]);
+  proxy.getClientRects = () => [1];
+  await r.d.open();
+  r.d.close();
+  assert.deepEqual(r.log.slice(-1), ["focus proxy"]);
 });
