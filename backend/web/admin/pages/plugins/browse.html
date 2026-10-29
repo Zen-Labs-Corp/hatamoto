@@ -17,7 +17,7 @@
 <div class="hm-pluginbrowse__results">
 {{if .Featured}}<section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
 <ul class="hm-plugincards" role="list">{{range .Featured}}{{template "browse-card" .}}{{end}}</ul>
-<h2 class="hm-pluginbrowse__heading">All plugins</h2></section>{{end}}
+</section><h2 class="hm-pluginbrowse__heading">All plugins</h2>{{end}}
 <div class="hm-pluginbrowse__bar"><p class="hm-muted" aria-live="polite">{{if .Total}}{{.Total}} {{if eq .Total 1}}plugin{{else}}plugins{{end}}{{else}}No plugins{{end}}</p>
 <div class="hm-pluginbrowse__sort"><label class="hm-field__label" for="browse-sort">Sort</label>{{template "hm/select" dict "ID" "browse-sort" "Name" "sort" "Auto" true "Options" .SortOptions}}</div></div>
 {{if .Cards}}<ul class="hm-plugincards" role="list">{{range .Cards}}{{template "browse-card" .}}{{end}}</ul>
