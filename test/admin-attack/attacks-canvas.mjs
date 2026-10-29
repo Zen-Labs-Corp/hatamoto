@@ -56,11 +56,26 @@ const selOf = () => admin.evaluate(() => JSON.stringify(window.__hmBuilder.selec
 const docBefore = await docOf();
 const selBefore = await selOf();
 const savesBefore = saves().length;
+// The canvas is live only once a render is swapped into the visible frame and the bridge has taken the
+// host's init (it marks <html data-hm-v2> and answers ready on its port). The first render can take
+// longer than the attack window on a slow runner, so wait for that before the window starts.
+const liveFrame = async (timeout = 30000) => {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    const f = await frameOf().catch(() => undefined);
+    if (f && (await f.evaluate(() => document.documentElement.hasAttribute("data-hm-v2") && !!document.querySelector("[data-hm-section]")).catch(() => false))) return f;
+    await admin.waitForTimeout(100);
+  }
+  return undefined;
+};
+await liveFrame();
 await admin.waitForTimeout(5000); // longer than the attack timers in plugin.js
 const aboutAfter = await raw("/about");
 const docAfter = await docOf();
 const selAfter = await selOf();
-const frame = await frameOf();
+const frame = await liveFrame(5000);
+// The response listener stores a render once its body is read: give it time on a slow runner.
+for (let i = 0; i < 50 && !renders.some((r) => /\/edit\/preview\/[^/]+$/.test(r.path) && r.path.includes(aboutId)); i++) await admin.waitForTimeout(100);
 const canvasRender = renders.find((r) => /\/edit\/preview\/[^/]+$/.test(r.path) && r.path.includes(aboutId));
 const injected = frame ? await frame.evaluate(() => ({ marker: window.__canvasAtk !== undefined || document.documentElement.dataset.atk !== undefined })).catch(() => ({ marker: false })) : { marker: false };
 
@@ -68,13 +83,14 @@ const injected = frame ? await frame.evaluate(() => ({ marker: window.__canvasAt
 let bridgeWorks = false;
 if (frame) {
   // The frame is scaled to fit its pane, so the click point is computed in page space.
-  const box = await (await frame.frameElement()).boundingBox();
+  // The box is read after the section is scrolled into view: scrolling it may scroll the pane too.
   const at = await frame.evaluate(() => {
     const e = document.querySelector("[data-hm-section]");
     e.scrollIntoView({ block: "center" });
     const b = e.getBoundingClientRect();
     return { x: b.x + b.width / 2, y: b.y + b.height / 2, w: innerWidth };
   });
+  const box = await (await frame.frameElement()).boundingBox();
   const k = box.width / at.w;
   await admin.mouse.click(box.x + at.x * k, box.y + at.y * k);
   bridgeWorks = await admin.waitForFunction((b) => JSON.stringify(window.__hmBuilder.selected()) !== b, selBefore, { timeout: 5000 }).then(() => true, () => false);
