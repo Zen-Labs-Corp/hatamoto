@@ -192,6 +192,30 @@ fb_env_get() {
   sed -n "s/^$2=//p" "$1" | head -n 1
 }
 
+# fb_env_edit FILE FUNC [ARG...] rewrites FILE with the output of "FUNC FILE ARG...".
+# Every root-side read-modify-write of the env file goes through here: one flock on a
+# lock file under /run (skipped when flock is missing), a unique temp file in the same
+# directory that starts as a copy of the file (cp -p: same owner and mode), then an
+# atomic rename. Two timers editing the file at once cannot lose each other's edit.
+fb_env_edit() {
+  fee_file="$1"
+  fee_fn="$2"
+  shift 2
+  fee_lock="$(dest /run/hatamoto-env.lock)"
+  mkdir -p "$(dirname "$fee_lock")"
+  (
+    if command -v flock >/dev/null 2>&1; then
+      exec 9> "$fee_lock"
+      flock 9 || exit 1
+    fi
+    fee_tmp="$(mktemp "$fee_file.XXXXXX")" || exit 1
+    trap 'rm -f "$fee_tmp"' EXIT
+    cp -p "$fee_file" "$fee_tmp" || exit 1
+    "$fee_fn" "$fee_file" "$@" > "$fee_tmp" || exit 1
+    mv -f "$fee_tmp" "$fee_file"
+  )
+}
+
 # fb_psql runs psql as the postgres superuser; SQL comes on stdin so no secret is in a process list.
 # Terse errors keep psql from echoing the failed statement (a password) to the console and logs.
 fb_psql() {

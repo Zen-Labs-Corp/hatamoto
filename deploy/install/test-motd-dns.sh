@@ -154,7 +154,7 @@ cl FAKE_OWNERS=1 >"$tmp/o" 2>&1 || fail "owner run failed: $(cat "$tmp/o")"
 if grep -q 'SETUP_CODE' "$envf"; then fail "setup code kept"; fi
 grep -v '^HATAMOTO_SETUP_CODE=' "$tmp/env.before" | cmp -s - "$envf" || fail "other lines changed"
 [ "$(stat -c %a "$envf")" = 640 ] || fail "env perms $(stat -c %a "$envf")"
-[ ! -e "$envf.new" ] || fail "temp file left behind"
+[ "$(ls "$(dirname "$envf")" | wc -l)" = 1 ] || fail "temp file left behind"
 grep -qx 'systemctl disable --now hatamoto-setupcode-clean.timer' "$tmp/calls" || fail "timer not disabled"
 if grep -q 'K7M2' "$tmp/o"; then fail "code printed by the clean-up script"; fi
 pass "owner exists: only the setup code line is removed, mode kept, timer disabled, nothing printed"
@@ -163,5 +163,28 @@ cl FAKE_OWNERS=1 >/dev/null 2>&1 || fail "rerun failed"
 [ "$h" = "$(sha256sum "$envf")" ] || fail "rerun changed the env file"
 if grep -q 'restart' "$tmp/calls"; then fail "rerun restarted something"; fi
 pass "rerun is a no-op"
+
+# --- both scripts edit one env file: they take turns under the shared lock
+r="$(mkroot race)"; setup "$r" example.com >/dev/null 2>&1
+# shellcheck disable=SC2016 # the single-quoted script expands in the child shell
+envrun "$r" HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; install_setupcode_clean' _ "$fb" >/dev/null 2>&1 || fail "clean setup failed"
+envf="$r/opt/hatamoto/config/hatamoto.env"
+mkdir -p "$r/run"; mkfifo "$tmp/release"
+( flock 9; timeout 10 cat "$tmp/release" >/dev/null ) 9> "$r/run/hatamoto-env.lock" &
+holder=$!
+sleep 0.3
+cl() { envrun "$r" "$@" sh "$r/usr/local/lib/hatamoto/setupcode-clean.sh"; }
+cp "$envf" "$tmp/env.before"
+sw FAKE_DNS_IP=203.0.113.7 >"$tmp/o1" 2>&1 & p1=$!
+cl FAKE_OWNERS=1 >"$tmp/o2" 2>&1 & p2=$!
+sleep 0.5
+cmp -s "$envf" "$tmp/env.before" || fail "env edited while the lock was held"
+echo go > "$tmp/release"
+wait "$p1" "$p2" "$holder" || fail "a script failed: $(cat "$tmp/o1" "$tmp/o2")"
+grep -qx 'PUBLIC_BASE_URL=https://example.com' "$envf" || fail "dns edit lost"
+if grep -q SETUP_CODE "$envf"; then fail "clean edit lost: $(cat "$tmp/o1" "$tmp/o2"; sed "s/=.*//" "$envf")"; fi
+[ "$(stat -c %a "$envf")" = 640 ] || fail "env perms"
+[ "$(ls "$r/opt/hatamoto/config" | wc -l)" = 1 ] || fail "temp file left: $(ls "$r/opt/hatamoto/config")"
+pass "env edits are serialised, both applied, no temp left"
 
 echo "ok: test-motd-dns"

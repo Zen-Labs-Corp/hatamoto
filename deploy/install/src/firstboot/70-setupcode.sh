@@ -30,11 +30,9 @@ fi
 owners="$(cd / && sudo -n -u postgres psql -X -d hatamoto -tAc 'select count(*) from hatamoto_users' 2>/dev/null)" || exit 0
 [ "$owners" != 0 ] || exit 0
 
-# Same owner and mode as the live file (cp -p), only that one line gone, then an atomic rename.
-tmp="$envfile.new"
-cp -p "$envfile" "$tmp"
-grep -v '^HATAMOTO_SETUP_CODE=' "$envfile" > "$tmp" || [ "$?" = 1 ]
-mv -f "$tmp" "$envfile"
+# Same owner and mode as the live file, only that one line gone, under the shared env-file lock.
+drop_code() { grep -v '^HATAMOTO_SETUP_CODE=' "$1" || [ "$?" = 1 ]; }
+fb_env_edit "$envfile" drop_code
 systemctl disable --now hatamoto-setupcode-clean.timer >/dev/null 2>&1 || true
 log "the owner account exists: the setup code is removed from the env file"
 HM_CLEAN
