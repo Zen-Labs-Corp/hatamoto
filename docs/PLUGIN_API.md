@@ -446,8 +446,6 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `menus.save` | `{ "slug"?, "name", "location"? }` | Menu |
 | `menus.add_item` | `{ "menu_slug", "label", "link_type", "url"?, "entity_id"?, "parent_id"?, "open_in_new_tab"? }` | MenuItem |
 | `menus.delete_item` | `{ "id" }` | `{}` |
-
-Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
 | `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media (id, filename, mime_type, file_size, public_url, width, height, alt_text) |
 | `media.upload` | `{ "filename", "mime_type", "data_b64" }` (the 1 MiB request cap applies: about 750 KB of file) | media. The stored type is **sniffed from the bytes** (`mime_type` is advisory) and must be an allowed type (images except SVG, PDF, MP4/WebM) whose extension matches the filename, as for uploads through the admin; anything else is `invalid_argument` |
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
@@ -464,6 +462,8 @@ Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. 
 | `kv.delete` / `kv.list` | `{ "key" }` / `{ "prefix"?, "limit"? (100, max 1000) }` | `{}` / `{ "keys": [..] }` |
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows": [[..]], "truncated"? }` (at most 1,000 rows and 1 MiB) |
 | `db.exec` | `{ "sql", "args"? }` | `{ "rows_affected" }` |
+
+Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
 
 **`render.head` runs once per render.** A page served from the cache does not run it at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
 
