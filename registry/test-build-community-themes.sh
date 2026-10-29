@@ -319,6 +319,8 @@ la() { # la <label> <theme> <other-kind: plugin|theme|none> <other-name> <substr
 la "one edit from a plugin" gtn plugin gtm 'looks like "gtm"'
 la "hyphen form of a plugin" g-tm plugin gtm 'looks like "gtm"'
 la "digit swap of a plugin" kum0 plugin kumo 'looks like "kumo"'
+la "folds equal, two edits from a plugin" g--tm plugin gtm 'looks like "gtm"'
+la "folds equal, two edits from a sibling theme" han-sh-i theme hanshi 'name looks like'
 la "one edit from a built-in name" webhook none none 'looks like "webhooks"'
 la "one edit from a policy name" formz none none 'looks like "forms"'
 la "one edit from a sibling theme" hanshl theme hanshi 'name looks like'
