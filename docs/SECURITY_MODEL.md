@@ -140,7 +140,7 @@ unsigned packages.
 | An unknown signer is refused until its key is added | `internal/packages` | `TestDefaultTrustRejectsUnknownSignerUntilAdded` |
 | Removing a trusted key disables its packages at the next load | `internal/packages` (Postgres) | `TestARemovedTrustedKeyDisablesItsPackages` |
 | A change of signer or a downgrade needs the owner's confirmation, and a signer change clears the plugin's grants | `internal/packages` (Postgres) | `TestDowngradeAndSignerChangeNeedTheOwnersConfirmation`, `TestSignerChangeResetsThePluginsGrants` |
-| Unsigned packages need an explicit, acknowledged opt-in | `internal/admin` | `TestUnsignedOptInNeedsAcknowledgement`, `TestUnsignedPackagePromptWarnsAndShowsProblem` |
+| Unsigned packages need an explicit opt-in behind four gates (acknowledgement, typed site address, duration, password), and a timed one lapses by itself | `internal/admin`, `internal/packages` | `TestAllowUnsignedEachGateAlone`, `TestUnsignedOptInNeedsAcknowledgement`, `TestUnsignedPackagePromptWarnsAndShowsProblem` |
 | The first-party key is trusted by default and can be switched off | `internal/config` | `TestFirstPartyKeyIsAlwaysTrusted`, `TestFirstPartyTrustCanBeSwitchedOff`, `TestTrustedKeysAreValidatedAtBoot` |
 
 A signature says who built a package, not that it is harmless. **Themes are

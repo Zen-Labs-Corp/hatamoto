@@ -95,6 +95,12 @@ A type change is the same: add a column of the new type, dual-write, backfill, s
 `rollback_floor` is the oldest release whose binary passes the n-1 check against this release's
 schema. Normally that is the previous minor. A major release sets it to itself.
 
+Rolling back across the release that added the timed unsigned allowance (the
+`allow_unsigned_until` column of `hatamoto_package_config`) needs no migration edit, but an older
+binary does not know the column: it reads only the on/off flag, so an allowance that was timed
+stays on until someone turns it off. After such a rollback, check **Plugins > Package security**
+(or turn the allowance off before rolling back).
+
 ### DB ahead of the binary
 
 An older binary boots on a database that a newer release migrated: goose ignores versions it has no

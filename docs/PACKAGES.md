@@ -114,10 +114,15 @@ in `HATAMOTO_TRUSTED_KEYS` (base64 public keys, separated by commas or spaces;
 1. The package parses (above).
 2. If it is signed: the key must be trusted and the signature must verify. An
    unknown signer or a bad signature is **always** refused, whatever settings say.
-3. If it is unsigned: it is refused **unless the owner switched on "Allow unsigned
-   packages"** (Admin > Settings > Plugins). That setting is off by default,
-   needs an acknowledgement tick to switch on, and the page then shows a standing
-   warning. An unsigned package can run any code its author wrote with every
+3. If it is unsigned: it is refused **unless the owner allowed unsigned
+   packages** (Admin > Plugins > the menu in the page header > Package security >
+   "Advanced: allow unsigned packages"). That setting is off by default and takes
+   four gates to switch on: an acknowledgement, the site address typed exactly,
+   a duration (1 hour, 24 hours, or until the owner turns it off) and the owner's
+   password. While it is on, the Plugins page shows a standing warning with a
+   one-click "Turn off now". A timed allowance ends by itself: the end time is
+   stored and checked each time the setting is read, so no job has to run for it
+   to lapse. An unsigned package can run any code its author wrote with every
    permission you give it: only allow it for code you wrote or read.
 4. A `theme dev` push (source `dev`) is an unsigned package allowed without the
    opt-in only when the **server's** `ENVIRONMENT` is not `production`. A
@@ -165,8 +170,8 @@ active theme falls back to the built-in one) and the admin says so. To rotate:
 add the new key, re-sign and update the packages, then remove the old key.
 
 Every install, update, uninstall, activation, grant change and every switch of
-the unsigned opt-in is written to the admin audit log (`hatamoto_admin_audit`)
-with who did it (the signed-in user, `api` or `cli`).
+the unsigned opt-in (with the chosen duration) is written to the admin audit log
+(`hatamoto_admin_audit`) with who did it (the signed-in user, `api` or `cli`).
 
 Plugins are additionally sandboxed (WASM, own database role, nothing granted
 until the owner ticks it, see PLUGIN_API.md), but a signature says who built a
@@ -226,6 +231,14 @@ signed by an untrusted key or altered; it checks the downloaded file against
 name). A registry that serves a different package under a listed name is
 refused. Registry fetches go through the server's SSRF guard (no private
 addresses) and are cached for 30 seconds.
+
+The admin lists the registry at **Plugins > Browse plugins** (`<admin>/plugins/browse`).
+Its query string is `q` (search words), `tier` (`first-party` or `community`, repeatable),
+`cat` (a category above, repeatable), `perm` (`nonet`: makes no outgoing requests;
+`noscripts`: ships no front-end JavaScript; repeatable), `hide=1` (hide installed plugins),
+`sort` (`name`, or `name-desc`) and `page` (12 cards a page). Unknown values are ignored.
+A plugin's detail page is `<admin>/plugins/<name>/about`. "Check for updates" in the Plugins
+menu re-reads the registry without waiting for the cache.
 
 To publish: `pack` and sign each package into one directory, host the files, and
 build the signed index with `hatamoto registry index <dir> --key F --url-prefix
@@ -337,8 +350,9 @@ settings and nothing else; the active theme cannot be uninstalled.
 | `HATAMOTO_PLUGIN_CACHE_DIR` | Compiled-code cache across restarts (default `$HATAMOTO_DATA/cache/wasm`, mode 0700; `off` keeps it in memory). |
 | `HATAMOTO_SIGNING_KEY` | Default `--key` of the pack commands. |
 
-The "Allow unsigned packages" switch and the active theme are stored in the
-database (`hatamoto_package_config`), not in the environment.
+The unsigned opt-in (an on/off flag and, for a timed allowance, its end time in
+`allow_unsigned_until`) and the active theme are stored in the database
+(`hatamoto_package_config`), not in the environment.
 
 ## Command line
 
