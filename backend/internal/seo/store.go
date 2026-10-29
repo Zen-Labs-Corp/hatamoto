@@ -30,6 +30,7 @@ type Store struct {
 	cached   Settings
 	cachedAt time.Time
 	have     bool
+	gen      uint64 // bumped by Invalidate, so a load that raced a save is not cached
 }
 
 // NewStore returns a Store over db (a *pgxpool.Pool fits).
@@ -45,7 +46,7 @@ func (s *Store) Get(ctx context.Context) (Settings, error) {
 		s.mu.Unlock()
 		return c, nil
 	}
-	stale, haveStale := s.cached, s.have
+	stale, haveStale, gen := s.cached, s.have, s.gen
 	s.mu.Unlock()
 
 	set, err := s.load(ctx)
@@ -56,7 +57,9 @@ func (s *Store) Get(ctx context.Context) (Settings, error) {
 		return Defaults(), err
 	}
 	s.mu.Lock()
-	s.cached, s.cachedAt, s.have = set, s.now(), true
+	if s.gen == gen {
+		s.cached, s.cachedAt, s.have = set, s.now(), true
+	}
 	s.mu.Unlock()
 	return set, nil
 }
@@ -65,6 +68,7 @@ func (s *Store) Get(ctx context.Context) (Settings, error) {
 func (s *Store) Invalidate() {
 	s.mu.Lock()
 	s.have = false
+	s.gen++
 	s.mu.Unlock()
 }
 

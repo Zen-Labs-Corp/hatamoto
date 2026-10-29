@@ -130,3 +130,38 @@ func TestMergeReadsStoreNotCache(t *testing.T) {
 		t.Fatalf("saved %s", saved)
 	}
 }
+
+// racingDB runs hook while a read is in flight, like a save that commits and
+// invalidates between the read and the cache write.
+type racingDB struct {
+	fakeDB
+	hook func()
+}
+
+func (r *racingDB) QueryRow(ctx context.Context, q string, a ...any) pgx.Row {
+	row := r.fakeDB.QueryRow(ctx, q, a...)
+	if r.hook != nil {
+		r.hook()
+		r.hook = nil
+	}
+	return row
+}
+
+func TestGetDoesNotCacheALoadThatRacedInvalidate(t *testing.T) {
+	db := &racingDB{fakeDB: fakeDB{row: fakeRow{raw: []byte(`{"separator":"-"}`)}}}
+	st := NewStore(db)
+	db.hook = func() {
+		st.Invalidate()
+		db.row = fakeRow{raw: []byte(`{"separator":"|"}`)}
+	}
+	if _, err := st.Get(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Separator != "|" {
+		t.Errorf("separator = %q, want the saved %q", got.Separator, "|")
+	}
+}
