@@ -58,7 +58,19 @@ func TestMultiLocale_RetagWhenListEmpty(t *testing.T) {
 	}
 }
 
-// With a non-empty list a language change leaves every entity as stored.
+// A one-entry list is still a single-locale install (Multi() needs two): the
+// language change re-tags.
+func TestMultiLocale_RetagWhenListHasOneEntry(t *testing.T) {
+	db, exec := multiLocaleDB(t)
+	exec(`UPDATE hatamoto_site_config SET locales = '[{"tag":"en","segment":""}]'::jsonb`)
+	exec(`UPDATE hatamoto_site_config SET language = 'fr'`)
+	got := localesOf(t, db)
+	if got["a"] != "fr" || got["b"] != "fr" || got["s"] != "und" {
+		t.Errorf("locales = %v, want a=fr b=fr s=und", got)
+	}
+}
+
+// With two or more entries a language change leaves every entity as stored.
 func TestMultiLocale_NoRetagWhenListSet(t *testing.T) {
 	db, exec := multiLocaleDB(t)
 	exec(`UPDATE hatamoto_site_config SET locales = '[{"tag":"en","segment":"en"},{"tag":"fr","segment":"fr"}]'::jsonb`)

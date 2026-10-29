@@ -3,7 +3,7 @@
 -- the default locale stays the existing `language` column. An entity can join a
 -- translation group. An empty list is a single-locale install: nothing changes.
 --
--- entity_locale_retag() is replaced: while the locale list is non-empty a
+-- entity_locale_retag() is replaced: while the locale list has two or more entries a
 -- language change no longer re-tags entities (each locale keeps its content).
 -- The previous release's binary never writes `locales`, so the new body behaves
 -- exactly like the old one for it.
@@ -27,7 +27,7 @@ LANGUAGE plpgsql AS $$
 DECLARE
     prev text := current_setting('hatamoto.import', true);
 BEGIN
-    IF jsonb_array_length(NEW.locales) > 0 THEN
+    IF jsonb_array_length(NEW.locales) > 1 THEN
         RETURN NULL;
     END IF;
     PERFORM set_config('hatamoto.import', 'on', true);
