@@ -12,6 +12,7 @@
 .hm-pluginlist__note { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
 .hm-pluginlist__badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .hm-pluginlist__notice { width: 100%; }
+.hm-callout--compact .hm-callout__body:has(> .hm-pluginlist__notice) { flex: 1 1 24rem; } /* a compact callout is a row: let the body take the free width */
 .hm-pluginlist__notice > :first-child { flex: 1 1 24rem; min-width: 0; }
 .hm-pluginlist__bulk { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
 .hm-pluginlist__update { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); font-size: var(--text-sm); }
