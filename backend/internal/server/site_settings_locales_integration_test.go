@@ -53,12 +53,12 @@ func TestLocaleSegmentChecks_Integration(t *testing.T) {
 	hadSite := db.Pool().QueryRow(ctx, `SELECT locales, prefix_all FROM hatamoto_site_config`).Scan(&prev.locales, &prev.prefixAll) == nil
 	exec(`INSERT INTO hatamoto_site_config (company_name, language, locales) VALUES ('Segment IT', 'en', $1::jsonb)
 		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = EXCLUDED.locales`, `[{"tag":"en","segment":""},{"tag":"fr","segment":"fr"}]`)
-	for _, src := range []string{"/fr/old", "/qq", "/zz/old"} {
+	for _, src := range []string{"/fr/old", "/qq/**", "/rr", "/zz/old"} {
 		exec(`INSERT INTO hatamoto_redirects (source_path, target_url) VALUES ($1, '/elsewhere')`, src)
 	}
 	t.Cleanup(func() {
 		c := context.Background()
-		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_redirects WHERE source_path IN ('/fr/old','/qq','/zz/old')`)
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_redirects WHERE source_path IN ('/fr/old','/qq/**','/rr','/zz/old')`)
 		if hadSite {
 			_, _ = db.Pool().Exec(c, `UPDATE hatamoto_site_config SET locales=$1::jsonb, prefix_all=$2`, string(prev.locales), prev.prefixAll)
 		} else {
@@ -75,7 +75,10 @@ func TestLocaleSegmentChecks_Integration(t *testing.T) {
 	if err := srv.checkLocaleSegments(ctx, []string{"fr", "zz"}); err != nil {
 		t.Errorf("new segment with only a deeper redirect rejected: %v", err)
 	}
-	if err := srv.checkLocaleSegments(ctx, []string{"fr", "qq"}); err == nil || !strings.Contains(err.Error(), "redirect rule /qq") {
+	if err := srv.checkLocaleSegments(ctx, []string{"fr", "rr"}); err == nil || !strings.Contains(err.Error(), "redirect rule /rr") {
 		t.Errorf("new segment claimed by a redirect: err = %v", err)
+	}
+	if err := srv.checkLocaleSegments(ctx, []string{"fr", "qq"}); err == nil || !strings.Contains(err.Error(), "redirect rule /qq/**") {
+		t.Errorf("new segment claimed by a wildcard redirect: err = %v", err)
 	}
 }

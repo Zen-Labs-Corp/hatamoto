@@ -8,9 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
-
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/taxonomy"
 )
@@ -86,7 +85,8 @@ func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check
 // Only a segment that is not yet one of the site's stored locales is checked
 // against the site's own content: a stored segment is already live, and a
 // redirect or page added under it later must not block unrelated settings
-// saves. A redirect only shadows a locale when it claims the locale root.
+// saves. A redirect only shadows a locale when it matches the locale root (exact or
+// wildcard).
 func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) error {
 	stored := map[string]bool{}
 	if s.siteConfig != nil {
@@ -134,18 +134,46 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		if n > 0 {
 			return fmt.Errorf("segment %q is already used by a published page or a term kind", seg)
 		}
-		var rule string
-		err = s.db.Pool().QueryRow(ctx, `
-			SELECT source_path FROM hatamoto_redirects
-			WHERE is_active AND source_path IN ($1, $2) LIMIT 1`, "/"+seg, "/"+seg+"/").Scan(&rule)
-		if err == nil {
-			return fmt.Errorf("segment %q is claimed by the redirect rule %s; change or remove the rule first", seg, rule)
-		}
-		if !isNoRows(err) {
+		rule, err := s.redirectClaiming(ctx, seg)
+		if err != nil {
 			return fmt.Errorf("check segment %q: %w", seg, err)
+		}
+		if rule != "" {
+			return fmt.Errorf("segment %q is claimed by the redirect rule %s; change or remove the rule first", seg, rule)
 		}
 	}
 	return nil
+}
+
+// redirectClaiming is the source of an active redirect rule that matches the
+// locale root "/seg" or "/seg/" (an exact rule or a wildcard such as "/seg/**"),
+// or "". A rule that only matches deeper paths ("/seg/old") does not shadow the
+// locale and is not reported.
+func (s *Server) redirectClaiming(ctx context.Context, seg string) (string, error) {
+	rows, err := s.db.Pool().Query(ctx, `
+		SELECT source_path FROM hatamoto_redirects
+		WHERE is_active AND (source_path IN ($1, $2) OR source_path LIKE '%*%')`, "/"+seg, "/"+seg+"/")
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var src string
+		if err := rows.Scan(&src); err != nil {
+			return "", err
+		}
+		if src == "/"+seg || src == "/"+seg+"/" {
+			return src, nil
+		}
+		if redirect.IsPatternSource(src) {
+			for _, root := range []string{"/" + seg, "/" + seg + "/"} {
+				if _, ok := redirect.MatchPattern(src, root); ok {
+					return src, nil
+				}
+			}
+		}
+	}
+	return "", rows.Err()
 }
 
 // reservedSegmentReason says why seg is a route of its own, or "".
@@ -158,8 +186,6 @@ func reservedSegmentReason(seg string) string {
 	}
 	return ""
 }
-
-func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
 
 // applyLocales validates the locale fields of a PATCH against the stored
 // settings (a change of the language alone must keep the default locale in the
