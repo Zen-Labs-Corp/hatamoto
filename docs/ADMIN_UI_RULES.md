@@ -261,9 +261,7 @@ the page is, or only how the same data is shown?
   tabs and the shared SEO panel's Search / Social / Schema / Advanced tabs (`hm/seopanel`,
   module `@hm/seopanel`, shown stacked under their headings without JavaScript), use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
   accent underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
-  rules. The builder's phone tabs (Sections, Settings, Preview, below 960px) borrow the segmented
-  look: a grey track with a paper pill for the selected chip (hairline ring, bottom bevel, semibold label). They sit in the
-  flow under the editor bar, never sticky.
+  rules. The builder's phone tabs (Navigator, Add, Inspector, below 960px) are not segmented: they are `.hm-bs__dock-btn` buttons in a fixed bottom bar, and the selected tab has a kasumi fill with an ink top line (see Selected state).
 
 | Choice | Row | Why |
 |---|---|---|

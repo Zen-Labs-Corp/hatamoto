@@ -17,5 +17,5 @@
 .hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control); }
 .hm-segmented__btn:focus-visible, .hm-segmented__input:focus-visible + .hm-segmented__btn { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
-  .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { outline: 2px solid Highlight; outline-offset: -2px; }
+  .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
