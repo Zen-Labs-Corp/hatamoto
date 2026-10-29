@@ -35,7 +35,7 @@
 {{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-preview-width" "desktop")) (dict "Label" "Mobile" "Attrs" (attrmap "data-hm-preview-width" "mobile"))))}}
 {{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview colours" "Items" (list (dict "Label" "Light" "Pressed" true "Attrs" (attrmap "data-hm-preview-scheme" "light")) (dict "Label" "Dark" "Attrs" (attrmap "data-hm-preview-scheme" "dark"))))}}
 </div>
-<div class="hm-menupreview__scroll"><iframe class="hm-menupreview__frame" name="menu-preview" title="Preview of the menu" sandbox="allow-same-origin" data-hm-preview-frame></iframe></div>
+<div class="hm-menupreview__scroll" role="region" aria-label="Menu preview" tabindex="0"><iframe class="hm-menupreview__frame" name="menu-preview" title="Preview of the menu" sandbox="allow-same-origin" data-hm-preview-frame></iframe></div>
 </div>{{template "hm/card-end"}}
 </div>
 <template data-hm-tpl="inspector"><div class="hm-stack hm-menuinspector">
