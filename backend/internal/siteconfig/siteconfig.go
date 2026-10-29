@@ -44,8 +44,9 @@ type Config struct {
 	// Language is the BCP 47 site language ("en" by default): <html lang>,
 	// JSON-LD inLanguage and feed language.
 	Language string
-	// Locales are the extra public locales in display order (nil = a
-	// single-locale site). The default locale stays Language.
+	// Locales is the full list of public locales in display order, the
+	// default included (nil = a single-locale site). The default locale is
+	// Language.
 	Locales []LocaleEntry
 	// PrefixAll puts the default locale under its own URL segment too.
 	PrefixAll bool
