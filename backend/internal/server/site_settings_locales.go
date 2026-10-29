@@ -83,7 +83,22 @@ func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check
 // reserved route, a section or archive prefix, a term kind, a published
 // top-level slug, or a segment an active redirect rule already claims. It
 // never deletes or changes the rule or page it finds.
+//
+// Only a segment that is not yet one of the site's stored locales is checked
+// against the site's own content: a stored segment is already live, and a
+// redirect or page added under it later must not block unrelated settings
+// saves. A redirect only shadows a locale when it claims the locale root.
 func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) error {
+	stored := map[string]bool{}
+	if s.siteConfig != nil {
+		cfg, err := s.siteConfig.Get(ctx)
+		if err != nil {
+			return fmt.Errorf("load the stored locales: %w", err)
+		}
+		for _, e := range cfg.Locales {
+			stored[e.Segment] = true
+		}
+	}
 	snap := s.urlSnapshot(ctx)
 	taken := map[string]string{}
 	for p := range snap.SectionPrefixes() {
@@ -100,6 +115,9 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 	for _, seg := range segments {
 		if reason := reservedSegmentReason(seg); reason != "" {
 			return fmt.Errorf("segment %q is %s", seg, reason)
+		}
+		if stored[seg] {
+			continue
 		}
 		if why, ok := taken[seg]; ok {
 			return fmt.Errorf("segment %q is already %s", seg, why)
@@ -120,7 +138,7 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		var rule string
 		err = s.db.Pool().QueryRow(ctx, `
 			SELECT source_path FROM hatamoto_redirects
-			WHERE is_active AND (source_path = $1 OR source_path LIKE $2) LIMIT 1`, "/"+seg, "/"+seg+"/%").Scan(&rule)
+			WHERE is_active AND source_path IN ($1, $2) LIMIT 1`, "/"+seg, "/"+seg+"/").Scan(&rule)
 		if err == nil {
 			return fmt.Errorf("segment %q is claimed by the redirect rule %s; change or remove the rule first", seg, rule)
 		}
