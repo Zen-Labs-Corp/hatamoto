@@ -23,8 +23,10 @@ printf '%s %s\n' "$(basename "$0")" "$*" >> "$CALLS"
 case "$(basename "$0")" in
   apt-get) # the verb follows the -o option
     if [ "$3" = update ]; then
-      [ -z "${FAKE_APT_UPDATE_DOWN:-}" ] || exit 100
-      if [ -n "${FAKE_APT_UPDATE_ONCE:-}" ] && [ ! -e "$FAKE_APT_UPDATE_ONCE" ]; then : > "$FAKE_APT_UPDATE_ONCE"; exit 100; fi
+      lockmsg="E: Could not get lock /var/lib/apt/lists/lock. It is held by process 42 (apt-get)"
+      [ -z "${FAKE_APT_UPDATE_FAIL:-}" ] || { echo "E: Failed to fetch https://example.invalid 503" >&2; exit 100; }
+      [ -z "${FAKE_APT_UPDATE_DOWN:-}" ] || { echo "$lockmsg" >&2; exit 100; }
+      if [ -n "${FAKE_APT_UPDATE_ONCE:-}" ] && [ ! -e "$FAKE_APT_UPDATE_ONCE" ]; then : > "$FAKE_APT_UPDATE_ONCE"; echo "$lockmsg" >&2; exit 100; fi
     fi
     [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
@@ -154,7 +156,12 @@ rt="$(mkroot retrydown ubuntu 24.04 noble)"
 if run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 HATAMOTO_APT_TRIES=3 FAKE_APT_UPDATE_DOWN=1 >/dev/null 2>"$tmp/err"; then fail "a failing update was ignored"; fi
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 3 ] || fail "update retries not bounded by HATAMOTO_APT_TRIES"
 grep -q 'apt-get update failed' "$tmp/err" || fail "update failure not named: $(cat "$tmp/err")"
-pass "apt update retried, bounded, install not retried"
+rt="$(mkroot retryfail ubuntu 24.04 noble)"
+: > "$tmp/calls"
+if run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 HATAMOTO_APT_TRIES=3 FAKE_APT_UPDATE_FAIL=1 >/dev/null 2>"$tmp/err"; then fail "a failing update was ignored"; fi
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 1 ] || fail "a non-lock update failure was retried"
+grep -q 'apt-get update failed' "$tmp/err" || fail "update failure not named: $(cat "$tmp/err")"
+pass "apt update retried on the lists lock only, bounded, install not retried"
 
 # --- refusals
 ol="$(mkroot old ubuntu 22.04 jammy)"

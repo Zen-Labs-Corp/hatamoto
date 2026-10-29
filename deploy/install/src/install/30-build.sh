@@ -37,16 +37,27 @@ build_policy_restore() {
   BUILD_POLICY=""
 }
 
-# build_apt_update runs apt-get update, retrying while another process holds the
-# package lists lock (DPkg::Lock::Timeout only covers the dpkg lock). At most
-# HATAMOTO_APT_TRIES attempts (default 30), HATAMOTO_APT_RETRY_SLEEP seconds apart (default 10).
+# build_apt_update runs apt-get update, retrying only while another process holds the
+# package lists lock (DPkg::Lock::Timeout does not cover it): apt then says so on stderr.
+# Any other failure (network, bad repository) ends at once. At most HATAMOTO_APT_TRIES
+# attempts (default 30), HATAMOTO_APT_RETRY_SLEEP seconds apart (default 10).
 build_apt_update() {
   bau_try=1
-  while ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq; do
-    [ "$bau_try" -lt "${HATAMOTO_APT_TRIES:-30}" ] || return 1
+  bau_err="$(mktemp)"
+  while ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 update -qq 2> "$bau_err"; do
+    cat "$bau_err" >&2
+    if ! grep -Eq 'Could not get lock /var/lib/apt/lists|Unable to lock directory /var/lib/apt/lists' "$bau_err"; then
+      rm -f "$bau_err"
+      return 1
+    fi
+    if [ "$bau_try" -ge "${HATAMOTO_APT_TRIES:-30}" ]; then
+      rm -f "$bau_err"
+      return 1
+    fi
     bau_try=$((bau_try + 1))
     sleep "${HATAMOTO_APT_RETRY_SLEEP:-10}"
   done
+  rm -f "$bau_err"
 }
 
 # build_apt runs apt-get non-interactively; a failure removes the policy file and dies.
