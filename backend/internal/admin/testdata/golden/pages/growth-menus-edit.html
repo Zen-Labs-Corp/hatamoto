@@ -30,7 +30,7 @@
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/menutree.HASH.js" integrity="sha256-K/kcy9hX25pTU3VtCkTMKcvqGvPEmmT9vObqmS6Ii2k="></script>
-<script type="module" nonce="NONCE" src="/admin/_/js/menuinspector.HASH.js" integrity="sha256-el7vclpUlgtTOHw7N5kHz4iwmBukYcgOcu14MFqQ&#43;ow="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menuinspector.HASH.js" integrity="sha256-jVsddWdDKs2oV/E/Nbe&#43;n1thF92xtkXq9PUJJcNbRjU="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/menupreview.HASH.js" integrity="sha256-0d4ZwqJVCN9KWeD2xnIVfRyCUujzkNbkMTtg7nXykBI="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/searchselect.HASH.js" integrity="sha256-rLH5dgw1s&#43;ujRNqNX7g0dgQgajm7nrh4jWkKFzxXxPA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
@@ -443,6 +443,82 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="menu-preview-title">Preview</h2></div>
 <div class="hm-card__body"><div data-hm-preview></div></div></section>
 </div>
+<template data-hm-tpl="inspector"><div class="hm-stack hm-menuinspector">
+<p class="hm-muted" data-hm-ins-empty>Select an item in the list to change its settings. Hold Shift or Ctrl and click to select several.</p>
+<p class="hm-muted" role="status" data-hm-ins-summary hidden></p>
+<div class="hm-stack" data-hm-ins-single hidden>
+<div class="hm-field">
+<label class="hm-field__label" for="ins-label">Label</label>
+<input class="hm-field__control" type="text" id="ins-label" name="ins-label" autocomplete="off" data-hm-ins="label" maxlength="100">
+</div>
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span><div class="hm-segmented" role="group" aria-label="Links to"><button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-type="entity">Page</button><button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-type="custom">Address</button><button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-type="archive">Archive</button><button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-type="none">No link</button></div>
+</div>
+<div data-hm-ins-target="entity"><div class="hm-field hm-searchselect" data-hm-searchselect data-src="/admin/pick/entities">
+<label class="hm-field__label" for="ins-entity">Page or post</label>
+<input type="hidden" name="ins-entity" value="" data-hm-ss-value>
+<input type="hidden" name="ins-entity_prev" value="" data-hm-ss-prev>
+<input class="hm-field__control" type="search" id="ins-entity" name="ins-entity_q" value="" autocomplete="off" placeholder="Type to search" role="combobox" aria-expanded="false" aria-controls="ins-entity-list" aria-autocomplete="list" aria-describedby="ins-entity-help" data-hm-ss-input>
+<ul class="hm-searchselect__list" id="ins-entity-list" role="listbox" aria-label="Page or post results" hidden data-hm-ss-list></ul>
+<p class="hm-visually-hidden" id="ins-entity-status" role="status" aria-live="polite" data-hm-ss-status></p>
+<p class="hm-field__help" id="ins-entity-help">Used when the item links to a page or post.</p>
+</div>
+<p class="hm-muted" data-hm-ins-page hidden><span data-hm-ins-page-name></span> <a href="/admin/entities/" data-hm-ins-page-link>Open it</a></p></div>
+<div data-hm-ins-target="custom"><div class="hm-field">
+<label class="hm-field__label" for="ins-url">Custom address</label>
+<input class="hm-field__control" type="text" id="ins-url" name="ins-url" aria-describedby="ins-url-help" autocomplete="off" data-hm-ins="url" maxlength="500">
+<p class="hm-field__help" id="ins-url-help">A path like /about or a full address.</p>
+</div></div>
+<div data-hm-ins-target="archive"><div class="hm-field hm-searchselect" data-hm-searchselect data-src="/admin/pick/terms">
+<label class="hm-field__label" for="ins-term">Category or tag</label>
+<input type="hidden" name="ins-term" value="" data-hm-ss-value>
+<input type="hidden" name="ins-term_prev" value="" data-hm-ss-prev>
+<input class="hm-field__control" type="search" id="ins-term" name="ins-term_q" value="" autocomplete="off" placeholder="Type to search" role="combobox" aria-expanded="false" aria-controls="ins-term-list" aria-autocomplete="list" aria-describedby="ins-term-help" data-hm-ss-input>
+<ul class="hm-searchselect__list" id="ins-term-list" role="listbox" aria-label="Category or tag results" hidden data-hm-ss-list></ul>
+<p class="hm-visually-hidden" id="ins-term-status" role="status" aria-live="polite" data-hm-ss-status></p>
+<p class="hm-field__help" id="ins-term-help">Used when the item links to a category or tag archive.</p>
+</div></div>
+<p class="hm-field__help" data-hm-ins-target="none">Shown as plain text, for example a heading above a group of links.</p>
+</div>
+<div class="hm-stack" data-hm-ins-appearance hidden>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="ins-newtab"><input class="hm-field__box" type="checkbox" role="switch" id="ins-newtab" name="ins-newtab" value="1" data-hm-ins="newtab"><span>Open in a new tab</span></label>
+</div>
+<div class="hm-field" data-hm-ins-wrap="style"><label class="hm-field__label" for="ins-style">Style</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-style" name="ins-style" data-hm-ins="style"></select></div></div><div class="hm-field" data-hm-ins-wrap="color"><label class="hm-field__label" for="ins-color">Colour</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-color" name="ins-color" data-hm-ins="color"></select></div></div><div class="hm-field" data-hm-ins-wrap="badge"><label class="hm-field__label" for="ins-badge">Badge</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-badge" name="ins-badge" data-hm-ins="badge"></select></div></div><div class="hm-field" data-hm-ins-wrap="icon"><label class="hm-field__label" for="ins-icon">Icon</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-icon" name="ins-icon" data-hm-ins="icon"></select></div></div><div class="hm-field" data-hm-ins-wrap="show"><label class="hm-field__label" for="ins-show">Show on</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-show" name="ins-show" data-hm-ins="show"></select></div></div>
+<div class="hm-stack"><div class="hm-field">
+<label class="hm-field__label" for="ins-class">CSS classes</label>
+<input class="hm-field__control" type="text" id="ins-class" name="ins-class" aria-describedby="ins-class-help" autocomplete="off" data-hm-ins="class" maxlength="200">
+<p class="hm-field__help" id="ins-class-help">Separate classes with spaces.</p>
+</div>
+<p class="hm-field__error" id="ins-class-problem" role="alert" hidden data-hm-ins-problem></p>
+</div>
+</div>
+<details class="hm-menutree__more" data-hm-ins-advanced hidden><summary>Advanced</summary>
+<div class="hm-stack">
+<div class="hm-field">
+<label class="hm-field__label" for="ins-id">HTML id</label>
+<input class="hm-field__control" type="text" id="ins-id" name="ins-id" autocomplete="off" data-hm-ins="id" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="ins-title">Title attribute</label>
+<input class="hm-field__control" type="text" id="ins-title" name="ins-title" autocomplete="off" data-hm-ins="title" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="ins-aria">Accessible name</label>
+<input class="hm-field__control" type="text" id="ins-aria" name="ins-aria" autocomplete="off" data-hm-ins="aria" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="ins-rel">Link relations</label>
+<input class="hm-field__control" type="text" id="ins-rel" name="ins-rel" aria-describedby="ins-rel-help" autocomplete="off" data-hm-ins="rel">
+<p class="hm-field__help" id="ins-rel-help">Any of nofollow, sponsored, ugc and me, separated by commas.</p>
+</div>
+</div></details>
+<div class="hm-row" data-hm-ins-bulk hidden>
+<button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-ins-op="indent"><span>Indent</span></button>
+<button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-ins-op="outdent"><span>Outdent</span></button>
+<button type="button" class="hm-btn hm-btn--danger-text hm-btn--sm" data-hm-ins-op="remove"><span>Remove</span></button>
+</div>
+<div data-hm-ins-output-wrap hidden><span class="hm-field__label">Output</span><code class="hm-menuinspector__output" data-hm-ins-output></code></div>
+</div></template>
 <template data-hm-tpl="chip"><span class="hm-badge hm-badge--neutral hm-badge--plain"></span></template>
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn"><span class="hm-badge hm-badge--warning"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>without a link</span></button></template>
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err"><span class="hm-badge hm-badge--danger"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>to fix</span></button></template>

@@ -32,6 +32,43 @@
 {{template "hm/card-start" dict "ID" "menu-inspector" "Title" "Item settings"}}<div data-hm-inspector></div>{{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "menu-preview" "Title" "Preview"}}<div data-hm-preview></div>{{template "hm/card-end"}}
 </div>
+<template data-hm-tpl="inspector"><div class="hm-stack hm-menuinspector">
+<p class="hm-muted" data-hm-ins-empty>Select an item in the list to change its settings. Hold Shift or Ctrl and click to select several.</p>
+<p class="hm-muted" role="status" data-hm-ins-summary hidden></p>
+<div class="hm-stack" data-hm-ins-single hidden>
+{{template "hm/field" dict "ID" "ins-label" "Name" "ins-label" "Label" "Label" "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-ins" "label")}}
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Links to" "Items" (list
+  (dict "Label" "Page" "Attrs" (attrmap "data-hm-ins-type" "entity"))
+  (dict "Label" "Address" "Attrs" (attrmap "data-hm-ins-type" "custom"))
+  (dict "Label" "Archive" "Attrs" (attrmap "data-hm-ins-type" "archive"))
+  (dict "Label" "No link" "Attrs" (attrmap "data-hm-ins-type" "none"))))}}</div>
+<div data-hm-ins-target="entity">{{template "hm/searchselect" dict "ID" "ins-entity" "Name" "ins-entity" "Label" "Page or post" "Src" (adminPath "pick" "entities") "Help" "Used when the item links to a page or post."}}
+<p class="hm-muted" data-hm-ins-page hidden><span data-hm-ins-page-name></span> <a href="{{adminPath "entities"}}/" data-hm-ins-page-link>Open it</a></p></div>
+<div data-hm-ins-target="custom">{{template "hm/field" dict "ID" "ins-url" "Name" "ins-url" "Label" "Custom address" "Help" "A path like /about or a full address." "Attrs" (attrmap "maxlength" "500" "autocomplete" "off" "data-hm-ins" "url")}}</div>
+<div data-hm-ins-target="archive">{{template "hm/searchselect" dict "ID" "ins-term" "Name" "ins-term" "Label" "Category or tag" "Src" (adminPath "pick" "terms") "Help" "Used when the item links to a category or tag archive."}}</div>
+<p class="hm-field__help" data-hm-ins-target="none">Shown as plain text, for example a heading above a group of links.</p>
+</div>
+<div class="hm-stack" data-hm-ins-appearance hidden>
+{{template "hm/field" dict "ID" "ins-newtab" "Name" "ins-newtab" "Label" "Open in a new tab" "Control" "switch" "Value" "1" "Attrs" (attrmap "data-hm-ins" "newtab")}}
+{{range list (list "style" "Style") (list "color" "Colour") (list "badge" "Badge") (list "icon" "Icon") (list "show" "Show on")}}{{$k := index . 0}}<div class="hm-field" data-hm-ins-wrap="{{$k}}"><label class="hm-field__label" for="ins-{{$k}}">{{index . 1}}</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-{{$k}}" name="ins-{{$k}}" data-hm-ins="{{$k}}"></select></div></div>{{end}}
+<div class="hm-stack">{{template "hm/field" dict "ID" "ins-class" "Name" "ins-class" "Label" "CSS classes" "Help" "Separate classes with spaces." "Attrs" (attrmap "maxlength" "200" "autocomplete" "off" "data-hm-ins" "class")}}
+<p class="hm-field__error" id="ins-class-problem" role="alert" hidden data-hm-ins-problem></p>
+{{if $decl.Classes}}<div class="hm-segmented" role="group" aria-label="Classes from your theme">{{range $decl.Classes}}<button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-class="{{.}}">{{.}}</button>{{end}}</div>{{end}}</div>
+</div>
+<details class="hm-menutree__more" data-hm-ins-advanced hidden><summary>Advanced</summary>
+<div class="hm-stack">
+{{template "hm/field" dict "ID" "ins-id" "Name" "ins-id" "Label" "HTML id" "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-ins" "id")}}
+{{template "hm/field" dict "ID" "ins-title" "Name" "ins-title" "Label" "Title attribute" "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-ins" "title")}}
+{{template "hm/field" dict "ID" "ins-aria" "Name" "ins-aria" "Label" "Accessible name" "Attrs" (attrmap "maxlength" "100" "autocomplete" "off" "data-hm-ins" "aria")}}
+{{template "hm/field" dict "ID" "ins-rel" "Name" "ins-rel" "Label" "Link relations" "Help" "Any of nofollow, sponsored, ugc and me, separated by commas." "Attrs" (attrmap "autocomplete" "off" "data-hm-ins" "rel")}}
+</div></details>
+<div class="hm-row" data-hm-ins-bulk hidden>
+{{template "hm/button" dict "Label" "Indent" "Size" "sm" "Attrs" (attrmap "data-hm-ins-op" "indent")}}
+{{template "hm/button" dict "Label" "Outdent" "Size" "sm" "Attrs" (attrmap "data-hm-ins-op" "outdent")}}
+{{template "hm/button" dict "Label" "Remove" "Size" "sm" "Variant" "danger-text" "Attrs" (attrmap "data-hm-ins-op" "remove")}}
+</div>
+<div data-hm-ins-output-wrap hidden><span class="hm-field__label">Output</span><code class="hm-menuinspector__output" data-hm-ins-output></code></div>
+</div></template>
 <template data-hm-tpl="chip">{{template "hm/badge" dict "Label" "" "Plain" true}}</template>
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn">{{template "hm/badge" dict "Label" "without a link" "Kind" "warning" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err">{{template "hm/badge" dict "Label" "to fix" "Kind" "danger" "Icon" "alert"}}</button></template>
@@ -127,4 +164,4 @@
 </details>
 </li>{{end}}
 {{define "menus/preset"}}{{$v := .Value}}{{$found := false}}{{range .List}}{{if eq .ID $v}}{{$found = true}}{{end}}{{end}}{{if .List}}<div class="hm-field{{if .Error}} hm-field--invalid{{end}}"><label class="hm-field__label" for="{{.ID}}">{{.Label}}</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="{{.ID}}" name="{{.Name}}"{{if .Error}} aria-invalid="true"{{end}}><option value="">{{.None}}</option>{{if and $v (not $found)}}<option value="{{$v}}" selected>{{$v}} (not in this theme)</option>{{end}}{{range .List}}<option value="{{.ID}}"{{if eq .ID $v}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>{{with .Error}}<p class="hm-field__error" id="{{$.ID}}-error">{{.}}</p>{{end}}</div>{{else if $v}}<input type="hidden" name="{{.Name}}" value="{{$v}}">{{end}}{{end}}
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="{{.ID}}" name="{{.Name}}"{{if .Error}} aria-invalid="true"{{end}}><option value="">{{.None}}</option>{{if and $v (not $found)}}<option value="{{$v}}" selected>{{$v}} (not in this theme)</option>{{end}}{{range .List}}<option value="{{.ID}}"{{with .Class}} data-class="{{.}}"{{end}}{{if eq .ID $v}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>{{with .Error}}<p class="hm-field__error" id="{{$.ID}}-error">{{.}}</p>{{end}}</div>{{else if $v}}<input type="hidden" name="{{.Name}}" value="{{$v}}">{{end}}{{end}}

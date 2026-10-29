@@ -96,7 +96,9 @@ export function init(tree, api) {
 
   function refresh() {
     [...collapsed].forEach((li) => { if (!rows().includes(li)) collapsed.delete(li); });
+    const had = selected.length;
     view();
+    if (selected.length !== had) emit(); // a selected row was removed
   }
 
   // targets is what a bulk key acts on: the selection, or the row the key was pressed on.
@@ -210,9 +212,13 @@ export function init(tree, api) {
       view();
       return;
     }
-    if (evt.target.closest(CLICKABLE)) return;
     const li = evt.target.closest("[data-hm-item]");
     if (!li) return;
+    if (evt.target.closest(CLICKABLE)) {
+      // Using a control in a row selects the row, unless it is part of a selection.
+      if (!selected.includes(li) && !evt.shiftKey && !evt.metaKey && !evt.ctrlKey) select([li], li);
+      return;
+    }
     if (evt.shiftKey && cursor) {
       const list = visible();
       const [a, b] = [list.indexOf(cursor), list.indexOf(li)].sort((x, y) => x - y);
@@ -228,9 +234,13 @@ export function init(tree, api) {
   tree.addEventListener("mousedown", (evt) => {
     if (evt.shiftKey && !evt.target.closest(FIELD)) evt.preventDefault();
   });
+  // Focus by keyboard selects the row; with the pointer the click decides (it may add to a selection).
+  let pressing = false;
+  tree.addEventListener("pointerdown", () => { pressing = true; }, true);
+  document.addEventListener("pointerup", () => setTimeout(() => { pressing = false; }));
   tree.addEventListener("focusin", (evt) => {
     const li = evt.target.closest("[data-hm-item]");
-    if (!li || selected.includes(li)) return;
+    if (!li || selected.includes(li) || pressing) return;
     select([li], li);
   });
 
