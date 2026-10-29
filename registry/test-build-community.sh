@@ -20,6 +20,61 @@ script="$here/build-community.sh"
 export HATAMOTO_BUILD_GOTOOLCHAIN=$(awk '/^toolchain/{print $2}' "$root/backend/go.mod")
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+# fn_body <file> <name>: the function as written in the script (a one-liner closes on its own line).
+fn_body() { awk -v n="$2" 'index($0,n"() {")==1{p=1; if ($0 ~ /\}[[:space:]]*$/ && $0 !~ /\{[[:space:]]*$/){print;exit}} p{print} p&&$0=="}"{exit}' "$1"; }
+var_fold() { awk '/^fold_def=/{p=1} p{print} p&&$0=="'"'"'"{exit}' "$1"; }
+var_unsafe() { grep -m1 '^unsafe_chars_filter=' "$1"; }
+
+# The helpers shared with hatamoto-plugins must stay byte-identical (checked against 036cb3e).
+if [ -z "${HATAMOTO_PLUGINS_DIR:-}" ]; then
+  echo "skip: validator sync: HATAMOTO_PLUGINS_DIR not set"
+else
+  vm=$HATAMOTO_PLUGINS_DIR/scripts/validate-manifest.sh
+  [ -r "$vm" ] || fail "sync: $vm missing"
+  for fn in plist inlist brand_owned has_letter brand_match_lk lev1 lkey; do
+    a=$(fn_body "$script" "$fn"); b=$(fn_body "$vm" "$fn")
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: $fn differs: $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") || true)"
+  done
+  a=$(var_fold "$script"); b=$(var_fold "$vm")
+  [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: fold_def differs"
+  a=$(var_unsafe "$script"); b=$(var_unsafe "$vm")
+  [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: unsafe_chars_filter differs"
+  echo "ok: validator sync"
+fi
+
+# The build needs jq with \p{Default_Ignorable_Code_Point} (jq 1.7+).
+jq -n '"\u3164" | test("\\p{Default_Ignorable_Code_Point}")' 2>/dev/null | grep -qx true \
+  || fail "this jq lacks \\p{Default_Ignorable_Code_Point} (needs jq 1.7+)"
+grep -q 'jq lacks .*Default_Ignorable_Code_Point' "$script" || fail "build lacks the jq property probe"
+
+# fold unit cases (the validator's tests/run.sh fold_t).
+eval "$(var_fold "$script")"
+fold_t() { # fold_t <input> <expected>
+  local got; got=$(jq -nr --arg t "$1" "$fold_def"'$t | fold')
+  [ "$got" = "$2" ] || fail "fold: got '$got', want '$2'"
+}
+fold_t "$(printf '\U1D42C\U1D42D\U1D42B\U1D422\U1D429\U1D41E')" stripe
+fold_t "$(printf '\U1D5A2')" c
+fold_t "$(printf '\U1D7CE\U1D7FF')" 09
+fold_t "$(printf '\u017f')" s
+fold_t "$(printf '\u212a')" k
+fold_t "$(printf '\u212b')" a
+fold_t "$(printf '\u1d00')" a
+fold_t "$(printf '\u0299\u0262\u029c\u026a\u029f\u0274\u0280\u028f')" bghilnry
+fold_t "$(printf '\ufb01')" fi
+fold_t "$(printf '\ufb02')" fl
+fold_t "$(printf '\ufb03')" ffi
+fold_t "$(printf '\u0133')" ij
+fold_t "$(printf '\u2171')" ii
+fold_t "$(printf '\u2172')" iii
+fold_t "$(printf '\u2173')" iv
+fold_t "$(printf '\u217a')" xi
+fold_t "$(printf '\u2170')" i
+fold_t "$(printf '\u212f\u210a\u210e\u2113\u2102\u210d\u2115\u2119\u211a\u211d\u2124\u212c\u2130\u2131\u210b\u2110\u2112\u2133\u211b\u212d\u210c\u2111\u211c\u2128\u2134')" eghlchnpqrzbefhilmrchirzo
+fold_t "$(printf '\ua730\ua731\ua7af')" fsq
+fold_t "Plain Text" "plain text"
+echo "ok: fold cases"
+
 if [ -n "${HATAMOTO_BIN:-}" ]; then bin=$HATAMOTO_BIN; else
   (cd "$root/backend" && go build -o "$work/hatamoto" ./cmd/hatamoto)
   bin=$work/hatamoto
