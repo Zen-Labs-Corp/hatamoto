@@ -83,13 +83,16 @@ type menuForm struct {
 	Items              []menuRow
 	// Blank is the row the editor script copies when it adds an item without a
 	// round trip (the page keeps it in a template, never in the visible form).
-	Blank     menuRow
-	Locations []ui.Option
-	Errors    map[string]string
-	Summary   []ui.FieldError
-	AddType   string
-	AddTypes  []ui.Option
-	Notice    string // structural edit applied but not saved yet
+	Blank menuRow
+	// StyleItems and ColorItems are the theme's styles and colours as the items
+	// of the inspector's tile and swatch pickers; empty when the theme has none.
+	StyleItems, ColorItems []map[string]any
+	Locations              []ui.Option
+	Errors                 map[string]string
+	Summary                []ui.FieldError
+	AddType                string
+	AddTypes               []ui.Option
+	Notice                 string // structural edit applied but not saved yet
 	// NoticeKind is "warning" when the edit was refused (the rows did not
 	// change) and "info" otherwise.
 	NoticeKind string
@@ -354,6 +357,20 @@ func (a *Admin) handleMenuEdit(w http.ResponseWriter, r *http.Request) {
 	a.renderMenuForm(w, r, http.StatusOK, f)
 }
 
+// pickerItems lists a theme's presets for a tile or swatch picker, led by the
+// "Default" choice that stores nothing. A theme with no presets gets no picker.
+func pickerItems(kind string, list []render.MenuPreset) []map[string]any {
+	if len(list) == 0 {
+		return nil
+	}
+	attrs := map[string]string{"data-hm-ins-pick": kind}
+	out := []map[string]any{{"Label": "Default", "Value": "", "Attrs": attrs}}
+	for _, p := range list {
+		out = append(out, map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch, "Attrs": attrs})
+	}
+	return out
+}
+
 func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status int, f menuForm) {
 	f.Locations = locationOptions(f.Location)
 	f.AddTypes = typeOptions(f.AddType)
@@ -377,6 +394,8 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 	f.Blank = menuRow{N: maxMenuItems, Type: "entity", NoIndent: true, NoOutdent: true}
 	f.Blank.Types = typeOptions(f.Blank.Type)
 	f.Blank.TypeIcon, f.Blank.Target = menuTarget(f.Blank)
+	f.StyleItems = pickerItems("style", f.Decl.Styles)
+	f.ColorItems = pickerItems("color", f.Decl.Colors)
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})

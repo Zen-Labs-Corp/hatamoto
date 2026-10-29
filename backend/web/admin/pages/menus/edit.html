@@ -56,7 +56,9 @@
 </div>
 <div class="hm-stack" data-hm-ins-appearance hidden>
 {{template "hm/field" dict "ID" "ins-newtab" "Name" "ins-newtab" "Label" "Open in a new tab" "Control" "switch" "Value" "1" "Attrs" (attrmap "data-hm-ins" "newtab")}}
-{{range list (list "style" "Style") (list "color" "Colour") (list "badge" "Badge") (list "icon" "Icon") (list "show" "Show on")}}{{$k := index . 0}}<div class="hm-field" data-hm-ins-wrap="{{$k}}"><label class="hm-field__label" for="ins-{{$k}}">{{index . 1}}</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-{{$k}}" name="ins-{{$k}}" data-hm-ins="{{$k}}"></select></div></div>{{end}}
+{{with .StyleItems}}<div class="hm-field" data-hm-ins-wrap="style"><span class="hm-field__label" aria-hidden="true">Style</span>{{template "hm/segmented" (dict "Mode" "radio" "Label" "Style" "Name" "ins-style" "Attrs" (attrmap "data-hm-ins-group" "style") "Items" .)}}</div>{{end}}
+{{with .ColorItems}}<div class="hm-field" data-hm-ins-wrap="color"><span class="hm-field__label" aria-hidden="true">Colour</span><div data-hm-ins-group="color">{{template "hm/swatches" (dict "Label" "Colour" "Items" .)}}</div></div>{{end}}
+{{range list (list "badge" "Badge") (list "icon" "Icon") (list "show" "Show on")}}{{$k := index . 0}}<div class="hm-field" data-hm-ins-wrap="{{$k}}"><label class="hm-field__label" for="ins-{{$k}}">{{index . 1}}</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="ins-{{$k}}" name="ins-{{$k}}" data-hm-ins="{{$k}}"></select></div></div>{{end}}
 <div class="hm-stack">{{template "hm/field" dict "ID" "ins-class" "Name" "ins-class" "Label" "CSS classes" "Help" "Separate classes with spaces." "Attrs" (attrmap "maxlength" "200" "autocomplete" "off" "data-hm-ins" "class")}}
 <p class="hm-field__error" id="ins-class-problem" role="alert" hidden data-hm-ins-problem></p>
 {{if $decl.Classes}}<div class="hm-segmented" role="group" aria-label="Classes from your theme">{{range $decl.Classes}}<button type="button" class="hm-segmented__btn" aria-pressed="false" data-hm-ins-class="{{.}}">{{.}}</button>{{end}}</div>{{end}}</div>
@@ -73,6 +75,7 @@
 {{template "hm/button" dict "Label" "Outdent" "Size" "sm" "Attrs" (attrmap "data-hm-ins-op" "outdent")}}
 {{template "hm/button" dict "Label" "Remove" "Size" "sm" "Variant" "danger-text" "Attrs" (attrmap "data-hm-ins-op" "remove")}}
 </div>
+<p class="hm-field__error" role="alert" hidden data-hm-ins-server></p>
 <div data-hm-ins-output-wrap hidden><span class="hm-field__label">Output</span><code class="hm-menuinspector__output" data-hm-ins-output></code></div>
 </div></template>
 <template data-hm-tpl="kinds"><span data-hm-kind="entity">{{icon "file-text"}}</span><span data-hm-kind="custom">{{icon "link"}}</span><span data-hm-kind="archive">{{icon "tag"}}</span><span data-hm-kind="none">{{icon "minus"}}</span></template>

@@ -161,11 +161,11 @@ try {
 
   // ---- A3: class, style and colour reach the public link --------------------
   await clickRow(page, "Docs");
-  const styles = await page.locator("#ins-style option").allTextContents();
+  const styles = await page.locator('[data-hm-ins-group="style"] .hm-segmented__btn').allTextContents();
   const chips = await page.locator("[data-hm-ins-class]").allTextContents();
   ok(["Default", "Button", "Link", "Muted"].every((l) => styles.includes(l)) && chips.includes("footer-cta"), "item 10: the theme's styles and class suggestions fill the inspector");
-  await page.locator("#ins-style").selectOption({ label: "Button" });
-  await page.locator("#ins-color").selectOption({ label: "Accent" });
+  await page.locator('[data-hm-ins-group="style"] label', { hasText: "Button" }).click();
+  await page.locator('[data-hm-ins-group="color"] [role="radio"]', { hasText: "Accent" }).click();
   await page.locator('[data-hm-ins-class="footer-cta"]').click();
   ok((await page.locator("[data-hm-ins-output]").textContent()).includes("footer-cta hm-nav__item--button hm-nav-color--accent"), "A3: the Output line shows the classes the link will get");
   await save(page);

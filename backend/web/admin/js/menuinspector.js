@@ -21,7 +21,11 @@ export function classProblem(text) {
 
 const tokens = (text) => text.split(/\s+/).filter(Boolean);
 const field = (li, suffix) => li.querySelector(`[name$=".${suffix}"]`);
-const TYPE_SELECT = ["style", "color", "badge", "icon", "show"];
+const TYPE_SELECT = ["badge", "icon", "show"];
+// Style and colour are pickers: tiles and swatches that act as one radio group each.
+const PICKERS = ["style", "color"];
+const PICK_OPTION = 'input[type="radio"], [role="radio"]';
+const pickValue = (o) => (o.matches("input") ? o.value : o.dataset.value);
 
 // outputOf is the link as the site would write it, from the item's fields. It is
 // shown as text, never parsed.
@@ -55,6 +59,10 @@ function build(root) {
   const body = tpl.content.firstElementChild.cloneNode(true);
   // Nothing in the inspector posts: the item's own fields do.
   body.querySelectorAll("[name]").forEach((el) => el.removeAttribute("name"));
+  // The unnamed tiles are a group of their own: the arrow keys are handled in init.
+  body.querySelectorAll('fieldset[data-hm-ins-group]').forEach((g) => g.setAttribute("role", "radiogroup"));
+  // A swatch takes its colour from the theme through the CSSOM (an inline style attribute is blocked by the page's policy).
+  body.querySelectorAll("[data-swatch]").forEach((b) => { if (b.dataset.swatch) b.style.setProperty("--swatch", b.dataset.swatch); });
   root.replaceChildren(body);
   initSearchSelect(body);
   return body;
@@ -109,6 +117,33 @@ function init(rootDoc) {
       sel.value = src.value;
     }
 
+    // markPicker shows value as the chosen option of a picker; none (null) leaves nothing chosen.
+    function markPicker(k, value) {
+      const opts = [...(q(`[data-hm-ins-group="${k}"]`)?.querySelectorAll(PICK_OPTION) ?? [])];
+      const at = opts.findIndex((o) => value !== null && pickValue(o) === value);
+      opts.forEach((o, i) => {
+        if (o.matches("input")) o.checked = i === at;
+        else o.setAttribute("aria-checked", String(i === at));
+        o.tabIndex = i === Math.max(at, 0) ? 0 : -1; // one tab stop, on the chosen option
+      });
+    }
+
+    // readPicker shows what the selected items have: the shared value, or nothing chosen when they differ.
+    function readPicker(k) {
+      const wrap = q(`[data-hm-ins-wrap="${k}"]`);
+      if (!wrap) return;
+      const src = field(items[0], k);
+      wrap.hidden = !src || src.tagName !== "SELECT";
+      if (wrap.hidden) return;
+      const values = new Set(items.map((li) => field(li, k)?.value ?? ""));
+      markPicker(k, values.size === 1 ? [...values][0] : null);
+    }
+
+    function pick(k, value) {
+      items.forEach((li) => write(li, k, value));
+      markPicker(k, value);
+    }
+
     function syncClassChips(text) {
       const have = new Set(tokens(text));
       all("[data-hm-ins-class]").forEach((b) => b.setAttribute("aria-pressed", String(have.has(b.dataset.hmInsClass))));
@@ -151,6 +186,10 @@ function init(rootDoc) {
           if (c.value !== val) c.value = val;
         }
         q("[data-hm-ins-output]").textContent = outputOf(li);
+        // A failed save leaves its messages in the row's own fields, which the inspector hides.
+        const server = q("[data-hm-ins-server]");
+        server.textContent = [...li.querySelectorAll(".hm-field__error")].map((e) => e.textContent.trim()).filter(Boolean).join(" ");
+        server.hidden = !server.textContent;
       }
       // Shared by one item and several: the appearance controls start from the first item.
       const first = items[0];
@@ -158,6 +197,7 @@ function init(rootDoc) {
         const nt = ctl("newtab");
         nt.checked = items.every((it) => field(it, "newtab")?.checked);
         TYPE_SELECT.forEach((k) => readSelect(first, k));
+        PICKERS.forEach(readPicker);
         const cls = ctl("class");
         const text = li ? field(li, "class")?.value ?? "" : "";
         if (cls.value !== text) cls.value = text;
@@ -228,6 +268,10 @@ function init(rootDoc) {
 
     body.addEventListener("change", (evt) => {
       const t = evt.target;
+      if (t.matches?.('[data-hm-ins-group] input[type="radio"]')) {
+        pick(t.closest("[data-hm-ins-group]").dataset.hmInsGroup, t.value);
+        return;
+      }
       const k = t.dataset?.hmIns;
       if (!k) return;
       if (k === "newtab") items.forEach((li) => write(li, "newtab", t.checked));
@@ -255,7 +299,27 @@ function init(rootDoc) {
       read();
     });
 
+    // Arrow keys move the choice, as in any radio group; Home and End go to the ends.
+    body.addEventListener("keydown", (evt) => {
+      const opt = evt.target.closest?.(PICK_OPTION);
+      const group = opt?.closest("[data-hm-ins-group]");
+      if (!group) return;
+      const opts = [...group.querySelectorAll(PICK_OPTION)];
+      const i = opts.indexOf(opt);
+      const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: opts.length - 1 }[evt.key];
+      if (to === undefined) return;
+      evt.preventDefault();
+      const next = opts[(to + opts.length) % opts.length];
+      next.focus();
+      next.click();
+    });
+
     body.addEventListener("click", (evt) => {
+      const swatch = evt.target.closest('[role="radio"]');
+      if (swatch && swatch.closest("[data-hm-ins-group]")) {
+        pick(swatch.closest("[data-hm-ins-group]").dataset.hmInsGroup, swatch.dataset.value);
+        return;
+      }
       const type = evt.target.closest("[data-hm-ins-type]");
       const chip = evt.target.closest("[data-hm-ins-class]");
       const op = evt.target.closest("[data-hm-ins-op]");
