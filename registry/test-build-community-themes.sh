@@ -145,6 +145,8 @@ aneg "about angle bracket" '.about="a <b> c"' "about must not contain < or >"
 aneg "about empty paragraph" '.about="one\n\ntwo"' "about must not have an empty paragraph"
 aneg "about edge space" '.about=" one"' "about must not start or end with whitespace"
 aneg "about eleven paragraphs" '.about=$ep' "about must have at most 10 paragraphs"
+aneg "about invisible filler" '.about="Clean\u3164layout"' "about must not contain emoji"
+aneg "about modifier letters" '.about="\u02e2\u1d57\u02b3\u2071\u1d56\u1d49"' "about must not contain emoji"
 aneg "about emoji" '.about="Great \ud83d\ude80 theme"' "about must not contain emoji"
 aneg "features not a list" '.features="a"' "features must be a list of strings"
 aneg "features non-string item" '.features=["a",5]' "features must be a list of strings"
@@ -157,6 +159,7 @@ aneg "features url" '.features=["see https://example.test"]' "a feature must not
 aneg "features angle bracket" '.features=["<b>"]' "a feature must not contain < or >"
 aneg "features edge space" '.features=["a "]' "a feature must not start or end with whitespace"
 aneg "features duplicate" '.features=["Fast","fast"]' "features must not repeat an item"
+aneg "feature invisible filler" '.features=["Fast\u3164lines"]' "a feature must not contain emoji"
 aneg "features emoji" '.features=["Fast \ud83d\ude80"]' "a feature must not contain emoji"
 neg "still unknown field" acme-seo "$(base acme-seo $https $good | jq '.about="ok" | .abstract="x"')" "unknown field"
 echo "ok: $((n - an0)) about/features negative cases"
@@ -343,6 +346,11 @@ else
     a=$(fn_body "$script" $fn); b=$(fn_body "$vm" $fn)
     [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: $fn differs from the validator: $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b"))"
   done
+  # Validators before the about/features rules (036cb3e) have no filter to compare.
+  if grep -q '^unsafe_chars_filter=' "$vm"; then
+    a=$(grep -m1 '^unsafe_chars_filter=' "$script"); b=$(grep -m1 '^unsafe_chars_filter=' "$vm")
+    [ -n "$a" ] && [ "$a" = "$b" ] || fail "sync: unsafe_chars_filter differs from the validator"
+  fi
   echo "ok: validator sync"
 fi
 

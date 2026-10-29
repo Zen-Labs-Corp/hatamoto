@@ -62,6 +62,9 @@ repo_dir=$1 bin=$2 key=$3 packages=$4 meta=$5 shots_dir=$6 archive_dir=$7
 die() { echo "build-community-themes: $*" >&2; exit 1; }
 
 command -v jq >/dev/null || die "jq not found"
+jq -n '"a" | test("\\p{L}")' >/dev/null 2>&1 || die "jq lacks \\p{} regex support"
+jq -n '"\u3164" | test("\\p{Default_Ignorable_Code_Point}")' 2>/dev/null | grep -qx true \
+  || die "jq lacks \\p{Default_Ignorable_Code_Point} support (needs jq 1.7+)"
 command -v git >/dev/null || die "git not found"
 command -v curl >/dev/null || die "curl not found"
 [ -d "$repo_dir" ] || die "$repo_dir not found"
@@ -162,8 +165,8 @@ archive_ok() { { [[ $1 =~ $url_re ]] && host_ok "$1"; } || { [ "${HATAMOTO_ALLOW
 
 # field <file> <key>: the string value, or empty when absent or not a string.
 field() { jq -r --arg k "$2" 'if (.[$k] | type) == "string" then .[$k] else "" end' "$1"; }
-# Emoji, symbols and invisible characters (copy of build-community.sh).
-unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}")'
+# Emoji, symbols and invisible characters (copy of build-community.sh and the validator's unsafe_chars_filter).
+unsafe_chars_filter='$t | test("\\p{Cf}|\\p{Co}|\\p{Cs}|\\p{So}|\\p{Sk}|\\p{Extended_Pictographic}|\\p{Emoji_Presentation}|\\p{Default_Ignorable_Code_Point}|(?![\u0640\u3005\u3031-\u3035\u303B\u309D\u309E\u30FC-\u30FE])\\p{Lm}")'
 
 # check_about_features <name> <manifest>: the rules for the optional manifest keys "about"
 # (plain text, paragraphs separated by one newline) and "features" (a list of short lines).
