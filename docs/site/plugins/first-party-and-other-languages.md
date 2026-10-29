@@ -6,7 +6,7 @@ description: The two plugins Hatamoto ships, the patterns worth copying from the
 
 This page describes the real first-party plugins and the rules for writing a plugin in a language other than Go. Read it after [Build the hello plugin](hello-plugin.md), when you want to see how a production plugin is put together.
 
-The best documentation for a real plugin is a real plugin. Two integrations ship as signed first-party plugins instead of being built into the server. (Outgoing webhooks used to be a third; they are now part of core, see [Webhooks](../admin/webhooks.md).) Each lives in its own public repository and is the reference for what a production plugin looks like.
+The best documentation for a real plugin is a real plugin. Two integrations ship as signed first-party plugins instead of being built into the server. (Outgoing webhooks used to be a third; they are now part of core, see [Webhooks](../admin/webhooks.md).) Each lives in the `Zen-Labs-Corp/hatamoto-first-party` monorepo, its source of record (first-party plugins are not mirrored), and is the reference for what a production plugin looks like.
 
 ## The two first-party plugins
 
