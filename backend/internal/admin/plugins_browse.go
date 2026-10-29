@@ -267,8 +267,3 @@ func httpURL(s string) string {
 	}
 	return u.String()
 }
-
-// notBuilt answers a route whose page is not implemented yet.
-func (a *Admin) notBuilt(w http.ResponseWriter, r *http.Request) {
-	a.Error(w, r, http.StatusNotImplemented, "Not available yet", "This page is not available yet.")
-}
