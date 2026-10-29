@@ -12,7 +12,8 @@
           "pct": 100
         }
       ],
-      "halted": false
+      "halted": true,
+      "halt_reason": "channel signing drill"
     },
     {
       "version": "v0.28.0",
