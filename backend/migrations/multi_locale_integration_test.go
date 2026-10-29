@@ -109,11 +109,15 @@ func TestMultiLocale_Defaults(t *testing.T) {
 	}
 }
 
+// multiLocaleVersion is 202610291600_multi_locale; later migrations exist, so
+// the Down test rolls back to just below it instead of using Down.
+const multiLocaleVersion = 202610291600
+
 // Down restores the old trigger body and drops the columns.
 func TestMultiLocale_Down(t *testing.T) {
 	ctx := context.Background()
 	db, exec := multiLocaleDB(t)
-	if _, err := provider(t, db).Down(ctx); err != nil {
+	if _, err := provider(t, db).DownTo(ctx, multiLocaleVersion-1); err != nil {
 		t.Fatalf("down: %v", err)
 	}
 	var n int
