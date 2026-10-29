@@ -115,13 +115,66 @@ func (s *Store) Save(ctx context.Context, set Settings) error {
 	return nil
 }
 
+// txBeginner is implemented by a *pgxpool.Pool. Merge uses it when present;
+// a Querier without it (a test fake) falls back to an unlocked read-modify-write.
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // Merge reads the stored settings (never the cache), lets fn change the keys a
 // tab owns, and saves the result, so one tab cannot overwrite another's keys.
+// With a transaction-capable database the read-modify-write holds a row lock,
+// so concurrent merges apply one after the other and none is lost.
 func (s *Store) Merge(ctx context.Context, fn func(*Settings)) error {
-	cur, err := s.load(ctx)
+	b, ok := s.db.(txBeginner)
+	if !ok {
+		cur, err := s.load(ctx)
+		if err != nil {
+			return err
+		}
+		fn(&cur)
+		return s.Save(ctx, cur)
+	}
+	if err := pgx.BeginFunc(ctx, b, func(tx pgx.Tx) error { return s.MergeTx(ctx, tx, fn) }); err != nil {
+		return err
+	}
+	s.Invalidate()
+	return nil
+}
+
+// MergeTx is Merge inside the caller's transaction: it makes sure the row
+// exists, locks it, applies fn to the locked value, validates and writes.
+// It does not touch the cache: call Invalidate after the transaction commits.
+func (s *Store) MergeTx(ctx context.Context, tx pgx.Tx, fn func(*Settings)) error {
+	seed, err := json.Marshal(Defaults())
+	if err != nil {
+		return fmt.Errorf("encode seo settings: %w", err)
+	}
+	// Without a row FOR UPDATE would lock nothing, so the first save upserts.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO hatamoto_seo_settings (id, settings, updated_at)
+		VALUES (TRUE, $1::jsonb, now())
+		ON CONFLICT (id) DO NOTHING`, string(seed)); err != nil {
+		return fmt.Errorf("seed seo settings: %w", err)
+	}
+	var raw []byte
+	if err := tx.QueryRow(ctx, `SELECT settings FROM hatamoto_seo_settings WHERE id FOR UPDATE`).Scan(&raw); err != nil {
+		return fmt.Errorf("lock seo settings: %w", err)
+	}
+	cur, err := Decode(raw)
 	if err != nil {
 		return err
 	}
 	fn(&cur)
-	return s.Save(ctx, cur)
+	if errs := cur.Validate(); len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	out, err := json.Marshal(cur)
+	if err != nil {
+		return fmt.Errorf("encode seo settings: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_seo_settings SET settings = $1::jsonb, updated_at = now() WHERE id`, string(out)); err != nil {
+		return fmt.Errorf("save seo settings: %w", err)
+	}
+	return nil
 }

@@ -165,3 +165,48 @@ func TestGetDoesNotCacheALoadThatRacedInvalidate(t *testing.T) {
 		t.Errorf("separator = %q, want the saved %q", got.Separator, "|")
 	}
 }
+
+// fakeTx is the slice of pgx.Tx MergeTx uses; the embedded nil interface
+// panics if anything else is called.
+type fakeTx struct {
+	pgx.Tx
+	row   fakeRow
+	execs []string
+	args  [][]any
+}
+
+func (f *fakeTx) QueryRow(context.Context, string, ...any) pgx.Row { return f.row }
+func (f *fakeTx) Exec(_ context.Context, q string, a ...any) (pgconn.CommandTag, error) {
+	f.execs = append(f.execs, q)
+	f.args = append(f.args, a)
+	return pgconn.CommandTag{}, nil
+}
+
+func TestMergeTxLocksValidatesAndDoesNotInvalidate(t *testing.T) {
+	st := NewStore(&fakeDB{row: fakeRow{raw: []byte(`{"separator":"-"}`)}})
+	st.Get(context.Background())
+	tx := &fakeTx{row: fakeRow{raw: []byte(`{"home":"%title%"}`)}}
+	if err := st.MergeTx(context.Background(), tx, func(s *Settings) { s.Variables["a"] = "b" }); err != nil {
+		t.Fatal(err)
+	}
+	if len(tx.execs) != 2 {
+		t.Fatalf("execs = %d, want seed + update", len(tx.execs))
+	}
+	got, _ := Decode([]byte(tx.args[1][0].(string)))
+	if got.Home != "%title%" || got.Variables["a"] != "b" {
+		t.Fatalf("saved %v", tx.args[1][0])
+	}
+	if !st.have {
+		t.Fatal("MergeTx must leave cache invalidation to the caller")
+	}
+
+	bad := &fakeTx{row: fakeRow{raw: []byte(`{}`)}}
+	err := st.MergeTx(context.Background(), bad, func(s *Settings) { s.Separator = "x" })
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("err = %v, want ValidationError", err)
+	}
+	if len(bad.execs) != 1 {
+		t.Fatalf("invalid merge wrote: %d execs", len(bad.execs))
+	}
+}
