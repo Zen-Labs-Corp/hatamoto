@@ -289,5 +289,5 @@ export function init(tree, api) {
 
   select([], rows()[0], false);
   view();
-  return { refresh, selection: () => [...selected] };
+  return { refresh, focusCursor: () => cursor?.focus(), selection: () => [...selected] };
 }

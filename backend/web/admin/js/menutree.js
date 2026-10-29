@@ -283,6 +283,10 @@ function init(root) {
       place(tree, snap);
       showNotice("");
       refresh();
+      // A row that held focus may be gone, and the button that was clicked may
+      // have just disabled itself: keep the keyboard user in the tree.
+      const at = document.activeElement;
+      if (!at || at === document.body || at.disabled || !at.isConnected) keys?.focusCursor();
       announce(message);
     }
     const undo = () => restore(undoStack, redoStack, "Undone.");

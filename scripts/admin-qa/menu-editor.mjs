@@ -261,6 +261,14 @@ try {
   ok(same(await rowsOf(page), full), "A7: Undo restores the same order and depths");
   ok(await treeSemantics(page), "tree: roles, levels, selection and expanded state are right after an undo");
   ok((await state(page)) === "saved", "A7: after Undo the menu reads saved again");
+  const onRow = () => page.evaluate(() => Boolean(document.activeElement?.closest("[data-hm-item]")));
+  ok(await onRow(), "focus: the save bar Undo that empties its stack leaves focus on a row");
+  const rm = (await rowsOf(page)).findIndex((r) => r[1] === "Roadmap");
+  await page.locator("[data-hm-item]").nth(rm).focus();
+  await page.keyboard.press("Control+d");
+  await page.locator("[data-hm-item]").nth(rm + 1).focus(); // the copy
+  await page.keyboard.press("Control+z");
+  ok(await onRow(), "focus: Ctrl+Z that removes the copy leaves focus on a row");
   await (await byLabel(page, "Trust")).focus();
   await page.keyboard.press("Delete");
   ok((await rowsOf(page)).length === full.length - 7, "A7: Delete on a focused item removes it with its sub-items");
