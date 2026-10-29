@@ -47,6 +47,23 @@ func TestDefaultThemeNoLinkRendersSpan(t *testing.T) {
 	}
 }
 
+// A header parent without a link must stay focusable, or :focus-within never
+// opens its sub-menu for keyboard users.
+func TestNoLinkParentIsFocusable(t *testing.T) {
+	v := minimalView()
+	v.Site.Nav = []NavItem{
+		{Label: "Product", Href: "#", NoLink: true, Children: []NavItem{{Label: "Pricing", Href: "/pricing"}}},
+		{Label: "Loose", Href: "#", NoLink: true},
+	}
+	out := renderShell(t, v)
+	if want := `<li><span tabindex="0">Product</span><ul class="hm-nav__sub">`; !strings.Contains(out, want) {
+		t.Errorf("missing %s in:\n%s", want, out)
+	}
+	if want := `<li><span>Loose</span></li>`; !strings.Contains(out, want) {
+		t.Errorf("a childless no-link item must stay a plain span:\n%s", out)
+	}
+}
+
 func TestNavLinkTargetKeepsRel(t *testing.T) {
 	v := minimalView()
 	v.Site.Nav = []NavItem{{Label: "Ext", Href: "https://example.com/", Target: "_blank", Rel: "nofollow"}}

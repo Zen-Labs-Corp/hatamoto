@@ -165,7 +165,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 
 /* Menu item styling declared in theme.json ("menu"). Classes sit on the link, the
    plain-text span or the footer heading; :is() keeps them above the list rules. */
-.hm-nav__list span { display: block; padding: 0.35rem 0.5rem; color: var(--hm-hai); }
+.hm-nav__list li > span { display: block; padding: 0.35rem 0.5rem; color: var(--hm-hai); }
 :is(a, span, p).hm-nav__item--default { font-weight: 400; }
 :is(a, span, p).hm-nav__item--button {
   display: inline-block; padding: 0.4rem 0.9rem; border-radius: var(--hm-radius-sm);
@@ -184,7 +184,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 }
 .hm-nav__badge--new { background: var(--hm-primary); border-color: var(--hm-primary); color: var(--hm-bg); }
 .hm-nav__badge--beta { color: var(--hm-hai); }
-[data-icon]::after {
+.hm-nav__list [data-icon]::after, .hm-footer [data-icon]::after, .hm-menu [data-icon]::after {
   content: ""; display: inline-block; width: 1em; height: 1em; margin-left: 0.3em; vertical-align: -0.1em;
   background: currentColor; mask: var(--hm-menu-icon) center / contain no-repeat;
 }
