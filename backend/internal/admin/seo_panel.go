@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/html"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
@@ -55,6 +57,15 @@ type seoInput struct {
 	// SchemaSlug picks the type's templates.
 	SEO                           *seo.Settings
 	SchemaSlug, SiteName, Tagline string
+
+	// Kind picks the template the preview resolves with; the zero value is
+	// KindSingle, an entry. A term sets KindTaxonomy with TermKind (the
+	// taxonomy slug) and Term (its name). Home previews the Home template and
+	// wins over Kind.
+	Kind     seo.Kind
+	TermKind string
+	Term     string
+	Home     bool
 }
 
 type serpPreview struct {
@@ -539,17 +550,26 @@ func answerChecks(st docStats, in seoInput) []seoCheck {
 	return out
 }
 
-// resolverInput describes the page for the template resolver. The entry is a single
-// page: the same kind the public head resolves it as.
+// resolverInput describes the page for the template resolver. Unless the input
+// says otherwise the entry is a single page: the same kind the public head
+// resolves it as.
 func (in seoInput) resolverInput() seo.Input {
+	kind := in.Kind
+	switch {
+	case in.Home:
+		kind = seo.KindHome
+	case kind == "":
+		kind = seo.KindSingle
+	}
 	return seo.Input{
-		Kind:            seo.KindSingle,
+		Kind:            kind,
+		TermKind:        in.TermKind,
 		SchemaSlug:      in.SchemaSlug,
 		HandTitle:       strings.TrimSpace(in.MetaTitle),
 		HandDescription: strings.TrimSpace(in.MetaDescription),
 		TitleSet:        strings.TrimSpace(in.MetaTitle) != "",
 		DescriptionSet:  strings.TrimSpace(in.MetaDescription) != "",
-		Vars:            seo.Vars{Title: strings.TrimSpace(in.Title), SiteName: in.SiteName, Tagline: in.Tagline, Excerpt: in.Excerpt},
+		Vars:            seo.Vars{Title: strings.TrimSpace(in.Title), SiteName: in.SiteName, Tagline: in.Tagline, Excerpt: in.Excerpt, Term: in.Term},
 	}
 }
 
@@ -569,5 +589,26 @@ func (a *Admin) withSEOSettings(r *http.Request, in *seoInput, schemaSlug string
 		if cfg, err := a.deps.Site.Get(r.Context()); err == nil && cfg != nil {
 			in.SiteName, in.Tagline = cfg.CompanyName, cfg.Tagline
 		}
+	}
+}
+
+// markHome flags the preview as the homepage's when id is the entity the site
+// serves at "/": the chosen one, or while none is chosen the page the public
+// site falls back to. Without the stores it leaves the preview alone.
+func (a *Admin) markHome(ctx context.Context, in *seoInput, id uuid.UUID) {
+	if id == uuid.Nil {
+		return
+	}
+	if a.deps.Site != nil {
+		if cfg, err := a.deps.Site.Get(ctx); err == nil && cfg != nil && cfg.HomepageEntityID != uuid.Nil {
+			in.Home = cfg.HomepageEntityID == id
+			return
+		}
+	}
+	if a.deps.Growth.Explain == nil {
+		return
+	}
+	if ex, err := a.deps.Growth.Explain.ExplainURL(ctx, "/"); err == nil {
+		in.Home = ex.Page.EntityID == id.String()
 	}
 }

@@ -474,6 +474,9 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		in.Path = "/" + f.Slug
 	}
 	a.withSEOSettings(r, &in, sc.Slug)
+	if e != nil {
+		a.markHome(r.Context(), &in, e.ID)
+	}
 	panel := buildPanel(in)
 	if e != nil {
 		panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: f, attrs: attrs}, in)

@@ -329,6 +329,9 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 		in.Path = "/" + p.f.Slug
 	}
 	a.withSEOSettings(r, &in, sc.Slug)
+	if e != nil {
+		a.markHome(r.Context(), &in, e.ID)
+	}
 	panel := buildPanel(in)
 	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, p, in)
 	return panel
