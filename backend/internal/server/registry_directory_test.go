@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -448,5 +449,13 @@ func TestRegistryDirectoryPermissionCard(t *testing.T) {
 	}
 	if l := tags.PermLines[3]; l.Text != "future.perm" || l.Warn {
 		t.Errorf("unknown permission line = %+v", l)
+	}
+}
+
+// TestRegistryDirectoryPermLineConversion pins permtext.Line to render.PermLine's field order.
+func TestRegistryDirectoryPermLineConversion(t *testing.T) {
+	got := render.PermLine(permtext.Line{Name: "a", Text: "b", Warn: true})
+	if want := (render.PermLine{Name: "a", Text: "b", Warn: true}); got != want {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 }

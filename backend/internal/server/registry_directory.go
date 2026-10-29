@@ -253,22 +253,6 @@ func screenshotURL(registryURL, rel string) string {
 	return packages.SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
 }
 
-// permissionCard maps permission names to the card's count, warning badges
-// (one per distinct short label) and plain-English lines. The ⚠ badge already
-// signals the risk, so the "WARNING: " prefix of the admin wording is dropped.
-func permissionCard(perms []string) (int, []string, []render.PermLine) {
-	var warn []string
-	var lines []render.PermLine
-	for _, p := range perms {
-		t := permtext.Lookup(p)
-		if t.Warn && !slices.Contains(warn, t.Short) {
-			warn = append(warn, t.Short)
-		}
-		lines = append(lines, render.PermLine{Name: p, Text: strings.TrimPrefix(t.Help, "WARNING: "), Warn: t.Warn})
-	}
-	return len(perms), warn, lines
-}
-
 // directoryView maps the plugin entries of idx to cards, sorted by name.
 func directoryView(idx *packages.Index) render.PluginDirectoryView {
 	var cards []render.PluginCard
@@ -282,7 +266,11 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description),
 			About:  aboutParagraphs(e.About), Features: e.Features,
 		}
-		c.PermCount, c.PermWarn, c.PermLines = permissionCard(e.Permissions)
+		pc := permtext.ForCard(e.Permissions)
+		c.PermCount, c.PermWarn = pc.Count, pc.Warn
+		for _, l := range pc.Lines {
+			c.PermLines = append(c.PermLines, render.PermLine(l))
+		}
 		c.Permissions = e.Permissions
 		switch e.Tier {
 		case packages.TierFirstParty:
