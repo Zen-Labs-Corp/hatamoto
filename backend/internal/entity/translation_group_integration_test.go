@@ -32,7 +32,7 @@ func TestGroupStore(t *testing.T) {
 	en, fr, es := mk("a", "en", "published"), mk("a", "fr", "published"), mk("a", "es", "draft")
 	enTwo, shared := mk("b", "en", "published"), mk("c", "en", "published")
 	// The service does not accept und yet; retag the row directly.
-	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET locale = $2 WHERE id = $1`, shared, localeUnd); err != nil {
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET locale = $2 WHERE id = $1`, shared, LocaleShared); err != nil {
 		t.Fatal(err)
 	}
 

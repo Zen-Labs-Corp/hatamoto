@@ -508,8 +508,8 @@ func (r *PostgresRepository) ListEntitiesForTerm(ctx context.Context, termID uui
           JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
          WHERE et.term_id = $1
            AND e.status = 'published'
-           AND `+entity.HiddenPersonSQL+`
-    `, args...).Scan(&total); err != nil {
+           AND `+entity.HiddenPersonFor("$2")+`
+    `, append(args, entity.VisibleLocales(ctx))...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count entities for term: %w", err)
 	}
 
@@ -520,7 +520,7 @@ func (r *PostgresRepository) ListEntitiesForTerm(ctx context.Context, termID uui
 	// works across every schema kind without per-schema branching.
 	// Returns '' (the trailing fallback) when no key matches — the
 	// frontend already treats empty strings as "no image / no excerpt".
-	args = append(args, perPage, offset)
+	args = append(args, perPage, offset, entity.VisibleLocales(ctx))
 	rows, err := conn.Query(ctx, fmt.Sprintf(`
         SELECT e.id, e.name, e.slug,
                s.slug AS schema_slug,
@@ -547,7 +547,7 @@ func (r *PostgresRepository) ListEntitiesForTerm(ctx context.Context, termID uui
            AND %s
          ORDER BY e.published_at DESC NULLS LAST, e.created_at DESC
          LIMIT $%d OFFSET $%d
-    `, entity.HiddenPersonSQL, len(args)-1, len(args)), args...)
+    `, entity.HiddenPersonFor(fmt.Sprintf("$%d", len(args))), len(args)-2, len(args)-1), args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list entities for term: %w", err)
 	}
@@ -580,12 +580,12 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
           JOIN hatamoto_entity_terms et ON et.term_id = t.id
           JOIN hatamoto_entities e ON e.id = et.entity_id
                                   AND e.status = 'published' AND e.variant_key IS NULL
-          JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `+entity.HiddenPersonSQL+`
+          JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `+entity.HiddenPersonFor("$3")+`
          WHERE t.kind = $1
          GROUP BY t.id
          ORDER BY COUNT(e.id) DESC, t.name
          LIMIT $2
-    `, kind, limit)
+    `, kind, limit, entity.VisibleLocales(ctx))
 	if err != nil {
 		return nil, err
 	}

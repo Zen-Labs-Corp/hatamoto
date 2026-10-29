@@ -10,10 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// localeUnd is the shared (language-neutral) locale; shared rows never join a
-// translation group.
-const localeUnd = "und"
-
 // ErrInvalidGroup is returned by GroupStore.Link when the ids cannot form one
 // translation group.
 var ErrInvalidGroup = errors.New("invalid translation group")
@@ -92,8 +88,8 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		if !ok {
 			return uuid.Nil, fmt.Errorf("%w: entity %s not found", ErrInvalidGroup, id)
 		}
-		if r.locale == localeUnd {
-			return uuid.Nil, fmt.Errorf("%w: entity %s is shared (%s)", ErrInvalidGroup, id, localeUnd)
+		if r.locale == LocaleShared {
+			return uuid.Nil, fmt.Errorf("%w: entity %s is shared (%s)", ErrInvalidGroup, id, LocaleShared)
 		}
 		if locales[r.locale] {
 			return uuid.Nil, fmt.Errorf("%w: two entities in locale %s", ErrInvalidGroup, r.locale)
