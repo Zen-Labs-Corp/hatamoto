@@ -338,6 +338,7 @@ func (s *Server) fillListing(ctx context.Context, r *http.Request, lr *listingRo
 		t := termView(lr.Term, termParents(ctx, s.db, []*taxonomy.Term{lr.Term}))
 		v.Term = &t
 		v.Page = render.PageMeta{Name: lr.Term.Name, Title: lr.Term.Name}
+		termSEOMeta(&v.Page, lr.Term.SEO)
 		f.TermID = lr.Term.ID
 	case render.KindSearch:
 		v.Query, v.SearchType = lr.Query, lr.Type
@@ -358,7 +359,46 @@ func (s *Server) fillListing(ctx context.Context, r *http.Request, lr *listingRo
 	if lr.Kind == render.KindSearch && f.Search == "" {
 		return nil
 	}
-	return s.fillItemsQ(ctx, r, v, f, lr.Path, query)
+	if err := s.fillItemsQ(ctx, r, v, f, lr.Path, query); err != nil {
+		return err
+	}
+	if lr.Kind == render.KindTaxonomy && v.Pagination.Page == 1 {
+		termSEOCanonical(&v.Page, lr.Term.SEO, v.BaseURL)
+	}
+	return nil
+}
+
+// termSEOMeta lets a term's saved SEO win over the archive's defaults, the way
+// applyAttributeMeta does for entries. Nothing saved assigns nothing, so the
+// head stays what the taxonomy title template makes of it.
+func termSEOMeta(m *render.PageMeta, s *taxonomy.TermSEO) {
+	if s == nil {
+		return
+	}
+	if t := strings.TrimSpace(s.MetaTitle); t != "" {
+		m.Title, m.TitleSet = t, true
+	}
+	if d := strings.TrimSpace(s.MetaDescription); d != "" {
+		m.Description, m.DescriptionSet = d, true
+	}
+	if img := strings.TrimSpace(s.OGImage); img != "" {
+		m.OGImage = img
+	}
+	if s.NoIndex {
+		m.NoIndex = true
+	}
+}
+
+// termSEOCanonical applies a term's saved canonical address. It runs after
+// fillItemsQ, which sets the archive's own canonical, and only for page 1:
+// later pages keep their ?page=N address.
+func termSEOCanonical(m *render.PageMeta, s *taxonomy.TermSEO, baseURL string) {
+	if s == nil {
+		return
+	}
+	if c := canonicalFromAttribute(s.CanonicalURL, baseURL); c != "" {
+		m.CanonicalURL = c
+	}
 }
 
 func (s *Server) fillItems(ctx context.Context, r *http.Request, v *render.PageView, f entity.ListFilter, path string) error {
