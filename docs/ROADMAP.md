@@ -35,7 +35,7 @@ hatamoto (one Go binary)                               Postgres 16
  └─ plugins          Extism (wazero) WASM sandbox
 ```
 
-One install = one site = one language.
+One install = one site. It has one default language and can serve more public locales (see [ADR 0003](adr/0003-public-locales.md)).
 
 ## 3. Stack at a glance
 
@@ -71,7 +71,7 @@ One install = one site = one language.
 | Admin auth | database sessions + CSRF | keep | JWT, Google sign-in |
 | API / MCP / CLI auth | API keys with scopes | keep | JWT bearer |
 | Roles | owner, editor | simplify | viewer, client, author |
-| Language | one site setting `language` (for `<html lang>`, JSON-LD `inLanguage`, feeds) | **simplify** | locales table, locale overrides, locale URL tokens, hreflang, region picker, GeoIP, per-locale settings |
+| Language | one site setting `language` (for `<html lang>`, JSON-LD `inLanguage`, feeds) plus an optional ordered locale list with translation groups and core-computed hreflang ([ADR 0003](adr/0003-public-locales.md)) | **simplify** | locales table, locale overrides, locale URL tokens, region picker, GeoIP |
 | Gated content | none | **remove** | gate partial, teasers, lead JWT, remember tokens |
 | AI agent access | official MCP Go SDK at `/mcp` + `hatamoto` CLI | add | — |
 | AEO features | AI-crawler hits (in-process), first crawls, AI referrals, AI robots policy, `llms.txt`, JSON-LD, knowledge graph, internal linking v2 | keep | Next crawler pings, linking v1, facts |
@@ -106,7 +106,7 @@ them to vet pull requests. Browser tests (chromedp) are dropped: the admin is se
 5. **Content is untrusted.** `bluemonday` policies are the single source of truth for stored HTML; the browser editor never is. Sanitiser fixtures (`rich-html-samples.json`, `style-cases.json`, `html-style-corpus.json`) stay as Go test data when `frontend/` is deleted.
 6. **Admin read paths work without JS**; JS only enhances editing.
 7. **No site-specific or fork-specific code.** `scripts/check-neutral.sh` (added in `v1-03`, run by `make check`) fails on the names of the agency site core grew out of (and its private repos and hosts), or on any hard-coded locale or country code used as a path or locale literal; the banned list lives in the script.
-8. **No locales.** No code may branch on a locale, prefix a URL with one, or store per-locale data after `v1-09`.
+8. **Locales are data, not code.** Public locales come only from the site's locale list ([ADR 0003](adr/0003-public-locales.md), which reverses the earlier "no locales" rule). No code may hard-code a locale or country code, add a locale token to URL patterns, or change what a single-locale install serves.
 9. **hatamoto.dev runs every change first**; it is the first production user.
 
 ## 5. Where it stands
@@ -343,12 +343,32 @@ everything `go:embed`ed. English-only admin. Every screen is keyboard-usable and
   - Keep internal deploy notes and working plans out of the public tree (`export-ignore` in `.gitattributes`, `scripts/public-snapshot.sh`); publish the public repo as one fresh commit, without the private history.
 - **Done when:** a stranger goes from download to a published post, an imported WordPress site and an installed plugin using only the README; recorded on a clean machine.
 
+### Phase G: Public locales (1.x minors, additive; [ADR 0003](adr/0003-public-locales.md))
+
+Every phase is additive and N-1 safe, and an install with no locale list stays byte-identical.
+
+#### locales-1-foundation (backend, XL)
+- **Do:** the ordered locale list, default, prefix-all and x-default settings with a no-JS form; shared content (`und`); translation groups; locale-aware public visibility filter; locale prefix routing and the bare-root 302; core-computed hreflang and x-default; per-locale sitemaps with `xhtml:link` alternates.
+- **Done when:** a seeded multi-locale install serves every locale, prints hreflang in settings order and lists per-locale sitemaps, and a one-locale install's HTML, URLs and sitemaps are unchanged.
+
+#### locales-2-inheritance (backend, L)
+- **Do:** a copy inherits top-level fields from the base copy until edited; propagation runs as a worker job with conditional writes; links in inherited fields are rewritten to the copy's locale.
+
+#### locales-3-admin (admin-ui, L)
+- **Do:** a Translations panel in the page editor (copies, status, create copy, inherit or own value per field); a Locale column and filter on the entity list.
+
+#### locales-4-per-locale-data (both, L)
+- **Do:** per-locale contact and office settings (identity stays global); per-locale menus, theme parts and blocks with fallback to the default locale; per-locale search, feeds and llms.txt.
+
+#### locales-5-import (backend, M)
+- **Do:** import WordPress multilingual sites (WPML, Polylang) as linked copies; a conversion dry-run for sites that stored regions in attributes.
+
 ---
 
 ## 8. Not in 1.0 (decided)
 
 - React, Next.js, npm/Node tooling, Tailwind, CodeMirror, Alpine.
-- Locales, translations, multi-language or multi-region sites, GeoIP.
+- GeoIP and IP-based or cookie-based locale routing (the reverse proxy does that), machine translation. Multi-locale sites are covered by [ADR 0003](adr/0003-public-locales.md).
 - Gated content, lead capture beyond forms, CRM features.
 - A headless or public content JSON API (one renderer only).
 - SQLite or any second database.

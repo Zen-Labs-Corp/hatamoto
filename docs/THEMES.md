@@ -428,7 +428,17 @@ and archives through its own `page.html`, not the default's `single.html`.
 | `.Items` | listings: cards with `.Title`, `.URL`, `.Excerpt`, `.Image`, `.Category`, `.PublishedAt`, `.Author`, `.AuthorURL`. An excerpt falls back to the first 200 characters of the content |
 | `.Pagination` | listings: `.Page`, `.TotalPages`, `.Total`, `.HasPrev`, `.HasNext`, `.PrevURL`, `.NextURL`, `.URL n` |
 | `.Term`, `.Author`, `.Query`, `.SearchType` | taxonomy (`.Kind`, `.Slug`, `.Name`, `.URL`, `.Description`, `.Parent`), author (`.Name`, `.Slug`, `.URL`, `.Avatar`, `.Bio`, `.JobTitle`, `.IsOrg`, `.SameAs`, a list of profile links) and search views (`.SearchType` is the schema slug a search is limited to, empty for the whole site) |
-| `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language` (the site setting `language`, BCP 47, default `en`; also `<html lang>` and JSON-LD `inLanguage`), `.Phone`, `.Hours` and `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`; the site settings, also emitted in the Organization JSON-LD), `.Settings` (the theme settings object), `.Nav`, `.FooterNav`, `.SocialLinks` |
+| `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language` (the site setting `language`, BCP 47, default `en`; on a site with several public locales it is the locale of the page being rendered, per request; also `<html lang>` and JSON-LD `inLanguage`), `.Phone`, `.Hours` and `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`; the site settings, also emitted in the Organization JSON-LD), `.Settings` (the theme settings object), `.Nav`, `.FooterNav`, `.SocialLinks` |
+
+| `.Locale`, `.Alternates` | the page's locale tag and, on a site with several public locales, one entry per configured locale in the order of the locale list (empty otherwise): `.Locale`, `.Lang` (the hreflang value), `.URL` (absolute), `.Current` (the page's own locale), `.Missing` (no live copy: `.URL` is that locale's home) and `.Default`. Use it for a language switcher. Listing pages with a page number have none |
+
+**Hreflang.** The default theme's `head` partial prints one
+`<link rel="alternate" hreflang="..." href="...">` per live copy in the
+alternates, then an `x-default` link, from the head data the host passes to it
+(`.Alt`). A custom theme that overrides the `head` partial must range over
+`.Alt` itself, otherwise its pages carry no hreflang. A plugin `render.head`
+link that duplicates a computed hreflang is dropped. A site with one locale
+has no alternates and prints no hreflang.
 
 **Authors** are people (the built-in `person` content type: name, job title,
 bios, photo, links), not accounts. An entity credits one through

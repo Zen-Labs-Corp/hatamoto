@@ -14,7 +14,8 @@
 # tree never names them). A few historical hits are allowed, each pinned to
 # one file AND one line pattern; add no more without a reason.
 #
-# Locale rule (v1-09: one site, one language). Shipped files may not contain
+# Locale rule (public locales, ADR 0003): no hard-coded country or locale codes;
+# a locale list is data (site settings), never code. Shipped files may not contain
 #   * a locale/country code as a path or quoted literal: /au, /au/..., "au", 'us'
 #     (au us uk nz sg ae cn at de ca). The patterns need a path start or a quote on
 #     both sides, so ordinary words and hyphenated names ("Cafe au Lait", "x-uk-cta2",
