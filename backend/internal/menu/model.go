@@ -14,6 +14,8 @@ const (
 	LinkTypeExternal = "external"
 	LinkTypeArchive  = "archive"
 	LinkTypeCustom   = "custom"
+	// LinkTypeNone is plain text: the item has no target and renders without a link.
+	LinkTypeNone = "none"
 )
 
 // Menu locations.
@@ -47,20 +49,21 @@ type Menu struct {
 
 // MenuItem represents a single item in a menu with optional nesting.
 type MenuItem struct {
-	ID           uuid.UUID   `json:"id"`
-	MenuID       uuid.UUID   `json:"menu_id"`
-	ParentID     *uuid.UUID  `json:"parent_id,omitempty"`
-	Label        string      `json:"label"`
-	LinkType     string      `json:"link_type"` // entity, external, archive, custom
-	EntityID     *uuid.UUID  `json:"entity_id,omitempty"`
-	URL          *string     `json:"url,omitempty"`
-	SchemaSlug   *string     `json:"schema_slug,omitempty"`
-	Position     int         `json:"position"`
-	OpenInNewTab bool        `json:"open_in_new_tab"`
-	CSSClasses   *string     `json:"css_classes,omitempty"`
-	Children     []*MenuItem `json:"children,omitempty"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID           uuid.UUID     `json:"id"`
+	MenuID       uuid.UUID     `json:"menu_id"`
+	ParentID     *uuid.UUID    `json:"parent_id,omitempty"`
+	Label        string        `json:"label"`
+	LinkType     string        `json:"link_type"` // entity, external, archive, custom, none
+	EntityID     *uuid.UUID    `json:"entity_id,omitempty"`
+	URL          *string       `json:"url,omitempty"`
+	SchemaSlug   *string       `json:"schema_slug,omitempty"`
+	Position     int           `json:"position"`
+	OpenInNewTab bool          `json:"open_in_new_tab"`
+	CSSClasses   *string       `json:"css_classes,omitempty"`
+	Attrs        MenuItemAttrs `json:"attrs"`
+	Children     []*MenuItem   `json:"children,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 
 	// Computed from entity (not stored in DB)
 	EntitySlug *string `json:"entity_slug,omitempty"`
@@ -85,15 +88,16 @@ type UpdateMenuInput struct {
 
 // CreateMenuItemInput represents input for creating a menu item.
 type CreateMenuItemInput struct {
-	ParentID     *uuid.UUID `json:"parent_id,omitempty"`
-	Label        string     `json:"label"`
-	LinkType     string     `json:"link_type"`
-	EntityID     *uuid.UUID `json:"entity_id,omitempty"`
-	URL          *string    `json:"url,omitempty"`
-	SchemaSlug   *string    `json:"schema_slug,omitempty"`
-	Position     *int       `json:"position,omitempty"`
-	OpenInNewTab bool       `json:"open_in_new_tab"`
-	CSSClasses   *string    `json:"css_classes,omitempty"`
+	ParentID     *uuid.UUID     `json:"parent_id,omitempty"`
+	Label        string         `json:"label"`
+	LinkType     string         `json:"link_type"`
+	EntityID     *uuid.UUID     `json:"entity_id,omitempty"`
+	URL          *string        `json:"url,omitempty"`
+	SchemaSlug   *string        `json:"schema_slug,omitempty"`
+	Position     *int           `json:"position,omitempty"`
+	OpenInNewTab bool           `json:"open_in_new_tab"`
+	CSSClasses   *string        `json:"css_classes,omitempty"`
+	Attrs        *MenuItemAttrs `json:"attrs,omitempty"`
 }
 
 // UpdateMenuItemInput represents input for updating a menu item.
@@ -107,6 +111,8 @@ type UpdateMenuItemInput struct {
 	Position     *int       `json:"position,omitempty"`
 	OpenInNewTab *bool      `json:"open_in_new_tab,omitempty"`
 	CSSClasses   *string    `json:"css_classes,omitempty"`
+	// Attrs replaces all of the item's settings when set.
+	Attrs *MenuItemAttrs `json:"attrs,omitempty"`
 }
 
 // ReorderInput represents a single item in a reorder request.
@@ -119,7 +125,7 @@ type ReorderInput struct {
 // ValidLinkType checks if a link type is valid.
 func ValidLinkType(lt string) bool {
 	switch lt {
-	case LinkTypeEntity, LinkTypeExternal, LinkTypeArchive, LinkTypeCustom:
+	case LinkTypeEntity, LinkTypeExternal, LinkTypeArchive, LinkTypeCustom, LinkTypeNone:
 		return true
 	default:
 		return false
@@ -148,5 +154,7 @@ type ReplaceItem struct {
 	URL          *string
 	SchemaSlug   *string
 	OpenInNewTab bool
+	CSSClasses   *string
+	Attrs        MenuItemAttrs
 	Parent       int
 }
