@@ -41,6 +41,10 @@
   },
   "history": [
     {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
+    {
       "reason": "builder recovery moves from browser storage to a server copy: fetch client replaces the storage client (+1.1 KB gzip first paint)",
       "date": "2026-10-26"
     },
