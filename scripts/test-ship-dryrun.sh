@@ -104,6 +104,8 @@ fi
 if [[ "$1 $2" == "pr merge" ]]; then
   # The merge must be pinned to the checked head commit.
   [[ " $* " == *" --match-head-commit 0123456789abcdef0123456789abcdef01234567 "* ]] || { echo "pr merge without --match-head-commit <sha>" >&2; exit 1; }
+  # A real (non-dry) run stops here: the gate is what the test checks, not the deploy.
+  [[ -z "${MERGE_MARK:-}" ]] || { touch "$MERGE_MARK"; echo "stub: merge reached" >&2; exit 3; }
   exit 0
 fi
 [[ "$1" == pr && "$2" == view ]] || { echo "unexpected gh call: $*" >&2; exit 1; }
@@ -119,19 +121,37 @@ done
 case "$field" in
   state) json='{"state":"OPEN"}' ;;
   mergeable) json='{"mergeable":"MERGEABLE"}' ;;
-  mergeStateStatus) json='{"mergeStateStatus":"CLEAN"}' ;;
+  mergeStateStatus)
+    # MSTATUS_SEQ: one value per read (the last one repeats), for the CI-mode re-check.
+    ms=CLEAN
+    if [[ -n "${MSTATUS_SEQ:-}" ]]; then
+      read -ra seq <<< "$MSTATUS_SEQ"; k=0; [[ -f "${CHECKS_STATE:-/nonexistent}.ms" ]] && k=$(<"$CHECKS_STATE.ms")
+      ms=${seq[k]:-${seq[-1]}}; echo $((k + 1)) > "${CHECKS_STATE:?MSTATUS_SEQ needs CHECKS_STATE}.ms"
+    fi
+    json="{\"mergeStateStatus\":\"$ms\"}" ;;
   headRefName) json='{"headRefName":"feat/x"}' ;;
   baseRefName) json='{"baseRefName":"main"}' ;;
   mergeCommit) json='{"mergeCommit":null}' ;;
-  headRefOid) json='{"headRefOid":"0123456789abcdef0123456789abcdef01234567"}' ;;
+  headRefOid)
+    # HEAD_MOVES: the second read (during the CI wait) returns another commit.
+    oid=0123456789abcdef0123456789abcdef01234567
+    if [[ -n "${HEAD_MOVES:-}" ]]; then
+      [[ -f "$CHECKS_STATE.head" ]] && oid=fedcba9876543210fedcba9876543210fedcba98; touch "$CHECKS_STATE.head"
+    fi
+    json="{\"headRefOid\":\"$oid\"}" ;;
   isCrossRepository) json='{"isCrossRepository":false}' ;;
   statusCheckRollup)
     ok='{"__typename":"CheckRun","name":"backend","status":"COMPLETED","conclusion":"SUCCESS"}'
     ui='{"__typename":"CheckRun","name":"admin-ui","status":"COMPLETED","conclusion":"SUCCESS"}'
     skip='{"__typename":"CheckRun","name":"deploy-docs","status":"COMPLETED","conclusion":"SKIPPED"}'
     ctx='{"__typename":"StatusContext","context":"ci/legacy","state":"SUCCESS"}'
+    # *then* modes: the first read is pending, later ones settle (counted in CHECKS_STATE).
+    n=0; if [[ $CHECKS_MODE == *then* ]]; then [[ -f "$CHECKS_STATE" ]] && n=$(<"$CHECKS_STATE"); echo $((n + 1)) > "$CHECKS_STATE"; fi
     case "$CHECKS_MODE" in
       pass)       r="$ok,$ui,$skip,$ctx" ;;
+      nobackend)  r="$ui,$skip" ;;
+      pendingthenpass) if ((n == 0)); then r="$ok,${ui/COMPLETED/IN_PROGRESS}"; else r="$ok,$ui"; fi ;;
+      pendingthenfail) if ((n == 0)); then r="${ok/COMPLETED/IN_PROGRESS},$ui"; else r="${ok/SUCCESS/FAILURE},$ui"; fi ;;
       fail)       r="${ok/SUCCESS/FAILURE},$ui" ;;
       pending)    r="$ok,${ui/COMPLETED/IN_PROGRESS}" ;;
       missing)    r="$ok" ;;
@@ -154,11 +174,35 @@ for mode in fail pending missing uiskipped ctxfail ghError; do
   grep -q "SHIP-H ABORT" <<< "$O" || { echo "$O"; echo "FAIL: mode=$mode did not abort with SHIP-H ABORT"; exit 1; }
   if grep -qF "gh pr merge" <<< "$O"; then echo "$O"; echo "FAIL: mode=$mode reached the merge"; exit 1; fi
 done
-# the full suite runs before the merge in CI mode too: named in the dry run, ahead of the merge line
+# CI mode: green checks are the full suite; nothing is re-run locally, and the dry run says so
+# ahead of the merge line
 O=$(open_pr pass)
-fs=$(grep -nF "DRY: would run full suite on 0123456789abcdef0123456789abcdef01234567 (not cached)" <<< "$O" | head -1 | cut -d: -f1)
+fs=$(grep -nF "full suite on 0123456789ab: covered by CI" <<< "$O" | head -1 | cut -d: -f1)
 mg=$(grep -nF "DRY: gh pr merge" <<< "$O" | head -1 | cut -d: -f1)
-[[ -n $fs && -n $mg ]] && (( fs < mg )) || { echo "$O"; echo "FAIL: the full-suite step is not before the merge in CI mode ($fs, $mg)"; exit 1; }
+[[ -n $fs && -n $mg ]] && (( fs < mg )) || { echo "$O"; echo "FAIL: CI mode did not take the green checks as the full suite before the merge ($fs, $mg)"; exit 1; }
+! grep -qF "would run full suite" <<< "$O" || { echo "$O"; echo "FAIL: CI mode still runs the local full suite"; exit 1; }
+# the backend check (the Go suite) must have run and passed, like admin-ui
+O=$(open_pr nobackend) && { echo "$O"; echo "FAIL: ship merged without the backend check"; exit 1; }
+grep -qF "check backend is 'missing'" <<< "$O" && ! grep -qF "gh pr merge" <<< "$O" || { echo "$O"; echo "FAIL: a missing backend check did not abort"; exit 1; }
+# a pending check is waited for (not a dry run: SHIP_CI_WAIT), a failure stops the wait at once,
+# a timeout aborts, and a push during the wait aborts
+# (a real run, stopped by the stub at the merge: MERGE_MARK)
+CW=$(mktemp -d)
+ci_wait() { rm -f "$CW/merged" "$CW/st"*; PATH="$CK:$PATH" CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CI_POLL=0 SHIP_CI_WAIT=${SHIP_CI_WAIT:-30} MERGE_MARK="$CW/merged" CHECKS_STATE="$CW/st" "$@" bash scripts/ship.sh 1 2>&1; }
+O=$(ci_wait env CHECKS_MODE=pendingthenpass MSTATUS_SEQ="BLOCKED CLEAN") || true
+[[ -e $CW/merged ]] || { echo "$O"; echo "FAIL: ship did not wait for pending checks and merge"; exit 1; }
+grep -qF "waiting for CI on 0123456789ab: 1 pending (admin-ui)" <<< "$O" && grep -qF "CI checks on 0123456789ab: all green" <<< "$O" || { echo "$O"; echo "FAIL: the CI wait was not reported"; exit 1; }
+! grep -qF "started in the background" <<< "$O" || { echo "$O"; echo "FAIL: CI mode started the local full suite"; exit 1; }
+O=$(ci_wait env CHECKS_MODE=pendingthenfail) || true
+grep -qF "check backend is 'FAILURE'" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: a check failing during the wait did not abort"; exit 1; }
+O=$(SHIP_CI_WAIT=0 ci_wait env CHECKS_MODE=pending) || true
+grep -qF "check admin-ui is not completed after 0s" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: the CI wait timeout did not abort"; exit 1; }
+O=$(ci_wait env CHECKS_MODE=pending HEAD_MOVES=1) || true
+grep -qF "head moved during the CI wait" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: a push during the CI wait did not abort"; exit 1; }
+# green checks but not CLEAN (a review, a thread, a conflict) aborts
+O=$(ci_wait env CHECKS_MODE=pass MSTATUS_SEQ="BLOCKED BLOCKED") || true
+grep -qF "checks are green but it is not clean (BLOCKED" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: green-but-blocked did not abort"; exit 1; }
+rm -rf "$CW"
 grep -qF "gate mode: CI" <<< "$(open_pr pass)" || { echo "FAIL: ci active did not use the CI gate"; exit 1; }
 echo "ship checks gate ok"
 

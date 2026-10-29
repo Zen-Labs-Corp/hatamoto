@@ -35,9 +35,10 @@ This page writes the admin address as `<admin>`. Tests and the QA harness pin `H
   Postgres on `PATH`). It refuses an ambient `DATABASE_URL`; set
   `QA_USE_DATABASE_URL=1` to allow a local one. A non-local host is always
   refused, because seeding adds an owner with a public password.
-- Shipping: GitHub checks are off for now; the local git hooks (`make hooks`, CONTRIBUTING.md "Local gates") run `make check` (with `make design-check`) and the tests before every push. The GitHub `ci` workflow is disabled on purpose, so `scripts/ship.sh` picks
+- Shipping: the local git hooks (`make hooks`, CONTRIBUTING.md "Local gates") run `make check` (with `make design-check`) and the affected tests before every push. `scripts/ship.sh` picks
   its gate from the workflow state (`gh workflow list --all --json name,state`).
-  `ci` active: every PR check must be green and `admin-ui` must be SUCCESS. `ci` not
+  `ci` active: ship waits for the PR checks; every one must be green, and `backend` and
+  `admin-ui` must be SUCCESS (no local re-run). `ci` not
   active: ship runs the local UI gate on the PR head commit in a temporary worktree
   (`make design-check`, then `scripts/admin-qa/run-local.sh`,
   strict) and aborts on failure. There it never skips: missing Postgres or Chrome

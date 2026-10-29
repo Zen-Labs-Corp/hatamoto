@@ -18,6 +18,9 @@
 #   SHIP_DB                   default hatamoto_core; must equal the database in
 #                             config/hatamoto.env's DATABASE_URL (checked in
 #                             preflight and again by the restore helper)
+#   SHIP_CI_WAIT              seconds to wait for the PR's CI checks to finish
+#                             (CI mode); default 3600, 0 = do not wait
+#   SHIP_CI_POLL              seconds between check polls; default 30
 #   SHIP_REEXEC=1             skip the re-exec into the deploy-SHA copy of this
 #                             script (to dry-run a local ship.sh change)
 #   SITE_URL                  default https://hatamoto.dev
@@ -28,12 +31,17 @@
 #                             in the list, so a clone of a renamed repository (GitHub
 #                             redirects the old name) is refused. Tests set it.
 #
-# Merge gates (before `gh pr merge`, for an open PR, with or without --no-deploy): the UI gate,
-# then the FULL suite (every package and check suite) on the PR head, once per tree. It runs the
-# installed pre-push snapshot with HATAMOTO_PREPUSH_FULL=1 and reuses a `full-suite` pass
-# recorded for the same tree (`scripts/pipeline-gate.sh full`, an earlier ship). There is no
-# skip knob. A stale snapshot aborts with "run make hooks". `git push` itself only runs the
-# affected gates.
+# Merge gates (before `gh pr merge`, for an open PR, with or without --no-deploy):
+# - CI mode (the 'ci' workflow is active): ship waits for the PR head's checks (SHIP_CI_WAIT),
+#   stops at the first failed one, and merges only when every check is green, `backend` (the
+#   whole Go suite with -tags=integration, vet) and `admin-ui` included. Those checks ARE the
+#   full suite and the UI gate, run on GitHub's runners, so nothing is re-run here.
+# - Local mode (the 'ci' workflow is disabled): the local UI gate, then the FULL suite (every
+#   package and check suite) on the PR head, once per tree. It runs the installed pre-push
+#   snapshot with HATAMOTO_PREPUSH_FULL=1 and reuses a `full-suite` pass recorded for the same
+#   tree (`scripts/pipeline-gate.sh full`, an earlier ship). A stale snapshot aborts with "run
+#   make hooks".
+# There is no skip knob. `git push` itself only runs the affected gates.
 #
 # Bootstrap: ship.sh re-executes the copy at origin/main, but only AFTER the merge, so the merge
 # gates above are those of the invoking checkout's copy. `git pull` (and `make hooks`) before
@@ -368,9 +376,61 @@ if [[ "$BASE_REF" != "main" && "$BASE_REF" != "$DEFAULT_BRANCH" ]]; then
   exit 1
 fi
 
+# ci_checks_gate: CI mode's merge gate. Polls the PR head's checks until none is pending
+# (SHIP_CI_WAIT seconds, every SHIP_CI_POLL), stops at the first failed one, and requires
+# `backend` (the whole Go suite) and `admin-ui` to have run and passed: mergeStateStatus CLEAN
+# only reflects the checks that the ruleset lists. A push during the wait aborts (the checks
+# would be for another commit). statusCheckRollup is read with `gh pr view` (gh 2.46 has no
+# `gh pr checks --json`). Rows: name, status, conclusion; a StatusContext has context/state
+# (treated as completed with that state). No override.
+ci_checks_gate() {
+  local deadline=$((SECONDS + ${SHIP_CI_WAIT:-3600})) rollup cname cstatus cconc pending now_head
+  local -A seen
+  while :; do
+    if ! rollup=$(gh pr view "$PR" --json statusCheckRollup --jq \
+      '.statusCheckRollup[] | [(.name // .context), (.status // "COMPLETED"), (.conclusion // .state // "")] | @tsv' 2>&1); then
+      echo "$rollup" >&2
+      echo "SHIP-H ABORT: cannot read the checks of PR #$PR (gh pr view statusCheckRollup)" >&2
+      exit 1
+    fi
+    pending=(); seen=()
+    while IFS=$'\t' read -r cname cstatus cconc; do
+      [[ -n "$cname" ]] || continue
+      if [[ "$cstatus" != COMPLETED ]]; then pending+=("$cname"); continue; fi
+      case "$cconc" in
+        SUCCESS|SKIPPED|NEUTRAL) seen[$cname]=$cconc ;;
+        *) echo "SHIP-H ABORT: PR #$PR check $cname is '${cconc:-unknown}'" >&2; exit 1 ;;
+      esac
+    done <<< "$rollup"
+    if (( ${#pending[@]} == 0 )); then
+      local need
+      for need in backend admin-ui; do
+        if [[ "${seen[$need]:-}" != SUCCESS ]]; then
+          echo "SHIP-H ABORT: PR #$PR check $need is '${seen[$need]:-missing}', not SUCCESS" >&2
+          exit 1
+        fi
+      done
+      echo "CI checks on ${HEAD_SHA:0:12}: all green"
+      return 0
+    fi
+    if (( DRY || SECONDS >= deadline )); then
+      echo "SHIP-H ABORT: PR #$PR check ${pending[0]} is not completed$( (( DRY )) || echo " after ${SHIP_CI_WAIT:-3600}s") (pending: ${pending[*]})" >&2
+      exit 1
+    fi
+    echo "waiting for CI on ${HEAD_SHA:0:12}: ${#pending[@]} pending (${pending[*]})"
+    sleep "${SHIP_CI_POLL:-30}"
+    now_head=$(gh pr view "$PR" --json headRefOid --jq .headRefOid 2>/dev/null || true)
+    if [[ "$now_head" != "$HEAD_SHA" ]]; then
+      echo "SHIP-H ABORT: PR #$PR head moved during the CI wait (${HEAD_SHA:0:12} -> ${now_head:0:12}); run ship again" >&2
+      exit 1
+    fi
+  done
+}
+
 case "$STATE" in
   OPEN)
-    if [[ "$MERGEABLE" != "MERGEABLE" || "$MSTATUS" != "CLEAN" ]]; then
+    # CI mode accepts BLOCKED/UNSTABLE here (checks still running) and requires CLEAN after them.
+    if [[ "$MERGEABLE" != "MERGEABLE" || ! "$MSTATUS" =~ ^(CLEAN|BLOCKED|UNSTABLE)$ ]]; then
       echo "SHIP-H ABORT: PR #$PR is not mergeable/clean ($MERGEABLE/$MSTATUS)" >&2
       exit 1
     fi
@@ -398,91 +458,72 @@ case "$STATE" in
       echo "  and open and ship the PR from that branch." >&2
       exit 1
     fi
-    # The whole suite runs once per tree, here, before the merge (a push runs only the affected
-    # gates). Both gate modes and --no-deploy; no override. A pass recorded by
-    # `scripts/pipeline-gate.sh full` or an earlier ship on this tree is reused.
-    # It runs in the BACKGROUND while the UI gate below runs: the suite is mostly on the build
-    # farm, the UI gate is local Chrome, they share nothing, and serially they took ~30 min.
-    # Both must pass before the merge; either failing stops the other (cleanup kills FS_PID).
-    FS_TREE=$(git rev-parse "$HEAD_SHA^{tree}" 2>/dev/null || true)
-    FS_KEY=""; [[ -z "$FS_TREE" ]] || FS_KEY=$(full_suite_key "$FS_TREE")
-    FS_HIT=0; [[ -n "$FS_KEY" && -f "$FS_KEY" && ${HATAMOTO_GATE_CACHE:-on} != off ]] && FS_HIT=1
-    DOCS_ONLY_N=0; FS_MODE=""
-    if docs_only "$HEAD_SHA"; then
-      if (( DRY )); then
-        echo "full suite on ${HEAD_SHA:0:12}: skipped (plans/docs only: $DOCS_ONLY_N files)"
-        echo "DRY: would run the content checks on $HEAD_SHA (trusted pre-push hook, affected mode, before the merge)"
-      else
-        FS_MODE=content
-      fi
-    elif (( DRY )); then
-      echo "DRY: would run full suite on $HEAD_SHA ($( (( FS_HIT )) && echo cached || echo 'not cached')), alongside the UI gate"
-    elif (( FS_HIT )); then
-      echo "full suite on ${HEAD_SHA:0:12} ... cached ($(cat "$FS_KEY"))"
-    else
-      FS_MODE=full
-    fi
-    if [[ -n $FS_MODE ]]; then
-      FS_LOG=$(mktemp "${TMPDIR:-/tmp}/ship-$PR-fullsuite.XXXXXX")
-      echo "full suite on ${HEAD_SHA:0:12}: started in the background ($FS_MODE; log $FS_LOG)"
-      set -m                       # own process group, so cleanup can stop the whole suite
-      ( trap - EXIT; full_suite_gate "$HEAD_SHA" "$FS_MODE" ) </dev/null >"$FS_LOG" 2>&1 &
-      FS_PID=$!
-      set +m
-    fi
-    # The gate depends on whether the GitHub 'ci' workflow is active. It is
-    # disabled on purpose (see docs/ADMIN_UI_RULES.md); then the only UI gate is
-    # the local one below, so it never skips. No override.
+    # The gate depends on whether the GitHub 'ci' workflow is active. When it is disabled the
+    # local UI gate and the local full suite are the gates, so they never skip. No override.
     if ! WF=$(gh workflow list --all --json name,state --jq '.[] | select(.name == "ci") | .state' 2>&1); then
       echo "$WF" >&2
       echo "SHIP-H ABORT: cannot read the state of the 'ci' workflow (gh workflow list)" >&2
       exit 1
     fi
     if [[ "$WF" == active ]]; then
-      echo "gate mode: CI (workflow 'ci' is active): checking the PR's status checks"
-      # Every CI check must be green, and admin-ui must have run: mergeStateStatus
-      # CLEAN only reflects checks that branch protection lists. No override.
-      # statusCheckRollup is read with `gh pr view` (gh 2.46 has no `gh pr checks --json`).
-      # Rows: name, status, conclusion. A CheckRun has name/status/conclusion; a
-      # StatusContext has context/state (treated as completed with that state).
-      if ! rollup=$(gh pr view "$PR" --json statusCheckRollup --jq \
-        '.statusCheckRollup[] | [(.name // .context), (.status // "COMPLETED"), (.conclusion // .state // "")] | @tsv' 2>&1); then
-        echo "$rollup" >&2
-        echo "SHIP-H ABORT: cannot read the checks of PR #$PR (gh pr view statusCheckRollup)" >&2
+      echo "gate mode: CI (workflow 'ci' is active): waiting for the PR's status checks"
+      ci_checks_gate
+      MSTATUS=$(gh pr view "$PR" --json mergeStateStatus --jq .mergeStateStatus)
+      if [[ "$MSTATUS" != CLEAN ]]; then
+        echo "SHIP-H ABORT: PR #$PR checks are green but it is not clean ($MSTATUS: a required review, an unresolved thread or a conflict)" >&2
         exit 1
       fi
-      ADMIN_UI=""
-      while IFS=$'\t' read -r cname cstatus cconc; do
-        [[ -n "$cname" ]] || continue
-        if [[ "$cstatus" != COMPLETED ]]; then
-          echo "SHIP-H ABORT: PR #$PR check $cname is $cstatus, not completed" >&2
-          exit 1
-        fi
-        case "$cconc" in
-          SUCCESS|SKIPPED|NEUTRAL) ;;
-          *) echo "SHIP-H ABORT: PR #$PR check $cname is '${cconc:-unknown}'" >&2; exit 1 ;;
-        esac
-        [[ "$cname" == admin-ui ]] && ADMIN_UI=$cconc
-      done <<< "$rollup"
-      if [[ "$ADMIN_UI" != SUCCESS ]]; then
-        echo "SHIP-H ABORT: PR #$PR check admin-ui is '${ADMIN_UI:-missing}', not SUCCESS" >&2
-        exit 1
-      fi
+      echo "full suite on ${HEAD_SHA:0:12}: covered by CI (backend, admin-ui and every other check green); not re-run here"
     else
+      if [[ "$MSTATUS" != CLEAN ]]; then
+        echo "SHIP-H ABORT: PR #$PR is not mergeable/clean ($MERGEABLE/$MSTATUS)" >&2
+        exit 1
+      fi
       echo "gate mode: LOCAL UI gate (workflow 'ci' is '${WF:-missing}')"
+      # The whole suite runs once per tree, here, before the merge (a push runs only the affected
+      # gates). A pass recorded by `scripts/pipeline-gate.sh full` or an earlier ship on this tree
+      # is reused. It runs in the BACKGROUND while the UI gate runs: the suite is mostly on the
+      # build farm, the UI gate is local Chrome, they share nothing, and serially they took ~30
+      # min. Both must pass before the merge; either failing stops the other (cleanup kills FS_PID).
+      FS_TREE=$(git rev-parse "$HEAD_SHA^{tree}" 2>/dev/null || true)
+      FS_KEY=""; [[ -z "$FS_TREE" ]] || FS_KEY=$(full_suite_key "$FS_TREE")
+      FS_HIT=0; [[ -n "$FS_KEY" && -f "$FS_KEY" && ${HATAMOTO_GATE_CACHE:-on} != off ]] && FS_HIT=1
+      DOCS_ONLY_N=0; FS_MODE=""
+      if docs_only "$HEAD_SHA"; then
+        if (( DRY )); then
+          echo "full suite on ${HEAD_SHA:0:12}: skipped (plans/docs only: $DOCS_ONLY_N files)"
+          echo "DRY: would run the content checks on $HEAD_SHA (trusted pre-push hook, affected mode, before the merge)"
+        else
+          FS_MODE=content
+        fi
+      elif (( DRY )); then
+        echo "DRY: would run full suite on $HEAD_SHA ($( (( FS_HIT )) && echo cached || echo 'not cached')), alongside the UI gate"
+      elif (( FS_HIT )); then
+        echo "full suite on ${HEAD_SHA:0:12} ... cached ($(cat "$FS_KEY"))"
+      else
+        FS_MODE=full
+      fi
+      if [[ -n $FS_MODE ]]; then
+        FS_LOG=$(mktemp "${TMPDIR:-/tmp}/ship-$PR-fullsuite.XXXXXX")
+        echo "full suite on ${HEAD_SHA:0:12}: started in the background ($FS_MODE; log $FS_LOG)"
+        set -m                       # own process group, so cleanup can stop the whole suite
+        ( trap - EXIT; full_suite_gate "$HEAD_SHA" "$FS_MODE" ) </dev/null >"$FS_LOG" 2>&1 &
+        FS_PID=$!
+        set +m
+      fi
       if (( DRY )); then
         echo "DRY: would run local UI gate on $HEAD_SHA"
       else
         local_ui_gate "$HEAD_SHA"
       fi
-    fi
-    if [[ -n ${FS_PID:-} ]]; then
-      echo "waiting for the full suite on ${HEAD_SHA:0:12} (log $FS_LOG)"
-      FS_RC=0; wait "$FS_PID" || FS_RC=$?
-      FS_PID=""
-      sed 's/^/  [full suite] /' "$FS_LOG"
-      (( FS_RC == 0 )) || { echo "SHIP-H ABORT: the full suite failed on $HEAD_SHA (exit $FS_RC); nothing was merged" >&2; exit 1; }
-      rm -f "$FS_LOG"
+      if [[ -n ${FS_PID:-} ]]; then
+        echo "waiting for the full suite on ${HEAD_SHA:0:12} (log $FS_LOG)"
+        FS_RC=0; wait "$FS_PID" || FS_RC=$?
+        FS_PID=""
+        sed 's/^/  [full suite] /' "$FS_LOG"
+        (( FS_RC == 0 )) || { echo "SHIP-H ABORT: the full suite failed on $HEAD_SHA (exit $FS_RC); nothing was merged" >&2; exit 1; }
+        rm -f "$FS_LOG"
+      fi
     fi
     run gh pr merge "$PR" --merge --match-head-commit "$HEAD_SHA"
     ;;

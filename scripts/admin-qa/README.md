@@ -40,8 +40,8 @@ cluster is created. Missing Postgres binaries or Chrome exit 2 with a message.
 there; `package-lock.json` is committed) when the old dev path does not exist.
 
 `scripts/ship.sh` runs `make design-check` and this script (strict) on the PR head commit
-in a temporary worktree when the GitHub `ci` workflow is not active (it is disabled
-on purpose); with `ci` active it checks the PR's status checks instead. In the
+in a temporary worktree when the GitHub `ci` workflow is not active; with `ci` active
+it waits for the PR's status checks (`admin-ui` must pass) instead. In the
 local mode missing Postgres or Chrome abort the ship rather than skip.
 
 ## Install and run
