@@ -143,7 +143,7 @@ func (r *PostgresSchemaRepository) InTx(ctx context.Context, fn func(tx pgx.Tx) 
 
 // GetByIDForUpdate reads a schema and locks its row until tx ends.
 func (r *PostgresSchemaRepository) GetByIDForUpdate(ctx context.Context, tx pgx.Tx, id uuid.UUID) (*EntitySchema, error) {
-	return getSchemaByID(ctx, tx, id, " FOR UPDATE")
+	return getSchemaByID(ctx, tx, id, " FOR NO KEY UPDATE")
 }
 
 // GetBySlug retrieves an entity schema by slug.

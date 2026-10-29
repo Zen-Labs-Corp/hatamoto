@@ -150,7 +150,7 @@ func (s *Store) MergeTx(ctx context.Context, tx pgx.Tx, fn func(*Settings)) erro
 	if err != nil {
 		return fmt.Errorf("encode seo settings: %w", err)
 	}
-	// Without a row FOR UPDATE would lock nothing, so the first save upserts.
+	// Without a row there is nothing to lock, so the first save upserts.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO hatamoto_seo_settings (id, settings, updated_at)
 		VALUES (TRUE, $1::jsonb, now())
@@ -158,7 +158,7 @@ func (s *Store) MergeTx(ctx context.Context, tx pgx.Tx, fn func(*Settings)) erro
 		return fmt.Errorf("seed seo settings: %w", err)
 	}
 	var raw []byte
-	if err := tx.QueryRow(ctx, `SELECT settings FROM hatamoto_seo_settings WHERE id FOR UPDATE`).Scan(&raw); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT settings FROM hatamoto_seo_settings WHERE id FOR NO KEY UPDATE`).Scan(&raw); err != nil {
 		return fmt.Errorf("lock seo settings: %w", err)
 	}
 	cur, err := Decode(raw)

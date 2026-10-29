@@ -151,3 +151,39 @@ func TestUpdateSchemaTakesTheSchemaRowLock(t *testing.T) {
 		t.Fatalf("editor key or patch lost: %v", m)
 	}
 }
+
+// The schema row lock must not block entity inserts: their foreign key takes
+// FOR KEY SHARE on the schema row, which FOR NO KEY UPDATE does not conflict with.
+func TestSchemaRowLockDoesNotBlockEntityInsert(t *testing.T) {
+	ctx := context.Background()
+	svc, sc := newSEOIntegrationService(t)
+
+	release := make(chan struct{})
+	locked := make(chan struct{})
+	holderDone := make(chan error, 1)
+	go func() {
+		holderDone <- svc.schemaRepo.InTx(ctx, func(tx pgx.Tx) error {
+			if _, err := svc.schemaRepo.GetByIDForUpdate(ctx, tx, sc.ID); err != nil {
+				return err
+			}
+			close(locked)
+			<-release
+			return nil
+		})
+	}()
+	<-locked
+
+	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	created, err := svc.entityRepo.Create(insertCtx, nil, &CreateEntityInput{
+		SchemaID: sc.ID, Name: "Lock probe", Attributes: json.RawMessage(`{}`),
+	})
+	close(release)
+	if herr := <-holderDone; herr != nil {
+		t.Fatal(herr)
+	}
+	if err != nil {
+		t.Fatalf("entity insert blocked or failed while the schema row was locked: %v", err)
+	}
+	t.Cleanup(func() { _ = svc.entityRepo.Delete(ctx, created.ID) })
+}
