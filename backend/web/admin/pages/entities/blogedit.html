@@ -1,5 +1,5 @@
 {{template "layouts/editor" .}}
-{{define "modules"}}@hm/blogeditor @hm/repeater @hm/content @hm/editor/kit @hm/editor/blocks @hm/editor/slash @hm/editor/bubble @hm/editor/upload @hm/editor/paste @hm/editor/embed{{end}}
+{{define "modules"}}@hm/blogeditor @hm/seopanel @hm/repeater @hm/content @hm/editor/kit @hm/editor/blocks @hm/editor/slash @hm/editor/bubble @hm/editor/upload @hm/editor/paste @hm/editor/embed{{end}}
 {{define "scripts"}}sortablejs{{end}}
 {{define "editorbar"}}{{with .Data}}<a class="hm-editor-bar__back" href="{{.ListHref}}" aria-label="Back to posts">{{icon "chevron-left"}}</a>
 <nav class="hm-crumbs hm-editor-bar__crumbs" aria-label="Breadcrumb"><ol class="hm-crumbs__list"><li><a href="{{adminPath}}/entities">Entities</a></li><li><a href="{{.ListHref}}">{{.SchemaName}}</a></li><li><span aria-current="page">{{or .Name (printf "Untitled %s" .Noun)}}</span></li></ol></nav>
@@ -110,31 +110,11 @@
 {{template "hm/field" dict "ID" "new_author" "Name" "new_author" "Label" "Or add a new author" "Value" .NewAuthor "Help" "Type a name to create an author and use it for this post." "Attrs" (attrmap "autocomplete" "off")}}
 </div>
 {{template "hm/card-end"}}{{end}}
-{{template "hm/card-start" dict "ID" "be-visibility" "Title" "Address and indexing"}}
-<div class="hm-stack">
-{{template "hm/field" dict "ID" "seo_canonical" "Name" "seo_canonical" "Label" "Canonical address" "Value" .SEO.Canonical "Help" "Only when this post also lives at another address." "Error" (index .Errors "seo_canonical") "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "seo_noindex" "Name" "seo_noindex" "Label" "Ask search engines not to list this post" "Control" "switch" "Value" "true" "Checked" .SEO.NoIndex}}
-</div>
-{{template "hm/card-end"}}
 </section>
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-seo" aria-labelledby="be-tab-seo" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>SEO and AEO</h2>
-{{template "hm/card-start" dict "ID" "be-seo" "Title" "Search and social" "Description" "How this post appears in search results and when shared."}}
-<div class="hm-stack">
-{{template "hm/field" dict "ID" "seo_keyword" "Name" "seo_keyword" "Label" "Focus keyword" "Value" .Keyword "Help" "The phrase this post should rank for. The checks below look for it." "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "seo_title" "Name" "seo_title" "Label" "SEO title" "Value" .SEO.Title "Help" "Shown in search results. About 60 characters." "Error" (index .Errors "seo_title") "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/seocount" dict "ID" "seo-title-count" "Len" .Panel.SERP.TitleLen "Max" 60 "Status" .Panel.SERP.TitleStatus "Msg" .Panel.SERP.TitleMsg}}
-{{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
-{{template "hm/seocount" dict "ID" "seo-description-count" "Len" .Panel.SERP.DescLen "Max" 160 "Status" .Panel.SERP.DescStatus "Msg" .Panel.SERP.DescMsg}}
-<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
-<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "seo_og_image" "hidden" "hidden"))}}</div>
-{{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
-{{template "hm/field" dict "ID" "seo_llms" "Name" "seo_llms" "Label" "Include in /llms.txt" "Control" "switch" "Value" "true" "Checked" .InLLMs "Help" "Lists this post for AI assistants that read /llms.txt."}}
-</div>
-{{template "hm/card-end"}}
-{{template "hm/card-start" dict "ID" "be-checks" "Title" "Search and answer checks" "Description" "Updates as you write."}}
-{{template "hm/indicator" dict "ID" "analyze-busy" "Text" "Checking"}}
-<div id="be-panel" aria-live="polite" hx-post="{{adminPath}}/entities/{{.ID}}/edit/analyze" hx-trigger="input changed delay:1500ms from:#hm-be, change from:#hm-be" hx-include="#hm-be" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy">{{template "hm/blogpanel" .}}</div>
+{{template "hm/card-start" dict "ID" "be-seo"}}
+{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" (printf "%s/entities/%s/edit/analyze" adminPath .ID) "Include" "#hm-be" "Keyword" .Keyword "ShowKeyword" true "InLLMs" .InLLMs "ShowLLMs" true}}
 {{template "hm/card-end"}}
 {{if .Crawlers}}{{template "hm/card-start" dict "ID" "be-crawlers" "Title" "AI crawlers" "Description" "Assistants that fetched this post."}}
 {{if .Crawlers.Error}}<p class="hm-muted">Crawler activity could not be loaded.</p>

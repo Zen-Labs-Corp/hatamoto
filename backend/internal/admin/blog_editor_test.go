@@ -73,7 +73,7 @@ func TestBlogEditorRenders(t *testing.T) {
 	has(t, body,
 		`data-hm-blog-editor`, `name="name"`, `name="content"`, `data-hm-editor="blog"`, `name="version" value="1"`,
 		`<span>Save draft</span></button>`, `<span>Publish</span></button>`, `name="seo_keyword"`, `name="seo_llms"`, `name="featured_image"`, `name="excerpt"`,
-		`name="slug"`, `data-hm-slug-auto="1"`, `Search and answer checks`, `hx-post="/admin/entities/`+r.ent.ID.String()+`/edit/analyze"`,
+		`name="slug"`, `data-hm-slug-auto="1"`, `Search result preview`, `id="seo-score"`, `data-hm-seo-tabs`, `hx-post="/admin/entities/`+r.ent.ID.String()+`/edit/analyze"`,
 		`data-hm-preview="/admin/entities/`+r.ent.ID.String()+`/edit/preview"`, `Ada Writer`, `Categories and tags`, `Versions`, `data-hm-be-toolbar`)
 	lacks(t, body, `id="be-crawlers"`, `<span>Update</span></button>`)
 	// both sidebar panels are in the form, so a post saves them with or without JavaScript
@@ -81,12 +81,7 @@ func TestBlogEditorRenders(t *testing.T) {
 	if post < 0 || seo < post {
 		t.Fatalf("sidebar panels missing or out of order: post %d, seo %d", post, seo)
 	}
-	for name, at := range map[string]int{"seo_canonical": strings.Index(body, `name="seo_canonical"`), "seo_noindex": strings.Index(body, `name="seo_noindex"`)} {
-		if at < post || at > seo {
-			t.Errorf("%s is not in the Post panel", name)
-		}
-	}
-	for _, name := range []string{"seo_keyword", "seo_title", "seo_description", "seo_llms"} {
+	for _, name := range []string{"seo_keyword", "seo_title", "seo_description", "seo_og_image", "seo_canonical", "seo_noindex", "seo_llms"} {
 		if at := strings.Index(body, `name="`+name+`"`); at < seo {
 			t.Errorf("%s is not in the SEO and AEO panel", name)
 		}
@@ -269,8 +264,7 @@ func TestBlogAnalyzeAnswersTheFragment(t *testing.T) {
 	if strings.Contains(body, "<html") || strings.Contains(body, `class="hm-shell"`) {
 		t.Error("the panel is a fragment")
 	}
-	lacks(t, body, "score", "Score")
-	has(t, body, "checks pass", "Search result preview", "Keyword in title", "Question headings", "FAQPage", "Structured data:", "https://example.test/blog/go-servers")
+	has(t, body, `id="seo-score"`, `id="seo-title-count"`, `id="seo-schema"`, "checks pass", "Search result preview", "Keyword in title", "Question headings", "FAQPage", "Structured data:", "https://example.test/blog/go-servers")
 }
 
 func TestBlogPanelCountsMatchTheChecks(t *testing.T) {

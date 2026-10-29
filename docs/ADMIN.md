@@ -424,7 +424,7 @@ keyword, SEO title and description, canonical, social image, noindex, include in
   answers under them, a short opening summary, FAQ block, `llms.txt` inclusion); and the
   JSON-LD the public page will emit, built by `entity.GenerateJSONLDWithFAQ`. The panel is
   server-rendered on load and refreshed by htmx (`POST .../edit/analyze`, 1.5 s after the
-  last input, answers the `hm/blogpanel` fragment). FAQ blocks reach the public page as
+  last input, answers the `hm/seopanel-fragment`, the shared SEO panel also used by the entity form). FAQ blocks reach the public page as
   `FAQPage` (`entity.ExtractFAQItems`, used by `public_pages_loader.go`). Once published, the
   *AI crawlers* card reads `agents.EntityActivity` (`ContentDeps.Crawlers`).
 * **Preview.** `POST .../edit/preview` with `X-HM-Stage: 1` stages the posted draft under a frame

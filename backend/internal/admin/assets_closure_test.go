@@ -152,7 +152,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"analytics/referrals": {"@hm/aia"},
 		"analytics/health":    {"@hm/aia"},
 		"analytics/agent":     {"@hm/aia"},
-		"entities/blogedit":   {"@hm/blogeditor", "@hm/editor/slash"},
+		"entities/blogedit":   {"@hm/blogeditor", "@hm/seopanel", "@hm/editor/slash"},
 		"entities/builder":    {"@hm/builder", "@hm/builder/screen", "@hm/canvas/host"},
 		"entities/edit":       {"@hm/repeater", "@hm/content", "@hm/entityform"},
 		"entities/list":       {"@hm/content"},

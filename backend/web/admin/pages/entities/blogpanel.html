@@ -1,4 +1,2 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/blogpanel" .}}{{with .Panel}}
-{{template "hm/seocount" dict "ID" "seo-title-count" "Len" .SERP.TitleLen "Max" 60 "Status" .SERP.TitleStatus "Msg" .SERP.TitleMsg "OOB" true}}
-{{template "hm/seocount" dict "ID" "seo-description-count" "Len" .SERP.DescLen "Max" 160 "Status" .SERP.DescStatus "Msg" .SERP.DescMsg "OOB" true}}{{end}}{{end}}{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/seopanel-fragment" .Panel}}{{end}}{{end}}

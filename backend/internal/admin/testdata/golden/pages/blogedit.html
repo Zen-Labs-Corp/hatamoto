@@ -21,6 +21,7 @@
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/editor/autosave.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/blogeditor.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/seopanel.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/repeater.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/content.HASH.js" integrity="sha256-SRI">
@@ -103,6 +104,7 @@
 <script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/blogeditor.HASH.js" integrity="sha256-SPeDD9SAIs8cuofWbkZj7d8caTnM02qq&#43;iWWEV2hST4="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/seopanel.HASH.js" integrity="sha256-kk2no2j8h7tdfQI2DTFBaRArChUDuUtAmnQYxMh1YbU="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/repeater.HASH.js" integrity="sha256-hkA7Zrqy1TodSSPNd/hYAY&#43;P6MBfnbmN5U8wQizNneA="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-HQc4/hqx5Rb/IW&#43;cRV1YYVjxL0oYkssSNh9Zco&#43;NRtA="></script>
 </head>
@@ -262,27 +264,16 @@
 </div>
 </div>
 </div></section>
-<section class="hm-card" id="be-visibility" aria-labelledby="be-visibility-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="be-visibility-title">Address and indexing</h2></div>
-<div class="hm-card__body">
-<div class="hm-stack">
-<div class="hm-field">
-<label class="hm-field__label" for="seo_canonical">Canonical address</label>
-<input class="hm-field__control" type="text" id="seo_canonical" name="seo_canonical" aria-describedby="seo_canonical-help" autocomplete="off">
-<p class="hm-field__help" id="seo_canonical-help">Only when this post also lives at another address.</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this post</span></label>
-</div>
-</div>
-</div></section>
 </section>
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-seo" aria-labelledby="be-tab-seo" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>SEO and AEO</h2>
-<section class="hm-card" id="be-seo" aria-labelledby="be-seo-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="be-seo-title">Search and social</h2><p class="hm-muted">How this post appears in search results and when shared.</p></div>
+<section class="hm-card" id="be-seo">
 <div class="hm-card__body">
-<div class="hm-stack">
+<div class="hm-seo" data-hm-seo>
+<div class="hm-seo__head"><h3 class="hm-seo__title">SEO</h3><p class="hm-seo__score hm-seo__score--warn" id="seo-score"><strong>71</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p></div>
+<div class="hm-tablist" role="tablist" aria-label="SEO settings" data-hm-seo-tabs="" hidden="hidden"><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-search" aria-controls="seo-tabpanel-search" aria-selected="true" tabindex="0">Search</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-social" aria-controls="seo-tabpanel-social" aria-selected="false" tabindex="-1">Social</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-schema" aria-controls="seo-tabpanel-schema" aria-selected="false" tabindex="-1">Schema</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-advanced" aria-controls="seo-tabpanel-advanced" aria-selected="false" tabindex="-1">Advanced</button></div>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-search" aria-labelledby="seo-tab-search" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Search</h4>
 <div class="hm-field">
 <label class="hm-field__label" for="seo_keyword">Focus keyword</label>
 <input class="hm-field__control" type="text" id="seo_keyword" name="seo_keyword" aria-describedby="seo_keyword-help" autocomplete="off">
@@ -300,28 +291,16 @@
 <p class="hm-field__help" id="seo_description-help">A short summary for search results. About 155 characters.</p>
 </div>
 <p class="hm-be__count hm-be__count--warn" id="seo-description-count"><span>5 / 160</span> <span class="hm-be__count-msg">Description is short (5 characters). Aim for 120 to 160.</span></p>
-<div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
-<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
-</div>
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="seo_llms"><input class="hm-field__box" type="checkbox" role="switch" id="seo_llms" name="seo_llms" value="true" checked aria-describedby="seo_llms-help"><span>Include in /llms.txt</span></label>
-<p class="hm-field__help" id="seo_llms-help">Lists this post for AI assistants that read /llms.txt.</p>
-</div>
-</div>
-</div></section>
-<section class="hm-card" id="be-checks" aria-labelledby="be-checks-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="be-checks-title">Search and answer checks</h2><p class="hm-muted">Updates as you write.</p></div>
-<div class="hm-card__body">
 <span class="hm-indicator" id="analyze-busy" role="status" data-hm-busy-text="Checking"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
 <div id="be-panel" aria-live="polite" hx-post="/admin/entities/00000000-0000-0000-0000-000000000080/edit/analyze" hx-trigger="input changed delay:1500ms from:#hm-be, change from:#hm-be" hx-include="#hm-be" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"><div class="hm-bp">
 <p class="hm-bp__summary hm-bp__summary--fail" data-hm-bp-summary><strong>9 of 14 checks pass</strong>, 5 to fix</p>
-<h3 class="hm-bp__h">Search result preview</h3>
+<h5 class="hm-bp__h">Search result preview</h5>
 <div class="hm-bp__serp" role="group" aria-label="Search result preview">
 <p class="hm-bp__serp-url">https://example.test/blog/go-servers</p>
 <p class="hm-bp__serp-title">Go servers</p>
 <p class="hm-bp__serp-desc">Short</p>
 </div>
-<h3 class="hm-bp__h">Search checks</h3>
+<h5 class="hm-bp__h">Search checks</h5>
 <ul class="hm-bp__list" role="list">
 <li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Title</strong>: Title is too short (10 characters). Aim for 50 to 60.</span></li>
 <li class="hm-bp__item hm-bp__item--warn"><span class="hm-bp__mark"><span aria-hidden="true">!</span><span class="hm-visually-hidden">Could be better:</span></span><span><strong>Description</strong>: Description is short (5 characters). Aim for 120 to 160.</span></li>
@@ -333,15 +312,25 @@
 <li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Length</strong>: 33 words. Posts under 300 words rarely rank.</span></li>
 <li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>Readability</strong>: Reading ease 89: easy to read.</span></li>
 </ul>
-<h3 class="hm-bp__h">Answerability (AEO)</h3>
-<p class="hm-muted">How easily an assistant can quote this post.</p>
+<h5 class="hm-bp__h">Answerability (AEO)</h5>
+<p class="hm-muted">How easily an assistant can quote this page.</p>
 <ul class="hm-bp__list" role="list"><li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>Question headings</strong>: 1 subheadings are questions.</span></li>
 <li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>Short direct answers</strong>: Every question is answered in a short paragraph (60 words or fewer) right under it.</span></li>
 <li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>Opening summary</strong>: The post opens with a short summary.</span></li>
 <li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>FAQ block</strong>: 1 questions in FAQ blocks are published as FAQPage structured data.</span></li>
 <li class="hm-bp__item hm-bp__item--pass"><span class="hm-bp__mark"><span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span></span><span><strong>llms.txt</strong>: This post will be listed in /llms.txt once it is published.</span></li>
 </ul>
-<details class="hm-bp__ld"><summary>Structured data: Article &#43; FAQPage</summary><pre class="hm-bp__pre" tabindex="0">{
+</div></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
+<div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
+</div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
+<div id="seo-schema"><details class="hm-bp__ld" open><summary>Structured data: Article &#43; FAQPage</summary><pre class="hm-bp__pre" tabindex="0">{
   &#34;@context&#34;: &#34;https://schema.org&#34;,
   &#34;@graph&#34;: [
     {
@@ -376,8 +365,24 @@
       ]
     }
   ]
-}</pre></details>
-</div></div>
+}</pre></details></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Advanced</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_canonical">Canonical address</label>
+<input class="hm-field__control" type="text" id="seo_canonical" name="seo_canonical" aria-describedby="seo_canonical-help" autocomplete="off">
+<p class="hm-field__help" id="seo_canonical-help">Only when this post also lives at another address.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this post</span></label>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_llms"><input class="hm-field__box" type="checkbox" role="switch" id="seo_llms" name="seo_llms" value="true" checked aria-describedby="seo_llms-help"><span>Include in /llms.txt</span></label>
+<p class="hm-field__help" id="seo_llms-help">Lists this post for AI assistants that read /llms.txt.</p>
+</div>
+</section>
+</div>
 </div></section>
 
 </section>
