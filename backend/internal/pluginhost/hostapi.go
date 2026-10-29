@@ -216,7 +216,7 @@ func isInvalid(err error) bool {
 		entity.ErrValidationFailed, entity.ErrSlugAlreadyExists, entity.ErrInvalidStatus, entity.ErrRejectedByPlugin,
 		entity.ErrParentNotFound, entity.ErrParentCycle, entity.ErrParentTooDeep, entity.ErrAmbiguousSlug, entity.ErrAuthorNotFound, entity.ErrHasChildren,
 		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved,
-		taxonomy.ErrTermSlugConflict, menu.ErrSlugAlreadyExists, menu.ErrInvalidLinkType, menu.ErrInvalidLocation,
+		taxonomy.ErrTermSlugConflict, menu.ErrSlugAlreadyExists, menu.ErrInvalidLinkType, menu.ErrInvalidLocation, menu.ErrInvalidAttrs,
 		media.ErrInvalidMimeType, media.ErrFileTooLarge, media.ErrInvalidFile, media.ErrImageTooLarge,
 		redirect.ErrDuplicateSourcePath, redirect.ErrInvalidStatusCode, redirect.ErrInvalidPattern, redirect.ErrUnsafePattern,
 	} {

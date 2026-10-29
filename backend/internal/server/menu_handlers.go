@@ -183,6 +183,10 @@ func (s *Server) handleCreateMenuItem(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid link type")
 			return
 		}
+		if errors.Is(err, menu.ErrInvalidAttrs) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		s.logger.Error("failed to create menu item", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create menu item")
 		return
@@ -222,6 +226,10 @@ func (s *Server) handleUpdateMenuItem(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, menu.ErrInvalidLinkType) {
 			writeError(w, http.StatusBadRequest, "invalid link type")
+			return
+		}
+		if errors.Is(err, menu.ErrInvalidAttrs) {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if errors.Is(err, menu.ErrCircularParent) {

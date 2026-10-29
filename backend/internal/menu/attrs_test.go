@@ -14,13 +14,14 @@ func TestMenuItemAttrsValidate(t *testing.T) {
 		ok   bool
 	}{
 		{"empty", MenuItemAttrs{}, true},
-		{"full", MenuItemAttrs{Style: "button", Color: "accent-2", Badge: "New", Icon: "arrow", ShowOn: "mobile", ID: "nav:a.b_c-1", Title: "t", AriaLabel: "a", Rel: []string{"nofollow", "ugc"}}, true},
+		{"full", MenuItemAttrs{Style: "button", Color: "accent-2", Badge: "new", Icon: "arrow", ShowOn: "mobile", ID: "nav:a.b_c-1", Title: "t", AriaLabel: "a", Rel: []string{"nofollow", "ugc"}}, true},
 		{"show all", MenuItemAttrs{ShowOn: "all"}, true},
 		{"style upper", MenuItemAttrs{Style: "Button"}, false},
 		{"style too long", MenuItemAttrs{Style: strings.Repeat("a", 33)}, false},
 		{"color hex", MenuItemAttrs{Color: "#ff0000"}, false},
 		{"icon space", MenuItemAttrs{Icon: "a b"}, false},
 		{"badge long", MenuItemAttrs{Badge: long}, false},
+		{"badge free text", MenuItemAttrs{Badge: "Hot!"}, false},
 		{"title control", MenuItemAttrs{Title: "a\nb"}, false},
 		{"aria long", MenuItemAttrs{AriaLabel: long}, false},
 		{"id digit first", MenuItemAttrs{ID: "1a"}, false},
@@ -52,7 +53,13 @@ func TestValidateCSSClasses(t *testing.T) {
 	if got, err := ValidateCSSClasses("  "); err != nil || got != "" {
 		t.Errorf("blank: got %q, %v", got, err)
 	}
-	bad := []string{`a"b`, "1a", "a<b", "--x", "a{b}", strings.Repeat("a ", 11), strings.Repeat("a", 201), strings.Repeat("abcdefghi ", 10) + "x"}
+	// Values accepted before the validator existed must stay accepted.
+	for _, in := range []string{"md:hidden w-1/2", "1a", "--x", strings.Repeat("a ", 11), "[&_a]:p-2 !mt-1"} {
+		if _, err := ValidateCSSClasses(in); err != nil {
+			t.Errorf("%q: err = %v, want ok", in, err)
+		}
+	}
+	bad := []string{`a"b`, "a<b", "a>b", "a'b", "a`b", "a\x00b", "a\tb\x07", strings.Repeat("a", 201), strings.Repeat("abcdefghi ", 20) + "x"}
 	for _, in := range bad {
 		if _, err := ValidateCSSClasses(in); !errors.Is(err, ErrInvalidAttrs) {
 			t.Errorf("%q: err = %v, want ErrInvalidAttrs", in, err)

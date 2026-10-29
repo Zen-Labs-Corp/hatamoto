@@ -16,14 +16,12 @@ var ErrInvalidAttrs = errors.New("invalid menu item settings")
 const (
 	maxAttrLen    = 100
 	maxClassesLen = 200
-	maxClassCount = 10
 )
 
 var (
 	// A preset id as a theme declares it; also the shape of a stored Style, Color and Icon.
 	presetIDRe = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
 	htmlIDRe   = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_:.-]{0,99}$`)
-	classRe    = regexp.MustCompile(`^-?[_a-zA-Z][_a-zA-Z0-9-]*$`)
 )
 
 // allowedRel lists the link relations an item may carry.
@@ -55,12 +53,12 @@ func (a MenuItemAttrs) Normalize() MenuItemAttrs {
 
 // Validate checks every field against its limit.
 func (a MenuItemAttrs) Validate() error {
-	for _, f := range []struct{ name, val string }{{"style", a.Style}, {"color", a.Color}, {"icon", a.Icon}} {
+	for _, f := range []struct{ name, val string }{{"style", a.Style}, {"color", a.Color}, {"icon", a.Icon}, {"badge", a.Badge}} {
 		if f.val != "" && !presetIDRe.MatchString(f.val) {
 			return fmt.Errorf("%w: %s must be 1 to 32 lowercase letters, digits or dashes", ErrInvalidAttrs, f.name)
 		}
 	}
-	for _, f := range []struct{ name, val string }{{"badge", a.Badge}, {"title", a.Title}, {"aria label", a.AriaLabel}} {
+	for _, f := range []struct{ name, val string }{{"title", a.Title}, {"aria label", a.AriaLabel}} {
 		if utf8.RuneCountInString(f.val) > maxAttrLen {
 			return fmt.Errorf("%w: %s is longer than %d characters", ErrInvalidAttrs, f.name, maxAttrLen)
 		}
@@ -85,20 +83,17 @@ func (a MenuItemAttrs) Validate() error {
 }
 
 // ValidateCSSClasses checks a space separated class list and returns it with
-// single spaces between the classes.
+// single spaces between the classes. Class names are free-form (Tailwind style
+// names such as md:hidden or w-1/2 are fine; the template escapes the
+// attribute): only control characters and the quote, backtick and angle
+// bracket characters are refused.
 func ValidateCSSClasses(s string) (string, error) {
-	classes := strings.Fields(s)
-	if len(classes) > maxClassCount {
-		return "", fmt.Errorf("%w: at most %d classes", ErrInvalidAttrs, maxClassCount)
-	}
-	for _, c := range classes {
-		if !classRe.MatchString(c) {
-			return "", fmt.Errorf("%w: %q is not a valid class name", ErrInvalidAttrs, c)
-		}
-	}
-	out := strings.Join(classes, " ")
+	out := strings.Join(strings.Fields(s), " ")
 	if len(out) > maxClassesLen {
 		return "", fmt.Errorf("%w: classes are longer than %d characters", ErrInvalidAttrs, maxClassesLen)
+	}
+	if strings.IndexFunc(out, func(r rune) bool { return unicode.IsControl(r) || strings.ContainsRune("<>\"'`", r) }) >= 0 {
+		return "", fmt.Errorf("%w: classes cannot contain control characters, quotes or angle brackets", ErrInvalidAttrs)
 	}
 	return out, nil
 }

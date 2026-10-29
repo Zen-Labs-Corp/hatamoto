@@ -64,7 +64,7 @@ type menuRow struct {
 	// Warn is set (not Err) when the item has no link: it saves and renders as text.
 	Warn string
 	// Class holds the item's own CSS classes. Style, Color and Icon are preset
-	// ids of the active theme, Badge a badge preset id (or free text), Show is
+	// ids of the active theme, Badge a badge preset id, Show is
 	// all, desktop or mobile. HTMLID, Title and Aria are the id, title and
 	// aria-label attributes, Rel the link relations.
 	Class, Style, Color, Badge, Icon, Show string

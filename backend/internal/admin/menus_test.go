@@ -250,13 +250,13 @@ func TestMenuSaveRejectsBadItemsAndSavesNothing(t *testing.T) {
 	m := fm.add("Main", "")
 	f := itemForm("Main", [4]string{"", "custom", "0", "/"}, [4]string{"Bad", "custom", "0", "javascript:alert(1)"}, [4]string{"Typed", "entity", "0", ""})
 	f.Set("i.2.entity_q", "no such page") // text that matches nothing is not a missing link: it is a mistake
-	f.Set("i.1.class", "1bad")
+	f.Set("i.1.class", `a"bad`)
 	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
 	if rec.Code != 422 || len(fm.replaced) != 0 {
 		t.Fatalf("want 422 and no save: %d replaced=%d", rec.Code, len(fm.replaced))
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Enter a label", "Enter a path like /about", "Choose the page or post", "not a valid class name", `href="#i-0-label"`} {
+	for _, want := range []string{"Enter a label", "Enter a path like /about", "Choose the page or post", "Classes cannot contain", `href="#i-0-label"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -641,7 +641,7 @@ func TestMenuSavesClassesAndSettings(t *testing.T) {
 		t.Errorf("show on all stored as %q", got)
 	}
 	// Each bad value is refused on its own field and nothing is saved.
-	for field, val := range map[string]string{"class": "9x", "style": "Big Button", "show": "tablet", "id": "1x", "rel": "evil", "title": strings.Repeat("t", 101)} {
+	for field, val := range map[string]string{"class": `a"b`, "style": "Big Button", "show": "tablet", "id": "1x", "rel": "evil", "title": strings.Repeat("t", 101)} {
 		bad := itemForm("Main", [4]string{"Start", "custom", "0", "/start"})
 		bad.Set("i.0."+field, val)
 		rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", bad, nil)
