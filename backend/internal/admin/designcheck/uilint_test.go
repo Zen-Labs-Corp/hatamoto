@@ -92,6 +92,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `Update all (`, Reason: "list action above the plugin list, a form of its own that updates every plugin without a review step"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Review update to v%s"`, Reason: "list row action in a plugin row"},
+	{Rule: "UI-01", File: "pages/plugins/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
 	{Rule: "UI-01", File: "pages/settings/theme.html", Needle: `"Install"`, Reason: "list row action in a package row"},
 	{Rule: "UI-01", File: "pages/entities/compare.html", Needle: `.RestoreLabel`, Reason: "list row action: restores one node of the layout, a form of its own in the changes table"},
 	{Rule: "UI-01", File: "pages/media/picker.html", Needle: `"Upload"`, Reason: "inline upload beside its file input in a dialog"},
@@ -135,6 +136,9 @@ var uiAllow = []uiAllowEntry{
 
 	// UI-03: checkboxes that are not a lone on/off setting.
 	{Rule: "UI-03", File: "pages/settings/plugins.html", Needle: `"understand"`, Reason: reasonConsent},
+	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "tier"`, Reason: reasonMulti},
+	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "cat"`, Reason: reasonMulti},
+	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "perm"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/settings/packageconfirm.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/spam.html", Needle: `"Name" "scripts"`, Reason: reasonMulti},
