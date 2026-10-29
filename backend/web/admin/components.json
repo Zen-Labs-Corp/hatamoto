@@ -126,10 +126,18 @@
   "dialog": {
     "selector": ".hm-dialog",
     "owner": "css/partials/dialog.css",
+    "variants": {
+      "drawer": ".hm-dialog[data-side=\"end\"]"
+    },
     "props": {
       "border-top-color": "var(--color-kinu)",
       "border-top-left-radius": "var(--radius-lg)",
       "box-shadow": "var(--shadow-3)"
+    },
+    "variantProps": {
+      "drawer": {
+        "border-top-left-radius": "0"
+      }
     }
   },
   "tabs": {

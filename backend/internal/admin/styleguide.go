@@ -59,6 +59,7 @@ func styleguideSamples(prefix string) map[string][]sample {
 		},
 		"dialog": {
 			{Label: "Dialog panel", HTML: `<div class="hm-dialog" role="group" aria-label="Dialog sample"><div class="hm-dialog__panel"><h3 class="hm-dialog__title">Dialog title</h3><p class="hm-dialog__body">Dialog body.</p></div></div>`},
+			{Label: "Drawer", Variant: "drawer", HTML: `<div class="hm-dialog" data-side="end" role="group" aria-label="Drawer sample"><div class="hm-dialog__panel"><h3 class="hm-dialog__title">Drawer title</h3><p class="hm-dialog__body">Drawer body.</p></div></div>`},
 		},
 		"input": {
 			{Label: "Text", Data: map[string]any{"ID": "sg-text", "Name": "sg_text", "Label": "Title", "Value": "A page title"}},

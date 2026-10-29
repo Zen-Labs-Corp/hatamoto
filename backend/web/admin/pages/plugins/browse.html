@@ -24,7 +24,9 @@
 {{template "hm/pagination" .Pager}}
 {{else}}{{template "hm/empty" dict "Icon" "search" "Title" "No plugins match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}{{end}}
 </div></div></form>
-{{end}}{{end}}{{end}}
+{{end}}
+{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
+{{define "modules"}}@hm/pluginpanel{{end}}
 {{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-plugincard__by">{{.Author}}{{if .FirstParty}} {{template "hm/badge" dict "Label" "First-party" "Plain" true}}{{end}}</span>{{end}}</span></span>
 <span class="hm-plugincard__desc">{{.Description}}</span>
