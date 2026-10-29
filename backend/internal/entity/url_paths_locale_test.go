@@ -93,7 +93,7 @@ func TestURLRegistry_SetLocales(t *testing.T) {
 	set, _ := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}}, false, "")
 	reg.SetLocales(func(context.Context) (*LocaleSet, error) { return set, nil })
 	snap, err := reg.Snapshot(context.Background())
-	if err != nil || snap.Locales() != set {
+	if err != nil || snap.Degraded() || snap.Locales() != set {
 		t.Fatalf("snapshot locales = %v, %v", snap.Locales(), err)
 	}
 }
@@ -112,8 +112,8 @@ func TestURLRegistry_LocalesErrorIsNotCached(t *testing.T) {
 		}
 		return set, nil
 	})
-	if _, err := reg.Snapshot(context.Background()); err == nil {
-		t.Fatal("snapshot built from a failed locale read")
+	if snap, err := reg.Snapshot(context.Background()); err != nil || !snap.Degraded() || snap.Locales() != nil {
+		t.Fatalf("failed locale read: degraded = %v, locales = %v, err = %v", snap != nil && snap.Degraded(), snap != nil && snap.Locales() != nil, err)
 	}
 	fail.Store(false)
 	snap, err := reg.Snapshot(context.Background())

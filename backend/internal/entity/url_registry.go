@@ -75,7 +75,13 @@ type URLSnapshot struct {
 	loc *time.Location
 	// locales is the public locale set; nil on a single-locale install.
 	locales *LocaleSet
+	// degraded: the locale set could not be read, so locales is nil without
+	// the site being known to be single-locale. Such a snapshot is never cached.
+	degraded bool
 }
+
+// Degraded reports a snapshot built while the locale settings were unreadable.
+func (s *URLSnapshot) Degraded() bool { return s.degraded }
 
 // Locales returns the public locale set. It is nil (and every method of a nil
 // set is safe) on a single-locale install.
@@ -203,7 +209,11 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 	if r.locales != nil {
 		set, err := r.locales(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("load locales for url registry: %w", err)
+			// Serve the schemas' own routing, but do not cache it: the next
+			// call re-reads the locales.
+			r.logger.Error("url registry: locales unavailable; snapshot not cached", "error", err)
+			snap.degraded = true
+			return snap, nil
 		}
 		snap.locales = set
 	}

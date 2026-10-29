@@ -348,7 +348,6 @@ func (s *Server) setupDependencies() {
 	s.entityService.URLRegistry().SetLocales(func(ctx context.Context) (*entity.LocaleSet, error) {
 		cfg, err := s.siteConfig.Get(ctx)
 		if err != nil {
-			s.logger.Error("url registry: load site settings for the locale set", "error", err)
 			return nil, err
 		}
 		entries := make([]entity.LocaleEntry, len(cfg.Locales))

@@ -198,11 +198,7 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	}
 	// With prefix-all every locale, the default included, lives under its own
 	// segment: the bare root points at the default locale's home. Never cached.
-	set, err := h.localeSet(r.Context())
-	if err != nil {
-		h.snapshotFailed(w, r, err)
-		return
-	}
+	set := h.localeSet(r.Context())
 	if set.Multi() {
 		if prefix := set.Prefix(set.Default()); prefix != "" {
 			w.Header().Set("Cache-Control", "no-store")
@@ -230,27 +226,32 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 }
 
 // localeSet is the public locale set; nil (safe to call) on a single-locale
-// install and in a route-table build, which has no entity service. Any other
-// snapshot error is returned: the site must not fall back to one locale.
-func (h *renderHandlers) localeSet(ctx context.Context) (*entity.LocaleSet, error) {
+// install, in a route-table build and while the URL snapshot cannot load: a
+// cached page or a redirect still answers then, and a miss is decided by the
+// resolver, which reads the snapshot itself.
+func (h *renderHandlers) localeSet(ctx context.Context) *entity.LocaleSet {
 	if h.snapshot == nil {
-		return nil, nil
+		return nil
+	}
+	snap, err := h.snapshot(ctx)
+	if err != nil {
+		return nil
+	}
+	return snap.Locales()
+}
+
+// snapshotDegraded reports that pages rendered now may not match the site's
+// locale setup (the snapshot or its locale settings could not be read), so
+// they must not be cached.
+func (h *renderHandlers) snapshotDegraded(ctx context.Context) bool {
+	if h.snapshot == nil {
+		return false
 	}
 	snap, err := h.snapshot(ctx)
 	if errors.Is(err, errNoEntityService) {
-		return nil, nil
+		return false
 	}
-	if err != nil {
-		return nil, err
-	}
-	return snap.Locales(), nil
-}
-
-// snapshotFailed answers 500 for a request whose URL snapshot could not load.
-// Nothing is cached.
-func (h *renderHandlers) snapshotFailed(w http.ResponseWriter, r *http.Request, err error) {
-	h.logger.ErrorContext(r.Context(), "render: url snapshot unavailable", "error", err, "path", r.URL.Path)
-	h.writeError(w, r, http.StatusInternalServerError, nil)
+	return err != nil || snap.Degraded()
 }
 
 // homeRoute wraps a homepage load as a route, the way the public "/" handler
@@ -282,11 +283,7 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 			return h.resolve(r.Context(), path, r)
 		})
 	})
-	set, err := h.localeSet(r.Context())
-	if err != nil {
-		h.snapshotFailed(w, r, err)
-		return
-	}
+	set := h.localeSet(r.Context())
 	bare := path // the path without its locale segment
 	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest
@@ -364,6 +361,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		}
 	}
 
+	if cacheable && h.snapshotDegraded(r.Context()) {
+		cacheable = false
+	}
 	if cacheable {
 		gen = h.cache.Generation() // before any read of page data
 	}
