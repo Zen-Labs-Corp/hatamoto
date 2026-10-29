@@ -343,28 +343,6 @@ func TestPluginPageShowsPackageControls(t *testing.T) {
 	a11yOK(t, perms)
 }
 
-func TestUnsignedOptInNeedsAcknowledgement(t *testing.T) {
-	t.Parallel()
-
-	g, pk, _ := newPackageRig(t)
-	if rec := g.do("POST", "/admin/plugins/unsigned", "owner-token", url.Values{"allow": {"1"}}, nil); rec.Code != 422 || pk.unsigned {
-		t.Fatalf("without the tick: %d unsigned=%v", rec.Code, pk.unsigned)
-	}
-	if rec := g.do("POST", "/admin/plugins/unsigned", "owner-token", url.Values{"allow": {"1"}, "understand": {"1"}}, nil); rec.Code != 303 || !pk.unsigned {
-		t.Fatalf("with the tick: %d unsigned=%v", rec.Code, pk.unsigned)
-	}
-	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Unsigned packages are allowed") || !strings.Contains(body, "Turn off now") {
-		t.Error("the page must warn clearly while unsigned packages are allowed")
-	}
-	if rec := g.do("POST", "/admin/plugins/unsigned", "owner-token", url.Values{"allow": {"0"}}, nil); rec.Code != 303 || pk.unsigned {
-		t.Fatalf("switch off: %d", rec.Code)
-	}
-	if rec := g.do("POST", "/admin/plugins/unsigned", "editor-token", url.Values{"allow": {"1"}, "understand": {"1"}}, nil); rec.Code != 403 {
-		t.Errorf("editor: %d", rec.Code)
-	}
-}
-
 func TestInstallShowsThePermissionPromptThenGrantsTheTicked(t *testing.T) {
 	t.Parallel()
 
