@@ -74,8 +74,9 @@ handoff material are stale, do not copy them.
    checkboxes: multi-pick lists (API scopes, permissions, content types, terms, spam script blocks,
    table row and select-all, media tile select, the schemaform "clear the stored
    value" box) and consent gates ("I understand ..."). 
-5. **Flat sticky footer only on four screens:** entity edit, entity model edit,
-   form editor and plugin settings. They use `.hm-savebar` (flat, hairline top
+5. **Flat sticky footer only on four editor screens and the menu editor:** entity edit, entity model edit,
+   form editor and plugin settings, plus the menu editor, whose save bar stays in reach
+   beside a long tree. They use `.hm-savebar` (flat, hairline top
    border, no radius, no shadow). Every other form uses a card footer.
 6. **No shadows except popups and focus or selected rings.** Allowed:
    `none`, ring shadows such as `0 0 0 2px`, `inset` shadows (selected marker,
@@ -700,7 +701,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 
 | ID | Check |
 |---|---|
-| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens. |
+| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens and the menu editor (UI-02). |
 | UI-D2 | Every visible element has no shadow, a ring or inset shadow, or is inside a popup. Only the sticky blog editor toolbar is a named exception. |
 | UI-D3 | `.hm-btn` sizes are 36px or 32px with radius 6px, plus the named exceptions (filter chip remove button, editor bubble and editor bar buttons). |
 | UI-D4 | Every checkbox outside the multi-pick allowlist is a 32px by 18px switch with `role="switch"`. Every segmented radiogroup (`.hm-segmented` with radios) has two or more radios. |

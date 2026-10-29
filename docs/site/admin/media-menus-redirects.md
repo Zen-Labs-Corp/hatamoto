@@ -32,7 +32,7 @@ In this guide you do four everyday jobs that affect the whole site: upload an im
    - **Custom address**: any web address or path, such as `https://example.com/shop` or `/contact`.
    - **Category or tag**: the page that lists everything in that group.
 
-3. Arrange the items with **Move up**, **Move down**, **Indent** (put an item under the one above it) and **Outdent**. With JavaScript on, you can also drag them; sub-items move with their parent.
+3. Arrange the items with **Move up**, **Move down**, **Indent** (put an item under the one above it) and **Outdent**. With JavaScript on, you can also drag an item by its grip (a line shows where it will land), use Alt with the arrow keys, select several items at once, and undo with Ctrl+Z or Cmd+Z. Sub-items move with their parent. Select an item to change its settings in the side panel, and watch the preview follow your changes before you save.
 
 4. Press **Save menu**. The whole menu is saved at once, or not at all if something is wrong.
 

@@ -22,8 +22,6 @@
 .hm-menutree__handle { display: inline-flex; color: var(--text-muted); cursor: grab; padding: 0 var(--space-1); user-select: none; }
 .hm-menutree__handle[hidden] { display: none; }
 .hm-menutree__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); align-items: start; }
-.hm-menutree__item.sortable-ghost { opacity: 0.5; }
-.hm-menutree__item.sortable-chosen { border-color: var(--text); box-shadow: inset 3px 0 0 var(--text); }
 .hm-menutree__add { align-items: flex-end; }
 /* Only the control for the chosen type shows, with or without JavaScript. The
    server renders data-type; without JS "Update link fields" re-renders it. */
@@ -49,8 +47,6 @@
 /* row summary: type icon, title and where it links */
 .hm-menutree__head > .hm-icon { color: var(--text-muted); flex: none; }
 .hm-menutree__target-summary { color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
-.hm-menutree__undo { align-items: center; margin-top: var(--space-2); }
-.hm-menutree__undo[hidden] { display: none; }
 .hm-menutree .hm-menu [role="menuitem"]:disabled { color: var(--text-muted); cursor: not-allowed; background: transparent; }
 .hm-menutree__warn { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-warning); font-size: var(--text-xs); }
 .hm-menutree__more > summary { cursor: pointer; font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-1) 0; }

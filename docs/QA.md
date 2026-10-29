@@ -516,6 +516,7 @@ committed). Every script exits non-zero when a bar is missed.
 |---|---|---|
 | axe, WCAG 2.0, 2.1 and 2.2 A and AA, every screen, light, dark and 390 | `node scripts/admin-qa/a11y.mjs` | 0 violations |
 | Keyboard: menu, popover, dialog, tabs, sortable | `node scripts/admin-qa/keyboard.mjs chromium` (also `firefox`, `webkit`) | all pass in all three |
+| Menu editor: inspector, pointer and touch drag, Move to, keyboard, undo and redo, preview, JS off | `scripts/admin-qa/run-local.sh menu-editor.mjs` | all pass |
 | Layout shift, interaction latency and navigation time, median of 5, no throttling, prerender off | `node scripts/admin-qa/perf.mjs` | CLS < 0.05, INP < 200 ms, navigation < 300 ms |
 | Navigation mode, speculation rules, back and scroll, no editor module on a list | `node scripts/admin-qa/nav.mjs` | all pass |
 | Screenshots | `node scripts/admin-qa/shots.mjs` | 4 images per screen, no non-200 |
@@ -577,14 +578,15 @@ matrix. Use a draft post and a draft page with a table, an image and a FAQ block
   autosave status does not flip to "Unsaved changes" on every keystroke inside a
   composition. Type `/` with the IME on: the menu does not open while composing and works
   after the composition ends. Select composed text: the bubble menu appears and bold applies.
-* **Touch drag, menus** (menu tree in Menus, iOS Safari and Android Chrome): long-press a
-  row and drag it above, below and into another row (nesting). The page does not scroll
-  while dragging, the row lands where the drop indicator showed, and a failed save puts it
-  back with a message. A plain scroll over the tree still scrolls the page.
+* **Touch drag, menus** (menu tree in Menus, iOS Safari and Android Chrome): press a
+  row's grip and drag it above, below and into another row (nesting). The drop line names
+  the place ("inside About", "top level"), the page does not scroll while dragging, the row
+  lands where the line showed, and Undo puts it back. A plain scroll over the tree still
+  scrolls the page. Automated by `scripts/admin-qa/menu-editor.mjs` (pointer and touch).
 * **Touch drag, page section tree** (page editor, iOS Safari and Android Chrome): drag a
   section up and down the list, and into a repeater. Same expectations; the canvas frame
   follows the new order after the save.
-* **SortableJS keyboard buttons** (menus and the page section tree, with the mouse
+* **Keyboard buttons** (menus and the page section tree, with the mouse
   unplugged): every row has Move up, Move down, Indent and Outdent buttons that name their
   row ("Move About up"); each works from the keyboard with JavaScript on and, through the
   form fallback, with it off; focus stays on the moved row's button after the move and the
