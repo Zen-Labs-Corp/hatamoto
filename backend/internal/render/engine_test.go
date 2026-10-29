@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/seo"
 )
 
 func newTestEngine(t *testing.T, o Options) *Engine {
@@ -66,6 +68,23 @@ func TestEngineShellWithoutSections(t *testing.T) {
 	}
 	if strings.Contains(out, "hm-header__cta") {
 		t.Errorf("no CTA expected without Site.HeaderCTA")
+	}
+}
+
+func TestEngineNotFoundUsesTitleTemplate(t *testing.T) {
+	t.Parallel()
+	e := newTestEngine(t, Options{})
+	set := seo.Defaults()
+	set.Archives.NotFound = "Lost %sep% %sitename%"
+	v := minimalView()
+	v.Page.Title = ""
+	v.SEO = &set
+	var b bytes.Buffer
+	if err := e.RenderNotFound(&b, v); err != nil {
+		t.Fatal(err)
+	}
+	if o := b.String(); !strings.Contains(o, "<title>Lost | Test Site</title>") {
+		t.Errorf("404 title template not applied:\n%s", o)
 	}
 }
 

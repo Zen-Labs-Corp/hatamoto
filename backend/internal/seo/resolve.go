@@ -14,6 +14,7 @@ const (
 	KindTaxonomy Kind = "taxonomy"
 	KindAuthor   Kind = "author"
 	KindSearch   Kind = "search"
+	KindDate     Kind = "date"
 	KindNotFound Kind = "notfound"
 )
 
@@ -57,6 +58,8 @@ func titleTemplate(s *Settings, in Input) string {
 		tpl = s.Archives.Author
 	case KindSearch:
 		tpl = s.Archives.Search
+	case KindDate:
+		tpl = s.Archives.Date
 	case KindNotFound:
 		tpl = s.Archives.NotFound
 	}

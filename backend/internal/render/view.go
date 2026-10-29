@@ -199,6 +199,8 @@ const (
 	KindTaxonomy = "taxonomy"
 	KindAuthor   = "author"
 	KindSearch   = "search"
+	// KindNotFound is set by RenderNotFound so the head uses the 404 title template.
+	KindNotFound = "notfound"
 	// KindRegistry is a plugin or theme detail page built from the verified
 	// registry index (see PageView.Registry).
 	KindRegistry = "registry"

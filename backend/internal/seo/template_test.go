@@ -74,8 +74,10 @@ func TestResolveTemplates(t *testing.T) {
 	s.Types["doc"] = TypeTemplates{Title: "%title% %sep% Docs", Description: "%title% on %sitename%"}
 	s.Taxonomy["tag"] = "Tag: %term% %sep% %sitename%"
 	s.Archives.Search = "Results for %searchphrase%"
+	s.Archives.Date = "Archive: %archive%"
+	s.Archives.NotFound = "Lost %sep% %sitename%"
 	s.Separator = "-"
-	v := Vars{Title: "Install", SiteName: "Site", Term: "go", SearchPhrase: "q"}
+	v := Vars{Title: "Install", Archive: "May", SiteName: "Site", Term: "go", SearchPhrase: "q"}
 
 	tests := []struct {
 		name string
@@ -86,6 +88,8 @@ func TestResolveTemplates(t *testing.T) {
 		{"other type uses default", Input{Kind: KindSingle, SchemaSlug: "page", Vars: v}, Result{"Install - Site", ""}},
 		{"taxonomy", Input{Kind: KindTaxonomy, TermKind: "tag", Vars: v}, Result{"Tag: go - Site", ""}},
 		{"search", Input{Kind: KindSearch, Vars: v}, Result{"Results for q", ""}},
+		{"date archive", Input{Kind: KindDate, Vars: v}, Result{"Archive: May", ""}},
+		{"not found", Input{Kind: KindNotFound, Vars: v}, Result{"Lost - Site", ""}},
 		{"hand title keeps itself and gets the suffix", Input{Kind: KindSingle, SchemaSlug: "doc", Vars: v, HandTitle: "Mine", TitleSet: true}, Result{"Mine - Site", "Install on Site"}},
 		{"hand title already suffixed", Input{Kind: KindSingle, SchemaSlug: "doc", Vars: v, HandTitle: "Mine | Site", TitleSet: true}, Result{"Mine | Site", "Install on Site"}},
 		{"hand description wins", Input{Kind: KindSingle, SchemaSlug: "doc", Vars: v, HandDescription: "Mine", DescriptionSet: true}, Result{"Install - Docs", "Mine"}},
