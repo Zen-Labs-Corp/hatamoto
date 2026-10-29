@@ -303,6 +303,16 @@ try {
     await settle(text);
   }
   ok((await page.evaluate(() => history.length)) === entries, "preview: refreshing adds no history entry, so Back leaves the page");
+  const seen = errors.length;
+  await page.route("**/theme/menus/preview", (r) => r.fulfill({ status: 500, contentType: "text/plain", body: "boom" }));
+  await page.locator("#ins-label").fill("Press bad");
+  await page.locator("#menu-preview").waitFor({ state: "hidden" });
+  await page.unroute("**/theme/menus/preview");
+  errors.splice(seen); // the browser logs the 500 it was given
+  await page.locator("#ins-label").fill("Press room");
+  await page.locator("#menu-preview").waitFor({ state: "visible" });
+  await settle("Press room");
+  ok(true, "preview: the card comes back after a bad render");
   const again = await (await shown().elementHandle()).contentFrame();
   await again.locator("footer a", { hasText: "Security" }).click();
   ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").inputValue()) === "Security", "preview: a click on a link selects its item and does not leave the editor");

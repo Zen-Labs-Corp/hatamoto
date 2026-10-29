@@ -76,6 +76,7 @@ function init(root) {
         card.hidden = true;
         return;
       }
+      card.hidden = false;
       next.dataset.width = frame.dataset.width;
       frame.remove();
       next.hidden = false;
