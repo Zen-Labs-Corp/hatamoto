@@ -123,6 +123,21 @@ pass "vX and backend/vX on HEAD accepted"
 GH_REPO=other/repo run v1.2.3 --dry-run
 [[ $RC == 0 ]] || fail "GH_REPO dry-run exited $RC"
 grep -q -- '-R other/repo' <<<"$OUT" || fail "GH_REPO ignored"
+for o in git@github.com:example/widgets.git ssh://git@github.com/example/widgets.git ssh://git@github.com:22/example/widgets https://github.com/example/widgets; do
+  git -C "$R" remote set-url origin "$o"
+  run v1.2.3 --dry-run
+  [[ $RC == 0 ]] || fail "origin $o refused"
+  grep -q -- '-R example/widgets ' <<<"$OUT" || fail "origin $o: wrong slug: $OUT"
+done
+for o in https://gitlab.example.com/example/widgets.git git@git.example.com:example/widgets.git ssh://git@example.org/example/widgets; do
+  git -C "$R" remote set-url origin "$o"
+  run v1.2.3 --dry-run
+  [[ $RC != 0 ]] || fail "non-github origin $o accepted"
+  grep -q 'GH_REPO' <<<"$OUT" || fail "origin $o: no hint about GH_REPO"
+done
+GH_REPO=ghe.example.com/team/widgets run v1.2.3 --dry-run
+[[ $RC == 0 ]] || fail "HOST/OWNER/REPO refused"
+grep -q -- '-R ghe.example.com/team/widgets ' <<<"$OUT" || fail "HOST/OWNER/REPO changed"
 git -C "$R" remote remove origin
 run v1.2.3
 [[ $RC != 0 ]] || fail "no origin and no GH_REPO accepted"

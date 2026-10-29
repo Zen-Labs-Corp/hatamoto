@@ -14,7 +14,7 @@
 #
 # Environment:
 #   DEPLOY_HOST      ssh host alias; else .deploy-host (see scripts/deploy-host.sh)
-#   GH_REPO          owner/name of the GitHub repo; else taken from the origin remote
+#   GH_REPO          OWNER/REPO or HOST/OWNER/REPO; else taken from origin (github.com only)
 #   REMOTE_PUBLIC    server directory (default /opt/hatamoto/public)
 set -Eeuo pipefail
 
@@ -48,11 +48,23 @@ echo "publish-install: tag $TAG at HEAD ok"
 # 2. Host (never printed, never stored in the repo).
 HOST=$("$HERE/deploy-host.sh") || die "no deploy host"
 
-# GitHub repo for `gh release download -R`: GH_REPO, else the origin remote.
-slug_of() { local u=${1%/}; u=${u%.git}; u=${u//:/\/}; awk -F/ 'NF >= 2 {print $(NF-1) "/" $NF}' <<< "$u"; }
+# GitHub repo for `gh release download -R`: GH_REPO (OWNER/REPO or HOST/OWNER/REPO),
+# else the origin remote, but only when origin is on github.com (https, ssh://, scp form).
+slug_of() {
+  local u=${1%/} host path
+  u=${u%.git}
+  case $u in
+    https://*) u=${u#https://}; u=${u#*@}; host=${u%%/*}; path=${u#*/} ;;
+    ssh://*) u=${u#ssh://}; u=${u#*@}; host=${u%%/*}; host=${host%%:*}; path=${u#*/} ;;
+    *@*:*) u=${u#*@}; host=${u%%:*}; path=${u#*:} ;;
+    *) return 0 ;;
+  esac
+  [[ ${host,,} == github.com && $path =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && printf '%s\n' "$path"
+  return 0
+}
 SLUG=${GH_REPO:-}
 [[ -n "$SLUG" ]] || SLUG=$(slug_of "$(git -C "$REPO" remote get-url origin 2>/dev/null || true)")
-[[ "$SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || die "cannot work out the GitHub repo; set GH_REPO=owner/name"
+[[ "$SLUG" =~ ^([A-Za-z0-9.-]+/)?[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || die "cannot work out the GitHub repo (origin must be on github.com); set GH_REPO=OWNER/REPO or HOST/OWNER/REPO"
 
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 sha() { sha256sum "$1" | awk '{print $1}'; }
