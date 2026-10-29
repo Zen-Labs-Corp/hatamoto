@@ -46,6 +46,9 @@
 }
 /* row summary: type icon, title and where it links */
 .hm-menutree__head > .hm-icon { color: var(--text-muted); flex: none; }
+.hm-menutree__kind { display: inline-flex; flex: none; color: var(--text-muted); }
+.hm-menutree__kind[hidden], .hm-menutree__chips[hidden] { display: none; }
+.hm-menutree__chips { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-menutree__target-summary { color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .hm-menutree .hm-menu [role="menuitem"]:disabled { color: var(--text-muted); cursor: not-allowed; background: transparent; }
 .hm-menutree__warn { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-warning); font-size: var(--text-xs); }

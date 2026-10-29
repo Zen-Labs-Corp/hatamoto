@@ -39,7 +39,13 @@ export function init(tree, api) {
     const all = rows();
     selected = selected.filter((li) => all.includes(li));
     if (!all.includes(cursor)) cursor = selected[0] ?? all[0] ?? null;
-    all.forEach((li) => {
+    all.forEach((li, i) => {
+      // A row is named by its title, not by every button and field it holds.
+      const title = li.querySelector(".hm-menutree__title");
+      if (title) {
+        title.id = `i-${i}-name`;
+        li.setAttribute("aria-labelledby", title.id);
+      }
       li.setAttribute("role", "treeitem");
       li.setAttribute("aria-selected", String(selected.includes(li)));
       li.setAttribute("aria-level", String(depthOf(li) + 1));

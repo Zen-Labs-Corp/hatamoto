@@ -75,6 +75,8 @@
 </div>
 <div data-hm-ins-output-wrap hidden><span class="hm-field__label">Output</span><code class="hm-menuinspector__output" data-hm-ins-output></code></div>
 </div></template>
+<template data-hm-tpl="kinds"><span data-hm-kind="entity">{{icon "file-text"}}</span><span data-hm-kind="custom">{{icon "link"}}</span><span data-hm-kind="archive">{{icon "tag"}}</span><span data-hm-kind="none">{{icon "minus"}}</span></template>
+<template data-hm-tpl="chiptext"><span data-key="nolink">No link</span><span data-key="nopage">No page</span><span data-key="badaddress">Bad address</span></template>
 <template data-hm-tpl="chip">{{template "hm/badge" dict "Label" "" "Plain" true}}</template>
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn">{{template "hm/badge" dict "Label" "without a link" "Kind" "warning" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err">{{template "hm/badge" dict "Label" "to fix" "Kind" "danger" "Icon" "alert"}}</button></template>
@@ -116,8 +118,8 @@
 {{end}}{{end}}
 {{define "menus/item"}}{{$it := .It}}{{$n := $it.N}}<li class="hm-menutree__item" data-hm-item data-depth="{{$it.Depth}}" data-type="{{$it.Type}}">
 <input type="hidden" name="i.{{$n}}.depth" value="{{$it.Depth}}" data-hm-depth>
-<div class="hm-menutree__head"><span class="hm-menutree__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span>{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-down" "AriaLabel" "Hide sub-items" "Attrs" (attrmap "hidden" "" "data-hm-collapse" "" "aria-expanded" "true"))}}{{icon $it.TypeIcon}}
-<span class="hm-menutree__titles"><span class="hm-menutree__title">{{or $it.Label "Untitled item"}}</span>{{if $it.Target}}<span class="hm-menutree__target-summary">{{$it.Target}}</span>{{end}}<span class="hm-menutree__warn" data-hm-warn{{if not $it.Warn}} hidden{{end}}>{{icon "alert"}}Without a link</span><span class="hm-menutree__level hm-visually-hidden" data-hm-level>Item {{add $n 1}}, level {{add $it.Depth 1}}</span></span>
+<div class="hm-menutree__head"><span class="hm-menutree__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span>{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-down" "AriaLabel" "Hide sub-items" "Attrs" (attrmap "hidden" "" "data-hm-collapse" "" "aria-expanded" "true"))}}{{icon $it.TypeIcon}}<span class="hm-menutree__kind" data-hm-kind-slot data-hm-editor-only hidden></span>
+<span class="hm-menutree__titles"><span class="hm-menutree__title">{{or $it.Label "Untitled item"}}</span>{{if $it.Target}}<span class="hm-menutree__target-summary">{{$it.Target}}</span>{{end}}<span class="hm-menutree__warn" data-hm-warn{{if not $it.Warn}} hidden{{end}}>{{icon "alert"}}Without a link</span><span class="hm-menutree__level hm-visually-hidden" data-hm-level>Item {{add $n 1}}, level {{add $it.Depth 1}}</span></span><span class="hm-menutree__chips" data-hm-chips data-hm-editor-only hidden></span>
 <div class="hm-menutree__ops hm-row">
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="up.{{$n}}" formnovalidate data-hm-op="up">{{icon "arrow-up"}}<span class="hm-visually-hidden">Move up</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.{{$n}}" formnovalidate data-hm-op="down">{{icon "arrow-down"}}<span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>

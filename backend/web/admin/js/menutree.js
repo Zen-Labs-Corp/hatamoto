@@ -171,6 +171,59 @@ function targetSummary(li) {
   return name && name !== label ? `${kind} · ${name}` : kind;
 }
 
+// safeAddress mirrors the server's check of a custom address (safeMenuURL in menus.go).
+function safeAddress(u) {
+  if (u.length > 500 || /[\s\\<>"]/.test(u) || u.startsWith("//")) return false;
+  return /^[/#?]/.test(u) || /^https?:\/\/[^/?#]+/i.test(u) || /^(mailto|tel):\S+/i.test(u);
+}
+
+const chipText = (key) => document.querySelector('template[data-hm-tpl="chiptext"]')?.content.querySelector(`[data-key="${key}"]`)?.textContent ?? "";
+
+// optionText is what a theme preset field shows for its chosen value ("" for none).
+function optionText(li, suffix) {
+  const f = field(li, suffix);
+  if (!f?.value) return "";
+  return f.selectedOptions?.[0]?.textContent.trim() || f.value;
+}
+
+// chipsFor lists the short facts shown after a row's title: its link state, the
+// theme presets it uses and its CSS classes. The words come from the page's templates.
+function chipsFor(li) {
+  const type = li.dataset.type;
+  const filled = (name) => Boolean(field(li, name)?.value.trim() || field(li, `${name}_q`)?.value.trim());
+  const list = [];
+  if (type === "none") list.push(chipText("nolink"));
+  else if (type === "entity" && !filled("entity")) list.push(chipText("nopage"));
+  else if (type === "custom" && filled("url") && !safeAddress(field(li, "url").value.trim())) list.push(chipText("badaddress"));
+  list.push(optionText(li, "badge"), optionText(li, "style"), optionText(li, "color"));
+  list.push(...(field(li, "class")?.value.split(/\s+/) ?? []));
+  return list.filter(Boolean);
+}
+
+// paintChips keeps the kind icon and the chips of a row current. A chip is the
+// page's own badge template; only its text is set here.
+function paintChips(li) {
+  const kind = li.querySelector("[data-hm-kind-slot]");
+  if (kind && kind.dataset.kind !== li.dataset.type) {
+    kind.dataset.kind = li.dataset.type;
+    const icon = document.querySelector(`template[data-hm-tpl="kinds"]`)?.content.querySelector(`[data-hm-kind="${li.dataset.type}"]`);
+    if (icon) kind.replaceChildren(...icon.cloneNode(true).childNodes);
+    // The server's icon gives way to the one from the template.
+    li.querySelector(":scope > .hm-menutree__head > .hm-icon")?.remove();
+  }
+  const slot = li.querySelector("[data-hm-chips]");
+  if (!slot) return;
+  const list = chipsFor(li);
+  const key = list.join("\u0001");
+  if (slot.dataset.chips === key) return;
+  slot.dataset.chips = key;
+  slot.replaceChildren(...list.map((text) => {
+    const chip = clone("chip");
+    chip.textContent = text;
+    return chip;
+  }));
+}
+
 // refreshRow brings the row's title, summary, accessible names and warning in
 // line with its fields, as the server renders them.
 function refreshRow(li) {
@@ -187,6 +240,7 @@ function refreshRow(li) {
   if (mark) mark.hidden = !warn;
   const note = li.querySelector(".hm-menutree__fields > .hm-callout");
   if (note && !warn) note.hidden = true;
+  paintChips(li);
 }
 
 function announce(msg) {
