@@ -2,7 +2,10 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/permtext"
+	"html/template"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -413,5 +416,43 @@ func TestPluginUIConfinementIsPinned(t *testing.T) {
 	}
 	if !strings.Contains(string(tpl), `sandbox="allow-scripts"`) || strings.Contains(string(tpl), "allow-same-origin") {
 		t.Error("the plugin iframe must keep sandbox=\"allow-scripts\" and nothing more")
+	}
+}
+
+// islandPackages offers a first install that asks for builder.island, which
+// the shared fake has no case for.
+type islandPackages struct{ *fakePackages }
+
+func (p islandPackages) Inspect(ctx context.Context, data []byte) (PackageSummary, error) {
+	if name, ok := strings.CutPrefix(string(data), "plugin-island:"); ok {
+		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"builder.island"}, Signed: true, Signer: "abc123"}, nil
+	}
+	return p.fakePackages.Inspect(ctx, data)
+}
+
+// The warning badge on the install prompt carries permtext's short label.
+func TestPluginPromptBadgeUsesPermtextShort(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Plugins = &fakePlugins{settings: map[string]map[string]any{}}
+		d.Growth.Packages = islandPackages{&fakePackages{enabled: map[string]bool{}}}
+	})
+	for _, tc := range []struct{ perm, upload, literal string }{
+		{"http.fetch.any", "plugin-any:x", "Any web address."},
+		{"site.scripts", "plugin-scripts:x", "JavaScript on every public page."},
+		{"builder.island", "plugin-island:x", "Runs JavaScript on your site's pages."},
+	} {
+		short := permtext.Lookup(tc.perm).Short
+		if short != tc.literal {
+			t.Errorf("%s: permtext.Short = %q, want %q", tc.perm, short, tc.literal)
+		}
+		body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", tc.upload).Body.String()
+		if want := `<code>` + tc.perm + `</code>`; !strings.Contains(body, want) {
+			t.Errorf("%s: prompt missing %q", tc.perm, want)
+		}
+		if !strings.Contains(body, ">"+template.HTMLEscapeString(short)+"<") {
+			t.Errorf("%s: badge label %q missing:\n%s", tc.perm, short, body)
+		}
 	}
 }
