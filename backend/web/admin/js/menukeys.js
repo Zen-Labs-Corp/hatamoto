@@ -39,17 +39,9 @@ export function init(tree, api) {
     const all = rows();
     selected = selected.filter((li) => all.includes(li));
     if (!all.includes(cursor)) cursor = selected[0] ?? all[0] ?? null;
-    all.forEach((li, i) => {
-      // A row is named by what it shows (title, where it links, chips), not by every button and field it holds.
-      const parts = [[".hm-menutree__title", "name"], [".hm-menutree__target-summary", "target"], ["[data-hm-chips]", "chips"], ["[data-hm-warn]", "warn"]]
-        .map(([sel, key]) => {
-          const el = li.querySelector(sel);
-          if (el) el.id = `i-${i}-${key}`;
-          return el?.id;
-        })
-        .filter(Boolean);
-      li.setAttribute("aria-labelledby", parts.join(" "));
+    all.forEach((li) => {
       li.setAttribute("role", "treeitem");
+      li.querySelector("[data-hm-level]")?.setAttribute("aria-hidden", "true"); // aria-level says it
       li.setAttribute("aria-selected", String(selected.includes(li)));
       li.setAttribute("aria-level", String(depthOf(li) + 1));
       li.toggleAttribute("data-hm-selected", selected.includes(li));
@@ -274,7 +266,7 @@ export function init(tree, api) {
   });
 
   // The rows are a tree for assistive technology: the server's list stays a plain
-  // list without this script. A row is named by its content, led by its title.
+  // list without this script. A row is named by its content: what the compact row shows (title, link, chips and its actions button), as the rest is hidden.
   tree.setAttribute("role", "tree");
   tree.setAttribute("aria-label", "Menu items");
   tree.setAttribute("aria-multiselectable", "true");

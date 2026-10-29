@@ -322,13 +322,12 @@ try {
   await again.locator("footer a", { hasText: "Security" }).click();
   ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").inputValue()) === "Security", "preview: a click on a link selects its item and does not leave the editor");
 
-  // axe accepts the tree pattern on the editor's rows. A row is named by its title, link and chips, while its
-  // buttons carry names of their own; the label-in-name rule would want every one of them in the row's name.
+  // axe accepts the tree pattern on the editor's rows.
   const scan = await newSession(b, { theme: "light", width: 1440, bypassCSP: true });
   await scan.goto(base + footerHref);
   await scan.waitForSelector("[data-hm-item][role=treeitem]");
   await scan.addScriptTag({ content: fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8") });
-  const axeBad = await scan.evaluate(async () => (await axe.run("#menu-tree", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] }, rules: { "color-contrast": { enabled: false }, "label-content-name-mismatch": { enabled: false } } })).violations.map((v) => `${v.id} x${v.nodes.length} ${v.nodes[0].target.join(" ")} ${v.nodes[0].html.slice(0, 80)}`));
+  const axeBad = await scan.evaluate(async () => (await axe.run("#menu-tree", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] }, rules: { "color-contrast": { enabled: false } } })).violations.map((v) => `${v.id} x${v.nodes.length} ${v.nodes[0].target.join(" ")} ${v.nodes[0].html.slice(0, 80)}`));
   ok(axeBad.length === 0, `tree: axe finds no violation in the tree (${axeBad.join(", ")})`);
 
   // ---- the item limit: Add (button and keyboard) and Duplicate refuse in the server's words ----
