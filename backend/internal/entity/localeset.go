@@ -105,6 +105,14 @@ func (s *LocaleSet) Tags() []string {
 	return out
 }
 
+// Entries returns the locales with normalized tags in settings order (a copy).
+func (s *LocaleSet) Entries() []LocaleEntry {
+	if s == nil {
+		return nil
+	}
+	return append([]LocaleEntry(nil), s.entries...)
+}
+
 // Default returns the default locale tag, or "" for an empty set.
 func (s *LocaleSet) Default() string {
 	if s == nil {

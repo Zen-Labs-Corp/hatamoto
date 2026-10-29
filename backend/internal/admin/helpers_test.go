@@ -91,6 +91,15 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if in.Language != nil {
 		f.cfg.Language = *in.Language
 	}
+	if in.Locales != nil {
+		f.cfg.Locales = *in.Locales
+	}
+	if in.PrefixAll != nil {
+		f.cfg.PrefixAll = *in.PrefixAll
+	}
+	if in.XDefaultLocale != nil {
+		f.cfg.XDefaultLocale = *in.XDefaultLocale
+	}
 	if in.PublicBaseURL != nil {
 		f.cfg.PublicBaseURL = *in.PublicBaseURL
 	}

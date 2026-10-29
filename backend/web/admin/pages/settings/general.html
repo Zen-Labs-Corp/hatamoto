@@ -13,6 +13,9 @@
 {{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com." "Error" (index .Ident.SiteErrs "domain")}}
 {{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Ident.Languages "Error" (index .Ident.SiteErrs "language")}}
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Ident.Timezones "Error" (index .Ident.SiteErrs "timezone")}}
+{{template "hm/field" dict "ID" "locales" "Name" "locales" "Label" "Locales" "Control" "textarea" "Rows" 4 "Value" .Ident.Site.Locales "Help" "Optional, one per line: a language code and the URL segment, like: fr fr. Leave empty for a single-language site." "Error" (index .Ident.SiteErrs "locales")}}
+{{template "hm/field" dict "ID" "prefix_all" "Name" "prefix_all" "Label" "Put the default language under its own segment too" "Control" "switch" "Checked" .Ident.Site.PrefixAll}}
+{{template "hm/field" dict "ID" "xdefault" "Name" "xdefault" "Label" "Default for search engines" "Control" "select" "Options" .Ident.XDefaults "Help" "Which language search engines show to visitors who match none." "Error" (index .Ident.SiteErrs "xdefault")}}
 {{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png." "Error" (index .Ident.SiteErrs "logo")}}
 {{template "hm/card-foot"}}
 {{template "hm/button" dict "Label" "Save identity" "Variant" "primary" "Type" "submit"}}

@@ -173,6 +173,10 @@ type Deps struct {
 	// WebhooksPluginLeft says a plugin named webhooks is still installed (one
 	// that was not moved into core); true shows the notice on the webhooks page.
 	WebhooksPluginLeft func(context.Context) bool
+	// ValidateLocales checks the Locales settings against the running site and
+	// returns the normalized list and x-default to store; nil rejects a locale
+	// list in the form.
+	ValidateLocales func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xDefault string) ([]siteconfig.LocaleEntry, string, error)
 	// Invalidate clears the rendered-page cache after settings change.
 	Invalidate func(context.Context)
 	// BuilderTokens reports whether the live theme opted in to the design

@@ -18,10 +18,19 @@ import (
 // siteForm is the site identity the wizard and Settings > Site both edit.
 type siteForm struct {
 	Name, URL, Language, Timezone string
+	// Locales is the "tag segment" per line text of the Locales field; empty
+	// means a single-locale site. PrefixAll and XDefault go with it.
+	Locales   string
+	PrefixAll bool
+	XDefault  string
 }
 
 func siteFormFrom(c *siteconfig.Config) siteForm {
 	f := siteForm{Name: c.CompanyName, URL: c.PublicBaseURL, Language: c.Language, Timezone: c.Timezone}
+	for _, e := range c.Locales {
+		f.Locales += strings.TrimSpace(e.Tag+" "+e.Segment) + "\n"
+	}
+	f.PrefixAll, f.XDefault = c.PrefixAll, c.XDefaultLocale
 	if f.Language == "" {
 		f.Language = "en"
 	}
@@ -59,6 +68,35 @@ func (f *siteForm) validate() map[string]string {
 		f.Timezone = strings.TrimSpace(f.Timezone)
 	}
 	return errs
+}
+
+// parseLocales reads the Locales field: one "tag segment" pair per line, the
+// segment optional (the default locale may sit at the root).
+func parseLocales(text string) ([]siteconfig.LocaleEntry, string) {
+	var out []siteconfig.LocaleEntry
+	for _, line := range strings.Split(text, "\n") {
+		parts := strings.Fields(line)
+		switch len(parts) {
+		case 0:
+		case 1:
+			out = append(out, siteconfig.LocaleEntry{Tag: parts[0]})
+		case 2:
+			out = append(out, siteconfig.LocaleEntry{Tag: parts[0], Segment: parts[1]})
+		default:
+			return nil, "Write each locale as a language code and a URL segment, like: fr fr"
+		}
+	}
+	return out, ""
+}
+
+// xDefaultOptions offers "first live copy" plus every saved locale.
+func xDefaultOptions(f siteForm) []ui.Option {
+	entries, _ := parseLocales(f.Locales)
+	out := []ui.Option{{Value: "", Label: "First available translation", Selected: f.XDefault == ""}}
+	for _, e := range entries {
+		out = append(out, ui.Option{Value: e.Tag, Label: e.Tag, Selected: e.Tag == f.XDefault})
+	}
+	return out
 }
 
 func (a *Admin) saveSite(ctx context.Context, f siteForm) error {
