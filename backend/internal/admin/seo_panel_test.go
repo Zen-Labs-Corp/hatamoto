@@ -116,3 +116,25 @@ func TestPartialSEOPanel(t *testing.T) {
 		t.Errorf("the fragment swaps the score, two counters and the structured data out of band: %s", frag)
 	}
 }
+
+// With SEO settings present the checks measure the typed title, not the
+// suffixed one the preview shows.
+func TestSEOPanelChecksMeasureTheTypedTitle(t *testing.T) {
+	t.Parallel()
+
+	set := seo.Defaults()
+	typed := strings.Repeat("a", 50)
+	in := seoInput{Title: typed, Slug: "x", SEO: &set, SchemaSlug: "doc", SiteName: "A Rather Long Site Name", Keyword: "Rather"}
+	p := buildPanel(in)
+	if p.SERP.TitleLen != 50 || p.SERP.TitleStatus != checkPass {
+		t.Errorf("title length = %d (%s), want 50 pass", p.SERP.TitleLen, p.SERP.TitleStatus)
+	}
+	if want := typed + " | A Rather Long Site Name"; p.SERP.Title != want {
+		t.Errorf("preview title = %q, want %q", p.SERP.Title, want)
+	}
+	for _, c := range p.SEO {
+		if c.ID == "keyword-title" && c.Status != checkFail {
+			t.Errorf("keyword in the site name only passed the title check: %+v", c)
+		}
+	}
+}

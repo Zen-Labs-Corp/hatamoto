@@ -280,6 +280,9 @@ func buildPanel(in seoInput) seoPanel {
 	if desc == "" {
 		desc = strings.TrimSpace(in.Excerpt)
 	}
+	// The length and keyword checks measure what the author typed; the
+	// preview shows what the page head will carry, site suffix included.
+	checked := title
 	if in.SEO != nil {
 		r := seo.Resolve(in.SEO, in.resolverInput())
 		title = strings.TrimSpace(r.Title)
@@ -295,7 +298,7 @@ func buildPanel(in seoInput) seoPanel {
 	if in.Canonical != "" {
 		addr = in.Canonical
 	}
-	tl, dl := len([]rune(title)), len([]rune(desc))
+	tl, dl := len([]rune(checked)), len([]rune(desc))
 	p.SERP = serpPreview{Title: title, URL: addr, Description: desc, TitleLen: tl, DescLen: dl}
 	switch {
 	case tl == 0:
@@ -337,7 +340,7 @@ func buildPanel(in seoInput) seoPanel {
 			}
 			return checkFail, bad
 		}
-		s, m := yes(containsFold(title, kw), "The keyword is in the title.", "The keyword is not in the title.")
+		s, m := yes(containsFold(checked, kw), "The keyword is in the title.", "The keyword is not in the title.")
 		p.SEO = append(p.SEO, check("keyword-title", "Keyword in title", s, m))
 		if !meta {
 			s, m = yes(containsFold(first, kw), "The keyword is in the first paragraph.", "The keyword is not in the first paragraph.")
