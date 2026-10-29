@@ -112,3 +112,20 @@ test("the saver sends no seo before an edit and the values after it", async () =
   assert.equal("seo" in bodies[0], false);
   assert.deepEqual(bodies[1].seo, seo);
 });
+
+test("every open asks for the checks of the current draft", async () => {
+  const r = rig();
+  const fired = [];
+  const panel = {};
+  globalThis.htmx = { trigger: (el, ev) => fired.push([el, ev]), process() {} };
+  const q = r.root.querySelector;
+  r.root.querySelector = (sel) => (sel === "#be-panel" ? panel : q(sel));
+  try {
+    await r.d.open();
+    r.d.close();
+    await r.d.open();
+  } finally {
+    delete globalThis.htmx;
+  }
+  assert.deepEqual(fired, [[panel, "hm:analyze"], [panel, "hm:analyze"]]);
+});

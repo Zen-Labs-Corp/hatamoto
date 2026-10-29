@@ -60,6 +60,9 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
     }
     root.hidden = false;
     btn.setAttribute("aria-expanded", "true");
+    // The panel came with the stored page; the checks must read the draft as it is now.
+    const results = root.querySelector("#be-panel");
+    if (results) globalThis.htmx?.trigger?.(results, "hm:analyze");
     (root.querySelector("[role=tab][aria-selected=true]") ?? root.querySelector("[data-hm-seodrawer-close]"))?.focus();
   };
   // The analysis reads the draft, not the stored page: the doc rides on every analyze request.

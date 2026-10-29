@@ -10,7 +10,7 @@
 {{template "hm/field" dict "ID" "seo_description" "Name" "seo_description" "Label" "SEO description" "Control" "textarea" "Rows" 3 "Value" .SEO.Description "Help" "A short summary for search results. About 155 characters." "Error" (index .Errors "seo_description")}}
 {{template "hm/seocount" dict "ID" "seo-description-count" "Len" .Panel.SERP.DescLen "Max" 160 "Status" .Panel.SERP.DescStatus "Msg" .Panel.SERP.DescMsg}}
 {{template "hm/indicator" dict "ID" "analyze-busy" "Text" "Checking"}}
-<div id="be-panel" aria-live="polite"{{if .AnalyzeURL}} hx-post="{{.AnalyzeURL}}" hx-trigger="input changed delay:1500ms from:{{.Include}}, change from:{{.Include}}" hx-include="{{.Include}}" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"{{end}}>{{template "hm/seopanel-results" .Panel}}</div>
+<div id="be-panel" aria-live="polite"{{if .AnalyzeURL}} hx-post="{{.AnalyzeURL}}" hx-trigger="input changed delay:1500ms from:{{.Include}}, change from:{{.Include}}, hm:analyze" hx-include="{{.Include}}" hx-target="this" hx-swap="innerHTML" hx-indicator="#analyze-busy"{{end}}>{{template "hm/seopanel-results" .Panel}}</div>
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
