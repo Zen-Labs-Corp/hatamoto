@@ -118,6 +118,7 @@ export function dropTargets(rows, from, pointerDepth, max) {
   const end = blockEnd(rows, from);
   const block = rows.slice(from, end);
   const height = Math.max(...block.map((r) => r.depth)) - rows[from].depth;
+  const lastRel = block[block.length - 1].depth - rows[from].depth;
   const rest = [...rows.slice(0, from), ...rows.slice(end)];
   const original = (k) => (k < from ? k : k + (end - from));
   const slots = [];
@@ -126,7 +127,7 @@ export function dropTargets(rows, from, pointerDepth, max) {
     const next = g < rest.length ? rest[g].depth : 0;
     const hi = Math.min(prev + 1, max - height);
     // The row after the block may be at most one level below the block's last row.
-    const lo = Math.max(0, next - 1 - height);
+    const lo = Math.max(0, next - 1 - lastRel);
     if (lo > hi) continue;
     const depth = Math.min(Math.max(pointerDepth, lo), hi);
     let label = { kind: "top" };

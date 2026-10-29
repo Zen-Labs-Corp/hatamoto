@@ -108,3 +108,16 @@ test("dropTargets keeps a block with sub-items within max and valid", () => {
   assert.ok(slots.every((s) => s.depth === 0));
   assert.deepEqual(dropTargets(rows, 7, 0, 5), []);
 });
+
+test("dropTargets bounds the depth by the block's last row, so the label is the saved tree", () => {
+  const rows = toRows([["A", 0], ["A1", 1], ["A11", 2], ["A111", 3], ["X", 0], ["X1", 1], ["X11", 2], ["X2", 1]]);
+  const from = 4;
+  const end = blockEnd(rows, from);
+  for (const pointer of [0, 1, 2, 3]) {
+    for (const slot of dropTargets(rows, from, pointer, 5)) {
+      const rest = [...rows.slice(0, from), ...rows.slice(end)];
+      const placed = [...rest.slice(0, slot.index), ...rows.slice(from, end).map((r) => ({ ...r, depth: r.depth - rows[from].depth + slot.depth })), ...rest.slice(slot.index)];
+      assert.deepEqual(clampDepths(placed, 5), placed, `slot ${slot.index} depth ${slot.depth} is kept as shown`);
+    }
+  }
+});
