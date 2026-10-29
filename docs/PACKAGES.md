@@ -243,14 +243,19 @@ and point `HATAMOTO_REGISTRY_URL` at it.
 
 ## First-party plugins
 
-Two integrations ship as signed plugins instead of core code. Each has its own
-public repository under `Zen-Labs-Corp`, and is listed in the plugins repository
-by a manifest with `"tier": "first-party"` (no `author`), like every other plugin:
+Two integrations ship as signed plugins instead of core code. Each lives in the
+`Zen-Labs-Corp/hatamoto-first-party` monorepo, which is its source of record, and
+is listed in the plugins repository by a manifest with `"tier": "first-party"`
+(no `author`), like every other plugin:
 
 | Plugin | Repository | What it does |
 |---|---|---|
 | `searchconsole` | [Zen-Labs-Corp/hatamoto-first-party/plugins/searchconsole](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/searchconsole) | Google Search Console: OAuth, sites, sitemap submit, URL inspection, daily performance import |
 | `gtm` | [Zen-Labs-Corp/hatamoto-first-party/plugins/gtm](https://github.com/Zen-Labs-Corp/hatamoto-first-party/tree/main/plugins/gtm) | Google Tag Manager: loads your container on every public page from a container ID in the plugin settings (`settings` permission only) |
+
+First-party plugins are not mirrored: the plugins repository's
+`mirror-plugin.sh` skips them, so they are built from the monorepo (or reused
+from the signed build archive) instead of from a mirror.
 
 Their source is the reference for real-world plugins. The `tier` is only the
 label in the plugin directory: `registry/build-community.sh` accepts it for a

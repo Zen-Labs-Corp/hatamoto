@@ -106,8 +106,11 @@ system Go may be older and Go downloads the pinned one). The pin is exact, never
 
 ### Source mirror and archive
 
-Every approved plugin is kept in places we control, so an author deleting their
-repo or force-pushing away the pinned commit cannot break a publish.
+Every approved plugin is kept in places we control: community plugins in the
+source mirror, first-party plugins in their monorepo
+`Zen-Labs-Corp/hatamoto-first-party`, and every signed build (first-party
+included) in the archive. An author deleting their repo or force-pushing away
+the pinned commit cannot break a publish.
 
 - **Source mirror.** When a manifest is merged, CI in the plugins repository copies the
   pinned commit into `github.com/Zen-Labs-Corp/<name>`: the author's
@@ -128,6 +131,11 @@ repo or force-pushing away the pinned commit cannot break a publish.
   whoever can push to the mirror, and prints a loud warning. It is refused when
   the pinned commit itself contains `vendor/`. In the
   signed index `source` is the author's repo while it answers, else the mirror.
+  First-party plugins (tier `first-party`, from
+  `Zen-Labs-Corp/hatamoto-first-party`) are not mirrored: that monorepo is
+  their source of record, `mirror-plugin.sh` skips them, so `make registry`
+  finds no `src/<commit>` tag for them and builds them from the monorepo (or
+  reuses the archived build).
 - **Signed build archive.** `ARCHIVE_DIR` (default `registry/archive`) keeps every
   signed build forever as `<name>/<name>-<version>-<commit12>-<keyid>.hmp` plus a
   sidecar `.json` with `{name, version, commit, key_id, sha256}`. A manifest whose
@@ -152,10 +160,15 @@ repo or force-pushing away the pinned commit cannot break a publish.
 ### When a pinned commit disappears
 
 With the mirror and archive this no longer blocks a publish: the archived
-`.hmp` is reused, or the build falls back to the mirror. Only a plugin approved
-before the mirror existed, or merged while mirroring was down, can still fail with
-`cannot fetch <commit>`. Fix it by running the mirror workflow for that manifest
+`.hmp` is reused, or the build falls back to the mirror. Only a community plugin
+approved before the mirror existed, or merged while mirroring was down, can
+still fail with `cannot fetch <commit>`. Fix it by running the mirror workflow for that manifest
 (`workflow_dispatch` in the plugins repository) if the commit is still reachable.
+First-party plugins have no mirror: a first-party commit that disappears from
+`Zen-Labs-Corp/hatamoto-first-party` fails the build, and also fails the reuse
+of its archived `.hmp`, which is checked against that commit. Fix it by pinning
+the manifest in the plugins repository to a reachable commit, or reuse the
+archived build unchecked with `HATAMOTO_ARCHIVE_OFFLINE=1 make registry`.
 
 As a last resort, pass `COMMUNITY_SKIP="name1 name2"` to `make registry` (the
 skipped names are logged loudly and are left out of the index), then publish as
