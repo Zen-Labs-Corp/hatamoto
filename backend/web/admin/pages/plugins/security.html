@@ -1,0 +1,22 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Package security" "Description" "Trusted signers and unsigned packages."}}
+{{template "hm/card-start" dict "ID" "status-card" "Title" "Status" "Heading" "h2"}}{{if .State.On}}<p class="hm-row">{{template "hm/badge" dict "Label" "Unsigned packages allowed" "Kind" "danger"}} <span>{{if .UntilText}}until {{.UntilText}}{{else}}until you turn it off{{end}}</span></p>
+<p class="hm-muted">Anything you upload now can run code nobody has vouched for.</p>
+<form method="post" action="{{adminPath}}/plugins/unsigned/off">{{template "hm/csrf" $}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Stop allowing unsigned packages" "Type" "submit"}}{{template "hm/foot-end"}}</form>
+{{else}}<p class="hm-row">{{template "hm/badge" dict "Label" "Protected" "Kind" "success"}} <span>Signed packages only</span></p>
+<p class="hm-muted">Packages must be signed by one of the signers below. Anything else is refused.</p>{{end}}{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "signers-card" "Title" "Trusted signers" "Heading" "h2"}}{{if .Signers}}<ul class="hm-pluginsecurity__signers" role="list" aria-label="Trusted signers">{{range .Signers}}
+<li class="hm-pluginsecurity__signer"><span><strong>{{.Name}}</strong> <span class="hm-muted">{{.Source}}, {{.Algorithm}}</span></span>{{template "hm/badge" dict "Label" .Fingerprint "Mono" true}}</li>{{end}}
+</ul>{{else}}<p class="hm-muted">No signers are trusted.</p>{{end}}
+<p class="hm-muted">Signers are set by whoever runs the server, not from this screen.</p>{{template "hm/card-end"}}
+{{if not .State.On}}{{template "hm/callout-start" (dict "Kind" "danger" "ID" "unsigned-allow")}}<details class="hm-disclosure hm-pluginsecurity__advanced"><summary>Advanced: allow unsigned packages</summary><div class="hm-disclosure__body">
+{{if .NoPassword}}<p>Set a password first. Allowing unsigned packages asks you to confirm with your password, and your account has none yet.</p><p>{{template "hm/button" dict "Label" "Set a password" "Href" .ProfileHref}}</p>
+{{else}}<form method="post" action="{{adminPath}}/plugins/unsigned" class="hm-stack" data-hm-gate data-hm-gate-host="{{.SiteHost}}">{{template "hm/csrf" $}}
+<p>An unsigned package runs whatever its author wrote, with the permissions you give it. Allow it only for code you trust, and only for as long as you need.</p>
+{{template "hm/field" dict "ID" "unsigned-understand" "Name" "understand" "Control" "switch" "Value" "1" "Label" "I understand that unsigned packages can run code nobody has vouched for"}}
+{{template "hm/field" dict "ID" "unsigned-host" "Name" "host" "Label" "Type the site address to confirm" "Help" (printf "Type %s exactly." .SiteHost) "Attrs" (attrmap "autocomplete" "off" "autocapitalize" "off" "spellcheck" "false")}}
+{{template "hm/field" dict "ID" "unsigned-password" "Name" "password" "Type" "password" "Label" "Your password" "Attrs" (attrmap "autocomplete" "current-password")}}
+{{template "hm/field" dict "ID" "unsigned-duration" "Name" "duration" "Control" "radio" "Label" "How long" "Options" .Durations}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Allow unsigned packages" "Variant" "danger" "Type" "submit" "Attrs" (attrmap "data-hm-gate-submit" "")}}{{template "hm/foot-end"}}</form>{{end}}
+</div></details>{{template "hm/callout-end"}}{{end}}
+{{end}}{{end}}
