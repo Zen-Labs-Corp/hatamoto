@@ -104,6 +104,7 @@ fi
 if [[ "$1 $2" == "pr merge" ]]; then
   # The merge must be pinned to the checked head commit.
   [[ " $* " == *" --match-head-commit 0123456789abcdef0123456789abcdef01234567 "* ]] || { echo "pr merge without --match-head-commit <sha>" >&2; exit 1; }
+  [[ -z "${MERGE_ARGS:-}" ]] || echo "$*" >> "$MERGE_ARGS"
   # A real (non-dry) run stops here: the gate is what the test checks, not the deploy.
   [[ -z "${MERGE_MARK:-}" ]] || { touch "$MERGE_MARK"; echo "stub: merge reached" >&2; exit 3; }
   exit 0
@@ -119,7 +120,15 @@ for ((i = 3; i < ${#args[@]}; i++)); do
   esac
 done
 case "$field" in
-  state) json='{"state":"OPEN"}' ;;
+  state)
+    # STATE_SEQ: one value per read (the last one repeats), for the deploy waiter.
+    st=OPEN
+    if [[ -n "${STATE_SEQ:-}" ]]; then
+      read -ra seq <<< "$STATE_SEQ"; k=0; [[ -f "$CHECKS_STATE.st" ]] && k=$(<"$CHECKS_STATE.st")
+      st=${seq[k]:-${seq[-1]}}; echo $((k + 1)) > "${CHECKS_STATE:?STATE_SEQ needs CHECKS_STATE}.st"
+    fi
+    json="{\"state\":\"$st\"}" ;;
+  autoMergeRequest) if [[ -n "${AUTO_OFF:-}" ]]; then json='{"autoMergeRequest":null}'; else json='{"autoMergeRequest":{"mergeMethod":"MERGE"}}'; fi ;;
   mergeable) json='{"mergeable":"MERGEABLE"}' ;;
   mergeStateStatus)
     # MSTATUS_SEQ: one value per read (the last one repeats), for the CI-mode re-check.
@@ -165,7 +174,29 @@ esac
 if [[ -n "$jqx" ]]; then jq -r "$jqx" <<< "$json"; else echo "$json"; fi
 GH
 cp "$STUBS/ssh" "$CK/ssh"; chmod +x "$CK/gh" "$CK/ssh"
-open_pr() { PATH="$CK:$PATH" CI_STATE=${CI_STATE:-active} CHECKS_MODE=$1 DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 bash scripts/ship.sh --dry-run 1 2>&1; }
+open_pr() { PATH="$CK:$PATH" CI_STATE=${CI_STATE:-active} CHECKS_MODE=$1 DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 bash scripts/ship.sh --dry-run --wait 1 2>&1; }
+# the default (queued) ship: dry runs
+queue_pr() { PATH="$CK:$PATH" CI_STATE=${CI_STATE:-active} CHECKS_MODE=$1 DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 bash scripts/ship.sh --dry-run "${@:2}" 1 2>&1; }
+for mode in pass pending; do
+  O=$(queue_pr $mode) || { echo "$O"; echo "FAIL: queued ship refused checks mode=$mode"; exit 1; }
+  grep -qF "DRY: gh pr merge 1 --auto --merge --match-head-commit 0123456789abcdef0123456789abcdef01234567" <<< "$O" \
+    && grep -qF "SHIP-H QUEUED pr=1 head=0123456789abcdef0123456789abcdef01234567 deploy=background" <<< "$O" \
+    && ! grep -qF "waiting for CI" <<< "$O" || { echo "$O"; echo "FAIL: mode=$mode was not queued with pinned auto-merge and a waiter"; exit 1; }
+done
+O=$(queue_pr pending --no-deploy) && grep -qF "deploy=none" <<< "$O" && ! grep -qF "deploy waiter" <<< "$O" || { echo "$O"; echo "FAIL: --no-deploy queued a deploy waiter"; exit 1; }
+for mode in fail ctxfail ghError; do
+  O=$(queue_pr $mode) && { echo "$O"; echo "FAIL: queued ship accepted mode=$mode"; exit 1; }
+  grep -q "SHIP-H ABORT" <<< "$O" && ! grep -qF "gh pr merge" <<< "$O" || { echo "$O"; echo "FAIL: mode=$mode did not abort before auto-merge"; exit 1; }
+done
+O=$(CI_STATE=disabled_manually queue_pr pass) && ! grep -qF -- "--auto" <<< "$O" || { echo "$O"; echo "FAIL: ci disabled still queued an auto-merge"; exit 1; }
+# a real queued run (--no-deploy: no waiter is started) turns on the pinned auto-merge
+QM=$(mktemp)
+O=$(PATH="$CK:$PATH" CI_STATE=active CHECKS_MODE=pending DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 MERGE_ARGS="$QM" bash scripts/ship.sh --no-deploy 1 2>&1) \
+  || { echo "$O"; echo "FAIL: a real queued ship failed"; exit 1; }
+grep -qxF "pr merge 1 --auto --merge --match-head-commit 0123456789abcdef0123456789abcdef01234567" "$QM" && grep -qF "SHIP-H QUEUED pr=1" <<< "$O" \
+  || { echo "$O"; cat "$QM"; echo "FAIL: the real queued ship did not turn on the pinned auto-merge"; exit 1; }
+rm -f "$QM"
+echo "ship queued mode ok"
 if O=$(open_pr pass); then
   grep -qF "DRY: gh pr merge 1 --merge --match-head-commit 0123456789abcdef0123456789abcdef01234567" <<< "$O" || { echo "$O"; echo "FAIL: passing checks did not reach the pinned merge"; exit 1; }
 else echo "$O"; echo "FAIL: passing checks were refused"; exit 1; fi
@@ -188,7 +219,7 @@ grep -qF "check backend is 'missing'" <<< "$O" && ! grep -qF "gh pr merge" <<< "
 # a timeout aborts, and a push during the wait aborts
 # (a real run, stopped by the stub at the merge: MERGE_MARK)
 CW=$(mktemp -d)
-ci_wait() { rm -f "$CW/merged" "$CW/st"*; PATH="$CK:$PATH" CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CLEAN_POLL=0 SHIP_CI_POLL=0 SHIP_CI_WAIT=${SHIP_CI_WAIT:-30} MERGE_MARK="$CW/merged" CHECKS_STATE="$CW/st" "$@" bash scripts/ship.sh 1 2>&1; }
+ci_wait() { rm -f "$CW/merged" "$CW/st"*; PATH="$CK:$PATH" CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CLEAN_POLL=0 SHIP_CI_POLL=0 SHIP_CI_WAIT=${SHIP_CI_WAIT:-30} MERGE_MARK="$CW/merged" CHECKS_STATE="$CW/st" "$@" bash scripts/ship.sh --wait 1 2>&1; }
 O=$(ci_wait env CHECKS_MODE=pendingthenpass MSTATUS_SEQ="BLOCKED CLEAN") || true
 [[ -e $CW/merged ]] || { echo "$O"; echo "FAIL: ship did not wait for pending checks and merge"; exit 1; }
 grep -qF "waiting for CI on 0123456789ab: 1 pending (admin-ui)" <<< "$O" && grep -qF "CI checks on 0123456789ab: all green" <<< "$O" || { echo "$O"; echo "FAIL: the CI wait was not reported"; exit 1; }
@@ -205,6 +236,27 @@ O=$(ci_wait env CHECKS_MODE=pass MSTATUS_SEQ="BLOCKED UNKNOWN BLOCKED CLEAN") ||
 # green checks but not CLEAN (a review, a thread, a conflict) aborts after the re-reads
 O=$(ci_wait env CHECKS_MODE=pass MSTATUS_SEQ="BLOCKED BLOCKED") || true
 grep -qF "checks are green but it is not clean (BLOCKED" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: green-but-blocked did not abort"; exit 1; }
+# the deploy waiter (--after-auto, a real run): waits for GitHub's merge, then checks the head's
+# checks and goes on to the deploy path; stops with nothing deployed on a failure, a push, a
+# closed PR or auto-merge switched off.
+waiter() { rm -f "$CW/st"*; PATH="$CK:$PATH" SHIP_DEPLOY_LOCKED=1 SHIP_AUTO_WAIT=5 CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CI_POLL=0 CHECKS_STATE="$CW/st" SHIP_AUTO_HEAD=0123456789abcdef0123456789abcdef01234567 "$@" bash scripts/ship.sh --after-auto 1 2>&1; }
+O=$(waiter env CHECKS_MODE=pass STATE_SEQ="OPEN OPEN OPEN MERGED") || true
+grep -qF "waiter: PR #1 merged" <<< "$O" && grep -qF "CI checks on 0123456789ab: all green" <<< "$O" && grep -qF "already merged; continuing with deploy" <<< "$O" \
+  || { echo "$O"; echo "FAIL: the waiter did not go on to the deploy after the merge"; exit 1; }
+[[ $(<"$CW/st.st") -ge 4 ]] || { echo "$O"; echo "FAIL: the waiter did not poll until merged"; exit 1; }
+O=$(waiter env CHECKS_MODE=pendingthenfail STATE_SEQ=OPEN) || true
+grep -qF "check(s) failed: backend" <<< "$O" && ! grep -qF "continuing with deploy" <<< "$O" || { echo "$O"; echo "FAIL: a failing check did not stop the waiter"; exit 1; }
+O=$(waiter env CHECKS_MODE=pending STATE_SEQ=OPEN HEAD_MOVES=1) || true
+grep -qF "head moved" <<< "$O" && ! grep -qF "continuing with deploy" <<< "$O" || { echo "$O"; echo "FAIL: a push did not stop the waiter"; exit 1; }
+O=$(waiter env CHECKS_MODE=pending STATE_SEQ=OPEN AUTO_OFF=1) || true
+grep -qF "auto-merge of PR #1 was switched off" <<< "$O" || { echo "$O"; echo "FAIL: auto-merge off did not stop the waiter"; exit 1; }
+O=$(waiter env CHECKS_MODE=pending STATE_SEQ="OPEN CLOSED") || true
+grep -qF "PR #1 is CLOSED; nothing deployed" <<< "$O" || { echo "$O"; echo "FAIL: a closed PR did not stop the waiter"; exit 1; }
+O=$(waiter env CHECKS_MODE=nobackend STATE_SEQ=MERGED) || true
+grep -qF "check backend is 'missing'" <<< "$O" && ! grep -qF "continuing with deploy" <<< "$O" || { echo "$O"; echo "FAIL: the waiter deployed without a green backend check"; exit 1; }
+O=$(waiter env CHECKS_MODE=pass STATE_SEQ=MERGED SHIP_AUTO_HEAD=) || true
+grep -qF "needs SHIP_AUTO_HEAD" <<< "$O" || { echo "$O"; echo "FAIL: the waiter ran without a pinned head"; exit 1; }
+echo "ship deploy waiter ok"
 rm -rf "$CW"
 grep -qF "gate mode: CI" <<< "$(open_pr pass)" || { echo "FAIL: ci active did not use the CI gate"; exit 1; }
 echo "ship checks gate ok"
