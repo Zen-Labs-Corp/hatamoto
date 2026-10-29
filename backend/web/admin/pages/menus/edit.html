@@ -1,10 +1,9 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/menutree @hm/searchselect{{end}}
-{{define "scripts"}}sortablejs{{end}}
+{{define "modules"}}@hm/menutree @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
 {{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
-<form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform">
+<form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform" data-hm-editor data-max-depth="{{.MaxDepth}}" data-max-items="{{.MaxItems}}">
 {{template "hm/csrf" $}}
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save menu</button>
 {{template "hm/card-start" dict "ID" "menu-details" "Title" "Details"}}
@@ -28,7 +27,29 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="moveto-target" name="moveto_target" aria-describedby="moveto-target-help"><option value="">Choose where</option><option value="top">Top level</option>{{range .Items}}{{if eq .Depth 0}}<option value="{{.N}}">Under {{or .Label "Untitled item"}}</option>{{end}}{{end}}</select></div>
 <p class="hm-field__help" id="moveto-target-help">Choose a place here, then use Move to in the actions menu of the item to move. Its sub-items go with it.</p></div>
 </div>{{end}}
-{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>{{template "hm/button" dict "Label" "Back to menus" "Variant" "ghost" "Href" (adminPath "theme" "menus")}}{{template "hm/button" dict "Label" "Save menu" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+<div class="hm-menueditor__aux" hidden data-hm-editor-only>
+<aside class="hm-menueditor__inspector" aria-label="Item settings" data-hm-inspector></aside>
+<section class="hm-menueditor__preview" aria-label="Preview" data-hm-preview></section>
+</div>
+<template data-hm-tpl="chip">{{template "hm/badge" dict "Label" "" "Plain" true}}</template>
+<template data-hm-tpl="problem">{{template "hm/badge" dict "Label" "" "Kind" "warning" "Icon" "alert"}}</template>
+<template data-hm-tpl="undo"><p class="hm-menutree__undo hm-row" role="status"><span data-hm-undo-text></span>{{template "hm/button" dict "Label" "Undo" "Size" "sm" "Attrs" (attrmap "data-hm-undo-btn" "")}}</p></template>
+<template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
+<template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
+{{template "hm/dialog-start" dict "ID" "menu-shortcuts" "Title" "Keyboard shortcuts"}}
+<p>Move between items with the up and down arrow keys. Press Enter to open the settings of an item.</p>
+{{template "hm/dialog-end" dict "ID" "menu-shortcuts"}}
+<div class="hm-savebar">
+<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>
+<span class="hm-menueditor__state" role="status" hidden data-hm-editor-only data-hm-state>Saved</span>
+<span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
+{{template "hm/button" dict "Label" "Undo" "Variant" "ghost" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-undo-all" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Redo" "Variant" "ghost" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-redo" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Discard changes" "Variant" "ghost" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-discard" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Back to menus" "Variant" "ghost" "Href" (adminPath "theme" "menus")}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
+</div>
 </form>
 {{end}}{{end}}
 {{define "menus/item"}}{{$it := .It}}{{$n := $it.N}}<li class="hm-menutree__item" data-hm-item data-depth="{{$it.Depth}}" data-type="{{$it.Type}}">

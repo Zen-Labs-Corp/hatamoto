@@ -21,11 +21,14 @@
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/menutree.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/menuinspector.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/menupreview.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/searchselect.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
-<script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/menutree.HASH.js" integrity="sha256-D2&#43;lugaw&#43;IdKWHPoYs2wQt2fLnOoelBMHkmSLbzG9z8="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menuinspector.HASH.js" integrity="sha256-el7vclpUlgtTOHw7N5kHz4iwmBukYcgOcu14MFqQ&#43;ow="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menupreview.HASH.js" integrity="sha256-0d4ZwqJVCN9KWeD2xnIVfRyCUujzkNbkMTtg7nXykBI="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/searchselect.HASH.js" integrity="sha256-rLH5dgw1s&#43;ujRNqNX7g0dgQgajm7nrh4jWkKFzxXxPA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
@@ -108,7 +111,7 @@
 </header>
 
 
-<form method="post" action="/admin/theme/menus/00000000-0000-4000-8000-000000000001" class="hm-stack hm-menuform">
+<form method="post" action="/admin/theme/menus/00000000-0000-4000-8000-000000000001" class="hm-stack hm-menuform" data-hm-editor data-max-depth="5" data-max-items="200">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save menu</button>
 <section class="hm-card" id="menu-details" aria-labelledby="menu-details-title">
@@ -428,7 +431,33 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="moveto-target" name="moveto_target" aria-describedby="moveto-target-help"><option value="">Choose where</option><option value="top">Top level</option><option value="0">Under Home</option><option value="1">Under Company</option></select></div>
 <p class="hm-field__help" id="moveto-target-help">Choose a place here, then use Move to in the actions menu of the item to move. Its sub-items go with it.</p></div>
 </div>
-</div><footer class="hm-card__foot"><span class="hm-card__foot-note"><a class="hm-btn hm-btn--danger-text" href="/admin/theme/menus/00000000-0000-4000-8000-000000000001/delete"><span>Delete menu</span></a></span><a class="hm-btn hm-btn--ghost" href="/admin/theme/menus"><span>Back to menus</span></a><button type="submit" class="hm-btn hm-btn--primary" name="_op" value="save"><span>Save menu</span></button></footer></section>
+</div></section>
+<div class="hm-menueditor__aux" hidden data-hm-editor-only>
+<aside class="hm-menueditor__inspector" aria-label="Item settings" data-hm-inspector></aside>
+<section class="hm-menueditor__preview" aria-label="Preview" data-hm-preview></section>
+</div>
+<template data-hm-tpl="chip"><span class="hm-badge hm-badge--neutral hm-badge--plain"></span></template>
+<template data-hm-tpl="problem"><span class="hm-badge hm-badge--warning"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span></span></template>
+<template data-hm-tpl="undo"><p class="hm-menutree__undo hm-row" role="status"><span data-hm-undo-text></span><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-undo-btn=""><span>Undo</span></button></p></template>
+<template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
+<template data-hm-tpl="add-tabs"><div class="hm-tablist" role="tablist" aria-label="Add an item"><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-pages" aria-controls="add-panel-pages" aria-selected="true" tabindex="0">Pages</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-address" aria-controls="add-panel-address" aria-selected="false" tabindex="-1">Address</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-heading" aria-controls="add-panel-heading" aria-selected="false" tabindex="-1">Heading</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-archive" aria-controls="add-panel-archive" aria-selected="false" tabindex="-1">Archive</button></div><div id="add-panel-pages" role="tabpanel" aria-labelledby="add-tab-pages" hidden></div><div id="add-panel-address" role="tabpanel" aria-labelledby="add-tab-address" hidden></div><div id="add-panel-heading" role="tabpanel" aria-labelledby="add-tab-heading" hidden></div><div id="add-panel-archive" role="tabpanel" aria-labelledby="add-tab-archive" hidden></div></template>
+<dialog class="hm-dialog" id="menu-shortcuts" aria-labelledby="menu-shortcuts-title">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="menu-shortcuts-title">Keyboard shortcuts</h2>
+<div class="hm-dialog__body">
+<p>Move between items with the up and down arrow keys. Press Enter to open the settings of an item.</p>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button></form>
+</div></dialog>
+<div class="hm-savebar">
+<span class="hm-savebar__aside"><a class="hm-btn hm-btn--danger-text" href="/admin/theme/menus/00000000-0000-4000-8000-000000000001/delete"><span>Delete menu</span></a></span>
+<span class="hm-menueditor__state" role="status" hidden data-hm-editor-only data-hm-state>Saved</span>
+<span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-undo-all="" hidden=""><span>Undo</span></button>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-redo="" hidden=""><span>Redo</span></button>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-discard="" data-hm-editor-only="" hidden=""><span>Discard changes</span></button>
+<a class="hm-btn hm-btn--ghost" href="/admin/theme/menus"><span>Back to menus</span></a>
+<button type="submit" class="hm-btn hm-btn--primary" name="_op" value="save"><span>Save</span></button>
+</div>
 </form>
 
 </div>
@@ -447,7 +476,6 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
-
 
 
 

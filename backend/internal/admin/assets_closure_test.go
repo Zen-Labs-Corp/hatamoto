@@ -193,7 +193,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 			t.Errorf("page %s: %v", name, err)
 		}
 		needs := slices.ContainsFunc(declared[name], func(m string) bool {
-			return m == "@hm/menutree" || m == "@hm/repeater"
+			return m == "@hm/repeater"
 		}) || name == "schemas/edit" || name == "forms/edit" || name == "entities/builder" // the builder's component forms load repeater lazily
 		if needs != slices.Contains(scripts, "sortablejs") {
 			t.Errorf("%s: sortablejs declared=%v, want %v", name, slices.Contains(scripts, "sortablejs"), needs)

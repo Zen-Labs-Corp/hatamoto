@@ -463,8 +463,8 @@ func TestMenuEditPageA11yAndDelete(t *testing.T) {
 	if open, shut := strings.Count(body, "<section"), strings.Count(body, "</section>"); open != shut {
 		t.Errorf("unbalanced cards: %d <section> vs %d </section>", open, shut)
 	}
-	if n := strings.Count(body, `<span>Save menu</span>`); n != 1 {
-		t.Errorf("want one visible Save menu button, got %d", n)
+	if n := strings.Count(body, `<span>Save</span>`); n != 1 {
+		t.Errorf("want one visible Save button, got %d", n)
 	}
 	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate data-hm-op="outdent" disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
 		if !strings.Contains(body, want) {

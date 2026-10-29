@@ -257,6 +257,8 @@ var uiStickyTemplates = map[string]bool{
 	"pages/schemas/edit.html":   true,
 	"pages/forms/edit.html":     true,
 	"pages/plugins/plugin.html": true,
+	// The menu editor: Save, Discard and the unsaved state stay in reach beside a long tree.
+	"pages/menus/edit.html": true,
 	// The robots policy form's pending-changes bar, shared by Crawlers, Health and the agent page.
 	"partials/aia-policy.html": true,
 }

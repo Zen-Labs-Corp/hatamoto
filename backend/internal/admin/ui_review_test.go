@@ -42,18 +42,17 @@ func TestLinkingRuleFormDefaultSubmitIsSave(t *testing.T) {
 	}
 }
 
-// The menu editor keeps a Save menu in the Items footer, after the Delete note.
-func TestMenuEditSaveInItemsFooter(t *testing.T) {
+// The menu editor keeps Delete menu then Save in its sticky savebar.
+func TestMenuEditSaveInSavebar(t *testing.T) {
 	t.Parallel()
 
 	g, fm := newMenuRig(t)
 	m := fm.add("Main", "header")
 	body := g.do("GET", "/admin/theme/menus/"+m.ID.String(), "owner-token", nil, nil).Body.String()
-	items := body[strings.Index(body, `id="menu-items"`):]
-	foot := items[strings.LastIndex(items, `<footer class="hm-card__foot">`):]
-	del, save := strings.Index(foot, "Delete menu"), strings.Index(foot, "Save menu")
+	bar := body[strings.Index(body, `<div class="hm-savebar">`):]
+	del, save := strings.Index(bar, "Delete menu"), strings.Index(bar, `<span>Save</span>`)
 	if del < 0 || save < del {
-		t.Errorf("Items footer needs Delete menu then Save menu: %s", foot)
+		t.Errorf("savebar needs Delete menu then Save: %s", bar)
 	}
 }
 
