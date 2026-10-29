@@ -562,10 +562,11 @@ Names are a contract (`TestTokensContract`): add freely, never rename.
   `--border-control` (a 3:1 border for checkboxes, switches and secondary
   buttons, unlike the hairline `--color-nezumi`); `--border-field` (the soft
   resting border of text inputs, selects and textareas; hover uses `--color-hai`
-  and focus the blue ring, both keep 3:1).
+  and focus the blue ring, both keep 3:1); `--segment-ring` and `--segment-bevel`
+  (the selected segment's ring and bottom bevel, lifted in dark).
 * Radii `--radius-sm|md|lg|xl|full` (6, 8, 12, 24 px and a pill) and
   `--radius-nav`, a kept alias of `--radius-md`; sizes `--control-h
-  --control-h-sm --sidebar-w --content-max --page-pad-x|y` (kept for plugins); spacing `--space-1..8` plus the
+  --control-h-sm --control-h-xs --sidebar-w --content-max --page-pad-x|y` (kept for plugins); spacing `--space-1..8` plus the
   half steps `--space-0-5|1-5|2-5`; stacking `--z-raised|sticky|header|popup|tooltip|
   skip|toast|shield`; type `--text-xs..2xl` plus `--text-title` (18 px) and
   `--text-metric` (30 px); fonts `--font-ui --font-mono --font-serif`.

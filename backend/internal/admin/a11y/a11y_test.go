@@ -166,7 +166,7 @@ func TestCSSAccessibilityLint(t *testing.T) {
 		t.Error("base.css has no prefers-reduced-motion block")
 	}
 	light, _ := ParseTokens(readTokens(t))
-	for _, tok := range []string{"--control-h", "--control-h-sm"} {
+	for _, tok := range []string{"--control-h", "--control-h-sm", "--control-h-xs"} {
 		var px int
 		if _, err := fmtSscan(light[tok], &px); err != nil || px < 24 {
 			t.Errorf("%s = %q, want >= 24px", tok, light[tok])

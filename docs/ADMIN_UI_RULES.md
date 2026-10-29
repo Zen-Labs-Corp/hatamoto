@@ -139,13 +139,13 @@ A change to one component edits only its own subsection below and its entry in t
 | savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
 | savestate | `.hm-savestate` | `css/partials/savestate.css` | `hm/savestate` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 | searchselect-list | `.hm-searchselect__list` | `css/partials/searchselect.css` | `hm/searchselect` | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
-| segmented | `.hm-segmented__btn` | `css/partials/segmented.css` | `hm/segmented` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-segmented__input:checked + .hm-segmented__btn`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-segmented__btn[aria-pressed="true"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)` |
+| segmented | `.hm-segmented__btn` | `css/partials/segmented.css` | `hm/segmented` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-segmented__input:checked + .hm-segmented__btn`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-segmented__btn[aria-pressed="true"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)` |
 | select-list | `.hm-select__list` | `css/partials/select.css` | `hm/select` | `border-top-color: var(--border-control)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
 | statcard | `.hm-statcard` | `css/partials/chart.css` | `hm/stat` |  |
 | statgrid | `.hm-statgrid` | `css/partials/chart.css` | `hm/stats` |  |
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
-| tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--border-control), inset 0 -1px 0 var(--border-control)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
+| tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
 <!-- components:end -->
 
 ### Button
@@ -245,7 +245,7 @@ the page is, or only how the same data is shown?
 - **Pills rearrange in place.** Picking an item changes the order, grouping, period
   or view of data that stays on the page: `group`, `from` and `to`, `range`,
   `view`. Pills are `hm/tabs` with `"Variant" "segmented"`: the same look as
-  `hm/segmented`: a `--border-control` grey track and a selected chip that is a paper pill with a hairline ring, a bottom bevel and a semibold label. They sit inside the
+  `hm/segmented`: a hairline `--border` track and a selected chip that is a paper pill with a hairline ring, a bottom bevel and a semibold label. They sit inside the
   content next to what they change. The period is not a pill row: it is the date
   picker (`hm/daterange` inside `hm/pageheader`), because it applies to the whole
   page and its preset list already covers the common periods.
@@ -504,7 +504,7 @@ Partial: `hm/segmented`. Contract: `components.json` key `segmented`.
 
 Rules: use it for one value out of a short list. Three modes, one look: `Mode ""` (post: each button is its own submit and no script is needed, the submission status), `"radio"` (a fieldset of radios a surrounding form posts, the Allow/Block policy) and `"buttons"` (`aria-pressed` buttons a script reads, the builder and blog editor width switches). The selected option is a paper pill (`--color-paper` fill, `--color-sumi` semibold text) with a hairline ring and a bottom bevel (ring and inset shadows only), no border, in every mode. Forced-colors mode adds a `Highlight` outline. It is not navigation (use `hm/tabs`) and never holds more than five choices. Never hand-build a row of `aria-pressed` buttons (the parked exceptions under Selected state aside).
 
-How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: `--border-control` track, paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
+How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: hairline `--border` track, 28px tall (`--control-h-xs`), paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
 
 ### Selected state
 
