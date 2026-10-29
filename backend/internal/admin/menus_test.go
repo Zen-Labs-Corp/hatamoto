@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -247,13 +248,15 @@ func TestMenuSaveRejectsBadItemsAndSavesNothing(t *testing.T) {
 
 	g, fm := newMenuRig(t)
 	m := fm.add("Main", "")
-	f := itemForm("Main", [4]string{"", "custom", "0", "/"}, [4]string{"Bad", "custom", "0", "javascript:alert(1)"}, [4]string{"No page", "entity", "0", ""})
+	f := itemForm("Main", [4]string{"", "custom", "0", "/"}, [4]string{"Bad", "custom", "0", "javascript:alert(1)"}, [4]string{"Typed", "entity", "0", ""})
+	f.Set("i.2.entity_q", "no such page") // text that matches nothing is not a missing link: it is a mistake
+	f.Set("i.1.class", "1bad")
 	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
 	if rec.Code != 422 || len(fm.replaced) != 0 {
 		t.Fatalf("want 422 and no save: %d replaced=%d", rec.Code, len(fm.replaced))
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Enter a label", "Enter a path like /about", "Choose the page or post", `href="#i-0-label"`} {
+	for _, want := range []string{"Enter a label", "Enter a path like /about", "Choose the page or post", "not a valid class name", `href="#i-0-label"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -323,11 +326,11 @@ func TestMenuStructuralOpsWorkWithoutJS(t *testing.T) {
 	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	// Remove keeps the sub-items and moves them up a level; indent under the item above; outdent.
+	// Remove takes the whole group; indent under the item above; outdent.
 	f = base()
 	f.Set("_op", "remove.1")
 	body := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
-	if order(body) != "A,B1" || !strings.Contains(body, `name="i.1.depth" value="0"`) {
+	if order(body) != "A" {
 		t.Errorf("remove: %s", order(body))
 	}
 	f = base()
@@ -362,6 +365,55 @@ func TestMenuStructuralOpsWorkWithoutJS(t *testing.T) {
 	}
 	if strings.Count(body, `<details class="hm-menutree__edit">`) != 3 {
 		t.Error("labelled items should stay collapsed")
+	}
+}
+
+// rowsOf lists "label:depth" of rows, for comparing a tree at a glance.
+func rowsOf(rows []menuRow) string {
+	var out []string
+	for _, r := range rows {
+		out = append(out, r.Label+":"+strconv.Itoa(r.Depth))
+	}
+	return strings.Join(out, " ")
+}
+
+func treeRows(spec ...string) []menuRow {
+	var rows []menuRow
+	for _, sp := range spec {
+		l, d, _ := strings.Cut(sp, ":")
+		n, _ := strconv.Atoi(d)
+		rows = append(rows, menuRow{Label: l, Depth: n})
+	}
+	return rows
+}
+
+func TestMenuTreeOps(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		op, target string
+		in         []string
+		want       string
+	}{
+		"outdent keeps the following siblings under the parent": {"outdent.2", "", []string{"A:0", "B:0", "B1:1", "B2:1", "C:0"}, "A:0 B:0 B2:1 B1:0 C:0"},
+		"outdent takes the sub-items along":                     {"outdent.1", "", []string{"A:0", "A1:1", "A11:2", "A2:1", "B:0"}, "A:0 A2:1 A1:0 A11:1 B:0"},
+		"remove takes the sub-items":                            {"remove.1", "", []string{"A:0", "B:0", "B1:1", "B11:2", "C:0"}, "A:0 C:0"},
+		"duplicate inserts a copy after the group":              {"dup.1", "", []string{"A:0", "B:0", "B1:1", "C:0"}, "A:0 B:0 B1:1 B:0 B1:1 C:0"},
+		"move under a later top-level item":                     {"moveto.0", "3", []string{"A:0", "A1:1", "B:0", "C:0", "C1:1"}, "B:0 C:0 C1:1 A:1 A1:2"},
+		"move under an earlier top-level item":                  {"moveto.3", "0", []string{"A:0", "A1:1", "B:0", "C:0"}, "A:0 A1:1 C:1 B:0"},
+		"move to the top level":                                 {"moveto.1", "top", []string{"A:0", "A1:1", "A11:2", "B:0"}, "A:0 B:0 A1:0 A11:1"},
+		"cannot move under itself":                              {"moveto.0", "0", []string{"A:0", "A1:1"}, "A:0 A1:1"},
+		"cannot move under a nested item":                       {"moveto.0", "2", []string{"A:0", "B:0", "B1:1"}, "A:0 B:0 B1:1"},
+	}
+	for name, tc := range tests {
+		got, _ := applyMenuOp(treeRows(tc.in...), tc.op, "", tc.target)
+		if g := rowsOf(got); g != tc.want {
+			t.Errorf("%s: got %q, want %q", name, g, tc.want)
+		}
+	}
+	deep := treeRows("A:0", "B:0", "B1:1", "B2:2", "B3:3", "B4:4", "B5:5")
+	if got, msg := applyMenuOp(deep, "moveto.1", "", "0"); rowsOf(got) != rowsOf(deep) || !strings.Contains(msg, "too many levels") {
+		t.Errorf("a move past the depth limit must be refused: %s %q", rowsOf(got), msg)
 	}
 }
 
@@ -514,5 +566,87 @@ func TestPickerWantsAnExactNameOrSlug(t *testing.T) {
 	f.Set("i.0.entity_q", "Cont") // a partial name must not pick "Contact"
 	if rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil); rec.Code != 422 || len(fm.replaced) != 0 {
 		t.Errorf("a partial name must not resolve: %d", rec.Code)
+	}
+}
+
+func TestMenuNoLinkAndMissingTargetsSave(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newMenuRig(t)
+	m := fm.add("Main", "footer")
+	f := itemForm("Main", [4]string{"Product", "none", "0", ""}, [4]string{"Page", "entity", "1", ""},
+		[4]string{"Address", "custom", "1", ""}, [4]string{"Archive", "archive", "1", ""})
+	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
+	if rec.Code != 303 || len(fm.replaced) != 1 {
+		t.Fatalf("items without a target must save: %d %.300s", rec.Code, rec.Body.String())
+	}
+	items := fm.replaced[0].Items
+	wantType := []string{menu.LinkTypeNone, menu.LinkTypeEntity, menu.LinkTypeCustom, menu.LinkTypeArchive}
+	for i, it := range items {
+		if it.LinkType != wantType[i] || it.EntityID != nil || it.URL != nil {
+			t.Errorf("item %d stored as %s with a target: %+v", i, it.LinkType, it)
+		}
+	}
+	// Reloaded, the editor keeps the type and warns about the three that lack a target, not the No-link one.
+	rows := []menuRow{}
+	flattenMenu([]*menu.MenuItem{
+		{Label: "Product", LinkType: menu.LinkTypeNone},
+		{Label: "Page", LinkType: menu.LinkTypeEntity},
+		{Label: "Address", LinkType: menu.LinkTypeCustom},
+		{Label: "Archive", LinkType: menu.LinkTypeArchive},
+	}, 0, &rows)
+	for i, want := range []struct{ typ, warn string }{{"none", ""}, {"entity", menuNoLinkWarning}, {"custom", menuNoLinkWarning}, {"archive", menuNoLinkWarning}} {
+		if rows[i].Type != want.typ || rows[i].Warn != want.warn {
+			t.Errorf("row %d: type %q warn %q, want %q %q", i, rows[i].Type, rows[i].Warn, want.typ, want.warn)
+		}
+	}
+	m2 := fm.add("Other", "")
+	m2.Items = []*menu.MenuItem{{Label: "Page", LinkType: menu.LinkTypeEntity}}
+	body := g.do("GET", "/admin/theme/menus/"+m2.ID.String(), "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `data-type="entity"`) {
+		t.Errorf("an entity item without a page must reload as a page item: %.200s", body)
+	}
+	// A malformed address still blocks the save.
+	bad := itemForm("Main", [4]string{"Bad", "custom", "0", "javascript:x"})
+	if rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", bad, nil); rec.Code != 422 || len(fm.replaced) != 1 {
+		t.Errorf("a malformed address must block: %d", rec.Code)
+	}
+}
+
+func TestMenuSavesClassesAndSettings(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newMenuRig(t)
+	m := fm.add("Main", "")
+	f := itemForm("Main", [4]string{"Start", "custom", "0", "/start"})
+	for k, v := range map[string]string{"class": "footer-cta   extra", "style": "button", "color": "accent", "badge": "new",
+		"icon": "arrow", "show": "mobile", "id": "cta", "title": "Begin", "aria": "Get started"} {
+		f.Set("i.0."+k, v)
+	}
+	f["i.0.rel"] = []string{"nofollow", "ugc"}
+	if rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil); rec.Code != 303 {
+		t.Fatalf("save: %d %.300s", rec.Code, rec.Body.String())
+	}
+	it := fm.replaced[0].Items[0]
+	want := menu.MenuItemAttrs{Style: "button", Color: "accent", Badge: "new", Icon: "arrow", ShowOn: "mobile", ID: "cta", Title: "Begin", AriaLabel: "Get started", Rel: []string{"nofollow", "ugc"}}
+	if it.CSSClasses == nil || *it.CSSClasses != "footer-cta extra" || it.Attrs.Style != want.Style || it.Attrs.Color != want.Color ||
+		it.Attrs.Badge != want.Badge || it.Attrs.Icon != want.Icon || it.Attrs.ShowOn != want.ShowOn || it.Attrs.ID != want.ID ||
+		it.Attrs.Title != want.Title || it.Attrs.AriaLabel != want.AriaLabel || strings.Join(it.Attrs.Rel, ",") != "nofollow,ugc" {
+		t.Errorf("settings not carried: %+v classes=%v", it.Attrs, it.CSSClasses)
+	}
+	// "All devices" is stored as nothing.
+	f.Set("i.0.show", "all")
+	g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
+	if got := fm.replaced[1].Items[0].Attrs.ShowOn; got != "" {
+		t.Errorf("show on all stored as %q", got)
+	}
+	// Each bad value is refused on its own field and nothing is saved.
+	for field, val := range map[string]string{"class": "9x", "style": "Big Button", "show": "tablet", "id": "1x", "rel": "evil", "title": strings.Repeat("t", 101)} {
+		bad := itemForm("Main", [4]string{"Start", "custom", "0", "/start"})
+		bad.Set("i.0."+field, val)
+		rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", bad, nil)
+		if rec.Code != 422 || len(fm.replaced) != 2 {
+			t.Errorf("%s=%q: want 422 and no save, got %d (saved %d)", field, val, rec.Code, len(fm.replaced))
+		}
 	}
 }

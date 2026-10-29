@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/sectiontemplate"
 	"hatamoto.dev/core/internal/taxonomy"
 )
@@ -107,6 +108,10 @@ type ContentDeps struct {
 	// rendering is off, which leaves the page editor without "Add section" and
 	// without a preview.
 	Theme func() []ThemeSection
+	// MenuTheme is what the active theme declares for menu items (styles,
+	// colours, badges, icons, class suggestions). Nil, or a zero value, leaves
+	// the menu editor with only the class and advanced fields.
+	MenuTheme func() render.MenuDecl
 	// Preview renders unsaved attributes: it answers a POST with the JSON body
 	// of /api/v1/render/preview (entity_id, schema, attributes, path, canvas)
 	// with the full HTML document. Nil turns the live preview off.

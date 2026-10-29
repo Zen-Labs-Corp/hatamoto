@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/render"
 )
 
 const (
@@ -28,12 +29,20 @@ const (
 // menuTypes are the kinds of target a menu item can have, as the form names
 // them. They map to menu link types: entity -> entity; custom -> external for
 // an absolute address and custom for a path; archive -> archive (a term's
-// archive page, stored as its path).
+// archive page, stored as its path). An item may have no target yet: it is
+// stored as the type chosen and shown with a warning. The form also knows the
+// type none (plain text).
 var menuTypes = []ui.Option{
 	{Value: "entity", Label: "A page or post"},
 	{Value: "custom", Label: "A custom address"},
 	{Value: "archive", Label: "A category or tag archive"},
 }
+
+// menuNoLinkWarning is shown on an item that will render as plain text.
+const menuNoLinkWarning = "This item has no link, so it shows as plain text."
+
+// menuItemErrKeys are the per-item field errors in the order the summary lists them.
+var menuItemErrKeys = []string{"label", "entity", "url", "term", "class", "style", "color", "badge", "icon", "show", "id", "title", "aria", "rel"}
 
 // menuRow is one item as the editor shows it: the tree flattened in reading
 // order, with Depth giving the nesting.
@@ -52,6 +61,15 @@ type menuRow struct {
 	NoOutdent        bool
 	Types            []ui.Option
 	Err              map[string]string
+	// Warn is set (not Err) when the item has no link: it saves and renders as text.
+	Warn string
+	// Class holds the item's own CSS classes. Style, Color and Icon are preset
+	// ids of the active theme, Badge a badge preset id (or free text), Show is
+	// all, desktop or mobile. HTMLID, Title and Aria are the id, title and
+	// aria-label attributes, Rel the link relations.
+	Class, Style, Color, Badge, Icon, Show string
+	HTMLID, Title, Aria                    string
+	Rel                                    []string
 }
 
 type menuForm struct {
@@ -64,6 +82,12 @@ type menuForm struct {
 	AddType            string
 	AddTypes           []ui.Option
 	Notice             string // structural edit applied but not saved yet
+	// Decl is what the active theme declares for menu items; zero when it
+	// declares nothing, so the editor offers only classes and advanced fields.
+	Decl render.MenuDecl
+	// MaxDepth and MaxItems are the limits the editor enforces; the page
+	// hands them to the script so they are defined once.
+	MaxDepth, MaxItems int
 }
 
 func (a *Admin) mountMenus(authed *httpx.Group) {
@@ -87,11 +111,17 @@ func locationOptions(selected string) []ui.Option {
 	}
 }
 
+// typeOptions lists the types with selected marked. "No link" is listed only on
+// the rows that already have it, until the editor offers it on every item, so
+// that a save keeps them.
 func typeOptions(selected string) []ui.Option {
 	out := make([]ui.Option, len(menuTypes))
 	for i, o := range menuTypes {
 		o.Selected = o.Value == selected
 		out[i] = o
+	}
+	if selected == menu.LinkTypeNone {
+		out = append(out, ui.Option{Value: menu.LinkTypeNone, Label: "No link", Selected: true})
 	}
 	return out
 }
@@ -219,7 +249,15 @@ func (a *Admin) renderMenuNew(w http.ResponseWriter, r *http.Request, f menuForm
 func flattenMenu(items []*menu.MenuItem, depth int, out *[]menuRow) {
 	for _, it := range items {
 		row := menuRow{Label: it.Label, Depth: depth, NewTab: it.OpenInNewTab, Subtree: len(it.Children) > 0}
+		a := it.Attrs
+		row.Style, row.Color, row.Badge, row.Icon, row.Show = a.Style, a.Color, a.Badge, a.Icon, a.ShowOn
+		row.HTMLID, row.Title, row.Aria, row.Rel = a.ID, a.Title, a.AriaLabel, a.Rel
+		if it.CSSClasses != nil {
+			row.Class = *it.CSSClasses
+		}
 		switch {
+		case it.LinkType == menu.LinkTypeNone:
+			row.Type = menu.LinkTypeNone
 		case it.LinkType == menu.LinkTypeEntity:
 			row.Type = "entity"
 			if it.EntityID != nil {
@@ -228,15 +266,18 @@ func flattenMenu(items []*menu.MenuItem, depth int, out *[]menuRow) {
 			if it.EntityName != nil {
 				row.EntityLb = *it.EntityName
 			}
-		case it.LinkType == menu.LinkTypeArchive && it.URL != nil && *it.URL != "":
+		case it.LinkType == menu.LinkTypeArchive:
 			row.Type = "archive"
-			row.Term, row.TermLb = *it.URL, *it.URL
+			if it.URL != nil {
+				row.Term, row.TermLb = *it.URL, *it.URL
+			}
 		default:
 			row.Type = "custom"
 			if it.URL != nil {
 				row.URL = *it.URL
 			}
 		}
+		row.Warn = menuRowWarning(row)
 		*out = append(*out, row)
 		flattenMenu(it.Children, depth+1, out)
 	}
@@ -263,14 +304,25 @@ func (a *Admin) loadMenu(w http.ResponseWriter, r *http.Request) (*menu.Menu, bo
 	return nil, false
 }
 
-// menuMaxDepth is the deepest level an item can be indented to (menutree.js MAX_DEPTH).
-const menuMaxDepth = 5
+// menuRowWarning is the warning of a row that has no target to link to; none
+// for a No-link row, which is plain text on purpose.
+func menuRowWarning(r menuRow) string {
+	switch {
+	case r.Type == menu.LinkTypeNone:
+		return ""
+	case r.Type == "entity" && r.Entity == "", r.Type == "archive" && r.Term == "", r.Type == "custom" && r.URL == "":
+		return menuNoLinkWarning
+	}
+	return ""
+}
 
 // menuTarget is the row's type icon and a short summary of where it links, as
 // "Page or post · About us". The name is left out when it repeats the item's own title.
 func menuTarget(r menuRow) (icon, target string) {
 	icon, kind, name := "link", "Link", r.URL
 	switch r.Type {
+	case menu.LinkTypeNone:
+		return "minus", "No link"
 	case "entity":
 		icon, kind, name = "file-text", "Page or post", r.EntityLb
 	case "archive":
@@ -298,13 +350,17 @@ func (a *Admin) handleMenuEdit(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status int, f menuForm) {
 	f.Locations = locationOptions(f.Location)
 	f.AddTypes = typeOptions(f.AddType)
+	f.MaxDepth, f.MaxItems = maxMenuDepth, maxMenuItems
+	if a.deps.Content.MenuTheme != nil {
+		f.Decl = a.deps.Content.MenuTheme()
+	}
 	for i := range f.Items {
 		f.Items[i].N = i
 		f.Items[i].Types = typeOptions(f.Items[i].Type)
 		f.Items[i].Subtree = i+1 < len(f.Items) && f.Items[i+1].Depth > f.Items[i].Depth
 		f.Items[i].TypeIcon, f.Items[i].Target = menuTarget(f.Items[i])
 		f.Items[i].NoOutdent = f.Items[i].Depth == 0
-		f.Items[i].NoIndent = i == 0 || f.Items[i].Depth > f.Items[i-1].Depth || f.Items[i].Depth >= menuMaxDepth
+		f.Items[i].NoIndent = i == 0 || f.Items[i].Depth > f.Items[i-1].Depth || f.Items[i].Depth >= maxMenuDepth
 	}
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
@@ -314,7 +370,7 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 		if len(it.Err) == 0 {
 			continue
 		}
-		for _, k := range []string{"label", "entity", "url", "term"} {
+		for _, k := range menuItemErrKeys {
 			if m := it.Err[k]; m != "" {
 				f.Summary = append(f.Summary, ui.FieldError{ID: "i-" + strconv.Itoa(it.N) + "-" + k, Label: "Item " + strconv.Itoa(it.N+1), Message: m})
 			}
@@ -349,16 +405,34 @@ func parseMenuItems(form url.Values) []menuRow {
 		g := func(k string) string { return strings.TrimSpace(form.Get(p + k)) }
 		d, _ := strconv.Atoi(g("depth"))
 		typ := g("type")
-		if typ != "custom" && typ != "archive" {
+		if typ != "custom" && typ != "archive" && typ != menu.LinkTypeNone {
 			typ = "entity"
 		}
 		rows = append(rows, menuRow{
 			Label: g("label"), Type: typ, Entity: g("entity"), EntityLb: g("entity_prev"), URL: g("url"),
 			Term: g("term"), TermLb: g("term_prev"), EntityQ: g("entity_q"), TermQ: g("term_q"), Depth: d, NewTab: g("newtab") != "",
+			Class: g("class"), Style: g("style"), Color: g("color"), Badge: g("badge"), Icon: g("icon"), Show: g("show"),
+			HTMLID: g("id"), Title: g("title"), Aria: g("aria"), Rel: splitRel(form[p+"rel"]),
 		})
 	}
 	normaliseDepths(rows)
 	return rows
+}
+
+// splitRel reads the rel values of a row: one field per relation (switches) or
+// one comma or space separated field. Duplicates are dropped.
+func splitRel(vals []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, v := range vals {
+		for _, r := range strings.FieldsFunc(strings.ToLower(v), func(c rune) bool { return c == ',' || c == ' ' }) {
+			if !seen[r] {
+				seen[r] = true
+				out = append(out, r)
+			}
+		}
+	}
+	return out
 }
 
 // normaliseDepths keeps the tree valid: the first item is top level and an item
@@ -390,12 +464,15 @@ func blockEnd(rows []menuRow, i int) int {
 }
 
 // applyMenuOp performs one structural edit named "<op>.<index>" (or "add").
-func applyMenuOp(rows []menuRow, op, addType string) ([]menuRow, string) {
+// target is the chosen destination of "moveto": the index of a top-level row, or "top".
+func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string) {
 	if op == "add" {
-		if addType != "custom" && addType != "archive" {
+		if addType != "custom" && addType != "archive" && addType != menu.LinkTypeNone {
 			addType = "entity"
 		}
-		return append(rows, menuRow{Type: addType}), "Item added. It is not saved yet."
+		row := menuRow{Type: addType}
+		row.Warn = menuRowWarning(row)
+		return append(rows, row), "Item added. It is not saved yet."
 	}
 	if op == "refresh" {
 		return rows, "Link fields updated. It is not saved yet."
@@ -409,11 +486,18 @@ func applyMenuOp(rows []menuRow, op, addType string) ([]menuRow, string) {
 	d := rows[i].Depth
 	switch name {
 	case "remove":
-		// Like the old admin: the sub-items move up one level.
-		for k := i + 1; k < end; k++ {
-			rows[k].Depth--
+		// The item goes with everything under it.
+		return append(rows[:i:i], rows[end:]...), "Item removed with its sub-items. It is not saved yet."
+	case "dup":
+		out := make([]menuRow, 0, len(rows)+end-i)
+		out = append(out, rows[:end]...)
+		for _, r := range rows[i:end] {
+			r.Err = nil
+			out = append(out, r)
 		}
-		return append(rows[:i:i], rows[i+1:]...), "Item removed; its sub-items moved up a level. It is not saved yet."
+		return append(out, rows[end:]...), "Item duplicated. It is not saved yet."
+	case "moveto":
+		return moveMenuBlock(rows, i, end, target)
 	case "indent":
 		if i == 0 || d > rows[i-1].Depth || d >= maxMenuDepth {
 			return rows, "This item cannot be indented: it needs an item above it to go under."
@@ -426,10 +510,21 @@ func applyMenuOp(rows []menuRow, op, addType string) ([]menuRow, string) {
 		if d == 0 {
 			return rows, "This item is already at the top level."
 		}
-		for k := i; k < end; k++ {
-			rows[k].Depth--
+		// The item and its sub-items go right after the parent's group; the
+		// siblings that followed it stay under the parent.
+		p := i - 1
+		for rows[p].Depth >= d {
+			p--
 		}
-		return rows, "Item moved out. It is not saved yet."
+		pend := blockEnd(rows, p)
+		out := make([]menuRow, 0, len(rows))
+		out = append(out, rows[:i]...)
+		out = append(out, rows[end:pend]...)
+		for _, r := range rows[i:end] {
+			r.Depth--
+			out = append(out, r)
+		}
+		return append(out, rows[pend:]...), "Item moved out. It is not saved yet."
 	case "up":
 		start := -1
 		for k := i - 1; k >= 0; k-- {
@@ -454,6 +549,50 @@ func applyMenuOp(rows []menuRow, op, addType string) ([]menuRow, string) {
 	return rows, ""
 }
 
+// moveMenuBlock moves rows[i:end] (an item and its sub-items) to the end of the
+// group of the top-level row named by target, or to the end of the top level
+// for "top".
+func moveMenuBlock(rows []menuRow, i, end int, target string) ([]menuRow, string) {
+	t := -1
+	if target != "top" {
+		n, err := strconv.Atoi(target)
+		if err != nil || n < 0 || n >= len(rows) || rows[n].Depth != 0 {
+			return rows, "Choose a top-level item to move this item under."
+		}
+		if n >= i && n < end {
+			return rows, "An item cannot move under itself."
+		}
+		t = n
+	}
+	newDepth := 0
+	if t >= 0 {
+		newDepth = 1
+	}
+	delta := newDepth - rows[i].Depth
+	for _, r := range rows[i:end] {
+		if r.Depth+delta > maxMenuDepth {
+			return rows, "This item has too many levels under it to move there."
+		}
+	}
+	rest := make([]menuRow, 0, len(rows))
+	rest = append(rest, rows[:i]...)
+	rest = append(rest, rows[end:]...)
+	at := len(rest)
+	if t >= 0 {
+		if t > i {
+			t -= end - i
+		}
+		at = blockEnd(rest, t)
+	}
+	out := make([]menuRow, 0, len(rows))
+	out = append(out, rest[:at]...)
+	for _, r := range rows[i:end] {
+		r.Depth += delta
+		out = append(out, r)
+	}
+	return append(out, rest[at:]...), "Item moved. It is not saved yet."
+}
+
 // swapBlocks exchanges rows[a:b] and rows[b:c].
 func swapBlocks(rows []menuRow, a, b, c int) []menuRow {
 	out := make([]menuRow, 0, len(rows))
@@ -475,7 +614,7 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	f := menuForm{ID: m.ID.String(), Name: strings.TrimSpace(r.PostFormValue("name")), Location: r.PostFormValue("location"),
 		Items: parseMenuItems(r.PostForm), Errors: map[string]string{}, AddType: r.PostFormValue("add_type")}
 	if op := r.PostFormValue("_op"); op != "" && op != "save" {
-		f.Items, f.Notice = applyMenuOp(f.Items, op, f.AddType)
+		f.Items, f.Notice = applyMenuOp(f.Items, op, f.AddType, r.PostFormValue("moveto_target"))
 		normaliseDepths(f.Items)
 		f.Errors = nil
 		a.renderMenuForm(w, r, http.StatusOK, f)
@@ -576,45 +715,89 @@ func (a *Admin) menuReplaceItems(ctx context.Context, rows []menuRow) replaceRes
 			ri.Parent = parents[it.Depth-1]
 		}
 		parents[it.Depth] = i
+		it.Warn = ""
 		switch it.Type {
+		case menu.LinkTypeNone:
+			ri.LinkType = menu.LinkTypeNone
 		case "entity":
 			ri.LinkType = menu.LinkTypeEntity
 			id, label := a.resolvePick(ctx, "entity", it.Entity, it.EntityLb, it.EntityQ)
-			if id == "" {
-				it.Err["entity"] = "Choose the page or post this item links to"
-			} else if eid, err := uuid.Parse(id); err != nil {
-				it.Err["entity"] = "Choose the page or post this item links to"
-			} else {
+			switch eid, err := uuid.Parse(id); {
+			case id != "" && err == nil:
 				ri.EntityID = &eid
 				it.Entity, it.EntityLb = id, label
+			case id != "" || strings.TrimSpace(it.EntityQ) != "":
+				it.Err["entity"] = "Choose the page or post this item links to"
+			default:
+				it.Warn = menuNoLinkWarning
 			}
 		case "archive":
 			ri.LinkType = menu.LinkTypeArchive
 			path, label := a.resolvePick(ctx, "term", it.Term, it.TermLb, it.TermQ)
-			if path == "" || !safeMenuURL(path) {
-				it.Err["term"] = "Choose a category or tag"
-			} else {
+			switch {
+			case path != "" && safeMenuURL(path):
 				ri.URL = &path
 				it.Term, it.TermLb = path, label
+			case path != "" || strings.TrimSpace(it.TermQ) != "":
+				it.Err["term"] = "Choose a category or tag"
+			default:
+				it.Warn = menuNoLinkWarning
 			}
 		default:
 			ri.LinkType = menu.LinkTypeCustom
-			if safeMenuURL(it.URL) {
+			switch {
+			case it.URL == "":
+				it.Warn = menuNoLinkWarning
+			case safeMenuURL(it.URL):
 				if !strings.HasPrefix(it.URL, "/") && !strings.HasPrefix(it.URL, "#") && !strings.HasPrefix(it.URL, "?") {
 					ri.LinkType = menu.LinkTypeExternal
 				}
 				u := it.URL
 				ri.URL = &u
-			} else {
+			default:
 				it.Err["url"] = "Enter a path like /about or an address like https://example.com"
 			}
 		}
+		a.menuItemSettings(it, &ri)
 		res.out = append(res.out, ri)
 	}
 	if res.out == nil {
 		res.out = []menu.ReplaceItem{}
 	}
 	return res
+}
+
+// menuItemSettings validates the item's classes and settings, recording each
+// problem on the field it belongs to, and copies the valid ones to ri. Preset
+// ids are kept even when the active theme does not declare them (the theme may
+// change back); the theme ignores what it does not know.
+func (a *Admin) menuItemSettings(it *menuRow, ri *menu.ReplaceItem) {
+	check := func(key string, at menu.MenuItemAttrs) {
+		if err := at.Validate(); err != nil {
+			msg := strings.TrimPrefix(err.Error(), menu.ErrInvalidAttrs.Error()+": ")
+			it.Err[key] = strings.ToUpper(msg[:1]) + msg[1:] + "."
+		}
+	}
+	check("style", menu.MenuItemAttrs{Style: it.Style})
+	check("color", menu.MenuItemAttrs{Color: it.Color})
+	check("badge", menu.MenuItemAttrs{Badge: it.Badge})
+	check("icon", menu.MenuItemAttrs{Icon: it.Icon})
+	check("show", menu.MenuItemAttrs{ShowOn: it.Show})
+	check("id", menu.MenuItemAttrs{ID: it.HTMLID})
+	check("title", menu.MenuItemAttrs{Title: it.Title})
+	check("aria", menu.MenuItemAttrs{AriaLabel: it.Aria})
+	check("rel", menu.MenuItemAttrs{Rel: it.Rel})
+	if it.Class != "" {
+		if classes, err := menu.ValidateCSSClasses(it.Class); err != nil {
+			msg := strings.TrimPrefix(err.Error(), menu.ErrInvalidAttrs.Error()+": ")
+			it.Err["class"] = strings.ToUpper(msg[:1]) + msg[1:] + "."
+		} else if classes != "" {
+			it.Class = classes
+			ri.CSSClasses = &classes
+		}
+	}
+	ri.Attrs = menu.MenuItemAttrs{Style: it.Style, Color: it.Color, Badge: it.Badge, Icon: it.Icon, ShowOn: it.Show,
+		ID: it.HTMLID, Title: it.Title, AriaLabel: it.Aria, Rel: it.Rel}.Normalize()
 }
 
 // resolvePick returns the chosen value. A search box left with its original
