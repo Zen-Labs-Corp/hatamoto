@@ -171,6 +171,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
   display: inline-block; padding: 0.4rem 0.9rem; border-radius: var(--hm-radius-sm);
   background: var(--hm-primary); color: var(--hm-bg); font-weight: 500;
 }
+.hm-nav__sub .hm-nav__item--button { margin-top: 0.25rem; }
 :is(a, span, p).hm-nav__item--button:hover { background: var(--hm-shu-dark); color: var(--hm-bg); }
 :is(a, span, p).hm-nav__item--link { text-decoration: underline; text-underline-offset: 0.2em; }
 :is(a, span, p).hm-nav__item--muted { color: var(--hm-label); font-weight: 400; }

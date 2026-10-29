@@ -280,8 +280,27 @@
         d.open = wide.matches;
       });
     }
+    // A no-link parent is a disclosure: aria-expanded follows hover and focus on
+    // wide screens (CSS opens the sub-list the same way) and is true when the
+    // sub-list is always shown.
+    function syncParents() {
+      document.querySelectorAll('.hm-nav__list li > [aria-expanded]').forEach(function (b) {
+        var li = b.parentNode;
+        b.setAttribute('aria-expanded', !wide.matches || li.matches(':hover, :focus-within') ? 'true' : 'false');
+      });
+    }
     sync();
-    wide.addEventListener('change', sync);
+    syncParents();
+    wide.addEventListener('change', function () {
+      sync();
+      syncParents();
+    });
+    ['focusin', 'focusout', 'mouseover', 'mouseout'].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        var li = event.target && event.target.closest && event.target.closest('.hm-nav__list li');
+        if (li && li.querySelector(':scope > [aria-expanded]')) setTimeout(syncParents, 0);
+      });
+    });
     // A click on the scrim (the details element itself, not its summary or list) closes it.
     document.addEventListener('click', function (event) {
       var d = event.target;

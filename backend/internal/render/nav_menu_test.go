@@ -56,7 +56,7 @@ func TestNoLinkParentIsFocusable(t *testing.T) {
 		{Label: "Loose", Href: "#", NoLink: true},
 	}
 	out := renderShell(t, v)
-	if want := `<li><span tabindex="0">Product</span><ul class="hm-nav__sub">`; !strings.Contains(out, want) {
+	if want := `<li><span tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">Product</span><ul class="hm-nav__sub">`; !strings.Contains(out, want) {
 		t.Errorf("missing %s in:\n%s", want, out)
 	}
 	if want := `<li><span>Loose</span></li>`; !strings.Contains(out, want) {
