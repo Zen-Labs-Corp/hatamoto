@@ -85,6 +85,17 @@
 {{template "hm/button" dict "Label" "Expand all" "Size" "sm" "Attrs" (attrmap "data-hm-expand-all" "")}}
 {{template "hm/button" dict "Label" "Keyboard shortcuts" "Size" "sm" "Icon" "help" "Attrs" (attrmap "data-hm-open" "menu-shortcuts")}}</div></template>
 <template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
+<div class="hm-savebar">
+<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>
+<span class="hm-menueditor__state" hidden data-hm-editor-only data-hm-state>{{template "hm/savestate" dict "State" "saved" "Text" "All changes saved"}}</span>
+<span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
+{{template "hm/button" dict "Label" "Undo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-undo-all" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Redo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-redo" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Discard changes" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-discard" "" "hidden" "")}}
+{{template "hm/button" dict "Label" "Back to menus" "Variant" "ghost" "Href" (adminPath "theme" "menus")}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
+</div>
+</form>
 {{template "hm/dialog-start" dict "ID" "menu-shortcuts" "Title" "Keyboard shortcuts"}}
 <p>Click an item or press Tab to reach the list, then use these keys. They do nothing while you type in a field.</p>
 <dl class="hm-dl">
@@ -102,17 +113,6 @@
 <dt><kbd>?</kbd></dt><dd>Show this list</dd>
 </dl>
 {{template "hm/dialog-end" dict "ID" "menu-shortcuts"}}
-<div class="hm-savebar">
-<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete menu" "Variant" "danger-text" "Href" (printf "%s/theme/menus/%s/delete" adminPath .ID)}}</span>
-<span class="hm-menueditor__state" hidden data-hm-editor-only data-hm-state>{{template "hm/savestate" dict "State" "saved" "Text" "All changes saved"}}</span>
-<span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
-{{template "hm/button" dict "Label" "Undo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-undo-all" "" "hidden" "")}}
-{{template "hm/button" dict "Label" "Redo" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-redo" "" "hidden" "")}}
-{{template "hm/button" dict "Label" "Discard changes" "Attrs" (attrmap "data-hm-editor-only" "" "data-hm-discard" "" "hidden" "")}}
-{{template "hm/button" dict "Label" "Back to menus" "Variant" "ghost" "Href" (adminPath "theme" "menus")}}
-{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
-</div>
-</form>
 {{end}}{{end}}
 {{define "menus/item"}}{{$it := .It}}{{$n := $it.N}}<li class="hm-menutree__item" data-hm-item data-depth="{{$it.Depth}}" data-type="{{$it.Type}}">
 <input type="hidden" name="i.{{$n}}.depth" value="{{$it.Depth}}" data-hm-depth>
