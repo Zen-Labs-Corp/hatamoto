@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/author"
@@ -580,7 +581,10 @@ func (f *fakeTerms) UpdateTerm(_ context.Context, in taxonomy.UpdateTermInput) (
 		}
 		if in.SEO != nil {
 			if c := in.SEO.CanonicalURL; c != "" && !strings.HasPrefix(c, "http") && !strings.HasPrefix(c, "/") {
-				return nil, taxonomy.ErrInvalidSEO
+				return nil, &taxonomy.SEOFieldError{Field: taxonomy.SEOFieldCanonical}
+			}
+			if utf8.RuneCountInString(in.SEO.MetaTitle) > 255 {
+				return nil, &taxonomy.SEOFieldError{Field: taxonomy.SEOFieldTitle}
 			}
 			s := *in.SEO
 			t.SEO = &s

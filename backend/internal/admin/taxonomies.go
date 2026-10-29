@@ -258,7 +258,19 @@ func termFieldError(f *termForm, err error) bool {
 	case errors.Is(err, taxonomy.ErrInvalidDescription):
 		f.Errors["description"] = "Use at most 2000 characters"
 	case errors.Is(err, taxonomy.ErrInvalidSEO):
-		f.Errors["seo_canonical"] = "Use a full address starting with https:// or a path starting with /"
+		id, msg := "seo_canonical", "Use a full address starting with https:// or a path starting with /"
+		var fe *taxonomy.SEOFieldError
+		if errors.As(err, &fe) {
+			switch fe.Field {
+			case taxonomy.SEOFieldTitle:
+				id, msg = "seo_title", "Use at most 255 characters"
+			case taxonomy.SEOFieldDescription:
+				id, msg = "seo_description", "Use at most 500 characters"
+			case taxonomy.SEOFieldOGImage:
+				id, msg = "seo_og_image", "Use at most 2048 characters"
+			}
+		}
+		f.Errors[id] = msg
 	default:
 		return false
 	}

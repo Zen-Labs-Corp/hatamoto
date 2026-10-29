@@ -123,6 +123,20 @@ const (
 	maxSEOURLLen         = 2048
 )
 
+// The SEOFieldError.Field values.
+const (
+	SEOFieldTitle       = "title"
+	SEOFieldDescription = "description"
+	SEOFieldCanonical   = "canonical"
+	SEOFieldOGImage     = "og_image"
+)
+
+// SEOFieldError says which SEO value was refused. It matches ErrInvalidSEO.
+type SEOFieldError struct{ Field string }
+
+func (e *SEOFieldError) Error() string { return "invalid_seo: " + e.Field }
+func (e *SEOFieldError) Unwrap() error { return ErrInvalidSEO }
+
 // validateTermSEO trims and checks the values. A canonical must be an
 // absolute http(s) URL or a root-relative path. All empty returns nil.
 func validateTermSEO(in TermSEO) (*TermSEO, error) {
@@ -130,12 +144,18 @@ func validateTermSEO(in TermSEO) (*TermSEO, error) {
 	in.MetaDescription = strings.TrimSpace(in.MetaDescription)
 	in.CanonicalURL = strings.TrimSpace(in.CanonicalURL)
 	in.OGImage = strings.TrimSpace(in.OGImage)
-	if utf8.RuneCountInString(in.MetaTitle) > maxSEOTitleLen || utf8.RuneCountInString(in.MetaDescription) > maxSEODescriptionLen ||
-		utf8.RuneCountInString(in.CanonicalURL) > maxSEOURLLen || utf8.RuneCountInString(in.OGImage) > maxSEOURLLen {
-		return nil, ErrInvalidSEO
+	for _, f := range []struct {
+		field string
+		value string
+		max   int
+	}{{SEOFieldTitle, in.MetaTitle, maxSEOTitleLen}, {SEOFieldDescription, in.MetaDescription, maxSEODescriptionLen},
+		{SEOFieldCanonical, in.CanonicalURL, maxSEOURLLen}, {SEOFieldOGImage, in.OGImage, maxSEOURLLen}} {
+		if utf8.RuneCountInString(f.value) > f.max {
+			return nil, &SEOFieldError{Field: f.field}
+		}
 	}
 	if c := in.CanonicalURL; c != "" && !validCanonical(c) {
-		return nil, fmt.Errorf("%w: canonical must be an absolute http(s) URL or start with /", ErrInvalidSEO)
+		return nil, &SEOFieldError{Field: SEOFieldCanonical}
 	}
 	if in.IsZero() {
 		return nil, nil

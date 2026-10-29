@@ -844,6 +844,11 @@ func TestTaxonomyScreens(t *testing.T) {
 	if rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "seo_canonical": {"nope"}}); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Use a full address") {
 		t.Errorf("bad canonical: %d", rec.Code)
 	}
+	// a too-long title is reported on the title, not on the canonical
+	rec = c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "seo_title": {strings.Repeat("a", 256)}})
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "SEO title") || strings.Contains(rec.Body.String(), "Use a full address") {
+		t.Errorf("long title: %d", rec.Code)
+	}
 	// merge Releases into News (Releases has no children)
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+rel.String()+"/merge", "taxonomy-merge")
 	has(t, body, "Merge into")

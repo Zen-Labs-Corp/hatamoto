@@ -641,6 +641,19 @@ func TestServiceUpdateTerm_RejectsInvalidSEO(t *testing.T) {
 			t.Errorf("%+v: err = %v, want ErrInvalidSEO", in, err)
 		}
 	}
+	for field, in := range map[string]TermSEO{
+		SEOFieldTitle:       {MetaTitle: strings.Repeat("a", maxSEOTitleLen+1)},
+		SEOFieldDescription: {MetaDescription: strings.Repeat("a", maxSEODescriptionLen+1)},
+		SEOFieldOGImage:     {OGImage: strings.Repeat("a", maxSEOURLLen+1)},
+		SEOFieldCanonical:   {CanonicalURL: "nope"},
+	} {
+		in := in
+		_, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &in})
+		var fe *SEOFieldError
+		if !errors.As(err, &fe) || fe.Field != field {
+			t.Errorf("%s: err = %v", field, err)
+		}
+	}
 	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &TermSEO{CanonicalURL: "/guides"}}); err != nil {
 		t.Errorf("root-relative canonical rejected: %v", err)
 	}
