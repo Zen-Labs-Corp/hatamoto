@@ -31,8 +31,8 @@ type packageAdmin struct {
 	cached   *packages.Index
 	cacheErr error
 	cachedAt time.Time
-	// fetchedAt is when cached was read from the registry (not when it was
-	// last served): what the pages show as "refreshed N ago".
+	// fetchedAt is when cached was last read from the registry successfully
+	// (not when it was last served, and not moved by a failed fetch): what the pages show as "refreshed N ago".
 	fetchedAt time.Time
 }
 
@@ -66,7 +66,9 @@ func (p *packageAdmin) index(ctx context.Context) (*packages.Index, error) {
 	defer cancel()
 	p.cached, p.cacheErr = p.mgr().Registry.Fetch(ctx)
 	p.cachedAt = time.Now()
-	p.fetchedAt = p.cachedAt
+	if p.cacheErr == nil {
+		p.fetchedAt = p.cachedAt
+	}
 	return p.cached, p.cacheErr
 }
 
