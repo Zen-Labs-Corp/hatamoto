@@ -4,8 +4,9 @@
 {{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" (or .NoticeKind "info"))}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
-<form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform" data-hm-editor data-max-depth="{{.MaxDepth}}" data-max-items="{{.MaxItems}}">
+<form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform" data-hm-editor data-max-depth="{{.MaxDepth}}" data-max-items="{{.MaxItems}}"{{if or .Notice .Errors}} data-hm-dirty{{end}}>
 {{template "hm/csrf" $}}
+<div role="status" data-hm-notice></div>
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
 {{template "hm/card-start" dict "ID" "menu-details" "Title" "Details"}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "100" "autocomplete" "off")}}
@@ -17,7 +18,6 @@
 <ol class="hm-menutree" id="menu-tree" data-hm-menutree{{if not .Items}} hidden{{end}}>
 {{range .Items}}{{template "menus/item" dict "It" . "CSRF" $.CSRF "Decl" $decl}}{{end}}
 </ol>
-<p class="hm-menutree__undo hm-row" role="status" data-hm-undo hidden><span data-hm-undo-text></span>{{template "hm/button" dict "Label" "Undo" "Size" "sm" "Attrs" (attrmap "data-hm-undo-btn" "")}}</p>
 <div class="hm-menutree__add hm-row">
 <div class="hm-field"><label class="hm-field__label" for="add-type">New item links to</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type">{{range .AddTypes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
@@ -36,7 +36,7 @@
 <template data-hm-tpl="chip">{{template "hm/badge" dict "Label" "" "Plain" true}}</template>
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn">{{template "hm/badge" dict "Label" "without a link" "Kind" "warning" "Icon" "alert"}}</button></template>
 <template data-hm-tpl="problem-error"><button type="button" class="hm-menueditor__issue" data-hm-issue="err">{{template "hm/badge" dict "Label" "to fix" "Kind" "danger" "Icon" "alert"}}</button></template>
-<template data-hm-tpl="undo"><p class="hm-menutree__undo hm-row" role="status"><span data-hm-undo-text></span>{{template "hm/button" dict "Label" "Undo" "Size" "sm" "Attrs" (attrmap "data-hm-undo-btn" "")}}</p></template>
+<template data-hm-tpl="notice">{{template "hm/callout-start" dict "Kind" "warning"}}{{template "hm/callout-end"}}</template>
 <template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
 <template data-hm-tpl="add-tabs">{{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}{{range list "pages" "address" "heading" "archive"}}<div id="add-panel-{{.}}" role="tabpanel" aria-labelledby="add-tab-{{.}}" hidden></div>{{end}}</template>
 {{template "hm/dialog-start" dict "ID" "menu-shortcuts" "Title" "Keyboard shortcuts"}}
@@ -57,7 +57,7 @@
 {{define "menus/item"}}{{$it := .It}}{{$n := $it.N}}<li class="hm-menutree__item" data-hm-item data-depth="{{$it.Depth}}" data-type="{{$it.Type}}">
 <input type="hidden" name="i.{{$n}}.depth" value="{{$it.Depth}}" data-hm-depth>
 <div class="hm-menutree__head"><span class="hm-menutree__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span>{{icon $it.TypeIcon}}
-<span class="hm-menutree__titles"><span class="hm-menutree__title">{{or $it.Label "Untitled item"}}</span>{{if $it.Target}}<span class="hm-menutree__target-summary">{{$it.Target}}</span>{{end}}{{if $it.Warn}}<span class="hm-menutree__warn">{{icon "alert"}}Without a link</span>{{end}}<span class="hm-menutree__level hm-visually-hidden" data-hm-level>Item {{add $n 1}}, level {{add $it.Depth 1}}</span></span>
+<span class="hm-menutree__titles"><span class="hm-menutree__title">{{or $it.Label "Untitled item"}}</span>{{if $it.Target}}<span class="hm-menutree__target-summary">{{$it.Target}}</span>{{end}}<span class="hm-menutree__warn" data-hm-warn{{if not $it.Warn}} hidden{{end}}>{{icon "alert"}}Without a link</span><span class="hm-menutree__level hm-visually-hidden" data-hm-level>Item {{add $n 1}}, level {{add $it.Depth 1}}</span></span>
 <div class="hm-menutree__ops hm-row">
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="up.{{$n}}" formnovalidate data-hm-op="up">{{icon "arrow-up"}}<span class="hm-visually-hidden">Move up</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.{{$n}}" formnovalidate data-hm-op="down">{{icon "arrow-down"}}<span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item {{add $n 1}}</span></button>

@@ -467,9 +467,14 @@ func TestMenuEditPageA11yAndDelete(t *testing.T) {
 	if n := strings.Count(body, `<span>Save</span>`); n != 1 {
 		t.Errorf("want one visible Save button, got %d", n)
 	}
-	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo-all`, `data-hm-savestate`, `data-hm-issues`, `id="menu-inspector"`, `id="menu-preview"`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
+	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo-all`, `data-hm-notice`, `data-hm-tpl="notice"`, `data-hm-warn`, `data-hm-savestate`, `data-hm-issues`, `id="menu-inspector"`, `id="menu-preview"`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("edit page lacks %s", want)
+		}
+	}
+	for _, gone := range []string{"data-hm-undo-btn", "data-hm-undo-text", `data-hm-tpl="undo"`} {
+		if strings.Contains(body, gone) {
+			t.Errorf("edit page still carries the dead undo markup %s", gone)
 		}
 	}
 	if rec := g.do("GET", "/admin/theme/menus/"+m.ID.String()+"/delete", "owner-token", nil, nil); rec.Code != 200 || len(fm.deleted) != 0 {
