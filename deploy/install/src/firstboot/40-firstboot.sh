@@ -325,7 +325,7 @@ fb_valid_email() {
   case "$1" in *'
 '*) return 1 ;; esac
   [ "${#1}" -le 254 ] || return 1
-  printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._%+-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$'
+  printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._%+-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9]$'
 }
 
 # fb_persist_one FILE NAME VALUE appends NAME=VALUE unless the file already has NAME

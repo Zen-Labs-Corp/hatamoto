@@ -345,8 +345,8 @@ done
 pass "public IP: ipify answer cross-checked against local addresses"
 
 # --- admin email validation
-for good in ops@example.com a.b+c@sub.example.org; do pure fb_valid_email "$good" || fail "good email refused: $good"; done
-for bad in 'a b@x.com' 'x@' 'x@y' 'ops@example.com}' $'ops@example.com\nx@example.com' '@example.com'; do
+for good in ops@example.com a.b+c@sub.example.org ops@example.xn--p1ai; do pure fb_valid_email "$good" || fail "good email refused: $good"; done
+for bad in ops@example.c ops@example.1com ops@example.com- ops@example.-com 'a b@x.com' 'x@' 'x@y' 'ops@example.com}' $'ops@example.com\nx@example.com' '@example.com'; do
   if pure fb_valid_email "$bad"; then fail "bad email accepted: $bad"; fi
 done
 r="$(mkroot badmail)"
