@@ -55,8 +55,11 @@ const (
 // Config is the owner's package policy and the active theme.
 type Config struct {
 	// AllowUnsigned lets unsigned packages be installed (the owner's explicit,
-	// warned opt-in).
+	// warned opt-in). It is already the effective value: false once
+	// AllowUnsignedUntil has passed.
 	AllowUnsigned bool
+	// AllowUnsignedUntil is when a timed opt-in ends; nil is "until turned off".
+	AllowUnsignedUntil *time.Time
 	// ActiveTheme is the installed theme in use; "" is the built-in default.
 	ActiveTheme string
 	// ServerEnvironment is the ENVIRONMENT of the server that last booted on
@@ -199,7 +202,7 @@ func (s *Store) Config(ctx context.Context) (Config, error) {
 	var c Config
 	var active *string
 	var env *string
-	err := s.pool.QueryRow(ctx, `SELECT allow_unsigned, active_theme, server_environment FROM hatamoto_package_config WHERE singleton`).Scan(&c.AllowUnsigned, &active, &env)
+	err := s.pool.QueryRow(ctx, `SELECT (allow_unsigned AND (allow_unsigned_until IS NULL OR allow_unsigned_until > now())), allow_unsigned_until, active_theme, server_environment FROM hatamoto_package_config WHERE singleton`).Scan(&c.AllowUnsigned, &c.AllowUnsignedUntil, &active, &env)
 	if active != nil {
 		c.ActiveTheme = *active
 	}
@@ -238,9 +241,18 @@ func (s *Store) ThemeSettingsStamp(ctx context.Context, theme string) (time.Time
 	return t, err
 }
 
-// SetAllowUnsigned stores the unsigned-package opt-in.
+// SetAllowUnsigned stores the unsigned-package opt-in with no end time.
 func (s *Store) SetAllowUnsigned(ctx context.Context, on bool) error {
-	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_package_config SET allow_unsigned = $1, updated_at = now() WHERE singleton`, on)
+	return s.SetAllowUnsignedUntil(ctx, on, nil)
+}
+
+// SetAllowUnsignedUntil stores the unsigned-package opt-in. until ends the
+// opt-in at that time (nil: until turned off) and is ignored when on is false.
+func (s *Store) SetAllowUnsignedUntil(ctx context.Context, on bool, until *time.Time) error {
+	if !on {
+		until = nil
+	}
+	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_package_config SET allow_unsigned = $1, allow_unsigned_until = $2, updated_at = now() WHERE singleton`, on, until)
 	return err
 }
 
