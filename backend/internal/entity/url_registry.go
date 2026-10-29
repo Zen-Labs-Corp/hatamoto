@@ -62,12 +62,10 @@ type SchemaURLConfig struct {
 
 // URLSnapshot is an immutable view of every schema's routing configuration.
 //
-// Locale: a snapshot resolves paths without a language. Entities carry a
-// locale, but only those in the site language are public, and URLs never
-// contain the locale. A second public locale would need the changes listed in
-// the urlpattern package doc (a path token, Resolve returning the locale, a
-// per-locale filter, hreflang, per-locale sitemaps and feeds, translation
-// links, an admin switcher); none of it is built.
+// Locale: patterns have no language. The snapshot carries the install's
+// LocaleSet (nil for a single-locale install) and Locate adds the locale
+// prefix in front of the pattern's path; the default locale has none unless
+// prefix-all is on, and shared content never does.
 type URLSnapshot struct {
 	router  *urlpattern.Router
 	configs []*SchemaURLConfig
@@ -75,6 +73,26 @@ type URLSnapshot struct {
 	// loc is the time zone {year}/{month}/{day} are read in: the site's
 	// `timezone` setting, else UTC. Never nil.
 	loc *time.Location
+	// locales is the public locale set; nil on a single-locale install.
+	locales *LocaleSet
+}
+
+// Locales returns the public locale set. It is nil (and every method of a nil
+// set is safe) on a single-locale install.
+func (s *URLSnapshot) Locales() *LocaleSet { return s.locales }
+
+// WithLocale prefixes path with the locale segment of tag. The root path "/"
+// becomes the bare segment ("/fr"). It returns path unchanged when tag has no
+// prefix (single-locale install, default locale without prefix-all, shared).
+func (s *URLSnapshot) WithLocale(tag, path string) string {
+	prefix := s.locales.Prefix(tag)
+	switch {
+	case prefix == "":
+		return path
+	case path == "/":
+		return prefix
+	}
+	return prefix + path
 }
 
 // Location is the time zone date URL tokens are rendered in.
@@ -113,6 +131,8 @@ type URLRegistry struct {
 
 	// timezone returns the site time zone name ("" or an unknown name: UTC).
 	timezone func(context.Context) string
+	// locales returns the public locale set (nil: single-locale install).
+	locales func(context.Context) *LocaleSet
 
 	mu       sync.Mutex
 	snap     *URLSnapshot
@@ -125,6 +145,16 @@ type URLRegistry struct {
 func (r *URLRegistry) SetTimezone(fn func(context.Context) string) {
 	r.mu.Lock()
 	r.timezone = fn
+	r.snap = nil
+	r.mu.Unlock()
+}
+
+// SetLocales installs the source of the public locale set that prefixes
+// entity paths. Like SetTimezone it takes effect when the snapshot next
+// reloads, or at once after Invalidate.
+func (r *URLRegistry) SetLocales(fn func(context.Context) *LocaleSet) {
+	r.mu.Lock()
+	r.locales = fn
 	r.snap = nil
 	r.mu.Unlock()
 }
@@ -167,6 +197,9 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 				r.logger.Warn("unknown site timezone; date URLs use UTC", "timezone", name, "error", err)
 			}
 		}
+	}
+	if r.locales != nil {
+		snap.locales = r.locales(ctx)
 	}
 	r.snap, r.loadedAt = snap, r.now()
 	return snap, nil

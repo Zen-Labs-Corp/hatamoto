@@ -21,13 +21,11 @@
 // {month} ("05") and {day} ("09") are the entity's publication date.
 //
 // Locale. Content carries a locale (a BCP 47 tag) but patterns have no
-// language token: the default locale is never in the path, and the public site
-// serves only entities whose locale equals the site language. A second locale
-// would need: a language path token or prefix in a pattern, Resolve returning
-// the locale of the match, a per-locale public filter in place of the exact
-// site language match, hreflang alternates, per-locale sitemaps and feeds,
-// translation links between entities, and an admin language switcher. None of
-// this is built.
+// language token and Parse, Match and Render never see one. On an install with
+// several public locales the locale segment ("/fr") is added in front of the
+// rendered path and stripped before matching, both by the entity package
+// (entity.LocaleSet), so a pattern is the same in every locale. Vars.Locale
+// only tells the caller which prefix to add.
 //
 // The package is pure (no I/O) so it can be unit tested exhaustively.
 package urlpattern
@@ -101,6 +99,10 @@ type Vars struct {
 	Path string
 	// Year, Month and Day are zero-padded ("2024", "05", "09").
 	Year, Month, Day string
+	// Locale is the entity's locale tag. Render ignores it; the caller that
+	// builds the public path (entity.URLSnapshot.Locate) reads it to add the
+	// locale prefix.
+	Locale string
 }
 
 // SplitPath returns the segments of a {path} value.
