@@ -1,10 +1,9 @@
 # Channel freshness alarm (user timer)
 
 A signed channel manifest is valid for 14 days and re-signed daily. If re-signing
-stops, boxes stop updating when it expires. The `channels-freshness` GitHub
-workflow is the usual alarm, but Actions is off today and GitHub disables
-schedules after 60 days without activity, so this timer is the independent one.
-It runs `scripts/check-channel-freshness.sh --min-days 7` against the live
+stops, boxes stop updating when it expires. The daily `channels-freshness`
+GitHub workflow is the alarm that does not depend on the signing machine; this
+timer is the local one, on the signing machine itself. It runs `scripts/check-channel-freshness.sh --min-days 7` against the live
 manifests (read-only, no key, no write) once a day and alerts on failure.
 
 Install on the owner's machine (not done by any script in the repository):

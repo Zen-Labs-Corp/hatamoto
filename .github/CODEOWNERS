@@ -6,11 +6,14 @@
 /backend/internal/updater/    @zenlabscorp
 /backend/internal/supervisor/ @zenlabscorp
 /backend/internal/release/    @zenlabscorp
+/backend/tools/release/       @zenlabscorp
 /backend/internal/wasmhost/   @zenlabscorp
 /backend/internal/pluginhost/ @zenlabscorp
 /backend/internal/middleware/ @zenlabscorp
 /backend/migrations/          @zenlabscorp
 /.github/                     @zenlabscorp
+/.github/workflows/           @zenlabscorp
+/releases/channels/           @zenlabscorp
 /scripts/check-dco.sh         @zenlabscorp
 /scripts/check-neutral.sh     @zenlabscorp
 /scripts/public-snapshot.sh   @zenlabscorp

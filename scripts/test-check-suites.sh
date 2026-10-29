@@ -25,7 +25,7 @@ expected=(
   'bash scripts/test-tag-release.sh'
   'bash scripts/test-check-channel-freshness.sh'
   'bash scripts/test-third-party-licenses.sh'
-  'bash scripts/test-channels-private.sh'
+  'bash scripts/test-channels-public.sh'
   'bash scripts/test-staging-update-check.sh'
   'bash deploy/test-apply-caddy.sh'
   'bash deploy/test-caddy-headers.sh'

@@ -11,9 +11,7 @@ import (
 
 const workflowDir = "../../../.github/workflows"
 
-// hasWorkflow reports whether a workflow file exists. The channel workflows are
-// export-ignore (they belong to the private ops repository), so the public
-// repository has neither of them and their tests do not apply there.
+// hasWorkflow reports whether a workflow file exists.
 func hasWorkflow(name string) bool {
 	_, err := os.Stat(filepath.Join(workflowDir, name))
 	return err == nil
@@ -60,9 +58,9 @@ func TestWorkflowsStatic(t *testing.T) {
 		if name != "release.yml" {
 			mustNotContain(t, name, text, "contents: write")
 		}
-		if name != "channels.yml" {
-			mustNotContain(t, name, text, "HATAMOTO_MANIFEST_KEY", "RELEASES_SSH_")
-		}
+		// Channels are signed and uploaded on the maintainer's machine: no workflow
+		// may ever hold the manifest key or the channel upload key.
+		mustNotContain(t, name, text, "HATAMOTO_MANIFEST_KEY", "RELEASES_SSH_", "release-channels", "manifest.key")
 		mustNotContain(t, name, text, "set -x", "PRIVATE KEY")
 	}
 
@@ -150,62 +148,9 @@ func TestWorkflowsStatic(t *testing.T) {
 		t.Error("release.yml must trigger only on a pushed v* tag")
 	}
 
-	if !hasWorkflow("channels.yml") {
-		t.Log("channels.yml is not in this repository (public tree): channel workflow checks skipped")
-		return
+	if hasWorkflow("channels.yml") {
+		t.Error("channels.yml must not exist: channels are signed and uploaded off GitHub")
 	}
-	ch := readWorkflow(t, "channels.yml")
-	mustContain(t, "channels.yml", ch,
-		"schedule:", "workflow_dispatch:", "paths:", "releases/channels/**",
-		"contents: read", "umask 077", "rm -f", "if: always()", "upload-artifact",
-		"secrets.HATAMOTO_MANIFEST_KEY", "channel resign", "verify --chan", "environment: release-channels",
-		"secrets.RELEASES_SSH_KEY", "secrets.RELEASES_SSH_HOST", "secrets.RELEASES_SSH_USER", "secrets.RELEASES_SSH_KNOWN_HOSTS",
-		"StrictHostKeyChecking=yes", "IdentitiesOnly=yes", "rsync", "Publish channels",
-		"for c in edge stable canary", "out/canary.json")
-	mustNotContain(t, "channels.yml", ch, `echo "$HATAMOTO_MANIFEST_KEY"`, "echo $HATAMOTO_MANIFEST_KEY",
-		"release-primary", "release-backup", "secrets.GITHUB_TOKEN",
-		"StrictHostKeyChecking=no", "UserKnownHostsFile=/dev/null", "--delete")
-	// The manifest secret is used once, in the signing step's env block; each
-	// publish secret once, in the publishing step's env block.
-	if strings.Count(ch, "secrets.") != 5 {
-		t.Errorf("channels.yml must reference exactly five secrets, got %d", strings.Count(ch, "secrets."))
-	}
-	sign, publish := workflowStep(t, ch, "Sign channels"), workflowStep(t, ch, "Publish channels")
-	if strings.Count(sign, "secrets.") != 1 || !strings.Contains(sign, "secrets.HATAMOTO_MANIFEST_KEY") {
-		t.Error("the signing step must hold the manifest secret and nothing else")
-	}
-	if strings.Contains(publish, "HATAMOTO_MANIFEST_KEY") {
-		t.Error("the publishing step must not see the manifest key")
-	}
-	for _, s := range []string{"RELEASES_SSH_KEY", "RELEASES_SSH_HOST", "RELEASES_SSH_USER", "RELEASES_SSH_KNOWN_HOSTS"} {
-		if strings.Count(ch, "secrets."+s) != 1 || !strings.Contains(publish, "secrets."+s) {
-			t.Errorf("secrets.%s must appear once, in the Publish channels step", s)
-		}
-	}
-	// Order: sign, publish, then remove the keys (on every outcome).
-	// The signed files are made under umask 077; Caddy must be able to read them
-	// on the box, so they are chmod 0644 after signing and rsync forces F644.
-	mustContain(t, "channels.yml (Sign channels)", sign, `chmod 0644 "$RUNNER_TEMP"/out/*.json`)
-	if strings.Index(sign, "chmod 0644") < strings.Index(sign, "channel resign") {
-		t.Error("channels.yml: chmod 0644 must come after signing")
-	}
-	mustContain(t, "channels.yml (Publish channels)", publish, "--chmod=F644", "--no-perms", "--no-links")
-	mustContain(t, "channels.yml", ch, "rrsync -wo -munge")
-	mustNotContain(t, "channels.yml", ch, "chmod 0644 \"$RUNNER_TEMP/manifest.key", "chmod 644 \"$RUNNER_TEMP/manifest.key")
-	// A stale run must not overwrite newer channel state: runs are serialised and
-	// only the run for the head of main publishes.
-	mustContain(t, "channels.yml", ch, "concurrency:", "group: ${{ github.workflow }}", "cancel-in-progress: false")
-	mustNotContain(t, "channels.yml", ch, "cancel-in-progress: true")
-	mustContain(t, "channels.yml (Publish channels)", publish, "git/ref/heads/main", `!= "$GITHUB_SHA"`)
-	if strings.Index(publish, "git/ref/heads/main") > strings.Index(publish, "rsync") {
-		t.Error("channels.yml: the main-head check must come before rsync")
-	}
-	i, j, k := strings.Index(ch, "Sign channels"), strings.Index(ch, "Publish channels"), strings.Index(ch, "Remove key")
-	if !(i < j && j < k) {
-		t.Error("channels.yml steps must run in the order sign, publish, remove key")
-	}
-	rm := workflowStep(t, ch, "Remove key")
-	mustContain(t, "channels.yml (Remove key)", rm, "manifest.key", "deploy.key", "known_hosts", "if: always()")
 }
 
 // TestReleaseBuildGuard runs the real Makefile target: without the two
@@ -247,20 +192,6 @@ func TestReleaseBuildGuard(t *testing.T) {
 	mustContain(t, "release-bundles recipe", out, "THIRD_PARTY_LICENSES", "cp LICENSE NOTICE", ".tar.gz", "--mtime=@0", "gzip -n")
 }
 
-// workflowStep returns the text of the step named name (up to the next step).
-func workflowStep(t *testing.T, text, name string) string {
-	t.Helper()
-	start := strings.Index(text, "- name: "+name)
-	if start < 0 {
-		t.Fatalf("step %q not found", name)
-	}
-	rest := text[start+1:]
-	if end := strings.Index(rest, "\n      - "); end >= 0 {
-		return rest[:end]
-	}
-	return rest
-}
-
 // workflowJob returns the text of the job named name (up to the next job).
 func workflowJob(t *testing.T, text, name string) string {
 	t.Helper()
@@ -275,16 +206,21 @@ func workflowJob(t *testing.T, text, name string) string {
 	return rest
 }
 
-// TestChannelsFreshnessWorkflow: the weekly alarm needs no secret, cannot write
-// and fails through the script's exit code. It lives with channels.yml.
+// TestChannelsFreshnessWorkflow: the daily alarm reads the public manifests,
+// holds no secret, and may only write an issue. Under WARN_DAYS (11) left it
+// opens or updates the channels-freshness issue; under FAIL_DAYS (5) the run
+// fails too. Both come from the script's exit code, never swallowed.
 func TestChannelsFreshnessWorkflow(t *testing.T) {
-	if !hasWorkflow("channels-freshness.yml") {
-		t.Skip("channels-freshness.yml is not in this repository (public tree)")
-	}
 	f := readWorkflow(t, "channels-freshness.yml")
 	mustContain(t, "channels-freshness.yml", f, "schedule:", "cron:", "workflow_dispatch:", "permissions: {}", "contents: read",
-		"persist-credentials: false", "scripts/check-channel-freshness.sh --min-days 7")
-	mustNotContain(t, "channels-freshness.yml", f, "secrets.", ": write", "continue-on-error", "|| true")
+		"issues: write", "persist-credentials: false", "GH_TOKEN: ${{ github.token }}",
+		`scripts/check-channel-freshness.sh --min-days "$WARN_DAYS"`, `scripts/check-channel-freshness.sh --min-days "$FAIL_DAYS"`,
+		"inputs.warn_days || '11'", "inputs.fail_days || '5'", "--label channels-freshness")
+	mustNotContain(t, "channels-freshness.yml", f, "secrets.", "contents: write", "continue-on-error", "|| true",
+		"environment:", "pull_request", "rsync", "ssh ", "channel resign")
+	if strings.Count(f, ": write") != 1 {
+		t.Error("channels-freshness.yml: issues: write is the only write permission")
+	}
 	if _, err := os.Stat("../../../scripts/check-channel-freshness.sh"); err != nil {
 		t.Errorf("the script the alarm runs is missing: %v", err)
 	}

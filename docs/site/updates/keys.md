@@ -44,7 +44,7 @@ To check the tag signature once the tag key is published, use `git tag -v vX.Y.Z
 | Key | Private half |
 |---|---|
 | Release keys | Offline, used only when a release is cut. |
-| Manifest key | A secret of the automated job that re-signs the channels. |
+| Manifest key | On the maintainer's signing machine, which re-signs the channels daily. It is never stored on GitHub or in CI. |
 | First-party registry key | Held by the release manager outside the repository. It is read from `HATAMOTO_REGISTRY_KEY_FILE` when the registry is built. |
 | Release tag key | A software key held offline by the release owner. |
 
@@ -53,13 +53,13 @@ No private key is stored in the repository: a test fails the build when one is t
 ## Rotation
 
 - **Release key.** Binaries embed two release public keys and accept a record signed by either. A new key is added in a release signed by an existing key. Release keys are matched by the key id in front of each signature, so older binaries keep working while both are listed. The old key is removed in a later release.
-- **Manifest key.** Several manifest keys can be embedded at once, so a new one can be embedded in a release before the CI secret is switched.
+- **Manifest key.** Several manifest keys can be embedded at once, so a new one can be embedded in a release before the signing machine switches to it.
 - **First-party registry key.** A release that rotates the key ships the new public key in `config.FirstPartyKey` and re-signs the hosted registry. The key was rotated once, on 2026-10-16, because the earlier private key was no longer available. The retired key id is `a592a1276b3947b1`. A package that shows as blocked with that signer was signed by the retired key: download it again from the registry, which is signed with the current key.
 - **Tag key.** A new key is published on this page and in the release notes of the first tag it signs, and the old one is listed here as retired.
 
 ## If a key leaks
 
-- **Manifest key.** An attacker could halt or yank a release or try to hold back an update. They could not ship code, because every binary hash comes from the record, which the release key signs. The key is replaced in the next release and the CI secret switched.
+- **Manifest key.** An attacker could halt or yank a release or try to hold back an update. They could not ship code, because every binary hash comes from the record, which the release key signs. The key is replaced in the next release and the signing machine switched to the new one.
 - **Release key.** This is the serious case. Anything signed with the leaked key must be treated as untrusted. The response is a release signed with the other release key that removes the leaked one, announced in a security advisory. Installs that have not updated still trust the leaked key until they do, so the advisory states how to check and how to update by hand. An attacker would also need to put the forged record into a manifest or serve it to you, since the manifest key signs what is offered.
 - **First-party registry key.** Every install that trusts it would accept a package signed with it until upgraded. Set `HATAMOTO_TRUST_FIRST_PARTY=false` to stop trusting it at once and trust only `HATAMOTO_TRUSTED_KEYS`.
 - **Tag key.** Tags signed with it are untrusted from the date in the advisory. Binaries are not affected: they verify the release and manifest keys, never the tag.

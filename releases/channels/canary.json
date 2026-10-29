@@ -1,0 +1,107 @@
+{
+  "channel": "canary",
+  "issued_at": "",
+  "expires_at": "",
+  "releases": [
+    {
+      "version": "v0.27.1",
+      "record_sig": "d7effd9870698586:nNTHBwsaXKJAw4aWB9ONkKZ/WspSJWtUe+zl3yHALB33ssMkRTv5eokCxmlZEZMUBY3g4WXnNWo6Un3u9yTsAQ==",
+      "ramp": [
+        {
+          "from": "2026-10-20T00:45:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.28.0",
+      "record_sig": "d7effd9870698586:0s4x+wQjcDl0LjlFrJY6a3C0dnyNx4u9LfZCEUE2CJgB5KEnbnkm5RmgFCEdn/m3YvrXhOPV53/WdkV/eQykBw==",
+      "ramp": [
+        {
+          "from": "2026-10-20T08:29:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.29.0",
+      "record_sig": "d7effd9870698586:mHxeE1ETNqCHwkoEBgslPcJYsYLZX0u7HZ89DPmFmFQlDceS0LvQGHL2exEq+9XnHnYqTHTe28cwhQftuaDeAg==",
+      "ramp": [
+        {
+          "from": "2026-10-21T00:52:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.29.1",
+      "record_sig": "d7effd9870698586:6e3Dx7tkLdXJ5JYSBJd6MosVnE3Gn87R8+A7YEvwtmguVK33lLI27ePiEaHRSfxnFrW9QwCzB+s8Q7WJUCSLAQ==",
+      "ramp": [
+        {
+          "from": "2026-10-21T05:00:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.30.0",
+      "record_sig": "d7effd9870698586:I/Kx18ysgDBFCDlUFW9GDDFqfH1kEH51f53+XRn0BC6OjZlaxf05l5S1NSaYJHIrl8uluBZJMlhqd5OV127IAw==",
+      "ramp": [
+        {
+          "from": "2026-10-22T11:04:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.31.0",
+      "record_sig": "d7effd9870698586:mjBFqh50sPrc2BZbs+r4VlQjoT6if/c7mmGBRf1gbBTRVfEO1HHQty2w0ZzKww78JvJBUz4wclgrR+yQ1RVLAg==",
+      "ramp": [
+        {
+          "from": "2026-10-23T09:34:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v0.32.0",
+      "record_sig": "d7effd9870698586:Zgp2WobLXK671TRQJSYX3fZh2C6u3MReHHowXyrS3RjARpSqAKMGD2JipTpaOjLaWWPLD7ZjtSbE/ktR4Ir+DA==",
+      "ramp": [
+        {
+          "from": "2026-10-23T10:56:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v1.0.0",
+      "record_sig": "d7effd9870698586:OOy4vuueGeEOVp9loNmpJgQg6dXZh/UG+m3y/fmwzFM/dCv9wSssI/+MybkOphqBKAhztAJSpuAdCDTpoIsHDg==",
+      "ramp": [
+        {
+          "from": "2026-10-27T03:24:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    },
+    {
+      "version": "v1.0.2",
+      "record_sig": "d7effd9870698586:UiS4MMRLjCJTgIlqkq+/bIQKYEP4ODEEZHHP5MSE/dGc8gzDFq+WYvef/ySrbJckrKUo8+tObRofbyBRehwYDg==",
+      "ramp": [
+        {
+          "from": "2026-10-28T10:39:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
+    }
+  ],
+  "yanked": []
+}

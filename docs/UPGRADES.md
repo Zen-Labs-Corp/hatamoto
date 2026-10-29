@@ -441,7 +441,7 @@ Two separate signing keys are involved, and both public keys are built into ever
 - The **release key** signs each release record (the version, its rollback floor and the hash of
   every binary). It is kept offline and used only when a release is cut.
 - The **manifest key** signs the short channel manifest that says which release a channel offers
-  and at what rollout. It is used by an automated job.
+  and at what rollout. It stays on the maintainer's signing machine, which re-signs the channels daily.
 
 A manifest expires after 14 days and is re-signed daily, so a stale copy cannot hide a fix or keep an
 old release on offer. A leaked manifest key could halt or withdraw a release, but could not ship
