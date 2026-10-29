@@ -468,7 +468,15 @@ case "$STATE" in
     if [[ "$WF" == active ]]; then
       echo "gate mode: CI (workflow 'ci' is active): waiting for the PR's status checks"
       ci_checks_gate
+      # GitHub recomputes the merge state lazily after the last check finishes: for a few
+      # seconds it still reads UNKNOWN or BLOCKED (seen on PR #32). Re-read (read-only) for up
+      # to SHIP_CLEAN_WAIT tries, SHIP_CLEAN_POLL seconds apart, before calling it not clean.
       MSTATUS=$(gh pr view "$PR" --json mergeStateStatus --jq .mergeStateStatus)
+      for _ in $(seq 1 "${SHIP_CLEAN_WAIT:-12}"); do
+        [[ "$MSTATUS" =~ ^(UNKNOWN|BLOCKED|UNSTABLE)$ ]] || break
+        sleep "${SHIP_CLEAN_POLL:-5}"
+        MSTATUS=$(gh pr view "$PR" --json mergeStateStatus --jq .mergeStateStatus)
+      done
       if [[ "$MSTATUS" != CLEAN ]]; then
         echo "SHIP-H ABORT: PR #$PR checks are green but it is not clean ($MSTATUS: a required review, an unresolved thread or a conflict)" >&2
         exit 1
