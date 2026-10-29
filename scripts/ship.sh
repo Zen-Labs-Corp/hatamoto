@@ -3,12 +3,23 @@
 # checks and automatic rollback.
 #
 # Usage:
-#     scripts/ship.sh [--dry-run] [--no-deploy] [--all] <PR>
+#     scripts/ship.sh [--dry-run] [--no-deploy] [--all] [--wait] <PR>
+#
+# Default (the 'ci' workflow is active): ship does NOT wait for CI. It turns on GitHub
+# auto-merge pinned to the checked head (--match-head-commit), starts a detached deploy waiter
+# on this machine, prints `SHIP-H QUEUED pr=N head=SHA deploy=background|none log=PATH` and
+# exits 0. GitHub merges the PR when the ruleset's required checks pass. The waiter
+# (`--after-auto`, log under <git-common-dir>/ship-logs/) polls the PR; once it is merged it
+# re-checks that `backend` and `admin-ui` passed on the pinned head and runs the normal deploy
+# (one deploy at a time: <git-common-dir>/ship-deploy.lock). A failed check, a push, a closed
+# PR or auto-merge being switched off ends the waiter with nothing deployed; the PR stays open
+# for a fix. With --no-deploy there is no waiter: GitHub's merge is the ship.
 #
 #   --dry-run    print every step; mutating commands are shown as `DRY: <cmd>`
 #                and never executed (read-only gh queries still run)
 #   --no-deploy  merge only (skips migrations, deploy, health)
 #   --all        force migrations (idempotent) + deploy
+#   --wait       the old blocking ship: wait for CI here, merge, deploy in this process
 #
 # Env (all optional):
 #   DEPLOY_HOST               ssh host alias; if unset, read from the untracked
@@ -21,6 +32,7 @@
 #   SHIP_CI_WAIT              seconds to wait for the PR's CI checks to finish
 #                             (CI mode); default 3600, 0 = do not wait
 #   SHIP_CI_POLL              seconds between check polls; default 30
+#   SHIP_AUTO_WAIT            seconds the deploy waiter waits for GitHub's merge; default 21600
 #   SHIP_REEXEC=1             skip the re-exec into the deploy-SHA copy of this
 #                             script (to dry-run a local ship.sh change)
 #   SITE_URL                  default https://hatamoto.dev
@@ -32,7 +44,9 @@
 #                             redirects the old name) is refused. Tests set it.
 #
 # Merge gates (before `gh pr merge`, for an open PR, with or without --no-deploy):
-# - CI mode (the 'ci' workflow is active): ship waits for the PR head's checks (SHIP_CI_WAIT),
+# - CI mode (the 'ci' workflow is active), default: queued (see above); GitHub's ruleset is the
+#   merge gate and the waiter re-checks backend + admin-ui before it deploys.
+# - CI mode with --wait: ship waits for the PR head's checks (SHIP_CI_WAIT),
 #   stops at the first failed one, and merges only when every check is green, `backend` (the
 #   whole Go suite with -tags=integration, vet) and `admin-ui` included. Those checks ARE the
 #   full suite and the UI gate, run on GitHub's runners, so nothing is re-run here.
@@ -67,13 +81,15 @@
 
 set -Eeuo pipefail
 
-DRY=0; NO_DEPLOY=0; ALL=0; PR=""
+DRY=0; NO_DEPLOY=0; ALL=0; WAIT=0; AFTER_AUTO=0; PR=""
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
     --no-deploy) NO_DEPLOY=1 ;;
     --all) ALL=1 ;;
-    -h|--help) sed -n '2,41p' "$0"; exit 0 ;;
+    --wait) WAIT=1 ;;
+    --after-auto) AFTER_AUTO=1 ;;   # the deploy waiter (started by a queued ship)
+    -h|--help) sed -n '2,56p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; exit 64 ;;
     *) PR="$a" ;;
   esac
@@ -427,6 +443,73 @@ ci_checks_gate() {
   done
 }
 
+# queue_auto_merge: the default CI-mode ship. Refuses a head with a check that already failed,
+# turns on auto-merge pinned to HEAD_SHA, starts the deploy waiter (unless --no-deploy) and exits.
+queue_auto_merge() {
+  local failed logdir log self out
+  failed=$(gh pr view "$PR" --json statusCheckRollup --jq \
+    '[.statusCheckRollup[] | select((.status // "COMPLETED") == "COMPLETED") | select(((.conclusion // .state // "") | test("^(SUCCESS|SKIPPED|NEUTRAL)$")) | not) | (.name // .context)] | join(" ")') \
+    || { echo "SHIP-H ABORT: cannot read the checks of PR #$PR (gh pr view statusCheckRollup)" >&2; exit 1; }
+  [[ -z "$failed" ]] || { echo "SHIP-H ABORT: PR #$PR has failed checks ($failed): fix and push, then ship again" >&2; exit 1; }
+  if (( DRY )); then
+    echo "DRY: gh pr merge $PR --auto --merge --match-head-commit $HEAD_SHA"
+  elif ! out=$(gh pr merge "$PR" --auto --merge --match-head-commit "$HEAD_SHA" 2>&1); then
+    echo "$out" >&2
+    echo "SHIP-H ABORT: cannot turn on auto-merge for PR #$PR (repo setting allow_auto_merge?); scripts/ship.sh --wait $PR ships it the blocking way" >&2
+    exit 1
+  fi
+  if (( NO_DEPLOY )); then
+    echo "SHIP-H QUEUED pr=$PR head=$HEAD_SHA deploy=none (GitHub merges it when the required checks pass)"
+    exit 0
+  fi
+  logdir="$(git rev-parse --path-format=absolute --git-common-dir)/ship-logs"
+  log="$logdir/pr-$PR-$TS.log"; self="$logdir/pr-$PR-$TS.ship.sh"
+  if (( DRY )); then
+    echo "DRY: would start the deploy waiter (scripts/ship.sh --after-auto$( ((ALL)) && echo " --all") $PR, log $log)"
+    echo "SHIP-H QUEUED pr=$PR head=$HEAD_SHA deploy=background log=$log (dry run)"
+    exit 0
+  fi
+  mkdir -p "$logdir"
+  cp "$0" "$self"   # the checkout's copy may change while the waiter runs (bash reads scripts lazily)
+  local extra=(); ((ALL)) && extra=(--all)
+  SHIP_AUTO_HEAD="$HEAD_SHA" DEPLOY_HOST="$DEPLOY_HOST" setsid nohup bash -c '
+    bash "$1" --after-auto "${@:3}"; rc=$?; rm -f "$1"
+    echo "SHIP-H WAITER exit=$rc"
+    command -v notify-send >/dev/null && notify-send "ship #$2: exit $rc" "$(tail -1 "$0" 2>/dev/null)" 2>/dev/null
+    exit $rc' "$log" "$self" "$PR" "${extra[@]}" "$PR" </dev/null >"$log" 2>&1 &
+  echo "SHIP-H QUEUED pr=$PR head=$HEAD_SHA deploy=background pid=$! log=$log"
+  exit 0
+}
+
+# The deploy waiter: wait (read-only) until GitHub merges the PR, then continue as a ship of a
+# MERGED PR. Stops, deploying nothing, when a check fails, the head moves, the PR is closed,
+# auto-merge is switched off, or SHIP_AUTO_WAIT passes.
+if (( AFTER_AUTO )); then
+  HEAD_SHA=${SHIP_AUTO_HEAD:-}
+  [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHIP-H ABORT: --after-auto needs SHIP_AUTO_HEAD (the pinned head)" >&2; exit 64; }
+  echo "waiter: PR #$PR, head ${HEAD_SHA:0:12}, waiting for GitHub's auto-merge"
+  auto_deadline=$((SECONDS + ${SHIP_AUTO_WAIT:-21600}))
+  while [[ "$STATE" != MERGED ]]; do
+    [[ "$STATE" == OPEN ]] || { echo "SHIP-H ABORT: PR #$PR is $STATE; nothing deployed" >&2; exit 1; }
+    # A gh error (network, rate limit) is not a verdict: try again at the next poll.
+    if ! now_head=$(gh pr view "$PR" --json headRefOid --jq .headRefOid) \
+       || ! failed=$(gh pr view "$PR" --json statusCheckRollup --jq \
+            '[.statusCheckRollup[] | select((.status // "COMPLETED") == "COMPLETED") | select(((.conclusion // .state // "") | test("^(SUCCESS|SKIPPED|NEUTRAL)$")) | not) | (.name // .context)] | join(" ")') \
+       || ! am=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest != null'); then
+      echo "waiter: gh read failed; retrying"; sleep "${SHIP_CI_POLL:-30}"
+      STATE=$(gh pr view "$PR" --json state --jq .state 2>/dev/null || echo OPEN); continue
+    fi
+    [[ "$now_head" == "$HEAD_SHA" ]] || { echo "SHIP-H ABORT: PR #$PR head moved (${HEAD_SHA:0:12} -> ${now_head:0:12}); nothing deployed, ship again" >&2; exit 1; }
+    [[ -z "$failed" ]] || { echo "SHIP-H ABORT: PR #$PR check(s) failed: $failed; nothing merged or deployed (fix, push, ship again)" >&2; exit 1; }
+    [[ "$am" == true ]] || { echo "SHIP-H ABORT: auto-merge of PR #$PR was switched off; nothing deployed" >&2; exit 1; }
+    (( SECONDS < auto_deadline )) || { echo "SHIP-H ABORT: PR #$PR not merged after ${SHIP_AUTO_WAIT:-21600}s; nothing deployed" >&2; exit 1; }
+    sleep "${SHIP_CI_POLL:-30}"
+    STATE=$(gh pr view "$PR" --json state --jq .state 2>/dev/null || echo OPEN)
+  done
+  echo "waiter: PR #$PR merged; checking backend and admin-ui passed on ${HEAD_SHA:0:12} before deploying"
+  ci_checks_gate
+fi
+
 case "$STATE" in
   OPEN)
     # CI mode accepts BLOCKED/UNSTABLE here (checks still running) and requires CLEAN after them.
@@ -465,8 +548,12 @@ case "$STATE" in
       echo "SHIP-H ABORT: cannot read the state of the 'ci' workflow (gh workflow list)" >&2
       exit 1
     fi
+    if [[ "$WF" == active ]] && (( ! WAIT )); then
+      echo "gate mode: CI, queued (workflow 'ci' is active): GitHub merges when the required checks pass"
+      queue_auto_merge
+    fi
     if [[ "$WF" == active ]]; then
-      echo "gate mode: CI (workflow 'ci' is active): waiting for the PR's status checks"
+      echo "gate mode: CI (workflow 'ci' is active, --wait): waiting for the PR's status checks"
       ci_checks_gate
       # GitHub recomputes the merge state lazily after the last check finishes: for a few
       # seconds it still reads UNKNOWN or BLOCKED (seen on PR #32). Re-read (read-only) for up
@@ -539,6 +626,13 @@ case "$STATE" in
   *) echo "SHIP-H ABORT: PR #$PR state is $STATE" >&2; exit 1 ;;
 esac
 
+# One deploy at a time on this machine (deploy waiters of PRs merged close together, a manual
+# ship). The re-executed copy inherits the lock (SHIP_DEPLOY_LOCKED).
+if (( !DRY && !NO_DEPLOY )) && [[ -z "${SHIP_DEPLOY_LOCKED:-}" ]] && command -v flock >/dev/null; then
+  exec 8>"$(git rev-parse --path-format=absolute --git-common-dir)/ship-deploy.lock"
+  flock -n 8 || { echo "another ship is deploying; waiting for it"; flock 8; }
+  export SHIP_DEPLOY_LOCKED=1
+fi
 if (( DRY )); then
   echo "DRY: git fetch origin $BASE_REF; git fetch --tags origin; git fetch origin $HEAD_REF (best effort)"
   echo "note: dry-run uses the locally known origin/$BASE_REF"
