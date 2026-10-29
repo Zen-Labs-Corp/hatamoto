@@ -33,6 +33,11 @@ type RegistryEntry struct {
 	InstalledVersion                           string
 	// Update is set when the registry's version is newer than the installed one.
 	Update bool
+	// Descriptive fields the registry may leave empty.
+	Title, Author, Tier, Category, About, Source, Commit string
+	Features                                             []string
+	Size                                                 int64
+	Featured                                             bool
 }
 
 // RegistryView is what browsing the registry returned.
@@ -41,8 +46,26 @@ type RegistryView struct {
 	// Off means no registry is configured; Err says why a configured one failed.
 	Off bool
 	Err string
-	// Host is the registry's host name, shown in the empty state when Err is set.
+	// Host is the registry's host name; set whenever a registry is configured.
 	Host string
+	// FetchedAt is when the index was last read from the registry (zero if it
+	// never was or the read failed before the cache was filled).
+	FetchedAt time.Time
+}
+
+// UnsignedState is the owner's opt-in for unsigned packages, already
+// evaluated against the clock: On is false once Until has passed.
+type UnsignedState struct {
+	On bool
+	// Until is when a timed opt-in ends; nil is "until it is turned off".
+	Until *time.Time
+}
+
+// SignerInfo is one key whose packages and registry indexes are trusted.
+type SignerInfo struct {
+	Name, Algorithm, Fingerprint string
+	// Source says where the key comes from: "Built in" or "Environment".
+	Source string
 }
 
 // PackageMeta is what the packages table knows about an installed plugin.
@@ -156,6 +179,9 @@ type RouteResult struct {
 // PackageAdmin is the package manager as the Plugins and Themes pages use it.
 type PackageAdmin interface {
 	Registry(ctx context.Context) RegistryView
+	// RefreshRegistry is Registry without the short cache, for "Try again"
+	// and "Check for updates".
+	RefreshRegistry(ctx context.Context) RegistryView
 	// Fetch downloads kind/name from the registry (hash-checked).
 	Fetch(ctx context.Context, kind, name string) ([]byte, error)
 	// Inspect parses a package for the permission prompt.
@@ -167,7 +193,13 @@ type PackageAdmin interface {
 	SetEnabled(ctx context.Context, name string, on bool) error
 	Uninstall(ctx context.Context, kind, name string, dropData bool) error
 	AllowUnsigned(ctx context.Context) bool
-	SetAllowUnsigned(ctx context.Context, on bool) error
+	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
+	UnsignedState(ctx context.Context) UnsignedState
+	// SetAllowUnsigned turns the opt-in on until the given time (nil: until
+	// turned off) or off; duration labels it in the audit log.
+	SetAllowUnsigned(ctx context.Context, on bool, until *time.Time, duration string) error
+	// Signers lists the trusted keys.
+	Signers(ctx context.Context) []SignerInfo
 
 	Themes(ctx context.Context) ([]ThemeInfo, error)
 	MissingSections(ctx context.Context, theme string) ([]MissingSection, error)

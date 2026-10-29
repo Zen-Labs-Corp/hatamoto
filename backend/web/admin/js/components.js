@@ -1,7 +1,7 @@
 // Component glue for native elements: <dialog>, toasts. Everything else
 // (popover, details) needs no script.
 import { hmDate, hmTime, hmDateTime } from "@hm/dates";
-import { carryHref, confirmPost, isDismissed, markDismissed, phraseMatches, safeStorage } from "@hm/shelllogic";
+import { carryHref, confirmPost, isDismissed, markDismissed, phraseMatches, safeStorage, unsignedGatesMet } from "@hm/shelllogic";
 
 // <button data-hm-open="dialog-id"> opens a modal dialog. Focus starts on [autofocus], else
 // the first field of the body, else its first button; on close it returns to the opener, or
@@ -453,3 +453,32 @@ document.addEventListener("input", (evt) => {
 document.addEventListener("DOMContentLoaded", () => syncDangerAll(document));
 window.addEventListener("pageshow", () => syncDangerAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncDangerAll(evt.target));
+
+// Allow unsigned packages: the submit stays disabled until the acknowledgement, the typed
+// site address, a duration and a password are all given. The server checks every gate; server
+// HTML never disables the button, so without JS the form still works.
+function syncGate(form) {
+  const btn = form.querySelector("[data-hm-gate-submit]");
+  if (!btn) return;
+  btn.disabled = !unsignedGatesMet({
+    ack: form.elements.understand?.checked === true,
+    host: form.elements.host?.value ?? "",
+    siteHost: form.dataset.hmGateHost ?? "",
+    password: form.elements.password?.value ?? "",
+    duration: form.elements.duration?.value ?? "",
+  });
+}
+function syncGateAll(root) {
+  root.querySelectorAll?.("[data-hm-gate]").forEach(syncGate);
+}
+document.addEventListener("input", (evt) => {
+  const form = evt.target.closest?.("[data-hm-gate]");
+  if (form) syncGate(form);
+});
+document.addEventListener("change", (evt) => {
+  const form = evt.target.closest?.("[data-hm-gate]");
+  if (form) syncGate(form);
+});
+document.addEventListener("DOMContentLoaded", () => syncGateAll(document));
+window.addEventListener("pageshow", () => syncGateAll(document));
+document.addEventListener("htmx:afterSettle", (evt) => syncGateAll(evt.target));

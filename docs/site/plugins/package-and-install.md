@@ -83,6 +83,6 @@ A **package** is one `.hmp` file that holds a whole plugin. **Signing** proves w
 2. `curl <site>/p/counter/count` answers with the count, as before.
 3. After an uninstall, **Plugins** no longer lists `counter`, and `/p/counter/count` answers `404`.
 
-If the upload says "package is signed by a key you do not trust", the server does not have your key yet: check `HATAMOTO_TRUSTED_KEYS` and restart. If it says the package "is not signed", you packed without `--key`. Always sign; the switch that allows unsigned packages is meant for code you wrote and reviewed yourself.
+If the upload says "package is signed by a key you do not trust", the server does not have your key yet: check `HATAMOTO_TRUSTED_KEYS` and restart. If it says the package "is not signed", you packed without `--key`. Always sign; the setting that allows unsigned packages (**Plugins**, the menu in the page header, **Package security**) is meant for code you wrote and reviewed yourself. It asks you to confirm with your password and the site address, and you choose how long it stays on: an hour, a day, or until you turn it off.
 
 The package layout, the size limits, key rotation, registries and every related setting are on [Packaging and signing](packaging-signing.md).

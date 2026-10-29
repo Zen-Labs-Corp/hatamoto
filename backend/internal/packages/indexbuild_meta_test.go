@@ -275,3 +275,40 @@ func TestIndexWithoutAboutFeaturesUnchanged(t *testing.T) {
 		}
 	}
 }
+
+func TestMetaCategoryAndFeatured(t *testing.T) {
+	m := goodMeta()
+	m.Category, m.Featured = "Forms", true
+	raw, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		t.Fatal(err)
+	}
+	if e, _ := idx.Find(KindPlugin, "hello"); e.Category != "Forms" || !e.Featured {
+		t.Errorf("entry did not carry category/featured: %+v", e)
+	}
+	for _, bad := range []string{"forms", "Nope", " Forms"} {
+		m.Category = bad
+		if _, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m}); err == nil {
+			t.Errorf("category %q accepted", bad)
+		}
+	}
+	if _, err := ParseMeta([]byte(`{"hello":{"tier":"community","category":"SEO","featured":true}}`)); err != nil {
+		t.Errorf("ParseMeta: %v", err)
+	}
+}
+
+func TestIndexWithoutCategoryFeaturedUnchanged(t *testing.T) {
+	raw, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": goodMeta()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{`"category"`, `"featured"`} {
+		if strings.Contains(string(raw), k) {
+			t.Errorf("index without category/featured contains %s", k)
+		}
+	}
+}

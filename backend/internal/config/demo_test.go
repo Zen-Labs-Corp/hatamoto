@@ -50,6 +50,8 @@ func TestDemoRefusals(t *testing.T) {
 	}{
 		{"POST", "/admin/plugins/upload", true},
 		{"POST", "/admin/plugins/unsigned", true},
+		{"POST", "/admin/plugins/unsigned/off", true},
+		{"POST", "/admin/plugins/check-updates", true},
 		{"POST", "/admin/settings/users", true},
 		{"POST", "/admin/settings/users/invite", true},
 		{"POST", "/admin/settings/users/7/reset", true},
@@ -92,6 +94,7 @@ func TestDemoRefusals(t *testing.T) {
 		{"GET", "/api/v1/users/", false},
 		{"POST", "/admin/plugins/fetch", false},
 		{"POST", "/admin/plugins/install", false},
+		{"GET", "/admin/plugins/security", false},
 		{"POST", "/admin/settings/api-keys/7/revoke", false},
 		{"POST", "/admin/entities", false},
 		{"POST", "/admin/profile", false},

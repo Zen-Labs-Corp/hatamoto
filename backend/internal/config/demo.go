@@ -108,7 +108,8 @@ const (
 // instead of missing it. Package installs are not listed: they are limited to
 // first-party packages where the package manager decides (packages.Options).
 var demoRules = []demoRule{
-	rule("POST", `/admin/plugins/(upload|unsigned)`, msgUpload),
+	rule("POST", `/admin/plugins/(upload|unsigned(/off)?)`, msgUpload),
+	rule("POST", `/admin/plugins/check-updates`, msgUpdates),
 	rule("POST", `/admin/settings/users(/.*)?`, msgUsers),
 	rule("POST PATCH DELETE", `/api/v1/users(/.*)?`, msgUsers),
 	rule("POST", `/admin/profile/password|/admin/forgot|/admin/reset|/admin/accept`, msgPassword),

@@ -352,3 +352,42 @@ func TestPluginSettingsNeverEchoWriteOnlyValues(t *testing.T) {
 		t.Errorf("the clear box must send null: %v", fp.saved[1])
 	}
 }
+
+func TestPluginsPageTabsFilterAndEmpty(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := newPackageRig(t)
+	get := func(q string) string {
+		return g.do("GET", "/admin/plugins"+q, "owner-token", nil, nil).Body.String()
+	}
+	all := get("")
+	for _, want := range []string{"Needs attention", `href="/admin/plugins?view=updates"`, `href="/admin/plugins?view=disabled"`, "ready to install.", `id="updates-strip"`, "Check for updates", "Package security", `href="/admin/plugins/security"`} {
+		if !strings.Contains(all, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	for _, gone := range []string{"Available plugins", "/plugins#unsigned", "unsigned-banner"} {
+		if strings.Contains(all, gone) {
+			t.Errorf("unexpected %q", gone)
+		}
+	}
+	dis := get("?view=disabled")
+	if !strings.Contains(dis, "<strong>quiet</strong>") || strings.Contains(dis, "<strong>hello</strong>") {
+		t.Error("?view=disabled must list only disabled plugins")
+	}
+	if upd := get("?view=updates"); !strings.Contains(upd, "<strong>hello</strong>") || strings.Contains(upd, "<strong>quiet</strong>") {
+		t.Error("?view=updates must list only plugins with an update")
+	}
+	if q := get("?q=QUIE"); !strings.Contains(q, "<strong>quiet</strong>") || strings.Contains(q, "<strong>hello</strong>") {
+		t.Error("?q= must filter case-insensitively")
+	}
+	if none := get("?q=zzzz"); !strings.Contains(none, "No plugins match") {
+		t.Error("a search with no hit needs its empty state")
+	}
+	pk.unsigned = true
+	if on := get(""); !strings.Contains(on, "unsigned-banner") || !strings.Contains(on, "Unsigned packages are allowed until you turn it off.") {
+		t.Error("banner missing while the opt-in is on")
+	} else if !strings.Contains(on, `name="return" value="plugins"`) {
+		t.Error("the banner's Turn off now does not ask to come back to the list")
+	}
+}

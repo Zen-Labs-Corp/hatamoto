@@ -49,3 +49,17 @@ func TestUpdateNewFor(t *testing.T) {
 		t.Fatalf("registry off: got %v", got)
 	}
 }
+
+// A failed registry read must not move "last checked": it keeps the time of the
+// last good read.
+func TestFailedFetchKeepsLastCheckedTime(t *testing.T) {
+	good := time.Now().Add(-2 * time.Hour)
+	// https is required without AllowInsecure, so this fetch fails before any network use.
+	p := &packageAdmin{s: &Server{packages: &packages.Manager{Registry: &packages.Registry{URL: "http://registry.example.test/registry.json"}}}, fetchedAt: good}
+	if _, err := p.index(context.Background()); err == nil {
+		t.Fatal("expected the fetch to fail")
+	}
+	if got := p.fetchedTime(); !got.Equal(good) {
+		t.Fatalf("fetchedAt = %v after a failed fetch, want %v", got, good)
+	}
+}

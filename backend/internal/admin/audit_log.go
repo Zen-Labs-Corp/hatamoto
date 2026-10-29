@@ -40,6 +40,7 @@ var auditLabels = map[string]string{
 	"updates.apply":                "Started an update",
 	"updates.apply_without_backup": "Started an update without a backup",
 	"updates.unpin":                "Removed the version pin",
+	"package.allow_unsigned":       "Changed the unsigned packages setting",
 }
 
 // auditLabel is the label of an action, or the action itself when unknown.

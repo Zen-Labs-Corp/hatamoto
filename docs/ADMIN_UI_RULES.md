@@ -130,7 +130,7 @@ A change to one component edits only its own subsection below and its entry in t
 | colophon | `.hm-colophon` | `css/partials/colophon.css` | none |  |
 | confirmcard | `.hm-confirmcard` | `css/partials/confirmcard.css` | `hm/confirmcard` | `display: flex`, `flex-direction: column`, `gap: var(--space-4)` |
 | danger-confirm | `.hm-danger-confirm` | `css/partials/danger-confirm.css` | `hm/danger-confirm` | `border-top-left-radius: 0`, `font-size: var(--text-sm)`, `padding-left: 0`, `padding-right: 0` |
-| dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
+| dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)`; `.hm-dialog[data-side="end"]`: `border-top-left-radius: 0` |
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-3)` |
@@ -219,7 +219,9 @@ Contract: `dialog` in components.json
 Rules: UI-D13, DC-02
 
 `hm/dialog-start` takes `Title`, an optional `Description` (one sentence, wired to
-`aria-describedby`), `Danger` and `Static`. A static dialog holds input, so a
+`aria-describedby`), `Danger`, `Static` and `Side`. `Side: "end"` makes the
+drawer variant (`data-side="end"`): a full-height panel pinned to the inline end
+that otherwise behaves as a dialog. A static dialog holds input, so a
 click on its backdrop does not close it; Esc and Cancel still do. The panel scrolls
 under a pinned footer. On open, focus moves to the first control in the body (the
 title when there is none) and returns to the opener on close; UI-D13 checks both.

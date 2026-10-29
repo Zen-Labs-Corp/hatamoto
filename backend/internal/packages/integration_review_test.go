@@ -220,7 +220,7 @@ func TestAFailedUninstallCanBeRetried(t *testing.T) {
 func TestPackageChangesAreAudited(t *testing.T) {
 	r := newRig(t)
 	ctx := WithActor(context.Background(), Actor{Email: "owner@example.test"})
-	if err := r.mgr.SetAllowUnsigned(ctx, true); err != nil {
+	if err := r.mgr.SetAllowUnsigned(ctx, true, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	b := mustPack(t, r.plugin("1.0.0"))

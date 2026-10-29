@@ -22,7 +22,8 @@ func fixedID(n int) uuid.UUID {
 func TestGrowthPageGoldens(t *testing.T) {
 	stamp := time.Date(2026, 3, 4, 5, 6, 0, 0, time.UTC)
 	analyticsNow = func() time.Time { return stamp }
-	t.Cleanup(func() { analyticsNow = time.Now })
+	pluginsNow = func() time.Time { return stamp }
+	t.Cleanup(func() { analyticsNow, pluginsNow = time.Now, time.Now })
 	fm := newFakeMenus()
 	ename := "About us"
 	eid := fixedID(2)
@@ -49,7 +50,17 @@ func TestGrowthPageGoldens(t *testing.T) {
 	target := fixedID(5)
 	fl.names[target] = "Services"
 	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{{Name: "hello", Version: "1.0.0", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv"}, Granted: []string{"kv"}}}}
+	until := stamp.Add(24 * time.Hour)
+	pk := &fakePackages{unsigned: true, unsignedEnd: &until, signers: []SignerInfo{{Name: "Example signer", Algorithm: "ed25519", Fingerprint: "abc123", Source: "Built in"}}, registry: RegistryView{
+		Host: "registry.example", FetchedAt: stamp.Add(-3 * time.Hour),
+		Entries: []RegistryEntry{
+			{Kind: "plugin", Name: "hello", Title: "Hello", Version: "1.1.0", Description: "Says hello.", Permissions: []string{"kv"}, Installed: true, InstalledVersion: "1.0.0", Update: true, Tier: "first-party", Category: "Content"},
+			{Kind: "plugin", Name: "gallery", Title: "Gallery", Version: "2.0.0", Description: "Photo galleries for pages.", Author: "Example Author", Tier: "community", Category: "Media", Featured: true,
+				Permissions: []string{"kv", "media.read"}, About: "Adds a gallery section.\nWorks with the media library.", Features: []string{"Grid layout", "Lightbox"}, Size: 20480, Source: "https://example.com/gallery", Homepage: "https://example.com/gallery"},
+			{Kind: "plugin", Name: "seo-helper", Version: "0.3.0", Description: "Checks titles.", Permissions: []string{}},
+		}}}
 	g := newRig(t, func(d *Deps) {
+		d.Growth.Packages = pk
 		d.Growth.Menus, d.Growth.Forms, d.Growth.Agents, d.Growth.Linking, d.Growth.Plugins = fm, ff, stats, fl, fp
 		d.Growth.Referrals = fakeReferrals{}
 		d.Growth.Explain = fakeExplainer{answers: map[string]URLExplanation{"/old": {Redirects: &redirect.Answer{Path: "/old", Normalised: "/old", MatchedBy: "db_rules",
@@ -67,6 +78,9 @@ func TestGrowthPageGoldens(t *testing.T) {
 		{"analytics-health", "/admin/analytics/health?from=2026-01-01&to=2026-01-03"},
 		{"analytics-agent", "/admin/analytics/agents/gptbot?from=2026-01-01&to=2026-01-03"},
 		{"plugins", "/admin/plugins"},
+		{"plugins-browse", "/admin/plugins/browse"},
+		{"plugins-browse-detail", "/admin/plugins/gallery/about"},
+		{"plugins-security", "/admin/plugins/security"},
 		{"plugin", "/admin/plugins/hello/settings"},
 		{"plugin-permissions", "/admin/plugins/hello/permissions"},
 	}

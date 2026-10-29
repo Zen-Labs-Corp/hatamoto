@@ -4,6 +4,10 @@
 .hm-dialog[open]:has(.hm-dialog__body) { overflow: hidden; }
 .hm-dialog[data-size="sm"] { width: min(420px, calc(100vw - 32px)); }
 .hm-dialog[data-size="lg"] { width: min(960px, calc(100vw - 32px)); }
+/* Drawer: a side panel pinned to the inline end, full height. */
+.hm-dialog[data-side="end"] { width: min(480px, 100vw); max-height: none; border-width: 0 0 0 1px; border-radius: 0; }
+.hm-dialog[data-side="end"][open] { position: fixed; inset: 0 0 0 auto; margin: 0; height: 100vh; height: 100dvh; animation: hm-drawer-in 150ms var(--ease); }
+@keyframes hm-drawer-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 .hm-dialog[open] { animation: hm-dialog-in 150ms var(--ease); }
 .hm-dialog::backdrop { background: var(--scrim); }
 @keyframes hm-dialog-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }

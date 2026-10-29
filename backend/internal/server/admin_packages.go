@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
@@ -28,6 +31,9 @@ type packageAdmin struct {
 	cached   *packages.Index
 	cacheErr error
 	cachedAt time.Time
+	// fetchedAt is when cached was last read from the registry successfully
+	// (not when it was last served, and not moved by a failed fetch): what the pages show as "refreshed N ago".
+	fetchedAt time.Time
 }
 
 const registryCacheTTL = 30 * time.Second
@@ -42,7 +48,7 @@ func actorCtx(ctx context.Context) context.Context {
 		return ctx
 	}
 	id, _ := uuid.Parse(u.ID)
-	return packages.WithActor(ctx, packages.Actor{ID: id, Email: u.Email})
+	return packages.WithActor(ctx, packages.Actor{ID: id, Email: u.Email, Name: u.Name})
 }
 
 // index is the verified registry index, cached briefly so one page view reads
@@ -60,7 +66,34 @@ func (p *packageAdmin) index(ctx context.Context) (*packages.Index, error) {
 	defer cancel()
 	p.cached, p.cacheErr = p.mgr().Registry.Fetch(ctx)
 	p.cachedAt = time.Now()
+	if p.cacheErr == nil {
+		p.fetchedAt = p.cachedAt
+	}
 	return p.cached, p.cacheErr
+}
+
+// refresh drops the cache (errors included) so the next read asks the registry.
+func (p *packageAdmin) refresh() {
+	p.mu.Lock()
+	p.cachedAt = time.Time{}
+	p.mu.Unlock()
+}
+
+func (p *packageAdmin) fetchedTime() time.Time {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.fetchedAt
+}
+
+// registryHost is the configured registry's host name ("" when off or unset).
+func (p *packageAdmin) registryHost() string {
+	if p.s == nil || p.s.cfg.Packages.RegistryOff() {
+		return ""
+	}
+	if u, err := url.Parse(p.s.cfg.Packages.RegistryURL); err == nil {
+		return u.Host
+	}
+	return ""
 }
 
 func (p *packageAdmin) installedVersions(ctx context.Context) map[string]string {
@@ -115,22 +148,25 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 	case errors.Is(err, packages.ErrRegistryOff):
 		return admin.RegistryView{Off: true}
 	case err != nil:
-		host := ""
-		if u, perr := url.Parse(p.s.cfg.Packages.RegistryURL); perr == nil {
-			host = u.Host
-		}
-		return admin.RegistryView{Err: err.Error(), Host: host}
+		return admin.RegistryView{Err: err.Error(), Host: p.registryHost(), FetchedAt: p.fetchedTime()}
 	}
 	have := p.installedVersions(ctx)
-	var v admin.RegistryView
+	v := admin.RegistryView{Host: p.registryHost(), FetchedAt: p.fetchedTime()}
 	for _, e := range idx.Packages {
 		cur, installed := have[string(e.Kind)+"/"+e.Name]
 		v.Entries = append(v.Entries, admin.RegistryEntry{
 			Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
 			Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
+			Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
+			Features: e.Features, Size: e.Size, Featured: e.Featured,
 		})
 	}
 	return v
+}
+
+func (p *packageAdmin) RefreshRegistry(ctx context.Context) admin.RegistryView {
+	p.refresh()
+	return p.Registry(ctx)
 }
 
 func (p *packageAdmin) Fetch(ctx context.Context, kind, name string) ([]byte, error) {
@@ -226,8 +262,47 @@ func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
 	return err == nil && cfg.AllowUnsigned
 }
 
-func (p *packageAdmin) SetAllowUnsigned(ctx context.Context, on bool) error {
-	return p.mgr().SetAllowUnsigned(actorCtx(ctx), on)
+func (p *packageAdmin) UnsignedState(ctx context.Context) admin.UnsignedState {
+	cfg, err := p.mgr().Store().Config(ctx)
+	if err != nil {
+		return admin.UnsignedState{}
+	}
+	return admin.UnsignedState{On: cfg.AllowUnsigned, Until: cfg.AllowUnsignedUntil}
+}
+
+func (p *packageAdmin) SetAllowUnsigned(ctx context.Context, on bool, until *time.Time, duration string) error {
+	return p.mgr().SetAllowUnsigned(actorCtx(ctx), on, until, duration)
+}
+
+// Signers lists the trusted keys with derived names: the built-in first-party
+// key, or "Custom signer <key id>" for a key from the environment.
+func (p *packageAdmin) Signers(context.Context) []admin.SignerInfo {
+	builtIn := ""
+	if pub, err := packages.ParsePublicKey(config.FirstPartyKey); err == nil {
+		builtIn = packages.KeyID(pub)
+	}
+	var out []admin.SignerInfo
+	for id, pub := range p.mgr().Trust {
+		sum := sha256.Sum256(pub)
+		s := admin.SignerInfo{
+			Name: "Custom signer " + id, Source: "Environment", Algorithm: packages.Algorithm,
+			Fingerprint: "SHA256:" + base64.RawStdEncoding.EncodeToString(sum[:]),
+		}
+		if id == builtIn {
+			s.Name, s.Source = "First-party key", "Built in"
+		}
+		out = append(out, s)
+	}
+	slices.SortFunc(out, func(a, b admin.SignerInfo) int {
+		if (a.Source == "Built in") != (b.Source == "Built in") {
+			if a.Source == "Built in" {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+	return out
 }
 
 func (p *packageAdmin) Themes(ctx context.Context) ([]admin.ThemeInfo, error) {

@@ -35,7 +35,7 @@ function check({ sticky, list, spec }) {
   const SHADOW_OK = ".hm-ed__bar";
   const BTN_OK = ".hm-filter-chip, .hm-bubble, .hm-ed__bar";
   // Multi-pick lists and consent gates stay checkboxes (docs/ADMIN_UI_RULES.md rule 4).
-  const MULTI = 'table, .hm-mediatile, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"]';
+  const MULTI = 'table, .hm-mediatile, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
   const visible = (el) => {
     if (!el.getClientRects().length) return false;
     const cs = getComputedStyle(el);
@@ -190,6 +190,7 @@ function check({ sticky, list, spec }) {
       for (const [v, vsel] of Object.entries(c.variants || {})) if (el.matches(vsel) || (ALSO[name + "/" + v] && el.matches(ALSO[name + "/" + v]))) Object.assign(props, c.variantProps?.[v]);
       const cs = getComputedStyle(el);
       for (const [prop, value] of Object.entries(props)) {
+        if (prop === "height" && el.matches(".hm-badge--wrap")) continue; // a wrapping badge grows with its text on narrow screens (badge.css)
         const got = cs.getPropertyValue(prop), exp = wanted(prop, value);
         if (got !== exp) out.push(["UI-D14", sel(el), `${name} ${prop} is not ${value}`, `${got} != ${exp}`]);
       }

@@ -25,7 +25,6 @@ func (a *Admin) mountPluginInstall(owner *httpx.Group) {
 	owner.HandleFunc("POST /plugins/upload", a.handlePackageUpload)
 	owner.HandleFunc("POST /plugins/install", a.handlePluginInstall)
 	owner.HandleFunc("POST /theme/themes/install", a.handleThemeInstallConfirmed)
-	owner.HandleFunc("POST /plugins/unsigned", a.handleAllowUnsigned)
 	owner.HandleFunc("POST /plugins/{name}/enable", a.handlePluginEnable)
 	owner.HandleFunc("POST /plugins/{name}/disable", a.handlePluginEnable)
 	owner.HandleFunc("GET /plugins/{name}/uninstall", a.handlePluginUninstallForm)
@@ -305,31 +304,6 @@ func (a *Admin) handlePluginInstall(w http.ResponseWriter, r *http.Request) {
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Plugin installed and running. No restart needed.")
 	http.Redirect(w, r, back, http.StatusSeeOther)
-}
-
-// handleAllowUnsigned switches the unsigned-package opt-in. Turning it on needs
-// an explicit acknowledgement: such a package runs whatever its author wrote.
-func (a *Admin) handleAllowUnsigned(w http.ResponseWriter, r *http.Request) {
-	pk, ok := a.packageAdmin(w, r)
-	if !ok {
-		return
-	}
-	on := r.PostFormValue("allow") == "1"
-	if on && r.PostFormValue("understand") != "1" {
-		a.ErrorBack(w, r, http.StatusUnprocessableEntity, "Tick the box to continue", "Unsigned packages can only be allowed after you confirm that you understand the risk.", a.adminPath+"/plugins#unsigned", "Back to plugins")
-		return
-	}
-	if err := pk.SetAllowUnsigned(r.Context(), on); err != nil {
-		a.logger().Error("set allow unsigned failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
-		return
-	}
-	msg := "Unsigned packages are no longer accepted."
-	if on {
-		msg = "Unsigned packages are now accepted. Only install code you trust."
-	}
-	a.SetFlash(w, r, "success", msg)
-	http.Redirect(w, r, a.adminPath+"/plugins#unsigned", http.StatusSeeOther)
 }
 
 func (a *Admin) handlePluginEnable(w http.ResponseWriter, r *http.Request) {

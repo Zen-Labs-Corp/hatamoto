@@ -4,21 +4,26 @@
 .hm-pkg p { margin: var(--space-1) 0 0; }
 .hm-pluginlist { list-style: none; margin: 0 0 var(--space-6); padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .hm-pluginlist--card { margin: 0; border: 0; border-radius: 0; background: none; }
-.hm-pluginlist__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.hm-pluginlist__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
 .hm-pluginlist__row:first-child { border-top: 0; }
 .hm-pluginlist__main { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; overflow-wrap: anywhere; }
 .hm-pluginlist__title { display: block; }
 .hm-pluginlist__desc { font-size: var(--text-sm); }
 .hm-pluginlist__note { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
 .hm-pluginlist__badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.hm-pluginlist__notice { width: 100%; }
+.hm-callout--compact .hm-callout__body:has(> .hm-pluginlist__notice) { flex: 1 1 24rem; } /* a compact callout is a row: let the body take the free width */
+.hm-pluginlist__notice > :first-child { flex: 1 1 24rem; min-width: 0; }
 .hm-pluginlist__bulk { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
 .hm-pluginlist__update { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); font-size: var(--text-sm); }
 .hm-pluginlist__uptodate { font-size: var(--text-sm); margin-left: var(--space-2); }
 .hm-pluginlist__issue { text-decoration: none; }
 .hm-pluginlist__link { white-space: nowrap; }
+.hm-pluginlist__filters { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.hm-pluginlist__search { display: flex; align-items: flex-end; gap: var(--space-2); }
 @media (max-width: 480px) {
-  .hm-pluginlist__row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-3); }
-  .hm-pluginlist__main { grid-column: 1 / -1; }
+  .hm-pluginlist__row { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
+  .hm-pluginlist__badges, .hm-pluginlist__link { grid-column: 2; }
   .hm-pluginlist__badges { justify-self: start; }
 }
 .hm-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }

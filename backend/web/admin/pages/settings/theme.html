@@ -32,7 +32,7 @@
 {{template "hm/card-end"}}
 {{template "hm/dialog-start" dict "ID" "upload-pkg" "Title" "Upload theme" "Static" true}}
 <form id="upload-pkg-form" method="post" action="{{adminPath}}/plugins/upload" enctype="multipart/form-data" class="hm-stack">{{template "hm/csrf" $}}
-<p class="hm-muted">A <code>.hmp</code> theme file.{{if not .AllowUnsigned}} Unsigned themes are refused unless you allow them under <a href="{{adminPath}}/plugins#unsigned">Plugins</a>.{{else}} Unsigned packages are currently allowed.{{end}}</p>
+<p class="hm-muted">A <code>.hmp</code> theme file.{{if not .AllowUnsigned}} Unsigned themes are refused unless an owner allows them.{{else}} Unsigned packages are currently allowed.{{end}}</p>
 {{template "hm/form-upload-pkg" dict "Label" "Theme file"}}</form>
 {{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Upload" "PrimaryAttrs" (attrmap "form" "upload-pkg-form")}}
 {{end}}{{end}}

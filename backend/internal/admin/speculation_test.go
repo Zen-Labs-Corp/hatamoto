@@ -37,11 +37,15 @@ func TestShellCarriesNoncedSpeculationRules(t *testing.T) {
 	for _, want := range []string{
 		"/admin/login*", "/admin/setup*", "/admin/logout*", "/admin/theme", "/admin/*/delete*", "/admin/*/confirm*",
 		"/admin/*/export.csv*", "/admin/*/preview*", "/admin/preview/*", "/admin/plugins/*/ui*", "/admin/plugins/*/settings*", "/admin/*/bulk*",
+		"/admin/*/unsigned*", "/admin/*/check-updates*",
 		"/admin/settings/submissions/*", "/admin/entities/*/edit*", "/admin/entities/new*", "/admin/entities/drafts*",
 	} {
 		if !strings.Contains(m[2], `"`+want+`"`) {
 			t.Errorf("rules do not exclude %s", want)
 		}
+	}
+	if strings.Contains(m[2], "/security") {
+		t.Error("the Package security page must stay prerenderable like any other page")
 	}
 	login := g.do("GET", "/admin/login", "", nil, nil).Body.String()
 	if strings.Contains(login, "speculationrules") {

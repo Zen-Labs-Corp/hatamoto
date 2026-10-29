@@ -2,7 +2,7 @@
 // Run: node --test scripts/admin-qa/unit/shelllogic.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { carryHref, confirmPost, isDismissed, markDismissed, photoFailed, photoFallback, phraseMatches, rememberSidebar, rememberedSidebar, safeStorage } from "../../../backend/web/admin/js/shelllogic.js";
+import { carryHref, confirmPost, isDismissed, markDismissed, photoFailed, photoFallback, phraseMatches, rememberSidebar, rememberedSidebar, safeStorage, unsignedGatesMet } from "../../../backend/web/admin/js/shelllogic.js";
 
 // A form whose controls are named like the bulk toolbar: a field called "action" shadows form.action.
 const attrs = (o) => ({ getAttribute: (k) => o[k] ?? null });
@@ -148,4 +148,29 @@ test("an empty phrase never matches, even an empty entry", () => {
 });
 test("an empty entry fails", () => {
   assert.equal(phraseMatches("", "/admin"), false);
+});
+
+const gates = { ack: true, host: "site.example", siteHost: "site.example", password: "pw", duration: "24h" };
+test("unsigned gates: all four answered passes", () => {
+  assert.equal(unsignedGatesMet(gates), true);
+  for (const duration of ["1h", "24h", "forever"]) assert.equal(unsignedGatesMet({ ...gates, duration }), true);
+});
+test("unsigned gates: each missing gate fails alone", () => {
+  assert.equal(unsignedGatesMet({ ...gates, ack: false }), false);
+  assert.equal(unsignedGatesMet({ ...gates, host: "" }), false);
+  assert.equal(unsignedGatesMet({ ...gates, host: "other.example" }), false);
+  assert.equal(unsignedGatesMet({ ...gates, password: "" }), false);
+  assert.equal(unsignedGatesMet({ ...gates, duration: "" }), false);
+  assert.equal(unsignedGatesMet({ ...gates, duration: "7d" }), false);
+});
+test("unsigned gates: the address is trimmed and ignores case, like the server", () => {
+  assert.equal(unsignedGatesMet({ ...gates, host: "  SITE.example " }), true);
+  assert.equal(unsignedGatesMet({ ...gates, host: "site.example." }), false);
+});
+test("unsigned gates: an unknown site address never matches", () => {
+  assert.equal(unsignedGatesMet({ ...gates, siteHost: "", host: "" }), false);
+});
+test("unsigned gates: the acknowledgement must be exactly true", () => {
+  assert.equal(unsignedGatesMet({ ...gates, ack: "1" }), false);
+  assert.equal(unsignedGatesMet({ ...gates, ack: undefined }), false);
 });

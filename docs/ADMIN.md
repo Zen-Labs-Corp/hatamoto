@@ -637,7 +637,14 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
 * **Activation** is a GET confirmation page listing missing section types, then a POST. Uninstalling
   a plugin is a page with the keep-or-delete-data choice; a theme uses the generic confirm page.
 * **Uploads** are multipart posts, so the CSRF token travels in the `X-CSRF-Token` header or as the form's first `_csrf` field (the admin never parses a whole multipart body before the session check, and never reads the token from the query string).
-* **Unsigned opt-in** is a form with an acknowledgement checkbox and a standing warning on the page.
+* **Unsigned opt-in** lives on the Package security page (`<admin>/plugins/security`, owner only),
+  reached from the Plugins page header menu. The form (`POST <admin>/plugins/unsigned`) has four gates,
+  all checked on the server in this order: the acknowledgement, the site address typed exactly, a
+  duration (1 hour, 24 hours, until turned off) and the owner's password (an owner without a password
+  is told to set one first). The cheap gates run before the password so a wrong address never costs a
+  password attempt. While the opt-in is on, a banner on the Plugins page says so and when it ends,
+  with a one-click "Turn off now" (`POST <admin>/plugins/unsigned/off`, no other gate). A timed
+  allowance is evaluated when it is read, so it lapses without a job. Turning it on or off is audited.
 * **Plugins subnav.** Every `<admin>/plugins*` page sits in a secondary sidebar built like the Settings
   one (`plugins_nav.go`, `partials/pluginsnav.html`): "All plugins", then one entry per installed plugin
   (`<admin>/plugins/{name}/settings`), read from the plugin registry so a new install adds an entry.
@@ -646,8 +653,11 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   `<admin>/plugins/go?plugin=<name>` (303 to that plugin; an empty value is the list, an unknown name
   lands on the role's home), so a plugin named `go` has no bare `<admin>/plugins/go` shortcut; its `/go/settings` still works. An editor sees only the plugins whose UI admits editors, and no "All plugins".
 * **Plugin list.** `<admin>/plugins` (owner) is one line per plugin: name, description, status badge
-  (Active, Disabled, Failed, Blocked, Uninstalling) and a "Settings" link. The header has Upload
-  package and Browse registry; the Unsigned, Available and Upload cards follow the list.
+  (Active, Disabled, Failed, Blocked, Uninstalling) and a "Settings" link. The header has Browse
+  plugins and Upload, and a menu with "Check for updates" and "Package security"; an
+  unsigned-packages banner and the update strip sit above the list when they apply.
+* **Browse.** `<admin>/plugins/browse` shows the registry as cards with search, facets and paging;
+  `<admin>/plugins/<name>/about` is the detail page, shown in a side panel when script is on.
 * **Plugin pages.** `<admin>/plugins/{name}/settings` renders for every installed plugin. The owner gets
   the header (status, "Update to X", Turn on/off) and two link tabs. The **Settings** tab holds the
   plugin's settings form and its admin UI, an `<iframe sandbox="allow-scripts">`; `pluginframe.js`
