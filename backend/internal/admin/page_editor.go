@@ -71,6 +71,8 @@ func (a *Admin) mountPageEditor(authed *httpx.Group, public *httpx.Group) {
 	authed.HandleFunc("POST /entities/{id}/builder/stage", a.handleBuilderStage)
 	authed.HandleFunc("POST /entities/{id}/builder/component", a.handleBuilderComponent)
 	authed.HandleFunc("POST /entities/{id}/builder/save", a.handleBuilderSave)
+	authed.HandleFunc("GET /entities/{id}/builder/seo", a.handleBuilderSEO)
+	authed.HandleFunc("POST /entities/{id}/builder/analyze", a.handleBuilderAnalyze)
 	authed.HandleFunc("POST /entities/{id}/builder/recovery", a.handleBuilderRecoveryPut)
 	authed.HandleFunc("POST /entities/{id}/builder/recovery/discard", a.handleBuilderRecoveryDiscard)
 	authed.HandleFunc("GET /builder/stylespec", a.handleStyleSpec)

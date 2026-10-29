@@ -28,6 +28,7 @@ GET /admin/entities/new -> admin.(*Admin).handleEntityNew-fm
 GET /admin/entities/parent-options -> admin.(*Admin).handleParentOptions-fm
 GET /admin/entities/{id} -> admin.(*Admin).handleEntityEdit-fm
 GET /admin/entities/{id}/builder/node-versions -> admin.(*Admin).handleBuilderNodeVersions-fm
+GET /admin/entities/{id}/builder/seo -> admin.(*Admin).handleBuilderSEO-fm
 GET /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDeleteConfirm-fm
 GET /admin/entities/{id}/edit -> admin.(*Admin).handleEntityEditor-fm
 GET /admin/entities/{id}/edit/preview/{token} -> admin.(*Admin).handlePreviewFrame-fm
@@ -178,6 +179,7 @@ POST /admin/entities/bulk -> admin.(*Admin).handleEntitiesBulk-fm
 POST /admin/entities/drafts -> admin.(*Admin).handleEntityDraft-fm
 POST /admin/entities/{id} -> admin.(*Admin).handleEntitySave-fm
 POST /admin/entities/{id}/analyze -> admin.(*Admin).handleEntityAnalyze-fm
+POST /admin/entities/{id}/builder/analyze -> admin.(*Admin).handleBuilderAnalyze-fm
 POST /admin/entities/{id}/builder/block -> admin.(*Admin).handleMakeBlock-fm
 POST /admin/entities/{id}/builder/component -> admin.(*Admin).handleBuilderComponent-fm
 POST /admin/entities/{id}/builder/paste -> admin.(*Admin).handleBuilderPaste-fm

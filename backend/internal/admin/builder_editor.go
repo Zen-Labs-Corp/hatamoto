@@ -119,7 +119,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
 		"urls": map[string]string{
 			"stage": base + "/builder/stage", "render": base + "/edit/render", "component": base + "/builder/component",
-			"save": base + "/builder/save", "nodeVersions": base + "/builder/node-versions", "paste": base + "/builder/paste", "stylespec": a.adminPath + "/builder/stylespec", "presets": a.adminPath + "/builder/presets", "details": base, "versions": sh.VersionsHref, "view": sh.ViewHref, "theme": a.adminPath + "/theme/colours",
+			"save": base + "/builder/save", "seo": base + "/builder/seo", "analyze": base + "/builder/analyze", "nodeVersions": base + "/builder/node-versions", "paste": base + "/builder/paste", "stylespec": a.adminPath + "/builder/stylespec", "presets": a.adminPath + "/builder/presets", "details": base, "versions": sh.VersionsHref, "view": sh.ViewHref, "theme": a.adminPath + "/theme/colours",
 			"recovery": base + "/builder/recovery", "recoveryDiscard": base + "/builder/recovery/discard",
 		},
 		"canStyle": canStyle,

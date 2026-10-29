@@ -1,0 +1,2 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}<div id="hm-bs-seo">{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" .AnalyzeURL "Include" "#hm-bs-seo"}}</div>{{end}}{{end}}
