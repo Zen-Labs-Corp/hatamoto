@@ -154,7 +154,7 @@ cl FAKE_OWNERS=1 >"$tmp/o" 2>&1 || fail "owner run failed: $(cat "$tmp/o")"
 if grep -q 'SETUP_CODE' "$envf"; then fail "setup code kept"; fi
 grep -v '^HATAMOTO_SETUP_CODE=' "$tmp/env.before" | cmp -s - "$envf" || fail "other lines changed"
 [ "$(stat -c %a "$envf")" = 640 ] || fail "env perms $(stat -c %a "$envf")"
-[ "$(ls "$(dirname "$envf")" | wc -l)" = 1 ] || fail "temp file left behind"
+[ "$(find "$(dirname "$envf")" -mindepth 1 -maxdepth 1 | wc -l)" = 1 ] || fail "temp file left behind"
 grep -qx 'systemctl disable --now hatamoto-setupcode-clean.timer' "$tmp/calls" || fail "timer not disabled"
 if grep -q 'K7M2' "$tmp/o"; then fail "code printed by the clean-up script"; fi
 pass "owner exists: only the setup code line is removed, mode kept, timer disabled, nothing printed"
@@ -184,7 +184,7 @@ wait "$p1" "$p2" "$holder" || fail "a script failed: $(cat "$tmp/o1" "$tmp/o2")"
 grep -qx 'PUBLIC_BASE_URL=https://example.com' "$envf" || fail "dns edit lost"
 if grep -q SETUP_CODE "$envf"; then fail "clean edit lost: $(cat "$tmp/o1" "$tmp/o2"; sed "s/=.*//" "$envf")"; fi
 [ "$(stat -c %a "$envf")" = 640 ] || fail "env perms"
-[ "$(ls "$r/opt/hatamoto/config" | wc -l)" = 1 ] || fail "temp file left: $(ls "$r/opt/hatamoto/config")"
+[ "$(find "$r/opt/hatamoto/config" -mindepth 1 -maxdepth 1 | wc -l)" = 1 ] || fail "temp file left: $(find "$r/opt/hatamoto/config" -mindepth 1 -maxdepth 1)"
 pass "env edits are serialised, both applied, no temp left"
 
 echo "ok: test-motd-dns"
