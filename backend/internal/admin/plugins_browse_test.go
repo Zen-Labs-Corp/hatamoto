@@ -111,6 +111,10 @@ func TestBrowseEmptyAndStates(t *testing.T) {
 	if body := getBrowse(g, "?q=zzz"); !strings.Contains(body, "No plugins match") || !strings.Contains(body, "Clear filters") {
 		t.Error("no-match state missing")
 	}
+	empty, _ := browseRig(t, RegistryView{Host: "registry.example.test"})
+	if body := getBrowse(empty, ""); !strings.Contains(body, "The registry has no plugins yet") || strings.Contains(body, "No plugins match") || strings.Contains(body, "Clear filters") {
+		t.Error("an empty unfiltered registry needs a plain empty state without a clear button")
+	}
 	if body := getBrowse(g, ""); strings.Contains(body, `name="cat"`) {
 		t.Error("category facet shown although no entry has a category")
 	}

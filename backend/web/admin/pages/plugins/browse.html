@@ -22,7 +22,8 @@
 <div class="hm-pluginbrowse__sort"><label class="hm-field__label" for="browse-sort">Sort</label>{{template "hm/select" dict "ID" "browse-sort" "Name" "sort" "Auto" true "Options" .SortOptions}}</div></div>
 {{if .Cards}}<ul class="hm-plugincards" role="list">{{range .Cards}}{{template "browse-card" .}}{{end}}</ul>
 {{template "hm/pagination" .Pager}}
-{{else}}{{template "hm/empty" dict "Icon" "search" "Title" "No plugins match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}{{end}}
+{{else if .Filtered}}{{template "hm/empty" dict "Icon" "search" "Title" "No plugins match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}
+{{else}}{{template "hm/empty" dict "Icon" "puzzle" "Title" "The registry has no plugins yet" "Body" "Check back later, or upload a package from the Plugins page."}}{{end}}
 </div></div></form>
 {{end}}
 {{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
