@@ -553,6 +553,31 @@ neg "title starting with a brand" "acme-seo" "$(base acme-seo $https $good | jq 
 neg "title sharing no word" "acme-seo" "$(base acme-seo $https $good | jq '.title="Lead Delivery"')" "share a word"
 neg "title sharing only a number" "acme-seo-2" "$(base acme-seo-2 $https $good | jq '.title="Seven 2"')" "share a word"
 neg "title with fullwidth forms" "acme-seo" "$(base acme-seo $https $good | jq '.title="Acme SEO！"')" "fullwidth"
+# Brand variants (digit swaps, hyphens, dots, small capitals) and title separators, as in the validator.
+nt() { # nt <name> <title> <substring> [label]: a community title that must be refused
+  neg "${4:-title $2}" "$1" "$(base "$1" $https $good | jq --arg t "$2" '.title=$t')" "$3"
+}
+b='must not start with the brand'
+neg "name brand with digits" "str1pe-sync" "$(base str1pe-sync $https $good | jq '.title="Str1pe Sync"')" "name $b \"stripe\""
+neg "name brand split by a hyphen" "str-ipe" "$(base str-ipe $https $good | jq '.title="Str Ipe"')" "name $b \"stripe\""
+neg "name brand with zeros" "g00gle-sync" "$(base g00gle-sync $https $good | jq '.title="Sync G00gle"')" "name $b \"google\""
+neg "name brand split by hyphens" "open-ai-tool" "$(base open-ai-tool $https $good | jq '.title="Open Ai Tool"')" "name $b \"openai\""
+nt checkout "Str1pe checkout" "title $b \"stripe\""
+nt sync-tool "Str-ipe Sync Tool" "title $b \"stripe\""
+nt sync-tool "S.tripe Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe: Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe, Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe/Sync Tool" "title $b \"stripe\""
+nt sync-tool "Str-ipe-x Sync" "title $b \"stripe\""
+nt pay-1 "Str1pe 1" "title $b \"stripe\""
+nt sync-tool "$(printf '\ua731\u1d1b\u0280\u026a\u1d18\u1d07') Sync Tool" "title $b \"stripe\"" "title in small capitals"
+nt acme-sync "Acme -- Sync -- Notes" "more than one separator"
+nt acme-sync "Acme - Sync - Notes" "more than one separator"
+for cp in '\u3164' '\u115f' '\u1160' '\uffa0'; do
+  nt acme-sync "Acme$(printf "$cp")Sync" "invisible characters" "title with the filler $cp"
+done
+nt sync-tool "$(printf '\u02e2\u1d57\u02b3\u2071\u1d56\u1d49') Sync Tool" "invisible characters" "title in modifier letters"
+fp_neg "first-party Hangul title with a filler" acme-seo "$(fp acme-seo $zl/x | jq --arg t "$(printf '\ube14\ub85c\uadf8\u3164\ub3c4\uad6c')" '.title=$t')" "invisible characters"
 echo "ok: $((n - ln0)) listing rule negative cases"
 # about and features (optional): one negative per rule.
 an0=$n
@@ -598,6 +623,28 @@ d="$work/listok2"; manifest "$d" google-notes "$(base google-notes "file://$work
 out=$(HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/lo-pk" "$work/lo-meta.json" 2>&1) && fail "owner brand built nothing"
 grep -q "cannot fetch" <<<"$out" || fail "brand owner rejected: $out"
 neg "brand without its owner" "google-notes" "$(base google-notes $https $good | jq '.title="Google Notes"')" "must not start with the brand \"google\""
+# Look-alike words that are not brands, and separators counted once, still pass pass 1.
+tok() { # tok <name> <title> [first-party]
+  local d="$work/titleok2" j
+  rm -rf "$d"
+  if [ "${3:-}" = fp ]; then j=$(fp "$1" "file://$work/zen-labs-corp/nonexistent" | jq --arg t "$2" '.title=$t')
+  else j=$(base "$1" file://$work/nonexistent $good | jq --arg t "$2" '.title=$t'); fi
+  manifest "$d" "$1" "$j"
+  out=$(FIRST_PARTY_OWNERS=Zen-Labs-Corp HATAMOTO_ALLOW_FILE_REPOS=1 "$script" "$d" "$bin" "$key" "$work/t-pk" "$work/t-meta.json" 2>&1) && fail "title case built nothing"
+  grep -q "cannot fetch" <<<"$out" || fail "title '$2' ($1) rejected: $out"
+}
+tok open-alerts "Open Alerts"
+tok openal-player "OpenAL Player"
+tok open-air-events "Open Air Events"
+tok open-air-events "Open-Air Events"
+tok open-air-events "Open Air: Events"
+tok viewer-3d "Viewer 3D"
+tok five-sync "Five Sync 5g"
+tok acme-sync "Acme -- Sync"
+tok acme-sync "Acme--Sync"
+tok acme-sync "Acme - Sync"
+tok acme-seo "$(printf '\u65e5\u3005\u30e1\u30e2\u309d\u30fc')" fp
+echo "ok: title rule (brands, separators)"
 
 # Policy: missing, empty, symlinked or unreadable lists stop the build before pass 1.
 mkpol() { # mkpol <dir>: a registry dir with one valid manifest and a copy of the policy

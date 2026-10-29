@@ -206,22 +206,6 @@ brand_match_lk() {
   done <<<"$brands"
   return 1
 }
-# brand_match <word>: print the brand in brands.txt that the word starts with, if any.
-# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
-brand_match() {
-  local b rest
-  while read -r b rest; do
-    if [ -n "$b" ] && [[ $1 == "$b"* ]]; then printf '%s' "$b"; return 0; fi
-  done <<<"$brands"
-  return 1
-}
-# brand_listed <word>: the word is exactly a brand in brands.txt.
-# keep in sync with hatamoto-plugins scripts/validate-manifest.sh
-brand_listed() {
-  local b rest
-  while read -r b rest; do [ "$b" = "$1" ] && return 0; done <<<"$brands"
-  return 1
-}
 # lev1 <a> <b>: edit distance of at most 1.
 # keep in sync with hatamoto-plugins scripts/validate-manifest.sh
 lev1() {
@@ -288,7 +272,7 @@ check_name() {
   done
   if [ "$fpx" -eq 0 ]; then
     if inlist "$reserved_names" "$name"; then die "$name: name is reserved"; fi
-    if b=$(brand_match "${ntoks[0]}") && ! brand_owned "$b" "$owner"; then
+    if b=$(brand_match_lk "$name") && ! brand_owned "$b" "$owner"; then
       die "$name: name must not start with the brand \"$b\""
     fi
   fi
@@ -316,12 +300,13 @@ check_name() {
 # (length and control characters are checked by the caller).
 # keep in sync with hatamoto-plugins scripts/validate-manifest.sh
 check_title() {
-  local name=$1 title=$2 owner=$3 fpx=$4 jt scripts title_words first_word w b shared t ntoks
+  local name=$1 title=$2 owner=$3 fpx=$4 jt scripts title_words title_token first_word w b shared t ntoks
   jt() { jv "$title" "$1" "$name: title"; }
   if jt "$unsafe_chars_filter"; then
     die "$name: title must not contain emoji, symbols or invisible characters"
   fi
-  if jt '[$t | scan("[:,&/|+]| - ")] | length > 1'; then
+  # A run of 2+ hyphens is one separator.
+  if jt '[$t | scan("[:,&/|+]| - |--+")] | length > 1'; then
     die "$name: title \"$title\" has more than one separator (: , & / | + and a spaced hyphen)"
   fi
   if jt '$t | test("[\\[\\](){}<>]|\\p{Ps}|\\p{Pe}")'; then
@@ -353,6 +338,9 @@ check_title() {
   # Words: lowercase alphanumeric tokens ('#' kept so "#1" is a word).
   title_words=$(jq -nr --arg t "$title" "$fold_def"'$t | fold | scan("[\\p{L}\\p{N}#]+")') \
     || die "$name: title could not be checked"
+  # The first token as written (cut at a space or a title separator), with . and ' turned into hyphens: "Str-ipe" is not two words.
+  title_token=$(jq -nr --arg t "$title" "$fold_def"'$t | fold | split(" ")[0] | split("[,:!?&/|+]"; null)[0] | gsub("[.\u0027\u2019]"; "-")') \
+    || die "$name: title could not be checked"
   first_word=""
   while read -r w; do
     [ -n "$w" ] || continue
@@ -360,9 +348,11 @@ check_title() {
     if inlist "$banned_words" "$w"; then die "$name: title contains the banned word \"$w\""; fi
   done <<<"$title_words"
   if [ "$fpx" -eq 0 ]; then
-    if [ -n "$first_word" ] && b=$(brand_match "$first_word") && ! brand_owned "$b" "$owner"; then
-      die "$name: title must not start with the brand \"$b\""
-    fi
+    for w in "$first_word" "$title_token"; do
+      if [ -n "$w" ] && b=$(brand_match_lk "$w") && ! brand_owned "$b" "$owner"; then
+        die "$name: title must not start with the brand \"$b\""
+      fi
+    done
     # The title must share an alphanumeric word with the name.
     shared=0
     IFS=- read -ra ntoks <<<"$name"
