@@ -64,8 +64,9 @@ type groupRow struct {
 
 type sitemapGroup struct {
 	key string
-	// base is the bare group name and locale the locale tag of the file; both
-	// are only set on a multi-locale site, where key is "<segment>-<base>".
+	// base is the bare group name (the sitemap.urls filter's group); locale is
+	// the locale tag of the file, set only on a multi-locale site, where key
+	// is "<segment>-<base>".
 	base, locale string
 	// archive is the group's index path ("/post") from archive_path or a plugin.
 	archive string
@@ -94,7 +95,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		if g, ok := p.byKey[key]; ok {
 			return g
 		}
-		g := &sitemapGroup{key: key}
+		g := &sitemapGroup{key: key, base: key}
 		p.byKey[key] = g
 		p.groups = append(p.groups, g)
 		return g

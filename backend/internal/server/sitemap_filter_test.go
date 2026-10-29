@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/sdk"
 )
@@ -78,4 +79,43 @@ func TestSitemapFilterErrorKeepsURLs(t *testing.T) {
 	if got := s.applySitemapFilter(context.Background(), "misc", in); !reflect.DeepEqual(got, in) {
 		t.Fatalf("failed filter altered urls: %+v", got)
 	}
+}
+
+// The sitemap.urls filter sees the bare group name (and the file's locale on a
+// multi-locale site) for every planned file, not an empty group.
+func TestApplySitemapFilterFor_GroupName(t *testing.T) {
+	run := func(t *testing.T, snap *entity.URLSnapshot, entries []*entity.SitemapEntry, key string) sdk.SitemapURLs {
+		t.Helper()
+		s := sitemapTestServer()
+		var seen sdk.SitemapURLs
+		hooks.OnFilter(s.hooks.For("p"), sdk.SitemapURLsF, 10, func(_ context.Context, v sdk.SitemapURLs) (sdk.SitemapURLs, error) {
+			seen = v
+			return v, nil
+		})
+		plan := planSitemap(sitemapInput{Snap: snap, BaseURL: "https://x.io", Today: testToday, Entries: entries})
+		urls, ok := plan.GroupURLs(key)
+		if !ok {
+			t.Fatalf("no group %q", key)
+		}
+		s.applySitemapFilterFor(context.Background(), plan.byKey[key], urls)
+		return seen
+	}
+
+	t.Run("one locale", func(t *testing.T) {
+		reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+		snap, err := reg.Snapshot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := run(t, snap, []*entity.SitemapEntry{localeEntry("about", "en", nil)}, "misc")
+		if got.Group != "misc" || got.Language != "" {
+			t.Fatalf("filter saw %+v; want group misc, no language", got)
+		}
+	})
+	t.Run("multi locale", func(t *testing.T) {
+		got := run(t, multiSitemapSnap(t, false), []*entity.SitemapEntry{localeEntry("a-propos", "fr", nil)}, "fr-misc")
+		if got.Group != "misc" || got.Language != "fr" {
+			t.Fatalf("filter saw %+v; want group misc, language fr", got)
+		}
+	})
 }
