@@ -28,13 +28,12 @@ const TYPE_SELECT = ["style", "color", "badge", "icon", "show"];
 function outputOf(li) {
   const get = (k) => field(li, k)?.value.trim() ?? "";
   const type = li.dataset.type;
-  const classes = [];
+  const classes = [...tokens(get("class"))];
   for (const k of ["style", "color"]) {
     const sel = field(li, k);
     const c = sel?.selectedOptions?.[0]?.dataset.class;
     if (c) classes.push(c);
   }
-  classes.push(...tokens(get("class")));
   const attrs = [];
   if (classes.length) attrs.push(`class="${classes.join(" ")}"`);
   if (get("id")) attrs.push(`id="${get("id")}"`);
@@ -95,6 +94,7 @@ function init(rootDoc) {
       else f.value = value;
       f.dispatchEvent(new Event(f.tagName === "SELECT" || f.type === "checkbox" ? "change" : "input", { bubbles: true }));
       writing = false;
+      if (items.length === 1) q("[data-hm-ins-output]").textContent = outputOf(li);
     }
 
     // The preset lists belong to the theme and are in each item's own select:
