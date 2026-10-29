@@ -125,6 +125,10 @@ DATABASE_URL=postgres://user:pw@localhost:5432/postgres?sslmode=disable bash scr
 seconds (default 60). `make check` runs the linter and its fixture tests; the `n-1` job in the CI
 workflow runs both scripts with full git history so the baseline resolves.
 
+## Menus: no-link items and rollback
+
+Menu items gained a `none` link type (text only), and the migration turns existing `#` items into it. The schema change is expand-only, so rolling back to the previous release works and public rendering is unaffected. The previous release's admin cannot save a menu that contains a no-link item, though: it asks for an address on those items. Retype them as `#` there, or stay on this release, until you move forward again.
+
 ## People (person profiles)
 
 Authors became people: one `person` entity per human, credited through

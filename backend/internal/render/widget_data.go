@@ -50,6 +50,13 @@ func init() {
 		type item struct {
 			Label, Href    string
 			Blank, Current bool
+			NoLink         bool
+			Class, ID      string
+			Title          string
+			AriaLabel, Rel string
+			Badge          string
+			BadgeClass     string
+			Icon           string
 			Children       []item
 		}
 		var conv func(ns []NavItem) []item
@@ -58,7 +65,9 @@ func init() {
 			for _, n := range ns {
 				out = append(out, item{
 					Label: n.Label, Href: safeURL(n.Href), Blank: n.Target == "_blank",
-					Current: n.Href != "" && n.Href == w.View.Path, Children: conv(n.Children),
+					Current: n.Href != "" && n.Href == w.View.Path, NoLink: n.NoLink,
+					Class: n.Class, ID: n.ID, Title: n.Title, AriaLabel: n.AriaLabel, Rel: n.Rel,
+					Badge: n.Badge, BadgeClass: n.BadgeClass, Icon: n.Icon, Children: conv(n.Children),
 				})
 			}
 			return out

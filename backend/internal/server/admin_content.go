@@ -9,6 +9,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
+	"hatamoto.dev/core/internal/render"
 )
 
 // contentDeps hands the entity, schema, taxonomy and media services to the Go
@@ -56,6 +57,12 @@ func (s *Server) contentDeps() admin.ContentDeps {
 			out = append(out, admin.ThemeSection{Type: sec.Type, Title: sec.Title, Description: sec.Description, Schema: sec.Schema})
 		}
 		return out
+	}
+	d.MenuTheme = func() render.MenuDecl {
+		if s.renderEngine == nil {
+			return render.MenuDecl{}
+		}
+		return s.renderEngine.MenuDecl()
 	}
 	d.Preview = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.renderEngine == nil {

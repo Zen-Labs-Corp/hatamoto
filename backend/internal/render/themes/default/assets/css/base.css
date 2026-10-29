@@ -163,6 +163,37 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
   .hm-nav__list > li:hover > .hm-nav__sub, .hm-nav__list > li:focus-within > .hm-nav__sub { display: block; }
 }
 
+/* Menu item styling declared in theme.json ("menu"). Classes sit on the link, the
+   plain-text span or the footer heading; :is() keeps them above the list rules. */
+.hm-nav__list :where(li) > span { display: block; padding: 0.35rem 0.5rem; color: var(--hm-hai); }
+:is(a, span, p).hm-nav__item--default { font-weight: 400; }
+:is(a, span, p).hm-nav__item--button {
+  display: inline-block; padding: 0.4rem 0.9rem; border-radius: var(--hm-radius-sm);
+  background: var(--hm-primary); color: var(--hm-bg); font-weight: 500;
+}
+:is(a, span, p).hm-nav__item--button:hover { background: var(--hm-shu-dark); color: var(--hm-bg); }
+:is(a, span, p).hm-nav__item--link { text-decoration: underline; text-underline-offset: 0.2em; }
+:is(a, span, p).hm-nav__item--muted { color: var(--hm-label); font-weight: 400; }
+:is(a, span, p).hm-nav-color--accent { color: var(--hm-primary); }
+:is(a, span, p).hm-nav-color--ink { color: var(--hm-text); }
+:is(a, span, p).hm-nav-color--muted { color: var(--hm-label); }
+:is(a, span, p).hm-nav-color--danger { color: var(--hm-shu-dark); }
+.hm-nav__badge {
+  display: inline-block; margin-left: 0.35em; padding: 0 0.4em; border: 1px solid var(--hm-hair);
+  border-radius: var(--hm-radius-sm); font-size: 0.6875rem; font-weight: 500; line-height: 1.5; vertical-align: middle;
+}
+.hm-nav__badge--new { background: var(--hm-primary); border-color: var(--hm-primary); color: var(--hm-bg); }
+.hm-nav__badge--beta { color: var(--hm-hai); }
+.hm-nav__list [data-icon]::after, .hm-footer [data-icon]::after, .hm-menu [data-icon]::after {
+  content: ""; display: inline-block; width: 1em; height: 1em; margin-left: 0.3em; vertical-align: -0.1em;
+  background: currentColor; mask: var(--hm-menu-icon) center / contain no-repeat;
+}
+[data-icon="arrow"] { --hm-menu-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E"); }
+[data-icon="external"] { --hm-menu-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v6H4V6h6'/%3E%3C/svg%3E"); }
+[data-icon="doc"] { --hm-menu-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M6 3h8l4 4v14H6zM14 3v4h4'/%3E%3C/svg%3E"); }
+@media (max-width: 47.99rem) { li:has(> .hm-show-desktop), .hm-show-desktop { display: none; } }
+@media (min-width: 48rem) { li:has(> .hm-show-mobile), .hm-show-mobile { display: none; } }
+
 /* Footer */
 .hm-footer { border-top: 1px solid var(--hm-hair); background: var(--hm-bg); padding: 3rem 0 2.25rem; color: var(--hm-hai); font-size: 0.8125rem; }
 .hm-footer a { color: var(--hm-hai); text-decoration: none; }

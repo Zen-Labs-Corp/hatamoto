@@ -21,11 +21,15 @@
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/menutree.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/menuinspector.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/menupreview.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/searchselect.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
-<script type="module" nonce="NONCE" src="/admin/_/js/menutree.HASH.js" integrity="sha256-D2&#43;lugaw&#43;IdKWHPoYs2wQt2fLnOoelBMHkmSLbzG9z8="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menutree.HASH.js" integrity="sha256-pDFSewHTh7nDNFo35EzV&#43;HSVuffPX6Q/kQeBQ5W65oM="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menuinspector.HASH.js" integrity="sha256-el7vclpUlgtTOHw7N5kHz4iwmBukYcgOcu14MFqQ&#43;ow="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/menupreview.HASH.js" integrity="sha256-0d4ZwqJVCN9KWeD2xnIVfRyCUujzkNbkMTtg7nXykBI="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/searchselect.HASH.js" integrity="sha256-rLH5dgw1s&#43;ujRNqNX7g0dgQgajm7nrh4jWkKFzxXxPA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
@@ -108,9 +112,9 @@
 </header>
 
 
-<form method="post" action="/admin/theme/menus/00000000-0000-4000-8000-000000000001" class="hm-stack hm-menuform">
+<form method="post" action="/admin/theme/menus/00000000-0000-4000-8000-000000000001" class="hm-stack hm-menuform" data-hm-editor data-max-depth="5" data-max-items="200">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save menu</button>
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
 <section class="hm-card" id="menu-details" aria-labelledby="menu-details-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="menu-details-title">Details</h2></div>
 <div class="hm-card__body">
@@ -139,10 +143,13 @@
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.0" formnovalidate data-hm-op="down"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg><span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item 1</span></button>
 <button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Actions for Home" aria-expanded="false" aria-haspopup="menu" popovertarget="i-0-menu"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
 <div class="hm-menu" popover id="i-0-menu" role="menu" aria-label="Actions for Home">
-<button type="submit" role="menuitem" name="_op" value="outdent.0" formnovalidate data-hm-op="outdent" disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 1</span></button>
+<button type="submit" role="menuitem" name="_op" value="outdent.0" formnovalidate disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 1</span></button>
 <button type="submit" role="menuitem" name="_op" value="indent.0" formnovalidate data-hm-op="indent" disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3 8 7 12 3 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Indent<span class="hm-visually-hidden"> item 1</span></button>
 <div role="separator"></div>
-<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.0" formnovalidate data-hm-op="remove"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 1</span></button>
+<button type="submit" role="menuitem" name="_op" value="dup.0" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Duplicate<span class="hm-visually-hidden"> item 1</span></button>
+<button type="submit" role="menuitem" name="_op" value="moveto.0" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>Move to<span class="hm-visually-hidden"> the place chosen below the items, item 1</span></button>
+<div role="separator"></div>
+<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.0" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 1</span></button>
 </div>
 </div></div>
 <details class="hm-menutree__edit"><summary><span class="hm-menutree__chev" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></span>Edit<span class="hm-visually-hidden"> item 1</span></summary>
@@ -151,8 +158,9 @@
 <label class="hm-field__label" for="i-0-label">Label <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
 <input class="hm-field__control" type="text" id="i-0-label" name="i.0.label" value="Home" required autocomplete="off" maxlength="100">
 </div>
-<div class="hm-field"><label class="hm-field__label" for="i-0-type">Links to</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-0-type" name="i.0.type" data-hm-type><option value="entity">A page or post</option><option value="custom" selected>A custom address</option><option value="archive">A category or tag archive</option></select></div>
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span><fieldset class="hm-segmented"><legend class="hm-visually-hidden">Links to</legend>
+<label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.0.type" value="entity" data-hm-type=""><span class="hm-segmented__btn">Page</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.0.type" value="custom" checked data-hm-type=""><span class="hm-segmented__btn">Address</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.0.type" value="archive" data-hm-type=""><span class="hm-segmented__btn">Archive</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.0.type" value="none" data-hm-type=""><span class="hm-segmented__btn">No link</span></label></fieldset>
+
 <noscript><p class="hm-field__help">After you change this, press <button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formnovalidate="" name="_op" value="refresh"><span>Update link fields</span></button> to show the matching field.</p></noscript></div>
 <div class="hm-menutree__target hm-menutree__t-entity"><div class="hm-field hm-searchselect" data-hm-searchselect data-src="/admin/pick/entities">
 <label class="hm-field__label" for="i-0-entity">Page or post</label>
@@ -177,10 +185,49 @@
 <p class="hm-visually-hidden" id="i-0-term-status" role="status" aria-live="polite" data-hm-ss-status></p>
 <p class="hm-field__help" id="i-0-term-help">Used when the item links to a category or tag archive.</p>
 </div></div>
+<div class="hm-menutree__target hm-menutree__t-none"><p class="hm-field__help">Shown as plain text, for example a heading above a group of links.</p></div>
+
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="i-0-newtab"><input class="hm-field__box" type="checkbox" role="switch" id="i-0-newtab" name="i.0.newtab" value="1"><span>Open in a new tab</span></label>
 </div>
 </div>
+<details class="hm-menutree__more"><summary>Appearance</summary>
+<div class="hm-menutree__fields">
+
+
+
+
+<div class="hm-field"><label class="hm-field__label" for="i-0-show">Show on</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-0-show" name="i.0.show"><option value="">All devices</option><option value="desktop">Desktop only</option><option value="mobile">Mobile only</option></select></div></div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-0-class">CSS classes</label>
+<input class="hm-field__control" type="text" id="i-0-class" name="i.0.class" aria-describedby="i-0-class-help" autocomplete="off" maxlength="200">
+<p class="hm-field__help" id="i-0-class-help">Separate classes with spaces.</p>
+</div>
+</div>
+</details>
+<details class="hm-menutree__more"><summary>Advanced</summary>
+<div class="hm-menutree__fields">
+<div class="hm-field">
+<label class="hm-field__label" for="i-0-id">HTML id</label>
+<input class="hm-field__control" type="text" id="i-0-id" name="i.0.id" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-0-title">Title attribute</label>
+<input class="hm-field__control" type="text" id="i-0-title" name="i.0.title" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-0-aria">Accessible name</label>
+<input class="hm-field__control" type="text" id="i-0-aria" name="i.0.aria" aria-describedby="i-0-aria-help" autocomplete="off" maxlength="100">
+<p class="hm-field__help" id="i-0-aria-help">Read out instead of the label by screen readers.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-0-rel">Link relations</label>
+<input class="hm-field__control" type="text" id="i-0-rel" name="i.0.rel" aria-describedby="i-0-rel-help" autocomplete="off">
+<p class="hm-field__help" id="i-0-rel-help">Any of nofollow, sponsored, ugc and me, separated by commas.</p>
+</div>
+</div>
+</details>
 </details>
 </li><li class="hm-menutree__item" data-hm-item data-depth="0" data-type="entity">
 <input type="hidden" name="i.1.depth" value="0" data-hm-depth>
@@ -191,10 +238,13 @@
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.1" formnovalidate data-hm-op="down"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg><span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item 2</span></button>
 <button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Actions for Company" aria-expanded="false" aria-haspopup="menu" popovertarget="i-1-menu"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
 <div class="hm-menu" popover id="i-1-menu" role="menu" aria-label="Actions for Company">
-<button type="submit" role="menuitem" name="_op" value="outdent.1" formnovalidate data-hm-op="outdent" disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 2</span></button>
+<button type="submit" role="menuitem" name="_op" value="outdent.1" formnovalidate disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 2</span></button>
 <button type="submit" role="menuitem" name="_op" value="indent.1" formnovalidate data-hm-op="indent"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3 8 7 12 3 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Indent<span class="hm-visually-hidden"> item 2</span></button>
 <div role="separator"></div>
-<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.1" formnovalidate data-hm-op="remove"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 2 (its sub-items move up a level)</span></button>
+<button type="submit" role="menuitem" name="_op" value="dup.1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Duplicate<span class="hm-visually-hidden"> item 2 and its sub-items</span></button>
+<button type="submit" role="menuitem" name="_op" value="moveto.1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>Move to<span class="hm-visually-hidden"> the place chosen below the items, item 2</span></button>
+<div role="separator"></div>
+<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 2 and its sub-items</span></button>
 </div>
 </div></div>
 <details class="hm-menutree__edit"><summary><span class="hm-menutree__chev" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></span>Edit<span class="hm-visually-hidden"> item 2</span></summary>
@@ -203,8 +253,9 @@
 <label class="hm-field__label" for="i-1-label">Label <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
 <input class="hm-field__control" type="text" id="i-1-label" name="i.1.label" value="Company" required autocomplete="off" maxlength="100">
 </div>
-<div class="hm-field"><label class="hm-field__label" for="i-1-type">Links to</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-1-type" name="i.1.type" data-hm-type><option value="entity" selected>A page or post</option><option value="custom">A custom address</option><option value="archive">A category or tag archive</option></select></div>
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span><fieldset class="hm-segmented"><legend class="hm-visually-hidden">Links to</legend>
+<label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.1.type" value="entity" checked data-hm-type=""><span class="hm-segmented__btn">Page</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.1.type" value="custom" data-hm-type=""><span class="hm-segmented__btn">Address</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.1.type" value="archive" data-hm-type=""><span class="hm-segmented__btn">Archive</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.1.type" value="none" data-hm-type=""><span class="hm-segmented__btn">No link</span></label></fieldset>
+
 <noscript><p class="hm-field__help">After you change this, press <button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formnovalidate="" name="_op" value="refresh"><span>Update link fields</span></button> to show the matching field.</p></noscript></div>
 <div class="hm-menutree__target hm-menutree__t-entity"><div class="hm-field hm-searchselect" data-hm-searchselect data-src="/admin/pick/entities">
 <label class="hm-field__label" for="i-1-entity">Page or post</label>
@@ -229,10 +280,49 @@
 <p class="hm-visually-hidden" id="i-1-term-status" role="status" aria-live="polite" data-hm-ss-status></p>
 <p class="hm-field__help" id="i-1-term-help">Used when the item links to a category or tag archive.</p>
 </div></div>
+<div class="hm-menutree__target hm-menutree__t-none"><p class="hm-field__help">Shown as plain text, for example a heading above a group of links.</p></div>
+
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="i-1-newtab"><input class="hm-field__box" type="checkbox" role="switch" id="i-1-newtab" name="i.1.newtab" value="1"><span>Open in a new tab</span></label>
 </div>
 </div>
+<details class="hm-menutree__more"><summary>Appearance</summary>
+<div class="hm-menutree__fields">
+
+
+
+
+<div class="hm-field"><label class="hm-field__label" for="i-1-show">Show on</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-1-show" name="i.1.show"><option value="">All devices</option><option value="desktop">Desktop only</option><option value="mobile">Mobile only</option></select></div></div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-1-class">CSS classes</label>
+<input class="hm-field__control" type="text" id="i-1-class" name="i.1.class" aria-describedby="i-1-class-help" autocomplete="off" maxlength="200">
+<p class="hm-field__help" id="i-1-class-help">Separate classes with spaces.</p>
+</div>
+</div>
+</details>
+<details class="hm-menutree__more"><summary>Advanced</summary>
+<div class="hm-menutree__fields">
+<div class="hm-field">
+<label class="hm-field__label" for="i-1-id">HTML id</label>
+<input class="hm-field__control" type="text" id="i-1-id" name="i.1.id" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-1-title">Title attribute</label>
+<input class="hm-field__control" type="text" id="i-1-title" name="i.1.title" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-1-aria">Accessible name</label>
+<input class="hm-field__control" type="text" id="i-1-aria" name="i.1.aria" aria-describedby="i-1-aria-help" autocomplete="off" maxlength="100">
+<p class="hm-field__help" id="i-1-aria-help">Read out instead of the label by screen readers.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-1-rel">Link relations</label>
+<input class="hm-field__control" type="text" id="i-1-rel" name="i.1.rel" aria-describedby="i-1-rel-help" autocomplete="off">
+<p class="hm-field__help" id="i-1-rel-help">Any of nofollow, sponsored, ugc and me, separated by commas.</p>
+</div>
+</div>
+</details>
 </details>
 </li><li class="hm-menutree__item" data-hm-item data-depth="1" data-type="archive">
 <input type="hidden" name="i.2.depth" value="1" data-hm-depth>
@@ -243,10 +333,13 @@
 <button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only name="_op" value="down.2" formnovalidate data-hm-op="down"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg><span class="hm-visually-hidden">Move down</span><span class="hm-visually-hidden"> item 3</span></button>
 <button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Actions for News" aria-expanded="false" aria-haspopup="menu" popovertarget="i-2-menu"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
 <div class="hm-menu" popover id="i-2-menu" role="menu" aria-label="Actions for News">
-<button type="submit" role="menuitem" name="_op" value="outdent.2" formnovalidate data-hm-op="outdent"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 3</span></button>
+<button type="submit" role="menuitem" name="_op" value="outdent.2" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="7 8 3 12 7 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Outdent<span class="hm-visually-hidden"> item 3</span></button>
 <button type="submit" role="menuitem" name="_op" value="indent.2" formnovalidate data-hm-op="indent" disabled><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3 8 7 12 3 16"/><line x1="21" x2="11" y1="12" y2="12"/><line x1="21" x2="11" y1="6" y2="6"/><line x1="21" x2="11" y1="18" y2="18"/></svg>Indent<span class="hm-visually-hidden"> item 3</span></button>
 <div role="separator"></div>
-<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.2" formnovalidate data-hm-op="remove"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 3</span></button>
+<button type="submit" role="menuitem" name="_op" value="dup.2" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Duplicate<span class="hm-visually-hidden"> item 3</span></button>
+<button type="submit" role="menuitem" name="_op" value="moveto.2" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>Move to<span class="hm-visually-hidden"> the place chosen below the items, item 3</span></button>
+<div role="separator"></div>
+<button type="submit" role="menuitem" data-tone="danger" name="_op" value="remove.2" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Remove<span class="hm-visually-hidden"> item 3</span></button>
 </div>
 </div></div>
 <details class="hm-menutree__edit"><summary><span class="hm-menutree__chev" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></span>Edit<span class="hm-visually-hidden"> item 3</span></summary>
@@ -255,8 +348,9 @@
 <label class="hm-field__label" for="i-2-label">Label <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
 <input class="hm-field__control" type="text" id="i-2-label" name="i.2.label" value="News" required autocomplete="off" maxlength="100">
 </div>
-<div class="hm-field"><label class="hm-field__label" for="i-2-type">Links to</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-2-type" name="i.2.type" data-hm-type><option value="entity">A page or post</option><option value="custom">A custom address</option><option value="archive" selected>A category or tag archive</option></select></div>
+<div class="hm-field"><span class="hm-field__label" aria-hidden="true">Links to</span><fieldset class="hm-segmented"><legend class="hm-visually-hidden">Links to</legend>
+<label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.2.type" value="entity" data-hm-type=""><span class="hm-segmented__btn">Page</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.2.type" value="custom" data-hm-type=""><span class="hm-segmented__btn">Address</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.2.type" value="archive" checked data-hm-type=""><span class="hm-segmented__btn">Archive</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="i.2.type" value="none" data-hm-type=""><span class="hm-segmented__btn">No link</span></label></fieldset>
+
 <noscript><p class="hm-field__help">After you change this, press <button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formnovalidate="" name="_op" value="refresh"><span>Update link fields</span></button> to show the matching field.</p></noscript></div>
 <div class="hm-menutree__target hm-menutree__t-entity"><div class="hm-field hm-searchselect" data-hm-searchselect data-src="/admin/pick/entities">
 <label class="hm-field__label" for="i-2-entity">Page or post</label>
@@ -281,20 +375,90 @@
 <p class="hm-visually-hidden" id="i-2-term-status" role="status" aria-live="polite" data-hm-ss-status></p>
 <p class="hm-field__help" id="i-2-term-help">Used when the item links to a category or tag archive.</p>
 </div></div>
+<div class="hm-menutree__target hm-menutree__t-none"><p class="hm-field__help">Shown as plain text, for example a heading above a group of links.</p></div>
+
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="i-2-newtab"><input class="hm-field__box" type="checkbox" role="switch" id="i-2-newtab" name="i.2.newtab" value="1"><span>Open in a new tab</span></label>
 </div>
 </div>
+<details class="hm-menutree__more"><summary>Appearance</summary>
+<div class="hm-menutree__fields">
+
+
+
+
+<div class="hm-field"><label class="hm-field__label" for="i-2-show">Show on</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="i-2-show" name="i.2.show"><option value="">All devices</option><option value="desktop">Desktop only</option><option value="mobile">Mobile only</option></select></div></div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-2-class">CSS classes</label>
+<input class="hm-field__control" type="text" id="i-2-class" name="i.2.class" aria-describedby="i-2-class-help" autocomplete="off" maxlength="200">
+<p class="hm-field__help" id="i-2-class-help">Separate classes with spaces.</p>
+</div>
+</div>
+</details>
+<details class="hm-menutree__more"><summary>Advanced</summary>
+<div class="hm-menutree__fields">
+<div class="hm-field">
+<label class="hm-field__label" for="i-2-id">HTML id</label>
+<input class="hm-field__control" type="text" id="i-2-id" name="i.2.id" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-2-title">Title attribute</label>
+<input class="hm-field__control" type="text" id="i-2-title" name="i.2.title" autocomplete="off" maxlength="100">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-2-aria">Accessible name</label>
+<input class="hm-field__control" type="text" id="i-2-aria" name="i.2.aria" aria-describedby="i-2-aria-help" autocomplete="off" maxlength="100">
+<p class="hm-field__help" id="i-2-aria-help">Read out instead of the label by screen readers.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="i-2-rel">Link relations</label>
+<input class="hm-field__control" type="text" id="i-2-rel" name="i.2.rel" aria-describedby="i-2-rel-help" autocomplete="off">
+<p class="hm-field__help" id="i-2-rel-help">Any of nofollow, sponsored, ugc and me, separated by commas.</p>
+</div>
+</div>
+</details>
 </details>
 </li>
 </ol>
 <p class="hm-menutree__undo hm-row" role="status" data-hm-undo hidden><span data-hm-undo-text></span><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-undo-btn=""><span>Undo</span></button></p>
 <div class="hm-menutree__add hm-row">
 <div class="hm-field"><label class="hm-field__label" for="add-type">New item links to</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type"><option value="entity">A page or post</option><option value="custom">A custom address</option><option value="archive">A category or tag archive</option></select></div></div>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="add-type" name="add_type"><option value="entity">A page or post</option><option value="custom">A custom address</option><option value="archive">A category or tag archive</option><option value="none">No link</option></select></div></div>
 <button type="submit" class="hm-btn hm-btn--secondary" formnovalidate="" name="_op" value="add"><span>Add item</span></button>
 </div>
-</div><footer class="hm-card__foot"><span class="hm-card__foot-note"><a class="hm-btn hm-btn--danger-text" href="/admin/theme/menus/00000000-0000-4000-8000-000000000001/delete"><span>Delete menu</span></a></span><a class="hm-btn hm-btn--ghost" href="/admin/theme/menus"><span>Back to menus</span></a><button type="submit" class="hm-btn hm-btn--primary" name="_op" value="save"><span>Save menu</span></button></footer></section>
+<div class="hm-menutree__move hm-row">
+<div class="hm-field"><label class="hm-field__label" for="moveto-target">Move to</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="moveto-target" name="moveto_target" aria-describedby="moveto-target-help"><option value="">Choose where</option><option value="top">Top level</option><option value="0">Under Home</option><option value="1">Under Company</option></select></div>
+<p class="hm-field__help" id="moveto-target-help">Choose a place here, then use Move to in the actions menu of the item to move. Its sub-items go with it.</p></div>
+</div>
+</div></section>
+<div class="hm-menueditor__aux" hidden data-hm-editor-only>
+<aside class="hm-menueditor__inspector" aria-label="Item settings" data-hm-inspector></aside>
+<section class="hm-menueditor__preview" aria-label="Preview" data-hm-preview></section>
+</div>
+<template data-hm-tpl="chip"><span class="hm-badge hm-badge--neutral hm-badge--plain"></span></template>
+<template data-hm-tpl="problem"><span class="hm-badge hm-badge--warning"><span class="hm-badge__icon"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span></span></template>
+<template data-hm-tpl="undo"><p class="hm-menutree__undo hm-row" role="status"><span data-hm-undo-text></span><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-undo-btn=""><span>Undo</span></button></p></template>
+<template data-hm-tpl="filter"><div class="hm-field"><label class="hm-field__label" for="menu-filter">Filter items</label><input class="hm-field__control" type="search" id="menu-filter" name="filter" autocomplete="off" data-hm-filter></div></template>
+<template data-hm-tpl="add-tabs"><div class="hm-tablist" role="tablist" aria-label="Add an item"><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-pages" aria-controls="add-panel-pages" aria-selected="true" tabindex="0">Pages</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-address" aria-controls="add-panel-address" aria-selected="false" tabindex="-1">Address</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-heading" aria-controls="add-panel-heading" aria-selected="false" tabindex="-1">Heading</button><button type="button" class="hm-tablist__tab" role="tab" id="add-tab-archive" aria-controls="add-panel-archive" aria-selected="false" tabindex="-1">Archive</button></div><div id="add-panel-pages" role="tabpanel" aria-labelledby="add-tab-pages" hidden></div><div id="add-panel-address" role="tabpanel" aria-labelledby="add-tab-address" hidden></div><div id="add-panel-heading" role="tabpanel" aria-labelledby="add-tab-heading" hidden></div><div id="add-panel-archive" role="tabpanel" aria-labelledby="add-tab-archive" hidden></div></template>
+<dialog class="hm-dialog" id="menu-shortcuts" aria-labelledby="menu-shortcuts-title">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="menu-shortcuts-title">Keyboard shortcuts</h2>
+<div class="hm-dialog__body">
+<p>Move between items with the up and down arrow keys. Press Enter to open the settings of an item.</p>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button></form>
+</div></dialog>
+<div class="hm-savebar">
+<span class="hm-savebar__aside"><a class="hm-btn hm-btn--danger-text" href="/admin/theme/menus/00000000-0000-4000-8000-000000000001/delete"><span>Delete menu</span></a></span>
+<span class="hm-menueditor__state" role="status" hidden data-hm-editor-only data-hm-state>Saved</span>
+<span class="hm-menueditor__issues" hidden data-hm-editor-only data-hm-issues></span>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-undo-all="" hidden=""><span>Undo</span></button>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-editor-only="" data-hm-redo="" hidden=""><span>Redo</span></button>
+<button type="button" class="hm-btn hm-btn--ghost" data-hm-discard="" data-hm-editor-only="" hidden=""><span>Discard changes</span></button>
+<a class="hm-btn hm-btn--ghost" href="/admin/theme/menus"><span>Back to menus</span></a>
+<button type="submit" class="hm-btn hm-btn--primary" name="_op" value="save"><span>Save</span></button>
+</div>
 </form>
 
 </div>
@@ -313,6 +477,7 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 
 
 

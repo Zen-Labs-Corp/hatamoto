@@ -463,6 +463,8 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows": [[..]], "truncated"? }` (at most 1,000 rows and 1 MiB) |
 | `db.exec` | `{ "sql", "args"? }` | `{ "rows_affected" }` |
 
+Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
+
 **`render.head` runs once per render.** A page served from the cache does not run it at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
 
 **Cached pages and plugin data.** What a plugin renders into a public page (template funcs, `render.head` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, up to 24 hours), including values a func reads with `kv.get` or `db.query`. A plugin cannot purge the page cache (there is no `cache.invalidate` host function): new `kv`/`db` data reaches cached pages when the TTL expires or when anything else clears the cache (an entity write, even by `entities.update`, a settings save, a menu or theme change). See [Page cache](THEMES.md#page-cache).

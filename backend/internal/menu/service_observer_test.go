@@ -75,3 +75,87 @@ func TestServiceWritesNotifyChangeObserver(t *testing.T) {
 		}
 	}
 }
+
+// captureRepo records what the service hands to the repository.
+type captureRepo struct {
+	stubRepo
+	replaced []ReplaceItem
+	created  *CreateMenuItemInput
+	updated  *UpdateMenuItemInput
+}
+
+func (r *captureRepo) ReplaceMenu(_ context.Context, _ uuid.UUID, _ *UpdateMenuInput, items []ReplaceItem) error {
+	r.replaced = items
+	return nil
+}
+func (r *captureRepo) CreateMenuItem(_ context.Context, _ uuid.UUID, in *CreateMenuItemInput) (*MenuItem, error) {
+	r.created = in
+	return &MenuItem{ID: uuid.New()}, nil
+}
+func (r *captureRepo) UpdateMenuItem(_ context.Context, _ uuid.UUID, in *UpdateMenuItemInput) (*MenuItem, error) {
+	r.updated = in
+	return &MenuItem{ID: uuid.New()}, nil
+}
+
+func TestServiceCleansItemSettings(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	id := uuid.New()
+	classes := "  a   b "
+	url, ent := "#", uuid.New()
+
+	repo := &captureRepo{}
+	s := NewService(repo, log)
+	_, err := s.ReplaceMenu(ctx, id, nil, []ReplaceItem{
+		{Label: "Product", LinkType: LinkTypeNone, URL: &url, EntityID: &ent, CSSClasses: &classes, Attrs: MenuItemAttrs{ShowOn: "all"}, Parent: -1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := repo.replaced[0]
+	if got.URL != nil || got.EntityID != nil || got.SchemaSlug != nil {
+		t.Errorf("none item kept a target: %+v", got)
+	}
+	if got.CSSClasses == nil || *got.CSSClasses != "a b" || got.Attrs.ShowOn != "" {
+		t.Errorf("settings not normalised: classes=%v attrs=%+v", got.CSSClasses, got.Attrs)
+	}
+	if classes != "  a   b " || url != "#" {
+		t.Error("the caller's values were modified")
+	}
+
+	// A nil list still means "leave the items alone".
+	if _, err := s.ReplaceMenu(ctx, id, &UpdateMenuInput{}, nil); err != nil || repo.replaced != nil {
+		t.Errorf("nil items: err=%v replaced=%v", err, repo.replaced)
+	}
+
+	bad := "a<b"
+	for name, call := range map[string]func() error{
+		"replace classes": func() error {
+			_, err := s.ReplaceMenu(ctx, id, nil, []ReplaceItem{{Label: "x", LinkType: LinkTypeCustom, CSSClasses: &bad}})
+			return err
+		},
+		"replace attrs": func() error {
+			_, err := s.ReplaceMenu(ctx, id, nil, []ReplaceItem{{Label: "x", LinkType: LinkTypeCustom, Attrs: MenuItemAttrs{Rel: []string{"x"}}}})
+			return err
+		},
+		"create": func() error {
+			_, err := s.CreateMenuItem(ctx, id, &CreateMenuItemInput{Label: "x", LinkType: LinkTypeNone, CSSClasses: &bad})
+			return err
+		},
+		"update": func() error {
+			_, err := s.UpdateMenuItem(ctx, id, &UpdateMenuItemInput{Attrs: &MenuItemAttrs{Color: "#fff"}})
+			return err
+		},
+	} {
+		if err := call(); !errors.Is(err, ErrInvalidAttrs) {
+			t.Errorf("%s: err = %v, want ErrInvalidAttrs", name, err)
+		}
+	}
+
+	if _, err := s.CreateMenuItem(ctx, id, &CreateMenuItemInput{Label: "x", LinkType: LinkTypeNone, URL: &url}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.created.URL != nil || repo.created.Attrs == nil {
+		t.Errorf("create input not cleaned: %+v", repo.created)
+	}
+}

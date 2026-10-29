@@ -1,9 +1,10 @@
 // Menu editor. The tree is a flat <ol> of <li data-hm-item data-depth>; the
 // form fields are named i.N.* and the server reads them in N order. This script
-// upgrades the buttons (up, down, indent, outdent, remove) and adds drag and
-// drop with SortableJS; without it the same buttons post to the server, which
-// applies the edit and re-renders.
-import { removeDepths, renumberOp, renumberRef, restoreDepths } from "@hm/listlogic";
+// upgrades the buttons (up, down, indent) and adds drag and drop with
+// SortableJS; without it the same buttons post to the server, which applies the
+// edit and re-renders. Outdent, Remove, Duplicate and Move to always post to
+// the server, so they act the same with and without this script.
+import { renumberOp, renumberRef } from "@hm/listlogic";
 
 const MAX_DEPTH = 5;
 
@@ -50,6 +51,25 @@ function renumber(tree) {
     if (lvl) lvl.textContent = `Item ${i + 1}, level ${d + 1}`;
   });
   refreshOps(tree);
+  syncMoveTo(tree);
+}
+
+// syncMoveTo rebuilds the "Move to" destinations from the tree as it is now:
+// their values are row numbers, which a reorder changes. The chosen
+// destination stays chosen, if it is still a top-level item.
+function syncMoveTo(tree) {
+  const sel = document.getElementById("moveto-target");
+  if (!sel) return;
+  const chosen = sel.selectedOptions[0]?.hmLi;
+  const keep = [...sel.options].filter((o) => !o.hmLi && !/^\d+$/.test(o.value));
+  sel.replaceChildren(...keep);
+  items(tree).forEach((li, i) => {
+    if (depthOf(li) !== 0) return;
+    const o = new Option(`Under ${li.querySelector('[name$=".label"]')?.value.trim() || "Untitled item"}`, String(i));
+    o.hmLi = li;
+    o.selected = li === chosen;
+    sel.append(o);
+  });
 }
 
 // refreshOps disables the buttons that cannot act: indent under nothing,
@@ -59,7 +79,7 @@ function refreshOps(tree) {
   all.forEach((li, i) => {
     const d = depthOf(li);
     const indent = li.querySelector('[data-hm-op="indent"]');
-    const outdent = li.querySelector('[data-hm-op="outdent"]');
+    const outdent = li.querySelector('[name="_op"][value^="outdent."]');
     if (indent) indent.disabled = i === 0 || d > depthOf(all[i - 1]) || d >= MAX_DEPTH;
     if (outdent) outdent.disabled = d === 0;
   });
@@ -116,60 +136,29 @@ function init(root) {
       });
     }, true);
 
-    // Removed items wait here so Undo can put the last one back where it was.
-    const removed = [];
-    const undo = document.querySelector("[data-hm-undo]");
-    const showUndo = () => {
-      if (!undo) return;
-      undo.hidden = removed.length === 0;
-      undo.querySelector("[data-hm-undo-text]").textContent = removed.length > 1 ? `${removed.length} items removed.` : "Item removed.";
-    };
-    undo?.querySelector("[data-hm-undo-btn]")?.addEventListener("click", () => {
-      const last = removed.pop();
-      if (!last) return;
-      const at = items(tree)[last.index];
-      if (at) at.before(last.li); else tree.append(last.li);
-      const now = items(tree);
-      const rest = now.filter((el) => el !== last.li);
-      const after = restoreDepths(rest.map(depthOf), now.indexOf(last.li), depthOf(last.li), last.promoted);
-      now.forEach((el, i) => { if (after[i] !== depthOf(el)) setDepth(el, after[i]); });
-      renumber(tree);
-      showUndo();
-      (last.li.querySelector("[popovertarget]") ?? last.li.querySelector("[data-hm-op]"))?.focus();
-      announce("Item restored.");
-    });
-
     tree.addEventListener("click", (evt) => {
       const btn = evt.target.closest("[data-hm-op]");
       if (!btn) return;
       const li = btn.closest("[data-hm-item]");
       const op = btn.dataset.hmOp;
       btn.closest("[popover]")?.hidePopover?.();
-      if (op === "remove") {
-        // Reversible until saved, so no dialog; the server version does the same.
-        evt.preventDefault();
-        // The sub-items stay and move up one level.
-        const all = items(tree);
-        const index = all.indexOf(li);
-        const { depths, promoted } = removeDepths(all.map(depthOf), index);
-        const rest = all.filter((el) => el !== li);
-        rest.forEach((el, i) => { if (depths[i] !== depthOf(el)) setDepth(el, depths[i]); });
-        const next = li.nextElementSibling ?? li.previousElementSibling;
-        removed.push({ li, index, promoted });
-        li.remove();
-        renumber(tree);
-        showUndo();
-        (next?.querySelector("[data-hm-op]") ?? document.getElementById("add-type"))?.focus();
-        announce("Item removed. Save the menu to keep the change.");
-        return;
-      }
       evt.preventDefault();
-      const ok = op === "up" ? move(tree, li, -1) : op === "down" ? move(tree, li, 1) : op === "indent" ? shift(tree, li, 1) : shift(tree, li, -1);
+      const ok = op === "up" ? move(tree, li, -1) : op === "down" ? move(tree, li, 1) : shift(tree, li, 1);
       renumber(tree);
       // The moved item keeps focus: on the same button, or on its menu when that button lives in the menu.
       (li.querySelector(`.hm-menutree__ops > [data-hm-op="${op}"]`) ?? li.querySelector("[popovertarget]"))?.focus();
       if (!ok) announce("That item cannot move there.");
     });
+
+    tree.addEventListener("input", (evt) => {
+      if (evt.target.matches('[name$=".label"]')) syncMoveTo(tree);
+    });
+
+    const target = document.getElementById("moveto-target");
+    if (target) {
+      const all = items(tree);
+      [...target.options].forEach((o) => { if (/^\d+$/.test(o.value)) o.hmLi = all[Number(o.value)]; });
+    }
 
     tree.addEventListener("change", (evt) => {
       if (evt.target.matches("[data-hm-type]")) evt.target.closest("[data-hm-item]").dataset.type = evt.target.value;

@@ -589,6 +589,9 @@ type navLinks struct {
 	// than the slug (ancestors, publication date). repo may be nil.
 	ctx  context.Context
 	repo menuTargetRepo
+	// decl is the live theme's menu declaration; the zero value resolves no
+	// style, colour, badge or icon.
+	decl render.MenuDecl
 }
 
 // menuTargetRepo is the slice of the public repository navLinks needs.
@@ -600,6 +603,9 @@ type menuTargetRepo interface {
 func (s *Server) newNavLinks(ctx context.Context) *navLinks {
 	repo := entity.NewPostgresPublicRepository(s.db)
 	l := &navLinks{snap: s.urlSnapshot(ctx), ctx: ctx, repo: repo}
+	if s.renderEngine != nil {
+		l.decl = s.renderEngine.MenuDecl()
+	}
 	if home, err := repo.GetHomepage(ctx); err == nil && home != nil {
 		l.homeID = home.ID
 	}
@@ -616,9 +622,14 @@ func (l *navLinks) items(in []*menu.MenuItem) []render.NavItem {
 	out := make([]render.NavItem, 0, len(in))
 	for _, it := range in {
 		n := render.NavItem{Label: it.Label, Href: l.menuHref(it)}
+		if it.LinkType == menu.LinkTypeNone {
+			n.Href = "#"
+		}
+		n.NoLink = it.LinkType == menu.LinkTypeNone || n.Href == "#" || n.Href == ""
 		if it.OpenInNewTab {
 			n.Target = "_blank"
 		}
+		l.decorate(&n, it)
 		n.Children = l.items(it.Children)
 		if len(n.Children) == 0 {
 			n.Children = nil
@@ -626,6 +637,38 @@ func (l *navLinks) items(in []*menu.MenuItem) []render.NavItem {
 		out = append(out, n)
 	}
 	return out
+}
+
+// decorate copies the item's classes and settings onto n. Preset ids the
+// theme does not declare are ignored, so a theme switch never leaves a stale
+// class or badge behind.
+func (l *navLinks) decorate(n *render.NavItem, it *menu.MenuItem) {
+	a := it.Attrs
+	var classes []string
+	if it.CSSClasses != nil {
+		classes = strings.Fields(*it.CSSClasses)
+	}
+	for _, c := range []string{l.decl.ClassFor("style", a.Style), l.decl.ClassFor("color", a.Color)} {
+		classes = append(classes, strings.Fields(c)...)
+	}
+	switch a.ShowOn {
+	case "desktop", "mobile":
+		n.Show = a.ShowOn
+		classes = append(classes, "hm-show-"+a.ShowOn)
+	}
+	n.Class = strings.Join(classes, " ")
+	n.ID, n.Title, n.AriaLabel = a.ID, a.Title, a.AriaLabel
+	n.Rel = strings.Join(a.Rel, " ")
+	for _, b := range l.decl.Badges {
+		if a.Badge != "" && b.ID == a.Badge {
+			n.Badge, n.BadgeClass = b.Label, b.Class
+		}
+	}
+	for _, ic := range l.decl.Icons {
+		if a.Icon != "" && ic.ID == a.Icon {
+			n.Icon = ic.ID
+		}
+	}
 }
 
 func (l *navLinks) menuHref(it *menu.MenuItem) string {

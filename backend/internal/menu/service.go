@@ -127,10 +127,23 @@ func (s *Service) ReplaceMenu(ctx context.Context, id uuid.UUID, fields *UpdateM
 	if fields != nil && fields.Location != nil && !ValidLocation(*fields.Location) {
 		return nil, ErrInvalidLocation
 	}
-	for _, it := range items {
-		if !ValidLinkType(it.LinkType) {
-			return nil, ErrInvalidLinkType
+	if items != nil {
+		clean := make([]ReplaceItem, len(items))
+		for i, it := range items {
+			if !ValidLinkType(it.LinkType) {
+				return nil, ErrInvalidLinkType
+			}
+			attrs, classes, err := cleanItemSettings(it.Attrs, it.CSSClasses)
+			if err != nil {
+				return nil, err
+			}
+			it.Attrs, it.CSSClasses = attrs, classes
+			if it.LinkType == LinkTypeNone {
+				it.EntityID, it.URL, it.SchemaSlug = nil, nil, nil
+			}
+			clean[i] = it
 		}
+		items = clean
 	}
 	if err := s.repo.ReplaceMenu(ctx, id, fields, items); err != nil {
 		return nil, err
@@ -169,6 +182,19 @@ func (s *Service) CreateMenuItem(ctx context.Context, menuID uuid.UUID, input *C
 	// Validate link type
 	if !ValidLinkType(input.LinkType) {
 		return nil, ErrInvalidLinkType
+	}
+
+	var attrs MenuItemAttrs
+	if input.Attrs != nil {
+		attrs = *input.Attrs
+	}
+	attrs, classes, err := cleanItemSettings(attrs, input.CSSClasses)
+	if err != nil {
+		return nil, err
+	}
+	input.Attrs, input.CSSClasses = &attrs, classes
+	if input.LinkType == LinkTypeNone {
+		input.EntityID, input.URL, input.SchemaSlug = nil, nil, nil
 	}
 
 	// Validate menu exists
@@ -218,6 +244,20 @@ func (s *Service) UpdateMenuItem(ctx context.Context, id uuid.UUID, input *Updat
 	// Validate link type if provided
 	if input.LinkType != nil && !ValidLinkType(*input.LinkType) {
 		return nil, ErrInvalidLinkType
+	}
+	if input.Attrs != nil {
+		attrs, _, err := cleanItemSettings(*input.Attrs, nil)
+		if err != nil {
+			return nil, err
+		}
+		input.Attrs = &attrs
+	}
+	if input.CSSClasses != nil {
+		classes, err := ValidateCSSClasses(*input.CSSClasses)
+		if err != nil {
+			return nil, err
+		}
+		input.CSSClasses = &classes
 	}
 
 	// Validate parent doesn't create circular reference
@@ -305,6 +345,23 @@ func (s *Service) ReorderItems(ctx context.Context, menuID uuid.UUID, items []Re
 
 	s.notifyChanged(ctx)
 	return nil
+}
+
+// cleanItemSettings validates an item's attrs and CSS classes and returns them
+// in stored form; empty classes become nil.
+func cleanItemSettings(a MenuItemAttrs, classes *string) (MenuItemAttrs, *string, error) {
+	a = a.Normalize()
+	if err := a.Validate(); err != nil {
+		return a, nil, err
+	}
+	if classes == nil {
+		return a, nil, nil
+	}
+	c, err := ValidateCSSClasses(*classes)
+	if err != nil || c == "" {
+		return a, nil, err
+	}
+	return a, &c, nil
 }
 
 // checkCircularReference checks if setting parentID as parent would create a cycle.

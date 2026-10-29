@@ -24,8 +24,8 @@ const PASSWORD = process.env.QA_PASSWORD || "qa-password-123";
 const NEWCOMER_EMAIL = process.env.QA_NEWCOMER_EMAIL || "newcomer@qa.test";
 
 // Screens that may carry the sticky flat footer (.hm-savebar): entity edit,
-// entity model edit, form editor (plugin settings is not seedable, see urls.mjs).
-const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit"]);
+// entity model edit, form editor, menu editor (approved, UI-02; plugin settings is not seedable, see urls.mjs).
+const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit", "theme-menus-edit"]);
 
 // Runs in the page. Returns [rule, selector, message, value] tuples.
 function check({ sticky, list, spec }) {
@@ -67,7 +67,7 @@ function check({ sticky, list, spec }) {
       if (cs.boxShadow !== "none") out.push(["UI-D1", s, "footer has a shadow", cs.boxShadow]);
       if (px(cs.borderTopLeftRadius) !== 0) out.push(["UI-D1", s, "footer has a radius", cs.borderTopLeftRadius]);
       if (!plain && px(cs.borderTopWidth) !== 1) out.push(["UI-D1", s, "top border is not 1px", cs.borderTopWidth]);
-      if (f.matches(".hm-savebar") && cs.position === "sticky" && !sticky) out.push(["UI-D1", s, "sticky footer outside the four editor screens", cs.position]);
+      if (f.matches(".hm-savebar") && cs.position === "sticky" && !sticky) out.push(["UI-D1", s, "sticky footer outside the editor screens", cs.position]);
       if (f.matches(".hm-card__foot") && cs.position === "sticky") out.push(["UI-D1", s, "card footer is sticky", cs.position]);
       const par = f.parentElement;
       if (par && btns.length) {

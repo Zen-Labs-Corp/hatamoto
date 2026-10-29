@@ -307,6 +307,36 @@ func TestMCPIntegration(t *testing.T) {
 	if items, _ := m["items"].([]any); len(items) != 1 {
 		t.Errorf("menu items: %v", m["items"])
 	}
+	// No link, an empty target, classes and settings round-trip. menus_get always
+	// carries "attrs" (an object, empty when the item has none).
+	nl := mustCall(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{
+		map[string]any{"key": "h", "label": "Product", "link_type": "none", "css_classes": "footer-cta", "attrs": map[string]any{"style": "button", "rel": []string{"nofollow"}}},
+		map[string]any{"parent_key": "h", "label": "Empty", "link_type": "entity"},
+	}})
+	top, _ := nl["items"].([]any)
+	if len(top) != 1 {
+		t.Fatalf("none menu: %v", nl["items"])
+	}
+	head, _ := top[0].(map[string]any)
+	attrs, _ := head["attrs"].(map[string]any)
+	if head["link_type"] != "none" || head["css_classes"] != "footer-cta" || attrs["style"] != "button" {
+		t.Errorf("none item: %v", head)
+	}
+	kids, _ := head["children"].([]any)
+	if len(kids) != 1 {
+		t.Fatalf("empty-target child: %v", head)
+	}
+	if kid, _ := kids[0].(map[string]any); kid["attrs"] == nil {
+		t.Errorf("attrs missing on an item without settings: %v", kid)
+	}
+	if _, err := call(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{
+		map[string]any{"label": "Bad", "link_type": "none", "css_classes": "a<b"}}}); err == nil {
+		t.Error("bad css class accepted")
+	}
+	mustCall(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{
+		map[string]any{"key": "a", "label": "Page", "link_type": "entity", "entity_id": id},
+		map[string]any{"key": "b", "parent_key": "a", "label": "Out", "link_type": "external", "url": "https://example.test/"},
+	}})
 	if _, err := call(rw, "menus_update", map[string]any{"id": menuID.String(), "items": []any{
 		map[string]any{"label": "Bad", "link_type": "nope"}}}); err == nil {
 		t.Error("bad menu item accepted")

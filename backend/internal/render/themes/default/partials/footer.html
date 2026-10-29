@@ -2,7 +2,7 @@
 <div class="hm-container">
 {{if .Site.FooterNav}}<nav class="hm-footer__cols" aria-label="Footer">
 {{range .Site.FooterNav}}<div class="hm-footer__col">
-{{if .Children}}<p class="hm-footer__title">{{.Label}}</p>
+{{if .Children}}<p class="hm-footer__title{{with .Class}} {{.}}{{end}}">{{.Label}}</p>
 <ul>{{range .Children}}<li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li>{{end}}</ul>{{else}}<ul><li>{{template "nav-link" dict "Item" . "Path" $.Path}}</li></ul>{{end}}
 </div>
 {{end}}</nav>

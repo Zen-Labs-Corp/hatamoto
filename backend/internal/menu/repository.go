@@ -2,6 +2,7 @@ package menu
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -286,27 +287,38 @@ func (r *PostgresRepository) CreateMenuItem(ctx context.Context, menuID uuid.UUI
 	query := `
 		INSERT INTO hatamoto_menu_items (
 			id, menu_id, parent_id, label, link_type, entity_id, url,
-			schema_slug, position, open_in_new_tab, css_classes, created_at, updated_at
+			schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, menu_id, parent_id, label, link_type, entity_id, url,
-		          schema_slug, position, open_in_new_tab, css_classes, created_at, updated_at
+		          schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at
 	`
 
+	var attrs MenuItemAttrs
+	if input.Attrs != nil {
+		attrs = *input.Attrs
+	}
+	attrsJSON, err := encodeAttrs(attrs)
+	if err != nil {
+		return nil, err
+	}
+
 	var item MenuItem
+	var rawAttrs []byte
 	err = conn.QueryRow(ctx, query,
 		id, menuID, input.ParentID, input.Label, input.LinkType,
 		input.EntityID, input.URL, input.SchemaSlug, position, input.OpenInNewTab,
-		input.CSSClasses, now, now,
+		input.CSSClasses, attrsJSON, now, now,
 	).Scan(
 		&item.ID, &item.MenuID, &item.ParentID, &item.Label, &item.LinkType,
 		&item.EntityID, &item.URL, &item.SchemaSlug, &item.Position, &item.OpenInNewTab,
-		&item.CSSClasses, &item.CreatedAt, &item.UpdatedAt,
+		&item.CSSClasses, &rawAttrs, &item.CreatedAt, &item.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create menu item: %w", err)
 	}
+	item.Attrs = decodeAttrs(rawAttrs)
 
 	// Fetch entity info if linked
 	if item.EntityID != nil {
@@ -326,16 +338,17 @@ func (r *PostgresRepository) GetMenuItemByID(ctx context.Context, id uuid.UUID) 
 
 	query := `
 		SELECT id, menu_id, parent_id, label, link_type, entity_id, url,
-		       schema_slug, position, open_in_new_tab, css_classes, created_at, updated_at
+		       schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at
 		FROM hatamoto_menu_items
 		WHERE id = $1
 	`
 
 	var item MenuItem
+	var rawAttrs []byte
 	err = conn.QueryRow(ctx, query, id).Scan(
 		&item.ID, &item.MenuID, &item.ParentID, &item.Label, &item.LinkType,
 		&item.EntityID, &item.URL, &item.SchemaSlug, &item.Position, &item.OpenInNewTab,
-		&item.CSSClasses, &item.CreatedAt, &item.UpdatedAt,
+		&item.CSSClasses, &rawAttrs, &item.CreatedAt, &item.UpdatedAt,
 	)
 
 	if err != nil {
@@ -344,6 +357,7 @@ func (r *PostgresRepository) GetMenuItemByID(ctx context.Context, id uuid.UUID) 
 		}
 		return nil, fmt.Errorf("failed to get menu item: %w", err)
 	}
+	item.Attrs = decodeAttrs(rawAttrs)
 
 	if item.EntityID != nil {
 		r.populateEntityInfo(ctx, conn, &item)
@@ -364,27 +378,38 @@ func (r *PostgresRepository) UpdateMenuItem(ctx context.Context, id uuid.UUID, i
 		UPDATE hatamoto_menu_items
 		SET parent_id = COALESCE($2, parent_id),
 		    label = COALESCE($3, label),
-		    link_type = COALESCE($4, link_type),
-		    entity_id = COALESCE($5, entity_id),
-		    url = COALESCE($6, url),
-		    schema_slug = COALESCE($7, schema_slug),
+		    link_type = COALESCE($4::text, link_type),
+		    entity_id = CASE WHEN $4::text = 'none' THEN NULL ELSE COALESCE($5, entity_id) END,
+		    url = CASE WHEN $4::text = 'none' THEN NULL ELSE COALESCE($6, url) END,
+		    schema_slug = CASE WHEN $4::text = 'none' THEN NULL ELSE COALESCE($7, schema_slug) END,
 		    position = COALESCE($8, position),
 		    open_in_new_tab = COALESCE($9, open_in_new_tab),
 		    css_classes = COALESCE($10, css_classes),
+		    attrs = COALESCE($11::jsonb, attrs),
 		    updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, menu_id, parent_id, label, link_type, entity_id, url,
-		          schema_slug, position, open_in_new_tab, css_classes, created_at, updated_at
+		          schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at
 	`
 
+	var attrsJSON *string
+	if input.Attrs != nil {
+		j, err := encodeAttrs(*input.Attrs)
+		if err != nil {
+			return nil, err
+		}
+		attrsJSON = &j
+	}
+
 	var item MenuItem
+	var rawAttrs []byte
 	err = conn.QueryRow(ctx, query,
 		id, input.ParentID, input.Label, input.LinkType, input.EntityID,
-		input.URL, input.SchemaSlug, input.Position, input.OpenInNewTab, input.CSSClasses,
+		input.URL, input.SchemaSlug, input.Position, input.OpenInNewTab, input.CSSClasses, attrsJSON,
 	).Scan(
 		&item.ID, &item.MenuID, &item.ParentID, &item.Label, &item.LinkType,
 		&item.EntityID, &item.URL, &item.SchemaSlug, &item.Position, &item.OpenInNewTab,
-		&item.CSSClasses, &item.CreatedAt, &item.UpdatedAt,
+		&item.CSSClasses, &rawAttrs, &item.CreatedAt, &item.UpdatedAt,
 	)
 
 	if err != nil {
@@ -393,6 +418,7 @@ func (r *PostgresRepository) UpdateMenuItem(ctx context.Context, id uuid.UUID, i
 		}
 		return nil, fmt.Errorf("failed to update menu item: %w", err)
 	}
+	item.Attrs = decodeAttrs(rawAttrs)
 
 	if item.EntityID != nil {
 		r.populateEntityInfo(ctx, conn, &item)
@@ -467,7 +493,7 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 		SELECT
 			mi.id, mi.menu_id, mi.parent_id, mi.label, mi.link_type,
 			mi.entity_id, mi.url, mi.schema_slug, mi.position, mi.open_in_new_tab,
-			mi.css_classes, mi.created_at, mi.updated_at,
+			mi.css_classes, mi.attrs, mi.created_at, mi.updated_at,
 			e.slug AS entity_slug, e.name AS entity_name, es.slug AS entity_schema_slug
 		FROM hatamoto_menu_items mi
 		LEFT JOIN hatamoto_entities e ON mi.entity_id = e.id
@@ -488,14 +514,16 @@ func (r *PostgresRepository) GetMenuWithItems(ctx context.Context, menuID uuid.U
 
 	for rows.Next() {
 		item := &MenuItem{}
+		var rawAttrs []byte
 		if err := rows.Scan(
 			&item.ID, &item.MenuID, &item.ParentID, &item.Label, &item.LinkType,
 			&item.EntityID, &item.URL, &item.SchemaSlug, &item.Position, &item.OpenInNewTab,
-			&item.CSSClasses, &item.CreatedAt, &item.UpdatedAt,
+			&item.CSSClasses, &rawAttrs, &item.CreatedAt, &item.UpdatedAt,
 			&item.EntitySlug, &item.EntityName, &item.EntitySchemaSlug,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan menu item: %w", err)
 		}
+		item.Attrs = decodeAttrs(rawAttrs)
 		item.Children = []*MenuItem{}
 		itemMap[item.ID] = item
 		items = append(items, item)
@@ -614,10 +642,14 @@ func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fiel
 			}
 			pos := next[it.Parent]
 			next[it.Parent]++
-			_, err := tx.Exec(ctx, `
-				INSERT INTO hatamoto_menu_items (id, menu_id, parent_id, label, link_type, entity_id, url, schema_slug, position, open_in_new_tab, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())`,
-				ids[i], id, parent, it.Label, it.LinkType, it.EntityID, it.URL, it.SchemaSlug, pos, it.OpenInNewTab)
+			attrsJSON, err := encodeAttrs(it.Attrs)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(ctx, `
+				INSERT INTO hatamoto_menu_items (id, menu_id, parent_id, label, link_type, entity_id, url, schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())`,
+				ids[i], id, parent, it.Label, it.LinkType, it.EntityID, it.URL, it.SchemaSlug, pos, it.OpenInNewTab, it.CSSClasses, attrsJSON)
 			if err != nil {
 				var pgErr *pgconn.PgError
 				if errors.As(err, &pgErr) && pgErr.Code == "23503" {
@@ -628,4 +660,23 @@ func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fiel
 		}
 		return nil
 	})
+}
+
+// encodeAttrs is the jsonb text stored in the attrs column.
+func encodeAttrs(a MenuItemAttrs) (string, error) {
+	b, err := json.Marshal(a)
+	if err != nil {
+		return "", fmt.Errorf("encode menu item attrs: %w", err)
+	}
+	return string(b), nil
+}
+
+// decodeAttrs reads the attrs column; an unreadable value reads as no settings
+// rather than failing the whole menu.
+func decodeAttrs(raw []byte) MenuItemAttrs {
+	var a MenuItemAttrs
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &a)
+	}
+	return a
 }

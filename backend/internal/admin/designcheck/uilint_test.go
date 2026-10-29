@@ -159,7 +159,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "partials/filterbar.html", Needle: `-filters"`, Reason: "filters button with a live count badge"},
 	{Rule: "UI-05", File: "partials/daterange.html", Needle: "hm-daterange__button", Reason: "needs hm-daterange__button; analytics_test.go asserts the string"},
 	{Rule: "UI-05", File: "partials/pageheader.html", Needle: "{{with .Menu}}<button", Reason: "menu trigger: icon, label and chevron in one primary button"},
-	{Rule: "UI-05", File: "pages/menus/edit.html", Needle: "data-hm-op=", Max: 5, Reason: "menu tree icon buttons whose hidden text is rewritten by menutree.js"},
+	{Rule: "UI-05", File: "pages/menus/edit.html", Needle: "data-hm-op=", Max: 3, Reason: "menu tree icon buttons whose hidden text is rewritten by menutree.js"},
 	{Rule: "UI-05", File: "pages/schemas/edit.html", Needle: `value="up:{{$f.Key}}"`, Reason: "row operations with a visually hidden suffix naming the field"},
 	{Rule: "UI-05", File: "schemaform/field.html", Needle: "$.Orderable", Reason: "repeater row operations with the item number in the label"},
 	{Rule: "UI-05", File: "schemaform/field.html", Needle: `_add.{{.Name}}`, Reason: "repeater add button with the field label"},
@@ -257,6 +257,8 @@ var uiStickyTemplates = map[string]bool{
 	"pages/schemas/edit.html":   true,
 	"pages/forms/edit.html":     true,
 	"pages/plugins/plugin.html": true,
+	// The menu editor: Save, Discard and the unsaved state stay in reach beside a long tree.
+	"pages/menus/edit.html": true,
 	// The robots policy form's pending-changes bar, shared by Crawlers, Health and the agent page.
 	"partials/aia-policy.html": true,
 }

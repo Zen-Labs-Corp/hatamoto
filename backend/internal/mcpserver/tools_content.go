@@ -394,11 +394,15 @@ type menuItemIn struct {
 	Key          string `json:"key,omitempty" jsonschema:"optional id for the item, needed only when another item names it in parent_key"`
 	ParentKey    string `json:"parent_key,omitempty" jsonschema:"key of a parent listed EARLIER in items"`
 	Label        string `json:"label"`
-	LinkType     string `json:"link_type" jsonschema:"entity, external, archive or custom"`
-	EntityID     string `json:"entity_id,omitempty" jsonschema:"for link_type entity"`
+	LinkType     string `json:"link_type" jsonschema:"entity, external, archive, custom or none (plain text, no link)"`
+	EntityID     string `json:"entity_id,omitempty" jsonschema:"for link_type entity; an item without a target renders as plain text"`
 	URL          string `json:"url,omitempty" jsonschema:"for external and custom links"`
 	SchemaSlug   string `json:"schema_slug,omitempty" jsonschema:"for archive links"`
 	OpenInNewTab bool   `json:"open_in_new_tab,omitempty"`
+	CSSClasses   string `json:"css_classes,omitempty" jsonschema:"space separated CSS classes for the item, at most 10"`
+	// Attrs holds preset ids the theme declares (style, color, badge, icon),
+	// show_on (all, desktop or mobile) and the HTML id, title, aria_label and rel.
+	Attrs *menu.MenuItemAttrs `json:"attrs,omitempty"`
 }
 
 func (s *Server) registerMenus() {
@@ -482,7 +486,7 @@ func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, error) {
 			return nil, userErr("items[%d]: label is required", i)
 		}
 		if !menu.ValidLinkType(it.LinkType) {
-			return nil, userErr("items[%d]: link_type must be entity, external, archive or custom", i)
+			return nil, userErr("items[%d]: link_type must be entity, external, archive, custom or none", i)
 		}
 		if it.EntityID != "" {
 			id, err := parseID("items["+itoa(i)+"].entity_id", it.EntityID)
@@ -491,8 +495,21 @@ func planMenuItems(items []menuItemIn) ([]menu.ReplaceItem, error) {
 			}
 			p.EntityID = &id
 		}
-		if it.LinkType == menu.LinkTypeEntity && p.EntityID == nil {
-			return nil, userErr("items[%d]: entity links need entity_id", i)
+		if it.LinkType == menu.LinkTypeExternal && it.URL == "" {
+			return nil, userErr("items[%d]: external links need url", i)
+		}
+		if it.Attrs != nil {
+			if err := it.Attrs.Validate(); err != nil {
+				return nil, userErr("items[%d]: %v", i, err)
+			}
+			p.Attrs = it.Attrs.Normalize()
+		}
+		if it.CSSClasses != "" {
+			classes, err := menu.ValidateCSSClasses(it.CSSClasses)
+			if err != nil {
+				return nil, userErr("items[%d]: %v", i, err)
+			}
+			p.CSSClasses = &classes
 		}
 		if it.URL != "" {
 			p.URL = &it.URL
