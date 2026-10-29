@@ -188,7 +188,7 @@ grep -qF "check backend is 'missing'" <<< "$O" && ! grep -qF "gh pr merge" <<< "
 # a timeout aborts, and a push during the wait aborts
 # (a real run, stopped by the stub at the merge: MERGE_MARK)
 CW=$(mktemp -d)
-ci_wait() { rm -f "$CW/merged" "$CW/st"*; PATH="$CK:$PATH" CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CI_POLL=0 SHIP_CI_WAIT=${SHIP_CI_WAIT:-30} MERGE_MARK="$CW/merged" CHECKS_STATE="$CW/st" "$@" bash scripts/ship.sh 1 2>&1; }
+ci_wait() { rm -f "$CW/merged" "$CW/st"*; PATH="$CK:$PATH" CI_STATE=active DEPLOY_HOST=stub SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 SHIP_CLEAN_POLL=0 SHIP_CI_POLL=0 SHIP_CI_WAIT=${SHIP_CI_WAIT:-30} MERGE_MARK="$CW/merged" CHECKS_STATE="$CW/st" "$@" bash scripts/ship.sh 1 2>&1; }
 O=$(ci_wait env CHECKS_MODE=pendingthenpass MSTATUS_SEQ="BLOCKED CLEAN") || true
 [[ -e $CW/merged ]] || { echo "$O"; echo "FAIL: ship did not wait for pending checks and merge"; exit 1; }
 grep -qF "waiting for CI on 0123456789ab: 1 pending (admin-ui)" <<< "$O" && grep -qF "CI checks on 0123456789ab: all green" <<< "$O" || { echo "$O"; echo "FAIL: the CI wait was not reported"; exit 1; }
@@ -199,7 +199,10 @@ O=$(SHIP_CI_WAIT=0 ci_wait env CHECKS_MODE=pending) || true
 grep -qF "check admin-ui is not completed after 0s" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: the CI wait timeout did not abort"; exit 1; }
 O=$(ci_wait env CHECKS_MODE=pending HEAD_MOVES=1) || true
 grep -qF "head moved during the CI wait" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: a push during the CI wait did not abort"; exit 1; }
-# green checks but not CLEAN (a review, a thread, a conflict) aborts
+# green checks while GitHub still recomputes the merge state (UNKNOWN, then BLOCKED) merges once CLEAN
+O=$(ci_wait env CHECKS_MODE=pass MSTATUS_SEQ="BLOCKED UNKNOWN BLOCKED CLEAN") || true
+[[ -e $CW/merged ]] || { echo "$O"; echo "FAIL: a merge state lagging behind green checks was not waited for"; exit 1; }
+# green checks but not CLEAN (a review, a thread, a conflict) aborts after the re-reads
 O=$(ci_wait env CHECKS_MODE=pass MSTATUS_SEQ="BLOCKED BLOCKED") || true
 grep -qF "checks are green but it is not clean (BLOCKED" <<< "$O" && [[ ! -e $CW/merged ]] || { echo "$O"; echo "FAIL: green-but-blocked did not abort"; exit 1; }
 rm -rf "$CW"
