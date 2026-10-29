@@ -95,8 +95,11 @@ type renderHandlers struct {
 	log404        func(path, referer, userAgent string)
 	checkRedirect func(ctx context.Context, path string) *redirect.Redirect
 	loadHome      func(r *http.Request) (*PublicPageResponse, pageOutcome, error)
-	resolve       func(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error)
-	buildView     func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error)
+	// snapshot is the URL registry snapshot; it carries the public locale set.
+	// Nil: a single-locale install.
+	snapshot  func(ctx context.Context) (*entity.URLSnapshot, error)
+	resolve   func(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error)
+	buildView func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error)
 	// pageFilter (optional) is the render.page plugin chain. While a plugin
 	// handles it, pages depend on the request and are never shared-cached.
 	pageFilter *pluginhost.PageFilter
@@ -128,6 +131,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		// Host, so such pages must never be cached (see renderHandlers).
 		baseURLPinned: s.cfg != nil && strings.TrimSpace(s.cfg.PublicSite.BaseURL) != "",
 		loadHome:      func(r *http.Request) (*PublicPageResponse, pageOutcome, error) { return s.loadHomepage(r) },
+		snapshot:      s.urlSnapshotOrErr,
 		resolve:       s.resolveForRender,
 		buildView:     s.buildPageView,
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
@@ -160,9 +164,10 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 // of "not found".
 func (s *Server) resolveRouteForRender(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error) {
 	deps := routeDeps{
-		snapshot: s.entityService.URLRegistry().Snapshot,
+		snapshot: s.urlSnapshotOrErr,
 		repo:     entity.NewPostgresPublicRepository(s.db),
 		loadPage: s.loadPublicPage,
+		loadHome: s.loadHomepage,
 	}
 	if s.redirectService != nil {
 		deps.checkRedirect = s.matchRedirect
@@ -191,9 +196,62 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	if h.redirectIfMatched(w, r, "/") {
 		return
 	}
+	// With prefix-all every locale, the default included, lives under its own
+	// segment: the bare root points at the default locale's home. Never cached.
+	set := h.localeSet(r.Context())
+	if set.Multi() {
+		if prefix := set.Prefix(set.Default()); prefix != "" {
+			w.Header().Set("Cache-Control", "no-store")
+			target := prefix
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusFound)
+			return
+		}
+	}
 	h.serve(w, r, "/", func() (*routeResult, pageOutcome, error) {
-		return homeRoute(h.loadHome(r))
+		if !set.Multi() {
+			return homeRoute(h.loadHome(r))
+		}
+		// The unprefixed home is the default locale's, like every other
+		// unprefixed path: it sees the default locale's rows and the shared ones.
+		def := set.Default()
+		rr, outcome, err := homeRoute(h.loadHome(r.WithContext(entity.WithVisibleLocales(r.Context(), def))))
+		if rr != nil {
+			rr.Locale, rr.Rest = def, "/"
+		}
+		return rr, outcome, err
 	})
+}
+
+// localeSet is the public locale set; nil (safe to call) on a single-locale
+// install, in a route-table build and while the URL snapshot cannot load: a
+// cached page or a redirect still answers then, and a miss is decided by the
+// resolver, which reads the snapshot itself.
+func (h *renderHandlers) localeSet(ctx context.Context) *entity.LocaleSet {
+	if h.snapshot == nil {
+		return nil
+	}
+	snap, err := h.snapshot(ctx)
+	if err != nil {
+		return nil
+	}
+	return snap.Locales()
+}
+
+// snapshotDegraded reports that pages rendered now may not match the site's
+// locale setup (the snapshot or its locale settings could not be read), so
+// they must not be cached.
+func (h *renderHandlers) snapshotDegraded(ctx context.Context) bool {
+	if h.snapshot == nil {
+		return false
+	}
+	snap, err := h.snapshot(ctx)
+	if errors.Is(err, errNoEntityService) {
+		return false
+	}
+	return err != nil || snap.Degraded()
 }
 
 // homeRoute wraps a homepage load as a route, the way the public "/" handler
@@ -225,7 +283,12 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 			return h.resolve(r.Context(), path, r)
 		})
 	})
-	if path == searchPath && r.URL.Query().Get("q") != "" && h.searchLimit != nil {
+	set := h.localeSet(r.Context())
+	bare := path // the path without its locale segment
+	if _, rest, ok := set.Resolve(path); ok {
+		bare = rest
+	}
+	if bare == searchPath && r.URL.Query().Get("q") != "" && h.searchLimit != nil {
 		h.searchLimit(serve).ServeHTTP(w, r)
 		return
 	}
@@ -298,6 +361,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		}
 	}
 
+	if cacheable && h.snapshotDegraded(r.Context()) {
+		cacheable = false
+	}
 	if cacheable {
 		gen = h.cache.Generation() // before any read of page data
 	}
@@ -335,6 +401,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 
+	if rr.Locale != "" {
+		r = r.WithContext(entity.WithVisibleLocales(r.Context(), rr.Locale))
+	}
 	v, err := h.buildView(r.Context(), r, rr)
 	var pe *pageError
 	if errors.As(err, &pe) && pe.status == http.StatusNotFound {
@@ -633,4 +702,16 @@ func (s *Server) captchaProvider(ctx context.Context) string {
 		return ""
 	}
 	return set.Provider
+}
+
+var errNoEntityService = errors.New("no entity service")
+
+// urlSnapshotOrErr is the URL snapshot, or an error when the server has no
+// entity service (route-table builds, errNoEntityService); callers treat that
+// as a one-locale site.
+func (s *Server) urlSnapshotOrErr(ctx context.Context) (*entity.URLSnapshot, error) {
+	if s.entityService == nil {
+		return nil, errNoEntityService
+	}
+	return s.entityService.URLRegistry().Snapshot(ctx)
 }

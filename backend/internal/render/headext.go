@@ -110,8 +110,33 @@ func buildHeadView(ctx context.Context, v *PageView, f HeadFilter) headView {
 	// page would be left with no site graph at all.
 	h := seoHead(v, out.ReplaceSiteGraph && len(ldScripts) > 0)
 	h.Scripts = append(h.Scripts, ldScripts...)
-	h.Ext = append(h.Ext, extTags...)
+	h.Ext = append(h.Ext, dropDuplicateAlternates(extTags, h.Alt)...)
 	return h
+}
+
+// dropDuplicateAlternates removes plugin rel=alternate hreflang links the host
+// already emits, so a plugin and the host never write the same tag twice.
+func dropDuplicateAlternates(tags []extTag, alt []altLink) []extTag {
+	if len(alt) == 0 {
+		return tags
+	}
+	out := tags[:0:0]
+	for _, t := range tags {
+		if t.Kind == "link" && strings.EqualFold(t.Rel, "alternate") && t.Hreflang != "" && hasAlt(alt, t.Hreflang, t.Href) {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func hasAlt(alt []altLink, lang, href string) bool {
+	for _, a := range alt {
+		if strings.EqualFold(a.Lang, lang) && a.Href == href {
+			return true
+		}
+	}
+	return false
 }
 
 // sanitizeTag enforces the kind and attribute allowlists and URL schemes.

@@ -19,6 +19,7 @@ type settingsData struct {
 	SiteErrs  map[string]string
 	Languages []ui.Option
 	Timezones []ui.Option
+	XDefaults []ui.Option
 	LogoURL   string
 	Tagline   string
 	Domain    string
@@ -64,7 +65,8 @@ func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {
 
 func (a *Admin) renderSiteSettings(w http.ResponseWriter, r *http.Request, status int, d settingsData) {
 	d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
+	d.XDefaults = xDefaultOptions(d.Site)
+	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"locales", "Locales"}, {"xdefault", "Default for search engines"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
 		if m := d.SiteErrs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -83,6 +85,7 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
 	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
 	errs := f.validate()
+	var err error
 	if !validLogoURL(d.LogoURL) || utf8.RuneCountInString(d.LogoURL) > 500 {
 		errs["logo"] = "Enter a web address or a path starting with /"
 	}
@@ -92,12 +95,34 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	if strings.ContainsAny(d.Domain, " /:<>\"'") || utf8.RuneCountInString(d.Domain) > 253 {
 		errs["domain"] = "Enter a domain like www.example.com"
 	}
+	_, withLocales := r.PostForm["locales"]
+	var locales []siteconfig.LocaleEntry
+	var xdef string
+	if withLocales {
+		f.Locales, f.XDefault, f.PrefixAll = r.PostFormValue("locales"), r.PostFormValue("xdefault"), r.PostFormValue("prefix_all") != ""
+		var bad string
+		if locales, bad = parseLocales(f.Locales); bad != "" {
+			errs["locales"] = bad
+		} else if len(locales) > 0 && errs["language"] == "" {
+			if a.deps.ValidateLocales == nil {
+				errs["locales"] = "Locales are not available here"
+			} else if locales, xdef, err = a.deps.ValidateLocales(r.Context(), f.Language, locales, f.PrefixAll, f.XDefault); err != nil {
+				errs["locales"] = err.Error()
+			}
+		}
+	}
 	d.Site, d.SiteErrs = f, errs
 	if len(errs) > 0 {
 		a.renderSiteSettings(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
 	in := siteconfig.UpdateInput{CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone, LogoURL: &d.LogoURL, Tagline: &d.Tagline, CustomDomain: &d.Domain}
+	if withLocales {
+		if len(locales) == 0 {
+			locales, xdef, f.PrefixAll = []siteconfig.LocaleEntry{}, "", false
+		}
+		in.Locales, in.PrefixAll, in.XDefaultLocale = &locales, &f.PrefixAll, &xdef
+	}
 	if _, err := a.deps.Site.Update(r.Context(), in); err != nil {
 		a.logger().Error("save site settings failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be saved.")

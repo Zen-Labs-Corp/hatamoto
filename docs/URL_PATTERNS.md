@@ -24,8 +24,9 @@ Rules: starts with `/`, ends in `{slug}` or `{path}`, one token per segment,
 each token at most once, values never contain `/` (except a `{path}` value,
 whose segments are non-empty and at most 8). The first literal segment of a pattern (for example `docs` in
 `/docs/{slug}`) is its *section prefix*. There is no language or region
-segment: one install is one site in one language (the site setting `language`),
-and every entity carries a `locale` (see [Locale](#locale)).
+token in a pattern. On an install with several public locales the site adds a
+locale segment in front of the rendered path (`/fr/blog/{slug}`), outside the
+pattern (see [Locale](#locale)).
 
 The Go renderer resolves the path through the URL-pattern registry.
 
@@ -100,24 +101,51 @@ Every entity has a `locale`, a BCP 47 tag such as `en` or `fr`. An entity
 created without one gets the site language. Slugs are unique per schema and
 locale, so an `en` and an `fr` entity can share a slug.
 
-Patterns have no language token and the default locale is never in the path.
-URLs are the same as before: the public site serves only entities whose
-`locale` equals the site language (exact match), and entities in other locales
-are stored and reachable through the API but not public. Changing the site
-language moves the entities in the old language to the new one, except a row
-whose slug already exists in the new language (same schema and parent scope):
-that row stays as stored in the old language, and the settings save still
-succeeds.
+### One locale (the default)
 
-A second public locale is not built. It would need:
+With no locale list in the site settings, the install is single-locale:
+patterns, URLs and output are as described above. The public site serves only
+entities whose `locale` equals the site language (exact match), and entities in
+other locales are stored and reachable through the API but not public.
+Changing the site language moves the entities in the old language to the new
+one, except a row whose slug already exists in the new language (same schema and
+parent scope): that row stays as stored in the old language, and the settings
+save still succeeds.
 
-* a language path token or prefix in a pattern, with the default locale still
-  left out of the path;
-* `Resolve` returning the locale of the match;
-* a per-locale public filter in place of the exact site language match;
-* hreflang alternates, and per-locale sitemaps and feeds;
-* translation links between entities (which `en` page is the `fr` page);
-* an admin language switcher and translation screens.
+### Several public locales
+
+The site settings hold an ordered list of locales, each a BCP 47 tag with its
+own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
+`language`), a "prefix every locale" switch and an x-default locale.
+
+* The segment is not a pattern token. After the redirect check, the router
+  strips a leading known segment, resolves the rest with the usual patterns and
+  looks entities up in that locale. `URLFor` and `Locate` put the segment back
+  in front of the rendered path. `/fr/blog/hello` and `/blog/hello` use the same
+  pattern, `/blog/{slug}`.
+* The default locale is unprefixed unless "prefix every locale" is on. Then
+  its pages live under its own segment, and the bare root answers `302` to the
+  default locale's home, with `Cache-Control: no-store`.
+* `/fr` serves the home page of that locale.
+* Content with no locale ("shared", stored with the reserved locale `und`) has
+  one unprefixed URL, is visible from every locale and has no hreflang.
+* The default locale and shared content share the unprefixed namespace. When
+  both have an entity at the same path, the default locale's wins.
+* Entities in different locales are linked in a translation group (one copy per
+  locale, each with its own slug). The head prints `hreflang` for every live
+  copy in list order plus `x-default` (the x-default setting, else the first
+  live copy). A locale with no copy is left out of the head; a theme language
+  switcher can link it to that locale's home.
+* Saving the list is refused for a segment that is reserved (`api`, `media`,
+  `theme`, `admin`, `search`, `sitemap*`, `feed.xml`, `robots.txt`, taxonomy
+  kinds), equals a section prefix or the archive path, equals the slug of a
+  published root entity, or is the source of an active redirect. Redirects are
+  never deleted for you.
+* While the list is non-empty, changing the site language does not move
+  entities between locales.
+
+Sitemaps, search, feeds and llms.txt follow the visible locale; see
+[Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.
 
 ## Schema settings
 

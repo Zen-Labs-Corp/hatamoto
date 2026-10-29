@@ -100,7 +100,20 @@ Sitemaps are cleared together with the rendered page cache: whenever an entity i
 Plugins can add URLs in two ways. See [Hooks and events](../plugins/hooks-and-events.md).
 
 - **Archive groups and static routes**, registered by a plugin when it starts. A group adds its own child sitemap, and a static route adds one URL to `misc`.
-- **The `sitemap.urls` filter**, run for one file at a time. The host sends the group name (`misc` for the misc file); the `language` field of the payload is left empty. The plugin returns the URLs it wants to add, up to 5000 per call. Hatamoto appends those whose `loc` is not empty and not already in the file. A plugin cannot remove or change existing entries. The filter chain has a 2 second budget, and because the result is cached, a filter must give the same answer each time. An hreflang alternate on an added URL adds the `xhtml` namespace to that file.
+- **The `sitemap.urls` filter**, run for one file at a time. The host sends the group name (`misc` for the misc file); the `language` field of the payload is empty on a one-language site, and holds the locale's BCP 47 tag for a per-locale file (see [Several locales](#several-locales)). The plugin returns the URLs it wants to add, up to 5000 per call. Hatamoto appends those whose `loc` is not empty and not already in the file. A plugin cannot remove or change existing entries. The filter chain has a 2 second budget, and because the result is cached, a filter must give the same answer each time. An hreflang alternate on an added URL adds the `xhtml` namespace to that file.
+
+## Several locales
+
+On a site with two or more public locales the index lists one set of child files per locale, and every file holds only that locale's URLs.
+
+- A locale's files are named `sitemap-<segment>-<group>.xml`, where `<segment>` is the locale's URL segment, for example `/sitemap-fr-blog.xml`. The segment is matched against the known locale segments, so a group name with hyphens is safe.
+- With "prefix every locale" off, the default locale keeps the file names of a one-language site (`/sitemap-blog.xml`). With it on, the default locale's files carry its segment too.
+- Content shared by every locale is listed once, in the default locale's files, with no alternates.
+- A URL that has two or more live copies in its translation group carries one `xhtml:link` entry per copy with `rel="alternate"` and `hreflang`, in the order of the locale list, and its file gets the `xhtml` namespace. A URL with a single copy carries none.
+- Each locale's file is cached separately.
+- The `sitemap.urls` filter runs once per file. It gets the bare group name in `group` and the file's locale tag in `language`.
+
+A site with one locale keeps its sitemap files exactly as before.
 
 ## The preview tool
 

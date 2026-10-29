@@ -54,7 +54,7 @@ var errPersonStatus = fmt.Errorf("%w: a person's visibility follows their Public
 // personStatus is the status a person entity must have: published when
 // attributes.public is true, else draft. It is nil for every other schema.
 //
-// Visibility is also enforced by HiddenPersonSQL, but the previous release
+// Visibility is also enforced by HiddenPersonFor, but the previous release
 // knows only the status, so a hidden person must not be published or a
 // rollback would expose it. The service is the one write point (create,
 // update, restore, import); every other path gets here or is rejected.

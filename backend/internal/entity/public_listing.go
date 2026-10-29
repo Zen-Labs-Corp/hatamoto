@@ -121,7 +121,7 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		status = "e.status IN ('published', 'scheduled')"
 	}
 	var (
-		where = []string{status, "e.variant_key IS NULL", HiddenPersonSQL}
+		where []string
 		args  []any
 	)
 	rank := ""
@@ -129,6 +129,7 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		args = append(args, v)
 		return fmt.Sprintf("$%d", len(args))
 	}
+	where = []string{status, "e.variant_key IS NULL", HiddenPersonFor(arg(VisibleLocales(ctx)))}
 	if f.Attr != "" {
 		switch {
 		case !ValidAttrKey(f.Attr):
@@ -215,17 +216,37 @@ const NoIndexSQL = `(COALESCE(e.metadata->>'no_index', 'false') = 'true'
 	OR COALESCE(e.attributes->>'no_index', 'false') = 'true'
 	OR COALESCE(e.attributes->'seo'->>'robots', '') ILIKE '%noindex%')`
 
-// HiddenPersonSQL is false for a person entity (schema aliased s, entity e)
-// whose attributes.public is not true, and for any entity of the built-in block
-// or theme_part type whatever its status (they are used by reference, never
-// served). Every public read adds it, so these are absent from pages, sitemaps,
-// llms.txt, search, theme queries and MCP public search alike.
+// HiddenPersonFor returns the public visibility predicate (schema aliased s,
+// entity e); ph is the placeholder of a text[] argument holding the visible
+// locales (bind VisibleLocales(ctx); a NULL argument means the site language).
+// It is false for a person entity whose attributes.public is not true, and
+// for any entity of the built-in block or theme_part type whatever its status
+// (they are used by reference, never served). Every public read adds it, so
+// these are absent from pages, sitemaps, llms.txt, search, theme queries and
+// MCP public search alike.
 //
-// It also hides every entity whose locale is not the site language: the
-// public site serves one language, so other locales are stored but not public.
-const HiddenPersonSQL = `((s.slug <> 'person' OR COALESCE(e.attributes->>'public', 'false') = 'true')
+// It also hides every entity whose locale is not visible: without a locale
+// scope that is every locale but the site language, so other locales are
+// stored but not public.
+func HiddenPersonFor(ph string) string {
+	return `((s.slug <> 'person' OR COALESCE(e.attributes->>'public', 'false') = 'true')
 	AND NOT (s.is_builtin AND s.slug IN ('block', 'theme_part'))
-	AND e.locale = (SELECT public.hatamoto_site_language()))`
+	AND ` + visibleLocaleSQL(ph) + `)`
+}
+
+// scopedLocaleFirstSQL orders the rows of the scoped locale (the first visible
+// locale) before shared ones, so an unprefixed path that both the default
+// locale and shared content serve answers with the default locale's row. Every
+// row ties without a scope.
+func scopedLocaleFirstSQL(ph string) string {
+	return `(e.locale = COALESCE((` + ph + `::text[])[1], e.locale)) DESC`
+}
+
+// visibleLocaleSQL is the locale term of HiddenPersonFor for queries that do
+// not join the schema.
+func visibleLocaleSQL(ph string) string {
+	return `e.locale = ANY(COALESCE(` + ph + `::text[], ARRAY[(SELECT public.hatamoto_site_language())]))`
+}
 
 // AttrValueCount is one distinct attribute value and how many published
 // entities carry it.
@@ -253,11 +274,11 @@ func (r *PostgresPublicRepository) ListAttrValues(ctx context.Context, schemaSlu
 		SELECT e.attributes->>$2::text AS v, COUNT(*)
 		FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
 		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL
-		  AND `+HiddenPersonSQL+`
+		  AND `+HiddenPersonFor("$4")+`
 		  AND e.attributes ? $2::text
 		  AND jsonb_typeof(e.attributes->$2::text) = 'string'
 		  AND e.attributes->>$2::text <> ''
-		GROUP BY v ORDER BY v LIMIT $3`, schemaSlugs, attrKey, limit)
+		GROUP BY v ORDER BY v LIMIT $3`, schemaSlugs, attrKey, limit, VisibleLocales(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list attribute values: %w", err)
 	}

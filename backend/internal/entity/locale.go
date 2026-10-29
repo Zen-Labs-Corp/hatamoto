@@ -7,6 +7,12 @@ import (
 	"golang.org/x/text/language"
 )
 
+// LocaleShared is the reserved locale value of content shared by every public
+// locale. It is stored in the NOT NULL locale column (never NULL) and written
+// only by an explicit internal path. NormalizeLocale rejects "und" on purpose,
+// so a user supplied tag can never become shared by accident.
+const LocaleShared = "und"
+
 // maxLocaleLen is the longest tag NormalizeLocale accepts (the RFC 5646
 // recommendation), so an oversized value is a validation error and never a
 // database error.

@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/person"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // mountAdminRoutes builds the admin's deps once, builds the first admin from
@@ -88,7 +89,10 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	}
 	d.BaseURL = s.configuredBaseURL
 	d.CookieSecure = s.cfg.AdminCookieSecure
-	d.Invalidate = s.invalidateRendered
+	d.Invalidate = s.invalidateSiteSettings
+	d.ValidateLocales = func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string) ([]siteconfig.LocaleEntry, string, error) {
+		return validateLocaleSettings(ctx, localeSettingsRequest{Default: def, Entries: entries, PrefixAll: prefixAll, XDefault: xdef}, s.checkLocaleSegments)
+	}
 	d.BuilderTokens = func() bool { return s.renderEngine != nil && s.renderEngine.BuilderTokens() }
 	d.BuilderParts = func() []string {
 		if s.renderEngine == nil {

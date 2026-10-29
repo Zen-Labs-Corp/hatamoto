@@ -145,6 +145,13 @@ different repository.
 > that shipped `assets/plugin.js` before 0.12 stops running its script until its author lists `site.scripts` in
 > `plugin.json` and the owner grants it. `plugin.css` is not gated.
 >
+> **Public locales (no version change):** on a site with several public locales
+> (see [ADR 0003](adr/0003-public-locales.md)) the existing fields carry the page's locale and no payload gains a field.
+> `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
+> `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
+> hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
+> SDK 0.13 is still current.
+>
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
 > `EntityDraft` has it as an optional field (filled on `entity.before_save` from the entity, and empty, so left out of the JSON, on a create that sent no locale; the host never reads it back), and `entities.create` / `entities.update` accept `locale`
@@ -313,7 +320,7 @@ Modify and return `doc` (the schema.org document). Keep `entity` and `base_url` 
 ```
 
 #### SitemapURLs
-Additions only. The host sends `group` and `language` (the group slug of the sitemap file, `"misc"` for the misc sitemap; `language` is reserved and always empty) and in `add` the entries that `sitemap.urls` filters before yours already added (empty for the first). It never sends the file's own URL list: a Go guest needs about 0.5 s to decode and encode 5,000 URLs. Append your entries to `add` and return the value; the host appends the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. Set at most 5,000 entries in `add` in total (more fails the call, fail open). A filter that adds a site-wide URL should target one file (usually `"misc"`). The result is cached with the sitemap XML, so keep it deterministic.
+Additions only. The host sends `group` and `language` (the group slug of the sitemap file, `"misc"` for the misc sitemap; `language` is the BCP 47 tag of the locale a per-locale file belongs to, and empty on a one-language site) and in `add` the entries that `sitemap.urls` filters before yours already added (empty for the first). It never sends the file's own URL list: a Go guest needs about 0.5 s to decode and encode 5,000 URLs. Append your entries to `add` and return the value; the host appends the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. Set at most 5,000 entries in `add` in total (more fails the call, fail open). A filter that adds a site-wide URL should target one file (usually `"misc"`). The result is cached with the sitemap XML, so keep it deterministic.
 ```json
 { "group": "misc", "language": "",
   "add": [ { "loc": "https://example.com/a", "lastmod": "2026-01-01", "changefreq": "weekly", "priority": 0.5,
@@ -322,7 +329,7 @@ Additions only. The host sends `group` and `language` (the group slug of the sit
 `alternates` is optional.
 
 #### HeadContext
-The input describes the page (`language` is the BCP 47 site language) and carries no tags; the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
+The input describes the page (`language` is the BCP 47 language of the page: the site language, or the page's locale on a site with several public locales) and carries no tags; the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
 Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays.
 ```json
 { "path": "/blog/x", "language": "en-AU", "schema_slug": "post", "entity_id": "string",

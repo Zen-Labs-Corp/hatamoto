@@ -308,7 +308,7 @@ func (s *Server) preloadPaths(ctx context.Context) ([]string, error) {
 		if !ok {
 			continue
 		}
-		for _, u := range s.applySitemapFilter(ctx, g.key, urls) {
+		for _, u := range s.applySitemapFilterFor(ctx, g, urls) {
 			locs = append(locs, u.Loc)
 		}
 	}

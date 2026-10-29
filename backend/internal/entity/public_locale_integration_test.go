@@ -173,7 +173,7 @@ func TestPublicLocale_FollowsSiteLanguageChange(t *testing.T) {
 	var n int
 	if err := tx.QueryRow(ctx, `
 		SELECT count(*) FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
-		WHERE s.slug = $1 AND `+HiddenPersonSQL, f.schemaSlug).Scan(&n); err != nil {
+		WHERE s.slug = $1 AND `+HiddenPersonFor("$2"), f.schemaSlug, nil).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 2 {
@@ -188,7 +188,7 @@ func TestHiddenPersonSQLSiteLanguageIsInitPlan(t *testing.T) {
 	db := newIntegrationDB(t)
 	ctx := context.Background()
 	rows, err := db.Pool().Query(ctx, `EXPLAIN (VERBOSE, COSTS OFF) SELECT count(*) FROM hatamoto_entities e
-		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id WHERE e.status = 'published' AND `+HiddenPersonSQL)
+		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id WHERE e.status = 'published' AND `+HiddenPersonFor("NULL"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,5 +206,73 @@ func TestHiddenPersonSQLSiteLanguageIsInitPlan(t *testing.T) {
 	}
 	if !strings.Contains(plan, "InitPlan") {
 		t.Fatalf("site language is not evaluated as an InitPlan:\n%s", plan)
+	}
+}
+
+// With a locale scope the public reads serve that locale plus shared content
+// and hide the site language; the first-page fallback follows the scope.
+func TestPublicReads_LocaleScope(t *testing.T) {
+	f := newPublicLocaleFixture(t)
+	db := newIntegrationDB(t)
+	ctx := WithVisibleLocales(context.Background(), f.other)
+	schemas := []string{f.schemaSlug}
+
+	var schemaID uuid.UUID
+	if err := db.Pool().QueryRow(ctx, `SELECT id FROM hatamoto_entity_schemas WHERE slug = $1`, f.schemaSlug).Scan(&schemaID); err != nil {
+		t.Fatal(err)
+	}
+	shared := uuid.New()
+	if _, err := db.Pool().Exec(ctx,
+		`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,attributes,published_at)
+		 VALUES ($1,$2,'shared','shared-'||$3,$4,'published','{}',now())`,
+		shared, schemaID, shared.String()[:8], LocaleShared); err != nil {
+		t.Fatal(err)
+	}
+
+	if e, err := f.repo.GetPublishedBySlug(ctx, f.sameSlug); err != nil || e.ID != f.sameOther {
+		t.Errorf("by slug in scope: %v, %v; want the scoped entity", e, err)
+	}
+	if e, err := f.repo.GetPublishedBySlug(ctx, f.onlySlug); err != nil || e.ID != f.only {
+		t.Errorf("by slug other-only in scope: %v, %v", e, err)
+	}
+	if e, err := f.repo.GetPublishedByID(ctx, shared); err != nil || e.ID != shared {
+		t.Errorf("shared by id: %v, %v", e, err)
+	}
+	if _, err := f.repo.GetPublishedByID(ctx, f.sameSite); !errors.Is(err, ErrEntityNotFound) {
+		t.Errorf("site-language entity in scope = %v, want not found", err)
+	}
+	res, err := f.repo.ListPublishedBySchemas(ctx, schemas, 1, 50)
+	if err != nil || res.Total != 3 {
+		t.Errorf("list in scope: %+v, %v; want 3 (scoped x2 + shared)", res, err)
+	}
+	filtered, total, err := f.repo.ListPublishedFiltered(ctx, ListFilter{SchemaSlugs: schemas}, 1, 50)
+	if err != nil || total != 3 || len(filtered) != 3 {
+		t.Errorf("filtered in scope: %d, %v", total, err)
+	}
+	counts, err := f.repo.ListAttrValues(ctx, schemas, "nope", 10)
+	if err != nil || len(counts) != 0 {
+		t.Errorf("attr values: %v, %v", counts, err)
+	}
+}
+
+// The first-page fallback of the home resolution follows the locale scope.
+func TestFirstPublishedPage_FollowsLocaleScope(t *testing.T) {
+	db := newIntegrationDB(t)
+	repo := NewPostgresPublicRepository(db)
+	var pageSchema uuid.UUID
+	if err := db.Pool().QueryRow(context.Background(), `SELECT id FROM hatamoto_entity_schemas WHERE slug = 'page'`).Scan(&pageSchema); err != nil {
+		t.Skip("no page schema")
+	}
+	id := uuid.New()
+	if _, err := db.Pool().Exec(context.Background(),
+		`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,attributes,published_at,created_at)
+		 VALUES ($1,$2,'First scoped','first-scoped-'||$3,'nl','published','{}',now(),'1980-01-01')`,
+		id, pageSchema, id.String()[:8]); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_entities WHERE id = $1`, id) })
+	e, err := repo.getFirstPublishedPage(WithVisibleLocales(context.Background(), "nl"))
+	if err != nil || e.ID != id {
+		t.Errorf("scoped first page = %v, %v; want %s", e, err, id)
 	}
 }

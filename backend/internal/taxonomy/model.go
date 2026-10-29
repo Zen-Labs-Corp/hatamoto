@@ -170,18 +170,22 @@ func ValidSlug(slug string) bool {
 // ValidKind reports whether kind is a usable term kind: the built-in tag and
 // category, or a custom lower-case word that is not a reserved URL segment.
 func ValidKind(kind string) bool {
-	if !kindPattern.MatchString(kind) {
-		return false
-	}
-	if _, reserved := reservedKinds[kind]; reserved {
-		return false
+	return kindPattern.MatchString(kind) && !ReservedSegment(kind)
+}
+
+// ReservedSegment reports whether seg, as a first URL segment, is one the site
+// routes itself (or the proxy hands to another service), so a term kind or a
+// locale on it would be unreachable or would shadow that route.
+func ReservedSegment(seg string) bool {
+	if _, reserved := reservedKinds[seg]; reserved {
+		return true
 	}
 	for _, p := range reservedKindPrefixes {
-		if strings.HasPrefix(kind, p) {
-			return false
+		if strings.HasPrefix(seg, p) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // Archive URL paths: the built-in kinds keep /tag/ and /category/; a custom

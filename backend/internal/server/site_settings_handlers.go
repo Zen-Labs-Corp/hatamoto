@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"golang.org/x/text/language"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
-
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -31,40 +29,53 @@ type siteSettingsHandlers struct {
 	store      siteSettingsStore
 	logger     *slog.Logger
 	invalidate func(context.Context)
+	// checkLocales validates the locale list against the running site (see
+	// Server.checkLocaleSegments); nil runs the pure rules only.
+	checkLocales func(context.Context, []string) error
 }
 
 // siteSettingsResponse is the wire shape of GET/PATCH /settings/site.
 type siteSettingsResponse struct {
-	Name              string                 `json:"name"`
-	LogoURL           string                 `json:"logo_url"`
-	PrimaryColor      string                 `json:"primary_color"`
-	CustomDomain      string                 `json:"custom_domain"`
-	NotificationEmail string                 `json:"notification_email"`
-	Timezone          string                 `json:"timezone"`
-	Language          string                 `json:"language"`
-	Phone             string                 `json:"phone"`
-	BusinessHours     string                 `json:"business_hours"`
-	Address           siteAddress            `json:"address"`
-	LegacyWPRedirects bool                   `json:"legacy_wp_redirects"`
-	HomepageEntityID  *uuid.UUID             `json:"homepage_entity_id,omitempty"`
-	ThemeConfig       siteconfig.ThemeConfig `json:"theme_config"`
-	UpdatedAt         time.Time              `json:"updated_at"`
+	Name              string `json:"name"`
+	LogoURL           string `json:"logo_url"`
+	PrimaryColor      string `json:"primary_color"`
+	CustomDomain      string `json:"custom_domain"`
+	NotificationEmail string `json:"notification_email"`
+	Timezone          string `json:"timezone"`
+	Language          string `json:"language"`
+	// Locales is the ordered public locale list (empty: a single-locale site);
+	// the default locale is Language. PrefixAll puts the default locale under
+	// its own segment too, XDefaultLocale is the hreflang x-default ("" = the
+	// first live copy).
+	Locales           []siteconfig.LocaleEntry `json:"locales"`
+	PrefixAll         bool                     `json:"prefix_all"`
+	XDefaultLocale    string                   `json:"x_default_locale"`
+	Phone             string                   `json:"phone"`
+	BusinessHours     string                   `json:"business_hours"`
+	Address           siteAddress              `json:"address"`
+	LegacyWPRedirects bool                     `json:"legacy_wp_redirects"`
+	HomepageEntityID  *uuid.UUID               `json:"homepage_entity_id,omitempty"`
+	ThemeConfig       siteconfig.ThemeConfig   `json:"theme_config"`
+	UpdatedAt         time.Time                `json:"updated_at"`
 }
 
 // siteSettingsPatch is the PATCH body; omitted (null) fields are unchanged.
 type siteSettingsPatch struct {
-	Name              *string      `json:"name"`
-	LogoURL           *string      `json:"logo_url"`
-	PrimaryColor      *string      `json:"primary_color"`
-	CustomDomain      *string      `json:"custom_domain"`
-	NotificationEmail *string      `json:"notification_email"`
-	Timezone          *string      `json:"timezone"`
-	Language          *string      `json:"language"`
-	Phone             *string      `json:"phone"`
-	BusinessHours     *string      `json:"business_hours"`
-	Address           *siteAddress `json:"address"`
-	LegacyWPRedirects *bool        `json:"legacy_wp_redirects"`
-	HomepageEntityID  *uuid.UUID   `json:"homepage_entity_id"`
+	Name              *string                   `json:"name"`
+	LogoURL           *string                   `json:"logo_url"`
+	PrimaryColor      *string                   `json:"primary_color"`
+	CustomDomain      *string                   `json:"custom_domain"`
+	NotificationEmail *string                   `json:"notification_email"`
+	Timezone          *string                   `json:"timezone"`
+	Language          *string                   `json:"language"`
+	Locales           *[]siteconfig.LocaleEntry `json:"locales"`
+	PrefixAll         *bool                     `json:"prefix_all"`
+	XDefaultLocale    *string                   `json:"x_default_locale"`
+	Phone             *string                   `json:"phone"`
+	BusinessHours     *string                   `json:"business_hours"`
+	Address           *siteAddress              `json:"address"`
+	LegacyWPRedirects *bool                     `json:"legacy_wp_redirects"`
+	HomepageEntityID  *uuid.UUID                `json:"homepage_entity_id"`
 }
 
 // siteAddress is the business postal address (stored as JSON in
@@ -95,11 +106,8 @@ func (a siteAddress) valid() bool {
 // canonicalLanguage validates a BCP 47 tag and returns it in canonical case
 // ("en-au" -> "en-AU").
 func canonicalLanguage(v string) (string, bool) {
-	tag, err := language.Parse(strings.TrimSpace(v))
-	if err != nil || tag == language.Und {
-		return "", false
-	}
-	return tag.String(), true
+	tag, err := entity.NormalizeLocale(v)
+	return tag, err == nil
 }
 
 func mountSiteSettings(r *httpx.Group, h *siteSettingsHandlers) {
@@ -117,6 +125,8 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 		store:      s.siteConfig,
 		logger:     s.logger,
 		invalidate: s.invalidateSiteSettings,
+
+		checkLocales: s.checkLocaleSegments,
 	})
 }
 
@@ -124,7 +134,9 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 // reads the time zone for {month} and {day}, so it is rebuilt first: pages
 // rendered after the purge must not cache URLs in the old zone.
 func (s *Server) invalidateSiteSettings(ctx context.Context) {
-	s.entityService.URLRegistry().Invalidate()
+	if s.entityService != nil {
+		s.entityService.URLRegistry().Invalidate()
+	}
 	s.invalidateRendered(ctx)
 }
 
@@ -137,6 +149,9 @@ func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 		NotificationEmail: cfg.NotificationEmail,
 		Timezone:          cfg.Timezone,
 		Language:          siteLanguage(cfg),
+		Locales:           append([]siteconfig.LocaleEntry{}, cfg.Locales...),
+		PrefixAll:         cfg.PrefixAll,
+		XDefaultLocale:    cfg.XDefaultLocale,
 		Phone:             cfg.Phone,
 		BusinessHours:     cfg.BusinessHours,
 		Address:           siteAddress(postalAddress(cfg.PostalAddress)),
@@ -194,6 +209,11 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		update.Language = &lang
+	}
+	if in.Locales != nil || in.PrefixAll != nil || in.XDefaultLocale != nil || in.Language != nil {
+		if !h.applyLocales(w, r, &in, &update) {
+			return
+		}
 	}
 	if in.Phone != nil && utf8.RuneCountInString(*in.Phone) > maxPhoneLen ||
 		in.BusinessHours != nil && utf8.RuneCountInString(*in.BusinessHours) > maxContactFieldLen {

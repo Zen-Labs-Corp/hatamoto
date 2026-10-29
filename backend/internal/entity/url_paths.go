@@ -59,7 +59,7 @@ func (s *URLSnapshot) NeedsAncestors(schemaSlug string, attrs map[string]string)
 // published_at (created_at while it is unset, for drafts and previews) in the
 // site time zone.
 func (s *URLSnapshot) VarsFor(ent *Entity, ancestors []string) urlpattern.Vars {
-	v := urlpattern.Vars{Slug: ent.Slug}
+	v := urlpattern.Vars{Slug: ent.Slug, Locale: ent.Locale}
 	if n := len(ancestors); n > 0 {
 		v.Parent = ancestors[n-1]
 	}
@@ -113,9 +113,22 @@ func (s *URLSnapshot) VarsForSitemap(e *SitemapEntry) urlpattern.Vars {
 // Locate resolves the public path of an entity of schemaSlug (own slug or
 // alias) from its URL variables. Precedence: section pages, then explicit schema settings (including
 // a matching override), then a plugin-registered EntityURLBuilder, then the
-// built-in defaults. found is false when nothing knows the schema; err is a
+// built-in defaults. The locale prefix of v.Locale is added last, whatever
+// branch built the path. found is false when nothing knows the schema; err is a
 // urlpattern error (for example ErrMissingVar for an empty slug).
 func (s *URLSnapshot) Locate(schemaSlug string, attrs map[string]string, v urlpattern.Vars) (loc EntityLocation, found bool, err error) {
+	loc, found, err = s.locate(schemaSlug, attrs, v)
+	if found && err == nil {
+		loc.Path = s.WithLocale(v.Locale, loc.Path)
+		if loc.ArchivePath != "" {
+			loc.ArchivePath = s.WithLocale(v.Locale, loc.ArchivePath)
+		}
+	}
+	return loc, found, err
+}
+
+// locate is Locate before the locale prefix is added.
+func (s *URLSnapshot) locate(schemaSlug string, attrs map[string]string, v urlpattern.Vars) (loc EntityLocation, found bool, err error) {
 	slug := v.Slug
 	cfg, known := s.Config(schemaSlug)
 	if known && s.IsSectionPage(schemaSlug, slug) {

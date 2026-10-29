@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -728,5 +730,126 @@ func TestWriteHTMLSandboxCSP(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+type schemaListerFunc func(context.Context) ([]*entity.EntitySchema, error)
+
+func (f schemaListerFunc) List(ctx context.Context) ([]*entity.EntitySchema, error) { return f(ctx) }
+
+func failingSnapshot(context.Context) (*entity.URLSnapshot, error) { return nil, errors.New("db down") }
+
+// While the URL snapshot cannot load, the in-memory page cache and the
+// redirects still answer, as before locales existed.
+func TestRenderSnapshotErrorServesCacheHit(t *testing.T) {
+	for _, path := range []string{"/", "/about"} {
+		t.Run(path, func(t *testing.T) {
+			f := newRenderFixture(t)
+			f.next = okPage("About")
+			if w := f.get(path); w.Code != http.StatusOK {
+				t.Fatalf("warm: status %d", w.Code)
+			}
+			f.h.snapshot = failingSnapshot
+			resolves := f.resolves
+			if w := f.get(path); w.Code != http.StatusOK || f.resolves != resolves {
+				t.Fatalf("cache hit: status %d, resolves %d -> %d", w.Code, resolves, f.resolves)
+			}
+		})
+	}
+}
+
+func TestRenderSnapshotErrorStillRedirects(t *testing.T) {
+	f := newRenderFixture(t)
+	f.h.snapshot = failingSnapshot
+	f.redirect = &redirect.Redirect{TargetURL: "/new", StatusCode: 301}
+	srv := newRouteTestServer()
+	f.h.resolve = func(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error) {
+		return srv.resolveRouteWith(ctx, routeDeps{snapshot: failingSnapshot, checkRedirect: f.h.checkRedirect}, path, r)
+	}
+	for _, path := range []string{"/old", "/"} {
+		if w := f.get(path); w.Code != 301 || w.Header().Get("Location") != "/new" {
+			t.Fatalf("%s: got %d %q", path, w.Code, w.Header().Get("Location"))
+		}
+	}
+}
+
+// A one-locale install whose site settings cannot be read answers as before
+// locales existed: the home renders and a miss is resolved normally. The page
+// is not cached, since the locale setup is unknown.
+func TestRenderLocalesUnreadableOneLocaleInstall(t *testing.T) {
+	reg := entity.NewURLRegistry(schemaListerFunc(func(context.Context) ([]*entity.EntitySchema, error) {
+		return []*entity.EntitySchema{{Slug: "page", Name: "Page"}}, nil
+	}), nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return nil, errors.New("settings unavailable") })
+	f := newRenderFixture(t)
+	f.next = okPage("About")
+	f.h.snapshot = reg.Snapshot
+	for _, path := range []string{"/", "/about"} {
+		if w := f.get(path); w.Code != http.StatusOK {
+			t.Fatalf("%s: status %d, want 200", path, w.Code)
+		}
+	}
+	if len(f.cache.sets) != 0 {
+		t.Errorf("a page rendered from a degraded snapshot was cached: %v", f.cache.sets)
+	}
+	// Once the settings read recovers, pages are cached again.
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return nil, nil })
+	f.get("/about")
+	if len(f.cache.sets) != 1 {
+		t.Errorf("healthy snapshot: cache sets = %v", f.cache.sets)
+	}
+}
+
+// With no entity service (route-table build) the handlers behave as one locale.
+func TestRenderNoEntityServiceIsOneLocale(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = okPage("About")
+	f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return nil, errNoEntityService }
+	for _, path := range []string{"/", "/about"} {
+		if w := f.get(path); w.Code != http.StatusOK {
+			t.Fatalf("%s: status %d, want 200", path, w.Code)
+		}
+	}
+	if len(f.cache.sets) != 2 {
+		t.Errorf("cache sets = %v", f.cache.sets)
+	}
+}
+
+// On a multi-locale site the unprefixed home is the default locale's home and
+// reads [default, und] like every other unprefixed path; a one-locale site
+// keeps the unscoped read.
+func TestRenderHomeLocaleScope(t *testing.T) {
+	var loadScope, viewScope []string
+	setup := func(f *renderFixture, snap *entity.URLSnapshot) {
+		f.h.snapshot = func(context.Context) (*entity.URLSnapshot, error) { return snap, nil }
+		f.h.loadHome = func(r *http.Request) (*PublicPageResponse, pageOutcome, error) {
+			loadScope = entity.VisibleLocales(r.Context())
+			return pageResponse("Home"), pageOutcome{Status: 200}, nil
+		}
+		build := f.h.buildView
+		f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+			viewScope = entity.VisibleLocales(ctx)
+			return build(ctx, r, rr)
+		}
+	}
+
+	f := newRenderFixture(t)
+	setup(f, multiSitemapSnap(t, false))
+	if w := f.get("/"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	want := []string{"en", "und"}
+	if !reflect.DeepEqual(loadScope, want) || !reflect.DeepEqual(viewScope, want) {
+		t.Errorf("multi-locale home scope: load %v, view %v, want %v", loadScope, viewScope, want)
+	}
+
+	loadScope, viewScope = nil, nil
+	f = newRenderFixture(t)
+	setup(f, entity.DefaultURLSnapshot())
+	if w := f.get("/"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	if loadScope != nil || viewScope != nil {
+		t.Errorf("one-locale home was scoped: load %v, view %v", loadScope, viewScope)
 	}
 }

@@ -26,14 +26,40 @@ type headView struct {
 	Robots      string
 	// Prev and Next are the absolute rel="prev"/"next" URLs of a paginated listing.
 	Prev, Next string
-	OG         []metaPair
-	Feeds      []FeedLink
-	Twitter    []metaPair
-	Ext        []extTag
+	// Alt are the hreflang alternates, x-default last. Nil on a one-locale page.
+	Alt     []altLink
+	OG      []metaPair
+	Feeds   []FeedLink
+	Twitter []metaPair
+	Ext     []extTag
 	// Scripts are complete <script type="application/ld+json"> elements.
 	Scripts []template.HTML
 	// Comment is an optional AI-crawler HTML comment.
 	Comment template.HTML
+}
+
+// altLink is one <link rel="alternate" hreflang> entry.
+type altLink struct {
+	Lang string
+	Href string
+}
+
+// hreflangLinks builds the hreflang entries: every alternate that has a copy,
+// then x-default. A paginated page (its canonical is the page itself) gets none.
+func hreflangLinks(v *PageView) []altLink {
+	if len(v.Alternates) == 0 || (v.Pagination != nil && v.Pagination.Page >= 2) {
+		return nil
+	}
+	alt := make([]altLink, 0, len(v.Alternates)+1)
+	for _, a := range v.Alternates {
+		if !a.Missing {
+			alt = append(alt, altLink{Lang: a.Lang, Href: a.Href})
+		}
+	}
+	if v.XDefaultHref != "" {
+		alt = append(alt, altLink{Lang: "x-default", Href: v.XDefaultHref})
+	}
+	return alt
 }
 
 // seoHead builds the SEO-derived part of the head from the page view. With
@@ -49,6 +75,7 @@ func seoHead(v *PageView, replaceSiteGraph bool) headView {
 		applySEOTemplates(&h, v, rawTitle)
 	}
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
+	h.Alt = hreflangLinks(v)
 	if v.Page.NoIndex || v.Preview {
 		h.Robots = "noindex,follow"
 	}

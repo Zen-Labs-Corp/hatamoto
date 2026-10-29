@@ -41,6 +41,14 @@ type routeResult struct {
 	// Kind is resolveKindEntity, resolveKindHome or resolveKindArchive.
 	Kind         string
 	CanonicalURL string
+	// Locale is the locale scope the path resolved under: a configured tag,
+	// the default locale for an unprefixed path, LocaleShared for an unprefixed
+	// path under prefix-all, "" on a single-locale install. The renderer scopes
+	// the page's data reads to it.
+	Locale string
+	// Rest is the path without its locale segment ("" on a single-locale
+	// install, where it is the request path).
+	Rest string
 }
 
 // routeDeps are the collaborators resolveRouteWith needs, as funcs so the flow is
@@ -51,6 +59,8 @@ type routeDeps struct {
 	repo          resolveRepo
 	log404        func(path, referer, userAgent string)
 	loadPage      func(r *http.Request, slug string) (*PublicPageResponse, pageOutcome, error)
+	// loadHome serves a locale's home ("/fr"); nil answers not found.
+	loadHome func(r *http.Request) (*PublicPageResponse, pageOutcome, error)
 }
 
 // resolveRouteWith resolves a public URL path (not "/", which callers serve via
@@ -82,6 +92,33 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 		s.logger.Error("resolve: url registry", "error", err)
 		return fail()
 	}
+	// After the redirect check (rules may name a prefixed path): strip the
+	// locale segment and scope every read to that locale. An unprefixed path is
+	// the default locale, or only shared content under prefix-all.
+	fullPath, locale := path, ""
+	if set := snap.Locales(); set.Multi() {
+		tag, rest, prefixed := set.Resolve(path)
+		switch {
+		case prefixed:
+			locale, path = tag, rest
+		case set.Prefix(set.Default()) != "":
+			locale = entity.LocaleShared
+		default:
+			locale = set.Default()
+		}
+		ctx = entity.WithVisibleLocales(ctx, locale)
+		if prefixed && path == "/" {
+			if deps.loadHome == nil {
+				return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
+			}
+			rr, outcome, err := homeRoute(deps.loadHome(r.Clone(ctx)))
+			if rr != nil {
+				rr.Locale, rr.Rest = locale, path
+			}
+			return rr, outcome, err
+		}
+	}
+	notFound := &routeResult{NotFound: true, Locale: locale, Rest: path}
 	res, err := resolveEntity(ctx, deps.repo, snap, path)
 	if err != nil {
 		s.logger.Error("resolve: lookup", "error", err, "path", path)
@@ -89,12 +126,16 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	}
 	if res == nil {
 		if deps.log404 != nil && r != nil {
-			deps.log404(path, r.Referer(), r.UserAgent())
+			deps.log404(fullPath, r.Referer(), r.UserAgent())
 		}
-		return &routeResult{NotFound: true}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
+		return notFound, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
 	}
 
-	out := &routeResult{Kind: res.Kind, CanonicalURL: res.URL}
+	canonLocale := locale
+	if res.Entity != nil {
+		canonLocale = res.Entity.Locale
+	}
+	out := &routeResult{Kind: res.Kind, CanonicalURL: snap.WithLocale(canonLocale, res.URL), Locale: locale, Rest: path}
 	if res.Kind == resolveKindArchive {
 		out.Archive = res.Archive
 		return out, pageOutcome{Status: http.StatusOK}, nil
@@ -112,7 +153,7 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 		return nil, outcome, err
 	}
 	if outcome.NotFound {
-		return &routeResult{NotFound: true}, outcome, nil
+		return notFound, outcome, nil
 	}
 	return out, outcome, nil
 }

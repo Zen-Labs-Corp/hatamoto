@@ -149,7 +149,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	// terminal crumbs of shape https://.../<slug> that dropped the section
 	// prefix and 404'd in Google's Rich Results Test.
 	breadcrumb := []BreadcrumbItem{
-		{Label: "Home", Href: "/"},
+		{Label: "Home", Href: s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")},
 	}
 	if loc.ArchivePath != "" {
 		breadcrumb = append(breadcrumb, BreadcrumbItem{Label: loc.ArchiveName, Href: loc.ArchivePath})
@@ -203,9 +203,10 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 	s.applyAuthorName(ctx, ent)
 
 	baseURL := s.publicBaseURL(r)
+	home := s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")
 	jsonLD, _ := entity.GenerateJSONLD(ent, baseURL)
 	if ent.Schema != nil {
-		entity.ApplyCanonicalToJSONLD(jsonLD, ent.Schema.Slug, baseURL+"/")
+		entity.ApplyCanonicalToJSONLD(jsonLD, ent.Schema.Slug, baseURL+home)
 	}
 	s.bylinesOf(ctx, ent.ID).applyJSONLD(ctx, ent.ID, baseURL, jsonLD)
 
@@ -217,7 +218,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 
 	meta := PageMeta{
 		Title:        ent.Name,
-		CanonicalURL: baseURL + "/",
+		CanonicalURL: baseURL + home,
 	}
 	if desc, ok := attrs["meta_description"].(string); ok {
 		meta.Description = desc

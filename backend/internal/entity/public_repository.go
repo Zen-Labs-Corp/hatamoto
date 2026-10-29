@@ -82,6 +82,10 @@ type SitemapEntry struct {
 	ChangeFreq    string    `json:"change_freq"`
 	NoIndex       bool      `json:"no_index"`
 	IncludeInLLMs bool      `json:"include_in_llms"`
+	// Locale and Group place the entry in a locale and a translation group for
+	// the per-locale sitemaps (not serialised).
+	Locale string     `json:"-"`
+	Group  *uuid.UUID `json:"-"`
 	// EntityFormat is the value of attributes.format, used by the sitemap
 	// generator to route playbook entities with format='online_report' to
 	// /reports/{slug} instead of /playbooks/{slug} — reports have their
@@ -136,15 +140,15 @@ func (r *PostgresPublicRepository) GetPublishedBySlug(ctx context.Context, slug 
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.slug = $1 AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonSQL + `
-		ORDER BY e.created_at, e.id
+		WHERE e.slug = $1 AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$2") + `
+		ORDER BY ` + scopedLocaleFirstSQL("$2") + `, e.created_at, e.id
 		LIMIT 1
 	`
 
 	var e Entity
 	var s EntitySchema
 
-	err = conn.QueryRow(ctx, query, slug).Scan(
+	err = conn.QueryRow(ctx, query, slug, VisibleLocales(ctx)).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 		&e.Editorial,
@@ -180,13 +184,13 @@ func (r *PostgresPublicRepository) GetPublishedByID(ctx context.Context, entityI
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.id = $1 AND e.status = 'published' AND ` + HiddenPersonSQL + `
+		WHERE e.id = $1 AND e.status = 'published' AND ` + HiddenPersonFor("$2") + `
 	`
 
 	var e Entity
 	var s EntitySchema
 
-	err = conn.QueryRow(ctx, query, entityID).Scan(
+	err = conn.QueryRow(ctx, query, entityID, VisibleLocales(ctx)).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 		&e.Editorial,
@@ -226,10 +230,10 @@ func (r *PostgresPublicRepository) GetPublishedByIDs(ctx context.Context, ids []
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.id = ANY($1) AND e.status = 'published' AND ` + HiddenPersonSQL + `
+		WHERE e.id = ANY($1) AND e.status = 'published' AND ` + HiddenPersonFor("$2") + `
 	`
 
-	rows, err := conn.Query(ctx, query, ids)
+	rows, err := conn.Query(ctx, query, ids, VisibleLocales(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get published entities by IDs: %w", err)
 	}
@@ -313,11 +317,11 @@ func (r *PostgresPublicRepository) listPublishedFiltered(ctx context.Context, sc
 		SELECT COUNT(*)
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonSQL + cond + `
+		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$"+strconv.Itoa(len(condArgs)+2)) + cond + `
 	`
 	var total int
 	if withCount {
-		if err := conn.QueryRow(ctx, countQuery, append([]any{schemaSlugs}, condArgs...)...).Scan(&total); err != nil {
+		if err := conn.QueryRow(ctx, countQuery, append(append([]any{schemaSlugs}, condArgs...), VisibleLocales(ctx))...).Scan(&total); err != nil {
 			return nil, fmt.Errorf("failed to count published entities: %w", err)
 		}
 	}
@@ -332,12 +336,12 @@ func (r *PostgresPublicRepository) listPublishedFiltered(ctx context.Context, sc
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonSQL + cond + `
+		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$"+strconv.Itoa(len(condArgs)+4)) + cond + `
 		ORDER BY e.published_at DESC NULLS LAST, e.created_at DESC, e.id
 		LIMIT $` + strconv.Itoa(len(condArgs)+2) + ` OFFSET $` + strconv.Itoa(len(condArgs)+3) + `
 	`
 
-	rows, err := conn.Query(ctx, query, append(append([]any{schemaSlugs}, condArgs...), perPage, offset)...)
+	rows, err := conn.Query(ctx, query, append(append([]any{schemaSlugs}, condArgs...), perPage, offset, VisibleLocales(ctx))...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list published entities: %w", err)
 	}
@@ -408,9 +412,9 @@ func (r *PostgresPublicRepository) ListSeriesRows(ctx context.Context, schemaSlu
 		   AND s.slug = ANY($2)
 		   AND e.status IN ('published', 'scheduled')
 		   AND e.variant_key IS NULL
-		   AND `+HiddenPersonSQL+`
+		   AND `+HiddenPersonFor("$3")+`
 		 ORDER BY e.published_at, e.id
-	`, seriesSlug, schemaSlugs)
+	`, seriesSlug, schemaSlugs, VisibleLocales(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list series parts: %w", err)
 	}
@@ -466,6 +470,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 			COALESCE(p.slug, '') AS parent_slug,
 			COALESCE(anc.path, '') AS ancestor_path,
 			COALESCE(e.published_at, e.created_at) AS dated_at,
+			e.locale, e.translation_group,
 			COALESCE((SELECT jsonb_object_agg(k, e.attributes->k) FROM unnest($1::text[]) k WHERE e.attributes ? k), '{}'::jsonb) AS attrs
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
@@ -480,14 +485,14 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 			)
 			SELECT string_agg(slug, '/' ORDER BY depth DESC) AS path FROM a
 		) anc ON e.parent_id IS NOT NULL
-		WHERE e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonSQL + `
+		WHERE e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$2") + `
 		ORDER BY e.updated_at DESC, e.id
 	`
 
 	if attrKeys == nil {
 		attrKeys = []string{}
 	}
-	rows, err := conn.Query(ctx, query, attrKeys)
+	rows, err := conn.Query(ctx, query, attrKeys, VisibleLocales(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list published entities for sitemap: %w", err)
 	}
@@ -498,7 +503,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 		var e SitemapEntry
 		var updatedAt time.Time
 		var attrsJSON []byte
-		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &attrsJSON); err != nil {
+		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &e.Locale, &e.Group, &attrsJSON); err != nil {
 			return nil, fmt.Errorf("failed to scan sitemap entry: %w", err)
 		}
 		if len(attrKeys) > 0 {
@@ -595,7 +600,7 @@ func (r *PostgresPublicRepository) getFirstPublishedPage(ctx context.Context) (*
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.status = 'published' AND s.slug = 'page' AND e.locale = (SELECT public.hatamoto_site_language())
+		WHERE e.status = 'published' AND s.slug = 'page' AND ` + visibleLocaleSQL("$1") + `
 		ORDER BY e.created_at ASC
 		LIMIT 1
 	`
@@ -603,7 +608,7 @@ func (r *PostgresPublicRepository) getFirstPublishedPage(ctx context.Context) (*
 	var e Entity
 	var s EntitySchema
 
-	err = conn.QueryRow(ctx, query).Scan(
+	err = conn.QueryRow(ctx, query, VisibleLocales(ctx)).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 		&e.Editorial,
@@ -743,8 +748,8 @@ func (r *PostgresPublicRepository) GetPublishedByPath(ctx context.Context, segme
 		SELECT e.id FROM chain c
 		JOIN hatamoto_entities e ON e.id = c.id
 		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
-		WHERE c.depth = cardinality($1::text[]) AND e.status = 'published' AND s.slug = ANY($2) AND `+HiddenPersonSQL+`
-		ORDER BY e.created_at, e.id LIMIT 1`, segments, schemaSlugs).Scan(&id)
+		WHERE c.depth = cardinality($1::text[]) AND e.status = 'published' AND s.slug = ANY($2) AND `+HiddenPersonFor("$3")+`
+		ORDER BY `+scopedLocaleFirstSQL("$3")+`, e.created_at, e.id LIMIT 1`, segments, schemaSlugs, VisibleLocales(ctx)).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrEntityNotFound
 	}
@@ -777,15 +782,15 @@ func (r *PostgresPublicRepository) GetPublishedBySlugAndSchemas(ctx context.Cont
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE e.slug = $1 AND s.slug = ANY($2) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonSQL + `
-		ORDER BY e.created_at, e.id
+		WHERE e.slug = $1 AND s.slug = ANY($2) AND e.status = 'published' AND e.variant_key IS NULL AND ` + HiddenPersonFor("$3") + `
+		ORDER BY ` + scopedLocaleFirstSQL("$3") + `, e.created_at, e.id
 		LIMIT 1
 	`
 
 	var e Entity
 	var s EntitySchema
 
-	err = conn.QueryRow(ctx, query, slug, schemaSlugs).Scan(
+	err = conn.QueryRow(ctx, query, slug, schemaSlugs, VisibleLocales(ctx)).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt,
 		&e.Editorial,
@@ -836,10 +841,10 @@ func (r *PostgresPublicRepository) ListPublishedByAttribute(ctx context.Context,
 		SELECT COUNT(*)
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.attributes->>$2 = $3 AND ` + HiddenPersonSQL + `
+		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.attributes->>$2 = $3 AND ` + HiddenPersonFor("$4") + `
 	`
 	var total int
-	if err := conn.QueryRow(ctx, countQuery, schemaSlugs, attrKey, attrValue).Scan(&total); err != nil {
+	if err := conn.QueryRow(ctx, countQuery, schemaSlugs, attrKey, attrValue, VisibleLocales(ctx)).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count entities by attribute: %w", err)
 	}
 
@@ -853,7 +858,7 @@ func (r *PostgresPublicRepository) ListPublishedByAttribute(ctx context.Context,
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
-		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.attributes->>$2 = $3 AND ` + HiddenPersonSQL + `
+		WHERE s.slug = ANY($1) AND e.status = 'published' AND e.attributes->>$2 = $3 AND ` + HiddenPersonFor("$6") + `
 		ORDER BY e.published_at DESC NULLS LAST, e.created_at DESC
 		LIMIT $4 OFFSET $5
 	`
@@ -862,7 +867,7 @@ func (r *PostgresPublicRepository) ListPublishedByAttribute(ctx context.Context,
 		offset = 0
 	}
 
-	rows, err := conn.Query(ctx, query, schemaSlugs, attrKey, attrValue, limit, offset)
+	rows, err := conn.Query(ctx, query, schemaSlugs, attrKey, attrValue, limit, offset, VisibleLocales(ctx))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list entities by attribute: %w", err)
 	}

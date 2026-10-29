@@ -19,17 +19,28 @@ const sitemapFilterTimeout = 2 * time.Second
 // when no engine is wired or nothing was added.
 //
 // Callers invoke it just before marshalling, i.e. before the XML is cached
-// (cacheSitemapXML). The cache is keyed only by sitemap name, so a filter's
-// output is served until the entry's TTL expires; filters must therefore be
-// deterministic and are not re-run per request.
+// (cacheSitemapXML). The cache is keyed by the sitemap file name (which names
+// the locale on a multi-locale site), so a filter's output is served until the
+// entry's TTL expires; filters must therefore be deterministic and are not
+// re-run per request.
 func (s *Server) applySitemapFilter(ctx context.Context, group string, urls []URL) []URL {
+	return s.applySitemapFilterLang(ctx, group, "", urls)
+}
+
+// applySitemapFilterFor runs the filter for a planned file: plugins see the
+// bare group and, on a multi-locale site, the locale of the file.
+func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, urls []URL) []URL {
+	return s.applySitemapFilterLang(ctx, g.base, g.locale, urls)
+}
+
+func (s *Server) applySitemapFilterLang(ctx context.Context, group, language string, urls []URL) []URL {
 	if s.hooks == nil {
 		return urls
 	}
 	ctx, cancel := context.WithTimeout(ctx, sitemapFilterTimeout)
 	defer cancel()
 
-	out, ok := s.hooks.Apply(ctx, sdk.SitemapURLsF.Name, sdk.SitemapURLs{Group: group}).(sdk.SitemapURLs)
+	out, ok := s.hooks.Apply(ctx, sdk.SitemapURLsF.Name, sdk.SitemapURLs{Group: group, Language: language}).(sdk.SitemapURLs)
 	if !ok {
 		return urls
 	}

@@ -156,6 +156,19 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="timezone" name="timezone">{options}</select></div>
 </div>
 <div class="hm-field">
+<label class="hm-field__label" for="locales">Locales</label>
+<textarea class="hm-field__control" id="locales" name="locales" rows="4" aria-describedby="locales-help"></textarea>
+<p class="hm-field__help" id="locales-help">Optional, one per line: a language code and the URL segment, like: fr fr. Leave empty for a single-language site.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="prefix_all"><input class="hm-field__box" type="checkbox" role="switch" id="prefix_all" name="prefix_all" value="true"><span>Put the default language under its own segment too</span></label>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="xdefault">Default for search engines</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="xdefault" name="xdefault" aria-describedby="xdefault-help"><option value="" selected>First available translation</option></select></div>
+<p class="hm-field__help" id="xdefault-help">Which language search engines show to visitors who match none.</p>
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="logo">Logo address</label>
 <input class="hm-field__control" type="text" id="logo" name="logo" aria-describedby="logo-help">
 <p class="hm-field__help" id="logo-help">A web address or a path like /media/logo.png.</p>

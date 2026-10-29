@@ -61,23 +61,41 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 	if err != nil || rr == nil || !rr.NotFound {
 		return rr, outcome, err
 	}
-	lr, err := s.resolveListing(ctx, path, r)
+	// Listings and registry pages know the path without its locale segment;
+	// the listing keeps the full path for its canonical and paging links.
+	bare := path
+	if rr.Rest != "" {
+		bare = rr.Rest
+	}
+	// Under prefix-all an unprefixed path resolved to the shared scope, but the
+	// listings the theme links to unprefixed (/search, term archives) belong to
+	// the default locale: they list its rows and the shared ones.
+	locale := rr.Locale
+	if locale == entity.LocaleShared {
+		if def := s.urlSnapshot(ctx).Locales().Default(); def != "" {
+			locale = def
+		}
+	}
+	lr, err := s.resolveListing(ctx, bare, r)
+	if lr != nil {
+		lr.Path = path
+	}
 	if err != nil {
 		s.logger.ErrorContext(ctx, "render: resolve listing", "error", err, "path", path)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if lr != nil {
-		return &routeResult{Listing: lr}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Listing: lr, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
-	reg, err := s.resolveRegistry(ctx, path, r)
+	reg, err := s.resolveRegistry(ctx, bare, r)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "render: resolve registry page", "error", err, "path", path)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
 			&pageError{http.StatusInternalServerError, "failed to resolve path"}
 	}
 	if reg != nil {
-		return &routeResult{Registry: reg}, pageOutcome{Status: http.StatusOK}, nil
+		return &routeResult{Registry: reg, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	return rr, outcome, nil
 }
