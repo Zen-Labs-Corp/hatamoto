@@ -208,16 +208,19 @@ function check({ sticky, list, spec }) {
     if (!back) out.push(["UI-D7", sel(bar), "no visible breadcrumb trail", 0]);
   }
 
-  // UI-D8: the selected option of a segmented control (pill row, radio, button) is an ink fill with paper text: no border, no shadow.
-  const inkBg = probe("background-color", "var(--color-sumi)"), paperFg = probe("color", "var(--color-paper)");
+  // UI-D8: the selected option of a segmented control (pill row, radio, button) is a paper pill with sumi text, no border,
+  // and a hairline ring (plus an inset bevel): any shadow part that is neither a ring nor inset fails.
+  const paperBg = probe("background-color", "var(--color-paper)"), sumiFg = probe("color", "var(--color-sumi)");
   for (const c of document.querySelectorAll('.hm-tabs[data-variant="segmented"] [aria-current="page"], .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn')) {
     if (!visible(c)) continue;
     const cs = getComputedStyle(c);
     const border = px(cs.borderTopWidth) > 0 && !/rgba\([^)]*,\s*0\)|transparent/.test(cs.borderTopColor);
     if (border) out.push(["UI-D8", sel(c), "selected segment has a border", `${cs.borderTopWidth} ${cs.borderTopColor}`]);
-    if (cs.boxShadow !== "none") out.push(["UI-D8", sel(c), "selected segment has a shadow", cs.boxShadow]);
-    if (cs.backgroundColor !== inkBg) out.push(["UI-D8", sel(c), "selected segment is not the ink fill", cs.backgroundColor]);
-    if (cs.color !== paperFg) out.push(["UI-D8", sel(c), "selected segment text is not paper", cs.color]);
+    const parts = cs.boxShadow === "none" ? [] : cs.boxShadow.split(/,(?![^(]*\))/).map((p) => p.trim());
+    if (!parts.some((p) => /(^|\s)0px 0px 0px \d+px(\s|$)/.test(p) && !/\binset\b/.test(p))) out.push(["UI-D8", sel(c), "selected segment has no ring", cs.boxShadow]);
+    if (parts.some((p) => !/\binset\b/.test(p) && !/(^|\s)0px 0px 0px \d+px(\s|$)/.test(p))) out.push(["UI-D8", sel(c), "selected segment has a non-ring shadow", cs.boxShadow]);
+    if (cs.backgroundColor !== paperBg) out.push(["UI-D8", sel(c), "selected segment is not the paper fill", cs.backgroundColor]);
+    if (cs.color !== sumiFg) out.push(["UI-D8", sel(c), "selected segment text is not sumi", cs.color]);
   }
 
   // UI-D9: tabs navigate, pills rearrange in place. A segmented row stays on one
@@ -365,7 +368,7 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <style>:root{--color-sumi:#111827;--color-paper:#ffffff;--border-field:#d1d5db;--border-control:#8b919a;--shadow-1:0 1px 2px rgba(0,0,0,.2);--color-hai:#4b5563}</style>
 <nav aria-label="Breadcrumb" id="d7a"><ol><li>Home</li></ol></nav><nav aria-label="Breadcrumb" id="d7b"><ol><li>Home</li></ol></nav>
 <div class="hm-topbar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
-<nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#fff;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
+<nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#e5e7eb;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" id="d9seg"><ul><li><a href="/x?view=a">A</a></li><li><a href="/y?view=a">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" data-changes="group" id="d9undecl"><ul><li><a href="/x?view=a">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" id="d9none"><ul><li><a href="/x">A</a></li></ul></nav>
@@ -396,7 +399,7 @@ if (selfTest) {
   // A registry Install row form is a row action: it must not be reported.
   if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10pkg"))) { console.log("self-test FAILED: UI-D10 flagged a registry row form (#d10pkg)"); process.exit(1); }
   // Each rule must fire on its own planted element, not just somewhere in the fixture.
-  const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has a shadow", "#d8~not the ink fill", "#d8~not paper"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": "#d14~button border-top-left-radius" };
+  const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": "#d14~button border-top-left-radius" };
   const fired = [...new Set(found.map((v) => v[0]))].sort();
   const missing = Object.entries(own).flatMap(([r, ids]) => [ids].flat().map((id) => [r, id])).filter(([r, id]) => { const [sid, frag] = id.split("~"); return !found.some((v) => v[0] === r && v[1].endsWith(sid) && (!frag || v[2].includes(frag))); }).map(([r, id]) => `${r} on ${id}`);
   console.log(`self-test: fired ${fired.join(" ")}`);
