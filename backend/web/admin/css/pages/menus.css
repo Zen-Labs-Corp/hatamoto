@@ -32,7 +32,11 @@
 .hm-menutree .hm-menutree__item[data-type="custom"] .hm-menutree__t-entity,
 .hm-menutree .hm-menutree__item[data-type="custom"] .hm-menutree__t-archive,
 .hm-menutree .hm-menutree__item[data-type="archive"] .hm-menutree__t-entity,
-.hm-menutree .hm-menutree__item[data-type="archive"] .hm-menutree__t-custom { display: none; }
+.hm-menutree .hm-menutree__item[data-type="archive"] .hm-menutree__t-custom,
+.hm-menutree .hm-menutree__item[data-type="none"] .hm-menutree__t-entity,
+.hm-menutree .hm-menutree__item[data-type="none"] .hm-menutree__t-custom,
+.hm-menutree .hm-menutree__item[data-type="none"] .hm-menutree__t-archive { display: none; }
+.hm-menutree .hm-menutree__item:not([data-type="none"]) .hm-menutree__t-none { display: none; }
 /* Narrow screens: less indentation per level, so level 3 and deeper keep usable fields. */
 @media (max-width: 640px) {
   .hm-menutree__item[data-depth="1"] { margin-left: var(--space-3); }
@@ -48,3 +52,9 @@
 .hm-menutree__undo { align-items: center; margin-top: var(--space-2); }
 .hm-menutree__undo[hidden] { display: none; }
 .hm-menutree .hm-menu [role="menuitem"]:disabled { color: var(--text-muted); cursor: not-allowed; background: transparent; }
+.hm-menutree__warn { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-warning); font-size: var(--text-xs); }
+.hm-menutree__more > summary { cursor: pointer; font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-1) 0; }
+.hm-menutree__more > summary:hover { color: var(--text); }
+.hm-menutree__more > summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-menutree__more[open] > summary { margin-bottom: var(--space-3); }
+.hm-menutree__move { align-items: flex-end; margin-top: var(--space-2); }
