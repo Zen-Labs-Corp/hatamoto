@@ -273,7 +273,11 @@ function init(root) {
     document.querySelectorAll("[data-hm-editor-only]").forEach((el) => { el.hidden = false; });
     // The layout rules in menueditor.css apply only from here: without this script the form stays as the server renders it.
     form.setAttribute("data-hm-js", "");
+    // The row fields are hidden while the inspector edits them, and a hidden required field would
+    // stop the browser's own check without a word. The count of items to fix and the server decide.
+    form.noValidate = true;
     document.getElementById("menu-details")?.setAttribute("data-hm-inline", "");
+    form.querySelector(":scope > .hm-savebar")?.setAttribute("data-hm-bar", "");
     tree.querySelectorAll("[data-hm-handle]").forEach((h) => { h.hidden = false; });
 
     const dirty = () => edited || undoStack.length > 0;
@@ -468,9 +472,17 @@ function init(root) {
       if (!list.length) return;
       issueAt[kind] = (issueAt[kind] + 1) % list.length;
       const li = list[issueAt[kind]];
-      const details = li.querySelector(".hm-menutree__edit");
-      if (details) details.open = true;
-      const target = kind === "err" ? field(li, "label") : li.querySelector(`.hm-menutree__t-${li.dataset.type} input:not([type=hidden])`);
+      const inspector = document.querySelector("[data-hm-inspector] [data-hm-ins]");
+      let target;
+      if (inspector) {
+        // The inspector edits the row, so select it there and take the keyboard to the field to fix.
+        document.dispatchEvent(new CustomEvent("hm:select", { detail: { items: [li] } }));
+        target = kind === "err" ? document.querySelector('[data-hm-inspector] [data-hm-ins="label"]') : document.querySelector(`[data-hm-inspector] [data-hm-ins-target="${li.dataset.type}"] input:not([type=hidden])`);
+      } else {
+        const details = li.querySelector(".hm-menutree__edit");
+        if (details) details.open = true;
+        target = kind === "err" ? field(li, "label") : li.querySelector(`.hm-menutree__t-${li.dataset.type} input:not([type=hidden])`);
+      }
       li.scrollIntoView({ block: "center" });
       target?.focus();
     });

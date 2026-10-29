@@ -40,12 +40,15 @@ export function init(tree, api) {
     selected = selected.filter((li) => all.includes(li));
     if (!all.includes(cursor)) cursor = selected[0] ?? all[0] ?? null;
     all.forEach((li, i) => {
-      // A row is named by its title, not by every button and field it holds.
-      const title = li.querySelector(".hm-menutree__title");
-      if (title) {
-        title.id = `i-${i}-name`;
-        li.setAttribute("aria-labelledby", title.id);
-      }
+      // A row is named by what it shows (title, where it links, chips), not by every button and field it holds.
+      const parts = [[".hm-menutree__title", "name"], [".hm-menutree__target-summary", "target"], ["[data-hm-chips]", "chips"], ["[data-hm-warn]", "warn"]]
+        .map(([sel, key]) => {
+          const el = li.querySelector(sel);
+          if (el) el.id = `i-${i}-${key}`;
+          return el?.id;
+        })
+        .filter(Boolean);
+      li.setAttribute("aria-labelledby", parts.join(" "));
       li.setAttribute("role", "treeitem");
       li.setAttribute("aria-selected", String(selected.includes(li)));
       li.setAttribute("aria-level", String(depthOf(li) + 1));

@@ -17,7 +17,7 @@
    the sticky inspector, the preview and the save bar below. Without it none of
    this matches and the form stays the single column it always was. An empty
    notice region takes no row. */
-.hm-menuform[data-hm-js] { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1.6fr) minmax(20rem, 1fr); grid-template-areas: "notice notice" "head head" "items inspector" "preview preview"; align-items: start; }
+.hm-menuform[data-hm-js] { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1.6fr) minmax(20rem, 1fr); grid-template-areas: "notice notice" "head head" "items inspector" "preview preview" "bar bar"; align-items: start; }
 .hm-menuform[data-hm-js] > [data-hm-notice] { grid-area: notice; }
 .hm-menuform[data-hm-js] > [data-hm-notice]:empty { display: contents; }
 .hm-menuform[data-hm-js] .hm-menueditor__aux:not([hidden]) { display: contents; }
@@ -25,10 +25,10 @@
 .hm-menuform[data-hm-js] #menu-items { grid-area: items; }
 .hm-menuform[data-hm-js] #menu-inspector { grid-area: inspector; position: sticky; top: var(--space-4); max-height: calc(100dvh - 8rem); overflow-y: auto; }
 .hm-menuform[data-hm-js] #menu-preview { grid-area: preview; }
-/* the save bar is the last child and takes the full width of the last row */
-.hm-menuform[data-hm-js] > :last-child { grid-column: 1 / -1; }
+/* the script marks the save bar, which has the last row */
+.hm-menuform[data-hm-js] > [data-hm-bar] { grid-area: bar; }
 @media (max-width: 70rem) {
-  .hm-menuform[data-hm-js] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "notice" "head" "items" "inspector" "preview"; }
+  .hm-menuform[data-hm-js] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "notice" "head" "items" "inspector" "preview" "bar"; }
   .hm-menuform[data-hm-js] #menu-inspector { position: static; max-height: none; }
 }
 /* Drag: the grip takes the pointer (touch included), the moving block dims and
@@ -43,6 +43,7 @@
 .hm-menutree__item[hidden] { display: none; }
 .hm-menutree__item:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-menutree__item[data-hm-selected] { border-color: var(--text); box-shadow: inset 3px 0 0 var(--text); }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { border-color: transparent; }
 .hm-menutree__head { user-select: none; }
 .hm-menutree__head > [data-hm-collapse][hidden] { display: none; }
 .hm-menutree__head > [data-hm-collapse][aria-expanded="false"] .hm-icon { transform: rotate(-90deg); }

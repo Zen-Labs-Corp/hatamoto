@@ -9,10 +9,18 @@ import { blockEnd, dropTargets } from "@hm/menulogic";
 
 const FALLBACK_INDENT = 32;
 
-// indentOf is how far one level moves an item sideways, read from the page.
+// indentOf is how far one level moves an item sideways, read from the page: the
+// grip's shift between a top-level row and a deeper one (the row's own margin
+// or its padding does the indenting, depending on the layout).
 function indentOf(rows) {
-  const deep = rows.find((r) => r.depth > 0);
-  const px = deep ? parseFloat(getComputedStyle(deep.li).marginLeft) / deep.depth : 0;
+  const shown = rows.filter((r) => r.li.getClientRects().length);
+  const grip = (r) => {
+    const g = r.li.querySelector("[data-hm-handle]");
+    return g ? g.getBoundingClientRect().left - r.li.getBoundingClientRect().left : 0;
+  };
+  const top = shown.find((r) => r.depth === 0);
+  const deep = shown.find((r) => r.depth > 0);
+  const px = top && deep ? (grip(deep) - grip(top)) / deep.depth : 0;
   return px > 0 ? px : FALLBACK_INDENT;
 }
 

@@ -57,3 +57,26 @@
 .hm-menutree__more > summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-menutree__more[open] > summary { margin-bottom: var(--space-3); }
 .hm-menutree__move { align-items: flex-end; margin-top: var(--space-2); }
+/* Compact rows: with scripts the tree is a list of single lines. The fields stay in
+   the DOM (the inspector reads and writes them) but only the inspector shows them.
+   Without scripts none of these selectors match and the rows stay cards. */
+.hm-menuform[data-hm-js] .hm-menutree { gap: 0; }
+.hm-menuform[data-hm-js] .hm-menutree__item { border: 0; border-radius: var(--radius-sm); margin-left: 0; padding: 0 var(--space-2); padding-inline-start: var(--space-2); gap: 0; position: relative; background-repeat: no-repeat; background-size: 0 100%; background-image: repeating-linear-gradient(to right, transparent 0 calc(var(--space-6) - 1px), var(--border) calc(var(--space-6) - 1px) var(--space-6)); }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-depth="1"] { padding-inline-start: calc(var(--space-6) * 1 + var(--space-2)); background-size: calc(var(--space-6) * 1) 100%; }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-depth="2"] { padding-inline-start: calc(var(--space-6) * 2 + var(--space-2)); background-size: calc(var(--space-6) * 2) 100%; }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-depth="3"] { padding-inline-start: calc(var(--space-6) * 3 + var(--space-2)); background-size: calc(var(--space-6) * 3) 100%; }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-depth="4"] { padding-inline-start: calc(var(--space-6) * 4 + var(--space-2)); background-size: calc(var(--space-6) * 4) 100%; }
+.hm-menuform[data-hm-js] .hm-menutree__item[data-depth="5"] { padding-inline-start: calc(var(--space-6) * 5 + var(--space-2)); background-size: calc(var(--space-6) * 5) 100%; }
+.hm-menuform[data-hm-js] .hm-menutree__head { min-height: 2.25rem; flex-wrap: nowrap; }
+.hm-menuform[data-hm-js] .hm-menutree__edit { display: none; }
+.hm-menuform[data-hm-js] .hm-menutree__titles { flex-direction: row; align-items: baseline; gap: var(--space-2); flex: 0 1 auto; }
+.hm-menuform[data-hm-js] .hm-menutree__chips { flex: 1; min-width: 0; }
+/* Actions show on hover and on focus, and stay in the tab order. Drag and Alt with the arrows replace Up and Down. */
+.hm-menuform[data-hm-js] .hm-menutree__ops { opacity: 0; }
+.hm-menuform[data-hm-js] .hm-menutree__item:hover .hm-menutree__ops,
+.hm-menuform[data-hm-js] .hm-menutree__item:focus-within .hm-menutree__ops,
+.hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] .hm-menutree__ops { opacity: 1; }
+.hm-menuform[data-hm-js] .hm-menutree__ops > [data-hm-op="up"],
+.hm-menuform[data-hm-js] .hm-menutree__ops > [data-hm-op="down"] { display: none; }
+.hm-menuform[data-hm-js] .hm-menutree__item:hover,
+.hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { background-color: var(--surface-hover); }
