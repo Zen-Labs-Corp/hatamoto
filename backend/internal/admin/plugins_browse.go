@@ -3,13 +3,16 @@ package admin
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
+	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/permtext"
 )
 
 // pluginsNow is the clock of the plugin pages ("refreshed N ago"); tests pin it.
@@ -159,8 +162,110 @@ func (a *Admin) handleCheckUpdates(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
+// detailPerm is one permission of a registry entry in plain English.
+type detailPerm struct {
+	Name, Help, Short string
+	Warn              bool
+}
+
+// detailPrimary is the header's POST action: Install or Review update.
+type detailPrimary struct {
+	Post   string
+	Fields map[string]string
+	Label  string
+	Icon   string
+}
+
+type pluginDetailPage struct {
+	Entry    RegistryEntry
+	Title    string
+	Byline   string
+	Badge    *ui.Badge
+	About    []string
+	Perms    []detailPerm
+	Size     string
+	Homepage string
+	Source   string
+	Primary  *detailPrimary
+	Actions  []ui.Button
+}
+
+// handleBrowseDetail is the no-script detail page of a registry plugin. A
+// request from the panel (HX-Request) gets the main block only.
 func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
-	a.notBuilt(w, r)
+	pk, ok := a.packageAdmin(w, r)
+	if !ok {
+		return
+	}
+	browse := a.adminPath + "/plugins/browse"
+	reg := pk.Registry(r.Context())
+	switch {
+	case reg.Off:
+		a.ErrorBack(w, r, http.StatusNotFound, "No registry is set up", "Set HATAMOTO_REGISTRY_URL to browse packages.", a.adminPath+"/plugins", "Back to plugins")
+		return
+	case reg.Err != "":
+		a.ErrorBack(w, r, http.StatusServiceUnavailable, "The registry is not reachable right now", "Installed plugins keep working. Try again in a moment.", browse, "Back to browse")
+		return
+	}
+	name := r.PathValue("name")
+	i := slices.IndexFunc(reg.Entries, func(e RegistryEntry) bool { return e.Kind == "plugin" && e.Name == name })
+	if i < 0 {
+		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "The registry does not list a plugin with that name.", browse, "Back to browse")
+		return
+	}
+	e := reg.Entries[i]
+	d := pluginDetailPage{
+		Entry: e, Title: e.Title,
+		Homepage: httpURL(e.Homepage), Source: httpURL(e.Source),
+	}
+	if d.Title == "" {
+		d.Title = e.Name
+	}
+	if e.Tier == "first-party" {
+		d.Badge = &ui.Badge{Label: "First-party", Plain: true}
+	}
+	if e.Author != "" {
+		d.Byline = "By " + e.Author
+	}
+	if e.Size > 0 {
+		d.Size = humanSize(e.Size)
+	}
+	about := e.About
+	if about == "" {
+		about = e.Description
+	}
+	for _, para := range strings.Split(about, "\n") {
+		if para = strings.TrimSpace(para); para != "" {
+			d.About = append(d.About, para)
+		}
+	}
+	for _, p := range e.Permissions {
+		t := permtext.Lookup(p)
+		d.Perms = append(d.Perms, detailPerm{Name: p, Help: t.Help, Short: t.Short, Warn: t.Warn})
+	}
+	fetch := a.adminPath + "/plugins/fetch"
+	switch {
+	case e.Update:
+		d.Primary = &detailPrimary{Post: fetch, Fields: map[string]string{"name": e.Name}, Label: "Review update"}
+	case !e.Installed:
+		d.Primary = &detailPrimary{Post: fetch, Fields: map[string]string{"name": e.Name}, Label: "Install…"}
+	}
+	if e.Installed {
+		d.Actions = []ui.Button{{Label: "Settings", Href: a.pluginURL(e.Name, "settings")}}
+	}
+	v := a.NewView(w, r, d.Title)
+	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse", Href: browse}, {Label: d.Title}}
+	v.Data = d
+	a.Render(w, r, http.StatusOK, "plugins/browse-detail", v)
+}
+
+// httpURL returns s when it is an absolute http or https address, else "".
+func httpURL(s string) string {
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return u.String()
 }
 
 // notBuilt answers a route whose page is not implemented yet.
