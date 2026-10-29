@@ -79,9 +79,10 @@ PUBLIC_BASE_URL=$4
 API_HOST=127.0.0.1
 MEDIA_UPLOAD_DIR=$APP_DIR/uploads
 HATAMOTO_CONFIG_FILE=$APP_DIR/config/hatamoto.env
-HATAMOTO_SETUP_CODE=$3
 HATAMOTO_SECRET=$2
 HM_ENV
+  # No code once the owner exists (the clean-up removed it): nothing to write back.
+  [ -z "$3" ] || printf 'HATAMOTO_SETUP_CODE=%s\n' "$3"
 }
 
 # fb_render_caddyfile HOST TLS EMAIL prints the Caddyfile: one site in front of the app.
@@ -414,7 +415,9 @@ stage_firstboot() {
     fs_dbpw="$(fb_env_get "$fs_envfile" DATABASE_URL | sed -n 's#^postgres://[^:]*:\([^@]*\)@.*#\1#p')"
     fs_secret="$(fb_env_get "$fs_envfile" HATAMOTO_SECRET)"
     fs_code="$(fb_env_get "$fs_envfile" HATAMOTO_SETUP_CODE)"
-    if [ -z "$fs_dbpw" ] || [ -z "$fs_code" ]; then
+    # A missing code is fine once the owner exists (checked below, with PostgreSQL up):
+    # the clean-up timer removed it before this resumed run.
+    if [ -z "$fs_dbpw" ]; then
       die "the existing env file is incomplete: remove $fs_envfile and run again"
     fi
     log "resuming a first boot that did not finish"
@@ -436,6 +439,10 @@ stage_firstboot() {
   # A sealed image started PostgreSQL at boot without the key: bring it up again.
   systemctl restart postgresql >/dev/null 2>&1 || die "cannot restart postgresql"
   fb_database "$fs_dbpw"
+  if [ -z "$fs_code" ]; then
+    fs_owners="$(cd / && fb_psql -d hatamoto -tAc 'select count(*) from hatamoto_users' 2>/dev/null)" || fs_owners=0
+    case "$fs_owners" in '' | 0 | *[!0-9]*) die "the existing env file is incomplete: remove $fs_envfile and run again" ;; esac
+  fi
 
   fb_render_env "$fs_dbpw" "$fs_secret" "$fs_code" "$fs_base" > "$FB_TMP/hatamoto.env"
   install -m 0640 -o root -g "$APP_USER" "$FB_TMP/hatamoto.env" "$fs_envfile"
@@ -471,12 +478,17 @@ stage_firstboot() {
   # Housekeeping parts, then the done marker last.
   fb_stage install_motd
   fb_stage install_dns_switch
-  fb_stage install_setupcode_clean
   fb_stage setup_backups
+  # Last, so a failed earlier part never leaves the timer to delete a code the resume needs.
+  fb_stage install_setupcode_clean
 
-  fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip"
-  if [ -z "$R" ] && [ -w /dev/console ]; then
-    fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip" > /dev/console 2>/dev/null || true
+  if [ -n "$fs_code" ]; then
+    fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip"
+    if [ -z "$R" ] && [ -w /dev/console ]; then
+      fb_banner "$fs_link" "$fs_code" "$fs_pending" "$fs_ip" > /dev/console 2>/dev/null || true
+    fi
+  else
+    log "the owner account already exists: no setup code to show"
   fi
   : > "$fs_done"
   log "first boot done"

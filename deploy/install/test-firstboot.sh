@@ -31,6 +31,7 @@ case "$*" in
   *"select 1 from pg_roles"*) [ ! -e "$TMPD/role" ] || echo 1 ;;
   *"select 1 from pg_database"*) [ ! -e "$TMPD/db" ] || echo 1 ;;
   *"select 1"*) echo 1 ;;
+  *"count(*) from hatamoto_users"*) echo "${FAKE_OWNERS:-0}" ;;
   *) # SQL on stdin: keep it outside the fixture root
     sql="$(cat)"
     printf '%s\n' "$sql" >> "$TMPD/psql-stdin"
@@ -388,6 +389,26 @@ env PATH="$bin:$PATH" CALLS="$tmp/calls" TMPD="$tmp/state" HATAMOTO_INSTALL_ROOT
 grep -q 'ALTER ROLE hatamoto' "$tmp/state/psql-stdin" || fail "resume did not reset the role password"
 [ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "resume did not finish"
 pass "resume keeps secrets and finishes"
+
+# --- resume after the clean-up timer removed the setup code ----------------------------------------
+r="$(mkroot nocode)"
+if FAKE_MIGRATE_FAIL=1 run_fb "$r"; then fail "migrate failure ignored"; fi
+envf="$r/opt/hatamoto/config/hatamoto.env"
+grep -v '^HATAMOTO_SETUP_CODE=' "$envf" > "$tmp/env.nocode"; cp "$tmp/env.nocode" "$envf"
+if run_fb "$r" FAKE_OWNERS=0; then fail "a missing code was accepted with no owner"; fi
+grep -q 'incomplete' "$tmp/err" || fail "no-owner refusal not explained: $(cat "$tmp/err")"
+[ ! -e "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "done marker without code or owner"
+: > "$tmp/calls"
+run_fb "$r" FAKE_OWNERS=1 || fail "resume without a code but with an owner failed: $(cat "$tmp/err")"
+[ -f "$r/var/lib/hatamoto-install/firstboot.done" ] || fail "resume did not finish"
+if grep -q 'SETUP_CODE' "$envf"; then fail "setup code written back"; fi
+if grep -q 'Setup code' "$tmp/out"; then fail "banner printed without a code"; fi
+pass "resume accepts a removed setup code once the owner exists"
+# The clean timer is installed after the backups part, just before the done marker.
+bn="$(grep -nx 'setup_backups' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+cn="$(grep -nx 'install_setupcode_clean' "$tmp/calls" | head -n 1 | cut -d: -f1)"
+{ [ -n "$bn" ] && [ -n "$cn" ] && [ "$bn" -lt "$cn" ]; } || fail "clean timer not installed after setup_backups"
+pass "setup code clean timer installed last"
 
 # --- a failed run keeps the inputs for the resume at the next boot ----------------------------------
 r="$(mkroot inputs)"
