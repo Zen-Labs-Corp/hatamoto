@@ -24,6 +24,12 @@ import (
 // the same TTL the redirect service uses, keeping observability uniform.
 const cacheTTL = 60 * time.Second
 
+// LocaleEntry is one configured public locale: a BCP 47 tag and its URL segment.
+type LocaleEntry struct {
+	Tag     string `json:"tag"`
+	Segment string `json:"segment"`
+}
+
 // Config is the in-memory shape of the singleton row.
 type Config struct {
 	CompanyName       string
@@ -38,6 +44,13 @@ type Config struct {
 	// Language is the BCP 47 site language ("en" by default): <html lang>,
 	// JSON-LD inLanguage and feed language.
 	Language string
+	// Locales are the extra public locales in display order (nil = a
+	// single-locale site). The default locale stays Language.
+	Locales []LocaleEntry
+	// PrefixAll puts the default locale under its own URL segment too.
+	PrefixAll bool
+	// XDefaultLocale is the locale tag used for hreflang x-default ("" = unset).
+	XDefaultLocale string
 	// Phone and BusinessHours are the public contact details, free text.
 	Phone         string
 	BusinessHours string
@@ -169,6 +182,10 @@ type UpdateInput struct {
 	NotificationEmail *string
 	PostalAddress     json.RawMessage
 	Language          *string
+	// Locales replaces the whole list when non-nil (an empty slice clears it).
+	Locales           *[]LocaleEntry
+	PrefixAll         *bool
+	XDefaultLocale    *string
 	Phone             *string
 	BusinessHours     *string
 	LegacyWPRedirects *bool
@@ -227,6 +244,9 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		phone             any = nil
 		businessHours     any = nil
 		legacyWP          any = nil
+		locales           any = nil
+		prefixAll         any = nil
+		xDefaultLocale    any = nil
 	)
 	if in.CompanyName != nil {
 		companyName = *in.CompanyName
@@ -269,6 +289,23 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	}
 	if in.LegacyWPRedirects != nil {
 		legacyWP = *in.LegacyWPRedirects
+	}
+	if in.Locales != nil {
+		list := *in.Locales
+		if list == nil {
+			list = []LocaleEntry{}
+		}
+		raw, err := json.Marshal(list)
+		if err != nil {
+			return nil, fmt.Errorf("encode locales: %w", err)
+		}
+		locales = raw
+	}
+	if in.PrefixAll != nil {
+		prefixAll = *in.PrefixAll
+	}
+	if in.XDefaultLocale != nil {
+		xDefaultLocale = *in.XDefaultLocale
 	}
 	var publicBaseURL any
 	if in.PublicBaseURL != nil {
@@ -324,13 +361,16 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  page_cache_max_mb = COALESCE($19, page_cache_max_mb),
 		  page_preload_enabled = COALESCE($20, page_preload_enabled),
 		  page_preload_interval_seconds = COALESCE($21, page_preload_interval_seconds),
+		  locales            = COALESCE($25, locales),
+		  prefix_all         = COALESCE($26, prefix_all),
+		  x_default_locale   = COALESCE($27, x_default_locale),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -364,7 +404,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	cfg := &Config{}
 	var logoURL, customDomain, primaryColor, tagline, timezone, notificationEmail, phone, businessHours sql.NullString
 	var homepageEntityID *uuid.UUID
-	var themeExtra, postalAddress []byte
+	var themeExtra, postalAddress, locales []byte
 	var ttlSecs, ttlLegacy int
 
 	err = conn.QueryRow(ctx, `
@@ -375,7 +415,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_cache_enabled,
 		       page_cache_ttl_secs, page_cache_ttl_seconds,
 		       page_cache_max_mb, page_preload_enabled, page_preload_interval_seconds,
-		       page_preload_mode, page_preload_after_changes
+		       page_preload_mode, page_preload_after_changes,
+		       locales, prefix_all, x_default_locale
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -387,6 +428,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PageCacheEnabled, &ttlSecs, &ttlLegacy, &cfg.PageCacheMaxMB,
 		&cfg.PagePreloadEnabled, &cfg.PagePreloadIntervalSeconds,
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
+		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
@@ -396,6 +438,15 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	}
 
 	cfg.PageCacheTTLSeconds = effectivePageCacheTTL(ttlSecs, ttlLegacy)
+
+	if len(locales) > 0 {
+		if err := json.Unmarshal(locales, &cfg.Locales); err != nil {
+			return nil, fmt.Errorf("decode locales: %w", err)
+		}
+		if len(cfg.Locales) == 0 {
+			cfg.Locales = nil
+		}
+	}
 
 	if logoURL.Valid {
 		cfg.LogoURL = logoURL.String
