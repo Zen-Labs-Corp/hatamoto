@@ -103,6 +103,14 @@ th[aria-sort="descending"] .hm-table__sort::after { content: " \2193"; }
 }
 
 .hm-filterbar .hm-filterbar__chips { flex: 1 1 100%; }
+/* Bare toolbar (opt-in): no card, segmented + Filters at the start, search + selects at the end;
+   below 40rem the four controls stack full width. */
+.hm-filterbar--bare { padding: 0; border-bottom: 0; justify-content: space-between; gap: var(--space-3); }
+.hm-filterbar__start, .hm-filterbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+@media (max-width: 40rem) {
+  .hm-filterbar__start, .hm-filterbar__end { flex: 1 1 100%; flex-direction: column; align-items: stretch; }
+  .hm-filterbar__start .hm-segmented { align-self: stretch; }
+}
 /* The list is being refreshed: dim the rows, keep their size. */
 .hm-tablecard[aria-busy="true"] .hm-table, .hm-tablecard[aria-busy="true"] .hm-pagination { opacity: 0.6; transition: opacity 120ms var(--ease); }
 
