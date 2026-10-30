@@ -38,6 +38,7 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Success", Data: ui.Badge{Label: "Published", Kind: "success"}},
 			{Label: "Warning", Data: ui.Badge{Label: "Scheduled", Kind: "warning"}},
 			{Label: "Danger", Data: ui.Badge{Label: "Failed", Kind: "danger"}},
+			{Label: "Small", Variant: "sm", Data: ui.Badge{Label: "First-party", Plain: true, Size: "sm", Icon: "star"}},
 		},
 		"button": {
 			{Label: "Primary", Variant: "primary", Data: ui.Button{Label: "Save", Variant: "primary"}.Dict()},
