@@ -116,7 +116,7 @@ th[aria-sort="descending"] .hm-table__sort::after { content: " \2193"; }
 @media (max-width: 640px) {
   .hm-filterbar__start, .hm-filterbar__end { flex: 1 1 100%; flex-direction: column; align-items: stretch; margin-inline-start: 0; }
   .hm-filterbar__start > *, .hm-filterbar__end > * { flex: none; }
-  .hm-filterbar--bare .hm-table__search { width: 100%; max-width: none; }
+  .hm-filterbar--bare .hm-table__search { width: 100%; max-width: none; flex: none; }
   .hm-filterbar--bare .hm-filterbar__end { flex: 1 1 100%; }
   .hm-filterbar__start .hm-segmented { align-self: stretch; }
 }
