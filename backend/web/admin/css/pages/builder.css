@@ -136,7 +136,7 @@
 .hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico, .hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: inherit; opacity: 0.8; }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
-.hm-bs-row[aria-selected="true"]:focus-visible { outline-offset: -4px; }
+.hm-bs-row[aria-selected="true"]:focus-visible { outline-color: var(--bs-nav-on-accent); outline-offset: -4px; }
 @media (forced-colors: active) { .hm-bs-row[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }
 .hm-bs-row [data-caret]::before { content: "\25B8"; display: inline-block; width: 1em; margin-inline-end: var(--space-1); }
 .hm-bs-row[aria-expanded="true"] [data-caret]::before { content: "\25BE"; }
