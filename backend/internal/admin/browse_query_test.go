@@ -150,3 +150,33 @@ func TestRunBrowseCategoryFacet(t *testing.T) {
 		t.Fatalf("facets %+v", f)
 	}
 }
+
+func TestBrowseQueryHideDefault(t *testing.T) {
+	for _, tc := range []struct {
+		query string
+		hide  bool
+		enc   string
+	}{
+		{"", true, ""},
+		{"hide=1", true, ""},
+		{"hide=0", false, "hide=0"},
+		{"hide=1&hide=0", true, ""},
+	} {
+		v, _ := url.ParseQuery(tc.query)
+		q := ParseBrowseQuery(v)
+		if q.HideInstalled != tc.hide || q.Values().Encode() != tc.enc || q.Filtered() {
+			t.Errorf("%q: hide=%v values=%q filtered=%v", tc.query, q.HideInstalled, q.Values().Encode(), q.Filtered())
+		}
+	}
+	q := BrowseQuery{HideInstalled: true, Sort: "name", Perms: []string{"nonet", "noscripts"}}
+	if got := q.WithoutValue("perm", "nonet").Encode(); got != "perm=noscripts" {
+		t.Errorf("without = %q", got)
+	}
+	all := []RegistryEntry{{Kind: "plugin", Name: "a", Installed: true}, {Kind: "plugin", Name: "b"}}
+	if p := RunBrowse(all, BrowseQuery{HideInstalled: true, Q: "b"}); p.InstalledHidden != 0 {
+		t.Errorf("filtered-out installed counted: hidden=%d", p.InstalledHidden)
+	}
+	if p := RunBrowse(all, BrowseQuery{HideInstalled: true}); p.InstalledHidden != 1 || p.InstalledTotal != 1 || p.Total != 1 {
+		t.Errorf("hidden=%d total=%d", p.InstalledHidden, p.InstalledTotal)
+	}
+}
