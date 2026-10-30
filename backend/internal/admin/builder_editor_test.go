@@ -404,3 +404,47 @@ func TestBuilderPagesAreResolvedInBatches(t *testing.T) {
 		t.Errorf("%d entity list queries for 30 entities, want one per routed schema (%d)", n, len(asked))
 	}
 }
+
+// Each boot section carries its schema's top-level fields, in Inspector form
+// order, so the Navigator can list a section's content.
+func TestBuilderBootSectionsCarryFields(t *testing.T) {
+	t.Parallel()
+
+	r := newEditorRig(t)
+	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	rec := r.do("GET", r.path(), "owner-token", nil, nil)
+	body := rec.Body.String()
+	const open = `id="hm-builder-boot">`
+	i := strings.Index(body, open)
+	if rec.Code != http.StatusOK || i < 0 {
+		t.Fatalf("builder screen: %d", rec.Code)
+	}
+	rest := body[i+len(open):]
+	var got struct {
+		Sections []struct {
+			Type   string                              `json:"type"`
+			Fields []struct{ Key, Label, Kind string } `json:"fields"`
+		} `json:"sections"`
+	}
+	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &got); err != nil {
+		t.Fatalf("boot JSON: %v", err)
+	}
+	type f struct{ Key, Label, Kind string }
+	want := map[string][]f{
+		"hero": {{"heading", "Heading", "text"}, {"image", "Image", "link"}, {"faqs", "Questions", "list"}},
+		"html": {{"html", "HTML", "richtext"}},
+	}
+	for _, s := range got.Sections {
+		var have []f
+		for _, x := range s.Fields {
+			have = append(have, f(x))
+		}
+		if !slices.Equal(have, want[s.Type]) {
+			t.Errorf("section %s fields = %v, want %v", s.Type, have, want[s.Type])
+		}
+		delete(want, s.Type)
+	}
+	if len(want) != 0 {
+		t.Errorf("sections missing from boot: %v", want)
+	}
+}

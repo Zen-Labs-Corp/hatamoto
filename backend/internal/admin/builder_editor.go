@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 
+	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
@@ -71,8 +72,9 @@ type bootBindSource struct {
 }
 
 type bootSection struct {
-	Type  string `json:"type"`
-	Title string `json:"title"`
+	Type   string                `json:"type"`
+	Title  string                `json:"title"`
+	Fields []schemaform.TopField `json:"fields,omitempty"`
 }
 
 func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, doc *builder.Doc) (*builderShell, error) {
@@ -85,7 +87,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	sections := []bootSection{}
 	_, types := a.themeTypes()
 	for _, t := range types {
-		sections = append(sections, bootSection{Type: t.Type, Title: t.Title})
+		sections = append(sections, bootSection{Type: t.Type, Title: t.Title, Fields: schemaform.TopFields(t.Schema)})
 	}
 	sh := &builderShell{
 		SchemaName: sc.Name + "s", ListHref: a.adminPath + "/entities?type=" + url.QueryEscape(sc.Slug),
