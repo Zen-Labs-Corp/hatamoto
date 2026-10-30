@@ -23,7 +23,9 @@
 .hm-menuform[data-hm-js] .hm-menueditor__aux:not([hidden]) { display: contents; }
 .hm-menuform[data-hm-js] #menu-details { grid-area: head; }
 .hm-menuform[data-hm-js] #menu-items { grid-area: items; }
-.hm-menuform[data-hm-js] #menu-inspector { grid-area: inspector; position: sticky; top: var(--space-4); max-height: calc(100dvh - 8rem); overflow-y: auto; }
+/* The side column is as tall as the items row, so the sticky inspector in it cannot leave that row and never reaches the preview. */
+.hm-menuform[data-hm-js] .hm-menueditor__side { grid-area: inspector; align-self: stretch; min-width: 0; }
+.hm-menuform[data-hm-js] #menu-inspector { position: sticky; top: var(--space-4); max-height: calc(100dvh - 8rem); overflow-y: auto; }
 .hm-menuform[data-hm-js] #menu-preview { grid-area: preview; }
 /* The Add popover takes over from the server's select and Add item button. */
 .hm-menuform[data-hm-js] .hm-menutree__add { display: none; }

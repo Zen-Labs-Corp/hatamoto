@@ -309,6 +309,11 @@ try {
   await page.waitForTimeout(250);
   const insScrolled = await box("#menu-inspector");
   ok(insScrolled.y >= 0 && insScrolled.y < 450, `ISC-29: the inspector stays in view after scrolling 600 px (top ${Math.round(insScrolled.y)})`);
+  await clickRow(page, "Docs"); // a selected row makes the inspector tall
+  await page.locator("#menu-preview").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(250);
+  const [insAtPreview, prevAtPreview] = [await box("#menu-inspector"), await box("#menu-preview")];
+  ok(insAtPreview.y + insAtPreview.height <= prevAtPreview.y + 1, `ISC-29: scrolled to the preview, the inspector ends above it (inspector bottom ${Math.round(insAtPreview.y + insAtPreview.height)}, preview top ${Math.round(prevAtPreview.y)})`);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.setViewportSize({ width: 900, height: 900 });
   const [t9, i9, p9] = [await box("#menu-items"), await box("#menu-inspector"), await box("#menu-preview")];

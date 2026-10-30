@@ -29,7 +29,7 @@
 </div>{{end}}
 {{template "hm/card-end"}}
 <div class="hm-menueditor__aux" hidden data-hm-editor-only>
-{{template "hm/card-start" dict "ID" "menu-inspector" "Title" "Item settings"}}<div data-hm-inspector></div>{{template "hm/card-end"}}
+<div class="hm-menueditor__side">{{template "hm/card-start" dict "ID" "menu-inspector" "Title" "Item settings"}}<div data-hm-inspector></div>{{template "hm/card-end"}}</div>
 {{template "hm/card-start" dict "ID" "menu-preview" "Class" "hm-menueditor__wide" "Title" "Preview" "Description" "How your theme shows this menu, with the changes you have not saved yet. Select a link in the preview to select its item."}}<div class="hm-stack" data-hm-preview data-action="{{adminPath "theme" "menus" "preview"}}">
 <div class="hm-row">
 {{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-preview-width" "desktop")) (dict "Label" "Mobile" "Attrs" (attrmap "data-hm-preview-width" "mobile"))))}}
