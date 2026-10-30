@@ -38,7 +38,7 @@ func TestParseBrowseQuery(t *testing.T) {
 	if p := ParseBrowseQuery(url.Values{"page": {"7"}}); p.Page != 7 {
 		t.Fatalf("page %d", p.Page)
 	}
-	if got := q.Values().Encode(); got != "cat=SEO&hide=1&perm=nonet&q=seo&tier=first-party" {
+	if got := q.Values().Encode(); got != "cat=SEO&perm=nonet&q=seo&tier=first-party" {
 		t.Fatalf("values %q", got)
 	}
 }
@@ -122,11 +122,11 @@ func TestRunBrowseFeatured(t *testing.T) {
 	for _, i := range []int{1, 3, 5, 7} {
 		all[i].Featured = true
 	}
-	if p := RunBrowse(all, BrowseQuery{}); !slices.Equal(browseNames(p.Featured), []string{"p001", "p003", "p005"}) {
+	if p := RunBrowse(all, BrowseQuery{HideInstalled: true}); !slices.Equal(browseNames(p.Featured), []string{"p001", "p003", "p005"}) {
 		t.Fatalf("featured %v", browseNames(p.Featured))
 	}
 	for name, q := range map[string]BrowseQuery{
-		"search": {Q: "p"}, "hide": {HideInstalled: true}, "page 2": {Page: 2}, "tier": {Tiers: []string{"community"}},
+		"search": {Q: "p"}, "page 2": {Page: 2}, "tier": {Tiers: []string{"community"}},
 	} {
 		if p := RunBrowse(all, q); len(p.Featured) != 0 {
 			t.Errorf("%s: featured shown", name)

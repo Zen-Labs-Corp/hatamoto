@@ -60,9 +60,13 @@ type BrowsePage struct {
 	Filtered bool
 	// Total is the number of entries matching the query.
 	Total int
+	// InstalledTotal counts installed plugins that pass every filter but hide
+	// (shown or not); InstalledHidden is how many of them hide drops.
+	InstalledTotal, InstalledHidden int
 }
 
-// ParseBrowseQuery reads ?q=&tier=&cat=&perm=&hide=&sort=&page=. Unknown
+// ParseBrowseQuery reads ?q=&tier=&cat=&perm=&hide=&sort=&page=. Installed
+// plugins are hidden unless hide=0. Unknown
 // facet values are dropped, an unknown sort becomes the default and the page
 // is at least 1.
 func ParseBrowseQuery(v url.Values) BrowseQuery {
@@ -71,7 +75,7 @@ func ParseBrowseQuery(v url.Values) BrowseQuery {
 		Tiers:         keepKnown(v["tier"], []string{packages.TierFirstParty, packages.TierCommunity}),
 		Cats:          keepKnown(v["cat"], packages.Categories),
 		Perms:         keepKnown(v["perm"], []string{browsePermNoNet, browsePermNoScripts}),
-		HideInstalled: v.Get("hide") == "1",
+		HideInstalled: v.Get("hide") != "0",
 		Sort:          browseSortName,
 		Page:          1,
 	}
@@ -110,8 +114,8 @@ func (q BrowseQuery) Values() url.Values {
 			delete(v, k)
 		}
 	}
-	if q.HideInstalled {
-		v.Set("hide", "1")
+	if !q.HideInstalled {
+		v.Set("hide", "0")
 	}
 	if q.Sort != browseSortName {
 		v.Set("sort", q.Sort)
@@ -119,10 +123,25 @@ func (q BrowseQuery) Values() url.Values {
 	return v
 }
 
-// Filtered reports whether any search or facet narrows the list. Sort and
-// page do not count.
+// WithoutValue is Values with one value of key dropped (the whole key for a
+// single-valued one such as q), for the href of a removable filter chip.
+func (q BrowseQuery) WithoutValue(key, val string) url.Values {
+	v := q.Values()
+	if key == "q" {
+		v.Del("q")
+		return v
+	}
+	v[key] = slices.DeleteFunc(v[key], func(s string) bool { return s == val })
+	if len(v[key]) == 0 {
+		delete(v, key)
+	}
+	return v
+}
+
+// Filtered reports whether any search or facet narrows the list. Sort, page
+// and the hide-installed default do not count.
 func (q BrowseQuery) Filtered() bool {
-	return q.Q != "" || len(q.Tiers) > 0 || len(q.Cats) > 0 || len(q.Perms) > 0 || q.HideInstalled
+	return q.Q != "" || len(q.Tiers) > 0 || len(q.Cats) > 0 || len(q.Perms) > 0
 }
 
 // RunBrowse filters, sorts and pages the plugin entries of the registry.
@@ -137,7 +156,16 @@ func RunBrowse(all []RegistryEntry, q BrowseQuery) BrowsePage {
 
 	var matched []RegistryEntry
 	for _, e := range plugins {
-		if browseMatches(e, q) {
+		if !browseMatches(e, q) {
+			continue
+		}
+		if e.Installed {
+			page.InstalledTotal++
+			if q.HideInstalled {
+				page.InstalledHidden++
+			}
+		}
+		if !(q.HideInstalled && e.Installed) {
 			matched = append(matched, e)
 		}
 	}
@@ -194,9 +222,6 @@ func browseFacets(plugins []RegistryEntry) BrowseFacets {
 }
 
 func browseMatches(e RegistryEntry, q BrowseQuery) bool {
-	if q.HideInstalled && e.Installed {
-		return false
-	}
 	if q.Q != "" {
 		n := strings.ToLower(q.Q)
 		hit := false

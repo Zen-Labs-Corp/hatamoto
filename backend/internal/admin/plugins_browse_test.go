@@ -75,10 +75,10 @@ func TestBrowseFiltersAndSort(t *testing.T) {
 	}{
 		{"?q=alp", []string{"Alpha", "1 plugin"}, []string{"Bravo", "Charlie"}},
 		{"?tier=first-party", []string{"Alpha", "First-party"}, []string{"Bravo", "Charlie"}},
-		{"?cat=Forms", []string{"Bravo"}, []string{"Alpha", "Charlie"}},
-		{"?perm=nonet", []string{"Alpha", "Charlie"}, []string{"Bravo"}},
+		{"?cat=Forms&hide=0", []string{"Bravo"}, []string{"Alpha", "Charlie"}},
+		{"?perm=nonet&hide=0", []string{"Alpha", "Charlie"}, []string{"Bravo"}},
 		{"?hide=1", []string{"Alpha"}, []string{"Bravo", "Charlie"}},
-		{"?sort=name-desc", []string{"Charlie"}, nil},
+		{"?sort=name-desc&hide=0", []string{"Charlie"}, nil},
 	} {
 		body := getBrowse(g, tc.query)
 		for _, w := range tc.want {
@@ -92,11 +92,11 @@ func TestBrowseFiltersAndSort(t *testing.T) {
 			}
 		}
 	}
-	desc := getBrowse(g, "?sort=name-desc")
+	desc := getBrowse(g, "?sort=name-desc&hide=0")
 	if strings.Index(desc, "Charlie") > strings.Index(desc, "Alpha") {
 		t.Error("descending sort not applied")
 	}
-	all := getBrowse(g, "")
+	all := getBrowse(g, "?hide=0")
 	for _, w := range []string{"Installed", "Update", ">Install<", `name="cat"`} {
 		if !strings.Contains(all, w) {
 			t.Errorf("card states: missing %q", w)
