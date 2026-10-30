@@ -105,7 +105,10 @@ th[aria-sort="descending"] .hm-table__sort::after { content: " \2193"; }
 .hm-filterbar .hm-filterbar__chips { flex: 1 1 100%; }
 /* Bare toolbar (opt-in): no card, segmented + Filters at the start, search + selects at the end;
    below 40rem the four controls stack full width. */
-.hm-filterbar--bare { padding: 0; border-bottom: 0; justify-content: space-between; gap: var(--space-3); }
+.hm-filterbar--bare { padding: 0; border-bottom: 0; gap: var(--space-3); position: relative; }
+/* The end group takes the free space before it; the hidden busy indicator is out of flow, so it is not a third item. */
+.hm-filterbar--bare .hm-filterbar__end { margin-inline-start: auto; }
+.hm-filterbar--bare > .hm-indicator { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + var(--space-1)); }
 .hm-filterbar__start, .hm-filterbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
 @media (max-width: 40rem) {
   .hm-filterbar__start, .hm-filterbar__end { flex: 1 1 100%; flex-direction: column; align-items: stretch; }
