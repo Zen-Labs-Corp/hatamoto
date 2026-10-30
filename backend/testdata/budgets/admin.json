@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 93234,
+      "value": 96980,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 93351
+      "cap": 97097
     },
     "editor_js_total_gzip": {
-      "value": 244901,
+      "value": 248647,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 245613
+      "cap": 249360
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -126,6 +126,10 @@
     },
     {
       "reason": "builder SEO polish rebased onto main: focus return, posted name, failure note, inline canonical error and the idle score badge in the lazy seodrawer chunk; editor_js_total_gzip 243001 to 244901 (+1900 B), cap unchanged",
+      "date": "2026-10-30"
+    },
+    {
+      "reason": "builder navigator redesign: navigator.js (one-row sections, hover controls, add-here gap) and new selinfo.js; editor_js_first_gzip 93234 to 96980 and editor_js_total_gzip 244901 to 248647 (+3746 B each), caps moved by the same amount; first paint stays under the 117 KiB ceiling",
       "date": "2026-10-30"
     }
   ]
