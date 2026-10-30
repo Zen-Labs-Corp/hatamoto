@@ -2,6 +2,9 @@ package admin
 
 import (
 	"net/http"
+
+	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // generalData is the General settings page: identity, homepage, contact and
@@ -13,6 +16,12 @@ type generalData struct {
 	Home    *homepageData
 
 	MailOn bool
+
+	// bizValues, bizErrs and bizOpen carry a failed or structural save of the
+	// site-wide business form back into the page.
+	bizValues map[string]any
+	bizErrs   schemaform.Errors
+	bizOpen   string
 }
 
 func (a *Admin) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +43,22 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 		g.Ident = &d
 	}
 	if g.Contact == nil {
-		g.Contact = &settingsData{Contact: contactFrom(cfg)}
+		g.Contact = &settingsData{Contact: contactForm{NotifyEmail: cfg.NotificationEmail}}
 	}
+	if g.bizValues == nil {
+		p, err := siteProfile(cfg)
+		if err != nil {
+			a.logger().Warn("stored business profile is unreadable, showing the legacy fields", "err", err)
+			p, _ = siteProfile(&siteconfig.Config{Phone: cfg.Phone, BusinessHours: cfg.BusinessHours, PostalAddress: cfg.PostalAddress})
+		}
+		g.bizValues = profileValues(p)
+	}
+	biz, err := siteBusinessHTML(g.bizValues, g.bizErrs, g.bizOpen)
+	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
+		return
+	}
+	g.Contact.Biz, g.Contact.BizHint = biz, !localeSetOf(cfg).Multi()
 	if g.Home == nil {
 		h := a.homepageCurrent(r, cfg)
 		g.Home = &h

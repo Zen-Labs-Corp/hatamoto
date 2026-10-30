@@ -436,28 +436,112 @@ func TestSiteSettings(t *testing.T) {
 	}
 }
 
-func TestContactSettings(t *testing.T) {
+func TestBusinessDetailsSettings(t *testing.T) {
 	t.Parallel()
 
 	g := newOwnerRig(t, true)
 	page := g.do("GET", "/admin/settings/general", "owner-token", nil, nil)
-	if issues := a11y.Check(page.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
+	body := page.Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	form := url.Values{"notify": {"boss@example.com"}, "phone": {"+1 555 0100"}, "hours": {"Mon-Fri 9-5"}, "street": {"1 Main St"}, "city": {"Springfield"}, "state": {"IL"}, "postal": {"62701"}, "country": {"USA"}}
-	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", form, nil); rec.Code != 303 {
-		t.Fatalf("save: %d", rec.Code)
+	for _, want := range []string{"Business details", `href="#contact"`, "Save business details", "Opening hours", "Profiles &amp; rating", "Commerce", "Add locales in Identity to print a local business."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("General lacks %q", want)
+		}
 	}
-	site := g.a.deps.Site.(*fakeSite)
-	_ = site
+	if strings.Contains(body, "Contact details") {
+		t.Error("General still says Contact details")
+	}
+	form := url.Values{
+		"notify": {"boss@example.com"}, "biz.phone": {"+1 555 0100"}, "biz.hours_note": {"Mon-Fri 9-5"},
+		"biz.address.street": {"1 Main St"}, "biz.address.city": {"Springfield"}, "biz.address.state": {"IL"},
+		"biz.address.postal_code": {"62701"}, "biz.address.country": {"Exampleland"},
+		"biz.tax_id": {"TX-1"}, "biz.currency": {"USD"},
+		"_present.biz.opening_hours": {"1"}, "_present.biz.opening_hours.0.days": {"1"},
+		"biz.opening_hours.0.days": {"Monday, Friday"}, "biz.opening_hours.0.opens": {"09:00"}, "biz.opening_hours.0.closes": {"17:00"},
+	}
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	if g.flushed != 1 {
+		t.Errorf("render cache invalidated %d times, want 1", g.flushed)
+	}
+	cfg := g.a.deps.Site.(*fakeSite).cfg
+	if cfg.Phone != "+1 555 0100" || cfg.BusinessHours != "Mon-Fri 9-5" || !strings.Contains(string(cfg.PostalAddress), `"city":"Springfield"`) {
+		t.Errorf("legacy columns = %q %q %s", cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	}
+	for _, mustNot := range []string{"Springfield", "0100", "Mon-Fri"} {
+		if strings.Contains(string(cfg.BusinessProfile), mustNot) {
+			t.Errorf("profile column repeats a legacy value %q: %s", mustNot, cfg.BusinessProfile)
+		}
+	}
+	if !strings.Contains(string(cfg.BusinessProfile), `"tax_id":"TX-1"`) || !strings.Contains(string(cfg.BusinessProfile), `"Monday"`) {
+		t.Errorf("profile column = %s", cfg.BusinessProfile)
+	}
 	again := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`value="boss@example.com"`, `value="Springfield"`, `value="62701"`} {
+	for _, want := range []string{`value="boss@example.com"`, `value="Springfield"`, `value="62701"`, `value="&#43;1 555 0100"`, `value="TX-1"`, `value="Monday, Friday"`, `value="17:00"`} {
 		if !strings.Contains(again, want) {
 			t.Errorf("not persisted: %s", want)
 		}
 	}
-	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{"notify": {"bad"}, "phone": {strings.Repeat("1", 51)}}, nil); rec.Code != 422 {
-		t.Errorf("invalid: %d", rec.Code)
+}
+
+func TestBusinessDetailsPrefillFromLegacyColumns(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	site := g.a.deps.Site.(*fakeSite)
+	site.cfg.Phone, site.cfg.BusinessHours = "555 0199", "Weekdays"
+	site.cfg.PostalAddress = []byte(`{"street":"2 Old Road","city":"Oldtown","state":"","postal_code":"9","country":"Exampleland"}`)
+	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`value="555 0199"`, `value="Weekdays"`, `value="2 Old Road"`, `value="Oldtown"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("upgrade lost %s", want)
+		}
+	}
+}
+
+func TestBusinessDetailsInvalidSaveKeepsValues(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
+		"notify": {"bad"}, "biz.phone": {strings.Repeat("1", 51)}, "biz.address.lat": {"999"}, "biz.address.city": {"Keepville"},
+	}, nil)
+	if rec.Code != 422 {
+		t.Fatalf("invalid: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`value="Keepville"`, `href="#sf-biz-address-lat"`, `href="#notify"`, "Enter a number between -90 and 90."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("422 page lacks %q", want)
+		}
+	}
+	if g.flushed != 0 {
+		t.Error("a failed save invalidated the cache")
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestBusinessDetailsAddRowReRendersWithoutSaving(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
+		"biz.tax_id": {"TX-9"}, "_present.biz.opening_hours": {"1"}, "_add.biz.opening_hours": {"1"},
+	}, nil)
+	if rec.Code != 200 {
+		t.Fatalf("add row: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `value="TX-9"`) || !strings.Contains(body, "<details open>") {
+		t.Errorf("the new row is not open or the typed value is lost")
+	}
+	if g.flushed != 0 || len(g.a.deps.Site.(*fakeSite).cfg.BusinessProfile) != 0 {
+		t.Error("adding a row saved the form")
 	}
 }
 

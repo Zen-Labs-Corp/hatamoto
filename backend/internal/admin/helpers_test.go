@@ -121,6 +121,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if len(in.PostalAddress) > 0 {
 		f.cfg.PostalAddress = in.PostalAddress
 	}
+	if len(in.BusinessProfile) > 0 {
+		f.cfg.BusinessProfile = in.BusinessProfile
+	}
 	if in.LogoURL != nil {
 		f.cfg.LogoURL = *in.LogoURL
 	}
