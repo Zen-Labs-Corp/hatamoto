@@ -86,7 +86,7 @@ If Cloudflare proxies your domain and forwards to your Caddy (or nginx) on the s
 
 1. Set `HATAMOTO_TRUSTED_CDN=cloudflare` in the app's environment and restart. Keep `HATAMOTO_TRUSTED_PROXIES` pointing at your own proxy (loopback by default). See [Trusted CDN](configuration-reference.md#trusted-cdn).
 2. Leave Caddy's `reverse_proxy` defaults alone. It adds the address it saw (a Cloudflare edge address) to `X-Forwarded-For`, and Cloudflare's `CF-Connecting-IP` header passes through to the app unchanged, which is what the app reads. Do not strip or rewrite that header in the proxy.
-3. Only Cloudflare should reach your proxy. If clients can also connect to the origin directly, a forged `CF-Connecting-IP` from them is ignored (it is believed only behind an edge address), but a firewall that admits only Cloudflare's published ranges is the stronger setup.
+3. Only Cloudflare may reach your proxy: use a firewall that admits only Cloudflare's published ranges, or Authenticated Origin Pulls. The preset trusts any Cloudflare address, not just your own account, and a Cloudflare Worker can set `CF-Connecting-IP` to a Cloudflare address. Without the lockdown, anyone using Cloudflare can choose the client address Hatamoto records. A client that connects to the origin directly cannot forge the header, but it still reaches the origin.
 
 Optionally, give Caddy the same ranges so that its access log also carries the visitor in `client_ip`: add Cloudflare's addresses under `trusted_proxies` in the Caddy `servers` options. With the preset on, Hatamoto's own log ingest works without that; see [Access-log ingest](../ai-seo/access-log-ingest.md#the-client-ip-caveat).
 
