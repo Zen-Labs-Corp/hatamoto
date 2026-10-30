@@ -27,6 +27,33 @@ for (const s of sections) {
   ok(charts.length === 0 || charts.every((c) => c.svg || c.state), `/analytics${s || ""}: ${charts.length} time chart(s), each an SVG or an empty/error state`);
 }
 
+// The Crawlers hero must draw a chart for every date preset, with and without
+// the comparison: an empty or error state there is a failure, not a pass.
+const day = (d) => d.toISOString().slice(0, 10);
+const utc = (y, m, d) => new Date(Date.UTC(y, m, d));
+const now = new Date();
+const t = utc(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+const presets = {
+  today: [t, t],
+  "7d": [utc(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() - 6), t],
+  "30d": [utc(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() - 29), t],
+  "3m": [utc(t.getUTCFullYear(), t.getUTCMonth() - 3, t.getUTCDate()), t],
+  "6m": [utc(t.getUTCFullYear(), t.getUTCMonth() - 6, t.getUTCDate()), t],
+  mtd: [utc(t.getUTCFullYear(), t.getUTCMonth(), 1), t],
+  ytd: [utc(t.getUTCFullYear(), 0, 1), t],
+};
+for (const [name, [from, to]] of Object.entries(presets)) {
+  for (const compare of [false, true]) {
+    await p.goto(`${base}/admin/analytics/crawlers?from=${day(from)}&to=${day(to)}${compare ? "&compare=1" : ""}`);
+    await settled(p);
+    const hero = await p.evaluate(() => {
+      const f = document.getElementById("w-cr-hero");
+      return { found: !!f, svg: !!f?.querySelector("[data-aia-plot] svg"), state: f?.querySelector("[data-aia-state]")?.dataset.aiaState || "" };
+    });
+    ok(hero.found && hero.svg && hero.state === "", `crawlers hero, ${name}${compare ? " +compare" : ""}: SVG drawn, state "${hero.state}"`);
+  }
+}
+
 // Legend toggle on the overview hero.
 await p.goto(`${base}/admin/analytics`);
 await settled(p);
