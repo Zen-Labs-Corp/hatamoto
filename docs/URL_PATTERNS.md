@@ -147,6 +147,8 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
 Sitemaps, search, feeds and llms.txt follow the visible locale; see
 [Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.
 
+A site that models regions as page trees with `overrides` on a region attribute (a `url_pattern` and a `sitemap_group` per region) can keep working as it is. To move it to real locales, use the converter in [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md): it sets the locale of each page from the attribute and leaves every `url_pattern` and the attribute match in place, so URLs do not change. It removes only the `sitemap_group` key of those overrides, because the per-locale sitemap files take over.
+
 ## Schema settings
 
 `entity_schemas.settings` (JSONB, default `{}`; exposed as `settings` on the
