@@ -45,6 +45,10 @@ type PageView struct {
 	// hreflang x-default entry ("" for none).
 	Alternates   []Alternate
 	XDefaultHref string
+	// Business is the resolved local business of the page's locale, printed as
+	// a LocalBusiness node in the site graph. Nil on shared pages, on one-locale
+	// sites and for locales without an office of their own.
+	Business *BusinessView
 	// SEO holds the site-wide title and description templates. Nil keeps the
 	// built-in "<title> | <site>" head.
 	SEO      *seo.Settings
@@ -405,11 +409,70 @@ type SiteView struct {
 	// settings; empty when unset. They also feed the Organization JSON-LD.
 	Phone, Hours string
 	Address      Address
+	// Org holds the site-wide business details that only the Organization
+	// JSON-LD node uses. The zero value adds nothing to the node.
+	Org OrgView
 	// Settings are the site's theme settings (theme_config extras), read-only.
 	Settings map[string]any
 	// Design is the site design system (tokens and style presets) read from the
 	// theme settings; the zero value means none.
 	Design builder.Design
+}
+
+// OrgView is the optional site-wide detail of the Organization node. Every
+// field prints only when set.
+type OrgView struct {
+	LegalName, TaxID, Fax, Email string
+	// SameAs are extra profile URLs, added after the site's social links.
+	SameAs []string
+	Rating Rating
+}
+
+// Rating is an aggregate rating as the owner states it; Count may be empty.
+type Rating struct {
+	Value, Count string
+}
+
+// BusinessView is the resolved local business of one locale. Plain data: the
+// server fills it, the renderer never reads site settings for it.
+type BusinessView struct {
+	// ID is the suffix of the node's @id (the locale's URL segment).
+	ID string
+	// Type is the schema.org type; empty means LocalBusiness.
+	Type string
+	// Name overrides the site name for this node; empty uses the site name.
+	Name                            string
+	Phone, Fax, Email, Hours        string
+	TaxID                           string
+	Address                         Address
+	POBox, Lat, Lng                 string
+	MapURL, GBPURL                  string
+	ContactPoints                   []ContactPointView
+	OpeningHours                    []HoursView
+	SpecialHours                    []SpecialHoursView
+	AreaServed                      []string
+	Currency, PriceRange, GeoRegion string
+	SameAs                          []string
+	Rating                          Rating
+}
+
+// ContactPointView is one department or channel of a business.
+type ContactPointView struct {
+	Type, Phone, Email string
+}
+
+// HoursView is one block of regular opening hours (opens and closes are HH:MM).
+type HoursView struct {
+	Days          []string
+	Opens, Closes string
+}
+
+// SpecialHoursView is a dated exception. From and To are YYYY-MM-DD (To may be
+// empty); a Closed entry has no hours.
+type SpecialHoursView struct {
+	From, To      string
+	Closed        bool
+	Opens, Closes string
 }
 
 // Address is the business postal address of the site settings.
