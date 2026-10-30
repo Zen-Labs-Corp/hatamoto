@@ -46,8 +46,13 @@ type AdminConfig struct {
 	// (default 2m, at least 1s).
 	NotFoundBlock time.Duration
 
+	// TrustedCDN is HATAMOTO_TRUSTED_CDN: the CDN preset whose edge ranges are
+	// trusted to vouch for the visitor address ("cloudflare"), lower-case.
+	// Empty means off, which is the default.
+	TrustedCDN string
+
 	// Parse errors, reported by Validate so Load stays infallible.
-	pathErr, perMinErr, blockErr error
+	pathErr, perMinErr, blockErr, trustedCDNErr error
 }
 
 func loadAdminConfig() AdminConfig {
@@ -69,6 +74,13 @@ func loadAdminConfig() AdminConfig {
 		Dev:            os.Getenv("HATAMOTO_DEV") == "1",
 		NotFoundPerMin: defaultNotFoundPerMin,
 		NotFoundBlock:  defaultNotFoundBlock,
+	}
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("HATAMOTO_TRUSTED_CDN"))); v {
+	case "", "off":
+	case "cloudflare":
+		a.TrustedCDN = v
+	default:
+		a.trustedCDNErr = fmt.Errorf("HATAMOTO_TRUSTED_CDN: %q is not a known preset (cloudflare)", v)
 	}
 	if raw := strings.TrimSpace(os.Getenv("HATAMOTO_ADMIN_PATH")); raw != "" {
 		if p, err := adminpath.Normalize(raw); err != nil {
@@ -151,7 +163,7 @@ func (a AdminConfig) CheckSetupCode() error {
 // Validate rejects an unusable trusted-proxy list, a malformed
 // HATAMOTO_ADMIN_PATH and bad HATAMOTO_NOTFOUND_* values.
 func (a AdminConfig) Validate() error {
-	for _, err := range []error{a.pathErr, a.perMinErr, a.blockErr} {
+	for _, err := range []error{a.pathErr, a.perMinErr, a.blockErr, a.trustedCDNErr} {
 		if err != nil {
 			return err
 		}
