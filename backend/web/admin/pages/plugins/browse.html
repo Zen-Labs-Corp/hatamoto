@@ -4,31 +4,24 @@
 {{else if .Err}}{{template "hm/empty" dict "Icon" "puzzle" "Title" "The registry is not reachable right now" "Body" (printf "Hatamoto could not load the plugin list from %s. Installed plugins keep working." (or .Host "the registry"))}}
 <form method="post" action="{{adminPath}}/plugins/check-updates" class="hm-row hm-pluginbrowse__retry">{{template "hm/csrf" $}}<input type="hidden" name="return" value="{{.RefreshReturn}}">{{template "hm/button" dict "Label" "Try again" "Type" "submit"}}</form>
 <details class="hm-disclosure"><summary>Details</summary><div class="hm-disclosure__body"><code>{{.Err}}</code></div></details>
-{{else}}<form method="get" action="{{adminPath}}/plugins/browse" class="hm-pluginbrowse" aria-label="Search and filter plugins">
-<div class="hm-pluginbrowse__search">{{template "hm/field" dict "ID" "browse-q" "Name" "q" "Label" "Search plugins" "Type" "search" "Value" .Query.Q "Placeholder" "Search by name, author or what they do"}}{{template "hm/button" dict "Label" "Search" "Type" "submit"}}</div>
-<div class="hm-pluginbrowse__layout">
-<details class="hm-disclosure hm-pluginbrowse__facets" open><summary>Filters</summary><div class="hm-disclosure__body">
-<fieldset class="hm-pluginbrowse__group"><legend>Publisher</legend>{{range .Tiers}}{{template "hm/field" dict "ID" (printf "tier-%s" .Value) "Name" "tier" "Control" "checkbox" "Value" .Value "Label" .Label "Checked" .Checked}}{{end}}</fieldset>
-{{if .Cats}}<fieldset class="hm-pluginbrowse__group"><legend>Category</legend>{{range .Cats}}{{template "hm/field" dict "ID" (printf "cat-%s" .Value) "Name" "cat" "Control" "checkbox" "Value" .Value "Label" .Label "Checked" .Checked}}{{end}}</fieldset>{{end}}
-<fieldset class="hm-pluginbrowse__group"><legend>Permissions</legend>{{range .Perms}}{{template "hm/field" dict "ID" (printf "perm-%s" .Value) "Name" "perm" "Control" "checkbox" "Value" .Value "Label" .Label "Checked" .Checked}}{{end}}</fieldset>
-<fieldset class="hm-pluginbrowse__group"><legend>Show</legend>{{template "hm/field" dict "ID" "browse-hide" "Name" "hide" "Control" "switch" "Value" "1" "Label" "Hide installed" "Checked" .HideInstalled}}</fieldset>
-{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}
-</div></details>
-<div class="hm-pluginbrowse__results">
+{{else}}{{with .Toolbar}}{{template "hm/filterbar" (dict "ID" "browse" "BaseURL" .BaseURL "Target" "browse-results" "Live" true "Bare" true "ChipsOutside" true "Segmented" .Segmented "PopoverFilters" .PopoverFilters "PrimaryFilters" .PrimaryFilters "SearchLabel" "Search plugins" "Query" $.Data.Query.Q "FilterCount" .FilterCount "Chips" .Chips "ClearHref" .ClearHref)}}{{end}}
+<div id="browse-results" class="hm-pluginbrowse__results">
+<div class="hm-pluginbrowse__meta"><p class="hm-muted" aria-live="polite">{{if .Total}}{{.Total}} {{if eq .Total 1}}plugin{{else}}plugins{{end}}{{else}}No plugins{{end}}</p>
+{{template "hm/filterchips" .Toolbar}}</div>
+{{with .Toolbar}}{{if .InstalledTotal}}<p class="hm-muted hm-pluginbrowse__installed">{{if $.Data.HideInstalled}}{{.InstalledHidden}} installed hidden · <a href="{{.ShowInstalledHref}}">Show installed</a>{{else}}<a href="{{.HideInstalledHref}}">Hide installed</a>{{end}}</p>{{end}}{{end}}
 {{if .Featured}}<section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
 <ul class="hm-plugincards" role="list">{{range .Featured}}{{template "browse-card" .}}{{end}}</ul>
 </section><h2 class="hm-pluginbrowse__heading">All plugins</h2>{{end}}
-<div class="hm-pluginbrowse__bar"><p class="hm-muted" aria-live="polite">{{if .Total}}{{.Total}} {{if eq .Total 1}}plugin{{else}}plugins{{end}}{{else}}No plugins{{end}}</p>
-<div class="hm-pluginbrowse__sort"><label class="hm-field__label" for="browse-sort">Sort</label>{{template "hm/select" dict "ID" "browse-sort" "Name" "sort" "Auto" true "Options" .SortOptions}}</div></div>
 {{if .Cards}}<ul class="hm-plugincards" role="list">{{range .Cards}}{{template "browse-card" .}}{{end}}</ul>
 {{template "hm/pagination" .Pager}}
 {{else if .Filtered}}{{template "hm/empty" dict "Icon" "search" "Title" "No plugins match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}
+{{else if .Toolbar.InstalledHidden}}{{template "hm/empty" dict "Icon" "puzzle" "Title" "All plugins are installed" "Body" "Every plugin in the registry is already on this site." "Actions" .Toolbar.ShowInstalledActions}}
 {{else}}{{template "hm/empty" dict "Icon" "puzzle" "Title" "The registry has no plugins yet" "Body" "Check back later, or upload a package from the Plugins page."}}{{end}}
-</div></div></form>
+</div>
 {{end}}
-{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
+{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end" "Width" "wide"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
 {{define "modules"}}@hm/pluginpanel{{end}}
 {{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel">
-<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-plugincard__by">{{.Author}}{{if .FirstParty}} {{template "hm/badge" dict "Label" "First-party" "Plain" true}}{{end}}</span>{{end}}</span></span>
+<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-plugincard__by">{{.Author}}{{if .FirstParty}} {{template "hm/badge" dict "Label" "First-party" "Plain" true "Size" "sm" "Icon" "star"}}{{end}}</span>{{end}}</span></span>
 <span class="hm-plugincard__desc">{{.Description}}</span>
 <span class="hm-plugincard__foot"><span>{{.Perms}}</span><span class="hm-plugincard__action">{{.Action}}</span></span></a></li>{{end}}

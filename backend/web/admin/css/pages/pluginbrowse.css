@@ -1,20 +1,10 @@
 /* Plugins: Browse page layout and plugin cards */
-.hm-pluginbrowse { display: flex; flex-direction: column; gap: var(--space-4); }
-.hm-pluginbrowse__search { display: flex; align-items: flex-end; gap: var(--space-2); }
-.hm-pluginbrowse__search .hm-field { flex: 1 1 auto; }
-.hm-pluginbrowse__layout { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 900px) { .hm-pluginbrowse__layout { grid-template-columns: 220px minmax(0, 1fr); } }
-.hm-pluginbrowse__facets > summary { padding-inline: 0; }
-.hm-pluginbrowse__facets .hm-disclosure__body { padding-inline: 0; }
-.hm-pluginbrowse__group { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
-.hm-pluginbrowse__group > legend { padding: 0; margin-bottom: var(--space-2); font-weight: var(--weight-semibold); }
+.hm-pluginbrowse__meta { display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-pluginbrowse__meta p, .hm-pluginbrowse__installed { margin: 0; }
 .hm-pluginbrowse__results { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .hm-pluginbrowse__heading { font-size: var(--text-lg); margin: 0 0 var(--space-3); }
-.hm-pluginbrowse__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
-.hm-pluginbrowse__bar p { margin: 0; }
-.hm-pluginbrowse__sort { display: flex; align-items: center; gap: var(--space-2); }
 .hm-pluginbrowse__retry { margin-block: var(--space-3); justify-content: center; }
-.hm-plugincards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+.hm-plugincards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
 .hm-plugincards__item { display: flex; min-width: 0; }
 .hm-plugincard { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: inherit; text-decoration: none; }
 .hm-plugincard:hover { border-color: var(--border-field); }
@@ -28,3 +18,6 @@
 .hm-plugincard__action { font-weight: var(--weight-semibold); color: var(--text-body); }
 /* The neutral initial tile shared by the Browse cards and the installed list. */
 .hm-plugintile { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--space-8); height: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--color-kasumi); color: var(--text-muted); font-weight: var(--weight-semibold); }
+/* The plugin detail in the side panel: reading size, measure capped. */
+.hm-pluginbrowse__detail { display: flex; flex-direction: column; gap: var(--space-4); font-size: var(--text-reading); line-height: var(--leading-reading); }
+.hm-pluginbrowse__detail p { max-width: 62ch; }

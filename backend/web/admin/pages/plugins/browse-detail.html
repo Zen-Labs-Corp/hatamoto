@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Byline "Badge" .Badge "CSRF" $.CSRF "Actions" .Actions "Primary" .Primary}}
-{{if .About}}{{template "hm/card-start" dict "ID" "about-card" "Title" "About" "Heading" "h2"}}<div class="hm-stack">{{range .About}}<p>{{.}}</p>{{end}}</div>
+<div class="hm-pluginbrowse__detail">{{if .About}}{{template "hm/card-start" dict "ID" "about-card" "Title" "About" "Heading" "h2"}}<div class="hm-stack">{{range .About}}<p>{{.}}</p>{{end}}</div>
 {{if .Entry.Features}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{end}}{{template "hm/card-end"}}{{end}}
 {{template "hm/card-start" dict "ID" "permissions-card" "Title" "Permissions" "Heading" "h2"}}{{if .Perms}}<ul aria-label="Permissions it asks for">{{range .Perms}}<li><code>{{.Name}}</code>{{if .Help}}: {{.Help}}{{end}}{{if .Warn}} {{template "hm/badge" (dict "Label" "Handle with care" "Kind" "warning")}}{{end}}</li>{{end}}</ul>
 <p class="hm-muted">You can turn each one off on the next screen, before anything is installed.</p>{{else}}<p class="hm-muted">It asks for no permissions.</p>{{end}}{{template "hm/card-end"}}
@@ -8,4 +8,4 @@
 {{if .Entry.Category}}<dt>Category</dt><dd>{{.Entry.Category}}</dd>{{end}}{{with .Size}}<dt>Size</dt><dd>{{.}}</dd>{{end}}
 {{with .Source}}<dt>Source</dt><dd><a href="{{.}}" rel="noopener noreferrer">{{.}}</a></dd>{{end}}{{with .Entry.Commit}}<dt>Commit</dt><dd>{{template "hm/badge" (dict "Label" . "Mono" true)}}</dd>{{end}}
 {{with .Homepage}}<dt>Homepage</dt><dd><a href="{{.}}" rel="noopener noreferrer">{{.}}</a></dd>{{end}}</dl>{{template "hm/card-end"}}
-{{end}}{{end}}
+</div>{{end}}{{end}}

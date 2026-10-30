@@ -62,7 +62,11 @@ type browseHideSwitch struct {
 // browseToolbar is the data of the single Browse toolbar: publisher
 // segmented, Filters popover, sort, and the chips and links under the count.
 type browseToolbar struct {
+	BaseURL   string
 	Segmented ui.Segmented
+	// PopoverFilters and PrimaryFilters feed hm/filterbar: the Groups and Hide
+	// in popover form, and the sort select.
+	PopoverFilters, PrimaryFilters []ui.Filter
 	// Groups are the popover checkbox groups (permissions, then categories
 	// when any plugin has one); Hide is the switch below them.
 	Groups []browseGroup
@@ -78,6 +82,7 @@ type browseToolbar struct {
 	// InstalledHidden and InstalledTotal feed the muted line under the count.
 	InstalledHidden, InstalledTotal      int
 	ShowInstalledHref, HideInstalledHref string
+	ShowInstalledActions                 []ui.Button
 }
 
 type pluginBrowsePage struct {
@@ -161,10 +166,10 @@ func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, d pluginBrowse
 			{Label: "First-party", Value: packages.TierFirstParty, Pressed: slices.Equal(q.Tiers, []string{packages.TierFirstParty})},
 			{Label: "Community", Value: packages.TierCommunity, Pressed: slices.Equal(q.Tiers, []string{packages.TierCommunity})},
 		}},
-		Groups:    []browseGroup{{Name: "perm", Label: "Permissions", Facets: d.Perms}},
-		Hide:      browseHideSwitch{Name: "hide", Label: "Hide installed", Value: "1", OffValue: "0", Checked: q.HideInstalled},
-		Sort:      ui.Filter{Name: "sort", Label: "Sort", Options: d.SortOptions},
-		ClearHref: base, InstalledHidden: res.InstalledHidden, InstalledTotal: res.InstalledTotal,
+		Groups:  []browseGroup{{Name: "perm", Label: "Permissions", Facets: d.Perms}},
+		Hide:    browseHideSwitch{Name: "hide", Label: "Hide installed", Value: "1", OffValue: "0", Checked: q.HideInstalled},
+		Sort:    ui.Filter{Name: "sort", Label: "Sort", Options: d.SortOptions},
+		BaseURL: base, ClearHref: base, InstalledHidden: res.InstalledHidden, InstalledTotal: res.InstalledTotal,
 		ShowInstalledHref: href(shown.Values()), HideInstalledHref: href(hidden.Values()),
 	}
 	if res.Facets.HasCategories {
@@ -177,6 +182,16 @@ func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, d pluginBrowse
 			}
 		}
 	}
+	tb.PrimaryFilters = []ui.Filter{tb.Sort}
+	for _, g := range tb.Groups {
+		f := ui.Filter{Name: g.Name, Label: g.Label, Control: "checkbox"}
+		for _, fc := range g.Facets {
+			f.Options = append(f.Options, ui.Option{Value: fc.Value, Label: fc.Label, Selected: fc.Checked})
+		}
+		tb.PopoverFilters = append(tb.PopoverFilters, f)
+	}
+	tb.PopoverFilters = append(tb.PopoverFilters, ui.Filter{Name: tb.Hide.Name, Label: tb.Hide.Label, Control: "switch", Value: tb.Hide.Value, OffValue: tb.Hide.OffValue, Checked: tb.Hide.Checked})
+	tb.ShowInstalledActions = []ui.Button{{Label: "Show installed", Href: tb.ShowInstalledHref}}
 	tb.FilterCount = len(tb.Chips)
 	if q.HideInstalled {
 		tb.FilterCount++
