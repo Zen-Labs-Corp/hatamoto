@@ -612,10 +612,16 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   and History also appear in More. The slug rule is the blog editor's; the slug and the address fields stay on the details page.
 * **SEO drawer** (pages only; blocks and parts have no SEO button): the **SEO** button in the top bar (also in More on a phone)
   opens a slide-over on the right of the canvas (`seodrawer.js`, a lazy module that is not part of first paint). The first
-  open fetches `GET <admin>/entities/{id}/builder/seo` (a bare fragment for a request with `HX-Request` and `HX-Target`) and
-  loads `@hm/seopanel`; later opens reuse it. Escape or Close hides it and returns focus to the control that opened it. The live checks run on every open and on every field edit, and
-  post the draft doc with the panel's fields to `POST <admin>/entities/{id}/builder/analyze`, which renders the draft
-  through the preview and analyses its `<main>` (the `<body>` when the theme has none); nothing is written. Editing a field
+  open fetches `GET <admin>/entities/{id}/builder/seo` (a bare fragment for a request with `HX-Request` and `HX-Target`; it
+  renders the meta-only shell, so the body checks stay empty until analyze answers) and
+  loads `@hm/seopanel`; later opens reuse it. Escape or Close hides it and returns focus to the opener when that was the SEO button or a
+  More-menu control, otherwise to the SEO button, or to More when the button is hidden. The live checks run on every open and on every field edit, and
+  post the draft doc, the unsaved `name` and the panel's fields to `POST <admin>/entities/{id}/builder/analyze`, which renders the draft
+  through the preview and analyses its `<main>` (the `<body>` when the theme has none); nothing is written. A request without any
+  `seo_*` field (the badge fetch) is analysed against the stored SEO. A failed analyze leaves a server-rendered note (`data-hm-seodrawer-note`)
+  in the results until the next good swap. After the builder is idle, `mountSEOBadge` (same lazy module) posts doc and name to analyze
+  and puts the score from `#seo-score` on the closed SEO button (a `hm/badge` cloned from a template); it refreshes after every
+  `saved` state and whenever the drawer's checks return, not on canvas edits, and a failure leaves the button plain. Editing a field
   marks the page changed, and from then on every save carries a `seo` object; before the first edit no save sends one, so a
   value changed elsewhere is never overwritten. SEO edits are not part of the recovery copy (doc and name only).
 * **Left pane** has two WAI-ARIA tabs with roving arrows, **Navigator** and **Add**, and a permanent footer with
@@ -687,7 +693,9 @@ gets back `content`, `errors` and, when the form must change, new `html`.
 `seo` is `{title, description, canonical, og_image, no_index}`, honoured for pages only and written into the page's
 attributes (`meta_title`, `meta_description`, `canonical_url`, `og_image`, `no_index`; an empty value removes the key)
 by the same single update as the doc, so one version is created and a stale `version` still writes nothing. A missing
-`seo` leaves the stored values alone; a value the public head could not use is `422 {code:"invalid"}`.
+`seo` leaves the stored values alone; a value the public head could not use is `422 {code:"invalid"}`. A canonical must be a path starting with a single `/`
+(no `//`, backslash or whitespace) or an http(s) address with a host; a new value that is neither is `422 {code:"invalid_canonical"}`
+and the drawer shows the message under the Canonical field. A value equal to the one already stored is not checked again.
 
 | Case | Answer |
 | --- | --- |
