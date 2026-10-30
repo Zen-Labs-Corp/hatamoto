@@ -48,6 +48,8 @@ export function selectionInfo(doc, id) {
   const section = sectionOf(doc, id);
   const inCollapsed = section.collapsed && l.depth > 1;
   const depth = l.depth - (inCollapsed ? 1 : 0) || 1;
+  const row = locate(doc, rowId).node;
+  const collapsedRow = section.id === rowId && section.collapsed; // the row of a collapsed section: either id names it
   return {
     id,
     rowId,
@@ -57,8 +59,8 @@ export function selectionInfo(doc, id) {
     section,
     depth,
     isSection: depth === 1,
-    childCount: (l.node.c ?? []).length,
-    subject: moveSubject(doc, id),
+    childCount: ((collapsedRow ? row.c[0] : l.node).c ?? []).length, // the row's block count, whichever of its two ids was asked
+    subject: collapsedRow ? rowId : moveSubject(doc, id), // the container a collapsed section's move/hide/delete acts on, styled or not
   };
 }
 

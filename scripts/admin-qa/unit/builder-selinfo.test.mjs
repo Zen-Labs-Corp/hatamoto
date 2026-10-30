@@ -75,7 +75,11 @@ test("selectionInfo: row depth, isSection, childCount and subject", () => {
   assert.equal(c1.rowId, "s1");
   assert.equal(c1.isSection, true);
   assert.equal(c1.childCount, 2);
-  assert.equal(c1.subject, "c1"); // styled container: not v1Shaped, so the component moves itself
+  assert.equal(c1.subject, "s1"); // styled container: still the row's container, never the component alone
+  assert.equal(sec1.subject, "s1");
+  assert.equal(sec1.childCount, 2); // the row's block count, the same for both ids
+  assert.equal(selectionInfo(doc, "s4").childCount, 0);
+  assert.equal(selectionInfo(doc, "c4").childCount, 0);
   const b1 = selectionInfo(doc, "b1");
   assert.deepEqual([b1.depth, b1.isSection, b1.parentId, b1.parentKind, b1.section.id], [2, false, "s1", "container", "s1"]);
   assert.equal(selectionInfo(doc, "b2").depth, 3);
