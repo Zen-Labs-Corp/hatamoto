@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,4 +178,32 @@ func TestContentEpochEvery(t *testing.T) {
 			t.Errorf("environment %q: every = %v, want %v", env, got, want)
 		}
 	}
+}
+
+func TestContentEpochChangeOrder(t *testing.T) {
+	var got []string
+	step := func(name string) func() { return func() { got = append(got, name) } }
+	rendered := func(context.Context) { got = append(got, "rendered") }
+
+	contentEpochChange(context.Background(), step("config"), step("urls"), rendered)
+	if want := "config,urls,rendered"; strings.Join(got, ",") != want {
+		t.Fatalf("order = %v, want %s", got, want)
+	}
+
+	got = nil
+	contentEpochChange(context.Background(), nil, nil, rendered)
+	if len(got) != 1 || got[0] != "rendered" {
+		t.Fatalf("nil steps: got %v, want only rendered", got)
+	}
+}
+
+func TestOnContentEpochChangeNilSafe(t *testing.T) {
+	s := &Server{}
+	s.pageCache = nil
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("partial server panicked: %v", r)
+		}
+	}()
+	s.onContentEpochChange(context.Background())
 }
