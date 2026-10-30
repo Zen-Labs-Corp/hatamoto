@@ -23,15 +23,19 @@ import (
 
 // settingsSaveFixture is a one-locale site (language "en") with three entities
 // in "en". reset puts the site back to that state between saves.
+//
+// The tests call localeCheckServer themselves and hand the server over: the
+// parallel test sharder (scripts' go wrapper) keeps a test with the database
+// beside the other database tests only when the test body names a database
+// helper, and these tests rewrite the one shared site_config row.
 type settingsSaveFixture struct {
 	srv   *Server
 	ctx   context.Context
 	slugs []string
 }
 
-func newSettingsSaveFixture(t *testing.T) *settingsSaveFixture {
+func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *settingsSaveFixture {
 	t.Helper()
-	srv, ctx := localeCheckServer(t)
 	pool := srv.db.Pool()
 	f := &settingsSaveFixture{srv: srv, ctx: ctx, slugs: []string{"ss-one", "ss-two", "ss-three"}}
 
@@ -137,7 +141,8 @@ func (f fixedSess) Validate(_ context.Context, tok string) (*session.Session, er
 // site is single-locale until then; no entity is retagged and the x-default
 // (a tag only the posted list contains) is stored.
 func TestSettingsSave_AdminForm_Integration(t *testing.T) {
-	f := newSettingsSaveFixture(t)
+	srv, ctx := localeCheckServer(t)
+	f := newSettingsSaveFixture(t, srv, ctx)
 	d := f.srv.adminDeps
 	d.Sessions, d.Users, d.AdminPath = fixedSess{id: uuid.New()}, editUsers{}, "/admin"
 	d.People = nil // no profile-completion detour
@@ -188,7 +193,8 @@ func TestSettingsSave_AdminForm_Integration(t *testing.T) {
 
 // The REST API takes the same change in one PATCH.
 func TestSettingsSave_RESTPatch_Integration(t *testing.T) {
-	f := newSettingsSaveFixture(t)
+	srv, ctx := localeCheckServer(t)
+	f := newSettingsSaveFixture(t, srv, ctx)
 	mux := http.NewServeMux()
 	g := httpx.NewGroup(mux, "").Group("", injectRole("owner"))
 	mountSiteSettings(g, &siteSettingsHandlers{
