@@ -257,7 +257,10 @@ function refreshRow(li) {
   const title = li.querySelector(".hm-menutree__title");
   if (title) title.textContent = label || UNTITLED;
   const summary = li.querySelector(".hm-menutree__target-summary");
-  if (summary) summary.textContent = targetSummary(li);
+  if (summary) {
+    summary.textContent = targetSummary(li);
+    summary.toggleAttribute("data-hm-dup", li.dataset.type === "none"); // the chip already says No link
+  }
   const name = `Actions for ${label || UNTITLED}`;
   li.querySelector("[data-hm-add-after]")?.setAttribute("aria-label", `Add an item after ${label || UNTITLED}`);
   li.querySelector('[popovertarget][aria-haspopup="menu"]')?.setAttribute("aria-label", name);

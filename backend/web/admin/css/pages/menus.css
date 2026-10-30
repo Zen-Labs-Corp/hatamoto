@@ -50,6 +50,8 @@
 .hm-menutree__kind[hidden], .hm-menutree__chips[hidden] { display: none; }
 .hm-menutree__chips { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-menutree__target-summary { color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+/* With scripts a heading row says No link in its chip, not twice. */
+.hm-menuform[data-hm-js] .hm-menutree__target-summary[data-hm-dup] { display: none; }
 .hm-menutree .hm-menu [role="menuitem"]:disabled { color: var(--text-muted); cursor: not-allowed; background: transparent; }
 .hm-menutree__warn { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-warning); font-size: var(--text-xs); }
 .hm-menutree__more > summary { cursor: pointer; font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-1) 0; }

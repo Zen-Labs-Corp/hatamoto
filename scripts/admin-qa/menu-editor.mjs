@@ -335,6 +335,9 @@ try {
   const chipsOf = async (label) => (await (await byLabel(page, label)).locator("[data-hm-chips] .hm-badge").allTextContents()).map((t) => t.trim());
   const press = await chipsOf(LOOSE);
   ok(press.includes("No link"), `ISC-33: a No link item shows the chip No link (${press.join(", ")})`);
+  const productRow = await byLabel(page, LOOSE);
+  const noLinkTwice = await productRow.evaluate((li) => [...li.querySelectorAll(".hm-menutree__head *")].filter((e) => e.children.length === 0 && e.getClientRects().length > 0 && /^No link$/i.test(e.textContent.trim())).length);
+  ok(noLinkTwice === 1, `ISC-33: a heading row says No link once, in its chip (${noLinkTwice} visible)`);
   const nopage = await chipsOf("Brand new");
   ok(nopage.includes("No page"), `ISC-33: a Page item with no page shows No page (${nopage.join(", ")})`);
   const docs = await chipsOf("Docs");
