@@ -534,13 +534,14 @@ One rule for what "selected" looks like, so no screen invents its own:
 
 - **A choice among siblings** (one value out of a short row) is a **paper pill with a hairline ring and a bottom bevel** and a semibold label: `hm/segmented` and the pill row `hm/tabs` `Variant "segmented"`. The standalone builder toggles (the phone dock tabs, the inspector value and link buttons) use a kasumi fill with a 1px ink ring; a hovered unselected inspector option gets the shiro fill and a darker ring. In forced-colors mode every selected control also gets a `Highlight` outline.
 - **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
-- **An item in a list or grid** (media tiles, the media picker tile, radio cards) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
+- **An item in a list or grid** (media tiles, the media picker tile, radio cards; the builder Navigator excepted, see below) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
 
-Accent is for tabs, links and focus; ink is for selection. Both inks invert in dark mode through the tokens.
+Accent is for tabs, links and focus; ink is for selection (the builder Navigator is the one exception below). Both inks invert in dark mode through the tokens.
 
 **Deliberate exceptions** (parked, each with its reason; do not copy them into new screens):
 
 - `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps) and the phone dock tabs: a kasumi fill with an ink ring, not a paper pill. They are standalone buttons in a dense inspector, not a track of siblings.
+- `.hm-bs-row[aria-selected="true"]` (the builder Navigator): a solid accent fill with on-accent text (`--color-paper`), and the section that contains the selection gets an accent-soft band (`.hm-bs-row--band`). The Navigator is a dense two-level tree where the selection has to read at a glance, and the canvas marks the same node in the same accent. Non-colour cues stay: `aria-selected`, a `Highlight` outline in forced-colors mode and the focus ring (offset inward so it stays visible on the accent fill).
 - `.hm-theme--active` (Themes page): an accent 2px ring on the active theme card. It marks "in use on the site", not a pending choice, so it follows the accent of the Active badge it carries.
 - `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the 1px ink ring and kasumi fill of a pressed button.
 - `.hm-aia-lg` legend toggles (chart series): the toggle shows a series on or off, and its swatch carries the series colour, so the pressed state is dimming, not a fill.
