@@ -111,7 +111,7 @@ func (rl *RateLimiter) Allow(key string) bool {
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace(r, rl.traceTag())
-		ip := getIP(r)
+		ip := GetClientIP(r)
 		if rl.slash64 {
 			ip = IPBucket(ip)
 		}

@@ -44,7 +44,7 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 	data := formValues(r.PostForm)
 
 	_, err := s.submitPublicForm(r.Context(), slug, data, controlFromValues(r.PostForm), submitMeta{
-		IPAddress: getClientIP(r),
+		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
