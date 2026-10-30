@@ -198,6 +198,13 @@ function flashToToasts(root) {
 document.addEventListener("DOMContentLoaded", () => flashToToasts(document));
 document.addEventListener("htmx:afterSettle", () => flashToToasts(document));
 
+// Swatches (hm/swatches) take their colour from data-swatch through the CSSOM: an inline style attribute is blocked by the page's policy.
+function paintSwatches(root) {
+  root.querySelectorAll(".hm-swatches__opt[data-swatch]").forEach((b) => { if (b.dataset.swatch) b.style.setProperty("--swatch", b.dataset.swatch); });
+}
+document.addEventListener("DOMContentLoaded", () => paintSwatches(document));
+document.addEventListener("htmx:afterSettle", () => paintSwatches(document));
+
 // Menus (row menus, the page-header overflow) and popover panels (Filters):
 // placed under the opener, focus moves to the first item or field, arrow keys
 // move between menu items, Esc and light dismiss are native, and focus goes

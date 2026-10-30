@@ -177,7 +177,7 @@ function check({ sticky, list, spec }) {
   const CONTRACT_OK = {
     button: BTN_OK,
     input: '[type="color"], [type="file"], [type="hidden"], :disabled, [aria-invalid="true"], :focus, .hm-input-affix *, .hm-field--invalid *',
-    card: ".hm-be__side .hm-card, .hm-tablecard", // .hm-tablecard drops the card's border and radius (table.css)
+    card: ".hm-be__side .hm-card, .hm-tablecard, .hm-card[data-hm-inline]", // .hm-tablecard drops the card's border and radius (table.css); [data-hm-inline] dissolves it into a row of fields (card.css)
   };
   // The enhanced select trigger is a button that wears the select variant of the input contract (select.css).
   const ALSO = { "input/select": ".hm-select__trigger" };

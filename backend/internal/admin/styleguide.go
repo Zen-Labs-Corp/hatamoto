@@ -111,6 +111,11 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Radio", Variant: "checked", Data: ui.Segmented{Mode: "radio", Label: "Access", Name: "sg_access", Items: []ui.SegmentedItem{{Label: "Allow", Value: "allow", Pressed: true}, {Label: "Block", Value: "deny"}}}},
 			{Label: "Buttons", Data: ui.Segmented{Mode: "buttons", Label: "Preview width", Items: []ui.SegmentedItem{{Label: "Desktop", Pressed: true}, {Label: "Phone"}}}},
 		},
+		"swatches": {
+			{Label: "Default", Data: map[string]any{"Label": "Styleguide colour", "Items": []map[string]any{
+				{"Label": "Ink", "Value": "ink", "Swatch": "#1c1c1c", "Pressed": true}, {"Label": "Sky", "Value": "sky", "Swatch": "#2a6fdb"}, {"Label": "Leaf", "Value": "leaf", "Swatch": "#2f8f4e"},
+			}}},
+		},
 		"radiocard": {
 			{Label: "Default", Data: ui.RadioCard{Legend: "Theme", Name: "theme", Items: []ui.RadioCardItem{{Value: "default", Title: "Default", Description: "The built-in theme.", Checked: true, Tag: &ui.Badge{Label: "Active", Kind: "success"}}, {Value: "journal", Title: "Journal", Description: "Serif, calm blog."}}}},
 		},

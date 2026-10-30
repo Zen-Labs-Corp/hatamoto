@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 46460,
+      "value": 49968,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,13 +11,13 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 92822,
+      "value": 92953,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 93351
     },
     "editor_js_total_gzip": {
-      "value": 242541,
+      "value": 243001,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 245613
@@ -40,18 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
-      "date": "2026-10-25"
-    },
-    {
-      "reason": "builder recovery moves from browser storage to a server copy: fetch client replaces the storage client (+1.1 KB gzip first paint)",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "admin-storage review fixes: recovery client retry, hold and byte limit",
-      "date": "2026-10-26"
-    },
     {
       "reason": "Site health rows laid out as dot, label, value like the mockup: admin css gzip grows about 1 KB",
       "date": "2026-10-26"
@@ -127,6 +115,10 @@
     {
       "reason": "builder SEO drawer: lazy seodrawer module and screen/sync wiring; editor_js_total_gzip 239136 to 242008 (+2872 B), editor_js_first_gzip 91907 to 92289 (+382 B), cap 241978 to 245080 (current + 3 KiB); builder CSS for the drawer",
       "date": "2026-10-29"
+    },
+    {
+      "reason": "menu editor v2 layout rebased onto main: admin CSS gzip grew with the menu editor styles",
+      "date": "2026-10-30"
     }
   ]
 }

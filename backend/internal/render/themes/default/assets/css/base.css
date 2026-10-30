@@ -171,6 +171,7 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
   display: inline-block; padding: 0.4rem 0.9rem; border-radius: var(--hm-radius-sm);
   background: var(--hm-primary); color: var(--hm-bg); font-weight: 500;
 }
+.hm-nav__sub .hm-nav__item--button { margin-top: 0.25rem; }
 :is(a, span, p).hm-nav__item--button:hover { background: var(--hm-shu-dark); color: var(--hm-bg); }
 :is(a, span, p).hm-nav__item--link { text-decoration: underline; text-underline-offset: 0.2em; }
 :is(a, span, p).hm-nav__item--muted { color: var(--hm-label); font-weight: 400; }
@@ -178,6 +179,14 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 :is(a, span, p).hm-nav-color--ink { color: var(--hm-text); }
 :is(a, span, p).hm-nav-color--muted { color: var(--hm-label); }
 :is(a, span, p).hm-nav-color--danger { color: var(--hm-shu-dark); }
+/* A button keeps its fill: a colour class on a button recolours the fill (never the text, which
+   would match the primary fill) and the label is white on the red fills, the page background on ink and muted (both flip with the dark set). */
+:is(a, span, p).hm-nav__item--button.hm-nav-color--accent { background: var(--hm-primary); color: #ffffff; }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--ink { background: var(--hm-text); color: var(--hm-bg); }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--muted { background: var(--hm-label); color: var(--hm-bg); }
+:is(a, span, p).hm-nav__item--button.hm-nav-color--danger { background: var(--hm-shu-dark); color: #ffffff; }
+/* The plain button darkens on hover (rule above); a coloured one has the same specificity and comes later, so it needs its own hover. */
+:is(a, span, p).hm-nav__item--button[class*="hm-nav-color--"]:hover { filter: brightness(0.9); }
 .hm-nav__badge {
   display: inline-block; margin-left: 0.35em; padding: 0 0.4em; border: 1px solid var(--hm-hair);
   border-radius: var(--hm-radius-sm); font-size: 0.6875rem; font-weight: 500; line-height: 1.5; vertical-align: middle;

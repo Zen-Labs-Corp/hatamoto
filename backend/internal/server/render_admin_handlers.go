@@ -8,13 +8,16 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -312,4 +315,80 @@ func previewRouteRequest(r *http.Request, path string, entityID uuid.UUID, attrs
 		pr.Header.Del(h)
 	}
 	return pr
+}
+
+// menuPreviewPrefix names the nav items of a menu preview: prefix + the item's
+// ordinal in the editor. Only the preview sets NavItem.ID this way.
+const menuPreviewPrefix = "menu-pv-"
+
+// renderMenuPreview renders the unsaved menu m as the site would show it at
+// location: the real page chrome with m in place of the stored header or footer
+// menu (any other location leaves both as stored). Each item's Position is its
+// ordinal. It returns the document and the policy to serve it under. Nothing is
+// written.
+func (s *Server) renderMenuPreview(r *http.Request, location string, m *menu.Menu) ([]byte, string, error) {
+	if s.renderEngine == nil {
+		return nil, "", admin.ErrMenuPreviewOff
+	}
+	ctx := r.Context()
+	site, err := s.buildSiteView(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	links := s.newNavLinks(ctx)
+	var buf bytes.Buffer
+	if err := s.renderEngine.RenderPage(&buf, menuPreviewView(ctx, links, site, s.publicBaseURL(r), location, m)); err != nil {
+		return nil, "", err
+	}
+	return buf.Bytes(), cspWithProvider(renderCSP, providerOf(ctx, s.captchaProvider)), nil
+}
+
+// menuPreviewView is the page of a menu preview: site with m in place of the
+// header or footer menu, empty otherwise.
+func menuPreviewView(ctx context.Context, links *navLinks, site render.SiteView, baseURL, location string, m *menu.Menu) *render.PageView {
+	resolveMenuEntities(ctx, links, m.Items)
+	nav := links.items(m.Items)
+	setMenuPreviewIDs(nav, m.Items)
+	switch location {
+	case menu.LocationHeader:
+		site.Nav = nav
+	case menu.LocationFooter:
+		site.FooterNav = nav
+	}
+	return &render.PageView{
+		BaseURL:    baseURL,
+		Path:       "/",
+		SchemaSlug: "page",
+		Page:       render.PageMeta{Name: "Menu preview", NoIndex: true},
+		Site:       site,
+		Related:    noRelated,
+		Preview:    true,
+	}
+}
+
+// resolveMenuEntities fills the slug and schema of each linked entity, as the
+// stored menu does. A target that is not published is left unresolved and so
+// renders as text. The public site does not filter by status, so a draft target
+// still links there.
+func resolveMenuEntities(ctx context.Context, links *navLinks, items []*menu.MenuItem) {
+	for _, it := range items {
+		if it.EntityID != nil && it.LinkType == menu.LinkTypeEntity && links.repo != nil {
+			if e, err := links.repo.GetPublishedByID(ctx, *it.EntityID); err == nil && e != nil {
+				it.EntitySlug = &e.Slug
+				if e.Schema != nil {
+					it.EntitySchemaSlug = &e.Schema.Slug
+				}
+			}
+		}
+		resolveMenuEntities(ctx, links, it.Children)
+	}
+}
+
+// setMenuPreviewIDs gives each nav item the id its editor ordinal names. nav is
+// links.items(items), so the two trees have the same shape.
+func setMenuPreviewIDs(nav []render.NavItem, items []*menu.MenuItem) {
+	for i := range nav {
+		nav[i].ID = menuPreviewPrefix + strconv.Itoa(items[i].Position)
+		setMenuPreviewIDs(nav[i].Children, items[i].Children)
+	}
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +22,9 @@ import (
 const (
 	maxMenuItems = 200
 	maxMenuDepth = 5
+	// menuLimitNotice is the refusal for an edit that would pass maxMenuItems; the
+	// editor script says the same (menutree.js).
+	menuLimitNotice = "A menu holds at most 200 items."
 	// The menu and menu_items columns: name and label varchar(100), url varchar(500).
 	maxNameLen  = 100
 	maxLabelLen = 100
@@ -76,12 +81,21 @@ type menuForm struct {
 	ID, Name, Location string
 	New                bool
 	Items              []menuRow
-	Locations          []ui.Option
-	Errors             map[string]string
-	Summary            []ui.FieldError
-	AddType            string
-	AddTypes           []ui.Option
-	Notice             string // structural edit applied but not saved yet
+	// Blank is the row the editor script copies when it adds an item without a
+	// round trip (the page keeps it in a template, never in the visible form).
+	Blank menuRow
+	// StyleItems and ColorItems are the theme's styles and colours as the items
+	// of the inspector's tile and swatch pickers; empty when the theme has none.
+	StyleItems, ColorItems []map[string]any
+	Locations              []ui.Option
+	Errors                 map[string]string
+	Summary                []ui.FieldError
+	AddType                string
+	AddTypes               []ui.Option
+	Notice                 string // structural edit applied but not saved yet
+	// NoticeKind is "warning" when the edit was refused (the rows did not
+	// change) and "info" otherwise.
+	NoticeKind string
 	// Decl is what the active theme declares for menu items; zero when it
 	// declares nothing, so the editor offers only classes and advanced fields.
 	Decl render.MenuDecl
@@ -95,6 +109,7 @@ func (a *Admin) mountMenus(authed *httpx.Group) {
 	authed.HandleFunc("GET /theme/menus/new", a.handleMenuNew)
 	authed.HandleFunc("POST /theme/menus", a.handleMenuCreate)
 	authed.HandleFunc("GET /theme/menus/{id}", a.handleMenuEdit)
+	authed.HandleFunc("POST /theme/menus/preview", a.handleMenuPreview)
 	authed.HandleFunc("POST /theme/menus/{id}", a.handleMenuSave)
 	authed.HandleFunc("GET /theme/menus/{id}/delete", a.handleMenuDeleteForm)
 	authed.HandleFunc("POST /theme/menus/{id}/delete", a.handleMenuDelete)
@@ -342,6 +357,32 @@ func (a *Admin) handleMenuEdit(w http.ResponseWriter, r *http.Request) {
 	a.renderMenuForm(w, r, http.StatusOK, f)
 }
 
+// pickerItems lists a theme's presets for a tile or swatch picker, led by the
+// "Default" choice that stores nothing, unless the theme declares a Default of
+// its own: that one stands in for it (and marks itself as the one an empty value
+// shows). A theme with no presets gets no picker.
+func pickerItems(list []render.MenuPreset) []map[string]any {
+	if len(list) == 0 {
+		return nil
+	}
+	var out []map[string]any
+	own := false
+	for _, p := range list {
+		own = own || strings.EqualFold(p.Label, "Default")
+	}
+	if !own {
+		out = append(out, map[string]any{"Label": "Default", "Value": ""})
+	}
+	for _, p := range list {
+		it := map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch}
+		if strings.EqualFold(p.Label, "Default") {
+			it["Attrs"] = map[string]string{"data-hm-empty": ""}
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
 func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status int, f menuForm) {
 	f.Locations = locationOptions(f.Location)
 	f.AddTypes = typeOptions(f.AddType)
@@ -360,6 +401,13 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 		f.Items[i].NoOutdent = f.Items[i].Depth == 0
 		f.Items[i].NoIndent = i == 0 || f.Items[i].Depth > f.Items[i-1].Depth || f.Items[i].Depth >= maxMenuDepth
 	}
+	// N is past the last row a menu can hold, so the ids in the copy are unique on the page;
+	// the script renumbers the copy when it is added.
+	f.Blank = menuRow{N: maxMenuItems, Type: "entity", NoIndent: true, NoOutdent: true}
+	f.Blank.Types = typeOptions(f.Blank.Type)
+	f.Blank.TypeIcon, f.Blank.Target = menuTarget(f.Blank)
+	f.StyleItems = pickerItems(f.Decl.Styles)
+	f.ColorItems = pickerItems(f.Decl.Colors)
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})
@@ -465,6 +513,9 @@ func blockEnd(rows []menuRow, i int) int {
 // target is the chosen destination of "moveto": the index of a top-level row, or "top".
 func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string) {
 	if op == "add" {
+		if len(rows) >= maxMenuItems {
+			return rows, menuLimitNotice
+		}
 		if addType != "custom" && addType != "archive" && addType != menu.LinkTypeNone {
 			addType = "entity"
 		}
@@ -487,6 +538,9 @@ func applyMenuOp(rows []menuRow, op, addType, target string) ([]menuRow, string)
 		// The item goes with everything under it.
 		return append(rows[:i:i], rows[end:]...), "Item removed with its sub-items. It is not saved yet."
 	case "dup":
+		if len(rows)+end-i > maxMenuItems {
+			return rows, menuLimitNotice
+		}
 		out := make([]menuRow, 0, len(rows)+end-i)
 		out = append(out, rows[:end]...)
 		for _, r := range rows[i:end] {
@@ -555,7 +609,7 @@ func moveMenuBlock(rows []menuRow, i, end int, target string) ([]menuRow, string
 	if target != "top" {
 		n, err := strconv.Atoi(target)
 		if err != nil || n < 0 || n >= len(rows) || rows[n].Depth != 0 {
-			return rows, "Choose a top-level item to move this item under."
+			return rows, "Choose where to move this item, then use Move to again."
 		}
 		if n >= i && n < end {
 			return rows, "An item cannot move under itself."
@@ -612,7 +666,9 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	f := menuForm{ID: m.ID.String(), Name: strings.TrimSpace(r.PostFormValue("name")), Location: r.PostFormValue("location"),
 		Items: parseMenuItems(r.PostForm), Errors: map[string]string{}, AddType: r.PostFormValue("add_type")}
 	if op := r.PostFormValue("_op"); op != "" && op != "save" {
+		before := slices.Clone(f.Items)
 		f.Items, f.Notice = applyMenuOp(f.Items, op, f.AddType, r.PostFormValue("moveto_target"))
+		f.NoticeKind = menuNoticeKind(op, f.Notice, before, f.Items)
 		normaliseDepths(f.Items)
 		f.Errors = nil
 		a.renderMenuForm(w, r, http.StatusOK, f)
@@ -662,6 +718,18 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Menu saved.")
 	http.Redirect(w, r, a.adminPath+"/theme/menus/"+m.ID.String(), http.StatusSeeOther)
+}
+
+// menuNoticeKind is "warning" for a refused structural edit: a message with
+// the rows unchanged. refresh is never a refusal.
+func menuNoticeKind(op, notice string, before, after []menuRow) string {
+	if notice == "" || op == "refresh" {
+		return "info"
+	}
+	if slices.EqualFunc(before, after, func(a, b menuRow) bool { return reflect.DeepEqual(a, b) }) {
+		return "warning"
+	}
+	return "info"
 }
 
 type replaceResult struct {

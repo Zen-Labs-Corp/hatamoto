@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/render"
 )
 
 type fakeMenus struct {
@@ -466,9 +468,14 @@ func TestMenuEditPageA11yAndDelete(t *testing.T) {
 	if n := strings.Count(body, `<span>Save</span>`); n != 1 {
 		t.Errorf("want one visible Save button, got %d", n)
 	}
-	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
+	for _, want := range []string{`hm-menutree__target-summary">Page or post · About us<`, `hm-menutree__target-summary">Link · /team<`, `value="outdent.0" formnovalidate disabled`, `value="indent.0" formnovalidate data-hm-op="indent" disabled`, `data-hm-undo-all`, `data-hm-notice`, `data-hm-tpl="notice"`, `data-hm-warn`, `data-hm-savestate`, `data-hm-issues`, `id="menu-inspector"`, `id="menu-preview"`, `aria-label="Actions for About"`, `aria-label="Actions for Team"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("edit page lacks %s", want)
+		}
+	}
+	for _, gone := range []string{"data-hm-undo-btn", "data-hm-undo-text", `data-hm-tpl="undo"`} {
+		if strings.Contains(body, gone) {
+			t.Errorf("edit page still carries the dead undo markup %s", gone)
 		}
 	}
 	if rec := g.do("GET", "/admin/theme/menus/"+m.ID.String()+"/delete", "owner-token", nil, nil); rec.Code != 200 || len(fm.deleted) != 0 {
@@ -663,8 +670,9 @@ func TestMenuOpsKeepWarningsAndDropDuplicateIDs(t *testing.T) {
 	f.Set("_op", "dup.0")
 	rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
 	body := rec.Body.String()
-	if rec.Code != 200 || strings.Count(body, "Without a link") != 2 {
-		t.Errorf("duplicate: %d, want 2 warnings, got %d", rec.Code, strings.Count(body, "Without a link"))
+	// The blank item the script copies for Add sits in a template and carries the same words once more.
+	if rec.Code != 200 || strings.Count(body, "Without a link") != 3 {
+		t.Errorf("duplicate: %d, want 2 warnings and the template's, got %d", rec.Code, strings.Count(body, "Without a link"))
 	}
 	if strings.Count(body, `name="i.0.id" value="cta"`) != 1 || strings.Contains(body, `name="i.1.id" value="cta"`) {
 		t.Error("the copy must not carry the HTML id")
@@ -675,5 +683,100 @@ func TestMenuOpsKeepWarningsAndDropDuplicateIDs(t *testing.T) {
 	body = g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
 	if n := strings.Count(body, `>No link</option>`); n != 1 {
 		t.Errorf("the Add select lists No link %d times", n)
+	}
+}
+
+func TestMenuNoticeKind(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		op, target string
+		in         []string
+		want       string
+	}{
+		"refused indent warns":            {"indent.0", "", []string{"A:0", "B:0"}, "warning"},
+		"refused move without target":     {"moveto.0", "", []string{"A:0", "B:0"}, "warning"},
+		"refused move under itself warns": {"moveto.0", "0", []string{"A:0", "A1:1"}, "warning"},
+		"applied indent is info":          {"indent.1", "", []string{"A:0", "B:0"}, "info"},
+		"applied move is info":            {"moveto.0", "1", []string{"A:0", "B:0"}, "info"},
+		"add is info":                     {"add", "", []string{"A:0"}, "info"},
+		"refresh is info":                 {"refresh", "", []string{"A:0"}, "info"},
+	}
+	for name, tc := range tests {
+		rows := treeRows(tc.in...)
+		before := slices.Clone(rows)
+		got, msg := applyMenuOp(rows, tc.op, "", tc.target)
+		if k := menuNoticeKind(tc.op, msg, before, got); k != tc.want {
+			t.Errorf("%s: kind %q (%q), want %q", name, k, msg, tc.want)
+		}
+	}
+	rows := treeRows("A:0", "B:0")
+	if _, msg := applyMenuOp(rows, "moveto.0", "", ""); msg != "Choose where to move this item, then use Move to again." {
+		t.Errorf("moveto message: %q", msg)
+	}
+}
+
+func TestMenuRefusedOpRendersAWarningCallout(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newMenuRig(t)
+	m := fm.add("Main", "")
+	form := itemForm("Main", [4]string{"A", "custom", "0", "/a"}, [4]string{"B", "custom", "0", "/b"})
+	for op, want := range map[string]string{"indent.0": "hm-callout--warning", "outdent.1": "hm-callout--warning", "down.1": "hm-callout--warning", "dup.0": "hm-callout--info"} {
+		f := url.Values{}
+		for k, v := range form {
+			f[k] = v
+		}
+		f.Set("_op", op)
+		body := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil).Body.String()
+		if !strings.Contains(body, want) {
+			t.Errorf("%s: want %s in the notice", op, want)
+		}
+	}
+}
+
+func TestMenuOpsRefuseAtTheItemLimit(t *testing.T) {
+	t.Parallel()
+
+	full := make([]string, maxMenuItems)
+	for i := range full {
+		full[i] = "X:0"
+	}
+	for _, op := range []string{"add", "dup.0"} {
+		rows := treeRows(full...)
+		got, msg := applyMenuOp(rows, op, "", "")
+		if msg != "A menu holds at most 200 items." || len(got) != maxMenuItems {
+			t.Errorf("%s at the limit: %d rows, %q", op, len(got), msg)
+		}
+		if k := menuNoticeKind(op, msg, rows, got); k != "warning" {
+			t.Errorf("%s at the limit: kind %q, want warning", op, k)
+		}
+	}
+	if _, msg := applyMenuOp(treeRows(full[1:]...), "add", "", ""); strings.Contains(msg, "at most") {
+		t.Errorf("add below the limit refused: %q", msg)
+	}
+}
+
+func TestPickerItemsDefaultOnce(t *testing.T) {
+	labels := func(items []map[string]any) []string {
+		var out []string
+		for _, it := range items {
+			out = append(out, it["Label"].(string))
+		}
+		return out
+	}
+	own := pickerItems([]render.MenuPreset{{ID: "default", Label: "Default"}, {ID: "button", Label: "Button"}})
+	if got := strings.Join(labels(own), ","); got != "Default,Button" {
+		t.Fatalf("a theme with its own Default is listed once, got %s", got)
+	}
+	if _, ok := own[0]["Attrs"]; !ok {
+		t.Fatal("the theme's Default must say it stands for the empty value")
+	}
+	plain := pickerItems([]render.MenuPreset{{ID: "accent", Label: "Accent", Swatch: "#2563eb"}})
+	if got := strings.Join(labels(plain), ","); got != "Default,Accent" || plain[0]["Value"] != "" {
+		t.Fatalf("a theme without one gets the empty Default first, got %s", got)
+	}
+	if pickerItems(nil) != nil {
+		t.Fatal("no presets, no picker")
 	}
 }

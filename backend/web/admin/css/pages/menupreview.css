@@ -1,0 +1,6 @@
+/* Desktop needs the theme's desktop menu width (48rem); Mobile narrows the frame. */
+.hm-menueditor__aux > .hm-menueditor__wide { grid-column: 1 / -1; }
+.hm-menupreview__scroll { overflow-x: auto; }
+.hm-menupreview__frame { display: block; width: 100%; min-width: 50rem; height: 22rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-menupreview__frame[hidden] { display: none; }
+.hm-menupreview__frame[data-width="mobile"] { width: 24rem; min-width: 0; margin-inline: auto; }

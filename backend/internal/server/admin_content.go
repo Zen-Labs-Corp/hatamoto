@@ -64,6 +64,7 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		}
 		return s.renderEngine.MenuDecl()
 	}
+	d.MenuPreview = s.renderMenuPreview
 	d.Preview = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.renderEngine == nil {
 			http.Error(w, "page rendering is off", http.StatusServiceUnavailable)

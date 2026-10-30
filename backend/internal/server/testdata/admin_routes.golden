@@ -322,6 +322,7 @@ POST /admin/theme/colours -> admin.(*Admin).handleDesignSave-fm
 POST /admin/theme/design-system -> admin.(*Admin).handleTokensSave-fm
 POST /admin/theme/design-system/reset -> admin.(*Admin).handleTokensReset-fm
 POST /admin/theme/menus -> admin.(*Admin).handleMenuCreate-fm
+POST /admin/theme/menus/preview -> admin.(*Admin).handleMenuPreview-fm
 POST /admin/theme/menus/{id} -> admin.(*Admin).handleMenuSave-fm
 POST /admin/theme/menus/{id}/delete -> admin.(*Admin).handleMenuDelete-fm
 POST /admin/theme/parts -> admin.(*Admin).handlePartsSave-fm

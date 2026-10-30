@@ -244,7 +244,7 @@ func TestPublicError_BadLocaleKeepsItsText(t *testing.T) {
 }
 
 func TestPlanMenuItemsNoneAndSettings(t *testing.T) {
-	got, err := planMenuItems([]menuItemIn{
+	got, _, err := planMenuItems([]menuItemIn{
 		{Label: "Product", LinkType: "none"},
 		{Label: "Page", LinkType: "entity"}, // no target: stored, renders as text
 		{Label: "Go", LinkType: "external", URL: "/go", CSSClasses: "footer-cta  extra",
@@ -260,7 +260,7 @@ func TestPlanMenuItemsNoneAndSettings(t *testing.T) {
 		t.Errorf("settings not mapped: %+v", got[2])
 	}
 	// Old payloads carry none of the new keys and keep their meaning.
-	old, err := planMenuItems([]menuItemIn{{Label: "A", LinkType: "custom", URL: "/a"}})
+	old, _, err := planMenuItems([]menuItemIn{{Label: "A", LinkType: "custom", URL: "/a"}})
 	if err != nil || old[0].CSSClasses != nil || old[0].Attrs.Style != "" || len(old[0].Attrs.Rel) != 0 {
 		t.Errorf("old payload changed: %+v %v", old, err)
 	}
@@ -270,8 +270,55 @@ func TestPlanMenuItemsNoneAndSettings(t *testing.T) {
 		"bad rel":            {Label: "X", LinkType: "none", Attrs: &menu.MenuItemAttrs{Rel: []string{"evil"}}},
 		"bad type":           {Label: "X", LinkType: "nope"},
 	} {
-		if _, err := planMenuItems([]menuItemIn{bad}); err == nil {
+		if _, _, err := planMenuItems([]menuItemIn{bad}); err == nil {
 			t.Errorf("%s accepted", name)
 		}
+	}
+}
+
+func TestPlanMenuItemsWarnings(t *testing.T) {
+	_, w, err := planMenuItems([]menuItemIn{
+		{Label: "Plain", LinkType: "none"},
+		{Label: "Page", LinkType: "entity"},
+		{Label: "Arch", LinkType: "archive"},
+		{Label: "Arch ok", LinkType: "archive", SchemaSlug: "post"},
+		{Label: "Cust", LinkType: "custom"},
+		{Label: "Cust ok", LinkType: "custom", URL: "/x"},
+		{Label: "Ext", LinkType: "external", URL: "https://example.test/"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		`items[1] "Page": no target, it renders as plain text`,
+		`items[2] "Arch": no target, it renders as plain text`,
+		`items[4] "Cust": no target, it renders as plain text`,
+	}
+	if len(w) != len(want) {
+		t.Fatalf("warnings = %q, want %q", w, want)
+	}
+	for i := range want {
+		if w[i] != want[i] {
+			t.Errorf("warning %d = %q, want %q", i, w[i], want[i])
+		}
+	}
+	for name, in := range map[string][]menuItemIn{"nil": nil, "empty": {}, "clean": {{Label: "A", LinkType: "none"}}} {
+		if _, w, err := planMenuItems(in); err != nil || w == nil || len(w) != 0 {
+			t.Errorf("%s: warnings %#v, err %v", name, w, err)
+		}
+	}
+}
+
+func TestMenuUpdateOutIsFlat(t *testing.T) {
+	b, err := json.Marshal(menuUpdateOut{Menu: &menu.Menu{Name: "Main"}, Warnings: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["name"] != "Main" || m["warnings"] == nil {
+		t.Errorf("shape not flat: %s", b)
 	}
 }

@@ -106,7 +106,7 @@ sidebar).
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
-| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` | Go (the Theme area; the screens date from v1-10 to B6) |
+| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview) | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `media`, `types*`, `taxonomies*`, `forms*`, `submissions*` (list, `{sid}`, bulk, CSV export), `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |
 | `<admin>/analytics` (Overview), `/crawlers`, `/content`, `/referrals`, `/health`, `/agents/{id}`; `POST /crawlers/robots`; `data/{overview,agents,agent,pages,first-crawls,referrals,errors,robots}.json` (all take `from`, `to` and `compare=1`) | Go (v1-14, v1-23a, AI analytics redesign) |
 | `<admin>/plugins*` (list, install, update, enable, uninstall, upload), `plugins/{name}/settings` and `/permissions` (plugin pages), `/plugin-ui/*` (their sandboxed documents), `preview/theme/{name}` | Go (v1-18) |
@@ -606,10 +606,65 @@ interfaces are filled by `server/admin_growth_mount.go`; a nil member answers a 
 
 * **Editors that are plain forms.** The menu tree and the form builder post every row as
   `i.N.*` / `f.N.*` fields plus an `_op` button (`up.N`, `down.N`, `indent.N`, `outdent.N`,
-  `remove.N`, `add`, `save`). The server applies the edit and re-renders (200, not saved);
-  `save` validates and stores. `menutree.js` upgrades the same buttons in place and adds
-  SortableJS drag and drop (sub-items travel with their parent). Structural buttons carry
-  `formnovalidate`, so an unfinished row can still be moved.
+  `remove.N`, `dup.N`, `moveto.N`, `add`, `save`). The server applies the edit and re-renders
+  (200, not saved); `save` validates and stores. Structural buttons carry `formnovalidate`,
+  so an unfinished row can still be moved.
+* **Menu editor (JavaScript on).** Without JavaScript the page is the plain form above. With
+  it, `menutree.js` applies the same buttons in the page, with the pure operations of
+  `menulogic.js` (which a shared parity fixture keeps equal to the server's `applyMenuOp`),
+  so the tree and a no-JS save agree. SortableJS is no longer used for menus.
+  * **Layout.** From a wide screen the editor is two columns: the tree on one side, the
+    inspector and the live preview on the other. Rows are compact: a kind icon, the label
+    and chips for what the item links to, its badge and its problems (a generic chip such
+    as "without a link" or "to fix" opens the inspector on the item). Depth shows as guide
+    lines, and the row actions appear on hover, on focus and on the selected row. The save
+    bar stays on one line from 80rem (1280 px); between 80rem and 90rem the words of the
+    save state give way to its dot.
+  * **Add popover** (`menuadd.js`, module `@hm/menuadd`): the Add button opens a popover to
+    tick one or more pages, type an address, add a heading or add the archive. The rows join
+    the tree in the page as one undo step, from a blank item the server renders into a
+    template, and the server still checks the saved tree. Without JavaScript the button
+    stays hidden and the select with Add item keeps working.
+  * **Undo and redo** keep a stack of structure steps (move, indent, outdent, duplicate,
+    move to, remove, drag). Ctrl or Cmd+Z undoes, with Shift redoes; the save bar Undo
+    steps back through all of them. Text typed in a field is not rolled back. Discard
+    reloads the page from the saved menu.
+  * **Pointer drag** (`menudrag.js`, mouse, pen and touch): press the grip, move; the
+    pointer height picks the gap and its sideways travel the level, and a drop line labelled
+    "inside X" or "top level" shows where the item and its sub-items land. Escape or a
+    cancelled pointer leaves the tree alone. The grip has `touch-action: none`, so a plain
+    scroll elsewhere still scrolls.
+  * **Keyboard** (`menukeys.js`): each row is one tab stop; Up, Down, Home and End move
+    between rows; Alt+Up or Down moves the item with its sub-items, Alt+Right indents,
+    Alt+Left outdents; Enter or F2 renames; Delete removes; Ctrl or Cmd+D duplicates;
+    Alt+N adds an item; Ctrl or Cmd+S saves; Left and Right collapse and expand a parent;
+    `?` opens the shortcut list.
+  * **Selection, filter, collapse.** Click selects a row; Ctrl, Cmd or Shift+click selects
+    several (Shift takes a range). The filter box and the collapse buttons only change what
+    is shown, never the tree; a match keeps its parents visible.
+  * **Inspector** (`menuinspector.js`): a side panel that edits the selected item through
+    the item's own form fields, so a save posts exactly what a no-JS save posts. With one
+    item it shows the label, what it links to (page, address, archive or no link), open in
+    a new tab, style, colour, badge, icon, where it shows, CSS classes (typed, or picked as
+    chips from the classes the theme declares, checked as the server checks them), an
+    Advanced group (HTML id, title, accessible name, link relations) and an Output line
+    with the link as the site would write it.
+    Style is picked from tiles (`hm/segmented`, radio mode) and colour from swatches
+    (`hm/swatches`, a radio group of dots drawn in the theme's colours). When the server
+    refuses a save, its text for the selected item shows in the inspector as well as on the
+    row. With several items selected it shows the
+    count and acts on all of them (indent, outdent, remove, and the shared fields).
+  * **Live preview** (`menupreview.js`): the editor form is posted to
+    `POST <admin>/theme/menus/preview` with a same-origin iframe as its target. The server
+    renders the menu as the active theme draws it, for the tree as it is now, saved or not,
+    and stores nothing. The frame carries `sandbox="allow-same-origin"` (no scripts), so
+    the editor page can read it: it sets the light or dark scheme on the frame and turns a
+    click on a link into a selection of the matching row. When page rendering is off the
+    route answers 503 and the preview card stays hidden.
+  * **Without JavaScript** the editor is the plain form described above: the single column
+    of rows with their fields open, the select and Add item button, and the server's
+    errors beside each field. Every addition for the script is hidden or inside a
+    `<template>` until `menutree.js` runs.
 * **Menus** save through `menu.ReplaceMenu`, one transaction: all items or none.
 * **`hm/searchselect`** is the minimal combobox behind menu items, linking rules and the
   homepage (`<admin>/pick/*` returns JSON). Typed text without JS is resolved on save by

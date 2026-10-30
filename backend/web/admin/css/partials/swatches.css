@@ -1,0 +1,20 @@
+/* Swatches: a radio group of colour dots with a name; the checked one gets an ink ring. The script sets
+   --swatch through the CSSOM. Token values only; the contract is components.json. */
+.hm-swatches { --swatch: var(--border); display: inline-flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
+.hm-swatches__opt {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 0 var(--space-2); height: var(--control-h-sm); border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text);
+  font-family: var(--font-ui); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-none);
+  cursor: pointer; transition: background-color 120ms var(--ease);
+}
+.hm-swatches__opt:hover { background: var(--surface-hover); }
+.hm-swatches__dot { width: 1rem; height: 1rem; flex: none; border-radius: 50%; background: var(--swatch); border: 1px solid var(--border-control); }
+.hm-swatches__opt[aria-checked="true"] .hm-swatches__dot { box-shadow: 0 0 0 2px var(--text); }
+.hm-swatches__opt:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-swatches__name { white-space: nowrap; }
+/* Compact: the dots alone in one row; the name is still the accessible name and the tooltip. */
+.hm-swatches--compact { flex-wrap: nowrap; }
+.hm-swatches--compact .hm-swatches__opt { padding: 0 var(--space-1); }
+.hm-swatches--compact .hm-swatches__name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hm-swatches--compact .hm-swatches__opt { position: relative; }
