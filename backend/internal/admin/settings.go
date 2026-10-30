@@ -67,6 +67,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/general", a.handleGeneral)
 	owner.HandleFunc("POST /settings/general/identity", a.handleSiteSave)
 	owner.HandleFunc("POST /settings/general/contact", a.handleContactSave)
+	owner.HandleFunc("POST /settings/general/locale/{tag}", a.handleLocaleSave)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
 }

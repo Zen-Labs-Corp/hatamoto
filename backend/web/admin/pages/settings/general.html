@@ -1,7 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/searchselect{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-<nav class="hm-jumpnav" aria-label="On this page"><a href="#identity">Identity</a><a href="#homepage-section">Homepage</a><a href="#contact">Business details</a><a href="#email">Email</a></nav>
+<nav class="hm-jumpnav" aria-label="On this page"><a href="#identity">Identity</a><a href="#homepage-section">Homepage</a><a href="#contact">Business details</a>{{if .Locales}}<a href="#locale-cards">Locales</a>{{end}}<a href="#email">Email</a></nav>
 <section id="identity" class="hm-stack">
 <form method="post" action="{{adminPath}}/settings/general/identity" class="hm-cardform">
 {{template "hm/csrf" $}}
@@ -49,7 +49,22 @@
 </form>
 </section>
 
-<section id="email" class="hm-stack">
+{{if .Locales}}<section id="locale-cards" class="hm-stack">
+{{template "hm/card-start" dict "ID" "locales-card" "Title" "Locales" "Description" "Each locale can override the business details above. An empty field uses the site-wide value, shown as grey text."}}
+{{range .Locales}}<details class="hm-disclosure" id="locale-{{.Anchor}}"{{if .Open}} open{{end}}><summary>{{.Name}} {{template "hm/badge" dict "Label" .Tag "Mono" true}} {{template "hm/badge" dict "Label" .Badge "Kind" .BadgeKind}}</summary><div class="hm-disclosure__body">
+<form method="post" action="{{.Action}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save {{.Name}}</button>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{.Form}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" (printf "Save %s" .Name) "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form></div></details>
+{{end}}{{template "hm/card-end"}}
+</section>
+
+{{end}}<section id="email" class="hm-stack">
 {{template "hm/card-start" dict "ID" "email-card" "Title" "Email" "Heading" "h2" "Description" "Password resets, invitations and form notifications."}}
 <div class="hm-setlist"><div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>

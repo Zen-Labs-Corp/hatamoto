@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -77,6 +78,21 @@ func (f *fakeSite) Get(context.Context) (*siteconfig.Config, error) {
 	defer f.mu.Unlock()
 	c := f.cfg
 	return &c, nil
+}
+
+// SetLocaleProfile merges one locale into the stored map like the SQL does.
+func (f *fakeSite) SetLocaleProfile(_ context.Context, tag string, raw json.RawMessage) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := map[string]json.RawMessage{}
+	_ = json.Unmarshal(f.cfg.LocaleProfiles, &m)
+	if len(raw) == 0 {
+		delete(m, tag)
+	} else {
+		m[tag] = raw
+	}
+	f.cfg.LocaleProfiles, _ = json.Marshal(m)
+	return nil
 }
 
 func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error) {

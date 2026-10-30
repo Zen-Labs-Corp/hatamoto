@@ -22,6 +22,10 @@ type generalData struct {
 	bizValues map[string]any
 	bizErrs   schemaform.Errors
 	bizOpen   string
+	// loc is a failed or structural save of one locale card.
+	loc *localeEdit
+
+	Locales []localeCard
 }
 
 func (a *Admin) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +59,11 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 	}
 	biz, err := siteBusinessHTML(g.bizValues, g.bizErrs, g.bizOpen)
 	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
+		return
+	}
+	if g.Locales, err = a.localeCards(cfg, g.loc); err != nil {
+		a.logger().Error("locale cards failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
 		return
 	}

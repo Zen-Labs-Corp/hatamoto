@@ -6,6 +6,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -47,6 +48,8 @@ type UserReader interface {
 type SiteStore interface {
 	Get(ctx context.Context) (*siteconfig.Config, error)
 	Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error)
+	// SetLocaleProfile stores one locale's business details; empty raw clears it.
+	SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error
 }
 
 // OwnerCreator creates the first owner (auth.Bootstrap).
