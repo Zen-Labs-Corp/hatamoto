@@ -46,6 +46,8 @@ type Badge struct {
 	// Plain drops the dot of a neutral label, Wrap lets long text wrap, Mono is a read-only
 	// identifier or tag (monospace, wraps). A coloured Kind keeps its dot either way.
 	Plain, Wrap, Mono bool
+	// Size "sm" is the compact pill (hm-badge--sm); empty is the default size.
+	Size string
 }
 
 // Cell is one table cell: text, optionally a link, or a badge, optionally followed by a

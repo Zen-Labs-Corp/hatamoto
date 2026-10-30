@@ -27,7 +27,7 @@ const map = {
   "shield-check": "shield-check", shield: "shield", globe: "globe", key: "key-round", mail: "mail", lock: "lock", send: "send",
   database: "database", refresh: "refresh-cw", sparkles: "sparkles", layers: "layers", maximize: "maximize-2", cloud: "cloud",
   inbox: "inbox", menu: "menu", link: "link", "corner-up-right": "corner-up-right", bot: "bot", tag: "tags", layout: "layout-template",
-  languages: "languages", archive: "archive", "file-up": "file-up", "file-down": "file-down", home: "home",
+  languages: "languages", star: "star", archive: "archive", "file-up": "file-up", "file-down": "file-down", home: "home",
   // editor
   grip: "grip-vertical", indent: "indent", outdent: "outdent", heading: "heading", list: "list", "list-ordered": "list-ordered",
   quote: "quote", code: "code", table: "table", minus: "minus", video: "video", bold: "bold", italic: "italic",

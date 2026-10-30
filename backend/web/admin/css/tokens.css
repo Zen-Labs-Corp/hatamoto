@@ -86,6 +86,7 @@
   --control-h-sm: 32px;
   --control-h-xs: 28px;
   --badge-h: 22px;
+  --badge-h-sm: 15px; /* compact pill (hm-badge--sm) */
   --chip-h: 1.5rem;
   --sidebar-w: 224px;
   --subnav-w: 208px;
@@ -139,6 +140,7 @@
   --shadow-3: 0 16px 48px rgb(0 0 0 / 0.18);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
+  --text-2xs: 10px; /* compact badge text */
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;

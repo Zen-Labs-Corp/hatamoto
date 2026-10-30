@@ -21,3 +21,6 @@
 .hm-badgelist li { min-width: 0; max-width: 100%; }
 .hm-badge__icon { display: inline-flex; }
 .hm-badge__icon .hm-icon { width: 12px; height: 12px; }
+/* Size "sm": a compact secondary label (Browse cards). Muted ink; an icon keeps the accent. Last so it wins over the neutral Plain ink. */
+.hm-badge.hm-badge--sm { gap: var(--space-0-5); height: var(--badge-h-sm); padding: 0 var(--space-1); font-size: var(--text-2xs); line-height: var(--leading-none); color: var(--text-muted); background: var(--color-shiro); }
+.hm-badge--sm .hm-badge__icon .hm-icon { width: 8px; height: 8px; color: var(--color-accent); }
