@@ -40,13 +40,11 @@
 .hm-bs-linkbtn[data-link="vertical"]::before { content: "\2195"; }
 .hm-bs-linkbtn[data-link="horizontal"]::before { content: "\2194"; }
 
-/* Pressed and checked options: a light grey fill and a 1px ink ring, ink text (readable in light and dark; accent text on a light surface was not). */
+/* Pressed and checked options: grey fill, 1px ink ring, ink text. */
 .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--color-sumi); color: var(--color-sumi); }
 .hm-bs-opt--inherited[aria-pressed="true"], .hm-bs-opt--inherited[aria-checked="true"] { border-color: var(--color-sumi); box-shadow: none; }
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
-  /* An inherited option keeps its dashed border as the only edge: a solid outline would paint over it. */
-  /* Keep :focus-visible out: builder.css gives it the 2px ring at the same specificity, and this file loads later. */
   .hm-bs-opt:not(.hm-bs-opt--inherited, :focus-visible), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-linkbtn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }

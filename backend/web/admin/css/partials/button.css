@@ -25,15 +25,15 @@
 .hm-btn--danger { background: var(--color-danger); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
 .hm-btn--danger:hover { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); filter: brightness(0.92); }
 .hm-btn--danger:active { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
-/* Hover and press must not wipe the pressed ring on a ghost toggle (the ghost rules above reset box-shadow). */
+/* keep the pressed ring on ghost toggles */
 .hm-btn[aria-pressed="true"]:hover, .hm-btn[aria-pressed="true"]:active { box-shadow: inset 0 0 0 1px var(--color-sumi); }
 .hm-btn--danger-text { color: var(--color-danger); }
 .hm-btn--danger-text:hover, .hm-btn--danger-text:focus-visible { color: var(--color-danger); background: var(--color-kasumi); }
 .hm-btn--sm { --h: var(--control-h-sm); padding: 0 calc(var(--space-2) + var(--space-px)); }
 .hm-btn--icon, .hm-btn[data-icon-only] { padding: 0; width: var(--h); }
-.hm-bubble .hm-btn { box-shadow: none; } /* the ink toolbar keeps its flat icon buttons */
+.hm-bubble .hm-btn { box-shadow: none; }
 @media (forced-colors: active) {
-  .hm-btn, .hm-btn:focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; } /* the reset in base.css is (0,2,0) and would drop the only edge */
+  .hm-btn, .hm-btn:focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .hm-btn[disabled], .hm-btn[disabled]:focus:not(:focus-visible), .hm-btn[aria-disabled="true"], .hm-btn[aria-disabled="true"]:focus:not(:focus-visible) { outline-color: GrayText; }
   .hm-btn:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
   .hm-btn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
