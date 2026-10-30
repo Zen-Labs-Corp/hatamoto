@@ -17,7 +17,7 @@ opens/filters/inserts/Escape, bubble menu appears on selection and applies Bold.
       same URLs the import map resolves (no second fetch of a module), each with
       its `integrity`; a plain list page loads the admin entry and `components` only
       and no editor module (`pageeditor`, `blogeditor`, `editor/*`); each other page
-      loads just the modules its `modules` block names (`menutree` with `menukeys`, `menudrag`, `menuinspector` and `menupreview` on the menu editor,
+      loads just the modules its `modules` block names (`menutree` with `menukeys`, `menudrag`, `menuinspector`, `menupreview` and `menuadd` on the menu editor,
       `charts` on the three analytics tabs, `pluginframe` on a plugin page,
       `searchselect`, `repeater` and `content` where the page uses them); only the page
       and blog editors add the Tiptap graph (62 files).
