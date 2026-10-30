@@ -17,7 +17,7 @@
 {{if not .ChipsOutside}}{{template "hm/filterchips" .}}{{end}}
 {{template "hm/indicator" dict "ID" (printf "%s-busy" .ID) "Text" "Loading results"}}</form>{{end}}
 
-{{define "hm/filterbar-search"}}{{if .SearchLabel}}<label class="hm-visually-hidden" for="{{.ID}}-q">{{.SearchLabel}}</label><input class="hm-field__control hm-table__search" type="search" id="{{.ID}}-q" name="q" value="{{.Query}}" placeholder="{{.SearchLabel}}">{{end}}{{end}}
+{{define "hm/filterbar-search"}}{{if .SearchLabel}}<label class="hm-visually-hidden" for="{{.ID}}-q">{{.SearchLabel}}</label>{{if .Bare}}<div class="hm-input-affix hm-table__search"><span class="hm-affix" aria-hidden="true">{{icon "search"}}</span><input class="hm-field__control" type="search" id="{{.ID}}-q" name="q" value="{{.Query}}" placeholder="{{.SearchLabel}}"></div>{{else}}<input class="hm-field__control hm-table__search" type="search" id="{{.ID}}-q" name="q" value="{{.Query}}" placeholder="{{.SearchLabel}}">{{end}}{{end}}{{end}}
 {{define "hm/filterbar-segmented"}}{{with .Segmented}}{{template "hm/segmented" (dict "Mode" "radio" "Label" .Label "Name" .Name "Items" .Items "Attrs" (attrmap "id" (printf "%s-seg" $.ID)))}}{{end}}{{end}}
 {{define "hm/filterbar-primary"}}{{range $i, $f := .PrimaryFilters}}<label class="hm-visually-hidden" for="{{$.ID}}-p{{$i}}">{{$f.Label}}</label>{{template "hm/select" (dict "ID" (printf "%s-p%d" $.ID $i) "Name" $f.Name "Options" $f.Options)}}
 {{end}}{{end}}
