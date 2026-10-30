@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	// convertMaxPlan is the longest plan, in bytes, the page accepts.
+	// convertMaxPlan is the longest plan, in bytes, the page accepts. It is
+	// checked right after the form is read and before the plan is parsed. The
+	// form itself is read by the CSRF guard first, so the request body is only
+	// bounded by the 10 MiB limit of Go's form parser.
 	convertMaxPlan = 1 << 20
-	// convertMaxBody caps a form body: a plan of convertMaxPlan bytes grows
-	// when form-encoded.
-	convertMaxBody = 4 << 20
 
 	convertApplyPhrase  = "convert"
 	convertRevertPhrase = "revert"
@@ -182,7 +182,6 @@ func (a *Admin) handleConvert(w http.ResponseWriter, r *http.Request) {
 // convertPlanText reads the posted plan. It reports false, with the page already
 // answered, when the plan is too large.
 func (a *Admin) convertPlanText(w http.ResponseWriter, r *http.Request) (string, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, convertMaxBody)
 	if err := r.ParseForm(); err != nil {
 		a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
 		return "", false
@@ -473,12 +472,15 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	if !a.convertReady(w, r) {
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, convertMaxBody)
 	if err := r.ParseForm(); err != nil {
 		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The plan is larger than 1 MiB.")
 		return
 	}
 	text, sha, fp := r.PostFormValue("plan"), r.PostFormValue("plan_sha256"), r.PostFormValue("data_fingerprint")
+	if len(text) > convertMaxPlan {
+		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The plan is larger than 1 MiB.")
+		return
+	}
 	dc := a.convertApplyDanger(r, text, sha, fp)
 	dc, ok := CheckDangerPhrase(r, dc)
 	if !ok {
@@ -486,7 +488,7 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	plan, err := localeconv.ParsePlan(strings.NewReader(text))
-	if err != nil || len(text) > convertMaxPlan {
+	if err != nil {
 		a.renderConvert(w, r, http.StatusUnprocessableEntity, convertData{Plan: text, PlanError: "The plan could not be read. Run the dry run again"})
 		return
 	}

@@ -346,6 +346,22 @@ func TestLocaleConvertApplyIsBoundToTheDryRun(t *testing.T) {
 	}
 }
 
+func TestLocaleConvertApplyRefusesALargePlanBeforeParsingIt(t *testing.T) {
+	t.Parallel()
+
+	g, fc, _, _ := newConvertRig(t)
+	g.elevate("owner-token")
+	// A valid plan padded past the limit: only the size check can refuse it.
+	big := convertPlanJSON + strings.Repeat(" ", convertMaxPlan)
+	form := url.Values{"plan": {big}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"fp-1"}, "confirm_phrase": {"convert"}}
+	if rec := g.do("POST", convertBase+"/apply", "owner-token", form, nil); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("large plan: %d, want 413", rec.Code)
+	}
+	if len(fc.applied) != 0 {
+		t.Error("a large plan was applied")
+	}
+}
+
 func TestLocaleConvertReportWithoutAFingerprintOffersNoApply(t *testing.T) {
 	t.Parallel()
 
