@@ -109,6 +109,9 @@ func (a *analysis) warnf(code, entityID, format string, args ...any) {
 }
 
 func (a *analysis) run() {
+	if a.snap.Site.TriggerGuardMissing {
+		a.errorf(CodeTriggerGuardMissing, "", "the site predates the multi-locale migration: entity_locale_retag() has no two-locale guard, run migrate up first")
+	}
 	a.rep.Errors = append(a.rep.Errors, a.plan.Validate()...)
 	if len(a.rep.Errors) > 0 {
 		return

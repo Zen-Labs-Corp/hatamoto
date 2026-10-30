@@ -301,3 +301,12 @@ func TestAnalyzeIsDeterministic(t *testing.T) {
 		t.Errorf("report has null lists: %s", ja)
 	}
 }
+
+func TestAnalyzeTriggerGuardMissing(t *testing.T) {
+	snap := fixtureSnap()
+	snap.Site.TriggerGuardMissing = true
+	_, rep := Analyze(snap, fixturePlan(t))
+	if rep.OK || !hasCode(rep.Errors, CodeTriggerGuardMissing) {
+		t.Errorf("errors = %+v", rep.Errors)
+	}
+}

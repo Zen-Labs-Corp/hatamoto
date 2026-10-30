@@ -200,6 +200,10 @@ type ApplyOpts struct {
 	// Fingerprint is the data_fingerprint of the dry run the admin showed.
 	// Apply refuses when the data changed since. Empty skips the check (CLI).
 	Fingerprint string
+
+	// failAfter makes Apply fail once the named step ran (tests prove the
+	// transaction rolls back as a whole).
+	failAfter string
 }
 
 // Record is the stored result of an applied conversion.
