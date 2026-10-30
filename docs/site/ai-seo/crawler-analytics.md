@@ -69,7 +69,15 @@ Anyone can forge a user-agent string, so a background job checks each hit agains
 
 IP ranges come from the operators' own JSON lists: Google, Bing, OpenAI (three lists), Perplexity (two lists), Anthropic, CCBot, DuckDuckGo, Apple and Ahrefs. They are downloaded only by a background job, never at request time, with a 20 second timeout and a 4 MiB cap, and stored in the database so a restart does not forget them. A failed download keeps the previous ranges. If a list can never be fetched, the agents that depend on it end up `unverifiable`, not `spoofed`.
 
-The IP of a hit is the client IP the server sees: the rightmost untrusted `X-Forwarded-For` entry. Behind a CDN that is the CDN's address. See [Access-log ingest](access-log-ingest.md#the-client-ip-caveat).
+The IP of a hit is the client IP the server sees: the rightmost untrusted `X-Forwarded-For` entry. Behind Cloudflare that would be the edge address, so set `HATAMOTO_TRUSTED_CDN=cloudflare` to read the visitor from `CF-Connecting-IP` instead (see [Trusted CDN](../operate/configuration-reference.md#trusted-cdn) and [Access-log ingest](access-log-ingest.md#the-client-ip-caveat)). A truncated IP identifies only a network, so it is never checked against ranges and is marked `unverifiable`, not `spoofed`.
+
+An upgrade runs a one-time migration over the hits of the last 7 days that were marked `spoofed`: they go back to `pending` and are judged again with the address now in use (truncated ones become `unverifiable`). Older untruncated verdicts cannot be re-checked and stay.
+
+### Verification health
+
+The top of **Crawlers** shows a banner once at least 20 fetches from agents with published IP ranges were decided (`verified` or `spoofed`) in the selected range. It is green, **Verification is healthy**, when at most 20% of them were spoofed, and red, **Verification looks misconfigured**, above that. It says which header client IPs are read from, how many distinct IPs the spoofed fetches came from, and links to the details on **Health**. A red banner that mostly names Cloudflare addresses tells you to set `HATAMOTO_TRUSTED_CDN=cloudflare`. After you do, the banner stays red until the fetches recorded earlier leave the selected date range. With fewer than 20 decided fetches there is no banner.
+
+AI agents get the same numbers from the MCP tool `analytics_crawler_verification` (date range in; level `ok`, `bad` or `unknown`, verified, spoofed and unverifiable counts, spoofed share, distinct spoofed IPs and the header in use out).
 
 ## Background jobs and retention
 

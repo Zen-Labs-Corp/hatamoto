@@ -228,6 +228,8 @@ Residual risks, stated plainly:
 | Guarantee | Package | Tests |
 |---|---|---|
 | `X-Forwarded-For` is believed only from a trusted proxy (loopback by default; the right-most untrusted hop wins; a spoofed left entry is ignored) | `internal/middleware` | `TestGetIP_RightmostUntrusted`, `TestGetIP_AllPrivateChainFallsBack` |
+| With `HATAMOTO_TRUSTED_CDN=cloudflare`, `CF-Connecting-IP` is believed only behind a Cloudflare edge address (a forged header from any other peer is ignored), and the CDN ranges never count as trusted proxies for scheme or host | `internal/middleware` | `TestGetIP_CDN`, `TestGetIP_CDNDoesNotWidenProxyTrust`, `TestClientIPInfo`, `TestGetIP_ConcurrentSwap` |
+| `HATAMOTO_TRUSTED_CDN` accepts `cloudflare` or `off` and rejects any other name | `internal/config` | `TestTrustedCDNParsing` |
 | `HATAMOTO_TRUSTED_PROXIES` accepts CIDRs and addresses and rejects anything else | `internal/config` | `TestTrustedProxiesParsing` |
 | The site's base URL follows forwarded headers only from trusted proxies | `internal/server` | `TestDetermineBaseURLHonoursForwardedHeadersOnlyFromTrustedProxies` |
 | Unsafe admin methods need a session-bound synchronizer token. The admin sets no readable CSRF cookie; the legacy `hatamoto_csrf` cookie is only cleared | `internal/admin` | `TestCSRFOnUnsafeMethods`, `TestGuardUnsafeNeedsToken` |

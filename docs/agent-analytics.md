@@ -292,8 +292,17 @@ that must match the endpoint:
 - gzip on (the default for HTTP destinations, accepted via `Content-Encoding: gzip`).
 
 **Client IP caveat.** Verification (Phase 2) trusts the IP stored with a hit.
-The server uses the rightmost untrusted `X-Forwarded-For` entry; if a CDN
-or proxy is placed in front of the site, that entry is the CDN's address and
-real crawlers would look `spoofed`. Logs are the fix: use the log's own
-`client_ip` (Caddy `trusted_proxies`) or Logpush `ClientIP`, which is the
-original visitor. Today hatamoto.dev has no CDN in front.
+The server uses the rightmost untrusted `X-Forwarded-For` entry. Behind
+Cloudflare that entry is a Cloudflare edge address and real crawlers would look
+`spoofed`; set `HATAMOTO_TRUSTED_CDN=cloudflare` so the visitor is read from
+`CF-Connecting-IP` instead (only when the hop is a Cloudflare edge address; the
+ranges are refreshed daily from cloudflare.com, with a built-in fallback).
+Caddy log lines are handled the same way: when the logged address is an edge,
+the logged `Cf-Connecting-Ip` header is used, and when there is none the hit is
+stored with no IP and verifies as `unverifiable`, never as `spoofed`. Logpush's
+`ClientIP` is already the original visitor. A truncated IP is a network, so it
+is never checked against published ranges and ends as `unverifiable`. A
+migration re-verifies the last 7 days of hits that were judged against edge
+addresses (truncated ones become `unverifiable`); older untruncated verdicts
+stay. The Crawlers page shows a verification banner, and the MCP tool
+`analytics_crawler_verification` reports the same numbers.

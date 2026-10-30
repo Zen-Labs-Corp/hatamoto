@@ -80,9 +80,19 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
 
 The repository's own site file, `deploy/caddy/hatamoto.dev.caddy`, adds extras for the project's own host: it serves signed release files and the plugin registry as static files, and answers Go import paths. A self-hosted site needs none of that; if you run your own package registry or release server, see [SDK and registry](../migrate-contribute/sdk-and-registry.md). To feed the proxy's access log into crawler analytics, see [Access-log ingest](../ai-seo/access-log-ingest.md); it needs `AGENT_LOG_INGEST`, a secret and, for Caddy, the path of the JSON log file.
 
+## Behind Cloudflare
+
+If Cloudflare proxies your domain and forwards to your Caddy (or nginx) on the server, the connection the app sees is Cloudflare, then your proxy. To make the app see the real visitor:
+
+1. Set `HATAMOTO_TRUSTED_CDN=cloudflare` in the app's environment and restart. Keep `HATAMOTO_TRUSTED_PROXIES` pointing at your own proxy (loopback by default). See [Trusted CDN](configuration-reference.md#trusted-cdn).
+2. Leave Caddy's `reverse_proxy` defaults alone. It adds the address it saw (a Cloudflare edge address) to `X-Forwarded-For`, and Cloudflare's `CF-Connecting-IP` header passes through to the app unchanged, which is what the app reads. Do not strip or rewrite that header in the proxy.
+3. Only Cloudflare should reach your proxy. If clients can also connect to the origin directly, a forged `CF-Connecting-IP` from them is ignored (it is believed only behind an edge address), but a firewall that admits only Cloudflare's published ranges is the stronger setup.
+
+Optionally, give Caddy the same ranges so that its access log also carries the visitor in `client_ip`: add Cloudflare's addresses under `trusted_proxies` in the Caddy `servers` options. With the preset on, Hatamoto's own log ingest works without that; see [Access-log ingest](../ai-seo/access-log-ingest.md#the-client-ip-caveat).
+
 ## Outbound requests
 
-Hatamoto itself makes few outbound requests. The one that runs by default is the daily download of AI-crawler IP ranges used to verify crawler analytics. If your server sits behind an egress firewall, or you want no third-party contact, set `HATAMOTO_AGENT_RANGES=off`. Verification then falls back to reverse DNS, which uses your resolver, not HTTP; details in the [configuration reference](configuration-reference.md#crawler-ip-range-refresh).
+Hatamoto itself makes few outbound requests. The one that runs by default is the daily download of AI-crawler IP ranges used to verify crawler analytics. If your server sits behind an egress firewall, or you want no third-party contact, set `HATAMOTO_AGENT_RANGES=off`. The Cloudflare preset also stops refreshing its address list and keeps the stored or built-in one. Verification then falls back to reverse DNS, which uses your resolver, not HTTP; details in the [configuration reference](configuration-reference.md#crawler-ip-range-refresh).
 
 ## Check it worked
 
