@@ -34,7 +34,7 @@ func clientIPSentence(src middleware.ClientIPSource) string {
 	if src.ProxiesConfigured {
 		return "Client IPs are read from " + src.Header + " behind your trusted proxies."
 	}
-	return "Client IPs are read from " + src.Header + " behind a loopback proxy."
+	return "Client IPs are read from the connection, or " + src.Header + " from a loopback proxy."
 }
 
 // ipsText counts addresses: "1 IP", "380 IPs", "3 cloud IPs".
@@ -66,16 +66,29 @@ func verifyBannerFor(h agents.VerificationHealth, src middleware.ClientIPSource,
 			b.Href, b.LinkText = "", ""
 			return b
 		}
-		b.Lead += "; " + fmtNum(h.Spoofed) + " spoofed fetches came from " + ipsText(h.SpoofedIPs, h.SpoofedIPs > 0 && h.SpoofedIPsInCDN == h.SpoofedIPs) + " ("
+		if h.SpoofedIPs == 0 {
+			// The rollup outlives the raw hits: there is no IP list to link to.
+			b.Lead += "; " + fmtNum(h.Spoofed) + " spoofed fetches."
+			b.Href, b.LinkText = "", ""
+			return b
+		}
+		b.Lead += "; " + fmtNum(h.Spoofed) + " spoofed fetches came from " + ipsText(h.SpoofedIPs, h.SpoofedIPsInCDN == h.SpoofedIPs) + " ("
 		b.Tail = ")."
 		return b
 	}
 	b.Kind, b.Title = "danger", "Verification looks misconfigured."
 	b.Lead = fixed(ratio(h.Spoofed, decided), 0) + " of fetches from agents with published IP ranges failed. " +
-		fmtNum(h.Spoofed) + " spoofed fetches from " + ipsText(h.SpoofedIPs, false) + " ("
-	b.Tail = "). " + clientIPSentence(src)
+		fmtNum(h.Spoofed) + " spoofed fetches"
+	if h.SpoofedIPs == 0 {
+		b.Href, b.LinkText = "", ""
+		b.Tail = ". "
+	} else {
+		b.Lead += " from " + ipsText(h.SpoofedIPs, false) + " ("
+		b.Tail = "). "
+	}
+	b.Tail += clientIPSentence(src)
 	switch {
-	case src.CDN:
+	case src.CDN && h.SpoofedIPsInCDN*2 > h.SpoofedIPs:
 		b.Tail += " Fetches recorded before the setting stay counted until they leave the selected range."
 	case h.SpoofedIPs > 0 && h.SpoofedIPsInCDN*2 > h.SpoofedIPs:
 		b.Tail += " Most of these IPs belong to Cloudflare: set HATAMOTO_TRUSTED_CDN=cloudflare."

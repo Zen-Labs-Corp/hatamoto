@@ -181,7 +181,7 @@ func TestCrawlersVerifyBanner(t *testing.T) {
 	}{
 		{"red", red, nil, []string{
 			"Verification looks misconfigured.", "of fetches from agents with published IP ranges failed. 1,200 spoofed fetches from 380 IPs (",
-			`>see them</a>`, "Client IPs are read from X-Forwarded-For behind a loopback proxy.",
+			`>see them</a>`, "Client IPs are read from the connection, or X-Forwarded-For from a loopback proxy.",
 			"Most of these IPs belong to Cloudflare: set HATAMOTO_TRUSTED_CDN=cloudflare.", "hm-callout--danger", `href="/admin/analytics/health?compare=1&amp;from=2026-01-01&amp;to=2026-01-03#w-h-ver"`,
 		}, []string{"Verification is healthy."}},
 		{"red, not cloud", agents.VerificationHealth{Verified: 10, Spoofed: 40, SpoofedIPs: 5, SpoofedIPsInCDN: 1}, nil,
@@ -248,12 +248,24 @@ func TestVerifyBannerHeaderWording(t *testing.T) {
 	off := middleware.ClientIPSource{Header: "X-Forwarded-For"}
 	on := middleware.ClientIPSource{Header: "CF-Connecting-IP", CDN: true}
 	got := text(off, bad)
-	if !strings.Contains(got, "read from X-Forwarded-For behind a loopback proxy.") || !strings.Contains(got, "set HATAMOTO_TRUSTED_CDN=cloudflare") {
+	if !strings.Contains(got, "read from the connection, or X-Forwarded-For from a loopback proxy.") || !strings.Contains(got, "set HATAMOTO_TRUSTED_CDN=cloudflare") {
 		t.Errorf("preset off: %q", got)
 	}
 	got = text(on, bad)
 	if !strings.Contains(got, "read from CF-Connecting-IP behind your trusted proxy.") || strings.Contains(got, "set HATAMOTO_TRUSTED_CDN") || !strings.Contains(got, "until they leave the selected range") {
 		t.Errorf("preset on: %q", got)
+	}
+	// Preset on but the spoofed IPs are not CDN addresses: the proxy is the fault, not the age of the data.
+	got = text(on, agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 4, SpoofedIPsInCDN: 1})
+	if strings.Contains(got, "until they leave the selected range") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") {
+		t.Errorf("preset on, IPs outside the CDN: %q", got)
+	}
+	// Rollup kept, raw hits gone: no "from 0 IPs", no link to an empty list.
+	for _, h := range []agents.VerificationHealth{{Verified: 10, Spoofed: 90}, {Verified: 98, Spoofed: 2}} {
+		b := verifyBannerFor(h, off, "/x")
+		if got := b.Lead + b.Tail; strings.Contains(got, "0 IP") || strings.Contains(got, "()") || b.Href != "" || !strings.Contains(got, "spoofed fetches") {
+			t.Errorf("no raw IPs left: %q href=%q", got, b.Href)
+		}
 	}
 	got = text(middleware.ClientIPSource{Header: "X-Forwarded-For", ProxiesConfigured: true}, agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 1})
 	if !strings.Contains(got, "from 1 IP (") || !strings.Contains(got, "behind your trusted proxies.") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") {
