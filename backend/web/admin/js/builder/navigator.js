@@ -270,6 +270,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     if (renameBtn) renameBtn.disabled = !sel;
     if (collapseBtn) collapseBtn.querySelector("span").textContent = allCollapsed(doc, collapsed, fieldsOf) ? "Expand all" : "Collapse all";
     const active = document.activeElement;
+    if (force && !root.contains(active)) ff = null; // focus came from elsewhere (a palette add, a canvas pick): the new selection takes the tab stop
     const hadFocus = root.contains(active) || force || (wantFocus && (!active || active === document.body));
     force = false;
     wantFocus = false;
@@ -473,6 +474,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     onSelect(row.dataset.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, pick: !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) && !(e.detail > 1) });
   });
   root.addEventListener("focusin", (e) => (ff = e.target.dataset?.field != null ? e.target.dataset.id : null));
+  root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
   root.addEventListener("keydown", (e) => {
     const row = e.target.closest?.("[data-id]");
     if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onField(row.dataset.comp, row.dataset.field)) : undefined;

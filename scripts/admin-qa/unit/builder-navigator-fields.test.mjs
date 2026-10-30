@@ -242,6 +242,22 @@ test("act: arrow onto another section's field row selects that section, keeps th
   document.activeElement = null;
 });
 
+test("a remembered field row is dropped when focus leaves the tree, so a forced draw focuses the selection", () => {
+  const m = mount({ selected: "s2" });
+  const stopOf = () => m.rows().find((r) => r.attrs.tabindex === "0").attrs["data-id"];
+  m.rootEl.listeners.focusin({ target: { dataset: { id: "s1#body", field: "body" } } });
+  m.tree.draw();
+  assert.equal(stopOf(), "s1#body", "the field row keeps the tab stop while focus is in the tree");
+  m.rootEl.listeners.focusout({ relatedTarget: { outside: true } });
+  m.tree.draw();
+  assert.equal(stopOf(), "s2");
+  m.rootEl.listeners.focusin({ target: { dataset: { id: "s1#body", field: "body" } } });
+  document.activeElement = { outside: true };
+  m.tree.draw(true); // e.g. a section added from the palette
+  assert.equal(stopOf(), "s2");
+  document.activeElement = null;
+});
+
 test("screen.js: the drag pick skips field rows and onField opens the Inspector field", () => {
   const src = readFileSync(new URL("../../../backend/web/admin/js/builder/screen.js", import.meta.url), "utf8");
   assert.match(src, /closest\?\.\("[^"]*\[data-field\][^"]*"\) \? null/);
