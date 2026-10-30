@@ -284,6 +284,196 @@ try {
   ok((await rowsOf(page)).length === full.length - 7, "A7: Ctrl+Shift+Z redoes it");
   await page.keyboard.press("Control+z");
 
+  // ---- L: layout, compact rows, the Add popover, pickers and the save bar ---------
+  await reopen();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const box = async (sel) => (await page.locator(sel).first().boundingBox());
+  const visibleRows = () => page.locator("[data-hm-item]:not([hidden])");
+  const guidesOk = () => page.$$eval("[data-hm-item]", (ls) => {
+    const level = (() => { const d1 = ls.find((l) => l.dataset.depth === "1"); return d1 ? parseFloat(getComputedStyle(d1).backgroundSize) : 0; })();
+    return ls.every((l) => {
+      const d = Number(l.dataset.depth);
+      const w = parseFloat(getComputedStyle(l).backgroundSize);
+      return d === 0 ? w === 0 : level > 0 && Math.abs(w - d * level) < 1.5;
+    });
+  });
+
+  // ISC-27 to 30: the grid at 1440 px, the sticky inspector, one column at 900 px
+  const tree = await box("#menu-items");
+  const ins = await box("#menu-inspector");
+  const prev = await box("#menu-preview");
+  ok(ins.x >= tree.x + tree.width - 1 && Math.abs(ins.y - tree.y) <= 8, `ISC-27: the inspector is right of the tree with the tops within 8 px (tree ${Math.round(tree.x)},${Math.round(tree.y)} ${Math.round(tree.width)}w; inspector ${Math.round(ins.x)},${Math.round(ins.y)})`);
+  ok(prev.y >= Math.max(tree.y + tree.height, ins.y + ins.height) - 1 && Math.abs(prev.x - tree.x) <= 4 && Math.abs(prev.x + prev.width - (ins.x + ins.width)) <= 4, "ISC-28: the preview is below both and spans from the tree's left edge to the inspector's right edge");
+  await page.mouse.move(700, 500);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(250);
+  const insScrolled = await box("#menu-inspector");
+  ok(insScrolled.y >= 0 && insScrolled.y < 450, `ISC-29: the inspector stays in view after scrolling 600 px (top ${Math.round(insScrolled.y)})`);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.setViewportSize({ width: 900, height: 900 });
+  const [t9, i9, p9] = [await box("#menu-items"), await box("#menu-inspector"), await box("#menu-preview")];
+  ok(i9.y >= t9.y + t9.height - 1 && p9.y >= i9.y + i9.height - 1, "ISC-30: at 900 px the inspector is under the tree and the preview under both");
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  // ISC-31 (owner decision): Name and Location share one compact row directly under the title, above the columns
+  const title = await box("main h1");
+  const nameBox = await box("#name");
+  const locBox = await box("#location-trigger");
+  const itemsTop = (await box("#menu-items")).y;
+  ok(Math.abs(nameBox.y - locBox.y) <= 4 && nameBox.y >= title.y + title.height - 1 && nameBox.y - (title.y + title.height) <= 120 && nameBox.y + nameBox.height <= itemsTop, `ISC-31: Name and Location are on one line directly under the title and above the columns (name ${Math.round(nameBox.y)}, location ${Math.round(locBox.y)}, title bottom ${Math.round(title.y + title.height)})`);
+  ok(!(await page.locator("#menu-details").innerText()).includes("Details") && !(await page.locator("#menu-details .hm-card__head").isVisible()), "ISC-31: the Details card heading is hidden");
+
+  // ISC-32 to 34, 36, 37: compact rows, chips, the old add control gone, guides, the count
+  const heights = await visibleRows().evaluateAll((ls) => ls.map((l) => l.getBoundingClientRect().height));
+  const treeH = (await box("#menu-tree")).height;
+  ok(heights.length > 20 && Math.max(...heights) <= 44 && treeH <= 1300, `ISC-32: every row is at most 44 px tall (max ${Math.max(...heights)}) and the tree at most 1300 px (${Math.round(treeH)})`);
+  const chipsOf = async (label) => (await (await byLabel(page, label)).locator("[data-hm-chips] .hm-badge").allTextContents()).map((t) => t.trim());
+  const press = await chipsOf(LOOSE);
+  ok(press.includes("No link"), `ISC-33: a No link item shows the chip No link (${press.join(", ")})`);
+  const nopage = await chipsOf("Brand new");
+  ok(nopage.includes("No page"), `ISC-33: a Page item with no page shows No page (${nopage.join(", ")})`);
+  const docs = await chipsOf("Docs");
+  ok(["Button", "Accent", "footer-cta"].every((c) => docs.includes(c)), `ISC-33: a styled item shows its style, colour and classes (${docs.join(", ")})`);
+  const docsRow = await byLabel(page, "Docs");
+  ok((await docsRow.locator("[data-hm-chips]").isVisible()) && (await docsRow.locator("[data-hm-kind-slot] svg").count()) === 1 && (await docsRow.locator("[data-hm-handle]").isVisible()) && (await (await byLabel(page, "Product")).locator("[data-hm-collapse]").isVisible()), "ISC-33: a row shows grip, caret (on a parent), kind icon, title and chips");
+  await clickRow(page, "Security");
+  await page.locator('[data-hm-ins-type="custom"]').click();
+  await page.locator("#ins-url").fill("ftp://x");
+  ok((await chipsOf("Security")).includes("Bad address"), "ISC-33: a malformed custom address shows Bad address");
+  await page.locator("#ins-url").fill("/security");
+  const badges = await page.locator("#ins-badge option").allTextContents();
+  if (badges.some((t) => /new/i.test(t))) {
+    await page.locator("#ins-badge").selectOption({ label: badges.find((t) => /new/i.test(t)) });
+    ok((await chipsOf("Security")).some((t) => /new/i.test(t)), "ISC-33: a new-badge item shows the chip New");
+    await page.locator("#ins-badge").selectOption({ index: 0 });
+  }
+  ok(!(await page.locator(".hm-menutree__edit").first().isVisible()) && !(await page.locator("#add-type").isVisible()) && !(await page.locator('button[name="_op"][value="add"]').isVisible()), "ISC-34 and 37: with JavaScript on the per-row Edit and the old add select and button are not visible");
+  ok(await guidesOk(), "ISC-36: the depth guides follow data-depth on load");
+  const n0 = (await rowsOf(page)).length;
+  const countText = () => page.locator("[data-hm-count]").innerText().then((t) => t.trim());
+  ok((await countText()) === `${n0} items`, `ISC-37: the header says ${n0} items (${await countText()})`);
+  const header = page.locator(".hm-menutree__tools");
+  ok((await header.locator("[data-hm-filter]").isVisible()) && (await header.locator("[data-hm-collapse-all]").isVisible()) && (await header.locator("[data-hm-expand-all]").isVisible()) && (await header.locator("[data-hm-add-open]").isVisible()), "ISC-37: the header shows the filter, collapse all, expand all and Add");
+  const indentAt = (await rowsOf(page)).findIndex((r) => r[1] === LOOSE);
+  const depth0 = Number(await page.locator("[data-hm-item]").nth(indentAt).getAttribute("data-depth"));
+  await page.locator("[data-hm-item]").nth(indentAt).focus();
+  await page.keyboard.press("Alt+ArrowRight");
+  ok((await page.locator("[data-hm-item]").nth(indentAt).getAttribute("data-depth")) === String(depth0 + 1) && await guidesOk(), "ISC-36: the guides follow an indent");
+  await page.keyboard.press("Control+z");
+  ok((await page.locator("[data-hm-item]").nth(indentAt).getAttribute("data-depth")) === String(depth0) && await guidesOk(), "ISC-36: the guides follow an undo");
+  await (await byLabel(page, LOOSE)).focus();
+  await page.keyboard.press("Delete");
+  ok((await countText()) === `${n0 - 1} items`, "ISC-37: the count follows a removal");
+  await page.keyboard.press("Control+z");
+  ok((await countText()) === `${n0} items`, "ISC-37: the count follows an undo");
+
+  // ISC-35: the row actions show on hover and on focus, and the overflow menu has what the plan lists
+  const probe = await byLabel(page, "Blog");
+  await probe.scrollIntoViewIfNeeded();
+  await page.mouse.move(5, 5);
+  const opacity = (li) => li.locator(".hm-menutree__ops").evaluate((o) => getComputedStyle(o).opacity);
+  const idle = await (await byLabel(page, "Guides")).locator(".hm-menutree__ops").evaluate((o) => getComputedStyle(o).opacity);
+  await probe.hover();
+  ok(idle === "0" && (await opacity(probe)) === "1", `ISC-35: the row actions appear on hover (idle ${idle})`);
+  await page.mouse.move(5, 5);
+  await (await byLabel(page, "Templates")).locator("[data-hm-add-after]").focus();
+  ok((await opacity(await byLabel(page, "Templates"))) === "1" && await page.evaluate(() => document.activeElement?.hasAttribute("data-hm-add-after")), "ISC-35: the plus action is reachable by keyboard and shows on focus");
+  await (await byLabel(page, "Templates")).locator('[popovertarget][aria-haspopup="menu"]').click();
+  const menuItems = (await (await byLabel(page, "Templates")).locator('[role="menuitem"]').allTextContents()).map((t) => t.replace(/\s+/g, " ").trim());
+  ok(["Move to", "Duplicate", "Remove", "Indent", "Outdent"].every((w) => menuItems.some((t) => t.startsWith(w))), `ISC-35: the overflow menu has Move to, Duplicate, Remove, Indent and Outdent (${menuItems.length} items)`);
+  await page.keyboard.press("Escape");
+
+  // ISC-38: the Add popover
+  const posts = [];
+  page.on("request", (r) => { if (r.method() === "POST" && !r.url().endsWith("/menus/preview")) posts.push(r.url()); });
+  const undoOnce = () => page.locator("[data-hm-undo-all]").click();
+  const nBefore = (await rowsOf(page)).length;
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  ok(await page.waitForFunction(() => document.activeElement?.id === "add-search", null, { timeout: 2000 }).then(() => true, () => false), "ISC-38: Add opens the popover with the cursor in the page search");
+  const tabNames = await page.locator("#menu-add [role=tab]").allTextContents();
+  ok(same(tabNames, ["Pages", "Address", "Heading", "Archive"]), `ISC-38: the popover offers Pages, Address, Heading and Archive (${tabNames.join(", ")})`);
+  await page.locator("#add-pages-list [role=option]").first().waitFor();
+  const pageOpts = page.locator("#add-pages-list [role=option]");
+  const picks = [(await pageOpts.nth(0).getAttribute("data-label")), (await pageOpts.nth(1).getAttribute("data-label"))];
+  await pageOpts.nth(0).click();
+  await pageOpts.nth(1).click();
+  ok((await pageOpts.nth(0).getAttribute("aria-selected")) === "true" && (await page.locator("[data-hm-add-status]").innerText()).includes("2 pages"), "ISC-38: two pages can be selected in the list");
+  await page.locator('[data-hm-add-confirm="pages"]').click();
+  const added = (await rowsOf(page)).slice(nBefore);
+  ok(added.length === 2 && same(added.map((r) => r[1]), picks), `ISC-38: two page rows with the page titles are added (${added.map((r) => r[1]).join(", ")})`);
+  ok(await page.evaluate(() => !document.querySelector("#menu-add:popover-open") && Boolean(document.activeElement?.closest("[data-hm-item]"))), "ISC-38: the popover closes and the first new row has focus");
+  ok((await page.locator("[data-hm-item]").evaluateAll((ls, n) => ls.slice(n).map((l) => l.dataset.type), nBefore)).join() === "entity,entity", "ISC-38: the new rows are of type Page");
+  await undoOnce();
+  ok((await rowsOf(page)).length === nBefore, "ISC-38: one undo removes both pages");
+  const adds = [
+    ["address", async () => { await page.locator('[data-hm-add-label="address"]').fill("Addr"); await page.locator("#add-address-url").fill("/addr"); }, "custom", "Addr"],
+    ["heading", async () => { await page.locator('[data-hm-add-label="heading"]').fill("Head"); }, "none", "Head"],
+    ["archive", async () => { await page.locator("#add-archive-term").fill("news"); await page.waitForTimeout(700); await page.keyboard.press("Tab"); await page.waitForTimeout(300); }, "archive", "news"],
+  ];
+  for (const [tab, fill, type, label] of adds) {
+    await page.locator("[data-hm-add-open]").click();
+    await page.locator(`#add-tab-${tab}`).click();
+    await fill();
+    await page.locator(`[data-hm-add-confirm="${tab}"]`).click();
+    const last = (await rowsOf(page)).at(-1);
+    const lastType = await page.locator("[data-hm-item]").last().getAttribute("data-type");
+    ok((await rowsOf(page)).length === nBefore + 1 && last[1] === label && lastType === type, `ISC-38: ${tab} adds one ${type} row`);
+    await undoOnce();
+  }
+  const afterRow = (await rowsOf(page)).findIndex((r) => r[1] === "Docs");
+  await (await byLabel(page, "Docs")).locator("[data-hm-add-after]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await page.locator("#add-tab-heading").click();
+  await page.locator('[data-hm-add-label="heading"]').fill("After Docs");
+  await page.locator('[data-hm-add-confirm="heading"]').click();
+  const withAfter = await rowsOf(page);
+  ok(withAfter[afterRow + 1]?.[1] === "After Docs" && withAfter[afterRow + 1][0] === withAfter[afterRow][0], "ISC-35 and 38: the plus action of a row adds the new item right after it, at its level");
+  await undoOnce();
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await page.keyboard.press("Escape");
+  ok(await page.evaluate(() => !document.querySelector("#menu-add:popover-open") && document.activeElement?.hasAttribute("data-hm-add-open")), "ISC-38: Escape closes the popover and returns focus to Add");
+  ok(posts.length === 0, `ISC-38: adding rows does not post to the server (${posts.join(", ")})`);
+  // ISC-39: tiles and swatches are radio groups
+  await clickRow(page, "Blog");
+  const swatch = page.locator('[data-hm-ins-group="color"] [role="radio"]');
+  const colorField = (await byLabel(page, "Blog")).locator('[name$=".color"]');
+  ok((await page.locator('[data-hm-ins-group="color"] [role="radiogroup"]').count()) === 1 && (await page.locator('[data-hm-ins-group="style"]').getAttribute("role")) === "radiogroup", "ISC-39: the style tiles and colour swatches are radio groups");
+  ok((await swatch.evaluateAll((l) => l.filter((e) => e.getAttribute("aria-checked") === "true").length)) === 1, "ISC-39: exactly one colour is aria-checked");
+  await swatch.first().focus();
+  await page.keyboard.press("ArrowRight");
+  const second = await swatch.nth(1).getAttribute("data-value");
+  ok((await colorField.inputValue()) === second && (await swatch.nth(1).getAttribute("aria-checked")) === "true", "ISC-39: ArrowRight on a swatch selects the next colour and writes i.N.color");
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Home");
+  ok((await colorField.inputValue()) === "" && (await swatch.first().getAttribute("aria-checked")) === "true", "ISC-39: Home goes back to the first colour (Default writes nothing)");
+  const tiles = page.locator('[data-hm-ins-group="style"] input');
+  await tiles.nth(0).focus();
+  await page.keyboard.press("ArrowRight");
+  ok((await (await byLabel(page, "Blog")).locator('[name$=".style"]').inputValue()) === (await tiles.nth(1).getAttribute("value")) && await tiles.nth(1).isChecked(), "ISC-39: arrow keys move the style tile and write i.N.style");
+  await page.keyboard.press("Home");
+  ok(await swatch.first().evaluate((e) => e.style.getPropertyValue("--swatch") === "") && (await swatch.nth(1).evaluate((e) => e.style.getPropertyValue("--swatch"))) !== "", "ISC-39: each swatch gets its colour through the CSSOM");
+  await page.reload();
+  await page.waitForSelector("[data-hm-item]");
+
+  // ISC-40: the save bar is one line with both issue chips
+  await clickRow(page, "Blog");
+  await page.locator("#ins-label").fill("");
+  await page.locator('[data-hm-issue="err"]').waitFor();
+  await clickRow(page, "Brand new");
+  await page.locator('[data-hm-issue="warn"]').waitFor();
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(150);
+    const tops = await page.$$eval(".hm-savebar button:not([hidden]), .hm-savebar a, .hm-savebar [data-hm-issue]", (els) => els.filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim().replace(/\s+/g, " ").slice(0, 16), r.top + r.height / 2]; }));
+    const saveTop = tops.find((t) => t[0] === "Save")[1];
+    const off = tops.filter((t) => Math.abs(t[1] - saveTop) > 12);
+    ok(tops.length >= 8 && off.length === 0 && tops.some((t) => t[0].endsWith("to fix")) && tops.some((t) => t[0].includes("without")), `ISC-40: at ${width} px the save bar is one line with both issue chips (${tops.map((t) => t.join("@")).join(", ")})`);
+  }
+  await page.setViewportSize({ width: 1440, height: 5200 });
+  await reopen();
+
   // ---- the preview shows the unsaved tree, with a none item as a span ----------
   await clickRow(page, LOOSE);
   await page.locator("#ins-label").fill("Press room");
@@ -393,6 +583,11 @@ try {
   await plain.goto(base + footerHref);
   const row6 = await plain.$$eval("[data-hm-item]", (ls) => ls.map((l) => [l.querySelector('[name$=".label"]').value, l.dataset.type, l.querySelector('[name$=".class"]').value]));
   ok(same(row6.find((r) => r[0] === "Release notes"), ["Release notes", "custom", "footer-cta"]) && row6.find((r) => r[0] === "Status")?.[1] === "none", "A6: without JavaScript a rename, a class and No link all save");
+  await plain.goto(base + footerHref);
+  const seenJs = (sel) => plain.locator(sel).first().isVisible();
+  ok((await seenJs(".hm-menutree__edit")) && (await seenJs("#add-type")) && (await seenJs('button[name="_op"][value="add"]')) && (await seenJs("#moveto-target")), "ISC-34: without JavaScript Edit, the Add item controls and Move to are visible");
+  const jsOnly = await plain.$$eval("[data-hm-editor-only], [data-hm-chips], [data-hm-kind-slot], [data-hm-add-after], [data-hm-add-open], #menu-add", (els) => els.filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== "hidden").length);
+  ok(jsOnly === 0, `ISC-34: without JavaScript none of the editor-only markup shows (${jsOnly} visible)`);
   const foot6 = await publicFooter();
   ok(/<a [^>]*footer-cta[^>]*>Release notes<\/a>/.test(foot6) && /<span[^>]*>Status<\/span>/.test(foot6), "A6: the public footer shows the renamed link with its class and Status as a span");
 } finally {
