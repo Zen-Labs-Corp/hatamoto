@@ -87,10 +87,11 @@ export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n, top
       const top = level === 1;
       const sub = top && isCollapsed(n) ? n.c[0] : null;
       const below = sub ? (sub.c ?? []) : (n.c ?? []);
-      const fl = fieldsFor(n, top).filter((f) => !words.length || fm(f));
+      const fa = fieldsFor(n, top);
+      const fl = fa.filter((f) => !words.length || fm(f));
       const kids = shown(below).length + fl.length;
       const open = kids > 0 && (words.length > 0 || !collapsed.has(n.id));
-      out.push({ id: n.id, node: n, level, pos: ns.indexOf(n) + 1, size: ns.length, parentId, kids, expanded: open, match: hit(n, top), section: top, collapsed: sub, index: top ? doc.nodes.indexOf(n) + 1 : null });
+      out.push({ id: n.id, node: n, level, pos: ns.indexOf(n) + 1, size: ns.length, parentId, kids, fields: fa.length, expanded: open, match: hit(n, top), section: top, collapsed: sub, index: top ? doc.nodes.indexOf(n) + 1 : null });
       if (open) (walk(below, level + 1, n.id), fl.forEach((f) => out.push({ id: `${n.id}#${f.key}`, node: n, level: 2, pos: fl.indexOf(f) + 1, size: fl.length, parentId: n.id, kids: 0, expanded: false, match: words.length > 0, section: false, collapsed: null, index: null, field: f })));
     });
   };
@@ -129,7 +130,7 @@ const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 export function metaOf(row, quiet = false, colourOf = () => null) {
   if (!row.section) return "";
   const node = row.node;
-  const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length || row.kids; // a component without blocks counts its field rows
+  const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length || row.fields; // a component without blocks counts its field rows, filtered out or not
   const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
   const bg = node.s?.base?.bg;
   const bgText = typeof bg === "string" && bg.trim() ? (colourOf(bg.trim()) ?? bg.trim()) : "";

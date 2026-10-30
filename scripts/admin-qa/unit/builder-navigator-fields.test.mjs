@@ -141,6 +141,12 @@ test("metaOf counts field rows when the component has no blocks", () => {
   assert.equal(metaOf(r[1]), "");
 });
 
+test("metaOf keeps the full field count while a filter hides some fields", () => {
+  const r = rows({ filter: "build" });
+  assert.equal(r.filter((x) => x.field).length, 1);
+  assert.equal(metaOf(r[0]), "4 blocks · #102030");
+});
+
 // --- mounted: paint and handlers ---
 function mount({ d = doc, selected = null } = {}) {
   const painted = [];
