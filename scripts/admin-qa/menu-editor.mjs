@@ -474,6 +474,26 @@ try {
   await page.setViewportSize({ width: 1440, height: 5200 });
   await reopen();
 
+  // ---- a save the server refuses: its summary, count and inspector work with JavaScript on ----
+  const longLabel = "x".repeat(101);
+  const guides = await byLabel(page, "Guides");
+  const guidesAt = (await rowsOf(page)).findIndex((r) => r[1] === "Guides");
+  await guides.locator('[name$=".label"]').evaluate((f, v) => { f.value = v; }, longLabel); // a script skips maxlength
+  const seenErrors = errors.length;
+  await save(page);
+  errors.splice(seenErrors); // the browser logs the 422 it was given
+  ok((await page.locator(".hm-formerrors a").count()) === 1, "server error: the failed save lists one problem");
+  await page.locator('[data-hm-issue="err"]').waitFor();
+  ok((await page.locator('[data-hm-issue="err"]').innerText()).trim().startsWith("1 "), "server error: the save bar counts the item to fix, though the label is not empty");
+  ok(await page.waitForFunction(() => document.querySelector("[data-hm-selected]") && !document.querySelector("[data-hm-ins-server]").hidden, null, { timeout: 2000 }).then(() => true, () => false), "server error: the item with the message is selected and the inspector shows the message");
+  await page.locator("#ins-label").evaluate((e) => e.blur());
+  await page.locator(".hm-formerrors a").click();
+  ok(await page.evaluate(() => document.activeElement?.id === "ins-label"), "server error: the summary link focuses the field in the inspector");
+  ok((await page.locator("[data-hm-item][data-hm-selected] [name$='.label']").evaluate((f) => f.value.length)) === 101 && (await page.locator("[data-hm-item]").nth(guidesAt).getAttribute("data-hm-selected")) !== null, "server error: the link selected the item it names");
+  await page.locator("#ins-label").fill("Guides");
+  ok((await page.locator('[data-hm-issue="err"]').count()) === 0 && (await page.locator("[data-hm-ins-server]").isHidden()), "server error: editing the field clears the count and the stale message");
+  await reopen();
+
   // ---- the preview shows the unsaved tree, with a none item as a span ----------
   await clickRow(page, LOOSE);
   await page.locator("#ins-label").fill("Press room");

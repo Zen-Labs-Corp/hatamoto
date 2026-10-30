@@ -156,12 +156,36 @@ function refreshOps(tree) {
 // that saves but renders as plain text, "" otherwise. It mirrors the server.
 function problemOf(li) {
   if (!field(li, "label")?.value.trim()) return "err";
+  // A message the server sent stays until the field it names is edited (see clearServerError).
+  if (li.querySelector('[aria-invalid="true"]')) return "err";
   const type = li.dataset.type;
   const filled = (name) => Boolean(field(li, name)?.value.trim() || field(li, `${name}_q`)?.value.trim());
   if (type === "entity" && !filled("entity")) return "warn";
   if (type === "archive" && !filled("term")) return "warn";
   if (type === "custom" && !filled("url")) return "warn";
   return "";
+}
+
+// clearServerError drops the server's message for the field that was just edited:
+// its red mark and its text. The item counts as fixed once none are left.
+function clearServerError(target) {
+  const wrap = target.closest?.(".hm-field");
+  if (!wrap) return;
+  wrap.querySelectorAll('[aria-invalid="true"]').forEach((el) => el.removeAttribute("aria-invalid"));
+  wrap.classList.remove("hm-field--invalid");
+  wrap.querySelectorAll(".hm-field__error").forEach((el) => el.remove());
+}
+
+// inspectorField is the inspector control for a row field named by a suffix
+// (label, url, entity, style ...), opening the Advanced section when it is in there.
+function inspectorField(suffix) {
+  const root = document.querySelector("[data-hm-inspector]");
+  const ctl = root?.querySelector(`[data-hm-ins="${suffix}"]`)
+    ?? root?.querySelector(`[data-hm-ins-target="${suffix === "term" ? "archive" : suffix}"] [data-hm-ss-input]`)
+    ?? root?.querySelector(`[data-hm-ins-group="${suffix}"] [tabindex="0"], [data-hm-ins-group="${suffix}"] input:checked`);
+  const more = ctl?.closest("details");
+  if (more) more.open = true;
+  return ctl ?? root?.querySelector('[data-hm-ins="label"]');
 }
 
 function targetSummary(li) {
@@ -504,6 +528,10 @@ function init(root) {
       refreshIssues();
       refreshBar();
     };
+    // Capture: the inspector reads the row on the same event, after the stale message is gone.
+    tree.addEventListener("input", (evt) => clearServerError(evt.target), true);
+    tree.addEventListener("change", (evt) => clearServerError(evt.target), true);
+    tree.addEventListener("hm:picked", (evt) => clearServerError(evt.target), true);
     tree.addEventListener("input", edit);
     tree.addEventListener("change", edit);
     tree.addEventListener("hm:picked", edit);
@@ -536,6 +564,29 @@ function init(root) {
       li.scrollIntoView({ block: "center" });
       target?.focus();
     });
+
+    // The server's error summary links to fields the inspector hides: select the row and
+    // take the keyboard to the field in the inspector. The rows are matched by the ids
+    // the page came with, which a later reorder renumbers.
+    const summaryRows = new Map();
+    document.querySelectorAll('.hm-formerrors a[href^="#i-"]').forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const m = /^i-(\d+)-(\w+)$/.exec(id);
+      const li = m && items(tree)[Number(m[1])];
+      if (li) summaryRows.set(a, { li, suffix: m[2] });
+    });
+    const select = (li) => document.dispatchEvent(new CustomEvent("hm:select", { detail: { items: [li] } }));
+    document.addEventListener("click", (evt) => {
+      const hit = summaryRows.get(evt.target.closest?.('.hm-formerrors a[href^="#i-"]'));
+      if (!hit || !document.querySelector("[data-hm-inspector] [data-hm-ins]")) return;
+      evt.preventDefault();
+      select(hit.li);
+      hit.li.scrollIntoView({ block: "center" });
+      inspectorField(hit.suffix)?.focus();
+    });
+    // After a failed save the first item with a message is the one the inspector shows.
+    const firstBad = items(tree).find((li) => li.querySelector(".hm-field__error"));
+    if (firstBad) setTimeout(() => select(firstBad), 0);
 
     // Undo and Redo on the keyboard, except where a text field has its own.
     document.addEventListener("keydown", (evt) => {

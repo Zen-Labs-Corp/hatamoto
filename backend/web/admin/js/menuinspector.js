@@ -102,7 +102,10 @@ function init(rootDoc) {
       else f.value = value;
       f.dispatchEvent(new Event(f.tagName === "SELECT" || f.type === "checkbox" ? "change" : "input", { bubbles: true }));
       writing = false;
-      if (items.length === 1) q("[data-hm-ins-output]").textContent = outputOf(li);
+      if (items.length === 1) {
+        q("[data-hm-ins-output]").textContent = outputOf(li);
+        showServer(li);
+      }
     }
 
     // The preset lists belong to the theme and are in each item's own select:
@@ -157,6 +160,14 @@ function init(rootDoc) {
       value.value = field(li, suffix)?.value ?? "";
     }
 
+    // A failed save leaves its messages in the row's own fields, which the inspector hides.
+    // Editing a field removes its message, so this shows what is still to fix.
+    function showServer(li) {
+      const server = q("[data-hm-ins-server]");
+      server.textContent = [...li.querySelectorAll(".hm-field__error")].map((e) => e.textContent.trim()).filter(Boolean).join(" ");
+      server.hidden = !server.textContent;
+    }
+
     function read() {
       const li = one();
       if (li) {
@@ -186,10 +197,7 @@ function init(rootDoc) {
           if (c.value !== val) c.value = val;
         }
         q("[data-hm-ins-output]").textContent = outputOf(li);
-        // A failed save leaves its messages in the row's own fields, which the inspector hides.
-        const server = q("[data-hm-ins-server]");
-        server.textContent = [...li.querySelectorAll(".hm-field__error")].map((e) => e.textContent.trim()).filter(Boolean).join(" ");
-        server.hidden = !server.textContent;
+        showServer(li);
       }
       // Shared by one item and several: the appearance controls start from the first item.
       const first = items[0];
