@@ -68,6 +68,7 @@ func TestConvertRegionFixtureEndToEnd(t *testing.T) {
 	}
 	svc := testService(pool)
 	before := recordedDump(t, pool)
+	fullBefore := dump(t, pool)
 	urlsBefore := publicURLs(t, pool)
 
 	// ISC-B1: the suggested plan validates; ISC-B3: its dry run changes no URL.
@@ -92,7 +93,7 @@ func TestConvertRegionFixtureEndToEnd(t *testing.T) {
 	if len(rep.RenamedCollisions) != 2 || rep.Groups.Formed != 2 || rep.Groups.Singletons != 1 {
 		t.Errorf("renamed %+v groups %+v", rep.RenamedCollisions, rep.Groups)
 	}
-	if dump(t, pool) != dump(t, pool) || recordedDump(t, pool) != before {
+	if dump(t, pool) != fullBefore || recordedDump(t, pool) != before {
 		t.Fatal("dry run wrote something")
 	}
 
