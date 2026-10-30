@@ -303,6 +303,5 @@ stored with no IP and verifies as `unverifiable`, never as `spoofed`. Logpush's
 `ClientIP` is already the original visitor. A truncated IP is a network, so it
 is never checked against published ranges and ends as `unverifiable`. A
 migration re-verifies the last 7 days of hits that were judged against edge
-addresses (truncated ones become `unverifiable`); older untruncated verdicts
-stay. The Crawlers page shows a verification banner, and the MCP tool
+addresses; older and truncated verdicts stay. The Crawlers page shows a verification banner, and the MCP tool
 `analytics_crawler_verification` reports the same numbers.

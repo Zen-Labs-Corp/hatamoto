@@ -251,17 +251,17 @@ func TestAgentMigrations_Integration(t *testing.T) {
 				id   uuid.UUID
 				want string
 			}{
-				{"recent", recent, "pending"}, {"recent2", recent2, "pending"}, {"truncated", trunc, "unverifiable"},
+				{"recent", recent, "pending"}, {"recent2", recent2, "pending"}, {"truncated", trunc, "spoofed"},
 				{"older than the window", old, "spoofed"}, {"verified", verified, "verified"}, {"pending", pending, "pending"},
 			} {
 				if got := state(c.id); got != c.want {
 					t.Errorf("%s: %s = %s, want %s", when, c.name, got, c.want)
 				}
 			}
-			// 2 reset to pending + 1 truncated: spoofed 5-3, unverifiable 1+1.
+			// 2 reset to pending; the truncated one keeps its verdict: spoofed 5-2.
 			hits, v, s, u := counters()
-			if hits != 9 || v != 1 || s != 2 || u != 2 || hits < v+s+u {
-				t.Errorf("%s: counters hits=%d verified=%d spoofed=%d unverifiable=%d, want 9/1/2/2", when, hits, v, s, u)
+			if hits != 9 || v != 1 || s != 3 || u != 1 || hits < v+s+u {
+				t.Errorf("%s: counters hits=%d verified=%d spoofed=%d unverifiable=%d, want 9/1/3/1", when, hits, v, s, u)
 			}
 		}
 		exec(up)

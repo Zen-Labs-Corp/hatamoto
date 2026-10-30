@@ -71,7 +71,7 @@ IP ranges come from the operators' own JSON lists: Google, Bing, OpenAI (three l
 
 The IP of a hit is the client IP the server sees: the rightmost untrusted `X-Forwarded-For` entry. Behind Cloudflare that would be the edge address, so set `HATAMOTO_TRUSTED_CDN=cloudflare` to read the visitor from `CF-Connecting-IP` instead (see [Trusted CDN](../operate/configuration-reference.md#trusted-cdn) and [Access-log ingest](access-log-ingest.md#the-client-ip-caveat)). A truncated IP identifies only a network, so it is never checked against ranges and is marked `unverifiable`, not `spoofed`.
 
-An upgrade runs a one-time migration over the hits of the last 7 days that were marked `spoofed`: they go back to `pending` and are judged again with the address now in use (truncated ones become `unverifiable`). Older untruncated verdicts cannot be re-checked and stay.
+An upgrade runs a one-time migration over the hits of the last 7 days that were marked `spoofed`: they go back to `pending` and are judged again with the address now in use. Older verdicts cannot be re-checked and stay, and so do truncated ones.
 
 ### Verification health
 
