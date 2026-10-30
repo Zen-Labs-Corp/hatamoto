@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -24,7 +25,6 @@ type settingsData struct {
 	SiteErrs  map[string]string
 	Languages []ui.Option
 	Timezones []ui.Option
-	XDefaults []ui.Option
 	LogoURL   string
 	Tagline   string
 	Domain    string
@@ -78,7 +78,6 @@ func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {
 
 func (a *Admin) renderSiteSettings(w http.ResponseWriter, r *http.Request, status int, d settingsData) {
 	d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-	d.XDefaults = xDefaultOptions(d.Site)
 	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"locales", "Locales"}, {"xdefault", "Default for search engines"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
 		if m := d.SiteErrs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -93,6 +92,10 @@ func validLogoURL(s string) bool {
 	}
 	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://")
 }
+
+// localeFielder is implemented by the locale validation error of the server,
+// which knows which setting it rejected.
+type localeFielder interface{ LocaleField() string }
 
 func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
@@ -120,7 +123,12 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 			if a.deps.ValidateLocales == nil {
 				errs["locales"] = "Locales are not available here"
 			} else if locales, xdef, err = a.deps.ValidateLocales(r.Context(), f.Language, locales, f.PrefixAll, f.XDefault); err != nil {
-				errs["locales"] = err.Error()
+				field := "locales"
+				var lf localeFielder
+				if errors.As(err, &lf) && lf.LocaleField() == "x_default_locale" {
+					field = "xdefault"
+				}
+				errs[field] = err.Error()
 			}
 		}
 	}

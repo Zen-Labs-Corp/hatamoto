@@ -89,16 +89,6 @@ func parseLocales(text string) ([]siteconfig.LocaleEntry, string) {
 	return out, ""
 }
 
-// xDefaultOptions offers "first live copy" plus every saved locale.
-func xDefaultOptions(f siteForm) []ui.Option {
-	entries, _ := parseLocales(f.Locales)
-	out := []ui.Option{{Value: "", Label: "First available translation", Selected: f.XDefault == ""}}
-	for _, e := range entries {
-		out = append(out, ui.Option{Value: e.Tag, Label: e.Tag, Selected: e.Tag == f.XDefault})
-	}
-	return out
-}
-
 func (a *Admin) saveSite(ctx context.Context, f siteForm) error {
 	_, err := a.deps.Site.Update(ctx, siteconfig.UpdateInput{
 		CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone,

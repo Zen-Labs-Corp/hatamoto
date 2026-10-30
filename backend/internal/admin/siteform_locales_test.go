@@ -56,7 +56,7 @@ func TestSiteSettings_LocalesForm(t *testing.T) {
 		t.Fatalf("save: %d %+v", rec.Code, site.cfg)
 	}
 	page := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(page, ">en\nnl nl\n</textarea>") || !strings.Contains(page, `<option value="en" selected>`) {
+	if !strings.Contains(page, ">en\nnl nl\n</textarea>") || !strings.Contains(page, `name="xdefault"`) || !strings.Contains(page, `value="en"`) {
 		t.Errorf("form does not show the saved locales:\n%s", page)
 	}
 
