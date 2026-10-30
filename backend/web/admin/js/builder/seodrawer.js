@@ -15,14 +15,14 @@ export function readSEO(root) {
 }
 
 /**
- * mountSEODrawer({doc, btn, root, urls, getDoc, onEdit, onError, load, fetch})
- * btn opens and closes root (the dialog element); focus moves into the drawer on open and back to the opener (btn, or the More menu when btn is hidden) on Escape or Close.
- * onEdit(values) runs after a field changed. Returns {open, close, isOpen}.
+ * mountSEODrawer({doc, btn, root, urls, getDoc, getName, onEdit, onError, load, fetch})
+ * btn opens and closes root (the dialog element); focus moves into the drawer on open and back on Escape or Close: to the opener when that was the SEO button or a More-menu proxy, else to the SEO button, or the More menu when btn is hidden.
+ * onEdit(values) runs after a field changed. Returns {open, close, isOpen, showFieldError}.
  */
-export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
+export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getName, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
   let loaded = null;
   let busy = false;
-  let opener = null; // what had focus when the drawer opened: the SEO button, or its More-menu proxy on a phone
+  let opener = null; // what had focus when the drawer opened, kept only when it was the SEO button or a More-menu control
   const isOpen = () => !root.hidden;
   const shown = (el) => !!el && el.getClientRects().length > 0;
   // The first of them on screen: the button is hidden on a phone and the menu item once its menu closed.
@@ -49,7 +49,8 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   };
   const open = async () => {
     if (isOpen() || busy) return;
-    opener = doc.activeElement;
+    const o = doc.activeElement;
+    opener = o === btn || o?.matches?.("[popovertarget=bs-more], [data-hm-bs-proxy]") ? o : null;
     busy = true;
     try {
       loaded ??= fill().catch((e) => {
@@ -73,8 +74,41 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   // The analysis reads the draft, not the stored page: the doc rides on every analyze request.
   root.addEventListener("htmx:configRequest", (e) => {
     e.detail.parameters.doc = JSON.stringify(getDoc());
+    e.detail.parameters.name = getName?.() ?? "";
   });
+  // A failed check leaves a note in the results (a server-rendered template); the next good swap replaces it.
+  const results = () => root.querySelector("#be-panel");
+  const dropNote = () => results()?.querySelector?.("[data-hm-seodrawer-shown]")?.remove();
+  const note = (e) => {
+    const panel = results();
+    const tpl = root.querySelector("[data-hm-seodrawer-note]");
+    if (!panel || !tpl || (e.detail?.target ?? e.target) !== panel || panel.querySelector("[data-hm-seodrawer-shown]")) return;
+    const n = tpl.content.cloneNode(true);
+    n.firstElementChild.dataset.hmSeodrawerShown = "1";
+    panel.prepend(n);
+  };
+  for (const t of ["htmx:responseError", "htmx:sendError", "htmx:timeout"]) root.addEventListener(t, note);
+  root.addEventListener("htmx:afterSwap", dropNote);
+  // A refused value is shown under its field, on the tab that holds it (the server-side message of a rejected save).
+  const showFieldError = async (field, msg) => {
+    if (!isOpen()) await open();
+    const input = root.querySelector(`[name="seo_${field}"]`);
+    if (!input) return;
+    root.querySelector("#seo-tab-advanced")?.click();
+    const id = `${input.id}-error`;
+    let p = root.querySelector(`#${id}`);
+    if (!p) {
+      p = root.querySelector("[data-hm-seodrawer-field-error]").content.firstElementChild.cloneNode(true);
+      p.id = id;
+      input.closest(".hm-field").append(p);
+    }
+    p.textContent = msg;
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", id);
+    input.focus();
+  };
   const edited = (e) => {
+    if (e.target?.name === "seo_canonical") root.querySelector(`#${e.target.id}-error`)?.remove();
     if (e.target?.closest?.("[data-hm-seodrawer-body] [name^='seo_']")) onEdit(readSEO(root));
   };
   root.addEventListener("input", edited);
@@ -88,5 +122,5 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
     e.stopPropagation(); // the builder's own Escape (deselect) must not also run
     close();
   });
-  return { open, close, isOpen };
+  return { open, close, isOpen, showFieldError };
 }

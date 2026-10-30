@@ -119,6 +119,10 @@
     {
       "reason": "menu editor v2 layout rebased onto main: admin CSS gzip grew with the menu editor styles",
       "date": "2026-10-30"
+    },
+    {
+      "reason": "seo drawer: focus return, posted name, failure note, inline canonical error",
+      "date": "2026-10-30"
     }
   ]
 }

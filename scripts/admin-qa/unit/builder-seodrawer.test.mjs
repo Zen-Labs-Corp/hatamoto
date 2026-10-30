@@ -45,6 +45,7 @@ function rig() {
     root,
     urls: { seo: "/seo" },
     getDoc: () => ({ v: 2 }),
+    getName: () => "Renamed",
     onEdit: (v) => edits.push(v),
     fetch: async (u, o) => (fetched.push([u, o]), { ok: true, text: async () => "<div data-hm-seo></div>" }),
   });
@@ -152,7 +153,7 @@ test("every open asks for the checks of the current draft", async () => {
 
 test("closing returns focus to the opener, and to the More button when the SEO button is hidden", async () => {
   const r = rig();
-  const proxy = { getClientRects: () => [], focus: () => r.log.push("focus proxy") };
+  const proxy = { getClientRects: () => [], focus: () => r.log.push("focus proxy"), matches: (s) => s.includes("data-hm-bs-proxy") };
   r.doc.activeElement = proxy;
   r.btn.getClientRects = () => [];
   await r.d.open();
@@ -162,4 +163,94 @@ test("closing returns focus to the opener, and to the More button when the SEO b
   await r.d.open();
   r.d.close();
   assert.deepEqual(r.log.slice(-1), ["focus proxy"]);
+});
+
+test("focus returns to the SEO button when the drawer was opened from elsewhere", async () => {
+  for (const active of [null, { getClientRects: () => [1], focus: () => r.log.push("focus field"), matches: () => false }]) {
+    var r = rig();
+    r.doc.activeElement = active;
+    await r.d.open();
+    r.d.close();
+    assert.deepEqual(r.log.slice(-1), ["focus btn"]);
+  }
+});
+
+test("opened from the SEO button, focus returns to it; with the button hidden it falls back to More", async () => {
+  const r = rig();
+  r.doc.activeElement = r.btn;
+  await r.d.open();
+  r.d.close();
+  assert.deepEqual(r.log.slice(-1), ["focus btn"]);
+  r.doc.activeElement = null;
+  r.btn.getClientRects = () => [];
+  await r.d.open();
+  r.d.close();
+  assert.deepEqual(r.log.slice(-1), ["focus more"]);
+});
+
+test("a More-menu control (the popover trigger) counts as the opener", async () => {
+  const r = rig();
+  r.doc.activeElement = r.more;
+  r.more.matches = (s) => s.includes("popovertarget=bs-more");
+  r.btn.getClientRects = () => [];
+  await r.d.open();
+  r.d.close();
+  assert.deepEqual(r.log.slice(-1), ["focus more"]);
+});
+
+test("the analyze request carries the unsaved name", async () => {
+  const r = rig();
+  const e = { detail: { parameters: {} } };
+  r.on["htmx:configRequest"](e);
+  assert.equal(e.detail.parameters.name, "Renamed");
+});
+
+test("a failed check puts the note into the results and a good swap clears it", () => {
+  const r = rig();
+  const shown = [];
+  const results = { prepend: () => shown.push(note), querySelector: (s) => (s === "[data-hm-seodrawer-shown]" ? shown[0] ?? null : null) };
+  const note = { dataset: {}, remove: () => shown.pop() };
+  const tpl = { content: { cloneNode: () => ({ firstElementChild: note }) } };
+  const q = r.root.querySelector;
+  r.root.querySelector = (sel) => (sel === "#be-panel" ? results : sel === "[data-hm-seodrawer-note]" ? tpl : q(sel));
+  r.on["htmx:responseError"]({ detail: { target: results } });
+  r.on["htmx:responseError"]({ detail: { target: results } }); // once only
+  assert.equal(shown.length, 1);
+  assert.equal(note.dataset.hmSeodrawerShown, "1");
+  r.on["htmx:afterSwap"]({});
+  assert.equal(shown.length, 0);
+  r.on["htmx:sendError"]({ detail: { target: {} } }); // another target: ignored
+  assert.equal(shown.length, 0);
+});
+
+test("showFieldError opens the Advanced tab and writes the message under the field", async () => {
+  const r = rig();
+  await r.d.open();
+  const clicks = [];
+  const tab = { click: () => clicks.push("advanced") };
+  const field = { append: (p) => (field.p = p) };
+  const input = { id: "seo_canonical", closest: () => field, setAttribute: (k, v) => (input[k] = v), focus: () => r.log.push("focus canonical") };
+  const p = { textContent: "" };
+  const tpl = { content: { firstElementChild: { cloneNode: () => p } } };
+  const q = r.root.querySelector;
+  r.root.querySelector = (sel) => (sel === '[name="seo_canonical"]' ? input : sel === "#seo-tab-advanced" ? tab : sel === "#seo_canonical-error" ? field.p ?? null : sel === "[data-hm-seodrawer-field-error]" ? tpl : q(sel));
+  await r.d.showFieldError("canonical", "Use a full address.");
+  assert.deepEqual(clicks, ["advanced"]);
+  assert.equal(p.textContent, "Use a full address.");
+  assert.equal(p.id, "seo_canonical-error");
+  assert.equal(input["aria-invalid"], "true");
+  assert.equal(field.p, p);
+});
+
+test("a stopped save keeps the server's refusal code", async () => {
+  const states = [];
+  const saver = createSaver({
+    urls: { save: "/save" },
+    boot: { status: "published", version: 1, name: "n", doc: {}, entity: "e" },
+    getDoc: () => ({ v: 2 }),
+    onState: (q) => states.push([q.state, q.code]),
+    fetch: async () => ({ status: 422, json: async () => ({ code: "invalid_canonical", error: "Bad." }) }),
+  });
+  await saver.save("save");
+  assert.deepEqual(states.at(-1), ["stopped", "invalid_canonical"]);
 });
