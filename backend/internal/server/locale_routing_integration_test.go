@@ -51,7 +51,10 @@ func TestLocaleRouting_Integration(t *testing.T) {
 		}
 	}
 
-	sfx := uuid.NewString()[:6]
+	// The suffix starts with a letter: an all-digit one ("067896") makes the
+	// Postgres parser read "shared-067896" as "shared" + the integer "-067896",
+	// so ?q=067896 would not find the row and the search checks would flake.
+	sfx := "x" + uuid.NewString()[:5]
 	schemaSlug, slug, sharedSlug := "lri-"+sfx, "about-"+sfx, "shared-"+sfx
 	schemaID := uuid.New()
 	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`,
