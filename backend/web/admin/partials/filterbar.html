@@ -29,7 +29,7 @@
 {{else if streq $f.Control "switch"}}{{template "hm/field" (dict "ID" (printf "%s-f%d" $.ID $i) "Name" $f.Name "Control" "switch" "Label" $f.Label "Value" $f.Value "Checked" $f.Checked "OffValue" $f.OffValue)}}
 {{else}}<div class="hm-field"><label class="hm-field__label" for="{{$.ID}}-f{{$i}}">{{$f.Label}}</label>{{template "hm/select" (dict "ID" (printf "%s-f%d" $.ID $i) "Name" $f.Name "Options" $f.Options)}}</div>
 {{end}}{{end}}</div>
-<footer>{{if or (and .Live .Chips) (and (not .Live) (not .Chips))}}{{template "hm/button" (dict "Label" "Clear all" "Variant" "ghost" "Href" .ClearHref)}}{{end}}{{if not .Live}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Type" "submit")}}{{end}}</footer>
+{{if or (not .Live) .Chips}}<footer>{{if or (and .Live .Chips) (and (not .Live) (not .Chips))}}{{template "hm/button" (dict "Label" "Clear all" "Variant" "ghost" "Href" .ClearHref)}}{{end}}{{if not .Live}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Type" "submit")}}{{end}}</footer>{{end}}
 </div>{{end}}{{end}}
 {{/* hm/filterchips: the removable chips of the active filters (Chips, ClearHref); the filterbar renders it, or the page does with ChipsOutside. */}}
 {{define "hm/filterchips"}}{{if .Chips}}<ul class="hm-filter-chips hm-filterbar__chips" aria-label="Active filters">{{range .Chips}}<li class="hm-filter-chip">{{.Label}}<a class="hm-filter-chip__x" href="{{.RemoveHref}}" aria-label="Remove filter: {{.Label}}">{{icon "x"}}</a></li>{{end}}<li><a href="{{.ClearHref}}">Clear all</a></li></ul>{{end}}{{end}}

@@ -63,4 +63,7 @@ func TestPartialFilterbarOptIns(t *testing.T) {
 	if !strings.Contains(string(got), `id="browse-count" hidden>`) {
 		t.Errorf("an empty live count must stay in the DOM, hidden: %s", got)
 	}
+	if strings.Contains(string(got), "<footer>") {
+		t.Errorf("a live popover without chips has no footer: %s", got)
+	}
 }
