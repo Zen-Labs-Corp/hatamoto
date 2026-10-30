@@ -335,6 +335,30 @@ try {
   const chipsOf = async (label) => (await (await byLabel(page, label)).locator("[data-hm-chips] .hm-badge").allTextContents()).map((t) => t.trim());
   const press = await chipsOf(LOOSE);
   ok(press.includes("No link"), `ISC-33: a No link item shows the chip No link (${press.join(", ")})`);
+  const headingIcon = await (await byLabel(page, LOOSE)).locator("[data-hm-kind-slot] svg").evaluate((svg) => svg.outerHTML);
+  const headingRef = await page.evaluate(() => document.querySelector('template[data-hm-tpl="kinds"]').content.querySelector('[data-hm-kind="none"] svg').outerHTML);
+  ok(headingIcon === headingRef && !headingIcon.includes('d="M5 12h14"'), "ISC-33: a No link row uses the heading icon, not the dash");
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press("?");
+  await page.locator("#menu-shortcuts[open]").waitFor();
+  const subItemsLines = await page.evaluate(() => {
+    const out = [];
+    for (const dd of document.querySelectorAll("#menu-shortcuts dd")) {
+      if (!dd.textContent.includes("sub-items")) continue;
+      const walker = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node && !node.textContent.includes("sub-items")) node = walker.nextNode();
+      if (!node) { out.push(0); continue; } // the word is split over several nodes: not whole
+      const at = node.textContent.indexOf("sub-items");
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + "sub-items".length);
+      out.push(new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size);
+    }
+    return out;
+  });
+  ok(subItemsLines.length > 0 && subItemsLines.every((n) => n === 1), `ISC-33: the shortcuts dialog never breaks "sub-items" across lines (${subItemsLines.join(",")})`);
+  await page.keyboard.press("Escape");
   const productRow = await byLabel(page, LOOSE);
   const noLinkTwice = await productRow.evaluate((li) => [...li.querySelectorAll(".hm-menutree__head *")].filter((e) => e.children.length === 0 && e.getClientRects().length > 0 && /^No link$/i.test(e.textContent.trim())).length);
   ok(noLinkTwice === 1, `ISC-33: a heading row says No link once, in its chip (${noLinkTwice} visible)`);

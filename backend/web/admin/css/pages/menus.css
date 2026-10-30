@@ -82,3 +82,6 @@
 .hm-menuform[data-hm-js] .hm-menutree__ops > [data-hm-op="down"] { display: none; }
 .hm-menuform[data-hm-js] .hm-menutree__item:hover,
 .hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { background-color: var(--surface-hover); }
+/* The shortcuts list keeps words whole: "sub-items" does not break inside, at the hyphen or elsewhere. */
+#menu-shortcuts .hm-dl dd { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.hm-menueditor__word { white-space: nowrap; }

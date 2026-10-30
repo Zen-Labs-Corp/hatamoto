@@ -78,7 +78,7 @@
 <p class="hm-field__error" role="alert" hidden data-hm-ins-server></p>
 <div data-hm-ins-output-wrap hidden><span class="hm-field__label">Output</span><code class="hm-menuinspector__output" data-hm-ins-output></code></div>
 </div></template>
-<template data-hm-tpl="kinds"><span data-hm-kind="entity">{{icon "file-text"}}</span><span data-hm-kind="custom">{{icon "link"}}</span><span data-hm-kind="archive">{{icon "tag"}}</span><span data-hm-kind="none">{{icon "minus"}}</span></template>
+<template data-hm-tpl="kinds"><span data-hm-kind="entity">{{icon "file-text"}}</span><span data-hm-kind="custom">{{icon "link"}}</span><span data-hm-kind="archive">{{icon "tag"}}</span><span data-hm-kind="none">{{icon "heading"}}</span></template>
 <template data-hm-tpl="chiptext"><span data-key="nolink">No link</span><span data-key="nopage">No page</span><span data-key="badaddress">Bad address</span></template>
 <template data-hm-tpl="chip">{{template "hm/badge" dict "Label" "" "Plain" true}}</template>
 <template data-hm-tpl="problem"><button type="button" class="hm-menueditor__issue" data-hm-issue="warn">{{template "hm/badge" dict "Label" "without a link" "Kind" "warning" "Icon" "alert"}}</button></template>
@@ -131,12 +131,12 @@
 <p>Click an item or press Tab to reach the list, then use these keys. They do nothing while you type in a field.</p>
 <dl class="hm-dl">
 <dt><kbd>Up</kbd> <kbd>Down</kbd></dt><dd>Move to the previous or next item</dd>
-<dt><kbd>Alt</kbd> + <kbd>Up</kbd> <kbd>Down</kbd></dt><dd>Move the item up or down, with its sub-items</dd>
+<dt><kbd>Alt</kbd> + <kbd>Up</kbd> <kbd>Down</kbd></dt><dd>Move the item up or down, with its <span class="hm-menueditor__word">sub-items</span></dd>
 <dt><kbd>Alt</kbd> + <kbd>Right</kbd> <kbd>Left</kbd></dt><dd>Indent or outdent the item</dd>
 <dt><kbd>Enter</kbd> or <kbd>F2</kbd></dt><dd>Rename the item</dd>
-<dt><kbd>Left</kbd> <kbd>Right</kbd></dt><dd>Hide or show the sub-items of the item</dd>
+<dt><kbd>Left</kbd> <kbd>Right</kbd></dt><dd>Hide or show the <span class="hm-menueditor__word">sub-items</span> of the item</dd>
 <dt><kbd>Ctrl</kbd> or <kbd>Cmd</kbd> + <kbd>D</kbd></dt><dd>Duplicate the item</dd>
-<dt><kbd>Delete</kbd></dt><dd>Remove the item and its sub-items</dd>
+<dt><kbd>Delete</kbd></dt><dd>Remove the item and its <span class="hm-menueditor__word">sub-items</span></dd>
 <dt><kbd>Alt</kbd> + <kbd>N</kbd></dt><dd>Add an item</dd>
 <dt><kbd>Ctrl</kbd> or <kbd>Cmd</kbd> + click, <kbd>Shift</kbd> + click</dt><dd>Select several items</dd>
 <dt><kbd>Ctrl</kbd> or <kbd>Cmd</kbd> + <kbd>Z</kbd>, with <kbd>Shift</kbd> to redo</dt><dd>Undo or redo</dd>
