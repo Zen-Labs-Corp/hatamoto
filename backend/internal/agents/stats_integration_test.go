@@ -164,6 +164,46 @@ func TestStatsRepository_Integration(t *testing.T) {
 		}
 	})
 
+	t.Run("verification health", func(t *testing.T) {
+		// Own agent id so other rows in a shared DB do not skew the counts.
+		hid := "health-" + marker
+		hpath := "/health-" + marker
+		t.Cleanup(func() {
+			_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_hits WHERE path = $1`, hpath)
+			_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE agent_id = $1`, hid)
+		})
+		exec(`INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, operator, purpose, hits, verified_hits, spoofed_hits, unverifiable_hits)
+			VALUES ($1,$2,$3,200,'OpenAI','training',40,25,10,2), ($4,$2,$3,200,'OpenAI','training',99,0,99,0)`,
+			today.AddDate(0, 0, -1), hid, hpath, today.AddDate(0, 0, -200))
+		exec(`INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, operator, purpose, hits, verified_hits, spoofed_hits, unverifiable_hits)
+			VALUES ($1,$2,$3,200,'Other','training',500,0,500,0)`, today.AddDate(0, 0, -1), hid+"-other", hpath)
+		t.Cleanup(func() {
+			_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE agent_id = $1`, hid+"-other")
+		})
+		// Spoofed raw hits: two from one Cloudflare address, one from another,
+		// one outside Cloudflare; a verified hit and a spoofed hit of another agent.
+		for _, c := range []struct {
+			agent, ip, verification string
+		}{
+			{hid, "172.64.10.20", "spoofed"}, {hid, "172.64.10.20", "spoofed"}, {hid, "104.16.5.5", "spoofed"},
+			{hid, "198.51.100.9", "spoofed"}, {hid, "198.51.100.10", "verified"}, {hid + "-other", "172.64.99.1", "spoofed"},
+		} {
+			exec(`INSERT INTO hatamoto_agent_hits (occurred_at, agent_id, path, verification, ip, source)
+				VALUES (now(), $1, $2, $3, $4::inet, 'backend')`, c.agent, hpath, c.verification, c.ip)
+		}
+		h, err := repo.VerificationHealth(ctx, rg, []string{hid})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := VerificationHealth{Verified: 25, Spoofed: 10, Unverifiable: 2, SpoofedIPs: 3, SpoofedIPsInCDN: 2}
+		if h != want {
+			t.Errorf("health = %+v, want %+v", h, want)
+		}
+		if empty, err := repo.VerificationHealth(ctx, rg, nil); err != nil || empty != (VerificationHealth{}) {
+			t.Errorf("no agents = %+v, %v, want zero", empty, err)
+		}
+	})
+
 	t.Run("published pages ignore drafts and variants", func(t *testing.T) {
 		before, err := repo.PublishedPages(ctx)
 		if err != nil || before < 2 {

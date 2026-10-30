@@ -124,4 +124,7 @@ https://example.com/api/v1/public/agent-logs?header_X-Agent-Log-Secret=<secret>
 
 ## The client IP caveat
 
-Verification trusts the IP stored with a hit. The server takes the rightmost untrusted `X-Forwarded-For` entry. If a CDN or proxy sits in front of the site, that entry is the CDN's address, and real crawlers would look `spoofed`. The log is the fix: it carries its own client address, which is Caddy's `client_ip` when you have set `trusted_proxies`, or Logpush's `ClientIP`, which is the original visitor.
+Verification trusts the IP stored with a hit. The server takes the rightmost untrusted `X-Forwarded-For` entry. If Cloudflare or another CDN sits in front of the site, that entry is the CDN's address, and real crawlers would look `spoofed`. Two things fix it:
+
+- **For the hits the server records itself**, set `HATAMOTO_TRUSTED_CDN=cloudflare` (see [Trusted CDN](../operate/configuration-reference.md#trusted-cdn)).
+- **For log feeds**, the log carries its own client address. Logpush's `ClientIP` is the original visitor. A Caddy line's `client_ip` is the visitor only if you have set `trusted_proxies` in Caddy to the CDN's ranges; otherwise it is the edge address. With the preset on, Hatamoto checks each Caddy address: when it is a Cloudflare edge address, it uses the logged `Cf-Connecting-Ip` request header instead, provided the header holds a valid non-edge address. If the line has no usable header, the hit is stored with an **empty IP** rather than the edge address, and verifies as `unverifiable`, never `spoofed`. Without the preset, Caddy addresses are taken as logged.

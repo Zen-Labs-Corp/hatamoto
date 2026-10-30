@@ -20,9 +20,9 @@ const (
 // first so a backlog cannot starve old pairs. A NULL ip is a valid pair (the
 // verifier marks it unverifiable).
 const pendingPairsSQL = `
-SELECT agent_id, host(ip), min(occurred_at)
+SELECT agent_id, host(ip), min(occurred_at), bool_or(ip_truncated)
 FROM hatamoto_agent_hits
-WHERE verification = 'pending' AND agent_id IS NOT NULL
+WHERE verification = 'pending' AND agent_id IS NOT NULL AND NOT ip_truncated
   AND occurred_at > now() - interval '` + verifyWindow + `'
 GROUP BY 1, 2
 ORDER BY 3
@@ -38,7 +38,7 @@ SELECT 1 FROM hatamoto_agent_daily d
 JOIN (
     SELECT DISTINCT (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
     FROM hatamoto_agent_hits
-    WHERE agent_id = $1 AND ip IS NOT DISTINCT FROM $2::inet AND verification = 'pending'
+    WHERE agent_id = $1 AND ip IS NOT DISTINCT FROM $2::inet AND verification = 'pending' AND NOT ip_truncated
       AND occurred_at > now() - interval '` + verifyWindow + `'
       AND ($3::timestamptz IS NULL OR occurred_at < $3::timestamptz)
 ) k ON d.day = k.day AND d.path = k.path AND d.status = k.status
@@ -56,7 +56,7 @@ const applyVerificationSQL = `
 WITH u AS (
     UPDATE hatamoto_agent_hits
     SET verification = $3::text
-    WHERE agent_id = $1 AND ip IS NOT DISTINCT FROM $2::inet AND verification = 'pending'
+    WHERE agent_id = $1 AND ip IS NOT DISTINCT FROM $2::inet AND verification = 'pending' AND NOT ip_truncated
       AND occurred_at > now() - interval '` + verifyWindow + `'
       AND ($4::timestamptz IS NULL OR occurred_at < $4::timestamptz)
     RETURNING (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
@@ -84,7 +84,7 @@ JOIN (
     SELECT DISTINCT agent_id, (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
     FROM hatamoto_agent_hits
     WHERE verification = 'pending' AND agent_id IS NOT NULL
-      AND occurred_at <= now() - interval '` + verifyWindow + `'
+      AND (occurred_at <= now() - interval '` + verifyWindow + `' OR ip_truncated)
 ) k ON d.day = k.day AND d.agent_id = k.agent_id AND d.path = k.path AND d.status = k.status
 ORDER BY d.day, d.agent_id COLLATE "C", d.path COLLATE "C", d.status
 FOR UPDATE OF d`
@@ -94,7 +94,7 @@ WITH u AS (
     UPDATE hatamoto_agent_hits
     SET verification = 'unverifiable'
     WHERE verification = 'pending' AND agent_id IS NOT NULL
-      AND occurred_at <= now() - interval '` + verifyWindow + `'
+      AND (occurred_at <= now() - interval '` + verifyWindow + `' OR ip_truncated)
     RETURNING agent_id, (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
 ), c AS (
     SELECT agent_id, day, path, status, count(*) AS n FROM u GROUP BY 1, 2, 3, 4
@@ -113,6 +113,9 @@ type PendingPair struct {
 	AgentID  string
 	IP       netip.Addr
 	OldestAt time.Time
+	// Truncated marks a pair that carries a truncated address. The SQL never
+	// selects those; the worker refuses to verify one if it ever appears.
+	Truncated bool
 }
 
 // VerifyRepo is the storage the verify worker needs.
@@ -148,7 +151,7 @@ func (r *VerifyRepository) PendingPairs(ctx context.Context, limit int) ([]Pendi
 	for rows.Next() {
 		var p PendingPair
 		var ip *string
-		if err := rows.Scan(&p.AgentID, &ip, &p.OldestAt); err != nil {
+		if err := rows.Scan(&p.AgentID, &ip, &p.OldestAt, &p.Truncated); err != nil {
 			return nil, fmt.Errorf("scan pending pair: %w", err)
 		}
 		if ip != nil {

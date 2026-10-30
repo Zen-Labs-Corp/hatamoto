@@ -1,11 +1,14 @@
 package admin
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 // groupBody is the markup of one purpose's tbody on the Crawlers page.
@@ -162,5 +165,117 @@ func TestPurposeSeriesOrderIsFixed(t *testing.T) {
 	_, m = jsonOf(t, g, "/admin/analytics/data/overview.json?group=purpose&from="+day(-6)+"&to="+day(0))
 	if n := len(m["charts"].(map[string]any)["fetches"].(map[string]any)["datasets"].([]any)); n != 4 {
 		t.Errorf("with no fetches there are still %d series, no Other", n)
+	}
+}
+
+func TestCrawlersVerifyBanner(t *testing.T) {
+	t.Parallel()
+
+	red := agents.VerificationHealth{Verified: 500, Spoofed: 1629 - 500 + 71, Unverifiable: 9, SpoofedIPs: 380, SpoofedIPsInCDN: 380}
+	cases := []struct {
+		name    string
+		verify  agents.VerificationHealth
+		err     error
+		want    []string
+		without []string
+	}{
+		{"red", red, nil, []string{
+			"Verification looks misconfigured.", "of fetches from agents with published IP ranges failed. 1,200 spoofed fetches from 380 IPs (",
+			`>see them</a>`, "Client IPs are read from the connection, or X-Forwarded-For from a loopback proxy.",
+			"Most of these IPs belong to Cloudflare: set HATAMOTO_TRUSTED_CDN=cloudflare.", "hm-callout--danger", `href="/admin/analytics/health?compare=1&amp;from=2026-01-01&amp;to=2026-01-03#w-h-ver"`,
+		}, []string{"Verification is healthy."}},
+		{"red, not cloud", agents.VerificationHealth{Verified: 10, Spoofed: 40, SpoofedIPs: 5, SpoofedIPsInCDN: 1}, nil,
+			[]string{"80% of fetches", "Set HATAMOTO_TRUSTED_PROXIES (or the CDN preset)"}, []string{"HATAMOTO_TRUSTED_CDN=cloudflare"}},
+		{"green", agents.VerificationHealth{Verified: 987, Spoofed: 13, SpoofedIPs: 3, SpoofedIPsInCDN: 3}, nil, []string{
+			"Verification is healthy.", "98.7% of verifiable fetches matched; 13 spoofed fetches came from 3 cloud IPs (", `>see them</a>`, "hm-callout--success",
+		}, []string{"misconfigured"}},
+		{"green without spoofed", agents.VerificationHealth{Verified: 100}, nil, []string{"100.0% of verifiable fetches matched."}, []string{"see them"}},
+		{"too few decided fetches", agents.VerificationHealth{Verified: 3, Spoofed: 10}, nil, nil, []string{"Verification is healthy.", "misconfigured"}},
+		{"read fails", agents.VerificationHealth{}, errors.New("boom"), nil, []string{"Verification is healthy.", "misconfigured"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fs := newAnalyticsRig(t)
+			fs.verify, fs.verifyErr = &c.verify, c.err
+			rec := g.do("GET", "/admin/analytics/crawlers?from=2026-01-01&to=2026-01-03&compare=1", "owner-token", nil, nil)
+			if rec.Code != 200 {
+				t.Fatalf("status %d", rec.Code)
+			}
+			body := rec.Body.String()
+			for _, w := range c.want {
+				if !strings.Contains(body, w) {
+					t.Errorf("missing %q", w)
+				}
+			}
+			for _, w := range c.without {
+				if strings.Contains(body, w) {
+					t.Errorf("unexpected %q", w)
+				}
+			}
+			if len(c.want) > 0 {
+				if b, h := strings.Index(body, `id="w-cr-verify"`), strings.Index(body, `id="w-cr-hero"`); b < 0 || h < b {
+					t.Errorf("banner at %d must come before the hero chart at %d", b, h)
+				}
+			}
+			if want := agents.RangePublishedIDs(agents.Default()); !slices.Equal(fs.verifyIDs, want) {
+				t.Errorf("asked for %v, want the range-published agents %v", fs.verifyIDs, want)
+			}
+		})
+	}
+}
+
+func TestCrawlersVerifyBannerUnderACustomAdminPath(t *testing.T) {
+	t.Parallel()
+
+	fs := &fakeAgentStats{}
+	g := newRig(t, func(d *Deps) { d.AdminPath, d.Growth.Agents, d.Growth.Referrals = "/x-test", fs, fakeReferrals{} })
+	body := g.do("GET", "/x-test/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `href="/x-test/analytics/health`) || !strings.Contains(body, "#w-h-ver") || strings.Contains(body, `href="/admin/analytics/health`) {
+		t.Error("the see-them link must sit under the custom admin path")
+	}
+}
+
+func TestVerifyBannerHeaderWording(t *testing.T) {
+	t.Parallel()
+
+	bad := agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 4, SpoofedIPsInCDN: 4}
+	text := func(src middleware.ClientIPSource, h agents.VerificationHealth) string {
+		b := verifyBannerFor(h, src, "/x")
+		return b.Lead + b.Tail
+	}
+	off := middleware.ClientIPSource{Header: "X-Forwarded-For"}
+	on := middleware.ClientIPSource{Header: "CF-Connecting-IP", CDN: true}
+	got := text(off, bad)
+	if !strings.Contains(got, "read from the connection, or X-Forwarded-For from a loopback proxy.") || !strings.Contains(got, "set HATAMOTO_TRUSTED_CDN=cloudflare") {
+		t.Errorf("preset off: %q", got)
+	}
+	got = text(on, bad)
+	if !strings.Contains(got, "read from CF-Connecting-IP behind your trusted proxy.") || strings.Contains(got, "set HATAMOTO_TRUSTED_CDN") || !strings.Contains(got, "until they leave the selected range") {
+		t.Errorf("preset on: %q", got)
+	}
+	// Preset on but the spoofed IPs are not CDN addresses: the proxy is the fault, not the age of the data.
+	got = text(on, agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 4, SpoofedIPsInCDN: 1})
+	if strings.Contains(got, "until they leave the selected range") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") || strings.Contains(got, "CDN preset") {
+		t.Errorf("preset on, IPs outside the CDN: %q", got)
+	}
+	// Rollup kept, raw hits gone: no "from 0 IPs", no link to an empty list.
+	for _, h := range []agents.VerificationHealth{{Verified: 10, Spoofed: 90}, {Verified: 98, Spoofed: 2}} {
+		b := verifyBannerFor(h, off, "/x")
+		if got := b.Lead + b.Tail; strings.Contains(got, "0 IP") || strings.Contains(got, "()") || b.Href != "" || !strings.Contains(got, "spoofed fetches") {
+			t.Errorf("no raw IPs left: %q href=%q", got, b.Href)
+		}
+	}
+	got = text(middleware.ClientIPSource{Header: "X-Forwarded-For", ProxiesConfigured: true}, agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 1})
+	if !strings.Contains(got, "from 1 IP (") || !strings.Contains(got, "behind your trusted proxies.") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") {
+		t.Errorf("proxies configured: %q", got)
+	}
+	got = text(on, agents.VerificationHealth{Verified: 98, Spoofed: 2, SpoofedIPs: 1, SpoofedIPsInCDN: 1})
+	if !strings.Contains(got, "read from CF-Connecting-IP behind your trusted proxy. 98.0% of verifiable") || !strings.Contains(got, "from 1 cloud IP (") {
+		t.Errorf("green: %q", got)
+	}
+	if verifyBannerFor(agents.VerificationHealth{Verified: 5}, on, "/x") != nil {
+		t.Error("too few decided fetches must show no banner")
 	}
 }

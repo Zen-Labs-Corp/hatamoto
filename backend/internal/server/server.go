@@ -236,6 +236,7 @@ func New(cfg *config.Config, db *database.DB, logger *slog.Logger) *Server {
 	// guarantees cfg.Hatamoto.CanonicalSlug is non-empty.
 	canonicalTenantSlug = cfg.Hatamoto.CanonicalSlug
 	middleware.SetTrustedProxies(cfg.Admin.TrustedProxies)
+	applyTrustedCDN(cfg, db, logger)
 
 	s := &Server{
 		cfg:    cfg,
@@ -253,6 +254,27 @@ func New(cfg *config.Config, db *database.DB, logger *slog.Logger) *Server {
 	s.router = s.qaWrap(wrapFault(s.buildHandler()))
 
 	return s
+}
+
+// applyTrustedCDN turns on the HATAMOTO_TRUSTED_CDN preset: the persisted (or
+// built-in) edge ranges become the CDN trust set and the log ingest uses the
+// same set to spot edge addresses. Preset off touches nothing. No request-path
+// work: the list is loaded once here and swapped in memory afterwards.
+func applyTrustedCDN(cfg *config.Config, db *database.DB, logger *slog.Logger) {
+	if cfg.Admin.TrustedCDN != "cloudflare" {
+		return
+	}
+	var persist agents.RangePersister
+	if db != nil {
+		persist = agents.NewRangeRepository(db)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	set := agents.LoadCDN(ctx, persist)
+	middleware.SetTrustedCDN(set)
+	agents.SetLogEdgeCheck(middleware.IsTrustedCDNIP)
+	logger.Info("trusted CDN preset on: reading the visitor address from CF-Connecting-IP behind Cloudflare edge ranges",
+		slog.Int("ranges", len(set)), slog.Bool("refresh", !agentRangesOff()))
 }
 
 // Handler is the fully wired HTTP handler (site, API, MCP), for callers that
@@ -777,6 +799,12 @@ func (s *Server) Start() error {
 	// magic-token-cleanup workers were added.
 	if s.scheduler != nil {
 		s.scheduler.Start(s.lifecycleCtx)
+	}
+	// The CDN edge list refreshes from its own goroutine, not a worker job,
+	// so a replica with the worker off still tracks the published ranges.
+	if s.cfg.Admin.TrustedCDN == "cloudflare" && s.db != nil && !agentRangesOff() {
+		refresher := agents.NewCDNRefresher(nil, agents.NewRangeRepository(s.db))
+		go agents.RunCDNRefresh(s.lifecycleCtx, 24*time.Hour, refresher.Refresh, middleware.SetTrustedCDN)
 	}
 	s.loadPageCache(s.lifecycleCtx)
 	s.warnIfAdminAddressServed(s.lifecycleCtx)

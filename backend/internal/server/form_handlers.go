@@ -493,8 +493,9 @@ func publicFormSettings(s form.FormSettings) map[string]interface{} {
 // submitMeta is the request-derived metadata stored with a submission.
 type submitMeta struct {
 	IPAddress string
-	// TrustedIP is the trusted-proxy-aware client IP. Only it may be sent to
-	// third parties (the captcha provider); IPAddress can be spoofed.
+	// TrustedIP is the trusted-proxy-aware client IP, sent to third parties
+	// (the captcha provider). It equals IPAddress: both come from the shared
+	// middleware.GetClientIP.
 	TrustedIP string
 	UserAgent string
 	Referrer  string
@@ -778,7 +779,7 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 	}
 
 	res, err := s.storeFormSubmission(r.Context(), formObj, slug, data, ctl, submitMeta{
-		IPAddress: getClientIP(r),
+		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
@@ -931,28 +932,6 @@ func formatFieldValue(val interface{}) string {
 	default:
 		return fmt.Sprintf("%v", val)
 	}
-}
-
-// getClientIP extracts the client IP from the request.
-func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Return first IP in the chain
-		for i, c := range xff {
-			if c == ',' {
-				return xff[:i]
-			}
-		}
-		return xff
-	}
-
-	// Check X-Real-IP header
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		return xrip
-	}
-
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
 }
 
 // formConfirmationSender is the slice of the email service the form handlers

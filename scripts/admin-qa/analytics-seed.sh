@@ -25,6 +25,7 @@ DELETE FROM hatamoto_agent_daily WHERE day >= current_date - 120;
 DELETE FROM hatamoto_analytics_daily WHERE kind IN ('pageview', 'ai_referral') AND day >= current_date - 120;
 DELETE FROM hatamoto_agent_first_crawl;
 DELETE FROM hatamoto_agent_hits WHERE source = 'log' AND occurred_at >= current_date - 120;
+DELETE FROM hatamoto_agent_hits WHERE source = 'backend' AND path = '/qa-cdn-spoof' AND occurred_at >= current_date - 120;
 UPDATE hatamoto_agent_tracking SET started_at = (current_date - 110)::timestamp AT TIME ZONE 'UTC';
 
 -- The days: weekend dip, slow growth, a spike 9 days ago, and an error multiplier (two bad days, a few mild ones).
@@ -135,6 +136,17 @@ SELECT CASE WHEN n <= 5 THEN now() - n * interval '7 minutes' ELSE (current_date
   FROM generate_series(1, 60) n
   JOIN LATERAL (SELECT * FROM sa WHERE spoof ORDER BY id OFFSET (n - 1) % 5 LIMIT 1) a ON true;
 
+-- One bad day 110 days ago, before the seeded window, so only a range around it turns the Crawlers
+-- banner red: GPTBot fetches judged against Cloudflare edge addresses (untruncated, as a proxy in
+-- front of the app records them), most of them spoofed.
+INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, operator, purpose, entity_id, hits, verified_hits, spoofed_hits, unverifiable_hits, bytes_total)
+VALUES (current_date - 110, 'gptbot', '/qa-cdn-spoof', 200, 'OpenAI', 'training', NULL, 3600, 600, 3000, 0, 0);
+INSERT INTO hatamoto_agent_hits (occurred_at, agent_id, operator, purpose, verification, ip, ip_truncated, method, path, status, bytes, duration_ms, source)
+SELECT (current_date - 110)::timestamp AT TIME ZONE 'UTC' + n * interval '7 minutes', 'gptbot', 'OpenAI', 'training', 'spoofed',
+       CASE WHEN n % 2 = 0 THEN ('104.16.' || (n % 40) || '.' || (n % 250 + 1))::inet ELSE ('172.64.' || (n % 40) || '.' || (n % 250 + 1))::inet END,
+       false, 'GET', '/qa-cdn-spoof', 200, 900, 12, 'backend'
+  FROM generate_series(1, 60) n;
+
 -- Pageviews with the same week and spike, and AI referrals by assistant (about 3.8% of pageviews).
 INSERT INTO hatamoto_analytics_daily (day, kind, key, count)
 SELECT day, 'pageview', '', round(2900 * wk * (0.85 + 0.15 * (99 - ago) / 99.0) * CASE WHEN ago = 9 THEN 1.25 ELSE 1 END * (0.93 + 0.14 * noise))
@@ -147,4 +159,4 @@ SELECT sd.day, 'ai_referral', a.key,
 ON CONFLICT DO NOTHING;
 COMMIT;
 SQL
-echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits, pageviews and AI referrals"
+echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits (log, and one bad day behind a CDN), pageviews and AI referrals"

@@ -144,6 +144,10 @@ func (w *VerifyWorker) RunVerify(ctx context.Context) error {
 // only hits older than the cutoff become unverifiable. stillPending reports an
 // undecided pair.
 func (w *VerifyWorker) verifyPair(ctx context.Context, p PendingPair) (flipped int64, stillPending bool, err error) {
+	if p.Truncated {
+		// Defence in depth: a truncated address is a network, never range-check it.
+		return 0, false, nil
+	}
 	state := StateUnverifiable
 	if a := w.reg.ByID(p.AgentID); a != nil {
 		state = w.verifier.Verify(ctx, a, p.IP)

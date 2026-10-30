@@ -85,6 +85,7 @@ With several processes, multiply the maximum by the number of processes and chec
 | `SERVER_WRITE_TIMEOUT` | `30s` | HTTP write timeout (duration). |
 | `SERVER_IDLE_TIMEOUT` | `120s` | Keep-alive idle timeout (duration). |
 | `HATAMOTO_TRUSTED_PROXIES` | loopback only | Comma-separated CIDRs (or bare IPs) whose `X-Forwarded-*` headers are believed. See [Trusted proxies](#trusted-proxies). |
+| `HATAMOTO_TRUSTED_CDN` | off | `cloudflare` trusts Cloudflare's edge addresses to name the visitor in `CF-Connecting-IP`. `off` or empty leaves it off. See [Trusted CDN](#trusted-cdn). |
 
 ## Security
 
@@ -268,11 +269,32 @@ What trust changes:
 
 | Item | Behaviour |
 |---|---|
-| Client IP | Hatamoto walks `X-Forwarded-For` from the right and takes the first address that is not itself a trusted proxy, then falls back to `X-Real-IP`, then to the peer address. The IP is used for login lockouts, rate limits and (shortened) crawler analytics. |
+| Client IP | Without a CDN preset, Hatamoto walks `X-Forwarded-For` from the right and takes the first address that is not itself a trusted proxy, then falls back to `X-Real-IP`, then to the peer address. The IP is used for login lockouts, rate limits and (shortened) crawler analytics. |
 | Scheme | A request counts as HTTPS if it arrived over TLS directly, or from a trusted proxy with `X-Forwarded-Proto: https`. Admin cookies get the `Secure` attribute accordingly. |
 | Host | `X-Forwarded-Host` is honoured only from a trusted proxy. |
 
 If the proxy runs in another container or on another network, such as a cloud load balancer, add its address or range. If no proxy is in front at all, leave the variable empty.
+
+## Trusted CDN
+
+`HATAMOTO_TRUSTED_CDN=cloudflare` is for a site served through Cloudflare. It is off by default. Without it, a request that passed through Cloudflare and then your own proxy shows the Cloudflare edge address as the client, so every visitor, and every real crawler, looks like the same few addresses. Crawlers with published IP ranges then fail verification and show as `spoofed`.
+
+With the preset on, Hatamoto chooses the client IP like this:
+
+1. The peer must be a trusted proxy (see [Trusted proxies](#trusted-proxies)) or a Cloudflare edge address. Otherwise forwarded headers are ignored and the peer address is the client.
+2. It walks `X-Forwarded-For` from the right and skips your own trusted proxies. The first remaining address is the hop that talked to your proxy.
+3. If that hop is **not** a Cloudflare edge address, it is the client, as before.
+4. If it **is** a Cloudflare edge address, the client is the address in `CF-Connecting-IP`. The header is believed only because it arrived through an edge address: a client that is not behind Cloudflare cannot forge it. A header that is not an address, or is a trusted-proxy address, is ignored and the edge address stays. Hatamoto never reads `X-Forwarded-For` entries to the left of the edge: whoever sent the request to Cloudflare can write those.
+
+**The preset trusts any Cloudflare address, not only your own account.** Anyone can route traffic through Cloudflare, and a Cloudflare Worker can only present a Cloudflare address as the client. Your origin should accept connections only from Cloudflare. A firewall that admits Cloudflare's published ranges still admits other Cloudflare accounts; Authenticated Origin Pulls (zone-level, with your own certificate) restricts traffic to your own zone.
+
+The preset never widens `HATAMOTO_TRUSTED_PROXIES`: edge addresses are trusted for the client address only, not for `X-Forwarded-Proto` or `X-Forwarded-Host`. Your own reverse proxy still has to be a trusted proxy, and the two settings are independent. The client IP chosen this way feeds login lockouts, rate limits, session addresses and crawler analytics, so rate limits become per visitor instead of per edge address.
+
+The edge ranges come from Cloudflare's published lists, `https://www.cloudflare.com/ips-v4` and `https://www.cloudflare.com/ips-v6`. At boot Hatamoto loads the last list it stored in the database, or a list built into the binary when none is stored. It then downloads both lists again every 24 hours in the background, never during a request. The new list replaces the old one only when both downloads succeed and the result looks like a real edge list (at least 5 IPv4 and 3 IPv6 prefixes, none broader than /8 for IPv4 or /16 for IPv6), otherwise the last good list stays and a warning is logged. The refresh runs even when the worker is off. `HATAMOTO_AGENT_RANGES=off` stops that download too (it is the one switch for outbound range downloads), so the preset then works from the stored or built-in list; see [Outbound connections](outbound-connections.md).
+
+An unknown value stops the boot with `HATAMOTO_TRUSTED_CDN: "..." is not a known preset (cloudflare)`. The value is not case sensitive.
+
+Check it: open **AI analytics > Crawlers**. The verification banner (see [Crawler analytics](../ai-seo/crawler-analytics.md#verification-health)) names the header client IPs are read from, and stays red until fetches judged before the change leave the selected date range. The boot log line `trusted CDN preset on` shows the number of ranges loaded.
 
 ## Email delivery
 
@@ -359,6 +381,7 @@ Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the d
 | `HATAMOTO_SECRET must be at least 32 characters` | The secret in the environment is too short. |
 | `HATAMOTO_SETUP_CODE must be at least 12 characters` | The setup code is too short (counted after case, spaces and dashes are removed). It stops the boot only while the site has no users. A code that is one repeated character or pattern is refused with `HATAMOTO_SETUP_CODE is too guessable`. |
 | `HATAMOTO_TRUSTED_PROXIES: "..." is not a CIDR like 10.0.0.0/8` | An entry in the proxy list is not a CIDR or IP. |
+| `HATAMOTO_TRUSTED_CDN: "..." is not a known preset (cloudflare)` | The preset name is not `cloudflare` (or `off`). |
 | `HATAMOTO_TRUSTED_KEYS holds "...", which is not an ed25519 public key` | A trusted key is not 32 bytes of base64. |
 | `HATAMOTO_REGISTRY_URL "..." must be an https URL (or "off")` | The registry address is not an http or https URL with a host. |
 | `HATAMOTO_REGISTRY_URL "..." is http: the registry must be served over https` | The registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |

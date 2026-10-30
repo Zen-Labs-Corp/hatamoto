@@ -146,3 +146,26 @@ func TestNotFoundZeroDisables(t *testing.T) {
 		t.Errorf("%d %v", a.NotFoundPerMin, a.Validate())
 	}
 }
+
+func TestTrustedCDNParsing(t *testing.T) {
+	for _, c := range []struct {
+		env, want string
+		bad       bool
+	}{
+		{"", "", false},
+		{"off", "", false},
+		{"cloudflare", "cloudflare", false},
+		{"Cloudflare ", "cloudflare", false},
+		{"fastly", "", true},
+	} {
+		t.Setenv("HATAMOTO_TRUSTED_CDN", c.env)
+		a := loadAdminConfig()
+		err := a.Validate()
+		if a.TrustedCDN != c.want || (err != nil) != c.bad {
+			t.Errorf("%q: TrustedCDN=%q err=%v, want %q bad=%v", c.env, a.TrustedCDN, err, c.want, c.bad)
+		}
+		if c.bad && err.Error() != `HATAMOTO_TRUSTED_CDN: "fastly" is not a known preset (cloudflare)` {
+			t.Errorf("error text = %q", err)
+		}
+	}
+}

@@ -198,4 +198,75 @@ func TestAgentMigrations_Integration(t *testing.T) {
 			}
 		}
 	})
+	t.Run("verification reset sends re-checkable spoofed hits back to pending", func(t *testing.T) {
+		path := "/reset-" + marker
+		agent := "reset-" + marker
+		t.Cleanup(func() {
+			_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_hits WHERE agent_id = $1`, agent)
+			_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE agent_id = $1`, agent)
+		})
+		// Yesterday (UTC) is inside the window and keeps every hit on one daily
+		// key whatever the time of day the test runs; the daily row adds up to them.
+		yesterday := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -1)
+		exec(`INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, hits, verified_hits, spoofed_hits, unverifiable_hits)
+		      VALUES ($1::date, $2, $3, 200, 9, 1, 5, 1)`, yesterday, agent, path)
+		ins := func(at time.Time, verification string, truncated bool) uuid.UUID {
+			id := uuid.New()
+			exec(`INSERT INTO hatamoto_agent_hits (id, occurred_at, agent_id, path, status, verification, ip, ip_truncated, source)
+			      VALUES ($1, $2, $3, $4, 200, $5, '203.0.113.7', $6, 'backend')`, id, at, agent, path, verification, truncated)
+			return id
+		}
+		recent := ins(yesterday.Add(1*time.Hour), "spoofed", false)
+		recent2 := ins(yesterday.Add(2*time.Hour), "spoofed", false)
+		trunc := ins(yesterday.Add(3*time.Hour), "spoofed", true)
+		verified := ins(yesterday.Add(4*time.Hour), "verified", false)
+		pending := ins(yesterday.Add(5*time.Hour), "pending", false)
+		// Older than the window and untruncated: keeps its verdict (no daily row needed).
+		old := ins(time.Now().Add(-10*24*time.Hour), "spoofed", false)
+
+		raw, err := os.ReadFile("../../migrations/202610301700_agent_verification_reset.sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		up, _, _ := strings.Cut(string(raw), "-- +goose Down")
+		up = strings.NewReplacer("-- +goose Up", "", "-- +goose StatementBegin", "", "-- +goose StatementEnd", "").Replace(up)
+		state := func(id uuid.UUID) string {
+			var v string
+			if err := db.Pool().QueryRow(ctx, `SELECT verification FROM hatamoto_agent_hits WHERE id = $1`, id).Scan(&v); err != nil {
+				t.Fatal(err)
+			}
+			return v
+		}
+		counters := func() (hits, verifiedN, spoofed, unverif int64) {
+			if err := db.Pool().QueryRow(ctx, `SELECT hits, verified_hits, spoofed_hits, unverifiable_hits FROM hatamoto_agent_daily
+			    WHERE agent_id = $1 AND path = $2 AND status = 200`, agent, path).Scan(&hits, &verifiedN, &spoofed, &unverif); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+		check := func(when string) {
+			t.Helper()
+			for _, c := range []struct {
+				name string
+				id   uuid.UUID
+				want string
+			}{
+				{"recent", recent, "pending"}, {"recent2", recent2, "pending"}, {"truncated", trunc, "spoofed"},
+				{"older than the window", old, "spoofed"}, {"verified", verified, "verified"}, {"pending", pending, "pending"},
+			} {
+				if got := state(c.id); got != c.want {
+					t.Errorf("%s: %s = %s, want %s", when, c.name, got, c.want)
+				}
+			}
+			// 2 reset to pending; the truncated one keeps its verdict: spoofed 5-2.
+			hits, v, s, u := counters()
+			if hits != 9 || v != 1 || s != 3 || u != 1 || hits < v+s+u {
+				t.Errorf("%s: counters hits=%d verified=%d spoofed=%d unverifiable=%d, want 9/1/3/1", when, hits, v, s, u)
+			}
+		}
+		exec(up)
+		check("first run")
+		exec(up)
+		check("second run")
+	})
 }
