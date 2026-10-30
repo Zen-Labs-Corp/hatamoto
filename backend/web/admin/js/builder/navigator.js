@@ -273,10 +273,11 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
         "aria-selected": String(r.id === selRow || members.has(r.id)),
         "aria-expanded": r.kids ? String(r.expanded) : false,
       });
+      li.style.setProperty("--bs-level", String(r.level)); // the indent (builder.css) follows the depth, however deep
       if (r.id === renaming) return li.append((field = renameField(r.node))), li;
       const kids = [];
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
-      if (r.kids) kids.push(h("span", { "data-caret": "", "aria-hidden": "true" }));
+      kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
       if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node));
       else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(ICON_FOR[r.node.t] ?? "puzzle")));
       const text = h("span", { class: "hm-bs-row__text" });
