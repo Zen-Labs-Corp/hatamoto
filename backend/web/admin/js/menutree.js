@@ -287,7 +287,8 @@ function newRow(spec, depth) {
   li.dataset.type = type;
   li.querySelectorAll("[data-hm-type]").forEach((r) => { r.checked = r.value === type; });
   const set = (suffix, value) => { const f = field(li, suffix); if (f && value) f.value = value; };
-  set("label", spec.label);
+  // A script skips maxlength, and the server refuses a label over 100 characters; the full title stays in the search text.
+  set("label", spec.label && [...spec.label].slice(0, 100).join(""));
   set("url", spec.url);
   // A typed name without a pick is kept too: the server resolves it on save, as for a search box.
   const key = type === "entity" ? "entity" : type === "archive" ? "term" : "";

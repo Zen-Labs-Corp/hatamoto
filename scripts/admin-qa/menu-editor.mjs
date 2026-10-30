@@ -421,6 +421,19 @@ try {
     ok((await rowsOf(page)).length === nBefore + 1 && last[1] === label && lastType === type, `ISC-38: ${tab} adds one ${type} row`);
     await undoOnce();
   }
+  // a page whose title is over 100 characters gets a label the server accepts
+  const longTitle = "L".repeat(150);
+  await page.route("**/pick/entities*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify([{ value: "00000000-0000-0000-0000-000000000001", label: longTitle, hint: "" }]) }));
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#add-search").fill("long");
+  const longOpt = page.locator(`#add-pages-list [role=option][data-label="${longTitle}"]`);
+  await longOpt.waitFor();
+  await longOpt.click();
+  await page.locator('[data-hm-add-confirm="pages"]').click();
+  const longRow = page.locator("[data-hm-item]").last();
+  ok((await longRow.locator('[name$=".label"]').evaluate((f) => [...f.value].length)) === 100 && (await longRow.locator('[name$=".entity_q"]').inputValue()) === longTitle, "ISC-38: a page title over 100 characters is cut to 100 in the label and kept whole in the search text");
+  await undoOnce();
+  await page.unroute("**/pick/entities*");
   const afterRow = (await rowsOf(page)).findIndex((r) => r[1] === "Docs");
   await (await byLabel(page, "Docs")).locator("[data-hm-add-after]").click();
   await page.locator("#menu-add:popover-open").waitFor();
