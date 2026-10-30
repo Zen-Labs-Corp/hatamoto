@@ -148,10 +148,11 @@ func GetClientIP(r *http.Request) string {
 //
 // With a trusted peer the X-Forwarded-For chain is walked from the right,
 // skipping our own proxies; the first remaining hop is the earliest one we can
-// trust. If that hop is a CDN edge, the visitor is the valid CF-Connecting-IP
-// (the CDN set vouches for the hop that carried it), else the next hop to the
-// left that is not an edge. Without the CDN preset the CDN set is empty and
-// only the plain walk applies. An untrusted peer is taken at face value.
+// trust. If that hop is a CDN edge, the visitor is CF-Connecting-IP when it
+// parses as an address, else the edge address itself; entries to the left of
+// an edge are never read, since whoever called the CDN can write them. Without
+// the CDN preset the CDN set is empty and only the plain walk applies. An
+// untrusted peer is taken at face value.
 func getIP(r *http.Request) string {
 	ts := trust.Load()
 	peer, peerOK := peerAddr(r.RemoteAddr)
