@@ -131,3 +131,16 @@ func TestMultiLocale_Down(t *testing.T) {
 		t.Errorf("old trigger body not restored: %v", got)
 	}
 }
+
+// Changing the language and writing the locale list in one UPDATE (what the
+// admin form and the REST API do) is not a retag: the new row already lists
+// several locales, so existing entities keep their tags.
+func TestMultiLocale_NoRetagWhenLanguageAndListInOneUpdate(t *testing.T) {
+	db, exec := multiLocaleDB(t)
+	exec(`UPDATE hatamoto_site_config SET language = 'fr',
+		locales = '[{"tag":"fr","segment":"fr"},{"tag":"en","segment":"en"}]'::jsonb`)
+	got := localesOf(t, db)
+	if got["a"] != "en" || got["b"] != "fr" || got["s"] != "und" {
+		t.Errorf("locales = %v, want a=en b=fr s=und unchanged", got)
+	}
+}
