@@ -144,7 +144,7 @@ func TestBuilderSEOFragment(t *testing.T) {
 	}
 	body := rec.Body.String()
 	has(t, body, `name="seo_title"`, "Stored title", `role="tab"`, `id="hm-bs-seo"`, "/builder/analyze")
-	lacks(t, body, "<html", "<nav", "hm-sidebar")
+	lacks(t, body, "<html", "<nav", "hm-sidebar", "0 words", "No images", "Answerability")
 }
 
 func TestBuilderSEOSchemaTabHasTheNamedPagesData(t *testing.T) {
@@ -188,4 +188,44 @@ func TestBuilderAnalyzeSizeAndParseErrors(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("a malformed body: %d", rec.Code)
 	}
+}
+
+func TestBuilderAnalyzeUsesPostedName(t *testing.T) {
+	t.Parallel()
+
+	r := newBSEORig(t, seoPreviewHTML)
+	rec := r.do("POST", r.url(r.page, "/builder/analyze"), "owner-token", url.Values{"doc": {stageDoc}, "name": {"Renamed"}}, htmxHdr)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	has(t, rec.Body.String(), "Renamed", "hm-bp__serp-title", "(7 characters)")
+}
+
+func TestBuilderAnalyzeStoredSEOFallback(t *testing.T) {
+	t.Parallel()
+
+	r := newBSEORig(t, seoPreviewHTML)
+	r.page.Attributes = []byte(`{"meta_title":"Stored meta title"}`)
+	rec := r.do("POST", r.url(r.page, "/builder/analyze"), "owner-token", url.Values{"doc": {stageDoc}}, htmxHdr)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	has(t, rec.Body.String(), "Stored meta title")
+	// A drawer that posts seo_title, even empty, is the source of truth.
+	rec = r.do("POST", r.url(r.page, "/builder/analyze"), "owner-token", url.Values{"doc": {stageDoc}, "seo_title": {""}}, htmxHdr)
+	lacks(t, rec.Body.String(), "Stored meta title")
+}
+
+func TestBuilderAnalyzeFailureLeavesNoPartial(t *testing.T) {
+	t.Parallel()
+
+	r := newBSEORig(t, seoPreviewHTML)
+	r.a.deps.Content.Preview = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	})
+	rec := r.analyze("owner-token", r.page, stageDoc)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	lacks(t, rec.Body.String(), `id="seo-score"`)
 }
