@@ -136,3 +136,80 @@ func TestLocaleSegmentChecks_InfraError_Integration(t *testing.T) {
 		t.Errorf("message = %q", le.Message)
 	}
 }
+
+// A segment taken by a published top-level page is refused with the page's
+// name, slug and id and a pointer to the conversion; a draft page, a child
+// page and a term kind are told apart.
+func TestLocaleSegmentChecks_NamesPage_Integration(t *testing.T) {
+	srv, ctx := localeCheckServer(t)
+	pool := srv.db.Pool()
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	var siteRows int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_site_config`).Scan(&siteRows); err != nil {
+		t.Fatal(err)
+	}
+	if siteRows == 0 {
+		exec(`INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Segment IT', 'en')`)
+		t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM hatamoto_site_config`) })
+	}
+	srv.siteConfig.Invalidate()
+	var schemaID, pubID, parentID string
+	if err := pool.QueryRow(ctx, `SELECT id::text FROM hatamoto_entity_schemas WHERE slug = 'page'`).Scan(&schemaID); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(name, slug, status string, parent any) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx, `INSERT INTO hatamoto_entities (schema_id,name,slug,status,parent_id,attributes)
+			VALUES ($1,$2,$3,$4,$5,'{}'::jsonb) RETURNING id::text`, schemaID, name, slug, status, parent).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	pubID = insert("Yy Page", "yy", "published", nil)
+	insert("Draft Page", "yd", "draft", nil)
+	parentID = insert("Parent", "yp", "published", nil)
+	insert("Child", "yc", "published", parentID)
+	exec(`INSERT INTO hatamoto_terms (kind,slug,name) VALUES ('yk','a','A')`)
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM hatamoto_entities WHERE slug IN ('yy','yd','yc') OR id = $1::uuid`, parentID)
+		_, _ = pool.Exec(c, `DELETE FROM hatamoto_terms WHERE kind = 'yk'`)
+	})
+
+	tests := []struct {
+		seg  string
+		want []string // substrings of the error; nil = accepted
+	}{
+		{"yy", []string{`segment "yy"`, `published page "Yy Page"`, "(/yy, id " + pubID + ")", "Settings > General > Convert existing region pages", "hatamoto locales convert"}},
+		{"yk", []string{`segment "yk" is already used as a term kind`}},
+		{"yd", nil},
+		{"yc", nil},
+	}
+	for _, tt := range tests {
+		err := srv.checkLocaleSegments(ctx, []string{tt.seg})
+		if tt.want == nil {
+			if err != nil {
+				t.Errorf("%s: err = %v, want accepted", tt.seg, err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("%s: accepted", tt.seg)
+			continue
+		}
+		for _, w := range tt.want {
+			if !strings.Contains(err.Error(), w) {
+				t.Errorf("%s: %q lacks %q", tt.seg, err, w)
+			}
+		}
+		if strings.ContainsAny(err.Error(), "—–") {
+			t.Errorf("%s: message has a dash: %q", tt.seg, err)
+		}
+	}
+}

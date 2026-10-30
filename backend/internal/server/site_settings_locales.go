@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -146,15 +148,25 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		if s.db == nil {
 			continue
 		}
-		var n int
+		var id, name, slug string
 		err := s.db.Pool().QueryRow(ctx, `
-			SELECT (SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND parent_id IS NULL AND status = 'published' AND variant_key IS NULL)
-			     + (SELECT count(*) FROM hatamoto_terms WHERE kind = $1)`, seg).Scan(&n)
-		if err != nil {
+			SELECT id::text, name, slug FROM hatamoto_entities
+			WHERE slug = $1 AND parent_id IS NULL AND status = 'published' AND variant_key IS NULL
+			ORDER BY created_at LIMIT 1`, seg).Scan(&id, &name, &slug)
+		switch {
+		case err == nil:
+			return fmt.Errorf("segment %q is already used by the published page \"%s\" (/%s, id %s). "+
+				"To use region pages as locales run the conversion: Settings > General > Convert existing region pages (or \"hatamoto locales convert\")",
+				seg, name, slug, id)
+		case !errors.Is(err, pgx.ErrNoRows):
 			return &localeCheckInfraError{segment: seg, err: err}
 		}
-		if n > 0 {
-			return fmt.Errorf("segment %q is already used by a published page or a term kind", seg)
+		var isKind bool
+		if err := s.db.Pool().QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_terms WHERE kind = $1)`, seg).Scan(&isKind); err != nil {
+			return &localeCheckInfraError{segment: seg, err: err}
+		}
+		if isKind {
+			return fmt.Errorf("segment %q is already used as a term kind", seg)
 		}
 		rule, err := s.redirectClaiming(ctx, seg)
 		if err != nil {
