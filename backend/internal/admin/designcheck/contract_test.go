@@ -478,12 +478,15 @@ func expandDecl(prop, val string) map[string]string {
 				color = v
 			}
 		}
-		if color == "" {
-			break
-		}
 		for _, side := range []string{"top", "right", "bottom", "left"} {
-			if prop == "border" || prop == "border-"+side {
+			if prop != "border" && prop != "border-"+side {
+				continue
+			}
+			if color != "" {
 				out["border-"+side+"-color"] = color
+			}
+			if len(vals) == 1 && vals[0] == "0" { // "border: 0" pins the width (the button contract)
+				out["border-"+side+"-width"] = "0"
 			}
 		}
 	case "font":

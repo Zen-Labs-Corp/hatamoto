@@ -11,7 +11,7 @@
 
 /* Style tab: State switch on one row, Essentials, then one disclosure for every other group. */
 .hm-bs-states.hm-bs-states { flex-wrap: nowrap; }
-.hm-bs-states .hm-bs-opt { flex: 1 1 0; min-width: 0; padding-inline: var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-states .hm-bs-opt { flex: 1 1 0; min-width: 0; padding-inline: calc(var(--space-1) + var(--space-px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-bs-essentials { display: flex; flex-direction: column; gap: var(--space-3); margin-block: var(--space-3); }
 .hm-bs-more-opts { margin-top: var(--space-3); }
 .hm-bs-more-opts > summary { cursor: pointer; font-weight: var(--weight-semibold); padding-block: var(--space-2); }
@@ -33,17 +33,18 @@
 .hm-bs-ring__c > .hm-bs-ring { flex: 1 1 auto; }
 .hm-bs-ring__el { padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--color-kasumi); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
 .hm-bs-side__q { display: flex; justify-content: center; gap: var(--space-1); margin-top: var(--space-1); }
-.hm-bs-quick.hm-bs-quick { min-width: 1.5rem; min-height: 1.5rem; padding: 0 var(--space-1); font-size: var(--text-xs); } /* 24 px: WCAG 2.5.8 */
+.hm-bs-quick.hm-bs-quick { min-width: 1.5rem; min-height: 1.5rem; padding: 0 calc(var(--space-1) + var(--space-px)); font-size: var(--text-xs); } /* 24 px: WCAG 2.5.8 */
 .hm-bs-links { display: inline-flex; gap: var(--space-1); }
 .hm-bs-linkbtn { min-width: 2rem; }
 .hm-bs-linkbtn::before { content: "\25A3"; }
 .hm-bs-linkbtn[data-link="vertical"]::before { content: "\2195"; }
 .hm-bs-linkbtn[data-link="horizontal"]::before { content: "\2194"; }
-.hm-bs-linkbtn[aria-pressed="true"] { background: var(--color-kasumi); border-color: var(--color-sumi); color: var(--color-sumi); }
 
-/* Pressed and checked options: a light grey fill and an ink edge, ink text (readable in light and dark; accent text on a light surface was not). */
-.hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-kasumi); border-color: var(--color-sumi); color: var(--color-sumi); }
+/* Pressed and checked options: grey fill, 1px ink ring, ink text. */
+.hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-opt[aria-pressed="true"]:hover, .hm-bs-opt[aria-checked="true"]:hover { background-color: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--color-sumi); color: var(--color-sumi); }
+.hm-bs-opt--inherited[aria-pressed="true"], .hm-bs-opt--inherited[aria-checked="true"] { border-color: var(--color-sumi); box-shadow: none; }
 .hm-bs-opt[aria-pressed="true"]:focus-visible, .hm-bs-opt[aria-checked="true"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
+  .hm-bs-opt:not(.hm-bs-opt--inherited, :focus-visible), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-checked="true"], .hm-bs-linkbtn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }

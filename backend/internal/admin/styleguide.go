@@ -44,6 +44,7 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Secondary", Data: ui.Button{Label: "Cancel", Variant: "secondary"}.Dict()},
 			{Label: "Ghost", Variant: "ghost", Data: ui.Button{Label: "Skip", Variant: "ghost"}.Dict()},
 			{Label: "Danger", Variant: "danger", Data: ui.Button{Label: "Delete", Variant: "danger"}.Dict()},
+			{Label: "Danger text", Data: ui.Button{Label: "Remove", Variant: "danger-text"}.Dict()},
 			{Label: "Small", Variant: "sm", Data: ui.Button{Label: "Edit", Variant: "secondary", Size: "sm"}.Dict()},
 			{Label: "Icon only", Variant: "icon", Data: ui.Button{Label: "Delete", Variant: "secondary", Icon: "trash", IconOnly: true, AriaLabel: "Delete item"}.Dict()},
 			{Label: "Pressed", Variant: "pressed", Data: ui.Button{Label: "Bold", Variant: "secondary", Attrs: map[string]string{"aria-pressed": "true"}}.Dict()},

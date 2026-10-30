@@ -204,10 +204,14 @@ func (a *Admin) dateRangeFor(base string, rg agents.Range, hidden map[string]str
 	}
 	d := ui.DateRange{Action: base, From: from, To: to, Hidden: hidden, Min: analyticsMinDate, Max: t.Format(dayLayout)}
 	d.Label = fmtDate(rg.From) + " - " + fmtDate(rg.To)
+	matched := false
 	for _, p := range rangePresets(t) {
 		pf, pt := p.From.Format(dayLayout), p.To.Format(dayLayout)
-		on := pf == from && pt == to
+		// Presets can span the same days (Last 30 days and Month to date on the
+		// 30th of a 30 day month): the first, listed order, names the range.
+		on := pf == from && pt == to && !matched
 		if on {
+			matched = true
 			d.Label = p.Label + " · " + span(rg.From, rg.To)
 		}
 		d.Quick = append(d.Quick, ui.DatePreset{Label: p.Label, Href: href(pf, pt), Active: on})

@@ -165,11 +165,10 @@ button.hm-bs-group__t:focus-visible { outline: var(--focus-ring); outline-offset
 .hm-bs__inspector .hm-btn { align-self: flex-start; }
 .hm-bs-tools { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
 .hm-bs-opts { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
-.hm-bs-opt { appearance: none; font: inherit; min-width: 2.25em; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); cursor: pointer; }
-.hm-bs-opt:hover { border-color: var(--border-control); }
-.hm-bs-opt[aria-pressed="true"] { background: var(--color-accent); color: var(--surface); border-color: var(--color-accent); }
-.hm-bs-opt[aria-checked="true"] { background: var(--color-accent); color: var(--surface); border-color: var(--color-accent); }
-.hm-bs-opt--inherited { border-style: dashed; }
+.hm-bs-opt { appearance: none; font: inherit; min-width: 2.25em; color: var(--color-sumi); background: var(--color-paper); border: 0; border-radius: var(--radius-sm); padding: calc(var(--space-1) + var(--space-px)) calc(var(--space-2) + var(--space-px)); box-shadow: inset 0 0 0 1px var(--segment-ring), inset 0 -2px 0 var(--segment-bevel); transition: background-color 120ms var(--ease), box-shadow 120ms var(--ease); cursor: pointer; }
+.hm-bs-opt:hover { background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--segment-bevel), inset 0 -2px 0 var(--segment-bevel); }
+.hm-bs-opt--inherited { border: 1px dashed var(--border); padding: var(--space-1) var(--space-2); box-shadow: none; }
+.hm-bs-opt--inherited:hover { box-shadow: none; }
 .hm-bs-states { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-bs-opt:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-bs-num { width: 5em; }
