@@ -637,6 +637,11 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
     the container. Its name is the container's own name, else the component's name, else the section title. Selecting
     the component from the canvas highlights the same row. The theme component itself is never a row: its blocks, if
     any, are 28px rows under it with a type icon, the opening text and the muted kind name, drawn on a guide line.
+    When the component has no blocks, the section instead lists its non-empty content fields as the same 28px rows
+    (a type icon, the opening text of the value without markup, the muted field label; a list shows "N items"), in
+    the order of the Inspector form, and the meta line counts them as blocks. Click or Enter on a field row opens the
+    Inspector on that field. A field row is not a node: it cannot be dragged, renamed or hidden, and its menu acts on
+    the section. The field list is sent to the editor only (`sections[].fields` in the page data), not in any API.
     A section that is not wrapped this way (two children, plain container) keeps one row per node. The selected row
     is solid accent; the section that contains the selection gets a tinted band. Hovering a row shows an eye (hide)
     and a more button (context menu), and hovering the edge between two sections (and below the last) shows
