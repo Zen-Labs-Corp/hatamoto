@@ -276,6 +276,7 @@ test("badge fills score and tone from the analyze HTML", async () => {
   await r.b.refresh();
   assert.equal(r.calls[0][0], "/analyze");
   assert.equal(r.calls[0][1].headers["X-CSRF-Token"], "tok");
+  assert.equal(r.calls[0][1].headers["HX-Target"], "be-panel"); // with HX-Request this is what makes the server answer the fragment, not the page
   assert.equal(r.calls[0][1].body.get("name"), "N");
   assert.equal(r.calls[0][1].body.get("doc"), '{"v":2}');
   assert.equal(r.calls[0][1].body.has("seo_title"), false);

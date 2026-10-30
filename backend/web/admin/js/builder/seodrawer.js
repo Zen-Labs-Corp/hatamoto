@@ -39,7 +39,7 @@ export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "
     try {
       const res = await f(urls.analyze, {
         method: "POST",
-        headers: { "HX-Request": "true", "X-CSRF-Token": csrf(), "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { "HX-Request": "true", "HX-Target": "be-panel", "X-CSRF-Token": csrf(), "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ doc: JSON.stringify(getDoc()), name: getName?.() ?? "" }),
       });
       if (!res.ok) return;
