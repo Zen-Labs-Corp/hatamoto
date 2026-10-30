@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -72,12 +73,20 @@ func TestCDNRefresher(t *testing.T) {
 	big := func() (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(strings.Repeat("#\n", refreshBodyCap)))}, nil
 	}
+	const v4ok = "173.245.48.0/20\n103.21.244.0/22\n103.22.200.0/22\n103.31.4.0/22\n141.101.64.0/18\n"
+	const v6ok = "2400:cb00::/32\n2606:4700::/32\n2803:f800::/32\n"
 	tests := []struct {
 		name string
 		resp map[string]func() (*http.Response, error)
 		ok   bool
 	}{
-		{"success", map[string]func() (*http.Response, error){v4: okBody("173.245.48.0/20\n"), v6: okBody("2400:cb00::/32\n")}, true},
+		{"success", map[string]func() (*http.Response, error){v4: okBody(v4ok), v6: okBody(v6ok)}, true},
+		{"v4 /0", map[string]func() (*http.Response, error){v4: okBody(v4ok + "0.0.0.0/0\n"), v6: okBody(v6ok)}, false},
+		{"v4 broader than /8", map[string]func() (*http.Response, error){v4: okBody(v4ok + "4.0.0.0/7\n"), v6: okBody(v6ok)}, false},
+		{"v6 /0", map[string]func() (*http.Response, error){v4: okBody(v4ok), v6: okBody(v6ok + "::/0\n")}, false},
+		{"v6 broader than /16", map[string]func() (*http.Response, error){v4: okBody(v4ok), v6: okBody(v6ok + "2000::/3\n")}, false},
+		{"too few v4", map[string]func() (*http.Response, error){v4: okBody("173.245.48.0/20\n"), v6: okBody(v6ok)}, false},
+		{"too few v6", map[string]func() (*http.Response, error){v4: okBody(v4ok), v6: okBody("2400:cb00::/32\n")}, false},
 		{"one url fails", map[string]func() (*http.Response, error){v4: okBody("173.245.48.0/20\n"), v6: status(500)}, false},
 		{"status 500", map[string]func() (*http.Response, error){v4: status(500), v6: status(500)}, false},
 		{"empty body", map[string]func() (*http.Response, error){v4: okBody(""), v6: okBody("\n")}, false},
@@ -88,7 +97,7 @@ func TestCDNRefresher(t *testing.T) {
 			p := &memPersist{}
 			got, err := NewCDNRefresher(cdnDoer{tc.resp}, p).Refresh(context.Background())
 			if tc.ok {
-				if err != nil || len(got) != 2 || len(p.saved[CDNRangeKey]) != 2 {
+				if err != nil || len(got) != 8 || len(p.saved[CDNRangeKey]) != 8 {
 					t.Fatalf("got %v, %v, saved %v", got, err, p.saved)
 				}
 				return
@@ -139,10 +148,43 @@ func TestCloudflareFallback(t *testing.T) {
 	}
 }
 
+func TestRealCloudflareListsPassValidation(t *testing.T) {
+	var all []netip.Prefix
+	for _, f := range []string{"testdata/cloudflare-ips-v4.txt", "testdata/cloudflare-ips-v6.txt"} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := ParseTextPrefixes(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		all = append(all, p...)
+	}
+	if err := validateCDNRanges(all); err != nil {
+		t.Fatalf("published list rejected: %v", err)
+	}
+	if err := validateCDNRanges(CloudflareFallback()); err != nil {
+		t.Fatalf("fallback rejected: %v", err)
+	}
+}
+
 func TestLoadCDN(t *testing.T) {
-	custom := []netip.Prefix{netip.MustParsePrefix("203.0.113.0/24")}
-	if got := LoadCDN(context.Background(), &memPersist{saved: map[string][]netip.Prefix{CDNRangeKey: custom}}); len(got) != 1 || got[0] != custom[0] {
+	custom := CloudflareFallback()[:0:0]
+	for _, s := range []string{"203.0.113.0/24", "198.51.100.0/24", "192.0.2.0/24", "100.64.0.0/16", "10.0.0.0/8", "2001:db8::/32", "2001:db9::/32", "2001:dba::/32"} {
+		custom = append(custom, netip.MustParsePrefix(s))
+	}
+	if got := LoadCDN(context.Background(), &memPersist{saved: map[string][]netip.Prefix{CDNRangeKey: custom}}); len(got) != len(custom) || got[0] != custom[0] {
 		t.Fatalf("persisted not used: %v", got)
+	}
+	for name, bad := range map[string][]netip.Prefix{
+		"persisted /0":   append(slices.Clone(custom), netip.MustParsePrefix("0.0.0.0/0")),
+		"persisted ::/0": append(slices.Clone(custom), netip.MustParsePrefix("::/0")),
+		"persisted tiny": custom[:1],
+	} {
+		if got := LoadCDN(context.Background(), &memPersist{saved: map[string][]netip.Prefix{CDNRangeKey: bad}}); len(got) != len(cloudflareFallback) {
+			t.Fatalf("%s: want fallback, got %v", name, got)
+		}
 	}
 	for name, p := range map[string]RangePersister{"nil": nil, "empty": &memPersist{}, "error": &memPersist{err: errors.New("db")}} {
 		if got := LoadCDN(context.Background(), p); len(got) != len(cloudflareFallback) {

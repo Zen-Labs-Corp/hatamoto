@@ -61,8 +61,41 @@ func NewCDNRefresher(client HTTPDoer, persist RangePersister) *CDNRefresher {
 	return &CDNRefresher{client: client, persist: persist, now: time.Now}
 }
 
+// Sanity bounds for a CDN list. The set is trusted to name the visitor, so a
+// list that is nearly everything (a stray /0) or nearly nothing (a truncated
+// response that still parses) must never replace a good one.
+const (
+	cdnMinV4Bits  = 8
+	cdnMinV6Bits  = 16
+	cdnMinV4Count = 5
+	cdnMinV6Count = 3
+)
+
+// validateCDNRanges rejects lists with an overly broad prefix or too few
+// entries to be a real CDN edge list.
+func validateCDNRanges(all []netip.Prefix) error {
+	var v4, v6 int
+	for _, p := range all {
+		if p.Addr().Is4() {
+			v4++
+			if p.Bits() < cdnMinV4Bits {
+				return fmt.Errorf("prefix %s is broader than /%d", p, cdnMinV4Bits)
+			}
+		} else {
+			v6++
+			if p.Bits() < cdnMinV6Bits {
+				return fmt.Errorf("prefix %s is broader than /%d", p, cdnMinV6Bits)
+			}
+		}
+	}
+	if v4 < cdnMinV4Count || v6 < cdnMinV6Count {
+		return fmt.Errorf("implausibly small list: %d IPv4 and %d IPv6 prefixes", v4, v6)
+	}
+	return nil
+}
+
 // Refresh fetches both lists. Both must succeed and the union must be
-// non-empty; otherwise it returns an error and nothing is persisted.
+// non-empty and plausible (validateCDNRanges); otherwise it returns an error and nothing is persisted.
 func (r *CDNRefresher) Refresh(ctx context.Context) ([]netip.Prefix, error) {
 	var all []netip.Prefix
 	for _, u := range cdnRangeURLs {
@@ -74,6 +107,9 @@ func (r *CDNRefresher) Refresh(ctx context.Context) ([]netip.Prefix, error) {
 	}
 	if len(all) == 0 {
 		return nil, fmt.Errorf("no prefixes published")
+	}
+	if err := validateCDNRanges(all); err != nil {
+		return nil, fmt.Errorf("rejecting published list: %w", err)
 	}
 	if r.persist != nil {
 		if err := r.persist.SaveRanges(ctx, CDNRangeKey, all, cdnRangeURLs, r.now()); err != nil {
@@ -115,7 +151,11 @@ func LoadCDN(ctx context.Context, persist RangePersister) []netip.Prefix {
 		if err != nil {
 			slog.Warn("cdn ranges: load persisted list failed, using built-in list", "error", err)
 		} else if p := all[CDNRangeKey]; len(p) > 0 {
-			return p
+			if err := validateCDNRanges(p); err != nil {
+				slog.Warn("cdn ranges: persisted list rejected, using built-in list", "error", err)
+			} else {
+				return p
+			}
 		}
 	}
 	return CloudflareFallback()
