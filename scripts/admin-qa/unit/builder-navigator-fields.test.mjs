@@ -74,6 +74,11 @@ test("fieldRows reads an x-hm-alias key when the schema key is absent; the key w
   assert.deepEqual(fieldRows({}, f), []);
 });
 
+test("fieldRows skips booleans: no true/false rows", () => {
+  const f = [{ key: "a", label: "A", kind: "text" }, { key: "b", label: "B", kind: "text" }];
+  assert.deepEqual(fieldRows({ a: false, b: true }, f), []);
+});
+
 test("fieldRows: null, empty list, empty object and a tag-only value give no row; an object shows its first string", () => {
   const f = ["a", "b", "c", "d", "e", "g"].map((key) => ({ key, label: key, kind: "text" }));
   const r = fieldRows({ a: null, b: [], c: {}, d: "<br>", e: { n: 1, title: "Hi <i>x</i>" }, g: { n: 1 } }, f);
@@ -188,10 +193,10 @@ test("paint: a field row is a level-2 treeitem named 'Label · text' with a mute
   assert.equal(withClass(li, "hm-bs-row__name")[0].text, "Body · Hello there");
   assert.equal(withClass(li, "hm-bs-row__kind")[0].text, "Body");
   assert.equal(withClass(li, "hm-bs-row__kind")[0].attrs["aria-hidden"], "true");
-  assert.equal(withAttr(li, "data-ico")[0].attrs["data-ico"], "heading");
+  assert.equal(withAttr(li, "data-ico")[0].attrs["data-ico"], "file-text", "rich text is not the heading icon");
   assert.equal(withClass(li, "hm-bs-row__acts").length, 0);
   const icos = Object.fromEntries(mount().rows().filter((r) => r.attrs["data-field"]).map((r) => [r.attrs["data-field"], withAttr(r, "data-ico")[0].attrs["data-ico"]]));
-  assert.deepEqual(icos, { headline: "heading", body: "heading", cta: "link", cards: "list" });
+  assert.deepEqual(icos, { headline: "heading", body: "file-text", cta: "link", cards: "list" });
   assert.equal(mount().rows()[0].attrs["aria-expanded"], "true");
   assert.equal(withClass(mount().rows()[0], "hm-bs-row__meta")[0].text, "4 blocks · #102030");
 });

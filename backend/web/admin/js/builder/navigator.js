@@ -50,7 +50,7 @@ export function sectionName(container, blocks, kindName = shared.kindName, secti
 export const fieldRows = (content, fields) =>
   (fields ?? []).flatMap((f) => {
     const v = content?.[[f.key, ...(f.alias ?? [])].find((k) => content && k in content)]; // the key, else its x-hm-alias (as the Inspector reads it)
-    const s = Array.isArray(v) ? (v.length ? `${v.length} items` : "") : v && typeof v === "object" ? (Object.values(v).find((x) => typeof x === "string") ?? "") : v == null ? "" : String(v);
+    const s = typeof v === "boolean" ? "" : Array.isArray(v) ? (v.length ? `${v.length} items` : "") : v && typeof v === "object" ? (Object.values(v).find((x) => typeof x === "string") ?? "") : v == null ? "" : String(v);
     const text = s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
     return text ? [{ ...f, text }] : [];
   });
@@ -208,7 +208,7 @@ export function hiddenBadge(tpl, device) {
 
 /** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind (none of the stock ones) reads as a puzzle piece. */
 const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text" };
-const FIELD_ICON = { richtext: "heading", image: "image", link: "link", list: "list", object: "layers", code: "code", text: "heading" };
+const FIELD_ICON = { richtext: "file-text", image: "image", link: "link", list: "list", object: "layers", code: "code", text: "heading" };
 
 /** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name no resolver knows) leaves the thumbnail at its default. */
 export function thumbColours(bg) {
@@ -313,7 +313,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
       kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
       if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node));
-      else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(f ? (FIELD_ICON[f.kind] ?? "minus") : (ICON_FOR[r.node.t] ?? "puzzle"))));
+      else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(f ? (FIELD_ICON[f.kind] ?? "puzzle") : (ICON_FOR[r.node.t] ?? "puzzle"))));
       const text = h("span", { class: "hm-bs-row__text" });
       const prefix = `${kn}${SEP}`;
       const typed = !r.section && name.startsWith(prefix); // "Heading · Build pages": the kind moves to its own muted column
