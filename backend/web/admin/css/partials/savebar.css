@@ -12,8 +12,8 @@
 .hm-savebar__aside { margin-inline-end: auto; }
 @media (max-width: 640px) { .hm-savebar { padding: var(--space-2) var(--space-3); } }
 /* A bar the editor script marked (data-hm-bar) has many controls: on a wide screen they stay on one
-   line. Between 80rem and 90rem the words of the save state give way to its dot, which keeps its
-   colour and its text for assistive technology. */
+   line. Between 80rem and 90rem the words of the save state give way to its dot (a filled dot or a ring, so the state shows by shape), which keeps its
+   text for assistive technology. */
 @media (min-width: 80rem) {
   .hm-savebar[data-hm-bar] { flex-wrap: nowrap; gap: var(--space-1-5); padding-inline: var(--space-3); }
 }

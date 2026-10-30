@@ -481,8 +481,10 @@ try {
     await page.waitForTimeout(150);
     const tops = await page.$$eval(".hm-savebar button:not([hidden]), .hm-savebar a, .hm-savebar [data-hm-issue]", (els) => els.filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim().replace(/\s+/g, " ").slice(0, 16), r.top + r.height / 2]; }));
     const saveTop = tops.find((t) => t[0] === "Save")[1];
-    const off = tops.filter((t) => Math.abs(t[1] - saveTop) > 12);
-    ok(tops.length >= 8 && off.length === 0 && tops.some((t) => t[0].endsWith("to fix")) && tops.some((t) => t[0].includes("without")), `ISC-40: at ${width} px the save bar is one line with both issue chips (${tops.map((t) => t.join("@")).join(", ")})`);
+    const off = tops.filter((t) => Math.abs(t[1] - saveTop) > 4);
+    ok(tops.length >= 8 && off.length === 0 && tops.some((t) => t[0].endsWith("to fix")) && tops.some((t) => t[0].includes("without")), `ISC-40: at ${width} px the save bar is one line with both issue chips, centre lines within 4 px (${tops.map((t) => t.join("@")).join(", ")})`);
+    const ring = await page.$eval("[data-hm-state] .hm-savestate__dot", (d) => { const c = getComputedStyle(d); return [c.backgroundColor, c.borderTopWidth]; });
+    ok((await state(page)) === "unsaved" && ring[0] === "rgba(0, 0, 0, 0)" && ring[1] !== "0px", `ISC-40: at ${width} px unsaved is a hollow ring, which differs from the filled saved dot by shape (${ring.join(" ")})`);
   }
   await page.setViewportSize({ width: 1440, height: 5200 });
   await reopen();

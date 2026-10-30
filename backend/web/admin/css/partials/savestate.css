@@ -8,7 +8,8 @@
 .hm-savestate:has(.hm-savestate__text:empty) { display: none; }
 .hm-savestate__dot { flex: none; inline-size: var(--space-2); block-size: var(--space-2); border-radius: var(--radius-full); background: var(--text-muted); }
 .hm-savestate[data-state="saved"] .hm-savestate__dot { background: var(--color-success); }
-.hm-savestate[data-state="unsaved"] .hm-savestate__dot { background: var(--color-warning); }
+/* Unsaved is a ring and saved a filled dot, so the two differ by shape and not by colour alone (the words may be hidden on a narrow bar). */
+.hm-savestate[data-state="unsaved"] .hm-savestate__dot { background: transparent; border: 2px solid var(--color-warning); box-sizing: border-box; }
 .hm-savestate[data-state="error"] { color: var(--color-danger); }
 .hm-savestate[data-state="error"] .hm-savestate__dot { background: var(--color-danger); }
 .hm-savestate[data-state="saving"] .hm-savestate__dot { background: transparent; border: 2px solid var(--text-muted); border-block-start-color: transparent; box-sizing: border-box; animation: hm-spin 0.8s linear infinite; }
