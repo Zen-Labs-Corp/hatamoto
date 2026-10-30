@@ -77,7 +77,7 @@ An upgrade runs a one-time migration over the hits of the last 7 days that were 
 
 The top of **Crawlers** shows a banner once at least 20 fetches from agents with published IP ranges were decided (`verified` or `spoofed`) in the selected range. It is green, **Verification is healthy**, when at most 20% of them were spoofed, and red, **Verification looks misconfigured**, above that. It says which header client IPs are read from, how many distinct IPs the spoofed fetches came from, and links to the details on **Health**. A red banner that mostly names Cloudflare addresses tells you to set `HATAMOTO_TRUSTED_CDN=cloudflare`. After you do, the banner stays red until the fetches recorded earlier leave the selected date range. With fewer than 20 decided fetches there is no banner.
 
-AI agents get the same numbers from the MCP tool `analytics_crawler_verification` (date range in; level `ok`, `bad` or `unknown`, verified, spoofed and unverifiable counts, spoofed share, distinct spoofed IPs and the header in use out).
+AI agents get the same numbers from the MCP tool `analytics_crawler_verification` (date range in; level `ok`, `bad` or `unknown`, verified, spoofed and unverifiable counts, `spoofed_share`, distinct spoofed IPs (`spoofed_ips`) and the header in use out).
 
 ## Background jobs and retention
 

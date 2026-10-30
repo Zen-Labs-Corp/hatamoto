@@ -295,13 +295,13 @@ func crawlerVerification(ctx context.Context, r verificationReader, rg agents.Ra
 	}
 	return object{
 		"from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout),
-		"level":        healthLevelNames[agents.ClassifyHealth(h)],
-		"verified":     h.Verified,
-		"spoofed":      h.Spoofed,
-		"unverifiable": h.Unverifiable,
-		"decided":      decided,
-		"spoofedShare": share,
-		"spoofedIPs":   h.SpoofedIPs,
-		"header":       src.Header,
+		"level":         healthLevelNames[agents.ClassifyHealth(h)],
+		"verified":      h.Verified,
+		"spoofed":       h.Spoofed,
+		"unverifiable":  h.Unverifiable,
+		"decided":       decided,
+		"spoofed_share": share,
+		"spoofed_ips":   h.SpoofedIPs,
+		"header":        src.Header,
 	}, nil
 }

@@ -40,10 +40,10 @@ func TestCrawlerVerification(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if out["level"] != c.level || out["spoofedShare"] != c.share {
-				t.Errorf("level/share = %v/%v, want %v/%v", out["level"], out["spoofedShare"], c.level, c.share)
+			if out["level"] != c.level || out["spoofed_share"] != c.share {
+				t.Errorf("level/share = %v/%v, want %v/%v", out["level"], out["spoofed_share"], c.level, c.share)
 			}
-			if out["decided"] != c.h.Decided() || out["spoofedIPs"] != c.h.SpoofedIPs || out["header"] != "CF-Connecting-IP" {
+			if out["decided"] != c.h.Decided() || out["spoofed_ips"] != c.h.SpoofedIPs || out["header"] != "CF-Connecting-IP" {
 				t.Errorf("unexpected result %v", out)
 			}
 			if len(f.ids) == 0 {
