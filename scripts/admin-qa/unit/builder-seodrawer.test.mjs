@@ -362,3 +362,22 @@ test("badge: a refresh after a save replaces the score", async () => {
   assert.equal(r.btn.kids.length, 1);
   assert.equal(r.btn.kids[0].tone, "fail");
 });
+
+test("autosave resumes on the next edit after an invalid_canonical refusal", async () => {
+  const bodies = [];
+  const saver = createSaver({
+    urls: { save: "/save" },
+    boot: { status: "draft", version: 1, name: "n", doc: {}, entity: "e" },
+    getDoc: () => ({ v: 2 }),
+    timers: { set: (f) => setTimeout(f, 0), clear: clearTimeout },
+    delay: 0,
+    fetch: async (u, o) => (bodies.push(1), bodies.length === 1 ? { status: 422, json: async () => ({ code: "invalid_canonical", error: "Bad." }) } : { status: 200, json: async () => ({ ok: true, version: 2 }) }),
+  });
+  saver.changed();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(saver.q.state, "stopped");
+  saver.changed(); // the person fixed the canonical
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(bodies.length, 2);
+  assert.equal(saver.q.state, "saved");
+});
