@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/urlpattern"
 )
@@ -671,7 +672,11 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 			f.Errors["schedule"] = msg
 		}
 	}
-	if f.SEO.Canonical != "" && !strings.HasPrefix(f.SEO.Canonical, "http://") && !strings.HasPrefix(f.SEO.Canonical, "https://") && !(strings.HasPrefix(f.SEO.Canonical, "/") && !strings.HasPrefix(f.SEO.Canonical, "//")) {
+	var storedCanonical string
+	if current != nil {
+		storedCanonical = seoFrom(attrsMap(current.Attributes)).Canonical
+	}
+	if !seo.CanonicalOK(f.SEO.Canonical, storedCanonical) {
 		f.Errors["seo_canonical"] = "Use a full address starting with https:// or a path starting with /"
 	}
 	if raw, err := json.Marshal(p.attrs); err == nil {

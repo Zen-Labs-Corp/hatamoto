@@ -126,9 +126,9 @@ export function createAutosave({
       set("pending");
       schedule(waitMs());
     },
-    /** Only an invalid_page_doc stop resumes. */
+    /** Only an invalid_page_doc or invalid_canonical stop resumes (the person's next edit may fix it). */
     resume() {
-      if (q.state === "stopped" && stopCode === "invalid_page_doc") q.state = "idle";
+      if (q.state === "stopped" && (stopCode === "invalid_page_doc" || stopCode === "invalid_canonical")) q.state = "idle";
     },
     /** The form is submitted: no more saves; resolves when the one in flight lands. */
     async stop() {

@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 49968,
+      "value": 49989,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,13 +11,13 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 92953,
+      "value": 93234,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 93351
     },
     "editor_js_total_gzip": {
-      "value": 243001,
+      "value": 244901,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 245613
@@ -41,8 +41,8 @@
   },
   "history": [
     {
-      "reason": "Site health rows laid out as dot, label, value like the mockup: admin css gzip grows about 1 KB",
-      "date": "2026-10-26"
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
     },
     {
       "reason": "builder-ux-shell: rebase onto main; editor_js_first_gzip 88511 to 93213 (+4702 B, within the earlier +4989 B), cap 93351 = 89255 + 4096; editor_js_total_gzip 191001 to 214906, admin_css_gzip 41158 to 43172",
@@ -118,6 +118,14 @@
     },
     {
       "reason": "menu editor v2 layout rebased onto main: admin CSS gzip grew with the menu editor styles",
+      "date": "2026-10-30"
+    },
+    {
+      "reason": "seo drawer: focus return, posted name, failure note, inline canonical error",
+      "date": "2026-10-30"
+    },
+    {
+      "reason": "builder SEO polish rebased onto main: focus return, posted name, failure note, inline canonical error and the idle score badge in the lazy seodrawer chunk; editor_js_total_gzip 243001 to 244901 (+1900 B), cap unchanged",
       "date": "2026-10-30"
     }
   ]

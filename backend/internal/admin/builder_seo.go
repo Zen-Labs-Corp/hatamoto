@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -37,7 +38,8 @@ func (a *Admin) handleBuilderSEO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := seoFrom(attrsMap(e.Attributes))
-	in := a.builderSEOInput(r, e, sc, f, "")
+	in := a.builderSEOInput(r, e, sc, f, "", "")
+	in.Mode = ModeMetaOnly
 	v := a.NewView(w, r, "SEO")
 	v.Data = struct {
 		Panel      seoPanel
@@ -95,7 +97,13 @@ func (a *Admin) handleBuilderAnalyze(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusBadGateway, "No preview", "The page could not be rendered for analysis.")
 		return
 	}
-	in := a.builderSEOInput(r, e, sc, seoFromForm(r), mainHTML(rec.Body.Bytes()))
+	// The idle score badge posts no seo_* fields: a form without seo_title is
+	// not an empty SEO, so the stored values apply.
+	f := seoFrom(attrsMap(e.Attributes))
+	if _, ok := r.PostForm["seo_title"]; ok {
+		f = seoFromForm(r)
+	}
+	in := a.builderSEOInput(r, e, sc, f, mainHTML(rec.Body.Bytes()), r.PostForm.Get("name"))
 	v := a.NewView(w, r, "Search checks")
 	v.Data = struct{ Panel seoPanel }{a.builderPanel(e, sc, in)}
 	a.Render(w, r, http.StatusOK, "entities/seopanel", v)
@@ -105,16 +113,16 @@ func (a *Admin) handleBuilderAnalyze(w http.ResponseWriter, r *http.Request) {
 // will carry, built as the entity form builds it.
 func (a *Admin) builderPanel(e *entity.Entity, sc *entity.EntitySchema, in seoInput) seoPanel {
 	panel := buildPanel(in)
-	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: &entityForm{Name: e.Name, Slug: e.Slug}, attrs: attrsMap(e.Attributes)}, in)
+	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: &entityForm{Name: in.Title, Slug: e.Slug}, attrs: attrsMap(e.Attributes)}, in)
 	return panel
 }
 
-// builderSEOInput is the panel input the two routes share: the page as named
-// and addressed in the store, the SEO fields as given, content as the body. The
+// builderSEOInput is the panel input the two routes share: the page as
+// addressed in the store and named by name (the unsaved name, else the stored one), the SEO fields as given, content as the body. The
 // builder has no focus-keyword or llms.txt field, so those checks are left out.
-func (a *Admin) builderSEOInput(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, f seoForm, content string) seoInput {
+func (a *Admin) builderSEOInput(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, f seoForm, content, name string) seoInput {
 	in := seoInput{
-		Title: e.Name, MetaTitle: f.Title, MetaDescription: f.Description, Slug: e.Slug, Canonical: f.Canonical,
+		Title: cmp.Or(strings.TrimSpace(name), e.Name), MetaTitle: f.Title, MetaDescription: f.Description, Slug: e.Slug, Canonical: f.Canonical,
 		Excerpt: str(attrsMap(e.Attributes), "excerpt"), Content: content, Published: e.Status == entity.StatusPublished,
 		Mode: ModeBody, NoKeyword: true, NoLLMs: true,
 	}

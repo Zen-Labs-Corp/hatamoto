@@ -186,7 +186,7 @@ export function createSaver({ urls, csrf = () => "", boot, getDoc, getName = () 
   let edits = 0; // bumped by every change, so a save knows whether more happened since it started
   let unsaved = false;
   let explicit = null; // the explicit save a conflict interrupted
-  const q = { state: "idle", message: "", conflict: null, keep: "" };
+  const q = { state: "idle", message: "", code: "", auto: false, conflict: null, keep: "" }; // code: the refusal a stopped save carries; auto: that save was a background autosave
   const b = boot.recovery;
   const recovery = createRecovery({
     url: urls.recovery,
@@ -224,6 +224,8 @@ export function createSaver({ urls, csrf = () => "", boot, getDoc, getName = () 
     } catch (err) {
       res = { ok: false, message: err instanceof TypeError ? "Not saved. You appear to be offline." : err?.message || "The page could not be saved." };
     }
+    q.code = res.stop ? res.code || "" : "";
+    q.auto = !own;
     if (res.ok) {
       version = res.version;
       if (sent === edits) {

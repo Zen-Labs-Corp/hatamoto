@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/seo"
 )
 
 // Service is the application-layer facade for the taxonomy package. The
@@ -138,8 +139,9 @@ func (e *SEOFieldError) Error() string { return "invalid_seo: " + e.Field }
 func (e *SEOFieldError) Unwrap() error { return ErrInvalidSEO }
 
 // validateTermSEO trims and checks the values. A canonical must be an
-// absolute http(s) URL or a root-relative path. All empty returns nil.
-func validateTermSEO(in TermSEO) (*TermSEO, error) {
+// absolute http(s) URL or a root-relative path, unless it equals the stored
+// value. All empty returns nil.
+func validateTermSEO(in TermSEO, stored string) (*TermSEO, error) {
 	in.MetaTitle = strings.TrimSpace(in.MetaTitle)
 	in.MetaDescription = strings.TrimSpace(in.MetaDescription)
 	in.CanonicalURL = strings.TrimSpace(in.CanonicalURL)
@@ -154,21 +156,13 @@ func validateTermSEO(in TermSEO) (*TermSEO, error) {
 			return nil, &SEOFieldError{Field: f.field}
 		}
 	}
-	if c := in.CanonicalURL; c != "" && !validCanonical(c) {
+	if c := in.CanonicalURL; !seo.CanonicalOK(c, stored) {
 		return nil, &SEOFieldError{Field: SEOFieldCanonical}
 	}
 	if in.IsZero() {
 		return nil, nil
 	}
 	return &in, nil
-}
-
-func validCanonical(c string) bool {
-	if strings.HasPrefix(c, "/") {
-		return !strings.HasPrefix(c, "//") && !strings.ContainsAny(c, "\\ \r\n")
-	}
-	u, err := url.Parse(c)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // checkParent verifies a parent term: it exists, has the same kind, and
@@ -283,11 +277,15 @@ func (s *Service) UpdateTerm(ctx context.Context, in UpdateTermInput) (*Term, er
 	patched := &Term{ID: in.ID, Kind: existing.Kind, Name: in.Name, Slug: in.Slug,
 		Description: existing.Description, ParentID: existing.ParentID, SEO: existing.SEO}
 	if in.SEO != nil {
-		seo, err := validateTermSEO(*in.SEO)
+		var stored string
+		if existing.SEO != nil {
+			stored = existing.SEO.CanonicalURL
+		}
+		validated, err := validateTermSEO(*in.SEO, stored)
 		if err != nil {
 			return nil, err
 		}
-		patched.SEO = seo
+		patched.SEO = validated
 	}
 	if in.Description != nil {
 		patched.Description = strings.TrimSpace(*in.Description)

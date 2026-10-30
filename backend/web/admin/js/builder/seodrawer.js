@@ -1,6 +1,7 @@
 // The page's SEO drawer: a slide-over on the right of the canvas holding the shared SEO panel (@hm/seopanel).
 // The panel is fetched on the first open, so first paint pays nothing for it. Editing a field reports the values
 // to the saver (they travel with the next save); the live checks post the draft doc along with the fields.
+// The SEO button also shows the page's score once the builder is idle (mountSEOBadge), so it lives in this lazy chunk too.
 
 /** The panel's values as the save request carries them. */
 export function readSEO(root) {
@@ -15,14 +16,58 @@ export function readSEO(root) {
 }
 
 /**
- * mountSEODrawer({doc, btn, root, urls, getDoc, onEdit, onError, load, fetch})
- * btn opens and closes root (the dialog element); focus moves into the drawer on open and back to the opener (btn, or the More menu when btn is hidden) on Escape or Close.
- * onEdit(values) runs after a field changed. Returns {open, close, isOpen}.
+ * mountSEOBadge({btn, root, urls, getDoc, getName, csrf, fetch}): the score on the closed SEO button.
+ * refresh() asks the analyze endpoint about the draft (no seo_ fields: the server falls back to the stored SEO) and reads the
+ * score from its #seo-score element; set(el) takes that element from a check the drawer already ran. A failure (of the latest refresh) leaves the button plain; a score the drawer set meanwhile wins over an older refresh.
+ * Returns {refresh, set}.
  */
-export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
+export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "", fetch: f = (...a) => globalThis.fetch(...a), parse = (h) => new DOMParser().parseFromString(h, "text/html") }) {
+  let seq = 0;
+  const set = (el) => {
+    const score = el?.querySelector?.("strong")?.textContent?.trim();
+    const tpl = root.querySelector(`[data-hm-bs-seo-badge="${/hm-seo__score--(pass|warn|fail)/.exec(el?.className)?.[1]}"]`);
+    if (!score || !tpl) return;
+    seq++; // a refresh still in flight is older than this score
+    btn.querySelector("[data-hm-seo-score]")?.remove();
+    const badge = tpl.content.firstElementChild.cloneNode(true);
+    badge.dataset.hmSeoScore = "";
+    badge.append(score);
+    btn.append(badge);
+    btn.setAttribute("aria-label", `SEO ${score}`);
+  };
+  const plain = () => {
+    btn.querySelector("[data-hm-seo-score]")?.remove();
+    btn.removeAttribute("aria-label");
+  };
+  const refresh = async () => {
+    const mine = ++seq;
+    try {
+      const res = await f(urls.analyze, {
+        method: "POST",
+        headers: { "HX-Request": "true", "HX-Target": "be-panel", "X-CSRF-Token": csrf(), "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ doc: JSON.stringify(getDoc()), name: getName?.() ?? "" }),
+      });
+      if (!res.ok) throw new Error("analyze failed");
+      const el = parse(await res.text()).querySelector("#seo-score");
+      if (mine !== seq) return;
+      if (el) set(el);
+      else plain();
+    } catch {
+      if (mine === seq) plain(); // no score to show: the button is plain again
+    }
+  };
+  return { refresh, set };
+}
+
+/**
+ * mountSEODrawer({doc, btn, root, urls, getDoc, getName, onScore, onEdit, onError, load, fetch})
+ * btn opens and closes root (the dialog element); focus moves into the drawer on open and back on Escape or Close: to the opener when that was the SEO button or a More-menu proxy, else to the SEO button, or the More menu when btn is hidden.
+ * onEdit(values) runs after a field changed. Returns {open, close, isOpen, showFieldError}.
+ */
+export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getName, onScore = () => {}, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
   let loaded = null;
   let busy = false;
-  let opener = null; // what had focus when the drawer opened: the SEO button, or its More-menu proxy on a phone
+  let opener = null; // what had focus when the drawer opened, kept only when it was the SEO button or a More-menu control
   const isOpen = () => !root.hidden;
   const shown = (el) => !!el && el.getClientRects().length > 0;
   // The first of them on screen: the button is hidden on a phone and the menu item once its menu closed.
@@ -49,7 +94,8 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   };
   const open = async () => {
     if (isOpen() || busy) return;
-    opener = doc.activeElement;
+    const o = doc.activeElement;
+    opener = o === btn || o?.matches?.("[popovertarget=bs-more], [data-hm-bs-proxy]") ? o : null;
     busy = true;
     try {
       loaded ??= fill().catch((e) => {
@@ -73,8 +119,54 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
   // The analysis reads the draft, not the stored page: the doc rides on every analyze request.
   root.addEventListener("htmx:configRequest", (e) => {
     e.detail.parameters.doc = JSON.stringify(getDoc());
+    e.detail.parameters.name = getName?.() ?? "";
   });
+  // A failed check leaves a note in the results (a server-rendered template); the next good swap replaces it.
+  const results = () => root.querySelector("#be-panel");
+  const dropNote = () => results()?.querySelector?.("[data-hm-seodrawer-shown]")?.remove();
+  const note = (e) => {
+    const panel = results();
+    const tpl = root.querySelector("[data-hm-seodrawer-note]");
+    if (!panel || !tpl || (e.detail?.target ?? e.target) !== panel || panel.querySelector("[data-hm-seodrawer-shown]")) return;
+    const n = tpl.content.cloneNode(true);
+    n.firstElementChild.dataset.hmSeodrawerShown = "1";
+    panel.prepend(n);
+  };
+  for (const t of ["htmx:responseError", "htmx:sendError", "htmx:timeout"]) root.addEventListener(t, note);
+  root.addEventListener("htmx:afterSwap", (e) => {
+    dropNote();
+    if ((e.detail?.target ?? e.target) === results()) onScore(root.querySelector("#seo-score")); // the checks came back: the button shows the same score
+  });
+  // A refused value is shown under its field, on the tab that holds it (the server-side message of a rejected save).
+  // focus: false (a background autosave) marks the field only when the panel is already loaded: it never opens the drawer or moves focus.
+  const showFieldError = async (field, msg, { focus = true } = {}) => {
+    if (focus && !isOpen()) await open();
+    const input = root.querySelector(`[name="seo_${field}"]`);
+    if (!input) return;
+    if (focus) root.querySelector("#seo-tab-advanced")?.click();
+    const id = `${input.id}-error`;
+    let p = root.querySelector(`#${id}`);
+    if (!p) {
+      p = root.querySelector("[data-hm-seodrawer-field-error]").content.firstElementChild.cloneNode(true);
+      p.id = id;
+      input.closest(".hm-field").append(p);
+    }
+    p.textContent = msg;
+    input.setAttribute("aria-invalid", "true");
+    const described = (input.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean); // the help text stays announced
+    if (!described.includes(id)) input.setAttribute("aria-describedby", [...described, id].join(" "));
+    if (focus) input.focus();
+  };
   const edited = (e) => {
+    const input = e.target;
+    const err = input?.id && root.querySelector(`#${input.id}-error`);
+    if (err) {
+      err.remove();
+      input.removeAttribute("aria-invalid");
+      const rest = (input.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((t) => t && t !== err.id);
+      if (rest.length) input.setAttribute("aria-describedby", rest.join(" "));
+      else input.removeAttribute("aria-describedby");
+    }
     if (e.target?.closest?.("[data-hm-seodrawer-body] [name^='seo_']")) onEdit(readSEO(root));
   };
   root.addEventListener("input", edited);
@@ -88,5 +180,5 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, onEdit
     e.stopPropagation(); // the builder's own Escape (deselect) must not also run
     close();
   });
-  return { open, close, isOpen };
+  return { open, close, isOpen, showFieldError };
 }

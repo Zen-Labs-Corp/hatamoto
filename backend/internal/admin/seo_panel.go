@@ -563,6 +563,10 @@ func (in seoInput) resolverInput() seo.Input {
 	case kind == "":
 		kind = seo.KindSingle
 	}
+	vars := seo.Vars{Title: strings.TrimSpace(in.Title), SiteName: in.SiteName, Tagline: in.Tagline, Excerpt: in.Excerpt, Term: in.Term}
+	if kind == seo.KindTaxonomy {
+		vars.Archive = in.Term
+	}
 	return seo.Input{
 		Kind:            kind,
 		TermKind:        in.TermKind,
@@ -571,7 +575,7 @@ func (in seoInput) resolverInput() seo.Input {
 		HandDescription: strings.TrimSpace(in.MetaDescription),
 		TitleSet:        strings.TrimSpace(in.MetaTitle) != "",
 		DescriptionSet:  strings.TrimSpace(in.MetaDescription) != "",
-		Vars:            seo.Vars{Title: strings.TrimSpace(in.Title), SiteName: in.SiteName, Tagline: in.Tagline, Excerpt: in.Excerpt, Term: in.Term},
+		Vars:            vars,
 	}
 }
 

@@ -4,7 +4,7 @@
 .hm-seo__title { margin: 0; font-size: var(--text-md); }
 .hm-seo__panel { min-width: 0; }
 .hm-seo__panel-h { margin: 0; font-size: var(--text-md); }
-.hm-seo__score { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.hm-seo__score { margin: 0; margin-inline-start: auto; font-size: var(--text-sm); color: var(--text-muted); }
 .hm-seo__score strong { font-size: var(--text-title); }
 .hm-seo__score--pass strong { color: var(--color-success); }
 .hm-seo__score--warn strong { color: var(--color-warning); }

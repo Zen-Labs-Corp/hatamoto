@@ -114,6 +114,11 @@ func TestPartialSEOPanel(t *testing.T) {
 	if strings.Contains(s, `name="seo_keyword"`) || strings.Contains(s, `name="seo_llms"`) {
 		t.Error("the keyword and llms fields show only when asked for")
 	}
+	data["NoHeading"] = true
+	s = checkPartial(t, a, "hm/seopanel", "no-heading", data)
+	if strings.Contains(s, "hm-seo__title") || !strings.Contains(s, `id="seo-score"`) {
+		t.Error("NoHeading drops the heading and keeps the score")
+	}
 	frag := checkPartial(t, a, "hm/seopanel-fragment", "default", panel)
 	if strings.Count(frag, `hx-swap-oob="true"`) != 4 {
 		t.Errorf("the fragment swaps the score, two counters and the structured data out of band: %s", frag)
@@ -162,7 +167,7 @@ func TestSEOPanelPreviewKinds(t *testing.T) {
 
 	set := seo.Defaults()
 	set.Home = "Home: %sitename% - %tagline%"
-	set.Taxonomy = map[string]string{"category": "Category %term% %sep% %sitename%"}
+	set.Taxonomy = map[string]string{"category": "Category %term% %sep% %sitename%", "archive": "Archive %archive% %sep% %sitename%"}
 	base := seoInput{Title: "Welcome", Slug: "welcome", SEO: &set, SiteName: "Example", Tagline: "Fast"}
 
 	home := base
@@ -175,6 +180,18 @@ func TestSEOPanelPreviewKinds(t *testing.T) {
 	term.Kind, term.TermKind, term.Term = seo.KindTaxonomy, "category", "Guides"
 	if got := buildPanel(term).SERP.Title; got != "Category Guides | Example" {
 		t.Errorf("term preview = %q, want the taxonomy template", got)
+	}
+
+	arch := term
+	arch.TermKind = "archive"
+	if got := buildPanel(arch).SERP.Title; got != "Archive Guides | Example" {
+		t.Errorf("%%archive%% preview = %q, want the term name", got)
+	}
+	if got := term.resolverInput().Vars.Archive; got != "Guides" {
+		t.Errorf("Vars.Archive = %q, want Guides", got)
+	}
+	if got := base.resolverInput().Vars.Archive; got != "" {
+		t.Errorf("single Vars.Archive = %q, want empty", got)
 	}
 
 	if got := base.resolverInput().Kind; got != seo.KindSingle {
