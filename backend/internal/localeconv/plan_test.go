@@ -134,10 +134,3 @@ func TestBlockingError(t *testing.T) {
 		t.Fatalf("unexpected: %v", err)
 	}
 }
-
-func TestServiceNotImplemented(t *testing.T) {
-	s := NewService(nil, nil)
-	if _, err := s.History(t.Context()); !errors.Is(err, ErrNotImplemented) {
-		t.Fatalf("got %v", err)
-	}
-}

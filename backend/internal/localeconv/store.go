@@ -191,11 +191,3 @@ func lockWrites(ctx context.Context, tx pgx.Tx) error {
 	}
 	return nil
 }
-
-func (s *pgService) Revert(context.Context, int64, bool, string) (*RevertResult, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *pgService) History(context.Context) ([]HistoryItem, error) {
-	return nil, ErrNotImplemented
-}
