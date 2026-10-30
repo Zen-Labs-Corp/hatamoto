@@ -146,11 +146,20 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getNam
     }
     p.textContent = msg;
     input.setAttribute("aria-invalid", "true");
-    input.setAttribute("aria-describedby", id);
+    const described = (input.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean); // the help text stays announced
+    if (!described.includes(id)) input.setAttribute("aria-describedby", [...described, id].join(" "));
     if (focus) input.focus();
   };
   const edited = (e) => {
-    if (e.target?.name === "seo_canonical") root.querySelector(`#${e.target.id}-error`)?.remove();
+    const input = e.target;
+    const err = input?.id && root.querySelector(`#${input.id}-error`);
+    if (err) {
+      err.remove();
+      input.removeAttribute("aria-invalid");
+      const rest = (input.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((t) => t && t !== err.id);
+      if (rest.length) input.setAttribute("aria-describedby", rest.join(" "));
+      else input.removeAttribute("aria-describedby");
+    }
     if (e.target?.closest?.("[data-hm-seodrawer-body] [name^='seo_']")) onEdit(readSEO(root));
   };
   root.addEventListener("input", edited);

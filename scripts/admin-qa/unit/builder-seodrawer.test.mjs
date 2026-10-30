@@ -229,7 +229,7 @@ test("showFieldError opens the Advanced tab and writes the message under the fie
   const clicks = [];
   const tab = { click: () => clicks.push("advanced") };
   const field = { append: (p) => (field.p = p) };
-  const input = { id: "seo_canonical", closest: () => field, setAttribute: (k, v) => (input[k] = v), focus: () => r.log.push("focus canonical") };
+  const input = { id: "seo_canonical", closest: () => field, attrs: {}, getAttribute: (k) => input.attrs[k] ?? null, removeAttribute: (k) => delete input.attrs[k], setAttribute: (k, v) => (input.attrs[k] = v), focus: () => r.log.push("focus canonical") };
   const p = { textContent: "" };
   const tpl = { content: { firstElementChild: { cloneNode: () => p } } };
   const q = r.root.querySelector;
@@ -238,15 +238,34 @@ test("showFieldError opens the Advanced tab and writes the message under the fie
   assert.deepEqual(clicks, ["advanced"]);
   assert.equal(p.textContent, "Use a full address.");
   assert.equal(p.id, "seo_canonical-error");
-  assert.equal(input["aria-invalid"], "true");
+  assert.equal(input.attrs["aria-invalid"], "true");
   assert.equal(field.p, p);
+});
+
+test("the field error keeps the help in aria-describedby and a later edit clears the error, aria-invalid and its token", async () => {
+  const r = rig();
+  await r.d.open();
+  const field = { append: (p) => (field.p = p) };
+  const input = { id: "seo_canonical", name: "seo_canonical", attrs: { "aria-describedby": "seo_canonical-help" }, getAttribute: (k) => input.attrs[k] ?? null, removeAttribute: (k) => delete input.attrs[k], setAttribute: (k, v) => (input.attrs[k] = v), closest: () => field, focus() {} };
+  const p = { textContent: "", remove: () => (field.p = null) };
+  const tpl = { content: { firstElementChild: { cloneNode: () => p } } };
+  const q = r.root.querySelector;
+  r.root.querySelector = (sel) => (sel === '[name="seo_canonical"]' ? input : sel === "#seo_canonical-error" ? field.p ?? null : sel === "[data-hm-seodrawer-field-error]" ? tpl : q(sel));
+  await r.d.showFieldError("canonical", "Bad.");
+  await r.d.showFieldError("canonical", "Bad again."); // the token is added once
+  assert.equal(input.attrs["aria-describedby"], "seo_canonical-help seo_canonical-error");
+  assert.equal(input.attrs["aria-invalid"], "true");
+  r.on.input({ target: input });
+  assert.equal(field.p, null);
+  assert.equal("aria-invalid" in input.attrs, false);
+  assert.equal(input.attrs["aria-describedby"], "seo_canonical-help");
 });
 
 test("showFieldError with focus:false marks a loaded panel without opening it or moving focus, and does nothing before it loaded", async () => {
   const r = rig();
   const tab = { click: () => r.log.push("tab") };
   const field = { append: (p) => (field.p = p) };
-  const input = { id: "seo_canonical", closest: () => field, setAttribute: (k, v) => (input[k] = v), focus: () => r.log.push("focus canonical") };
+  const input = { id: "seo_canonical", closest: () => field, attrs: {}, getAttribute: (k) => input.attrs[k] ?? null, removeAttribute: (k) => delete input.attrs[k], setAttribute: (k, v) => (input.attrs[k] = v), focus: () => r.log.push("focus canonical") };
   const p = { textContent: "" };
   const tpl = { content: { firstElementChild: { cloneNode: () => p } } };
   const q = r.root.querySelector;
@@ -258,7 +277,7 @@ test("showFieldError with focus:false marks a loaded panel without opening it or
   loaded = true;
   await r.d.showFieldError("canonical", "Bad.", { focus: false });
   assert.equal(p.textContent, "Bad.");
-  assert.equal(input["aria-invalid"], "true");
+  assert.equal(input.attrs["aria-invalid"], "true");
   assert.equal(r.root.hidden, true);
   assert.deepEqual(r.log, []);
 });
