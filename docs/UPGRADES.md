@@ -135,6 +135,12 @@ workflow runs both scripts with full git history so the baseline resolves.
 
 Menu items gained a `none` link type (text only), and the migration turns existing `#` items into it. The schema change is expand-only, so rolling back to the previous release works and public rendering is unaffected. The previous release's admin cannot save a menu that contains a no-link item, though: it asks for an address on those items. Retype them as `#` there, or stay on this release, until you move forward again. The same holds for entity, page, archive and custom items saved without a target (this release accepts them and renders them as plain text): the previous release's admin refuses to save a menu that contains one until you choose a target for it.
 
+## Per-locale business details
+
+Settings > General gained a Business details card and, on a site with several public locales, one card per locale. The migration adds two columns to the site settings row, `business_profile` and `locale_profiles`, both `jsonb NOT NULL DEFAULT '{}'`, and backfills nothing. Phone, the hours note and the five address fields stay in their existing columns, which remain the only place they are stored, so the new form shows your saved values after the upgrade.
+
+The change is expand-only. The previous release ignores the new columns, keeps reading and writing its three contact fields and renders as before. Rolling back loses nothing you entered: the new fields stay in the database but print nowhere until you move forward again. A site without a Locales list prints the same JSON-LD as before unless you fill a new site-wide field; the extra Organization keys (legal name, tax ID, fax, email, rating, profile addresses) print only when set.
+
 ## People (person profiles)
 
 Authors became people: one `person` entity per human, credited through
