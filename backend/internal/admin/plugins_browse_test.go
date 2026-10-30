@@ -307,7 +307,7 @@ func TestBrowseChipsAndBadgeCount(t *testing.T) {
 
 	g, _ := browseRig(t, installedView())
 	body := getBrowse(g, "?perm=nonet")
-	for _, w := range []string{`aria-label="Remove filter: No network access"`, `href="/admin/plugins/browse"`, ">Clear all<", `<span class="hm-visually-hidden">, </span>2<`} {
+	for _, w := range []string{`href="/admin/plugins/browse" aria-label="Remove filter: No network access"`, ">Clear all<", `<span class="hm-visually-hidden">, </span>2<`} {
 		if !strings.Contains(body, w) {
 			t.Errorf("perm chip: missing %q", w)
 		}

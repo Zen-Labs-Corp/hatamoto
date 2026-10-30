@@ -172,6 +172,10 @@ func TestBrowseQueryHideDefault(t *testing.T) {
 	if got := q.WithoutValue("perm", "nonet").Encode(); got != "perm=noscripts" {
 		t.Errorf("without = %q", got)
 	}
+	v, _ := url.ParseQuery("perm=nonet&hide=0&q=x")
+	if got := ParseBrowseQuery(v).WithoutValue("perm", "nonet").Encode(); got != "hide=0&q=x" {
+		t.Errorf("multi-key without = %q", got)
+	}
 	all := []RegistryEntry{{Kind: "plugin", Name: "a", Installed: true}, {Kind: "plugin", Name: "b"}}
 	if p := RunBrowse(all, BrowseQuery{HideInstalled: true, Q: "b"}); p.InstalledHidden != 0 {
 		t.Errorf("filtered-out installed counted: hidden=%d", p.InstalledHidden)
