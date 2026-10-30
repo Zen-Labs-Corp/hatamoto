@@ -60,6 +60,30 @@ func TestGetIP_CDN(t *testing.T) {
 	}
 }
 
+func TestGetIP_Normalised(t *testing.T) {
+	cases := []struct{ name, remote, xff, xrip, want string }{
+		{"mapped hop from proxy", "127.0.0.1:1", "::ffff:203.0.113.9", "", "203.0.113.9"},
+		{"zoned hop from proxy", "127.0.0.1:1", "2001:db8::1%eth0", "", "2001:db8::1"},
+		{"non-canonical v6 hop", "127.0.0.1:1", "2001:0db8:0:0:0:0:0:1", "", "2001:db8::1"},
+		{"zoned loopback is still a proxy", "127.0.0.1:1", "203.0.113.9, ::1%lo", "", "203.0.113.9"},
+		{"mapped X-Real-IP", "127.0.0.1:1", "", "::ffff:203.0.113.9", "203.0.113.9"},
+		{"mapped untrusted peer", "[::ffff:198.51.100.5]:1", "", "", "198.51.100.5"},
+		{"zoned untrusted peer", "[fe80::1%eth0]:1", "", "", "fe80::1"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			SetTrustedProxies(nil)
+			r := reqWith(c.remote, c.xff)
+			if c.xrip != "" {
+				r.Header.Set("X-Real-IP", c.xrip)
+			}
+			if got := getIP(r); got != c.want {
+				t.Errorf("getIP() = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
 func TestGetIP_CDNDoesNotWidenProxyTrust(t *testing.T) {
 	SetTrustedCDN(testCDN)
 	t.Cleanup(func() { SetTrustedCDN(nil) })

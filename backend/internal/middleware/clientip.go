@@ -121,7 +121,7 @@ func inPrefixes(set []netip.Prefix, a netip.Addr) bool {
 	return false
 }
 
-// peerAddr parses a host:port or bare IP into an unmapped address.
+// peerAddr parses a host:port or bare IP into a normalised (unmapped, zone-free) address.
 func peerAddr(remoteAddr string) (netip.Addr, bool) {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -131,12 +131,14 @@ func peerAddr(remoteAddr string) (netip.Addr, bool) {
 	if err != nil {
 		return netip.Addr{}, false
 	}
-	return a.Unmap(), true
+	return a.WithZone("").Unmap(), true
 }
 
 // GetClientIP extracts the client IP from the request as a string. Forwarded
 // headers are honoured only when the immediate peer is a trusted proxy (or a
-// CDN edge when the CDN preset is on). Exported so other packages share one
+// CDN edge when the CDN preset is on). The result is the canonical text form
+// of the address (IPv4-mapped IPv6 unmapped, zone dropped), so one visitor maps
+// to one key. Exported so other packages share one
 // trust policy.
 func GetClientIP(r *http.Request) string {
 	return getIP(r)
@@ -159,23 +161,22 @@ func getIP(r *http.Request) string {
 	if peerProxy || peerCDN {
 		parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
 		for i := len(parts) - 1; i >= 0; i-- {
-			hop := strings.TrimSpace(parts[i])
-			a, err := netip.ParseAddr(hop)
+			a, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
 			if err != nil {
 				continue
 			}
-			a = a.Unmap()
+			a = a.WithZone("").Unmap()
 			if inPrefixes(ts.proxies, a) {
 				continue
 			}
-			return resolveHop(ts, r, hop, a)
+			return resolveHop(ts, r, a)
 		}
 		if peerCDN {
-			return resolveHop(ts, r, peer.String(), peer)
+			return resolveHop(ts, r, peer)
 		}
 		if xrip := strings.TrimSpace(r.Header.Get("X-Real-IP")); xrip != "" {
-			if _, err := netip.ParseAddr(xrip); err == nil {
-				return xrip
+			if a, err := netip.ParseAddr(xrip); err == nil {
+				return a.WithZone("").Unmap().String()
 			}
 		}
 	}
@@ -190,21 +191,17 @@ func getIP(r *http.Request) string {
 	if !peerOK {
 		return r.RemoteAddr
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return peer.String()
 }
 
-// resolveHop returns hop unless it is a CDN edge, in which case the visitor is
+// resolveHop returns the normalised address a unless it is a CDN edge, in which case the visitor is
 // the address in the CDN header. It never looks left of the edge in
 // X-Forwarded-For: those entries are supplied by the client (or by a tenant of
 // the CDN) and cannot be believed. A missing, invalid or proxy-valued header
 // leaves the edge address.
-func resolveHop(ts *trustSet, r *http.Request, hop string, a netip.Addr) string {
+func resolveHop(ts *trustSet, r *http.Request, a netip.Addr) string {
 	if !inPrefixes(ts.cdn, a) {
-		return hop
+		return a.String()
 	}
 	if h, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get(cdnHeader))); err == nil && h.Zone() == "" {
 		h = h.Unmap()
@@ -212,5 +209,5 @@ func resolveHop(ts *trustSet, r *http.Request, hop string, a netip.Addr) string 
 			return h.String()
 		}
 	}
-	return hop
+	return a.String()
 }
