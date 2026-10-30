@@ -617,8 +617,8 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   loads `@hm/seopanel`; later opens reuse it. Escape or Close hides it and returns focus to the opener when that was the SEO button or a
   More-menu control, otherwise to the SEO button, or to More when the button is hidden. The live checks run on every open and on every field edit, and
   post the draft doc, the unsaved `name` and the panel's fields to `POST <admin>/entities/{id}/builder/analyze`, which renders the draft
-  through the preview and analyses its `<main>` (the `<body>` when the theme has none); nothing is written. A request without any
-  `seo_*` field (the badge fetch) is analysed against the stored SEO. A failed analyze leaves a server-rendered note (`data-hm-seodrawer-note`)
+  through the preview and analyses its `<main>` (the `<body>` when the theme has none); nothing is written. A request without a
+  `seo_title` field (the badge fetch) is analysed against the stored SEO. A failed analyze leaves a server-rendered note (`data-hm-seodrawer-note`)
   in the results until the next good swap. After the builder is idle, `mountSEOBadge` (same lazy module) posts doc and name to analyze
   and puts the score from `#seo-score` on the closed SEO button (a `hm/badge` cloned from a template); it refreshes after every
   `saved` state and whenever the drawer's checks return, not on canvas edits, and a failure leaves the button plain. Editing a field
