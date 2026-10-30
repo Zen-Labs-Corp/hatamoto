@@ -33,7 +33,7 @@ export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "
     badge.dataset.hmSeoScore = "";
     badge.append(score);
     btn.append(badge);
-    btn.setAttribute("aria-label", `SEO, score ${score}`);
+    btn.setAttribute("aria-label", `SEO ${score}`);
   };
   const plain = () => {
     btn.querySelector("[data-hm-seo-score]")?.remove();
