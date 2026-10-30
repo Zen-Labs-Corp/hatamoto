@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -130,6 +131,74 @@ func TestSiteSettings_OneLocaleResponseUnchanged(t *testing.T) {
 	testutil.Equal(t, http.StatusOK, rec.Code)
 	if !strings.Contains(rec.Body.String(), `"locales":[],"prefix_all":false,"x_default_locale":""`) {
 		t.Errorf("body: %s", rec.Body)
+	}
+}
+
+// failingLocaleStore fails the read or the write of the site settings.
+type failingLocaleStore struct {
+	localeStore
+	getErr, updateErr error
+}
+
+func (f *failingLocaleStore) Get(ctx context.Context) (*siteconfig.Config, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
+	return f.localeStore.Get(ctx)
+}
+
+func (f *failingLocaleStore) Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error) {
+	if f.updateErr != nil {
+		return nil, f.updateErr
+	}
+	return f.localeStore.Update(ctx, in)
+}
+
+// A failing segment check is told apart from a rejected segment: both are 400,
+// but the infrastructure failure gets a fixed message that never echoes the
+// driver text. A failing store (read or write) stays a 500 with no leak.
+func TestSiteSettings_LocaleCheckErrors(t *testing.T) {
+	const raw = "dial tcp 10.0.0.1:5432: connection refused"
+	body := `{"locales":` + threeLocales + `}`
+	infra := func(context.Context, []string) error {
+		return &localeCheckInfraError{segment: "fr", err: errors.New(raw)}
+	}
+	wrapped := func(context.Context, []string) error {
+		return fmt.Errorf("check: %w", &localeCheckInfraError{err: errors.New(raw)})
+	}
+	rule := func(context.Context, []string) error { return errors.New(`segment "fr" is a route of its own`) }
+	tests := []struct {
+		name  string
+		store *failingLocaleStore
+		check func(context.Context, []string) error
+		code  int
+		want  string
+	}{
+		{"infra error with segment", &failingLocaleStore{}, infra, http.StatusBadRequest, `could not verify segment \"fr\" right now, try again`},
+		{"infra error wrapped", &failingLocaleStore{}, wrapped, http.StatusBadRequest, "could not verify the locale segments right now, try again"},
+		{"rule violation", &failingLocaleStore{}, rule, http.StatusBadRequest, "is a route of its own"},
+		{"stored settings unreadable", &failingLocaleStore{getErr: errors.New(raw)}, nil, http.StatusInternalServerError, "failed to update site settings"},
+		{"store write fails", &failingLocaleStore{updateErr: errors.New(raw)}, nil, http.StatusInternalServerError, "failed to update site settings"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			g := httpx.NewGroup(mux, "").Group("", injectRole("owner"))
+			mountSiteSettings(g, &siteSettingsHandlers{
+				store:        tt.store,
+				logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+				invalidate:   func(context.Context) {},
+				checkLocales: tt.check,
+			})
+			rec := doSite(mux, http.MethodPatch, "/settings/site/", body)
+			testutil.Equal(t, tt.code, rec.Code, rec.Body.String())
+			if !strings.Contains(rec.Body.String(), tt.want) {
+				t.Errorf("body %q lacks %q", rec.Body, tt.want)
+			}
+			if strings.Contains(rec.Body.String(), raw) {
+				t.Errorf("body leaks the driver error: %s", rec.Body)
+			}
+		})
 	}
 }
 

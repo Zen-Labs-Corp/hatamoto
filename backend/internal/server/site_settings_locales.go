@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -38,6 +39,23 @@ type localeSettingsError struct {
 
 func (e *localeSettingsError) Error() string { return e.Message }
 
+// localeCheckInfraError is a failure of the segment check itself (database
+// error, cancelled request), as opposed to a segment the rules reject. The
+// cause is logged and never shown: Error is a fixed, human message.
+type localeCheckInfraError struct {
+	segment string // "" when the failure is not tied to one segment
+	err     error
+}
+
+func (e *localeCheckInfraError) Error() string {
+	if e.segment == "" {
+		return "could not verify the locale segments right now, try again"
+	}
+	return fmt.Sprintf("could not verify segment %q right now, try again", e.segment)
+}
+
+func (e *localeCheckInfraError) Unwrap() error { return e.err }
+
 // localeMessage is err without the generic validation prefix.
 func localeMessage(err error) string {
 	return strings.TrimPrefix(err.Error(), entity.ErrValidationFailed.Error()+": ")
@@ -71,6 +89,10 @@ func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check
 	}
 	if check != nil && len(segments) > 0 {
 		if err := check(ctx, segments); err != nil {
+			var infra *localeCheckInfraError
+			if errors.As(err, &infra) {
+				slog.ErrorContext(ctx, "site settings: locale segment check failed", "segment", infra.segment, "error", infra.err)
+			}
 			return nil, "", &localeSettingsError{Field: "locales", Message: err.Error()}
 		}
 	}
@@ -92,7 +114,7 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 	if s.siteConfig != nil {
 		cfg, err := s.siteConfig.Get(ctx)
 		if err != nil {
-			return fmt.Errorf("load the stored locales: %w", err)
+			return &localeCheckInfraError{err: fmt.Errorf("load the stored locales: %w", err)}
 		}
 		for _, e := range cfg.Locales {
 			stored[e.Segment] = true
@@ -129,14 +151,14 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 			SELECT (SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND parent_id IS NULL AND status = 'published' AND variant_key IS NULL)
 			     + (SELECT count(*) FROM hatamoto_terms WHERE kind = $1)`, seg).Scan(&n)
 		if err != nil {
-			return fmt.Errorf("check segment %q: %w", seg, err)
+			return &localeCheckInfraError{segment: seg, err: err}
 		}
 		if n > 0 {
 			return fmt.Errorf("segment %q is already used by a published page or a term kind", seg)
 		}
 		rule, err := s.redirectClaiming(ctx, seg)
 		if err != nil {
-			return fmt.Errorf("check segment %q: %w", seg, err)
+			return &localeCheckInfraError{segment: seg, err: err}
 		}
 		if rule != "" {
 			return fmt.Errorf("segment %q is claimed by the redirect rule %s; change or remove the rule first", seg, rule)

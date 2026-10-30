@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // A redirect added under a stored locale segment does not block later saves,
@@ -80,5 +82,57 @@ func TestLocaleSegmentChecks_Integration(t *testing.T) {
 	}
 	if err := srv.checkLocaleSegments(ctx, []string{"fr", "qq"}); err == nil || !strings.Contains(err.Error(), "redirect rule /qq/**") {
 		t.Errorf("new segment claimed by a wildcard redirect: err = %v", err)
+	}
+}
+
+// localeCheckServer is a server on the test database for the segment checks.
+func localeCheckServer(t *testing.T) (*Server, context.Context) {
+	t.Helper()
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set - skipping locale segment integration test")
+	}
+	t.Setenv("JWT_SECRET", strings.Repeat("j", 40))
+	t.Setenv("HATAMOTO_CANONICAL_SLUG", "segment-it")
+	t.Setenv("HATAMOTO_SITE_NAME", "Segment IT")
+	t.Setenv("PUBLIC_BASE_URL", "https://segment-it.example.test")
+	t.Setenv("DATABASE_URL", dsn)
+	t.Setenv("ENVIRONMENT", "development")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, cfg.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	srv := New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	srv.siteConfig.Invalidate()
+	return srv, ctx
+}
+
+// A database failure during the check is a localeCheckInfraError, which the
+// validator turns into a message that does not echo the driver text.
+func TestLocaleSegmentChecks_InfraError_Integration(t *testing.T) {
+	srv, ctx := localeCheckServer(t)
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+
+	err := srv.checkLocaleSegments(cancelled, []string{"yy"})
+	var infra *localeCheckInfraError
+	if !errors.As(err, &infra) {
+		t.Fatalf("cancelled check: err = %v, want *localeCheckInfraError", err)
+	}
+	_, _, err = validateLocaleSettings(cancelled, localeSettingsRequest{
+		Default: "en", Entries: []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "yy"}},
+	}, srv.checkLocaleSegments)
+	var le *localeSettingsError
+	if !errors.As(err, &le) || le.Field != "locales" {
+		t.Fatalf("validate: err = %v, want a locales field error", err)
+	}
+	if strings.Contains(le.Message, "context canceled") || !strings.Contains(le.Message, "try again") {
+		t.Errorf("message = %q", le.Message)
 	}
 }
