@@ -26,6 +26,11 @@ type generalData struct {
 	loc *localeEdit
 
 	Locales []localeCard
+
+	// ConvertHint shows the notice that the site looks like a region tree,
+	// linking to ConvertHref.
+	ConvertHint bool
+	ConvertHref string
 }
 
 func (a *Admin) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +77,7 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 		g.Home = &h
 	}
 	g.MailOn = a.mailConfigured()
+	g.ConvertHint, g.ConvertHref = a.convertCandidates(r, cfg), a.convertURL()
 
 	v := a.NewView(w, r, "General")
 	v.Width = "compact"
