@@ -179,14 +179,14 @@ func TestSiteGraph_OrganizationExtrasOnlyWhenSet(t *testing.T) {
 }
 
 func TestHeadGeoRegionMeta(t *testing.T) {
-	v := businessPage(&BusinessView{ID: "xx", GeoRegion: "ZZ-Q", Address: Address{City: "Sample City"}})
+	v := businessPage(nil)
+	v.GeoRegion = "ZZ-Q"
 	out := renderHead(t, buildHeadView(context.Background(), v, nil))
 	if !strings.Contains(out, `<meta name="geo.region" content="ZZ-Q">`) {
 		t.Errorf("geo.region missing:\n%s", out)
 	}
 
 	for name, page := range map[string]*PageView{
-		"no business":     businessPage(nil),
 		"no region value": businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}}),
 	} {
 		out := renderHead(t, buildHeadView(context.Background(), page, nil))

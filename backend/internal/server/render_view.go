@@ -752,22 +752,45 @@ func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
 }
 
 // localeBusinessView resolves the local business of loc for a page view, or nil
-// when the locale prints none. A profile that cannot be read is logged and
+// when the locale prints none, and the locale's geo region, which does not
+// depend on the office. A profile that cannot be read is logged and
 // treated as no office, so the page keeps its Organization and WebSite nodes.
-func (s *Server) localeBusinessView(ctx context.Context, set *entity.LocaleSet, loc string) *render.BusinessView {
+func (s *Server) localeBusinessView(ctx context.Context, set *entity.LocaleSet, loc string) (*render.BusinessView, string) {
 	if s.siteConfig == nil {
-		return nil
+		return nil, ""
 	}
 	cfg, err := s.siteConfig.Get(ctx)
 	if err != nil {
-		return nil
+		return nil, ""
 	}
 	b, err := localeBusiness(cfg, set, loc)
 	if err != nil {
 		s.logger.Warn("render: invalid business profile, no local business printed", "locale", loc, "error", err)
-		return nil
+		return nil, ""
 	}
-	return b
+	return b, localeGeoRegion(cfg, set, loc)
+}
+
+// localeGeoRegion is the geo region of locale loc: the card's own value, else
+// the site-wide one. It is empty on a site with fewer than two locales, for a
+// locale that is not configured and for an unreadable profile. A locale without
+// an office or an address of its own still has one.
+func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) string {
+	if _, ok := set.Segment(loc); !ok || !set.Multi() {
+		return ""
+	}
+	site, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return ""
+	}
+	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
+	if err != nil {
+		return ""
+	}
+	if c, ok := cards[loc]; ok && c.GeoRegion != "" {
+		return c.GeoRegion
+	}
+	return site.GeoRegion
 }
 
 // localeBusiness resolves the card of locale loc against the site-wide profile.

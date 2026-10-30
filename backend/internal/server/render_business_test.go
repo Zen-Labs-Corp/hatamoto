@@ -239,3 +239,17 @@ func TestRenderedGraph_PerLocale(t *testing.T) {
 		}
 	}
 }
+
+func TestLocaleGeoRegion(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"}, entity.LocaleEntry{Tag: "nl", Segment: "nl"}, entity.LocaleEntry{Tag: "it", Segment: "it"})
+	cfg := businessConfig(`{"fr":{"geo_region":"ZZ-F"},"nl":{"no_office":true,"geo_region":"ZZ-N","address":{"street":"Example Street 2"}}}`)
+	for loc, want := range map[string]string{"fr": "ZZ-F", "nl": "ZZ-N", "it": "", "xx": ""} {
+		if got := localeGeoRegion(cfg, set, loc); got != want {
+			t.Errorf("localeGeoRegion(%s) = %q, want %q", loc, got, want)
+		}
+	}
+	one := businessSet(t, false, entity.LocaleEntry{Tag: "en"})
+	if got := localeGeoRegion(cfg, one, "en"); got != "" {
+		t.Errorf("one-locale site: %q, want none", got)
+	}
+}

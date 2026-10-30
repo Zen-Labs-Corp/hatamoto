@@ -16,7 +16,7 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 		return
 	}
 	snap := s.urlSnapshot(ctx)
-	s.applyLocaleSnap(ctx, snap, rr, v, baseURL, func(set *entity.LocaleSet, loc string) *render.BusinessView {
+	s.applyLocaleSnap(ctx, snap, rr, v, baseURL, func(set *entity.LocaleSet, loc string) (*render.BusinessView, string) {
 		return s.localeBusinessView(ctx, set, loc)
 	})
 }
@@ -24,7 +24,7 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 // applyLocaleSnap is applyLocale on a given URL snapshot, with the local
 // business lookup injected.
 func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, rr *routeResult, v *render.PageView, baseURL string,
-	business func(set *entity.LocaleSet, loc string) *render.BusinessView) {
+	business func(set *entity.LocaleSet, loc string) (*render.BusinessView, string)) {
 	set := snap.Locales()
 	if !set.Multi() {
 		return
@@ -44,7 +44,7 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	v.Locale = loc
 	v.Site.Language = loc
 	if !shared {
-		v.Business = business(set, loc)
+		v.Business, v.GeoRegion = business(set, loc)
 	}
 
 	switch {

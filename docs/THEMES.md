@@ -440,11 +440,12 @@ alternates, then an `x-default` link, from the head data the host passes to it
 link that duplicates a computed hreflang is dropped. A site with one locale
 has no alternates and prints no hreflang.
 
-**Geo region.** On a page whose locale has a geo region, the default theme's
+**Geo region.** On every page of a locale whose card sets a geo region (else the
+site-wide one), whether or not the locale has an office or an address of its own, the default theme's
 `head` partial prints `<meta name="geo.region" content="...">` from the head data
 (`.Meta`). A custom theme that overrides the `head` partial must range over
 `.Meta` itself, otherwise its pages print no geo region. Nothing prints on shared
-pages or when no region is set.
+pages, on a site with one locale or when no region is set.
 
 **Authors** are people (the built-in `person` content type: name, job title,
 bios, photo, links), not accounts. An entity credits one through
