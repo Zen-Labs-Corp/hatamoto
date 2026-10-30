@@ -23,7 +23,10 @@
 # only by the CLI writes and by those packages; an HTTP admin write is not
 # exercised. A baseline test that SKIPs (for example when a table is missing)
 # fails the run: only a package absent from the baseline is skipped, and only
-# the tests in ALLOW_SKIP (no database involved) may skip.
+# the tests in ALLOW_SKIP (no database involved) may skip. A baseline test that is
+# broken in the release itself (a calendar or test bug fixed later; a past release
+# cannot be patched) is excluded by name with BASELINE_BROKEN, for its package
+# only, and each exclusion is printed. That is not a skip: the test never runs.
 #
 # Baseline packages whose integration tests use DATABASE_URL /
 # HATAMOTO_TEST_DB_URL directly and run on the provided database:
@@ -290,10 +293,32 @@ fi
 # DB-backed packages (header): any build/list error, test failure or SKIP fails.
 # ALLOW_SKIP: pkg-path.TestName of tests that skip without touching the database.
 ALLOW_SKIP=("internal/admin.TestSettingsLiveTabsUseTheNewHref")
+# BASELINE_BROKEN: "<pkg-path> <TestName>  # reason, fixed in <commit subject>".
+# Tests that fail in the baseline release for reasons unrelated to the schema.
+# Run with `go test -skip` (exact names), for that package only. Keep it short:
+# every entry hides a baseline test, so name the fix that makes it obsolete.
+BASELINE_BROKEN=(
+  "internal/admin TestDatePickerShowsPresetNameOrDates  # calendar-dependent preset overlap (e.g. Last 30 days == Month to date on 30 Oct), fixed in 'fix(admin): let the first matching date preset name the range'"
+)
+# broken_skip PKG: the -skip regexp for PKG's BASELINE_BROKEN tests ('' if none); notes go to stderr.
+broken_skip() {
+  local want=${1#./} entry spec reason bpkg name names=()
+  for entry in "${BASELINE_BROKEN[@]}"; do
+    spec=${entry%%#*}; reason=${entry#*#}; reason=${reason# }
+    read -r bpkg name <<<"$spec"
+    [[ "$bpkg" == "$want" ]] || continue
+    echo "note: skipping baseline $bpkg.$name: $reason" >&2
+    names+=("$name")
+  done
+  [[ ${#names[@]} -eq 0 ]] || (IFS='|'; echo "^(${names[*]})\$")
+}
 for pkg in ./internal/entity ./internal/linking/... ./internal/auth ./internal/menu ./internal/admin ./internal/worker ./internal/agents; do
   if ! pkg_present "$pkg"; then echo "skip $pkg (package not present in baseline)"; continue; fi
   log=$WORK/test-$(tr '/.' '__' <<<"${pkg#./}").json
-  if ! base_go env HATAMOTO_TEST_DB_URL="$DSN" DATABASE_URL="$DSN" go test -json -count=1 -tags=integration "$pkg" >"$log" 2>&1; then
+  skip_args=()
+  skip_re=$(broken_skip "$pkg")
+  [[ -z "$skip_re" ]] || skip_args=(-skip "$skip_re")
+  if ! base_go env HATAMOTO_TEST_DB_URL="$DSN" DATABASE_URL="$DSN" go test -json -count=1 -tags=integration "${skip_args[@]}" "$pkg" >"$log" 2>&1; then
     tail -40 "$log"; echo "FAIL baseline $pkg"; record "baseline $pkg"; continue
   fi
   skipped=$(grep -o '"Action":"skip","Package":"[^"]*","Test":"[^"]*"' "$log" \
