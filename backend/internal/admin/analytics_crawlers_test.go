@@ -257,7 +257,7 @@ func TestVerifyBannerHeaderWording(t *testing.T) {
 	}
 	// Preset on but the spoofed IPs are not CDN addresses: the proxy is the fault, not the age of the data.
 	got = text(on, agents.VerificationHealth{Verified: 10, Spoofed: 90, SpoofedIPs: 4, SpoofedIPsInCDN: 1})
-	if strings.Contains(got, "until they leave the selected range") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") {
+	if strings.Contains(got, "until they leave the selected range") || !strings.Contains(got, "Set HATAMOTO_TRUSTED_PROXIES") || strings.Contains(got, "CDN preset") {
 		t.Errorf("preset on, IPs outside the CDN: %q", got)
 	}
 	// Rollup kept, raw hits gone: no "from 0 IPs", no link to an empty list.

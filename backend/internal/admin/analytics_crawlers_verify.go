@@ -92,6 +92,8 @@ func verifyBannerFor(h agents.VerificationHealth, src middleware.ClientIPSource,
 		b.Tail += " Fetches recorded before the setting stay counted until they leave the selected range."
 	case h.SpoofedIPs > 0 && h.SpoofedIPsInCDN*2 > h.SpoofedIPs:
 		b.Tail += " Most of these IPs belong to Cloudflare: set HATAMOTO_TRUSTED_CDN=cloudflare."
+	case src.CDN:
+		b.Tail += " Set HATAMOTO_TRUSTED_PROXIES to the proxies in front of this site."
 	default:
 		b.Tail += " Set HATAMOTO_TRUSTED_PROXIES (or the CDN preset) to the proxies in front of this site."
 	}
