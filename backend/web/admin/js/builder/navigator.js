@@ -415,7 +415,13 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     if (r.collapse) collapsed.add(r.collapse);
     else if (r.expand) collapsed.delete(r.expand);
     ff = null;
-    if (r.select?.includes("#")) (ff = r.select), paint(), focus(); // onto a field row: focus only, never a selection
+    if (r.select?.includes("#")) {
+      // onto a field row: DOM focus stays on it (ff keeps the tab stop through the repaint), its section is the selection so Delete, F2 and the menu act on it
+      ff = r.select;
+      const owner = r.select.split("#")[0];
+      if (owner !== sel) onSelect(owner);
+      else paint(), focus();
+    }
     else if (r.select && r.select === sel && from !== sel) paint(), focus(); // back to the section already selected
     else if (r.select) onSelect(r.select);
     else paint();

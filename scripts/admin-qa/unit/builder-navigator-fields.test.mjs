@@ -210,7 +210,7 @@ test("a field id never reaches onSelect, onToggleHide, onRename or onMenu with '
   assert.equal(m.calls.filter((c) => c[0] === "field").length, 2);
 });
 
-test("act: from a focused field row, keys start there; onto a field row it focuses without selecting", () => {
+test("act: from a focused field row, keys start there; onto a field row its section becomes the selection", () => {
   const m = mount({ selected: "s1" });
   m.rootEl.contains = () => true;
   document.activeElement = { dataset: { id: "s1#body", field: "body" } };
@@ -224,6 +224,21 @@ test("act: from a focused field row, keys start there; onto a field row it focus
   m.tree.act("collapse");
   assert.deepEqual(m.calls, [], "Left back onto the section already selected: repaint, no select");
   assert.deepEqual(m.calls.filter((c) => c[0] === "field"), []);
+  document.activeElement = null;
+});
+
+test("act: arrow onto another section's field row selects that section, keeps the tab stop on the field row", () => {
+  let selected = "s2";
+  const m = mount({ selected });
+  m.rootEl.contains = () => true;
+  document.activeElement = { dataset: { id: "s2", field: undefined } };
+  delete document.activeElement.dataset.field;
+  assert.equal(m.tree.act("prev"), true);
+  assert.deepEqual(m.calls.filter((c) => c[0] === "select"), [["select", "s1"]], "Delete/F2/menu act on selection: it must be the field's section");
+  assert.equal(m.calls.some((c) => String(c[1]).includes("#")), false);
+  m.tree.draw();
+  const stop = m.rows().find((r) => r.attrs.tabindex === "0");
+  assert.equal(stop.attrs["data-id"], "s1#cards", "the repaint after select keeps focus on the field row");
   document.activeElement = null;
 });
 
