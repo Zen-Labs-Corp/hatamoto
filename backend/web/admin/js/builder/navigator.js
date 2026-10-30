@@ -281,7 +281,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
         "aria-selected": String(r.id === selRow || members.has(r.id)),
         "aria-expanded": r.kids ? String(r.expanded) : false,
       });
-      li.style.setProperty("--bs-level", String(r.level)); // the indent (builder.css) follows the depth, however deep
+      li.style.setProperty("--space-bs-level", String(r.level)); // the indent (builder.css) follows the depth, however deep; named --space-* so the design check reads it as a spacing multiplier
       if (r.id === renaming) return li.append((field = renameField(r.node, r.section))), li;
       const kids = [];
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));

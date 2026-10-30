@@ -204,11 +204,11 @@ test("a collapsed row whose component alone is hidden shows hidden: class, badge
   assert.equal(withClass(a, "hm-bs-row__meta").length, 0); // the pill already says it
 });
 
-test("every row carries its depth as --bs-level, and every row has a caret slot (live only with blocks)", () => {
+test("every row carries its depth as --space-bs-level, and every row has a caret slot (live only with blocks)", () => {
   const deep = { id: "d", t: "container", p: { tag: "div" }, c: [{ id: "g", t: "container", c: [{ id: "k", t: "container", c: [head("x", "X")] }, head("y", "Y")] }] };
   const m = mount({ d: { v: 2, nodes: [deep] } });
   const rows = m.rows();
-  assert.deepEqual(rows.map((r) => [r.attrs["data-id"], r.props["--bs-level"]]), [["d", "1"], ["g", "2"], ["k", "3"], ["x", "4"], ["y", "3"]]);
+  assert.deepEqual(rows.map((r) => [r.attrs["data-id"], r.props["--space-bs-level"]]), [["d", "1"], ["g", "2"], ["k", "3"], ["x", "4"], ["y", "3"]]);
   for (const r of rows) assert.equal(withClass(r, "hm-bs-row__caret").length, 1, r.attrs["data-id"]);
   assert.deepEqual(rows.map((r) => withAttr(r, "data-caret").length), [1, 1, 1, 0, 0]);
 });
