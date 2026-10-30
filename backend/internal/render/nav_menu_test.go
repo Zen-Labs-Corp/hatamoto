@@ -145,6 +145,10 @@ func TestButtonColourContrast(t *testing.T) {
 		t.Fatalf("%s is not defined", name)
 		return ""
 	}
+	// The colour rules come after the plain button's hover and match it in specificity, so a coloured button must keep a hover of its own.
+	if !strings.Contains(css, `.hm-nav__item--button[class*="hm-nav-color--"]:hover { filter: brightness(0.9); }`) {
+		t.Error("a coloured button has no hover rule")
+	}
 	for _, colour := range []string{"accent", "ink", "muted", "danger"} {
 		re := `:is\(a, span, p\)\.hm-nav__item--button\.hm-nav-color--` + colour + ` \{ background: var\((--[a-z-]+)\); color: (var\(--[a-z-]+\)|#[0-9a-f]{6}); \}`
 		m := regexp.MustCompile(re).FindStringSubmatch(css)

@@ -185,6 +185,8 @@ main:focus { outline: none; } /* focus target of the skip link, not a control */
 :is(a, span, p).hm-nav__item--button.hm-nav-color--ink { background: var(--hm-text); color: var(--hm-bg); }
 :is(a, span, p).hm-nav__item--button.hm-nav-color--muted { background: var(--hm-label); color: var(--hm-bg); }
 :is(a, span, p).hm-nav__item--button.hm-nav-color--danger { background: var(--hm-shu-dark); color: #ffffff; }
+/* The plain button darkens on hover (rule above); a coloured one has the same specificity and comes later, so it needs its own hover. */
+:is(a, span, p).hm-nav__item--button[class*="hm-nav-color--"]:hover { filter: brightness(0.9); }
 .hm-nav__badge {
   display: inline-block; margin-left: 0.35em; padding: 0 0.4em; border: 1px solid var(--hm-hair);
   border-radius: var(--hm-radius-sm); font-size: 0.6875rem; font-weight: 500; line-height: 1.5; vertical-align: middle;
