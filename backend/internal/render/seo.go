@@ -318,9 +318,10 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		if len(h.Days) == 0 {
 			continue
 		}
-		specs = append(specs, map[string]any{
-			"@type": "OpeningHoursSpecification", "dayOfWeek": h.Days, "opens": h.Opens, "closes": h.Closes,
-		})
+		spec := map[string]any{"@type": "OpeningHoursSpecification", "dayOfWeek": h.Days}
+		setIf(spec, "opens", h.Opens)
+		setIf(spec, "closes", h.Closes)
+		specs = append(specs, spec)
 	}
 	for _, h := range b.SpecialHours {
 		if h.From == "" {
@@ -328,8 +329,10 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		}
 		spec := map[string]any{
 			"@type": "OpeningHoursSpecification", "validFrom": h.From,
-			"validThrough": firstNonEmpty(h.To, h.From), "opens": h.Opens, "closes": h.Closes,
+			"validThrough": firstNonEmpty(h.To, h.From),
 		}
+		setIf(spec, "opens", h.Opens)
+		setIf(spec, "closes", h.Closes)
 		if h.Closed {
 			spec["opens"], spec["closes"] = "00:00", "00:00"
 		}

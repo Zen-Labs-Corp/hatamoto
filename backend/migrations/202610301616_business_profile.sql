@@ -7,6 +7,9 @@
 -- (see docs/adr/0003-public-locales.md); the legacy columns stay authoritative.
 -- The previous release's binary never reads or writes the new columns and keeps
 -- using the legacy ones, so rolling back loses nothing it showed before.
+-- Down is different: it drops both columns and deletes every profile and locale
+-- card entered. Roll back by running the previous binary on the migrated
+-- database, not by running Down.
 
 -- +goose Up
 ALTER TABLE hatamoto_site_config

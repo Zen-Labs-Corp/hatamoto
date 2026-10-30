@@ -2,6 +2,7 @@ package bizprofile
 
 import (
 	"fmt"
+	"math"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -127,7 +128,7 @@ func Validate(p Profile) map[string]string {
 			return
 		}
 		f, err := strconv.ParseFloat(v, 64)
-		if err != nil || f < -limit || f > limit {
+		if err != nil || math.IsNaN(f) || f < -limit || f > limit {
 			errs[path] = fmt.Sprintf("Enter a number between -%g and %g.", limit, limit)
 		}
 	}
@@ -188,7 +189,7 @@ func Validate(p Profile) map[string]string {
 		link("sameas."+strconv.Itoa(i), v)
 	}
 	if v := p.Rating.Value; v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err != nil || f < 0 || f > 5 {
+		if f, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(f) || f < 0 || f > 5 {
 			errs["rating.value"] = "Enter a number between 0 and 5."
 		}
 	}

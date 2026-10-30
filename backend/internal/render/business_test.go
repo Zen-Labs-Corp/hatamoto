@@ -209,3 +209,23 @@ func TestHeadGeoRegionMeta(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalBusinessOpeningHoursOmitEmptyTimes(t *testing.T) {
+	v := businessPage(&BusinessView{
+		ID: "xx", Address: Address{City: "Sample City"},
+		OpeningHours: []HoursView{{Days: []string{"Monday"}}},
+		SpecialHours: []SpecialHoursView{{From: "2030-01-01"}},
+	})
+	specs, _ := graphNodes(t, v)[1]["openingHoursSpecification"].([]any)
+	if len(specs) != 2 {
+		t.Fatalf("specs = %v", specs)
+	}
+	for _, s := range specs {
+		m, _ := s.(map[string]any)
+		for _, k := range []string{"opens", "closes"} {
+			if _, ok := m[k]; ok {
+				t.Errorf("%v has an empty %q key", m, k)
+			}
+		}
+	}
+}

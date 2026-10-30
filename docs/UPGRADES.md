@@ -141,6 +141,8 @@ Settings > General gained a Business details card and, on a site with several pu
 
 The change is expand-only. The previous release ignores the new columns, keeps reading and writing its three contact fields and renders as before. Rolling back loses nothing you entered: the new fields stay in the database but print nowhere until you move forward again. A site without a Locales list prints the same JSON-LD as before unless you fill a new site-wide field; the extra Organization keys (legal name, tax ID, fax, email, rating, profile addresses) print only when set.
 
+To roll back, run the previous release against the migrated database. Do not run the migration's `down` step for this: it drops both columns and deletes every business profile and locale card you entered.
+
 ## People (person profiles)
 
 Authors became people: one `person` entity per human, credited through
