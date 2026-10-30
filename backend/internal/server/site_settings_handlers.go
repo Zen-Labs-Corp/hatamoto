@@ -130,10 +130,15 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 	})
 }
 
-// invalidateSiteSettings runs after site settings changed. The URL registry
-// reads the time zone for {month} and {day}, so it is rebuilt first: pages
-// rendered after the purge must not cache URLs in the old zone.
+// invalidateSiteSettings runs after site settings changed, also when they were
+// written with raw SQL (the locale conversion), so the cached site config goes
+// first. The URL registry reads the time zone for {month} and {day} and the
+// locale set, so it is rebuilt before the pages: pages rendered after the purge
+// must not cache URLs from the old settings.
 func (s *Server) invalidateSiteSettings(ctx context.Context) {
+	if s.siteConfig != nil {
+		s.siteConfig.Invalidate()
+	}
 	if s.entityService != nil {
 		s.entityService.URLRegistry().Invalidate()
 	}

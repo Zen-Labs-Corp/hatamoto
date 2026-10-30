@@ -242,9 +242,7 @@ func TestLocaleConvertFixtureHTTP_Integration(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	invalidate := func() {
-		srv.siteConfig.Invalidate()
-		srv.entityService.URLRegistry().Invalidate()
-		srv.invalidateSiteSettings(ctx)
+		srv.invalidateSiteSettings(ctx) // what the admin runs after an apply or revert
 	}
 	invalidate()
 	checkAll("after apply")
