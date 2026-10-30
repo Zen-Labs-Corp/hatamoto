@@ -49,6 +49,8 @@ const (
 	CodeAlreadyReverted     = "already_reverted"
 	CodeNewerConversion     = "newer_conversion"
 	CodeRevertConflict      = "revert_conflict"
+	CodeSlugCollision       = "slug_collision"
+	CodeNoTag               = "no_tag"
 
 	CodeAttributeWithoutHome = "attribute_without_home"
 	CodeUnmatchedValue       = "unmatched_value"
