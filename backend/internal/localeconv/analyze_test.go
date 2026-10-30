@@ -222,8 +222,12 @@ func TestAnalyzeUnmatchedAndNoHome(t *testing.T) {
 	if len(rep.UnmatchedValues) != 1 || rep.UnmatchedValues[0].Value != "qq" || rep.UnmatchedValues[0].Count != 2 {
 		t.Errorf("unmatched = %+v", rep.UnmatchedValues)
 	}
-	if !hasCode(rep.Warnings, CodeUnmatchedValue) || !hasCode(rep.Warnings, CodeAttributeWithoutHome) || !rep.OK {
+	if !hasCode(rep.Warnings, CodeUnmatchedValue) || !hasCode(rep.Warnings, CodeAttributeWithoutHome) {
 		t.Errorf("warnings = %+v errors = %+v", rep.Warnings, rep.Errors)
+	}
+	// A mapped top-level row moves under its segment: the path check blocks it.
+	if rep.OK || !hasCode(rep.Errors, CodePathChanges) || rep.PathChanges.Items[0].ID != "q3" {
+		t.Errorf("errors = %+v", rep.Errors)
 	}
 	if got := planned(t, ch, "q1").After.Locale; got != "und" {
 		t.Errorf("unmatched without a home = %q, want und", got)

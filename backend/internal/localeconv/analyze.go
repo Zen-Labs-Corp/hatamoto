@@ -57,6 +57,8 @@ func (p *Planned) Changed() bool {
 // Changes is the planned conversion of every entity, ordered by id.
 type Changes struct {
 	Planned []Planned
+	// Schemas are the schemas whose overrides the conversion edits.
+	Schemas []SchemaChange
 }
 
 // Rows returns the planned rows that apply writes.
@@ -143,6 +145,7 @@ func (a *analysis) run() {
 	a.planGroups()
 	a.warnShadows()
 	a.countLocales()
+	a.assemble()
 	for code, n := range a.warned {
 		if n > maxListedWarnings {
 			a.rep.Warnings = append(a.rep.Warnings, Issue{Code: code, Message: fmt.Sprintf("%d more %s warnings not listed", n-maxListedWarnings, code)})
