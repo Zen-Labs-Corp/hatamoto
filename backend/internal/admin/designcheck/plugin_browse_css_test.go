@@ -6,22 +6,25 @@ import (
 	"testing"
 )
 
-// The filters collapse on a narrow screen; the markup keeps them open for wide screens and no-JS.
-func TestBrowseFiltersCollapseOnNarrowScreens(t *testing.T) {
+// Browse has one toolbar (hm/filterbar), not a facet column: the old facet
+// class and its narrow-screen collapse are gone, and the cards fill the width.
+func TestBrowseToolbarReplacesFacetColumn(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../../web/admin/js/pluginpanel.js")
+	js, err := os.ReadFile("../../../web/admin/js/pluginpanel.js")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if src := string(b); !strings.Contains(src, "matchMedia(NARROW)") || !strings.Contains(src, `removeAttribute("open")`) || !strings.Contains(src, "hm-pluginbrowse__facets") {
-		t.Error("pluginpanel.js must collapse the browse filters on a narrow screen")
 	}
 	css, err := os.ReadFile("../../../web/admin/css/pages/pluginbrowse.css")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(css), "(min-width: 900px)") {
-		t.Error("pluginbrowse.css breakpoint moved: update NARROW in pluginpanel.js")
+	for name, src := range map[string]string{"pluginpanel.js": string(js), "pluginbrowse.css": string(css)} {
+		if strings.Contains(src, "hm-pluginbrowse__facets") {
+			t.Errorf("%s still mentions hm-pluginbrowse__facets", name)
+		}
+	}
+	if !strings.Contains(string(css), "repeat(auto-fill, minmax(min(240px, 100%), 1fr))") {
+		t.Error("pluginbrowse.css: the cards grid must be repeat(auto-fill, minmax(240px, 1fr))")
 	}
 }
