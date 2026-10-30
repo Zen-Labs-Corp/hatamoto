@@ -103,17 +103,25 @@ func (a *analysis) fingerprint() string {
 	return sum(h)
 }
 
+// PlanSHA256 is the hash a report carries for its plan: the SHA-256 of the
+// plan's JSON form, "" when the plan cannot be encoded.
+func PlanSHA256(p *Plan) string {
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return ""
+	}
+	h := sha256.New()
+	h.Write(raw)
+	return sum(h)
+}
+
 func sum(h hash.Hash) string { return hex.EncodeToString(h.Sum(nil)) }
 
 // finish sorts the issues, so reports are stable, and sets OK.
 func (a *analysis) finish() (*Changes, *Report) {
 	sortIssues(a.rep.Errors)
 	sortIssues(a.rep.Warnings)
-	if raw, err := json.Marshal(a.plan); err == nil {
-		h := sha256.New()
-		h.Write(raw)
-		a.rep.PlanSHA256 = sum(h)
-	}
+	a.rep.PlanSHA256 = PlanSHA256(a.plan)
 	a.rep.OK = len(a.rep.Errors) == 0
 	return a.ch, a.rep
 }

@@ -35,21 +35,22 @@ const (
 	convertReviewCap = 16
 )
 
-// convertReviewStore remembers the plan text of a dry run that passed, by the
-// plan hash of its report. The confirm page is a plain GET behind sudo (a
-// sudo prompt never replays a POST), and a plan of up to 1 MiB cannot ride in
-// a URL, so the link carries only the hash.
+// convertReviewStore remembers the plan text and the data fingerprint of a dry
+// run that passed, by the plan hash of its report. The confirm page is a plain
+// GET behind sudo (a sudo prompt never replays a POST), and a plan of up to
+// 1 MiB cannot ride in a URL, so the link carries only the hash. The
+// fingerprint comes from here, never from the link.
 type convertReviewStore struct {
 	mu    sync.Mutex
 	items map[string]convertReview
 }
 
 type convertReview struct {
-	plan string
-	at   time.Time
+	plan, fp string
+	at       time.Time
 }
 
-func (s *convertReviewStore) put(sha, plan string) {
+func (s *convertReviewStore) put(sha, plan, fp string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
@@ -70,17 +71,17 @@ func (s *convertReviewStore) put(sha, plan string) {
 		}
 		delete(s.items, oldest)
 	}
-	s.items[sha] = convertReview{plan: plan, at: now}
+	s.items[sha] = convertReview{plan: plan, fp: fp, at: now}
 }
 
-func (s *convertReviewStore) get(sha string) (string, bool) {
+func (s *convertReviewStore) get(sha string) (plan, fp string, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, ok := s.items[sha]
 	if !ok || time.Since(v.at) > convertReviewTTL {
-		return "", false
+		return "", "", false
 	}
-	return v.plan, true
+	return v.plan, v.fp, true
 }
 
 // convertData is the Convert page: the plan, its report and the history.
@@ -266,9 +267,12 @@ func (a *Admin) handleConvertReport(w http.ResponseWriter, r *http.Request) {
 			d.Issues = convertIssues(rep.Errors)
 		}
 		d.Warnings = convertIssues(rep.Warnings)
+		if rep.OK && len(d.Issues) == 0 && rep.DataFingerprint == "" {
+			d.Issues = []convertIssue{{Message: "The report has no data fingerprint, so the apply cannot be tied to it. Run the dry run again"}}
+		}
 		if rep.OK && len(d.Issues) == 0 {
-			a.convertReviews.put(rep.PlanSHA256, text)
-			d.Report.ApplyHref = a.convertURL("apply") + "?" + url.Values{"plan": {rep.PlanSHA256}, "fp": {rep.DataFingerprint}}.Encode()
+			a.convertReviews.put(rep.PlanSHA256, text, rep.DataFingerprint)
+			d.Report.ApplyHref = a.convertURL("apply") + "?" + url.Values{"plan": {rep.PlanSHA256}}.Encode()
 		} else {
 			d.Report.OK = false
 		}
@@ -455,9 +459,9 @@ func (a *Admin) handleConvertApplyConfirm(w http.ResponseWriter, r *http.Request
 	if !a.convertReady(w, r) {
 		return
 	}
-	sha, fp := r.URL.Query().Get("plan"), r.URL.Query().Get("fp")
-	plan, ok := a.convertReviews.get(sha)
-	if !ok {
+	sha := r.URL.Query().Get("plan")
+	plan, fp, ok := a.convertReviews.get(sha)
+	if !ok || fp == "" {
 		a.SetFlash(w, r, "warning", "That dry run is no longer available. Run it again.")
 		http.Redirect(w, r, a.convertURL(), http.StatusSeeOther)
 		return
@@ -484,6 +488,10 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	plan, err := localeconv.ParsePlan(strings.NewReader(text))
 	if err != nil || len(text) > convertMaxPlan {
 		a.renderConvert(w, r, http.StatusUnprocessableEntity, convertData{Plan: text, PlanError: "The plan could not be read. Run the dry run again"})
+		return
+	}
+	if fp == "" || localeconv.PlanSHA256(plan) != sha {
+		a.renderConvert(w, r, http.StatusUnprocessableEntity, convertData{Plan: text, PlanError: "This plan is not the one that was reviewed. Run the dry run again"})
 		return
 	}
 	rec, rep, err := a.deps.LocaleConvert.Apply(r.Context(), plan, localeconv.ApplyOpts{By: userLabel(userFrom(r.Context())), Fingerprint: fp})

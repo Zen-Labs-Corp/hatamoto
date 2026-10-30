@@ -55,9 +55,18 @@ func (f *fakeConvert) History(context.Context) ([]localeconv.HistoryItem, error)
 
 const convertPlanJSON = `{"locales":[{"tag":"en-XX","segment":"xx","root_slug":"xx"},{"tag":"en-ZZ","segment":"zz","root_slug":"zz"}],"default":"en-XX","locale_from":{"attribute":"region"}}`
 
+// convertPlanSHA is the plan hash a report carries for convertPlanJSON.
+var convertPlanSHA = func() string {
+	p, err := localeconv.ParsePlan(strings.NewReader(convertPlanJSON))
+	if err != nil {
+		panic(err)
+	}
+	return localeconv.PlanSHA256(p)
+}()
+
 func convertReportFixture() *localeconv.Report {
 	return &localeconv.Report{
-		PlanSHA256: "abc123", DataFingerprint: "fp-1", OK: true,
+		PlanSHA256: convertPlanSHA, DataFingerprint: "fp-1", OK: true,
 		Warnings: []localeconv.Issue{{Code: localeconv.CodeUnmatchedValue, Message: "3 pages have region qq, which matches no locale"}},
 		Locales: []localeconv.LocaleReport{
 			{Tag: "en-XX", Segment: "xx", Home: localeconv.HomeReport{ID: "11111111-2222-3333-4444-555555555555", OldPath: "/xx", NewPath: "/xx"}, CountsBySchema: map[string]int{"page": 40, "service": 60}, Total: 100},
@@ -194,7 +203,7 @@ func TestLocaleConvertReportPage(t *testing.T) {
 		"Step 1: Plan", "Step 2: Report", "Step 3: Apply", "OK to apply", "/xx (id 11111111)", "shared (und)",
 		"Overrides updated (sitemap group dropped)", "Renamed collisions", "Redirects under segments", "Unmatched values",
 		"page: home to home-old-1", "3 pages have region qq", "Conversion #3", "Revert",
-		`href="` + convertBase + `/apply?fp=fp-1&amp;plan=abc123"`, convertBase + "/history/3/revert",
+		`href="` + convertBase + `/apply?plan=` + convertPlanSHA + `"`, convertBase + "/history/3/revert",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
@@ -268,9 +277,9 @@ func TestLocaleConvertApplyFlow(t *testing.T) {
 	g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil)
 	g.elevate("owner-token")
 
-	confirm := g.do("GET", convertBase+"/apply?plan=abc123&fp=fp-1", "owner-token", nil, nil)
+	confirm := g.do("GET", convertBase+"/apply?plan="+convertPlanSHA+"&fp=ignored", "owner-token", nil, nil)
 	body := confirm.Body.String()
-	if confirm.Code != http.StatusOK || !strings.Contains(body, `name="data_fingerprint" value="fp-1"`) || !strings.Contains(body, `name="plan_sha256" value="abc123"`) || !strings.Contains(body, `data-hm-danger-phrase="convert"`) {
+	if confirm.Code != http.StatusOK || !strings.Contains(body, `name="data_fingerprint" value="fp-1"`) || !strings.Contains(body, `name="plan_sha256" value="`+convertPlanSHA+`"`) || !strings.Contains(body, `data-hm-danger-phrase="convert"`) {
 		t.Fatalf("confirm page: %d %s", confirm.Code, body)
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
@@ -278,7 +287,7 @@ func TestLocaleConvertApplyFlow(t *testing.T) {
 	}
 	compareGolden(t, "pages/settings-locale-convert-confirm.html", normalizePage(body))
 
-	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {"abc123"}, "data_fingerprint": {"fp-1"}}
+	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"fp-1"}}
 	form.Set("confirm_phrase", "Convert")
 	if rec := g.do("POST", convertBase+"/apply", "owner-token", form, nil); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("wrong phrase: %d, want 422", rec.Code)
@@ -302,6 +311,56 @@ func TestLocaleConvertApplyFlow(t *testing.T) {
 	}
 }
 
+func TestLocaleConvertApplyIsBoundToTheDryRun(t *testing.T) {
+	t.Parallel()
+
+	g, fc, events, _ := newConvertRig(t)
+	g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil)
+	g.elevate("owner-token")
+
+	// The confirm page takes the fingerprint from the dry run, not from the link.
+	body := g.do("GET", convertBase+"/apply?plan="+convertPlanSHA+"&fp=forged", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `name="data_fingerprint" value="fp-1"`) || strings.Contains(body, "forged") {
+		t.Error("the confirm page used the fingerprint of the link")
+	}
+
+	other := strings.Replace(convertPlanJSON, `"default":"en-XX"`, `"default":"en-ZZ"`, 1)
+	for name, form := range map[string]url.Values{
+		"another plan than the reviewed one": {"plan": {other}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"fp-1"}},
+		"no hash":                            {"plan": {convertPlanJSON}, "data_fingerprint": {"fp-1"}},
+		"no fingerprint":                     {"plan": {convertPlanJSON}, "plan_sha256": {convertPlanSHA}},
+	} {
+		form.Set("confirm_phrase", "convert")
+		if rec := g.do("POST", convertBase+"/apply", "owner-token", form, nil); rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%s: %d, want 422", name, rec.Code)
+		}
+	}
+	if len(fc.applied) != 0 || len(*events) != 0 {
+		t.Errorf("a plan that was not reviewed ran: %d applies, %d audit entries", len(fc.applied), len(*events))
+	}
+	// The audit entry names the hash of the plan that ran.
+	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"fp-1"}, "confirm_phrase": {"convert"}}
+	g.do("POST", convertBase+"/apply", "owner-token", form, nil)
+	if len(*events) != 1 || (*events)[0].Detail["plan_sha256"] != convertPlanSHA {
+		t.Errorf("audit %+v", *events)
+	}
+}
+
+func TestLocaleConvertReportWithoutAFingerprintOffersNoApply(t *testing.T) {
+	t.Parallel()
+
+	g, fc, _, _ := newConvertRig(t)
+	fc.dryRun = func(*localeconv.Plan) (*localeconv.Report, error) {
+		r := convertReportFixture()
+		r.DataFingerprint = ""
+		return r, nil
+	}
+	body := g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil).Body.String()
+	if strings.Contains(body, "Step 3: Apply") || !strings.Contains(body, "no data fingerprint") {
+		t.Error("a report without a fingerprint offers Apply")
+	}
+}
+
 func TestLocaleConvertApplyConfirmNeedsAReviewedPlan(t *testing.T) {
 	t.Parallel()
 
@@ -321,7 +380,7 @@ func TestLocaleConvertStaleFingerprintIsRefused(t *testing.T) {
 		return nil, nil, &localeconv.BlockingError{Issues: []localeconv.Issue{{Code: localeconv.CodeStaleReport, Message: "data changed since the dry run, run it again"}}}
 	}
 	g.elevate("owner-token")
-	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {"abc123"}, "data_fingerprint": {"old"}, "confirm_phrase": {"convert"}}
+	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"old"}, "confirm_phrase": {"convert"}}
 	rec := g.do("POST", convertBase+"/apply", "owner-token", form, nil)
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "data changed since the dry run, run it again") {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -342,7 +401,7 @@ func TestLocaleConvertApplyFailureChangesNothingVisible(t *testing.T) {
 		return nil, nil, errors.New("connection reset")
 	}
 	g.elevate("owner-token")
-	form := url.Values{"plan": {convertPlanJSON}, "data_fingerprint": {"fp-1"}, "confirm_phrase": {"convert"}}
+	form := url.Values{"plan": {convertPlanJSON}, "plan_sha256": {convertPlanSHA}, "data_fingerprint": {"fp-1"}, "confirm_phrase": {"convert"}}
 	rec := g.do("POST", convertBase+"/apply", "owner-token", form, nil)
 	if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "connection reset") || len(*events) != 0 {
 		t.Errorf("%d, audit %d, leaked error %v", rec.Code, len(*events), strings.Contains(rec.Body.String(), "connection reset"))

@@ -310,3 +310,10 @@ func TestAnalyzeTriggerGuardMissing(t *testing.T) {
 		t.Errorf("errors = %+v", rep.Errors)
 	}
 }
+
+func TestReportPlanHashIsPlanSHA256(t *testing.T) {
+	plan := fixturePlan(t)
+	if _, rep := Analyze(fixtureSnap(), plan); rep.PlanSHA256 == "" || rep.PlanSHA256 != PlanSHA256(plan) {
+		t.Errorf("report hash %q, PlanSHA256 %q", rep.PlanSHA256, PlanSHA256(plan))
+	}
+}
