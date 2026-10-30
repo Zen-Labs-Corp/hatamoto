@@ -11,6 +11,7 @@
 {{end}}{{range .Feeds}}<link rel="alternate" type="{{.Type}}" title="{{.Title}}" href="{{.Href}}">
 {{end}}{{range .OG}}<meta property="{{.Key}}" content="{{.Content}}">
 {{end}}{{range .Twitter}}<meta name="{{.Key}}" content="{{.Content}}">
+{{end}}{{range .Meta}}<meta name="{{.Key}}" content="{{.Content}}">
 {{end}}{{range .Ext}}{{if eq .Kind "meta"}}<meta{{with .Name}} name="{{.}}"{{end}}{{with .Property}} property="{{.}}"{{end}}{{with .Content}} content="{{.}}"{{end}}>
 {{else if eq .Kind "link"}}<link rel="{{.Rel}}" href="{{.Href}}"{{with .Type}} type="{{.}}"{{end}}{{with .Hreflang}} hreflang="{{.}}"{{end}}{{with .Crossorigin}} crossorigin="{{.}}"{{end}}>
 {{else if eq .Kind "script-src"}}<script src="{{.Src}}"{{with .Crossorigin}} crossorigin="{{.}}"{{end}}></script>

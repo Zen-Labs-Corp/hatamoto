@@ -32,7 +32,9 @@ type headView struct {
 	OG      []metaPair
 	Feeds   []FeedLink
 	Twitter []metaPair
-	Ext     []extTag
+	// Meta are extra <meta name> tags, such as geo.region on a locale page.
+	Meta []metaPair
+	Ext  []extTag
 	// Scripts are complete <script type="application/ld+json"> elements.
 	Scripts []template.HTML
 	// Comment is an optional AI-crawler HTML comment.

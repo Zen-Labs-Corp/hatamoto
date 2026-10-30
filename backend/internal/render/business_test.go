@@ -1,6 +1,7 @@
 package render
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -174,5 +175,23 @@ func TestSiteGraph_OrganizationExtrasOnlyWhenSet(t *testing.T) {
 	}
 	if r, _ := org["aggregateRating"].(map[string]any); r["ratingValue"] != "4" {
 		t.Errorf("aggregateRating = %v", org["aggregateRating"])
+	}
+}
+
+func TestHeadGeoRegionMeta(t *testing.T) {
+	v := businessPage(&BusinessView{ID: "xx", GeoRegion: "ZZ-Q", Address: Address{City: "Sample City"}})
+	out := renderHead(t, buildHeadView(context.Background(), v, nil))
+	if !strings.Contains(out, `<meta name="geo.region" content="ZZ-Q">`) {
+		t.Errorf("geo.region missing:\n%s", out)
+	}
+
+	for name, page := range map[string]*PageView{
+		"no business":     businessPage(nil),
+		"no region value": businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}}),
+	} {
+		out := renderHead(t, buildHeadView(context.Background(), page, nil))
+		if strings.Contains(out, "geo.region") {
+			t.Errorf("%s: geo.region must not print:\n%s", name, out)
+		}
 	}
 }

@@ -109,6 +109,9 @@ func buildHeadView(ctx context.Context, v *PageView, f HeadFilter) headView {
 	// Replace only when a plugin graph was actually accepted; otherwise the
 	// page would be left with no site graph at all.
 	h := seoHead(v, out.ReplaceSiteGraph && len(ldScripts) > 0)
+	if v.Business != nil {
+		h.Meta = appendMeta(h.Meta, "geo.region", v.Business.GeoRegion)
+	}
 	h.Scripts = append(h.Scripts, ldScripts...)
 	h.Ext = append(h.Ext, dropDuplicateAlternates(extTags, h.Alt)...)
 	return h
