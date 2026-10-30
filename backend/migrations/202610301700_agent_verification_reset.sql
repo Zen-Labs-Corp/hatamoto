@@ -21,6 +21,7 @@
 -- path, status; bytewise text) so a running verify worker cannot deadlock with
 -- this. Re-running finds no spoofed row left to reset and changes nothing.
 -- +goose StatementBegin
+-- hatamoto:backfill idempotent
 SELECT 1 FROM public.hatamoto_agent_daily d
 JOIN (
     SELECT DISTINCT agent_id, (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
