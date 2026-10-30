@@ -39,6 +39,7 @@ export function init(form, api) {
       panels[i].hidden = !on;
     });
     if (focus) tab.focus();
+    if (pop.matches(":popover-open")) place();
   }
   tabs.forEach((t, i) => {
     t.addEventListener("click", () => showTab(t, false));
@@ -161,26 +162,36 @@ export function init(form, api) {
   });
 
   // Opening: the header Add button adds at the end, a row's "+" adds after that row.
+  let anchor = null; // the button the panel hangs under
   document.addEventListener("click", (evt) => {
     const opener = evt.target.closest("[data-hm-add-open], [data-hm-add-after]");
     if (!opener) return;
     const row = opener.closest("[data-hm-item]");
     after = row ? api.items().indexOf(row) : -1;
     rowOpener = row ? opener : null;
+    anchor = opener;
     if (row && !pop.matches(":popover-open")) pop.showPopover();
   }, true);
-  // placeAt puts the panel under a row's "+", as the shared popover code does for the header button.
-  function placeAt(el) {
-    const r = el.getBoundingClientRect();
-    pop.style.top = `${Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8))}px`;
-    pop.style.left = `${Math.max(8, Math.min(r.left, document.documentElement.clientWidth - pop.offsetWidth - 8))}px`;
+  // place hangs the panel under its button (over it when there is more room there), right edge
+  // to the button for the header Add, left edge for a row's "+", inside the viewport. The height is
+  // capped to the room, so the results scroll and the confirm button stays in view.
+  function place() {
+    if (!anchor?.isConnected) return;
+    const r = anchor.getBoundingClientRect();
+    const below = innerHeight - r.bottom - 12;
+    const above = r.top - 12;
+    const down = below >= 320 || below >= above;
+    pop.style.maxHeight = `${Math.max(0, down ? below : above)}px`;
+    pop.style.top = `${down ? r.bottom + 4 : r.top - 4 - pop.offsetHeight}px`;
+    const left = rowOpener ? r.left : r.right - pop.offsetWidth;
+    pop.style.left = `${Math.max(8, Math.min(left, document.documentElement.clientWidth - pop.offsetWidth - 8))}px`;
   }
   pop.addEventListener("toggle", (evt) => {
     if (rowOpener) {
       // The shared code answered for the header button: undo that for a row's "+".
       document.querySelector('[data-hm-add-open][popovertarget="menu-add"]')?.setAttribute("aria-expanded", "false");
-      if (evt.newState === "open") placeAt(rowOpener);
     }
+    if (evt.newState === "open") place();
     if (evt.newState !== "open") {
       const back = rowOpener;
       rowOpener = null;

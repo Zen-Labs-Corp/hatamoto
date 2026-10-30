@@ -397,6 +397,44 @@ try {
   ok(await page.waitForFunction(() => document.activeElement?.id === "add-search", null, { timeout: 2000 }).then(() => true, () => false), "ISC-38: Add opens the popover with the cursor in the page search");
   const tabNames = await page.locator("#menu-add [role=tab]").allTextContents();
   ok(same(tabNames, ["Pages", "Address", "Heading", "Archive"]), `ISC-38: the popover offers Pages, Address, Heading and Archive (${tabNames.join(", ")})`);
+  // the panel hangs off its button and the confirm button is in view, at 1440 and at 900 px wide, 900 px high
+  const hangs = async (sel, tag) => {
+    await page.waitForFunction(() => document.activeElement?.id === "add-search", null, { timeout: 2000 }); // the panel is placed when focus arrives
+    await page.locator("#add-pages-list [role=option]").first().waitFor();
+    await page.locator('[data-hm-add-confirm="pages"]').waitFor();
+    const m = await page.evaluate((sel) => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      return { btn: r(sel), pop: r("#menu-add"), conf: r('[data-hm-add-confirm="pages"]'), vw: document.documentElement.clientWidth, vh: innerHeight };
+    }, sel);
+    const inView = m.conf.top >= 0 && m.conf.bottom <= m.vh && m.pop.left >= 0 && m.pop.right <= m.vw && m.pop.top >= 0 && m.pop.bottom <= m.vh;
+    const attached = m.pop.top >= m.btn.bottom - 1 || m.pop.bottom <= m.btn.top + 1;
+    const aligned = Math.abs(m.pop.right - m.btn.right) <= 2 || Math.abs(m.pop.left - m.btn.left) <= 2 || m.pop.left === 8 || Math.abs(m.pop.right - (m.vw - 8)) <= 2;
+    ok(inView && attached && aligned, `ISC-38: ${tag}: the panel hangs off its button and Add selected pages is in view (button ${Math.round(m.btn.left)},${Math.round(m.btn.top)}-${Math.round(m.btn.bottom)}; panel ${Math.round(m.pop.left)}-${Math.round(m.pop.right)} x ${Math.round(m.pop.top)}-${Math.round(m.pop.bottom)}; confirm bottom ${Math.round(m.conf.bottom)} of ${m.vh})`);
+  };
+  await hangs("[data-hm-add-open]", "1440x900 header Add");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await hangs("[data-hm-add-open]", "900x900 header Add");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await hangs("[data-hm-add-open]", "1440x520 header Add");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const plusRow = await byLabel(page, "Templates");
+  await plusRow.scrollIntoViewIfNeeded();
+  await plusRow.hover();
+  await plusRow.locator("[data-hm-add-after]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await page.evaluate(() => document.querySelector("[data-hm-item]:hover [data-hm-add-after]")?.setAttribute("data-qa-plus", ""));
+  await hangs("[data-qa-plus]", "row plus");
+  await page.evaluate(() => document.querySelector("[data-qa-plus]")?.removeAttribute("data-qa-plus"));
+  await page.keyboard.press("Escape");
+  await page.locator("[data-hm-add-open]").click();
+  await page.locator("#menu-add:popover-open").waitFor();
   await page.locator("#add-pages-list [role=option]").first().waitFor();
   const pageOpts = page.locator("#add-pages-list [role=option]");
   const picks = [(await pageOpts.nth(0).getAttribute("data-label")), (await pageOpts.nth(1).getAttribute("data-label"))];
