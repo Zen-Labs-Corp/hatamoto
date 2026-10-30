@@ -507,6 +507,57 @@ try {
   ok((await page.locator('[data-hm-issue="err"]').count()) === 0 && (await page.locator("[data-hm-ins-server]").isHidden()), "server error: editing the field clears the count and the stale message");
   await reopen();
 
+  // ---- rows added through the popover save with their page and term, and reach the public footer ----
+  const before = (await rowsOf(page)).length;
+  // the seeded instance has no category, so the run makes one and removes it again
+  const post = (path, fields) => page.evaluate(async ({ path, fields }) => {
+    const token = document.querySelector('meta[name="csrf-token"]').content;
+    const res = await fetch(path, { method: "POST", body: new URLSearchParams([["_csrf", token], ...fields]), credentials: "same-origin", headers: { "X-CSRF-Token": token }, redirect: "manual" });
+    return res.status;
+  }, { path, fields });
+  const TERM = "QA menu term";
+  let termID = "";
+  try {
+    await post("/admin/settings/taxonomies/terms", [["kind", "category"], ["name", TERM]]);
+    termID = await page.evaluate(async (name) => {
+      const doc = new DOMParser().parseFromString(await (await fetch("/admin/settings/taxonomies?kind=category")).text(), "text/html");
+      return [...doc.querySelectorAll('a[href*="/taxonomies/terms/"]')].find((a) => a.textContent.trim() === name)?.getAttribute("href").split("/").pop() ?? "";
+    }, TERM);
+    await page.locator("[data-hm-add-open]").click();
+    await page.locator("#add-pages-list [role=option]").nth(1).waitFor();
+    const opts = page.locator("#add-pages-list [role=option]");
+    const wanted = [[await opts.nth(0).getAttribute("data-value"), await opts.nth(0).getAttribute("data-label")], [await opts.nth(1).getAttribute("data-value"), await opts.nth(1).getAttribute("data-label")]];
+    await opts.nth(0).click();
+    await opts.nth(1).click();
+    await page.locator('[data-hm-add-confirm="pages"]').click();
+    await page.locator("[data-hm-add-open]").click();
+    await page.locator("#add-tab-archive").click();
+    await page.locator("#add-archive-term").fill("QA menu");
+    await page.locator("#add-panel-archive [role=option]").first().waitFor();
+    await page.locator("#add-panel-archive [role=option]").first().click();
+    const term = await page.locator("#add-panel-archive [data-hm-ss-value]").inputValue();
+    ok(term !== "" && termID !== "", "popover save: the archive pick has a term");
+    await page.locator('[data-hm-add-confirm="archive"]').click();
+    await save(page);
+    await reopen();
+    const saved = await page.locator("[data-hm-item]").evaluateAll((ls, n) => ls.slice(n).map((l) => [l.dataset.type, l.querySelector('[name$=".label"]').value, l.querySelector('[name$=".entity"]')?.value ?? "", l.querySelector('[name$=".term"]')?.value ?? ""]), before);
+    ok(saved.length === 3 && same(saved.slice(0, 2).map((r) => r.slice(0, 3)), wanted.map(([v, t]) => ["entity", t, v])), `popover save: two pages are saved as Page items with their page (${saved.map((r) => r.join("/")).join(", ")})`);
+    ok(saved[2]?.[0] === "archive" && saved[2][3] === term, "popover save: the archive is saved as an Archive item with its term");
+    const links = await page.evaluate((html) => [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("footer a")].map((a) => a.textContent.trim()), await publicFooter());
+    ok(wanted.every(([, t]) => links.includes(t)) && links.includes(TERM), `popover save: the public footer links the new items (${links.length} links)`);
+  } finally {
+    // take the three rows out again, so the rest of the run sees the seeded tree
+    await reopen();
+    for (let i = (await rowsOf(page)).length; i > before; i--) {
+      await page.locator("[data-hm-item]").nth(i - 1).focus();
+      await page.keyboard.press("Delete");
+    }
+    await save(page);
+    await reopen();
+    ok((await rowsOf(page)).length === before, "popover save: the added rows are removed again");
+    if (termID) await post(`/admin/settings/taxonomies/terms/${termID}/delete`, []);
+  }
+
   // ---- the preview shows the unsaved tree, with a none item as a span ----------
   await clickRow(page, LOOSE);
   await page.locator("#ins-label").fill("Press room");
