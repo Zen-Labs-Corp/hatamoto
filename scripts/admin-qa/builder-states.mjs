@@ -135,7 +135,13 @@ await check("selection change and tab change clear the State and the force", asy
   await selectCardAndStyle();
   await p.locator(`${STATE} [aria-checked="true"]`).focus();
   await press("ArrowRight");
-  await p.locator(TREE).nth(1).click(); await settle(300);
+  // Another canvas element: the section row is a v1 section, not a canvas node, so a second divider from the palette (it lands selected).
+  await p.locator(TREE).first().click(); await settle(300);
+  await p.keyboard.press("/");
+  await p.keyboard.type("divider"); await settle();
+  await press("ArrowDown"); await press("Enter"); await settle(500);
+  await p.locator('[data-hm-bs-ltab="nav"]').click();
+  await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
   let checked = await p.locator(`${STATE} [aria-checked="true"]`).textContent();
   if (checked.trim() !== "Normal" || (await forced()) !== null) throw new Error(`after selection: state ${checked}, force ${await forced()}`);
   await p.locator(`${STATE} [aria-checked="true"]`).focus();

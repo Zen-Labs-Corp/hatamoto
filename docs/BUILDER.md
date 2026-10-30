@@ -630,6 +630,19 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
     tab stop). Rows can be dragged. A toolbar has a Filter box, **Collapse all** and a visible **Rename** button (F2 and
     double-click still rename). Row names come from one map (`kindnames.js`): "Rich text", "Accordion item",
     "Tab panel", "Block: Promo"; the separator is " · ".
+    Two levels show. A section container (`tag` section) that wraps exactly one theme component is **one** row, numbered
+    `01`, `02`... in page order (the number ignores the filter). The row is 44px and bold, with a small thumbnail
+    (the section background and text alignment) and a meta line: `N blocks · <background>`, or `Hidden on <devices>`
+    (`Hidden` when every device is hidden). The row id is the container's, so rename, hide, drag and the menu act on
+    the container. Its name is the container's own name, else the component's name, else the section title. Selecting
+    the component from the canvas highlights the same row. The theme component itself is never a row: its blocks, if
+    any, are 28px rows under it with a type icon, the opening text and the muted kind name, drawn on a guide line.
+    A section that is not wrapped this way (two children, plain container) keeps one row per node. The selected row
+    is solid accent; the section that contains the selection gets a tinted band. Hovering a row shows an eye (hide)
+    and a more button (context menu), and hovering the edge between two sections (and below the last) shows
+    **+ add section here**, which opens the picker at that position. These are mouse shortcuts only: from the
+    keyboard use `h`, the context menu key or Shift+F10, and **Add element** in the footer. The filter matches the
+    component's name too. This is presentation only: the saved document is unchanged.
   * **Add** (lazy `addtab.js`, mounted on first open): a search field (focused), Recent (last inserts per user,
     `recent.js`), Patterns (one short row of four with "Show all patterns (N)", drawn thumbnails from `patterns.js`),
     then Layout, Elements, Content, Media, Interactive, Data and Blocks. Search ranks by name first (`search.js`). It is

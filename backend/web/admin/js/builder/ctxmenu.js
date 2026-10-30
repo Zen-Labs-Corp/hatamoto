@@ -2,7 +2,8 @@
 // the pure availability model; openMenu builds an hm-menu popover at a point. The popover has
 // no opener, so it is placed here and focus goes back through restore() when it closes.
 import { h, focusKept } from "@hm/builder/dom";
-import { find, moveSubject } from "@hm/builder/store";
+import { find } from "@hm/builder/store";
+import { hideTarget } from "@hm/builder/selinfo";
 import { hiddenAt } from "@hm/builder/bp";
 import { canMakeBlock } from "@hm/builder/reuseops";
 import { canWrap, canUnwrap, pastePoint, topmost } from "@hm/builder/clipops";
@@ -21,7 +22,7 @@ export function menuItems({ doc, selection, selected, kinds, reuse, device = "ba
   const row = (id, label, shortcut, extra = {}) => ({ id, label, ...(shortcut ? { shortcut: shortcut.replace("^", MOD) } : {}), ...extra });
   return [
     row("inspect", "Edit", "Enter", { disabled: !one }),
-    row("togglehide", hiddenAt(find(doc, moveSubject(doc, selected)) ?? node, device) ? "Show on this device" : "Hide on this device", "H"),
+    row("togglehide", hiddenAt(find(doc, hideTarget(doc, selected, device)) ?? node, device) ? "Show on this device" : "Hide on this device", "H"),
     { sep: true },
     row("copynode", "Copy", "^C"),
     row("cutnode", "Cut", "^X"),
