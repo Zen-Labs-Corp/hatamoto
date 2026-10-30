@@ -359,14 +359,13 @@ func (a *Admin) handleMenuEdit(w http.ResponseWriter, r *http.Request) {
 
 // pickerItems lists a theme's presets for a tile or swatch picker, led by the
 // "Default" choice that stores nothing. A theme with no presets gets no picker.
-func pickerItems(kind string, list []render.MenuPreset) []map[string]any {
+func pickerItems(list []render.MenuPreset) []map[string]any {
 	if len(list) == 0 {
 		return nil
 	}
-	attrs := map[string]string{"data-hm-ins-pick": kind}
-	out := []map[string]any{{"Label": "Default", "Value": "", "Attrs": attrs}}
+	out := []map[string]any{{"Label": "Default", "Value": ""}}
 	for _, p := range list {
-		out = append(out, map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch, "Attrs": attrs})
+		out = append(out, map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch})
 	}
 	return out
 }
@@ -394,8 +393,8 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 	f.Blank = menuRow{N: maxMenuItems, Type: "entity", NoIndent: true, NoOutdent: true}
 	f.Blank.Types = typeOptions(f.Blank.Type)
 	f.Blank.TypeIcon, f.Blank.Target = menuTarget(f.Blank)
-	f.StyleItems = pickerItems("style", f.Decl.Styles)
-	f.ColorItems = pickerItems("color", f.Decl.Colors)
+	f.StyleItems = pickerItems(f.Decl.Styles)
+	f.ColorItems = pickerItems(f.Decl.Colors)
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})

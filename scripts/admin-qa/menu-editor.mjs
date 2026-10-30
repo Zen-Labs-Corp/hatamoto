@@ -342,11 +342,10 @@ try {
   ok((await chipsOf("Security")).includes("Bad address"), "ISC-33: a malformed custom address shows Bad address");
   await page.locator("#ins-url").fill("/security");
   const badges = await page.locator("#ins-badge option").allTextContents();
-  if (badges.some((t) => /new/i.test(t))) {
-    await page.locator("#ins-badge").selectOption({ label: badges.find((t) => /new/i.test(t)) });
-    ok((await chipsOf("Security")).some((t) => /new/i.test(t)), "ISC-33: a new-badge item shows the chip New");
-    await page.locator("#ins-badge").selectOption({ index: 0 });
-  }
+  ok(badges.some((t) => /new/i.test(t)), `ISC-33: the seeded theme declares a New badge (${badges.join(", ")})`);
+  await page.locator("#ins-badge").selectOption({ label: badges.find((t) => /new/i.test(t)) });
+  ok((await chipsOf("Security")).some((t) => /new/i.test(t)), "ISC-33: a new-badge item shows the chip New");
+  await page.locator("#ins-badge").selectOption({ index: 0 });
   ok(!(await page.locator(".hm-menutree__edit").first().isVisible()) && !(await page.locator("#add-type").isVisible()) && !(await page.locator('button[name="_op"][value="add"]').isVisible()), "ISC-34 and 37: with JavaScript on the per-row Edit and the old add select and button are not visible");
   ok(await guidesOk(), "ISC-36: the depth guides follow data-depth on load");
   const n0 = (await rowsOf(page)).length;
@@ -434,6 +433,17 @@ try {
   ok((await longRow.locator('[name$=".label"]').evaluate((f) => [...f.value].length)) === 100 && (await longRow.locator('[name$=".entity_q"]').inputValue()) === longTitle, "ISC-38: a page title over 100 characters is cut to 100 in the label and kept whole in the search text");
   await undoOnce();
   await page.unroute("**/pick/entities*");
+  // a reopened panel runs its search again, and a failed search says so
+  await page.locator("[data-hm-add-open]").click();
+  ok(await page.waitForFunction((t) => { const o = document.querySelector("#add-pages-list [role=option]"); return o && o.dataset.label !== t; }, longTitle, { timeout: 3000 }).then(() => true, () => false), "ISC-38: a reopened panel lists the pages again, not the last search");
+  await page.keyboard.press("Escape");
+  await page.route("**/pick/entities*", (r) => r.fulfill({ status: 500, contentType: "text/plain", body: "boom" }));
+  const seenFail = errors.length;
+  await page.locator("[data-hm-add-open]").click();
+  ok(await page.waitForFunction(() => document.querySelector("[data-hm-add-status]")?.textContent === "Could not load pages", null, { timeout: 3000 }).then(() => true, () => false), "ISC-38: a failed page search says Could not load pages");
+  await page.keyboard.press("Escape");
+  await page.unroute("**/pick/entities*");
+  errors.splice(seenFail); // the browser logs the 500 it was given
   const afterRow = (await rowsOf(page)).findIndex((r) => r[1] === "Docs");
   await (await byLabel(page, "Docs")).locator("[data-hm-add-after]").click();
   await page.locator("#menu-add:popover-open").waitFor();
@@ -443,6 +453,21 @@ try {
   const withAfter = await rowsOf(page);
   ok(withAfter[afterRow + 1]?.[1] === "After Docs" && withAfter[afterRow + 1][0] === withAfter[afterRow][0], "ISC-35 and 38: the plus action of a row adds the new item right after it, at its level");
   await undoOnce();
+  // a row's plus places the panel at itself, hands focus back to itself and survives a second press while open
+  const plus = (await byLabel(page, "Templates")).locator("[data-hm-add-after]");
+  await plus.scrollIntoViewIfNeeded();
+  await plus.click();
+  await page.locator("#menu-add:popover-open").waitFor();
+  await page.waitForTimeout(150); // the panel is placed when its toggle event fires
+  const gap = await page.evaluate(() => document.querySelector("#menu-add").getBoundingClientRect().top);
+  const plusBox = await plus.boundingBox();
+  ok(Math.abs(gap - (plusBox.y + plusBox.height + 4)) <= 4, `ISC-38: the panel opened from a row's plus sits under that plus (panel ${Math.round(gap)}, plus bottom ${Math.round(plusBox.y + plusBox.height)})`);
+  ok((await page.locator('[data-hm-add-open][popovertarget="menu-add"]').getAttribute("aria-expanded")) !== "true", "ISC-38: the header Add is not marked expanded by a row's plus");
+  const seenTwice = errors.length;
+  await plus.evaluate((e) => e.click());
+  ok(errors.length === seenTwice, "ISC-38: pressing a plus while the panel is open raises no error");
+  await page.keyboard.press("Escape");
+  ok(await plus.evaluate((e) => e === document.activeElement), "ISC-38: Escape returns focus to the row's plus");
   await page.locator("[data-hm-add-open]").click();
   await page.locator("#menu-add:popover-open").waitFor();
   await page.keyboard.press("Escape");

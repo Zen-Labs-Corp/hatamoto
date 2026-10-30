@@ -26,6 +26,7 @@ export function init(form, api) {
   const status = pop.querySelector("[data-hm-add-status]");
   const confirmPages = pop.querySelector('[data-hm-add-confirm="pages"]');
   let after = -1; // the row the "+" action belongs to, or -1 for the end
+  let rowOpener = null; // the row's "+" that opened the panel: it places the panel and gets focus back
   const chosen = new Map(); // page id to title, kept while the search changes
   let timer = 0;
   let seq = 0;
@@ -98,9 +99,11 @@ export function init(form, api) {
     const mine = ++seq;
     try {
       const res = await fetch(`${search.dataset.src}?q=${encodeURIComponent(search.value.trim())}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
-      if (res.ok && mine === seq) show(await res.json());
+      if (!res.ok) throw new Error(String(res.status));
+      const results = await res.json();
+      if (mine === seq) show(results);
     } catch {
-      /* the list stays as it was */
+      if (mine === seq) status.textContent = "Could not load pages";
     }
   }
   search.addEventListener("input", () => {
@@ -163,10 +166,25 @@ export function init(form, api) {
     if (!opener) return;
     const row = opener.closest("[data-hm-item]");
     after = row ? api.items().indexOf(row) : -1;
-    if (row) pop.showPopover();
+    rowOpener = row ? opener : null;
+    if (row && !pop.matches(":popover-open")) pop.showPopover();
   }, true);
+  // placeAt puts the panel under a row's "+", as the shared popover code does for the header button.
+  function placeAt(el) {
+    const r = el.getBoundingClientRect();
+    pop.style.top = `${Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8))}px`;
+    pop.style.left = `${Math.max(8, Math.min(r.left, document.documentElement.clientWidth - pop.offsetWidth - 8))}px`;
+  }
   pop.addEventListener("toggle", (evt) => {
+    if (rowOpener) {
+      // The shared code answered for the header button: undo that for a row's "+".
+      document.querySelector('[data-hm-add-open][popovertarget="menu-add"]')?.setAttribute("aria-expanded", "false");
+      if (evt.newState === "open") placeAt(rowOpener);
+    }
     if (evt.newState !== "open") {
+      const back = rowOpener;
+      rowOpener = null;
+      if (back?.isConnected && (pop.contains(document.activeElement) || document.activeElement === document.body)) back.focus();
       // A fresh start next time.
       chosen.clear();
       pop.querySelectorAll("input:not([type=hidden])").forEach((i) => { i.value = ""; i.removeAttribute("aria-invalid"); });
@@ -175,7 +193,7 @@ export function init(form, api) {
       return;
     }
     showTab(tabs[0], false);
-    if (list.children.length === 0) find();
+    find(); // a reopened panel starts from the results of an empty search
     search.focus();
   });
   paintPicked();
