@@ -17,7 +17,8 @@ import (
 
 // businessSchemaTpl describes one business profile as a form. Property names
 // are the JSON keys of bizprofile.Profile, so a decoded form parses straight
-// into it. %[1]s and %[2]s are the business type and weekday enums.
+// into it. %[1]s and %[2]s are the business type and weekday enums, %[3]s the
+// address properties only a locale card has.
 const businessSchemaTpl = `{"type":"object","properties":{
 "name":{"type":"string","title":"Business name","x-hm-group":"Organisation"},
 "business_type":{"type":"string","title":"Business type","enum":%[1]s,"x-hm-group":"Organisation"},
@@ -29,10 +30,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "state":{"type":"string","title":"State or region"},
  "postal_code":{"type":"string","title":"Postal code"},
  "country":{"type":"string","title":"Country"},
- "po_box":{"type":"string","title":"PO box"},
- "lat":{"type":"string","title":"Latitude"},
- "lng":{"type":"string","title":"Longitude"},
- "map_url":{"type":"string","title":"Map address","format":"uri"},
+ "po_box":{"type":"string","title":"PO box"},%[3]s
  "gbp_url":{"type":"string","title":"Business profile address","format":"uri"}}},
 "phone":{"type":"string","title":"Phone","x-hm-group":"Reach"},
 "fax":{"type":"string","title":"Fax","x-hm-group":"Reach"},
@@ -61,6 +59,13 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "area_served":{"type":"array","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
 "geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"}}}`
 
+// localeAddressProps are the address properties of a locale card. The site-wide
+// form leaves them out: coordinates and the map address describe one place.
+const localeAddressProps = `
+ "lat":{"type":"string","title":"Latitude"},
+ "lng":{"type":"string","title":"Longitude"},
+ "map_url":{"type":"string","title":"Map address","format":"uri"},`
+
 // locale-only property names, dropped from the site-wide form.
 var localeOnlyProps = []string{"business_type", "no_office"}
 
@@ -82,16 +87,18 @@ var businessUI = map[string]schemaform.UIHint{
 	"address.lng":          {Help: "Between -180 and 180."},
 }
 
-func businessSchema() json.RawMessage {
+func businessSchema() json.RawMessage { return businessSchemaWith(localeAddressProps) }
+
+func businessSchemaWith(addressProps string) json.RawMessage {
 	types, _ := json.Marshal(bizprofile.Types)
 	days, _ := json.Marshal(bizprofile.Days)
-	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days))
+	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
 }
 
 // siteSchema is the site-wide form: the locale-only properties are dropped and
 // the name is the Organization's legal name.
 func siteSchema() (json.RawMessage, error) {
-	s, err := schemaform.WithoutProperties(businessSchema(), localeOnlyProps...)
+	s, err := schemaform.WithoutProperties(businessSchemaWith(""), localeOnlyProps...)
 	if err != nil {
 		return nil, err
 	}

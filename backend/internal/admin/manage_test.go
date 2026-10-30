@@ -450,6 +450,10 @@ func TestBusinessDetailsSettings(t *testing.T) {
 			t.Errorf("General lacks %q", want)
 		}
 	}
+	if !strings.Contains(body, "Contact points, opening hours, special opening hours, area served, currency, price range and geo region are used on locale pages.") ||
+		strings.Contains(body, "map addresses") {
+		t.Error("the single-locale hint does not name the locale-only fields")
+	}
 	if strings.Contains(body, "Contact details") {
 		t.Error("General still says Contact details")
 	}
@@ -487,6 +491,30 @@ func TestBusinessDetailsSettings(t *testing.T) {
 	}
 }
 
+// Coordinates and the map address are locale card fields: a site-wide save
+// neither validates nor stores them.
+func TestBusinessDetailsSaveIgnoresSiteWideCoordinates(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	g.a.deps.Site.(*fakeSite).cfg.BusinessProfile = []byte(`{"address":{"lat":"12.5","map_url":"https://example.test/map","po_box":"PO 1"}}`)
+	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
+		"biz.address.lat": {"999"}, "biz.address.lng": {"12"}, "biz.address.map_url": {"https://example.test/m"}, "biz.address.po_box": {"PO 2"},
+	}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	got := string(g.a.deps.Site.(*fakeSite).cfg.BusinessProfile)
+	for _, gone := range []string{"lat", "lng", "map_url", "12.5", "example.test/m"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("profile column keeps %q: %s", gone, got)
+		}
+	}
+	if !strings.Contains(got, `"po_box":"PO 2"`) {
+		t.Errorf("PO box not saved: %s", got)
+	}
+}
+
 func TestBusinessDetailsPrefillFromLegacyColumns(t *testing.T) {
 	t.Parallel()
 
@@ -507,13 +535,13 @@ func TestBusinessDetailsInvalidSaveKeepsValues(t *testing.T) {
 
 	g := newOwnerRig(t, true)
 	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
-		"notify": {"bad"}, "biz.phone": {strings.Repeat("1", 51)}, "biz.address.lat": {"999"}, "biz.address.city": {"Keepville"},
+		"notify": {"bad"}, "biz.phone": {strings.Repeat("1", 51)}, "biz.rating.value": {"9"}, "biz.address.city": {"Keepville"},
 	}, nil)
 	if rec.Code != 422 {
 		t.Fatalf("invalid: %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{`value="Keepville"`, `href="#sf-biz-address-lat"`, `href="#notify"`, "Enter a number between -90 and 90."} {
+	for _, want := range []string{`value="Keepville"`, `href="#sf-biz-rating-value"`, `href="#notify"`, "Enter a number between 0 and 5."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("422 page lacks %q", want)
 		}

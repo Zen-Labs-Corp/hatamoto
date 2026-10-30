@@ -37,6 +37,25 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 			t.Errorf("site form lacks %q", want)
 		}
 	}
+	for _, gone := range []string{"Latitude", "Longitude", "Map address"} {
+		if strings.Contains(s, gone) {
+			t.Errorf("site form has the locale-only %q", gone)
+		}
+	}
+	for _, kept := range []string{"PO box", "Business profile address"} {
+		if !strings.Contains(s, kept) {
+			t.Errorf("site form lacks %q", kept)
+		}
+	}
+	card, err := schemaform.Render(businessSchema(), nil, schemaform.Options{Prefix: "biz."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Latitude", "Longitude", "Map address"} {
+		if !strings.Contains(string(card), want) {
+			t.Errorf("locale card form lacks %q", want)
+		}
+	}
 	if strings.Contains(s, "Business type") || strings.Contains(s, "No office") {
 		t.Error("site form shows a locale-only field")
 	}

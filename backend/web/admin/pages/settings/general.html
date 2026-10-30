@@ -41,7 +41,7 @@
 {{template "hm/card-start" dict "ID" "contact-card" "Title" "Business details" "Description" "Your organisation and the defaults every locale falls back to."}}
 {{template "hm/formerrors" dict "Errors" .Contact.Summary}}
 {{template "hm/field" dict "ID" "notify" "Name" "notify" "Label" "Notification email" "Type" "email" "Value" .Contact.Contact.NotifyEmail "Help" "Where form messages and alerts go." "Error" (index .Contact.ContactErrs "notify")}}
-{{if .Contact.BizHint}}{{template "hm/callout" (dict "Kind" "info" "Body" "Opening hours, geo region, map addresses, business type and price range are used on locale pages. Add locales in Identity to print a local business.")}}
+{{if .Contact.BizHint}}{{template "hm/callout" (dict "Kind" "info" "Body" "Contact points, opening hours, special opening hours, area served, currency, price range and geo region are used on locale pages. Add locales in Identity to print a local business.")}}
 {{end}}{{.Contact.Biz}}
 {{template "hm/card-foot"}}
 {{template "hm/button" dict "Label" "Save business details" "Variant" "primary" "Type" "submit"}}
