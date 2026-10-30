@@ -136,9 +136,6 @@ var uiAllow = []uiAllowEntry{
 
 	// UI-03: checkboxes that are not a lone on/off setting.
 	{Rule: "UI-03", File: "partials/filterbar.html", Needle: `"Control" "checkbox"`, Reason: reasonMulti},
-	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "tier"`, Reason: reasonMulti},
-	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "cat"`, Reason: reasonMulti},
-	{Rule: "UI-03", File: "pages/plugins/browse.html", Needle: `"Name" "perm"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/settings/packageconfirm.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/spam.html", Needle: `"Name" "scripts"`, Reason: reasonMulti},

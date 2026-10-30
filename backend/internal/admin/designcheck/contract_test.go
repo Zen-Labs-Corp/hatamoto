@@ -215,7 +215,7 @@ func dc01Prefix(prop string) (prefixes []string, ok bool) {
 var (
 	dc01Var = regexp.MustCompile(`^var\((--[\w-]+)(?:\s*,\s*(.*))?\)$`)
 	// dc01TextSize is the type scale; --text-body and --text-muted are colours.
-	dc01TextSize = regexp.MustCompile(`^--text-(2xs|xs|sm|md|lg|xl|2xl|3xl|title|metric)$`)
+	dc01TextSize = regexp.MustCompile(`^--text-(2xs|xs|sm|md|lg|xl|2xl|3xl|title|metric|reading)$`)
 	dc01Number   = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
 	dc01Length   = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)(px|rem|em|%)?$`)
 )

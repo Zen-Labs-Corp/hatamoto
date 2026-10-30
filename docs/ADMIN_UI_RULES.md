@@ -124,7 +124,7 @@ A change to one component edits only its own subsection below and its entry in t
 <!-- components:begin -->
 | Component | Selector | Owner | Partial | Props |
 |---|---|---|---|---|
-| badge | `.hm-badge` | `css/partials/badge.css` | `hm/badge` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--badge-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
+| badge | `.hm-badge` | `css/partials/badge.css` | `hm/badge` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--badge-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-badge.hm-badge--sm`: `font-size: var(--text-2xs)`, `height: var(--badge-h-sm)` |
 | button | `.hm-btn` | `css/partials/button.css` | `hm/button` | `border-top-left-radius: var(--radius-sm)`, `border-top-width: 0`, `box-shadow: inset 0 0 0 1px var(--segment-ring), inset 0 -2px 0 var(--segment-bevel)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: calc(var(--space-3) + var(--space-px))`, `padding-right: calc(var(--space-3) + var(--space-px))`; `.hm-btn--danger`: `box-shadow: inset 0 -1px 0 var(--btn-edge-danger)`; `.hm-btn--ghost`: `box-shadow: none`; `.hm-btn--icon, .hm-btn[data-icon-only]`: `padding-left: 0`, `padding-right: 0`; `.hm-btn[aria-pressed="true"]`: `box-shadow: inset 0 0 0 1px var(--color-sumi)`; `.hm-btn--primary`: `box-shadow: inset 0 -1px 0 var(--btn-edge-primary)`; `.hm-btn--sm`: `padding-left: calc(var(--space-2) + var(--space-px))`, `padding-right: calc(var(--space-2) + var(--space-px))` |
 | card | `.hm-card` | `css/partials/card.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)` |
 | chip | `.hm-msel__chip, .hm-msel__more, .hm-filter-chip` | `css/partials/multiselect.css` | none | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--chip-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
@@ -210,6 +210,7 @@ Rules: DC-01, UI-05
 
 A status pill: `--badge-h` high, `--radius-full`, `--text-xs`, weight 500, a tinted fill per tone (neutral is bordered soft grey) and a leading dot so tone is not colour alone.
 
+- **`Size "sm"`** is a compact secondary label (`hm-badge--sm`: `--badge-h-sm`, `--text-2xs`, muted ink; an `Icon` stays accent coloured). The Browse cards use it for First-party; other badges keep the default size.
 - **The dot is the default.** The partial renders it for every badge; callers do not ask for it.
 - **Only exception: a badge with an `Icon`** (stat and KPI delta arrows, env-lock badges). The icon carries the meaning, so it replaces the dot. Any other exception is a named entry in `badgeExceptions` in `internal/admin/badge_dot_test.go` with a reason; there are none today. `TestBadgeDotEverywhere` fails on a dotless badge in the page and partial goldens.
 - **JS never writes badge markup** (UI-05). Clone a server-rendered `<template>` of `hm/badge`, as the builder navigator does for its "Hidden" pill (`data-hm-bs-hidden-badge`).
@@ -235,9 +236,9 @@ Contract: `dialog` in components.json
 Rules: UI-D13, DC-02
 
 `hm/dialog-start` takes `Title`, an optional `Description` (one sentence, wired to
-`aria-describedby`), `Danger`, `Static` and `Side`. `Side: "end"` makes the
+`aria-describedby`), `Danger`, `Static`, `Side` and `Width`. `Side: "end"` makes the
 drawer variant (`data-side="end"`): a full-height panel pinned to the inline end
-that otherwise behaves as a dialog. A static dialog holds input, so a
+that otherwise behaves as a dialog (480px; `Width "wide"` makes it `min(640px, 100vw)`, used by the Browse plugin panel only). A static dialog holds input, so a
 click on its backdrop does not close it; Esc and Cancel still do. The panel scrolls
 under a pinned footer. On open, focus moves to the first control in the body (the
 title when there is none) and returns to the opener on close; UI-D13 checks both.
@@ -308,6 +309,8 @@ change the path or a navigating param fails in Chrome.
 Partial: none (rendered by `js/multiselect.js`)  
 Contract: `chip` in components.json  
 Rules: DC-02
+
+The filter bar (`hm/filterbar`, used through `hm/table`) has opt-in keys, each of which leaves the markup unchanged when absent: `Segmented` (a radio `hm/segmented` that applies live), `Live` (popover fields apply live, no Apply button, `<noscript>` Apply stays), `Target` (id of the results the swap replaces, so an open popover stays put), `FilterCount` (the Filters badge, default the number of chips), `Bare` (no card; segmented + Filters at the start, search + selects at the end, stacked below 40rem) and `ChipsOutside` (the page renders `hm/filterchips` itself). Popover `ui.Filter`s may be `Control "checkbox"` (a group over `Options`) or `"switch"` (`Value`, `OffValue`, `Checked`). Plugins Browse is the user of all of them.
 
 The removable chips: the multi-select value chip, its "+N more" sibling and the active-filter chip (`.hm-filter-chip`, remove button in `popover.css`) share one look: `--chip-h` high, `--radius-full`, `--text-xs`, weight 500. Read-only tags are `hm/badge`, not chips.
 
