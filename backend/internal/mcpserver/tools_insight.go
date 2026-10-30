@@ -12,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/agents"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 const (
@@ -130,6 +131,15 @@ func (s *Server) registerInsight() {
 				total += d.Visits
 			}
 			return object{"days": days, "total_visits": total}, nil
+		})
+
+	register(s, toolSpec{name: "analytics_crawler_verification", description: "How well AI-crawler IP verification works over a date range: verified, spoofed and unverifiable fetches from agents that publish IP ranges, the spoofed share, distinct spoofed addresses, and the header client IPs are read from. level is ok, bad (misconfigured proxy or CDN) or unknown (too few fetches to judge).", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			return crawlerVerification(ctx, s.d.Crawlers, rg, middleware.ClientIPInfo())
 		})
 
 	type sitemapIn struct {
@@ -258,4 +268,40 @@ func (s *Server) pageJSONLD(ctx context.Context, e *entity.Entity) ([][]byte, st
 		return nil, "", err
 	}
 	return [][]byte{raw}, "generated from the entity (not published, or page unavailable)", nil
+}
+
+// verificationReader is the part of agents.StatsRepository the verification
+// tool needs.
+type verificationReader interface {
+	VerificationHealth(ctx context.Context, rg agents.Range, agentIDs []string) (agents.VerificationHealth, error)
+}
+
+var healthLevelNames = map[agents.HealthLevel]string{
+	agents.HealthUnknown: "unknown",
+	agents.HealthOK:      "ok",
+	agents.HealthBad:     "bad",
+}
+
+// crawlerVerification builds the analytics_crawler_verification result.
+func crawlerVerification(ctx context.Context, r verificationReader, rg agents.Range, src middleware.ClientIPSource) (object, error) {
+	h, err := r.VerificationHealth(ctx, rg, agents.RangePublishedIDs(agents.Default()))
+	if err != nil {
+		return nil, err
+	}
+	decided := h.Decided()
+	var share float64
+	if decided > 0 {
+		share = float64(h.Spoofed) / float64(decided)
+	}
+	return object{
+		"from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout),
+		"level":        healthLevelNames[agents.ClassifyHealth(h)],
+		"verified":     h.Verified,
+		"spoofed":      h.Spoofed,
+		"unverifiable": h.Unverifiable,
+		"decided":      decided,
+		"spoofedShare": share,
+		"spoofedIPs":   h.SpoofedIPs,
+		"header":       src.Header,
+	}, nil
 }
