@@ -89,7 +89,9 @@
     "variantProps": {
       "sm": {
         "font-size": "var(--text-2xs)",
-        "height": "var(--badge-h-sm)"
+        "height": "var(--badge-h-sm)",
+        "padding-left": "var(--space-1)",
+        "padding-right": "var(--space-1)"
       }
     }
   },
