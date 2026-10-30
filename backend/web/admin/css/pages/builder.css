@@ -97,9 +97,9 @@
 /* Navigator tree: flat rows (one li each), indent by aria-level. */
 .hm-bs-tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 /* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is a documented accent exception (ADMIN_UI_RULES, Selected state). */
-.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --bs-nav-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: var(--color-accent-soft); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
+.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: var(--color-accent-soft); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
 .hm-bs-row { position: relative; display: flex; align-items: center; gap: var(--space-1-5); min-block-size: var(--bs-nav-block-h); padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; color: var(--text); font-size: var(--text-sm); }
-.hm-bs-row--section { min-block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--bs-nav-gap); }
+.hm-bs-row--section { min-block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--space-bs-gap); }
 .hm-bs-row--section:first-child { margin-block-start: 0; }
 .hm-bs-row--block, .hm-bs-row:not([aria-level="1"]) { padding-inline-start: calc(var(--space-2) + var(--space-bs-level) * var(--space-4)); font-size: var(--text-xs); }
 .hm-bs-row--block::before, .hm-bs-row:not([aria-level="1"])::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: calc(var(--space-6) + var(--space-1)); inline-size: 1px; background: var(--bs-nav-guide); }
@@ -125,8 +125,8 @@
 .hm-bs-row:hover .hm-bs-row__acts, .hm-bs-row--hidden .hm-bs-row__acts { display: inline-flex; }
 .hm-bs-row--hidden:not(:hover) .hm-bs-row__act[data-hm-bs-more] { display: none; }
 /* The add-section gap fills the space between two section rows (their margin), the pill centred on it; it shows only while the pointer is over it. The first and last gap use the tree's padding. */
-.hm-bs-tree { padding-block: var(--bs-nav-gap); }
-.hm-bs-gap { position: absolute; inset-inline: 0; inset-block-start: calc(-1 * var(--bs-nav-gap)); block-size: var(--bs-nav-gap); z-index: var(--z-raised); display: flex; align-items: center; cursor: pointer; }
+.hm-bs-tree { padding-block: var(--space-bs-gap); }
+.hm-bs-gap { position: absolute; inset-inline: 0; inset-block-start: calc(-1 * var(--space-bs-gap)); block-size: var(--space-bs-gap); z-index: var(--z-raised); display: flex; align-items: center; cursor: pointer; }
 .hm-bs-gap:last-child { inset-block-start: 100%; }
 .hm-bs-gap::before { content: ""; position: absolute; inset-inline: var(--space-8) var(--space-2); block-size: var(--space-0-5); border-radius: var(--radius-2xs); background: var(--bs-nav-accent); opacity: 0; }
 .hm-bs-gap__btn { position: relative; display: none; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-2); padding: 0 var(--space-2) 0 var(--space-1); block-size: var(--space-5); border-radius: var(--radius-full); background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); font-size: var(--text-xs); font-weight: var(--weight-semibold); white-space: nowrap; }
