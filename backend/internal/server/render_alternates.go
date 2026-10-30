@@ -28,11 +28,15 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 	if ent != nil && ent.Locale != entity.LocaleShared {
 		loc = ent.Locale
 	}
+	shared := isSharedPage(rr, ent)
 	if loc == entity.LocaleShared || loc == "" {
 		loc = set.Default()
 	}
 	v.Locale = loc
 	v.Site.Language = loc
+	if !shared {
+		v.Business = s.localeBusinessView(ctx, set, loc)
+	}
 
 	switch {
 	case ent == nil:
@@ -41,6 +45,17 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 	case ent.Locale != entity.LocaleShared && s.db != nil:
 		v.Alternates, v.XDefaultHref = s.alternatesFor(ctx, snap, baseURL, ent)
 	}
+}
+
+// isSharedPage reports whether the page belongs to no locale: an entity stored
+// as shared, or a page resolved without a locale scope (an unprefixed path under
+// prefix-all). Shared pages carry no local business. It reads the route and the
+// entity, never the fallback locale applyLocale uses for the site language.
+func isSharedPage(rr *routeResult, ent *entity.Entity) bool {
+	if ent != nil {
+		return ent.Locale == entity.LocaleShared
+	}
+	return rr.Locale == entity.LocaleShared || rr.Locale == ""
 }
 
 // homeAlternates lists every locale home in settings order.
