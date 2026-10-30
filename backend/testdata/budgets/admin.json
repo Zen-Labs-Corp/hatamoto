@@ -41,6 +41,10 @@
   },
   "history": [
     {
+      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
+      "date": "2026-10-25"
+    },
+    {
       "reason": "builder-ux-shell: rebase onto main; editor_js_first_gzip 88511 to 93213 (+4702 B, within the earlier +4989 B), cap 93351 = 89255 + 4096; editor_js_total_gzip 191001 to 214906, admin_css_gzip 41158 to 43172",
       "date": "2026-10-26"
     },
@@ -122,6 +126,10 @@
     },
     {
       "reason": "seo badge: idle score fetch and badge in the lazy seodrawer chunk, one idle call in screen.js (builder SEO polish)",
+      "date": "2026-10-30"
+    },
+    {
+      "reason": "builder SEO polish: focus return, posted name, failure note, inline canonical error and the idle score badge in the lazy seodrawer chunk (one idle call in screen.js)",
       "date": "2026-10-30"
     }
   ]
