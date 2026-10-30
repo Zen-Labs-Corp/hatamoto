@@ -262,49 +262,68 @@ const settle = (ms = 150) => p.waitForTimeout(ms);
 const press = async (key, n = 1) => { for (let i = 0; i < n; i++) { await p.keyboard.press(key); await settle(60); } };
 const pick = async (id) => { await p.locator(`${TREE}[data-id="${id}"]`).click(); await settle(); };
 
+// The seeded page is one theme section, a single Navigator row without blocks: add n heading widgets from the palette (each lands selected, after the last) and undo them with undoWidgets.
+const addHeadings = async (n) => {
+  const start = (await rows()).length;
+  await pick((await rows())[0].id);
+  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("heading"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
+  return start;
+};
+const undoWidgets = async (start) => {
+  await p.evaluate(() => document.activeElement?.blur?.());
+  await p.locator(TREE).first().focus();
+  for (let i = 0; i < 12 && (await rows()).length > start; i++) await press("Control+z");
+};
+// A parent row with children: indent a new heading into the seeded section (Alt+ArrowRight), which then holds two children and shows as a section row with block rows below it. Undo with undoWidgets.
+const nestHeading = async () => {
+  const start = await addHeadings(1);
+  await press("Alt+ArrowRight");
+  return start;
+};
+
 await check("builder tree: roving tab stop, arrows move the selection, Left/Right fold, Home/End", async () => {
   await openBuilder();
-  const rs = await rows();
-  if (!rs.length) throw new Error("no treeitems");
-  if (rs.filter((r) => r.tab === 0).length !== 1) throw new Error("not exactly one tab stop: " + rs.filter((r) => r.tab === 0).length);
-  const role = await p.evaluate(() => document.querySelector('[data-hm-bs-tree] [role="tree"]')?.getAttribute("aria-label"));
-  if (!role) throw new Error("no role=tree with a label");
-  await p.locator(TREE).first().focus();
-  await press("ArrowDown");
-  const a = await selectedId();
-  await press("ArrowDown");
-  const c = await selectedId();
-  if (!a || a === c || (await focusedRow()) !== c) throw new Error(`ArrowDown: ${a} -> ${c}, focus on ${await focusedRow()}`);
-  const parent = (await rows()).find((r) => r.exp === "true");
-  await pick(parent.id);
-  await press("ArrowLeft");
-  if ((await rows()).find((r) => r.id === parent.id).exp !== "false") throw new Error("ArrowLeft did not collapse " + parent.id);
-  await press("ArrowRight");
-  if ((await rows()).find((r) => r.id === parent.id).exp !== "true") throw new Error("ArrowRight did not expand");
-  await press("ArrowRight");
-  const kid = await selectedId();
-  if (kid === parent.id) throw new Error("ArrowRight on an open node did not go to its first child");
-  await press("ArrowLeft");
-  if ((await selectedId()) !== parent.id) throw new Error("ArrowLeft on a child did not return to its parent");
-  await press("End"); const last = await selectedId();
-  await press("Home"); const first = await selectedId();
-  const all = await rows();
-  if (last !== all[all.length - 1].id || first !== all[0].id) throw new Error(`End/Home gave ${last} / ${first}`);
-  return `${all.length} rows; Down, Left/Right, Home/End ok`;
+  const start0 = await nestHeading();
+  try {
+    const rs = await rows();
+    if (!rs.length) throw new Error("no treeitems");
+    if (rs.filter((r) => r.tab === 0).length !== 1) throw new Error("not exactly one tab stop: " + rs.filter((r) => r.tab === 0).length);
+    const role = await p.evaluate(() => document.querySelector('[data-hm-bs-tree] [role="tree"]')?.getAttribute("aria-label"));
+    if (!role) throw new Error("no role=tree with a label");
+    await pick(rs[0].id); // the new heading is selected: walk down from the first row
+    await p.locator(TREE).first().focus();
+    await press("ArrowDown");
+    const a = await selectedId();
+    await press("ArrowDown");
+    const c = await selectedId();
+    if (!a || a === c || (await focusedRow()) !== c) throw new Error(`ArrowDown: ${a} -> ${c}, focus on ${await focusedRow()}`);
+    const parent = (await rows()).find((r) => r.exp === "true");
+    await pick(parent.id);
+    await press("ArrowLeft");
+    if ((await rows()).find((r) => r.id === parent.id).exp !== "false") throw new Error("ArrowLeft did not collapse " + parent.id);
+    await press("ArrowRight");
+    if ((await rows()).find((r) => r.id === parent.id).exp !== "true") throw new Error("ArrowRight did not expand");
+    await press("ArrowRight");
+    const kid = await selectedId();
+    if (kid === parent.id) throw new Error("ArrowRight on an open node did not go to its first child");
+    await press("ArrowLeft");
+    if ((await selectedId()) !== parent.id) throw new Error("ArrowLeft on a child did not return to its parent");
+    await press("End"); const last = await selectedId();
+    await press("Home"); const first = await selectedId();
+    const all = await rows();
+    if (last !== all[all.length - 1].id || first !== all[0].id) throw new Error(`End/Home gave ${last} / ${first}`);
+    return `${all.length} rows; Down, Left/Right, Home/End ok`;
+  } finally { await undoWidgets(start0); }
 });
 await check("builder tree: Alt+arrows move, indent and outdent, Delete removes, Ctrl+Z restores", async () => {
   await openBuilder();
   const start = sig(await rows());
   const second = async () => (await rows()).find((r) => r.level >= 2 && r.pos === 2);
   let target = await second();
-  // The seed has no section with two children: add widgets from the palette (each lands
-  // after the selected row) until some container holds a second child. Undone at the end.
-  for (let i = 0; !target && i < 4; i++) {
-    const rs = await rows();
-    await pick(rs[Math.min(i, rs.length - 1)].id);
-    await press("/");
-    await p.keyboard.type("button"); await settle();
-    await press("ArrowDown"); await press("Enter");
+  // The seed has no section with two children: nest a heading into the seeded section (undone with the rest below).
+  if (!target) {
+    await addHeadings(1);
+    await press("Alt+ArrowRight");
     target = await second();
   }
   if (!target) throw new Error("no second child at level >= 2 to move, even after adding widgets: " + sig(await rows()));
@@ -396,18 +415,6 @@ await check("builder shortcut sheet: ? opens the dialog, Tab trapped, Esc closes
 
 // ---- builder direct manipulation (E4): menu, rename, text-control isolation, multi-select, history ----
 const MENU = '.hm-menu[aria-label="Element actions"]';
-// The seeded page's rows are v1 sections: add n heading widgets from the palette (each lands selected, after the last) and undo them with undoWidgets.
-const addHeadings = async (n) => {
-  const start = (await rows()).length;
-  await pick((await rows())[0].id);
-  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("heading"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
-  return start;
-};
-const undoWidgets = async (start) => {
-  await p.evaluate(() => document.activeElement?.blur?.());
-  await p.locator(TREE).first().focus();
-  for (let i = 0; i < 12 && (await rows()).length > start; i++) await press("Control+z");
-};
 const inMenu = () => p.waitForFunction(() => document.activeElement?.closest(".hm-menu"), null, { timeout: 2000 });
 await check("builder element menu: Shift+F10 opens it with focus inside, arrows move, Esc closes it and focus returns to the row", async () => {
   await openBuilder();
