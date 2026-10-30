@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 96980,
+      "value": 98102,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 97097
+      "cap": 98219
     },
     "editor_js_total_gzip": {
-      "value": 248647,
+      "value": 249775,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 249360
+      "cap": 250488
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -130,6 +130,10 @@
     },
     {
       "reason": "builder navigator redesign: navigator.js (one-row sections, hover controls, add-here gap) and new selinfo.js; editor_js_first_gzip 93234 to 96980 and editor_js_total_gzip 244901 to 248647 (+3746 B each), caps moved by the same amount; first paint stays under the 117 KiB ceiling",
+      "date": "2026-10-30"
+    },
+    {
+      "reason": "builder navigator review fixes: top-level-only collapse, hidden component state, rename source, indent and caret slot; editor_js_first_gzip 96980 to 98102 and editor_js_total_gzip 248647 to 249775 (+1122 and +1128 B, caps move by the same amount)",
       "date": "2026-10-30"
     }
   ]
