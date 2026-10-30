@@ -431,7 +431,7 @@ function start(root, boot) {
       if (q.state === "conflict") showConflict(q.conflict?.message);
       else if (q.state === "error" || q.state === "stopped") {
         showSaveProblem(stateLine(q, { draft: saver.draft }));
-        if (q.code === "invalid_canonical") seoDrawer?.showFieldError("canonical", q.message);
+        if (q.code === "invalid_canonical") seoDrawer?.showFieldError("canonical", q.message, { focus: !q.auto }); // only an explicit save may pull the person into the drawer
       }
       else if (q.state === "saved") {
         seoBadge?.refresh();

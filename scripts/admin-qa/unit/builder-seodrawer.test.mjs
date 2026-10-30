@@ -242,6 +242,46 @@ test("showFieldError opens the Advanced tab and writes the message under the fie
   assert.equal(field.p, p);
 });
 
+test("showFieldError with focus:false marks a loaded panel without opening it or moving focus, and does nothing before it loaded", async () => {
+  const r = rig();
+  const tab = { click: () => r.log.push("tab") };
+  const field = { append: (p) => (field.p = p) };
+  const input = { id: "seo_canonical", closest: () => field, setAttribute: (k, v) => (input[k] = v), focus: () => r.log.push("focus canonical") };
+  const p = { textContent: "" };
+  const tpl = { content: { firstElementChild: { cloneNode: () => p } } };
+  const q = r.root.querySelector;
+  let loaded = false;
+  r.root.querySelector = (sel) => (sel === '[name="seo_canonical"]' ? (loaded ? input : null) : sel === "#seo-tab-advanced" ? tab : sel === "#seo_canonical-error" ? field.p ?? null : sel === "[data-hm-seodrawer-field-error]" ? tpl : q(sel));
+  await r.d.showFieldError("canonical", "Bad.", { focus: false });
+  assert.equal(r.root.hidden, true);
+  assert.equal(r.fetched.length, 0);
+  loaded = true;
+  await r.d.showFieldError("canonical", "Bad.", { focus: false });
+  assert.equal(p.textContent, "Bad.");
+  assert.equal(input["aria-invalid"], "true");
+  assert.equal(r.root.hidden, true);
+  assert.deepEqual(r.log, []);
+});
+
+test("a stopped save keeps the refusal code and says whether it was an autosave", async () => {
+  const seen = [];
+  const mk = (status) => createSaver({
+    urls: { save: "/save" },
+    boot: { status, version: 1, name: "n", doc: {}, entity: "e" },
+    getDoc: () => ({ v: 2 }),
+    onState: (q) => seen.push([q.state, q.code, q.auto]),
+    timers: { set: (f) => setTimeout(f, 0), clear: clearTimeout },
+    delay: 0,
+    fetch: async () => ({ status: 422, json: async () => ({ code: "invalid_canonical", error: "Bad." }) }),
+  });
+  const auto = mk("draft");
+  auto.changed();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(seen.at(-1), ["stopped", "invalid_canonical", true]);
+  await mk("published").save("save");
+  assert.deepEqual(seen.at(-1), ["stopped", "invalid_canonical", false]);
+});
+
 test("a stopped save keeps the server's refusal code", async () => {
   const states = [];
   const saver = createSaver({

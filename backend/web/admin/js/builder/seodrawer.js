@@ -131,11 +131,12 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getNam
     if ((e.detail?.target ?? e.target) === results()) onScore(root.querySelector("#seo-score")); // the checks came back: the button shows the same score
   });
   // A refused value is shown under its field, on the tab that holds it (the server-side message of a rejected save).
-  const showFieldError = async (field, msg) => {
-    if (!isOpen()) await open();
+  // focus: false (a background autosave) marks the field only when the panel is already loaded: it never opens the drawer or moves focus.
+  const showFieldError = async (field, msg, { focus = true } = {}) => {
+    if (focus && !isOpen()) await open();
     const input = root.querySelector(`[name="seo_${field}"]`);
     if (!input) return;
-    root.querySelector("#seo-tab-advanced")?.click();
+    if (focus) root.querySelector("#seo-tab-advanced")?.click();
     const id = `${input.id}-error`;
     let p = root.querySelector(`#${id}`);
     if (!p) {
@@ -146,7 +147,7 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getNam
     p.textContent = msg;
     input.setAttribute("aria-invalid", "true");
     input.setAttribute("aria-describedby", id);
-    input.focus();
+    if (focus) input.focus();
   };
   const edited = (e) => {
     if (e.target?.name === "seo_canonical") root.querySelector(`#${e.target.id}-error`)?.remove();
