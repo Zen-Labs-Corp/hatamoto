@@ -112,14 +112,14 @@ export function nameSource(node, top = true) {
 
 const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 
-/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
-export function metaOf(row, quiet = false) {
+/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill; colourOf(token) -> "#hex" | null names the hex a token background stands for). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
+export function metaOf(row, quiet = false, colourOf = () => null) {
   if (!row.section) return "";
   const node = row.node;
   const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length;
   const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
   const bg = node.s?.base?.bg;
-  const bgText = typeof bg === "string" && bg.trim() ? bg.trim() : "";
+  const bgText = typeof bg === "string" && bg.trim() ? (colourOf(bg.trim()) ?? bg.trim()) : "";
   const tail = quiet ? bgText : off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : bgText;
   return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
 }
@@ -195,8 +195,8 @@ export function hiddenBadge(tpl, device) {
 /** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind (none of the stock ones) reads as a puzzle piece. */
 const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text" };
 
-/** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name) leaves the thumbnail at its default. */
-function thumbColours(bg) {
+/** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name no resolver knows) leaves the thumbnail at its default. */
+export function thumbColours(bg) {
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(bg ?? "");
   if (!m) return null;
   const x = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
@@ -211,6 +211,7 @@ function thumbColours(bg) {
  * bar holds the toolbar outside the tree: the Filter input, Collapse all and Rename (enabled with a selection); announce(text) reports the match count.
  * getBlocks() is the synced block list for a ref row's name. getNote(node) is the preset note appended to a row's text ("preset card, differs"; no nested control).
  * onMenu(id, x, y) opens the actions menu at a page point (right-click on a row); rect(id) is a row's box.
+ * getTokenColour(name) -> "#hex" | null: what a token background (muted, accent) stands for, for the thumbnail and the meta line; null (or no resolver) keeps the token's name and the default thumbnail.
  * onAdd(button) opens the layout picker from the empty page's button; onAddAt(index, el) the picker for a new section at that top-level index (the "add section here" gap on a row's edge).
  * Rows: a section is one numbered row (index, thumbnail, name, meta line); a block is a smaller row with a type icon, its opening text and its kind. The eye and more
  * buttons on a row and the gap are mouse affordances only: aria-hidden, no focus, no data-id (keyboard: h, the context menu, the footer's Add). Their icons are cloned
@@ -220,7 +221,7 @@ function thumbColours(bg) {
  * draw() repaints on the next frame (keeping focus when it was in the tree; draw(true) moves focus to the selected row);
  * act(action) runs a navigation key and returns whether it was one.
  */
-export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], bar = null, announce = () => {} }) {
+export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], getTokenColour = () => null, bar = null, announce = () => {} }) {
   const collapsed = new Set();
   const badgeTpl = root.closest("[data-hm-builder]")?.querySelector("template[data-hm-bs-hidden-badge]"); // the server-rendered pill
   if (!badgeTpl) console.warn("builder navigator: template[data-hm-bs-hidden-badge] not found inside [data-hm-builder]; Hidden rows lose the pill look");
@@ -234,6 +235,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   let field = null;
   let filter = "";
   const nameOf = (n, top = false) => (top && isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
+  /** A background as a hex: a hex as written, a token through getTokenColour (null when unknown). */
+  const hexOf = (bg) => (thumbColours(bg) ? bg : (getTokenColour(bg) ?? null));
   const rowsNow = () => rowsOf(getDoc(), collapsed, filter, nameOf);
   const filterEl = bar?.querySelector("[data-hm-bs-filter]");
   const collapseBtn = bar?.querySelector("[data-hm-bs-collapse]");
@@ -294,7 +297,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       // The kind prefix of a typed row stays in the accessible name (rowName's "Heading · text") but not on screen: the kind has its own column.
       text.append(h("span", { class: "hm-bs-row__name" }, ...(typed ? [h("span", { class: "hm-visually-hidden", text: prefix }), name.slice(prefix.length)] : [name])));
       if (hidden) text.append(" ", hiddenBadge(badgeTpl, device)); // part of the row's name, so no aria-label can disagree with the visible text
-      const meta = r.section ? metaOf(r, !!hidden) : ""; // the pill already says Hidden
+      const meta = r.section ? metaOf(r, !!hidden, hexOf) : ""; // the pill already says Hidden
       if (meta) text.append(" ", h("span", { class: "hm-bs-row__meta", "aria-hidden": "true", text: meta }));
       if (!r.section && name !== kindName(r.node.t)) text.append(" ", h("span", { class: "hm-bs-row__kind", "aria-hidden": "true", text: kindName(r.node.t) })); // "Heading" alone is not said twice
       kids.push(text, h("span", { class: "hm-bs-row__acts", "aria-hidden": "true" }, h("span", { class: "hm-bs-row__act", "data-hm-bs-eye": "" }, icon(hidden ? "eye-off" : "eye")), h("span", { class: "hm-bs-row__act", "data-hm-bs-more": "" }, icon("more"))));
@@ -311,7 +314,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   function thumb(node) {
     const { bg, align } = thumbOf(node);
     const e = h("span", { class: "hm-bs-row__thumb", "data-align": align, "aria-hidden": "true" });
-    const c = thumbColours(bg);
+    const c = thumbColours(bg && hexOf(bg));
     if (c) (e.style.setProperty("--bs-thumb", c.bg), e.style.setProperty("--bs-thumb-fg", c.fg));
     return e;
   }

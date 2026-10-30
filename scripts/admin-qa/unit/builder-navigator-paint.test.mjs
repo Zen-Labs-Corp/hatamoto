@@ -44,7 +44,7 @@ const comp = (id, c) => ({ id, t: "component", p: { type: "hero_banner" }, ...(c
 const sec = (id, c, s) => ({ id, t: "container", p: { tag: "section" }, c, ...(s ? { s } : {}) });
 const doc = { v: 2, nodes: [sec("s1", [comp("c1", [head("h1", "Hello there")])], { base: { bg: "#102030", ta: "center" } }), sec("s2", [comp("c2")]), sec("s3", [head("x", "X"), head("y", "Y")])] };
 
-function mount({ selected = null, filterText = "", d = doc } = {}) {
+function mount({ selected = null, filterText = "", d = doc, getTokenColour } = {}) {
   const painted = [];
   const icons = { querySelector: (q) => { const m = /data-ico="([^"]+)"/.exec(q); return m ? Object.assign(el("span"), { attrs: { "data-ico": m[1] } }) : null; } };
   const tpl = { content: icons };
@@ -61,7 +61,7 @@ function mount({ selected = null, filterText = "", d = doc } = {}) {
   const tree = mountNavigator(rootEl, {
     getDoc: () => d, getSelected: () => selected, onSelect: (...a) => calls.push(["select", ...a]),
     onToggleHide: (...a) => calls.push(["hide", ...a]), onMenu: (...a) => calls.push(["menu", ...a]), onAddAt: (...a) => calls.push(["addAt", ...a]),
-    bar, getSections: () => [{ type: "hero_banner", title: "Hero banner" }],
+    bar, getSections: () => [{ type: "hero_banner", title: "Hero banner" }], ...(getTokenColour ? { getTokenColour } : {}),
   });
   console.warn = warn;
   tree.draw();
@@ -184,6 +184,18 @@ test("the thumbnail is set through setProperty only", () => {
   assert.equal(t.cssText, undefined);
   assert.deepEqual(withClass(rows[2], "hm-bs-row__thumb")[0].props, {});
   assert.equal(all({ kids: rows, attrs: {} }).some((x) => "style" in x.attrs), false);
+});
+
+test("a token background resolves through getTokenColour for the thumbnail and the meta; no resolver keeps the name", () => {
+  const d = { v: 2, nodes: [sec("s", [comp("c")], { base: { bg: "muted" } }), sec("t", [comp("d")], { base: { bg: "accent" } })] };
+  const rows = mount({ d, getTokenColour: (n) => ({ muted: "#eeeeee" })[n] ?? null }).rows();
+  assert.deepEqual(withClass(rows[0], "hm-bs-row__thumb")[0].props, { "--bs-thumb": "#eeeeee", "--bs-thumb-fg": "black" });
+  assert.equal(withClass(rows[0], "hm-bs-row__meta")[0].text, "#eeeeee");
+  assert.deepEqual(withClass(rows[1], "hm-bs-row__thumb")[0].props, {}); // unknown token: today's default thumbnail
+  assert.equal(withClass(rows[1], "hm-bs-row__meta")[0].text, "accent");
+  const plain = mount({ d }).rows();
+  assert.deepEqual(withClass(plain[0], "hm-bs-row__thumb")[0].props, {});
+  assert.equal(withClass(plain[0], "hm-bs-row__meta")[0].text, "muted");
 });
 
 test("a hidden section shows the open eye-off icon and the hidden class", () => {

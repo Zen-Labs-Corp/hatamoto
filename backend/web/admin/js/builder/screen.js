@@ -129,6 +129,10 @@ function start(root, boot) {
     getBlocks: () => boot.reuse?.blocks ?? [],
     kindName,
     getSections: () => boot.sections ?? [],
+    getTokenColour: (name) => {
+      const hex = design.palette?.colors?.[name] ?? /^var\([^,]+,\s*(#[0-9a-f]{3,6})\)$/i.exec(styleTable?.find((e) => e.key === "bg")?.tokens?.[name] ?? "")?.[1]; // the site's colour, else the table's default
+      return typeof hex === "string" ? hex : null;
+    },
     bar: $(root, "[data-hm-bs-navbar]"),
     announce,
   });
