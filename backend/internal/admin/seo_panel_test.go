@@ -114,6 +114,11 @@ func TestPartialSEOPanel(t *testing.T) {
 	if strings.Contains(s, `name="seo_keyword"`) || strings.Contains(s, `name="seo_llms"`) {
 		t.Error("the keyword and llms fields show only when asked for")
 	}
+	data["NoHeading"] = true
+	s = checkPartial(t, a, "hm/seopanel", "no-heading", data)
+	if strings.Contains(s, "hm-seo__title") || !strings.Contains(s, `id="seo-score"`) {
+		t.Error("NoHeading drops the heading and keeps the score")
+	}
 	frag := checkPartial(t, a, "hm/seopanel-fragment", "default", panel)
 	if strings.Count(frag, `hx-swap-oob="true"`) != 4 {
 		t.Errorf("the fragment swaps the score, two counters and the structured data out of band: %s", frag)

@@ -855,6 +855,14 @@ func TestTaxonomyScreens(t *testing.T) {
 	// edit
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+fid(32).String(), "taxonomy-term")
 	has(t, body, `value="Press"`, "hm-seo", "seo_title")
+	// two cards (details, search appearance), the buttons in the SEO card foot, one SEO heading
+	if n := strings.Count(body, `<section class="hm-card`); n != 2 {
+		t.Errorf("term page cards = %d, want 2", n)
+	}
+	if i, j := strings.Index(body, `id="seo"`), strings.Index(body, `hm-card__foot`); i < 0 || j < i || strings.Count(body, `hm-card__foot`) != 1 {
+		t.Errorf("the term buttons belong in the foot of the SEO card")
+	}
+	lacks(t, body, "hm-seo__title")
 	lacks(t, body, "Internal links")
 	lacks(t, body, `value="`+fid(32).String()+`">Press`) // a term cannot be its own parent
 	if rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String(), url.Values{"name": {"Press room"}, "slug": {"press-room"}, "parent": {""}}); rec.Code != 303 {

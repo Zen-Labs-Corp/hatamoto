@@ -143,8 +143,8 @@ func TestBuilderSEOFragment(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 	body := rec.Body.String()
-	has(t, body, `name="seo_title"`, "Stored title", `role="tab"`, `id="hm-bs-seo"`, "/builder/analyze")
-	lacks(t, body, "<html", "<nav", "hm-sidebar", "0 words", "No images", "Answerability")
+	has(t, body, `name="seo_title"`, "Stored title", `role="tab"`, `id="hm-bs-seo"`, "/builder/analyze", "data-hm-seodrawer-note", "Page checks unavailable")
+	lacks(t, body, "<html", "<nav", "hm-sidebar", "0 words", "No images", "Answerability", "hm-seo__title")
 }
 
 func TestBuilderSEOSchemaTabHasTheNamedPagesData(t *testing.T) {
