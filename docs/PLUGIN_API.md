@@ -330,7 +330,7 @@ Additions only. The host sends `group` and `language` (the group slug of the sit
 
 #### HeadContext
 The input describes the page (`language` is the BCP 47 language of the page: the site language, or the page's locale on a site with several public locales) and carries no tags; the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
-Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays.
+Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays. The generic graph includes the per-locale `LocalBusiness` node of a site with several public locales, so replacing it drops that node too. The payload of this filter is unchanged by per-locale business details. Hreflang de-duplication is exact: a plugin link is dropped only when its language (case-insensitive) and its address both equal a computed alternate, so any difference prints both.
 ```json
 { "path": "/blog/x", "language": "en-AU", "schema_slug": "post", "entity_id": "string",
   "tags": [ { "kind": "meta|link|script-src|jsonld", "attrs": { "name": "robots", "content": "noindex" }, "jsonld": {} } ],

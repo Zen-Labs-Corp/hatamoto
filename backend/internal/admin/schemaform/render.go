@@ -38,8 +38,12 @@ type Options struct {
 	// clash with the entity's own fields.
 	Prefix string
 	// UI holds hints by dotted path without indices ("faqs.question").
-	UI       map[string]UIHint
-	Disabled bool
+	UI map[string]UIHint
+	// Placeholders override the placeholder of text and textarea fields by
+	// dotted path without indices. A form uses them to show the inherited
+	// value of an empty field.
+	Placeholders map[string]string
+	Disabled     bool
 	// OpenPath opens one repeater item and collapses the rest
 	// ("faqs.2.question" opens item 2 of faqs).
 	OpenPath string
@@ -431,6 +435,9 @@ func (b *builder) field(name string, n *Node, v any, required bool, path, errPat
 		f.Keep = b.keep(m, n.unknown)
 	case "repeater":
 		b.repeater(f, n, v, hint)
+	}
+	if ph := b.opt.Placeholders[hintKey(path)]; ph != "" && !f.Secret && (k == "text" || k == "textarea") {
+		f.Placeholder = ph
 	}
 	return f
 }

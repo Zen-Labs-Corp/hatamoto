@@ -111,3 +111,24 @@ func TestEffectivePageCacheTTL(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateInput_BusinessProfileZeroValueLeavesItUnchanged(t *testing.T) {
+	var in UpdateInput
+	if len(in.BusinessProfile) != 0 {
+		t.Fatal("zero UpdateInput must carry no business profile, or every patch would overwrite it")
+	}
+}
+
+func TestConfig_ContactFieldsKeepTheirShape(t *testing.T) {
+	// The three legacy contact values stay plain fields next to the new profile.
+	c := Config{
+		Phone:           "555 0100",
+		BusinessHours:   "Weekdays",
+		PostalAddress:   json.RawMessage(`{"street":"Example Street"}`),
+		BusinessProfile: json.RawMessage(`{}`),
+		LocaleProfiles:  json.RawMessage(`{}`),
+	}
+	if c.Phone == "" || c.BusinessHours == "" || len(c.PostalAddress) == 0 || len(c.BusinessProfile) == 0 || len(c.LocaleProfiles) == 0 {
+		t.Fatalf("config = %+v", c)
+	}
+}

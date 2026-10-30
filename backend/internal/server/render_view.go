@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
@@ -399,6 +401,10 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 		Hours:       cfg.BusinessHours,
 		Address:     postalAddress(cfg.PostalAddress),
 	}
+	var oerr error
+	if site.Org, oerr = orgView(cfg); oerr != nil {
+		s.logger.Warn("render: invalid business profile dropped from the organization", "error", oerr)
+	}
 	site.Settings = siteSettings(cfg.ThemeExtra)
 	var derr error
 	if site.Design, derr = builder.ParseDesign(cfg.ThemeExtra); derr != nil {
@@ -730,6 +736,117 @@ func siteLanguage(cfg *siteconfig.Config) string {
 		return l
 	}
 	return "en"
+}
+
+// orgView maps the site-wide business profile to the Organization extras. The
+// three legacy contact columns are applied first so they stay the single source.
+func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
+	p, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return render.OrgView{}, err
+	}
+	p = bizprofile.FromLegacy(p, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	same := slices.Clone(p.SameAs)
+	if u, err := url.Parse(p.Address.GBPURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") && !slices.Contains(same, p.Address.GBPURL) {
+		same = append(same, p.Address.GBPURL)
+	}
+	return render.OrgView{
+		LegalName: p.Name, TaxID: p.TaxID, Fax: p.Fax, Email: p.Email, POBox: p.Address.POBox,
+		SameAs: same, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
+	}, nil
+}
+
+// localeBusinessView resolves the local business of loc for a page view, or nil
+// when the locale prints none, and the locale's geo region, which does not
+// depend on the office. A profile that cannot be read is logged and
+// treated as no office, so the page keeps its Organization and WebSite nodes.
+func (s *Server) localeBusinessView(ctx context.Context, set *entity.LocaleSet, loc string) (*render.BusinessView, string) {
+	if s.siteConfig == nil {
+		return nil, ""
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil {
+		return nil, ""
+	}
+	b, err := localeBusiness(cfg, set, loc)
+	if err != nil {
+		s.logger.Warn("render: invalid business profile, no local business printed", "locale", loc, "error", err)
+		return nil, ""
+	}
+	return b, localeGeoRegion(cfg, set, loc)
+}
+
+// localeGeoRegion is the geo region of locale loc: the card's own value, else
+// the site-wide one. It is empty on a site with fewer than two locales, for a
+// locale that is not configured and for an unreadable profile. A locale without
+// an office or an address of its own still has one.
+func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) string {
+	if _, ok := set.Segment(loc); !ok || !set.Multi() {
+		return ""
+	}
+	site, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return ""
+	}
+	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
+	if err != nil {
+		return ""
+	}
+	if c, ok := cards[loc]; ok && c.GeoRegion != "" {
+		return c.GeoRegion
+	}
+	return site.GeoRegion
+}
+
+// localeBusiness resolves the card of locale loc against the site-wide profile.
+// It returns nil on a site with fewer than two locales, for a locale that is
+// not configured, has no office, or has no street or city of its own.
+func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (*render.BusinessView, error) {
+	seg, ok := set.Segment(loc)
+	if !ok || !set.Multi() {
+		return nil, nil
+	}
+	if seg == "" {
+		seg = strings.ToLower(loc)
+	}
+	site, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return nil, err
+	}
+	site = bizprofile.FromLegacy(site, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
+	if err != nil {
+		return nil, err
+	}
+	var card *bizprofile.Profile
+	if c, ok := cards[loc]; ok {
+		card = &c
+	}
+	res := bizprofile.Resolve(site, card)
+	if !res.Office {
+		return nil, nil
+	}
+	p := res.Profile
+	b := &render.BusinessView{
+		ID: seg, Type: p.BusinessType, Name: p.Name,
+		Phone: p.Phone, Fax: p.Fax, Email: p.Email, Hours: p.HoursNote, TaxID: p.TaxID,
+		Address: render.Address{Street: p.Address.Street, City: p.Address.City, State: p.Address.State,
+			PostalCode: p.Address.PostalCode, Country: p.Address.Country},
+		POBox: p.Address.POBox, Lat: p.Address.Lat, Lng: p.Address.Lng,
+		MapURL: p.Address.MapURL, GBPURL: p.Address.GBPURL,
+		AreaServed: p.AreaServed, Currency: p.Currency, PriceRange: p.PriceRange, GeoRegion: p.GeoRegion,
+		SameAs: p.SameAs, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
+	}
+	for _, c := range p.ContactPoints {
+		b.ContactPoints = append(b.ContactPoints, render.ContactPointView{Type: c.Type, Phone: c.Phone, Email: c.Email})
+	}
+	for _, h := range p.OpeningHours {
+		b.OpeningHours = append(b.OpeningHours, render.HoursView{Days: h.Days, Opens: h.Opens, Closes: h.Closes})
+	}
+	for _, h := range p.SpecialHours {
+		b.SpecialHours = append(b.SpecialHours, render.SpecialHoursView{From: h.From, To: h.To, Closed: h.Closed, Opens: h.Opens, Closes: h.Closes})
+	}
+	return b, nil
 }
 
 // postalAddress decodes the site config's address JSON for the theme and the

@@ -66,7 +66,7 @@ type adminArea struct {
 }
 
 var settingsRegistry = []settingsSectionDef{
-	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity, homepage and contact details.", Group: "Site", Tabs: []settingsTabDef{
+	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity, homepage and business details.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{

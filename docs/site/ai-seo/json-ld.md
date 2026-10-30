@@ -33,7 +33,13 @@ A rendered page can hold up to four JSON-LD blocks:
 1. **The entity document.** One node for the page itself, such as `WebPage` or `Article`. When the entity has FAQ items, a `FAQPage` with one `Question` and `Answer` per item is added next to it inside an `@graph`, unless the entity is itself a `FAQPage`.
 2. **A breadcrumb trail**, a `BreadcrumbList`, whenever the page has breadcrumbs. Its `item` addresses use the canonical paths.
 3. **A `CollectionPage`** on archive listings such as `/blog`.
-4. **The site graph.** An `Organization` and a `WebSite` node tied together by `@id`, built from site settings: name, logo, tagline, phone, opening hours, address and social links. The `WebSite` node carries a `SearchAction` pointing at `/search?q={search_term_string}`, and the article nodes refer back with `publisher` and `isPartOf` references, such as `https://example.com#organization`.
+4. **The site graph.** An `Organization` and a `WebSite` node tied together by `@id`, built from site settings: name, logo, tagline, phone, opening hours, address and social links. The Organization also carries legal name, tax ID, fax, email, extra profile addresses and an aggregate rating, each only when you fill it in under Settings > General > Business details. On a site with several public locales, a page of a locale with an office adds a third node, described below. The `WebSite` node carries a `SearchAction` pointing at `/search?q={search_term_string}`, and the article nodes refer back with `publisher` and `isPartOf` references, such as `https://example.com#organization`.
+
+### The local business of a locale
+
+On a site with several public locales, Settings > General lists one card per locale. A locale's pages print a `LocalBusiness` node (or the subtype you choose) with `@id` `https://example.com#localbusiness-<segment>`, a `parentOrganization` reference to the Organization, and the card's address, phone, opening hours, area served and the other fields. A field left empty on the card uses the site-wide value.
+
+The address is the exception: it is one block. A card with its own street or city uses its whole address; a card with neither has no office, and the site-wide address is never copied into it. A locale marked "No office in this locale", a card without its own address, a page that belongs to no locale and a site with fewer than two locales all print the Organization and WebSite nodes only.
 
 The output is escaped so that content can never close the script element: angle brackets, ampersands and the line-separator characters are encoded, and `</` becomes `<\/`.
 

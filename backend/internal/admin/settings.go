@@ -3,11 +3,16 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -23,14 +28,21 @@ type settingsData struct {
 	LogoURL   string
 	Tagline   string
 	Domain    string
-	// contact
+	// business details: the notification email plus the site-wide profile form
 	Contact     contactForm
 	ContactErrs map[string]string
+	Biz         template.HTML
+	// BizHint is set on a site without a Locales list, where the office-only
+	// fields feed no output yet.
+	BizHint bool
 }
 
 type contactForm struct {
-	NotifyEmail, Phone, Hours, Street, City, State, Postal, Country string
+	NotifyEmail string
 }
+
+// bizPrefix namespaces the fields of the site-wide business form.
+const bizPrefix = "biz."
 
 type address struct {
 	Street     string `json:"street"`
@@ -55,6 +67,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/general", a.handleGeneral)
 	owner.HandleFunc("POST /settings/general/identity", a.handleSiteSave)
 	owner.HandleFunc("POST /settings/general/contact", a.handleContactSave)
+	owner.HandleFunc("POST /settings/general/locale/{tag}", a.handleLocaleSave)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
 }
@@ -135,55 +148,131 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+"/settings/general#identity", http.StatusSeeOther)
 }
 
-func contactFrom(c *siteconfig.Config) contactForm {
-	f := contactForm{NotifyEmail: c.NotificationEmail, Phone: c.Phone, Hours: c.BusinessHours}
-	var ad address
-	if len(c.PostalAddress) > 0 {
-		_ = json.Unmarshal(c.PostalAddress, &ad)
+// siteProfile is the stored site-wide profile with the three legacy columns
+// applied, so phone, hours note and address are always the saved ones.
+func siteProfile(c *siteconfig.Config) (bizprofile.Profile, error) {
+	p, err := bizprofile.Parse(c.BusinessProfile)
+	if err != nil {
+		return p, err
 	}
-	f.Street, f.City, f.State, f.Postal, f.Country = ad.Street, ad.City, ad.State, ad.PostalCode, ad.Country
-	return f
+	return bizprofile.FromLegacy(p, c.Phone, c.BusinessHours, c.PostalAddress), nil
 }
 
-func (a *Admin) renderContact(w http.ResponseWriter, r *http.Request, status int, f contactForm, errs map[string]string) {
-	d := settingsData{Contact: f, ContactErrs: errs}
-	for _, k := range []struct{ id, label string }{{"notify", "Notification email"}, {"phone", "Phone"}, {"hours", "Business hours"}, {"street", "Street"}, {"city", "City"}, {"state", "State or region"}, {"postal", "Postal code"}, {"country", "Country"}} {
-		if m := errs[k.id]; m != "" {
-			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
+// profileValues is the form view of a profile.
+func profileValues(p bizprofile.Profile) map[string]any {
+	raw, _ := json.Marshal(p)
+	m := map[string]any{}
+	_ = json.Unmarshal(raw, &m)
+	return m
+}
+
+// valuesProfile reads decoded form values back into a profile.
+func valuesProfile(vals map[string]any) (bizprofile.Profile, error) {
+	raw, err := json.Marshal(vals)
+	if err != nil {
+		return bizprofile.Profile{}, err
+	}
+	return bizprofile.Parse(raw)
+}
+
+// openAfterAdd names the repeater item a pressed "add" button just created, so
+// the re-rendered form opens it: "opening_hours.2".
+func openAfterAdd(form map[string][]string, prefix string, vals map[string]any) string {
+	for k := range form {
+		name, ok := strings.CutPrefix(k, "_add."+prefix)
+		if !ok {
+			continue
+		}
+		if items, ok := vals[name].([]any); ok && len(items) > 0 {
+			return name + "." + strconv.Itoa(len(items)-1)
 		}
 	}
-	a.renderGeneral(w, r, status, generalData{Contact: &d})
+	return ""
+}
+
+func localeSetOf(c *siteconfig.Config) *entity.LocaleSet {
+	entries := make([]entity.LocaleEntry, 0, len(c.Locales))
+	for _, e := range c.Locales {
+		entries = append(entries, entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment})
+	}
+	set, err := entity.NewLocaleSet(c.Language, entries, c.PrefixAll, c.XDefaultLocale)
+	if err != nil {
+		return nil
+	}
+	return set
+}
+
+func (a *Admin) renderContact(w http.ResponseWriter, r *http.Request, status int, f contactForm, errs map[string]string, vals map[string]any, perrs schemaform.Errors) {
+	d := settingsData{Contact: f, ContactErrs: errs}
+	if m := errs["notify"]; m != "" {
+		d.Summary = append(d.Summary, ui.FieldError{ID: "notify", Label: "Notification email", Message: m})
+	}
+	d.Summary = append(d.Summary, formErrors(bizPrefix, perrs)...)
+	a.renderGeneral(w, r, status, generalData{Contact: &d, bizValues: vals, bizErrs: perrs, bizOpen: openAfterAdd(r.PostForm, bizPrefix, vals)})
+}
+
+// siteBusinessHTML renders the site-wide business form.
+func siteBusinessHTML(vals map[string]any, errs schemaform.Errors, open string) (template.HTML, error) {
+	schema, err := siteSchema()
+	if err != nil {
+		return "", err
+	}
+	return schemaform.Render(schema, vals, schemaform.Options{Prefix: bizPrefix, UI: businessUI, Errors: errs, OpenPath: open})
 }
 
 func (a *Admin) handleContactSave(w http.ResponseWriter, r *http.Request) {
-	t := func(k string) string { return strings.TrimSpace(r.PostFormValue(k)) }
-	f := contactForm{NotifyEmail: t("notify"), Phone: t("phone"), Hours: t("hours"), Street: t("street"), City: t("city"), State: t("state"), Postal: t("postal"), Country: t("country")}
+	cfg, err := a.loadSite(r.Context())
+	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+		return
+	}
+	prev, err := siteProfile(cfg)
+	if err != nil {
+		prev = bizprofile.Profile{}
+	}
+	schema, err := siteSchema()
+	if err != nil {
+		a.logger().Error("business schema failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The business details could not be saved.")
+		return
+	}
+	f := contactForm{NotifyEmail: strings.TrimSpace(r.PostFormValue("notify"))}
 	errs := map[string]string{}
 	if f.NotifyEmail != "" && (!strings.Contains(f.NotifyEmail, "@") || strings.ContainsAny(f.NotifyEmail, " <>")) {
 		errs["notify"] = "Enter a valid email address"
 	}
-	if utf8.RuneCountInString(f.Phone) > 50 {
-		errs["phone"] = "Use at most 50 characters"
-	}
-	for k, v := range map[string]string{"hours": f.Hours, "street": f.Street, "city": f.City, "state": f.State, "postal": f.Postal, "country": f.Country} {
-		if utf8.RuneCountInString(v) > 200 {
-			errs[k] = "Use at most 200 characters"
-		}
-	}
-	if len(errs) > 0 {
-		a.renderContact(w, r, http.StatusUnprocessableEntity, f, errs)
+	vals, perrs := schemaform.Decode(schema, r.PostForm, profileValues(prev), schemaform.Options{Prefix: bizPrefix})
+	p, perr := valuesProfile(vals)
+	// Coordinates and the map address belong to a locale card; a stored
+	// site-wide value is ignored and dropped on save.
+	p.Address.Lat, p.Address.Lng, p.Address.MapURL = "", "", ""
+	if schemaform.Structural(r.PostForm) {
+		a.renderContact(w, r, http.StatusOK, f, nil, vals, nil)
 		return
 	}
-	raw, _ := json.Marshal(address{Street: f.Street, City: f.City, State: f.State, PostalCode: f.Postal, Country: f.Country})
-	_, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{NotificationEmail: &f.NotifyEmail, Phone: &f.Phone, BusinessHours: &f.Hours, PostalAddress: raw})
+	if perr == nil && len(perrs) == 0 {
+		perrs = profileErrors(bizprofile.Validate(p))
+	}
+	if len(errs) > 0 || len(perrs) > 0 || perr != nil {
+		a.renderContact(w, r, http.StatusUnprocessableEntity, f, errs, vals, perrs)
+		return
+	}
+	raw, _ := json.Marshal(address{Street: p.Address.Street, City: p.Address.City, State: p.Address.State, PostalCode: p.Address.PostalCode, Country: p.Address.Country})
+	// The legacy columns hold phone, hours note and the five address keys; the
+	// profile column holds everything else.
+	stored := p
+	stored.Phone, stored.HoursNote = "", ""
+	stored.Address.Street, stored.Address.City, stored.Address.State, stored.Address.PostalCode, stored.Address.Country = "", "", "", "", ""
+	profileRaw, _ := json.Marshal(stored)
+	_, err = a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{NotificationEmail: &f.NotifyEmail, Phone: &p.Phone, BusinessHours: &p.HoursNote, PostalAddress: raw, BusinessProfile: profileRaw})
 	if err != nil {
-		a.logger().Error("save contact details failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The contact details could not be saved.")
+		a.logger().Error("save business details failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The business details could not be saved.")
 		return
 	}
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
-	a.SetFlash(w, r, "success", "Contact details saved.")
+	a.SetFlash(w, r, "success", "Business details saved.")
 	http.Redirect(w, r, a.adminPath+"/settings/general#contact", http.StatusSeeOther)
 }

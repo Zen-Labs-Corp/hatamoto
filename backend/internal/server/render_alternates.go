@@ -16,6 +16,15 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 		return
 	}
 	snap := s.urlSnapshot(ctx)
+	s.applyLocaleSnap(ctx, snap, rr, v, baseURL, func(set *entity.LocaleSet, loc string) (*render.BusinessView, string) {
+		return s.localeBusinessView(ctx, set, loc)
+	})
+}
+
+// applyLocaleSnap is applyLocale on a given URL snapshot, with the local
+// business lookup injected.
+func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, rr *routeResult, v *render.PageView, baseURL string,
+	business func(set *entity.LocaleSet, loc string) (*render.BusinessView, string)) {
 	set := snap.Locales()
 	if !set.Multi() {
 		return
@@ -28,11 +37,15 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 	if ent != nil && ent.Locale != entity.LocaleShared {
 		loc = ent.Locale
 	}
+	shared := isSharedPage(rr, ent)
 	if loc == entity.LocaleShared || loc == "" {
 		loc = set.Default()
 	}
 	v.Locale = loc
 	v.Site.Language = loc
+	if !shared {
+		v.Business, v.GeoRegion = business(set, loc)
+	}
 
 	switch {
 	case ent == nil:
@@ -41,6 +54,17 @@ func (s *Server) applyLocale(ctx context.Context, rr *routeResult, v *render.Pag
 	case ent.Locale != entity.LocaleShared && s.db != nil:
 		v.Alternates, v.XDefaultHref = s.alternatesFor(ctx, snap, baseURL, ent)
 	}
+}
+
+// isSharedPage reports whether the page belongs to no locale: an entity stored
+// as shared, or a page resolved without a locale scope (an unprefixed path under
+// prefix-all). Shared pages carry no local business. It reads the route and the
+// entity, never the fallback locale applyLocale uses for the site language.
+func isSharedPage(rr *routeResult, ent *entity.Entity) bool {
+	if ent != nil {
+		return ent.Locale == entity.LocaleShared
+	}
+	return rr.Locale == entity.LocaleShared || rr.Locale == ""
 }
 
 // homeAlternates lists every locale home in settings order.

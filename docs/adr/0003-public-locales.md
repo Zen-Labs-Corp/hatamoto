@@ -68,9 +68,15 @@ in a 1.x minor, in phases; this ADR covers the design all phases share.
 
 Phase 1 delivers the settings, routing, translation groups, hreflang and
 per-locale sitemaps. Field inheritance between copies, the editor's
-Translations panel, per-locale contact settings, menus and theme parts,
-per-locale search, feeds and llms.txt, and WordPress multilingual import follow
-in later phases.
+Translations panel, menus and theme parts, per-locale search, feeds and
+llms.txt, and WordPress multilingual import follow in later phases.
+
+Per-locale contact settings shipped afterwards as business details: Settings >
+General holds one site-wide set and one override card per locale, and each
+locale's pages print their own `LocalBusiness` node linked to the shared
+`Organization`. Phone, the hours note and the address kept their columns, so
+older releases still read them. Identity (site name, logo, tagline) is still not
+per locale.
 
 ## Consequences
 

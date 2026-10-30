@@ -123,3 +123,37 @@ func TestLocaleSetSingleAndNil(t *testing.T) {
 		}
 	}
 }
+
+func TestLocaleSetSegment(t *testing.T) {
+	s, err := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}, {"es-MX", "mx"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pa, err := NewLocaleSet("en", []LocaleEntry{{"en", "en"}, {"fr", "fr"}}, true, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nilSet *LocaleSet
+	tests := []struct {
+		name string
+		set  *LocaleSet
+		tag  string
+		seg  string
+		ok   bool
+	}{
+		{"default without prefix", s, "en", "", true},
+		{"non-default", s, "fr", "fr", true},
+		{"segment differs from tag", s, "es-MX", "mx", true},
+		{"unknown tag", s, "xx", "", false},
+		{"shared", s, LocaleShared, "", false},
+		{"default with prefix_all", pa, "en", "en", true},
+		{"non-default with prefix_all", pa, "fr", "fr", true},
+		{"nil set", nilSet, "en", "", false},
+	}
+	for _, tc := range tests {
+		seg, ok := tc.set.Segment(tc.tag)
+		if seg != tc.seg || ok != tc.ok {
+			t.Errorf("%s: Segment(%q) = %q, %v; want %q, %v", tc.name, tc.tag, seg, ok, tc.seg, tc.ok)
+		}
+	}
+}

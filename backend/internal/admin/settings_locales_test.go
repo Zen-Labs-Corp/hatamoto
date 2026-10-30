@@ -1,0 +1,167 @@
+package admin
+
+import (
+	"net/url"
+	"strings"
+	"testing"
+
+	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/siteconfig"
+)
+
+// localeRig is an owner rig whose site has a default locale and two more.
+func localeRig(t *testing.T, entries ...siteconfig.LocaleEntry) (*ownerRig, *fakeSite) {
+	t.Helper()
+	g := newOwnerRig(t, true)
+	site := g.a.deps.Site.(*fakeSite)
+	site.cfg.Language = "en"
+	site.cfg.Locales = entries
+	return g, site
+}
+
+var threeLocales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "aa", Segment: "aa"}, {Tag: "ab", Segment: "ab"}}
+
+func TestLocalesCardListsEveryLocaleWhenMulti(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.Phone = "555 0100"
+	site.cfg.CompanyName = "Example Co"
+	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	for _, want := range []string{
+		`id="locale-en"`, `id="locale-aa"`, `id="locale-ab"`, "Afar", "Abkhazian", "No office in this locale",
+		`action="/admin/settings/general/locale/aa"`, "Save Afar", `href="#locale-cards"`, "Defaults",
+		`placeholder="555 0100"`, `placeholder="Example Co"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("General lacks %q", want)
+		}
+	}
+	if strings.Contains(body, `<details class="hm-disclosure" id="locale-aa" open`) {
+		t.Error("a card is open without an edit")
+	}
+}
+
+func TestLocalesCardHiddenBelowTwoLocales(t *testing.T) {
+	t.Parallel()
+
+	for name, entries := range map[string][]siteconfig.LocaleEntry{"none": nil, "one": {{Tag: "en"}}} {
+		g, _ := localeRig(t, entries...)
+		body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+		if strings.Contains(body, `id="locales-card"`) || strings.Contains(body, "No office in this locale") {
+			t.Errorf("%s: the Locales card shows with fewer than two locales", name)
+		}
+		if rec := g.do("POST", "/admin/settings/general/locale/en", "owner-token", url.Values{}, nil); rec.Code != 404 {
+			t.Errorf("%s: saving a locale of a single-locale site = %d, want 404", name, rec.Code)
+		}
+	}
+}
+
+func TestLocaleSaveMergesOnlyThatLocale(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.LocaleProfiles = []byte(`{"ab":{"phone":"555 0111"}}`)
+	form := url.Values{
+		"loc_aa.name": {"Example Branch"}, "loc_aa.business_type": {"Restaurant"},
+		"loc_aa.address.street": {"1 Example Street"}, "loc_aa.address.city": {"Exampleton"},
+		"loc_aa.phone": {"555 0122"},
+	}
+	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", form, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/general#locale-aa" {
+		t.Fatalf("save: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if g.flushed != 1 {
+		t.Errorf("render cache invalidated %d times, want 1", g.flushed)
+	}
+	m, err := bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m["aa"].Address.City != "Exampleton" || m["aa"].BusinessType != "Restaurant" || m["aa"].Phone != "555 0122" {
+		t.Errorf("aa = %+v", m["aa"])
+	}
+	if m["ab"].Phone != "555 0111" {
+		t.Errorf("saving aa changed ab: %+v", m["ab"])
+	}
+	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Own office") || !strings.Contains(body, `value="Exampleton"`) {
+		t.Error("the saved card does not read back")
+	}
+	// Clearing every field removes the locale's entry.
+	if rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+		"loc_aa.name": {""}, "loc_aa.business_type": {""}, "loc_aa.address.street": {""}, "loc_aa.address.city": {""}, "loc_aa.phone": {""},
+	}, nil); rec.Code != 303 {
+		t.Fatalf("clear: %d", rec.Code)
+	}
+	m, _ = bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+	if _, ok := m["aa"]; ok || m["ab"].Phone != "555 0111" {
+		t.Errorf("after clearing: %v", m)
+	}
+}
+
+func TestLocaleSaveUnknownTagIs404(t *testing.T) {
+	t.Parallel()
+
+	g, _ := localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/general/locale/xx", "owner-token", url.Values{}, nil); rec.Code != 404 {
+		t.Errorf("unknown tag = %d, want 404", rec.Code)
+	}
+	if rec := g.do("POST", "/admin/settings/general/locale/aa", "editor-token", url.Values{}, nil); rec.Code != 403 {
+		t.Errorf("editor = %d, want 403", rec.Code)
+	}
+}
+
+func TestLocaleSaveInvalidKeepsValuesAndOpensOnlyThatCard(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+		"loc_aa.address.city": {"Keepville"}, "loc_aa.address.lat": {"999"},
+	}, nil)
+	if rec.Code != 422 {
+		t.Fatalf("invalid: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`id="locale-aa" open`, `value="Keepville"`, `href="#sf-loc_aa-address-lat"`, "Enter a number between -90 and 90."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("422 page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, `id="locale-ab" open`) {
+		t.Error("another card opened")
+	}
+	if g.flushed != 0 || len(site.cfg.LocaleProfiles) != 0 {
+		t.Error("a failed save stored or invalidated")
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestLocaleAddRowReRendersOneCardWithoutSaving(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.LocaleProfiles = []byte(`{"ab":{"phone":"555 0111"}}`)
+	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+		"loc_aa.phone": {"555 0122"}, "_present.loc_aa.opening_hours": {"1"}, "_add.loc_aa.opening_hours": {"1"},
+	}, nil)
+	if rec.Code != 200 {
+		t.Fatalf("add row: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `id="locale-aa" open`) || !strings.Contains(body, `value="555 0122"`) || !strings.Contains(body, "<details open>") {
+		t.Error("the edited card lost its values or did not open the new row")
+	}
+	if strings.Contains(body, `id="locale-ab" open`) || !strings.Contains(body, `value="555 0111"`) {
+		t.Error("another card changed")
+	}
+	if g.flushed != 0 || string(site.cfg.LocaleProfiles) != `{"ab":{"phone":"555 0111"}}` {
+		t.Error("adding a row saved the card")
+	}
+}

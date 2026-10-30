@@ -429,6 +429,7 @@ and archives through its own `page.html`, not the default's `single.html`.
 | `.Pagination` | listings: `.Page`, `.TotalPages`, `.Total`, `.HasPrev`, `.HasNext`, `.PrevURL`, `.NextURL`, `.URL n` |
 | `.Term`, `.Author`, `.Query`, `.SearchType` | taxonomy (`.Kind`, `.Slug`, `.Name`, `.URL`, `.Description`, `.Parent`), author (`.Name`, `.Slug`, `.URL`, `.Avatar`, `.Bio`, `.JobTitle`, `.IsOrg`, `.SameAs`, a list of profile links) and search views (`.SearchType` is the schema slug a search is limited to, empty for the whole site) |
 | `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language` (the site setting `language`, BCP 47, default `en`; on a site with several public locales it is the locale of the page being rendered, per request; also `<html lang>` and JSON-LD `inLanguage`), `.Phone`, `.Hours` and `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`; the site settings, also emitted in the Organization JSON-LD), `.Settings` (the theme settings object), `.Nav`, `.FooterNav`, `.SocialLinks` |
+| `.Business` | the resolved local business of the page's locale on a site with several public locales: `.ID` (the locale segment, used in the JSON-LD `@id`), `.Type`, `.Name`, `.TaxID`, `.Phone`, `.Fax`, `.Email`, `.Hours` (the free-text hours note), `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`), `.POBox`, `.Lat`, `.Lng`, `.MapURL`, `.GBPURL`, `.ContactPoints` (`.Type`, `.Phone`, `.Email`), `.OpeningHours` (`.Days`, `.Opens`, `.Closes`), `.SpecialHours` (`.From`, `.To`, `.Closed`, `.Opens`, `.Closes`), `.AreaServed`, `.Currency`, `.PriceRange`, `.GeoRegion`, `.SameAs`, `.Rating` (`.Value`, `.Count`). Each field is the locale's own value, else the site-wide one, except the address, which is the locale's whole block. Nil on shared pages, on locales without an office and on sites with fewer than two locales, so test `{{if .Business}}` first. `.Site.Phone`, `.Site.Hours` and `.Site.Address` keep meaning the site-wide values on every page |
 | `.Locale`, `.Alternates`, `.XDefaultHref` | the page's locale tag and, on a site with several public locales, one entry per configured locale in the order of the locale list (empty otherwise): `.Locale`, `.Lang` (the hreflang value), `.Href` (absolute), `.Current` (the page's own locale), `.Missing` (no live copy: `.Href` is that locale's home) and `.Default`. Use it for a language switcher. Listing pages with a page number have none. `.XDefaultHref` is the absolute URL of the hreflang `x-default` entry (empty when there is none) |
 
 **Hreflang.** The default theme's `head` partial prints one
@@ -438,6 +439,13 @@ alternates, then an `x-default` link, from the head data the host passes to it
 `.Alt` itself, otherwise its pages carry no hreflang. A plugin `render.head`
 link that duplicates a computed hreflang is dropped. A site with one locale
 has no alternates and prints no hreflang.
+
+**Geo region.** On every page of a locale whose card sets a geo region (else the
+site-wide one), whether or not the locale has an office or an address of its own, the default theme's
+`head` partial prints `<meta name="geo.region" content="...">` from the head data
+(`.Meta`). A custom theme that overrides the `head` partial must range over
+`.Meta` itself, otherwise its pages print no geo region. Nothing prints on shared
+pages, on a site with one locale or when no region is set.
 
 **Authors** are people (the built-in `person` content type: name, job title,
 bios, photo, links), not accounts. An entity credits one through

@@ -736,7 +736,10 @@ func TestDatePickerRendersOnEveryAnalyticsPage(t *testing.T) {
 }
 
 func TestDatePickerShowsPresetNameOrDates(t *testing.T) {
-	t.Parallel()
+	// Pinned (so not parallel) to the 30th of a 30 day month, where Last 30 days
+	// and Month to date span the same days and the first listed must name it.
+	analyticsNow = func() time.Time { return time.Date(2026, time.September, 30, 12, 0, 0, 0, time.UTC) }
+	t.Cleanup(func() { analyticsNow = time.Now })
 
 	g, _ := newAnalyticsRig(t)
 	body := g.do("GET", "/admin/analytics/crawlers?from="+day(-29)+"&to="+day(0), "owner-token", nil, nil).Body.String()

@@ -792,3 +792,35 @@ func TestLinesFieldKeepsCommas(t *testing.T) {
 		t.Errorf("got %s, want %s", mustJSON(t, got), want)
 	}
 }
+
+func TestPlaceholdersOverrideTextAndTextareaOnly(t *testing.T) {
+	schema := json.RawMessage(`{"type":"object","properties":{
+		"phone":{"type":"string"},
+		"note":{"type":"string","format":"textarea"},
+		"kind":{"type":"string","enum":["a","b"]},
+		"rows":{"type":"array","items":{"type":"object","properties":{"label":{"type":"string"}}}}}}`)
+	out, err := Render(schema, map[string]any{"rows": []any{map[string]any{"label": ""}}}, Options{
+		Placeholders: map[string]string{
+			"phone": "inherited phone", "note": "inherited note", "kind": "inherited kind", "rows.label": "inherited label",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	for _, want := range []string{`placeholder="inherited phone"`, `placeholder="inherited note"`, `placeholder="inherited label"`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "inherited kind") {
+		t.Errorf("a select must not carry a placeholder override:\n%s", s)
+	}
+	plain, err := Render(schema, nil, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(plain), `placeholder="Enter Phone"`) {
+		t.Errorf("without an override the default placeholder stays:\n%s", plain)
+	}
+}
