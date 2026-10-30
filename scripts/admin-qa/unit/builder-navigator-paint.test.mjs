@@ -107,13 +107,14 @@ test("a block named only by its kind shows the kind once; stock kinds get their 
   assert.deepEqual(rows.slice(1).map((r) => withAttr(r, "data-ico")[0].attrs["data-ico"]), ["heading", "image", "puzzle"]);
 });
 
-test("a hidden section row carries the pill once: its meta drops the Hidden text and is aria-hidden", () => {
+test("a hidden section row stays two lines: no pill, its meta says Hidden (aria-hidden) and the name carries a screen-reader note", () => {
   const hid = { base: { hide: true, bg: "#fff" } };
   const m = mount({ d: { v: 2, nodes: [sec("s", [comp("c", [head("h1", "Hi")])], hid)] } });
   const a = m.rows()[0];
-  assert.equal(withClass(a, "hm-bs-row__meta")[0].text, "1 block · #fff");
+  assert.match(withClass(a, "hm-bs-row__meta")[0].text, /^1 block · Hidden/);
   assert.equal(withClass(a, "hm-bs-row__meta")[0].attrs["aria-hidden"], "true");
-  assert.ok(withClass(a, "hm-visually-hidden").some((e) => /on /.test(e.text)));
+  assert.ok(withClass(a, "hm-visually-hidden").some((e) => /^Hidden on /.test(e.text)));
+  assert.equal(withClass(a, "hm-badge").length, 0);
 });
 
 test("selecting the component from the canvas selects its collapsed row and takes the tab stop", () => {
@@ -206,14 +207,15 @@ test("a hidden section shows the open eye-off icon and the hidden class", () => 
   assert.match(withClass(row, "hm-bs-row__meta")[0]?.text ?? "Hidden", /Hidden/);
 });
 
-test("a collapsed row whose component alone is hidden shows hidden: class, badge and the eye-off icon", () => {
+test("a collapsed row whose component alone is hidden shows hidden: class, a screen-reader note and the eye-off icon", () => {
   const hiddenComp = { ...comp("c1"), s: { base: { hide: true } } };
   const m = mount({ d: { v: 2, nodes: [sec("s1", [hiddenComp]), sec("s2", [comp("c2")])] } });
   const [a, b] = m.rows();
   assert.match(a.attrs.class, /hm-bs-row--hidden/);
   assert.doesNotMatch(b.attrs.class, /hm-bs-row--hidden/);
   assert.ok(withAttr(a, "data-hm-bs-eye").some((e) => withAttr(e, "data-ico").some((i) => i.attrs["data-ico"] === "eye-off")));
-  assert.equal(withClass(a, "hm-bs-row__meta").length, 0); // the pill already says it
+  assert.match(withClass(a, "hm-bs-row__meta")[0]?.text ?? "", /Hidden/);
+  assert.ok(withClass(a, "hm-visually-hidden").some((e) => /^Hidden on /.test(e.text)));
 });
 
 test("every row carries its depth as --space-bs-level, and every row has a caret slot (live only with blocks)", () => {

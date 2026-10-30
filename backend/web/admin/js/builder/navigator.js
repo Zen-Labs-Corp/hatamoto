@@ -296,8 +296,10 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       const typed = !r.section && name.startsWith(prefix); // "Heading · Build pages": the kind moves to its own muted column
       // The kind prefix of a typed row stays in the accessible name (rowName's "Heading · text") but not on screen: the kind has its own column.
       text.append(h("span", { class: "hm-bs-row__name" }, ...(typed ? [h("span", { class: "hm-visually-hidden", text: prefix }), name.slice(prefix.length)] : [name])));
-      if (hidden) text.append(" ", hiddenBadge(badgeTpl, device)); // part of the row's name, so no aria-label can disagree with the visible text
-      const meta = r.section ? metaOf(r, !!hidden, hexOf) : ""; // the pill already says Hidden
+      // A block row carries the pill. A section row keeps two lines (name, meta): its meta says "Hidden on <device>", the eye-off icon and the dimming show it too,
+      // and the name carries it for a screen reader. Either way it is part of the row's name, so no aria-label can disagree with the visible text.
+      if (hidden) text.append(" ", r.section ? h("span", { class: "hm-visually-hidden", text: `Hidden on ${BP_NAME[device]}` }) : hiddenBadge(badgeTpl, device));
+      const meta = r.section ? metaOf(r, false, hexOf) : "";
       if (meta) text.append(" ", h("span", { class: "hm-bs-row__meta", "aria-hidden": "true", text: meta }));
       if (!r.section && name !== kindName(r.node.t)) text.append(" ", h("span", { class: "hm-bs-row__kind", "aria-hidden": "true", text: kindName(r.node.t) })); // "Heading" alone is not said twice
       kids.push(text, h("span", { class: "hm-bs-row__acts", "aria-hidden": "true" }, h("span", { class: "hm-bs-row__act", "data-hm-bs-eye": "" }, icon(hidden ? "eye-off" : "eye")), h("span", { class: "hm-bs-row__act", "data-hm-bs-more": "" }, icon("more"))));
