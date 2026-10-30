@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 99662,
+      "value": 99901,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 99779
+      "cap": 100018
     },
     "editor_js_total_gzip": {
-      "value": 251416,
+      "value": 251655,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 252129
+      "cap": 252368
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -142,6 +142,10 @@
     },
     {
       "reason": "builder navigator content-field rows: editor_js_first_gzip 98523 to 99662 (+1139 B, cap 98640 to 99779) and editor_js_total_gzip 250196 to 251416 (+1220 B, cap 250909 to 252129; builderTotalCap 251416 + 1024)",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder navigator field-row review fixes (section follows the focused field row, alias keys, icons): editor_js_first_gzip 99662 to 99901 (+239 B, cap 99779 to 100018) and editor_js_total_gzip 251416 to 251655 (+239 B, cap 252129 to 252368; builderTotalCap 251655 + 1024)",
       "date": "2026-10-31"
     }
   ]
