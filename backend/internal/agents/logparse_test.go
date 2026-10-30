@@ -2,6 +2,7 @@ package agents
 
 import (
 	"bufio"
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -142,5 +143,62 @@ func TestParseCaddyStringTimestamp(t *testing.T) {
 		if !ok || !h.At.Equal(want) {
 			t.Errorf("ts %s: ok=%v at=%v want %v", ts, ok, h.At, want)
 		}
+	}
+}
+
+func withLogEdge(t *testing.T) {
+	t.Helper()
+	cf := CloudflareFallback()
+	SetLogEdgeCheck(func(a netip.Addr) bool {
+		for _, p := range cf {
+			if p.Contains(a) {
+				return true
+			}
+		}
+		return false
+	})
+	t.Cleanup(func() { SetLogEdgeCheck(nil) })
+}
+
+// Without an edge check the logged address is used as is (existing behaviour),
+// and the Logpush ClientIP is the visitor either way.
+func TestLogIPNoEdgeCheck(t *testing.T) {
+	hits := parseLogFixture(t, "logpush.ndjson")
+	if hits[0].IP != "20.171.206.1" {
+		t.Fatalf("logpush ClientIP: %q", hits[0].IP)
+	}
+	if hits = parseLogFixture(t, "caddy.ndjson"); hits[0].IP != "20.171.206.1" {
+		t.Fatalf("caddy client_ip: %q", hits[0].IP)
+	}
+	cdn := parseLogFixture(t, "caddy-cdn.ndjson")
+	if cdn[0].IP != "172.64.0.9" || cdn[2].IP != "203.0.113.50" {
+		t.Fatalf("edge address must be kept when no check is set: %q %q", cdn[0].IP, cdn[2].IP)
+	}
+}
+
+func TestLogIPBehindCDN(t *testing.T) {
+	withLogEdge(t)
+	hits := parseLogFixture(t, "caddy-cdn.ndjson")
+	if len(hits) != 5 {
+		t.Fatalf("want 5 hits, got %d", len(hits))
+	}
+	want := []struct{ path, ip string }{
+		{"/media/a.png", "20.171.206.1"}, // edge + header: visitor
+		{"/media/b.png", ""},             // edge, no header: no IP rather than the edge
+		{"/media/c.png", "203.0.113.50"}, // forged header, non-edge peer: ignored
+		{"/media/d.png", ""},             // header is itself an edge address
+		{"/media/e.png", ""},             // header not an address
+	}
+	for i, w := range want {
+		if hits[i].Path != w.path || hits[i].IP != w.ip {
+			t.Errorf("hit %d: path=%s ip=%q, want %s %q", i, hits[i].Path, hits[i].IP, w.path, w.ip)
+		}
+	}
+	// Logpush and a correct Caddy client_ip are untouched by the check.
+	if h := parseLogFixture(t, "logpush.ndjson"); h[0].IP != "20.171.206.1" || h[1].IP != "2001:db8::1" {
+		t.Fatalf("logpush: %+v", h)
+	}
+	if h := parseLogFixture(t, "caddy.ndjson"); h[0].IP != "20.171.206.1" {
+		t.Fatalf("caddy client_ip: %+v", h[0])
 	}
 }

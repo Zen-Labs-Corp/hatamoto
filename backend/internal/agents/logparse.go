@@ -3,10 +3,60 @@ package agents
 import (
 	"bytes"
 	"encoding/json"
+	"net/netip"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
+
+// logEdge reports whether an address is a CDN edge. Unset (the default) keeps
+// the logged Caddy address as is.
+var logEdge atomic.Pointer[func(netip.Addr) bool]
+
+// SetLogEdgeCheck installs the CDN edge check used for Caddy log lines. nil
+// clears it. The agents package cannot import the middleware that owns the
+// trust set, so the server wires the two together.
+func SetLogEdgeCheck(f func(netip.Addr) bool) {
+	if f == nil {
+		logEdge.Store(nil)
+		return
+	}
+	logEdge.Store(&f)
+}
+
+func isLogEdge(ip string) bool {
+	f := logEdge.Load()
+	if f == nil {
+		return false
+	}
+	a, err := netip.ParseAddr(ip)
+	return err == nil && (*f)(a.Unmap().WithZone(""))
+}
+
+// caddyClientIP picks the visitor address of a Caddy line. Caddy's client_ip
+// (else remote_ip) is the visitor only when Caddy itself trusts the CDN;
+// otherwise it is the edge. When that address is a CDN edge, the logged
+// Cf-Connecting-Ip header is used if it is a valid non-edge address. The header
+// is read only behind an edge hop, so a forged one from any other peer is
+// ignored. Without a usable header the IP is left empty (the hit is still
+// recorded and verifies as unverifiable) rather than storing the edge address.
+func caddyClientIP(ip string, headers map[string][]string) string {
+	ip = stripPort(ip)
+	if !isLogEdge(ip) {
+		return ip
+	}
+	for name, v := range headers {
+		if !strings.EqualFold(name, "Cf-Connecting-Ip") || len(v) == 0 {
+			continue
+		}
+		h := stripPort(strings.TrimSpace(v[0]))
+		if a, err := netip.ParseAddr(h); err == nil && !isLogEdge(h) {
+			return a.Unmap().String()
+		}
+	}
+	return ""
+}
 
 // logpushLine is a Cloudflare Logpush http_requests record (the fields we use).
 type logpushLine struct {
@@ -86,7 +136,7 @@ func parseLogLineAt(line []byte, now time.Time) (RawHit, bool) {
 			ua = v[0]
 		}
 		hit = RawHit{
-			UA: ua, IP: stripPort(ip), Method: l.Request.Method, Path: l.Request.URI,
+			UA: ua, IP: caddyClientIP(ip, l.Request.Headers), Method: l.Request.Method, Path: l.Request.URI,
 			Status: l.Status, Bytes: int(l.Size), DurationMS: int(l.Duration * 1000),
 		}
 		hit.At = parseCaddyTime(l.TS)
