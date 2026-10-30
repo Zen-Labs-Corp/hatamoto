@@ -112,14 +112,15 @@ export function nameSource(node, top = true) {
 
 const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 
-/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
-export function metaOf(row) {
+/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
+export function metaOf(row, quiet = false) {
   if (!row.section) return "";
   const node = row.node;
   const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length;
   const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
   const bg = node.s?.base?.bg;
-  const tail = off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : typeof bg === "string" && bg.trim() ? bg.trim() : "";
+  const bgText = typeof bg === "string" && bg.trim() ? bg.trim() : "";
+  const tail = quiet ? bgText : off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : bgText;
   return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
 }
 
@@ -191,8 +192,8 @@ export function hiddenBadge(tpl, device) {
   return pill;
 }
 
-/** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind reads as a puzzle piece. */
-const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code" };
+/** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind (none of the stock ones) reads as a puzzle piece. */
+const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text" };
 
 /** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name) leaves the thumbnail at its default. */
 function thumbColours(bg) {
@@ -290,11 +291,12 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       const text = h("span", { class: "hm-bs-row__text" });
       const prefix = `${kindName(r.node.t)}${SEP}`;
       const typed = !r.section && name.startsWith(prefix); // "Heading · Build pages": the kind moves to its own muted column
-      text.append(h("span", { class: "hm-bs-row__name", text: typed ? name.slice(prefix.length) : name }));
+      // The kind prefix of a typed row stays in the accessible name (rowName's "Heading · text") but not on screen: the kind has its own column.
+      text.append(h("span", { class: "hm-bs-row__name" }, ...(typed ? [h("span", { class: "hm-visually-hidden", text: prefix }), name.slice(prefix.length)] : [name])));
       if (hidden) text.append(" ", hiddenBadge(badgeTpl, device)); // part of the row's name, so no aria-label can disagree with the visible text
-      const meta = r.section ? metaOf(r) : "";
-      if (meta) text.append(" ", h("span", { class: "hm-bs-row__meta", text: meta }));
-      if (!r.section) text.append(" ", h("span", { class: "hm-bs-row__kind", text: kindName(r.node.t) }));
+      const meta = r.section ? metaOf(r, !!hidden) : ""; // the pill already says Hidden
+      if (meta) text.append(" ", h("span", { class: "hm-bs-row__meta", "aria-hidden": "true", text: meta }));
+      if (!r.section && name !== kindName(r.node.t)) text.append(" ", h("span", { class: "hm-bs-row__kind", "aria-hidden": "true", text: kindName(r.node.t) })); // "Heading" alone is not said twice
       kids.push(text, h("span", { class: "hm-bs-row__acts", "aria-hidden": "true" }, h("span", { class: "hm-bs-row__act", "data-hm-bs-eye": "" }, icon(hidden ? "eye-off" : "eye")), h("span", { class: "hm-bs-row__act", "data-hm-bs-more": "" }, icon("more"))));
       if (i === last && !filter) kids.push(gap(doc.nodes.length));
       li.append(...kids);
