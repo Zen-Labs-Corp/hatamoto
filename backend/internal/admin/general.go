@@ -43,7 +43,6 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 	if g.Ident == nil {
 		d := settingsData{Site: siteFormFrom(cfg), LogoURL: cfg.LogoURL, Tagline: cfg.Tagline, Domain: cfg.CustomDomain}
 		d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-		d.XDefaults = xDefaultOptions(d.Site)
 		g.Ident = &d
 	}
 	if g.Contact == nil {

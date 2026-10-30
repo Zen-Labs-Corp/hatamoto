@@ -24,7 +24,6 @@ type settingsData struct {
 	SiteErrs  map[string]string
 	Languages []ui.Option
 	Timezones []ui.Option
-	XDefaults []ui.Option
 	LogoURL   string
 	Tagline   string
 	Domain    string
@@ -78,7 +77,6 @@ func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {
 
 func (a *Admin) renderSiteSettings(w http.ResponseWriter, r *http.Request, status int, d settingsData) {
 	d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-	d.XDefaults = xDefaultOptions(d.Site)
 	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"locales", "Locales"}, {"xdefault", "Default for search engines"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
 		if m := d.SiteErrs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -120,7 +118,11 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 			if a.deps.ValidateLocales == nil {
 				errs["locales"] = "Locales are not available here"
 			} else if locales, xdef, err = a.deps.ValidateLocales(r.Context(), f.Language, locales, f.PrefixAll, f.XDefault); err != nil {
-				errs["locales"] = err.Error()
+				field := "locales"
+				if strings.Contains(err.Error(), "x-default") {
+					field = "xdefault"
+				}
+				errs[field] = err.Error()
 			}
 		}
 	}
