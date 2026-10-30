@@ -3,7 +3,7 @@
 // it by its component id. Every function accepts either and normalises with rowIdOf. locate() is O(n): call these once per draw.
 import { locate, moveSubject } from "@hm/builder/store";
 
-/** Row-collapse predicate (presentation only). Looser than store.v1Shaped: styles are allowed. */
+/** Row-collapse predicate (presentation only). Looser than store.v1Shaped: styles are allowed. The Navigator applies it to top-level rows only: a nested container(tag=section) stays two rows. */
 export const isCollapsed = (n) => !!n && n.t === "container" && n.p?.tag === "section" && (n.c ?? []).length === 1 && n.c[0].t === "component";
 
 /** Navigator row id of any node: a component under a collapsed section maps to its container; else id itself. null when unknown. */

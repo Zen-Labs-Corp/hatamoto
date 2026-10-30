@@ -102,3 +102,12 @@ test("inSection: inside but not the row itself", () => {
   assert.equal(inSection(doc, "s1", "x"), false);
   assert.equal(inSection(doc, "s2", "x"), true);
 });
+
+test("a nested container(tag=section) > component is two rows: rowIdOf is identity, parentOf steps up once", () => {
+  const nested = { v: 2, nodes: [{ id: "d", t: "container", p: { tag: "div" }, c: [sec("in", [comp("c", [head("h")])])] }] };
+  assert.equal(rowIdOf(nested, "c"), "c");
+  assert.equal(rowIdOf(nested, "in"), "in");
+  assert.equal(parentOf(nested, "c"), "in");
+  assert.equal(parentOf(nested, "in"), "d");
+  assert.equal(selectionInfo(nested, "c").depth, 3);
+});

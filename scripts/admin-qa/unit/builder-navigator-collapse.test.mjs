@@ -110,3 +110,14 @@ test("ArrowLeft from a block lands on the container; ArrowRight opens a collapse
   const closed = rowsOf(doc, new Set(["s"]), "", nameOf);
   assert.deepEqual(step(closed, "s", "expand"), { expand: "s" });
 });
+
+test("only a top-level section collapses: a nested container(tag=section) > component stays two rows", () => {
+  const level = (n, top) => (top && n.t === "container" && n.c?.length === 1 && n.c[0].t === "component" ? sectionName(n, [], undefined, sections) : label(n, [], undefined, sections));
+  const inner = sec("in", [comp("c", {}, [head("h", "Hi")])]);
+  const doc = { v: 2, nodes: [{ id: "d", t: "container", p: { tag: "div" }, c: [inner] }] };
+  const rows = rowsOf(doc, new Set(), "", level);
+  assert.deepEqual(rows.map((r) => [r.id, r.level, r.collapsed]), [["d", 1, null], ["in", 2, null], ["c", 3, null], ["h", 4, null]]);
+  assert.deepEqual([...collapseAll(doc)].sort(), ["c", "d", "in"]);
+  assert.equal(rowName(inner, "", [], undefined, sections, false), "Section");
+  assert.deepEqual(rowsOf(doc, new Set(), "hero", level).map((r) => r.id), ["d", "in", "c"]); // the component's own name matches, not a collapsed section's
+});

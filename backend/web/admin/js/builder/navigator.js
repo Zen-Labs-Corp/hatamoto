@@ -33,9 +33,9 @@ export function label(n, blocks, kindName = shared.kindName, sections = shared.s
   return n.b && Object.keys(n.b).length ? `${base} (bound)` : base;
 }
 
-/** The row's accessible text: its label (a collapsed section's: sectionName), then the preset note when it has one. */
-export function rowName(node, note = "", blocks, kindName, sections) {
-  const text = isCollapsed(node) ? sectionName(node, blocks, kindName, sections) : label(node, blocks, kindName, sections);
+/** The row's accessible text: its label (a collapsed section's: sectionName; only a top-level row collapses, `top` false for the rest), then the preset note when it has one. */
+export function rowName(node, note = "", blocks, kindName, sections, top = true) {
+  const text = top && isCollapsed(node) ? sectionName(node, blocks, kindName, sections) : label(node, blocks, kindName, sections);
   return note ? `${text}, ${note}` : text;
 }
 
@@ -54,17 +54,17 @@ export function sectionName(container, blocks, kindName = shared.kindName, secti
  * A non-empty filter keeps the rows whose name (nameOf) has every word, plus their ancestors, all expanded (collapsed is ignored);
  * a collapsed row matches on the container's name or the component's.
  */
-export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n) => label(n)) {
+export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n, top) => label(n)) {
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const named = (n, name) => words.every((w) => name.toLowerCase().includes(w));
-  const hit = (n) => words.length > 0 && (named(n, nameOf(n)) || (isCollapsed(n) && named(n, nameOf(n.c[0]))));
-  const kidsOf = (n) => (isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []));
+  const hit = (n, top) => words.length > 0 && (named(n, nameOf(n, top)) || (top && isCollapsed(n) && named(n, nameOf(n.c[0], false))));
+  const kidsOf = (n, top) => (top && isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []));
   const keep = new Set();
   const mark = (ns, trail) =>
     ns.forEach((n) => {
       const t = [...trail, n.id];
-      if (hit(n)) t.forEach((i) => keep.add(i));
-      mark(kidsOf(n), t);
+      if (hit(n, trail.length === 0)) t.forEach((i) => keep.add(i));
+      mark(kidsOf(n, trail.length === 0), t);
     });
   if (words.length) mark(doc.nodes, []);
   const shown = (ns) => (words.length ? ns.filter((n) => keep.has(n.id)) : ns);
@@ -72,12 +72,12 @@ export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n) => 
   const walk = (all, level, parentId) => {
     const ns = shown(all);
     ns.forEach((n) => {
-      const sub = isCollapsed(n) ? n.c[0] : null;
+      const top = level === 1;
+      const sub = top && isCollapsed(n) ? n.c[0] : null;
       const below = sub ? (sub.c ?? []) : (n.c ?? []);
       const kids = shown(below).length;
       const open = kids > 0 && (words.length > 0 || !collapsed.has(n.id));
-      const top = level === 1;
-      out.push({ id: n.id, node: n, level, pos: ns.indexOf(n) + 1, size: ns.length, parentId, kids, expanded: open, match: hit(n), section: top, collapsed: sub, index: top ? doc.nodes.indexOf(n) + 1 : null });
+      out.push({ id: n.id, node: n, level, pos: ns.indexOf(n) + 1, size: ns.length, parentId, kids, expanded: open, match: hit(n, top), section: top, collapsed: sub, index: top ? doc.nodes.indexOf(n) + 1 : null });
       if (open) walk(below, level + 1, n.id);
     });
   };
@@ -88,12 +88,12 @@ export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n) => 
 /** Every id that has children: the collapsed set after "Collapse all". */
 export function collapseAll(doc) {
   const out = new Set();
-  const walk = (ns) =>
+  const walk = (ns, top) =>
     ns.forEach((n) => {
-      const below = isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []);
-      if (below.length) (out.add(n.id), walk(below));
+      const below = top && isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []);
+      if (below.length) (out.add(n.id), walk(below, false));
     });
-  walk(doc.nodes);
+  walk(doc.nodes, true);
   return out;
 }
 
@@ -225,7 +225,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   let renaming = null; // the row shown as an input; paint never rebuilds a live one
   let field = null;
   let filter = "";
-  const nameOf = (n) => (isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
+  const nameOf = (n, top = false) => (top && isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
   const rowsNow = () => rowsOf(getDoc(), collapsed, filter, nameOf);
   const filterEl = bar?.querySelector("[data-hm-bs-filter]");
   const collapseBtn = bar?.querySelector("[data-hm-bs-collapse]");
@@ -261,7 +261,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const items = rows.map((r, i) => {
       if (r.section) top = r.id;
       const hidden = hiddenAt(r.node, device);
-      const name = rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections());
+      const name = rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections(), r.section);
       const li = h("li", {
         class: ["hm-bs-row", r.section ? "hm-bs-row--section" : "hm-bs-row--block", top === band && r.id !== selRow && "hm-bs-row--band", hidden && "hm-bs-row--hidden"].filter(Boolean).join(" "),
         role: "treeitem",
