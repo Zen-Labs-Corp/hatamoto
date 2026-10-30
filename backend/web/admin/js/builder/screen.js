@@ -124,7 +124,7 @@ function start(root, boot) {
     onMenu: (id, x, y) => showMenu(id, x, y),
     onAdd: (btn) => addAt({ parent: "", index: 0 }, btn),
     onAddAt: (index, el) => addAt({ parent: "", index }, el),
-    onRename: (id, value) => run([{ op: "setProp", id, key: "navlabel", value: value || null }], { label: "Rename" }) && announce(value ? `Renamed to ${value}` : "Name removed"),
+    onRename: (id, value, inner) => run([{ op: "setProp", id, key: "navlabel", value: value || null }, ...(inner ? [{ op: "setProp", id: inner, key: "navlabel", value: null }] : [])], { label: "Rename" }) && announce(value ? `Renamed to ${value}` : "Name removed"),
     getNote: (n) => presetNote(n, design.presets),
     getBlocks: () => boot.reuse?.blocks ?? [],
     kindName,

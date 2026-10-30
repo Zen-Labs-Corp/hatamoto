@@ -22,7 +22,8 @@ function el(tag) {
     prepend(...k) { this.kids.unshift(...k); },
     replaceChildren(...k) { this.kids = k; },
     set textContent(v) { this.kids = [String(v)]; },
-    addEventListener() {},
+    listeners: {},
+    addEventListener(t, f) { this.listeners[t] = f; },
     focus() { if (focusable) globalThis.document.activeElement = this; },
     select() {},
     contains: () => false,
@@ -34,12 +35,12 @@ globalThis.requestAnimationFrame = (f) => (f(), 0);
 const { mountNavigator } = await import(new URL("builder/navigator.js", root));
 
 const doc = { v: 2, nodes: [{ id: "a", t: "container", c: [] }] };
-const mount = () => {
+const mount = (d = doc, onRename = () => {}) => {
   const painted = [];
   const rootEl = { closest: () => ({ querySelector: () => null }), contains: () => false, replaceChildren: (...k) => painted.push(k), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
   const warn = console.warn;
   console.warn = () => {};
-  const tree = mountNavigator(rootEl, { getDoc: () => doc, getSelected: () => "a", onSelect() {} });
+  const tree = mountNavigator(rootEl, { getDoc: () => d, getSelected: () => "a", onSelect() {}, onRename });
   console.warn = warn;
   return { tree, painted };
 };
@@ -66,4 +67,34 @@ test("a focused rename input stays", async () => {
   assert.equal(painted.length, n);
   tree.draw();
   assert.equal(painted.length, n, "paint leaves a live input alone");
+});
+
+test("renaming a collapsed row starts from the name it shows and clears an old component name in the same call", () => {
+  focusable = true;
+  const d = { v: 2, nodes: [{ id: "s", t: "container", p: { tag: "section" }, c: [{ id: "c", t: "component", p: { type: "hero", navlabel: "Intro" } }] }] };
+  const calls = [];
+  const { tree, painted } = mount(d, (...a) => calls.push(a));
+  tree.rename("c"); // the canvas id of the same row
+  const input = painted.at(-1)[0].kids[0].kids[0];
+  assert.equal(input.value, "Intro");
+  input.value = "Welcome";
+  input.listeners.keydown({ key: "Enter" });
+  assert.deepEqual(calls, [["s", "Welcome", "c"]]);
+});
+
+test("a name on the container wins and leaves the component alone; an unchanged name saves nothing", () => {
+  focusable = true;
+  const d = { v: 2, nodes: [{ id: "s", t: "container", p: { tag: "section", navlabel: "Top" }, c: [{ id: "c", t: "component", p: { type: "hero", navlabel: "Intro" } }] }] };
+  const calls = [];
+  const { tree, painted } = mount(d, (...a) => calls.push(a));
+  tree.rename("s");
+  const input = painted.at(-1)[0].kids[0].kids[0];
+  assert.equal(input.value, "Top");
+  input.listeners.keydown({ key: "Enter" });
+  assert.deepEqual(calls, []);
+  tree.rename("s");
+  const again = painted.at(-1)[0].kids[0].kids[0];
+  again.value = "Next";
+  again.listeners.keydown({ key: "Enter" });
+  assert.deepEqual(calls, [["s", "Next", null]]);
 });

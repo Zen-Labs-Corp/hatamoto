@@ -103,6 +103,13 @@ export function allCollapsed(doc, collapsed) {
   return ids.size > 0 && [...ids].every((id) => collapsed.has(id));
 }
 
+/** What a row's rename field starts with, and the inner component whose name it shows: a collapsed top-level row shows the container's navlabel, else its component's. */
+export function nameSource(node, top = true) {
+  const given = (n) => (typeof n?.p?.navlabel === "string" ? n.p.navlabel.trim() : "");
+  const inner = top && isCollapsed(node) && !given(node) && given(node.c[0]) ? node.c[0] : null;
+  return { value: inner ? given(inner) : given(node), inner: inner?.id ?? null };
+}
+
 const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 
 /** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
@@ -207,7 +214,7 @@ function thumbColours(bg) {
  * Rows: a section is one numbered row (index, thumbnail, name, meta line); a block is a smaller row with a type icon, its opening text and its kind. The eye and more
  * buttons on a row and the gap are mouse affordances only: aria-hidden, no focus, no data-id (keyboard: h, the context menu, the footer's Add). Their icons are cloned
  * from template[data-hm-bs-ico] (UI-05); getSelected() may be a component id from the canvas: its collapsed section's row is the selected one.
- * onRename(id, value) saves a name typed in a row (double-click or F2; value "" removes it).
+ * onRename(id, value, innerId) saves a name typed in a row (double-click or F2; value "" removes it); innerId is the component whose old name the row was showing (clear it too, in the same step).
  * getDevice() is the active breakpoint: rows hidden at it carry a badge. The h key on a row calls onToggleHide(id).
  * draw() repaints on the next frame (keeping focus when it was in the tree; draw(true) moves focus to the selected row);
  * act(action) runs a navigation key and returns whether it was one.
@@ -274,7 +281,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
         "aria-expanded": r.kids ? String(r.expanded) : false,
       });
       li.style.setProperty("--bs-level", String(r.level)); // the indent (builder.css) follows the depth, however deep
-      if (r.id === renaming) return li.append((field = renameField(r.node))), li;
+      if (r.id === renaming) return li.append((field = renameField(r.node, r.section))), li;
       const kids = [];
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
       kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
@@ -311,8 +318,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   const gap = (index) => h("span", { class: "hm-bs-gap", "aria-hidden": "true", "data-hm-bs-gap": String(index) }, h("span", { class: "hm-bs-gap__btn" }, icon("plus"), h("span", { text: "Add section here" })));
 
   /** The input that replaces a row's text: Enter saves, Esc cancels, leaving saves; the keymap ignores keys typed in it. */
-  function renameField(node) {
-    const input = h("input", { class: "hm-bs-rename", type: "text", maxlength: "80", "aria-label": "Name", value: node.p?.navlabel ?? "" });
+  function renameField(node, top) {
+    const input = h("input", { class: "hm-bs-rename", type: "text", maxlength: "80", "aria-label": "Name", value: nameSource(node, top).value });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") finish(true, true);
       else if (e.key === "Escape") finish(false, true);
@@ -328,7 +335,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     renaming = field = null;
     force = refocus;
     paint();
-    if (save && value !== (find(getDoc(), id)?.p?.navlabel ?? "")) onRename(id, value);
+    const was = nameSource(find(getDoc(), id) ?? {}, getDoc().nodes.some((n) => n.id === id));
+    if (save && value !== was.value) onRename(id, value, was.inner);
   }
 
   function rename(id) {
