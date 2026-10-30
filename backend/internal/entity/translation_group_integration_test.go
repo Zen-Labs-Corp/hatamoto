@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -83,5 +85,62 @@ func TestGroupStore(t *testing.T) {
 	}
 	if sibs, _ := gs.LiveSiblings(ctx, fr, []string{"en", "fr"}); len(sibs) != 0 {
 		t.Errorf("unlinked siblings = %+v", sibs)
+	}
+}
+
+// Two Links add the same locale to one group through different members; the
+// group lock lets exactly one win. Repeated, each round released by a barrier.
+func TestGroupStoreLinkRace(t *testing.T) {
+	ctx := context.Background()
+	svc, schemaID, _ := localeFixture(t, `{}`)
+	db := newIntegrationDB(t)
+	gs := NewGroupStore(db.Pool())
+	mk := func(slug, locale string) uuid.UUID {
+		t.Helper()
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+		if err != nil {
+			t.Fatalf("create %s/%s: %v", slug, locale, err)
+		}
+		return e.ID
+	}
+
+	for round := 0; round < 15; round++ {
+		m1, m2 := mk(fmt.Sprintf("m1-%d", round), "en"), mk(fmt.Sprintf("m2-%d", round), "fr")
+		new1, new2 := mk(fmt.Sprintf("n1-%d", round), "es"), mk(fmt.Sprintf("n2-%d", round), "es")
+		group, err := gs.Link(ctx, m1, m2)
+		if err != nil {
+			t.Fatalf("round %d seed link: %v", round, err)
+		}
+
+		start := make(chan struct{})
+		errs := make([]error, 2)
+		var wg sync.WaitGroup
+		for i, pair := range [][]uuid.UUID{{m1, new1}, {m2, new2}} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				_, errs[i] = gs.Link(ctx, pair...)
+			}()
+		}
+		close(start)
+		wg.Wait()
+
+		ok := 0
+		for _, err := range errs {
+			switch {
+			case err == nil:
+				ok++
+			case !errors.Is(err, ErrInvalidGroup):
+				t.Fatalf("round %d: unexpected error %v", round, err)
+			}
+		}
+		if ok != 1 {
+			t.Fatalf("round %d: %d links succeeded (%v), want exactly 1", round, ok, errs)
+		}
+		var n int
+		if err := db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE translation_group = $1 AND locale = 'es'`, group).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("round %d: es rows in group = %d, %v; want 1", round, n, err)
+		}
 	}
 }

@@ -54,9 +54,15 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Concurrent Link calls serialize here: row locks alone cannot stop two
+	// callers adding the same locale to one group through different rows.
+	// The lock is transaction-scoped and released on commit or rollback.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('hm_translation_group'))`); err != nil {
+		return uuid.Nil, fmt.Errorf("lock translation groups: %w", err)
+	}
 	rows, err := tx.Query(ctx, `
 		SELECT id, locale, schema_id, translation_group
-		FROM hatamoto_entities WHERE id = ANY($1) FOR UPDATE`, ids)
+		FROM hatamoto_entities WHERE id = ANY($1) ORDER BY id FOR UPDATE`, ids)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("load entities: %w", err)
 	}
@@ -112,6 +118,7 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		group = &g
 	} else {
 		// Existing members outside ids must not clash with the new locales.
+		// Read under the group lock, so it sees every committed Link.
 		var clash string
 		err := tx.QueryRow(ctx, `
 			SELECT locale FROM hatamoto_entities
