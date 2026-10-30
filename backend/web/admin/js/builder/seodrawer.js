@@ -18,7 +18,7 @@ export function readSEO(root) {
 /**
  * mountSEOBadge({btn, root, urls, getDoc, getName, csrf, fetch}): the score on the closed SEO button.
  * refresh() asks the analyze endpoint about the draft (no seo_ fields: the server falls back to the stored SEO) and reads the
- * score from its #seo-score element; set(el) takes that element from a check the drawer already ran. A failure leaves the button plain.
+ * score from its #seo-score element; set(el) takes that element from a check the drawer already ran. A failure (of the latest refresh) leaves the button plain; a score the drawer set meanwhile wins over an older refresh.
  * Returns {refresh, set}.
  */
 export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "", fetch: f = (...a) => globalThis.fetch(...a), parse = (h) => new DOMParser().parseFromString(h, "text/html") }) {
@@ -27,12 +27,17 @@ export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "
     const score = el?.querySelector?.("strong")?.textContent?.trim();
     const tpl = root.querySelector(`[data-hm-bs-seo-badge="${/hm-seo__score--(pass|warn|fail)/.exec(el?.className)?.[1]}"]`);
     if (!score || !tpl) return;
+    seq++; // a refresh still in flight is older than this score
     btn.querySelector("[data-hm-seo-score]")?.remove();
     const badge = tpl.content.firstElementChild.cloneNode(true);
     badge.dataset.hmSeoScore = "";
     badge.append(score);
     btn.append(badge);
     btn.setAttribute("aria-label", `SEO, score ${score}`);
+  };
+  const plain = () => {
+    btn.querySelector("[data-hm-seo-score]")?.remove();
+    btn.removeAttribute("aria-label");
   };
   const refresh = async () => {
     const mine = ++seq;
@@ -42,11 +47,13 @@ export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "
         headers: { "HX-Request": "true", "HX-Target": "be-panel", "X-CSRF-Token": csrf(), "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ doc: JSON.stringify(getDoc()), name: getName?.() ?? "" }),
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("analyze failed");
       const el = parse(await res.text()).querySelector("#seo-score");
-      if (mine === seq) set(el);
+      if (mine !== seq) return;
+      if (el) set(el);
+      else plain();
     } catch {
-      // the button stays as it is
+      if (mine === seq) plain(); // no score to show: the button is plain again
     }
   };
   return { refresh, set };

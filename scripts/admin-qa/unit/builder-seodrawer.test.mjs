@@ -314,14 +314,14 @@ test("a stopped save keeps the server's refusal code", async () => {
   assert.deepEqual(states.at(-1), ["stopped", "invalid_canonical"]);
 });
 
-function badgeRig(html, ok = true) {
+function badgeRig(html, ok = true, fetchFn) {
   const calls = [];
   const attrs = {};
-  const btn = { kids: [], append: (n) => btn.kids.push(n), querySelector: () => btn.kids.at(-1) ?? null, setAttribute: (k, v) => (attrs[k] = v) };
+  const btn = { kids: [], append: (n) => btn.kids.push(n), querySelector: () => btn.kids.at(-1) ?? null, setAttribute: (k, v) => (attrs[k] = v), removeAttribute: (k) => delete attrs[k] };
   const mk = (tone) => ({ content: { firstElementChild: { cloneNode: () => ({ dataset: {}, tone, text: "", append(t) { this.text = t; }, remove: () => btn.kids.pop() }) } } });
   const root = { querySelector: (sel) => /"(pass|warn|fail)"/.exec(sel) && mk(/"(\w+)"/.exec(sel)[1]) };
   const parse = () => ({ querySelector: () => (html ? { className: html, querySelector: () => ({ textContent: " 82 " }) } : null) });
-  const b = mountSEOBadge({ btn, root, urls: { analyze: "/analyze" }, getDoc: () => ({ v: 2 }), getName: () => "N", csrf: () => "tok", parse, fetch: async (u, o) => (calls.push([u, o]), { ok, text: async () => "x" }) });
+  const b = mountSEOBadge({ btn, root, urls: { analyze: "/analyze" }, getDoc: () => ({ v: 2 }), getName: () => "N", csrf: () => "tok", parse, fetch: fetchFn ?? (async (u, o) => (calls.push([u, o]), { ok, text: async () => "x" })) });
   return { b, btn, attrs, calls };
 }
 
@@ -380,4 +380,27 @@ test("autosave resumes on the next edit after an invalid_canonical refusal", asy
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(bodies.length, 2);
   assert.equal(saver.q.state, "saved");
+});
+
+test("badge: a refresh that fails after a good one leaves the button plain", async () => {
+  let ok = true;
+  const r = badgeRig("hm-seo__score--pass", true, async () => ({ ok, text: async () => "x" }));
+  await r.b.refresh();
+  assert.equal(r.btn.kids.length, 1);
+  ok = false;
+  await r.b.refresh();
+  assert.equal(r.btn.kids.length, 0);
+  assert.equal("aria-label" in r.attrs, false);
+});
+
+test("badge: a score the drawer set while a refresh was in flight is not overwritten by it", async () => {
+  let release;
+  const r = badgeRig("hm-seo__score--fail", true, () => new Promise((res) => (release = () => res({ ok: true, text: async () => "x" }))));
+  const pending = r.b.refresh();
+  r.b.set({ className: "hm-seo__score--pass", querySelector: () => ({ textContent: "99" }) });
+  release();
+  await pending;
+  assert.equal(r.btn.kids.length, 1);
+  assert.equal(r.btn.kids[0].tone, "pass");
+  assert.equal(r.btn.kids[0].text, "99");
 });
