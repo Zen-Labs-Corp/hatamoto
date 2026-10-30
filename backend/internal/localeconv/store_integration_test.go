@@ -306,6 +306,38 @@ func TestApplyConvertsTheFixture(t *testing.T) {
 	}
 }
 
+// A site that once changed its language keeps rows in two old locales; after
+// the conversion they share one tag. The colliding draft must be renamed
+// before the locale write, or the unique index trips on the way.
+func TestApplyRenamesBeforeRetaggingRowsOfDifferentOldLocales(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	seedFixture(t, pool, fixtureSnap())
+	// A draft "about" next to the published x1, one old locale apart (xq and en).
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO hatamoto_entities (id, schema_id, name, slug, status, attributes, parent_id, created_at, updated_at, locale)
+		SELECT $2, schema_id, name, slug, 'draft', attributes - 'key', parent_id, created_at, updated_at, 'xq'
+		  FROM hatamoto_entities WHERE id = $1`, uid("x1"), uid("xd")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_entities SET locale = 'en' WHERE id = $1`, uid("x1")); err != nil {
+		t.Fatal(err)
+	}
+	svc := testService(pool)
+	rep, err := svc.DryRun(ctx, fixturePlan(t))
+	if err != nil || !rep.OK {
+		t.Fatalf("dry run = %+v, %v", rep, err)
+	}
+	mustApply(t, svc, fixturePlan(t))
+	got := rowsByID(t, pool)
+	if r := got[uid("xd")]; r.Locale != "en-XX" || r.Slug != "about-old-1" {
+		t.Errorf("draft = %+v, want en-XX about-old-1", r)
+	}
+	if r := got[uid("x1")]; r.Locale != "en-XX" || r.Slug != "about" {
+		t.Errorf("published = %+v, want en-XX about", r)
+	}
+}
+
 func TestApplyRollsBackAsAWhole(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)

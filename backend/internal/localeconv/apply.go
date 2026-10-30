@@ -14,8 +14,8 @@ import (
 
 // Apply steps, in order. ApplyOpts.failAfter names one of them.
 const (
-	stepLocale   = "locale"
 	stepRename   = "rename"
+	stepLocale   = "locale"
 	stepHomes    = "homes"
 	stepReparent = "reparent"
 	stepStrip    = "strip"
@@ -70,8 +70,8 @@ func (s *pgService) Apply(ctx context.Context, plan *Plan, opts ApplyOpts) (*Rec
 		name string
 		run  func() error
 	}{
-		{stepLocale, func() error { return writeLocales(ctx, tx, rows, groups) }},
 		{stepRename, func() error { return writeSlugs(ctx, tx, rows, func(p *Planned) bool { return p.Renamed }) }},
+		{stepLocale, func() error { return writeLocales(ctx, tx, rows, groups) }},
 		{stepHomes, func() error { return writeSlugs(ctx, tx, rows, func(p *Planned) bool { return p.Home }) }},
 		{stepReparent, func() error { return writeParents(ctx, tx, rows) }},
 		{stepStrip, func() error { return writeStrips(ctx, tx, rows) }},
