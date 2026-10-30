@@ -90,7 +90,7 @@
 <div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Browse plugins</h1></div><p class="hm-muted">From registry.example. Signed index, refreshed 3 hours ago.</p></div>
 <div class="hm-row"></div></div>
 </header>
-<form class="hm-table__filters hm-filterbar hm-filterbar--bare" role="search" method="get" action="/admin/plugins/browse" hx-get="/admin/plugins/browse" hx-trigger="input changed delay:300ms from:#browse-q, change from:#browse-q, change from:#browse-p0, change from:#browse-seg, change from:#browse-filters, submit" hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#browse-busy">
+<form class="hm-table__filters hm-filterbar hm-filterbar--bare" role="search" method="get" action="/admin/plugins/browse" hx-get="/admin/plugins/browse" hx-trigger="input changed delay:300ms from:#browse-q, change from:#browse-q, change from:#browse-p0, change from:#browse-seg, change from:#browse-filters, submit" hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#browse-busy">
 <div class="hm-filterbar__start"><fieldset class="hm-segmented" id="browse-seg"><legend class="hm-visually-hidden">Publisher</legend>
 <label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="" checked><span class="hm-segmented__btn">All</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="first-party"><span class="hm-segmented__btn">First-party</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="community"><span class="hm-segmented__btn">Community</span></label></fieldset>
 <button type="button" class="hm-btn" popovertarget="browse-filters" aria-haspopup="dialog"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>Filters <span class="hm-btn-count" id="browse-count"><span class="hm-visually-hidden">, </span>1<span class="hm-visually-hidden"> active</span></span></button>
@@ -110,15 +110,16 @@
 <label class="hm-field__check hm-switch" for="browse-f2"><input class="hm-field__box" type="checkbox" role="switch" id="browse-f2" name="hide" value="1" checked><span>Hide installed</span></label><input type="hidden" name="hide" value="0">
 </div>
 </div>
-<footer></footer>
+
 </div></div>
-<div class="hm-filterbar__end"><label class="hm-visually-hidden" for="browse-q">Search plugins</label><input class="hm-field__control hm-table__search" type="search" id="browse-q" name="q" value="" placeholder="Search plugins"><label class="hm-visually-hidden" for="browse-p0">Sort</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="browse-p0" name="sort"><option value="name" selected>Name A to Z</option><option value="name-desc">Name Z to A</option></select></div>
+<div class="hm-filterbar__end"><label class="hm-visually-hidden" for="browse-q">Search plugins</label><div class="hm-input-affix hm-table__search"><span class="hm-affix" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><input class="hm-field__control" type="search" id="browse-q" name="q" value="" placeholder="Search plugins"></div><label class="hm-visually-hidden" for="browse-p0">Sort</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="browse-p0" name="sort"><option value="name" selected>Name A to Z</option><option value="name-desc">Name Z to A</option></select></div>
 </div>
 <noscript><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply=""><span>Apply filters</span></button></noscript>
 
 <span class="hm-indicator" id="browse-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form>
+<p id="browse-status" class="hm-visually-hidden" role="status">2 plugins</p>
 <div id="browse-results" class="hm-pluginbrowse__results">
-<div class="hm-pluginbrowse__meta"><p class="hm-muted" aria-live="polite">2 plugins</p>
+<div class="hm-pluginbrowse__meta"><p class="hm-muted">2 plugins</p>
 </div>
 <p class="hm-muted hm-pluginbrowse__installed">1 installed hidden · <a href="/admin/plugins/browse?hide=0">Show installed</a></p>
 <section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
@@ -165,6 +166,7 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 
 
 
