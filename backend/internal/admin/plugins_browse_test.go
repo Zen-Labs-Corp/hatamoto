@@ -333,6 +333,9 @@ func TestBrowseCountAnnouncedOutsideSwapTarget(t *testing.T) {
 	if i < 0 || j < 0 || i > j || !strings.Contains(body, `id="browse-status" class="hm-visually-hidden" role="status"`) {
 		t.Error("the live region must sit before, so outside, the swapped #browse-results")
 	}
+	if !strings.Contains(body, `hx-select-oob="#browse-count,#browse-status:innerHTML"`) {
+		t.Error("the live region must be swapped by content (:innerHTML) so the same node persists")
+	}
 	if end := strings.Index(body[j:], `id="plugin-panel"`); end < 0 || strings.Contains(body[j:j+end], "aria-live") {
 		t.Error("no live region inside the swap target")
 	}

@@ -31,7 +31,7 @@ func TestPartialFilterbarOptIns(t *testing.T) {
 	for _, want := range []string{
 		`hm-filterbar--bare`, `role="search"`,
 		`change from:#browse-seg, change from:#browse-filters, submit`,
-		`hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status"`,
+		`hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status:innerHTML"`,
 		`<fieldset class="hm-segmented" id="browse-seg">`,
 		`<span class="hm-btn-count" id="browse-count"><span class="hm-visually-hidden">, </span>1`,
 		`<legend class="hm-field__label">Permissions</legend>`,
