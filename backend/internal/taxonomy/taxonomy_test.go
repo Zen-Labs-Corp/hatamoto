@@ -633,6 +633,8 @@ func TestServiceUpdateTerm_RejectsInvalidSEO(t *testing.T) {
 		{CanonicalURL: "javascript:alert(1)"},
 		{CanonicalURL: "example.com/x"},
 		{CanonicalURL: "//evil.test/x"},
+		{CanonicalURL: "/a b"},
+		{CanonicalURL: "https:///x"},
 		{MetaTitle: strings.Repeat("a", maxSEOTitleLen+1)},
 		{MetaDescription: strings.Repeat("a", maxSEODescriptionLen+1)},
 	} {
@@ -656,6 +658,20 @@ func TestServiceUpdateTerm_RejectsInvalidSEO(t *testing.T) {
 	}
 	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &TermSEO{CanonicalURL: "/guides"}}); err != nil {
 		t.Errorf("root-relative canonical rejected: %v", err)
+	}
+}
+
+func TestServiceUpdateTerm_StoredCanonicalResavesUnchanged(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	svc := NewService(repo, nil)
+	term, _ := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: "Guides"})
+	repo.terms[term.ID].SEO = &TermSEO{CanonicalURL: "/a b"}
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &TermSEO{MetaTitle: "New", CanonicalURL: "/a b"}}); err != nil {
+		t.Errorf("unchanged stored canonical refused: %v", err)
+	}
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: "Guides", SEO: &TermSEO{CanonicalURL: "/c d"}}); !errors.Is(err, ErrInvalidSEO) {
+		t.Errorf("changed bad canonical: err = %v", err)
 	}
 }
 
