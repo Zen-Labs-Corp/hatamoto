@@ -186,7 +186,7 @@ func TestLocaleSegmentChecks_NamesPage_Integration(t *testing.T) {
 		seg  string
 		want []string // substrings of the error; nil = accepted
 	}{
-		{"yy", []string{`segment "yy"`, `published page "Yy Page"`, "(/yy, id " + pubID + ")", "Pick another segment, or move or unpublish that page first."}},
+		{"yy", []string{`segment "yy"`, `published page "Yy Page"`, "(/yy, id " + pubID + ")", "Pick another segment, or move or unpublish that page first"}},
 		{"yk", []string{`segment "yk" is already used as a term kind`}},
 		{"yd", nil},
 		{"yc", nil},

@@ -159,7 +159,7 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		switch {
 		case err == nil:
 			return fmt.Errorf("segment %q is already used by the published page \"%s\" (/%s, id %s). "+
-				"Pick another segment, or move or unpublish that page first.",
+				"Pick another segment, or move or unpublish that page first",
 				seg, name, slug, id)
 		case !errors.Is(err, pgx.ErrNoRows):
 			return &localeCheckInfraError{segment: seg, err: err}
