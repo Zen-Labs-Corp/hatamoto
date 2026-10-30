@@ -48,6 +48,19 @@ func TestTopFields(t *testing.T) {
 	}
 }
 
+func TestTopFieldsAlias(t *testing.T) {
+	t.Parallel()
+
+	got := TopFields(json.RawMessage(`{"type":"object","properties":{"title":{"type":"string","x-hm-alias":["heading","h1"]},"sub":{"type":"string"}}}`))
+	if len(got) != 2 || !reflect.DeepEqual(got[0].Alias, []string{"heading", "h1"}) || got[1].Alias != nil {
+		t.Fatalf("aliases = %+v, want title [heading h1], sub none", got)
+	}
+	b, _ := json.Marshal(got[1])
+	if string(b) != `{"key":"sub","label":"Sub","kind":"text"}` {
+		t.Errorf("no alias must be omitted: %s", b)
+	}
+}
+
 func TestTopFieldsNone(t *testing.T) {
 	t.Parallel()
 

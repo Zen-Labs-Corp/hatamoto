@@ -67,6 +67,13 @@ test("fieldRows keeps non-empty fields in order: HTML stripped, spaces collapsed
   assert.deepEqual(r[1], { key: "body", label: "Body", kind: "richtext", text: "Hello there" });
 });
 
+test("fieldRows reads an x-hm-alias key when the schema key is absent; the key wins when both are set", () => {
+  const f = [{ key: "title", label: "Title", kind: "text", alias: ["heading", "h1"] }];
+  assert.deepEqual(fieldRows({ heading: "Legacy" }, f).map((r) => r.text), ["Legacy"]);
+  assert.deepEqual(fieldRows({ h1: "Second", title: "Own" }, f).map((r) => r.text), ["Own"]);
+  assert.deepEqual(fieldRows({}, f), []);
+});
+
 test("fieldRows: null, empty list, empty object and a tag-only value give no row; an object shows its first string", () => {
   const f = ["a", "b", "c", "d", "e", "g"].map((key) => ({ key, label: key, kind: "text" }));
   const r = fieldRows({ a: null, b: [], c: {}, d: "<br>", e: { n: 1, title: "Hi <i>x</i>" }, g: { n: 1 } }, f);

@@ -9,6 +9,8 @@ type TopField struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
 	Kind  string `json:"kind"`
+	// Alias lists the x-hm-alias content keys the Inspector falls back to.
+	Alias []string `json:"alias,omitempty"`
 }
 
 // TopFields lists the top-level properties of a schema in the order the
@@ -25,7 +27,7 @@ func TopFields(raw json.RawMessage) []TopField {
 	}
 	out := make([]TopField, 0, len(props))
 	for _, p := range props {
-		out = append(out, TopField{Key: p.Name, Label: p.Node.label(p.Name), Kind: fieldKind(p.Node)})
+		out = append(out, TopField{Key: p.Name, Label: p.Node.label(p.Name), Kind: fieldKind(p.Node), Alias: p.Node.Alias})
 	}
 	return out
 }

@@ -49,7 +49,7 @@ export function sectionName(container, blocks, kindName = shared.kindName, secti
 /** The non-empty top-level content fields as [{key,label,kind,text}]: text is the value without HTML cut to 40 characters ("N items" for a list; an object's first string). `fields` come from the boot sections (schema order). */
 export const fieldRows = (content, fields) =>
   (fields ?? []).flatMap((f) => {
-    const v = content?.[f.key];
+    const v = content?.[[f.key, ...(f.alias ?? [])].find((k) => content && k in content)]; // the key, else its x-hm-alias (as the Inspector reads it)
     const s = Array.isArray(v) ? (v.length ? `${v.length} items` : "") : v && typeof v === "object" ? (Object.values(v).find((x) => typeof x === "string") ?? "") : v == null ? "" : String(v);
     const text = s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
     return text ? [{ ...f, text }] : [];
