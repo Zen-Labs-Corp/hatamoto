@@ -58,6 +58,12 @@ type Config struct {
 	// PostalAddress is the business address, JSONB {street, city, state,
 	// postal_code, country}. Nil-or-empty means "unset".
 	PostalAddress json.RawMessage
+	// BusinessProfile is the site-wide business details (JSONB), holding only
+	// the fields that have no column of their own. Never nil after a load.
+	BusinessProfile json.RawMessage
+	// LocaleProfiles is the per-locale business details (JSONB object keyed by
+	// BCP 47 tag). Never nil after a load.
+	LocaleProfiles json.RawMessage
 	// LegacyWPRedirects turns on the built-in WordPress URL redirects
 	// (dated permalinks, feeds, taxonomy archives, wp-* paths). Off by default.
 	LegacyWPRedirects bool
@@ -182,7 +188,10 @@ type UpdateInput struct {
 	HomepageEntityID  *uuid.UUID
 	NotificationEmail *string
 	PostalAddress     json.RawMessage
-	Language          *string
+	// BusinessProfile replaces the site-wide profile when non-empty; pass
+	// {} to clear it. Empty leaves it unchanged.
+	BusinessProfile json.RawMessage
+	Language        *string
 	// Locales replaces the whole list when non-nil (an empty slice clears it).
 	Locales           *[]LocaleEntry
 	PrefixAll         *bool
@@ -248,6 +257,7 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		locales           any = nil
 		prefixAll         any = nil
 		xDefaultLocale    any = nil
+		businessProfile   any = nil
 	)
 	if in.CompanyName != nil {
 		companyName = *in.CompanyName
@@ -278,6 +288,9 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	}
 	if len(in.PostalAddress) > 0 {
 		postalAddress = []byte(in.PostalAddress)
+	}
+	if len(in.BusinessProfile) > 0 {
+		businessProfile = []byte(in.BusinessProfile)
 	}
 	if in.Language != nil {
 		language = *in.Language
@@ -365,13 +378,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  locales            = COALESCE($25, locales),
 		  prefix_all         = COALESCE($26, prefix_all),
 		  x_default_locale   = COALESCE($27, x_default_locale),
+		  business_profile   = COALESCE($28, business_profile),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -379,6 +393,35 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	// Invalidate cache before re-load so callers don't see stale data.
 	s.Invalidate()
 	return s.Get(ctx)
+}
+
+// SetLocaleProfile stores the business details of one locale, keyed by its
+// BCP 47 tag, and leaves every other locale as it is. The merge happens in SQL,
+// so two saves of different locales cannot overwrite each other. Empty raw
+// removes the locale's entry.
+func (s *Store) SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if len(raw) == 0 {
+		_, err = conn.Exec(ctx, `
+			UPDATE hatamoto_site_config
+			SET locale_profiles = locale_profiles - $1::text, updated_at = NOW()
+			WHERE id = TRUE`, tag)
+	} else {
+		_, err = conn.Exec(ctx, `
+			UPDATE hatamoto_site_config
+			SET locale_profiles = locale_profiles || jsonb_build_object($1::text, $2::jsonb), updated_at = NOW()
+			WHERE id = TRUE`, tag, []byte(raw))
+	}
+	if err != nil {
+		return fmt.Errorf("set locale profile: %w", err)
+	}
+	s.Invalidate()
+	return nil
 }
 
 // legacyTTLCap is the largest value the old binary's CHECK accepts for
@@ -405,7 +448,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	cfg := &Config{}
 	var logoURL, customDomain, primaryColor, tagline, timezone, notificationEmail, phone, businessHours sql.NullString
 	var homepageEntityID *uuid.UUID
-	var themeExtra, postalAddress, locales []byte
+	var themeExtra, postalAddress, locales, businessProfile, localeProfiles []byte
 	var ttlSecs, ttlLegacy int
 
 	err = conn.QueryRow(ctx, `
@@ -417,7 +460,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_cache_ttl_secs, page_cache_ttl_seconds,
 		       page_cache_max_mb, page_preload_enabled, page_preload_interval_seconds,
 		       page_preload_mode, page_preload_after_changes,
-		       locales, prefix_all, x_default_locale
+		       locales, prefix_all, x_default_locale,
+		       business_profile, locale_profiles
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -430,6 +474,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PagePreloadEnabled, &cfg.PagePreloadIntervalSeconds,
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
+		&businessProfile, &localeProfiles,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
@@ -476,6 +521,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	if len(postalAddress) > 0 {
 		cfg.PostalAddress = json.RawMessage(postalAddress)
 	}
+	cfg.BusinessProfile = json.RawMessage(businessProfile)
+	cfg.LocaleProfiles = json.RawMessage(localeProfiles)
 	if phone.Valid {
 		cfg.Phone = phone.String
 	}
