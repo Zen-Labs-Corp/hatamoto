@@ -407,6 +407,7 @@ function start(root, boot) {
   });
 
   let seoDrawer = null; // the SEO drawer once mounted
+  let seoBadge = null; // the score on the SEO button, once the builder is idle
   let seoState = null; // the drawer's values once a field was edited; null keeps the stored ones out of every save
   const saver = createSaver({
     urls: boot.urls,
@@ -432,7 +433,10 @@ function start(root, boot) {
         showSaveProblem(stateLine(q, { draft: saver.draft }));
         if (q.code === "invalid_canonical") seoDrawer?.showFieldError("canonical", q.message);
       }
-      else if (q.state === "saved") clearBanner("problem", "conflict", "recovery", "note"); // a saved page has no use for an old browser copy: a late Restore would wipe this session
+      else if (q.state === "saved") {
+        seoBadge?.refresh();
+        clearBanner("problem", "conflict", "recovery", "note"); // a saved page has no use for an old browser copy: a late Restore would wipe this session
+      }
     },
   });
 
@@ -916,6 +920,7 @@ function start(root, boot) {
     });
   }
   if (seoBtn && seoRoot) {
+    idle(() => seoChunk().then((m) => (seoBadge = m.mountSEOBadge({ btn: seoBtn, root, urls: boot.urls, getDoc: () => st.doc, getName: () => nameInput?.value ?? boot.name, csrf })).refresh()).catch(() => {}));
     // Mounted on first use: the drawer module and the SEO panel stay out of first paint.
     seoBtn.addEventListener("click", () =>
       seoChunk()
@@ -927,6 +932,7 @@ function start(root, boot) {
             urls: boot.urls,
             getDoc: () => st.doc,
             getName: () => nameInput?.value ?? boot.name,
+            onScore: (el) => seoBadge?.set(el),
             onEdit: (v) => {
               seoState = v;
               saver.changed();

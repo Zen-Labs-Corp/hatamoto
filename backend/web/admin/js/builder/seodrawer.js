@@ -1,6 +1,7 @@
 // The page's SEO drawer: a slide-over on the right of the canvas holding the shared SEO panel (@hm/seopanel).
 // The panel is fetched on the first open, so first paint pays nothing for it. Editing a field reports the values
 // to the saver (they travel with the next save); the live checks post the draft doc along with the fields.
+// The SEO button also shows the page's score once the builder is idle (mountSEOBadge), so it lives in this lazy chunk too.
 
 /** The panel's values as the save request carries them. */
 export function readSEO(root) {
@@ -15,11 +16,48 @@ export function readSEO(root) {
 }
 
 /**
- * mountSEODrawer({doc, btn, root, urls, getDoc, getName, onEdit, onError, load, fetch})
+ * mountSEOBadge({btn, root, urls, getDoc, getName, csrf, fetch}): the score on the closed SEO button.
+ * refresh() asks the analyze endpoint about the draft (no seo_ fields: the server falls back to the stored SEO) and reads the
+ * score from its #seo-score element; set(el) takes that element from a check the drawer already ran. A failure leaves the button plain.
+ * Returns {refresh, set}.
+ */
+export function mountSEOBadge({ btn, root, urls, getDoc, getName, csrf = () => "", fetch: f = (...a) => globalThis.fetch(...a), parse = (h) => new DOMParser().parseFromString(h, "text/html") }) {
+  let seq = 0;
+  const set = (el) => {
+    const score = el?.querySelector?.("strong")?.textContent?.trim();
+    const tpl = root.querySelector(`[data-hm-bs-seo-badge="${/hm-seo__score--(pass|warn|fail)/.exec(el?.className)?.[1]}"]`);
+    if (!score || !tpl) return;
+    btn.querySelector("[data-hm-seo-score]")?.remove();
+    const badge = tpl.content.firstElementChild.cloneNode(true);
+    badge.dataset.hmSeoScore = "";
+    badge.append(score);
+    btn.append(badge);
+    btn.setAttribute("aria-label", `SEO, score ${score}`);
+  };
+  const refresh = async () => {
+    const mine = ++seq;
+    try {
+      const res = await f(urls.analyze, {
+        method: "POST",
+        headers: { "HX-Request": "true", "X-CSRF-Token": csrf(), "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ doc: JSON.stringify(getDoc()), name: getName?.() ?? "" }),
+      });
+      if (!res.ok) return;
+      const el = parse(await res.text()).querySelector("#seo-score");
+      if (mine === seq) set(el);
+    } catch {
+      // the button stays as it is
+    }
+  };
+  return { refresh, set };
+}
+
+/**
+ * mountSEODrawer({doc, btn, root, urls, getDoc, getName, onScore, onEdit, onError, load, fetch})
  * btn opens and closes root (the dialog element); focus moves into the drawer on open and back on Escape or Close: to the opener when that was the SEO button or a More-menu proxy, else to the SEO button, or the More menu when btn is hidden.
  * onEdit(values) runs after a field changed. Returns {open, close, isOpen, showFieldError}.
  */
-export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getName, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
+export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getName, onScore = () => {}, onEdit = () => {}, onError = () => {}, load = () => import("@hm/seopanel"), fetch: f = (...a) => globalThis.fetch(...a) }) {
   let loaded = null;
   let busy = false;
   let opener = null; // what had focus when the drawer opened, kept only when it was the SEO button or a More-menu control
@@ -88,7 +126,10 @@ export function mountSEODrawer({ doc = document, btn, root, urls, getDoc, getNam
     panel.prepend(n);
   };
   for (const t of ["htmx:responseError", "htmx:sendError", "htmx:timeout"]) root.addEventListener(t, note);
-  root.addEventListener("htmx:afterSwap", dropNote);
+  root.addEventListener("htmx:afterSwap", (e) => {
+    dropNote();
+    if ((e.detail?.target ?? e.target) === results()) onScore(root.querySelector("#seo-score")); // the checks came back: the button shows the same score
+  });
   // A refused value is shown under its field, on the tab that holds it (the server-side message of a rejected save).
   const showFieldError = async (field, msg) => {
     if (!isOpen()) await open();

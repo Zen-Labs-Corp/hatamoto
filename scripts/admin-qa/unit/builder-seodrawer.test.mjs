@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { mountSEODrawer, readSEO } = await import(new URL("../../../backend/web/admin/js/builder/seodrawer.js", import.meta.url));
+const { mountSEODrawer, mountSEOBadge, readSEO } = await import(new URL("../../../backend/web/admin/js/builder/seodrawer.js", import.meta.url));
 const { createSaver } = await import(new URL("../../../backend/web/admin/js/builder/sync.js", import.meta.url));
 
 function rig() {
@@ -253,4 +253,52 @@ test("a stopped save keeps the server's refusal code", async () => {
   });
   await saver.save("save");
   assert.deepEqual(states.at(-1), ["stopped", "invalid_canonical"]);
+});
+
+function badgeRig(html, ok = true) {
+  const calls = [];
+  const attrs = {};
+  const btn = { kids: [], append: (n) => btn.kids.push(n), querySelector: () => btn.kids.at(-1) ?? null, setAttribute: (k, v) => (attrs[k] = v) };
+  const mk = (tone) => ({ content: { firstElementChild: { cloneNode: () => ({ dataset: {}, tone, text: "", append(t) { this.text = t; }, remove: () => btn.kids.pop() }) } } });
+  const root = { querySelector: (sel) => /"(pass|warn|fail)"/.exec(sel) && mk(/"(\w+)"/.exec(sel)[1]) };
+  const parse = () => ({ querySelector: () => (html ? { className: html, querySelector: () => ({ textContent: " 82 " }) } : null) });
+  const b = mountSEOBadge({ btn, root, urls: { analyze: "/analyze" }, getDoc: () => ({ v: 2 }), getName: () => "N", csrf: () => "tok", parse, fetch: async (u, o) => (calls.push([u, o]), { ok, text: async () => "x" }) });
+  return { b, btn, attrs, calls };
+}
+
+test("badge: no fetch until refresh", () => {
+  const r = badgeRig("hm-seo__score hm-seo__score--pass");
+  assert.equal(r.calls.length, 0);
+});
+
+test("badge fills score and tone from the analyze HTML", async () => {
+  const r = badgeRig("hm-seo__score hm-seo__score--warn");
+  await r.b.refresh();
+  assert.equal(r.calls[0][0], "/analyze");
+  assert.equal(r.calls[0][1].headers["X-CSRF-Token"], "tok");
+  assert.equal(r.calls[0][1].body.get("name"), "N");
+  assert.equal(r.calls[0][1].body.get("doc"), '{"v":2}');
+  assert.equal(r.calls[0][1].body.has("seo_title"), false);
+  assert.equal(r.btn.kids.length, 1);
+  assert.equal(r.btn.kids[0].tone, "warn");
+  assert.equal(r.btn.kids[0].text, "82");
+  assert.equal(r.attrs["aria-label"], "SEO, score 82");
+});
+
+test("badge stays plain on fetch failure", async () => {
+  const bad = badgeRig("hm-seo__score--pass", false);
+  await bad.b.refresh();
+  assert.equal(bad.btn.kids.length, 0);
+  const none = badgeRig(null);
+  await none.b.refresh();
+  assert.equal(none.btn.kids.length, 0);
+  assert.equal("aria-label" in none.attrs, false);
+});
+
+test("badge: a refresh after a save replaces the score", async () => {
+  const r = badgeRig("hm-seo__score--fail");
+  await r.b.refresh();
+  await r.b.refresh();
+  assert.equal(r.btn.kids.length, 1);
+  assert.equal(r.btn.kids[0].tone, "fail");
 });
