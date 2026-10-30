@@ -2,13 +2,38 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/siteconfig"
 )
+
+// fieldErr is a validation error that names the setting at fault, like the
+// server's locale error.
+type fieldErr struct{ field, msg string }
+
+func (e fieldErr) Error() string       { return e.msg }
+func (e fieldErr) LocaleField() string { return e.field }
+
+// A locales error whose text mentions x-default (a page named that way) stays
+// on the locales field: routing follows the reported field, not the text.
+func TestSiteSettings_LocalesErrorMentioningXDefault(t *testing.T) {
+	t.Parallel()
+	g := newOwnerRig(t, true)
+	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
+		return nil, "", fieldErr{"locales", `segment "fr" is already used by the published page "x-default landing" (/fr, id 1)`}
+	}
+	form := url.Values{"name": {"Acme"}, "language": {"en"}, "timezone": {"UTC"}, "locales": {"en\nfr fr\n"}}
+	body := g.do("POST", "/admin/settings/general/identity", "owner-token", form, nil).Body.String()
+	i := strings.Index(body, `id="locales-error"`)
+	if i < 0 || !strings.Contains(body[i:], "x-default landing") {
+		t.Fatalf("error is not shown on the locales field:\n%s", body)
+	}
+	if strings.Contains(body, `id="xdefault-error"`) {
+		t.Error("error is shown on the x-default field")
+	}
+}
 
 // A new locale and that same locale as x-default go through one save; the
 // x-default is validated against the posted list, not the stored one.
@@ -25,7 +50,7 @@ func TestSiteSettings_XDefaultInSameSave(t *testing.T) {
 				return e, x, nil
 			}
 		}
-		return nil, "", errors.New(`x-default locale "` + x + `" is not in the locale list`)
+		return nil, "", fieldErr{"x_default_locale", `x-default locale "` + x + `" is not in the locale list`}
 	}
 	form := func(xdef string) url.Values {
 		return url.Values{"name": {"Acme"}, "language": {"en"}, "timezone": {"UTC"}, "locales": {"en\nfr fr\n"}, "xdefault": {xdef}}

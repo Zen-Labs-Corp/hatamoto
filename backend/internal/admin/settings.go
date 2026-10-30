@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -92,6 +93,10 @@ func validLogoURL(s string) bool {
 	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://")
 }
 
+// localeFielder is implemented by the locale validation error of the server,
+// which knows which setting it rejected.
+type localeFielder interface{ LocaleField() string }
+
 func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
 	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
@@ -119,7 +124,8 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 				errs["locales"] = "Locales are not available here"
 			} else if locales, xdef, err = a.deps.ValidateLocales(r.Context(), f.Language, locales, f.PrefixAll, f.XDefault); err != nil {
 				field := "locales"
-				if strings.Contains(err.Error(), "x-default") {
+				var lf localeFielder
+				if errors.As(err, &lf) && lf.LocaleField() == "x_default_locale" {
 					field = "xdefault"
 				}
 				errs[field] = err.Error()

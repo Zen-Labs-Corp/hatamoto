@@ -41,6 +41,9 @@ type localeSettingsError struct {
 
 func (e *localeSettingsError) Error() string { return e.Message }
 
+// LocaleField reports the field at fault, for the admin form to place the message.
+func (e *localeSettingsError) LocaleField() string { return e.Field }
+
 // localeCheckInfraError is a failure of the segment check itself (database
 // error, cancelled request), as opposed to a segment the rules reject. The
 // cause is logged and never shown: Error is a fixed, human message.
