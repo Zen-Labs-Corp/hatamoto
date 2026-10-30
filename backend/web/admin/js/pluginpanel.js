@@ -3,12 +3,6 @@
 // rendered fragment of the same /plugins/<name>/about page the link points to,
 // so without script, or when the fetch fails, the link works as a plain link.
 // Opening, Esc, the backdrop and returning focus are done by components.js.
-// The filters are open in the markup (so they show without script and on wide
-// screens); on a narrow screen they start collapsed behind their summary.
-const NARROW = "(max-width: 899.98px)"; // pluginbrowse.css switches to two columns at 900px
-if (typeof matchMedia === "function" && matchMedia(NARROW).matches) {
-  document.querySelector("details.hm-pluginbrowse__facets")?.removeAttribute("open");
-}
 const SELECTOR = 'a[data-hm-open="plugin-panel"]';
 let latest = 0;
 
