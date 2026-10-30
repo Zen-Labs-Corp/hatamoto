@@ -39,6 +39,7 @@ const (
 	cmdOps      // entity, redirect, analytics, export, import, backup (ops.go)
 	cmdPackages // keys, theme, plugin, package (packages.go)
 	cmdBuilder  // builder convert (builder_convert.go)
+	cmdLocales  // locales convert (locales_convert.go)
 	cmdAdminURL // admin-url, admin-url set|random (admin_url.go)
 	cmdHelp
 )
@@ -60,7 +61,7 @@ commands:
   routes                           list the core HTTP routes
   plugins list                     list the plugins in HATAMOTO_PLUGIN_DIR (the development override)
   sanitize-html-sections [--dry-run]
-` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + `
+` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + "\n" + localesUsage + `
   supervise                        run serve as a child, switch to verified releases in $HATAMOTO_DATA/releases and roll back when one fails its health gate
   update apply --file F --record R [--sig S]
                                    verify a release binary against its signed record, stage it and switch to it (no download)
@@ -97,6 +98,10 @@ func parseArgs(args []string) (command, error) {
 	case "builder":
 		if len(args) >= 2 && args[1] == "convert" {
 			return cmdBuilder, nil
+		}
+	case "locales":
+		if len(args) >= 2 && args[1] == "convert" {
+			return cmdLocales, nil
 		}
 	case "serve":
 		if len(args) == 1 {
@@ -257,6 +262,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runPackages(ctx, args, logger, os.Stdout)
 	case cmdBuilder:
 		return runBuilderConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout)
+	case cmdLocales:
+		return runLocalesConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout, os.Stderr)
 	}
 
 	// Remaining commands only need the database.
