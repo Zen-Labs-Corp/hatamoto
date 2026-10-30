@@ -13,3 +13,8 @@
 .hm-swatches__opt[aria-checked="true"] .hm-swatches__dot { box-shadow: 0 0 0 2px var(--text); }
 .hm-swatches__opt:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-swatches__name { white-space: nowrap; }
+/* Compact: the dots alone in one row; the name is still the accessible name and the tooltip. */
+.hm-swatches--compact { flex-wrap: nowrap; }
+.hm-swatches--compact .hm-swatches__opt { padding: 0 var(--space-1); }
+.hm-swatches--compact .hm-swatches__name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hm-swatches--compact .hm-swatches__opt { position: relative; }

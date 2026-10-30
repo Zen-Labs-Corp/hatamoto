@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/render"
 )
 
 type fakeMenus struct {
@@ -753,5 +754,29 @@ func TestMenuOpsRefuseAtTheItemLimit(t *testing.T) {
 	}
 	if _, msg := applyMenuOp(treeRows(full[1:]...), "add", "", ""); strings.Contains(msg, "at most") {
 		t.Errorf("add below the limit refused: %q", msg)
+	}
+}
+
+func TestPickerItemsDefaultOnce(t *testing.T) {
+	labels := func(items []map[string]any) []string {
+		var out []string
+		for _, it := range items {
+			out = append(out, it["Label"].(string))
+		}
+		return out
+	}
+	own := pickerItems([]render.MenuPreset{{ID: "default", Label: "Default"}, {ID: "button", Label: "Button"}})
+	if got := strings.Join(labels(own), ","); got != "Default,Button" {
+		t.Fatalf("a theme with its own Default is listed once, got %s", got)
+	}
+	if _, ok := own[0]["Attrs"]; !ok {
+		t.Fatal("the theme's Default must say it stands for the empty value")
+	}
+	plain := pickerItems([]render.MenuPreset{{ID: "accent", Label: "Accent", Swatch: "#2563eb"}})
+	if got := strings.Join(labels(plain), ","); got != "Default,Accent" || plain[0]["Value"] != "" {
+		t.Fatalf("a theme without one gets the empty Default first, got %s", got)
+	}
+	if pickerItems(nil) != nil {
+		t.Fatal("no presets, no picker")
 	}
 }

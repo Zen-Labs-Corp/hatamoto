@@ -358,14 +358,27 @@ func (a *Admin) handleMenuEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 // pickerItems lists a theme's presets for a tile or swatch picker, led by the
-// "Default" choice that stores nothing. A theme with no presets gets no picker.
+// "Default" choice that stores nothing, unless the theme declares a Default of
+// its own: that one stands in for it (and marks itself as the one an empty value
+// shows). A theme with no presets gets no picker.
 func pickerItems(list []render.MenuPreset) []map[string]any {
 	if len(list) == 0 {
 		return nil
 	}
-	out := []map[string]any{{"Label": "Default", "Value": ""}}
+	var out []map[string]any
+	own := false
 	for _, p := range list {
-		out = append(out, map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch})
+		own = own || strings.EqualFold(p.Label, "Default")
+	}
+	if !own {
+		out = append(out, map[string]any{"Label": "Default", "Value": ""})
+	}
+	for _, p := range list {
+		it := map[string]any{"Label": p.Label, "Value": p.ID, "Swatch": p.Swatch}
+		if strings.EqualFold(p.Label, "Default") {
+			it["Attrs"] = map[string]string{"data-hm-empty": ""}
+		}
+		out = append(out, it)
 	}
 	return out
 }

@@ -123,7 +123,8 @@ function init(rootDoc) {
     // markPicker shows value as the chosen option of a picker; none (null) leaves nothing chosen.
     function markPicker(k, value) {
       const opts = [...(q(`[data-hm-ins-group="${k}"]`)?.querySelectorAll(PICK_OPTION) ?? [])];
-      const at = opts.findIndex((o) => value !== null && pickValue(o) === value);
+      let at = opts.findIndex((o) => value !== null && pickValue(o) === value);
+      if (at < 0 && value === "") at = opts.findIndex((o) => o.hasAttribute("data-hm-empty")); // the theme's own Default stands for no value
       opts.forEach((o, i) => {
         if (o.matches("input")) o.checked = i === at;
         else o.setAttribute("aria-checked", String(i === at));

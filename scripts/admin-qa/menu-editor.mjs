@@ -521,6 +521,15 @@ try {
   const swatch = page.locator('[data-hm-ins-group="color"] [role="radio"]');
   const colorField = (await byLabel(page, "Blog")).locator('[name$=".color"]');
   ok((await page.locator('[data-hm-ins-group="color"] [role="radiogroup"]').count()) === 1 && (await page.locator('[data-hm-ins-group="style"]').getAttribute("role")) === "radiogroup", "ISC-39: the style tiles and colour swatches are radio groups");
+  const pickerRows = await page.evaluate(() => {
+    const tops = (sel) => [...new Set([...document.querySelectorAll(sel)].map((e) => Math.round(e.getBoundingClientRect().top)))];
+    const names = [...document.querySelectorAll('[data-hm-ins-group="style"] .hm-segmented__btn')].map((e) => e.textContent.trim());
+    return { styleTops: tops('[data-hm-ins-group="style"] .hm-segmented__opt'), colourTops: tops('[data-hm-ins-group="color"] [role="radio"]'), names, nTiles: names.length, nSwatches: document.querySelectorAll('[data-hm-ins-group="color"] [role="radio"]').length };
+  });
+  ok(new Set(pickerRows.names).size === pickerRows.names.length, `ISC-39: no style is listed twice (${pickerRows.names.join(", ")})`);
+  ok(pickerRows.styleTops.length === 1 && pickerRows.colourTops.length === 1 && pickerRows.nTiles === 4 && pickerRows.nSwatches === 5, `ISC-39: at 1440 the ${pickerRows.nTiles} style tiles and ${pickerRows.nSwatches} colour swatches each sit on one line (tops ${pickerRows.styleTops}, ${pickerRows.colourTops})`);
+  ok(await page.locator('[data-hm-ins-group="style"] .hm-segmented__opt').first().locator("input").isChecked(), "ISC-39: an item with no style shows the Default tile as chosen");
+  ok((await swatch.evaluateAll((l) => l.every((e) => e.getAttribute("title") && e.textContent.trim()))), "ISC-39: a dots-only swatch keeps its name as tooltip and accessible name");
   ok((await swatch.evaluateAll((l) => l.filter((e) => e.getAttribute("aria-checked") === "true").length)) === 1, "ISC-39: exactly one colour is aria-checked");
   await swatch.first().focus();
   await page.keyboard.press("ArrowRight");
