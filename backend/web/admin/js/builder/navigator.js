@@ -5,7 +5,7 @@
 import { h } from "@hm/builder/dom";
 import { locate, siblings, find } from "@hm/builder/store";
 import { BP_NAME, BPS, hiddenAt } from "@hm/builder/bp";
-import { isCollapsed } from "@hm/builder/selinfo";
+import { isCollapsed, rowIdOf, sectionOf, inSection } from "@hm/builder/selinfo";
 import { refLabel } from "@hm/builder/reuseops";
 import { makeKindNames, SEP } from "@hm/builder/kindnames";
 
@@ -184,6 +184,18 @@ export function hiddenBadge(tpl, device) {
   return pill;
 }
 
+/** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind reads as a puzzle piece. */
+const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code" };
+
+/** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name) leaves the thumbnail at its default. */
+function thumbColours(bg) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(bg ?? "");
+  if (!m) return null;
+  const x = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(x.slice(i, i + 2), 16));
+  return { bg, fg: 0.299 * r + 0.587 * g + 0.114 * b < 140 ? "white" : "black" };
+}
+
 /**
  * mountNavigator(root, {getDoc, getSelected, onSelect, getDevice, onToggleHide}) -> {draw, reveal, act, focus}
  * getSelection() lists every selected id (the primary one is getSelected()); onSelect(id, {shift, ctrl}) reports the modifiers of a click.
@@ -191,16 +203,22 @@ export function hiddenBadge(tpl, device) {
  * bar holds the toolbar outside the tree: the Filter input, Collapse all and Rename (enabled with a selection); announce(text) reports the match count.
  * getBlocks() is the synced block list for a ref row's name. getNote(node) is the preset note appended to a row's text ("preset card, differs"; no nested control).
  * onMenu(id, x, y) opens the actions menu at a page point (right-click on a row); rect(id) is a row's box.
- * onAdd(button) opens the layout picker from the empty page's button.
+ * onAdd(button) opens the layout picker from the empty page's button; onAddAt(index, el) the picker for a new section at that top-level index (the "add section here" gap on a row's edge).
+ * Rows: a section is one numbered row (index, thumbnail, name, meta line); a block is a smaller row with a type icon, its opening text and its kind. The eye and more
+ * buttons on a row and the gap are mouse affordances only: aria-hidden, no focus, no data-id (keyboard: h, the context menu, the footer's Add). Their icons are cloned
+ * from template[data-hm-bs-ico] (UI-05); getSelected() may be a component id from the canvas: its collapsed section's row is the selected one.
  * onRename(id, value) saves a name typed in a row (double-click or F2; value "" removes it).
  * getDevice() is the active breakpoint: rows hidden at it carry a badge. The h key on a row calls onToggleHide(id).
  * draw() repaints on the next frame (keeping focus when it was in the tree; draw(true) moves focus to the selected row);
  * act(action) runs a navigation key and returns whether it was one.
  */
-export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], bar = null, announce = () => {} }) {
+export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], bar = null, announce = () => {} }) {
   const collapsed = new Set();
   const badgeTpl = root.closest("[data-hm-builder]")?.querySelector("template[data-hm-bs-hidden-badge]"); // the server-rendered pill
   if (!badgeTpl) console.warn("builder navigator: template[data-hm-bs-hidden-badge] not found inside [data-hm-builder]; Hidden rows lose the pill look");
+  const icoTpl = root.closest("[data-hm-builder]")?.querySelector("template[data-hm-bs-ico]"); // the server-rendered type icons
+  /** A fresh copy of the template's icon `name` (an empty placeholder when the template lacks it). */
+  const icon = (name) => icoTpl?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true) ?? h("span", { "data-ico": name });
   let raf = 0;
   let wantFocus = false;
   let force = false; // draw(true): take focus whatever has it now
@@ -218,7 +236,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     if (field?.isConnected) return;
     const doc = getDoc();
     const sel = getSelected();
-    const members = new Set(getSelection());
+    const selRow = sel ? rowIdOf(doc, sel) : null; // the canvas selects a collapsed section by its component: the row is the container
+    const members = new Set(getSelection().map((id) => rowIdOf(doc, id) ?? id));
     const rows = rowsNow();
     if (renameBtn) renameBtn.disabled = !sel;
     if (collapseBtn) collapseBtn.querySelector("span").textContent = allCollapsed(doc, collapsed) ? "Expand all" : "Collapse all";
@@ -234,33 +253,61 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       return;
     }
     if (renaming && !rows.some((r) => r.id === renaming)) renaming = field = null;
-    const stop = rows.some((r) => r.id === sel) ? sel : rows[0].id;
+    const stop = rows.some((r) => r.id === selRow) ? selRow : rows[0].id;
     const device = getDevice();
-    const items = rows.map((r) => {
+    const band = selRow && sel ? ((s) => (s && inSection(doc, s.id, sel) ? s.id : null))(sectionOf(doc, sel)) : null; // the section holding the selection (once per draw)
+    const last = rows.length - 1;
+    let top = "";
+    const items = rows.map((r, i) => {
+      if (r.section) top = r.id;
       const hidden = hiddenAt(r.node, device);
+      const name = rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections());
       const li = h("li", {
-        class: "hm-bs-row",
+        class: ["hm-bs-row", r.section ? "hm-bs-row--section" : "hm-bs-row--block", top === band && r.id !== selRow && "hm-bs-row--band", hidden && "hm-bs-row--hidden"].filter(Boolean).join(" "),
         role: "treeitem",
         tabindex: r.id === stop ? "0" : "-1",
         "data-id": r.id,
         "aria-level": String(r.level),
         "aria-setsize": String(r.size),
         "aria-posinset": String(r.pos),
-        "aria-selected": String(r.id === sel || members.has(r.id)),
+        "aria-selected": String(r.id === selRow || members.has(r.id)),
         "aria-expanded": r.kids ? String(r.expanded) : false,
-        text: rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections()),
       });
-      if (r.kids) li.prepend(h("span", { "data-caret": "", "aria-hidden": "true" }));
-      if (r.id === renaming) li.replaceChildren((field = renameField(r.node)));
-      else if (hidden) li.append(" ", hiddenBadge(badgeTpl, device)); // part of the row's name, so no aria-label can disagree with the visible text
-      // indent: level steps, plus the chevron's width on rows that have none
-      li.style.setProperty("padding-inline-start", `calc(var(--space-2) + ${r.level - 1} * var(--space-4)${r.kids ? "" : " + 1em + var(--space-1)"})`);
+      if (r.id === renaming) return li.append((field = renameField(r.node))), li;
+      const kids = [];
+      if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
+      if (r.kids) kids.push(h("span", { "data-caret": "", "aria-hidden": "true" }));
+      if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node));
+      else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(ICON_FOR[r.node.t] ?? "puzzle")));
+      const text = h("span", { class: "hm-bs-row__text" });
+      const prefix = `${kindName(r.node.t)}${SEP}`;
+      const typed = !r.section && name.startsWith(prefix); // "Heading · Build pages": the kind moves to its own muted column
+      text.append(h("span", { class: "hm-bs-row__name", text: typed ? name.slice(prefix.length) : name }));
+      if (hidden) text.append(" ", hiddenBadge(badgeTpl, device)); // part of the row's name, so no aria-label can disagree with the visible text
+      const meta = r.section ? metaOf(r) : "";
+      if (meta) text.append(" ", h("span", { class: "hm-bs-row__meta", text: meta }));
+      if (!r.section) text.append(" ", h("span", { class: "hm-bs-row__kind", text: kindName(r.node.t) }));
+      kids.push(text, h("span", { class: "hm-bs-row__acts", "aria-hidden": "true" }, h("span", { class: "hm-bs-row__act", "data-hm-bs-eye": "" }, icon(hidden ? "eye-off" : "eye")), h("span", { class: "hm-bs-row__act", "data-hm-bs-more": "" }, icon("more"))));
+      if (i === last && !filter) kids.push(gap(doc.nodes.length));
+      li.append(...kids);
       return li;
     });
     root.replaceChildren(h("ul", { class: "hm-bs-tree", role: "tree", "aria-multiselectable": "true", "aria-label": "Navigator" }, ...items));
     if (field) field.focus(), field.select();
     else if (hadFocus) focus();
   }
+
+  /** The thumbnail of a section row: its background and text alignment through CSS custom properties (the admin CSP has no inline style attribute). */
+  function thumb(node) {
+    const { bg, align } = thumbOf(node);
+    const e = h("span", { class: "hm-bs-row__thumb", "data-align": align, "aria-hidden": "true" });
+    const c = thumbColours(bg);
+    if (c) (e.style.setProperty("--bs-thumb", c.bg), e.style.setProperty("--bs-thumb-fg", c.fg));
+    return e;
+  }
+
+  /** The "+ add section here" strip on a row's edge, before the section at `index` (a click opens the picker there). */
+  const gap = (index) => h("span", { class: "hm-bs-gap", "aria-hidden": "true", "data-hm-bs-gap": String(index) }, h("span", { class: "hm-bs-gap__btn" }, icon("plus"), h("span", { text: "Add section here" })));
 
   /** The input that replaces a row's text: Enter saves, Esc cancels, leaving saves; the keymap ignores keys typed in it. */
   function renameField(node) {
@@ -284,6 +331,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   }
 
   function rename(id) {
+    id = id && (rowIdOf(getDoc(), id) ?? id);
     if (!id || !find(getDoc(), id)) return;
     renaming = id;
     field = null;
@@ -317,7 +365,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   }
 
   function act(action) {
-    const sel = getSelected();
+    const sel = rowIdOf(getDoc(), getSelected()) ?? getSelected();
     const rows = rowsNow();
     if (action === "rename") return rename(sel), true;
     if (!["prev", "next", "first", "last", "collapse", "expand"].includes(action)) return false;
@@ -353,6 +401,20 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   });
 
   root.addEventListener("click", (e) => {
+    // The hover controls first: they sit inside a row but are not the row.
+    const eye = e.target.closest?.("[data-hm-bs-eye]");
+    const more = !eye && e.target.closest?.("[data-hm-bs-more]");
+    const gapEl = !eye && !more && e.target.closest?.("[data-hm-bs-gap]");
+    if (eye || more || gapEl) {
+      e.stopPropagation?.();
+      const id = (eye || more) && e.target.closest("[data-id]")?.dataset.id;
+      if (eye) return id && onToggleHide(id);
+      if (more) {
+        const box = more.getBoundingClientRect();
+        return id && onMenu(id, box.left, box.bottom);
+      }
+      return onAddAt(Number(gapEl.dataset?.hmBsGap ?? gapEl.getAttribute("data-hm-bs-gap")), gapEl);
+    }
     const row = e.target.closest?.("[data-id]");
     if (!row) return;
     wantFocus = true;
@@ -374,8 +436,11 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   });
   root.addEventListener("dblclick", (e) => {
     const row = e.target.closest?.("[data-id]");
-    if (row && !e.target.closest("[data-caret], input")) rename(row.dataset.id);
+    if (row && !e.target.closest("[data-caret], input, [data-hm-bs-eye], [data-hm-bs-more], [data-hm-bs-gap]")) rename(row.dataset.id);
   });
 
-  return { draw, reveal, act, focus, rename, rect: (id) => [...root.querySelectorAll("[data-id]")].find((r) => r.dataset.id === id)?.getBoundingClientRect() };
+  return { draw, reveal, act, focus, rename, rect: (id) => {
+      const rowId = rowIdOf(getDoc(), id) ?? id;
+      return [...root.querySelectorAll("[data-id]")].find((r) => r.dataset.id === rowId)?.getBoundingClientRect();
+    } };
 }
