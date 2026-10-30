@@ -163,3 +163,16 @@ func (s *LocaleSet) Prefix(tag string) string {
 	}
 	return "/" + seg
 }
+
+// Segment returns the configured URL segment of tag. It is empty for a default
+// locale kept without a prefix, so callers that need a non-empty name (an HTML
+// id, say) fall back to the tag. ok is false for a tag that is not in the set.
+// Unlike Prefix it ignores prefixAll and the Multi rule: it reports the stored
+// segment as is.
+func (s *LocaleSet) Segment(tag string) (segment string, ok bool) {
+	if s == nil {
+		return "", false
+	}
+	segment, ok = s.segByTag[tag]
+	return segment, ok
+}
