@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { isCollapsed, rowIdOf, sectionOf, parentOf, selectionInfo, stepSection, inSection } = await import(new URL("builder/selinfo.js", root));
+const { isCollapsed, rowIdOf, hideTarget, sectionOf, parentOf, selectionInfo, stepSection, inSection } = await import(new URL("builder/selinfo.js", root));
 
 const comp = (id, c) => ({ id, t: "component", p: { type: "hero" }, ...(c ? { c } : {}) });
 const sec = (id, c, extra = {}) => ({ id, t: "container", p: { tag: "section" }, c, ...extra });
@@ -110,4 +110,16 @@ test("a nested container(tag=section) > component is two rows: rowIdOf is identi
   assert.equal(parentOf(nested, "c"), "in");
   assert.equal(parentOf(nested, "in"), "d");
   assert.equal(selectionInfo(nested, "c").depth, 3);
+});
+
+test("hideTarget: the container, or the component when only it is hidden", () => {
+  const hid = { base: { hide: true } };
+  const mk = (cs, ss) => ({ v: 2, nodes: [{ ...sec("s", [{ ...comp("c"), ...(cs ? { s: cs } : {}) }]), ...(ss ? { s: ss } : {}) }] });
+  assert.equal(hideTarget(mk(), "c", "base"), "s"); // the row is the container, whichever id
+  assert.equal(hideTarget(mk(), "s", "base"), "s");
+  assert.equal(hideTarget(mk(hid), "s", "base"), "c"); // only the component hidden: unhide that
+  assert.equal(hideTarget(mk(hid), "c", "base"), "c");
+  assert.equal(hideTarget(mk(hid, hid), "c", "base"), "s"); // both: the container first
+  assert.equal(hideTarget(doc, "b1", "base"), "b1"); // a block: itself
+  assert.equal(hideTarget(doc, "nope", "base"), null);
 });

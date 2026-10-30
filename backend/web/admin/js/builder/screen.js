@@ -4,6 +4,7 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, useLabels } from "@hm/builder/navigator";
+import { hideTarget } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
 import { BP_NAME, DEVICE_LABEL, hiddenAt } from "@hm/builder/bp";
@@ -734,7 +735,8 @@ function start(root, boot) {
   }
 
   /** Hides or shows id on the device (the whole selection on a multi-selection). */
-  async function toggleHide(id) {
+  async function toggleHide(picked) {
+    const id = hideTarget(st.doc, picked, device) ?? picked; // a collapsed section row: its container, or its component when only that is hidden
     const M = await showOnChunk().catch(() => {
       warn("Show and hide did not load. Reload the page.");
       return null;
@@ -742,7 +744,7 @@ function start(root, boot) {
     const n = M && find(st.doc, id);
     if (!n) return;
     const on = !hiddenAt(n, device);
-    const ids = selection.size > 1 && selection.has(id) ? flat(st.doc).filter((x) => selection.has(x.id)) : [n];
+    const ids = selection.size > 1 && (selection.has(id) || selection.has(picked)) ? flat(st.doc).filter((x) => selection.has(x.id)) : [n];
     const ops = ids.flatMap((x) => M.showOnWrites(x, device, !on, boot.kinds.find((k) => k.kind === x.t)?.display).map(({ bp, key, value }) => ({ op: "setStyle", id: x.id, bp, key, value })));
     const what = ids.length > 1 ? ids.length + " elements" : kindName(n.t);
     if (run(ops, { label: `${on ? "Hide" : "Show"} ${what} on ${BP_NAME[device]}` })) announce(`${ids.length > 1 ? ids.length + " elements" : label(id)} ${on ? "hidden" : "shown"} on ${BP_NAME[device]}`);
@@ -812,7 +814,7 @@ function start(root, boot) {
       case "remove":
         return removeSelected();
       case "togglehide":
-        return toggleHide(moveSubject(st.doc, selected)); // a v1 section hides whole, not its inner component
+        return toggleHide(selected); // resolved like the Navigator row: a section hides whole, or its component when only that is hidden
       case "togglenav":
         return dock.stacked() ? dock.toggle("nav") : panes.toggle("nav");
       case "toggleinspector":

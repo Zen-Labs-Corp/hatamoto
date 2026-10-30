@@ -2,6 +2,7 @@
 // Two id spaces exist: a collapsed theme section is one Navigator row keyed by its container id, while the canvas keys
 // it by its component id. Every function accepts either and normalises with rowIdOf. locate() is O(n): call these once per draw.
 import { locate, moveSubject } from "@hm/builder/store";
+import { hiddenAt } from "@hm/builder/bp";
 
 /** Row-collapse predicate (presentation only). Looser than store.v1Shaped: styles are allowed. The Navigator applies it to top-level rows only: a nested container(tag=section) stays two rows. */
 export const isCollapsed = (n) => !!n && n.t === "container" && n.p?.tag === "section" && (n.c ?? []).length === 1 && n.c[0].t === "component";
@@ -10,6 +11,16 @@ export const isCollapsed = (n) => !!n && n.t === "container" && n.p?.tag === "se
 export function rowIdOf(doc, id) {
   const l = locate(doc, id);
   return !l ? null : l.node.t === "component" && l.depth === 2 && isCollapsed(l.parent) ? l.parentId : id;
+}
+
+/** The node a hide/show on id toggles: a collapsed row's container, or its component when only that one is hidden at `device` (so the row's eye and the canvas h undo whatever hid it). Other ids: themselves. null when unknown. */
+export function hideTarget(doc, id, device) {
+  const rowId = rowIdOf(doc, id);
+  const l = rowId && locate(doc, rowId);
+  if (!l) return null;
+  const collapsed = l.depth === 1 && isCollapsed(l.node);
+  if (!collapsed) return id;
+  return !hiddenAt(l.node, device) && hiddenAt(l.node.c[0], device) ? l.node.c[0].id : rowId;
 }
 
 /** The top-level section row containing id (or id itself): {id, node, index, collapsed} or null. */

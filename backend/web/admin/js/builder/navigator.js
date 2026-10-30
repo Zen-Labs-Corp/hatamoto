@@ -110,7 +110,7 @@ export function metaOf(row) {
   if (!row.section) return "";
   const node = row.node;
   const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length;
-  const off = BPS.filter((bp) => hiddenAt(node, bp));
+  const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
   const bg = node.s?.base?.bg;
   const tail = off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : typeof bg === "string" && bg.trim() ? bg.trim() : "";
   return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
@@ -260,7 +260,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     let top = "";
     const items = rows.map((r, i) => {
       if (r.section) top = r.id;
-      const hidden = hiddenAt(r.node, device);
+      const hidden = hiddenAt(r.node, device) || (r.collapsed && hiddenAt(r.collapsed, device)); // the container or its component
       const name = rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections(), r.section);
       const li = h("li", {
         class: ["hm-bs-row", r.section ? "hm-bs-row--section" : "hm-bs-row--block", top === band && r.id !== selRow && "hm-bs-row--band", hidden && "hm-bs-row--hidden"].filter(Boolean).join(" "),

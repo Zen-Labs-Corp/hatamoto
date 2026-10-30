@@ -174,3 +174,13 @@ test("a hidden section shows the open eye-off icon and the hidden class", () => 
   assert.deepEqual(withAttr(row, "data-ico").map((e) => e.attrs["data-ico"]).filter((n) => n.startsWith("eye")), ["eye-off"]);
   assert.match(withClass(row, "hm-bs-row__meta")[0]?.text ?? "Hidden", /Hidden/);
 });
+
+test("a collapsed row whose component alone is hidden shows hidden: class, badge and the eye-off icon", () => {
+  const hiddenComp = { ...comp("c1"), s: { base: { hide: true } } };
+  const m = mount({ d: { v: 2, nodes: [sec("s1", [hiddenComp]), sec("s2", [comp("c2")])] } });
+  const [a, b] = m.rows();
+  assert.match(a.attrs.class, /hm-bs-row--hidden/);
+  assert.doesNotMatch(b.attrs.class, /hm-bs-row--hidden/);
+  assert.ok(withAttr(a, "data-hm-bs-eye").some((e) => withAttr(e, "data-ico").some((i) => i.attrs["data-ico"] === "eye-off")));
+  assert.match(withClass(a, "hm-bs-row__meta")[0].text, /Hidden/);
+});
