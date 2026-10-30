@@ -19,8 +19,9 @@ import (
 // where the rollup cannot answer: second-precision timestamps for recent
 // activity, and the spoof log (the rollup has no IP, by design).
 //
-// Privacy: no query here selects hatamoto_agent_hits.ip. The spoof log returns
-// the /24 (v4) or /48 (v6) network computed in SQL.
+// Privacy: no query here returns hatamoto_agent_hits.ip. The spoof log returns
+// the /24 (v4) or /48 (v6) network computed in SQL; VerificationHealth only
+// counts distinct addresses.
 
 // aiPurposes are the purposes counted as "AI" fetches.
 var aiPurposes = []string{
