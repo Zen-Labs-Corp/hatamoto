@@ -427,6 +427,8 @@ type SiteView struct {
 // field prints only when set.
 type OrgView struct {
 	LegalName, TaxID, Fax, Email string
+	// POBox prints in the Organization's postal address.
+	POBox string
 	// SameAs are extra profile URLs, added after the site's social links.
 	SameAs []string
 	Rating Rating

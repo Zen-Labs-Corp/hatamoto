@@ -178,6 +178,25 @@ func TestOrgView(t *testing.T) {
 	}
 	bad := businessConfig(`{}`)
 	bad.BusinessProfile = json.RawMessage(`{"name":`)
+	withExtras := func(profile string) render.OrgView {
+		cfg := businessConfig(`{}`)
+		cfg.BusinessProfile = json.RawMessage(profile)
+		got, err := orgView(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := withExtras(`{"sameas":["https://example.test/a"],"address":{"po_box":"PO 12","gbp_url":"https://example.test/gbp"}}`); got.POBox != "PO 12" ||
+		!reflect.DeepEqual(got.SameAs, []string{"https://example.test/a", "https://example.test/gbp"}) {
+		t.Errorf("orgView extras = %+v", got)
+	}
+	if got := withExtras(`{"sameas":["https://example.test/gbp"],"address":{"gbp_url":"https://example.test/gbp"}}`); !reflect.DeepEqual(got.SameAs, []string{"https://example.test/gbp"}) {
+		t.Errorf("duplicate profile address: SameAs = %v", got.SameAs)
+	}
+	if got := withExtras(`{"address":{"gbp_url":"javascript:alert(1)"}}`); got.SameAs != nil {
+		t.Errorf("non-http profile address: SameAs = %v", got.SameAs)
+	}
 	if _, err := orgView(bad); err == nil {
 		t.Error("orgView of invalid JSON: want an error")
 	}

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -745,9 +746,13 @@ func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
 		return render.OrgView{}, err
 	}
 	p = bizprofile.FromLegacy(p, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	same := slices.Clone(p.SameAs)
+	if u, err := url.Parse(p.Address.GBPURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") && !slices.Contains(same, p.Address.GBPURL) {
+		same = append(same, p.Address.GBPURL)
+	}
 	return render.OrgView{
-		LegalName: p.Name, TaxID: p.TaxID, Fax: p.Fax, Email: p.Email,
-		SameAs: p.SameAs, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
+		LegalName: p.Name, TaxID: p.TaxID, Fax: p.Fax, Email: p.Email, POBox: p.Address.POBox,
+		SameAs: same, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
 	}, nil
 }
 

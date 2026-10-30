@@ -225,11 +225,11 @@ func siteGraphLD(v *PageView) map[string]any {
 		}
 		org["contactPoint"] = contact
 	}
-	if a := v.Site.Address; a != (Address{}) {
+	if a := v.Site.Address; a != (Address{}) || v.Site.Org.POBox != "" {
 		addr := map[string]any{"@type": "PostalAddress"}
 		for k, val := range map[string]string{
 			"streetAddress": a.Street, "addressLocality": a.City, "addressRegion": a.State,
-			"postalCode": a.PostalCode, "addressCountry": a.Country,
+			"postalCode": a.PostalCode, "addressCountry": a.Country, "postOfficeBoxNumber": v.Site.Org.POBox,
 		} {
 			if val != "" {
 				addr[k] = val

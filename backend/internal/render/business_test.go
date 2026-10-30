@@ -151,6 +151,20 @@ func TestSiteGraph_LocalBusinessNeverReadsSiteContact(t *testing.T) {
 	}
 }
 
+func TestSiteGraph_OrganizationPOBox(t *testing.T) {
+	v := businessPage(nil)
+	v.Site.Org = OrgView{POBox: "PO 12"}
+	addr, _ := graphNodes(t, v)[0]["address"].(map[string]any)
+	if addr["@type"] != "PostalAddress" || addr["postOfficeBoxNumber"] != "PO 12" {
+		t.Errorf("address = %v, want a PostalAddress with the PO box", addr)
+	}
+	v.Site.Address = Address{City: "Sample City"}
+	addr, _ = graphNodes(t, v)[0]["address"].(map[string]any)
+	if addr["postOfficeBoxNumber"] != "PO 12" || addr["addressLocality"] != "Sample City" {
+		t.Errorf("address = %v, want the PO box beside the city", addr)
+	}
+}
+
 func TestSiteGraph_OrganizationExtrasOnlyWhenSet(t *testing.T) {
 	bare := graphNodes(t, businessPage(nil))[0]
 	for _, k := range []string{"legalName", "taxID", "faxNumber", "email", "aggregateRating", "sameAs"} {
