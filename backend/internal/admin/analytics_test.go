@@ -36,6 +36,25 @@ type fakeAgentStats struct {
 	health []agents.HealthDay
 	// healthCalls counts HealthSeries reads.
 	healthCalls int
+	// verify, when set, is what VerificationHealth answers instead of a healthy default.
+	verify *agents.VerificationHealth
+	// verifyErr, when set, fails VerificationHealth.
+	verifyErr error
+	// verifyIDs is the agent ids VerificationHealth was last asked for.
+	verifyIDs []string
+}
+
+func (f *fakeAgentStats) VerificationHealth(_ context.Context, _ agents.Range, ids []string) (agents.VerificationHealth, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.verifyIDs = ids
+	if f.verifyErr != nil {
+		return agents.VerificationHealth{}, f.verifyErr
+	}
+	if f.verify != nil {
+		return *f.verify, nil
+	}
+	return agents.VerificationHealth{Verified: 980, Spoofed: 12, SpoofedIPs: 3, SpoofedIPsInCDN: 3}, nil
 }
 
 func day(offset int) string { return today().AddDate(0, 0, offset).Format(dayLayout) }

@@ -34,7 +34,9 @@ func purposeID(label string) string {
 
 // crawlersPage is the body of the Crawlers section.
 type crawlersPage struct {
-	Lede   string
+	Lede string
+	// Verify is the verification banner above the chart; nil shows none.
+	Verify *verifyBanner
 	Hero   ui.AiaChart
 	Agents ui.AiaAgents
 	// Owner and Return feed the one policy form around the agents table.
@@ -160,7 +162,8 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 	}
 
 	return &crawlersPage{
-		Lede: strconv.Itoa(fetched) + " of " + strconv.Itoa(known) + " known AI agents fetched your site " + rangeWords(rg) + ". Allow or block a whole purpose at the top of each group.",
+		Verify: a.verifyBanner(ctx, q, rg),
+		Lede:   strconv.Itoa(fetched) + " of " + strconv.Itoa(known) + " known AI agents fetched your site " + rangeWords(rg) + ". Allow or block a whole purpose at the top of each group.",
 		Hero: ui.AiaChart{ID: "w-cr-hero", Title: "AI fetches by purpose", Description: "Stacked by what the agent reads pages for.",
 			Src: a.dataURL("overview.json", rg, cmp) + "&group=purpose", Chart: "fetches", Hero: true, Compare: cmp,
 			Table: ov.fetchM.table("AI fetches per day by purpose", "Day")},
