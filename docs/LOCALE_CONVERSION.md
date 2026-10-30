@@ -75,6 +75,8 @@ Inside one transaction, in this order:
 7. Writes the site settings in one update: `language` (the default), the locale list, `prefix_all` and `x_default` and clears the explicit homepage setting (Settings, General, Homepage) if one is set. The server serves that page for every locale before it looks for a locale home, so left in place it would hide the region homes. The report warns with `homepage_cleared`; revert restores the setting.
 8. Stores the conversion record (the plan, the report, before and after values of every changed row and of the settings).
 
+Limitation: pages that belong to a plugin as variants (rows with a variant key) are not converted. They keep the locale they had before the conversion, which is no longer in any converted locale's visible set, so a plugin that looks variants up by locale may not find them. Check such plugins after the apply.
+
 The converter keeps the region attribute on every page (unless you strip it) and every `url_pattern`. Themes can still read the attribute.
 
 The path check plays the role of the settings validation: it computes every published page's public path before and after with the real URL code and blocks the apply when any path would change.
@@ -97,7 +99,7 @@ It refuses, exit code 2 with a list of everything it found, when since the apply
 - a schema's settings changed, or the locale settings changed (`revert_conflict`);
 - pages were created in a converted locale ("stranded" pages, listed with a count and a sample) (`revert_conflict`).
 
-`--force` (admin: the Force option on the refusal) proceeds anyway. Changed pages are still restored to their recorded before-values and the overwritten edits are listed in the output. Stranded pages are left untouched and listed.
+`--force` (admin: the Force option on the refusal) proceeds anyway. In the admin, listing the refusal first is a convenience for the owner, not a control: a request with Force set goes straight through for an owner who passed the sudo check and typed the word. Changed pages are still restored to their recorded before-values and the overwritten edits are listed in the output. Stranded pages are left untouched and listed.
 
 Two refusals can never be forced:
 
@@ -105,6 +107,10 @@ Two refusals can never be forced:
 - `newer_conversion`: a later conversion is still applied; revert that one first.
 
 A clean revert restores exactly the recorded columns (locale, slug, parent, translation group, stripped attributes), the settings (the explicit homepage included) and the schema JSON; modified dates were never touched.
+
+## Audit trail
+
+Every conversion is recorded in the conversions table (see `--history`), with who ran it (`cli` for the command line). Conversions and reverts done in the admin are also written to the admin audit log; those done with the CLI are not, since they need shell and database access.
 
 ## Checklist before running
 

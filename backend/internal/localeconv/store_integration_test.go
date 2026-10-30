@@ -427,6 +427,64 @@ func TestApplyRefusesAMissingTriggerGuard(t *testing.T) {
 	}
 }
 
+func TestApplyReportsAnAbsentTriggerFunctionAsABlockingError(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	seedFixture(t, pool, fixtureSnap())
+	if _, err := pool.Exec(ctx, `
+		DROP TRIGGER IF EXISTS site_config_language_retag ON public.hatamoto_site_config;
+		DROP FUNCTION public.entity_locale_retag()`); err != nil {
+		t.Fatal(err)
+	}
+	svc := testService(pool)
+	rep, err := svc.DryRun(ctx, fixturePlan(t))
+	if err != nil || rep.OK || !hasCode(rep.Errors, CodeTriggerGuardMissing) {
+		t.Fatalf("dry run = %+v, %v", rep, err)
+	}
+	_, _, err = svc.Apply(ctx, fixturePlan(t), ApplyOpts{By: "cli"})
+	var be *BlockingError
+	if !errors.As(err, &be) || !hasCode(be.Issues, CodeTriggerGuardMissing) {
+		t.Fatalf("apply err = %v", err)
+	}
+}
+
+// A row imported without updated_at must not make the fingerprint differ
+// between runs, fail the record step or look edited to the revert.
+func TestApplyAndRevertHandleANullUpdatedAt(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	seedFixture(t, pool, fixtureSnap())
+	// Only an import keeps a NULL: the updated_at trigger honours import mode.
+	if _, err := pool.Exec(ctx, `
+		DO $$ BEGIN
+			PERFORM set_config('hatamoto.import', 'on', true);
+			UPDATE hatamoto_entities SET updated_at = NULL WHERE id = '`+uid("y1")+`';
+		END $$`); err != nil {
+		t.Fatal(err)
+	}
+	var nulls int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE updated_at IS NULL`).Scan(&nulls); err != nil || nulls != 1 {
+		t.Fatalf("rows with a NULL updated_at = %d (%v), want 1", nulls, err)
+	}
+	svc := testService(pool)
+	first, err := svc.DryRun(ctx, fixturePlan(t))
+	if err != nil || !first.OK {
+		t.Fatalf("dry run = %+v, %v", first, err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	second, err := svc.DryRun(ctx, fixturePlan(t))
+	if err != nil || second.DataFingerprint != first.DataFingerprint {
+		t.Fatalf("fingerprint changed between dry runs: %q then %q (%v)", first.DataFingerprint, second.DataFingerprint, err)
+	}
+	rec, _, err := svc.Apply(ctx, fixturePlan(t), ApplyOpts{By: "cli", Fingerprint: first.DataFingerprint})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if _, err := svc.Revert(ctx, rec.ID, false, "cli"); err != nil {
+		t.Fatalf("revert: %v", err)
+	}
+}
+
 func TestDryRunWritesNothingAndStaleFingerprintRefuses(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)

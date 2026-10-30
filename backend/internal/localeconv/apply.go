@@ -250,7 +250,7 @@ func insertRecord(ctx context.Context, tx pgx.Tx, plan *Plan, rep *Report, opts 
 		ids[i], byID[p.Ent.ID] = p.Ent.ID, p
 	}
 	cur, err := tx.Query(ctx, `
-		SELECT id::text, locale, slug, COALESCE(parent_id::text, ''), COALESCE(translation_group::text, ''), updated_at
+		SELECT id::text, locale, slug, COALESCE(parent_id::text, ''), COALESCE(translation_group::text, ''), COALESCE(updated_at, created_at, 'epoch')
 		  FROM hatamoto_entities WHERE id = ANY($1::uuid[]) ORDER BY id`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read back rows: %w", err)

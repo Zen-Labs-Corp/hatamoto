@@ -74,7 +74,7 @@ func loadSnapshot(ctx context.Context, q querier) (*Snapshot, error) {
 	rows, err := q.Query(ctx, `
 		SELECT e.id::text, s.slug, e.slug, COALESCE(e.parent_id::text, ''), e.locale, COALESCE(e.status, 'draft'),
 		       COALESCE(e.translation_group::text, ''), e.slug_nested, e.attributes,
-		       COALESCE(e.created_at, now()), COALESCE(e.updated_at, now()), e.published_at
+		       COALESCE(e.created_at, 'epoch'), COALESCE(e.updated_at, e.created_at, 'epoch'), e.published_at
 		  FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id
 		 WHERE e.variant_key IS NULL
 		 ORDER BY e.id`)
@@ -151,8 +151,13 @@ func loadSite(ctx context.Context, q querier) (SiteState, error) {
 			return site, fmt.Errorf("decode locales: %w", err)
 		}
 	}
-	var def string
-	if err := q.QueryRow(ctx, `SELECT pg_get_functiondef('public.entity_locale_retag'::regproc)`).Scan(&def); err != nil || !strings.Contains(def, retagGuard) {
+	// to_regprocedure gives NULL for a missing function; pg_get_functiondef of
+	// an unknown name would abort the transaction.
+	var def *string
+	if err := q.QueryRow(ctx, `SELECT pg_get_functiondef(to_regprocedure('public.entity_locale_retag()'))`).Scan(&def); err != nil {
+		return site, fmt.Errorf("read the locale retag function: %w", err)
+	}
+	if def == nil || !strings.Contains(*def, retagGuard) {
 		site.TriggerGuardMissing = true
 	}
 	return site, nil

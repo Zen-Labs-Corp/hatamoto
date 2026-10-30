@@ -162,7 +162,7 @@ func findConflicts(ctx context.Context, q querier, id int64, c *conversionRecord
 		SELECT r.entity_id::text, r.after_slug, e.id IS NULL,
 		       e.id IS NOT NULL AND (e.locale, e.slug, e.parent_id, e.translation_group)
 		           IS DISTINCT FROM (r.after_locale, r.after_slug, r.after_parent_id, r.after_group),
-		       e.id IS NOT NULL AND e.updated_at IS DISTINCT FROM r.after_updated_at
+		       e.id IS NOT NULL AND COALESCE(e.updated_at, e.created_at, 'epoch') IS DISTINCT FROM r.after_updated_at
 		  FROM hatamoto_locale_conversion_rows r LEFT JOIN hatamoto_entities e ON e.id = r.entity_id
 		 WHERE r.conversion_id = $1 ORDER BY r.entity_id`, id)
 	if err != nil {
