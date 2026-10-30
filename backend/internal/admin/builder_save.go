@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/seo"
 )
 
 // builderSaveMaxBody bounds a save request: the largest doc plus its envelope.
@@ -52,8 +52,9 @@ const (
 	builderSEOURLMax   = 2048
 )
 
-// check refuses values the public head could not use.
-func (s builderSEO) check() *entity.DocProblem {
+// check refuses values the public head could not use. A canonical equal to
+// stored (the page's current value) is not re-checked.
+func (s builderSEO) check(stored string) *entity.DocProblem {
 	bad := func(msg string) *entity.DocProblem {
 		return &entity.DocProblem{Status: http.StatusUnprocessableEntity, Code: "invalid", Msg: msg}
 	}
@@ -66,18 +67,10 @@ func (s builderSEO) check() *entity.DocProblem {
 	case utf8.RuneCountInString(t(s.OGImage)) > builderSEOURLMax, utf8.RuneCountInString(t(s.Canonical)) > builderSEOURLMax:
 		return bad("Use at most 2048 characters for an address.")
 	}
-	if c := t(s.Canonical); c != "" && !validSEOCanonical(c) {
-		return bad("The canonical address must be a full http(s) address or start with /.")
+	if !seo.CanonicalOK(s.Canonical, stored) {
+		return &entity.DocProblem{Status: http.StatusUnprocessableEntity, Code: "invalid_canonical", Msg: "The canonical address must be a full http(s) address or start with /."}
 	}
 	return nil
-}
-
-func validSEOCanonical(c string) bool {
-	if strings.HasPrefix(c, "/") {
-		return !strings.HasPrefix(c, "//") && !strings.ContainsAny(c, "\\ \r\n")
-	}
-	u, err := url.Parse(c)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // patchSEOAttrs writes the drawer's values into the attributes of the update
@@ -154,7 +147,7 @@ type saveProblem struct {
 func saveProblemOf(p *entity.DocProblem) *saveProblem {
 	msg := p.Msg
 	switch p.Code {
-	case "invalid_page_doc", "invalid", "ref_cycle":
+	case "invalid_page_doc", "invalid", "invalid_canonical", "ref_cycle":
 		msg = sentence(msg)
 	}
 	return &saveProblem{p.Status, p.Code, msg, 0}
@@ -221,7 +214,7 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 		},
 		BeforeWrite: func() *entity.DocProblem {
 			if seo != nil && isPage {
-				if p := seo.check(); p != nil {
+				if p := seo.check(seoFrom(attrsMap(e.Attributes)).Canonical); p != nil {
 					return p
 				}
 			}

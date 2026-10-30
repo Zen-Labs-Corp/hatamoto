@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strings"
@@ -92,6 +93,30 @@ func TestBlogEditorRenders(t *testing.T) {
 	// the plain textarea carries the body, so the form saves without JavaScript
 	if f := parseForm(t, body); f.Get("content") != postBody || f.Get("name") != "Go servers" {
 		t.Errorf("form lost the text: %q", f.Get("content"))
+	}
+}
+
+func TestBlogEditorCanonicalStrict(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	e := r.ents.ents[r.ent.ID]
+	m := attrsMap(e.Attributes)
+	m["canonical_url"] = "/a b"
+	e.Attributes, _ = json.Marshal(m)
+	save := func(canonical string) *httptest.ResponseRecorder {
+		f := r.form(t)
+		f.Set("seo_canonical", canonical)
+		f.Set("_op", "save")
+		return r.post(r.path(), f)
+	}
+	if rec := save("/a b"); rec.Code != 303 {
+		t.Errorf("unchanged stored canonical: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, bad := range []string{"https:///x", "/c d"} {
+		if rec := save(bad); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Use a full address") {
+			t.Errorf("new %q: %d", bad, rec.Code)
+		}
 	}
 }
 

@@ -407,15 +407,41 @@ func TestBuilderSaveSEOStaleVersionWritesNothing(t *testing.T) {
 func TestBuilderSaveSEOInvalidCanonical(t *testing.T) {
 	t.Parallel()
 
-	for _, c := range []string{"javascript:alert(1)", "//evil.example", "not a url"} {
+	for _, c := range []string{"javascript:alert(1)", "//evil.example", "not a url", "/a b", "https:///x"} {
 		r := newSaveRig(t)
 		code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"canonical":"`+c+`"}`))
-		if code != http.StatusUnprocessableEntity || out.Code != "invalid" {
+		if code != http.StatusUnprocessableEntity || out.Code != "invalid_canonical" {
 			t.Errorf("%q: %d %+v", c, code, out)
 		}
 		if len(r.rec.inputs) != 0 {
 			t.Errorf("%q: a refused save wrote", c)
 		}
+	}
+}
+
+// A stored canonical that would be refused today does not block an unrelated SEO edit.
+func TestBuilderSaveSEOStoredCanonicalPasses(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	e := r.ents.ents[r.page.ID]
+	m := map[string]json.RawMessage{}
+	if err := json.Unmarshal(e.Attributes, &m); err != nil {
+		t.Fatal(err)
+	}
+	m["canonical_url"] = json.RawMessage(`"/a b"`)
+	e.Attributes, _ = json.Marshal(m)
+
+	code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"title":"New","canonical":"/a b"}`))
+	if code != 200 || !out.OK {
+		t.Fatalf("unchanged stored canonical: %d %+v", code, out)
+	}
+	if len(r.rec.inputs) != 1 || !strings.Contains(string(*r.rec.inputs[0].Attributes), `"meta_title":"New"`) {
+		t.Errorf("the save did not write the new title: %+v", r.rec.inputs)
+	}
+	r = newSaveRig(t)
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"canonical":"/a b"}`)); code != http.StatusUnprocessableEntity || out.Code != "invalid_canonical" {
+		t.Errorf("a new bad canonical: %d %+v", code, out)
 	}
 }
 

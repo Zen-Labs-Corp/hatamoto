@@ -359,6 +359,35 @@ func TestEntityEditGoldenSaveAndSEO(t *testing.T) {
 	}
 }
 
+func TestEntityFormCanonicalStrict(t *testing.T) {
+	t.Parallel()
+
+	const refused = "Use a full address"
+	post := func(c *contentRig, id uuid.UUID, canonical string) *httptest.ResponseRecorder {
+		return c.post("/admin/entities/"+id.String(), url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "seo_canonical": {canonical}})
+	}
+	c := newContentRig(t)
+	for _, bad := range []string{"https:///x", "/a b"} {
+		if rec := post(c, fid(11), bad); rec.Code != 422 || !strings.Contains(rec.Body.String(), refused) {
+			t.Errorf("update with %q: %d", bad, rec.Code)
+		}
+		rec := c.post("/admin/entities", url.Values{"type": {"service"}, "name": {"Fresh"}, "slug": {"fresh"}, "status": {"draft"}, "seo_canonical": {bad}})
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), refused) {
+			t.Errorf("create with %q: %d", bad, rec.Code)
+		}
+	}
+	e := c.ents.ents[fid(11)]
+	m := attrsMap(e.Attributes)
+	m["canonical_url"] = "/a b"
+	e.Attributes, _ = json.Marshal(m)
+	if rec := post(c, fid(11), "/a b"); strings.Contains(rec.Body.String(), refused) {
+		t.Errorf("unchanged stored canonical refused: %d", rec.Code)
+	}
+	if rec := post(c, fid(11), "/c d"); rec.Code != 422 || !strings.Contains(rec.Body.String(), refused) {
+		t.Errorf("changed canonical: %d", rec.Code)
+	}
+}
+
 func TestEntitySaveValidationErrors(t *testing.T) {
 	t.Parallel()
 
