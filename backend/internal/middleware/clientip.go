@@ -168,10 +168,10 @@ func getIP(r *http.Request) string {
 			if inPrefixes(ts.proxies, a) {
 				continue
 			}
-			return resolveHop(ts, r, hop, a, parts[:i])
+			return resolveHop(ts, r, hop, a)
 		}
 		if peerCDN {
-			return resolveHop(ts, r, peer.String(), peer, nil)
+			return resolveHop(ts, r, peer.String(), peer)
 		}
 		if xrip := strings.TrimSpace(r.Header.Get("X-Real-IP")); xrip != "" {
 			if _, err := netip.ParseAddr(xrip); err == nil {
@@ -197,30 +197,20 @@ func getIP(r *http.Request) string {
 	return host
 }
 
-// resolveHop returns hop unless it is a CDN edge, in which case it looks for
-// the visitor behind it: the CDN header first, then the remaining (left) XFF
-// entries skipping other edges. rest holds the entries left of hop.
-func resolveHop(ts *trustSet, r *http.Request, hop string, a netip.Addr, rest []string) string {
+// resolveHop returns hop unless it is a CDN edge, in which case the visitor is
+// the address in the CDN header. It never looks left of the edge in
+// X-Forwarded-For: those entries are supplied by the client (or by a tenant of
+// the CDN) and cannot be believed. A missing, invalid or proxy-valued header
+// leaves the edge address.
+func resolveHop(ts *trustSet, r *http.Request, hop string, a netip.Addr) string {
 	if !inPrefixes(ts.cdn, a) {
 		return hop
 	}
 	if h, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get(cdnHeader))); err == nil && h.Zone() == "" {
 		h = h.Unmap()
-		if !inPrefixes(ts.cdn, h) && !inPrefixes(ts.proxies, h) {
+		if !inPrefixes(ts.proxies, h) {
 			return h.String()
 		}
-	}
-	for i := len(rest) - 1; i >= 0; i-- {
-		cand := strings.TrimSpace(rest[i])
-		c, err := netip.ParseAddr(cand)
-		if err != nil {
-			continue
-		}
-		c = c.Unmap()
-		if inPrefixes(ts.proxies, c) || inPrefixes(ts.cdn, c) {
-			continue
-		}
-		return cand
 	}
 	return hop
 }
