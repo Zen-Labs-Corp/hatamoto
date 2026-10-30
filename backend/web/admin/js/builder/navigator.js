@@ -4,7 +4,8 @@
 // Every change goes through the screen's callbacks as a store command.
 import { h } from "@hm/builder/dom";
 import { locate, siblings, find } from "@hm/builder/store";
-import { BP_NAME, hiddenAt } from "@hm/builder/bp";
+import { BP_NAME, BPS, hiddenAt } from "@hm/builder/bp";
+import { isCollapsed } from "@hm/builder/selinfo";
 import { refLabel } from "@hm/builder/reuseops";
 import { makeKindNames, SEP } from "@hm/builder/kindnames";
 
@@ -32,33 +33,52 @@ export function label(n, blocks, kindName = shared.kindName, sections = shared.s
   return n.b && Object.keys(n.b).length ? `${base} (bound)` : base;
 }
 
-/** The row's accessible text: its label, then the preset note when it has one. */
-export const rowName = (node, note = "", blocks, kindName, sections) => (note ? `${label(node, blocks, kindName, sections)}, ${note}` : label(node, blocks, kindName, sections));
+/** The row's accessible text: its label (a collapsed section's: sectionName), then the preset note when it has one. */
+export function rowName(node, note = "", blocks, kindName, sections) {
+  const text = isCollapsed(node) ? sectionName(node, blocks, kindName, sections) : label(node, blocks, kindName, sections);
+  return note ? `${text}, ${note}` : text;
+}
+
+/** A collapsed section's row name: the name given to the container, else the component's (its navlabel, else the section title, else its type name). */
+export function sectionName(container, blocks, kindName = shared.kindName, sections = shared.sections) {
+  const own = container.p?.navlabel;
+  if (typeof own === "string" && own.trim()) return own.trim();
+  return label(container.c[0], blocks, kindName, sections);
+}
 
 /**
- * The visible rows in order: {id, node, level, pos, size, parentId, kids, expanded, match}.
- * A non-empty filter keeps the rows whose name (nameOf) has every word, plus their ancestors, all expanded (collapsed is ignored).
+ * The visible rows in order: {id, node, level, pos, size, parentId, kids, expanded, match, section, collapsed, index}.
+ * A container(tag=section) wrapping one component is ONE row (id = the container, collapsed = the component); the component's
+ * children are the rows below it at level 2 with parentId = the container. section: a top-level row; index: its 1-based place
+ * among the top-level rows, whatever the filter hides (null below the top).
+ * A non-empty filter keeps the rows whose name (nameOf) has every word, plus their ancestors, all expanded (collapsed is ignored);
+ * a collapsed row matches on the container's name or the component's.
  */
 export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n) => label(n)) {
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
-  const hit = (n) => words.length > 0 && words.every((w) => nameOf(n).toLowerCase().includes(w));
+  const named = (n, name) => words.every((w) => name.toLowerCase().includes(w));
+  const hit = (n) => words.length > 0 && (named(n, nameOf(n)) || (isCollapsed(n) && named(n, nameOf(n.c[0]))));
+  const kidsOf = (n) => (isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []));
   const keep = new Set();
   const mark = (ns, trail) =>
     ns.forEach((n) => {
       const t = [...trail, n.id];
       if (hit(n)) t.forEach((i) => keep.add(i));
-      mark(n.c ?? [], t);
+      mark(kidsOf(n), t);
     });
   if (words.length) mark(doc.nodes, []);
   const shown = (ns) => (words.length ? ns.filter((n) => keep.has(n.id)) : ns);
   const out = [];
   const walk = (all, level, parentId) => {
     const ns = shown(all);
-    ns.forEach((n, i) => {
-      const kids = shown(n.c ?? []).length;
+    ns.forEach((n) => {
+      const sub = isCollapsed(n) ? n.c[0] : null;
+      const below = sub ? (sub.c ?? []) : (n.c ?? []);
+      const kids = shown(below).length;
       const open = kids > 0 && (words.length > 0 || !collapsed.has(n.id));
-      out.push({ id: n.id, node: n, level, pos: i + 1, size: ns.length, parentId, kids, expanded: open, match: hit(n) });
-      if (open) walk(n.c, level + 1, n.id);
+      const top = level === 1;
+      out.push({ id: n.id, node: n, level, pos: ns.indexOf(n) + 1, size: ns.length, parentId, kids, expanded: open, match: hit(n), section: top, collapsed: sub, index: top ? doc.nodes.indexOf(n) + 1 : null });
+      if (open) walk(below, level + 1, n.id);
     });
   };
   walk(doc.nodes, 1, "");
@@ -68,7 +88,11 @@ export function rowsOf(doc, collapsed = new Set(), filter = "", nameOf = (n) => 
 /** Every id that has children: the collapsed set after "Collapse all". */
 export function collapseAll(doc) {
   const out = new Set();
-  const walk = (ns) => ns.forEach((n) => (n.c?.length ? (out.add(n.id), walk(n.c)) : 0));
+  const walk = (ns) =>
+    ns.forEach((n) => {
+      const below = isCollapsed(n) ? (n.c[0].c ?? []) : (n.c ?? []);
+      if (below.length) (out.add(n.id), walk(below));
+    });
   walk(doc.nodes);
   return out;
 }
@@ -77,6 +101,26 @@ export function collapseAll(doc) {
 export function allCollapsed(doc, collapsed) {
   const ids = collapseAll(doc);
   return ids.size > 0 && [...ids].every((id) => collapsed.has(id));
+}
+
+const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
+
+/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
+export function metaOf(row) {
+  if (!row.section) return "";
+  const node = row.node;
+  const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length;
+  const off = BPS.filter((bp) => hiddenAt(node, bp));
+  const bg = node.s?.base?.bg;
+  const tail = off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : typeof bg === "string" && bg.trim() ? bg.trim() : "";
+  return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
+}
+
+/** What a section row's thumbnail shows: the container's base background (a hex or a token name as written; null when none) and its text alignment. */
+export function thumbOf(container) {
+  const base = container.s?.base ?? {};
+  const bg = typeof base.bg === "string" && base.bg.trim() ? base.bg.trim() : null;
+  return { bg, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
 }
 
 /**
@@ -163,7 +207,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   let renaming = null; // the row shown as an input; paint never rebuilds a live one
   let field = null;
   let filter = "";
-  const nameOf = (n) => label(n, getBlocks(), kindName, getSections());
+  const nameOf = (n) => (isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
   const rowsNow = () => rowsOf(getDoc(), collapsed, filter, nameOf);
   const filterEl = bar?.querySelector("[data-hm-bs-filter]");
   const collapseBtn = bar?.querySelector("[data-hm-bs-collapse]");
