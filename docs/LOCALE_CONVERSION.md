@@ -60,7 +60,7 @@ Example:
 }
 ```
 
-Blocking errors (the dry run exits 2, apply refuses): every validation code above, plus `path_changes`, `group_two_in_locale`, `published_collision`, `root_not_found`, `root_ambiguous` and `trigger_guard_missing` (a site on an older database layout: run `hatamoto migrate up` first). Warnings never block: `attribute_without_home`, `unmatched_value`, `home_children_shadow`.
+Blocking errors (the dry run exits 2, apply refuses): every validation code above, plus `path_changes`, `group_two_in_locale`, `published_collision`, `root_not_found`, `root_ambiguous` and `trigger_guard_missing` (a site on an older database layout: run `hatamoto migrate up` first). Warnings never block: `attribute_without_home`, `unmatched_value`, `home_children_shadow`, `homepage_cleared`.
 
 ## What the converter does
 
@@ -72,7 +72,7 @@ Inside one transaction, in this order:
 4. Moves the direct children of a region home to the top level. Deeper pages keep their parents.
 5. Removes the keys named in `strip_attributes` (none by default).
 6. Edits schema URL overrides: for an override that matches on `locale_from.attribute`, only its `sitemap_group` key is removed. `url_pattern` and the `attribute`/`equals` match stay, so URLs do not change.
-7. Writes the site settings in one update: `language` (the default), the locale list, `prefix_all` and `x_default`.
+7. Writes the site settings in one update: `language` (the default), the locale list, `prefix_all` and `x_default` and clears the explicit homepage setting (Settings, General, Homepage) if one is set. The server serves that page for every locale before it looks for a locale home, so left in place it would hide the region homes. The report warns with `homepage_cleared`; revert restores the setting.
 8. Stores the conversion record (the plan, the report, before and after values of every changed row and of the settings).
 
 The converter keeps the region attribute on every page (unless you strip it) and every `url_pattern`. Themes can still read the attribute.
@@ -104,7 +104,7 @@ Two refusals can never be forced:
 - `already_reverted`: the conversion was reverted before.
 - `newer_conversion`: a later conversion is still applied; revert that one first.
 
-A clean revert restores exactly the recorded columns (locale, slug, parent, translation group, stripped attributes) and the settings and schema JSON; modified dates were never touched.
+A clean revert restores exactly the recorded columns (locale, slug, parent, translation group, stripped attributes), the settings (the explicit homepage included) and the schema JSON; modified dates were never touched.
 
 ## Checklist before running
 

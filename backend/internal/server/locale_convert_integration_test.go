@@ -178,11 +178,14 @@ func TestLocaleConvertFixtureHTTP_Integration(t *testing.T) {
 
 	rows := convFixture()
 	exec(`INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Locale Conv', 'en')
-		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = '[]'::jsonb, homepage_entity_id = NULL`)
+		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = '[]'::jsonb`)
 	convSeed(t, exec, rows)
+	// An explicit homepage on a shared page: the conversion must clear it, or
+	// it would be served in place of every region home.
+	exec(`UPDATE hatamoto_site_config SET homepage_entity_id = $1`, convID("p1"))
 	recordSite := func() string {
 		var s string
-		if err := db.Pool().QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale)::text
+		if err := db.Pool().QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale, 'homepage_entity_id', homepage_entity_id)::text
 			FROM hatamoto_site_config WHERE id = TRUE`).Scan(&s); err != nil {
 			t.Fatal(err)
 		}

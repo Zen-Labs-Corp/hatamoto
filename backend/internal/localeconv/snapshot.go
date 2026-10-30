@@ -70,6 +70,10 @@ type SiteState struct {
 	Locales   []SiteLocale
 	PrefixAll bool
 	XDefault  string
+	// HomepageID is the explicit homepage setting ("" when unset). The server
+	// serves it for every locale before looking for a locale home, so the
+	// conversion clears it.
+	HomepageID string
 	// TriggerGuardMissing is true when entity_locale_retag() lacks the
 	// "two or more locales" guard (the site has not run the multi-locale migration).
 	TriggerGuardMissing bool

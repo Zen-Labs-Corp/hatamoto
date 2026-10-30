@@ -186,7 +186,8 @@ func writeSchemas(ctx context.Context, tx pgx.Tx, changes []SchemaChange) error 
 	return nil
 }
 
-// writeSettings sets the locale settings in one UPDATE. With two or more
+// writeSettings sets the locale settings in one UPDATE and clears the explicit
+// homepage, which would otherwise win over every locale home. With two or more
 // locales the retag trigger returns without touching entities.
 func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
 	list := make([]SiteLocale, len(plan.Locales))
@@ -199,7 +200,8 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
 	}
 	_, err = tx.Exec(ctx, `
 		UPDATE hatamoto_site_config
-		   SET language = $1, locales = $2::jsonb, prefix_all = $3, x_default_locale = $4
+		   SET language = $1, locales = $2::jsonb, prefix_all = $3, x_default_locale = $4,
+		       homepage_entity_id = NULL
 		 WHERE id = TRUE`, normalized(plan.Default), raw, plan.PrefixAllValue(), normalized(plan.XDefault))
 	return err
 }

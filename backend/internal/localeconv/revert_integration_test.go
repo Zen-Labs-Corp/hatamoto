@@ -23,7 +23,7 @@ func recordedDump(t *testing.T, pool *pgxpool.Pool) string {
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_object('slug', s.slug, 'settings', s.settings) ORDER BY s.slug), '[]')::text FROM hatamoto_entity_schemas s`).Scan(&schemas); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale)::text
+	if err := pool.QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale, 'homepage_entity_id', homepage_entity_id)::text
 		FROM hatamoto_site_config WHERE id = TRUE`).Scan(&site); err != nil {
 		t.Fatal(err)
 	}
@@ -41,9 +41,20 @@ func converted(t *testing.T) (*pgxpool.Pool, Service, string, int64) {
 	t.Helper()
 	pool := scratchPool(t)
 	seedFixture(t, pool, fixtureSnap())
+	// An explicit homepage on a shared page would win over every region home.
+	if _, err := pool.Exec(context.Background(), `UPDATE hatamoto_site_config SET homepage_entity_id = $1`, uid("p1")); err != nil {
+		t.Fatal(err)
+	}
 	before := recordedDump(t, pool)
 	svc := testService(pool)
-	rec, _ := mustApply(t, svc, stripPlan(t))
+	rec, rep := mustApply(t, svc, stripPlan(t))
+	if !hasCode(rep.Warnings, CodeHomepageCleared) {
+		t.Errorf("warnings = %+v, want %s", rep.Warnings, CodeHomepageCleared)
+	}
+	var home *string
+	if err := pool.QueryRow(context.Background(), `SELECT homepage_entity_id::text FROM hatamoto_site_config`).Scan(&home); err != nil || home != nil {
+		t.Fatalf("apply left homepage_entity_id = %v (%v)", home, err)
+	}
 	if recordedDump(t, pool) == before {
 		t.Fatal("apply changed nothing")
 	}
@@ -92,6 +103,17 @@ func TestRevertRestoresUntouchedDataByteForByte(t *testing.T) {
 		if issues := refusal(t, err); len(issues) != 1 || issues[0].Code != CodeAlreadyReverted {
 			t.Errorf("force=%v: issues = %+v", force, issues)
 		}
+	}
+}
+
+func TestRevertRestoresTheHomepageSetting(t *testing.T) {
+	pool, svc, _, id := converted(t)
+	if _, err := svc.Revert(context.Background(), id, false, "tester"); err != nil {
+		t.Fatal(err)
+	}
+	var home string
+	if err := pool.QueryRow(context.Background(), `SELECT homepage_entity_id::text FROM hatamoto_site_config`).Scan(&home); err != nil || home != uid("p1") {
+		t.Errorf("homepage_entity_id after revert = %q (%v), want %s", home, err, uid("p1"))
 	}
 }
 

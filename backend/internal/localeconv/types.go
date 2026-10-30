@@ -55,6 +55,7 @@ const (
 	CodeAttributeWithoutHome = "attribute_without_home"
 	CodeUnmatchedValue       = "unmatched_value"
 	CodeHomeChildrenShadow   = "home_children_shadow"
+	CodeHomepageCleared      = "homepage_cleared"
 )
 
 // Issue is one error or warning, in the report and in validation results.

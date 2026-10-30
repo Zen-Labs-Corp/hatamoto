@@ -118,6 +118,9 @@ func (a *analysis) run() {
 	}
 	a.warned = map[string]int{}
 	a.unmatch = map[string]int{}
+	if id := a.snap.Site.HomepageID; id != "" {
+		a.warnf(CodeHomepageCleared, id, "the explicit homepage setting will be cleared so each locale serves its region home, revert restores it")
+	}
 	a.normalisePlan()
 	if !a.findRoots() {
 		return
