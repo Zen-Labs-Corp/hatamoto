@@ -1,6 +1,15 @@
 /* builderinspector.css: UX-2 inspector rules (header, Class row, chips, Show on, box model). Tokens only. */
 .hm-bs-header { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin-bottom: var(--space-2); }
-.hm-bs-header .hm-bs-name { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-header .hm-bs-name { margin: 0; }
+.hm-bs-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; inline-size: var(--space-8); block-size: var(--space-8); border-radius: var(--radius-md); background: var(--surface-hover); color: var(--text-muted); }
+.hm-bs-ico .hm-icon { inline-size: 16px; block-size: 16px; }
+.hm-bs-heading { flex: 1 1 auto; min-width: 0; }
+.hm-bs-nameinput { inline-size: 100%; min-block-size: 24px; font: inherit; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0 var(--space-1); text-overflow: ellipsis; }
+.hm-bs-nameinput:hover { border-color: var(--border); }
+.hm-bs-nameinput:focus-visible { outline: var(--focus-ring); outline-offset: 1px; background: var(--surface); border-color: var(--color-accent); }
+.hm-bs-sub { display: block; padding-inline: var(--space-1); color: var(--text-muted); font-size: var(--text-xs); }
+.hm-bs-sublink { min-block-size: 24px; padding: 0; font: inherit; color: var(--color-accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.hm-bs-sublink:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-bs-more { flex: 0 0 auto; }
 .hm-bs-class { margin-bottom: var(--space-3); }
 .hm-bs-classrow { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }

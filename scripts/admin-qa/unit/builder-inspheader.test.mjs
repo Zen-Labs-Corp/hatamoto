@@ -1,4 +1,4 @@
-// Inspector header: name, device chip and the "..." menu (Paste disabled with a title until a style is copied).
+// Inspector header: icon, name, parent link and the "..." menu (Paste disabled with a title until a style is copied).
 // Run: node --test scripts/admin-qa/unit/builder-inspheader.test.mjs
 import { register } from "node:module";
 import { test } from "node:test";
@@ -37,32 +37,62 @@ globalThis.document = { querySelector: () => null, createElement: (t) => new El(
 globalThis.window = globalThis;
 
 
-const { header, deviceChipText } = await import(new URL("builder/inspheader.js", root));
+const { header, headerModel } = await import(new URL("builder/inspheader.js", root));
 const { clipboard } = await import(new URL("builder/design.js", root));
 
-const api = (device, extra = {}) => ({ device: () => device, copyStyle() {}, pasteStyle() {}, ...extra });
+const leaf = (id, t = "heading", p = {}) => ({ id, t, p, c: [] });
+const sec = (id, c) => ({ id, t: "container", p: { tag: "section" }, c });
+const doc = { nodes: [sec("s1", [leaf("a"), leaf("b", "text")]), sec("s2", [])] };
+const api = (extra = {}) => ({ getDoc: () => doc, select() {}, rename() {}, copyStyle() {}, pasteStyle() {}, ...extra });
 const all = (el) => { const out = []; el.walk((n) => out.push(n)); return out; };
 const text = (n) => n.textContent;
+const sub = (el) => all(el).find((n) => n.attrs.class === "hm-bs-sub");
 
-test("deviceChipText: nothing on Desktop, Editing Tablet / Phone otherwise", () => {
-  assert.equal(deviceChipText("base"), "");
-  assert.equal(deviceChipText("md"), "Editing Tablet");
-  assert.equal(deviceChipText("sm"), "Editing Phone");
+test("headerModel: a section counts its blocks, a block names its parent", () => {
+  assert.deepEqual(headerModel({ node: doc.nodes[0], doc }), { icon: "layers", kind: "section", count: 2, parent: null });
+  const m = headerModel({ node: doc.nodes[0].c[0], doc });
+  assert.equal(m.kind, "block");
+  assert.equal(m.icon, "heading");
+  assert.equal(m.parent.id, "s1");
+  assert.equal(m.parent.name, "Section");
 });
 
-test("the header keeps focus order name, chip, menu button, and hides the chip on Desktop", () => {
-  const tablet = header({ node: { id: "a" }, api: api("md"), name: "Heading" });
-  const tags = tablet.kids.map((k) => k.tag);
-  assert.deepEqual(tags, ["h3", "span", "button", "div"], "name, chip, opener, menu");
-  assert.equal(text(tablet.kids[1]), "Editing Tablet");
-  assert.match(tablet.kids[1].attrs.class ?? "", /hm-badge--tablet/, "the chip recolours through a badge modifier, not an attribute override");
-  const desktop = header({ node: { id: "a" }, api: api("base"), name: "Heading" });
-  assert.deepEqual(desktop.kids.map((k) => k.tag), ["h3", "button", "div"]);
+test("a section header reads \"Section · N blocks\"; a block header links to its parent section", () => {
+  assert.equal(text(sub(header({ node: doc.nodes[0], api: api(), name: "Section" }))), "Section · 2 blocks");
+  let picked = null;
+  const el = header({ node: doc.nodes[0].c[0], api: api({ select: (id) => (picked = id) }), name: "Heading" });
+  assert.ok(all(sub(el)).some((n) => n.textContent === "Block in "));
+  const link = all(el).find((n) => n.tag === "button" && n.attrs.class === "hm-bs-sublink");
+  assert.ok(link);
+  link.on.click[0]();
+  assert.equal(picked, "s1", "the parent's name is a button that selects the parent section");
+});
+
+test("the name is an editable input; Enter/blur rename through the api, Escape reverts, unchanged writes nothing", () => {
+  const calls = [];
+  const el = header({ node: doc.nodes[0].c[0], api: api({ rename: (id, v) => calls.push([id, v]) }), name: "Heading" });
+  const input = all(el).find((n) => n.tag === "input");
+  assert.equal(input.attrs["aria-label"], "Name");
+  input.on.blur[0]();
+  assert.deepEqual(calls, [], "unchanged");
+  input.value = "  Big title ";
+  input.on.keydown[0]({ key: "Enter" });
+  input.on.blur[0]();
+  assert.deepEqual(calls, [["a", "Big title"]]);
+  input.value = "Oops";
+  input.on.keydown[0]({ key: "Escape" });
+  assert.equal(input.value, "Heading");
+});
+
+test("the header keeps focus order icon, name, menu button", () => {
+  const el = header({ node: doc.nodes[0], api: api(), name: "Section" });
+  assert.deepEqual(el.kids.map((k) => k.tag), ["span", "div", "button", "div"]);
+  assert.ok(!all(el).some((n) => /Editing/.test(n.textContent)), "the device chip moved to the context line");
 });
 
 test("Paste style says in its own text that a style must be copied first, and stays focusable", () => {
   clipboard.clear?.();
-  const el = header({ node: { id: "a" }, api: api("base"), name: "Heading" });
+  const el = header({ node: { id: "a" }, api: api(), name: "Heading" });
   const paste = all(el).find((n) => n.textContent === "Paste style (copy a style first)");
   assert.ok(paste, "the reason is the item's text");
   assert.equal(paste.attrs.disabled, undefined, "a disabled item is skipped by the menu's arrow keys");
@@ -71,9 +101,9 @@ test("Paste style says in its own text that a style must be copied first, and st
 });
 
 test("Restore from an earlier version appears only when the screen offers it, and passes the node id", () => {
-  assert.ok(!all(header({ node: { id: "a" }, api: api("base"), name: "H" })).some((n) => /Restore/.test(n.textContent)));
+  assert.ok(!all(header({ node: { id: "a" }, api: api(), name: "H" })).some((n) => /Restore/.test(n.textContent)));
   let got = null;
-  const el = header({ node: { id: "a" }, api: api("base", { restore: (id) => (got = id) }), name: "H" });
+  const el = header({ node: { id: "a" }, api: api({ restore: (id) => (got = id) }), name: "H" });
   const row = all(el).find((n) => /Restore from an earlier version/.test(n.textContent));
   assert.ok(row);
   row.on.click[0]();
