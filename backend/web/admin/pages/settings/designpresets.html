@@ -5,7 +5,7 @@
 {{if .Presets}}<form method="post" action="{{adminPath}}/theme/presets" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{range $p := .Presets}}{{template "hm/card-start" dict "ID" (printf "preset-%s" $p.Name) "Title" $p.Label "Description" (printf "%s · %s" $p.Name $p.SetLine)}}
-<details{{if $p.Open}} open{{end}}><summary>Edit styles</summary>
+<details class="hm-presetdetails"{{if $p.Open}} open{{end}}><summary>Edit styles</summary>
 {{if $p.StateNote}}<p class="hm-muted">{{$p.StateNote}}</p>
 {{end}}{{template "hm/field" dict "ID" $p.LabelField.ID "Name" $p.LabelField.Name "Label" $p.LabelField.Label "Value" $p.LabelField.Value "Error" $p.LabelField.Error}}
 <div class="hm-presetgrid">{{range $g := $p.Groups}}<fieldset class="hm-field__group"><legend><h3>{{$g.Title}}</h3></legend>

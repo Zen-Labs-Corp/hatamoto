@@ -10,7 +10,9 @@
    fields inside the body keep the 46rem measure the old form.hm-stack had. Tables, their scroll
    wrappers and setting lists stay full width so switches line up with the card edge and the footer. The footer stays full width. */
 .hm-cardform { display: block; }
-.hm-cardform .hm-card__body > :not(table, .hm-setlist, .hm-table__scroll, details) { max-width: 46rem; }
+.hm-cardform .hm-card__body > :not(table, .hm-setlist, .hm-table__scroll) { max-width: 46rem; }
+/* Preset details hold the 3-column groups: full width, while their plain fields keep the measure. */
+.hm-cardform .hm-card__body > details.hm-presetdetails { max-width: none; }
 .hm-cardform .hm-card__body > details > :not(.hm-presetgrid, .hm-field__group) { max-width: 46rem; }
 .hm-card__foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
 .hm-card__foot--plain { border-top: 0; padding-inline: 0; }
