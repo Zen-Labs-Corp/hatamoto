@@ -70,7 +70,7 @@ func isSharedPage(rr *routeResult, ent *entity.Entity) bool {
 // homeAlternates lists every locale home in settings order.
 func homeAlternates(snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL, current string) ([]render.Alternate, string) {
 	var alts []render.Alternate
-	for _, tag := range set.Tags() {
+	for _, tag := range set.PublicTags() {
 		alts = append(alts, render.Alternate{
 			Locale: tag, Lang: tag, Href: baseURL + snap.WithLocale(tag, "/"),
 			Current: tag == current, Default: tag == set.Default(),
@@ -84,7 +84,7 @@ func homeAlternates(snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL, cu
 // x-default is the configured locale when it has a copy, else the first copy.
 func (s *Server) alternatesFor(ctx context.Context, snap *entity.URLSnapshot, baseURL string, ent *entity.Entity) ([]render.Alternate, string) {
 	set := snap.Locales()
-	sibs, err := entity.NewGroupStore(s.db.Pool()).LiveSiblings(ctx, ent.ID, set.Tags())
+	sibs, err := entity.NewGroupStore(s.db.Pool()).LiveSiblings(ctx, ent.ID, set.PublicTags())
 	if err != nil {
 		s.logger.Warn("render: translation siblings unavailable, no alternates", "error", err)
 		return nil, ""
@@ -102,7 +102,7 @@ func (s *Server) alternatesFor(ctx context.Context, snap *entity.URLSnapshot, ba
 		hrefs[sb.Locale] = baseURL + locateEntity(entity.WithVisibleLocales(ctx, sb.Locale), snap, repo, other).Path
 	}
 	var alts []render.Alternate
-	for _, tag := range set.Tags() {
+	for _, tag := range set.PublicTags() {
 		a := render.Alternate{Locale: tag, Lang: tag, Current: tag == ent.Locale, Default: tag == set.Default()}
 		if href, ok := hrefs[tag]; ok {
 			a.Href = href

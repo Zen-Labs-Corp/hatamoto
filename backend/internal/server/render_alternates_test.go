@@ -59,3 +59,26 @@ func TestXDefaultHref(t *testing.T) {
 		t.Errorf("setting missing falls back = %q, want /en", got)
 	}
 }
+
+func hiddenAltSet(t *testing.T) (*entity.LocaleSet, *entity.URLSnapshot) {
+	t.Helper()
+	set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}, {Tag: "nl", Segment: "nl"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return set, snap
+}
+
+func TestHomeAlternatesSkipHiddenLocale(t *testing.T) {
+	set, snap := hiddenAltSet(t)
+	alts, _ := homeAlternates(snap, set, "https://x.io", "en")
+	if len(alts) != 2 || alts[0].Locale != "en" || alts[1].Locale != "nl" {
+		t.Fatalf("alts = %+v", alts)
+	}
+}

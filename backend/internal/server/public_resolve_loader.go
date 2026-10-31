@@ -118,6 +118,14 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	// the default locale, or only shared content under prefix-all.
 	fullPath := path
 	ctx, locale, path, prefixed := localeScope(ctx, snap, path)
+	if prefixed && snap.Locales().IsHidden(locale) {
+		// A hidden locale is not public yet: its prefix answers like any
+		// unknown path.
+		if deps.log404 != nil && r != nil {
+			deps.log404(fullPath, r.Referer(), r.UserAgent())
+		}
+		return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
+	}
 	if prefixed && path == "/" {
 		if deps.loadHome == nil {
 			return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil

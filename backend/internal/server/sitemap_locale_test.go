@@ -171,3 +171,43 @@ func TestPlanSitemap_OwnGroupPerLocaleInIndex(t *testing.T) {
 		}
 	})
 }
+
+func TestSitemapOmitsHiddenLocale(t *testing.T) {
+	set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}, {Tag: "nl", Segment: "nl"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := uuid.New()
+	plan := planSitemap(sitemapInput{
+		Snap: snap, BaseURL: "https://x.io", Today: testToday,
+		Entries: []*entity.SitemapEntry{localeEntry("about", "en", &g), localeEntry("a-propos", "fr", &g), localeEntry("over", "nl", &g)},
+	})
+	var locs []string
+	for _, e := range plan.Index().Sitemaps {
+		locs = append(locs, e.Loc)
+	}
+	if strings.Contains(strings.Join(locs, " "), "fr") {
+		t.Fatalf("index lists the hidden locale: %v", locs)
+	}
+	if plan.HasGroup("fr-misc") {
+		t.Error("hidden locale has a sitemap file")
+	}
+	en, _ := plan.GroupURLs("misc")
+	if len(en) != 1 {
+		t.Fatalf("en file = %+v", en)
+	}
+	for _, l := range en[0].Links {
+		if l.HrefLang == "fr" || strings.Contains(l.Href, "/fr") {
+			t.Errorf("hreflang alternates list the hidden locale: %+v", l)
+		}
+	}
+	if len(en[0].Links) != 3 { // en, nl, x-default
+		t.Errorf("links = %+v", en[0].Links)
+	}
+}
