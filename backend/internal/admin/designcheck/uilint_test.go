@@ -93,6 +93,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Review update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/plugins/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
+	{Rule: "UI-01", File: "pages/theme/browse-detail.html", Needle: `data-hm-panel-actions`, Reason: "drawer actions: pluginpanel.js moves this block into the dialog footer; the one-button POST form is the primary action"},
 	{Rule: "UI-01", File: "pages/theme/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
 	{Rule: "UI-01", File: "pages/entities/compare.html", Needle: `.RestoreLabel`, Reason: "list row action: restores one node of the layout, a form of its own in the changes table"},
 	{Rule: "UI-01", File: "pages/media/picker.html", Needle: `"Upload"`, Reason: "inline upload beside its file input in a dialog"},
