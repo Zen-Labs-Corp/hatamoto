@@ -12,6 +12,7 @@ func themeDetailView() RegistryView {
 		{Kind: "theme", Name: "fresh", Title: "Fresh", Author: "Acme", Tier: "first-party", Version: "1.0.0", SiteType: "docs", Flags: []string{"dark", "nojs", "builder"},
 			About: "First paragraph.\nSecond <b>paragraph</b>.", Features: []string{"Does one", "Does two"}, Size: 2048, Commit: "abc1234",
 			Homepage: "https://demo.example.test/fresh", Source: "javascript:alert(1)", Screenshot: "https://registry.example.test/screenshots/fresh.jpg"},
+		{Kind: "theme", Name: "featonly", Version: "1.0.0", Features: []string{"Only a feature"}},
 		{Kind: "theme", Name: "bare", Version: "1.0.0", Description: "Bare one", Homepage: "javascript:alert(1)"},
 		{Kind: "theme", Name: "have", Version: "1.0.0", Installed: true, InstalledVersion: "1.0.0"},
 		{Kind: "theme", Name: "old", Version: "2.0.0", Installed: true, InstalledVersion: "1.0.0", Update: true},
@@ -170,5 +171,16 @@ func TestThemeBrowseDetailFragment(t *testing.T) {
 	}
 	if !strings.Contains(full, "<html") {
 		t.Error("full page lacks the shell")
+	}
+}
+
+// Features show even when the theme has no About text.
+func TestThemeBrowseDetailFeaturesWithoutAbout(t *testing.T) {
+	t.Parallel()
+
+	g := themeDetailRig(t, themeDetailView())
+	_, body := getThemeAbout(g, "featonly", nil)
+	if !strings.Contains(body, `aria-label="Features"`) || !strings.Contains(body, "Only a feature") {
+		t.Error("features list missing without about text")
 	}
 }

@@ -2,7 +2,8 @@
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Byline "Badge" .Badge "CSRF" $.CSRF "Actions" .Actions "Primary" .Primary}}
 <div class="hm-pluginbrowse__detail">{{if .Screenshot}}<img class="hm-themebrowse__shot" src="{{.Screenshot}}" alt="">{{end}}
 {{if .About}}{{template "hm/card-start" dict "ID" "about-card" "Title" "About" "Heading" "h2"}}<div class="hm-stack">{{range .About}}<p>{{.}}</p>{{end}}</div>
-{{if .Entry.Features}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{end}}{{template "hm/card-end"}}{{end}}
+{{if .Entry.Features}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{end}}{{template "hm/card-end"}}{{else if .Entry.Features}}
+{{template "hm/card-start" dict "ID" "features-card" "Title" "Features" "Heading" "h2"}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
 <p class="hm-muted hm-themebrowse__note">{{.Note}}</p>
 {{template "hm/card-start" dict "ID" "details-card" "Title" "Details" "Heading" "h2"}}<dl class="hm-dl">{{with .SiteTypeLabel}}<dt>Site type</dt><dd>{{.}}</dd>{{end}}<dt>Version</dt><dd>{{.Entry.Version}}</dd>
 {{with .Size}}<dt>Size</dt><dd>{{.}}</dd>{{end}}{{with .WorksWith}}<dt>Works with</dt><dd>{{.}}</dd>{{end}}
