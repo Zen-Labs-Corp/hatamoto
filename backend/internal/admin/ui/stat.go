@@ -25,7 +25,7 @@ type Stat struct {
 }
 
 // StatChange is the change against the previous period. Dir is "up", "down" or
-// "flat" and picks the arrow and the screen reader word; Tone (success, danger
+// "flat" and picks the screen reader word; Tone (success, danger
 // or neutral) picks the colour of the delta text; Text is the amount and Caption what it
 // is measured against.
 type StatChange struct {

@@ -208,7 +208,7 @@ Partial: `hm/badge`
 Contract: `badge` in components.json  
 Rules: DC-01, UI-05
 
-A status pill: `--badge-h` (22px) high, `--radius-full`, `--text-xs`, weight 500, no border, a soft tinted fill per tone and a leading dot so tone is not colour alone. Kinds: `success` (green), `warning` (amber), `danger` (red), `info` (indigo), `neutral` (ink on the raised grey), `muted` (outlined grey, no fill: Off, Disabled, Paused, Hidden) and `live` (the vermilion seal dot, the live theme).
+A status pill: `--badge-h` (22px) high, `--radius-full`, `--text-xs`, weight 500, no border (`muted` and `--sm` draw an inset ring, not a border), a soft tinted fill per tone and a leading dot so tone is not colour alone. Kinds: `success` (green), `warning` (amber), `danger` (red), `info` (indigo), `neutral` (ink on the raised grey), `muted` (outlined grey, no fill: Off, Disabled, Paused, Hidden) and `live` (the vermilion seal dot, the live theme).
 
 - **`Size "sm"`** is a compact secondary label (`hm-badge--sm`: `--badge-h-sm`, `--text-2xs`, muted ink; an `Icon` stays accent coloured). The Browse cards use it for First-party; other badges keep the default size.
 - **The dot is the default.** The partial renders it for every badge; callers do not ask for it.
@@ -513,7 +513,7 @@ a page never adds a second form or a second primary button inside the card. The 
 
 ### Shell, auth and error pages
 
-- **Brand and type.** The brand mark is the vermilion seal 旗 (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
+- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
 - **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it.
 - **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.

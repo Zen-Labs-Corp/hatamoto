@@ -41,6 +41,11 @@ This product includes third-party software under its own licences:
       ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
       OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+- The admin brand seal (`seal` in internal/admin/icons.go) is the outline of the
+  character 旗 from Noto Sans CJK JP, (c) 2014-2021 Adobe (http://www.adobe.com/),
+  under the SIL Open Font License 1.1 (https://openfontlicense.org). It is a
+  single glyph drawn as a vector path; no font file is distributed.
+
 - github.com/tetratelabs/wazero v1.9.0 (Apache-2.0), the WebAssembly runtime
   that runs plugins. Its NOTICE file, reproduced as the licence asks:
 
