@@ -706,6 +706,7 @@ try {
 
   // axe accepts the tree pattern on the editor's rows.
   const scan = await newSession(b, { theme: "light", width: 1440, bypassCSP: true });
+  await scan.setViewportSize({ width: 1440, height: 2400 }); // tall enough that the sticky save bar never covers a row
   await scan.goto(base + footerHref);
   await scan.waitForSelector("[data-hm-item][role=treeitem]");
   await scan.addScriptTag({ content: fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8") });
