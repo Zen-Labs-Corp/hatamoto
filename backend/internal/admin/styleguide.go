@@ -111,6 +111,7 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Default", Variant: "pressed", Data: ui.Segmented{Label: "Status", Action: prefix + "/styleguide", Name: "status", Items: []ui.SegmentedItem{{Label: "New", Value: "new", Pressed: true}, {Label: "Read", Value: "read"}, {Label: "Archived", Value: "archived"}}}},
 			{Label: "Radio", Variant: "checked", Data: ui.Segmented{Mode: "radio", Label: "Access", Name: "sg_access", Items: []ui.SegmentedItem{{Label: "Allow", Value: "allow", Pressed: true}, {Label: "Block", Value: "deny"}}}},
 			{Label: "Buttons", Data: ui.Segmented{Mode: "buttons", Label: "Preview width", Items: []ui.SegmentedItem{{Label: "Desktop", Pressed: true}, {Label: "Phone"}}}},
+			{Label: "Disabled item", Variant: "disabled", Data: ui.Segmented{Mode: "buttons", Label: "Attribution", Items: []ui.SegmentedItem{{Label: "First touch", Disabled: true}, {Label: "Last touch", Disabled: true}}}},
 		},
 		"swatches": {
 			{Label: "Default", Data: map[string]any{"Label": "Styleguide colour", "Items": []map[string]any{
