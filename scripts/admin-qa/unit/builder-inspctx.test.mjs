@@ -52,6 +52,7 @@ test("the line holds a pill, a labelled State select and the note it is describe
   assert.equal(find(line, (n) => n.attrs.class === "hm-bs-ctx__bp")[0].textContent, "Tablet");
   const [select] = find(line, (n) => n.tag === "select");
   assert.equal(select.attrs["aria-label"], "State");
+  assert.match(select.attrs.class, /(^| )hm-field__control( |$)/, "the State select is the field primitive, not a bare select");
   assert.equal(select.value, "focus");
   const [note] = find(line, (n) => n.attrs.class === "hm-bs-ctx__note");
   assert.equal(select.attrs["aria-describedby"], note.attrs.id);
@@ -69,4 +70,19 @@ test("changing the select calls onState with the state key, Normal is the empty 
   select.value = "";
   select.on.change.forEach((f) => f());
   assert.deepEqual(got, ["hover", ""]);
+});
+
+test("the breakpoint pill clones the admin's badge when the page carries the template", () => {
+  const badge = new El("span");
+  badge.setAttribute("class", "hm-badge");
+  badge.cloneNode = () => badge;
+  document.querySelector = (sel) => (sel === "template[data-hm-bs-chip]" ? { content: { firstElementChild: badge } } : null);
+  try {
+    const line = contextLine({ device: "sm", onState() {} });
+    const [pill] = find(line, (n) => n === badge);
+    assert.equal(pill.attrs.class, "hm-badge hm-bs-ctx__bp");
+    assert.equal(pill.textContent, "Phone");
+  } finally {
+    delete document.querySelector;
+  }
 });

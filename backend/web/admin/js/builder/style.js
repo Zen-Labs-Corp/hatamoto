@@ -279,6 +279,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       commitBatch: (writes, opts) => commitBatch(writes, bp, opts),
       valid: check,
       hint: errorHint(entries[0]),
+      announce,
     });
     boxModels.push(box);
     return box;

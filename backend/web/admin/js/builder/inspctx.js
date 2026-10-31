@@ -2,7 +2,7 @@
 // override. Pure text helpers plus the small DOM builder. A lazy chunk (style.js mounts it).
 // Run: node --test scripts/admin-qa/unit/builder-inspctx.test.mjs
 
-import { h } from "@hm/builder/dom";
+import { h, chip } from "@hm/builder/dom";
 import { BP_NAME, BREAKPOINT_MAX } from "@hm/builder/bp";
 import { takesParentHover } from "@hm/builder/store";
 
@@ -21,11 +21,11 @@ export function overrideNote(device, state = "") {
 
 let seq = 0;
 
-/** div.hm-bs-ctx: breakpoint pill, State select (aria-label "State"), note. onState(id) runs on change. */
+/** div.hm-bs-ctx: breakpoint badge (the admin's badge clone), State select (aria-label "State"), note. onState(id) runs on change. */
 export function contextLine({ device, state = "", choices = STATE_CHOICES, onState }) {
   const note = h("p", { class: "hm-bs-ctx__note", id: `hm-bs-ctx-note-${++seq}`, text: overrideNote(device, state) });
-  const select = h("select", { class: "hm-bs-ctx__state", "aria-label": "State", "aria-describedby": note.getAttribute("id") }, ...choices.map(([id, name]) => h("option", { value: id, text: name })));
+  const select = h("select", { class: "hm-field__control hm-bs-ctx__state", "aria-label": "State", "aria-describedby": note.getAttribute("id") }, ...choices.map(([id, name]) => h("option", { value: id, text: name })));
   select.value = state;
   select.addEventListener("change", () => onState?.(select.value));
-  return h("div", { class: "hm-bs-ctx" }, h("span", { class: "hm-bs-ctx__bp", text: BP_NAME[device] ?? BP_NAME.base }), select, note);
+  return h("div", { class: "hm-bs-ctx" }, chip(BP_NAME[device] ?? BP_NAME.base, { class: "hm-bs-ctx__bp" }), select, note);
 }
