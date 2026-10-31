@@ -103,7 +103,8 @@
 .hm-bs-style .hm-bs-len { gap: var(--space-1); }
 .hm-bs-style .hm-bs-len .hm-bs-tok { flex: 1 1 5rem; }
 .hm-bs-style .hm-bs-len .hm-bs-slider { flex: 1 1 100%; }
-.hm-bs-style .hm-bs-len .hm-bs-num { width: 4.5rem; }
+.hm-bs-style .hm-bs-len__n { flex: 1 1 6rem; }
+.hm-bs-style .hm-bs-len .hm-bs-num { width: auto; flex: 1 1 3rem; }
 .hm-bs-style .hm-bs-swatch { width: var(--control-h-xs); height: var(--control-h-xs); }
 
 /* Choice buttons: one compact segmented track (the mockup's .sg) that wraps inside the narrow pane. */
