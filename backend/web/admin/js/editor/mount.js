@@ -64,7 +64,7 @@ export async function enhanceEditors(root, { canvasMode = false } = {}) {
   }
   for (const ta of targets) {
     if (editors.has(ta) || !ta.isConnected) continue;
-    const label = ta.labels?.[0]?.textContent?.replace(/\s*\*?\s*\(required\)\s*$/, "").trim() || "Content";
+    const label = ta.labels?.[0]?.textContent?.replace(/\s*\*?\s*\(required\)\s*$/i, "").trim() || "Content";
     try {
       if (ta.dataset.hmEditor === "tiptap") editors.set(ta, mountQuietRichText(kit, ta, { label }));
       else if (ta.dataset.hmEditor === "html") editors.set(ta, kit.mountHtmlSection(ta, canvasMode ? { fields: kit.mountFieldsView } : {}));
