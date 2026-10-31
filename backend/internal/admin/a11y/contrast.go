@@ -144,6 +144,7 @@ var DeclaredPairs = []Pair{
 	{"--color-danger", "--color-shiro", 4.5, "danger text on page"},
 	{"--color-sumi-soft", "--color-shiro", 4.5, "nav text on sidebar"},
 	{"--color-sumi", "--color-kasumi", 4.5, "table head on hover"},
+	{"--color-danger", "--color-kasumi", 4.5, "bulk bar Delete text"},
 	{"--color-sumi", "--chart-bar-soft", 4.5, "bar list name on its bar"},
 	{"--color-sumi", "--chart-bar-quiet", 4.5, "quiet bar list name on its bar"},
 }
