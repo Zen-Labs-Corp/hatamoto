@@ -86,7 +86,7 @@ func (a *Admin) startWithCopies(r *http.Request, tag string) string {
 			skipped++
 			continue
 		}
-		cp, err := a.deps.Content.Copier.CreateCopy(ctx, uid, id, entity.CopyOptions{Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true})
+		cp, err := a.deps.Content.Copier.CreateCopy(ctx, uid, id, entity.CopyOptions{Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true, From: entity.CopyFromThis})
 		switch {
 		case errors.Is(err, entity.ErrLocaleTaken), errors.Is(err, entity.ErrCopyUnsupported):
 			skipped++

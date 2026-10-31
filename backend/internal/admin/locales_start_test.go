@@ -35,6 +35,11 @@ func TestLocaleStartWithCopies(t *testing.T) {
 	if len(cp.calls) != 3 {
 		t.Fatalf("calls = %d, want 3 (home, about, team once each)", len(cp.calls))
 	}
+	for _, call := range cp.calls {
+		if call.Opts.From != entity.CopyFromThis {
+			t.Errorf("From = %q, want %q", call.Opts.From, entity.CopyFromThis)
+		}
+	}
 	has(t, g.do("GET", "/admin/settings/locales/new", "owner-token", nil, nil).Body.String(), `name="start"`, "Start with")
 }
 
