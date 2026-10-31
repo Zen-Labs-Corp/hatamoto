@@ -25,7 +25,7 @@ GOOS=wasip1 GOARCH=wasm go vet ./guest
 
 ## Integration tests against Postgres
 
-Database-backed tests carry the build tag `integration`. Start a Postgres 16 instance, point the environment at it and add the tag:
+Database-backed tests carry the build tag `integration`. Start a Postgres 16 or 18 instance (CI tests both), point the environment at it and add the tag:
 
 ```bash
 docker run -d --name hm-test-db -p 5432:5432 \
