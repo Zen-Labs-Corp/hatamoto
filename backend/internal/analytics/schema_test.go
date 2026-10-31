@@ -40,7 +40,7 @@ func trafficColumns(t *testing.T) map[string][]string {
 func TestTrafficMigrationHasNoPersonalColumns(t *testing.T) {
 	tables := trafficColumns(t)
 	want := map[string][]string{
-		"hatamoto_traffic_daily":      {"day", "dim", "engaged", "form_seen", "form_started", "k1", "k2", "multi", "pageviews", "scrolled", "visits"},
+		"hatamoto_traffic_daily":      {"day", "dim", "engaged", "k1", "k2", "multi", "pageviews", "scrolled", "visits"},
 		"hatamoto_analytics_settings": {"engagement_enabled", "id"},
 	}
 	if !reflect.DeepEqual(tables, want) {
