@@ -132,3 +132,17 @@ func TestConfig_ContactFieldsKeepTheirShape(t *testing.T) {
 		t.Fatalf("config = %+v", c)
 	}
 }
+
+func TestLocaleEntryLegacyJSONIsPublic(t *testing.T) {
+	var got []LocaleEntry
+	if err := json.Unmarshal([]byte(`[{"tag":"en","segment":""}]`), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Hidden || got[0].Name != "" {
+		t.Fatalf("legacy entry = %+v", got)
+	}
+	out, _ := json.Marshal(got)
+	if string(out) != `[{"tag":"en","segment":""}]` {
+		t.Fatalf("zero values must not be written: %s", out)
+	}
+}
