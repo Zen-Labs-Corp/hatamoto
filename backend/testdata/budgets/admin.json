@@ -1,26 +1,26 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 51522,
+      "value": 52711,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "canvas_host_gzip": {
-      "value": 7908,
+      "value": 7986,
       "unit": "bytes",
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 99901,
+      "value": 100870,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 100018
+      "cap": 100987
     },
     "editor_js_total_gzip": {
-      "value": 251655,
+      "value": 260468,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 252368
+      "cap": 261181
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-ux-canvas-inspector: source chips per control (plain badge clone), Local tag and bold override note removed",
-      "date": "2026-10-26"
-    },
     {
       "reason": "builder-ux-canvas-inspector: Show on switches (lazy showon.js); bp.js drops the single-width hideToggle/hideStates",
       "date": "2026-10-26"
@@ -118,6 +114,10 @@
     },
     {
       "reason": "Plugins Browse toolbar, badge sm variant and wide drawer CSS",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder canvas direct manipulation",
       "date": "2026-10-31"
     }
   ]
