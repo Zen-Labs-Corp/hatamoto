@@ -211,7 +211,6 @@ button.hm-bs-group__t:focus-visible { outline: var(--focus-ring); outline-offset
 .hm-bs-opt:hover { background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--segment-bevel), inset 0 -2px 0 var(--segment-bevel); }
 .hm-bs-opt--inherited { border: 1px dashed var(--border); padding: var(--space-1) var(--space-2); box-shadow: none; }
 .hm-bs-opt--inherited:hover { box-shadow: none; }
-.hm-bs-states { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-bs-opt:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-bs-num { width: 5em; }
 .hm-bs-status { display: block; }

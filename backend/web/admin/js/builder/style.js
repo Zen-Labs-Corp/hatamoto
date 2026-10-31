@@ -6,7 +6,7 @@ import { styleCSS } from "@hm/canvas/host";
 import { h } from "@hm/builder/dom";
 import { BP_NAME, BPS, NAMES, atLabel, ownValue, inheritedValue, hiddenAt } from "@hm/builder/bp";
 import { showOnWrites } from "@hm/builder/showon";
-import { takesParentHover } from "@hm/builder/store";
+import { contextLine, stateChoices } from "@hm/builder/inspctx";
 import { rowState, groupDot, isLength, buildPalette, linkSets } from "@hm/builder/controls";
 import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
@@ -119,11 +119,7 @@ export function control(entry) {
 /** Whether the table allows value for entry. */
 export const check = (entry, value) => styleCSS(entry, value) !== null;
 
-/** The State switch options; Parent hover needs a parent that is neither a reference nor a component. */
-const STATE_OPTIONS = [["", "Normal"], ["hover", "Hover"], ["focus", "Focus"], ["active", "Pressed"], ["parent-hover", "Parent hover"]];
-/** The word on a State button when the full name does not fit one row of the 360 px panel (the full name stays its accessible name and tooltip). */
-export const stateWord = (id, name) => (id === "parent-hover" ? "Parent" : name);
-export const stateOptions = (parent) => STATE_OPTIONS.filter(([id]) => id !== "parent-hover" || takesParentHover(parent));
+export { stateChoices as stateOptions };
 
 /** The nearest value inherited at a style-map key (a breakpoint, or a breakpoint plus a state): wider breakpoints of the same state first, then Normal at this width and wider. */
 export function inheritedAt(node, at, key) {
@@ -160,7 +156,7 @@ const writeGroups = (user, v) => {
 };
 
 let uid = 0;
-let refocus = false; // a State choice remounts the panel: the new radio takes focus back
+let refocus = false; // a State choice remounts the panel: the new State select takes focus back
 
 /**
  * mountStyle({node, parent, table, bp, user, display, presets, palette, commit, commitMany, announce}); display is the kind's natural display (boot kinds table) -> element. presets is the boot presets: a row whose value only the node's class gives says "From class .<name>"; a value that differs from the class's says "Custom value".
@@ -172,7 +168,13 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   if (!table) return h("p", { class: "hm-muted", text: "Loading style options…" });
   const bp = state ? `${device}:${state}` : device; // the style-map key every control reads and writes
   const lab = (k) => (state && !k.includes(":") ? `Normal, ${atLabel(k)}` : atLabel(k));
-  const root = h("div", { class: "hm-bs-style" }, stateSwitch(), h("p", { class: "hm-muted", text: `Editing ${atLabel(bp)} styles. Values from ${state ? "Normal and " : ""}wider screens show as inherited.` }));
+  const pick = (id) => {
+    refocus = true;
+    const name = stateChoices(parent).find(([s]) => s === id)?.[1] ?? id;
+    announce(id ? `State: ${name}. Canvas shows ${name.toLowerCase()}.` : "State: Normal.");
+    onState(id);
+  };
+  const root = h("div", { class: "hm-bs-style" }, contextLine({ device, state, choices: stateChoices(parent), onState: pick }));
   const essentials = essentialsFor(node, table.filter((e) => !state || e.states)); // [key]: the controls shown before "More style options"
   const covered = new Set(coveredKeys(essentials));
   const preset = presetOf(node, presets);
@@ -264,31 +266,9 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   paintGroups();
   if (refocus) {
     refocus = false;
-    queueMicrotask(() => root.querySelector('[role="radio"][aria-checked="true"]')?.focus()); // after the caller has attached the panel
+    queueMicrotask(() => root.querySelector('select[aria-label="State"]')?.focus()); // after the caller has attached the panel
   }
   return root;
-
-  /** The State switch: one choice of Normal/Hover/..., arrow keys move and select. */
-  function stateSwitch() {
-    const opts = stateOptions(parent);
-    const radios = opts.map(([id, name]) => h("button", { type: "button", role: "radio", class: "hm-bs-opt", "aria-checked": String(id === state), tabindex: id === state ? "0" : "-1", "data-state": id, text: stateWord(id, name), ...(stateWord(id, name) !== name ? { "aria-label": name, title: name } : {}) }));
-    const pick = (i) => {
-      const [id, name] = opts[(i + opts.length) % opts.length];
-      refocus = true;
-      announce(id ? `State: ${name}. Canvas shows ${name.toLowerCase()}.` : "State: Normal.");
-      onState(id);
-    };
-    radios.forEach((r, i) => r.addEventListener("click", () => i !== opts.findIndex(([id]) => id === state) && pick(i)));
-    const group = h("div", { role: "radiogroup", "aria-label": "State", class: "hm-bs-states" }, ...radios);
-    group.addEventListener("keydown", (e) => {
-      const i = radios.indexOf(document.activeElement);
-      const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: radios.length - 1 }[e.key];
-      if (to === undefined || i < 0) return;
-      e.preventDefault();
-      pick(to);
-    });
-    return group;
-  }
 
   function showOffsets() {
     if (!position) return;

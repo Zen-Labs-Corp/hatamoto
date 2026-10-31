@@ -477,7 +477,7 @@ T.T4 = {
     await a.click(row(p, first.id));
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
-    await a.click(p.locator('[data-hm-bs-panel] [role="radio"][data-state="hover"]'));
+    await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("hover");
     await openMore(p);
     const effects = p.locator("[data-hm-bs-panel] .hm-bs-group__t", { hasText: "Effects" });
     if ((await effects.getAttribute("aria-expanded")) === "false") await a.click(effects); // open already in some states

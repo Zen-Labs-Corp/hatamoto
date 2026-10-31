@@ -436,12 +436,15 @@ test("Clear on a colour with nothing set here commits nothing", () => {
   assert.deepEqual(calls, [null]);
 });
 
-// The Style tab's order: State switch first, Essentials, then "More style options" holding every group.
-test("the State switch is the first child, Essentials come next, and the groups sit under More style options", () => {
+// The Style tab's order: context line first, Essentials, then "More style options" holding every group.
+test("the context line is the first child, Essentials come next, and the groups sit under More style options", () => {
   const m = mount({ id: "h", t: "container", s: {} }, { table: boxTable });
   const root = m.el;
-  assert.equal(root.kids[0].attrs.role, "radiogroup");
-  assert.equal(root.kids[0].attrs["aria-label"], "State");
+  assert.equal(root.kids[0].attrs.class, "hm-bs-ctx");
+  let select = null;
+  root.kids[0].walk((n) => n.tag === "select" && (select = n));
+  assert.equal(select.attrs["aria-label"], "State");
+  assert.ok(!root.textContent.includes("Editing"), "the sentence is gone");
   const kinds = root.kids.map((k) => k.attrs["aria-label"] ?? k.tag);
   assert.ok(kinds.indexOf("Essentials") > 0 && kinds.indexOf("Essentials") < kinds.indexOf("details"), kinds.join());
   const more = root.kids.find((k) => k.tag === "details");
