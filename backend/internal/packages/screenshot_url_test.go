@@ -11,6 +11,9 @@ func TestScreenshotURL(t *testing.T) {
 		{"https://hatamoto.dev/registry.json", "//evil.example/a.png", "https://hatamoto.dev//evil.example/a.png"},
 		{"https://hatamoto.dev/registry.json", "https://evil.example/a.png", "https://hatamoto.dev/https://evil.example/a.png"},
 		{"https://hatamoto.dev/registry.json", "../../a.png", "https://hatamoto.dev/a.png"},
+		{"https://hatamoto.dev/registry.json", "screenshots/a b.png", "https://hatamoto.dev/screenshots/a%20b.png"},
+		{"https://hatamoto.dev/registry.json", "screenshots/100%.png", "https://hatamoto.dev/screenshots/100%25.png"},
+		{"https://hatamoto.dev/registry.json", "screenshots/a?b#c.png", "https://hatamoto.dev/screenshots/a%3Fb%23c.png"},
 		{"%zz", "a.png", ""},
 		{"", "a.png", ""},
 	} {
