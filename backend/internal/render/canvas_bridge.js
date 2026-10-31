@@ -493,6 +493,14 @@
     return doc.querySelector(sel === 'section' ? '[data-hm-section="' + esc + '"]' : '[data-hm-node="' + esc + '"]');
   }
 
+  // el, or the first descendant that has a box when el is a display:contents wrapper
+  function boxOf(el) {
+    while (boxless(el) && el.firstElementChild) el = el.firstElementChild;
+    return el;
+  }
+
+  function pad(v) { var n = Math.round(parseFloat(v)); return n > 0 ? Math.min(n, 10000) : 0; }
+
   function sendLayout2() {
     var els = doc.querySelectorAll(NODE_SEL);
     var sx = window.scrollX, sy = window.scrollY;
@@ -512,6 +520,11 @@
         var cs = window.getComputedStyle(el);
         item.c = 1;
         item.dir = cs.display === 'grid' ? 'grid' : (cs.flexDirection.indexOf('row') === 0 ? 'row' : 'column');
+      }
+      if (item.p === '') {
+        // Rendered padding (top, right, bottom, left) of the first box-generating element: the parent cannot read it across the sandbox.
+        var ps = window.getComputedStyle(boxOf(el));
+        item.pd = [pad(ps.paddingTop), pad(ps.paddingRight), pad(ps.paddingBottom), pad(ps.paddingLeft)];
       }
       nodes.push(item);
     }

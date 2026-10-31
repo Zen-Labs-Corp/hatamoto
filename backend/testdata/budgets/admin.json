@@ -1,26 +1,26 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 51522,
+      "value": 53482,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "canvas_host_gzip": {
-      "value": 7908,
+      "value": 7986,
       "unit": "bytes",
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 99901,
+      "value": 101122,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 100018
+      "cap": 101239
     },
     "editor_js_total_gzip": {
-      "value": 251655,
+      "value": 262338,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 252368
+      "cap": 263362
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,14 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-ux-canvas-inspector: source chips per control (plain badge clone), Local tag and bold override note removed",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: Show on switches (lazy showon.js); bp.js drops the single-width hideToggle/hideStates",
-      "date": "2026-10-26"
-    },
     {
       "reason": "builder-ux-canvas-inspector: box model rings (nested, quick 0/auto, link toggles)",
       "date": "2026-10-26"
@@ -118,6 +110,14 @@
     },
     {
       "reason": "Plugins Browse toolbar, badge sm variant and wide drawer CSS",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder canvas direct manipulation",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder JS: canvas direct manipulation (select, drag, resize, inline edit) and its visual fixes; editor_js_first_gzip 99901 (main) -\u003e 101122, editor_js_total_gzip 251655 (main) -\u003e 262338, measured",
       "date": "2026-10-31"
     }
   ]

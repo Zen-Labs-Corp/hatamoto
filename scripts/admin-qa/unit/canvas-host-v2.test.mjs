@@ -169,16 +169,24 @@ test("a stale load into the hidden buffer leaves the active frame's edit alone",
   assert.equal(canvas.editingId, "a2");
 });
 
-test("the hover is a dashed outline and nothing else: no name tag over the first line", () => {
-  const { host, canvas } = rig();
+test("the hover ring carries the Navigator's label as a tag, and none on the selected element", () => {
+  const { host, canvas } = rig({ nodeLabel: (id, _k, t) => `Label ${t}` });
   const box = { x: 0, y: 0, w: 100, h: 20 };
-  dom.deliver(host, { hm: 2, type: "layout", docH: 420, main: { x: 0, y: 0, w: 100, h: 420 }, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }, { id: "h1", k: "n", t: "heading", p: "s1", ...box }] });
+  dom.deliver(host, { hm: 2, type: "layout", docH: 420, main: { x: 0, y: 0, w: 100, h: 420 }, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }, { id: "h1", k: "n", t: "heading", p: "s1", ...box }, { id: "h2", k: "n", t: "text", p: "s1", ...box }] });
+  const rings = () => {
+    const out = [];
+    const walk = (e) => { if (e.attrs?.["data-hm-pe-hover"] !== undefined) out.push(e); (e.children ?? []).forEach(walk); };
+    walk(host);
+    return out;
+  };
   dom.deliver(host, { hm: 2, type: "hover", id: "h1", k: "n" });
-  const rings = [];
-  const walk = (e) => { if (e.attrs?.["data-hm-pe-hover"] !== undefined) rings.push(e); (e.children ?? []).forEach(walk); };
-  walk(host);
-  assert.equal(rings.length, 1, "a hover ring is drawn");
-  assert.deepEqual(rings[0].children, [], "with no label inside it");
+  assert.equal(rings().length, 1, "a hover ring is drawn");
+  assert.equal(rings()[0].children.length, 1);
+  assert.equal(rings()[0].children[0].attrs.class, "hm-pe__tag");
+  assert.equal(rings()[0].children[0].textContent, "Label heading");
+  dom.deliver(host, { hm: 2, type: "select", id: "h2", k: "n", shift: false, ctrl: false });
+  dom.deliver(host, { hm: 2, type: "hover", id: "h2", k: "n" }); // the selected one
+  assert.equal(rings().length, 0, "no ring, so no tag, on the selection");
   assert.ok(canvas);
 });
 
@@ -195,36 +203,43 @@ test("every '+' button is visible (data-show), so none is an invisible click-swa
   const walk = (e) => { if (e.attrs?.["data-hm-pe-plus"] !== undefined) plus.push(e); if (e.attrs?.["data-hm-pe-pluses"] !== undefined) layer = e; (e.children ?? []).forEach(walk); };
   walk(canvas.stage);
   assert.ok(plus.length > 0, "there are '+' buttons");
+  assert.ok(plus.every((b) => b._pt.parent !== ""), "no page-level '+': the Add section lines replace them");
   assert.ok(plus.every((b) => b.attrs["data-show"] === "sel" || b.attrs["data-show"] === "hover"), "all visible");
   dom.deliver(host, { hm: 2, type: "selection", id: "h", k: "n", prop: "html", rect: { x: 1, y: 1, w: 5, h: 5 }, marks: [] });
   assert.equal(layer.hidden, true, "no '+' layer while typing");
   delete globalThis.requestAnimationFrame;
 });
 
-test("the toolbar: the tab stop lands on the first enabled button of a top-level element, Hide turns into Show, and there is an Add after", async () => {
+test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lands on the first enabled button; Hide turns into Show", async () => {
   globalThis.requestAnimationFrame = () => {};
   let hidden = false;
-  const added = [];
-  const { host, canvas } = rig({ nodeLabel: (id, _k, t) => t, onAction() {}, isHidden: () => hidden, onAddAfter: (b) => added.push(b) });
+  const acted = [];
+  const state = () => ({ name: "Columns", parentId: "", parentName: "", canUp: false, canDown: true, hidden });
+  const { host, canvas } = rig({ nodeLabel: (id, _k, t) => t, onAction: (a) => acted.push(a), isHidden: () => hidden, toolbarState: state });
   dom.deliver(host, { hm: 2, type: "layout", docH: 400, main: { x: 0, y: 0, w: 100, h: 400 }, nodes: [{ id: "top", k: "n", t: "columns", p: "", x: 0, y: 0, w: 100, h: 20 }] });
   dom.deliver(host, { hm: 2, type: "select", id: "top", k: "n", shift: false, ctrl: false });
   await new Promise((r) => setTimeout(r, 150));
   const btn = {};
-  const walk = (e) => { if (e.attrs?.["data-act"]) btn[e.attrs["data-act"]] = e; (e.children ?? []).forEach(walk); };
+  let bar = null;
+  const walk = (e) => { if (e.attrs?.["data-act"]) btn[e.attrs["data-act"]] = e; if (e.attrs?.["data-hm-pe-toolbar"] !== undefined) bar = e; (e.children ?? []).forEach(walk); };
   walk(canvas.stage);
-  assert.ok(btn.parent.hasAttribute("disabled"), "a top-level element has no parent to select");
+  assert.deepEqual(Object.keys(btn).sort(), ["duplicate", "more", "movedown", "moveup", "parent", "remove", "togglehide"]);
+  assert.ok(btn.moveup.hasAttribute("disabled"), "a first element cannot move up");
+  assert.equal(btn.parent.hidden, true, "a top-level element has no parent to select");
   const stops = Object.values(btn).filter((b) => b.attrs.tabindex === "0");
   assert.equal(stops.length, 1, "one tab stop");
-  assert.ok(!stops[0].hasAttribute("disabled"), "and it is not the disabled Parent");
-  assert.equal(btn.duplicate.attrs.tabindex, "0", "the first enabled button");
-  assert.equal(btn.togglehide.textContent, "Hide");
+  assert.ok(!stops[0].hasAttribute("disabled"), "and it is not a disabled one");
+  assert.equal(btn.movedown.attrs.tabindex, "0", "the first enabled button");
+  assert.equal(btn.togglehide.attrs["aria-label"], "Hide on this device");
+  for (const b of Object.values(btn).filter((x) => x.attrs["data-act"] !== "parent")) assert.equal(b.attrs.title, b.attrs["aria-label"], `${b.attrs["data-act"]}: an icon-only button names itself on hover`);
+  bar.listeners.click[0]({ target: { closest: () => btn.duplicate } });
+  assert.deepEqual(acted, ["duplicate"]);
   hidden = true;
   dom.deliver(host, { hm: 2, type: "hover", id: "top", k: "n" }); // any repaint
   dom.deliver(host, { hm: 2, type: "select", id: "top", k: "n", shift: false, ctrl: false });
   canvas.setDevice("md");
-  assert.equal(btn.togglehide.textContent, "Show");
   assert.equal(btn.togglehide.attrs["aria-label"], "Show on this device");
-  assert.ok(btn.addafter, "an Add after button");
+  assert.equal(btn.togglehide.attrs.title, "Show on this device", "the title follows the label");
   delete globalThis.requestAnimationFrame;
 });
 

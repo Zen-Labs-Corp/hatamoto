@@ -23,6 +23,11 @@
   --color-success-soft: #eaf3ee;
   --color-warning: #8a5a12;
   --color-warning-soft: #fbf3e6;
+  --color-guide-pad: #db2777; /* canvas padding handles, hatch, value badge */
+  --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
+  --color-inverse-fg: #ffffff;
+  --color-inverse-muted: #a1a1aa;
+  --color-inverse-hover: #3f3f46;
   --color-device-tablet: #8a5a12;
   --color-device-tablet-soft: #fbf3e6;
   --color-device-phone: #0f6b6b;
@@ -187,6 +192,11 @@
   --color-success-soft: #16261e;
   --color-warning: #e3b872;
   --color-warning-soft: #2a2112;
+  --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
+  --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
+  --color-inverse-fg: #ffffff;
+  --color-inverse-muted: #a1a1aa;
+  --color-inverse-hover: #3f3f46;
   --color-device-tablet: #e3b872;
   --color-device-tablet-soft: #2a2112;
   --color-device-phone: #6fd0cb;
@@ -236,6 +246,11 @@
     --color-success-soft: #16261e;
     --color-warning: #e3b872;
     --color-warning-soft: #2a2112;
+    --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
+    --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
+    --color-inverse-fg: #ffffff;
+    --color-inverse-muted: #a1a1aa;
+    --color-inverse-hover: #3f3f46;
     --color-device-tablet: #e3b872;
     --color-device-tablet-soft: #2a2112;
     --color-device-phone: #6fd0cb;

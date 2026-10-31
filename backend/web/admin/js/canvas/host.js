@@ -107,7 +107,7 @@ export function createCanvas(root, handlers, opts = {}) {
   const ensureChrome = () => {
     chromeLoad ??= import("@hm/canvas/chrome")
       .then((m) => {
-        const parts = [m.mountStrip(api, handlers), ...(v2 ? [m.mountToolbar(api, handlers), m.mountHandles(api, handlers)] : [])];
+        const parts = [m.mountStrip(api, handlers), ...(v2 ? [m.mountToolbar(api, handlers), m.mountHandles(api, handlers), m.mountDirectLayer(api, handlers)] : [])];
         chrome = { update: () => parts.forEach((x) => x.update()), destroy: () => parts.forEach((x) => x.destroy()) };
       })
       .catch((err) => console.error("hatamoto canvas: strip", err));
@@ -373,6 +373,8 @@ export function createCanvas(root, handlers, opts = {}) {
     if (over) {
       const ring = h("div", { class: "hm-pe__hover", "data-hm-pe-hover": "" });
       ring.style.cssText = `top:${over.y * scale}px;left:${over.x * scale}px;width:${over.w * scale}px;height:${over.h * scale}px`;
+      const tag = (over.k === "s" ? handlers.sectionLabel?.(over.id) : handlers.nodeLabel?.(over.id, over.k, over.t)) ?? "";
+      if (tag && hoverId !== selectedId) ring.append(h("span", { class: "hm-pe__tag", text: tag }));
       marks.append(ring);
     }
     if (hint) {

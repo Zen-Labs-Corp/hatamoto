@@ -235,3 +235,22 @@ func TestBridgeFormatUndoSnapshots(t *testing.T) {
 		t.Error("the inline block must not touch the snapshot stack")
 	}
 }
+
+// Every top-level node (v1 section or native container) reports its rendered padding as four whole px in the layout node; nothing else does.
+func TestBridgeLayoutCarriesSectionPadding(t *testing.T) {
+	src := bridgeSource(t)
+	for _, want := range []string{
+		"if (item.p === '')",
+		"window.getComputedStyle(boxOf(el))",
+		"while (boxless(el) && el.firstElementChild)",
+		"item.pd = [pad(ps.paddingTop), pad(ps.paddingRight), pad(ps.paddingBottom), pad(ps.paddingLeft)]",
+		"Math.round(parseFloat(v))",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("layout padding lost %q", want)
+		}
+	}
+	if strings.Count(src, "item.pd") != 1 {
+		t.Error("pd must be set in exactly one place (top-level nodes)")
+	}
+}

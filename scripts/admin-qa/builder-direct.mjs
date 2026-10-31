@@ -110,8 +110,17 @@ async function pick(re) {
   await p.waitForSelector(MENU, { state: "detached", timeout: 3000 });
   await settle(400);
 }
+// The page-level "Add section" pill (top: before the first section) takes the pointer only while it shows: hover the section next to it first.
+async function clickTopPill() {
+  const line = p.locator('[data-hm-pe-gapline][aria-label="Add section at the top"]');
+  await line.waitFor({ state: "attached", timeout: 5000 });
+  const box = await line.boundingBox();
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height + 40, { steps: 4 }); // inside the section below the line
+  await line.locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
+  await line.click();
+}
 async function addColumns3() {
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await clickTopPill();
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "3 columns" }).click();
   await settle(500);
 }
@@ -171,10 +180,12 @@ await check("a click at the centre of a heading inside a 2-column section select
   await settle(300);
   if (!(await p.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected))) throw new Error("the toolbar was rebuilt by a hover redraw");
   const acts = await p.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
-  if (acts.join("|") !== "Select parent|Duplicate|Wrap in container|Add after|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
-  await p.locator('[data-hm-pe-toolbar] [data-act="parent"]').focus();
+  if (acts.map((a) => a.replace(/^Select parent.*/, "Select parent")).join("|") !== "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
+  await p.locator('[data-hm-pe-toolbar] [data-act="duplicate"]').focus();
   await p.keyboard.press("ArrowRight");
-  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "duplicate") throw new Error("ArrowRight did not move to Duplicate");
+  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "togglehide") throw new Error("ArrowRight did not move to Hide");
+  await p.keyboard.press("ArrowLeft");
+  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "duplicate") throw new Error("ArrowLeft did not move back to Duplicate");
   const count = (await ids()).length;
   await p.keyboard.press("Enter");
   await settle(500);
@@ -220,7 +231,7 @@ await check("'+' picker: 3 columns adds a section with three column children and
   await open(NAME1);
   start1 = await sig();
   const before = (await ids()).length;
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await clickTopPill();
   const dlg = p.getByRole("dialog", { name: "Add a section" });
   await dlg.waitFor({ timeout: 3000 });
   await axeOn("the open layout picker");
@@ -240,13 +251,16 @@ await check("'+' picker: 3 columns adds a section with three column children and
 
 await check("'+' between sections and inside an empty column inserts at that exact position (doc order), by mouse", async () => {
   const s3 = await sig();
-  // The 3-column section is only 64 px tall: its three empty columns' "+" win the crowded spots, so the page-level points beside
-  // it are dropped (the toolbar's Add after is the way there). The point after the last section is clear of them.
+  // The page level has no "+": the "Add section" line after the last section is the way there.
   const [first, second] = await tops();
-  const after = p.locator(`[data-hm-pe-plus][aria-label^="Add after"]`);
+  const after = p.locator(`[data-hm-pe-gapline][aria-label="Add section at the end"]`);
   await after.first().waitFor({ state: "attached", timeout: 5000 });
-  if ((await after.count()) !== 1) throw new Error("expected one page-level + beside the 64 px section, got " + (await after.count()));
-  await after.first().click({ force: true });
+  if ((await after.count()) !== 1) throw new Error("expected one end-of-page Add section line, got " + (await after.count()));
+  // a pill takes the pointer only while it shows: hover the last section, then click its pill
+  const endBox = await after.first().boundingBox();
+  await p.mouse.move(endBox.x + endBox.width / 2, endBox.y - 40, { steps: 4 });
+  await after.first().locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
+  await after.first().click();
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "1 column" }).click();
   await settle(500);
   const top = await tops();
@@ -266,13 +280,13 @@ await check("'+' between sections and inside an empty column inserts at that exa
   return "after-first section and the second empty column received their layouts; undone";
 });
 
-await check("Escape closes the picker and focus returns to the '+' button; an outside click closes it too", async () => {
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+await check("Escape closes the picker and focus returns to the pill or the tree; an outside click closes it too", async () => {
+  await clickTopPill();
   await p.getByRole("dialog", { name: "Add a section" }).waitFor({ timeout: 3000 });
   await p.keyboard.press("Escape");
   await settle(200);
   if (await p.getByRole("dialog", { name: "Add a section" }).count()) throw new Error("Esc left the picker open");
-  if (!(await p.evaluate(() => document.activeElement?.closest("[data-hm-pe-plus]") || document.activeElement?.closest("[data-hm-bs-tree]")))) throw new Error("focus is lost after Esc");
+  if (!(await p.evaluate(() => document.activeElement?.closest("[data-hm-pe-plus], [data-hm-pe-gapline]") || document.activeElement?.closest("[data-hm-bs-tree]")))) throw new Error("focus is lost after Esc");
   return "closed, focus kept";
 });
 

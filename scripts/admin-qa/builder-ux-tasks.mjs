@@ -959,7 +959,7 @@ async function axeOn(p, what) {
   await settle(p, 500); // dialogs fade in; contrast read mid-fade is not the colour the person sees
   await p.evaluate(axeSrc);
   const r = await p.evaluate((t) => window.axe.run(document, { runOnly: { type: "tag", values: t } }), tags);
-  axeRes[what] = { violations: r.violations.map((v) => `${v.id} (${v.nodes[0].target.join(" ")})`), passes: r.passes.length };
+  axeRes[what] = { violations: r.violations.map((v) => `${v.id} (${v.nodes[0].target.join(" ")})${v.id === "target-size" ? " " + v.nodes[0].any.map((a) => a.message).join(" ") : ""}`), passes: r.passes.length };
   if (r.violations.length) throw new Error(`axe on ${what}: ` + axeRes[what].violations.join("; "));
   return `axe clean on ${what} (${r.passes.length} rules passed)`;
 }
@@ -1454,12 +1454,13 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await main.mouse.move(pt.x + 40, pt.y + 20);
   await settle(main, 300);
   need(await main.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected), "a hover redraw rebuilt the toolbar");
-  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
-  need(acts.join("|") === "Select parent|Duplicate|Wrap in container|Add after|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
-  // the keyboard path to the "+" picker: Add after opens it
-  await main.locator('[data-hm-pe-toolbar] [data-act="addafter"]').focus();
+  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label").replace(/^(Select parent),.*/, "$1")));
+  need(acts.join("|") === "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
+  // the keyboard path to the picker: More, then Add after
+  await main.locator('[data-hm-pe-toolbar] [data-act="more"]').focus();
   await main.keyboard.press("Enter");
-  await main.getByRole("dialog", { name: "Add a section" }).waitFor({ state: "visible", timeout: 3000 }).catch(() => need(false, "Add after did not open the layout picker"));
+  await main.getByRole("menuitem", { name: /^Add after/ }).click();
+  await main.getByRole("dialog", { name: "Add a section" }).waitFor({ state: "visible", timeout: 3000 }).catch(() => need(false, "More > Add after did not open the layout picker"));
   await main.keyboard.press("Escape");
   await settle(main, 200);
   await main.locator('[data-hm-pe-toolbar] [data-act="parent"]').focus();
@@ -1470,7 +1471,7 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await settle(main, 500);
   need((await nodes(main)).length > n, "Enter on Duplicate did not duplicate");
   await drop(main, id);
-  return `toolbar ${Math.round(t.y + t.height)}px vs element top ${Math.round(el.y)}px, kept across a hover, seven buttons by arrow keys, Add after opens the picker`;
+  return `toolbar ${Math.round(t.y + t.height)}px vs element top ${Math.round(el.y)}px, kept across a hover, buttons by arrow keys, More > Add after opens the picker`;
 });
 
 await check("zoom-floor: a fixed zoom is exact, survives a resize, and Fit never goes under half size", async () => {
@@ -1553,7 +1554,7 @@ await check("axe: Style tab (State, Essentials, source chips, Show on, box model
   try { return await axeOn(ax, "Style tab"); } finally { await ax.getByRole("tab", { name: "Content" }).click(); }
 });
 await check("axe: layout picker open", async () => {
-  await ax.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await ax.locator(`[data-hm-pe-gapline][data-show="sel"]`).first().click(); // the pill after the selected section
   await ax.getByRole("dialog", { name: "Add a section" }).waitFor({ timeout: 3000 });
   try { return await axeOn(ax, "layout picker"); } finally { await ax.keyboard.press("Escape"); await settle(ax, 200); }
 });

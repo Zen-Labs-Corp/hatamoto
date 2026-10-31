@@ -4,10 +4,10 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, useLabels } from "@hm/builder/navigator";
-import { hideTarget } from "@hm/builder/selinfo";
+import { hideTarget, selectionInfo, sectionOf } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
-import { BP_NAME, DEVICE_LABEL, hiddenAt } from "@hm/builder/bp";
+import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
 import { insertPoint, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
@@ -186,7 +186,8 @@ function start(root, boot) {
   const fieldJump = lazy(() => import("@hm/builder/fieldjump"));
   const toField = (id, path, fix) => {
     select(id);
-    dispatch("inspect");
+    panes.toggle("insp", true); // not dispatch("inspect"): that focuses the panel's first editor (the Body), which then takes the keys typed before focusField reaches the field
+    phonePane("insp");
     if (fix) repatch(id);
     fieldJump().then((m) => m.focusField(panel, id, path, announce));
   };
@@ -206,6 +207,10 @@ function start(root, boot) {
   };
   // focus or a click in the host UI also ends the edit (a browser may not blur the frame's editor)
   for (const type of ["pointerdown", "focusin"]) document.addEventListener(type, () => flushLoopText(), true);
+  const isHiddenAt = (id) => {
+    const n = find(st.doc, hideTarget(st.doc, id, device) ?? id); // the node the toolbar's Hide toggles
+    return !!n && hiddenAt(n, device);
+  };
   const canvas = createCanvas(
     canvasEl,
     {
@@ -243,21 +248,41 @@ function start(root, boot) {
       sectionLabel: (id) => label(id),
       onAction: (name) => dispatch(name, true), // the element toolbar: duplicate, wrap, togglehide, remove
       onMore: (r) => showMenu(selected, r.left, r.bottom, true),
-      isHidden: (id) => {
-        const n = find(st.doc, moveSubject(st.doc, id));
-        return !!n && hiddenAt(n, device);
+      isHidden: (id) => isHiddenAt(id),
+      // the toolbar's contents: the parent for "↑", the moves that would do something (the whole section, as a move acts on it)
+      toolbarState: (id, k) => {
+        const info = selectionInfo(st.doc, id);
+        if (!info) return null;
+        const can = (a) => moveOp(st.doc, info.subject, a, boot.kinds) !== null;
+        return { name: label(id) || info.kind, parentId: info.parentId ?? "", parentName: info.parentId ? label(info.parentId) : "", canUp: can("moveup"), canDown: can("movedown"), hidden: !!isHiddenAt(id), k };
       },
-      // the keyboard path to the "+" layout picker: the position right after the selection
-      onAddAfter: (btn) => {
-        const l = selected && locate(st.doc, moveSubject(st.doc, selected));
-        if (l) addAt({ parent: l.parentId, index: l.index + 1 }, btn);
+      // direct manipulation (canvas/direct): padding handles and the "Add section" lines between sections
+      // not a collapsed theme section: its component's styles do not render, so a padding drag there would only remove the theme padding
+      isSection: (id) => {
+        const info = selectionInfo(st.doc, id);
+        return !!info?.isSection && !info.section.collapsed && info.kind !== "component"; // a bare top-level component renders no styles either
       },
+      refOf: (id) => innerRef(st.doc, id),
+      styleEntry: (key) => styleTable?.find((e) => e.key === key),
+      indexOf: (id) => sectionOf(st.doc, id)?.index,
+      total: () => st.doc.nodes.length,
+      nameOf: (id) => label(id),
+      padState: () => ({ bp: device }), // spacing is Normal-only: never at a state key, whatever the inspector's State is
+      // what the node itself says (own, else the wider width's), for a frame that gives no measured padding
+      authored: (id, side) => {
+        const n = find(st.doc, id);
+        const key = { top: "pt", right: "pr", bottom: "pb", left: "pl" }[side];
+        return n ? (ownValue(n, device, key) ?? inheritedValue(n, device, key)?.value ?? null) : null;
+      },
+      onPadCommit: ({ id, writes, label: name, coalesce }) => run(writes, { label: name, coalesce }), // false (refused) restores the preview; arrow-key presses carry a session key
+      stamp: () => st.past[st.past.length - 1],
+      onAddSection: (index, el) => addAt({ parent: "", index }, el),
       onCrumb: (id) => select(id, false, { pick: true }), // null is the Page crumb: nothing selected; not "from the canvas", so the frame follows
       onZoom: (mode) => announce(mode === "fit" ? "Zoom: fit to the pane." : `Zoom: ${mode}%.`),
       onAdd: (pt, btn) => {
         const pos = docPos(st.doc, pt);
         if (pos) addAt(pos, btn);
-        else announce("That spot has moved. Select the element and use Add after in the toolbar.");
+        else announce("That spot has moved. Select the element and use Add after in the More menu.");
       }, // the "+" between elements and inside empty containers
     },
     { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined) }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
@@ -670,7 +695,7 @@ function start(root, boot) {
 
   function removeSelected() {
     if (selection.size > 1) return bulk("removeMany");
-    const target = moveSubject(st.doc, selected); // a v1 section selected as its component goes whole, never leaving an empty shell
+    const target = selectionInfo(st.doc, selected)?.subject ?? selected; // a collapsed section selected as its component goes whole (as Move does), never leaving an empty shell
     const at = locate(st.doc, target);
     if (!at) return;
     const sib = siblings(st.doc, at.parentId);
@@ -684,7 +709,7 @@ function start(root, boot) {
 
   function duplicateSelected() {
     if (selection.size > 1) return bulk("duplicateMany");
-    const target = moveSubject(st.doc, selected);
+    const target = selectionInfo(st.doc, selected)?.subject ?? selected;
     const ops = duplicateOps(st.doc, target);
     if (run(ops, { label: "Duplicate" })) {
       select(ops[0].node.id);
@@ -756,7 +781,7 @@ function start(root, boot) {
   }
 
   function moveSelected(action) {
-    const op = moveOp(st.doc, selected, action, boot.kinds);
+    const op = moveOp(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected, action, boot.kinds); // a collapsed section moves whole
     if (!op) return announce("It cannot move further that way");
     if (run([op], { label: "Move" })) {
       const into = op.parent && (action === "indent" || action === "outdent") ? ` into ${label(op.parent)}` : "";
@@ -803,6 +828,11 @@ function start(root, boot) {
       case "menu": {
         const r = tree.rect(selected) ?? canvasEl.getBoundingClientRect();
         return showMenu(selected, r.left + 24, r.bottom);
+      }
+      case "addafter": {
+        // the More menu's entry: the layout picker at the position right after the selection
+        const l = selected && locate(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected);
+        return l && addAt({ parent: l.parentId, index: l.index + 1 }, canvasEl);
       }
       case "pasteinside":
         return bulk("paste", { inside: true });

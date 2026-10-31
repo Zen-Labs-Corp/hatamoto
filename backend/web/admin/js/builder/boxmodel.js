@@ -4,6 +4,7 @@
 // "Same on all sides", "Same top and bottom", "Same left and right"; a linked pair or ring is written in one batch
 // (one undo step). Each side keeps its own row state: its input is outlined when set here and described by its
 // source in text; one "Reset <ring>" button clears the ring's sides set here.
+// Hovering or focusing a padding side dispatches a bubbling "hm-pad-hover" event ({side} or {side: null}).
 // The pure parts (ring order, link sets, which keys pair up) are controls.js.
 import { h, actButton } from "@hm/builder/dom";
 import { linkSets, verticalHorizontal, writesFor, sourceOf } from "@hm/builder/controls";
@@ -78,6 +79,12 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
         return b;
       });
       const cell = h("div", { class: `hm-bs-side hm-bs-side--${SIDES[i]}` }, ctl.el, h("div", { class: "hm-bs-side__q" }, ...quick), src);
+      if (ring === "padding" && typeof CustomEvent === "function") {
+        // The canvas hatches the padding of the selected section while its field is hovered or focused (contract: keep this event).
+        const hover = (side) => () => cell.dispatchEvent(new CustomEvent("hm-pad-hover", { bubbles: true, detail: { side } }));
+        for (const t of ["pointerenter", "focusin"]) cell.addEventListener(t, hover(SIDES[i]));
+        for (const t of ["pointerleave", "focusout"]) cell.addEventListener(t, hover(null));
+      }
       painters.push(() => {
         const s = stateOf(key);
         ctl.sync(s.dot === "set" ? s.value : null, s.dot === "inherited" ? String(s.value) : "");
