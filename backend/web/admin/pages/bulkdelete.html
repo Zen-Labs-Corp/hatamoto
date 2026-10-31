@@ -5,5 +5,5 @@
 <form method="post" action="{{.Post}}" class="hm-stack">
 {{template "hm/csrf" $}}<input type="hidden" name="action" value="{{.Action}}"><input type="hidden" name="confirm" value="1">
 {{range .IDs}}<input type="hidden" name="id" value="{{.}}">{{end}}
-{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" "Delete" "Variant" "danger" "Type" "submit"}}{{template "hm/foot-end"}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" (printf "Delete %d %s%s" .Count .Noun (cond (ne .Count 1) "s" "")) "Variant" "danger" "Type" "submit"}}{{template "hm/foot-end"}}
 </form></div>{{end}}{{end}}

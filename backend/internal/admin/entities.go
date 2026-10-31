@@ -625,13 +625,13 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		for _, id := range ids {
 			hidden = append(hidden, hiddenField{"id", id})
 		}
-		noun := "entity"
+		noun, their := "entity", "its"
 		if len(ids) != 1 {
-			noun = "entities"
+			noun, their = "entities", "their"
 		}
 		a.renderConfirm(w, r, confirmData{
-			Title: fmt.Sprintf("Delete %d %s?", len(ids), noun), Message: "They and their version history will be deleted. This cannot be undone.",
-			Post: a.adminPath + "/entities/bulk", Label: "Delete", Back: back, Danger: true, Hidden: hidden,
+			Title: fmt.Sprintf("Delete %d %s?", len(ids), noun), Message: fmt.Sprintf("%d %s and %s version history will be deleted. This cannot be undone.", len(ids), noun, their),
+			Post: a.adminPath + "/entities/bulk", Label: fmt.Sprintf("Delete %d %s", len(ids), noun), Back: back, Danger: true, Hidden: hidden,
 		})
 		return
 	}
