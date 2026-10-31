@@ -262,16 +262,15 @@ run_floor() {
   host="$(echo "$ip" | tr . -).sslip.io"
   floor="$(cat "$here/MIN_CORE_VERSION")"
 
-  # HATAMOTO_VERSION and HATAMOTO_RELEASE_BASE stay unset: the installer picks its own version.
-  if ex env HATAMOTO_TLS=internal "HATAMOTO_PUBLIC_IP=$ip" HATAMOTO_FIREWALL=0 sh /root/install.sh >"$E/floor-$name.log" 2>&1; then
+  # Pinned to the floor so this keeps testing the floor binary after a newer release reaches stable.
+  if ex env HATAMOTO_TLS=internal "HATAMOTO_VERSION=$floor" "HATAMOTO_PUBLIC_IP=$ip" HATAMOTO_FIREWALL=0 sh /root/install.sh >"$E/floor-$name.log" 2>&1; then
     pass "floor-$name: install succeeds"
   else
     fail "floor-$name: install failed (tail of the log below)"; tail -n 30 "$E/floor-$name.log"; return 0
   fi
   assert_stack "floor-$name" "$ip"
   got="$(ex /opt/hatamoto/bin/hatamoto version 2>&1 | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
-  check "floor-$name: hatamoto version ($got) is the floor $floor or newer" \
-    test -n "$got" -a "$(printf '%s\n%s\n' "$floor" "$got" | sort -V | head -n 1)" = "$floor"
+  check "floor-$name: hatamoto version ($got) is exactly the floor $floor" test "$got" = "$floor"
   check "floor-$name: PostgreSQL 18 is the installed cluster" test "$(ex ls /etc/postgresql 2>/dev/null)" = 18
 
   # set-domain end to end: the new name resolves here through /etc/hosts.
