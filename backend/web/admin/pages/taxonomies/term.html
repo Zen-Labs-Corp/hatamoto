@@ -14,5 +14,6 @@
 {{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" "term" "AnalyzeURL" "" "Include" "#hm-termform" "NoHeading" true}}
 {{template "hm/card-end"}}
 <div class="hm-savebar">{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}{{template "hm/button" dict "Label" "Merge into another term" "Href" (printf "%s/settings/taxonomies/terms/%s/merge" adminPath .ID)}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}</div>
-</form>
+</form>{{with .Locales}}
+{{template "hm/term-locales" dict "L" . "CSRF" $.CSRF}}{{end}}
 {{end}}{{end}}
