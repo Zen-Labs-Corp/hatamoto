@@ -8,7 +8,7 @@
 {{template "hm/csrf" $}}
 {{if .New}}<input type="hidden" name="type" value="{{.SchemaSlug}}">{{end}}
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
-<div class="hm-entityform__grid"><div class="hm-entityform__main">
+<div class="hm-entityform__grid">
 {{template "hm/card-start" dict "ID" "content" "Title" "Content"}}
 <div class="hm-stack">
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "autocomplete" "off")}}
@@ -16,10 +16,7 @@
 {{.Attrs}}
 </div>
 {{template "hm/card-end"}}
-{{template "hm/card-start" dict "ID" "seo"}}
-{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" .AnalyzeURL "Include" "#hm-entityform"}}
-{{template "hm/card-end"}}
-</div><aside class="hm-entityform__side" aria-label="Publishing and terms">
+<aside class="hm-entityform__side" aria-label="Publishing and terms">
 {{template "hm/card-start" dict "ID" "publishing" "Title" "Publishing"}}
 <div class="hm-stack">
 {{if .IsPerson}}<p class="hm-muted">This person is shown on your site when Public is switched on.</p>
@@ -56,7 +53,11 @@
 </div>{{end}}
 </div>
 {{template "hm/card-end"}}{{end}}
-</aside></div>
+</aside>
+{{template "hm/card-start" dict "ID" "seo"}}
+{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" .AnalyzeURL "Include" "#hm-entityform"}}
+{{template "hm/card-end"}}
+</div>
 <div class="hm-savebar">
 <span class="hm-savebar__aside">{{if not .New}}{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/entities/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" "This entity and its version history will be deleted. This cannot be undone." "data-hm-confirm-label" "Delete entity" "data-hm-post" (printf "%s/entities/%s/delete" adminPath .ID) "data-hm-danger" "")}}{{end}}<span data-hm-ef-status>{{if .UpdatedAt}}{{template "hm/savestate" (dict "State" "saved" "Text" (printf "Saved %s" .UpdatedAt))}}{{else if .Errors}}{{template "hm/savestate" (dict "State" "unsaved" "Text" "Unsaved changes")}}{{else}}{{template "hm/savestate" (dict "State" "idle" "Text" "")}}{{end}}</span></span>
 {{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "entities")}}

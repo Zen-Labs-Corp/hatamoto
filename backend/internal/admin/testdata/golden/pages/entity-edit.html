@@ -94,7 +94,7 @@
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
-<div class="hm-entityform__grid"><div class="hm-entityform__main">
+<div class="hm-entityform__grid">
 <section class="hm-card" id="content" aria-labelledby="content-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="content-title">Content</h2></div>
 <div class="hm-card__body">
@@ -126,6 +126,69 @@
 
 </div>
 </div></section>
+<aside class="hm-entityform__side" aria-label="Publishing and terms">
+<section class="hm-card" id="publishing" aria-labelledby="publishing-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="publishing-title">Publishing</h2></div>
+<div class="hm-card__body">
+<div class="hm-stack">
+<div class="hm-field">
+<label class="hm-field__label" for="status">Status</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="status" name="status"><option value="draft">Draft</option><option value="published" selected>Published</option><option value="scheduled">Scheduled</option><option value="archived">Archived</option></select></div>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="schedule">Publish at</label>
+<input class="hm-field__control" type="datetime-local" id="schedule" name="schedule" aria-describedby="schedule-help">
+<p class="hm-field__help" id="schedule-help">Used when the status is Scheduled. Times are in UTC.</p>
+</div>
+<div class="hm-field" id="parent-picker">
+<label class="hm-field__label" for="parent">Parent</label>
+<input type="hidden" name="parent_orig" value="">
+<details class="hm-parentpick">
+<summary class="hm-parentpick__summary"><span data-hm-parent-chip><span class="hm-badge hm-badge--neutral hm-badge--plain hm-badge--wrap">No parent (top level)</span></span><span class="hm-parentpick__change" aria-hidden="true"><span class="hm-parentpick__open">Change</span><span class="hm-parentpick__done">Done</span></span><span class="hm-visually-hidden">Change parent</span></summary>
+<input class="hm-field__control" type="search" id="parent_q" name="parent_q" value="" placeholder="Search entities by name" autocomplete="off" aria-label="Search for a parent" data-hm-noenter hidden hx-get="/admin/entities/parent-options" hx-trigger="input changed delay:300ms, search" hx-target="#parent-select" hx-swap="innerHTML" hx-include="#parent, #parent-exclude" hx-sync="this:replace" hx-indicator="#parent-busy">
+<input type="hidden" id="parent-exclude" name="exclude" value="00000000-0000-0000-0000-000000000011">
+<span class="hm-indicator" id="parent-busy" role="status" data-hm-busy-text="Searching"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
+<div id="parent-select" aria-live="polite"><div class="hm-select" data-hm-select><select class="hm-field__control" id="parent" name="parent"><option value="" selected>No parent (top level)</option><option value="00000000-0000-0000-0000-000000000014">About us (/about) · Page</option><option value="00000000-0000-0000-0000-000000000012">Beta service (/beta) · Service</option><option value="00000000-0000-0000-0000-000000000013">Gamma service (/gamma) · Service</option></select></div></div>
+</details>
+<p class="hm-field__help" id="parent-help">Where this page sits in the address.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="author">Author</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="author" name="author"><option value="">No author</option><option value="org">Site organisation</option><option value="00000000-0000-0000-0000-000000000041" selected>Ada Writer</option></select></div>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="new_author">Or add a new author</label>
+<input class="hm-field__control" type="text" id="new_author" name="new_author" aria-describedby="new_author-help" autocomplete="off">
+<p class="hm-field__help" id="new_author-help">Type a name to create an author and use it for this entity.</p>
+</div>
+</div>
+</div></section>
+<section class="hm-card" id="terms" aria-labelledby="terms-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="terms-title">Terms</h2><p class="hm-muted">Tags, categories and other taxonomies.</p></div>
+<div class="hm-card__body">
+<div class="hm-stack">
+<input type="hidden" name="_terms" value="1">
+<fieldset class="hm-terms" data-hm-multiselect><legend class="hm-field__label">category</legend>
+<ul class="hm-terms__list" role="list"><li class="hm-depth-0"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000031"><span>News</span></label></li>
+<li class="hm-depth-1"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000032" checked><span>Press</span></label></li>
+</ul></fieldset>
+<fieldset class="hm-terms" data-hm-multiselect><legend class="hm-field__label">tag</legend>
+<ul class="hm-terms__list" role="list"><li class="hm-depth-0"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000033" checked><span>Go</span></label></li>
+</ul></fieldset>
+
+<div class="hm-row hm-row--top">
+<div class="hm-field">
+<label class="hm-field__label" for="new_term_name">New term</label>
+<input class="hm-field__control" type="text" id="new_term_name" name="new_term_name" autocomplete="off">
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="new_term_kind">Kind</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="new_term_kind" name="new_term_kind"><option value="category">category</option><option value="tag" selected>tag</option></select></div>
+</div>
+</div>
+</div>
+</div></section>
+</aside>
 <section class="hm-card" id="seo">
 <div class="hm-card__body">
 <div class="hm-seo" data-hm-seo>
@@ -190,69 +253,7 @@
 </section>
 </div>
 </div></section>
-</div><aside class="hm-entityform__side" aria-label="Publishing and terms">
-<section class="hm-card" id="publishing" aria-labelledby="publishing-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="publishing-title">Publishing</h2></div>
-<div class="hm-card__body">
-<div class="hm-stack">
-<div class="hm-field">
-<label class="hm-field__label" for="status">Status</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="status" name="status"><option value="draft">Draft</option><option value="published" selected>Published</option><option value="scheduled">Scheduled</option><option value="archived">Archived</option></select></div>
 </div>
-<div class="hm-field">
-<label class="hm-field__label" for="schedule">Publish at</label>
-<input class="hm-field__control" type="datetime-local" id="schedule" name="schedule" aria-describedby="schedule-help">
-<p class="hm-field__help" id="schedule-help">Used when the status is Scheduled. Times are in UTC.</p>
-</div>
-<div class="hm-field" id="parent-picker">
-<label class="hm-field__label" for="parent">Parent</label>
-<input type="hidden" name="parent_orig" value="">
-<details class="hm-parentpick">
-<summary class="hm-parentpick__summary"><span data-hm-parent-chip><span class="hm-badge hm-badge--neutral hm-badge--plain hm-badge--wrap">No parent (top level)</span></span><span class="hm-parentpick__change" aria-hidden="true"><span class="hm-parentpick__open">Change</span><span class="hm-parentpick__done">Done</span></span><span class="hm-visually-hidden">Change parent</span></summary>
-<input class="hm-field__control" type="search" id="parent_q" name="parent_q" value="" placeholder="Search entities by name" autocomplete="off" aria-label="Search for a parent" data-hm-noenter hidden hx-get="/admin/entities/parent-options" hx-trigger="input changed delay:300ms, search" hx-target="#parent-select" hx-swap="innerHTML" hx-include="#parent, #parent-exclude" hx-sync="this:replace" hx-indicator="#parent-busy">
-<input type="hidden" id="parent-exclude" name="exclude" value="00000000-0000-0000-0000-000000000011">
-<span class="hm-indicator" id="parent-busy" role="status" data-hm-busy-text="Searching"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
-<div id="parent-select" aria-live="polite"><div class="hm-select" data-hm-select><select class="hm-field__control" id="parent" name="parent"><option value="" selected>No parent (top level)</option><option value="00000000-0000-0000-0000-000000000014">About us (/about) · Page</option><option value="00000000-0000-0000-0000-000000000012">Beta service (/beta) · Service</option><option value="00000000-0000-0000-0000-000000000013">Gamma service (/gamma) · Service</option></select></div></div>
-</details>
-<p class="hm-field__help" id="parent-help">Where this page sits in the address.</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="author">Author</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="author" name="author"><option value="">No author</option><option value="org">Site organisation</option><option value="00000000-0000-0000-0000-000000000041" selected>Ada Writer</option></select></div>
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="new_author">Or add a new author</label>
-<input class="hm-field__control" type="text" id="new_author" name="new_author" aria-describedby="new_author-help" autocomplete="off">
-<p class="hm-field__help" id="new_author-help">Type a name to create an author and use it for this entity.</p>
-</div>
-</div>
-</div></section>
-<section class="hm-card" id="terms" aria-labelledby="terms-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="terms-title">Terms</h2><p class="hm-muted">Tags, categories and other taxonomies.</p></div>
-<div class="hm-card__body">
-<div class="hm-stack">
-<input type="hidden" name="_terms" value="1">
-<fieldset class="hm-terms" data-hm-multiselect><legend class="hm-field__label">category</legend>
-<ul class="hm-terms__list" role="list"><li class="hm-depth-0"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000031"><span>News</span></label></li>
-<li class="hm-depth-1"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000032" checked><span>Press</span></label></li>
-</ul></fieldset>
-<fieldset class="hm-terms" data-hm-multiselect><legend class="hm-field__label">tag</legend>
-<ul class="hm-terms__list" role="list"><li class="hm-depth-0"><label class="hm-field__check"><input class="hm-field__box" type="checkbox" name="term" value="00000000-0000-0000-0000-000000000033" checked><span>Go</span></label></li>
-</ul></fieldset>
-
-<div class="hm-row hm-row--top">
-<div class="hm-field">
-<label class="hm-field__label" for="new_term_name">New term</label>
-<input class="hm-field__control" type="text" id="new_term_name" name="new_term_name" autocomplete="off">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="new_term_kind">Kind</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="new_term_kind" name="new_term_kind"><option value="category">category</option><option value="tag" selected>tag</option></select></div>
-</div>
-</div>
-</div>
-</div></section>
-</aside></div>
 <div class="hm-savebar">
 <span class="hm-savebar__aside"><a class="hm-btn hm-btn--danger-text" href="/admin/entities/00000000-0000-0000-0000-000000000011/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-danger="" data-hm-post="/admin/entities/00000000-0000-0000-0000-000000000011/delete"><span>Delete</span></a><span data-hm-ef-status><span class="hm-savestate" data-state="saved" role="status" aria-live="polite" data-hm-savestate><span class="hm-savestate__dot" aria-hidden="true"></span><span class="hm-savestate__text">Saved 1 Mar 2026 09:00</span></span></span></span>
 <a class="hm-btn hm-btn--secondary" href="/admin/entities"><span>Cancel</span></a>
