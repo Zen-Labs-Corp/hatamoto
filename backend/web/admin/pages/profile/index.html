@@ -17,7 +17,7 @@
 {{template "hm/field" dict "ID" "password" "Name" "password" "Label" "New password" "Type" "password" "Required" true "Help" "At least 12 characters." "Error" .NewErr "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the new password" "Type" "password" "Required" true "Error" .MatchErr "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/card-foot"}}
-{{template "hm/button" dict "Label" "Change password" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" "Change password" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
 </form>
 <form method="post" action="{{adminPath}}/logout" class="hm-cardform">

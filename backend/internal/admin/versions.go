@@ -110,7 +110,7 @@ func restoreConfirm(n int) string {
 // restoreButton is a page header action that asks (the same words as the row menu) before it restores.
 func (a *Admin) restoreButton(id string, n int, label string) ui.Button {
 	href := a.adminPath + "/entities/" + id + "/versions/" + strconv.Itoa(n) + "/restore"
-	return ui.Button{Label: label, Variant: "primary", Href: href, Attrs: map[string]string{
+	return ui.Button{Label: label, Href: href, Attrs: map[string]string{
 		"data-hm-confirm": restoreConfirm(n), "data-hm-confirm-label": "Restore version", "data-hm-post": href,
 	}}
 }
@@ -345,7 +345,7 @@ func (a *Admin) handleVersionView(w http.ResponseWriter, r *http.Request) {
 	flatten("", doc, flat)
 	d := versionViewData{Name: e.Name, ID: id, Label: label, N: n, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Actions: []ui.Button{
 		{Label: "Back to versions", Href: a.adminPath + "/entities/" + id + "/versions"},
-		{Label: "Compare with current", Href: a.adminPath + fmt.Sprintf("/entities/%s/versions/compare?from=%d&to=0", id, n), Variant: "primary"},
+		{Label: "Compare with current", Href: a.adminPath + fmt.Sprintf("/entities/%s/versions/compare?from=%d&to=0", id, n)},
 	}}
 	paths := make([]string, 0, len(flat))
 	for p := range flat {
