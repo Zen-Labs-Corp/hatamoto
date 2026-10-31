@@ -81,6 +81,7 @@ export const screens = [
   // Settings > Locales. A single-locale seed shows the add-only state.
   { name: "settings-locales", path: "/admin/settings/locales", mock: "s1", roles: O, states: [{ name: "add-locale", click: '[data-hm-open="add-locale"]' }] },
   { name: "settings-locale-addresses", path: "/admin/settings/locales/addresses", mock: "s1", roles: O },
+  { name: "settings-locale-remove-confirm", path: "/admin/settings/locales/remove/fr", mock: null, roles: O, status: 404 }, // the default seed is single-locale, so the locale is unknown (404); with fr seeded through Add locale this is the confirm page (200)
   { name: "settings-locale-business", path: "/admin/settings/locales/business", mock: "s1", roles: O },
   { name: "settings-performance", path: "/admin/settings/performance", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },

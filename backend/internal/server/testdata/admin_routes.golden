@@ -103,6 +103,7 @@ GET /admin/settings/locales/addresses -> admin.(*Admin).handleAddresses-fm
 GET /admin/settings/locales/business -> admin.(*Admin).handleBusiness-fm
 GET /admin/settings/locales/edit/{tag} -> admin.(*Admin).handleLocaleEdit-fm
 GET /admin/settings/locales/new -> admin.(*Admin).handleLocaleNew-fm
+GET /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemoveConfirm-fm
 GET /admin/settings/media -> admin.(*Admin).handleMedia-fm
 GET /admin/settings/media/new -> admin.(*Admin).handleMediaNew-fm
 GET /admin/settings/performance -> admin.(*Admin).handlePerformance-fm
@@ -276,6 +277,7 @@ POST /admin/settings/locales/add -> admin.(*Admin).handleLocaleAdd-fm
 POST /admin/settings/locales/addresses -> admin.(*Admin).handleAddressesSave-fm
 POST /admin/settings/locales/business/{tag} -> admin.(*Admin).handleBusinessSave-fm
 POST /admin/settings/locales/order -> admin.(*Admin).handleLocaleOrder-fm
+POST /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemove-fm
 POST /admin/settings/locales/update/{tag} -> admin.(*Admin).handleLocaleUpdate-fm
 POST /admin/settings/performance -> admin.(*Admin).handlePerformanceSave-fm
 POST /admin/settings/performance/clear -> admin.(*Admin).handlePerformanceClear-fm

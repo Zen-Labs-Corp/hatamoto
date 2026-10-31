@@ -245,3 +245,70 @@ func TestAddressesTabEmptyOnASingleLocaleSite(t *testing.T) {
 		t.Errorf("code=%d prefixAll=%v flushed=%d: a single-locale save must be refused", rec.Code, site.cfg.PrefixAll, g.flushed)
 	}
 }
+
+func TestLocaleRemove(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales = append(site.cfg.Locales, siteconfig.LocaleEntry{Tag: "nl-NL", Segment: "nl-nl"})
+	rec := g.do("GET", "/admin/settings/locales/remove/nl-NL", "owner-token", nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "stop being reachable") || !strings.Contains(rec.Body.String(), `action="/admin/settings/locales/remove/nl-NL"`) {
+		t.Fatalf("confirm page: code=%d", rec.Code)
+	}
+	if len(site.cfg.Locales) != 3 {
+		t.Fatal("the confirm page removed the locale")
+	}
+	if c := postForm(g, "/remove/nl-NL"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if l := site.cfg.Locales; len(l) != 2 || l[0].Tag != "en" || l[1].Tag != "fr" || !l[1].Hidden || g.flushed != 1 {
+		t.Errorf("locales = %+v flushed=%d", l, g.flushed)
+	}
+	if c := postForm(g, "/remove/nl-NL"); c != 404 {
+		t.Errorf("removing it again = %d, want 404", c)
+	}
+}
+
+func TestLocaleRemoveRefusesDefaultAndXDefault(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales[1].Hidden = false
+	site.cfg.Locales = append(site.cfg.Locales, siteconfig.LocaleEntry{Tag: "nl-NL", Segment: "nl-nl"})
+	site.cfg.XDefaultLocale = "nl-NL"
+	for _, tag := range []string{"en", "nl-NL"} {
+		for _, method := range []string{"GET", "POST"} {
+			rec := g.do(method, "/admin/settings/locales/remove/"+tag, "owner-token", url.Values{}, nil)
+			if rec.Code != 422 {
+				t.Errorf("%s %s = %d, want 422", method, tag, rec.Code)
+			}
+		}
+	}
+	if len(site.cfg.Locales) != 3 || g.flushed != 0 {
+		t.Errorf("a refused removal changed state: %+v flushed=%d", site.cfg.Locales, g.flushed)
+	}
+	body := g.do("POST", "/admin/settings/locales/remove/nl-NL", "owner-token", url.Values{}, nil).Body.String()
+	if !strings.Contains(body, "default for search engines") {
+		t.Error("the x-default refusal does not say why")
+	}
+}
+
+func TestLocaleRemoveLastBackToSingleLocale(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales[0].Segment = "en"
+	site.cfg.PrefixAll, site.cfg.XDefaultLocale = true, "en"
+	if c := postForm(g, "/remove/fr"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if len(site.cfg.Locales) != 0 || site.cfg.PrefixAll || site.cfg.XDefaultLocale != "" || g.flushed != 1 {
+		t.Errorf("config = %+v flushed=%d", site.cfg, g.flushed)
+	}
+}
+
+func TestLocaleRowMenuOffersRemoveOnlyOffTheDefault(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if strings.Count(body, "/admin/settings/locales/remove/") == 0 || strings.Contains(body, "/admin/settings/locales/remove/en") {
+		t.Error("Remove is missing on fr or offered on the default locale")
+	}
+}

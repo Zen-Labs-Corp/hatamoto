@@ -28,6 +28,8 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST /settings/locales/addresses", a.handleAddressesSave)
 	owner.HandleFunc("GET /settings/locales/edit/{tag}", a.handleLocaleEdit)
 	owner.HandleFunc("POST /settings/locales/update/{tag}", a.handleLocaleUpdate)
+	owner.HandleFunc("GET /settings/locales/remove/{tag}", a.handleLocaleRemoveConfirm)
+	owner.HandleFunc("POST /settings/locales/remove/{tag}", a.handleLocaleRemove)
 }
 
 // saveLocales is the one write path of the locale list: validate against the
@@ -124,6 +126,8 @@ func (a *Admin) localeRowActions(entries []siteconfig.LocaleEntry, i int, def st
 			pub = ui.Action{Label: "Hide from visitors", Post: base + "/update/" + e.Tag, Fields: map[string]string{"public": "false"}}
 		}
 		acts = append(acts, pub)
+		remove := base + "/remove/" + e.Tag
+		acts = append(acts, ui.Action{Label: "Remove", Href: remove, Post: remove, ConfirmLabel: "Remove locale", Danger: true, Confirm: removeLocaleWarning(e.Tag)})
 	}
 	return acts
 }
@@ -431,6 +435,57 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Saved "+localeDisplayName(e.Tag)+".")
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
+}
+
+// removeLocaleWarning is what removing a locale does, shown before it happens.
+func removeLocaleWarning(tag string) string {
+	return "Pages in " + localeDisplayName(tag) + " stop being reachable on your site. They are not deleted."
+}
+
+// removableLocale finds the locale of the request and refuses the two that
+// cannot go: the default locale, and the one search engines are pointed at.
+func (a *Admin) removableLocale(w http.ResponseWriter, r *http.Request) (*siteconfig.Config, int, bool) {
+	cfg, i, ok := a.localeIndex(w, r)
+	if !ok {
+		return nil, 0, false
+	}
+	tag := cfg.Locales[i].Tag
+	switch {
+	case tag == localeSetOf(cfg).Default():
+		a.Error(w, r, http.StatusUnprocessableEntity, "Not removed", "The default locale is your site language and cannot be removed. Change the site language in Settings > General first.")
+	case tag == cfg.XDefaultLocale:
+		a.Error(w, r, http.StatusUnprocessableEntity, "Not removed", localeDisplayName(tag)+" is the default for search engines. Pick another one in Addresses and search engines first.")
+	default:
+		return cfg, i, true
+	}
+	return nil, 0, false
+}
+
+func (a *Admin) handleLocaleRemoveConfirm(w http.ResponseWriter, r *http.Request) {
+	cfg, i, ok := a.removableLocale(w, r)
+	if !ok {
+		return
+	}
+	tag := cfg.Locales[i].Tag
+	a.renderConfirm(w, r, confirmData{
+		Title: "Remove " + localeDisplayName(tag) + "?", Label: "Remove locale", Danger: true, Message: removeLocaleWarning(tag),
+		Post: a.url("settings", "locales", "remove", tag), Back: a.url("settings", "locales"),
+	})
+}
+
+// handleLocaleRemove drops the locale from the list. When only the default
+// would be left it stores an empty list: the site becomes single-locale.
+func (a *Admin) handleLocaleRemove(w http.ResponseWriter, r *http.Request) {
+	cfg, i, ok := a.removableLocale(w, r)
+	if !ok {
+		return
+	}
+	tag := cfg.Locales[i].Tag
+	entries := slices.Delete(slices.Clone(cfg.Locales), i, i+1)
+	if len(entries) < 2 {
+		entries = nil
+	}
+	a.saveLocaleList(w, r, cfg, entries, "Removed "+localeDisplayName(tag)+".")
 }
 
 // addressesData is the Addresses and search engines tab.
