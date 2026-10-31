@@ -58,7 +58,10 @@ path, default `scripts/admin-qa/node_modules/playwright-core`), `CHROME`
 `owner@qa.test` / `qa-password-123`, as seeded), `QA_EDITOR_EMAIL`, `QA_ROLE`
 (`owner` or `editor`: runs only the screens that role may open), `OUT`
 (results dir, default `scripts/admin-qa/results/`, gitignored), `QA_STRICT=1`,
-`QA_LEGACY=1` (use the pre-v1-23a paths, for smoke runs on an old build).
+`QA_LEGACY=1` (use the pre-v1-23a paths, for smoke runs on an old build),
+`QA_ADMIN` (admin path prefix, default `/admin`; set it when the install
+uses another admin address, e.g. `QA_ADMIN=/manage`), `QA_BASE_URL`
+(alias of `BASE`).
 `consistency.mjs` and `consistency-families.mjs` run their width x theme sessions
 concurrently: `QA_JOBS` (default 4; `QA_JOBS=1` is the old serial run).
 

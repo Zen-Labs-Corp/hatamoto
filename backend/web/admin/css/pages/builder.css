@@ -158,16 +158,19 @@
 .hm-bs-panel:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-panel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-bs-content, .hm-bs-advanced, .hm-bs-style, .hm-bs-fields, .hm-bs-fieldsholder, .hm-bs-linkopts, .hm-bs-anchor { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.hm-bs-group { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); margin: 0; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.hm-bs-group__t { font-weight: var(--weight-semibold); padding: 0 var(--space-2); }
-/* Disclosure groups: a button header (chevron, name, set-here dot) over a region. */
-button.hm-bs-group__t { appearance: none; display: flex; align-items: center; width: 100%; padding: 0; margin: 0; font: inherit; font-weight: var(--weight-semibold); text-align: start; color: var(--text); background: none; border: 0; cursor: pointer; }
-button.hm-bs-group__t::before { content: "\25B8"; display: inline-block; width: 1em; margin-inline-end: var(--space-1); }
-button.hm-bs-group__t[aria-expanded="true"]::before { content: "\25BE"; }
-button.hm-bs-group__t:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.hm-bs-group__r { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.hm-bs-group__r[hidden], .hm-bs-linkopts[hidden] { display: none; }
-.hm-bs-group:has(> .hm-bs-group__r[hidden]) { gap: 0; }
+/* Figma-style groups: a header row (name, set-here dot, + / - glyph) over a collapsible body. */
+.hm-bs-grp { border-bottom: 1px solid var(--border); padding-block: var(--space-1) var(--space-3); min-width: 0; }
+.hm-bs-grp > .hm-bs-grp__h { display: flex; align-items: center; min-block-size: 2rem; }
+button.hm-bs-grp__t { appearance: none; display: flex; align-items: center; gap: var(--space-2); width: 100%; min-block-size: 24px; padding: 0; margin: 0; font: inherit; font-weight: var(--weight-semibold); text-align: start; color: var(--text); background: none; border: 0; cursor: pointer; }
+button.hm-bs-grp__t[aria-expanded="false"] { color: var(--text-muted); font-weight: var(--weight-medium); }
+button.hm-bs-grp__t::after { content: "+" / ""; margin-inline-start: auto; inline-size: 1.5rem; text-align: center; color: var(--text-muted); }
+button.hm-bs-grp__t[aria-expanded="true"]::after { content: "\2212" / ""; }
+button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-bs-grp__b, .hm-bs-grp__sub { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.hm-bs-grp__b[hidden], .hm-bs-linkopts[hidden] { display: none; }
+.hm-bs-subhead { margin: var(--space-2) 0 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+/* A scrub label: drag it sideways to change the value (the number field stays the keyboard path). */
+.hm-bs-scrub { cursor: ew-resize; touch-action: none; user-select: none; }
 .hm-bs-field--check { flex-direction: row; align-items: center; gap: var(--space-2); }
 .hm-bs-inherited:not(:focus) { color: var(--text-body); font-style: italic; }
 .hm-bs-err { color: var(--color-danger); font-size: var(--text-sm); }
@@ -211,7 +214,6 @@ button.hm-bs-group__t:focus-visible { outline: var(--focus-ring); outline-offset
 .hm-bs-opt:hover { background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--segment-bevel), inset 0 -2px 0 var(--segment-bevel); }
 .hm-bs-opt--inherited { border: 1px dashed var(--border); padding: var(--space-1) var(--space-2); box-shadow: none; }
 .hm-bs-opt--inherited:hover { box-shadow: none; }
-.hm-bs-states { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-bs-opt:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-bs-num { width: 5em; }
 .hm-bs-status { display: block; }
@@ -246,33 +248,21 @@ button.hm-bs-group__t:focus-visible { outline: var(--focus-ring); outline-offset
 .hm-bs-copt > .hm-muted { margin-inline-start: auto; }
 .hm-bs-custom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .hm-bs-native { width: 3rem; height: 2rem; padding: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: none; }
-/* Box model: two rings, each a cross of four compact fields. Grid areas place them; the DOM and tab order stay T, R, B, L. */
-.hm-bs-box { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.hm-bs-ring { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-2); border: 1px dashed var(--border); border-radius: var(--radius-md); }
-.hm-bs-ring__h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-.hm-bs-ring__t { flex: 1 1 auto; font-weight: var(--weight-semibold); }
-.hm-bs-ring__g { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: ". t ." "l . r" ". b ."; gap: var(--space-1); }
-.hm-bs-side { min-width: 0; }
-.hm-bs-side--top { grid-area: t; }
-.hm-bs-side--right { grid-area: r; }
-.hm-bs-side--bottom { grid-area: b; }
-.hm-bs-side--left { grid-area: l; }
+/* The compact length control (lengthControl compact): a column with no spin arrows. */
 .hm-bs-len--c { flex-direction: column; align-items: stretch; gap: var(--space-1); }
 .hm-bs-len--c .hm-bs-len__n { flex-direction: column; align-items: stretch; }
 .hm-bs-len--c .hm-bs-num, .hm-bs-len--c .hm-bs-unit { width: 100%; font-size: var(--text-xs); }
 /* A click in a side field is a click to type: the spin arrows of a narrow field sat under the pointer and stepped the value (arrow keys still step it). */
 .hm-bs-len--c .hm-bs-num { -moz-appearance: textfield; appearance: textfield; }
 .hm-bs-len--c .hm-bs-num::-webkit-inner-spin-button, .hm-bs-len--c .hm-bs-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.hm-bs-side[data-dot="set"] .hm-bs-num { border-color: var(--color-accent); }
-.hm-bs-side[data-dot="inherited"] .hm-bs-num { border-style: dashed; }
 .hm-bs-slider:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* The row chrome: dot, label, source text, reset. Colour only decorates; the source is always text. */
 .hm-bs-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .hm-bs-head > label, .hm-bs-head > .hm-field__label { flex: 1 1 auto; min-width: 0; }
 .hm-bs-dot { flex: none; box-sizing: border-box; width: 0.6rem; height: 0.6rem; border-radius: var(--radius-full); border: 2px solid transparent; }
 .hm-bs-dot[hidden] { display: none; }
-.hm-bs-group__t .hm-bs-dot { display: inline-block; margin-inline-start: var(--space-2); }
-.hm-bs-group__t .hm-bs-dot[hidden] { display: none; }
+.hm-bs-grp__t .hm-bs-dot { display: inline-block; }
+.hm-bs-grp__t .hm-bs-dot[hidden] { display: none; }
 .hm-bs-dot[data-dot="set"] { background: var(--color-accent); border-color: var(--color-accent); }
 .hm-bs-dot[data-dot="inherited"] { border-color: var(--color-hai); }
 .hm-bs-src { flex: none; }

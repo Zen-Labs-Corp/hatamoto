@@ -2,7 +2,7 @@
 // at phone width, reduced motion, axe on the Style tab. Needs QA_PAGE_NAME = a page with a page_doc.
 // node scripts/admin-qa/builder-states.mjs [chromium|firefox|webkit]   Exit 1 on any problem.
 import fs from "node:fs";
-import { launch, newSession, resolvePath, base } from "./lib.mjs";
+import { launch, newSession, resolvePath, base, admin } from "./lib.mjs";
 
 const engine = ["chromium", "firefox", "webkit"].includes(process.argv[2]) ? process.argv[2] : "chromium";
 const axe = fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8");
@@ -19,7 +19,9 @@ async function check(name, fn) {
 }
 
 const TREE = '[data-hm-bs-tree] [role="treeitem"]';
-const STATE = '[role="radiogroup"][aria-label="State"]';
+const STATE = 'select[aria-label="State"]';
+const setState = async (v) => { await p.locator(STATE).selectOption(v); await settle(300); };
+const stateNow = () => p.locator(STATE).evaluate((s) => s.selectedOptions[0].textContent.trim());
 const p = await newSession(b, { theme: "light", width: 1440 });
 p.on("dialog", (d) => d.accept().catch(() => {}));
 const settle = (ms = 150) => p.waitForTimeout(ms);
@@ -30,17 +32,16 @@ const forced = async () => (await canvas())?.evaluate(() => document.querySelect
 const transformOf = async () => (await canvas()).evaluate(() => { const e = document.querySelector("[data-hm-force]"); return e ? getComputedStyle(e).transform : null; });
 
 async function open() {
-  const path = await resolvePath(p, "/admin/entities/{page}/edit");
+  const path = await resolvePath(p, `${admin}/entities/{page}/edit`);
   if (!path) throw new Error("no page seeded");
   await p.goto(base + path, { waitUntil: "load" });
   await p.waitForSelector(TREE, { timeout: 10000 });
   await settle(500);
 }
-// Style groups are disclosure buttons; Transform and Transition start closed.
+// Style groups are disclosure buttons; a group with no value set here starts closed.
 async function openGroup(name) {
-  const more = p.locator("details.hm-bs-more-opts").first(); // every group sits under "More style options"
-  if (!(await more.evaluate((d) => d.open))) { await more.locator("summary").click(); await settle(100); }
-  const head = p.locator("button.hm-bs-group__t", { hasText: new RegExp(`^${name}`) }).first();
+  const head = p.locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
+  if (!(await head.count())) return; // not every kind has every group
   if ((await head.getAttribute("aria-expanded")) !== "true") { await head.click(); await settle(100); }
 }
 async function selectCardAndStyle() {
@@ -50,54 +51,47 @@ async function selectCardAndStyle() {
   rows0 = await p.locator(TREE).count();
   await p.locator(TREE).first().click(); await settle();
   await p.keyboard.press("/");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click(); // the Add tab hides the tree: back to the Navigator for the row clicks
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
 }
 
-await check("State switch by keyboard: Tab reaches one radio stop, ArrowRight selects Hover and the canvas forces it", async () => {
+await check("State switch by keyboard: Tab reaches the State select, ArrowDown selects Hover and the canvas forces it", async () => {
   await selectCardAndStyle();
-  const stops = await p.locator(`${STATE} [role="radio"]`).evaluateAll((r) => r.filter((x) => x.tabIndex === 0).length);
-  if (stops !== 1) throw new Error(`${stops} tab stops in the State group`);
   await p.locator('[data-hm-bs-panel] [role="tab"][aria-selected="true"]').focus();
   let at = "";
   for (let i = 0; i < 12 && !at; i++) {
     await press("Tab");
-    at = await p.evaluate((g) => { const a = document.activeElement; return a?.closest(g) ? a.textContent + ":" + a.getAttribute("aria-checked") : ""; }, STATE);
+    at = await p.evaluate((g) => { const a = document.activeElement; return a?.matches(g) ? a.selectedOptions[0].textContent : ""; }, STATE);
   }
-  if (at !== "Normal:true") throw new Error("Tab from the tab strip did not land on the checked radio: " + (at || "never reached"));
-  await press("ArrowRight");
-  const sel = await p.evaluate(() => document.activeElement.textContent + ":" + document.activeElement.getAttribute("aria-checked"));
-  if (sel !== "Hover:true") throw new Error("after ArrowRight: " + sel);
+  if (at !== "Normal") throw new Error("Tab from the tab strip did not land on the State select: " + (at || "never reached"));
+  await press("ArrowDown");
   await settle(300);
+  if ((await stateNow()) !== "Hover") throw new Error("after ArrowDown: " + (await stateNow()));
   if ((await forced()) !== "hover") throw new Error("canvas has no data-hm-force=hover");
-  return "Tab -> Normal, ArrowRight -> Hover, canvas forced";
+  return "Tab -> Normal, ArrowDown -> Hover, canvas forced";
 });
 
-await check("State switch: End and Home select the last and first radio and move the force", async () => {
+await check("State switch: End and Home select the last and first option and move the force", async () => {
   await selectCardAndStyle();
-  const names = await p.locator(`${STATE} [role="radio"]`).allTextContents();
-  const clipped = await p.locator(`${STATE} [role="radio"]`).evaluateAll((r) => r.filter((x) => x.scrollWidth > x.clientWidth).map((x) => x.textContent));
-  if (clipped.length) throw new Error("State options are clipped: " + clipped.join(", "));
-  await p.locator(`${STATE} [aria-checked="true"]`).focus();
+  const names = await p.locator(`${STATE} option`).allTextContents();
+  await p.locator(STATE).focus();
   await press("End");
-  const last = (await p.locator(`${STATE} [aria-checked="true"]`).textContent()).trim();
-  if (last !== names[names.length - 1].trim()) throw new Error(`End selected ${last}, wanted ${names[names.length - 1]}`);
   await settle(300);
+  const last = await stateNow();
+  if (last !== names[names.length - 1].trim()) throw new Error(`End selected ${last}, wanted ${names[names.length - 1]}`);
   if ((await forced()) === null) throw new Error("End did not force the last state");
   await press("Home");
-  const first = (await p.locator(`${STATE} [aria-checked="true"]`).textContent()).trim();
   await settle(300);
+  const first = await stateNow();
   if (first !== "Normal" || (await forced()) !== null) throw new Error(`Home selected ${first}, force ${await forced()}`);
   return `End -> ${last}, Home -> Normal`;
 });
 
 await check("hover-lift card: ty -4px on Hover moves the forced element, Normal restores it", async () => {
   await selectCardAndStyle();
-  await p.locator(`${STATE} [aria-checked="true"]`).focus();
-  await press("ArrowRight");
-  await settle(300);
+  await setState("hover");
   // The forced element comes from the canvas render that follows the key; a frame swap in between has none yet, so wait for it.
   let el = null;
   for (let i = 0; i < 20 && !el; i++) {
@@ -114,7 +108,7 @@ await check("hover-lift card: ty -4px on Hover moves the forced element, Normal 
   await ty.fill("-4"); await ty.press("Enter"); await settle(400);
   const on = await transform();
   if (on === before || on === "none") throw new Error(`forced hover transform is ${on} (was ${before})`);
-  await p.locator(`${STATE} [role="radio"]`, { hasText: "Normal" }).click(); await settle(300);
+  await setState("");
   if ((await forced()) !== null) throw new Error("force not cleared on Normal");
   const off = await transform();
   if (off !== before) throw new Error(`Normal transform ${off}, wanted ${before}`);
@@ -124,8 +118,7 @@ await check("hover-lift card: ty -4px on Hover moves the forced element, Normal 
 
 await check("forced hover is visible at phone width", async () => {
   await selectCardAndStyle();
-  await p.locator(`${STATE} [aria-checked="true"]`).focus();
-  await press("ArrowRight");
+  await setState("hover");
   await p.getByRole("button", { name: /phone/i }).first().click(); await settle(400);
   if ((await forced()) !== "hover") throw new Error("force lost on device switch");
   return "data-hm-force=hover kept on Phone";
@@ -133,32 +126,31 @@ await check("forced hover is visible at phone width", async () => {
 
 await check("selection change and tab change clear the State and the force", async () => {
   await selectCardAndStyle();
-  await p.locator(`${STATE} [aria-checked="true"]`).focus();
-  await press("ArrowRight");
+  await setState("hover");
   // Another canvas element: the section row is a v1 section, not a canvas node, so a second divider from the palette (it lands selected).
   await p.locator(TREE).first().click(); await settle(300);
   await p.keyboard.press("/");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click();
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
-  let checked = await p.locator(`${STATE} [aria-checked="true"]`).textContent();
+  let checked = await stateNow();
   if (checked.trim() !== "Normal" || (await forced()) !== null) throw new Error(`after selection: state ${checked}, force ${await forced()}`);
-  await p.locator(`${STATE} [aria-checked="true"]`).focus();
-  await press("ArrowRight");
+  await setState("hover");
   if ((await forced()) === null) throw new Error("Hover did not force the second element");
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Content" }).click(); await settle(300);
   if ((await forced()) !== null) throw new Error("force kept on the Content tab");
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle(300);
-  checked = await p.locator(`${STATE} [aria-checked="true"]`).textContent();
+  checked = await stateNow();
   if (checked.trim() !== "Normal") throw new Error("State is " + checked + " after the tab round trip");
   return "Normal, no force";
 });
 
 await check("source chips: Set here, then Inherited from Desktop on Tablet; Reset returns to it", async () => {
   await selectCardAndStyle();
-  const row = () => p.locator(".hm-bs-essentials .hm-bs-field").filter({ has: p.getByLabel("Corners", { exact: true }) });
+  const row = () => p.locator(".hm-bs-grp .hm-bs-field").filter({ has: p.getByLabel("Corners", { exact: true }) });
   const chip = async () => ((await row().locator(".hm-bs-src").textContent()) ?? "").trim();
+  await openGroup("Corners & border");
   const corners = p.getByLabel("Corners", { exact: true });
   await corners.fill("8"); await corners.press("Enter"); await settle(300);
   if ((await chip()) !== "Set here") throw new Error(`on Desktop the chip says "${await chip()}"`);
@@ -176,6 +168,7 @@ await check("source chips: Set here, then Inherited from Desktop on Tablet; Rese
 
 await check("Show on: a phone-only element takes two switches and one switch never moves another", async () => {
   await selectCardAndStyle();
+  await openGroup("Layout"); // Show on sits in Layout, which starts closed on an element with nothing set
   const sw = (name) => p.getByRole("switch", { name, exact: true });
   const state = async () => (await Promise.all(["Desktop", "Tablet", "Phone"].map(async (n) => ((await sw(n).isChecked()) ? "on" : "off")))).join(" ");
   if ((await state()) !== "on on on") throw new Error(`a new element shows on ${await state()}`);
@@ -192,7 +185,7 @@ await check("Show on: a phone-only element takes two switches and one switch nev
 
 await check("reduced motion: the transition runs without it and is dropped with it", async () => {
   await selectCardAndStyle();
-  await openGroup("Transition");
+  await openGroup("Effects");
   await p.getByLabel("Transition", { exact: true }).first().selectOption({ label: "Transform and shadow" }); await settle(500);
   const duration = async () => (await canvas()).evaluate(() => {
     return [...document.querySelectorAll("[data-hm-node]")].filter((x) => [...x.classList].some((c) => c.startsWith("hm-n-"))).map((x) => getComputedStyle(x).transitionDuration).find((d) => d !== "0s") ?? "0s";
@@ -239,9 +232,9 @@ await check("preset applied with the keyboard: focus stays on the preset select,
 
 await check("axe: Style tab with the State switch has no violations", async () => {
   await selectCardAndStyle();
-  for (const g of ["Size", "Position", "Background", "Border", "Effects", "Transform", "Filter", "Transition"]) await openGroup(g); // every control kind on screen
+  for (const g of ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]) await openGroup(g); // every control kind on screen
   await p.evaluate(axe); // evaluate is not subject to the page CSP, addScriptTag is
-  const v = await p.evaluate((tags) => axe.run(document.querySelector("[data-hm-bs-panel]") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
+  const v = await p.evaluate((tags) => axe.run(document.querySelector("[data-hm-bs-panel]") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length + " " + x.nodes.slice(0, 5).map((n) => n.target.join(" ")).join(" | "))), tags);
   if (v.length) throw new Error(v.join(", "));
   return "0 violations";
 });
@@ -253,13 +246,14 @@ for (const theme of ["light", "dark"]) {
     try {
       await selectCardAndStyle();
       if ((await p.locator("html").getAttribute("data-admin-theme")) !== theme) throw new Error(`the page is not in the ${theme} theme`);
+      await openGroup("Typography");
       await p.locator('button.hm-bs-swatch[aria-label^="Text colour"]').click(); await settle(300);
       if (!(await p.locator(".hm-popover-panel:popover-open").count())) throw new Error("the swatch did not open its popover");
       const run = () => p.evaluate((tags) => axe.run(document.querySelector(".hm-popover-panel:popover-open") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
       await p.evaluate(axe);
       const popover = await run();
       await p.keyboard.press("Escape"); await settle(200);
-      const box = await p.evaluate((tags) => axe.run(document.querySelector(".hm-bs-box"), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
+      const box = await p.evaluate((tags) => axe.run(document.querySelector(".hm-bs-bm"), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
       if (popover.length || box.length) throw new Error(`popover: ${popover.join(", ") || "none"}; box model: ${box.join(", ") || "none"}`);
       return "popover 0, box model 0";
     } finally {

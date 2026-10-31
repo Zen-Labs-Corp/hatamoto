@@ -1,7 +1,8 @@
 // Shared helpers for the admin QA harness (test tooling only, never shipped).
 // Env: BASE (default http://127.0.0.1:8090), PW (playwright-core path), CHROME,
 // QA_EMAIL/QA_PASSWORD (owner), QA_EDITOR_EMAIL (editor, same password),
-// QA_ROLE=owner|editor, QA_LEGACY=1 (use pre-v1-23a paths), OUT (results dir).
+// QA_ROLE=owner|editor, QA_LEGACY=1 (use pre-v1-23a paths), OUT (results dir),
+// QA_ADMIN (admin path prefix, default /admin), QA_BASE_URL (alias of BASE).
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,8 @@ const require = createRequire(import.meta.url);
 // PW wins; else this directory's node_modules (npm ci).
 const here0 = path.dirname(fileURLToPath(import.meta.url));
 export const pw = require(process.env.PW || path.join(here0, "node_modules", "playwright-core"));
-export const base = (process.env.BASE || "http://127.0.0.1:8090").replace(/\/$/, "");
+export const base = (process.env.QA_BASE_URL || process.env.BASE || "http://127.0.0.1:8090").replace(/\/$/, "");
+export const admin = "/" + (process.env.QA_ADMIN || "/admin").replace(/^\/+|\/+$/g, "");
 export const role = process.env.QA_ROLE || "owner";
 export const password = process.env.QA_PASSWORD || "qa-password-123";
 export const email = role === "editor" ? process.env.QA_EDITOR_EMAIL || "editor@qa.test" : process.env.QA_EMAIL || "owner@qa.test";
@@ -41,25 +43,25 @@ export async function newSession(browser, { theme = "light", width = 1440, signe
 }
 
 export async function login(page) {
-  await page.goto(`${base}/admin/login`);
+  await page.goto(`${base}${admin}/login`);
   await page.fill("#email", email);
   await page.fill("#password", password);
-  await Promise.all([page.waitForURL((u) => !u.pathname.endsWith("/admin/login")), page.click('form[action="/admin/login"] button[type=submit]')]);
-  if (page.url().includes("/admin/login")) throw new Error(`login failed for ${email}`);
+  await Promise.all([page.waitForURL((u) => !u.pathname.endsWith(`${admin}/login`)), page.click(`form[action="${admin}/login"] button[type=submit]`)]);
+  if (page.url().includes(`${admin}/login`)) throw new Error(`login failed for ${email}`);
 }
 
 // Tokens in url paths are resolved by finding a link on a list screen, so the
 // harness needs no database access. Resolved once per run and cached.
 const tokenSources = {
   // The entity list is paged, so search for the seeded title instead of hoping it is on page 1.
-  post: ["/admin/entities?q=QA+Post+1", 'a[href^="/admin/entities/"]', "QA Post 1"],
-  page: ["/admin/entities?q=" + encodeURIComponent(process.env.QA_PAGE_NAME || "About"), 'a[href^="/admin/entities/"]', process.env.QA_PAGE_NAME || "About"],
-  media: ["/admin/settings/media", 'a[href^="/admin/media/"]', ""],
-  form: ["/admin/settings/forms", 'a[href*="/forms/"]', ""],
-  menu: ["/admin/theme/menus", 'a[href*="/menus/"]', ""],
-  section: ["/admin/theme/templates", 'a[href*="/templates/"]', ""],
-  type: ["/admin/settings/types", 'a[href^="/admin/settings/types/"]', ""],
-  user: ["/admin/settings/users", 'a[href*="/users/"]', ""],
+  post: [`${admin}/entities?q=QA+Post+1`, `a[href^="${admin}/entities/"]`, "QA Post 1"],
+  page: [`${admin}/entities?q=` + encodeURIComponent(process.env.QA_PAGE_NAME || "About"), `a[href^="${admin}/entities/"]`, process.env.QA_PAGE_NAME || "About"],
+  media: [`${admin}/settings/media`, `a[href^="${admin}/media/"]`, ""],
+  form: [`${admin}/settings/forms`, 'a[href*="/forms/"]', ""],
+  menu: [`${admin}/theme/menus`, 'a[href*="/menus/"]', ""],
+  section: [`${admin}/theme/templates`, 'a[href*="/templates/"]', ""],
+  type: [`${admin}/settings/types`, `a[href^="${admin}/settings/types/"]`, ""],
+  user: [`${admin}/settings/users`, 'a[href*="/users/"]', ""],
 };
 const cache = new Map();
 export async function resolvePath(page, urlPath, legacy = false) {
@@ -77,7 +79,7 @@ export async function resolvePath(page, urlPath, legacy = false) {
   const id = cache.get(key);
   return id ? urlPath.replace(m[0], id) : null;
 }
-const legacyList = { media: "/admin/media", form: "/admin/forms", menu: "/admin/menus", section: "/admin/sections", user: "/admin/users" };
+const legacyList = { media: `${admin}/media`, form: `${admin}/forms`, menu: `${admin}/menus`, section: `${admin}/sections`, user: `${admin}/users` };
 
 // Writes a result file under outDir and returns its path.
 export function writeResult(name, data) {

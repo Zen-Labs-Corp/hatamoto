@@ -25,6 +25,7 @@
   --color-warning: #8a5a12;
   --color-warning-soft: #fbf3e6;
   --color-guide-pad: #db2777; /* canvas padding handles, hatch, value badge */
+  --color-guide-margin: #b45309; /* box model margin ring */
   --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
   --color-inverse-fg: #ffffff;
   --color-inverse-muted: #a1a1aa;
@@ -195,6 +196,7 @@
   --color-warning: #d9a548;
   --color-warning-soft: #2a2112;
   --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
+  --color-guide-margin: #fbbf24; /* box model margin ring */
   --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
   --color-inverse-fg: #ffffff;
   --color-inverse-muted: #a1a1aa;
@@ -251,6 +253,7 @@
     --color-warning: #d9a548;
     --color-warning-soft: #2a2112;
     --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
+    --color-guide-margin: #fbbf24; /* box model margin ring */
     --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
     --color-inverse-fg: #ffffff;
     --color-inverse-muted: #a1a1aa;

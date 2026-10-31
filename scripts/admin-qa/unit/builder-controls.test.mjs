@@ -268,3 +268,11 @@ test("recent colours: newest first, once, at most 6, per user key", () => {
   assert.ok(mem.has("hm.builder.recent-colours.u1"));
   assert.deepEqual(C.loadRecent("u1", { getItem: () => { throw new Error("blocked"); } }), []);
 });
+
+test("stepValue: a value already outside the bounds is stepped, not snapped to the bound", () => {
+  const b = { min: 0, max: 200 };
+  assert.equal(C.stepValue(500, -1, 1, false, b), 499);
+  assert.equal(C.stepValue(500, 1, 1, false, b), 500);
+  assert.equal(C.stepValue(-8, 1, 1, false, b), -7);
+  assert.equal(C.stepValue(0, -1, 1, false, b), 0, "padding still stops at 0");
+});

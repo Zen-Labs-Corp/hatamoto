@@ -60,11 +60,11 @@ const mount = (node, { bp = "base", state = "", table: tbl = table } = {}) => {
     commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
   });
   const find = (pred) => { const r = []; el.walk((n) => pred(n) && r.push(n)); return r; };
-  // The row of a key: its reset button names it; the sibling head holds dot and source.
+  // The row of a key: its reset button names it; the head holds dot and reset, the field the source chip.
   const row = (name) => {
     const reset = find((n) => n.attrs["aria-label"] === `Reset ${name}`)[0];
     const head = reset.parent;
-    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
+    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
   };
   return { el, calls, row, groupDot: () => find((n) => n.className === "hm-bs-dot" && n.dataset.dot === "set")[0], find };
 };
@@ -236,7 +236,7 @@ const boxTable = ["mt", "mr", "mb", "ml", "pt", "pr", "pb", "pl"].map((k) => sid
 const NAMES8 = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"];
 const box = (s = {}) => {
   const m = mount({ id: "n", t: "container", s: { base: s } }, { table: boxTable });
-  const num = (name) => m.find((n) => n.tag === "input" && n.attrs["aria-label"] === name)[0];
+  const num = (name) => m.find((n) => n.tag === "input" && n.attrs["aria-label"]?.startsWith(`${name}, `))[0]; // the name carries the value: "Padding top, 48px"
   const btn = (label, ring) => {
     const scope = ring ? m.find((n) => n.attrs.role === "group" && n.attrs["aria-label"] === ring)[0] : m.el;
     const r = [];
@@ -249,13 +249,13 @@ const box = (s = {}) => {
 test("the box model draws eight named number fields, one nested box model: margin then padding, top, right, bottom, left", () => {
   const b = box();
   const order = [];
-  b.m.el.walk((n) => n.tag === "input" && NAMES8.includes(n.attrs["aria-label"]) && order.push(n.attrs["aria-label"]));
+  b.m.el.walk((n) => n.tag === "input" && n.dataset?.side && order.push(n.attrs["aria-label"].split(",")[0]));
   assert.deepEqual(order, NAMES8);
 });
 
-test("link toggle: one batch of four writes; unlinked edits one side; a linked ring starts linked when all four agree", () => {
+test("link toggle: one batch of four writes; unlinked edits one side; a ring set to four equal values starts linked", () => {
   const b = box();
-  const all = () => b.btn("Same on all sides", "Padding");
+  const all = () => b.btn("Link all sides");
   assert.equal(all().attrs["aria-pressed"], "false");
   b.num("Padding top").value = "8"; b.num("Padding top").fire("change");
   assert.deepEqual(b.m.calls.at(-1), { key: "pt", value: "8px", at: "base", opts: { label: "Change Padding top" } });
@@ -264,62 +264,44 @@ test("link toggle: one batch of four writes; unlinked edits one side; a linked r
   b.num("Padding left").value = "12"; b.num("Padding left").fire("change");
   const last = b.m.calls.at(-1);
   assert.deepEqual(last.batch.map((w) => [w.key, w.value]), [["pt", "12px"], ["pr", "12px"], ["pb", "12px"], ["pl", "12px"]]);
-  const again = box({ pt: "4px", pr: "4px", pb: "4px", pl: "4px" });
-  assert.equal(again.btn("Same on all sides", "Padding").attrs["aria-pressed"], "true");
-  assert.equal(again.btn("Same on all sides", "Margin").attrs["aria-pressed"], "false");
-});
-
-test("Same top and bottom / Same left and right link a pair: one batch, the second side follows the first", () => {
-  const b = box({ mt: "8px", mr: "2rem" });
-  const v = () => b.btn("Same top and bottom", "Margin");
-  v().fire("click");
-  assert.equal(v().attrs["aria-pressed"], "true");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mt", "8px"], ["mb", "8px"]], "linking copies top to bottom");
-  b.num("Margin bottom").value = "3"; b.num("Margin bottom").fire("change");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mt", "3px"], ["mb", "3px"]], "an edit of one side of a linked pair writes both");
-  b.num("Margin right").value = "4"; b.num("Margin right").fire("change");
-  assert.deepEqual(b.m.calls.at(-1), { key: "mr", value: "4rem", at: "base", opts: { label: "Change Margin right" } }, "the other pair is not linked");
-  b.btn("Same left and right", "Margin").fire("click");
-  assert.equal(v().attrs["aria-pressed"], "false", "one link mode at a time");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mr", "4rem"], ["ml", "4rem"]]);
+  assert.equal(box({ pt: "4px", pr: "4px", pb: "4px", pl: "4px" }).btn("Link all sides").attrs["aria-pressed"], "true");
+  assert.equal(box({ pt: "4px", pb: "4px" }).btn("Link all sides").attrs["aria-pressed"], "false");
 });
 
 test("margins take auto, paddings refuse it; Reset clears only the ring's sides set here", () => {
   const b = box({ mt: "8px", pl: "4px" });
-  const unit = b.m.find((n) => n.attrs["aria-label"] === "Margin left unit")[0];
-  unit.value = "auto"; unit.fire("change");
+  const ml = b.num("Margin left");
+  ml.value = "auto"; ml.fire("change");
   assert.deepEqual(b.m.calls.at(-1).value, "auto");
-  const pu = b.m.find((n) => n.attrs["aria-label"] === "Padding top unit")[0];
-  assert.ok(![...pu.kids].some((o) => o.attrs.value === "auto"), "no auto option on padding");
+  const pt = b.num("Padding top");
+  const before = b.m.calls.length;
+  pt.value = "auto"; pt.fire("change");
+  assert.equal(pt.attrs["aria-invalid"], "true", "padding has no auto");
+  assert.equal(b.m.calls.length, before);
   b.btn("Reset margin").fire("click");
   assert.deepEqual(b.m.calls.at(-1).batch.map((w) => w.key), ["mt", "ml"]); // ml was set to auto just above
   assert.equal(b.btn("Reset padding").hidden, false);
 });
 
-// Disclosure groups: defaults, a dot on a closed header, remembered open state.
-test("groups are disclosure buttons: Layout and Typography open, the rest closed; the choice is remembered", () => {
-  const store = {};
-  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => (store[k] = v) };
-  const tbl = [...boxTable, { key: "pos", kind: "enum", props: ["position"], enum: { static: "static", relative: "relative" } }];
-  try {
-    const m = mount({ id: "n", t: "container", s: { base: { pos: "relative" } } }, { table: tbl });
-    const heads = () => m.find((n) => n.tag === "button" && n.className === "hm-bs-group__t");
-    const by = (name) => heads().find((b) => b.kids[0].textContent === name);
-    assert.equal(by("Spacing"), undefined, "the Essentials box model holds every spacing key");
-    assert.equal(by("Position").attrs["aria-expanded"], "false");
-    const region = m.find((n) => n.attrs.id === by("Position").attrs["aria-controls"])[0];
-    assert.equal(region.hidden, true, "a collapsed region is hidden, not removed");
-    assert.equal(by("Position").kids[1].hidden, false, "the closed header still shows that a key in it is set here");
-    by("Position").fire("click");
-    assert.equal(by("Position").attrs["aria-expanded"], "true");
-    assert.equal(region.hidden, false);
-    assert.deepEqual(JSON.parse(store["hm.builder.style.groups"]), { Position: true });
-    const again = mount({ id: "n", t: "container", s: {} }, { table: tbl });
-    const bg = again.find((n) => n.tag === "button" && n.className === "hm-bs-group__t" && n.kids[0].textContent === "Position")[0];
-    assert.equal(bg.attrs["aria-expanded"], "true", "a rebuilt panel reads the saved state");
-  } finally {
-    delete globalThis.localStorage;
-  }
+// Figma groups: a header button per group, empty ones closed with a dot only when a value is set, open state kept for the session.
+test("groups are disclosure buttons: a group with no value here is closed, one with a value is open; the choice is kept for the session", () => {
+  const tbl = [...boxTable, { key: "pos", kind: "enum", props: ["position"], enum: { static: "static", relative: "relative" } }, { key: "bg", kind: "color", props: ["background-color"], tokens: {}, pattern: "^#[0-9a-fA-F]{6}$" }];
+  const m = mount({ id: "n", t: "text", s: { base: { pos: "relative" } } }, { table: tbl });
+  const heads = () => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t");
+  const by = (name) => heads().find((b) => b.kids[0].textContent === name);
+  assert.equal(by("Effects").attrs["aria-expanded"], "true", "Position (set here) lives in Effects");
+  assert.equal(by("Fill").attrs["aria-expanded"], "false", "nothing set in Fill");
+  const region = m.find((n) => n.attrs.id === by("Fill").attrs["aria-controls"])[0];
+  assert.equal(region.hidden, true, "a collapsed body is hidden, not removed");
+  assert.equal(by("Fill").kids[1].hidden, true, "no dot where nothing is set");
+  assert.equal(by("Effects").kids[1].hidden, false, "the dot shows a key set here");
+  by("Fill").fire("click");
+  assert.equal(by("Fill").attrs["aria-expanded"], "true");
+  assert.equal(region.hidden, false);
+  const again = mount({ id: "n", t: "text", s: {} }, { table: tbl });
+  const fill = again.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t" && n.kids[0].textContent === "Fill")[0];
+  assert.equal(fill.attrs["aria-expanded"], "true", "a rebuilt panel keeps what the user opened");
+  fill.fire("click");
 });
 
 // A length control over the real table entry of key, with the commits it makes.
@@ -327,7 +309,7 @@ const length = (key) => {
   const applied = [];
   const len = lengthControl({ id: `l-${key}`, entry: full.find((e) => e.key === key), name: key, palette: { colors: [], space: {}, fs: {} }, describe: "", apply: (v) => (applied.push(v), true) });
   const find = (pred) => { const r = []; len.el.walk((n) => pred(n) && r.push(n)); return r[0]; };
-  return { len, applied, unit: find((n) => n.tag === "select" && n.className === "hm-field__control hm-bs-unit"), slider: find((n) => n.attrs.type === "range") };
+  return { len, applied, unit: find((n) => n.tag === "select" && n.className.includes("hm-bs-unit")), slider: find((n) => n.attrs.type === "range") };
 };
 
 test('a stored bare "0": the unit shows the key\'s own unit, the slider keeps its range, arrows and typing give valid values', () => {
@@ -391,21 +373,21 @@ test("box model: arrows on a side whose padding is inherited start from the inhe
   const box = boxModel({ entries, name: (k) => k, palette: { colors: [], space: {}, fs: {} }, stateOf, commit: (k, v) => (commits.push([k, v]), true), commitBatch: () => true, valid: () => true, hint: "" });
   box.paint();
   const inputs = [];
-  box.el.walk((n) => n.tag === "input" && n.attrs["aria-label"] === "pt" && inputs.push(n));
-  assert.equal(inputs[0].placeholder, "16px");
+  box.el.walk((n) => n.tag === "input" && n.attrs["aria-label"]?.startsWith("pt,") && inputs.push(n));
+  assert.equal(inputs[0].value, "16", "the inherited value is shown (muted)");
+  assert.equal(inputs[0].dataset.dot, "inherited");
   inputs[0].fire("keydown", { key: "ArrowUp" });
   assert.deepEqual(commits, [["pt", "17px"]]);
 });
 
-test("box model: each side's hidden source text uses the chip wording", () => {
+test("box model: each side's accessible name carries its value and where it comes from", () => {
   const entries = full.filter((e) => ["pt", "pr", "pb", "pl"].includes(e.key));
-  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : { dot: "none", source: "none", value: null });
+  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : k === "pr" ? { dot: "inherited", source: "inherited", from: "Desktop", value: "96px" } : { dot: "none", source: "none", value: null });
   const box = boxModel({ entries, name: (k) => k, palette: { colors: [], space: {}, fs: {} }, stateOf, commit: () => true, commitBatch: () => true, valid: () => true, hint: "" });
   box.paint();
-  const src = [];
-  box.el.walk((n) => n.className === "hm-visually-hidden" && src.push(n.textContent));
-  assert.deepEqual(src.filter((t) => t.startsWith("pt")), ["pt: Set here"]);
-  assert.deepEqual(src.filter((t) => t.startsWith("pr")), ["pr: not set"]);
+  const names = [];
+  box.el.walk((n) => n.tag === "input" && names.push(n.attrs["aria-label"]));
+  assert.deepEqual(names, ["pt, 2rem", "pr, 96px, Inherited from Desktop", "pb, 0px, not set", "pl, 0px, not set"]);
 });
 
 test("Hover view: the preset's hover value beats the node's Normal value (Go cascade)", () => {
@@ -449,21 +431,20 @@ test("Clear on a colour with nothing set here commits nothing", () => {
   assert.deepEqual(calls, [null]);
 });
 
-// The Style tab's order: State switch first, Essentials, then "More style options" holding every group.
-test("the State switch is the first child, Essentials come next, and the groups sit under More style options", () => {
+// The Style tab's order: the context line, then the groups.
+test("the context line is the first child and the groups follow; there is no Essentials block or More style options", () => {
   const m = mount({ id: "h", t: "container", s: {} }, { table: boxTable });
   const root = m.el;
-  assert.equal(root.kids[0].attrs.role, "radiogroup");
-  assert.equal(root.kids[0].attrs["aria-label"], "State");
-  const kinds = root.kids.map((k) => k.attrs["aria-label"] ?? k.tag);
-  assert.ok(kinds.indexOf("Essentials") > 0 && kinds.indexOf("Essentials") < kinds.indexOf("details"), kinds.join());
-  const more = root.kids.find((k) => k.tag === "details");
-  assert.equal(more.kids[0].textContent, "More style options");
-  const ess = root.kids.find((k) => k.attrs["aria-label"] === "Essentials");
-  const rings = []; ess.walk((n) => n.classes?.has("hm-bs-ring--outer") && rings.push(n));
-  assert.equal(rings.length, 1, "one nested box model in the Essentials");
-  assert.ok(!more.kids.some((k) => k.attrs.role === "group"), "no Spacing group is left under More: its keys are in the box model");
-  assert.equal(root.kids.filter((k) => k.attrs.role === "group" && k.attrs["aria-labelledby"]).length, 0, "no group outside the disclosure");
+  assert.equal(root.kids[0].attrs.class, "hm-bs-ctx");
+  let select = null;
+  root.kids[0].walk((n) => n.tag === "select" && (select = n));
+  assert.equal(select.attrs["aria-label"], "State");
+  assert.ok(!root.textContent.includes("Editing"), "the sentence is gone");
+  assert.ok(!root.textContent.includes("More style options"));
+  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].textContent);
+  assert.ok(names.includes("Spacing"), names.join());
+  const rings = []; root.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
+  assert.equal(rings.length, 1, "one nested box model, in Spacing");
 });
 
 test("a value that differs from the node's class says Custom value; one that matches it says Set here", () => {
@@ -501,4 +482,39 @@ test("a style write carries a human history label: the control name and the widt
   const tablet = mount({ id: "n", t: "container", s: { md: { pb: "8px" } } }, { bp: "md" });
   tablet.row("Padding bottom").reset.fire("click");
   assert.equal(tablet.calls[0].opts.label, "Change Padding bottom (Tablet)");
+});
+
+test("the real table: a text block shows the six Figma groups with Typography first and open, a divider has Typography too, Fill and Corners start closed; Font size scrubs from its label", () => {
+  const names = (m) => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t").map((b) => b.kids[0].textContent);
+  const text = mount({ id: "t", t: "text", s: {} }, { table: full });
+  assert.deepEqual(names(text), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"]);
+  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })).slice(0, 4), ["Layout", "Spacing", "Fill", "Typography"], "other kinds keep the order");
+  const head = (name) => text.find((n) => n.className === "hm-bs-grp__t" && n.kids[0].textContent === name)[0];
+  assert.deepEqual(["Typography", "Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["true", "false", "false", "false"]);
+  const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
+  assert.equal(label.kids.map((k) => k.textContent).join(""), "Sz font size");
+});
+
+test("Fill shows one pill per theme colour next to the hex field; a pill commits the token name at the current key", () => {
+  const palette = { colors: [{ name: "surface", label: "Surface", hex: "#ffffff" }, { name: "accent", label: "Accent", hex: "#123456" }], space: {}, fs: {} };
+  const calls = [];
+  const el = mountStyle({ node: { id: "n", t: "container", s: { md: { bg: "accent" } } }, table: [{ key: "bg", kind: "color", props: ["background-color"], tokens: { surface: "x", accent: "y" }, pattern: "^#[0-9a-fA-F]{6}$", states: true }], bp: "md", state: "hover", display: "block", palette,
+    commit: (key, value, at) => (calls.push({ key, value, at }), true), commitMany: () => true });
+  const pills = []; el.walk((n) => n.classes.has?.("hm-bs-pill") || n.attrs.class === "hm-bs-pill" ? pills.push(n) : 0);
+  assert.equal(pills.length, palette.colors.length);
+  assert.equal(pills.map((b) => b.attrs["aria-pressed"]).join(), "false,false", "the value is set at md only, not at md:hover");
+  pills[0].fire("click");
+  assert.deepEqual(calls, [{ key: "bg", value: "surface", at: "md:hover" }]);
+  assert.equal(pills[0].attrs["aria-pressed"], "true");
+});
+
+test("a group is a plain block, not a named region landmark: no section, no aria-labelledby", () => {
+  const m = mount({ id: "t", t: "text", s: {} }, { table: full });
+  const groups = m.find((n) => n.className === "hm-bs-grp");
+  assert.ok(groups.length >= 6);
+  for (const g of groups) {
+    assert.equal(g.tag, "div");
+    assert.equal(g.attrs["aria-labelledby"], undefined);
+    assert.equal(g.attrs.role, undefined);
+  }
 });
