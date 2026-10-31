@@ -205,7 +205,9 @@ func TestConversionsGiveVsGetReconcilesWithCrawlersAndTraffic(t *testing.T) {
 		t.Fatal(err)
 	}
 	var found, other bool
+	seen := map[string]bool{}
 	for _, row := range body.(*conversionsPage).GiveGet.Rows {
+		seen[row[0].Text] = true
 		switch row[0].Text {
 		case "OpenAI":
 			found = true
@@ -219,7 +221,7 @@ func TestConversionsGiveVsGetReconcilesWithCrawlersAndTraffic(t *testing.T) {
 				t.Error("an operator with visitors is not takes only")
 			}
 		case "Google":
-			// Its visitors arrive as Organic search, so no assistant visitors is not "takes only".
+			// It also runs a search crawler, so no assistant visitors is not "takes only".
 			if row[0].Badge != nil || row[0].Note == "" {
 				t.Errorf("Google must carry the search note, not the takes-only badge: %+v", row[0])
 			}
@@ -232,6 +234,11 @@ func TestConversionsGiveVsGetReconcilesWithCrawlersAndTraffic(t *testing.T) {
 			if row[1].Text != "0" || row[2].Text != "4" || row[4].Text != "3" || row[0].Badge != nil {
 				t.Errorf("other assistants = %v", row)
 			}
+		}
+	}
+	for _, name := range []string{"Google", "Common Crawl", "ByteDance"} {
+		if !seen[name] {
+			t.Errorf("row %s is missing", name)
 		}
 	}
 	if !found || !other {

@@ -353,7 +353,9 @@ table in the agent registry code (for example chatgpt to OpenAI, perplexity to
 Perplexity, claude to Anthropic, gemini to Google); assistants without a known
 operator are grouped as Other assistants. An operator that fetched pages and
 sent no visitors is marked **takes only**, with a link to the Crawlers tab where
-each purpose can be blocked.
+each purpose can be blocked. Operators that also run a search crawler (such as
+Google) are not marked; they show a note instead, because only assistant visits
+count in this table and their search visits count under other channels.
 
 **Who sees emails.** The Recent leads table and its CSV export (`Export CSV`,
 up to 10 000 rows, formula-safe cells) show the submitter's email only to users
