@@ -28,7 +28,7 @@ func TestPhoneShellKeepsTopBarHeight(t *testing.T) {
 }
 
 // On phones a header strip with neither a select-all box nor a sort link is hidden, one with a sort
-// link stays visible (touch users sort there), and only the users list is flush with the page edge.
+// link stays visible (touch users sort there). The list card keeps its paper fill and frame.
 func TestPhoneCardsListLayout(t *testing.T) {
 	t.Parallel()
 
@@ -38,6 +38,11 @@ func TestPhoneCardsListLayout(t *testing.T) {
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("table.css: missing %q", want)
+		}
+	}
+	for _, line := range strings.Split(css, "\n") {
+		if strings.HasPrefix(line, ".hm-tablecard {") && strings.Contains(line, "transparent") {
+			t.Errorf("table.css: %q makes the list card transparent", line)
 		}
 	}
 	for _, bad := range []string{":not(:focus-within)", "\n  .hm-tablecard .hm-table--cards tr {", "\n  .hm-table__filters {"} {

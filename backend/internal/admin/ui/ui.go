@@ -176,8 +176,9 @@ type Table struct {
 	// applies live. Live makes the popover fields apply on change (no Apply
 	// button; the noscript Apply stays). Target is the id of the results the
 	// swap replaces (default ID) so the form and an open popover stay put.
-	// FilterCount is the Filters badge (default len Chips). Bare drops the
-	// card look and groups segmented + Filters apart from search + selects.
+	// FilterCount is the Filters badge (default len Chips). Bare has no
+	// card of its own (a padded strip inside the list card) and groups
+	// segmented + Filters apart from search + selects.
 	// ChipsOutside leaves rendering the chips (hm/filterchips) to the page.
 	Segmented    *Segmented
 	Live         bool
