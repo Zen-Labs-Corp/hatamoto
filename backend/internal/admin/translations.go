@@ -63,7 +63,7 @@ func (a *Admin) handleTranslations(w http.ResponseWriter, r *http.Request) {
 			d.Link = &linkDialog{Action: base + "/link", Src: base + "/candidates"}
 			d.Actions = []ui.Button{{Label: "Link an existing page", Icon: "link", Href: "#link-copy", Attrs: map[string]string{"data-hm-open": "link-copy"}}}
 		}
-		a.fillTranslations(ctx, &d, e, members, cfg.Language, set)
+		a.fillTranslations(ctx, &d, e, members, set.Default(), set)
 	}
 	v := a.NewView(w, r, "Translations of "+e.Name)
 	v.Data = d

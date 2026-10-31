@@ -98,3 +98,21 @@ func TestTranslationsHreflangFollowsRenderer(t *testing.T) {
 		t.Errorf("x-default is not the default-locale copy (beta)")
 	}
 }
+
+// The original falls back to the default-locale copy even when the stored
+// language differs in case from the locale tag.
+func TestTranslationsOriginalUsesNormalizedDefault(t *testing.T) {
+	t.Parallel()
+	c, g := translationsRig(t, "en", "fr")
+	c.a.deps.Site.(*fakeSite).cfg.Language = "FR"
+	grp := fid(900)
+	en := entity.Member{ID: fid(11), Group: grp, Locale: "en", Slug: "alpha", Name: "Alpha", Status: "published", CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0.Add(time.Hour)}
+	fr := entity.Member{ID: fid(12), Group: grp, Locale: "fr", Slug: "beta", Name: "Beta", Status: "published", CreatedAt: t0.Add(time.Hour), UpdatedAt: t0, ContentChangedAt: t0.Add(3 * time.Hour)}
+	g.setGroup(en, fr)
+	body := c.get(t, "owner-token", translationsTab, "")
+	// fr is the original (default locale), so en is the stale copy; with the
+	// oldest copy as original nothing would be out of date.
+	if strings.Count(body, "Out of date") != 1 {
+		t.Errorf("Out of date shown %d times, want once (en)", strings.Count(body, "Out of date"))
+	}
+}
