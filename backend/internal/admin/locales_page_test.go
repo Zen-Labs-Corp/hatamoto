@@ -416,3 +416,14 @@ func TestLocaleOrderFlashNamesTheLocaleAndDirection(t *testing.T) {
 		t.Error("the row menu does not tell the server which locale moved")
 	}
 }
+
+func TestLocaleNameFieldDoesNotPromiseAPublicEffect(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	for _, p := range []string{"/new", "/edit/fr"} {
+		body := g.do("GET", "/admin/settings/locales"+p, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, "Display name") || !strings.Contains(body, "Shown in the admin. Themes can use it later.") || strings.Contains(body, "shown to visitors") {
+			t.Errorf("%s: the name field is not labelled as an admin display name", p)
+		}
+	}
+}

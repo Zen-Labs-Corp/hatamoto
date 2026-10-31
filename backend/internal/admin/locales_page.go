@@ -248,7 +248,7 @@ func localeFormErrs(errs map[string]string, xdefaultField string) map[string]str
 // localeSummary lists the errors of f the way the form shows them.
 func localeSummary(errs map[string]string) []ui.FieldError {
 	var out []ui.FieldError
-	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Name shown to visitors"}, {"public", "Public"}} {
+	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Display name"}, {"public", "Public"}} {
 		if m := errs[k.key]; m != "" {
 			out = append(out, ui.FieldError{ID: "locale-" + k.key, Label: k.label, Message: m})
 		}
