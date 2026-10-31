@@ -550,6 +550,7 @@ T.T5 = {
     await a.click(await rowOfKind(p, "heading"));
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
+    await a.click(p.locator("button.hm-bs-grp__t", { hasText: /^Layout/ })); // a heading starts with the Layout group closed
     await a.click(p.locator("[data-hm-bs-panel] .hm-bs-showon label", { hasText: "Phone" }));
     await settle(p, 250);
   },
@@ -856,8 +857,8 @@ T.T10 = {
     }
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
-    // Padding is an Essential for every kind (the box model's padding ring): no disclosure to open.
-    await a.click(p.locator('[data-hm-bs-panel] [aria-label="Padding top"]'));
+    await a.click(p.locator("button.hm-bs-grp__t", { hasText: /^Spacing/ })); // a heading starts with Spacing closed
+    await a.click(p.locator('[data-hm-bs-panel] [aria-label^="Padding top"]'));
     await a.type("20");
     await a.press(phoneNow(p) ? "Enter" : "Tab");
     await settle(p, 250);
@@ -868,7 +869,9 @@ T.T10 = {
     await a.press("Enter");
     await a.tabTo(() => document.activeElement?.getAttribute("role") === "tab", null, 20, "Shift+Tab"); // back to the tab list
     await a.press("ArrowRight"); // Style
-    await a.tabTo(() => document.activeElement?.getAttribute("aria-label") === "Padding top");
+    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-grp__t") && /^Spacing/.test(document.activeElement.textContent));
+    await a.press("Enter");
+    await a.tabTo(() => /^Padding top/.test(document.activeElement?.getAttribute("aria-label") ?? ""));
     await a.type("20");
     await a.press("Tab");
     await settle(p, 250);
