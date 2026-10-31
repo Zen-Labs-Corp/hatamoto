@@ -27,6 +27,12 @@ type fakeAgentStats struct {
 	searchSeries []agents.SeriesPoint
 	// extraAgents are added to what Agents answers (search engines, social, SEO tools).
 	extraAgents []agents.AgentTotals
+	// googleStatus, googleKPIs and googlePages are what the Googlebot reads answer
+	// (a default set when nil); googleFilter is the filter GooglePages was last asked for.
+	googleStatus []agents.SeriesPoint
+	googleKPIs   *agents.GoogleKPIs
+	googlePages  []agents.GooglePageRow
+	googleFilter string
 	// lastRange is the range Overview was last asked for.
 	lastRange agents.Range
 	// prev is what Overview answers for a range ending on prevTo (the previous period).
@@ -84,6 +90,50 @@ func (f *fakeAgentStats) SeriesWithSearch(ctx context.Context, rg agents.Range, 
 		return base, nil
 	}
 	return append(append([]agents.SeriesPoint{}, base...), f.searchSeries...), nil
+}
+func (f *fakeAgentStats) GooglebotStatusSeries(context.Context, agents.Range) ([]agents.SeriesPoint, error) {
+	if f.googleStatus != nil {
+		return f.googleStatus, nil
+	}
+	return []agents.SeriesPoint{{Day: day(-1), Key: "2xx", Hits: 30}, {Day: day(-1), Key: "4xx", Hits: 3}, {Day: day(0), Key: "2xx", Hits: 20}, {Day: day(0), Key: "5xx", Hits: 1}}, nil
+}
+func (f *fakeAgentStats) GoogleKPIs(context.Context, agents.Range) (agents.GoogleKPIs, error) {
+	if f.googleKPIs != nil {
+		return *f.googleKPIs, nil
+	}
+	med := 6 * time.Hour
+	return agents.GoogleKPIs{Hits: 995, Verified: 990, PagesCrawled: 41, Published: 144, MedianFirstCrawl: &med}, nil
+}
+
+// GooglePages filters the rows like the SQL does, so a test sees what each filter leaves.
+func (f *fakeAgentStats) GooglePages(_ context.Context, _ agents.Range, filter string, limit, offset int) ([]agents.GooglePageRow, int, error) {
+	f.mu.Lock()
+	f.googleFilter = filter
+	f.mu.Unlock()
+	all := f.googlePages
+	if all == nil {
+		d := func(n int) *time.Time { t := today().AddDate(0, 0, n); return &t }
+		e1, e2, e3 := uuid.MustParse("00000000-0000-4000-8000-0000000000e1"), uuid.MustParse("00000000-0000-4000-8000-0000000000e2"), uuid.MustParse("00000000-0000-4000-8000-0000000000e3")
+		all = []agents.GooglePageRow{
+			{Path: "/post/hello", EntityID: &e1, Name: "Hello <world>", Crawls: 556, LastDay: d(-1), LastStatus: 200},
+			{Path: "/docs/v0/gone", Crawls: 37, LastDay: d(-2), LastStatus: 404},
+			{Path: "/post/edited", EntityID: &e2, Name: "Edited page", Crawls: 12, LastDay: d(-3), LastStatus: 200, Stale: true},
+			{EntityID: &e3, Name: "Brand new page"},
+		}
+	}
+	var out []agents.GooglePageRow
+	for _, r := range all {
+		keep := map[string]bool{"": true, agents.GoogleFilterAll: true, agents.GoogleFilterNotCrawled: r.EntityID != nil && r.Crawls == 0,
+			agents.GoogleFilterErrors: r.LastStatus >= 400, agents.GoogleFilterStale: r.Stale}[filter]
+		if keep {
+			out = append(out, r)
+		}
+	}
+	total := len(out)
+	if offset >= len(out) {
+		return nil, total, nil
+	}
+	return out[offset:min(offset+limit, len(out))], total, nil
 }
 func (f *fakeAgentStats) TopAgents(context.Context, agents.Range, int) ([]agents.AgentTotals, error) {
 	return []agents.AgentTotals{{AgentID: "gptbot", Operator: "OpenAI", Purpose: "training", Hits: 900, Verified: 30, LastSeenDay: day(0)}}, nil

@@ -19,6 +19,7 @@ var sectionCopy = map[string]struct{ Title, Lede string }{
 	"ai-overview":  {"Are AI systems reading your site?", ""},
 	"ai-crawlers":  {"Who is reading your site?", ""},
 	"ai-content":   {"What are they reading?", ""},
+	"ai-google":    {"What is Google doing?", googleLede},
 	"ai-referrals": {"What comes back?", "Visits from people who clicked a link inside an AI assistant. Counted per day; no visitors are tracked."},
 	"ai-health":    {"Is it running cleanly?", "Whether crawlers are who they say they are and whether your site answers them cleanly."},
 }
