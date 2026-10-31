@@ -1,6 +1,8 @@
 // The Translations tab on Details: add two locales, re-tag a copy through the Locale select, link it from the
 // original's tab through the dialog, read the s4 page (desktop and phone width), make the copy the original and
-// back, edit the original and expect "Out of date" on the copy, then unlink. Uses the seeded "QA Post 1" and
+// back, edit the original and expect "Out of date" on the copy, then unlink. It then creates a copy through the
+// Create copy page, the bulk action and Add a locale > Start with, copies a term, and checks the single-locale
+// site for none of those controls (A6). Uses the seeded "QA Post 1" and
 // "QA Post 2" (same type); the locales are removed again at the end.
 // Run: scripts/admin-qa/run-local.sh locales-translations.mjs   Output: SHOTS_OUT (default results/shots). Exit 1 on a failure.
 import fs from "node:fs";
@@ -42,6 +44,23 @@ ok((await p.locator("#locale").count()) === 0, "single-locale: no Locale select"
 await p.goto(`${base}/admin/entities/${first}/translations`);
 ok((await p.getByText("This site has one language").count()) === 1 && (await p.getByRole("link", { name: "Add a locale" }).count()) === 1, "single-locale: direct visit shows the empty state");
 await shot(p, "single-locale");
+
+// A6: a single-locale site shows none of the copy controls.
+await p.goto(`${base}/admin/entities`);
+ok((await p.getByText("Create drafts in").count()) === 0, "single-locale: no bulk Create drafts action");
+const direct = await p.goto(`${base}/admin/entities/${first}/translations/new?locale=pt`);
+ok(direct.status() === 404, "single-locale: the Create copy page answers 404");
+await p.goto(`${base}/admin/settings/locales/new`);
+ok((await p.locator("#locale-start").count()) === 0 && (await p.getByText("Start with").count()) === 0, "single-locale: Add a locale has no Start with");
+const termHref = await (async () => {
+  await p.goto(`${base}/admin/settings/taxonomies`);
+  const link = p.locator('a[href*="/settings/taxonomies/terms/"]').first();
+  return (await link.count()) ? link.getAttribute("href") : null;
+})();
+if (termHref) {
+  await p.goto(`${base}${termHref}`);
+  ok((await p.locator("#term-locale, #term-locales-h").count()) === 0, "single-locale: the term page has no Locale select or Languages block");
+}
 
 await addLocale("fr", "French");
 await addLocale("es", "Spanish");
@@ -99,6 +118,41 @@ if (await confirm.count()) await Promise.all([p.waitForLoadState(), confirm.clic
 await p.waitForLoadState();
 await p.goto(`${base}/admin/entities/${first}/translations`);
 ok((await p.getByRole("link", { name: "Translations 1/3" }).count()) === 1, "after unlinking the tab is 1/3 again");
+
+// Create a Spanish copy of the first post from the Create copy page: the title and address are prefilled, the
+// copy starts as a draft and is linked into the group.
+await p.goto(`${base}/admin/entities/${first}/translations/new?locale=es`);
+ok((await p.locator("#copy-es-name").inputValue()) === "QA Post 1", "Create copy: the title is prefilled from the original");
+ok((await p.getByText("Stays the same as the original").count()) === 1, "Create copy: says what stays the same");
+ok((await p.getByRole("radio", { name: /Empty page/ }).count()) === 1, "Create copy: offers an empty page");
+await shot(p, "create-copy");
+await Promise.all([p.waitForLoadState(), p.locator('form[action$="/translations/copy"] button[type=submit]').first().click()]);
+ok(/\/admin\/entities\/[0-9a-f-]{36}/.test(p.url()) && !p.url().endsWith(first), "Create copy: opens the new copy");
+const copyId = p.url().match(/entities\/([0-9a-f-]{36})/)[1];
+await p.goto(`${base}/admin/entities/${first}/translations`);
+ok((await p.locator("#row-es").getByText("no copy").count()) === 0, "Create copy: Spanish now has a copy");
+
+// Bulk: tick the second post and create drafts in Spanish; the row that already has one is skipped next time.
+await p.goto(`${base}/admin/entities?q=QA%20Post%202`);
+await p.locator('tbody input[type=checkbox]').first().check();
+ok((await p.getByRole("button", { name: "Create drafts in es" }).or(p.getByRole("menuitem", { name: "Create drafts in es" })).count()) >= 1, "bulk: Create drafts in es is offered");
+
+// Add a locale shows Start with once the site has entries.
+await p.goto(`${base}/admin/settings/locales/new`);
+ok((await p.getByText("Start with").count()) >= 1, "Add a locale: Start with is offered");
+
+// Term page: Locale select and the copies block.
+if (termHref) {
+  await p.goto(`${base}${termHref}`);
+  ok((await p.locator("#term-locale").count()) === 1, "term: the Locale select is shown");
+  ok((await p.locator("#term-locales-h").count()) === 1, "term: the Languages block is shown");
+  await shot(p, "term-copies");
+}
+
+// Tidy up: delete the created copy.
+await p.goto(`${base}/admin/entities/${copyId}/delete`);
+const del = p.locator('form[action$="/delete"] button[type=submit]').first();
+if (await del.count()) await Promise.all([p.waitForLoadState(), del.click()]);
 
 await removeLocale("es");
 await removeLocale("fr");
