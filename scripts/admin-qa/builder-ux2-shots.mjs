@@ -137,8 +137,13 @@ await wait(p, 300);
 // "Inherited from Desktop" on Tablet)
 await pickRow(p, "heading", 1);
 await style(p);
-await inspector(p).getByLabel("Font size", { exact: true }).first().fill("36");
-await inspector(p).getByLabel("Padding top", { exact: true }).first().fill("24");
+// a heading starts with its groups closed except those that hold a value: open them all for the shots
+for (const name of ["Layout", "Spacing", "Fill", "Typography"]) {
+  const head = inspector(p).locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+}
+await inspector(p).getByLabel("Sz font size", { exact: true }).first().fill("36");
+await inspector(p).locator('.hm-bs-bm__p input[data-side="top"]').first().fill("24");
 await p.keyboard.press("Tab");
 await inspector(p).getByLabel("Alignment", { exact: true }).first().selectOption({ label: "Center" }).catch(() => {});
 await wait(p, 400);
