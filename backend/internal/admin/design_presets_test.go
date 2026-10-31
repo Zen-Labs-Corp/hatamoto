@@ -85,7 +85,7 @@ func TestPresetsSaveInvalidValueMapsToField(t *testing.T) {
 	form := url.Values{"label.card": {"Card"}, "s.card.base.pt": {"red;}</style>"}, "s.card.base.bg": {"surface"}}
 	rec := g.do("POST", "/admin/theme/presets", "owner-token", form, nil)
 	body := rec.Body.String()
-	if rec.Code != 422 || strings.Count(body, "hm-field__error") != 1 || !strings.Contains(body, `<details open>`) {
+	if rec.Code != 422 || strings.Count(body, "hm-field__error") != 1 || !strings.Contains(body, `<details class="hm-presetdetails" open>`) {
 		t.Fatalf("invalid: %d errors=%d", rec.Code, strings.Count(body, "hm-field__error"))
 	}
 	if strings.Contains(body, "red;}</style>") {
