@@ -113,3 +113,10 @@
 .hm-bs-style .hm-bs-opt[aria-pressed="true"], .hm-bs-style .hm-bs-opt[aria-pressed="true"]:hover { background: var(--color-paper); color: var(--color-sumi); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
 .hm-bs-style .hm-bs-opt--inherited { border: 0; box-shadow: inset 0 0 0 1px var(--border); }
 .hm-bs-style .hm-bs-opts .hm-bs-num { flex: 0 0 4rem; min-width: 0; height: 24px; }
+
+/* Fill: the colour field keeps its "None" in full; the theme pills run the full width under it. */
+.hm-bs-style .hm-bs-swatch[data-none] { inline-size: auto; min-inline-size: var(--control-h-xs); padding-inline: var(--space-2); }
+.hm-bs-style .hm-bs-swatch[data-none] > .hm-bs-none { white-space: nowrap; }
+.hm-bs-style .hm-bs-field > .hm-bs-swatches { grid-column: 1 / -1; }
+.hm-bs-style .hm-bs-pill { gap: var(--space-1); min-block-size: 24px; padding: 0 var(--space-2) 0 var(--space-1); }
+.hm-bs-style .hm-bs-pill .hm-bs-sw { inline-size: 14px; block-size: 14px; }
