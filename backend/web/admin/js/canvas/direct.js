@@ -110,7 +110,7 @@ export function mountDirect(canvas, hd) {
     points.forEach((b, i) => {
       let p = pills[i];
       if (!p) {
-        p = el("button", { type: "button", class: "hm-pe__strip", "data-hm-pe-strip": "", tabindex: "-1" }, el("span", { class: "hm-pe__pill", "aria-hidden": "true", text: "Add section" }));
+        p = el("button", { type: "button", class: "hm-pe__gapline", "data-hm-pe-gapline": "", tabindex: "-1" }, el("span", { class: "hm-pe__pill", "aria-hidden": "true", text: "Add section" }));
         p.addEventListener("click", () => {
           const at = boundaryIndex(p._b, hd.indexOf, hd.total());
           if (at !== null) hd.onAddSection(at, p);

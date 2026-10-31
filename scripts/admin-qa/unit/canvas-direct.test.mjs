@@ -323,6 +323,7 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(strips.length, 3);
   assert.deepEqual(strips.map((s) => s.style.top), ["0px", "200px", "400px"]);
   assert.equal(strips[1].attrs["aria-label"], "Add section after Section a");
+  assert.equal(strips[1].attrs.class, "hm-pe__gapline", "not the breadcrumb strip class");
   assert.equal(find(strips[0], () => true).textContent, "Add section");
   strips.forEach((s) => s.fire("click"));
   assert.deepEqual(r.adds.map(([i]) => i), [0, 1, 2], "leading 0, between = the doc index of the one below, trailing = total");

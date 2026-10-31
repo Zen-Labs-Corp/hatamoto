@@ -84,11 +84,11 @@
 .hm-pe__padh:focus-visible { outline: var(--focus-ring); outline-offset: 1px; border-radius: var(--radius-sm); }
 .hm-pe__padbadge { position: absolute; transform: translate(-50%, -50%); padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-2xs); background: var(--pe-guide-pad); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); pointer-events: none; }
 .hm-pe__padbadge[hidden] { display: none; }
-/* Boundary strips between top-level sections: full width, take the pointer, show their pill on hover or focus. The strip name is shared with the breadcrumb strip above, so inside the layer it resets that rule. */
-.hm-pe__pad .hm-pe__strip { position: absolute; left: 0; right: 0; display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0; margin: 0; padding: 0; height: 24px; transform: translateY(-50%); background: none; pointer-events: auto; }
+/* Boundary lines between top-level sections: full width, take the pointer, show their pill on hover or focus. */
+.hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; height: 24px; transform: translateY(-50%); pointer-events: auto; }
 .hm-pe__pill { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; cursor: pointer; opacity: 0; box-shadow: 0 0 0 2px var(--surface); }
 .hm-pe__pill svg { width: 12px; height: 12px; }
-.hm-pe__strip:hover .hm-pe__pill, .hm-pe__pill:hover, .hm-pe__pill:focus-visible { opacity: 1; }
+.hm-pe__gapline:hover .hm-pe__pill, .hm-pe__pill:hover, .hm-pe__pill:focus-visible { opacity: 1; }
 .hm-pe__pill:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-pe__toolbar, .hm-pe__tag, .hm-pe__size, .hm-pe__padbadge, .hm-pe__pill { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
