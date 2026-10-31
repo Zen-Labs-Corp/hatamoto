@@ -15,6 +15,7 @@ import (
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/searchperf"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -199,10 +200,12 @@ type GrowthDeps struct {
 	Sections  SectionStore
 	Agents    AgentStats
 	Referrals Referrals
-	Linking   LinkingStore
-	Plugins   PluginAdmin
-	Packages  PackageAdmin
-	FormMail  FormMailer
+	// SearchPerf supplies search performance data (nil = none connected).
+	SearchPerf searchperf.Provider
+	Linking    LinkingStore
+	Plugins    PluginAdmin
+	Packages   PackageAdmin
+	FormMail   FormMailer
 	// AgentRegistry names the crawlers (agents.Default() when nil).
 	AgentRegistry *agents.Registry
 }
