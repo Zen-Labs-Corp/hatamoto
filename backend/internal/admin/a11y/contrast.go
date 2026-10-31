@@ -115,6 +115,7 @@ var DeclaredPairs = []Pair{
 	{"--color-accent", "--color-accent-soft", 4.5, "accent on accent-soft"},
 	{"--color-success", "--color-success-soft", 4.5, "success text"},
 	{"--color-warning", "--color-warning-soft", 4.5, "warning text"},
+	{"--color-paper", "--color-guide-pad", 4.5, "canvas padding value badge text"},
 	{"--color-danger", "--color-danger-soft", 4.5, "danger text"},
 	{"--color-danger", "--color-paper", 4.5, "danger text on surface"},
 	{"--color-paper", "--color-sumi", 4.5, "primary button text"},
