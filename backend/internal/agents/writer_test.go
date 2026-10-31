@@ -581,3 +581,70 @@ func TestLogSourceKeepsStatusSkipsResolver(t *testing.T) {
 		t.Fatalf("want 2 log + 3 total hits, got %d / %d", logHits, len(st.all()))
 	}
 }
+
+// One flush asks the resolver once per distinct path, however many hits share it.
+func TestFlushResolvesDistinctPathsOnce(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var calls atomic.Int32
+	resolve := func(context.Context, string) (*uuid.UUID, int) {
+		calls.Add(1)
+		return &id, 200
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	for i := 0; i < 20; i++ {
+		w.Record(RawHit{UA: gptUA, Path: "/post/same", Status: 200, Source: SourceBackend})
+	}
+	w.Close()
+	if n := calls.Load(); n != 1 {
+		t.Errorf("resolver called %d times for one path, want 1", n)
+	}
+	for _, h := range st.all() {
+		if h.EntityID == nil {
+			t.Errorf("hit without entity: %+v", h)
+		}
+	}
+}
+
+// A slow resolver must not stall the flush: past the per-flush budget the
+// rest of the batch is written without an entity, for the backfill to heal.
+func TestFlushResolverBudget(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var calls atomic.Int32
+	resolve := func(ctx context.Context, _ string) (*uuid.UUID, int) {
+		calls.Add(1)
+		time.Sleep(20 * time.Millisecond)
+		return &id, 200
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	w.resolveBudget = 50 * time.Millisecond
+	const paths = 50
+	batch := make([]queued, 0, paths)
+	for i := 0; i < paths; i++ {
+		batch = append(batch, queued{
+			hit:     Hit{AgentID: "gptbot", Path: "/p/" + strings.Repeat("x", i+1), Status: 200},
+			resolve: true, entityOnly: true,
+		})
+	}
+	start := time.Now()
+	w.flush(context.Background(), batch)
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Errorf("flush took %v with a 50ms budget", d)
+	}
+	if n := calls.Load(); n >= paths {
+		t.Errorf("resolver called %d times, the budget must cut it short", n)
+	}
+	var withEntity, without int
+	for _, h := range st.all() {
+		if h.EntityID != nil {
+			withEntity++
+		} else {
+			without++
+		}
+	}
+	if withEntity+without != paths || without == 0 || withEntity == 0 {
+		t.Errorf("written %d with entity, %d without; want both, %d total", withEntity, without, paths)
+	}
+	w.Close()
+}

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -17,6 +18,11 @@ const (
 	flushBatch    = 100
 	insertTimeout = 5 * time.Second
 	resolveTimout = 2 * time.Second
+	// resolveBudget caps the resolver time of one flush. Past it the remaining
+	// paths are written without an entity (the attribution backfill heals
+	// them), so a slow resolver cannot stall the flush goroutine and fill the
+	// queue.
+	resolveBudget = 3 * time.Second
 	drainTimeout  = 5 * time.Second // default Writer.drainTimeout
 	warnEvery     = 30 * time.Second
 )
@@ -70,7 +76,8 @@ type Writer struct {
 	observer atomic.Pointer[func([]Hit)]
 	closeMu  sync.Once
 
-	drainTimeout time.Duration // bounds the whole shutdown drain, flushes included
+	drainTimeout  time.Duration // bounds the whole shutdown drain, flushes included
+	resolveBudget time.Duration // resolver time per flush
 }
 
 // NewWriter starts the background flush goroutine. resolve may be nil (page
@@ -85,7 +92,8 @@ func NewWriter(store Store, reg *Registry, resolve ResolveFunc, logger *slog.Log
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 
-		drainTimeout: drainTimeout,
+		drainTimeout:  drainTimeout,
+		resolveBudget: resolveBudget,
 	}
 	go w.run()
 	return w
@@ -236,22 +244,46 @@ func (w *Writer) run() {
 	}
 }
 
+type pathLookup struct {
+	id     *uuid.UUID
+	status int
+}
+
+// flush resolves every distinct path of the batch once, within the per-flush
+// budget, then stores the batch. A path not resolved in time gets no entity
+// (and the hint, or no status, for a hit that waits on the resolver for one).
 func (w *Writer) flush(parent context.Context, batch []queued) {
+	deadline := time.Now().Add(w.resolveBudget)
+	seen := map[string]pathLookup{}
+	lookup := func(path string) (pathLookup, bool) {
+		if r, ok := seen[path]; ok {
+			return r, true
+		}
+		if !time.Now().Before(deadline) {
+			return pathLookup{}, false
+		}
+		ctx, cancel := context.WithTimeout(parent, resolveTimout)
+		defer cancel()
+		id, status := w.resolve(ctx, path)
+		r := pathLookup{id, status}
+		seen[path] = r
+		return r, true
+	}
 	hits := make([]Hit, len(batch))
 	for i, it := range batch {
 		h := it.hit
 		if it.resolve {
-			ctx, cancel := context.WithTimeout(parent, resolveTimout)
-			id, status := w.resolve(ctx, h.Path)
-			cancel()
-			if it.entityOnly {
-				h.EntityID = id
-				hits[i] = h
-				continue
-			}
-			h.EntityID, h.Status = id, status
-			if h.Status == 404 && it.hint != 0 {
+			r, ok := lookup(h.Path)
+			switch {
+			case it.entityOnly:
+				h.EntityID = r.id
+			case !ok:
 				h.Status = it.hint
+			default:
+				h.EntityID, h.Status = r.id, r.status
+				if h.Status == 404 && it.hint != 0 {
+					h.Status = it.hint
+				}
 			}
 		}
 		hits[i] = h
