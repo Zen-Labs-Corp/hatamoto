@@ -3,6 +3,7 @@
 // host keeps geometry and state, this builds the DOM once and repaints it on `update()`.
 // The strip is sticky over the scroller and takes no clicks itself; only its buttons do.
 import { BP_NAME, BREAKPOINT_MAX } from "@hm/builder/bp";
+import { sizeText, toolbarModel } from "@hm/canvas/chromemodel";
 import { placeToolbar } from "@hm/canvas/layout";
 import { insertionPoints } from "@hm/canvas/points";
 
@@ -79,34 +80,37 @@ export function mountStrip(canvas, handlers) {
 }
 
 const TEXT_KINDS = new Set(["heading", "text"]); // edited in place
-// [action, visible text, accessible name]; the visible text is part of the name
-const ACTIONS = [
-  ["parent", "Parent", "Select parent"],
-  ["duplicate", "Duplicate", "Duplicate"],
-  ["wrap", "Wrap", "Wrap in container"],
-  ["addafter", "Add after", "Add after"],
-  ["togglehide", "Hide", "Hide on this device"],
-  ["remove", "Delete", "Delete"],
-  ["more", "More", "More element actions"],
-];
+// The chip's icon by element kind (the Navigator's mapping); anything else reads as a puzzle piece.
+const KIND_ICON = { section: "layers", heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text" };
 
 /**
  * mountToolbar(canvas, handlers) -> {update, destroy}
- * The floating toolbar of the selected element: built once and repositioned, never rebuilt by the marks redraw.
- * canvas: the host (stage, scale, inset, selectionBox, editingId, editable, nodeChain); handlers: {nodeLabel, sectionLabel, isHidden(id), onAction(name), onCrumb(id, k), onMore(rect), onAddAfter(button), onHandleDown}.
+ * The floating dark toolbar of the selected element: built once from toolbarModel and repositioned, never rebuilt by the marks redraw.
+ * It also carries the size badge under the selection.
+ * canvas: the host (stage, scale, inset, selectionBox, editingId, editable, nodeChain); handlers: {nodeLabel, sectionLabel, toolbarState(id, k), isHidden(id), onAction(name), onCrumb(id, k), onMore(rect), onHandleDown}.
  */
 export function mountToolbar(canvas, handlers) {
+  const tpl = canvas.stage.closest?.("[data-hm-builder]")?.querySelector("template[data-hm-bs-ico]"); // the server-rendered icons
+  const icon = (name) => tpl?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true) ?? h("span", { "data-ico": name });
+  const initial = toolbarModel({ kind: "", name: "", parentId: "x" });
   const handle = h("span", { class: "hm-pe__handle", "data-id": "", "aria-hidden": "true", title: "Drag to move", text: "\u283f" });
+  const chipIcon = h("span", { "aria-hidden": "true" });
   const name = h("span", { class: "hm-pe__tname" });
-  const buttons = ACTIONS.map(([act, text, label], i) => h("button", { type: "button", class: "hm-pe__tbtn", "data-act": act, "aria-label": label, tabindex: i === 0 ? "0" : "-1", text }));
-  const actions = h("div", { class: "hm-pe__tactions" }, ...buttons);
+  const chip = h("span", { class: "hm-pe__tchip" }, chipIcon, name);
+  const up = h("button", { type: "button", class: "hm-pe__tup", "data-act": "parent", tabindex: "-1" });
+  const sep = h("span", { class: "hm-pe__tsep", "aria-hidden": "true" });
+  const acts = initial.buttons.map((m) => h("button", { type: "button", class: "hm-pe__tbtn", "data-act": m.act, tabindex: "-1" }, icon(m.icon)));
+  const buttons = [up, ...acts];
+  const actions = h("div", { class: "hm-pe__tactions" }, ...acts);
   const hint = h("span", { class: "hm-pe__thint" });
-  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, name, actions, hint);
-  canvas.stage.append(bar);
+  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, chip, up, sep, actions, hint);
+  const size = h("span", { class: "hm-pe__size", "data-hm-pe-size": "", "aria-hidden": "true", hidden: true });
+  canvas.stage.append(bar, size);
 
-  const enabled = () => buttons.filter((b) => !b.hasAttribute("disabled"));
+  const enabled = () => buttons.filter((b) => !b.hidden && !b.hasAttribute("disabled"));
+  const stopAt = (to) => buttons.forEach((b) => b.setAttribute("tabindex", b === to ? "0" : "-1"));
   const rove = (to) => {
-    buttons.forEach((b) => b.setAttribute("tabindex", b === to ? "0" : "-1"));
+    stopAt(to);
     to.focus();
   };
   bar.addEventListener("keydown", (e) => {
@@ -117,18 +121,15 @@ export function mountToolbar(canvas, handlers) {
     e.preventDefault();
     rove(list[(to + list.length) % list.length]);
   });
+  let upId = null;
   bar.addEventListener("click", (e) => {
     const b = e.target.closest?.("[data-act]");
     if (!b || b.hasAttribute("disabled")) return;
-    buttons.forEach((x) => x.setAttribute("tabindex", x === b ? "0" : "-1"));
-    const act = b.dataset.act;
-    const sel = canvas.selectionBox;
+    stopAt(b);
+    const act = b.getAttribute("data-act");
     if (act === "parent") {
-      const chain = sel ? canvas.nodeChain(sel.id) : [];
-      const up = chain[chain.length - 2];
-      if (up) handlers.onCrumb?.(up.id, up.k);
+      if (upId) handlers.onCrumb?.(upId, canvas.nodes?.find((n) => n.id === upId)?.k);
     } else if (act === "more") handlers.onMore?.(b.getBoundingClientRect());
-    else if (act === "addafter") handlers.onAddAfter?.(b);
     else handlers.onAction?.(act);
   });
 
@@ -137,38 +138,53 @@ export function mountToolbar(canvas, handlers) {
   // The formatting bar grows when its link row opens (Ctrl/Cmd+K): the hint under it moves down with it.
   const grown = typeof ResizeObserver === "function" ? new ResizeObserver(() => update()) : null;
   let watched = null;
+  /** What the toolbar shows for the selection: the screen's toolbarState when it supplies one, else what the host alone knows. */
+  function stateOf(sel, nm) {
+    const given = handlers.toolbarState?.(sel.id, sel.k);
+    if (given) return { kind: sel.t, ...given, name: given.name || nm };
+    const chain = canvas.nodeChain(sel.id);
+    const parent = chain[chain.length - 2];
+    return { name: nm, kind: sel.t, parentId: parent?.id ?? "", parentName: parent ? (parent.k === "s" ? handlers.sectionLabel?.(parent.id) : handlers.nodeLabel?.(parent.id, parent.k, parent.t)) || parent.t : "", canUp: true, canDown: true, hidden: !!handlers.isHidden?.(sel.id) };
+  }
   function update() {
     const sel = canvas.selectionBox;
     const on = !!sel && canvas.editable;
     bar.hidden = !on;
+    const editing = on && canvas.editingId === sel.id;
+    size.hidden = !on || editing;
     if (!on) return;
-    const editing = canvas.editingId === sel.id;
     const nm = (sel.k === "s" ? handlers.sectionLabel?.(sel.id) : handlers.nodeLabel?.(sel.id, sel.k, sel.t)) || sel.t;
     const text = editing ? "Editing text \u00b7 Enter to finish \u00b7 Esc to cancel" : TEXT_KINDS.has(sel.t) ? "Double-click or Enter to edit text" : "";
-    const hid = !!handlers.isHidden?.(sel.id); // hidden on this device: the button shows it again
-    const sig = `${sel.id}|${nm}|${editing}|${text}|${hid}`;
+    const info = { ...stateOf(sel, nm), editing };
+    const model = toolbarModel(info);
+    const sig = [sel.id, text, info.name, info.kind, info.parentId, info.parentName, info.canUp, info.canDown, info.hidden, editing].join("|");
     if (sig !== shown) {
       shown = sig;
-      name.textContent = nm;
+      name.textContent = model.title.name;
+      chipIcon.replaceChildren(icon(KIND_ICON[model.title.icon] ?? "puzzle"));
       hint.textContent = text;
       hint.hidden = !text;
       actions.hidden = editing;
       handle.hidden = editing || !handlers.onHandleDown;
       handle.setAttribute("data-id", sel.id);
-      const chain = canvas.nodeChain(sel.id);
-      const parent = buttons[0];
-      if (chain.length < 2) parent.setAttribute("disabled", "");
-      else parent.removeAttribute("disabled");
-      if (document.activeElement === parent && parent.hasAttribute("disabled")) rove(buttons[1]);
-      // the one tab stop must be a button Tab can reach: a disabled one (Parent, on a top-level element) would skip the toolbar
-      const stop = buttons.find((b) => b.getAttribute("tabindex") === "0");
-      if (!stop || stop.hasAttribute("disabled")) {
-        const first = enabled()[0];
-        buttons.forEach((b) => b.setAttribute("tabindex", b === first ? "0" : "-1"));
+      upId = model.up?.id ?? null;
+      up.hidden = !model.up || editing;
+      sep.hidden = up.hidden;
+      if (model.up) {
+        up.textContent = model.up.text;
+        up.setAttribute("aria-label", model.up.aria);
       }
-      const hide = buttons.find((b) => b.getAttribute("data-act") === "togglehide");
-      hide.textContent = hid ? "Show" : "Hide";
-      hide.setAttribute("aria-label", hid ? "Show on this device" : "Hide on this device");
+      for (const m of model.buttons) {
+        const b = acts.find((x) => x.getAttribute("data-act") === m.act);
+        b.setAttribute("aria-label", m.aria);
+        if (m.disabled) b.setAttribute("disabled", "");
+        else b.removeAttribute("disabled");
+        if (m.act === "togglehide") b.replaceChildren(icon(m.icon));
+      }
+      if (document.activeElement && buttons.includes(document.activeElement) && !enabled().includes(document.activeElement) && enabled()[0]) rove(enabled()[0]);
+      // the one tab stop must be a button Tab can reach: a disabled or hidden one would skip the toolbar
+      const stop = buttons.find((b) => b.getAttribute("tabindex") === "0");
+      if (!stop || stop.hidden || stop.hasAttribute("disabled")) stopAt(enabled()[0]);
     }
     const scroller = canvas.stage.parentElement;
     const sc = canvas.scale;
@@ -183,12 +199,18 @@ export function mountToolbar(canvas, handlers) {
     hint.hidden = !text;
     if (!hint.hidden && actions.scrollWidth > actions.clientWidth) hint.hidden = true; // the buttons are squeezed: the hint goes first
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
+    const label = sizeText(sel); // CSS px, whatever the zoom
+    if (size.textContent !== label) size.textContent = label;
+    size.style.left = `${box.x + box.w / 2}px`;
+    size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };
     if (fmt && fmt !== watched) grown?.observe((watched = fmt));
-    const { x, y } = placeToolbar({ box, bar: { w: bar.offsetWidth, h: bar.offsetHeight }, view, below: editing });
+    const { x, y, inside } = placeToolbar({ box, bar: { w: bar.offsetWidth, h: bar.offsetHeight }, view, below: editing });
     bar.style.left = `${x}px`;
     bar.style.top = `${y}px`;
+    if (inside) bar.setAttribute("data-inside", "");
+    else bar.removeAttribute("data-inside");
     // the formatting bar places itself after the selection report: look again once, next frame
     if (editing && retried !== sig) {
       retried = sig;
@@ -199,8 +221,25 @@ export function mountToolbar(canvas, handlers) {
   update();
   return {
     update,
-    destroy: () => (grown?.disconnect(), bar.remove()),
+    destroy: () => (grown?.disconnect(), bar.remove(), size.remove()),
   };
+}
+
+/**
+ * mountDirectLayer(canvas, handlers) -> {update, destroy}
+ * The padding handles and "Add section" lines (canvas/direct.js), loaded on their own so the toolbar does not wait for them.
+ * Mounted only when the screen supplies the handlers they need (refOf).
+ */
+export function mountDirectLayer(canvas, handlers) {
+  let part = null;
+  let gone = false;
+  if (handlers.refOf)
+    import("@hm/canvas/direct")
+      .then((m) => {
+        if (!gone) part = m.mountDirect(canvas, handlers);
+      })
+      .catch((err) => console.error("hatamoto canvas: direct", err));
+  return { update: () => part?.update(), destroy: () => ((gone = true), part?.destroy()) };
 }
 
 /**
@@ -248,6 +287,7 @@ export function mountHandles(canvas, handlers) {
     const points = layer.hidden ? [] : insertionPoints(canvas.nodes, parents, { gap: MIN_GAP / sc });
     const keep = new Set();
     for (const pt of points) {
+      if (pt.parent === "") continue; // the page level has the "Add section" lines
       keep.add(pt.key);
       let b = pool.get(pt.key);
       if (!b) {

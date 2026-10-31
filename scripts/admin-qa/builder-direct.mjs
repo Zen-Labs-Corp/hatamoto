@@ -171,10 +171,12 @@ await check("a click at the centre of a heading inside a 2-column section select
   await settle(300);
   if (!(await p.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected))) throw new Error("the toolbar was rebuilt by a hover redraw");
   const acts = await p.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
-  if (acts.join("|") !== "Select parent|Duplicate|Wrap in container|Add after|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
-  await p.locator('[data-hm-pe-toolbar] [data-act="parent"]').focus();
+  if (acts.map((a) => a.replace(/^Select parent.*/, "Select parent")).join("|") !== "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
+  await p.locator('[data-hm-pe-toolbar] [data-act="duplicate"]').focus();
   await p.keyboard.press("ArrowRight");
-  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "duplicate") throw new Error("ArrowRight did not move to Duplicate");
+  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "togglehide") throw new Error("ArrowRight did not move to Hide");
+  await p.keyboard.press("ArrowLeft");
+  if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "duplicate") throw new Error("ArrowLeft did not move back to Duplicate");
   const count = (await ids()).length;
   await p.keyboard.press("Enter");
   await settle(500);
@@ -240,12 +242,11 @@ await check("'+' picker: 3 columns adds a section with three column children and
 
 await check("'+' between sections and inside an empty column inserts at that exact position (doc order), by mouse", async () => {
   const s3 = await sig();
-  // The 3-column section is only 64 px tall: its three empty columns' "+" win the crowded spots, so the page-level points beside
-  // it are dropped (the toolbar's Add after is the way there). The point after the last section is clear of them.
+  // The page level has no "+": the "Add section" line after the last section is the way there.
   const [first, second] = await tops();
-  const after = p.locator(`[data-hm-pe-plus][aria-label^="Add after"]`);
+  const after = p.locator(`[data-hm-pe-gapline][aria-label="Add section at the end"]`);
   await after.first().waitFor({ state: "attached", timeout: 5000 });
-  if ((await after.count()) !== 1) throw new Error("expected one page-level + beside the 64 px section, got " + (await after.count()));
+  if ((await after.count()) !== 1) throw new Error("expected one end-of-page Add section line, got " + (await after.count()));
   await after.first().click({ force: true });
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "1 column" }).click();
   await settle(500);
