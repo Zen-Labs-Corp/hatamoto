@@ -1101,7 +1101,8 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 		known[ff.Name] = true
 		header = append(header, csvSafe(ff.Label))
 	}
-	header = append(header, "Other answers", "Page", "Referrer")
+	header = append(header, "Other answers", "Page", "Referrer",
+		"First channel", "First source", "First landing", "Last channel", "Last source", "Last landing")
 	h := w.Header()
 	h.Set("Content-Type", "text/csv; charset=utf-8")
 	h.Set("Content-Disposition", `attachment; filename="`+f.Slug+"-submissions-"+time.Now().UTC().Format("20060102")+`.csv"`)
@@ -1144,6 +1145,14 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 				other = append(other, k+": "+formatAnswer(s.Data[k]))
 			}
 			row = append(row, csvSafe(strings.Join(other, "; ")), csvSafe(s.Metadata.PageURL), csvSafe(s.Metadata.Referrer))
+			at := s.Attribution
+			if at == nil {
+				at = &form.Attribution{}
+			}
+			for _, t := range []*form.Touch{at.First, at.Last} {
+				ch, src, landing := touchParts(t)
+				row = append(row, csvSafe(ch), csvSafe(src), csvSafe(landing))
+			}
 			_ = cw.Write(row)
 		}
 		cw.Flush()
@@ -1198,11 +1207,51 @@ type submissionData struct {
 	MailErr    string
 	Received   string
 	StatusMove []ui.Action
+	// CameFrom is the First touch and Last touch rows of the Came from card.
+	CameFrom []answerRow
+}
+
+// touchParts is a stored touch as its channel name, source and landing page, in that order.
+// A submission stored without attribution has no touch: the channel reads Unknown, the rest is empty.
+func touchParts(t *form.Touch) (channel, source, landing string) {
+	if t == nil {
+		return unknownName, "", ""
+	}
+	channel = unknownName
+	if t.Channel != "" {
+		channel = channelName(t.Channel)
+	}
+	if t.Source != "" {
+		source = sourceName(t.Source)
+	}
+	return channel, source, t.Landing
+}
+
+// cameFrom is the Came from card: one row per touch, "channel / source / campaign / landing".
+func cameFrom(at *form.Attribution) []answerRow {
+	if at == nil {
+		at = &form.Attribution{}
+	}
+	row := func(label string, t *form.Touch) answerRow {
+		ch, src, landing := touchParts(t)
+		parts := []string{ch}
+		if src != "" {
+			parts = append(parts, src)
+		}
+		if t != nil && t.Campaign != "" {
+			parts = append(parts, t.Campaign)
+		}
+		if landing != "" {
+			parts = append(parts, landing)
+		}
+		return answerRow{label, strings.Join(parts, " / ")}
+	}
+	return []answerRow{row("First touch", at.First), row("Last touch", at.Last)}
 }
 
 func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status int, f *form.Form, s *form.FormSubmission, mailTo, mailErr string) {
 	d := submissionData{Form: f, Sub: s, Status: submissionBadge(s.Status), Base: a.adminPath + "/settings/submissions", ListURL: a.adminPath + "/settings/submissions?form=" + f.ID.String(),
-		MailOn: a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured(), MailTo: mailTo, MailErr: mailErr, Received: fmtDateTime(s.CreatedAt)}
+		MailOn: a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured(), MailTo: mailTo, MailErr: mailErr, Received: fmtDateTime(s.CreatedAt), CameFrom: cameFrom(s.Attribution)}
 	used := map[string]bool{}
 	for _, ff := range f.Fields {
 		used[ff.Name] = true
