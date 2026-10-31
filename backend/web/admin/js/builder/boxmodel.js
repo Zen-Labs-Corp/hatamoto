@@ -91,6 +91,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
         if (e.key === "Escape" && input.value !== shown) {
           e.stopPropagation(); // abandon the typed text: the field shows the stored value again
           paint();
+          inputs.forEach((x) => mark(x, false)); // a refused linked write marked every side
           err.hidden = true;
           return;
         }

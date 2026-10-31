@@ -210,6 +210,19 @@ test("Escape puts the stored value back, clears the refusal and does not reach t
   assert.equal(b.calls.length, 0);
 });
 
+test("Escape after a refused linked write clears the refusal on every side", () => {
+  const b = make(PADDING, { own: { pt: "10px", pr: "10px", pb: "10px", pl: "10px" }, ok: (_e, v) => !v.startsWith("-") });
+  const pt = b.side("p", "top");
+  pt.value = "-5";
+  pt.fire("change");
+  assert.equal(b.side("p", "left").attrs["aria-invalid"], "true", "the refused write marks every linked side");
+  pt.fire("keydown", { key: "Escape", stopPropagation() {} });
+  for (const side of ["top", "right", "bottom", "left"]) {
+    assert.equal(b.side("p", side).attrs["aria-invalid"], undefined, side);
+    assert.equal(b.side("p", side).attrs["aria-describedby"], undefined, side);
+  }
+});
+
 test("an arrow after typing, before Enter, steps from the typed value", () => {
   const b = make(PADDING, { own: { pt: "16px" } });
   const pt = b.side("p", "top");
