@@ -4,7 +4,7 @@
 // end a drag. A drag only previews in the frame (setVar, no commit); pointer-up makes ONE commit through handlers.onPadCommit.
 import { styleDecls } from "@hm/canvas/host";
 import { toBridge } from "@hm/canvas/protocol";
-import { boundaryIndex, hatchRects, pillPoints } from "@hm/canvas/chromemodel";
+import { boundaryIndex, hatchRects, keepInside, pillPoints } from "@hm/canvas/chromemodel";
 import { OPPOSITE, SIDES, padAria, padLabel, padValue, padWrites, startPx } from "@hm/canvas/padding";
 
 const SIDE_LIST = ["top", "right", "bottom", "left"]; // the order of a layout node's `pd`
@@ -99,7 +99,8 @@ export function mountDirect(canvas, hd) {
       SIDE_LIST.forEach((s, i) => {
         const hnd = handles[s];
         hnd.hidden = false;
-        hnd.style.left = `${at[s][0] * sc}px`;
+        const room = canvas.stage.offsetWidth || Infinity; // the frame: a handle on its edge (padding 0) must not be cut off
+        hnd.style.left = `${VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room)}px`;
         let top = at[s][1] * sc;
         if (s === "top" && !drag) top = Math.min(top, at.bottom[1] * sc - HANDLE_HALF - HANDLE_LONG); // a short section: the top handle ends where the bottom one starts, never under it
         hnd.style.top = `${top}px`;

@@ -144,3 +144,11 @@ test("placeToolbar: the inside toolbar never covers `avoid` (the top padding han
   assert.equal(placeToolbar({ box, bar: { w: 100, h: 32 }, view, avoid }).y, 8, "no overlap sideways: stays 8px in");
   assert.equal(placeToolbar({ box: { x: 0, y: 200, w: 600, h: 100 }, bar: wide, view, avoid }).inside, false, "only the inside placement moves");
 });
+
+const { withinFrame } = await import(new URL("../../../backend/web/admin/js/canvas/layout.js", import.meta.url));
+
+test("withinFrame: a pane wider than the frame does not carry the toolbar past the frame's edge", () => {
+  assert.deepEqual(withinFrame({ top: 0, left: -60, right: 740, bottom: 600 }, 390), { top: 0, left: 0, right: 390, bottom: 600 });
+  assert.equal(placeToolbar({ box: { x: 300, y: 200, w: 90, h: 80 }, bar: { w: 285, h: 32 }, view: withinFrame(view, 390) }).x, 105, "the bar ends at the frame's right edge");
+  assert.deepEqual(withinFrame(view, 1000), view, "a frame wider than the pane changes nothing");
+});

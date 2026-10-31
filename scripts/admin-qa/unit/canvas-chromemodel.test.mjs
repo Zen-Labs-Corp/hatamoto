@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { toolbarModel, pillPoints, boundaryIndex, sizeText, hatchRects, sizeAnchor } = await import(new URL("canvas/chromemodel.js", root));
+const { toolbarModel, pillPoints, boundaryIndex, sizeText, hatchRects, sizeAnchor, keepInside } = await import(new URL("canvas/chromemodel.js", root));
 const { selectionInfo, sectionOf } = await import(new URL("builder/selinfo.js", root));
 
 const comp = (id, c) => ({ id, t: "component", p: { type: "hero" }, ...(c ? { c } : {}) });
@@ -115,4 +115,11 @@ test("a section's size badge hangs from its right edge, off the centred 'Add sec
   const box = { x: 0, y: 100, w: 400, h: 200 };
   assert.deepEqual(sizeAnchor(box, true), { x: 400, align: "end" });
   assert.deepEqual(sizeAnchor(box, false), { x: 200, align: "center" });
+});
+
+test("a handle on the frame's edge is pulled inside by half its thickness; a short frame still gives a position", () => {
+  assert.equal(keepInside(0, 12, 390), 12);
+  assert.equal(keepInside(390, 12, 390), 378);
+  assert.equal(keepInside(200, 12, 390), 200);
+  assert.equal(keepInside(5, 12, 10), 12);
 });

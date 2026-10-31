@@ -4,7 +4,7 @@
 // The strip is sticky over the scroller and takes no clicks itself; only its buttons do.
 import { BP_NAME, BREAKPOINT_MAX } from "@hm/builder/bp";
 import { sizeAnchor, sizeText, toolbarModel } from "@hm/canvas/chromemodel";
-import { placeToolbar } from "@hm/canvas/layout";
+import { placeToolbar, withinFrame } from "@hm/canvas/layout";
 import { insertionPoints } from "@hm/canvas/points";
 
 const MIN_GAP = 26; // screen px: "+" buttons never sit closer than this
@@ -193,8 +193,9 @@ export function mountToolbar(canvas, handlers) {
     const inset = canvas.inset ?? 0;
     const top = scroller ? scroller.scrollTop - canvas.stage.offsetTop + inset : 0;
     const left = scroller ? scroller.scrollLeft - canvas.stage.offsetLeft : 0;
-    const view = scroller ? { top, left, right: left + scroller.clientWidth, bottom: top + scroller.clientHeight - inset } : { top: 0, left: 0, right: Infinity, bottom: Infinity };
-        // While editing, the text formatting bar owns the space it chose (above the element, or below when there is no room above):
+    const seen = scroller ? { top, left, right: left + scroller.clientWidth, bottom: top + scroller.clientHeight - inset } : { top: 0, left: 0, right: Infinity, bottom: Infinity };
+    const view = withinFrame(seen, canvas.stage.offsetWidth || Infinity);
+    // While editing, the text formatting bar owns the space it chose (above the element, or below when there is no room above):
     // the toolbar, now only a hint, goes under the element, and under the formatting bar when that is the one below.
     // a bar wider than the view (a phone) drops its hint, then the rest scrolls inside it
     bar.style.maxWidth = `${Math.max(0, view.right - view.left)}px`; // the view, not the (scaled) stage

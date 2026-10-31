@@ -77,3 +77,6 @@ export function hatchRects(box, pd) {
 export function sizeAnchor(box, section) {
   return section ? { x: box.x + box.w, align: "end" } : { x: box.x + box.w / 2, align: "center" };
 }
+
+/** A handle's centre kept so a handle `half` px thick stays inside 0..max: padding 0 puts its centre on the frame's edge, where it would be cut in half. */
+export const keepInside = (centre, half, max) => Math.max(half, Math.min(centre, Math.max(half, max - half)));
