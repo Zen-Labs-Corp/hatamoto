@@ -110,6 +110,20 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	if strings.ContainsAny(d.Domain, " /:<>\"'") || utf8.RuneCountInString(d.Domain) > 253 {
 		errs["domain"] = "Enter a domain like www.example.com"
 	}
+	if errs["language"] == "" {
+		// The language is the default locale: it must stay one of the locales
+		// that Settings > Locales stores.
+		cfg, err := a.loadSite(r.Context())
+		if err != nil {
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+			return
+		}
+		if len(cfg.Locales) > 0 && a.deps.ValidateLocales != nil {
+			if _, _, err := a.deps.ValidateLocales(r.Context(), f.Language, cfg.Locales, cfg.PrefixAll, cfg.XDefaultLocale); err != nil {
+				errs["language"] = "This language does not fit your locales: " + err.Error() + ". Manage them in Settings > Locales."
+			}
+		}
+	}
 	d.Site, d.SiteErrs = f, errs
 	if len(errs) > 0 {
 		a.renderSiteSettings(w, r, http.StatusUnprocessableEntity, d)
