@@ -9,9 +9,13 @@
 .hm-media-grid--picker { grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr)); margin: 0; }
 .hm-mediatile__thumb--file { display: flex; flex-direction: column; gap: var(--space-2); align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; }
 .hm-mediatile__thumb--file .hm-icon { width: 32px; height: 32px; }
-.hm-media-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-4) 0 0; }
+.hm-media-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); }
 .hm-media-toolbar__filters { flex: 1 1 auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin: 0; }
 .hm-media-toolbar__filters .hm-select { width: auto; flex: 0 1 180px; }
+/* One card holds the toolbar, the storage row and either view. It does not clip (the type select list drops below the toolbar); the inner table or grid card rounds its own bottom corners. */
+.hm-media .hm-tablecard { border: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.hm-media .hm-media-grid { margin: 0; padding: var(--space-4); }
+.hm-media .hm-empty { border: 0; }
 .hm-media-detail { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 900px) { .hm-media-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .hm-media-detail > .hm-stack { min-width: 0; }
@@ -58,7 +62,7 @@
 
 /* tiles: extension badge, New badge, storage bar */
 .hm-mediatile__badge { position: absolute; top: var(--space-2); right: var(--space-2); }
-.hm-media-storage { margin: var(--space-2) 0 var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.hm-media-storage { margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
 .hm-media-storage > .hm-catbar { flex: 1 1 24rem; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
 .hm-media-storage .hm-catbar__bar { flex: 1 1 10rem; width: auto; height: 8px; }
 .hm-media-storage__total { margin: 0; color: var(--text-muted); }
