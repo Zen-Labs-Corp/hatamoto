@@ -755,7 +755,7 @@ func TestSubmissionsOverviewShowsStatsTrackerAndFilters(t *testing.T) {
 		ff.addSub(fm, form.SubmissionStatusSpam, now.Add(-time.Duration(i+2)*time.Minute), nil)
 	}
 	body := g.do("GET", "/admin/settings/submissions?form="+fm.ID.String(), "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"hm-tracker", ">Total<", ">New<", ">Last 7 days<", "data-hm-autosubmit", "<noscript>", "1 submission"} {
+	for _, want := range []string{"hm-tracker", ">Total<", ">New<", ">Last 7 days<", "data-hm-autosubmit", "<noscript>", `: 1 submission, busiest"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview lacks %q", want)
 		}

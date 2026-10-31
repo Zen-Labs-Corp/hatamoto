@@ -982,11 +982,11 @@ func (a *Admin) submissionOverview(ctx context.Context, fs FormStore, f *form.Fo
 		d := now.AddDate(0, 0, -(submissionDaysShown - 1 - i))
 		blk := ui.TrackerBlock{Kind: "neutral", Tip: d.Format("2 Jan") + ": no submissions"}
 		if n > 0 {
-			kind := "success"
-			if n*5 >= busiest*4 { // the busiest days (within a fifth of the peak) stand out in the accent
-				kind = "info"
+			kind, tip := "success", d.Format("2 Jan")+": "+fmtNum(int64(n))+" "+plural(n, "submission", "submissions")
+			if n*5 >= busiest*4 { // the busiest days (within a fifth of the peak) stand out in the accent, and say so
+				kind, tip = "info", tip+", busiest"
 			}
-			blk = ui.TrackerBlock{Kind: kind, Tip: d.Format("2 Jan") + ": " + fmtNum(int64(n)) + " " + plural(n, "submission", "submissions")}
+			blk = ui.TrackerBlock{Kind: kind, Tip: tip}
 		}
 		t.Blocks = append(t.Blocks, blk)
 	}
