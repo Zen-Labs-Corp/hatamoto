@@ -125,7 +125,9 @@
 </section>{{with .Translations}}
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-translations" aria-labelledby="be-tab-translations" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>Translations</h2>
+{{template "hm/card-start" dict "ID" "be-translations"}}
 {{template "hm/translations" .}}
+{{template "hm/card-end"}}
 </section>{{end}}
 </aside>
 </div>

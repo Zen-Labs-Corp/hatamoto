@@ -33,7 +33,8 @@ func TestBuilderTranslationsDrawer(t *testing.T) {
 	body := rec.Body.String()
 	has(t, body, `id="hm-bs-translations"`, "Compare copies", `data-hm-open="create-copy-pt-BR"`)
 	createButton(t, body, "create-copy-pt-BR")
-	lacks(t, body, "<html", "hm-sidebar")
+	lacks(t, body, "<html", "hm-sidebar", ">Address<")
+	has(t, body, "Language", "Status")
 }
 
 func TestBuilderTranslationsSingleLocale(t *testing.T) {
