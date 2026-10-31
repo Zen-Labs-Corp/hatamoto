@@ -9,7 +9,7 @@ In this guide you install Hatamoto on a **VPS**, a small server you rent from a 
 
 ## Before you start
 
-- A new VPS running Ubuntu 24.04 or Debian 12, on amd64 or arm64 processors, with at least 1 GB of RAM. Hatamoto adds a swap file (disk space the server uses as extra memory) on small servers by itself.
+- A new VPS running Ubuntu 22.04, 24.04 or 26.04 LTS, or Debian 12 or 13, on amd64 or arm64 processors, with at least 1 GB of RAM. Other Ubuntu releases install with a warning. Any other system is refused. Hatamoto adds a swap file (disk space the server uses as extra memory) on small servers by itself.
 - A way to run commands as root on it: the provider's web console, or SSH with `sudo`.
 - Optional: a domain name. Without one, Hatamoto uses a free name of the form `203-0-113-7.sslip.io` built from your server's address.
 - The provider's firewall must let in ports 80 and 443. On Lightsail, open 443 in the Lightsail networking tab of the instance. Other providers have a similar firewall page: allow 22, 80 and 443 there too.
@@ -43,7 +43,8 @@ In a cloud-init file or launch script, put the same names after `env` in the ins
 | Name | What it does | Default |
 |---|---|---|
 | `HATAMOTO_DOMAIN` | Your own domain, for example `cms.example.com`. | the sslip.io name |
-| `HATAMOTO_VERSION` | The Hatamoto version to install, such as `v0.28.0`. | the newest stable version |
+| `HATAMOTO_VERSION` | The Hatamoto version to install, such as `v1.0.2`. It cannot be older than the installer's minimum. | the newest stable version, but never below the installer's minimum |
+| `HATAMOTO_PG_MAJOR` | The PostgreSQL major version to install: `16`, `17` or `18`. | `18` |
 | `HATAMOTO_ADMIN_EMAIL` | Your email address, given to the certificate authority for expiry notices. | none |
 | `HATAMOTO_SETUP_CODE` | Your own setup code, at least 12 letters or digits. | a random code |
 | `HATAMOTO_BACKUPS` | `1` for nightly backups, `0` for none. | `1` |
@@ -57,6 +58,30 @@ If you set `HATAMOTO_DOMAIN`, create a DNS record for it first. **DNS** is the s
 
 The sslip.io names are shared by many servers and may hit shared certificate limits. Use your own domain for production.
 
+### Which version is installed
+
+Each installer carries a minimum Hatamoto version, the oldest release it was tested with. Without `HATAMOTO_VERSION`, it installs the newer of that minimum and the newest fully rolled-out stable release. If you set `HATAMOTO_VERSION` below the minimum, the installer stops and names the minimum.
+
+### PostgreSQL
+
+The installer installs PostgreSQL 18 from apt.postgresql.org, on Ubuntu as well as Debian. Set `HATAMOTO_PG_MAJOR` to `16` or `17` to choose another. If a PostgreSQL cluster already exists, it keeps its version, and the installer refuses a version outside 16 to 18. It does not move existing data between versions.
+
+### Change the domain later
+
+To switch a running server to a new domain, point its `A` record at the server's address, then download the installer again and run:
+
+```bash
+curl -fsSLO https://hatamoto.dev/install.sh
+chmod +x install.sh
+sudo ./install.sh set-domain cms.example.com --email you@example.com
+```
+
+When DNS already points at the server, the installer switches the site, restarts it and prints a new admin link. The old domain then redirects permanently to the new one. Only one old domain is kept, so a later change replaces it.
+
+When DNS does not match yet, nothing changes. The server keeps serving the current domain and the DNS-switch timer retries until the record works. The command says it is waiting for DNS.
+
+The command refuses to run on a Hatamoto older than the installer's minimum. Update Hatamoto first.
+
 ### Check the installer first (optional)
 
 To read and verify the script before it runs, download it and check its signature with the [GitHub CLI](https://cli.github.com/):
@@ -64,7 +89,8 @@ To read and verify the script before it runs, download it and check its signatur
 ```bash
 curl -fsSLO https://hatamoto.dev/install.sh
 gh attestation verify install.sh --repo Zen-Labs-Corp/hatamoto --signer-workflow Zen-Labs-Corp/hatamoto/.github/workflows/release.yml
-sudo sh install.sh
+chmod +x install.sh
+sudo ./install.sh
 ```
 
 The installer then checks the Hatamoto program against the signed release list before it installs it. How signing works: [Trust and signing](../updates/trust-and-signing.md).

@@ -91,7 +91,7 @@ gh attestation verify install.sh \
   --signer-workflow Zen-Labs-Corp/hatamoto/.github/workflows/release.yml
 ```
 
-The script is not tied to one version: it carries the three public keys (the release primary, the release backup and the manifest key, see [the two keys](trust-and-signing.md#the-two-keys)) and uses them to check the release list and the binary it installs, so it picks the newest stable release unless you set `HATAMOTO_VERSION`. Because the keys are inside the script, a key rotation means we publish a new installer: an old copy keeps trusting the old keys.
+The script is not tied to one version: it carries the three public keys (the release primary, the release backup and the manifest key, see [the two keys](trust-and-signing.md#the-two-keys)) and uses them to check the release list and the binary it installs, so it picks the newest stable release, or the installer's minimum if that is newer, unless you set `HATAMOTO_VERSION`. Because the keys are inside the script, a key rotation means we publish a new installer: an old copy keeps trusting the old keys.
 
 ## Check it worked
 
