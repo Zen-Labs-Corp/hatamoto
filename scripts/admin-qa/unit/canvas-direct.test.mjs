@@ -357,3 +357,11 @@ test("a padding handle stacks above the boundary strips: a section edge with 0 p
   const z = (rule) => Number(/z-index:\s*(-?\d+)/.exec(rule)?.[1] ?? 0);
   assert.ok(z(handle) > z(strip), `handle z-index ${z(handle)} must exceed the strip's ${z(strip)}`);
 });
+
+test("the hatch is shown by dropping `hidden`: no stylesheet rule keeps it transparent behind attributes direct.js never sets", () => {
+  const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
+  const rule = /\.hm-pe__hatch \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  assert.ok(rule, "no .hm-pe__hatch rule");
+  assert.doesNotMatch(rule, /opacity:\s*0\b/);
+  assert.doesNotMatch(css, /\.hm-pe__hatch\[data-(show|active)\]/);
+});

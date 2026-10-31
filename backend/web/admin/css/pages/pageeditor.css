@@ -72,8 +72,8 @@
 /* Direct manipulation layer (js/canvas/direct.js): padding hatch, pink handles, value badge, "Add section" strips. Own layer: hover redraws of the marks never touch an active drag. */
 .hm-pe__pad { position: absolute; inset: 0; pointer-events: none; }
 .hm-pe__pad[hidden] { display: none; }
-.hm-pe__hatch { position: absolute; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--pe-guide-pad) 35%, transparent) 0 4px, transparent 4px 8px); opacity: 0; transition: opacity .12s; pointer-events: none; }
-.hm-pe__hatch[data-show], .hm-pe__pad[data-drag] .hm-pe__hatch[data-active] { opacity: 1; }
+.hm-pe__hatch { position: absolute; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--pe-guide-pad) 35%, transparent) 0 4px, transparent 4px 8px); pointer-events: none; }
+.hm-pe__hatch[hidden] { display: none; }
 .hm-pe__padh { position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); }
 .hm-pe__padh::after { content: ""; display: block; border-radius: var(--radius-2xs); background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface); }
 .hm-pe__padh[data-side="top"], .hm-pe__padh[data-side="bottom"] { width: 44px; height: 20px; cursor: ns-resize; }
