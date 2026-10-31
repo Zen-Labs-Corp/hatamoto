@@ -40,15 +40,18 @@ const isLayoutSection = (v) => isObj(v) && isStr(v.id) && isStr(v.type) && isNum
 const isId = (v) => isStr(v) && ID_RE.test(v);
 const isKind = (v) => v === "s" || v === "n";
 const isRect4 = (v) => isObj(v) && isNum(v.x) && isNum(v.y) && isNum(v.w) && isNum(v.h);
+const isPd = (v) => Array.isArray(v) && v.length === 4 && v.every((n) => Number.isInteger(n) && n >= 0 && n <= 10000);
 const isLayoutNode = (v) =>
   isObj(v) && isId(v.id) && isKind(v.k) && isStr(v.t) && v.t.length <= 100 && (v.p === "" || isId(v.p)) &&
   isNum(v.x) && isNum(v.y) && isNum(v.w) && isNum(v.h) &&
-  (v.c === undefined || v.c === 1) && (v.dir === undefined || v.dir === "row" || v.dir === "column" || v.dir === "grid");
+  (v.c === undefined || v.c === 1) && (v.dir === undefined || v.dir === "row" || v.dir === "column" || v.dir === "grid") &&
+  (v.pd === undefined || isPd(v.pd));
 
 function layoutNode(v) {
   const o = { id: v.id, k: v.k, t: v.t, p: v.p, x: v.x, y: v.y, w: v.w, h: v.h };
   if (v.c !== undefined) o.c = v.c;
   if (v.dir !== undefined) o.dir = v.dir;
+  if (v.pd !== undefined) o.pd = v.pd.slice();
   return o;
 }
 

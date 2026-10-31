@@ -57,3 +57,13 @@ test("protocol: toBridge.format builds messages validToBridge accepts", () => {
   assert.equal(validToBridge(toBridge.format({ ...ref, cmd: "link" })), false);
   assert.equal(validToBridge(toBridge.format({ ...ref, cmd: "link", href: "x".repeat(2001) })), false);
 });
+
+test("protocol: layout pd survives as a copy and an old bridge's omission stays absent", () => {
+  const node = { id: "s1", k: "s", t: "hero", p: "", x: 0, y: 0, w: 800, h: 300 };
+  const layout = (n) => ({ hm: 2, type: "layout", nodes: [n], main: { x: 0, y: 0, w: 800, h: 300 }, docH: 300 });
+  const pd = [96, 0, 96, 12];
+  const got = parseFrameMessage(layout({ ...node, pd }));
+  assert.deepEqual(got.nodes[0].pd, pd);
+  assert.notEqual(got.nodes[0].pd, pd);
+  assert.equal("pd" in parseFrameMessage(layout(node)).nodes[0], false);
+});

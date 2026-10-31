@@ -373,6 +373,353 @@
    }
   },
   {
+   "name": "v2 layout pd",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       96,
+       0,
+       96,
+       12
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       96,
+       0,
+       96,
+       12
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout without pd",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd three entries",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       2,
+       3
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd string entry",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       2,
+       "3",
+       4
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd negative",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       -1,
+       3,
+       4
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd 10001",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       2,
+       3,
+       10001
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd fractional",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       2.5,
+       3,
+       4
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd five entries",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
+   "name": "v2 layout pd not array",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 300,
+      "pd": 96
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 300
+    },
+    "docH": 300
+   }
+  },
+  {
    "name": "v2 layout empty",
    "dir": "in",
    "valid": true,

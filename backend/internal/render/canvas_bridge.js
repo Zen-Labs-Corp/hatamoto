@@ -493,6 +493,8 @@
     return doc.querySelector(sel === 'section' ? '[data-hm-section="' + esc + '"]' : '[data-hm-node="' + esc + '"]');
   }
 
+  function pad(v) { var n = Math.round(parseFloat(v)); return n > 0 ? Math.min(n, 10000) : 0; }
+
   function sendLayout2() {
     var els = doc.querySelectorAll(NODE_SEL);
     var sx = window.scrollX, sy = window.scrollY;
@@ -512,6 +514,11 @@
         var cs = window.getComputedStyle(el);
         item.c = 1;
         item.dir = cs.display === 'grid' ? 'grid' : (cs.flexDirection.indexOf('row') === 0 ? 'row' : 'column');
+      }
+      if (item.k === 's' && item.p === '') {
+        // Rendered padding (top, right, bottom, left): the parent cannot read it across the sandbox.
+        var ps = window.getComputedStyle(el);
+        item.pd = [pad(ps.paddingTop), pad(ps.paddingRight), pad(ps.paddingBottom), pad(ps.paddingLeft)];
       }
       nodes.push(item);
     }

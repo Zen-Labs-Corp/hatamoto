@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -168,7 +169,18 @@ func refParseV2(typ string, m refObj) refObj {
 			if d, has := nm["dir"]; has && d != "row" && d != "column" && d != "grid" {
 				return nil
 			}
-			typed = append(typed, refPick(nm, "id", "k", "t", "p", "x", "y", "w", "h", "c", "dir"))
+			if pd, has := nm["pd"]; has {
+				arr, ok := pd.([]any)
+				if !ok || len(arr) != 4 {
+					return nil
+				}
+				for _, e := range arr {
+					if f, ok := e.(float64); !ok || f != math.Trunc(f) || f < 0 || f > 10000 {
+						return nil
+					}
+				}
+			}
+			typed = append(typed, refPick(nm, "id", "k", "t", "p", "x", "y", "w", "h", "c", "dir", "pd"))
 		}
 		o := out("docH")
 		o["nodes"], o["main"] = typed, refPick(mainBox, "x", "y", "w", "h")
