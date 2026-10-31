@@ -25,8 +25,8 @@ const (
 	// builderFirstCap only seeds the first-paint cap in the budget file (measured 87,207 B + 2 KiB, E0);
 	// the cap stored in admin.json is the one enforced.
 	builderFirstCap = 87207 + 2048
-	// builderTotalCap is the cap of static + lazy JS: measured 260,468 B + 1 KiB (builder canvas direct manipulation, +8,813 B; it was 251,655 B + 1 KiB, navigator field-row review fixes, +239 B; it was 251,416 B + 1 KiB, navigator field rows, +1,220 B; before that 249,775 B + 1 KiB, navigator review fixes; it was 248,647 B + 1 KiB, navigator redesign; before that 242,008 B + 3 KiB, SEO drawer).
-	builderTotalCap = 260468 + 1024
+	// builderTotalCap is the cap of static + lazy JS: measured 262,338 B + 1 KiB (builder canvas direct manipulation and visual fixes, +10,683 B; it was 251,655 B + 1 KiB, navigator field-row review fixes, +239 B; it was 251,416 B + 1 KiB, navigator field rows, +1,220 B; before that 249,775 B + 1 KiB, navigator review fixes; it was 248,647 B + 1 KiB, navigator redesign; before that 242,008 B + 3 KiB, SEO drawer).
+	builderTotalCap = 262338 + 1024
 )
 
 // hmImportRx finds a static or dynamic import of a first-party module. Vendored
