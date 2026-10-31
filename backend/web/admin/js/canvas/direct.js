@@ -182,6 +182,7 @@ export function mountDirect(canvas, hd) {
         previewed: false,
         entries: Object.fromEntries(keys.map((s) => [s, hd.styleEntry(SIDES[s])])),
       };
+      hnd.focus?.({ preventScroll: true }); // preventDefault above stops the browser doing it, and Esc only reaches the host when focus is here, not in the frame
       hnd.setPointerCapture?.(e.pointerId);
       document.addEventListener("keydown", onEsc, true);
       paint();
@@ -197,6 +198,7 @@ export function mountDirect(canvas, hd) {
     });
     hnd.addEventListener("pointerup", (e) => end(true, e));
     hnd.addEventListener("pointercancel", (e) => end(false, e));
+    hnd.addEventListener("lostpointercapture", (e) => end(false, e)); // the capture ended without a pointer-up (after a pointer-up, the drag is already over)
     hnd.addEventListener("blur", () => (pend = { id: null, vals: {} })); // after focus leaves, an undo or the inspector may change the value
     hnd.addEventListener("keydown", (e) => {
       const dir = STEP[e.key];

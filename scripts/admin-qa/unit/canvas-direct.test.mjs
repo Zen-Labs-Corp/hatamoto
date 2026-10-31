@@ -34,6 +34,7 @@ class El {
     this.removed = true;
     if (this.parent) this.parent.children = this.parent.children.filter((c) => c !== this);
   }
+  focus(o) { this.focused = o ?? true; }
   setPointerCapture(id) { this.captured.push(id); }
   releasePointerCapture(id) { this.captured = this.captured.filter((x) => x !== id); }
   set textContent(v) { this.text = String(v); }
@@ -234,6 +235,22 @@ test("Esc restores the preview and commits nothing; the next pointer-up does not
   assert.equal(r.commits.length, 0);
   assert.equal(r.handle("top").attrs["aria-label"], "Top padding, 112px");
   assert.equal((docListeners.keydown ?? []).length, 0, "the Esc listener is gone");
+});
+
+test("pointer-down focuses the handle (so Esc reaches the host); losing the capture without a pointer-up cancels, after one it does not", () => {
+  const r = rig();
+  down(r, "top");
+  assert.deepEqual(r.handle("top").focused, { preventScroll: true });
+  move(r, "top", 0, 20);
+  r.handle("top").fire("lostpointercapture", { pointerId: 7 });
+  assert.equal(r.commits.length, 0);
+  assert.deepEqual(r.posted.at(-1).decls, [["padding-top", null]]);
+  const r2 = rig();
+  down(r2, "top");
+  move(r2, "top", 0, 20);
+  r2.handle("top").fire("pointerup", { pointerId: 7 });
+  r2.handle("top").fire("lostpointercapture", { pointerId: 7 });
+  assert.equal(r2.commits.length, 1);
 });
 
 test("pointercancel restores the preview and commits nothing; a click without movement commits nothing", () => {
