@@ -1,0 +1,21 @@
+/* Themes: Browse cards (screenshot-first) and the theme detail in the side panel */
+.hm-themecards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+.hm-themecards__item { display: flex; min-width: 0; }
+.hm-themecard { display: flex; flex-direction: column; width: 100%; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: inherit; text-decoration: none; }
+.hm-themecard:hover { border-color: var(--border-field); }
+.hm-themecard:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-themecard__shot { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 10; overflow: hidden; border-bottom: 1px solid var(--border); background: var(--color-kasumi); }
+.hm-themecard__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.hm-themecard__tile { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.hm-themecard__body { display: flex; flex-direction: column; flex: 1; gap: var(--space-2); min-width: 0; padding: var(--space-4); overflow-wrap: anywhere; }
+.hm-themecard__name { font-weight: var(--weight-semibold); }
+.hm-themecard__by { font-size: var(--text-xs); color: var(--text-muted); }
+.hm-themecard__desc { font-size: var(--text-sm); color: var(--text-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2lh; }
+.hm-themecard__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: auto; padding-top: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); }
+.hm-themecard__action { font-weight: var(--weight-semibold); color: var(--text-body); }
+.hm-themecard__action--live, .hm-themecard__action--installed { color: var(--color-success); }
+.hm-themecard__action--update { color: var(--color-accent); }
+.hm-themecard__action--install { color: var(--text-body); }
+/* The theme detail: large rounded screenshot, then the muted note. */
+.hm-themebrowse__shot { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--color-kasumi); }
+.hm-themebrowse__note { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
