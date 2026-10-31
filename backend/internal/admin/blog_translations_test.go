@@ -41,6 +41,10 @@ func TestBlogEditorTranslationsTab(t *testing.T) {
 	// the panel sits in a card like the other tabs.
 	has(t, panel, `id="be-translations"`, "Language", "Status")
 	lacks(t, panel, ">Address<")
+	// The language column is not the title column (240px at least), or the table
+	// would scroll sideways in the 319px aside and hide Create.
+	has(t, panel, "hm-col-plain")
+	lacks(t, panel, "hm-col-title")
 	// The Create dialog holds a form, so it sits after the editor form closes.
 	createButton(t, body, "create-copy-de-DE")
 	if form, dlg := strings.Index(body, `id="hm-be"`), strings.Index(body, `id="create-copy-de-DE"`); dlg < strings.Index(body[form:], "</form>")+form {

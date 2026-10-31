@@ -51,8 +51,10 @@ func (a *Admin) translationsPanel(ctx context.Context, r *http.Request, e *entit
 		}
 	}
 	// The panel is narrow (an aside, a drawer): the Address column would push the
-	// state and the action out of view, so it keeps language, status and action.
+	// state and the action out of view, so it keeps language, status and action,
+	// and the language is not the title column (that one is 240px wide at least).
 	p.Copies.Columns = slices.Delete(slices.Clone(p.Copies.Columns), 1, 2)
+	p.Copies.Columns[0].Role = "plain"
 	for i := range p.Copies.Rows {
 		p.Copies.Rows[i].Cells = slices.Delete(slices.Clone(p.Copies.Rows[i].Cells), 1, 2)
 	}
