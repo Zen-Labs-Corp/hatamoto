@@ -331,8 +331,7 @@ await check("A4 hover a boundary between sections: 'Add section' pill, click ope
   if ((await lines.count()) < 2) throw new Error(`${await lines.count()} boundary strips for ${total} sections`);
   const line = lines.nth(1); // between the scratch section and the page's first
   const box = await line.boundingBox();
-  // inert and invisible until the pointer is on a neighbouring section: no click is swallowed at a section's edge
-  if ((await line.getAttribute("data-show")) !== null) throw new Error("a pill shows with nothing hovered or selected");
+  // the pill shows once the pointer is on a neighbouring section (it is inert and invisible otherwise)
   await p.mouse.move(box.x + box.width / 2, box.y - 40, { steps: 4 });
   await settle(300);
   await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });

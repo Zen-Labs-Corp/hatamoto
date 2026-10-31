@@ -110,8 +110,16 @@ async function pick(re) {
   await p.waitForSelector(MENU, { state: "detached", timeout: 3000 });
   await settle(400);
 }
+// The page-level "Add section" pill (top: before the first section) takes the pointer only while it shows: hover the section next to it first.
+async function clickTopPill() {
+  const at = await canvasPoint((await tops())[0].id);
+  await p.mouse.move(at.x, at.y, { steps: 4 });
+  const line = p.locator('[data-hm-pe-gapline][aria-label="Add section at the top"]');
+  await line.locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
+  await line.click();
+}
 async function addColumns3() {
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await clickTopPill();
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "3 columns" }).click();
   await settle(500);
 }
@@ -222,7 +230,7 @@ await check("'+' picker: 3 columns adds a section with three column children and
   await open(NAME1);
   start1 = await sig();
   const before = (await ids()).length;
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await clickTopPill();
   const dlg = p.getByRole("dialog", { name: "Add a section" });
   await dlg.waitFor({ timeout: 3000 });
   await axeOn("the open layout picker");
@@ -271,13 +279,13 @@ await check("'+' between sections and inside an empty column inserts at that exa
   return "after-first section and the second empty column received their layouts; undone";
 });
 
-await check("Escape closes the picker and focus returns to the '+' button; an outside click closes it too", async () => {
-  await p.locator("[data-hm-pe-plus]").first().click({ force: true });
+await check("Escape closes the picker and focus returns to the pill or the tree; an outside click closes it too", async () => {
+  await clickTopPill();
   await p.getByRole("dialog", { name: "Add a section" }).waitFor({ timeout: 3000 });
   await p.keyboard.press("Escape");
   await settle(200);
   if (await p.getByRole("dialog", { name: "Add a section" }).count()) throw new Error("Esc left the picker open");
-  if (!(await p.evaluate(() => document.activeElement?.closest("[data-hm-pe-plus]") || document.activeElement?.closest("[data-hm-bs-tree]")))) throw new Error("focus is lost after Esc");
+  if (!(await p.evaluate(() => document.activeElement?.closest("[data-hm-pe-plus], [data-hm-pe-gapline]") || document.activeElement?.closest("[data-hm-bs-tree]")))) throw new Error("focus is lost after Esc");
   return "closed, focus kept";
 });
 
