@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -88,5 +89,88 @@ func TestSettingsNavBadgeShowsLocaleCount(t *testing.T) {
 	body = g2.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
 	if strings.Contains(body, "hm-subnav__marker") {
 		t.Error("single-locale site shows a badge")
+	}
+}
+
+func postForm(g *ownerRig, path string, kv ...string) int {
+	f := url.Values{}
+	for i := 0; i+1 < len(kv); i += 2 {
+		f.Set(kv[i], kv[i+1])
+	}
+	return g.do("POST", "/admin/settings/locales"+path, "owner-token", f, nil).Code
+}
+
+func TestLocalesPageListsLocalesAndHidden(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	rec := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "Francais") || !strings.Contains(body, "Hidden, not public yet") || !strings.Contains(body, "Default") {
+		t.Fatalf("code=%d body missing locale rows", rec.Code)
+	}
+}
+
+func TestLocaleAddHidden(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	if c := postForm(g, "/add", "tag", "nl-NL", "public", "false"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	l := site.cfg.Locales
+	if len(l) != 3 || l[2].Tag != "nl-NL" || !l[2].Hidden || l[2].Segment != "nl-nl" || g.flushed != 1 {
+		t.Errorf("locales = %+v flushed=%d", l, g.flushed)
+	}
+}
+
+func TestLocaleAddRejectsUndAndDuplicates(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	for _, tag := range []string{"und", "fr", "not a tag"} {
+		if c := postForm(g, "/add", "tag", tag, "public", "true"); c != 422 {
+			t.Errorf("tag %q code = %d, want 422", tag, c)
+		}
+	}
+	if len(site.cfg.Locales) != 2 {
+		t.Errorf("locales = %+v", site.cfg.Locales)
+	}
+}
+
+func TestLocaleOrderPermutationOnly(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	for _, o := range []string{"en", "en,en", "en,fr,es", "fr,xx"} {
+		if c := postForm(g, "/order", "order", o); c != 422 {
+			t.Errorf("order %q code = %d, want 422", o, c)
+		}
+	}
+	if c := postForm(g, "/order", "order", "fr,en"); c != 303 || site.cfg.Locales[0].Tag != "fr" || site.cfg.Locales[0].Name != "Francais" {
+		t.Errorf("code=%d locales=%+v", c, site.cfg.Locales)
+	}
+}
+
+func TestLocaleUpdateKeepsOthers(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	if c := postForm(g, "/fr/update", "public", "true"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if l := site.cfg.Locales[1]; l.Hidden || l.Name != "Francais" || l.Segment != "fr" {
+		t.Errorf("fr = %+v", l)
+	}
+	if c := postForm(g, "/en/update", "public", "false"); c != 422 || site.cfg.Locales[0].Hidden {
+		t.Errorf("hiding the default: code=%d %+v", c, site.cfg.Locales[0])
+	}
+	if c := postForm(g, "/xx/update", "public", "true"); c != 404 {
+		t.Errorf("unknown tag code = %d", c)
+	}
+}
+
+func TestLocalesPageSingleLocaleOnlyAdd(t *testing.T) {
+	t.Parallel()
+	g := newOwnerRig(t, true)
+	rec := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "Add locale") || strings.Contains(body, "Move down") || strings.Contains(body, "Hide from visitors") {
+		t.Fatalf("code=%d single-locale page shows multi controls", rec.Code)
 	}
 }
