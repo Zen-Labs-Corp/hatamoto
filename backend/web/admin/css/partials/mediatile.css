@@ -7,6 +7,7 @@
 .hm-mediatile__thumb img { width: 100%; height: 100%; object-fit: cover; }
 .hm-mediatile__thumb:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-mediatile__cap { display: flex; flex-direction: column; gap: var(--space-0-5); padding: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--text-muted); min-width: 0; }
+.hm-mediatile__cap > :not(.hm-mediatile__name) { font-family: var(--font-mono); }
 .hm-mediatile__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text); }
 .hm-mediatile__select { position: absolute; top: var(--space-2); left: var(--space-2); background: var(--surface); border-radius: var(--radius-sm); padding: var(--space-1); }
 .hm-mediatile__select:focus-within { outline: var(--focus-ring); }

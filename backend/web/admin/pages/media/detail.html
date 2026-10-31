@@ -2,8 +2,8 @@
 {{define "modules"}}@hm/content{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF}}
 <div class="hm-media-detail">
-<div class="hm-card hm-media-detail__preview">{{if .IsImage}}<img src="{{.URL}}" alt="{{.Alt}}">{{else}}<div class="hm-stack hm-media-detail__file">{{icon "file-text"}}<p class="hm-muted">{{.Mime}}</p><p><a href="{{.URL}}">Open the file</a></p></div>{{end}}</div>
 <div class="hm-stack">
+<div class="hm-card hm-media-detail__preview">{{if .IsImage}}<img src="{{.URL}}" alt="{{.Alt}}">{{else}}<div class="hm-stack hm-media-detail__file">{{icon "file-text"}}<p class="hm-muted">{{.Mime}}</p><p><a href="{{.URL}}">Open the file</a></p></div>{{end}}</div>
 {{$confirm := "It is deleted from the library and the server. This cannot be undone."}}{{if .Usage}}{{$confirm = printf "This file is used in %d %s: deleting it leaves broken images. %s" (len .Usage) (cond (eq (len .Usage) 1) "place" "places") $confirm}}{{end}}
 <form method="post" action="{{adminPath}}/media/{{.ID}}" class="hm-cardform">
 {{template "hm/card-start" dict "ID" "details" "Title" "Details"}}
@@ -16,15 +16,17 @@
 {{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
 </form>
+</div>
+<div class="hm-stack">
 {{template "hm/card-start" dict "ID" "info" "Title" "File"}}
 {{template "hm/field" dict "ID" "file-address" "Name" "address" "Label" "Address" "Value" .URL "Attrs" (attrmap "readonly" "")}}
 {{template "hm/button" (dict "Size" "sm" "Label" "Copy address" "Attrs" (attrmap "data-hm-copy-url" .URL "hidden" ""))}}
-<dl class="hm-dl"><dt>Type</dt><dd>{{.Mime}}</dd><dt>Size</dt><dd>{{.Size}}</dd>{{if .Dims}}<dt>Dimensions</dt><dd>{{.Dims}}</dd>{{end}}<dt>Uploaded</dt><dd>{{.Uploaded}}</dd></dl>
+<dl class="hm-dl"><dt>Type</dt><dd><code>{{.Mime}}</code></dd><dt>Size</dt><dd>{{.Size}}</dd>{{if .Dims}}<dt>Dimensions</dt><dd>{{.Dims}}</dd>{{end}}<dt>Uploaded</dt><dd>{{.Uploaded}}</dd></dl>
 <details class="hm-disclosure"><summary>Technical details</summary><div class="hm-disclosure__body"><dl class="hm-dl"><dt>Original name</dt><dd>{{.Name}}</dd><dt>Stored as</dt><dd>{{.Filename}}</dd>{{range .Variants}}<dt>{{.Size}} version</dt><dd>{{.Width}} × {{.Height}} px · <a href="{{.URL}}">open</a></dd>{{end}}</dl></div></details>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "usage" "Title" "Where it is used"}}
 {{if .UsageErr}}<p class="hm-field__error">Usage could not be checked right now.</p>
-{{else if .Usage}}<ul class="hm-usage" role="list">{{range .Usage}}<li>{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} <span class="hm-muted">{{.Type}}</span></li>
+{{else if .Usage}}<ul class="hm-usage" role="list">{{range .Usage}}<li>{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<span>{{.Name}}</span>{{end}} <code class="hm-usage__type">{{.Type}}</code>{{if .Href}}<span class="hm-usage__go" aria-hidden="true">{{icon "chevron-right"}}</span>{{end}}</li>
 {{end}}</ul>
 {{else}}<p class="hm-muted">Not used by any entity, author, site setting, menu or plugin setting. Places that embed the file by another address are not detected.</p>{{end}}
 {{template "hm/card-end"}}
