@@ -639,8 +639,9 @@ ID and Title, a form with its own `id` in the body, and `hm/dialog-end` with
 `Primary` and `PrimaryAttrs` of `form="<form id>"`. Never pass `type` in
 `PrimaryAttrs`: `hm/dialog-end` sets it. The opener is the header link with
 `data-hm-open="<dialog id>"`. The lint (UI-10) and Chrome (UI-D10) both enforce the absence of page-level
-create forms, on pages with a table and on the theme and plugin lists; only Chrome
-checks that the list is the first block and that the header has one primary.
+create forms on pages with a table. The theme and plugin list pages are covered by
+the static UI-10 lint only: their primary header action is Browse (the catalogue),
+not a create page, so they are not UI-D10 list screens.
 Row actions (the registry Install and Update forms) and settings (the unsigned
 packages form) are exempt by name in both checks.
 
