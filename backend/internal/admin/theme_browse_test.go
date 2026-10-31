@@ -106,7 +106,7 @@ func TestThemeBrowsePopulated(t *testing.T) {
 		`<img class="hm-themecard__img" src="https://registry.example.test/screenshots/hanshi.jpg" alt="" loading="lazy">`,
 		`href="/admin/theme/themes/hanshi/about"`, `data-hm-open="plugin-panel"`,
 		"Blog · v1.0.0", "● Live", "browse-featured", "Docs · v0.3.0", ">Install<",
-		"v0.1.0", `hm-themecard__tile`, "2 installed hidden",
+		"v0.1.0", `hm-themecard__mini`, "2 installed hidden",
 	} {
 		if !strings.Contains(body, w) {
 			t.Errorf("missing %q", w)

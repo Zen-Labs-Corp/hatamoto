@@ -106,8 +106,8 @@ func (a *Admin) handleThemes(w http.ResponseWriter, r *http.Request) {
 	}
 	d := themesPage{Themes: cards, AllowUnsigned: pk.AllowUnsigned(r.Context()),
 		Actions: []ui.Button{
-			{Label: "Browse themes", Href: a.adminPath + "/theme/browse", Icon: "search"},
-			{Label: "Upload theme", Href: a.adminPath + "/plugins/upload?for=theme", Variant: "primary", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+			{Label: "Upload theme", Href: a.adminPath + "/plugins/upload?for=theme", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+			{Label: "Browse themes", Href: a.adminPath + "/theme/browse", Variant: "primary", Icon: "search"},
 		}}
 	v := a.NewView(w, r, "Theme")
 	v.Section, v.Tab = "themes", "themes"

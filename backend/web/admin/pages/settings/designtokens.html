@@ -1,12 +1,11 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-<p class="hm-muted">Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="{{adminPath}}/theme/colours">Colours and fonts</a>.</p>
-{{if not .OptedIn}}{{template "hm/callout" (dict "Kind" "info" "Body" "Your theme has not turned on design tokens (theme.json builder.tokens). You can save values now; nothing is applied until the theme opts in.")}}{{end}}
+{{template "hm/callout-start" (dict "Kind" "info")}}Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="{{adminPath}}/theme/colours">Colours and fonts</a>.{{if not .OptedIn}} Your theme has not turned on design tokens (theme.json builder.tokens). You can save values now; nothing is applied until the theme opts in.{{end}}{{template "hm/callout-end"}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/theme/design-system" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{range $g := .Groups}}{{template "hm/card-start" dict "ID" $g.ID "Title" $g.Title "Description" $g.Intro}}
-<div class="hm-fieldgrid hm-fieldgrid--tokens">{{range $f := $g.Fields}}{{if eq $f.Type "color"}}<div class="hm-swatchrow">{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Error" $f.Error}}<code class="hm-swatchrow__hex">{{$f.Value}}</code></div>
+<div class="hm-fieldgrid hm-fieldgrid--tokens{{if ne $g.ID "tokens-color"}} hm-fieldgrid--steps{{end}}">{{range $f := $g.Fields}}{{if eq $f.Type "color"}}<div class="hm-swatchrow">{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Error" $f.Error}}<code class="hm-swatchrow__hex">{{$f.Value}}</code></div>
 {{else}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Placeholder" $f.Placeholder "Error" $f.Error}}
 {{end}}{{end}}</div>{{template "hm/card-end"}}
 {{end}}

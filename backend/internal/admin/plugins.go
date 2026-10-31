@@ -265,14 +265,14 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	d.Tabs = a.pluginsTabs(d, counts)
 	if d.CanInstall {
 		d.Actions = []ui.Button{
-			{Label: "Browse plugins", Href: d.BrowseHref, Variant: "primary", Icon: "search"},
 			{Label: "Upload", Href: a.adminPath + "/plugins/upload", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+			{Label: "Browse plugins", Href: d.BrowseHref, Variant: "primary", Icon: "search"},
 		}
 		check := ui.Action{Label: "Check for updates", Post: a.adminPath + "/plugins/check-updates"}
 		if !checked.IsZero() {
 			check.Hint = "Last checked " + agoText(pluginsNow().Sub(checked))
 		}
-		d.EmptyActions = d.Actions[:1]
+		d.EmptyActions = d.Actions[1:]
 		d.Overflow = append(d.Overflow, check)
 		if a.deps.AuditLog != nil {
 			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Hint: "Installs, updates, permission changes", Href: a.adminPath + auditRel})
@@ -430,6 +430,10 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 		}
 	}
 	v := a.NewView(w, r, title)
+	if d.UI == nil {
+		// A plugin admin app in the frame keeps the wide page: it lays out for the full column.
+		v.Width = "narrow"
+	}
 	if d.Owner {
 		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
 	} else {
@@ -502,6 +506,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 		d.Granted = &ui.Progress{Label: "Permissions allowed", Kind: "neutral", Value: fmt.Sprintf("%d of %d", d.GrantedCount, n), Pct: float64(d.GrantedCount) / float64(n) * 100}
 	}
 	v := a.NewView(w, r, p.Name+" permissions")
+	v.Width = "narrow"
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name, Href: a.pluginURL(p.Name, "settings")}, {Label: "Permissions"}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/permissions", v)

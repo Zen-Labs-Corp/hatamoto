@@ -893,7 +893,7 @@ func TestPluginsUnsignedAllowedIsACallout(t *testing.T) {
 	g, pk, _ := newPackageRig(t)
 	pk.unsigned = true
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"hm-callout--danger", "Unsigned packages are allowed until you turn it off.", "Turn off now", `action="/admin/plugins/unsigned/off"`, `id="installed"`} {
+	for _, want := range []string{"hm-callout--warning", "Unsigned packages are allowed until you turn it off.", "Turn off now", `action="/admin/plugins/unsigned/off"`, `id="installed"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}

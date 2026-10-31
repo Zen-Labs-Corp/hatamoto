@@ -100,8 +100,7 @@
 <div class="hm-section-head__titles"><h1>Design system</h1><p class="hm-muted">Named colours, sizes and spacing that blocks use through their style settings.</p></div>
 
 </header>
-<p class="hm-muted">Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="/admin/theme/colours">Colours and fonts</a>.</p>
-
+<div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="/admin/theme/colours">Colours and fonts</a>.</div></div></div>
 
 <form method="post" action="/admin/theme/design-system" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
@@ -124,7 +123,7 @@
 <section class="hm-card" id="tokens-space" aria-labelledby="tokens-space-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="tokens-space-title">Spacing</h2><p class="hm-muted">The spacing scale used for padding, margin and gaps, step 0 to 12.</p></div>
 <div class="hm-card__body">
-<div class="hm-fieldgrid hm-fieldgrid--tokens"><div class="hm-field">
+<div class="hm-fieldgrid hm-fieldgrid--tokens hm-fieldgrid--steps"><div class="hm-field">
 <label class="hm-field__label" for="tok-space-0">Space 0</label>
 <input class="hm-field__control" type="text" id="tok-space-0" name="space_0" placeholder="0">
 </div>
@@ -180,7 +179,7 @@
 <section class="hm-card" id="tokens-fs" aria-labelledby="tokens-fs-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="tokens-fs-title">Text sizes</h2><p class="hm-muted">The type scale from extra small to 4xl.</p></div>
 <div class="hm-card__body">
-<div class="hm-fieldgrid hm-fieldgrid--tokens"><div class="hm-field">
+<div class="hm-fieldgrid hm-fieldgrid--tokens hm-fieldgrid--steps"><div class="hm-field">
 <label class="hm-field__label" for="tok-fs-xs">Text size xs</label>
 <input class="hm-field__control" type="text" id="tok-fs-xs" name="fs_xs" placeholder="0.75rem">
 </div>
@@ -216,7 +215,7 @@
 <section class="hm-card" id="tokens-shadow" aria-labelledby="tokens-shadow-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="tokens-shadow-title">Shadows</h2><p class="hm-muted">Soft shadows for cards. Up to two layers, for example: 0 4px 12px rgba(0,0,0,.1)</p></div>
 <div class="hm-card__body">
-<div class="hm-fieldgrid hm-fieldgrid--tokens"><div class="hm-field">
+<div class="hm-fieldgrid hm-fieldgrid--tokens hm-fieldgrid--steps"><div class="hm-field">
 <label class="hm-field__label" for="tok-shadow-sm">Shadow sm</label>
 <input class="hm-field__control" type="text" id="tok-shadow-sm" name="shadow_sm" placeholder="0 1px 2px rgba(0,0,0,.08)">
 </div>

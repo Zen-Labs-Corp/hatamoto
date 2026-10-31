@@ -81,7 +81,7 @@ func TestPluginsPage(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status %d", rec.Code)
 	}
-	for _, want := range []string{"hello", "Says &lt;hello&gt;", "Active", "Failed", `href="/admin/plugins/hello/settings"`, `Settings<span class="hm-visually-hidden"> for hello</span>`} {
+	for _, want := range []string{"hello", "Says &lt;hello&gt;", "Active", "Failed", `href="/admin/plugins/hello/settings"`, `aria-label="Settings for hello"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -131,7 +131,7 @@ func TestPluginsPageLegacyWebhooksRow(t *testing.T) {
 			if rec.Code != 200 {
 				t.Fatalf("status %d", rec.Code)
 			}
-			common := []string{`id="plugin-webhooks-builtin"`, `<span class="hm-muted">v1.0.0</span>`}
+			common := []string{`id="plugin-webhooks-builtin"`, `<span class="hm-muted hm-mono">v1.0.0</span>`}
 			if !strings.Contains(tc.name, "not proven") {
 				common = append(common, `href="/admin/plugins/webhooks/uninstall"`, `aria-label="Remove the webhooks plugin"`)
 			}
@@ -156,7 +156,7 @@ func TestPluginsPageLegacyWebhooksRow(t *testing.T) {
 			if n := strings.Count(body, ">Remove<"); n != wantRemove {
 				t.Errorf("%d Remove links, want %d", n, wantRemove)
 			}
-			if !strings.Contains(body, `<span class="hm-muted">v1.2.0</span>`) {
+			if !strings.Contains(body, `<span class="hm-muted hm-mono">v1.2.0</span>`) {
 				t.Error("a normal row does not show its version")
 			}
 			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
@@ -383,6 +383,8 @@ func TestPluginsPageTabsFilterAndEmpty(t *testing.T) {
 	}
 	if none := get("?q=zzzz"); !strings.Contains(none, "No plugins match") {
 		t.Error("a search with no hit needs its empty state")
+	} else if !strings.Contains(none, `class="hm-empty hm-empty--compact"`) {
+		t.Error("the no-match empty state sits inside the card and must be Compact")
 	}
 	pk.unsigned = true
 	if on := get(""); !strings.Contains(on, "unsigned-banner") || !strings.Contains(on, "Unsigned packages are allowed until you turn it off.") {
