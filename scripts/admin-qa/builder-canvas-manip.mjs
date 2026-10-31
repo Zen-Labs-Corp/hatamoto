@@ -18,7 +18,7 @@ import path from "node:path";
 
 // lib.mjs reads these at import time: map the remote-friendly names first.
 if (process.env.QA_BASE_URL) process.env.BASE = process.env.QA_BASE_URL;
-const { launch, base, login, pw } = await import("./lib.mjs");
+const { launch, base, admin, login, pw } = await import("./lib.mjs");
 
 const NAME = process.env.QA_PAGE_NAME || "About";
 const ENTITY = process.env.QA_ENTITY || "";
@@ -69,12 +69,12 @@ async function check(name, fn) {
 }
 
 async function pageHref() {
-  if (ENTITY) return `/admin/entities/${ENTITY}/edit?qa=1`;
-  await p.goto(`${base}/admin/entities?q=${encodeURIComponent(NAME)}`);
-  const hrefs = await p.$$eval('a[href^="/admin/entities/"]', (as, t) => as.filter((a) => a.textContent.includes(t)).map((a) => a.getAttribute("href")), NAME);
+  if (ENTITY) return `${admin}/entities/${ENTITY}/edit?qa=1`;
+  await p.goto(`${base}${admin}/entities?q=${encodeURIComponent(NAME)}`);
+  const hrefs = await p.$$eval(`a[href^="${admin}/entities/"]`, (as, t) => as.filter((a) => a.textContent.includes(t)).map((a) => a.getAttribute("href")), NAME);
   const id = hrefs.map((h) => h.match(/entities\/([0-9a-f-]{36})/)?.[1]).find(Boolean);
   if (!id) throw new Error(`no page named ${NAME}`);
-  return `/admin/entities/${id}/edit?qa=1`;
+  return `${admin}/entities/${id}/edit?qa=1`;
 }
 async function open(href) {
   await p.goto(base + href, { waitUntil: "load" });
@@ -397,8 +397,8 @@ await check("the page is left as found: undo everything, then reload discarding 
 // it reloads that page and leaves it unsaved (reload discards the draft, saves are aborted anyway).
 if (process.env.QA_HERO_PAGE) {
   await check("a collapsed theme section (Hero) shows no padding handles and writes no style", async () => {
-    await p.goto(`${base}/admin/entities?q=${encodeURIComponent(process.env.QA_HERO_PAGE)}`);
-    const hs = await p.$$eval('a[href^="/admin/entities/"]', (as) => as.map((a) => a.getAttribute("href")));
+    await p.goto(`${base}${admin}/entities?q=${encodeURIComponent(process.env.QA_HERO_PAGE)}`);
+    const hs = await p.$$eval(`a[href^="${admin}/entities/"]`, (as) => as.map((a) => a.getAttribute("href")));
     await open(hs.find((x) => /entities\/[0-9a-f-]{36}/.test(x)).replace(/\?.*/, "") + "?qa=1");
     const out = [];
     for (const n of flat(await tops()).filter((x) => x.t === "container" && x.p?.v1).slice(0, 1)) {

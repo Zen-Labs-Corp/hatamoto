@@ -6,7 +6,7 @@
 // Run: scripts/admin-qa/run-local.sh builder-ux2-shots.mjs   Output: SHOTS_OUT (default results/shots-ux2)
 import fs from "node:fs";
 import path from "node:path";
-import { launch, newSession, base, here } from "./lib.mjs";
+import { launch, newSession, base, admin, here } from "./lib.mjs";
 
 const OUT = process.env.SHOTS_OUT || path.join(here, "results", "shots-ux2");
 fs.mkdirSync(OUT, { recursive: true });
@@ -19,27 +19,27 @@ const nodes = async (p) => flat((await p.evaluate(() => window.__hmBuilder.doc()
 const TREE = '[data-hm-bs-tree] [role="treeitem"]';
 
 async function csrf(p) {
-  if (!/\/admin\/entities$/.test(p.url())) await p.goto(`${base}/admin/entities`);
+  if (!p.url().endsWith(`${admin}/entities`)) await p.goto(`${base}${admin}/entities`);
   return p.evaluate(() => document.querySelector("#create-menu input[name=_csrf]").value);
 }
 async function draft(p) {
   const t = await csrf(p);
-  const url = await p.evaluate(async (x) => (await fetch("/admin/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x, type: "page" }) })).url, t);
+  const url = await p.evaluate(async ([a, x]) => (await fetch(a + "/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x, type: "page" }) })).url, [admin, t]);
   const id = url.match(/entities\/([0-9a-f-]{36})/)[1];
   made.push(id);
   return id;
 }
 async function open(p, id) {
-  await p.goto(`${base}/admin/entities/${id}/edit?qa=1`);
+  await p.goto(`${base}${admin}/entities/${id}/edit?qa=1`);
   await p.waitForFunction(() => !!window.__hmBuilder && document.querySelector("[data-hm-bs-tree]"));
   await wait(p, 800);
   for (const g of await p.getByRole("button", { name: "Got it" }).all()) await g.click().catch(() => {}); // the one-time hints cover the canvas
 }
 const saved = (p) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
 async function drop(p, id) {
-  await p.goto(`${base}/admin/entities`);
+  await p.goto(`${base}${admin}/entities`);
   const t = await csrf(p);
-  await p.evaluate(async ([i, x]) => { await fetch(`/admin/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x }) }); }, [id, t]);
+  await p.evaluate(async ([a, i, x]) => { await fetch(`${a}/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x }) }); }, [admin, id, t]);
 }
 const insert = (p, parent, index, kind) => p.evaluate(([a, i, k]) => window.__hmBuilder.insertAt({ parent: a, index: i, }, k), [parent, index, kind]);
 async function nav(p) {
