@@ -24,3 +24,8 @@ test("an inherited choice option keeps a dashed border in the segmented track (f
   assert.match(rule, /border:\s*1px dashed var\(--color-hai\)/);
   assert.doesNotMatch(rule, /border:\s*0/);
 });
+
+test("the selected choice option has a semibold label (ADMIN_UI_RULES rule 6)", () => {
+  const rule = /^\.hm-bs-style \.hm-bs-opt\[aria-pressed="true"\][^{]*\{([^}]*)\}/m.exec(css)?.[1] ?? "";
+  assert.match(rule, /font-weight:\s*var\(--weight-semibold\)/);
+});
