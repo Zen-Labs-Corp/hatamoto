@@ -19,14 +19,16 @@ func NewPostgresTrafficRepository(db *database.DB) *PostgresTrafficRepository {
 }
 
 const addTrafficSQL = `
-	INSERT INTO hatamoto_traffic_daily AS t (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	INSERT INTO hatamoto_traffic_daily AS t (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled, form_seen, form_started)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	ON CONFLICT (day, dim, k1, k2) DO UPDATE SET
 		visits = t.visits + EXCLUDED.visits,
 		pageviews = t.pageviews + EXCLUDED.pageviews,
 		engaged = t.engaged + EXCLUDED.engaged,
 		multi = t.multi + EXCLUDED.multi,
-		scrolled = t.scrolled + EXCLUDED.scrolled`
+		scrolled = t.scrolled + EXCLUDED.scrolled,
+		form_seen = t.form_seen + EXCLUDED.form_seen,
+		form_started = t.form_started + EXCLUDED.form_started`
 
 // AddTraffic implements TrafficRepository: one batch, one transaction.
 func (r *PostgresTrafficRepository) AddTraffic(ctx context.Context, rows []TrafficRow) error {
@@ -46,7 +48,7 @@ func (r *PostgresTrafficRepository) AddTraffic(ctx context.Context, rows []Traff
 	batch := &pgx.Batch{}
 	for _, row := range rows {
 		batch.Queue(addTrafficSQL, row.Day, string(row.Dim), row.K1, row.K2,
-			row.Visits, row.Pageviews, row.Engaged, row.Multi, row.Scrolled)
+			row.Visits, row.Pageviews, row.Engaged, row.Multi, row.Scrolled, row.FormSeen, row.FormStarted)
 	}
 	res := tx.SendBatch(ctx, batch)
 	for range rows {

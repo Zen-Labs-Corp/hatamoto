@@ -126,6 +126,25 @@ func TestTrackEngagement(t *testing.T) {
 	}
 }
 
+func TestTrackFormFunnelEvents(t *testing.T) {
+	// One event per request (maxTrackEvents), so each kind is its own beacon.
+	body := func(kind string) string {
+		return `{"v":2,"events":[{"type":"engage","kind":"` + kind + `","ref":"google.com","path":"/a"}]}`
+	}
+	for kind, want := range map[string]Counts{"form_seen": {FormSeen: 1}, "form_start": {FormStarted: 1}, "other": {}} {
+		m, calls := trafficTrack(t, browserUA, "site.test", "203.0.113.9:1", body(kind), nil, true)
+		if got := m["channel|organic|"]; got != want {
+			t.Errorf("%s: channel = %+v, want %+v", kind, got, want)
+		}
+		if len(calls) != 0 {
+			t.Errorf("%s touched the pageview counter: %+v", kind, calls)
+		}
+		if m, _ = trafficTrack(t, browserUA, "site.test", "203.0.113.9:1", body(kind), nil, false); len(m) != 0 {
+			t.Errorf("%s counted while engagement is off: %v", kind, m)
+		}
+	}
+}
+
 func TestTrackSanitisesFields(t *testing.T) {
 	body := `{"v":2,"events":[{"type":"page_view","entry":true,"utm_source":"<script>alert(1)</script>","utm_medium":"","utm_campaign":"` +
 		strings.Repeat("a", 500) + `","ref":"Evil.Example/path?x=1","path":"//x\"y"}]}`

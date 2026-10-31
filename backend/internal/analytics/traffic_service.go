@@ -48,7 +48,7 @@ func (s *Service) EngagementEnabled() bool { return !s.engagementOff.Load() }
 // RecordTraffic buffers one classified beacon event: the visit's channel and
 // source, plus its campaign, landing page, device and country. It only
 // touches memory. A pageview event adds pageviews (and a visit when Entry);
-// an engagement event adds engaged (when First), multi or scrolled.
+// an engagement event adds engaged (when First), multi or scrolled; a form event adds only its funnel step.
 func (s *Service) RecordTraffic(ev Event, channel, source string) {
 	var c Counts
 	switch ev.Eng {
@@ -61,10 +61,14 @@ func (s *Service) RecordTraffic(ev Event, channel, source string) {
 		c.Multi = 1
 	case "scroll":
 		c.Scrolled = 1
+	case "form_seen":
+		c.FormSeen = 1
+	case "form_start":
+		c.FormStarted = 1
 	default:
 		return
 	}
-	if ev.Eng != "" && ev.First {
+	if (ev.Eng == "multi" || ev.Eng == "scroll") && ev.First {
 		c.Engaged = 1
 	}
 	country := ev.Country

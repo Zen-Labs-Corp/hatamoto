@@ -21,7 +21,7 @@ const (
 
 const pruneTrafficSQL = `
 WITH ranked AS (
-	SELECT day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled,
+	SELECT day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled, form_seen, form_started,
 		row_number() OVER (PARTITION BY day, dim ORDER BY visits + pageviews DESC, k1, k2) AS rn
 	FROM hatamoto_traffic_daily
 	WHERE dim IN ('source', 'campaign', 'landing') AND day < $1 AND NOT (k1 = $3 AND k2 = '')
@@ -30,13 +30,15 @@ WITH ranked AS (
 	WHERE r.rn > $2 AND t.day = r.day AND t.dim = r.dim AND t.k1 = r.k1 AND t.k2 = r.k2
 	RETURNING 1
 )
-INSERT INTO hatamoto_traffic_daily AS t (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled)
-SELECT day, dim, $3, '', SUM(visits), SUM(pageviews), SUM(engaged), SUM(multi), SUM(scrolled)
+INSERT INTO hatamoto_traffic_daily AS t (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled, form_seen, form_started)
+SELECT day, dim, $3, '', SUM(visits), SUM(pageviews), SUM(engaged), SUM(multi), SUM(scrolled),
+	SUM(form_seen), SUM(form_started)
 FROM ranked WHERE rn > $2 GROUP BY day, dim
 ON CONFLICT (day, dim, k1, k2) DO UPDATE SET
 	visits = t.visits + EXCLUDED.visits, pageviews = t.pageviews + EXCLUDED.pageviews,
 	engaged = t.engaged + EXCLUDED.engaged, multi = t.multi + EXCLUDED.multi,
-	scrolled = t.scrolled + EXCLUDED.scrolled`
+	scrolled = t.scrolled + EXCLUDED.scrolled, form_seen = t.form_seen + EXCLUDED.form_seen,
+	form_started = t.form_started + EXCLUDED.form_started`
 
 // PruneTraffic applies the traffic retention and compaction as of now (one
 // transaction). It never deletes channel, device or country rows.

@@ -17,7 +17,7 @@ func TestPruneTraffic(t *testing.T) {
 
 	var rows []TrafficRow
 	for i := 0; i < 150; i++ { // keys 0..149, key i has i+1 visits: the top 100 are 50..149
-		rows = append(rows, TrafficRow{Day: day(5), Dim: DimLanding, K1: fmt.Sprintf("/p%03d", i), Counts: Counts{Visits: int64(i + 1), Pageviews: 1}})
+		rows = append(rows, TrafficRow{Day: day(5), Dim: DimLanding, K1: fmt.Sprintf("/p%03d", i), Counts: Counts{Visits: int64(i + 1), Pageviews: 1, FormSeen: 2, FormStarted: 1}})
 	}
 	rows = append(rows,
 		TrafficRow{Day: day(5), Dim: DimLanding, K1: KeyOther, Counts: Counts{Visits: 7}}, // an earlier (other) merges with the fold
@@ -59,13 +59,16 @@ func TestPruneTraffic(t *testing.T) {
 		if n, v := count(`dim = 'landing' AND day = $1`, day(5)); n != 101 || v != wantVisits {
 			t.Fatalf("run %d: day(5) landing rows=%d visits=%d, want 101 / %d", run, n, v, wantVisits)
 		}
-		var other, pv int64
-		if err := conn.QueryRow(ctx, `SELECT visits, pageviews FROM hatamoto_traffic_daily WHERE dim='landing' AND day=$1 AND k1=$2`, day(5), KeyOther).Scan(&other, &pv); err != nil {
+		var other, pv, seen, started int64
+		if err := conn.QueryRow(ctx, `SELECT visits, pageviews, form_seen, form_started FROM hatamoto_traffic_daily WHERE dim='landing' AND day=$1 AND k1=$2`, day(5), KeyOther).Scan(&other, &pv, &seen, &started); err != nil {
 			t.Fatal(err)
 		}
 		// 50 folded keys (visits 1..50, one pageview each) plus the 7 already in (other).
 		if other != 50*51/2+7 || pv != 50 {
 			t.Fatalf("(other) = %d visits, %d pageviews", other, pv)
+		}
+		if seen != 100 || started != 50 {
+			t.Fatalf("(other) funnel counters = %d seen, %d started, want 100 / 50", seen, started)
 		}
 		if n, _ := count(`dim = 'landing' AND day = $1`, day(1)); n != 1 {
 			t.Fatalf("yesterday compacted: %d rows", n)

@@ -88,7 +88,7 @@ func (h *Handlers) Track(w http.ResponseWriter, r *http.Request) {
 				h.recordTraffic(r, ev, "")
 			}
 		case eventTypeEngage:
-			if body.V >= 2 && h.svc.EngagementEnabled() && (ev.Kind == "multi" || ev.Kind == "scroll") {
+			if body.V >= 2 && h.svc.EngagementEnabled() && isEngageKind(ev.Kind) {
 				h.recordTraffic(r, ev, ev.Kind)
 			}
 		}
@@ -157,4 +157,13 @@ func refHost(ref string) string {
 		ref = ref[:i]
 	}
 	return NormalizeHost(ref)
+}
+
+// isEngageKind reports whether k is an engagement event kind the rollup counts.
+func isEngageKind(k string) bool {
+	switch k {
+	case "multi", "scroll", "form_seen", "form_start":
+		return true
+	}
+	return false
 }
