@@ -33,7 +33,7 @@ case "$(basename "$0")" in
     [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
   curl) # the suite probe (-I) or a repository key: write the -o/--output file, tagged with its URL
-    case " $* " in *" -fsI "*) [ -z "${FAKE_PGDG_MISSING:-}" ] || exit 22; exit 0 ;; esac
+    case " $* " in *" -sI "*) printf '%s' "${FAKE_PGDG_STATUS:-200}"; [ "${FAKE_PGDG_STATUS:-200}" != 000 ] || exit 7; exit 0 ;; esac
     for url; do :; done
     while [ $# -gt 0 ]; do [ "$1" != --output ] || { printf 'KEY %s\n' "$url" > "$2"; break; }; shift; done ;;
   gpg) # --show-keys: print the real pinned fingerprint of the key the URL tag names
@@ -177,17 +177,43 @@ grep -q 'Caddy repository key has fingerprint' "$tmp/err" || fail "caddy fingerp
 [ ! -e "$cb/etc/apt/sources.list.d/caddy-stable.list" ] || fail "caddy list written for a bad key"
 pass "Caddy repository on jammy only, key fingerprint pinned"
 
-# --- a suite pgdg does not publish falls back to the newest LTS suite
-nx="$(mkroot nosuite ubuntu 24.04 noble)"
+# --- known codenames are never probed and keep their own suite, even when the archive looks down
+for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
+  set -- $sys
+  kn="$(mkroot "known$3" "$1" "$2" "$3")"
+  : > "$tmp/calls"
+  run_build "$kn" FAKE_PGDG_STATUS=404 >/dev/null 2>"$tmp/err" || fail "$3 build failed: $(cat "$tmp/err")"
+  grep -q "repos/apt $3-pgdg main" "$kn/etc/apt/sources.list.d/pgdg.list" || fail "$3 did not get its own suite"
+  if grep -q -e '-sI' "$tmp/calls"; then fail "$3 was probed"; fi
+done
+# a list left by an earlier fallback is corrected on a known codename
+st="$(mkroot stale ubuntu 24.04 noble)"; mkdir -p "$st/etc/apt/sources.list.d"
+echo 'deb [signed-by=/x] https://apt.postgresql.org/pub/repos/apt resolute-pgdg main' > "$st/etc/apt/sources.list.d/pgdg.list"
+run_build "$st" >/dev/null 2>"$tmp/err" || fail "stale list build failed: $(cat "$tmp/err")"
+grep -q 'repos/apt noble-pgdg main' "$st/etc/apt/sources.list.d/pgdg.list" || fail "stale fallback list stuck on a known codename"
+[ "$(grep -c . "$st/etc/apt/sources.list.d/pgdg.list")" = 1 ] || fail "stale list not replaced"
+pass "known codenames use their own suite without a probe"
+
+# --- an unknown codename is probed (retry, timeout); only a definite miss falls back
+nx="$(mkroot nosuite ubuntu 26.10 stonking)"
 : > "$tmp/calls"
-run_build "$nx" FAKE_PGDG_MISSING=1 >/dev/null 2>"$tmp/err" || fail "missing suite broke the build: $(cat "$tmp/err")"
-grep -q "no suite for 'noble'; using resolute" "$tmp/err" || fail "no fallback warning: $(cat "$tmp/err")"
+run_build "$nx" FAKE_PGDG_STATUS=404 >/dev/null 2>"$tmp/err" || fail "missing suite broke the build: $(cat "$tmp/err")"
+grep -q "no suite for 'stonking'; using resolute" "$tmp/err" || fail "no fallback warning: $(cat "$tmp/err")"
 grep -q 'repos/apt resolute-pgdg main' "$nx/etc/apt/sources.list.d/pgdg.list" || fail "fallback suite not written"
-grep -q 'dists/noble-pgdg/Release' "$tmp/calls" || fail "suite not probed before writing the list"
+grep -q -e '--retry 3 --max-time 10 .*dists/stonking-pgdg/Release' "$tmp/calls" || fail "suite not probed with retry and timeout: $(grep -e '-sI' "$tmp/calls")"
 nx="$(mkroot nosuited debian 13 "")"
-run_build "$nx" FAKE_PGDG_MISSING=1 >/dev/null 2>"$tmp/err" || fail "empty codename broke the build: $(cat "$tmp/err")"
+run_build "$nx" FAKE_PGDG_STATUS=404 >/dev/null 2>"$tmp/err" || fail "empty codename broke the build: $(cat "$tmp/err")"
 grep -q 'repos/apt trixie-pgdg main' "$nx/etc/apt/sources.list.d/pgdg.list" || fail "debian fallback suite not written"
-pass "unknown pgdg suite falls back with a warning"
+nx="$(mkroot hasuite ubuntu 26.10 stonking)"
+run_build "$nx" >/dev/null 2>"$tmp/err" || fail "published unknown suite broke the build: $(cat "$tmp/err")"
+grep -q 'repos/apt stonking-pgdg main' "$nx/etc/apt/sources.list.d/pgdg.list" || fail "published suite not used"
+for code in 000 503; do
+  nx="$(mkroot "probe$code" ubuntu 26.10 stonking)"
+  if run_build "$nx" FAKE_PGDG_STATUS=$code >/dev/null 2>"$tmp/err"; then fail "probe failure $code fell back"; fi
+  grep -q "cannot check apt.postgresql.org for a 'stonking' suite" "$tmp/err" || fail "probe failure message: $(cat "$tmp/err")"
+  [ ! -e "$nx/etc/apt/sources.list.d/pgdg.list" ] || fail "foreign suite written after probe failure $code"
+done
+pass "unknown pgdg suite falls back on a 404 only, with a warning"
 
 # --- apt update retries while the lists lock is held
 rt="$(mkroot retry ubuntu 24.04 noble)"

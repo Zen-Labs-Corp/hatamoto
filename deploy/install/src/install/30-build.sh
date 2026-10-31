@@ -120,13 +120,26 @@ build_apt() {
   fi
 }
 
-# build_pgdg_suite ID CODENAME prints a suite apt.postgresql.org publishes: the
-# codename's own when it exists, else the newest LTS suite of the same family.
+# build_pgdg_suite ID CODENAME prints the apt.postgresql.org suite to use. The
+# five supported codenames publish their own suite and are not probed. An unknown
+# codename is probed (retry, timeout) and falls back to the newest LTS suite of the
+# same family only when the archive answers 404 or 410; any other failure dies,
+# so a network hiccup never writes a foreign suite.
 build_pgdg_suite() {
-  if [ -n "$2" ] &&
-    curl -fsI --proto '=https' --tlsv1.2 "https://apt.postgresql.org/pub/repos/apt/dists/$2-pgdg/Release" >/dev/null 2>&1; then
-    printf '%s\n' "$2"
-    return 0
+  case "$2" in
+    jammy | noble | resolute | bookworm | trixie) printf '%s\n' "$2"; return 0 ;;
+  esac
+  case "$2" in
+    *[!a-z0-9]*) die "unexpected distribution codename '$2'" ;;
+  esac
+  if [ -n "$2" ]; then
+    bp_code="$(curl -sI --proto '=https' --tlsv1.2 --retry 3 --max-time 10 -o /dev/null -w '%{http_code}' \
+      "https://apt.postgresql.org/pub/repos/apt/dists/$2-pgdg/Release" 2>/dev/null)" || bp_code=000
+    case "$bp_code" in
+      2*) printf '%s\n' "$2"; return 0 ;;
+      404 | 410) ;;
+      *) build_policy_restore; die "cannot check apt.postgresql.org for a '$2' suite (HTTP $bp_code)" ;;
+    esac
   fi
   case "$1" in
     ubuntu) bp_suite=resolute ;;
@@ -137,11 +150,15 @@ build_pgdg_suite() {
 }
 
 # build_pgdg ID CODENAME adds the PostgreSQL project's apt repository, which
-# carries every supported major (the distributions ship one or two).
+# carries every supported major (the distributions ship one or two). A list from an
+# earlier fallback is rewritten when the codename has its own suite.
 build_pgdg() {
   bg_list="$(dest /etc/apt/sources.list.d/pgdg.list)"
-  [ ! -f "$bg_list" ] || return 0
   bg_suite="$(build_pgdg_suite "$1" "$2")"
+  if [ -f "$bg_list" ]; then
+    [ "$bg_suite" != "$2" ] || grep -q " $bg_suite-pgdg " "$bg_list" || rm -f "$bg_list"
+    [ ! -f "$bg_list" ] || return 0
+  fi
   mkdir -p "$(dirname "$(dest "$PGDG_KEY")")" "$(dirname "$bg_list")"
   curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
     --output "$(dest "$PGDG_KEY")" https://www.postgresql.org/media/keys/ACCC4CF8.asc ||
