@@ -18,3 +18,9 @@ test("forced colours: the numbers keep a visible edge and a refused one changes 
   assert.match(block, /\.hm-bs-bm__n \{[^}]*border-color:\s*ButtonBorder/);
   assert.match(block, /\.hm-bs-bm__n\[aria-invalid="true"\] \{[^}]*border-width:\s*2px/);
 });
+
+test("an inherited choice option keeps a dashed border in the segmented track (forced colours draw borders, not shadows)", () => {
+  const rule = /^\.hm-bs-style \.hm-bs-opt--inherited \{([^}]*)\}/m.exec(css)?.[1] ?? "";
+  assert.match(rule, /border:\s*1px dashed var\(--color-hai\)/);
+  assert.doesNotMatch(rule, /border:\s*0/);
+});
