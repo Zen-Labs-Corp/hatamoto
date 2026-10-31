@@ -454,14 +454,15 @@ colour that is not a token; anything a second page needs becomes a partial.
   them. A store that is not wired omits its cards.
 - **Bounds.** One context with a 4 s timeout covers the page; the cards run in parallel.
 
-- **Grid.** Owners get four columns: Site health (`#dash-health`) in column 1 spanning two
-  rows, the pages AI crawlers, missing pages and recent submissions cards in row 1, and
-  Activity (`#dash-activity`) across columns 2 to 4 in row 2. Below 1280px it is two
-  columns (health and Activity lose their spans; Activity is full width), below 1100px one,
-  and below 640px the KPI row is two across. DOM order is health, pages, missing,
-  submissions, activity. A lone card (the editor's Recent submissions) spans the whole
-  row. Activity rows are one line each: who, kind badge, target, when, laid out in the
-  page CSS from tokens, with the existing `hm/badge`; no new partial.
+- **Grid.** Two independent columns (`.hm-dash--cols`, each a `.hm-dash__col` stack), so a
+  short card leaves no gap under it in the other column. Left: Site health (`#dash-health`)
+  then Activity (`#dash-activity`). Right: pages AI crawlers, recent submissions, missing
+  pages. A column with no card is not rendered (`hm-dash--one`: the editor's Recent
+  submissions fills the whole row). Below 1100px the columns stack, and below 640px the KPI
+  row is two across. Site health rows are an OK/Check/Problem `hm/badge` (success, warning,
+  danger), the check label and its value; a value that is not OK stays a link. Activity rows
+  are one line each: who, kind badge, target, when, laid out in the page CSS from tokens,
+  with the existing `hm/badge`; no new partial.
 - **Split spark.** A KPI with a comparison draws the previous period as a grey
   `.hm-spark__prev` line left of a `.hm-spark__divider`, the current period in the accent
   line; the note says what is compared. Only Submissions and AI-referred visits have one.

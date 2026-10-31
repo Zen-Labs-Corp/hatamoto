@@ -3,16 +3,17 @@
 {{if .Stats}}<div class="hm-statgrid hm-dash__kpis">{{range .Stats}}<div class="hm-dash__kpi">{{template "hm/stat" dict "Variant" "ticker" "Stat" .Stat}}
 {{if .Failed}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load." "Body" "These numbers could not be read.")}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{end}}</div>{{end}}</div>{{end}}
-<div class="hm-dash{{with .Layout}} {{.}}{{end}}">{{range .Sections}}
+<div class="hm-dash hm-dash--cols{{if .OneColumn}} hm-dash--one{{end}}">{{with .Left}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}{{with .Right}}<div class="hm-dash__col">{{template "dash-cards" .}}</div>{{end}}</div>
+{{end}}{{end}}
+{{define "dash-cards"}}{{range .}}
 {{template "hm/card-start" dict "ID" .ID "Title" .Title "Description" .Description}}
 {{if eq .State "error"}}{{template "hm/callout" (dict "Kind" "error" "Title" "Couldn't load this card." "Body" .ErrMsg)}}{{template "hm/button" (dict "Label" "Reload the page" "Href" (adminPath) "Variant" "ghost")}}
 {{else if eq .State "empty"}}{{template "hm/empty" .Empty}}
 {{else if .Tracker}}{{template "hm/tracker" .Tracker}}
 {{else if .Activity}}<ul class="hm-dash__rows" role="list">{{range .Activity}}<li class="hm-dash__row"><span>{{.Who}}</span>{{template "hm/badge" .Badge}}{{with .Target}}<span>{{.}}</span>{{end}}<span class="hm-muted">{{.When}}</span></li>{{end}}</ul>
 {{else if .Health}}{{range .Health}}<h3 class="hm-dash__group">{{.Name}}</h3>
-<ul class="hm-dash__rows hm-dash__health" role="list">{{range .Items}}<li class="hm-dash__row"><span class="hm-dash__status hm-dash__status--{{.Badge.Kind}}" aria-hidden="true"></span><span class="hm-visually-hidden">{{if eq .Badge.Kind "success"}}OK{{else if eq .Badge.Kind "warning"}}Check{{else}}Problem{{end}}: </span><span class="hm-dash__label">{{.Label}}</span>{{if .Href}}<a class="hm-dash__value" href="{{.Href}}">{{.Badge.Label}}</a>{{else}}<span class="hm-dash__value hm-muted">{{.Badge.Label}}</span>{{end}}</li>{{end}}</ul>{{end}}
+<ul class="hm-dash__rows hm-dash__health" role="list">{{range .Items}}<li class="hm-dash__row"><span class="hm-dash__state">{{template "hm/badge" (dict "Kind" .Badge.Kind "Label" (or (and (eq .Badge.Kind "success") "OK") (or (and (eq .Badge.Kind "warning") "Check") "Problem")))}}</span><span class="hm-dash__label">{{.Label}}</span>{{if .Href}}<a class="hm-dash__value" href="{{.Href}}">{{.Badge.Label}}</a>{{else}}<span class="hm-dash__value hm-muted">{{.Badge.Label}}</span>{{end}}</li>{{end}}</ul>{{end}}
 {{else if .Rows}}<ul class="hm-dash__rows" role="list">{{range .Rows}}<li class="hm-dash__row">{{if .Unread}}<span class="hm-dash__dot" role="img" aria-label="Unread"></span>{{end}}<a href="{{.Href}}">{{.Title}}</a>{{with .Summary}}<span class="hm-muted">{{.}}</span>{{end}}<span class="hm-muted">{{.When}}</span></li>{{end}}</ul>
 {{else}}{{template "hm/barlist" .Bars}}{{end}}
-{{with .More}}<p class="hm-dash__more"><a href="{{.Href}}">{{.Label}} <span aria-hidden="true">&rsaquo;</span></a></p>{{end}}
-{{template "hm/card-end"}}{{end}}</div>
-{{end}}{{end}}
+{{with .More}}<p class="hm-dash__more"><a href="{{.Href}}">{{.Label}} {{icon "chevron-right"}}</a></p>{{end}}
+{{template "hm/card-end"}}{{end}}{{end}}

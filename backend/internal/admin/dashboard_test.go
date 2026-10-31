@@ -766,14 +766,21 @@ func TestDashboardGridLayout(t *testing.T) {
 	g := newDashRig(t)
 	owner := g.do("GET", "/admin", "owner-token", nil, nil).Body.String()
 	last := -1
-	for _, id := range []string{"dash-health", "dash-pages", "dash-missing", "dash-submissions", "dash-activity"} {
+	for _, id := range []string{"dash-health", "dash-activity", "dash-pages", "dash-submissions", "dash-missing"} {
 		i := strings.Index(owner, `id="`+id+`"`)
 		if i < 0 || i < last {
 			t.Errorf("owner section %s is missing or out of order (at %d, previous %d)", id, i, last)
 		}
 		last = i
 	}
+	// Two columns: health and activity on the left, the other three on the right.
+	if n := strings.Count(owner, `class="hm-dash__col"`); n != 2 {
+		t.Errorf("owner page has %d columns, want 2", n)
+	}
 	editor := g.do("GET", "/admin", "editor-token", nil, nil).Body.String()
+	if n := strings.Count(editor, `class="hm-dash__col"`); n != 1 || !strings.Contains(editor, "hm-dash--one") {
+		t.Errorf("editor page has %d columns, want 1 with hm-dash--one", n)
+	}
 	for _, id := range []string{"dash-health", "dash-activity"} {
 		if strings.Contains(editor, id) {
 			t.Errorf("editor page has owner card %s", id)
@@ -783,7 +790,7 @@ func TestDashboardGridLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"repeat(4, minmax(0, 1fr))", "#dash-health { grid-row: span 2; }", ".hm-card:only-child { grid-column: 1 / -1; }", "max-width: 1279px", "max-width: 1099px"} {
+	for _, want := range []string{".hm-dash--cols", ".hm-dash--one", ".hm-dash__col", "max-width: 1099px"} {
 		if !strings.Contains(string(css), want) {
 			t.Errorf("dashboard.css lacks %q", want)
 		}
