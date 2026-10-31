@@ -38,6 +38,7 @@ docs-publish-t   backend/tools/docs-publish/**,docs/site/**       make docs-publ
 docs-lint        docs/site/**,backend/tools/docs-publish/**        cd backend/tools/docs-publish && go run . --lint --root ../../../docs/site
 budgets          backend/**                                         make budgets
 t-pipe-full     scripts/pipeline-gate.sh,.githooks/lib/gate-cache.sh,scripts/test-pipeline-gate-full.sh   bash scripts/test-pipeline-gate-full.sh
+t-pipe-todo     scripts/pipeline-gate.sh,.githooks/lib/gate-cache.sh,scripts/test-pipeline-gate-todo.sh   bash scripts/test-pipeline-gate-todo.sh
 t-caddy-hdrs    deploy/caddy/**,deploy/well-known/security.txt,deploy/test-caddy-headers.sh   bash deploy/test-caddy-headers.sh
 t-verify-cut   scripts/verify-cutover.sh,scripts/test-verify-cutover.sh   bash scripts/test-verify-cutover.sh
 t-installer     deploy/install/**,deploy/systemd/**,deploy/install-unit.sh,backend/internal/release/keys/**   bash deploy/install/test-all.sh
