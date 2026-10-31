@@ -101,6 +101,22 @@ binary does not know the column: it reads only the on/off flag, so an allowance 
 stays on until someone turns it off. After such a rollback, check **Plugins > Package security**
 (or turn the allowance off before rolling back).
 
+### Squashing migrations
+
+The migration chain is folded into a new baseline only at a major release, never in a patch or
+minor. The cut is the last release of the previous major (the floor). The major's release record
+sets `min_from` to the floor and `rollback_floor` to itself, so:
+
+- An install on the floor updates straight to the major (once its owner applies it, as for any
+  major).
+- An install below the floor is stepped through the floor first, one hop per check.
+- A binary swapped in by hand (a new image, a package, `make deploy`) on a database below the floor
+  refuses to migrate and names the release to install first. Nothing is changed in the database.
+- A fresh install runs the new baseline and then the major's own migrations.
+
+How a squash is made, and what the PR must contain, is in
+[backend/migrations/README.md](../backend/migrations/README.md#squashing-major-releases-only).
+
 ### DB ahead of the binary
 
 An older binary boots on a database that a newer release migrated: goose ignores versions it has no
