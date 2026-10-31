@@ -9,6 +9,8 @@ PGDG_KEY=/usr/share/keyrings/postgresql-archive-keyring.asc
 CADDY_KEY=/usr/share/keyrings/caddy-stable-archive-keyring.asc
 # Primary key fingerprint of the Caddy stable repository key (checked after download).
 CADDY_KEY_FPR=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 # gitleaks:allow
+# Primary key fingerprint of the apt.postgresql.org key ACCC4CF8 (checked after download).
+PGDG_KEY_FPR=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 # gitleaks:allow
 BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades caddy"
 
 # build_os prints "ID VERSION_ID CODENAME" from the os-release file, or dies.
@@ -163,6 +165,12 @@ build_pgdg() {
   curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
     --output "$(dest "$PGDG_KEY")" https://www.postgresql.org/media/keys/ACCC4CF8.asc ||
     { build_policy_restore; die "cannot fetch the PostgreSQL repository key"; }
+  bg_fpr="$(build_key_fpr "$(dest "$PGDG_KEY")")"
+  if [ "$bg_fpr" != "$PGDG_KEY_FPR" ]; then
+    rm -f "$(dest "$PGDG_KEY")"
+    build_policy_restore
+    die "the PostgreSQL repository key has fingerprint ${bg_fpr:-unknown}, expected $PGDG_KEY_FPR"
+  fi
   printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$bg_suite" > "$bg_list"
 }
 

@@ -39,10 +39,10 @@ case "$(basename "$0")" in
   gpg) # --show-keys: print the real pinned fingerprint of the key the URL tag names
     f=""; for f; do :; done
     case "$(cat "$f")" in
-      *cloudsmith*) fpr=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 ;; # gitleaks:allow
-      *) fpr=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 ;;
+      *cloudsmith*) key=caddy; fpr=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 ;; # gitleaks:allow
+      *) key=pgdg; fpr=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 ;;
     esac
-    [ -z "${FAKE_KEY_BAD:-}" ] || fpr=0000000000000000000000000000000000000000
+    [ "${FAKE_KEY_BAD:-}" != "$key" ] || fpr=0000000000000000000000000000000000000000
     printf 'pub:-:4096:1:X:1::-:::scSC::::::23::0:\nfpr:::::::::%s:\nfpr:::::::::SUBKEY:\n' "$fpr" ;;
 esac
 exit 0
@@ -172,10 +172,17 @@ for sys in "ubuntu 24.04 noble" "debian 12 bookworm"; do
   [ ! -e "$cn/etc/apt/sources.list.d/caddy-stable.list" ] || fail "$sys got the Caddy repository"
 done
 cb="$(mkroot caddybad ubuntu 22.04 jammy)"
-if run_build "$cb" FAKE_KEY_BAD=1 >/dev/null 2>"$tmp/err"; then fail "a Caddy key with another fingerprint was accepted"; fi
+if run_build "$cb" FAKE_KEY_BAD=caddy >/dev/null 2>"$tmp/err"; then fail "a Caddy key with another fingerprint was accepted"; fi
 grep -q 'Caddy repository key has fingerprint' "$tmp/err" || fail "caddy fingerprint message: $(cat "$tmp/err")"
 [ ! -e "$cb/etc/apt/sources.list.d/caddy-stable.list" ] || fail "caddy list written for a bad key"
 pass "Caddy repository on jammy only, key fingerprint pinned"
+
+# --- the PostgreSQL repository key must match the pinned fingerprint
+pb="$(mkroot pgdgbad ubuntu 24.04 noble)"
+if run_build "$pb" FAKE_KEY_BAD=pgdg >/dev/null 2>"$tmp/err"; then fail "a PostgreSQL key with another fingerprint was accepted"; fi
+grep -q 'PostgreSQL repository key has fingerprint 0000.*expected B97B0AFC' "$tmp/err" || fail "pgdg fingerprint message: $(cat "$tmp/err")"
+[ ! -e "$pb/etc/apt/sources.list.d/pgdg.list" ] && [ ! -e "$pb/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg list or key kept for a bad key"
+pass "PostgreSQL repository key fingerprint pinned"
 
 # --- known codenames are never probed and keep their own suite, even when the archive looks down
 for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
