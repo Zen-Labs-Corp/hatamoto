@@ -5,9 +5,11 @@ import (
 	"time"
 )
 
-// maxKeysPerDim caps the distinct keys one (day, dim) accumulates between
-// flushes; further keys are counted under KeyOther. The nightly compaction
-// (PruneTraffic) enforces the same bound across flushes.
+// maxKeysPerDim caps the distinct keys one (day, dim) admits for the whole
+// day, across flushes; further keys are counted under KeyOther. The admitted
+// set lives in memory (at most today and yesterday, 200 keys per dim) and is
+// empty after a restart, so a restart can admit up to the cap again. The
+// nightly compaction (PruneTraffic) bounds older days.
 const maxKeysPerDim = 200
 
 // TrafficRepository writes buffered traffic rows.
@@ -86,18 +88,21 @@ func (s *Service) RecordTraffic(ev Event, channel, source string) {
 // bump adds c to a row; s.mu must be held.
 func (s *Service) bump(day time.Time, dim Dim, k1, k2 string, c Counts) {
 	k := trafficKey{day, dim, k1, k2}
-	cur, ok := s.traffic[k]
-	if !ok {
+	if k1 != KeyOther || k2 != "" {
 		dd := dayDim{day, dim}
-		if s.trafficKeys[dd] >= maxKeysPerDim {
-			k = trafficKey{day, dim, KeyOther, ""}
-			if cur, ok = s.traffic[k]; !ok {
-				s.trafficKeys[dd]++
+		admitted := s.trafficKeys[dd]
+		if _, ok := admitted[[2]string{k1, k2}]; !ok {
+			switch {
+			case len(admitted) >= maxKeysPerDim:
+				k = trafficKey{day, dim, KeyOther, ""}
+			case admitted == nil:
+				s.trafficKeys[dd] = map[[2]string]struct{}{{k1, k2}: {}}
+			default:
+				admitted[[2]string{k1, k2}] = struct{}{}
 			}
-		} else {
-			s.trafficKeys[dd]++
 		}
 	}
+	cur := s.traffic[k]
 	cur.add(c)
 	s.traffic[k] = cur
 }
@@ -106,6 +111,13 @@ func (s *Service) bump(day time.Time, dim Dim, k1, k2 string, c Counts) {
 func (s *Service) takeTraffic() ([]TrafficRow, TrafficRepository) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Day rollover: keep today and yesterday (a failed flush may merge back).
+	keep := s.today().AddDate(0, 0, -1)
+	for dd := range s.trafficKeys {
+		if dd.day.Before(keep) {
+			delete(s.trafficKeys, dd)
+		}
+	}
 	if len(s.traffic) == 0 {
 		return nil, s.trafficRepo
 	}
@@ -114,7 +126,6 @@ func (s *Service) takeTraffic() ([]TrafficRow, TrafficRepository) {
 		rows = append(rows, TrafficRow{Day: k.day, Dim: k.dim, K1: k.k1, K2: k.k2, Counts: c})
 	}
 	s.traffic = map[trafficKey]Counts{}
-	s.trafficKeys = map[dayDim]int{}
 	return rows, s.trafficRepo
 }
 

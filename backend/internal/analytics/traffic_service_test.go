@@ -141,3 +141,39 @@ func TestEngagementDefaultsOn(t *testing.T) {
 		t.Fatal("engagement should be off")
 	}
 }
+
+func TestRecordTrafficCapHoldsAcrossFlushes(t *testing.T) {
+	repo := &fakeTrafficRepo{}
+	svc := newTestService(&fakeRepo{})
+	svc.SetTrafficRepo(repo)
+	record := func(from, to int) {
+		for i := from; i < to; i++ {
+			svc.RecordTraffic(Event{Entry: true, Path: fmt.Sprintf("/p%d", i), Device: "other"}, ChannelDirect, SourceNone)
+		}
+	}
+	record(0, maxKeysPerDim)
+	if err := svc.Flush(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// The second flush window sees 100 new keys and one admitted key again.
+	record(maxKeysPerDim, maxKeysPerDim+100)
+	record(0, 1)
+	if err := svc.Flush(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	keys := map[string]bool{}
+	var other, total int64
+	for _, r := range repo.rows {
+		if r.Dim != DimLanding {
+			continue
+		}
+		keys[r.K1] = true
+		total += r.Visits
+		if r.K1 == KeyOther {
+			other += r.Visits
+		}
+	}
+	if len(keys) != maxKeysPerDim+1 || other != 100 || total != maxKeysPerDim+101 {
+		t.Fatalf("distinct landing keys=%d other=%d total=%d", len(keys), other, total)
+	}
+}
