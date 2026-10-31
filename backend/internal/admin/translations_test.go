@@ -160,3 +160,21 @@ func TestTranslationsGridHasEditLinkPerCopy(t *testing.T) {
 		}
 	}
 }
+
+// The grid columns follow the locale order of the settings (and the copies
+// table, not the alphabet (the members arrive alphabetically).
+func TestTranslationsGridColumnsFollowSettingsOrder(t *testing.T) {
+	t.Parallel()
+	c, g := translationsRig(t, "en", "fr", "es")
+	grp := fid(900)
+	g.setGroup(
+		entity.Member{ID: fid(11), Group: grp, Locale: "en", Slug: "alpha", Name: "Alpha", Status: "published", Original: true, CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0},
+		entity.Member{ID: fid(13), Group: grp, Locale: "es", Slug: "gamma", Name: "Gamma", Status: "draft", CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0},
+		entity.Member{ID: fid(12), Group: grp, Locale: "fr", Slug: "beta", Name: "Beta", Status: "published", CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0},
+	)
+	grid := translationsGridBody(t, c.get(t, "owner-token", translationsTab, ""))
+	en, fr, es := strings.Index(grid, ">en<"), strings.Index(grid, ">fr<"), strings.Index(grid, ">es<")
+	if en < 0 || fr < en || es < fr {
+		t.Errorf("grid column order en %d, fr %d, es %d; want en, fr, es", en, fr, es)
+	}
+}

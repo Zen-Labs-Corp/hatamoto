@@ -95,7 +95,6 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	orig := entity.OriginalOf(members, defaultLocale)
 	loc := a.siteLocation(ctx)
 	byLocale := map[string]*copyView{}
-	var held []*copyView
 	for _, m := range members {
 		cv := &copyView{m: m, e: e, stale: grouped && entity.OutOfDate(m, *orig)}
 		if m.ID != e.ID && a.deps.Content.Entities != nil {
@@ -108,7 +107,6 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			}
 		}
 		byLocale[m.Locale] = cv
-		held = append(held, cv)
 	}
 
 	d.Intro = "Each language keeps its own copy of this page. The original is the copy the others are compared with."
@@ -158,7 +156,11 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	d.Grid = ui.Table{ID: "translations-grid", Caption: "Fields of " + e.Name + " by language", Columns: []ui.Col{{Key: "field", Label: "Field"}}}
 	var titleRow, addrRow, seoRow, statusRow, updatedRow, editRow []ui.Cell
 	titleRow, addrRow, seoRow, statusRow, updatedRow, editRow = []ui.Cell{{Text: "Title"}}, []ui.Cell{{Text: "Address"}}, []ui.Cell{{Text: "Search title"}}, []ui.Cell{{Text: "Status"}}, []ui.Cell{{Text: "Updated"}}, []ui.Cell{{Text: "Open"}}
-	for _, cv := range held {
+	for _, tag := range tags { // settings order, as in the copies table
+		cv := byLocale[tag]
+		if cv == nil {
+			continue
+		}
 		d.Grid.Columns = append(d.Grid.Columns, ui.Col{Key: cv.m.Locale, Label: cv.m.Locale})
 		titleRow = append(titleRow, ui.Cell{Text: cv.m.Name})
 		addrRow = append(addrRow, ui.Cell{Text: a.copyAddress(ctx, cv.e), Clip: true})
