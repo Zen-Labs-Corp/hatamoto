@@ -17,15 +17,15 @@ W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_AUTHOR_NAME=T GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=T GIT_COMMITTER_EMAIL=t@example.com
 git init -q -b main "$W/r"; cd "$W/r"
-R=$PWD
+R=$(git rev-parse --show-toplevel)
 mkdir -p scripts .githooks/lib backend/internal/form backend/pkg/sdk/guest \
-  backend/internal/x/testdata/mod backend/internal/x/testdata/plain
+  backend/internal/x/testdata/mod backend/internal/x/testdata/plain backend/pkg/sdk/testdata
 cp "$top/scripts/pipeline-gate.sh" scripts/; cp "$top/.githooks/lib/gate-cache.sh" .githooks/lib/
 printf '#!/usr/bin/env bash\nexit 0\n' >scripts/check-changed.sh; chmod +x scripts/check-changed.sh
 echo 'module example.test/core' >backend/go.mod
 echo 'module example.test/sdk' >backend/pkg/sdk/go.mod
 echo 'module example.test/hostile' >backend/internal/x/testdata/mod/go.mod
-for d in internal/form pkg/sdk pkg/sdk/guest internal/x/testdata/mod internal/x/testdata/plain; do
+for d in internal/form pkg/sdk pkg/sdk/guest pkg/sdk/testdata internal/x/testdata/mod internal/x/testdata/plain; do
   echo 'package p' >"backend/$d/f.go"
 done
 mkdir -p "$W/bin"
@@ -39,7 +39,7 @@ chmod +x "$W/bin/go"
 export PATH="$W/bin:$PATH"
 git add -A; git commit -qm base
 
-todo() { : >"$W/go.log"; bash scripts/pipeline-gate.sh todo "$@" >"$W/log" 2>&1; }
+todo() { : >"$W/go.log"; bash scripts/pipeline-gate.sh todo "$@" >"$W/out" 2>"$W/err"; local rc=$?; cat "$W/out" "$W/err" >"$W/log"; return $rc; }
 fail() { echo "test-pipeline-gate-todo: FAIL: $*" >&2; cat "$W/log" "$W/go.log" >&2; exit 1; }
 has()  { grep -qxF -- "$1" "$W/go.log" || fail "go.log lacks: $1"; }
 hasnt(){ ! grep -qF -- "$1" "$W/go.log" || fail "go.log unexpectedly has: $1"; }
@@ -65,13 +65,23 @@ has "$R/backend/pkg/sdk vet ./guest"; has "$R/backend/pkg/sdk test ./guest"
 
 # 4. nested module under testdata: skipped with a note
 todo backend/internal/x/testdata/mod/f.go || fail "case 4: gate exited non-zero"
-grep -q 'note.*testdata' "$W/log" || fail "case 4: no skip note"
+grep -q 'note.*testdata' "$W/out" || fail "case 4: skip note not on stdout"
 only_build
 
 # 5. plain testdata: skipped silently
 todo backend/internal/x/testdata/plain/f.go || fail "case 5: gate exited non-zero"
 ! grep -q 'note' "$W/log" || fail "case 5: unexpected note"
 only_build
+
+# 5b. plain testdata inside a nested module: no note either
+todo backend/pkg/sdk/testdata/f.go || fail "case 5b: gate exited non-zero"
+! grep -q 'note' "$W/log" || fail "case 5b: unexpected note"
+only_build
+
+# 5c. main-module only: the original run line, no nested run
+todo backend/internal/form/f.go || fail "case 5c: gate exited non-zero"
+has "$R/backend vet ./internal/form"; has "$R/backend test ./internal/form"
+hasnt "$R/backend/"
 
 # 6. a failure inside a nested module fails the gate
 rc=0; GO_FAIL_IN=backend/pkg/sdk todo backend/pkg/sdk/f.go || rc=$?
