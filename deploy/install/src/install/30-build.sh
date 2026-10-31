@@ -117,15 +117,33 @@ build_apt() {
   fi
 }
 
-# build_pgdg adds the PostgreSQL project's apt repository (Debian ships 15, not 16).
+# build_pgdg_suite ID CODENAME prints a suite apt.postgresql.org publishes: the
+# codename's own when it exists, else the newest LTS suite of the same family.
+build_pgdg_suite() {
+  if [ -n "$2" ] &&
+    curl -fsI --proto '=https' --tlsv1.2 "https://apt.postgresql.org/pub/repos/apt/dists/$2-pgdg/Release" >/dev/null 2>&1; then
+    printf '%s\n' "$2"
+    return 0
+  fi
+  case "$1" in
+    ubuntu) bp_suite=resolute ;;
+    *) bp_suite=trixie ;;
+  esac
+  warn "apt.postgresql.org has no suite for '$2'; using $bp_suite"
+  printf '%s\n' "$bp_suite"
+}
+
+# build_pgdg ID CODENAME adds the PostgreSQL project's apt repository, which
+# carries every supported major (the distributions ship one or two).
 build_pgdg() {
   bg_list="$(dest /etc/apt/sources.list.d/pgdg.list)"
   [ ! -f "$bg_list" ] || return 0
+  bg_suite="$(build_pgdg_suite "$1" "$2")"
   mkdir -p "$(dirname "$(dest "$PGDG_KEY")")" "$(dirname "$bg_list")"
   curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
     --output "$(dest "$PGDG_KEY")" https://www.postgresql.org/media/keys/ACCC4CF8.asc ||
     { build_policy_restore; die "cannot fetch the PostgreSQL repository key"; }
-  printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$1" > "$bg_list"
+  printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$bg_suite" > "$bg_list"
 }
 
 # build_check_pg_dump MAJOR: backups need a pg_dump of the server's major version.
@@ -231,10 +249,8 @@ stage_build() {
   build_policy_deny
   build_apt update -qq
   build_apt install -y --no-install-recommends ca-certificates curl gnupg
-  if [ "$sb_id" = debian ]; then
-    build_pgdg "$sb_codename"
-    build_apt update -qq
-  fi
+  build_pgdg "$sb_id" "$sb_codename"
+  build_apt update -qq
   # shellcheck disable=SC2086 # the list is words on purpose
   build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES "postgresql-$sb_pg"
   build_policy_restore

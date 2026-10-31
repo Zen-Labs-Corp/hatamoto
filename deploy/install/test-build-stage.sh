@@ -32,7 +32,8 @@ case "$(basename "$0")" in
     fi
     [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
-  curl) # the PGDG key: write the -o/--output file
+  curl) # the suite probe (-I) or the PGDG key: write the -o/--output file
+    case " $* " in *" -fsI "*) [ -z "${FAKE_PGDG_MISSING:-}" ] || exit 22; exit 0 ;; esac
     while [ $# -gt 0 ]; do [ "$1" != --output ] || { printf 'KEY\n' > "$2"; break; }; shift; done ;;
 esac
 exit 0
@@ -100,9 +101,10 @@ pass "every apt-get call waits for the dpkg lock"
 grep -q 'policy-rc.d present during install' "$tmp/calls" || fail "services were not held back during install"
 [ ! -e "$ub/usr/sbin/policy-rc.d" ] || fail "policy-rc.d left behind"
 pass "services held back during install, policy removed after"
-[ ! -e "$ub/etc/apt/sources.list.d/pgdg.list" ] || fail "PGDG added on ubuntu"
-if grep -q '^curl ' "$tmp/calls"; then fail "curl called on ubuntu"; fi
-pass "no PGDG on ubuntu"
+grep -qxF 'deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' "$ub/etc/apt/sources.list.d/pgdg.list" || fail "ubuntu pgdg list wrong"
+[ -s "$ub/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "ubuntu pgdg key not stored"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "ubuntu must update again after adding PGDG"
+pass "PGDG on ubuntu"
 grep -qxF 'useradd --system --home /opt/hatamoto --shell /usr/sbin/nologin hatamoto' "$tmp/calls" || fail "useradd call"
 grep -qx 'install -d -o root -g hatamoto -m 0750 .*/opt/hatamoto/config' "$tmp/calls" || fail "config dir mode"
 grep -q 'install -m 0755 -o root -g root .*/opt/hatamoto/bin/hatamoto' "$tmp/calls" || fail "binary install call"
@@ -145,13 +147,25 @@ grep -qxF 'deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] ht
 [ -s "$de/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg key not stored"
 grep -q -- '--proto =https' "$tmp/calls" || fail "key fetched without https pin"
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "debian must update again after adding PGDG"
-pass "PGDG on debian only, key over https"
+pass "PGDG on debian, key over https"
+
+# --- a suite pgdg does not publish falls back to the newest LTS suite
+nx="$(mkroot nosuite ubuntu 24.04 noble)"
+: > "$tmp/calls"
+run_build "$nx" FAKE_PGDG_MISSING=1 >/dev/null 2>"$tmp/err" || fail "missing suite broke the build: $(cat "$tmp/err")"
+grep -q "no suite for 'noble'; using resolute" "$tmp/err" || fail "no fallback warning: $(cat "$tmp/err")"
+grep -q 'repos/apt resolute-pgdg main' "$nx/etc/apt/sources.list.d/pgdg.list" || fail "fallback suite not written"
+grep -q 'dists/noble-pgdg/Release' "$tmp/calls" || fail "suite not probed before writing the list"
+nx="$(mkroot nosuited debian 13 "")"
+run_build "$nx" FAKE_PGDG_MISSING=1 >/dev/null 2>"$tmp/err" || fail "empty codename broke the build: $(cat "$tmp/err")"
+grep -q 'repos/apt trixie-pgdg main' "$nx/etc/apt/sources.list.d/pgdg.list" || fail "debian fallback suite not written"
+pass "unknown pgdg suite falls back with a warning"
 
 # --- apt update retries while the lists lock is held
 rt="$(mkroot retry ubuntu 24.04 noble)"
 : > "$tmp/calls"
 run_build "$rt" HATAMOTO_APT_RETRY_SLEEP=0 FAKE_APT_UPDATE_ONCE="$tmp/update-once" >/dev/null 2>"$tmp/err" || fail "a busy first update was not retried: $(cat "$tmp/err")"
-[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "update not retried exactly once"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 3 ] || fail "update not retried exactly once (3 = busy, retry, after PGDG)"
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 install' "$tmp/calls")" = 2 ] || fail "install was retried or skipped: $(grep "^apt-get" "$tmp/calls")"
 rt="$(mkroot retrydown ubuntu 24.04 noble)"
 : > "$tmp/calls"
