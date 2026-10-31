@@ -75,5 +75,7 @@
 .hm-bs-opt[aria-pressed="true"]:focus-visible:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-bs-opt:not(.hm-bs-opt--inherited, :focus-visible), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
+  .hm-bs-bm__n { border-color: ButtonBorder; } /* the resting edge is transparent: in forced colours the number must still read as a field */
+  .hm-bs-bm__n[aria-invalid="true"] { border-width: 2px; border-style: dashed; border-color: Mark; } /* the danger colour is replaced there: width and style carry the refusal */
   .hm-bs-opt[aria-pressed="true"], .hm-bs-linkbtn[aria-pressed="true"], .hm-bs-pill[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }

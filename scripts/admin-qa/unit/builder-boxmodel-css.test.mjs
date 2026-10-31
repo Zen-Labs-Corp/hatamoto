@@ -12,3 +12,9 @@ test("a box model number is at least 3.5rem wide", () => {
   assert.ok(w, "the number sets an inline-size in rem");
   assert.ok(Number(w[1]) >= 3.5, `inline-size ${w[1]}rem cannot show 1.25rem`);
 });
+
+test("forced colours: the numbers keep a visible edge and a refused one changes width and style", () => {
+  const block = /@media \(forced-colors: active\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  assert.match(block, /\.hm-bs-bm__n \{[^}]*border-color:\s*ButtonBorder/);
+  assert.match(block, /\.hm-bs-bm__n\[aria-invalid="true"\] \{[^}]*border-width:\s*2px/);
+});
