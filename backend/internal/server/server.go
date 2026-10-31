@@ -107,21 +107,22 @@ type Server struct {
 	confirmThrottle        confirmationThrottle
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
-	pingDB                 func(context.Context) error
-	keyValid               func(ctx context.Context, raw string) bool
-	sectionTemplateService *sectiontemplate.Service
-	redirectService        *redirect.Service
-	agentWriter            *agents.Writer
-	agentLogHandlers       *agents.LogHandlers // nil unless AGENT_LOG_INGEST + secret
-	agentLogTailer         *agents.Tailer      // nil unless AGENT_LOG_INGEST + AGENT_LOG_CADDY_PATH
-	agentAdminHandlers     *agents.AdminHandlers
-	agentFirstCrawl        *agents.FirstCrawlTracker
-	robotsPolicy           agents.RobotsStore
-	analyticsService       *analytics.Service
-	analyticsHandlers      *analytics.Handlers
-	taxonomyService        *taxonomy.Service
-	taxonomyHandlers       *taxonomy.Handlers
-	authors                *author.Store
+	pingDB                   func(context.Context) error
+	keyValid                 func(ctx context.Context, raw string) bool
+	sectionTemplateService   *sectiontemplate.Service
+	redirectService          *redirect.Service
+	agentWriter              *agents.Writer
+	agentLogHandlers         *agents.LogHandlers // nil unless AGENT_LOG_INGEST + secret
+	agentLogTailer           *agents.Tailer      // nil unless AGENT_LOG_INGEST + AGENT_LOG_CADDY_PATH
+	agentAdminHandlers       *agents.AdminHandlers
+	agentFirstCrawl          *agents.FirstCrawlTracker
+	robotsPolicy             agents.RobotsStore
+	analyticsService         *analytics.Service
+	analyticsHandlers        *analytics.Handlers
+	geoConfigured, geoLoaded bool // HATAMOTO_GEOIP_DB set / country database opened
+	taxonomyService          *taxonomy.Service
+	taxonomyHandlers         *taxonomy.Handlers
+	authors                  *author.Store
 	//lint:ignore SA1019 the rollback mirror API stays mounted until the author package is removed
 	authorHandlers *author.Handlers
 
@@ -580,6 +581,7 @@ func (s *Server) setupDependencies() {
 	// Analytics: pageviews and AI referrals, rolled up daily.
 	s.analyticsService = analytics.NewService(analytics.NewPostgresRepository(s.db), s.logger)
 	s.analyticsHandlers = analytics.NewHandlers(s.analyticsService)
+	s.setupTraffic()
 	s.robotsPolicy = agents.NewRobotsRepository(s.db)
 	s.agentAdminHandlers = agents.NewAdminHandlers(agents.NewAdminStore(s.db), agents.Default(),
 		s.agentWriter.Stats)
@@ -1058,4 +1060,39 @@ func (s *Server) mountPublicAPI(r *httpx.Group, prefix string, notFound http.Han
 		notFound.ServeHTTP(w, req)
 	})
 	mountCatchAll(r, prefix, notFound, catchAllMethods...)
+}
+
+// setupTraffic wires the traffic rollup: its repository, the engagement
+// setting (read once here, never on the request path), the optional country
+// database and the nightly prune. A missing or unreadable GeoIP file only
+// turns countries off.
+func (s *Server) setupTraffic() {
+	s.analyticsService.SetTrafficRepo(analytics.NewPostgresTrafficRepository(s.db))
+
+	on, err := analytics.NewSettingsStore(s.db).EngagementEnabled(context.Background())
+	if err != nil {
+		s.logger.Warn("analytics: engagement setting not loaded, keeping the default")
+	} else {
+		s.analyticsService.SetEngagement(on)
+	}
+
+	if s.cfg.GeoIPDB != "" {
+		s.geoConfigured = true
+		if g, err := analytics.OpenGeo(s.cfg.GeoIPDB); err != nil {
+			s.logger.Warn("analytics: country database not loaded, countries stay off")
+		} else {
+			s.analyticsHandlers.SetGeo(g)
+			s.geoLoaded = true
+		}
+	}
+
+	if s.scheduler != nil && workerJobEnabled(trafficPruneJob) {
+		repo := analytics.NewPostgresRepository(s.db)
+		err := s.scheduler.ScheduleJitter(trafficPruneJob, 24*time.Hour, 30*time.Minute, 10*time.Minute, func(ctx context.Context) error {
+			return repo.PruneTraffic(ctx, time.Now())
+		})
+		if err != nil {
+			s.logger.Error("analytics: traffic prune job not scheduled", "error", err)
+		}
+	}
 }

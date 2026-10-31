@@ -21,6 +21,7 @@ func (s *Server) setupRender() {
 	s.renderData = newRenderData(s)
 	// hm.js is bundled when the engine is built, so the prefix must be set first.
 	render.SetPublicAPIPrefix(s.cfg.PublicSite.APIPrefix)
+	render.SetTrackEngagement(func() bool { return s.analyticsService == nil || s.analyticsService.EngagementEnabled() })
 	engine, err := render.New(render.Options{
 		HeadFilter: pluginhost.HeadFilter(s.hooks),
 		ExtSources: pluginhost.ExtSources(s.hooks),
