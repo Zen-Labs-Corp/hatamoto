@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/seopanel{{end}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Badge" (dict "Label" .Kind "Mono" true)}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Badge" (dict "Label" .Kind "Mono" true "Prefix" "Kind: ")}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/settings/taxonomies/terms/{{.ID}}" id="hm-termform" class="hm-cardform">
 {{template "hm/csrf" $}}

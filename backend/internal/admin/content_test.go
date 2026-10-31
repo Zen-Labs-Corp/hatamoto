@@ -850,7 +850,7 @@ func TestTaxonomyScreens(t *testing.T) {
 	has(t, c.get(t, "owner-token", "/admin/settings/taxonomies?kind=genre", ""), "Jazz", `href="/admin/settings/taxonomies?kind=genre"`)
 	// edit
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+fid(32).String(), "taxonomy-term")
-	has(t, body, `value="Press"`, "hm-seo", "seo_title")
+	has(t, body, `value="Press"`, "hm-seo", "seo_title", `<span class="hm-visually-hidden">Kind: </span>category`)
 	// two cards (details, search appearance), the buttons in the save bar after them, one SEO heading
 	if n := strings.Count(body, `<section class="hm-card`); n != 2 {
 		t.Errorf("term page cards = %d, want 2", n)

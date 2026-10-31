@@ -46,6 +46,8 @@ type Badge struct {
 	// Plain drops the dot of a neutral label, Wrap lets long text wrap, Mono is a read-only
 	// identifier or tag (monospace, wraps). A coloured Kind keeps its dot either way.
 	Plain, Wrap, Mono bool
+	// Prefix is read by screen readers before the label ("Kind: ") and not drawn.
+	Prefix string
 	// Size "sm" is the compact pill (hm-badge--sm); empty is the default size.
 	Size string
 }
