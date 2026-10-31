@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/entity"
 )
 
@@ -130,5 +132,31 @@ func TestTranslationsUnloadableMemberShowsNoAddress(t *testing.T) {
 	// x-default row, each as text and as title: 8. The unloadable copy adds none.
 	if n := strings.Count(body, "/services/alpha"); n != 8 {
 		t.Errorf("viewed page's address shown %d times, want 8 (none for the unloadable copy)", n)
+	}
+}
+
+// translationsGridBody is the field grid's markup: from its table to the one after.
+func translationsGridBody(t *testing.T, body string) string {
+	t.Helper()
+	i := strings.Index(body, `id="translations-grid"`)
+	j := strings.Index(body, `id="translations-hreflang"`)
+	if i < 0 || j < i {
+		t.Fatalf("field grid not found (grid %d, hreflang %d)", i, j)
+	}
+	return body[i:j]
+}
+
+// The field grid has one Edit link per locale column, to that copy's Details.
+func TestTranslationsGridHasEditLinkPerCopy(t *testing.T) {
+	t.Parallel()
+	c, _ := groupedRig(t)
+	grid := translationsGridBody(t, c.get(t, "owner-token", translationsTab, ""))
+	if n := strings.Count(grid, ">Edit</a>"); n != 3 {
+		t.Errorf("grid has %d Edit links, want 3 (one per copy)", n)
+	}
+	for _, id := range []uuid.UUID{fid(11), fid(12), fid(13)} {
+		if !strings.Contains(grid, "/entities/"+id.String()+`"`) {
+			t.Errorf("grid lacks an Edit link to copy %s", id)
+		}
 	}
 }

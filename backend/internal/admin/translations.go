@@ -156,8 +156,8 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	}
 
 	d.Grid = ui.Table{ID: "translations-grid", Caption: "Fields of " + e.Name + " by language", Columns: []ui.Col{{Key: "field", Label: "Field"}}}
-	var titleRow, addrRow, seoRow, statusRow, updatedRow []ui.Cell
-	titleRow, addrRow, seoRow, statusRow, updatedRow = []ui.Cell{{Text: "Title"}}, []ui.Cell{{Text: "Address"}}, []ui.Cell{{Text: "Search title"}}, []ui.Cell{{Text: "Status"}}, []ui.Cell{{Text: "Updated"}}
+	var titleRow, addrRow, seoRow, statusRow, updatedRow, editRow []ui.Cell
+	titleRow, addrRow, seoRow, statusRow, updatedRow, editRow = []ui.Cell{{Text: "Title"}}, []ui.Cell{{Text: "Address"}}, []ui.Cell{{Text: "Search title"}}, []ui.Cell{{Text: "Status"}}, []ui.Cell{{Text: "Updated"}}, []ui.Cell{{Text: "Open"}}
 	for _, cv := range held {
 		d.Grid.Columns = append(d.Grid.Columns, ui.Col{Key: cv.m.Locale, Label: cv.m.Locale})
 		titleRow = append(titleRow, ui.Cell{Text: cv.m.Name})
@@ -176,9 +176,10 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			upd += " (older than original)"
 		}
 		updatedRow = append(updatedRow, ui.Cell{Text: upd})
+		editRow = append(editRow, ui.Cell{Text: "Edit", Link: a.adminPath + "/entities/" + cv.m.ID.String()})
 	}
-	for i, cells := range [][]ui.Cell{titleRow, addrRow, seoRow, statusRow, updatedRow} {
-		d.Grid.Rows = append(d.Grid.Rows, ui.Row{ID: []string{"title", "address", "seo", "status", "updated"}[i], Label: cells[0].Text, Cells: cells})
+	for i, cells := range [][]ui.Cell{titleRow, addrRow, seoRow, statusRow, updatedRow, editRow} {
+		d.Grid.Rows = append(d.Grid.Rows, ui.Row{ID: []string{"title", "address", "seo", "status", "updated", "edit"}[i], Label: cells[0].Text, Cells: cells})
 	}
 
 	d.Hreflang = ui.Table{
