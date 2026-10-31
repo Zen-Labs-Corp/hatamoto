@@ -206,8 +206,6 @@ export function mountInspector(root, api) {
 
   return {
     draw,
-    /** The Style tab's State ("" = Normal): the canvas padding drag writes at it. */
-    state: () => state,
     /** Loads the Style chunk ahead of the first Style-tab open (never rejects). */
     prefetch: () => Promise.all([styleChunk(), presetChunk(), contentChunk(), headerChunk()]).catch(() => {}),
     /** UX-1 contract (screen.mountInspector): extra chrome kept across draw(); returns the remover. */

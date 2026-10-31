@@ -17,7 +17,7 @@ register(
 const S = await import(new URL("builder/store.js", root));
 const { selectionInfo } = await import(new URL("builder/selinfo.js", root));
 const { ownValue, inheritedValue } = await import(new URL("builder/bp.js", root));
-const { padBp, startPx } = await import(new URL("canvas/padding.js", root));
+const { startPx } = await import(new URL("canvas/padding.js", root));
 const src = readFileSync(new URL("builder/screen.js", root), "utf8");
 const insp = readFileSync(new URL("builder/inspector.js", root), "utf8");
 
@@ -44,8 +44,8 @@ test("the start value: own at the key, else the wider width's, rem as 16px", () 
 test("screen.js wires the handlers the direct layer needs", () => {
   assert.match(src, /onAddSection: \(index, el\) => addAt\(\{ parent: "", index \}/);
   assert.match(src, /onPadCommit: \(\{ id, writes, label: name \}\) => run\(writes, \{ label: name \}\)/);
-  assert.match(src, /padState: \(\) => \(\{ bp: padBp\(\) \}\)/);
-  assert.match(src, /const state = inspector\.state\(\);\s*return state \?/);
+  assert.match(src, /padState: \(\) => \(\{ bp: device \}\)/); // spacing is Normal-only: never a state key
+  assert.doesNotMatch(src, /inspector\.state\(\)/);
   assert.match(src, /authored: \(id, side\)/);
-  assert.match(insp, /state: \(\) => state/);
+  assert.doesNotMatch(insp, /state: \(\) => state/);
 });

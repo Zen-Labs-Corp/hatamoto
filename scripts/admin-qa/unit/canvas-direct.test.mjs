@@ -241,16 +241,6 @@ test("a refused commit restores the preview", () => {
   assert.deepEqual(r.posted.at(-1).decls, [["padding-top", null]]);
 });
 
-test("at a state (hover) the frame is not previewed, but the drag still commits at that key", () => {
-  const r = rig({ bp: "md:hover" });
-  down(r, "top");
-  move(r, "top", 0, 8);
-  assert.equal(r.posted.length, 0);
-  r.handle("top").fire("pointerup", { pointerId: 7 });
-  assert.equal(r.commits[0].writes[0].bp, "md:hover");
-  assert.equal(r.commits[0].label, "Change Padding top (Hover, Tablet)");
-});
-
 test("a Tablet drag commits at md only", () => {
   const r = rig({ bp: "md" });
   down(r, "right");

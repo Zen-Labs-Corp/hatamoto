@@ -126,7 +126,6 @@ export function mountDirect(canvas, hd) {
 
   /** Previews (or, with null, restores) one side in the frame. Nothing is committed. */
   function preview(d, side, px) {
-    if (d.bp.includes(":")) return; // a state (hover, ...) has no frame to show it on
     const entry = d.entries[side];
     const decls = entry && styleDecls(entry, px === null ? null : `${px}px`);
     if (!decls) return;

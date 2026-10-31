@@ -211,11 +211,6 @@ function start(root, boot) {
     const n = find(st.doc, moveSubject(st.doc, id));
     return !!n && hiddenAt(n, device);
   };
-  // the style-map key a canvas padding drag writes: the device, plus ":state" while the inspector's State is not Normal
-  const padBp = () => {
-    const state = inspector.state();
-    return state ? `${device}:${state}` : device;
-  };
   const canvas = createCanvas(
     canvasEl,
     {
@@ -277,12 +272,12 @@ function start(root, boot) {
       indexOf: (id) => sectionOf(st.doc, id)?.index,
       total: () => st.doc.nodes.length,
       nameOf: (id) => label(id),
-      padState: () => ({ bp: padBp() }),
+      padState: () => ({ bp: device }), // spacing is Normal-only: never at a state key, whatever the inspector's State is
       // what the node itself says (own, else the wider width's), for a frame that gives no measured padding
       authored: (id, side) => {
         const n = find(st.doc, id);
         const key = { top: "pt", right: "pr", bottom: "pb", left: "pl" }[side];
-        return n ? (ownValue(n, padBp(), key) ?? inheritedValue(n, device, key)?.value ?? null) : null;
+        return n ? (ownValue(n, device, key) ?? inheritedValue(n, device, key)?.value ?? null) : null;
       },
       onPadCommit: ({ id, writes, label: name }) => run(writes, { label: name }), // false (refused) restores the preview
       onAddSection: (index, el) => addAt({ parent: "", index }, el),

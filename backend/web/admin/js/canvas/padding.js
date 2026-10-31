@@ -16,9 +16,6 @@ export function padValue({ start, d, scale, side, shift }) {
   return Math.round(Math.min(MAX_PX, Math.max(0, v)));
 }
 
-/** The style-map key a write lands on: "md", or "md:hover" while the inspector's State is not Normal. */
-export const padBp = (device, state) => (state ? `${device}:${state}` : device);
-
 /** One setStyle per side: the dragged one, plus the opposite one when alt (decided at pointerdown). */
 export function padWrites({ id, bp, side, px, alt }) {
   const sides = alt ? [side, OPPOSITE[side]] : [side];

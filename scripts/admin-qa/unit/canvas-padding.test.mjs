@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { padValue, padBp, padWrites, padLabel, padAria, startPx, SIDES, OPPOSITE } = await import(new URL("canvas/padding.js", root));
+const { padValue, padWrites, padLabel, padAria, startPx, SIDES, OPPOSITE } = await import(new URL("canvas/padding.js", root));
 const S = await import(new URL("builder/store.js", root));
 
 test("padValue: top/left grow with the pointer, bottom/right against it", () => {
@@ -41,12 +41,6 @@ test("padValue: never below 0, never above 1000, always an integer", () => {
   assert.equal(padValue({ start: 0, d: 5, scale: 3, side: "top" }), 2);
 });
 
-test("padBp: device, plus the state when the inspector is not Normal", () => {
-  assert.equal(padBp("base", ""), "base");
-  assert.equal(padBp("md", ""), "md");
-  assert.equal(padBp("md", "hover"), "md:hover");
-});
-
 test("padWrites: one op, or two with alt (the opposite side gets the same px)", () => {
   assert.deepEqual(padWrites({ id: "a", bp: "base", side: "top", px: 40 }), [{ op: "setStyle", id: "a", bp: "base", key: "pt", value: "40px" }]);
   assert.deepEqual(padWrites({ id: "a", bp: "md", side: "top", px: 40, alt: true }), [
@@ -55,7 +49,6 @@ test("padWrites: one op, or two with alt (the opposite side gets the same px)", 
   ]);
   assert.equal(padWrites({ id: "a", bp: "base", side: "left", px: 8, alt: true })[1].key, "pr");
   for (const s of Object.keys(SIDES)) assert.equal(OPPOSITE[OPPOSITE[s]], s);
-  assert.equal(padWrites({ id: "a", bp: "md:hover", side: "left", px: 8 })[0].bp, "md:hover");
 });
 
 test("labels: the inspector's wording, no suffix at base", () => {
@@ -98,10 +91,7 @@ test("a drag is ONE history entry: 30 moves commit nothing, pointerup commits on
 
 test("a Tablet drag writes only the md key; the Desktop value is unchanged", () => {
   let s = S.createStore(doc());
-  s = S.commit(s, padWrites({ id: "s1", bp: padBp("md", ""), side: "top", px: 40 }), { label: padLabel("top", "md") });
+  s = S.commit(s, padWrites({ id: "s1", bp: "md", side: "top", px: 40 }), { label: padLabel("top", "md") });
   assert.equal(pad(s, "md", "pt"), "40px");
   assert.equal(pad(s, "base", "pt"), "96px");
-  s = S.commit(s, padWrites({ id: "s1", bp: padBp("md", "hover"), side: "top", px: 8 }), {});
-  assert.equal(pad(s, "md:hover", "pt"), "8px");
-  assert.equal(pad(s, "md", "pt"), "40px");
 });
