@@ -314,23 +314,6 @@
     });
   }
 
-  // Pageview: one cookie-less beacon per page load; the server only counts it.
-  function trackPageView() {
-    // Canvas/draft previews are not visits (and would only fire a preflight).
-    if (document.documentElement.dataset.hmPreview === 'true') return;
-    var body = JSON.stringify({ events: [{ type: 'page_view' }] });
-    // sendBeacon always sends credentials, which a sandboxed (opaque origin)
-    // page cannot do cross-origin. A string body is a simple text/plain request
-    // (no preflight) and credentials stay out, so it works from both.
-    if (self.origin === 'null' || !navigator.sendBeacon) {
-      if (window.fetch) {
-        fetch('/api/v1/track', { method: 'POST', body: body, keepalive: true, credentials: 'omit' }).catch(function () {});
-      }
-    } else {
-      navigator.sendBeacon('/api/v1/track', new Blob([body], { type: 'application/json' }));
-    }
-  }
-
   // Light/dark: light is the default; the header toggle opts into dark and the
   // choice is remembered in localStorage. Without JS the toggle stays hidden.
   var THEME_KEY = 'hm-theme';
@@ -385,7 +368,6 @@
   }
 
   function init() {
-    trackPageView();
     enhanceThemeToggle();
     initForms();
     enhanceMenu();

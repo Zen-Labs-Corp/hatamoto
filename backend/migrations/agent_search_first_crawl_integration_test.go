@@ -79,8 +79,9 @@ func TestRelabelCDNEdgeSpoofed(t *testing.T) {
 			if _, err := p.UpTo(ctx, relabelCDNEdgeVersion); err != nil {
 				t.Fatalf("relabel: %v", err)
 			}
-		} else if _, err := p.UpByOne(ctx); err == nil {
-			t.Fatal("expected no pending migration on the second run")
+		} else if applied, err := p.UpTo(ctx, relabelCDNEdgeVersion); err != nil || len(applied) != 0 {
+			// Pending means "up to this migration": later migrations may exist.
+			t.Fatalf("second run applied %d migrations, err %v; want none", len(applied), err)
 		}
 		g, b := counts()
 		if g != [3]int64{1, 1, 2} || b != [3]int64{0, 0, 1} {

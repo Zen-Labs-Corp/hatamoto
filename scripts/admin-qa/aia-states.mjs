@@ -10,7 +10,7 @@ import { launch, newSession, base } from "./lib.mjs";
 const b = await launch();
 let bad = 0;
 const ok = (c, m) => { console.log(`${c ? "ok  " : "FAIL"} ${m}`); if (!c) bad++; };
-const sections = ["", "/crawlers", "/content", "/referrals", "/health", "/agents/gptbot"];
+const sections = ["", "/traffic", "/crawlers", "/content", "/referrals", "/health", "/agents/gptbot"];
 const settled = (p) => p.waitForFunction(() => !document.querySelector("[data-hm-aia-chart][aria-busy=true]"), null, { timeout: 15000 });
 
 const p = await newSession(b, { theme: "light", width: 1440 });

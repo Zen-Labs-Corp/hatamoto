@@ -12,7 +12,7 @@ var areaPages = map[string][]string{
 	"menus":     {"menus/list", "menus/new", "menus/edit"},
 	"redirects": {"redirects/list", "redirects/notfound", "redirects/explain", "redirects/edit"},
 	"sections":  {"sections/list", "sections/edit"},
-	"analytics": {"analytics/overview", "analytics/crawlers", "analytics/google", "analytics/content", "analytics/referrals", "analytics/health", "analytics/agent"},
+	"analytics": {"analytics/overview", "analytics/traffic", "analytics/crawlers", "analytics/google", "analytics/content", "analytics/referrals", "analytics/health", "analytics/agent"},
 	"linking":   {"linking/rules", "linking/rule", "linking/import", "linking/suggestions", "linking/equity", "linking/inbound"},
 	"plugins":   {"settings/plugins", "plugins/plugin", "plugins/permissions"},
 	"forms":     {"forms/list", "forms/new", "forms/edit", "forms/submissions", "forms/submission", "bulkdelete"},

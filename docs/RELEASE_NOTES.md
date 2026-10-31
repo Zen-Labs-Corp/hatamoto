@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased: Traffic tab
+
+**Analytics > Traffic** shows where visits come from: Visits, Pageviews, Channels (direct, organic search, paid, email, social, referral, AI assistants), Sources, Campaigns, Landing pages, Devices, Countries and Engagement, with a compare period. Overview gets a **Visits by channel** chart. Everything is cookieless: only daily counts are stored, with no visitor id, IP address, user agent or referrer URL. A visit is the first pageview of a tab or an arrival from another site. Leads, conversion rate and first or last touch are shown as not available yet. MCP gets an `analytics_traffic` tool.
+
+- A small core script, `hm-track.js`, is now added to public pages and sends the pageview beacon; the default theme's `hm.js` no longer does. A custom theme that forked the old `hm.js` and still contains the `/api/v1/track` beacon keeps counting pageviews as before but records no visits or channels (remove the beacon from its `hm.js` to get them). Headless front ends that post the old body keep counting pageviews.
+- The track endpoint now ignores requests with an empty or bot-like user agent, and the script sends nothing in automated browsers, so pageview counts can drop slightly. Past data is not rewritten.
+- Countries need an optional `HATAMOTO_GEOIP_DB` (a country `.mmdb` you supply; read at boot, restart to reload). Nothing is downloaded. See the [configuration reference](site/operate/configuration-reference.md).
+- Engagement counting can be switched off by an owner in the Measurement card of the Traffic page.
+- Channel AI assistants here and the Referrals tab can differ, because they count different signals.
+- Migrations: a new `hatamoto_traffic_daily` table and a small `hatamoto_analytics_settings` table, both additive. A nightly job prunes source, campaign and landing rows after 13 months and compacts old days.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.** An older binary ignores the new tables, and the legacy `pageview` and `ai_referral` counters are written as before.
+
 ## Unreleased: Search engines and a Google section in Analytics
 
 "AI analytics" is now **Analytics**, with a new **Google** section next to Crawlers (same URLs, `/analytics/google` is new). Crawlers gains a Search engines group and an **AI only / AI + search** toggle on the hero chart. Google shows Googlebot crawls, the verified share, pages crawled of published, the median time from publishing to first crawl, a stacked response-class chart and a page table with All, Not crawled, Errors and Stale filters. Spoofed fetches are left out of page numbers, and dates are whole UTC days. Impressions, clicks and position appear only when a search performance source is connected; otherwise one notice says so. MCP gets `analytics_google` and `search_first_crawl_at` on a page's activity (additive).

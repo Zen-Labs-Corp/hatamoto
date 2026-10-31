@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/middleware"
@@ -145,6 +147,20 @@ func (s *Server) registerInsight() {
 				total += d.Visits
 			}
 			return object{"days": days, "total_visits": total}, nil
+		})
+
+	type trafficIn struct {
+		rangeIn
+		By    string `json:"by,omitempty" jsonschema:"grouping: channel (default), source, campaign, page, device or country"`
+		Limit int    `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
+	}
+	register(s, toolSpec{name: "analytics_traffic", description: "Human visits to the public site over a date range, grouped by channel, source, campaign, landing page, device or country: visits, pageviews and engaged share. Counts only; the site keeps no per-visitor, IP or user agent data. Bots are not counted here (see analytics_crawler_hits).", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in trafficIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			return trafficSummary(ctx, s.d.Traffic, rg, in.By, clampLimit(in.Limit, 20))
 		})
 
 	register(s, toolSpec{name: "analytics_crawler_verification", description: "How well AI-crawler IP verification works over a date range: verified, spoofed and unverifiable fetches from agents that publish IP ranges, the spoofed share, distinct spoofed addresses, and the header client IPs are read from. level is ok, bad (misconfigured proxy or CDN) or unknown (too few fetches to judge).", scope: reportScope, idempotent: true},
@@ -381,4 +397,50 @@ func googleSummary(ctx context.Context, r googleReader, rg agents.Range, filter 
 		"median_first_crawl_seconds": median,
 		"items":                      items, "total": total,
 	}, nil
+}
+
+// trafficReader is the part of analytics.Reader the analytics_traffic tool reads.
+type trafficReader interface {
+	TrafficTop(ctx context.Context, dim analytics.Dim, from, to time.Time, limit int) ([]analytics.TrafficTop, error)
+}
+
+// trafficDims maps the tool's "by" values to rollup dimensions.
+var trafficDims = map[string]analytics.Dim{
+	"channel":  analytics.DimChannel,
+	"source":   analytics.DimSource,
+	"campaign": analytics.DimCampaign,
+	"page":     analytics.DimLanding,
+	"device":   analytics.DimDevice,
+	"country":  analytics.DimCountry,
+}
+
+// trafficSummary builds the analytics_traffic result.
+func trafficSummary(ctx context.Context, r trafficReader, rg agents.Range, by string, limit int) (object, error) {
+	if by == "" {
+		by = "channel"
+	}
+	dim, ok := trafficDims[by]
+	if !ok {
+		return nil, userErr("by must be channel, source, campaign, page, device or country")
+	}
+	top, err := r.TrafficTop(ctx, dim, rg.From, rg.To, limit)
+	if err != nil {
+		return nil, err
+	}
+	type row struct {
+		Key        string  `json:"key"`
+		Detail     string  `json:"detail,omitempty"`
+		Visits     int64   `json:"visits"`
+		Pageviews  int64   `json:"pageviews"`
+		EngagedPct float64 `json:"engaged_pct"`
+	}
+	rows := make([]row, 0, len(top))
+	for _, t := range top {
+		var pct float64
+		if t.Visits > 0 {
+			pct = math.Round(float64(t.Engaged)/float64(t.Visits)*1000) / 10
+		}
+		rows = append(rows, row{Key: t.K1, Detail: t.K2, Visits: t.Visits, Pageviews: t.Pageviews, EngagedPct: pct})
+	}
+	return object{"by": by, "from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout), "rows": rows}, nil
 }

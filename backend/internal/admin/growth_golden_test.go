@@ -69,6 +69,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 		d.Growth.Packages = pk
 		d.Growth.Menus, d.Growth.Forms, d.Growth.Agents, d.Growth.Linking, d.Growth.Plugins = fm, ff, stats, fl, fp
 		d.Growth.Referrals = fakeReferrals{}
+		d.Growth.Traffic = &fakeTraffic{from: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)}
 		d.Growth.Explain = fakeExplainer{answers: map[string]URLExplanation{"/old": {Redirects: &redirect.Answer{Path: "/old", Normalised: "/old", MatchedBy: "db_rules",
 			Redirect: &redirect.Match{Target: "/new", Status: 301}, Stages: []redirect.Stage{{Provider: "db_rules", Priority: 100, Matched: true, Target: "/new", Status: 301, Variant: "exact"}}}}}}
 	})
@@ -79,6 +80,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 		{"redirects-explain", "/admin/settings/redirects/explain?path=%2Fold"},
 		{"analytics-overview", "/admin/analytics?from=2026-01-01&to=2026-01-03"},
 		{"analytics-crawlers", "/admin/analytics/crawlers?from=2026-01-01&to=2026-01-03"},
+		{"analytics-traffic", "/admin/analytics/traffic?from=2026-01-01&to=2026-01-03"},
 		{"analytics-google", "/admin/analytics/google?from=2026-01-01&to=2026-01-03"},
 		{"analytics-content", "/admin/analytics/content?from=2026-01-01&to=2026-01-03"},
 		{"analytics-referrals", "/admin/analytics/referrals?from=2026-01-01&to=2026-01-03"},

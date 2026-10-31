@@ -27,7 +27,7 @@ Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:ent
 | `write:terms` | `terms_create` |
 | `write:menus` | `menus_update` |
 | `write:redirects` | `redirects_create`, `redirects_delete` |
-| `read:reports` | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals` |
+| `read:reports` | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic` |
 
 `entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update` and `redirects_delete` are marked destructive in the tool annotations, so clients can ask before running them.
 

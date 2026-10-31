@@ -270,6 +270,15 @@ docs has the `docker network inspect` command.
 | `HATAMOTO_AGENT_RANGES=off` schedules no download of AI-crawler IP ranges, and crawler verification still runs on stored ranges and reverse DNS | `internal/server`, `internal/agents` | `TestAgentRangesSwitch`, `TestRunVerifyRunsWhenRangeRefreshIsOff` |
 | The update source must be https (plain http only to a loopback address, when explicitly allowed) | `internal/updater` | `TestNewFetcherURLRules`, `TestFetcherRefusesBadArguments` |
 
+### Traffic analytics (beacon and country lookup)
+
+| Guarantee | Where | Check |
+|---|---|---|
+| The public beacon input is sanitised and capped: strings are lowercased, limited to a safe character set and truncated, the body is size limited, and the referrer is reduced to a host | `internal/analytics` track handler | handler tests in `internal/analytics` |
+| The GeoIP database path is set only by the operator through the `HATAMOTO_GEOIP_DB` environment variable, never by an admin-writable setting, so it cannot become a file-read primitive. The file is read once at boot, size capped, and never fetched from the network | `internal/config`, `internal/analytics` | geo tests in `internal/analytics` |
+| The engagement opt-out is owner-only and audit-logged | `internal/admin` | traffic settings tests in `internal/admin` |
+| No new personal data is stored: the traffic tables hold counts under coarse keys, and a schema test fails if a column named like an identifier (ip, ua, user agent, referrer, visitor, session, cookie) is added | `internal/analytics` | schema test in `internal/analytics` |
+
 ## The compile cache holds native code
 
 The plugin host compiles each module to native code and caches the result in

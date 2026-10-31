@@ -40,6 +40,9 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	if s.db != nil {
 		g.Agents = agentStats{agents.NewStatsRepository(s.db), agents.NewRobotsRepository(s.db)}
 		g.Referrals = analytics.NewReader(s.db)
+		g.Traffic = analytics.NewReader(s.db)
+		g.EngagementSetting = engagementSetting{store: analytics.NewSettingsStore(s.db), svc: s.analyticsService}
+		g.GeoStatus = s.geoStatus
 	}
 	if s.db != nil && s.entityService != nil {
 		g.Linking = linkingAdmin{s}
@@ -62,6 +65,36 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 		g.Pickers = pickers{s}
 	}
 	return g
+}
+
+// geoStatus is whether a country database is configured and whether it opened.
+func (s *Server) geoStatus() (configured, loaded bool) { return s.geoConfigured, s.geoLoaded }
+
+// engagementSetting is the engagement switch of the Traffic page: the store is the truth, the
+// service its cached copy that the request path reads.
+type engagementSetting struct {
+	store *analytics.SettingsStore
+	svc   *analytics.Service
+}
+
+// Enabled is what the beacon is counting now; without a service it reads the store (default on).
+func (e engagementSetting) Enabled(ctx context.Context) bool {
+	if e.svc != nil {
+		return e.svc.EngagementEnabled()
+	}
+	on, err := e.store.EngagementEnabled(ctx)
+	return err != nil || on
+}
+
+// Set writes the store, then switches the running service.
+func (e engagementSetting) Set(ctx context.Context, on bool) error {
+	if err := e.store.SetEngagement(ctx, on); err != nil {
+		return err
+	}
+	if e.svc != nil {
+		e.svc.SetEngagement(on)
+	}
+	return nil
 }
 
 // pickers is the minimal entity and term search behind the admin's

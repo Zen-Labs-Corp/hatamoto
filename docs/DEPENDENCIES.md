@@ -42,6 +42,7 @@ tests are the acceptance test for the runtime.
 | `golang.org/x/net` | v0.61.0 | BSD-3-Clause | HTML parsing and tokenising (`x/net/html`) | `go get golang.org/x/net@latest` |
 | `golang.org/x/text` | v0.43.0 | BSD-3-Clause | Unicode normalisation, language tags and names, slugs | `go get golang.org/x/text@latest` |
 | `golang.org/x/time` | v0.16.0 | BSD-3-Clause | Rate limiters | `go get golang.org/x/time@latest` |
+| `github.com/oschwald/maxminddb-golang` | v1.13.1 | ISC | GeoIP country lookup from an owner-supplied .mmdb (read into memory, no mmap, no cgo) | `go get github.com/oschwald/maxminddb-golang@latest` |
 | `hatamoto.dev/sdk` | local | project | The plugin contract; `replace`d to `backend/pkg/sdk` | in-tree |
 | `github.com/extism/go-pdk` | v1.1.3 | BSD-3-Clause | Plugin side of the Extism ABI; in the SDK module and in every plugin, never in the server binary | `cd backend/pkg/sdk && go get github.com/extism/go-pdk@latest` |
 

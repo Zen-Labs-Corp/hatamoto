@@ -94,6 +94,7 @@ func TestNavActive(t *testing.T) {
 		{"/admin/analytics/referrals", "Analytics", "page"},
 		{"/admin/analytics/health", "Analytics", "page"},
 		{"/admin/analytics/google", "Analytics", "page"},
+		{"/admin/analytics/traffic", "Analytics", "page"},
 		{"/admin/analytics/agents/gptbot", "Analytics", "page"},
 		{"/admin/plugins/hreflang/settings", "Plugins", "page"},
 		{"/admin/plugins", "Plugins", "page"},
@@ -208,7 +209,7 @@ func TestAnalyticsSubNavOrder(t *testing.T) {
 	for _, s := range analyticsArea.forPrefix("/admin", "owner") {
 		got = append(got, s.ID)
 	}
-	want := []string{"ai-overview", "ai-content", "ai-crawlers", "ai-google", "ai-referrals", "ai-health"}
+	want := []string{"ai-overview", "ai-traffic", "ai-content", "ai-crawlers", "ai-google", "ai-referrals", "ai-health"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("analytics sub-nav = %v, want %v", got, want)
 	}

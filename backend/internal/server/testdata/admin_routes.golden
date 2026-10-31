@@ -16,10 +16,12 @@ GET /admin/analytics/data/overview.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/pages.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/referrals.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/robots.json -> admin.(*Admin).robotsJSON-fm
+GET /admin/analytics/data/traffic.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/google -> admin.(*Admin).analyticsSection.func1
 GET /admin/analytics/health -> admin.(*Admin).analyticsSection.func1
 GET /admin/analytics/pageviews -> admin.redirect301.func1
 GET /admin/analytics/referrals -> admin.(*Admin).analyticsSection.func1
+GET /admin/analytics/traffic -> admin.(*Admin).analyticsSection.func1
 GET /admin/builder/blocks -> admin.(*Admin).handleBlocksList-fm
 GET /admin/builder/blocks/{id} -> admin.(*Admin).handleBlockNodes-fm
 GET /admin/builder/blocks/{id}/usage -> admin.(*Admin).handleBlockUsage-fm
@@ -186,6 +188,7 @@ GET /admin/{rest...} -> admin.secureHeaders.func1
 PATCH /admin/{rest...} -> admin.secureHeaders.func1
 POST /admin/accept -> admin.(*Admin).handleAccept-fm
 POST /admin/analytics/crawlers/robots -> admin.(*Admin).handleRobotsSave-fm
+POST /admin/analytics/traffic/settings -> admin.(*Admin).handleTrafficSettings-fm
 POST /admin/builder/presets -> admin.(*Admin).handlePresetCreate-fm
 POST /admin/entities -> admin.(*Admin).handleEntityCreate-fm
 POST /admin/entities/bulk -> admin.(*Admin).handleEntitiesBulk-fm

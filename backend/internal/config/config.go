@@ -35,6 +35,10 @@ type Config struct {
 	// HATAMOTO_PAGE_CACHE_TTL, false when it is the built-in default.
 	PageCacheTTLFromEnv bool
 
+	// GeoIPDB is HATAMOTO_GEOIP_DB: path to a country .mmdb read once at boot
+	// to derive the visitor country of a pageview. Empty disables country.
+	GeoIPDB string
+
 	// Warnings are non-fatal configuration problems found by Load (an invalid
 	// value fell back to its default); the caller logs them at boot.
 	Warnings []string
@@ -313,6 +317,8 @@ func Load() (*Config, error) {
 		BaseURL:   getEnv("PUBLIC_BASE_URL", ""),
 		APIPrefix: getEnv("PUBLIC_API_PREFIX", ""),
 	}
+
+	cfg.GeoIPDB = strings.TrimSpace(os.Getenv("HATAMOTO_GEOIP_DB"))
 
 	warned := len(cfg.Warnings)
 	cfg.PageCacheTTL, cfg.Warnings = loadPageCacheTTL(cfg.Warnings)

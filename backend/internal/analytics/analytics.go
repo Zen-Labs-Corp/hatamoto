@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hatamoto.dev/core/internal/database"
@@ -71,6 +72,12 @@ type Service struct {
 	mu      sync.Mutex
 	pending map[bucket]int64
 
+	// Traffic rollup buffer (see traffic_service.go); also guarded by mu.
+	trafficRepo   TrafficRepository
+	traffic       map[trafficKey]Counts
+	trafficKeys   map[dayDim]map[[2]string]struct{}
+	engagementOff atomic.Bool
+
 	stop chan struct{}
 	done chan struct{}
 }
@@ -80,7 +87,8 @@ func NewService(repo Repository, logger *slog.Logger) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{repo: repo, logger: logger, now: time.Now, pending: map[bucket]int64{}}
+	return &Service{repo: repo, logger: logger, now: time.Now, pending: map[bucket]int64{},
+		traffic: map[trafficKey]Counts{}, trafficKeys: map[dayDim]map[[2]string]struct{}{}}
 }
 
 func (s *Service) today() time.Time {
@@ -122,6 +130,9 @@ func (s *Service) Flush(ctx context.Context) error {
 			s.pending[b] += n
 			s.mu.Unlock()
 		}
+	}
+	if err := s.flushTraffic(ctx); err != nil && firstErr == nil {
+		firstErr = err
 	}
 	return firstErr
 }

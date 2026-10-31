@@ -42,3 +42,36 @@ func TestPartialSegmented(t *testing.T) {
 		t.Error("buttons mode must not render a form")
 	}
 }
+
+func TestPartialSegmentedDisabled(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	b := renderSeg(t, a, ui.Segmented{Mode: "buttons", Label: "Attribution", Items: []ui.SegmentedItem{
+		{Label: "First touch", Disabled: true, Attrs: map[string]string{"data-x": "1"}}, {Label: "Last touch", Pressed: true},
+	}})
+	for _, want := range []string{`aria-pressed="false" disabled aria-disabled="true" data-x="1">First touch`, `aria-pressed="true">Last touch`} {
+		if !strings.Contains(b, want) {
+			t.Errorf("buttons mode lacks %q in %s", want, b)
+		}
+	}
+	r := renderSeg(t, a, ui.Segmented{Mode: "radio", Label: "Attribution", Name: "attr", Items: []ui.SegmentedItem{
+		{Label: "First", Value: "first", Disabled: true}, {Label: "Last", Value: "last", Pressed: true},
+	}})
+	if !strings.Contains(r, `value="first" disabled aria-disabled="true">`) || strings.Contains(r, `value="last" checked disabled`) {
+		t.Errorf("radio mode: %s", r)
+	}
+	p := renderSeg(t, a, ui.Segmented{Action: "/x", Name: "n", Items: []ui.SegmentedItem{{Label: "A", Value: "a", Disabled: true}}, Label: "L"})
+	if !strings.Contains(p, `aria-pressed="false" disabled aria-disabled="true">A`) {
+		t.Errorf("post mode: %s", p)
+	}
+}
+
+func renderSeg(t *testing.T, a *Admin, v ui.Segmented) string {
+	t.Helper()
+	s, err := a.RenderPartial("hm/segmented", v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(s)
+}

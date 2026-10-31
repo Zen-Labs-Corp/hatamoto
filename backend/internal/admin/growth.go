@@ -128,6 +128,19 @@ type Referrals interface {
 	Pageviews(ctx context.Context, from, to time.Time) ([]analytics.DayCount, error)
 }
 
+// Traffic reads the traffic rollup (channel, source, campaign, landing page, device, country).
+type Traffic interface {
+	TrafficDaily(ctx context.Context, dim analytics.Dim, from, to time.Time) ([]analytics.TrafficDay, error)
+	TrafficTop(ctx context.Context, dim analytics.Dim, from, to time.Time, limit int) ([]analytics.TrafficTop, error)
+	TrafficTotals(ctx context.Context, from, to time.Time) (analytics.Counts, error)
+}
+
+// EngagementSetting is the engagement counting switch of the traffic beacon.
+type EngagementSetting interface {
+	Enabled(ctx context.Context) bool
+	Set(ctx context.Context, on bool) error
+}
+
 // LinkingStore is internal linking v2 as the linking screens use it.
 type LinkingStore interface {
 	ListRules(ctx context.Context, f *linkingv2.RuleFilter) (*linkingv2.PaginatedRulesResult, error)
@@ -200,6 +213,12 @@ type GrowthDeps struct {
 	Sections  SectionStore
 	Agents    AgentStats
 	Referrals Referrals
+	// Traffic is the traffic rollup reader (nil = the Traffic tab is unavailable).
+	Traffic Traffic
+	// EngagementSetting is the engagement switch (nil hides the setting).
+	EngagementSetting EngagementSetting
+	// GeoStatus tells whether a country database is configured and opened (nil = neither).
+	GeoStatus func() (configured, loaded bool)
 	// SearchPerf supplies search performance data (nil = none connected).
 	SearchPerf searchperf.Provider
 	Linking    LinkingStore

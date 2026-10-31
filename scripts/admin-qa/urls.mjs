@@ -63,6 +63,7 @@ export const screens = [
   { name: "entity-delete-confirm", path: "/admin/entities/{post}/delete", mock: null, roles: OE },
   // AI analytics
   { name: "analytics-overview", path: "/admin/analytics", mock: null, roles: OE, primary: true },
+  { name: "analytics-traffic", path: "/admin/analytics/traffic", mock: null, roles: OE, primary: true },
   { name: "analytics-crawlers", path: "/admin/analytics/crawlers", legacy: "/admin/analytics/crawlers?tab=errors", mock: null, roles: OE, primary: true },
   { name: "analytics-google", path: "/admin/analytics/google", mock: null, roles: OE, primary: true },
   { name: "analytics-content", path: "/admin/analytics/content", mock: null, roles: OE, primary: true },

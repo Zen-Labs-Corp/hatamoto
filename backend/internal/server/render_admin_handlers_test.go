@@ -226,14 +226,15 @@ func previewBody(w *routeWorld, e *entity.Entity, attrs, path string, canvas boo
 // the public render of the same page and attributes: the noindex robots meta, and
 // the data-hm-preview attribute on <html>. (Headers differ too: no-store,
 // X-Robots-Tag: noindex.) The public side also carries the theme script tag,
-// which editor renders omit: dropThemeScript removes it from the public html.
+// which editor renders omit (hm.js and the core beacon): dropThemeScript removes them from the public html.
 func normalizePreview(html string) string {
 	html = strings.Replace(html, ` data-hm-preview="true"`, "", 1)
 	return robotsMetaRe.ReplaceAllString(html, "")
 }
 
 func dropThemeScript(html string) string {
-	return strings.Replace(html, `<script src="`+render.AssetPrefix+`hm.js" defer></script>`+"\n", "", 1)
+	html = strings.Replace(html, `<script src="`+render.AssetPrefix+`hm.js" defer></script>`+"\n", "", 1)
+	return strings.Replace(html, `<script src="`+render.AssetPrefix+`hm-track.js" defer></script>`+"\n", "", 1)
 }
 
 var robotsMetaRe = regexp.MustCompile(`\s*<meta name="robots" content="noindex,follow">`)

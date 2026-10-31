@@ -24,6 +24,8 @@ This page lists every outbound connection of the `hatamoto` server, so you can d
 | Embeds in pages | The visitor's browser, not your server, loads YouTube, Vimeo or map iframes | When a visitor opens a page that contains one | Nothing from the server | Remove the embed; `HATAMOTO_EMBED_HOSTS` limits which hosts rich text may embed |
 | WordPress import | The WordPress site you import from, every media URL it (or the WXR file) lists, and the `--audit-url` site | Only during an import you start | Requests for the content and the media files | Do not run an import |
 
+Country lookup for Analytics > Traffic (`HATAMOTO_GEOIP_DB`) makes no connection: it reads a local file you supply once at boot and downloads nothing. The Traffic script sends its beacon only to your own site.
+
 Plugin calls, webhooks and the import are checked against private, loopback and link-local addresses before they connect, so they cannot be pointed at your internal network (the command-line import can lift this with `--allow-private-hosts`, and `--audit-url` may be local).
 
 ## Where each one lives in the code

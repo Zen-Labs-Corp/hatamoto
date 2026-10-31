@@ -198,3 +198,16 @@ func TestValidateChecksPrefixAgainstPinnedAdmin(t *testing.T) {
 		t.Fatalf("unrelated prefix refused: %v", err)
 	}
 }
+
+func TestGeoIPDBEnv(t *testing.T) {
+	for env, want := range map[string]string{"": "", " /data/country.mmdb ": "/data/country.mmdb"} {
+		t.Setenv("HATAMOTO_GEOIP_DB", env)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.GeoIPDB != want {
+			t.Errorf("HATAMOTO_GEOIP_DB=%q: GeoIPDB=%q, want %q", env, cfg.GeoIPDB, want)
+		}
+	}
+}

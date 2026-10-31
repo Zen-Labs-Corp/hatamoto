@@ -18,6 +18,8 @@ Hatamoto records every request from a known AI crawler or assistant, with the op
 
 For people, Hatamoto keeps almost nothing: a daily pageview total and, for visits that arrive from an AI assistant, a daily count per assistant. It stores no cookie, no visitor identifier and no landing path for those visits. Crawlers are counted per request, because a crawler is a machine and there is no visitor to protect.
 
+Analytics > Traffic adds daily visit counts by channel, source, campaign, landing page, device and country, still with no cookie, visitor id, IP address, user agent or referrer URL stored. The exact list of what is and is not stored, the retention and the visit definition are in the [Traffic privacy block](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/agent-analytics.md#traffic-visits-channels-and-engagement-phase-3-of-the-analytics-programme).
+
 ## Data flow
 
 The server renders the whole public site itself, so every request already carries the real `User-Agent`. A middleware records the hit in process after the handler has answered, with the real status, byte count and duration.

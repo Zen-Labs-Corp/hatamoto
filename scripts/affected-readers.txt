@@ -42,3 +42,4 @@ scripts/admin-qa/**                                        backend  ./internal/a
 deploy/install/**                                          backend  ./internal/release
 deploy/install-unit.sh                                     backend  ./internal/release
 deploy/systemd/hatamoto-api.service                        backend  ./internal/release
+backend/internal/render/hm_track.js                        backend  ./internal/analytics
