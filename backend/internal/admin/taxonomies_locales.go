@@ -135,7 +135,7 @@ func (a *Admin) handleTermLocale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.deps.Content.TermGroups.SetLocale(r.Context(), t.ID, loc); err != nil {
-		a.SetFlash(w, r, "error", "The locale could not be saved: "+err.Error())
+		a.SetFlash(w, r, "error", fullStop("The locale could not be saved: "+err.Error()))
 	} else {
 		a.invalidate(r.Context())
 		a.SetFlash(w, r, "success", "Locale saved.")
