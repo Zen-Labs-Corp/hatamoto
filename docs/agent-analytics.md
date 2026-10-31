@@ -298,6 +298,79 @@ starts a new Referral visit. The Android Google app referrer is not recognised
 as search and counts as Referral. A theme that posts the legacy body from a
 script other than `hm.js` is counted twice for `pageview`.
 
+## Conversions: where leads come from (Phase 4 of the analytics programme)
+
+**Admin > Analytics > Conversions** answers "what turns into leads?". A **lead**
+is every form submission that is not marked spam, from any form. There is no
+lead record and no scoring: the attribution is stored on the submission itself.
+
+**What is stored.** A submission keeps two touches, the **first touch** (how the
+tab first arrived) and the **last touch** (the most recent arrival), each as
+channel, source, medium, campaign and landing path. Ten nullable columns on
+`hatamoto_form_submissions` hold them. A submission without them (made before
+the upgrade, posted without script, from a headless front end or with storage
+blocked) is stored as before and counts as a lead with channel **Unknown**.
+Existing submissions are not backfilled. Attribution never blocks or rejects a
+submit.
+
+**How the browser carries it.** `hm-track.js` keeps the raw inputs of the visit
+(referrer host, UTM values, landing path, paid flag) in the same tab-scoped
+`sessionStorage` marker it already uses. Nothing of this is sent with any
+beacon. Only when a form that posts to the site's own `/forms/<slug>/submit` is
+submitted does the script add a hidden `hm_attr` field with the first and last
+touch (referrer host only, never a URL). The server drops `hm_attr` from the
+answers, validates and caps it (1 KiB), and classifies it with the same
+classifier the Traffic beacon uses, so Traffic and Conversions agree on
+channels. A channel sent by the client is never trusted. The values are stored
+only when a submission is stored: with `store_submissions` off on a form, the
+submission is not kept and so is not a lead, and nothing about the visit is
+kept either.
+
+**Retention.** Attribution lives as long as its submission and is deleted with
+it. The Traffic retention rules apply to the rollups only.
+
+**Funnel events.** For the funnel, the beacon sends two more `engage` events,
+once per visit each: `form_seen` (a form that posts to `/forms/<slug>/submit`
+scrolled into view) and `form_start` (a field of one was first focused). They
+are daily counters (`form_seen`, `form_started` on `hatamoto_traffic_daily`)
+with no visitor id. The engagement opt-out on the Traffic page switches them
+off too: the script stops sending them and the server drops them. The funnel is
+Visits, Viewed 2+ pages, Saw a form, Started the form, Submitted; the last
+step is the number of leads, so a form posted without script still counts.
+
+**Reading it.** The page has a First touch | Last touch choice (First is the
+default; it is a GET form with an Apply button, carried between tabs). Traffic
+uses the same choice for its Leads and Conv. rate columns. Conversion rate is
+leads per visit in the same range; leads are counted on the day of the
+submission, so on a short range it can pass 100 percent. Leads with no
+attribution appear as **Unknown** in the chart and in a note under the Traffic
+channel table.
+
+**AI: what you give vs what you get** compares, per AI company, the pages its
+crawlers fetched (Crawlers data, AI purposes only) with the visitors and leads
+its assistant sent back. An assistant maps to its operator through a fixed
+table in the agent registry code (for example chatgpt to OpenAI, perplexity to
+Perplexity, claude to Anthropic, gemini to Google); assistants without a known
+operator are grouped as Other assistants. An operator that fetched pages and
+sent no visitors is marked **takes only**, with a link to the Crawlers tab where
+each purpose can be blocked.
+
+**Who sees emails.** The Recent leads table and its CSV export (`Export CSV`,
+up to 10 000 rows, formula-safe cells) show the submitter's email only to users
+allowed to view form submissions; other users see the rows without it and get no
+export. The JSON endpoints and MCP carry counts only, never emails or answers.
+Each submission's own page (Forms > Submissions) has a **Came from** card with
+both touches, and the per-form CSV export gains six columns after Referrer
+(first and last channel, source and landing).
+
+**Integrations.** The `form.submitted` webhook and the plugin hook payload carry
+an optional `attribution` object (`first` and `last`, each with `channel`,
+`source`, `medium`, `campaign`, `landing`), omitted when the submission has
+none. It is additive (SDK 0.14.0); see [WEBHOOKS.md](WEBHOOKS.md) and
+[PLUGIN_API.md](PLUGIN_API.md). MCP: `analytics_conversions` (`read:reports`)
+returns lead counts by channel, source, campaign, landing or form for the first
+or last touch; see [MCP.md](MCP.md).
+
 ## Admin UI and API (Phase 4)
 
 **Admin > Analytics** (`<admin>/analytics`) is a sub-sidebar with Overview,
