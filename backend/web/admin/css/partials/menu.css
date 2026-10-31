@@ -1,11 +1,11 @@
 /* Action menu in a popover (top layer, light dismiss, Esc). js/components.js
    places it under its opener and moves focus in. Order rule: navigation
    first, state changes next, destructive last behind a separator. */
-.hm-menu { margin: 0; inset: auto; min-width: 200px; padding: var(--space-1); border: 1px solid var(--color-kinu); border-radius: var(--radius-md); background: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-3); }
+.hm-menu { margin: 0; inset: auto; min-width: 200px; padding: var(--space-1); border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-3); }
 .hm-menu:popover-open { display: flex; flex-direction: column; position: fixed; }
 .hm-menu [role="menuitem"], .hm-menu__item {
-  display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 32px; padding: 0 var(--space-2);
-  border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit;
+  display: flex; align-items: center; gap: var(--space-2-5); width: 100%; min-height: 32px; padding: var(--space-1-5) var(--space-2-5);
+  border: 0; border-radius: var(--radius-md); background: transparent; color: inherit;
   font: inherit; font-size: var(--text-sm); text-align: left; text-decoration: none; cursor: pointer;
 }
 .hm-menu [role="menuitem"] .hm-icon { color: var(--color-hai); }
