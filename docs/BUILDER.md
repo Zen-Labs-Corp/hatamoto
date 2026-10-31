@@ -1009,7 +1009,7 @@ is stored.
   transform, filter, transition, visibility). A group opens when it has a value set here; Layout and Spacing also open
   on a section. Each control has a source chip (**Set here**, **Inherited from …**, **From class .name**, **Custom
   value**) and one Reset that clears the key at the current width and state. Labels of length fields (W, H, Gap, size,
-  line height, letter spacing, weight) scrub: drag the label sideways to change the value; the full name stays the
+  line height, letter spacing) scrub: drag the label sideways to change the value; the full name stays the
   accessible name. **Show on** (`showon`, pure): three independent switches that compute `hide` and
   `display` writes for every width so one never changes another; the tree eye, the `H` key, the toolbar and the
   context menu use the same writer (`commitMany` takes a `bp` per write). The box model (`boxmodel`) nests padding in

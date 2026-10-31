@@ -78,7 +78,7 @@ test("open state: a value set here opens a group, none starts it closed, a secti
 });
 
 test("short labels and which labels scrub", () => {
-  assert.deepEqual(SHORT, { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS", fw: "Wt" });
+  assert.deepEqual(SHORT, { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS" });
   for (const k of ["w", "h", "gap", "fs", "lh", "ls", "radius"]) assert.equal(canScrub(table.find((e) => e.key === k)), true, k);
   for (const k of ["pt", "ml", "bg", "ta", "shadow"]) assert.equal(canScrub(table.find((e) => e.key === k)), false, k);
 });

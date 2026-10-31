@@ -7,7 +7,7 @@
 //   local   PG_BIN=<pg bin dir> bash scripts/admin-qa/run-local.sh builder-inspector.mjs     (seeded throwaway instance)
 //   remote  QA_ADMIN=<admin path prefix> QA_BASE_URL=<origin> QA_EMAIL=<owner email> QA_PASSWORD=<password> \
 //             QA_PAGE_NAME=<page title> [QA_ENTITY=<page id>] node scripts/admin-qa/builder-inspector.mjs
-// inspector-phone.png (all 1600x950).
+// Screenshots (all 1600x950): inspector-section.png, inspector-scrub.png, inspector-phone.png and inspector-block.png.
 // The page is left exactly as found: the script inserts a scratch section (and a heading in it), edits only that and undoes
 // everything. It never saves or publishes (not even with QA_ALLOW_REMOTE_SAVE=1, which this script does not need): every POST
 // to the save / autosave / recovery endpoints is aborted in the browser and counted, and the last check reloads and compares

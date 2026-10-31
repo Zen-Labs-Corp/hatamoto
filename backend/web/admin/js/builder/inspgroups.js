@@ -34,7 +34,7 @@ export const groupHasValue = (entries, own) => groupDot(entries, own);
 export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing"));
 
 /** Short field labels for the scrub handles; the full name stays the accessible name. */
-export const SHORT = { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS", fw: "Wt" };
+export const SHORT = { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS" };
 
 /** Whether the label of entry scrubs: a length or a numeric lit key, except the box model sides (they scrub on their own number). */
 const SIDES = new Set(["pt", "pr", "pb", "pl", "mt", "mr", "mb", "ml"]);
