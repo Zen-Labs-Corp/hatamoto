@@ -36,6 +36,7 @@ GET /admin/entities/parent-options -> admin.(*Admin).handleParentOptions-fm
 GET /admin/entities/{id} -> admin.(*Admin).handleEntityEdit-fm
 GET /admin/entities/{id}/builder/node-versions -> admin.(*Admin).handleBuilderNodeVersions-fm
 GET /admin/entities/{id}/builder/seo -> admin.(*Admin).handleBuilderSEO-fm
+GET /admin/entities/{id}/builder/translations -> admin.(*Admin).handleBuilderTranslations-fm
 GET /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDeleteConfirm-fm
 GET /admin/entities/{id}/edit -> admin.(*Admin).handleEntityEditor-fm
 GET /admin/entities/{id}/edit/preview/{token} -> admin.(*Admin).handlePreviewFrame-fm

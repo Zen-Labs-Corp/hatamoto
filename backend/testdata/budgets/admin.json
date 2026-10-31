@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 101122,
+      "value": 101254,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 101239
+      "cap": 101371
     },
     "editor_js_total_gzip": {
-      "value": 262338,
+      "value": 263484,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 263362
+      "cap": 264508
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-ux-canvas-inspector: box model rings (nested, quick 0/auto, link toggles)",
-      "date": "2026-10-26"
-    },
     {
       "reason": "builder-ux-canvas-inspector: colour control recents/None, content order, Use data toggle (lazy chunks)",
       "date": "2026-10-26"
@@ -118,6 +114,10 @@
     },
     {
       "reason": "builder JS: canvas direct manipulation (select, drag, resize, inline edit) and its visual fixes; editor_js_first_gzip 99901 (main) -\u003e 101122, editor_js_total_gzip 251655 (main) -\u003e 262338, measured",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder Translations drawer: lazy translationsdrawer chunk and a delegated opener in screen.js; editor_js_first_gzip 101122 to 101254 (+132 B), editor_js_total_gzip 262338 to 263484 (+1146 B), caps move by the same amount",
       "date": "2026-10-31"
     }
   ]
