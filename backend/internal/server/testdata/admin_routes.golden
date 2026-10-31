@@ -157,6 +157,7 @@ GET /admin/setup/theme -> admin.(*Admin).handleSetupThemeForm-fm
 GET /admin/sudo -> admin.(*Admin).handleSudoPage-fm
 GET /admin/theme -> admin.(*Admin).areaEntry.func1
 GET /admin/theme/blocks -> admin.(*Admin).handleBlocksPage-fm
+GET /admin/theme/browse -> admin.(*Admin).handleThemeBrowse-fm
 GET /admin/theme/colours -> admin.(*Admin).handleDesignForm-fm
 GET /admin/theme/design-system -> admin.(*Admin).handleTokensForm-fm
 GET /admin/theme/menus -> admin.(*Admin).handleMenus-fm
@@ -170,6 +171,7 @@ GET /admin/theme/templates -> admin.(*Admin).handleSections-fm
 GET /admin/theme/templates/{id} -> admin.(*Admin).handleSectionEdit-fm
 GET /admin/theme/templates/{id}/delete -> admin.(*Admin).handleSectionDeleteForm-fm
 GET /admin/theme/themes -> admin.(*Admin).handleThemes-fm
+GET /admin/theme/themes/{name}/about -> admin.(*Admin).handleThemeAbout-fm
 GET /admin/theme/themes/{name}/activate -> admin.(*Admin).handleThemeActivateForm-fm
 GET /admin/theme/themes/{name}/settings -> admin.(*Admin).handleThemeSettings-fm
 GET /admin/theme/themes/{name}/uninstall -> admin.(*Admin).handleThemeUninstallForm-fm
