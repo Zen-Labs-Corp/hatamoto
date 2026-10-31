@@ -828,7 +828,7 @@ func TestDatePickerShowsPresetNameOrDates(t *testing.T) {
 
 	g, _ := newAnalyticsRig(t)
 	body := g.do("GET", "/admin/analytics/crawlers?from="+day(-29)+"&to="+day(0), "owner-token", nil, nil).Body.String()
-	wantPreset := "<span>Last 30 days · " + span(today().AddDate(0, 0, -29), today()) + "</span></button>"
+	wantPreset := "<span>Last 30 days · " + span(today().AddDate(0, 0, -29), today()) + "</span><svg"
 	if !strings.Contains(body, wantPreset) {
 		t.Errorf("button should show the preset name and span %q", wantPreset)
 	}
