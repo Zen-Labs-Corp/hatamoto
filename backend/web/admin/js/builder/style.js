@@ -11,6 +11,7 @@ import { rowState, groupDot, isLength, buildPalette, linkSets, probe, splitValue
 import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
+import { swatchRow } from "@hm/builder/swatches";
 import { figmaGroups, groupHasValue, initialOpen, canScrub, SHORT } from "@hm/builder/inspgroups";
 
 // Labels of the keys added by StyleSpec v2. They live here, in the lazy chunk, so first paint does not carry them;
@@ -327,6 +328,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     let len = null; // the number + unit + slider control of a length key
     let col = null; // the swatch and popover of a colour key
     let stops = null; // the slider of an enum with ordered stops (opacity)
+    let pills = null; // the Fill group's theme colour pills (the background only)
 
     if (c.kind === "select") {
       el = h("select", { id, class: "hm-field__control", "aria-describedby": describe }, h("option", { value: "", text: unset }));
@@ -367,7 +369,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     } else if (c.kind === "colour") {
       col = colourControl({ id, entry, name, palette, describe, apply, user, onEditSiteColours });
       el = col.el;
-      sync = () => col.sync(own, inh?.value ?? fromPreset);
+      pills = entry.key === "bg" ? swatchRow({ name, palette, current: own, apply: (token) => apply(token) }) : null;
+      sync = () => {
+        col.sync(own, inh?.value ?? fromPreset);
+        pills?.sync(own);
+      };
     } else {
       el = h("input", { id, class: "hm-field__control", type: "text", autocomplete: "off", spellcheck: "false", list: `${id}-l`, placeholder: inh ? String(inh.value) : fromPreset !== null ? String(fromPreset) : (HINTS[entry.key] ?? "Not set"), "aria-describedby": describe });
       sync = () => {
@@ -402,7 +408,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       name,
       label,
       scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply) : undefined,
-      body: [el, stops?.el, datalist],
+      body: [el, pills?.el, stops?.el, datalist],
       status,
       note,
       onReset: () => {

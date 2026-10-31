@@ -60,11 +60,20 @@
 .hm-bs-linkbtn { min-width: 2rem; min-height: 1.5rem; }
 .hm-bs-linkbtn::before { content: "\25A3"; }
 
+/* Fill: theme colour pills (the dot's colour arrives through --hm-bs-sw, CSSOM). */
+.hm-bs-swatches { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.hm-bs-swatches[hidden] { display: none; }
+.hm-bs-pill { appearance: none; display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 24px; padding: 0 var(--space-2) 0 var(--space-1); font: inherit; font-size: var(--text-xs); color: var(--text-body); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-full); cursor: pointer; }
+.hm-bs-pill .hm-bs-sw { inline-size: 1rem; block-size: 1rem; border-radius: var(--radius-full); }
+.hm-bs-pill:hover { background: var(--color-kasumi); }
+.hm-bs-pill[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--color-sumi); border-color: var(--color-sumi); color: var(--color-sumi); }
+.hm-bs-pill:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
 /* Pressed and checked options: grey fill, 1px ink ring, ink text. */
 .hm-bs-opt[aria-pressed="true"], .hm-bs-opt[aria-pressed="true"]:hover { background-color: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--color-sumi); color: var(--color-sumi); }
 .hm-bs-opt--inherited[aria-pressed="true"] { border-color: var(--color-sumi); box-shadow: none; }
 .hm-bs-opt[aria-pressed="true"]:focus-visible:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-bs-opt:not(.hm-bs-opt--inherited, :focus-visible), .hm-bs-opt:not(.hm-bs-opt--inherited):focus:not(:focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
-  .hm-bs-opt[aria-pressed="true"], .hm-bs-linkbtn[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
+  .hm-bs-opt[aria-pressed="true"], .hm-bs-linkbtn[aria-pressed="true"], .hm-bs-pill[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }

@@ -494,3 +494,16 @@ test("the real table: a text block shows the six Figma groups, a divider has no 
   const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
   assert.equal(label.kids.map((k) => k.textContent).join(""), "Sz font size");
 });
+
+test("Fill shows one pill per theme colour next to the hex field; a pill commits the token name at the current key", () => {
+  const palette = { colors: [{ name: "surface", label: "Surface", hex: "#ffffff" }, { name: "accent", label: "Accent", hex: "#123456" }], space: {}, fs: {} };
+  const calls = [];
+  const el = mountStyle({ node: { id: "n", t: "container", s: { md: { bg: "accent" } } }, table: [{ key: "bg", kind: "color", props: ["background-color"], tokens: { surface: "x", accent: "y" }, pattern: "^#[0-9a-fA-F]{6}$", states: true }], bp: "md", state: "hover", display: "block", palette,
+    commit: (key, value, at) => (calls.push({ key, value, at }), true), commitMany: () => true });
+  const pills = []; el.walk((n) => n.classes.has?.("hm-bs-pill") || n.attrs.class === "hm-bs-pill" ? pills.push(n) : 0);
+  assert.equal(pills.length, palette.colors.length);
+  assert.equal(pills.map((b) => b.attrs["aria-pressed"]).join(), "false,false", "the value is set at md only, not at md:hover");
+  pills[0].fire("click");
+  assert.deepEqual(calls, [{ key: "bg", value: "surface", at: "md:hover" }]);
+  assert.equal(pills[0].attrs["aria-pressed"], "true");
+});
