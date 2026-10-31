@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-container.sh - end-to-end test of install.sh on a blank distro container.
 #
-#   bash deploy/install/test-container.sh [ubuntu2404|debian12|all]
+#   bash deploy/install/test-container.sh [ubuntu2404|debian12|all|floor-ubuntu2404|floor-debian12|floor]
 #
 # Per distro: a systemd container (privileged, like a small VM) runs the
 # installer against a local release mirror signed with throwaway keys, so
@@ -15,6 +15,13 @@
 #      while Caddy is already up, and the same checks pass
 #   5. a second fresh container runs the all-in-one path (`sh < install.sh`) with the same checks
 #
+# The floor modes (floor-ubuntu2404, floor-debian12, floor = both) are different: no mirror,
+# no throwaway keys. The installer is built with the production keys and floor, and installs
+# the real released floor binary from the real release site, with HATAMOTO_VERSION unset.
+# Checks: the same first-boot assertions, `hatamoto version` is the floor or newer, PostgreSQL
+# 18 is the installed cluster, then `install.sh set-domain` moves the site and the old host
+# redirects. Needs network access to the release site. `all` keeps the mirror legs only.
+#
 # Needs: docker (also through `sg docker -c`), go, python3, jq, openssl, network
 # access for apt. Without docker it prints SKIP and exits 0, unless
 # HATAMOTO_REQUIRE_DOCKER=1 (CI), which makes it an error.
@@ -22,7 +29,12 @@
 set -euo pipefail
 
 want="${1:-all}"
-case "$want" in ubuntu2404 | debian12 | all) ;; *) echo "usage: $0 [ubuntu2404|debian12|all]" >&2; exit 2 ;; esac
+MIRROR=0
+case "$want" in
+  ubuntu2404 | debian12 | all) MIRROR=1 ;;
+  floor-ubuntu2404 | floor-debian12 | floor) ;;
+  *) echo "usage: $0 [ubuntu2404|debian12|all|floor-ubuntu2404|floor-debian12|floor]" >&2; exit 2 ;;
+esac
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -65,11 +77,14 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-for t in go python3 jq openssl; do command -v "$t" >/dev/null || { echo "missing tool: $t" >&2; exit 2; }; done
-
 # ---- release mirror with a real binary, throwaway keys, tampered copy -------
 # shellcheck source=/dev/null # mirror.sh is checked on its own
 . "$here/testlib/mirror.sh"
+GOOD=http://127.0.0.1:8765/releases
+BAD=http://127.0.0.1:8766/releases
+
+setup_mirror() {
+for t in go python3 jq openssl; do command -v "$t" >/dev/null || { echo "missing tool: $t" >&2; exit 2; }; done
 arch="$(cd "$repo/backend" && go env GOARCH)"
 VER=v1.0.1
 echo "== building the test binary (tags hatamoto_testkeys) and the mirror"
@@ -96,15 +111,13 @@ M_SITE="$E/site-bad" mirror_tamper_binary "$VER" "linux-$arch"
 
 bash "$here/build-install.sh" --keys-dir "$M_TRUST" --out "$E/asm" >/dev/null
 cp "$here/img-check.sh" "$E/img-check.sh"
-
-GOOD=http://127.0.0.1:8765/releases
-BAD=http://127.0.0.1:8766/releases
+}
 
 # ---- per-container helpers -----------------------------------------------------
 C=""
 ex() { dk exec "$C" "$@"; }
 
-start_container() { # start_container IMAGE NAME
+start_container() { # start_container IMAGE NAME; the local mirror only in the mirror modes
   C="$2"
   CONTAINERS+=("$C")
   dk run -d --name "$C" --privileged --cgroupns=host --tmpfs /run --tmpfs /run/lock "$1" >/dev/null
@@ -115,6 +128,7 @@ start_container() { # start_container IMAGE NAME
   done
   ex systemctl is-system-running 2>/dev/null | grep -Eq 'running|degraded' || { echo "container did not boot systemd" >&2; ex journalctl -b --no-pager -u hatamoto-firstboot -u postgresql -u "postgresql@*" 2>&1 | tail -n 40 >&2; return 1; }
   dk cp "$E/asm/install.sh" "$C:/root/install.sh"
+  [ "$MIRROR" = 1 ] || return 0
   dk cp "$E/img-check.sh" "$C:/root/img-check.sh"
   dk cp "$E/site-good" "$C:/srv-good"
   dk cp "$E/site-bad" "$C:/srv-bad"
@@ -144,7 +158,8 @@ assert_stack() {
     -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Site: none' -H 'Sec-Fetch-User: ?1' \
     "$link/setup" || true)"
   check "$label: /setup shows the code field" grep -q 'id="code"' <<<"$page"
-  check "$label: /setup loads the setupcode module" grep -q 'setupcode' <<<"$page"
+  # The released floor binary may predate the setupcode module; only the HEAD build is held to it.
+  if [ "$MIRROR" = 1 ]; then check "$label: /setup loads the setupcode module" grep -q 'setupcode' <<<"$page"; fi
   motd="$(ex /etc/update-motd.d/99-hatamoto 2>&1 || true)"
   check "$label: login message shows the setup link" grep -q "$link/setup#code=" <<<"$motd"
   code="$(sed -n 's/.*#code=\([A-Z0-9-]*\).*/\1/p' <<<"$motd" | head -n1)"
@@ -236,10 +251,56 @@ run_distro() { # run_distro NAME BASE
   dk rm -f -v "$C" >/dev/null 2>&1 || true
 }
 
+# run_floor NAME BASE: the real released floor binary, production keys and floor, real network.
+run_floor() {
+  local name="$1" base="$2" img="hatamoto-install-test:floor-$1-$$" ip floor got host new=floor.example.com out
+  echo "== floor-$name ($base)"
+  dk build -q --build-arg "BASE=$base" -t "$img" "$here/test" >/dev/null
+  IMAGES+=("$img")
+  start_container "$img" "hm-inst-floor-$name-$$" || { fail "floor-$name: the container did not boot"; return 0; }
+  ip="$(dk inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$C")"
+  host="$(echo "$ip" | tr . -).sslip.io"
+  floor="$(cat "$here/MIN_CORE_VERSION")"
+
+  # HATAMOTO_VERSION and HATAMOTO_RELEASE_BASE stay unset: the installer picks its own version.
+  if ex env HATAMOTO_TLS=internal "HATAMOTO_PUBLIC_IP=$ip" HATAMOTO_FIREWALL=0 sh /root/install.sh >"$E/floor-$name.log" 2>&1; then
+    pass "floor-$name: install succeeds"
+  else
+    fail "floor-$name: install failed (tail of the log below)"; tail -n 30 "$E/floor-$name.log"; return 0
+  fi
+  assert_stack "floor-$name" "$ip"
+  got="$(ex /opt/hatamoto/bin/hatamoto version 2>&1 | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  check "floor-$name: hatamoto version ($got) is the floor $floor or newer" \
+    test -n "$got" -a "$(printf '%s\n%s\n' "$floor" "$got" | sort -V | head -n 1)" = "$floor"
+  check "floor-$name: PostgreSQL 18 is the installed cluster" test "$(ex ls /etc/postgresql 2>/dev/null)" = 18
+
+  # set-domain end to end: the new name resolves here through /etc/hosts.
+  ex sh -c "echo '$ip $new' >> /etc/hosts"
+  if out="$(ex env "HATAMOTO_PUBLIC_IP=$ip" sh /root/install.sh set-domain "$new" 2>&1)"; then
+    pass "floor-$name: set-domain succeeds"
+  else
+    fail "floor-$name: set-domain failed"; printf '%s\n' "$out" | tail -n 20; return 0
+  fi
+  check "floor-$name: /health answers on the new host" \
+    test "$(ex curl -sk -o /dev/null -w '%{http_code}' --resolve "$new:443:127.0.0.1" "https://$new/health")" = 200
+  check "floor-$name: the old host redirects permanently to the new one" \
+    test "$(ex curl -sk -o /dev/null -w '%{http_code} %{redirect_url}' --resolve "$host:443:127.0.0.1" "https://$host/health")" = "301 https://$new/health"
+  check "floor-$name: the admin link names the new host" \
+    test "$(ex cat /var/lib/hatamoto-install/link | head -n 1 | grep -c "^https://$new/")" = 1
+  dk rm -f -v "$C" >/dev/null 2>&1 || true
+}
+
+if [ "$MIRROR" = 1 ]; then setup_mirror; fi
+# The floor legs build the installer as shipped: production keys and floor, never the test keys.
+if [ "$MIRROR" != 1 ]; then bash "$here/build-install.sh" --out "$E/asm" >/dev/null; fi
+
 case "$want" in
   ubuntu2404) run_distro ubuntu2404 ubuntu:24.04 ;;
   debian12) run_distro debian12 debian:12 ;;
   all) run_distro ubuntu2404 ubuntu:24.04; run_distro debian12 debian:12 ;;
+  floor-ubuntu2404) run_floor ubuntu2404 ubuntu:24.04 ;;
+  floor-debian12) run_floor debian12 debian:12 ;;
+  floor) run_floor ubuntu2404 ubuntu:24.04; run_floor debian12 debian:12 ;;
 esac
 
 if [ "$FAILS" -ne 0 ]; then echo "CONTAINER E2E RESULT: FAIL ($FAILS)"; exit 1; fi
