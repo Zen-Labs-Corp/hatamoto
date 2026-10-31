@@ -37,6 +37,10 @@ func TestBlogEditorTranslationsTab(t *testing.T) {
 	panel := body[strings.Index(body, `id="be-tabpanel-translations"`):]
 	panel = panel[:strings.Index(panel, "</aside>")]
 	lacks(t, panel, "<form", "name=")
+	// The narrow aside keeps language, status and action: no Address column, and
+	// the panel sits in a card like the other tabs.
+	has(t, panel, `id="be-translations"`, "Language", "Status")
+	lacks(t, panel, ">Address<")
 	// The Create dialog holds a form, so it sits after the editor form closes.
 	createButton(t, body, "create-copy-de-DE")
 	if form, dlg := strings.Index(body, `id="hm-be"`), strings.Index(body, `id="create-copy-de-DE"`); dlg < strings.Index(body[form:], "</form>")+form {

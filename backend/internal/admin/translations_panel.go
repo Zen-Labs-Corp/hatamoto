@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -48,6 +49,12 @@ func (a *Admin) translationsPanel(ctx context.Context, r *http.Request, e *entit
 		if orig := entity.OriginalOf(members, set.Default()); orig != nil && orig.ID != e.ID {
 			p.Intro = "You are editing the " + e.Locale + " copy of the " + orig.Locale + " original."
 		}
+	}
+	// The panel is narrow (an aside, a drawer): the Address column would push the
+	// state and the action out of view, so it keeps language, status and action.
+	p.Copies.Columns = slices.Delete(slices.Clone(p.Copies.Columns), 1, 2)
+	for i := range p.Copies.Rows {
+		p.Copies.Rows[i].Cells = slices.Delete(slices.Clone(p.Copies.Rows[i].Cells), 1, 2)
 	}
 	// The panel shows no POST action: Make original lives on the tab.
 	for i := range p.Copies.Rows {
