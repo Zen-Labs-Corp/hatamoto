@@ -165,12 +165,15 @@ before (JSON text, no custom headers):
 
 ```json
 {"v":2,"events":[{"type":"page_view","entry":true,"ref":"google.com",
+ "utm_source":"newsletter","utm_medium":"email","utm_campaign":"x",
  "paid":false,"path":"/landing"}]}
 ```
 
-`ref` is the referrer **host** only (never the URL), three short keys carry
-`utm_source`, `utm_medium` and `utm_campaign`, `paid` is set by a `gclid` or
-`msclkid` parameter, and `path` is the page path without query or fragment.
+`ref` is the referrer **host** only (never the URL), the keys `utm_source`,
+`utm_medium` and `utm_campaign` carry the visit's UTM values (other spellings
+are ignored), `paid` is set by a `gclid` or `msclkid` parameter, and `path` is
+the **landing path of the visit** (no query or fragment), repeated unchanged on
+every event of the visit, not the path of the page being viewed.
 Strings are lowercased, limited to a safe character set and truncated (`ref`
 100, utm values 64, `path` 200). Engagement events are
 `{"type":"engage","kind":"multi"|"scroll","first":true|false, ...}` with the
@@ -279,8 +282,21 @@ pageviews as before but records no visits or channels. To get Traffic, remove
 the beacon from the theme's `hm.js`.
 
 MCP: `analytics_traffic` (`read:reports`) returns the same data by channel,
-source, campaign, page, device or country. It is planned and arrives with the
-MCP work of this feature; see [MCP.md](MCP.md).
+source, campaign, page, device or country; see [MCP.md](MCP.md).
+
+**Counts are advisory.** The beacon is anonymous, so a hostile client can post
+any `entry`, `first`, `paid`, source, campaign or landing values and inflate
+visits, engagement or a channel. Treat Traffic figures as an indicator, not an
+audit. The server bounds what such a client can do (field limits, a cap on
+distinct sources, campaigns and landing pages per day, the rest folded into
+`(other)`), but it cannot verify them. Strings reach MCP clients verbatim, but
+only as a short safe character set.
+
+**Known attribution caveats.** Returning from an external page (a payment
+checkout or a single sign-on login) arrives with that host as the referrer and
+starts a new Referral visit. The Android Google app referrer is not recognised
+as search and counts as Referral. A theme that posts the legacy body from a
+script other than `hm.js` is counted twice for `pageview`.
 
 ## Admin UI and API (Phase 4)
 
