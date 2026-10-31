@@ -771,7 +771,8 @@ func TestSchemaPatternPreview(t *testing.T) {
 	get := func(p string) string {
 		return c.do("GET", "/admin/settings/types/preview-pattern?url_pattern="+url.QueryEscape(p), "owner-token", nil, nil).Body.String()
 	}
-	if got := get("/{year}/{month}/{slug}"); !strings.Contains(got, time.Now().Format("/2006/01/")+"example-page") {
+	// The rig has no site config, so the handler renders the date in UTC.
+	if got := get("/{year}/{month}/{slug}"); !strings.Contains(got, time.Now().UTC().Format("/2006/01/")+"example-page") {
 		t.Errorf("date tokens: %s", got)
 	}
 	if got := get("/services/{path}"); !strings.Contains(got, "/services/section/example-page") {
