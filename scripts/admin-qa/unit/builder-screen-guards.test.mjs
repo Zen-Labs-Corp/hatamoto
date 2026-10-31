@@ -16,3 +16,9 @@ test("Enter (edittext) goes through ownsText, and a '+' that cannot be placed is
   assert.match(src.slice(i, i + 200), /ownsText\(n\)/);
   assert.match(src, /const pos = docPos\(st\.doc, pt\);\s*if \(pos\) addAt\(pos, btn\);\s*else announce\(/);
 });
+
+test("the canvas toolbar's moves act on the whole section (moveSubject via selectionInfo), and its parent goes through onCrumb", () => {
+  assert.match(src, /moveOp\(st\.doc, selectionInfo\(st\.doc, selected\)\?\.subject \?\? selected, action/);
+  assert.match(src, /moveOp\(st\.doc, info\.subject, a, boot\.kinds\)/);
+  assert.match(src, /onCrumb: \(id\) => select\(/);
+});

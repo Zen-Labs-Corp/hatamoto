@@ -1,0 +1,55 @@
+// A canvas padding drag's commit as screen.js wires it: onPadCommit hands the writes to run() once (one history entry),
+// on a collapsed theme section they land on the component, and the inherited value is where a drag starts without a measured pd.
+// Run: node --test scripts/admin-qa/unit/builder-padcommit.test.mjs
+import { register } from "node:module";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const root = new URL("../../../backend/web/admin/js/", import.meta.url).href;
+register(
+  "data:text/javascript," +
+    encodeURIComponent(`export async function resolve(s, c, next) {
+      if (s.startsWith("@hm/")) return { url: ${JSON.stringify(root)} + s.slice(4) + ".js", shortCircuit: true };
+      return next(s, c);
+    }`),
+);
+const S = await import(new URL("builder/store.js", root));
+const { selectionInfo } = await import(new URL("builder/selinfo.js", root));
+const { ownValue, inheritedValue } = await import(new URL("builder/bp.js", root));
+const { padWrites, padBp, startPx } = await import(new URL("canvas/padding.js", root));
+const { innerRef } = await import(new URL("builder/bridge.js", root));
+const src = readFileSync(new URL("builder/screen.js", root), "utf8");
+const insp = readFileSync(new URL("builder/inspector.js", root), "utf8");
+
+// a collapsed theme section: the padding lives on the component
+const hero = { id: "h", t: "component", p: { name: "Hero" }, s: { base: { pt: "6rem" } } };
+const doc = { v: 2, nodes: [{ id: "sec", t: "container", p: { tag: "section" }, c: [hero] }] };
+
+test("a collapsed section's handles write to the component, as one history entry (also with alt)", () => {
+  assert.equal(selectionInfo(doc, "h").isSection, true);
+  assert.equal(innerRef(doc, "h").sel, "section");
+  let s = S.createStore(doc);
+  const writes = padWrites({ id: "h", bp: padBp("md", "hover"), side: "top", px: 120, alt: true });
+  assert.equal(writes.length, 2);
+  s = S.commit(s, writes, { label: "Change Padding top", now: 1 });
+  assert.equal(s.past.length, 1);
+  assert.equal(S.find(s.doc, "h").s["md:hover"].pt, "120px");
+  assert.equal(S.find(s.doc, "h").s["md:hover"].pb, "120px");
+});
+
+test("the start value: own at the key, else the wider width's, rem as 16px", () => {
+  const n = S.find(doc, "h");
+  assert.equal(ownValue(n, "md", "pt"), null);
+  assert.equal(inheritedValue(n, "md", "pt").value, "6rem");
+  assert.equal(startPx(null, "top", inheritedValue(n, "md", "pt").value), 96);
+});
+
+test("screen.js wires the handlers the direct layer needs", () => {
+  assert.match(src, /onAddSection: \(index, el\) => addAt\(\{ parent: "", index \}/);
+  assert.match(src, /onPadCommit: \(\{ id, writes, label: name \}\) => run\(writes, \{ label: name \}\)/);
+  assert.match(src, /padState: \(\) => \(\{ bp: padBp\(\) \}\)/);
+  assert.match(src, /const state = inspector\.state\(\);\s*return state \?/);
+  assert.match(src, /authored: \(id, side\)/);
+  assert.match(insp, /state: \(\) => state/);
+});

@@ -4,10 +4,10 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, useLabels } from "@hm/builder/navigator";
-import { hideTarget } from "@hm/builder/selinfo";
+import { hideTarget, selectionInfo, sectionOf } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
-import { BP_NAME, DEVICE_LABEL, hiddenAt } from "@hm/builder/bp";
+import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
 import { insertPoint, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
@@ -206,6 +206,15 @@ function start(root, boot) {
   };
   // focus or a click in the host UI also ends the edit (a browser may not blur the frame's editor)
   for (const type of ["pointerdown", "focusin"]) document.addEventListener(type, () => flushLoopText(), true);
+  const isHiddenAt = (id) => {
+    const n = find(st.doc, moveSubject(st.doc, id));
+    return !!n && hiddenAt(n, device);
+  };
+  // the style-map key a canvas padding drag writes: the device, plus ":state" while the inspector's State is not Normal
+  const padBp = () => {
+    const state = inspector.state();
+    return state ? `${device}:${state}` : device;
+  };
   const canvas = createCanvas(
     canvasEl,
     {
@@ -243,15 +252,36 @@ function start(root, boot) {
       sectionLabel: (id) => label(id),
       onAction: (name) => dispatch(name, true), // the element toolbar: duplicate, wrap, togglehide, remove
       onMore: (r) => showMenu(selected, r.left, r.bottom, true),
-      isHidden: (id) => {
-        const n = find(st.doc, moveSubject(st.doc, id));
-        return !!n && hiddenAt(n, device);
-      },
+      isHidden: (id) => isHiddenAt(id),
       // the keyboard path to the "+" layout picker: the position right after the selection
       onAddAfter: (btn) => {
         const l = selected && locate(st.doc, moveSubject(st.doc, selected));
         if (l) addAt({ parent: l.parentId, index: l.index + 1 }, btn);
       },
+      // the toolbar's contents: the parent for "↑", the moves that would do something (the whole section, as a move acts on it)
+      toolbarState: (id, k) => {
+        const info = selectionInfo(st.doc, id);
+        if (!info) return null;
+        const can = (a) => moveOp(st.doc, info.subject, a, boot.kinds) !== null;
+        return { name: label(id) || info.kind, parentId: info.parentId ?? "", parentName: info.parentId ? label(info.parentId) : "", canUp: can("moveup"), canDown: can("movedown"), hidden: !!isHiddenAt(id), k };
+      },
+      // direct manipulation (canvas/direct): padding handles and the "Add section" lines between sections
+      isSection: (id) => !!selectionInfo(st.doc, id)?.isSection,
+      refOf: (id) => innerRef(st.doc, id),
+      styleEntry: (key) => styleTable?.find((e) => e.key === key),
+      indexOf: (id) => sectionOf(st.doc, id)?.index,
+      total: () => st.doc.nodes.length,
+      nameOf: (id) => label(id),
+      padState: () => ({ bp: padBp() }),
+      // what the node itself says (own, else the wider width's), for a frame that gives no measured padding: the padding of a collapsed
+      // section's theme component sits on the component the handles write to, which is this id
+      authored: (id, side) => {
+        const n = find(st.doc, id);
+        const key = { top: "pt", right: "pr", bottom: "pb", left: "pl" }[side];
+        return n ? (ownValue(n, padBp(), key) ?? inheritedValue(n, device, key)?.value ?? null) : null;
+      },
+      onPadCommit: ({ id, writes, label: name }) => run(writes, { label: name }), // false (refused) restores the preview
+      onAddSection: (index, el) => addAt({ parent: "", index }, el),
       onCrumb: (id) => select(id, false, { pick: true }), // null is the Page crumb: nothing selected; not "from the canvas", so the frame follows
       onZoom: (mode) => announce(mode === "fit" ? "Zoom: fit to the pane." : `Zoom: ${mode}%.`),
       onAdd: (pt, btn) => {
@@ -756,7 +786,7 @@ function start(root, boot) {
   }
 
   function moveSelected(action) {
-    const op = moveOp(st.doc, selected, action, boot.kinds);
+    const op = moveOp(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected, action, boot.kinds); // a collapsed section moves whole
     if (!op) return announce("It cannot move further that way");
     if (run([op], { label: "Move" })) {
       const into = op.parent && (action === "indent" || action === "outdent") ? ` into ${label(op.parent)}` : "";
