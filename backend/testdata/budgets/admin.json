@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 55354,
+      "value": 56702,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-ux-canvas-inspector: lazy element restore dialog and ops (noderestore, restoreops), cap 230 -\u003e 240 KiB for the remaining inspector/canvas work",
-      "date": "2026-10-26"
-    },
     {
       "reason": "forge 1A canvas fixes: gap-placed + points with dedupe and wrapped-row rule, Add after toolbar button, Hide/Show label, docPos/addTarget guards, ownsText, Enter/heading bridge guards",
       "date": "2026-10-26"
@@ -118,6 +114,10 @@
     },
     {
       "reason": "builder inspector visual pass: compact Style tab, box model size centre, Typography-first order, dashed inherited option, ring caption band: editor_js_total_gzip 268677 -\u003e 270352, editor_js_first_gzip 101176 -\u003e 101391, admin_css_gzip 54081 -\u003e 55354, measured",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "plugins and theme restyle: admin_css_gzip 55354 -\u003e 56702",
       "date": "2026-10-31"
     }
   ]
