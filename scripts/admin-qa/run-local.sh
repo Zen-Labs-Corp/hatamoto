@@ -80,11 +80,11 @@ export HATAMOTO_DATA="$W/data"
 # No HATAMOTO_ADMIN_DIR: it re-parses every admin template per request (~1s each),
 # and the binary built above already embeds this checkout's admin files.
 export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
-# frame-tickets.mjs needs a plugin with an admin page; the seeded instance has none.
+# frame-tickets.mjs and tabs.mjs need a plugin with an admin page; the seeded instance has none.
 # The dev override loads this fixture (a UI-only plugin, empty wasm module). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*) PLUGIN_DIR=${PLUGIN_DIR:-$QA/fixtures/frame-plugin} ;; esac
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*) PLUGIN_DIR=${PLUGIN_DIR:-$QA/fixtures/frame-plugin} ;; esac
 mkdir -p "$W/cwd"
 (cd "$W/cwd" && ${PLUGIN_DIR:+export HATAMOTO_PLUGIN_DIR="$PLUGIN_DIR"} && exec "$W/hm" serve >"$W/hm.log" 2>&1) &
 SRV=$!
