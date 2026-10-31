@@ -439,7 +439,7 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 	if len(errs) > 0 {
 		if !r.PostForm.Has("segment") && !r.PostForm.Has("name") {
 			// A row menu action: there is no form to show the message on.
-			a.SetFlash(w, r, "error", "Not saved: "+errs["locales"]+errs["xdefault"])
+			a.SetFlash(w, r, "error", fullStop("Not saved: "+errs["locales"]+errs["xdefault"]))
 			http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 			return
 		}
