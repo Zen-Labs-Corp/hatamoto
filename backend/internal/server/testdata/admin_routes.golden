@@ -143,6 +143,7 @@ GET /admin/settings/taxonomies/terms/{id} -> admin.(*Admin).handleTermEdit-fm
 GET /admin/settings/taxonomies/terms/{id}/copy/new -> admin.(*Admin).handleTermCopyNew-fm
 GET /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDeleteConfirm-fm
 GET /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMergeForm-fm
+GET /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlinkConfirm-fm
 GET /admin/settings/team -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/types -> admin.(*Admin).handleSchemas-fm
 GET /admin/settings/types/new -> admin.(*Admin).handleSchemaNew-fm
