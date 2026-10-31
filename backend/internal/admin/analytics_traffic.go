@@ -18,10 +18,10 @@ const (
 	trafficLede = "Every visit is grouped by channel, source and campaign. UTM tags win over the referrer. AI assistants are detected by referrer and utm_source."
 	// trafficChannelHelp defines a visit and explains why this count and the Referrals tab differ.
 	trafficChannelHelp = analytics.VisitDefinition + " AI assistants here counts visits that arrive with a page load. The Referrals tab counts the server-side referral signal, so the two can differ."
-	// leadsLater is the note under every control or cell that Phase 4 fills.
-	leadsLater = "Leads arrive with lead attribution (coming next)."
-	// placeholder stands in for a metric whose data arrives in a later phase.
+	// placeholder stands in for a headline figure with nothing to show.
 	placeholder = "--"
+	// noRate fills a table cell whose rate has no visits to divide by.
+	noRate = "-"
 	// trafficTopRows is how many rows the source, campaign and landing page lists show.
 	trafficTopRows = 10
 )
@@ -114,10 +114,9 @@ func (a *Admin) trafficJSON(ctx context.Context, q url.Values, rg agents.Range) 
 type trafficPage struct {
 	Lede string
 	KPIs []ui.Stat
-	// Attribution is the First touch | Last touch switch, disabled until lead attribution lands;
-	// LeadsNote says so under it.
-	Attribution ui.Segmented
-	LeadsNote   string
+	// Touch is the First touch | Last touch switch; UnknownNote says how many leads have no channel.
+	Touch       touchSwitch
+	UnknownNote string
 	// ChannelsHelp is the card description (the visit definition and the Referrals note).
 	ChannelsHelp string
 	Channels     ui.AiaRows
@@ -164,11 +163,37 @@ func sourceName(key string) string {
 }
 
 func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range, cmp bool) (any, error) {
-	tr := a.deps.Growth.Traffic
-	if tr == nil {
+	tr, cv := a.deps.Growth.Traffic, a.deps.Growth.Conversions
+	if tr == nil || cv == nil {
 		return nil, errNoService
 	}
+	touch := analytics.ParseTouch(q.Get("touch"))
+	asked := cmp
 	totals, err := tr.TrafficTotals(ctx, rg.From, rg.To)
+	if err != nil {
+		return nil, err
+	}
+	leads, unknown, err := cv.LeadsTotals(ctx, touch, rg.From, rg.To)
+	if err != nil {
+		return nil, err
+	}
+	leadsBy := func(dim analytics.Dim) (map[string]int64, error) {
+		rows, err := cv.LeadsTop(ctx, dim, touch, rg.From, rg.To, 0)
+		out := map[string]int64{}
+		for _, r := range rows {
+			out[r.K1] += r.Leads
+		}
+		return out, err
+	}
+	channelLeads, err := leadsBy(analytics.DimChannel)
+	if err != nil {
+		return nil, err
+	}
+	sourceLeads, err := leadsBy(analytics.DimSource)
+	if err != nil {
+		return nil, err
+	}
+	campaignLeads, err := leadsBy(analytics.DimCampaign)
 	if err != nil {
 		return nil, err
 	}
@@ -177,16 +202,18 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 		return nil, err
 	}
 	var prevTotals analytics.Counts
+	var prevLeads int64
 	prevChannels := map[string]analytics.Counts{}
 	if cmp {
 		prg := previousRange(rg)
 		pt, err1 := tr.TrafficTotals(ctx, prg.From, prg.To)
 		pc, err2 := tr.TrafficTop(ctx, analytics.DimChannel, prg.From, prg.To, 0)
-		if err1 != nil || err2 != nil {
-			a.logger().Error("traffic previous period failed", "err", firstErr(err1, err2))
+		pl, _, err3 := cv.LeadsTotals(ctx, touch, prg.From, prg.To)
+		if err1 != nil || err2 != nil || err3 != nil {
+			a.logger().Error("traffic previous period failed", "err", firstErr(err1, err2, err3))
 			cmp = false
 		} else {
-			prevTotals = pt
+			prevTotals, prevLeads = pt, pl
 			for _, c := range pc {
 				prevChannels[c.K1] = c.Counts
 			}
@@ -243,14 +270,17 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 				Spark:  liveSpark("aia-spark-t-visits", 1, ui.SparkLive{Src: src, Chart: "channels"})},
 			{Label: "Pageviews", Value: fmtNum(totals.Pageviews), Note: perVisit,
 				Change: kpiDelta(cmp, rg, float64(totals.Pageviews), float64(prevTotals.Pageviews), false, false)},
-			{Label: "Leads", Value: placeholder, Note: leadsLater},
-			{Label: "Conv. rate", Value: placeholder, Note: leadsLater},
+			{Label: "Leads", Value: fmtNum(leads), Note: "Every submission that is not spam.",
+				Change: kpiDelta(cmp, rg, float64(leads), float64(prevLeads), false, false)},
+			{Label: "Conv. rate", Value: rateText(leads, totals.Visits), Note: "Leads per visit.",
+				Change: kpiDelta(cmp, rg, ratio(leads, totals.Visits), ratio(prevLeads, prevTotals.Visits), true, false)},
 			topChannel,
 		},
-		Attribution: ui.Segmented{Mode: "buttons", Label: "Attribution", Items: []ui.SegmentedItem{
-			{Label: "First touch", Pressed: true, Disabled: true}, {Label: "Last touch", Disabled: true}}},
-		LeadsNote:    leadsLater,
+		Touch:        a.touchSwitchFor("/analytics/traffic", rg, asked, touch),
 		ChannelsHelp: trafficChannelHelp,
+	}
+	if unknown > 0 {
+		p.UnknownNote = fmtNum(unknown) + " leads before attribution was recorded are not in the channel table."
 	}
 
 	cols := []string{"Channel", "Visits", "Share"}
@@ -270,7 +300,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 		}
 		row := []ui.AiaCell{name, {Text: fmtNum(n.Visits)},
 			{Text: fixed(pct, 1), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
-			{Text: placeholder, Muted: true}, {Text: placeholder, Muted: true}}
+			{Text: fmtNum(channelLeads[c.Key])}, {Text: rateText(channelLeads[c.Key], n.Visits)}}
 		if cmp {
 			row = append(row, ui.AiaCell{Text: kpiDelta(true, rg, float64(n.Visits), float64(prevChannels[c.Key].Visits), false, false).Text})
 		}
@@ -283,11 +313,11 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 
 	p.Sources = ui.AiaRows{Caption: "Top sources", Columns: []string{"Source", "Channel", "Visits", "Leads"}, Right: []bool{false, false, true, true}, Empty: "No sources in this period."}
 	for _, s := range sources {
-		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: sourceChannel(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: placeholder, Muted: true}})
+		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: sourceChannel(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: fmtNum(sourceLeads[s.K1])}})
 	}
 	p.Campaigns = ui.AiaRows{Caption: "Top campaigns", Columns: []string{"Campaign", "Medium", "Visits", "Leads", "Rate"}, Right: []bool{false, false, true, true, true}, Empty: "No campaigns in this period. Tag links with utm_campaign."}
 	for _, c := range campaigns {
-		p.Campaigns.Rows = append(p.Campaigns.Rows, []ui.AiaCell{{Text: c.K1}, {Text: c.K2, Muted: true}, {Text: fmtNum(c.Visits)}, {Text: placeholder, Muted: true}, {Text: placeholder, Muted: true}})
+		p.Campaigns.Rows = append(p.Campaigns.Rows, []ui.AiaCell{{Text: c.K1}, {Text: c.K2, Muted: true}, {Text: fmtNum(c.Visits)}, {Text: fmtNum(campaignLeads[c.K1])}, {Text: rateText(campaignLeads[c.K1], c.Visits)}})
 	}
 
 	p.Landing = ui.BarList{Label: "Landing pages", NameHeading: "Page", ValueHeading: "Visits", Mono: true, Empty: "No landing pages in this period."}
@@ -346,6 +376,14 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	}
 	p.Return = sectionHref(a.adminPath+"/analytics/traffic", q)
 	return p, nil
+}
+
+// rateText is leads per visit as a percentage; a table cell with no visits shows a dash.
+func rateText(leads, visits int64) string {
+	if visits <= 0 {
+		return noRate
+	}
+	return fixed(ratio(leads, visits), 1)
 }
 
 func firstErr(errs ...error) error {

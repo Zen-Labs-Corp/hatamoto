@@ -30,7 +30,9 @@ func (f *fakeEngagement) Set(_ context.Context, on bool) error {
 func trafficRig(t *testing.T, mutate ...func(*Deps)) *rig {
 	t.Helper()
 	rg, _ := parseRange(url.Values{})
-	return newRig(t, append([]func(*Deps){func(d *Deps) { d.Growth.Traffic = &fakeTraffic{from: rg.From} }}, mutate...)...)
+	return newRig(t, append([]func(*Deps){func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &fakeTraffic{from: rg.From}, &fakeConversions{}
+	}}, mutate...)...)
 }
 
 func TestTrafficPageSections(t *testing.T) {
@@ -46,20 +48,23 @@ func TestTrafficPageSections(t *testing.T) {
 		"Visits", "Pageviews", "Leads", "Conv. rate", "Top channel", "Organic search",
 		"w-t-channels", "w-t-sources", "w-t-campaigns", "w-t-landing", "w-t-devices", "w-t-countries", "w-t-engagement", "w-t-measurement",
 		"A visit is the first pageview of a tab or an arrival from another site.", "can differ",
-		"Leads arrive with lead attribution (coming next).", "First touch", "Last touch",
+		"First touch", "Last touch", "Apply",
 		`data-chart="channels"`, "traffic.json", "oct-news", "(direct)", "Desktop", "Bounced", "Scrolled 75%",
 		"Counted per day without visitor IDs."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("traffic page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, ">--<") {
-		t.Error("the Leads and Conv. rate placeholders must render as --")
-	}
-	for _, want := range []string{`disabled aria-disabled="true">First touch`, `disabled aria-disabled="true">Last touch`} {
-		if !strings.Contains(body, want) {
-			t.Errorf("the First touch | Last touch toggle must be disabled: missing %q", want)
+	for _, bad := range []string{">--<", "coming next", "disabled aria-disabled"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("the lead columns and the touch toggle are live, found %q", bad)
 		}
+	}
+	if !strings.Contains(body, `<input type="radio" name="touch" value="first" checked`) && !strings.Contains(body, `value="first" checked`) {
+		t.Error("first touch must be the default choice")
+	}
+	if !strings.Contains(body, "2 leads before attribution was recorded") {
+		t.Error("the unknown leads note is missing")
 	}
 	if !strings.Contains(body, `AI assistants <span class="hm-badge hm-badge--info`) {
 		t.Error("the AI assistants channel row must carry the new badge")
@@ -129,7 +134,9 @@ func TestTrafficPageEmptyRange(t *testing.T) {
 	t.Parallel()
 
 	rg, _ := parseRange(url.Values{})
-	g := newRig(t, func(d *Deps) { d.Growth.Traffic = &fakeTraffic{from: rg.From, empty: true} })
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &fakeTraffic{from: rg.From, empty: true}, &fakeConversions{empty: true}
+	})
 	rec := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, "No visits in this period.") {
@@ -150,5 +157,24 @@ func TestTrafficPageEngagementOffShowsNoBounce(t *testing.T) {
 	}
 	if !strings.Contains(body, "Engagement counting is off") {
 		t.Error("the engagement card must say counting is off")
+	}
+}
+
+func TestTrafficPageLeadsFollowTheTouch(t *testing.T) {
+	t.Parallel()
+
+	g := trafficRig(t)
+	first := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	last := g.do("GET", "/admin/analytics/traffic?touch=last", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{">12<", "Every submission that is not spam."} {
+		if !strings.Contains(first, want) {
+			t.Errorf("first touch missing %q", want)
+		}
+	}
+	if !strings.Contains(last, ">9<") || strings.Contains(last, ">12<") {
+		t.Error("touch=last must show the last-touch lead total (9), not 12")
+	}
+	if !strings.Contains(last, `value="last" checked`) || !strings.Contains(last, "3 leads before attribution was recorded") {
+		t.Error("touch=last must be the chosen toggle value with its own unknown note")
 	}
 }

@@ -1,5 +1,5 @@
 // Analytics > Traffic on a seeded instance (QA_SEED_ANALYTICS=1): the five KPIs in one row, the Channels
-// table (AI assistants badged new, one decimal shares, the disabled attribution toggle), Sources, Campaigns,
+// table (AI assistants badged new, one decimal shares, the attribution toggle), Sources, Campaigns,
 // Landing pages, Devices, the Countries empty state without a GeoIP file, Engagement and Measurement,
 // and no console errors. Screenshots go to SHOTS (default shots-out/).
 // Run: QA_SEED_ANALYTICS=1 scripts/admin-qa/run-local.sh traffic.mjs
@@ -41,8 +41,10 @@ ok(rows.length === 7, `Channels lists the seven channels (${rows.length})`);
 ok(rows.some((r) => /^AI assistants\s+new\b/.test(r)), "AI assistants carries the new badge");
 const shares = await channels.locator("tbody td[data-label=Share]").allInnerTexts();
 ok(shares.length > 0 && shares.every((s) => /^\d+\.\d%$/.test(s.trim())), `shares have one decimal (${shares.map((s) => s.trim()).join(", ")})`);
-const touch = channels.locator("button", { hasText: /^(First|Last) touch$/ });
-ok((await touch.count()) === 2 && (await touch.evaluateAll((els) => els.every((e) => e.disabled))), "First touch and Last touch are disabled");
+const touch = channels.locator("input[name=touch]");
+ok((await touch.count()) === 2 && (await touch.evaluateAll((els) => els.every((e) => !e.disabled))), "First touch and Last touch are enabled");
+ok(await channels.locator("input[name=touch][value=first]").isChecked(), "First touch is the default");
+ok(/^\d[\d,. ]*$/.test((await kpis.nth(2).locator(".hm-statcard__value").innerText()).trim()), "Leads KPI shows a number, not a placeholder");
 
 ok((await card("w-t-sources").locator("tbody tr").count()) > 0, "Sources has rows");
 ok((await card("w-t-campaigns").locator("tbody tr").count()) > 0, "Campaigns has rows");

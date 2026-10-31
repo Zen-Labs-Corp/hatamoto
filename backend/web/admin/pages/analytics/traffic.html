@@ -7,9 +7,9 @@
 <section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
 <h2 class="hm-visually-hidden">Where visits come from</h2>
 {{template "hm/card-start" (dict "ID" "w-t-channels" "Title" "Channels" "Description" .ChannelsHelp "Heading" "h3")}}
-{{template "hm/segmented" .Attribution}}
-<p class="hm-aia-small hm-aia-note">{{.LeadsNote}}</p>
+<form class="hm-row" method="get" action="{{.Touch.Action}}">{{range $k, $v := .Touch.Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{template "hm/segmented" .Touch.Seg}}{{template "hm/button" (dict "Label" "Apply" "Type" "submit")}}</form>
 {{template "hm/aia-rows" .Channels}}
+{{if .UnknownNote}}<p class="hm-aia-small hm-aia-note">{{.UnknownNote}}</p>{{end}}
 {{template "hm/card-end"}}
 <div class="hm-grid2">
 {{template "hm/card-start" (dict "ID" "w-t-sources" "Title" "Sources" "Description" "Referrer host or utm_source." "Heading" "h3")}}
