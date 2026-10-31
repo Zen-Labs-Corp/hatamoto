@@ -222,3 +222,15 @@ func TestThemeBrowseCardAccessibleName(t *testing.T) {
 		t.Errorf("name id repeated %d times", n)
 	}
 }
+
+// A registry theme named like the built-in theme is not listed.
+func TestThemeBrowseHidesDefaultNamedEntry(t *testing.T) {
+	t.Parallel()
+
+	view := themeBrowseView()
+	view.Entries = append(view.Entries, RegistryEntry{Kind: "theme", Name: "default", Title: "Default Lookalike", Version: "1.0.0"})
+	g, _ := themeBrowseRig(t, view)
+	if body := getThemeBrowse(g, "?hide=0"); strings.Contains(body, "Default Lookalike") {
+		t.Error("registry theme named default is listed")
+	}
+}

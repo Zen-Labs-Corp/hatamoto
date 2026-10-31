@@ -68,12 +68,19 @@ func (a *Admin) themeRegistry(r *http.Request, pk PackageAdmin) (RegistryView, m
 			info[t.Name] = t
 		}
 	}
-	reg.Entries = slices.Clone(reg.Entries)
-	for i, e := range reg.Entries {
+	// The built-in theme owns the name "default": a registry theme of that
+	// name cannot be installed, so it is not listed.
+	entries := make([]RegistryEntry, 0, len(reg.Entries))
+	for _, e := range reg.Entries {
 		if e.Kind == "theme" {
-			reg.Entries[i].Active = info[e.Name].Active
+			if e.Name == "default" {
+				continue
+			}
+			e.Active = info[e.Name].Active
 		}
+		entries = append(entries, e)
 	}
+	reg.Entries = entries
 	return reg, info
 }
 
