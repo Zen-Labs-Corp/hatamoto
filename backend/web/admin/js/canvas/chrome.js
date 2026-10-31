@@ -177,6 +177,7 @@ export function mountToolbar(canvas, handlers) {
       for (const m of model.buttons) {
         const b = acts.find((x) => x.getAttribute("data-act") === m.act);
         b.setAttribute("aria-label", m.aria);
+        b.setAttribute("title", m.aria); // icon-only: the name shows on hover
         if (m.disabled) b.setAttribute("disabled", "");
         else b.removeAttribute("disabled");
         if (m.act === "togglehide") b.replaceChildren(icon(m.icon));

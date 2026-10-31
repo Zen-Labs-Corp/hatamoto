@@ -231,6 +231,7 @@ test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lan
   assert.ok(!stops[0].hasAttribute("disabled"), "and it is not a disabled one");
   assert.equal(btn.movedown.attrs.tabindex, "0", "the first enabled button");
   assert.equal(btn.togglehide.attrs["aria-label"], "Hide on this device");
+  for (const b of Object.values(btn).filter((x) => x.attrs["data-act"] !== "parent")) assert.equal(b.attrs.title, b.attrs["aria-label"], `${b.attrs["data-act"]}: an icon-only button names itself on hover`);
   bar.listeners.click[0]({ target: { closest: () => btn.duplicate } });
   assert.deepEqual(acted, ["duplicate"]);
   hidden = true;
@@ -238,6 +239,7 @@ test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lan
   dom.deliver(host, { hm: 2, type: "select", id: "top", k: "n", shift: false, ctrl: false });
   canvas.setDevice("md");
   assert.equal(btn.togglehide.attrs["aria-label"], "Show on this device");
+  assert.equal(btn.togglehide.attrs.title, "Show on this device", "the title follows the label");
   delete globalThis.requestAnimationFrame;
 });
 
