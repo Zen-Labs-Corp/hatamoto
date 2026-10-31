@@ -34,6 +34,11 @@ func TestBulkCreateDrafts(t *testing.T) {
 	if len(cp.calls) != 3 || !cp.calls[0].Opts.CreateParents || !cp.calls[0].Opts.AutoSlug || cp.calls[0].Opts.Locale != "pt-BR" {
 		t.Errorf("calls = %+v", cp.calls)
 	}
+	for _, call := range cp.calls {
+		if call.Opts.From != entity.CopyFromThis {
+			t.Errorf("From = %q, want the selected row (%q)", call.Opts.From, entity.CopyFromThis)
+		}
+	}
 	has(t, c.next(rec, "/admin/entities"), "2 drafts created in pt-BR, 1 skipped")
 	wantAudit(t, audit(), "entity.create_copy", "entity.create_copy")
 }

@@ -61,7 +61,7 @@ func (a *Admin) bulkCopy(w http.ResponseWriter, r *http.Request, action string, 
 			continue
 		}
 		cp, err := a.deps.Content.Copier.CreateCopy(r.Context(), uid, id, entity.CopyOptions{
-			Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true,
+			Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true, From: entity.CopyFromThis,
 		})
 		switch {
 		case errors.Is(err, entity.ErrLocaleTaken), errors.Is(err, entity.ErrCopyUnsupported):
