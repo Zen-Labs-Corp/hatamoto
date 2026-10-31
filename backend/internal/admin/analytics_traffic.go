@@ -312,19 +312,21 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 		p.Countries.Items = append(p.Countries.Items, ui.BarItem{Label: countryName(c.K1), Value: fmtNum(c.Visits), N: float64(c.Visits)})
 	}
 
+	p.EngagementOn = true
+	if es := a.deps.Growth.EngagementSetting; es != nil {
+		p.EngagementShown, p.EngagementOn = true, es.Enabled(ctx)
+	}
 	bounced := max(totals.Visits-totals.Engaged, 0)
 	p.Engagement = ui.BarList{Label: "Engagement", NameHeading: "Visits that", ValueHeading: "Visits", Empty: "No visits in this period."}
-	if totals.Visits > 0 {
+	if !p.EngagementOn {
+		p.Engagement.Empty = "Engagement counting is off (see Measurement below)."
+	} else if totals.Visits > 0 {
 		for _, e := range []struct {
 			Label string
 			N     int64
 		}{{"Bounced", bounced}, {"2+ pages", totals.Multi}, {"Scrolled 75%", totals.Scrolled}} {
 			p.Engagement.Items = append(p.Engagement.Items, ui.BarItem{Label: e.Label, Value: fmtNum(e.N), Share: share(e.N, totals.Visits), N: float64(e.N)})
 		}
-	}
-	p.EngagementOn = true
-	if es := a.deps.Growth.EngagementSetting; es != nil {
-		p.EngagementShown, p.EngagementOn = true, es.Enabled(ctx)
 	}
 	if u := userFrom(ctx); u != nil {
 		p.Owner = u.Role == "owner"

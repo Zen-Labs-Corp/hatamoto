@@ -133,3 +133,16 @@ func TestTrafficPageEmptyRange(t *testing.T) {
 		t.Errorf("a11y: %v", issues)
 	}
 }
+
+func TestTrafficPageEngagementOffShowsNoBounce(t *testing.T) {
+	t.Parallel()
+
+	g := trafficRig(t, func(d *Deps) { d.Growth.EngagementSetting = &fakeEngagement{on: false} })
+	body := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "Bounced") || strings.Contains(body, "Scrolled 75%") {
+		t.Error("with engagement counting off the card must not report bounce figures")
+	}
+	if !strings.Contains(body, "Engagement counting is off") {
+		t.Error("the engagement card must say counting is off")
+	}
+}
