@@ -33,8 +33,21 @@ button.hm-choice__link { width: 100%; border: 0; background: none; font: inherit
 /* version comparison */
 .hm-diff__value { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: var(--text-sm); max-width: 36ch; }
 .hm-diff__field code { word-break: break-all; }
-.hm-diff__row--added > td:nth-child(3), .hm-diff__row--changed > td:nth-child(3) { background: var(--color-success-soft); }
-.hm-diff__row--removed > td:nth-child(2), .hm-diff__row--changed > td:nth-child(2) { background: var(--color-danger-soft); }
+/* The changed text itself carries the tint, not the whole cell. */
+.hm-diff__row--added > td:nth-child(3) > .hm-diff__value:not(:empty), .hm-diff__row--changed > td:nth-child(3) > .hm-diff__value:not(:empty) { background: var(--color-success-soft); }
+.hm-diff__row--removed > td:nth-child(2) > .hm-diff__value:not(:empty), .hm-diff__row--changed > td:nth-child(2) > .hm-diff__value:not(:empty) { background: var(--color-danger-soft); }
+.hm-diff__row > td > .hm-diff__value { width: fit-content; max-width: 100%; padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+
+/* Entity form: Content and SEO run wide, Publishing and Terms sit in a side column; one column on narrow screens, where the cards keep the order Content, Publishing, Terms, SEO. */
+form.hm-stack.hm-entityform { max-width: none; }
+.hm-entityform__grid { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--space-4); align-items: start; }
+.hm-entityform__main, .hm-entityform__side { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+@media (max-width: 1099px) {
+  .hm-entityform__grid { display: flex; flex-direction: column; }
+  .hm-entityform__main, .hm-entityform__side { display: contents; }
+  .hm-entityform__grid #publishing, .hm-entityform__grid #terms { order: 1; }
+  .hm-entityform__grid #seo { order: 2; }
+}
 
 /* version compare: per-node layout changes */
 .hm-nodediff td, .hm-nodediff th { vertical-align: top; }
