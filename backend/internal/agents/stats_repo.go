@@ -190,6 +190,10 @@ func (r *StatsRepository) Overview(ctx context.Context, rg Range) (OverviewTotal
 // Series returns daily hits grouped by "operator" or "purpose" (caller
 // whitelists groupBy; it is interpolated as a column name).
 func (r *StatsRepository) Series(ctx context.Context, rg Range, groupBy string) ([]SeriesPoint, error) {
+	return r.series(ctx, rg, groupBy, aiPurposes)
+}
+
+func (r *StatsRepository) series(ctx context.Context, rg Range, groupBy string, purposes []string) ([]SeriesPoint, error) {
 	if groupBy != "operator" && groupBy != "purpose" {
 		return nil, fmt.Errorf("invalid group %q", groupBy)
 	}
@@ -202,7 +206,7 @@ func (r *StatsRepository) Series(ctx context.Context, rg Range, groupBy string) 
 		SELECT day, COALESCE(NULLIF(%[1]s,''),'unknown') AS k, SUM(hits)
 		FROM hatamoto_agent_daily
 		WHERE day BETWEEN $1 AND $2 AND purpose = ANY($3)
-		GROUP BY day, k ORDER BY day, k`, groupBy), rg.From, rg.To, aiPurposes)
+		GROUP BY day, k ORDER BY day, k`, groupBy), rg.From, rg.To, purposes)
 	if err != nil {
 		return nil, fmt.Errorf("series: %w", err)
 	}
