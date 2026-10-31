@@ -75,6 +75,19 @@ func TestBridgeIsRateLimitedPerUserAndPlugin(t *testing.T) {
 
 // The frame is created by pluginframe.js so its load listener is in place
 // first; the server renders it inside a <template>, sandboxed and sourceless.
+// The settings form is narrow, but a plugin admin app in the frame keeps the wide page.
+func TestPluginPageWidthFollowsTheFrame(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	if body := g.do("GET", "/admin/plugins/hello/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="wide"`) || strings.Contains(body, `data-width="narrow"`) {
+		t.Error("a plugin page with an admin UI frame must keep the wide page")
+	}
+	if body := g.do("GET", "/admin/plugins/devonly/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `data-width="narrow"`) {
+		t.Error("a plugin page without a frame must be narrow")
+	}
+}
+
 func TestPluginFrameIsBuiltByTheHostScript(t *testing.T) {
 	t.Parallel()
 

@@ -430,7 +430,10 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 		}
 	}
 	v := a.NewView(w, r, title)
-	v.Width = "narrow"
+	if d.UI == nil {
+		// A plugin admin app in the frame keeps the wide page: it lays out for the full column.
+		v.Width = "narrow"
+	}
 	if d.Owner {
 		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
 	} else {
