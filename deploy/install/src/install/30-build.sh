@@ -175,9 +175,12 @@ build_pgdg() {
 }
 
 # build_key_fpr FILE prints the primary key fingerprint of an armored key file.
+# apt trusts every key in a signed-by file, so a file with more than one primary
+# key prints "several-keys" instead, which never matches a pin.
 build_key_fpr() {
   gpg --show-keys --with-colons "$1" 2>/dev/null |
-    awk -F: '$1 == "pub" { p = 1; next } p && $1 == "fpr" { print $10; exit }'
+    awk -F: '$1 == "pub" { n++; p = 1; next } p && $1 == "fpr" { if (f == "") f = $10; p = 0 }
+      END { print (n > 1) ? "several-keys" : f }'
 }
 
 # build_caddy ID CODENAME adds the Caddy project's apt repository on Ubuntu 22.04

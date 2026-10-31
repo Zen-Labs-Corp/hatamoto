@@ -43,7 +43,9 @@ case "$(basename "$0")" in
       *) key=pgdg; fpr=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 ;;
     esac
     [ "${FAKE_KEY_BAD:-}" != "$key" ] || fpr=0000000000000000000000000000000000000000
-    printf 'pub:-:4096:1:X:1::-:::scSC::::::23::0:\nfpr:::::::::%s:\nfpr:::::::::SUBKEY:\n' "$fpr" ;;
+    printf 'pub:-:4096:1:X:1::-:::scSC::::::23::0:\nfpr:::::::::%s:\nfpr:::::::::SUBKEY:\n' "$fpr"
+    # a second primary key appended to the file: apt would trust it too
+    [ "${FAKE_KEY_EXTRA:-}" != "$key" ] || printf 'pub:-:4096:1:Y:1::-:::scSC::::::23::0:\nfpr:::::::::%s:\n' "$fpr" ;;
 esac
 exit 0
 FAKE
@@ -204,7 +206,15 @@ pb="$(mkroot pgdgbad ubuntu 24.04 noble)"
 if run_build "$pb" FAKE_KEY_BAD=pgdg >/dev/null 2>"$tmp/err"; then fail "a PostgreSQL key with another fingerprint was accepted"; fi
 grep -q 'PostgreSQL repository key has fingerprint 0000.*expected B97B0AFC' "$tmp/err" || fail "pgdg fingerprint message: $(cat "$tmp/err")"
 [ ! -e "$pb/etc/apt/sources.list.d/pgdg.list" ] && [ ! -e "$pb/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg list or key kept for a bad key"
-pass "PostgreSQL repository key fingerprint pinned"
+pe="$(mkroot pgdgextra ubuntu 24.04 noble)"
+if run_build "$pe" FAKE_KEY_EXTRA=pgdg >/dev/null 2>"$tmp/err"; then fail "a PostgreSQL key file with an extra key was accepted"; fi
+grep -q 'PostgreSQL repository key has fingerprint several-keys' "$tmp/err" || fail "pgdg extra key message: $(cat "$tmp/err")"
+[ ! -e "$pe/etc/apt/sources.list.d/pgdg.list" ] && [ ! -e "$pe/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg list or key kept for an extra key"
+ce="$(mkroot caddyextra ubuntu 22.04 jammy)"
+if run_build "$ce" FAKE_KEY_EXTRA=caddy >/dev/null 2>"$tmp/err"; then fail "a Caddy key file with an extra key was accepted"; fi
+grep -q 'Caddy repository key has fingerprint several-keys' "$tmp/err" || fail "caddy extra key message: $(cat "$tmp/err")"
+[ ! -e "$ce/etc/apt/sources.list.d/caddy-stable.list" ] || fail "caddy list written for an extra key"
+pass "PostgreSQL repository key fingerprint pinned, an extra key is refused"
 
 # --- known codenames are never probed and keep their own suite, even when the archive looks down
 for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
