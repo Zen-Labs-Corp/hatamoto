@@ -311,6 +311,10 @@ func actor(id uuid.UUID) *uuid.UUID {
 	return &id
 }
 
+// CanCopy reports whether e (with its Schema loaded) may be copied to another
+// locale: people, blocks, layout parts and pages shared by every locale may not.
+func CanCopy(e *Entity) bool { return copyable(e) == nil }
+
 // copyable reports whether e may be copied to another locale.
 func copyable(e *Entity) error {
 	if e.Locale == LocaleShared {
