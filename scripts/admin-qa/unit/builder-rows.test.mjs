@@ -283,30 +283,25 @@ test("margins take auto, paddings refuse it; Reset clears only the ring's sides 
   assert.equal(b.btn("Reset padding").hidden, false);
 });
 
-// Disclosure groups: defaults, a dot on a closed header, remembered open state.
-test("groups are disclosure buttons: Layout and Typography open, the rest closed; the choice is remembered", () => {
-  const store = {};
-  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => (store[k] = v) };
-  const tbl = [...boxTable, { key: "pos", kind: "enum", props: ["position"], enum: { static: "static", relative: "relative" } }];
-  try {
-    const m = mount({ id: "n", t: "container", s: { base: { pos: "relative" } } }, { table: tbl });
-    const heads = () => m.find((n) => n.tag === "button" && n.className === "hm-bs-group__t");
-    const by = (name) => heads().find((b) => b.kids[0].textContent === name);
-    assert.equal(by("Spacing"), undefined, "the Essentials box model holds every spacing key");
-    assert.equal(by("Position").attrs["aria-expanded"], "false");
-    const region = m.find((n) => n.attrs.id === by("Position").attrs["aria-controls"])[0];
-    assert.equal(region.hidden, true, "a collapsed region is hidden, not removed");
-    assert.equal(by("Position").kids[1].hidden, false, "the closed header still shows that a key in it is set here");
-    by("Position").fire("click");
-    assert.equal(by("Position").attrs["aria-expanded"], "true");
-    assert.equal(region.hidden, false);
-    assert.deepEqual(JSON.parse(store["hm.builder.style.groups"]), { Position: true });
-    const again = mount({ id: "n", t: "container", s: {} }, { table: tbl });
-    const bg = again.find((n) => n.tag === "button" && n.className === "hm-bs-group__t" && n.kids[0].textContent === "Position")[0];
-    assert.equal(bg.attrs["aria-expanded"], "true", "a rebuilt panel reads the saved state");
-  } finally {
-    delete globalThis.localStorage;
-  }
+// Figma groups: a header button per group, empty ones closed with a dot only when a value is set, open state kept for the session.
+test("groups are disclosure buttons: a group with no value here is closed, one with a value is open; the choice is kept for the session", () => {
+  const tbl = [...boxTable, { key: "pos", kind: "enum", props: ["position"], enum: { static: "static", relative: "relative" } }, { key: "bg", kind: "color", props: ["background-color"], tokens: {}, pattern: "^#[0-9a-fA-F]{6}$" }];
+  const m = mount({ id: "n", t: "text", s: { base: { pos: "relative" } } }, { table: tbl });
+  const heads = () => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t");
+  const by = (name) => heads().find((b) => b.kids[0].textContent === name);
+  assert.equal(by("Effects").attrs["aria-expanded"], "true", "Position (set here) lives in Effects");
+  assert.equal(by("Fill").attrs["aria-expanded"], "false", "nothing set in Fill");
+  const region = m.find((n) => n.attrs.id === by("Fill").attrs["aria-controls"])[0];
+  assert.equal(region.hidden, true, "a collapsed body is hidden, not removed");
+  assert.equal(by("Fill").kids[1].hidden, true, "no dot where nothing is set");
+  assert.equal(by("Effects").kids[1].hidden, false, "the dot shows a key set here");
+  by("Fill").fire("click");
+  assert.equal(by("Fill").attrs["aria-expanded"], "true");
+  assert.equal(region.hidden, false);
+  const again = mount({ id: "n", t: "text", s: {} }, { table: tbl });
+  const fill = again.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t" && n.kids[0].textContent === "Fill")[0];
+  assert.equal(fill.attrs["aria-expanded"], "true", "a rebuilt panel keeps what the user opened");
+  fill.fire("click");
 });
 
 // A length control over the real table entry of key, with the commits it makes.
@@ -436,8 +431,8 @@ test("Clear on a colour with nothing set here commits nothing", () => {
   assert.deepEqual(calls, [null]);
 });
 
-// The Style tab's order: context line first, Essentials, then "More style options" holding every group.
-test("the context line is the first child, Essentials come next, and the groups sit under More style options", () => {
+// The Style tab's order: the context line, then the groups.
+test("the context line is the first child and the groups follow; there is no Essentials block or More style options", () => {
   const m = mount({ id: "h", t: "container", s: {} }, { table: boxTable });
   const root = m.el;
   assert.equal(root.kids[0].attrs.class, "hm-bs-ctx");
@@ -445,15 +440,11 @@ test("the context line is the first child, Essentials come next, and the groups 
   root.kids[0].walk((n) => n.tag === "select" && (select = n));
   assert.equal(select.attrs["aria-label"], "State");
   assert.ok(!root.textContent.includes("Editing"), "the sentence is gone");
-  const kinds = root.kids.map((k) => k.attrs["aria-label"] ?? k.tag);
-  assert.ok(kinds.indexOf("Essentials") > 0 && kinds.indexOf("Essentials") < kinds.indexOf("details"), kinds.join());
-  const more = root.kids.find((k) => k.tag === "details");
-  assert.equal(more.kids[0].textContent, "More style options");
-  const ess = root.kids.find((k) => k.attrs["aria-label"] === "Essentials");
-  const rings = []; ess.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
-  assert.equal(rings.length, 1, "one nested box model in the Essentials");
-  assert.ok(!more.kids.some((k) => k.attrs.role === "group"), "no Spacing group is left under More: its keys are in the box model");
-  assert.equal(root.kids.filter((k) => k.attrs.role === "group" && k.attrs["aria-labelledby"]).length, 0, "no group outside the disclosure");
+  assert.ok(!root.textContent.includes("More style options"));
+  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].textContent);
+  assert.ok(names.includes("Spacing"), names.join());
+  const rings = []; root.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
+  assert.equal(rings.length, 1, "one nested box model, in Spacing");
 });
 
 test("a value that differs from the node's class says Custom value; one that matches it says Set here", () => {
@@ -491,4 +482,15 @@ test("a style write carries a human history label: the control name and the widt
   const tablet = mount({ id: "n", t: "container", s: { md: { pb: "8px" } } }, { bp: "md" });
   tablet.row("Padding bottom").reset.fire("click");
   assert.equal(tablet.calls[0].opts.label, "Change Padding bottom (Tablet)");
+});
+
+test("the real table: a text block shows the six Figma groups, a divider has no Typography, Fill and Corners start closed; Font size scrubs from its label", () => {
+  const names = (m) => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t").map((b) => b.kids[0].textContent);
+  const text = mount({ id: "t", t: "text", s: {} }, { table: full });
+  assert.deepEqual(names(text), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]);
+  assert.ok(!names(mount({ id: "d", t: "divider", s: {} }, { table: full })).includes("Typography"));
+  const head = (name) => text.find((n) => n.className === "hm-bs-grp__t" && n.kids[0].textContent === name)[0];
+  assert.deepEqual(["Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["false", "false", "false"]);
+  const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
+  assert.equal(label.kids.map((k) => k.textContent).join(""), "Sz font size");
 });

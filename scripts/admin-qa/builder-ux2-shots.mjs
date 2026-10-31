@@ -1,6 +1,6 @@
 // Screenshots of the builder canvas and inspector (UX-2): the element toolbar and breadcrumbs, the "+" handles and the
-// layout picker, the zoom control, the device band (Tablet, Phone), the inspector header and Style tab (State, Essentials,
-// Show on, source chips), More style options, the box model, the colour control, the Content tab of a Button, Image, Columns
+// layout picker, the zoom control, the device band (Tablet, Phone), the inspector header and Style tab (State, groups,
+// Show on, source chips), style groups, the box model, the colour control, the Content tab of a Button, Image, Columns
 // and Tabs, the element restore dialog, the link panel on a heading, dark mode and the phone. Scratch pages are made through
 // the Create menu route and deleted.
 // Run: scripts/admin-qa/run-local.sh builder-ux2-shots.mjs   Output: SHOTS_OUT (default results/shots-ux2)
@@ -133,7 +133,7 @@ await shot(p, "06-device-band-phone");
 await p.locator('[data-hm-bs-device="base"]').click();
 await wait(p, 300);
 
-// inspector: header, Class row, Style tab with State, Essentials, Show on and source chips (a padding set on Desktop reads
+// inspector: header, Class row, Style tab with State, groups, Show on and source chips (a padding set on Desktop reads
 // "Inherited from Desktop" on Tablet)
 await pickRow(p, "heading", 1);
 await style(p);
@@ -155,11 +155,8 @@ await shot(p, "08-inspector-style-hover");
 await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("");
 await p.locator('[data-hm-bs-device="base"]').click();
 await wait(p, 400);
-const more = p.locator("[data-hm-bs-panel] details.hm-bs-more-opts");
-if (!(await more.evaluate((e) => e.open))) await more.locator("summary").click();
-await wait(p, 300);
-await scrollInspector(p, "[data-hm-bs-panel] details.hm-bs-more-opts");
-await shot(p, "09-more-style-options");
+await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-grp:last-of-type");
+await shot(p, "09-style-groups");
 await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-bm");
 await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-bm").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
 const sw = p.locator("[data-hm-bs-panel] .hm-bs-swatch").first();

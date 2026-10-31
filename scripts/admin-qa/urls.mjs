@@ -46,9 +46,9 @@ export const screens = [
   { name: "builder-shell", path: "/admin/entities/{page}/edit", mock: null, roles: OE, states: [
     { name: "navigator-focus", click: '[data-hm-bs-tree] [role="treeitem"]' },
     { name: "inspector-style", click: '[role="tab"][data-tab="style"]' },
-    { name: "more-style-options", click: "details.hm-bs-more-opts > summary" }, // UX-2: margin, Typography and the rest sit under More style options
+    { name: "effects-group", click: "section.hm-bs-grp:last-of-type button.hm-bs-grp__t" }, // the last Style group (Effects) opens
     { name: "box-model", click: ".hm-bs-bm__m > .hm-bs-bm__t" }, // the Spacing group's margin and padding rings
-    { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover (Typography is open by default)
+    { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover (Typography opens with a text colour set)
     { name: "palette-open", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" },
     { name: "shortcuts-open", click: "[data-hm-bs-keys]" },
     { name: "navigator-tab", click: '[data-hm-bs-ltab="nav"]' }, // "/" above left the Add tab open and the tree hidden

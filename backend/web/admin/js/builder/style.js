@@ -7,11 +7,11 @@ import { h } from "@hm/builder/dom";
 import { BP_NAME, BPS, NAMES, atLabel, ownValue, inheritedValue, hiddenAt } from "@hm/builder/bp";
 import { showOnWrites } from "@hm/builder/showon";
 import { contextLine, stateChoices } from "@hm/builder/inspctx";
-import { rowState, groupDot, isLength, buildPalette, linkSets } from "@hm/builder/controls";
+import { rowState, groupDot, isLength, buildPalette, linkSets, probe, splitValue, joinValue, stepFor, boundsFor } from "@hm/builder/controls";
 import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
-import { essentialsFor, coveredKeys, ESSENTIAL_NAMES, SPACING } from "@hm/builder/essentials";
+import { figmaGroups, groupHasValue, initialOpen, canScrub, SHORT } from "@hm/builder/inspgroups";
 
 // Labels of the keys added by StyleSpec v2. They live here, in the lazy chunk, so first paint does not carry them;
 // the first-paint inspector reads NAMES[key] ?? key and runs after this chunk has loaded.
@@ -45,7 +45,7 @@ function errorHint(entry) {
   return ERRORS[entry.kind] ?? "Use a suggestion or a valid length.";
 }
 const HINTS = { grad: "linear-180-000-accent", bgimg: "/media/photo.jpg", gtc: "1fr 2fr" };
-const GROUP_HINTS = { Border: "A width shows only once a border style is set." };
+const GROUP_HINTS = { "Corners & border": "A width shows only once a border style is set." };
 // Labels of the options whose value is not readable as it is (the docs name these).
 const OPTION_NAMES = {
   shadow: { none: "None", sm: "Small", md: "Medium", lg: "Large" },
@@ -86,8 +86,7 @@ const GROUPS = [
 ];
 
 /** [{name, entries}] of the table entries that apply to node (inside parent, or null at the top), in display order.
- * In a state (hover, focus, active, parent-hover) only the entries the table flags `states` are listed. `skip` is a set of keys
- * left out (the ones the Essentials already show). */
+ * In a state (hover, focus, active, parent-hover) only the entries the table flags `states` are listed. `skip` is a set of keys left out. */
 export function groupsFor(table, node, parent = null, state = "", skip = new Set()) {
   const by = new Map(table.filter((e) => (!state || e.states) && !skip.has(e.key)).map((e) => [e.key, e]));
   return GROUPS.filter(([, , when]) => when(node, parent))
@@ -133,27 +132,8 @@ export function inheritedAt(node, at, key) {
   return null;
 }
 
-// Groups open on first use; the rest start closed. The choice is remembered per user (the key carries the boot user id, as panes.js does) in the browser.
-const OPEN_BY_DEFAULT = new Set(["Layout", "Spacing", "Typography"]);
-const GROUPS_KEY = "hm.builder.style.groups";
-const readGroups = (user) => {
-  try {
-    const v = JSON.parse(localStorage.getItem(GROUPS_KEY + user));
-    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
-    const out = {};
-    for (const [k, on] of Object.entries(v)) if (typeof on === "boolean" && k.length < 64) out[k] = on;
-    return out;
-  } catch {
-    return {}; // no storage (private mode) or a damaged value: the defaults
-  }
-};
-const writeGroups = (user, v) => {
-  try {
-    localStorage.setItem(GROUPS_KEY + user, JSON.stringify(v));
-  } catch {
-    // the choice then lasts until the panel is rebuilt
-  }
-};
+// Which groups the user opened or closed, kept for the page session (not stored): a group otherwise starts open only when it has a value set here.
+const openGroups = new Map();
 
 let uid = 0;
 let refocus = false; // a State choice remounts the panel: the new State select takes focus back
@@ -175,8 +155,6 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     onState(id);
   };
   const root = h("div", { class: "hm-bs-style" }, contextLine({ device, state, choices: stateChoices(parent), onState: pick }));
-  const essentials = essentialsFor(node, table.filter((e) => !state || e.states)); // [key]: the controls shown before "More style options"
-  const covered = new Set(coveredKeys(essentials));
   const preset = presetOf(node, presets);
   const palette = buildPalette(bootPalette, table); // site colours, spacing and font sizes: token labels and swatches
   const cur = { ...node, s: Object.fromEntries(Object.entries(node.s ?? {}).map(([b, m]) => [b, { ...m }])) }; // follows the commits made here
@@ -222,46 +200,37 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     for (const { entries, dot, vh } of groups) dot.hidden = vh.hidden = !groupDot(entries, (k) => ownValue(cur, bp, k));
     for (const b of boxModels) b.paint();
   }
-  let openGroups = readGroups(user); // {group name: open}
-  const saveGroups = (v) => writeGroups(user, (openGroups = v));
   const visibility = { paint: null, show: null }; // the Show on paint function and the "Show as" field
   const groups = []; // [{entries, dot}] of the group headers
   const boxModels = []; // the Spacing group's box model
-  let position = null; // the Position group: its pos field stays, the offsets after it follow pos
-  if (essentials.length) {
-    const byKey = new Map(table.map((e) => [e.key, e]));
-    const list = essentials.map((k) => (k === "spacing" ? spacingBox(SPACING.map((p) => byKey.get(p)).filter(Boolean)).el : field(byKey.get(k), ESSENTIAL_NAMES[k])));
-    root.append(h("div", { class: "hm-bs-essentials", role: "group", "aria-label": "Essentials" }, ...list));
-  }
-  if (!state && ["hide", "display"].every((k) => table.some((e) => e.key === k))) root.append(showOnRow());
-  // Every other group sits under one disclosure; it opens by itself in a state view, where the list is short.
-  const more = h("details", { class: "hm-bs-more-opts" }, h("summary", { text: "More style options" }));
-  more.open = openGroups["More style options"] ?? !!state;
-  more.addEventListener("toggle", () => saveGroups({ ...openGroups, "More style options": more.open }));
-  root.append(more);
-  for (const g of groupsFor(table, cur, parent, state, covered)) {
+  let position = null; // the Position block: its pos field stays, the offsets after it follow pos
+  for (const g of figmaGroups(groupsFor(table, cur, parent, state), cur)) {
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
     const vh = h("span", { class: "hm-visually-hidden", hidden: true, text: "A value is set here" });
     const gid = `hm-bs-g${++uid}`;
-    const open = openGroups[g.name] ?? OPEN_BY_DEFAULT.has(g.name);
-    const head = h("button", { type: "button", class: "hm-bs-group__t", id: `${gid}-t`, "aria-expanded": String(open), "aria-controls": `${gid}-r` }, h("span", { text: g.name }), dot, vh);
-    const fs = h("div", { class: "hm-bs-group__r", id: `${gid}-r`, hidden: !open }); // collapsed, not removed: the controls keep painting, so a closed header's dot stays right
+    const open = openGroups.get(g.name) ?? initialOpen(g.name, groupHasValue(g.entries, (k) => ownValue(cur, bp, k)), cur);
+    const head = h("button", { type: "button", class: "hm-bs-grp__t", id: `${gid}-t`, "aria-expanded": String(open), "aria-controls": `${gid}-r` }, h("span", { text: g.name }), dot, vh);
+    const body = h("div", { class: "hm-bs-grp__b", id: `${gid}-r`, hidden: !open }); // collapsed, not removed: the controls keep painting, so a closed header's dot stays right
     head.addEventListener("click", () => {
       const now = head.getAttribute("aria-expanded") !== "true";
       head.setAttribute("aria-expanded", String(now));
-      fs.hidden = !now;
-      saveGroups({ ...openGroups, [g.name]: now });
+      body.hidden = !now;
+      openGroups.set(g.name, now);
     });
-    more.append(h("div", { class: "hm-bs-group", role: "group", "aria-labelledby": `${gid}-t` }, head, fs));
+    root.append(h("section", { class: "hm-bs-grp", "aria-labelledby": `${gid}-t` }, h("header", {}, head), body));
     groups.push({ entries: g.entries, dot, vh });
-    if (GROUP_HINTS[g.name]) fs.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
-    const box = linkSets(g.entries.map((e) => e.key)).length ? spacingBox(g.entries) : null;
-    const boxes = [...(box ? [box.el] : []), ...g.entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
-    g.entries.forEach((e, i) => {
-      if (e.key === "display") visibility.show = { entry: e, box: boxes[i] }; // the display group has no box model, so the indices still line up
-    });
-    fs.append(...boxes);
-    if (g.name === "Position") position = { fs, boxes };
+    if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
+    if (g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k))) body.append(showOnRow());
+    for (const sub of g.sub) {
+      const box = linkSets(sub.entries.map((e) => e.key)).length ? spacingBox(sub.entries) : null;
+      const boxes = [...(box ? [box.el] : []), ...sub.entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
+      sub.entries.forEach((e, i) => {
+        if (e.key === "display") visibility.show = { entry: e, box: boxes[i] }; // the display block has no box model, so the indices still line up
+      });
+      const block = h("div", { class: "hm-bs-grp__sub" }, ...(g.sub.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
+      body.append(block);
+      if (sub.name === "Position") position = { fs: block, boxes };
+    }
   }
   paintGroups();
   if (refocus) {
@@ -432,6 +401,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       id,
       name,
       label,
+      scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply) : undefined,
       body: [el, stops?.el, datalist],
       status,
       note,
@@ -448,4 +418,19 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     paint();
     return box;
   }
+}
+
+/** What dragging a length label does: starts from the value shown (set, inherited or from the class), writes in that value's unit (px when none). */
+function scrubOf(entry, shown, apply) {
+  const p = probe(entry);
+  const unitOf = () => {
+    const s = splitValue(entry, shown());
+    return s.kind === "num" && s.num !== "" ? s.unit : p.units.includes("px") ? "px" : (p.units[0] ?? "");
+  };
+  const start = () => {
+    const s = splitValue(entry, shown());
+    return s.kind === "num" && s.num !== "" ? Number(s.num) : 0;
+  };
+  const unit = unitOf();
+  return { short: SHORT[entry.key], get: start, apply: (n, opts) => apply(joinValue({ kind: "num", num: String(n), unit: unitOf() }), opts), step: stepFor(entry, unit), bounds: boundsFor(entry.key, entry, unit) };
 }

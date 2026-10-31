@@ -367,7 +367,7 @@ await check("builder palette: / opens search, filter narrows, ArrowDown enters t
   if ((await rows()).length !== start + 1) throw new Error("Enter inserted nothing");
   if (!(await focusedRow())) throw new Error("focus did not return to the tree after the insert");
   await press("a");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter");
   if ((await rows()).length !== start + 2) throw new Error("Enter on a list item inserted nothing");
   await press("Control+z", 2);
@@ -530,13 +530,13 @@ await check("builder history: Ctrl+H opens the panel with the current step focus
 });
 
 // ---- builder Style tab controls (E3): colour popover, number + unit + slider, box model ----
-// Each check adds a divider widget, edits it and undoes everything, so the page is left as it was.
+// Each check adds a heading widget, edits it and undoes everything, so the page is left as it was.
 const styleOn = async () => {
   await openBuilder();
   const start = (await rows()).length;
   await pick((await rows())[0].id);
   await press("/");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
   return start;
@@ -546,16 +546,14 @@ const styleOff = async (start) => {
   for (let i = 0; i < 40 && (await rows()).length > start; i++) await press("Control+z");
 };
 const openStyleGroup = async (name) => {
-  const more = p.locator("details.hm-bs-more-opts").first(); // every group sits under "More style options"
-  if (!(await more.evaluate((d) => d.open))) { await more.locator("summary").click(); await settle(100); }
-  const head = p.locator("button.hm-bs-group__t", { hasText: new RegExp(`^${name}`) }).first();
+  const head = p.locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
   if ((await head.getAttribute("aria-expanded")) !== "true") { await head.click(); await settle(100); }
 };
 const inPanel = () => p.evaluate(() => !!document.activeElement?.closest(".hm-popover-panel"));
 await check("builder colour popover: opens from the swatch, Tab and Shift+Tab wrap inside it, Esc returns focus to the swatch", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Typography"); // Text colour is under "More style options" for a divider
+    await openStyleGroup("Typography"); // Text colour is in Typography
     const swatch = p.locator('button.hm-bs-swatch[aria-label^="Text colour"]');
     const name = await swatch.getAttribute("aria-label");
     if (!/^Text colour, /.test(name)) throw new Error("swatch name " + name);
@@ -575,7 +573,7 @@ await check("builder colour popover: opens from the swatch, Tab and Shift+Tab wr
 await check("builder colour popover: choosing a site colour commits its token, Clear unsets it, one undo each", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Typography"); // Text colour is under "More style options" for a divider
+    await openStyleGroup("Typography"); // Text colour is in Typography
     const swatch = p.locator('button.hm-bs-swatch[aria-label^="Text colour"]');
     await swatch.click(); await settle(200);
     await p.locator(".hm-popover-panel:popover-open .hm-bs-copt", { hasText: "accent" }).click(); await settle(300);
@@ -616,9 +614,9 @@ await check("builder number + unit + slider: Move Y is the number field alone, a
 await check("builder slider: one drag is one undo step, even with a pause in the middle", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Size");
+    await openStyleGroup("Layout");
     const slider = p.getByLabel("Width slider", { exact: true });
-    await slider.scrollIntoViewIfNeeded(); // opening the groups can leave the Essentials row scrolled under the top bar
+    await slider.scrollIntoViewIfNeeded(); // opening the groups can leave the Layout group scrolled under the top bar
     const box = await slider.boundingBox();
     if (!box) throw new Error("no Width slider");
     const y = box.y + box.height / 2;
@@ -639,7 +637,7 @@ await check("builder slider: one drag is one undo step, even with a pause in the
 await check("builder box model: tab order is margin then padding (one nested box model), top right bottom left; Link writes all four sides in one undo step", async () => {
   const start = await styleOn();
   try {
-    const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Essentials box model: padding sits inside margin, and the margin sides come first in the DOM
+    const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Spacing box model: padding sits inside margin, and the margin sides come first in the DOM
     await p.locator(".hm-bs-bm__m > .hm-bs-bm__n--top").focus();
     const seen = ["Margin top"];
     if ((await p.locator(".hm-bs-bm--nested").count()) !== 1) throw new Error("the Style tab does not show exactly one nested box model");

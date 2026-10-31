@@ -478,8 +478,7 @@ T.T4 = {
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
     await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("hover");
-    await openMore(p);
-    const effects = p.locator("[data-hm-bs-panel] .hm-bs-group__t", { hasText: "Effects" });
+    const effects = p.locator("[data-hm-bs-panel] .hm-bs-grp__t", { hasText: "Effects" });
     if ((await effects.getAttribute("aria-expanded")) === "false") await a.click(effects); // open already in some states
     await a.select(p.locator("[data-hm-bs-panel]").getByLabel("Shadow", { exact: true }), { label: "Large" });
     await a.click(p.getByRole("button", { name: "Save as class…" }));
@@ -499,10 +498,9 @@ T.T4 = {
     await a.press("Enter");
     await a.tabTo(() => document.activeElement?.getAttribute("role") === "tab", null, 20, "Shift+Tab");
     await a.press("ArrowRight"); // Style
-    await a.tabTo(() => document.activeElement?.dataset?.state === "");
-    await a.press("ArrowRight"); // Hover
-    await openMore(p);
-    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-group__t") && /Effects/.test(document.activeElement.textContent));
+    await a.tabTo(() => document.activeElement?.getAttribute("aria-label") === "State");
+    await a.press("ArrowDown"); // Hover
+    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-grp__t") && /Effects/.test(document.activeElement.textContent));
     if ((await p.evaluate(() => document.activeElement.getAttribute("aria-expanded"))) === "false") await a.press("Enter");
     await a.tabTo(selectNamed, "Shadow");
     await a.press("ArrowDown"); // Large
@@ -533,11 +531,6 @@ const selectNamed = (name) => {
   const e = document.activeElement;
   return e?.tagName === "SELECT" && (e.labels?.[0]?.textContent ?? document.getElementById(e.getAttribute("aria-labelledby") ?? "")?.textContent ?? "").trim() === name;
 };
-// More style options opens by itself in a state other than Normal; open it when it is not.
-async function openMore(p) {
-  const d = p.locator("[data-hm-bs-panel] details.hm-bs-more-opts");
-  if (!(await d.evaluate((e) => e.open))) await d.locator("summary").click();
-}
 async function dropClass(p, name) {
   await p.goto(`${base}${admin}/theme/presets`);
   await p.evaluate(async ([a, n]) => {
@@ -1548,7 +1541,7 @@ await check("axe: builder with a selection", async () => {
   await settle(ax, 500);
   return axeOn(ax, "builder with a selection");
 });
-await check("axe: Style tab (State, Essentials, source chips, Show on, box model)", async () => {
+await check("axe: Style tab (State, groups, source chips, Show on, box model)", async () => {
   await ax.getByRole("tab", { name: "Style" }).click();
   await settle(ax, 300);
   try { return await axeOn(ax, "Style tab"); } finally { await ax.getByRole("tab", { name: "Content" }).click(); }
@@ -1621,7 +1614,6 @@ await check("shell-dark: dark theme reads (axe colour contrast on the shell, the
   await device(d, "md").click();
   // the Style tab in dark: State switch (pressed option), source chips, Show on switches, box-model link toggles
   await d.getByRole("tab", { name: "Style" }).click();
-  await d.locator("details.hm-bs-more-opts > summary").click();
   await settle(d, 300);
   const rs = await axeOn(d, "dark mode style tab");
   await d.keyboard.press("Control+k");

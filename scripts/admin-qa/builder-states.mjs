@@ -38,11 +38,9 @@ async function open() {
   await p.waitForSelector(TREE, { timeout: 10000 });
   await settle(500);
 }
-// Style groups are disclosure buttons; Transform and Transition start closed.
+// Style groups are disclosure buttons; a group with no value set here starts closed.
 async function openGroup(name) {
-  const more = p.locator("details.hm-bs-more-opts").first(); // every group sits under "More style options"
-  if (!(await more.evaluate((d) => d.open))) { await more.locator("summary").click(); await settle(100); }
-  const head = p.locator("button.hm-bs-group__t", { hasText: new RegExp(`^${name}`) }).first();
+  const head = p.locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
   if ((await head.getAttribute("aria-expanded")) !== "true") { await head.click(); await settle(100); }
 }
 async function selectCardAndStyle() {
@@ -149,8 +147,9 @@ await check("selection change and tab change clear the State and the force", asy
 
 await check("source chips: Set here, then Inherited from Desktop on Tablet; Reset returns to it", async () => {
   await selectCardAndStyle();
-  const row = () => p.locator(".hm-bs-essentials .hm-bs-field").filter({ has: p.getByLabel("Corners", { exact: true }) });
+  const row = () => p.locator(".hm-bs-grp .hm-bs-field").filter({ has: p.getByLabel("Corners", { exact: true }) });
   const chip = async () => ((await row().locator(".hm-bs-src").textContent()) ?? "").trim();
+  await openGroup("Corners & border");
   const corners = p.getByLabel("Corners", { exact: true });
   await corners.fill("8"); await corners.press("Enter"); await settle(300);
   if ((await chip()) !== "Set here") throw new Error(`on Desktop the chip says "${await chip()}"`);
@@ -184,7 +183,7 @@ await check("Show on: a phone-only element takes two switches and one switch nev
 
 await check("reduced motion: the transition runs without it and is dropped with it", async () => {
   await selectCardAndStyle();
-  await openGroup("Transition");
+  await openGroup("Effects");
   await p.getByLabel("Transition", { exact: true }).first().selectOption({ label: "Transform and shadow" }); await settle(500);
   const duration = async () => (await canvas()).evaluate(() => {
     return [...document.querySelectorAll("[data-hm-node]")].filter((x) => [...x.classList].some((c) => c.startsWith("hm-n-"))).map((x) => getComputedStyle(x).transitionDuration).find((d) => d !== "0s") ?? "0s";
@@ -231,7 +230,7 @@ await check("preset applied with the keyboard: focus stays on the preset select,
 
 await check("axe: Style tab with the State switch has no violations", async () => {
   await selectCardAndStyle();
-  for (const g of ["Size", "Position", "Background", "Border", "Effects", "Transform", "Filter", "Transition"]) await openGroup(g); // every control kind on screen
+  for (const g of ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]) await openGroup(g); // every control kind on screen
   await p.evaluate(axe); // evaluate is not subject to the page CSP, addScriptTag is
   const v = await p.evaluate((tags) => axe.run(document.querySelector("[data-hm-bs-panel]") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
   if (v.length) throw new Error(v.join(", "));
