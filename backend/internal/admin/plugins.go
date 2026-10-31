@@ -265,14 +265,14 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	d.Tabs = a.pluginsTabs(d, counts)
 	if d.CanInstall {
 		d.Actions = []ui.Button{
-			{Label: "Browse plugins", Href: d.BrowseHref, Variant: "primary", Icon: "search"},
 			{Label: "Upload", Href: a.adminPath + "/plugins/upload", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+			{Label: "Browse plugins", Href: d.BrowseHref, Variant: "primary", Icon: "search"},
 		}
 		check := ui.Action{Label: "Check for updates", Post: a.adminPath + "/plugins/check-updates"}
 		if !checked.IsZero() {
 			check.Hint = "Last checked " + agoText(pluginsNow().Sub(checked))
 		}
-		d.EmptyActions = d.Actions[:1]
+		d.EmptyActions = d.Actions[1:]
 		d.Overflow = append(d.Overflow, check)
 		if a.deps.AuditLog != nil {
 			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Hint: "Installs, updates, permission changes", Href: a.adminPath + auditRel})
