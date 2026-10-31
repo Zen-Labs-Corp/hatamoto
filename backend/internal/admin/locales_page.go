@@ -228,21 +228,25 @@ func (a *Admin) renderLocaleNew(w http.ResponseWriter, r *http.Request, status i
 	a.Render(w, r, status, "settings/locale-new", v)
 }
 
-// localeErrorField names the form field a locale validation message is about.
-func localeErrorField(msg string) string {
-	switch {
-	case strings.Contains(msg, "segment"):
-		return "segment"
-	case strings.Contains(msg, "longer than"):
-		return "name"
+// localeFormErrs places the errors saveLocales reports on the fields of the
+// add and edit forms. A rejected list is about the address prefix, the only
+// part of an entry the validator can refuse; a rejected search engine default
+// goes to xdefaultField, the field the owner changed to cause it.
+func localeFormErrs(errs map[string]string, xdefaultField string) map[string]string {
+	out := map[string]string{}
+	if m := errs["locales"]; m != "" {
+		out["segment"] = m
 	}
-	return "tag"
+	if m := errs["xdefault"]; m != "" {
+		out[xdefaultField] = m
+	}
+	return out
 }
 
 // localeSummary lists the errors of f the way the form shows them.
 func localeSummary(errs map[string]string) []ui.FieldError {
 	var out []ui.FieldError
-	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Name shown to visitors"}} {
+	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Name shown to visitors"}, {"public", "Public"}} {
 		if m := errs[k.key]; m != "" {
 			out = append(out, ui.FieldError{ID: "locale-" + k.key, Label: k.label, Message: m})
 		}
@@ -293,8 +297,8 @@ func (a *Admin) handleLocaleAdd(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locale could not be added.")
 		return
 	}
-	if msg := errs["locales"] + errs["xdefault"]; msg != "" {
-		fail(map[string]string{localeErrorField(msg): msg})
+	if len(errs) > 0 {
+		fail(localeFormErrs(errs, "tag"))
 		return
 	}
 	a.SetFlash(w, r, "success", "Added "+localeDisplayName(tag)+".")
@@ -426,9 +430,15 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locale could not be saved.")
 		return
 	}
-	if msg := errs["locales"] + errs["xdefault"]; msg != "" {
+	if len(errs) > 0 {
+		if !r.PostForm.Has("segment") && !r.PostForm.Has("name") {
+			// A row menu action: there is no form to show the message on.
+			a.SetFlash(w, r, "error", "Not saved: "+errs["locales"]+errs["xdefault"])
+			http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
+			return
+		}
 		f := a.editLocaleForm(cfg, *e)
-		f.Errs = map[string]string{localeErrorField(msg): msg}
+		f.Errs = localeFormErrs(errs, "public")
 		f.Summary = localeSummary(f.Errs)
 		a.renderLocaleEdit(w, r, http.StatusUnprocessableEntity, f)
 		return

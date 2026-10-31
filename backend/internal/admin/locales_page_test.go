@@ -158,8 +158,8 @@ func TestLocaleUpdateKeepsOthers(t *testing.T) {
 	if l := site.cfg.Locales[1]; l.Hidden || l.Name != "Francais" || l.Segment != "fr" {
 		t.Errorf("fr = %+v", l)
 	}
-	if c := postForm(g, "/update/en", "public", "false"); c != 422 || site.cfg.Locales[0].Hidden {
-		t.Errorf("hiding the default: code=%d %+v", c, site.cfg.Locales[0])
+	if c := postForm(g, "/update/en", "public", "false"); c != 303 || site.cfg.Locales[0].Hidden || g.flushed != 1 {
+		t.Errorf("hiding the default: code=%d %+v flushed=%d", c, site.cfg.Locales[0], g.flushed)
 	}
 	if c := postForm(g, "/update/xx", "public", "true"); c != 404 {
 		t.Errorf("unknown tag code = %d", c)
@@ -310,5 +310,47 @@ func TestLocaleRowMenuOffersRemoveOnlyOffTheDefault(t *testing.T) {
 	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
 	if strings.Count(body, "/admin/settings/locales/remove/") == 0 || strings.Contains(body, "/admin/settings/locales/remove/en") {
 		t.Error("Remove is missing on fr or offered on the default locale")
+	}
+}
+
+func TestLocaleHidingTheXDefaultIsReportedWhereTheOwnerActed(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales[1].Hidden = false
+	site.cfg.XDefaultLocale = "fr"
+	g.a.deps.ValidateLocales = func(_ context.Context, _ string, e []siteconfig.LocaleEntry, _ bool, x string) ([]siteconfig.LocaleEntry, string, error) {
+		for _, l := range e {
+			if l.Hidden && l.Tag == x {
+				return nil, "", fieldErr{"x_default_locale", "x-default locale is hidden"}
+			}
+		}
+		return e, x, nil
+	}
+	// From the row menu: back to the list with the error as a flash.
+	rec := g.do("POST", "/admin/settings/locales/update/fr", "owner-token", url.Values{"public": {"false"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/locales" || !strings.Contains(strings.Join(rec.Header().Values("Set-Cookie"), ";"), "flash") {
+		t.Errorf("row action: code=%d location=%q", rec.Code, rec.Header().Get("Location"))
+	}
+	// From the edit page: the message sits on the Public switch and the summary links to it.
+	rec = g.do("POST", "/admin/settings/locales/update/fr", "owner-token", url.Values{"segment": {"fr"}, "name": {""}, "public": {"false"}}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || strings.Count(body, "x-default locale is hidden") < 2 || !strings.Contains(body, `href="#locale-public"`) {
+		t.Errorf("edit page: code=%d, message not on the Public switch", rec.Code)
+	}
+	if site.cfg.Locales[1].Hidden {
+		t.Error("a refused save hid the locale")
+	}
+}
+
+func TestLocaleAddShowsAReservedSegmentOnThePrefixField(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
+		return nil, "", fieldErr{"locales", "url segment admin is a route of its own"}
+	}
+	rec := g.do("POST", "/admin/settings/locales/add", "owner-token", url.Values{"tag": {"nl-NL"}, "segment": {"admin"}, "public": {"true"}}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, `href="#locale-segment"`) || strings.Count(body, "a route of its own") < 2 || len(site.cfg.Locales) != 2 {
+		t.Errorf("code=%d: the message is not on the Address prefix field", rec.Code)
 	}
 }
