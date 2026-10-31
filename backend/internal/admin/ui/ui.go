@@ -169,6 +169,16 @@ type BulkAction struct {
 	// number of checked rows). Without JavaScript the button posts and the
 	// handler answers with a confirmation page.
 	Confirm string
+	// Select adds a choice that posts with the button (the button first, then
+	// the select), for one action with a target such as a language.
+	Select *BulkSelect
+}
+
+// BulkSelect is the select beside a bulk button. Label names it for screen
+// readers; the chosen option posts as Name.
+type BulkSelect struct {
+	Name, Label string
+	Options     []Option
 }
 
 // Table is the hm/table partial. State lives in the URL (?q=&sort=&dir=&page=)
