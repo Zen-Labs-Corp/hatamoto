@@ -59,9 +59,12 @@ WITH u AS (
     WHERE agent_id = $1 AND ip IS NOT DISTINCT FROM $2::inet AND verification = 'pending' AND NOT ip_truncated
       AND occurred_at > now() - interval '` + verifyWindow + `'
       AND ($4::timestamptz IS NULL OR occurred_at < $4::timestamptz)
-    RETURNING (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status
+    RETURNING (occurred_at AT TIME ZONE 'UTC')::date AS day, path, COALESCE(status, 0) AS status,
+              occurred_at AS at, entity_id, purpose, status AS raw_status
 ), c AS (
     SELECT day, path, status, count(*) AS n FROM u GROUP BY 1, 2, 3
+), s AS (` + searchFirstCrawlFromFlipped + `
+    RETURNING 1
 ), d AS (
     UPDATE hatamoto_agent_daily d
     SET verified_hits     = d.verified_hits     + CASE WHEN $3::text = 'verified'     THEN c.n ELSE 0 END,

@@ -80,7 +80,8 @@ func NewAttributionBackfill(db *database.DB, resolve ResolveFunc, retention time
 }
 
 // Run attributes every unattributed page path it can resolve and returns the
-// number of daily rows updated.
+// number of daily rows updated. It ends by seeding the search first crawl
+// table from the verified hits that carry a page.
 func (b *AttributionBackfill) Run(ctx context.Context) (int64, error) {
 	var total int64
 	last := ""
@@ -90,6 +91,10 @@ func (b *AttributionBackfill) Run(ctx context.Context) (int64, error) {
 			return total, err
 		}
 		if len(paths) == 0 {
+			// Attributed hits may now qualify as a first crawl.
+			if _, err := SeedSearchFirstCrawl(ctx, b.db); err != nil {
+				return total, err
+			}
 			return total, nil
 		}
 		last = paths[len(paths)-1]
