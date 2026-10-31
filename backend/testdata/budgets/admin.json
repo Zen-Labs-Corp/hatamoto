@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 54081,
+      "value": 54864,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 101176,
+      "value": 101310,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 101293
+      "cap": 101427
     },
     "editor_js_total_gzip": {
-      "value": 268677,
+      "value": 270267,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 269701
+      "cap": 271291
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-ux-canvas-inspector: colour control recents/None, content order, Use data toggle (lazy chunks)",
-      "date": "2026-10-26"
-    },
     {
       "reason": "builder-ux-canvas-inspector: columns ops and items panel (lazy chunks)",
       "date": "2026-10-26"
@@ -118,6 +114,10 @@
     },
     {
       "reason": "builder inspector redesign: header, context line, groups, box model, swatches, scrub: editor_js_total_gzip 262338 -\u003e 268677, editor_js_first_gzip 101122 -\u003e 101176, admin_css_gzip 53482 -\u003e 54081, measured",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder inspector visual pass: compact Style tab, box model size centre, Typography-first order",
       "date": "2026-10-31"
     }
   ]
