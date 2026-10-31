@@ -200,3 +200,16 @@ func TestGroupNav(t *testing.T) {
 		t.Errorf("hidden group still listed: %q", got)
 	}
 }
+
+func TestAnalyticsSubNavOrder(t *testing.T) {
+	t.Parallel()
+
+	var got []string
+	for _, s := range analyticsArea.forPrefix("/admin", "owner") {
+		got = append(got, s.ID)
+	}
+	want := []string{"ai-overview", "ai-content", "ai-crawlers", "ai-google", "ai-referrals", "ai-health"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("analytics sub-nav = %v, want %v", got, want)
+	}
+}

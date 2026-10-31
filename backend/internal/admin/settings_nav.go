@@ -50,7 +50,7 @@ var settingsLive = map[string]bool{
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
-	"ai-overview": true, "ai-crawlers": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
+	"ai-overview": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
 	"seo-general": true, "seo-titles": true,
 }
