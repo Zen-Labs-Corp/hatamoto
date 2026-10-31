@@ -277,7 +277,7 @@ func (a *Admin) handleThemeAbout(w http.ResponseWriter, r *http.Request) {
 		d.Primary = &detailPrimary{Href: a.themeURL(e.Name, "activate"), Label: "Activate…"}
 	}
 	if demo := httpURL(e.Homepage); demo != "" {
-		d.Actions = append([]ui.Button{{Label: "Preview demo", Href: demo, Icon: "external", Attrs: map[string]string{"target": "_blank", "rel": "noopener noreferrer"}}}, d.Actions...)
+		d.Actions = append([]ui.Button{{Label: "Preview demo ↗", AriaLabel: "Preview demo (opens in a new tab)", Href: demo, Attrs: map[string]string{"target": "_blank", "rel": "noopener noreferrer"}}}, d.Actions...)
 	}
 	v := a.NewView(w, r, d.Title)
 	v.Section, v.Tab = "themes", "themes"

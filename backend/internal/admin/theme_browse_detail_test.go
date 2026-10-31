@@ -55,7 +55,7 @@ func TestThemeBrowseDetailInstall(t *testing.T) {
 		"Installing adds the theme to your Themes list. Your site does not change until you activate it.",
 		`action="/admin/theme/themes/fetch"`, `name="name" value="fresh"`, ">Install<",
 		"<dt>Site type</dt><dd>Docs</dd>", "Dark mode, Works without JavaScript, Visual builder", "2 KB", "abc1234",
-		`href="https://demo.example.test/fresh"`, "Preview demo"} {
+		`href="https://demo.example.test/fresh"`, ">Preview demo ↗<", `aria-label="Preview demo (opens in a new tab)"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -176,7 +176,7 @@ func TestThemeBrowseDetailFragment(t *testing.T) {
 		t.Error("the no-JS page keeps its actions in the page header")
 	}
 	i := strings.Index(frag, "data-hm-panel-actions")
-	if i < 0 || strings.Index(frag, "hm-pageheader") > i || strings.Count(frag, "Preview demo") != 1 || strings.Count(frag, `action="/admin/theme/themes/fetch"`) != 1 {
+	if i < 0 || strings.Index(frag, "hm-pageheader") > i || strings.Count(frag, ">Preview demo ↗<") != 1 || strings.Count(frag, `action="/admin/theme/themes/fetch"`) != 1 {
 		t.Error("the panel renders its actions once, in the block the footer takes")
 	}
 	if !strings.Contains(frag[i:], "Preview demo") || !strings.Contains(frag[i:], ">Install<") {
