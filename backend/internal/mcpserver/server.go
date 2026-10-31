@@ -58,6 +58,7 @@ type Deps struct {
 	Crawlers       *agents.StatsRepository
 	Referrals      *analytics.Reader
 	Traffic        trafficReader
+	Conversions    conversionsReader
 	Audit          Auditor
 	Logger         *slog.Logger
 

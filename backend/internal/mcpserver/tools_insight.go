@@ -163,6 +163,21 @@ func (s *Server) registerInsight() {
 			return trafficSummary(ctx, s.d.Traffic, rg, in.By, clampLimit(in.Limit, 20))
 		})
 
+	type conversionsIn struct {
+		rangeIn
+		Touch string `json:"touch,omitempty" jsonschema:"first (default) or last touch of the visitor's tab"`
+		By    string `json:"by,omitempty" jsonschema:"grouping: channel (default), source, campaign, page or form"`
+		Limit int    `json:"limit,omitempty" jsonschema:"rows (default 20, max 100)"`
+	}
+	register(s, toolSpec{name: "analytics_conversions", description: "Form submissions (leads) over a date range, grouped by channel, source, campaign, landing page or form, by the first or last touch of the submitter's tab. Counts only: no submitter emails, field values, IP or user agent. Spam is not counted; submissions stored before attribution was recorded count as channel unknown.", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in conversionsIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			return conversionsSummary(ctx, s.d.Conversions, rg, in.Touch, in.By, clampLimit(in.Limit, 20))
+		})
+
 	register(s, toolSpec{name: "analytics_crawler_verification", description: "How well AI-crawler IP verification works over a date range: verified, spoofed and unverifiable fetches from agents that publish IP ranges, the spoofed share, distinct spoofed addresses, and the header client IPs are read from. level is ok, bad (misconfigured proxy or CDN) or unknown (too few fetches to judge).", scope: reportScope, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
@@ -443,4 +458,70 @@ func trafficSummary(ctx context.Context, r trafficReader, rg agents.Range, by st
 		rows = append(rows, row{Key: t.K1, Detail: t.K2, Visits: t.Visits, Pageviews: t.Pageviews, EngagedPct: pct})
 	}
 	return object{"by": by, "from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout), "rows": rows}, nil
+}
+
+// conversionsReader is the part of analytics.Reader the analytics_conversions
+// tool reads. It has no method that returns a submitter's email.
+type conversionsReader interface {
+	LeadsTop(ctx context.Context, dim analytics.Dim, touch analytics.TouchKind, from, to time.Time, limit int) ([]analytics.LeadRow, error)
+	LeadsTotals(ctx context.Context, touch analytics.TouchKind, from, to time.Time) (total, unknown int64, err error)
+	LeadsByForm(ctx context.Context, from, to time.Time, limit int) ([]analytics.LeadForm, error)
+}
+
+// conversionDims maps the tool's "by" values to lead dimensions.
+var conversionDims = map[string]analytics.Dim{
+	"channel":  analytics.DimChannel,
+	"source":   analytics.DimSource,
+	"campaign": analytics.DimCampaign,
+	"page":     analytics.DimLanding,
+}
+
+// conversionsSummary builds the analytics_conversions result.
+func conversionsSummary(ctx context.Context, r conversionsReader, rg agents.Range, touch, by string, limit int) (object, error) {
+	if touch == "" {
+		touch = string(analytics.TouchFirst)
+	}
+	if touch != string(analytics.TouchFirst) && touch != string(analytics.TouchLast) {
+		return nil, userErr("touch must be first or last")
+	}
+	if by == "" {
+		by = "channel"
+	}
+	tk := analytics.ParseTouch(touch)
+	type row struct {
+		Key    string `json:"key"`
+		Detail string `json:"detail,omitempty"`
+		Leads  int64  `json:"leads"`
+	}
+	var rows []row
+	if by == "form" {
+		forms, err := r.LeadsByForm(ctx, rg.From, rg.To, limit)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range forms {
+			rows = append(rows, row{Key: f.Name, Leads: f.Leads})
+		}
+	} else {
+		dim, ok := conversionDims[by]
+		if !ok {
+			return nil, userErr("by must be channel, source, campaign, page or form")
+		}
+		top, err := r.LeadsTop(ctx, dim, tk, rg.From, rg.To, limit)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range top {
+			rows = append(rows, row{Key: t.K1, Detail: t.K2, Leads: t.Leads})
+		}
+	}
+	if rows == nil {
+		rows = []row{}
+	}
+	total, unknown, err := r.LeadsTotals(ctx, tk, rg.From, rg.To)
+	if err != nil {
+		return nil, err
+	}
+	return object{"touch": touch, "by": by, "from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout),
+		"total_leads": total, "unattributed_leads": unknown, "rows": rows}, nil
 }
