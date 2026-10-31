@@ -20,16 +20,6 @@
 {{else if .Update}}<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" (printf "Update to %s" .Update) "Variant" "primary" "Type" "submit"}}</form>
 {{end}}{{template "hm/card-foot-end"}}
 {{end}}</div>
-{{template "hm/card-start" dict "ID" "registry" "Title" "Available themes" "Description" "From the registry. Installing a theme does not change your site; activate it when you are ready."}}
-{{if .RegistryOff}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "No registry is set up")}}Set <code>HATAMOTO_REGISTRY_URL</code> to browse packages. You can still upload a package.{{template "hm/callout-end"}}
-{{else if .RegistryErr}}<div class="hm-empty"><p><strong>No registry is available right now.</strong></p>
-<p class="hm-muted">Hatamoto could not load the theme list from {{or .RegistryHost "the registry"}}. You can still upload a signed .hmp.</p>
-<div class="hm-row">{{template "hm/button" dict "Label" "Upload .hmp" "Href" (adminPath "plugins" "upload") "Attrs" (attrmap "data-hm-open" "upload-pkg")}}</div>
-<details><summary>Details</summary><code>{{.RegistryErr}}</code></details></div>
-{{else if not .Available}}<p class="hm-muted">Every theme in the registry is installed and up to date.</p>{{end}}
-{{range .Available}}{{if not .Installed}}<div class="hm-pkg"><div><strong><code>{{.Name}}</code></strong> <span class="hm-muted">v{{.Version}}</span>{{if .Description}}<p class="hm-muted">{{.Description}}</p>{{end}}</div>
-<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" "Install" "Type" "submit"}}</form></div>{{end}}{{end}}
-{{template "hm/card-end"}}
 {{template "hm/dialog-start" dict "ID" "upload-pkg" "Title" "Upload theme" "Static" true}}
 <form id="upload-pkg-form" method="post" action="{{adminPath}}/plugins/upload" enctype="multipart/form-data" class="hm-stack">{{template "hm/csrf" $}}
 <p class="hm-muted">A <code>.hmp</code> theme file.{{if not .AllowUnsigned}} Unsigned themes are refused unless an owner allows them.{{else}} Unsigned packages are currently allowed.{{end}}</p>

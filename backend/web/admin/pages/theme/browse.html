@@ -1,0 +1,30 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Browse themes" "Description" (or (and .Host (printf "From %s. Signed index%s." .Host (and .Refreshed (printf ", refreshed %s" .Refreshed)))) "Themes from the registry. Installing a theme does not change your site; activate it when you are ready.")}}
+{{if .Off}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "No registry is set up")}}Set <code>HATAMOTO_REGISTRY_URL</code> to browse themes. You can still upload a theme from the Themes page.{{template "hm/callout-end"}}
+{{else if .Err}}{{template "hm/empty" dict "Icon" "palette" "Title" "The registry is not reachable right now" "Body" (printf "Hatamoto could not load the theme list from %s. Installed themes keep working." (or .Host "the registry"))}}
+<form method="post" action="{{adminPath}}/plugins/check-updates" class="hm-row hm-pluginbrowse__retry">{{template "hm/csrf" $}}<input type="hidden" name="return" value="{{.RefreshReturn}}">{{template "hm/button" dict "Label" "Try again" "Type" "submit"}}</form>
+<details class="hm-disclosure"><summary>Details</summary><div class="hm-disclosure__body"><code>{{.Err}}</code></div></details>
+{{else}}{{with .Toolbar}}{{template "hm/filterbar" (dict "ID" "browse" "BaseURL" .BaseURL "Target" "browse-results" "Live" true "Bare" true "ChipsOutside" true "Segmented" .Segmented "PopoverFilters" .PopoverFilters "PrimaryFilters" .PrimaryFilters "SearchLabel" "Search themes" "Query" $.Data.Query.Q "FilterCount" .FilterCount "Chips" .Chips "ClearHref" .ClearHref)}}{{end}}
+<p id="browse-status" class="hm-visually-hidden" role="status">{{template "browse-theme-total" .}}</p>
+<div id="browse-results" class="hm-pluginbrowse__results">
+<div class="hm-pluginbrowse__meta"><p class="hm-muted">{{template "browse-theme-total" .}}</p>
+{{template "hm/filterchips" .Toolbar}}</div>
+{{with .Toolbar}}{{if .InstalledTotal}}<p class="hm-muted hm-pluginbrowse__installed">{{if $.Data.HideInstalled}}{{.InstalledHidden}} installed hidden · <a href="{{.ShowInstalledHref}}">Show installed</a>{{else}}<a href="{{.HideInstalledHref}}">Hide installed</a>{{end}}</p>{{end}}{{end}}
+{{if .Featured}}<section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
+<ul class="hm-themecards" role="list">{{range .Featured}}{{template "browse-theme-card" .}}{{end}}</ul>
+</section><h2 class="hm-pluginbrowse__heading">All themes</h2>{{end}}
+{{if .Cards}}<ul class="hm-themecards" role="list">{{range .Cards}}{{template "browse-theme-card" .}}{{end}}</ul>
+{{template "hm/pagination" .Pager}}
+{{else if .Filtered}}{{template "hm/empty" dict "Icon" "search" "Title" "No themes match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}
+{{else if .Toolbar.InstalledHidden}}{{template "hm/empty" dict "Icon" "palette" "Title" "All themes are installed" "Body" "Every theme in the registry is already on this site." "Actions" .Toolbar.ShowInstalledActions}}
+{{else}}{{template "hm/empty" dict "Icon" "palette" "Title" "The registry has no themes yet" "Body" "Check back later, or upload a theme from the Themes page."}}{{end}}
+</div>
+{{end}}
+{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Theme details" "Side" "end" "Width" "wide"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
+{{define "modules"}}@hm/pluginpanel{{end}}
+{{define "browse-theme-total"}}{{if .Total}}{{.Total}} {{if eq .Total 1}}theme{{else}}themes{{end}}{{else}}No themes{{end}}{{end}}
+{{define "browse-theme-card"}}<li class="hm-themecards__item"><a class="hm-themecard" href="{{.Href}}" data-hm-open="plugin-panel">
+<span class="hm-themecard__shot">{{if .Screenshot}}<img class="hm-themecard__img" src="{{.Screenshot}}" alt="" loading="lazy">{{else}}<span class="hm-themecard__tile" aria-hidden="true">{{.Initial}}</span>{{end}}</span>
+<span class="hm-themecard__body"><span class="hm-themecard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-themecard__by">{{if .FirstParty}}{{template "hm/badge" dict "Label" "First-party" "Plain" true "Size" "sm" "Icon" "star"}}{{else}}by {{.Author}}{{end}}</span>{{end}}
+<span class="hm-themecard__desc">{{.Description}}</span></span>
+<span class="hm-themecard__foot"><span class="hm-themecard__type">{{.Type}}</span><span class="hm-themecard__action hm-themecard__action--{{.ActionKind}}">{{.Action}}</span></span></a></li>{{end}}
