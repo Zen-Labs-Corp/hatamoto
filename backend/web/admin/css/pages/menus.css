@@ -81,6 +81,6 @@
 .hm-menuform[data-hm-js] .hm-menutree__item:hover,
 .hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { background-color: var(--surface-hover); }
 /* The shortcuts list keeps words whole: "sub-items" does not break inside, at the hyphen or elsewhere. */
-#menu-shortcuts .hm-dl kbd { display: inline-block; min-width: 1.5rem; padding: 0 var(--space-1-5); text-align: center; border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; }
+#menu-shortcuts .hm-dl kbd { display: inline-block; min-width: 1.5rem; padding: 0 var(--space-1-5); text-align: center; border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); }
 #menu-shortcuts .hm-dl dd { overflow-wrap: normal; word-break: normal; hyphens: none; }
 .hm-menueditor__word { white-space: nowrap; }
