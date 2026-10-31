@@ -3,7 +3,7 @@
 // host keeps geometry and state, this builds the DOM once and repaints it on `update()`.
 // The strip is sticky over the scroller and takes no clicks itself; only its buttons do.
 import { BP_NAME, BREAKPOINT_MAX } from "@hm/builder/bp";
-import { sizeText, toolbarModel } from "@hm/canvas/chromemodel";
+import { sizeAnchor, sizeText, toolbarModel } from "@hm/canvas/chromemodel";
 import { placeToolbar } from "@hm/canvas/layout";
 import { insertionPoints } from "@hm/canvas/points";
 
@@ -194,7 +194,7 @@ export function mountToolbar(canvas, handlers) {
     const top = scroller ? scroller.scrollTop - canvas.stage.offsetTop + inset : 0;
     const left = scroller ? scroller.scrollLeft - canvas.stage.offsetLeft : 0;
     const view = scroller ? { top, left, right: left + scroller.clientWidth, bottom: top + scroller.clientHeight - inset } : { top: 0, left: 0, right: Infinity, bottom: Infinity };
-    // While editing, the text formatting bar owns the space it chose (above the element, or below when there is no room above):
+        // While editing, the text formatting bar owns the space it chose (above the element, or below when there is no room above):
     // the toolbar, now only a hint, goes under the element, and under the formatting bar when that is the one below.
     // a bar wider than the view (a phone) drops its hint, then the rest scrolls inside it
     bar.style.maxWidth = `${Math.max(0, view.right - view.left)}px`; // the view, not the (scaled) stage
@@ -203,7 +203,9 @@ export function mountToolbar(canvas, handlers) {
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
     const label = sizeText(sel); // CSS px, whatever the zoom
     if (size.textContent !== label) size.textContent = label;
-    size.style.left = `${box.x + box.w / 2}px`;
+    const at = sizeAnchor(box, sel.k === "s");
+    size.style.left = `${at.x}px`;
+    size.setAttribute("data-align", at.align);
     size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };

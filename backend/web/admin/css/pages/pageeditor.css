@@ -67,6 +67,7 @@
 .hm-pe__hint { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: var(--text-sm); }
 /* Hover name tag (same label as the Navigator) and the W x H badge under the selection. */
 .hm-pe__tag { position: absolute; left: -1px; bottom: 100%; max-width: 14rem; padding: 0 var(--space-1); border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--color-hai); color: var(--color-paper); font-size: var(--text-xs); line-height: var(--leading-5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hm-pe__size[data-align="end"] { transform: translateX(-100%); margin-left: calc(-1 * var(--space-2)); } /* a section's: off the centred "Add section" pill */
 .hm-pe__size { position: absolute; transform: translateX(-50%); padding: 1px var(--space-1-5); border-radius: var(--radius-sm); background: var(--pe-ui-bg); color: var(--pe-ui-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); white-space: nowrap; pointer-events: none; }
 /* Direct manipulation layer (js/canvas/direct.js): padding hatch, pink handles, value badge, "Add section" strips. Own layer: hover redraws of the marks never touch an active drag. */
 .hm-pe__pad { position: absolute; inset: 0; pointer-events: none; }

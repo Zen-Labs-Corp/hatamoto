@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { toolbarModel, pillPoints, boundaryIndex, sizeText, hatchRects } = await import(new URL("canvas/chromemodel.js", root));
+const { toolbarModel, pillPoints, boundaryIndex, sizeText, hatchRects, sizeAnchor } = await import(new URL("canvas/chromemodel.js", root));
 const { selectionInfo, sectionOf } = await import(new URL("builder/selinfo.js", root));
 
 const comp = (id, c) => ({ id, t: "component", p: { type: "hero" }, ...(c ? { c } : {}) });
@@ -109,4 +109,10 @@ test("hatchRects: the four bands add up to the padding box", () => {
 test("hatchRects: no padding known is no area; padding larger than the box does not go negative", () => {
   assert.ok(hatchRects({ w: 100, h: 50 }, undefined).every((x) => x.w * x.h === 0));
   assert.ok(hatchRects({ w: 100, h: 50 }, [40, 0, 40, 0]).every((x) => x.h >= 0));
+});
+
+test("a section's size badge hangs from its right edge, off the centred 'Add section' pill; a block's stays centred", () => {
+  const box = { x: 0, y: 100, w: 400, h: 200 };
+  assert.deepEqual(sizeAnchor(box, true), { x: 400, align: "end" });
+  assert.deepEqual(sizeAnchor(box, false), { x: 200, align: "center" });
 });
