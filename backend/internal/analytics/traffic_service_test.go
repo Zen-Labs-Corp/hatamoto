@@ -177,3 +177,18 @@ func TestRecordTrafficCapHoldsAcrossFlushes(t *testing.T) {
 		t.Fatalf("distinct landing keys=%d other=%d total=%d", len(keys), other, total)
 	}
 }
+
+func TestRecordTrafficKeyAfterManyOthersKeepsOwnRow(t *testing.T) {
+	repo := &fakeTrafficRepo{}
+	svc := newTestService(&fakeRepo{})
+	svc.SetTrafficRepo(repo)
+	for i := 0; i < 300; i++ {
+		svc.RecordTraffic(Event{Entry: true, Path: fmt.Sprintf("/p%d", i), Device: "other"}, ChannelDirect, SourceNone)
+	}
+	svc.RecordTraffic(Event{Entry: true, Path: "/late", Device: "other"}, ChannelDirect, SourceNone)
+	_ = svc.Flush(context.Background())
+	m := rowMap(repo.rows)
+	if m["landing|/late|"].Visits != 1 {
+		t.Fatalf("late key folded: %+v", m["landing|(other)|"])
+	}
+}

@@ -6,11 +6,13 @@ import (
 )
 
 // maxKeysPerDim caps the distinct keys one (day, dim) admits for the whole
-// day, across flushes; further keys are counted under KeyOther. The admitted
-// set lives in memory (at most today and yesterday, 200 keys per dim) and is
-// empty after a restart, so a restart can admit up to the cap again. The
-// nightly compaction (PruneTraffic) bounds older days.
-const maxKeysPerDim = 200
+// day, across flushes; further keys are counted under KeyOther. It only bounds
+// memory and rows per day and is set well above trafficTopKeys: the nightly
+// compaction (PruneTraffic) decides which keys survive, so a long tail or a
+// burst of junk keys early in the day must not crowd out real ones. The
+// admitted set lives in memory (at most today and yesterday) and is empty
+// after a restart, so a restart can admit up to the cap again.
+const maxKeysPerDim = 2000
 
 // TrafficRepository writes buffered traffic rows.
 type TrafficRepository interface {
