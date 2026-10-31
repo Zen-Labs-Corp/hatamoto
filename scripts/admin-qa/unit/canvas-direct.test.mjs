@@ -448,3 +448,9 @@ test("the hatch is shown by dropping `hidden`: no stylesheet rule keeps it trans
   assert.doesNotMatch(rule, /opacity:\s*0\b/);
   assert.doesNotMatch(css, /\.hm-pe__hatch\[data-(show|active)\]/);
 });
+
+test("the stylesheet keeps no dead `[data-active]` rule (direct.js never sets it) and declares the --pe-* aliases once", () => {
+  const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
+  assert.doesNotMatch(css, /\[data-active\]/);
+  assert.equal(css.match(/--pe-guide-pad:\s*var/g)?.length, 1);
+});

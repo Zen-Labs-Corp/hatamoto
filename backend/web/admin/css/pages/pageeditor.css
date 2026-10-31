@@ -27,8 +27,7 @@
 .hm-pe__outline { position: absolute; left: 0; right: 0; border: 2px solid var(--color-accent); border-radius: var(--radius-sm); pointer-events: none; }
 .hm-pe__hover { position: absolute; border: 1px dashed var(--color-hai); pointer-events: none; }
 /* Canvas-only aliases: the guide pink and the always-dark surface of the floating toolbar (it must not flip with the theme). */
-.hm-pe { --pe-guide-pad: var(--color-guide-pad); --pe-ui-bg: var(--color-inverse-bg); --pe-ui-fg: var(--color-inverse-fg); --pe-ui-muted: var(--color-inverse-muted); --pe-ui-hover: var(--color-inverse-hover); }
-.hm-pe__stage { --pe-guide-pad: var(--color-guide-pad); --pe-ui-bg: var(--color-inverse-bg); --pe-ui-fg: var(--color-inverse-fg); --pe-ui-muted: var(--color-inverse-muted); --pe-ui-hover: var(--color-inverse-hover); }
+.hm-pe, .hm-pe__stage { --pe-guide-pad: var(--color-guide-pad); --pe-ui-bg: var(--color-inverse-bg); --pe-ui-fg: var(--color-inverse-fg); --pe-ui-muted: var(--color-inverse-muted); --pe-ui-hover: var(--color-inverse-hover); }
 /* The element toolbar floats outside the element (built once, moved by place(), sits inside the top edge when there is no room: [data-inside]); its buttons take clicks, the gaps do too, so it never lets a press through to text under it. */
 .hm-pe__toolbar { position: absolute; z-index: calc(var(--z-raised) + 1); /* over the "+" buttons */ display: flex; align-items: center; gap: var(--space-px); width: max-content; max-width: 100vw; padding: var(--space-0-5); background: var(--pe-ui-bg); color: var(--pe-ui-fg); border-radius: var(--radius-md); box-shadow: var(--shadow-2); font-size: var(--text-xs); white-space: nowrap; pointer-events: auto; }
 .hm-pe__toolbar[hidden], .hm-pe__tactions[hidden], .hm-pe__thint[hidden], .hm-pe__handle[hidden] { display: none; }
@@ -80,7 +79,7 @@
 .hm-pe__padh[data-side="left"], .hm-pe__padh[data-side="right"] { width: 20px; height: 44px; cursor: ew-resize; }
 .hm-pe__padh[data-side="top"]::after, .hm-pe__padh[data-side="bottom"]::after { width: 28px; height: 6px; }
 .hm-pe__padh[data-side="left"]::after, .hm-pe__padh[data-side="right"]::after { width: 6px; height: 28px; }
-.hm-pe__padh:hover::after, .hm-pe__padh[data-active]::after { background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--pe-guide-pad) 35%, transparent); }
+.hm-pe__padh:hover::after { background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--pe-guide-pad) 35%, transparent); }
 .hm-pe__padh:focus-visible { outline: var(--focus-ring); outline-offset: 1px; border-radius: var(--radius-sm); }
 .hm-pe__padbadge { position: absolute; transform: translate(-50%, -50%); padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-2xs); background: var(--pe-guide-pad); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); pointer-events: none; }
 .hm-pe__padbadge[hidden] { display: none; }
