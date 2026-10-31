@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Package security" "Description" "Trusted signers and unsigned packages."}}
-{{template "hm/card-start" dict "ID" "status-card" "Title" "Status" "Heading" "h2"}}{{if .State.On}}<p class="hm-row">{{template "hm/badge" dict "Label" "Unsigned packages allowed" "Kind" "danger"}} <span>{{if .UntilText}}until {{.UntilText}}{{else}}until you turn it off{{end}}</span></p>
+{{template "hm/card-start" dict "ID" "status-card" "Title" "Status" "Heading" "h2"}}{{if .State.On}}<p class="hm-row">{{template "hm/badge" dict "Label" (printf "Unsigned packages allowed %s" (or (and .UntilText (printf "until %s" .UntilText)) "until you turn it off")) "Kind" "warning" "Wrap" true}}</p>
 <p class="hm-muted">Anything you upload now can run code nobody has vouched for.</p>
 <form method="post" action="{{adminPath}}/plugins/unsigned/off">{{template "hm/csrf" $}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Stop allowing unsigned packages" "Type" "submit"}}{{template "hm/foot-end"}}</form>
 {{else}}<p class="hm-row">{{template "hm/badge" dict "Label" "Protected" "Kind" "success"}} <span>Signed packages only</span></p>

@@ -26,4 +26,4 @@
 {{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-plugincard__by">{{.Author}}{{if .FirstParty}} {{template "hm/badge" dict "Label" "First-party" "Plain" true "Size" "sm" "Icon" "star"}}{{end}}</span>{{end}}</span></span>
 <span class="hm-plugincard__desc">{{.Description}}</span>
-<span class="hm-plugincard__foot"><span>{{.Perms}}</span><span class="hm-plugincard__action">{{.Action}}</span></span></a></li>{{end}}
+<span class="hm-plugincard__foot"><span class="hm-mono">{{.Perms}}</span><span class="hm-plugincard__action">{{.Action}}</span></span></a></li>{{end}}
