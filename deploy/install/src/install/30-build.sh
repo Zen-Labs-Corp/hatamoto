@@ -217,29 +217,20 @@ build_user_and_dirs() {
 }
 
 # build_binary installs the verified binary. An existing install is kept unless
-# a version was asked for or it is older than the version the installer would pick
-# (the floor included): the supervisor owns updates after that, but a binary below
-# the floor cannot finish first boot. A version that cannot be read is kept.
+# a version was asked for or it is older than the installer floor: the supervisor
+# owns updates after that, but a binary below the floor cannot finish first boot.
+# A version that cannot be read is kept.
 build_binary() {
   bb_bin="$(dest "$APP_DIR/bin/hatamoto")"
-  bb_version=""
   if [ -x "$bb_bin" ] && [ -z "$IN_VERSION" ]; then
     bb_have="$("$bb_bin" version 2>/dev/null | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
-    if [ -n "$bb_have" ]; then
-      bb_version="$(trust_pick_version)"
-      if trust_version_lt "$bb_have" "$bb_version"; then
-        log "hatamoto $bb_have is older than $bb_version, replacing it"
-      else
-        bb_version=""
-      fi
-    fi
-    if [ -z "$bb_version" ]; then
+    if [ -z "$bb_have" ] || ! trust_version_lt "$bb_have" "$INSTALLER_MIN_VERSION"; then
       log "hatamoto is already installed, keeping it"
       return 0
     fi
-  else
-    bb_version="$(trust_pick_version)"
+    log "hatamoto $bb_have is older than $INSTALLER_MIN_VERSION, replacing it"
   fi
+  bb_version="$(trust_pick_version)"
   bb_dir="$(mktemp -d)"
   trust_fetch "$bb_version" "$bb_dir/hatamoto"
   install -m 0755 -o root -g root "$bb_dir/hatamoto" "$bb_bin"
