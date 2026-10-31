@@ -27,6 +27,8 @@ type fakeAgentStats struct {
 	searchSeries []agents.SeriesPoint
 	// extraAgents are added to what Agents answers (search engines, social, SEO tools).
 	extraAgents []agents.AgentTotals
+	// noAI makes Overview report no AI fetches.
+	noAI bool
 	// googleStatus, googleKPIs and googlePages are what the Googlebot reads answer
 	// (a default set when nil); googleFilter is the filter GooglePages was last asked for.
 	googleStatus []agents.SeriesPoint
@@ -76,6 +78,9 @@ func (f *fakeAgentStats) Overview(_ context.Context, rg agents.Range) (agents.Ov
 	f.mu.Lock()
 	f.lastRange = rg
 	f.mu.Unlock()
+	if f.noAI {
+		return agents.OverviewTotals{}, nil
+	}
 	return agents.OverviewTotals{AIFetches: 1234, Verified: 30, Spoofed: 5, Unverifiable: 5, AIVisits: 12, Pageviews: 4500}, nil
 }
 func (f *fakeAgentStats) Series(_ context.Context, rg agents.Range, _ string) ([]agents.SeriesPoint, error) {

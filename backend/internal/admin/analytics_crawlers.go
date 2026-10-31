@@ -53,7 +53,7 @@ type crawlersPage struct {
 	// Owner and Return feed the one policy form around the agents table.
 	Owner  bool
 	Return string
-	// NoFetches is true when no AI agent fetched in the range.
+	// NoFetches is true when nothing fetched in the range, AI agents or search engines.
 	NoFetches bool
 }
 
@@ -240,6 +240,6 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 		Agents:    ui.AiaAgents{Caption: "Crawlers by purpose", Groups: groups, Other: other, Summary: sum},
 		Owner:     owner,
 		Return:    sectionHref(a.adminPath+"/analytics/crawlers", q),
-		NoFetches: total == 0,
+		NoFetches: total == 0 && searchHits == 0,
 	}, nil
 }

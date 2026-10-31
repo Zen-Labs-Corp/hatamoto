@@ -407,3 +407,21 @@ func TestOverviewJSONHasFetchesAll(t *testing.T) {
 		t.Error("only the purpose grouping has fetches_all")
 	}
 }
+
+func TestCrawlersOnlySearchEnginesFetchedIsNotEmpty(t *testing.T) {
+	t.Parallel()
+
+	// the chart carries one hidden empty template of its own; the list notice is the second
+	const notice = "No data for this period."
+	g, fs := searchRig(t)
+	fs.noAI = true
+	body := g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, notice); n != 1 {
+		t.Errorf("search engines fetched: %d notices, want only the chart's own", n)
+	}
+	fs.extraAgents = nil
+	body = g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, notice); n != 2 {
+		t.Errorf("nothing fetched: %d notices, want the chart's and the list's", n)
+	}
+}
