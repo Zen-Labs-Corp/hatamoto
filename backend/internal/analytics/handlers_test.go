@@ -204,3 +204,16 @@ func TestTrackReducesFullURLRefToHost(t *testing.T) {
 		t.Fatalf("rows = %v", m)
 	}
 }
+
+func TestRefHostSchemeOnlyBeforePath(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://www.google.com/url":     "google.com",
+		"google.com/url?q=https://x.com": "google.com",
+		"google.com?q=https://x.com":     "google.com",
+		"google.com#https://x.com":       "google.com",
+	} {
+		if got := refHost(in); got != want {
+			t.Errorf("refHost(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

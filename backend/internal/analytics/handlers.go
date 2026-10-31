@@ -147,12 +147,13 @@ func cleanPath(p string) string {
 }
 
 // refHost reduces a referrer a client sent to its host: it drops a scheme
-// ("https://") and anything from the first "/", then normalises.
+// ("https://") and anything from the first "/", "?" or "#", then normalises.
 func refHost(ref string) string {
-	if i := strings.Index(ref, "://"); i >= 0 {
+	// A scheme only counts when "://" comes before any "/", "?" or "#".
+	if i := strings.Index(ref, "://"); i >= 0 && !strings.ContainsAny(ref[:i], "/?#") {
 		ref = ref[i+3:]
 	}
-	if i := strings.IndexByte(ref, '/'); i >= 0 {
+	if i := strings.IndexAny(ref, "/?#"); i >= 0 {
 		ref = ref[:i]
 	}
 	return NormalizeHost(ref)
