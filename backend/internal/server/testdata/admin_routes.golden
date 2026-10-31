@@ -36,11 +36,13 @@ GET /admin/entities/parent-options -> admin.(*Admin).handleParentOptions-fm
 GET /admin/entities/{id} -> admin.(*Admin).handleEntityEdit-fm
 GET /admin/entities/{id}/builder/node-versions -> admin.(*Admin).handleBuilderNodeVersions-fm
 GET /admin/entities/{id}/builder/seo -> admin.(*Admin).handleBuilderSEO-fm
+GET /admin/entities/{id}/builder/translations -> admin.(*Admin).handleBuilderTranslations-fm
 GET /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDeleteConfirm-fm
 GET /admin/entities/{id}/edit -> admin.(*Admin).handleEntityEditor-fm
 GET /admin/entities/{id}/edit/preview/{token} -> admin.(*Admin).handlePreviewFrame-fm
 GET /admin/entities/{id}/translations -> admin.(*Admin).handleTranslations-fm
 GET /admin/entities/{id}/translations/candidates -> admin.(*Admin).handleTranslationCandidates-fm
+GET /admin/entities/{id}/translations/new -> admin.(*Admin).handleTranslationCopyNew-fm
 GET /admin/entities/{id}/translations/unlink -> admin.(*Admin).handleTranslationUnlinkConfirm-fm
 GET /admin/entities/{id}/versions -> admin.(*Admin).handleVersions-fm
 GET /admin/entities/{id}/versions/compare -> admin.(*Admin).handleVersionCompare-fm
@@ -138,8 +140,10 @@ GET /admin/settings/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionD
 GET /admin/settings/taxonomies -> admin.(*Admin).handleTaxonomies-fm
 GET /admin/settings/taxonomies/new -> admin.(*Admin).handleTermNew-fm
 GET /admin/settings/taxonomies/terms/{id} -> admin.(*Admin).handleTermEdit-fm
+GET /admin/settings/taxonomies/terms/{id}/copy/new -> admin.(*Admin).handleTermCopyNew-fm
 GET /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDeleteConfirm-fm
 GET /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMergeForm-fm
+GET /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlinkConfirm-fm
 GET /admin/settings/team -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/types -> admin.(*Admin).handleSchemas-fm
 GET /admin/settings/types/new -> admin.(*Admin).handleSchemaNew-fm
@@ -221,6 +225,7 @@ POST /admin/entities/{id}/edit/recovery -> admin.(*Admin).handleBlogRecoveryPut-
 POST /admin/entities/{id}/edit/recovery/discard -> admin.(*Admin).handleBlogRecoveryDiscard-fm
 POST /admin/entities/{id}/edit/render -> admin.(*Admin).handlePageRender-fm
 POST /admin/entities/{id}/status -> admin.(*Admin).handleEntityStatus-fm
+POST /admin/entities/{id}/translations/copy -> admin.(*Admin).handleTranslationCopy-fm
 POST /admin/entities/{id}/translations/link -> admin.(*Admin).handleTranslationLink-fm
 POST /admin/entities/{id}/translations/original -> admin.(*Admin).handleTranslationOriginal-fm
 POST /admin/entities/{id}/translations/unlink -> admin.(*Admin).handleTranslationUnlink-fm
@@ -315,8 +320,12 @@ POST /admin/settings/submissions/{sid}/email -> admin.(*Admin).handleSubmissionE
 POST /admin/settings/submissions/{sid}/status -> admin.(*Admin).handleSubmissionStatus-fm
 POST /admin/settings/taxonomies/terms -> admin.(*Admin).handleTermCreate-fm
 POST /admin/settings/taxonomies/terms/{id} -> admin.(*Admin).handleTermSave-fm
+POST /admin/settings/taxonomies/terms/{id}/copy -> admin.(*Admin).handleTermCopy-fm
 POST /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDelete-fm
+POST /admin/settings/taxonomies/terms/{id}/link -> admin.(*Admin).handleTermLink-fm
+POST /admin/settings/taxonomies/terms/{id}/locale -> admin.(*Admin).handleTermLocale-fm
 POST /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMerge-fm
+POST /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlink-fm
 POST /admin/settings/types -> admin.(*Admin).handleSchemaCreate-fm
 POST /admin/settings/types/{id} -> admin.(*Admin).handleSchemaSave-fm
 POST /admin/settings/types/{id}/delete -> admin.(*Admin).handleSchemaDelete-fm

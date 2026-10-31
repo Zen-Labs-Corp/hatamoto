@@ -4,12 +4,15 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
 // contentDeps hands the entity, schema, taxonomy and media services to the Go
@@ -36,7 +39,12 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		d.Media = s.mediaService
 	}
 	if s.db != nil {
-		d.Groups = entity.NewGroupStore(s.db.Pool())
+		groups := entity.NewGroupStore(s.db.Pool())
+		d.Groups = groups
+		if s.entityService != nil && s.taxonomyService != nil && s.termGroups != nil {
+			d.Copier = entity.NewCopyService(s.entityService, groups, copyTerms{tax: s.taxonomyService, groups: s.termGroups})
+			d.TermGroups = termGrouper{TermGroupStore: s.termGroups, svc: s.taxonomyService}
+		}
 		d.Authors = authorPicker{Store: s.people(), Byline: person.NewByline(s.db.Pool())}
 	}
 	if s.db != nil {
@@ -88,4 +96,38 @@ func (s *Server) contentDeps() admin.ContentDeps {
 type authorPicker struct {
 	*person.Store
 	*person.Byline
+}
+
+// copyTerms is entity.CopyTerms over taxonomy: a copy takes each of its
+// source's terms as that term's copy in the new locale, else the same term.
+type copyTerms struct {
+	tax    *taxonomy.Service
+	groups *taxonomy.TermGroupStore
+}
+
+func (c copyTerms) MapTerms(ctx context.Context, entityID uuid.UUID, locale string) ([]uuid.UUID, error) {
+	terms, err := c.tax.ListTermsForEntity(ctx, entityID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(terms))
+	for i, t := range terms {
+		ids[i] = t.ID
+	}
+	return c.groups.MapForLocale(ctx, ids, locale)
+}
+
+func (c copyTerms) ReplaceEntityTerms(ctx context.Context, entityID uuid.UUID, ids []uuid.UUID) error {
+	return c.tax.ReplaceEntityTerms(ctx, entityID, ids)
+}
+
+// termGrouper is admin.TermGrouper: the group store plus term copies, which
+// live on the service.
+type termGrouper struct {
+	*taxonomy.TermGroupStore
+	svc *taxonomy.Service
+}
+
+func (g termGrouper) CreateTermCopy(ctx context.Context, srcID uuid.UUID, locale, name, slug string) (*taxonomy.Term, error) {
+	return g.svc.CreateTermCopy(ctx, srcID, locale, name, slug)
 }

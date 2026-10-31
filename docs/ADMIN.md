@@ -158,6 +158,18 @@ handler tests run on in-memory fakes; the real services are exercised by
   picker from `GET .../translations/candidates`), make a copy the original (`POST .../translations/original`)
   and unlink one (`GET`/`POST .../translations/unlink`, a confirmation page without JavaScript). A copy
   edited before its original shows "Out of date". Each change is audited and purges the page cache.
+  A language with no copy has a Create button: it opens a dialog (a page at
+  `GET .../translations/new?locale=<tag>` without JavaScript) and `POST .../translations/copy` makes the
+  copy, a draft unless Publish now is on. Start from picks the original's content, this page's content or an
+  empty page. A copy keeps the attributes, metadata, author, byline and categories and tags of what it starts
+  from, with each term replaced by its own copy in the new language when there is one; it drops the canonical
+  address, and the title and address are its own (an address already taken is retried once as `<slug>-<tag>`
+  only in bulk and Start with). A page whose parent has no copy yet can also get drafts of the missing parents
+  (`Also create drafts of the missing parents`), outermost first; if the copy then fails they are removed
+  again. People, blocks, layout parts and shared pages are never copied. Each copy is audited as
+  `entity.create_copy`. The entries list adds "Create drafts in <tag>" bulk actions for owners and editors
+  (pages that already have a copy are skipped). In the page builder, pages on a multi-locale site get a
+  Translations drawer (`GET <admin>/entities/{id}/builder/translations`, 404 elsewhere).
 * **Schemas** (owners): the editor builds the JSON Schema from field rows
   (`field` carries each row's key in document order; a drag only moves the row,
   so nothing is renumbered). Properties the builder cannot express are kept
@@ -787,6 +799,16 @@ Addresses and search engines (`/addresses`) holds the default-locale prefix swit
 search engine default. Business details (`/business`) holds one card per locale that overrides
 the site-wide details. Every write goes through one validated save that clears rendered pages.
 Settings > General no longer edits the locale list.
+
+Add locale also offers Start with once the site has entries, also on a site that has one language so far (adding the second is its main use): draft copies of the home page and of the
+pages in the header menu are made in the new language (default-locale pages only, nothing is published). A
+page that cannot be copied is logged and counted, and never undoes the added locale.
+
+On a multi-locale site a taxonomy term has a Languages block (`<admin>/settings/taxonomies/terms/{id}`).
+Its Locale select (`POST .../terms/{id}/locale`) says which language the term is for; it changes nothing on
+the public site yet. Copies are made from `GET .../copy/new?locale=<tag>` and `POST .../copy`, an existing term
+is linked with `POST .../link` (only while the term has no copies) and removed from the group with
+`POST .../unlink`. All of these are owner only, and a single-locale site shows none of them.
 
 ### SEO
 

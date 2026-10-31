@@ -1,0 +1,19 @@
+{{/* Fields of the Create term copy form. Shared by the dialog on the term page and the /new page so they cannot drift. Data: termCopyForm (IDPrefix, Locale, Name, Slug, Errs). The csrf field goes before this in the wrapping form. */}}
+{{define "hm/form-term-copy"}}<input type="hidden" name="locale" value="{{.Locale}}">
+{{template "hm/field" dict "ID" (print .IDPrefix "-name") "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errs "name") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" (print .IDPrefix "-slug") "Name" "slug" "Label" "Slug" "Value" .Slug "Required" true "Error" (index .Errs "slug") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}{{end}}
+{{/* The Locale field and the copies block of the term page. They hold their own forms, so the page places them outside #hm-termform. Data: dict "L" (termLocales) "CSRF". */}}
+{{define "hm/term-locales"}}{{$csrf := .CSRF}}{{with .L}}<section class="hm-stack" aria-labelledby="term-locales-h">
+<h2 id="term-locales-h">Languages</h2>
+<form method="post" action="{{.Action}}" class="hm-row">{{template "hm/csrf" (dict "CSRF" $csrf)}}
+{{template "hm/field" dict "ID" "term-locale" "Name" "locale" "Label" "Locale" "Control" "select" "Options" .Options "Help" "The language this term is for."}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Save locale" "Type" "submit"}}{{template "hm/foot-end"}}</form>
+{{if .Current}}{{template "hm/table" .Copies}}
+{{if .LinkOptions}}<form method="post" action="{{.LinkAction}}" class="hm-row">{{template "hm/csrf" (dict "CSRF" $csrf)}}
+{{template "hm/field" dict "ID" "term-link" "Name" "term" "Label" "Link an existing term" "Control" "select" "Options" .LinkOptions}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Link term" "Type" "submit"}}{{template "hm/foot-end"}}</form>{{end}}
+<p class="hm-muted">Used when a page is copied to another locale: the copy gets the term's copy in that locale, else this term.</p>
+{{else}}<p class="hm-muted">Set a locale first to create copies in other languages.</p>{{end}}
+</section>
+{{range .Missing}}{{template "hm/dialog-start" dict "ID" .DialogID "Title" .Title "Static" true "Description" "Creates a linked copy of this term."}}
+<form id="{{.IDPrefix}}-form" method="post" action="{{.Action}}">{{template "hm/csrf" (dict "CSRF" $csrf)}}{{template "hm/form-term-copy" .}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create copy" "PrimaryAttrs" (attrmap "form" (print .IDPrefix "-form"))}}{{end}}{{end}}{{end}}

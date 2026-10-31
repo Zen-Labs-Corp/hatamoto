@@ -1,0 +1,8 @@
+{{/* Fields of the Create copy form. Shared by the dialog on the Translations tab and the /new page so they cannot drift. Data: copyForm (IDPrefix, Locale, Name, Slug, From, FromOptions, Missing, Parents, Publish, Errs). The csrf field goes before this in the wrapping form. */}}
+{{define "hm/form-copy"}}<input type="hidden" name="locale" value="{{.Locale}}">
+{{template "hm/field" dict "ID" (print .IDPrefix "-name") "Name" "name" "Label" "Title" "Value" .Name "Required" true "Error" (index .Errs "name")}}
+{{template "hm/field" dict "ID" (print .IDPrefix "-slug") "Name" "slug" "Label" "Address" "Value" .Slug "Required" true "Help" "The last part of the address. The same address as the original works: the language has its own address prefix." "Error" (index .Errs "slug") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}
+{{template "hm/field" dict "ID" (print .IDPrefix "-from") "Name" "from" "Label" "Start from" "Control" "radio" "Options" .FromOptions}}
+{{if .Missing}}{{template "hm/field" dict "ID" (print .IDPrefix "-parents") "Name" "parents" "Label" "Also create drafts of the missing parents" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Parents "Help" (print "Without a copy yet: " .MissingList ". Unticked, the copy sits at the top level.")}}
+{{end}}<p class="hm-muted">Stays the same as the original: featured image, author, categories and tags (a tag's copy when there is one).</p>
+{{template "hm/field" dict "ID" (print .IDPrefix "-publish") "Name" "publish" "Label" "Publish now" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Publish "Help" "Off: the copy is a draft."}}{{end}}

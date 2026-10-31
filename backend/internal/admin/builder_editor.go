@@ -62,6 +62,9 @@ type builderShell struct {
 	Usage       []usageItem
 	UsageLoaded bool
 	UsageLabel  string
+	// Translations is the drawer's URL on a page of a multi-locale site ("" otherwise:
+	// no opener, no drawer).
+	Translations string
 }
 
 type bootBindSource struct {
@@ -103,6 +106,11 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 		user = u.ID
 	}
 	a.shellReuse(r, sh, e, sc)
+	if sh.Role == "" {
+		if _, ok := a.multiLocale(r.Context()); ok && e.Locale != entity.LocaleShared && a.deps.Content.Copier != nil {
+			sh.Translations = base + "/builder/translations"
+		}
+	}
 	// Site styles is owner only (the Theme routes are): editors get neither the flag nor the values.
 	canStyle := false
 	if u := userFrom(r.Context()); u != nil {
@@ -125,6 +133,9 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 			"recovery": base + "/builder/recovery", "recoveryDiscard": base + "/builder/recovery/discard",
 		},
 		"canStyle": canStyle,
+	}
+	if sh.Translations != "" {
+		bootMap["urls"].(map[string]string)["translations"] = sh.Translations
 	}
 	if c := a.recoveryFor(r, e.ID); c != nil {
 		bootMap["recovery"] = recoveryView(c, true)
