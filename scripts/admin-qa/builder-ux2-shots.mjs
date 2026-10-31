@@ -160,8 +160,8 @@ if (!(await more.evaluate((e) => e.open))) await more.locator("summary").click()
 await wait(p, 300);
 await scrollInspector(p, "[data-hm-bs-panel] details.hm-bs-more-opts");
 await shot(p, "09-more-style-options");
-await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-box");
-await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-box").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
+await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-bm");
+await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-bm").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
 const sw = p.locator("[data-hm-bs-panel] .hm-bs-swatch").first();
 await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-swatch");
 await sw.click();

@@ -640,25 +640,26 @@ await check("builder box model: tab order is margin then padding (one nested box
   const start = await styleOn();
   try {
     const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Essentials box model: padding sits inside margin, and the margin sides come first in the DOM
-    await p.getByLabel("Margin top", { exact: true }).focus();
+    await p.locator(".hm-bs-bm__m > .hm-bs-bm__n--top").focus();
     const seen = ["Margin top"];
-    if ((await p.locator(".hm-bs-ring--outer").count()) !== 1) throw new Error("the Style tab does not show exactly one nested box model");
+    if ((await p.locator(".hm-bs-bm--nested").count()) !== 1) throw new Error("the Style tab does not show exactly one nested box model");
     for (let i = 0; i < 120 && seen.length < want.length; i++) {
       await p.keyboard.press("Tab");
-      const l = await p.evaluate(() => (document.activeElement?.tagName === "INPUT" ? document.activeElement.getAttribute("aria-label") : null));
+      const l = await p.evaluate(() => (document.activeElement?.tagName === "INPUT" ? document.activeElement.getAttribute("aria-label")?.split(",")[0] : null)); // "Margin top, 0px, not set" -> "Margin top"
       if (l && l !== seen.at(-1) && want.includes(l)) seen.push(l);
     }
     if (seen.join(">") !== want.join(">")) throw new Error("tab order " + seen.join(">"));
-    const link = p.getByRole("group", { name: "Padding", exact: true }).getByRole("button", { name: "Same on all sides" });
+    const link = p.getByRole("button", { name: "Link all sides", exact: true });
     if ((await link.getAttribute("aria-pressed")) !== "false") throw new Error("Link starts pressed");
     await link.focus(); await press("Space");
     if ((await link.getAttribute("aria-pressed")) !== "true") throw new Error("Space did not press Link");
-    const top = p.getByLabel("Padding top", { exact: true });
+    const side = (k) => p.locator(`.hm-bs-bm__p > .hm-bs-bm__n--${k}`); // the aria-label also carries the value, so the sides are found by class
+    const top = side("top");
     await top.fill("8"); await top.press("Enter"); await settle(300);
-    for (const k of ["Padding right", "Padding bottom", "Padding left"]) if ((await p.getByLabel(k, { exact: true }).inputValue()) !== "8") throw new Error(`${k} is ${await p.getByLabel(k, { exact: true }).inputValue()} when linked`);
+    for (const k of ["right", "bottom", "left"]) if ((await side(k).inputValue()) !== "8") throw new Error(`${k} is ${await side(k).inputValue()} when linked`);
     await p.evaluate(() => document.activeElement?.blur?.());
     await press("Control+z"); await settle(300);
-    for (const k of ["Padding top", "Padding right", "Padding bottom", "Padding left"]) if ((await p.getByLabel(k, { exact: true }).inputValue()) !== "") throw new Error(`one undo left ${k} at ${await p.getByLabel(k, { exact: true }).inputValue()}`);
+    for (const k of ["top", "right", "bottom", "left"]) if ((await side(k).inputValue()) !== "0") throw new Error(`one undo left ${k} at ${await side(k).inputValue()}`);
     return "8 inputs in T,R,B,L order; Link writes four sides; one undo clears them";
   } finally { await styleOff(start); }
 });

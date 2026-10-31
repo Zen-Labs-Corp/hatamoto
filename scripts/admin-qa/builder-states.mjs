@@ -251,7 +251,7 @@ for (const theme of ["light", "dark"]) {
       await p.evaluate(axe);
       const popover = await run();
       await p.keyboard.press("Escape"); await settle(200);
-      const box = await p.evaluate((tags) => axe.run(document.querySelector(".hm-bs-box"), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
+      const box = await p.evaluate((tags) => axe.run(document.querySelector(".hm-bs-bm"), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
       if (popover.length || box.length) throw new Error(`popover: ${popover.join(", ") || "none"}; box model: ${box.join(", ") || "none"}`);
       return "popover 0, box model 0";
     } finally {

@@ -47,7 +47,7 @@ export const screens = [
     { name: "navigator-focus", click: '[data-hm-bs-tree] [role="treeitem"]' },
     { name: "inspector-style", click: '[role="tab"][data-tab="style"]' },
     { name: "more-style-options", click: "details.hm-bs-more-opts > summary" }, // UX-2: margin, Typography and the rest sit under More style options
-    { name: "box-model", click: ".hm-bs-ring--margin .hm-bs-ring__t" }, // the Spacing group's margin and padding rings
+    { name: "box-model", click: ".hm-bs-bm__m > .hm-bs-bm__t" }, // the Spacing group's margin and padding rings
     { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover (Typography is open by default)
     { name: "palette-open", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" },
     { name: "shortcuts-open", click: "[data-hm-bs-keys]" },

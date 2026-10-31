@@ -236,7 +236,7 @@ const boxTable = ["mt", "mr", "mb", "ml", "pt", "pr", "pb", "pl"].map((k) => sid
 const NAMES8 = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"];
 const box = (s = {}) => {
   const m = mount({ id: "n", t: "container", s: { base: s } }, { table: boxTable });
-  const num = (name) => m.find((n) => n.tag === "input" && n.attrs["aria-label"] === name)[0];
+  const num = (name) => m.find((n) => n.tag === "input" && n.attrs["aria-label"]?.startsWith(`${name}, `))[0]; // the name carries the value: "Padding top, 48px"
   const btn = (label, ring) => {
     const scope = ring ? m.find((n) => n.attrs.role === "group" && n.attrs["aria-label"] === ring)[0] : m.el;
     const r = [];
@@ -249,13 +249,13 @@ const box = (s = {}) => {
 test("the box model draws eight named number fields, one nested box model: margin then padding, top, right, bottom, left", () => {
   const b = box();
   const order = [];
-  b.m.el.walk((n) => n.tag === "input" && NAMES8.includes(n.attrs["aria-label"]) && order.push(n.attrs["aria-label"]));
+  b.m.el.walk((n) => n.tag === "input" && n.dataset?.side && order.push(n.attrs["aria-label"].split(",")[0]));
   assert.deepEqual(order, NAMES8);
 });
 
-test("link toggle: one batch of four writes; unlinked edits one side; a linked ring starts linked when all four agree", () => {
+test("link toggle: one batch of four writes; unlinked edits one side; a ring set to four equal values starts linked", () => {
   const b = box();
-  const all = () => b.btn("Same on all sides", "Padding");
+  const all = () => b.btn("Link all sides");
   assert.equal(all().attrs["aria-pressed"], "false");
   b.num("Padding top").value = "8"; b.num("Padding top").fire("change");
   assert.deepEqual(b.m.calls.at(-1), { key: "pt", value: "8px", at: "base", opts: { label: "Change Padding top" } });
@@ -264,33 +264,20 @@ test("link toggle: one batch of four writes; unlinked edits one side; a linked r
   b.num("Padding left").value = "12"; b.num("Padding left").fire("change");
   const last = b.m.calls.at(-1);
   assert.deepEqual(last.batch.map((w) => [w.key, w.value]), [["pt", "12px"], ["pr", "12px"], ["pb", "12px"], ["pl", "12px"]]);
-  const again = box({ pt: "4px", pr: "4px", pb: "4px", pl: "4px" });
-  assert.equal(again.btn("Same on all sides", "Padding").attrs["aria-pressed"], "true");
-  assert.equal(again.btn("Same on all sides", "Margin").attrs["aria-pressed"], "false");
-});
-
-test("Same top and bottom / Same left and right link a pair: one batch, the second side follows the first", () => {
-  const b = box({ mt: "8px", mr: "2rem" });
-  const v = () => b.btn("Same top and bottom", "Margin");
-  v().fire("click");
-  assert.equal(v().attrs["aria-pressed"], "true");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mt", "8px"], ["mb", "8px"]], "linking copies top to bottom");
-  b.num("Margin bottom").value = "3"; b.num("Margin bottom").fire("change");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mt", "3px"], ["mb", "3px"]], "an edit of one side of a linked pair writes both");
-  b.num("Margin right").value = "4"; b.num("Margin right").fire("change");
-  assert.deepEqual(b.m.calls.at(-1), { key: "mr", value: "4rem", at: "base", opts: { label: "Change Margin right" } }, "the other pair is not linked");
-  b.btn("Same left and right", "Margin").fire("click");
-  assert.equal(v().attrs["aria-pressed"], "false", "one link mode at a time");
-  assert.deepEqual(b.m.calls.at(-1).batch.map((w) => [w.key, w.value]), [["mr", "4rem"], ["ml", "4rem"]]);
+  assert.equal(box({ pt: "4px", pr: "4px", pb: "4px", pl: "4px" }).btn("Link all sides").attrs["aria-pressed"], "true");
+  assert.equal(box({ pt: "4px", pb: "4px" }).btn("Link all sides").attrs["aria-pressed"], "false");
 });
 
 test("margins take auto, paddings refuse it; Reset clears only the ring's sides set here", () => {
   const b = box({ mt: "8px", pl: "4px" });
-  const unit = b.m.find((n) => n.attrs["aria-label"] === "Margin left unit")[0];
-  unit.value = "auto"; unit.fire("change");
+  const ml = b.num("Margin left");
+  ml.value = "auto"; ml.fire("change");
   assert.deepEqual(b.m.calls.at(-1).value, "auto");
-  const pu = b.m.find((n) => n.attrs["aria-label"] === "Padding top unit")[0];
-  assert.ok(![...pu.kids].some((o) => o.attrs.value === "auto"), "no auto option on padding");
+  const pt = b.num("Padding top");
+  const before = b.m.calls.length;
+  pt.value = "auto"; pt.fire("change");
+  assert.equal(pt.attrs["aria-invalid"], "true", "padding has no auto");
+  assert.equal(b.m.calls.length, before);
   b.btn("Reset margin").fire("click");
   assert.deepEqual(b.m.calls.at(-1).batch.map((w) => w.key), ["mt", "ml"]); // ml was set to auto just above
   assert.equal(b.btn("Reset padding").hidden, false);
@@ -391,21 +378,21 @@ test("box model: arrows on a side whose padding is inherited start from the inhe
   const box = boxModel({ entries, name: (k) => k, palette: { colors: [], space: {}, fs: {} }, stateOf, commit: (k, v) => (commits.push([k, v]), true), commitBatch: () => true, valid: () => true, hint: "" });
   box.paint();
   const inputs = [];
-  box.el.walk((n) => n.tag === "input" && n.attrs["aria-label"] === "pt" && inputs.push(n));
-  assert.equal(inputs[0].placeholder, "16px");
+  box.el.walk((n) => n.tag === "input" && n.attrs["aria-label"]?.startsWith("pt,") && inputs.push(n));
+  assert.equal(inputs[0].value, "16", "the inherited value is shown (muted)");
+  assert.equal(inputs[0].dataset.dot, "inherited");
   inputs[0].fire("keydown", { key: "ArrowUp" });
   assert.deepEqual(commits, [["pt", "17px"]]);
 });
 
-test("box model: each side's hidden source text uses the chip wording", () => {
+test("box model: each side's accessible name carries its value and where it comes from", () => {
   const entries = full.filter((e) => ["pt", "pr", "pb", "pl"].includes(e.key));
-  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : { dot: "none", source: "none", value: null });
+  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : k === "pr" ? { dot: "inherited", source: "inherited", value: "96px" } : { dot: "none", source: "none", value: null });
   const box = boxModel({ entries, name: (k) => k, palette: { colors: [], space: {}, fs: {} }, stateOf, commit: () => true, commitBatch: () => true, valid: () => true, hint: "" });
   box.paint();
-  const src = [];
-  box.el.walk((n) => n.className === "hm-visually-hidden" && src.push(n.textContent));
-  assert.deepEqual(src.filter((t) => t.startsWith("pt")), ["pt: Set here"]);
-  assert.deepEqual(src.filter((t) => t.startsWith("pr")), ["pr: not set"]);
+  const names = [];
+  box.el.walk((n) => n.tag === "input" && names.push(n.attrs["aria-label"]));
+  assert.deepEqual(names, ["pt, 2rem", "pr, 96px, inherited", "pb, 0px, not set", "pl, 0px, not set"]);
 });
 
 test("Hover view: the preset's hover value beats the node's Normal value (Go cascade)", () => {
@@ -460,7 +447,7 @@ test("the State switch is the first child, Essentials come next, and the groups 
   const more = root.kids.find((k) => k.tag === "details");
   assert.equal(more.kids[0].textContent, "More style options");
   const ess = root.kids.find((k) => k.attrs["aria-label"] === "Essentials");
-  const rings = []; ess.walk((n) => n.classes?.has("hm-bs-ring--outer") && rings.push(n));
+  const rings = []; ess.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
   assert.equal(rings.length, 1, "one nested box model in the Essentials");
   assert.ok(!more.kids.some((k) => k.attrs.role === "group"), "no Spacing group is left under More: its keys are in the box model");
   assert.equal(root.kids.filter((k) => k.attrs.role === "group" && k.attrs["aria-labelledby"]).length, 0, "no group outside the disclosure");
