@@ -109,7 +109,7 @@ func lastSignInCell(u *user.User) ui.Cell {
 	if u.LastLoginAt == nil {
 		return ui.Cell{Suffix: lastSignIn(u)}
 	}
-	return ui.Cell{Text: lastSignIn(u)}
+	return ui.Cell{Text: lastSignIn(u), Mono: true}
 }
 
 func (a *Admin) loadUsers(r *http.Request) ([]*user.User, error) {
@@ -215,7 +215,7 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string) ui.Ta
 		}
 		row := ui.Row{ID: u.ID.String(), Label: displayName(u), Cells: []ui.Cell{
 			{Text: displayName(u), Link: a.adminPath + "/settings/users/" + u.ID.String(), Initials: initialsOf(displayName(u)), Suffix: you},
-			{Text: u.Email},
+			{Text: u.Email, Mono: true},
 			{Badge: &ui.Badge{Label: strings.ToUpper(string(u.Role)[:1]) + string(u.Role)[1:], Kind: roleBadgeKind(string(u.Role))}},
 			lastSignInCell(u),
 		}, Actions: []ui.Action{

@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Your profile" "Description" "Your account and how you appear as an author." "CSRF" $.CSRF}}
-<div class="hm-row">{{if .Photo}}<img class="hm-avatar" src="{{.Photo}}" alt="" data-hm-photo data-initials="{{.Initials}}">{{else}}<span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span>{{end}}<strong>{{.Email}}</strong>{{template "hm/badge" (dict "Label" .RoleLabel "Kind" .RoleKind)}}</div>
+<div class="hm-row hm-profile-meta">{{if .Photo}}<img class="hm-avatar" src="{{.Photo}}" alt="" data-hm-photo data-initials="{{.Initials}}">{{else}}<span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span>{{end}}<code>{{.Email}}</code>{{template "hm/badge" (dict "Label" .RoleLabel "Kind" .RoleKind)}}</div>
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/profile" class="hm-cardform" novalidate>
 {{template "hm/card-start" dict "ID" "profile-card" "Title" "About you" "Description" "This is how you appear as an author on the site."}}

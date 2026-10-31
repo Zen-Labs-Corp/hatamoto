@@ -119,7 +119,11 @@ input[type="file"]::file-selector-button { margin-right: var(--space-3); padding
 
 /* Profile photo: a round preview beside the Upload button. */
 .hm-photo-row { align-items: center; }
-.hm-photo-preview { width: 72px; height: 72px; max-width: none; max-height: none; border-radius: 50%; object-fit: cover; margin: 0; }
+.hm-photo-row__address { flex: 1 1 12rem; min-width: 0; }
+.hm-photo-row .hm-avatar--lg { width: 48px; height: 48px; font-size: var(--text-md); }
+.hm-profile-meta { align-items: center; margin-bottom: var(--space-4); }
+.hm-profile-meta code { color: var(--text-muted); }
+.hm-photo-preview { width: 48px; height: 48px; max-width: none; max-height: none; border-radius: 50%; object-fit: cover; margin: 0; }
 
 /* Parent picker: the current parent as a chip with Change; the search and list open under it (native details, so it works without JavaScript). */
 .hm-parentpick { display: flex; flex-direction: column; gap: var(--space-2); }

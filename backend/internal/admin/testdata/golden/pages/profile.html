@@ -76,7 +76,7 @@
 <div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Your profile</h1></div><p class="hm-muted">Your account and how you appear as an author.</p></div>
 <div class="hm-row"></div></div>
 </header>
-<div class="hm-row"><span class="hm-avatar" data-initials="ED" aria-hidden="true"></span><strong>ed@example.com</strong><span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Editor</span></div>
+<div class="hm-row hm-profile-meta"><span class="hm-avatar" data-initials="ED" aria-hidden="true"></span><code>ed@example.com</code><span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Editor</span></div>
 
 <form method="post" action="/admin/profile" class="hm-cardform" novalidate>
 <section class="hm-card" id="profile-card" aria-labelledby="profile-card-title">
@@ -88,8 +88,7 @@
 <input class="hm-field__control" type="text" id="name" name="name" required autocomplete="name" maxlength="120">
 </div>
 <div class="hm-field"><label class="hm-field__label" for="photo">Photo</label>
-<div class="hm-row hm-photo-row"><span class="hm-avatar hm-avatar--lg hm-photo-avatar" data-initials="ED" aria-hidden="true"></span><img class="hm-sf-image hm-photo-preview" src="" alt="Your photo" data-hm-photo hidden><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="photo" hidden="hidden"><span>Upload</span></button></div>
-<div data-hm-photo-address><input class="hm-field__control" type="text" id="photo" name="photo" value="" placeholder="Address of your photo" data-hm-image autocomplete="off"></div>
+<div class="hm-row hm-photo-row"><span class="hm-avatar hm-avatar--lg hm-photo-avatar" data-initials="ED" aria-hidden="true"></span><img class="hm-sf-image hm-photo-preview" src="" alt="Your photo" data-hm-photo hidden><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="photo" hidden="hidden"><span>Upload</span></button><div class="hm-photo-row__address" data-hm-photo-address><input class="hm-field__control" type="text" id="photo" name="photo" value="" placeholder="Address of your photo" data-hm-image autocomplete="off"></div></div>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="job_title">Job title</label>
