@@ -58,6 +58,7 @@ type Cell struct {
 	Badge    *Badge
 	Depth    int    // indent of a tree row's name, in levels
 	Nowrap   bool   // keep the text on one line (dates)
+	Mono     bool   // muted monospace text (a slug or an address)
 	Clip     bool   // cut long text with an ellipsis; the full text is the title (addresses)
 	Sub      string // muted monospace line under the text (a URL path)
 	Initials string // decorative avatar before the text (a person's initials)

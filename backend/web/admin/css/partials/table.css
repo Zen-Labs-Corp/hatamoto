@@ -124,6 +124,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 
 /* A person's first cell: the avatar sits beside the name; "(you)" is quiet. */
 .hm-table .hm-avatar { display: inline-grid; vertical-align: middle; margin-inline-end: var(--space-2); }
+.hm-table__mono { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
 .hm-table__suffix { color: var(--text-muted); font-size: var(--text-sm); }
 /* A row the user just created: tinted, no shadow; the hidden "(new)" text carries the meaning. */
 .hm-table tr.hm-row--new > * { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }

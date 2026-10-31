@@ -851,12 +851,12 @@ func TestTaxonomyScreens(t *testing.T) {
 	// edit
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+fid(32).String(), "taxonomy-term")
 	has(t, body, `value="Press"`, "hm-seo", "seo_title")
-	// two cards (details, search appearance), the buttons in the SEO card foot, one SEO heading
+	// two cards (details, search appearance), the buttons in the save bar after them, one SEO heading
 	if n := strings.Count(body, `<section class="hm-card`); n != 2 {
 		t.Errorf("term page cards = %d, want 2", n)
 	}
-	if i, j := strings.Index(body, `id="seo"`), strings.Index(body, `hm-card__foot`); i < 0 || j < i || strings.Count(body, `hm-card__foot`) != 1 {
-		t.Errorf("the term buttons belong in the foot of the SEO card")
+	if i, j := strings.Index(body, `id="seo"`), strings.Index(body, `hm-savebar`); i < 0 || j < i || strings.Count(body, `hm-savebar`) < 1 || strings.Contains(body, `hm-card__foot`) {
+		t.Errorf("the term buttons belong in the save bar after the SEO card")
 	}
 	lacks(t, body, "hm-seo__title")
 	lacks(t, body, "Internal links")
