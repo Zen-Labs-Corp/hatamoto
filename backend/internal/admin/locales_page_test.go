@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -151,16 +152,16 @@ func TestLocaleOrderPermutationOnly(t *testing.T) {
 func TestLocaleUpdateKeepsOthers(t *testing.T) {
 	t.Parallel()
 	g, site := localeFixture(t)
-	if c := postForm(g, "/fr/update", "public", "true"); c != 303 {
+	if c := postForm(g, "/update/fr", "public", "true"); c != 303 {
 		t.Fatalf("code = %d", c)
 	}
 	if l := site.cfg.Locales[1]; l.Hidden || l.Name != "Francais" || l.Segment != "fr" {
 		t.Errorf("fr = %+v", l)
 	}
-	if c := postForm(g, "/en/update", "public", "false"); c != 422 || site.cfg.Locales[0].Hidden {
+	if c := postForm(g, "/update/en", "public", "false"); c != 422 || site.cfg.Locales[0].Hidden {
 		t.Errorf("hiding the default: code=%d %+v", c, site.cfg.Locales[0])
 	}
-	if c := postForm(g, "/xx/update", "public", "true"); c != 404 {
+	if c := postForm(g, "/update/xx", "public", "true"); c != 404 {
 		t.Errorf("unknown tag code = %d", c)
 	}
 }
@@ -213,5 +214,20 @@ func TestAddressesPrefixAll(t *testing.T) {
 	}
 	if c := postForm(g, "/addresses", "prefix_all", "false"); c != 303 || site.cfg.PrefixAll {
 		t.Errorf("code=%d prefixAll=%v", c, site.cfg.PrefixAll)
+	}
+}
+
+func TestLocalePagesPassA11y(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	for _, p := range []string{"", "/new", "/edit/fr", "/addresses", "/business"} {
+		rec := g.do("GET", "/admin/settings/locales"+p, "owner-token", nil, nil)
+		if rec.Code != 200 {
+			t.Errorf("%s = %d", p, rec.Code)
+			continue
+		}
+		if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("%s a11y: %v", p, issues)
+		}
 	}
 }

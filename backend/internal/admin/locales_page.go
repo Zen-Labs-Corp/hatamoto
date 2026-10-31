@@ -22,10 +22,12 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/locales/new", a.handleLocaleNew)
 	owner.HandleFunc("POST /settings/locales/add", a.handleLocaleAdd)
 	owner.HandleFunc("POST /settings/locales/order", a.handleLocaleOrder)
+	owner.HandleFunc("GET /settings/locales/business", a.handleBusiness)
+	owner.HandleFunc("POST /settings/locales/business/{tag}", a.handleBusinessSave)
 	owner.HandleFunc("GET /settings/locales/addresses", a.handleAddresses)
 	owner.HandleFunc("POST /settings/locales/addresses", a.handleAddressesSave)
-	owner.HandleFunc("GET /settings/locales/{tag}/edit", a.handleLocaleEdit)
-	owner.HandleFunc("POST /settings/locales/{tag}/update", a.handleLocaleUpdate)
+	owner.HandleFunc("GET /settings/locales/edit/{tag}", a.handleLocaleEdit)
+	owner.HandleFunc("POST /settings/locales/update/{tag}", a.handleLocaleUpdate)
 }
 
 // saveLocales is the one write path of the locale list: validate against the
@@ -101,7 +103,7 @@ type localesData struct {
 func (a *Admin) localeRowActions(entries []siteconfig.LocaleEntry, i int, def string) []ui.Action {
 	e := entries[i]
 	base := a.url("settings", "locales")
-	acts := []ui.Action{{Label: "Edit", Href: base + "/" + e.Tag + "/edit"}}
+	acts := []ui.Action{{Label: "Edit", Href: base + "/edit/" + e.Tag}}
 	move := func(label string, to int) {
 		order := make([]string, len(entries))
 		for k, x := range entries {
@@ -117,9 +119,9 @@ func (a *Admin) localeRowActions(entries []siteconfig.LocaleEntry, i int, def st
 		move("Move down", i+1)
 	}
 	if e.Tag != def {
-		pub := ui.Action{Label: "Make public", Post: base + "/" + e.Tag + "/update", Fields: map[string]string{"public": "true"}}
+		pub := ui.Action{Label: "Make public", Post: base + "/update/" + e.Tag, Fields: map[string]string{"public": "true"}}
 		if !e.Hidden {
-			pub = ui.Action{Label: "Hide from visitors", Post: base + "/" + e.Tag + "/update", Fields: map[string]string{"public": "false"}}
+			pub = ui.Action{Label: "Hide from visitors", Post: base + "/update/" + e.Tag, Fields: map[string]string{"public": "false"}}
 		}
 		acts = append(acts, pub)
 	}
@@ -162,7 +164,7 @@ func (a *Admin) localesTable(r *http.Request, cfg *siteconfig.Config) ui.Table {
 			first.Suffix = "search engine default"
 		}
 		if multi {
-			first.Link = a.url("settings", "locales", e.Tag, "edit")
+			first.Link = a.url("settings", "locales", "edit", e.Tag)
 		}
 		addr := ui.Cell{Text: "/", Sub: "no prefix"}
 		if p := set.Prefix(e.Tag); p != "" {
@@ -364,7 +366,7 @@ func (a *Admin) localeIndex(w http.ResponseWriter, r *http.Request) (*siteconfig
 func (a *Admin) editLocaleForm(cfg *siteconfig.Config, e siteconfig.LocaleEntry) localeForm {
 	return localeForm{
 		Tag: e.Tag, Segment: e.Segment, Name: e.Name, Public: !e.Hidden, Default: e.Tag == localeSetOf(cfg).Default(),
-		Action: a.url("settings", "locales", e.Tag, "update"), Title: localeDisplayName(e.Tag), Submit: "Save locale", Cancel: a.url("settings", "locales"),
+		Action: a.url("settings", "locales", "update", e.Tag), Title: localeDisplayName(e.Tag), Submit: "Save locale", Cancel: a.url("settings", "locales"),
 	}
 }
 

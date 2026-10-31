@@ -137,7 +137,7 @@ func (f fixedSess) Validate(_ context.Context, tok string) (*session.Session, er
 	return &session.Session{ID: f.id, Kind: session.KindAdmin, UserID: &u, LastUsedAt: &now}, nil
 }
 
-// The admin form saves language, locale list and x-default in one POST. The
+// The admin saves language, locale list and x-default through the General and Locales pages. The
 // site is single-locale until then; no entity is retagged and the x-default
 // (a tag only the posted list contains) is stored.
 func TestSettingsSave_AdminForm_Integration(t *testing.T) {
@@ -183,10 +183,16 @@ func TestSettingsSave_AdminForm_Integration(t *testing.T) {
 	}
 	rec := do(http.MethodPost, "/admin/settings/general/identity", url.Values{
 		"_csrf": {m[1]}, "name": {"Save IT"}, "url": {"https://save-it.example.test"}, "timezone": {"UTC"},
-		"language": {"en-XX"}, "locales": {"en-XX\nen-XY yy"}, "xdefault": {"en-XY"},
+		"language": {"en-XX"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("POST identity: %d %s", rec.Code, rec.Body)
+	}
+	if rec = do(http.MethodPost, "/admin/settings/locales/add", url.Values{"_csrf": {m[1]}, "tag": {"en-XY"}, "segment": {"yy"}, "public": {"true"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST add locale: %d %s", rec.Code, rec.Body)
+	}
+	if rec = do(http.MethodPost, "/admin/settings/locales/addresses", url.Values{"_csrf": {m[1]}, "xdefault": {"en-XY"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST addresses: %d %s", rec.Code, rec.Body)
 	}
 	f.assertSaved(t)
 }
