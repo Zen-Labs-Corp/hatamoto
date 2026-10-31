@@ -28,6 +28,7 @@ class El {
   remove() { if (this.parent) this.parent.kids = this.parent.kids.filter((x) => x !== this); }
   replaceWith(n) { const p = this.parent; p.kids[p.kids.indexOf(this)] = n; n.parent = p; }
   addEventListener(t, f) { (this.on[t] ??= []).push(f); }
+  dispatchEvent(e) { (globalThis.__events ??= []).push({ type: e.type, side: e.detail.side, bubbles: e.bubbles }); }
   fire(t, ev = {}) { (this.on[t] ?? []).forEach((f) => f({ preventDefault() {}, ...ev })); }
   querySelector() { return null; }
   walk(f) { f(this); this.kids.forEach((k) => k.walk(f)); }
@@ -123,4 +124,27 @@ test("the number fields of the box model hide their spin arrows (a click on a na
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../../../backend/web/admin/css/pages/builder.css", import.meta.url), "utf8");
   assert.match(css, /\.hm-bs-len--c \.hm-bs-num::-webkit-inner-spin-button/);
+});
+
+test("hovering or focusing a padding side tells the canvas (hm-pad-hover), leaving clears it, margins stay silent", () => {
+  const b = make([...MARGIN, ...PADDING]);
+  // Two cells per side: the margin ring's first, the padding ring's second.
+  const cell = (side) => b.find((n) => n.className === `hm-bs-side hm-bs-side--${side}`);
+  globalThis.__events = [];
+  const [marginTop, padTop] = cell("top");
+  const padRight = cell("right")[1];
+  padTop.fire("pointerenter");
+  padRight.fire("focusin");
+  padRight.fire("focusout");
+  padTop.fire("pointerleave");
+  assert.deepEqual(globalThis.__events, [
+    { type: "hm-pad-hover", side: "top", bubbles: true },
+    { type: "hm-pad-hover", side: "right", bubbles: true },
+    { type: "hm-pad-hover", side: null, bubbles: true },
+    { type: "hm-pad-hover", side: null, bubbles: true },
+  ]);
+  globalThis.__events = [];
+  marginTop.fire("pointerenter");
+  marginTop.fire("focusin");
+  assert.deepEqual(globalThis.__events, [], "the margin ring dispatches nothing");
 });
