@@ -54,7 +54,8 @@ func (f *fakeTraffic) TrafficTop(_ context.Context, dim analytics.Dim, from, _ t
 		return []analytics.TrafficTop{{K1: analytics.ChannelOrganic, Counts: analytics.Counts{Visits: 60, Pageviews: 100, Engaged: 30}},
 			{K1: analytics.ChannelAI, Counts: analytics.Counts{Visits: 20, Pageviews: 30}}, {K1: analytics.ChannelDirect, Counts: analytics.Counts{Visits: 20, Pageviews: 20}}}, nil
 	case analytics.DimSource:
-		return []analytics.TrafficTop{{K1: "google", K2: analytics.ChannelOrganic, Counts: analytics.Counts{Visits: 60}}, {K1: analytics.SourceNone, K2: analytics.ChannelDirect, Counts: analytics.Counts{Visits: 20}}}, nil
+		return []analytics.TrafficTop{{K1: "google", K2: analytics.ChannelOrganic, Counts: analytics.Counts{Visits: 60}}, {K1: analytics.SourceNone, K2: analytics.ChannelDirect, Counts: analytics.Counts{Visits: 20}},
+			{K1: analytics.KeyOther, Counts: analytics.Counts{Visits: 3}}}, nil
 	case analytics.DimCampaign:
 		return []analytics.TrafficTop{{K1: "oct-news", K2: "email", Counts: analytics.Counts{Visits: 7}}}, nil
 	case analytics.DimLanding:
@@ -237,6 +238,9 @@ func TestBuildTrafficFigures(t *testing.T) {
 	}
 	if s := p.Sources.Rows[1]; s[0].Text != "(direct)" || s[1].Text != "Direct" || s[3].Text != "--" {
 		t.Errorf("source row = %+v", s)
+	}
+	if s := p.Sources.Rows[2]; s[1].Text != "Mixed" {
+		t.Errorf("the (other) source row must name its channel Mixed: %+v", s)
 	}
 	if c := p.Campaigns.Rows[0]; c[0].Text != "oct-news" || c[1].Text != "email" {
 		t.Errorf("campaign row = %+v", c)

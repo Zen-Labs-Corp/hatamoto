@@ -42,6 +42,15 @@ func channelName(key string) string {
 	return key
 }
 
+// sourceChannel is the Channel cell of a source row; the capped (other) row
+// mixes channels and has no key.
+func sourceChannel(key string) string {
+	if key == "" {
+		return "Mixed"
+	}
+	return channelName(key)
+}
+
 func channelNames() []string {
 	out := make([]string, len(trafficChannels))
 	for i, c := range trafficChannels {
@@ -270,7 +279,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 
 	p.Sources = ui.AiaRows{Caption: "Top sources", Columns: []string{"Source", "Channel", "Visits", "Leads"}, Right: []bool{false, false, true, true}, Empty: "No sources in this period."}
 	for _, s := range sources {
-		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: channelName(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: placeholder, Muted: true}})
+		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: sourceChannel(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: placeholder, Muted: true}})
 	}
 	p.Campaigns = ui.AiaRows{Caption: "Top campaigns", Columns: []string{"Campaign", "Medium", "Visits", "Leads", "Rate"}, Right: []bool{false, false, true, true, true}, Empty: "No campaigns in this period. Tag links with utm_campaign."}
 	for _, c := range campaigns {
