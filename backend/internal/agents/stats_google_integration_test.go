@@ -36,7 +36,7 @@ func TestGoogleStats_Integration(t *testing.T) {
 
 	marker := "it-google-" + uuid.NewString()[:8]
 	schemaID := uuid.New()
-	crawled, stale, never, spoofOnly, errPage := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	crawled, stale, never, spoofOnly, errPage, flip := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	day1, day2 := time.Date(2020, 3, 10, 0, 0, 0, 0, time.UTC), time.Date(2020, 3, 11, 0, 0, 0, 0, time.UTC)
 	rg := Range{From: day1, To: day2}
 	pathOf := func(s string) string { return "/" + marker + "-" + s }
@@ -58,9 +58,10 @@ func TestGoogleStats_Integration(t *testing.T) {
 		($2,$6,'Stale',$8,'published','2020-03-01','2020-03-12 08:00:00+00'),
 		($3,$6,'Never',$9,'published','2020-03-01','2020-03-01'),
 		($4,$6,'SpoofOnly',$10,'published','2020-03-01','2020-03-01'),
-		($5,$6,'ErrPage',$11,'published','2020-03-01','2020-03-01')`,
+		($5,$6,'ErrPage',$11,'published','2020-03-01','2020-03-01'),
+		($12,$6,'Flip',$13,'published','2020-03-01','2020-03-01')`,
 		crawled, stale, never, spoofOnly, errPage, schemaID,
-		marker+"-1", marker+"-2", marker+"-3", marker+"-4", marker+"-5")
+		marker+"-1", marker+"-2", marker+"-3", marker+"-4", marker+"-5", flip, marker+"-6")
 
 	type row struct {
 		day               time.Time
@@ -80,6 +81,10 @@ func TestGoogleStats_Integration(t *testing.T) {
 	add(row{day1, "googlebot", pathOf("home-ish"), 200, nil, 2, 2, 0})
 	add(row{day1, "googlebot", "/robots.txt", 200, nil, 9, 9, 0}) // a file: not a page
 	add(row{day1, "googlebot", pathOf("err"), 500, errPage, 2, 2, 0})
+	// A served page that starts failing: the error row has no entity (only served
+	// hits are attributed), the path is the same.
+	add(row{day1, "googlebot", pathOf("flip"), 200, flip, 2, 2, 0})
+	add(row{day2, "googlebot", pathOf("flip"), 500, nil, 1, 1, 0})
 	add(row{day2, "bingbot", pathOf("crawled"), 200, crawled, 50, 50, 0}) // other engine
 	for _, r := range seed {
 		purpose, op := "search", "Google"
@@ -103,8 +108,8 @@ func TestGoogleStats_Integration(t *testing.T) {
 		for _, p := range pts {
 			got[p.Key] += p.Hits
 		}
-		if got["search"] != 5+6+2+9+2 || got["training"] != 11 {
-			t.Errorf("series = %v, want search %d training 11", got, 5+6+2+9+2)
+		if got["search"] != 5+6+2+9+2+2 || got["training"] != 11 {
+			t.Errorf("series = %v, want search %d training 11", got, 5+6+2+9+2+2)
 		}
 		ai, err := repo.Series(ctx, Range{From: day1, To: day1}, "purpose")
 		if err != nil {
@@ -127,8 +132,8 @@ func TestGoogleStats_Integration(t *testing.T) {
 			got[p.Day+" "+p.Key] = p.Hits
 		}
 		want := map[string]int64{
-			"2020-03-10 2xx": 5 + 6 + 2 + 9, "2020-03-10 5xx": 2,
-			"2020-03-11 2xx": 3 + 4, "2020-03-11 4xx": 1 + 7,
+			"2020-03-10 2xx": 5 + 6 + 2 + 9 + 2, "2020-03-10 5xx": 2,
+			"2020-03-11 2xx": 3 + 4, "2020-03-11 4xx": 1 + 7, "2020-03-11 5xx": 1,
 		}
 		for k, v := range want {
 			if got[k] != v {
@@ -151,7 +156,7 @@ func TestGoogleStats_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		wantHits := int64(5 + 3 + 1 + 4 + 6 + 7 + 2 + 9 + 2)
+		wantHits := int64(5 + 3 + 1 + 4 + 6 + 7 + 2 + 9 + 2 + 2 + 1)
 		if k.Hits != wantHits || k.Verified != wantHits-1-6 {
 			t.Errorf("hits/verified = %d/%d, want %d/%d", k.Hits, k.Verified, wantHits, wantHits-7)
 		}
@@ -162,9 +167,9 @@ func TestGoogleStats_Integration(t *testing.T) {
 		if k.Published != published {
 			t.Errorf("published = %d, want %d", k.Published, published)
 		}
-		// crawled, stale: served and genuine. spoofOnly: forged. errPage: only a 500. never: none.
-		if k.PagesCrawled != 2 {
-			t.Errorf("pages crawled = %d, want 2", k.PagesCrawled)
+		// crawled, stale, flip: served and genuine. spoofOnly: forged. errPage: only a 500. never: none.
+		if k.PagesCrawled != 3 {
+			t.Errorf("pages crawled = %d, want 3", k.PagesCrawled)
 		}
 		// Googlebot deltas 6 h, 16 h, 30 h (the Bing row is another agent): median 16 h.
 		if k.MedianFirstCrawl == nil || *k.MedianFirstCrawl != 16*time.Hour {
@@ -240,13 +245,21 @@ func TestGoogleStats_Integration(t *testing.T) {
 	})
 	t.Run("errors", func(t *testing.T) {
 		m := list(GoogleFilterErrors)
-		for _, name := range []string{"Crawled", "ErrPage", pathOf("gone")} {
+		for _, name := range []string{"Crawled", "ErrPage", "Flip", pathOf("gone")} {
 			if _, ok := m[name]; !ok {
 				t.Errorf("%s missing from errors", name)
 			}
 		}
-		if len(m) != 3 {
-			t.Errorf("errors = %v, want crawled, errpage, gone", m)
+		// Flip: a 200 day then a 500 day of an entity-less row on the same path is
+		// one row, with the 500, never a second bare-path row.
+		if f := m["Flip"]; f.Crawls != 3 || f.LastStatus != 500 || f.LastDay == nil || !f.LastDay.Equal(day2) {
+			t.Errorf("flip = %+v, want 3 crawls, last status 500 on day 2", f)
+		}
+		if _, ok := m[pathOf("flip")]; ok {
+			t.Error("flip's failing path listed again as a bare path")
+		}
+		if len(m) != 4 {
+			t.Errorf("errors = %v, want crawled, errpage, flip, gone", m)
 		}
 	})
 	t.Run("stale", func(t *testing.T) {
@@ -257,11 +270,11 @@ func TestGoogleStats_Integration(t *testing.T) {
 	})
 	t.Run("paging", func(t *testing.T) {
 		first, total, err := repo.GooglePages(ctx, rg, GoogleFilterErrors, 2, 0)
-		if err != nil || total != 3 || len(first) != 2 {
+		if err != nil || total != 4 || len(first) != 2 {
 			t.Fatalf("page 1: %d rows, total %d (%v)", len(first), total, err)
 		}
 		rest, _, err := repo.GooglePages(ctx, rg, GoogleFilterErrors, 2, 2)
-		if err != nil || len(rest) != 1 {
+		if err != nil || len(rest) != 2 {
 			t.Fatalf("page 2: %d rows (%v)", len(rest), err)
 		}
 		if _, _, err := repo.GooglePages(ctx, rg, "bogus", 10, 0); err == nil {

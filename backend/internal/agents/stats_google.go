@@ -150,10 +150,20 @@ WITH g AS (
     WHERE d.agent_id = $3 AND d.day BETWEEN $1 AND $2 AND d.hits - d.spoofed_hits > 0 AND ` + googleNotFilePath + `
 ), ga AS (
     SELECT g.* FROM g JOIN hatamoto_entities e ON e.id = g.entity_id AND ` + publishedFilter + `
-), gb AS (
+), pm AS (
+    -- Error rows carry no entity (only served pages are attributed), so they
+    -- join their published page by path.
+    SELECT DISTINCT ON (path) path, entity_id FROM ga ORDER BY path, entity_id
+), gr AS (
     SELECT g.* FROM g WHERE NOT EXISTS (SELECT 1 FROM ga WHERE ga.entity_id = g.entity_id)
+), gu AS (
+    SELECT * FROM ga
+    UNION ALL
+    SELECT pm.entity_id, gr.path, gr.day, gr.status, gr.n FROM gr JOIN pm ON pm.path = gr.path
+), gb AS (
+    SELECT gr.* FROM gr WHERE NOT EXISTS (SELECT 1 FROM pm WHERE pm.path = gr.path)
 ), a_last AS (
-    SELECT entity_id, MAX(day) AS last_day FROM ga GROUP BY entity_id
+    SELECT entity_id, MAX(day) AS last_day FROM gu GROUP BY entity_id
 ), b_last AS (
     SELECT path, MAX(day) AS last_day FROM gb GROUP BY path
 ), r AS (
@@ -162,11 +172,11 @@ WITH g AS (
            l.last_day IS NOT NULL AND (e.updated_at AT TIME ZONE 'UTC')::date > l.last_day AS stale
     FROM hatamoto_entities e
     LEFT JOIN (SELECT entity_id, SUM(n)::bigint AS crawls, (array_agg(path ORDER BY n DESC, path))[1] AS path
-               FROM ga GROUP BY entity_id) s ON s.entity_id = e.id
+               FROM gu GROUP BY entity_id) s ON s.entity_id = e.id
     LEFT JOIN a_last l ON l.entity_id = e.id
-    LEFT JOIN (SELECT ga.entity_id, MAX(ga.status) AS last_status
-               FROM ga JOIN a_last l ON l.entity_id = ga.entity_id AND l.last_day = ga.day
-               GROUP BY ga.entity_id) ls ON ls.entity_id = e.id
+    LEFT JOIN (SELECT gu.entity_id, MAX(gu.status) AS last_status
+               FROM gu JOIN a_last l ON l.entity_id = gu.entity_id AND l.last_day = gu.day
+               GROUP BY gu.entity_id) ls ON ls.entity_id = e.id
     WHERE ` + publishedFilter + `
     UNION ALL
     SELECT NULL::uuid, s.path, '', s.crawls, l.last_day, ls.last_status, false
