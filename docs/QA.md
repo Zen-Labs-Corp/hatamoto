@@ -498,7 +498,7 @@ owner and an editor), then run the commands under "Harness".
   such a rule; they left with the Next admin. A Go test keeps it empty.
 * **No literals**: `go test ./internal/admin/designcheck -run CSSLiterals` fails on a hex, `rgb(` or
   `hsl(` colour outside `tokens.css`, except the white preview frames and the dialog scrim.
-* **Charts**: each `--chart-1` to `--chart-6` has at least 3:1 against the paper in light
+* **Charts**: each `--chart-1` to `--chart-6` (indigo, three greys, amber, and a muted teal for "Other") has at least 3:1 against the paper in light
   and dark (`TestTokenContrast`); line series differ by dash and point shape as well as
   colour, so a chart still reads with colour vision turned off. The data table under each
   chart is always visible.

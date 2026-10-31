@@ -39,14 +39,14 @@
   --color-on-brand: #ffffff; /* glyph on the brand seal */
   --admin-accent: #34508a;
 
-  /* six distinct hues plus slate Other (series 6), each >= 3:1 against --color-paper (TestTokenContrast);
+  /* indigo, three greys, amber, and a muted teal for Other (series 6), each >= 3:1 against --color-paper (TestTokenContrast);
      series are also told apart by dash and point style, never colour alone */
   --chart-1: #34508a;
   --chart-2: #3f3f46;
   --chart-3: #71717a;
   --chart-4: #8a8a92;
   --chart-5: #a06a12;
-  --chart-6: #64748b;
+  --chart-6: #3a7d74;
   /* plugin-facing names, kept as aliases of the series above */
   /* hm/barlist bar under sumi text (4.5:1 both themes, TestTokenContrast) */
   --chart-bar-soft: #c9d3e8;
@@ -225,7 +225,7 @@
   --chart-3: #a1a1aa;
   --chart-4: #85858b;
   --chart-5: #d9a548;
-  --chart-6: #94a3b8;
+  --chart-6: #6cbaa9;
   --chart-bar-soft: #3a4560;
   --chart-bar-quiet: #2b3246;
   color-scheme: dark;
@@ -281,7 +281,7 @@
     --chart-3: #a1a1aa;
     --chart-4: #85858b;
     --chart-5: #d9a548;
-    --chart-6: #94a3b8;
+    --chart-6: #6cbaa9;
     --chart-bar-soft: #3a4560;
     --chart-bar-quiet: #2b3246;
     color-scheme: dark;
