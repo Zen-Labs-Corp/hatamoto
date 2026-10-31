@@ -6,6 +6,7 @@
 .hm-dialog[data-size="lg"] { width: min(960px, calc(100vw - 32px)); }
 /* Drawer: a side panel pinned to the inline end, full height. */
 .hm-dialog[data-side="end"] { width: min(480px, 100vw); max-height: none; border-width: 0 0 0 1px; border-radius: 0; }
+.hm-dialog[data-side="end"][data-width="wide"] { width: min(640px, 100vw); }
 .hm-dialog[data-side="end"][open] { position: fixed; inset: 0 0 0 auto; margin: 0; height: 100vh; height: 100dvh; animation: hm-drawer-in 150ms var(--ease); }
 @keyframes hm-drawer-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 .hm-dialog[open] { animation: hm-dialog-in 150ms var(--ease); }

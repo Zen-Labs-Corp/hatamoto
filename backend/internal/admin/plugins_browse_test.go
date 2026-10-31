@@ -75,10 +75,10 @@ func TestBrowseFiltersAndSort(t *testing.T) {
 	}{
 		{"?q=alp", []string{"Alpha", "1 plugin"}, []string{"Bravo", "Charlie"}},
 		{"?tier=first-party", []string{"Alpha", "First-party"}, []string{"Bravo", "Charlie"}},
-		{"?cat=Forms", []string{"Bravo"}, []string{"Alpha", "Charlie"}},
-		{"?perm=nonet", []string{"Alpha", "Charlie"}, []string{"Bravo"}},
+		{"?cat=Forms&hide=0", []string{"Bravo"}, []string{"Alpha", "Charlie"}},
+		{"?perm=nonet&hide=0", []string{"Alpha", "Charlie"}, []string{"Bravo"}},
 		{"?hide=1", []string{"Alpha"}, []string{"Bravo", "Charlie"}},
-		{"?sort=name-desc", []string{"Charlie"}, nil},
+		{"?sort=name-desc&hide=0", []string{"Charlie"}, nil},
 	} {
 		body := getBrowse(g, tc.query)
 		for _, w := range tc.want {
@@ -92,11 +92,11 @@ func TestBrowseFiltersAndSort(t *testing.T) {
 			}
 		}
 	}
-	desc := getBrowse(g, "?sort=name-desc")
+	desc := getBrowse(g, "?sort=name-desc&hide=0")
 	if strings.Index(desc, "Charlie") > strings.Index(desc, "Alpha") {
 		t.Error("descending sort not applied")
 	}
-	all := getBrowse(g, "")
+	all := getBrowse(g, "?hide=0")
 	for _, w := range []string{"Installed", "Update", ">Install<", `name="cat"`} {
 		if !strings.Contains(all, w) {
 			t.Errorf("card states: missing %q", w)
@@ -225,5 +225,131 @@ func TestCheckUpdatesNeedsCSRF(t *testing.T) {
 	rec := g.do("POST", "/admin/plugins/check-updates", "owner-token", url.Values{}, map[string]string{"X-CSRF-Token": ""})
 	if rec.Code < 400 || fp.refreshed != 0 {
 		t.Fatalf("status %d, refreshed %d", rec.Code, fp.refreshed)
+	}
+}
+
+func installedView() RegistryView {
+	return RegistryView{Host: "registry.example.test", Entries: []RegistryEntry{
+		{Kind: "plugin", Name: "alpha", Title: "Alpha", Tier: "first-party", Permissions: []string{"settings"}},
+		{Kind: "plugin", Name: "bravo", Title: "Bravo", Installed: true},
+		{Kind: "plugin", Name: "charlie", Title: "Charlie", Installed: true, Update: true},
+	}}
+}
+
+func TestBrowseHidesInstalledByDefault(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, installedView())
+	for _, query := range []string{"", "?hide=1"} {
+		body := getBrowse(g, query)
+		if !strings.Contains(body, ">Alpha<") || strings.Contains(body, ">Bravo<") || strings.Contains(body, ">Charlie<") {
+			t.Errorf("%q: installed plugins must be hidden", query)
+		}
+		for _, w := range []string{"1 plugin", "2 installed hidden", `href="/admin/plugins/browse?hide=0">Show installed`} {
+			if !strings.Contains(body, w) {
+				t.Errorf("%q: missing %q", query, w)
+			}
+		}
+		if strings.Contains(body, "Clear filters") || strings.Contains(body, "No plugins match") || strings.Contains(body, "Remove filter") {
+			t.Errorf("%q: the default hide is not a filter, chip or empty state", query)
+		}
+		if !strings.Contains(body, `id="browse-count"`) || !strings.Contains(body, `<span class="hm-visually-hidden">, </span>1<`) {
+			t.Errorf("%q: the Filters badge must count the default hide", query)
+		}
+	}
+}
+
+func TestBrowseShowInstalled(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, installedView())
+	body := getBrowse(g, "?hide=0")
+	for _, w := range []string{">Alpha<", ">Bravo<", ">Charlie<", "3 plugins", `href="/admin/plugins/browse">Hide installed`} {
+		if !strings.Contains(body, w) {
+			t.Errorf("hide=0: missing %q", w)
+		}
+	}
+	if strings.Contains(body, "installed hidden") || strings.Contains(body, "Show installed") {
+		t.Error("hide=0: the hidden-count line must not show")
+	}
+	if !strings.Contains(body, `id="browse-count" hidden`) {
+		t.Error("hide=0 and no chips: the badge is empty and hidden")
+	}
+}
+
+func TestBrowseNoInstalledNoLine(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, browseView(3))
+	body := getBrowse(g, "")
+	if strings.Contains(body, "installed hidden") || strings.Contains(body, "Show installed") || strings.Contains(body, "Hide installed</a>") {
+		t.Error("no plugin is installed: no muted line")
+	}
+}
+
+func TestBrowseAllInstalled(t *testing.T) {
+	t.Parallel()
+
+	view := installedView()
+	view.Entries = view.Entries[1:]
+	g, _ := browseRig(t, view)
+	body := getBrowse(g, "")
+	if !strings.Contains(body, "All plugins are installed") || strings.Contains(body, "The registry has no plugins yet") || strings.Contains(body, "No plugins match") {
+		t.Error("a fully installed registry needs its own state")
+	}
+	if !strings.Contains(body, `href="/admin/plugins/browse?hide=0"`) {
+		t.Error("the state links to Show installed")
+	}
+}
+
+func TestBrowseChipsAndBadgeCount(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, installedView())
+	body := getBrowse(g, "?perm=nonet")
+	for _, w := range []string{`href="/admin/plugins/browse" aria-label="Remove filter: No network access"`, ">Clear all<", `<span class="hm-visually-hidden">, </span>2<`} {
+		if !strings.Contains(body, w) {
+			t.Errorf("perm chip: missing %q", w)
+		}
+	}
+	if strings.Contains(body, "Remove filter: Hide installed") {
+		t.Error("hide must not be a chip")
+	}
+	if !strings.Contains(body, `perm=nonet`) || strings.Contains(body, `hide=1`) {
+		t.Error("links carry the canonical query")
+	}
+	if issues := a11y.Check(getBrowse(g, "?perm=nonet&hide=0"), a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestBrowseCountAnnouncedOutsideSwapTarget(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, installedView())
+	body := getBrowse(g, "")
+	i := strings.Index(body, `id="browse-status"`)
+	j := strings.Index(body, `id="browse-results"`)
+	if i < 0 || j < 0 || i > j || !strings.Contains(body, `id="browse-status" class="hm-visually-hidden" role="status"`) {
+		t.Error("the live region must sit before, so outside, the swapped #browse-results")
+	}
+	if !strings.Contains(body, `hx-select-oob="#browse-count,#browse-status:innerHTML"`) {
+		t.Error("the live region must be swapped by content (:innerHTML) so the same node persists")
+	}
+	if end := strings.Index(body[j:], `id="plugin-panel"`); end < 0 || strings.Contains(body[j:j+end], "aria-live") {
+		t.Error("no live region inside the swap target")
+	}
+}
+
+func TestBrowseCardPillAndDrawerWidth(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, installedView())
+	body := getBrowse(g, "")
+	if !strings.Contains(body, "hm-badge--sm") || !strings.Contains(body, `data-width="wide"`) {
+		t.Error("First-party pill must be small and the plugin panel wide")
+	}
+	if strings.Count(body, `role="search"`) != 1 || strings.Contains(body, "hm-pluginbrowse__facets") {
+		t.Error("one search form and no facet column")
 	}
 }

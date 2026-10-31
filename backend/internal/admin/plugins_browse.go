@@ -12,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/permtext"
 )
 
@@ -45,6 +46,45 @@ type browseCard struct {
 	Perms string
 }
 
+// browseGroup is one checkbox group of the Filters popover.
+type browseGroup struct {
+	Name, Label string
+	Facets      []browseFacet
+}
+
+// browseHideSwitch is the Hide installed switch of the Filters popover. It
+// posts hide=1 when on and hide=0 when off.
+type browseHideSwitch struct {
+	Name, Label, Value, OffValue string
+	Checked                      bool
+}
+
+// browseToolbar is the data of the single Browse toolbar: publisher
+// segmented, Filters popover, sort, and the chips and links under the count.
+type browseToolbar struct {
+	BaseURL   string
+	Segmented ui.Segmented
+	// PopoverFilters and PrimaryFilters feed hm/filterbar: the Groups and Hide
+	// in popover form, and the sort select.
+	PopoverFilters, PrimaryFilters []ui.Filter
+	// Groups are the popover checkbox groups (permissions, then categories
+	// when any plugin has one); Hide is the switch below them.
+	Groups []browseGroup
+	Hide   browseHideSwitch
+	Sort   ui.Filter
+	// Chips are the filters the user set (permissions, categories); the
+	// default hide is never a chip.
+	Chips     []ui.Chip
+	ClearHref string
+	// FilterCount is the number of active popover filters, the default hide
+	// included, for the Filters button.
+	FilterCount int
+	// InstalledHidden and InstalledTotal feed the muted line under the count.
+	InstalledHidden, InstalledTotal      int
+	ShowInstalledHref, HideInstalledHref string
+	ShowInstalledActions                 []ui.Button
+}
+
 type pluginBrowsePage struct {
 	Host, Refreshed string
 	Off             bool
@@ -59,6 +99,7 @@ type pluginBrowsePage struct {
 	Total           int
 	Filtered        bool
 	ClearActions    []ui.Button
+	Toolbar         browseToolbar
 	RefreshReturn   string
 }
 
@@ -90,6 +131,7 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	for _, c := range res.Facets.Categories {
 		d.Cats = append(d.Cats, browseFacet{c, c, slices.Contains(q.Cats, c)})
 	}
+	d.Toolbar = browseToolbarFor(base, q, res, d)
 	if !reg.FetchedAt.IsZero() {
 		d.Refreshed = agoText(pluginsNow().Sub(reg.FetchedAt))
 	}
@@ -105,6 +147,56 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse"}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/browse", v)
+}
+
+// browseToolbarFor builds the toolbar from the parsed query, the result page
+// and the facets already shaped in d.
+func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, d pluginBrowsePage) browseToolbar {
+	href := func(v url.Values) string {
+		if len(v) == 0 {
+			return base
+		}
+		return base + "?" + v.Encode()
+	}
+	hidden, shown := q, q
+	hidden.HideInstalled, shown.HideInstalled = true, false
+	tb := browseToolbar{
+		Segmented: ui.Segmented{Mode: "radio", Label: "Publisher", Name: "tier", Items: []ui.SegmentedItem{
+			{Label: "All", Value: "", Pressed: len(q.Tiers) != 1},
+			{Label: "First-party", Value: packages.TierFirstParty, Pressed: slices.Equal(q.Tiers, []string{packages.TierFirstParty})},
+			{Label: "Community", Value: packages.TierCommunity, Pressed: slices.Equal(q.Tiers, []string{packages.TierCommunity})},
+		}},
+		Groups:  []browseGroup{{Name: "perm", Label: "Permissions", Facets: d.Perms}},
+		Hide:    browseHideSwitch{Name: "hide", Label: "Hide installed", Value: "1", OffValue: "0", Checked: q.HideInstalled},
+		Sort:    ui.Filter{Name: "sort", Label: "Sort", Options: d.SortOptions},
+		BaseURL: base, ClearHref: base, InstalledHidden: res.InstalledHidden, InstalledTotal: res.InstalledTotal,
+		ShowInstalledHref: href(shown.Values()), HideInstalledHref: href(hidden.Values()),
+	}
+	if res.Facets.HasCategories {
+		tb.Groups = append(tb.Groups, browseGroup{Name: "cat", Label: "Category", Facets: d.Cats})
+	}
+	for _, g := range tb.Groups {
+		for _, f := range g.Facets {
+			if f.Checked {
+				tb.Chips = append(tb.Chips, ui.Chip{Label: f.Label, RemoveHref: href(q.WithoutValue(g.Name, f.Value))})
+			}
+		}
+	}
+	tb.PrimaryFilters = []ui.Filter{tb.Sort}
+	for _, g := range tb.Groups {
+		f := ui.Filter{Name: g.Name, Label: g.Label, Control: "checkbox"}
+		for _, fc := range g.Facets {
+			f.Options = append(f.Options, ui.Option{Value: fc.Value, Label: fc.Label, Selected: fc.Checked})
+		}
+		tb.PopoverFilters = append(tb.PopoverFilters, f)
+	}
+	tb.PopoverFilters = append(tb.PopoverFilters, ui.Filter{Name: tb.Hide.Name, Label: tb.Hide.Label, Control: "switch", Value: tb.Hide.Value, OffValue: tb.Hide.OffValue, Checked: tb.Hide.Checked})
+	tb.ShowInstalledActions = []ui.Button{{Label: "Show installed", Href: tb.ShowInstalledHref}}
+	tb.FilterCount = len(tb.Chips)
+	if q.HideInstalled {
+		tb.FilterCount++
+	}
+	return tb
 }
 
 // browseCard shapes a registry entry for the card grid.

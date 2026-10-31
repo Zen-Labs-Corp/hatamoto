@@ -46,6 +46,8 @@ type Badge struct {
 	// Plain drops the dot of a neutral label, Wrap lets long text wrap, Mono is a read-only
 	// identifier or tag (monospace, wraps). A coloured Kind keeps its dot either way.
 	Plain, Wrap, Mono bool
+	// Size "sm" is the compact pill (hm-badge--sm); empty is the default size.
+	Size string
 }
 
 // Cell is one table cell: text, optionally a link, or a badge, optionally followed by a
@@ -128,6 +130,13 @@ type Filter struct {
 	// Input renders an <input type=Input> (for example "date") holding Value
 	// instead of a <select>.
 	Input, Value string
+	// Control selects another popover control: "checkbox" renders Options as a
+	// group of checkboxes (Option.Selected is the checked state, repeated Name),
+	// "switch" a single switch posting Value when on and OffValue when off.
+	// Only the filter bar's popover honours it; "" is the select or Input above.
+	Control  string
+	Checked  bool
+	OffValue string
 }
 
 // BulkAction posts the checked row ids to Action.
@@ -159,12 +168,26 @@ type Table struct {
 	PopoverFilters []Filter
 	Chips          []Chip
 	ClearHref      string
-	Hidden         map[string]string // fixed query values the filter form carries, e.g. the open form
-	Bulk           []BulkAction
-	BulkURL        string
-	Page           Pagination
-	Empty          Empty
-	Error          string // non-empty renders the error state with Retry
+	// Opt-in filter bar layout (all zero by default, which renders the plain
+	// bar). Segmented is a radio control before the primary filters that
+	// applies live. Live makes the popover fields apply on change (no Apply
+	// button; the noscript Apply stays). Target is the id of the results the
+	// swap replaces (default ID) so the form and an open popover stay put.
+	// FilterCount is the Filters badge (default len Chips). Bare drops the
+	// card look and groups segmented + Filters apart from search + selects.
+	// ChipsOutside leaves rendering the chips (hm/filterchips) to the page.
+	Segmented    *Segmented
+	Live         bool
+	Target       string
+	FilterCount  int
+	Bare         bool
+	ChipsOutside bool
+	Hidden       map[string]string // fixed query values the filter form carries, e.g. the open form
+	Bulk         []BulkAction
+	BulkURL      string
+	Page         Pagination
+	Empty        Empty
+	Error        string // non-empty renders the error state with Retry
 	// CreatedID marks the row with this ID as just created: it gets the
 	// hm-row--new class and a visually hidden "(new)" so colour is not alone.
 	CreatedID string

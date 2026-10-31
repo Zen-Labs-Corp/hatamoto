@@ -82,6 +82,17 @@
       "height": "var(--badge-h)",
       "padding-left": "var(--space-2)",
       "padding-right": "var(--space-2)"
+    },
+    "variants": {
+      "sm": ".hm-badge.hm-badge--sm"
+    },
+    "variantProps": {
+      "sm": {
+        "font-size": "var(--text-2xs)",
+        "height": "var(--badge-h-sm)",
+        "padding-left": "var(--space-1)",
+        "padding-right": "var(--space-1)"
+      }
     }
   },
   "menu": {
