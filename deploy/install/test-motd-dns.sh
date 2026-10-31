@@ -296,4 +296,36 @@ if sdrun "$r" FAKE_DNS_IP=203.0.113.7 FAKE_CADDY_FAIL=1 >"$tmp/o" 2>&1; then fai
 cmp -s "$r/etc/caddy/Caddyfile" "$tmp/cf.before" || fail "Caddyfile not restored"
 pass "a Caddyfile caddy rejects is rolled back"
 
+# --- install.sh set-domain: core pre-check, refreshed on-box script, forwarded arguments
+isd="$tmp/asm/install.sh"
+floor="$(cat "$here/MIN_CORE_VERSION")"
+isd_root() { # isd_root NAME CORE_VERSION_OUTPUT
+  local d; d="$(sd_root "$1" "$auto_cf")"
+  printf '#!/bin/sh\ncase "$1" in version) echo "%s" ;; *) echo "$PUBLIC_BASE_URL/k7qm-x2rf-9tdc" ;; esac\n' "$2" > "$d/opt/hatamoto/bin/hatamoto"
+  echo "$d"
+}
+isdrun() { local d="$1"; shift; envrun "$d" HATAMOTO_PUBLIC_IP=203.0.113.7 FAKE_DNS_IP=203.0.113.7 sh "$isd" set-domain "$@"; }
+
+r="$(isd_root isdold "hatamoto v0.9.0 (abc)")"; cp "$r/etc/caddy/Caddyfile" "$tmp/cf.before"
+echo stale > "$r/usr/local/lib/hatamoto/firstboot.sh"
+if isdrun "$r" cms.example.com >"$tmp/o" 2>&1; then fail "core below the floor accepted"; fi
+grep -q "older than $floor" "$tmp/o" || fail "old core message: $(cat "$tmp/o")"
+grep -q 'update Hatamoto first' "$tmp/o" || fail "old core hint"
+cmp -s "$r/etc/caddy/Caddyfile" "$tmp/cf.before" || fail "Caddyfile changed for an old core"
+[ "$(cat "$r/usr/local/lib/hatamoto/firstboot.sh")" = stale ] || fail "on-box script refreshed for an old core"
+
+r="$(isd_root isdok "hatamoto $floor (abc)")"; : > "$tmp/calls"
+echo stale > "$r/usr/local/lib/hatamoto/firstboot.sh"
+isdrun "$r" Cms.Example.com --email you@example.com >"$tmp/o" 2>&1 || fail "install.sh set-domain failed: $(cat "$tmp/o")"
+cmp -s "$r/usr/local/lib/hatamoto/firstboot.sh" "$fb" || fail "on-box firstboot.sh not refreshed"
+grep -qx 'PUBLIC_BASE_URL=https://cms.example.com' "$r/opt/hatamoto/config/hatamoto.env" || fail "arguments not forwarded"
+grep -qxP '\temail you@example.com' "$r/etc/caddy/Caddyfile" || fail "--email not forwarded"
+
+r="$(isd_root isdunk "dev build")"
+isdrun "$r" cms.example.com >"$tmp/o" 2>&1 || fail "unparseable core version refused: $(cat "$tmp/o")"
+r="$(isd_root isdnone "hatamoto $floor")"; rm -f "$r/opt/hatamoto/bin/hatamoto"
+if isdrun "$r" cms.example.com >/dev/null 2>&1; then fail "set-domain without a binary accepted"; fi
+if isdrun "$r" >/dev/null 2>&1; then fail "set-domain without a host accepted"; fi
+pass "install.sh set-domain refuses an old core, refreshes the on-box scripts and forwards arguments"
+
 echo "ok: test-motd-dns"

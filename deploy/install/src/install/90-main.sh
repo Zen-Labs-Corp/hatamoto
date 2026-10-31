@@ -13,13 +13,30 @@ run_firstboot() {
   sh "$(dest "$LIB_DIR")/firstboot.sh" first-boot
 }
 
+# run_set_domain refreshes the on-box first-boot script from this installer, then lets it
+# move the site. A core older than the installer minimum is refused.
+run_set_domain() {
+  [ $# -ge 1 ] || die "usage: install.sh set-domain HOST [--email ADDR]"
+  [ -x "$(dest "$APP_DIR/bin/hatamoto")" ] || die "Hatamoto is not installed here: run install.sh first"
+  sd_version="$("$(dest "$APP_DIR/bin/hatamoto")" version 2>/dev/null | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  if [ -n "$sd_version" ] && trust_version_lt "$sd_version" "$INSTALLER_MIN_VERSION"; then
+    die "Hatamoto $sd_version is older than $INSTALLER_MIN_VERSION: update Hatamoto first"
+  fi
+  sd_lib="$(dest "$LIB_DIR")"
+  mkdir -p "$sd_lib"
+  payload_firstboot > "$sd_lib/firstboot.sh"
+  chmod 0755 "$sd_lib/firstboot.sh"
+  sh "$sd_lib/firstboot.sh" set-domain "$@"
+}
+
 usage() {
   cat <<'HM_USAGE'
-usage: install.sh [all | build [--seal] | first-boot | download VERSION OUTFILE | version]
+usage: install.sh [all | build [--seal] | first-boot | set-domain HOST [--email ADDR] | download VERSION OUTFILE | version]
   all (default)  build stage, then first-boot stage; never seals
   build          install packages, the verified binary and the unit
   build --seal   as build, then remove host identity and caches for an image
   first-boot     create secrets, database and site, start the service
+  set-domain     point the installed site at another host name
   download       verify and fetch one release binary (used by the tests)
   version        print the installer version
 HM_USAGE
@@ -50,6 +67,10 @@ main() {
     first-boot)
       need_root
       run_firstboot
+      ;;
+    set-domain)
+      need_root
+      run_set_domain "$@"
       ;;
     download)
       [ $# -eq 2 ] || die "usage: install.sh download VERSION OUTFILE"
