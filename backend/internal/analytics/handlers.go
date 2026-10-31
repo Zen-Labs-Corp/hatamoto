@@ -67,14 +67,14 @@ type trackRequest struct {
 // referrer URL. Known crawlers, generic bot hints and empty user agents are
 // dropped (crawlers are recorded by the agent capture instead).
 func (h *Handlers) Track(w http.ResponseWriter, r *http.Request) {
-	ua := r.UserAgent()
-	if ua == "" || agents.Default().LooksLikeBot(ua) {
-		w.WriteHeader(http.StatusAccepted)
-		return
-	}
 	var body trackRequest
 	if err := json.NewDecoder(io.LimitReader(r.Body, trackBodyMax)).Decode(&body); err != nil {
 		http.Error(w, `{"error":"invalid_payload"}`, http.StatusBadRequest)
+		return
+	}
+	// Decoding comes first so a malformed body is a 400 for every client, bots included.
+	if ua := r.UserAgent(); ua == "" || agents.Default().LooksLikeBot(ua) {
+		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 	if len(body.Events) > maxTrackEvents {
