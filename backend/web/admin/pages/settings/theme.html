@@ -4,7 +4,7 @@
 {{range .Themes}}<section class="hm-card hm-theme{{if .Active}} hm-theme--active{{end}}" id="theme-{{.Name}}" aria-labelledby="theme-{{.Name}}-title">
 {{$first := index .Palette 0}}<svg class="hm-theme__strip" viewBox="0 0 100 10" preserveAspectRatio="none"{{if $first.Hex}} role="img" aria-label="Brand colours of the live theme"{{else}} aria-hidden="true" focusable="false"{{end}}>{{range .Palette}}<rect{{if .Hex}} fill="{{.Hex}}"{{else}} class="hm-theme__swatch--none"{{end}} x="{{.X}}" width="20" height="10"/>{{end}}</svg>
 <div class="hm-card__body">
-<div class="hm-row hm-row--between"><h2 class="hm-card__title" id="theme-{{.Name}}-title">{{.Name}}</h2>{{if .Active}}{{template "hm/badge" dict "Label" "Live" "Kind" "success"}}{{end}}</div>
+<div class="hm-row hm-row--between"><h2 class="hm-card__title" id="theme-{{.Name}}-title">{{.Name}}</h2>{{if .Active}}{{template "hm/badge" dict "Label" "Live" "Kind" "live"}}{{end}}</div>
 <p class="hm-muted">{{if .Builtin}}Built in. Always available.{{else}}v{{.Version}}{{if .Description}}: {{.Description}}{{end}}{{end}}</p>
 {{if not .Builtin}}<p class="hm-muted">{{if .Signed}}Signed by <code>{{.Signer}}</code>.{{else}}<strong>Unsigned.</strong>{{end}}</p>{{end}}
 {{if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}

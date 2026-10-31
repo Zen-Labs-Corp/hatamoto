@@ -40,7 +40,7 @@ func (b Button) Dict() map[string]any {
 // dot (unless Icon, Plain or Mono is set) and the label always render.
 type Badge struct {
 	Label string
-	Kind  string // neutral | success | warning | danger | info
+	Kind  string // neutral | success | warning | danger | info | muted (Off, Disabled, Paused, Hidden) | live (the active theme)
 	// Icon is an optional icon name drawn before the label (the delta arrows).
 	Icon string
 	// Plain drops the dot of a neutral label, Wrap lets long text wrap, Mono is a read-only

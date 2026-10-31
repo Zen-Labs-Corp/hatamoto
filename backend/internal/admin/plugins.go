@@ -325,7 +325,7 @@ func pluginStatus(p PluginInfo) pluginState {
 	case p.Package != nil && p.Package.Blocked != "":
 		return pluginState{Badge: ui.Badge{Label: "Blocked", Kind: "danger"}, Marker: "Failed"}
 	case p.Package != nil && !p.Package.Enabled:
-		return pluginState{Badge: ui.Badge{Label: "Disabled", Kind: "neutral"}, Marker: "Off"}
+		return pluginState{Badge: ui.Badge{Label: "Disabled", Kind: "muted"}, Marker: "Off"}
 	case p.Loaded:
 		return pluginState{Badge: ui.Badge{Label: "Active", Kind: "success"}, Active: true}
 	case p.Package != nil && p.Package.WidgetOnly:

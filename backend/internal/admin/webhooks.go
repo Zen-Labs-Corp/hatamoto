@@ -131,7 +131,7 @@ func (a *Admin) webhooksTable(r *http.Request, subs []webhook.ListedSubscription
 	for _, s := range subs {
 		status := ui.Badge{Label: "Active", Kind: "success"}
 		if !s.Active {
-			status = ui.Badge{Label: "Paused", Kind: "neutral"}
+			status = ui.Badge{Label: "Paused", Kind: "muted"}
 		}
 		address := ui.Cell{Text: s.URL, Clip: true}
 		if strings.HasPrefix(strings.ToLower(s.URL), "http://") {
