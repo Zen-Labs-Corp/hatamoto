@@ -178,3 +178,13 @@ func TestTranslationsGridColumnsFollowSettingsOrder(t *testing.T) {
 		t.Errorf("grid column order en %d, fr %d, es %d; want en, fr, es", en, fr, es)
 	}
 }
+
+// A cell with no value shows the admin's dash, never "None": the address of a
+// locale with no copy and an empty search title.
+func TestTranslationsEmptyCellsShowDash(t *testing.T) {
+	t.Parallel()
+	c, _ := groupedRig(t)
+	body := c.get(t, "owner-token", translationsTab, "")
+	lacks(t, body, "None")
+	has(t, body, "—")
+}

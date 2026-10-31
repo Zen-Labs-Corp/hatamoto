@@ -24,6 +24,9 @@ type translationsData struct {
 	Link *linkDialog
 }
 
+// emptyCell is what a table cell with no value shows, as in the other admin tables.
+const emptyCell = "—"
+
 type linkDialog struct{ Action, Src string }
 
 // handleTranslations is the Translations tab of an entry: one row per
@@ -141,7 +144,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			if set.IsHidden(tag) {
 				text = "no copy, hidden"
 			}
-			row.Cells = []ui.Cell{lang, {Text: "None"}, {Text: text}}
+			row.Cells = []ui.Cell{lang, {Text: emptyCell}, {Text: text}}
 			d.Copies.Rows = append(d.Copies.Rows, row)
 			continue
 		}
@@ -169,7 +172,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			seo = seoFrom(attrsMap(cv.e.Attributes)).Title
 		}
 		if seo == "" {
-			seo = "None"
+			seo = emptyCell
 		}
 		seoRow = append(seoRow, ui.Cell{Text: seo})
 		statusRow = append(statusRow, ui.Cell{Text: statusLabel(cv.m.Status)})
@@ -244,7 +247,7 @@ func (a *Admin) copyAddress(ctx context.Context, e *entity.Entity) string {
 			return p
 		}
 	}
-	return "None"
+	return emptyCell
 }
 
 func statusLabel(s string) string {
