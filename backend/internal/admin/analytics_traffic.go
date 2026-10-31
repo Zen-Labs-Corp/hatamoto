@@ -264,7 +264,11 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	for i, c := range trafficChannels {
 		n := byChannel[c.Key]
 		pct := ratio(n.Visits, totals.Visits)
-		row := []ui.AiaCell{{Text: c.Name}, {Text: fmtNum(n.Visits)},
+		name := ui.AiaCell{Text: c.Name}
+		if c.Key == analytics.ChannelAI {
+			name.Badge = &ui.Badge{Label: "new", Kind: "info"}
+		}
+		row := []ui.AiaCell{name, {Text: fmtNum(n.Visits)},
 			{Text: shareText(pct), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
 			{Text: placeholder, Muted: true}, {Text: placeholder, Muted: true}}
 		if cmp {

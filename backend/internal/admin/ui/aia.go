@@ -145,7 +145,7 @@ type AiaRows struct {
 }
 
 // AiaCell is one cell of AiaRows: text, optionally a link, followed by a
-// monospace word (a slug), or a muted note, or a badge.
+// monospace word (a slug), or a muted note, or a badge (after the text when both are set).
 type AiaCell struct {
 	Text, Href, Mono string
 	Muted            bool

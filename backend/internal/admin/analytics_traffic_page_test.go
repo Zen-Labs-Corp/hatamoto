@@ -61,6 +61,9 @@ func TestTrafficPageSections(t *testing.T) {
 			t.Errorf("the First touch | Last touch toggle must be disabled: missing %q", want)
 		}
 	}
+	if !strings.Contains(body, `AI assistants <span class="hm-badge hm-badge--info`) {
+		t.Error("the AI assistants channel row must carry the new badge")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
