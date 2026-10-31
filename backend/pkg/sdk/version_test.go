@@ -6,13 +6,13 @@ import (
 )
 
 func TestVersionPinned(t *testing.T) {
-	if Version != "0.13.0" {
-		t.Fatalf("Version = %q, want 0.13.0; changing it is an SDK release decision, update this pin with it", Version)
+	if Version != "0.14.0" {
+		t.Fatalf("Version = %q, want 0.14.0; changing it is an SDK release decision, update this pin with it", Version)
 	}
 }
 
 func TestCompatibleWithPinned(t *testing.T) {
-	want := []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0"}
+	want := []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0"}
 	if !slices.Equal(CompatibleWith, want) {
 		t.Fatalf("CompatibleWith = %v, want %v; every 0.x minor from 0.5 stays served until 1.0", CompatibleWith, want)
 	}
@@ -44,10 +44,10 @@ func TestCompatibleWithOldHost(t *testing.T) {
 
 func TestCompatibleWithNewHost(t *testing.T) {
 	list := []string{"0.5.0", "0.12.0"}
-	for rng, want := range map[string]bool{"^0.12": true, "^0.13": true, "^0.14": false} {
-		got, err := compatibleWith("0.13.0", list, rng)
+	for rng, want := range map[string]bool{"^0.12": true, "^0.14": true, "^0.15": false} {
+		got, err := compatibleWith("0.14.0", list, rng)
 		if err != nil || got != want {
-			t.Errorf("compatibleWith(0.13.0, %s) = %v,%v want %v", rng, got, err, want)
+			t.Errorf("compatibleWith(0.14.0, %s) = %v,%v want %v", rng, got, err, want)
 		}
 	}
 }

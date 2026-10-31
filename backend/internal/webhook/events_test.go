@@ -50,6 +50,9 @@ func TestRegisterMapsEveryHookToTheContractPayload(t *testing.T) {
 		{"import.completed", sdk.ImportEvent{Source: "wordpress", Created: 3, Updated: 2, Failed: 1}, `{"created":3,"failed":1,"source":"wordpress","updated":2}`},
 		{"form.submitted", sdk.FormSubmittedEvent{FormID: "f1", FormSlug: "contact", SubmissionID: "s1", Fields: map[string]any{"email": "x@example.com"}, SourcePath: "/contact"},
 			`{"form_id":"f1","form_slug":"contact","submission_id":"s1"}`},
+		{"form.submitted", sdk.FormSubmittedEvent{FormID: "f1", FormSlug: "contact", SubmissionID: "s1", Fields: map[string]any{"email": "x@example.com"},
+			Attribution: &sdk.FormAttribution{First: &sdk.FormTouch{Channel: "direct", Landing: "/"}, Last: &sdk.FormTouch{Channel: "email", Source: "newsletter", Medium: "email"}}},
+			`{"form_id":"f1","form_slug":"contact","submission_id":"s1","attribution":{"first":{"channel":"direct","landing":"/"},"last":{"channel":"email","source":"newsletter","medium":"email"}}}`},
 	} {
 		fn := reg.fns[tc.hook]
 		if fn == nil {

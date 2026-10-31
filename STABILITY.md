@@ -12,7 +12,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v0.31.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.13.0` (`0.12.0` shipped with product `v0.31.0`) |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.14.0` (`0.12.0` shipped with product `v0.31.0`) |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -55,7 +55,7 @@ Levels:
 One language per install; multilingual UI not yet. Every content entity carries a `locale` (BCP 47),
 slugs are unique per schema and locale, and public pages serve only the site language.
 
-The SDK is bumped to 0.13.0 for `locale` although no rule here requires it for an additive field
+The SDK is bumped to 0.13.0 for `locale` and to 0.14.0 for the form attribution although no rule here requires it for an additive field
 (plugins ignore unknown JSON fields, and no permission is involved), because a published SDK tree cannot
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
@@ -86,11 +86,11 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until 1.0. Today `Version` is `0.13.0` and
-  `CompatibleWith` is `0.5.0` to `0.12.0`. Dropping an entry is a breaking change and is announced like
+- Every 0.x SDK minor from 0.5 stays served until 1.0. Today `Version` is `0.14.0` and
+  `CompatibleWith` is `0.5.0` to `0.13.0`. Dropping an entry is a breaking change and is announced like
   any other.
-- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.12 refuses
-  a plugin that declares `^0.13`. Declare the oldest range your plugin needs.
+- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.13 refuses
+  a plugin that declares `^0.14`. Declare the oldest range your plugin needs.
 - Three tests pin this in `backend/pkg/sdk`: `TestVersionPinned` (the version constant),
   `TestCompatibleWithPinned` (the exact list, sorted, without the current version) and
   `TestCompatibleWithOldHost` (a host that reports 0.12.0 refuses `^0.13` and accepts `^0.12`,

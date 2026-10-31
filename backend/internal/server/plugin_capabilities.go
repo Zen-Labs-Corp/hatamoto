@@ -130,5 +130,21 @@ func (s *Server) fireFormSubmitted(ctx context.Context, f *form.Form, sub *form.
 	s.hooks.Fire(ctx, sdk.FormSubmitted.Name, sdk.FormSubmittedEvent{
 		FormID: f.ID.String(), FormSlug: f.Slug, SubmissionID: sub.ID.String(),
 		Fields: data, SourcePath: meta.PageURL, SubmittedAt: sub.CreatedAt,
+		Attribution: formAttributionEvent(sub.Attribution),
 	})
+}
+
+// formAttributionEvent maps the stored attribution to the hook payload; nil
+// stays nil so the key is omitted.
+func formAttributionEvent(a *form.Attribution) *sdk.FormAttribution {
+	if a == nil {
+		return nil
+	}
+	conv := func(t *form.Touch) *sdk.FormTouch {
+		if t == nil {
+			return nil
+		}
+		return &sdk.FormTouch{Channel: t.Channel, Source: t.Source, Medium: t.Medium, Campaign: t.Campaign, Landing: t.Landing}
+	}
+	return &sdk.FormAttribution{First: conv(a.First), Last: conv(a.Last)}
 }

@@ -1,4 +1,4 @@
-# Plugin API (SDK 0.13)
+# Plugin API (SDK 0.14)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
@@ -117,13 +117,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.13.0`; plugins built for `^0.5` to `^0.12` still load):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.14.0`; plugins built for `^0.5` to `^0.13` still load):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.13.0
+go get hatamoto.dev/sdk@v0.14.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -133,7 +133,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.13.0` is the git tag `v0.13.0`. The core repository stays
+plain release tags: version `0.14.0` is the git tag `v0.14.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -150,7 +150,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.13 is still current.
+> SDK 0.14 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -159,6 +159,10 @@ different repository.
 > tree cannot change under the same version, and 0.10 and 0.11 shipped additive payload changes as a minor too.
 > A plugin built earlier ignores unknown JSON fields; on a host older than SDK 0.13 the field is absent.
 > On `entity.published` from a scheduled publish the host looks the locale up; if that fails it is `""`.
+>
+> **0.14 changes (additive):** `FormSubmittedEvent` carries `attribution` (`first` and `last` touch: `channel`, `source`, `medium`, `campaign`, `landing`), the
+> classified source of the browser tab that submitted the form. It is left out when none was recorded (no-JS posts, API posts, older submissions). It holds no URL, address or identifier.
+> A plugin built earlier ignores the unknown field; on a host older than SDK 0.14 it is absent.
 >
 > **0.11 changes:** a page-builder data source: the `builder.data` filter, the `builder.data` permission and the
 > `builder_sources` manifest field (see [builder.data](#builderdata) and [WIDGET_PACKS.md](WIDGET_PACKS.md)). Purely additive.
@@ -292,7 +296,9 @@ No IP address and no user agent are ever included. `entity_id` is `""` when the 
 Fired after a public form submission was stored. It carries the submitted fields, so it is delivered **only to plugins that hold `forms.read`**; the visitor's IP address and user agent are never included.
 ```json
 { "form_id": "string", "form_slug": "contact", "submission_id": "string",
-  "fields": { "email": "a@example.com" }, "source_path": "/contact", "submitted_at": "2026-01-02T03:04:05Z" }
+  "fields": { "email": "a@example.com" }, "source_path": "/contact", "submitted_at": "2026-01-02T03:04:05Z",
+  "attribution": { "first": { "channel": "ai_assistants", "source": "perplexity", "landing": "/pricing" },
+                   "last": { "channel": "email", "source": "newsletter", "medium": "email" } } }
 ```
 
 #### PageContext
@@ -380,7 +386,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.13.0 and also serves `^0.5` to `^0.12` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.14.0 and also serves `^0.5` to `^0.13` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/sdk"
@@ -291,5 +292,26 @@ func TestPluginGrantAPIRefusesCommunityScripts(t *testing.T) {
 	}
 	if g := rt.Grants().Granted("capa"); len(g) != 0 {
 		t.Fatalf("a refused grant changed the grants: %v", g)
+	}
+}
+
+func TestFormAttributionEvent(t *testing.T) {
+	t.Parallel()
+	if formAttributionEvent(nil) != nil {
+		t.Fatal("nil attribution must stay nil so the key is omitted")
+	}
+	got := formAttributionEvent(&form.Attribution{
+		First: &form.Touch{Channel: "ai_assistants", Source: "perplexity", Landing: "/pricing"},
+	})
+	b, err := json.Marshal(sdk.FormSubmittedEvent{Attribution: got})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"attribution":{"first":{"channel":"ai_assistants","source":"perplexity","landing":"/pricing"}}`) {
+		t.Errorf("payload = %s", b)
+	}
+	b, _ = json.Marshal(sdk.FormSubmittedEvent{})
+	if strings.Contains(string(b), "attribution") {
+		t.Errorf("empty event carries attribution: %s", b)
 	}
 }

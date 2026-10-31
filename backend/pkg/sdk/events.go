@@ -165,6 +165,25 @@ type FormSubmittedEvent struct {
 	Fields       map[string]any `json:"fields"`
 	SourcePath   string         `json:"source_path,omitempty"`
 	SubmittedAt  time.Time      `json:"submitted_at"`
+	// Attribution is where the submitter came from (first and last touch of
+	// the browser tab). Absent when none was recorded. Since SDK 0.14.
+	Attribution *FormAttribution `json:"attribution,omitempty"`
+}
+
+// FormTouch is one classified visit source of a submission: channel, source,
+// medium, campaign and landing path. It never holds a URL, address or identifier.
+type FormTouch struct {
+	Channel  string `json:"channel,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Medium   string `json:"medium,omitempty"`
+	Campaign string `json:"campaign,omitempty"`
+	Landing  string `json:"landing,omitempty"`
+}
+
+// FormAttribution is the first and last touch carried by FormSubmittedEvent.
+type FormAttribution struct {
+	First *FormTouch `json:"first,omitempty"`
+	Last  *FormTouch `json:"last,omitempty"`
 }
 
 // PageContext is the value filtered by render.page for one public page view.
