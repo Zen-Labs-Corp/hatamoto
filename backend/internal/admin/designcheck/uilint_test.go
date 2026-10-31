@@ -152,6 +152,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "schemaform/field.html", Needle: `__clear`, Reason: "clear the stored value, a destructive tick and not a setting"},
 
 	// UI-04: shadows outside the popup list.
+	{Rule: "UI-04", File: "css/partials/chart.css", Needle: ".hm-statcard { box-shadow", Reason: "stat cards carry the lightest shadow; the one named exception to the no-shadow card rule"},
 	{Rule: "UI-04", File: "css/pages/blogeditor.css", Needle: ".hm-ed__bar", Reason: "sticky blog editor toolbar; editor_polish_test.go asserts blogeditor.css"},
 
 	// UI-05: markup that cannot go through hm/button or hm/card-start. Needles name

@@ -156,7 +156,7 @@
   --text-xl: 20px;
   --text-2xl: 24px;
   --text-title: 18px; /* dialog and empty-state titles */
-  --text-metric: 30px; /* KPI values */
+  --text-metric: 28px; /* KPI values */
   --text-3xl: 2.25rem; /* editor title field */
 
   --weight-regular: 400;

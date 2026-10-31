@@ -108,9 +108,9 @@ func TestOverviewKPIDeltasFollowCompare(t *testing.T) {
 		t.Fatalf("delta lines = %d, want 3 (the coverage cell has none)", n)
 	}
 	for label, want := range map[string][]string{
-		"AI fetches":          {"&#43;23.4%", "hm-badge--success", "up ", "vs previous 30 days"},
+		"AI fetches":          {"&#43;23.4%", "hm-statcard__delta--success", "up ", "vs previous 30 days"},
 		"AI-referred visits":  {"Unchanged", "vs previous 30 days"},
-		"AI share of traffic": {"-0.9 pts", "hm-badge--danger", "down "}, // 12/4500 = 0.27% against 12/1000 = 1.2%
+		"AI share of traffic": {"-0.9 pts", "hm-statcard__delta--danger", "down "}, // 12/4500 = 0.27% against 12/1000 = 1.2%
 	} {
 		c := kpiCell(t, on, label)
 		for _, w := range want {
