@@ -45,7 +45,6 @@ th[aria-sort="ascending"] .hm-table__sort, th[aria-sort="descending"] .hm-table_
 th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .hm-table__sort .hm-icon { opacity: 1; }
 .hm-table tbody tr:last-child > * { border-bottom: 0; }
 .hm-table tbody tr:hover { background: var(--color-shiro); }
-.hm-table tbody tr:has(input[type="checkbox"]:checked) { background: var(--color-accent-soft); }
 .hm-table__sub { display: block; font-size: var(--text-xs); color: var(--color-hai); }
 .hm-inline { display: inline; }
 /* Inline proportion bar and trend line after a cell's text; both are SVG, widths are attributes. */
