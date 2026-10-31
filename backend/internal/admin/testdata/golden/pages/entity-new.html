@@ -91,7 +91,7 @@
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <input type="hidden" name="type" value="service">
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
-<div class="hm-entityform__grid"><div class="hm-entityform__main">
+<div class="hm-entityform__grid">
 <section class="hm-card" id="content" aria-labelledby="content-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="content-title">Content</h2></div>
 <div class="hm-card__body">
@@ -123,66 +123,7 @@
 
 </div>
 </div></section>
-<section class="hm-card" id="seo">
-<div class="hm-card__body">
-<div class="hm-seo" data-hm-seo>
-<div class="hm-seo__head"><h3 class="hm-seo__title">SEO</h3><p class="hm-seo__score hm-seo__score--fail" id="seo-score"><strong>0</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p></div>
-<div class="hm-tablist" role="tablist" aria-label="SEO settings" data-hm-seo-tabs="" hidden="hidden"><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-search" aria-controls="seo-tabpanel-search" aria-selected="true" tabindex="0">Search</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-social" aria-controls="seo-tabpanel-social" aria-selected="false" tabindex="-1">Social</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-schema" aria-controls="seo-tabpanel-schema" aria-selected="false" tabindex="-1">Schema</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-advanced" aria-controls="seo-tabpanel-advanced" aria-selected="false" tabindex="-1">Advanced</button></div>
-<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-search" aria-labelledby="seo-tab-search" data-hm-seo-panel>
-<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Search</h4>
-<div class="hm-field">
-<label class="hm-field__label" for="seo_title">SEO title</label>
-<input class="hm-field__control" type="text" id="seo_title" name="seo_title" aria-describedby="seo_title-help" autocomplete="off">
-<p class="hm-field__help" id="seo_title-help">Shown in search results. About 60 characters.</p>
-</div>
-<p class="hm-be__count hm-be__count--fail" id="seo-title-count"><span>0 / 60</span> <span class="hm-be__count-msg">Add a title.</span></p>
-<div class="hm-field">
-<label class="hm-field__label" for="seo_description">SEO description</label>
-<textarea class="hm-field__control" id="seo_description" name="seo_description" rows="3" aria-describedby="seo_description-help"></textarea>
-<p class="hm-field__help" id="seo_description-help">A short summary for search results. About 155 characters.</p>
-</div>
-<p class="hm-be__count hm-be__count--fail" id="seo-description-count"><span>0 / 160</span> <span class="hm-be__count-msg">No description. Write one of 120 to 160 characters.</span></p>
-<span class="hm-indicator" id="analyze-busy" role="status" data-hm-busy-text="Checking"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
-<div id="be-panel" aria-live="polite"><div class="hm-bp">
-<p class="hm-bp__summary hm-bp__summary--fail" data-hm-bp-summary><strong>0 of 2 checks pass</strong>, 2 to fix</p>
-<h5 class="hm-bp__h">Search result preview</h5>
-<div class="hm-bp__serp" role="group" aria-label="Search result preview">
-<p class="hm-bp__serp-url">https://acme.example/</p>
-<p class="hm-bp__serp-title">Untitled</p>
-<p class="hm-bp__serp-desc">No description yet.</p>
-</div>
-<h5 class="hm-bp__h">Search checks</h5>
-<ul class="hm-bp__list" role="list">
-<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Title</strong>: Add a title.</span></li>
-<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Description</strong>: No description. Write one of 120 to 160 characters.</span></li>
-</ul>
-
-</div></div>
-</section>
-<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
-<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
-<div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
-<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
-</div>
-</section>
-<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
-<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
-<div id="seo-schema"><p class="hm-muted">No structured data can be built until the entry has a name.</p></div>
-</section>
-<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>
-<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Advanced</h4>
-<div class="hm-field">
-<label class="hm-field__label" for="seo_canonical">Canonical address</label>
-<input class="hm-field__control" type="text" id="seo_canonical" name="seo_canonical" aria-describedby="seo_canonical-help" autocomplete="off">
-<p class="hm-field__help" id="seo_canonical-help">Only when this service also lives at another address.</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this service</span></label>
-</div>
-</section>
-</div>
-</div></section>
-</div><aside class="hm-entityform__side" aria-label="Publishing and terms">
+<aside class="hm-entityform__side" aria-label="Publishing and terms">
 <section class="hm-card" id="publishing" aria-labelledby="publishing-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="publishing-title">Publishing</h2></div>
 <div class="hm-card__body">
@@ -244,7 +185,67 @@
 </div>
 </div>
 </div></section>
-</aside></div>
+</aside>
+<section class="hm-card" id="seo">
+<div class="hm-card__body">
+<div class="hm-seo" data-hm-seo>
+<div class="hm-seo__head"><h3 class="hm-seo__title">SEO</h3><p class="hm-seo__score hm-seo__score--fail" id="seo-score"><strong>0</strong><span class="hm-seo__score-max">/ 100</span> <span class="hm-visually-hidden">SEO score</span></p></div>
+<div class="hm-tablist" role="tablist" aria-label="SEO settings" data-hm-seo-tabs="" hidden="hidden"><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-search" aria-controls="seo-tabpanel-search" aria-selected="true" tabindex="0">Search</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-social" aria-controls="seo-tabpanel-social" aria-selected="false" tabindex="-1">Social</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-schema" aria-controls="seo-tabpanel-schema" aria-selected="false" tabindex="-1">Schema</button><button type="button" class="hm-tablist__tab" role="tab" id="seo-tab-advanced" aria-controls="seo-tabpanel-advanced" aria-selected="false" tabindex="-1">Advanced</button></div>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-search" aria-labelledby="seo-tab-search" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Search</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_title">SEO title</label>
+<input class="hm-field__control" type="text" id="seo_title" name="seo_title" aria-describedby="seo_title-help" autocomplete="off">
+<p class="hm-field__help" id="seo_title-help">Shown in search results. About 60 characters.</p>
+</div>
+<p class="hm-be__count hm-be__count--fail" id="seo-title-count"><span>0 / 60</span> <span class="hm-be__count-msg">Add a title.</span></p>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_description">SEO description</label>
+<textarea class="hm-field__control" id="seo_description" name="seo_description" rows="3" aria-describedby="seo_description-help"></textarea>
+<p class="hm-field__help" id="seo_description-help">A short summary for search results. About 155 characters.</p>
+</div>
+<p class="hm-be__count hm-be__count--fail" id="seo-description-count"><span>0 / 160</span> <span class="hm-be__count-msg">No description. Write one of 120 to 160 characters.</span></p>
+<span class="hm-indicator" id="analyze-busy" role="status" data-hm-busy-text="Checking"><span class="hm-visually-hidden" data-hm-busy-label></span></span>
+<div id="be-panel" aria-live="polite"><div class="hm-bp">
+<p class="hm-bp__summary hm-bp__summary--fail" data-hm-bp-summary><strong>0 of 2 checks pass</strong>, 2 to fix</p>
+<h5 class="hm-bp__h">Search result preview</h5>
+<div class="hm-bp__serp" role="group" aria-label="Search result preview">
+<p class="hm-bp__serp-url">https://acme.example/</p>
+<p class="hm-bp__serp-title">Untitled</p>
+<p class="hm-bp__serp-desc">No description yet.</p>
+</div>
+<h5 class="hm-bp__h">Search checks</h5>
+<ul class="hm-bp__list" role="list">
+<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Title</strong>: Add a title.</span></li>
+<li class="hm-bp__item hm-bp__item--fail"><span class="hm-bp__mark"><span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span></span><span><strong>Description</strong>: No description. Write one of 120 to 160 characters.</span></li>
+</ul>
+
+</div></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
+<div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
+</div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
+<div id="seo-schema"><p class="hm-muted">No structured data can be built until the entry has a name.</p></div>
+</section>
+<section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>
+<h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Advanced</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_canonical">Canonical address</label>
+<input class="hm-field__control" type="text" id="seo_canonical" name="seo_canonical" aria-describedby="seo_canonical-help" autocomplete="off">
+<p class="hm-field__help" id="seo_canonical-help">Only when this service also lives at another address.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this service</span></label>
+</div>
+</section>
+</div>
+</div></section>
+</div>
 <div class="hm-savebar">
 <span class="hm-savebar__aside"><span data-hm-ef-status><span class="hm-savestate" data-state="idle" role="status" aria-live="polite" data-hm-savestate><span class="hm-savestate__dot" aria-hidden="true"></span><span class="hm-savestate__text"></span></span></span></span>
 <a class="hm-btn hm-btn--secondary" href="/admin/entities"><span>Cancel</span></a>
