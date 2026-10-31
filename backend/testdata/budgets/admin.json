@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 49989,
+      "value": 51522,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -40,38 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "admin-consistency rebased onto main (#269 admin-path, #268 blobstore-restore): admin page-size and render/server allocation baselines move by a few hundred bytes after the merge (admin-path helpers in rendered URLs plus this branch's badge/callout template changes); nothing else grew",
-      "date": "2026-10-25"
-    },
-    {
-      "reason": "builder-ux-shell: rebase onto main; editor_js_first_gzip 88511 to 93213 (+4702 B, within the earlier +4989 B), cap 93351 = 89255 + 4096; editor_js_total_gzip 191001 to 214906, admin_css_gzip 41158 to 43172",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: inspector first-paint split (inspcontent, inspheader lazy)",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: canvas strip (breadcrumbs, zoom, device band) in lazy canvas/chrome, host zoom state; canvas_host_gzip 7147 to ~7.9 KB (within +1,024 B)",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: floating element toolbar in lazy canvas/chrome (replaces the selection tag)",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: '+' handles and picker rows (lazy canvas/chrome mountHandles, canvas/points), addbar removed from host",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: inspector header, Class row and menu in lazy chunks; editor_js_total_gzip cap 225280 -\u003e 235520 (+4.5%): the Phase C inspector modules (header, essentials, source chips, Show on, box model) are all lazy",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector: Style tab Essentials (lazy essentials.js), More style options disclosure",
-      "date": "2026-10-26"
-    },
     {
       "reason": "builder-ux-canvas-inspector: source chips per control (plain badge clone), Local tag and bold override note removed",
       "date": "2026-10-26"
@@ -146,6 +114,10 @@
     },
     {
       "reason": "builder navigator field-row review fixes (section follows the focused field row, alias keys, icons): editor_js_first_gzip 99662 to 99901 (+239 B, cap 99779 to 100018) and editor_js_total_gzip 251416 to 251655 (+239 B, cap 252129 to 252368; builderTotalCap 251655 + 1024)",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "Plugins Browse toolbar, badge sm variant and wide drawer CSS",
       "date": "2026-10-31"
     }
   ]
