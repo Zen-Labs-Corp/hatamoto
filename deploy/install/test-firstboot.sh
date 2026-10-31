@@ -188,6 +188,16 @@ if cf h.example off ops@example.com | grep -q email; then fail "off caddyfile ca
 cf h.example auto "" | grep -qxP '\treverse_proxy 127.0.0.1:8090' || fail "reverse_proxy missing"
 pass "Caddyfile for each TLS mode, with and without email"
 
+cf h.example auto "" old.example | grep -qx 'old.example {' || fail "redirect site missing"
+cf h.example auto "" old.example | grep -qxP '\tredir https://h.example\{uri\} permanent' || fail "redirect target"
+[ "$(cf h.example auto "" old.example | grep -c reverse_proxy)" = 1 ] || fail "old host proxied"
+cf h.example internal "" old.example | awk '/^old.example/{f=1} f' | grep -qxP '\ttls internal' || fail "redirect site lacks tls internal"
+cf h.example off "" old.example | grep -qx 'http://old.example {' || fail "off redirect site"
+cf h.example off "" old.example | grep -qxP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
+if cf h.example auto "" h.example | grep -q redir; then fail "same-host redirect"; fi
+[ "$(cf h.example auto "")" = "$(cf h.example auto "" "")" ] || fail "3-arg output changed"
+pass "Caddyfile old-host redirect for each TLS mode"
+
 # --- full run ---------------------------------------------------------------------
 r="$(mkroot full)"
 : > "$tmp/calls"
