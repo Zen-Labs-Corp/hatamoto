@@ -3,10 +3,13 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -93,5 +96,52 @@ func TestGoogleSummary(t *testing.T) {
 	}
 	if _, err := googleSummary(context.Background(), f, rg, "bogus", 20); err == nil {
 		t.Error("an unknown filter was accepted")
+	}
+}
+
+type fakeTraffic struct {
+	dim  analytics.Dim
+	rows []analytics.TrafficTop
+}
+
+func (f *fakeTraffic) TrafficTop(_ context.Context, dim analytics.Dim, _, _ time.Time, _ int) ([]analytics.TrafficTop, error) {
+	f.dim = dim
+	return f.rows, nil
+}
+
+func TestTrafficSummary(t *testing.T) {
+	rg := agents.Range{From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 1, 7, 0, 0, 0, 0, time.UTC)}
+	f := &fakeTraffic{rows: []analytics.TrafficTop{
+		{K1: "google.com", K2: "organic search", Counts: analytics.Counts{Visits: 8, Pageviews: 12, Engaged: 3}},
+		{K1: "(other)", Counts: analytics.Counts{}},
+	}}
+	out, err := trafficSummary(context.Background(), f, rg, "page", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.dim != analytics.DimLanding || out["by"] != "page" || out["from"] != "2026-01-01" || out["to"] != "2026-01-07" {
+		t.Errorf("unexpected result %v (dim %s)", out, f.dim)
+	}
+	raw, _ := json.Marshal(out["rows"])
+	want := `[{"key":"google.com","detail":"organic search","visits":8,"pageviews":12,"engaged_pct":37.5},{"key":"(other)","visits":0,"pageviews":0,"engaged_pct":0}]`
+	if string(raw) != want {
+		t.Errorf("rows = %s", raw)
+	}
+	if _, err := trafficSummary(context.Background(), f, rg, "ip", 10); !errors.As(err, new(userError)) {
+		t.Errorf("invalid by: %v", err)
+	}
+	if out, err := trafficSummary(context.Background(), f, rg, "", 10); err != nil || out["by"] != "channel" {
+		t.Errorf("default by: %v %v", out, err)
+	}
+}
+
+// The traffic rows carry counts and keys only: no field may name a visitor, IP or user agent.
+func TestTrafficRowsHaveNoVisitorFields(t *testing.T) {
+	out, _ := trafficSummary(context.Background(), &fakeTraffic{rows: []analytics.TrafficTop{{K1: "x"}}}, agents.Range{}, "channel", 5)
+	raw, _ := json.Marshal(out)
+	for _, bad := range []string{"ip", "user_agent", "ua", "visitor", "referrer"} {
+		if strings.Contains(string(raw), `"`+bad+`"`) {
+			t.Errorf("result has a %q field: %s", bad, raw)
+		}
 	}
 }
