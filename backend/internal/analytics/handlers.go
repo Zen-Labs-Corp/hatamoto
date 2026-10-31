@@ -103,16 +103,13 @@ func (h *Handlers) recordTraffic(r *http.Request, ev trackEvent, eng string) {
 		Entry:       ev.Entry && eng == "",
 		Eng:         eng,
 		First:       ev.First,
-		Ref:         NormalizeHost(cleanToken(ev.Ref, maxRefLen)),
+		Ref:         refHost(cleanToken(ev.Ref, maxRefLen)),
 		UTMSource:   cleanToken(ev.US, maxUTMLen),
 		UTMMedium:   cleanToken(ev.UM, maxUTMLen),
 		UTMCampaign: cleanToken(ev.UC, maxUTMLen),
 		Path:        cleanPath(ev.Path),
 		Paid:        ev.Paid,
 		Device:      DeviceClass(r.UserAgent()),
-	}
-	if i := strings.IndexByte(e.Ref, '/'); i >= 0 {
-		e.Ref = e.Ref[:i]
 	}
 	channel, source := Classify(e, agents.Default(), r.Host)
 	if channel == "" {
@@ -147,4 +144,16 @@ func cleanPath(p string) string {
 		return ""
 	}
 	return cleanToken(p, maxPathLen)
+}
+
+// refHost reduces a referrer a client sent to its host: it drops a scheme
+// ("https://") and anything from the first "/", then normalises.
+func refHost(ref string) string {
+	if i := strings.Index(ref, "://"); i >= 0 {
+		ref = ref[i+3:]
+	}
+	if i := strings.IndexByte(ref, '/'); i >= 0 {
+		ref = ref[:i]
+	}
+	return NormalizeHost(ref)
 }

@@ -196,3 +196,11 @@ func TestTrackPayloadKeysMatchBeacon(t *testing.T) {
 		}
 	}
 }
+
+func TestTrackReducesFullURLRefToHost(t *testing.T) {
+	body := `{"v":2,"events":[{"type":"page_view","entry":true,"ref":"https://www.Google.com:443/search?q=x","path":"/"}]}`
+	m, _ := trafficTrack(t, browserUA, "site.test", "203.0.113.9:1", body, nil, true)
+	if m["source|google.com|organic"].Visits != 1 {
+		t.Fatalf("rows = %v", m)
+	}
+}
