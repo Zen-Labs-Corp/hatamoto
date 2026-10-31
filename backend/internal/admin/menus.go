@@ -88,11 +88,13 @@ type menuForm struct {
 	// of the inspector's tile and swatch pickers; empty when the theme has none.
 	StyleItems, ColorItems []map[string]any
 	Locations              []ui.Option
-	Errors                 map[string]string
-	Summary                []ui.FieldError
-	AddType                string
-	AddTypes               []ui.Option
-	Notice                 string // structural edit applied but not saved yet
+	// Actions are the header buttons: the shortcuts trigger, shown once the editor script runs.
+	Actions  []ui.Button
+	Errors   map[string]string
+	Summary  []ui.FieldError
+	AddType  string
+	AddTypes []ui.Option
+	Notice   string // structural edit applied but not saved yet
 	// NoticeKind is "warning" when the edit was refused (the rows did not
 	// change) and "info" otherwise.
 	NoticeKind string
@@ -408,6 +410,7 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 	f.Blank.TypeIcon, f.Blank.Target = menuTarget(f.Blank)
 	f.StyleItems = pickerItems(f.Decl.Styles)
 	f.ColorItems = pickerItems(f.Decl.Colors)
+	f.Actions = []ui.Button{{Label: "Keyboard shortcuts", Icon: "help", Attrs: map[string]string{"data-hm-open": "menu-shortcuts", "data-hm-editor-only": "", "hidden": ""}}}
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})

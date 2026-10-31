@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/menutree @hm/menuadd @hm/menuinspector @hm/menupreview @hm/searchselect{{end}}
-{{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF}}
+{{define "main"}}{{with .Data}}{{$decl := .Decl}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit menu") "CSRF" $.CSRF "Actions" .Actions}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" (or .NoticeKind "info"))}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
 <form method="post" action="{{adminPath}}/theme/menus/{{.ID}}" class="hm-stack hm-menuform" data-hm-editor data-max-depth="{{.MaxDepth}}" data-max-items="{{.MaxItems}}"{{if or .Notice .Errors}} data-hm-dirty{{end}}>
@@ -90,7 +90,7 @@
 {{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-right" "AriaLabel" "Collapse all" "Attrs" (attrmap "data-hm-collapse-all" "")}}
 {{template "hm/button" dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "chevron-down" "AriaLabel" "Expand all" "Attrs" (attrmap "data-hm-expand-all" "")}}
 {{template "hm/button" dict "Variant" "primary" "Size" "sm" "Icon" "plus" "Label" "Add" "Attrs" (attrmap "data-hm-add-open" "" "popovertarget" "menu-add")}}</div></template>
-<template data-hm-tpl="treefoot"><p class="hm-menutree__foot hm-muted">Drag the grip to reorder, or hold Alt and use the arrow keys. {{template "hm/button" dict "Label" "Keyboard shortcuts" "Variant" "ghost" "Size" "sm" "Icon" "help" "Attrs" (attrmap "data-hm-open" "menu-shortcuts")}}</p></template>
+<template data-hm-tpl="treefoot"><p class="hm-menutree__foot hm-muted">Drag the grip to reorder, or hold Alt and use the arrow keys.</p></template>
 <template data-hm-tpl="add"><div class="hm-popover-panel hm-menuadd" popover id="menu-add" role="dialog" aria-label="Add an item"><div class="hm-popover-panel__body hm-menuadd__body">
 {{template "hm/tabs" dict "Variant" "tablist" "Label" "Add an item" "Items" (list (dict "ID" "add-tab-pages" "Controls" "add-panel-pages" "Label" "Pages" "Active" true) (dict "ID" "add-tab-address" "Controls" "add-panel-address" "Label" "Address") (dict "ID" "add-tab-heading" "Controls" "add-panel-heading" "Label" "Heading") (dict "ID" "add-tab-archive" "Controls" "add-panel-archive" "Label" "Archive"))}}
 <div id="add-panel-pages" role="tabpanel" aria-labelledby="add-tab-pages" class="hm-stack">

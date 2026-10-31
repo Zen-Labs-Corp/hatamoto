@@ -10,7 +10,7 @@
 .hm-menueditor__issue:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* Rows and fields the script hides once their warning is fixed. */
 .hm-menutree__warn[hidden], .hm-menutree__fields > .hm-callout[hidden] { display: none; }
-.hm-menuform [data-hm-editor-only][hidden] { display: none; }
+[data-hm-editor-only][hidden] { display: none; }
 /* Inspector stacks under the tree on narrow screens. */
 @media (max-width: 640px) { .hm-menueditor__aux { grid-template-columns: minmax(0, 1fr); } }
 /* With JavaScript the editor is a grid: Name and Location on top, the tree beside
