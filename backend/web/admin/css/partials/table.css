@@ -77,8 +77,8 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards th.hm-table__rowhead { order: 1; flex: 1 1 0; min-width: 0; font-weight: var(--weight-medium); }
   /* The select box hangs in the left gutter, so every cell of the second line (Answers, Status, ...)
      starts under the title, however many lines it wraps to. */
-  .hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: var(--space-8); }
-  .hm-table--cards td.hm-table__check { position: absolute; inset-block-start: calc(var(--space-2) + var(--space-1)); inset-inline-start: 0; padding: var(--space-0-5) 0; }
+  .hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: calc(var(--space-4) + var(--space-8)); }
+  .hm-table--cards td.hm-table__check { position: absolute; inset-block-start: calc(var(--space-2) + var(--space-1)); inset-inline-start: var(--space-4); padding: var(--space-0-5) 0; }
   .hm-table--cards td.hm-table__actions { order: 2; width: auto; padding: 0; }
   .hm-table--cards td.hm-table__actions::before, .hm-table--cards td.hm-table__check::before { content: none; }
   /* A strip with neither a select-all box nor a sort link is only column titles the cards already
