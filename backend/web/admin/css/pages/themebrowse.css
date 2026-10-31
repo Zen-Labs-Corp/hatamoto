@@ -11,7 +11,7 @@
 .hm-themecard__name { font-weight: var(--weight-semibold); }
 .hm-themecard__by { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-themecard__desc { font-size: var(--text-sm); color: var(--text-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2lh; }
-.hm-themecard__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: auto; padding-top: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); }
+.hm-themecard__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: auto; padding: var(--space-3) var(--space-4) var(--space-4); font-size: var(--text-xs); color: var(--text-muted); }
 .hm-themecard__type { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-themecard__action { font-weight: var(--weight-semibold); color: var(--text-body); }
 .hm-themecard__action--live, .hm-themecard__action--installed { color: var(--color-success); }
