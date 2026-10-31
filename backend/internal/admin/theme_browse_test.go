@@ -112,6 +112,9 @@ func TestThemeBrowsePopulated(t *testing.T) {
 			t.Errorf("missing %q", w)
 		}
 	}
+	if !strings.Contains(body, ` themes · 2 installed hidden · <a href="/admin/theme/browse?hide=0">Show installed</a></p>`) {
+		t.Error("count and installed-hidden note must share one line")
+	}
 	if strings.Contains(body, ">seo<") || strings.Contains(body, "Permissions") {
 		t.Error("plugin entries or permission facets leaked into theme browse")
 	}

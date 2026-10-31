@@ -7,9 +7,8 @@
 {{else}}{{with .Toolbar}}{{template "hm/filterbar" (dict "ID" "browse" "BaseURL" .BaseURL "Target" "browse-results" "Live" true "Bare" true "ChipsOutside" true "Segmented" .Segmented "PopoverFilters" .PopoverFilters "PrimaryFilters" .PrimaryFilters "SearchLabel" "Search themes" "Query" $.Data.Query.Q "FilterCount" .FilterCount "Chips" .Chips "ClearHref" .ClearHref)}}{{end}}
 <p id="browse-status" class="hm-visually-hidden" role="status">{{template "browse-theme-total" .}}</p>
 <div id="browse-results" class="hm-pluginbrowse__results">
-<div class="hm-pluginbrowse__meta"><p class="hm-muted">{{template "browse-theme-total" .}}</p>
+<div class="hm-pluginbrowse__meta"><p class="hm-muted">{{template "browse-theme-total" .}}{{with .Toolbar}}{{if .InstalledTotal}} · {{if $.Data.HideInstalled}}{{.InstalledHidden}} installed hidden · <a href="{{.ShowInstalledHref}}">Show installed</a>{{else}}<a href="{{.HideInstalledHref}}">Hide installed</a>{{end}}{{end}}{{end}}</p>
 {{template "hm/filterchips" .Toolbar}}</div>
-{{with .Toolbar}}{{if .InstalledTotal}}<p class="hm-muted hm-pluginbrowse__installed">{{if $.Data.HideInstalled}}{{.InstalledHidden}} installed hidden · <a href="{{.ShowInstalledHref}}">Show installed</a>{{else}}<a href="{{.HideInstalledHref}}">Hide installed</a>{{end}}</p>{{end}}{{end}}
 {{if .Featured}}<section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
 <ul class="hm-themecards" role="list">{{range .Featured}}{{template "browse-theme-card" dict "C" . "P" "f"}}{{end}}</ul>
 </section><h2 class="hm-pluginbrowse__heading">All themes</h2>{{end}}
