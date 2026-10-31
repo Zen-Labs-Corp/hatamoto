@@ -121,7 +121,8 @@ func (s *TermGroupStore) SetLocale(ctx context.Context, id uuid.UUID, locale str
 // Link puts the terms in one translation group and returns its id. An existing
 // group among them is reused (its members count towards the rules); with none
 // a new one is created. Rules: at least two ids, one kind, a distinct non-empty
-// locale each, at most one existing group.
+// locale each, at most one existing group. A group left with one member (by a
+// delete) counts as no group.
 func (s *TermGroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
 	if len(ids) < 2 {
 		return uuid.Nil, fmt.Errorf("%w: need at least two terms", ErrTermGroupInvalid)
@@ -129,8 +130,11 @@ func (s *TermGroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID,
 	var result uuid.UUID
 	err := s.withGroupTx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-			SELECT id, kind, locale, translation_group
-			FROM hatamoto_terms WHERE id = ANY($1) ORDER BY id FOR UPDATE`, ids)
+			SELECT t.id, t.kind, t.locale,
+			       CASE WHEN EXISTS (SELECT 1 FROM hatamoto_terms o
+			                         WHERE o.translation_group = t.translation_group AND o.id <> t.id)
+			            THEN t.translation_group END
+			FROM hatamoto_terms t WHERE t.id = ANY($1) ORDER BY t.id FOR UPDATE OF t`, ids)
 		if err != nil {
 			return fmt.Errorf("load terms: %w", err)
 		}
@@ -315,7 +319,8 @@ func (s *TermGroupStore) MapForLocale(ctx context.Context, termIDs []uuid.UUID, 
 }
 
 // Candidates lists terms the term can be linked to: same kind, a locale set
-// and not used by its group, not in a group, matching q on name or slug.
+// and not used by its group, not in a group (a group of one counts as none),
+// matching q on name or slug.
 func (s *TermGroupStore) Candidates(ctx context.Context, id uuid.UUID, q string, limit int) ([]TermMember, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
@@ -325,7 +330,8 @@ func (s *TermGroupStore) Candidates(ctx context.Context, id uuid.UUID, q string,
 		SELECT c.id, c.kind, c.locale, c.name, c.slug
 		FROM hatamoto_terms t JOIN hatamoto_terms c ON c.kind = t.kind
 		WHERE t.id = $1 AND c.id <> t.id
-		  AND c.locale <> '' AND c.locale <> 'und' AND c.translation_group IS NULL
+		  AND c.locale <> '' AND c.locale <> 'und' AND (c.translation_group IS NULL OR NOT EXISTS (
+		        SELECT 1 FROM hatamoto_terms o WHERE o.translation_group = c.translation_group AND o.id <> c.id))
 		  AND c.locale <> t.locale
 		  AND (c.name ILIKE $2 OR c.slug ILIKE $2)
 		  AND NOT EXISTS (SELECT 1 FROM hatamoto_terms g
