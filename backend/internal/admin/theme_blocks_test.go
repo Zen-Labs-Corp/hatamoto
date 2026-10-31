@@ -91,7 +91,7 @@ func TestEntitiesLeaveOutTheBuiltInReuseTypes(t *testing.T) {
 	part := r.part(81, "header", `{"v":2,"nodes":[]}`)
 	list := r.do("GET", "/admin/entities", "owner-token", nil, nil).Body.String()
 	lacks(t, list, "Footer CTA", part.Name, "type=block", "type=theme_part", ">Block<", ">Theme part<")
-	has(t, list, `aria-label="Status"`)
+	has(t, list, `<legend class="hm-visually-hidden">Status</legend>`)
 	// The same filter by type slug does not bring them back.
 	lacks(t, r.do("GET", "/admin/entities?type=block", "owner-token", nil, nil).Body.String(), "Footer CTA")
 	if r.ents.lastList == nil || len(r.ents.lastList.ExcludeSchemaIDs) != 2 {

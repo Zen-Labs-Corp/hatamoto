@@ -182,6 +182,7 @@ type Table struct {
 	FilterCount  int
 	Bare         bool
 	ChipsOutside bool
+	OOB          string            // extra out-of-band selectors the filter swap also refreshes, comma separated
 	Hidden       map[string]string // fixed query values the filter form carries, e.g. the open form
 	Bulk         []BulkAction
 	BulkURL      string

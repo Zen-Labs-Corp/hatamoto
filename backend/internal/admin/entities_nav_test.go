@@ -176,34 +176,37 @@ func TestEntitiesNoTypeSwitcherForm(t *testing.T) {
 	c, _ := newNavRig(t)
 	body := c.get(t, "owner-token", "/admin/entities?type=post&status=draft&q=x", "")
 	lacks(t, body, "hm-subnav-select", ">Go<", "hm-entities-type")
-	has(t, body, `name="type"`, `<option value="post" selected>Posts</option>`, `name="status" value="draft"`)
+	has(t, body, `name="type"`, `<option value="post" selected>Posts</option>`, `name="status" value="draft" checked`)
 	if n := strings.Count(body, "Apply filters"); n > 1 {
 		t.Errorf("Apply filters appears %d times", n)
 	}
 }
 
-// Status tabs carry the other filters in their links and show the counts.
-func TestEntitiesStatusTabsKeepFilters(t *testing.T) {
+// The status filter is one segmented control inside the toolbar form (so the other filters
+// ride along) and shows the counts in its labels.
+func TestEntitiesStatusSegmentedKeepsFilters(t *testing.T) {
 	t.Parallel()
 
 	c, _ := newNavRig(t)
-	body := c.get(t, "owner-token", "/admin/entities?type=post&q=first", "")
-	i := strings.Index(body, `<nav class="hm-tabs" aria-label="Status"`)
+	body := c.get(t, "owner-token", "/admin/entities?type=post&q=first&status=draft", "")
+	i := strings.Index(body, `<fieldset class="hm-segmented"`)
 	if i < 0 {
-		t.Fatal("no status tabs")
+		t.Fatal("no status control")
 	}
-	tabs := body[i : i+strings.Index(body[i:], "</nav>")]
-	has(t, tabs, `href="/admin/entities?q=first&amp;type=post"`, `href="/admin/entities?q=first&amp;status=draft&amp;type=post"`, `aria-current="page"`, `class="hm-tabs__count"`)
-	if n := strings.Count(tabs, `aria-current="page"`); n != 1 {
-		t.Errorf("%d current tabs, want 1", n)
+	seg := body[i : i+strings.Index(body[i:], "</fieldset>")]
+	has(t, seg, `<legend class="hm-visually-hidden">Status</legend>`, `name="status" value="draft" checked id="entities-seg-draft"`, `>Draft `, `>All `)
+	if n := strings.Count(seg, `type="radio"`); n != 5 {
+		t.Errorf("%d status options, want 5", n)
 	}
-	body = c.get(t, "owner-token", "/admin/entities?status=draft", "")
-	has(t, body, `<a class="hm-tabs__tab" href="/admin/entities?status=draft" aria-current="page">Draft`)
+	if n := strings.Count(seg, ` checked`); n != 1 {
+		t.Errorf("%d checked options, want 1", n)
+	}
+	lacks(t, body, `class="hm-tabs`)
 }
 
-// The filter form swaps only #entities; tabs, title and count ride along out of
-// band, so a live update re-renders them with the current filters.
-func TestEntitiesLiveFilterCarriesTabsAndHeader(t *testing.T) {
+// The filter form swaps only the results; the header (title, count) and the status control's
+// labels ride along out of band, so a live update re-renders them with the current filters.
+func TestEntitiesLiveFilterCarriesHeaderAndCounts(t *testing.T) {
 	t.Parallel()
 
 	c, _ := newNavRig(t)
@@ -212,10 +215,23 @@ func TestEntitiesLiveFilterCarriesTabsAndHeader(t *testing.T) {
 		t.Fatalf("GET = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	has(t, body, `hx-select-oob="#entities-head"`, `<div id="entities-head" class="hm-entities-head">`)
-	head := body[strings.Index(body, `<div id="entities-head" class="hm-entities-head">`):]
-	head = head[:strings.Index(head, `id="entities"`)]
-	has(t, head, "<h1>Posts</h1>", `href="/admin/entities?q=first&amp;status=draft&amp;type=post"`, `aria-current="page"`)
+	has(t, body, `hx-select-oob="#entities-count,#entities-status:innerHTML,#entities-head,#entities-seg:innerHTML"`, `<div id="entities-head" class="hm-entities-head">`, `<h1>Posts</h1>`, `<p id="entities-status"`, `id="entities-results"`)
+}
+
+// The Create menu lists entity types only; managing types lives in the subnav.
+func TestEntitiesCreateMenuHasTypesOnly(t *testing.T) {
+	t.Parallel()
+
+	c, _ := newNavRig(t)
+	body := c.get(t, "owner-token", "/admin/entities", "")
+	i := strings.Index(body, `id="create-menu"`)
+	if i < 0 {
+		t.Fatal("no create menu")
+	}
+	menu := body[i:]
+	menu = menu[:strings.Index(menu, "</div>")]
+	lacks(t, menu, "Manage entity types")
+	has(t, body, "Manage entity types")
 }
 
 func TestEntitiesDescriptionCountsResults(t *testing.T) {

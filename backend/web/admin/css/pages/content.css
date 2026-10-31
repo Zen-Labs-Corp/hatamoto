@@ -123,5 +123,4 @@ input[type="file"]::file-selector-button { margin-right: var(--space-3); padding
 .hm-entities .hm-table th.hm-table__check, .hm-entities .hm-table td.hm-table__check { vertical-align: middle; }
 .hm-entities .hm-table td[data-label="Status"], .hm-entities .hm-table td[data-label="Updated"] { min-inline-size: 8rem; }
 .hm-subnav__link--empty .hm-subnav__text, .hm-subnav__link--empty .hm-subnav__marker { color: var(--text-muted); }
-@media (min-width: 40.0625rem) { .hm-filterbar .hm-select:has(select[name="type"]) { display: none; } }
 .hm-entities-head { display: flex; flex-direction: column; gap: var(--space-6); }

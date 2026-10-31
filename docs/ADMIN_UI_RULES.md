@@ -312,7 +312,7 @@ Partial: none (rendered by `js/multiselect.js`)
 Contract: `chip` in components.json  
 Rules: DC-02
 
-The filter bar (`hm/filterbar`, used through `hm/table`) has opt-in keys, each of which leaves the markup unchanged when absent: `Segmented` (a radio `hm/segmented` that applies live), `Live` (popover fields apply live, no Apply button, `<noscript>` Apply stays), `Target` (id of the results the swap replaces, so an open popover stays put), `FilterCount` (the Filters badge, default the number of chips), `Bare` (no card; segmented + Filters at the start, search + selects at the end, stacked below 40rem) and `ChipsOutside` (the page renders `hm/filterchips` itself). Popover `ui.Filter`s may be `Control "checkbox"` (a group over `Options`) or `"switch"` (`Value`, `OffValue`, `Checked`). Plugins Browse is the user of all of them.
+The filter bar (`hm/filterbar`, used through `hm/table`) has opt-in keys, each of which leaves the markup unchanged when absent: `Segmented` (a radio `hm/segmented` that applies live), `Live` (popover fields apply live, no Apply button, `<noscript>` Apply stays), `Target` (id of the results the swap replaces, so an open popover stays put), `FilterCount` (the Filters badge, default the number of chips), `Bare` (no card; segmented + Filters at the start, search + selects at the end, stacked below 40rem) `ChipsOutside` (the page renders `hm/filterchips` itself) and `OOB` (extra comma-separated selectors the swap also refreshes, e.g. the page header and the segmented labels). Popover `ui.Filter`s may be `Control "checkbox"` (a group over `Options`) or `"switch"` (`Value`, `OffValue`, `Checked`). Plugins Browse is the user of all of them.
 
 The removable chips: the multi-select value chip, its "+N more" sibling and the active-filter chip (`.hm-filter-chip`, remove button in `popover.css`) share one look: `--chip-h` high, `--radius-full`, `--text-xs`, weight 500. Read-only tags are `hm/badge`, not chips.
 
@@ -537,6 +537,8 @@ A choice that is not available yet sets `SegmentedItem.Disabled`: the button (or
 **`--` placeholder.** A stat or table cell whose data arrives in a later phase renders `--` (with a Note or a nearby help line saying when). `n/a` means the metric does not apply to that row; `--` means "not available yet".
 
 How it differs from the pill row: `hm/tabs` `Variant "segmented"` rearranges a view in place (links); `hm/segmented` sets a value. They differ only in what they do, never in look: hairline `--border` track, 28px tall (`--control-h-xs`), paper pill with a hairline ring and bottom bevel on the selected option, no drop shadow. The track is `inline-flex` and aligns to the start of its container; it never stretches across a card.
+
+A status filter in a list toolbar may be a radio `hm/segmented` that filters the same dataset in place (Entities: All, Published, Draft, Scheduled, Archived), with the count in each label ("Draft 2"). It lives in the filter bar (`Segmented` + `Bare` + `Live`); the page swaps only the results and refreshes the labels out of band (`OOB`), so a type or search change keeps the counts right. It is not a `hm/tabs` row.
 
 ### Selected state
 
