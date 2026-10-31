@@ -851,3 +851,124 @@ func (f *fakeGroups) SetOriginal(_ context.Context, id uuid.UUID) error {
 	f.originals = append(f.originals, id)
 	return nil
 }
+
+// fakeCopier is EntityCopier in memory: it records the copies asked for and
+// answers with a draft in the asked locale, or the error set for the source.
+type fakeCopier struct {
+	mu      sync.Mutex
+	calls   []fakeCopyCall
+	errFor  map[uuid.UUID]error // by source id
+	missing []entity.MissingParent
+	nextID  int
+	warn    string // passed to o.Warn on every call when set
+}
+
+type fakeCopyCall struct {
+	User, Src uuid.UUID
+	Opts      entity.CopyOptions
+}
+
+func newFakeCopier() *fakeCopier { return &fakeCopier{errFor: map[uuid.UUID]error{}, nextID: 700} }
+
+func (f *fakeCopier) CreateCopy(_ context.Context, userID, srcID uuid.UUID, o entity.CopyOptions) (*entity.Entity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fakeCopyCall{User: userID, Src: srcID, Opts: o})
+	if err := f.errFor[srcID]; err != nil {
+		return nil, err
+	}
+	if f.warn != "" && o.Warn != nil {
+		o.Warn(f.warn)
+	}
+	f.nextID++
+	status := entity.StatusDraft
+	if o.Publish {
+		status = entity.StatusPublished
+	}
+	return &entity.Entity{ID: fid(f.nextID), Name: o.Name, Slug: o.Slug, Locale: o.Locale, Status: status}, nil
+}
+
+func (f *fakeCopier) MissingParents(context.Context, uuid.UUID, string) ([]entity.MissingParent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.missing), nil
+}
+
+// fakeTermGroups is TermGrouper in memory.
+type fakeTermGroups struct {
+	mu         sync.Mutex
+	locales    map[uuid.UUID]string
+	members    map[uuid.UUID][]taxonomy.TermMember // by any member id
+	candidates []taxonomy.TermMember
+	linked     [][]uuid.UUID
+	unlinked   []uuid.UUID
+	copies     []fakeTermCopy
+	err        error // returned by every call when set
+}
+
+type fakeTermCopy struct {
+	Src                uuid.UUID
+	Locale, Name, Slug string
+}
+
+func newFakeTermGroups() *fakeTermGroups {
+	return &fakeTermGroups{locales: map[uuid.UUID]string{}, members: map[uuid.UUID][]taxonomy.TermMember{}}
+}
+
+func (f *fakeTermGroups) Locale(_ context.Context, id uuid.UUID) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.locales[id], f.err
+}
+
+func (f *fakeTermGroups) SetLocale(_ context.Context, id uuid.UUID, locale string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	f.locales[id] = locale
+	return nil
+}
+
+func (f *fakeTermGroups) Members(_ context.Context, id uuid.UUID) ([]taxonomy.TermMember, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.members[id]), f.err
+}
+
+func (f *fakeTermGroups) Candidates(context.Context, uuid.UUID, string, int) ([]taxonomy.TermMember, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.candidates), f.err
+}
+
+func (f *fakeTermGroups) Link(_ context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return uuid.Nil, f.err
+	}
+	f.linked = append(f.linked, slices.Clone(ids))
+	return uuid.New(), nil
+}
+
+func (f *fakeTermGroups) Unlink(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	f.unlinked = append(f.unlinked, id)
+	return nil
+}
+
+func (f *fakeTermGroups) CreateTermCopy(_ context.Context, srcID uuid.UUID, locale, name, slug string) (*taxonomy.Term, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.copies = append(f.copies, fakeTermCopy{srcID, locale, name, slug})
+	return &taxonomy.Term{ID: fid(800 + len(f.copies)), Name: name, Slug: slug}, nil
+}
