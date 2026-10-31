@@ -6,7 +6,7 @@
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "Title" "Permissions" "ID" "perm-card" "Heading" "h2"}}{{with .Granted}}{{template "hm/progress" .}}{{end}}
 <fieldset class="hm-field__group"><legend class="hm-visually-hidden">Permissions for {{$p.Name}}</legend>
-{{range $i, $perm := .Perms}}<label class="hm-field__check" for="perm-{{$p.Name}}-{{$i}}"><input class="hm-field__box" type="checkbox" id="perm-{{$p.Name}}-{{$i}}" name="permission" value="{{$perm.Name}}"{{if $perm.Granted}} checked{{end}}{{if $perm.Refused}} disabled{{end}}><span><code>{{$perm.Name}}</code>{{if $perm.Help}}: {{$perm.Help}}{{end}}{{if $perm.Refused}} <span class="hm-muted">Not allowed for community plugins</span>{{end}}</span></label>
+{{range $i, $perm := .Perms}}<label class="hm-field__check" for="perm-{{$p.Name}}-{{$i}}"><input class="hm-field__box" type="checkbox" id="perm-{{$p.Name}}-{{$i}}" name="permission" value="{{$perm.Name}}"{{if $perm.Granted}} checked{{end}}{{if $perm.Refused}} disabled{{end}}><span>{{if $perm.Help}}{{$perm.Help}} {{end}}<code class="hm-muted">{{$perm.Name}}</code>{{if $perm.Refused}} <span class="hm-muted">Not allowed for community plugins</span>{{end}}</span></label>
 {{end}}</fieldset>
 {{template "hm/card-foot"}}<span class="hm-muted hm-card__foot-note">{{if .Askable}}{{.GrantedCount}} of {{.Askable}} allowed. Nothing is allowed until you tick it.{{else}}Community plugins cannot use these permissions yet.{{end}}</span>{{template "hm/button" dict "Label" "Save permissions" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>
 {{else}}{{template "hm/card-start" dict "ID" "perm-card" "Title" "Permissions" "Heading" "h2"}}<p class="hm-muted">It asks for no permissions.</p>{{template "hm/card-end"}}{{end}}

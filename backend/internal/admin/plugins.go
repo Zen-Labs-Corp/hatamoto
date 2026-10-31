@@ -430,6 +430,7 @@ func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAd
 		}
 	}
 	v := a.NewView(w, r, title)
+	v.Width = "narrow"
 	if d.Owner {
 		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name}}
 	} else {
@@ -502,6 +503,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 		d.Granted = &ui.Progress{Label: "Permissions allowed", Kind: "neutral", Value: fmt.Sprintf("%d of %d", d.GrantedCount, n), Pct: float64(d.GrantedCount) / float64(n) * 100}
 	}
 	v := a.NewView(w, r, p.Name+" permissions")
+	v.Width = "narrow"
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name, Href: a.pluginURL(p.Name, "settings")}, {Label: "Permissions"}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/permissions", v)
