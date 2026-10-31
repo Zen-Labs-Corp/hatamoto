@@ -184,6 +184,8 @@ Text inputs, selects and textareas are calm at rest: a soft hairline border from
 `--border-field`. Hover darkens the border to `--color-hai` (or `--border-control`). Focus draws the indigo accent
 ring. Checkboxes and switches keep `--border-control`.
 
+A required field shows a muted "Required" (`.hm-field__req`, `--text-muted`) after its label, never an asterisk; the `(` `)` around it stay visually hidden so a screen reader hears "(Required)". The `required` attribute is unchanged.
+
 This is a deliberate relaxation of WCAG 1.4.11 (non-text contrast) for the resting
 border of a field: `--border-field` is lighter than the 3:1 that `--border-control`
 meets. It was chosen because a dark outline on every field pulls the eye away from

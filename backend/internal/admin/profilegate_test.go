@@ -219,7 +219,7 @@ func TestProfileGateSkipsSetupWizardUntilSetupCompletes(t *testing.T) {
 	}
 }
 
-// A profile with no photo shows initials and a hidden preview; the required star and the bare
+// A profile with no photo shows initials and a hidden preview; the Required marker and the bare
 // layout (no sidebar) belong to the gated "Complete your profile" step only.
 func TestProfilePhotoFallbackAndCompleteLayout(t *testing.T) {
 	t.Parallel()
@@ -229,16 +229,16 @@ func TestProfilePhotoFallbackAndCompleteLayout(t *testing.T) {
 	if !strings.Contains(profile, `class="hm-avatar hm-avatar--lg hm-photo-avatar"`) || !strings.Contains(profile, `class="hm-sf-image hm-photo-preview" src="" alt="Your photo" data-hm-photo hidden`) {
 		t.Errorf("no photo: initials avatar and a hidden preview expected:\n%s", profile)
 	}
-	if strings.Contains(profile, `Photo <span aria-hidden="true">*</span>`) {
-		t.Error("the photo label must not show * on the profile page")
+	if strings.Contains(profile, `Photo <span class="hm-field__req">`) {
+		t.Error("the photo label must not show Required on the profile page")
 	}
 	// The owner has a photo: the identity row shows it instead of initials.
 	if own := g.do("GET", "/admin/profile", "owner-token", nil, nil).Body.String(); !strings.Contains(own, `<img class="hm-avatar" src="/media/olga.jpg" alt="" data-hm-photo data-initials="`) {
 		t.Error("the identity row must show the photo (with the initials fallback) when there is one")
 	}
 	complete := g.do("GET", "/admin/profile/complete", "editor-token", nil, nil).Body.String()
-	if !strings.Contains(complete, `Photo <span aria-hidden="true">*</span>`) {
-		t.Error("the photo label must show * on Complete your profile")
+	if !strings.Contains(complete, `Photo <span class="hm-field__req">`) {
+		t.Error("the photo label must show Required on Complete your profile")
 	}
 	if strings.Contains(complete, "hm-sidebar") || !strings.Contains(complete, `class="hm-bare"`) {
 		t.Error("Complete your profile must render without the sidebar")
