@@ -76,12 +76,13 @@ test("a second drag is a second session; pointercancel ends the first", () => {
   assert.notEqual(applied[0][1], applied.at(-1)[1]);
 });
 
-test("the label stays a real label: same for=, the full name is the accessible name, the short form is drawn", () => {
+test("the label stays a real label: same for=, the accessible name contains the visible short text", () => {
   const { label } = make({});
   assert.equal(label.attrs.for, "f1");
   assert.ok(label.classes.has("hm-bs-scrub"));
   const spans = label.kids.map((k) => [k.attrs["aria-hidden"] ?? null, k.textContent]);
-  assert.deepEqual(spans, [["true", "Sz"], [null, "Font size"]]);
+  assert.deepEqual(spans, [[null, "Sz"], [null, " font size"]], "the visible short text is not aria-hidden");
+  assert.equal(spans.map(([, t]) => t).join(""), "Sz font size", "label in name: the name starts with the visible text");
   assert.equal(label.attrs.title, "Drag to change");
 });
 

@@ -35,13 +35,16 @@ export function row({ id, name, label, body, status, note, onReset, scrub }) {
   };
 }
 
-/** Makes the row's label a scrub handle; a short visible form is drawn over the full name, which stays what a screen reader reads. */
+/**
+ * Makes the row's label a scrub handle. A short visible form ("Sz") is followed by the full name, visually hidden, so the
+ * accessible name ("Sz font size") contains the visible text (WCAG 2.5.3 Label in Name): the visible text is not aria-hidden.
+ */
 function scrubLabel(label, { id, name, get, apply, step, bounds, short }) {
   label.classList.add("hm-bs-scrub");
   label.setAttribute("title", "Drag to change");
   if (short && short !== name) {
     label.textContent = "";
-    label.append(h("span", { "aria-hidden": "true", text: short }), h("span", { class: "hm-visually-hidden", text: name }));
+    label.append(h("span", { text: short }), h("span", { class: "hm-visually-hidden", text: ` ${name.toLowerCase()}` }));
   }
   attachScrub(label, { axis: "h", get, apply, step, bounds, session: `ls:${id}` });
 }
