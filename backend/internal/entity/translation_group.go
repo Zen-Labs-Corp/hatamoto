@@ -130,6 +130,9 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 			return uuid.Nil, fmt.Errorf("%w: entities use different schemas", ErrInvalidGroup)
 		}
 		schema = r.schema
+		if r.group != nil && !s.groupHasOthers(ctx, tx, *r.group, id) {
+			continue // a one-member group (left by a delete) counts as no group
+		}
 		if r.group != nil {
 			if group != nil && *group != *r.group {
 				return uuid.Nil, fmt.Errorf("%w: entities belong to different groups", ErrInvalidGroup)
@@ -173,6 +176,13 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		return uuid.Nil, fmt.Errorf("commit link: %w", err)
 	}
 	return *group, nil
+}
+
+// groupHasOthers reports whether group has a member other than id.
+func (s *GroupStore) groupHasOthers(ctx context.Context, tx pgx.Tx, group, id uuid.UUID) bool {
+	var n int
+	err := tx.QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE translation_group = $1 AND id <> $2 AND variant_key IS NULL`, group, id).Scan(&n)
+	return err != nil || n > 0
 }
 
 func localeKeys(m map[string]bool) []string {

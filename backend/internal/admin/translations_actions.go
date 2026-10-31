@@ -105,7 +105,7 @@ func (a *Admin) handleTranslationLink(w http.ResponseWriter, r *http.Request) {
 	if taken, err := g.Members(r.Context(), other); err != nil {
 		a.serverError(w, r, "The translations could not be linked", err)
 		return
-	} else if len(taken) > 0 {
+	} else if len(taken) > 1 { // a one-member group counts as none
 		a.SetFlash(w, r, "error", "That page already has translations. Unlink it first.")
 		Redirect(w, r, a.translationsURL(e.ID))
 		return

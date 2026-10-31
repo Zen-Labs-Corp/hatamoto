@@ -157,3 +157,38 @@ func TestContentChangedAtFollowsAttributeEdits(t *testing.T) {
 		t.Errorf("publish moved content time: %v -> %v", afterEdit, got)
 	}
 }
+
+// A group left with one member (entity delete, older Unlink) counts as no group.
+func TestOneMemberGroupIsUngrouped(t *testing.T) {
+	ctx := context.Background()
+	_, gs, mk, db := membersFixture(t)
+	en, fr, it, es := mk("s1", "Home", "en", "published"), mk("s1", "Accueil", "fr", "published"), mk("s1", "Casa", "it", "published"), mk("s1", "Inicio", "es", "published")
+	if _, err := gs.Link(ctx, es, it); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, it); err != nil {
+		t.Fatal(err)
+	}
+	// es is alone in its group; fr is free.
+	got, err := gs.LinkCandidates(ctx, fr, "", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range got {
+		found = found || c.ID == es
+	}
+	if !found {
+		t.Errorf("candidates = %+v, want the stranded es page", got)
+	}
+	// Linking it into a real group must not trip over its old group.
+	if _, err := gs.Link(ctx, en, fr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := gs.Link(ctx, en, es); err != nil {
+		t.Fatalf("link a one-member-group page into a group: %v", err)
+	}
+	if ms, _ := gs.Members(ctx, en); len(ms) != 3 {
+		t.Errorf("members = %d, want 3", len(ms))
+	}
+}

@@ -102,7 +102,7 @@ func scanMember(scan func(...any) error) (Member, error) {
 }
 
 // LinkCandidates lists entities that Link would accept together with id: same
-// schema, no group yet, not shared, and a locale that id's group (or id
+// schema, no group yet (a one-member group counts as none), not shared, and a locale that id's group (or id
 // itself, when it has no group) does not use. q matches name or slug.
 func (s *GroupStore) LinkCandidates(ctx context.Context, id uuid.UUID, q string, limit int) ([]Candidate, error) {
 	rows, err := s.db.Query(ctx, `
@@ -110,7 +110,10 @@ func (s *GroupStore) LinkCandidates(ctx context.Context, id uuid.UUID, q string,
 		FROM hatamoto_entities c, hatamoto_entities me
 		WHERE me.id = $1
 		  AND c.schema_id = me.schema_id AND c.id <> me.id
-		  AND c.translation_group IS NULL AND c.variant_key IS NULL
+		  AND c.variant_key IS NULL
+		  AND (c.translation_group IS NULL OR NOT EXISTS (
+		      SELECT 1 FROM hatamoto_entities o
+		      WHERE o.translation_group = c.translation_group AND o.id <> c.id AND o.variant_key IS NULL))
 		  AND c.locale <> $2
 		  AND c.locale NOT IN (
 		      SELECT g.locale FROM hatamoto_entities g

@@ -61,6 +61,10 @@ func TestTranslationLinkRejectedFlash(t *testing.T) {
 	if len(g.linked) != 0 {
 		t.Errorf("linked a grouped page: %v", g.linked)
 	}
+	// A page alone in its group counts as ungrouped.
+	g.setGroup(entity.Member{ID: fid(12), Group: fid(901)})
+	rec = c.post(trBase+"/link", url.Values{"page": {fid(12).String()}})
+	has(t, c.next(rec, trBase), "Linked the page.")
 	// No page picked.
 	rec = c.post(trBase+"/link", url.Values{})
 	has(t, c.next(rec, trBase), "Pick the page to link first.")
