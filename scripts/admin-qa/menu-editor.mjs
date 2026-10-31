@@ -709,6 +709,8 @@ try {
   await scan.setViewportSize({ width: 1440, height: 2400 }); // tall enough that the sticky save bar never covers a row
   await scan.goto(base + footerHref);
   await scan.waitForSelector("[data-hm-item][role=treeitem]");
+  const rowsEnd = await scan.evaluate(() => ({ tree: document.querySelector("#menu-tree").getBoundingClientRect().bottom, bar: document.querySelector(".hm-savebar").getBoundingClientRect().top }));
+  ok(rowsEnd.tree <= rowsEnd.bar, `tree: the last row ends above the sticky save bar at 2400px (tree ${Math.round(rowsEnd.tree)}, bar ${Math.round(rowsEnd.bar)}); raise the viewport height if the fixture grew`);
   await scan.addScriptTag({ content: fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8") });
   const axeBad = await scan.evaluate(async () => (await axe.run("#menu-tree", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] }, rules: { "color-contrast": { enabled: false } } })).violations.map((v) => `${v.id} x${v.nodes.length} ${v.nodes[0].target.join(" ")} ${v.nodes[0].html.slice(0, 80)}`));
   ok(axeBad.length === 0, `tree: axe finds no violation in the tree (${axeBad.join(", ")})`);
