@@ -10,7 +10,7 @@
 {{template "hm/aia-chart" .Chart}}
 {{with .Search}}{{template "hm/aia-chart" .}}{{end}}
 {{template "hm/card-start" (dict "ID" "w-g-pages" "Title" "Pages through Google's eyes" "Description" "Published pages and every path Googlebot fetched. Spoofed fetches are left out. Last crawl is the day, not the time." "Heading" "h3")}}
-<form class="hm-row" method="get" action="{{adminPath}}/analytics/google" data-hm-autosubmit>
+<form class="hm-row" method="get" action="{{adminPath}}/analytics/google" data-hm-aia-autosubmit>
 {{range .Carry}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
 {{template "hm/segmented" .Filter}}
 <noscript>{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}</noscript>
