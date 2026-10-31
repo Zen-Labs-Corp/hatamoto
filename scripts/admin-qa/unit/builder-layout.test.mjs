@@ -43,12 +43,12 @@ const bar = { w: 300, h: 32 };
 
 test("placeToolbar: above the element, off its first line", () => {
   const r = placeToolbar({ box: { x: 40, y: 200, w: 400, h: 80 }, bar, view });
-  assert.deepEqual(r, { x: 40, y: 160, flip: false });
+  assert.deepEqual(r, { x: 40, y: 160, flip: false, inside: false });
 });
 
 test("placeToolbar: flips below at the top edge of the view", () => {
   const r = placeToolbar({ box: { x: 40, y: 10, w: 400, h: 80 }, bar, view });
-  assert.deepEqual(r, { x: 40, y: 98, flip: true });
+  assert.deepEqual(r, { x: 40, y: 98, flip: true, inside: false });
 });
 
 test("placeToolbar: clamps into the view on both sides", () => {
@@ -62,10 +62,11 @@ test("placeToolbar: `below` (text editing) puts it under the element, back above
   assert.deepEqual([r.y, r.flip], [360, false]);
 });
 
-test("placeToolbar: no room above or below sits over the element's top edge inside the view", () => {
-  const r = placeToolbar({ box: { x: 0, y: 5, w: 100, h: 590 }, bar, view });
-  assert.deepEqual(r, { x: 0, y: 5, flip: false });
-  assert.equal(placeToolbar({ box: { x: 0, y: -300, w: 100, h: 1200 }, bar, view }).y, 0, "a tall element scrolled past: top of the view");
+test("placeToolbar: no room above or below sits inside the element's top edge, 8px in", () => {
+  assert.deepEqual(placeToolbar({ box: { x: 0, y: 0, w: 100, h: 600 }, bar, view }), { x: 8, y: 8, flip: false, inside: true }, "a section at the page top");
+  assert.deepEqual(placeToolbar({ box: { x: 0, y: 5, w: 100, h: 590 }, bar, view }), { x: 8, y: 13, flip: false, inside: true });
+  const r = placeToolbar({ box: { x: 0, y: -300, w: 100, h: 1200 }, bar, view });
+  assert.deepEqual([r.y, r.inside], [0, true], "a tall element scrolled past: clamped to the top of the view");
 });
 
 const { insertionPoints } = await import(new URL("../../../backend/web/admin/js/canvas/points.js", import.meta.url));
