@@ -307,7 +307,10 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 	for _, r := range rows {
 		name := ui.AiaCell{Text: r.name}
 		perVisit, leadRate := ui.AiaCell{Text: placeholder, Muted: true}, ui.AiaCell{Text: placeholder, Muted: true}
-		if r.pages > 0 && r.visitors == 0 {
+		if r.pages > 0 && r.visitors == 0 && agents.OperatorFeedsSearch(r.name) {
+			// Its visitors arrive as Organic search, so zero assistant visitors proves nothing.
+			name.Note = "Only AI assistant visits count here; search visits count as Organic search"
+		} else if r.pages > 0 && r.visitors == 0 {
 			name.Badge, takesOnly = &ui.Badge{Label: "takes only", Kind: "warning"}, true
 		}
 		if r.visitors > 0 {

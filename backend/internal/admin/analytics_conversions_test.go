@@ -97,7 +97,11 @@ func (f *fakeConversions) RecentLeads(context.Context, time.Time, time.Time, int
 func conversionsRig(t *testing.T, fc *fakeConversions, mutate ...func(*Deps)) *rig {
 	t.Helper()
 	rg, _ := parseRange(url.Values{})
-	fs := &fakeAgentStats{extraAgents: []agents.AgentTotals{{AgentID: "bytespider", Operator: "ByteDance", Purpose: "training", Hits: 7}}}
+	fs := &fakeAgentStats{extraAgents: []agents.AgentTotals{
+		{AgentID: "bytespider", Operator: "ByteDance", Purpose: "training", Hits: 7},
+		{AgentID: "ccbot", Operator: "Common Crawl", Purpose: "training", Hits: 5},
+		{AgentID: "googleother", Operator: "Google", Purpose: "other_ai", Hits: 9},
+	}}
 	// A source of ai_assistants visits per operator: chatgpt is OpenAI's, grok has no operator.
 	ft := &fakeAIVisits{fakeTraffic: fakeTraffic{from: rg.From}}
 	return newRig(t, append([]func(*Deps){func(d *Deps) { d.Growth.Agents, d.Growth.Traffic, d.Growth.Conversions = fs, ft, fc }}, mutate...)...)
@@ -213,6 +217,15 @@ func TestConversionsGiveVsGetReconcilesWithCrawlersAndTraffic(t *testing.T) {
 			}
 			if row[0].Badge != nil {
 				t.Error("an operator with visitors is not takes only")
+			}
+		case "Google":
+			// Its visitors arrive as Organic search, so no assistant visitors is not "takes only".
+			if row[0].Badge != nil || row[0].Note == "" {
+				t.Errorf("Google must carry the search note, not the takes-only badge: %+v", row[0])
+			}
+		case "Common Crawl", "ByteDance":
+			if row[0].Badge == nil || row[0].Badge.Label != "takes only" {
+				t.Errorf("%s is a pure crawler and must be takes only: %+v", row[0].Text, row[0])
 			}
 		case "Other assistants":
 			other = true

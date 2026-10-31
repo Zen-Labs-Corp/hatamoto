@@ -149,7 +149,8 @@ type AiaRows struct {
 type AiaCell struct {
 	Text, Href, Mono string
 	Muted            bool
-	Button           bool // the link is a small secondary button
+	Note             string // a short muted line after the text
+	Button           bool   // the link is a small secondary button
 	Badge            *Badge
 	// Bar and Spark follow the text: a proportion bar (a share) and a trend line.
 	Bar   *Bar
