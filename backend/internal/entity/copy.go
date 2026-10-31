@@ -3,6 +3,7 @@ package entity
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -102,8 +103,13 @@ func (c *CopyService) CreateCopy(ctx context.Context, userID uuid.UUID, srcID uu
 			}
 		}
 	}
-	cp, err := c.copyOne(ctx, userID, src, from, locale, o, nil)
+	parentID, madeParents, err := c.resolveParent(ctx, userID, src, locale, o)
 	if err != nil {
+		return nil, err
+	}
+	cp, err := c.copyOne(ctx, userID, src, from, locale, o, parentID)
+	if err != nil {
+		c.deleteAll(ctx, madeParents)
 		return nil, err
 	}
 	if o.Publish {
@@ -147,6 +153,10 @@ func (c *CopyService) copyOne(ctx context.Context, userID uuid.UUID, link, conte
 		in.BylineOrg = content.BylineOrg
 	}
 	cp, err := c.svc.CreateEntity(ctx, actor(userID), in)
+	if errors.Is(err, ErrSlugAlreadyExists) && o.AutoSlug {
+		in.Slug = normalizeSlug(in.Slug + "-" + locale)
+		cp, err = c.svc.CreateEntity(ctx, actor(userID), in)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +177,123 @@ func (c *CopyService) copyOne(ctx context.Context, userID uuid.UUID, link, conte
 		}
 	}
 	return cp, nil
+}
+
+// MissingParent is an ancestor of a page that has no copy in a locale yet.
+type MissingParent struct {
+	ID   uuid.UUID
+	Name string
+	Slug string
+}
+
+// MissingParents lists the ancestors of srcID that need a copy before a copy
+// of srcID in locale can sit under its parent's copy, outermost first. The
+// walk goes up from the parent and stops at the first ancestor that already
+// has a copy, so nothing is listed when the parent has one (or there is no
+// parent).
+func (c *CopyService) MissingParents(ctx context.Context, srcID uuid.UUID, locale string) ([]MissingParent, error) {
+	locale, err := NormalizeLocale(locale)
+	if err != nil {
+		return nil, err
+	}
+	src, err := c.svc.GetEntity(ctx, srcID)
+	if err != nil {
+		return nil, err
+	}
+	missing, _, err := c.parentChain(ctx, src, locale)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MissingParent, len(missing))
+	for i, m := range missing {
+		out[i] = MissingParent{ID: m.ID, Name: m.Name, Slug: m.Slug}
+	}
+	return out, nil
+}
+
+// parentChain walks up from src's parent. It returns the ancestors without a
+// copy in locale, outermost first, and the copy found above them (nil when no
+// ancestor has one). Ancestors of another schema than src end the walk: a
+// copy cannot be placed under them.
+func (c *CopyService) parentChain(ctx context.Context, src *Entity, locale string) (missing []*Entity, found *uuid.UUID, err error) {
+	if src.ParentID == nil {
+		return nil, nil, nil
+	}
+	hs, ok := c.svc.entityRepo.(HierarchyStore)
+	if !ok {
+		return nil, nil, nil
+	}
+	anc, err := hs.Ancestors(ctx, src.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := len(anc) - 1; i >= 0; i-- {
+		a, err := c.svc.GetEntity(ctx, anc[i].ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if a.SchemaID != src.SchemaID {
+			return nil, nil, nil
+		}
+		members, err := c.groups.Members(ctx, a.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, m := range members {
+			if m.Locale == locale {
+				id := m.ID
+				return reversed(missing), &id, nil
+			}
+		}
+		missing = append(missing, a)
+	}
+	return reversed(missing), nil, nil
+}
+
+func reversed(es []*Entity) []*Entity {
+	out := make([]*Entity, len(es))
+	for i, e := range es {
+		out[len(es)-1-i] = e
+	}
+	return out
+}
+
+// resolveParent returns the parent for a copy of src in locale: the parent's
+// copy, or with o.CreateParents a chain of new linked drafts made outermost
+// first (returned in madeParents so a failure can delete them), else none.
+func (c *CopyService) resolveParent(ctx context.Context, userID uuid.UUID, src *Entity, locale string, o CopyOptions) (parentID *uuid.UUID, madeParents []uuid.UUID, err error) {
+	missing, found, err := c.parentChain(ctx, src, locale)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(missing) == 0 {
+		return found, nil, nil
+	}
+	if !o.CreateParents {
+		return nil, nil, nil
+	}
+	po := CopyOptions{AutoSlug: true, Warn: o.Warn, From: CopyFromThis}
+	parent := found
+	for _, m := range missing {
+		cp, err := c.copyOne(ctx, userID, m, m, locale, po, parent)
+		if err != nil {
+			c.deleteAll(ctx, madeParents)
+			return nil, nil, fmt.Errorf("create the %s copy of %q: %w", locale, m.Name, err)
+		}
+		madeParents = append(madeParents, cp.ID)
+		id := cp.ID
+		parent = &id
+	}
+	return parent, madeParents, nil
+}
+
+// deleteAll removes the given entities, newest first, logging failures.
+func (c *CopyService) deleteAll(ctx context.Context, ids []uuid.UUID) {
+	for i := len(ids) - 1; i >= 0; i-- {
+		if err := c.svc.DeleteEntity(ctx, ids[i]); err != nil {
+			c.svc.logger.Warn("delete parent copy after failed copy", slog.String("entity_id", ids[i].String()), slog.String("error", err.Error()))
+		}
+	}
 }
 
 func (c *CopyService) warn(o CopyOptions, msg string) {
