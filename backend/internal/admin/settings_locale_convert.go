@@ -611,7 +611,7 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.convertURL(), http.StatusSeeOther)
 }
 
-// convertCandidates is true when General should point an owner at the
+// convertCandidates is true when the Locales tab should point an owner at the
 // conversion: the site has no Locales list yet and its pages look like a
 // region tree. A failed check shows no notice rather than a broken page.
 func (a *Admin) convertCandidates(r *http.Request, cfg *siteconfig.Config) bool {

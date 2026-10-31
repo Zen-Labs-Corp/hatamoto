@@ -12,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/localeconv"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // fakeConvert is a localeconv.Service that records its calls.
@@ -481,11 +482,25 @@ func TestLocalesTabLinksToTheConversion(t *testing.T) {
 	t.Parallel()
 
 	g, _, _, _ := newConvertRig(t)
-	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Moving from region page trees?") || !strings.Contains(body, `href="`+convertBase+`"`) {
-		t.Error("the Locales tab lacks the conversion link")
+	found := true
+	g.a.deps.LocaleConvertCandidates = func(context.Context) (bool, error) { return found, nil }
+	shown := func() bool {
+		body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+		return strings.Contains(body, "Moving from region page trees?") && strings.Contains(body, `href="`+convertBase+`"`)
+	}
+	if !shown() {
+		t.Error("a single-locale site with region pages lacks the conversion link")
 	}
 	if strings.Contains(g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(), "Region pages found") {
 		t.Error("General still shows the region page notice")
+	}
+	found = false
+	if shown() {
+		t.Error("the link shows on a site without region pages")
+	}
+	found = true
+	g.a.deps.Site.(*fakeSite).cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr"}}
+	if shown() {
+		t.Error("the link shows on a multi-locale site")
 	}
 }

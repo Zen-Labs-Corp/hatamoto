@@ -196,7 +196,7 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		Table:       a.localesTable(r, cfg),
 		Form:        a.newLocaleForm(false),
 		Actions:     []ui.Button{{Label: "Add locale", Variant: "primary", Icon: "plus", Href: a.url("settings", "locales", "new"), Attrs: map[string]string{"data-hm-open": "add-locale"}}},
-		ShowConvert: a.deps.LocaleConvert != nil,
+		ShowConvert: a.convertCandidates(r, cfg),
 		ConvertHref: a.convertURL(),
 	}
 	v := a.NewView(w, r, "Locales")

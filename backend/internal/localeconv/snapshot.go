@@ -62,6 +62,8 @@ type Schema struct {
 type SiteLocale struct {
 	Tag     string `json:"tag"`
 	Segment string `json:"segment"`
+	Hidden  bool   `json:"hidden,omitempty"`
+	Name    string `json:"name,omitempty"`
 }
 
 // SiteState is the locale-related site configuration.
