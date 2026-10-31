@@ -186,7 +186,8 @@ function start(root, boot) {
   const fieldJump = lazy(() => import("@hm/builder/fieldjump"));
   const toField = (id, path, fix) => {
     select(id);
-    dispatch("inspect");
+    panes.toggle("insp", true); // not dispatch("inspect"): that focuses the panel's first editor (the Body), which then takes the keys typed before focusField reaches the field
+    phonePane("insp");
     if (fix) repatch(id);
     fieldJump().then((m) => m.focusField(panel, id, path, announce));
   };
