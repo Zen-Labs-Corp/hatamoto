@@ -349,3 +349,11 @@ test("strips scale with the zoom", () => {
   const r = rig({ nodes: sections(), scale: 0.5 });
   assert.deepEqual(r.strips.children.map((s) => s.style.top), ["0px", "100px", "200px"]);
 });
+
+test("a padding handle stacks above the boundary strips: a section edge with 0 padding has both", () => {
+  const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
+  const handle = /\.hm-pe__padh \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  const strip = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  const z = (rule) => Number(/z-index:\s*(-?\d+)/.exec(rule)?.[1] ?? 0);
+  assert.ok(z(handle) > z(strip), `handle z-index ${z(handle)} must exceed the strip's ${z(strip)}`);
+});

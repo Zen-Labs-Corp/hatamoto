@@ -74,7 +74,7 @@
 .hm-pe__pad[hidden] { display: none; }
 .hm-pe__hatch { position: absolute; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--pe-guide-pad) 35%, transparent) 0 4px, transparent 4px 8px); opacity: 0; transition: opacity .12s; pointer-events: none; }
 .hm-pe__hatch[data-show], .hm-pe__pad[data-drag] .hm-pe__hatch[data-active] { opacity: 1; }
-.hm-pe__padh { position: absolute; display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); }
+.hm-pe__padh { position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); }
 .hm-pe__padh::after { content: ""; display: block; border-radius: var(--radius-2xs); background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface); }
 .hm-pe__padh[data-side="top"], .hm-pe__padh[data-side="bottom"] { width: 44px; height: 20px; cursor: ns-resize; }
 .hm-pe__padh[data-side="left"], .hm-pe__padh[data-side="right"] { width: 20px; height: 44px; cursor: ew-resize; }
@@ -84,7 +84,7 @@
 .hm-pe__padh:focus-visible { outline: var(--focus-ring); outline-offset: 1px; border-radius: var(--radius-sm); }
 .hm-pe__padbadge { position: absolute; transform: translate(-50%, -50%); padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-2xs); background: var(--pe-guide-pad); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); pointer-events: none; }
 .hm-pe__padbadge[hidden] { display: none; }
-/* Boundary lines between top-level sections: full width, take the pointer, show their pill on hover or focus. */
+/* Boundary lines between top-level sections: full width, take the pointer, show their pill on hover or focus. They sit under the padding handles (z-index above), which lie on the same edge when a padding is 0. */
 .hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; height: 24px; transform: translateY(-50%); pointer-events: auto; }
 .hm-pe__pill { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; cursor: pointer; opacity: 0; box-shadow: 0 0 0 2px var(--surface); }
 .hm-pe__pill svg { width: 12px; height: 12px; }
