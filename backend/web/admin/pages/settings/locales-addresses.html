@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-<section class="hm-stack">
+{{if .Multi}}<section class="hm-stack">
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/settings/locales/addresses" class="hm-cardform">
 {{template "hm/csrf" $}}
@@ -13,4 +13,5 @@
 {{template "hm/card-foot-end"}}
 </form>
 </section>
-{{end}}{{end}}
+{{else}}{{template "hm/empty" .Empty}}
+{{end}}{{end}}{{end}}

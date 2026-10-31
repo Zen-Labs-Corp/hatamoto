@@ -231,3 +231,17 @@ func TestLocalePagesPassA11y(t *testing.T) {
 		}
 	}
 }
+
+func TestAddressesTabEmptyOnASingleLocaleSite(t *testing.T) {
+	t.Parallel()
+	g := newOwnerRig(t, true)
+	site := g.a.deps.Site.(*fakeSite)
+	body := g.do("GET", "/admin/settings/locales/addresses", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Add a second locale first") || !strings.Contains(body, `href="/admin/settings/locales/new"`) || strings.Contains(body, `name="prefix_all"`) {
+		t.Error("single-locale Addresses tab shows the form instead of the empty state")
+	}
+	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", url.Values{"prefix_all": {"true"}}, nil)
+	if rec.Code != 422 || site.cfg.PrefixAll || g.flushed != 0 {
+		t.Errorf("code=%d prefixAll=%v flushed=%d: a single-locale save must be refused", rec.Code, site.cfg.PrefixAll, g.flushed)
+	}
+}

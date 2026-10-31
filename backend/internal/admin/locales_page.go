@@ -441,6 +441,7 @@ type addressesData struct {
 	Errs      map[string]string
 	Summary   []ui.FieldError
 	Multi     bool
+	Empty     ui.Empty
 }
 
 // xDefaultOptions offers Automatic and every public locale, never a hidden one.
@@ -457,7 +458,10 @@ func xDefaultOptions(cfg *siteconfig.Config, current string) []ui.Option {
 func (a *Admin) renderAddresses(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, prefixAll bool, xdef string, errs map[string]string) {
 	d := addressesData{
 		Default: localeDisplayName(localeSetOf(cfg).Default()), PrefixAll: prefixAll, XDefault: xDefaultOptions(cfg, xdef),
-		Errs: errs, Multi: localeSetOf(cfg).Multi(),
+		Errs: errs, Multi: len(cfg.Locales) > 1,
+		Empty: ui.Empty{Icon: "globe", Title: "Add a second locale first",
+			Body:    "Address prefixes and the search engine default apply once your site has two or more locales.",
+			Actions: []ui.Button{{Label: "Add a locale", Variant: "primary", Href: a.url("settings", "locales", "new")}}},
 	}
 	for _, k := range []struct{ key, label string }{{"locales", "Address prefix"}, {"xdefault", "Default for search engines"}} {
 		if m := errs[k.key]; m != "" {
@@ -485,6 +489,10 @@ func (a *Admin) handleAddressesSave(w http.ResponseWriter, r *http.Request) {
 	cfg, err := a.loadSite(r.Context())
 	if err != nil {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+		return
+	}
+	if len(cfg.Locales) < 2 {
+		a.Error(w, r, http.StatusUnprocessableEntity, "Not saved", "Add a second locale first: these settings apply to sites with two or more locales.")
 		return
 	}
 	prefixAll, xdef := r.PostFormValue("prefix_all") == "true", strings.TrimSpace(r.PostFormValue("xdefault"))
