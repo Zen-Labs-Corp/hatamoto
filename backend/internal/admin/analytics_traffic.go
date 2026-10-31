@@ -122,7 +122,9 @@ type trafficPage struct {
 	Engagement     ui.BarList
 	// EngagementShown is whether the engagement setting is wired; EngagementOn its value.
 	EngagementShown, EngagementOn bool
-	Owner                         bool
+	// Geo is the read-only state of the country database (set with HATAMOTO_GEOIP_DB).
+	Geo   ui.Badge
+	Owner bool
 	// Return is where the settings form sends the user back (the range and compare carried).
 	Return string
 }
@@ -291,6 +293,13 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	configured, loaded := false, false
 	if gs := a.deps.Growth.GeoStatus; gs != nil {
 		configured, loaded = gs()
+	}
+	p.Geo = ui.Badge{Label: "Not configured", Kind: "neutral"}
+	switch {
+	case loaded:
+		p.Geo = ui.Badge{Label: "Loaded", Kind: "success"}
+	case configured:
+		p.Geo = ui.Badge{Label: "Could not be read", Kind: "warning"}
 	}
 	switch {
 	case !configured:
