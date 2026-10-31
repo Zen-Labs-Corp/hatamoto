@@ -267,15 +267,18 @@ function start(root, boot) {
         return { name: label(id) || info.kind, parentId: info.parentId ?? "", parentName: info.parentId ? label(info.parentId) : "", canUp: can("moveup"), canDown: can("movedown"), hidden: !!isHiddenAt(id), k };
       },
       // direct manipulation (canvas/direct): padding handles and the "Add section" lines between sections
-      isSection: (id) => !!selectionInfo(st.doc, id)?.isSection,
+      // not a collapsed theme section: its component's styles do not render, so a padding drag there would only remove the theme padding
+      isSection: (id) => {
+        const info = selectionInfo(st.doc, id);
+        return !!info?.isSection && !info.section.collapsed;
+      },
       refOf: (id) => innerRef(st.doc, id),
       styleEntry: (key) => styleTable?.find((e) => e.key === key),
       indexOf: (id) => sectionOf(st.doc, id)?.index,
       total: () => st.doc.nodes.length,
       nameOf: (id) => label(id),
       padState: () => ({ bp: padBp() }),
-      // what the node itself says (own, else the wider width's), for a frame that gives no measured padding: the padding of a collapsed
-      // section's theme component sits on the component the handles write to, which is this id
+      // what the node itself says (own, else the wider width's), for a frame that gives no measured padding
       authored: (id, side) => {
         const n = find(st.doc, id);
         const key = { top: "pt", right: "pr", bottom: "pb", left: "pl" }[side];

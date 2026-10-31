@@ -389,10 +389,11 @@ await check("the page is left as found: undo everything, then reload discarding 
   return `document identical, status "${st}"; ${blocked.length} save/autosave/recovery request(s) aborted in the browser: ${[...new Set(blocked)].join(", ") || "none"}`;
 });
 
-// Report only: a collapsed theme section (a v1 container around a theme component, like Hero in the seed's Home page). Set QA_HERO_PAGE
-// (a page title) to run it; it reloads that page, drags, and leaves it unsaved (reload discards the draft, saves are aborted anyway).
+// A collapsed theme section (a v1 container around a theme component, like Hero in the seed's Home page) shows NO padding handles:
+// its component's styles do not render, so a drag there would only remove the theme padding. Set QA_HERO_PAGE (a page title) to run it;
+// it reloads that page and leaves it unsaved (reload discards the draft, saves are aborted anyway).
 if (process.env.QA_HERO_PAGE) {
-  await check("report: a collapsed theme section (Hero): handles, start value, does the drag change the rendered padding", async () => {
+  await check("a collapsed theme section (Hero) shows no padding handles and writes no style", async () => {
     await p.goto(`${base}/admin/entities?q=${encodeURIComponent(process.env.QA_HERO_PAGE)}`);
     const hs = await p.$$eval('a[href^="/admin/entities/"]', (as) => as.map((a) => a.getAttribute("href")));
     await open(hs.find((x) => /entities\/[0-9a-f-]{36}/.test(x)).replace(/\?.*/, "") + "?qa=1");
@@ -400,17 +401,14 @@ if (process.env.QA_HERO_PAGE) {
     for (const n of flat(await tops()).filter((x) => x.t === "container" && x.p?.v1).slice(0, 1)) {
       await row(n.id).click();
       await settle(800);
+      await frame(); // the frame as it is after the selection has settled
       const handles = await p.locator("[data-hm-pe-padh]:not([hidden])").count();
-      if (!handles) { out.push(`${n.t} ${n.id}: no handles`); continue; }
-      const f = await frame();
-      const kids = flat([n]).map((x) => x.id);
-      const ren = () => f.evaluate((ids) => { const e = ids.map((i) => document.querySelector(`[data-hm-node="${i}"], [data-hm-section="${i}"]`)).find(Boolean); return e ? getComputedStyle(e).paddingTop : "(no element)"; }, kids);
-      const v0 = await padNow("top"), r0 = await ren();
-      await dragHandle("top", 40);
-      await settle(1500);
-      const where = flat([(await tops()).find((x) => x.id === n.id)]).filter((x) => x.s).map((x) => `${x.id}:${JSON.stringify(x.s)}`);
-      out.push(`${n.t} ${n.id}: ${handles} handles, start ${v0}px, after +40 ${await padNow("top")}px, style written on ${where.join(", ") || "nothing"}, rendered padding-top ${r0} -> ${await ren()}`);
+      if (handles) throw new Error(`${n.id}: ${handles} padding handle(s) on a collapsed theme section`);
+      const written = flat([(await tops()).find((x) => x.id === n.id)]).filter((x) => x.s);
+      if (written.length) throw new Error(`${n.id}: styles appeared without a drag: ${JSON.stringify(written.map((x) => x.s))}`);
+      out.push(`${n.id}: no handles`);
     }
+    if (!out.length) throw new Error("no collapsed theme section on the page");
     await p.goto("about:blank");
     return out.join(" || ");
   });

@@ -1,5 +1,5 @@
 // A canvas padding drag's commit as screen.js wires it: onPadCommit hands the writes to run() once (one history entry),
-// on a collapsed theme section they land on the component, and the inherited value is where a drag starts without a measured pd.
+// and the inherited value is where a drag starts without a measured pd.
 // Run: node --test scripts/admin-qa/unit/builder-padcommit.test.mjs
 import { register } from "node:module";
 import { test } from "node:test";
@@ -17,8 +17,7 @@ register(
 const S = await import(new URL("builder/store.js", root));
 const { selectionInfo } = await import(new URL("builder/selinfo.js", root));
 const { ownValue, inheritedValue } = await import(new URL("builder/bp.js", root));
-const { padWrites, padBp, startPx } = await import(new URL("canvas/padding.js", root));
-const { innerRef } = await import(new URL("builder/bridge.js", root));
+const { padBp, startPx } = await import(new URL("canvas/padding.js", root));
 const src = readFileSync(new URL("builder/screen.js", root), "utf8");
 const insp = readFileSync(new URL("builder/inspector.js", root), "utf8");
 
@@ -26,16 +25,13 @@ const insp = readFileSync(new URL("builder/inspector.js", root), "utf8");
 const hero = { id: "h", t: "component", p: { name: "Hero" }, s: { base: { pt: "6rem" } } };
 const doc = { v: 2, nodes: [{ id: "sec", t: "container", p: { tag: "section" }, c: [hero] }] };
 
-test("a collapsed section's handles write to the component, as one history entry (also with alt)", () => {
-  assert.equal(selectionInfo(doc, "h").isSection, true);
-  assert.equal(innerRef(doc, "h").sel, "section");
-  let s = S.createStore(doc);
-  const writes = padWrites({ id: "h", bp: padBp("md", "hover"), side: "top", px: 120, alt: true });
-  assert.equal(writes.length, 2);
-  s = S.commit(s, writes, { label: "Change Padding top", now: 1 });
-  assert.equal(s.past.length, 1);
-  assert.equal(S.find(s.doc, "h").s["md:hover"].pt, "120px");
-  assert.equal(S.find(s.doc, "h").s["md:hover"].pb, "120px");
+test("a collapsed theme section shows no padding handles: its component styles do not render", () => {
+  const info = selectionInfo(doc, "h");
+  assert.equal(info.isSection, true);
+  assert.equal(info.section.collapsed, true); // screen.js isSection excludes this
+  assert.match(src, /return !!info\?\.isSection && !info\.section\.collapsed;/);
+  const plain = { v: 2, nodes: [{ id: "c", t: "container", p: { tag: "section" }, c: [{ id: "t", t: "text" }, { id: "t2", t: "text" }] }] };
+  assert.equal(selectionInfo(plain, "c").section.collapsed, false);
 });
 
 test("the start value: own at the key, else the wider width's, rem as 16px", () => {
