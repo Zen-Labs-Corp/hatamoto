@@ -12,7 +12,7 @@ import (
 	"hatamoto.dev/core/internal/agents"
 )
 
-// sectionCopy is the heading and lede of each AI analytics section, from the
+// sectionCopy is the heading and lede of each Analytics section, from the
 // approved prototype. A lede that quotes live numbers is empty until its
 // section builds one.
 var sectionCopy = map[string]struct{ Title, Lede string }{
@@ -24,7 +24,7 @@ var sectionCopy = map[string]struct{ Title, Lede string }{
 	"ai-health":    {"Is it running cleanly?", "Whether crawlers are who they say they are and whether your site answers them cleanly."},
 }
 
-// sectionPage is the data of every AI analytics section template.
+// sectionPage is the data of every Analytics section template.
 type sectionPage struct {
 	Title, Lede string
 	Range       ui.DateRange

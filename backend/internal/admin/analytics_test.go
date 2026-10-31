@@ -278,7 +278,7 @@ func TestPivotGroupsSmallSeriesIntoOther(t *testing.T) {
 	}
 }
 
-// The section pages answer in the shell with the AI analytics sub-sidebar, the
+// The section pages answer in the shell with the Analytics sub-sidebar, the
 // current section marked, and no canvas charts.
 func TestAnalyticsSectionsRenderInTheAreaFrame(t *testing.T) {
 	t.Parallel()

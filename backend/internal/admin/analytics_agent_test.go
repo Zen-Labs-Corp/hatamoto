@@ -170,7 +170,7 @@ func TestAgentPageNotFoundKeepsCrawlersCurrent(t *testing.T) {
 	}
 	i := strings.Index(body, `class="hm-subnav"`)
 	if i < 0 {
-		t.Fatal("the not-found page lost the AI analytics sidebar")
+		t.Fatal("the not-found page lost the Analytics sidebar")
 	}
 	m := regexp.MustCompile(`(?s)aria-current="page">.*?<span>([^<]*)</span>`).FindStringSubmatch(body[i:])
 	if m == nil || m[1] != "Crawlers" {
@@ -186,7 +186,7 @@ func TestAgentPageCrumbs(t *testing.T) {
 	nav := body[strings.Index(body, `aria-label="Breadcrumb"`):]
 	nav = nav[:strings.Index(nav, "</nav>")]
 	last := -1
-	for _, want := range []string{"AI analytics", "Crawlers", "GPTBot"} {
+	for _, want := range []string{"Analytics", "Crawlers", "GPTBot"} {
 		i := strings.Index(nav, ">"+want+"<")
 		if i < 0 || i < last {
 			t.Errorf("crumb %q missing or out of order in %s", want, nav)
