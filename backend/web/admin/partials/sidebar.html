@@ -1,6 +1,6 @@
 {{define "hm/sidebar"}}<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
 <div class="hm-sidebar__head">
-<a class="hm-brand hm-sidebar__brand" href="{{adminPath}}/entities"><span class="hm-brand__seal" aria-hidden="true">旗</span><span>{{.SiteName}}</span></a>
+<a class="hm-brand hm-sidebar__brand" href="{{adminPath}}/entities"><span class="hm-brand__seal" aria-hidden="true">{{icon "seal"}}</span><span>{{.SiteName}}</span></a>
 {{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "external" "Label" "Open site" "Href" (or .SiteURL "/") "AriaLabel" "Open site in a new window" "Attrs" (attrmap "target" "_blank" "rel" "noopener" "data-tooltip" "Open site" "data-tooltip-align" "end"))}}
 </div>
 <div class="hm-nav-groups">

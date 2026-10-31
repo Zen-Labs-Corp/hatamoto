@@ -6,7 +6,7 @@
 <body>
 <a class="hm-skip" href="#hm-main">Skip to content</a>
 <main id="hm-main" class="hm-bare">
-<p class="hm-brand hm-bare__brand"><span class="hm-brand__seal" aria-hidden="true">旗</span><span>{{.SiteName}}</span></p>
+<p class="hm-brand hm-bare__brand"><span class="hm-brand__seal" aria-hidden="true">{{icon "seal"}}</span><span>{{.SiteName}}</span></p>
 <div class="hm-bare__panel{{if .Wide}} hm-bare__panel--wide{{end}}">
 {{if .DemoBanner}}{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{.DemoBanner}}{{template "hm/callout-end"}}{{end}}
 {{template "hm/flash" .Flash}}
