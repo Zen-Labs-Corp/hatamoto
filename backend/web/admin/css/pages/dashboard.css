@@ -22,7 +22,7 @@
 .hm-dash__row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); }
 .hm-dash__row > .hm-muted::before { content: "\00b7"; margin-inline-end: var(--space-2); }
 #dash-health > .hm-card__body { gap: 0; }
-.hm-dash__group { margin: var(--space-4) 0 var(--space-0-5); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.hm-dash__group { margin: var(--space-4) 0 var(--space-0-5); font-size: var(--text-xs); color: var(--text-muted); }
 .hm-dash__group:first-child { margin-top: 0; }
 .hm-dash__health { gap: 0; margin-bottom: 0; }
 .hm-dash__health .hm-dash__row { flex-wrap: nowrap; align-items: center; padding: var(--space-1) 0; }

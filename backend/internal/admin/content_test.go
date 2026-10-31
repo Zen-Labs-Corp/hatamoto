@@ -136,7 +136,7 @@ func TestEntityListQueriesAreBounded(t *testing.T) {
 	if c.ents.lists != 1 || c.ents.counts != 1 {
 		t.Errorf("list queries = %d, count queries = %d, want 1 and 1", c.ents.lists, c.ents.counts)
 	}
-	has(t, body, ">Title</a>", `placeholder="Search titles and URLs"`, `aria-label="Status"`, `class="hm-tabs__count"`, ">All <", "Published ", `<span class="hm-table__sub">/services/alpha</span>`)
+	has(t, body, `class="hm-table__sort" href="`, ">Title<", `placeholder="Search titles and URLs"`, `aria-label="Status"`, `class="hm-tabs__count"`, ">All <", "Published ", `<span class="hm-table__sub">/services/alpha</span>`)
 	lacks(t, body, "Search entities")
 }
 
