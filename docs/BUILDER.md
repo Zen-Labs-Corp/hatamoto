@@ -997,18 +997,29 @@ is stored.
   Ctrl/Cmd+Z in a text edit undoes the last format from the bridge's snapshot stack (no redo). See
   [CANVAS.md](CANVAS.md#inline-rich-text).
 * **Inspector** (first paint split: `inspector.attach(el)` keeps the chrome across `draw()`, and the Content and
-  Advanced bodies, Copy/Paste style and the rest are lazy). Header (`inspheader`): name, device chip, **Element
-  options** menu (Copy style, Paste style, **Restore from an earlier version…** once `api.restore` exists). The
-  **Class** row is the preset panel (`presetpanel`) with the word "class" on screen; the stored key stays `preset`,
-  and so do the save labels' underlying ops. **Style** opens with the State switch, then **Essentials** per kind
-  (`essentials`: four to six keys, a key listed there is hidden in the groups, padding for every kind), then one
-  **More style options** disclosure (the 13 groups, with Effects = shadow, opacity, move X/Y, scale). Each control has a
-  source chip (**Set here**, **Inherited from …**, **From class .name**, **Custom value**) and one Reset that clears the
-  key at the current width and state. **Show on** (`showon`, pure): three independent switches that compute `hide` and
+  Advanced bodies, Copy/Paste style and the rest are lazy). Header (`inspheader`): a type icon, the editable name
+  (Enter or blur renames, Escape reverts), a count of blocks for a section or **Block in <parent>** (a link that selects
+  the parent) for a block, and the **Element options** menu (Copy style, Paste style, **Restore from an earlier
+  version…** once `api.restore` exists). The **Class** row is the preset panel (`presetpanel`) with the word "class" on
+  screen; the stored key stays `preset`, and so do the save labels' underlying ops. **Style** opens with one context
+  line (`inspctx`): the width pill (Desktop, Tablet, Phone), a **State** dropdown (Normal, Hover, Focus, Pressed,
+  Parent hover when the parent takes it) and a sentence saying what a value set here overrides. Below it come the
+  groups (`inspgroups`, pure): **Layout** (with In its parent and Size), **Spacing**, **Fill**, **Typography** (a text
+  kind, or a node that already carries a type key), **Corners & border** and **Effects** (shadow, opacity, position,
+  transform, filter, transition, visibility). A group opens when it has a value set here; Layout and Spacing also open
+  on a section. Each control has a source chip (**Set here**, **Inherited from …**, **From class .name**, **Custom
+  value**) and one Reset that clears the key at the current width and state. Labels of length fields (W, H, Gap, size,
+  line height, letter spacing, weight) scrub: drag the label sideways to change the value; the full name stays the
+  accessible name. **Show on** (`showon`, pure): three independent switches that compute `hide` and
   `display` writes for every width so one never changes another; the tree eye, the `H` key, the toolbar and the
   context menu use the same writer (`commitMany` takes a `bp` per write). The box model (`boxmodel`) nests padding in
-  margin, with 0 and auto buttons and link toggles that write the linked sides in one batch. The colour control
-  (`controlsui`, `colournames`) names site colours, shows **None**, keeps the last six custom colours per user
+  margin and shows the side numbers in place. Each number takes a typed value (a bare number means px, `auto` and token
+  names pass), ArrowUp/ArrowDown change it by 1 (Shift: 10), and a drag on the number scrubs it (1 unit per pixel, Shift
+  by 10, one undo step per drag). A link toggle writes all sides of a ring in one batch, presets set the padding steps
+  in one batch, and a Reset clears the ring. Edits write the key of the width and state shown in the context line, so
+  a Phone edit lands on `sm` and leaves the Desktop value alone. The Fill group shows the theme colours as pills
+  (`swatches`; the token name is committed, never the hex) beside the colour control (`controlsui`, `colournames`),
+  which names site colours, shows **None**, keeps the last six custom colours per user
   (`hm.builder.recent-colours.<user>` in `localStorage`) and gives owners **Edit site colours**. Content tab
   (`inspcontent`): fixed field order, H1 to H6 buttons, a collapsed **Use data** toggle, **Number of columns**
   (`columnsops`: adds empty containers or removes empty trailing ones with the count, in one commit), the **Items** panel
