@@ -213,8 +213,10 @@ func (c *CopyService) MissingParents(ctx context.Context, srcID uuid.UUID, local
 
 // parentChain walks up from src's parent. It returns the ancestors without a
 // copy in locale, outermost first, and the copy found above them (nil when no
-// ancestor has one). Ancestors of another schema than src end the walk: a
-// copy cannot be placed under them.
+// ancestor has one). A shared (und) ancestor counts as the copy: it is never
+// copied or listed as missing. Ancestors of another schema than src end the
+// walk: a copy cannot be placed under them, so the ones below it stay missing
+// and land at the top level.
 func (c *CopyService) parentChain(ctx context.Context, src *Entity, locale string) (missing []*Entity, found *uuid.UUID, err error) {
 	if src.ParentID == nil {
 		return nil, nil, nil
@@ -233,7 +235,13 @@ func (c *CopyService) parentChain(ctx context.Context, src *Entity, locale strin
 			return nil, nil, err
 		}
 		if a.SchemaID != src.SchemaID {
-			return nil, nil, nil
+			// The copies below it still go to the top level.
+			return reversed(missing), nil, nil
+		}
+		if a.Locale == LocaleShared {
+			// A shared page already serves every locale: the copy sits under it.
+			id := a.ID
+			return reversed(missing), &id, nil
 		}
 		members, err := c.groups.Members(ctx, a.ID)
 		if err != nil {

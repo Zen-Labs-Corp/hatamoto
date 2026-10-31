@@ -182,3 +182,73 @@ func TestCopyServiceFailureDeletesParents(t *testing.T) {
 		t.Errorf("rows = %d (%v), want only the 2 sources", n, err)
 	}
 }
+
+// A shared (und) ancestor serves every locale: the copy sits under it, it is
+// not listed as missing and no copy of it is made.
+func TestCopyServiceSharedParent(t *testing.T) {
+	ctx := context.Background()
+	f := newCopyFixture(t, nestedSettings)
+	db := newIntegrationDB(t)
+	docs := f.page(t, "docs", "en", `{}`, nil)
+	install := f.page(t, "install", "en", `{}`, &docs.ID)
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET locale = $2 WHERE id = $1`, docs.ID, LocaleShared); err != nil {
+		t.Fatal(err)
+	}
+	missing, err := f.copies.MissingParents(ctx, install.ID, "fr")
+	if err != nil || len(missing) != 0 {
+		t.Fatalf("missing = %+v, %v; want none", missing, err)
+	}
+	cp, err := f.copies.CreateCopy(ctx, f.user, install.ID, CopyOptions{Locale: "fr", CreateParents: true})
+	if err != nil {
+		t.Fatalf("copy under a shared parent: %v", err)
+	}
+	if p := f.parentOf(t, cp.ID); p == nil || *p != docs.ID {
+		t.Errorf("parent = %v, want the shared page %v", p, docs.ID)
+	}
+	var n int
+	if err := db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1`, f.schemaID).Scan(&n); err != nil || n != 3 {
+		t.Errorf("rows = %d (%v), want the 2 sources and the copy", n, err)
+	}
+}
+
+// An ancestor of another schema ends the walk, but the parents below it that
+// still need a copy stay listed and are made at the top level.
+func TestCopyServiceForeignAncestorKeepsMissingParents(t *testing.T) {
+	ctx := context.Background()
+	f := newCopyFixture(t, nestedSettings)
+	db := newIntegrationDB(t)
+	otherSchema := uuid.New()
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`,
+		otherSchema, "fa-"+uuid.NewString()[:8], nestedSettings); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, otherSchema)
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, otherSchema)
+	})
+	root, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: otherSchema, Name: "root", Slug: "root", Locale: "en", Attributes: []byte(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	products := f.page(t, "products", "en", `{}`, nil)
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET parent_id = $2 WHERE id = $1`, products.ID, root.ID); err != nil {
+		t.Fatal(err)
+	}
+	pricing := f.page(t, "pricing", "en", `{}`, &products.ID)
+	missing, err := f.copies.MissingParents(ctx, pricing.ID, "fr")
+	if err != nil || len(missing) != 1 || missing[0].ID != products.ID {
+		t.Fatalf("missing = %+v, %v; want Products", missing, err)
+	}
+	cp, err := f.copies.CreateCopy(ctx, f.user, pricing.ID, CopyOptions{Locale: "fr", CreateParents: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prodFR := f.memberIn(t, products.ID, "fr")
+	if prodFR == nil {
+		t.Fatal("no fr copy of Products")
+	}
+	if p := f.parentOf(t, cp.ID); p == nil || *p != prodFR.ID {
+		t.Errorf("parent = %v, want the fr Products %v", p, prodFR.ID)
+	}
+}
