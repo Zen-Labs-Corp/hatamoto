@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -50,5 +51,47 @@ func TestCrawlerVerification(t *testing.T) {
 				t.Error("no range-published agent ids passed")
 			}
 		})
+	}
+}
+
+type fakeGoogle struct {
+	k      agents.GoogleKPIs
+	rows   []agents.GooglePageRow
+	filter string
+}
+
+func (f *fakeGoogle) GoogleKPIs(context.Context, agents.Range) (agents.GoogleKPIs, error) {
+	return f.k, nil
+}
+
+func (f *fakeGoogle) GooglePages(_ context.Context, _ agents.Range, filter string, _, _ int) ([]agents.GooglePageRow, int, error) {
+	f.filter = filter
+	return f.rows, len(f.rows), nil
+}
+
+func TestGoogleSummary(t *testing.T) {
+	rg := agents.Range{From: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)}
+	day := time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC)
+	med := 90 * time.Minute
+	f := &fakeGoogle{
+		k:    agents.GoogleKPIs{Hits: 200, Verified: 150, PagesCrawled: 3, Published: 10, MedianFirstCrawl: &med},
+		rows: []agents.GooglePageRow{{Path: "/a", Crawls: 5, LastDay: &day, LastStatus: 200, Stale: true}, {Path: "/b"}},
+	}
+	out, err := googleSummary(context.Background(), f, rg, "", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.filter != agents.GoogleFilterAll || out["verified_share"] != 0.75 || out["pages_published"] != 10 || out["total"] != 2 {
+		t.Errorf("unexpected result %v (filter %q)", out, f.filter)
+	}
+	if m, _ := out["median_first_crawl_seconds"].(*float64); m == nil || *m != 5400 {
+		t.Errorf("median = %v", out["median_first_crawl_seconds"])
+	}
+	b, _ := json.Marshal(out["items"])
+	if want := `[{"entity_id":null,"path":"/a","name":"","crawls":5,"last_crawl_day":"2026-10-28","last_status":200,"stale":true},{"entity_id":null,"path":"/b","name":"","crawls":0,"last_crawl_day":null,"last_status":0,"stale":false}]`; string(b) != want {
+		t.Errorf("items = %s", b)
+	}
+	if _, err := googleSummary(context.Background(), f, rg, "bogus", 20); err == nil {
+		t.Error("an unknown filter was accepted")
 	}
 }

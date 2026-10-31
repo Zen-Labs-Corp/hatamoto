@@ -116,6 +116,20 @@ func (s *Server) registerInsight() {
 			return object{"items": rows, "total": total}, nil
 		})
 
+	type googleIn struct {
+		rangeIn
+		Filter string `json:"filter,omitempty" jsonschema:"page rows to return: all (default), not-crawled, errors or stale"`
+		Limit  int    `json:"limit,omitempty" jsonschema:"page rows (default 20, max 100)"`
+	}
+	register(s, toolSpec{name: "analytics_google", description: "Googlebot crawling over a date range: crawls, verified share, pages crawled of published, median publish to first crawl, and per-page rows (crawls, last crawl day, last status, stale). Spoofed fetches are left out of the page numbers.", scope: reportScope, idempotent: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in googleIn) (any, error) {
+			rg, err := dateRange(in.From, in.To)
+			if err != nil {
+				return nil, err
+			}
+			return googleSummary(ctx, s.d.Crawlers, rg, in.Filter, clampLimit(in.Limit, 20))
+		})
+
 	register(s, toolSpec{name: "analytics_ai_referrals", description: "Visits sent by AI assistants (ChatGPT, Perplexity, ...) per day. Counted per assistant and day only: the site keeps no per-page or per-visitor referral data.", scope: reportScope, idempotent: true},
 		func(ctx context.Context, _ *hmauth.APIKey, in rangeIn) (any, error) {
 			rg, err := dateRange(in.From, in.To)
@@ -212,7 +226,11 @@ func (s *Server) pageActivity(ctx context.Context, id uuid.UUID) (any, error) {
 			rows = append(rows, agentRow{aid, &at, lf.Status})
 		}
 	}
-	return object{"first_crawl_at": d.FirstAt, "published_at": d.PublishedAt, "user_fetch_7d": d.UserFetch7d, "user_fetch_30d": d.UserFetch30d, "agents_seen": rows}, nil
+	searchFirst, err := s.d.Crawlers.SearchFirstCrawl(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return object{"first_crawl_at": d.FirstAt, "search_first_crawl_at": searchFirst, "published_at": d.PublishedAt, "user_fetch_7d": d.UserFetch7d, "user_fetch_30d": d.UserFetch30d, "agents_seen": rows}, nil
 }
 
 // preview fetches a public path in process and returns its (capped) text.
@@ -303,5 +321,64 @@ func crawlerVerification(ctx context.Context, r verificationReader, rg agents.Ra
 		"spoofed_share": share,
 		"spoofed_ips":   h.SpoofedIPs,
 		"header":        src.Header,
+	}, nil
+}
+
+// googleReader is the part of the agents stats the analytics_google tool reads.
+type googleReader interface {
+	GoogleKPIs(ctx context.Context, rg agents.Range) (agents.GoogleKPIs, error)
+	GooglePages(ctx context.Context, rg agents.Range, filter string, limit, offset int) ([]agents.GooglePageRow, int, error)
+}
+
+// googleSummary builds the analytics_google result.
+func googleSummary(ctx context.Context, r googleReader, rg agents.Range, filter string, limit int) (object, error) {
+	switch filter {
+	case "":
+		filter = agents.GoogleFilterAll
+	case agents.GoogleFilterAll, agents.GoogleFilterNotCrawled, agents.GoogleFilterErrors, agents.GoogleFilterStale:
+	default:
+		return nil, userErr("filter must be all, not-crawled, errors or stale")
+	}
+	k, err := r.GoogleKPIs(ctx, rg)
+	if err != nil {
+		return nil, err
+	}
+	rows, total, err := r.GooglePages(ctx, rg, filter, limit, 0)
+	if err != nil {
+		return nil, err
+	}
+	var share float64
+	if k.Hits > 0 {
+		share = float64(k.Verified) / float64(k.Hits)
+	}
+	var median *float64
+	if k.MedianFirstCrawl != nil {
+		secs := k.MedianFirstCrawl.Seconds()
+		median = &secs
+	}
+	type pageRow struct {
+		EntityID   *uuid.UUID `json:"entity_id"`
+		Path       string     `json:"path"`
+		Name       string     `json:"name"`
+		Crawls     int64      `json:"crawls"`
+		LastDay    *string    `json:"last_crawl_day"`
+		LastStatus int        `json:"last_status"`
+		Stale      bool       `json:"stale"`
+	}
+	items := make([]pageRow, 0, len(rows))
+	for _, p := range rows {
+		it := pageRow{p.EntityID, p.Path, p.Name, p.Crawls, nil, p.LastStatus, p.Stale}
+		if p.LastDay != nil {
+			d := p.LastDay.Format(dayLayout)
+			it.LastDay = &d
+		}
+		items = append(items, it)
+	}
+	return object{
+		"from": rg.From.Format(dayLayout), "to": rg.To.Format(dayLayout), "filter": filter,
+		"crawls": k.Hits, "verified": k.Verified, "verified_share": share,
+		"pages_crawled": k.PagesCrawled, "pages_published": k.Published,
+		"median_first_crawl_seconds": median,
+		"items":                      items, "total": total,
 	}, nil
 }
