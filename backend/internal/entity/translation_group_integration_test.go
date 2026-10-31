@@ -144,3 +144,189 @@ func TestGroupStoreLinkRace(t *testing.T) {
 		}
 	}
 }
+
+// groupWriteFixture creates entities in the given locales, all published.
+func groupWriteFixture(t *testing.T, locales ...string) (*GroupStore, func(id uuid.UUID) (group *uuid.UUID, original bool), []uuid.UUID, func(string, ...any)) {
+	t.Helper()
+	ctx := context.Background()
+	svc, schemaID, _ := localeFixture(t, `{}`)
+	db := newIntegrationDB(t)
+	ids := make([]uuid.UUID, len(locales))
+	slug := "gw-" + uuid.NewString()[:8]
+	for i, l := range locales {
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug + l, Slug: fmt.Sprintf("%s-%d", slug, i), Locale: l, Attributes: json.RawMessage(`{}`)})
+		if err != nil {
+			t.Fatalf("create %s: %v", l, err)
+		}
+		ids[i] = e.ID
+	}
+	read := func(id uuid.UUID) (*uuid.UUID, bool) {
+		var g *uuid.UUID
+		var o bool
+		if err := db.Pool().QueryRow(ctx, `SELECT translation_group, translation_original FROM hatamoto_entities WHERE id = $1`, id).Scan(&g, &o); err != nil {
+			t.Fatal(err)
+		}
+		return g, o
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.Pool().Exec(ctx, q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return NewGroupStore(db.Pool()), read, ids, exec
+}
+
+func TestLinkFlagsInitiatorAsOriginal(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, _ := groupWriteFixture(t, "en", "fr")
+	if _, err := gs.Link(ctx, ids[1], ids[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, o := read(ids[1]); !o {
+		t.Error("first id not flagged")
+	}
+	if _, o := read(ids[0]); o {
+		t.Error("second id flagged")
+	}
+}
+
+func TestLinkJoinKeepsFlag(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, _ := groupWriteFixture(t, "en", "fr", "es")
+	if _, err := gs.Link(ctx, ids[0], ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	// The joiner comes first, but the group already exists: no flag moves.
+	if _, err := gs.Link(ctx, ids[2], ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []bool{true, false, false} {
+		if _, o := read(ids[i]); o != want {
+			t.Errorf("member %d flagged = %v, want %v", i, o, want)
+		}
+	}
+	// A locale the group already has maps to ErrLocaleTaken, still an ErrInvalidGroup.
+	gs2, _, ids2, _ := groupWriteFixture(t, "en", "fr", "fr")
+	if _, err := gs2.Link(ctx, ids2[0], ids2[1]); err != nil {
+		t.Fatal(err)
+	}
+	err := func() error { _, err := gs2.Link(ctx, ids2[0], ids2[2]); return err }()
+	if !errors.Is(err, ErrLocaleTaken) || !errors.Is(err, ErrInvalidGroup) {
+		t.Errorf("clash with member = %v, want ErrLocaleTaken and ErrInvalidGroup", err)
+	}
+}
+
+func TestUnlinkOriginalClearsFlag(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, _ := groupWriteFixture(t, "en", "fr", "es")
+	if _, err := gs.Link(ctx, ids[0], ids[1], ids[2]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.Unlink(ctx, ids[0]); err != nil {
+		t.Fatal(err)
+	}
+	if g, o := read(ids[0]); g != nil || o {
+		t.Errorf("unlinked original: group %v flag %v", g, o)
+	}
+	for _, i := range []int{1, 2} {
+		if g, o := read(ids[i]); g == nil || o {
+			t.Errorf("remaining member %d: group %v flag %v; want grouped, unflagged", i, g, o)
+		}
+	}
+}
+
+func TestUnlinkDissolvesPair(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, _ := groupWriteFixture(t, "en", "fr")
+	if _, err := gs.Link(ctx, ids[0], ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.Unlink(ctx, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	for i := range ids {
+		if g, o := read(ids[i]); g != nil || o {
+			t.Errorf("member %d: group %v flag %v; want dissolved", i, g, o)
+		}
+	}
+	if err := gs.Unlink(ctx, ids[0]); err != nil {
+		t.Errorf("unlink of an ungrouped entity = %v, want nil", err)
+	}
+}
+
+func TestSetOriginalMovesFlag(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, _ := groupWriteFixture(t, "en", "fr", "es")
+	if _, err := gs.Link(ctx, ids[0], ids[1], ids[2]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.SetOriginal(ctx, ids[2]); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []bool{false, false, true} {
+		if _, o := read(ids[i]); o != want {
+			t.Errorf("member %d flagged = %v, want %v", i, o, want)
+		}
+	}
+}
+
+func TestSetOriginalUngrouped(t *testing.T) {
+	gs, _, ids, _ := groupWriteFixture(t, "en")
+	if err := gs.SetOriginal(context.Background(), ids[0]); !errors.Is(err, ErrNotGrouped) {
+		t.Errorf("ungrouped = %v, want ErrNotGrouped", err)
+	}
+	if err := gs.SetOriginal(context.Background(), uuid.New()); !errors.Is(err, ErrNotGrouped) {
+		t.Errorf("unknown id = %v, want ErrNotGrouped", err)
+	}
+}
+
+func TestGroupWritesKeepUpdatedAt(t *testing.T) {
+	ctx := context.Background()
+	gs, _, ids, _ := groupWriteFixture(t, "en", "fr", "es")
+	stamps := func() map[uuid.UUID]string {
+		t.Helper()
+		out := map[uuid.UUID]string{}
+		for _, id := range ids {
+			var s string
+			if err := gs.db.QueryRow(ctx, `SELECT updated_at::text FROM hatamoto_entities WHERE id = $1`, id).Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			out[id] = s
+		}
+		return out
+	}
+	// Pin a known updated_at inside one transaction with the trigger bypassed.
+	tx, err := gs.db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import','on',true)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_entities SET updated_at = '2020-01-01T00:00:00Z' WHERE id = ANY($1)`, ids); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	before := stamps()
+	if _, err := gs.Link(ctx, ids[0], ids[1], ids[2]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.SetOriginal(ctx, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.Unlink(ctx, ids[2]); err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.Unlink(ctx, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	after := stamps()
+	for _, id := range ids {
+		if before[id] != after[id] {
+			t.Errorf("updated_at of %s changed: %s -> %s", id, before[id], after[id])
+		}
+	}
+}
