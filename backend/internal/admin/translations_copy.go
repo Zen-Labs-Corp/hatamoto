@@ -190,10 +190,10 @@ func (a *Admin) handleTranslationCopy(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The copy could not be created", err)
 		return
 	}
-	a.auditEntity(r, auditEntityCreateCopy, cp.ID, cp, map[string]any{"source": e.ID.String(), "locale": tag, "from": string(from), "published": f.Publish})
+	a.auditEntity(r, auditEntityCreateCopy, cp.ID, cp, map[string]any{"source": e.ID.String(), "locale": tag, "from": string(from), "published": cp.Status == entity.StatusPublished})
 	a.invalidate(ctx)
 	msg := "Created the " + tag + " copy."
-	if f.Publish {
+	if cp.Status == entity.StatusPublished {
 		msg = "Created and published the " + tag + " copy."
 	}
 	a.SetFlash(w, r, "success", strings.TrimSpace(msg+" "+strings.Join(warnings, " ")))

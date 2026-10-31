@@ -185,3 +185,23 @@ func createButton(t *testing.T, body, dialogID string) {
 		t.Errorf("no visible Create button opening %s", dialogID)
 	}
 }
+
+// A copy whose publishing failed is a draft: the audit and the flash say so.
+func TestCopyPublishFailureIsNotReportedAsPublished(t *testing.T) {
+	t.Parallel()
+	c, cp := copyRig(t)
+	cp.publishFails = true
+	rows := c.record()
+	rec := c.post(trBase+"/copy", url.Values{"locale": {"it"}, "name": {"Alfa"}, "slug": {"alfa"}, "from": {"original"}, "publish": {"true"}})
+	if rec.Code != 303 {
+		t.Fatalf("copy: %d", rec.Code)
+	}
+	body := c.next(rec, rec.Header().Get("Location")+"/translations")
+	has(t, body, "Created the it copy.")
+	lacks(t, body, "published")
+	for _, r := range rows() {
+		if r.Detail["published"] == true {
+			t.Errorf("audit says published: %v", r.Detail)
+		}
+	}
+}

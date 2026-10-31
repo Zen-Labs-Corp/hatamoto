@@ -50,3 +50,13 @@ func TestBulkCreateDraftsOffOnSingleLocale(t *testing.T) {
 	c2, _ := bulkCopyRig(t, "en", "pt-BR")
 	has(t, c2.get(t, "owner-token", "/admin/entities", ""), "Create drafts in pt-BR")
 }
+
+func TestBulkCreateDraftsNothingCopiedIsAWarning(t *testing.T) {
+	t.Parallel()
+	c, cp := bulkCopyRig(t, "en", "pt-BR")
+	cp.errFor[fid(11)], cp.errFor[fid(12)] = entity.ErrLocaleTaken, entity.ErrLocaleTaken
+	rec := c.post("/admin/entities/bulk", url.Values{"action": {"copy:pt-BR"}, "id": {fid(11).String(), fid(12).String()}})
+	body := c.next(rec, "/admin/entities")
+	has(t, body, "hm-flash--warning", "Nothing copied: all 2 already have a pt-BR copy.")
+	lacks(t, body, "0 drafts created", "hm-flash--success")
+}

@@ -308,11 +308,12 @@ func (a *Admin) handleLocaleAdd(w http.ResponseWriter, r *http.Request) {
 		fail(localeFormErrs(errs, "tag"))
 		return
 	}
-	msg := "Added " + localeDisplayName(tag) + "."
+	msg, kind := "Added "+localeDisplayName(tag)+".", "success"
 	if f.Start == "copies" && f.HasContent {
-		msg += " " + a.startWithCopies(r, tag)
+		more, k := a.startWithCopies(r, tag)
+		msg, kind = msg+" "+more, k
 	}
-	a.SetFlash(w, r, "success", msg)
+	a.SetFlash(w, r, kind, msg)
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 }
 

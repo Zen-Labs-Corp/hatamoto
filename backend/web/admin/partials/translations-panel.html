@@ -1,10 +1,10 @@
 {{/* The Translations panel of an entry: who the copies are, with Open and Create, and what search engines see. Shared by the blog editor aside and the builder drawer (the Translations tab page has its own tables). It sits inside the editor form, so it has no field names and no POST forms. Data: translationsPanelData (Intro, Copies, Hreflang, Actions). */}}
-{{define "hm/translations"}}<div class="hm-stack">
+{{define "hm/translations"}}{{if .Err}}{{template "hm/callout" dict "Kind" "error" "Title" "Translations unavailable" "Body" .Err}}{{else}}<div class="hm-stack">
 <p class="hm-muted">{{.Intro}}</p>
 {{template "hm/table" .Copies}}
 {{with .Hreflang}}<p class="hm-muted">Search engines see: {{.}}</p>{{end}}
 {{if .Actions}}<div class="hm-row">{{range .Actions}}{{template "hm/button" .Dict}}{{end}}</div>{{end}}
-</div>{{end}}
+</div>{{end}}{{end}}
 {{/* The Create copy dialogs the panel's Create rows open. They hold forms, so place them outside any other form. Data: dict "CSRF" (the token) "P" (anything with CopyForms). */}}
 {{define "hm/translations-dialogs"}}{{$csrf := .CSRF}}{{range .P.CopyForms}}{{template "hm/dialog-start" dict "ID" .DialogID "Title" .Title "Static" true "Description" "Creates a linked copy in this language."}}
 <form id="{{.IDPrefix}}-form" method="post" action="{{.Action}}">{{template "hm/csrf" (dict "CSRF" $csrf)}}{{template "hm/form-copy" .}}</form>
