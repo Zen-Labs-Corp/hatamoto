@@ -507,3 +507,14 @@ test("Fill shows one pill per theme colour next to the hex field; a pill commits
   assert.deepEqual(calls, [{ key: "bg", value: "surface", at: "md:hover" }]);
   assert.equal(pills[0].attrs["aria-pressed"], "true");
 });
+
+test("a group is a plain block, not a named region landmark: no section, no aria-labelledby", () => {
+  const m = mount({ id: "t", t: "text", s: {} }, { table: full });
+  const groups = m.find((n) => n.className === "hm-bs-grp");
+  assert.ok(groups.length >= 6);
+  for (const g of groups) {
+    assert.equal(g.tag, "div");
+    assert.equal(g.attrs["aria-labelledby"], undefined);
+    assert.equal(g.attrs.role, undefined);
+  }
+});

@@ -218,7 +218,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       body.hidden = !now;
       openGroups.set(g.name, now);
     });
-    root.append(h("section", { class: "hm-bs-grp", "aria-labelledby": `${gid}-t` }, h("header", {}, head), body));
+    root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, head), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
     if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     if (g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k))) body.append(showOnRow());

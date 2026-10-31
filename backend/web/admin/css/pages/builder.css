@@ -160,11 +160,11 @@
 .hm-bs-content, .hm-bs-advanced, .hm-bs-style, .hm-bs-fields, .hm-bs-fieldsholder, .hm-bs-linkopts, .hm-bs-anchor { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 /* Figma-style groups: a header row (name, set-here dot, + / - glyph) over a collapsible body. */
 .hm-bs-grp { border-bottom: 1px solid var(--border); padding-block: var(--space-1) var(--space-3); min-width: 0; }
-.hm-bs-grp > header { display: flex; align-items: center; min-block-size: 2rem; }
+.hm-bs-grp > .hm-bs-grp__h { display: flex; align-items: center; min-block-size: 2rem; }
 button.hm-bs-grp__t { appearance: none; display: flex; align-items: center; gap: var(--space-2); width: 100%; min-block-size: 24px; padding: 0; margin: 0; font: inherit; font-weight: var(--weight-semibold); text-align: start; color: var(--text); background: none; border: 0; cursor: pointer; }
 button.hm-bs-grp__t[aria-expanded="false"] { color: var(--text-muted); font-weight: var(--weight-medium); }
-button.hm-bs-grp__t::after { content: "+"; margin-inline-start: auto; inline-size: 1.5rem; text-align: center; color: var(--text-muted); }
-button.hm-bs-grp__t[aria-expanded="true"]::after { content: "\2212"; }
+button.hm-bs-grp__t::after { content: "+" / ""; margin-inline-start: auto; inline-size: 1.5rem; text-align: center; color: var(--text-muted); }
+button.hm-bs-grp__t[aria-expanded="true"]::after { content: "\2212" / ""; }
 button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-bs-grp__b, .hm-bs-grp__sub { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-bs-grp__b[hidden], .hm-bs-linkopts[hidden] { display: none; }

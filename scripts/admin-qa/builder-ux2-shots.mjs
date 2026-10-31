@@ -160,7 +160,7 @@ await shot(p, "08-inspector-style-hover");
 await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("");
 await p.locator('[data-hm-bs-device="base"]').click();
 await wait(p, 400);
-await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-grp:last-of-type");
+await scrollInspector(p, '[data-hm-bs-panel] .hm-bs-grp:has(button:has-text("Effects"))');
 await shot(p, "09-style-groups");
 await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-bm");
 await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-bm").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
