@@ -224,7 +224,7 @@ func TestBuildTrafficFigures(t *testing.T) {
 	if d := p.KPIs[0].Change; d == nil || d.Text != "+100.0%" {
 		t.Errorf("visits delta = %+v", d)
 	}
-	if len(p.Channels.Rows) != 7 || p.Channels.Rows[0][1].Text != "60" || p.Channels.Rows[0][2].Text != "60%" || p.Channels.Rows[0][2].Bar == nil {
+	if len(p.Channels.Rows) != 7 || p.Channels.Rows[0][1].Text != "60" || p.Channels.Rows[0][2].Text != "60.0%" || p.Channels.Rows[0][2].Bar == nil {
 		t.Errorf("organic row = %+v", p.Channels.Rows[0])
 	}
 	if p.Channels.Rows[0][3].Text != "--" || p.Channels.Rows[0][4].Text != "--" || p.Channels.Rows[0][5].Text != "+1400.0%" || p.Channels.Rows[0][6].Spark == nil {
