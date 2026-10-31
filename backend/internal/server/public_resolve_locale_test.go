@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/redirect"
@@ -185,5 +188,23 @@ func TestLookupAgentEntityHiddenLocale(t *testing.T) {
 	id, found, err := lookupAgentEntity(context.Background(), f.deps.repo, snap, "/fr/about")
 	if err != nil || found || id != nil {
 		t.Fatalf("hidden locale resolved: %v %v %v", id, found, err)
+	}
+}
+
+func TestHiddenLocaleServedToThePreviewOnly(t *testing.T) {
+	t.Parallel()
+	entries := []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}}
+	req := httptest.NewRequest("GET", "/admin/render/preview", nil)
+	preview := previewRouteRequest(req, "/fr/about", uuid.New(), json.RawMessage(`{}`))
+
+	f := newLocaleRouteFixture(t, false, entries...)
+	res, _, err := newRouteTestServer().resolveRouteWith(preview.Context(), f.deps, "/fr/about", preview)
+	if err != nil || res == nil || res.NotFound || res.Locale != "fr" {
+		t.Fatalf("preview of a hidden locale page: %+v %v", res, err)
+	}
+	f = newLocaleRouteFixture(t, false, entries...)
+	res, out, err := newRouteTestServer().resolveRouteWith(req.Context(), f.deps, "/fr/about", req)
+	if err != nil || res == nil || !res.NotFound || out.Status != http.StatusNotFound {
+		t.Fatalf("public request for the same path: %+v %+v %v", res, out, err)
 	}
 }
