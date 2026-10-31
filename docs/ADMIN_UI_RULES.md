@@ -372,7 +372,7 @@ Rules: UI-D3
   optional `Caption` naming what it compares to; direction is also in hidden text. A ticker card also takes an optional
   `Note` (a muted line under the value and trend) and `Link` with `LinkLabel` (a plain link under
   the note, default "View more"); the card owns their look, a page never restyles it.
-  A value is always a metric (`--text-metric`, 28px; semibold in a ticker, medium in a stat card). A status phrase or a date (anything that is not a number) sets
+  A value is always a metric (`--text-metric`, 28px, medium weight in every stat card). A status phrase or a date (anything that is not a number) sets
   `Badge` and renders as an `hm/badge`, never as a smaller value. `hm/stats` `Variant "strip"`
   lays the cards out as one row of separate cards (the analytics KPI row); a stat card is never joined to its neighbours. Every stat value uses `--text-metric` with a
   `--color-hai` label, and its trend line is `hm/spark`: server geometry, or live (`Stat.Spark` with `ui.Spark{Live: &ui.SparkLive{...}}`), where

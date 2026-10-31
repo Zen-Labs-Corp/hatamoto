@@ -573,7 +573,7 @@ Names are a contract (`TestTokensContract`): add freely, never rename.
   `--color-accent(-soft) --color-success|warning|danger(-soft) --admin-accent`;
   `--border-control` (a 3:1 border for checkboxes and switches, unlike the hairline `--color-nezumi`); `--border-field` (the soft
   resting border of text inputs, selects and textareas; hover uses `--color-hai`
-  and focus the blue ring, both keep 3:1); `--segment-ring` and `--segment-bevel`
+  and focus the accent ring, both keep 3:1); `--segment-ring` and `--segment-bevel`
   (the selected segment's ring and bottom bevel, lifted in dark);
   `--btn-edge-primary` and `--btn-edge-danger` (the darker bottom edge of the ink
   and danger buttons, themed); `--space-px` (1px, so a 1px border can be offset
@@ -583,7 +583,7 @@ Names are a contract (`TestTokensContract`): add freely, never rename.
   --control-h-sm --control-h-xs --sidebar-w --content-max --page-pad-x|y` (kept for plugins); spacing `--space-1..8` plus the
   half steps `--space-0-5|1-5|2-5`; stacking `--z-raised|sticky|header|popup|tooltip|
   skip|toast|shield`; type `--text-xs..2xl` plus `--text-title` (18 px) and
-  `--text-metric` (30 px); fonts `--font-ui --font-mono --font-serif`.
+  `--text-metric` (28 px); fonts `--font-ui --font-mono --font-serif`.
 * Elevation `--shadow-1|2|3`, with their own dark values (a 1px light ring plus a
   deeper drop); chart palette `--chart-1..6` (light and dark) with `--chart-bar-soft`
   and `--chart-stack-*`. Partial CSS uses these tokens, not literals.

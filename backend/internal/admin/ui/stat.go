@@ -18,7 +18,7 @@ type Stat struct {
 	// card shows it as a plain link under its Note.
 	Link, LinkLabel string
 	// Badge replaces Value on a ticker card whose value is a status, not a number
-	// ("Up to date"): a metric is 30px semibold, a status is a badge.
+	// ("Up to date"): a metric is 28px medium, a status is a badge.
 	Badge *Badge
 	// Spark is the optional trend line under a ticker card's value.
 	Spark *Spark
@@ -26,7 +26,7 @@ type Stat struct {
 
 // StatChange is the change against the previous period. Dir is "up", "down" or
 // "flat" and picks the arrow and the screen reader word; Tone (success, danger
-// or neutral) picks the badge colour; Text is the amount and Caption what it
+// or neutral) picks the colour of the delta text; Text is the amount and Caption what it
 // is measured against.
 type StatChange struct {
 	Dir, Text, Tone, Caption string
@@ -46,17 +46,6 @@ func (c *StatChange) LowerIsBetter() *StatChange {
 		c.Tone = "success"
 	}
 	return c
-}
-
-// Icon is the arrow shown in the delta badge.
-func (c StatChange) Icon() string {
-	switch c.Dir {
-	case "up":
-		return "arrow-up"
-	case "down":
-		return "arrow-down"
-	}
-	return "minus"
 }
 
 const prevPeriod = "vs previous period"

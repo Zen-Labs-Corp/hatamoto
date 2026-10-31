@@ -10,7 +10,7 @@
 .hm-badge--danger { background: color-mix(in srgb, var(--color-danger) 11%, var(--color-paper)); color: var(--color-danger); }
 .hm-badge--info { background: var(--color-accent-soft); color: var(--accent-link); }
 /* Off, Disabled, Paused, Hidden: outlined grey, no fill. */
-.hm-badge--muted { background: transparent; color: var(--text-muted); box-shadow: inset 0 0 0 1px var(--color-nezumi); }
+.hm-badge--muted { background: transparent; color: var(--text-body); box-shadow: inset 0 0 0 1px var(--color-nezumi); }
 /* The live theme: the seal tint, with a square seal-coloured dot. */
 .hm-badge--live { background: color-mix(in srgb, var(--color-brand) 10%, var(--color-paper)); color: var(--color-sumi); }
 .hm-badge--live .hm-badge__dot { width: 8px; height: 8px; border-radius: var(--radius-2xs); background: var(--color-brand); }
@@ -27,5 +27,5 @@
 .hm-badge__icon { display: inline-flex; }
 .hm-badge__icon .hm-icon { width: 12px; height: 12px; }
 /* Size "sm": a compact secondary label (Browse cards). Muted ink; an icon keeps the accent. Last so it wins over the neutral Plain ink. */
-.hm-badge.hm-badge--sm { gap: var(--space-0-5); height: var(--badge-h-sm); padding: 0 var(--space-1); font-size: var(--text-2xs); line-height: var(--leading-none); color: var(--text-muted); background: var(--color-shiro); }
+.hm-badge.hm-badge--sm { gap: var(--space-0-5); height: var(--badge-h-sm); padding: 0 var(--space-1); font-size: var(--text-2xs); line-height: var(--leading-none); color: var(--text-muted); background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--color-kinu); }
 .hm-badge--sm .hm-badge__icon .hm-icon { width: 8px; height: 8px; color: var(--color-accent); }
