@@ -141,6 +141,24 @@ test("an old frame without pd falls back to the authored value, else 0", () => {
   assert.equal(stage.children[0].children.find((c) => c.attrs["data-side"] === "top" && c.attrs.role).attrs["aria-valuenow"], "32");
 });
 
+test("a measured pd wins over a token authored value: the drag starts from the rendered 48px, not 0", () => {
+  const stage = new El("div");
+  const nodes = [{ id: "a", k: "n", t: "container", p: "", x: 0, y: 0, w: 1280, h: 300, pd: [48, 0, 0, 0] }];
+  const commits = [];
+  const canvas = { stage, scale: 1, nodes, selectionBox: { id: "a", x: 0, y: 0, w: 1280, h: 300 }, editable: true, editingId: null, apply: () => true };
+  mountDirect(canvas, {
+    isSection: () => true, padState: () => ({ bp: "base" }), styleEntry: (k) => table.find((e) => e.key === k), refOf: () => ({ sel: "node", key: "a" }),
+    onPadCommit: (c) => commits.push(c) && true, onAddSection() {}, indexOf() {}, total: () => 0,
+    authored: (id, s) => (s === "top" ? "space-9" : null), // a token: startPx cannot read it
+  });
+  const top = stage.children[0].children.find((c) => c.attrs["data-side"] === "top" && c.attrs.role === "slider");
+  assert.equal(top.attrs["aria-valuenow"], "48");
+  top.fire("pointerdown", { button: 0, pointerId: 7, clientX: 500, clientY: 300 });
+  top.fire("pointermove", { pointerId: 7, clientX: 500, clientY: 310 });
+  top.fire("pointerup", { pointerId: 7 });
+  assert.equal(commits[0].writes[0].value, "58px");
+});
+
 test("dragging previews with setVar (no commit), updates the label, hatch and badge", () => {
   const r = rig();
   down(r, "top");
