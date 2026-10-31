@@ -354,3 +354,20 @@ func TestLocaleAddShowsAReservedSegmentOnThePrefixField(t *testing.T) {
 		t.Errorf("code=%d: the message is not on the Address prefix field", rec.Code)
 	}
 }
+
+func TestLocalePrefixHelpSaysWhatEmptyDoes(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	get := func(p string) string {
+		return g.do("GET", "/admin/settings/locales"+p, "owner-token", nil, nil).Body.String()
+	}
+	if b := get("/new"); !strings.Contains(b, "Empty uses the full code, like fr-ca") || strings.Contains(b, "Empty uses the language code") {
+		t.Error("the add form misdescribes an empty prefix")
+	}
+	if b := get("/edit/en"); !strings.Contains(b, "Empty keeps this locale at the root of the site.") {
+		t.Error("the default locale page does not say an empty prefix keeps the root")
+	}
+	if b := get("/edit/fr"); !strings.Contains(b, "Empty uses the full code.") || strings.Contains(b, "root of the site") {
+		t.Error("another locale page misdescribes an empty prefix")
+	}
+}

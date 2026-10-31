@@ -5,7 +5,7 @@
 <form method="post" action="{{.Action}}" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "edit-locale" "Title" .Title "Description" .Tag}}
-{{template "hm/field" dict "ID" "locale-segment" "Name" "segment" "Label" "Address prefix" "Value" .Segment "Help" "Lowercase letters, digits and hyphens. Changing it moves every page of this locale to the new address." "Error" (index .Errs "segment") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}
+{{template "hm/field" dict "ID" "locale-segment" "Name" "segment" "Label" "Address prefix" "Value" .Segment "Help" (printf "Lowercase letters, digits and hyphens. %s Changing it moves every page of this locale to the new address." (cond .Default "Empty keeps this locale at the root of the site." "Empty uses the full code.")) "Error" (index .Errs "segment") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}
 {{template "hm/field" dict "ID" "locale-name" "Name" "name" "Label" "Name shown to visitors" "Value" .Name "Help" "Optional. Empty uses the English name." "Error" (index .Errs "name")}}
 {{if .Default}}{{template "hm/field" dict "ID" "locale-public" "Name" "public" "Label" "Public" "Control" "switch" "Value" "true" "Checked" true "Disabled" true "Help" "The default locale is always public."}}
 {{else}}{{template "hm/field" dict "ID" "locale-public" "Name" "public" "Label" "Public" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Public "Help" "Off: the address answers not found and the locale is left out of sitemaps and hreflang links." "Error" (index .Errs "public")}}
