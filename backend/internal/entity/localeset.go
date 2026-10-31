@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // maxLocaleSegmentLen bounds a locale URL segment.
@@ -11,11 +12,17 @@ const maxLocaleSegmentLen = 32
 
 var localeSegmentRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-// LocaleEntry is one public locale: a BCP 47 tag and the free URL segment
-// that prefixes its paths.
+// maxLocaleNameLen bounds a locale display name, in runes.
+const maxLocaleNameLen = 80
+
+// LocaleEntry is one configured locale: a BCP 47 tag, the free URL segment
+// that prefixes its paths, an optional display name and whether it is hidden
+// (not public yet).
 type LocaleEntry struct {
 	Tag     string
 	Segment string
+	Name    string
+	Hidden  bool
 }
 
 // LocaleSet is the validated view of the multi-locale site settings. Entry
@@ -70,9 +77,15 @@ func NewLocaleSet(def string, entries []LocaleEntry, prefixAll bool, xDefault st
 		if other, dup := segs[seg]; dup {
 			return nil, fmt.Errorf("%w: locales %q and %q share the segment %q", ErrValidationFailed, other, tag, seg)
 		}
+		if n := utf8.RuneCountInString(e.Name); n > maxLocaleNameLen {
+			return nil, fmt.Errorf("%w: the name of locale %q is longer than %d characters", ErrValidationFailed, tag, maxLocaleNameLen)
+		}
+		if e.Hidden && tag == defTag {
+			return nil, fmt.Errorf("%w: the default locale %q cannot be hidden", ErrValidationFailed, tag)
+		}
 		segs[seg] = tag
 		s.segByTag[tag] = seg
-		s.entries = append(s.entries, LocaleEntry{Tag: tag, Segment: seg})
+		s.entries = append(s.entries, LocaleEntry{Tag: tag, Segment: seg, Name: e.Name, Hidden: e.Hidden})
 	}
 	if _, ok := s.segByTag[defTag]; !ok {
 		return nil, fmt.Errorf("%w: default locale %q is not in the locale list", ErrValidationFailed, defTag)
@@ -84,6 +97,9 @@ func NewLocaleSet(def string, entries []LocaleEntry, prefixAll bool, xDefault st
 		}
 		if _, ok := s.segByTag[x]; !ok {
 			return nil, fmt.Errorf("%w: x-default locale %q is not in the locale list", ErrValidationFailed, x)
+		}
+		if s.IsHidden(x) {
+			return nil, fmt.Errorf("%w: x-default locale %q is hidden", ErrValidationFailed, x)
 		}
 		s.xDefault = x
 	}
@@ -103,6 +119,47 @@ func (s *LocaleSet) Tags() []string {
 		out[i] = e.Tag
 	}
 	return out
+}
+
+// PublicTags returns the tags of the locales that are not hidden, in settings
+// order (a copy). Public output (hreflang, sitemaps) lists these, not Tags.
+func (s *LocaleSet) PublicTags() []string {
+	if s == nil {
+		return nil
+	}
+	out := make([]string, 0, len(s.entries))
+	for _, e := range s.entries {
+		if !e.Hidden {
+			out = append(out, e.Tag)
+		}
+	}
+	return out
+}
+
+// IsHidden reports whether tag is configured and hidden.
+func (s *LocaleSet) IsHidden(tag string) bool {
+	if s == nil {
+		return false
+	}
+	for _, e := range s.entries {
+		if e.Tag == tag {
+			return e.Hidden
+		}
+	}
+	return false
+}
+
+// Name returns the display name of tag, or "" when none is set.
+func (s *LocaleSet) Name(tag string) string {
+	if s == nil {
+		return ""
+	}
+	for _, e := range s.entries {
+		if e.Tag == tag {
+			return e.Name
+		}
+	}
+	return ""
 }
 
 // Entries returns the locales with normalized tags in settings order (a copy).

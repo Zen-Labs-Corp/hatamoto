@@ -24,10 +24,14 @@ import (
 // the same TTL the redirect service uses, keeping observability uniform.
 const cacheTTL = 60 * time.Second
 
-// LocaleEntry is one configured public locale: a BCP 47 tag and its URL segment.
+// LocaleEntry is one configured locale: a BCP 47 tag, its URL segment, an
+// optional display name and a Hidden flag. Hidden is the inverse of "public" so
+// a list stored before the flag existed decodes as all public.
 type LocaleEntry struct {
 	Tag     string `json:"tag"`
 	Segment string `json:"segment"`
+	Name    string `json:"name,omitempty"`   // shown to visitors, at most 80 runes
+	Hidden  bool   `json:"hidden,omitempty"` // not public: prefix 404s, left out of sitemaps and hreflang
 }
 
 // Config is the in-memory shape of the singleton row.

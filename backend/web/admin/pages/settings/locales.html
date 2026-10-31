@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+<section class="hm-stack">
+<p class="hm-muted">The order below is the order of the language switcher and of hreflang links. Nothing is public until you switch it on.</p>
+{{template "hm/table" .Table}}
+{{if .ShowConvert}}{{template "hm/callout-start" dict "Kind" "info" "Title" "Moving from region page trees?"}}<p>If your site keeps each region in its own page tree, convert it once instead of creating the pages again. Addresses do not change.</p>{{template "hm/button" dict "Label" "Convert region pages" "Href" .ConvertHref}}{{template "hm/callout-end"}}
+{{end}}</section>
+{{with .Form}}{{template "hm/dialog-start" dict "ID" "add-locale" "Title" .Title "Static" true "Description" "Nothing is public until you switch it on."}}
+<form id="add-locale-form" method="post" action="{{.Action}}">{{template "hm/csrf" $}}{{template "hm/form-locale" .}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" .Submit "PrimaryAttrs" (attrmap "form" "add-locale-form")}}{{end}}
+{{end}}{{end}}

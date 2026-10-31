@@ -2,12 +2,13 @@ package entity
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
 func TestNewLocaleSetValidation(t *testing.T) {
-	fr := LocaleEntry{"fr", "fr"}
-	en := LocaleEntry{"en", ""}
+	fr := LocaleEntry{Tag: "fr", Segment: "fr"}
+	en := LocaleEntry{Tag: "en", Segment: ""}
 	tests := []struct {
 		name      string
 		def       string
@@ -18,22 +19,22 @@ func TestNewLocaleSetValidation(t *testing.T) {
 	}{
 		{"empty list", "en", nil, false, "", false},
 		{"ok", "en", []LocaleEntry{en, fr}, false, "en", false},
-		{"normalizes tags", "en_GB", []LocaleEntry{{"en-gb", ""}, fr}, false, "", false},
-		{"bad tag", "en", []LocaleEntry{en, {"!!", "x"}}, false, "", true},
-		{"und tag", "en", []LocaleEntry{en, {"und", "x"}}, false, "", true},
-		{"duplicate tag", "en", []LocaleEntry{en, fr, {"fr", "fr2"}}, false, "", true},
-		{"duplicate tag after normalize", "en", []LocaleEntry{{"en-GB", ""}, {"en_gb", "g"}}, false, "", true},
-		{"duplicate segment", "en", []LocaleEntry{en, fr, {"nl", "fr"}}, false, "", true},
-		{"two empty segments", "en", []LocaleEntry{en, {"nl", ""}}, false, "", true},
-		{"non-default empty segment", "en", []LocaleEntry{en, {"fr", ""}}, false, "", true},
+		{"normalizes tags", "en_GB", []LocaleEntry{{Tag: "en-gb", Segment: ""}, fr}, false, "", false},
+		{"bad tag", "en", []LocaleEntry{en, {Tag: "!!", Segment: "x"}}, false, "", true},
+		{"und tag", "en", []LocaleEntry{en, {Tag: "und", Segment: "x"}}, false, "", true},
+		{"duplicate tag", "en", []LocaleEntry{en, fr, {Tag: "fr", Segment: "fr2"}}, false, "", true},
+		{"duplicate tag after normalize", "en", []LocaleEntry{{Tag: "en-GB", Segment: ""}, {Tag: "en_gb", Segment: "g"}}, false, "", true},
+		{"duplicate segment", "en", []LocaleEntry{en, fr, {Tag: "nl", Segment: "fr"}}, false, "", true},
+		{"two empty segments", "en", []LocaleEntry{en, {Tag: "nl", Segment: ""}}, false, "", true},
+		{"non-default empty segment", "en", []LocaleEntry{en, {Tag: "fr", Segment: ""}}, false, "", true},
 		{"default empty with prefix-all", "en", []LocaleEntry{en, fr}, true, "", true},
-		{"default segment with prefix-all", "en", []LocaleEntry{{"en", "en"}, fr}, true, "", false},
-		{"uppercase segment", "en", []LocaleEntry{en, {"fr", "FR"}}, false, "", true},
-		{"slash segment", "en", []LocaleEntry{en, {"fr", "a/b"}}, false, "", true},
-		{"double hyphen", "en", []LocaleEntry{en, {"fr", "a--b"}}, false, "", true},
-		{"trailing hyphen", "en", []LocaleEntry{en, {"fr", "a-"}}, false, "", true},
-		{"hyphenated ok", "en", []LocaleEntry{en, {"fr-ca", "fr-ca"}}, false, "", false},
-		{"segment too long", "en", []LocaleEntry{en, {"fr", "abcdefghijklmnopqrstuvwxyz0123456"}}, false, "", true},
+		{"default segment with prefix-all", "en", []LocaleEntry{{Tag: "en", Segment: "en"}, fr}, true, "", false},
+		{"uppercase segment", "en", []LocaleEntry{en, {Tag: "fr", Segment: "FR"}}, false, "", true},
+		{"slash segment", "en", []LocaleEntry{en, {Tag: "fr", Segment: "a/b"}}, false, "", true},
+		{"double hyphen", "en", []LocaleEntry{en, {Tag: "fr", Segment: "a--b"}}, false, "", true},
+		{"trailing hyphen", "en", []LocaleEntry{en, {Tag: "fr", Segment: "a-"}}, false, "", true},
+		{"hyphenated ok", "en", []LocaleEntry{en, {Tag: "fr-ca", Segment: "fr-ca"}}, false, "", false},
+		{"segment too long", "en", []LocaleEntry{en, {Tag: "fr", Segment: "abcdefghijklmnopqrstuvwxyz0123456"}}, false, "", true},
 		{"default not in list", "nl", []LocaleEntry{en, fr}, false, "", true},
 		{"bad default", "", []LocaleEntry{en, fr}, false, "", true},
 		{"x-default not in list", "en", []LocaleEntry{en, fr}, false, "nl", true},
@@ -56,7 +57,7 @@ func TestNewLocaleSetValidation(t *testing.T) {
 }
 
 func TestLocaleSetResolveAndPrefix(t *testing.T) {
-	s, err := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}, {"es-MX", "mx"}}, false, "")
+	s, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr"}, {Tag: "es-MX", Segment: "mx"}}, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +93,7 @@ func TestLocaleSetResolveAndPrefix(t *testing.T) {
 		}
 	}
 
-	pa, err := NewLocaleSet("en", []LocaleEntry{{"en", "en"}, {"fr", "fr"}}, true, "en")
+	pa, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: "en"}, {Tag: "fr", Segment: "fr"}}, true, "en")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func TestLocaleSetResolveAndPrefix(t *testing.T) {
 }
 
 func TestLocaleSetSingleAndNil(t *testing.T) {
-	one, err := NewLocaleSet("en", []LocaleEntry{{"en", ""}}, false, "")
+	one, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}}, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,11 +126,11 @@ func TestLocaleSetSingleAndNil(t *testing.T) {
 }
 
 func TestLocaleSetSegment(t *testing.T) {
-	s, err := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}, {"es-MX", "mx"}}, false, "")
+	s, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr"}, {Tag: "es-MX", Segment: "mx"}}, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	pa, err := NewLocaleSet("en", []LocaleEntry{{"en", "en"}, {"fr", "fr"}}, true, "")
+	pa, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: "en"}, {Tag: "fr", Segment: "fr"}}, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,5 +156,65 @@ func TestLocaleSetSegment(t *testing.T) {
 		if seg != tc.seg || ok != tc.ok {
 			t.Errorf("%s: Segment(%q) = %q, %v; want %q, %v", tc.name, tc.tag, seg, ok, tc.seg, tc.ok)
 		}
+	}
+}
+
+func hiddenFixture(t *testing.T, def, xdef string, fr, nl bool) (*LocaleSet, error) {
+	t.Helper()
+	return NewLocaleSet(def, []LocaleEntry{
+		{Tag: "en", Segment: ""},
+		{Tag: "fr", Segment: "fr", Hidden: fr, Name: "Francais"},
+		{Tag: "nl", Segment: "nl", Hidden: nl},
+	}, false, xdef)
+}
+
+func TestLocaleSetHiddenDefaultRejected(t *testing.T) {
+	_, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Hidden: true}, {Tag: "fr", Segment: "fr"}}, false, "")
+	if !errors.Is(err, ErrValidationFailed) {
+		t.Fatalf("want ErrValidationFailed, got %v", err)
+	}
+}
+
+func TestLocaleSetHiddenXDefaultRejected(t *testing.T) {
+	if _, err := hiddenFixture(t, "en", "fr", true, false); !errors.Is(err, ErrValidationFailed) {
+		t.Fatalf("want ErrValidationFailed, got %v", err)
+	}
+	if _, err := hiddenFixture(t, "en", "nl", true, false); err != nil {
+		t.Fatalf("public x-default beside a hidden locale: %v", err)
+	}
+}
+
+func TestLocaleSetPublicTags(t *testing.T) {
+	s, err := hiddenFixture(t, "en", "", true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.PublicTags(); len(got) != 2 || got[0] != "en" || got[1] != "nl" {
+		t.Fatalf("PublicTags = %v", got)
+	}
+	if got := s.Tags(); len(got) != 3 {
+		t.Fatalf("Tags must stay complete, got %v", got)
+	}
+	if !s.IsHidden("fr") || s.IsHidden("nl") || s.IsHidden("nl") {
+		t.Fatal("IsHidden wrong")
+	}
+	if s.Name("fr") != "Francais" || s.Name("nl") != "" || s.Name("nl") != "" {
+		t.Fatal("Name wrong")
+	}
+	var nilSet *LocaleSet
+	if nilSet.PublicTags() != nil || nilSet.IsHidden("fr") || nilSet.Name("fr") != "" {
+		t.Fatal("nil receiver not zero")
+	}
+}
+
+func TestLocaleSetNameTooLong(t *testing.T) {
+	long := strings.Repeat("é", 81)
+	_, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: long}}, false, "")
+	if !errors.Is(err, ErrValidationFailed) {
+		t.Fatalf("want ErrValidationFailed, got %v", err)
+	}
+	ok := strings.Repeat("é", 80)
+	if _, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: ok}}, false, ""); err != nil {
+		t.Fatal(err)
 	}
 }

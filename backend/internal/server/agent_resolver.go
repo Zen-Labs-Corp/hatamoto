@@ -98,7 +98,10 @@ func (s *Server) newAgentResolver() agents.ResolveFunc {
 // lookupAgentEntity finds the entity serving path the way the public loader
 // does: the locale segment is stripped and reads are scoped to that locale.
 func lookupAgentEntity(ctx context.Context, repo resolveRepo, snap *entity.URLSnapshot, path string) (*uuid.UUID, bool, error) {
-	ctx, _, path, prefixed := localeScope(ctx, snap, path)
+	ctx, locale, path, prefixed := localeScope(ctx, snap, path)
+	if prefixed && snap.Locales().IsHidden(locale) {
+		return nil, false, nil // not public: the path answers 404
+	}
 	if prefixed && path == "/" {
 		return nil, true, nil // a locale home
 	}

@@ -22,19 +22,19 @@ func localeRig(t *testing.T, entries ...siteconfig.LocaleEntry) (*ownerRig, *fak
 
 var threeLocales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "aa", Segment: "aa"}, {Tag: "ab", Segment: "ab"}}
 
-func TestLocalesCardListsEveryLocaleWhenMulti(t *testing.T) {
+func TestBusinessTabListsEveryLocaleWhenMulti(t *testing.T) {
 	t.Parallel()
 
 	g, site := localeRig(t, threeLocales...)
 	site.cfg.Phone = "555 0100"
 	site.cfg.CompanyName = "Example Co"
-	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
 	for _, want := range []string{
 		`id="locale-en"`, `id="locale-aa"`, `id="locale-ab"`, "Afar", "Abkhazian", "No office in this locale",
-		`action="/admin/settings/general/locale/aa"`, "Save Afar", `href="#locale-cards"`, "Defaults",
+		`action="/admin/settings/locales/business/aa"`, "Save Afar", `href="#locale-aa"`, "Defaults",
 		`placeholder="555 0100"`, `placeholder="Example Co"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -46,22 +46,22 @@ func TestLocalesCardListsEveryLocaleWhenMulti(t *testing.T) {
 	}
 }
 
-func TestLocalesCardHiddenBelowTwoLocales(t *testing.T) {
+func TestBusinessTabEmptyBelowTwoLocales(t *testing.T) {
 	t.Parallel()
 
 	for name, entries := range map[string][]siteconfig.LocaleEntry{"none": nil, "one": {{Tag: "en"}}} {
 		g, _ := localeRig(t, entries...)
-		body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+		body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 		if strings.Contains(body, `id="locales-card"`) || strings.Contains(body, "No office in this locale") {
 			t.Errorf("%s: the Locales card shows with fewer than two locales", name)
 		}
-		if rec := g.do("POST", "/admin/settings/general/locale/en", "owner-token", url.Values{}, nil); rec.Code != 404 {
+		if rec := g.do("POST", "/admin/settings/locales/business/en", "owner-token", url.Values{}, nil); rec.Code != 404 {
 			t.Errorf("%s: saving a locale of a single-locale site = %d, want 404", name, rec.Code)
 		}
 	}
 }
 
-func TestLocaleSaveMergesOnlyThatLocale(t *testing.T) {
+func TestBusinessSaveMergesOnlyThatLocale(t *testing.T) {
 	t.Parallel()
 
 	g, site := localeRig(t, threeLocales...)
@@ -71,8 +71,8 @@ func TestLocaleSaveMergesOnlyThatLocale(t *testing.T) {
 		"loc_aa.address.street": {"1 Example Street"}, "loc_aa.address.city": {"Exampleton"},
 		"loc_aa.phone": {"555 0122"},
 	}
-	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", form, nil)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/general#locale-aa" {
+	rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", form, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/locales/business#locale-aa" {
 		t.Fatalf("save: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	if g.flushed != 1 {
@@ -88,12 +88,12 @@ func TestLocaleSaveMergesOnlyThatLocale(t *testing.T) {
 	if m["ab"].Phone != "555 0111" {
 		t.Errorf("saving aa changed ab: %+v", m["ab"])
 	}
-	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "Own office") || !strings.Contains(body, `value="Exampleton"`) {
 		t.Error("the saved card does not read back")
 	}
 	// Clearing every field removes the locale's entry.
-	if rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{
 		"loc_aa.name": {""}, "loc_aa.business_type": {""}, "loc_aa.address.street": {""}, "loc_aa.address.city": {""}, "loc_aa.phone": {""},
 	}, nil); rec.Code != 303 {
 		t.Fatalf("clear: %d", rec.Code)
@@ -104,23 +104,23 @@ func TestLocaleSaveMergesOnlyThatLocale(t *testing.T) {
 	}
 }
 
-func TestLocaleSaveUnknownTagIs404(t *testing.T) {
+func TestBusinessSaveUnknownTagIs404(t *testing.T) {
 	t.Parallel()
 
 	g, _ := localeRig(t, threeLocales...)
-	if rec := g.do("POST", "/admin/settings/general/locale/xx", "owner-token", url.Values{}, nil); rec.Code != 404 {
+	if rec := g.do("POST", "/admin/settings/locales/business/xx", "owner-token", url.Values{}, nil); rec.Code != 404 {
 		t.Errorf("unknown tag = %d, want 404", rec.Code)
 	}
-	if rec := g.do("POST", "/admin/settings/general/locale/aa", "editor-token", url.Values{}, nil); rec.Code != 403 {
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "editor-token", url.Values{}, nil); rec.Code != 403 {
 		t.Errorf("editor = %d, want 403", rec.Code)
 	}
 }
 
-func TestLocaleSaveInvalidKeepsValuesAndOpensOnlyThatCard(t *testing.T) {
+func TestBusinessSaveInvalidKeepsValuesAndOpensOnlyThatCard(t *testing.T) {
 	t.Parallel()
 
 	g, site := localeRig(t, threeLocales...)
-	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+	rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{
 		"loc_aa.address.city": {"Keepville"}, "loc_aa.address.lat": {"999"},
 	}, nil)
 	if rec.Code != 422 {
@@ -143,12 +143,12 @@ func TestLocaleSaveInvalidKeepsValuesAndOpensOnlyThatCard(t *testing.T) {
 	}
 }
 
-func TestLocaleAddRowReRendersOneCardWithoutSaving(t *testing.T) {
+func TestBusinessAddRowReRendersOneCardWithoutSaving(t *testing.T) {
 	t.Parallel()
 
 	g, site := localeRig(t, threeLocales...)
 	site.cfg.LocaleProfiles = []byte(`{"ab":{"phone":"555 0111"}}`)
-	rec := g.do("POST", "/admin/settings/general/locale/aa", "owner-token", url.Values{
+	rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{
 		"loc_aa.phone": {"555 0122"}, "_present.loc_aa.opening_hours": {"1"}, "_add.loc_aa.opening_hours": {"1"},
 	}, nil)
 	if rec.Code != 200 {

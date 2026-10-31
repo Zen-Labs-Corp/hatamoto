@@ -445,12 +445,12 @@ func TestBusinessDetailsSettings(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Business details", `href="#contact"`, "Save business details", "Opening hours", "Profiles &amp; rating", "Commerce", "Add locales in Identity to print a local business."} {
+	for _, want := range []string{"Business details", `href="#contact"`, "Save business details", "Opening hours", "Profiles &amp; rating", "Commerce", "Add languages"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("General lacks %q", want)
 		}
 	}
-	if !strings.Contains(body, "Contact points, opening hours, special opening hours, area served, currency, price range and geo region are used on locale pages.") ||
+	if !strings.Contains(body, "Contact points, opening hours, area served, currency, price range and geo region are used on locale pages.") ||
 		strings.Contains(body, "map addresses") {
 		t.Error("the single-locale hint does not name the locale-only fields")
 	}
@@ -716,7 +716,7 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 		"errors/error": true, "errors/bare": true, "auth/login": true, "auth/forgot": true, "auth/reset": true, "auth/accept": true, "auth/sudo": true, // sudo: sudo_test.go
 		"setup/account": true, "setup/admin-address": true, "setup/admin-address-strength": true, "setup/site": true, "setup/email": true, "setup/theme": true, "setup/stats": true, "setup/content": true, "setup/done": true,
 		"users/list": true, "users/edit": true, "users/delete": true, "users/link": true, "profile/index": true, "profile/complete": true, "people/list": true, "people/new": true, "people/duplicates": true,
-		"settings/general": true, "settings/locale-convert": true, "settings/locale-convert-confirm": true, "settings/security-keep": true, "settings/security-change": true, "settings/security-admin-address": true, "settings/export": true, "settings/performance": true, "settings/spam": true, "settings/email": true, "settings/updates": true, "settings/backups": true, "settings/apikeynew": true, "settings/api": true, "settings/webhooks": true, "settings/webhooknew": true, "settings/webhookdeliveries": true, "users/invite": true, "confirm": true, "audit/index": true, // audit_log_test.go
+		"settings/general": true, "settings/locales": true, "settings/locale-new": true, "settings/locale-edit": true, "settings/locales-addresses": true, "settings/locales-business": true, "settings/locale-convert": true, "settings/locale-convert-confirm": true, "settings/security-keep": true, "settings/security-change": true, "settings/security-admin-address": true, "settings/export": true, "settings/performance": true, "settings/spam": true, "settings/email": true, "settings/updates": true, "settings/backups": true, "settings/apikeynew": true, "settings/api": true, "settings/webhooks": true, "settings/webhooknew": true, "settings/webhookdeliveries": true, "users/invite": true, "confirm": true, "audit/index": true, // audit_log_test.go
 		// v1-11: content_test.go
 		"entities/list": true, "entities/new": true, "entities/start": true, "entities/builder": true, "entities/edit": true, "entities/versions": true, "entities/compare": true, "entities/version": true,
 		"schemas/list": true, "schemas/edit": true, "taxonomies/list": true, "taxonomies/new": true, "taxonomies/term": true, "taxonomies/merge": true,

@@ -251,7 +251,7 @@ func (p *sitemapPlan) localized(base *sitemapGroup, tag string) *sitemapGroup {
 func (p *sitemapPlan) splitByLocale(misc *sitemapGroup) {
 	bare := p.groups
 	p.groups = nil
-	for _, tag := range p.locales().Tags() {
+	for _, tag := range p.locales().PublicTags() {
 		for _, b := range bare {
 			if b == misc {
 				continue
@@ -282,6 +282,9 @@ func (p *sitemapPlan) entryDate(e *entity.SitemapEntry) string {
 
 func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
 	if p.multi() {
+		if p.locales().IsHidden(r.e.Locale) {
+			return // not public: the loader already skips these, the plan never lists them either
+		}
 		tag := p.fileLocale(r.e)
 		r.path = p.in.Snap.WithLocale(r.e.Locale, r.path)
 		g = p.localized(g, tag)
@@ -416,7 +419,7 @@ func (p *sitemapPlan) alternates(e *entity.SitemapEntry) []HrefLang {
 	set := p.locales()
 	var out []HrefLang
 	xdef := ""
-	for _, tag := range set.Tags() {
+	for _, tag := range set.PublicTags() {
 		for _, c := range cs {
 			if c.locale != tag {
 				continue

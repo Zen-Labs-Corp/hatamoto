@@ -85,9 +85,9 @@ func (f *settingsSaveFixture) reset(t *testing.T) {
 	f.srv.siteConfig.Invalidate()
 }
 
-// assertSaved checks the save kept every entity's locale and stored the new
-// language, both locales and the x-default.
-func (f *settingsSaveFixture) assertSaved(t *testing.T) {
+// assertSaved checks every entity carries wantLocale and the site stored the
+// new language, both locales and the x-default.
+func (f *settingsSaveFixture) assertSaved(t *testing.T, wantLocale string) {
 	t.Helper()
 	rows, err := f.srv.db.Pool().Query(f.ctx, `SELECT slug, locale FROM hatamoto_entities WHERE slug = ANY($1)`, f.slugs)
 	if err != nil {
@@ -100,8 +100,8 @@ func (f *settingsSaveFixture) assertSaved(t *testing.T) {
 		if err := rows.Scan(&slug, &loc); err != nil {
 			t.Fatal(err)
 		}
-		if loc != "en" {
-			t.Errorf("entity %s locale = %q, want en (retagged by the save)", slug, loc)
+		if loc != wantLocale {
+			t.Errorf("entity %s locale = %q, want %q", slug, loc, wantLocale)
 		}
 		n++
 	}
@@ -137,9 +137,11 @@ func (f fixedSess) Validate(_ context.Context, tok string) (*session.Session, er
 	return &session.Session{ID: f.id, Kind: session.KindAdmin, UserID: &u, LastUsedAt: &now}, nil
 }
 
-// The admin form saves language, locale list and x-default in one POST. The
-// site is single-locale until then; no entity is retagged and the x-default
-// (a tag only the posted list contains) is stored.
+// The admin saves language, locale list and x-default through the General and
+// Locales pages. The General save changes the language of a still single-locale
+// site, which retags the entities to it; adding a locale and saving the
+// x-default afterwards retags nothing more, and the x-default (a tag only the
+// stored list contains) is stored.
 func TestSettingsSave_AdminForm_Integration(t *testing.T) {
 	srv, ctx := localeCheckServer(t)
 	f := newSettingsSaveFixture(t, srv, ctx)
@@ -183,12 +185,18 @@ func TestSettingsSave_AdminForm_Integration(t *testing.T) {
 	}
 	rec := do(http.MethodPost, "/admin/settings/general/identity", url.Values{
 		"_csrf": {m[1]}, "name": {"Save IT"}, "url": {"https://save-it.example.test"}, "timezone": {"UTC"},
-		"language": {"en-XX"}, "locales": {"en-XX\nen-XY yy"}, "xdefault": {"en-XY"},
+		"language": {"en-XX"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("POST identity: %d %s", rec.Code, rec.Body)
 	}
-	f.assertSaved(t)
+	if rec = do(http.MethodPost, "/admin/settings/locales/add", url.Values{"_csrf": {m[1]}, "tag": {"en-XY"}, "segment": {"yy"}, "public": {"true"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST add locale: %d %s", rec.Code, rec.Body)
+	}
+	if rec = do(http.MethodPost, "/admin/settings/locales/addresses", url.Values{"_csrf": {m[1]}, "xdefault": {"en-XY"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST addresses: %d %s", rec.Code, rec.Body)
+	}
+	f.assertSaved(t, "en-XX")
 }
 
 // The REST API takes the same change in one PATCH.
@@ -207,5 +215,5 @@ func TestSettingsSave_RESTPatch_Integration(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PATCH: %d %s", rec.Code, rec.Body)
 	}
-	f.assertSaved(t)
+	f.assertSaved(t, "en") // one PATCH lists two locales: no entity is retagged
 }

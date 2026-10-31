@@ -204,7 +204,7 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	repo := entity.NewPostgresPublicRepository(s.db)
 	listCtx := ctx
 	if set := snap.Locales(); set.Multi() {
-		listCtx = entity.WithVisibleLocaleSet(ctx, set.Tags()...)
+		listCtx = entity.WithVisibleLocaleSet(ctx, set.PublicTags()...)
 	}
 	entries, err := repo.ListAllPublishedWithAttrs(listCtx, snap.OverrideAttributes())
 	if err != nil {

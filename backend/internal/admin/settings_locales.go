@@ -14,7 +14,7 @@ import (
 )
 
 // localeEdit carries a failed or structural save of one locale card back into
-// the General page: the card re-renders with the submitted values, open.
+// the Business details tab: the card re-renders with the submitted values, open.
 type localeEdit struct {
 	Tag  string
 	Vals map[string]any
@@ -22,7 +22,7 @@ type localeEdit struct {
 	Open string
 }
 
-// localeCard is one collapsible card of the Locales section.
+// localeCard is one collapsible card of the Business details tab.
 type localeCard struct {
 	Tag, Name, Anchor string
 	Badge, BadgeKind  string
@@ -100,7 +100,7 @@ func (a *Admin) localeCards(cfg *siteconfig.Config, edit *localeEdit) ([]localeC
 	cards := make([]localeCard, 0, len(cfg.Locales))
 	for _, e := range cfg.Locales {
 		anchor := localeAnchor(e)
-		c := localeCard{Tag: e.Tag, Name: localeDisplayName(e.Tag), Anchor: anchor, Action: a.adminPath + "/settings/general/locale/" + e.Tag}
+		c := localeCard{Tag: e.Tag, Name: localeDisplayName(e.Tag), Anchor: anchor, Action: a.url("settings", "locales", "business", e.Tag)}
 		p := stored[e.Tag]
 		vals, errs, open := profileValues(p), schemaform.Errors(nil), ""
 		if edit != nil && edit.Tag == e.Tag {
@@ -122,7 +122,7 @@ func (a *Admin) localeCards(cfg *siteconfig.Config, edit *localeEdit) ([]localeC
 	return cards, nil
 }
 
-func (a *Admin) handleLocaleSave(w http.ResponseWriter, r *http.Request) {
+func (a *Admin) handleBusinessSave(w http.ResponseWriter, r *http.Request) {
 	cfg, err := a.loadSite(r.Context())
 	if err != nil {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
@@ -149,7 +149,7 @@ func (a *Admin) handleLocaleSave(w http.ResponseWriter, r *http.Request) {
 	prefix := locPrefix(localeAnchor(*entry))
 	edit := &localeEdit{Tag: tag, Vals: vals, Open: openAfterAdd(r.PostForm, prefix, vals)}
 	if schemaform.Structural(r.PostForm) {
-		a.renderGeneral(w, r, http.StatusOK, generalData{loc: edit})
+		a.renderBusiness(w, r, http.StatusOK, edit)
 		return
 	}
 	if perr == nil && len(perrs) == 0 {
@@ -157,7 +157,7 @@ func (a *Admin) handleLocaleSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(perrs) > 0 || perr != nil {
 		edit.Errs = perrs
-		a.renderGeneral(w, r, http.StatusUnprocessableEntity, generalData{loc: edit})
+		a.renderBusiness(w, r, http.StatusUnprocessableEntity, edit)
 		return
 	}
 	var raw json.RawMessage
@@ -173,5 +173,38 @@ func (a *Admin) handleLocaleSave(w http.ResponseWriter, r *http.Request) {
 		a.deps.Invalidate(r.Context())
 	}
 	a.SetFlash(w, r, "success", "Saved "+localeDisplayName(tag)+".")
-	http.Redirect(w, r, a.adminPath+"/settings/general#locale-"+localeAnchor(*entry), http.StatusSeeOther)
+	http.Redirect(w, r, a.url("settings", "locales", "business")+"#locale-"+localeAnchor(*entry), http.StatusSeeOther)
+}
+
+// businessData is the Business details tab.
+type businessData struct {
+	Locales []localeCard
+	Empty   ui.Empty
+}
+
+// renderBusiness is the Business details tab: one card per locale, the card of
+// edit (a failed or structural save) carrying its submitted values.
+func (a *Admin) renderBusiness(w http.ResponseWriter, r *http.Request, status int, edit *localeEdit) {
+	cfg, err := a.loadSite(r.Context())
+	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+		return
+	}
+	cards, err := a.localeCards(cfg, edit)
+	if err != nil {
+		a.logger().Error("locale cards failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
+		return
+	}
+	v := a.NewView(w, r, "Business details")
+	v.Width = "compact"
+	v.Section, v.Tab = "locales", "locale-business"
+	v.Data = businessData{Locales: cards, Empty: ui.Empty{Icon: "globe", Title: "Add a second locale first",
+		Body:    "Per-locale business details apply once your site has two or more locales.",
+		Actions: []ui.Button{{Label: "Add a locale", Variant: "primary", Href: a.url("settings", "locales")}}}}
+	a.Render(w, r, status, "settings/locales-business", v)
+}
+
+func (a *Admin) handleBusiness(w http.ResponseWriter, r *http.Request) {
+	a.renderBusiness(w, r, http.StatusOK, nil)
 }

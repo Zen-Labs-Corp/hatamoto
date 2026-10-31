@@ -79,6 +79,7 @@
 <h2 class="hm-subnav__title">Settings</h2>
 <ul class="hm-subnav__list" role="list"><li class="hm-subnav__group" role="presentation">Site</li>
 <li><a class="hm-subnav__link" href="/admin/settings/general" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg><span>General</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/locales"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><span>Locales</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/settings/email"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span>Email</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/settings/users"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Users</span></a></li>
 <li class="hm-subnav__group" role="presentation">Content</li>
@@ -101,6 +102,7 @@
 <form class="hm-subnav-select" method="get" action="/admin/settings">
 <label for="hm-settings-section">Settings section</label>
 <div class="hm-subnav-select__row"><select class="hm-field__control" id="hm-settings-section" name="section"><optgroup label="Site"><option value="general" selected>General</option>
+<option value="locales">Locales</option>
 <option value="email">Email</option>
 <option value="users">Users</option>
 </optgroup><optgroup label="Content"><option value="media">Media</option>
@@ -159,19 +161,6 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="timezone" name="timezone">{options}</select></div>
 </div>
 <div class="hm-field">
-<label class="hm-field__label" for="locales">Locales</label>
-<textarea class="hm-field__control" id="locales" name="locales" rows="4" aria-describedby="locales-help"></textarea>
-<p class="hm-field__help" id="locales-help">Optional, one per line: a language code and the URL segment, like: fr fr. Leave empty for a single-language site.</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="prefix_all"><input class="hm-field__box" type="checkbox" role="switch" id="prefix_all" name="prefix_all" value="true"><span>Put the default language under its own segment too</span></label>
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="xdefault">Default for search engines</label>
-<input class="hm-field__control" type="text" id="xdefault" name="xdefault" aria-describedby="xdefault-help" autocapitalize="none" autocomplete="off" spellcheck="false">
-<p class="hm-field__help" id="xdefault-help">A language tag from the list above. Leave empty to choose automatically from the available translations. Shown to visitors who match no language.</p>
-</div>
-<div class="hm-field">
 <label class="hm-field__label" for="logo">Logo address</label>
 <input class="hm-field__control" type="text" id="logo" name="logo" aria-describedby="logo-help">
 <p class="hm-field__help" id="logo-help">A web address or a path like /media/logo.png.</p>
@@ -216,7 +205,7 @@
 <input class="hm-field__control" type="email" id="notify" name="notify" aria-describedby="notify-help">
 <p class="hm-field__help" id="notify-help">Where form messages and alerts go.</p>
 </div>
-<div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">Contact points, opening hours, special opening hours, area served, currency, price range and geo region are used on locale pages. Add locales in Identity to print a local business.</div></div></div>
+<div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><p>Contact points, opening hours, area served, currency, price range and geo region are used on locale pages.</p><a class="hm-btn hm-btn--secondary" href="/admin/settings/locales"><span>Add languages</span></a></div></div></div>
 <h3 class="hm-sf-group">Organisation</h3>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-name">Legal name</label>
 <input class="hm-field__control" type="text" id="sf-biz-name" name="biz.name" value="" placeholder="Enter Legal name">

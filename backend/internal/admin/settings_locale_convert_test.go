@@ -478,40 +478,29 @@ func TestLocaleConvertRevertCannotForceAnAlreadyRevertedConversion(t *testing.T)
 	}
 }
 
-func TestGeneralShowsTheRegionPageNotice(t *testing.T) {
+func TestLocalesTabLinksToTheConversion(t *testing.T) {
 	t.Parallel()
 
-	const marker = "Region pages found as top-level pages"
-	for name, tc := range map[string]struct {
-		cands func(context.Context) (bool, error)
-		multi bool
-		want  bool
-	}{
-		"found":      {func(context.Context) (bool, error) { return true, nil }, false, true},
-		"none":       {func(context.Context) (bool, error) { return false, nil }, false, false},
-		"check fail": {func(context.Context) (bool, error) { return false, errors.New("db") }, false, false},
-		"converted":  {func(context.Context) (bool, error) { return true, nil }, true, false},
-		"no check":   {nil, false, false},
-	} {
-		g, _, _, _ := newConvertRig(t)
-		g.a.deps.LocaleConvertCandidates = tc.cands
-		if tc.multi {
-			g.a.deps.Site.(*fakeSite).cfg.Language = "en-XX"
-			g.a.deps.Site.(*fakeSite).cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en-XX", Segment: "xx"}, {Tag: "en-ZZ", Segment: "zz"}}
-		}
-		rec := g.do("GET", "/admin/settings/general", "owner-token", nil, nil)
-		body := rec.Body.String()
-		if got := strings.Contains(body, marker); got != tc.want {
-			t.Errorf("%s: notice shown = %v", name, got)
-		}
-		if tc.want {
-			if !strings.Contains(body, `href="`+convertBase+`"`) || !strings.Contains(body, "Convert existing region pages") {
-				t.Errorf("%s: notice lacks its link", name)
-			}
-			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
-				t.Errorf("a11y: %s", strings.Join(issues, "; "))
-			}
-			compareGolden(t, "pages/settings-general-region-pages.html", normalizePage(body))
-		}
+	g, _, _, _ := newConvertRig(t)
+	found := true
+	g.a.deps.LocaleConvertCandidates = func(context.Context) (bool, error) { return found, nil }
+	shown := func() bool {
+		body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+		return strings.Contains(body, "Moving from region page trees?") && strings.Contains(body, `href="`+convertBase+`"`)
+	}
+	if !shown() {
+		t.Error("a single-locale site with region pages lacks the conversion link")
+	}
+	if strings.Contains(g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(), "Region pages found") {
+		t.Error("General still shows the region page notice")
+	}
+	found = false
+	if shown() {
+		t.Error("the link shows on a site without region pages")
+	}
+	found = true
+	g.a.deps.Site.(*fakeSite).cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr"}}
+	if shown() {
+		t.Error("the link shows on a multi-locale site")
 	}
 }

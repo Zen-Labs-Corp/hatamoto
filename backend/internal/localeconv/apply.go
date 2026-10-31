@@ -190,9 +190,13 @@ func writeSchemas(ctx context.Context, tx pgx.Tx, changes []SchemaChange) error 
 // homepage, which would otherwise win over every locale home. With two or more
 // locales the retag trigger returns without touching entities.
 func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
-	list := make([]SiteLocale, len(plan.Locales))
-	for i, l := range plan.Locales {
-		list[i] = SiteLocale{Tag: normalized(l.Tag), Segment: l.Segment}
+	current, err := readSettings(ctx, tx)
+	if err != nil {
+		return err
+	}
+	list, err := plannedSiteLocales(current.Locales, plan)
+	if err != nil {
+		return err
 	}
 	raw, err := json.Marshal(list)
 	if err != nil {
@@ -204,6 +208,27 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
 		       homepage_entity_id = NULL
 		 WHERE id = TRUE`, normalized(plan.Default), raw, plan.PrefixAllValue(), normalized(plan.XDefault))
 	return err
+}
+
+// plannedSiteLocales is the list the plan stores: its tags and segments, with
+// the hidden flag and display name of every tag that is already stored.
+func plannedSiteLocales(stored []byte, plan *Plan) ([]SiteLocale, error) {
+	var old []SiteLocale
+	if len(stored) > 0 {
+		if err := json.Unmarshal(stored, &old); err != nil {
+			return nil, fmt.Errorf("read stored locales: %w", err)
+		}
+	}
+	kept := make(map[string]SiteLocale, len(old))
+	for _, l := range old {
+		kept[normalized(l.Tag)] = l
+	}
+	list := make([]SiteLocale, len(plan.Locales))
+	for i, l := range plan.Locales {
+		tag := normalized(l.Tag)
+		list[i] = SiteLocale{Tag: tag, Segment: l.Segment, Hidden: kept[tag].Hidden, Name: kept[tag].Name}
+	}
+	return list, nil
 }
 
 // schemaRecord is one entry of schemas_before / schemas_after.

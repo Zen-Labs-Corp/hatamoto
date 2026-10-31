@@ -214,3 +214,39 @@ func TestReservedSegmentReason(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateLocaleSettingsKeepsHiddenAndName(t *testing.T) {
+	in := localeSettingsRequest{Default: "en", Entries: []siteconfig.LocaleEntry{
+		{Tag: "en"},
+		{Tag: "FR_ca", Segment: "fr-ca", Name: "Francais", Hidden: true},
+	}}
+	got, _, err := validateLocaleSettings(context.Background(), in, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []siteconfig.LocaleEntry{
+		{Tag: "en"},
+		{Tag: "fr-CA", Segment: "fr-ca", Name: "Francais", Hidden: true},
+	}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("entries = %+v, want %+v", got, want)
+	}
+}
+
+func TestValidateLocaleSettingsRejectsHiddenDefault(t *testing.T) {
+	in := localeSettingsRequest{Default: "en", Entries: []siteconfig.LocaleEntry{
+		{Tag: "en", Hidden: true}, {Tag: "fr", Segment: "fr"},
+	}}
+	_, _, err := validateLocaleSettings(context.Background(), in, nil)
+	var lerr *localeSettingsError
+	if !errors.As(err, &lerr) || lerr.Field != "locales" {
+		t.Fatalf("want a locales error, got %v", err)
+	}
+	in = localeSettingsRequest{Default: "en", XDefault: "fr", Entries: []siteconfig.LocaleEntry{
+		{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true},
+	}}
+	_, _, err = validateLocaleSettings(context.Background(), in, nil)
+	if !errors.As(err, &lerr) || lerr.Field != "x_default_locale" {
+		t.Fatalf("want an x_default_locale error, got %v", err)
+	}
+}

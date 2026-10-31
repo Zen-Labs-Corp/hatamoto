@@ -22,15 +22,10 @@ type generalData struct {
 	bizValues map[string]any
 	bizErrs   schemaform.Errors
 	bizOpen   string
-	// loc is a failed or structural save of one locale card.
-	loc *localeEdit
-
-	Locales []localeCard
-
-	// ConvertHint shows the notice that the site looks like a region tree,
-	// linking to ConvertHref.
-	ConvertHint bool
-	ConvertHref string
+	// Multi is true when the site has two or more locales.
+	Multi bool
+	// LocalesHref is the Locales settings tab.
+	LocalesHref string
 }
 
 func (a *Admin) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -66,18 +61,13 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
 		return
 	}
-	if g.Locales, err = a.localeCards(cfg, g.loc); err != nil {
-		a.logger().Error("locale cards failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
-		return
-	}
 	g.Contact.Biz, g.Contact.BizHint = biz, !localeSetOf(cfg).Multi()
 	if g.Home == nil {
 		h := a.homepageCurrent(r, cfg)
 		g.Home = &h
 	}
 	g.MailOn = a.mailConfigured()
-	g.ConvertHint, g.ConvertHref = a.convertCandidates(r, cfg), a.convertURL()
+	g.Multi, g.LocalesHref = localeSetOf(cfg).Multi(), a.url("settings", "locales")
 
 	v := a.NewView(w, r, "General")
 	v.Width = "compact"

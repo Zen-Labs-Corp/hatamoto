@@ -1,0 +1,18 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{.Action}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "edit-locale" "Title" .Title "Description" .Tag}}
+{{template "hm/field" dict "ID" "locale-segment" "Name" "segment" "Label" "Address prefix" "Value" .Segment "Help" (printf "Lowercase letters, digits and hyphens. %s Changing it moves every page of this locale to the new address." (cond .Default "Empty keeps this locale at the root of the site." "Empty uses the full code.")) "Error" (index .Errs "segment") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}
+{{template "hm/field" dict "ID" "locale-name" "Name" "name" "Label" "Display name" "Value" .Name "Help" "Shown in the admin. Themes can use it later." "Error" (index .Errs "name")}}
+{{if .Default}}{{template "hm/field" dict "ID" "locale-public" "Name" "public" "Label" "Public" "Control" "switch" "Value" "true" "Checked" true "Disabled" true "Help" "The default locale is always public."}}
+{{else}}{{template "hm/field" dict "ID" "locale-public" "Name" "public" "Label" "Public" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Public "Help" "Off: the address answers not found and the locale is left out of sitemaps and hreflang links." "Error" (index .Errs "public")}}
+{{end}}{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" .Cancel}}
+{{template "hm/button" dict "Label" .Submit "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+{{end}}{{end}}

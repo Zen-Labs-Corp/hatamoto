@@ -2,11 +2,15 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/redirect"
@@ -145,5 +149,62 @@ func TestResolveRoute_LocaleRedirectBeforeStrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(f.redirected, []string{"/fr/old"}) {
 		t.Errorf("redirect lookup saw %v", f.redirected)
+	}
+}
+
+func TestHiddenLocalePrefix404(t *testing.T) {
+	t.Parallel()
+	entries := []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}, {Tag: "nl", Segment: "nl"}}
+	for _, path := range []string{"/fr", "/fr/", "/fr/about", "/fr/anything/deep"} {
+		f := newLocaleRouteFixture(t, false, entries...)
+		var logged string
+		f.deps.log404 = func(p, _, _ string) { logged = p }
+		res, out, err := newRouteTestServer().resolveRouteWith(context.Background(), f.deps, path, httptest.NewRequest("GET", "/x", nil))
+		if err != nil || res == nil || !res.NotFound || out.Status != http.StatusNotFound {
+			t.Fatalf("%s: got %+v %+v %v", path, res, out, err)
+		}
+		if f.homeCalls != 0 || f.pageScope != nil {
+			t.Errorf("%s: a loader ran for a hidden locale", path)
+		}
+		if logged != strings.TrimSuffix(path, "/") {
+			t.Errorf("%s: logged %q", path, logged)
+		}
+	}
+	// A public sibling still resolves.
+	f := newLocaleRouteFixture(t, false, entries...)
+	res, _, err := newRouteTestServer().resolveRouteWith(context.Background(), f.deps, "/nl", httptest.NewRequest("GET", "/x", nil))
+	if err != nil || res == nil || res.NotFound || f.homeCalls != 1 {
+		t.Fatalf("public locale home: %+v %v", res, err)
+	}
+}
+
+func TestLookupAgentEntityHiddenLocale(t *testing.T) {
+	t.Parallel()
+	f := newLocaleRouteFixture(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr", Hidden: true})
+	snap, err := f.deps.snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, found, err := lookupAgentEntity(context.Background(), f.deps.repo, snap, "/fr/about")
+	if err != nil || found || id != nil {
+		t.Fatalf("hidden locale resolved: %v %v %v", id, found, err)
+	}
+}
+
+func TestHiddenLocaleServedToThePreviewOnly(t *testing.T) {
+	t.Parallel()
+	entries := []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}}
+	req := httptest.NewRequest("GET", "/admin/render/preview", nil)
+	preview := previewRouteRequest(req, "/fr/about", uuid.New(), json.RawMessage(`{}`))
+
+	f := newLocaleRouteFixture(t, false, entries...)
+	res, _, err := newRouteTestServer().resolveRouteWith(preview.Context(), f.deps, "/fr/about", preview)
+	if err != nil || res == nil || res.NotFound || res.Locale != "fr" {
+		t.Fatalf("preview of a hidden locale page: %+v %v", res, err)
+	}
+	f = newLocaleRouteFixture(t, false, entries...)
+	res, out, err := newRouteTestServer().resolveRouteWith(req.Context(), f.deps, "/fr/about", req)
+	if err != nil || res == nil || !res.NotFound || out.Status != http.StatusNotFound {
+		t.Fatalf("public request for the same path: %+v %+v %v", res, out, err)
 	}
 }

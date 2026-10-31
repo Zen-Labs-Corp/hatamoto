@@ -1,0 +1,19 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{if .Locales}}<nav class="hm-jumpnav" aria-label="Locales">{{range .Locales}}<a href="#locale-{{.Anchor}}">{{.Name}}</a>{{end}}</nav>
+<section id="locale-cards" class="hm-stack">
+{{template "hm/card-start" dict "ID" "locales-card" "Title" "Business details per locale" "Description" "Each locale can override the site-wide business details. An empty field uses the site-wide value, shown as grey text."}}
+{{range .Locales}}<details class="hm-disclosure" id="locale-{{.Anchor}}"{{if .Open}} open{{end}}><summary>{{.Name}} {{template "hm/badge" dict "Label" .Tag "Mono" true}} {{template "hm/badge" dict "Label" .Badge "Kind" .BadgeKind}}</summary><div class="hm-disclosure__body">
+<form method="post" action="{{.Action}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save {{.Name}}</button>
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{.Form}}
+{{template "hm/foot"}}
+{{template "hm/button" dict "Label" (printf "Save %s" .Name) "Variant" "primary" "Type" "submit"}}
+{{template "hm/foot-end"}}
+</form></div></details>
+{{end}}{{template "hm/card-end"}}
+</section>
+{{else}}{{template "hm/empty" .Empty}}
+{{end}}{{end}}{{end}}

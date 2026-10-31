@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"strings"
 	"testing"
@@ -10,64 +9,50 @@ import (
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
-func TestParseLocales(t *testing.T) {
-	got, bad := parseLocales("en\nfr fr\n\n  nl   nl \n")
-	if bad != "" || len(got) != 3 || got[0].Segment != "" || got[1] != (siteconfig.LocaleEntry{Tag: "fr", Segment: "fr"}) || got[2].Tag != "nl" {
-		t.Fatalf("got %v %q", got, bad)
-	}
-	if _, bad := parseLocales("fr fr extra"); bad == "" {
-		t.Error("three words accepted")
-	}
-}
-
-func TestSiteSettings_LocalesForm(t *testing.T) {
+func TestGeneralSaveLeavesLocalesUntouched(t *testing.T) {
 	t.Parallel()
 	g := newOwnerRig(t, true)
 	site := g.a.deps.Site.(*fakeSite)
-	g.a.deps.ValidateLocales = func(_ context.Context, def string, e []siteconfig.LocaleEntry, _ bool, x string) ([]siteconfig.LocaleEntry, string, error) {
+	site.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: "Francais", Hidden: true}}
+	site.cfg.PrefixAll, site.cfg.XDefaultLocale = true, "en"
+	f := url.Values{"name": {"Acme"}, "language": {"en"}, "timezone": {"UTC"}, "locales": {"en"}, "prefix_all": {""}, "xdefault": {""}}
+	if rec := g.do("POST", "/admin/settings/general/identity", "owner-token", f, nil); rec.Code != 303 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	if l := site.cfg.Locales; len(l) != 2 || !l[1].Hidden || l[1].Name != "Francais" || !site.cfg.PrefixAll || site.cfg.XDefaultLocale != "en" {
+		t.Errorf("General save changed locales: %+v", site.cfg)
+	}
+}
+
+func TestGeneralSingleLocaleShowsAddLanguagesLink(t *testing.T) {
+	t.Parallel()
+	g := newOwnerRig(t, true)
+	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Add languages") || !strings.Contains(body, `href="/admin/settings/locales"`) || strings.Contains(body, `name="locales"`) {
+		t.Error("General lacks the Add languages link or still has the locales field")
+	}
+}
+
+func TestGeneralSaveRefusesLanguageOutsideTheLocales(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Language = "en"
+	g.a.deps.ValidateLocales = func(_ context.Context, lang string, e []siteconfig.LocaleEntry, _ bool, x string) ([]siteconfig.LocaleEntry, string, error) {
 		for _, l := range e {
-			if l.Segment == "api" {
-				return nil, "", errors.New("segment \"api\" is a route of its own")
+			if l.Tag == lang && !l.Hidden {
+				return e, x, nil
 			}
 		}
-		return e, x, nil
+		return nil, "", fieldErr{"locales", "default locale " + lang + " is not a public locale"}
 	}
-	base := url.Values{"name": {"Acme"}, "language": {"en"}, "timezone": {"UTC"}}
-	with := func(k, v string) url.Values {
-		f := url.Values{}
-		for kk, vv := range base {
-			f[kk] = vv
+	for _, lang := range []string{"es", "fr"} { // not in the list; hidden
+		f := url.Values{"name": {"Acme"}, "language": {lang}, "timezone": {"UTC"}}
+		rec := g.do("POST", "/admin/settings/general/identity", "owner-token", f, nil)
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Settings &gt; Locales") {
+			t.Errorf("language %s: code=%d, want 422 pointing to Settings > Locales", lang, rec.Code)
 		}
-		f.Set(k, v)
-		return f
-	}
-
-	// A post without the locale fields leaves the stored locales alone.
-	site.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr"}}
-	if rec := g.do("POST", "/admin/settings/general/identity", "owner-token", base, nil); rec.Code != 303 || len(site.cfg.Locales) != 2 {
-		t.Fatalf("plain post: %d %v", rec.Code, site.cfg.Locales)
-	}
-
-	f := with("locales", "en\nnl nl\n")
-	f.Set("prefix_all", "true")
-	f.Set("xdefault", "en")
-	if rec := g.do("POST", "/admin/settings/general/identity", "owner-token", f, nil); rec.Code != 303 ||
-		len(site.cfg.Locales) != 2 || site.cfg.Locales[1].Segment != "nl" || !site.cfg.PrefixAll || site.cfg.XDefaultLocale != "en" {
-		t.Fatalf("save: %d %+v", rec.Code, site.cfg)
-	}
-	page := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(page, ">en\nnl nl\n</textarea>") || !strings.Contains(page, `name="xdefault"`) || !strings.Contains(page, `value="en"`) {
-		t.Errorf("form does not show the saved locales:\n%s", page)
-	}
-
-	rec := g.do("POST", "/admin/settings/general/identity", "owner-token", with("locales", "fr api"), nil)
-	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "a route of its own") || len(site.cfg.Locales) != 2 {
-		t.Fatalf("rejected: %d", rec.Code)
-	}
-
-	// An emptied field returns the site to one locale.
-	if rec := g.do("POST", "/admin/settings/general/identity", "owner-token", with("locales", ""), nil); rec.Code != 303 ||
-		len(site.cfg.Locales) != 0 || site.cfg.PrefixAll || site.cfg.XDefaultLocale != "" {
-		t.Fatalf("clear: %d %+v", rec.Code, site.cfg)
+		if site.cfg.Language != "en" {
+			t.Errorf("language %s: stored language = %q", lang, site.cfg.Language)
+		}
 	}
 }

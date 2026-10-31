@@ -22,6 +22,21 @@ func withPreviewAttributes(ctx context.Context, entityID uuid.UUID, attrs json.R
 	return context.WithValue(ctx, previewOverrideKey{}, previewOverride{entityID: entityID, attrs: attrs})
 }
 
+type previewHiddenLocalesKey struct{}
+
+// withHiddenLocalesServed marks a context as a preview: the route resolver
+// then serves the pages of a locale that is not public yet, which is the point
+// of previewing them. Only previewRouteRequest sets it, so no public request
+// can reach a hidden locale.
+func withHiddenLocalesServed(ctx context.Context) context.Context {
+	return context.WithValue(ctx, previewHiddenLocalesKey{}, true)
+}
+
+func hiddenLocalesServed(ctx context.Context) bool {
+	served, _ := ctx.Value(previewHiddenLocalesKey{}).(bool)
+	return served
+}
+
 // applyPreviewAttributes replaces *attrs with the preview override when the
 // context carries one for entityID. Any other entity is left untouched, so a
 // preview can never alter, nor expose, a different entity's data.

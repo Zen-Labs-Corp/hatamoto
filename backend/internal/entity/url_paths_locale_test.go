@@ -11,9 +11,9 @@ import (
 
 func localeSnap(t *testing.T, prefixAll bool) *URLSnapshot {
 	t.Helper()
-	set, err := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}, {"nl", "nl"}}, prefixAll, "")
+	set, err := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr"}, {Tag: "nl", Segment: "nl"}}, prefixAll, "")
 	if prefixAll {
-		set, err = NewLocaleSet("en", []LocaleEntry{{"en", "en"}, {"fr", "fr"}, {"nl", "nl"}}, true, "")
+		set, err = NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: "en"}, {Tag: "fr", Segment: "fr"}, {Tag: "nl", Segment: "nl"}}, true, "")
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestWithLocale_Home(t *testing.T) {
 func TestURLRegistry_SetLocales(t *testing.T) {
 	t.Parallel()
 	reg := NewURLRegistry(staticLister{[]*EntitySchema{{Slug: "page", Name: "Page"}}}, nil)
-	set, _ := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}}, false, "")
+	set, _ := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr"}}, false, "")
 	reg.SetLocales(func(context.Context) (*LocaleSet, error) { return set, nil })
 	snap, err := reg.Snapshot(context.Background())
 	if err != nil || snap.Degraded() || snap.Locales() != set {
@@ -103,7 +103,7 @@ func TestURLRegistry_SetLocales(t *testing.T) {
 func TestURLRegistry_LocalesErrorIsNotCached(t *testing.T) {
 	t.Parallel()
 	reg := NewURLRegistry(staticLister{[]*EntitySchema{{Slug: "page", Name: "Page"}}}, nil)
-	set, _ := NewLocaleSet("en", []LocaleEntry{{"en", ""}, {"fr", "fr"}}, false, "")
+	set, _ := NewLocaleSet("en", []LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr"}}, false, "")
 	var fail atomic.Bool
 	fail.Store(true)
 	reg.SetLocales(func(context.Context) (*LocaleSet, error) {

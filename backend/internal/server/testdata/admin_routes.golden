@@ -98,6 +98,12 @@ GET /admin/settings/linking/rules/new -> admin.(*Admin).handleRuleNew-fm
 GET /admin/settings/linking/rules/{id} -> admin.(*Admin).handleRuleEdit-fm
 GET /admin/settings/linking/rules/{id}/delete -> admin.(*Admin).handleRuleDeleteForm-fm
 GET /admin/settings/linking/suggestions -> admin.(*Admin).handleSuggestions-fm
+GET /admin/settings/locales -> admin.(*Admin).handleLocales-fm
+GET /admin/settings/locales/addresses -> admin.(*Admin).handleAddresses-fm
+GET /admin/settings/locales/business -> admin.(*Admin).handleBusiness-fm
+GET /admin/settings/locales/edit/{tag} -> admin.(*Admin).handleLocaleEdit-fm
+GET /admin/settings/locales/new -> admin.(*Admin).handleLocaleNew-fm
+GET /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemoveConfirm-fm
 GET /admin/settings/media -> admin.(*Admin).handleMedia-fm
 GET /admin/settings/media/new -> admin.(*Admin).handleMediaNew-fm
 GET /admin/settings/performance -> admin.(*Admin).handlePerformance-fm
@@ -250,7 +256,6 @@ POST /admin/settings/forms/{id}/edit -> admin.(*Admin).handleFormSave-fm
 POST /admin/settings/general/contact -> admin.(*Admin).handleContactSave-fm
 POST /admin/settings/general/homepage -> admin.(*Admin).handleHomepageSave-fm
 POST /admin/settings/general/identity -> admin.(*Admin).handleSiteSave-fm
-POST /admin/settings/general/locale/{tag} -> admin.(*Admin).handleLocaleSave-fm
 POST /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConvertApply-fm
 POST /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevert-fm
 POST /admin/settings/general/locales/convert/report -> admin.(*Admin).handleConvertReport-fm
@@ -268,6 +273,12 @@ POST /admin/settings/linking/rules/{id} -> admin.(*Admin).handleRuleSave-fm
 POST /admin/settings/linking/rules/{id}/delete -> admin.(*Admin).handleRuleDelete-fm
 POST /admin/settings/linking/rules/{id}/toggle -> admin.(*Admin).handleRuleToggle-fm
 POST /admin/settings/linking/suggestions/insert -> admin.(*Admin).handleSuggestionInsert-fm
+POST /admin/settings/locales/add -> admin.(*Admin).handleLocaleAdd-fm
+POST /admin/settings/locales/addresses -> admin.(*Admin).handleAddressesSave-fm
+POST /admin/settings/locales/business/{tag} -> admin.(*Admin).handleBusinessSave-fm
+POST /admin/settings/locales/order -> admin.(*Admin).handleLocaleOrder-fm
+POST /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemove-fm
+POST /admin/settings/locales/update/{tag} -> admin.(*Admin).handleLocaleUpdate-fm
 POST /admin/settings/performance -> admin.(*Admin).handlePerformanceSave-fm
 POST /admin/settings/performance/clear -> admin.(*Admin).handlePerformanceClear-fm
 POST /admin/settings/performance/preload -> admin.(*Admin).handlePerformancePreload-fm

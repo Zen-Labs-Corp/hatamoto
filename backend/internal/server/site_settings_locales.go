@@ -74,7 +74,7 @@ func localeMessage(err error) string {
 func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check func(context.Context, []string) error) ([]siteconfig.LocaleEntry, string, error) {
 	entries := make([]entity.LocaleEntry, len(in.Entries))
 	for i, e := range in.Entries {
-		entries[i] = entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment}
+		entries[i] = entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden}
 	}
 	set, err := entity.NewLocaleSet(in.Default, entries, in.PrefixAll, in.XDefault)
 	if err != nil {
@@ -87,7 +87,7 @@ func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check
 	out := make([]siteconfig.LocaleEntry, 0, len(set.Entries()))
 	var segments []string
 	for _, e := range set.Entries() {
-		out = append(out, siteconfig.LocaleEntry{Tag: e.Tag, Segment: e.Segment})
+		out = append(out, siteconfig.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden})
 		if e.Segment != "" {
 			segments = append(segments, e.Segment)
 		}

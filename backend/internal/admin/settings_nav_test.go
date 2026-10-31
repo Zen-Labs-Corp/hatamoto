@@ -25,7 +25,7 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
+		"general": "general", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
 		"seo": "seo-general seo-titles", "redirects": "redirects", "linking": "linking", "users": "users", "api": "api",
 		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
 	} {
@@ -44,7 +44,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("Settings still has the section %s, which moved to Theme", id)
 		}
 	}
-	for _, id := range []string{"general", "seo", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
+	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
 		if _, ok := editor[id]; ok {
 			t.Errorf("editor sees section %s", id)
 		}
@@ -228,7 +228,7 @@ func TestSettingsNavGroups(t *testing.T) {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general email users",
+		"Site":    "general locales email users",
 		"Content": "media entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups import-export security",
 	} {

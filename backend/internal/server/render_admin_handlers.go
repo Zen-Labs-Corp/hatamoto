@@ -304,9 +304,10 @@ func routeEntityID(rr *routeResult) uuid.UUID {
 
 // previewRouteRequest is the request the public loaders see for a preview: a
 // plain GET of path by an anonymous visitor (no cookies, credentials, Accept
-// or query), carrying the attribute override for entityID.
+// or query), carrying the attribute override for entityID and serving the page
+// even when its locale is hidden.
 func previewRouteRequest(r *http.Request, path string, entityID uuid.UUID, attrs json.RawMessage) *http.Request {
-	pr := r.Clone(withPreviewAttributes(r.Context(), entityID, attrs))
+	pr := r.Clone(withHiddenLocalesServed(withPreviewAttributes(r.Context(), entityID, attrs)))
 	pr.Method = http.MethodGet
 	u := *r.URL
 	u.Path, u.RawPath, u.RawQuery = path, "", ""

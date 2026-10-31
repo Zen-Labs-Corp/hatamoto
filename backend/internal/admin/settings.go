@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -65,10 +64,10 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountAuditLog(owner)
 	a.mountSecuritySettings(owner)
 	a.mountLocaleConvert(owner)
+	a.mountLocaleSettings(owner)
 	owner.HandleFunc("GET /settings/general", a.handleGeneral)
 	owner.HandleFunc("POST /settings/general/identity", a.handleSiteSave)
 	owner.HandleFunc("POST /settings/general/contact", a.handleContactSave)
-	owner.HandleFunc("POST /settings/general/locale/{tag}", a.handleLocaleSave)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
 }
@@ -79,7 +78,7 @@ func (a *Admin) loadSite(ctx context.Context) (*siteconfig.Config, error) {
 
 func (a *Admin) renderSiteSettings(w http.ResponseWriter, r *http.Request, status int, d settingsData) {
 	d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
-	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"locales", "Locales"}, {"xdefault", "Default for search engines"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Site name"}, {"url", "Site address"}, {"language", "Language"}, {"timezone", "Time zone"}, {"logo", "Logo"}, {"tagline", "Tagline"}, {"domain", "Custom domain"}} {
 		if m := d.SiteErrs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -102,7 +101,6 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	f := siteForm{Name: r.PostFormValue("name"), URL: r.PostFormValue("url"), Language: r.PostFormValue("language"), Timezone: r.PostFormValue("timezone")}
 	d := settingsData{LogoURL: strings.TrimSpace(r.PostFormValue("logo")), Tagline: strings.TrimSpace(r.PostFormValue("tagline")), Domain: strings.TrimSpace(r.PostFormValue("domain"))}
 	errs := f.validate()
-	var err error
 	if !validLogoURL(d.LogoURL) || utf8.RuneCountInString(d.LogoURL) > 500 {
 		errs["logo"] = "Enter a web address or a path starting with /"
 	}
@@ -112,24 +110,17 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 	if strings.ContainsAny(d.Domain, " /:<>\"'") || utf8.RuneCountInString(d.Domain) > 253 {
 		errs["domain"] = "Enter a domain like www.example.com"
 	}
-	_, withLocales := r.PostForm["locales"]
-	var locales []siteconfig.LocaleEntry
-	var xdef string
-	if withLocales {
-		f.Locales, f.XDefault, f.PrefixAll = r.PostFormValue("locales"), r.PostFormValue("xdefault"), r.PostFormValue("prefix_all") != ""
-		var bad string
-		if locales, bad = parseLocales(f.Locales); bad != "" {
-			errs["locales"] = bad
-		} else if len(locales) > 0 && errs["language"] == "" {
-			if a.deps.ValidateLocales == nil {
-				errs["locales"] = "Locales are not available here"
-			} else if locales, xdef, err = a.deps.ValidateLocales(r.Context(), f.Language, locales, f.PrefixAll, f.XDefault); err != nil {
-				field := "locales"
-				var lf localeFielder
-				if errors.As(err, &lf) && lf.LocaleField() == "x_default_locale" {
-					field = "xdefault"
-				}
-				errs[field] = err.Error()
+	if errs["language"] == "" {
+		// The language is the default locale: it must stay one of the locales
+		// that Settings > Locales stores.
+		cfg, err := a.loadSite(r.Context())
+		if err != nil {
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+			return
+		}
+		if len(cfg.Locales) > 0 && a.deps.ValidateLocales != nil {
+			if _, _, err := a.deps.ValidateLocales(r.Context(), f.Language, cfg.Locales, cfg.PrefixAll, cfg.XDefaultLocale); err != nil {
+				errs["language"] = "This language does not fit your locales: " + err.Error() + ". Manage them in Settings > Locales."
 			}
 		}
 	}
@@ -139,12 +130,6 @@ func (a *Admin) handleSiteSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in := siteconfig.UpdateInput{CompanyName: &f.Name, PublicBaseURL: &f.URL, Language: &f.Language, Timezone: &f.Timezone, LogoURL: &d.LogoURL, Tagline: &d.Tagline, CustomDomain: &d.Domain}
-	if withLocales {
-		if len(locales) == 0 {
-			locales, xdef, f.PrefixAll = []siteconfig.LocaleEntry{}, "", false
-		}
-		in.Locales, in.PrefixAll, in.XDefaultLocale = &locales, &f.PrefixAll, &xdef
-	}
 	if _, err := a.deps.Site.Update(r.Context(), in); err != nil {
 		a.logger().Error("save site settings failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be saved.")
@@ -202,7 +187,7 @@ func openAfterAdd(form map[string][]string, prefix string, vals map[string]any) 
 func localeSetOf(c *siteconfig.Config) *entity.LocaleSet {
 	entries := make([]entity.LocaleEntry, 0, len(c.Locales))
 	for _, e := range c.Locales {
-		entries = append(entries, entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment})
+		entries = append(entries, entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden})
 	}
 	set, err := entity.NewLocaleSet(c.Language, entries, c.PrefixAll, c.XDefaultLocale)
 	if err != nil {
