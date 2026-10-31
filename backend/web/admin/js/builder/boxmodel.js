@@ -8,7 +8,7 @@
 // Hovering or focusing a padding side dispatches a bubbling "hm-pad-hover" event ({side} or {side: null}).
 // The pure parts (ring order, link sets, typed values, scrub maths) are controls.js and scrub.js.
 import { h, actButton } from "@hm/builder/dom";
-import { linkSets, writesFor, stepFor, stepValue, boundsFor } from "@hm/builder/controls";
+import { linkSets, writesFor, stepFor, stepValue, boundsFor, sourceOf } from "@hm/builder/controls";
 import { parseTyped, displayOf, presetSteps, attachScrub, axisOf } from "@hm/builder/scrub";
 
 let ids = 0;
@@ -17,13 +17,13 @@ const SIDES = ["top", "right", "bottom", "left"];
 const NUM = /^(-?\d+(?:\.\d+)?)([a-z%]*)$/i;
 
 /**
- * boxModel({entries, name, palette, stateOf, commit, commitBatch, valid, hint}) -> {el, keys, paint()}.
+ * boxModel({entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce}) -> {el, keys, paint()}.
  * entries: the table entries of the group; name(key) its label ("Padding top"); stateOf(key) -> controls.rowState;
  * commit(key, value, opts) and commitBatch([{key, value}], opts) -> bool write at the style-map key being edited;
- * valid(entry, value) -> bool the table's verdict; hint the text of a refused value. keys: the keys it draws (the rest of the group stays single rows).
+ * valid(entry, value) -> bool the table's verdict; hint the text of a refused value; announce(text) speaks a change a keyboard step made. keys: the keys it draws (the rest of the group stays single rows).
  * With both rings the padding ring is drawn inside the margin ring.
  */
-export function boxModel({ entries, name, palette, stateOf, commit, commitBatch, valid, hint }) {
+export function boxModel({ entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce = () => {} }) {
   const by = new Map(entries.map((e) => [e.key, e]));
   const rings = linkSets(entries.map((e) => e.key));
   const own = (k) => {
@@ -31,13 +31,14 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
     return s.dot === "set" ? s.value : null;
   };
   /** The number and unit a side shows (own, else inherited), a space token resolved through the palette; auto and unknown values count as 0px. */
-  const numberOf = (k) => {
-    let v = stateOf(k).value;
+  const numberFrom = (value) => {
+    let v = value;
     v = v === null || v === undefined ? "" : String(v);
     if (/^space-\d+$/.test(v)) v = palette?.space?.[v.slice(6)] ?? v;
     const m = NUM.exec(v);
     return m ? { n: Number(m[1]), unit: m[2].toLowerCase() || "px" } : { n: 0, unit: "px" };
   };
+  const numberOf = (k) => numberFrom(stateOf(k).value);
   const painters = [];
   // Starts linked when something is set and every ring with a value has the same one on all four sides.
   const alike = ({ keys }) => keys.every((k) => own(k) === own(keys[0]));
@@ -46,14 +47,23 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
   const built = rings.map(({ name: ring, keys }) => {
     const rid = `hm-bs-b${++ids}`;
     const label = title(ring);
-    const err = h("p", { class: "hm-bs-err", id: `${rid}-e`, hidden: true, text: `That value is not allowed here. ${hint}` });
+    const err = h("p", { class: "hm-bs-err", id: `${rid}-e`, role: "alert", hidden: true, text: `That value is not allowed here. ${hint}` });
     const inputs = [];
+    /** Flags (or clears) a side as refused; only a refused side points at the error text. */
+    const mark = (input, bad) => {
+      if (bad) {
+        input.setAttribute("aria-invalid", "true");
+        input.setAttribute("aria-describedby", `${rid}-e`);
+      } else {
+        input.removeAttribute("aria-invalid");
+        input.removeAttribute("aria-describedby");
+      }
+    };
     /** Writes value (null clears) to every key of list: one commit, or one batch (one undo step) for several. A refused value marks the sides and writes nothing. */
     const writeKeys = (list, v, opts) => {
       const bad = v !== null && !list.every((k) => valid(by.get(k), v));
       for (const [i, k] of keys.entries()) {
-        if (bad && list.includes(k)) inputs[i].setAttribute("aria-invalid", "true");
-        else inputs[i].removeAttribute("aria-invalid");
+        mark(inputs[i], bad && list.includes(k));
       }
       err.hidden = !bad;
       if (bad) return false;
@@ -65,23 +75,32 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
 
     keys.forEach((key, i) => {
       const entry = by.get(key);
-      const input = h("input", { class: `hm-bs-bm__n hm-bs-bm__n--${SIDES[i]}`, type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false", "data-side": SIDES[i], "aria-describedby": `${rid}-e` });
+      const input = h("input", { class: `hm-bs-bm__n hm-bs-bm__n--${SIDES[i]}`, type: "text", autocomplete: "off", spellcheck: "false", "data-side": SIDES[i] });
+      let shown = ""; // what the field was last painted with: a different value is text the user typed and has not committed
       const write = (v, opts) => writeKeys(linked.on && v !== null ? keys : [key], v, opts);
       input.addEventListener("change", () => {
         const typed = parseTyped(entry, input.value);
         if (!typed.ok) {
-          input.setAttribute("aria-invalid", "true");
+          mark(input, true);
           err.hidden = false;
           return;
         }
         write(typed.value);
       });
       input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && input.value !== shown) {
+          e.stopPropagation(); // abandon the typed text: the field shows the stored value again
+          paint();
+          err.hidden = true;
+          return;
+        }
         if ((e.key !== "ArrowUp" && e.key !== "ArrowDown") || e.altKey || e.ctrlKey || e.metaKey) return;
         e.preventDefault();
-        const { n, unit } = numberOf(key);
+        const typed = input.value !== shown ? parseTyped(entry, input.value) : null; // step from text typed but not yet committed
+        const { n, unit } = typed?.ok && typed.value !== null ? numberFrom(typed.value) : numberOf(key);
         const next = stepValue(n, e.key === "ArrowUp" ? 1 : -1, stepFor(entry, unit), e.shiftKey, boundsFor(key, entry, unit));
-        write(next === 0 ? "0" : `${next}${unit}`); // each press is its own undo step
+        const value = next === 0 ? "0" : `${next}${unit}`;
+        if (write(value)) announce(`${name(key)} ${value}`); // each press is its own undo step
       });
       // A drag works in px (1 unit per pixel): a rem or em start is converted, any other unit is kept.
       let unit = "px";
@@ -103,15 +122,18 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
         for (const t of ["pointerenter", "focusin"]) input.addEventListener(t, hover(SIDES[i]));
         for (const t of ["pointerleave", "focusout"]) input.addEventListener(t, hover(null));
       }
-      painters.push(() => {
+      const paint = () => {
         const s = stateOf(key);
-        const shown = displayOf(s.dot === "none" ? null : s.value, palette);
-        input.value = shown.text + shown.unit;
+        const d = displayOf(s.dot === "none" ? null : s.value, palette);
+        shown = input.value = d.text + d.unit;
         input.dataset.dot = s.dot;
-        input.removeAttribute("aria-invalid");
-        const spoken = /\d$/.test(shown.text) ? `${shown.text}${shown.unit || "px"}` : shown.text;
-        input.setAttribute("aria-label", `${name(key)}, ${spoken}${s.dot === "inherited" ? ", inherited" : s.dot === "none" ? ", not set" : ""}`);
-      });
+        mark(input, false);
+        const spoken = /\d$/.test(d.text) ? `${d.text}${d.unit || "px"}` : d.text;
+        const src = sourceOf(s);
+        const note = s.dot === "none" ? "not set" : s.dot === "inherited" || src.kind === "custom" ? src.text : "";
+        input.setAttribute("aria-label", `${name(key)}, ${spoken}${note ? `, ${note}` : ""}`);
+      };
+      painters.push(paint);
       inputs.push(input);
     });
     painters.push(() => {

@@ -111,7 +111,7 @@ test("every number has an accessible name with its value; an inherited one says 
   m.paint();
   const label = (side) => { let a; m.el.walk((n) => n.dataset?.side === side && (a = n.attrs["aria-label"])); return a; };
   assert.equal(label("top"), "Padding pt, 48px");
-  assert.equal(label("right"), "Padding pr, 96px, inherited");
+  assert.equal(label("right"), "Padding pr, 96px, Inherited from Desktop");
   assert.equal(label("bottom"), "Padding pb, 0px, not set");
 });
 

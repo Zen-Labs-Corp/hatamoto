@@ -382,12 +382,12 @@ test("box model: arrows on a side whose padding is inherited start from the inhe
 
 test("box model: each side's accessible name carries its value and where it comes from", () => {
   const entries = full.filter((e) => ["pt", "pr", "pb", "pl"].includes(e.key));
-  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : k === "pr" ? { dot: "inherited", source: "inherited", value: "96px" } : { dot: "none", source: "none", value: null });
+  const stateOf = (k) => (k === "pt" ? { dot: "set", source: "local", value: "2rem" } : k === "pr" ? { dot: "inherited", source: "inherited", from: "Desktop", value: "96px" } : { dot: "none", source: "none", value: null });
   const box = boxModel({ entries, name: (k) => k, palette: { colors: [], space: {}, fs: {} }, stateOf, commit: () => true, commitBatch: () => true, valid: () => true, hint: "" });
   box.paint();
   const names = [];
   box.el.walk((n) => n.tag === "input" && names.push(n.attrs["aria-label"]));
-  assert.deepEqual(names, ["pt, 2rem", "pr, 96px, inherited", "pb, 0px, not set", "pl, 0px, not set"]);
+  assert.deepEqual(names, ["pt, 2rem", "pr, 96px, Inherited from Desktop", "pb, 0px, not set", "pl, 0px, not set"]);
 });
 
 test("Hover view: the preset's hover value beats the node's Normal value (Go cascade)", () => {

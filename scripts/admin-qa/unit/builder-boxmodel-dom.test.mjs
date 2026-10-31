@@ -50,19 +50,20 @@ const MARGIN = ["mt", "mr", "mb", "ml"];
 // own: key -> value set here; inh: key -> inherited value; ok(entry, value) the table's verdict.
 const make = (keys, { own = {}, inh = {}, ok = () => true, refuse = false } = {}) => {
   const calls = [];
+  const said = [];
   const entries = full.filter((e) => keys.includes(e.key));
   const stateOf = (k) => (own[k] !== undefined ? { dot: "set", source: "local", value: own[k] } : inh[k] !== undefined ? { dot: "inherited", source: "inherited", from: "Desktop", value: inh[k] } : { dot: "none", source: "unset", value: null });
   const m = boxModel({
     entries, name: (k) => k, palette: { colors: [], space: SPACE, fs: {} }, stateOf,
     commit: (k, v, o) => (calls.push({ one: [k, v], opts: o }), true),
     commitBatch: (w, o) => (calls.push({ batch: w.map((x) => [x.key, x.value]), opts: o }), true),
-    valid: ok, hint: "Use a length like 12px.",
+    valid: ok, hint: "Use a length like 12px.", announce: (t) => said.push(t),
   });
   m.paint();
   const find = (pred) => { const r = []; m.el.walk((n) => pred(n) && r.push(n)); return r; };
   const side = (ring, name) => find((n) => n.dataset?.side === name && n.attrs["aria-label"]?.startsWith(ring === "m" ? "m" : "p"))[0];
   const btn = (label) => find((n) => n.tag === "button" && n.attrs["aria-label"] === label)[0];
-  return { m, calls, find, side, btn };
+  return { m, calls, said, find, side, btn };
 };
 
 test("ArrowUp/ArrowDown step by 1, Shift by 10, each press is one commit with no session", () => {
@@ -184,11 +185,60 @@ test("a click (no movement) focuses and selects instead of changing the value", 
   assert.equal(b.calls.length, 0);
 });
 
-test("an inherited side is muted by data-dot and says inherited in its name; Reset batches only the sides set here", () => {
+test("an inherited side is muted by data-dot and names where it is inherited from; Reset batches only the sides set here", () => {
   const b = make(PADDING, { own: { pt: "8px", pb: "8px" }, inh: { pr: "96px" } });
   const pr = b.side("p", "right");
   assert.equal(pr.dataset.dot, "inherited");
-  assert.equal(pr.attrs["aria-label"], "pr, 96px, inherited");
+  assert.equal(pr.attrs["aria-label"], "pr, 96px, Inherited from Desktop");
   b.btn("Reset padding").fire("click");
   assert.deepEqual(b.calls.at(-1).batch, [["pt", null], ["pb", null]], "one batch = one undo step, inherited sides untouched");
+});
+
+test("Escape puts the stored value back, clears the refusal and does not reach the panel; with nothing typed it passes through", () => {
+  const b = make(PADDING, { own: { pt: "16px" } });
+  const pt = b.side("p", "top");
+  pt.value = "wide";
+  pt.fire("change");
+  assert.equal(pt.attrs["aria-invalid"], "true");
+  let stopped = 0;
+  pt.fire("keydown", { key: "Escape", stopPropagation: () => stopped++ });
+  assert.equal(pt.value, "16");
+  assert.equal(pt.attrs["aria-invalid"], undefined);
+  assert.equal(stopped, 1);
+  pt.fire("keydown", { key: "Escape", stopPropagation: () => stopped++ });
+  assert.equal(stopped, 1, "nothing to cancel: Escape keeps bubbling");
+  assert.equal(b.calls.length, 0);
+});
+
+test("an arrow after typing, before Enter, steps from the typed value", () => {
+  const b = make(PADDING, { own: { pt: "16px" } });
+  const pt = b.side("p", "top");
+  pt.value = "40";
+  pt.fire("keydown", { key: "ArrowUp" });
+  assert.deepEqual(b.calls[0].one, ["pt", "41px"]);
+});
+
+test("an arrow step is announced with the side and the new value", () => {
+  const b = make(PADDING, { own: { pt: "16px" } });
+  b.side("p", "top").fire("keydown", { key: "ArrowUp" });
+  assert.deepEqual(b.said, ["pt 17px"]);
+});
+
+test("the numbers keep a text keypad (rem, auto and minus must be typeable) and the error is an alert", () => {
+  const b = make([...MARGIN, ...PADDING]);
+  for (const n of b.find((n) => n.dataset?.side)) assert.equal(n.attrs.inputmode, undefined);
+  assert.equal(b.find((n) => n.attrs.class === "hm-bs-err")[0].attrs.role, "alert");
+});
+
+test("only the refused number points at the error text", () => {
+  const b = make(PADDING);
+  const [pt, pr] = [b.side("p", "top"), b.side("p", "right")];
+  assert.equal(pt.attrs["aria-describedby"], undefined);
+  pt.value = "wide";
+  pt.fire("change");
+  assert.equal(pt.attrs["aria-describedby"], b.find((n) => n.attrs.class === "hm-bs-err")[0].attrs.id);
+  assert.equal(pr.attrs["aria-describedby"], undefined);
+  pt.value = "4";
+  pt.fire("change");
+  assert.equal(pt.attrs["aria-describedby"], undefined);
 });
