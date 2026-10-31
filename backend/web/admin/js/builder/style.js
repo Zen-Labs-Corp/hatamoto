@@ -407,7 +407,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       id,
       name,
       label,
-      scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply) : undefined,
+      scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
       body: [el, pills?.el, stops?.el, datalist],
       status,
       note,
@@ -426,17 +426,26 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   }
 }
 
-/** What dragging a length label does: starts from the value shown (set, inherited or from the class), writes in that value's unit (px when none). */
-function scrubOf(entry, shown, apply) {
+/**
+ * What dragging a length label does: starts from the value shown (set, inherited or from the class) with a token resolved
+ * through the palette (space steps, font sizes) or the entry's own token map, and writes in that value's unit (px when none).
+ * A value that is not a number (auto, custom) does not scrub. The unit, step and bounds are read when a drag starts.
+ */
+export function scrubOf(entry, shown, apply, palette = null) {
   const p = probe(entry);
-  const unitOf = () => {
-    const s = splitValue(entry, shown());
-    return s.kind === "num" && s.num !== "" ? s.unit : p.units.includes("px") ? "px" : (p.units[0] ?? "");
+  const fallback = p.units.includes("px") ? "px" : (p.units[0] ?? "");
+  const resolve = (value) => {
+    const s = splitValue(entry, value);
+    if (s.kind !== "token") return s;
+    const t = /^space-\d+$/.test(s.token) ? palette?.space?.[s.token.slice(6)] : entry.kind === "fs" ? (palette?.fs?.[s.token] ?? entry.tokens[s.token]) : entry.tokens[s.token];
+    return t === undefined ? { kind: "custom" } : splitValue({ ...entry, tokens: {} }, t);
   };
-  const start = () => {
-    const s = splitValue(entry, shown());
-    return s.kind === "num" && s.num !== "" ? Number(s.num) : 0;
+  let at = { n: 0, unit: fallback };
+  const get = () => {
+    const s = resolve(shown());
+    if (s.kind !== "num") return null;
+    at = s.num === "" ? { n: 0, unit: fallback } : { n: Number(s.num), unit: s.unit };
+    return at.n;
   };
-  const unit = unitOf();
-  return { short: SHORT[entry.key], get: start, apply: (n, opts) => apply(joinValue({ kind: "num", num: String(n), unit: unitOf() }), opts), step: stepFor(entry, unit), bounds: boundsFor(entry.key, entry, unit) };
+  return { short: SHORT[entry.key], get, apply: (n, opts) => apply(joinValue({ kind: "num", num: String(n), unit: at.unit }), opts), step: () => stepFor(entry, at.unit), bounds: () => boundsFor(entry.key, entry, at.unit) };
 }

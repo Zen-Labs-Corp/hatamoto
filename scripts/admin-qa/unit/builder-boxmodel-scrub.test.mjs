@@ -220,3 +220,18 @@ test("attachScrub: no gesture while the field itself has focus (being typed in)"
     delete globalThis.document;
   }
 });
+
+test("attachScrub: get() null starts nothing; step and bounds given as functions are read at drag start", () => {
+  const none = live({ get: () => null });
+  none.e.fire("pointerdown", { clientX: 0 });
+  none.e.fire("pointermove", { clientX: 30 });
+  assert.deepEqual(none.writes, []);
+  assert.deepEqual(none.e.calls, [], "no capture: the browser keeps the press");
+  let unit = "px";
+  const f = live({ get: () => 1, step: () => (unit === "rem" ? 0.1 : 1), bounds: () => ({ min: 0, max: unit === "rem" ? 12 : 200 }) });
+  unit = "rem";
+  f.e.fire("pointerdown", { clientX: 0 });
+  f.e.fire("pointermove", { clientX: 10 });
+  f.e.fire("pointerup");
+  assert.deepEqual(f.writes.map((w) => w[0]), [2]);
+});
