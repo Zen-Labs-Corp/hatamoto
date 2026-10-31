@@ -14,7 +14,7 @@ In this guide you install Hatamoto on a **VPS**, a small server you rent from a 
 - Optional: a domain name. Without one, Hatamoto uses a free name of the form `203-0-113-7.sslip.io` built from your server's address.
 - The provider's firewall must let in ports 80 and 443. On Lightsail, open 443 in the Lightsail networking tab of the instance. Other providers have a similar firewall page: allow 22, 80 and 443 there too.
 
-The installer sets up Postgres, Hatamoto under systemd and Caddy, a web server that gets HTTPS certificates by itself. It also turns on nightly backups and signed automatic updates.
+The installer sets up Postgres, Hatamoto under systemd and Caddy, a web server that gets HTTPS certificates by itself. It also turns on nightly backups and signed automatic updates. Ubuntu 22.04 has no Caddy package, so the installer adds the official Caddy apt repository there.
 
 ## Steps
 

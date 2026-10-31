@@ -16,7 +16,7 @@ script="$tmp/asm/install.sh"
 # Fake commands: every call is appended to $CALLS.
 bin="$tmp/bin"
 mkdir -p "$bin"
-for c in apt-get dpkg ufw systemctl curl useradd; do
+for c in apt-get dpkg ufw systemctl curl useradd gpg; do
   cat > "$bin/$c" <<'FAKE'
 #!/bin/sh
 printf '%s %s\n' "$(basename "$0")" "$*" >> "$CALLS"
@@ -32,9 +32,18 @@ case "$(basename "$0")" in
     fi
     [ ! -x "$HATAMOTO_INSTALL_ROOT/usr/sbin/policy-rc.d" ] || echo "policy-rc.d present during $3" >> "$CALLS" ;;
   useradd) : > "$HATAMOTO_INSTALL_ROOT/.user-created" ;;
-  curl) # the suite probe (-I) or the PGDG key: write the -o/--output file
+  curl) # the suite probe (-I) or a repository key: write the -o/--output file, tagged with its URL
     case " $* " in *" -fsI "*) [ -z "${FAKE_PGDG_MISSING:-}" ] || exit 22; exit 0 ;; esac
-    while [ $# -gt 0 ]; do [ "$1" != --output ] || { printf 'KEY\n' > "$2"; break; }; shift; done ;;
+    for url; do :; done
+    while [ $# -gt 0 ]; do [ "$1" != --output ] || { printf 'KEY %s\n' "$url" > "$2"; break; }; shift; done ;;
+  gpg) # --show-keys: print the real pinned fingerprint of the key the URL tag names
+    f=""; for f; do :; done
+    case "$(cat "$f")" in
+      *cloudsmith*) fpr=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 ;; # gitleaks:allow
+      *) fpr=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 ;;
+    esac
+    [ -z "${FAKE_KEY_BAD:-}" ] || fpr=0000000000000000000000000000000000000000
+    printf 'pub:-:4096:1:X:1::-:::scSC::::::23::0:\nfpr:::::::::%s:\nfpr:::::::::SUBKEY:\n' "$fpr" ;;
 esac
 exit 0
 FAKE
@@ -148,6 +157,25 @@ grep -qxF 'deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] ht
 grep -q -- '--proto =https' "$tmp/calls" || fail "key fetched without https pin"
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "debian must update again after adding PGDG"
 pass "PGDG on debian, key over https"
+
+# --- Caddy: only jammy lacks a distro package, so only jammy gets the Caddy repository
+cj="$(mkroot caddyjammy ubuntu 22.04 jammy)"
+: > "$tmp/calls"
+run_build "$cj" >/dev/null 2>"$tmp/err" || fail "jammy build failed: $(cat "$tmp/err")"
+grep -qxF 'deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main' "$cj/etc/apt/sources.list.d/caddy-stable.list" || fail "jammy caddy list wrong"
+[ -s "$cj/usr/share/keyrings/caddy-stable-archive-keyring.asc" ] || fail "caddy key not stored"
+[ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "jammy must update once after adding both repositories"
+for sys in "ubuntu 24.04 noble" "debian 12 bookworm"; do
+  set -- $sys
+  cn="$(mkroot "caddyno$1" "$1" "$2" "$3")"
+  run_build "$cn" >/dev/null 2>&1 || fail "$sys build failed"
+  [ ! -e "$cn/etc/apt/sources.list.d/caddy-stable.list" ] || fail "$sys got the Caddy repository"
+done
+cb="$(mkroot caddybad ubuntu 22.04 jammy)"
+if run_build "$cb" FAKE_KEY_BAD=1 >/dev/null 2>"$tmp/err"; then fail "a Caddy key with another fingerprint was accepted"; fi
+grep -q 'Caddy repository key has fingerprint' "$tmp/err" || fail "caddy fingerprint message: $(cat "$tmp/err")"
+[ ! -e "$cb/etc/apt/sources.list.d/caddy-stable.list" ] || fail "caddy list written for a bad key"
+pass "Caddy repository on jammy only, key fingerprint pinned"
 
 # --- a suite pgdg does not publish falls back to the newest LTS suite
 nx="$(mkroot nosuite ubuntu 24.04 noble)"

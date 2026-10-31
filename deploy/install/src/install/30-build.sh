@@ -6,6 +6,9 @@
 APP_DIR=/opt/hatamoto
 APP_USER=hatamoto
 PGDG_KEY=/usr/share/keyrings/postgresql-archive-keyring.asc
+CADDY_KEY=/usr/share/keyrings/caddy-stable-archive-keyring.asc
+# Primary key fingerprint of the Caddy stable repository key (checked after download).
+CADDY_KEY_FPR=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 # gitleaks:allow
 BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades caddy"
 
 # build_os prints "ID VERSION_ID CODENAME" from the os-release file, or dies.
@@ -146,6 +149,31 @@ build_pgdg() {
   printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$bg_suite" > "$bg_list"
 }
 
+# build_key_fpr FILE prints the primary key fingerprint of an armored key file.
+build_key_fpr() {
+  gpg --show-keys --with-colons "$1" 2>/dev/null |
+    awk -F: '$1 == "pub" { p = 1; next } p && $1 == "fpr" { print $10; exit }'
+}
+
+# build_caddy ID CODENAME adds the Caddy project's apt repository on Ubuntu 22.04
+# (jammy), whose archive has no caddy package; other systems keep the distro's.
+build_caddy() {
+  bk_list="$(dest /etc/apt/sources.list.d/caddy-stable.list)"
+  [ "$1 $2" = "ubuntu jammy" ] || return 0
+  [ ! -f "$bk_list" ] || return 0
+  mkdir -p "$(dirname "$(dest "$CADDY_KEY")")" "$(dirname "$bk_list")"
+  curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
+    --output "$(dest "$CADDY_KEY")" https://dl.cloudsmith.io/public/caddy/stable/gpg.key ||
+    { build_policy_restore; die "cannot fetch the Caddy repository key"; }
+  bk_fpr="$(build_key_fpr "$(dest "$CADDY_KEY")")"
+  if [ "$bk_fpr" != "$CADDY_KEY_FPR" ]; then
+    rm -f "$(dest "$CADDY_KEY")"
+    build_policy_restore
+    die "the Caddy repository key has fingerprint ${bk_fpr:-unknown}, expected $CADDY_KEY_FPR"
+  fi
+  printf 'deb [signed-by=%s] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main\n' "$CADDY_KEY" > "$bk_list"
+}
+
 # build_check_pg_dump MAJOR: backups need a pg_dump of the server's major version.
 build_check_pg_dump() {
   need_cmd pg_dump
@@ -250,6 +278,7 @@ stage_build() {
   build_apt update -qq
   build_apt install -y --no-install-recommends ca-certificates curl gnupg
   build_pgdg "$sb_id" "$sb_codename"
+  build_caddy "$sb_id" "$sb_codename"
   build_apt update -qq
   # shellcheck disable=SC2086 # the list is words on purpose
   build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES "postgresql-$sb_pg"
