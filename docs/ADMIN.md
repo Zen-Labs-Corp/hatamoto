@@ -800,7 +800,7 @@ search engine default. Business details (`/business`) holds one card per locale 
 the site-wide details. Every write goes through one validated save that clears rendered pages.
 Settings > General no longer edits the locale list.
 
-Add locale also offers Start with once the site has entries: draft copies of the home page and of the
+Add locale also offers Start with once the site has entries, also on a site that has one language so far (adding the second is its main use): draft copies of the home page and of the
 pages in the header menu are made in the new language (default-locale pages only, nothing is published). A
 page that cannot be copied is logged and counted, and never undoes the added locale.
 

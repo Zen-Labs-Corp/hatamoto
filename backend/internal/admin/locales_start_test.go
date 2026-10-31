@@ -102,3 +102,16 @@ func startFlash(t *testing.T, rec *httptest.ResponseRecorder) (kind, msg string)
 	t.Fatal("no flash set")
 	return "", ""
 }
+
+// Adding the second language is the main use of Start with: a site that has one
+// language so far and has content still offers it.
+func TestLocaleStartOfferedOnSingleLocaleSiteWithContent(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales = nil
+	g.a.deps.Content.Copier = newFakeCopier()
+	ents := newFakeEntities()
+	ents.ents[fid(11)] = &entity.Entity{ID: fid(11), Locale: "en", Name: "Home"}
+	g.a.deps.Content.Entities = ents
+	has(t, g.do("GET", "/admin/settings/locales/new", "owner-token", nil, nil).Body.String(), `name="start"`, "Start with")
+}

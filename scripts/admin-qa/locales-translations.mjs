@@ -45,13 +45,14 @@ await p.goto(`${base}/admin/entities/${first}/translations`);
 ok((await p.getByText("This site has one language").count()) === 1 && (await p.getByRole("link", { name: "Add a locale" }).count()) === 1, "single-locale: direct visit shows the empty state");
 await shot(p, "single-locale");
 
-// A6: a single-locale site shows none of the copy controls.
+// A6: a single-locale site shows none of the copy controls (Start with excepted, see below).
 await p.goto(`${base}/admin/entities`);
 ok((await p.getByText("Create drafts in").count()) === 0, "single-locale: no bulk Create drafts action");
 const direct = await p.goto(`${base}/admin/entities/${first}/translations/new?locale=pt`);
 ok(direct.status() === 404, "single-locale: the Create copy page answers 404");
 await p.goto(`${base}/admin/settings/locales/new`);
-ok((await p.locator("#locale-start").count()) === 0 && (await p.getByText("Start with").count()) === 0, "single-locale: Add a locale has no Start with");
+// Adding the second language is the main use of Start with, so a single-locale site with entries offers it.
+ok((await p.getByText("Start with").count()) >= 1, "single-locale with entries: Add a locale offers Start with");
 const termHref = await (async () => {
   await p.goto(`${base}/admin/settings/taxonomies`);
   const link = p.locator('a[href*="/settings/taxonomies/terms/"]').first();
