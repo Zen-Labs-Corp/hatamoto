@@ -177,11 +177,12 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	if err != nil {
 		return nil, err
 	}
-	leadsBy := func(dim analytics.Dim) (map[string]int64, error) {
+	// A campaign under two mediums is two rows, so leads are keyed by K1 and K2.
+	leadsBy := func(dim analytics.Dim) (map[[2]string]int64, error) {
 		rows, err := cv.LeadsTop(ctx, dim, touch, rg.From, rg.To, 0)
-		out := map[string]int64{}
+		out := map[[2]string]int64{}
 		for _, r := range rows {
-			out[r.K1] += r.Leads
+			out[[2]string{r.K1, r.K2}] += r.Leads
 		}
 		return out, err
 	}
@@ -300,7 +301,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 		}
 		row := []ui.AiaCell{name, {Text: fmtNum(n.Visits)},
 			{Text: fixed(pct, 1), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
-			{Text: fmtNum(channelLeads[c.Key])}, {Text: rateText(channelLeads[c.Key], n.Visits)}}
+			{Text: fmtNum(channelLeads[[2]string{c.Key}])}, {Text: rateText(channelLeads[[2]string{c.Key}], n.Visits)}}
 		if cmp {
 			row = append(row, ui.AiaCell{Text: kpiDelta(true, rg, float64(n.Visits), float64(prevChannels[c.Key].Visits), false, false).Text})
 		}
@@ -313,11 +314,11 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 
 	p.Sources = ui.AiaRows{Caption: "Top sources", Columns: []string{"Source", "Channel", "Visits", "Leads"}, Right: []bool{false, false, true, true}, Empty: "No sources in this period."}
 	for _, s := range sources {
-		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: sourceChannel(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: fmtNum(sourceLeads[s.K1])}})
+		p.Sources.Rows = append(p.Sources.Rows, []ui.AiaCell{{Text: sourceName(s.K1)}, {Text: sourceChannel(s.K2), Muted: true}, {Text: fmtNum(s.Visits)}, {Text: fmtNum(sourceLeads[[2]string{s.K1, s.K2}])}})
 	}
 	p.Campaigns = ui.AiaRows{Caption: "Top campaigns", Columns: []string{"Campaign", "Medium", "Visits", "Leads", "Rate"}, Right: []bool{false, false, true, true, true}, Empty: "No campaigns in this period. Tag links with utm_campaign."}
 	for _, c := range campaigns {
-		p.Campaigns.Rows = append(p.Campaigns.Rows, []ui.AiaCell{{Text: c.K1}, {Text: c.K2, Muted: true}, {Text: fmtNum(c.Visits)}, {Text: fmtNum(campaignLeads[c.K1])}, {Text: rateText(campaignLeads[c.K1], c.Visits)}})
+		p.Campaigns.Rows = append(p.Campaigns.Rows, []ui.AiaCell{{Text: c.K1}, {Text: c.K2, Muted: true}, {Text: fmtNum(c.Visits)}, {Text: fmtNum(campaignLeads[[2]string{c.K1, c.K2}])}, {Text: rateText(campaignLeads[[2]string{c.K1, c.K2}], c.Visits)}})
 	}
 
 	p.Landing = ui.BarList{Label: "Landing pages", NameHeading: "Page", ValueHeading: "Visits", Mono: true, Empty: "No landing pages in this period."}

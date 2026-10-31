@@ -5,8 +5,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/analytics"
 )
 
 // fakeEngagement is the engagement switch, remembering what was set.
@@ -176,5 +178,51 @@ func TestTrafficPageLeadsFollowTheTouch(t *testing.T) {
 	}
 	if !strings.Contains(last, `value="last" checked`) || !strings.Contains(last, "3 leads before attribution was recorded") {
 		t.Error("touch=last must be the chosen toggle value with its own unknown note")
+	}
+}
+
+// splitLeads reports one campaign under two mediums and one source under two channels.
+type splitLeads struct{ fakeConversions }
+
+func (*splitLeads) LeadsTop(ctx context.Context, dim analytics.Dim, touch analytics.TouchKind, from, to time.Time, limit int) ([]analytics.LeadRow, error) {
+	switch dim {
+	case analytics.DimCampaign:
+		return []analytics.LeadRow{{K1: "spring", K2: "email", Leads: 41}, {K1: "spring", K2: "paid", Leads: 17}}, nil
+	case analytics.DimSource:
+		return []analytics.LeadRow{{K1: "acme", K2: analytics.ChannelEmail, Leads: 43}, {K1: "acme", K2: analytics.ChannelPaid, Leads: 19}}, nil
+	}
+	return (&fakeConversions{}).LeadsTop(ctx, dim, touch, from, to, limit)
+}
+
+// splitTraffic mirrors splitLeads on the visits side.
+type splitTraffic struct{ fakeTraffic }
+
+func (f *splitTraffic) TrafficTop(ctx context.Context, dim analytics.Dim, from, to time.Time, limit int) ([]analytics.TrafficTop, error) {
+	switch dim {
+	case analytics.DimCampaign:
+		return []analytics.TrafficTop{{K1: "spring", K2: "email", Counts: analytics.Counts{Visits: 7}}, {K1: "spring", K2: "paid", Counts: analytics.Counts{Visits: 5}}}, nil
+	case analytics.DimSource:
+		return []analytics.TrafficTop{{K1: "acme", K2: analytics.ChannelEmail, Counts: analytics.Counts{Visits: 8}}, {K1: "acme", K2: analytics.ChannelPaid, Counts: analytics.Counts{Visits: 6}}}, nil
+	}
+	return f.fakeTraffic.TrafficTop(ctx, dim, from, to, limit)
+}
+
+func TestTrafficLeadsAreNotSummedAcrossMediums(t *testing.T) {
+	t.Parallel()
+
+	rg, _ := parseRange(url.Values{})
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &splitTraffic{fakeTraffic{from: rg.From}}, &splitLeads{}
+	})
+	body := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{">41<", ">17<", ">43<", ">19<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("each row keeps its own leads, missing %q", want)
+		}
+	}
+	for _, bad := range []string{">58<", ">62<"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("leads of two rows were summed, found %q", bad)
+		}
 	}
 }
