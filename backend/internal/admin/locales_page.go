@@ -161,11 +161,13 @@ func (a *Admin) localesTable(r *http.Request, cfg *siteconfig.Config) ui.Table {
 			name = localeDisplayName(e.Tag)
 		}
 		first := ui.Cell{Text: name, Sub: e.Tag}
-		if e.Tag == defTag {
+		switch isXDefault := e.Tag == cfg.XDefaultLocale; {
+		case e.Tag == defTag && isXDefault:
+			first.Tag = &ui.Badge{Label: "Default, also for search engines", Kind: "neutral"}
+		case e.Tag == defTag:
 			first.Tag = &ui.Badge{Label: "Default", Kind: "neutral"}
-		}
-		if e.Tag == cfg.XDefaultLocale {
-			first.Suffix = "search engine default"
+		case isXDefault:
+			first.Tag = &ui.Badge{Label: "Search engine default", Kind: "neutral"}
 		}
 		if multi {
 			first.Link = a.url("settings", "locales", "edit", e.Tag)

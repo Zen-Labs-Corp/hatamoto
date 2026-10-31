@@ -371,3 +371,31 @@ func TestLocalePrefixHelpSaysWhatEmptyDoes(t *testing.T) {
 		t.Error("another locale page misdescribes an empty prefix")
 	}
 }
+
+func TestLocalesTableBadgesDefaultAndSearchEngineDefault(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales[1].Hidden = false
+	row := func(body, tag string) string {
+		_, after, _ := strings.Cut(body, `<tr`)
+		for _, r := range strings.Split(after, `<tr`) {
+			if strings.Contains(r, `<span class="hm-table__sub">`+tag+`</span>`) {
+				return r
+			}
+		}
+		return ""
+	}
+	site.cfg.XDefaultLocale = "fr"
+	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if r := row(body, "en"); !strings.Contains(r, ">Default</span>") || strings.Contains(r, "search engine") {
+		t.Errorf("default row: %s", r)
+	}
+	if r := row(body, "fr"); !strings.Contains(r, ">Search engine default</span>") || strings.Contains(r, ">Default</span>") {
+		t.Errorf("x-default row: %s", r)
+	}
+	site.cfg.XDefaultLocale = "en"
+	body = g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if r := row(body, "en"); !strings.Contains(r, ">Default, also for search engines</span>") || strings.Contains(r, ">Default</span>") {
+		t.Errorf("combined row: %s", r)
+	}
+}
