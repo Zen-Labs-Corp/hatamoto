@@ -454,3 +454,10 @@ test("the stylesheet keeps no dead `[data-active]` rule (direct.js never sets it
   assert.doesNotMatch(css, /\[data-active\]/);
   assert.equal(css.match(/--pe-guide-pad:\s*var/g)?.length, 1);
 });
+
+test("padding handles are at least 24px on both axes (WCAG 2.5.8)", () => {
+  const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
+  const sizes = [...css.matchAll(/\.hm-pe__padh\[data-side="\w+"\](?:, \.hm-pe__padh\[data-side="\w+"\])? \{ width: (\d+)px; height: (\d+)px; cursor/g)];
+  assert.equal(sizes.length, 2, "the two handle size rules");
+  for (const m of sizes) assert.ok(+m[1] >= 24 && +m[2] >= 24, m[0]);
+});

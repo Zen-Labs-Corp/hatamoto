@@ -75,8 +75,8 @@
 .hm-pe__hatch[hidden] { display: none; }
 .hm-pe__padh { position: absolute; z-index: var(--z-raised); display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); }
 .hm-pe__padh::after { content: ""; display: block; border-radius: var(--radius-2xs); background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface); }
-.hm-pe__padh[data-side="top"], .hm-pe__padh[data-side="bottom"] { width: 44px; height: 20px; cursor: ns-resize; }
-.hm-pe__padh[data-side="left"], .hm-pe__padh[data-side="right"] { width: 20px; height: 44px; cursor: ew-resize; }
+.hm-pe__padh[data-side="top"], .hm-pe__padh[data-side="bottom"] { width: 44px; height: 24px; cursor: ns-resize; }
+.hm-pe__padh[data-side="left"], .hm-pe__padh[data-side="right"] { width: 24px; height: 44px; cursor: ew-resize; }
 .hm-pe__padh[data-side="top"]::after, .hm-pe__padh[data-side="bottom"]::after { width: 28px; height: 6px; }
 .hm-pe__padh[data-side="left"]::after, .hm-pe__padh[data-side="right"]::after { width: 6px; height: 28px; }
 .hm-pe__padh:hover::after { background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--pe-guide-pad) 35%, transparent); }
