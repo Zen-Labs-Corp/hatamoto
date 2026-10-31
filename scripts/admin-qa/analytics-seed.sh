@@ -188,19 +188,32 @@ INSERT INTO tk VALUES
   ('channel', 'email', '', 0.07), ('channel', 'paid', '', 0.05), ('channel', 'ai_assistants', '', 0.038),
   ('source', 'google', 'organic', 0.28), ('source', 'bing', 'organic', 0.05), ('source', '(none)', 'direct', 0.27),
   ('source', 'linkedin.com', 'social', 0.08), ('source', 'news.ycombinator.com', 'referral', 0.06), ('source', 'newsletter', 'email', 0.07),
-  ('source', 'chatgpt.com', 'ai_assistants', 0.022), ('source', 'perplexity.ai', 'ai_assistants', 0.01),
+  ('source', 'chatgpt', 'ai_assistants', 0.022), ('source', 'perplexity', 'ai_assistants', 0.01),
   ('campaign', 'oct-news', 'email', 0.05), ('campaign', 'spring-launch', 'paid', 0.04), ('campaign', 'partner-week', 'referral', 0.02),
   ('landing', '/', '', 0.30), ('landing', '/blog', '', 0.18), ('landing', '/pricing', '', 0.12), ('landing', '/about', '', 0.08),
   ('device', 'desktop', '', 0.56), ('device', 'mobile', '', 0.38), ('device', 'tablet', '', 0.06),
   ('country', 'US', '', 0.34), ('country', 'GB', '', 0.14), ('country', 'DE', '', 0.11), ('country', 'AU', '', 0.08), ('country', 'JP', '', 0.06), ('country', '(unknown)', '', 0.04);
-INSERT INTO hatamoto_traffic_daily (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled)
-SELECT x.day, x.dim, x.k1, x.k2, x.v, round(x.v * 1.7), round(x.v * 0.58), round(x.v * 0.31), round(x.v * 0.22)
+INSERT INTO hatamoto_traffic_daily (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled, form_seen, form_started)
+SELECT x.day, x.dim, x.k1, x.k2, x.v, round(x.v * 1.7), round(x.v * 0.58), round(x.v * 0.31), round(x.v * 0.22), round(x.v * 0.09), round(x.v * 0.05)
   FROM (SELECT sd.day, tk.dim, tk.k1, tk.k2,
                round(2000 * sd.wk * (0.85 + 0.15 * (99 - sd.ago) / 99.0) * CASE WHEN sd.ago = 9 THEN 1.25 ELSE 1 END * tk.share
                      * (0.8 + 0.4 * (abs(hashtext(tk.dim || tk.k1 || sd.day::text)) % 100) / 100.0)) AS v
           FROM sd CROSS JOIN tk) x
  WHERE x.v > 0
 ON CONFLICT DO NOTHING;
+-- Leads: one QA form with attributed submissions (first and last touch), a few without attribution.
+DELETE FROM hatamoto_form_submissions WHERE form_id IN (SELECT id FROM hatamoto_forms WHERE slug = 'qa-leads');
+INSERT INTO hatamoto_forms (name, slug, fields) VALUES
+  ('QA contact form', 'qa-leads', '[{"name":"email","label":"Email","type":"email"}]'::jsonb) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO hatamoto_form_submissions (form_id, data, status, created_at,
+       first_channel, first_source, first_medium, first_campaign, first_landing,
+       last_channel, last_source, last_medium, last_campaign, last_landing)
+SELECT f.id, jsonb_build_object('email', 'lead' || n || '@example.com'), 'new', now() - (n * interval '53 hours'),
+       CASE WHEN n % 9 = 0 THEN NULL ELSE c.ch END, CASE WHEN n % 9 = 0 THEN NULL ELSE c.src END, CASE WHEN n % 9 = 0 THEN NULL ELSE c.med END, NULL, CASE WHEN n % 9 = 0 THEN NULL ELSE '/pricing' END,
+       CASE WHEN n % 9 = 0 THEN NULL ELSE 'email' END, CASE WHEN n % 9 = 0 THEN NULL ELSE 'newsletter' END, CASE WHEN n % 9 = 0 THEN NULL ELSE 'email' END, CASE WHEN n % 9 = 0 THEN NULL ELSE 'oct-news' END, CASE WHEN n % 9 = 0 THEN NULL ELSE '/blog' END
+  FROM hatamoto_forms f, generate_series(1, 40) n,
+       LATERAL (SELECT * FROM (VALUES ('ai_assistants', 'chatgpt', ''), ('organic', 'google', 'organic'), ('direct', '(none)', ''), ('ai_assistants', 'perplexity', ''), ('email', 'newsletter', 'email')) v(ch, src, med) OFFSET (n % 5) LIMIT 1) c
+ WHERE f.slug = 'qa-leads';
 COMMIT;
 SQL
-echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits (log, and one bad day behind a CDN), pageviews, AI referrals and traffic"
+echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits (log, and one bad day behind a CDN), pageviews, AI referrals, traffic and a form with attributed leads"

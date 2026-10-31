@@ -283,6 +283,7 @@ func TestAreaLocateAnalytics(t *testing.T) {
 	for path, want := range map[string]string{
 		"/admin/analytics":                 "ai-overview",
 		"/admin/analytics/traffic":         "ai-traffic",
+		"/admin/analytics/conversions":     "ai-conversions",
 		"/admin/analytics/crawlers":        "ai-crawlers",
 		"/admin/analytics/content":         "ai-content",
 		"/admin/analytics/referrals":       "ai-referrals",

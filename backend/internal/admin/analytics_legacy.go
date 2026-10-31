@@ -16,13 +16,16 @@ var legacyTabTarget = map[string]string{
 }
 
 // analyticsCarry is the part of a query that follows a visitor between
-// analytics URLs: the range and the compare switch.
+// analytics URLs: the range, the compare switch and the touch choice.
 func analyticsCarry(q url.Values) url.Values {
 	out := url.Values{}
 	for _, k := range []string{"from", "to", "compare"} {
 		if q.Has(k) {
 			out.Set(k, q.Get(k))
 		}
+	}
+	if q.Get("touch") == "last" { // the first touch is the default, so only the other one is carried
+		out.Set("touch", "last")
 	}
 	return out
 }

@@ -54,7 +54,7 @@ var settingsLive = map[string]bool{
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
-	"ai-overview": true, "ai-traffic": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
+	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
 	"seo-general": true, "seo-titles": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
@@ -177,6 +177,9 @@ var analyticsRegistry = []settingsSectionDef{
 	}},
 	{ID: "ai-traffic", Label: "Traffic", Icon: "globe", Desc: "Where do visitors come from?", Tabs: []settingsTabDef{
 		{ID: "ai-traffic", Label: "Traffic", Final: "/analytics/traffic"},
+	}},
+	{ID: "ai-conversions", Label: "Conversions", Icon: "filter", Desc: "What turns into leads?", Tabs: []settingsTabDef{
+		{ID: "ai-conversions", Label: "Conversions", Final: "/analytics/conversions"},
 	}},
 	{ID: "ai-content", Label: "Content", Icon: "file-text", Desc: "What are they reading?", Tabs: []settingsTabDef{
 		{ID: "ai-content", Label: "Content", Final: "/analytics/content"},

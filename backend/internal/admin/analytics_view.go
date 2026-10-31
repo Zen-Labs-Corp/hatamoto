@@ -16,13 +16,14 @@ import (
 // approved prototype. A lede that quotes live numbers is empty until its
 // section builds one.
 var sectionCopy = map[string]struct{ Title, Lede string }{
-	"ai-overview":  {"Are AI systems reading your site?", ""},
-	"ai-traffic":   {"Where do visitors come from?", trafficLede},
-	"ai-crawlers":  {"Who is reading your site?", ""},
-	"ai-content":   {"What are they reading?", ""},
-	"ai-google":    {"What is Google doing?", googleLede},
-	"ai-referrals": {"What comes back?", "Visits from people who clicked a link inside an AI assistant. Counted per day; no visitors are tracked."},
-	"ai-health":    {"Is it running cleanly?", "Whether crawlers are who they say they are and whether your site answers them cleanly."},
+	"ai-overview":    {"Are AI systems reading your site?", ""},
+	"ai-traffic":     {"Where do visitors come from?", trafficLede},
+	"ai-conversions": {"What turns into leads?", conversionsLede},
+	"ai-crawlers":    {"Who is reading your site?", ""},
+	"ai-content":     {"What are they reading?", ""},
+	"ai-google":      {"What is Google doing?", googleLede},
+	"ai-referrals":   {"What comes back?", "Visits from people who clicked a link inside an AI assistant. Counted per day; no visitors are tracked."},
+	"ai-health":      {"Is it running cleanly?", "Whether crawlers are who they say they are and whether your site answers them cleanly."},
 }
 
 // sectionPage is the data of every Analytics section template.
@@ -53,7 +54,7 @@ func (a *Admin) analyticsSection(id string, build sectionBuilder) http.HandlerFu
 		}
 		c := sectionCopy[id]
 		d := &sectionPage{Title: c.Title, Lede: c.Lede, RangeErr: msg, Compare: cmp.On, Prev: cmp.Prev,
-			Range: a.dateRangeFor(r.URL.Path, rg, map[string]string{}, &cmp)}
+			Range: a.dateRangeFor(r.URL.Path, rg, hiddenCarry(q), &cmp)}
 		body, err := build(r.Context(), q, rg, cmp.On)
 		switch {
 		case errors.Is(err, errNoService):
@@ -75,6 +76,14 @@ func (a *Admin) analyticsSection(id string, build sectionBuilder) http.HandlerFu
 		v.Data = d
 		a.Render(w, r, status, "analytics/"+id[len("ai-"):], v)
 	}
+}
+
+// hiddenCarry is what the date picker form sends along with the range: the last-touch choice.
+func hiddenCarry(q url.Values) map[string]string {
+	if q.Get("touch") == "last" {
+		return map[string]string{"touch": "last"}
+	}
+	return map[string]string{}
 }
 
 // analyticsViewCarry is what the sub-sidebar links keep from the request: the
