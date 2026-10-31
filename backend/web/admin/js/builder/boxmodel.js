@@ -4,7 +4,9 @@
 // with Shift. One link toggle makes the four sides of a ring move together; the 0/S/M/L/XL presets write the theme's
 // spacing steps. A linked or preset write is one batch (one undo step) and a whole scrub is one undo step.
 // A side keeps its own row state: set here is solid, inherited is muted and italic and the accessible name says so
-// ("Padding top, 96px, inherited"); a "Reset <ring>" button clears the ring's sides set here.
+// ("Padding top, 96px, inherited"); a "Reset <ring>" button (in the tools row, next to the presets) clears the ring's sides set here.
+// The centre shows the selected element's rendered size ("1280 × 460") when size() gives one; the screen repaints it on
+// every canvas layout through an "hm-layout" event on the centre element.
 // Hovering or focusing a padding side dispatches a bubbling "hm-pad-hover" event ({side} or {side: null}).
 // The pure parts (ring order, link sets, typed values, scrub maths) are controls.js and scrub.js.
 import { h, actButton } from "@hm/builder/dom";
@@ -12,18 +14,20 @@ import { linkSets, writesFor, stepFor, stepValue, boundsFor, sourceOf } from "@h
 import { parseTyped, displayOf, presetSteps, attachScrub, axisOf } from "@hm/builder/scrub";
 
 let ids = 0;
+/** The admin's link icon, cloned from the server-rendered icon template (nothing when the template is missing). */
+const linkIcon = () => document.querySelector?.("template[data-hm-bs-ico]")?.content?.querySelector('[data-ico="link"]')?.cloneNode(true) ?? h("span", { "data-ico": "link" });
 const title = (s) => s[0].toUpperCase() + s.slice(1);
 const SIDES = ["top", "right", "bottom", "left"];
 const NUM = /^(-?\d+(?:\.\d+)?)([a-z%]*)$/i;
 
 /**
- * boxModel({entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce}) -> {el, keys, paint()}.
+ * boxModel({entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce, size}) -> {el, keys, paint()}.
  * entries: the table entries of the group; name(key) its label ("Padding top"); stateOf(key) -> controls.rowState;
  * commit(key, value, opts) and commitBatch([{key, value}], opts) -> bool write at the style-map key being edited;
- * valid(entry, value) -> bool the table's verdict; hint the text of a refused value; announce(text) speaks a change a keyboard step made. keys: the keys it draws (the rest of the group stays single rows).
+ * valid(entry, value) -> bool the table's verdict; hint the text of a refused value; announce(text) speaks a change a keyboard step made. size() -> {w, h} | null the selected element's rendered size in CSS px. keys: the keys it draws (the rest of the group stays single rows).
  * With both rings the padding ring is drawn inside the margin ring.
  */
-export function boxModel({ entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce = () => {} }) {
+export function boxModel({ entries, name, palette, stateOf, commit, commitBatch, valid, hint, announce = () => {}, size = () => null }) {
   const by = new Map(entries.map((e) => [e.key, e]));
   const rings = linkSets(entries.map((e) => e.key));
   const own = (k) => {
@@ -70,7 +74,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
       return list.length > 1 ? commitBatch(writesFor(list, v), opts) : commit(list[0], v, opts);
     };
     writer.set(ring, writeKeys);
-    const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${ring}`, hidden: true });
+    const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${ring}`, title: `Reset ${ring}`, hidden: true });
     reset.addEventListener("click", () => commitBatch(keys.filter((k) => own(k) !== null).map((key) => ({ key, value: null }))));
 
     keys.forEach((key, i) => {
@@ -142,15 +146,22 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
       err.hidden = true;
     });
     const core = h("div", { class: "hm-bs-bm__c" }); // the element, or the padding ring inside the margin ring
-    const el = h("div", { class: `hm-bs-bm__${ring === "margin" ? "m" : "p"}`, role: "group", "aria-label": label }, h("span", { class: "hm-bs-bm__t", text: label }), ...inputs, reset, core, err);
-    return { el, core };
+    const el = h("div", { class: `hm-bs-bm__${ring === "margin" ? "m" : "p"}`, role: "group", "aria-label": label }, h("span", { class: "hm-bs-bm__t", text: label }), ...inputs, core, err);
+    return { el, core, reset };
   });
 
   const [outer, inner] = built;
+  const centre = h("div", { class: "hm-bs-bm__el", "aria-hidden": "true", "data-hm-size": "" });
+  const paintSize = () => {
+    const box = size();
+    centre.textContent = box ? `${Math.round(box.w)} \u00d7 ${Math.round(box.h)}` : "Element";
+  };
+  centre.addEventListener("hm-layout", paintSize);
+  painters.push(paintSize);
   if (inner) {
     outer.core.append(inner.el);
-    inner.core.append(h("div", { class: "hm-bs-bm__el", "aria-hidden": "true", text: "Element" }));
-  } else if (outer) outer.core.append(h("div", { class: "hm-bs-bm__el", "aria-hidden": "true", text: "Element" }));
+    inner.core.append(centre);
+  } else if (outer) outer.core.append(centre);
 
   // Presets set the padding: all four sides when linked, else top and bottom.
   const pad = rings.find((r) => r.name === "padding");
@@ -173,12 +184,13 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
   }
   if (rings.length) {
     const link = actButton("", { class: "hm-bs-linkbtn", "aria-label": "Link all sides", "aria-pressed": String(linked.on), title: "Link all sides" });
+    link.append(linkIcon());
     link.addEventListener("click", () => {
       linked.on = !linked.on;
       link.setAttribute("aria-pressed", String(linked.on));
       painters.forEach((p) => p());
     });
-    tools.push(link);
+    tools.push(link, ...built.map((b) => b.reset));
   }
   const el = h("div", { class: `hm-bs-bm${inner ? " hm-bs-bm--nested" : ""}` }, ...(tools.length ? [h("div", { class: "hm-bs-bm__tools" }, ...tools)] : []), ...(outer ? [outer.el] : []));
   return { el, keys: rings.flatMap((r) => r.keys), paint: () => painters.forEach((p) => p()) };

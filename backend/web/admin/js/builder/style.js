@@ -145,7 +145,7 @@ let refocus = false; // a State choice remounts the panel: the new State select 
  * the screen's setStyle command (bp defaults to the one being edited); a refused value is
  * flagged and never committed. Controls update in place after a commit: nothing redraws.
  */
-export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, user = "", onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
+export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, user = "", size = () => null, onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
   if (!table) return h("p", { class: "hm-muted", text: "Loading style options…" });
   const bp = state ? `${device}:${state}` : device; // the style-map key every control reads and writes
   const lab = (k) => (state && !k.includes(":") ? `Normal, ${atLabel(k)}` : atLabel(k));
@@ -280,6 +280,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       valid: check,
       hint: errorHint(entries[0]),
       announce,
+      size,
     });
     boxModels.push(box);
     return box;

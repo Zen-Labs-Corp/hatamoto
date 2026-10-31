@@ -169,6 +169,10 @@ function start(root, boot) {
     reuse: boot.reuse,
     select: (id) => select(id),
     rename: (id, value) => rename(id, value, nameSource(find(st.doc, id) ?? {}, st.doc.nodes.some((n) => n.id === id)).inner),
+    size: () => {
+      const b = canvas.selectionBox;
+      return b ? { w: b.w, h: b.h } : null;
+    },
     announce,
   });
 
@@ -226,6 +230,7 @@ function start(root, boot) {
         if (drag) drag.start(e, spec);
         else handleDown = { e, spec }; // pressed before the drag chunk arrived: it starts when it does, if still held
       },
+      onLayout: () => panel.querySelectorAll("[data-hm-size]").forEach((el) => el.dispatchEvent(new CustomEvent("hm-layout"))), // the box model's centre shows the selection's size
       onNodeText: (id, prop, value) => {
         if (!canEditText(boot.kinds, find(st.doc, id), prop)) return;
         const loop = loopAbove(st.doc, id);

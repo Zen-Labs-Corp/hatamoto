@@ -48,7 +48,7 @@ const PADDING = ["pt", "pr", "pb", "pl"];
 const MARGIN = ["mt", "mr", "mb", "ml"];
 
 // own: key -> value set here; inh: key -> inherited value; ok(entry, value) the table's verdict.
-const make = (keys, { own = {}, inh = {}, ok = () => true, refuse = false } = {}) => {
+const make = (keys, { own = {}, inh = {}, ok = () => true, refuse = false, size } = {}) => {
   const calls = [];
   const said = [];
   const entries = full.filter((e) => keys.includes(e.key));
@@ -57,7 +57,7 @@ const make = (keys, { own = {}, inh = {}, ok = () => true, refuse = false } = {}
     entries, name: (k) => k, palette: { colors: [], space: SPACE, fs: {} }, stateOf,
     commit: (k, v, o) => (calls.push({ one: [k, v], opts: o }), true),
     commitBatch: (w, o) => (calls.push({ batch: w.map((x) => [x.key, x.value]), opts: o }), true),
-    valid: ok, hint: "Use a length like 12px.", announce: (t) => said.push(t),
+    valid: ok, hint: "Use a length like 12px.", announce: (t) => said.push(t), size,
   });
   m.paint();
   const find = (pred) => { const r = []; m.el.walk((n) => pred(n) && r.push(n)); return r; };
@@ -262,4 +262,24 @@ test("a preset says which sides it writes: top and bottom while unlinked, all pa
   b.btn("Link all sides").fire("click");
   assert.ok(b.btn("Padding: M"));
   assert.equal(b.btn("Padding top and bottom: M"), undefined);
+});
+
+test("the centre shows the selection's rendered size and follows the canvas layout; without one it stays neutral", () => {
+  let box = { w: 1280.4, h: 460.2 };
+  const b = make([...MARGIN, ...PADDING], { size: () => box });
+  const centre = b.find((n) => n.className === "hm-bs-bm__el")[0];
+  assert.equal(centre.textContent, "1280 \u00d7 460");
+  box = { w: 1280, h: 141 };
+  centre.fire("hm-layout");
+  assert.equal(centre.textContent, "1280 \u00d7 141");
+  const none = make(PADDING);
+  assert.equal(none.find((n) => n.className === "hm-bs-bm__el")[0].textContent, "Element");
+});
+
+test("Reset sits in the tools row beside the presets, not inside a ring", () => {
+  const b = make([...MARGIN, ...PADDING], { own: { pt: "8px" } });
+  const reset = b.btn("Reset padding");
+  assert.ok(b.find((n) => n.className === "hm-bs-bm__tools")[0].kids.includes(reset));
+  assert.equal(reset.hidden, false);
+  assert.equal(b.btn("Reset margin").hidden, true);
 });
