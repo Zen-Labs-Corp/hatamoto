@@ -36,5 +36,6 @@ test("the ring caption has its own band above the top number and the size text w
   assert.doesNotMatch(/^\.hm-bs-bm__t \{([^}]*)\}/m.exec(css)?.[1] ?? "", /position:\s*absolute/);
   const el = /^\.hm-bs-bm__el \{([^}]*)\}/m.exec(css)?.[1] ?? "";
   assert.doesNotMatch(el, /white-space:\s*nowrap/);
-  assert.match(el, /overflow-wrap:\s*anywhere/);
+  assert.match(el, /overflow:\s*hidden/);
+  assert.match(css, /^\.hm-bs-bm__c:has\(> \.hm-bs-bm__el\) \{[^}]*overflow:\s*hidden/m, "what does not fit is clipped, never painted over the side numbers");
 });

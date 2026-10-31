@@ -247,6 +247,35 @@ await check("back on Desktop, select the heading: header reads Block in <section
   return `"${sub}"`;
 });
 
+await check("narrowest inspector (16rem): ring captions clear of the top numbers, the size text inside its box", async () => {
+  await select(sec.id); // the section's Spacing group is open
+  await p.locator('[data-hm-bs-split="insp"]').focus();
+  await p.keyboard.press("Home");
+  await settle(400);
+  const r = await p.evaluate(() => {
+    const out = [];
+    for (const ring of document.querySelectorAll(".hm-bs-bm__m, .hm-bs-bm__p")) {
+      const t = ring.querySelector(".hm-bs-bm__t")?.getBoundingClientRect();
+      const n = ring.querySelector(".hm-bs-bm__n--top")?.getBoundingClientRect();
+      if (t && n && t.bottom > n.top + 0.5 && t.right > n.left && t.left < n.right) out.push(`${ring.className} caption overlaps the top number`);
+    }
+    const el = document.querySelector(".hm-bs-bm__el");
+    if (el) {
+      const e = el.parentElement.getBoundingClientRect(); // the centre cell clips the size box
+      for (const side of ["left", "right"]) {
+        const n = el.closest(".hm-bs-bm__p, .hm-bs-bm__m").querySelector(`.hm-bs-bm__n--${side}`).getBoundingClientRect();
+        if (e.right > n.left + 0.5 && e.left < n.right - 0.5 && e.bottom > n.top && e.top < n.bottom) out.push(`size box overlaps the ${side} number`);
+      }
+    }
+    return { out, w: document.querySelector('[data-hm-bs-pane="insp"]').getBoundingClientRect().width };
+  });
+  if (SHOTS) await p.locator(".hm-bs-bm:visible").first().screenshot({ path: path.join(SHOTS, "inspector-narrow.png") });
+  await p.locator('[data-hm-bs-split="insp"]').press("Enter"); // back to the default width
+  await settle(300);
+  if (r.out.length) throw new Error(r.out.join("; "));
+  return `inspector ${Math.round(r.w)}px wide, no overlap, no overflow`;
+});
+
 await check("the page is left as found: undo everything, then reload discarding the unsaved state", async () => {
   await p.evaluate(() => document.activeElement?.blur?.());
   await p.keyboard.press("Escape");
