@@ -106,19 +106,19 @@ func (a *Admin) localeRowActions(entries []siteconfig.LocaleEntry, i int, def st
 	e := entries[i]
 	base := a.url("settings", "locales")
 	acts := []ui.Action{{Label: "Edit", Href: base + "/edit/" + e.Tag}}
-	move := func(label string, to int) {
+	move := func(label, dir string, to int) {
 		order := make([]string, len(entries))
 		for k, x := range entries {
 			order[k] = x.Tag
 		}
 		order[i], order[to] = order[to], order[i]
-		acts = append(acts, ui.Action{Label: label, Post: base + "/order", Fields: map[string]string{"order": strings.Join(order, ",")}})
+		acts = append(acts, ui.Action{Label: label, Post: base + "/order", Fields: map[string]string{"order": strings.Join(order, ","), "moved": e.Tag, "dir": dir}})
 	}
 	if i > 0 {
-		move("Move up", i-1)
+		move("Move up", "up", i-1)
 	}
 	if i < len(entries)-1 {
-		move("Move down", i+1)
+		move("Move down", "down", i+1)
 	}
 	if e.Tag != def {
 		pub := ui.Action{Label: "Make public", Post: base + "/update/" + e.Tag, Fields: map[string]string{"public": "true"}}
@@ -333,7 +333,11 @@ func (a *Admin) handleLocaleOrder(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusUnprocessableEntity, "Not saved", "The order must list each of your locales once. Reload the page and try again.")
 		return
 	}
-	a.saveLocaleList(w, r, cfg, entries, "Locale order saved.")
+	done := "Locale order saved."
+	if moved, dir := r.PostFormValue("moved"), r.PostFormValue("dir"); (dir == "up" || dir == "down") && slices.ContainsFunc(entries, func(e siteconfig.LocaleEntry) bool { return e.Tag == moved }) {
+		done = "Moved " + localeDisplayName(moved) + " " + dir + "."
+	}
+	a.saveLocaleList(w, r, cfg, entries, done)
 }
 
 // saveLocaleList stores entries and answers the Locales tab: a flash and a

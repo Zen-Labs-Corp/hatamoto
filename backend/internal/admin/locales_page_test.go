@@ -399,3 +399,20 @@ func TestLocalesTableBadgesDefaultAndSearchEngineDefault(t *testing.T) {
 		t.Errorf("combined row: %s", r)
 	}
 }
+
+func TestLocaleOrderFlashNamesTheLocaleAndDirection(t *testing.T) {
+	t.Parallel()
+	g, _ := localeFixture(t)
+	f := url.Values{"order": {"fr,en"}, "moved": {"fr"}, "dir": {"up"}}
+	rec := g.do("POST", "/admin/settings/locales/order", "owner-token", f, nil)
+	if rec.Code != 303 {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	if body := followFlashTo(g, "/admin/settings/locales", rec); !strings.Contains(body, "Moved French up.") {
+		t.Error("the flash does not name the locale and direction")
+	}
+	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `name="moved" value="fr"`) || !strings.Contains(body, `name="dir" value="down"`) {
+		t.Error("the row menu does not tell the server which locale moved")
+	}
+}
