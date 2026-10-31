@@ -6,16 +6,23 @@
 .hm-themecard:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-themecard__shot { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 10; overflow: hidden; border-bottom: 1px solid var(--border); background: var(--color-kasumi); }
 .hm-themecard__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.hm-themecard__tile { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+/* The fallback miniature when a theme has no screenshot: a static, token-only page sketch. */
+.hm-themecard__mini { display: flex; flex-direction: column; gap: var(--space-2); box-sizing: border-box; width: 76%; height: 80%; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-themecard__minibar { display: block; height: var(--space-2); border-radius: var(--radius-sm); background: var(--color-sumi); }
+.hm-themecard__minihead { display: block; width: 55%; height: var(--space-3); border-radius: var(--radius-sm); background: var(--color-accent); }
+.hm-themecard__miniline { display: block; height: var(--space-1); border-radius: var(--radius-sm); background: var(--border-field); }
+.hm-themecard__miniline--short { width: 70%; }
+.hm-themecard__minicards { display: flex; flex: 1; gap: var(--space-2); min-height: 0; }
+.hm-themecard__minicards > span { flex: 1; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--color-kasumi); }
 .hm-themecard__body { display: flex; flex-direction: column; flex: 1; gap: var(--space-2); min-width: 0; padding: var(--space-4); overflow-wrap: anywhere; }
 .hm-themecard__name { font-weight: var(--weight-semibold); }
 .hm-themecard__by { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-themecard__desc { font-size: var(--text-sm); color: var(--text-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2lh; }
 .hm-themecard__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: auto; padding: var(--space-3) var(--space-4) var(--space-4); font-size: var(--text-xs); color: var(--text-muted); }
-.hm-themecard__type { font-size: var(--text-xs); color: var(--text-muted); }
-.hm-themecard__action { font-weight: var(--weight-semibold); color: var(--text-body); }
-.hm-themecard__action--live, .hm-themecard__action--installed { color: var(--color-success); }
-.hm-themecard__action--update { color: var(--color-accent); }
+.hm-themecard__type { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); }
+.hm-themecard__action { display: inline-flex; align-items: center; padding: 0 var(--space-3); border: 1px solid var(--border-field); border-radius: var(--radius-full); font-weight: var(--weight-semibold); color: var(--text-body); }
+.hm-themecard__action--live, .hm-themecard__action--installed { color: var(--color-success); border-color: currentColor; }
+.hm-themecard__action--update { color: var(--color-accent); border-color: currentColor; }
 .hm-themecard__action--install { color: var(--text-body); }
 /* The theme detail: large rounded screenshot, then the muted note. */
 .hm-themebrowse__shot { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--color-kasumi); }

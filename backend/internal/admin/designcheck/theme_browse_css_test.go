@@ -23,6 +23,7 @@ func TestThemeBrowseCSS(t *testing.T) {
 		"object-fit: cover",
 		"object-position: top",
 		"var(--color-kasumi)",
+		"hm-themecard__mini",
 		"var(--color-success)",
 		"var(--color-accent)",
 	} {
