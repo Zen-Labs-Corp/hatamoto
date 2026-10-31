@@ -41,12 +41,17 @@ func TestGoogleStats_Integration(t *testing.T) {
 	rg := Range{From: day1, To: day2}
 	pathOf := func(s string) string { return "/" + marker + "-" + s }
 	var trackingStart time.Time
-	if err := db.Pool().QueryRow(ctx, `SELECT started_at FROM hatamoto_agent_tracking`).Scan(&trackingStart); err != nil {
+	if err := db.Pool().QueryRow(ctx, `SELECT started_at FROM hatamoto_agent_search_tracking`).Scan(&trackingStart); err != nil {
+		t.Fatal(err)
+	}
+	var aiTrackingStart time.Time
+	if err := db.Pool().QueryRow(ctx, `SELECT started_at FROM hatamoto_agent_tracking`).Scan(&aiTrackingStart); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
 		p := db.Pool()
-		_, _ = p.Exec(ctx, `UPDATE hatamoto_agent_tracking SET started_at = $1`, trackingStart)
+		_, _ = p.Exec(ctx, `UPDATE hatamoto_agent_search_tracking SET started_at = $1`, trackingStart)
+		_, _ = p.Exec(ctx, `UPDATE hatamoto_agent_tracking SET started_at = $1`, aiTrackingStart)
 		_, _ = p.Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE path LIKE $1 OR day IN ($2, $3)`, "/"+marker+"%", day1, day2)
 		_, _ = p.Exec(ctx, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, schemaID) // cascades first crawl rows
 		_, _ = p.Exec(ctx, `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, schemaID)
@@ -151,7 +156,7 @@ func TestGoogleStats_Integration(t *testing.T) {
 			($2,'googlebot','2020-03-10 20:00:00+00','2020-03-10 04:00:00+00'),
 			($3,'googlebot','2020-03-11 10:00:00+00','2020-03-10 04:00:00+00'),
 			($4,'bingbot','2020-03-10 05:00:00+00','2020-03-10 04:00:00+00')`, crawled, stale, errPage, never)
-		exec(`UPDATE hatamoto_agent_tracking SET started_at = '2020-01-01'`)
+		exec(`UPDATE hatamoto_agent_search_tracking SET started_at = '2020-01-01 00:00:00+00'`)
 		k, err := repo.GoogleKPIs(ctx, rg)
 		if err != nil {
 			t.Fatal(err)
@@ -175,8 +180,16 @@ func TestGoogleStats_Integration(t *testing.T) {
 		if k.MedianFirstCrawl == nil || *k.MedianFirstCrawl != 16*time.Hour {
 			t.Errorf("median = %v, want 16h", k.MedianFirstCrawl)
 		}
+		// The AI first-crawl tracking date plays no part: only the search one does.
+		exec(`UPDATE hatamoto_agent_tracking SET started_at = '2030-01-01'`)
+		if k, err = repo.GoogleKPIs(ctx, rg); err != nil || k.MedianFirstCrawl == nil || *k.MedianFirstCrawl != 16*time.Hour {
+			t.Errorf("median with a late AI tracking start = %v (%v), want 16h", k.MedianFirstCrawl, err)
+		}
+		if at, err := repo.SearchTrackingStart(ctx); err != nil || at == nil || !at.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) {
+			t.Errorf("search tracking start = %v (%v)", at, err)
+		}
 		// A page published before tracking began has no latency.
-		exec(`UPDATE hatamoto_agent_tracking SET started_at = '2020-03-10 12:00:00+00'`)
+		exec(`UPDATE hatamoto_agent_search_tracking SET started_at = '2020-03-10 12:00:00+00'`)
 		if k, err = repo.GoogleKPIs(ctx, rg); err != nil || k.MedianFirstCrawl != nil {
 			t.Errorf("median before tracking = %v (%v), want nil", k.MedianFirstCrawl, err)
 		}

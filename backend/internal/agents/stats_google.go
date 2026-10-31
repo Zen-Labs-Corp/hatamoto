@@ -70,7 +70,7 @@ type GoogleKPIs struct {
 	PagesCrawled int
 	Published    int
 	// MedianFirstCrawl is the median publish -> first Googlebot crawl of pages
-	// published since tracking began and first crawled in the range. Nil when
+	// published since search tracking began and first crawled in the range. Nil when
 	// there is none.
 	MedianFirstCrawl *time.Duration
 }
@@ -101,10 +101,10 @@ func (r *StatsRepository) GoogleKPIs(ctx context.Context, rg Range) (GoogleKPIs,
 	var secs *float64
 	if err := conn.QueryRow(ctx, `
 		SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM f.first_at - f.published_at))
-		FROM hatamoto_agent_search_first_crawl f, hatamoto_agent_tracking t
+		FROM hatamoto_agent_search_first_crawl f, hatamoto_agent_search_tracking t
 		WHERE f.agent_id = $3 AND f.published_at IS NOT NULL AND f.published_at >= t.started_at
-		  AND f.first_at >= f.published_at AND f.first_at >= $1::date AND f.first_at < $2::date + 1`,
-		rg.From, rg.To, googlebotID).Scan(&secs); err != nil {
+		  AND f.first_at >= f.published_at AND f.first_at >= $1 AND f.first_at < $2`,
+		rg.From, rg.endExclusive(), googlebotID).Scan(&secs); err != nil {
 		return k, fmt.Errorf("google median first crawl: %w", err)
 	}
 	if secs != nil {
@@ -235,6 +235,22 @@ func (r *StatsRepository) GooglePages(ctx context.Context, rg Range, filter stri
 		out = append(out, p)
 	}
 	return out, total, rows.Err()
+}
+
+// SearchTrackingStart is when search first-crawl recording began: pages
+// published before it have no meaningful publish -> first crawl latency. Nil
+// when the table has no row.
+func (r *StatsRepository) SearchTrackingStart(ctx context.Context) (*time.Time, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get connection: %w", err)
+	}
+	defer conn.Release()
+	var at *time.Time
+	if err := conn.QueryRow(ctx, `SELECT min(started_at) FROM hatamoto_agent_search_tracking`).Scan(&at); err != nil {
+		return nil, fmt.Errorf("search tracking start: %w", err)
+	}
+	return at, nil
 }
 
 // SearchFirstCrawl returns when a search engine first crawled the page (the

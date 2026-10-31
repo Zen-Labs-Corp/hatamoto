@@ -184,7 +184,7 @@ Visits page redirects here; its nav item is gone.
   written only for a verified, served (status 200 to 399) search hit with an
   entity; a later verification of an older hit can only lower `first_at`. It
   fires no plugin hook, and `hatamoto_agent_first_crawl` and `agent.first_crawl`
-  stay AI only. The median uses pages published since tracking began.
+  stay AI only. The median uses pages published since search tracking began (`hatamoto_agent_search_tracking`, written by the migration that adds the table; not the AI tracking date).
 - Search performance (impressions, clicks, position, index status) shows only
   when an integration supplies it (see [PLUGIN_API.md](PLUGIN_API.md#search-performance-provider-internal-not-yet-a-stable-plugin-surface));
   otherwise one notice says search performance is not connected.
