@@ -53,6 +53,24 @@ type GroupStore interface {
 	SetOriginal(ctx context.Context, id uuid.UUID) error
 }
 
+// EntityCopier is entity.CopyService as the Create copy screens use it.
+type EntityCopier interface {
+	CreateCopy(ctx context.Context, userID, srcID uuid.UUID, o entity.CopyOptions) (*entity.Entity, error)
+	MissingParents(ctx context.Context, srcID uuid.UUID, locale string) ([]entity.MissingParent, error)
+}
+
+// TermGrouper is the locale and translation links of terms, with creating a
+// term copy, as the term page uses them. Admin-only: nothing public reads it.
+type TermGrouper interface {
+	Locale(ctx context.Context, id uuid.UUID) (string, error)
+	SetLocale(ctx context.Context, id uuid.UUID, locale string) error
+	Members(ctx context.Context, id uuid.UUID) ([]taxonomy.TermMember, error)
+	Candidates(ctx context.Context, id uuid.UUID, q string, limit int) ([]taxonomy.TermMember, error)
+	Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, error)
+	Unlink(ctx context.Context, id uuid.UUID) error
+	CreateTermCopy(ctx context.Context, srcID uuid.UUID, locale, name, slug string) (*taxonomy.Term, error)
+}
+
 // TermStore is taxonomy.Service as the taxonomy screens and the term picker use it.
 type TermStore interface {
 	ListTerms(ctx context.Context, kind, search string, page, perPage int) (*taxonomy.TermListResult, error)
@@ -106,10 +124,16 @@ type ContentDeps struct {
 	Entities EntityStore
 	// Groups links the translated copies of an entry. Nil hides the
 	// Translations tab and page.
-	Groups  GroupStore
-	Terms   TermStore
-	Media   MediaStore
-	Authors AuthorStore
+	Groups GroupStore
+	// Copier creates linked copies in other locales. Nil turns Create copy
+	// off everywhere (dialog, bulk, Start with).
+	Copier EntityCopier
+	// TermGroups gives terms a locale and translated copies. Nil hides the
+	// term page's Locale and copies.
+	TermGroups TermGrouper
+	Terms      TermStore
+	Media      MediaStore
+	Authors    AuthorStore
 	// PublicPath is the public URL path of an entity ("" when unknown).
 	PublicPath func(ctx context.Context, e *entity.Entity) string
 	// PublicPaths is PublicPath for many entities of one schema at once (one
