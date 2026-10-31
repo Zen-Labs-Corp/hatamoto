@@ -90,7 +90,8 @@ func (s *Service) RecordTraffic(ev Event, channel, source string) {
 // bump adds c to a row; s.mu must be held.
 func (s *Service) bump(day time.Time, dim Dim, k1, k2 string, c Counts) {
 	k := trafficKey{day, dim, k1, k2}
-	if k1 != KeyOther || k2 != "" {
+	// Channel, device and country have small fixed key sets: never capped.
+	if (k1 != KeyOther || k2 != "") && dim != DimChannel && dim != DimDevice && dim != DimCountry {
 		dd := dayDim{day, dim}
 		admitted := s.trafficKeys[dd]
 		if _, ok := admitted[[2]string{k1, k2}]; !ok {

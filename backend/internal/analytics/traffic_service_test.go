@@ -192,3 +192,26 @@ func TestRecordTrafficKeyAfterManyOthersKeepsOwnRow(t *testing.T) {
 		t.Fatalf("late key folded: %+v", m["landing|(other)|"])
 	}
 }
+
+func TestRecordTrafficCountryUncapped(t *testing.T) {
+	repo := &fakeTrafficRepo{}
+	svc := newTestService(&fakeRepo{})
+	svc.SetTrafficRepo(repo)
+	n := maxKeysPerDim + 20
+	for i := 0; i < n; i++ {
+		svc.RecordTraffic(Event{Entry: true, Device: "other", Country: fmt.Sprintf("C%d", i)}, ChannelDirect, SourceNone)
+	}
+	_ = svc.Flush(context.Background())
+	var countries int
+	for _, r := range repo.rows {
+		if r.Dim == DimCountry {
+			countries++
+			if r.K1 == KeyOther {
+				t.Fatal("country folded into (other)")
+			}
+		}
+	}
+	if countries != n {
+		t.Fatalf("country rows = %d, want %d", countries, n)
+	}
+}
