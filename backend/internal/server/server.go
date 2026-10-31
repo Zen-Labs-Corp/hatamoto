@@ -552,6 +552,13 @@ func (s *Server) setupDependencies() {
 			}
 		}
 
+		// Crawler hits recorded without a page get linked to it by path, daily.
+		if workerJobEnabled(attributionBackfillJob) {
+			if err := s.scheduler.ScheduleJitter(attributionBackfillJob, 24*time.Hour, time.Hour, 10*time.Minute, s.runAttributionBackfillJob); err != nil {
+				s.logger.Error("agent attribution backfill not scheduled", "error", err)
+			}
+		}
+
 		// Batched prune of high-churn tables (404 log 90d).
 		if workerJobEnabled("prune") {
 			s.scheduler.SetPruneWorker(worker.NewPruneWorker(s.db, 5000, s.logger))
@@ -818,6 +825,12 @@ func (s *Server) Start() error {
 	}
 	if s.db != nil {
 		go s.runContentEpochPoller(s.lifecycleCtx)
+	}
+
+	// Crawler hits that predate page attribution are linked once at start, on
+	// every install (independent of the worker), in the background.
+	if s.db != nil && s.agentWriter != nil && workerJobEnabled(attributionBackfillJob) {
+		go func() { _ = s.runAttributionBackfillJob(s.lifecycleCtx) }()
 	}
 
 	// Optional Caddy access-log tailer: dark unless AGENT_LOG_INGEST is on and

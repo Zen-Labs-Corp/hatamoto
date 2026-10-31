@@ -6,8 +6,9 @@
 {{with .Body}}<div class="hm-stack">
 <h2 class="hm-visually-hidden">Crawler activity</h2>
 {{with .Verify}}{{$v := .}}{{template "hm/callout-start" (dict "Kind" .Kind "ID" "w-cr-verify" "Title" .Title)}}<p>{{.Lead}}{{if $v.Href}}<a href="{{$v.Href}}">{{$v.LinkText}}</a>{{end}}{{.Tail}}</p>{{template "hm/callout-end"}}{{end}}
+<section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
 {{template "hm/aia-chart" .Hero}}
-{{template "hm/card-start" (dict "ID" "w-cr-list" "Title" "Agents by purpose" "Description" "Allow or block a purpose, then save once. Select an agent name for details. Only the site owner can change the robots policy." "Heading" "h3")}}
+{{template "hm/card-start" (dict "ID" "w-cr-list" "Title" "Crawlers by purpose" "Description" "Allow or block a purpose, then save once. Select an agent name for details. Only the site owner can change the robots policy." "Heading" "h3")}}
 {{if .NoFetches}}{{template "hm/empty" (dict "Title" "No data for this period." "Compact" true)}}{{end}}
 {{$form := dict "CSRF" $.CSRF "Owner" .Owner "Return" .Return}}{{template "hm/aia-policy-start" $form}}
 {{template "hm/aia-agents" .Agents}}

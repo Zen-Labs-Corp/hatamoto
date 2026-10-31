@@ -11,10 +11,12 @@ GET /admin/analytics/data/agent.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/agents.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/errors.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/first-crawls.json -> admin.(*Admin).jsonEndpoint.func1
+GET /admin/analytics/data/google.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/overview.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/pages.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/referrals.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/robots.json -> admin.(*Admin).robotsJSON-fm
+GET /admin/analytics/google -> admin.(*Admin).analyticsSection.func1
 GET /admin/analytics/health -> admin.(*Admin).analyticsSection.func1
 GET /admin/analytics/pageviews -> admin.redirect301.func1
 GET /admin/analytics/referrals -> admin.(*Admin).analyticsSection.func1

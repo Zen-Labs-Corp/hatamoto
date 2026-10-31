@@ -72,7 +72,11 @@ func NewVerifier(ranges *RangeStore, resolver Resolver) *Verifier {
 //   - no usable IP, or an agent with neither ranges nor rDNS: unverifiable
 //   - ranges loaded and ip inside: verified
 //   - ranges only, own keys not loaded: pending (never accuse; never terminal)
-//   - ranges loaded and ip outside: spoofed, even when the agent also has rDNS
+//   - ranges loaded and ip outside, agent without rDNS: spoofed
+//   - ranges loaded and ip outside, agent with rDNS: the ranges are only the
+//     fast path (Google, Bing and Apple publish rDNS as the primary method and
+//     ranges as a convenience, so a crawler can come from an address the list
+//     lacks); forward-confirmed reverse DNS decides, as below
 //   - rDNS (alone, or when the ranges are not loaded): PTR must end in an agent suffix and
 //     resolve forward to ip; mismatch/NXDOMAIN is spoofed; a transient DNS
 //     error is pending.
@@ -85,28 +89,35 @@ func (v *Verifier) Verify(ctx context.Context, a *Agent, ip netip.Addr) State {
 		return StateUnverifiable
 	}
 
-	loaded := false
 	if len(a.IPRanges) > 0 {
-		var found bool
-		found, loaded = v.ranges.Contains(a.IPRanges, ip)
+		found, loaded := v.ranges.Contains(a.IPRanges, ip)
 		if found {
 			return StateVerified
 		}
-		if loaded {
-			// A loaded list is authoritative: a miss is spoofed. Falling back to
-			// rDNS here would let any cloud VM with a provider-assigned PTR pass.
-			return StateSpoofed
-		}
 		if len(a.RDNS) == 0 {
+			if loaded {
+				return StateSpoofed // a loaded list without a second method: a miss is spoofed
+			}
 			// Own ranges not downloaded yet: undecided. The worker turns a pair
 			// still pending after pendingMaxAge into unverifiable.
 			return StatePending
 		}
+		// A range miss falls through to FCrDNS against the operator's own
+		// suffixes. A cloud VM with a provider-assigned PTR still fails: that
+		// name is not under the operator's suffix, and the PTR must resolve
+		// forward to the same address, so a forged PTR cannot pass either.
+		// Only the crawler suffixes count here: wider ones (google.com) also
+		// name fetchers that act for third parties.
+		suffixes := a.RDNS
+		if len(a.RDNSCrawler) > 0 {
+			suffixes = a.RDNSCrawler
+		}
+		return v.verifyRDNS(ctx, a, ip, suffixes)
 	}
-	return v.verifyRDNS(ctx, a, ip)
+	return v.verifyRDNS(ctx, a, ip, a.RDNS)
 }
 
-func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr) State {
+func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr, suffixes []string) State {
 	key := a.ID + "|" + ip.String()
 	now := v.now()
 	v.cacheMu.Lock()
@@ -132,7 +143,7 @@ func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr) Stat
 	}
 	for _, name := range names {
 		host := strings.ToLower(strings.TrimSuffix(name, "."))
-		if !hasAnySuffix(host, a.RDNS) {
+		if !hasAnySuffix(host, suffixes) {
 			continue
 		}
 		lctx, cancel := context.WithTimeout(ctx, dnsLookupTimeout) // per lookup, not per chain

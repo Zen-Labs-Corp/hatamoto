@@ -36,6 +36,18 @@ func (f *fakeAdminStore) Series(_ context.Context, _ Range, g string) ([]SeriesP
 	f.gotGroup = g
 	return nil, f.err
 }
+func (f *fakeAdminStore) SeriesWithSearch(context.Context, Range, string) ([]SeriesPoint, error) {
+	return nil, f.err
+}
+func (f *fakeAdminStore) GooglebotStatusSeries(context.Context, Range) ([]SeriesPoint, error) {
+	return nil, f.err
+}
+func (f *fakeAdminStore) GoogleKPIs(context.Context, Range) (GoogleKPIs, error) {
+	return GoogleKPIs{}, f.err
+}
+func (f *fakeAdminStore) GooglePages(context.Context, Range, string, int, int) ([]GooglePageRow, int, error) {
+	return nil, 0, f.err
+}
 func (f *fakeAdminStore) TopAgents(context.Context, Range, int) ([]AgentTotals, error) {
 	return nil, f.err
 }

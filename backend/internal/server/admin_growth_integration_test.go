@@ -467,7 +467,7 @@ func TestAdminGrowthIntegration(t *testing.T) {
 			t.Errorf("bad range: %d", code)
 		}
 		// the Crawlers page lists the purposes, and Health lists the failing 404 with a redirect link
-		if page := admin("GET", "/admin/analytics/crawlers?from="+from+"&to="+to, nil); page.Code != 200 || !strings.Contains(page.Body.String(), "Agents by purpose") {
+		if page := admin("GET", "/admin/analytics/crawlers?from="+from+"&to="+to, nil); page.Code != 200 || !strings.Contains(page.Body.String(), "Crawlers by purpose") {
 			t.Errorf("crawlers page: %d", page.Code)
 		}
 		if errs := admin("GET", "/admin/analytics/health?from="+from+"&to="+to, nil); !strings.Contains(errs.Body.String(), "source=%2Fmissing-"+sfx) {

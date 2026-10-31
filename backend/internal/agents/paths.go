@@ -15,3 +15,16 @@ func PublicPath(p string) (string, bool) {
 	}
 	return "", false
 }
+
+// IsFilePath reports whether p is a crawler-facing file (robots.txt, llms.txt,
+// sitemaps) rather than a page. Files never belong to an entity, so they skip
+// the resolver.
+func IsFilePath(p string) bool {
+	p = strings.TrimPrefix(p, "/api/v1/public")
+	switch {
+	case p == "/robots.txt", p == "/llms.txt", p == "/llms-full.txt", p == "/sitemap.xml",
+		strings.HasPrefix(p, "/sitemap-") && strings.HasSuffix(p, ".xml"):
+		return true
+	}
+	return false
+}

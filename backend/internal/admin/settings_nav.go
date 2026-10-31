@@ -50,7 +50,7 @@ var settingsLive = map[string]bool{
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
-	"ai-overview": true, "ai-crawlers": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
+	"ai-overview": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
 	"seo-general": true, "seo-titles": true,
 }
@@ -159,17 +159,20 @@ func themeFor(prefix, role string) []SettingsSection { return themeArea.forPrefi
 
 var settingsArea = &adminArea{ID: "settings", Label: "Settings", Entry: "/settings", Registry: settingsRegistry}
 
-// analyticsRegistry is the AI analytics sidebar: one tab per section, no role
+// analyticsRegistry is the Analytics sidebar: one tab per section, no role
 // gate (the pages are open to every signed-in role).
 var analyticsRegistry = []settingsSectionDef{
 	{ID: "ai-overview", Label: "Overview", Icon: "analytics", Desc: "Are AI systems reading your site?", Tabs: []settingsTabDef{
 		{ID: "ai-overview", Label: "Overview", Final: "/analytics"},
 	}},
+	{ID: "ai-content", Label: "Content", Icon: "file-text", Desc: "What are they reading?", Tabs: []settingsTabDef{
+		{ID: "ai-content", Label: "Content", Final: "/analytics/content"},
+	}},
 	{ID: "ai-crawlers", Label: "Crawlers", Icon: "bot", Desc: "Who is reading your site?", Tabs: []settingsTabDef{
 		{ID: "ai-crawlers", Label: "Crawlers", Final: "/analytics/crawlers"},
 	}},
-	{ID: "ai-content", Label: "Content", Icon: "file-text", Desc: "What are they reading?", Tabs: []settingsTabDef{
-		{ID: "ai-content", Label: "Content", Final: "/analytics/content"},
+	{ID: "ai-google", Label: "Google", Icon: "search", Desc: "What is Google doing?", Tabs: []settingsTabDef{
+		{ID: "ai-google", Label: "Google", Final: "/analytics/google"},
 	}},
 	{ID: "ai-referrals", Label: "Referrals", Icon: "link", Desc: "What comes back?", Tabs: []settingsTabDef{
 		{ID: "ai-referrals", Label: "Referrals", Final: "/analytics/referrals"},
@@ -179,7 +182,7 @@ var analyticsRegistry = []settingsSectionDef{
 	}},
 }
 
-var analyticsArea = &adminArea{ID: "analytics", Label: "AI analytics", Entry: "/analytics", Registry: analyticsRegistry}
+var analyticsArea = &adminArea{ID: "analytics", Label: "Analytics", Entry: "/analytics", Registry: analyticsRegistry}
 
 // adminAreas are the areas with a secondary sidebar.
 var adminAreas = []*adminArea{settingsArea, themeArea, analyticsArea}

@@ -73,6 +73,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 		{"redirects-explain", "/admin/settings/redirects/explain?path=%2Fold"},
 		{"analytics-overview", "/admin/analytics?from=2026-01-01&to=2026-01-03"},
 		{"analytics-crawlers", "/admin/analytics/crawlers?from=2026-01-01&to=2026-01-03"},
+		{"analytics-google", "/admin/analytics/google?from=2026-01-01&to=2026-01-03"},
 		{"analytics-content", "/admin/analytics/content?from=2026-01-01&to=2026-01-03"},
 		{"analytics-referrals", "/admin/analytics/referrals?from=2026-01-01&to=2026-01-03"},
 		{"analytics-health", "/admin/analytics/health?from=2026-01-01&to=2026-01-03"},

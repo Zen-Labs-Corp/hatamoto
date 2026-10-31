@@ -40,7 +40,7 @@ func TestKnownWorkerJobsIncludeAgentHits(t *testing.T) {
 	for _, j := range knownWorkerJobs {
 		have[j] = true
 	}
-	for _, want := range []string{"agent_hits_partition", "agent_hits_maintenance", "agent_ranges_refresh", "agent_verify"} {
+	for _, want := range []string{"agent_hits_partition", "agent_hits_maintenance", "agent_ranges_refresh", "agent_verify", "agent_attribution_backfill"} {
 		if !have[want] {
 			t.Errorf("knownWorkerJobs missing %q", want)
 		}

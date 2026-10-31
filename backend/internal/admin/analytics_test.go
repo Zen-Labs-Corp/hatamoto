@@ -23,6 +23,18 @@ type fakeAgentStats struct {
 	mu     sync.Mutex
 	denied []agents.Purpose
 	series []agents.SeriesPoint
+	// searchSeries is what SeriesWithSearch adds to series (search engine hits).
+	searchSeries []agents.SeriesPoint
+	// extraAgents are added to what Agents answers (search engines, social, SEO tools).
+	extraAgents []agents.AgentTotals
+	// noAI makes Overview report no AI fetches.
+	noAI bool
+	// googleStatus, googleKPIs and googlePages are what the Googlebot reads answer
+	// (a default set when nil); googleFilter is the filter GooglePages was last asked for.
+	googleStatus []agents.SeriesPoint
+	googleKPIs   *agents.GoogleKPIs
+	googlePages  []agents.GooglePageRow
+	googleFilter string
 	// lastRange is the range Overview was last asked for.
 	lastRange agents.Range
 	// prev is what Overview answers for a range ending on prevTo (the previous period).
@@ -66,6 +78,9 @@ func (f *fakeAgentStats) Overview(_ context.Context, rg agents.Range) (agents.Ov
 	f.mu.Lock()
 	f.lastRange = rg
 	f.mu.Unlock()
+	if f.noAI {
+		return agents.OverviewTotals{}, nil
+	}
 	return agents.OverviewTotals{AIFetches: 1234, Verified: 30, Spoofed: 5, Unverifiable: 5, AIVisits: 12, Pageviews: 4500}, nil
 }
 func (f *fakeAgentStats) Series(_ context.Context, rg agents.Range, _ string) ([]agents.SeriesPoint, error) {
@@ -73,6 +88,57 @@ func (f *fakeAgentStats) Series(_ context.Context, rg agents.Range, _ string) ([
 		return f.prevSeries, nil
 	}
 	return f.series, nil
+}
+func (f *fakeAgentStats) SeriesWithSearch(ctx context.Context, rg agents.Range, g string) ([]agents.SeriesPoint, error) {
+	base, _ := f.Series(ctx, rg, g)
+	if f.prevSeries != nil && rg.To.Equal(f.prevTo) {
+		return base, nil
+	}
+	return append(append([]agents.SeriesPoint{}, base...), f.searchSeries...), nil
+}
+func (f *fakeAgentStats) GooglebotStatusSeries(context.Context, agents.Range) ([]agents.SeriesPoint, error) {
+	if f.googleStatus != nil {
+		return f.googleStatus, nil
+	}
+	return []agents.SeriesPoint{{Day: day(-1), Key: "2xx", Hits: 30}, {Day: day(-1), Key: "4xx", Hits: 3}, {Day: day(0), Key: "2xx", Hits: 20}, {Day: day(0), Key: "5xx", Hits: 1}}, nil
+}
+func (f *fakeAgentStats) GoogleKPIs(context.Context, agents.Range) (agents.GoogleKPIs, error) {
+	if f.googleKPIs != nil {
+		return *f.googleKPIs, nil
+	}
+	med := 6 * time.Hour
+	return agents.GoogleKPIs{Hits: 995, Verified: 990, PagesCrawled: 41, Published: 144, MedianFirstCrawl: &med}, nil
+}
+
+// GooglePages filters the rows like the SQL does, so a test sees what each filter leaves.
+func (f *fakeAgentStats) GooglePages(_ context.Context, _ agents.Range, filter string, limit, offset int) ([]agents.GooglePageRow, int, error) {
+	f.mu.Lock()
+	f.googleFilter = filter
+	f.mu.Unlock()
+	all := f.googlePages
+	if all == nil {
+		d := func(n int) *time.Time { t := today().AddDate(0, 0, n); return &t }
+		e1, e2, e3 := uuid.MustParse("00000000-0000-4000-8000-0000000000e1"), uuid.MustParse("00000000-0000-4000-8000-0000000000e2"), uuid.MustParse("00000000-0000-4000-8000-0000000000e3")
+		all = []agents.GooglePageRow{
+			{Path: "/post/hello", EntityID: &e1, Name: "Hello <world>", Crawls: 556, LastDay: d(-1), LastStatus: 200},
+			{Path: "/docs/v0/gone", Crawls: 37, LastDay: d(-2), LastStatus: 404},
+			{Path: "/post/edited", EntityID: &e2, Name: "Edited page", Crawls: 12, LastDay: d(-3), LastStatus: 200, Stale: true},
+			{EntityID: &e3, Name: "Brand new page"},
+		}
+	}
+	var out []agents.GooglePageRow
+	for _, r := range all {
+		keep := map[string]bool{"": true, agents.GoogleFilterAll: true, agents.GoogleFilterNotCrawled: r.EntityID != nil && r.Crawls == 0,
+			agents.GoogleFilterErrors: r.LastStatus >= 400, agents.GoogleFilterStale: r.Stale}[filter]
+		if keep {
+			out = append(out, r)
+		}
+	}
+	total := len(out)
+	if offset >= len(out) {
+		return nil, total, nil
+	}
+	return out[offset:min(offset+limit, len(out))], total, nil
 }
 func (f *fakeAgentStats) TopAgents(context.Context, agents.Range, int) ([]agents.AgentTotals, error) {
 	return []agents.AgentTotals{{AgentID: "gptbot", Operator: "OpenAI", Purpose: "training", Hits: 900, Verified: 30, LastSeenDay: day(0)}}, nil
@@ -114,7 +180,7 @@ func (f *fakeAgentStats) NeverFetched(context.Context, agents.Page) ([]agents.Ne
 func (f *fakeAgentStats) Agents(ctx context.Context, rg agents.Range) ([]agents.AgentTotals, error) {
 	top, _ := f.TopAgents(ctx, rg, 0)
 	// chatgpt-user is in the registry with ignores_robots: true.
-	return append(top, agents.AgentTotals{AgentID: "chatgpt-user", Operator: "OpenAI", Purpose: "user_fetch", Hits: 10, LastSeenDay: day(0)}), nil
+	return append(append(top, agents.AgentTotals{AgentID: "chatgpt-user", Operator: "OpenAI", Purpose: "user_fetch", Hits: 10, LastSeenDay: day(0)}), f.extraAgents...), nil
 }
 func (f *fakeAgentStats) AgentDetail(_ context.Context, _ agents.Range, id string) (agents.AgentDetailData, error) {
 	if id == "ghost" { // not in the registry, active only outside the range
@@ -217,7 +283,7 @@ func TestPivotGroupsSmallSeriesIntoOther(t *testing.T) {
 	}
 }
 
-// The section pages answer in the shell with the AI analytics sub-sidebar, the
+// The section pages answer in the shell with the Analytics sub-sidebar, the
 // current section marked, and no canvas charts.
 func TestAnalyticsSectionsRenderInTheAreaFrame(t *testing.T) {
 	t.Parallel()
@@ -1247,8 +1313,8 @@ func TestAnalyticsCompareIsCarried(t *testing.T) {
 		}
 	}
 	links := regexp.MustCompile(`class="hm-subnav__link" href="([^"]*)"`).FindAllStringSubmatch(body, -1)
-	if len(links) != 5 {
-		t.Fatalf("%d sub-sidebar links, want 5", len(links))
+	if len(links) != 6 {
+		t.Fatalf("%d sub-sidebar links, want 6", len(links))
 	}
 	for _, m := range links {
 		if h := html.UnescapeString(m[1]); !strings.Contains(h, "compare=1") || !strings.Contains(h, "from="+from) || !strings.Contains(h, "to="+to) {

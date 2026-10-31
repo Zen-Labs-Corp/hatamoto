@@ -8,9 +8,11 @@
 #   - hits on the published entities (Zipf by rank), each live a few days after it was published, so
 #     coverage, top pages by type, first crawls and time to first fetch fill in. About 15% of the
 #     published pages are never fetched. Publish dates of published pages are spread over the range;
+#   - search engines (Googlebot with spoofed fetches, a 404 path and a stale post; Bing, Apple, DuckDuckGo, Yandex,
+#     Baidu), SEO tools, social previews and a web archive, for the Crawlers search group and the Google tab;
 #   - AI referrals for chatgpt, perplexity, gemini, claude, copilot, grok, meta_ai and deepseek, and pageviews.
 # Idempotent: it replaces what it wrote (agent rollups of the last 120 days, pageview and ai_referral rows,
-# first crawls, log-sourced hits) in one transaction. Throwaway QA databases only.
+# first crawls, search first crawls, log-sourced hits) in one transaction. Throwaway QA databases only.
 # Opt-in: run-local.sh calls it when QA_SEED_ANALYTICS=1. Needs psql (in PG_BIN or on PATH).
 # Usage: QA_USE_DATABASE_URL=1 DATABASE_URL=... scripts/admin-qa/analytics-seed.sh
 set -Eeuo pipefail
@@ -24,6 +26,7 @@ BEGIN;
 DELETE FROM hatamoto_agent_daily WHERE day >= current_date - 120;
 DELETE FROM hatamoto_analytics_daily WHERE kind IN ('pageview', 'ai_referral') AND day >= current_date - 120;
 DELETE FROM hatamoto_agent_first_crawl;
+DELETE FROM hatamoto_agent_search_first_crawl;
 DELETE FROM hatamoto_agent_hits WHERE source = 'log' AND occurred_at >= current_date - 120;
 DELETE FROM hatamoto_agent_hits WHERE source = 'backend' AND path = '/qa-cdn-spoof' AND occurred_at >= current_date - 120;
 UPDATE hatamoto_agent_tracking SET started_at = (current_date - 110)::timestamp AT TIME ZONE 'UTC';
@@ -53,7 +56,10 @@ INSERT INTO sa VALUES
   ('googleother', 'Google', 'other_ai', 38, 0, false, 1),
   -- not AI: they only add to the response mix
   ('googlebot', 'Google', 'search', 260, 0, false, 1), ('bingbot', 'Microsoft', 'search', 120, 0, false, 1),
-  ('ahrefsbot', 'Ahrefs', 'seo', 90, 0.5, false, 1), ('facebookexternalhit', 'Meta', 'social', 40, 0, false, 1);
+  ('applebot', 'Apple', 'search', 45, 0.05, false, 1), ('duckduckbot', 'DuckDuckGo', 'search', 8, 0.2, false, 0.6),
+  ('yandexbot', 'Yandex', 'search', 18, 1, false, 0.7), ('baiduspider', 'Baidu', 'search', 15, 1, false, 0.7),
+  ('ahrefsbot', 'Ahrefs', 'seo', 90, 0.5, false, 1), ('semrushbot', 'Semrush', 'seo', 30, 0.5, false, 1),
+  ('facebookexternalhit', 'Meta', 'social', 40, 0, false, 1), ('internet-archive', 'Internet Archive', 'archive', 10, 1, false, 0.5);
 
 -- Published pages: the home page first, the other pages next, then posts by a stable hash. Posts go live a few
 -- days after they were published (most within a day), the last 15% by rank are never fetched.
@@ -109,6 +115,22 @@ SELECT r.day, r.agent_id, r.path, r.status, r.operator, r.purpose, r.entity_id, 
                       FROM sd d CROSS JOIN sa a) b
               CROSS JOIN sp s WHERE b.h > 0) q) c) r
  WHERE r.hits > 0
+ON CONFLICT DO NOTHING;
+
+-- Googlebot for the Google tab: some days with a spoofed fetch, a path only a forger asked for (left out of the
+-- page table), one well crawled post edited after its last crawl (stale), and the first verified crawl of the
+-- posts published in the last 30 days (publish to first crawl).
+UPDATE hatamoto_agent_daily SET spoofed_hits = 1, verified_hits = verified_hits - 1
+ WHERE agent_id = 'googlebot' AND status = 200 AND verified_hits > 1 AND day >= current_date - 120 AND extract(day FROM day)::int % 9 = 0;
+INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, operator, purpose, entity_id, hits, verified_hits, spoofed_hits, unverifiable_hits, bytes_total)
+VALUES (current_date - 2, 'googlebot', '/qa-spoofed-only', 200, 'Google', 'search', NULL, 5, 0, 5, 0, 0) ON CONFLICT DO NOTHING;
+CREATE TEMP TABLE stale ON COMMIT DROP AS
+SELECT id FROM ent WHERE type = 'post' AND rank <= 12 AND live_day <= current_date - 20 ORDER BY rank LIMIT 1;
+DELETE FROM hatamoto_agent_daily d USING stale WHERE d.entity_id = stale.id AND d.agent_id = 'googlebot' AND d.day > current_date - 10;
+UPDATE hatamoto_entities e SET updated_at = now() - interval '2 days' FROM stale WHERE e.id = stale.id;
+INSERT INTO hatamoto_agent_search_first_crawl (entity_id, agent_id, first_at, published_at)
+SELECT e.id, 'googlebot', e.pub_ts + (1 + abs(hashtext('g' || e.id::text)) % 12) * interval '1 hour', e.pub_ts
+  FROM ent e WHERE e.type = 'post' AND e.pub_day >= current_date - 30 AND e.wn > 0
 ON CONFLICT DO NOTHING;
 
 -- First crawls: the first AI fetch of each post that went live inside the range; a few have no publish time on record.

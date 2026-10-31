@@ -149,6 +149,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"analytics/overview":  {"@hm/aia"},
 		"analytics/crawlers":  {"@hm/aia"},
 		"analytics/content":   {"@hm/aia"},
+		"analytics/google":    {"@hm/aia"},
 		"analytics/referrals": {"@hm/aia"},
 		"analytics/health":    {"@hm/aia"},
 		"analytics/agent":     {"@hm/aia"},

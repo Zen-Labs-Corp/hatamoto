@@ -559,6 +559,24 @@ Plugin code never runs inside a template. The theme can call:
 
 Partials, sections and funcs are removed again when the plugin is unloaded or reloaded.
 
+## Search performance provider (internal, not yet a stable plugin surface)
+
+The Google section of Analytics can show impressions, clicks, average position
+and index status when something supplies them. That is an in-process Go
+interface in `internal/searchperf`, filled through `GrowthDeps.SearchPerf`
+(nil by default, which shows a "not connected" notice):
+
+```go
+type Provider interface {
+	Summary(ctx context.Context, rg Range) (s Summary, ok bool, err error)
+	Pages(ctx context.Context, rg Range, paths []string) (map[string]PageStats, error)
+}
+```
+
+`ok=false` means not connected or no data. Nothing in the SDK, the hooks, the
+manifest or the host functions changed: a plugin cannot supply this data yet,
+and the interface may change until a plugin surface is designed for it.
+
 ## Sandbox and limits
 
 | Limit | Default | Range | Notes |

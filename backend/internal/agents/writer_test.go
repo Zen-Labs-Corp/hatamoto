@@ -190,10 +190,10 @@ func TestResolverOnlyForMiddleware(t *testing.T) {
 	w.Record(RawHit{UA: gptUA, Path: "/page", Source: SourceMiddleware})                    // resolved
 	w.Record(RawHit{UA: gptUA, Path: "/robots.txt", Status: 200, Source: SourceMiddleware}) // explicit status: skipped
 	w.Record(RawHit{UA: gptUA, Path: "/sitemap.xml", Source: SourceBackend})                // backend: skipped
-	w.Record(RawHit{UA: gptUA, Path: "/media/a.png", Status: 200, Source: SourceLog})       // log: skipped
+	w.Record(RawHit{UA: gptUA, Path: "/post/example-slug", Status: 200, Source: SourceLog}) // served page: entity only
 	w.Close()
-	if calls.Load() != 1 {
-		t.Fatalf("resolver called %d times, want 1", calls.Load())
+	if calls.Load() != 2 {
+		t.Fatalf("resolver called %d times, want 2", calls.Load())
 	}
 	byPath := map[string]Hit{}
 	for _, h := range st.all() {
@@ -204,6 +204,59 @@ func TestResolverOnlyForMiddleware(t *testing.T) {
 	}
 	if r := byPath["/robots.txt"]; r.EntityID != nil || r.Status != 200 {
 		t.Errorf("robots hit wrong: %+v", r)
+	}
+}
+
+// An explicit status below 400 keeps its status and still gets the entity; an
+// explicit error status never does, and the resolver's status never overrides.
+func TestExplicitStatusGetsEntityKeepsStatus(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var paths []string
+	var mu sync.Mutex
+	resolve := func(ctx context.Context, path string) (*uuid.UUID, int) {
+		mu.Lock()
+		paths = append(paths, path)
+		mu.Unlock()
+		return &id, 404 // deliberately different: must not replace the explicit status
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	w.Record(RawHit{UA: gptUA, Path: "/post/example-slug", Status: 200, Source: SourceBackend})
+	w.Record(RawHit{UA: gptUA, Path: "/fr/post/example-slug", Status: 301, Source: SourceLog})
+	w.Record(RawHit{UA: gptUA, Path: "/post/broken", Status: 500, Source: SourceBackend})
+	for _, f := range []string{"/robots.txt", "/llms.txt", "/sitemap.xml", "/sitemap-posts.xml"} {
+		w.Record(RawHit{UA: gptUA, Path: f, Status: 200, Source: SourceBackend})
+	}
+	w.Close()
+	if len(paths) != 2 {
+		t.Fatalf("resolver paths = %v, want the two served pages only", paths)
+	}
+	for _, h := range st.all() {
+		switch h.Path {
+		case "/post/example-slug":
+			if h.EntityID == nil || *h.EntityID != id || h.Status != 200 {
+				t.Errorf("served page: %+v", h)
+			}
+		case "/fr/post/example-slug":
+			if h.EntityID == nil || h.Status != 301 {
+				t.Errorf("redirected page: %+v", h)
+			}
+		default:
+			if h.EntityID != nil {
+				t.Errorf("%s must have no entity: %+v", h.Path, h)
+			}
+		}
+	}
+}
+
+func TestIsFilePath(t *testing.T) {
+	for p, want := range map[string]bool{
+		"/robots.txt": true, "/llms.txt": true, "/sitemap.xml": true, "/sitemap-posts.xml": true,
+		"/api/v1/public/sitemap.xml": true, "/post/example-slug": false, "/": false, "/sitemap": false,
+	} {
+		if got := IsFilePath(p); got != want {
+			t.Errorf("IsFilePath(%q) = %v, want %v", p, got, want)
+		}
 	}
 }
 
@@ -229,6 +282,36 @@ func TestCachedResolver(t *testing.T) {
 	r(ctx, "/c")
 	if calls != 4 {
 		t.Fatalf("calls = %d, want 4", calls)
+	}
+}
+
+// A miss is remembered only briefly, so a page published right after a crawler
+// asked for it is attributed on the next hit; an entity result lasts the ttl.
+func TestCachedResolverNilExpiresEarly(t *testing.T) {
+	now := time.Unix(1000, 0)
+	id := uuid.New()
+	var calls int
+	fn := func(ctx context.Context, path string) (*uuid.UUID, int) {
+		calls++
+		if path == "/hit" {
+			return &id, 200
+		}
+		return nil, 404
+	}
+	r := newCachedResolver(fn, time.Minute, 10, func() time.Time { return now })
+	ctx := context.Background()
+	r(ctx, "/miss")
+	r(ctx, "/hit")
+	now = now.Add(nilTTL + time.Second)
+	r(ctx, "/miss")
+	r(ctx, "/hit")
+	if calls != 3 {
+		t.Fatalf("calls = %d, want 3 (miss refetched, entity still cached)", calls)
+	}
+	now = now.Add(time.Minute)
+	r(ctx, "/hit")
+	if calls != 4 {
+		t.Fatalf("calls = %d, want 4 after ttl", calls)
 	}
 }
 
@@ -497,4 +580,71 @@ func TestLogSourceKeepsStatusSkipsResolver(t *testing.T) {
 	if logHits != 2 || len(st.all()) != 3 {
 		t.Fatalf("want 2 log + 3 total hits, got %d / %d", logHits, len(st.all()))
 	}
+}
+
+// One flush asks the resolver once per distinct path, however many hits share it.
+func TestFlushResolvesDistinctPathsOnce(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var calls atomic.Int32
+	resolve := func(context.Context, string) (*uuid.UUID, int) {
+		calls.Add(1)
+		return &id, 200
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	for i := 0; i < 20; i++ {
+		w.Record(RawHit{UA: gptUA, Path: "/post/same", Status: 200, Source: SourceBackend})
+	}
+	w.Close()
+	if n := calls.Load(); n != 1 {
+		t.Errorf("resolver called %d times for one path, want 1", n)
+	}
+	for _, h := range st.all() {
+		if h.EntityID == nil {
+			t.Errorf("hit without entity: %+v", h)
+		}
+	}
+}
+
+// A slow resolver must not stall the flush: past the per-flush budget the
+// rest of the batch is written without an entity, for the backfill to heal.
+func TestFlushResolverBudget(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var calls atomic.Int32
+	resolve := func(ctx context.Context, _ string) (*uuid.UUID, int) {
+		calls.Add(1)
+		time.Sleep(20 * time.Millisecond)
+		return &id, 200
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	w.resolveBudget = 50 * time.Millisecond
+	const paths = 50
+	batch := make([]queued, 0, paths)
+	for i := 0; i < paths; i++ {
+		batch = append(batch, queued{
+			hit:     Hit{AgentID: "gptbot", Path: "/p/" + strings.Repeat("x", i+1), Status: 200},
+			resolve: true, entityOnly: true,
+		})
+	}
+	start := time.Now()
+	w.flush(context.Background(), batch)
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Errorf("flush took %v with a 50ms budget", d)
+	}
+	if n := calls.Load(); n >= paths {
+		t.Errorf("resolver called %d times, the budget must cut it short", n)
+	}
+	var withEntity, without int
+	for _, h := range st.all() {
+		if h.EntityID != nil {
+			withEntity++
+		} else {
+			without++
+		}
+	}
+	if withEntity+without != paths || without == 0 || withEntity == 0 {
+		t.Errorf("written %d with entity, %d without; want both, %d total", withEntity, without, paths)
+	}
+	w.Close()
 }

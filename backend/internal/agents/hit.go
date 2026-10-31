@@ -70,8 +70,14 @@ type resolved struct {
 	expires  time.Time
 }
 
-// NewCachedResolver memoises fn per path for ttl, holding at most max entries
-// (the cache is cleared when full: simple and bounded).
+// nilTTL bounds how long a result without an entity is remembered. A page
+// published a moment after a crawler asked for it must not stay unattributed
+// for the whole ttl.
+const nilTTL = 5 * time.Second
+
+// NewCachedResolver memoises fn per path for ttl (results without an entity
+// for at most nilTTL), holding at most max entries (the cache is cleared when
+// full: simple and bounded).
 func NewCachedResolver(fn ResolveFunc, ttl time.Duration, max int) ResolveFunc {
 	return newCachedResolver(fn, ttl, max, time.Now)
 }
@@ -93,7 +99,11 @@ func newCachedResolver(fn ResolveFunc, ttl time.Duration, max int, now func() ti
 		if len(cache) >= max {
 			clear(cache)
 		}
-		cache[path] = resolved{entityID: id, status: status, expires: now().Add(ttl)}
+		keep := ttl
+		if id == nil && nilTTL < keep {
+			keep = nilTTL
+		}
+		cache[path] = resolved{entityID: id, status: status, expires: now().Add(keep)}
 		mu.Unlock()
 		return id, status
 	}

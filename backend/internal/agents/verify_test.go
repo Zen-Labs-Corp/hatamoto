@@ -53,6 +53,10 @@ func TestVerify(t *testing.T) {
 	store := NewRangeStore()
 	store.Set("openai-gptbot", parseFixture(t, "openai.json"))
 	store.Set("google", parseFixture(t, "google.json"))
+	// Bing, Apple and DuckDuckGo lists are loaded but do not contain the test addresses.
+	store.Set("bing", []netip.Prefix{netip.MustParsePrefix("157.55.39.0/24")})
+	store.Set("applebot", []netip.Prefix{netip.MustParsePrefix("17.58.0.0/16")})
+	store.Set("duckduckbot", []netip.Prefix{netip.MustParsePrefix("20.191.45.212/32")})
 	// anthropic/openai-user/... deliberately never loaded.
 
 	timeout := &net.DNSError{Err: "i/o timeout", IsTimeout: true}
@@ -63,11 +67,24 @@ func TestVerify(t *testing.T) {
 			"198.51.100.7": {"evil.example.net."},
 			"54.36.1.1":    {"x.crawl.amazonbot.amazon."},
 			"34.1.2.3":     {"3.2.1.34.bc.googleusercontent.com."}, // GCE VM default PTR
+			"40.77.167.9":  {"msnbot-40-77-167-9.search.msn.com."},
+			"17.241.1.2":   {"17-241-1-2.applebot.apple.com."},
+			"5.255.253.1":  {"spider-5-255-253-1.yandex.com."},
+			"20.191.1.1":   {"x.duckduckgo.example."},
+			"52.1.2.3":     {"ec2-52-1-2-3.compute-1.amazonaws.com."}, // cloud VM provider PTR
+			"198.51.100.8": {"crawl-1-2-3-4.search.msn.com."},         // forged Bing PTR, forward elsewhere
+			"192.0.2.77":   {"fetcher.google.com."},                   // user-triggered fetcher, forward-confirms
 		},
 		forward: map[string][]string{
-			"crawl-66-249-66-1.googlebot.com":   {"66.249.66.1"},
-			"x.crawl.amazonbot.amazon":          {"54.36.1.1"},
-			"3.2.1.34.bc.googleusercontent.com": {"34.1.2.3"}, // forward-confirms
+			"crawl-66-249-66-1.googlebot.com":      {"66.249.66.1"},
+			"x.crawl.amazonbot.amazon":             {"54.36.1.1"},
+			"3.2.1.34.bc.googleusercontent.com":    {"34.1.2.3"}, // forward-confirms
+			"msnbot-40-77-167-9.search.msn.com":    {"40.77.167.9"},
+			"17-241-1-2.applebot.apple.com":        {"17.241.1.2"},
+			"spider-5-255-253-1.yandex.com":        {"5.255.253.1"},
+			"ec2-52-1-2-3.compute-1.amazonaws.com": {"52.1.2.3"},
+			"crawl-1-2-3-4.search.msn.com":         {"1.2.3.4"},
+			"fetcher.google.com":                   {"192.0.2.77"},
 		},
 	}
 	v := NewVerifier(store, res)
@@ -87,7 +104,18 @@ func TestVerify(t *testing.T) {
 		{"googlebot from GCE VM (FCrDNS-confirmed googleusercontent PTR)", "googlebot", "34.1.2.3", StateSpoofed},
 		{"googleother from GCE VM", "googleother", "34.1.2.3", StateSpoofed},
 		{"googlebot in Google range", "googlebot", "66.249.64.5", StateVerified},
-		{"googlebot range loaded, miss is spoofed even with FCrDNS", "googlebot", "66.249.66.1", StateSpoofed},
+		{"googlebot range miss, FCrDNS under the operator suffix", "googlebot", "66.249.66.1", StateVerified},
+		{"googlebot range miss, PTR under google.com is not the crawler suffix", "googlebot", "192.0.2.77", StateSpoofed},
+		{"googlebot from a cloud IP with the provider PTR", "googlebot", "52.1.2.3", StateSpoofed},
+		{"googlebot UA from a CDN edge address", "googlebot", "104.16.1.1", StateSpoofed},
+		{"bingbot in range list miss, FCrDNS confirmed", "bingbot", "40.77.167.9", StateVerified},
+		{"bingbot forged PTR, forward mismatch", "bingbot", "198.51.100.8", StateSpoofed},
+		{"bingbot from a cloud IP", "bingbot", "52.1.2.3", StateSpoofed},
+		{"applebot range miss, FCrDNS confirmed", "applebot", "17.241.1.2", StateVerified},
+		{"applebot UA from non-Apple IP", "applebot", "198.51.100.7", StateSpoofed},
+		{"duckduckbot ranges only: a miss stays spoofed", "duckduckbot", "20.191.1.1", StateSpoofed},
+		{"yandexbot rdns only, confirmed", "yandexbot", "5.255.253.1", StateVerified},
+		{"yandexbot rdns only, no PTR", "yandexbot", "198.51.100.7", StateSpoofed},
 		{"googlebot PTR ok, forward mismatch", "googlebot", "203.0.113.50", StateSpoofed},
 		{"googlebot no PTR (NXDOMAIN)", "googlebot", "192.0.2.99", StateSpoofed},
 		{"amazonbot rdns only", "amazonbot", "54.36.1.1", StateVerified},
@@ -116,6 +144,12 @@ func TestVerify(t *testing.T) {
 	res.ptrErr = timeout
 	if got := v.Verify(ctx, reg.ByID("amazonbot"), netip.MustParseAddr("54.36.9.9")); got != StatePending {
 		t.Errorf("dns timeout: got %s, want pending", got)
+	}
+	res.ptrErr = nil
+	// A range miss that hits a transient DNS error is pending, not spoofed.
+	res.ptrErr = timeout
+	if got := v.Verify(ctx, reg.ByID("googlebot"), netip.MustParseAddr("66.249.99.9")); got != StatePending {
+		t.Errorf("range miss with DNS timeout: got %s, want pending", got)
 	}
 	res.ptrErr = nil
 	if got := v.Verify(ctx, reg.ByID("amazonbot"), netip.MustParseAddr("54.36.9.9")); got != StateSpoofed {

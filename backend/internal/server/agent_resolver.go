@@ -12,6 +12,9 @@ import (
 	"hatamoto.dev/core/internal/redirect"
 )
 
+// attributionBackfillJob links crawler hits recorded without a page to it.
+const attributionBackfillJob = "agent_attribution_backfill"
+
 const (
 	agentResolveTTL  = 60 * time.Second
 	agentResolveMax  = 5000
@@ -86,20 +89,43 @@ func (s *Server) newAgentResolver() agents.ResolveFunc {
 		}
 		ctx, cancel := context.WithTimeout(ctx, agentLookupLimit)
 		defer cancel()
-		snap := s.urlSnapshot(ctx)
-		res, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(s.db), snap, path)
-		if err != nil {
-			return nil, false, err
-		}
-		if res == nil {
-			return nil, false, nil
-		}
-		if res.Entity != nil {
-			id := res.Entity.ID
-			return &id, true, nil
-		}
-		return nil, true, nil
+		return lookupAgentEntity(ctx, entity.NewPostgresPublicRepository(s.db), s.urlSnapshot(ctx), path)
 	}
 
 	return agents.NewCachedResolver(buildAgentResolver(redirect, lookup), agentResolveTTL, agentResolveMax)
+}
+
+// lookupAgentEntity finds the entity serving path the way the public loader
+// does: the locale segment is stripped and reads are scoped to that locale.
+func lookupAgentEntity(ctx context.Context, repo resolveRepo, snap *entity.URLSnapshot, path string) (*uuid.UUID, bool, error) {
+	ctx, _, path, prefixed := localeScope(ctx, snap, path)
+	if prefixed && path == "/" {
+		return nil, true, nil // a locale home
+	}
+	res, err := resolveEntity(ctx, repo, snap, path)
+	if err != nil || res == nil {
+		return nil, false, err
+	}
+	if res.Entity != nil {
+		id := res.Entity.ID
+		return &id, true, nil
+	}
+	return nil, true, nil
+}
+
+// runAttributionBackfillJob attributes historic crawler hits by path with the
+// live resolver and logs how many daily rows it linked. Nothing is logged when
+// there was nothing to do.
+func (s *Server) runAttributionBackfillJob(ctx context.Context) error {
+	n, err := agents.NewAttributionBackfill(s.db, s.newAgentResolver(), 0).Run(ctx)
+	if err != nil {
+		if ctx.Err() == nil {
+			s.logger.Error("agent attribution backfill failed", "attributed_rows", n, "error", err)
+		}
+		return err
+	}
+	if n > 0 {
+		s.logger.Info("agent hits attributed to pages", "daily_rows", n)
+	}
+	return nil
 }

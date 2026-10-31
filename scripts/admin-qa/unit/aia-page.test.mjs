@@ -14,7 +14,7 @@ register(
     }`),
 );
 
-const fakeNode = (extra = {}) => ({ hidden: false, style: {}, dataset: {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, ...extra });
+const fakeNode = (extra = {}) => ({ hidden: false, style: {}, dataset: {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, querySelectorAll: () => [], ...extra });
 
 test("a failed chart request leaves the server-rendered data table and its button alone", async () => {
   const table = fakeNode();
@@ -56,4 +56,47 @@ test("the tracker reads a block's label once: its aria-label, not also a live re
     focus();
   });
   assert.equal(appended.length, 0, "no live region is added");
+});
+
+test("the hero toggle flips the chart key, the pressed button and the data table", async () => {
+  const attrs = (n) => ({ ...n, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; } });
+  let click;
+  const btnAi = attrs(fakeNode({ dataset: { chartToggle: "fetches" }, addEventListener: () => {} }));
+  const btnAll = attrs(fakeNode({ dataset: { chartToggle: "fetches_all" }, addEventListener: (t, fn) => t === "click" && (click = fn) }));
+  const tAll = attrs(fakeNode({ id: "x-data", dataset: { aiaTable: "fetches_all" } }));
+  const tAi = attrs(fakeNode({ id: "x-data-alt", dataset: { aiaTable: "fetches" }, hidden: true }));
+  const sd = attrs(fakeNode());
+  const plot = fakeNode();
+  const lists = { "[data-chart-toggle]": [btnAi, btnAll], "[data-aia-table]": [tAll, tAi] };
+  const parts = { "[data-aia-plot]": plot, "[data-aia-sd]": sd };
+  const fig = fakeNode({
+    dataset: { hmAiaChart: "time", src: "/admin/analytics/data/overview.json", chart: "fetches" },
+    querySelector: (sel) => parts[sel] || null,
+    querySelectorAll: (sel) => lists[sel] || [],
+    contains: () => false,
+  });
+  globalThis.document = {
+    activeElement: null,
+    createElement: () => fakeNode(),
+    querySelector: () => null,
+    querySelectorAll: (sel) => (sel === "[data-hm-aia-chart]" ? [fig] : []),
+    addEventListener() {},
+  };
+  globalThis.fetch = () => Promise.reject(new Error("offline"));
+  try {
+    const { mountAll } = await import(new URL("aia/page.js?toggle", root));
+    mountAll();
+    assert.equal(typeof click, "function", "the toggle button is wired");
+    assert.equal(fig.dataset.chart, "fetches", "starts on AI only");
+    click();
+    assert.equal(fig.dataset.chart, "fetches_all", "the chart key follows the button");
+    assert.equal(btnAll.attrs["aria-pressed"], "true");
+    assert.equal(btnAi.attrs["aria-pressed"], "false");
+    assert.ok("data-aia-data" in tAll.attrs && !("data-aia-data" in tAi.attrs), "the data table follows the chart");
+    assert.equal(sd.attrs["aria-controls"], "x-data");
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    delete globalThis.document;
+    delete globalThis.fetch;
+  }
 });

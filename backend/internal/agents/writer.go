@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -17,6 +18,11 @@ const (
 	flushBatch    = 100
 	insertTimeout = 5 * time.Second
 	resolveTimout = 2 * time.Second
+	// resolveBudget caps the resolver time of one flush. Past it the remaining
+	// paths are written without an entity (the attribution backfill heals
+	// them), so a slow resolver cannot stall the flush goroutine and fill the
+	// queue.
+	resolveBudget = 3 * time.Second
 	drainTimeout  = 5 * time.Second // default Writer.drainTimeout
 	warnEvery     = 30 * time.Second
 )
@@ -43,9 +49,10 @@ type WriterStats struct {
 }
 
 type queued struct {
-	hit     Hit
-	resolve bool
-	hint    int // 3xx fallback when the resolver says 404 (or is absent)
+	hit        Hit
+	resolve    bool
+	entityOnly bool // keep the explicit status, take only the entity from the resolver
+	hint       int  // 3xx fallback when the resolver says 404 (or is absent)
 }
 
 // Writer persists agent hits off the request path. Record never blocks: a full
@@ -69,7 +76,8 @@ type Writer struct {
 	observer atomic.Pointer[func([]Hit)]
 	closeMu  sync.Once
 
-	drainTimeout time.Duration // bounds the whole shutdown drain, flushes included
+	drainTimeout  time.Duration // bounds the whole shutdown drain, flushes included
+	resolveBudget time.Duration // resolver time per flush
 }
 
 // NewWriter starts the background flush goroutine. resolve may be nil (page
@@ -84,7 +92,8 @@ func NewWriter(store Store, reg *Registry, resolve ResolveFunc, logger *slog.Log
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 
-		drainTimeout: drainTimeout,
+		drainTimeout:  drainTimeout,
+		resolveBudget: resolveBudget,
 	}
 	go w.run()
 	return w
@@ -143,7 +152,12 @@ func (w *Writer) Record(h RawHit) bool {
 	it := queued{hit: hit}
 	switch {
 	case h.Status != 0:
-		// explicit status (robots.txt route, log ingest): trust it, skip the resolver
+		// explicit status (backend capture, log ingest): trust it. A page that was
+		// served (below 400) still gets its entity from the resolver, in the flush
+		// goroutine; files and error statuses have no entity to find.
+		if w.resolve != nil && h.Status < 400 && !IsFilePath(hit.Path) {
+			it.resolve, it.entityOnly = true, true
+		}
 	case h.Source == SourceMiddleware:
 		it.resolve = w.resolve != nil
 		it.hint = h.RedirectHint
@@ -230,16 +244,46 @@ func (w *Writer) run() {
 	}
 }
 
+type pathLookup struct {
+	id     *uuid.UUID
+	status int
+}
+
+// flush resolves every distinct path of the batch once, within the per-flush
+// budget, then stores the batch. A path not resolved in time gets no entity
+// (and the hint, or no status, for a hit that waits on the resolver for one).
 func (w *Writer) flush(parent context.Context, batch []queued) {
+	deadline := time.Now().Add(w.resolveBudget)
+	seen := map[string]pathLookup{}
+	lookup := func(path string) (pathLookup, bool) {
+		if r, ok := seen[path]; ok {
+			return r, true
+		}
+		if !time.Now().Before(deadline) {
+			return pathLookup{}, false
+		}
+		ctx, cancel := context.WithTimeout(parent, resolveTimout)
+		defer cancel()
+		id, status := w.resolve(ctx, path)
+		r := pathLookup{id, status}
+		seen[path] = r
+		return r, true
+	}
 	hits := make([]Hit, len(batch))
 	for i, it := range batch {
 		h := it.hit
 		if it.resolve {
-			ctx, cancel := context.WithTimeout(parent, resolveTimout)
-			h.EntityID, h.Status = w.resolve(ctx, h.Path)
-			cancel()
-			if h.Status == 404 && it.hint != 0 {
+			r, ok := lookup(h.Path)
+			switch {
+			case it.entityOnly:
+				h.EntityID = r.id
+			case !ok:
 				h.Status = it.hint
+			default:
+				h.EntityID, h.Status = r.id, r.status
+				if h.Status == 404 && it.hint != 0 {
+					h.Status = it.hint
+				}
 			}
 		}
 		hits[i] = h

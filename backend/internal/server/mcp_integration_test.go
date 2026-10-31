@@ -262,6 +262,9 @@ func TestMCPIntegration(t *testing.T) {
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
+	if g := mustCall(rw, "analytics_google", map[string]any{}); g["items"] == nil || g["pages_published"] == nil {
+		t.Errorf("google: %v", g)
+	}
 	if ref := mustCall(rw, "analytics_ai_referrals", map[string]any{}); ref["days"] == nil {
 		t.Errorf("referrals: %v", ref)
 	}

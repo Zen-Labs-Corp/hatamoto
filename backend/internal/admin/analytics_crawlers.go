@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -22,6 +23,15 @@ var purposeDescriptions = map[string]string{
 // robotsPurposes are listed under "Other crawlers".
 var aiPurposes = []agents.Purpose{agents.PurposeTraining, agents.PurposeSearchIndex, agents.PurposeUserFetch, agents.PurposeOtherAI}
 
+// aiPurposeIDs are aiPurposes as ids.
+var aiPurposeIDs = func() []string {
+	ids := make([]string, len(aiPurposes))
+	for i, p := range aiPurposes {
+		ids[i] = string(p)
+	}
+	return ids
+}()
+
 // purposeID is the purpose id of a display label ("Search index" is "search_index").
 func purposeID(label string) string {
 	for id, l := range purposeLabels {
@@ -37,14 +47,24 @@ type crawlersPage struct {
 	Lede string
 	// Verify is the verification banner above the chart; nil shows none.
 	Verify *verifyBanner
+	KPIs   []ui.Stat
 	Hero   ui.AiaChart
 	Agents ui.AiaAgents
 	// Owner and Return feed the one policy form around the agents table.
 	Owner  bool
 	Return string
-	// NoFetches is true when no AI agent fetched in the range.
+	// NoFetches is true when nothing fetched in the range, AI agents or search engines.
 	NoFetches bool
 }
+
+// searchPurpose is the purpose of the search engines, which get a group of their own.
+const searchPurpose = "search"
+
+// searchNote says what the search engines group is, and what else the Googlebot crawl feeds.
+const searchNote = "The index behind Google, Bing and Apple search. Google AI Overviews and Gemini also use what Googlebot fetches."
+
+// summaryPurposes are the non-AI purposes that get one line instead of a group.
+var summaryPurposes = []string{"social", "seo", "archive"}
 
 func (p *crawlersPage) lede() string { return p.Lede }
 
@@ -153,23 +173,73 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 		groups = append(groups, g)
 	}
 
+	// Search engines: every one seen in the range, with the group's own Allow / Block.
+	var searchRows []agentJSON
+	var searchHits int64
+	for _, ag := range byPurpose[searchPurpose] {
+		if ag.Hits > 0 {
+			searchRows = append(searchRows, ag)
+			searchHits += ag.Hits
+		}
+	}
+	sg := ui.AiaAgentGroup{Purpose: "Search engines", Description: searchNote, Policy: policies[searchPurpose], Summary: fmtNum(searchHits) + " fetches."}
+	for _, ag := range searchRows {
+		href := sectionHref(a.adminPath+"/analytics/agents/"+url.PathEscape(ag.ID), q)
+		sg.Rows = append(sg.Rows, ui.AiaAgentRow{Name: ag.Name, Href: href, Operator: ag.Operator, Fetches: fmtNum(ag.Hits), Share: int(ratio(ag.Hits, searchRows[0].Hits) + 0.5),
+			Verification: verificationBadge(ag), Blocked: denied[searchPurpose], Ignores: ag.IgnoresRobots, LastSeen: lastSeen(ag.LastSeen), Purpose: searchPurpose, Fetched: true})
+	}
+	groups = append(groups, sg)
+
+	// Verified share over everything the KPI row counts: the AI agents and the search engines.
+	var ver, spo, unv int64
+	for _, ag := range list.Agents {
+		if id := purposeID(ag.Purpose); id == searchPurpose || slices.Contains(aiPurposeIDs, id) {
+			ver, spo, unv = ver+ag.Verified, spo+ag.Spoofed, unv+ag.Unverifiable
+		}
+	}
+
+	var summary []ui.AiaSummaryItem
+	for _, id := range summaryPurposes {
+		for _, ag := range byPurpose[id] {
+			if ag.Hits > 0 {
+				summary = append(summary, ui.AiaSummaryItem{Name: ag.Name, Count: fmtNum(ag.Hits)})
+			}
+		}
+	}
+	var sum *ui.AiaSummary
+	if len(summary) > 0 {
+		sum = &ui.AiaSummary{Label: "Social, SEO tools, archives", Items: summary}
+	}
+
 	var other []ui.AiaOtherPurpose
 	for _, r := range form.Rows {
 		switch agents.Purpose(r.Purpose) {
-		case agents.PurposeSearch, agents.PurposeSocial, agents.PurposeSEO, agents.PurposeArchive:
+		case agents.PurposeSocial, agents.PurposeSEO, agents.PurposeArchive:
 			other = append(other, ui.AiaOtherPurpose{Purpose: r.Purpose, Name: r.Label, Description: purposeDescriptions[r.Purpose], Policy: policies[r.Purpose]})
 		}
 	}
 
 	return &crawlersPage{
 		Verify: a.verifyBanner(ctx, q, rg),
-		Lede:   strconv.Itoa(fetched) + " of " + strconv.Itoa(known) + " known AI agents fetched your site " + rangeWords(rg) + ". Allow or block a whole purpose at the top of each group.",
-		Hero: ui.AiaChart{ID: "w-cr-hero", Title: "AI fetches by purpose", Description: "Stacked by what the agent reads pages for.",
-			Src: a.dataURL("overview.json", rg, cmp) + "&group=purpose", Chart: "fetches", Hero: true, Compare: cmp,
-			Table: ov.fetchM.table("AI fetches per day by purpose", "Day")},
-		Agents:    ui.AiaAgents{Caption: "AI agents by purpose", Groups: groups, Other: other},
+		Lede: strconv.Itoa(fetched) + " of " + strconv.Itoa(known) + " known AI agents and " + strconv.Itoa(len(searchRows)) + " " + plural(len(searchRows), "search engine", "search engines") + " fetched your site " + rangeWords(rg) +
+			". Allow or block a whole purpose at the top of each group.",
+		KPIs: []ui.Stat{
+			{Label: "AI fetches", Value: fmtNum(total)},
+			{Label: "Search engine crawls", Value: fmtNum(searchHits)},
+			{Label: "Verified", Value: pct(ver, spo, unv), Note: "of AI and search engine fetches"},
+		},
+		Hero: ui.AiaChart{ID: "w-cr-hero", Title: "All crawling by purpose", Description: "Stacked by what the crawler reads pages for.",
+			Src: a.dataURL("overview.json", rg, cmp) + "&group=purpose", Chart: "fetches_all", Hero: true, Compare: cmp,
+			Override: `{"` + searchSeriesName + `":{"n":6}}`,
+			Table:    ov.fetchAllM.table("Crawler fetches per day by purpose", "Day"),
+			Toggle: &ui.Segmented{Mode: "buttons", Label: "Crawlers shown", Items: []ui.SegmentedItem{
+				{Label: "AI only", Value: "fetches", Attrs: map[string]string{"data-chart-toggle": "fetches"}},
+				{Label: "AI + search", Value: "fetches_all", Pressed: true, Attrs: map[string]string{"data-chart-toggle": "fetches_all"}},
+			}},
+			AltChart: "fetches", AltTable: ov.fetchM.table("AI fetches per day by purpose", "Day")},
+		Agents:    ui.AiaAgents{Caption: "Crawlers by purpose", Groups: groups, Other: other, Summary: sum},
 		Owner:     owner,
 		Return:    sectionHref(a.adminPath+"/analytics/crawlers", q),
-		NoFetches: total == 0,
+		NoFetches: total == 0 && searchHits == 0,
 	}, nil
 }

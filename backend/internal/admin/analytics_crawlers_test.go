@@ -33,8 +33,8 @@ func TestCrawlersSection(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	for _, want := range []string{
-		"2 of 19 known AI agents fetched your site in the last 30 days. Allow or block a whole purpose at the top of each group.",
-		"AI fetches by purpose", "Stacked by what the agent reads pages for.", `&amp;group=purpose`, "Agents by purpose",
+		"2 of 19 known AI agents and 0 search engines fetched your site in the last 30 days. Allow or block a whole purpose at the top of each group.",
+		"All crawling by purpose", "Stacked by what the crawler reads pages for.", `&amp;group=purpose`, "Crawlers by purpose",
 		"Allow or block a purpose, then save once. Select an agent name for details. Only the site owner can change the robots policy.",
 		"Other crawlers", "Sets the policy for the whole purpose.",
 	} {
@@ -44,7 +44,7 @@ func TestCrawlersSection(t *testing.T) {
 	}
 	// group order, then Other crawlers; policy-only tokens under Training
 	last := -1
-	for _, h := range []string{"AI fetches by purpose", ">Training</h4>", ">Search index</h4>", ">User fetch</h4>", ">Other AI</h4>", ">Other crawlers</h4>"} {
+	for _, h := range []string{"All crawling by purpose", ">Training</h4>", ">Search index</h4>", ">User fetch</h4>", ">Other AI</h4>", ">Search engines</h4>", ">Other crawlers</h4>"} {
 		i := strings.Index(body, h)
 		if i < 0 || i < last {
 			t.Errorf("%q is missing or out of order", h)
@@ -277,5 +277,151 @@ func TestVerifyBannerHeaderWording(t *testing.T) {
 	}
 	if verifyBannerFor(agents.VerificationHealth{Verified: 5}, on, "/x") != nil {
 		t.Error("too few decided fetches must show no banner")
+	}
+}
+
+// searchRig is an analytics rig with search engines, a social agent and an SEO tool that fetched.
+func searchRig(t *testing.T) (*rig, *fakeAgentStats) {
+	t.Helper()
+	g, fs := newAnalyticsRig(t)
+	fs.extraAgents = []agents.AgentTotals{
+		{AgentID: "googlebot", Operator: "Google", Purpose: "search", Hits: 995, Verified: 990, Spoofed: 3, Unverifiable: 2, LastSeenDay: day(-1)},
+		{AgentID: "bingbot", Operator: "Microsoft", Purpose: "search", Hits: 60, Verified: 60, LastSeenDay: day(0)},
+		{AgentID: "facebookexternalhit", Operator: "Meta", Purpose: "social", Hits: 214, LastSeenDay: day(0)},
+		{AgentID: "ahrefsbot", Operator: "Ahrefs", Purpose: "seo", Hits: 1204, LastSeenDay: day(0)},
+	}
+	fs.searchSeries = []agents.SeriesPoint{{Day: day(-1), Key: "search", Hits: 40}, {Day: day(0), Key: "search", Hits: 20}}
+	return g, fs
+}
+
+func TestCrawlersSearchEnginesGroup(t *testing.T) {
+	t.Parallel()
+
+	g, fs := searchRig(t)
+	fs.denied = []agents.Purpose{agents.PurposeSearch}
+	body := g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"2 of 19 known AI agents and 2 search engines fetched your site in the last 30 days."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	se := groupBody(t, body, "Search engines")
+	for _, want := range []string{"The index behind Google, Bing and Apple search.", "Google AI Overviews and Gemini also use what Googlebot fetches.", "1,055 fetches.",
+		"Googlebot", "995", "3 spoofed", "Bingbot", "All verified", `data-aia-blocked="search">`, `name="purpose.search" value="deny" checked`} {
+		if !strings.Contains(se, want) {
+			t.Errorf("Search engines group missing %q", want)
+		}
+	}
+	if strings.Contains(se, "DuckDuckBot") || strings.Contains(se, "Applebot") {
+		t.Error("only the search engines seen in the range are listed")
+	}
+	if i := strings.Index(se, "Googlebot"); i < 0 || !strings.Contains(se[i:], lastSeen(day(-1))) {
+		t.Error("Googlebot shows its last seen day")
+	}
+	// summary row: social, SEO tools, archives with counts, busiest first within a purpose order
+	i := strings.Index(body, "Social, SEO tools, archives")
+	if i < 0 {
+		t.Fatal("no summary row")
+	}
+	for _, want := range []string{"facebookexternalhit 214", "ahrefsbot 1,204"} {
+		if !strings.Contains(strings.ToLower(body[i:]), strings.ToLower(want)) {
+			t.Errorf("summary row missing %q", want)
+		}
+	}
+	// the form still posts all eight purposes: search sits in the group header now
+	if n := strings.Count(body, `type="radio" name="purpose.`); n != 16 {
+		t.Errorf("radios = %d, want 16", n)
+	}
+	if strings.Contains(body, `<b>Search</b>`) {
+		t.Error("search is no longer listed under Other crawlers")
+	}
+	for _, want := range []string{"Search engine crawls", "1,055", "of AI and search engine fetches"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("KPIs missing %q", want)
+		}
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestCrawlersHeroToggle(t *testing.T) {
+	t.Parallel()
+
+	g, _ := searchRig(t)
+	body := g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`data-chart="fetches_all"`, `data-chart-toggle="fetches"`, `data-chart-toggle="fetches_all"`, `data-aia-table="fetches_all"`, `data-aia-table="fetches"`,
+		"Crawler fetches per day by purpose", "AI fetches per day by purpose", `data-override="{&#34;Search engines&#34;:{&#34;n&#34;:6}}"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("hero missing %q", want)
+		}
+	}
+	// AI + search is the default: its button is pressed, AI only is not.
+	if !strings.Contains(body, `aria-pressed="true" data-chart-toggle="fetches_all">AI &#43; search`) || !strings.Contains(body, `aria-pressed="false" data-chart-toggle="fetches">AI only`) {
+		i := strings.Index(body, "AI only")
+		t.Errorf("AI + search is pressed by default: %s", body[i-300:i+200])
+	}
+	// the AI only table has no Search engines column; the default one has it
+	i := strings.Index(body, `id="w-cr-hero-data"`)
+	j := strings.Index(body, `id="w-cr-hero-data-alt"`)
+	if i < 0 || j < i || !strings.Contains(body[i:j], "Search engines") || strings.Contains(body[j:j+3000], "Search engines") {
+		t.Error("the tables agree with the charts they sit under")
+	}
+}
+
+func TestOverviewJSONHasFetchesAll(t *testing.T) {
+	t.Parallel()
+
+	g, fs := searchRig(t)
+	fs.series = []agents.SeriesPoint{{Day: day(0), Key: "training", Hits: 7}}
+	_, m := jsonOf(t, g, "/admin/analytics/data/overview.json?group=purpose&from="+day(-1)+"&to="+day(0))
+	charts := m["charts"].(map[string]any)
+	var got []string
+	var searchTotal float64
+	for _, d := range charts["fetches_all"].(map[string]any)["datasets"].([]any) {
+		ds := d.(map[string]any)
+		got = append(got, ds["label"].(string))
+		if ds["label"] == "Search engines" {
+			for _, v := range ds["data"].([]any) {
+				searchTotal += v.(float64)
+			}
+		}
+	}
+	if want := "Training,Search index,User fetch,Other AI,Search engines"; strings.Join(got, ",") != want {
+		t.Errorf("series = %v, want %s", got, want)
+	}
+	if searchTotal != 60 {
+		t.Errorf("search engines total %v, want 60", searchTotal)
+	}
+	if n := len(charts["fetches"].(map[string]any)["datasets"].([]any)); n != 4 {
+		t.Errorf("AI only keeps its %d series", n)
+	}
+	// compare: the previous period joins fetches_all too
+	_, m = jsonOf(t, g, "/admin/analytics/data/overview.json?group=purpose&compare=1&from="+day(-1)+"&to="+day(0))
+	if _, ok := m["charts"].(map[string]any)["fetches_all"].(map[string]any)["previous"]; !ok {
+		t.Error("fetches_all carries the previous period with compare")
+	}
+	// operator grouping has no AI + search chart
+	_, m = jsonOf(t, g, "/admin/analytics/data/overview.json?group=operator&from="+day(-1)+"&to="+day(0))
+	if _, ok := m["charts"].(map[string]any)["fetches_all"]; ok {
+		t.Error("only the purpose grouping has fetches_all")
+	}
+}
+
+func TestCrawlersOnlySearchEnginesFetchedIsNotEmpty(t *testing.T) {
+	t.Parallel()
+
+	// the chart carries one hidden empty template of its own; the list notice is the second
+	const notice = "No data for this period."
+	g, fs := searchRig(t)
+	fs.noAI = true
+	body := g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, notice); n != 1 {
+		t.Errorf("search engines fetched: %d notices, want only the chart's own", n)
+	}
+	fs.extraAgents = nil
+	body = g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, notice); n != 2 {
+		t.Errorf("nothing fetched: %d notices, want the chart's and the list's", n)
 	}
 }

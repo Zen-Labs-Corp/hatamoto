@@ -7,6 +7,7 @@
 //     data-endpoints="url1|url2"             one URL per panel when they differ (default data-src)
 //     data-ratio="referrals,pageviews"  AI share: first key summed over the second
 //     data-sum="AI fetches|AI visits"  per panel: add the datasets up into one series with that name
+//     [data-chart-toggle=<key>] buttons inside the figure flip data-chart (and the data table) to that key
 //     data-ratio-label="AI share"  data-title  data-hero  data-cols  data-panel-labels="A|B"
 //     data-override='{"Spoofed":{"cls":"hm-viz--danger","marker":"triangle"}}'
 //   <span data-hm-aia-chart="spark" data-src data-chart [data-minmax] [data-ratio] [data-dataset="label"]> the live hm/spark: sets d/points/label on its svg
@@ -166,6 +167,32 @@ async function mount(fig) {
   }
 }
 
+// "AI only | AI + search": buttons[data-chart-toggle=<key>] inside the figure switch the JSON key the
+// chart draws and move [data-aia-data] to the table of that key, so chart and table never disagree.
+function enhanceToggle(fig) {
+  const buttons = [...fig.querySelectorAll("[data-chart-toggle]")];
+  for (const btn of buttons) {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.chartToggle;
+      if (fig.dataset.chart === key) return;
+      fig.dataset.chart = key;
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b === btn));
+      for (const t of fig.querySelectorAll("[data-aia-table]")) {
+        const on = t.dataset.aiaTable === key;
+        if (on) {
+          t.setAttribute("data-aia-data", "");
+          const sd = fig.querySelector("[data-aia-sd]");
+          if (sd) sd.setAttribute("aria-controls", t.id);
+        } else {
+          t.removeAttribute("data-aia-data");
+          t.hidden = true;
+        }
+      }
+      mount(fig);
+    });
+  }
+}
+
 // A sparkline reads one chart of the JSON and sets the paths of the server-rendered hm/spark
 // (empty until now); a failed request leaves it empty and marked.
 async function mountSpark(host) {
@@ -196,6 +223,7 @@ export function mountAll(root = document) {
     const kind = KINDS[fig.dataset.hmAiaChart];
     if (!kind || started.has(fig)) continue;
     started.add(fig);
+    if (fig.dataset.hmAiaChart === "time") enhanceToggle(fig);
     kind(fig);
   }
   for (const t of root.querySelectorAll("[data-hm-aia-tracker]")) {
