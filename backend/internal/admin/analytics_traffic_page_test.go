@@ -64,6 +64,9 @@ func TestTrafficPageSections(t *testing.T) {
 	if !strings.Contains(body, `AI assistants <span class="hm-badge hm-badge--info`) {
 		t.Error("the AI assistants channel row must carry the new badge")
 	}
+	if !strings.Contains(body, "60.0%") || !strings.Contains(body, "20.0%") {
+		t.Error("the Channels share column must show one decimal on every row")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}

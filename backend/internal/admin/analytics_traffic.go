@@ -269,7 +269,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 			name.Badge = &ui.Badge{Label: "new", Kind: "info"}
 		}
 		row := []ui.AiaCell{name, {Text: fmtNum(n.Visits)},
-			{Text: shareText(pct), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
+			{Text: fixed(pct, 1), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
 			{Text: placeholder, Muted: true}, {Text: placeholder, Muted: true}}
 		if cmp {
 			row = append(row, ui.AiaCell{Text: kpiDelta(true, rg, float64(n.Visits), float64(prevChannels[c.Key].Visits), false, false).Text})
