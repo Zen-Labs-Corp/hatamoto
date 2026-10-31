@@ -151,13 +151,61 @@ Go page render ──► aiReferralMiddleware ──► classify (registry) ─�
 
 ## Admin UI and API (Phase 4)
 
-**Admin > Analytics > AI Agents** (`<admin>/analytics/agents`) has tabs:
-Overview (AI fetches -> AI-referred visits, time series by
-operator or purpose, top agents), Pages (most fetched, and published entities
-never fetched by an AI agent), Agents (per-agent detail), Errors (agent fetches
-with status >= 400, with a "create redirect" action for 404s), Spoofed, and
-Robots policy. The old Settings > Bot Visits page redirects here; its nav item
-is gone.
+**Admin > Analytics** (`<admin>/analytics`) is a sub-sidebar with Overview,
+Content, Crawlers, Google, Referrals and Health, plus a page per agent
+(`<admin>/analytics/agents/{id}`). Old `/analytics/agents` links redirect to
+Crawlers; the section ids and URLs did not change when the section was
+renamed Analytics. The Crawlers section holds Overview (AI fetches -> AI-referred
+visits, time series by operator or purpose, top agents), Pages (most fetched,
+and published entities never fetched by an AI agent), Agents (per-agent
+detail), First crawls, Errors (agent fetches with status >= 400, with a "create
+redirect" action for 404s), Spoofed and Robots policy. The old Settings > Bot
+Visits page redirects here; its nav item is gone.
+
+### Search engines and the Google section
+
+- Crawlers shows a **Search engines** group (purpose `search`) next to the AI
+  purposes, with its own Allow/Block control, and the summary row counts it.
+  The hero chart toggles between **AI only** and **AI + search**; the search
+  engines are one extra series. Agent pages of search engines work like the
+  AI ones.
+- `<admin>/analytics/google` is Googlebot only. Key figures: crawls and
+  verified share, pages crawled of published, median publish -> first crawl.
+  The chart stacks fetches per UTC day by response class. The page table lists
+  published pages plus every other path Googlebot fetched (crawls, last crawl
+  day, last status) and filters by All, Not crawled, Errors (last status >=
+  400) or Stale (the entity's `updated_at` UTC day is later than the last
+  crawl day). Resolution is a whole day, not a time.
+- **Spoofed hits are excluded** from every page-level number (pages crawled,
+  crawls, last crawl, last status, stale). Only the hit total, the verified
+  share and the status chart count every Googlebot hit.
+- **First crawl** for search engines is a separate table,
+  `hatamoto_agent_search_first_crawl`, keyed by (entity, agent). A row is
+  written only for a verified, served (status 200 to 399) search hit with an
+  entity; a later verification of an older hit can only lower `first_at`. It
+  fires no plugin hook, and `hatamoto_agent_first_crawl` and `agent.first_crawl`
+  stay AI only. The median uses pages published since tracking began.
+- Search performance (impressions, clicks, position, index status) shows only
+  when an integration supplies it (see [PLUGIN_API.md](PLUGIN_API.md#search-performance-provider-internal-not-yet-a-stable-plugin-surface));
+  otherwise one notice says search performance is not connected.
+- MCP: `analytics_google` (`read:reports`) returns the same figures and page
+  rows; `analytics_crawler_hits` with `entity_id` adds `search_first_crawl_at`.
+
+### Verification of search engines and the CDN edge
+
+Google, Bing and Apple publish reverse DNS as the primary method and ranges as
+a convenience. A search hit outside the loaded ranges is therefore decided by
+forward-confirmed reverse DNS (PTR ends in an operator suffix and resolves back
+to the IP), not marked spoofed at once. A migration relabels stored spoofed
+hits whose stored IP is inside the CDN edge ranges (the client address used to
+be the edge address behind a CDN) to `unverifiable`, and moves the daily
+rollup counters by the same amounts. It is idempotent and makes no network
+call. A daily job attributes past hits to pages by path and then seeds the
+search first-crawl table from the verified hits still in the raw table; it also
+runs once after startup, so no manual step is needed after the upgrade.
+
+Privacy: no new IP is stored. The relabel reads IPs only inside the existing
+retention (raw hits, IP truncated after 30 days; truncated rows are skipped).
 
 ### Admin API
 

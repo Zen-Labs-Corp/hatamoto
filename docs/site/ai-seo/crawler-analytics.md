@@ -136,7 +136,7 @@ psql "$DATABASE_URL" -c "SELECT day, kind, key, count FROM hatamoto_analytics_da
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-**AI analytics** in the sidebar (`<admin>/analytics/crawlers`) has three tabs: **Crawlers**, **Referrals** (`<admin>/analytics/referrals`) and **Pageviews** (`<admin>/analytics/pageviews`). Every view except **Robots policy** has a date range, the last 30 days by default and at most 366 days.
+**Analytics** in the sidebar has six sections: **Overview**, **Content**, **Crawlers** (`<admin>/analytics/crawlers`), **Google** (`<admin>/analytics/google`), **Referrals** (`<admin>/analytics/referrals`) and **Health**. Every view except **Robots policy** has a date range, the last 30 days by default and at most 366 days.
 
 | Crawlers view | Shows |
 |---|---|
@@ -147,6 +147,25 @@ psql "$DATABASE_URL" -c "SELECT day, kind, key, count FROM hatamoto_analytics_da
 | **Errors** | Fetches with status 400 or above, grouped by page and status. A 404 row has a **Create redirect** action. |
 | **Spoofed** | Recent hits that failed verification, with the claimed agent and the masked network. |
 | **Robots policy** | The policy per purpose. See [robots.txt and llms.txt](robots-llms.md#the-admin-screen). |
+
+### Search engines on the Crawlers section
+
+Besides the AI purposes, the Crawlers section has a **Search engines** group (Googlebot, Bingbot and the other search crawlers seen in the range), with its own Allow and Block control, and the summary row counts them. The hero chart has a toggle: **AI only**, or **AI + search** (the default), which adds one grey series for the search engines. Google's AI features (AI Overviews, Gemini) use the same Googlebot crawl; the `Google-Extended` token only controls training use.
+
+### The Google section
+
+The **Google** section answers "what is Google doing on my site?" from your own server logs.
+
+- **Key figures:** Googlebot crawls and the verified share, pages crawled out of published pages, and the median time from publishing to the first crawl.
+- **Crawling chart:** Googlebot fetches per day, stacked by response class (2xx, 3xx, 4xx, 5xx).
+- **Pages through Google's eyes:** every published page and every other path Googlebot fetched, with crawls, last crawl and last status. Filter by **All**, **Not crawled** (published pages with no crawl in the range), **Errors** (last status 400 or above) or **Stale** (the page was edited on a later day than its last crawl).
+- Spoofed fetches are left out of the page numbers, so a forged user agent cannot make a page look crawled. Dates are whole UTC days: the table shows the day of the last crawl, not the time.
+- **First crawl** counts only the first verified, served (below 400) search engine fetch of a page. It is tracked for pages published since tracking began, and the history still held in the raw hit table is back-filled once after the upgrade.
+- Impressions, clicks, average position and index status appear only when a search performance integration is connected. Without one, a single notice says so. Nothing is shown as zero in its place.
+
+### Verification
+
+Search engines are verified by the address ranges they publish and, when an address is not in the list, by forward-confirmed reverse DNS (the reverse name ends in the operator's domain and resolves back to the same address). After upgrading, fetches that were marked spoofed only because they arrived from a CDN edge address are relabelled **unverifiable**: from an edge address the real origin cannot be known. Page attribution of past fetches is also repaired in the background after the upgrade; no action is needed.
 
 **Referrals** shows visits from AI assistants, pageviews, the AI share of traffic and visits by assistant. Any signed-in admin can read these screens; only an owner can change the robots policy. The old addresses under `<admin>/analytics/agents`, and `<admin>/analytics` itself, redirect to `<admin>/analytics/crawlers`.
 

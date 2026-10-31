@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased: Search engines and a Google section in Analytics
+
+"AI analytics" is now **Analytics**, with a new **Google** section next to Crawlers (same URLs, `/analytics/google` is new). Crawlers gains a Search engines group and an **AI only / AI + search** toggle on the hero chart. Google shows Googlebot crawls, the verified share, pages crawled of published, the median time from publishing to first crawl, a stacked response-class chart and a page table with All, Not crawled, Errors and Stale filters. Spoofed fetches are left out of page numbers, and dates are whole UTC days. Impressions, clicks and position appear only when a search performance source is connected; otherwise one notice says so. MCP gets `analytics_google` and `search_first_crawl_at` on a page's activity (additive).
+
+- Search engine hits outside the published ranges are now decided by forward-confirmed reverse DNS before they are called spoofed.
+- Migrations: a new `hatamoto_agent_search_first_crawl` table, and a relabel that turns spoofed hits from a CDN edge address into unverifiable (the daily counters move with them; it reads stored IPs only inside the existing retention and stores none). After the upgrade a background job attributes past crawler hits to pages and seeds the first-crawl table; nothing to run by hand. Both are idempotent.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.** An older binary ignores the new table; relabelled hits stay unverifiable.
+
 ## Unreleased: Builder canvas and inspector, redrawn
 
 The page builder's canvas and inspector are easier to read and to use. On the canvas: a toolbar beside the selected element (Parent, Duplicate, Wrap, Hide on this device, Delete, More), breadcrumbs and Fit, 100, 75 and 50 zoom above the page, a coloured band on Tablet and Phone, round **+** handles between elements (with **Choose an element…** and **Insert a ready-made section…**), **Enter** to edit a selected text and **Esc** to cancel, `Ctrl+K` for the command palette from the page, a shorter format bar on headings, a link panel that lists your pages and anchors, and `Ctrl+Z` to undo the last format while typing. In the inspector: a header with an **Element options** menu, a **Class** row (the word "preset" is gone from the screen), a Style tab that opens with the State switch and a few Essentials per element, source labels with one **Reset** per control, **Show on** switches for Desktop, Tablet and Phone, padding nested in margin, colours with site names, **None** and recent colours, a reordered Content tab, **Number of columns**, an **Items** panel for Tabs, Accordion and Gallery, and **Restore from an earlier version…** for a single element (new read-only route `GET /entities/{id}/builder/node-versions`).
