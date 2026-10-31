@@ -20,7 +20,11 @@ type translationsData struct {
 	Copies     ui.Table
 	Grid       ui.Table
 	Hreflang   ui.Table
+	// Link is the "Link an existing page" dialog; nil hides it (no edit rights).
+	Link *linkDialog
 }
+
+type linkDialog struct{ Action, Src string }
 
 // handleTranslations is the Translations tab of an entry: one row per
 // configured locale, a field by locale grid and what search engines see.
@@ -54,6 +58,11 @@ func (a *Admin) handleTranslations(w http.ResponseWriter, r *http.Request) {
 			a.serverError(w, r, "The translations could not be loaded", err)
 			return
 		}
+		if canEditTranslations(r) {
+			base := a.translationsURL(e.ID)
+			d.Link = &linkDialog{Action: base + "/link", Src: base + "/candidates"}
+			d.Actions = []ui.Button{{Label: "Link an existing page", Icon: "link", Href: "#link-copy", Attrs: map[string]string{"data-hm-open": "link-copy"}}}
+		}
 		a.fillTranslations(ctx, &d, e, members, cfg.Language, set)
 	}
 	v := a.NewView(w, r, "Translations of "+e.Name)
@@ -68,6 +77,13 @@ type copyView struct {
 	m     entity.Member
 	e     *entity.Entity
 	stale bool
+}
+
+// canEditTranslations reports whether the person may change links: the same
+// roles the write routes allow.
+func canEditTranslations(r *http.Request) bool {
+	u := userFrom(r.Context())
+	return u != nil && (u.Role == "owner" || u.Role == "editor")
 }
 
 func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *entity.Entity, members []entity.Member, defaultLocale string, set *entity.LocaleSet) {
@@ -132,7 +148,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			lang.Tag = &ui.Badge{Label: "Original", Kind: "info"}
 		}
 		row.Cells = []ui.Cell{lang, {Text: a.copyAddress(ctx, cv.e), Clip: true}, a.statusCell(cv)}
-		row.Actions = []ui.Action{{Label: "Edit", Href: a.adminPath + "/entities/" + cv.m.ID.String()}}
+		row.Actions = a.copyActions(e, cv.m, grouped, cv.m.ID == orig.ID, d.Link != nil)
 		d.Copies.Rows = append(d.Copies.Rows, row)
 	}
 
@@ -182,6 +198,23 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	if xdef != "" {
 		d.Hreflang.Rows = append(d.Hreflang.Rows, ui.Row{ID: "hl-x-default", Label: "x-default", Cells: []ui.Cell{{Text: "hreflang x-default"}, {Text: xdef, Clip: true}}})
 	}
+}
+
+// copyActions are the row actions of one copy: Edit, and for those who may
+// change links, Make original (not on the original) and Unlink (not on a page
+// without translations).
+func (a *Admin) copyActions(page *entity.Entity, m entity.Member, grouped, isOriginal, canEdit bool) []ui.Action {
+	id := m.ID.String()
+	actions := []ui.Action{{Label: "Edit", Href: a.adminPath + "/entities/" + id}}
+	if !canEdit || !grouped {
+		return actions
+	}
+	base := a.translationsURL(page.ID)
+	if !isOriginal {
+		actions = append(actions, ui.Action{Label: "Make original", Post: base + "/original", Fields: map[string]string{"member": id}})
+	}
+	return append(actions, ui.Action{Label: "Unlink", Danger: true, Href: base + "/unlink?member=" + id, Post: base + "/unlink?member=" + id,
+		Confirm: "The page stays as it is, but it is no longer listed as a translation.", ConfirmLabel: "Unlink"})
 }
 
 func (a *Admin) copyAddress(ctx context.Context, e *entity.Entity) string {
