@@ -13,7 +13,7 @@ import (
 //   - for those three dims, a day older than a day keeps its top
 //     trafficTopKeys rows by visits plus pageviews, the rest are folded into
 //     one (other) row, so totals stay exact. This also covers the keys the
-//     in-memory per-flush cap let through.
+//     in-memory per-day cap let through.
 const (
 	trafficRetentionMonths = 13
 	trafficTopKeys         = 100

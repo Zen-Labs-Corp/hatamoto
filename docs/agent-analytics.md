@@ -237,7 +237,7 @@ setting.
 **Retention.** The `channel`, `device` and `country` rows are kept
 indefinitely (a few hundred rows a year). The `source`, `campaign` and
 `landing` rows are pruned after 13 months. To bound cardinality, a day holds at
-most 200 distinct keys per dimension in the in-memory buffer (new keys go to
+most 2000 distinct keys per dimension in the in-memory buffer (new keys go to
 `(other)`), and a nightly job folds days older than one day to the top 100 keys
 by visits plus pageviews and `(other)`, preserving the totals.
 
