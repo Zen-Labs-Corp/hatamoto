@@ -35,7 +35,7 @@ CREATE INDEX hatamoto_example_name_idx ON hatamoto_example (name);
 DROP TABLE hatamoto_example;
 ```
 
-Wrap `DO $$ ... $$` blocks in `-- +goose StatementBegin` and `-- +goose StatementEnd`. **Never edit a migration that has shipped**, not to fix it and not to reformat it. Add a new one. The single sanctioned exception in history was removing the pgvector extension from the baseline so that a fresh database could be migrated on a plain Postgres image. It is not a precedent.
+Wrap `DO $$ ... $$` blocks in `-- +goose StatementBegin` and `-- +goose StatementEnd`. **Never edit a migration that has shipped**, not to fix it and not to reformat it. Add a new one. The single sanctioned exception in history was removing the pgvector extension from the baseline so that a fresh database could be migrated on a plain Postgres image. It is not a precedent. Folding old migrations into a new baseline happens only at a major release, under the squash rules in `backend/migrations/README.md`.
 
 Go migrations are also supported, as `.go` files in the same directory, but they are rarer and have extra marker rules (below).
 
