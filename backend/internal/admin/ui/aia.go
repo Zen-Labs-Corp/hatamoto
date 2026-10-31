@@ -151,4 +151,7 @@ type AiaCell struct {
 	Muted            bool
 	Button           bool // the link is a small secondary button
 	Badge            *Badge
+	// Bar and Spark follow the text: a proportion bar (a share) and a trend line.
+	Bar   *Bar
+	Spark *Spark
 }
