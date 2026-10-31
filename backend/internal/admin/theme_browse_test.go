@@ -115,6 +115,9 @@ func TestThemeBrowsePopulated(t *testing.T) {
 	if !strings.Contains(body, ` themes · 2 installed hidden · <a href="/admin/theme/browse?hide=0">Show installed</a></p>`) {
 		t.Error("count and installed-hidden note must share one line")
 	}
+	if !strings.Contains(body, `aria-labelledby="tc-c-hanshi-name" aria-describedby="tc-c-hanshi-action"`) || !strings.Contains(body, `id="tc-c-hanshi-action">● Live<`) {
+		t.Error("a card must describe itself by its state text, named by the theme name")
+	}
 	if strings.Contains(body, ">seo<") || strings.Contains(body, "Permissions") {
 		t.Error("plugin entries or permission facets leaked into theme browse")
 	}
