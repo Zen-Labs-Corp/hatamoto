@@ -506,7 +506,7 @@ func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	c := a.deps.Content
 	attrs := attrsMap(e.Attributes)
-	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabs(e.ID.String(), "details")}
+	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details")}
 	loc := a.siteLocation(r.Context())
 	if !e.UpdatedAt.IsZero() {
 		f.UpdatedAt = fmtDateTime(e.UpdatedAt.In(loc))
@@ -959,7 +959,7 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	if r.PostFormValue("status") == "" {
 		p.f.Status = string(e.Status)
 	}
-	p.f.ID, p.f.Version, p.f.Tabs = e.ID.String(), e.Version, a.entityTabs(e.ID.String(), "details")
+	p.f.ID, p.f.Version, p.f.Tabs = e.ID.String(), e.Version, a.entityTabsFor(r.Context(), e, "details")
 	if usesVisualEditor(sc, e) {
 		p.f.EditorURL = a.adminPath + "/entities/" + e.ID.String() + "/edit"
 	}

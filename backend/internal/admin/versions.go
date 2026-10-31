@@ -63,7 +63,7 @@ func (a *Admin) handleVersions(w http.ResponseWriter, r *http.Request) {
 	if usesVisualEditor(sc, e) {
 		back = ui.Button{Label: "Back to editor", Href: a.adminPath + "/entities/" + id + "/edit"}
 	}
-	d := versionsData{Name: e.Name, ID: id, Tabs: a.entityTabs(id, "versions"), Count: len(vs), Actions: []ui.Button{back}}
+	d := versionsData{Name: e.Name, ID: id, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Count: len(vs), Actions: []ui.Button{back}}
 	t := ui.Table{
 		ID: "versions", Caption: "Versions of " + e.Name, BaseURL: a.adminPath + "/entities/" + id + "/versions", CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "version", Label: "Version"}, {Key: "saved", Label: "Saved"}, {Key: "by", Label: "By"}, {Key: "summary", Label: "Summary"}},
@@ -263,7 +263,7 @@ func (a *Admin) handleVersionCompare(w http.ResponseWriter, r *http.Request) {
 		actions = append(actions, a.restoreButton(id, from, "Restore this version"))
 	}
 	v := a.NewView(w, r, "Compare "+ll+" and "+rl)
-	v.Data = compareData{Name: e.Name, ID: id, FromLabel: ll, ToLabel: rl, Tabs: a.entityTabs(id, "versions"), Rows: rows, Same: same, Identical: len(rows) == 0 && (layout == nil || len(layout.Rows) == 0), Layout: layout, Actions: actions}
+	v.Data = compareData{Name: e.Name, ID: id, FromLabel: ll, ToLabel: rl, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Rows: rows, Same: same, Identical: len(rows) == 0 && (layout == nil || len(layout.Rows) == 0), Layout: layout, Actions: actions}
 	v.Crumbs = a.entityCrumbs(e.Name, id, Crumb{Label: "Versions", Href: a.adminPath + "/entities/" + id + "/versions"}, Crumb{Label: "Compare"})
 	a.Render(w, r, http.StatusOK, "entities/compare", v)
 }
@@ -343,7 +343,7 @@ func (a *Admin) handleVersionView(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(attrs, &doc)
 	flat := map[string]string{}
 	flatten("", doc, flat)
-	d := versionViewData{Name: e.Name, ID: id, Label: label, N: n, Tabs: a.entityTabs(id, "versions"), Actions: []ui.Button{
+	d := versionViewData{Name: e.Name, ID: id, Label: label, N: n, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Actions: []ui.Button{
 		{Label: "Back to versions", Href: a.adminPath + "/entities/" + id + "/versions"},
 		{Label: "Compare with current", Href: a.adminPath + fmt.Sprintf("/entities/%s/versions/compare?from=%d&to=0", id, n), Variant: "primary"},
 	}}
