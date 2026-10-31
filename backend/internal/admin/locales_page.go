@@ -22,6 +22,8 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/locales/new", a.handleLocaleNew)
 	owner.HandleFunc("POST /settings/locales/add", a.handleLocaleAdd)
 	owner.HandleFunc("POST /settings/locales/order", a.handleLocaleOrder)
+	owner.HandleFunc("GET /settings/locales/addresses", a.handleAddresses)
+	owner.HandleFunc("POST /settings/locales/addresses", a.handleAddressesSave)
 	owner.HandleFunc("GET /settings/locales/{tag}/edit", a.handleLocaleEdit)
 	owner.HandleFunc("POST /settings/locales/{tag}/update", a.handleLocaleUpdate)
 }
@@ -427,4 +429,73 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Saved "+localeDisplayName(e.Tag)+".")
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
+}
+
+// addressesData is the Addresses and search engines tab.
+type addressesData struct {
+	Default   string
+	PrefixAll bool
+	XDefault  []ui.Option
+	Errs      map[string]string
+	Summary   []ui.FieldError
+	Multi     bool
+}
+
+// xDefaultOptions offers Automatic and every public locale, never a hidden one.
+func xDefaultOptions(cfg *siteconfig.Config, current string) []ui.Option {
+	out := []ui.Option{{Value: "", Label: "Automatic", Selected: current == ""}}
+	for _, e := range cfg.Locales {
+		if !e.Hidden {
+			out = append(out, ui.Option{Value: e.Tag, Label: localeDisplayName(e.Tag) + " (" + e.Tag + ")", Selected: e.Tag == current})
+		}
+	}
+	return out
+}
+
+func (a *Admin) renderAddresses(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, prefixAll bool, xdef string, errs map[string]string) {
+	d := addressesData{
+		Default: localeDisplayName(localeSetOf(cfg).Default()), PrefixAll: prefixAll, XDefault: xDefaultOptions(cfg, xdef),
+		Errs: errs, Multi: localeSetOf(cfg).Multi(),
+	}
+	for _, k := range []struct{ key, label string }{{"locales", "Address prefix"}, {"xdefault", "Default for search engines"}} {
+		if m := errs[k.key]; m != "" {
+			d.Summary = append(d.Summary, ui.FieldError{ID: "locale-" + k.key, Label: k.label, Message: m})
+		}
+	}
+	v := a.NewView(w, r, "Addresses and search engines")
+	v.Section, v.Tab = "locales", "locale-addresses"
+	v.Data = d
+	a.Render(w, r, status, "settings/locales-addresses", v)
+}
+
+func (a *Admin) handleAddresses(w http.ResponseWriter, r *http.Request) {
+	cfg, err := a.loadSite(r.Context())
+	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+		return
+	}
+	a.renderAddresses(w, r, http.StatusOK, cfg, cfg.PrefixAll, cfg.XDefaultLocale, nil)
+}
+
+// handleAddressesSave stores the two flags with the stored locales unchanged,
+// so hidden flags and names survive.
+func (a *Admin) handleAddressesSave(w http.ResponseWriter, r *http.Request) {
+	cfg, err := a.loadSite(r.Context())
+	if err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+		return
+	}
+	prefixAll, xdef := r.PostFormValue("prefix_all") == "true", strings.TrimSpace(r.PostFormValue("xdefault"))
+	errs, err := a.saveLocales(r.Context(), cfg, cfg.Locales, prefixAll, xdef)
+	if err != nil {
+		a.logger().Error("save addresses failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be saved.")
+		return
+	}
+	if len(errs) > 0 {
+		a.renderAddresses(w, r, http.StatusUnprocessableEntity, cfg, prefixAll, xdef, errs)
+		return
+	}
+	a.SetFlash(w, r, "success", "Address settings saved.")
+	http.Redirect(w, r, a.url("settings", "locales", "addresses"), http.StatusSeeOther)
 }

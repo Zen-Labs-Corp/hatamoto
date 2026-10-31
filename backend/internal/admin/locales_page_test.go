@@ -174,3 +174,44 @@ func TestLocalesPageSingleLocaleOnlyAdd(t *testing.T) {
 		t.Fatalf("code=%d single-locale page shows multi controls", rec.Code)
 	}
 }
+
+func TestAddressesSavePreservesHiddenAndName(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	if c := postForm(g, "/addresses", "prefix_all", "true", "xdefault", ""); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if l := site.cfg.Locales[1]; !l.Hidden || l.Name != "Francais" || !site.cfg.PrefixAll || g.flushed != 1 {
+		t.Errorf("fr = %+v prefixAll=%v flushed=%d", l, site.cfg.PrefixAll, g.flushed)
+	}
+}
+
+func TestAddressesRejectsHiddenXDefault(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
+		return nil, "", fieldErr{"x_default_locale", "x-default locale is hidden"}
+	}
+	f := url.Values{"xdefault": {"fr"}}
+	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", f, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "x-default locale is hidden") || site.cfg.XDefaultLocale != "" {
+		t.Errorf("code=%d xdefault=%q", rec.Code, site.cfg.XDefaultLocale)
+	}
+	body := g.do("GET", "/admin/settings/locales/addresses", "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, `value="fr"`) {
+		t.Error("a hidden locale is offered as x-default")
+	}
+}
+
+func TestAddressesPrefixAll(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.PrefixAll = true
+	body := g.do("GET", "/admin/settings/locales/addresses", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "checked") {
+		t.Error("prefix_all switch is not checked")
+	}
+	if c := postForm(g, "/addresses", "prefix_all", "false"); c != 303 || site.cfg.PrefixAll {
+		t.Errorf("code=%d prefixAll=%v", c, site.cfg.PrefixAll)
+	}
+}
