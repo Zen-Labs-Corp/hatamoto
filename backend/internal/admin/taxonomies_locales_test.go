@@ -57,8 +57,7 @@ func termLocalesRig(t *testing.T, tags ...string) (*contentRig, *fakeTermGroups,
 	for _, tag := range tags {
 		site.cfg.Locales = append(site.cfg.Locales, siteconfig.LocaleEntry{Tag: tag, Segment: strings.ToLower(tag)})
 	}
-	var id string
-	id = c.terms.terms[0].ID.String()
+	id := c.terms.terms[0].ID.String()
 	return c, tg, id
 }
 
