@@ -202,7 +202,7 @@ func openAfterAdd(form map[string][]string, prefix string, vals map[string]any) 
 func localeSetOf(c *siteconfig.Config) *entity.LocaleSet {
 	entries := make([]entity.LocaleEntry, 0, len(c.Locales))
 	for _, e := range c.Locales {
-		entries = append(entries, entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment})
+		entries = append(entries, entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden})
 	}
 	set, err := entity.NewLocaleSet(c.Language, entries, c.PrefixAll, c.XDefaultLocale)
 	if err != nil {

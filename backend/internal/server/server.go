@@ -380,7 +380,7 @@ func (s *Server) setupDependencies() {
 		}
 		entries := make([]entity.LocaleEntry, len(cfg.Locales))
 		for i, l := range cfg.Locales {
-			entries[i] = entity.LocaleEntry{Tag: l.Tag, Segment: l.Segment}
+			entries[i] = entity.LocaleEntry{Tag: l.Tag, Segment: l.Segment, Name: l.Name, Hidden: l.Hidden}
 		}
 		set, err := entity.NewLocaleSet(cfg.Language, entries, cfg.PrefixAll, cfg.XDefaultLocale)
 		if err != nil {

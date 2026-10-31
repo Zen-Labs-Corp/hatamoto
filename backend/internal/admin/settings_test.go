@@ -74,3 +74,12 @@ func TestSiteSettings_XDefaultInSameSave(t *testing.T) {
 		t.Errorf("error is shown on the locales field")
 	}
 }
+
+func TestLocaleSetOfKeepsHiddenAndName(t *testing.T) {
+	set := localeSetOf(&siteconfig.Config{Language: "en", Locales: []siteconfig.LocaleEntry{
+		{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: "Francais", Hidden: true},
+	}})
+	if !set.IsHidden("fr") || set.Name("fr") != "Francais" || set.IsHidden("en") {
+		t.Fatalf("hidden/name lost: %+v", set.Entries())
+	}
+}
