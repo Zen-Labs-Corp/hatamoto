@@ -188,3 +188,13 @@ func TestTranslationsEmptyCellsShowDash(t *testing.T) {
 	lacks(t, body, "None")
 	has(t, body, "—")
 }
+
+// The copies table, the field grid and the search-engine list each have a
+// visible heading, so they stay labelled where the stacked mobile tables drop
+// their column headers.
+func TestTranslationsSectionsHaveHeadings(t *testing.T) {
+	t.Parallel()
+	c, _ := groupedRig(t)
+	body := c.get(t, "owner-token", translationsTab, "")
+	has(t, body, `<h2 class="hm-card__title">Languages</h2>`, `<h2 class="hm-card__title">Fields by language</h2>`, `<h2 class="hm-card__title">Search engines see</h2>`)
+}

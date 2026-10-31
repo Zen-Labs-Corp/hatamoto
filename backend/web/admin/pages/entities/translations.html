@@ -5,8 +5,11 @@
 {{if .Empty}}{{template "hm/empty" .EmptyState}}
 {{else}}<section class="hm-stack">
 <p class="hm-muted">{{.Intro}}</p>
+<h2 class="hm-card__title">Languages</h2>
 {{template "hm/table" .Copies}}
+<h2 class="hm-card__title">Fields by language</h2>
 {{template "hm/table" .Grid}}
+<h2 class="hm-card__title">Search engines see</h2>
 {{template "hm/table" .Hreflang}}
 </section>
 {{with .Link}}{{template "hm/dialog-start" dict "ID" "link-copy" "Title" "Link an existing page" "Static" true "Description" "Pick a page of the same type in a language this page does not have yet."}}
