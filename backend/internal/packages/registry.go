@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -52,6 +53,30 @@ type Entry struct {
 	// Both are optional: servers that predate them ignore the keys.
 	Category string `json:"category,omitempty"`
 	Featured bool   `json:"featured,omitempty"`
+	// SiteType (one of SiteTypes) and Flags (any of ThemeFlags) feed the admin
+	// theme Browse page. Both are optional: unknown values are dropped.
+	SiteType string   `json:"site_type,omitempty"`
+	Flags    []string `json:"flags,omitempty"`
+}
+
+// UnmarshalJSON decodes an entry, dropping a site_type or flags value of the
+// wrong JSON type instead of failing the whole index.
+func (e *Entry) UnmarshalJSON(data []byte) error {
+	type plain Entry
+	aux := struct {
+		*plain
+		SiteType json.RawMessage `json:"site_type"`
+		Flags    json.RawMessage `json:"flags"`
+	}{plain: (*plain)(e)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	e.SiteType, e.Flags = "", nil
+	_ = json.Unmarshal(aux.SiteType, &e.SiteType)
+	if json.Unmarshal(aux.Flags, &e.Flags) != nil {
+		e.Flags = nil
+	}
+	return nil
 }
 
 // Categories is the fixed list of package categories, exact case.
@@ -65,6 +90,29 @@ func ValidCategory(s string) bool {
 		}
 	}
 	return false
+}
+
+// SiteTypes is the fixed list of theme site types.
+var SiteTypes = []string{"blog", "business", "docs", "landing", "portfolio", "restaurant"}
+
+// ThemeFlags is the fixed list of theme capability flags.
+var ThemeFlags = []string{"dark", "nojs", "builder"}
+
+// ValidSiteType reports whether s is one of SiteTypes.
+func ValidSiteType(s string) bool { return slices.Contains(SiteTypes, s) }
+
+// ValidThemeFlag reports whether s is one of ThemeFlags.
+func ValidThemeFlag(s string) bool { return slices.Contains(ThemeFlags, s) }
+
+// cleanFlags keeps the known flags of in once each, in order; nil when none.
+func cleanFlags(in []string) []string {
+	var out []string
+	for _, f := range in {
+		if ValidThemeFlag(f) && !slices.Contains(out, f) {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // Caps of Entry.About and Entry.Features, shared by the index build
@@ -269,6 +317,10 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 			if e.Category != "" && !ValidCategory(e.Category) {
 				e.Category = ""
 			}
+			if !ValidSiteType(e.SiteType) {
+				e.SiteType = ""
+			}
+			e.Flags = cleanFlags(e.Flags)
 			e.About, e.Features = cleanAbout(e.About), cleanFeatures(e.Features)
 			valid = append(valid, e)
 		}

@@ -6,6 +6,15 @@
 const SELECTOR = 'a[data-hm-open="plugin-panel"]';
 let latest = 0;
 
+// A fragment may carry a [data-hm-panel-actions] block (opt-in; the plugin
+// fragment has none): it is moved into the drawer footer, after Close, and
+// removed again when the next fragment loads or the drawer closes.
+const ACTIONS = "[data-hm-panel-actions]";
+const clearActions = (dlg) => dlg.querySelectorAll(`.hm-dialog__foot ${ACTIONS}`).forEach((n) => n.remove());
+document.addEventListener("close", (evt) => {
+  if (evt.target.id === "plugin-panel") clearActions(evt.target);
+}, true);
+
 // Runs in the capture phase so a modified click (new tab, new window) stays a
 // plain link: stopping it here keeps components.js from opening the dialog.
 document.addEventListener("click", (evt) => {
@@ -26,6 +35,7 @@ document.addEventListener("click", (evt) => {
 
 async function load(href, dlg, body) {
   const mine = ++latest;
+  clearActions(dlg);
   const loading = document.createElement("p");
   loading.className = "hm-muted";
   loading.textContent = "Loading...";
@@ -36,7 +46,10 @@ async function load(href, dlg, body) {
     const doc = new DOMParser().parseFromString(await res.text(), "text/html");
     if (mine !== latest) return;
     body.replaceChildren(...Array.from(doc.body.childNodes, (n) => document.importNode(n, true)));
-    body.querySelector("input, select, textarea, button, [href]")?.focus();
+    const actions = body.querySelector(ACTIONS);
+    const foot = dlg.querySelector(".hm-dialog__foot");
+    if (actions && foot) foot.append(actions);
+    (actions ?? body).querySelector("input, select, textarea, button, [href]")?.focus();
   } catch {
     if (mine !== latest) return;
     dlg.close();

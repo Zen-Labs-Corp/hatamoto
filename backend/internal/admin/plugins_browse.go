@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,6 +35,8 @@ func (a *Admin) mountPluginBrowse(owner *httpx.Group) {
 type browseFacet struct {
 	Value, Label string
 	Checked      bool
+	// Chip is the label of the removable chip when it differs from Label.
+	Chip string
 }
 
 // browseCard is one plugin card.
@@ -110,18 +113,19 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	reg := pk.Registry(r.Context())
 	q := ParseBrowseQuery(r.URL.Query())
+	q.Types, q.Feats = nil, nil
 	res := RunBrowse(reg.Entries, q)
 	base := a.adminPath + "/plugins/browse"
 	d := pluginBrowsePage{
 		Host: reg.Host, Off: reg.Off, Err: reg.Err, Query: q, HideInstalled: q.HideInstalled,
 		Total: res.Total, Filtered: res.Filtered, ClearActions: []ui.Button{{Label: "Clear filters", Href: base}}, RefreshReturn: "browse",
 		Tiers: []browseFacet{
-			{"first-party", "First-party", slices.Contains(q.Tiers, "first-party")},
-			{"community", "Community", slices.Contains(q.Tiers, "community")},
+			{Value: "first-party", Label: "First-party", Checked: slices.Contains(q.Tiers, "first-party")},
+			{Value: "community", Label: "Community", Checked: slices.Contains(q.Tiers, "community")},
 		},
 		Perms: []browseFacet{
-			{browsePermNoNet, "No network access", slices.Contains(q.Perms, browsePermNoNet)},
-			{browsePermNoScripts, "No front-end scripts", slices.Contains(q.Perms, browsePermNoScripts)},
+			{Value: browsePermNoNet, Label: "No network access", Checked: slices.Contains(q.Perms, browsePermNoNet)},
+			{Value: browsePermNoScripts, Label: "No front-end scripts", Checked: slices.Contains(q.Perms, browsePermNoScripts)},
 		},
 		SortOptions: []ui.Option{
 			{Value: browseSortName, Label: "Name A to Z", Selected: q.Sort == browseSortName},
@@ -129,9 +133,13 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	for _, c := range res.Facets.Categories {
-		d.Cats = append(d.Cats, browseFacet{c, c, slices.Contains(q.Cats, c)})
+		d.Cats = append(d.Cats, browseFacet{Value: c, Label: c, Checked: slices.Contains(q.Cats, c)})
 	}
-	d.Toolbar = browseToolbarFor(base, q, res, d)
+	groups := []browseGroup{{Name: "perm", Label: "Permissions", Facets: d.Perms}}
+	if res.Facets.HasCategories {
+		groups = append(groups, browseGroup{Name: "cat", Label: "Category", Facets: d.Cats})
+	}
+	d.Toolbar = browseToolbarFor(base, q, res, groups, d.SortOptions)
 	if !reg.FetchedAt.IsZero() {
 		d.Refreshed = agoText(pluginsNow().Sub(reg.FetchedAt))
 	}
@@ -149,9 +157,9 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "plugins/browse", v)
 }
 
-// browseToolbarFor builds the toolbar from the parsed query, the result page
-// and the facets already shaped in d.
-func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, d pluginBrowsePage) browseToolbar {
+// browseToolbarFor builds the toolbar from the parsed query, the result page,
+// the popover checkbox groups and the sort options.
+func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, groups []browseGroup, sortOptions []ui.Option) browseToolbar {
 	href := func(v url.Values) string {
 		if len(v) == 0 {
 			return base
@@ -166,19 +174,16 @@ func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, d pluginBrowse
 			{Label: "First-party", Value: packages.TierFirstParty, Pressed: slices.Equal(q.Tiers, []string{packages.TierFirstParty})},
 			{Label: "Community", Value: packages.TierCommunity, Pressed: slices.Equal(q.Tiers, []string{packages.TierCommunity})},
 		}},
-		Groups:  []browseGroup{{Name: "perm", Label: "Permissions", Facets: d.Perms}},
+		Groups:  groups,
 		Hide:    browseHideSwitch{Name: "hide", Label: "Hide installed", Value: "1", OffValue: "0", Checked: q.HideInstalled},
-		Sort:    ui.Filter{Name: "sort", Label: "Sort", Options: d.SortOptions},
+		Sort:    ui.Filter{Name: "sort", Label: "Sort", Options: sortOptions},
 		BaseURL: base, ClearHref: base, InstalledHidden: res.InstalledHidden, InstalledTotal: res.InstalledTotal,
 		ShowInstalledHref: href(shown.Values()), HideInstalledHref: href(hidden.Values()),
-	}
-	if res.Facets.HasCategories {
-		tb.Groups = append(tb.Groups, browseGroup{Name: "cat", Label: "Category", Facets: d.Cats})
 	}
 	for _, g := range tb.Groups {
 		for _, f := range g.Facets {
 			if f.Checked {
-				tb.Chips = append(tb.Chips, ui.Chip{Label: f.Label, RemoveHref: href(q.WithoutValue(g.Name, f.Value))})
+				tb.Chips = append(tb.Chips, ui.Chip{Label: cmp.Or(f.Chip, f.Label), RemoveHref: href(q.WithoutValue(g.Name, f.Value))})
 			}
 		}
 	}
@@ -248,8 +253,11 @@ func (a *Admin) handleCheckUpdates(w http.ResponseWriter, r *http.Request) {
 		a.SetFlash(w, r, "success", "Checked for updates.")
 	}
 	to := a.adminPath + "/plugins"
-	if r.PostFormValue("return") == "browse" {
+	switch r.PostFormValue("return") {
+	case "browse":
 		to += "/browse"
+	case "theme-browse":
+		to = a.adminPath + "/theme/browse"
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
@@ -262,6 +270,8 @@ type detailPerm struct {
 
 // detailPrimary is the header's POST action: Install or Review update.
 type detailPrimary struct {
+	// Href makes the primary a link (Activate…, Settings) instead of a POST.
+	Href   string
 	Post   string
 	Fields map[string]string
 	Label  string

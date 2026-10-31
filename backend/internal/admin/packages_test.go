@@ -499,10 +499,13 @@ func TestThemesPageListsEverything(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status %d", rec.Code)
 	}
-	for _, want := range []string{"Built in", "sunrise", "Live", "Update to 1.1.0", "Preview", "Activate", "/admin/preview/theme/dusk", "Available themes", "A dark theme", "Upload theme", "Colours and fonts", "/admin/theme/themes/sunrise/settings"} {
+	for _, want := range []string{"Built in", "sunrise", "Live", "Update to 1.1.0", "Preview", "Activate", "/admin/preview/theme/dusk", "Browse themes", `href="/admin/theme/browse"`, "Upload theme", "Colours and fonts", "/admin/theme/themes/sunrise/settings"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
+	}
+	if strings.Contains(body, "Available themes") || strings.Contains(body, "A dark theme") {
+		t.Error("the Available themes card moved to Browse")
 	}
 	if strings.Contains(body, "/admin/theme/themes/sunrise/uninstall") {
 		t.Error("the active theme cannot be uninstalled")
@@ -845,31 +848,22 @@ func TestPackageScreensAnswerWithoutAManager(t *testing.T) {
 	}
 }
 
-func TestRegistryErrorShowsAFriendlyEmptyState(t *testing.T) {
+// The registry states moved from the Themes page to Theme > Browse; the
+// Themes page stays usable when the registry is down.
+func TestThemesPageIgnoresRegistryErrors(t *testing.T) {
 	t.Parallel()
 
 	g, pk, _ := newPackageRig(t)
 	pk.registry = RegistryView{Err: "registry: https://hatamoto.dev/registry.json answered 404 Not Found", Host: "hatamoto.dev"}
-	for path, kind := range map[string]string{"/admin/theme/themes": "theme"} {
-		rec := g.do("GET", path, "owner-token", nil, nil)
-		body := rec.Body.String()
-		if rec.Code != 200 {
-			t.Fatalf("%s: status %d", path, rec.Code)
-		}
-		for _, want := range []string{
-			"No registry is available right now.",
-			"Hatamoto could not load the " + kind + " list from hatamoto.dev. You can still upload a signed .hmp.",
-			"Upload .hmp", "<details><summary>Details</summary><code>registry: https://hatamoto.dev/registry.json answered 404 Not Found</code></details>",
-		} {
-			if !strings.Contains(body, want) {
-				t.Errorf("%s: missing %q", path, want)
-			}
-		}
-		if strings.Count(body, "answered 404") != 1 || strings.Contains(body, "The registry could not be read") {
-			t.Errorf("%s: the raw error must appear once, inside the details", path)
-		}
-		a11yOK(t, body)
+	rec := g.do("GET", "/admin/theme/themes", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
 	}
+	if strings.Contains(body, "answered 404") || strings.Contains(body, "No registry is available") || !strings.Contains(body, `href="/admin/theme/browse"`) {
+		t.Error("the Themes page must not show registry errors and must link to Browse")
+	}
+	a11yOK(t, body)
 }
 
 func TestThemeCardPaletteStripNeutralWithoutColours(t *testing.T) {

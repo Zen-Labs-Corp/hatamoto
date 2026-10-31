@@ -96,6 +96,14 @@ func (p *packageAdmin) registryHost() string {
 	return ""
 }
 
+// registryURL is the configured registry's URL ("" when off or unset).
+func (p *packageAdmin) registryURL() string {
+	if p.s == nil || p.s.cfg.Packages.RegistryOff() {
+		return ""
+	}
+	return p.s.cfg.Packages.RegistryURL
+}
+
 func (p *packageAdmin) installedVersions(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	rows, _ := p.mgr().Rows(ctx)
@@ -159,6 +167,7 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 			Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
 			Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
 			Features: e.Features, Size: e.Size, Featured: e.Featured,
+			Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
 		})
 	}
 	return v

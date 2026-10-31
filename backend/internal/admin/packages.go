@@ -38,6 +38,14 @@ type RegistryEntry struct {
 	Features                                             []string
 	Size                                                 int64
 	Featured                                             bool
+	// Screenshot is an absolute https URL or "".
+	Screenshot string
+	// SiteType and Flags describe a theme; both may be empty.
+	SiteType string
+	Flags    []string
+	// Active marks the live theme. Registry never sets it: the theme Browse
+	// handler sets it from ThemeInfo.
+	Active bool
 }
 
 // RegistryView is what browsing the registry returned.

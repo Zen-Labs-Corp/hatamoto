@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -309,6 +310,64 @@ func TestIndexWithoutCategoryFeaturedUnchanged(t *testing.T) {
 	for _, k := range []string{`"category"`, `"featured"`} {
 		if strings.Contains(string(raw), k) {
 			t.Errorf("index without category/featured contains %s", k)
+		}
+	}
+}
+
+func TestMetaSiteTypeAndFlags(t *testing.T) {
+	m := goodMeta()
+	m.SiteType, m.Flags = "blog", []string{"dark", "nojs"}
+	raw, err := buildMeta(t, metaDir(t), map[string]Meta{"sunrise": m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		t.Fatal(err)
+	}
+	e, _ := idx.Find(KindTheme, "sunrise")
+	if e.SiteType != "blog" || !slices.Equal(e.Flags, []string{"dark", "nojs"}) {
+		t.Errorf("entry did not carry site_type/flags: %+v", e)
+	}
+	bad := map[string]Meta{}
+	for name, mod := range map[string]func(*Meta){
+		"site type": func(m *Meta) { m.SiteType = "Blog" },
+		"flag":      func(m *Meta) { m.Flags = []string{"no-js"} },
+	} {
+		b := goodMeta()
+		mod(&b)
+		bad[name] = b
+	}
+	for name, b := range bad {
+		if _, err := buildMeta(t, metaDir(t), map[string]Meta{"sunrise": b}); err == nil {
+			t.Errorf("unknown %s accepted", name)
+		}
+	}
+	// A plugin cannot carry them.
+	m = goodMeta()
+	m.SiteType = "blog"
+	if _, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m}); err == nil {
+		t.Error("site_type accepted on a plugin")
+	}
+	// An empty flags list says nothing, so a plugin may carry it.
+	m = goodMeta()
+	m.Flags = []string{}
+	if _, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m}); err != nil {
+		t.Errorf("empty flags rejected on a plugin: %v", err)
+	}
+	if _, err := ParseMeta([]byte(`{"sunrise":{"tier":"community","site_type":"docs","flags":["builder"]}}`)); err != nil {
+		t.Errorf("ParseMeta: %v", err)
+	}
+}
+
+func TestIndexWithoutSiteTypeFlagsUnchanged(t *testing.T) {
+	raw, err := buildMeta(t, metaDir(t), map[string]Meta{"sunrise": goodMeta()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{`"site_type"`, `"flags"`} {
+		if strings.Contains(string(raw), k) {
+			t.Errorf("index without site_type/flags contains %s", k)
 		}
 	}
 }

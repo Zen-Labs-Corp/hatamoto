@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-admin-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<meta name="admin-base" content="/admin">
+<meta name="htmx-config" content="{&#34;allowEval&#34;:false,&#34;allowScriptTags&#34;:false,&#34;historyCacheSize&#34;:0,&#34;includeIndicatorStyles&#34;:false,&#34;inlineScriptNonce&#34;:&#34;NONCE&#34;,&#34;inlineStyleNonce&#34;:&#34;NONCE&#34;,&#34;refreshOnHistoryMiss&#34;:true,&#34;responseHandling&#34;:[{&#34;code&#34;:&#34;204&#34;,&#34;swap&#34;:false},{&#34;code&#34;:&#34;[23]..&#34;,&#34;swap&#34;:true},{&#34;code&#34;:&#34;422&#34;,&#34;error&#34;:false,&#34;swap&#34;:true},{&#34;code&#34;:&#34;[45]..&#34;,&#34;error&#34;:true,&#34;swap&#34;:false}]}">
+<title>Theme · Hatamoto</title>
+<link rel="stylesheet" href="/admin/_/admin.HASH.css">
+<script type="importmap" nonce="NONCE">{…}</script>
+<link rel="modulepreload" href="/admin/_/js/dates.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/shelllogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/components.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/daterange.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/multiselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/select.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<div class="hm-shell">
+<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
+<div class="hm-sidebar__head">
+<a class="hm-brand hm-sidebar__brand" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/></svg><span>Acme Site</span></a>
+<a class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" href="https://acme.example/" aria-label="Open site in a new window" data-tooltip="Open site" data-tooltip-align="end" rel="noopener" target="_blank"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+</div>
+<div class="hm-nav-groups">
+<div class="hm-nav-group">
+<ul class="hm-nav-list" role="list">
+<li><a class="hm-nav-link" href="/admin"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Overview</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g1">Site</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g1">
+<li><a class="hm-nav-link" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Entities</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/analytics"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Analytics</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g2">Customize</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g2">
+<li><a class="hm-nav-link" href="/admin/plugins"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg><span>Plugins</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/theme" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Theme</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/settings"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a>
+</li>
+</ul>
+</div>
+</div>
+<div class="hm-sidebar__foot">
+<a class="hm-sidebar__me" href="/admin/profile" aria-label="Owner Olga, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="OO" aria-hidden="true"></span><span class="hm-sidebar__name">Owner Olga</span></a>
+
+<form method="post" action="/admin/theme"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only data-hm-theme-toggle aria-label="Switch theme" data-tooltip="Switch theme" data-tooltip-align="end"><span class="hm-theme-icon hm-theme-icon--light"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><span class="hm-theme-icon hm-theme-icon--dark"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span></button></form>
+<form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Sign out" data-tooltip="Sign out" data-tooltip-align="end"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></form>
+</div>
+</nav>
+<div class="hm-shell__main">
+<div class="hm-topbar"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Toggle sidebar" aria-controls="hm-sidebar" aria-expanded="true" data-hm-sidebar-toggle="" hidden=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button><span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="/admin">Home</a></li><li aria-current="page">Theme</li></ol></nav></div>
+<main id="hm-main" class="hm-content">
+
+<div class="hm-settings">
+<nav class="hm-subnav" aria-label="Theme">
+<h2 class="hm-subnav__title">Theme</h2>
+<ul class="hm-subnav__list" role="list"><li><a class="hm-subnav__link" href="/admin/theme/themes" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Themes</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/colours"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span>Colours and fonts</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/design-system"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg><span>Design system</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/presets"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg><span>Style presets</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/parts"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg><span>Layout parts</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/blocks"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Blocks</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/templates"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Templates</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/menus"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg><span>Menus</span></a></li>
+</ul>
+</nav>
+<form class="hm-subnav-select" method="get" action="/admin/theme">
+<label for="hm-theme-section">Theme section</label>
+<div class="hm-subnav-select__row"><select class="hm-field__control" id="hm-theme-section" name="section"><option value="themes" selected>Themes</option>
+<option value="colours">Colours and fonts</option>
+<option value="design-system">Design system</option>
+<option value="presets">Style presets</option>
+<option value="parts">Layout parts</option>
+<option value="blocks">Blocks</option>
+<option value="templates">Templates</option>
+<option value="menus">Menus</option>
+</select><button type="submit" class="hm-btn hm-btn--secondary"><span>Go</span></button></div>
+</form>
+<div class="hm-page" data-width="wide">
+
+<header class="hm-section-head">
+<div class="hm-section-head__row"><div class="hm-section-head__titles"><h1>Themes</h1><p class="hm-muted">Install, preview and activate the theme of your site.</p></div>
+<div class="hm-row"><a class="hm-btn hm-btn--secondary" href="/admin/theme/browse"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>Browse themes</span></a><a class="hm-btn hm-btn--primary" href="/admin/plugins/upload?for=theme" data-hm-open="upload-pkg"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Upload theme</span></a></div></div>
+
+</header>
+<div class="hm-themes">
+<section class="hm-card hm-theme hm-theme--active" id="theme-hanshi" aria-labelledby="theme-hanshi-title">
+<svg class="hm-theme__strip" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="Brand colours of the live theme"><rect fill="#0ea5e9" x="0" width="20" height="10"/><rect fill="#64748b" x="20" width="20" height="10"/><rect fill="#f59e0b" x="40" width="20" height="10"/><rect fill="#ffffff" x="60" width="20" height="10"/><rect fill="#1e293b" x="80" width="20" height="10"/></svg>
+<div class="hm-card__body">
+<div class="hm-row hm-row--between"><h2 class="hm-card__title" id="theme-hanshi-title">hanshi</h2><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Live</span></div>
+<p class="hm-muted">v1.0.0</p>
+<p class="hm-muted">Signed by <code>Example signer</code>.</p>
+
+</div><footer class="hm-card__foot"><div class="hm-card__foot-note"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="More actions for hanshi" aria-expanded="false" aria-haspopup="menu" popovertarget="menu-theme-hanshi"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div class="hm-menu" popover id="menu-theme-hanshi" role="menu" aria-label="hanshi">
+<a role="menuitem" href="/admin/preview/theme/hanshi" target="_blank" rel="noopener"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</a>
+
+</div></div>
+</footer></section>
+</div>
+<dialog class="hm-dialog" id="upload-pkg" aria-labelledby="upload-pkg-title" data-hm-static>
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="upload-pkg-title">Upload theme</h2>
+<div class="hm-dialog__body">
+<form id="upload-pkg-form" method="post" action="/admin/plugins/upload" enctype="multipart/form-data" class="hm-stack"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<p class="hm-muted">A <code>.hmp</code> theme file. Unsigned packages are currently allowed.</p>
+<div class="hm-field"><label class="hm-field__label" for="package">Theme file</label><input class="hm-field__control" type="file" id="package" name="package" accept=".hmp,application/zip" required></div></form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="upload-pkg-form"><span>Upload</span></button></form>
+</div></dialog>
+
+</div>
+</div>
+</main>
+<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto dev build">Hatamoto dev build <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
+</div>
+</div>
+<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--secondary" data-hm-confirm-cancel=""><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--danger" data-hm-confirm-ok=""><span>Confirm</span></button></div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
+</body>
+</html>
+

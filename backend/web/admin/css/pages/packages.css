@@ -1,7 +1,4 @@
 /* Plugins, themes and the plugin admin page */
-.hm-pkg { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
-.hm-pkg:first-of-type { border-top: 0; }
-.hm-pkg p { margin: var(--space-1) 0 0; }
 .hm-pluginlist { list-style: none; margin: 0 0 var(--space-6); padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .hm-pluginlist--card { margin: 0; border: 0; border-radius: 0; background: none; }
 .hm-pluginlist__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }

@@ -3,6 +3,8 @@ package packages
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -150,6 +152,45 @@ func TestParseIndexSanitisesScreenshot(t *testing.T) {
 	}
 }
 
+func TestParseIndexSanitisesSiteTypeAndFlags(t *testing.T) {
+	key := newKey(t)
+	cases := map[string]Entry{
+		"good":  {SiteType: "blog", Flags: []string{"dark", "nojs", "builder"}},
+		"bad":   {SiteType: "shop", Flags: []string{"neon", "wide"}},
+		"mixed": {SiteType: "Docs", Flags: []string{"nojs", "x", "nojs", "dark"}},
+		"none":  {},
+	}
+	doc := signedIndex(t, key, func(idx *Index) {
+		idx.Packages = nil
+		for name, e := range cases {
+			e.Kind, e.Name, e.Version, e.URL, e.SHA256 = KindTheme, "t-"+name, "v1.0.0", "p/x.hmp", strings.Repeat("a", 64)
+			idx.Packages = append(idx.Packages, e)
+		}
+	})
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.Packages) != len(cases) {
+		t.Fatalf("entries rejected: %d of %d kept", len(idx.Packages), len(cases))
+	}
+	want := map[string]struct {
+		site  string
+		flags []string
+	}{
+		"t-good":  {"blog", []string{"dark", "nojs", "builder"}},
+		"t-bad":   {"", nil},
+		"t-mixed": {"", []string{"nojs", "dark"}},
+		"t-none":  {"", nil},
+	}
+	for _, e := range idx.Packages {
+		w := want[e.Name]
+		if e.SiteType != w.site || !slices.Equal(e.Flags, w.flags) {
+			t.Errorf("%s: site %q flags %v, want %q %v", e.Name, e.SiteType, e.Flags, w.site, w.flags)
+		}
+	}
+}
+
 func TestParseIndexAboutFeaturesRoundTripAndSanitise(t *testing.T) {
 	key := newKey(t)
 	many := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}
@@ -214,5 +255,35 @@ func TestIndexWithoutCategoryUnchanged(t *testing.T) {
 		if strings.Contains(string(signedIndex(t, key, nil)), k) {
 			t.Errorf("index without category/featured contains %s", k)
 		}
+	}
+}
+
+func TestParseIndexToleratesWrongSiteTypeAndFlagsTypes(t *testing.T) {
+	key := newKey(t)
+	now := time.Now().UTC()
+	body := fmt.Sprintf(`{"version":1,"issued_at":%q,"expires_at":%q,"packages":[
+{"kind":"theme","name":"one","version":"v1.0.0","url":"p/one.hmp","sha256":%q,"flags":"dark","site_type":1},
+{"kind":"theme","name":"two","version":"v1.0.0","url":"p/two.hmp","sha256":%q,"flags":[1,"dark"],"site_type":["blog"]},
+{"kind":"theme","name":"three","version":"v1.0.0","url":"p/three.hmp","sha256":%q,"flags":["dark"],"site_type":"blog"}]}`,
+		now.Add(-time.Minute).Format(time.RFC3339), now.Add(time.Hour).Format(time.RFC3339),
+		strings.Repeat("a", 64), strings.Repeat("a", 64), strings.Repeat("a", 64))
+	doc, err := SignIndex([]byte(body), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatalf("a wrong type made the index unreadable: %v", err)
+	}
+	if len(idx.Packages) != 3 {
+		t.Fatalf("entries kept: %d, want 3", len(idx.Packages))
+	}
+	for _, n := range []string{"one", "two"} {
+		if e, _ := idx.Find(KindTheme, n); e.SiteType != "" || e.Flags != nil {
+			t.Errorf("%s: wrong types not dropped: %+v", n, e)
+		}
+	}
+	if e, _ := idx.Find(KindTheme, "three"); e.SiteType != "blog" || len(e.Flags) != 1 {
+		t.Errorf("valid values lost: %+v", e)
 	}
 }

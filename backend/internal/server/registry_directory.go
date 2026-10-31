@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -221,7 +220,7 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 		}
 		c := render.ThemeCard{
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
-			Source: packages.SafeHTTPS(e.Source), Screenshot: screenshotURL(registryURL, e.Screenshot),
+			Source: packages.SafeHTTPS(e.Source), Screenshot: packages.ScreenshotURL(registryURL, e.Screenshot),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description + " " + e.Author),
 			About:  aboutParagraphs(e.About), Features: e.Features,
 		}
@@ -238,19 +237,6 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 		return render.ThemeDirectoryView{State: render.PluginDirectoryEmpty}
 	}
 	return render.ThemeDirectoryView{State: render.PluginDirectoryOK, Cards: cards}
-}
-
-// screenshotURL resolves the index's relative screenshot path against the
-// registry URL and keeps it only when the result is a safe https URL.
-func screenshotURL(registryURL, rel string) string {
-	if rel == "" {
-		return ""
-	}
-	base, err := url.Parse(registryURL)
-	if err != nil {
-		return ""
-	}
-	return packages.SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
 }
 
 // directoryView maps the plugin entries of idx to cards, sorted by name.

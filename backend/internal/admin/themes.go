@@ -20,6 +20,7 @@ import (
 func (a *Admin) mountThemes(authed *httpx.Group) {
 	owner := authed.Group("", a.RequireRole("owner"))
 	owner.HandleFunc("GET /theme/themes", a.handleThemes)
+	a.mountThemeBrowse(owner)
 	owner.HandleFunc("POST /theme/themes/fetch", a.handleThemeFetch)
 	owner.HandleFunc("GET /theme/colours", a.handleDesignForm)
 	owner.HandleFunc("POST /theme/colours", a.handleDesignSave)
@@ -82,12 +83,8 @@ func themePalette(t ThemeInfo, cfg *siteconfig.Config) []themeSwatch {
 
 type themesPage struct {
 	Themes        []themeCard
-	Available     []RegistryEntry
-	RegistryErr   string
-	RegistryHost  string
-	RegistryOff   bool
 	AllowUnsigned bool
-	// Actions is the header's Upload theme button (opens the dialog).
+	// Actions are the header's Browse themes link and Upload theme button (opens the dialog).
 	Actions []ui.Button
 }
 
@@ -108,14 +105,10 @@ func (a *Admin) handleThemes(w http.ResponseWriter, r *http.Request) {
 		cards[i] = themeCard{ThemeInfo: t, Palette: themePalette(t, cfg)}
 	}
 	d := themesPage{Themes: cards, AllowUnsigned: pk.AllowUnsigned(r.Context()),
-		Actions: []ui.Button{{Label: "Upload theme", Href: a.adminPath + "/plugins/upload?for=theme", Variant: "primary", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}}}}
-	reg := pk.Registry(r.Context())
-	d.RegistryErr, d.RegistryOff, d.RegistryHost = reg.Err, reg.Off, reg.Host
-	for _, e := range reg.Entries {
-		if e.Kind == "theme" && (!e.Installed || e.Update) {
-			d.Available = append(d.Available, e)
-		}
-	}
+		Actions: []ui.Button{
+			{Label: "Browse themes", Href: a.adminPath + "/theme/browse", Icon: "search"},
+			{Label: "Upload theme", Href: a.adminPath + "/plugins/upload?for=theme", Variant: "primary", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
+		}}
 	v := a.NewView(w, r, "Theme")
 	v.Section, v.Tab = "themes", "themes"
 	v.Data = d
