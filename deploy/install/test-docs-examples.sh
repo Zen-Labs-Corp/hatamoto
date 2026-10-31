@@ -35,6 +35,7 @@ for b in "${blocks[@]}"; do
   esac
   if grep -Eq 'curl[^|]*\|[^|]*sh' "$b"; then fail "$name: pipes curl into a shell (a failed download would pass): download to a file first"; fi
   grep -q 'https://hatamoto.dev/install.sh' "$b" || fail "$name: does not reference the installer URL"
+  grep -Eq -- '-o ([^ ]+) .*&& chmod \+x \1 &&' "$b" || fail "$name: does not chmod +x the downloaded installer"
   while read -r var; do
     [[ "$var" =~ ^$allowed$ ]] || fail "$name: unknown input $var"
   done < <(grep -o 'HATAMOTO_[A-Z_]*' "$b" | sort -u)
@@ -59,6 +60,8 @@ if grep -Eq 'SETUP_CODE=[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}' "$page"; then
   fail "page contains a literal setup code"
 fi
 pass "no literal setup code"
+grep -q 'LTS' "$page" || fail "page does not tell readers to pick an LTS image"
+pass "page mentions LTS"
 
 # The banner in the install guide is the text first boot prints (link, code and domain values aside).
 guide="${DOCS_GUIDE_PAGE:-$here/../../docs/site/getting-started/install-vps.md}"

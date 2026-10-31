@@ -10,7 +10,7 @@ This page has one example per hosting provider for the launch form of a new serv
 
 ## Before you paste
 
-- Launch an Ubuntu 24.04 or Debian 12 server with at least 1 GB of RAM.
+- Launch a server with at least 1 GB of RAM and an LTS image: Ubuntu 22.04, 24.04 or 26.04, or Debian 12 or 13. Vultr's default image can be a short-term Ubuntu release (26.10 was). The installer accepts short-term releases with a warning, but an LTS image is the safer choice.
 - The code in the launch box runs as root, so the examples have no `sudo`. The login user you use later is often `ubuntu` or `admin` (see your provider's page), not root. Run later commands with `sudo`.
 - Replace `cms.example.com` and `you@example.com` with your own values, or delete the whole `env` part to use the free sslip.io name. If you set a domain, point its `A` record at the server's address first (see the guide).
 - To choose your own setup code, add `HATAMOTO_SETUP_CODE=CHANGE-ME` to the `env` part and replace `CHANGE-ME` with at least 12 letters or digits. Without it the installer makes a random code.
@@ -18,7 +18,7 @@ This page has one example per hosting provider for the launch form of a new serv
 - After the server starts, the install takes a few minutes. Open the provider's web console to see the setup link, or read `/var/log/cloud-init-output.log` over SSH.
 - The provider's firewall must allow ports 80 and 443.
 
-Each example downloads the installer to a file first and runs it only if the download worked, so a failed download stops the step instead of being reported as success.
+Each example downloads the installer to a file first, makes it executable, and runs it only if the download worked, so a failed download stops the step instead of being reported as success. If the image mounts `/tmp` as noexec, run the installer with `sh /tmp/hatamoto-install.sh` instead of the direct path.
 
 ## Vultr
 
@@ -26,7 +26,7 @@ In the deploy form, open the startup script section, add a new script of type bo
 
 ```sh
 #!/bin/sh
-sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh /tmp/hatamoto-install.sh'
+sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
 ## DigitalOcean
@@ -36,7 +36,7 @@ When you create the Droplet, open the advanced options, turn on user data, and p
 ```yaml
 #cloud-config
 runcmd:
-  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh /tmp/hatamoto-install.sh'
+  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
 ## Amazon Lightsail
@@ -45,7 +45,7 @@ In the launch form, open the launch script section and paste:
 
 ```sh
 #!/bin/sh
-sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh /tmp/hatamoto-install.sh'
+sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
 After it launches, open the networking tab of the instance and add a rule for port 443 (HTTPS). Lightsail opens only 22 and 80 by default. The login user is `ubuntu` on Ubuntu images and `admin` on Debian images.
@@ -57,7 +57,7 @@ When you create the server, paste this into the cloud config field:
 ```yaml
 #cloud-config
 runcmd:
-  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh /tmp/hatamoto-install.sh'
+  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
 Hetzner has no firewall unless you attach one. If you attach one, allow ports 22, 80 and 443.
@@ -69,7 +69,7 @@ When you create the Linode, open the add user data section (Akamai Cloud) and pa
 ```yaml
 #cloud-config
 runcmd:
-  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com sh /tmp/hatamoto-install.sh'
+  - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
 If your Linode image does not offer user data, create the server, open its console and run the one-line command from the guide instead.
