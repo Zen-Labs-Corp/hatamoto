@@ -319,11 +319,18 @@ func TestRunThemeBrowseFacetCounts(t *testing.T) {
 	want := []BrowseCount{{"blog", 1}, {"docs", 1}, {"landing", 1}, {"restaurant", 1}}
 	all = append(all, RegistryEntry{Kind: "theme", Name: "second", SiteType: "docs"})
 	want[1].Count = 2
-	for _, q := range []BrowseQuery{{}, {Types: []string{"blog"}}, {Feats: []string{"builder"}, Q: "kiln", HideInstalled: true}} {
+	for _, q := range []BrowseQuery{{}, {Types: []string{"blog"}}, {Feats: []string{"builder"}, Q: "kiln"}} {
 		f := RunThemeBrowse(all, q).Facets
 		if !f.HasSiteTypes || !f.HasFlags || !slices.Equal(f.SiteTypes, want) || f.HasCategories {
 			t.Errorf("%+v: facets %+v", q, f)
 		}
+	}
+	// Hide installed: kiln (installed, landing) no longer counts, the live
+	// hanshi does.
+	f := RunThemeBrowse(all, BrowseQuery{HideInstalled: true}).Facets
+	hidden := []BrowseCount{{"blog", 1}, {"docs", 2}, {"restaurant", 1}}
+	if !slices.Equal(f.SiteTypes, hidden) {
+		t.Errorf("hide-installed counts %+v, want %+v", f.SiteTypes, hidden)
 	}
 	bare := []RegistryEntry{{Kind: "theme", Name: "a"}, {Kind: "theme", Name: "b"}}
 	if f := RunThemeBrowse(bare, BrowseQuery{}).Facets; f.HasSiteTypes || f.HasFlags || len(f.SiteTypes) != 0 {

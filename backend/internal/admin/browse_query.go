@@ -52,7 +52,8 @@ type BrowseFacets struct {
 	// SiteTypes are the site types at least one theme uses with how many
 	// themes use each, in packages.SiteTypes order; HasSiteTypes and HasFlags
 	// say whether the Site type and Features groups apply. Counts are over the
-	// unfiltered theme list.
+	// theme list before any search or facet, less the installed themes that
+	// hide-installed drops.
 	SiteTypes    []BrowseCount
 	HasSiteTypes bool
 	HasFlags     bool
@@ -187,7 +188,7 @@ func runBrowse(all []RegistryEntry, q BrowseQuery, kind packages.Kind) BrowsePag
 			list = append(list, e)
 		}
 	}
-	page := BrowsePage{Facets: browseFacets(list, kind), Filtered: q.Filtered()}
+	page := BrowsePage{Facets: browseFacets(list, kind, q.HideInstalled), Filtered: q.Filtered()}
 
 	var matched []RegistryEntry
 	for _, e := range list {
@@ -247,9 +248,14 @@ func browseKey(e RegistryEntry) string {
 	return strings.ToLower(e.Name)
 }
 
-func browseFacets(list []RegistryEntry, kind packages.Kind) BrowseFacets {
+func browseFacets(list []RegistryEntry, kind packages.Kind, hideInstalled bool) BrowseFacets {
 	var f BrowseFacets
 	if kind == packages.KindTheme {
+		// Site type counts skip the installed themes the list hides, so a
+		// count is what selecting the type shows.
+		if hideInstalled {
+			list = slices.DeleteFunc(slices.Clone(list), func(e RegistryEntry) bool { return e.Installed && !e.Active })
+		}
 		for _, st := range packages.SiteTypes {
 			if n := countFunc(list, func(e RegistryEntry) bool { return e.SiteType == st }); n > 0 {
 				f.SiteTypes = append(f.SiteTypes, BrowseCount{Value: st, Count: n})
