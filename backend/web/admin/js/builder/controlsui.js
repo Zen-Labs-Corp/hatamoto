@@ -3,15 +3,20 @@
 // text ("Set here", "From class .card", "Inherited from Desktop", "Custom value"); an icon button resets the value set here.
 // The decision itself (rowState, sourceOf) is the pure controls.js.
 import { h, actButton, chip } from "@hm/builder/dom";
+import { attachScrub } from "@hm/builder/scrub";
 import { sourceOf, probe, splitValue, joinValue, boundsFor, stepFor, stepValue, tokenOrder, tokenLabel, hexFor, loadRecent, pushRecent } from "@hm/builder/controls";
 
 /**
- * row({id, name, label, body, status, note, onReset}) -> {el, reset, paint(state)}.
+ * row({id, name, label, body, status, note, onReset, scrub}) -> {el, reset, paint(state)}.
  * name: the field's name for "Reset <name>"; label: its <label> or group label element; body: the control elements;
  * status / note: the description and error elements (the control's aria-describedby points at them).
+ * scrub {get() -> number, apply(n, opts), step, bounds, short}: dragging the label sideways changes the value (1 step per
+ * pixel, Shift x10, one undo step per drag); the field stays the keyboard path. short is the label's visible short form
+ * ("Sz"); the full name stays its accessible name.
  * paint(state) takes a controls.rowState() result (with classValue) and fills the source chip.
  */
-export function row({ id, name, label, body, status, note, onReset }) {
+export function row({ id, name, label, body, status, note, onReset, scrub }) {
+  if (scrub) scrubLabel(label, { id, name, ...scrub });
   const dot = h("span", { class: "hm-bs-dot", "aria-hidden": "true" });
   const src = chip("", { class: "hm-bs-src", hidden: true });
   const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${name}`, "aria-describedby": `${id}-s`, onclick: onReset });
@@ -28,6 +33,17 @@ export function row({ id, name, label, body, status, note, onReset }) {
       reset.hidden = state.dot !== "set";
     },
   };
+}
+
+/** Makes the row's label a scrub handle; a short visible form is drawn over the full name, which stays what a screen reader reads. */
+function scrubLabel(label, { id, name, get, apply, step, bounds, short }) {
+  label.classList.add("hm-bs-scrub");
+  label.setAttribute("title", "Drag to change");
+  if (short && short !== name) {
+    label.textContent = "";
+    label.append(h("span", { "aria-hidden": "true", text: short }), h("span", { class: "hm-visually-hidden", text: name }));
+  }
+  attachScrub(label, { axis: "h", get, apply, step, bounds, session: `ls:${id}` });
 }
 
 let drags = 0; // slider drag sessions: one drag is one undo step (store.commit coalesce key)
