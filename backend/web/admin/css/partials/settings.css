@@ -53,10 +53,16 @@
 .hm-presetgrid > .hm-field__group { margin: 0; min-width: 0; }
 @media (min-width: 48rem) { .hm-presetgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .hm-fieldgrid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
-/* The current hex sits under the swatch, in normal flow, and wraps if the cell is narrow. */
-.hm-swatchrow { min-width: 0; }
-.hm-swatchrow__hex { display: block; font-family: var(--font-mono); margin-top: var(--space-1); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+.hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+/* A colour input is a bordered tile: swatch left, label above the mono hex. The field wrapper drops out of the grid so its label, input and messages place directly. */
+.hm-swatchrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-3); min-width: 0; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-swatchrow > .hm-field { display: contents; }
+.hm-swatchrow .hm-field__control[type="color"] { grid-column: 1; grid-row: 1 / span 2; }
+.hm-swatchrow .hm-field__label { grid-column: 2; grid-row: 1; align-self: end; }
+.hm-swatchrow .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
+.hm-swatchrow__hex { grid-column: 2; grid-row: 2; align-self: start; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+/* Font stacks: one field per row, full width. */
+.hm-fieldgrid--stack { grid-template-columns: minmax(0, 1fr); }
 
 @media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); } }
 @media (max-width: 640px) {

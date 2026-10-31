@@ -10,7 +10,7 @@
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "accent" "Name" "accent" "Label" "Theme accent (for themes that use it)" "Type" "color" "Value" .Form.Accent "Error" (index .Errs "accent")}}<code class="hm-swatchrow__hex">{{.Form.Accent}}</code></div>
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "background" "Name" "background" "Label" "Background colour" "Type" "color" "Value" .Form.Background "Error" (index .Errs "background")}}<code class="hm-swatchrow__hex">{{.Form.Background}}</code></div>
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "text" "Name" "text" "Label" "Text colour" "Type" "color" "Value" .Form.Text "Error" (index .Errs "text")}}<code class="hm-swatchrow__hex">{{.Form.Text}}</code></div></div>{{template "hm/card-end"}}
-{{template "hm/card-start" dict "ID" "fonts-card" "Title" "Fonts" "Heading" "h2" "Description" "Font stacks for body text and headings."}}<div class="hm-fieldgrid">
+{{template "hm/card-start" dict "ID" "fonts-card" "Title" "Fonts" "Heading" "h2" "Description" "Font stacks for body text and headings."}}<div class="hm-fieldgrid hm-fieldgrid--stack">
 {{template "hm/field" dict "ID" "font" "Name" "font" "Label" "Body font" "Value" .Form.Font "Required" true "Help" "A font stack, for example: Inter, sans-serif." "Error" (index .Errs "font")}}
 {{template "hm/field" dict "ID" "heading_font" "Name" "heading_font" "Label" "Heading font" "Value" .Form.HeadingFont "Required" true "Error" (index .Errs "heading_font")}}</div>{{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "corners-card" "Title" "Corners" "Heading" "h2" "Description" "How round buttons, inputs and cards are."}}<div class="hm-fieldgrid">
