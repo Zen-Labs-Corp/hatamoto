@@ -13,9 +13,11 @@ import (
 
 // overviewPage is the body of the Overview section, in the order the page shows it.
 type overviewPage struct {
-	Lede      string
-	KPIs      []ui.Stat
-	Hero      ui.AiaChart
+	Lede string
+	KPIs []ui.Stat
+	Hero ui.AiaChart
+	// Channels is the visits-by-channel card; nil without a traffic reader or when it fails.
+	Channels  *ui.AiaChart
 	Attention []ui.AiaAttention
 	// TopAgents and TopAssistants are quiet bar lists; the Href fields are the
 	// cards' "See all" links.
@@ -160,6 +162,8 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 		Override: `{"AI-referred visits":{"n":2,"marker":"square","dash":""}}`, Hero: true, Compare: cmp,
 		Table: withoutTotal(tbl.table("AI fetches and AI-referred visits per day", "Day"))}
 
+	p.Channels = a.channelsCard(ctx, rg, cmp)
+
 	p.TopAgents = ui.BarList{Label: "Most active AI agents", Quiet: true, Empty: "No data for this period."}
 	if t.AIFetches > 0 {
 		for i, ag := range ov.Top {
@@ -181,4 +185,24 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 		}
 	}
 	return p, nil
+}
+
+// channelsCard is the stacked visits-by-channel card of the Overview, drawn from traffic.json like
+// the Traffic tab's sparks. Only Visits is live: Leads and Conv. rate arrive with lead attribution.
+// It is nil without a traffic reader, and when the reader fails (logged), so the page still opens.
+func (a *Admin) channelsCard(ctx context.Context, rg agents.Range, cmp bool) *ui.AiaChart {
+	v, err := a.trafficData(ctx, rg, false)
+	if err != nil {
+		if !errors.Is(err, errNoService) {
+			a.logger().Error("overview visits by channel failed", "err", err)
+		}
+		return nil
+	}
+	return &ui.AiaChart{ID: "w-o-channels", Title: "Visits by channel",
+		Description: "Stacked by where people came from. Cookieless: counted per day, no visitor profiles.",
+		Src:         a.dataURL("traffic.json", rg, cmp), Chart: "channels", Compare: cmp,
+		Toggle: &ui.Segmented{Mode: "buttons", Label: "Measure", Items: []ui.SegmentedItem{
+			{Label: "Visits", Pressed: true, Attrs: map[string]string{"data-chart-toggle": "channels"}},
+			{Label: "Leads", Disabled: true}, {Label: "Conv. rate", Disabled: true}}},
+		Table: v.channelM.table("Visits by channel per day", "Day")}
 }

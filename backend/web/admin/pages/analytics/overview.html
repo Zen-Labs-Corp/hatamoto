@@ -7,6 +7,7 @@
 <section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
 <h2 class="hm-visually-hidden">Activity</h2>
 {{template "hm/aia-chart" .Hero}}
+{{with .Channels}}{{template "hm/aia-chart" .}}{{end}}
 <section class="hm-stack hm-stack--tight" aria-labelledby="aia-att-h"><h2 class="hm-card__title" id="aia-att-h">Needs attention</h2>{{template "hm/aia-attention" .Attention}}</section>
 <h2 class="hm-visually-hidden">Top agents and assistants</h2>
 <div class="hm-grid2">

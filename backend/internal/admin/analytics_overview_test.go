@@ -1,12 +1,17 @@
 package admin
 
 import (
+	"context"
+	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 )
 
 // kpiCell is the markup of the KPI cell with this label.
@@ -268,4 +273,86 @@ func TestOverviewHeadingOutline(t *testing.T) {
 			t.Errorf("the hero %q sits under the h2 %q", card, p)
 		}
 	}
+}
+
+// The Visits by channel card needs a traffic reader; without one the page is the same as before.
+func TestOverviewChannelsCard(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newAnalyticsRig(t)
+	without := g.do("GET", "/admin/analytics", "owner-token", nil, nil)
+	if without.Code != 200 || strings.Contains(without.Body.String(), "w-o-channels") {
+		t.Fatalf("without a reader: status %d, card shown %v", without.Code, strings.Contains(without.Body.String(), "w-o-channels"))
+	}
+
+	rg, _ := parseRange(url.Values{})
+	fs := &fakeAgentStats{series: []agents.SeriesPoint{{Day: day(0), Key: "OpenAI", Hits: 6}}}
+	g = newRig(t, func(d *Deps) {
+		d.Growth.Agents, d.Growth.Referrals, d.Growth.Traffic = fs, fakeReferrals{}, &fakeTraffic{from: rg.From}
+	})
+	rec := g.do("GET", "/admin/analytics", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
+	}
+	for _, want := range []string{"w-o-channels", "Visits by channel", "Stacked by where people came from. Cookieless: counted per day, no visitor profiles.",
+		"/admin/analytics/data/traffic.json?", `data-chart="channels"`, `data-chart-toggle="channels"`,
+		`disabled aria-disabled="true">Leads`, `disabled aria-disabled="true">Conv. rate`, "Organic search"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("overview missing %q", want)
+		}
+	}
+	if strings.Index(body, "w-o-hero") > strings.Index(body, "w-o-channels") || strings.Index(body, "w-o-channels") > strings.Index(body, "Needs attention") {
+		t.Error("the card sits after the hero and before Needs attention")
+	}
+	if strings.Contains(body, `data-compare`) || strings.Contains(srcOf(body, "w-o-channels-fig"), "compare=1") {
+		t.Error("no compare asked")
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestOverviewChannelsCardCarriesCompareAndSurvivesAFailure(t *testing.T) {
+	t.Parallel()
+
+	rg, _ := parseRange(url.Values{})
+	fs := &fakeAgentStats{}
+	fs.prev = &agents.OverviewTotals{AIFetches: 1}
+	fs.prevTo = today().AddDate(0, 0, -defaultRangeDays)
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Agents, d.Growth.Referrals, d.Growth.Traffic = fs, fakeReferrals{}, &fakeTraffic{from: rg.From}
+	})
+	body := g.do("GET", "/admin/analytics?compare=1", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(srcOf(body, "w-o-channels-fig"), "compare=1") {
+		t.Errorf("the channels src must carry compare=1: %q", srcOf(body, "w-o-channels-fig"))
+	}
+
+	g = newRig(t, func(d *Deps) {
+		d.Growth.Agents, d.Growth.Referrals, d.Growth.Traffic = fs, fakeReferrals{}, failingTraffic{&fakeTraffic{}}
+	})
+	rec := g.do("GET", "/admin/analytics", "owner-token", nil, nil)
+	if rec.Code != 200 || strings.Contains(rec.Body.String(), "w-o-channels") {
+		t.Errorf("a failing reader omits the card and keeps the page: %d", rec.Code)
+	}
+}
+
+// failingTraffic is a traffic reader that always fails.
+type failingTraffic struct{ *fakeTraffic }
+
+func (failingTraffic) TrafficDaily(context.Context, analytics.Dim, time.Time, time.Time) ([]analytics.TrafficDay, error) {
+	return nil, errors.New("boom")
+}
+
+// srcOf is the data-src of the figure with this id.
+func srcOf(body, figID string) string {
+	i := strings.Index(body, `id="`+figID+`"`)
+	if i < 0 {
+		return ""
+	}
+	m := regexp.MustCompile(`data-src="([^"]*)"`).FindStringSubmatch(body[i:])
+	if m == nil {
+		return ""
+	}
+	return m[1]
 }
