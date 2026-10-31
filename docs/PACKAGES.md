@@ -221,7 +221,12 @@ that breaks these rules; a client clears an invalid `about` or `features` and ke
 `category` and `featured` are optional too and feed the admin Browse page: `category` is one of
 `SEO`, `Analytics`, `Marketing`, `Forms`, `Commerce`, `Content`, `Media`, `Developer`, `Security`,
 `Integrations` (exact case), and `featured: true` pins the package in the Featured row. `registry
-index` refuses any other category; a client clears an unknown one and keeps the entry. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
+index` refuses any other category; a client clears an unknown one and keeps the entry.
+Themes may also set `site_type` (one of `blog`, `business`, `docs`, `landing`, `portfolio`,
+`restaurant`, exact case) and `flags` (any of `dark`: has a dark mode; `nojs`: ships no
+front-end JavaScript; `builder`: works with the page builder). They feed the theme Browse
+filters. `registry index` refuses an unknown value, and either key on a plugin; a client drops an
+unknown value (and repeated flags) and keeps the entry, and ignores a value of the wrong JSON type. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
 the index. The server refuses an expired index, one issued in the future or one
 without both times, so an old copy cannot be replayed to hide newer versions.
 `HATAMOTO_REGISTRY_URL` must be `https://` (an explicit test override aside).
@@ -241,11 +246,16 @@ Its query string is `q` (search words), `tier` (`first-party` or `community`, re
 A plugin's detail page is `<admin>/plugins/<name>/about`. "Check for updates" in the Plugins
 menu re-reads the registry without waiting for the cache.
 
+Themes are listed at **Theme > Browse themes** (`<admin>/theme/browse`), with the detail page at
+`<admin>/theme/themes/<name>/about`. It takes `q`, `tier`, `hide`, `sort` and `page` like the plugin page,
+plus `type` (a site type above, repeatable; a theme matches any of the chosen types) and `feat`
+(a flag above, repeatable; a theme must have every chosen flag). Unknown values are ignored.
+
 To publish: `pack` and sign each package into one directory, host the files, and
 build the signed index with `hatamoto registry index <dir> --key F --url-prefix
 packages/ --out registry.json` (it lists every `.hmp` in the directory; the
 index is valid 90 days, `--valid-days` 1 to 180, so re-run it on a schedule).
-`--meta F` adds the descriptive fields (`title`, `about`, `features`, `category`, `featured`, `author`, `source`, `commit`,
+`--meta F` adds the descriptive fields (`title`, `about`, `features`, `category`, `featured`, `site_type`, `flags`, `author`, `source`, `commit`,
 `tier`, `screenshot`) from a JSON file keyed by package name
 (`{"seo-tools": {"title": "SEO Tools", "author": "acme", "source": "https://...", "commit": "...", "tier": "community"}}`).
 For a theme, add `"screenshot": "screenshots/<name>.webp"` there; the host serves the image next to the index.
