@@ -23,7 +23,7 @@ func TestTrafficDailyTables(t *testing.T) {
 		}
 		return s
 	}
-	if got, want := cols("hatamoto_traffic_daily"), "day,dim,engaged,k1,k2,multi,pageviews,scrolled,visits"; got != want {
+	if got, want := cols("hatamoto_traffic_daily"), "day,dim,engaged,form_seen,form_started,k1,k2,multi,pageviews,scrolled,visits"; got != want {
 		t.Errorf("traffic columns = %q, want %q", got, want)
 	}
 	if got, want := cols("hatamoto_analytics_settings"), "engagement_enabled,id"; got != want {
