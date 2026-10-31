@@ -54,6 +54,12 @@
 @media (min-width: 48rem) { .hm-presetgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .hm-fieldgrid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+/* Spacing, text sizes and shadows: one row per step, label left, a right-aligned mono input at the end. */
+.hm-fieldgrid--steps { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.hm-fieldgrid--steps > .hm-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8rem, 40%); align-items: center; column-gap: var(--space-4); padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+.hm-fieldgrid--steps > .hm-field:first-child { border-top: 0; }
+.hm-fieldgrid--steps .hm-field__control { text-align: end; font-family: var(--font-mono); }
+.hm-fieldgrid--steps .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
 /* A colour input is a bordered tile: swatch left, label above the mono hex. The field wrapper drops out of the grid so its label, input and messages place directly. */
 .hm-swatchrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-3); min-width: 0; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .hm-swatchrow > .hm-field { display: contents; }

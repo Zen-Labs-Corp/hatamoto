@@ -5,7 +5,7 @@
 <form method="post" action="{{adminPath}}/theme/design-system" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{range $g := .Groups}}{{template "hm/card-start" dict "ID" $g.ID "Title" $g.Title "Description" $g.Intro}}
-<div class="hm-fieldgrid hm-fieldgrid--tokens">{{range $f := $g.Fields}}{{if eq $f.Type "color"}}<div class="hm-swatchrow">{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Error" $f.Error}}<code class="hm-swatchrow__hex">{{$f.Value}}</code></div>
+<div class="hm-fieldgrid hm-fieldgrid--tokens{{if ne $g.ID "tokens-color"}} hm-fieldgrid--steps{{end}}">{{range $f := $g.Fields}}{{if eq $f.Type "color"}}<div class="hm-swatchrow">{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Error" $f.Error}}<code class="hm-swatchrow__hex">{{$f.Value}}</code></div>
 {{else}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Type" $f.Type "Value" $f.Value "Placeholder" $f.Placeholder "Error" $f.Error}}
 {{end}}{{end}}</div>{{template "hm/card-end"}}
 {{end}}
