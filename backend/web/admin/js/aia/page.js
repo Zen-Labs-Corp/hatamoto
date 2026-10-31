@@ -233,12 +233,5 @@ export function mountAll(root = document) {
   }
 }
 
-// <form data-hm-aia-autosubmit>: a change in any of its fields submits it (the Google page filter). Without JS
-// the form shows an Apply button instead.
-document.addEventListener("change", (e) => {
-  const form = e.target.closest?.("form[data-hm-aia-autosubmit]");
-  if (form) form.requestSubmit();
-});
-
 mountAll();
 document.addEventListener("htmx:load", (e) => mountAll(e.target));

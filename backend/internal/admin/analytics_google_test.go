@@ -46,13 +46,13 @@ func TestGoogleWithoutProviderShowsTheBanner(t *testing.T) {
 	for _, want := range []string{"What is Google doing?", "Google AI Overviews and Gemini use the same Googlebot crawl; Google-Extended only controls training use.",
 		"Connect Search Console (plugin) to add impressions, clicks, position and index status.",
 		"Googlebot crawls", "995", "99% verified", "Pages crawled", "of 144 published", "Publish to first crawl", "6 h",
-		"Crawling", "Googlebot fetches per day, stacked by response class.", "google.json", "Pages through Google&#39;s eyes", `data-hm-aia-autosubmit`,
+		"Crawling", "Googlebot fetches per day, stacked by response class.", "google.json", "Pages through Google&#39;s eyes", ">Apply<",
 		"Hello &lt;world&gt;", "/post/hello", "556", "Edited page", ", stale", "/docs/v0/gone", ">404<", "Never", "Brand new page"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("google missing %q", want)
 		}
 	}
-	for _, bad := range []string{"Impressions", "Average position", "Top query", "w-g-search"} {
+	for _, bad := range []string{"Impressions", "Average position", "Top query", "w-g-search", "data-hm-aia-autosubmit"} {
 		if strings.Contains(body, bad) {
 			t.Errorf("without a provider the page shows %q", bad)
 		}
