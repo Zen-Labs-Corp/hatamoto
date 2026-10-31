@@ -67,6 +67,8 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	tr.HandleFunc("GET /entities/{id}/translations/unlink", a.handleTranslationUnlinkConfirm)
 	tr.HandleFunc("POST /entities/{id}/translations/unlink", a.handleTranslationUnlink)
 	tr.HandleFunc("POST /entities/{id}/translations/original", a.handleTranslationOriginal)
+	tr.HandleFunc("GET /entities/{id}/translations/new", a.handleTranslationCopyNew)
+	tr.HandleFunc("POST /entities/{id}/translations/copy", a.handleTranslationCopy)
 	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/{id}/versions/{version}/nodes/{node}/restore", a.handleVersionRestoreNode)
 	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("GET /entities/{id}/builder/node-versions", a.handleBuilderNodeVersions)
 }

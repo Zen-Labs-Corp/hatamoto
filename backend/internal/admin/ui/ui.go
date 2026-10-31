@@ -79,7 +79,10 @@ type Action struct {
 	Danger bool
 	// Hint is a second, muted line under the label of a pageheader overflow item.
 	Hint   string
-	NewTab bool              // open Href in a new tab (a link menu item only)
+	NewTab bool // open Href in a new tab (a link menu item only)
+	// Open is the id of a dialog the link opens with JavaScript; Href stays the
+	// no-JS page (a link menu item only).
+	Open   string
 	Fields map[string]string // hidden fields sent with a Post action
 	// Confirm makes the action ask first. Href is then the confirmation page
 	// (works without JavaScript) and Post the action the page submits; with JS
