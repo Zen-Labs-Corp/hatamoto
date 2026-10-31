@@ -383,6 +383,8 @@ func TestPluginsPageTabsFilterAndEmpty(t *testing.T) {
 	}
 	if none := get("?q=zzzz"); !strings.Contains(none, "No plugins match") {
 		t.Error("a search with no hit needs its empty state")
+	} else if !strings.Contains(none, `class="hm-empty hm-empty--compact"`) {
+		t.Error("the no-match empty state sits inside the card and must be Compact")
 	}
 	pk.unsigned = true
 	if on := get(""); !strings.Contains(on, "unsigned-banner") || !strings.Contains(on, "Unsigned packages are allowed until you turn it off.") {
