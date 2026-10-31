@@ -12,10 +12,14 @@
   font-family: var(--font-ui); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-none);
   cursor: pointer; transition: background-color 120ms var(--ease);
 }
-.hm-segmented__btn:hover, .hm-segmented__opt:hover .hm-segmented__btn { background: var(--color-shiro); }
+.hm-segmented__btn:hover:not(:disabled), .hm-segmented__opt:hover .hm-segmented__input:not(:disabled) + .hm-segmented__btn { background: var(--color-shiro); }
 .hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
 .hm-segmented__input:checked + .hm-segmented__btn { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
 .hm-segmented__btn:focus-visible, .hm-segmented__input:focus-visible + .hm-segmented__btn { outline: var(--focus-ring); outline-offset: 2px; }
+/* Disabled: a choice that arrives later; dimmed, never hovered, never pressed. */
+.hm-segmented__btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.hm-segmented__input:disabled + .hm-segmented__btn { opacity: 0.55; cursor: not-allowed; }
+.hm-segmented .hm-segmented__input:disabled { cursor: not-allowed; }
 @media (forced-colors: active) {
   .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }

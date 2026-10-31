@@ -250,7 +250,8 @@
     "partial": "hm/segmented",
     "variants": {
       "pressed": ".hm-segmented__btn[aria-pressed=\"true\"]",
-      "checked": ".hm-segmented__input:checked + .hm-segmented__btn"
+      "checked": ".hm-segmented__input:checked + .hm-segmented__btn",
+      "disabled": ".hm-segmented__btn:disabled"
     },
     "props": {
       "border-top-left-radius": "var(--radius-sm)",
@@ -271,6 +272,10 @@
         "color": "var(--color-sumi)",
         "font-weight": "var(--weight-semibold)",
         "box-shadow": "0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)"
+      },
+      "disabled": {
+        "cursor": "not-allowed",
+        "opacity": "0.55"
       }
     }
   },
