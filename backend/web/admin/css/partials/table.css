@@ -1,5 +1,5 @@
-/* calm: the list sits flush on the page, no box; rows are hairlines */
-.hm-tablecard { overflow: hidden; position: relative; border: 0; border-radius: 0; background: transparent; }
+/* One white card holds the toolbar, chips, bulk bar, rows and pager; rows are hairlines */
+.hm-tablecard { overflow: hidden; position: relative; }
 /* a table inside a card bleeds to the card edges */
 .hm-card .hm-table__scroll { margin-inline: calc(-1 * var(--space-5)); }
 .hm-tablecard .hm-table__scroll { margin-inline: 0; }
@@ -82,10 +82,6 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   /* A strip with neither a select-all box nor a sort link is only column titles the cards already
      label: keep it for screen readers only. One with a sort link stays visible, so touch users can sort. */
   .hm-table--cards thead:not(:has(.hm-table__check, .hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  /* The users list (#users, #invites) is flush on the page: rows and the filter strip share the
-     hairlines' left edge. Other lists keep their padding. */
-  #users.hm-tablecard .hm-table--cards tr, #invites.hm-tablecard .hm-table--cards tr { padding-inline: 0; }
-  #users .hm-table__filters { padding-inline: 0; }
   .hm-table--cards thead tr { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
   .hm-table--cards thead th { padding-inline: 0; }
   .hm-table--cards thead th:not(.hm-table__check):not(:has(.hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
@@ -104,10 +100,10 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 .hm-filterbar .hm-filterbar__chips { flex: 1 1 100%; }
 /* Bare toolbar (opt-in): no card, segmented + Filters at the start, search + selects at the end;
    below 640px the four controls stack full width. */
-.hm-filterbar--bare { padding: 0; border-bottom: 0; gap: var(--space-3); position: relative; }
+.hm-filterbar--bare { padding: var(--space-4); border-bottom: 1px solid var(--color-kinu); gap: var(--space-3); position: relative; }
 /* The end group takes the free space before it; the hidden busy indicator is out of flow, so it is not a third item. */
 .hm-filterbar--bare .hm-filterbar__end { flex: 1 1 auto; flex-wrap: nowrap; justify-content: flex-end; margin-inline-start: auto; }
-.hm-filterbar--bare > .hm-indicator { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + var(--space-1)); }
+.hm-filterbar--bare > .hm-indicator { position: absolute; inset-inline-end: var(--space-4); inset-block-start: calc(100% + var(--space-1)); }
 .hm-filterbar__start, .hm-filterbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
 /* Bare search: ~300px at wide widths (the hm-input-affix wrapper carries the magnifier), full width once the groups stack. */
 .hm-filterbar--bare .hm-table__search { flex: 0 1 300px; }

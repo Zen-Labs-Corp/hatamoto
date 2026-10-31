@@ -35,8 +35,6 @@ func TestPhoneCardsListLayout(t *testing.T) {
 	css := cssSource(t, "partials/table.css")
 	for _, want := range []string{
 		".hm-table--cards thead:not(:has(.hm-table__check, .hm-table__sort))",
-		"#users.hm-tablecard .hm-table--cards tr",
-		"#users .hm-table__filters { padding-inline: 0; }",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("table.css: missing %q", want)
