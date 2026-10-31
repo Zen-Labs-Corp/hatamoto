@@ -1,7 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-{{template "hm/callout-start" (dict "Kind" "info")}}Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="{{adminPath}}/theme/colours">Colours and fonts</a>.{{template "hm/callout-end"}}
-{{if not .OptedIn}}{{template "hm/callout" (dict "Kind" "info" "Body" "Your theme has not turned on design tokens (theme.json builder.tokens). You can save values now; nothing is applied until the theme opts in.")}}{{end}}
+{{template "hm/callout-start" (dict "Kind" "info")}}Named values that blocks use through their style settings. Change one here and every page follows, with no page saved again. The brand, background and text colours, fonts and corners stay in <a href="{{adminPath}}/theme/colours">Colours and fonts</a>.{{if not .OptedIn}} Your theme has not turned on design tokens (theme.json builder.tokens). You can save values now; nothing is applied until the theme opts in.{{end}}{{template "hm/callout-end"}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/theme/design-system" class="hm-cardform">
 {{template "hm/csrf" $}}
