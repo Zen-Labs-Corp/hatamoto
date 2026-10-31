@@ -104,3 +104,28 @@ func TestTermLocalesBlockIsBalanced(t *testing.T) {
 		t.Errorf("the Languages section must hold the copies list")
 	}
 }
+
+func TestTermUnlinkChecksMembership(t *testing.T) {
+	t.Parallel()
+	c, tg, id := termLocalesRig(t, "en", "pt-BR")
+	tid := c.terms.terms[0].ID
+	member, stranger := uuid.New(), uuid.New()
+	tg.members[tid] = []taxonomy.TermMember{{ID: tid, Locale: "en"}, {ID: member, Locale: "pt-BR"}}
+	path := "/admin/settings/taxonomies/terms/" + id + "/unlink"
+
+	rec := c.post(path, url.Values{"term": {stranger.String()}})
+	if rec.Code != 303 || len(tg.unlinked) != 0 {
+		t.Fatalf("stranger: %d, unlinked %v", rec.Code, tg.unlinked)
+	}
+	has(t, c.next(rec, "/admin/settings/taxonomies/terms/"+id), "That term is not linked to this one.")
+
+	if rec := c.post(path, url.Values{"term": {member.String()}}); rec.Code != 303 || len(tg.unlinked) != 1 || tg.unlinked[0] != member {
+		t.Errorf("member: %d, unlinked %v", rec.Code, tg.unlinked)
+	}
+
+	tg.err = taxonomy.ErrTermNotFound
+	rec = c.post(path, url.Values{"term": {id}})
+	if rec.Code != 303 {
+		t.Fatalf("missing term: %d, want a flash redirect", rec.Code)
+	}
+}

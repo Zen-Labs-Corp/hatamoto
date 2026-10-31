@@ -233,13 +233,32 @@ func (a *Admin) handleTermUnlink(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	g := a.deps.Content.TermGroups
 	id, err := uuid.Parse(r.PostFormValue("term"))
 	if err != nil {
 		a.SetFlash(w, r, "error", "Pick the term to unlink.")
-	} else if err := a.deps.Content.TermGroups.Unlink(r.Context(), id); err != nil {
+		Redirect(w, r, a.termURL(t.ID))
+		return
+	}
+	if id != t.ID { // only this term or a member of its group
+		members, err := g.Members(r.Context(), t.ID)
+		if err != nil {
+			a.serverError(w, r, "The term could not be unlinked", err)
+			return
+		}
+		if !slices.ContainsFunc(members, func(m taxonomy.TermMember) bool { return m.ID == id }) {
+			a.SetFlash(w, r, "error", "That term is not linked to this one.")
+			Redirect(w, r, a.termURL(t.ID))
+			return
+		}
+	}
+	switch err := g.Unlink(r.Context(), id); {
+	case errors.Is(err, taxonomy.ErrTermNotFound):
+		a.SetFlash(w, r, "error", "That term no longer exists.")
+	case err != nil:
 		a.serverError(w, r, "The term could not be unlinked", err)
 		return
-	} else {
+	default:
 		a.invalidate(r.Context())
 		a.SetFlash(w, r, "success", "Unlinked the term.")
 	}
