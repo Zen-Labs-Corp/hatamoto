@@ -15,17 +15,16 @@ const FIGMA = [
 ];
 
 /**
- * Regroups groupsFor's output ([{name, entries}]) for node: [{name, entries, sub}] with every entry exactly once.
+ * Regroups groupsFor's output ([{name, entries}]): [{name, entries, sub}] with every entry exactly once.
  * `entries` is the whole group (for the set-here dot); `sub` is [{name, entries}] per style group it took, in order: the UI
  * draws a sub-heading for a sub whose name differs from the group's. Empty groups are dropped.
  */
 export function figmaGroups(groups) {
   const by = new Map(groups.map((g) => [g.name, g]));
   return FIGMA.map((f) => {
-      const sub = f.from.map((n) => by.get(n)).filter(Boolean).map((g) => ({ name: g.name, entries: g.entries }));
-      return { name: f.name, entries: sub.flatMap((s) => s.entries), sub };
-    })
-    .filter((g) => g.entries.length);
+    const sub = f.from.map((n) => by.get(n)).filter(Boolean).map((g) => ({ name: g.name, entries: g.entries }));
+    return { name: f.name, entries: sub.flatMap((s) => s.entries), sub };
+  }).filter((g) => g.entries.length);
 }
 
 /** Whether any entry of a group has a value set here (breakpoint + state). own(key) -> value | null. */

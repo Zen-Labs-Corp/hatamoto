@@ -66,7 +66,8 @@ let sessions = 0;
 /**
  * Makes el a scrub handle. A press that moves less than 3 px is a click (the element is focused and selected); a drag
  * calls apply(value, {coalesce: key}) once per animation frame with ONE key for the whole gesture, so the store merges it
- * into one undo step, then closes the gesture on pointerup, pointercancel or blur.
+ * into one undo step, then closes the gesture on pointerup, pointercancel, lostpointercapture, blur or a move with no button held.
+ * Only the primary button starts one, and not while el itself has focus (it is being typed in).
  * axis "v" | "h"; get() -> the number the drag starts from; apply(n, opts); session: key prefix ("bm", "ls:<id>");
  * step per pixel; bounds {min, max}; sign -1 flips the direction; onStart / onEnd bracket a drag. Returns a detach function.
  */
@@ -93,12 +94,15 @@ export function attachScrub(el, { axis, get, apply, session = "bm", step = 1, bo
     } else onEnd?.();
   };
   const down = (e) => {
+    if ((e.button ?? 0) !== 0 || e.isPrimary === false) return; // a right-click or a second finger starts nothing
+    if ((el.ownerDocument ?? globalThis.document)?.activeElement === el) return; // being typed in: the native caret and selection win
     g = { x: e.clientX, y: e.clientY, start: Number(get()) || 0, key: `${session}:${++sessions}`, dragging: false, pending: null };
     el.setPointerCapture?.(e.pointerId);
     e.preventDefault?.();
   };
   const move = (e) => {
     if (!g) return;
+    if (e.buttons === 0) return end(); // the pointerup was lost (context menu, alt-tab): the drag is over
     const d = { dx: e.clientX - g.x, dy: e.clientY - g.y };
     if (!g.dragging) {
       if (Math.max(Math.abs(d.dx), Math.abs(d.dy)) < CLICK_SLOP) return;
@@ -115,12 +119,14 @@ export function attachScrub(el, { axis, get, apply, session = "bm", step = 1, bo
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", end);
+  el.addEventListener("lostpointercapture", end);
   el.addEventListener("blur", end);
   return () => {
     el.removeEventListener?.("pointerdown", down);
     el.removeEventListener?.("pointermove", move);
     el.removeEventListener?.("pointerup", end);
     el.removeEventListener?.("pointercancel", end);
+    el.removeEventListener?.("lostpointercapture", end);
     el.removeEventListener?.("blur", end);
   };
 }

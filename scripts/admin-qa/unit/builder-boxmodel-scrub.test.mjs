@@ -168,3 +168,55 @@ test("attachScrub: the move is rAF-throttled, the last value is flushed on point
     delete globalThis.requestAnimationFrame;
   }
 });
+
+// A gesture the browser never finished must not keep scrubbing on later moves.
+const live = (extra = {}) => {
+  const e = el();
+  const writes = [];
+  let ended = 0;
+  attachScrub(e, { axis: "h", get: () => 10, apply: (v, o) => writes.push([v, o.coalesce]), onEnd: () => ended++, ...extra });
+  return { e, writes, ended: () => ended };
+};
+
+test("attachScrub: only the primary button starts a gesture", () => {
+  const { e, writes } = live();
+  e.fire("pointerdown", { button: 2, clientX: 0 });
+  e.fire("pointermove", { clientX: 30 });
+  e.fire("pointerdown", { button: 0, isPrimary: false, clientX: 0 });
+  e.fire("pointermove", { clientX: 30 });
+  assert.deepEqual(writes, []);
+  assert.deepEqual(e.calls, [], "no capture, no focus");
+});
+
+test("attachScrub: a move with no button held ends the gesture once and writes nothing more", () => {
+  const { e, writes, ended } = live();
+  e.fire("pointerdown", { clientX: 0 });
+  e.fire("pointermove", { clientX: 5, buttons: 1 });
+  e.fire("pointermove", { clientX: 9, buttons: 0 }); // the pointerup was swallowed (context menu)
+  e.fire("pointermove", { clientX: 40, buttons: 0 });
+  assert.deepEqual(writes.map((w) => w[0]), [15], "committed once, at the last held position");
+  assert.equal(ended(), 1);
+});
+
+test("attachScrub: lostpointercapture ends the gesture", () => {
+  const { e, writes, ended } = live();
+  e.fire("pointerdown", { clientX: 0 });
+  e.fire("pointermove", { clientX: 5 });
+  e.fire("lostpointercapture");
+  e.fire("pointermove", { clientX: 50 });
+  assert.deepEqual(writes.map((w) => w[0]), [15]);
+  assert.equal(ended(), 1);
+});
+
+test("attachScrub: no gesture while the field itself has focus (being typed in)", () => {
+  const { e, writes } = live();
+  globalThis.document = { activeElement: e };
+  try {
+    e.fire("pointerdown", { clientX: 0 });
+    e.fire("pointermove", { clientX: 30 });
+    assert.deepEqual(writes, []);
+    assert.deepEqual(e.calls, [], "the native caret is left alone");
+  } finally {
+    delete globalThis.document;
+  }
+});
