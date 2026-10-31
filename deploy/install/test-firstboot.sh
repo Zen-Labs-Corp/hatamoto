@@ -178,7 +178,9 @@ done
 if printf '%s\n' "$env_out" | grep -q 'HATAMOTO_UPDATES'; then fail "env sets HATAMOTO_UPDATES"; fi
 pass "env content"
 
-cf() { pure fb_render_caddyfile "$@"; }
+# Render fully before printing: a `| grep -q` reader that exits on its first
+# match must not SIGPIPE a producer that is still writing (pipefail -> 141).
+cf() { local out; out="$(pure fb_render_caddyfile "$@")"; printf '%s\n' "$out"; }
 cf h.example auto "" | grep -qx 'h.example {' || fail "auto caddyfile"
 if cf h.example auto "" | grep -Eq 'tls internal|email'; then fail "auto caddyfile has extras"; fi
 cf h.example auto ops@example.com | grep -qxP '\temail ops@example.com' || fail "email missing"
