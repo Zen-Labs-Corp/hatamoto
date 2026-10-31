@@ -30,6 +30,12 @@ test("a single leaf: copy/cut/paste/duplicate/rename/delete on, paste inside, un
   assert.ok(!r.savetpl && !r.mkblock, "no reuse rows without templates and blocks");
 });
 
+test("Add after is a row for one element, not for several (it opens the picker after the selection)", () => {
+  assert.equal(by(rows(["a2"])).addafter.label, "Add after");
+  assert.ok(!by(rows(["a2"])).addafter.disabled);
+  assert.ok(by(rows(["a1", "a2"])).addafter.disabled);
+});
+
 test("the rows say what they do in plain words", () => {
   const labels = M.menuItems({ doc, selection: ["a2"], selected: "a2", kinds: KINDS, reuse: true }).filter((r) => !r.sep).map((r) => r.label);
   for (const l of ["Delete", "Duplicate", "Wrap in container", "Save as block…", "Save as template…", "Copy style", "Paste style"]) assert.ok(labels.includes(l), l);

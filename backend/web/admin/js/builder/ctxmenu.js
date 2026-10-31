@@ -29,6 +29,7 @@ export function menuItems({ doc, selection, selected, kinds, reuse, device = "ba
     row("pastenode", "Paste after", "^V"),
     row("pasteinside", "Paste inside", "", { disabled: !one || !pastePoint(doc, selected, kinds, true) }),
     row("duplicate", "Duplicate", "^D"),
+    row("addafter", "Add after", "", { disabled: !one }),
     { sep: true },
     row("rename", "Rename", "F2", { disabled: !one }),
     row("wrap", "Wrap in container", "^G", { disabled: !canWrap(doc, selection) }),

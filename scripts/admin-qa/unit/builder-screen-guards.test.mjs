@@ -30,3 +30,10 @@ test("toolbar Delete, Duplicate and Hide act on the same node as Move: the colla
   assert.doesNotMatch(body("removeSelected") + body("duplicateSelected"), /moveSubject/);
   assert.match(src, /const isHiddenAt = \(id\) => \{\s*const n = find\(st\.doc, hideTarget\(st\.doc, id, device\) \?\? id\)/);
 });
+
+test("Add after lives in the More menu: dispatch opens the picker at the selection's index + 1, and no dead onAddAfter handler is left", () => {
+  assert.doesNotMatch(src, /onAddAfter/);
+  const i = src.indexOf('case "addafter"');
+  assert.ok(i > 0, "no addafter case in dispatch");
+  assert.match(src.slice(i, i + 400), /locate\(st\.doc, moveSubject\(st\.doc, selected\)\)[\s\S]*addAt\(\{ parent: l\.parentId, index: l\.index \+ 1 \}/);
+});

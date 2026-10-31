@@ -247,7 +247,11 @@ await check("'+' between sections and inside an empty column inserts at that exa
   const after = p.locator(`[data-hm-pe-gapline][aria-label="Add section at the end"]`);
   await after.first().waitFor({ state: "attached", timeout: 5000 });
   if ((await after.count()) !== 1) throw new Error("expected one end-of-page Add section line, got " + (await after.count()));
-  await after.first().click({ force: true });
+  // a pill takes the pointer only while it shows: hover the last section, then click its pill
+  const lastAt = await canvasPoint((await tops()).at(-1).id);
+  await p.mouse.move(lastAt.x, lastAt.y, { steps: 4 });
+  await after.first().locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
+  await after.first().click();
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "1 column" }).click();
   await settle(500);
   const top = await tops();

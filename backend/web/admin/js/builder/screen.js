@@ -249,11 +249,6 @@ function start(root, boot) {
       onAction: (name) => dispatch(name, true), // the element toolbar: duplicate, wrap, togglehide, remove
       onMore: (r) => showMenu(selected, r.left, r.bottom, true),
       isHidden: (id) => isHiddenAt(id),
-      // the keyboard path to the "+" layout picker: the position right after the selection
-      onAddAfter: (btn) => {
-        const l = selected && locate(st.doc, moveSubject(st.doc, selected));
-        if (l) addAt({ parent: l.parentId, index: l.index + 1 }, btn);
-      },
       // the toolbar's contents: the parent for "↑", the moves that would do something (the whole section, as a move acts on it)
       toolbarState: (id, k) => {
         const info = selectionInfo(st.doc, id);
@@ -287,7 +282,7 @@ function start(root, boot) {
       onAdd: (pt, btn) => {
         const pos = docPos(st.doc, pt);
         if (pos) addAt(pos, btn);
-        else announce("That spot has moved. Select the element and use Add after in the toolbar.");
+        else announce("That spot has moved. Select the element and use Add after in the More menu.");
       }, // the "+" between elements and inside empty containers
     },
     { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined) }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
@@ -833,6 +828,11 @@ function start(root, boot) {
       case "menu": {
         const r = tree.rect(selected) ?? canvasEl.getBoundingClientRect();
         return showMenu(selected, r.left + 24, r.bottom);
+      }
+      case "addafter": {
+        // the More menu's entry: the layout picker at the position right after the selection
+        const l = selected && locate(st.doc, moveSubject(st.doc, selected));
+        return l && addAt({ parent: l.parentId, index: l.index + 1 }, canvasEl);
       }
       case "pasteinside":
         return bulk("paste", { inside: true });

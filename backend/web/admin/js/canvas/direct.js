@@ -52,6 +52,12 @@ export function mountDirect(canvas, hd) {
   let hoverSide = null; // from the inspector's padding fields
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
+  let lastHover = null; // the pill is reached by crossing the stage, which ends the frame's hover: it stays until the pointer leaves the canvas
+  canvas.stage.parentElement?.addEventListener("mouseleave", () => {
+    if (!lastHover) return;
+    lastHover = null;
+    paintStrips();
+  });
 
   // The section whose handles show: the selected one, when it is a section, editable, and not being typed in.
   function target() {
@@ -109,14 +115,31 @@ export function mountDirect(canvas, hd) {
     paintStrips();
   }
 
+  const topOf = (id) => {
+    let n = canvas.nodes.find((x) => x.id === id);
+    while (n && n.p !== "") n = canvas.nodes.find((x) => x.id === n.p);
+    return n?.id ?? null;
+  };
+  // A pill takes the pointer only while it shows: after the selected section ("sel", the one tab stop, visible without hover for touch), around
+  // the hovered one ("hover"), or on an empty page. The rest are inert, so no invisible element swallows a click.
+  function showOf(b, selTop, hoverTop) {
+    if (b.before === null && b.after === null) return "sel";
+    if (selTop && b.before === selTop) return "sel";
+    if (hoverTop && (b.before === hoverTop || b.after === hoverTop)) return "hover";
+    return null;
+  }
+
   function paintStrips() {
     const points = canvas.editingId != null ? [] : pillPoints(canvas.nodes);
+    if (canvas.hoverId) lastHover = canvas.hoverId;
+    const selTop = canvas.selectionBox ? topOf(canvas.selectionBox.id) : null;
+    const hoverTop = lastHover ? topOf(lastHover) : null;
     strips.hidden = canvas.editingId != null;
     while (pills.length > points.length) pills.pop().remove();
     points.forEach((b, i) => {
       let p = pills[i];
       if (!p) {
-        p = el("button", { type: "button", class: "hm-pe__gapline", "data-hm-pe-gapline": "", tabindex: "-1" }, el("span", { class: "hm-pe__pill", "aria-hidden": "true", text: "Add section" }));
+        p = el("button", { type: "button", class: "hm-pe__gapline", "data-hm-pe-gapline": "" }, el("span", { class: "hm-pe__pill", "aria-hidden": "true", text: "Add section" }));
         p.addEventListener("click", () => {
           const at = boundaryIndex(p._b, hd.indexOf, hd.total());
           if (at !== null) hd.onAddSection(at, p);
@@ -126,6 +149,10 @@ export function mountDirect(canvas, hd) {
       }
       p._b = b;
       p.setAttribute("aria-label", b.before === null ? "Add section at the top" : b.after === null ? "Add section at the end" : `Add section after ${hd.nameOf?.(b.before) || "this one"}`);
+      const show = showOf(b, selTop, hoverTop);
+      if (show) p.setAttribute("data-show", show);
+      else p.removeAttribute("data-show");
+      p.setAttribute("tabindex", show === "sel" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
     });
   }

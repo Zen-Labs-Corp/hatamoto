@@ -1455,11 +1455,12 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await settle(main, 300);
   need(await main.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected), "a hover redraw rebuilt the toolbar");
   const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
-  need(acts.join("|") === "Select parent|Duplicate|Wrap in container|Add after|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
-  // the keyboard path to the "+" picker: Add after opens it
-  await main.locator('[data-hm-pe-toolbar] [data-act="addafter"]').focus();
+  need(acts.join("|") === "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
+  // the keyboard path to the picker: More, then Add after
+  await main.locator('[data-hm-pe-toolbar] [data-act="more"]').focus();
   await main.keyboard.press("Enter");
-  await main.getByRole("dialog", { name: "Add a section" }).waitFor({ state: "visible", timeout: 3000 }).catch(() => need(false, "Add after did not open the layout picker"));
+  await main.getByRole("menuitem", { name: /^Add after/ }).click();
+  await main.getByRole("dialog", { name: "Add a section" }).waitFor({ state: "visible", timeout: 3000 }).catch(() => need(false, "More > Add after did not open the layout picker"));
   await main.keyboard.press("Escape");
   await settle(main, 200);
   await main.locator('[data-hm-pe-toolbar] [data-act="parent"]').focus();
@@ -1470,7 +1471,7 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await settle(main, 500);
   need((await nodes(main)).length > n, "Enter on Duplicate did not duplicate");
   await drop(main, id);
-  return `toolbar ${Math.round(t.y + t.height)}px vs element top ${Math.round(el.y)}px, kept across a hover, seven buttons by arrow keys, Add after opens the picker`;
+  return `toolbar ${Math.round(t.y + t.height)}px vs element top ${Math.round(el.y)}px, kept across a hover, buttons by arrow keys, More > Add after opens the picker`;
 });
 
 await check("zoom-floor: a fixed zoom is exact, survives a resize, and Fit never goes under half size", async () => {

@@ -27,6 +27,7 @@ class El {
     this.removed = false;
   }
   setAttribute(k, v) { this.attrs[k] = String(v); }
+  removeAttribute(k) { delete this.attrs[k]; }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   append(...kids) { kids.forEach((k) => (k.parent = this)); this.children.push(...kids); }
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
@@ -61,16 +62,17 @@ const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylesp
 const pdNode = (id, y, h, pd) => ({ id, k: "s", t: "hero", p: "", x: 0, y, w: 1280, h, ...(pd ? { pd } : {}) });
 const find = (e, f) => e.children.find(f);
 
-function rig({ nodes, selected = "a", scale = 1, section = true, bp = "base", editing = null } = {}) {
+function rig({ nodes, selected = "a", scale = 1, section = true, bp = "base", editing = null, hover = null } = {}) {
   const stage = new El("div");
   const posted = [];
-  const state = { nodes: nodes ?? [pdNode("a", 100, 400, [112, 40, 96, 24]), pdNode("b", 500, 300, [10, 10, 10, 10])], selected, scale, editing, editable: true };
+  const state = { nodes: nodes ?? [pdNode("a", 100, 400, [112, 40, 96, 24]), pdNode("b", 500, 300, [10, 10, 10, 10])], selected, scale, editing, hover, editable: true };
   const canvas = {
     stage,
     get scale() { return state.scale; },
     get nodes() { return state.nodes; },
     get editable() { return state.editable; },
     get editingId() { return state.editing; },
+    get hoverId() { return state.hover; },
     get selectionBox() {
       const n = state.nodes.find((x) => x.id === state.selected);
       return n ? { id: n.id, k: n.k, t: n.t, x: n.x, y: n.y, w: n.w, h: n.h } : null;
@@ -382,6 +384,25 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(r.adds[1][1], strips[1], "the picker anchors on the strip");
 });
 
+test("a pill takes the pointer only while it shows: after the selection (the one tab stop), around the hover, never otherwise", () => {
+  const shows = (r) => r.strips.children.map((s) => s.attrs["data-show"] ?? null);
+  const r = rig({ nodes: sections() }); // a selected, nothing hovered
+  assert.deepEqual(shows(r), [null, "sel", null], "only the boundary after the selected section");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
+  r.state.selected = "x"; // a block inside a: its section's boundary
+  r.direct.update();
+  assert.deepEqual(shows(r), [null, "sel", null]);
+  r.state.selected = null;
+  r.state.hover = "b";
+  r.direct.update();
+  assert.deepEqual(shows(r), [null, "hover", "hover"], "the hovered section's two boundaries");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "-1", "-1"]);
+  r.state.hover = null; // the pointer crossed onto the pill: the frame's hover ended, the pill stays
+  r.direct.update();
+  assert.deepEqual(shows(r), [null, "hover", "hover"]);
+  assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "sel", "an empty page's only pill shows");
+});
+
 test("strips follow layout changes in place and go while text is edited", () => {
   const r = rig({ nodes: sections() });
   const first = r.strips.children[1];
@@ -408,6 +429,16 @@ test("a padding handle stacks above the boundary strips: a section edge with 0 p
   const strip = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
   const z = (rule) => (/z-index:\s*var\(--z-raised\)/.test(rule) ? 1 : 0);
   assert.ok(z(handle) > z(strip), `handle z-index ${z(handle)} must exceed the strip's ${z(strip)}`);
+});
+
+test("the pill is pill-sized and inert until shown; its focus ring is real: no invisible full-width strip", () => {
+  const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
+  const line = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  assert.match(line, /pointer-events:\s*none/);
+  assert.doesNotMatch(line, /\bright:|width:\s*100%/);
+  assert.match(css, /\.hm-pe__gapline\[data-show\] \{ pointer-events: auto/);
+  assert.match(css, /\.hm-pe__gapline:focus-visible \.hm-pe__pill \{ outline/);
+  assert.doesNotMatch(css, /\.hm-pe__pill:focus-visible/, "the pill is never the focused element");
 });
 
 test("the hatch is shown by dropping `hidden`: no stylesheet rule keeps it transparent behind attributes direct.js never sets", () => {
