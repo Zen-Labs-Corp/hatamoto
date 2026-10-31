@@ -274,3 +274,33 @@ func TestCreateTermCopyLeavesNoOrphan(t *testing.T) {
 		t.Errorf("categories = %d, want %d: a copy was left behind", got, before)
 	}
 }
+
+// Deleting a term leaves its partner in a group of one. That counts as no
+// group: the survivor can be linked elsewhere and is offered as a candidate.
+func TestTermGroupOneMemberCountsAsUngrouped(t *testing.T) {
+	f := newGroupFixture(t)
+	ctx := context.Background()
+	en := f.term(t, "category", "guides", "en-US")
+	fr := f.term(t, "category", "guides-fr", "fr-FR")
+	pt := f.term(t, "category", "guias", "pt-BR")
+	de := f.term(t, "category", "guides-de", "de-DE")
+	if _, err := f.groups.Link(ctx, en.ID, fr.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.DeleteTerm(ctx, fr.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.groups.Link(ctx, pt.ID, de.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.groups.Candidates(ctx, de.ID, "guides", 10)
+	if err != nil || len(got) != 1 || got[0].ID != en.ID {
+		t.Fatalf("candidates of a grouped term = %+v, %v; want the survivor %s", got, err, en.ID)
+	}
+	if _, err := f.groups.Link(ctx, de.ID, en.ID); err != nil {
+		t.Fatalf("link the survivor into a real group: %v", err)
+	}
+	if ms, err := f.groups.Members(ctx, en.ID); err != nil || len(ms) != 3 {
+		t.Errorf("members = %+v, %v; want en-US, pt-BR and de-DE", ms, err)
+	}
+}
