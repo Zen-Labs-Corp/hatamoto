@@ -6,18 +6,61 @@
 APP_DIR=/opt/hatamoto
 APP_USER=hatamoto
 PGDG_KEY=/usr/share/keyrings/postgresql-archive-keyring.asc
-BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades postgresql-16 caddy"
+BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades caddy"
 
 # build_os prints "ID VERSION_ID CODENAME" from the os-release file, or dies.
+# Ubuntu LTS 22.04, 24.04, 26.04 and Debian 12, 13 are supported; another Ubuntu
+# release is tried with a warning (short-term releases work, they are just untested).
 build_os() {
   bo_file="$(dest /etc/os-release)"
-  [ -r "$bo_file" ] || die "cannot read /etc/os-release: supported systems are Ubuntu 24.04 and Debian 12"
+  bo_list="Ubuntu 22.04, 24.04, 26.04 LTS and Debian 12, 13 (amd64 or arm64)"
+  [ -r "$bo_file" ] || die "cannot read /etc/os-release: supported systems are $bo_list"
   # shellcheck source=/dev/null
   bo_line="$( . "$bo_file" && printf '%s %s %s' "${ID:-}" "${VERSION_ID:-}" "${VERSION_CODENAME:-}" )"
   case "$bo_line" in
-    "ubuntu 24.04 "* | "debian 12 "*) printf '%s\n' "$bo_line" ;;
-    *) die "unsupported system: ${bo_line% *}: supported systems are Ubuntu 24.04 and Debian 12 (amd64 or arm64)" ;;
+    "ubuntu 22.04 "* | "ubuntu 24.04 "* | "ubuntu 26.04 "* | "debian 12 "* | "debian 13 "*) ;;
+    "ubuntu "*) warn "${bo_line% *} is not a supported LTS release; trying anyway (supported: $bo_list)" ;;
+    *) die "unsupported system: ${bo_line% *}: supported systems are $bo_list" ;;
   esac
+  printf '%s\n' "$bo_line"
+}
+
+# build_pg_major prints the PostgreSQL major to install: 16, 17 or 18 (default 18).
+# An existing cluster keeps its major; HATAMOTO_PG_MAJOR may only confirm it.
+build_pg_major() {
+  bm_want="$IN_PG_MAJOR"
+  case "$bm_want" in
+    "" | 16 | 17 | 18) ;;
+    *) die "HATAMOTO_PG_MAJOR must be 16, 17 or 18 (got $bm_want)" ;;
+  esac
+  bm_have=""
+  for bm_dir in "$(dest /etc/postgresql)"/*; do
+    case "${bm_dir##*/}" in
+      *[!0-9]* | "") continue ;;
+    esac
+    [ -d "$bm_dir" ] || continue
+    bm_have="$bm_have ${bm_dir##*/}"
+  done
+  # shellcheck disable=SC2086 # the list is words on purpose
+  set -- $bm_have
+  if [ $# -eq 0 ]; then
+    printf '%s\n' "${bm_want:-18}"
+    return 0
+  fi
+  if [ $# -gt 1 ]; then
+    [ -n "$bm_want" ] || die "several PostgreSQL clusters exist ($bm_have ): set HATAMOTO_PG_MAJOR to the one Hatamoto should use (16, 17 or 18)"
+    case " $bm_have " in
+      *" $bm_want "*) printf '%s\n' "$bm_want"; return 0 ;;
+    esac
+    die "HATAMOTO_PG_MAJOR=$bm_want matches none of the existing PostgreSQL clusters ($bm_have )"
+  fi
+  case "$1" in
+    16 | 17 | 18) ;;
+    *) die "the existing PostgreSQL cluster is version $1: Hatamoto needs 16, 17 or 18, and the installer does not migrate clusters" ;;
+  esac
+  [ -z "$bm_want" ] || [ "$bm_want" = "$1" ] ||
+    die "HATAMOTO_PG_MAJOR=$bm_want, but the existing PostgreSQL cluster is version $1 (the installer does not migrate clusters)"
+  printf '%s\n' "$1"
 }
 
 # build_policy_deny keeps packages from starting services while they install
@@ -85,11 +128,11 @@ build_pgdg() {
   printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$1" > "$bg_list"
 }
 
-# build_check_pg_dump: backups need a pg_dump of the server's major version (16).
+# build_check_pg_dump MAJOR: backups need a pg_dump of the server's major version.
 build_check_pg_dump() {
   need_cmd pg_dump
   bc_major="$(pg_dump --version | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+(\.[0-9]+)*$/) { split($i, p, "."); print p[1]; exit } }')"
-  [ "$bc_major" = 16 ] || die "pg_dump is version ${bc_major:-unknown}, not 16: nightly backups would fail"
+  [ "$bc_major" = "$1" ] || die "pg_dump is version ${bc_major:-unknown}, not $1: nightly backups would fail"
 }
 
 build_user_and_dirs() {
@@ -180,9 +223,10 @@ stage_build() {
   sb_os="$(build_os)"
   sb_id="${sb_os%% *}"
   sb_codename="${sb_os##* }"
+  sb_pg="$(build_pg_major)"
   arch >/dev/null
   need_cmd apt-get
-  log "build stage on $sb_os"
+  log "build stage on $sb_os, PostgreSQL $sb_pg"
 
   build_policy_deny
   build_apt update -qq
@@ -192,9 +236,9 @@ stage_build() {
     build_apt update -qq
   fi
   # shellcheck disable=SC2086 # the list is words on purpose
-  build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES
+  build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES "postgresql-$sb_pg"
   build_policy_restore
-  build_check_pg_dump
+  build_check_pg_dump "$sb_pg"
 
   build_user_and_dirs
   build_binary

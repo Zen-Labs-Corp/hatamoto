@@ -62,7 +62,7 @@ if [ "$dirs" = 1 ]; then mkdir -p "$@"; else cp "$1" "$2" && chmod 0755 "$2"; fi
 FAKE
 cat > "$bin/pg_dump" <<'FAKE'
 #!/bin/sh
-echo "pg_dump (PostgreSQL) ${FAKE_PG_MAJOR:-16}.4 (Fake)"
+echo "pg_dump (PostgreSQL) ${FAKE_PG_MAJOR:-18}.4 (Fake)"
 FAKE
 chmod +x "$bin/id" "$bin/install" "$bin/pg_dump"
 
@@ -90,7 +90,7 @@ snapshot() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum);
 ub="$(mkroot ubuntu ubuntu 24.04 noble)"
 : > "$tmp/calls"
 run_build "$ub" >/dev/null 2>"$tmp/err" || fail "ubuntu build failed: $(cat "$tmp/err")"
-want="-o DPkg::Lock::Timeout=600 install -y --no-install-recommends -o Dpkg::Options::=--force-confold ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades postgresql-16 caddy"
+want="-o DPkg::Lock::Timeout=600 install -y --no-install-recommends -o Dpkg::Options::=--force-confold ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades caddy postgresql-18"
 grep -qxF "apt-get $want" "$tmp/calls" || fail "package list differs: $(grep apt-get "$tmp/calls")"
 pass "package list"
 [ "$(grep -c '^apt-get ' "$tmp/calls")" = "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 ' "$tmp/calls")" ] || fail "an apt-get call has no lock timeout"
@@ -172,13 +172,56 @@ grep -qx 'LC_ALL=C' "$tmp/calls" || fail "apt-get update did not run with LC_ALL
 pass "apt update retried on the lists lock only, bounded, install not retried"
 
 # --- refusals
-ol="$(mkroot old ubuntu 22.04 jammy)"
-if run_build "$ol" >/dev/null 2>"$tmp/err"; then fail "ubuntu 22.04 accepted"; fi
-grep -q 'unsupported system: ubuntu 22.04' "$tmp/err" || fail "unsupported message: $(cat "$tmp/err")"
-pass "unsupported OS dies with a message"
+systems="supported systems are Ubuntu 22.04, 24.04, 26.04 LTS and Debian 12, 13"
+for bad in "fedora 40 " "debian 11 bullseye"; do
+  set -- $bad
+  if run_build "$(mkroot "bad$1$2" "$1" "$2" "${3:-}")" >/dev/null 2>"$tmp/err"; then fail "$1 $2 accepted"; fi
+  grep -q "unsupported system: $1 $2: $systems" "$tmp/err" || fail "unsupported message for $1 $2: $(cat "$tmp/err")"
+done
+pass "unsupported OS dies with a message listing the five systems"
+
+# --- accepted systems
+for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
+  set -- $sys
+  run_build "$(mkroot "ok$1$2" "$1" "$2" "$3")" >/dev/null 2>"$tmp/err" || fail "$sys refused: $(cat "$tmp/err")"
+  if grep -q 'not a supported LTS' "$tmp/err"; then fail "$sys warned"; fi
+done
+: > "$tmp/calls"
+run_build "$(mkroot sto ubuntu 26.10 stonking)" >/dev/null 2>"$tmp/err" || fail "ubuntu 26.10 refused: $(cat "$tmp/err")"
+grep -q 'ubuntu 26.10 is not a supported LTS' "$tmp/err" || fail "no warning for ubuntu 26.10: $(cat "$tmp/err")"
+pass "five systems accepted, another ubuntu warns and continues"
+
+# --- PostgreSQL major
+pg_line() { grep '^apt-get .* install ' "$tmp/calls" | grep -o 'postgresql-[0-9]*' | tail -n 1; }
+for m in 16 17 18; do
+  : > "$tmp/calls"
+  run_build "$(mkroot "pgm$m" ubuntu 24.04 noble)" HATAMOTO_PG_MAJOR=$m FAKE_PG_MAJOR=$m >/dev/null 2>"$tmp/err" || fail "HATAMOTO_PG_MAJOR=$m refused: $(cat "$tmp/err")"
+  [ "$(pg_line)" = "postgresql-$m" ] || fail "HATAMOTO_PG_MAJOR=$m installed $(pg_line)"
+done
+for m in 15 19 x; do
+  if run_build "$(mkroot "pgbad$m" ubuntu 24.04 noble)" HATAMOTO_PG_MAJOR=$m >/dev/null 2>"$tmp/err"; then fail "HATAMOTO_PG_MAJOR=$m accepted"; fi
+  grep -q 'HATAMOTO_PG_MAJOR must be 16, 17 or 18' "$tmp/err" || fail "bad major message: $(cat "$tmp/err")"
+done
+pass "PostgreSQL 18 by default, 16 and 17 on request, others refused"
+ex="$(mkroot excl ubuntu 24.04 noble)"; mkdir -p "$ex/etc/postgresql/16/main"
+: > "$tmp/calls"
+run_build "$ex" FAKE_PG_MAJOR=16 >/dev/null 2>"$tmp/err" || fail "existing 16 cluster refused: $(cat "$tmp/err")"
+[ "$(pg_line)" = postgresql-16 ] || fail "existing 16 cluster not kept: $(pg_line)"
+run_build "$ex" HATAMOTO_PG_MAJOR=16 FAKE_PG_MAJOR=16 >/dev/null 2>&1 || fail "matching override refused"
+if run_build "$ex" HATAMOTO_PG_MAJOR=18 >/dev/null 2>"$tmp/err"; then fail "override against an existing 16 accepted"; fi
+grep -q 'existing PostgreSQL cluster is version 16' "$tmp/err" || fail "conflict message: $(cat "$tmp/err")"
+ex="$(mkroot excl15 debian 12 bookworm)"; mkdir -p "$ex/etc/postgresql/15/main"
+if run_build "$ex" >/dev/null 2>"$tmp/err"; then fail "existing 15 cluster accepted"; fi
+grep -q 'needs 16, 17 or 18' "$tmp/err" || fail "15 message: $(cat "$tmp/err")"
+ex="$(mkroot exmulti ubuntu 24.04 noble)"; mkdir -p "$ex/etc/postgresql/16/main" "$ex/etc/postgresql/17/main"
+if run_build "$ex" >/dev/null 2>"$tmp/err"; then fail "two clusters without a choice accepted"; fi
+run_build "$ex" HATAMOTO_PG_MAJOR=17 FAKE_PG_MAJOR=17 >/dev/null 2>&1 || fail "two clusters with a choice refused"
+pass "an existing cluster keeps its major, one outside 16-18 is refused"
 if run_build "$(mkroot pg15 debian 12 bookworm)" FAKE_PG_MAJOR=15 >/dev/null 2>"$tmp/err"; then fail "pg_dump 15 accepted"; fi
-grep -q 'pg_dump is version 15, not 16' "$tmp/err" || fail "pg_dump message: $(cat "$tmp/err")"
-pass "pg_dump major mismatch dies"
+grep -q 'pg_dump is version 15, not 18' "$tmp/err" || fail "pg_dump message: $(cat "$tmp/err")"
+if run_build "$(mkroot pg17 ubuntu 24.04 noble)" HATAMOTO_PG_MAJOR=17 FAKE_PG_MAJOR=16 >/dev/null 2>"$tmp/err"; then fail "pg_dump 16 accepted for 17"; fi
+grep -q 'pg_dump is version 16, not 17' "$tmp/err" || fail "pg_dump message for 17: $(cat "$tmp/err")"
+pass "pg_dump major mismatch dies and names the chosen major"
 : > "$tmp/calls"
 run_build "$(mkroot nofw ubuntu 24.04 noble)" HATAMOTO_FIREWALL=0 >/dev/null 2>&1 || fail "firewall-off build failed"
 if grep -q '^ufw' "$tmp/calls"; then fail "ufw ran with HATAMOTO_FIREWALL=0"; fi
