@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// translationOriginalVersion is 202610311200_translation_original; Down rolls
+// translationOriginalVersion is 202610311210_translation_original; Down rolls
 // back to just below it.
-const translationOriginalVersion = 202610311200
+const translationOriginalVersion = 202610311210
 
 func TestTranslationOriginalMigration(t *testing.T) {
 	ctx := context.Background()
