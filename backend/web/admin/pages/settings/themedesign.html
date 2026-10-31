@@ -1,7 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
 {{template "hm/callout" (dict "Kind" "info" "Body" "Applied by the live theme to every page.")}}
-<p class="hm-muted">The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="{{adminPath}}/theme/design-system">Accent under Design system</a>.</p>
+{{template "hm/callout-start" (dict "Kind" "info")}}The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="{{adminPath}}/theme/design-system">Accent under Design system</a>.{{template "hm/callout-end"}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/theme/colours" class="hm-cardform">
 {{template "hm/csrf" $}}

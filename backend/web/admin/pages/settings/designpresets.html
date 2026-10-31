@@ -8,10 +8,10 @@
 <details{{if $p.Open}} open{{end}}><summary>Edit styles</summary>
 {{if $p.StateNote}}<p class="hm-muted">{{$p.StateNote}}</p>
 {{end}}{{template "hm/field" dict "ID" $p.LabelField.ID "Name" $p.LabelField.Name "Label" $p.LabelField.Label "Value" $p.LabelField.Value "Error" $p.LabelField.Error}}
-{{range $g := $p.Groups}}<fieldset class="hm-field__group"><legend><h3>{{$g.Title}}</h3></legend>
+<div class="hm-presetgrid">{{range $g := $p.Groups}}<fieldset class="hm-field__group"><legend><h3>{{$g.Title}}</h3></legend>
 {{range $f := $g.Fields}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Value" $f.Value "Error" $f.Error "Attrs" (attrmap "list" $f.ListID)}}
 {{end}}</fieldset>
-{{end}}<fieldset class="hm-field__group"><legend><h3>Add a setting</h3></legend>
+{{end}}</div><fieldset class="hm-field__group"><legend><h3>Add a setting</h3></legend>
 {{template "hm/field" dict "ID" $p.AddKey.ID "Name" $p.AddKey.Name "Label" $p.AddKey.Label "Control" "select" "Options" $p.AddKeyOpts "Error" $p.AddKey.Error}}
 {{range $f := $p.AddValues}}{{template "hm/field" dict "ID" $f.ID "Name" $f.Name "Label" $f.Label "Value" $f.Value "Error" $f.Error}}
 {{end}}</fieldset></details>

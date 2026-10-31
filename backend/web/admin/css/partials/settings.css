@@ -48,11 +48,15 @@
 /* API key scopes: Select all sits under the legend, not stretched across the column. */
 [data-hm-scopes-all] { align-self: flex-start; }
 [data-hm-scopes-all][hidden] { display: none; }
+/* Preset style groups: three columns from 48rem, one below. */
+.hm-presetgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin-block: var(--space-3); }
+.hm-presetgrid > .hm-field__group { margin: 0; min-width: 0; }
+@media (min-width: 48rem) { .hm-presetgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .hm-fieldgrid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
 /* The current hex sits under the swatch, in normal flow, and wraps if the cell is narrow. */
 .hm-swatchrow { min-width: 0; }
-.hm-swatchrow__hex { display: block; margin-top: var(--space-1); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+.hm-swatchrow__hex { display: block; font-family: var(--font-mono); margin-top: var(--space-1); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
 
 @media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); } }
 @media (max-width: 640px) {
