@@ -25,7 +25,7 @@ function el(tag, props = {}, ...kids) {
 /**
  * mountDirect(canvas, hd) -> {update, destroy}
  * canvas: the host (stage, scale, nodes, selectionBox, editable, editingId, apply).
- * hd: {isSection(id), padState(id) -> {bp}, styleEntry(key), refOf(id) -> {sel, key}, onPadCommit({id, writes, label}) -> false when refused,
+ * hd: {isSection(id), padState(id) -> {bp}, styleEntry(key), refOf(id) -> {sel, key}, onPadCommit({id, writes, label, coalesce?}) -> false when refused, stamp?() -> the last history entry,
  *      onAddSection(index, el), indexOf(id), total(), authored?(id, side) -> raw style value, nameOf?(id)}.
  */
 export function mountDirect(canvas, hd) {
@@ -43,6 +43,12 @@ export function mountDirect(canvas, hd) {
 
   let drag = null; // {id, side, alt, bp, ref, start, x0, y0, live: {side: px}, previewed, entries}
   let pend = { id: null, vals: {} }; // keyboard writes the frame has not reported back yet: side -> px
+  let seq = 0; // the arrow-key session: presses within one coalesce into one history entry
+  let stamp; // hd.stamp() after our last key commit: when it moves, an undo, redo or other edit happened
+  const endSession = () => {
+    pend = { id: null, vals: {} };
+    seq++;
+  };
   let hoverSide = null; // from the inspector's padding fields
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
@@ -199,19 +205,24 @@ export function mountDirect(canvas, hd) {
     hnd.addEventListener("pointerup", (e) => end(true, e));
     hnd.addEventListener("pointercancel", (e) => end(false, e));
     hnd.addEventListener("lostpointercapture", (e) => end(false, e)); // the capture ended without a pointer-up (after a pointer-up, the drag is already over)
-    hnd.addEventListener("blur", () => (pend = { id: null, vals: {} })); // after focus leaves, an undo or the inspector may change the value
+    hnd.addEventListener("blur", endSession); // after focus leaves, an undo or the inspector may change the value
     hnd.addEventListener("keydown", (e) => {
       const dir = STEP[e.key];
       if (!dir || drag || !current) return;
       e.preventDefault?.();
       const id = current.id;
+      if (pend.id !== id || hd.stamp?.() !== stamp) {
+        endSession(); // another node, or the history moved under us: a new session, and the old pending values are stale
+        pend.id = id;
+      }
       const was = valueOf(current, side);
       const px = padValue({ start: was, d: dir * (e.shiftKey ? 8 : 1), scale: 1, side: "top" }); // a step is already in page px: no zoom, and no side flips it
       if (px === was) return;
-      if (pend.id !== id) pend = { id, vals: {} };
       const alt = !!e.altKey;
       const bp = hd.padState(id).bp;
-      if (hd.onPadCommit({ id, writes: padWrites({ id, bp, side, px, alt }), label: padLabel(side, bp) }) === false) return;
+      if (hd.onPadCommit({ id, writes: padWrites({ id, bp, side, px, alt }), label: padLabel(side, bp), coalesce: `pad${seq}:${id}:${side}` }) === false) return;
+      pend.id = id; // a synchronous update() during the commit may have ended the session
+      stamp = hd.stamp?.();
       pend.vals[side] = px;
       if (alt) pend.vals[OPPOSITE[side]] = px;
       paint();
@@ -227,6 +238,7 @@ export function mountDirect(canvas, hd) {
 
   function update() {
     if (drag) return; // the drag repaints itself from the pointer; the frame's report lags it
+    if (pend.id !== null && hd.stamp?.() !== stamp) endSession();
     if (current && pend.id === current.id) {
       // keyboard values the frame has now reported are no longer pending
       const n = canvas.nodes.find((x) => x.id === current.id);

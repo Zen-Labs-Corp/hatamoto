@@ -82,13 +82,20 @@ function rig({ nodes, selected = "a", scale = 1, section = true, bp = "base", ed
     },
   };
   const commits = [];
+  const history = []; // stands in for the store's past: a new object per history change
   const adds = [];
   const hd = {
     isSection: () => section,
     padState: () => ({ bp }),
     styleEntry: (k) => table.find((e) => e.key === k),
     refOf: (id) => ({ sel: "node", key: id }),
-    onPadCommit: (c) => commits.push(c) && true,
+    onPadCommit: (c) => {
+      commits.push(c);
+      const last = history.at(-1);
+      history.splice(last && c.coalesce && last.ckey === c.coalesce ? -1 : history.length, 1, { ckey: c.coalesce }); // like the store: a session key merges into the last entry
+      return true;
+    },
+    stamp: () => history.at(-1),
     onAddSection: (index, el) => adds.push([index, el]),
     indexOf: (id) => ["a", "b"].indexOf(id),
     total: () => 2,
@@ -100,7 +107,7 @@ function rig({ nodes, selected = "a", scale = 1, section = true, bp = "base", ed
   const handle = (side) => layer.children.find((c) => c.attrs["data-side"] === side && c.attrs.role === "slider");
   const hatch = (side) => layer.children.find((c) => c.attrs["data-side"] === side && c.attrs["data-hm-pe-hatch"] !== undefined);
   const badge = layer.children.find((c) => c.attrs["data-hm-pe-padbadge"] !== undefined);
-  return { canvas, state, direct, posted, commits, adds, layer, strips, handle, hatch, badge, hd };
+  return { history, canvas, state, direct, posted, commits, adds, layer, strips, handle, hatch, badge, hd };
 }
 const down = (r, side, e = {}) => r.handle(side).fire("pointerdown", { button: 0, pointerId: 7, clientX: 500, clientY: 300, ...e });
 const move = (r, side, dx, dy, e = {}) => r.handle(side).fire("pointermove", { pointerId: 7, clientX: 500 + dx, clientY: 300 + dy, ...e });
@@ -308,6 +315,26 @@ test("arrow keys step 1 (shift 8), each press is one commit; grow with up/right"
   assert.equal(r.commits[3].writes[0].value, "23px");
   r.handle("top").fire("keydown", { key: "Enter" });
   assert.equal(r.commits.length, 4);
+});
+
+test("arrow presses in one focus session share a coalesce key; a blur, an undo (history moved) or another side starts a new one and drops the stale value", () => {
+  const r = rig();
+  const key = (i) => r.commits[i].coalesce;
+  const press = (side = "top") => r.handle(side).fire("keydown", { key: "ArrowUp" });
+  press();
+  press();
+  assert.equal(key(0), key(1));
+  assert.equal(r.commits[1].writes[0].value, "114px");
+  assert.equal(r.history.length, 1, "two presses, one history entry");
+  press("left");
+  assert.notEqual(key(2), key(0), "another side is another entry");
+  r.handle("top").fire("blur");
+  press();
+  assert.notEqual(key(3), key(0), "a new focus session");
+  r.history.pop(); // an undo: the last entry is gone, the frame still reports 112
+  r.handle("top").fire("keydown", { key: "ArrowUp" });
+  assert.equal(r.commits.at(-1).writes[0].value, "113px", "starts from the reported value, not the pending 113+1");
+  assert.notEqual(r.commits.at(-1).coalesce, key(3));
 });
 
 test("arrow keys stop at 0 without committing, and alt carries the opposite side", () => {

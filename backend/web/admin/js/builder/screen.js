@@ -279,7 +279,8 @@ function start(root, boot) {
         const key = { top: "pt", right: "pr", bottom: "pb", left: "pl" }[side];
         return n ? (ownValue(n, device, key) ?? inheritedValue(n, device, key)?.value ?? null) : null;
       },
-      onPadCommit: ({ id, writes, label: name }) => run(writes, { label: name }), // false (refused) restores the preview
+      onPadCommit: ({ id, writes, label: name, coalesce }) => run(writes, { label: name, coalesce }), // false (refused) restores the preview; arrow-key presses carry a session key
+      stamp: () => st.past[st.past.length - 1],
       onAddSection: (index, el) => addAt({ parent: "", index }, el),
       onCrumb: (id) => select(id, false, { pick: true }), // null is the Page crumb: nothing selected; not "from the canvas", so the frame follows
       onZoom: (mode) => announce(mode === "fit" ? "Zoom: fit to the pane." : `Zoom: ${mode}%.`),

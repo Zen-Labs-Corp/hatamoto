@@ -43,7 +43,7 @@ test("the start value: own at the key, else the wider width's, rem as 16px", () 
 
 test("screen.js wires the handlers the direct layer needs", () => {
   assert.match(src, /onAddSection: \(index, el\) => addAt\(\{ parent: "", index \}/);
-  assert.match(src, /onPadCommit: \(\{ id, writes, label: name \}\) => run\(writes, \{ label: name \}\)/);
+  assert.match(src, /onPadCommit: \(\{ id, writes, label: name, coalesce \}\) => run\(writes, \{ label: name, coalesce \}\)/);
   assert.match(src, /padState: \(\) => \(\{ bp: device \}\)/); // spacing is Normal-only: never a state key
   assert.doesNotMatch(src, /inspector\.state\(\)/);
   assert.match(src, /authored: \(id, side\)/);
