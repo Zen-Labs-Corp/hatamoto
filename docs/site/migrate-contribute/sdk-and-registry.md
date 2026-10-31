@@ -31,7 +31,7 @@ The SDK follows semantic versioning, with the usual convention for 0.x that the 
 
 - **Minor releases are additive only.** New hooks, new optional payload fields and new manifest fields are fine.
 - **Removing or renaming** a hook, an export name or a field is a breaking change and bumps the major version, or the minor while the SDK is below 1.0.
-- `Version` in `backend/pkg/sdk/version.go` is the current version. `CompatibleWith` lists earlier versions whose plugins this SDK still serves. At the time of writing the SDK is `0.13.0` and also serves plugins built for 0.5 through 0.12.
+- `Version` in `backend/pkg/sdk/version.go` is the current version. `CompatibleWith` lists earlier versions whose plugins this SDK still serves. At the time of writing the SDK is `0.14.0` and also serves plugins built for 0.5 through 0.13.
 
 A plugin declares the range it was built against in its manifest, for example `"sdk": "^0.8"`. Caret ranges below 1.0 stop at the next minor, so a purely additive new minor must list its predecessors in `CompatibleWith`. The host refuses a plugin whose range does not contain a version it serves.
 

@@ -42,3 +42,13 @@ func TestHmTrackScriptFirstOnlyWithStorage(t *testing.T) {
 		t.Error("first:true must only be sent when sessionStorage keeps the once-flags")
 	}
 }
+
+func TestHmTrackScriptAttributionField(t *testing.T) {
+	js := string(trackScript(true))
+	if !strings.Contains(js, "hm_attr") {
+		t.Error("beacon must inject the hm_attr field on form submit")
+	}
+	if strings.Contains(js, "/api/v1/public/") {
+		t.Error("the form path match must be prefix agnostic (rewriteAPIPrefix would change a literal)")
+	}
+}

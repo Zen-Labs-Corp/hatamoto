@@ -135,6 +135,16 @@ type Traffic interface {
 	TrafficTotals(ctx context.Context, from, to time.Time) (analytics.Counts, error)
 }
 
+// Conversions reads the leads of the form submissions: per day, per dimension, per form, and the
+// newest ones with the submitter's address.
+type Conversions interface {
+	LeadsDaily(ctx context.Context, touch analytics.TouchKind, from, to time.Time) ([]analytics.LeadDay, error)
+	LeadsTop(ctx context.Context, dim analytics.Dim, touch analytics.TouchKind, from, to time.Time, limit int) ([]analytics.LeadRow, error)
+	LeadsTotals(ctx context.Context, touch analytics.TouchKind, from, to time.Time) (total, unknown int64, err error)
+	LeadsByForm(ctx context.Context, from, to time.Time, limit int) ([]analytics.LeadForm, error)
+	RecentLeads(ctx context.Context, from, to time.Time, limit int) ([]analytics.Lead, error)
+}
+
 // EngagementSetting is the engagement counting switch of the traffic beacon.
 type EngagementSetting interface {
 	Enabled(ctx context.Context) bool
@@ -215,6 +225,8 @@ type GrowthDeps struct {
 	Referrals Referrals
 	// Traffic is the traffic rollup reader (nil = the Traffic tab is unavailable).
 	Traffic Traffic
+	// Conversions is the leads reader (nil = the Conversions tab is unavailable).
+	Conversions Conversions
 	// EngagementSetting is the engagement switch (nil hides the setting).
 	EngagementSetting EngagementSetting
 	// GeoStatus tells whether a country database is configured and opened (nil = neither).

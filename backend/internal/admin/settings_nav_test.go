@@ -283,6 +283,7 @@ func TestAreaLocateAnalytics(t *testing.T) {
 	for path, want := range map[string]string{
 		"/admin/analytics":                 "ai-overview",
 		"/admin/analytics/traffic":         "ai-traffic",
+		"/admin/analytics/conversions":     "ai-conversions",
 		"/admin/analytics/crawlers":        "ai-crawlers",
 		"/admin/analytics/content":         "ai-content",
 		"/admin/analytics/referrals":       "ai-referrals",
@@ -304,7 +305,7 @@ func TestAreaNavAppendsTheCarry(t *testing.T) {
 
 	v := &View{Section: "ai-health", User: &CurrentUser{Role: "editor"}, AreaCarry: url.Values{"from": {"2026-01-01"}, "compare": {"1"}}}
 	nav := v.AreaNav()
-	if len(nav) != 7 {
+	if len(nav) != 8 {
 		t.Fatalf("%d sections", len(nav))
 	}
 	for _, s := range nav {

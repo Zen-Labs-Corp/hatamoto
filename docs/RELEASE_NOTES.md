@@ -1,8 +1,21 @@
 # Release notes
 
+## Unreleased: Conversions and lead attribution
+
+**Analytics > Conversions** shows what turns into leads. A lead is every form submission that is not spam. Each submission now keeps the **first and last touch** of the visit it came from (channel, source, medium, campaign, landing page), so the page can show leads by channel per day, a funnel (Visits, Viewed 2+ pages, Saw a form, Started the form, Submitted), **AI: what you give vs what you get** (pages each AI company fetched against the visitors and leads its assistant sent back) and the Recent leads. **Analytics > Traffic** now fills its Leads and Conv. rate columns and the First touch | Last touch choice works (First is the default). Forms > Submissions gets a **Came from** card on each submission, and the CSV export gains six attribution columns after Referrer. MCP gets an `analytics_conversions` tool.
+
+- **Privacy.** Still cookieless, with no visitor id, IP address or user agent stored. The browser keeps its visit inputs only in tab-scoped `sessionStorage`; they leave it only inside a form that is actually submitted to the site (a hidden `hm_attr` field), and are stored only with that submission and deleted with it. A form that stores no submissions stores no attribution. Nothing is sent to anyone else.
+- Submissions made before the upgrade, without script or from a headless front end count as leads with channel **Unknown**; nothing is backfilled and a submit is never blocked by missing attribution.
+- Two new funnel events (`form_seen`, `form_start`) are counted per visit and day. The engagement switch on the Traffic page turns them off with the other engagement counters.
+- The Recent leads emails and the CSV export on the Conversions page show only to users who can view form submissions.
+- **SDK 0.14.0**, additive: `form.submitted` (webhook and plugin hook) gains an optional `attribution` object with `first` and `last` touches. Plugins built for `^0.5` to `^0.13` still load; no manifest change.
+- Migrations: ten nullable attribution columns on `hatamoto_form_submissions` and a funnel counter column pair on `hatamoto_traffic_daily`, both additive.
+
+**Rollback floor: unchanged.** An older binary ignores the new columns and the new events.
+
 ## Unreleased: Traffic tab
 
-**Analytics > Traffic** shows where visits come from: Visits, Pageviews, Channels (direct, organic search, paid, email, social, referral, AI assistants), Sources, Campaigns, Landing pages, Devices, Countries and Engagement, with a compare period. Overview gets a **Visits by channel** chart. Everything is cookieless: only daily counts are stored, with no visitor id, IP address, user agent or referrer URL. A visit is the first pageview of a tab or an arrival from another site. Leads, conversion rate and first or last touch are shown as not available yet. MCP gets an `analytics_traffic` tool.
+**Analytics > Traffic** shows where visits come from: Visits, Pageviews, Channels (direct, organic search, paid, email, social, referral, AI assistants), Sources, Campaigns, Landing pages, Devices, Countries and Engagement, with a compare period. Overview gets a **Visits by channel** chart. Everything is cookieless: only daily counts are stored, with no visitor id, IP address, user agent or referrer URL. A visit is the first pageview of a tab or an arrival from another site. MCP gets an `analytics_traffic` tool.
 
 - A small core script, `hm-track.js`, is now added to public pages and sends the pageview beacon; the default theme's `hm.js` no longer does. A custom theme that forked the old `hm.js` and still contains the `/api/v1/track` beacon keeps counting pageviews as before but records no visits or channels (remove the beacon from its `hm.js` to get them). Headless front ends that post the old body keep counting pageviews.
 - The track endpoint now ignores requests with an empty or bot-like user agent, and the script sends nothing in automated browsers, so pageview counts can drop slightly. Past data is not rewritten.

@@ -89,7 +89,7 @@ IDs are UUID strings and timestamps are RFC 3339.
 
 **AgentFirstCrawlEvent** fires once per entity, on the first served AI fetch: `entity_id`, `agent_id`, `operator`, `purpose`, `first_at` and `published_at` (omitted when the entity has no publish time).
 
-**FormSubmittedEvent** fires after a public form submission was stored. It carries the submitted fields, so it is delivered only to plugins that hold `forms.read`. The visitor's IP address and user agent are never included.
+**FormSubmittedEvent** fires after a public form submission was stored. It carries the submitted fields, so it is delivered only to plugins that hold `forms.read`. The visitor's IP address and user agent are never included. `attribution` (`first` and `last` touch with `channel`, `source`, `medium`, `campaign`, `landing`) arrived with SDK 0.14.0; it is left out when none was recorded, and older plugins ignore it.
 
 ```json
 { "form_id": "string", "form_slug": "contact", "submission_id": "string",

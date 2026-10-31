@@ -6,9 +6,12 @@ GET /admin/analytics -> admin.(*Admin).analyticsSectionSelect.func1
 GET /admin/analytics/agents/robots -> admin.redirect301.func1
 GET /admin/analytics/agents/{id} -> admin.(*Admin).handleAgentPage-fm
 GET /admin/analytics/content -> admin.(*Admin).analyticsSection.func1
+GET /admin/analytics/conversions -> admin.(*Admin).analyticsSection.func1
+GET /admin/analytics/conversions/export.csv -> admin.(*Admin).handleConversionsExport-fm
 GET /admin/analytics/crawlers -> admin.legacyTabs.func1
 GET /admin/analytics/data/agent.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/agents.json -> admin.(*Admin).jsonEndpoint.func1
+GET /admin/analytics/data/conversions.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/errors.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/first-crawls.json -> admin.(*Admin).jsonEndpoint.func1
 GET /admin/analytics/data/google.json -> admin.(*Admin).jsonEndpoint.func1

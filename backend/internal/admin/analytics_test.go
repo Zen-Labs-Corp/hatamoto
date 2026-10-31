@@ -1313,8 +1313,8 @@ func TestAnalyticsCompareIsCarried(t *testing.T) {
 		}
 	}
 	links := regexp.MustCompile(`class="hm-subnav__link" href="([^"]*)"`).FindAllStringSubmatch(body, -1)
-	if len(links) != 7 {
-		t.Fatalf("%d sub-sidebar links, want 7", len(links))
+	if len(links) != 8 {
+		t.Fatalf("%d sub-sidebar links, want 8", len(links))
 	}
 	for _, m := range links {
 		if h := html.UnescapeString(m[1]); !strings.Contains(h, "compare=1") || !strings.Contains(h, "from="+from) || !strings.Contains(h, "to="+to) {

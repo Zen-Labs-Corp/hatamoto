@@ -37,7 +37,7 @@ const (
 // identify a visitor: referrer host only, no URL, no IP, no user agent.
 type Event struct {
 	Entry bool   // the first pageview of a visit
-	Eng   string // "", "multi" or "scroll": an engagement event, not a pageview
+	Eng   string // "", "multi", "scroll", "form_seen" or "form_start": an engagement event, not a pageview
 	First bool   // the visit's first engagement event
 	Ref   string // referrer host
 	UTMSource,
@@ -52,6 +52,8 @@ type Event struct {
 // Counts are the counters of one rollup row.
 type Counts struct {
 	Visits, Pageviews, Engaged, Multi, Scrolled int64
+	// FormSeen and FormStarted are the funnel steps "saw a form" and "started it".
+	FormSeen, FormStarted int64
 }
 
 func (c *Counts) add(o Counts) {
@@ -60,6 +62,8 @@ func (c *Counts) add(o Counts) {
 	c.Engaged += o.Engaged
 	c.Multi += o.Multi
 	c.Scrolled += o.Scrolled
+	c.FormSeen += o.FormSeen
+	c.FormStarted += o.FormStarted
 }
 
 // TrafficRow is one (day, dim, k1, k2) row of the traffic rollup.

@@ -18,7 +18,16 @@
  *
  * Engagement (compiled out when the owner turns it off): engage/multi on the tab's
  * second pageview, engage/scroll when 75% of the page is first scrolled, each once
- * per visit; first:true marks the visit's first engagement event.
+ * per visit; first:true marks the visit's first engagement event. Also once per
+ * visit: engage/form_seen when a form posting to /forms/<slug>/submit scrolls into
+ * view and engage/form_start when a field of one is first focused.
+ *
+ * Attribution: the marker keeps the visit's raw inputs (referrer host, utm values,
+ * landing path, paid flag) as the current touch and, in marker.f, the tab's first
+ * touch. Nothing about them is sent with any beacon. Only when a same-host
+ * /forms/<slug>/submit form is submitted, a hidden hm_attr input carrying
+ * {"f":first,"l":last} (referrer host only) is added to that form for the server
+ * to classify and store with the submission.
  */
 (function () {
   'use strict';
@@ -55,8 +64,13 @@
 
   var entry = stored ? (!marker || (ext && referrer !== marker.r)) : (ext || referrer === '');
 
+  function touchOf(m) {
+    return { h: hostOf(m.r), s: m.s, m: m.m, c: m.c, p: m.p, g: m.g };
+  }
+
   if (entry || !marker) {
     var q = new URLSearchParams(location.search);
+    var prev = marker;
     marker = {
       r: ext ? referrer : '',
       s: clean(q.get('utm_source'), 64),
@@ -66,7 +80,10 @@
       g: !!(q.get('gclid') || q.get('msclkid')),
       x: {}
     };
+    // The first touch of the tab survives later entries.
+    marker.f = prev ? (prev.f || touchOf(prev)) : touchOf(marker);
   }
+  if (!marker.f) marker.f = touchOf(marker);
   var flags = marker.x || (marker.x = {});
 
   function save() {
@@ -104,10 +121,39 @@
     ev.kind = kind;
     // Without sessionStorage the once-flags reset on every page, so first:true would
     // count pages as visits. Engagement is then undercounted rather than inflated.
-    if (!flags.f) { if (stored) ev.first = true; flags.f = 1; }
-    flags[kind === 'multi' ? 'm' : 's'] = 1;
+    // Only multi and scroll count a visit as engaged, so only they take the flag.
+    if ((kind === 'multi' || kind === 'scroll') && !flags.f) { if (stored) ev.first = true; flags.f = 1; }
+    flags[{ multi: 'm', scroll: 's', form_seen: 'n', form_start: 't' }[kind]] = 1;
     save();
     send(ev);
+  }
+
+  var FORM_PATH = /\/forms\/([^\/]+)\/submit$/;
+  // formOf returns the form element when it posts to this host's form submit endpoint.
+  function formOf(node) {
+    try {
+      var f = node && node.closest ? node.closest('form') : null;
+      if (!f) return null;
+      var u = new URL(f.getAttribute('action') || '', location.href);
+      return u.host === location.host && FORM_PATH.test(u.pathname) ? f : null;
+    } catch (e) { return null; }
+  }
+
+  if (stored && typeof document.addEventListener === 'function') {
+    document.addEventListener('submit', function (e) {
+      try {
+        var f = formOf(e.target);
+        if (!f) return;
+        var inp = f.querySelector('input[name="hm_attr"]');
+        if (!inp) {
+          inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'hm_attr';
+          f.appendChild(inp);
+        }
+        inp.value = JSON.stringify({ f: marker.f, l: touchOf(marker) });
+      } catch (err) {}
+    }, true);
   }
 
   var pv = attrs('page_view');
@@ -126,6 +172,47 @@
         }
       };
       window.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    if (typeof document.addEventListener === 'function') {
+      if (!flags.t) {
+        var onFocus = function (e) {
+          if (!formOf(e.target)) return;
+          document.removeEventListener('focusin', onFocus, true);
+          engage('form_start');
+        };
+        document.addEventListener('focusin', onFocus, true);
+      }
+      if (!flags.n && typeof IntersectionObserver === 'function' && document.querySelectorAll) {
+        var io = null;
+        var onSeen = function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            if (entries[i].isIntersecting) {
+              io.disconnect();
+              if (mo) mo.disconnect();
+              engage('form_seen');
+              return;
+            }
+          }
+        };
+        var mo = null;
+        var scan = function () {
+          if (flags.n) return;
+          var forms = document.querySelectorAll('form');
+          for (var i = 0; i < forms.length; i++) {
+            if (formOf(forms[i])) {
+              if (!io) io = new IntersectionObserver(onSeen);
+              io.observe(forms[i]);
+            }
+          }
+        };
+        scan();
+        document.addEventListener('DOMContentLoaded', scan);
+        if (typeof MutationObserver === 'function' && document.documentElement) {
+          mo = new MutationObserver(scan);
+          mo.observe(document.documentElement, { childList: true, subtree: true });
+        }
+      }
     }
   }
   save();

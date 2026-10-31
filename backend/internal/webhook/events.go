@@ -65,6 +65,9 @@ type (
 		FormID       string `json:"form_id"`
 		FormSlug     string `json:"form_slug"`
 		SubmissionID string `json:"submission_id"`
+		// Attribution is the submitter's first and last touch (channel,
+		// source, medium, campaign, landing path); no field values.
+		Attribution *sdk.FormAttribution `json:"attribution,omitempty"`
 	}
 	importData struct {
 		Created int    `json:"created"`
@@ -90,7 +93,7 @@ func mapPayload(name string, p any) (any, bool) {
 		}
 	case sdk.FormSubmittedEvent:
 		if name == sdk.FormSubmitted.Name {
-			return formData{FormID: ev.FormID, FormSlug: ev.FormSlug, SubmissionID: ev.SubmissionID}, true
+			return formData{FormID: ev.FormID, FormSlug: ev.FormSlug, SubmissionID: ev.SubmissionID, Attribution: ev.Attribution}, true
 		}
 	case sdk.ImportEvent:
 		if name == sdk.ImportCompleted.Name {

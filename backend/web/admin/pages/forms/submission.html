@@ -7,6 +7,8 @@
 {{end}}</dl>{{else}}<p class="hm-muted">This submission holds no answers.</p>{{end}}
 {{if or .Sub.Metadata.PageURL .Sub.Metadata.Referrer}}<dl class="hm-dl">{{if .Sub.Metadata.PageURL}}<dt>Sent from</dt><dd>{{.Sub.Metadata.PageURL}}</dd>{{end}}{{if .Sub.Metadata.Referrer}}<dt>Referrer</dt><dd>{{.Sub.Metadata.Referrer}}</dd>{{end}}</dl>{{end}}
 </div></section>
+{{template "hm/card-start" dict "ID" "sub-came-from" "Title" "Came from"}}<dl class="hm-dl">{{range .CameFrom}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>
+{{end}}</dl>{{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "sub-status" "Title" "Status"}}{{$cur := .Sub.Status}}{{template "hm/segmented" (dict "Label" "Status" "Action" (printf "%s/%s/status" .Base .Sub.ID) "Name" "status" "CSRF" $.CSRF "Items" (list (dict "Label" "New" "Value" "new" "Pressed" (eq $cur "new")) (dict "Label" "Read" "Value" "read" "Pressed" (eq $cur "read")) (dict "Label" "Archived" "Value" "archived" "Pressed" (eq $cur "archived")) (dict "Label" "Spam" "Value" "spam" "Pressed" (eq $cur "spam"))))}}{{template "hm/card-end"}}
 {{if .MailOn}}<form method="post" action="{{.Base}}/{{.Sub.ID}}/email" class="hm-cardform">
 {{template "hm/card-start" dict "ID" "sub-email" "Title" "Email this submission"}}{{template "hm/csrf" $}}

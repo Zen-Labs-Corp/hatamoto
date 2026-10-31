@@ -145,3 +145,61 @@ func TestTrafficRowsHaveNoVisitorFields(t *testing.T) {
 		}
 	}
 }
+
+type fakeConversions struct {
+	dim   analytics.Dim
+	touch analytics.TouchKind
+	limit int
+}
+
+func (f *fakeConversions) LeadsTop(_ context.Context, dim analytics.Dim, touch analytics.TouchKind, _, _ time.Time, limit int) ([]analytics.LeadRow, error) {
+	f.dim, f.touch, f.limit = dim, touch, limit
+	return []analytics.LeadRow{{K1: "ai_assistants", Leads: 3}, {K1: "unknown", Leads: 1}}, nil
+}
+
+func (f *fakeConversions) LeadsTotals(_ context.Context, _ analytics.TouchKind, _, _ time.Time) (int64, int64, error) {
+	return 4, 1, nil
+}
+
+func (f *fakeConversions) LeadsByForm(_ context.Context, _, _ time.Time, limit int) ([]analytics.LeadForm, error) {
+	f.limit = limit
+	return []analytics.LeadForm{{Name: "Contact", Leads: 4}}, nil
+}
+
+func TestConversionsSummary(t *testing.T) {
+	rg := agents.Range{From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 1, 7, 0, 0, 0, 0, time.UTC)}
+	f := &fakeConversions{}
+	out, err := conversionsSummary(context.Background(), f, rg, "", "", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.touch != analytics.TouchFirst || f.dim != analytics.DimChannel || out["touch"] != "first" || out["by"] != "channel" {
+		t.Errorf("defaults: %v touch=%s dim=%s", out, f.touch, f.dim)
+	}
+	raw, _ := json.Marshal(out["rows"])
+	if want := `[{"key":"ai_assistants","leads":3},{"key":"unknown","leads":1}]`; string(raw) != want || out["total_leads"] != int64(4) || out["unattributed_leads"] != int64(1) {
+		t.Errorf("result = %v", out)
+	}
+	if _, err := conversionsSummary(context.Background(), f, rg, "last", "page", 7); err != nil || f.touch != analytics.TouchLast || f.dim != analytics.DimLanding || f.limit != 7 {
+		t.Errorf("last/page: %v touch=%s dim=%s limit=%d", err, f.touch, f.dim, f.limit)
+	}
+	if out, err := conversionsSummary(context.Background(), f, rg, "", "form", 5); err != nil || out["by"] != "form" {
+		t.Errorf("form: %v %v", out, err)
+	}
+	for _, bad := range [][2]string{{"middle", "channel"}, {"first", "email"}} {
+		if _, err := conversionsSummary(context.Background(), f, rg, bad[0], bad[1], 5); !errors.As(err, new(userError)) {
+			t.Errorf("touch=%q by=%q accepted: %v", bad[0], bad[1], err)
+		}
+	}
+}
+
+// The result names counts and keys only: no submitter email or field values.
+func TestConversionsHaveNoSubmitterFields(t *testing.T) {
+	out, _ := conversionsSummary(context.Background(), &fakeConversions{}, agents.Range{}, "", "channel", 5)
+	raw, _ := json.Marshal(out)
+	for _, bad := range []string{"email", "data", "ip", "user_agent", "visitor"} {
+		if strings.Contains(string(raw), `"`+bad+`"`) {
+			t.Errorf("result has a %q field: %s", bad, raw)
+		}
+	}
+}

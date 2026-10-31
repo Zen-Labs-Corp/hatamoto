@@ -41,6 +41,7 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 		g.Agents = agentStats{agents.NewStatsRepository(s.db), agents.NewRobotsRepository(s.db)}
 		g.Referrals = analytics.NewReader(s.db)
 		g.Traffic = analytics.NewReader(s.db)
+		g.Conversions = analytics.NewReader(s.db)
 		g.EngagementSetting = engagementSetting{store: analytics.NewSettingsStore(s.db), svc: s.analyticsService}
 		g.GeoStatus = s.geoStatus
 	}

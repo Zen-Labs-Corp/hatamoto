@@ -490,15 +490,15 @@ func TestSubmissionsExportStreamsEveryPageAndNeutralisesFormulas(t *testing.T) {
 	if ff.listCalls != 3 {
 		t.Errorf("expected 3 paged reads, got %d", ff.listCalls)
 	}
-	if rows[0][3] != "Name" || rows[0][len(rows[0])-3] != "Other answers" {
+	if rows[0][3] != "Name" || rows[0][len(rows[0])-9] != "Other answers" {
 		t.Errorf("header: %v", rows[0])
 	}
 	var sawFormula bool
 	for _, r := range rows[1:] {
 		if strings.Contains(r[3], "HYPERLINK") {
 			sawFormula = true
-			if !strings.HasPrefix(r[3], "'=") || !strings.Contains(r[len(r)-3], "extra: old answer") {
-				t.Errorf("formula or extra not handled: %q %q", r[3], r[len(r)-3])
+			if !strings.HasPrefix(r[3], "'=") || !strings.Contains(r[len(r)-9], "extra: old answer") {
+				t.Errorf("formula or extra not handled: %q %q", r[3], r[len(r)-9])
 			}
 		}
 		if strings.HasPrefix(r[3], "=") {
@@ -507,6 +507,54 @@ func TestSubmissionsExportStreamsEveryPageAndNeutralisesFormulas(t *testing.T) {
 	}
 	if !sawFormula {
 		t.Error("formula row missing")
+	}
+}
+
+func TestSubmissionDetailShowsWhereItCameFrom(t *testing.T) {
+	t.Parallel()
+
+	g, _, _, _, s := submissionRig(t)
+	url := "/admin/settings/submissions/" + s.ID.String()
+	body := g.do("GET", url, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "sub-came-from") || !strings.Contains(body, "<dt>First touch</dt><dd>Unknown</dd>") || !strings.Contains(body, "<dt>Last touch</dt><dd>Unknown</dd>") {
+		t.Errorf("a submission without attribution reads Unknown on both touches: %s", body)
+	}
+	s.Attribution = &form.Attribution{
+		First: &form.Touch{Channel: "ai_assistants", Source: "chatgpt", Landing: "/post/a"},
+		Last:  &form.Touch{Channel: "email", Source: "newsletter", Campaign: "oct-news", Landing: "/pricing"}}
+	body = g.do("GET", url, "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"<dt>First touch</dt><dd>AI assistants / chatgpt / /post/a</dd>", "<dt>Last touch</dt><dd>Email / newsletter / oct-news / /pricing</dd>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("detail missing %q", want)
+		}
+	}
+}
+
+func TestSubmissionsExportCarriesAttributionColumns(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	withTouch := ff.addSub(fm, form.SubmissionStatusRead, at.Add(time.Minute), map[string]any{"name": "A"})
+	withTouch.Attribution = &form.Attribution{
+		First: &form.Touch{Channel: "ai_assistants", Source: "chatgpt", Landing: "/post/a"},
+		Last:  &form.Touch{Channel: "email", Source: "=evil()", Landing: "/pricing"}}
+	ff.addSub(fm, form.SubmissionStatusRead, at, map[string]any{"name": "B"})
+	rec := g.do("GET", "/admin/settings/submissions/export.csv?form="+fm.ID.String(), "owner-token", nil, nil)
+	rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf"))).ReadAll()
+	if err != nil || len(rows) != 3 {
+		t.Fatalf("rows %d, err %v", len(rows), err)
+	}
+	tail := func(r []string) string { return strings.Join(r[len(r)-6:], "|") }
+	if got := tail(rows[0]); got != "First channel|First source|First landing|Last channel|Last source|Last landing" {
+		t.Errorf("header tail = %q", got)
+	}
+	if got := tail(rows[1]); got != "AI assistants|chatgpt|/post/a|Email|'=evil()|/pricing" {
+		t.Errorf("attributed row = %q", got)
+	}
+	if got := tail(rows[2]); got != "Unknown|||Unknown||" {
+		t.Errorf("unattributed row = %q", got)
 	}
 }
 

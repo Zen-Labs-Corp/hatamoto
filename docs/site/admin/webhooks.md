@@ -40,10 +40,10 @@ A row's menu offers **Edit**, **Pause** or **Resume**, **Send test**, **New secr
 | `entity.updated` | `entity_id`, `entity_name`, `version`, `locale` |
 | `entity.published` | `entity_id`, `entity_name`, `locale` |
 | `entity.deleted` | `entity_id`, `entity_name`, `schema_slug`, `locale` |
-| `form.submitted` | `form_id`, `form_slug`, `submission_id` (never the fields) |
+| `form.submitted` | `form_id`, `form_slug`, `submission_id`, `attribution` when recorded (never the fields) |
 | `import.completed` | `created`, `failed`, `source`, `updated` |
 
-`form.submitted` carries ids only, because submitted fields are personal data. An import sends one `import.completed` per batch and no per-entity events. **Send test** delivers a synthetic `webhook.test` event that cannot be subscribed to. Changes made with the CLI fire no events, so they send nothing.
+`form.submitted` carries ids only, because submitted fields are personal data. The only other data is `attribution`: the first and last touch (`channel`, `source`, `medium`, `campaign`, `landing`) of the submitter's browser tab, left out when none was recorded. An import sends one `import.completed` per batch and no per-entity events. **Send test** delivers a synthetic `webhook.test` event that cannot be subscribed to. Changes made with the CLI fire no events, so they send nothing.
 
 Every request is a `POST` with `Content-Type: application/json` and this body:
 

@@ -14,7 +14,7 @@ func TestTrafficReader(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
 	rows := []TrafficRow{
 		{Day: day(1), Dim: DimChannel, K1: ChannelEmail, Counts: Counts{Visits: 3, Pageviews: 5, Engaged: 1, Multi: 1}},
-		{Day: day(2), Dim: DimChannel, K1: ChannelEmail, Counts: Counts{Visits: 1, Pageviews: 1, Scrolled: 1}},
+		{Day: day(2), Dim: DimChannel, K1: ChannelEmail, Counts: Counts{Visits: 1, Pageviews: 1, Scrolled: 1, FormSeen: 4, FormStarted: 2}},
 		{Day: day(2), Dim: DimChannel, K1: ChannelDirect, Counts: Counts{Visits: 2, Pageviews: 2}},
 		{Day: day(9), Dim: DimChannel, K1: ChannelDirect, Counts: Counts{Visits: 50, Pageviews: 50}}, // outside the range
 		{Day: day(1), Dim: DimSource, K1: "news", K2: ChannelEmail, Counts: Counts{Visits: 3, Pageviews: 5}},
@@ -36,7 +36,7 @@ func TestTrafficReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (Counts{Visits: 9, Pageviews: 13, Engaged: 2, Multi: 2, Scrolled: 1}); tot != want {
+	if want := (Counts{Visits: 9, Pageviews: 13, Engaged: 2, Multi: 2, Scrolled: 1, FormSeen: 4, FormStarted: 2}); tot != want {
 		t.Errorf("totals = %+v, want %+v", tot, want)
 	}
 	if empty, err := rd.TrafficTotals(ctx, day(20), day(21)); err != nil || empty != (Counts{}) {

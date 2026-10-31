@@ -19,10 +19,12 @@ webhooks.
 | `entity.updated` | `entity_id`, `entity_name`, `version`, `locale` |
 | `entity.published` | `entity_id`, `entity_name`, `locale` |
 | `entity.deleted` | `entity_id`, `entity_name`, `schema_slug`, `locale` |
-| `form.submitted` | `form_id`, `form_slug`, `submission_id` (never the fields) |
+| `form.submitted` | `form_id`, `form_slug`, `submission_id`, `attribution` when recorded (never the fields) |
 | `import.completed` | `created`, `failed`, `source`, `updated` |
 
-`form.submitted` carries ids only, because submitted fields are personal data;
+`form.submitted` carries ids only, because submitted fields are personal data; the one
+other thing it carries is `attribution`, the first and last touch (`channel`, `source`,
+`medium`, `campaign`, `landing`) of the submitter's tab, left out when none was recorded;
 read the submission through the API if you need it. An import fires
 `import.completed` once per batch and no per-entity events. "Send test" delivers
 a synthetic `webhook.test` event (`data.message`) that cannot be subscribed to.

@@ -1,0 +1,26 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/aia{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
+{{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
+{{with .Body}}<div class="hm-stack">
+<section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
+<form class="hm-row" method="get" action="{{.Touch.Action}}">{{range $k, $v := .Touch.Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{template "hm/segmented" .Touch.Seg}}{{template "hm/button" (dict "Label" "Apply" "Type" "submit")}}</form>
+<div class="hm-grid2">
+{{template "hm/aia-chart" .Chart}}
+{{template "hm/card-start" (dict "ID" "w-c-funnel" "Title" "Funnel" "Description" "Landing page to lead, all channels." "Heading" "h3")}}
+{{template "hm/barlist" .Funnel}}
+<p class="hm-aia-small hm-aia-note">Bar length uses a square-root scale so small steps stay visible. Steps before Submitted are counted per visit when engagement counting is on.</p>
+{{template "hm/card-end"}}
+</div>
+{{if .UnknownNote}}<p class="hm-aia-small hm-aia-note">{{.UnknownNote}}</p>{{end}}
+{{template "hm/card-start" (dict "ID" "w-c-givegets" "Title" "AI: what you give vs what you get" "Description" "Pages each AI company fetched compared with the visitors and leads its assistant sent back." "Heading" "h3")}}
+{{template "hm/aia-rows" .GiveGet}}
+{{if .CrawlersHref}}<p class="hm-aia-small hm-aia-note">"Takes only" companies fetch pages and send no visitors. <a href="{{.CrawlersHref}}">Block them per purpose on the Crawlers tab.</a></p>{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "w-c-recent" "Title" "Recent leads" "Description" "Attribution stored on each submission." "Heading" "h3")}}
+{{template "hm/aia-rows" .Recent}}
+{{if .RecentNote}}<p class="hm-aia-small hm-aia-note">{{.RecentNote}}</p>{{end}}
+{{if .ExportHref}}{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Export CSV" "Href" .ExportHref)}}{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}
+</div>{{end}}
+{{end}}{{end}}

@@ -65,6 +65,7 @@ export const screens = [
   // AI analytics
   { name: "analytics-overview", path: "/admin/analytics", mock: null, roles: OE, primary: true },
   { name: "analytics-traffic", path: "/admin/analytics/traffic", mock: null, roles: OE, primary: true },
+  { name: "analytics-conversions", path: "/admin/analytics/conversions", mock: null, roles: OE, primary: true },
   { name: "analytics-crawlers", path: "/admin/analytics/crawlers", legacy: "/admin/analytics/crawlers?tab=errors", mock: null, roles: OE, primary: true },
   { name: "analytics-google", path: "/admin/analytics/google", mock: null, roles: OE, primary: true },
   { name: "analytics-content", path: "/admin/analytics/content", mock: null, roles: OE, primary: true },

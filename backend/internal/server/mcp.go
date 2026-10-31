@@ -36,6 +36,7 @@ func (s *Server) mountMCP(r *httpx.Group) {
 		Crawlers:       agents.NewStatsRepository(s.db),
 		Referrals:      analytics.NewReader(s.db),
 		Traffic:        analytics.NewReader(s.db),
+		Conversions:    analytics.NewReader(s.db),
 		Audit:          mcpserver.NewPostgresAuditor(s.db, s.logger),
 		Logger:         s.logger,
 		ClientIP:       middleware.GetClientIP,

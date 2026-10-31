@@ -5,8 +5,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/analytics"
 )
 
 // fakeEngagement is the engagement switch, remembering what was set.
@@ -30,7 +32,9 @@ func (f *fakeEngagement) Set(_ context.Context, on bool) error {
 func trafficRig(t *testing.T, mutate ...func(*Deps)) *rig {
 	t.Helper()
 	rg, _ := parseRange(url.Values{})
-	return newRig(t, append([]func(*Deps){func(d *Deps) { d.Growth.Traffic = &fakeTraffic{from: rg.From} }}, mutate...)...)
+	return newRig(t, append([]func(*Deps){func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &fakeTraffic{from: rg.From}, &fakeConversions{}
+	}}, mutate...)...)
 }
 
 func TestTrafficPageSections(t *testing.T) {
@@ -46,20 +50,23 @@ func TestTrafficPageSections(t *testing.T) {
 		"Visits", "Pageviews", "Leads", "Conv. rate", "Top channel", "Organic search",
 		"w-t-channels", "w-t-sources", "w-t-campaigns", "w-t-landing", "w-t-devices", "w-t-countries", "w-t-engagement", "w-t-measurement",
 		"A visit is the first pageview of a tab or an arrival from another site.", "can differ",
-		"Leads arrive with lead attribution (coming next).", "First touch", "Last touch",
+		"First touch", "Last touch", "Apply",
 		`data-chart="channels"`, "traffic.json", "oct-news", "(direct)", "Desktop", "Bounced", "Scrolled 75%",
 		"Counted per day without visitor IDs."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("traffic page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, ">--<") {
-		t.Error("the Leads and Conv. rate placeholders must render as --")
-	}
-	for _, want := range []string{`disabled aria-disabled="true">First touch`, `disabled aria-disabled="true">Last touch`} {
-		if !strings.Contains(body, want) {
-			t.Errorf("the First touch | Last touch toggle must be disabled: missing %q", want)
+	for _, bad := range []string{">--<", "coming next", "disabled aria-disabled"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("the lead columns and the touch toggle are live, found %q", bad)
 		}
+	}
+	if !strings.Contains(body, `<input type="radio" name="touch" value="first" checked`) && !strings.Contains(body, `value="first" checked`) {
+		t.Error("first touch must be the default choice")
+	}
+	if !strings.Contains(body, "2 leads before attribution was recorded") {
+		t.Error("the unknown leads note is missing")
 	}
 	if !strings.Contains(body, `AI assistants <span class="hm-badge hm-badge--info`) {
 		t.Error("the AI assistants channel row must carry the new badge")
@@ -129,7 +136,9 @@ func TestTrafficPageEmptyRange(t *testing.T) {
 	t.Parallel()
 
 	rg, _ := parseRange(url.Values{})
-	g := newRig(t, func(d *Deps) { d.Growth.Traffic = &fakeTraffic{from: rg.From, empty: true} })
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &fakeTraffic{from: rg.From, empty: true}, &fakeConversions{empty: true}
+	})
 	rec := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, "No visits in this period.") {
@@ -150,5 +159,70 @@ func TestTrafficPageEngagementOffShowsNoBounce(t *testing.T) {
 	}
 	if !strings.Contains(body, "Engagement counting is off") {
 		t.Error("the engagement card must say counting is off")
+	}
+}
+
+func TestTrafficPageLeadsFollowTheTouch(t *testing.T) {
+	t.Parallel()
+
+	g := trafficRig(t)
+	first := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	last := g.do("GET", "/admin/analytics/traffic?touch=last", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{">12<", "Every submission that is not spam."} {
+		if !strings.Contains(first, want) {
+			t.Errorf("first touch missing %q", want)
+		}
+	}
+	if !strings.Contains(last, ">9<") || strings.Contains(last, ">12<") {
+		t.Error("touch=last must show the last-touch lead total (9), not 12")
+	}
+	if !strings.Contains(last, `value="last" checked`) || !strings.Contains(last, "3 leads before attribution was recorded") {
+		t.Error("touch=last must be the chosen toggle value with its own unknown note")
+	}
+}
+
+// splitLeads reports one campaign under two mediums and one source under two channels.
+type splitLeads struct{ fakeConversions }
+
+func (*splitLeads) LeadsTop(ctx context.Context, dim analytics.Dim, touch analytics.TouchKind, from, to time.Time, limit int) ([]analytics.LeadRow, error) {
+	switch dim {
+	case analytics.DimCampaign:
+		return []analytics.LeadRow{{K1: "spring", K2: "email", Leads: 41}, {K1: "spring", K2: "paid", Leads: 17}}, nil
+	case analytics.DimSource:
+		return []analytics.LeadRow{{K1: "acme", K2: analytics.ChannelEmail, Leads: 43}, {K1: "acme", K2: analytics.ChannelPaid, Leads: 19}}, nil
+	}
+	return (&fakeConversions{}).LeadsTop(ctx, dim, touch, from, to, limit)
+}
+
+// splitTraffic mirrors splitLeads on the visits side.
+type splitTraffic struct{ fakeTraffic }
+
+func (f *splitTraffic) TrafficTop(ctx context.Context, dim analytics.Dim, from, to time.Time, limit int) ([]analytics.TrafficTop, error) {
+	switch dim {
+	case analytics.DimCampaign:
+		return []analytics.TrafficTop{{K1: "spring", K2: "email", Counts: analytics.Counts{Visits: 7}}, {K1: "spring", K2: "paid", Counts: analytics.Counts{Visits: 5}}}, nil
+	case analytics.DimSource:
+		return []analytics.TrafficTop{{K1: "acme", K2: analytics.ChannelEmail, Counts: analytics.Counts{Visits: 8}}, {K1: "acme", K2: analytics.ChannelPaid, Counts: analytics.Counts{Visits: 6}}}, nil
+	}
+	return f.fakeTraffic.TrafficTop(ctx, dim, from, to, limit)
+}
+
+func TestTrafficLeadsAreNotSummedAcrossMediums(t *testing.T) {
+	t.Parallel()
+
+	rg, _ := parseRange(url.Values{})
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Traffic, d.Growth.Conversions = &splitTraffic{fakeTraffic{from: rg.From}}, &splitLeads{}
+	})
+	body := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{">41<", ">17<", ">43<", ">19<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("each row keeps its own leads, missing %q", want)
+		}
+	}
+	for _, bad := range []string{">58<", ">62<"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("leads of two rows were summed, found %q", bad)
+		}
 	}
 }

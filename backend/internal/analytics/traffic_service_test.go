@@ -215,3 +215,23 @@ func TestRecordTrafficCountryUncapped(t *testing.T) {
 		t.Fatalf("country rows = %d, want %d", countries, n)
 	}
 }
+
+func TestRecordTrafficFormFunnel(t *testing.T) {
+	repo := &fakeTrafficRepo{}
+	svc := newTestService(&fakeRepo{})
+	svc.SetTrafficRepo(repo)
+	ev := Event{Path: "/contact", Device: "desktop", First: true}
+	ev.Eng = "form_seen"
+	svc.RecordTraffic(ev, ChannelDirect, SourceNone)
+	ev.Eng = "form_start"
+	svc.RecordTraffic(ev, ChannelDirect, SourceNone)
+	ev.Eng = "bogus"
+	svc.RecordTraffic(ev, ChannelDirect, SourceNone)
+	if err := svc.Flush(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := rowMap(repo.rows)["channel|direct|"]
+	if want := (Counts{FormSeen: 1, FormStarted: 1}); got != want {
+		t.Fatalf("channel = %+v, want %+v (form events add no engaged)", got, want)
+	}
+}

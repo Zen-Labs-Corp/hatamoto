@@ -88,7 +88,7 @@ func trafficRange() agents.Range {
 
 func trafficAdmin(t *testing.T, f *fakeTraffic) *Admin {
 	t.Helper()
-	g := newRig(t, func(d *Deps) { d.Growth.Traffic = f })
+	g := newRig(t, func(d *Deps) { d.Growth.Traffic, d.Growth.Conversions = f, &fakeConversions{} })
 	return g.a
 }
 
@@ -215,7 +215,7 @@ func TestBuildTrafficFigures(t *testing.T) {
 	for _, k := range p.KPIs {
 		byLabel[k.Label] = k.Value
 	}
-	if byLabel["Visits"] != "100" || byLabel["Pageviews"] != "150" || byLabel["Leads"] != "--" || byLabel["Conv. rate"] != "--" {
+	if byLabel["Visits"] != "100" || byLabel["Pageviews"] != "150" || byLabel["Leads"] != "12" || byLabel["Conv. rate"] != "12.0%" {
 		t.Errorf("kpis = %v", byLabel)
 	}
 	if top := p.KPIs[4]; top.Badge == nil || top.Badge.Label != "Organic search" || top.Note != "60% of visits" {
@@ -227,16 +227,16 @@ func TestBuildTrafficFigures(t *testing.T) {
 	if len(p.Channels.Rows) != 7 || p.Channels.Rows[0][1].Text != "60" || p.Channels.Rows[0][2].Text != "60.0%" || p.Channels.Rows[0][2].Bar == nil {
 		t.Errorf("organic row = %+v", p.Channels.Rows[0])
 	}
-	if p.Channels.Rows[0][3].Text != "--" || p.Channels.Rows[0][4].Text != "--" || p.Channels.Rows[0][5].Text != "+1400.0%" || p.Channels.Rows[0][6].Spark == nil {
+	if p.Channels.Rows[0][3].Text != "2" || p.Channels.Rows[0][4].Text != "3.3%" || p.Channels.Rows[0][5].Text != "+1400.0%" || p.Channels.Rows[0][6].Spark == nil {
 		t.Errorf("organic row tail = %+v", p.Channels.Rows[0][3:])
 	}
 	if p.Channels.Rows[4][1].Text != "0" {
 		t.Errorf("an empty channel keeps its row: %+v", p.Channels.Rows[4])
 	}
-	if len(p.Attribution.Items) != 2 || !p.Attribution.Items[0].Disabled || !p.Attribution.Items[1].Disabled {
-		t.Errorf("attribution = %+v", p.Attribution)
+	if items := p.Touch.Seg.Items; len(items) != 2 || items[0].Disabled || items[1].Disabled || !items[0].Pressed {
+		t.Errorf("touch = %+v", p.Touch.Seg)
 	}
-	if s := p.Sources.Rows[1]; s[0].Text != "(direct)" || s[1].Text != "Direct" || s[3].Text != "--" {
+	if s := p.Sources.Rows[1]; s[0].Text != "(direct)" || s[1].Text != "Direct" || s[3].Text != "0" {
 		t.Errorf("source row = %+v", s)
 	}
 	if s := p.Sources.Rows[2]; s[1].Text != "Mixed" {
@@ -271,7 +271,7 @@ func TestBuildTrafficGeoStatusAndCompareFallback(t *testing.T) {
 	rg := trafficRange()
 	f := &fakeTraffic{from: rg.From, prevFail: true}
 	g := newRig(t, func(d *Deps) {
-		d.Growth.Traffic = f
+		d.Growth.Traffic, d.Growth.Conversions = f, &fakeConversions{}
 		d.Growth.GeoStatus = func() (bool, bool) { return true, true }
 	})
 	body, err := g.a.buildTraffic(context.Background(), url.Values{}, rg, true)
@@ -286,7 +286,7 @@ func TestBuildTrafficGeoStatusAndCompareFallback(t *testing.T) {
 		t.Error("a failing previous period turns compare off")
 	}
 	g = newRig(t, func(d *Deps) {
-		d.Growth.Traffic = f
+		d.Growth.Traffic, d.Growth.Conversions = f, &fakeConversions{}
 		d.Growth.GeoStatus = func() (bool, bool) { return true, false }
 	})
 	body, _ = g.a.buildTraffic(context.Background(), url.Values{}, rg, false)
