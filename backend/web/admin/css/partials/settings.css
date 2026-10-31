@@ -48,6 +48,9 @@
 /* API key scopes: Select all sits under the legend, not stretched across the column. */
 [data-hm-scopes-all] { align-self: flex-start; }
 [data-hm-scopes-all][hidden] { display: none; }
+/* Preset card header: the key and the count of settings set read as one mono line. Edit styles sits apart from the label field under it. */
+.hm-card--preset .hm-card__head > p { font-family: var(--font-mono); font-size: var(--text-sm); }
+.hm-presetdetails > summary { margin-bottom: var(--space-3); }
 /* Preset style groups: three columns from 48rem, one below. */
 .hm-presetgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin-block: var(--space-3); }
 .hm-presetgrid > .hm-field__group { margin: 0; min-width: 0; }
