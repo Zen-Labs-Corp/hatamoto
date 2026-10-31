@@ -106,11 +106,18 @@ func (v *Verifier) Verify(ctx context.Context, a *Agent, ip netip.Addr) State {
 		// suffixes. A cloud VM with a provider-assigned PTR still fails: that
 		// name is not under the operator's suffix, and the PTR must resolve
 		// forward to the same address, so a forged PTR cannot pass either.
+		// Only the crawler suffixes count here: wider ones (google.com) also
+		// name fetchers that act for third parties.
+		suffixes := a.RDNS
+		if len(a.RDNSCrawler) > 0 {
+			suffixes = a.RDNSCrawler
+		}
+		return v.verifyRDNS(ctx, a, ip, suffixes)
 	}
-	return v.verifyRDNS(ctx, a, ip)
+	return v.verifyRDNS(ctx, a, ip, a.RDNS)
 }
 
-func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr) State {
+func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr, suffixes []string) State {
 	key := a.ID + "|" + ip.String()
 	now := v.now()
 	v.cacheMu.Lock()
@@ -136,7 +143,7 @@ func (v *Verifier) verifyRDNS(ctx context.Context, a *Agent, ip netip.Addr) Stat
 	}
 	for _, name := range names {
 		host := strings.ToLower(strings.TrimSuffix(name, "."))
-		if !hasAnySuffix(host, a.RDNS) {
+		if !hasAnySuffix(host, suffixes) {
 			continue
 		}
 		lctx, cancel := context.WithTimeout(ctx, dnsLookupTimeout) // per lookup, not per chain

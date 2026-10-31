@@ -459,6 +459,9 @@
         ".googlebot.com",
         ".google.com"
       ],
+      "rdns_crawler": [
+        ".googlebot.com"
+      ],
       "ignores_robots": false
     },
     {
@@ -478,6 +481,9 @@
       "rdns": [
         ".googlebot.com",
         ".google.com"
+      ],
+      "rdns_crawler": [
+        ".googlebot.com"
       ],
       "ignores_robots": false
     },

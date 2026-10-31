@@ -48,14 +48,18 @@ func (p Purpose) IsAI() bool {
 // (robots.txt tokens such as Google-Extended that never appear as a UA) and
 // are never matched.
 type Agent struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Operator      string   `json:"operator"`
-	Purpose       Purpose  `json:"purpose"`
-	UA            []string `json:"ua"`
-	RobotsToken   string   `json:"robots_token"`
-	IPRanges      []string `json:"ip_ranges"`
-	RDNS          []string `json:"rdns"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Operator    string   `json:"operator"`
+	Purpose     Purpose  `json:"purpose"`
+	UA          []string `json:"ua"`
+	RobotsToken string   `json:"robots_token"`
+	IPRanges    []string `json:"ip_ranges"`
+	RDNS        []string `json:"rdns"`
+	// RDNSCrawler narrows RDNS to the operator's own crawler suffixes. It
+	// is what decides a range miss; RDNS in full applies only when the ranges
+	// are not loaded. Empty means RDNS.
+	RDNSCrawler   []string `json:"rdns_crawler,omitempty"`
 	IgnoresRobots bool     `json:"ignores_robots"`
 }
 
@@ -122,6 +126,11 @@ func Parse(data []byte) (*Registry, error) {
 		for _, s := range a.RDNS {
 			if !strings.HasPrefix(s, ".") || s != strings.ToLower(s) {
 				return nil, fmt.Errorf("agents: %s: rdns suffix %q must be lowercase and start with '.'", a.ID, s)
+			}
+		}
+		for _, s := range a.RDNSCrawler {
+			if !strings.HasPrefix(s, ".") || s != strings.ToLower(s) {
+				return nil, fmt.Errorf("agents: %s: rdns_crawler suffix %q must be lowercase and start with '.'", a.ID, s)
 			}
 		}
 		for _, k := range a.IPRanges {

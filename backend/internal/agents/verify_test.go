@@ -73,6 +73,7 @@ func TestVerify(t *testing.T) {
 			"20.191.1.1":   {"x.duckduckgo.example."},
 			"52.1.2.3":     {"ec2-52-1-2-3.compute-1.amazonaws.com."}, // cloud VM provider PTR
 			"198.51.100.8": {"crawl-1-2-3-4.search.msn.com."},         // forged Bing PTR, forward elsewhere
+			"192.0.2.77":   {"fetcher.google.com."},                   // user-triggered fetcher, forward-confirms
 		},
 		forward: map[string][]string{
 			"crawl-66-249-66-1.googlebot.com":      {"66.249.66.1"},
@@ -83,6 +84,7 @@ func TestVerify(t *testing.T) {
 			"spider-5-255-253-1.yandex.com":        {"5.255.253.1"},
 			"ec2-52-1-2-3.compute-1.amazonaws.com": {"52.1.2.3"},
 			"crawl-1-2-3-4.search.msn.com":         {"1.2.3.4"},
+			"fetcher.google.com":                   {"192.0.2.77"},
 		},
 	}
 	v := NewVerifier(store, res)
@@ -103,6 +105,7 @@ func TestVerify(t *testing.T) {
 		{"googleother from GCE VM", "googleother", "34.1.2.3", StateSpoofed},
 		{"googlebot in Google range", "googlebot", "66.249.64.5", StateVerified},
 		{"googlebot range miss, FCrDNS under the operator suffix", "googlebot", "66.249.66.1", StateVerified},
+		{"googlebot range miss, PTR under google.com is not the crawler suffix", "googlebot", "192.0.2.77", StateSpoofed},
 		{"googlebot from a cloud IP with the provider PTR", "googlebot", "52.1.2.3", StateSpoofed},
 		{"googlebot UA from a CDN edge address", "googlebot", "104.16.1.1", StateSpoofed},
 		{"bingbot in range list miss, FCrDNS confirmed", "bingbot", "40.77.167.9", StateVerified},
