@@ -94,6 +94,9 @@ type View struct {
 	// Section and Tab place the page in the Settings frame (IDs from
 	// settingsRegistry); empty means the page is not a Settings page.
 	Section, Tab string
+	// localeCount is the number of configured locales on a multi-locale site
+	// (0 otherwise); the Locales section of the Settings sidebar shows it.
+	localeCount int
 	// pluginNav is the Plugins subnav, set by NewView on /admin/plugins* pages.
 	pluginNav []PluginNavEntry
 	// entityNav is the Entities subnav and entityManage whether it links to the
@@ -446,6 +449,9 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 			}
 			// Installs from before the wizard have no site address; without it
 			// reset and invitation emails are not sent.
+			if len(cfg.Locales) >= 2 {
+				v.localeCount = len(cfg.Locales)
+			}
 			v.SetupPending = cfg.SetupCompletedAt == nil
 			v.NoSiteAddress = cfg.SetupCompletedAt != nil && a.deps.BaseURL != nil && a.siteAddress(r) == ""
 		}

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"hatamoto.dev/core/internal/httpx"
@@ -23,6 +24,9 @@ type SettingsSection struct {
 	// Group is the sidebar heading the section sits under (Site, Content,
 	// System); empty for areas that show no headings.
 	Group string
+	// Badge is a short count shown beside the label ("" shows none); AreaNav
+	// fills it per request.
+	Badge string
 	Tabs  []SettingsTab
 }
 
@@ -53,6 +57,7 @@ var settingsLive = map[string]bool{
 	"ai-overview": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
 	"seo-general": true, "seo-titles": true,
+	"locales": true, "locale-addresses": true, "locale-business": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -68,6 +73,11 @@ type adminArea struct {
 var settingsRegistry = []settingsSectionDef{
 	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity, homepage and business details.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
+	}},
+	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses and search engines.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},
+		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Roles: ownerOnly},
+		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Roles: ownerOnly},
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},
@@ -349,6 +359,13 @@ func (v *View) AreaNav() []SettingsSection {
 		return nil
 	}
 	secs := ar.forPrefix(v.prefix(), v.User.Role)
+	if v.localeCount > 0 {
+		for i := range secs {
+			if secs[i].ID == "locales" {
+				secs[i].Badge = strconv.Itoa(v.localeCount)
+			}
+		}
+	}
 	if len(v.AreaCarry) == 0 {
 		return secs
 	}
