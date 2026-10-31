@@ -62,6 +62,7 @@ export const screens = [
   { name: "entity-details-post", path: "/admin/entities/{post}", mock: null, roles: OE }, // the details form: its savebar carries Delete (UI-D12)
   { name: "entity-versions", path: "/admin/entities/{post}/versions", mock: null, roles: OE },
   { name: "entity-translations", path: "/admin/entities/{post}/translations", mock: "s4", roles: OE, expect: ".hm-empty" }, // the default seed is single-locale (A6): only the empty state with "Add a locale"; locales-translations.mjs adds locales and drives the real page
+  { name: "entity-translation-new", path: "/admin/entities/{post}/translations/new?locale=pt", mock: null, roles: OE, status: 404 }, // the Create copy page: 404 on the single-locale seed (A6); locales-translations.mjs adds locales and drives the real page
   { name: "entity-delete-confirm", path: "/admin/entities/{post}/delete", mock: null, roles: OE },
   // AI analytics
   { name: "analytics-overview", path: "/admin/analytics", mock: null, roles: OE, primary: true },
