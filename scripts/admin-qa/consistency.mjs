@@ -31,8 +31,8 @@ const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "enti
 function check({ sticky, list, spec }) {
   const out = [];
   const POPUP = ".hm-dialog, .hm-menu, .hm-popover-panel, .hm-slash, .hm-bubble, .hm-tokens__list, .hm-searchselect__list, .hm-select__list, .hm-pe__rich, .hm-toast, .hm-flash, [popover]";
-  // Named exception: editor top bar (blogeditor.css, UI-06 allowlist).
-  const SHADOW_OK = ".hm-ed__bar";
+  // Named exceptions: editor top bar (blogeditor.css, UI-06 allowlist) and the stat card.
+  const SHADOW_OK = ".hm-ed__bar, .hm-statcard";
   const BTN_OK = ".hm-filter-chip, .hm-bubble, .hm-ed__bar";
   // Multi-pick lists and consent gates stay checkboxes (docs/ADMIN_UI_RULES.md rule 4).
   const MULTI = 'table, .hm-mediatile, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
