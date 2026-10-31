@@ -74,9 +74,9 @@ handoff material are stale, do not copy them.
    checkboxes: multi-pick lists (API scopes, permissions, content types, terms, spam script blocks,
    table row and select-all, media tile select, the schemaform "clear the stored
    value" box) and consent gates ("I understand ..."). 
-5. **Flat sticky footer only on four editor screens and the menu editor:** entity edit, entity model edit,
+5. **Flat sticky footer only on four editor screens, the menu editor and the term editor:** entity edit, entity model edit,
    form editor and plugin settings, plus the menu editor, whose save bar stays in reach
-   beside a long tree. They use `.hm-savebar` (flat, hairline top
+   beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card. They use `.hm-savebar` (flat, hairline top
    border, no radius, no shadow). Every other form uses a card footer.
 6. **No shadows except popups and focus or selected rings.** Allowed:
    `none`, ring shadows such as `0 0 0 2px`, `inset` shadows (selected marker,
@@ -183,6 +183,8 @@ Rules: UI-11, DC-02
 Text inputs, selects and textareas are calm at rest: a soft hairline border from
 `--border-field`. Hover darkens the border to `--color-hai` (or `--border-control`). Focus draws the indigo accent
 ring. Checkboxes and switches keep `--border-control`.
+
+Read-only identifiers in a table (a slug, an address) use `ui.Cell.Mono`: muted monospace text (`.hm-table__mono`), not a badge. Taxonomy terms show the slug that way; Users show the email and the last sign-in date that way.
 
 A required field shows a muted "Required" (`.hm-field__req`, `--text-muted`) after its label, never an asterisk; the `(` `)` around it stay visually hidden so a screen reader hears "(Required)". The `required` attribute is unchanged.
 
@@ -485,6 +487,13 @@ in the last 7 days ("50+" past 50), while the bar values, headed "All-time hits"
 lifetime hit counts. The per-page analytics are AI crawler fetches, never "visits". Dates
 are absolute.
 
+### Content screens
+
+- **Entity form.** Content and SEO sit in the main column, Publishing and Terms in a side column (`.hm-entityform__grid`); it is one column on narrow viewports. The save bar spans below both.
+- **Media.** Storage is one row: the total, a slim share bar and its four labelled parts (`.hm-media-storage`). Tile and picker meta (size, dimensions) is muted monospace. On a file's page the Details form sits under the preview; File and Where it is used are the right column, and each place it is used is a link row with a trailing chevron.
+- **Forms.** Submissions show Total, New and Last 7 days as a stat strip. In the 30-day tracker the busiest days (within a fifth of the peak) use the accent, other days with submissions stay green and empty days stay neutral. On one submission, Back to submissions and Delete submission are page header actions. A field row in the form editor reads grip, type icon, label, mono name, Required pill, then a trailing chevron.
+- **Profile.** The email (monospace) and role badge sit in a meta line under the title. The Photo row is inline: a 48px avatar, Upload and the address. On Complete your profile, Save and continue is full width and Switch theme and Sign out are small labelled ghost buttons in a left-aligned row.
+
 ### Dropzone
 
 Partial: `hm/dropzone`. Contract: `components.json` key `dropzone`.
@@ -697,7 +706,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | ID | Rule |
 |---|---|
 | UI-01 | Every submit button in a `<form>` sits inside a footer region (`hm/card-foot`, `hm/foot`, `.hm-savebar`, `.hm-dialog__foot` or `hm/dialog-end`). `.hm-row` and `.hm-stack` submit groups are not footers. A primary or danger submit must not come before a Cancel or secondary in the same footer. Only two kinds of form skip the rule, and both skip it because they change nothing: `method="get"` (or no method, which is GET) and `method="dialog"`. A class (`hm-inline`) or `role="search"` does not skip it. A form with an htmx verb or a templated method is checked. Partials are checked too. Every other exception, such as one-button POST forms in rows, menus and headers, is a named allowlist entry with a reason. |
-| UI-02 | The class strings `hm-savebar` and `hm-card__foot` appear only in their partials, their CSS, the four sticky editor templates, the menu editor (`pages/menus/edit.html`, whose sticky save bar keeps Save and Discard in reach beside a long tree) and the analytics dirty bar (`partials/aia-policy.html`: the robots policy form's `hm-savebar`, hidden until a choice changes, shared by Crawlers, Health and the agent page). |
+| UI-02 | The class strings `hm-savebar` and `hm-card__foot` appear only in their partials, their CSS, the four sticky editor templates, the menu editor (`pages/menus/edit.html`, whose sticky save bar keeps Save and Discard in reach beside a long tree), the term editor (`pages/taxonomies/term.html`: Cancel, Merge and Save in one bar) and the analytics dirty bar (`partials/aia-policy.html`: the robots policy form's `hm-savebar`, hidden until a choice changes, shared by Crawlers, Health and the agent page). |
 | UI-03 | No raw `type="checkbox"` and no `hm/field` Control `checkbox`, except allowlisted multi-pick lists and consent gates. |
 | UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar and the stat card by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. A button's inset ring plus inset bevel (and the primary/danger inset bottom edge) is allowed; there is still no drop shadow. |
 | UI-05 | No `hm-btn`, `hm-card` or `hm-badge` class token in markup written by hand (`partials/badge.html` is the component): `class="..."`, `class='...'` or an unquoted class in pages, layouts and schemaform templates; and any `hm-btn`, `hm-card` or `hm-badge` token in JS strings and template literals (`class="hm-btn"`, `` `${base} hm-btn` ``, `className = "hm-badge"`); badges come from a server-rendered `<template>` of `hm/badge`. A leading dot (`querySelector(".hm-btn")`) is a selector and is not flagged. Allowlisted entries are the exception. |
