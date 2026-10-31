@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 101391,
+      "value": 101523,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 101427
+      "cap": 101559
     },
     "editor_js_total_gzip": {
-      "value": 270352,
+      "value": 271498,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 271291
+      "cap": 272522
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -118,6 +118,10 @@
     },
     {
       "reason": "plugins and theme restyle: admin_css_gzip 55354 -\u003e 56702",
+      "date": "2026-10-31"
+    },
+    {
+      "reason": "builder Translations drawer: lazy translationsdrawer chunk and a delegated opener in screen.js; editor_js_first_gzip 101122 to 101254 (+132 B), editor_js_total_gzip 262338 to 263484 (+1146 B), caps move by the same amount",
       "date": "2026-10-31"
     }
   ]
