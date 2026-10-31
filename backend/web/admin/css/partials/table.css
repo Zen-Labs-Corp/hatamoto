@@ -3,6 +3,8 @@
 /* a table inside a card bleeds to the card edges */
 .hm-card .hm-table__scroll { margin-inline: calc(-1 * var(--space-5)); }
 .hm-tablecard .hm-table__scroll { margin-inline: 0; }
+/* a list table inside a titled card is that card's content, not a second card */
+.hm-card__body > .hm-tablecard { border: 0; border-radius: 0; background: none; margin-inline: calc(-1 * var(--space-5)); }
 .hm-table__filters { display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); flex-wrap: wrap; align-items: center; }
 .hm-table__bulk[hidden] { display: none; }
 .hm-table__search { flex: 1 1 240px; max-width: 420px; }
