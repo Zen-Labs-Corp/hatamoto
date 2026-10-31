@@ -37,6 +37,7 @@ func TestBlogEditorTranslationsTab(t *testing.T) {
 	panel = panel[:strings.Index(panel, "</aside>")]
 	lacks(t, panel, "<form", "name=")
 	// The Create dialog holds a form, so it sits after the editor form closes.
+	createButton(t, body, "create-copy-de-DE")
 	if form, dlg := strings.Index(body, `id="hm-be"`), strings.Index(body, `id="create-copy-de-DE"`); dlg < strings.Index(body[form:], "</form>")+form {
 		t.Error("the Create copy dialog is inside the editor form")
 	}

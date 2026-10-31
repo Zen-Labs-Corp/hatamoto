@@ -51,6 +51,7 @@ func TestTranslationsTabOffersCreateOnlyWithoutCopy(t *testing.T) {
 	body := c.get(t, "owner-token", translationsTab, "")
 	has(t, body, `id="create-copy-it"`, `data-hm-open="create-copy-it"`, trBase+"/new?locale=it", `action="`+trBase+`/copy"`,
 		"Create a it copy of", "Create copy")
+	createButton(t, body, "create-copy-it")
 	lacks(t, body, `id="create-copy-fr"`, `id="create-copy-en"`)
 	if body := c.get(t, "editor-token", translationsTab, ""); !strings.Contains(body, `id="create-copy-it"`) {
 		t.Error("an editor gets no Create copy")
@@ -172,5 +173,15 @@ func TestCopyOffWithoutCopier(t *testing.T) {
 	}
 	if rec := c.do("GET", trBase+"/new?locale=it", "owner-token", nil, nil); rec.Code != 404 {
 		t.Errorf("no copier GET = %d, want 404", rec.Code)
+	}
+}
+
+// createButton asserts the Create opener of dialogID is a visible button that
+// keeps its no-JS address, not an item of a row menu.
+func createButton(t *testing.T, body, dialogID string) {
+	t.Helper()
+	re := regexp.MustCompile(`<a class="hm-btn [^"]*" href="[^"]*/new\?locale=[^"]*" aria-label="Create [^"]* copy" data-hm-open="` + regexp.QuoteMeta(dialogID) + `"`)
+	if !re.MatchString(body) {
+		t.Errorf("no visible Create button opening %s", dialogID)
 	}
 }

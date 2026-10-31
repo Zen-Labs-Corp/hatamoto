@@ -151,7 +151,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 			if d.Link != nil && a.deps.Content.Copier != nil && entity.CanCopy(e) {
 				f := a.newCopyForm(ctx, e, tag, members, grouped, set)
 				d.CopyForms = append(d.CopyForms, f)
-				row.Actions = []ui.Action{{Label: "Create", Href: f.NewURL, Open: f.DialogID}}
+				row.Actions = []ui.Action{{Label: "Create", Href: f.NewURL, Open: f.DialogID, Button: true, AriaLabel: "Create " + name + " " + tag + " copy"}}
 			}
 			d.Copies.Rows = append(d.Copies.Rows, row)
 			continue
