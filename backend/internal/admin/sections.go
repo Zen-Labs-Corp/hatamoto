@@ -84,7 +84,7 @@ func (a *Admin) handleSections(w http.ResponseWriter, r *http.Request) {
 	for _, s := range res.Items {
 		id := s.ID.String()
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: s.Name, Cells: []ui.Cell{
-			{Text: s.Name, Link: a.adminPath + "/theme/templates/" + id}, {Text: templateKind(s.SectionType)}, {Text: strings.Join(s.Tags, ", ")}, {Text: strconv.Itoa(s.UsageCount)}, {Text: fmtDate(s.UpdatedAt)},
+			{Text: s.Name, Link: a.adminPath + "/theme/templates/" + id}, {Text: templateKind(s.SectionType)}, {Text: strings.Join(s.Tags, ", "), Mono: true}, {Text: strconv.Itoa(s.UsageCount)}, {Text: fmtDate(s.UpdatedAt)},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/theme/templates/" + id},
 			{Label: "Delete", Href: a.adminPath + "/theme/templates/" + id + "/delete", Post: a.adminPath + "/theme/templates/" + id + "/delete", Danger: true, ConfirmLabel: "Delete template",

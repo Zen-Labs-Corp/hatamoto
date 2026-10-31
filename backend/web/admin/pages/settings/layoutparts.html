@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-<p class="hm-muted">Build the header, footer and page layouts of your site in the builder, then choose them here. A theme shows them only if it supports them; otherwise it keeps its own.</p>
+{{template "hm/callout" (dict "Kind" "info" "Body" "Build the header, footer and page layouts of your site in the builder, then choose them here. A theme shows them only if it supports them; otherwise it keeps its own.")}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{with .Unsupported}}{{template "hm/callout" (dict "Kind" "info" "ID" "parts-unsupported" "Body" .)}}
 {{end}}<form method="post" action="{{adminPath}}/theme/parts" class="hm-cardform">
@@ -17,7 +17,7 @@
 </form>
 {{if .Available}}{{template "hm/card-start" dict "ID" "parts-create" "Title" "Create a part" "Description" "A new part opens in the builder. Save it there, then choose it above."}}
 <div class="hm-row">
-{{range $r := .Rows}}<form method="post" action="{{adminPath}}/entities/drafts">{{template "hm/csrf" $}}<input type="hidden" name="type" value="theme_part"><input type="hidden" name="slot" value="{{$r.Slot}}">{{template "hm/button" (dict "Label" (printf "Create %s part" $r.Slot) "Type" "submit")}}</form>
+{{range $r := .Rows}}<form method="post" action="{{adminPath}}/entities/drafts">{{template "hm/csrf" $}}<input type="hidden" name="type" value="theme_part"><input type="hidden" name="slot" value="{{$r.Slot}}">{{template "hm/button" (dict "Label" (printf "Create %s part" $r.Slot) "Type" "submit" "Icon" "plus" "Size" "sm")}}</form>
 {{end}}</div>
 {{template "hm/card-end"}}{{end}}
 {{end}}{{end}}

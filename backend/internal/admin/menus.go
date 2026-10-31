@@ -169,7 +169,7 @@ func (a *Admin) handleMenus(w http.ResponseWriter, r *http.Request) {
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: m.Name, Cells: []ui.Cell{
 			{Text: m.Name, Link: a.adminPath + "/theme/menus/" + id},
 			{Badge: &ui.Badge{Label: locationLabel(m.Location), Kind: kind}},
-			{Text: m.Slug},
+			{Text: m.Slug, Mono: true},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/theme/menus/" + id},
 			{Label: "Delete", Href: a.adminPath + "/theme/menus/" + id + "/delete", Post: a.adminPath + "/theme/menus/" + id + "/delete", Danger: true, ConfirmLabel: "Delete menu",
