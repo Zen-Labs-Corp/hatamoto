@@ -8,9 +8,19 @@ import (
 	"strings"
 
 	"github.com/pressly/goose/v3"
-
-	"hatamoto.dev/core/internal/agents"
 )
+
+// relabelCDNEdgePrefixes is a frozen copy of the Cloudflare edge list as of
+// 2026-10-30. A migration must not follow the live list, which later releases
+// may edit.
+var relabelCDNEdgePrefixes = []string{
+	"173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+	"141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+	"197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+	"104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+	"2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32",
+	"2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32",
+}
 
 func init() {
 	goose.AddMigrationContext(relabelCDNEdgeSpoofed, noopDown)
@@ -29,12 +39,7 @@ func init() {
 // text) so a running writer or verify worker cannot deadlock with this.
 // Re-running finds no spoofed edge hit left and changes nothing. No network.
 func relabelCDNEdgeSpoofed(ctx context.Context, tx *sql.Tx) error {
-	fallback := agents.CloudflareFallback()
-	prefixes := make([]string, 0, len(fallback))
-	for _, p := range fallback {
-		prefixes = append(prefixes, p.String())
-	}
-	arr := "{" + strings.Join(prefixes, ",") + "}"
+	arr := "{" + strings.Join(relabelCDNEdgePrefixes, ",") + "}"
 	if _, err := tx.ExecContext(ctx, `
 SELECT 1 FROM public.hatamoto_agent_daily d
 JOIN (
