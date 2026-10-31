@@ -128,7 +128,7 @@ test("garbage and refused values set aria-invalid, show the hint and do not comm
 
 test("presets: linked writes the four padding sides in one batch, unlinked only top and bottom", () => {
   const b = make([...MARGIN, ...PADDING]);
-  b.btn("Padding: M").fire("click");
+  b.btn("Padding top and bottom: M").fire("click");
   assert.deepEqual(b.calls.at(-1).batch, [["pt", "space-7"], ["pb", "space-7"]], "the theme step, top and bottom");
   b.btn("Link all sides").fire("click");
   b.btn("Padding: L").fire("click");
@@ -140,8 +140,8 @@ test("presets: linked writes the four padding sides in one batch, unlinked only 
 
 test("the preset that matches the sides is pressed", () => {
   const b = make(PADDING, { own: { pt: "space-7", pb: "space-7" } });
-  assert.equal(b.btn("Padding: M").attrs["aria-pressed"], "true");
-  assert.equal(b.btn("Padding: L").attrs["aria-pressed"], "false");
+  assert.equal(b.btn("Padding top and bottom: M").attrs["aria-pressed"], "true");
+  assert.equal(b.btn("Padding top and bottom: L").attrs["aria-pressed"], "false");
 });
 
 // A drag on a number: pointerdown, moves, pointerup.
@@ -241,4 +241,12 @@ test("only the refused number points at the error text", () => {
   pt.value = "4";
   pt.fire("change");
   assert.equal(pt.attrs["aria-describedby"], undefined);
+});
+
+test("a preset says which sides it writes: top and bottom while unlinked, all padding when linked", () => {
+  const b = make(PADDING);
+  assert.ok(b.btn("Padding top and bottom: M"));
+  b.btn("Link all sides").fire("click");
+  assert.ok(b.btn("Padding: M"));
+  assert.equal(b.btn("Padding top and bottom: M"), undefined);
 });

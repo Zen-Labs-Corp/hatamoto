@@ -159,11 +159,14 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
     const presets = steps.map(({ label, value }) => {
       const b = h("button", { type: "button", class: "hm-bs-opt hm-bs-quick", "aria-label": `Padding: ${label}`, "aria-pressed": "false", text: label });
       b.addEventListener("click", () => writer.get("padding")(linked.on ? pad.keys : [pad.keys[0], pad.keys[2]], value));
-      return { b, value };
+      return { b, label, value };
     });
     painters.push(() => {
       const sides = linked.on ? pad.keys : [pad.keys[0], pad.keys[2]];
-      for (const { b, value } of presets) b.setAttribute("aria-pressed", String(sides.every((k) => own(k) === value)));
+      for (const { b, label, value } of presets) {
+        b.setAttribute("aria-pressed", String(sides.every((k) => own(k) === value)));
+        b.setAttribute("aria-label", `${linked.on ? "Padding" : "Padding top and bottom"}: ${label}`); // unlinked, a preset leaves left and right alone
+      }
     });
     tools.push(h("div", { class: "hm-bs-bm__presets", role: "group", "aria-label": "Padding sizes" }, ...presets.map((p) => p.b)));
   }
