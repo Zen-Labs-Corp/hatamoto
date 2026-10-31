@@ -54,6 +54,8 @@ printf 'curl %s\n' "$*" >> "$CALLS"
 case "$*" in
   *--resolve*) [ -z "${FAKE_PROXY_FAIL:-}" ] || exit 22; echo ok ;;
   *api.ipify.org*) [ -n "${FAKE_IP:-}" ] && echo "$FAKE_IP" || exit 22 ;;
+  # Released binaries answer /ready with JSON, newer ones with "ok": only the status may count.
+  */ready*) echo '{"database":"connected","status":"ready"}' ;;
   *) echo ok ;;
 esac
 FAKE

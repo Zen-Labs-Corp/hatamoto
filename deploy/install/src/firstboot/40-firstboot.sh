@@ -254,11 +254,12 @@ fb_database() {
   fi
 }
 
-# fb_wait_ready waits up to 120 s for the app's own readiness probe.
+# fb_wait_ready waits up to 120 s for the app's own readiness probe. Only the
+# HTTP status counts (that is the /ready contract); the body differs by release.
 fb_wait_ready() {
   fwr_i=0
   while [ "$fwr_i" -lt 120 ]; do
-    if [ "$(curl -fsS --max-time 3 "http://127.0.0.1:$APP_PORT/ready" 2>/dev/null || true)" = ok ]; then return 0; fi
+    if curl -fsS -o /dev/null --max-time 3 "http://127.0.0.1:$APP_PORT/ready" 2>/dev/null; then return 0; fi
     fwr_i=$((fwr_i + 1))
     fb_sleep
   done
