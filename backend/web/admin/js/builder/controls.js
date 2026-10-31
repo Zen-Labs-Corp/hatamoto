@@ -75,11 +75,11 @@ export function boundsFor(key, entry, unit) {
   return { min: tidy(min), max: tidy(max) };
 }
 
-/** One arrow-key step: n moved by dir (+1 / -1) times step, times 10 with Shift; no float noise, never outside bounds. */
-export const stepValue = (n, dir, step, big = false, bounds = null) => {
-  const next = tidy(n + dir * step * (big ? 10 : 1));
-  return bounds ? Math.min(bounds.max, Math.max(bounds.min, next)) : next;
-};
+/** n kept inside bounds ({min, max}), except that a start already outside them is not pulled in: the range widens to include it. */
+export const clampFrom = (n, start, bounds) => (bounds ? Math.min(Math.max(bounds.max, start), Math.max(Math.min(bounds.min, start), n)) : n);
+
+/** One arrow-key step: n moved by dir (+1 / -1) times step, times 10 with Shift; no float noise, never outside bounds (an out-of-range n is not snapped back). */
+export const stepValue = (n, dir, step, big = false, bounds = null) => clampFrom(tidy(n + dir * step * (big ? 10 : 1)), n, bounds);
 
 const NUM = /^(-?[0-9]+(?:\.[0-9]+)?)([a-z%]*)$/;
 

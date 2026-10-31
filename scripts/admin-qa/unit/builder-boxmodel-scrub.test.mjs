@@ -235,3 +235,12 @@ test("attachScrub: get() null starts nothing; step and bounds given as functions
   f.e.fire("pointerup");
   assert.deepEqual(f.writes.map((w) => w[0]), [2]);
 });
+
+test("scrubValue: a start outside the bounds is not snapped in; it can only move toward them", () => {
+  const b = { min: 0, max: 200 };
+  assert.equal(scrubValue({ start: 500, dpx: -10, bounds: b }), 490, "down from 500 is a small step, not a jump to 200");
+  assert.equal(scrubValue({ start: 500, dpx: 10, bounds: b }), 500, "no growing further out");
+  assert.equal(scrubValue({ start: -30, dpx: 10, bounds: b }), -20);
+  assert.equal(scrubValue({ start: -30, dpx: -10, bounds: b }), -30);
+  assert.equal(scrubValue({ start: 500, dpx: -400, bounds: b }), 100);
+});

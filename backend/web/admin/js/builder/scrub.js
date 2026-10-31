@@ -2,15 +2,14 @@
 // small pointer attach, node-tested (scripts/admin-qa/unit/builder-boxmodel-scrub.test.mjs). A lazy chunk: nothing on
 // the first-paint path imports it. Run: node --test scripts/admin-qa/unit/builder-boxmodel-scrub.test.mjs
 
-import { probe, tidy } from "@hm/builder/controls";
+import { probe, tidy, clampFrom } from "@hm/builder/controls";
 
 /** Pointer travel (px) under which a press is a click, not a drag. */
 const CLICK_SLOP = 3;
 
-/** start moved by dpx pixels (times step), times 10 with Shift, rounded and kept inside bounds ({min, max}) when given. */
+/** start moved by dpx pixels (times step), times 10 with Shift, rounded and kept inside bounds ({min, max}) when given; a start already outside them is not pulled in. */
 export function scrubValue({ start, dpx, shift = false, bounds = null, step = 1 }) {
-  const next = tidy(start + dpx * (shift ? 10 : 1) * step);
-  return bounds ? Math.min(bounds.max, Math.max(bounds.min, next)) : next;
+  return clampFrom(tidy(start + dpx * (shift ? 10 : 1) * step), start, bounds);
 }
 
 /** "v" for the top and bottom sides (dragged vertically), "h" for left and right. */
