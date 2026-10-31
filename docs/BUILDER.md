@@ -1005,10 +1005,12 @@ is stored.
   line (`inspctx`): the width pill (Desktop, Tablet, Phone), a **State** dropdown (Normal, Hover, Focus, Pressed,
   Parent hover when the parent takes it) and a sentence saying what a value set here overrides. Below it come the
   groups (`inspgroups`, pure): **Layout** (with In its parent and Size), **Spacing**, **Fill**, **Typography** (every
-  kind; closed while nothing is set), **Corners & border** and **Effects** (shadow, opacity, position,
-  transform, filter, transition, visibility). A group opens when it has a value set here; Layout and Spacing also open
-  on a section. Each control has a source chip (**Set here**, **Inherited from …**, **From class .name**, **Custom
-  value**) and one Reset that clears the key at the current width and state. Labels of length fields (W, H, Gap, size,
+  kind), **Corners & border** and **Effects** (shadow, opacity, position, transform, filter, transition,
+  visibility). On a heading, text or button, Typography comes first and is open. A group opens when it has a value
+  set here; Layout and Spacing also open on a section. Each control shows where its value comes from: a filled dot
+  and the Reset button mean **Set here** (the words stay in the page for screen readers), and the chips **Inherited
+  from …**, **From class .name** and **Custom value** are shown. Reset clears the key at the current width and state.
+  Labels of length fields (W, H, Gap, size,
   line height, letter spacing) scrub: drag the label sideways to change the value; the full name stays the
   accessible name. **Show on** (`showon`, pure): three independent switches that compute `hide` and
   `display` writes for every width so one never changes another; the tree eye, the `H` key, the toolbar and the
