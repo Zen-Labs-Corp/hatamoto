@@ -16,7 +16,5 @@
 <form id="link-copy-form" method="post" action="{{.Action}}">{{template "hm/csrf" $}}{{template "hm/searchselect" dict "ID" "link-copy-page" "Name" "page" "Label" "Page" "Src" .Src "Required" true}}</form>
 {{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Link page" "PrimaryAttrs" (attrmap "form" "link-copy-form")}}{{end}}
 {{end}}
-{{range .CopyForms}}{{template "hm/dialog-start" dict "ID" .DialogID "Title" .Title "Static" true "Description" "Creates a linked copy in this language."}}
-<form id="{{.IDPrefix}}-form" method="post" action="{{.Action}}">{{template "hm/csrf" $}}{{template "hm/form-copy" .}}</form>
-{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create copy" "PrimaryAttrs" (attrmap "form" (print .IDPrefix "-form"))}}{{end}}
+{{template "hm/translations-dialogs" (dict "CSRF" $.CSRF "P" .)}}
 {{end}}{{end}}

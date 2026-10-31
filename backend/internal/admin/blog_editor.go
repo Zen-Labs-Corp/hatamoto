@@ -199,10 +199,20 @@ type blogData struct {
 	// RecoveryScript is the caller's recovery copy as a script element (""
 	// when none); set on the editor GET only, never on a save re-render.
 	RecoveryScript template.HTML
-	SiteHost       string
+	// AsideTabs are the tabs of the settings aside; Translations is the panel
+	// of a multi-locale site, nil otherwise.
+	AsideTabs    []asideTab
+	Translations *translationsPanelData
+	SiteHost     string
 	// The editor top bar.
 	SchemaName, ListHref, VersionsHref, DetailsHref, ViewHref, UpdatedAt, EditedBy string
 	StatusBadge                                                                    *ui.Badge
+}
+
+// asideTab is one tab of the blog editor's settings aside.
+type asideTab struct {
+	ID, Controls, Label string
+	Active              bool
 }
 
 // ---- reading the form ----------------------------------------------------------
@@ -472,6 +482,15 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 		d.Crawlers = a.crawlers(r.Context(), e)
 	}
 	e.Schema = sc
+	d.AsideTabs = []asideTab{{ID: "be-tab-post", Controls: "be-tabpanel-post", Label: "Post", Active: true}, {ID: "be-tab-seo", Controls: "be-tabpanel-seo", Label: "SEO and AEO"}}
+	if set, ok := a.multiLocale(r.Context()); ok && full {
+		if tp, err := a.translationsPanel(r.Context(), r, e, set); err != nil {
+			a.logger().Error("translations panel failed", "entity", e.ID, "err", err)
+		} else if tp != nil {
+			d.Translations = tp
+			d.AsideTabs = append(d.AsideTabs, asideTab{ID: "be-tab-translations", Controls: "be-tabpanel-translations", Label: "Translations"})
+		}
+	}
 	if a.deps.Content.PublicPath != nil && e.Status == entity.StatusPublished {
 		if pth := a.deps.Content.PublicPath(r.Context(), e); pth != "" {
 			d.ViewHref = pth
