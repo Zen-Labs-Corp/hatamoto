@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+{{if .Empty}}{{template "hm/empty" .EmptyState}}
+{{else}}<section class="hm-stack">
+<p class="hm-muted">{{.Intro}}</p>
+{{template "hm/table" .Copies}}
+{{template "hm/table" .Grid}}
+{{template "hm/table" .Hreflang}}
+</section>{{end}}
+{{end}}{{end}}
