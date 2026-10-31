@@ -196,10 +196,10 @@ func TestAutoThemeMatchesDark(t *testing.T) {
 func TestSoftDarkPalette(t *testing.T) {
 	_, dark := ParseTokens(readTokens(t))
 	want := map[string]string{
-		"--color-shiro": "#141416", "--color-paper": "#1a1a1d", "--color-kasumi": "#222226", "--color-kinu": "#2c2c31",
-		"--color-nezumi": "#3a3a40", "--color-hai": "#a3a3ab", "--color-sumi-soft": "#c2c2c8", "--color-sumi": "#d6d6da",
-		"--border-control": "#6f6f78", "--color-accent": "#6cb4ff", "--color-accent-soft": "#132a44",
-		"--color-danger": "#f0948a", "--color-success": "#86c9a6", "--color-warning": "#e3b872",
+		"--color-shiro": "#141415", "--color-paper": "#19191b", "--color-kasumi": "#232325", "--color-kinu": "rgb(237 237 237 / 0.08)",
+		"--color-nezumi": "rgb(237 237 237 / 0.14)", "--color-hai": "#8d8d93", "--color-sumi-soft": "#a1a1a6", "--color-sumi": "#ededed",
+		"--border-control": "#6f6f78", "--color-accent": "#9db3e0", "--color-accent-soft": "#222429",
+		"--color-danger": "#ee5b5f", "--color-success": "#4cc38a", "--color-warning": "#d9a548", "--accent-link": "#b4c6ea",
 	}
 	for name, v := range want {
 		if dark[name] != v {
