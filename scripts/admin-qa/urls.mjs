@@ -73,6 +73,7 @@ export const screens = [
   // Plugins
   { name: "plugins", path: "/admin/plugins", legacy: "/admin/settings/plugins", mock: "plugins", roles: O, primary: true, states: [newDialog] }, // not a list screen (UI-D10): the header offers Browse and Upload, and the page also carries the update strip and the unsigned banner; the Upload opener is the dialog state
   { name: "plugins-browse", path: "/admin/plugins/browse", mock: null, roles: O, expect: ".hm-callout, .hm-pluginbrowse" }, // the harness has no registry: the "No registry is set up" callout; with one, the search form
+  { name: "theme-browse", path: "/admin/theme/browse", mock: null, roles: O, expect: ".hm-callout, .hm-themebrowse" }, // the harness has no registry: the "No registry is set up" callout
   { name: "plugins-security", path: "/admin/plugins/security", mock: null, roles: O, expect: "#signers-card", states: [{ name: "unsigned-open", click: ".hm-pluginsecurity__advanced > summary" }] }, // the allow-unsigned form sits in a closed disclosure
   { name: "settings-plugins-upload", path: "/admin/plugins/upload", mock: null, roles: O },
   // Settings: General, API, Entity models

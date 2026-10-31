@@ -93,7 +93,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Review update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/plugins/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
-	{Rule: "UI-01", File: "pages/settings/theme.html", Needle: `"Install"`, Reason: "list row action in a package row"},
+	{Rule: "UI-01", File: "pages/theme/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
 	{Rule: "UI-01", File: "pages/entities/compare.html", Needle: `.RestoreLabel`, Reason: "list row action: restores one node of the layout, a form of its own in the changes table"},
 	{Rule: "UI-01", File: "pages/media/picker.html", Needle: `"Upload"`, Reason: "inline upload beside its file input in a dialog"},
 	{Rule: "UI-01", File: "pages/forms/edit.html", Needle: `"Add field"`, Reason: "inline add row inside the editor, next to its select"},
@@ -121,7 +121,6 @@ var uiAllow = []uiAllowEntry{
 	// UI-10: page-level forms that edit or remove something, not a create form beside the list.
 	{Rule: "UI-10", File: "pages/linking/rules.html", Needle: `rules/delete-source`, Reason: "removes a set of rules by source, a destructive action and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/theme.html", Needle: `Update to %s`, Reason: "per-card Update button of an installed theme, a row action and not a create form"},
-	{Rule: "UI-10", File: "pages/settings/theme.html", Needle: `"Label" "Install"`, Reason: "per-row Install button of a registry theme, a row action and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `action="{{adminPath}}/settings/updates" class`, Reason: "the update policy form, a settings form and not a create form; the history table below is read-only"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="check-form"`, Reason: "Check now, a row action of the status card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="nobackup-form"`, Reason: "Update without a backup, a row action of the status card that opens a confirm page and is not a create form"},
