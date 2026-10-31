@@ -193,14 +193,14 @@ func TestCheckUpdates(t *testing.T) {
 	t.Parallel()
 
 	g, fp := browseRig(t, browseView(1))
-	for _, tc := range []struct{ ret, to string }{{"", "/admin/plugins"}, {"browse", "/admin/plugins/browse"}, {"elsewhere", "/admin/plugins"}} {
+	for _, tc := range []struct{ ret, to string }{{"", "/admin/plugins"}, {"browse", "/admin/plugins/browse"}, {"theme-browse", "/admin/theme/browse"}, {"elsewhere", "/admin/plugins"}} {
 		rec := g.do("POST", "/admin/plugins/check-updates", "owner-token", url.Values{"return": {tc.ret}}, nil)
 		if rec.Code != 303 || rec.Header().Get("Location") != tc.to {
 			t.Errorf("return %q: %d %q", tc.ret, rec.Code, rec.Header().Get("Location"))
 		}
 	}
-	if fp.refreshed != 3 {
-		t.Errorf("refreshed %d times, want 3", fp.refreshed)
+	if fp.refreshed != 4 {
+		t.Errorf("refreshed %d times, want 4", fp.refreshed)
 	}
 	if rec := g.do("POST", "/admin/plugins/check-updates", "editor-token", url.Values{}, nil); rec.Code != 403 {
 		t.Errorf("editor: %d", rec.Code)

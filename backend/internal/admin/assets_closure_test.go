@@ -166,6 +166,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"media/list":          {"@hm/content"},
 		"media/new":           {"@hm/content"},
 		"plugins/browse":      {"@hm/pluginpanel"},
+		"theme/browse":        {"@hm/pluginpanel"},
 		"menus/edit":          {"@hm/menutree", "@hm/menuadd", "@hm/searchselect"},
 		"redirects/list":      {"@hm/content"},
 		"schemas/edit":        {"@hm/content"},
