@@ -215,7 +215,8 @@ func TestEntitiesLiveFilterCarriesHeaderAndCounts(t *testing.T) {
 		t.Fatalf("GET = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	has(t, body, `hx-select-oob="#entities-count,#entities-status:innerHTML,#entities-head,#entities-seg:innerHTML"`, `<div id="entities-head" class="hm-entities-head">`, `<h1>Posts</h1>`, `<p id="entities-status"`, `id="entities-results"`)
+	lacks(t, body, `#entities-seg:innerHTML`) // the radios are never swapped: a queued choice must not be undone
+	has(t, body, `hx-select-oob="#entities-count,#entities-status:innerHTML,#entities-head,#entities-seg-all-n,#entities-seg-published-n,#entities-seg-draft-n,#entities-seg-scheduled-n,#entities-seg-archived-n"`, `<span id="entities-seg-all-n">`, `<div id="entities-head" class="hm-entities-head">`, `<h1>Posts</h1>`, `<p id="entities-status"`, `id="entities-results"`)
 }
 
 // The Create menu lists entity types only; managing types lives in the subnav.

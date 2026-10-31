@@ -273,14 +273,18 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	counts := a.entityCounts(ctx, schemas, f.SchemaID)
 	// The status filter is a segmented control in the toolbar; each label carries the count.
+	// A live swap refreshes only the count spans, never the radios, so a choice made while a request is in flight is not undone.
 	status := &ui.Segmented{Mode: "radio", Label: "Status", Name: "status"}
+	oob := "#entities-head"
 	for _, sl := range statusLabels {
 		n := counts.byStatus[sl.Value]
 		if sl.Value == "" {
 			n = counts.all
 		}
-		status.Items = append(status.Items, ui.SegmentedItem{Label: fmt.Sprintf("%s %d", sl.Label, n), Value: sl.Value, Pressed: p.status == sl.Value,
-			Attrs: map[string]string{"id": "entities-seg-" + cmp.Or(sl.Value, "all")}})
+		seg := "entities-seg-" + cmp.Or(sl.Value, "all")
+		status.Items = append(status.Items, ui.SegmentedItem{Label: sl.Label, Count: strconv.Itoa(n), CountID: seg + "-n", Value: sl.Value, Pressed: p.status == sl.Value,
+			Attrs: map[string]string{"id": seg}})
+		oob += ",#" + seg + "-n"
 	}
 	// Phones have no sidebar subnav: the type is picked here (hidden beside the subnav on wider screens).
 	typeOpts := []ui.Option{{Value: "", Label: "All types", Selected: resolved == nil}}
@@ -359,7 +363,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		Columns: cols,
 		SortKey: p.sortKey, SortDir: p.dir, Query: p.q, SearchLabel: "Search titles and URLs", PrimaryFilters: primary, PopoverFilters: popover, Chips: chips, ClearHref: p.hrefWithout(a.adminPath, "from", "to", "author", "term"),
 		Hidden: hidden, Segmented: status, Bare: true, Live: true, Target: "entities-results", ChipsOutside: true,
-		OOB: "#entities-head,#entities-seg:innerHTML",
+		OOB: oob,
 		Bulk: []ui.BulkAction{
 			{Label: "Publish", Action: a.adminPath + "/entities/bulk", Value: "publish"},
 			{Label: "Move to draft", Action: a.adminPath + "/entities/bulk", Value: "draft"},
