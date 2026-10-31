@@ -465,3 +465,10 @@ test("padding handles are at least 24px on both axes (WCAG 2.5.8)", () => {
   assert.match(css, /\.hm-pe__padh\[data-side="top"\] \{ transform: translate\(-50%, 0\)/, "the top handle is not under the floating toolbar");
   for (const m of sizes) assert.ok(+m[1] >= 24 && +m[2] >= 24, m[0]);
 });
+
+test("a short section: the top handle never lies over the bottom one (the 24px targets would cover each other)", () => {
+  const r = rig({ nodes: [pdNode("a", 100, 30, [0, 0, 0, 0])] });
+  const top = parseFloat(r.handle("top").style.top);
+  const bottomStart = parseFloat(r.handle("bottom").style.top) - 12; // centred on the inner edge, 24px tall
+  assert.ok(top + 24 <= bottomStart, `top handle ends at ${top + 24}, bottom starts at ${bottomStart}`);
+});

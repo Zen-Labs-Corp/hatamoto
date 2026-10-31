@@ -135,6 +135,7 @@ export function mountToolbar(canvas, handlers) {
 
   let shown = "";
   let retried = "";
+  let padSeen = "";
   // The formatting bar grows when its link row opens (Ctrl/Cmd+K): the hint under it moves down with it.
   const grown = typeof ResizeObserver === "function" ? new ResizeObserver(() => update()) : null;
   let watched = null;
@@ -207,7 +208,16 @@ export function mountToolbar(canvas, handlers) {
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };
     if (fmt && fmt !== watched) grown?.observe((watched = fmt));
-    const { x, y, inside } = placeToolbar({ box, bar: { w: bar.offsetWidth, h: bar.offsetHeight }, view, below: editing });
+    // the top padding handle (canvas/direct.js) hangs inward from the section's padding edge: the inside toolbar keeps off it
+    const ph = canvas.stage.querySelector('[data-hm-pe-padh][data-side="top"]:not([hidden])');
+    const pw = ph?.offsetWidth || 44;
+    const avoid = ph ? { x: parseFloat(ph.style.left) - pw / 2, y: parseFloat(ph.style.top), w: pw, h: ph.offsetHeight || 24 } : null;
+    const { x, y, inside } = placeToolbar({ box, bar: { w: bar.offsetWidth, h: bar.offsetHeight }, view, below: editing, avoid: avoid && avoid.y === avoid.y ? avoid : null });
+    const padSig = avoid ? `${avoid.x},${avoid.y}` : "";
+    if (inside && padSig !== padSeen) {
+      padSeen = padSig; // the direct layer paints after the toolbar: look again once it has moved the handle
+      requestAnimationFrame?.(update);
+    }
     bar.style.left = `${x}px`;
     bar.style.top = `${y}px`;
     if (inside) bar.setAttribute("data-inside", "");

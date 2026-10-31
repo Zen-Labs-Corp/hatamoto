@@ -29,6 +29,8 @@ function el(tag, props = {}, ...kids) {
  *      onAddSection(index, el), indexOf(id), total(), authored?(id, side) -> raw style value, nameOf?(id)}.
  */
 export function mountDirect(canvas, hd) {
+  const HANDLE_HALF = 12; // CSS px: half the thickness of a padding handle (pageeditor.css .hm-pe__padh)
+  const HANDLE_LONG = 24;
   const layer = el("div", { class: "hm-pe__pad", "data-hm-pe-pad": "" });
   const strips = el("div", { class: "hm-pe__strips", "data-hm-pe-strips": "" });
   const hatches = {};
@@ -98,7 +100,9 @@ export function mountDirect(canvas, hd) {
         const hnd = handles[s];
         hnd.hidden = false;
         hnd.style.left = `${at[s][0] * sc}px`;
-        hnd.style.top = `${at[s][1] * sc}px`;
+        let top = at[s][1] * sc;
+        if (s === "top" && !drag) top = Math.min(top, at.bottom[1] * sc - HANDLE_HALF - HANDLE_LONG); // a short section: the top handle ends where the bottom one starts, never under it
+        hnd.style.top = `${top}px`;
         hnd.setAttribute("aria-valuenow", String(pd[i]));
         hnd.setAttribute("aria-label", padAria(s, pd[i]));
       });

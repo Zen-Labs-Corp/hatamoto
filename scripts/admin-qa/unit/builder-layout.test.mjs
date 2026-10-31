@@ -133,3 +133,14 @@ test("insertionPoints: points closer than gap are dropped, the selected scope's 
   for (const p of few) for (const q of few) if (p !== q) assert.ok(Math.hypot(p.x - q.x, p.y - q.y) >= 30, `${p.key} ${q.key}`);
   assert.ok(few.some((p) => p.key === ":1"), "the page-level point (first in scope) stays over the nested one at the same place");
 });
+
+test("placeToolbar: the inside toolbar never covers `avoid` (the top padding handle)", () => {
+  const box = { x: 0, y: 0, w: 600, h: 600 };
+  const avoid = { x: 278, y: 0, w: 44, h: 24 }; // top handle, 0 padding, centred
+  const wide = { w: 400, h: 32 };
+  const r = placeToolbar({ box, bar: wide, view, avoid });
+  assert.ok(r.inside);
+  assert.ok(r.y >= avoid.y + avoid.h, `toolbar top ${r.y} is under the handle's bottom ${avoid.y + avoid.h}`);
+  assert.equal(placeToolbar({ box, bar: { w: 100, h: 32 }, view, avoid }).y, 8, "no overlap sideways: stays 8px in");
+  assert.equal(placeToolbar({ box: { x: 0, y: 200, w: 600, h: 100 }, bar: wide, view, avoid }).inside, false, "only the inside placement moves");
+});
