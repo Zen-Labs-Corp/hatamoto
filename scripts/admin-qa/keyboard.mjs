@@ -625,11 +625,11 @@ await check("builder slider: one drag is one undo step, even with a pause in the
     await p.waitForTimeout(1500); // longer than the old 1 s merge window
     for (let i = 11; i <= 20; i++) await p.mouse.move(box.x + 6 + ((box.width - 12) * i) / 20, y);
     await p.mouse.up(); await settle(300);
-    const set = await p.getByLabel("Width", { exact: true }).inputValue();
+    const set = await p.getByLabel("W width", { exact: true }).inputValue();
     if (!set || set === "0") throw new Error("the drag set nothing: " + set);
     await p.evaluate(() => document.activeElement?.blur?.());
     await press("Control+z"); await settle(300);
-    const after = await p.getByLabel("Width", { exact: true }).inputValue();
+    const after = await p.getByLabel("W width", { exact: true }).inputValue();
     if (after !== "") throw new Error(`one undo left Width at ${after} (drag set ${set})`);
     return `drag set ${set}; one undo cleared it`;
   } finally { await styleOff(start); }
@@ -637,6 +637,7 @@ await check("builder slider: one drag is one undo step, even with a pause in the
 await check("builder box model: tab order is margin then padding (one nested box model), top right bottom left; Link writes all four sides in one undo step", async () => {
   const start = await styleOn();
   try {
+    await openStyleGroup("Spacing"); // a heading starts with Spacing closed: its fields are not focusable until it opens
     const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Spacing box model: padding sits inside margin, and the margin sides come first in the DOM
     await p.locator(".hm-bs-bm__m > .hm-bs-bm__n--top").focus();
     const seen = ["Margin top"];
