@@ -3,6 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 
 const src = readFileSync(new URL("../../../backend/web/admin/js/builder/screen.js", import.meta.url), "utf8");
 
@@ -36,4 +37,13 @@ test("Add after lives in the More menu: dispatch opens the picker at the selecti
   const i = src.indexOf('case "addafter"');
   assert.ok(i > 0, "no addafter case in dispatch");
   assert.match(src.slice(i, i + 400), /locate\(st\.doc, moveSubject\(st\.doc, selected\)\)[\s\S]*addAt\(\{ parent: l\.parentId, index: l\.index \+ 1 \}/);
+});
+
+test("builder-inline-blur.mjs (it saves and publishes) refuses a non-loopback BASE unless opted in", () => {
+  const script = new URL("../builder-inline-blur.mjs", import.meta.url);
+  const run = (env) => spawnSync(process.execPath, [script.pathname], { env: { ...process.env, BASE: "https://qa.example.invalid", ...env }, encoding: "utf8", timeout: 20000 });
+  const r = run({ QA_ALLOW_REMOTE_SAVE: "" });
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /refusing to run against https:\/\/qa\.example\.invalid/);
+  assert.doesNotMatch(readFileSync(script, "utf8"), /ws1/);
 });

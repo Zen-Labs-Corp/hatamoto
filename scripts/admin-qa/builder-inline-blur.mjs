@@ -1,17 +1,24 @@
 // A5: does an in-canvas double-click text edit revert when the host takes focus (a click on the host page)?
-// ws1 saw it under CDP (Input.insertText): the text went back ~4 ms after a blur and no undo entry was made.
+// An earlier investigation saw it under CDP (Input.insertText): the text went back ~4 ms after a blur and no undo entry was made.
 // This drives the edit three ways (page.keyboard.type = real key events, a CDP Input.dispatchKeyEvent text key,
 // and CDP Input.insertText), on a heading in a container section and one in a plain div, clicks the host page
 // (not the frame) and asserts: text kept, status not "Saved", exactly one undo entry (undo restores, redo re-applies).
 // RESULT (local admin-qa, Chromium): the in-place revert on blur does NOT reproduce. A heading in a <section> container and in a
 // <div> container keeps its text after a host click with all three input methods (page.keyboard.type: 3 `text` posts for 3 keys;
 // dispatchKeyEvent: 3; Input.insertText: 1 post), the status says "Unsaved changes", exactly one undo entry exists, undo restores
-// and redo re-applies. What ws1 saw is a THEME section (a component): its headline is a v1 data-hm-field that is never edited in
+// and redo re-applies. What was seen there is a THEME section (a component): its headline is a v1 data-hm-field that is never edited in
 // place; the first keystroke puts the canvas back to the stored text (the "revert", no undo entry, no dirty state) and moves the
 // focus to the inspector field. Real bug found there and fixed in screen.js toField: it dispatched "inspect", which focused the
 // inspector's first editor (the Body), so the keys typed before focusField reached the headline were written into the Body.
 // node scripts/admin-qa/builder-inline-blur.mjs   (needs QA_PAGE_NAME, default "About"; leaves the page as found)
+// It SAVES: two QA sections are pasted into the page and Update publishes them (a published page goes live until the teardown).
+// So it refuses any BASE that is not loopback unless QA_ALLOW_REMOTE_SAVE=1.
 import { launch, newSession, base } from "./lib.mjs";
+
+if (!["127.0.0.1", "localhost", "[::1]"].includes(new URL(base).hostname) && process.env.QA_ALLOW_REMOTE_SAVE !== "1") {
+  console.error(`refusing to run against ${base}: this script saves and publishes. Use a local install, or set QA_ALLOW_REMOTE_SAVE=1 to accept that.`);
+  process.exit(2);
+}
 
 const NAME = process.env.QA_PAGE_NAME || "About";
 const b = await launch("chromium");
@@ -174,7 +181,7 @@ const METHODS = {
       await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: ch });
     }
   },
-  "CDP Input.insertText (ws1)": (s) => cdp.send("Input.insertText", { text: s }),
+  "CDP Input.insertText": (s) => cdp.send("Input.insertText", { text: s }),
 };
 const TYPED = " QA";
 
