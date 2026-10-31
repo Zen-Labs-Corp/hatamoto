@@ -382,6 +382,8 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		Page:    ui.Pagination{Page: res.Page, PerPage: entitiesPerPage, Total: res.Total, BaseURL: a.adminPath + "/entities", Query: p.query()},
 		Empty:   ui.Empty{Icon: "file-text", Title: "No entities match", Body: "Try other filters, or create the first one.", Actions: []ui.Button{{Label: "Create entity", Variant: "primary", Href: a.adminPath + "/entities/new"}}},
 	}
+	t.Bulk = append(t.Bulk[:3:3], append(a.bulkCopyActions(r), t.Bulk[3:]...)...)
+
 	for _, e := range res.Items {
 		sc := byID[e.SchemaID]
 		typeName := "Unknown"
@@ -645,6 +647,10 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 			Title: fmt.Sprintf("Delete %d %s?", len(ids), noun), Message: "They and their version history will be deleted. This cannot be undone.",
 			Post: a.adminPath + "/entities/bulk", Label: "Delete", Back: back, Danger: true, Hidden: hidden,
 		})
+		return
+	}
+	if strings.HasPrefix(action, bulkCopyPrefix) {
+		a.bulkCopy(w, r, action, ids, back)
 		return
 	}
 	st, isStatus := statuses[action]
