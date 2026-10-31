@@ -147,6 +147,27 @@ if grep -q '^useradd' "$tmp/calls"; then fail "rerun created the user again"; fi
 grep -q 'already installed' "$tmp/out" || fail "rerun did not keep the binary"
 pass "rerun changes nothing"
 
+# --- an existing binary below the picked version (the floor) is replaced, others are kept
+setbin() { # setbin ROOT VERSION-TEXT
+  mkdir -p "$1/opt/hatamoto/bin"
+  printf '#!/bin/sh\necho "%s"\n' "$2" > "$1/opt/hatamoto/bin/hatamoto"
+  chmod 0755 "$1/opt/hatamoto/bin/hatamoto"
+}
+ob="$(mkroot oldbin ubuntu 24.04 noble)"
+setbin "$ob" "hatamoto v0.28.0 (commit abc, sdk 0.9.0)"
+run_build "$ob" >"$tmp/out" 2>&1 || fail "old binary build failed: $(cat "$tmp/out")"
+[ "$(cat "$ob/opt/hatamoto/bin/hatamoto")" = "fake binary" ] || fail "binary below the floor was kept"
+grep -q 'v0.28.0 is older than v1.2.3, replacing it' "$tmp/out" || fail "no replace message: $(cat "$tmp/out")"
+for keep in "hatamoto v1.2.3 (commit abc)" "hatamoto v2.0.0 (commit abc)" "hatamoto dev (commit abc, sdk 0.14.0)"; do
+  kb="$(mkroot keepbin ubuntu 24.04 noble)"
+  setbin "$kb" "$keep"
+  run_build "$kb" >"$tmp/out" 2>&1 || fail "keep build failed: $(cat "$tmp/out")"
+  grep -q 'already installed' "$tmp/out" || fail "binary '$keep' not kept: $(cat "$tmp/out")"
+  grep -q 'echo' "$kb/opt/hatamoto/bin/hatamoto" || fail "binary '$keep' replaced"
+  rm -rf "$kb"
+done
+pass "a binary below the picked version is replaced, a current or unreadable one is kept"
+
 # --- Debian 12
 de="$(mkroot debian debian 12 bookworm)"
 : > "$tmp/calls"
