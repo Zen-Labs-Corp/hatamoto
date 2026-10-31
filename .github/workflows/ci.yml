@@ -9,14 +9,26 @@ permissions:
   contents: read
 
 jobs:
-  backend:
+  # The Go integration suite on PostgreSQL 16 and 18 (the installer installs 18 by default).
+  # The required check is the aggregate job `backend` below, so its name does not depend on
+  # the matrix legs.
+  backend-matrix:
+    name: backend-matrix (PostgreSQL ${{ matrix.pg }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pg: "16"
+            image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+          - pg: "18"
+            image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # 18
     defaults:
       run:
         working-directory: backend
     services:
       postgres:
-        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        image: ${{ matrix.image }}
         env:
           POSTGRES_USER: hatamoto
           POSTGRES_PASSWORD: hatamoto
@@ -185,6 +197,18 @@ jobs:
       - name: Previous release on this schema
         run: bash scripts/n-1.sh
 
+  # The stable required check for the matrix above: green only when every leg is.
+  # `if: always()` makes it report (and fail) instead of being skipped when a leg fails.
+  backend:
+    needs: backend-matrix
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every PostgreSQL leg passed
+        env:
+          RESULT: ${{ needs.backend-matrix.result }}
+        run: test "$RESULT" = success
+
   # Go supports the two newest majors. The SDK is a public module, so it is
   # tested on both. The 1.26 leg only runs while backend/pkg/sdk/go.mod declares
   # go <= 1.26 (a newer go line would make a 1.26 toolchain try to download 1.27).
@@ -266,6 +290,9 @@ jobs:
         run: bash scripts/check-neutral.sh
       - name: Installer shellcheck
         run: HATAMOTO_REQUIRE_SHELLCHECK=1 bash deploy/install/test-shellcheck.sh
+      # MIN_CORE_VERSION must be a listed, non-yanked, non-halted stable release.
+      - name: Installer floor is a live release
+        run: bash deploy/install/test-floor.sh
       - name: Public snapshot
         run: bash scripts/test-public-snapshot.sh
       - name: LICENSE copies are identical
@@ -291,14 +318,16 @@ jobs:
       - name: zizmor
         run: pipx run zizmor==1.31.1 --offline --format plain .github/workflows/*.yml
 
-  # The installer end to end in a systemd container, once per supported distro.
+  # The installer end to end in a systemd container, once per supported distro: against
+  # a local mirror (ubuntu2404, debian12), and the floor-* legs against the real released
+  # floor binary with the production keys.
   installer-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        distro: [ubuntu2404, debian12]
+        distro: [ubuntu2404, debian12, floor-ubuntu2404, floor-debian12]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
