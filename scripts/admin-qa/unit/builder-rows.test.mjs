@@ -484,13 +484,13 @@ test("a style write carries a human history label: the control name and the widt
   assert.equal(tablet.calls[0].opts.label, "Change Padding bottom (Tablet)");
 });
 
-test("the real table: a text block shows the six Figma groups, a divider has Typography too, Fill and Corners start closed; Font size scrubs from its label", () => {
+test("the real table: a text block shows the six Figma groups with Typography first and open, a divider has Typography too, Fill and Corners start closed; Font size scrubs from its label", () => {
   const names = (m) => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t").map((b) => b.kids[0].textContent);
   const text = mount({ id: "t", t: "text", s: {} }, { table: full });
-  assert.deepEqual(names(text), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]);
-  assert.ok(names(mount({ id: "d", t: "divider", s: {} }, { table: full })).includes("Typography"));
+  assert.deepEqual(names(text), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"]);
+  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })).slice(0, 4), ["Layout", "Spacing", "Fill", "Typography"], "other kinds keep the order");
   const head = (name) => text.find((n) => n.className === "hm-bs-grp__t" && n.kids[0].textContent === name)[0];
-  assert.deepEqual(["Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["false", "false", "false"]);
+  assert.deepEqual(["Typography", "Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["true", "false", "false", "false"]);
   const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
   assert.equal(label.kids.map((k) => k.textContent).join(""), "Sz font size");
 });

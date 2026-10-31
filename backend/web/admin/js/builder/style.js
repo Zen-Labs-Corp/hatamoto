@@ -205,7 +205,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   const groups = []; // [{entries, dot}] of the group headers
   const boxModels = []; // the Spacing group's box model
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
-  for (const g of figmaGroups(groupsFor(table, cur, parent, state))) {
+  for (const g of figmaGroups(groupsFor(table, cur, parent, state), cur)) {
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
     const vh = h("span", { class: "hm-visually-hidden", hidden: true, text: "A value is set here" });
     const gid = `hm-bs-g${++uid}`;

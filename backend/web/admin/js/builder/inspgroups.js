@@ -14,14 +14,20 @@ const FIGMA = [
   { name: "Effects", from: ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"] },
 ];
 
+/** The kinds whose content is text: their Typography group comes first and starts open. */
+const TEXT_KINDS = new Set(["heading", "text", "button"]);
+export const isTextKind = (node) => TEXT_KINDS.has(node?.t);
+
 /**
  * Regroups groupsFor's output ([{name, entries}]): [{name, entries, sub}] with every entry exactly once.
  * `entries` is the whole group (for the set-here dot); `sub` is [{name, entries}] per style group it took, in order: the UI
  * draws a sub-heading for a sub whose name differs from the group's. Empty groups are dropped.
+ * For a text kind (node) Typography is the first group; every other kind keeps the order above.
  */
-export function figmaGroups(groups) {
+export function figmaGroups(groups, node = null) {
   const by = new Map(groups.map((g) => [g.name, g]));
-  return FIGMA.map((f) => {
+  const order = isTextKind(node) ? [...FIGMA.filter((f) => f.name === "Typography"), ...FIGMA.filter((f) => f.name !== "Typography")] : FIGMA;
+  return order.map((f) => {
     const sub = f.from.map((n) => by.get(n)).filter(Boolean).map((g) => ({ name: g.name, entries: g.entries }));
     return { name: f.name, entries: sub.flatMap((s) => s.entries), sub };
   }).filter((g) => g.entries.length);
@@ -30,8 +36,8 @@ export function figmaGroups(groups) {
 /** Whether any entry of a group has a value set here (breakpoint + state). own(key) -> value | null. */
 export const groupHasValue = (entries, own) => groupDot(entries, own);
 
-/** A group starts open when it has a value set here; Layout and Spacing also start open on a container (a section). */
-export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing"));
+/** A group starts open when it has a value set here; Layout and Spacing also start open on a container (a section), Typography on a text kind. */
+export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing")) || (name === "Typography" && isTextKind(node));
 
 /** Short field labels for the scrub handles; the full name stays the accessible name. */
 export const SHORT = { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS" };

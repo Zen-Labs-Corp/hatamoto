@@ -56,12 +56,26 @@ test("a group without entries is dropped (a state view lists few keys)", () => {
   assert.deepEqual(gs.map((g) => g.name), ["Fill"]);
 });
 
-test("Typography is offered for every kind, closed when nothing is set, so no style key is lost", () => {
+test("Typography is offered for every kind, closed when nothing is set unless the kind is text, so no style key is lost", () => {
   for (const t of ["heading", "button", "text", "divider", "spacer", "image", "container", "columns", "some-plugin-block"]) {
     const gs = figmaGroups(old, { t });
     assert.deepEqual(gs.find((g) => g.name === "Typography")?.entries.map((e) => e.key), ["ff", "fs", "fw", "lh", "ls", "ta", "color"], t);
-    assert.equal(initialOpen("Typography", groupHasValue(gs.find((g) => g.name === "Typography").entries, () => null), { t }), false, t + " starts closed");
+    assert.equal(initialOpen("Typography", groupHasValue(gs.find((g) => g.name === "Typography").entries, () => null), { t }), ["heading", "button", "text"].includes(t), t + " starts " + (["heading", "button", "text"].includes(t) ? "open" : "closed"));
   }
+});
+
+test("a text kind lists Typography first and opens it; other kinds keep the order and Typography closed", () => {
+  for (const t of ["heading", "text", "button"]) {
+    const gs = figmaGroups(old, { t });
+    assert.deepEqual(gs.map((g) => g.name), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"], t);
+    assert.equal(initialOpen("Typography", false, { t }), true, t);
+    assert.equal(initialOpen("Layout", false, { t }), false, "only Typography opens by default");
+  }
+  for (const t of ["container", "image", "divider"]) {
+    assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"], t);
+    assert.equal(initialOpen("Typography", false, { t }), false, t);
+  }
+  assert.equal(keysOf(figmaGroups(old, { t: "heading" })).length, keysOf(figmaGroups(old)).length, "reordering loses no key");
 });
 
 test("open state: a value set here opens a group, none starts it closed, a section opens Layout and Spacing", () => {
