@@ -45,3 +45,14 @@ func TestTokenInputHasFocusRing(t *testing.T) {
 		t.Error("the token input has no focus ring")
 	}
 }
+
+// A search-select inside a dialog lists its results in the flow: the scrolling
+// dialog body would otherwise clip the floating list to about one row.
+func TestSearchSelectInDialogIsNotClipped(t *testing.T) {
+	t.Parallel()
+
+	css := adminAsset(t, "css", "partials", "searchselect.css")
+	if want := ".hm-dialog__body .hm-searchselect__list { position: static; }"; !strings.Contains(css, want) {
+		t.Errorf("searchselect.css lacks %q", want)
+	}
+}

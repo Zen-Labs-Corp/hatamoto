@@ -12,3 +12,5 @@
 .hm-searchselect__option[aria-selected="true"], .hm-searchselect__option:hover { background: var(--surface-hover); color: var(--color-sumi); }
 .hm-searchselect__hint { color: var(--text-muted); font-size: var(--text-xs); }
 .hm-searchselect__none { padding: var(--space-2) var(--space-3); color: var(--text-muted); }
+/* Inside a dialog the body scrolls and would clip a floating list to its own height: show the list in the flow instead. */
+.hm-dialog__body .hm-searchselect__list { position: static; }

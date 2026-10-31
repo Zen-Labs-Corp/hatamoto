@@ -1,0 +1,19 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/searchselect{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+{{if .Empty}}{{template "hm/empty" .EmptyState}}
+{{else}}<section class="hm-stack">
+<p class="hm-muted">{{.Intro}}</p>
+<h2 class="hm-card__title">Languages</h2>
+{{template "hm/table" .Copies}}
+<h2 class="hm-card__title">Fields by language</h2>
+{{template "hm/table" .Grid}}
+<h2 class="hm-card__title">Search engines see</h2>
+{{template "hm/table" .Hreflang}}
+</section>
+{{with .Link}}{{template "hm/dialog-start" dict "ID" "link-copy" "Title" "Link an existing page" "Static" true "Description" "Pick a page of the same type in a language this page does not have yet."}}
+<form id="link-copy-form" method="post" action="{{.Action}}">{{template "hm/csrf" $}}{{template "hm/searchselect" dict "ID" "link-copy-page" "Name" "page" "Label" "Page" "Src" .Src "Required" true}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Link page" "PrimaryAttrs" (attrmap "form" "link-copy-form")}}{{end}}
+{{end}}
+{{end}}{{end}}

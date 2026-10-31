@@ -36,6 +36,9 @@ GET /admin/entities/{id}/builder/seo -> admin.(*Admin).handleBuilderSEO-fm
 GET /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDeleteConfirm-fm
 GET /admin/entities/{id}/edit -> admin.(*Admin).handleEntityEditor-fm
 GET /admin/entities/{id}/edit/preview/{token} -> admin.(*Admin).handlePreviewFrame-fm
+GET /admin/entities/{id}/translations -> admin.(*Admin).handleTranslations-fm
+GET /admin/entities/{id}/translations/candidates -> admin.(*Admin).handleTranslationCandidates-fm
+GET /admin/entities/{id}/translations/unlink -> admin.(*Admin).handleTranslationUnlinkConfirm-fm
 GET /admin/entities/{id}/versions -> admin.(*Admin).handleVersions-fm
 GET /admin/entities/{id}/versions/compare -> admin.(*Admin).handleVersionCompare-fm
 GET /admin/entities/{id}/versions/{version} -> admin.(*Admin).handleVersionView-fm
@@ -215,6 +218,9 @@ POST /admin/entities/{id}/edit/recovery -> admin.(*Admin).handleBlogRecoveryPut-
 POST /admin/entities/{id}/edit/recovery/discard -> admin.(*Admin).handleBlogRecoveryDiscard-fm
 POST /admin/entities/{id}/edit/render -> admin.(*Admin).handlePageRender-fm
 POST /admin/entities/{id}/status -> admin.(*Admin).handleEntityStatus-fm
+POST /admin/entities/{id}/translations/link -> admin.(*Admin).handleTranslationLink-fm
+POST /admin/entities/{id}/translations/original -> admin.(*Admin).handleTranslationOriginal-fm
+POST /admin/entities/{id}/translations/unlink -> admin.(*Admin).handleTranslationUnlink-fm
 POST /admin/entities/{id}/versions/{version}/nodes/{node}/restore -> admin.(*Admin).handleVersionRestoreNode-fm
 POST /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVersionRestore-fm
 POST /admin/forgot -> admin.(*Admin).handleForgot-fm
