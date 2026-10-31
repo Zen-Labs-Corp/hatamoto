@@ -143,7 +143,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
       const sides = linked.on ? pad.keys : [pad.keys[0], pad.keys[2]];
       for (const { b, value } of presets) b.setAttribute("aria-pressed", String(sides.every((k) => own(k) === value)));
     });
-    tools.push(h("div", { class: "hm-bs-bm__presets", role: "group", "aria-label": "Padding presets" }, ...presets.map((p) => p.b)));
+    tools.push(h("div", { class: "hm-bs-bm__presets", role: "group", "aria-label": "Padding sizes" }, ...presets.map((p) => p.b)));
   }
   if (rings.length) {
     const link = actButton("", { class: "hm-bs-linkbtn", "aria-label": "Link all sides", "aria-pressed": String(linked.on), title: "Link all sides" });
