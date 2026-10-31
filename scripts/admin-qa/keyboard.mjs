@@ -266,7 +266,7 @@ const pick = async (id) => { await p.locator(`${TREE}[data-id="${id}"]`).click()
 const addHeadings = async (n) => {
   const start = (await rows()).length;
   await pick((await rows())[0].id);
-  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("heading"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
+  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("divider"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
   return start;
 };
 const undoWidgets = async (start) => {
@@ -367,7 +367,7 @@ await check("builder palette: / opens search, filter narrows, ArrowDown enters t
   if ((await rows()).length !== start + 1) throw new Error("Enter inserted nothing");
   if (!(await focusedRow())) throw new Error("focus did not return to the tree after the insert");
   await press("a");
-  await p.keyboard.type("heading"); await settle();
+  await p.keyboard.type("divider"); await settle();
   await press("ArrowDown"); await press("Enter");
   if ((await rows()).length !== start + 2) throw new Error("Enter on a list item inserted nothing");
   await press("Control+z", 2);
@@ -530,13 +530,13 @@ await check("builder history: Ctrl+H opens the panel with the current step focus
 });
 
 // ---- builder Style tab controls (E3): colour popover, number + unit + slider, box model ----
-// Each check adds a heading widget, edits it and undoes everything, so the page is left as it was.
+// Each check adds a divider widget, edits it and undoes everything, so the page is left as it was.
 const styleOn = async () => {
   await openBuilder();
   const start = (await rows()).length;
   await pick((await rows())[0].id);
   await press("/");
-  await p.keyboard.type("heading"); await settle();
+  await p.keyboard.type("divider"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
   return start;
@@ -637,7 +637,7 @@ await check("builder slider: one drag is one undo step, even with a pause in the
 await check("builder box model: tab order is margin then padding (one nested box model), top right bottom left; Link writes all four sides in one undo step", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Spacing"); // a heading starts with Spacing closed: its fields are not focusable until it opens
+    await openStyleGroup("Spacing"); // a divider starts with Spacing closed: its fields are not focusable until it opens
     const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Spacing box model: padding sits inside margin, and the margin sides come first in the DOM
     await p.locator(".hm-bs-bm__m > .hm-bs-bm__n--top").focus();
     const seen = ["Margin top"];

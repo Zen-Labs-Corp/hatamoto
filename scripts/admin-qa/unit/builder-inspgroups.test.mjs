@@ -14,7 +14,7 @@ register(
     }`),
 );
 
-const { figmaGroups, textual, groupHasValue, initialOpen, SHORT, canScrub } = await import(new URL("builder/inspgroups.js", root));
+const { figmaGroups, groupHasValue, initialOpen, SHORT, canScrub } = await import(new URL("builder/inspgroups.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 const by = (keys) => keys.map((k) => table.find((e) => e.key === k)).filter(Boolean);
 
@@ -37,7 +37,7 @@ const old = [
 const keysOf = (gs) => gs.flatMap((g) => g.entries.map((e) => e.key));
 
 test("the six Figma groups in order, every key exactly once", () => {
-  const gs = figmaGroups(old, { t: "heading" });
+  const gs = figmaGroups(old);
   assert.deepEqual(gs.map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]);
   const want = old.flatMap((g) => g.entries.map((e) => e.key)).sort();
   assert.deepEqual(keysOf(gs).sort(), want);
@@ -45,25 +45,23 @@ test("the six Figma groups in order, every key exactly once", () => {
 });
 
 test("Layout takes Layout, In its parent and Size; Effects takes the sub-blocks", () => {
-  const gs = figmaGroups(old, { t: "heading" });
+  const gs = figmaGroups(old);
   assert.deepEqual(gs[0].sub.map((s) => s.name), ["Layout", "In its parent", "Size"]);
   assert.deepEqual(gs[5].sub.map((s) => s.name), ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"]);
   assert.equal(gs[1].sub.length, 1);
 });
 
 test("a group without entries is dropped (a state view lists few keys)", () => {
-  const gs = figmaGroups(old.filter((g) => g.name === "Background"), { t: "heading" });
+  const gs = figmaGroups(old.filter((g) => g.name === "Background"));
   assert.deepEqual(gs.map((g) => g.name), ["Fill"]);
 });
 
-test("Typography: shown for text kinds, hidden for divider, spacer and image, shown on a container only once a typography key is set", () => {
-  const has = (node) => figmaGroups(old, node).some((g) => g.name === "Typography");
-  for (const t of ["heading", "button", "text", "richtext"]) assert.equal(has({ t }), true, t);
-  for (const t of ["divider", "spacer", "image", "container"]) assert.equal(has({ t }), false, t);
-  assert.equal(has({ t: "container", s: { md: { fs: "20px" } } }), true);
-  assert.equal(has({ t: "container", s: { base: { pt: "8px" } } }), false, "a non-typography key does not count");
-  assert.equal(textual({ t: "image", s: { "base:hover": { color: "accent" } } }), true);
-  assert.equal(textual(null), false);
+test("Typography is offered for every kind, closed when nothing is set, so no style key is lost", () => {
+  for (const t of ["heading", "button", "text", "divider", "spacer", "image", "container", "columns", "some-plugin-block"]) {
+    const gs = figmaGroups(old, { t });
+    assert.deepEqual(gs.find((g) => g.name === "Typography")?.entries.map((e) => e.key), ["ff", "fs", "fw", "lh", "ls", "ta", "color"], t);
+    assert.equal(initialOpen("Typography", groupHasValue(gs.find((g) => g.name === "Typography").entries, () => null), { t }), false, t + " starts closed");
+  }
 });
 
 test("open state: a value set here opens a group, none starts it closed, a section opens Layout and Spacing", () => {

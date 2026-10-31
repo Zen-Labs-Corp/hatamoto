@@ -9,33 +9,19 @@ const FIGMA = [
   { name: "Layout", from: ["Layout", "In its parent", "Size"] },
   { name: "Spacing", from: ["Spacing"] },
   { name: "Fill", from: ["Background"] },
-  { name: "Typography", from: ["Typography"], when: (node) => textual(node) },
+  { name: "Typography", from: ["Typography"] },
   { name: "Corners & border", from: ["Border"] },
   { name: "Effects", from: ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"] },
 ];
-
-/** The keys of the Typography group. */
-const TYPE_KEYS = ["ff", "fs", "fw", "lh", "ls", "ta", "tt", "td", "fst", "color"];
-
-/** Kinds that show text: Typography is theirs from the start. */
-export const TEXT_KINDS = new Set(["heading", "text", "button", "buttons", "richtext", "menu", "breadcrumbs", "stat", "accordion", "tabs", "tabpanel", "form", "html", "icon"]);
-
-/**
- * Whether the Typography group applies to node: a text kind always; any other kind (a container, an image, a divider, a
- * plugin kind) only once it already carries a typography key at some breakpoint or state, so a container whose text
- * is set for its children stays editable.
- */
-export const textual = (node) => TEXT_KINDS.has(node?.t) || Object.values(node?.s ?? {}).some((s) => TYPE_KEYS.some((k) => s?.[k] !== undefined && s[k] !== null));
 
 /**
  * Regroups groupsFor's output ([{name, entries}]) for node: [{name, entries, sub}] with every entry exactly once.
  * `entries` is the whole group (for the set-here dot); `sub` is [{name, entries}] per style group it took, in order: the UI
  * draws a sub-heading for a sub whose name differs from the group's. Empty groups are dropped.
  */
-export function figmaGroups(groups, node = null) {
+export function figmaGroups(groups) {
   const by = new Map(groups.map((g) => [g.name, g]));
-  return FIGMA.filter((f) => !f.when || f.when(node))
-    .map((f) => {
+  return FIGMA.map((f) => {
       const sub = f.from.map((n) => by.get(n)).filter(Boolean).map((g) => ({ name: g.name, entries: g.entries }));
       return { name: f.name, entries: sub.flatMap((s) => s.entries), sub };
     })

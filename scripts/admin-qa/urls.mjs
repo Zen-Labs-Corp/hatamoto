@@ -48,7 +48,8 @@ export const screens = [
     { name: "inspector-style", click: '[role="tab"][data-tab="style"]' },
     { name: "effects-group", click: "section.hm-bs-grp:last-of-type button.hm-bs-grp__t" }, // the last Style group (Effects) opens
     { name: "box-model", click: ".hm-bs-bm__m > .hm-bs-bm__t" }, // the Spacing group's margin and padding rings
-    { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover (Typography opens with a text colour set)
+    { name: "typography-group", click: 'button.hm-bs-grp__t:has-text("Typography")' }, // opens Typography (closed until a type key is set); the group stays open for the next state
+    { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover
     { name: "palette-open", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" },
     { name: "shortcuts-open", click: "[data-hm-bs-keys]" },
     { name: "navigator-tab", click: '[data-hm-bs-ltab="nav"]' }, // "/" above left the Add tab open and the tree hidden
