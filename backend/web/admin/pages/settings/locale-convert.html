@@ -1,0 +1,41 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+<form method="post" action="{{.ReportURL}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Dry run</button>
+{{template "hm/card-start" dict "ID" "convert-plan" "Title" "Step 1: Plan" "Description" "Turn the region pages of your site into locales. Suggest reads your pages and writes a plan you can edit, then the dry run shows what would change. Nothing is saved until step 3."}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Warnings}}{{template "hm/callout-start" dict "Kind" "warning" "Title" "Check these"}}<ul>{{range .Warnings}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
+{{end}}{{if .Issues}}{{template "hm/callout-start" dict "Kind" "danger" "Title" "This cannot be applied yet"}}<ul>{{range .Issues}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
+{{end}}{{template "hm/field" dict "ID" "plan" "Name" "plan" "Label" "Plan (JSON)" "Control" "textarea" "Rows" 14 "Value" .Plan "Error" .PlanError "Help" "Up to 1 MiB. Leave it empty and press Suggest to start from your pages." "Attrs" (attrmap "spellcheck" "false" "autocomplete" "off" "autocapitalize" "none")}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Suggest" "Type" "submit" "Attrs" (attrmap "formaction" .SuggestURL "formnovalidate" "")}}
+{{template "hm/button" dict "Label" "Dry run" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+
+{{with .Report}}<section class="hm-stack" id="convert-report">
+{{template "hm/card-start" dict "ID" "convert-report-card" "Title" "Step 2: Report" "Description" "What the conversion would do to your site."}}
+<p>{{if .OK}}{{template "hm/badge" dict "Label" "OK to apply" "Kind" "success"}}{{else}}{{template "hm/badge" dict "Label" "Not OK to apply" "Kind" "danger"}}{{end}}</p>
+{{.Locales}}
+{{.Checks}}
+{{template "hm/card-end"}}
+</section>
+{{if .ApplyHref}}<section class="hm-stack">
+{{template "hm/card-start" dict "ID" "convert-apply" "Title" "Step 3: Apply" "Description" "You confirm with your password and by typing a word. The conversion is recorded and can be reverted."}}
+{{template "hm/button" dict "Label" "Review and apply" "Variant" "primary" "Href" .ApplyHref}}
+{{template "hm/card-end"}}
+</section>
+{{end}}{{end}}
+<section class="hm-stack" id="convert-history">
+{{template "hm/card-start" dict "ID" "convert-history-card" "Title" "History" "Description" "Conversions applied to this site. A conversion can be reverted until something else changes the same pages."}}
+{{if .History}}<div class="hm-setlist">{{range .History}}<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">{{.Name}} {{template "hm/badge" .Status}}</p><p>{{.Detail}}</p></div>
+{{if .RevertHref}}<div class="hm-setrow__control">{{template "hm/button" dict "Label" "Revert" "Href" .RevertHref}}</div>{{end}}
+</div>{{end}}</div>
+{{else}}{{template "hm/empty" (dict "Title" "No conversions yet" "Body" "A conversion you apply shows up here, and can be reverted." "Compact" true)}}
+{{end}}{{template "hm/card-end"}}
+</section>
+{{end}}{{end}}

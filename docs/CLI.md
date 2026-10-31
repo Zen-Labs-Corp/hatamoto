@@ -23,6 +23,8 @@ hatamoto import wordpress (--url URL --user U --app-password P | --wxr FILE) [--
 
 hatamoto builder convert [--dry-run] [--verify-render] [--entity ID]
 
+hatamoto locales convert --suggest | --plan FILE [--apply] | --revert ID [--force] | --history  [--json | --text]
+
 hatamoto keys generate [--name N] [--dir D]
 hatamoto theme pack <dir> [--key F] [--out F]
 hatamoto theme pack (--archive F --sha256 H | --package F) [--registry] [--expect-name N] [--screenshot-out D] [--key F] [--out F]
@@ -85,6 +87,24 @@ hatamoto builder convert --entity <id>                 # one page
 - `serve` logs `pages without page_doc` once at boot with the number of pages still to convert (a read-only count).
 - Output: one row per page (`id`, `slug`, result), then `pages: N convertible: N render-identical: N diffs: N skipped (already v2): N`.
 - Verification uses the built-in theme; the CLI does not load the active theme package. Like the other CLI writes it does not fire plugin events or run plugin `before_save`; a running server clears its page cache within seconds after the change.
+
+## locales convert
+
+`hatamoto locales convert` turns region page trees into core locales. Full guide, plan format and checklist: [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md).
+
+```
+hatamoto locales convert --suggest                     # print a plan from the data; writes nothing
+hatamoto locales convert --plan plan.json              # dry run: print the report; writes nothing
+hatamoto locales convert --plan plan.json --apply      # apply (re-analyses under the lock)
+hatamoto locales convert --history                     # list conversions
+hatamoto locales convert --revert 1 [--force]          # undo conversion 1
+```
+
+- Give exactly one of `--suggest`, `--plan`, `--revert`, `--history`. `--apply` needs `--plan`; `--force` needs `--revert`. `--json` (default) prints JSON, `--text` a readable summary; they exclude each other.
+- `--suggest` prints the plan on stdout and warnings on stderr.
+- Exit codes: 0 ok (a dry run with no blocking errors, a finished apply or revert), 2 blocking errors (the report or the refusal list is printed), 1 usage, IO or any other failure.
+- Apply and revert lock writes for up to 5 seconds: editors' saves wait, public pages keep serving. A running server picks the change up within the content poll interval (3 seconds, 1 second in development); no restart is needed. Like the other CLI writes it fires no plugin events.
+- Run the migrations first; a database on an older layout reports `trigger_guard_missing`.
 
 ## Notes
 

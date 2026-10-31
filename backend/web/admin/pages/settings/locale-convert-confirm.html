@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{if .Issues}}{{template "hm/callout-start" dict "Kind" "danger" "Title" "This was refused"}}<ul>{{range .Issues}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
+{{end}}{{template "hm/danger-confirm" .Danger}}
+</section>
+{{end}}{{end}}

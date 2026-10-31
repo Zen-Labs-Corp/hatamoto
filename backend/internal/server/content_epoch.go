@@ -192,6 +192,32 @@ func (r *contentChangeReader) prune(ctx context.Context) {
 	}
 }
 
+// onContentEpochChange runs when another process (the CLI, a replica) wrote
+// content. A CLI apply cannot flush this process's site-config cache or URL
+// registry, so they are dropped here, before the pages: pages rendered after
+// the purge must see the new settings and URLs.
+func (s *Server) onContentEpochChange(ctx context.Context) {
+	var invalidateConfig, invalidateURLs func()
+	if s.siteConfig != nil {
+		invalidateConfig = s.siteConfig.Invalidate
+	}
+	if s.entityService != nil {
+		invalidateURLs = s.entityService.URLRegistry().Invalidate
+	}
+	contentEpochChange(ctx, invalidateConfig, invalidateURLs, s.invalidateRendered)
+}
+
+// contentEpochChange runs the three invalidations in order; a nil step is skipped.
+func contentEpochChange(ctx context.Context, config, urls func(), rendered func(context.Context)) {
+	if config != nil {
+		config()
+	}
+	if urls != nil {
+		urls()
+	}
+	rendered(ctx)
+}
+
 // runContentEpochPoller purges the rendered-page cache whenever another
 // process (or this one) writes content. It returns when ctx ends.
 func (s *Server) runContentEpochPoller(ctx context.Context) {
@@ -199,7 +225,7 @@ func (s *Server) runContentEpochPoller(ctx context.Context) {
 	every := s.contentEpochEvery()
 	p := &contentEpochPoller{
 		changed:  reader.Changed,
-		onChange: s.invalidateRendered,
+		onChange: s.onContentEpochChange,
 		every:    every,
 		gap:      5 * every,
 		logger:   s.logger,

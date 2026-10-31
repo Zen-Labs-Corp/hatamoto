@@ -25,6 +25,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
@@ -182,6 +183,13 @@ type Deps struct {
 	ValidateLocales func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xDefault string) ([]siteconfig.LocaleEntry, string, error)
 	// Invalidate clears the rendered-page cache after settings change.
 	Invalidate func(context.Context)
+	// LocaleConvert is the region-tree conversion behind Settings > General >
+	// Convert existing region pages; nil answers those pages with 503.
+	LocaleConvert localeconv.Service
+	// LocaleConvertCandidates is the cheap check behind the "region pages
+	// found" notice on General: it reports whether the site looks like a
+	// region tree. nil or an error shows no notice.
+	LocaleConvertCandidates func(context.Context) (bool, error)
 	// BuilderTokens reports whether the live theme opted in to the design
 	// tokens (theme.json builder.tokens); nil means no.
 	BuilderTokens func() bool
@@ -310,6 +318,9 @@ type Admin struct {
 	// secrets holds a freshly minted API key between the POST that created it
 	// and the one GET that shows it.
 	secrets secretStore
+	// convertReviews holds the plans whose dry run passed until the owner
+	// opens the confirm page (see settings_locale_convert.go).
+	convertReviews convertReviewStore
 	// addrMailed remembers which users were already emailed their admin
 	// address on the Done step, so a reload does not send it again.
 	addrMailed sync.Map

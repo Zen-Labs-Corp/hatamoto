@@ -87,6 +87,14 @@ func (s *URLSnapshot) Degraded() bool { return s.degraded }
 // set is safe) on a single-locale install.
 func (s *URLSnapshot) Locales() *LocaleSet { return s.locales }
 
+// WithLocaleSet returns a copy of the snapshot that routes with locales (nil =
+// single-locale). The schema routing is shared with the original.
+func (s *URLSnapshot) WithLocaleSet(locales *LocaleSet) *URLSnapshot {
+	c := *s
+	c.locales, c.degraded = locales, false
+	return &c
+}
+
 // WithLocale prefixes path with the locale segment of tag. The root path "/"
 // becomes the bare segment ("/fr"). It returns path unchanged when tag has no
 // prefix (single-locale install, default locale without prefix-all, shared).

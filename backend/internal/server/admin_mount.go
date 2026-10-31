@@ -8,11 +8,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -103,6 +105,8 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	d.Audit = s.adminAudit
 	if s.db != nil {
 		d.AuditLog = adminAuditLog{pool: s.db.Pool()}
+		d.LocaleConvert = localeconv.NewService(s.db.Pool(), s.logger)
+		d.LocaleConvertCandidates = regionTreeCandidates(s.db.Pool())
 	}
 	if s.siteConfig != nil && s.infra != nil && s.cfg != nil {
 		s.pageCache = s.newPageCacheService()
@@ -297,4 +301,24 @@ func (s *Server) setupURL() string {
 		}
 	}
 	return base + s.adminPathValue() + "/setup"
+}
+
+// regionTreeCandidates is the cheap check behind the "region pages found"
+// notice on Settings > General: at least two published top-level pages with
+// children, each carrying a top-level attribute whose value is its own slug
+// (the region attribute Suggest looks for). An ordinary nested site, where
+// /services and /about both have children, does not match. localeconv has no
+// exported equivalent; its Suggest does the real analysis when the owner opens
+// the conversion page.
+func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error) {
+	return func(ctx context.Context) (bool, error) {
+		var found bool
+		err := pool.QueryRow(ctx, `
+			SELECT count(*) >= 2 FROM hatamoto_entities p
+			JOIN hatamoto_entity_schemas s ON s.id = p.schema_id
+			WHERE s.slug = 'page' AND p.parent_id IS NULL AND p.variant_key IS NULL AND p.status = 'published'
+			  AND EXISTS (SELECT 1 FROM hatamoto_entities c WHERE c.parent_id = p.id)
+			  AND EXISTS (SELECT 1 FROM jsonb_each_text(p.attributes) a WHERE a.value = p.slug)`).Scan(&found)
+		return found, err
+	}
 }
