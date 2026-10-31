@@ -1042,7 +1042,7 @@ is stored.
   name ("Rich text", "Accordion item", "Tab panel", "Empty state").
 * **Lazy chunks.** Each of these stays out of first paint (`lazyOnly` in `builder_budget_test.go` enforces it, and that
   the total graph still reaches it): `canvas/fmtbar`, `canvas/chrome`, `canvas/points`, `builder/inspcontent`,
-  `builder/inspheader`, `builder/essentials`, `builder/showon`, `builder/columnsops`, `builder/items`,
+  `builder/inspheader`, `builder/showon`, `builder/columnsops`, `builder/items`,
   `builder/restoreops` and `builder/noderestore`, besides the shell chunks listed under Budgets.
 
 ### Code
@@ -1102,7 +1102,7 @@ history reason says what replaced it. Current baselines:
 
 | Metric | Baseline | Limit |
 |---|---|---|
-| `admin/editor_js_first_gzip` (builder first-paint JS: static closure of `admin` + the builder.html module tags + preloads, gzip -9 per file) | 91746 B | +1 KiB, cap 93351 B (the cap in `admin.json` is the enforced one: 89255 + 4 KiB, set by builder-ux-shell for the tabbed shell, status chip, device labels and phone dock; builder-ux-canvas-inspector moved the inspector bodies to lazy chunks and stayed under it). Lazy chunks, not counted here: Style tab and its controls (`style`, `controls`, `controlsui`, `boxmodel`, `presetsrc`), preset panel, reuse UI, shortcut sheet, component fields, element menu, clipboard ops, layout picker, history panel and `historylabel`, drag, banners, `fmtbar`, `canvas/chrome` and `canvas/points`, the inspector chunks (`inspcontent`, `inspheader`, `essentials`, `showon`, `columnsops`, `items`), element restore (`restoreops`, `noderestore`), the inspector text editor, the component field jump, `elementsettings`, and the UX shell chunks `addtab`, `search`, `recent`, `patterns`, `commandk`, `savedialog`, `startpanel`, `coachmarks`, `sitestyles` and `colournames` |
+| `admin/editor_js_first_gzip` (builder first-paint JS: static closure of `admin` + the builder.html module tags + preloads, gzip -9 per file) | 91746 B | +1 KiB, cap 93351 B (the cap in `admin.json` is the enforced one: 89255 + 4 KiB, set by builder-ux-shell for the tabbed shell, status chip, device labels and phone dock; builder-ux-canvas-inspector moved the inspector bodies to lazy chunks and stayed under it). Lazy chunks, not counted here: Style tab and its controls (`style`, `controls`, `controlsui`, `boxmodel`, `presetsrc`), preset panel, reuse UI, shortcut sheet, component fields, element menu, clipboard ops, layout picker, history panel and `historylabel`, drag, banners, `fmtbar`, `canvas/chrome` and `canvas/points`, the inspector chunks (`inspcontent`, `inspheader`, `showon`, `columnsops`, `items`), element restore (`restoreops`, `noderestore`), the inspector text editor, the component field jump, `elementsettings`, and the UX shell chunks `addtab`, `search`, `recent`, `patterns`, `commandk`, `savedialog`, `startpanel`, `coachmarks`, `sitestyles` and `colournames` |
 | `admin/editor_js_total_gzip` (first paint plus every dynamic `import()` target: section-form widgets, Tiptap kit, Style tab, the shell chunks above) | 238906 B | +1 KiB, cap 241978 B (current + 3 KiB; builder-ux-canvas-inspector raised it from 220 KiB to 240 KiB for the lazy inspector, canvas and restore chunks, forge 1B lowered it to what is used) |
 | `admin/canvas_host_gzip` | 7794 B | +512 B |
 | `admin/admin_css_gzip` (admin CSS bundle) | 45143 B | +1 KiB |

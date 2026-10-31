@@ -23,7 +23,7 @@ var shellCopyJS = []string{
 // inspectorCopyJS and canvasCopyJS are the inspector and canvas files of builder-ux-canvas-inspector, scanned the same way.
 // "block", "class" and "element" are the words the inspector uses; "preset" stays an internal word (the stored key).
 var inspectorCopyJS = []string{
-	"boxmodel", "bp", "columnsops", "controls", "controlsui", "ctxmenu", "design", "dom", "elementsettings", "essentials", "fields", "inlinefield", "inlinehtml",
+	"boxmodel", "bp", "columnsops", "controls", "controlsui", "ctxmenu", "design", "dom", "elementsettings", "fields", "inlinefield", "inlinehtml",
 	"inspcontent", "inspector", "inspheader", "items", "keymap", "noderestore", "picker", "presetpanel", "presetsrc", "restoreops", "showon", "style",
 }
 
