@@ -71,6 +71,19 @@ func SafeHTTPS(s string) string {
 	return u.String()
 }
 
+// ScreenshotURL resolves the index's relative screenshot path against the
+// registry URL and keeps it only when the result is a safe https URL.
+func ScreenshotURL(registryURL, rel string) string {
+	if rel == "" {
+		return ""
+	}
+	base, err := url.Parse(registryURL)
+	if err != nil {
+		return ""
+	}
+	return SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
+}
+
 // RenderPage renders the plugin entries of idx (sorted as in the index) as one
 // self-contained HTML page: inline style and script, no remote assets. The
 // index is expected to come from ParseIndex.
