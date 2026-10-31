@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/netip"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -171,5 +172,127 @@ func TestAttributionBackfill_ConcurrentNoDeadlock_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// A path with no page is remembered: a second run (a restart) does not resolve
+// it again.
+func TestAttributionBackfill_RemembersMisses_Integration(t *testing.T) {
+	ctx := context.Background()
+	db := attributionDB(t)
+	marker := "it-attm-" + uuid.NewString()[:8]
+	nopage := "/" + marker + "-listing"
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE agent_id = $1`, marker)
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_attribution_misses WHERE path = $1`, nopage)
+	})
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, hits) VALUES (current_date, $1, $2, 200, 1)`, marker, nopage); err != nil {
+		t.Fatal(err)
+	}
+	var calls int
+	resolve := func(_ context.Context, p string) (*uuid.UUID, int) {
+		if p == nopage {
+			calls++
+		}
+		return nil, 404
+	}
+	for run := 1; run <= 2; run++ {
+		if _, err := NewAttributionBackfill(db, resolve, 0).Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if calls != 1 {
+			t.Fatalf("run %d: resolver called %d times for the path, want 1 in total", run, calls)
+		}
+	}
+}
+
+// While another run holds the job (the start-up run beside the scheduled one,
+// or a replica), a run does nothing.
+func TestAttributionBackfill_SingleRun_Integration(t *testing.T) {
+	ctx := context.Background()
+	db := attributionDB(t)
+	holder, err := db.GetConn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Release()
+	var got bool
+	if err := holder.QueryRow(ctx, attributionLockSQL).Scan(&got); err != nil || !got {
+		t.Fatalf("take the job lock: %v %v", got, err)
+	}
+	called := false
+	resolve := func(context.Context, string) (*uuid.UUID, int) { called = true; return nil, 404 }
+	if n, err := NewAttributionBackfill(db, resolve, 0).Run(ctx); err != nil || n != 0 || called {
+		t.Errorf("overlapping run = %d (%v), resolver called %v; want an immediate no-op", n, err, called)
+	}
+	if _, err := holder.Exec(ctx, attributionUnlockSQL); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewAttributionBackfill(db, resolve, 0).Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// More paths than one update batch and more hits than one hit batch are all
+// attributed, and the listing and updates are served by the partial indexes
+// rather than table scans.
+func TestAttributionBackfill_BatchesAndIndexes_Integration(t *testing.T) {
+	ctx := context.Background()
+	db := attributionDB(t)
+	marker := "it-attb-" + uuid.NewString()[:8]
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_hits WHERE agent_id = $1`, marker)
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_agent_daily WHERE agent_id = $1`, marker)
+	})
+	const paths = attributionUpdatePaths*2 + 7
+	if _, err := db.Pool().Exec(ctx, `
+		INSERT INTO hatamoto_agent_daily (day, agent_id, path, status, hits)
+		SELECT current_date, $1, '/post/' || $1 || '-' || g, 200, 1 FROM generate_series(1, $2) g`, marker, paths); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Pool().Exec(ctx, `
+		INSERT INTO hatamoto_agent_hits (occurred_at, agent_id, path, status, source)
+		SELECT now(), $1, '/post/' || $1 || '-1', 200, 'backend' FROM generate_series(1, 11)`, marker); err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.New()
+	b := NewAttributionBackfill(db, func(context.Context, string) (*uuid.UUID, int) { return &id, 200 }, 0)
+	b.hitBatch = 3
+	if n, err := b.Run(ctx); err != nil || n != paths {
+		t.Fatalf("run = %d (%v), want %d daily rows", n, err, paths)
+	}
+	var left int
+	if err := db.Pool().QueryRow(ctx, `SELECT (SELECT count(*) FROM hatamoto_agent_daily WHERE agent_id = $1 AND entity_id IS NULL)
+		+ (SELECT count(*) FROM hatamoto_agent_hits WHERE agent_id = $1 AND entity_id IS NULL)`, marker).Scan(&left); err != nil || left != 0 {
+		t.Errorf("%d rows left unattributed (%v)", left, err)
+	}
+
+	// Index use: even with sequential scans disabled the plans must not need them.
+	conn, err := db.GetConn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SET enable_seqscan = off`); err != nil {
+		t.Fatal(err)
+	}
+	for name, q := range map[string]string{
+		"list": `SELECT path FROM hatamoto_agent_daily WHERE entity_id IS NULL AND status < 400 AND path = 'x'`,
+		"hits": `SELECT id FROM hatamoto_agent_hits WHERE entity_id IS NULL AND COALESCE(status, 0) < 400 AND occurred_at > now() - interval '1 day' AND path = 'x'`,
+	} {
+		rows, err := conn.Query(ctx, `EXPLAIN `+q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan := ""
+		for rows.Next() {
+			var l string
+			_ = rows.Scan(&l)
+			plan += l + "\n"
+		}
+		rows.Close()
+		if !strings.Contains(plan, "Index") || strings.Contains(plan, "Seq Scan") {
+			t.Errorf("%s: no index plan:\n%s", name, plan)
+		}
 	}
 }

@@ -23,6 +23,24 @@ CREATE TABLE IF NOT EXISTS public.hatamoto_agent_search_tracking (
 );
 INSERT INTO public.hatamoto_agent_search_tracking (id) VALUES (true) ON CONFLICT DO NOTHING;
 
+-- Page attribution backfill. It looks up the paths that still lack a page by
+-- path: these partial indexes hold only those rows (so they stay small once
+-- attributed) and serve both the path listing and the per-path updates.
+CREATE INDEX IF NOT EXISTS idx_agent_daily_unattributed
+    ON public.hatamoto_agent_daily (path) WHERE entity_id IS NULL AND status < 400;
+CREATE INDEX IF NOT EXISTS idx_agent_hits_unattributed
+    ON public.hatamoto_agent_hits (path, occurred_at) WHERE entity_id IS NULL AND COALESCE(status, 0) < 400;
+
+-- Paths the backfill found no page for, so a restart does not resolve them
+-- again until checked_at ages out.
+CREATE TABLE IF NOT EXISTS public.hatamoto_agent_attribution_misses (
+    path       text PRIMARY KEY,
+    checked_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
 -- +goose Down
+DROP TABLE IF EXISTS public.hatamoto_agent_attribution_misses;
+DROP INDEX IF EXISTS public.idx_agent_hits_unattributed;
+DROP INDEX IF EXISTS public.idx_agent_daily_unattributed;
 DROP TABLE IF EXISTS public.hatamoto_agent_search_tracking;
 DROP TABLE IF EXISTS public.hatamoto_agent_search_first_crawl;

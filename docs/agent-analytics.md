@@ -202,7 +202,12 @@ be the edge address behind a CDN) to `unverifiable`, and moves the daily
 rollup counters by the same amounts. It is idempotent and makes no network
 call. A daily job attributes past hits to pages by path and then seeds the
 search first-crawl table from the verified hits still in the raw table; it also
-runs once after startup, so no manual step is needed after the upgrade.
+runs once after startup, so no manual step is needed after the upgrade. The job
+resolves candidate paths with no lock held, then updates in bounded batches
+(daily rows in the writer's lock order; raw hits in their own statements that
+skip locked rows), served by partial indexes on the unattributed rows. Paths
+with no page are remembered for 20 hours so restarts do not resolve them again,
+and only one run goes at a time across replicas and the startup run.
 
 Privacy: no new IP is stored. The relabel reads IPs only inside the existing
 retention (raw hits, IP truncated after 30 days; truncated rows are skipped).
