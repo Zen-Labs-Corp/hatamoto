@@ -29,9 +29,18 @@ test("a collapsed theme section shows no padding handles: its component styles d
   const info = selectionInfo(doc, "h");
   assert.equal(info.isSection, true);
   assert.equal(info.section.collapsed, true); // screen.js isSection excludes this
-  assert.match(src, /return !!info\?\.isSection && !info\.section\.collapsed;/);
+  assert.match(src, /return !!info\?\.isSection && !info\.section\.collapsed && info\.kind !== "component";/);
   const plain = { v: 2, nodes: [{ id: "c", t: "container", p: { tag: "section" }, c: [{ id: "t", t: "text" }, { id: "t2", t: "text" }] }] };
   assert.equal(selectionInfo(plain, "c").section.collapsed, false);
+});
+
+test("a top-level theme component with no container shows no padding handles either", () => {
+  const bare = { v: 2, nodes: [hero] };
+  const info = selectionInfo(bare, "h");
+  assert.equal(info.isSection, true);
+  assert.equal(info.section.collapsed, false);
+  assert.equal(info.kind, "component"); // screen.js isSection excludes it
+  assert.match(src, /info\.kind !== "component"/);
 });
 
 test("the start value: own at the key, else the wider width's, rem as 16px", () => {

@@ -260,7 +260,7 @@ function start(root, boot) {
       // not a collapsed theme section: its component's styles do not render, so a padding drag there would only remove the theme padding
       isSection: (id) => {
         const info = selectionInfo(st.doc, id);
-        return !!info?.isSection && !info.section.collapsed;
+        return !!info?.isSection && !info.section.collapsed && info.kind !== "component"; // a bare top-level component renders no styles either
       },
       refOf: (id) => innerRef(st.doc, id),
       styleEntry: (key) => styleTable?.find((e) => e.key === key),
