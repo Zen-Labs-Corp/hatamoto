@@ -109,7 +109,7 @@ func (m Meta) validate(name string, kind Kind) error {
 	if m.Category != "" && !ValidCategory(m.Category) {
 		return fmt.Errorf("category %q must be one of %s", m.Category, strings.Join(Categories, ", "))
 	}
-	if m.SiteType != "" || m.Flags != nil {
+	if m.SiteType != "" || len(m.Flags) > 0 {
 		if kind != KindTheme {
 			return fmt.Errorf("site_type and flags are only allowed for themes")
 		}

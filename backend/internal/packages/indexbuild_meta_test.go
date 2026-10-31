@@ -349,6 +349,12 @@ func TestMetaSiteTypeAndFlags(t *testing.T) {
 	if _, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m}); err == nil {
 		t.Error("site_type accepted on a plugin")
 	}
+	// An empty flags list says nothing, so a plugin may carry it.
+	m = goodMeta()
+	m.Flags = []string{}
+	if _, err := buildMeta(t, metaDir(t), map[string]Meta{"hello": m}); err != nil {
+		t.Errorf("empty flags rejected on a plugin: %v", err)
+	}
 	if _, err := ParseMeta([]byte(`{"sunrise":{"tier":"community","site_type":"docs","flags":["builder"]}}`)); err != nil {
 		t.Errorf("ParseMeta: %v", err)
 	}
