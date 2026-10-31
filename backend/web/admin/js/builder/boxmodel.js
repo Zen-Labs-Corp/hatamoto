@@ -74,7 +74,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
       return list.length > 1 ? commitBatch(writesFor(list, v), opts) : commit(list[0], v, opts);
     };
     writer.set(ring, writeKeys);
-    const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${ring}`, title: `Reset ${ring}`, hidden: true });
+    const reset = actButton(`Reset ${ring}`, { class: "hm-bs-reset", "aria-label": `Reset ${ring}`, title: `Reset ${ring}`, hidden: true });
     reset.addEventListener("click", () => commitBatch(keys.filter((k) => own(k) !== null).map((key) => ({ key, value: null }))));
 
     keys.forEach((key, i) => {

@@ -35,7 +35,7 @@
 
 /* Box model: padding nested in margin, one number per side. Rings are tinted by the guide tokens and also dashed and captioned: colour is never the only signal. */
 .hm-bs-bm { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.hm-bs-bm__tools { display: flex; align-items: center; gap: var(--space-2); }
+.hm-bs-bm__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .hm-bs-bm__presets { display: flex; flex: 1 1 auto; gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); }
 .hm-bs-bm__presets > .hm-bs-opt { flex: 1 1 0; }
 .hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-areas: ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); }
@@ -59,7 +59,7 @@
 .hm-bs-quick.hm-bs-quick { min-width: 1.5rem; min-height: 1.5rem; padding: 0 calc(var(--space-1) + var(--space-px)); font-size: var(--text-xs); } /* 24 px: WCAG 2.5.8 */
 .hm-bs-linkbtn { min-width: 2rem; min-height: 1.5rem; }
 .hm-bs-linkbtn .hm-icon { inline-size: 14px; block-size: 14px; }
-.hm-bs-bm__tools .hm-bs-reset { min-block-size: 24px; min-inline-size: 24px; padding: 0; }
+.hm-bs-bm__tools .hm-bs-reset { min-block-size: 24px; min-inline-size: 24px; padding: 0 var(--space-2); gap: var(--space-1); font-size: var(--text-xs); white-space: nowrap; } /* the ring is named in the text: two icon-only resets cannot be told apart */
 
 /* Fill: theme colour pills (the dot's colour arrives through --hm-bs-sw, CSSOM). */
 .hm-bs-swatches { display: flex; flex-wrap: wrap; gap: var(--space-1); }

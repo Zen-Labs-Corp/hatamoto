@@ -282,4 +282,6 @@ test("Reset sits in the tools row beside the presets, not inside a ring", () => 
   assert.ok(b.find((n) => n.className === "hm-bs-bm__tools")[0].kids.includes(reset));
   assert.equal(reset.hidden, false);
   assert.equal(b.btn("Reset margin").hidden, true);
+  assert.equal(reset.textContent, "Reset padding", "each reset names its ring on screen");
+  assert.equal(b.btn("Reset margin").textContent, "Reset margin");
 });
