@@ -41,6 +41,7 @@ async function open() {
 // Style groups are disclosure buttons; a group with no value set here starts closed.
 async function openGroup(name) {
   const head = p.locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
+  if (!(await head.count())) return; // not every kind has every group
   if ((await head.getAttribute("aria-expanded")) !== "true") { await head.click(); await settle(100); }
 }
 async function selectCardAndStyle() {
@@ -50,7 +51,7 @@ async function selectCardAndStyle() {
   rows0 = await p.locator(TREE).count();
   await p.locator(TREE).first().click(); await settle();
   await p.keyboard.press("/");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click(); // the Add tab hides the tree: back to the Navigator for the row clicks
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
@@ -129,7 +130,7 @@ await check("selection change and tab change clear the State and the force", asy
   // Another canvas element: the section row is a v1 section, not a canvas node, so a second divider from the palette (it lands selected).
   await p.locator(TREE).first().click(); await settle(300);
   await p.keyboard.press("/");
-  await p.keyboard.type("divider"); await settle();
+  await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click();
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
@@ -167,6 +168,7 @@ await check("source chips: Set here, then Inherited from Desktop on Tablet; Rese
 
 await check("Show on: a phone-only element takes two switches and one switch never moves another", async () => {
   await selectCardAndStyle();
+  await openGroup("Layout"); // Show on sits in Layout, which starts closed on an element with nothing set
   const sw = (name) => p.getByRole("switch", { name, exact: true });
   const state = async () => (await Promise.all(["Desktop", "Tablet", "Phone"].map(async (n) => ((await sw(n).isChecked()) ? "on" : "off")))).join(" ");
   if ((await state()) !== "on on on") throw new Error(`a new element shows on ${await state()}`);
@@ -232,7 +234,7 @@ await check("axe: Style tab with the State switch has no violations", async () =
   await selectCardAndStyle();
   for (const g of ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]) await openGroup(g); // every control kind on screen
   await p.evaluate(axe); // evaluate is not subject to the page CSP, addScriptTag is
-  const v = await p.evaluate((tags) => axe.run(document.querySelector("[data-hm-bs-panel]") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
+  const v = await p.evaluate((tags) => axe.run(document.querySelector("[data-hm-bs-panel]") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length + " " + x.nodes.slice(0, 5).map((n) => n.target.join(" ")).join(" | "))), tags);
   if (v.length) throw new Error(v.join(", "));
   return "0 violations";
 });
@@ -244,6 +246,7 @@ for (const theme of ["light", "dark"]) {
     try {
       await selectCardAndStyle();
       if ((await p.locator("html").getAttribute("data-admin-theme")) !== theme) throw new Error(`the page is not in the ${theme} theme`);
+      await openGroup("Typography");
       await p.locator('button.hm-bs-swatch[aria-label^="Text colour"]').click(); await settle(300);
       if (!(await p.locator(".hm-popover-panel:popover-open").count())) throw new Error("the swatch did not open its popover");
       const run = () => p.evaluate((tags) => axe.run(document.querySelector(".hm-popover-panel:popover-open") ?? document, { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);

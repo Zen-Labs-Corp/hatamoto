@@ -54,7 +54,7 @@
 .hm-bs-bm__n:hover { border-color: var(--border); background: var(--surface); }
 .hm-bs-bm__n:focus-visible { outline: var(--focus-ring); outline-offset: 1px; background: var(--surface); cursor: text; }
 .hm-bs-bm__n[data-dot="set"] { font-weight: var(--weight-semibold); }
-.hm-bs-bm__n[data-dot="inherited"], .hm-bs-bm__n[data-dot="none"] { color: var(--text-muted); font-style: italic; }
+.hm-bs-bm__n[data-dot="inherited"], .hm-bs-bm__n[data-dot="none"] { color: color-mix(in srgb, var(--text-muted) 55%, var(--text)); font-style: italic; /* muted, but dark enough on the tinted rings (4.5:1) */ }
 .hm-bs-bm__n[aria-invalid="true"] { border-color: var(--color-danger); }
 .hm-bs-quick.hm-bs-quick { min-width: 1.5rem; min-height: 1.5rem; padding: 0 calc(var(--space-1) + var(--space-px)); font-size: var(--text-xs); } /* 24 px: WCAG 2.5.8 */
 .hm-bs-linkbtn { min-width: 2rem; min-height: 1.5rem; }
