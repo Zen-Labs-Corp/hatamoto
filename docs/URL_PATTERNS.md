@@ -136,6 +136,9 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   copy in list order plus `x-default` (the x-default setting, else the first
   live copy). A locale with no copy is left out of the head; a theme language
   switcher can link it to that locale's home.
+* A locale can be hidden (Public off in Settings > Locales). Its prefix answers
+  `404`, its pages are left out of sitemaps and `hreflang`, and it cannot be the
+  x-default. The default locale cannot be hidden.
 * Saving the list is refused for a segment that is reserved (`api`, `media`,
   `theme`, `admin`, `search`, `sitemap*`, `feed.xml`, `robots.txt`, taxonomy
   kinds), equals a section prefix or the archive path, equals the slug of a

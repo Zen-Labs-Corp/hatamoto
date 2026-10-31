@@ -771,6 +771,16 @@ Email step after Your site, with Skip. Without email, invitations
 and resets show a one-time link for the owner to pass on, and "forgot password"
 points to `hatamoto user reset-password`.
 
+### Locales
+
+Settings > Locales (`<admin>/settings/locales`, owner only) has three tabs. Locales lists the
+site's locales with Add locale (a new locale starts hidden unless Public is on), edit, reorder
+and a Public switch; a hidden locale is not served and is left out of sitemaps and hreflang.
+Addresses and search engines (`/addresses`) holds the default-locale prefix switch and the
+search engine default. Business details (`/business`) holds one card per locale that overrides
+the site-wide details. Every write goes through one validated save that clears rendered pages.
+Settings > General no longer edits the locale list.
+
 ### SEO
 
 Settings > SEO (owner-only) has two tabs. General (`<admin>/settings/seo/general`) lists the
