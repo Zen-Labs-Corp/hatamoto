@@ -3,7 +3,7 @@ import { hmTime } from "@hm/dates";
 import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
-import { mountNavigator, moveOp, label as rowLabel, useLabels } from "@hm/builder/navigator";
+import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from "@hm/builder/navigator";
 import { hideTarget, selectionInfo, sectionOf } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
@@ -114,6 +114,8 @@ function start(root, boot) {
   setChildKinds(boot.kinds);
   const design = boot.design ?? { tokens: false, presets: [], canCreate: false };
 
+  const rename = (id, value, inner) => run([{ op: "setProp", id, key: "navlabel", value: value || null }, ...(inner ? [{ op: "setProp", id: inner, key: "navlabel", value: null }] : [])], { label: "Rename" }) && announce(value ? `Renamed to ${value}` : "Name removed");
+
   const tree = mountNavigator($(root, "[data-hm-bs-tree]"), {
     getDoc: () => st.doc,
     getSelected: () => selected,
@@ -125,7 +127,7 @@ function start(root, boot) {
     onAdd: (btn) => addAt({ parent: "", index: 0 }, btn),
     onAddAt: (index, el) => addAt({ parent: "", index }, el),
     onField: (id, key) => toField(id, key), // a field row of a theme section: the Inspector focuses that field
-    onRename: (id, value, inner) => run([{ op: "setProp", id, key: "navlabel", value: value || null }, ...(inner ? [{ op: "setProp", id: inner, key: "navlabel", value: null }] : [])], { label: "Rename" }) && announce(value ? `Renamed to ${value}` : "Name removed"),
+    onRename: rename,
     getNote: (n) => presetNote(n, design.presets),
     getBlocks: () => boot.reuse?.blocks ?? [],
     kindName,
@@ -166,6 +168,11 @@ function start(root, boot) {
     },
     reuse: boot.reuse,
     select: (id) => select(id),
+    rename: (id, value) => rename(id, value, nameSource(find(st.doc, id) ?? {}, st.doc.nodes.some((n) => n.id === id)).inner),
+    size: () => {
+      const b = canvas.selectionBox;
+      return b ? { w: b.w, h: b.h } : null;
+    },
     announce,
   });
 
@@ -223,6 +230,7 @@ function start(root, boot) {
         if (drag) drag.start(e, spec);
         else handleDown = { e, spec }; // pressed before the drag chunk arrived: it starts when it does, if still held
       },
+      onLayout: () => panel.querySelectorAll("[data-hm-size]").forEach((el) => el.dispatchEvent(new CustomEvent("hm-layout"))), // the box model's centre shows the selection's size
       onNodeText: (id, prop, value) => {
         if (!canEditText(boot.kinds, find(st.doc, id), prop)) return;
         const loop = loopAbove(st.doc, id);

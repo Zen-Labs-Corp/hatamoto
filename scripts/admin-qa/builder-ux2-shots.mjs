@@ -1,12 +1,12 @@
 // Screenshots of the builder canvas and inspector (UX-2): the element toolbar and breadcrumbs, the "+" handles and the
-// layout picker, the zoom control, the device band (Tablet, Phone), the inspector header and Style tab (State, Essentials,
-// Show on, source chips), More style options, the box model, the colour control, the Content tab of a Button, Image, Columns
+// layout picker, the zoom control, the device band (Tablet, Phone), the inspector header and Style tab (State, groups,
+// Show on, source chips), style groups, the box model, the colour control, the Content tab of a Button, Image, Columns
 // and Tabs, the element restore dialog, the link panel on a heading, dark mode and the phone. Scratch pages are made through
 // the Create menu route and deleted.
 // Run: scripts/admin-qa/run-local.sh builder-ux2-shots.mjs   Output: SHOTS_OUT (default results/shots-ux2)
 import fs from "node:fs";
 import path from "node:path";
-import { launch, newSession, base, here } from "./lib.mjs";
+import { launch, newSession, base, admin, here } from "./lib.mjs";
 
 const OUT = process.env.SHOTS_OUT || path.join(here, "results", "shots-ux2");
 fs.mkdirSync(OUT, { recursive: true });
@@ -19,27 +19,27 @@ const nodes = async (p) => flat((await p.evaluate(() => window.__hmBuilder.doc()
 const TREE = '[data-hm-bs-tree] [role="treeitem"]';
 
 async function csrf(p) {
-  if (!/\/admin\/entities$/.test(p.url())) await p.goto(`${base}/admin/entities`);
+  if (!p.url().endsWith(`${admin}/entities`)) await p.goto(`${base}${admin}/entities`);
   return p.evaluate(() => document.querySelector("#create-menu input[name=_csrf]").value);
 }
 async function draft(p) {
   const t = await csrf(p);
-  const url = await p.evaluate(async (x) => (await fetch("/admin/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x, type: "page" }) })).url, t);
+  const url = await p.evaluate(async ([a, x]) => (await fetch(a + "/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x, type: "page" }) })).url, [admin, t]);
   const id = url.match(/entities\/([0-9a-f-]{36})/)[1];
   made.push(id);
   return id;
 }
 async function open(p, id) {
-  await p.goto(`${base}/admin/entities/${id}/edit?qa=1`);
+  await p.goto(`${base}${admin}/entities/${id}/edit?qa=1`);
   await p.waitForFunction(() => !!window.__hmBuilder && document.querySelector("[data-hm-bs-tree]"));
   await wait(p, 800);
   for (const g of await p.getByRole("button", { name: "Got it" }).all()) await g.click().catch(() => {}); // the one-time hints cover the canvas
 }
 const saved = (p) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
 async function drop(p, id) {
-  await p.goto(`${base}/admin/entities`);
+  await p.goto(`${base}${admin}/entities`);
   const t = await csrf(p);
-  await p.evaluate(async ([i, x]) => { await fetch(`/admin/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x }) }); }, [id, t]);
+  await p.evaluate(async ([a, i, x]) => { await fetch(`${a}/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: x }) }); }, [admin, id, t]);
 }
 const insert = (p, parent, index, kind) => p.evaluate(([a, i, k]) => window.__hmBuilder.insertAt({ parent: a, index: i, }, k), [parent, index, kind]);
 async function nav(p) {
@@ -133,12 +133,17 @@ await shot(p, "06-device-band-phone");
 await p.locator('[data-hm-bs-device="base"]').click();
 await wait(p, 300);
 
-// inspector: header, Class row, Style tab with State, Essentials, Show on and source chips (a padding set on Desktop reads
+// inspector: header, Class row, Style tab with State, groups, Show on and source chips (a padding set on Desktop reads
 // "Inherited from Desktop" on Tablet)
 await pickRow(p, "heading", 1);
 await style(p);
-await inspector(p).getByLabel("Font size", { exact: true }).first().fill("36");
-await inspector(p).getByLabel("Padding top", { exact: true }).first().fill("24");
+// a heading starts with its groups closed except those that hold a value: open them all for the shots
+for (const name of ["Layout", "Spacing", "Fill", "Typography"]) {
+  const head = inspector(p).locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+}
+await inspector(p).getByLabel("Sz font size", { exact: true }).first().fill("36");
+await inspector(p).locator('.hm-bs-bm__p input[data-side="top"]').first().fill("24");
 await p.keyboard.press("Tab");
 await inspector(p).getByLabel("Alignment", { exact: true }).first().selectOption({ label: "Center" }).catch(() => {});
 await wait(p, 400);
@@ -148,20 +153,17 @@ await scrollInspector(p);
 await shot(p, "07-inspector-style-tablet");
 await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-showon");
 await shot(p, "07b-show-on-and-padding-tablet");
-await p.locator('[data-hm-bs-panel] [role="radio"][data-state="hover"]').click();
+await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("hover");
 await wait(p, 500);
 await scrollInspector(p);
 await shot(p, "08-inspector-style-hover");
-await p.locator('[data-hm-bs-panel] [role="radio"][data-state=""]').click();
+await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("");
 await p.locator('[data-hm-bs-device="base"]').click();
 await wait(p, 400);
-const more = p.locator("[data-hm-bs-panel] details.hm-bs-more-opts");
-if (!(await more.evaluate((e) => e.open))) await more.locator("summary").click();
-await wait(p, 300);
-await scrollInspector(p, "[data-hm-bs-panel] details.hm-bs-more-opts");
-await shot(p, "09-more-style-options");
-await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-box");
-await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-box").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
+await scrollInspector(p, '[data-hm-bs-panel] .hm-bs-grp:has(button:has-text("Effects"))');
+await shot(p, "09-style-groups");
+await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-bm");
+await shot(p, "10-box-model", { clip: await p.locator("[data-hm-bs-panel] .hm-bs-bm").first().boundingBox().then((r) => ({ x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 40), width: Math.min(r.width + 32, 1440 - r.x + 16), height: Math.min(r.height + 60, 900 - r.y + 40) })) });
 const sw = p.locator("[data-hm-bs-panel] .hm-bs-swatch").first();
 await scrollInspector(p, "[data-hm-bs-panel] .hm-bs-swatch");
 await sw.click();
@@ -244,7 +246,7 @@ await wait(d, 800);
 await pickRow(d, "heading", 0);
 await d.locator('[data-hm-bs-device="md"]').click();
 await style(d);
-await d.locator('[data-hm-bs-panel] [role="radio"][data-state="hover"]').click();
+await d.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("hover");
 await wait(d, 600);
 await shot(d, "18-dark-style-tab");
 await saved(d);

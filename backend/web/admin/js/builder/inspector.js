@@ -112,6 +112,7 @@ export function mountInspector(root, api) {
             user: api.user ?? "",
             onEditSiteColours: api.canStyle ? api.editSiteStyles : null,
             announce: api.announce,
+            size: () => api.size?.() ?? null,
             commit: (key, value, bp = api.device(), opts) => {
               const ok = commit([{ op: "setStyle", id: node.id, bp, key, value }], { label: "Style", ...opts });
               if (ok) info?.();

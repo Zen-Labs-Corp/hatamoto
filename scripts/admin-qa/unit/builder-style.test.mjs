@@ -13,7 +13,7 @@ register(
       return next(s, c);
     }`),
 );
-const { groupsFor, control, check, positioned, inheritedAt, stateOptions, stateWord } = await import(new URL("../../../backend/web/admin/js/builder/style.js", import.meta.url));
+const { groupsFor, control, check, positioned, inheritedAt, stateOptions } = await import(new URL("../../../backend/web/admin/js/builder/style.js", import.meta.url));
 const { BPS, inheritedValue, ownValue, NAMES, hiddenAt } = await import(new URL("../../../backend/web/admin/js/builder/bp.js", import.meta.url));
 
 // The shape of GET /admin/builder/stylespec.
@@ -163,10 +163,4 @@ test("stateOptions: Parent hover only with a parent that is not a ref or compone
   const ids = (p) => stateOptions(p).map(([id]) => id);
   assert.deepEqual(ids({ t: "container" }), ["", "hover", "focus", "active", "parent-hover"]);
   for (const p of [null, { t: "ref" }, { t: "component" }]) assert.deepEqual(ids(p), ["", "hover", "focus", "active"]);
-});
-
-test("the State switch shortens Parent hover to one word that fits one row; the full name stays the label", () => {
-  const names = stateOptions({ t: "container" }).map(([id, name]) => stateWord(id, name));
-  assert.deepEqual(names, ["Normal", "Hover", "Focus", "Pressed", "Parent"]);
-  assert.ok(names.every((w) => w.length <= 7), "five options at about 66 px each");
 });

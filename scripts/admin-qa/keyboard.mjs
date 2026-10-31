@@ -266,7 +266,7 @@ const pick = async (id) => { await p.locator(`${TREE}[data-id="${id}"]`).click()
 const addHeadings = async (n) => {
   const start = (await rows()).length;
   await pick((await rows())[0].id);
-  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("heading"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
+  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("divider"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
   return start;
 };
 const undoWidgets = async (start) => {
@@ -546,16 +546,14 @@ const styleOff = async (start) => {
   for (let i = 0; i < 40 && (await rows()).length > start; i++) await press("Control+z");
 };
 const openStyleGroup = async (name) => {
-  const more = p.locator("details.hm-bs-more-opts").first(); // every group sits under "More style options"
-  if (!(await more.evaluate((d) => d.open))) { await more.locator("summary").click(); await settle(100); }
-  const head = p.locator("button.hm-bs-group__t", { hasText: new RegExp(`^${name}`) }).first();
+  const head = p.locator("button.hm-bs-grp__t", { hasText: new RegExp(`^${name}`) }).first();
   if ((await head.getAttribute("aria-expanded")) !== "true") { await head.click(); await settle(100); }
 };
 const inPanel = () => p.evaluate(() => !!document.activeElement?.closest(".hm-popover-panel"));
 await check("builder colour popover: opens from the swatch, Tab and Shift+Tab wrap inside it, Esc returns focus to the swatch", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Typography"); // Text colour is under "More style options" for a divider
+    await openStyleGroup("Typography"); // Text colour is in Typography
     const swatch = p.locator('button.hm-bs-swatch[aria-label^="Text colour"]');
     const name = await swatch.getAttribute("aria-label");
     if (!/^Text colour, /.test(name)) throw new Error("swatch name " + name);
@@ -575,7 +573,7 @@ await check("builder colour popover: opens from the swatch, Tab and Shift+Tab wr
 await check("builder colour popover: choosing a site colour commits its token, Clear unsets it, one undo each", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Typography"); // Text colour is under "More style options" for a divider
+    await openStyleGroup("Typography"); // Text colour is in Typography
     const swatch = p.locator('button.hm-bs-swatch[aria-label^="Text colour"]');
     await swatch.click(); await settle(200);
     await p.locator(".hm-popover-panel:popover-open .hm-bs-copt", { hasText: "accent" }).click(); await settle(300);
@@ -616,9 +614,9 @@ await check("builder number + unit + slider: Move Y is the number field alone, a
 await check("builder slider: one drag is one undo step, even with a pause in the middle", async () => {
   const start = await styleOn();
   try {
-    await openStyleGroup("Size");
+    await openStyleGroup("Layout");
     const slider = p.getByLabel("Width slider", { exact: true });
-    await slider.scrollIntoViewIfNeeded(); // opening the groups can leave the Essentials row scrolled under the top bar
+    await slider.scrollIntoViewIfNeeded(); // opening the groups can leave the Layout group scrolled under the top bar
     const box = await slider.boundingBox();
     if (!box) throw new Error("no Width slider");
     const y = box.y + box.height / 2;
@@ -627,11 +625,11 @@ await check("builder slider: one drag is one undo step, even with a pause in the
     await p.waitForTimeout(1500); // longer than the old 1 s merge window
     for (let i = 11; i <= 20; i++) await p.mouse.move(box.x + 6 + ((box.width - 12) * i) / 20, y);
     await p.mouse.up(); await settle(300);
-    const set = await p.getByLabel("Width", { exact: true }).inputValue();
+    const set = await p.getByLabel("W width", { exact: true }).inputValue();
     if (!set || set === "0") throw new Error("the drag set nothing: " + set);
     await p.evaluate(() => document.activeElement?.blur?.());
     await press("Control+z"); await settle(300);
-    const after = await p.getByLabel("Width", { exact: true }).inputValue();
+    const after = await p.getByLabel("W width", { exact: true }).inputValue();
     if (after !== "") throw new Error(`one undo left Width at ${after} (drag set ${set})`);
     return `drag set ${set}; one undo cleared it`;
   } finally { await styleOff(start); }
@@ -639,26 +637,28 @@ await check("builder slider: one drag is one undo step, even with a pause in the
 await check("builder box model: tab order is margin then padding (one nested box model), top right bottom left; Link writes all four sides in one undo step", async () => {
   const start = await styleOn();
   try {
-    const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Essentials box model: padding sits inside margin, and the margin sides come first in the DOM
-    await p.getByLabel("Margin top", { exact: true }).focus();
+    await openStyleGroup("Spacing"); // a divider starts with Spacing closed: its fields are not focusable until it opens
+    const want = ["Margin top", "Margin right", "Margin bottom", "Margin left", "Padding top", "Padding right", "Padding bottom", "Padding left"]; // the Spacing box model: padding sits inside margin, and the margin sides come first in the DOM
+    await p.locator(".hm-bs-bm__m > .hm-bs-bm__n--top").focus();
     const seen = ["Margin top"];
-    if ((await p.locator(".hm-bs-ring--outer").count()) !== 1) throw new Error("the Style tab does not show exactly one nested box model");
+    if ((await p.locator(".hm-bs-bm--nested").count()) !== 1) throw new Error("the Style tab does not show exactly one nested box model");
     for (let i = 0; i < 120 && seen.length < want.length; i++) {
       await p.keyboard.press("Tab");
-      const l = await p.evaluate(() => (document.activeElement?.tagName === "INPUT" ? document.activeElement.getAttribute("aria-label") : null));
+      const l = await p.evaluate(() => (document.activeElement?.tagName === "INPUT" ? document.activeElement.getAttribute("aria-label")?.split(",")[0] : null)); // "Margin top, 0px, not set" -> "Margin top"
       if (l && l !== seen.at(-1) && want.includes(l)) seen.push(l);
     }
     if (seen.join(">") !== want.join(">")) throw new Error("tab order " + seen.join(">"));
-    const link = p.getByRole("group", { name: "Padding", exact: true }).getByRole("button", { name: "Same on all sides" });
+    const link = p.getByRole("button", { name: "Link all sides", exact: true });
     if ((await link.getAttribute("aria-pressed")) !== "false") throw new Error("Link starts pressed");
     await link.focus(); await press("Space");
     if ((await link.getAttribute("aria-pressed")) !== "true") throw new Error("Space did not press Link");
-    const top = p.getByLabel("Padding top", { exact: true });
+    const side = (k) => p.locator(`.hm-bs-bm__p > .hm-bs-bm__n--${k}`); // the aria-label also carries the value, so the sides are found by class
+    const top = side("top");
     await top.fill("8"); await top.press("Enter"); await settle(300);
-    for (const k of ["Padding right", "Padding bottom", "Padding left"]) if ((await p.getByLabel(k, { exact: true }).inputValue()) !== "8") throw new Error(`${k} is ${await p.getByLabel(k, { exact: true }).inputValue()} when linked`);
+    for (const k of ["right", "bottom", "left"]) if ((await side(k).inputValue()) !== "8") throw new Error(`${k} is ${await side(k).inputValue()} when linked`);
     await p.evaluate(() => document.activeElement?.blur?.());
     await press("Control+z"); await settle(300);
-    for (const k of ["Padding top", "Padding right", "Padding bottom", "Padding left"]) if ((await p.getByLabel(k, { exact: true }).inputValue()) !== "") throw new Error(`one undo left ${k} at ${await p.getByLabel(k, { exact: true }).inputValue()}`);
+    for (const k of ["top", "right", "bottom", "left"]) if ((await side(k).inputValue()) !== "0") throw new Error(`one undo left ${k} at ${await side(k).inputValue()}`);
     return "8 inputs in T,R,B,L order; Link writes four sides; one undo clears them";
   } finally { await styleOff(start); }
 });

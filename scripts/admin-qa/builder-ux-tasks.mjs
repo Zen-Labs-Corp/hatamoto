@@ -23,7 +23,7 @@
 // Env: QA_RUNS (timing runs per mode, default 3), QA_ONLY (regex of task ids or check names), QA_MODE (regex of modes), QA_VERBOSE=1.
 import fs from "node:fs";
 import { execSync } from "node:child_process";
-import { launch, newSession, base, writeResult, median, password } from "./lib.mjs";
+import { launch, newSession, base, admin, writeResult, median, password } from "./lib.mjs";
 
 const axeSrc = fs.readFileSync(new URL("./vendor/axe.min.js", import.meta.url), "utf8");
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -194,13 +194,13 @@ async function treeTo(a, id) {
 
 // ---- pages: drafts are made through the real form route and removed after the run ----
 async function csrf(p) {
-  if (!/\/admin\/entities$/.test(p.url())) await p.goto(`${base}/admin/entities`);
+  if (!p.url().endsWith(`${admin}/entities`)) await p.goto(`${base}${admin}/entities`);
   return p.evaluate(() => document.querySelector("#create-menu input[name=_csrf]").value);
 }
 const made = new Set();
 async function newDraft(p) {
   const token = await csrf(p);
-  const url = await p.evaluate(async (t) => (await fetch("/admin/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t, type: "page" }) })).url, token);
+  const url = await p.evaluate(async ([a, t]) => (await fetch(a + "/entities/drafts", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t, type: "page" }) })).url, [admin, token]);
   const id = url.match(/entities\/([0-9a-f-]{36})/)?.[1];
   need(id, "the draft was not created: " + url);
   made.add(id);
@@ -208,9 +208,9 @@ async function newDraft(p) {
 }
 async function drop(p, id) {
   if (!id) return;
-  await p.goto(`${base}/admin/entities`);
+  await p.goto(`${base}${admin}/entities`);
   const token = await csrf(p);
-  await p.evaluate(async ([i, t]) => { await fetch(`/admin/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t }) }); }, [id, token]);
+  await p.evaluate(async ([a, i, t]) => { await fetch(`${a}/entities/${i}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t }) }); }, [admin, id, token]);
   made.delete(id);
 }
 const idOf = (p) => p.url().match(/entities\/([0-9a-f-]{36})/)?.[1];
@@ -219,7 +219,7 @@ async function ready(p, { qa = true } = {}) {
   await p.waitForSelector("[data-hm-bs-state] .hm-savestate", { timeout: 10000 });
 }
 async function openBuilder(p, id, ms = 400) {
-  await p.goto(`${base}/admin/entities/${id}/edit?qa=1`, { waitUntil: "load" });
+  await p.goto(`${base}${admin}/entities/${id}/edit?qa=1`, { waitUntil: "load" });
   await ready(p);
   await settle(p, ms);
 }
@@ -300,7 +300,7 @@ const leaveEdited = async (p, id) => {
   const kept = p.waitForResponse((r) => r.url().includes("/builder/recovery") && !r.url().endsWith("/discard") && r.request().method() === "POST", { timeout: 15000 });
   await tileFor(p, "text").click();
   await kept;
-  await p.goto(`${base}/admin/entities/${id}/edit?qa=1`);
+  await p.goto(`${base}${admin}/entities/${id}/edit?qa=1`);
   await ready(p);
 };
 
@@ -313,7 +313,7 @@ const T = {};
 T.T1 = {
   title: "empty page to a hero with a headline",
   firstUse: true,
-  start: async (p) => { await p.goto(`${base}/admin/entities`); return {}; },
+  start: async (p) => { await p.goto(`${base}${admin}/entities`); return {}; },
   async mouse(a) {
     const p = a.page;
     await a.click(p.getByRole("button", { name: "Create" }));
@@ -405,7 +405,7 @@ T.T2 = {
 const NEW_COLOUR = "#7a1fa2";
 const NEW_RADIUS = "12px";
 const themeValues = async (p) => {
-  await p.goto(`${base}/admin/theme/colours`);
+  await p.goto(`${base}${admin}/theme/colours`);
   return p.evaluate(() => Object.fromEntries([...document.querySelectorAll("form[action$='/theme/colours'] input[name]")].filter((i) => i.type !== "hidden" || i.name === "_csrf").map((i) => [i.name, i.value])));
 };
 T.T3 = {
@@ -447,7 +447,7 @@ T.T3 = {
     need(Object.keys(env.was).every((k) => k === "primary" || k === "radius_md" || k === "_csrf" || env.was[k] === now[k]), "another theme value changed");
   },
   cleanup: async (p, env) => {
-    await p.goto(`${base}/admin/theme/colours`);
+    await p.goto(`${base}${admin}/theme/colours`);
     await p.evaluate(async (was) => {
       const t = document.querySelector("form[action$='/theme/colours'] input[name=_csrf]").value;
       await fetch(document.querySelector("form[action$='/theme/colours']").getAttribute("action"), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Hm-Fetch": "1" }, body: new URLSearchParams({ ...was, _csrf: t }) });
@@ -477,9 +477,8 @@ T.T4 = {
     await a.click(row(p, first.id));
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
-    await a.click(p.locator('[data-hm-bs-panel] [role="radio"][data-state="hover"]'));
-    await openMore(p);
-    const effects = p.locator("[data-hm-bs-panel] .hm-bs-group__t", { hasText: "Effects" });
+    await p.locator('[data-hm-bs-panel] select[aria-label="State"]').selectOption("hover");
+    const effects = p.locator("[data-hm-bs-panel] .hm-bs-grp__t", { hasText: "Effects" });
     if ((await effects.getAttribute("aria-expanded")) === "false") await a.click(effects); // open already in some states
     await a.select(p.locator("[data-hm-bs-panel]").getByLabel("Shadow", { exact: true }), { label: "Large" });
     await a.click(p.getByRole("button", { name: "Save as class…" }));
@@ -499,10 +498,9 @@ T.T4 = {
     await a.press("Enter");
     await a.tabTo(() => document.activeElement?.getAttribute("role") === "tab", null, 20, "Shift+Tab");
     await a.press("ArrowRight"); // Style
-    await a.tabTo(() => document.activeElement?.dataset?.state === "");
-    await a.press("ArrowRight"); // Hover
-    await openMore(p);
-    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-group__t") && /Effects/.test(document.activeElement.textContent));
+    await a.tabTo(() => document.activeElement?.getAttribute("aria-label") === "State");
+    await a.press("ArrowDown"); // Hover
+    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-grp__t") && /Effects/.test(document.activeElement.textContent));
     if ((await p.evaluate(() => document.activeElement.getAttribute("aria-expanded"))) === "false") await a.press("Enter");
     await a.tabTo(selectNamed, "Shadow");
     await a.press("ArrowDown"); // Large
@@ -533,17 +531,12 @@ const selectNamed = (name) => {
   const e = document.activeElement;
   return e?.tagName === "SELECT" && (e.labels?.[0]?.textContent ?? document.getElementById(e.getAttribute("aria-labelledby") ?? "")?.textContent ?? "").trim() === name;
 };
-// More style options opens by itself in a state other than Normal; open it when it is not.
-async function openMore(p) {
-  const d = p.locator("[data-hm-bs-panel] details.hm-bs-more-opts");
-  if (!(await d.evaluate((e) => e.open))) await d.locator("summary").click();
-}
 async function dropClass(p, name) {
-  await p.goto(`${base}/admin/theme/presets`);
-  await p.evaluate(async (n) => {
+  await p.goto(`${base}${admin}/theme/presets`);
+  await p.evaluate(async ([a, n]) => {
     const t = document.querySelector("input[name=_csrf]")?.value;
-    await fetch(`/admin/theme/presets/${n}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t ?? "" }) });
-  }, name);
+    await fetch(`${a}/theme/presets/${n}/delete`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ _csrf: t ?? "" }) });
+  }, [admin, name]);
 }
 
 // T5: hide an element on the phone view: the Show on switches of the Style tab (the keyboard run keeps the H key in the Navigator).
@@ -557,6 +550,7 @@ T.T5 = {
     await a.click(await rowOfKind(p, "heading"));
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
+    await a.click(p.locator("button.hm-bs-grp__t", { hasText: /^Layout/ })); // a heading starts with the Layout group closed
     await a.click(p.locator("[data-hm-bs-panel] .hm-bs-showon label", { hasText: "Phone" }));
     await settle(p, 250);
   },
@@ -599,7 +593,7 @@ T.T6 = {
     await toNavigator(a);
     await a.rightClick(await rowOfKind(p, "container"));
     await menuPick(a, /^Copy(?! style)/);
-    await p.goto(`${base}/admin/entities/${env.b}/edit?qa=1`);
+    await p.goto(`${base}${admin}/entities/${env.b}/edit?qa=1`);
     await ready(p);
     await toNavigator(a);
     await a.rightClick(await rowOfKind(p, "heading"));
@@ -610,7 +604,7 @@ T.T6 = {
     const p = a.page;
     await treeTo(a, (await nodes(p)).find((n) => n.t === "container").id);
     await a.press("Control+c");
-    await p.goto(`${base}/admin/entities/${env.b}/edit?qa=1`);
+    await p.goto(`${base}${admin}/entities/${env.b}/edit?qa=1`);
     await ready(p);
     await treeTo(a, (await nodes(p)).find((n) => n.t === "heading").id);
     await a.press("Control+v");
@@ -863,8 +857,8 @@ T.T10 = {
     }
     await toInspector(a);
     await a.click(p.getByRole("tab", { name: "Style" }));
-    // Padding is an Essential for every kind (the box model's padding ring): no disclosure to open.
-    await a.click(p.locator('[data-hm-bs-panel] [aria-label="Padding top"]'));
+    await a.click(p.locator("button.hm-bs-grp__t", { hasText: /^Spacing/ })); // a heading starts with Spacing closed
+    await a.click(p.locator('[data-hm-bs-panel] [aria-label^="Padding top"]'));
     await a.type("20");
     await a.press(phoneNow(p) ? "Enter" : "Tab");
     await settle(p, 250);
@@ -875,7 +869,9 @@ T.T10 = {
     await a.press("Enter");
     await a.tabTo(() => document.activeElement?.getAttribute("role") === "tab", null, 20, "Shift+Tab"); // back to the tab list
     await a.press("ArrowRight"); // Style
-    await a.tabTo(() => document.activeElement?.getAttribute("aria-label") === "Padding top");
+    await a.tabTo(() => document.activeElement?.classList.contains("hm-bs-grp__t") && /^Spacing/.test(document.activeElement.textContent));
+    await a.press("Enter");
+    await a.tabTo(() => /^Padding top/.test(document.activeElement?.getAttribute("aria-label") ?? ""));
     await a.type("20");
     await a.press("Tab");
     await settle(p, 250);
@@ -1177,11 +1173,11 @@ await check("sitestyles-owner-only: an owner opens the drawer from More; an edit
   let editorSees = null;
   const ed = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const ep = await ed.newPage();
-  await ep.goto(`${base}/admin/login`);
+  await ep.goto(`${base}${admin}/login`);
   await ep.fill("#email", process.env.QA_EDITOR_EMAIL || "editor@qa.test");
   await ep.fill("#password", password);
-  await Promise.all([ep.waitForURL((u) => !u.pathname.endsWith("/admin/login")), ep.click('form[action="/admin/login"] button[type=submit]')]);
-  await ep.goto(`${base}/admin/entities/${id}/edit?qa=1`);
+  await Promise.all([ep.waitForURL((u) => !u.pathname.endsWith(`${admin}/login`)), ep.click(`form[action="${admin}/login"] button[type=submit]`)]);
+  await ep.goto(`${base}${admin}/entities/${id}/edit?qa=1`);
   await ready(ep);
   await ep.getByRole("button", { name: "More actions" }).click();
   editorSees = await ep.locator("#bs-more [role=menuitem]:visible", { hasText: "Site styles" }).count();
@@ -1548,7 +1544,7 @@ await check("axe: builder with a selection", async () => {
   await settle(ax, 500);
   return axeOn(ax, "builder with a selection");
 });
-await check("axe: Style tab (State, Essentials, source chips, Show on, box model)", async () => {
+await check("axe: Style tab (State, groups, source chips, Show on, box model)", async () => {
   await ax.getByRole("tab", { name: "Style" }).click();
   await settle(ax, 300);
   try { return await axeOn(ax, "Style tab"); } finally { await ax.getByRole("tab", { name: "Content" }).click(); }
@@ -1621,7 +1617,6 @@ await check("shell-dark: dark theme reads (axe colour contrast on the shell, the
   await device(d, "md").click();
   // the Style tab in dark: State switch (pressed option), source chips, Show on switches, box-model link toggles
   await d.getByRole("tab", { name: "Style" }).click();
-  await d.locator("details.hm-bs-more-opts > summary").click();
   await settle(d, 300);
   const rs = await axeOn(d, "dark mode style tab");
   await d.keyboard.press("Control+k");

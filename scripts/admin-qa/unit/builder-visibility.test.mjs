@@ -20,6 +20,7 @@ class El {
     this.classList = { toggle: (c, on) => (on ? this.classes.add(c) : this.classes.delete(c)), add: (c) => this.classes.add(c) };
   }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; }
+  getAttribute(k) { return this.attrs[k] ?? null; }
   removeAttribute(k) { delete this.attrs[k]; }
   append(...k) { for (const x of k) { this.kids.push(x); x.parent = this; } }
   remove() { if (this.parent) this.parent.kids = this.parent.kids.filter((x) => x !== this); }
@@ -35,6 +36,7 @@ globalThis.CSS = { escape: (s) => s };
 const { mountStyle } = await import(new URL("builder/style.js", root));
 
 const table = [
+  { key: "w", kind: "text", props: ["width"], tokens: {}, pattern: ".*" }, // Size: the Layout group, which holds Show on, needs a key
   { key: "hide", kind: "enum", props: ["display"], enum: { 1: "none" } },
   { key: "display", kind: "enum", props: ["display"], enum: { block: "block", flex: "flex", none: "none" } },
 ];
@@ -47,7 +49,7 @@ const mount = (node, extra = {}) => {
     ...extra,
   });
   const all = (pred) => { const r = []; el.walk((n) => pred(n) && r.push(n)); return r; };
-  return { el, calls, boxes: () => all((n) => n.attrs.type === "checkbox" && n.attrs.role === "switch"), select: () => all((n) => n.tag === "select")[0] };
+  return { el, calls, boxes: () => all((n) => n.attrs.type === "checkbox" && n.attrs.role === "switch"), select: () => all((n) => n.tag === "select" && n.attrs["aria-label"] !== "State")[0] };
 };
 
 test("switching Phone on under a Desktop hide is one commit, only Phone changes, and Show as follows it", () => {
