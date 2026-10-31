@@ -44,13 +44,14 @@
 .hm-fieldgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-4); }
 /* Design tokens: compact inputs, as many columns as fit. */
 .hm-fieldgrid--tokens { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-3) var(--space-4); }
+.hm-fieldgrid--tokens:not(.hm-fieldgrid--steps) { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
 .hm-fieldgrid--tokens .hm-field__control:not([type="color"]) { height: var(--control-h-sm); }
 /* API key scopes: Select all sits under the legend, not stretched across the column. */
 [data-hm-scopes-all] { align-self: flex-start; }
 [data-hm-scopes-all][hidden] { display: none; }
 /* Preset card header: the key and the count of settings set read as one mono line. Edit styles sits apart from the label field under it. */
 .hm-card--preset .hm-card__head > p { font-family: var(--font-mono); font-size: var(--text-sm); }
-.hm-presetdetails > summary { margin-bottom: var(--space-3); }
+.hm-presetdetails > summary { margin-bottom: var(--space-3); color: var(--admin-accent); }
 /* Preset style groups: three columns from 48rem, one below. */
 .hm-presetgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin-block: var(--space-3); }
 .hm-presetgrid > .hm-field__group { margin: 0; min-width: 0; }
@@ -59,7 +60,7 @@
 .hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
 /* Spacing, text sizes and shadows: one row per step, label left, a right-aligned mono input at the end. */
 .hm-fieldgrid--steps { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.hm-fieldgrid--steps > .hm-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8rem, 40%); align-items: center; column-gap: var(--space-4); padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+.hm-fieldgrid--steps > .hm-field { display: grid; grid-template-columns: minmax(0, 1fr) 14ch; align-items: center; column-gap: var(--space-4); padding: var(--space-2) 0; border-top: 1px solid var(--border); }
 .hm-fieldgrid--steps > .hm-field:first-child { border-top: 0; }
 .hm-fieldgrid--steps .hm-field__control { text-align: end; font-family: var(--font-mono); }
 .hm-fieldgrid--steps .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
