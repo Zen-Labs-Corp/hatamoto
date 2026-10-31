@@ -110,7 +110,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 
 	d.Intro = "Each language keeps its own copy of this page. The original is the copy the others are compared with."
 	d.Copies = ui.Table{
-		ID: "translations-copies", Caption: "Copies of " + e.Name + " by language",
+		ID: "translations-copies", Caption: "Copies of " + e.Name + " by language", CSRF: csrfToken(ctx),
 		Columns: []ui.Col{{Key: "locale", Label: "Language"}, {Key: "address", Label: "Address"}, {Key: "status", Label: "Status"}},
 		Empty:   ui.Empty{Icon: "globe", Title: "No languages", Body: "Add languages in the site settings."},
 	}

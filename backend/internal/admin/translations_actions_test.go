@@ -112,6 +112,8 @@ func TestTranslationOriginalPost(t *testing.T) {
 		t.Errorf("Make original offered %d times, want 2 (fr and es)", n)
 	}
 	lacks(t, body, `name="member" value="`+fid(11).String()+`"`)
+	// The row-menu form carries the CSRF token (without it the POST is refused with 403).
+	has(t, body, `action="`+trBase+`/original"><input type="hidden" name="_csrf" value="`)
 	rows := c.record()
 	rec := c.post(trBase+"/original", url.Values{"member": {fid(12).String()}})
 	if rec.Code != 303 || len(g.originals) != 1 || g.originals[0] != fid(12) {
