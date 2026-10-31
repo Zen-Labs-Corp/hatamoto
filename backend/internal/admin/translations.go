@@ -180,20 +180,32 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 		Columns: []ui.Col{{Key: "hreflang", Label: "Search engines see"}, {Key: "address", Label: "Address"}},
 		Empty:   ui.Empty{Icon: "globe", Title: "Nothing yet", Body: "Search engines see a language once its copy is live and the language is public."},
 	}
-	public := map[string]bool{}
+	// Same order and x-default rule as the renderer (server.xDefaultHref):
+	// settings order; the x-default locale, else (when none is set) the
+	// default locale, else the first live copy.
+	xdef, first, def := "", "", ""
 	for _, tag := range set.PublicTags() {
-		public[tag] = true
-	}
-	xdef := ""
-	for _, cv := range held {
-		if cv.m.Status != string(entity.StatusPublished) || !public[cv.m.Locale] {
+		cv := byLocale[tag]
+		if cv == nil || cv.m.Status != string(entity.StatusPublished) {
 			continue
 		}
 		addr := a.copyAddress(ctx, cv.e)
-		d.Hreflang.Rows = append(d.Hreflang.Rows, ui.Row{ID: "hl-" + cv.m.Locale, Label: cv.m.Locale, Cells: []ui.Cell{{Text: "hreflang " + cv.m.Locale}, {Text: addr, Clip: true}}})
-		if xdef == "" || cv.m.Locale == set.XDefault() {
+		d.Hreflang.Rows = append(d.Hreflang.Rows, ui.Row{ID: "hl-" + tag, Label: tag, Cells: []ui.Cell{{Text: "hreflang " + tag}, {Text: addr, Clip: true}}})
+		if first == "" {
+			first = addr
+		}
+		if tag == set.Default() {
+			def = addr
+		}
+		if tag == set.XDefault() {
 			xdef = addr
 		}
+	}
+	if xdef == "" && set.XDefault() == "" {
+		xdef = def
+	}
+	if xdef == "" {
+		xdef = first
 	}
 	if xdef != "" {
 		d.Hreflang.Rows = append(d.Hreflang.Rows, ui.Row{ID: "hl-x-default", Label: "x-default", Cells: []ui.Cell{{Text: "hreflang x-default"}, {Text: xdef, Clip: true}}})

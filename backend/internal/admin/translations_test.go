@@ -77,3 +77,24 @@ func TestTranslationsPageNoCreateButton(t *testing.T) {
 	body := c.get(t, "owner-token", translationsTab, "")
 	lacks(t, body, "Create", "/translations/create")
 }
+
+// With no x-default set the default-locale copy is x-default, whatever the
+// order of the locale tags, as the renderer emits it.
+func TestTranslationsHreflangFollowsRenderer(t *testing.T) {
+	t.Parallel()
+	c, g := translationsRig(t, "it", "fr")
+	c.a.deps.Site.(*fakeSite).cfg.Language = "fr"
+	grp := fid(900)
+	it := entity.Member{ID: fid(11), Group: grp, Locale: "it", Slug: "alpha", Name: "Alpha", Status: "published", Original: true, CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0}
+	fr := entity.Member{ID: fid(12), Group: grp, Locale: "fr", Slug: "beta", Name: "Beta", Status: "published", CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0}
+	g.setGroup(it, fr)
+	c.ents.ents[fid(12)].Status = entity.StatusPublished
+	body := c.get(t, "owner-token", translationsTab, "")
+	i, j, k := strings.Index(body, "hreflang it"), strings.Index(body, "hreflang fr"), strings.Index(body, "hreflang x-default")
+	if i < 0 || j < i || k < j {
+		t.Fatalf("hreflang order: it %d, fr %d, x-default %d; want settings order, x-default last", i, j, k)
+	}
+	if rest := body[k:]; !strings.Contains(rest[:strings.Index(rest, "</tr>")], "/services/beta") {
+		t.Errorf("x-default is not the default-locale copy (beta)")
+	}
+}
