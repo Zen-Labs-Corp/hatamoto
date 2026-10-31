@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"hatamoto.dev/core/internal/entity"
 )
 
@@ -110,7 +111,7 @@ func (a *Admin) handleTranslationLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := g.Link(r.Context(), e.ID, other); err != nil {
-		if errors.Is(err, entity.ErrInvalidGroup) {
+		if errors.Is(err, entity.ErrInvalidGroup) || isUniqueViolation(err) {
 			a.SetFlash(w, r, "error", "That page cannot be linked: it needs the same type and a locale this page does not have yet.")
 			Redirect(w, r, a.translationsURL(e.ID))
 			return
@@ -120,6 +121,13 @@ func (a *Admin) handleTranslationLink(w http.ResponseWriter, r *http.Request) {
 	}
 	a.auditEntity(r, auditTranslationLink, e.ID, e, map[string]any{"linked": other.String()})
 	a.translationDone(w, r, e, "Linked the page.")
+}
+
+// isUniqueViolation reports a Postgres unique-index violation, such as a
+// concurrent write winning the translation_original index.
+func isUniqueViolation(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "23505"
 }
 
 // handleTranslationUnlinkConfirm is the no-JS confirmation of an unlink.

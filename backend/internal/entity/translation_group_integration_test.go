@@ -330,3 +330,34 @@ func TestGroupWritesKeepUpdatedAt(t *testing.T) {
 		}
 	}
 }
+
+// A row left with translation_original = true and no group (old binary's
+// Unlink, localeconv revert) must not trip the unique index when linked.
+func TestLinkClearsStaleOriginalFlag(t *testing.T) {
+	ctx := context.Background()
+	gs, read, ids, exec := groupWriteFixture(t, "en", "fr", "es")
+	if _, err := gs.Link(ctx, ids[0], ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	exec(`UPDATE hatamoto_entities SET translation_original = true WHERE id = $1`, ids[2])
+	if _, err := gs.Link(ctx, ids[2], ids[0]); err != nil {
+		t.Fatalf("link stale flagged row into flagged group: %v", err)
+	}
+	for i, want := range []bool{true, false, false} {
+		if _, o := read(ids[i]); o != want {
+			t.Errorf("member %d flagged = %v, want %v", i, o, want)
+		}
+	}
+
+	// A new group flags only the chosen original, not a stale joiner.
+	gs2, read2, ids2, exec2 := groupWriteFixture(t, "en", "fr")
+	exec2(`UPDATE hatamoto_entities SET translation_original = true WHERE id = $1`, ids2[1])
+	if _, err := gs2.Link(ctx, ids2[0], ids2[1]); err != nil {
+		t.Fatalf("new group with stale flagged joiner: %v", err)
+	}
+	for i, want := range []bool{true, false} {
+		if _, o := read2(ids2[i]); o != want {
+			t.Errorf("new group member %d flagged = %v, want %v", i, o, want)
+		}
+	}
+}

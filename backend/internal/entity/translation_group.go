@@ -158,13 +158,16 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		}
 	}
 
-	if _, err := tx.Exec(ctx, `UPDATE hatamoto_entities SET translation_group = $1 WHERE id = ANY($2)`, *group, ids); err != nil {
+	// Set every flag here: ungrouped rows can carry a stale flag (old binary's
+	// Unlink, localeconv), which would hit uq_entities_translation_original.
+	// A new group flags ids[0] only; an existing one keeps its own flag.
+	if _, err := tx.Exec(ctx, `
+		UPDATE hatamoto_entities
+		SET translation_group = $1,
+		    translation_original = CASE WHEN $3 THEN id = $4
+		                           ELSE translation_original AND translation_group IS NOT DISTINCT FROM $1 END
+		WHERE id = ANY($2)`, *group, ids, newGroup, ids[0]); err != nil {
 		return uuid.Nil, fmt.Errorf("link entities: %w", err)
-	}
-	if newGroup {
-		if _, err := tx.Exec(ctx, `UPDATE hatamoto_entities SET translation_original = true WHERE id = $1`, ids[0]); err != nil {
-			return uuid.Nil, fmt.Errorf("flag original: %w", err)
-		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, fmt.Errorf("commit link: %w", err)

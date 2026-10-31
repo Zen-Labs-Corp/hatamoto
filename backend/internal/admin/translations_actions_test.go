@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"hatamoto.dev/core/internal/entity"
 )
 
@@ -64,11 +66,29 @@ func TestTranslationLinkRejectedFlash(t *testing.T) {
 	has(t, c.next(rec, trBase), "Pick the page to link first.")
 }
 
-// linkFails makes Link answer ErrInvalidGroup.
-type linkFails struct{ *fakeGroups }
+// linkFails makes Link answer err, ErrLocaleTaken when nil.
+type linkFails struct {
+	*fakeGroups
+	err error
+}
 
 func (l *linkFails) Link(context.Context, ...uuid.UUID) (uuid.UUID, error) {
+	if l.err != nil {
+		return uuid.UUID{}, l.err
+	}
 	return uuid.UUID{}, entity.ErrLocaleTaken
+}
+
+// A unique-index violation from the store is a flash, not a 500.
+func TestTranslationLinkUniqueViolationFlash(t *testing.T) {
+	t.Parallel()
+	c, g := translationsRig(t, "en", "fr")
+	c.a.deps.Content.Groups = &linkFails{fakeGroups: g, err: fmt.Errorf("link entities: %w", &pgconn.PgError{Code: "23505"})}
+	rec := c.post(trBase+"/link", url.Values{"page": {fid(12).String()}})
+	if rec.Code != 303 {
+		t.Fatalf("link: %d, want a redirect", rec.Code)
+	}
+	has(t, c.next(rec, trBase), "That page cannot be linked")
 }
 
 func TestTranslationUnlinkConfirmRow(t *testing.T) {
