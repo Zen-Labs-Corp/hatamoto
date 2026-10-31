@@ -4,12 +4,14 @@
 .hm-fieldlist__row > summary { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; list-style: none; min-height: var(--control-h); flex-wrap: wrap; }
 .hm-fieldlist__row > summary::-webkit-details-marker { display: none; }
 /* the marker is hidden, so the row shows its own chevron, turned down when open */
-.hm-fieldlist__chev { display: inline-flex; flex: none; color: var(--text-muted); transition: transform 120ms var(--ease); }
+.hm-fieldlist__req { margin-inline-start: auto; }
+.hm-fieldlist__req + .hm-fieldlist__chev { margin-inline-start: 0; }
+.hm-fieldlist__chev { display: inline-flex; flex: none; margin-inline-start: auto; color: var(--text-muted); transition: transform 120ms var(--ease); }
 .hm-fieldlist__row[open] > summary .hm-fieldlist__chev { transform: rotate(90deg); }
 .hm-fieldlist__row > summary:hover .hm-fieldlist__chev { color: var(--text); }
 .hm-fieldlist__row > summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-fieldlist__label { font-weight: var(--weight-medium); color: var(--text); overflow-wrap: anywhere; }
-.hm-fieldlist__row > summary code { color: var(--text-muted); font-size: var(--text-xs); }
+.hm-fieldlist__row > summary code { color: var(--text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
 .hm-fieldlist__handle { cursor: grab; color: var(--text-muted); display: inline-flex; order: -1; }
 .hm-fieldlist__body { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
 /* Move up, Move down and the menu sit in the row header, over the right end of the summary, which leaves room for them. */
@@ -19,7 +21,8 @@
 /* Choices only apply to list types; the server renders data-type, the page script keeps it current. */
 .hm-fieldlist__item .hm-fieldlist__choices { display: none; }
 .hm-fieldlist__item[data-type="select"] .hm-fieldlist__choices, .hm-fieldlist__item[data-type="radio"] .hm-fieldlist__choices, .hm-fieldlist__item[data-type="checkbox"] .hm-fieldlist__choices { display: block; }
-.hm-fieldlist__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); align-items: start; }
+.hm-fieldlist__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
+@media (max-width: 640px) { .hm-fieldlist__fields { grid-template-columns: minmax(0, 1fr); } }
 .hm-fieldlist__opts { display: flex; flex-direction: column; gap: var(--space-3); }
 .hm-code { background: var(--color-kasumi); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); overflow: auto; margin: 0; }
 .hm-dl { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; }
@@ -35,7 +38,7 @@
 .hm-formbuilder { padding-bottom: var(--space-8); scroll-padding-bottom: calc(var(--space-8) * 2); }
 .hm-copyrow { align-items: flex-end; }
 .hm-copyrow .hm-field { flex: 1 1 auto; min-width: 0; }
-.hm-submissions__filters { flex-wrap: wrap; margin-bottom: var(--space-4); }
+.hm-submissions__filters { flex-wrap: wrap; margin: var(--space-4) 0; }
 /* The hidden tooltip of the blocks nearest the edge is wider than the card and made the page scroll sideways; clip it on the tracker. */
 .hm-submissions__tracker { overflow-x: clip; }
 /* repeater drag handle, injected by repeater.js */

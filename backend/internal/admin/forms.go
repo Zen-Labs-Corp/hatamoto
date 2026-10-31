@@ -973,12 +973,20 @@ func (a *Admin) submissionOverview(ctx context.Context, fs FormStore, f *form.Fo
 	if capped {
 		label += " (counted from the newest " + fmtNum(submissionTrackerCap) + "+)"
 	}
+	busiest := 0
+	for _, n := range days {
+		busiest = max(busiest, n)
+	}
 	t := ui.Tracker{Label: label}
 	for i, n := range days {
 		d := now.AddDate(0, 0, -(submissionDaysShown - 1 - i))
 		blk := ui.TrackerBlock{Kind: "neutral", Tip: d.Format("2 Jan") + ": no submissions"}
 		if n > 0 {
-			blk = ui.TrackerBlock{Kind: "success", Tip: d.Format("2 Jan") + ": " + fmtNum(int64(n)) + " " + plural(n, "submission", "submissions")}
+			kind := "success"
+			if n*5 >= busiest*4 { // the busiest days (within a fifth of the peak) stand out in the accent
+				kind = "info"
+			}
+			blk = ui.TrackerBlock{Kind: kind, Tip: d.Format("2 Jan") + ": " + fmtNum(int64(n)) + " " + plural(n, "submission", "submissions")}
 		}
 		t.Blocks = append(t.Blocks, blk)
 	}
@@ -1202,6 +1210,7 @@ type submissionData struct {
 	Status     *ui.Badge
 	Base       string // /admin/settings/submissions
 	ListURL    string // the form's own list
+	Actions    []ui.Button
 	MailOn     bool
 	MailTo     string
 	MailErr    string
@@ -1252,6 +1261,7 @@ func cameFrom(at *form.Attribution) []answerRow {
 func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status int, f *form.Form, s *form.FormSubmission, mailTo, mailErr string) {
 	d := submissionData{Form: f, Sub: s, Status: submissionBadge(s.Status), Base: a.adminPath + "/settings/submissions", ListURL: a.adminPath + "/settings/submissions?form=" + f.ID.String(),
 		MailOn: a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured(), MailTo: mailTo, MailErr: mailErr, Received: fmtDateTime(s.CreatedAt), CameFrom: cameFrom(s.Attribution)}
+	d.Actions = []ui.Button{{Label: "Back to submissions", Href: d.ListURL}, {Label: "Delete submission", Variant: "ghost", Href: d.Base + "/" + s.ID.String() + "/delete"}}
 	used := map[string]bool{}
 	for _, ff := range f.Fields {
 		used[ff.Name] = true

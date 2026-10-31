@@ -1,5 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Submission") "CSRF" $.CSRF}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Submission") "CSRF" $.CSRF "Actions" .Actions}}
 <section class="hm-card" aria-labelledby="sub-answers"><div class="hm-card__head"><h2 class="hm-card__title" id="sub-answers">Answers</h2>
 <p class="hm-muted">Received {{.Received}} · {{template "hm/badge" .Status}}</p></div>
 <div class="hm-card__body">
@@ -16,5 +16,4 @@
 {{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Send email" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </form>
 {{else}}{{template "hm/card-start" dict "ID" "sub-email" "Title" "Email this submission"}}<p class="hm-muted">Email is not set up on this server. <a href="{{adminPath}}/settings/email">See the email settings</a>.</p>{{template "hm/card-end"}}{{end}}
-<div class="hm-row">{{template "hm/button" dict "Label" "Back to submissions" "Href" .ListURL}}{{template "hm/button" dict "Label" "Delete submission" "Variant" "ghost" "Href" (printf "%s/%s/delete" .Base .Sub.ID)}}</div>
 {{end}}{{end}}
