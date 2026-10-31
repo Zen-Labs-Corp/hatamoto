@@ -38,14 +38,14 @@
 .hm-bs-bm__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .hm-bs-bm__presets { display: flex; flex: 1 1 auto; gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); }
 .hm-bs-bm__presets > .hm-bs-opt { flex: 1 1 0; }
-.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-areas: ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); }
+.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-areas: ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-1); min-width: 0; padding: calc(var(--text-xs) * 1.5 + var(--space-2)) var(--space-2) var(--space-1); border-radius: var(--radius-md); } /* the top band holds the ring caption, so it cannot sit on the top number */
 .hm-bs-bm__m { border: 1px dashed var(--color-guide-margin); background: color-mix(in srgb, var(--color-guide-margin) 10%, var(--surface)); }
 .hm-bs-bm__p { border: 1px dashed var(--color-guide-pad); background: color-mix(in srgb, var(--color-guide-pad) 10%, var(--surface)); }
 .hm-bs-bm__t { position: absolute; inset-block-start: var(--space-1); inset-inline-start: var(--space-2); pointer-events: none; font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-body); }
 .hm-bs-bm__c { grid-area: c; display: flex; align-items: center; justify-content: center; align-self: stretch; min-width: 0; }
 .hm-bs-bm__c > .hm-bs-bm__p { flex: 1 1 auto; }
 .hm-bs-bm > .hm-bs-bm__m > .hm-bs-err, .hm-bs-bm__p > .hm-bs-err { grid-column: 1 / -1; justify-self: start; }
-.hm-bs-bm__el { white-space: nowrap; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
+.hm-bs-bm__el { min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
 .hm-bs-bm__n { box-sizing: border-box; inline-size: 3.5rem; min-block-size: 1.5rem; padding: 0 var(--space-px); font: inherit; font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: center; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); touch-action: none; }
 .hm-bs-bm__n--top { grid-area: t; cursor: ns-resize; }
 .hm-bs-bm__n--right { grid-area: r; cursor: ew-resize; }
