@@ -32,10 +32,12 @@ const (
 
 // BrowseQuery is the parsed query string of the Browse page.
 type BrowseQuery struct {
-	Q             string
-	Tiers         []string
-	Cats          []string
-	Perms         []string
+	Q     string
+	Tiers []string
+	Cats  []string
+	Perms []string
+	// Types (site type, OR) and Feats (theme flags, AND) apply to themes only.
+	Types, Feats  []string
 	HideInstalled bool
 	Sort          string
 	Page          int
@@ -47,6 +49,19 @@ type BrowseFacets struct {
 	// order; HasCategories is false (hide the facet) when there are none.
 	Categories    []string
 	HasCategories bool
+	// SiteTypes are the site types at least one theme uses with how many
+	// themes use each, in packages.SiteTypes order; HasSiteTypes and HasFlags
+	// say whether the Site type and Features groups apply. Counts are over the
+	// unfiltered theme list.
+	SiteTypes    []BrowseCount
+	HasSiteTypes bool
+	HasFlags     bool
+}
+
+// BrowseCount is a facet value with the number of entries that carry it.
+type BrowseCount struct {
+	Value string
+	Count int
 }
 
 // BrowsePage is one page of Browse results.
@@ -65,8 +80,8 @@ type BrowsePage struct {
 	InstalledTotal, InstalledHidden int
 }
 
-// ParseBrowseQuery reads ?q=&tier=&cat=&perm=&hide=&sort=&page=. Installed
-// plugins are hidden unless hide=0. Unknown
+// ParseBrowseQuery reads ?q=&tier=&cat=&perm=&type=&feat=&hide=&sort=&page=.
+// Installed packages are hidden unless hide=0. Unknown
 // facet values are dropped, an unknown sort becomes the default and the page
 // is at least 1.
 func ParseBrowseQuery(v url.Values) BrowseQuery {
@@ -75,6 +90,8 @@ func ParseBrowseQuery(v url.Values) BrowseQuery {
 		Tiers:         keepKnown(v["tier"], []string{packages.TierFirstParty, packages.TierCommunity}),
 		Cats:          keepKnown(v["cat"], packages.Categories),
 		Perms:         keepKnown(v["perm"], []string{browsePermNoNet, browsePermNoScripts}),
+		Types:         keepKnown(v["type"], packages.SiteTypes),
+		Feats:         keepKnown(v["feat"], packages.ThemeFlags),
 		HideInstalled: v.Get("hide") != "0",
 		Sort:          browseSortName,
 		Page:          1,
@@ -85,6 +102,13 @@ func ParseBrowseQuery(v url.Values) BrowseQuery {
 	if n, err := strconv.Atoi(v.Get("page")); err == nil && n > 1 {
 		q.Page = n
 	}
+	return q
+}
+
+// ParseThemeBrowseQuery is ParseBrowseQuery without the plugin-only facets.
+func ParseThemeBrowseQuery(v url.Values) BrowseQuery {
+	q := ParseBrowseQuery(v)
+	q.Cats, q.Perms = nil, nil
 	return q
 }
 
@@ -109,7 +133,9 @@ func (q BrowseQuery) Values() url.Values {
 	v["tier"] = slices.Clone(q.Tiers)
 	v["cat"] = slices.Clone(q.Cats)
 	v["perm"] = slices.Clone(q.Perms)
-	for _, k := range []string{"tier", "cat", "perm"} {
+	v["type"] = slices.Clone(q.Types)
+	v["feat"] = slices.Clone(q.Feats)
+	for _, k := range []string{"tier", "cat", "perm", "type", "feat"} {
 		if len(v[k]) == 0 {
 			delete(v, k)
 		}
@@ -141,31 +167,42 @@ func (q BrowseQuery) WithoutValue(key, val string) url.Values {
 // Filtered reports whether any search or facet narrows the list. Sort, page
 // and the hide-installed default do not count.
 func (q BrowseQuery) Filtered() bool {
-	return q.Q != "" || len(q.Tiers) > 0 || len(q.Cats) > 0 || len(q.Perms) > 0
+	return q.Q != "" || len(q.Tiers) > 0 || len(q.Cats) > 0 || len(q.Perms) > 0 || len(q.Types) > 0 || len(q.Feats) > 0
 }
 
 // RunBrowse filters, sorts and pages the plugin entries of the registry.
 func RunBrowse(all []RegistryEntry, q BrowseQuery) BrowsePage {
-	var plugins []RegistryEntry
+	return runBrowse(all, q, packages.KindPlugin)
+}
+
+// RunThemeBrowse filters, sorts and pages the theme entries of the registry.
+func RunThemeBrowse(all []RegistryEntry, q BrowseQuery) BrowsePage {
+	return runBrowse(all, q, packages.KindTheme)
+}
+
+func runBrowse(all []RegistryEntry, q BrowseQuery, kind packages.Kind) BrowsePage {
+	var list []RegistryEntry
 	for _, e := range all {
-		if e.Kind == string(packages.KindPlugin) {
-			plugins = append(plugins, e)
+		if e.Kind == string(kind) {
+			list = append(list, e)
 		}
 	}
-	page := BrowsePage{Facets: browseFacets(plugins), Filtered: q.Filtered()}
+	page := BrowsePage{Facets: browseFacets(list, kind), Filtered: q.Filtered()}
 
 	var matched []RegistryEntry
-	for _, e := range plugins {
-		if !browseMatches(e, q) {
+	for _, e := range list {
+		if !browseMatches(e, q, kind) {
 			continue
 		}
-		if e.Installed {
+		// The live theme is never counted as installed nor hidden.
+		installed := e.Installed && !(kind == packages.KindTheme && e.Active)
+		if installed {
 			page.InstalledTotal++
 			if q.HideInstalled {
 				page.InstalledHidden++
 			}
 		}
-		if !(q.HideInstalled && e.Installed) {
+		if !(q.HideInstalled && installed) {
 			matched = append(matched, e)
 		}
 	}
@@ -210,10 +247,20 @@ func browseKey(e RegistryEntry) string {
 	return strings.ToLower(e.Name)
 }
 
-func browseFacets(plugins []RegistryEntry) BrowseFacets {
+func browseFacets(list []RegistryEntry, kind packages.Kind) BrowseFacets {
 	var f BrowseFacets
+	if kind == packages.KindTheme {
+		for _, st := range packages.SiteTypes {
+			if n := countFunc(list, func(e RegistryEntry) bool { return e.SiteType == st }); n > 0 {
+				f.SiteTypes = append(f.SiteTypes, BrowseCount{Value: st, Count: n})
+			}
+		}
+		f.HasSiteTypes = len(f.SiteTypes) > 0
+		f.HasFlags = slices.ContainsFunc(list, func(e RegistryEntry) bool { return len(e.Flags) > 0 })
+		return f
+	}
 	for _, c := range packages.Categories {
-		if slices.ContainsFunc(plugins, func(e RegistryEntry) bool { return e.Category == c }) {
+		if slices.ContainsFunc(list, func(e RegistryEntry) bool { return e.Category == c }) {
 			f.Categories = append(f.Categories, c)
 		}
 	}
@@ -221,11 +268,21 @@ func browseFacets(plugins []RegistryEntry) BrowseFacets {
 	return f
 }
 
-func browseMatches(e RegistryEntry, q BrowseQuery) bool {
+func countFunc(list []RegistryEntry, fn func(RegistryEntry) bool) int {
+	n := 0
+	for _, e := range list {
+		if fn(e) {
+			n++
+		}
+	}
+	return n
+}
+
+func browseMatches(e RegistryEntry, q BrowseQuery, kind packages.Kind) bool {
 	if q.Q != "" {
 		n := strings.ToLower(q.Q)
 		hit := false
-		for _, s := range []string{e.Name, e.Title, e.Author, e.Description} {
+		for _, s := range []string{e.Name, e.Title, e.Author, e.Description, e.SiteType} {
 			if strings.Contains(strings.ToLower(s), n) {
 				hit = true
 				break
@@ -244,6 +301,17 @@ func browseMatches(e RegistryEntry, q BrowseQuery) bool {
 		if !slices.Contains(q.Tiers, tier) {
 			return false
 		}
+	}
+	if kind == packages.KindTheme {
+		if len(q.Types) > 0 && !slices.Contains(q.Types, e.SiteType) {
+			return false
+		}
+		for _, f := range q.Feats {
+			if !slices.Contains(e.Flags, f) {
+				return false
+			}
+		}
+		return true
 	}
 	if len(q.Cats) > 0 && !slices.Contains(q.Cats, e.Category) {
 		return false
