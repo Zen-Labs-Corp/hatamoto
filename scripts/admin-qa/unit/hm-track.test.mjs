@@ -49,7 +49,7 @@ test("fresh tab with an external referrer is an entry; host only, no URL", () =>
   const r = run({ referrer: "https://www.Google.com/search?q=secret", search: "?utm_source=News&utm_medium=email&utm_campaign=x&gclid=1" });
   assert.equal(r.posts[0].url, "/api/v1/track");
   assert.equal(r.posts[0].blob.type, "text/plain");
-  assert.deepEqual(r.events[0], { type: "page_view", ref: "google.com", us: "news", um: "email", uc: "x", paid: true, path: "/landing", entry: true });
+  assert.deepEqual(r.events[0], { type: "page_view", ref: "google.com", utm_source: "news", utm_medium: "email", utm_campaign: "x", paid: true, path: "/landing", entry: true });
   assert.ok(!r.posts[0].blob.text.includes("secret"));
 });
 

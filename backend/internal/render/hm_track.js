@@ -78,9 +78,9 @@
     return {
       type: type,
       ref: hostOf(marker.r).slice(0, 100),
-      us: marker.s,
-      um: marker.m,
-      uc: marker.c,
+      utm_source: marker.s,
+      utm_medium: marker.m,
+      utm_campaign: marker.c,
       paid: marker.g,
       path: marker.p
     };

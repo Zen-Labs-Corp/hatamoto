@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -172,4 +175,24 @@ func TestTrackNeverTouchesDBBeforeFlush(t *testing.T) {
 		strings.NewReader(`{"v":2,"events":[{"type":"page_view","entry":true,"path":"/"}]}`))
 	req.Header.Set("User-Agent", browserUA)
 	h.Track(httptest.NewRecorder(), req)
+}
+
+// TestTrackPayloadKeysMatchBeacon pins the /track decoder to the embedded
+// beacon: every JSON key the handler reads must be written by hm_track.js,
+// except the legacy "kind" that only the old hm.js beacon sent.
+func TestTrackPayloadKeysMatchBeacon(t *testing.T) {
+	src, err := os.ReadFile("../render/hm_track.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	typ := reflect.TypeOf(trackEvent{})
+	for i := 0; i < typ.NumField(); i++ {
+		key := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
+		if key == "kind" {
+			continue
+		}
+		if !regexp.MustCompile(`\b` + key + `\s*:`).Match(src) {
+			t.Errorf("hm_track.js never sends %q, which the /track handler decodes", key)
+		}
+	}
 }
