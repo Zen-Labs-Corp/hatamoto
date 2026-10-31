@@ -190,6 +190,9 @@ type themeDetailPage struct {
 	Source        string
 	Primary       *detailPrimary
 	Actions       []ui.Button
+	// Panel is true for the side-panel fragment: the actions are then
+	// rendered as a block pluginpanel.js moves into the drawer footer.
+	Panel bool
 }
 
 // handleThemeAbout is the no-script detail page of a registry theme. A request
@@ -217,7 +220,7 @@ func (a *Admin) handleThemeAbout(w http.ResponseWriter, r *http.Request) {
 	}
 	e := reg.Entries[i]
 	d := themeDetailPage{
-		Entry: e, Title: e.Title, Screenshot: e.Screenshot, SiteTypeLabel: siteTypeLabel(e.SiteType), Source: httpURL(e.Source),
+		Panel: isFragment(r), Entry: e, Title: e.Title, Screenshot: e.Screenshot, SiteTypeLabel: siteTypeLabel(e.SiteType), Source: httpURL(e.Source),
 	}
 	if d.Title == "" {
 		d.Title = e.Name

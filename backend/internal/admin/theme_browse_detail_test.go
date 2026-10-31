@@ -172,6 +172,16 @@ func TestThemeBrowseDetailFragment(t *testing.T) {
 	if !strings.Contains(full, "<html") {
 		t.Error("full page lacks the shell")
 	}
+	if strings.Contains(full, "data-hm-panel-actions") || !strings.Contains(full, `class="hm-row"><a class="hm-btn hm-btn--secondary" href="https://demo.example.test/fresh"`) {
+		t.Error("the no-JS page keeps its actions in the page header")
+	}
+	i := strings.Index(frag, "data-hm-panel-actions")
+	if i < 0 || strings.Index(frag, "hm-pageheader") > i || strings.Count(frag, "Preview demo") != 1 || strings.Count(frag, `action="/admin/theme/themes/fetch"`) != 1 {
+		t.Error("the panel renders its actions once, in the block the footer takes")
+	}
+	if !strings.Contains(frag[i:], "Preview demo") || !strings.Contains(frag[i:], ">Install<") {
+		t.Error("Preview demo and the primary belong in the footer block")
+	}
 }
 
 // Features show even when the theme has no About text.

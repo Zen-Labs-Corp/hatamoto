@@ -20,3 +20,5 @@
 /* The theme detail: large rounded screenshot, then the muted note. */
 .hm-themebrowse__shot { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--color-kasumi); }
 .hm-themebrowse__note { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+/* The drawer actions move into the dialog footer (pluginpanel.js); the wrappers vanish so the buttons join the footer row. */
+[data-hm-panel-actions], [data-hm-panel-actions] > form { display: contents; }
