@@ -20,7 +20,7 @@ export function row({ id, name, label, body, status, note, onReset, scrub }) {
   const dot = h("span", { class: "hm-bs-dot", "aria-hidden": "true" });
   const src = chip("", { class: "hm-bs-src", hidden: true });
   const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${name}`, "aria-describedby": `${id}-s`, onclick: onReset });
-  const el = h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, dot, label, src, reset), ...body, status, note);
+  const el = h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, dot, label, reset), ...body, src, status, note);
   return {
     el,
     reset,
@@ -68,12 +68,12 @@ export function lengthControl({ id, entry, name, palette, describe, apply, compa
   let shown = ""; // what an unset field shows as its placeholder (inherited or from the preset): arrow keys start from it
   const tokens = tokenOrder(entry, palette);
   const tok = tokens.length && !compact
-    ? h("select", { class: "hm-field__control hm-bs-tok", "aria-label": `${name} site size`, "aria-describedby": describe }, h("option", { value: "", text: "Custom" }), ...tokens.map((t) => h("option", { value: t, text: tokenLabel(entry, t, palette) })))
+    ? h("select", { class: "hm-field__control hm-bs-ctl hm-bs-tok", "aria-label": `${name} site size`, "aria-describedby": describe }, h("option", { value: "", text: "Custom" }), ...tokens.map((t) => h("option", { value: t, text: tokenLabel(entry, t, palette) })))
     : null;
-  const num = h("input", { id, class: "hm-field__control hm-bs-num", type: "number", step: String(stepFor(entry, unit)), autocomplete: "off", "aria-label": compact ? name : null, "aria-describedby": describe });
+  const num = h("input", { id, class: "hm-field__control hm-bs-ctl hm-bs-num", type: "number", step: String(stepFor(entry, unit)), autocomplete: "off", "aria-label": compact ? name : null, "aria-describedby": describe });
   const choices = compact ? [...options, ...tokens] : options; // the compact select lists the tokens after the units
   const sel = choices.length
-    ? h("select", { class: "hm-field__control hm-bs-unit", "aria-label": `${name} unit`, disabled: choices.length === 1 }, ...choices.map((u) => h("option", { value: u, text: options.includes(u) ? u : tokenLabel(entry, u, palette) })))
+    ? h("select", { class: "hm-field__control hm-bs-ctl hm-bs-unit", "aria-label": `${name} unit`, disabled: choices.length === 1 }, ...choices.map((u) => h("option", { value: u, text: options.includes(u) ? u : tokenLabel(entry, u, palette) })))
     : null;
   const slider = compact ? null : h("input", { type: "range", class: "hm-bs-slider", "aria-label": `${name} slider` });
   const el = h("div", { class: compact ? "hm-bs-len hm-bs-len--c" : "hm-bs-len" }, tok, h("div", { class: "hm-bs-len__n" }, num, sel), slider);
@@ -202,7 +202,7 @@ export function colourControl({ id, entry, name, palette, describe, apply, user 
   const paintSw = (node, css) => (css ? node.style.setProperty("--hm-bs-sw", css) : node.style.removeProperty("--hm-bs-sw"));
   const swatch = h("button", { type: "button", id, class: "hm-bs-swatch", popovertarget: popId, "aria-expanded": "false", "aria-describedby": describe }, h("span", { class: "hm-bs-none", "aria-hidden": "true", text: "None" }));
   const err = h("p", { class: "hm-bs-err", id: `${id}-pe`, hidden: true, text: "Use a palette colour or a hex value like #1e293b." });
-  const hex = h("input", { type: "text", class: "hm-field__control hm-bs-hex", autocomplete: "off", spellcheck: "false", placeholder: "#rrggbb", "aria-label": "Hex colour", "aria-describedby": `${id}-pe` });
+  const hex = h("input", { type: "text", class: "hm-field__control hm-bs-ctl hm-bs-hex", autocomplete: "off", spellcheck: "false", placeholder: "#rrggbb", "aria-label": "Hex colour", "aria-describedby": `${id}-pe` });
   const native = h("input", { type: "color", class: "hm-bs-native", "aria-label": "Custom colour" });
   const clear = actButton("Clear");
   const recentList = h("div", { class: "hm-bs-recent__l" });

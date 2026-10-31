@@ -332,7 +332,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     let pills = null; // the Fill group's theme colour pills (the background only)
 
     if (c.kind === "select") {
-      el = h("select", { id, class: "hm-field__control", "aria-describedby": describe }, h("option", { value: "", text: unset }));
+      el = h("select", { id, class: "hm-field__control hm-bs-ctl", "aria-describedby": describe }, h("option", { value: "", text: unset }));
       for (const [v, label] of c.options) el.append(h("option", { value: v, text: label }));
       sync = () => {
         if (own !== null && !c.options.some(([v]) => v === own) && !el.querySelector(`option[value="${CSS.escape(own)}"]`)) el.append(h("option", { value: own, text: `${own} (custom)` }));
@@ -342,7 +342,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       if (entry.key === "op") stops = stopSlider({ name, options: c.options.map(([v]) => v), apply });
     } else if (grouped) {
       const buttons = c.options.map(([v, label]) => h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", text: label }));
-      num = c.number ? h("input", { id, class: "hm-field__control hm-bs-num", type: "number", min: String(c.min), max: String(c.max), step: "1", "aria-label": c.options.length ? `${name}, other number` : name, "aria-describedby": describe }) : null;
+      num = c.number ? h("input", { id, class: "hm-field__control hm-bs-ctl hm-bs-num", type: "number", min: String(c.min), max: String(c.max), step: "1", "aria-label": c.options.length ? `${name}, other number` : name, "aria-describedby": describe }) : null;
       sync = () => {
         for (const b of buttons) {
           b.setAttribute("aria-pressed", String(own === b.dataset.v));
@@ -403,7 +403,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       return true;
     }
     if (input && !len && !col) input.addEventListener("change", () => apply(input.value.trim() || null));
-    const label = grouped ? h("span", { class: "hm-field__label", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label", for: id, text: name });
+    const label = grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
     const view = row({
       id,
       name,

@@ -60,11 +60,11 @@ const mount = (node, { bp = "base", state = "", table: tbl = table } = {}) => {
     commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
   });
   const find = (pred) => { const r = []; el.walk((n) => pred(n) && r.push(n)); return r; };
-  // The row of a key: its reset button names it; the sibling head holds dot and source.
+  // The row of a key: its reset button names it; the head holds dot and reset, the field the source chip.
   const row = (name) => {
     const reset = find((n) => n.attrs["aria-label"] === `Reset ${name}`)[0];
     const head = reset.parent;
-    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
+    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
   };
   return { el, calls, row, groupDot: () => find((n) => n.className === "hm-bs-dot" && n.dataset.dot === "set")[0], find };
 };
@@ -309,7 +309,7 @@ const length = (key) => {
   const applied = [];
   const len = lengthControl({ id: `l-${key}`, entry: full.find((e) => e.key === key), name: key, palette: { colors: [], space: {}, fs: {} }, describe: "", apply: (v) => (applied.push(v), true) });
   const find = (pred) => { const r = []; len.el.walk((n) => pred(n) && r.push(n)); return r[0]; };
-  return { len, applied, unit: find((n) => n.tag === "select" && n.className === "hm-field__control hm-bs-unit"), slider: find((n) => n.attrs.type === "range") };
+  return { len, applied, unit: find((n) => n.tag === "select" && n.className.includes("hm-bs-unit")), slider: find((n) => n.attrs.type === "range") };
 };
 
 test('a stored bare "0": the unit shows the key\'s own unit, the slider keeps its range, arrows and typing give valid values', () => {

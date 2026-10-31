@@ -79,3 +79,36 @@
   .hm-bs-bm__n[aria-invalid="true"] { border-width: 2px; border-style: dashed; border-color: Mark; } /* the danger colour is replaced there: width and style carry the refusal */
   .hm-bs-opt[aria-pressed="true"], .hm-bs-linkbtn[aria-pressed="true"], .hm-bs-pill[aria-pressed="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
+
+/* Style tab density (the mockup's .r rows): 12px text, the label in a narrow left column, the control on the right, 28px controls. */
+.hm-bs-style { gap: 0; font-size: var(--text-xs); }
+.hm-bs-style .hm-bs-ctx { padding-block: var(--space-2); border-bottom: 1px solid var(--border); }
+.hm-bs-style .hm-bs-grp { padding-block: 0 var(--space-3); }
+.hm-bs-style .hm-bs-grp__b, .hm-bs-style .hm-bs-grp__sub { gap: var(--space-2); }
+.hm-bs-style button.hm-bs-grp__t, .hm-bs-style .hm-bs-ctx__note, .hm-bs-style .hm-bs-err { font-size: var(--text-xs); }
+.hm-bs-style .hm-bs-lbl { font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--text-muted); }
+.hm-bs-style .hm-bs-ctl { height: var(--control-h-xs); padding-inline: var(--space-2); font-size: var(--text-xs); border-radius: var(--radius-md); }
+.hm-bs-style select.hm-bs-ctl { padding-inline-end: var(--space-6); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; }
+.hm-bs-style .hm-bs-field { position: relative; display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: start; gap: var(--space-1) var(--space-2); }
+.hm-bs-style .hm-bs-field > :not(.hm-bs-head) { grid-column: 2; }
+.hm-bs-style .hm-bs-field > .hm-bs-head + * { grid-row: 1; }
+.hm-bs-style .hm-bs-head { grid-column: 1; grid-row: 1; min-block-size: var(--control-h-xs); gap: var(--space-1); }
+.hm-bs-style .hm-bs-head > .hm-bs-dot { position: absolute; inset-inline-start: calc(-1 * var(--space-3)); }
+.hm-bs-style .hm-bs-reset { min-block-size: 24px; min-inline-size: 24px; padding: 0; }
+.hm-bs-style .hm-bs-src { justify-self: start; font-size: var(--text-xs); }
+.hm-bs-style .hm-bs-src[data-source="set"] { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } /* the dot and the reset button say it; the text stays for a screen reader */
+.hm-bs-style .hm-bs-field--check { display: flex; }
+.hm-bs-style .hm-bs-showon.hm-bs-showon { display: flex; }
+.hm-bs-style .hm-bs-len { gap: var(--space-1); }
+.hm-bs-style .hm-bs-len .hm-bs-tok { flex: 1 1 5rem; }
+.hm-bs-style .hm-bs-len .hm-bs-slider { flex: 1 1 100%; }
+.hm-bs-style .hm-bs-len .hm-bs-num { width: 4.5rem; }
+.hm-bs-style .hm-bs-swatch { width: var(--control-h-xs); height: var(--control-h-xs); }
+
+/* Choice buttons: one compact segmented track (the mockup's .sg) that wraps inside the narrow pane. */
+.hm-bs-style .hm-bs-opts { gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); }
+.hm-bs-style .hm-bs-opt { flex: 1 1 auto; min-width: 1.5rem; min-height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: transparent; box-shadow: none; color: var(--text-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); text-align: center; }
+.hm-bs-style .hm-bs-opt:hover { background: transparent; box-shadow: none; color: var(--text); }
+.hm-bs-style .hm-bs-opt[aria-pressed="true"], .hm-bs-style .hm-bs-opt[aria-pressed="true"]:hover { background: var(--color-paper); color: var(--color-sumi); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
+.hm-bs-style .hm-bs-opt--inherited { border: 0; box-shadow: inset 0 0 0 1px var(--border); }
+.hm-bs-style .hm-bs-opts .hm-bs-num { flex: 0 0 4rem; min-width: 0; height: 24px; }
