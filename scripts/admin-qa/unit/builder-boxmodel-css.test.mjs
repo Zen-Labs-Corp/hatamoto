@@ -32,7 +32,8 @@ test("the selected choice option has a semibold label (ADMIN_UI_RULES rule 6)", 
 
 test("the ring caption has its own band above the top number and the size text wraps instead of overflowing", () => {
   const rings = /^\.hm-bs-bm__m, \.hm-bs-bm__p \{([^}]*)\}/m.exec(css)?.[1] ?? "";
-  assert.match(rings, /padding:\s*calc\(var\(--text-xs\) \* 1\.5/, "top padding reserves the caption line");
+  assert.match(rings, /grid-template-areas:\s*"cap cap cap"/, "the caption has its own grid row");
+  assert.doesNotMatch(/^\.hm-bs-bm__t \{([^}]*)\}/m.exec(css)?.[1] ?? "", /position:\s*absolute/);
   const el = /^\.hm-bs-bm__el \{([^}]*)\}/m.exec(css)?.[1] ?? "";
   assert.doesNotMatch(el, /white-space:\s*nowrap/);
   assert.match(el, /overflow-wrap:\s*anywhere/);

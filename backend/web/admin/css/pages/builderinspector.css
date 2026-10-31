@@ -38,10 +38,10 @@
 .hm-bs-bm__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .hm-bs-bm__presets { display: flex; flex: 1 1 auto; gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); }
 .hm-bs-bm__presets > .hm-bs-opt { flex: 1 1 0; }
-.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-areas: ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-1); min-width: 0; padding: calc(var(--text-xs) * 1.5 + var(--space-2)) var(--space-2) var(--space-1); border-radius: var(--radius-md); } /* the top band holds the ring caption, so it cannot sit on the top number */
+.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-areas: "cap cap cap" ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); }
 .hm-bs-bm__m { border: 1px dashed var(--color-guide-margin); background: color-mix(in srgb, var(--color-guide-margin) 10%, var(--surface)); }
 .hm-bs-bm__p { border: 1px dashed var(--color-guide-pad); background: color-mix(in srgb, var(--color-guide-pad) 10%, var(--surface)); }
-.hm-bs-bm__t { position: absolute; inset-block-start: var(--space-1); inset-inline-start: var(--space-2); pointer-events: none; font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-body); }
+.hm-bs-bm__t { grid-area: cap; justify-self: start; pointer-events: none; /* its own row: the caption can never sit on the top number */ font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-body); }
 .hm-bs-bm__c { grid-area: c; display: flex; align-items: center; justify-content: center; align-self: stretch; min-width: 0; }
 .hm-bs-bm__c > .hm-bs-bm__p { flex: 1 1 auto; }
 .hm-bs-bm > .hm-bs-bm__m > .hm-bs-err, .hm-bs-bm__p > .hm-bs-err { grid-column: 1 / -1; justify-self: start; }
@@ -112,7 +112,7 @@
 .hm-bs-style .hm-bs-opt { flex: 1 1 auto; min-width: 1.5rem; min-height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: transparent; box-shadow: none; color: var(--text-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); text-align: center; }
 .hm-bs-style .hm-bs-opt:hover { background: transparent; box-shadow: none; color: var(--text); }
 .hm-bs-style .hm-bs-opt[aria-pressed="true"], .hm-bs-style .hm-bs-opt[aria-pressed="true"]:hover { background: var(--color-paper); color: var(--color-sumi); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); font-weight: var(--weight-semibold); }
-.hm-bs-style .hm-bs-opt--inherited { border: 1px dashed var(--color-hai); padding-inline: calc(var(--space-2) - 1px); box-shadow: none; } /* dashed = inherited, as everywhere else; a border so forced colours draw it too */
+.hm-bs-style .hm-bs-opt--inherited { border: 1px dashed var(--color-hai); padding-inline: calc(var(--space-2) - var(--space-px)); box-shadow: none; } /* dashed = inherited, as everywhere else; a border so forced colours draw it too */
 .hm-bs-style .hm-bs-opts .hm-bs-num { flex: 0 0 4rem; min-width: 0; height: 24px; }
 
 /* Fill: the colour field keeps its "None" in full; the theme pills run the full width under it. */
