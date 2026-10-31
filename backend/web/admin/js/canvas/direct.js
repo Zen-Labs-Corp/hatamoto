@@ -251,7 +251,7 @@ export function mountDirect(canvas, hd) {
       if (px === was) return;
       const alt = !!e.altKey;
       const bp = hd.padState(id).bp;
-      if (hd.onPadCommit({ id, writes: padWrites({ id, bp, side, px, alt }), label: padLabel(side, bp), coalesce: `pad${seq}:${id}:${side}` }) === false) return;
+      if (hd.onPadCommit({ id, writes: padWrites({ id, bp, side, px, alt }), label: padLabel(side, bp), coalesce: `pad${seq}:${id}:${side}:${alt ? "a" : ""}:${bp}` }) === false) return;
       pend.id = id; // a synchronous update() during the commit may have ended the session
       stamp = hd.stamp?.();
       pend.vals[side] = px;

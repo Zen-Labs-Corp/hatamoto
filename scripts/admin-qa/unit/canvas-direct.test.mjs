@@ -339,6 +339,13 @@ test("arrow presses in one focus session share a coalesce key; a blur, an undo (
   assert.notEqual(r.commits.at(-1).coalesce, key(3));
 });
 
+test("an Alt press and a plain press never share a coalesce key: undo must restore every side written", () => {
+  const r = rig();
+  r.handle("top").fire("keydown", { key: "ArrowDown" });
+  r.handle("top").fire("keydown", { key: "ArrowDown", altKey: true });
+  assert.notEqual(r.commits[0].coalesce, r.commits[1].coalesce);
+});
+
 test("arrow keys stop at 0 without committing, and alt carries the opposite side", () => {
   const r = rig({ nodes: [pdNode("a", 0, 100, [0, 0, 0, 0])] });
   r.handle("top").fire("keydown", { key: "ArrowDown" });
