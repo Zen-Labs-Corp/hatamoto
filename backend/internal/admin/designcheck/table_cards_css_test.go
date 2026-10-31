@@ -74,13 +74,18 @@ func TestPhoneBulkRowKeepsCheckAndActionsApart(t *testing.T) {
 	}
 }
 
-// The header look (small, uppercase, muted) is one rule in table.css for every .hm-table.
-func TestTableHeaderIsUppercaseSmall(t *testing.T) {
+// The header look (small, sentence case, muted) is one rule in table.css for every .hm-table.
+func TestTableHeaderIsSentenceCaseSmall(t *testing.T) {
 	t.Parallel()
 
 	css := partialCSS(t, "table.css")
-	want := ".hm-table thead th { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);"
+	want := ".hm-table thead th { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted);"
 	if !strings.Contains(css, want) {
 		t.Errorf("table.css must carry the shared header rule %q", want)
+	}
+	for _, line := range strings.Split(css, "\n") {
+		if strings.HasPrefix(line, ".hm-table thead th {") && (strings.Contains(line, "text-transform") || strings.Contains(line, "letter-spacing")) {
+			t.Errorf("table header must stay sentence case without tracking: %s", line)
+		}
 	}
 }

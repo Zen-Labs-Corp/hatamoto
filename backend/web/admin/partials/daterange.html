@@ -3,7 +3,7 @@
      existing GET form for the custom dates; a preset is a plain link that applies
      at once. The popover is native, so nothing here needs JS. */}}
 {{define "hm/daterange"}}{{$id := or .ID "range"}}<div class="hm-daterange">
-<button type="button" class="hm-btn hm-daterange__button" popovertarget="{{$id}}-pop" aria-haspopup="dialog">{{icon "calendar"}}<span>{{.Label}}{{with .Compare}}{{if and .On .Label2}}<span class="hm-daterange__vs">{{.Label2}}</span>{{end}}{{end}}</span></button>
+<button type="button" class="hm-btn hm-daterange__button" popovertarget="{{$id}}-pop" aria-haspopup="dialog">{{icon "calendar"}}<span>{{.Label}}{{with .Compare}}{{if and .On .Label2}}<span class="hm-daterange__vs">{{.Label2}}</span>{{end}}{{end}}</span>{{icon "chevron-down"}}</button>
 <div class="hm-popover-panel hm-daterange__pop" popover id="{{$id}}-pop" role="dialog" aria-label="Choose a date range" data-hm-daterange>
 <form method="get" action="{{required "hm/daterange Action" .Action}}">
 {{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}

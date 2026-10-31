@@ -7,9 +7,9 @@
 .hm-table__bulk[hidden] { display: none; }
 .hm-table__search { flex: 1 1 240px; max-width: 420px; }
 .hm-table__filters .hm-select { width: auto; flex: 0 1 220px; min-width: 160px; }
-/* Bulk bar: accent-soft tint, ink text, paper buttons (hairline ring). */
-.hm-table__bulk { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-accent-soft); color: var(--color-sumi); font-size: var(--text-sm); border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
-.hm-table__bulk [data-hm-bulk-count] { font-weight: var(--weight-medium); margin-right: auto; white-space: nowrap; }
+/* Bulk bar: raised surface, hairline under it, ink text, bold count. */
+.hm-table__bulk { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-kasumi); color: var(--color-sumi); font-size: var(--text-sm); border-bottom: 1px solid var(--color-kinu); }
+.hm-table__bulk [data-hm-bulk-count] { font-weight: var(--weight-semibold); margin-right: auto; white-space: nowrap; }
 /* position: relative anchors the visually-hidden spans inside cells to the scroller; without
    it they sit against the viewport and widen the page. Wider tables scroll sideways inside
    this focusable region; below 640px rows stack as cards (see the media query). */
@@ -17,8 +17,8 @@
 .hm-table__scroll:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); color: var(--color-sumi-soft); }
 .hm-table th, .hm-table td { padding: var(--space-2-5) var(--space-4); text-align: left; border-bottom: 1px solid var(--color-kinu); vertical-align: middle; white-space: nowrap; }
-/* One header look for every table (hm/table, hm/datatable, analytics): small, uppercase, muted. */
-.hm-table thead th { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); background: transparent; }
+/* One header look for every table (hm/table, hm/datatable, analytics): small, sentence case, muted. */
+.hm-table thead th { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); background: transparent; }
 /* Group header rows (agents by purpose): one tbody per group, the title row spans every column. */
 .hm-table__group th { padding: var(--space-6) var(--space-4) var(--space-3); border-bottom: 0; text-align: left; white-space: normal; font-weight: var(--weight-regular); color: var(--text); }
 .hm-table tbody:first-of-type .hm-table__group th { padding-top: var(--space-4); }
@@ -37,15 +37,14 @@
 .hm-table th.hm-table__right, .hm-table td.hm-table__right { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table th.hm-table__check, .hm-table td.hm-table__check { width: 40px; padding-right: 0; }
 .hm-table__actions { width: 1%; text-align: right; white-space: nowrap; }
-.hm-table__sort { color: inherit; text-decoration: none; }
-.hm-table__sort:hover { color: var(--color-sumi); text-decoration: underline; }
+.hm-table__sort { display: inline-flex; align-items: center; gap: var(--space-1); color: inherit; text-decoration: none; }
+.hm-table__sort .hm-icon { width: 12px; height: 12px; opacity: .6; }
+.hm-table__sort:hover { color: var(--color-sumi); }
 .hm-table__sort:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-th[aria-sort] .hm-table__sort { color: var(--color-sumi); }
-th[aria-sort="ascending"] .hm-table__sort::after { content: " \2191"; }
-th[aria-sort="descending"] .hm-table__sort::after { content: " \2193"; }
+th[aria-sort="ascending"] .hm-table__sort, th[aria-sort="descending"] .hm-table__sort { color: var(--color-sumi); }
+th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .hm-table__sort .hm-icon { opacity: 1; }
 .hm-table tbody tr:last-child > * { border-bottom: 0; }
 .hm-table tbody tr:hover { background: var(--color-shiro); }
-.hm-table tbody tr:has(input[type="checkbox"]:checked) { background: var(--color-accent-soft); }
 .hm-table__sub { display: block; font-size: var(--text-xs); color: var(--color-hai); }
 .hm-inline { display: inline; }
 /* Inline proportion bar and trend line after a cell's text; both are SVG, widths are attributes. */

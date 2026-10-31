@@ -154,7 +154,7 @@ func (a *Admin) handleRules(w http.ResponseWriter, r *http.Request) {
 		id := rl.ID.String()
 		state, toggle := &ui.Badge{Label: "On", Kind: "success"}, "Turn off"
 		if !rl.IsActive {
-			state, toggle = &ui.Badge{Label: "Off", Kind: "neutral"}, "Turn on"
+			state, toggle = &ui.Badge{Label: "Off", Kind: "muted"}, "Turn on"
 		}
 		phrase := rl.MatchValue
 		if rl.AnchorText != nil && *rl.AnchorText != "" && *rl.AnchorText != rl.MatchValue {

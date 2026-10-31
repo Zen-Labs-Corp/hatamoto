@@ -38,7 +38,7 @@
 .hm-pe__tup:hover { background: var(--pe-ui-hover); color: var(--pe-ui-fg); }
 .hm-pe__tup:focus-visible { outline: 2px solid var(--pe-ui-fg); outline-offset: -2px; }
 .hm-pe__tsep { flex: none; width: 1px; height: 16px; margin: 0 var(--space-0-5); background: var(--pe-ui-hover); }
-.hm-pe__tactions { display: flex; gap: var(--space-px); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.hm-pe__tactions { display: flex; gap: var(--space-px); min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .hm-pe__tbtn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-width: 28px; height: 28px; padding: 0 var(--space-1-5); border-radius: var(--radius-sm); color: var(--pe-ui-muted); cursor: pointer; white-space: nowrap; }
 .hm-pe__tbtn svg { width: 16px; height: 16px; flex: none; }
 .hm-pe__tbtn:hover { background: var(--pe-ui-hover); color: var(--pe-ui-fg); }

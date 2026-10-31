@@ -226,7 +226,9 @@ document.addEventListener("toggle", (evt) => {
     // date range sit right-aligned under their button; other panels left-aligned.
     const r = opener.getBoundingClientRect();
     const vw = document.documentElement.clientWidth;
-    m.style.top = `${Math.max(8, Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8))}px`;
+    // The date range opens below its whole header row, so it never covers the page lede.
+    const below = m.classList.contains("hm-daterange__pop") ? Math.max(r.bottom, opener.closest(".hm-pageheader__row")?.getBoundingClientRect().bottom ?? 0) : r.bottom;
+    m.style.top = `${Math.max(8, Math.min(below + 4, innerHeight - m.offsetHeight - 8))}px`;
     const end = m.classList.contains("hm-menu") || m.classList.contains("hm-daterange__pop");
     const left = end ? r.right - m.offsetWidth : r.left;
     m.style.left = `${Math.max(8, Math.min(left, vw - m.offsetWidth - 8))}px`;

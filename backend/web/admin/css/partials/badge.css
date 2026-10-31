@@ -2,25 +2,30 @@
 .hm-badge {
   display: inline-flex; align-items: center; gap: var(--space-1-5); height: var(--badge-h); padding: 0 var(--space-2);
   border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap;
-  background: var(--color-kasumi); color: var(--color-sumi-soft); border: 1px solid var(--color-kinu);
+  background: var(--color-kasumi); color: var(--color-sumi);
 }
-.hm-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.hm-badge--success { background: var(--color-success-soft); color: var(--color-success); border-color: transparent; }
-.hm-badge--warning { background: var(--color-warning-soft); color: var(--color-warning); border-color: transparent; }
-.hm-badge--danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: transparent; }
-.hm-badge--info { background: var(--color-accent-soft); color: var(--color-accent); border-color: transparent; }
+.hm-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.hm-badge--success { background: color-mix(in srgb, var(--color-success) 12%, var(--color-paper)); color: var(--color-success); }
+.hm-badge--warning { background: color-mix(in srgb, var(--color-warning) 12%, var(--color-paper)); color: var(--color-warning); }
+.hm-badge--danger { background: color-mix(in srgb, var(--color-danger) 11%, var(--color-paper)); color: var(--color-danger); }
+.hm-badge--info { background: var(--color-accent-soft); color: var(--accent-link); }
+/* Off, Disabled, Paused, Hidden: outlined grey, no fill. */
+.hm-badge--muted { background: transparent; color: var(--text-body); box-shadow: inset 0 0 0 1px var(--color-nezumi); }
+/* The live theme: the seal tint, with a square seal-coloured dot. */
+.hm-badge--live { background: color-mix(in srgb, var(--color-brand) 10%, var(--color-paper)); color: var(--color-sumi); }
+.hm-badge--live .hm-badge__dot { width: 8px; height: 8px; border-radius: var(--radius-2xs); background: var(--color-brand); }
 /* The device being edited in the page builder (Tablet, Phone): the band colours of the canvas. */
-.hm-badge--tablet { background: var(--color-device-tablet-soft); color: var(--color-device-tablet); border-color: transparent; }
-.hm-badge--phone { background: var(--color-device-phone-soft); color: var(--color-device-phone); border-color: transparent; }
+.hm-badge--tablet { background: var(--color-device-tablet-soft); color: var(--color-device-tablet); }
+.hm-badge--phone { background: var(--color-device-phone-soft); color: var(--color-device-phone); }
 /* Read-only identifiers and tags (hooks, hosts, routes, shortcodes, bound data): the same pill, monospace, wrapping. */
 .hm-badge--wrap { height: auto; min-height: var(--badge-h); white-space: normal; overflow-wrap: anywhere; }
 .hm-badge--mono { font-family: var(--font-mono); }
-/* Neutral labels and tags carry no status tone: the text is the full ink colour. A coloured Plain or Mono badge keeps its tone and its dot. */
+/* Plain and Mono neutral labels carry no dot (badge.html); a coloured Plain or Mono badge keeps its tone and its dot. */
 .hm-badge--neutral.hm-badge--plain, .hm-badge--neutral.hm-badge--mono { color: var(--color-sumi); }
 .hm-badgelist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .hm-badgelist li { min-width: 0; max-width: 100%; }
 .hm-badge__icon { display: inline-flex; }
 .hm-badge__icon .hm-icon { width: 12px; height: 12px; }
 /* Size "sm": a compact secondary label (Browse cards). Muted ink; an icon keeps the accent. Last so it wins over the neutral Plain ink. */
-.hm-badge.hm-badge--sm { gap: var(--space-0-5); height: var(--badge-h-sm); padding: 0 var(--space-1); font-size: var(--text-2xs); line-height: var(--leading-none); color: var(--text-muted); background: var(--color-shiro); }
+.hm-badge.hm-badge--sm { gap: var(--space-0-5); height: var(--badge-h-sm); padding: 0 var(--space-1); font-size: var(--text-2xs); line-height: var(--leading-none); color: var(--text-muted); background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--color-kinu); }
 .hm-badge--sm .hm-badge__icon .hm-icon { width: 8px; height: 8px; color: var(--color-accent); }

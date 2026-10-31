@@ -92,8 +92,8 @@ func TestDarkFieldBorderStaysSofterThanControl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	field := regexp.MustCompile(`--border-field:\s*(#[0-9a-fA-F]{3,8})`).FindAllStringSubmatch(string(b), -1)
-	control := regexp.MustCompile(`--border-control:\s*(#[0-9a-fA-F]{3,8})`).FindAllStringSubmatch(string(b), -1)
+	field := regexp.MustCompile(`--border-field:\s*([^;]+);`).FindAllStringSubmatch(string(b), -1)
+	control := regexp.MustCompile(`--border-control:\s*([^;]+);`).FindAllStringSubmatch(string(b), -1)
 	if len(field) < 3 || len(field) != len(control) {
 		t.Fatalf("expected light, dark and auto-dark values of both tokens, got %d and %d", len(field), len(control))
 	}

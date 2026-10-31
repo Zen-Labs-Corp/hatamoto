@@ -110,7 +110,7 @@ func (a *Admin) handleRedirects(w http.ResponseWriter, r *http.Request) {
 		state := &ui.Badge{Label: "On", Kind: "success"}
 		toggle := "Turn off"
 		if !rd.IsActive {
-			state, toggle = &ui.Badge{Label: "Off", Kind: "neutral"}, "Turn on"
+			state, toggle = &ui.Badge{Label: "Off", Kind: "muted"}, "Turn on"
 		}
 		source := ui.Cell{Text: rd.SourcePath, Link: a.adminPath + "/settings/redirects/" + id + "/edit"}
 		if redirect.IsPatternSource(rd.SourcePath) {

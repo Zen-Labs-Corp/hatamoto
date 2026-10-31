@@ -148,6 +148,7 @@ form.hm-stack { max-width: 46rem; }
 }
 .hm-bare__panel--wide { max-width: 560px; }
 .hm-brand { font-weight: var(--weight-semibold); font-size: var(--text-lg); display: flex; align-items: center; gap: var(--space-2); }
+.hm-brand__seal { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-xs); background: var(--color-brand); color: var(--color-on-brand); flex: none; }
 
 /* The sidebar becomes a top bar at 768px (see partials/sidebar.css). */
 @media (max-width: 768px) {

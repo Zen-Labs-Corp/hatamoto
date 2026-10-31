@@ -182,7 +182,7 @@ an icon, add one line to the name map in `backend/tools/gen-icons/gen-icons.mjs`
 node tools/gen-icons/gen-icons.mjs /path/to/node_modules/lucide-react && gofmt -w internal/admin/icons_lucide.go
 ```
 
-Never hand-edit `icons_lucide.go`. The brand mark is the one hand-drawn glyph (in `icons.go`).
+Never hand-edit `icons_lucide.go`. The brand mark `mark` is the one hand-drawn glyph (in `icons.go`); the seal `seal` is the outline of one Noto Sans CJK JP glyph (SIL Open Font License 1.1, see NOTICE).
 `TestIconsAllNamesPresent` fails if a template or nav entry names an icon that is not in the map.
 
 Licence notice (Lucide, ISC):

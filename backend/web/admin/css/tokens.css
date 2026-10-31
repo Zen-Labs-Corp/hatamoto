@@ -8,17 +8,18 @@
   /* neutrals: shiro = app bg, paper = cards/inputs, kasumi = subtle fill,
      kinu = hairlines, nezumi = strong borders, hai = secondary text,
      sumi = primary text and primary buttons */
-  --color-shiro: #f9fafb;
+  --color-shiro: #fafaf9;
   --color-paper: #ffffff;
-  --color-kasumi: #f6f7f9;
-  --color-kinu: #e5e7eb;
-  --color-nezumi: #d1d5db;
-  --color-hai: #6b7280;
-  --color-sumi-soft: #374151;
-  --color-sumi: #111827;
+  --color-kasumi: #f2f2f1;
+  --color-kinu: rgb(23 23 23 / 0.08);
+  --color-nezumi: rgb(23 23 23 / 0.14);
+  --color-hai: #6e6e6e;
+  --color-sumi-soft: #525252;
+  --color-sumi: #171717;
 
-  --color-accent: #2563eb;
-  --color-accent-soft: #eff6ff;
+  --color-accent: #34508a;
+  /* accent-soft stays opaque (accent at 8% on shiro): a11y pairs parse hex only */
+  --color-accent-soft: #eaecf0;
   --color-success: #2f6b4f;
   --color-success-soft: #eaf3ee;
   --color-warning: #8a5a12;
@@ -34,21 +35,22 @@
   --color-device-phone-soft: #e3f3f2;
   --color-danger: #b23a2e;
   --color-danger-soft: #fbecea;
-  --color-brand: #dc2626;
+  --color-brand: #c8402a;
+  --color-on-brand: #ffffff; /* glyph on the brand seal */
   --admin-accent: #34508a;
 
-  /* six distinct hues plus slate Other (series 6), each >= 3:1 against --color-paper (TestTokenContrast);
+  /* indigo, three greys, amber, and a muted teal for Other (series 6), each >= 3:1 against --color-paper (TestTokenContrast);
      series are also told apart by dash and point style, never colour alone */
-  --chart-1: #1d4ed8;
-  --chart-2: #0e7490;
-  --chart-3: #7c3aed;
-  --chart-4: #a21caf;
-  --chart-5: #b45309;
-  --chart-6: #64748b;
+  --chart-1: #34508a;
+  --chart-2: #3f3f46;
+  --chart-3: #71717a;
+  --chart-4: #8a8a92;
+  --chart-5: #a06a12;
+  --chart-6: #3a7d74;
   /* plugin-facing names, kept as aliases of the series above */
   /* hm/barlist bar under sumi text (4.5:1 both themes, TestTokenContrast) */
-  --chart-bar-soft: #bfdbfe;
-  --chart-bar-quiet: #dbe4f5;
+  --chart-bar-soft: #c9d3e8;
+  --chart-bar-quiet: #e0e5f0;
   --chart-stack-1: var(--chart-1);
   --chart-stack-2: var(--chart-2);
   --chart-stack-3: var(--chart-3);
@@ -70,13 +72,13 @@
   --border-control: #8b919a;
   /* Soft border for text inputs, selects and textareas at rest (user decision, relaxes WCAG 1.4.11);
      hover (--color-hai) and focus keep 3:1. Checkboxes, switches and secondary buttons keep --border-control. */
-  --border-field: #d1d5db;
+  --border-field: rgb(23 23 23 / 0.18);
   /* Selected segment: hairline ring and bottom bevel; dark lifts both so the paper pill stays visible on the track. */
   --segment-ring: var(--border);
   --segment-bevel: var(--border-field);
   --btn-edge-primary: rgb(0 0 0 / 0.35);
   --btn-edge-danger: rgb(0 0 0 / 0.25);
-  --accent-link: var(--color-accent);
+  --accent-link: #2c4476;
 
   --radius-2xs: 2px;
   --radius-xs: 4px;
@@ -129,7 +131,7 @@
 
   --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-serif: ui-serif, Georgia, "Times New Roman", serif; /* kept: contract name */
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --focus-ring: 2px solid var(--color-accent);
   --focus: var(--color-accent);
   --tooltip-bg: var(--color-sumi);
@@ -142,7 +144,7 @@
 
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.05);
   --shadow-2: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-3: 0 16px 48px rgb(0 0 0 / 0.18);
+  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.08);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   --text-2xs: 10px; /* compact badge text */
@@ -154,7 +156,7 @@
   --text-xl: 20px;
   --text-2xl: 24px;
   --text-title: 18px; /* dialog and empty-state titles */
-  --text-metric: 30px; /* KPI values */
+  --text-metric: 28px; /* KPI values */
   --text-3xl: 2.25rem; /* editor title field */
 
   --weight-regular: 400;
@@ -177,20 +179,20 @@
 
 :root[data-admin-theme="dark"] {
   --bg: var(--color-shiro);
-  --color-shiro: #141416;
-  --color-paper: #1a1a1d;
-  --color-kasumi: #222226;
-  --color-kinu: #2c2c31;
-  --color-nezumi: #3a3a40;
-  --color-hai: #a3a3ab;
-  --color-sumi-soft: #c2c2c8;
-  --color-sumi: #d6d6da;
+  --color-shiro: #141415;
+  --color-paper: #19191b;
+  --color-kasumi: #232325;
+  --color-kinu: rgb(237 237 237 / 0.08);
+  --color-nezumi: rgb(237 237 237 / 0.14);
+  --color-hai: #8d8d93;
+  --color-sumi-soft: #a1a1a6;
+  --color-sumi: #ededed;
 
-  --color-accent: #6cb4ff;
-  --color-accent-soft: #132a44;
-  --color-success: #86c9a6;
+  --color-accent: #9db3e0;
+  --color-accent-soft: #222429;
+  --color-success: #4cc38a;
   --color-success-soft: #16261e;
-  --color-warning: #e3b872;
+  --color-warning: #d9a548;
   --color-warning-soft: #2a2112;
   --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
   --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
@@ -201,29 +203,31 @@
   --color-device-tablet-soft: #2a2112;
   --color-device-phone: #6fd0cb;
   --color-device-phone-soft: #112a29;
-  --color-danger: #f0948a;
+  --color-danger: #ee5b5f;
   --color-danger-soft: #2e1714;
-  --admin-accent: #9db4e0;
+  --admin-accent: #9db3e0;
   --border-control: #6f6f78;
-  --border-field: #3a3a40;
+  --border-field: rgb(237 237 237 / 0.16);
   --segment-ring: var(--border-field);
   --segment-bevel: var(--border-control);
   --btn-edge-primary: rgb(0 0 0 / 0.28);
   --btn-edge-danger: rgb(0 0 0 / 0.3);
-  --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
+  --color-brand: #c9482f;
+  --color-on-brand: #ffffff;
+  --accent-link: #b4c6ea;
   --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
-  --shadow-3: 0 16px 48px rgb(0 0 0 / 0.6);
+  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.4);
   --scroll-shadow: color-mix(in srgb, #000 45%, transparent);
 
-  --chart-1: #60a5fa;
-  --chart-2: #22d3ee;
-  --chart-3: #a78bfa;
-  --chart-4: #e879f9;
-  --chart-5: #fbbf24;
-  --chart-6: #94a3b8;
-  --chart-bar-soft: #1e3a8a;
-  --chart-bar-quiet: #1a3354;
+  --chart-1: #9db3e0;
+  --chart-2: #d4d4d8;
+  --chart-3: #a1a1aa;
+  --chart-4: #85858b;
+  --chart-5: #d9a548;
+  --chart-6: #6cbaa9;
+  --chart-bar-soft: #3a4560;
+  --chart-bar-quiet: #2b3246;
   color-scheme: dark;
 }
 
@@ -231,20 +235,20 @@
 @media (prefers-color-scheme: dark) {
   :root[data-admin-theme="auto"] {
     --bg: var(--color-shiro);
-    --color-shiro: #141416;
-    --color-paper: #1a1a1d;
-    --color-kasumi: #222226;
-    --color-kinu: #2c2c31;
-    --color-nezumi: #3a3a40;
-    --color-hai: #a3a3ab;
-    --color-sumi-soft: #c2c2c8;
-    --color-sumi: #d6d6da;
+    --color-shiro: #141415;
+    --color-paper: #19191b;
+    --color-kasumi: #232325;
+    --color-kinu: rgb(237 237 237 / 0.08);
+    --color-nezumi: rgb(237 237 237 / 0.14);
+    --color-hai: #8d8d93;
+    --color-sumi-soft: #a1a1a6;
+    --color-sumi: #ededed;
 
-    --color-accent: #6cb4ff;
-    --color-accent-soft: #132a44;
-    --color-success: #86c9a6;
+    --color-accent: #9db3e0;
+    --color-accent-soft: #222429;
+    --color-success: #4cc38a;
     --color-success-soft: #16261e;
-    --color-warning: #e3b872;
+    --color-warning: #d9a548;
     --color-warning-soft: #2a2112;
     --color-guide-pad: #f472b6; /* canvas padding handles, hatch, value badge */
     --color-inverse-bg: #18181b; /* dark in every theme: floating canvas toolbar */
@@ -255,29 +259,31 @@
     --color-device-tablet-soft: #2a2112;
     --color-device-phone: #6fd0cb;
     --color-device-phone-soft: #112a29;
-    --color-danger: #f0948a;
+    --color-danger: #ee5b5f;
     --color-danger-soft: #2e1714;
-    --admin-accent: #9db4e0;
+    --admin-accent: #9db3e0;
     --border-control: #6f6f78;
-    --border-field: #3a3a40;
+    --border-field: rgb(237 237 237 / 0.16);
     --segment-ring: var(--border-field);
     --segment-bevel: var(--border-control);
     --btn-edge-primary: rgb(0 0 0 / 0.28);
     --btn-edge-danger: rgb(0 0 0 / 0.3);
-    --color-brand: #f87171; /* #dc2626 is 3.9:1 on the dark surface */
+    --color-brand: #c9482f;
+    --color-on-brand: #ffffff;
+    --accent-link: #b4c6ea;
     --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-2: 0 0 0 1px rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.5);
-    --shadow-3: 0 16px 48px rgb(0 0 0 / 0.6);
+    --shadow-3: 0 8px 24px rgb(0 0 0 / 0.4);
     --scroll-shadow: color-mix(in srgb, #000 45%, transparent);
 
-    --chart-1: #60a5fa;
-    --chart-2: #22d3ee;
-    --chart-3: #a78bfa;
-    --chart-4: #e879f9;
-    --chart-5: #fbbf24;
-    --chart-6: #94a3b8;
-    --chart-bar-soft: #1e3a8a;
-    --chart-bar-quiet: #1a3354;
+    --chart-1: #9db3e0;
+    --chart-2: #d4d4d8;
+    --chart-3: #a1a1aa;
+    --chart-4: #85858b;
+    --chart-5: #d9a548;
+    --chart-6: #6cbaa9;
+    --chart-bar-soft: #3a4560;
+    --chart-bar-quiet: #2b3246;
     color-scheme: dark;
   }
 }

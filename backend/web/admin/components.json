@@ -100,7 +100,7 @@
     "owner": "css/partials/menu.css",
     "props": {
       "border-top-color": "var(--color-kinu)",
-      "border-top-left-radius": "var(--radius-md)",
+      "border-top-left-radius": "var(--radius-lg)",
       "box-shadow": "var(--shadow-3)"
     }
   },
@@ -109,7 +109,7 @@
     "owner": "css/partials/popover.css",
     "props": {
       "border-top-color": "var(--color-kinu)",
-      "border-top-left-radius": "var(--radius-md)",
+      "border-top-left-radius": "var(--radius-lg)",
       "box-shadow": "var(--shadow-3)"
     }
   },

@@ -84,8 +84,8 @@ handoff material are stale, do not copy them.
    popover panels, the slash menu and bubble, toasts, search-select lists, styled-select lists (`.hm-select__list`), the
    token list and the page editor rich popup. The selected
    segment of every segmented control (`hm/segmented`, and the pill row `hm/tabs` `Variant "segmented"`) is a
-   paper pill on the grey track with a hairline ring (`0 0 0 1px`), an inset bottom bevel and a semibold label, and no drop shadow. One named exception: the sticky blog editor
-   toolbar (`.hm-ed__bar`) carries `--shadow-1`. Nothing else may use `--shadow-1`.
+   paper pill on the grey track with a hairline ring (`0 0 0 1px`), an inset bottom bevel and a semibold label, and no drop shadow. Two named exceptions carry `--shadow-1`: the sticky blog editor
+   toolbar (`.hm-ed__bar`) and the stat card (`.hm-statcard`, a separate card of its own). Nothing else may use `--shadow-1`.
    Tooltips share one type and radius (`--text-xs`, `--weight-medium`, `--radius-sm`); the analytics chart
    tooltip (`.hm-aia-tt`) keeps its paper fill and 1px border, with no shadow, because it holds rows of data.
 7. **Always use the partials.** Never hand-write the markup a partial produces:
@@ -134,8 +134,8 @@ A change to one component edits only its own subsection below and its entry in t
 | dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)`; `.hm-dialog[data-side="end"]`: `border-top-left-radius: 0` |
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
-| menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-3)` |
-| popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-3)` |
+| menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
+| popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | radiocard | `.hm-radiocard` | `css/partials/radiocard.css` | `hm/radiocard` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
 | savestate | `.hm-savestate` | `css/partials/savestate.css` | `hm/savestate` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
@@ -181,7 +181,7 @@ Contract: `input` in components.json
 Rules: UI-11, DC-02
 
 Text inputs, selects and textareas are calm at rest: a soft hairline border from
-`--border-field`. Hover darkens the border to `--color-hai` (or `--border-control`). Focus draws the blue
+`--border-field`. Hover darkens the border to `--color-hai` (or `--border-control`). Focus draws the indigo accent
 ring. Checkboxes and switches keep `--border-control`.
 
 This is a deliberate relaxation of WCAG 1.4.11 (non-text contrast) for the resting
@@ -208,7 +208,7 @@ Partial: `hm/badge`
 Contract: `badge` in components.json  
 Rules: DC-01, UI-05
 
-A status pill: `--badge-h` high, `--radius-full`, `--text-xs`, weight 500, a tinted fill per tone (neutral is bordered soft grey) and a leading dot so tone is not colour alone.
+A status pill: `--badge-h` (22px) high, `--radius-full`, `--text-xs`, weight 500, no border (`muted` and `--sm` draw an inset ring, not a border), a soft tinted fill per tone and a leading dot so tone is not colour alone. Kinds: `success` (green), `warning` (amber), `danger` (red), `info` (indigo), `neutral` (ink on the raised grey), `muted` (outlined grey, no fill: Off, Disabled, Paused, Hidden) and `live` (the vermilion seal dot, the live theme).
 
 - **`Size "sm"`** is a compact secondary label (`hm-badge--sm`: `--badge-h-sm`, `--text-2xs`, muted ink; an `Icon` stays accent coloured). The Browse cards use it for First-party; other badges keep the default size.
 - **The dot is the default.** The partial renders it for every badge; callers do not ask for it.
@@ -368,13 +368,13 @@ Partial: `hm/stat`, `hm/empty`, `hm/steps`, `hm/table`, `hm/rowmenu`
 Contract: not in components.json yet  
 Rules: UI-D3
 
-- **Stat** (`hm/stat`): `Change` renders as a delta badge with an arrow, a tone and an
-  optional `Caption`; direction is also in hidden text. A ticker card also takes an optional
+- **Stat** (`hm/stat`): `Change` renders as coloured text (green up, red down) with an
+  optional `Caption` naming what it compares to; direction is also in hidden text. A ticker card also takes an optional
   `Note` (a muted line under the value and trend) and `Link` with `LinkLabel` (a plain link under
   the note, default "View more"); the card owns their look, a page never restyles it.
-  A value is always a metric (30px, semibold). A status phrase or a date (anything that is not a number) sets
+  A value is always a metric (`--text-metric`, 28px, medium weight in every stat card). A status phrase or a date (anything that is not a number) sets
   `Badge` and renders as an `hm/badge`, never as a smaller value. `hm/stats` `Variant "strip"`
-  joins the cards in one bordered frame (the analytics KPI row). Every stat value is 30px semibold with a
+  lays the cards out as one row of separate cards (the analytics KPI row); a stat card is never joined to its neighbours. Every stat value uses `--text-metric` with a
   `--color-hai` label, and its trend line is `hm/spark`: server geometry, or live (`Stat.Spark` with `ui.Spark{Live: &ui.SparkLive{...}}`), where
   `js/aia/page.js` fills the paths of the server-rendered SVG from a data endpoint.
 - **Empty** (`hm/empty`): a solid hairline border; `Compact` for use inside a card.
@@ -385,7 +385,7 @@ Rules: UI-D3
 - **Pending state**: a plain POST form shows busy on its submitter (`aria-busy`,
   `aria-disabled`, never `disabled`, so the button still posts) and a second submit is ignored.
 - **Tables** (`hm/table`, `hm/datatable`, the analytics tables): every header cell is 12px, medium,
-  uppercase with `.08em` tracking, `--text-muted`, set once in `table.css` on `.hm-table thead th`; no page restyles it.
+  sentence case with no tracking, `--text-muted`, set once in `table.css` on `.hm-table thead th`; no page restyles it. A sortable header shows one up/down icon (the sorted column shows its direction, with `aria-sort` on the cell); nothing is drawn as a text arrow.
   Group header rows are `tr.hm-table__group`. Under 640px rows stack as cards and each cell shows its
   column label (`data-label`); the header strip stays only when it holds select-all or a sort link. A cell can carry an inline `Bar` or `Spark`.
 - **Menus** track `aria-expanded` on their opener and Tab leaves an open menu.
@@ -513,6 +513,7 @@ a page never adds a second form or a second primary button inside the card. The 
 
 ### Shell, auth and error pages
 
+- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
 - **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it.
 - **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.
@@ -693,7 +694,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-01 | Every submit button in a `<form>` sits inside a footer region (`hm/card-foot`, `hm/foot`, `.hm-savebar`, `.hm-dialog__foot` or `hm/dialog-end`). `.hm-row` and `.hm-stack` submit groups are not footers. A primary or danger submit must not come before a Cancel or secondary in the same footer. Only two kinds of form skip the rule, and both skip it because they change nothing: `method="get"` (or no method, which is GET) and `method="dialog"`. A class (`hm-inline`) or `role="search"` does not skip it. A form with an htmx verb or a templated method is checked. Partials are checked too. Every other exception, such as one-button POST forms in rows, menus and headers, is a named allowlist entry with a reason. |
 | UI-02 | The class strings `hm-savebar` and `hm-card__foot` appear only in their partials, their CSS, the four sticky editor templates, the menu editor (`pages/menus/edit.html`, whose sticky save bar keeps Save and Discard in reach beside a long tree) and the analytics dirty bar (`partials/aia-policy.html`: the robots policy form's `hm-savebar`, hidden until a choice changes, shared by Crawlers, Health and the agent page). |
 | UI-03 | No raw `type="checkbox"` and no `hm/field` Control `checkbox`, except allowlisted multi-pick lists and consent gates. |
-| UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. A button's inset ring plus inset bevel (and the primary/danger inset bottom edge) is allowed; there is still no drop shadow. |
+| UI-04 | `box-shadow` is `none`, a ring, an `inset` shadow, `--shadow-2` or `--shadow-3` inside the popup selector list, or `--shadow-1` on the blog editor toolbar and the stat card by allowlist. A popup is matched by whole class token, with an optional `__element` or `--modifier`, so `.hm-menu` does not match `.hm-menutree`. `drop-shadow(` and `text-shadow` are banned. A button's inset ring plus inset bevel (and the primary/danger inset bottom edge) is allowed; there is still no drop shadow. |
 | UI-05 | No `hm-btn`, `hm-card` or `hm-badge` class token in markup written by hand (`partials/badge.html` is the component): `class="..."`, `class='...'` or an unquoted class in pages, layouts and schemaform templates; and any `hm-btn`, `hm-card` or `hm-badge` token in JS strings and template literals (`class="hm-btn"`, `` `${base} hm-btn` ``, `className = "hm-badge"`); badges come from a server-rendered `<template>` of `hm/badge`. A leading dot (`querySelector(".hm-btn")`) is a selector and is not flagged. Allowlisted entries are the exception. |
 | UI-06 | `css/pages/*.css` and other partial CSS may not set visual properties (colour, background, border, shadow, font, padding, height, outline, opacity, text-transform) on a shared component (any class block in the selector of a `components.json` entry, with its `__element` and `--modifier` classes: `.hm-btn*`, `.hm-card*`, `.hm-field*`, `.hm-switch*`, `.hm-table*`, `.hm-menu*`, `.hm-dialog*`, ...) unless the file is that component's `owner`. A page that needs another look adds a modifier in the owner's CSS (`.hm-tablist--bar`); the few layout-plus-padding uses are allowlisted with a reason. This covers descendant selectors (`.page .hm-btn`), compound selectors (`.hm-btn.page-x`, `.hm-card.is-x`, `.hm-btn[data-x]`, `.hm-btn:not(.x)`) and functional forms (`:is(.hm-btn, .x)`, `:where(.hm-card)`). A lone component class with only simple pseudos (`.hm-btn:hover`, `.hm-btn::after`) is the component's own state and is allowed. Layout-only declarations (width, margin, flex, gap) are allowed. |
 | UI-07 | In a `<form>` with more than one submit button, the first submit in source order is the primary action or a hidden default submit (`hm-visually-hidden`), never a secondary such as Preview, because Enter presses the first submit. Buttons that belong to another form through `form="..."` are not counted. A bare `<input type="submit">` is never counted as primary. |
@@ -711,7 +712,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | ID | Check |
 |---|---|
 | UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens and the menu editor (UI-02). |
-| UI-D2 | Every visible element has no shadow, a ring or inset shadow, or is inside a popup. Only the sticky blog editor toolbar is a named exception. |
+| UI-D2 | Every visible element has no shadow, a ring or inset shadow, or is inside a popup. The sticky blog editor toolbar and the stat card are the named exceptions. |
 | UI-D3 | `.hm-btn` sizes are 36px or 32px with radius 6px, plus the named exceptions (filter chip remove button, editor bubble and editor bar buttons). |
 | UI-D4 | Every checkbox outside the multi-pick allowlist is a 32px by 18px switch with `role="switch"`. Every segmented radiogroup (`.hm-segmented` with radios) has two or more radios. |
 | UI-D5 | At most one primary button per footer, per dialog footer and per page header. |

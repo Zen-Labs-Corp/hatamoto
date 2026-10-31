@@ -739,7 +739,7 @@ func TestPartialStatVariants(t *testing.T) {
 	up := ui.StatChangeOf(112, 100, fmtNum)
 	ticker := checkPartial(t, a, "hm/stats", "ticker", map[string]any{"Variant": "ticker", "Items": []ui.Stat{
 		{Label: "AI fetches", Value: "112", Change: up}, {Label: "Spoofed", Value: "3", Change: ui.StatChangeOf(3, 5, fmtNum)}, {Label: "Pageviews", Value: "40"}}})
-	for _, want := range []string{"&#43;12 (&#43;12.0%)", "vs previous period", `<span class="hm-visually-hidden">up </span>`, `<span class="hm-visually-hidden">down </span>`, "hm-badge--success", "hm-badge--danger"} {
+	for _, want := range []string{"&#43;12 (&#43;12.0%)", "vs previous period", `<span class="hm-visually-hidden">up </span>`, `<span class="hm-visually-hidden">down </span>`, "hm-statcard__delta--success", "hm-statcard__delta--danger"} {
 		if !strings.Contains(ticker, want) {
 			t.Errorf("ticker lacks %q", want)
 		}
@@ -828,7 +828,7 @@ func TestDatePickerShowsPresetNameOrDates(t *testing.T) {
 
 	g, _ := newAnalyticsRig(t)
 	body := g.do("GET", "/admin/analytics/crawlers?from="+day(-29)+"&to="+day(0), "owner-token", nil, nil).Body.String()
-	wantPreset := "<span>Last 30 days · " + span(today().AddDate(0, 0, -29), today()) + "</span></button>"
+	wantPreset := "<span>Last 30 days · " + span(today().AddDate(0, 0, -29), today()) + "</span><svg"
 	if !strings.Contains(body, wantPreset) {
 		t.Errorf("button should show the preset name and span %q", wantPreset)
 	}
