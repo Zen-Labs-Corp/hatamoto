@@ -71,7 +71,7 @@ func TestTermLocalesBlock(t *testing.T) {
 		t.Fatalf("%d", rec.Code)
 	}
 	body := c.get(t, "owner-token", path, "")
-	has(t, body, "(this term)", `data-hm-open="create-term-copy-pt-BR"`)
+	has(t, body, "This term", `data-hm-open="create-term-copy-pt-BR"`, `aria-label="Create Brazilian Portuguese pt-BR copy"`, "Portuguese")
 	rec = c.post(path+"/copy", url.Values{"locale": {"pt-BR"}, "name": {"Tag"}, "slug": {"tag-pt"}})
 	if rec.Code != 303 || len(tg.copies) != 1 {
 		t.Errorf("copy: %d %v", rec.Code, tg.copies)
@@ -98,6 +98,9 @@ func TestTermLocalesBlockIsBalanced(t *testing.T) {
 	if bad := unbalancedTags(body); len(bad) > 0 {
 		t.Errorf("term page tags do not pair: %v", bad)
 	}
+	has(t, body, `<table class="hm-table`, `aria-label="Unlink Brazilian Portuguese pt-BR copy"`, `data-hm-confirm="`, `/unlink?term=`,
+		`aria-label="Open Brazilian Portuguese pt-BR copy"`, `aria-label="Create German (Germany) de-DE copy"`, `English en`)
+	lacks(t, body, "<ul><li>")
 	i := strings.Index(body, `aria-labelledby="term-locales-h"`)
 	j := strings.Index(body[i:], "</section>")
 	if i < 0 || j < 0 || !strings.Contains(body[i:i+j], "Guias") || !strings.Contains(body[i:i+j], "Create") {
@@ -128,4 +131,12 @@ func TestTermUnlinkChecksMembership(t *testing.T) {
 	if rec.Code != 303 {
 		t.Fatalf("missing term: %d, want a flash redirect", rec.Code)
 	}
+}
+
+func TestTermUnlinkConfirmPage(t *testing.T) {
+	t.Parallel()
+	c, tg, id := termLocalesRig(t, "en", "pt-BR")
+	tg.locales[c.terms.terms[0].ID] = "en"
+	body := c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+id+"/unlink?term="+uuid.NewString(), "")
+	has(t, body, `name="term"`, "Unlink")
 }

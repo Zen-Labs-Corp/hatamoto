@@ -20,6 +20,7 @@ func (a *Admin) mountTermLocales(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/copy/new", a.handleTermCopyNew)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/copy", a.handleTermCopy)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/link", a.handleTermLink)
+	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/unlink", a.handleTermUnlinkConfirm)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/unlink", a.handleTermUnlink)
 }
 
@@ -32,17 +33,12 @@ type termCopyForm struct {
 	Summary                                         []ui.FieldError
 }
 
-type termMemberRow struct {
-	Locale, Name, Href, Unlink string
-	Self                       bool
-}
-
 // termLocales is the Locale field and the copies block of the term page.
 type termLocales struct {
 	Action, LinkAction, UnlinkAction string
 	Options                          []ui.Option
 	Current                          string
-	Rows                             []termMemberRow
+	Copies                           ui.Table
 	Missing                          []termCopyForm
 	LinkOptions                      []ui.Option
 	LinkTarget                       []string
@@ -65,9 +61,9 @@ func (a *Admin) termURL(id uuid.UUID) string {
 	return a.adminPath + "/settings/taxonomies/terms/" + id.String()
 }
 
-func (a *Admin) newTermCopyForm(t *taxonomy.Term, tag string, set *entity.LocaleSet) termCopyForm {
+func (a *Admin) newTermCopyForm(ctx context.Context, t *taxonomy.Term, tag string) termCopyForm {
 	seg := strings.ToLower(tag)
-	if cfg, err := a.loadSite(context.Background()); err == nil {
+	if cfg, err := a.loadSite(ctx); err == nil {
 		for _, l := range cfg.Locales {
 			if l.Tag == tag && l.Segment != "" {
 				seg = l.Segment
@@ -76,6 +72,14 @@ func (a *Admin) newTermCopyForm(t *taxonomy.Term, tag string, set *entity.Locale
 	}
 	return termCopyForm{IDPrefix: "tcopy-" + tag, DialogID: "create-term-copy-" + tag, Locale: tag, Name: t.Name, Slug: t.Slug + "-" + seg,
 		Action: a.termURL(t.ID) + "/copy", Back: a.termURL(t.ID), Title: "Create a copy in " + tag}
+}
+
+// localeLabel is the display name of a site locale.
+func localeLabel(set *entity.LocaleSet, tag string) string {
+	if name := set.Name(tag); name != "" {
+		return name
+	}
+	return localeDisplayName(tag)
 }
 
 // termLocalesFor builds the block, or nil when term locales are off here.
@@ -91,25 +95,52 @@ func (a *Admin) termLocalesFor(r *http.Request, t *taxonomy.Term) *termLocales {
 	tl := &termLocales{Action: base + "/locale", LinkAction: base + "/link", UnlinkAction: base + "/unlink", Current: cur}
 	tl.Options = append(tl.Options, ui.Option{Value: "", Label: "All locales", Selected: cur == ""})
 	for _, tag := range set.Tags() {
-		tl.Options = append(tl.Options, ui.Option{Value: tag, Label: tag, Selected: cur == tag})
+		tl.Options = append(tl.Options, ui.Option{Value: tag, Label: localeLabel(set, tag) + " " + tag, Selected: cur == tag})
 	}
 	if cur == "" {
 		return tl
 	}
 	members, _ := g.Members(ctx, t.ID)
-	have := map[string]bool{cur: true}
-	tl.Rows = append(tl.Rows, termMemberRow{Locale: cur, Name: t.Name, Self: true})
+	byLocale := map[string]taxonomy.TermMember{}
 	for _, m := range members {
-		if m.ID == t.ID {
-			continue
-		}
-		have[m.Locale] = true
-		tl.Rows = append(tl.Rows, termMemberRow{Locale: m.Locale, Name: m.Name, Href: a.termURL(m.ID), Unlink: m.ID.String()})
+		byLocale[m.Locale] = m
 	}
-	for _, tag := range set.Tags() {
-		if !have[tag] {
-			tl.Missing = append(tl.Missing, a.newTermCopyForm(t, tag, set))
+	tags := set.Tags()
+	if !slices.Contains(tags, cur) { // a locale removed from the settings still shows
+		tags = append(tags, cur)
+	}
+	for _, m := range members {
+		if !slices.Contains(tags, m.Locale) {
+			tags = append(tags, m.Locale)
 		}
+	}
+	tl.Copies = ui.Table{
+		ID: "term-copies", Caption: "Copies of " + t.Name + " by language", CSRF: csrfToken(ctx),
+		Columns: []ui.Col{{Key: "locale", Label: "Language"}, {Key: "term", Label: "Term"}},
+	}
+	for _, tag := range tags {
+		lang := ui.Cell{Text: localeLabel(set, tag), Sub: tag}
+		row := ui.Row{ID: tag, Label: localeLabel(set, tag) + " copy"}
+		m, has := byLocale[tag]
+		switch {
+		case tag == cur:
+			row.Cells = []ui.Cell{lang, {Text: t.Name, Tag: &ui.Badge{Label: "This term", Kind: "info"}}}
+		case has:
+			row.Cells = []ui.Cell{lang, {Text: m.Name}}
+			row.Actions = []ui.Action{
+				{Label: "Open", Href: a.termURL(m.ID), Button: true, AriaLabel: "Open " + localeLabel(set, tag) + " " + tag + " copy"},
+				{Label: "Unlink", Href: base + "/unlink?term=" + m.ID.String(), Post: base + "/unlink?term=" + m.ID.String(),
+					Confirm: "The term stays as it is, but it is no longer listed as a copy of this one.", ConfirmLabel: "Unlink", Danger: true, Button: true,
+					AriaLabel: "Unlink " + localeLabel(set, tag) + " " + tag + " copy"},
+			}
+		default:
+			f := a.newTermCopyForm(ctx, t, tag)
+			tl.Missing = append(tl.Missing, f)
+			row.Cells = []ui.Cell{lang, {Text: "no copy"}}
+			row.Actions = []ui.Action{{Label: "Create", Href: base + "/copy/new?locale=" + tag, Open: f.DialogID, Button: true,
+				AriaLabel: "Create " + localeLabel(set, tag) + " " + tag + " copy"}}
+		}
+		tl.Copies.Rows = append(tl.Copies.Rows, row)
 	}
 	if len(members) > 1 {
 		return tl
@@ -161,7 +192,7 @@ func (a *Admin) handleTermCopyNew(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r, "Locale", a.termURL(t.ID), "Back to the term")
 		return
 	}
-	a.renderTermCopyNew(w, r, http.StatusOK, t, a.newTermCopyForm(t, tag, set))
+	a.renderTermCopyNew(w, r, http.StatusOK, t, a.newTermCopyForm(r.Context(), t, tag))
 }
 
 func (a *Admin) handleTermCopy(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +206,7 @@ func (a *Admin) handleTermCopy(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, a.termURL(t.ID))
 		return
 	}
-	f := a.newTermCopyForm(t, tag, set)
+	f := a.newTermCopyForm(r.Context(), t, tag)
 	f.Name, f.Slug = strings.TrimSpace(r.PostFormValue("name")), strings.TrimSpace(r.PostFormValue("slug"))
 	g := a.deps.Content.TermGroups
 	if cur, _ := g.Locale(r.Context(), t.ID); cur == "" {
@@ -228,13 +259,26 @@ func (a *Admin) handleTermLink(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, a.termURL(t.ID))
 }
 
+// handleTermUnlinkConfirm is the no-JS confirmation of an unlink.
+func (a *Admin) handleTermUnlinkConfirm(w http.ResponseWriter, r *http.Request) {
+	t, _, ok := a.termGate(w, r)
+	if !ok {
+		return
+	}
+	a.renderConfirm(w, r, confirmData{
+		Title: "Unlink this copy of “" + t.Name + "”?", Message: "The term stays as it is, but it is no longer listed as a copy of this one.",
+		Post: a.termURL(t.ID) + "/unlink", Label: "Unlink", Back: a.termURL(t.ID), Danger: true,
+		Hidden: []hiddenField{{Name: "term", Value: r.URL.Query().Get("term")}},
+	})
+}
+
 func (a *Admin) handleTermUnlink(w http.ResponseWriter, r *http.Request) {
 	t, _, ok := a.termGate(w, r)
 	if !ok {
 		return
 	}
 	g := a.deps.Content.TermGroups
-	id, err := uuid.Parse(r.PostFormValue("term"))
+	id, err := uuid.Parse(r.FormValue("term")) // the confirm dialog posts it in the query
 	if err != nil {
 		a.SetFlash(w, r, "error", "Pick the term to unlink.")
 		Redirect(w, r, a.termURL(t.ID))

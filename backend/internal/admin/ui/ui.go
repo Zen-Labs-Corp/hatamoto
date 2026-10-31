@@ -89,6 +89,11 @@ type Action struct {
 	// the link opens a native <dialog> showing Confirm instead of navigating.
 	Confirm      string
 	ConfirmLabel string // the dialog's confirm button (default: Label)
+	// Button shows the action as a visible button in the actions cell instead of
+	// a row menu item (a link action only: Href, Open or Confirm). AriaLabel
+	// names it when the row is not clear from the label alone.
+	Button    bool
+	AriaLabel string
 }
 
 // Row is one table row.
@@ -99,8 +104,22 @@ type Row struct {
 	Actions []Action
 }
 
-// SafeActions returns the row's non-destructive actions, in order.
+// SafeActions returns the row's non-destructive menu actions, in order.
 func (r Row) SafeActions() []Action { return filterActions(r.Actions, false) }
+
+// ButtonActions returns the actions shown as visible buttons, in order.
+func (r Row) ButtonActions() []Action {
+	var out []Action
+	for _, a := range r.Actions {
+		if a.Button {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// HasMenu reports whether any action belongs in the row menu.
+func (r Row) HasMenu() bool { return len(r.SafeActions())+len(r.DangerActions()) > 0 }
 
 // DangerActions returns the row's destructive actions, in order. A row menu
 // lists them last, behind a separator.
@@ -109,7 +128,7 @@ func (r Row) DangerActions() []Action { return filterActions(r.Actions, true) }
 func filterActions(actions []Action, danger bool) []Action {
 	var out []Action
 	for _, a := range actions {
-		if a.Danger == danger {
+		if a.Danger == danger && !a.Button {
 			out = append(out, a)
 		}
 	}
