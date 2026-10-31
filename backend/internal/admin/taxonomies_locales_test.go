@@ -101,7 +101,8 @@ func TestTermLocalesBlockIsBalanced(t *testing.T) {
 	}
 	has(t, body, `<table class="hm-table`, `aria-label="Unlink Brazilian Portuguese pt-BR copy"`, `data-hm-confirm="`, `/unlink?term=`,
 		`aria-label="Open Brazilian Portuguese pt-BR copy"`, `aria-label="Create German (Germany) de-DE copy"`, `English en`)
-	lacks(t, body, "<ul><li>")
+	lacks(t, body, "<ul><li>", "Changes nothing")
+	has(t, body, "Used when a page is copied to another locale: the copy gets the term's copy in that locale, else this term.")
 	i := strings.Index(body, `aria-labelledby="term-locales-h"`)
 	j := strings.Index(body[i:], "</section>")
 	if i < 0 || j < 0 || !strings.Contains(body[i:i+j], "Guias") || !strings.Contains(body[i:i+j], "Create") {
