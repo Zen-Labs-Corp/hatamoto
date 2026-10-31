@@ -121,7 +121,8 @@
     ev.kind = kind;
     // Without sessionStorage the once-flags reset on every page, so first:true would
     // count pages as visits. Engagement is then undercounted rather than inflated.
-    if (!flags.f) { if (stored) ev.first = true; flags.f = 1; }
+    // Only multi and scroll count a visit as engaged, so only they take the flag.
+    if ((kind === 'multi' || kind === 'scroll') && !flags.f) { if (stored) ev.first = true; flags.f = 1; }
     flags[{ multi: 'm', scroll: 's', form_seen: 'n', form_start: 't' }[kind]] = 1;
     save();
     send(ev);

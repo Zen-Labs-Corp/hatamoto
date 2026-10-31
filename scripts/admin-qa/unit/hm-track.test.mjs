@@ -239,3 +239,15 @@ test("webdriver and preview register no form listeners", () => {
   assert.equal(run({ webdriver: true }).docL.submit, undefined);
   assert.equal(run({ preview: true }).docL.focusin, undefined);
 });
+
+test("a form event does not take the visit's first flag from a later scroll", () => {
+  const f = form("/forms/contact/submit");
+  const r = run({ referrer: "https://google.com/", forms: [f] });
+  r.docL.focusin({ target: f });
+  r.visible();
+  r.scroll(700);
+  const by = Object.fromEntries(r.events.slice(1).map((e) => [e.kind, e.first]));
+  assert.equal(by.form_start, undefined);
+  assert.equal(by.form_seen, undefined);
+  assert.equal(by.scroll, true);
+});
