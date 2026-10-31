@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -65,17 +66,23 @@ type termGroup struct {
 }
 
 type entityForm struct {
-	Parent               parentChoice
-	UpdatedAt            string // when the entity was last saved, for the save indicator; empty on a new or re-rendered form
-	ParentOrig           string // the parent when the form was opened; a save that posts it back leaves the parent alone
-	New                  bool
-	ID, SchemaSlug       string
-	SchemaName           string
-	Name, Slug           string
-	Status               string
-	IsPerson             bool // a person's visibility is its Public switch: no status or schedule
-	StatusOptions        []ui.Option
-	Schedule, Zone       string
+	Parent         parentChoice
+	UpdatedAt      string // when the entity was last saved, for the save indicator; empty on a new or re-rendered form
+	ParentOrig     string // the parent when the form was opened; a save that posts it back leaves the parent alone
+	New            bool
+	ID, SchemaSlug string
+	SchemaName     string
+	Name, Slug     string
+	Status         string
+	IsPerson       bool // a person's visibility is its Public switch: no status or schedule
+	StatusOptions  []ui.Option
+	Schedule, Zone string
+	// Locale is the entry's locale; LocaleOptions are the site's locales. ShowLocale
+	// is false on a single-locale site and for a shared entry, which gets SharedNote.
+	Locale               string
+	LocaleOptions        []ui.Option
+	ShowLocale           bool
+	SharedNote           bool
 	ShowParent           bool
 	ParentOptions        []ui.Option
 	ShowAuthor           bool
@@ -102,6 +109,79 @@ type entityForm struct {
 	Panel      seoPanel
 	AnalyzeURL string
 	Noun       string
+}
+
+// fillLocale sets up the Locale select of an existing entry: only on a
+// multi-locale site, never offering the shared locale. A shared entry gets a
+// note instead of a select.
+func (a *Admin) fillLocale(ctx context.Context, f *entityForm, self *entity.Entity) {
+	cfg, err := a.loadSite(ctx)
+	if err != nil {
+		return
+	}
+	set := localeSetOf(cfg)
+	if !set.Multi() {
+		return
+	}
+	if self.Locale == entity.LocaleShared {
+		f.SharedNote = true
+		return
+	}
+	f.ShowLocale = true
+	if f.Locale == "" {
+		f.Locale = self.Locale
+	}
+	tags := set.Tags()
+	if !slices.Contains(tags, self.Locale) { // a locale removed from the settings still shows as the current one
+		tags = append(tags, self.Locale)
+	}
+	for _, tag := range tags {
+		label := set.Name(tag)
+		if label == "" {
+			label = localeDisplayName(tag)
+		}
+		f.LocaleOptions = append(f.LocaleOptions, ui.Option{Value: tag, Label: label + " (" + tag + ")", Selected: tag == f.Locale})
+	}
+}
+
+// validateLocale checks a typed locale change on an entry's Details form. A
+// single-locale site and a shared entry have no select, so a posted value is
+// ignored. Otherwise the locale must be one of the site's, never the shared one, and no other copy
+// in the entry's translation group may already use it.
+func (a *Admin) validateLocale(r *http.Request, f *entityForm, current *entity.Entity) {
+	if f.Locale == "" || f.Locale == current.Locale {
+		return
+	}
+	ctx := r.Context()
+	cfg, err := a.loadSite(ctx)
+	if err != nil {
+		f.Errors["locale"] = "The site languages could not be loaded."
+		return
+	}
+	set := localeSetOf(cfg)
+	if !set.Multi() || current.Locale == entity.LocaleShared {
+		f.Locale = current.Locale // no select is shown: a posted value is ignored
+		return
+	}
+	if !slices.Contains(set.Tags(), f.Locale) {
+		f.Errors["locale"] = "Choose one of the site languages."
+		return
+	}
+	g := a.deps.Content.Groups
+	if g == nil {
+		return
+	}
+	ms, err := g.Members(ctx, current.ID)
+	if err != nil {
+		f.Errors["locale"] = "The translations could not be checked, so the locale was not changed."
+		return
+	}
+	for _, m := range ms {
+		if m.ID != current.ID && m.Locale == f.Locale {
+			f.Errors["locale"] = "Another copy of this page already uses that locale. Unlink it first."
+			return
+		}
+	}
 }
 
 func (a *Admin) loadEntity(w http.ResponseWriter, r *http.Request) (*entity.Entity, *entity.EntitySchema, bool) {
@@ -230,6 +310,9 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	f.StatusOptions = entityStatusOptions(f.Status)
 	f.SchemaSlug, f.SchemaName = sc.Slug, sc.Name
 	f.IsPerson = sc.Slug == person.SchemaSlug
+	if self != nil && !f.New {
+		a.fillLocale(ctx, f, self)
+	}
 
 	if schemaIsNested(sc) && c.Entities != nil {
 		f.ShowParent = true
@@ -406,7 +489,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
 	}
 	f.Panel = a.entityPanel(r, e, sc, f, values)
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -506,7 +589,7 @@ func (a *Admin) handleEntityEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	c := a.deps.Content
 	attrs := attrsMap(e.Attributes)
-	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details")}
+	f := &entityForm{ID: e.ID.String(), Name: e.Name, Slug: e.Slug, Status: string(e.Status), Locale: e.Locale, SEO: seoFrom(attrs), Version: e.Version, Tabs: a.entityTabsFor(r.Context(), e, "details")}
 	loc := a.siteLocation(r.Context())
 	if !e.UpdatedAt.IsZero() {
 		f.UpdatedAt = fmtDateTime(e.UpdatedAt.In(loc))
@@ -629,7 +712,7 @@ type posted struct {
 func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev map[string]any, isNew bool) *posted {
 	_ = r.ParseForm()
 	p := &posted{picked: map[string]bool{}, f: &entityForm{
-		New: isNew, Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Status: r.PostFormValue("status"),
+		New: isNew, Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Status: r.PostFormValue("status"), Locale: strings.TrimSpace(r.PostFormValue("locale")),
 		Schedule: strings.TrimSpace(r.PostFormValue("schedule")), SEO: seoFromForm(r), NewAuthor: strings.TrimSpace(r.PostFormValue("new_author")),
 		NewTermName: strings.TrimSpace(r.PostFormValue("new_term_name")), NewTermKind: r.PostFormValue("new_term_kind"), NewTerms: newTermsFrom(r), Errors: map[string]string{},
 	}}
@@ -959,6 +1042,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	if r.PostFormValue("status") == "" {
 		p.f.Status = string(e.Status)
 	}
+	if p.f.Locale == "" {
+		p.f.Locale = e.Locale // a form without the field leaves the locale alone
+	}
 	p.f.ID, p.f.Version, p.f.Tabs = e.ID.String(), e.Version, a.entityTabsFor(r.Context(), e, "details")
 	if usesVisualEditor(sc, e) {
 		p.f.EditorURL = a.adminPath + "/entities/" + e.ID.String() + "/edit"
@@ -969,6 +1055,7 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.validateEntityForm(r, p, sc, e)
+	a.validateLocale(r, p.f, e)
 	if len(p.f.Errors) > 0 || len(p.errs) > 0 {
 		a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 		return
@@ -976,6 +1063,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	raw, _ := json.Marshal(p.attrs)
 	summary := "Updated in the admin"
 	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*json.RawMessage)(&raw), ChangeSummary: &summary}
+	if p.f.Locale != e.Locale {
+		in.Locale = &p.f.Locale
+	}
 	if p.f.Slug != "" {
 		in.Slug = &p.f.Slug
 	}
@@ -995,6 +1085,11 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
 			return
 		}
+		if in.Locale != nil && errors.Is(err, entity.ErrSlugAlreadyExists) {
+			p.f.Errors["locale"] = "A page in that locale already uses this slug. Change the slug first."
+			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
+			return
+		}
 		if a.entityFormError(r, p.f, err) {
 			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 			return
@@ -1003,7 +1098,11 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	updated.PublishedAt = e.PublishedAt
-	a.auditEntity(r, auditEntityUpdate, e.ID, updated, map[string]any{"schema": sc.Slug})
+	detail := map[string]any{"schema": sc.Slug}
+	if in.Locale != nil {
+		detail["locale"] = *in.Locale
+	}
+	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg := "Saved."
 	kind := "success"
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {

@@ -227,6 +227,9 @@ func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUI
 	if in.Name != nil {
 		e.Name = *in.Name
 	}
+	if in.Locale != nil {
+		e.Locale = *in.Locale
+	}
 	if in.Attributes != nil {
 		var a, b any
 		_ = json.Unmarshal(e.Attributes, &a)

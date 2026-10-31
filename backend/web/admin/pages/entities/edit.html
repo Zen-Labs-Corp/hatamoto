@@ -20,6 +20,8 @@
 {{if .IsPerson}}<p class="hm-muted">This person is shown on your site when Public is switched on.</p>
 {{else}}{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .StatusOptions "Error" (index .Errors "status")}}
 {{template "hm/field" dict "ID" "schedule" "Name" "schedule" "Label" "Publish at" "Type" "datetime-local" "Value" .Schedule "Help" (printf "Used when the status is Scheduled. Times are in %s." .Zone) "Error" (index .Errors "schedule")}}
+{{end}}{{if .ShowLocale}}{{template "hm/field" dict "ID" "locale" "Name" "locale" "Label" "Locale" "Control" "select" "Options" .LocaleOptions "Error" (index .Errors "locale") "Help" "Changing it moves this page to another locale's address space."}}
+{{else if .SharedNote}}<p class="hm-muted">Shared by every locale.</p>
 {{end}}{{if .ShowParent}}<div class="hm-field{{if index .Errors "parent"}} hm-field--invalid{{end}}" id="parent-picker">
 <label class="hm-field__label" for="parent">Parent</label>
 <input type="hidden" name="parent_orig" value="{{.ParentOrig}}">
