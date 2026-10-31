@@ -7,12 +7,12 @@
 <h2 id="term-locales-h">Languages</h2>
 <form method="post" action="{{.Action}}" class="hm-row">{{template "hm/csrf" (dict "CSRF" $csrf)}}
 {{template "hm/field" dict "ID" "term-locale" "Name" "locale" "Label" "Locale" "Control" "select" "Options" .Options "Help" "The language this term is for. Changes nothing on the public site yet."}}
-{{template "hm/foot"}}{{template "hm/button" dict "Label" "Save locale" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Save locale" "Type" "submit"}}{{template "hm/foot-end"}}</form>
 {{if .Current}}<ul>{{range .Rows}}<li>{{.Locale}}: {{if .Self}}{{.Name}} (this term){{else}}<a href="{{.Href}}">{{.Name}}</a>
-<form method="post" action="{{$.L.UnlinkAction}}" class="hm-inline">{{template "hm/csrf" (dict "CSRF" $csrf)}}<input type="hidden" name="term" value="{{.Unlink}}">{{template "hm/foot"}}{{template "hm/button" dict "Label" "Unlink" "Size" "sm" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>{{end}}</li>{{end}}
+<form method="post" action="{{$.L.UnlinkAction}}" class="hm-inline">{{template "hm/csrf" (dict "CSRF" $csrf)}}<input type="hidden" name="term" value="{{.Unlink}}">{{template "hm/button" dict "Label" "Unlink" "Size" "sm" "Type" "submit"}}</form>{{end}}</li>{{end}}
 {{range .Missing}}<li>{{.Locale}}: <a href="{{.Back}}/copy/new?locale={{.Locale}}" data-hm-open="{{.DialogID}}">Create</a></li>{{end}}</ul>
 {{if .LinkOptions}}<form method="post" action="{{.LinkAction}}" class="hm-row">{{template "hm/csrf" (dict "CSRF" $csrf)}}
-{{template "hm/field" dict "ID" "term-link" "Name" "term" "Label" "Link an existing term" "Control" "select" "Options" .LinkOptions}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Link term" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>{{end}}
+{{template "hm/field" dict "ID" "term-link" "Name" "term" "Label" "Link an existing term" "Control" "select" "Options" .LinkOptions}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Link term" "Type" "submit"}}{{template "hm/foot-end"}}</form>{{end}}
 {{else}}<p class="hm-muted">Set a locale first to create copies in other languages.</p>{{end}}
 </section>
 {{range .Missing}}{{template "hm/dialog-start" dict "ID" .DialogID "Title" .Title "Static" true "Description" "Creates a linked copy of this term."}}
