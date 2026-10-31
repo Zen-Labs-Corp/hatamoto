@@ -1004,8 +1004,8 @@ is stored.
   screen; the stored key stays `preset`, and so do the save labels' underlying ops. **Style** opens with one context
   line (`inspctx`): the width pill (Desktop, Tablet, Phone), a **State** dropdown (Normal, Hover, Focus, Pressed,
   Parent hover when the parent takes it) and a sentence saying what a value set here overrides. Below it come the
-  groups (`inspgroups`, pure): **Layout** (with In its parent and Size), **Spacing**, **Fill**, **Typography** (a text
-  kind, or a node that already carries a type key), **Corners & border** and **Effects** (shadow, opacity, position,
+  groups (`inspgroups`, pure): **Layout** (with In its parent and Size), **Spacing**, **Fill**, **Typography** (every
+  kind; closed while nothing is set), **Corners & border** and **Effects** (shadow, opacity, position,
   transform, filter, transition, visibility). A group opens when it has a value set here; Layout and Spacing also open
   on a section. Each control has a source chip (**Set here**, **Inherited from …**, **From class .name**, **Custom
   value**) and one Reset that clears the key at the current width and state. Labels of length fields (W, H, Gap, size,
