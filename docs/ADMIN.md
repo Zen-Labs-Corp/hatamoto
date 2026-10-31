@@ -151,6 +151,13 @@ handler tests run on in-memory fakes; the real services are exercised by
   Structural buttons (`_add.`, `_move.`, `_remove.`) re-render without saving.
   Scheduling is `entity.Service.ScheduleEntity` (status `scheduled`,
   `published_at` set; `worker.PublishWorker` publishes it when due).
+* **Translations** (multi-locale sites only): an entry's Details gains a Translations tab with the
+  copy count (`1/3`) and a Locale select (never the shared locale; a clash with another copy in the
+  group is refused). `GET <admin>/entities/{id}/translations` lists the copies by language, a
+  field-by-field grid and the hreflang list. Owners and editors can link a page (`POST .../translations/link`,
+  picker from `GET .../translations/candidates`), make a copy the original (`POST .../translations/original`)
+  and unlink one (`GET`/`POST .../translations/unlink`, a confirmation page without JavaScript). A copy
+  edited before its original shows "Out of date". Each change is audited and purges the page cache.
 * **Schemas** (owners): the editor builds the JSON Schema from field rows
   (`field` carries each row's key in document order; a drag only moves the row,
   so nothing is renumbered). Properties the builder cannot express are kept

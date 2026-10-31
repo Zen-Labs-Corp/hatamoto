@@ -194,3 +194,5 @@ The tag must never ship. Check a production binary:
 This script is not in the CI script list; run it locally.
 
 Settings > Locales (`settings-locales`, `settings-locale-addresses`, `settings-locale-business` in `urls.mjs`): the default seed is single-locale, which is the check for the add-only state of the Locales tab and the empty Business details tab. Seed several locales through the Add locale dialog to check the list, the Public switch, reorder and the Remove confirm page (`settings-locale-remove-confirm` answers 404 on the single-locale seed and 200 once `fr` is added).
+
+`locales-translations.mjs` drives the Translations tab (adds locales, re-tags, links, makes original, unlinks, phone width); run it with `run-local.sh locales-translations.mjs`.
