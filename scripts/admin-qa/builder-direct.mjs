@@ -112,9 +112,10 @@ async function pick(re) {
 }
 // The page-level "Add section" pill (top: before the first section) takes the pointer only while it shows: hover the section next to it first.
 async function clickTopPill() {
-  const at = await canvasPoint((await tops())[0].id);
-  await p.mouse.move(at.x, at.y, { steps: 4 });
   const line = p.locator('[data-hm-pe-gapline][aria-label="Add section at the top"]');
+  await line.waitFor({ state: "attached", timeout: 5000 });
+  const box = await line.boundingBox();
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height + 40, { steps: 4 }); // inside the section below the line
   await line.locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
   await line.click();
 }
@@ -256,8 +257,8 @@ await check("'+' between sections and inside an empty column inserts at that exa
   await after.first().waitFor({ state: "attached", timeout: 5000 });
   if ((await after.count()) !== 1) throw new Error("expected one end-of-page Add section line, got " + (await after.count()));
   // a pill takes the pointer only while it shows: hover the last section, then click its pill
-  const lastAt = await canvasPoint((await tops()).at(-1).id);
-  await p.mouse.move(lastAt.x, lastAt.y, { steps: 4 });
+  const endBox = await after.first().boundingBox();
+  await p.mouse.move(endBox.x + endBox.width / 2, endBox.y - 40, { steps: 4 });
   await after.first().locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
   await after.first().click();
   await p.getByRole("dialog", { name: "Add a section" }).getByRole("button", { name: "1 column" }).click();

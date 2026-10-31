@@ -125,7 +125,7 @@ export function mountDirect(canvas, hd) {
   function showOf(b, selTop, hoverTop) {
     if (b.before === null && b.after === null) return "sel";
     if (selTop && b.before === selTop) return "sel";
-    if (hoverTop && (b.before === hoverTop || b.after === hoverTop)) return "hover";
+    if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover"; // the selected section's handles own its edges
     return null;
   }
 

@@ -400,6 +400,8 @@ test("a pill takes the pointer only while it shows: after the selection (the one
   r.state.hover = null; // the pointer crossed onto the pill: the frame's hover ended, the pill stays
   r.direct.update();
   assert.deepEqual(shows(r), [null, "hover", "hover"]);
+  const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section adds no pill over its padding handles
+  assert.deepEqual(shows(own), [null, "sel", null]);
   assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "sel", "an empty page's only pill shows");
 });
 
@@ -435,6 +437,7 @@ test("the pill is pill-sized and inert until shown; its focus ring is real: no i
   const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
   const line = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
   assert.match(line, /pointer-events:\s*none/);
+  assert.match(line, /translate\(-50%, 12px\)/, "hangs below the boundary, clear of the padding handles");
   assert.doesNotMatch(line, /\bright:|width:\s*100%/);
   assert.match(css, /\.hm-pe__gapline\[data-show\] \{ pointer-events: auto/);
   assert.match(css, /\.hm-pe__gapline:focus-visible \.hm-pe__pill \{ outline/);
@@ -459,5 +462,6 @@ test("padding handles are at least 24px on both axes (WCAG 2.5.8)", () => {
   const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
   const sizes = [...css.matchAll(/\.hm-pe__padh\[data-side="\w+"\](?:, \.hm-pe__padh\[data-side="\w+"\])? \{ width: (\d+)px; height: (\d+)px; cursor/g)];
   assert.equal(sizes.length, 2, "the two handle size rules");
+  assert.match(css, /\.hm-pe__padh\[data-side="top"\] \{ transform: translate\(-50%, 0\)/, "the top handle is not under the floating toolbar");
   for (const m of sizes) assert.ok(+m[1] >= 24 && +m[2] >= 24, m[0]);
 });

@@ -959,7 +959,7 @@ async function axeOn(p, what) {
   await settle(p, 500); // dialogs fade in; contrast read mid-fade is not the colour the person sees
   await p.evaluate(axeSrc);
   const r = await p.evaluate((t) => window.axe.run(document, { runOnly: { type: "tag", values: t } }), tags);
-  axeRes[what] = { violations: r.violations.map((v) => `${v.id} (${v.nodes[0].target.join(" ")})`), passes: r.passes.length };
+  axeRes[what] = { violations: r.violations.map((v) => `${v.id} (${v.nodes[0].target.join(" ")})${v.id === "target-size" ? " " + v.nodes[0].any.map((a) => a.message).join(" ") : ""}`), passes: r.passes.length };
   if (r.violations.length) throw new Error(`axe on ${what}: ` + axeRes[what].violations.join("; "));
   return `axe clean on ${what} (${r.passes.length} rules passed)`;
 }
@@ -1454,7 +1454,7 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await main.mouse.move(pt.x + 40, pt.y + 20);
   await settle(main, 300);
   need(await main.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected), "a hover redraw rebuilt the toolbar");
-  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
+  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label").replace(/^(Select parent),.*/, "$1")));
   need(acts.join("|") === "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
   // the keyboard path to the picker: More, then Add after
   await main.locator('[data-hm-pe-toolbar] [data-act="more"]').focus();
@@ -1554,7 +1554,7 @@ await check("axe: Style tab (State, Essentials, source chips, Show on, box model
   try { return await axeOn(ax, "Style tab"); } finally { await ax.getByRole("tab", { name: "Content" }).click(); }
 });
 await check("axe: layout picker open", async () => {
-  await ax.locator("[data-hm-pe-plus]").first().click({ force: true });
+  await ax.locator(`[data-hm-pe-gapline][data-show="sel"]`).first().click(); // the pill after the selected section
   await ax.getByRole("dialog", { name: "Add a section" }).waitFor({ timeout: 3000 });
   try { return await axeOn(ax, "layout picker"); } finally { await ax.keyboard.press("Escape"); await settle(ax, 200); }
 });
