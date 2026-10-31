@@ -1,8 +1,9 @@
 {{/* hm/filterbar: search + primary selects + a Filters popover (dates, author,
      term) and the removable chips of the active popover filters. One real GET
      form: it works without JS. Search and the primary selects apply live; the
-     popover fields never trigger a request (the swap would close the popover and
-     drop focus), they apply on Apply or Enter, which submit the form.
+     popover fields apply on Apply or Enter, which submit the form (the swap
+     replaces the whole bar, which would close the popover and drop focus), unless
+     Live is set: then they apply as they change and the swap leaves the bar alone.
      Opt-in keys (absent = the markup above, unchanged): Segmented (*ui.Segmented,
      radio mode, applies live), Live (popover fields apply live too, no Apply
      button; the noscript Apply stays), Target (id the swap replaces, default ID),

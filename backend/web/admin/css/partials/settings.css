@@ -49,7 +49,6 @@
 [data-hm-scopes-all] { align-self: flex-start; }
 [data-hm-scopes-all][hidden] { display: none; }
 .hm-fieldgrid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 640px) { .hm-fieldgrid--2 { grid-template-columns: minmax(0, 1fr); } }
 .hm-fieldgrid--swatches { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
 /* The current hex sits under the swatch, in normal flow, and wraps if the cell is narrow. */
 .hm-swatchrow { min-width: 0; }

@@ -286,7 +286,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 			Attrs: map[string]string{"id": seg}})
 		oob += ",#" + seg + "-n"
 	}
-	// Phones have no sidebar subnav: the type is picked here (hidden beside the subnav on wider screens).
+	// Phones have no sidebar subnav, so the type is picked here, at every width.
 	typeOpts := []ui.Option{{Value: "", Label: "All types", Selected: resolved == nil}}
 	for _, ty := range counts.types {
 		if ty.Slug == person.SchemaSlug {
