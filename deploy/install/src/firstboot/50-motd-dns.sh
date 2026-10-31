@@ -55,6 +55,17 @@ set_base_url() {
   fi
 }
 
+# dns_rollback CADDYFILE ENVFILE OLD_BASE restores the Caddyfile saved as CADDYFILE.prev and,
+# when OLD_BASE is set, PUBLIC_BASE_URL; caddy (and the api, if the env changed) are restarted.
+dns_rollback() {
+  if [ -f "$1.prev" ]; then mv -f "$1.prev" "$1"; fi
+  systemctl restart caddy || true
+  if [ -n "$3" ]; then
+    fb_env_edit "$2" set_base_url "$3" || true
+    systemctl restart hatamoto-api || true
+  fi
+}
+
 # dns_apply DOMAIN TLS EMAIL moves the running site to DOMAIN: env, Caddyfile (the host
 # being replaced keeps a permanent redirect), restart, readiness, refreshed admin link.
 # Shared by the DNS-switch timer and set-domain. A Caddyfile that does not load is rolled back.
@@ -65,8 +76,7 @@ dns_apply() {
   if [ "$da_tls" = off ]; then da_base="http://$da_domain"; else da_base="https://$da_domain"; fi
   da_env="$(dest /opt/hatamoto/config/hatamoto.env)"
   da_old="$(fb_env_get "$da_env" PUBLIC_BASE_URL | sed 's#^[A-Za-z]*://##; s#[/:].*$##')"
-  fb_env_edit "$da_env" set_base_url "$da_base"
-  log "PUBLIC_BASE_URL=$da_base"
+  da_old_base="$(fb_env_get "$da_env" PUBLIC_BASE_URL)"
 
   da_cf="$(dest /etc/caddy/Caddyfile)"
   mkdir -p "$(dirname "$da_cf")"
@@ -81,14 +91,19 @@ dns_apply() {
     log "Caddyfile: $da_domain"
   fi
 
-  log "restarting hatamoto-api, waiting for /ready"
-  systemctl restart hatamoto-api
+  # Caddy takes the new file first; the env changes only once it is accepted, so a
+  # failure leaves the old host fully in place and a retry starts from scratch.
   if ! systemctl reload caddy && ! systemctl restart caddy; then
-    if [ -f "$da_cf.prev" ]; then
-      mv -f "$da_cf.prev" "$da_cf"
-      systemctl restart caddy || true
-    fi
-    die "caddy did not accept the new Caddyfile; the previous one is back: see journalctl -u caddy"
+    dns_rollback "$da_cf" "$da_env" ""
+    die "caddy did not accept the new Caddyfile; the previous Caddyfile and PUBLIC_BASE_URL are back, nothing changed: see journalctl -u caddy, then run it again"
+  fi
+
+  fb_env_edit "$da_env" set_base_url "$da_base"
+  log "PUBLIC_BASE_URL=$da_base"
+  log "restarting hatamoto-api, waiting for /ready"
+  if ! systemctl restart hatamoto-api; then
+    dns_rollback "$da_cf" "$da_env" "$da_old_base"
+    die "hatamoto-api did not restart on $da_base; the previous Caddyfile and PUBLIC_BASE_URL are back: see journalctl -u hatamoto-api, then run it again"
   fi
   rm -f "$da_cf.prev"
   fb_wait_ready

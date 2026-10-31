@@ -292,9 +292,18 @@ echo "systemctl $*" >> "$CALLS"
 case "$*" in *caddy*) [ -z "${FAKE_CADDY_FAIL:-}" ] || exit 1 ;; esac
 F
 SD_ARGS=(cms.example.com)
+cp "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before"
 if sdrun "$r" FAKE_DNS_IP=203.0.113.7 FAKE_CADDY_FAIL=1 >"$tmp/o" 2>&1; then fail "caddy failure not reported"; fi
 cmp -s "$r/etc/caddy/Caddyfile" "$tmp/cf.before" || fail "Caddyfile not restored"
 pass "a Caddyfile caddy rejects is rolled back"
+
+# the failure left env and Caddyfile untouched, so a second run with a working caddy switches
+cmp -s "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before" || fail "env not restored after caddy failure"
+grep -q 'previous Caddyfile and PUBLIC_BASE_URL' "$tmp/o" || fail "rollback message: $(cat "$tmp/o")"
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "retry failed: $(cat "$tmp/o")"
+grep -qx 'PUBLIC_BASE_URL=https://cms.example.com' "$r/opt/hatamoto/config/hatamoto.env" || fail "retry did not switch env"
+grep -qx 'cms.example.com {' "$r/etc/caddy/Caddyfile" || fail "retry did not switch Caddyfile"
+pass "a failed caddy reload leaves env and Caddyfile as they were; the retry switches"
 
 # --- install.sh set-domain: core pre-check, refreshed on-box script, forwarded arguments
 isd="$tmp/asm/install.sh"
