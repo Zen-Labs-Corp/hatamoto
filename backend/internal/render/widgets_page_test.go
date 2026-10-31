@@ -67,9 +67,10 @@ func styledNodes(nodes []*builder.Node) int {
 	return c
 }
 
-// scriptCount is the number of executable <script> tags; JSON-LD is data.
+// scriptCount is the number of executable <script> tags; JSON-LD is data and
+// the core beacon (hm-track.js, on every public page) is not a builder script.
 func scriptCount(page string) int {
-	return strings.Count(page, "<script") - strings.Count(page, `<script type="application/ld+json"`)
+	return strings.Count(page, "<script") - strings.Count(page, `<script type="application/ld+json"`) - strings.Count(page, trackTagStr)
 }
 
 var islandScript = regexp.MustCompile(`<script type="module" src="/theme/assets/builder/(tabs|video)\.[0-9a-f]{8}\.js"></script>`)
