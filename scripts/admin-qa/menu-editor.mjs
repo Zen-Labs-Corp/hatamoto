@@ -402,8 +402,10 @@ try {
   const probe = await byLabel(page, "Blog");
   await probe.scrollIntoViewIfNeeded();
   await page.mouse.move(5, 5);
-  const opacity = (li) => li.locator(".hm-menutree__ops").evaluate((o) => getComputedStyle(o).opacity);
-  const idle = await (await byLabel(page, "Guides")).locator(".hm-menutree__ops").evaluate((o) => getComputedStyle(o).opacity);
+  const opacity = (li) => li.locator('.hm-menutree__ops > [popovertarget]').evaluate((o) => getComputedStyle(o).opacity);
+  const idle = await opacity(await byLabel(page, "Guides"));
+  const moveVisible = await (await byLabel(page, "Guides")).locator('[data-hm-op="up"], [data-hm-op="down"]').evaluateAll((bs) => bs.length === 2 && bs.every((b) => getComputedStyle(b).display !== "none" && getComputedStyle(b).opacity === "1" && b.getBoundingClientRect().width > 0));
+  ok(moveVisible, "ISC-11: Move up and Move down are visible on an idle row in JS mode");
   await probe.hover();
   ok(idle === "0" && (await opacity(probe)) === "1", `ISC-35: the row actions appear on hover (idle ${idle})`);
   await page.mouse.move(5, 5);

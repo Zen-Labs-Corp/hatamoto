@@ -42,11 +42,11 @@
 .hm-menutree__dropline { position: fixed; z-index: var(--z-popup); height: 2px; background: var(--color-accent); border-radius: var(--radius-sm); pointer-events: none; }
 .hm-menutree__dropline[hidden] { display: none; }
 .hm-menutree__droplabel { position: absolute; inset-inline-end: 0; bottom: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); white-space: nowrap; }
-/* Keyboard and selection: a row is a tab stop; the selected rows carry the ink
-   edge the form builder uses. Collapsing and filtering only hide rows. */
+/* Keyboard and selection: a row is a tab stop; the selected rows carry an
+   accent edge. Collapsing and filtering only hide rows. */
 .hm-menutree__item[hidden] { display: none; }
 .hm-menutree__item:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.hm-menutree__item[data-hm-selected] { border-color: var(--text); box-shadow: inset 3px 0 0 var(--text); }
+.hm-menutree__item[data-hm-selected] { border-color: var(--color-accent); box-shadow: inset 3px 0 0 var(--color-accent); }
 .hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { border-color: transparent; }
 .hm-menutree__head { user-select: none; }
 .hm-menutree__head > [data-hm-collapse][hidden] { display: none; }

@@ -73,15 +73,14 @@
 .hm-menuform[data-hm-js] .hm-menutree__edit { display: none; }
 .hm-menuform[data-hm-js] .hm-menutree__titles { flex-direction: row; align-items: baseline; gap: var(--space-2); flex: 0 1 auto; }
 .hm-menuform[data-hm-js] .hm-menutree__chips { flex: 1; min-width: 0; }
-/* Actions show on hover and on focus, and stay in the tab order. Drag and Alt with the arrows replace Up and Down. */
-.hm-menuform[data-hm-js] .hm-menutree__ops { opacity: 0; }
-.hm-menuform[data-hm-js] .hm-menutree__item:hover .hm-menutree__ops,
-.hm-menuform[data-hm-js] .hm-menutree__item:focus-within .hm-menutree__ops,
-.hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] .hm-menutree__ops { opacity: 1; }
-.hm-menuform[data-hm-js] .hm-menutree__ops > [data-hm-op="up"],
-.hm-menuform[data-hm-js] .hm-menutree__ops > [data-hm-op="down"] { display: none; }
+/* The Plus and overflow actions show on hover and on focus, and stay in the tab order. Move up and Move down stay visible on every row (also on touch, where there is no hover). */
+.hm-menuform[data-hm-js] .hm-menutree__ops > :not([data-hm-op="up"], [data-hm-op="down"]) { opacity: 0; }
+.hm-menuform[data-hm-js] .hm-menutree__item:hover .hm-menutree__ops > *,
+.hm-menuform[data-hm-js] .hm-menutree__item:focus-within .hm-menutree__ops > *,
+.hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] .hm-menutree__ops > * { opacity: 1; }
 .hm-menuform[data-hm-js] .hm-menutree__item:hover,
 .hm-menuform[data-hm-js] .hm-menutree__item[data-hm-selected] { background-color: var(--surface-hover); }
 /* The shortcuts list keeps words whole: "sub-items" does not break inside, at the hyphen or elsewhere. */
+#menu-shortcuts .hm-dl kbd { display: inline-block; min-width: 1.5rem; padding: 0 var(--space-1-5); text-align: center; border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; }
 #menu-shortcuts .hm-dl dd { overflow-wrap: normal; word-break: normal; hyphens: none; }
 .hm-menueditor__word { white-space: nowrap; }
