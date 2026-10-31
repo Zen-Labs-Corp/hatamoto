@@ -133,6 +133,7 @@ var DeclaredPairs = []Pair{
 	{"--chart-6", "--color-paper", 3, "chart series 6 on surface"},
 	{"--color-brand", "--color-paper", 3, "brand mark on surface"},
 	{"--color-brand", "--color-shiro", 3, "brand mark on page"},
+	{"--color-on-brand", "--color-brand", 4.5, "seal glyph on brand"},
 	{"--color-sumi", "--color-accent-soft", 4.5, "bulk bar text"},
 	{"--color-sumi", "--color-kasumi", 4.5, "active nav text"},
 	{"--color-success", "--color-paper", 4.5, "success text on surface"},

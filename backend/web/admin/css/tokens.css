@@ -212,7 +212,7 @@
   --segment-bevel: var(--border-control);
   --btn-edge-primary: rgb(0 0 0 / 0.28);
   --btn-edge-danger: rgb(0 0 0 / 0.3);
-  --color-brand: #d9553b;
+  --color-brand: #c9482f;
   --color-on-brand: #ffffff;
   --accent-link: #b4c6ea;
   --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
@@ -268,7 +268,7 @@
     --segment-bevel: var(--border-control);
     --btn-edge-primary: rgb(0 0 0 / 0.28);
     --btn-edge-danger: rgb(0 0 0 / 0.3);
-    --color-brand: #d9553b;
+    --color-brand: #c9482f;
     --color-on-brand: #ffffff;
     --accent-link: #b4c6ea;
     --shadow-1: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
