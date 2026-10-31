@@ -140,6 +140,7 @@ GET /admin/settings/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionD
 GET /admin/settings/taxonomies -> admin.(*Admin).handleTaxonomies-fm
 GET /admin/settings/taxonomies/new -> admin.(*Admin).handleTermNew-fm
 GET /admin/settings/taxonomies/terms/{id} -> admin.(*Admin).handleTermEdit-fm
+GET /admin/settings/taxonomies/terms/{id}/copy/new -> admin.(*Admin).handleTermCopyNew-fm
 GET /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDeleteConfirm-fm
 GET /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMergeForm-fm
 GET /admin/settings/team -> admin.(*Admin).mountSettingsFrame.func1
@@ -318,8 +319,12 @@ POST /admin/settings/submissions/{sid}/email -> admin.(*Admin).handleSubmissionE
 POST /admin/settings/submissions/{sid}/status -> admin.(*Admin).handleSubmissionStatus-fm
 POST /admin/settings/taxonomies/terms -> admin.(*Admin).handleTermCreate-fm
 POST /admin/settings/taxonomies/terms/{id} -> admin.(*Admin).handleTermSave-fm
+POST /admin/settings/taxonomies/terms/{id}/copy -> admin.(*Admin).handleTermCopy-fm
 POST /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDelete-fm
+POST /admin/settings/taxonomies/terms/{id}/link -> admin.(*Admin).handleTermLink-fm
+POST /admin/settings/taxonomies/terms/{id}/locale -> admin.(*Admin).handleTermLocale-fm
 POST /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMerge-fm
+POST /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlink-fm
 POST /admin/settings/types -> admin.(*Admin).handleSchemaCreate-fm
 POST /admin/settings/types/{id} -> admin.(*Admin).handleSchemaSave-fm
 POST /admin/settings/types/{id}/delete -> admin.(*Admin).handleSchemaDelete-fm
