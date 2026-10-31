@@ -132,12 +132,12 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="webhook-form-title">New webhook</h2><p class="hm-muted">The signing secret is shown once. Keep it somewhere safe.</p></div>
 <div class="hm-card__body">
 <div class="hm-field">
-<label class="hm-field__label" for="webhook-name">Name <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<label class="hm-field__label" for="webhook-name">Name <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="webhook-name" name="name" required aria-describedby="webhook-name-help">
 <p class="hm-field__help" id="webhook-name-help">What this webhook is for, like Zapier.</p>
 </div>
 <div class="hm-field">
-<label class="hm-field__label" for="webhook-url">Address <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<label class="hm-field__label" for="webhook-url">Address <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="url" id="webhook-url" name="url" placeholder="https://example.com/hooks/hatamoto" required aria-describedby="webhook-url-help">
 <p class="hm-field__help" id="webhook-url-help">Where Hatamoto sends the POST.</p>
 </div>

@@ -1,32 +1,51 @@
 package admin
 
 import (
+	"slices"
 	"testing"
 )
 
-func TestDashboardLayoutClasses(t *testing.T) {
+// The cards split into two independent columns; a column with no card is left out.
+func TestDashboardColumns(t *testing.T) {
 	t.Parallel()
 
-	sec := func(ids ...string) *dashView {
+	view := func(ids ...string) *dashView {
 		v := &dashView{}
 		for _, id := range ids {
 			v.Sections = append(v.Sections, &dashSection{ID: id})
 		}
 		return v
 	}
+	ids := func(secs []*dashSection) []string {
+		var out []string
+		for _, s := range secs {
+			out = append(out, s.ID)
+		}
+		return out
+	}
 	for _, c := range []struct {
-		name string
-		ids  []string
-		want string
+		name        string
+		in          []string
+		left, right []string
+		one         bool
 	}{
-		{"full owner", []string{"dash-health", "dash-pages", "dash-missing", "dash-submissions", "dash-activity"}, "hm-dash--health hm-dash--n3"},
-		{"no analytics", []string{"dash-health", "dash-missing", "dash-submissions", "dash-activity"}, "hm-dash--health hm-dash--n2"},
-		{"no health", []string{"dash-pages", "dash-missing", "dash-submissions", "dash-activity"}, "hm-dash--n3"},
-		{"editor", []string{"dash-submissions"}, "hm-dash--n1"},
-		{"activity only", []string{"dash-activity"}, ""},
+		{"full owner", []string{"dash-health", "dash-pages", "dash-missing", "dash-submissions", "dash-activity"},
+			[]string{"dash-health", "dash-activity"}, []string{"dash-pages", "dash-submissions", "dash-missing"}, false},
+		{"no analytics", []string{"dash-health", "dash-missing", "dash-submissions", "dash-activity"},
+			[]string{"dash-health", "dash-activity"}, []string{"dash-submissions", "dash-missing"}, false},
+		{"editor", []string{"dash-submissions"}, nil, []string{"dash-submissions"}, true},
+		{"activity only", []string{"dash-activity"}, []string{"dash-activity"}, nil, true},
+		{"nothing", nil, nil, nil, false},
 	} {
-		if got := sec(c.ids...).Layout(); got != c.want {
-			t.Errorf("%s: Layout() = %q, want %q", c.name, got, c.want)
+		v := view(c.in...)
+		if got := ids(v.Left()); !slices.Equal(got, c.left) {
+			t.Errorf("%s: Left() = %v, want %v", c.name, got, c.left)
+		}
+		if got := ids(v.Right()); !slices.Equal(got, c.right) {
+			t.Errorf("%s: Right() = %v, want %v", c.name, got, c.right)
+		}
+		if got := v.OneColumn(); got != c.one {
+			t.Errorf("%s: OneColumn() = %v, want %v", c.name, got, c.one)
 		}
 	}
 }

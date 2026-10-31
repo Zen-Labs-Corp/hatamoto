@@ -157,7 +157,7 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 			label = n.Name + " (level " + strconv.Itoa(n.Depth+1) + ")"
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: label, Cells: []ui.Cell{
-			{Text: n.Name, Depth: min(n.Depth, 8), Link: a.adminPath + "/settings/taxonomies/terms/" + id}, {Text: n.Slug}, {Text: strconv.Itoa(n.Count)},
+			{Text: n.Name, Depth: min(n.Depth, 8), Link: a.adminPath + "/settings/taxonomies/terms/" + id}, {Text: n.Slug, Mono: true}, {Text: strconv.Itoa(n.Count)},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/settings/taxonomies/terms/" + id},
 			{Label: "Merge", Href: a.adminPath + "/settings/taxonomies/terms/" + id + "/merge"},

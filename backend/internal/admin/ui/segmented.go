@@ -17,6 +17,8 @@ type Segmented struct {
 // not available yet: it renders disabled and aria-disabled, and no mode lets it be chosen.
 type SegmentedItem struct {
 	Label, Value string
+	CountID      string // radio mode: the id of the count span after the label, so a page can refresh it out of band
+	Count        string
 	Pressed      bool
 	Disabled     bool
 	Attrs        map[string]string

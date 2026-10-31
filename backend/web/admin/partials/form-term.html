@@ -1,8 +1,8 @@
 {{/* Fields of the create taxonomy term form (dialog and /new page). Data is the termForm. */}}
 {{define "hm/form-term"}}{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Attrs" (attrmap "autocomplete" "off") "Error" (index .Errors "name")}}
 {{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" "Used in the address. Leave it empty to make one from the name." "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" "1") "Error" (index .Errors "slug")}}
-{{template "hm/field" dict "ID" "kind" "Name" "kind" "Label" "Kind" "Control" "select" "Options" .KindOptions}}
-{{template "hm/field" dict "ID" "parent" "Name" "parent" "Label" "Parent" "Control" "select" "Options" .ParentOptions "Help" "Only for the kind chosen here." "Error" (index .Errors "parent")}}
+<div class="hm-fieldgrid hm-fieldgrid--2">{{template "hm/field" dict "ID" "kind" "Name" "kind" "Label" "Kind" "Control" "select" "Options" .KindOptions}}
+{{template "hm/field" dict "ID" "parent" "Name" "parent" "Label" "Parent" "Control" "select" "Options" .ParentOptions "Help" "Only for the kind chosen here." "Error" (index .Errors "parent")}}</div>
 <details{{if or .NewKind .Desc (index .Errors "new_kind") (index .Errors "description")}} open{{end}}><summary>More options</summary>
 {{template "hm/field" dict "ID" "new_kind" "Name" "new_kind" "Label" "Or start a new kind" "Value" .NewKind "Help" "A short lower-case word such as genre. It exists as soon as its first term does." "Attrs" (attrmap "autocomplete" "off") "Error" (index .Errors "new_kind")}}
 {{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 3 "Value" .Desc "Error" (index .Errors "description")}}

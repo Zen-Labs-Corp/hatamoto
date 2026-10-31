@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -79,7 +80,10 @@ type entitiesData struct {
 	Menu        *ui.ButtonMenu
 	Primary     *ui.Action
 	Table       ui.Table
-	StatusTabs  []ui.Tab
+	// Results is Table without its filter bar: the page renders the bar itself (outside the
+	// swapped results) so a live update keeps an open popover.
+	Results ui.Table
+	Status  string // the live-region text, e.g. "12 entities"
 }
 
 // maxParentOptions caps the Parent filter (the parents with the most children).
@@ -159,19 +163,6 @@ func (p listParams) hrefWithout(prefix string, keys ...string) string {
 	q := p.query()
 	for _, k := range keys {
 		q.Del(k)
-	}
-	if len(q) == 0 {
-		return prefix + "/entities"
-	}
-	return prefix + "/entities?" + q.Encode()
-}
-
-// hrefWithStatus is the list URL with the status set ("" drops it), every other filter kept.
-func (p listParams) hrefWithStatus(prefix, status string) string {
-	q := p.query()
-	q.Del("status")
-	if status != "" {
-		q.Set("status", status)
 	}
 	if len(q) == 0 {
 		return prefix + "/entities"
@@ -281,16 +272,21 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	counts := a.entityCounts(ctx, schemas, f.SchemaID)
-	// The status filter is a tab row with counts; each tab keeps the other filters in its link.
-	statusTabs := make([]ui.Tab, 0, len(statusLabels))
+	// The status filter is a segmented control in the toolbar; each label carries the count.
+	// A live swap refreshes only the count spans, never the radios, so a choice made while a request is in flight is not undone.
+	status := &ui.Segmented{Mode: "radio", Label: "Status", Name: "status"}
+	oob := "#entities-head"
 	for _, sl := range statusLabels {
 		n := counts.byStatus[sl.Value]
 		if sl.Value == "" {
 			n = counts.all
 		}
-		statusTabs = append(statusTabs, ui.Tab{Label: sl.Label, Href: p.hrefWithStatus(a.adminPath, sl.Value), Count: n, Active: p.status == sl.Value})
+		seg := "entities-seg-" + cmp.Or(sl.Value, "all")
+		status.Items = append(status.Items, ui.SegmentedItem{Label: sl.Label, Count: strconv.Itoa(n), CountID: seg + "-n", Value: sl.Value, Pressed: p.status == sl.Value,
+			Attrs: map[string]string{"id": seg}})
+		oob += ",#" + seg + "-n"
 	}
-	// Phones have no sidebar subnav: the type is picked here (hidden beside the subnav on wider screens).
+	// Phones have no sidebar subnav, so the type is picked here, at every width.
 	typeOpts := []ui.Option{{Value: "", Label: "All types", Selected: resolved == nil}}
 	for _, ty := range counts.types {
 		if ty.Slug == person.SchemaSlug {
@@ -300,9 +296,6 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	// The filter form is one GET: what it has no field for rides along as hidden values.
 	hidden := map[string]string{}
-	if p.status != "" {
-		hidden["status"] = p.status
-	}
 	var primary []ui.Filter
 	if len(typeOpts) > 2 {
 		primary = append(primary, ui.Filter{Name: "type", Label: "Type", Options: typeOpts})
@@ -333,7 +326,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	res, err := c.Entities.ListEntitiesWithOffset(ctx, f, &entity.OffsetPage{Page: p.page, Limit: entitiesPerPage})
 	if err != nil {
 		a.logger().Error("list entities failed", "err", err)
-		a.renderEntities(w, r, p, ui.Table{ID: "entities", Caption: caption, BaseURL: a.adminPath + "/entities", Error: "The entities could not be loaded."}, nil, -1, types, resolved)
+		a.renderEntities(w, r, p, ui.Table{ID: "entities", Caption: caption, BaseURL: a.adminPath + "/entities", Error: "The entities could not be loaded."}, -1, types, resolved)
 		return
 	}
 	if res.TotalPages > 0 && p.page > res.TotalPages {
@@ -369,7 +362,8 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		ID: "entities", Caption: caption, BaseURL: a.adminPath + "/entities", CSRF: csrfToken(ctx),
 		Columns: cols,
 		SortKey: p.sortKey, SortDir: p.dir, Query: p.q, SearchLabel: "Search titles and URLs", PrimaryFilters: primary, PopoverFilters: popover, Chips: chips, ClearHref: p.hrefWithout(a.adminPath, "from", "to", "author", "term"),
-		Hidden: hidden,
+		Hidden: hidden, Segmented: status, Bare: true, Live: true, Target: "entities-results", ChipsOutside: true,
+		OOB: oob,
 		Bulk: []ui.BulkAction{
 			{Label: "Publish", Action: a.adminPath + "/entities/bulk", Value: "publish"},
 			{Label: "Move to draft", Action: a.adminPath + "/entities/bulk", Value: "draft"},
@@ -436,7 +430,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	if resolved != nil {
 		t.Empty.Actions = nil // the header's "New <type>" is the call to action; a generic one would create the wrong thing
 	}
-	a.renderEntities(w, r, p, t, statusTabs, res.Total, types, resolved)
+	a.renderEntities(w, r, p, t, res.Total, types, resolved)
 }
 
 func (a *Admin) entityEditHref(visual bool, id string) string {
@@ -460,10 +454,11 @@ func (a *Admin) newTypeAction(label, slug string, draft bool) ui.Action {
 // renderEntities renders the list page: the unfiltered list (resolved nil) with
 // the Create menu, or one type's list with a single "New <type>" button. Both
 // carry the Entities subnav built from types.
-func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listParams, t ui.Table, statusTabs []ui.Tab, total int, types []typeTab, resolved *entity.EntitySchema) {
-	d := entitiesData{Table: t, StatusTabs: statusTabs, Title: "Entities", Description: "Pages, posts and other content on your site."}
+func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listParams, t ui.Table, total int, types []typeTab, resolved *entity.EntitySchema) {
+	d := entitiesData{Table: t, Title: "Entities", Description: "Pages, posts and other content on your site."}
 	if total >= 0 {
 		d.Description = fmt.Sprintf("%d %s. %s", total, plural(total, "entity", "entities"), d.Description)
+		d.Status = fmt.Sprintf("%d %s", total, plural(total, "entity", "entities"))
 	}
 	owner := false
 	if u := userFrom(r.Context()); u != nil && u.Role == "owner" {
@@ -486,14 +481,13 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 			item.Icon = "file-text"
 			create.Items = append(create.Items, item)
 		}
-		if owner {
-			create.Footer = []ui.Action{{Label: "Manage entity types", Href: a.adminPath + "/settings/types", Icon: "content-model"}}
-		}
 		if len(create.Items) == 0 {
 			create.Items = []ui.Action{{Label: "Choose a type", Href: a.adminPath + "/entities/new"}}
 		}
 		d.Menu = &create
 	}
+	d.Results = d.Table
+	d.Results.SearchLabel, d.Results.PrimaryFilters, d.Results.PopoverFilters, d.Results.Segmented = "", nil, nil, nil
 	v := a.NewView(w, r, d.Title)
 	v.entityNav, v.entityManage = entitiesNavIn(a.adminPath, types, active), owner
 	v.Data = d
@@ -635,13 +629,13 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		for _, id := range ids {
 			hidden = append(hidden, hiddenField{"id", id})
 		}
-		noun := "entity"
+		noun, their := "entity", "its"
 		if len(ids) != 1 {
-			noun = "entities"
+			noun, their = "entities", "their"
 		}
 		a.renderConfirm(w, r, confirmData{
-			Title: fmt.Sprintf("Delete %d %s?", len(ids), noun), Message: "They and their version history will be deleted. This cannot be undone.",
-			Post: a.adminPath + "/entities/bulk", Label: "Delete", Back: back, Danger: true, Hidden: hidden,
+			Title: fmt.Sprintf("Delete %d %s?", len(ids), noun), Message: fmt.Sprintf("%d %s and %s version history will be deleted. This cannot be undone.", len(ids), noun, their),
+			Post: a.adminPath + "/entities/bulk", Label: fmt.Sprintf("Delete %d %s", len(ids), noun), Back: back, Danger: true, Hidden: hidden,
 		})
 		return
 	}

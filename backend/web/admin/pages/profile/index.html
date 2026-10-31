@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Your profile" "Description" "Your account and how you appear as an author." "CSRF" $.CSRF}}
-<div class="hm-row">{{if .Photo}}<img class="hm-avatar" src="{{.Photo}}" alt="" data-hm-photo data-initials="{{.Initials}}">{{else}}<span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span>{{end}}<strong>{{.Email}}</strong>{{template "hm/badge" (dict "Label" .RoleLabel "Kind" .RoleKind)}}</div>
+<div class="hm-row hm-profile-meta">{{if .Photo}}<img class="hm-avatar" src="{{.Photo}}" alt="" data-hm-photo data-initials="{{.Initials}}">{{else}}<span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span>{{end}}<code>{{.Email}}</code>{{template "hm/badge" (dict "Label" .RoleLabel "Kind" .RoleKind)}}</div>
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/profile" class="hm-cardform" novalidate>
 {{template "hm/card-start" dict "ID" "profile-card" "Title" "About you" "Description" "This is how you appear as an author on the site."}}
@@ -17,7 +17,7 @@
 {{template "hm/field" dict "ID" "password" "Name" "password" "Label" "New password" "Type" "password" "Required" true "Help" "At least 12 characters." "Error" .NewErr "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the new password" "Type" "password" "Required" true "Error" .MatchErr "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/card-foot"}}
-{{template "hm/button" dict "Label" "Change password" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" "Change password" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
 </form>
 <form method="post" action="{{adminPath}}/logout" class="hm-cardform">

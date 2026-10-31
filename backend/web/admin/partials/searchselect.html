@@ -1,5 +1,5 @@
 {{define "hm/searchselect"}}{{$id := required "hm/searchselect ID" .ID}}<div class="hm-field hm-searchselect{{if .Error}} hm-field--invalid{{end}}" data-hm-searchselect data-src="{{required "hm/searchselect Src" .Src}}">
-<label class="hm-field__label" for="{{$id}}">{{.Label}}{{if .Required}} <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span>{{end}}</label>
+<label class="hm-field__label" for="{{$id}}">{{.Label}}{{if .Required}} <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span>{{end}}</label>
 <input type="hidden" name="{{required "hm/searchselect Name" .Name}}" value="{{.Value}}" data-hm-ss-value>
 <input type="hidden" name="{{.Name}}_prev" value="{{.Selected}}" data-hm-ss-prev>
 <input class="hm-field__control" type="search" id="{{$id}}" name="{{.Name}}_q" value="{{.Selected}}" autocomplete="off" placeholder="{{or .Placeholder "Type to search"}}" role="combobox" aria-expanded="false" aria-controls="{{$id}}-list" aria-autocomplete="list"{{with describedby $id "x" .Error}} aria-describedby="{{.}}"{{end}}{{if .Error}} aria-invalid="true"{{end}} data-hm-ss-input>

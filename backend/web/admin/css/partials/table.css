@@ -1,8 +1,10 @@
-/* calm: the list sits flush on the page, no box; rows are hairlines */
-.hm-tablecard { overflow: hidden; position: relative; border: 0; border-radius: 0; background: transparent; }
+/* One white card holds the toolbar, chips, bulk bar, rows and pager; rows are hairlines */
+.hm-tablecard { overflow: hidden; position: relative; }
 /* a table inside a card bleeds to the card edges */
 .hm-card .hm-table__scroll { margin-inline: calc(-1 * var(--space-5)); }
 .hm-tablecard .hm-table__scroll { margin-inline: 0; }
+/* a list table inside a titled card is that card's content, not a second card */
+.hm-card__body > .hm-tablecard { border: 0; border-radius: 0; background: none; margin-inline: calc(-1 * var(--space-5)); }
 .hm-table__filters { display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); flex-wrap: wrap; align-items: center; }
 .hm-table__bulk[hidden] { display: none; }
 .hm-table__search { flex: 1 1 240px; max-width: 420px; }
@@ -75,17 +77,13 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards th.hm-table__rowhead { order: 1; flex: 1 1 0; min-width: 0; font-weight: var(--weight-medium); }
   /* The select box hangs in the left gutter, so every cell of the second line (Answers, Status, ...)
      starts under the title, however many lines it wraps to. */
-  .hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: var(--space-8); }
-  .hm-table--cards td.hm-table__check { position: absolute; inset-block-start: calc(var(--space-2) + var(--space-1)); inset-inline-start: 0; padding: var(--space-0-5) 0; }
+  .hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: calc(var(--space-4) + var(--space-8)); }
+  .hm-table--cards td.hm-table__check { position: absolute; inset-block-start: calc(var(--space-2) + var(--space-1)); inset-inline-start: var(--space-4); padding: var(--space-0-5) 0; }
   .hm-table--cards td.hm-table__actions { order: 2; width: auto; padding: 0; }
   .hm-table--cards td.hm-table__actions::before, .hm-table--cards td.hm-table__check::before { content: none; }
   /* A strip with neither a select-all box nor a sort link is only column titles the cards already
      label: keep it for screen readers only. One with a sort link stays visible, so touch users can sort. */
   .hm-table--cards thead:not(:has(.hm-table__check, .hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  /* The users list (#users, #invites) is flush on the page: rows and the filter strip share the
-     hairlines' left edge. Other lists keep their padding. */
-  #users.hm-tablecard .hm-table--cards tr, #invites.hm-tablecard .hm-table--cards tr { padding-inline: 0; }
-  #users .hm-table__filters { padding-inline: 0; }
   .hm-table--cards thead tr { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
   .hm-table--cards thead th { padding-inline: 0; }
   .hm-table--cards thead th:not(.hm-table__check):not(:has(.hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
@@ -104,10 +102,10 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 .hm-filterbar .hm-filterbar__chips { flex: 1 1 100%; }
 /* Bare toolbar (opt-in): no card, segmented + Filters at the start, search + selects at the end;
    below 640px the four controls stack full width. */
-.hm-filterbar--bare { padding: 0; border-bottom: 0; gap: var(--space-3); position: relative; }
+.hm-filterbar--bare { padding: var(--space-4); border-bottom: 1px solid var(--color-kinu); gap: var(--space-3); position: relative; }
 /* The end group takes the free space before it; the hidden busy indicator is out of flow, so it is not a third item. */
 .hm-filterbar--bare .hm-filterbar__end { flex: 1 1 auto; flex-wrap: nowrap; justify-content: flex-end; margin-inline-start: auto; }
-.hm-filterbar--bare > .hm-indicator { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + var(--space-1)); }
+.hm-filterbar--bare > .hm-indicator { position: absolute; inset-inline-end: var(--space-4); inset-block-start: calc(100% + var(--space-1)); }
 .hm-filterbar__start, .hm-filterbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
 /* Bare search: ~300px at wide widths (the hm-input-affix wrapper carries the magnifier), full width once the groups stack. */
 .hm-filterbar--bare .hm-table__search { flex: 0 1 300px; }
@@ -124,6 +122,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 
 /* A person's first cell: the avatar sits beside the name; "(you)" is quiet. */
 .hm-table .hm-avatar { display: inline-grid; vertical-align: middle; margin-inline-end: var(--space-2); }
+.hm-table__mono { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
 .hm-table__suffix { color: var(--text-muted); font-size: var(--text-sm); }
 /* A row the user just created: tinted, no shadow; the hidden "(new)" text carries the meaning. */
 .hm-table tr.hm-row--new > * { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }

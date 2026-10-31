@@ -5,12 +5,12 @@
 <div class="hm-row">{{range .Actions}}{{template "hm/button" .Dict}}{{end}}</div></div>
 {{with $.SectionTabs}}{{template "hm/tabs" dict "Label" $.CurrentSection.Label "Items" .}}{{end}}
 </header>
-{{if .Form}}<form class="hm-row hm-submissions__filters" method="get" action="{{adminPath}}/settings/submissions" data-hm-autosubmit>
+{{if .Form}}{{template "hm/stats" dict "Variant" "strip" "Items" .Stats}}
+{{template "hm/card-start" dict "ID" "submissions-activity" "Title" "Submissions, last 30 days"}}<div class="hm-submissions__tracker">{{template "hm/tracker" .Tracker}}</div>{{template "hm/card-end"}}
+<form class="hm-row hm-submissions__filters" method="get" action="{{adminPath}}/settings/submissions" data-hm-autosubmit>
 {{if .Switch}}<label class="hm-table__filterlabel" for="sub-form">Form</label><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="sub-form" name="form">{{range .Switch}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>{{end}}
 <label class="hm-table__filterlabel" for="sub-status">Status</label>{{template "hm/select" (dict "ID" "sub-status" "Name" "status" "Options" .Statuses "Auto" true)}}
 <noscript>{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}</noscript>
 </form>
-{{template "hm/stats" dict "Variant" "ticker" "Items" .Stats}}
-{{template "hm/card-start" dict "ID" "submissions-activity" "Title" "Submissions, last 30 days"}}<div class="hm-submissions__tracker">{{template "hm/tracker" .Tracker}}</div>{{template "hm/card-end"}}
 {{end}}{{template "hm/table" .Table}}
 {{end}}{{end}}

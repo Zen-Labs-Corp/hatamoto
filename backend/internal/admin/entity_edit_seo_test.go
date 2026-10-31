@@ -65,3 +65,24 @@ func TestEntityPanelReadsTheBodyWhenTheTypeHasOne(t *testing.T) {
 	has(t, rec.Body.String(), "Headings", "Length", "Readability")
 	lacks(t, rec.Body.String(), "Focus keyword", "llms.txt")
 }
+
+// The tab and screen-reader order is the order the narrow layout draws: Content, Publishing,
+// Terms, SEO. The wide layout moves SEO under Content with grid areas, not with the DOM.
+func TestEntityEditDOMOrderMatchesNarrowLayout(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	body := c.do("GET", "/admin/entities/"+fid(11).String(), "owner-token", nil, nil).Body.String()
+	last := -1
+	for _, mark := range []string{`id="content"`, `id="publishing"`, `id="seo"`} {
+		i := strings.Index(body, mark)
+		if i <= last {
+			t.Fatalf("%s is out of order (at %d, previous at %d): want Content, Publishing, Terms, SEO", mark, i, last)
+		}
+		last = i
+	}
+	if i, j := strings.Index(body, `id="terms"`), strings.Index(body, `id="seo"`); i >= 0 && i > j {
+		t.Error("Terms must come before SEO")
+	}
+	has(t, body, `<aside class="hm-entityform__side" aria-label="Publishing and terms">`)
+}

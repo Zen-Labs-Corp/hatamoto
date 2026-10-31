@@ -153,12 +153,12 @@
 <div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="new-webhook-title">New webhook</h2>
 <div class="hm-dialog__body">
 <form id="new-webhook-form" method="post" action="/admin/settings/webhooks"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><div class="hm-field">
-<label class="hm-field__label" for="webhook-name">Name <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<label class="hm-field__label" for="webhook-name">Name <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="webhook-name" name="name" required aria-describedby="webhook-name-help">
 <p class="hm-field__help" id="webhook-name-help">What this webhook is for, like Zapier.</p>
 </div>
 <div class="hm-field">
-<label class="hm-field__label" for="webhook-url">Address <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<label class="hm-field__label" for="webhook-url">Address <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="url" id="webhook-url" name="url" placeholder="https://example.com/hooks/hatamoto" required aria-describedby="webhook-url-help">
 <p class="hm-field__help" id="webhook-url-help">Where Hatamoto sends the POST.</p>
 </div>

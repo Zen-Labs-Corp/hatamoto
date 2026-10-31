@@ -50,7 +50,7 @@
 {{define "forms/field"}}{{$n := .N}}<li class="hm-fieldlist__item" data-hm-field data-type="{{.Type}}">
 <input type="hidden" name="f.{{$n}}.id" value="{{.ID}}">
 <details class="hm-fieldlist__row"{{if .Open}} open{{end}}>
-<summary><span class="hm-fieldlist__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span><span class="hm-fieldlist__chev" aria-hidden="true">{{icon "chevron-right"}}</span>{{icon .TypeIcon}}<span class="hm-fieldlist__label" data-hm-field-label>{{or .Label "Untitled field"}}</span>{{if .Name}}<code>{{.Name}}</code>{{end}}{{if .Required}}{{template "hm/badge" dict "Label" "Required"}}{{end}}</summary>
+<summary><span class="hm-fieldlist__handle" data-hm-handle hidden aria-hidden="true">{{icon "grip"}}</span>{{icon .TypeIcon}}<span class="hm-fieldlist__label" data-hm-field-label>{{or .Label "Untitled field"}}</span>{{if .Name}}<code>{{.Name}}</code>{{end}}{{if .Required}}<span class="hm-fieldlist__req">{{template "hm/badge" dict "Label" "Required"}}</span>{{end}}<span class="hm-fieldlist__chev" aria-hidden="true">{{icon "chevron-right"}}</span></summary>
 <div class="hm-fieldlist__body">
 <div class="hm-fieldlist__fields">
 {{template "hm/field" dict "ID" (printf "f-%d-label" $n) "Name" (printf "f.%d.label" $n) "Label" "Label" "Value" .Label "Required" true "Error" (index .Err "label") "Attrs" (attrmap "maxlength" "200" "autocomplete" "off")}}

@@ -20,21 +20,35 @@
 .hm-depth-8 { padding-left: calc(var(--space-6) * 8); }
 
 /* entity type chooser */
-.hm-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.hm-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 .hm-choice { padding: 0; }
-.hm-choice__link { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4); text-decoration: none; color: inherit; border-radius: var(--radius-lg); }
+.hm-choice__link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); text-decoration: none; color: inherit; border-radius: var(--radius-lg); }
 button.hm-choice__link { width: 100%; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; }
 .hm-choice__link:hover { background: var(--surface-hover); }
 .hm-choice__link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
-.hm-choice__head { display: flex; align-items: center; gap: var(--space-2); }
-.hm-choice__icon { display: inline-flex; color: var(--text-muted); }
-.hm-choice__name { font-weight: var(--weight-semibold); color: var(--color-accent); }
+.hm-choice__icon, .hm-choice__go { display: inline-flex; flex: none; color: var(--text-muted); }
+.hm-choice__text { display: flex; flex-direction: column; gap: var(--space-0-5); flex: 1; min-width: 0; }
+.hm-choice__name { font-weight: var(--weight-semibold); color: var(--color-sumi); }
 
 /* version comparison */
 .hm-diff__value { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: var(--text-sm); max-width: 36ch; }
 .hm-diff__field code { word-break: break-all; }
-.hm-diff__row--added > td:nth-child(3), .hm-diff__row--changed > td:nth-child(3) { background: var(--color-success-soft); }
-.hm-diff__row--removed > td:nth-child(2), .hm-diff__row--changed > td:nth-child(2) { background: var(--color-danger-soft); }
+/* The changed text itself carries the tint, not the whole cell. */
+.hm-diff__row--added > td:nth-child(3) > .hm-diff__value:not(:empty), .hm-diff__row--changed > td:nth-child(3) > .hm-diff__value:not(:empty) { background: var(--color-success-soft); }
+.hm-diff__row--removed > td:nth-child(2) > .hm-diff__value:not(:empty), .hm-diff__row--changed > td:nth-child(2) > .hm-diff__value:not(:empty) { background: var(--color-danger-soft); }
+.hm-diff__row > td > .hm-diff__value { width: fit-content; max-width: 100%; padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+
+/* Entity form: the DOM (and so the tab order) is Content, Publishing and Terms, SEO. Wide, Content and SEO share the main column and the side column spans both rows; narrow, it is one column in DOM order. */
+form.hm-stack.hm-entityform { max-width: none; }
+.hm-entityform__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.hm-entityform__grid > * { min-width: 0; }
+.hm-entityform__side { display: flex; flex-direction: column; gap: var(--space-4); }
+@media (min-width: 1100px) {
+  .hm-entityform__grid { grid-template-columns: minmax(0, 1fr) 20rem; grid-template-rows: auto 1fr; grid-template-areas: "content side" "seo side"; }
+  .hm-entityform__grid > #content { grid-area: content; }
+  .hm-entityform__grid > .hm-entityform__side { grid-area: side; }
+  .hm-entityform__grid > #seo { grid-area: seo; }
+}
 
 /* version compare: per-node layout changes */
 .hm-nodediff td, .hm-nodediff th { vertical-align: top; }
@@ -73,7 +87,6 @@ button.hm-choice__link { width: 100%; border: 0; background: none; font: inherit
 .hm-dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
 .hm-dl dt { color: var(--text-muted); }
 .hm-dl dd { margin: 0; word-break: break-all; }
-.hm-usage { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 
 /* picker dialog */
 .hm-picker { min-width: 0; max-width: 100%; }
@@ -107,7 +120,11 @@ input[type="file"]::file-selector-button { margin-right: var(--space-3); padding
 
 /* Profile photo: a round preview beside the Upload button. */
 .hm-photo-row { align-items: center; }
-.hm-photo-preview { width: 72px; height: 72px; max-width: none; max-height: none; border-radius: 50%; object-fit: cover; margin: 0; }
+.hm-photo-row__address { flex: 1 1 12rem; min-width: 0; }
+.hm-photo-row .hm-avatar--lg { width: 48px; height: 48px; font-size: var(--text-md); }
+.hm-profile-meta { align-items: center; margin-bottom: var(--space-4); }
+.hm-profile-meta code { color: var(--text-muted); }
+.hm-photo-preview { width: 48px; height: 48px; max-width: none; max-height: none; border-radius: 50%; object-fit: cover; margin: 0; }
 
 /* Parent picker: the current parent as a chip with Change; the search and list open under it (native details, so it works without JavaScript). */
 .hm-parentpick { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -123,5 +140,9 @@ input[type="file"]::file-selector-button { margin-right: var(--space-3); padding
 .hm-entities .hm-table th.hm-table__check, .hm-entities .hm-table td.hm-table__check { vertical-align: middle; }
 .hm-entities .hm-table td[data-label="Status"], .hm-entities .hm-table td[data-label="Updated"] { min-inline-size: 8rem; }
 .hm-subnav__link--empty .hm-subnav__text, .hm-subnav__link--empty .hm-subnav__marker { color: var(--text-muted); }
-@media (min-width: 40.0625rem) { .hm-filterbar .hm-select:has(select[name="type"]) { display: none; } }
+.hm-entities { background: var(--color-paper); border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); }
+/* The entities card holds the toolbar, the chips and the results; the results table does not draw a second card.
+   No overflow clip on .hm-entities: the Type and Parent select lists drop below the toolbar. The inner card rounds its own bottom corners. */
+.hm-entities .hm-tablecard { border: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.hm-entities #entities-results > .hm-filter-chips { margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); }
 .hm-entities-head { display: flex; flex-direction: column; gap: var(--space-6); }

@@ -138,6 +138,7 @@ form.hm-stack { max-width: 46rem; }
 .hm-bare__brand { justify-content: center; }
 .hm-bare__panel h1 { font-size: var(--text-2xl); }
 .hm-bare__form .hm-btn--primary { width: 100%; }
+.hm-bare__links--start { justify-content: flex-start; }
 .hm-bare__aside { align-self: flex-end; font-size: var(--text-sm); }
 .hm-bare__links { display: flex; justify-content: center; gap: var(--space-4); font-size: var(--text-sm); color: var(--text-muted); }
 .hm-bare__panel {

@@ -2,15 +2,13 @@ package designcheck
 
 import (
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 )
 
-// At the widest breakpoint the first row (health and its cards) and the
-// Activity row each add up to the 24 columns, whichever cards are missing.
-func TestDashboardGridFillsTheRow(t *testing.T) {
+// The cards sit in two independent columns (no shared grid rows, so a short card leaves no
+// gap in the other column) that stack on narrow screens.
+func TestDashboardColumnsAreIndependent(t *testing.T) {
 	t.Parallel()
 
 	b, err := os.ReadFile("../../../web/admin/css/pages/dashboard.css")
@@ -18,41 +16,19 @@ func TestDashboardGridFillsTheRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := string(b)
-	num := func(re string) int {
-		m := regexp.MustCompile(re).FindStringSubmatch(css)
-		if m == nil {
-			t.Fatalf("dashboard.css lacks %s", re)
-		}
-		n, _ := strconv.Atoi(m[1])
-		return n
-	}
-	healthSpan := num(`#dash-health \{ grid-column: span (\d+);`)
-	for _, c := range []struct {
-		health bool
-		n      int
-		card   string
-		act    string
-	}{
-		{false, 3, `\.hm-dash--n3 \{ --dash-card: (\d+);`, `--dash-activity: (\d+); \}`},
-		{false, 2, `\.hm-dash--n2 \{ --dash-card: (\d+);`, `--dash-activity: (\d+); \}`},
-		{false, 1, `\.hm-dash--n1 \{ --dash-card: (\d+);`, `--dash-activity: (\d+); \}`},
-		{true, 3, `\.hm-dash--health\.hm-dash--n3 \{ --dash-card: (\d+);`, `\.hm-dash--health \{ --dash-activity: (\d+);`},
-		{true, 2, `\.hm-dash--health\.hm-dash--n2 \{ --dash-card: (\d+);`, `\.hm-dash--health \{ --dash-activity: (\d+);`},
-		{true, 1, `\.hm-dash--health\.hm-dash--n1 \{ --dash-card: (\d+);`, `\.hm-dash--health \{ --dash-activity: (\d+);`},
+	for _, want := range []string{
+		".hm-dash--cols { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }",
+		".hm-dash--one { grid-template-columns: minmax(0, 1fr); }",
+		".hm-dash__col { display: grid; gap: var(--space-4);",
+		"@media (max-width: 1099px) { .hm-dash--cols { grid-template-columns: minmax(0, 1fr); } }",
 	} {
-		row := c.n * num(c.card)
-		if c.health {
-			row += healthSpan
+		if !strings.Contains(css, want) {
+			t.Errorf("dashboard.css lacks %q", want)
 		}
-		if row != 24 {
-			t.Errorf("health=%v n=%d: first row spans %d of 24 columns", c.health, c.n, row)
-		}
-		act := num(c.act)
-		if c.health {
-			act += healthSpan
-		}
-		if act != 24 {
-			t.Errorf("health=%v: activity row spans %d of 24 columns", c.health, act)
+	}
+	for _, gone := range []string{"repeat(24", "--dash-card", "grid-row: span"} {
+		if strings.Contains(css, gone) {
+			t.Errorf("dashboard.css still has %q: the cards are no longer one shared grid", gone)
 		}
 	}
 }

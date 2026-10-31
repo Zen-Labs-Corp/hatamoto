@@ -136,14 +136,14 @@ func TestEntityListQueriesAreBounded(t *testing.T) {
 	if c.ents.lists != 1 || c.ents.counts != 1 {
 		t.Errorf("list queries = %d, count queries = %d, want 1 and 1", c.ents.lists, c.ents.counts)
 	}
-	has(t, body, `class="hm-table__sort" href="`, ">Title<", `placeholder="Search titles and URLs"`, `aria-label="Status"`, `class="hm-tabs__count"`, ">All <", "Published ", `<span class="hm-table__sub">/services/alpha</span>`)
+	has(t, body, `class="hm-table__sort" href="`, ">Title<", `placeholder="Search titles and URLs"`, `<legend class="hm-visually-hidden">Status</legend>`, `class="hm-segmented__btn">All `, `class="hm-segmented__btn">Published `, `<span class="hm-table__sub">/services/alpha</span>`)
 	lacks(t, body, "Search entities")
 }
 
-// TestFilterbarPopoverFieldsAreNotLive: a live request swaps the card, which
-// closes the popover and drops focus, so only search and the primary selects
-// may trigger one; popover fields apply through the form's submit (Apply, Enter).
-func TestFilterbarPopoverFieldsAreNotLive(t *testing.T) {
+// TestFilterbarPopoverFieldsAreLive: the entities toolbar is live, so the popover fields apply
+// on change and its Apply button is gone; the no-JS Apply stays inside <noscript>. The swap
+// target is the results, so an open popover and its focus survive.
+func TestFilterbarPopoverFieldsAreLive(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
@@ -154,15 +154,11 @@ func TestFilterbarPopoverFieldsAreNotLive(t *testing.T) {
 	}
 	trig := body[i+len(`hx-trigger="`):]
 	trig = trig[:strings.Index(trig, `"`)]
-	if !strings.Contains(trig, "submit") || !strings.Contains(trig, "from:#") {
-		t.Errorf("trigger must be explicit and include submit: %q", trig)
+	if !strings.Contains(trig, "submit") || !strings.Contains(trig, "change from:#entities-filters") || !strings.Contains(trig, "change from:#entities-seg") {
+		t.Errorf("trigger must include submit, the status control and the popover: %q", trig)
 	}
-	for _, part := range strings.Split(trig, ", ") {
-		if strings.HasPrefix(part, "change") && (!strings.Contains(part, "from:#") || strings.Contains(part, "-f")) {
-			t.Errorf("trigger %q listens to more than search and primary selects", part)
-		}
-	}
-	has(t, body, `<button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button>`)
+	has(t, body, `hx-target="#entities-results"`, `<noscript><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply`)
+	lacks(t, body, `<button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button>`)
 }
 
 func TestEntityListGoldenFiltersSortAndPaging(t *testing.T) {
@@ -200,7 +196,7 @@ func TestEntityListGoldenFiltersSortAndPaging(t *testing.T) {
 	}
 	// a dated filter is one removable chip that drops only its own param
 	body = c.get(t, "owner-token", "/admin/entities?status=published&from=2026-03-01", "")
-	has(t, body, `class="hm-btn-count"`, `Updated from 1 Mar 2026`, `aria-label="Remove filter: Updated from 1 Mar 2026"`, `href="/admin/entities?status=published"`, `name="from" value="2026-03-01"`, `<button type="submit" class="hm-btn hm-btn--primary"><span>Apply</span></button>`)
+	has(t, body, `class="hm-btn-count"`, `Updated from 1 Mar 2026`, `aria-label="Remove filter: Updated from 1 Mar 2026"`, `href="/admin/entities?status=published"`, `name="from" value="2026-03-01"`)
 	lacks(t, c.get(t, "owner-token", "/admin/entities", ""), `hm-filter-chip`)
 	// an unknown status or type is ignored, not an error
 	c.get(t, "owner-token", "/admin/entities?status=bogus&type=nope&sort=drop+table", "")
@@ -854,13 +850,13 @@ func TestTaxonomyScreens(t *testing.T) {
 	has(t, c.get(t, "owner-token", "/admin/settings/taxonomies?kind=genre", ""), "Jazz", `href="/admin/settings/taxonomies?kind=genre"`)
 	// edit
 	body = c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+fid(32).String(), "taxonomy-term")
-	has(t, body, `value="Press"`, "hm-seo", "seo_title")
-	// two cards (details, search appearance), the buttons in the SEO card foot, one SEO heading
+	has(t, body, `value="Press"`, "hm-seo", "seo_title", `<span class="hm-visually-hidden">Kind: </span>category`)
+	// two cards (details, search appearance), the buttons in the save bar after them, one SEO heading
 	if n := strings.Count(body, `<section class="hm-card`); n != 2 {
 		t.Errorf("term page cards = %d, want 2", n)
 	}
-	if i, j := strings.Index(body, `id="seo"`), strings.Index(body, `hm-card__foot`); i < 0 || j < i || strings.Count(body, `hm-card__foot`) != 1 {
-		t.Errorf("the term buttons belong in the foot of the SEO card")
+	if i, j := strings.Index(body, `id="seo"`), strings.Index(body, `hm-savebar`); i < 0 || j < i || strings.Count(body, `hm-savebar`) < 1 || strings.Contains(body, `hm-card__foot`) {
+		t.Errorf("the term buttons belong in the save bar after the SEO card")
 	}
 	lacks(t, body, "hm-seo__title")
 	lacks(t, body, "Internal links")

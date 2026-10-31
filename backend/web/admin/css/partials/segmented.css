@@ -23,3 +23,5 @@
 @media (forced-colors: active) {
   .hm-segmented__btn[aria-pressed="true"], .hm-segmented__input:checked + .hm-segmented__btn { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; }
 }
+/* A count after the label (radio items with CountID): spaced off the label, muted mono. */
+.hm-segmented__count { margin-inline-start: var(--space-1-5); font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--text-muted); }

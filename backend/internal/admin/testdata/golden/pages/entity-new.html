@@ -91,12 +91,13 @@
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <input type="hidden" name="type" value="service">
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+<div class="hm-entityform__grid">
 <section class="hm-card" id="content" aria-labelledby="content-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="content-title">Content</h2></div>
 <div class="hm-card__body">
 <div class="hm-stack">
 <div class="hm-field">
-<label class="hm-field__label" for="name">Name <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<label class="hm-field__label" for="name">Name <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="name" name="name" required autocomplete="off">
 </div>
 <div class="hm-field">
@@ -104,7 +105,7 @@
 <input class="hm-field__control" type="text" id="slug" name="slug" aria-describedby="slug-help" autocomplete="off" data-hm-slug-auto="1" data-hm-slug-from="name">
 <p class="hm-field__help" id="slug-help">Used in the address. Leave it empty to make one from the name.</p>
 </div>
-<div class="hm-field"><label class="hm-field__label" for="sf-attr-summary">Summary <span aria-hidden="true">*</span><span class="hm-visually-hidden"> (required)</span></label>
+<div class="hm-field"><label class="hm-field__label" for="sf-attr-summary">Summary <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="sf-attr-summary" name="attr.summary" value="" placeholder="Enter Summary" maxlength="120" required><p class="hm-field__counter hm-muted" data-hm-counter="sf-attr-summary">0/120</p>
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-attr-hero_image">Hero image</label>
@@ -122,6 +123,7 @@
 
 </div>
 </div></section>
+<aside class="hm-entityform__side" aria-label="Publishing and terms">
 <section class="hm-card" id="publishing" aria-labelledby="publishing-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="publishing-title">Publishing</h2></div>
 <div class="hm-card__body">
@@ -183,6 +185,7 @@
 </div>
 </div>
 </div></section>
+</aside>
 <section class="hm-card" id="seo">
 <div class="hm-card__body">
 <div class="hm-seo" data-hm-seo>
@@ -242,6 +245,7 @@
 </section>
 </div>
 </div></section>
+</div>
 <div class="hm-savebar">
 <span class="hm-savebar__aside"><span data-hm-ef-status><span class="hm-savestate" data-state="idle" role="status" aria-live="polite" data-hm-savestate><span class="hm-savestate__dot" aria-hidden="true"></span><span class="hm-savestate__text"></span></span></span></span>
 <a class="hm-btn hm-btn--secondary" href="/admin/entities"><span>Cancel</span></a>

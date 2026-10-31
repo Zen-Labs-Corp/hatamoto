@@ -270,7 +270,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	loc := a.siteLocation(ctx)
 	t := ui.Table{
 		ID: "media", Caption: "Media files", BaseURL: a.adminPath + "/settings/media", CSRF: csrfToken(ctx),
-		Columns: []ui.Col{{Key: "name", Label: "File"}, {Key: "type", Label: "Type"}, {Key: "size", Label: "Size"}, {Key: "alt", Label: "Alt text"}, {Key: "uploaded", Label: "Uploaded"}},
+		Columns: []ui.Col{{Key: "name", Label: "File"}, {Key: "type", Label: "Type"}, {Key: "size", Label: "Size", Align: "right"}, {Key: "alt", Label: "Alt text"}, {Key: "uploaded", Label: "Uploaded", Align: "right"}},
 		Page:    d.Page,
 		Empty:   ui.Empty{Icon: "image", Title: "No files match", Body: "Upload a file, or try another search."},
 	}

@@ -46,6 +46,8 @@ type Badge struct {
 	// Plain drops the dot of a neutral label, Wrap lets long text wrap, Mono is a read-only
 	// identifier or tag (monospace, wraps). A coloured Kind keeps its dot either way.
 	Plain, Wrap, Mono bool
+	// Prefix is read by screen readers before the label ("Kind: ") and not drawn.
+	Prefix string
 	// Size "sm" is the compact pill (hm-badge--sm); empty is the default size.
 	Size string
 }
@@ -58,6 +60,7 @@ type Cell struct {
 	Badge    *Badge
 	Depth    int    // indent of a tree row's name, in levels
 	Nowrap   bool   // keep the text on one line (dates)
+	Mono     bool   // muted monospace text (a slug or an address)
 	Clip     bool   // cut long text with an ellipsis; the full text is the title (addresses)
 	Sub      string // muted monospace line under the text (a URL path)
 	Initials string // decorative avatar before the text (a person's initials)
@@ -173,8 +176,9 @@ type Table struct {
 	// applies live. Live makes the popover fields apply on change (no Apply
 	// button; the noscript Apply stays). Target is the id of the results the
 	// swap replaces (default ID) so the form and an open popover stay put.
-	// FilterCount is the Filters badge (default len Chips). Bare drops the
-	// card look and groups segmented + Filters apart from search + selects.
+	// FilterCount is the Filters badge (default len Chips). Bare has no
+	// card of its own (a padded strip inside the list card) and groups
+	// segmented + Filters apart from search + selects.
 	// ChipsOutside leaves rendering the chips (hm/filterchips) to the page.
 	Segmented    *Segmented
 	Live         bool
@@ -182,6 +186,7 @@ type Table struct {
 	FilterCount  int
 	Bare         bool
 	ChipsOutside bool
+	OOB          string            // extra out-of-band selectors the filter swap also refreshes, comma separated
 	Hidden       map[string]string // fixed query values the filter form carries, e.g. the open form
 	Bulk         []BulkAction
 	BulkURL      string

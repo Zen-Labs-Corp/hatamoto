@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -97,27 +96,29 @@ type dashView struct {
 	Sections []*dashSection
 }
 
-// Layout is the modifier classes of the card grid. The grid has to know which
-// cards exist, or a missing one leaves an empty cell: --health when Site
-// health (a tall card in the first column) is shown, --nK for the K cards in
-// the first row besides it and Activity (K is 1 to 3; more fall back to the
-// default span).
-func (v *dashView) Layout() string {
-	n := 0
-	var cls []string
-	for _, s := range v.Sections {
-		switch s.ID {
-		case "dash-health":
-			cls = append(cls, "hm-dash--health")
-		case "dash-activity":
-		default:
-			n++
+// Left and Right are the two independent columns of the card grid, each in
+// display order: Site health and Activity on the left, the analytics and
+// content cards on the right. A column with no card is not rendered, so an
+// editor (no health, no activity) gets one full-width column.
+func (v *dashView) Left() []*dashSection { return v.pick("dash-health", "dash-activity") }
+
+func (v *dashView) Right() []*dashSection {
+	return v.pick("dash-pages", "dash-submissions", "dash-missing")
+}
+
+// OneColumn reports that only one of the two columns has cards.
+func (v *dashView) OneColumn() bool { return (len(v.Left()) == 0) != (len(v.Right()) == 0) }
+
+func (v *dashView) pick(ids ...string) []*dashSection {
+	var out []*dashSection
+	for _, id := range ids {
+		for _, s := range v.Sections {
+			if s.ID == id {
+				out = append(out, s)
+			}
 		}
 	}
-	if n > 0 && n <= 3 {
-		cls = append(cls, fmt.Sprintf("hm-dash--n%d", n))
-	}
-	return strings.Join(cls, " ")
+	return out
 }
 
 // runDash runs fns in parallel under ctx and returns one error per fn: nil on

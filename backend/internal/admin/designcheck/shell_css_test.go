@@ -28,18 +28,21 @@ func TestPhoneShellKeepsTopBarHeight(t *testing.T) {
 }
 
 // On phones a header strip with neither a select-all box nor a sort link is hidden, one with a sort
-// link stays visible (touch users sort there), and only the users list is flush with the page edge.
+// link stays visible (touch users sort there). The list card keeps its paper fill and frame.
 func TestPhoneCardsListLayout(t *testing.T) {
 	t.Parallel()
 
 	css := cssSource(t, "partials/table.css")
 	for _, want := range []string{
 		".hm-table--cards thead:not(:has(.hm-table__check, .hm-table__sort))",
-		"#users.hm-tablecard .hm-table--cards tr",
-		"#users .hm-table__filters { padding-inline: 0; }",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("table.css: missing %q", want)
+		}
+	}
+	for _, line := range strings.Split(css, "\n") {
+		if strings.HasPrefix(line, ".hm-tablecard {") && strings.Contains(line, "transparent") {
+			t.Errorf("table.css: %q makes the list card transparent", line)
 		}
 	}
 	for _, bad := range []string{":not(:focus-within)", "\n  .hm-tablecard .hm-table--cards tr {", "\n  .hm-table__filters {"} {
@@ -71,7 +74,7 @@ func TestPhoneCardsSelectBoxHangsInGutter(t *testing.T) {
 
 	css := cssSource(t, "partials/table.css")
 	for _, want := range []string{
-		".hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: var(--space-8); }",
+		".hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: calc(var(--space-4) + var(--space-8)); }",
 		".hm-table--cards td.hm-table__check { position: absolute;",
 	} {
 		if !strings.Contains(css, want) {
@@ -88,5 +91,17 @@ func TestInviteAltLinkAlignsWithField(t *testing.T) {
 
 	if css := cssSource(t, "base.css"); !strings.Contains(css, ".hm-invite__alt { margin-inline-start: calc(-1 * var(--space-3)); }") || strings.Contains(css, ".hm-invite__alt .hm-btn") {
 		t.Error("base.css: the ghost link under the invite email needs its left padding pulled back")
+	}
+}
+
+// The entities card must not clip: the Type and Parent select lists are absolutely positioned and
+// drop below the toolbar, so an overflow rule on .hm-entities would cut them off at the card edge.
+func TestEntitiesCardDoesNotClip(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range strings.Split(cssSource(t, "pages/content.css"), "\n") {
+		if strings.HasPrefix(line, ".hm-entities {") && strings.Contains(line, "overflow") {
+			t.Errorf("content.css: %q clips the select lists", line)
+		}
 	}
 }
