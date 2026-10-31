@@ -59,6 +59,26 @@ type Entry struct {
 	Flags    []string `json:"flags,omitempty"`
 }
 
+// UnmarshalJSON decodes an entry, dropping a site_type or flags value of the
+// wrong JSON type instead of failing the whole index.
+func (e *Entry) UnmarshalJSON(data []byte) error {
+	type plain Entry
+	aux := struct {
+		*plain
+		SiteType json.RawMessage `json:"site_type"`
+		Flags    json.RawMessage `json:"flags"`
+	}{plain: (*plain)(e)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	e.SiteType, e.Flags = "", nil
+	_ = json.Unmarshal(aux.SiteType, &e.SiteType)
+	if json.Unmarshal(aux.Flags, &e.Flags) != nil {
+		e.Flags = nil
+	}
+	return nil
+}
+
 // Categories is the fixed list of package categories, exact case.
 var Categories = []string{"SEO", "Analytics", "Marketing", "Forms", "Commerce", "Content", "Media", "Developer", "Security", "Integrations"}
 

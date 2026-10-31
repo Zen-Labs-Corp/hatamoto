@@ -3,6 +3,7 @@ package packages
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -254,5 +255,35 @@ func TestIndexWithoutCategoryUnchanged(t *testing.T) {
 		if strings.Contains(string(signedIndex(t, key, nil)), k) {
 			t.Errorf("index without category/featured contains %s", k)
 		}
+	}
+}
+
+func TestParseIndexToleratesWrongSiteTypeAndFlagsTypes(t *testing.T) {
+	key := newKey(t)
+	now := time.Now().UTC()
+	body := fmt.Sprintf(`{"version":1,"issued_at":%q,"expires_at":%q,"packages":[
+{"kind":"theme","name":"one","version":"v1.0.0","url":"p/one.hmp","sha256":%q,"flags":"dark","site_type":1},
+{"kind":"theme","name":"two","version":"v1.0.0","url":"p/two.hmp","sha256":%q,"flags":[1,"dark"],"site_type":["blog"]},
+{"kind":"theme","name":"three","version":"v1.0.0","url":"p/three.hmp","sha256":%q,"flags":["dark"],"site_type":"blog"}]}`,
+		now.Add(-time.Minute).Format(time.RFC3339), now.Add(time.Hour).Format(time.RFC3339),
+		strings.Repeat("a", 64), strings.Repeat("a", 64), strings.Repeat("a", 64))
+	doc, err := SignIndex([]byte(body), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatalf("a wrong type made the index unreadable: %v", err)
+	}
+	if len(idx.Packages) != 3 {
+		t.Fatalf("entries kept: %d, want 3", len(idx.Packages))
+	}
+	for _, n := range []string{"one", "two"} {
+		if e, _ := idx.Find(KindTheme, n); e.SiteType != "" || e.Flags != nil {
+			t.Errorf("%s: wrong types not dropped: %+v", n, e)
+		}
+	}
+	if e, _ := idx.Find(KindTheme, "three"); e.SiteType != "blog" || len(e.Flags) != 1 {
+		t.Errorf("valid values lost: %+v", e)
 	}
 }
