@@ -204,7 +204,7 @@ export function mountToolbar(canvas, handlers) {
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
     const label = sizeText(sel); // CSS px, whatever the zoom
     if (size.textContent !== label) size.textContent = label;
-    const at = sizeAnchor(box, sel.k === "s");
+    const at = sizeAnchor(box, canvas.nodes?.find((n) => n.id === sel.id)?.p === ""); // a top-level element has the "Add section" pill under it
     size.style.left = `${at.x}px`;
     size.setAttribute("data-align", at.align);
     size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;

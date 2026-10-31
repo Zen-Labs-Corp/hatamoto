@@ -72,7 +72,7 @@ export function hatchRects(box, pd) {
 
 /**
  * Where the size badge hangs under a selection: its x (px, any unit the box is in) and which edge of the badge sits there.
- * A section's badge hangs from its right edge: the centred "Add section" pill sits on the same boundary and would hide it.
+ * A top-level element's badge (a section) hangs from its right edge: the centred "Add section" pill sits on the same boundary and would hide it.
  */
 export function sizeAnchor(box, section) {
   return section ? { x: box.x + box.w, align: "end" } : { x: box.x + box.w / 2, align: "center" };
