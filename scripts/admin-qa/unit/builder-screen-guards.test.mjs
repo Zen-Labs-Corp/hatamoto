@@ -22,3 +22,11 @@ test("the canvas toolbar's moves act on the whole section (moveSubject via selec
   assert.match(src, /moveOp\(st\.doc, info\.subject, a, boot\.kinds\)/);
   assert.match(src, /onCrumb: \(id\) => select\(/);
 });
+
+test("toolbar Delete, Duplicate and Hide act on the same node as Move: the collapsed section's container", () => {
+  const body = (name) => src.slice(src.indexOf(`function ${name}(`), src.indexOf("\n  }\n", src.indexOf(`function ${name}(`)));
+  assert.match(body("removeSelected"), /selectionInfo\(st\.doc, selected\)\?\.subject \?\? selected/);
+  assert.match(body("duplicateSelected"), /selectionInfo\(st\.doc, selected\)\?\.subject \?\? selected/);
+  assert.doesNotMatch(body("removeSelected") + body("duplicateSelected"), /moveSubject/);
+  assert.match(src, /const isHiddenAt = \(id\) => \{\s*const n = find\(st\.doc, hideTarget\(st\.doc, id, device\) \?\? id\)/);
+});

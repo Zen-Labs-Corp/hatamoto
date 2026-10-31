@@ -208,7 +208,7 @@ function start(root, boot) {
   // focus or a click in the host UI also ends the edit (a browser may not blur the frame's editor)
   for (const type of ["pointerdown", "focusin"]) document.addEventListener(type, () => flushLoopText(), true);
   const isHiddenAt = (id) => {
-    const n = find(st.doc, moveSubject(st.doc, id));
+    const n = find(st.doc, hideTarget(st.doc, id, device) ?? id); // the node the toolbar's Hide toggles
     return !!n && hiddenAt(n, device);
   };
   const canvas = createCanvas(
@@ -699,7 +699,7 @@ function start(root, boot) {
 
   function removeSelected() {
     if (selection.size > 1) return bulk("removeMany");
-    const target = moveSubject(st.doc, selected); // a v1 section selected as its component goes whole, never leaving an empty shell
+    const target = selectionInfo(st.doc, selected)?.subject ?? selected; // a collapsed section selected as its component goes whole (as Move does), never leaving an empty shell
     const at = locate(st.doc, target);
     if (!at) return;
     const sib = siblings(st.doc, at.parentId);
@@ -713,7 +713,7 @@ function start(root, boot) {
 
   function duplicateSelected() {
     if (selection.size > 1) return bulk("duplicateMany");
-    const target = moveSubject(st.doc, selected);
+    const target = selectionInfo(st.doc, selected)?.subject ?? selected;
     const ops = duplicateOps(st.doc, target);
     if (run(ops, { label: "Duplicate" })) {
       select(ops[0].node.id);
