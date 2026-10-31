@@ -282,7 +282,11 @@ func browseMatches(e RegistryEntry, q BrowseQuery, kind packages.Kind) bool {
 	if q.Q != "" {
 		n := strings.ToLower(q.Q)
 		hit := false
-		for _, s := range []string{e.Name, e.Title, e.Author, e.Description, e.SiteType} {
+		fields := []string{e.Name, e.Title, e.Author, e.Description}
+		if kind == packages.KindTheme {
+			fields = append(fields, e.SiteType)
+		}
+		for _, s := range fields {
 			if strings.Contains(strings.ToLower(s), n) {
 				hit = true
 				break

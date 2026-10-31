@@ -346,3 +346,16 @@ func TestRunThemeBrowseFeatured(t *testing.T) {
 		t.Fatal("featured shown on page 2")
 	}
 }
+
+func TestRunBrowseSearchIgnoresSiteType(t *testing.T) {
+	all := []RegistryEntry{
+		{Kind: "plugin", Name: "alpha", SiteType: "blog"},
+		{Kind: "theme", Name: "echo", SiteType: "blog"},
+	}
+	if got := RunBrowse(all, BrowseQuery{Q: "blog"}); got.Total != 0 {
+		t.Errorf("plugin search matched site_type: %d", got.Total)
+	}
+	if got := RunThemeBrowse(all, BrowseQuery{Q: "blog"}); got.Total != 1 {
+		t.Errorf("theme search lost site_type: %d", got.Total)
+	}
+}
