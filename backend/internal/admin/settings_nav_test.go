@@ -305,7 +305,7 @@ func TestAreaNavAppendsTheCarry(t *testing.T) {
 
 	v := &View{Section: "ai-health", User: &CurrentUser{Role: "editor"}, AreaCarry: url.Values{"from": {"2026-01-01"}, "compare": {"1"}}}
 	nav := v.AreaNav()
-	if len(nav) != 7 {
+	if len(nav) != 8 {
 		t.Fatalf("%d sections", len(nav))
 	}
 	for _, s := range nav {
