@@ -205,3 +205,20 @@ func TestThemeBrowseRefreshLine(t *testing.T) {
 		t.Error("registry line missing")
 	}
 }
+
+// The card link is named by the theme name alone, and a theme shown twice
+// (Featured and the grid) keeps its ids unique.
+func TestThemeBrowseCardAccessibleName(t *testing.T) {
+	t.Parallel()
+
+	g, _ := themeBrowseRig(t, themeBrowseView())
+	body := getThemeBrowse(g, "?hide=0")
+	for _, w := range []string{`aria-labelledby="tc-f-hanshi-name"`, `aria-labelledby="tc-c-hanshi-name"`, `id="tc-f-hanshi-name">Hanshi<`, `id="tc-c-hanshi-name">Hanshi<`, `id="tc-c-ledger-name">Ledger<`} {
+		if !strings.Contains(body, w) {
+			t.Errorf("card misses %q", w)
+		}
+	}
+	if n := strings.Count(body, `id="tc-c-hanshi-name"`); n != 1 {
+		t.Errorf("name id repeated %d times", n)
+	}
+}

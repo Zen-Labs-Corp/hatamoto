@@ -11,9 +11,9 @@
 {{template "hm/filterchips" .Toolbar}}</div>
 {{with .Toolbar}}{{if .InstalledTotal}}<p class="hm-muted hm-pluginbrowse__installed">{{if $.Data.HideInstalled}}{{.InstalledHidden}} installed hidden · <a href="{{.ShowInstalledHref}}">Show installed</a>{{else}}<a href="{{.HideInstalledHref}}">Hide installed</a>{{end}}</p>{{end}}{{end}}
 {{if .Featured}}<section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
-<ul class="hm-themecards" role="list">{{range .Featured}}{{template "browse-theme-card" .}}{{end}}</ul>
+<ul class="hm-themecards" role="list">{{range .Featured}}{{template "browse-theme-card" dict "C" . "P" "f"}}{{end}}</ul>
 </section><h2 class="hm-pluginbrowse__heading">All themes</h2>{{end}}
-{{if .Cards}}<ul class="hm-themecards" role="list">{{range .Cards}}{{template "browse-theme-card" .}}{{end}}</ul>
+{{if .Cards}}<ul class="hm-themecards" role="list">{{range .Cards}}{{template "browse-theme-card" dict "C" . "P" "c"}}{{end}}</ul>
 {{template "hm/pagination" .Pager}}
 {{else if .Filtered}}{{template "hm/empty" dict "Icon" "search" "Title" "No themes match" "Body" "Try fewer filters or a different word." "Actions" .ClearActions}}
 {{else if .Toolbar.InstalledHidden}}{{template "hm/empty" dict "Icon" "palette" "Title" "All themes are installed" "Body" "Every theme in the registry is already on this site." "Actions" .Toolbar.ShowInstalledActions}}
@@ -23,8 +23,8 @@
 {{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Theme details" "Side" "end" "Width" "wide"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
 {{define "modules"}}@hm/pluginpanel{{end}}
 {{define "browse-theme-total"}}{{if .Total}}{{.Total}} {{if eq .Total 1}}theme{{else}}themes{{end}}{{else}}No themes{{end}}{{end}}
-{{define "browse-theme-card"}}<li class="hm-themecards__item"><a class="hm-themecard" href="{{.Href}}" data-hm-open="plugin-panel">
-<span class="hm-themecard__shot">{{if .Screenshot}}<img class="hm-themecard__img" src="{{.Screenshot}}" alt="" loading="lazy">{{else}}<span class="hm-themecard__tile" aria-hidden="true">{{.Initial}}</span>{{end}}</span>
-<span class="hm-themecard__body"><span class="hm-themecard__name">{{.Title}}</span>{{if or .Author .FirstParty}}<span class="hm-themecard__by">{{if .FirstParty}}{{template "hm/badge" dict "Label" "First-party" "Plain" true "Size" "sm" "Icon" "star"}}{{else}}by {{.Author}}{{end}}</span>{{end}}
-<span class="hm-themecard__desc">{{.Description}}</span></span>
-<span class="hm-themecard__foot"><span class="hm-themecard__type">{{.Type}}</span><span class="hm-themecard__action hm-themecard__action--{{.ActionKind}}">{{.Action}}</span></span></a></li>{{end}}
+{{define "browse-theme-card"}}<li class="hm-themecards__item"><a class="hm-themecard" aria-labelledby="tc-{{.P}}-{{.C.Name}}-name" href="{{.C.Href}}" data-hm-open="plugin-panel">
+<span class="hm-themecard__shot">{{if .C.Screenshot}}<img class="hm-themecard__img" src="{{.C.Screenshot}}" alt="" loading="lazy">{{else}}<span class="hm-themecard__tile" aria-hidden="true">{{.C.Initial}}</span>{{end}}</span>
+<span class="hm-themecard__body"><span class="hm-themecard__name" id="tc-{{.P}}-{{.C.Name}}-name">{{.C.Title}}</span>{{if or .C.Author .C.FirstParty}}<span class="hm-themecard__by">{{if .C.FirstParty}}{{template "hm/badge" dict "Label" "First-party" "Plain" true "Size" "sm" "Icon" "star"}}{{else}}by {{.C.Author}}{{end}}</span>{{end}}
+<span class="hm-themecard__desc">{{.C.Description}}</span></span>
+<span class="hm-themecard__foot"><span class="hm-themecard__type">{{.C.Type}}</span><span class="hm-themecard__action hm-themecard__action--{{.C.ActionKind}}">{{.C.Action}}</span></span></a></li>{{end}}
