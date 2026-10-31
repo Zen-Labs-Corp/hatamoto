@@ -122,4 +122,18 @@ func TestHreflang_Integration(t *testing.T) {
 	if !strings.Contains(home, `<html lang="fr"`) || strings.Count(home, `rel="alternate" hreflang=`) != 4 {
 		t.Errorf("fr home: lang or alternates wrong:\n%s", home)
 	}
+
+	// With fr hidden, its copy is no alternate of the en page and no x-default
+	// candidate, and its own address answers not found.
+	exec(`UPDATE hatamoto_site_config SET locales = $1::jsonb`,
+		`[{"tag":"en","segment":""},{"tag":"fr","segment":"fr","hidden":true},{"tag":"nl","segment":"nl"}]`)
+	srv = New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if en := get("/" + slug); strings.Contains(en, `hreflang="fr"`) || strings.Contains(en, "/fr/") {
+		t.Errorf("en page lists the hidden fr copy:\n%s", en)
+	}
+	rec := httptest.NewRecorder()
+	srv.router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/fr/"+slug+"-fr", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("hidden fr page = %d, want 404", rec.Code)
+	}
 }

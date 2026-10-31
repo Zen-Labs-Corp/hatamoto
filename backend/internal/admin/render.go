@@ -447,11 +447,11 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 			if cfg.CompanyName != "" {
 				v.SiteName = cfg.CompanyName
 			}
-			// Installs from before the wizard have no site address; without it
-			// reset and invitation emails are not sent.
 			if len(cfg.Locales) >= 2 {
 				v.localeCount = len(cfg.Locales)
 			}
+			// Installs from before the wizard have no site address; without it
+			// reset and invitation emails are not sent.
 			v.SetupPending = cfg.SetupCompletedAt == nil
 			v.NoSiteAddress = cfg.SetupCompletedAt != nil && a.deps.BaseURL != nil && a.siteAddress(r) == ""
 		}
