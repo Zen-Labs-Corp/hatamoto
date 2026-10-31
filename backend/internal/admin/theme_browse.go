@@ -185,11 +185,14 @@ type themeDetailPage struct {
 	Note          string
 	Screenshot    string
 	SiteTypeLabel string
-	Size          string
-	WorksWith     string
-	Source        string
-	Primary       *detailPrimary
-	Actions       []ui.Button
+	// Version is the Details text: the registry version, with the installed
+	// one when an update is available.
+	Version   string
+	Size      string
+	WorksWith string
+	Source    string
+	Primary   *detailPrimary
+	Actions   []ui.Button
 	// Panel is true for the side-panel fragment: the actions are then
 	// rendered as a block pluginpanel.js moves into the drawer footer.
 	Panel bool
@@ -224,6 +227,10 @@ func (a *Admin) handleThemeAbout(w http.ResponseWriter, r *http.Request) {
 	}
 	if d.Title == "" {
 		d.Title = e.Name
+	}
+	d.Version = e.Version
+	if e.Update && e.InstalledVersion != "" {
+		d.Version = fmt.Sprintf("%s (installed %s)", e.Version, e.InstalledVersion)
 	}
 	if e.Tier == "first-party" {
 		d.Badge = &ui.Badge{Label: "First-party", Plain: true}

@@ -82,6 +82,13 @@ func TestThemeBrowseDetailUpdate(t *testing.T) {
 	if !strings.Contains(body, "Review update") || !strings.Contains(body, `action="/admin/theme/themes/fetch"`) || strings.Contains(body, "Activate…") {
 		t.Error("update available (not live): want Review update, no Activate")
 	}
+	if !strings.Contains(body, "<dd>2.0.0 (installed 1.0.0)</dd>") {
+		t.Error("Details must show the installed version beside the update")
+	}
+	_, have := getThemeAbout(g, "have", nil)
+	if !strings.Contains(have, "<dd>1.0.0</dd>") || strings.Contains(have, "(installed") {
+		t.Error("no update: the plain version")
+	}
 }
 
 func TestThemeBrowseDetailInstalled(t *testing.T) {

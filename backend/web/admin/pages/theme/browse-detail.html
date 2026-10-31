@@ -5,7 +5,7 @@
 {{if .Entry.Features}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{end}}{{template "hm/card-end"}}{{else if .Entry.Features}}
 {{template "hm/card-start" dict "ID" "features-card" "Title" "Features" "Heading" "h2"}}<ul aria-label="Features">{{range .Entry.Features}}<li>{{.}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}
 <p class="hm-muted hm-themebrowse__note">{{.Note}}</p>
-{{template "hm/card-start" dict "ID" "details-card" "Title" "Details" "Heading" "h2"}}<dl class="hm-dl">{{with .SiteTypeLabel}}<dt>Site type</dt><dd>{{.}}</dd>{{end}}<dt>Version</dt><dd>{{.Entry.Version}}</dd>
+{{template "hm/card-start" dict "ID" "details-card" "Title" "Details" "Heading" "h2"}}<dl class="hm-dl">{{with .SiteTypeLabel}}<dt>Site type</dt><dd>{{.}}</dd>{{end}}<dt>Version</dt><dd>{{.Version}}</dd>
 {{with .Size}}<dt>Size</dt><dd>{{.}}</dd>{{end}}{{with .WorksWith}}<dt>Works with</dt><dd>{{.}}</dd>{{end}}
 {{with .Source}}<dt>Source</dt><dd><a href="{{.}}" rel="noopener noreferrer">{{.}}</a></dd>{{end}}{{with .Entry.Commit}}<dt>Commit</dt><dd>{{template "hm/badge" (dict "Label" . "Mono" true)}}</dd>{{end}}</dl>{{template "hm/card-end"}}
 {{if .Panel}}<div data-hm-panel-actions>{{range .Actions}}{{template "hm/button" .Dict}}{{end}}{{with .Primary}}{{if .Post}}<form method="post" action="{{.Post}}">{{template "hm/csrf" $}}{{range $k, $v := .Fields}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{template "hm/button" (dict "Variant" "primary" "Type" "submit" "Label" .Label)}}</form>{{else}}{{template "hm/button" (dict "Variant" "primary" "Href" .Href "Label" .Label)}}{{end}}{{end}}</div>{{end}}
