@@ -124,6 +124,7 @@ function start(root, boot) {
     onMenu: (id, x, y) => showMenu(id, x, y),
     onAdd: (btn) => addAt({ parent: "", index: 0 }, btn),
     onAddAt: (index, el) => addAt({ parent: "", index }, el),
+    onField: (id, key) => toField(id, key), // a field row of a theme section: the Inspector focuses that field
     onRename: (id, value, inner) => run([{ op: "setProp", id, key: "navlabel", value: value || null }, ...(inner ? [{ op: "setProp", id: inner, key: "navlabel", value: null }] : [])], { label: "Rename" }) && announce(value ? `Renamed to ${value}` : "Name removed"),
     getNote: (n) => presetNote(n, design.presets),
     getBlocks: () => boot.reuse?.blocks ?? [],
@@ -344,7 +345,7 @@ function start(root, boot) {
       bindPaletteDrag();
       dragSource($(root, "[data-hm-bs-tree]"), {
         pick: (e) => {
-          const row = e.target.closest?.("input, [data-hm-bs-eye], [data-hm-bs-more], [data-hm-bs-gap]") ? null : e.target.closest?.("[data-id]"); // the hover controls are clicks, not drag handles
+          const row = e.target.closest?.("input, [data-field], [data-hm-bs-eye], [data-hm-bs-more], [data-hm-bs-gap]") ? null : e.target.closest?.("[data-id]"); // the hover controls are clicks, not drag handles
           if (row && selection.size > 1) return warn("Drag one element at a time"), null;
           return row ? () => ({ id: row.dataset.id }) : null;
         },

@@ -14,7 +14,8 @@ export function focusField(root, id, path, announce) {
   const name = fieldName(id, path);
   let left = TRIES;
   const timer = setInterval(() => {
-    const field = [...root.querySelectorAll("[name]")].find((el) => el.getAttribute("name") === name);
+    const named = [...root.querySelectorAll("[name]")].map((el) => [el, el.getAttribute("name")]);
+    const field = (named.find(([, n]) => n === name) ?? named.find(([, n]) => n.startsWith(`${name}.`)))?.[0]; // a list or object key has only its leaf controls
     if (!field && --left > 0) return;
     clearInterval(timer);
     if (!field) return announce("Edit this field in the inspector");
