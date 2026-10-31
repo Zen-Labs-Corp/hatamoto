@@ -74,7 +74,7 @@ func TestPhoneCardsSelectBoxHangsInGutter(t *testing.T) {
 
 	css := cssSource(t, "partials/table.css")
 	for _, want := range []string{
-		".hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: var(--space-8); }",
+		".hm-table--cards tbody tr:has(> td.hm-table__check) { position: relative; padding-inline-start: calc(var(--space-4) + var(--space-8)); }",
 		".hm-table--cards td.hm-table__check { position: absolute;",
 	} {
 		if !strings.Contains(css, want) {

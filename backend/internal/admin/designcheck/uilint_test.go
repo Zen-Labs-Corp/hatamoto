@@ -185,6 +185,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "pages/entities/versions.html", Needle: "hm-compare", Reason: "inline compare form styled as a card"},
 	{Rule: "UI-05", File: "pages/entities/compare.html", Needle: "hm-tablecard", Reason: "table card, no head or body"},
 	{Rule: "UI-05", File: "pages/entities/version.html", Needle: "hm-tablecard", Reason: "table card, no head or body"},
+	{Rule: "UI-05", File: "pages/media/list.html", Needle: "hm-card hm-media", Reason: "one flush card for the toolbar, storage row and both views; hm/card-start pads its body"},
 	{Rule: "UI-05", File: "pages/entities/new.html", Needle: "hm-choice", Reason: "choice tile that is a list item"},
 	{Rule: "UI-05", File: "pages/media/detail.html", Needle: "hm-media-detail__preview", Reason: "image preview tile, no head or body"},
 	{Rule: "UI-05", File: "pages/schemas/edit.html", Needle: `id="advanced"`, Reason: "details disclosure styled as a card"},
@@ -194,6 +195,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-04", File: "css/pages/pageeditor.css", Needle: ".hm-pe__toolbar {", Reason: "the canvas element toolbar floats over the page like a popup"},
 	// UI-06: editor and chip scope.
 	{Rule: "UI-06", File: "css/partials/danger-confirm.css", Needle: ".hm-danger-confirm__card .hm-card__title", Reason: "danger title colour like .hm-dialog--danger; hm/card-start has no title class hook"},
+	{Rule: "UI-06", File: "css/partials/table.css", Needle: ".hm-card__body > .hm-tablecard", Reason: "a list table nested in a titled card is its content, not a second card"},
 	{Rule: "UI-06", File: "css/pages/blogeditor.css", Needle: ".hm-be__side .hm-card", Max: 4, Reason: "blog editor side panel; editor_polish_test.go asserts blogeditor.css"},
 	{Rule: "UI-06", File: "css/pages/blogeditor.css", Needle: ".hm-field:has(> .hm-ed--blog)", Reason: "blog editor label chrome; editor_polish_test.go asserts blogeditor.css"},
 	{Rule: "UI-06", File: "css/pages/content.css", Needle: ".hm-entities .hm-table th", Max: 2, Reason: "the entities list packs its rows tighter than the default table (padding only, on wide screens)"},
