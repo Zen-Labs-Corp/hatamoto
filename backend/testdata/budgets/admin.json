@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 55286,
+      "value": 55354,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -117,7 +117,7 @@
       "date": "2026-10-31"
     },
     {
-      "reason": "builder inspector visual pass: compact Style tab, box model size centre, Typography-first order, dashed inherited option, ring caption band: editor_js_total_gzip 268677 -\u003e 270352, editor_js_first_gzip 101176 -\u003e 101391, admin_css_gzip 54081 -\u003e 55286, measured",
+      "reason": "builder inspector visual pass: compact Style tab, box model size centre, Typography-first order, dashed inherited option, ring caption band: editor_js_total_gzip 268677 -\u003e 270352, editor_js_first_gzip 101176 -\u003e 101391, admin_css_gzip 54081 -\u003e 55354, measured",
       "date": "2026-10-31"
     }
   ]
