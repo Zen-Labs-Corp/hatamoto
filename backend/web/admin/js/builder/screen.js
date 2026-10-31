@@ -831,7 +831,7 @@ function start(root, boot) {
       }
       case "addafter": {
         // the More menu's entry: the layout picker at the position right after the selection
-        const l = selected && locate(st.doc, moveSubject(st.doc, selected));
+        const l = selected && locate(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected);
         return l && addAt({ parent: l.parentId, index: l.index + 1 }, canvasEl);
       }
       case "pasteinside":

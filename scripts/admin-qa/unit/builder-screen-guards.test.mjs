@@ -36,7 +36,7 @@ test("Add after lives in the More menu: dispatch opens the picker at the selecti
   assert.doesNotMatch(src, /onAddAfter/);
   const i = src.indexOf('case "addafter"');
   assert.ok(i > 0, "no addafter case in dispatch");
-  assert.match(src.slice(i, i + 400), /locate\(st\.doc, moveSubject\(st\.doc, selected\)\)[\s\S]*addAt\(\{ parent: l\.parentId, index: l\.index \+ 1 \}/);
+  assert.match(src.slice(i, i + 400), /locate\(st\.doc, selectionInfo\(st\.doc, selected\)\?\.subject \?\? selected\)[\s\S]*addAt\(\{ parent: l\.parentId, index: l\.index \+ 1 \}/);
 });
 
 test("builder-inline-blur.mjs (it saves and publishes) refuses a non-loopback BASE unless opted in", () => {
