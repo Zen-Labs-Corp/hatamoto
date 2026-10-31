@@ -17,6 +17,7 @@ import (
 // section builds one.
 var sectionCopy = map[string]struct{ Title, Lede string }{
 	"ai-overview":  {"Are AI systems reading your site?", ""},
+	"ai-traffic":   {"Where do visitors come from?", trafficLede},
 	"ai-crawlers":  {"Who is reading your site?", ""},
 	"ai-content":   {"What are they reading?", ""},
 	"ai-google":    {"What is Google doing?", googleLede},

@@ -44,6 +44,7 @@ func purposeLabel(p string) string {
 
 func (a *Admin) mountAnalytics(authed *httpx.Group) {
 	authed.HandleFunc("GET /analytics", a.analyticsSectionSelect(a.analyticsSection("ai-overview", a.buildOverview)))
+	authed.HandleFunc("GET /analytics/traffic", a.analyticsSection("ai-traffic", a.buildTraffic))
 	authed.HandleFunc("GET /analytics/crawlers", legacyTabs(a.adminPath, a.analyticsSection("ai-crawlers", a.buildCrawlers)))
 	authed.HandleFunc("GET /analytics/content", a.analyticsSection("ai-content", a.buildContent))
 	authed.HandleFunc("GET /analytics/google", a.analyticsSection("ai-google", a.buildGoogle))
@@ -53,8 +54,10 @@ func (a *Admin) mountAnalytics(authed *httpx.Group) {
 	authed.HandleFunc("GET /analytics/agents/robots", redirect301(a.adminPath+"/analytics/crawlers#w-cr-list"))
 	authed.HandleFunc("GET /analytics/pageviews", redirect301(a.adminPath+"/analytics/referrals"))
 	authed.HandleFunc("POST /analytics/crawlers/robots", a.handleRobotsSave)
+	authed.HandleFunc("POST /analytics/traffic/settings", a.handleTrafficSettings)
 	data := authed.Group("/analytics/data")
 	data.HandleFunc("GET /overview.json", a.jsonEndpoint(a.overviewJSON))
+	data.HandleFunc("GET /traffic.json", a.jsonEndpoint(a.trafficJSON))
 	data.HandleFunc("GET /agents.json", a.jsonEndpoint(a.agentsJSON))
 	data.HandleFunc("GET /agent.json", a.jsonEndpoint(a.agentJSON))
 	data.HandleFunc("GET /pages.json", a.jsonEndpoint(a.pagesJSON))
