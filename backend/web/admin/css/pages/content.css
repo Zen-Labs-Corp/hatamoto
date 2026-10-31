@@ -140,8 +140,9 @@ input[type="file"]::file-selector-button { margin-right: var(--space-3); padding
 .hm-entities .hm-table th.hm-table__check, .hm-entities .hm-table td.hm-table__check { vertical-align: middle; }
 .hm-entities .hm-table td[data-label="Status"], .hm-entities .hm-table td[data-label="Updated"] { min-inline-size: 8rem; }
 .hm-subnav__link--empty .hm-subnav__text, .hm-subnav__link--empty .hm-subnav__marker { color: var(--text-muted); }
-.hm-entities { overflow: hidden; background: var(--color-paper); border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); }
-/* The entities card holds the toolbar, the chips and the results; the results table does not draw a second card. */
-.hm-entities .hm-tablecard { border: 0; border-radius: 0; }
+.hm-entities { background: var(--color-paper); border: 1px solid var(--color-kinu); border-radius: var(--radius-lg); }
+/* The entities card holds the toolbar, the chips and the results; the results table does not draw a second card.
+   No overflow clip on .hm-entities: the Type and Parent select lists drop below the toolbar. The inner card rounds its own bottom corners. */
+.hm-entities .hm-tablecard { border: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 .hm-entities #entities-results > .hm-filter-chips { margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-kinu); }
 .hm-entities-head { display: flex; flex-direction: column; gap: var(--space-6); }

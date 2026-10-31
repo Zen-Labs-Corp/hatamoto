@@ -88,3 +88,15 @@ func TestInviteAltLinkAlignsWithField(t *testing.T) {
 		t.Error("base.css: the ghost link under the invite email needs its left padding pulled back")
 	}
 }
+
+// The entities card must not clip: the Type and Parent select lists are absolutely positioned and
+// drop below the toolbar, so an overflow rule on .hm-entities would cut them off at the card edge.
+func TestEntitiesCardDoesNotClip(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range strings.Split(cssSource(t, "pages/content.css"), "\n") {
+		if strings.HasPrefix(line, ".hm-entities {") && strings.Contains(line, "overflow") {
+			t.Errorf("content.css: %q clips the select lists", line)
+		}
+	}
+}
