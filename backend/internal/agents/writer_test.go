@@ -190,10 +190,10 @@ func TestResolverOnlyForMiddleware(t *testing.T) {
 	w.Record(RawHit{UA: gptUA, Path: "/page", Source: SourceMiddleware})                    // resolved
 	w.Record(RawHit{UA: gptUA, Path: "/robots.txt", Status: 200, Source: SourceMiddleware}) // explicit status: skipped
 	w.Record(RawHit{UA: gptUA, Path: "/sitemap.xml", Source: SourceBackend})                // backend: skipped
-	w.Record(RawHit{UA: gptUA, Path: "/media/a.png", Status: 200, Source: SourceLog})       // log: skipped
+	w.Record(RawHit{UA: gptUA, Path: "/post/example-slug", Status: 200, Source: SourceLog}) // served page: entity only
 	w.Close()
-	if calls.Load() != 1 {
-		t.Fatalf("resolver called %d times, want 1", calls.Load())
+	if calls.Load() != 2 {
+		t.Fatalf("resolver called %d times, want 2", calls.Load())
 	}
 	byPath := map[string]Hit{}
 	for _, h := range st.all() {
@@ -204,6 +204,59 @@ func TestResolverOnlyForMiddleware(t *testing.T) {
 	}
 	if r := byPath["/robots.txt"]; r.EntityID != nil || r.Status != 200 {
 		t.Errorf("robots hit wrong: %+v", r)
+	}
+}
+
+// An explicit status below 400 keeps its status and still gets the entity; an
+// explicit error status never does, and the resolver's status never overrides.
+func TestExplicitStatusGetsEntityKeepsStatus(t *testing.T) {
+	st := newFakeStore()
+	id := uuid.New()
+	var paths []string
+	var mu sync.Mutex
+	resolve := func(ctx context.Context, path string) (*uuid.UUID, int) {
+		mu.Lock()
+		paths = append(paths, path)
+		mu.Unlock()
+		return &id, 404 // deliberately different: must not replace the explicit status
+	}
+	w := NewWriter(st, Default(), resolve, discard)
+	w.Record(RawHit{UA: gptUA, Path: "/post/example-slug", Status: 200, Source: SourceBackend})
+	w.Record(RawHit{UA: gptUA, Path: "/fr/post/example-slug", Status: 301, Source: SourceLog})
+	w.Record(RawHit{UA: gptUA, Path: "/post/broken", Status: 500, Source: SourceBackend})
+	for _, f := range []string{"/robots.txt", "/llms.txt", "/sitemap.xml", "/sitemap-posts.xml"} {
+		w.Record(RawHit{UA: gptUA, Path: f, Status: 200, Source: SourceBackend})
+	}
+	w.Close()
+	if len(paths) != 2 {
+		t.Fatalf("resolver paths = %v, want the two served pages only", paths)
+	}
+	for _, h := range st.all() {
+		switch h.Path {
+		case "/post/example-slug":
+			if h.EntityID == nil || *h.EntityID != id || h.Status != 200 {
+				t.Errorf("served page: %+v", h)
+			}
+		case "/fr/post/example-slug":
+			if h.EntityID == nil || h.Status != 301 {
+				t.Errorf("redirected page: %+v", h)
+			}
+		default:
+			if h.EntityID != nil {
+				t.Errorf("%s must have no entity: %+v", h.Path, h)
+			}
+		}
+	}
+}
+
+func TestIsFilePath(t *testing.T) {
+	for p, want := range map[string]bool{
+		"/robots.txt": true, "/llms.txt": true, "/sitemap.xml": true, "/sitemap-posts.xml": true,
+		"/api/v1/public/sitemap.xml": true, "/post/example-slug": false, "/": false, "/sitemap": false,
+	} {
+		if got := IsFilePath(p); got != want {
+			t.Errorf("IsFilePath(%q) = %v, want %v", p, got, want)
+		}
 	}
 }
 
@@ -229,6 +282,36 @@ func TestCachedResolver(t *testing.T) {
 	r(ctx, "/c")
 	if calls != 4 {
 		t.Fatalf("calls = %d, want 4", calls)
+	}
+}
+
+// A miss is remembered only briefly, so a page published right after a crawler
+// asked for it is attributed on the next hit; an entity result lasts the ttl.
+func TestCachedResolverNilExpiresEarly(t *testing.T) {
+	now := time.Unix(1000, 0)
+	id := uuid.New()
+	var calls int
+	fn := func(ctx context.Context, path string) (*uuid.UUID, int) {
+		calls++
+		if path == "/hit" {
+			return &id, 200
+		}
+		return nil, 404
+	}
+	r := newCachedResolver(fn, time.Minute, 10, func() time.Time { return now })
+	ctx := context.Background()
+	r(ctx, "/miss")
+	r(ctx, "/hit")
+	now = now.Add(nilTTL + time.Second)
+	r(ctx, "/miss")
+	r(ctx, "/hit")
+	if calls != 3 {
+		t.Fatalf("calls = %d, want 3 (miss refetched, entity still cached)", calls)
+	}
+	now = now.Add(time.Minute)
+	r(ctx, "/hit")
+	if calls != 4 {
+		t.Fatalf("calls = %d, want 4 after ttl", calls)
 	}
 }
 

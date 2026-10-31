@@ -43,9 +43,10 @@ type WriterStats struct {
 }
 
 type queued struct {
-	hit     Hit
-	resolve bool
-	hint    int // 3xx fallback when the resolver says 404 (or is absent)
+	hit        Hit
+	resolve    bool
+	entityOnly bool // keep the explicit status, take only the entity from the resolver
+	hint       int  // 3xx fallback when the resolver says 404 (or is absent)
 }
 
 // Writer persists agent hits off the request path. Record never blocks: a full
@@ -143,7 +144,12 @@ func (w *Writer) Record(h RawHit) bool {
 	it := queued{hit: hit}
 	switch {
 	case h.Status != 0:
-		// explicit status (robots.txt route, log ingest): trust it, skip the resolver
+		// explicit status (backend capture, log ingest): trust it. A page that was
+		// served (below 400) still gets its entity from the resolver, in the flush
+		// goroutine; files and error statuses have no entity to find.
+		if w.resolve != nil && h.Status < 400 && !IsFilePath(hit.Path) {
+			it.resolve, it.entityOnly = true, true
+		}
 	case h.Source == SourceMiddleware:
 		it.resolve = w.resolve != nil
 		it.hint = h.RedirectHint
@@ -236,8 +242,14 @@ func (w *Writer) flush(parent context.Context, batch []queued) {
 		h := it.hit
 		if it.resolve {
 			ctx, cancel := context.WithTimeout(parent, resolveTimout)
-			h.EntityID, h.Status = w.resolve(ctx, h.Path)
+			id, status := w.resolve(ctx, h.Path)
 			cancel()
+			if it.entityOnly {
+				h.EntityID = id
+				hits[i] = h
+				continue
+			}
+			h.EntityID, h.Status = id, status
 			if h.Status == 404 && it.hint != 0 {
 				h.Status = it.hint
 			}

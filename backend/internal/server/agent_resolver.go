@@ -86,20 +86,26 @@ func (s *Server) newAgentResolver() agents.ResolveFunc {
 		}
 		ctx, cancel := context.WithTimeout(ctx, agentLookupLimit)
 		defer cancel()
-		snap := s.urlSnapshot(ctx)
-		res, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(s.db), snap, path)
-		if err != nil {
-			return nil, false, err
-		}
-		if res == nil {
-			return nil, false, nil
-		}
-		if res.Entity != nil {
-			id := res.Entity.ID
-			return &id, true, nil
-		}
-		return nil, true, nil
+		return lookupAgentEntity(ctx, entity.NewPostgresPublicRepository(s.db), s.urlSnapshot(ctx), path)
 	}
 
 	return agents.NewCachedResolver(buildAgentResolver(redirect, lookup), agentResolveTTL, agentResolveMax)
+}
+
+// lookupAgentEntity finds the entity serving path the way the public loader
+// does: the locale segment is stripped and reads are scoped to that locale.
+func lookupAgentEntity(ctx context.Context, repo resolveRepo, snap *entity.URLSnapshot, path string) (*uuid.UUID, bool, error) {
+	ctx, _, path, prefixed := localeScope(ctx, snap, path)
+	if prefixed && path == "/" {
+		return nil, true, nil // a locale home
+	}
+	res, err := resolveEntity(ctx, repo, snap, path)
+	if err != nil || res == nil {
+		return nil, false, err
+	}
+	if res.Entity != nil {
+		id := res.Entity.ID
+		return &id, true, nil
+	}
+	return nil, true, nil
 }

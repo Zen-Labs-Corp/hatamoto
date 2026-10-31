@@ -63,6 +63,27 @@ type routeDeps struct {
 	loadHome func(r *http.Request) (*PublicPageResponse, pageOutcome, error)
 }
 
+// localeScope strips the locale segment from a public path and scopes ctx's
+// reads to that locale. An unprefixed path is the default locale, or only
+// shared content under prefix-all. prefixed reports an explicit locale segment.
+// A single-locale site returns ctx, path unchanged and an empty locale.
+func localeScope(ctx context.Context, snap *entity.URLSnapshot, path string) (scoped context.Context, locale, rest string, prefixed bool) {
+	set := snap.Locales()
+	if !set.Multi() {
+		return ctx, "", path, false
+	}
+	tag, rest, prefixed := set.Resolve(path)
+	switch {
+	case prefixed:
+		locale, path = tag, rest
+	case set.Prefix(set.Default()) != "":
+		locale = entity.LocaleShared
+	default:
+		locale = set.Default()
+	}
+	return entity.WithVisibleLocales(ctx, locale), locale, path, prefixed
+}
+
 // resolveRouteWith resolves a public URL path (not "/", which callers serve via
 // loadHomepage) to its page without going through HTTP handlers: redirects
 // first, then the URL registry, then the matching page loader scoped to the
@@ -95,28 +116,17 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	// After the redirect check (rules may name a prefixed path): strip the
 	// locale segment and scope every read to that locale. An unprefixed path is
 	// the default locale, or only shared content under prefix-all.
-	fullPath, locale := path, ""
-	if set := snap.Locales(); set.Multi() {
-		tag, rest, prefixed := set.Resolve(path)
-		switch {
-		case prefixed:
-			locale, path = tag, rest
-		case set.Prefix(set.Default()) != "":
-			locale = entity.LocaleShared
-		default:
-			locale = set.Default()
+	fullPath := path
+	ctx, locale, path, prefixed := localeScope(ctx, snap, path)
+	if prefixed && path == "/" {
+		if deps.loadHome == nil {
+			return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
 		}
-		ctx = entity.WithVisibleLocales(ctx, locale)
-		if prefixed && path == "/" {
-			if deps.loadHome == nil {
-				return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
-			}
-			rr, outcome, err := homeRoute(deps.loadHome(r.Clone(ctx)))
-			if rr != nil {
-				rr.Locale, rr.Rest = locale, path
-			}
-			return rr, outcome, err
+		rr, outcome, err := homeRoute(deps.loadHome(r.Clone(ctx)))
+		if rr != nil {
+			rr.Locale, rr.Rest = locale, path
 		}
+		return rr, outcome, err
 	}
 	notFound := &routeResult{NotFound: true, Locale: locale, Rest: path}
 	res, err := resolveEntity(ctx, deps.repo, snap, path)
