@@ -13,20 +13,35 @@ import (
 	"hatamoto.dev/core/internal/entity"
 )
 
-const bulkCopyPrefix = "copy:"
+// bulkCopyAction posts with bulkCopyLocale; the "copy:<locale>" form is still
+// accepted.
+const (
+	bulkCopyAction = "copy"
+	bulkCopyLocale = "locale"
+	bulkCopyPrefix = bulkCopyAction + ":"
+)
 
-// bulkCopyActions are the "Create drafts in <locale>" bulk actions: one per
-// site locale, for people who may edit translations on a multi-locale site.
+// bulkCopyActions is the "Create drafts in <locale>" bulk action: one button
+// with a language select, for people who may edit translations on a
+// multi-locale site. The first language other than the default is preselected.
 func (a *Admin) bulkCopyActions(r *http.Request) []ui.BulkAction {
 	set, ok := a.multiLocale(r.Context())
 	if !ok || a.deps.Content.Copier == nil || !canEditTranslations(r) {
 		return nil
 	}
-	var acts []ui.BulkAction
+	var opts []ui.Option
+	picked := false
 	for _, tag := range set.Tags() {
-		acts = append(acts, ui.BulkAction{Label: "Create drafts in " + tag, Action: a.adminPath + "/entities/bulk", Value: bulkCopyPrefix + tag})
+		o := ui.Option{Value: tag, Label: tag}
+		if !picked && tag != set.Default() {
+			o.Selected, picked = true, true
+		}
+		opts = append(opts, o)
 	}
-	return acts
+	return []ui.BulkAction{{
+		Label: "Create drafts in", Action: a.adminPath + "/entities/bulk", Value: bulkCopyAction,
+		Select: &ui.BulkSelect{Name: bulkCopyLocale, Label: "Language for the drafts", Options: opts},
+	}}
 }
 
 // bulkCopy creates a draft copy of each entity in the chosen locale. Each row

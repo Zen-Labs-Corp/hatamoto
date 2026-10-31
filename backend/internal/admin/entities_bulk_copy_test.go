@@ -48,7 +48,26 @@ func TestBulkCreateDraftsOffOnSingleLocale(t *testing.T) {
 	c, _ := bulkCopyRig(t)
 	lacks(t, c.get(t, "owner-token", "/admin/entities", ""), "Create drafts in")
 	c2, _ := bulkCopyRig(t, "en", "pt-BR")
-	has(t, c2.get(t, "owner-token", "/admin/entities", ""), "Create drafts in pt-BR")
+	body := c2.get(t, "owner-token", "/admin/entities", "")
+	has(t, body, "Create drafts in", `name="locale"`, `<option value="pt-BR" selected>pt-BR</option>`, `<option value="en">en</option>`)
+	if n := strings.Count(body, "Create drafts in"); n != 1 {
+		t.Errorf("%d Create drafts buttons, want one for every language", n)
+	}
+}
+
+func TestBulkCreateDraftsPostsTheChosenLocale(t *testing.T) {
+	t.Parallel()
+	c, cp := bulkCopyRig(t, "en", "pt-BR")
+	rec := c.post("/admin/entities/bulk", url.Values{"action": {"copy"}, "locale": {"pt-BR"}, "id": {fid(11).String()}})
+	if rec.Code != 303 || len(cp.calls) != 1 || cp.calls[0].Opts.Locale != "pt-BR" {
+		t.Fatalf("%d, calls %+v", rec.Code, cp.calls)
+	}
+	has(t, c.next(rec, "/admin/entities"), "1 draft created in pt-BR")
+	rec = c.post("/admin/entities/bulk", url.Values{"action": {"copy"}, "locale": {"xx"}, "id": {fid(11).String()}})
+	has(t, c.next(rec, "/admin/entities"), "Choose an action for the selected entities.")
+	if len(cp.calls) != 1 {
+		t.Errorf("unknown locale copied: %+v", cp.calls)
+	}
 }
 
 func TestBulkCreateDraftsNothingCopiedIsAWarning(t *testing.T) {

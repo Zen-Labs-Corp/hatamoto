@@ -643,6 +643,9 @@ func (a *Admin) handleEntitiesBulk(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if action == bulkCopyAction {
+		action = bulkCopyPrefix + strings.TrimSpace(r.PostFormValue(bulkCopyLocale))
+	}
 	if strings.HasPrefix(action, bulkCopyPrefix) {
 		a.bulkCopy(w, r, action, ids, back)
 		return
