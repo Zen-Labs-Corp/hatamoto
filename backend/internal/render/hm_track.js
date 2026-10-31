@@ -102,7 +102,9 @@
   function engage(kind) {
     var ev = attrs('engage');
     ev.kind = kind;
-    if (!flags.f) { ev.first = true; flags.f = 1; }
+    // Without sessionStorage the once-flags reset on every page, so first:true would
+    // count pages as visits. Engagement is then undercounted rather than inflated.
+    if (!flags.f) { if (stored) ev.first = true; flags.f = 1; }
     flags[kind === 'multi' ? 'm' : 's'] = 1;
     save();
     send(ev);

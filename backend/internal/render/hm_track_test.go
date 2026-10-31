@@ -35,3 +35,10 @@ func TestHmTrackScriptNoPersistentIdentifiers(t *testing.T) {
 		t.Error("beacon must stay a simple, credential-less request")
 	}
 }
+
+func TestHmTrackScriptFirstOnlyWithStorage(t *testing.T) {
+	js := string(trackScript(true))
+	if !strings.Contains(js, "if (stored) ev.first = true;") || strings.Contains(js, "{ ev.first = true;") {
+		t.Error("first:true must only be sent when sessionStorage keeps the once-flags")
+	}
+}
