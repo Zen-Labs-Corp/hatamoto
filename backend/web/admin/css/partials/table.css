@@ -30,6 +30,7 @@
 /* The title column takes the slack and is the only one that wraps; every other
    column hugs its content, so titles never break after one word. */
 .hm-table .hm-col-title { width: 100%; min-width: 240px; white-space: normal; }
+.hm-table .hm-col-plain { white-space: normal; }
 .hm-table .hm-col-num { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table__rowhead { font-weight: var(--weight-regular); }
 .hm-table__sub { display: block; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-regular); color: var(--color-hai); overflow-wrap: anywhere; }

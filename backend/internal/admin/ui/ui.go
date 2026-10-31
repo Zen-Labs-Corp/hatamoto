@@ -141,7 +141,8 @@ type Col struct {
 	Sortable   bool
 	Align      string // "" | right
 	// Role shapes the column: title (takes the slack and wraps), num (right,
-	// tabular digits), check, actions. With no title column, the first is it.
+	// tabular digits), check, actions, plain (wraps but takes no slack and has
+	// no minimum width: for a narrow table). With no title column, the first is it.
 	Role string
 	// WideOnly drops the column's cells from the compact phone cards (below
 	// 640px); the header stays in the sort strip only if it is sortable.
@@ -303,6 +304,8 @@ func (t Table) CellClass(i int) string {
 	switch t.role(i) {
 	case "title":
 		cls = append(cls, "hm-col-title")
+	case "plain":
+		cls = append(cls, "hm-col-plain")
 	case "num":
 		cls = append(cls, "hm-col-num")
 	case "check":

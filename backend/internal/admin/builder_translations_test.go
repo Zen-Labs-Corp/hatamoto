@@ -35,6 +35,8 @@ func TestBuilderTranslationsDrawer(t *testing.T) {
 	createButton(t, body, "create-copy-pt-BR")
 	lacks(t, body, "<html", "hm-sidebar", ">Address<")
 	has(t, body, "Language", "Status")
+	has(t, body, "hm-col-plain")
+	lacks(t, body, "hm-col-title")
 }
 
 func TestBuilderTranslationsSingleLocale(t *testing.T) {
