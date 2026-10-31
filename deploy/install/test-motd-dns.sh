@@ -187,4 +187,113 @@ if grep -q SETUP_CODE "$envf"; then fail "clean edit lost: $(cat "$tmp/o1" "$tmp
 [ "$(find "$r/opt/hatamoto/config" -mindepth 1 -maxdepth 1 | wc -l)" = 1 ] || fail "temp file left: $(find "$r/opt/hatamoto/config" -mindepth 1 -maxdepth 1)"
 pass "env edits are serialised, both applied, no temp left"
 
+# --- set-domain
+sd_root() { # sd_root NAME [CADDYFILE_TEXT]
+  local d; d="$(mkroot "$1")"
+  : > "$d/var/lib/hatamoto-install/firstboot.done"
+  printf '%s' "${2:-}" > "$d/etc/caddy/Caddyfile"
+  echo "$d"
+}
+sdrun() { local d="$1"; shift; envrun "$d" HATAMOTO_PUBLIC_IP=203.0.113.7 "$@" sh "$d/usr/local/lib/hatamoto/firstboot.sh" set-domain "${SD_ARGS[@]}"; }
+auto_cf=$'# Written by the Hatamoto installer.\n{\n\temail ops@example.com\n}\n203-0-113-7.sslip.io {\n\treverse_proxy 127.0.0.1:8090\n}\n'
+
+# DNS ok: env, both site blocks, restart, ready wait, link, no pending, timer off
+r="$(sd_root sdok "$auto_cf")"; setup "$r" example.com >/dev/null 2>&1
+rm -f "$r/etc/caddy/Caddyfile"; printf '%s' "$auto_cf" > "$r/etc/caddy/Caddyfile"
+: > "$tmp/calls"
+SD_ARGS=(Cms.Example.com --email you@example.com)
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "set-domain failed: $(cat "$tmp/o")"
+envf="$r/opt/hatamoto/config/hatamoto.env"
+grep -qx 'PUBLIC_BASE_URL=https://cms.example.com' "$envf" || fail "set-domain env"
+grep -qx 'HATAMOTO_SETUP_CODE=K7M2-RT9P-QW4X' "$envf" || fail "set-domain env lost lines"
+cfx="$r/etc/caddy/Caddyfile"
+grep -qx 'cms.example.com {' "$cfx" || fail "new host block"
+grep -qx '203-0-113-7.sslip.io {' "$cfx" || fail "old host block"
+grep -qxP '\tredir https://cms.example.com\{uri\} permanent' "$cfx" || fail "redirect"
+grep -qxP '\temail you@example.com' "$cfx" || fail "email flag ignored"
+{ grep -qx 'systemctl restart hatamoto-api' "$tmp/calls" && grep -qx 'systemctl reload caddy' "$tmp/calls"; } || fail "set-domain services"
+grep -qx 'systemctl disable --now hatamoto-dns-switch.timer' "$tmp/calls" || fail "set-domain timer not disabled"
+[ ! -e "$r/var/lib/hatamoto-install/dns-pending" ] || fail "pending kept"
+[ "$(cat "$r/var/lib/hatamoto-install/link")" = "https://cms.example.com/k7qm-x2rf-9tdc" ] || fail "set-domain link"
+grep -q 'Admin: https://cms.example.com/k7qm-x2rf-9tdc' "$tmp/o" || fail "admin link not printed"
+if grep -q 'K7M2' "$tmp/o"; then fail "set-domain printed the setup code"; fi
+[ -z "$(ls "$r/etc/caddy" | grep -v '^Caddyfile$')" ] || fail "caddy temp left: $(ls "$r/etc/caddy")"
+pass "set-domain with DNS ok rewrites env and Caddyfile, keeps the old host as a redirect"
+
+# same host again: no-op
+h="$(sha256sum "$envf" "$cfx" | sha256sum)"; : > "$tmp/calls"
+SD_ARGS=(cms.example.com)
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "same-host run failed"
+[ "$h" = "$(sha256sum "$envf" "$cfx" | sha256sum)" ] || fail "same host changed files"
+if grep -q restart "$tmp/calls"; then fail "same host restarted"; fi
+pass "set-domain with the current host is a no-op"
+
+# a second domain replaces the old host
+SD_ARGS=(www.example.com)
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "second set-domain failed: $(cat "$tmp/o")"
+grep -qx 'cms.example.com {' "$cfx" || fail "previous host not the redirect"
+if grep -q 'sslip.io' "$cfx"; then fail "two old hosts kept"; fi
+grep -qx 'PUBLIC_BASE_URL=https://www.example.com' "$envf" || fail "second env"
+pass "set-domain keeps only the last old host"
+
+# DNS not ok: nothing rewritten, pending + timer
+r="$(sd_root sdwait "$auto_cf")"; : > "$tmp/calls"
+cp "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before"; cp "$r/etc/caddy/Caddyfile" "$tmp/cf.before"
+SD_ARGS=(cms.example.com --email you@example.com)
+sdrun "$r" FAKE_DNS_IP=198.51.100.9 >"$tmp/o" 2>&1 || fail "waiting set-domain failed: $(cat "$tmp/o")"
+cmp -s "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before" || fail "env changed while waiting"
+cmp -s "$r/etc/caddy/Caddyfile" "$tmp/cf.before" || fail "Caddyfile changed while waiting"
+[ "$(cat "$r/var/lib/hatamoto-install/dns-pending")" = "cms.example.com 203.0.113.7 auto you@example.com" ] || fail "pending: $(cat "$r/var/lib/hatamoto-install/dns-pending")"
+grep -qx 'systemctl enable --now hatamoto-dns-switch.timer' "$tmp/calls" || fail "timer not enabled"
+if grep -q 'restart hatamoto-api' "$tmp/calls"; then fail "restart while waiting"; fi
+grep -q 'waiting for DNS -> 203.0.113.7' "$tmp/o" || fail "no waiting message: $(cat "$tmp/o")"
+[ -x "$r/usr/local/lib/hatamoto/dns-switch.sh" ] || fail "dns-switch.sh not refreshed"
+pass "set-domain with DNS not ready queues the switch and changes nothing else"
+
+# the queued switch then moves the site and keeps the redirect
+: > "$tmp/calls"
+sw FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "queued switch failed: $(cat "$tmp/o")"
+grep -qx 'cms.example.com {' "$r/etc/caddy/Caddyfile" || fail "queued switch Caddyfile"
+grep -qx '203-0-113-7.sslip.io {' "$r/etc/caddy/Caddyfile" || fail "queued switch redirect"
+pass "the DNS-switch timer script keeps the old host as a redirect"
+
+# TLS mode derived from the Caddyfile, and from the saved inputs
+r="$(sd_root sdint $'203-0-113-7.sslip.io {\n\ttls internal\n\treverse_proxy 127.0.0.1:8090\n}\n')"
+SD_ARGS=(cms.example.com)
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "internal set-domain failed: $(cat "$tmp/o")"
+grep -qxP '\ttls internal' "$r/etc/caddy/Caddyfile" || fail "tls internal lost"
+grep -qx 'PUBLIC_BASE_URL=https://cms.example.com' "$r/opt/hatamoto/config/hatamoto.env" || fail "internal base url"
+r="$(sd_root sdoff $'http://203-0-113-7.sslip.io {\n\treverse_proxy 127.0.0.1:8090\n}\n')"
+sdrun "$r" FAKE_DNS_IP=203.0.113.7 >"$tmp/o" 2>&1 || fail "off set-domain failed"
+grep -qx 'http://cms.example.com {' "$r/etc/caddy/Caddyfile" || fail "tls off lost"
+grep -qx 'PUBLIC_BASE_URL=http://cms.example.com' "$r/opt/hatamoto/config/hatamoto.env" || fail "off base url"
+r="$(sd_root sdsaved "$auto_cf")"; mkdir -p "$r/etc/default"; printf 'HATAMOTO_TLS=off\nHATAMOTO_ADMIN_EMAIL=saved@example.com\n' > "$r/etc/default/hatamoto-install"
+sdrun "$r" FAKE_DNS_IP=198.51.100.9 >"$tmp/o" 2>&1 || fail "saved-input set-domain failed"
+[ "$(cat "$r/var/lib/hatamoto-install/dns-pending")" = "cms.example.com 203.0.113.7 off saved@example.com" ] || fail "saved inputs not used"
+pass "set-domain derives TLS mode and email from saved inputs or the Caddyfile"
+
+# bad arguments
+r="$(sd_root sdbad "$auto_cf")"; cp "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before"
+for bad in "-evil.example.com" "a b" "cms.example.com --email" "cms.example.com --email no-at" "cms.example.com --bogus" ""; do
+  # shellcheck disable=SC2206 # intentional word splitting of the case string
+  SD_ARGS=($bad)
+  if sdrun "$r" FAKE_DNS_IP=203.0.113.7 >/dev/null 2>&1; then fail "accepted: $bad"; fi
+done
+cmp -s "$r/opt/hatamoto/config/hatamoto.env" "$tmp/env.before" || fail "env changed by a refused call"
+r="$(mkroot nodone)"; SD_ARGS=(cms.example.com)
+if sdrun "$r" FAKE_DNS_IP=203.0.113.7 >/dev/null 2>&1; then fail "set-domain before first boot accepted"; fi
+pass "set-domain refuses bad host, bad email, missing value and an unfinished install"
+
+# a failed caddy reload restores the Caddyfile
+r="$(sd_root sdrb "$auto_cf")"; cp "$r/etc/caddy/Caddyfile" "$tmp/cf.before"
+mk systemctl <<'F'
+#!/bin/sh
+echo "systemctl $*" >> "$CALLS"
+case "$*" in *caddy*) [ -z "${FAKE_CADDY_FAIL:-}" ] || exit 1 ;; esac
+F
+SD_ARGS=(cms.example.com)
+if sdrun "$r" FAKE_DNS_IP=203.0.113.7 FAKE_CADDY_FAIL=1 >"$tmp/o" 2>&1; then fail "caddy failure not reported"; fi
+cmp -s "$r/etc/caddy/Caddyfile" "$tmp/cf.before" || fail "Caddyfile not restored"
+pass "a Caddyfile caddy rejects is rolled back"
+
 echo "ok: test-motd-dns"
