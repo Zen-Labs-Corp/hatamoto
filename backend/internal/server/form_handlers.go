@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/form"
@@ -500,6 +502,8 @@ type submitMeta struct {
 	UserAgent string
 	Referrer  string
 	PageURL   string
+	// Host is the request host, used to tell own-site referrers from external ones.
+	Host string
 }
 
 // submitResult is the outcome of a stored submission.
@@ -577,8 +581,9 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 		return nil, serr
 	}
 	input := &form.CreateSubmissionInput{
-		Status: status,
-		Data:   data,
+		Status:      status,
+		Data:        data,
+		Attribution: attributionFromControl(ctl.Attribution, meta.Host),
 		Metadata: form.SubmissionMetadata{
 			IPAddress: meta.IPAddress,
 			UserAgent: meta.UserAgent,
@@ -614,6 +619,11 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 const (
 	timingField  = "hm_ts"      // timing token fetched by hm.js at page load
 	captchaField = "hm_captcha" // captcha response normalised by hm.js
+
+	// attributionField carries the raw first/last touch inputs added by
+	// hm-track.js at submit time. It is evidence for the attribution columns,
+	// never submission data.
+	attributionField = "hm_attr"
 )
 
 // providerCaptchaFields are the names the providers' own widgets post under,
@@ -622,12 +632,29 @@ var providerCaptchaFields = []string{"cf-turnstile-response", "g-recaptcha-respo
 
 // spamControl is the evidence a submission brings for the spam pipeline.
 type spamControl struct {
-	Timing  string
-	Captcha string
+	Timing      string
+	Captcha     string
+	Attribution string // raw hm_attr; may be empty or garbled, never rejects
+}
+
+// attributionFromControl classifies a raw hm_attr value into the stored
+// attribution. Missing or unparseable input yields nil.
+func attributionFromControl(raw, host string) *form.Attribution {
+	a, ok := analytics.ParseAttribution(raw, agents.Default(), host)
+	if !ok {
+		return nil
+	}
+	conv := func(t *analytics.Touch) *form.Touch {
+		if t == nil {
+			return nil
+		}
+		return &form.Touch{Channel: t.Channel, Source: t.Source, Medium: t.Medium, Campaign: t.Campaign, Landing: t.Landing}
+	}
+	return &form.Attribution{First: conv(a.First), Last: conv(a.Last)}
 }
 
 func isControlField(k string) bool {
-	if k == timingField || k == captchaField {
+	if k == timingField || k == captchaField || k == attributionField {
 		return true
 	}
 	for _, n := range providerCaptchaFields {
@@ -641,7 +668,7 @@ func isControlField(k string) bool {
 // takeControl removes the control fields from a JSON body and returns them.
 func takeControl(data map[string]interface{}) spamControl {
 	str := func(k string) string { v, _ := data[k].(string); return v }
-	ctl := spamControl{Timing: str(timingField), Captcha: str(captchaField)}
+	ctl := spamControl{Timing: str(timingField), Captcha: str(captchaField), Attribution: str(attributionField)}
 	for _, n := range providerCaptchaFields {
 		if ctl.Captcha == "" {
 			ctl.Captcha = str(n)
@@ -657,7 +684,7 @@ func takeControl(data map[string]interface{}) spamControl {
 
 // controlFromValues reads the control fields of a urlencoded post.
 func controlFromValues(post url.Values) spamControl {
-	ctl := spamControl{Timing: post.Get(timingField), Captcha: post.Get(captchaField)}
+	ctl := spamControl{Timing: post.Get(timingField), Captcha: post.Get(captchaField), Attribution: post.Get(attributionField)}
 	for _, n := range providerCaptchaFields {
 		if ctl.Captcha == "" {
 			ctl.Captcha = post.Get(n)
@@ -784,6 +811,7 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
 		PageURL:   r.Header.Get("X-Page-URL"),
+		Host:      r.Host,
 	})
 	if err != nil {
 		writeSubmitError(w, err)

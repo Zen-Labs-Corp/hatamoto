@@ -49,6 +49,7 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
 		PageURL:   r.PostForm.Get("page_url"),
+		Host:      r.Host,
 	})
 	if err != nil {
 		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
