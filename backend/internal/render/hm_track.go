@@ -3,7 +3,14 @@ package render
 import (
 	"bytes"
 	_ "embed"
+	"html/template"
 )
+
+// TrackScriptName is the asset name of the core beacon under AssetPrefix.
+const TrackScriptName = "hm-track.js"
+
+// trackTag is the script tag spliced into every non-editor public page.
+const trackTag = template.HTML(`<script src="` + AssetPrefix + TrackScriptName + `" defer></script>`)
 
 //go:embed hm_track.js
 var hmTrackSrc []byte

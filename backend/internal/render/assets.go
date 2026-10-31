@@ -43,6 +43,39 @@ func rewriteAPIPrefix(js []byte) []byte {
 	return bytes.ReplaceAll(js, []byte("/api/v1/track"), []byte(*p+"/track"))
 }
 
+// trackEngagementFn reports whether the served beacon may send engagement
+// events; nil means yes.
+var trackEngagementFn atomic.Pointer[func() bool]
+
+// SetTrackEngagement installs the engagement opt-out: when f returns false the
+// served hm-track.js is rendered without engagement events. The script is
+// generated per request (5 minute cache), so a change shows within the cache
+// lifetime. nil restores the default (engagement on).
+func SetTrackEngagement(f func() bool) {
+	if f == nil {
+		trackEngagementFn.Store(nil)
+		return
+	}
+	trackEngagementFn.Store(&f)
+}
+
+func trackEngagement() bool {
+	if f := trackEngagementFn.Load(); f != nil {
+		return (*f)()
+	}
+	return true
+}
+
+// hasLegacyBeacon reports whether a theme's hm.js (after the API prefix
+// rewrite) still posts the pre-core pageview beacon.
+func hasLegacyBeacon(js []byte) bool {
+	if bytes.Contains(js, []byte("/api/v1/track")) {
+		return true
+	}
+	p := publicAPIPrefix.Load()
+	return p != nil && bytes.Contains(js, []byte(*p+"/track"))
+}
+
 // AssetPrefix is the URL prefix under which AssetHandler serves theme assets.
 const AssetPrefix = "/theme/assets/"
 
@@ -119,6 +152,8 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case name == h.cssName:
 		h.serve(w, r, name, h.css, cacheImmutable)
+	case name == TrackScriptName:
+		h.serve(w, r, name, trackScript(trackEngagement()), cacheShort)
 	case name == "hm.js" && len(h.js) > 0:
 		h.serve(w, r, name, h.js, cacheShort)
 	case strings.HasPrefix(name, IslandPrefix):

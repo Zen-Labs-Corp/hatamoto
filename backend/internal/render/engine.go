@@ -172,6 +172,9 @@ type compiled struct {
 	assets     http.Handler
 	cssName    string
 	hasJS      bool
+	// legacyBeacon: the theme's own hm.js still posts the old pageview beacon, so
+	// the core hm-track.js tag is skipped (one sender, no double count).
+	legacyBeacon bool
 	// contentSlots maps a single*/archive* layout (a clone of the base set) to
 	// the part slot wrapped around its content; empty when the theme did not
 	// opt in.
@@ -494,6 +497,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 
 	_, js, cssName := buildBundle(th)
 	c.cssName, c.hasJS = cssName, len(js) > 0
+	c.legacyBeacon = hasLegacyBeacon(js)
 	c.assets = th.AssetHandler()
 	return c, nil
 }
@@ -616,6 +620,11 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.Head.Ext = dropScriptSrc(d.Head.Ext)
 	}
 	d.PluginBody += islands
+	var track template.HTML
+	if !editor && !c.legacyBeacon {
+		track = trackTag
+		d.PluginBody += track
+	}
 	d.Body = template.HTML(RewriteEntityLinks(string(sanitisedHTML(v.Attrs["content"])), v.EntityLinks)) // #nosec G203 -- sanitised, only href replaced
 	if d.Related == nil {
 		// Views with no entity (404, error, archive) still let a shared partial
@@ -648,6 +657,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	}
 	if islands != "" && !bytes.Contains(out, []byte(islands)) {
 		out = spliceBody(out, islands) // the theme never printed plugin-body
+	}
+	if track != "" && !bytes.Contains(out, []byte(track)) {
+		out = spliceBody(out, track) // the theme never printed plugin-body
 	}
 	_, err := w.Write(out)
 	return err

@@ -20,14 +20,9 @@ func TestAssetsJSServedAndReferenced(t *testing.T) {
 		t.Fatalf("hm.js: status %d", rec.Code)
 	}
 
-	// Go-rendered pages are the pageview producer: without this beacon
-	// hatamoto_analytics_daily never gets a pageview row.
-	if body := rec.Body.String(); !strings.Contains(body, "/api/v1/track") || !strings.Contains(body, "page_view") {
-		t.Fatal("hm.js does not send the page_view beacon")
-	}
-
-	if !strings.Contains(rec.Body.String(), "hmPreview") {
-		t.Fatal("hm.js does not skip the beacon in preview renders")
+	// The pageview beacon is the core hm-track.js (engine_track_test.go), not the theme script.
+	if strings.Contains(rec.Body.String(), "/api/v1/track") {
+		t.Fatal("hm.js still sends a beacon")
 	}
 
 	// Spam checks: timing token, provider widgets, and the 422 handling that
@@ -107,7 +102,7 @@ func TestHmJSPublicAPIPrefix(t *testing.T) {
 
 	SetPublicAPIPrefix("/x/v1")
 	js := serve()
-	for _, want := range []string{"'/x/v1/forms/'", "'/x/v1/track'"} {
+	for _, want := range []string{"'/x/v1/forms/'"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("hm.js lacks %s", want)
 		}
@@ -117,7 +112,7 @@ func TestHmJSPublicAPIPrefix(t *testing.T) {
 	}
 
 	SetPublicAPIPrefix("")
-	if js := serve(); !strings.Contains(js, "/api/v1/public/forms/") || !strings.Contains(js, "/api/v1/track") {
+	if js := serve(); !strings.Contains(js, "/api/v1/public/forms/") {
 		t.Error("default hm.js changed")
 	}
 }
