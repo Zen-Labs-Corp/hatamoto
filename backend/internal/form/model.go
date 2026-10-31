@@ -114,9 +114,27 @@ type FormSubmission struct {
 	Metadata  SubmissionMetadata `json:"metadata"`
 	Status    string             `json:"status"`
 	CreatedAt time.Time          `json:"created_at"`
+	// Attribution is where the submitter came from; nil when none was recorded.
+	Attribution *Attribution `json:"attribution,omitempty"`
 
 	// Populated on read
 	FormName *string `json:"form_name,omitempty"`
+}
+
+// Touch is one classified visit source: channel, source, medium, campaign and
+// landing path. It never holds a URL, address or identifier.
+type Touch struct {
+	Channel  string `json:"channel,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Medium   string `json:"medium,omitempty"`
+	Campaign string `json:"campaign,omitempty"`
+	Landing  string `json:"landing,omitempty"`
+}
+
+// Attribution is the first and last touch of the tab that submitted a form.
+type Attribution struct {
+	First *Touch `json:"first,omitempty"`
+	Last  *Touch `json:"last,omitempty"`
 }
 
 // SubmissionMetadata contains metadata about the submission.
@@ -152,6 +170,8 @@ type CreateSubmissionInput struct {
 	// Status is the initial status; empty means SubmissionStatusNew. Set by
 	// the server (spam pipeline), never read from a request body.
 	Status string `json:"-"`
+	// Attribution is set by the server from the classified hm_attr field.
+	Attribution *Attribution `json:"-"`
 }
 
 // UpdateSubmissionInput represents input for updating a submission.

@@ -348,17 +348,20 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, formID uuid.U
 	}
 
 	query := `
-		INSERT INTO hatamoto_form_submissions (id, form_id, data, metadata, status, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, form_id, data, metadata, status, created_at
+		INSERT INTO hatamoto_form_submissions (id, form_id, data, metadata, status, created_at,
+			first_channel, first_source, first_medium, first_campaign, first_landing,
+			last_channel, last_source, last_medium, last_campaign, last_landing)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		RETURNING id, form_id, data, metadata, status, created_at, ` + attributionColumns + `
 	`
 
 	var s FormSubmission
 	var dataData, metadataData []byte
+	var attr attributionScan
 
-	err = conn.QueryRow(ctx, query,
-		id, formID, dataJSON, metadataJSON, initialStatus(input), now,
-	).Scan(&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt)
+	args := append([]any{id, formID, dataJSON, metadataJSON, initialStatus(input), now}, attributionArgs(input.Attribution)...)
+	err = conn.QueryRow(ctx, query, args...).Scan(
+		append([]any{&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt}, attr.dest()...)...)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create submission: %w", err)
@@ -371,8 +374,69 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, formID uuid.U
 	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+	s.Attribution = attr.attribution()
 
 	return &s, nil
+}
+
+// attributionColumns lists the ten touch columns in attributionScan order.
+const attributionColumns = `first_channel, first_source, first_medium, first_campaign, first_landing,
+		last_channel, last_source, last_medium, last_campaign, last_landing`
+
+// attributionArgs flattens a into the ten column values; empty values are NULL.
+func attributionArgs(a *Attribution) []any {
+	var first, last Touch
+	if a != nil {
+		if a.First != nil {
+			first = *a.First
+		}
+		if a.Last != nil {
+			last = *a.Last
+		}
+	}
+	out := make([]any, 0, 10)
+	for _, t := range []Touch{first, last} {
+		for _, v := range []string{t.Channel, t.Source, t.Medium, t.Campaign, t.Landing} {
+			if v == "" {
+				out = append(out, nil)
+			} else {
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
+// attributionScan receives the ten nullable touch columns of one row.
+type attributionScan [10]*string
+
+func (a *attributionScan) dest() []any {
+	d := make([]any, len(a))
+	for i := range a {
+		d[i] = &a[i]
+	}
+	return d
+}
+
+// attribution returns nil when every column is NULL or empty.
+func (a *attributionScan) attribution() *Attribution {
+	touch := func(v []*string) *Touch {
+		var t Touch
+		for i, p := range []*string{&t.Channel, &t.Source, &t.Medium, &t.Campaign, &t.Landing} {
+			if v[i] != nil {
+				*p = *v[i]
+			}
+		}
+		if t == (Touch{}) {
+			return nil
+		}
+		return &t
+	}
+	first, last := touch(a[:5]), touch(a[5:])
+	if first == nil && last == nil {
+		return nil
+	}
+	return &Attribution{First: first, Last: last}
 }
 
 // initialStatus is the status a new submission is stored with.
@@ -392,7 +456,9 @@ func (r *PostgresRepository) GetSubmissionByID(ctx context.Context, id uuid.UUID
 	defer conn.Release()
 
 	query := `
-		SELECT s.id, s.form_id, s.data, s.metadata, s.status, s.created_at, f.name
+		SELECT s.id, s.form_id, s.data, s.metadata, s.status, s.created_at, f.name,
+			s.first_channel, s.first_source, s.first_medium, s.first_campaign, s.first_landing,
+			s.last_channel, s.last_source, s.last_medium, s.last_campaign, s.last_landing
 		FROM hatamoto_form_submissions s
 		JOIN hatamoto_forms f ON s.form_id = f.id
 		WHERE s.id = $1
@@ -400,9 +466,10 @@ func (r *PostgresRepository) GetSubmissionByID(ctx context.Context, id uuid.UUID
 
 	var s FormSubmission
 	var dataData, metadataData []byte
+	var attr attributionScan
 
 	err = conn.QueryRow(ctx, query, id).Scan(
-		&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt, &s.FormName,
+		append([]any{&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt, &s.FormName}, attr.dest()...)...,
 	)
 
 	if err != nil {
@@ -419,6 +486,7 @@ func (r *PostgresRepository) GetSubmissionByID(ctx context.Context, id uuid.UUID
 	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+	s.Attribution = attr.attribution()
 
 	return &s, nil
 }
@@ -449,7 +517,9 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 
 	// Build list query
 	query := `
-		SELECT s.id, s.form_id, s.data, s.metadata, s.status, s.created_at, f.name
+		SELECT s.id, s.form_id, s.data, s.metadata, s.status, s.created_at, f.name,
+			s.first_channel, s.first_source, s.first_medium, s.first_campaign, s.first_landing,
+			s.last_channel, s.last_source, s.last_medium, s.last_campaign, s.last_landing
 		FROM hatamoto_form_submissions s
 		JOIN hatamoto_forms f ON s.form_id = f.id
 		WHERE s.form_id = $1
@@ -496,9 +566,10 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 	for rows.Next() {
 		var s FormSubmission
 		var dataData, metadataData []byte
+		var attr attributionScan
 
 		if err := rows.Scan(
-			&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt, &s.FormName,
+			append([]any{&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt, &s.FormName}, attr.dest()...)...,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan submission: %w", err)
 		}
@@ -510,6 +581,7 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 		if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
 			return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
+		s.Attribution = attr.attribution()
 
 		submissions = append(submissions, &s)
 	}
@@ -533,14 +605,15 @@ func (r *PostgresRepository) UpdateSubmission(ctx context.Context, id uuid.UUID,
 		UPDATE hatamoto_form_submissions
 		SET status = $2
 		WHERE id = $1
-		RETURNING id, form_id, data, metadata, status, created_at
+		RETURNING id, form_id, data, metadata, status, created_at, ` + attributionColumns + `
 	`
 
 	var s FormSubmission
 	var dataData, metadataData []byte
+	var attr attributionScan
 
 	err = conn.QueryRow(ctx, query, id, *input.Status).Scan(
-		&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt,
+		append([]any{&s.ID, &s.FormID, &dataData, &metadataData, &s.Status, &s.CreatedAt}, attr.dest()...)...,
 	)
 
 	if err != nil {
@@ -557,6 +630,7 @@ func (r *PostgresRepository) UpdateSubmission(ctx context.Context, id uuid.UUID,
 	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
+	s.Attribution = attr.attribution()
 
 	return &s, nil
 }
