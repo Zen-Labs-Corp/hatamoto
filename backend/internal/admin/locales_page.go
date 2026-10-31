@@ -90,6 +90,10 @@ type localeForm struct {
 	Title   string
 	Submit  string
 	Cancel  string
+	// Start is "none" or "copies": what a new locale starts with. HasContent
+	// shows the choice; a site with no entries has nothing to copy.
+	Start      string
+	HasContent bool
 }
 
 // localesData is the Locales tab.
@@ -200,7 +204,7 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 	}
 	d := localesData{
 		Table:       a.localesTable(r, cfg),
-		Form:        a.newLocaleForm(false),
+		Form:        a.newLocaleForm(r.Context(), false),
 		Actions:     []ui.Button{{Label: "Add locale", Variant: "primary", Icon: "plus", Href: a.url("settings", "locales", "new"), Attrs: map[string]string{"data-hm-open": "add-locale"}}},
 		ShowConvert: a.convertCandidates(r, cfg),
 		ConvertHref: a.convertURL(),
@@ -211,14 +215,14 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "settings/locales", v)
 }
 
-func (a *Admin) newLocaleForm(public bool) localeForm {
-	return localeForm{Public: public, Action: a.url("settings", "locales", "add"), Catalog: commonLocales(), Title: "Add a locale", Submit: "Add locale"}
+func (a *Admin) newLocaleForm(ctx context.Context, public bool) localeForm {
+	return localeForm{Public: public, Start: "none", HasContent: a.hasEntities(ctx), Action: a.url("settings", "locales", "add"), Catalog: commonLocales(), Title: "Add a locale", Submit: "Add locale"}
 }
 
 // handleLocaleNew is the page behind the header's Add locale link: what a
 // browser without JavaScript sees instead of the dialog.
 func (a *Admin) handleLocaleNew(w http.ResponseWriter, r *http.Request) {
-	a.renderLocaleNew(w, r, http.StatusOK, a.newLocaleForm(false))
+	a.renderLocaleNew(w, r, http.StatusOK, a.newLocaleForm(r.Context(), false))
 }
 
 func (a *Admin) renderLocaleNew(w http.ResponseWriter, r *http.Request, status int, f localeForm) {
@@ -262,7 +266,8 @@ func (a *Admin) handleLocaleAdd(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
-	f := a.newLocaleForm(r.PostFormValue("public") == "true")
+	f := a.newLocaleForm(r.Context(), r.PostFormValue("public") == "true")
+	f.Start = r.PostFormValue("start")
 	f.Tag, f.Segment, f.Name = strings.TrimSpace(r.PostFormValue("tag")), strings.TrimSpace(r.PostFormValue("segment")), strings.TrimSpace(r.PostFormValue("name"))
 	fail := func(errs map[string]string) {
 		f.Errs, f.Summary = errs, localeSummary(errs)
@@ -303,7 +308,11 @@ func (a *Admin) handleLocaleAdd(w http.ResponseWriter, r *http.Request) {
 		fail(localeFormErrs(errs, "tag"))
 		return
 	}
-	a.SetFlash(w, r, "success", "Added "+localeDisplayName(tag)+".")
+	msg := "Added " + localeDisplayName(tag) + "."
+	if f.Start == "copies" && f.HasContent {
+		msg += " " + a.startWithCopies(r, tag)
+	}
+	a.SetFlash(w, r, "success", msg)
 	http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 }
 
