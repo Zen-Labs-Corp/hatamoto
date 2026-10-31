@@ -90,7 +90,8 @@ button.hm-daterange__preset { width: 100%; border: 0; background: none; font: in
 .hm-statcard__delta--success { color: var(--color-success); }
 .hm-statcard__delta--danger { color: var(--color-danger); }
 .hm-statcard__delta--neutral { color: var(--text-muted); }
-.hm-statcard__more .hm-icon { width: 14px; height: 14px; vertical-align: -2px; }
+/* The global svg rule is block; the chevron stays on the line after the link text. */
+.hm-statcard__more .hm-icon { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; }
 .hm-statcard__caption { color: var(--color-hai); }
 .hm-statcard__note, .hm-statcard__more { margin: 0; font-size: var(--text-sm); }
 .hm-statcard__ring { display: flex; align-items: center; gap: var(--space-3); }
