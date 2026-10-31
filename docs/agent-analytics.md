@@ -149,6 +149,139 @@ Go page render ──► aiReferralMiddleware ──► classify (registry) ─�
    `SELECT day, kind, key, count FROM hatamoto_analytics_daily ORDER BY day DESC LIMIT 1;`
    should return `ai_referral | chatgpt`.
 
+## Traffic: visits, channels and engagement (Phase 3 of the analytics programme)
+
+**Admin > Analytics > Traffic** answers "where do visitors come from?" without
+cookies or visitor profiles. A small core script, `/theme/assets/hm-track.js`
+(the path follows `PUBLIC_API_PREFIX` rewriting of the track endpoint), is
+added before `</body>` of every public page except in the editor, preview and
+canvas. It is a same-origin external script, so it works under the strict
+content security policy, and it carries no per-request data, so the page cache
+stays shareable. The default theme's `hm.js` no longer posts pageviews: the
+core script is the single sender.
+
+**Beacon payload v2.** `POST /api/v1/track` takes the same simple request as
+before (JSON text, no custom headers):
+
+```json
+{"v":2,"events":[{"type":"page_view","entry":true,"ref":"google.com",
+ "paid":false,"path":"/landing"}]}
+```
+
+`ref` is the referrer **host** only (never the URL), three short keys carry
+`utm_source`, `utm_medium` and `utm_campaign`, `paid` is set by a `gclid` or
+`msclkid` parameter, and `path` is the page path without query or fragment.
+Strings are lowercased, limited to a safe character set and truncated (`ref`
+100, utm values 64, `path` 200). Engagement events are
+`{"type":"engage","kind":"multi"|"scroll","first":true|false, ...}` with the
+same attributes. A body without `v` is the legacy form: it still counts one
+`pageview` in `hatamoto_analytics_daily` and writes no traffic row, so headless
+front ends that post the old body keep working.
+
+**Visit definition.** A visit is the first pageview of a tab or an arrival from
+another site. The tab keeps a small marker in `sessionStorage` (the last
+external referrer, the utm values, the landing path and once-flags); it is
+never sent and disappears with the tab. A fresh arrival from outside starts a
+new visit, a reload with the same referrer does not. Without `sessionStorage`
+the rule falls back to "external referrer, or no referrer". Every pageview
+carries its visit's attributes, so pageviews land on the visit's channel, but
+only the entry pageview adds a visit.
+
+**Channel rules** (the first match wins, and a UTM value beats the referrer):
+
+1. paid: a `gclid` or `msclkid` parameter, or medium `cpc`, `ppc`, `paid*` or `display`
+2. email: medium `email`, `e-mail` or `newsletter`
+3. social: medium `social`, `social-network` or `sm`
+4. organic search: medium `organic`
+5. AI assistants: the referrer host or `utm_source` is an `ai_referrers` entry of the agent registry
+6. the referrer host is a known search engine, social network or webmail host
+7. any other external host, or a `utm_source` with no match: referral
+8. nothing: direct
+
+The source is `utm_source`, else the referrer host without `www`, and `(none)`
+for direct. A referrer equal to your own host is internal and never a visit.
+
+**What is stored.** Counts only, in `hatamoto_traffic_daily`: one row per day,
+dimension and key, with the columns `day`, `dim`, `k1`, `k2` and the counters
+`visits`, `pageviews`, `engaged`, `multi` and `scrolled`.
+
+| `dim` | `k1` | `k2` |
+|---|---|---|
+| `channel` | channel | empty |
+| `source` | source | channel |
+| `campaign` | campaign | medium |
+| `landing` | landing path | empty |
+| `device` | `desktop`, `mobile`, `tablet` or `other` | empty |
+| `country` | ISO 3166 alpha-2 code or `(unknown)` | empty |
+
+Each card reads one dimension at a time; there is no cross-dimension table, so
+the number of rows stays small. A bounce is derived: visits minus engaged
+visits. A singleton table `hatamoto_analytics_settings` holds the engagement
+setting.
+
+**Exactly what is and is not stored.**
+
+- Stored: a day, one of the dimensions above, a coarse key (channel, source
+  host, campaign name, landing path, device class, country code) and counters.
+- Not stored, not sent: no cookie, no `localStorage`, no visitor id, no session
+  id, no IP address, no user agent string, no referrer URL, no query string or
+  fragment, no fingerprint. The server derives the device class from the user
+  agent and the country from the IP address, and discards both at once.
+- The only browser state is the tab-scoped `sessionStorage` marker described
+  above. A schema test fails if a column is ever added whose name suggests an
+  identifier (ip, ua, user agent, referrer, visitor, session, cookie).
+
+**Retention.** The `channel`, `device` and `country` rows are kept
+indefinitely (a few hundred rows a year). The `source`, `campaign` and
+`landing` rows are pruned after 13 months. To bound cardinality, a day holds at
+most 200 distinct keys per dimension in the in-memory buffer (new keys go to
+`(other)`), and a nightly job folds days older than one day to the top 100 keys
+by visits plus pageviews and `(other)`, preserving the totals.
+
+**Engagement** is counted per day without visitor ids. The beacon sends an
+event as it happens, once per visit each: `multi` when the tab's second
+pageview happens, `scroll` when 75 percent of the page is first scrolled; the
+first of the two carries `first:true`, and only that one adds an engaged visit.
+It undercounts when a browser blocks the beacon. An owner can switch engagement
+counting off on the Traffic page, in the **Measurement** card (audit-logged).
+The server then drops `engage` events and the served script no longer sends
+them (the script is generated at serve time and cached for 5 minutes).
+
+**Bots.** The track endpoint drops a request when the user agent is empty or
+looks like a bot (a registry match or a generic hint such as `bot` or
+`crawler`). The same gate now applies to the legacy `pageview` counter, so
+counts can drop slightly. The script itself sends nothing when
+`navigator.webdriver` is set. Past data is not rewritten, including the traffic
+spike of automated browsers seen on one site in October.
+
+**Countries.** Country needs a database you supply and is off otherwise.
+Set `HATAMOTO_GEOIP_DB` to the path of a country `.mmdb` file. It is read once
+at boot (up to 256 MB, a regular file, loaded into memory), so **restart to
+reload** it; replace the file by renaming a new one over it. Hatamoto never
+downloads GeoIP data and never reads `CF-IPCountry` or other proxy country
+headers; the lookup uses the same trusted client address as the rest of the
+server and the address is not kept. There is no admin setting for the path.
+Sources: DB-IP Lite country (CC-BY-4.0, attribution required) or MaxMind
+GeoLite2 Country (MaxMind account and EULA). You are responsible for the
+licence terms of the file you use. A bad or missing file logs a warning and
+countries stay off.
+
+**AI assistants here and on Referrals can differ.** The Traffic channel counts
+visits that arrive with a page load and a beacon. The Referrals tab counts the
+server-side referral signal (`kind = 'ai_referral'`, unchanged), so the two can
+differ. Blocked scripts, bots filtered on one path and the visit rule explain
+most gaps.
+
+**Custom themes.** The core script is not added when the active theme's own
+`hm.js` still contains the legacy `/api/v1/track` beacon (a theme forked from
+an older default `hm.js`), to avoid counting twice. Such a theme keeps counting
+pageviews as before but records no visits or channels. To get Traffic, remove
+the beacon from the theme's `hm.js`.
+
+MCP: `analytics_traffic` (`read:reports`) returns the same data by channel,
+source, campaign, page, device or country. It is planned and arrives with the
+MCP work of this feature; see [MCP.md](MCP.md).
+
 ## Admin UI and API (Phase 4)
 
 **Admin > Analytics** (`<admin>/analytics`) is a sub-sidebar with Overview,

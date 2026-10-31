@@ -73,7 +73,7 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 | `write:terms` | Write terms | `terms_create` |
 | `write:menus` | Write menus | `menus_update` |
 | `write:redirects` | Write redirects | `redirects_create`, `redirects_delete` |
-| `read:reports` | Read reports | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals` |
+| `read:reports` | Read reports | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic` (planned) |
 | `*` | Everything (full access) | all of the above |
 
 The scope list also contains `read:citations`, `write:reports`, `read:query_suites` and `write:query_suites`. No MCP tool uses them.
@@ -106,6 +106,7 @@ Lists return at most 100 rows. The default page size is 20 for `entities_list` a
 | `analytics_first_crawls` | `from`, `to`, `limit` | Pages first crawled in the range, which agent, and how long after publishing. |
 | `analytics_google` | `from`, `to`, `filter`, `limit` | Googlebot crawling: crawls, verified share, pages crawled of published, median publish to first crawl, and per-page rows. `filter` is `all`, `not-crawled`, `errors` or `stale`. |
 | `analytics_ai_referrals` | `from`, `to` | Visits sent by AI assistants, per day, with `total_visits`. |
+| `analytics_traffic` (planned) | `from`, `to`, `by`, `limit` | Visits, pageviews and engaged share by `channel`, `source`, `campaign`, `page`, `device` or `country`. Counts only; no visitor, IP or user agent fields. See [Crawler analytics](crawler-analytics.md). |
 
 The analytics tools take dates as `YYYY-MM-DD`, inclusive and in UTC. The default range is the 30 days ending today; with only `to`, `from` is 29 days before it. `from` after `to`, or a range longer than 366 days, is refused.
 
