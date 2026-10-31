@@ -25,6 +25,7 @@ PSQL=psql
 BEGIN;
 DELETE FROM hatamoto_agent_daily WHERE day >= current_date - 120;
 DELETE FROM hatamoto_analytics_daily WHERE kind IN ('pageview', 'ai_referral') AND day >= current_date - 120;
+DELETE FROM hatamoto_traffic_daily WHERE day >= current_date - 120;
 DELETE FROM hatamoto_agent_first_crawl;
 DELETE FROM hatamoto_agent_search_first_crawl;
 DELETE FROM hatamoto_agent_hits WHERE source = 'log' AND occurred_at >= current_date - 120;
@@ -179,6 +180,27 @@ SELECT sd.day, 'ai_referral', a.key,
                          * a.share * (0.85 + 0.3 * (abs(hashtext(a.key || sd.day::text)) % 100) / 100.0)))
   FROM sd, (VALUES ('chatgpt', 0.56), ('perplexity', 0.15), ('gemini', 0.10), ('claude', 0.084), ('copilot', 0.057), ('grok', 0.026), ('meta_ai', 0.015), ('deepseek', 0.011)) AS a(key, share)
 ON CONFLICT DO NOTHING;
+-- Traffic: visits by channel, source, campaign, landing page, device and country, with engagement counters.
+-- Same weekly shape as the pageviews; AI assistants follow the AI referrals above (about 3.8%).
+CREATE TEMP TABLE tk (dim text, k1 text, k2 text, share numeric) ON COMMIT DROP;
+INSERT INTO tk VALUES
+  ('channel', 'organic', '', 0.34), ('channel', 'direct', '', 0.27), ('channel', 'social', '', 0.14), ('channel', 'referral', '', 0.10),
+  ('channel', 'email', '', 0.07), ('channel', 'paid', '', 0.05), ('channel', 'ai_assistants', '', 0.038),
+  ('source', 'google', 'organic', 0.28), ('source', 'bing', 'organic', 0.05), ('source', '(none)', 'direct', 0.27),
+  ('source', 'linkedin.com', 'social', 0.08), ('source', 'news.ycombinator.com', 'referral', 0.06), ('source', 'newsletter', 'email', 0.07),
+  ('source', 'chatgpt.com', 'ai_assistants', 0.022), ('source', 'perplexity.ai', 'ai_assistants', 0.01),
+  ('campaign', 'oct-news', 'email', 0.05), ('campaign', 'spring-launch', 'paid', 0.04), ('campaign', 'partner-week', 'referral', 0.02),
+  ('landing', '/', '', 0.30), ('landing', '/blog', '', 0.18), ('landing', '/pricing', '', 0.12), ('landing', '/about', '', 0.08),
+  ('device', 'desktop', '', 0.56), ('device', 'mobile', '', 0.38), ('device', 'tablet', '', 0.06),
+  ('country', 'US', '', 0.34), ('country', 'GB', '', 0.14), ('country', 'DE', '', 0.11), ('country', 'AU', '', 0.08), ('country', 'JP', '', 0.06), ('country', '(unknown)', '', 0.04);
+INSERT INTO hatamoto_traffic_daily (day, dim, k1, k2, visits, pageviews, engaged, multi, scrolled)
+SELECT x.day, x.dim, x.k1, x.k2, x.v, round(x.v * 1.7), round(x.v * 0.58), round(x.v * 0.31), round(x.v * 0.22)
+  FROM (SELECT sd.day, tk.dim, tk.k1, tk.k2,
+               round(2000 * sd.wk * (0.85 + 0.15 * (99 - sd.ago) / 99.0) * CASE WHEN sd.ago = 9 THEN 1.25 ELSE 1 END * tk.share
+                     * (0.8 + 0.4 * (abs(hashtext(tk.dim || tk.k1 || sd.day::text)) % 100) / 100.0)) AS v
+          FROM sd CROSS JOIN tk) x
+ WHERE x.v > 0
+ON CONFLICT DO NOTHING;
 COMMIT;
 SQL
-echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits (log, and one bad day behind a CDN), pageviews and AI referrals"
+echo "analytics-seed: 100 days of crawler rollups, first crawls, spoofed hits (log, and one bad day behind a CDN), pageviews, AI referrals and traffic"
