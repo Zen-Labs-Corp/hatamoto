@@ -142,6 +142,7 @@ type AgentDetailData struct {
 type StatsStore interface {
 	Overview(ctx context.Context, rg Range) (OverviewTotals, error)
 	Series(ctx context.Context, rg Range, groupBy string) ([]SeriesPoint, error)
+	SeriesWithSearch(ctx context.Context, rg Range, groupBy string) ([]SeriesPoint, error)
 	TopAgents(ctx context.Context, rg Range, limit int) ([]AgentTotals, error)
 	TopPages(ctx context.Context, rg Range, p Page) ([]PageRow, int, error)
 	NeverFetched(ctx context.Context, p Page) ([]NeverFetchedRow, int, error)

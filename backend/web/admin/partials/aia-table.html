@@ -7,7 +7,8 @@ hm/table cannot express the group header rows, so this shares its classes: heade
 {{else}}{{if not .PolicyOnly}}<tr><td colspan="5" class="hm-table__note">No agents fetched under this purpose in this period.</td></tr>{{end}}{{end}}{{range .PolicyOnly}}<tr><th scope="row" data-label="Agent" class="hm-table__rowhead"><a href="{{.Href}}">{{.Name}}</a> <span class="hm-aia-small">{{.Operator}}</span></th><td colspan="4" class="hm-table__note">Policy only. robots.txt name only, no fetches recorded.</td></tr>
 {{end}}</tbody>
 {{end}}</table></div>
-{{if .Other}}<section class="hm-aia-other"><h4 class="hm-card__subtitle">Other crawlers</h4><p class="hm-muted">Search engines, social previews, SEO tools and web archives. They are not AI agents, but Save sends the full robots policy, so their choices are listed here too.</p>
+{{with .Summary}}<section class="hm-aia-other"><h4 class="hm-card__subtitle">{{.Label}}</h4><p class="hm-muted">{{range $i, $it := .Items}}{{if $i}} &middot; {{end}}{{$it.Name}} {{$it.Count}}{{end}}</p></section>{{end}}
+{{if .Other}}<section class="hm-aia-other"><h4 class="hm-card__subtitle">Other crawlers</h4><p class="hm-muted">Social previews, SEO tools and web archives. They are not AI agents, but Save sends the full robots policy, so their choices are listed here too.</p>
 <ul class="hm-aia-other__list">{{range .Other}}<li class="hm-aia-other__row"><div><b>{{.Name}}</b> <span class="hm-aia-small">{{.Description}}</span></div>{{with .Policy}}<div class="hm-aia-polctl">{{template "hm/aia-policy" .}}</div>{{end}}</li>
 {{end}}</ul></section>{{end}}{{end}}
 

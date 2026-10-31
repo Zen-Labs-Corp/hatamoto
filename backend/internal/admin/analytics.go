@@ -393,6 +393,20 @@ func pivotTop(days []string, pts []agents.SeriesPoint, name func(string) string,
 // prototype draws them, so each purpose keeps its colour whatever the totals.
 var purposeOrder = []string{"Training", "Search index", "User fetch", "Other AI"}
 
+// searchSeriesName is the one series that sums every search engine in the hero chart.
+const searchSeriesName = "Search engines"
+
+// allPurposeOrder is purposeOrder with the search engines last (drawn grey).
+var allPurposeOrder = append(append([]string{}, purposeOrder...), searchSeriesName)
+
+// allPurposeName names a purpose series of the AI + search chart.
+func allPurposeName(k string) string {
+	if k == "search" {
+		return searchSeriesName
+	}
+	return purposeLabel(k)
+}
+
 // pivotOrdered is pivot with the given columns first, in that order and all
 // present even when empty; any other key is summed into a trailing "Other",
 // which exists only when something landed there.
@@ -705,7 +719,9 @@ type overviewView struct {
 	Top    []agentJSON          `json:"top_agents"`
 	// what the section pages read: the fetches matrix and the per-day health rows
 	fetchM matrix
-	health []agents.HealthDay
+	// fetchAllM is fetchM plus the search engines (group "purpose" only).
+	fetchAllM matrix
+	health    []agents.HealthDay
 	// Previous is the headline totals of the previous period; set only when compare is on.
 	Previous *overviewPrevious `json:"previous,omitempty"`
 }
@@ -760,6 +776,14 @@ func (a *Admin) overviewData(ctx context.Context, rg agents.Range, group string)
 		m = pivotOrdered(days, series, groupName(group), purposeOrder)
 	}
 	v := &overviewView{From: rg.From.Format(dayLayout), To: rg.To.Format(dayLayout), Group: group, Charts: map[string]chartSpec{"fetches": m.chart("bar", true)}}
+	if group == "purpose" {
+		all, err := stats.SeriesWithSearch(ctx, rg, group)
+		if err != nil {
+			return nil, err
+		}
+		v.fetchAllM = pivotOrdered(days, all, allPurposeName, allPurposeOrder)
+		v.Charts["fetches_all"] = v.fetchAllM.chart("bar", true)
+	}
 	v.Totals = totalsJSON{AIFetches: totals.AIFetches, Verified: totals.Verified, Spoofed: totals.Spoofed, Unverifiable: totals.Unverifiable,
 		VerifiedPct: pct(totals.Verified, totals.Spoofed, totals.Unverifiable), AIVisits: totals.AIVisits, Pageviews: totals.Pageviews}
 	for _, h := range health {
@@ -888,6 +912,13 @@ func (a *Admin) overviewCompare(ctx context.Context, rg agents.Range, v *overvie
 	v.Previous = &overviewPrevious{From: prg.From.Format(dayLayout), To: prg.To.Format(dayLayout), Totals: pt}
 	fetches := v.Charts["fetches"]
 	v.Charts["fetches"] = fetches.withPrevious(prg, pivotFixed(pdays, series, groupName(v.Group), fetches.seriesLabels()).chart("bar", true))
+	if all, ok := v.Charts["fetches_all"]; ok {
+		pts, err := stats.SeriesWithSearch(ctx, prg, v.Group)
+		if err != nil {
+			return err
+		}
+		v.Charts["fetches_all"] = all.withPrevious(prg, pivotFixed(pdays, pts, allPurposeName, all.seriesLabels()).chart("bar", true))
+	}
 	if c, ok := v.Charts["visits"]; ok {
 		if vm, ok := a.visitsMatrix(ctx, prg); ok {
 			v.Charts["visits"] = c.withPrevious(prg, visitsChart(vm))

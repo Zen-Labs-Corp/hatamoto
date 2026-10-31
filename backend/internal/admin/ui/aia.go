@@ -43,6 +43,12 @@ type AiaChart struct {
 	Ratio, RatioLabel string
 	// Override is JSON restyling a series by name: {"Spoofed":{"cls":"hm-viz--danger"}}.
 	Override string
+	// Toggle switches the drawn chart between Chart and AltChart (js/aia/page.js
+	// reads data-chart-toggle on its buttons); the data table follows, so
+	// AltTable is the table of AltChart. All three are set together.
+	Toggle   *Segmented
+	AltChart string
+	AltTable DataTable
 	Hero     bool // taller plot
 	Cols     bool // columns instead of an area
 	Compare  bool // the page is comparing; the legend shows "Previous period"
@@ -56,7 +62,19 @@ type AiaAgents struct {
 	Groups  []AiaAgentGroup
 	// Other are the non-AI purposes (search, social, SEO, archive).
 	Other []AiaOtherPurpose
+	// Summary is the one-line list of agents that get no group of their own.
+	Summary *AiaSummary
 }
+
+// AiaSummary is a one-line list under the agents table: "Social, SEO tools,
+// archives" and what each fetched.
+type AiaSummary struct {
+	Label string
+	Items []AiaSummaryItem
+}
+
+// AiaSummaryItem is one agent of an AiaSummary with its formatted fetch count.
+type AiaSummaryItem struct{ Name, Count string }
 
 // AiaAgentGroup is one purpose of the agents table: its name, what it means,
 // the totals sentence and the agents that fetched under it.

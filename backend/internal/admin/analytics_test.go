@@ -23,6 +23,10 @@ type fakeAgentStats struct {
 	mu     sync.Mutex
 	denied []agents.Purpose
 	series []agents.SeriesPoint
+	// searchSeries is what SeriesWithSearch adds to series (search engine hits).
+	searchSeries []agents.SeriesPoint
+	// extraAgents are added to what Agents answers (search engines, social, SEO tools).
+	extraAgents []agents.AgentTotals
 	// lastRange is the range Overview was last asked for.
 	lastRange agents.Range
 	// prev is what Overview answers for a range ending on prevTo (the previous period).
@@ -74,6 +78,13 @@ func (f *fakeAgentStats) Series(_ context.Context, rg agents.Range, _ string) ([
 	}
 	return f.series, nil
 }
+func (f *fakeAgentStats) SeriesWithSearch(ctx context.Context, rg agents.Range, g string) ([]agents.SeriesPoint, error) {
+	base, _ := f.Series(ctx, rg, g)
+	if f.prevSeries != nil && rg.To.Equal(f.prevTo) {
+		return base, nil
+	}
+	return append(append([]agents.SeriesPoint{}, base...), f.searchSeries...), nil
+}
 func (f *fakeAgentStats) TopAgents(context.Context, agents.Range, int) ([]agents.AgentTotals, error) {
 	return []agents.AgentTotals{{AgentID: "gptbot", Operator: "OpenAI", Purpose: "training", Hits: 900, Verified: 30, LastSeenDay: day(0)}}, nil
 }
@@ -114,7 +125,7 @@ func (f *fakeAgentStats) NeverFetched(context.Context, agents.Page) ([]agents.Ne
 func (f *fakeAgentStats) Agents(ctx context.Context, rg agents.Range) ([]agents.AgentTotals, error) {
 	top, _ := f.TopAgents(ctx, rg, 0)
 	// chatgpt-user is in the registry with ignores_robots: true.
-	return append(top, agents.AgentTotals{AgentID: "chatgpt-user", Operator: "OpenAI", Purpose: "user_fetch", Hits: 10, LastSeenDay: day(0)}), nil
+	return append(append(top, agents.AgentTotals{AgentID: "chatgpt-user", Operator: "OpenAI", Purpose: "user_fetch", Hits: 10, LastSeenDay: day(0)}), f.extraAgents...), nil
 }
 func (f *fakeAgentStats) AgentDetail(_ context.Context, _ agents.Range, id string) (agents.AgentDetailData, error) {
 	if id == "ghost" { // not in the registry, active only outside the range
