@@ -116,3 +116,19 @@ func TestTranslationsOriginalUsesNormalizedDefault(t *testing.T) {
 		t.Errorf("Out of date shown %d times, want once (en)", strings.Count(body, "Out of date"))
 	}
 }
+
+// A member that cannot be loaded does not show the viewed page's address.
+func TestTranslationsUnloadableMemberShowsNoAddress(t *testing.T) {
+	t.Parallel()
+	c, g := translationsRig(t, "en", "fr")
+	grp := fid(900)
+	en := entity.Member{ID: fid(11), Group: grp, Locale: "en", Slug: "alpha", Name: "Alpha", Status: "published", Original: true, CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0}
+	fr := entity.Member{ID: fid(99), Group: grp, Locale: "fr", Slug: "gone", Name: "Gone", Status: "published", CreatedAt: t0, UpdatedAt: t0, ContentChangedAt: t0}
+	g.setGroup(en, fr)
+	body := c.get(t, "owner-token", translationsTab, "")
+	// en shows its address in its copy row, grid cell, hreflang row and
+	// x-default row, each as text and as title: 8. The unloadable copy adds none.
+	if n := strings.Count(body, "/services/alpha"); n != 8 {
+		t.Errorf("viewed page's address shown %d times, want 8 (none for the unloadable copy)", n)
+	}
+}

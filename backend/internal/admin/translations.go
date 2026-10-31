@@ -99,6 +99,9 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	for _, m := range members {
 		cv := &copyView{m: m, e: e, stale: grouped && entity.OutOfDate(m, *orig)}
 		if m.ID != e.ID && a.deps.Content.Entities != nil {
+			// A copy that cannot be loaded shows no address or attributes,
+			// not the data of the page being viewed.
+			cv.e = nil
 			if other, err := a.deps.Content.Entities.GetEntity(ctx, m.ID); err == nil {
 				other.Schema = e.Schema
 				cv.e = other
@@ -159,7 +162,10 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 		d.Grid.Columns = append(d.Grid.Columns, ui.Col{Key: cv.m.Locale, Label: cv.m.Locale})
 		titleRow = append(titleRow, ui.Cell{Text: cv.m.Name})
 		addrRow = append(addrRow, ui.Cell{Text: a.copyAddress(ctx, cv.e), Clip: true})
-		seo := seoFrom(attrsMap(cv.e.Attributes)).Title
+		seo := ""
+		if cv.e != nil {
+			seo = seoFrom(attrsMap(cv.e.Attributes)).Title
+		}
 		if seo == "" {
 			seo = "None"
 		}
@@ -186,7 +192,7 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 	xdef, first, def := "", "", ""
 	for _, tag := range set.PublicTags() {
 		cv := byLocale[tag]
-		if cv == nil || cv.m.Status != string(entity.StatusPublished) {
+		if cv == nil || cv.e == nil || cv.m.Status != string(entity.StatusPublished) {
 			continue
 		}
 		addr := a.copyAddress(ctx, cv.e)
@@ -230,7 +236,7 @@ func (a *Admin) copyActions(page *entity.Entity, m entity.Member, grouped, isOri
 }
 
 func (a *Admin) copyAddress(ctx context.Context, e *entity.Entity) string {
-	if a.deps.Content.PublicPath != nil {
+	if e != nil && a.deps.Content.PublicPath != nil {
 		if p := a.deps.Content.PublicPath(ctx, e); p != "" {
 			return p
 		}
