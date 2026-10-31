@@ -781,3 +781,70 @@ func (f *fakeAuthors) Resolve(_ context.Context, name string) (entity.Byline, er
 }
 
 func httpDetect(b []byte) string { return http.DetectContentType(b) }
+
+// fakeGroups is GroupStore in memory: it returns canned members and
+// candidates, records the writes and returns the errors set on it.
+type fakeGroups struct {
+	mu         sync.Mutex
+	members    map[uuid.UUID][]entity.Member // by any member id
+	candidates []entity.Candidate
+	lastQuery  string
+	linked     [][]uuid.UUID
+	unlinked   []uuid.UUID
+	originals  []uuid.UUID
+	err        error // returned by every call when set
+}
+
+func newFakeGroups() *fakeGroups { return &fakeGroups{members: map[uuid.UUID][]entity.Member{}} }
+
+// setGroup makes ms one group, reachable by each member's id.
+func (f *fakeGroups) setGroup(ms ...entity.Member) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, m := range ms {
+		f.members[m.ID] = ms
+	}
+}
+
+func (f *fakeGroups) Members(_ context.Context, id uuid.UUID) ([]entity.Member, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.members[id]), f.err
+}
+
+func (f *fakeGroups) LinkCandidates(_ context.Context, _ uuid.UUID, q string, _ int) ([]entity.Candidate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastQuery = q
+	return slices.Clone(f.candidates), f.err
+}
+
+func (f *fakeGroups) Link(_ context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return uuid.Nil, f.err
+	}
+	f.linked = append(f.linked, slices.Clone(ids))
+	return uuid.New(), nil
+}
+
+func (f *fakeGroups) Unlink(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	f.unlinked = append(f.unlinked, id)
+	return nil
+}
+
+func (f *fakeGroups) SetOriginal(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	f.originals = append(f.originals, id)
+	return nil
+}

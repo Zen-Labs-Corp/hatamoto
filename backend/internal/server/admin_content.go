@@ -36,6 +36,7 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		d.Media = s.mediaService
 	}
 	if s.db != nil {
+		d.Groups = entity.NewGroupStore(s.db.Pool())
 		d.Authors = authorPicker{Store: s.people(), Byline: person.NewByline(s.db.Pool())}
 	}
 	if s.db != nil {

@@ -44,6 +44,15 @@ type EntityStore interface {
 	RestoreVersion(ctx context.Context, id uuid.UUID, userID *uuid.UUID, version int) (*entity.Entity, error)
 }
 
+// GroupStore is entity.GroupStore as the Translations screens use it.
+type GroupStore interface {
+	Members(ctx context.Context, id uuid.UUID) ([]entity.Member, error)
+	LinkCandidates(ctx context.Context, id uuid.UUID, q string, limit int) ([]entity.Candidate, error)
+	Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, error)
+	Unlink(ctx context.Context, id uuid.UUID) error
+	SetOriginal(ctx context.Context, id uuid.UUID) error
+}
+
 // TermStore is taxonomy.Service as the taxonomy screens and the term picker use it.
 type TermStore interface {
 	ListTerms(ctx context.Context, kind, search string, page, perPage int) (*taxonomy.TermListResult, error)
@@ -95,9 +104,12 @@ type TemplateStore interface {
 // screens. Any may be nil only in route-table builds.
 type ContentDeps struct {
 	Entities EntityStore
-	Terms    TermStore
-	Media    MediaStore
-	Authors  AuthorStore
+	// Groups links the translated copies of an entry. Nil hides the
+	// Translations tab and page.
+	Groups  GroupStore
+	Terms   TermStore
+	Media   MediaStore
+	Authors AuthorStore
 	// PublicPath is the public URL path of an entity ("" when unknown).
 	PublicPath func(ctx context.Context, e *entity.Entity) string
 	// PublicPaths is PublicPath for many entities of one schema at once (one
