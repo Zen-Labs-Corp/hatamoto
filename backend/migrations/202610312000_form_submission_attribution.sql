@@ -3,16 +3,16 @@
 -- All columns are NULL for submissions without attribution ("Unknown"). Only
 -- channel/source/medium/campaign/landing path: no IP, user agent or identifier.
 ALTER TABLE public.hatamoto_form_submissions
-    ADD COLUMN IF NOT EXISTS first_channel text CHECK (char_length(first_channel) <= 200),
-    ADD COLUMN IF NOT EXISTS first_source text CHECK (char_length(first_source) <= 200),
-    ADD COLUMN IF NOT EXISTS first_medium text CHECK (char_length(first_medium) <= 200),
-    ADD COLUMN IF NOT EXISTS first_campaign text CHECK (char_length(first_campaign) <= 200),
-    ADD COLUMN IF NOT EXISTS first_landing text CHECK (char_length(first_landing) <= 200),
-    ADD COLUMN IF NOT EXISTS last_channel text CHECK (char_length(last_channel) <= 200),
-    ADD COLUMN IF NOT EXISTS last_source text CHECK (char_length(last_source) <= 200),
-    ADD COLUMN IF NOT EXISTS last_medium text CHECK (char_length(last_medium) <= 200),
-    ADD COLUMN IF NOT EXISTS last_campaign text CHECK (char_length(last_campaign) <= 200),
-    ADD COLUMN IF NOT EXISTS last_landing text CHECK (char_length(last_landing) <= 200);
+    ADD COLUMN IF NOT EXISTS first_channel text,
+    ADD COLUMN IF NOT EXISTS first_source text,
+    ADD COLUMN IF NOT EXISTS first_medium text,
+    ADD COLUMN IF NOT EXISTS first_campaign text,
+    ADD COLUMN IF NOT EXISTS first_landing text,
+    ADD COLUMN IF NOT EXISTS last_channel text,
+    ADD COLUMN IF NOT EXISTS last_source text,
+    ADD COLUMN IF NOT EXISTS last_medium text,
+    ADD COLUMN IF NOT EXISTS last_campaign text,
+    ADD COLUMN IF NOT EXISTS last_landing text;
 
 -- +goose Down
 ALTER TABLE public.hatamoto_form_submissions
