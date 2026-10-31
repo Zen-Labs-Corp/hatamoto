@@ -12,6 +12,8 @@ import (
 // translationsPanelData feeds hm/translations: the Translations tab's content
 // trimmed for the blog editor aside and the builder drawer.
 type translationsPanelData struct {
+	// Err replaces the panel with an error callout when the copies could not be loaded.
+	Err   string
 	Intro string
 	// Copies has an Open or Create row per language, and Unlink for those who
 	// may change links. No POST forms: the panel sits inside the editor form.

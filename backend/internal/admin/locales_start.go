@@ -68,28 +68,31 @@ func (a *Admin) startSources(ctx context.Context) []uuid.UUID {
 }
 
 // startWithCopies makes draft copies of the start sources in tag and returns
-// the sentence for the flash. A failure never undoes the locale.
-func (a *Admin) startWithCopies(r *http.Request, tag string) string {
+// the sentence for the flash and its tone. A failure never undoes the locale.
+// It always has something to say: the user asked for copies.
+func (a *Admin) startWithCopies(r *http.Request, tag string) (msg, kind string) {
 	ctx := r.Context()
 	set, ok := a.multiLocale(ctx)
 	if !ok || a.deps.Content.Copier == nil {
-		return ""
+		return "No draft copies were made: the site needs a second language first.", "warning"
 	}
 	uid := uuid.Nil
 	if u := actorID(r); u != nil {
 		uid = *u
 	}
-	created, skipped, failed := 0, 0, 0
+	created, taken, unsupported, failed := 0, 0, 0, 0
 	for _, id := range a.startSources(ctx) {
 		src, err := a.deps.Content.Entities.GetEntity(ctx, id)
 		if err != nil || src.Locale != set.Default() {
-			skipped++
+			unsupported++
 			continue
 		}
 		cp, err := a.deps.Content.Copier.CreateCopy(ctx, uid, id, entity.CopyOptions{Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true, From: entity.CopyFromThis})
 		switch {
-		case errors.Is(err, entity.ErrLocaleTaken), errors.Is(err, entity.ErrCopyUnsupported):
-			skipped++
+		case errors.Is(err, entity.ErrLocaleTaken):
+			taken++
+		case errors.Is(err, entity.ErrCopyUnsupported):
+			unsupported++
 		case err != nil:
 			a.logger().Error("start with copies failed", "entity", id, "locale", tag, "err", err)
 			failed++
@@ -101,15 +104,27 @@ func (a *Admin) startWithCopies(r *http.Request, tag string) string {
 	if created > 0 {
 		a.invalidate(ctx)
 	}
-	msg := fmt.Sprintf("%d draft copies created", created)
+	skipped := taken + unsupported
+	if created == 0 && failed == 0 {
+		if skipped == 0 {
+			return "Nothing copied: the home page and the header menu have no pages to copy.", "warning"
+		}
+		return nothingCopied(taken, unsupported, tag), "warning"
+	}
+	msg = fmt.Sprintf("%d draft copies created", created)
 	if created == 1 {
 		msg = "1 draft copy created"
 	}
 	if skipped > 0 {
 		msg += fmt.Sprintf(", %d skipped", skipped)
 	}
+	kind = "success"
 	if failed > 0 {
 		msg += fmt.Sprintf(", %d failed", failed)
+		kind = "warning"
+		if created == 0 {
+			kind = "error"
+		}
 	}
-	return msg + "."
+	return msg + ".", kind
 }

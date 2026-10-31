@@ -861,6 +861,9 @@ type fakeCopier struct {
 	missing []entity.MissingParent
 	nextID  int
 	warn    string // passed to o.Warn on every call when set
+	// publishFails leaves a copy a draft although o.Publish is set, as CreateCopy
+	// does when publishing fails after the copy exists.
+	publishFails bool
 }
 
 type fakeCopyCall struct {
@@ -882,7 +885,7 @@ func (f *fakeCopier) CreateCopy(_ context.Context, userID, srcID uuid.UUID, o en
 	}
 	f.nextID++
 	status := entity.StatusDraft
-	if o.Publish {
+	if o.Publish && !f.publishFails {
 		status = entity.StatusPublished
 	}
 	return &entity.Entity{ID: fid(f.nextID), Name: o.Name, Slug: o.Slug, Locale: o.Locale, Status: status}, nil

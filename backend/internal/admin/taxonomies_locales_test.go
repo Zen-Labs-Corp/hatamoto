@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"io"
 	"net/url"
 	"strings"
@@ -139,4 +140,24 @@ func TestTermUnlinkConfirmPage(t *testing.T) {
 	tg.locales[c.terms.terms[0].ID] = "en"
 	body := c.get(t, "owner-token", "/admin/settings/taxonomies/terms/"+id+"/unlink?term="+uuid.NewString(), "")
 	has(t, body, `name="term"`, "Unlink")
+}
+
+func TestTermLocaleErrorsAreSentences(t *testing.T) {
+	t.Parallel()
+	for err, want := range map[error]string{
+		taxonomy.ErrTermLocaleTaken:     "A copy of this term already has that locale.",
+		taxonomy.ErrTermGroupInvalid:    "A term linked to copies needs a locale. Unlink its copies first.",
+		errors.New("pq: secret detail"): "The locale could not be saved.",
+	} {
+		c, tg, id := termLocalesRig(t, "en", "pt-BR")
+		tg.err = err
+		rec := c.post("/admin/settings/taxonomies/terms/"+id+"/locale", url.Values{"locale": {"en"}})
+		if rec.Code != 303 {
+			t.Fatalf("%v: %d", err, rec.Code)
+		}
+		tg.err = nil
+		body := c.next(rec, "/admin/settings/taxonomies/terms/"+id)
+		has(t, body, want)
+		lacks(t, body, "secret detail", "taxonomy:")
+	}
 }

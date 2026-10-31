@@ -166,7 +166,15 @@ func (a *Admin) handleTermLocale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.deps.Content.TermGroups.SetLocale(r.Context(), t.ID, loc); err != nil {
-		a.SetFlash(w, r, "error", fullStop("The locale could not be saved: "+err.Error()))
+		switch {
+		case errors.Is(err, taxonomy.ErrTermLocaleTaken):
+			a.SetFlash(w, r, "error", "A copy of this term already has that locale.")
+		case errors.Is(err, taxonomy.ErrTermGroupInvalid):
+			a.SetFlash(w, r, "error", "A term linked to copies needs a locale. Unlink its copies first.")
+		default:
+			a.logger().Error("set term locale failed", "term", t.ID, "locale", loc, "err", err)
+			a.SetFlash(w, r, "error", "The locale could not be saved.")
+		}
 	} else {
 		a.invalidate(r.Context())
 		a.SetFlash(w, r, "success", "Locale saved.")

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -62,4 +63,13 @@ func TestBlogEditorGroupsNilHasNoTranslations(t *testing.T) {
 	r, _ := blogTranslationsRig(t, "en", "pt-BR")
 	r.a.deps.Content.Groups = nil
 	lacks(t, r.get(t, "owner-token", r.path(), ""), "be-tab-translations")
+}
+
+func TestBlogEditorShowsAPanelLoadError(t *testing.T) {
+	t.Parallel()
+	r, g := blogTranslationsRig(t, "en", "pt-BR")
+	g.err = errors.New("db down")
+	body := r.get(t, "owner-token", r.path(), "")
+	has(t, body, `id="be-tab-translations"`, "The translations could not be loaded.", "hm-callout--danger")
+	lacks(t, body, "db down")
 }

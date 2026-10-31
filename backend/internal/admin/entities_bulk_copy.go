@@ -43,7 +43,7 @@ func (a *Admin) bulkCopy(w http.ResponseWriter, r *http.Request, action string, 
 	if u := actorID(r); u != nil {
 		uid = *u
 	}
-	created, skipped, failed := 0, 0, 0
+	created, taken, unsupported, failed := 0, 0, 0, 0
 	var firstErr string
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
@@ -57,15 +57,17 @@ func (a *Admin) bulkCopy(w http.ResponseWriter, r *http.Request, action string, 
 			continue
 		}
 		if src.Locale == tag {
-			skipped++
+			taken++
 			continue
 		}
 		cp, err := a.deps.Content.Copier.CreateCopy(r.Context(), uid, id, entity.CopyOptions{
 			Locale: tag, DefaultLocale: set.Default(), CreateParents: true, AutoSlug: true, From: entity.CopyFromThis,
 		})
 		switch {
-		case errors.Is(err, entity.ErrLocaleTaken), errors.Is(err, entity.ErrCopyUnsupported):
-			skipped++
+		case errors.Is(err, entity.ErrLocaleTaken):
+			taken++
+		case errors.Is(err, entity.ErrCopyUnsupported):
+			unsupported++
 		case err != nil:
 			failed++
 			if firstErr == "" {
@@ -79,20 +81,46 @@ func (a *Admin) bulkCopy(w http.ResponseWriter, r *http.Request, action string, 
 	if created > 0 {
 		a.invalidate(r.Context())
 	}
-	noun := "drafts"
-	if created == 1 {
-		noun = "draft"
+	skipped := taken + unsupported
+	var msg, kind string
+	switch {
+	case created == 0 && failed == 0:
+		msg, kind = nothingCopied(taken, unsupported, tag), "warning"
+	default:
+		noun := "drafts"
+		if created == 1 {
+			noun = "draft"
+		}
+		msg, kind = fmt.Sprintf("%d %s created in %s", created, noun, tag), "success"
+		if skipped > 0 {
+			msg += fmt.Sprintf(", %d skipped (already has a copy, or cannot be copied)", skipped)
+		}
+		msg += "."
+		if failed > 0 {
+			msg += fmt.Sprintf(" %d failed", failed)
+			if firstErr != "" {
+				msg += ": " + firstErr
+			} else {
+				msg += "."
+			}
+			kind = "error"
+		}
 	}
-	msg := fmt.Sprintf("%d %s created in %s", created, noun, tag)
-	if skipped > 0 {
-		msg += fmt.Sprintf(", %d skipped (already has a copy, or cannot be copied)", skipped)
-	}
-	msg += "."
-	if failed > 0 {
-		msg += fmt.Sprintf(" %d failed: %s", failed, firstErr)
-		a.SetFlash(w, r, "error", msg)
-	} else {
-		a.SetFlash(w, r, "success", msg)
-	}
+	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, back)
+}
+
+// nothingCopied is the flash of a run that made no copy and failed on none:
+// taken rows already had a copy in tag, other rows could not be copied.
+func nothingCopied(taken, other int, tag string) string {
+	switch n := taken + other; {
+	case n == 0:
+		return "Nothing copied: no pages were selected."
+	case other > 0:
+		return fmt.Sprintf("Nothing copied: %d already have a %s copy or cannot be copied.", n, tag)
+	case taken == 1:
+		return "Nothing copied: the page already has a " + tag + " copy."
+	default:
+		return fmt.Sprintf("Nothing copied: all %d already have a %s copy.", taken, tag)
+	}
 }
