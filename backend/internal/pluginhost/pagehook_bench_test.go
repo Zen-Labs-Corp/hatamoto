@@ -112,11 +112,12 @@ func p50Of(t *testing.T, pf *PageFilter, in sdk.PageContext) (p50, p99 time.Dura
 
 // TestRenderPageP50 asserts the roadmap target (p50 under 1 ms) for typical
 // pages of 4 to 12 blocks on the slim payload, and a bound with headroom for
-// shared CI runners (10 ms, a regression guard only) on the full payload.
-// Under -race timings are not comparable, so it is skipped. With
+// shared CI runners (25 ms on CI, 10 ms otherwise; a regression guard only) on
+// the full payload. Under -race timings are not comparable, so it is skipped. With
 // HATAMOTO_PERF_STRICT=0 (a shared or busy host, the pre-push default) it is
 // skipped too: even the 10 ms bound failed there under load while passing on
-// an idle machine, so it only measured the neighbours.
+// an idle machine, so it only measured the neighbours. HATAMOTO_PERF_STRICT=1
+// keeps the 10 ms full bound on CI.
 func TestRenderPageP50(t *testing.T) {
 	if raceEnabled {
 		t.Skip("timing is not meaningful under -race")
@@ -133,6 +134,12 @@ func TestRenderPageP50(t *testing.T) {
 	if perfStrict() {
 		slimBound = time.Millisecond
 	}
+	// The full payload is a regression guard: 10 ms off CI or when strict, 25 ms
+	// on CI, where the doubled PostgreSQL matrix shares runners.
+	fullBound := 10 * time.Millisecond
+	if os.Getenv("CI") != "" && os.Getenv("HATAMOTO_PERF_STRICT") != "1" {
+		fullBound = 25 * time.Millisecond
+	}
 	for _, c := range []struct{ blocks, repeat int }{{4, 1}, {8, 2}, {12, 6}} {
 		in := pageOf(c.blocks, c.repeat)
 		p50, p99 := p50Of(t, slim, in)
@@ -145,8 +152,8 @@ func TestRenderPageP50(t *testing.T) {
 		}
 		p50, p99 = p50Of(t, full, in)
 		t.Logf("render.page full, %d blocks: p50 %s, p99 %s", c.blocks, p50, p99)
-		if p50 > 10*time.Millisecond {
-			t.Errorf("full render.page p50 %s with %d blocks exceeds the 10ms bound", p50, c.blocks)
+		if p50 > fullBound {
+			t.Errorf("full render.page p50 %s with %d blocks exceeds the %s bound", p50, c.blocks, fullBound)
 		}
 	}
 }
