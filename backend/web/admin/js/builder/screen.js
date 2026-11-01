@@ -941,8 +941,9 @@ function start(root, boot) {
   }
 
   /** Runs a keyed action; false (nothing done) for a no-op. The device keys are the top bar's own buttons. */
-  function perform(action, fromCanvas) {
-    if (!acts(action)) return false;
+  function perform(action, fromCanvas, inTree = false) {
+    // In the Navigator a refused move still runs, so moveSelected announces why nothing moved.
+    if (!acts(action) && !(inTree && (action === "moveup" || action === "movedown"))) return false;
     if (action.startsWith("device-")) runCommand(action);
     else dispatch(action, fromCanvas);
     return true;
@@ -970,7 +971,7 @@ function start(root, boot) {
     };
     const action = resolveKey(e, ctx);
     if (!action || (action === "parent" && e.defaultPrevented)) return;
-    if (perform(action, false)) e.preventDefault();
+    if (perform(action, false, tr)) e.preventDefault();
   });
 
   const noteKey = `hm-builder-note:${boot.entity}`;

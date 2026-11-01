@@ -47,3 +47,9 @@ test("builder-inline-blur.mjs (it saves and publishes) refuses a non-loopback BA
   assert.match(r.stderr, /refusing to run against https:\/\/qa\.example\.invalid/);
   assert.doesNotMatch(readFileSync(script, "utf8"), /ws1/);
 });
+
+test("a refused Alt+Up/Down in the Navigator still reaches moveSelected, which announces why", () => {
+  assert.match(src, /!acts\(action\) && !\(inTree && \(action === "moveup" \|\| action === "movedown"\)\)/);
+  assert.match(src, /perform\(action, false, tr\)/);
+  assert.match(src, /if \(!op\) return announce\("It cannot move further that way"\)/);
+});
