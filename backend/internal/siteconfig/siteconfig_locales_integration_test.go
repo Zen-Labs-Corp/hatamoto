@@ -5,6 +5,7 @@ package siteconfig_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"log/slog"
 	"net/url"
@@ -160,9 +161,13 @@ func TestSitemapNamingRoundTrip(t *testing.T) {
 		t.Fatalf("got %q %q %q", cfg.SitemapNaming, cfg.CompanyName, cfg.Tagline)
 	}
 
-	// The CHECK constraint refuses anything else.
+	// Update refuses anything else (the column has no CHECK) and nothing is written.
 	bad := "x"
-	if _, err := s.Update(ctx, siteconfig.UpdateInput{SitemapNaming: &bad}); err == nil {
-		t.Fatal("update with sitemap_naming x succeeded, want CHECK violation")
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{SitemapNaming: &bad}); !errors.Is(err, siteconfig.ErrInvalidSitemapNaming) {
+		t.Fatalf("update with sitemap_naming x = %v, want ErrInvalidSitemapNaming", err)
+	}
+	cfg, err = s.Get(ctx)
+	if err != nil || cfg.SitemapNaming != "group" {
+		t.Fatalf("after rejected update: %q %v, want group", cfg.SitemapNaming, err)
 	}
 }

@@ -124,6 +124,10 @@ const (
 	legacyMaxTTLSeconds = 86400
 )
 
+// ErrInvalidSitemapNaming is returned by Update for a sitemap naming other
+// than group or legacy (the column has no CHECK, an expand-only migration).
+var ErrInvalidSitemapNaming = errors.New("invalid sitemap naming")
+
 // ErrInvalidPageCache is returned by Update for out-of-range page cache values.
 var ErrInvalidPageCache = errors.New("invalid page cache setting")
 
@@ -344,6 +348,9 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	}
 	var sitemapNaming any
 	if in.SitemapNaming != nil {
+		if *in.SitemapNaming != "group" && *in.SitemapNaming != "legacy" {
+			return nil, fmt.Errorf("%w: sitemap naming %q", ErrInvalidSitemapNaming, *in.SitemapNaming)
+		}
 		sitemapNaming = *in.SitemapNaming
 	}
 	var publicBaseURL any
@@ -547,7 +554,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	if len(postalAddress) > 0 {
 		cfg.PostalAddress = json.RawMessage(postalAddress)
 	}
-	if cfg.SitemapNaming == "" {
+	if cfg.SitemapNaming != "legacy" {
 		cfg.SitemapNaming = "group"
 	}
 	cfg.BusinessProfile = json.RawMessage(businessProfile)
