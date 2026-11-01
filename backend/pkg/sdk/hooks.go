@@ -57,6 +57,12 @@ var (
 	// pages. Tags are structured; the host builds and escapes the markup.
 	RenderHead = Filter[HeadContext]{"render.head"}
 
+	// RenderSiteGraph lets a plugin extend the generic site graph (since
+	// 0.16.0): add keys to the Organization, LocalBusiness and WebSite nodes
+	// and append nodes. It never changes an existing key, @id or @type. Not
+	// called when render.head replaced the graph.
+	RenderSiteGraph = Filter[SiteGraph]{"render.site_graph"}
+
 	// RenderPage is the request-aware page filter: it sees the page's blocks
 	// and the cookies the plugin declared, and may replace or hide blocks and
 	// set declared cookies. A page served through it is never shared-cached.
@@ -85,7 +91,7 @@ var (
 		AgentHit.Name, AgentFirstCrawl.Name, FormSubmitted.Name,
 	}
 	FilterNames = []string{
-		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name,
+		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name, RenderSiteGraph.Name,
 	}
 )
 

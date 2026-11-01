@@ -60,6 +60,23 @@ type HeadContext struct {
 	ReplaceSiteGraph bool      `json:"replace_site_graph"`
 }
 
+// SiteGraph is the payload of the render.site_graph filter (since 0.16.0).
+// Nodes are the JSON-LD nodes of the page's generic site graph. A filter may
+// add keys to the Organization, LocalBusiness and WebSite nodes and append
+// nodes with a new unique @id; it cannot change an @id, a @type or an existing
+// key. It is fail-open: on an error, timeout or oversized result the graph is
+// unchanged and the page is not cached.
+type SiteGraph struct {
+	Path       string `json:"path"`
+	Language   string `json:"language"`
+	SchemaSlug string `json:"schema_slug"`
+	EntityID   string `json:"entity_id"`
+	// Locale and Segment name the page's locale on a multi-locale site.
+	Locale  string           `json:"locale,omitempty"`
+	Segment string           `json:"segment,omitempty"`
+	Nodes   []map[string]any `json:"nodes"`
+}
+
 // HeadTag is one head tag. Kind is meta, link, script-src or jsonld. The host
 // drops attributes outside a per-kind allowlist (meta: name, property,
 // content; link: rel, href, type, hreflang, crossorigin; script-src: src,
