@@ -181,9 +181,9 @@ test("mapSaveReply follows the save endpoint contract", () => {
 test("stateLine words", () => {
   assert.equal(stateLine({ state: "pending" }, { draft: true }), "Not saved");
   assert.equal(stateLine({ state: "pending" }, { draft: false }), "Unsaved changes");
-  assert.equal(stateLine({ state: "pending", keep: "kept" }, { draft: false }), "Unsaved changes, kept for you");
+  assert.equal(stateLine({ state: "pending", keep: "kept" }, { draft: false }), "Draft saved · not live yet");
   assert.equal(stateLine({ state: "pending", keep: "failed" }, { draft: false }), "Not saved. You appear to be offline.");
-  assert.equal(stateLine({ state: "saved" }, { at: "10:42" }), "Saved 10:42");
+  assert.equal(stateLine({ state: "saved" }, { at: "10:42" }), "Saved");
   assert.match(stateLine({ state: "error", message: "Offline." }), /Offline\. Retrying/);
   assert.equal(stateLine({ state: "idle" }), "");
 });
