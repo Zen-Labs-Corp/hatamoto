@@ -323,6 +323,7 @@ func (b Bar) Width() string { return pct(min(max(b.Pct, 0), 100)) }
 // adds a dismiss button that is remembered for the browser session.
 type Callout struct {
 	Kind, Title, Body, ID, DismissKey string
+	IconName                          string // replaces the glyph of the Kind, for example "lock"
 	Compact                           bool
 	Attrs                             map[string]string // extra data-*/aria-* attributes on the root
 }

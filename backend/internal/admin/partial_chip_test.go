@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/admin/ui"
 )
 
 // renderChips renders partial with data and returns its markup after the
@@ -60,5 +61,44 @@ func TestPartialPair(t *testing.T) {
 	}
 	if got := string(start) + string(end); got != `<div class="hm-pair"></div>` {
 		t.Errorf("pair markup = %q", got)
+	}
+}
+
+func TestPartialCalloutIconName(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	def, err := a.RenderPartial("hm/callout", ui.Callout{Kind: "info", Body: "Read only."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock, err := a.RenderPartial("hm/callout", ui.Callout{Kind: "info", Body: "Read only.", IconName: "lock"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(def) == string(lock) || !strings.Contains(string(lock), "<rect") {
+		t.Errorf("IconName must swap the glyph:\n%s\n%s", def, lock)
+	}
+	viaDict, err := a.RenderPartial("hm/callout-start", map[string]any{"Kind": "info", "IconName": "lock"})
+	if err != nil || !strings.Contains(string(viaDict), "<rect") {
+		t.Errorf("IconName from a dict: %v %s", err, viaDict)
+	}
+}
+
+func TestPartialDangerConfirmButtons(t *testing.T) {
+	t.Parallel()
+
+	out, err := newPartialAdmin(t).RenderPartial("hm/danger-confirm", ui.DangerConfirm{ID: "dc", Action: "/x", Back: "/y", Phrase: "go", Title: "Sure?", Prompt: "Type go.", Label: "Do it"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	for _, want := range []string{`hm-btn--ghost`, `hm-btn--primary`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %s in %s", want, s)
+		}
+	}
+	if strings.Contains(s, "hm-btn--danger") {
+		t.Errorf("the submit is ink, not red: %s", s)
 	}
 }

@@ -65,9 +65,10 @@ handoff material are stale, do not copy them.
    presses the first submit button in source order, so a form with more than one
    submit starts with a hidden default submit (see UI-07). Cancel is the default
    secondary `hm/button` (no `Variant`): never ghost, never a bare link style.
-   The one exception is Back in the setup wizard and on the bare pages: it is a
+   The exceptions are Back in the setup wizard and on the bare pages: it is a
    ghost button at the far left of the footer (`hm-card__foot-note`), apart from
-   the primary on the right.
+   the primary on the right; and the Cancel of `hm/danger-confirm`, a ghost button
+   beside its filled ink submit.
 3. **Delete sits apart, at the far left, on editors.** On the sticky editor footer
    Delete is the first item and is pushed to the left edge with
    `hm-savebar__aside` (or `hm-card__foot-note`); Cancel and Save stay on the right.
@@ -594,7 +595,7 @@ Rules: use it when each choice needs a title and a sentence (the setup theme and
 
 Partial: `hm/danger-confirm`. Contract: `components.json` key `danger-confirm`.
 
-Rules: use it for an action that is hard to undo or weakens a security setting, where a stray click must not be enough (the admin address "use it anyway" step, later key rotation or deleting site content). It is an inline card, never a modal: a self-contained `<form method="post">` with a title, body paragraphs, one phrase input named `confirm_phrase`, and a footer with Cancel first and the danger submit last. The server always checks the posted phrase with `CheckDangerPhrase` and the screen re-renders with status 422 and `Error` set on a mismatch or an empty value. The submit state in the browser is only a hint: server HTML never carries `disabled` on the submit, so the form works without JS, and `components.js` disables it until the typed text equals the phrase exactly. The comparison is exact in Go and in JS: no trim, no case folding. Body text is built from `ui.DangerPart` segments (plain, `Code`, `Strong`), never `template.HTML`. Pass a unique `ID` per card on a page. The card border stays the normal grey; danger shows as a red title (`--color-danger`, as in the danger dialog) and the red submit.
+Rules: use it for an action that is hard to undo or weakens a security setting, where a stray click must not be enough (the admin address "use it anyway" step, later key rotation or deleting site content). It is an inline card, never a modal: a self-contained `<form method="post">` with a title, body paragraphs, one phrase input named `confirm_phrase`, and a footer with Cancel first and the submit last. The server always checks the posted phrase with `CheckDangerPhrase` and the screen re-renders with status 422 and `Error` set on a mismatch or an empty value. The submit state in the browser is only a hint: server HTML never carries `disabled` on the submit, so the form works without JS, and `components.js` disables it until the typed text equals the phrase exactly. The comparison is exact in Go and in JS: no trim, no case folding. Body text is built from `ui.DangerPart` segments (plain, `Code`, `Strong`), never `template.HTML`. Pass a unique `ID` per card on a page. The card border stays the normal grey; danger shows as a red title (`--color-danger`, as in the danger dialog); the submit is the filled ink primary button and Cancel is a ghost button.
 
 <!-- new-components-above -->
 
