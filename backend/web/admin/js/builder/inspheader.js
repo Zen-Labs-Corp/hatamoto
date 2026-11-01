@@ -60,6 +60,8 @@ export function header({ node, api, name }) {
   if (restore) rows.push(h("div", { role: "separator" }), restore);
   const menu = h("div", { class: "hm-menu", id, popover: "auto", role: "menu", "aria-label": "Element options" }, ...rows);
   const opener = actButton("…", { "aria-label": "Element options", "aria-haspopup": "menu", "aria-expanded": "false", popovertarget: id, class: "hm-bs-more" });
+  const moreIcon = document.querySelector("template[data-hm-bs-ico]")?.content?.querySelector('[data-ico="more"]')?.cloneNode(true);
+  if (moreIcon) opener.replaceChildren(moreIcon); // the ellipsis icon, not a text glyph; the aria-label stays the name
   // Until something was copied the row says so in its own text and stays reachable by keyboard (a disabled item is skipped
   // by the menu's arrow keys, and a title is not read); choosing it announces the same reason.
   const syncPaste = () => {
