@@ -7,6 +7,8 @@ import { compact, dayLabel, longDate, num, percent, weekLabel } from "@hm/aia/fm
 import { seriesFor, vizClass } from "@hm/aia/series";
 
 const OTHER = "Other";
+// Series numbers of the neutral steps a neutral chart cycles through.
+const NEUTRAL_STEPS = [2, 3, 4];
 
 /** Hidden series are kept as "<chartId>|<seriesKey>" so charts do not share state. */
 export const hiddenKey = (chartId, key) => chartId + "|" + key;
@@ -88,8 +90,10 @@ const formatters = (format) => {
  * @param opts {chartId, hidden: Set, title, cols, panelLabels[], override{label: {n, marker, dash, cls}}}
  *   cols draws columns instead of lines; override restyles a series by label
  *   (for example the spoofed series in danger colour).
+ *   neutral {accent} colours the series named accent (else the first named one) in the
+ *   accent and every other named series in neutral steps; "Other" and override keep theirs.
  */
-export function buildModel(spec, { chartId = "", hidden = new Set(), title = "", cols = false, panelLabels = [], override = {} } = {}) {
+export function buildModel(spec, { chartId = "", hidden = new Set(), title = "", cols = false, panelLabels = [], override = {}, neutral = null } = {}) {
   const specs = Array.isArray(spec) ? spec : [spec];
   const labels = specs[0].labels.map((l) => String(l).slice(0, 10));
   const n = labels.length;
@@ -100,9 +104,13 @@ export function buildModel(spec, { chartId = "", hidden = new Set(), title = "",
   const panels = specs.map((s, pi) => {
     const f = formatters(s.format);
     let named = 0;
+    const names = s.datasets.filter((d) => d.label !== OTHER).map((d) => d.label);
+    const accent = neutral && names.includes(neutral.accent) ? neutral.accent : names[0];
+    let step = 0;
     const series = s.datasets.map((d) => {
       const isOther = d.label === OTHER;
-      const base = seriesFor(isOther ? 0 : named, isOther);
+      let base = seriesFor(isOther ? 0 : named, isOther);
+      if (neutral && !isOther) base = { ...base, n: d.label === accent ? 1 : NEUTRAL_STEPS[step++ % NEUTRAL_STEPS.length] };
       if (!isOther) named++;
       const style = { ...base, ...(override[d.label] || {}) };
       const prev = s.previous && s.previous.datasets.find((p) => p.label === d.label);

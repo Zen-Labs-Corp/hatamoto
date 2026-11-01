@@ -9,6 +9,7 @@
 //     data-sum="AI fetches|AI visits"  per panel: add the datasets up into one series with that name
 //     [data-chart-toggle=<key>] buttons inside the figure flip data-chart (and the data table) to that key
 //     data-ratio-label="AI share"  data-title  data-hero  data-cols  data-panel-labels="A|B"
+//     data-neutral [data-accent="label"]  one accent series (the label, else the first named), the rest neutral steps
 //     data-override='{"Spoofed":{"cls":"hm-viz--danger","marker":"triangle"}}'
 //   <span data-hm-aia-chart="spark" data-src data-chart [data-minmax] [data-ratio] [data-dataset="label"]> the live hm/spark: sets d/points/label on its svg
 //   <div data-hm-aia-tracker> around a server-rendered hm/tracker
@@ -158,6 +159,7 @@ async function mount(fig) {
       cols: "cols" in d,
       panelLabels: list(d.panelLabels, "|"),
       override,
+      neutral: "neutral" in d ? { accent: d.accent || "" } : undefined,
     }),
   );
   if (regain) {
