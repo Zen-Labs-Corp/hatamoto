@@ -40,7 +40,7 @@
 .hm-bs__h { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs__navbar { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; margin-block-end: var(--space-2); }
 .hm-bs__navbar[hidden] { display: none; }
-.hm-bs__navbar input { flex: 1 1 0; min-inline-size: 0; }
+.hm-bs__navbar input { flex: 1 1 8rem; min-inline-size: 6rem; }
 .hm-bs__canvas { position: relative; min-width: 0; min-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--color-kasumi); border-block-start: 1px solid var(--border); }
 .hm-bs__canvas:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-2); }
