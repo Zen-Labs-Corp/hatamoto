@@ -33,11 +33,17 @@ test("tree keys", () => {
   }
 });
 
-test("tree navigation and alt moves need the tree and a selection", () => {
-  assert.equal(resolveKey(k("ArrowDown"), free), null);
-  assert.equal(resolveKey(k("ArrowDown", { altKey: true }), free), null);
+test("tree navigation needs the tree; Alt+Up/Down and Backspace also work on the page; everything needs a selection", () => {
+  assert.equal(resolveKey(k("ArrowDown"), free), "nextsection", "on the page Down steps sections, not tree rows");
+  assert.equal(resolveKey(k("ArrowDown"), { free: true }), null, "nothing selected: the page scrolls");
+  assert.equal(resolveKey(k("ArrowDown", { altKey: true }), free), "movedown");
+  assert.equal(resolveKey(k("ArrowUp", { altKey: true }), free), "moveup");
+  assert.equal(resolveKey(k("ArrowLeft", { altKey: true }), free), null, "indent and outdent stay the navigator's");
+  assert.equal(resolveKey(k("ArrowRight", { altKey: true }), free), null);
+  assert.equal(resolveKey(k("ArrowDown", { altKey: true }), { free: true }), null);
   assert.equal(resolveKey(k("Delete"), { tree: true, free: true, selected: false }), null);
-  assert.equal(resolveKey(k("Backspace"), free), null);
+  assert.equal(resolveKey(k("Backspace"), free), "remove");
+  assert.equal(resolveKey(k("Backspace"), { free: true }), null);
 });
 
 test("global keys", () => {

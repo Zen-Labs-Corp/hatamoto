@@ -4,6 +4,7 @@
 
 const TREE = { ArrowUp: "prev", ArrowDown: "next", ArrowLeft: "collapse", ArrowRight: "expand", Home: "first", End: "last" };
 const NODE = { c: "copynode", x: "cutnode", v: "pastenode", a: "selectsiblings", h: "history" };
+const DEVICE = { 1: "device-base", 2: "device-md", 3: "device-sm" };
 const ALT = { ArrowUp: "moveup", ArrowDown: "movedown", ArrowLeft: "outdent", ArrowRight: "indent" };
 
 /**
@@ -16,7 +17,9 @@ const ALT = { ArrowUp: "moveup", ArrowDown: "movedown", ArrowLeft: "outdent", Ar
  * control (the target is a button, link or other control: Enter stays its own)}.
  * Actions: save undo redo duplicate copystyle pastestyle remove inspect palette sheet prev next first last
  * collapse expand moveup movedown outdent indent togglenav toggleinspector copynode cutnode pastenode
- * wrap unwrap selectsiblings history rename menu commandk edittext.
+ * wrap unwrap selectsiblings history rename menu commandk enter parent prevsection nextsection device-base device-md device-sm.
+ * Page and canvas focus (not the navigator): Esc selects the parent, Up/Down step to the previous/next section, Enter edits the
+ * text or enters the first child, Alt+Up/Down move, Backspace deletes, 1/2/3 pick the device; each needs a selection except the digits.
  */
 export function resolveKey(e, ctx) {
   const mod = e.ctrlKey || e.metaKey;
@@ -52,18 +55,26 @@ export function resolveKey(e, ctx) {
     return NODE[lower] ?? null;
   }
   if (!(ctx.free || ctx.tree)) return null;
-  if (e.altKey && !mod) return ctx.tree && ctx.selected ? (ALT[k] ?? null) : null;
+  if (e.altKey && !mod) {
+    if (!ctx.selected) return null;
+    if (k === "ArrowUp" || k === "ArrowDown" || ctx.tree) return ALT[k] ?? null; // Alt+Left/Right (indent, outdent) stay the navigator's: the browser's back/forward elsewhere
+    return null;
+  }
   if (mod) return null;
+  const page = !ctx.tree && !ctx.control;
+  if (k === "Escape" && !e.shiftKey && ctx.selected && !ctx.control) return "parent";
+  if (!e.shiftKey && !ctx.control && /^[123]$/.test(k)) return DEVICE[k];
+  if (k === "Backspace" && ctx.selected && (ctx.tree || !ctx.control)) return "remove";
+  if (page && ctx.selected && (k === "ArrowUp" || k === "ArrowDown")) return k === "ArrowUp" ? "prevsection" : "nextsection";
   if (ctx.selected && ((k === "F10" && e.shiftKey) || k === "ContextMenu")) return "menu";
   if (k === "F2" && ctx.tree && ctx.selected && !e.shiftKey) return "rename";
   if (k === "?") return "sheet";
   if ((k === "/" || lower === "a") && !e.shiftKey) return "palette";
   if (k === "Delete" && ctx.selected) return "remove";
   if (ctx.tree) {
-    if (k === "Backspace" && ctx.selected) return "remove";
     if (k === "Enter" && ctx.selected) return "inspect";
     if (TREE[k]) return TREE[k];
   }
-  if (k === "Enter" && !e.shiftKey && ctx.selected && !ctx.tree && !ctx.control) return "edittext"; // the page or canvas pane has the focus
+  if (k === "Enter" && !e.shiftKey && ctx.selected && !ctx.tree && !ctx.control) return "enter"; // the page or canvas pane has the focus
   return null;
 }
