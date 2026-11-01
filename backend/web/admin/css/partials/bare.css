@@ -10,3 +10,8 @@
 .hm-bare .hm-bare__panel--wide { max-width: 35rem; }
 .hm-bare .hm-bare__brand { width: 100%; max-width: 24rem; justify-content: flex-start; }
 .hm-bare:has(.hm-bare__panel--wide) .hm-bare__brand { max-width: 35rem; }
+/* Sign-in notice that is not an error (an expired session): a neutral grey tile with a leading icon; the flash inside keeps the live status role. */
+.hm-bare__notice { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-kasumi); color: var(--text-muted); font-size: var(--text-sm); }
+.hm-bare__notice > .hm-icon { flex: none; width: var(--space-4); height: var(--space-4); }
+.hm-bare__notice .hm-flash--neutral { padding: 0; border: 0; background: none; color: inherit; }
+.hm-bare .hm-bare__links--start { justify-content: flex-start; }

@@ -1,7 +1,7 @@
 {{template "layouts/bare" .}}
 {{define "main"}}{{with .Data}}<h1>Sign in</h1>
 {{with .DemoLogin}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Public demo login")}}Email <code>{{.Email}}</code><br>Password <code>{{.Password}}</code>{{template "hm/callout-end"}}{{end}}
-{{with .Status}}<div id="login-status">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{end}}
+{{with .Status}}{{if eq .Kind "error"}}<div id="login-status">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{else}}<div id="login-status" class="hm-bare__notice">{{icon "clock"}}{{template "hm/flash" (dict "Kind" "neutral" "Message" .Message "Inline" true)}}</div>{{end}}{{end}}
 <form method="post" action="{{adminPath}}/login" class="hm-stack hm-bare__form">
 {{template "hm/csrf" $}}
 {{if .Next}}<input type="hidden" name="next" value="{{.Next}}">{{end}}
@@ -11,5 +11,5 @@
 {{template "hm/button" dict "Label" "Sign in" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>
-<p class="hm-bare__links"><a href="{{adminPath}}/forgot">Forgot your password?</a></p>
+<p class="hm-bare__links hm-bare__links--start"><a href="{{adminPath}}/forgot">Forgot your password?</a></p>
 {{end}}{{end}}

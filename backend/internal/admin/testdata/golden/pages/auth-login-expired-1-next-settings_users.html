@@ -31,7 +31,7 @@
 
 <h1>Sign in</h1>
 
-<div id="login-status"><div class="hm-flash hm-flash--info" role="status">Your session expired. Sign in again.</div></div>
+<div id="login-status" class="hm-bare__notice"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="hm-flash hm-flash--neutral" role="status">Your session expired. Sign in again.</div></div>
 <form method="post" action="/admin/login" class="hm-stack hm-bare__form">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <input type="hidden" name="next" value="/admin/settings/users">
@@ -47,7 +47,7 @@
 <button type="submit" class="hm-btn hm-btn--primary"><span>Sign in</span></button>
 </footer>
 </form>
-<p class="hm-bare__links"><a href="/admin/forgot">Forgot your password?</a></p>
+<p class="hm-bare__links hm-bare__links--start"><a href="/admin/forgot">Forgot your password?</a></p>
 
 </div>
 </main>
