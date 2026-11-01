@@ -392,7 +392,7 @@ Rules: UI-D3
   sentence case with no tracking, `--text-muted`, set once in `table.css` on `.hm-table thead th`; no page restyles it. A sortable header shows one up/down icon (the sorted column shows its direction, with `aria-sort` on the cell); nothing is drawn as a text arrow.
   Group header rows are `tr.hm-table__group`. Under 640px rows stack as cards and each cell shows its
   column label (`data-label`); the header strip stays only when it holds select-all or a sort link. A cell can carry an inline `Bar` or `Spark`.
-  A row's primary action may be a visible button: set `ui.Action{Button: true}`. It is link-only, `Href` is required (a missing one fails the render), and `AriaLabel` is required when the label repeats across rows. `Danger` gives the danger variant. Everything else stays in the row menu.
+  A row's primary action may be a visible button: set `ui.Action{Button: true}`. It is link-only, `Href` is required (a missing one fails the render), and `AriaLabel` is required when the label repeats across rows. `Danger` renders the `danger-text` variant. Everything else stays in the row menu.
 - **Menus** track `aria-expanded` on their opener and Tab leaves an open menu.
   `hm/searchselect` supports Home and End and announces the result count.
 
