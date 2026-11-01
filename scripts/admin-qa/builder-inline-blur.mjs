@@ -208,7 +208,7 @@ for (const [which, hid] of [["heading in a <section> container", "a"], ["heading
       const info = `text posts ${posts}; doc before blur "${docBefore}", after "${docAfter}"; canvas typed "${typed}", after "${after}"; status "${await status()}"`;
       if (!after?.includes(TYPED.trim())) throw new Error("REVERTED on the canvas: " + info);
       if (docAfter !== stored + TYPED) throw new Error("doc text not kept: " + info);
-      if (/\bSaved\b|\bDraft saved\b/.test(await status()) && !/Not saved|Unsaved|Saving|Update/.test(await status())) throw new Error("status is not dirty: " + info);
+      if (!(await p.locator("[data-hm-bs-save][data-hm-bs-dirty]").count())) throw new Error("the Update button is not dirty: " + info);
       if (!(await undoOn())) throw new Error("no undo entry: " + info);
       await p.locator("[data-hm-bs-undo]").first().click();
       await settle(900);
