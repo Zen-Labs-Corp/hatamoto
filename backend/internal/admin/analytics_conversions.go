@@ -245,6 +245,7 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 
 	p.Chart = ui.AiaChart{ID: "w-c-leads", Title: "Leads by " + string(touch) + " channel", Description: "Per day, stacked.",
 		Src: touchQuery(a.dataURL("conversions.json", rg, cmp), touch), Chart: "leads", Compare: cmp,
+		Neutral: true, Accent: channelName(analytics.ChannelAI),
 		Table: chart.leadsM.table("Leads by channel per day", "Day")}
 	if unknown > 0 {
 		p.UnknownNote = fmtNum(unknown) + " of these leads have no attribution: they were stored before it was recorded, or posted without it."

@@ -52,7 +52,7 @@ func (a *Admin) buildContent(ctx context.Context, q url.Values, rg agents.Range,
 	p := &contentPage{
 		Lede: strconv.FormatInt(fetched, 10) + " of " + strconv.Itoa(published) + " published pages have been fetched at least once since tracking began.",
 		Hero: ui.AiaChart{ID: "w-ct-hero", Title: "Fetches by page type", Description: "What AI agents read, grouped by the type of page.",
-			Src: a.dataURL("pages.json", rg, cmp), Chart: "by_type", Hero: true, Compare: cmp,
+			Src: a.dataURL("pages.json", rg, cmp), Chart: "by_type", Hero: true, Compare: cmp, Neutral: true,
 			Table: pv.typeM.table("AI fetches per day by page type", "Day")},
 		FirstCrawl: ui.AiaChart{ID: "w-ct-first", Title: "First crawls", Description: "Pages fetched for the first time, per " + unit + ".",
 			Src: a.dataURL("first-crawls.json", rg, false), Chart: "per_day", Cols: true, Table: fc.table},
