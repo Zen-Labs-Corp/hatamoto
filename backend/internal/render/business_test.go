@@ -565,3 +565,50 @@ func TestOrgNode_ExtendedDetails(t *testing.T) {
 		t.Errorf("parent organisation must be external, without @id: %v", org["parentOrganization"])
 	}
 }
+
+func TestLocalBusinessNode_ExtendedDetails(t *testing.T) {
+	yes, no := true, false
+	empty := graphNodes(t, businessPage(&BusinessView{ID: "xx"}))[1]
+	for _, k := range []string{"naics", "founder", "brand", "hasOfferCatalog", "potentialAction", "paymentAccepted", "acceptsReservations", "hasMenu", "publicAccess", "isAccessibleForFree", "amenityFeature"} {
+		if _, ok := empty[k]; ok {
+			t.Errorf("%s printed for an empty business", k)
+		}
+	}
+	b := &BusinessView{
+		ID: "xx", Lat: "1.5", Lng: "2", ServiceRadiusKm: "10", AreaServed: []string{"Region"},
+		BusinessDetails: extendedDetails(), Currency: "XXD", MenuURL: "https://example.test/menu",
+		AcceptsReservations: &no, PublicAccess: &yes, FreeEntry: &no,
+		Amenities: []AmenityView{{Name: "Wifi", Value: true}, {Name: "Parking", Value: false}},
+	}
+	lb := graphNodes(t, businessPage(b))[1]
+	for k, want := range map[string]any{
+		"naics": "541511", "isicV4": "6201", "paymentAccepted": "Cash, Visa", "hasMenu": "https://example.test/menu",
+		"acceptsReservations": false, "publicAccess": true, "isAccessibleForFree": false,
+		"parentOrganization": map[string]any{"@id": "https://example.test#organization"},
+	} {
+		if !reflect.DeepEqual(lb[k], want) {
+			t.Errorf("%s = %v, want %v", k, lb[k], want)
+		}
+	}
+	feats, _ := lb["amenityFeature"].([]any)
+	if len(feats) != 2 || feats[1].(map[string]any)["value"] != false {
+		t.Errorf("amenityFeature = %v", lb["amenityFeature"])
+	}
+	served, _ := lb["areaServed"].([]any)
+	if len(served) != 2 || served[0] != "Region" {
+		t.Fatalf("areaServed = %v", lb["areaServed"])
+	}
+	circle := served[1].(map[string]any)
+	if circle["@type"] != "GeoCircle" || circle["geoRadius"] != float64(10000) ||
+		!reflect.DeepEqual(circle["geoMidpoint"], map[string]any{"@type": "GeoCoordinates", "latitude": 1.5, "longitude": float64(2)}) {
+		t.Errorf("circle = %v", circle)
+	}
+	b.AreaServed, b.CountryName = nil, ""
+	if c, _ := graphNodes(t, businessPage(b))[1]["areaServed"].(map[string]any); c["@type"] != "GeoCircle" {
+		t.Errorf("lone circle must be an object: %v", c)
+	}
+	b.Lat = ""
+	if _, ok := graphNodes(t, businessPage(b))[1]["areaServed"]; ok {
+		t.Error("radius without coordinates must print nothing")
+	}
+}

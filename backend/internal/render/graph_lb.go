@@ -83,6 +83,36 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 	} else if b.CountryName != "" {
 		lb["areaServed"] = countryLD(b.CountryName, v.Locale)
 	}
+	if circle := geoCircleLD(b); circle != nil {
+		switch served := lb["areaServed"].(type) {
+		case nil:
+			lb["areaServed"] = circle
+		case []string:
+			list := make([]any, 0, len(served)+1)
+			for _, s := range served {
+				list = append(list, s)
+			}
+			lb["areaServed"] = append(list, circle)
+		default:
+			lb["areaServed"] = []any{served, circle}
+		}
+	}
+	parent := lb["parentOrganization"]
+	setDetailsLD(lb, b.BusinessDetails, b.Currency)
+	lb["parentOrganization"] = parent // the external parent prints on the Organization only
+	if b.AcceptsReservations != nil {
+		lb["acceptsReservations"] = *b.AcceptsReservations
+	}
+	setIf(lb, "hasMenu", b.MenuURL)
+	if b.PublicAccess != nil {
+		lb["publicAccess"] = *b.PublicAccess
+	}
+	if b.FreeEntry != nil {
+		lb["isAccessibleForFree"] = *b.FreeEntry
+	}
+	if features := amenitiesLD(b.Amenities); len(features) > 0 {
+		lb["amenityFeature"] = oneOrList(features)
+	}
 	language := ""
 	for _, l := range v.Locales {
 		if l.Tag == v.Locale {
@@ -113,6 +143,28 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		lb["aggregateRating"] = r
 	}
 	return lb
+}
+
+// geoCircleLD is the service radius around the business position, nil unless
+// the radius and both coordinates parse.
+func geoCircleLD(b *BusinessView) map[string]any {
+	km, ok := bizprofile.ParseDecimal(b.ServiceRadiusKm)
+	if !ok || km <= 0 {
+		return nil
+	}
+	lat, ok := bizprofile.ParseDecimal(b.Lat)
+	if !ok {
+		return nil
+	}
+	lng, ok := bizprofile.ParseDecimal(b.Lng)
+	if !ok {
+		return nil
+	}
+	return map[string]any{
+		"@type":       "GeoCircle",
+		"geoMidpoint": map[string]any{"@type": "GeoCoordinates", "latitude": lat, "longitude": lng},
+		"geoRadius":   km * 1000,
+	}
 }
 
 // oneOrList is the single node itself, or the list when there are several.
