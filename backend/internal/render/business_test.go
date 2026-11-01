@@ -441,7 +441,7 @@ func TestLocalBusinessNode_LocaleDetails(t *testing.T) {
 
 func TestLocalBusinessNode_GeoAndHoursShapes(t *testing.T) {
 	v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}})
-	for _, c := range []struct{ lat, lng string }{{"1", ""}, {"", "1"}, {"0x1p3", "2"}, {"NaN", "2"}, {"1e3", "2"}} {
+	for _, c := range []struct{ lat, lng string }{{"1", ""}, {"", "1"}, {"0x1p3", "2"}, {"NaN", "2"}, {"Inf", "2"}} {
 		v.Business.Lat, v.Business.Lng = c.lat, c.lng
 		if _, ok := graphNodes(t, v)[1]["geo"]; ok {
 			t.Errorf("geo printed for %q, %q", c.lat, c.lng)
@@ -481,5 +481,18 @@ func TestOrgNode_LocaleVATOnlyWithAnAddressSetting(t *testing.T) {
 	v.Site.Org.VATID = "V-SITE"
 	if got := orgOf(t, v)["vatID"]; got != "V-XX" {
 		t.Errorf("locale setting: vatID = %v, want the locale value", got)
+	}
+}
+
+func TestLocalBusiness_GeoKeepsHandTypedNumbers(t *testing.T) {
+	for _, c := range []struct {
+		lat, lng string
+		want     [2]float64
+	}{{"+51.5", ".5", [2]float64{51.5, 0.5}}, {"5.", "1e1", [2]float64{5, 10}}} {
+		v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}, Lat: c.lat, Lng: c.lng})
+		geo, _ := graphNodes(t, v)[1]["geo"].(map[string]any)
+		if geo["latitude"] != c.want[0] || geo["longitude"] != c.want[1] {
+			t.Errorf("%s,%s: geo = %v, want %v", c.lat, c.lng, geo, c.want)
+		}
 	}
 }

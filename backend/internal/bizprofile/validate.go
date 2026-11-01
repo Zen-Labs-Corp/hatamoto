@@ -73,12 +73,13 @@ var Days = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sat
 var (
 	timeRE     = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 	currencyRE = regexp.MustCompile(`^[A-Za-z]{3}$`)
-	decimalRE  = regexp.MustCompile(`^-?\d+(\.\d+)?$`)
+	decimalRE  = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
 )
 
-// ParseDecimal parses a plain decimal number: digits with an optional minus
-// sign and fraction. Unlike strconv.ParseFloat it rejects hex floats, Inf, NaN,
-// exponents and underscores, so a stored value always prints as a JSON number.
+// ParseDecimal parses a decimal number: digits with an optional sign, fraction
+// (a leading or trailing dot is fine) and exponent. Unlike strconv.ParseFloat it
+// rejects hex floats, Inf, NaN and underscores, so a stored value always prints
+// as a JSON number.
 func ParseDecimal(v string) (float64, bool) {
 	if !decimalRE.MatchString(v) {
 		return 0, false

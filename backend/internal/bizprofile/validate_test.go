@@ -3,12 +3,12 @@ package bizprofile
 import "testing"
 
 func TestParseDecimal(t *testing.T) {
-	for _, v := range []string{"0", "5", "-33.5", "151.25", "0.0"} {
+	for _, v := range []string{"0", "5", "-33.5", "151.25", "0.0", "+51.5", ".5", "5.", "1e1", "-1.5E-2", "+.5e+1"} {
 		if _, ok := ParseDecimal(v); !ok {
 			t.Errorf("ParseDecimal(%q) rejected", v)
 		}
 	}
-	for _, v := range []string{"", "0x1p3", "Inf", "+Inf", "-Inf", "NaN", "1e3", "1_0", ".5", "5.", "+5", " 5", "1,5"} {
+	for _, v := range []string{"", "0x1p3", "Inf", "+Inf", "-Inf", "NaN", "1_0", "e3", ".", "+", "1e", "0x10", " 5", "1,5"} {
 		if _, ok := ParseDecimal(v); ok {
 			t.Errorf("ParseDecimal(%q) accepted", v)
 		}
@@ -32,7 +32,7 @@ func TestValidate_NumbersAndPairs(t *testing.T) {
 		{"rating hex", Profile{Rating: Rating{Value: "0x1p2"}}, "rating.value", "Enter a number between 0 and 5."},
 		{"rating Inf", Profile{Rating: Rating{Value: "Inf"}}, "rating.value", "Enter a number between 0 and 5."},
 		{"rating NaN", Profile{Rating: Rating{Value: "NaN"}}, "rating.value", "Enter a number between 0 and 5."},
-		{"rating exponent", Profile{Rating: Rating{Value: "1e0"}}, "rating.value", "Enter a number between 0 and 5."},
+		{"rating exponent out of range", Profile{Rating: Rating{Value: "1e1"}}, "rating.value", "Enter a number between 0 and 5."},
 		{"rating above default", Profile{Rating: Rating{Value: "5.1"}}, "rating.value", "Enter a number between 0 and 5."},
 		{"rating within bounds", Profile{Rating: Rating{Value: "8.5", Best: "10", Worst: "1"}}, "", ""},
 		{"rating below worst", Profile{Rating: Rating{Value: "0.5", Best: "10", Worst: "1"}}, "rating.value", "Enter a number between 1 and 10."},
