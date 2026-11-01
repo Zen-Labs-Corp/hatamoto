@@ -23,6 +23,8 @@ func TestNoteRenderFailure(t *testing.T) {
 		want bool
 	}{
 		{"render.head failure", sdk.RenderHead.Name, failing, true},
+		{"render.site_graph failure", sdk.RenderSiteGraph.Name, failing, true},
+		{"render.site_graph rejection", sdk.RenderSiteGraph.Name, rejecting, false},
 		{"jsonld.enrich failure", sdk.JSONLDEnrich.Name, failing, true},
 		{"render.page failure", sdk.RenderPage.Name, failing, true},
 		{"success", sdk.RenderHead.Name, ok, false},
