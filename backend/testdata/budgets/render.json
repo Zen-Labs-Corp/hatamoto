@@ -31,7 +31,7 @@
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 72154,
+      "value": 72163,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -43,7 +43,7 @@
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 178023,
+      "value": 178032,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -167,10 +167,6 @@
   },
   "history": [
     {
-      "reason": "builder-e1-style-depth: review fixes",
-      "date": "2026-10-24"
-    },
-    {
       "reason": "builder-e2-states: page_css_states_gzip, the hover-lift states page",
       "date": "2026-10-24"
     },
@@ -244,6 +240,10 @@
     },
     {
       "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "social SEO settings and share card",
       "date": "2026-11-01"
     }
   ]

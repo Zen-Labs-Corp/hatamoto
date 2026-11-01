@@ -7,17 +7,13 @@
       "tol_abs": 2
     },
     "alloc_RenderNodesEndpoint_bytes": {
-      "value": 685633,
+      "value": 685773,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     }
   },
   "history": [
-    {
-      "reason": "admin-charts: legend, skeleton, theme redraw",
-      "date": "2026-10-22"
-    },
     {
       "reason": "admin-media-forms: dropzone, bulk select, form builder rows, menu undo",
       "date": "2026-10-22"
@@ -92,6 +88,10 @@
     },
     {
       "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "social SEO settings and share card",
       "date": "2026-11-01"
     }
   ]
