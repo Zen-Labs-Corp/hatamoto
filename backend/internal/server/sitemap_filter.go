@@ -32,15 +32,48 @@ func (s *Server) applySitemapFilter(ctx context.Context, group string, urls []UR
 // bare group and, on a multi-locale site, the locale, URL segment and full key
 // of the file.
 func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, urls []URL) []URL {
+	return s.applySitemapFilterPart(ctx, g, urls, g.key)
+}
+
+// applySitemapFilterPart is applySitemapFilterFor for a file that may fold
+// several groups (legacy naming): g is one group, fileKey the key of the file
+// that lists it, which plugins see as File.
+func (s *Server) applySitemapFilterPart(ctx context.Context, g *sitemapGroup, urls []URL, fileKey string) []URL {
 	var segment, file string
 	if g.locale != "" {
-		file = g.key
+		file = fileKey
 		if s.entityService != nil {
 			// Empty for a locale served without a prefix, even when a segment is stored.
 			segment = strings.TrimPrefix(s.urlSnapshot(ctx).Locales().Prefix(g.locale), "/")
 		}
 	}
 	return s.applySitemapFilterLang(ctx, g.base, g.locale, segment, file, urls)
+}
+
+// sitemapFileURLs renders the child sitemap key with the sitemap.urls filter
+// applied. A legacy locale file holds several groups: the filter runs once per
+// group, with that group's name, and the results are joined without duplicate
+// Locs. Group mode and single-locale sites run it once, as always.
+func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key string) []URL {
+	parts, ok := plan.FileParts(key)
+	if !ok {
+		return nil
+	}
+	if len(parts) == 1 && parts[0].key == key {
+		urls, _ := plan.GroupURLs(key)
+		return s.applySitemapFilterFor(ctx, parts[0], urls)
+	}
+	var out []URL
+	seen := map[string]bool{}
+	for _, part := range parts {
+		for _, u := range s.applySitemapFilterPart(ctx, part, plan.rowURLs(part, nil), key) {
+			if !seen[u.Loc] {
+				seen[u.Loc] = true
+				out = append(out, u)
+			}
+		}
+	}
+	return out
 }
 
 func (s *Server) applySitemapFilterLang(ctx context.Context, group, language, segment, file string, urls []URL) []URL {

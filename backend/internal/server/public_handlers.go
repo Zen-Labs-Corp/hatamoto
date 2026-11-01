@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -220,7 +222,14 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if s.redirectService != nil {
 		redirected = func(path string) bool { return s.redirectService.Peek(ctx, path) != nil }
 	}
+	naming := "group"
+	if s.siteConfig != nil {
+		if cfg, err := s.siteConfig.Get(ctx); err == nil && cfg.SitemapNaming != "" {
+			naming = cfg.SitemapNaming
+		}
+	}
 	return sitemapInput{
+		Naming:     naming,
 		HomepageID: homepageID,
 		Redirected: redirected,
 		Snap:       snap,
@@ -249,12 +258,50 @@ func (s *Server) handlePublicSitemap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	xmlBytes, err := writeXMLWithXSL(w, planSitemap(in).Index())
+	xmlBytes, err := writeXMLWithXSL(w, s.planSitemapLogged(in).Index())
 	if err != nil {
 		s.logger.Error("failed to marshal sitemap index XML", slog.String("error", err.Error()))
 		return
 	}
 	s.cacheSitemapXML(r, "index", xmlBytes)
+}
+
+// sitemapLogged remembers the planner reports already logged, so a cold cache
+// does not repeat them on every generation.
+var sitemapLogged sync.Map
+
+// planSitemapLogged plans the sitemap and logs the planner's collisions and
+// notes once per distinct message.
+func (s *Server) planSitemapLogged(in sitemapInput) *sitemapPlan {
+	plan := planSitemap(in)
+	if s.logger == nil {
+		return plan
+	}
+	for _, msg := range append(slices.Clone(plan.collisions), plan.notes...) {
+		if _, seen := sitemapLogged.LoadOrStore(msg, true); !seen {
+			s.logger.Warn("sitemap layout", slog.String("detail", msg))
+		}
+	}
+	return plan
+}
+
+// historicName reports whether sub looks like a file name the site had under
+// another naming or before locales: misc, a bare group key, or a locale
+// segment alone or followed by a group. Only multi-locale sites have any.
+func (p *sitemapPlan) historicName(sub string) bool {
+	if !p.multi() {
+		return false
+	}
+	if sub == miscSitemapGroupKey || slices.Contains(p.bare, sub) {
+		return true
+	}
+	for _, e := range p.locales().Entries() {
+		seg, _ := p.locales().Segment(e.Tag)
+		if seg != "" && (sub == seg || strings.HasPrefix(sub, seg+"-")) {
+			return true
+		}
+	}
+	return false
 }
 
 // sitemapChild extracts <sub> from a "sitemap-<sub>.xml" file name. ServeMux
@@ -291,14 +338,19 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to generate sitemap")
 		return
 	}
-	plan := planSitemap(in)
+	plan := s.planSitemapLogged(in)
 
 	if !plan.HasGroup(sub) {
+		// A name the site used under the other naming, or before locales,
+		// leads to the index. Not cached: the answer follows the settings.
+		if plan.historicName(sub) {
+			http.Redirect(w, r, "/sitemap.xml", http.StatusMovedPermanently)
+			return
+		}
 		writeError(w, http.StatusNotFound, "sitemap not found")
 		return
 	}
-	groupURLs, _ := plan.GroupURLs(sub)
-	urls := s.applySitemapFilterFor(r.Context(), plan.byKey[sub], groupURLs)
+	urls := s.sitemapFileURLs(r.Context(), plan, sub)
 
 	// The xhtml namespace is declared only when a sitemap.urls filter added alternates.
 	urlSet := URLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}
