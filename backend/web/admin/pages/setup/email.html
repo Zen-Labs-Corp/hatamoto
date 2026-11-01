@@ -8,8 +8,8 @@
 {{template "hm/csrf" $}}
 <div class="hm-setup-email">{{template "hm/emailfields" .MailForm}}</div>
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Back" "Href" .Back}}
 <span class="hm-card__foot-note"><a href="{{adminPath}}/setup/theme">Skip</a></span>
+{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}
 {{template "hm/button" dict "Label" "Save and continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>

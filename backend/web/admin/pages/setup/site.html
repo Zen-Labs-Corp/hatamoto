@@ -12,7 +12,7 @@
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Timezones "Help" "Scheduled posts publish in this time zone." "Error" (index .SiteErrs "timezone")}}
 </div>
 {{template "hm/foot"}}
-{{with .Back}}{{template "hm/button" dict "Label" "Back" "Href" .}}{{end}}
+{{with .Back}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .}}</span>{{end}}
 {{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>

@@ -9,7 +9,7 @@
 <pre class="hm-code" tabindex="0">{{.StatsJSON}}</pre>
 <p class="hm-muted">No site address, no content, no names. Change this any time in Settings &gt; Updates.</p>
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}</span>
 {{template "hm/button" dict "Label" "No thanks" "Type" "submit" "Attrs" (attrmap "name" "choice" "value" "no")}}
 {{template "hm/button" dict "Label" "Send stats" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "choice" "value" "yes")}}
 {{template "hm/foot-end"}}
