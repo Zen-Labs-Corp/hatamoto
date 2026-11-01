@@ -459,8 +459,8 @@ func TestImportScanShowsStatsAndFidelityBar(t *testing.T) {
 	}
 	// The percent lives in the fidelity card, and no statcard sits inside a card.
 	fid := body[strings.Index(body, `id="fidelity"`):]
-	if !strings.Contains(fid, "hm-ring") || strings.Contains(body, "hm-statcard--ring") {
-		t.Error("the fidelity percent belongs in the fidelity card as a ring, not in the stats row")
+	if strings.Contains(fid, "hm-ring") || strings.Contains(body, "hm-statcard--ring") {
+		t.Error("the fidelity percent belongs in the fidelity card as text above the bar, not as a ring or in the stats row")
 	}
 	if i := strings.Index(body, `id="counts"`); i < strings.Index(body, "hm-statgrid") {
 		t.Error("the stats row comes before, not inside, the counts card")
