@@ -344,6 +344,7 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		// A name the site used under the other naming, or before locales,
 		// leads to the index. Not cached: the answer follows the settings.
 		if plan.historicName(sub) {
+			w.Header().Set("Cache-Control", "no-store")
 			http.Redirect(w, r, "/sitemap.xml", http.StatusMovedPermanently)
 			return
 		}

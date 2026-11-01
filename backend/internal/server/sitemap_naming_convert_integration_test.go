@@ -136,8 +136,8 @@ func TestSitemapNamingAcrossConversion_Integration(t *testing.T) {
 		if red.Code != http.StatusMovedPermanently || red.Header().Get("Location") != "/sitemap.xml" {
 			t.Errorf("GET /%s = %d -> %q, want 301 -> /sitemap.xml", name, red.Code, red.Header().Get("Location"))
 		}
-		if cc := red.Header().Get("Cache-Control"); strings.Contains(cc, "max-age") || red.Header().Get("X-Cache") != "" {
-			t.Errorf("GET /%s redirect is cacheable: Cache-Control %q, X-Cache %q", name, cc, red.Header().Get("X-Cache"))
+		if cc := red.Header().Get("Cache-Control"); cc != "no-store" || red.Header().Get("X-Cache") != "" {
+			t.Errorf("GET /%s redirect must be no-store: Cache-Control %q, X-Cache %q", name, cc, red.Header().Get("X-Cache"))
 		}
 	}
 	if typo := get("/sitemap-zzz.xml"); typo.Code != http.StatusNotFound {
