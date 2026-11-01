@@ -86,10 +86,9 @@ func extendSiteGraph(ctx context.Context, f SiteGraphFilter, v *PageView, doc ma
 // with the @id of a core node may add keys the core node lacks; it can never
 // change @id or @type, nor remove or overwrite a core key. A plugin node with a
 // new @id is appended, unless it repeats an @id already seen; a node without a
-// string @id is dropped. A node at a core node's position that carries an
-// unknown @id but the core node's @type is that node with its @id changed: it
-// is merged like the original and the new @id is ignored. The core nodes are not modified: a node that gains
-// keys is a shallow copy, so core values are never re-encoded.
+// string @id is dropped. Nodes are matched by @id only, never by position. The
+// core nodes are not modified: a node that gains keys is a shallow copy, so core
+// values are never re-encoded.
 func mergeSiteGraph(core, plugin []map[string]any) []map[string]any {
 	out := append([]map[string]any(nil), core...)
 	index := make(map[string]int, len(core))
@@ -99,15 +98,12 @@ func mergeSiteGraph(core, plugin []map[string]any) []map[string]any {
 		}
 	}
 	copied := make(map[int]bool)
-	for pos, p := range plugin {
+	for _, p := range plugin {
 		id, ok := p["@id"].(string)
 		if !ok || id == "" {
 			continue
 		}
 		i, known := index[id]
-		if !known && pos < len(core) && p["@type"] != nil && p["@type"] == core[pos]["@type"] {
-			i, known = pos, true
-		}
 		if !known {
 			index[id] = len(out)
 			copied[len(out)] = true

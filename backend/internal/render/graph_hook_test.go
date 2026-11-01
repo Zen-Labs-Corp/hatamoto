@@ -103,8 +103,21 @@ func TestSiteGraphFilter_CoreKeysAreProtected(t *testing.T) {
 	if site["inLanguage"] == "zz" {
 		t.Errorf("an existing key was overwritten: %v", site)
 	}
-	if len(nodes) != 3 {
-		t.Errorf("nodes = %v, want the 3 core nodes", nodes)
+	if len(nodes) != 4 || nodes[3]["@id"] != "https://evil.test#org" {
+		t.Errorf("nodes = %v, want the 3 core nodes and the renamed copy appended", nodes)
+	}
+}
+
+func TestMergeSiteGraph_NewNodeIsNotMatchedByPosition(t *testing.T) {
+	core := []map[string]any{{"@id": "a", "@type": "T"}, {"@id": "b", "@type": "U", "name": "core"}}
+	plugin := []map[string]any{
+		{"@id": "a", "k": 1},
+		{"@id": "branch", "@type": "U", "geo": "x"},
+	}
+	got := mergeSiteGraph(core, plugin)
+	want := []map[string]any{{"@id": "a", "@type": "T", "k": 1}, {"@id": "b", "@type": "U", "name": "core"}, {"@id": "branch", "@type": "U", "geo": "x"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("merged = %v, want %v", got, want)
 	}
 }
 
