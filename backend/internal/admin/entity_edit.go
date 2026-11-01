@@ -547,6 +547,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 	in := seoInput{
 		Title: f.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: f.Slug, Excerpt: str(attrs, "excerpt"),
 		Canonical: f.SEO.Canonical, Published: f.Status == string(entity.StatusPublished), Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true,
+		OGTitle: f.SEO.OGTitle, OGDescription: f.SEO.OGDescription, OGImage: f.SEO.OGImage, Social: true,
 	}
 	if prop := bodyProperty(sc); prop != "" {
 		in.Mode, in.Content = ModeBody, str(attrs, prop)

@@ -46,8 +46,12 @@ type seoInput struct {
 	Title, MetaTitle, MetaDescription, Slug, Excerpt, Content string
 	Keyword                                                   string
 	Canonical, BaseURL, Path                                  string
-	InLLMs, Published                                         bool
-	Mode                                                      PanelMode
+	// OGTitle, OGDescription and OGImage are the hand-written social values;
+	// Social asks for the share card (entries do, terms do not).
+	OGTitle, OGDescription, OGImage string
+	Social                          bool
+	InLLMs, Published               bool
+	Mode                            PanelMode
 	// NoKeyword and NoLLMs leave out the focus-keyword and llms.txt checks for
 	// a form that has no such field to act on.
 	NoKeyword, NoLLMs bool
@@ -75,8 +79,17 @@ type serpPreview struct {
 	TitleMsg, DescMsg       string
 }
 
+// socialCard is the share card as the public head will carry it: the social
+// title, description and image, each resolved hand-written > template or meta
+// description > default. Show is false for forms with no social fields.
+type socialCard struct {
+	Show                            bool
+	Title, Description, Image, Site string
+}
+
 type seoPanel struct {
 	SERP           serpPreview
+	Card           socialCard
 	SEO, Answer    []seoCheck
 	Words          int
 	ReadingMinutes int
@@ -336,6 +349,10 @@ func buildPanel(in seoInput) seoPanel {
 		p.SERP.DescStatus, p.SERP.DescMsg = checkPass, fmt.Sprintf("Description is %d characters: a good length.", dl)
 	}
 
+	if in.Social {
+		p.Card = in.socialCard(checked, desc)
+	}
+
 	// Focus keyword.
 	kw := strings.TrimSpace(in.Keyword)
 	if kw == "" {
@@ -577,6 +594,36 @@ func (in seoInput) resolverInput() seo.Input {
 		DescriptionSet:  strings.TrimSpace(in.MetaDescription) != "",
 		Vars:            vars,
 	}
+}
+
+// socialCard resolves the share card the way the public head does: a
+// hand-written value wins, then the type or taxonomy social title template (not
+// site-suffixed), then the bare title; the image is the entry's, then the type's
+// default, then the site default. A relative image is shown on the site address.
+func (in seoInput) socialCard(title, desc string) socialCard {
+	c := socialCard{Show: true, Title: strings.TrimSpace(in.OGTitle), Description: strings.TrimSpace(in.OGDescription), Image: strings.TrimSpace(in.OGImage), Site: in.SiteName}
+	if in.SEO != nil && !in.SEO.Social.IsZero() {
+		ri := in.resolverInput()
+		if c.Title == "" {
+			c.Title = strings.TrimSpace(seo.SocialTitle(in.SEO, ri))
+		}
+		if c.Image == "" {
+			c.Image = seo.SocialImage(in.SEO, ri)
+		}
+		if c.Image == "" {
+			c.Image = in.SEO.Social.Image
+		}
+	}
+	if c.Title == "" {
+		c.Title = title
+	}
+	if c.Description == "" {
+		c.Description = desc
+	}
+	if strings.HasPrefix(c.Image, "/") && !strings.HasPrefix(c.Image, "//") {
+		c.Image = strings.TrimRight(in.BaseURL, "/") + c.Image
+	}
+	return c
 }
 
 // withSEOSettings fills in what the preview needs to match the live head: the

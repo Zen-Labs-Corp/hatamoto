@@ -325,7 +325,8 @@ func slugifyName(s string) string {
 func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, p *posted, b blogBody) seoPanel {
 	in := seoInput{
 		Title: p.f.Name, MetaTitle: p.f.SEO.Title, MetaDescription: p.f.SEO.Description, Slug: p.f.Slug, Excerpt: b.Excerpt, Content: b.Content,
-		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs, Published: e.Status == entity.StatusPublished,
+		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs,
+		OGTitle: p.f.SEO.OGTitle, OGDescription: p.f.SEO.OGDescription, OGImage: p.f.SEO.OGImage, Social: true, Published: e.Status == entity.StatusPublished,
 	}
 	if a.deps.BaseURL != nil {
 		in.BaseURL = a.deps.BaseURL(r)

@@ -126,8 +126,8 @@ func TestPartialSEOPanel(t *testing.T) {
 		t.Error("NoHeading drops the heading and keeps the score")
 	}
 	frag := checkPartial(t, a, "hm/seopanel-fragment", "default", panel)
-	if strings.Count(frag, `hx-swap-oob="true"`) != 4 {
-		t.Errorf("the fragment swaps the score, two counters and the structured data out of band: %s", frag)
+	if strings.Count(frag, `hx-swap-oob="true"`) != 5 {
+		t.Errorf("the fragment swaps the score, two counters, the structured data and the share card out of band: %s", frag)
 	}
 }
 
@@ -239,5 +239,43 @@ func TestMarkHome(t *testing.T) {
 	site.cfg.HomepageEntityID = uuid.Nil
 	if !mark(a, other) || mark(a, id) {
 		t.Error("with none chosen the page served at / is the homepage")
+	}
+}
+
+func TestSEOPanelShareCard(t *testing.T) {
+	t.Parallel()
+
+	set := seo.Defaults()
+	set.Social.Image = "/media/site.png"
+	set.Social.Types = map[string]seo.SocialType{"doc": {Title: "%title% %sep% Docs", Image: "/media/docs.png"}}
+	base := seoInput{Title: "Guide", MetaDescription: "Meta words.", BaseURL: "https://example.test", Slug: "guide", Path: "/guide", Social: true, SEO: &set, SchemaSlug: "doc", SiteName: "Example"}
+
+	c := buildPanel(base).Card
+	if !c.Show || c.Title != "Guide | Docs" || c.Description != "Meta words." || c.Image != "https://example.test/media/docs.png" || c.Site != "Example" {
+		t.Errorf("template card = %+v", c)
+	}
+
+	hand := base
+	hand.OGTitle, hand.OGDescription, hand.OGImage = " Mine ", "Mine too", "https://cdn.example.test/e.png"
+	if c := buildPanel(hand).Card; c.Title != "Mine" || c.Description != "Mine too" || c.Image != "https://cdn.example.test/e.png" {
+		t.Errorf("hand-written card = %+v", c)
+	}
+
+	site := base
+	site.SchemaSlug = "page"
+	if c := buildPanel(site).Card; c.Title != "Guide" || c.Image != "https://example.test/media/site.png" {
+		t.Errorf("site default card = %+v", c)
+	}
+
+	term := base
+	term.Social = false
+	if buildPanel(term).Card.Show {
+		t.Error("a form without social fields gets no card")
+	}
+
+	a := newPartialAdmin(t)
+	out, err := a.RenderPartial("hm/seopanel-card", map[string]any{"Panel": buildPanel(base)})
+	if err != nil || !strings.Contains(string(out), "Guide | Docs") || !strings.Contains(string(out), `id="seo-card"`) {
+		t.Errorf("card partial: %v %s", err, out)
 	}
 }

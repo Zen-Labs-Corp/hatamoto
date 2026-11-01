@@ -224,9 +224,20 @@
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-social" aria-labelledby="seo-tab-social" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Social</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_og_title">Social title</label>
+<input class="hm-field__control" type="text" id="seo_og_title" name="seo_og_title" aria-describedby="seo_og_title-help" autocomplete="off" maxlength="255">
+<p class="hm-field__help" id="seo_og_title-help">Shown when the page is shared. Empty uses the title template for this type.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_og_description">Social description</label>
+<textarea class="hm-field__control" id="seo_og_description" name="seo_og_description" rows="2" aria-describedby="seo_og_description-help" maxlength="500"></textarea>
+<p class="hm-field__help" id="seo_og_description-help">Empty uses the SEO description.</p>
+</div>
 <div class="hm-field"><label class="hm-field__label" for="seo_og_image">Social image</label>
 <div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="" data-hm-image autocomplete="off"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="seo_og_image" hidden="hidden"><span>Choose from library</span></button></div>
 </div>
+<div id="seo-card"><div class="hm-seo__card" role="group" aria-label="Share card preview"><div class="hm-seo__card-body"><p class="hm-seo__card-title">Untitled</p><p class="hm-seo__card-desc">No description yet.</p></div></div></div>
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>

@@ -10,3 +10,11 @@
 .hm-seo__score--warn strong { color: var(--color-warning); }
 .hm-seo__score--fail strong { color: var(--color-danger); }
 .hm-seo__score-max { margin-inline-start: var(--space-0-5); }
+
+/* The share card preview in the Social tab. */
+.hm-seo__card { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--bg); }
+.hm-seo__card-img { display: block; width: 100%; max-height: 16rem; object-fit: cover; }
+.hm-seo__card-body { padding: var(--space-3); }
+.hm-seo__card-site { margin: 0; font-size: var(--text-xs); color: var(--text-muted); overflow-wrap: anywhere; }
+.hm-seo__card-title { margin: var(--space-0-5) 0; font-size: var(--text-title); }
+.hm-seo__card-desc { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
