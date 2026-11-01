@@ -66,4 +66,4 @@
 
 {{/* The length of the title and description as the server measured it, with the reason when it is off. */}}
 {{define "hm/seocount"}}<p class="hm-be__count hm-be__count--{{.Status}}" id="{{.ID}}"{{if .OOB}} hx-swap-oob="true"{{end}}><span>{{.Len}} / {{.Max}}</span>{{if ne .Status "pass"}} <span class="hm-be__count-msg">{{.Msg}}</span>{{end}}</p>{{end}}
-{{define "hm/checkmark"}}{{if eq . "pass"}}<span aria-hidden="true">✓</span><span class="hm-visually-hidden">Good:</span>{{else if eq . "fail"}}<span aria-hidden="true">✕</span><span class="hm-visually-hidden">Needs work:</span>{{else}}<span aria-hidden="true">!</span><span class="hm-visually-hidden">Could be better:</span>{{end}}{{end}}
+{{define "hm/checkmark"}}{{if eq . "pass"}}<span aria-hidden="true">{{icon "check"}}</span><span class="hm-bp__word">Good</span>{{else if eq . "fail"}}<span aria-hidden="true">{{icon "x"}}</span><span class="hm-bp__word">Needs work</span>{{else}}<span aria-hidden="true">{{icon "alert"}}</span><span class="hm-bp__word">Could be better</span>{{end}}{{end}}

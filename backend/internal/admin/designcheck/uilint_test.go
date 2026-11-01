@@ -155,6 +155,7 @@ var uiAllow = []uiAllowEntry{
 	// UI-04: shadows outside the popup list.
 	{Rule: "UI-04", File: "css/partials/chart.css", Needle: ".hm-statcard { box-shadow", Reason: "stat cards carry the lightest shadow; the one named exception to the no-shadow card rule"},
 	{Rule: "UI-04", File: "css/pages/blogeditor.css", Needle: ".hm-ed__bar", Reason: "sticky blog editor toolbar; editor_polish_test.go asserts blogeditor.css"},
+	{Rule: "UI-04", File: "css/pages/builder.css", Needle: ".hm-bs__seo {", Reason: "the SEO drawer sits over the inspector like a popup"},
 
 	// UI-05: markup that cannot go through hm/button or hm/card-start. Needles name
 	// the element by a data hook, id, label or variable, never by hm-btn or hm-card.
@@ -174,7 +175,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "js/blogeditor.js", Needle: "data-hm-links-refresh", Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/builder/keys.js", Needle: `"Close"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/builder/navigator.js", Needle: `"Add a section"`, Reason: reasonEditor},
-	{Rule: "UI-05", File: "js/canvas/host.js", Needle: `"Dismiss"`, Reason: reasonEditor},
+	{Rule: "UI-05", File: "js/canvas/host.js", Needle: `"Dismiss the tip"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/editor/htmlblocks.js", Needle: `"Edit HTML"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/editor/kit.js", Needle: `text: "Apply"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/editor/kit.js", Needle: `text: "Cancel"`, Reason: reasonEditor},

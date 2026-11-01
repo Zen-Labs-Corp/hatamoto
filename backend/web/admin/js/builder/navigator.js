@@ -207,7 +207,7 @@ export function hiddenBadge(tpl, device) {
 }
 
 /** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind (none of the stock ones) reads as a puzzle piece. */
-export const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text" };
+export const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text", quote: "quote", list: "list" };
 const FIELD_ICON = { richtext: "file-text", image: "image", link: "link", list: "list", object: "layers", code: "code", text: "heading" };
 
 /** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name no resolver knows) leaves the thumbnail at its default. */

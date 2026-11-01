@@ -12,9 +12,17 @@
 .hm-page:has(.hm-bs) { max-width: none; padding: 0; gap: 0; }
 .hm-bs { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
 /* The SEO drawer: a slide-over on the right, over the canvas. Hidden until the SEO button opens it. */
-.hm-bs__seo { position: fixed; inset-block: 56px 0; inset-inline-end: 0; z-index: var(--z-popup); inline-size: min(28rem, 100%); display: flex; flex-direction: column; background: var(--surface); border-inline-start: 1px solid var(--border); }
+.hm-bs__seo { position: fixed; inset-block: 56px 0; inset-inline-end: 0; z-index: var(--z-popup); inline-size: min(22.5rem, 100%); display: flex; flex-direction: column; background: var(--surface); border-inline-start: 1px solid var(--border); box-shadow: var(--shadow-3); }
 [data-hm-bs-seo] .hm-badge { margin-inline-start: var(--space-1); }
 .hm-bs__seo[hidden] { display: none; }
+/* Check rows in the drawer: message first, the status as a soft pill on the right (icon and the status word, never colour alone). */
+.hm-bs__seo .hm-bp__item { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.hm-bs__seo .hm-bp__mark { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); block-size: var(--badge-h); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; }
+.hm-bs__seo .hm-bp__word { position: static; inline-size: auto; block-size: auto; overflow: visible; clip-path: none; }
+.hm-bs__seo .hm-bp__word::after { content: none; }
+.hm-bs__seo .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); background: var(--color-success-soft); }
+.hm-bs__seo .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); background: var(--color-warning-soft); }
+.hm-bs__seo .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); background: var(--color-danger-soft); }
 .hm-bs__seo-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--border); }
 .hm-bs__seo-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--space-3); }
 .hm-bs__banner:empty { display: none; }
@@ -34,7 +42,8 @@
 .hm-bs__h { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs__navbar { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; margin-block-end: var(--space-2); }
 .hm-bs__navbar[hidden] { display: none; }
-.hm-bs__navbar input { flex: 1 1 100%; }
+.hm-bs__navbar input { flex: 1 1 100%; min-inline-size: 0; } /* the field has its own row; Collapse all and Rename share the next one */
+.hm-bs__navbar > .hm-btn { flex: none; }
 .hm-bs__canvas { position: relative; min-width: 0; min-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--color-kasumi); border-block-start: 1px solid var(--border); }
 .hm-bs__canvas:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -42,13 +51,19 @@
 .hm-bs__tools [data-flip] .hm-icon { transform: scaleX(-1); } /* one arrow icon: Undo is its mirror image, so it differs from Redo */
 .hm-bs__split { display: none; }
 .hm-bs__panes { display: inline-flex; gap: var(--space-1); }
+/* Editor bar: 32px icon buttons; the pane toggles sit between two 1px hairlines (after History, before Shortcuts). */
+.hm-bs__tools .hm-btn--icon, .hm-bs__panes .hm-btn--icon { --h: var(--control-h-sm); }
+.hm-bs__panes { align-items: center; gap: var(--space-1); margin-inline: var(--space-1); }
+.hm-bs__panes::before, .hm-bs__panes::after { content: ""; inline-size: 1px; block-size: var(--space-5); background: var(--border); }
+.hm-bs__panes::before { margin-inline-end: var(--space-1); }
+.hm-bs__panes::after { margin-inline-start: var(--space-1); }
 .hm-bs__nav[hidden], .hm-bs__inspector[hidden] { display: none; }
 .hm-bs__nav { order: 1; }
 .hm-bs__canvas { order: 0; }
 .hm-bs__inspector { order: 2; }
 @media (min-width: 960px) {
   .hm-bs { position: relative; }
-  .hm-bs__seo { position: absolute; inset-block: 0; }
+  .hm-bs__seo { position: absolute; inset-block: 0; inline-size: min(max(var(--hm-bs-insp), 22.5rem), 100%); } /* covers the inspector pane, never narrower than 22.5rem (it is 0px when the inspector is hidden) */
   .hm-bs { --hm-bs-nav: 16rem; --hm-bs-insp: 24rem; --hm-bs-nav-split: 8px; --hm-bs-insp-split: 8px; grid-template-columns: var(--hm-bs-nav) var(--hm-bs-nav-split) minmax(0, 1fr) var(--hm-bs-insp-split) var(--hm-bs-insp); grid-template-rows: minmax(0, 1fr); height: calc(100vh - 56px); }
   .hm-bs__nav { grid-column: 1; }
   .hm-bs__split--nav { grid-column: 2; }
@@ -86,7 +101,7 @@
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
 .hm-editor-bar:has([data-hm-bs-title]) > :not(.hm-editor-bar__title) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title):not(.hm-editor-bar__state) { flex-shrink: 0; }
-.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; flex-shrink: 100; }
 .hm-bs__dshort { display: none; }
 .hm-bs__device { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
 .hm-bs__device::before { content: ""; inline-size: 0.5em; block-size: 0.5em; border-radius: 50%; background: currentColor; }
@@ -114,8 +129,8 @@
 
 /* Navigator tree: flat rows (one li each), indent by aria-level. */
 .hm-bs-tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-/* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is a documented accent exception (ADMIN_UI_RULES, Selected state). */
-.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: var(--color-accent-soft); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
+/* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is an accent-soft tint with a 1px accent hairline (ADMIN_UI_RULES, Selected state). */
+.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 36px; --bs-nav-block-h: 32px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: color-mix(in srgb, var(--color-accent-soft) 45%, var(--surface)); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
 .hm-bs-row { position: relative; display: flex; align-items: center; gap: var(--space-1-5); min-block-size: var(--bs-nav-block-h); padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; color: var(--text); font-size: var(--text-sm); }
 .hm-bs-row--section { min-block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--space-bs-gap); }
 .hm-bs-row--section:first-child { margin-block-start: 0; }
@@ -153,12 +168,10 @@
 .hm-bs-gap:hover .hm-bs-gap__btn { display: inline-flex; }
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band, .hm-bs-row--band:hover { background: var(--bs-nav-band); }
-.hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: var(--bs-nav-on-accent); }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
+.hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--color-accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--color-accent), inset 3px 0 0 var(--color-accent); }
+.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind { color: color-mix(in srgb, var(--text-muted) 65%, var(--text)); } /* muted text needs a notch more ink on the tint */
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
-.hm-bs-row[aria-selected="true"]:focus-visible { outline-color: var(--bs-nav-on-accent); outline-offset: -4px; }
+.hm-bs-row[aria-selected="true"]:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 @media (forced-colors: active) { .hm-bs-row[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }
 .hm-bs-row__caret { flex: none; display: inline-block; inline-size: calc(1em + var(--space-1)); }
 .hm-bs-row [data-caret]::before { content: "\25B8"; display: inline-block; width: 1em; }
@@ -166,9 +179,10 @@
 .hm-bs-rename { width: 100%; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); padding: 0 var(--space-1); user-select: text; }
 .hm-bs-sheet__q { flex: none; } /* the dialog panel is a shrinking column: the search field keeps its height */
 .hm-bs-keys { width: 100%; border-collapse: collapse; margin-block-end: var(--space-4); }
-.hm-bs-keys th, .hm-bs-keys td { text-align: start; padding: var(--space-2); border-block-end: 1px solid var(--border); vertical-align: top; }
-.hm-bs-keys__k { white-space: nowrap; font-weight: var(--weight-semibold); }
-.hm-bs-keys__g { text-align: start; font-weight: var(--weight-semibold); padding: var(--space-2) var(--space-2) var(--space-1); }
+.hm-bs-keys th, .hm-bs-keys td { text-align: start; padding: var(--space-1) var(--space-2); min-block-size: var(--control-h-sm); border-block-end: 1px solid var(--border); vertical-align: middle; }
+.hm-bs-keys__k { white-space: nowrap; font-weight: var(--weight-regular); color: var(--text-muted); }
+.hm-bs-key { display: inline-block; min-inline-size: 1.4em; padding: 0 var(--space-1-5); text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text); border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-2xs); background: var(--color-paper); }
+.hm-bs-keys__g { text-align: start; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); padding: var(--space-2) var(--space-2) var(--space-1); }
 
 /* Inspector: tabs, fields, style groups. */
 .hm-bs-name { font-size: var(--text-md); margin: 0 0 var(--space-3); }
@@ -187,7 +201,7 @@ button.hm-bs-grp__t[aria-expanded="true"]::after { content: "\2212" / ""; }
 button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-bs-grp__b, .hm-bs-grp__sub { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-bs-grp__b[hidden], .hm-bs-linkopts[hidden] { display: none; }
-.hm-bs-subhead { margin: var(--space-2) 0 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.hm-bs-subhead { margin: var(--space-2) 0 0; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
 /* A scrub label: drag it sideways to change the value (the number field stays the keyboard path). */
 .hm-bs-scrub { cursor: ew-resize; touch-action: none; user-select: none; }
 .hm-bs-field--check { flex-direction: row; align-items: center; gap: var(--space-2); }
@@ -221,8 +235,8 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-pal__card { gap: var(--space-1); padding: var(--space-2); min-inline-size: 0; }
 .hm-bs-pal__card .hm-bs-thumb { aspect-ratio: 48 / 32; border-radius: var(--radius-sm); background: var(--color-kasumi); }
 .hm-bs-pal__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); }
-.hm-bs-pal__blk { flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-2) var(--space-1); min-inline-size: 0; }
-.hm-bs-pal__blk .hm-bs-pal__n { font-size: var(--text-xs); max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-pal__blk { flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-3) var(--space-1) var(--space-2-5); border-radius: var(--radius-md); min-inline-size: 0; }
+.hm-bs-pal__blk .hm-bs-pal__n { font-size: var(--text-xs); line-height: var(--leading-snug); max-inline-size: 100%; white-space: normal; text-wrap: balance; overflow-wrap: anywhere; }
 .hm-bs-pal__ico { display: inline-flex; color: var(--text-body); }
 .hm-bs-row { user-select: none; }
 .hm-bs-shield { position: fixed; inset: 0; z-index: var(--z-shield); cursor: grabbing; touch-action: none; }
@@ -391,7 +405,7 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 
 /* Command palette (Ctrl/Cmd+K): a .hm-dialog; the list scrolls inside it. */
 .hm-bs-cmdk__list { list-style: none; margin: 0; padding: 0; max-block-size: min(24rem, 55vh); overflow: auto; }
-.hm-bs-cmdk__g { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-semibold); text-transform: uppercase; color: var(--color-hai); }
+.hm-bs-cmdk__g { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
 .hm-bs-cmdk__o { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
 .hm-bs-cmdk__o:hover { background: var(--surface-hover); }
 .hm-bs-cmdk__o[aria-selected="true"] { background: var(--surface-hover); outline: 2px solid var(--text); outline-offset: -2px; }

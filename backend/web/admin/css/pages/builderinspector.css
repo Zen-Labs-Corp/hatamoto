@@ -10,7 +10,8 @@
 .hm-bs-sub { display: block; padding-inline: var(--space-1); color: var(--text-muted); font-size: var(--text-xs); }
 .hm-bs-sublink { min-block-size: 24px; padding: 0; font: inherit; color: var(--color-accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
 .hm-bs-sublink:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.hm-bs-more { flex: 0 0 auto; }
+.hm-bs-more { flex: 0 0 auto; inline-size: var(--control-h-sm); padding: 0; justify-content: center; }
+.hm-bs-more .hm-icon { inline-size: 16px; block-size: 16px; }
 .hm-bs-class { margin-bottom: var(--space-3); }
 .hm-bs-classrow { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .hm-bs-classrow .hm-field__label { margin: 0; }
@@ -41,7 +42,7 @@
 .hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "cap cap cap" ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-0-5); min-width: 0; padding: var(--space-1); border-radius: var(--radius-md); }
 .hm-bs-bm__m { border: 1px dashed var(--color-guide-margin); background: color-mix(in srgb, var(--color-guide-margin) 10%, var(--surface)); }
 .hm-bs-bm__p { border: 1px dashed var(--color-guide-pad); background: color-mix(in srgb, var(--color-guide-pad) 10%, var(--surface)); }
-.hm-bs-bm__t { grid-area: cap; justify-self: start; pointer-events: none; /* its own row: the caption can never sit on the top number */ font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-body); }
+.hm-bs-bm__t { grid-area: cap; justify-self: start; pointer-events: none; /* its own row: the caption can never sit on the top number */ font-size: var(--text-xs); font-weight: var(--weight-medium); color: color-mix(in srgb, var(--text-muted) 65%, var(--text)); } /* on the tinted ring: plain muted misses 4.5:1 */
 .hm-bs-bm__c { grid-area: c; justify-self: stretch; display: flex; align-items: center; justify-content: center; align-self: stretch; min-width: 0; }
 .hm-bs-bm__c:has(> .hm-bs-bm__el) { overflow: hidden; container-type: inline-size; } /* a centre too narrow for the size text clips it instead of painting over the side numbers */
 .hm-bs-bm__c > .hm-bs-bm__p { flex: 1 1 0; }

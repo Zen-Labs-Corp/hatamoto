@@ -43,8 +43,7 @@ const ITEMS = [
 
 /** The server-rendered icon-only x button <template data-hm-bs-actx>; a plain button when the template is absent. */
 function dismissButton(onclick) {
-  const e = document.querySelector?.("template[data-hm-bs-actx]")?.content.firstElementChild?.cloneNode(true) ?? h("button", { type: "button", text: "x" });
-  e.setAttribute("aria-label", "Dismiss hints");
+  const e = document.querySelector?.("template[data-hm-bs-actx]")?.content.firstElementChild?.cloneNode(true) ?? h("button", { type: "button", text: "x", "aria-label": "Dismiss hints" });
   e.addEventListener("click", onclick);
   return e;
 }

@@ -290,7 +290,7 @@ the page is, or only how the same data is shown?
   editor's Post / SEO and AEO tabs, the builder inspector's Content / Style / Advanced
   tabs and the shared SEO panel's Search / Social / Schema / Advanced tabs (`hm/seopanel`,
   module `@hm/seopanel`, shown stacked under their headings without JavaScript), use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
-  accent underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
+  ink underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
   rules. The builder's phone tabs (Navigator, Add, Inspector, below 960px) are not segmented: they are `.hm-bs__dock-btn` buttons in a fixed bottom bar, and the selected tab has a kasumi fill with an ink top line (see Selected state).
 
 | Choice | Row | Why |
@@ -561,15 +561,15 @@ A status filter in a list toolbar may be a radio `hm/segmented` that filters the
 One rule for what "selected" looks like, so no screen invents its own:
 
 - **A choice among siblings** (one value out of a short row) is a **paper pill with a hairline ring and a bottom bevel** and a semibold label: `hm/segmented` and the pill row `hm/tabs` `Variant "segmented"`. The standalone builder toggles (the phone dock tabs, the inspector value and link buttons) use a kasumi fill with a 1px ink ring; a hovered unselected inspector option gets the shiro fill and a darker ring. In forced-colors mode every selected control also gets a `Highlight` outline.
-- **A tab that switches a panel or page** is an **accent underline**: `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
+- **A tab that switches a panel or page** is an **ink underline** (`--color-sumi`, with ink text): `hm/tabs` and the JS `.hm-tablist` rows (blog editor, builder inspector, SEO panel).
 - **An item in a list or grid** (media tiles, the media picker tile, radio cards; the builder Navigator excepted, see below) is an **ink ring** (2px, `--text`); a check badge on the tile is the non-colour cue.
 
-Accent is for tabs, links and focus; ink is for selection (the builder Navigator is the one exception below). Both inks invert in dark mode through the tokens.
+Accent is for links and focus; ink is for selection and tabs (the builder Navigator is the one exception below). Both inks invert in dark mode through the tokens.
 
 **Deliberate exceptions** (parked, each with its reason; do not copy them into new screens):
 
 - `.hm-bs-opt[aria-pressed="true"]` (the builder inspector's small value buttons, such as spacing and size steps) and the phone dock tabs: a kasumi fill with an ink ring, not a paper pill. They are standalone buttons in a dense inspector, not a track of siblings.
-- `.hm-bs-row[aria-selected="true"]` (the builder Navigator): a solid accent fill with on-accent text (`--color-paper`), and the section that contains the selection gets an accent-soft band (`.hm-bs-row--band`). The Navigator is a dense two-level tree where the selection has to read at a glance, and the canvas marks the same node in the same accent. Non-colour cues stay: `aria-selected`, a `Highlight` outline in forced-colors mode and the focus ring (drawn inward in the on-accent colour, since an accent ring would vanish on the accent fill; `Highlight` in forced-colors mode).
+- `.hm-bs-row[aria-selected="true"]` (the builder Navigator): an accent-soft tint (`--color-accent-soft`) with a full 1px accent outline and a 3px inset accent edge (both `--color-accent`, over 3:1 on the tint) and ink text. The section that contains the selection gets a band that is lighter than the selected tint (`.hm-bs-row--band`), and hover (`--surface-hover`, no edge) differs from both. The Navigator is a dense two-level tree where the selection has to read at a glance, and the canvas marks the same node in the same accent. Non-colour cues stay: `aria-selected`, the focus ring (`--focus-ring`, drawn inward) and a `Highlight` outline in forced-colors mode.
 - `.hm-menutree__item[data-hm-selected]` (the menu editor): an accent border and a 3px inset accent edge, not ink. The tree is a dense list where the row being edited has to read at a glance, as in the Navigator above. The row's up and down buttons stay visible in script mode (touch targets), never hover-only.
 - `.hm-theme--active` (Themes page): an accent 1px ring on the active theme card. It marks "in use on the site", not a pending choice, so it follows the accent of the Active badge it carries.
 - `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the 1px ink ring and kasumi fill of a pressed button.
