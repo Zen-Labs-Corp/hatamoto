@@ -12,4 +12,5 @@
 .hm-errorpage { padding: var(--space-6); }
 .hm-empty--regular .hm-empty__title { font-weight: var(--weight-regular); color: var(--text-muted); }
 .hm-empty--plain h1.hm-empty__title { font-size: var(--text-2xl); font-weight: var(--weight-medium); }
-.hm-errorpage--page { padding: calc(var(--space-12) * 2) 0; }
+/* Unframed full-page 404 inside the shell. */
+.hm-errorscreen { padding: calc(var(--space-12) * 2) 0; }
