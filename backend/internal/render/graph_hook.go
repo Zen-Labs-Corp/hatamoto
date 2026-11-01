@@ -30,8 +30,9 @@ type SiteGraphFilter func(ctx context.Context, in SiteGraphInput) SiteGraphInput
 var siteGraphFilterTimeout = 2 * time.Second
 
 // applySiteGraphFilter runs f with a deadline. A nil filter, a panic or a
-// timeout returns in unchanged (fail-open); the last two also mark the render
-// degraded so the page is not cached.
+// timeout returns no nodes (fail-open: nothing to merge); the last two also mark
+// the render degraded so the page is not cached. A timed-out filter may still be
+// writing to the maps it was given, so they are never read again.
 func applySiteGraphFilter(ctx context.Context, f SiteGraphFilter, in SiteGraphInput) SiteGraphInput {
 	if f == nil {
 		return in
@@ -43,7 +44,7 @@ func applySiteGraphFilter(ctx context.Context, f SiteGraphFilter, in SiteGraphIn
 		defer func() {
 			if recover() != nil {
 				NoteDegradedCtx(ctx)
-				done <- in
+				done <- SiteGraphInput{}
 			}
 		}()
 		done <- f(ctx, in)
@@ -53,7 +54,7 @@ func applySiteGraphFilter(ctx context.Context, f SiteGraphFilter, in SiteGraphIn
 		return out
 	case <-ctx.Done():
 		NoteDegradedCtx(ctx)
-		return in
+		return SiteGraphInput{}
 	}
 }
 

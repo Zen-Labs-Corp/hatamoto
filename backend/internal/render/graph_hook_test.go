@@ -213,3 +213,22 @@ func TestSiteGraphFilter_NilFilterAndReplace(t *testing.T) {
 		t.Error("the core graph stayed, so the hook must run")
 	}
 }
+
+func TestApplySiteGraphFilter_TimeoutAndPanicReturnNoNodes(t *testing.T) {
+	old := siteGraphFilterTimeout
+	siteGraphFilterTimeout = 20 * time.Millisecond
+	defer func() { siteGraphFilterTimeout = old }()
+
+	in := SiteGraphInput{Nodes: []map[string]any{{"@id": "a"}}}
+	for name, f := range map[string]SiteGraphFilter{
+		"panic": func(context.Context, SiteGraphInput) SiteGraphInput { panic("boom") },
+		"slow": func(context.Context, SiteGraphInput) SiteGraphInput {
+			time.Sleep(200 * time.Millisecond)
+			return SiteGraphInput{}
+		},
+	} {
+		if out := applySiteGraphFilter(context.Background(), f, in); out.Nodes != nil {
+			t.Errorf("%s: nodes = %v, want none (the filter may still own them)", name, out.Nodes)
+		}
+	}
+}
