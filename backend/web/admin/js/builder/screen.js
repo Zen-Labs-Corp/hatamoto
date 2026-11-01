@@ -47,7 +47,7 @@ function start(root, boot) {
   let st = createStore(boot.doc);
   let selected = null; // the primary selection: the element the inspector shows (the last one picked)
   let selection = new Set(); // every selected id, the primary included
-  let addTarget = null; // {parent, index}: where a "+" asked the Add tab to insert; the next insert uses it
+  let addTarget = null; // {parent, index}: where a "+" asked the Insert tab to insert; the next insert uses it
   let anchor = null; // where a Shift-click range starts
   let device = "base";
   let styleTable = null;
@@ -315,7 +315,7 @@ function start(root, boot) {
     addTarget = null;
     return item.kind === "template" || item.kind === "block" ? insertReuse(item, pos, o) : insertItem(item, pos, o);
   };
-  // The left pane's tabs; the Add tab's body is the lazy addtab.js, mounted the first time the tab shows.
+  // The left pane's tabs; the Insert tab's body is the lazy addtab.js, mounted the first time the tab shows.
   let palette = null;
   const paletteChunk = lazy(() =>
     import("@hm/builder/addtab").then((m) => {
@@ -333,12 +333,12 @@ function start(root, boot) {
       return palette;
     }),
   );
-  const openPalette = (patterns = false) => paletteChunk().then((p) => (patterns ? p.showPatterns() : p.open())).catch(() => warn("The Add tab did not load. Reload the page."));
+  const openPalette = (patterns = false) => paletteChunk().then((p) => (patterns ? p.showPatterns() : p.open())).catch(() => warn("The Insert tab did not load. Reload the page."));
   // Phone: the dock opens the left pane (on its Navigator or Add tab) or the Inspector as a sheet over the page.
   const dock = mountDock(root, (name) => name !== "insp" && leftTabs.pick(name));
   const phonePane = (name) => dock.stacked() && dock.pick(name);
   const leftTabs = mountLeftTabs(root, (name) => {
-    if (name === "add") paletteChunk().catch(() => warn("The Add tab did not load. Reload the page."));
+    if (name === "add") paletteChunk().catch(() => warn("The Insert tab did not load. Reload the page."));
     if (dock.stacked() && ["nav", "add"].includes(root.dataset.hmBsTab)) dock.show(name); // the tab inside the sheet follows the dock
   });
   $(root, "[data-hm-bs-addbtn]")?.addEventListener("click", () => dispatch("palette"));
@@ -430,7 +430,7 @@ function start(root, boot) {
   idle(() => labelChunk().catch(() => {}));
   idle(() => clipChunk().catch(() => {}));
   idle(() => sheetChunk().catch(() => {})); // the shortcut sheet, so "?" opens it at once
-  idle(() => commandChunk().then(paletteChunk).catch(() => {})); // + the Add tab
+  idle(() => commandChunk().then(paletteChunk).catch(() => {})); // + the Insert tab
   idle(() => import("@hm/builder/fields").then((m) => m.prefetch()).catch(() => {})); // the section-form chunks (editor kit, repeater, content), likewise
   const decls = (_node, bp, key, value) => {
     const entry = styleTable?.find((e) => e.key === key);
@@ -602,7 +602,7 @@ function start(root, boot) {
           restore: () => tree.focus(),
           onPick: (l) => add(l.make(), l.name),
           onChoose: (r) => {
-            addTarget = pos; // the next insert from the Add tab goes here
+            addTarget = pos; // the next insert from the Insert tab goes here
             announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to add at position ${pos.index + 1}`);
             showAdd(r.mode === "pattern");
           },
@@ -611,7 +611,7 @@ function start(root, boot) {
       .catch(() => warn("The layout picker did not load. Reload the page."));
   }
 
-  /** keepOpen (Shift+Enter in the Add tab): the search keeps the focus and the filter, ready for the next one. */
+  /** keepOpen (Shift+Enter in the Insert tab): the search keeps the focus and the filter, ready for the next one. */
   function insertItem(item, pos, { keepOpen = false } = {}) {
     const node = makeNode(item, boot.kinds);
     const at = pos ?? insertPoint(st.doc, selected, boot.kinds);
@@ -1069,7 +1069,7 @@ function start(root, boot) {
     },
   };
 
-  // An empty page opens the Add tab and a start panel of patterns; two hints show once per user.
+  // An empty page opens the Insert tab and a start panel of patterns; two hints show once per user.
   if (!st.doc.nodes.length) {
     leftTabs.pick("add");
     startChunk()

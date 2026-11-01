@@ -42,13 +42,13 @@
 <template data-hm-bs-ico><span data-ico="heading">{{icon "heading"}}</span><span data-ico="file-text">{{icon "file-text"}}</span><span data-ico="link">{{icon "link"}}</span><span data-ico="image">{{icon "image"}}</span><span data-ico="minus">{{icon "minus"}}</span><span data-ico="maximize">{{icon "maximize"}}</span><span data-ico="layout">{{icon "layout"}}</span><span data-ico="layers">{{icon "layers"}}</span><span data-ico="copy">{{icon "copy"}}</span><span data-ico="list">{{icon "list"}}</span><span data-ico="puzzle">{{icon "puzzle"}}</span><span data-ico="code">{{icon "code"}}</span><span data-ico="eye">{{icon "eye"}}</span><span data-ico="eye-off">{{icon "eye-off"}}</span><span data-ico="more">{{icon "more"}}</span><span data-ico="plus">{{icon "plus"}}</span><span data-ico="arrow-up">{{icon "arrow-up"}}</span><span data-ico="arrow-down">{{icon "arrow-down"}}</span><span data-ico="trash">{{icon "trash"}}</span></template>
 <div class="hm-bs__dock" aria-label="Builder panes" hidden data-hm-bs-js data-hm-bs-dock>
 <button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-nav" aria-controls="hm-bs-nav" data-hm-bs-dock="nav">Navigator</button>
-<button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-add" aria-controls="hm-bs-nav" data-hm-bs-dock="add">Add</button>
+<button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-add" aria-controls="hm-bs-nav" data-hm-bs-dock="add">Insert</button>
 <button type="button" class="hm-bs__dock-btn" id="hm-bs-dock-insp" aria-controls="hm-bs-inspector" data-hm-bs-dock="insp">Inspector</button>
 </div>
 <div class="hm-bs__nav" id="hm-bs-nav" data-hm-bs-pane="nav">
 <div class="hm-bs__ltabs" hidden data-hm-bs-js><div class="hm-tablist" role="tablist" aria-label="Left pane" data-hm-bs-ltabs>
 <button type="button" class="hm-tablist__tab" role="tab" id="hm-bs-ltab-nav" aria-selected="true" aria-controls="hm-bs-lp-nav" data-hm-bs-ltab="nav">Navigator</button>
-<button type="button" class="hm-tablist__tab" role="tab" id="hm-bs-ltab-add" aria-selected="false" tabindex="-1" aria-controls="hm-bs-lp-add" data-hm-bs-ltab="add">Add</button>
+<button type="button" class="hm-tablist__tab" role="tab" id="hm-bs-ltab-add" aria-selected="false" tabindex="-1" aria-controls="hm-bs-lp-add" data-hm-bs-ltab="add">Insert</button>
 </div></div>
 <div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-nav" aria-labelledby="hm-bs-ltab-nav" data-hm-bs-lpanel="nav"><nav aria-label="Navigator">
 <div class="hm-bs__navbar" hidden data-hm-bs-js data-hm-bs-navbar><input type="search" class="hm-field__control" placeholder="Filter elements…" aria-label="Filter elements" data-hm-bs-filter>{{template "hm/button" (dict "Label" "Collapse all" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-collapse" ""))}}{{template "hm/button" (dict "Label" "Rename" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-rename" "" "disabled" "disabled"))}}</div>
@@ -56,8 +56,8 @@
 {{if .Data.Shell.UsageLoaded}}<details class="hm-bs__usage" data-hm-bs-usage><summary>{{.Data.Shell.UsageLabel}}</summary>
 {{if .Data.Shell.Usage}}<ul>{{range .Data.Shell.Usage}}<li><a href="{{.Href}}">{{.Name}}</a> <span class="hm-muted">{{.Type}}, {{.Status}}</span></li>{{end}}</ul>
 <p class="hm-muted">Deleting this block leaves a "Missing block" note where it is used.</p>{{else}}{{template "hm/empty" (dict "Title" "No page uses this block yet" "Compact" true)}}{{end}}</details>{{end}}</div>
-<div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-add" aria-labelledby="hm-bs-ltab-add" hidden data-hm-bs-lpanel="add"><section class="hm-bs__pal" aria-label="Add" data-hm-bs-palette></section><div data-hm-bs-reuse></div></div>
-<footer class="hm-bs__navfoot" hidden data-hm-bs-js>{{template "hm/button" (dict "Label" "Add element" "Icon" "plus" "Size" "sm" "Attrs" (attrmap "data-hm-bs-addbtn" "" "aria-keyshortcuts" "/"))}}<span class="hm-editor-bar__spacer"></span>{{template "hm/button" (dict "Label" "Ctrl K" "AriaLabel" "Ctrl K: open command palette" "Icon" "search" "Size" "sm" "Attrs" (attrmap "data-hm-bs-cmdk" "" "aria-keyshortcuts" "Control+K Meta+K" "title" "Search and run commands (Ctrl/Cmd + K)"))}}</footer>
+<div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-add" aria-labelledby="hm-bs-ltab-add" hidden data-hm-bs-lpanel="add"><section class="hm-bs__pal" aria-label="Insert" data-hm-bs-palette></section><div data-hm-bs-reuse></div></div>
+<footer class="hm-bs__navfoot" hidden data-hm-bs-js>{{template "hm/button" (dict "Label" "Add section" "Icon" "plus" "Size" "sm" "Attrs" (attrmap "data-hm-bs-addbtn" "" "aria-keyshortcuts" "/"))}}<span class="hm-editor-bar__spacer"></span>{{template "hm/button" (dict "Label" "Ctrl K" "AriaLabel" "Ctrl K: open command palette" "Icon" "search" "Size" "sm" "Attrs" (attrmap "data-hm-bs-cmdk" "" "aria-keyshortcuts" "Control+K Meta+K" "title" "Search and run commands (Ctrl/Cmd + K)"))}}</footer>
 </div>
 <div class="hm-bs__split hm-bs__split--nav" role="separator" aria-orientation="vertical" aria-label="Resize the navigator pane" aria-controls="hm-bs-nav" tabindex="0" hidden data-hm-bs-js data-hm-bs-split="nav"></div>
 <section class="hm-bs__canvas" id="hm-bs-canvas" aria-label="Page canvas" data-hm-bs-canvas><div class="hm-bs__banner" data-hm-bs-banner></div></section>
