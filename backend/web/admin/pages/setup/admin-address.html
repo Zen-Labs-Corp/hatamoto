@@ -19,7 +19,7 @@
 <div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-candidate" "Name" "candidate_url" "Label" "Your private address" "Value" (print .Addr.Origin .Addr.Candidate) "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-candidate"))}}{{template "hm/button" (dict "Label" "Regenerate" "Icon" "refresh" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "setup" "admin-address" "regenerate") "formnovalidate" ""))}}</div>
 {{template "hm/field" dict "ID" "custom" "Name" "custom" "Label" "Your own address" "Value" .Addr.Custom "Help" (printf "Used when Choose my own is selected. Your address will be %s/ followed by what you type: letters, digits and dashes." .Addr.Origin) "Attrs" (attrmap "autocomplete" "off" "hx-get" (adminPath "setup" "admin-address" "strength") "hx-trigger" "input changed delay:300ms" "hx-target" "#addr-strength" "hx-swap" "innerHTML" "hx-push-url" "false")}}
 <div id="addr-strength" aria-live="polite">{{.Addr.StrengthHTML}}</div>
-<p class="hm-muted">Bookmark this. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.</p>
+{{template "hm/callout-start" (dict "Kind" "info")}}Bookmark this. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.{{template "hm/callout-end"}}
 {{template "hm/foot"}}
 {{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
