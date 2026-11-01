@@ -216,3 +216,42 @@ test("sparkValues sums the datasets or picks one; sparkSummary mirrors the serve
   assert.equal(sparkSummary([0, 0, 0, 4]), "Trend over 4 days: ending higher");
   assert.equal(sparkSummary([0, 0, 0, 0]), "Trend over 4 days: steady");
 });
+
+test("neutral: the named accent gets series 1 and the others cycle the neutral steps", () => {
+  const p = m.buildModel(spec(), { neutral: { accent: "Search index" } }).panels[0];
+  assert.deepEqual(p.series.map((s) => s.seriesIdx), [2, 1, 6]);
+  assert.equal(p.series[1].cls, "hm-viz--series-1");
+});
+
+test("neutral: an accent that is not in the data falls back to the first named series", () => {
+  for (const neutral of [{ accent: "" }, { accent: "Missing" }]) {
+    const p = m.buildModel(spec(), { neutral }).panels[0];
+    assert.deepEqual(p.series.map((s) => s.seriesIdx), [1, 2, 6]);
+  }
+});
+
+test("neutral: Other keeps chart-6 and is never the accent", () => {
+  const p = m.buildModel(spec(), { neutral: { accent: "Other" } }).panels[0];
+  assert.deepEqual(p.series.map((s) => s.seriesIdx), [1, 2, 6]);
+  assert.equal(p.series[2].isOther, true);
+  const only = m.buildModel(spec({ datasets: [{ label: "Other", data: [1, 2, 3, 4] }] }), { neutral: { accent: "Other" } }).panels[0];
+  assert.deepEqual(only.series.map((s) => s.seriesIdx), [6]);
+});
+
+test("neutral: an explicit override wins over the accent and the neutral step", () => {
+  const override = { "Search index": { n: 6 }, Training: { cls: "hm-viz--danger" } };
+  const p = m.buildModel(spec(), { neutral: { accent: "Training" }, override }).panels[0];
+  assert.equal(p.series[0].cls, "hm-viz--danger");
+  assert.equal(p.series[1].seriesIdx, 6);
+});
+
+test("neutral: more named series than steps repeat the steps after the accent", () => {
+  const datasets = ["A", "B", "C", "D", "E", "F"].map((label) => ({ label, data: [1, 1, 1, 1] }));
+  const p = m.buildModel(spec({ datasets }), { neutral: { accent: "A" } }).panels[0];
+  assert.deepEqual(p.series.map((s) => s.seriesIdx), [1, 2, 3, 4, 2, 3]);
+});
+
+test("without neutral the series keep the prototype order", () => {
+  const p = m.buildModel(spec({ datasets: [{ label: "A", data: [1, 1, 1, 1] }, { label: "B", data: [1, 1, 1, 1] }] })).panels[0];
+  assert.deepEqual(p.series.map((s) => s.seriesIdx), [1, 2]);
+});

@@ -410,8 +410,8 @@ its data table; the script draws the SVG over it. No charting library is shipped
   numbers (`--chart-1..6`). "Other" is always last and always `--chart-6`. A series also has a dash and a
   marker shape, so colour is never the only cue (WCAG 1.4.1).
 - **One accent per chart.** A chart that compares categories (`ui.AiaChart.Neutral`) colours one series in the
-  accent (`--chart-1`, `Accent` names it; empty = the first, largest named series) and every other named series in
-  neutral steps (`--chart-2..4`); "Other" keeps `--chart-6`. Amber and red are for problems only (4xx, 5xx, spoofed,
+  accent (`--chart-1`, `Accent` names it; empty, or a name not in the data, = the first named series in the order the server sends) and every other named series in
+  neutral steps (`--chart-2..4`, repeating after three); "Other" keeps `--chart-6`. Amber and red are for problems only (4xx, 5xx, spoofed,
   blocked), set by an explicit `Override`, which wins over the accent mechanism. The Overview hero keeps one panel
   per series with its own axis and draws AI-referred visits in amber (`--chart-5`) by `Override`.
 - **Axis labels** (`.hm-aia-axis`) use `--font-mono`.
