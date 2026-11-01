@@ -6,7 +6,7 @@
 .hm-be > .hm-be__recover { margin: var(--space-3) var(--space-4) 0; }
 .hm-editor-bar__crumbs { min-width: 0; }
 .hm-editor-bar__crumbs .hm-crumbs__list { flex-wrap: nowrap; white-space: nowrap; }
-.hm-editor-bar:has([data-hm-be-status]) .hm-editor-bar__state { max-inline-size: none; overflow: visible; text-overflow: clip; white-space: normal; font-family: var(--font-mono); font-size: var(--text-sm); min-width: 0; }
+.hm-editor-bar__state[data-hm-be-status] { max-inline-size: none; overflow: visible; text-overflow: clip; white-space: normal; font-family: var(--font-mono); font-size: var(--text-sm); min-width: 0; }
 .hm-menu .hm-be__menu-narrow[hidden] { display: none; }
 /* Phones: the bar is two rows (status, then the save buttons); Focus, Toolbar, Preview and Schedule move into the menu. */
 @media (max-width: 45rem) {

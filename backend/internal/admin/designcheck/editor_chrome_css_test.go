@@ -41,4 +41,8 @@ func TestEditorsCSSRules(t *testing.T) {
 	if !strings.Contains(css, "--bs-nav-band: color-mix(") {
 		t.Error("the Navigator band must be lighter than the selected tint")
 	}
+
+	if !strings.Contains(css, "inline-size: min(max(var(--hm-bs-insp), 22.5rem), 100%)") {
+		t.Error("the .hm-bs__seo drawer width needs a 22.5rem floor: --hm-bs-insp is 0px while the inspector is hidden")
+	}
 }
