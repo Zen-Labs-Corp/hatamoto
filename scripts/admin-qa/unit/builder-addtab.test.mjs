@@ -1,4 +1,4 @@
-// The Add tab's "Show all patterns" toggle keeps focus and says whether it is expanded.
+// The Insert tab's "Show all patterns" toggle keeps focus and says whether it is expanded.
 // Run: node --test scripts/admin-qa/unit/builder-addtab.test.mjs
 import { register } from "node:module";
 import { test } from "node:test";
@@ -55,4 +55,21 @@ test("Show all patterns: the same button keeps focus, aria-expanded flips, and m
   first.click();
   assert.equal(document.activeElement, first);
   assert.equal(first.getAttribute("aria-expanded"), "false");
+});
+
+test("Insert tab: section cards (thumbnail, name, hint) and a block grid of data-pal buttons", () => {
+  const kinds = [{ kind: "container", children: true }, { kind: "heading", label: "Heading", hint: "A headline", group: "Elements" }];
+  const host = new El("div");
+  body.append(host);
+  const p = mountPalette(host, { kinds, sections: [{ type: "hero", title: "Hero" }], onInsert() {}, storage: { getItem: () => null, setItem() {} } });
+  const groups = p.el.walk().filter((n) => n.tag === "section");
+  assert.deepEqual(groups.map((g) => g.attrs["aria-label"]), ["Sections", "Blocks"]);
+  const cards = groups[0].walk().filter((n) => n.tag === "button" && "data-pal" in n.attrs);
+  assert.equal(cards.length, 1);
+  assert.ok(cards[0].walk().some((n) => n.tag === "svg"), "a thumbnail");
+  const spans = cards[0].walk().filter((n) => n.tag === "span");
+  assert.deepEqual(spans.map((n) => n.textContent), ["Hero", "Theme section"]);
+  const blocks = groups[1].walk().filter((n) => n.tag === "button");
+  assert.deepEqual(blocks.map((b) => b.dataset.pal), ["container", "heading"]);
+  assert.ok(blocks.every((b) => b.attrs.class.includes("hm-bs-pal__blk")));
 });

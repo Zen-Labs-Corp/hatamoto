@@ -1,9 +1,10 @@
-// The Add tab body (a lazy chunk, mounted the first time the tab opens): a search field and the
-// palette items as two-column tiles. The panel is inline (a modal would block dragging onto the
+// The Insert tab body (a lazy chunk, mounted the first time the tab opens): a search field, section
+// cards (patterns, added after the selected section) and a block grid (added into it). The panel is inline (a modal would block dragging onto the
 // canvas); tiles are buttons, so Enter/Space insert, and a press-and-move starts a drag (drag.js).
 // Recent (the last inserts, per user) and the Patterns thumbnails come from the lazy recent.js and patterns.js.
 import { h } from "@hm/builder/dom";
-import { GROUP_ORDER, itemsOf, makeNode } from "@hm/builder/palette";
+import { GROUP_ORDER, insertSplit, itemsOf, makeNode } from "@hm/builder/palette";
+import { ICON_FOR } from "@hm/builder/navigator";
 import { filterItems, rank } from "@hm/builder/search";
 import * as recent from "@hm/builder/recent";
 import { patternRow, shapeOf, templateShapes, thumb } from "@hm/builder/patterns";
@@ -40,35 +41,43 @@ export function mountPalette(root, { kinds, sections, onInsert, announce = () =>
     // The insert asks the Navigator to focus the new row on the next frame; a hidden tab cannot take focus, so a keyboard insert shows it.
     if (o.keyboard && !o.keepOpen) root.closest("[data-hm-builder]")?.querySelector('[data-hm-bs-ltab="nav"]')?.click();
   };
-  root.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: "hm-bs-pal-q", text: "Search elements and patterns" }), search), list);
+  root.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: "hm-bs-pal-q", text: "Search blocks and sections" }), search), list);
 
-  const tile = (i, group) => {
-    const pat = group === "Patterns";
-    return h("li", {}, h("button", { type: "button", class: `hm-bs-pal__item${pat ? " hm-bs-pal__item--pat" : ""}`, "data-pal": i.key, title: `${i.name}${i.hint ? `: ${i.hint}` : ""}. Click or Enter to add, or drag onto the page.` }, pat && thumb(shapeFor(i)), h("span", { class: "hm-bs-pal__n", text: i.name })));
+  const where = (i) => `${i.name}${i.hint ? `: ${i.hint}` : ""}. Click or Enter to insert, or drag onto the page.`;
+  const btn = (i, cls, ...kids) => h("button", { type: "button", class: cls, "data-pal": i.key, title: where(i) }, ...kids);
+  const tile = (i) => h("li", {}, btn(i, "hm-bs-pal__item", h("span", { class: "hm-bs-pal__n", text: i.name })));
+  const card = (i) => h("li", {}, btn(i, "hm-bs-pal__item hm-bs-pal__item--pat hm-bs-pal__card", thumb(shapeFor(i)), h("span", { class: "hm-bs-pal__n", text: i.name }), h("span", { class: "hm-bs-pal__h", text: i.hint || i.description || "" })));
+  const icon = (i) => {
+    const name = ICON_FOR[i.kind];
+    return name && document.querySelector("template[data-hm-bs-ico]")?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true);
   };
+  const blk = (i) => h("li", {}, btn(i, "hm-bs-pal__item hm-bs-pal__blk", h("span", { class: "hm-bs-pal__ico", "aria-hidden": "true" }, icon(i) || null), h("span", { class: "hm-bs-pal__n", text: i.name })));
+  const group = (label, sub, list, extra) => h("section", { class: `hm-bs-pal__g${sub ? " hm-bs-pal__g--cards" : ""}`, "aria-label": label }, h("h3", { class: "hm-bs-pal__t", text: label }), sub && h("p", { class: "hm-bs-pal__sub", text: sub }), list, extra);
 
   function paint(say = false) {
     const shown = rank(filterItems(all(), search.value), search.value);
-    const order = (g) => (GROUP_ORDER.includes(g) ? GROUP_ORDER.indexOf(g) : GROUP_ORDER.length);
-    const seen = [...new Set(shown.map((i) => i.group))];
-    const groups = search.value.trim() ? seen : seen.sort((a, b) => order(a) - order(b)); // a search keeps the group of the best match first, so Enter inserts that
-    const rows = new Map(groups.map((g) => [g, shown.filter((i) => i.group === g)]));
-    if (!search.value.trim()) {
-      const last = recent.load(user, storage).map(byKey).filter(Boolean);
-      if (last.length) (groups.unshift("Recent"), rows.set("Recent", last));
-    }
     const searching = !!search.value.trim();
+    const split = insertSplit(shown);
+    const order = (g) => (GROUP_ORDER.includes(g) ? GROUP_ORDER.indexOf(g) : GROUP_ORDER.length);
+    const restGroups = [...new Set(split.rest.map((i) => i.group))].sort((a, b) => order(a) - order(b));
+    const pats = patternRow(split.sections, allPatterns || searching);
     const hadFocus = document.activeElement === toggle;
-    toggleLabel(allPatterns ? "Show fewer patterns" : `Show all patterns (${patternRow(rows.get("Patterns") ?? [], true).total})`);
+    toggleLabel(allPatterns ? "Show fewer patterns" : `Show all patterns (${patternRow(split.sections, true).total})`);
     toggle.setAttribute("aria-expanded", String(allPatterns));
-    const pats = patternRow(rows.get("Patterns") ?? [], allPatterns || searching);
-    list.replaceChildren(
-      ...groups.map((g) => {
-        const tiles = g === "Patterns" && !searching ? pats.shown : rows.get(g);
-        const more = g === "Patterns" && !searching && pats.more && toggle;
-        return h("section", { class: "hm-bs-pal__g", "aria-label": g }, h("h3", { class: "hm-bs-pal__t", text: g }), h("ul", { class: "hm-bs-pal__list" }, ...tiles.map((i) => tile(i, g))), more);
-      }),
-    );
+    // [items, element]: a search puts the list holding the best match first, so Enter inserts that.
+    const parts = [];
+    if (split.sections.length) parts.push([split.sections, group("Sections", "added after the selected one", h("ul", { class: "hm-bs-pal__list" }, ...pats.shown.map(card)), pats.more && toggle)]);
+    if (split.blocks.length) parts.push([split.blocks, group("Blocks", "added into the selected section", h("ul", { class: "hm-bs-pal__grid" }, ...split.blocks.map(blk)))]);
+    for (const g of restGroups) {
+      const items = split.rest.filter((i) => i.group === g);
+      parts.push([items, group(g === "Blocks" ? "Saved blocks" : g, "", h("ul", { class: "hm-bs-pal__list" }, ...items.map(tile)))]);
+    }
+    if (searching) parts.sort((x, y) => Number(y[0].includes(shown[0])) - Number(x[0].includes(shown[0])));
+    else {
+      const last = recent.load(user, storage).map(byKey).filter(Boolean);
+      if (last.length) parts.unshift([last, group("Recent", "", h("ul", { class: "hm-bs-pal__list" }, ...last.map(tile)))]);
+    }
+    list.replaceChildren(...parts.map((x) => x[1]));
     if (hadFocus) toggle.focus(); // replaceChildren detached the focused button
     if (!shown.length) list.append(h("p", { class: "hm-muted", text: "Nothing matches." }));
     if (say) announce(`${shown.length} ${shown.length === 1 ? "match" : "matches"}`);
