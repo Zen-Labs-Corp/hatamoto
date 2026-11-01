@@ -34,7 +34,7 @@
 .hm-bs__h { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs__navbar { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; margin-block-end: var(--space-2); }
 .hm-bs__navbar[hidden] { display: none; }
-.hm-bs__navbar input { flex: 1 1 100%; }
+.hm-bs__navbar input { flex: 1 1 0; min-inline-size: 0; }
 .hm-bs__canvas { position: relative; min-width: 0; min-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--color-kasumi); border-block-start: 1px solid var(--border); }
 .hm-bs__canvas:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -120,8 +120,8 @@
 
 /* Navigator tree: flat rows (one li each), indent by aria-level. */
 .hm-bs-tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-/* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is a documented accent exception (ADMIN_UI_RULES, Selected state). */
-.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: var(--color-accent-soft); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
+/* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is an accent-soft tint with a 1px accent hairline (ADMIN_UI_RULES, Selected state). */
+.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 36px; --bs-nav-block-h: 32px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: var(--color-accent-soft); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
 .hm-bs-row { position: relative; display: flex; align-items: center; gap: var(--space-1-5); min-block-size: var(--bs-nav-block-h); padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; color: var(--text); font-size: var(--text-sm); }
 .hm-bs-row--section { min-block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--space-bs-gap); }
 .hm-bs-row--section:first-child { margin-block-start: 0; }
@@ -159,12 +159,10 @@
 .hm-bs-gap:hover .hm-bs-gap__btn { display: inline-flex; }
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band, .hm-bs-row--band:hover { background: var(--bs-nav-band); }
-.hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: var(--bs-nav-on-accent); }
+.hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--color-accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent); }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
-.hm-bs-row[aria-selected="true"]:focus-visible { outline-color: var(--bs-nav-on-accent); outline-offset: -4px; }
+.hm-bs-row[aria-selected="true"]:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 @media (forced-colors: active) { .hm-bs-row[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }
 .hm-bs-row__caret { flex: none; display: inline-block; inline-size: calc(1em + var(--space-1)); }
 .hm-bs-row [data-caret]::before { content: "\25B8"; display: inline-block; width: 1em; }
