@@ -4,7 +4,7 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from "@hm/builder/navigator";
-import { hideTarget, selectionInfo, sectionOf } from "@hm/builder/selinfo";
+import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
 import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
@@ -254,7 +254,7 @@ function start(root, boot) {
       },
       onContextMenu: (id, _k, x, y) => showMenu(id, x, y, true),
       // "k" from a text edit is "insert link"; from the page it is the command palette (keyAction)
-      onKey: (key, shift, ctx) => (key === "k" && ctx?.editing ? withBar((b) => b.link()) : keyAction(key, shift)),
+      onKey: (key, shift, ctx) => (key === "k" && ctx?.editing ? withBar((b) => b.link()) : keyAction(key, shift, ctx)),
       onDrift: () => renderer.stage(),
       onFrameLost: () => renderer.stage(),
       onSwap: () => (ui.b?.hide(), ui.i?.reset(), preview.ready()), // a new frame has no edit: no bar, and the next one is a new undo step
@@ -900,6 +900,15 @@ function start(root, boot) {
       case "outdent":
       case "indent":
         return moveSelected(action);
+      case "parent":
+        return select(parentOf(st.doc, selected));
+      case "prevsection":
+      case "nextsection":
+        return select(stepSection(st.doc, selected, action === "prevsection" ? -1 : 1));
+      case "enter": {
+        const n = selected && find(st.doc, selected);
+        return ownsText(n) ? dispatch("edittext") : select(firstChildOf(st.doc, selected));
+      }
       case "rename":
         panes.toggle("nav", true); // the name is typed into the structure row
         leftTabs.pick("nav");
@@ -912,11 +921,40 @@ function start(root, boot) {
     }
   }
 
-  // Keys from the canvas frame arrive as the bridge's {key, shift}.
-  function keyAction(key, shift) {
-    const e = key === "Delete" ? { key } : { key, ctrlKey: true, shiftKey: shift };
+  /** Whether a page or canvas key would change anything now: a key that would do nothing is left to the browser. */
+  function acts(action) {
+    const n = selected && find(st.doc, selected);
+    switch (action) {
+      case "parent":
+        return !!parentOf(st.doc, selected) && !document.querySelector(":popover-open, dialog[open]");
+      case "prevsection":
+      case "nextsection":
+        return !!stepSection(st.doc, selected, action === "prevsection" ? -1 : 1);
+      case "enter":
+        return ownsText(n) || !!firstChildOf(st.doc, selected);
+      case "moveup":
+      case "movedown":
+        return !!moveOp(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected, action, boot.kinds);
+      default:
+        return true;
+    }
+  }
+
+  /** Runs a keyed action; false (nothing done) for a no-op. The device keys are the top bar's own buttons. */
+  function perform(action, fromCanvas) {
+    if (!acts(action)) return false;
+    if (action.startsWith("device-")) runCommand(action);
+    else dispatch(action, fromCanvas);
+    return true;
+  }
+
+  // Keys from the canvas frame arrive as the bridge's {key, shift} plus optional alt and mod. An absent mod is the
+  // older frame: every key but Delete is a Ctrl chord; mod:false marks a plain key (never a Ctrl chord).
+  function keyAction(key, shift, c = {}) {
+    const mod = c.mod ?? key !== "Delete";
+    const e = { key, ctrlKey: mod, shiftKey: shift, altKey: !!c.alt };
     const action = resolveKey(e, { free: true, selected: !!selected });
-    if (action) dispatch(action);
+    if (action) perform(action, true);
   }
 
   document.addEventListener("keydown", (e) => {
@@ -931,9 +969,8 @@ function start(root, boot) {
       range: !!getSelection()?.toString(),
     };
     const action = resolveKey(e, ctx);
-    if (!action) return;
-    e.preventDefault();
-    dispatch(action);
+    if (!action || (action === "parent" && e.defaultPrevented)) return;
+    if (perform(action, false)) e.preventDefault();
   });
 
   const noteKey = `hm-builder-note:${boot.entity}`;
