@@ -5,15 +5,15 @@
 {{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
 {{with .Body}}<div class="hm-stack">
 <h2 class="hm-visually-hidden">Googlebot activity</h2>
-{{if .Banner}}{{template "hm/callout-start" (dict "Kind" "info" "ID" "w-g-connect")}}Connect Search Console (plugin) to add impressions, clicks, position and index status.{{template "hm/callout-end"}}{{end}}
+{{if .Banner}}{{template "hm/callout-start" (dict "Kind" "info" "ID" "w-g-connect")}}<a href="{{adminPath}}/plugins/searchconsole/about">Connect Search Console</a> (plugin) to add impressions, clicks, position and index status.{{template "hm/callout-end"}}{{end}}
 <section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
 {{template "hm/aia-chart" .Chart}}
 {{with .Search}}{{template "hm/aia-chart" .}}{{end}}
 {{template "hm/card-start" (dict "ID" "w-g-pages" "Title" "Pages through Google's eyes" "Description" "Published pages and every path Googlebot fetched. Spoofed fetches are left out. Last crawl is the day, not the time." "Heading" "h3")}}
-<form class="hm-row" method="get" action="{{adminPath}}/analytics/google">
+<form class="hm-row" method="get" action="{{adminPath}}/analytics/google" data-hm-autosubmit>
 {{range .Carry}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
 {{template "hm/segmented" .Filter}}
-{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}
+<noscript>{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}</noscript>
 </form>
 {{template "hm/aia-rows" .Rows}}
 {{template "hm/card-end"}}

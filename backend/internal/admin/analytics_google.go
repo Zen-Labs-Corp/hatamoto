@@ -149,7 +149,7 @@ func (a *Admin) buildGoogle(ctx context.Context, q url.Values, rg agents.Range, 
 	p := &googlePage{Banner: !v.SearchPerformance, KPIs: []ui.Stat{crawls, pages, first}}
 	p.Chart = ui.AiaChart{ID: "w-g-crawl", Title: "Crawling", Description: "Googlebot fetches per " + per(rg) + ", stacked by response class.",
 		Src: a.dataURL("google.json", rg, false), Chart: "status", Hero: true,
-		Override: `{"4xx":{"cls":"hm-viz--warning"},"5xx":{"cls":"hm-viz--danger"}}`,
+		Override: `{"2xx":{"n":2},"3xx":{"n":3},"4xx":{"cls":"hm-viz--warning"},"5xx":{"cls":"hm-viz--danger"}}`,
 		Table:    v.statusM.table("Googlebot fetches per day by response class", "Day")}
 
 	var gsc map[string]searchperf.PageStats

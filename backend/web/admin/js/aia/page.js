@@ -235,5 +235,13 @@ export function mountAll(root = document) {
   }
 }
 
+// <form data-hm-autosubmit>: a change in any of its fields submits it (the same hook
+// content.js serves; this module is the only one analytics pages load). Without JS
+// the form shows an Apply button instead.
+document.addEventListener("change", (evt) => {
+  const form = evt.target.closest?.("form[data-hm-autosubmit]");
+  if (form) form.requestSubmit();
+});
+
 mountAll();
 document.addEventListener("htmx:load", (e) => mountAll(e.target));
