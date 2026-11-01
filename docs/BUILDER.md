@@ -407,7 +407,7 @@ the built-in rows, so the site's own type publishes, edits and schedules as befo
 node, class `hm-n-<ref id>`) holding a copy of the block's nodes; their ids are rewritten with the prefix
 `b<hash8 of the block id>_` so two uses, or a page and a block with equal ids, never collide. A page with a ref is builder-only (it has no derived `page_sections`).
 
-Editing: **Save as block…** (Add tab foot, element menu or the `Ctrl+K` palette; a small name dialog) turns the selected node into a new block and puts a `ref` in its
+Editing: **Save as block…** (Insert tab foot, element menu or the `Ctrl+K` palette; a small name dialog) turns the selected node into a new block and puts a `ref` in its
 place in one undo step. Palette group **Blocks** inserts a ref. The ref's inspector shows the block name,
 **Edit block** (opens the block's builder in a new tab, so unsaved page work is never lost), **Detach** and
 **Used on N pages**. A block builder shows **Save block**: there is no autosave and no Publish; a save is live for
@@ -624,8 +624,8 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   `saved` state and whenever the drawer's checks return, not on canvas edits, and a failure leaves the button plain. Editing a field
   marks the page changed, and from then on every save carries a `seo` object; before the first edit no save sends one, so a
   value changed elsewhere is never overwritten. SEO edits are not part of the recovery copy (doc and name only).
-* **Left pane** has two WAI-ARIA tabs with roving arrows, **Navigator** and **Add**, and a permanent footer with
-  **Add element** (the `/` action) and **Ctrl K** (the command palette).
+* **Left pane** has two WAI-ARIA tabs with roving arrows, **Navigator** and **Insert**, and a permanent footer with
+  **Insert** (the `/` action) and **Ctrl K** (the command palette).
   * **Navigator**: an ARIA tree (`role=tree`, `treeitem`, `aria-level`, `aria-expanded`, `aria-selected`, one roving
     tab stop). Rows can be dragged. A toolbar has a Filter box, **Collapse all** and a visible **Rename** button (F2 and
     double-click still rename). Row names come from one map (`kindnames.js`): "Rich text", "Accordion item",
@@ -646,12 +646,12 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
     is solid accent; the section that contains the selection gets a tinted band. Hovering a row shows an eye (hide)
     and a more button (context menu), and hovering the edge between two sections (and below the last) shows
     **+ add section here**, which opens the picker at that position. These are mouse shortcuts only: from the
-    keyboard use `h`, the context menu key or Shift+F10, and **Add element** in the footer. The filter matches the
+    keyboard use `h`, the context menu key or Shift+F10, and **Insert** in the footer. The filter matches the
     component's name too. This is presentation only: the saved document is unchanged.
-  * **Add** (lazy `addtab.js`, mounted on first open): a search field (focused), Recent (last inserts per user,
+  * **Insert** (lazy `addtab.js`, mounted on first open): a search field (focused), Recent (last inserts per user,
     `recent.js`), Patterns (one short row of four with "Show all patterns (N)", drawn thumbnails from `patterns.js`),
     then Layout, Elements, Content, Media, Interactive, Data and Blocks. Search ranks by name first (`search.js`). It is
-    inline, not a modal, so tiles can be dragged. Enter inserts the first tile, Shift+Enter inserts and keeps the
+    inline, not a modal, so cards (and the blocks grid) can be dragged. Enter inserts the first tile, Shift+Enter inserts and keeps the
     search open. The foot has Save as block… and Save as template… (`reuse.js`, with the name dialog `savedialog.js`).
   * Insert position (`insertPoint`): the "+" position through `insertAt`, else after the selection (inside a
     selected container), else the end of the page.
@@ -669,9 +669,9 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   `hm/segmented` control is unchanged.
 * **Start panel** (lazy `startpanel.js`): on a page with no nodes, tiles for hero, features, call to action and FAQ
   first, then the theme's other sections, and "Start blank". It is removed on the first insert by any path.
-* **Coachmarks** (lazy `coachmarks.js`): two notes, "Click to select. Double-click text to type." and "Press / or
-  use Add to insert anything.", each shown until dismissed or the first insert, kept per user in `localStorage`
-  (`hm-builder-hints:<user>`); they do not take focus and honour reduced motion.
+* **Hint bar** (lazy `coachmarks.js`): one note on the canvas, "Click to select", "Double-click text to type", "Drag to resize spacing",
+  "/ to insert" and "Esc for the parent", shown until **Dismiss hints** or the first insert, kept per user in `localStorage`
+  (`hm-builder-hints:<user>`, key `bar`); it does not take focus and honours reduced motion.
 * **Inspector** (right): tabs Content, Style and Advanced. Content shows the props of a native node as plain inputs, or
   the server-rendered form of a component. Style shows one control per StyleSpec key for the active breakpoint; a
   value inherited from a wider breakpoint is shown greyed. Advanced shows the id (read-only), `hidden` and, for
@@ -690,7 +690,7 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   only the builder `tokens.color.accent`; Theme accent and secondary are relabelled in the drawer and are not read by
   the default theme (making them live is a render change, a follow-up). The colour names are one map
   (`colournames.js`, mirrored by Go `builderColourNames`).
-* **Phone** (≤959.98px, `phone.js`, `panes.js`): the panes stack and a bottom dock Navigator / Add / Inspector
+* **Phone** (≤959.98px, `phone.js`, `panes.js`): the panes stack and a bottom dock Navigator / Insert / Inspector
   chooses one; the canvas is the base. Selecting an element opens the Inspector sheet. The device switch and Undo stay
   in the top bar at 640px and below.
 
@@ -812,12 +812,14 @@ Shortcut keys act on the page, never inside a text control (those keep their own
 
 | Keys | Action |
 | --- | --- |
-| Up / Down | previous / next element in the Navigator |
+| Up / Down | previous / next element in the Navigator; on the page (an element selected), the previous / next section |
+| Esc | select the parent of the selected element (not while a dialog or popover is open) |
+| 1 / 2 / 3 | Desktop / Tablet / Phone |
 | Left / Right | collapse or go to the parent / expand or go to the first child |
 | Home / End | first / last element |
-| Alt+Up / Alt+Down | move among siblings |
+| Alt+Up / Alt+Down | move among siblings (also from the page) |
 | Alt+Left / Alt+Right | outdent (after the parent) / indent (into the previous container) |
-| Delete | remove |
+| Delete, Backspace | remove |
 | Ctrl/Cmd+D | duplicate |
 | Ctrl/Cmd+C / Ctrl/Cmd+X / Ctrl/Cmd+V | copy, cut, paste after the selection (the system clipboard, so it also pastes on another page) |
 | Ctrl/Cmd+G / Ctrl/Cmd+Shift+G | wrap the selection in a container / unwrap a container |
@@ -830,14 +832,14 @@ Shortcut keys act on the page, never inside a text control (those keep their own
 | Ctrl/Cmd+Z | undo |
 | Ctrl/Cmd+Shift+Z, Ctrl+Y | redo |
 | Ctrl/Cmd+S | save |
-| Enter | on the page or canvas: edit the selected element's own text (a text or heading); in the Navigator: open its settings in the inspector |
+| Enter | on the page or canvas: edit the selected element's own text (a text or heading), else select its first child; in the Navigator: open its settings in the inspector |
 | Ctrl/Cmd+K | command palette, also from the canvas frame (in a canvas text edit: insert link) |
 | Ctrl/Cmd+Alt+[ / Ctrl/Cmd+Alt+] | show or hide the Navigator / the Inspector |
-| `/`, `A` | open the Add tab with its search focused (Shift+Enter in the search inserts and keeps it open) |
+| `/`, `A` | open the Insert tab with its search focused (Shift+Enter in the search inserts and keeps it open) |
 | `?` | shortcut sheet |
 | Escape | cancel a drag |
 
-From inside the canvas frame only Ctrl/Cmd+Z, Shift+Z, Y, D, C, X, V, G, Shift+G, K and Delete reach the shell (Enter on a selected text starts the edit inside the bridge), through the bridge's `key` message (with the page's own text selected, C and X stay the browser's). F2, Shift+F10, Ctrl/Cmd+A and Ctrl/Cmd+H need focus outside the frame; a right-click in the frame opens the menu. The other keys work once focus is outside the frame.
+From inside the canvas frame Ctrl/Cmd+Z, Shift+Z, Y, D, C, X, V, G, Shift+G, K and Delete reach the shell, and so do the plain keys `/`, `?`, `A`, `1`, `2`, `3` and, with an element selected, Esc, Up, Down, Backspace and Alt+Up/Down (the `key` message carries `alt` and `mod:false` for them; never from a form control or text) (Enter on a selected text starts the edit inside the bridge), through the bridge's `key` message (with the page's own text selected, C and X stay the browser's). F2, Shift+F10, Ctrl/Cmd+A and Ctrl/Cmd+H need focus outside the frame; a right-click in the frame opens the menu. The other keys work once focus is outside the frame.
 
 ### Direct manipulation (builder-e4)
 
@@ -855,8 +857,8 @@ From inside the canvas frame only Ctrl/Cmd+Z, Shift+Z, Y, D, C, X, V, G, Shift+G
   `canvas/chrome.js` from `canvas/points.js`; only for the selected and the hovered container, in gaps and never over text,
   none within 26 screen px of another, hidden while text is edited) open a popover of layouts: 1, 2, 3 and 4 columns
   (the `columns` widget), 33/67 and 67/33 and a 2×2 grid (a `container` in grid layout with a column template), and
-  **Choose an element…** and **Insert a ready-made section…** for the Add tab (at the same position). Each layout is one undo step ("Add section: 3 columns" at the page level, "Add 3 columns" nested).
-  The buttons are pointer only: the keyboard path is the toolbar's **Add after** (the same picker after the selection) or the Add tab.
+  **Choose an element…** and **Insert a ready-made section…** for the Insert tab (at the same position). Each layout is one undo step ("Add section: 3 columns" at the page level, "Add 3 columns" nested).
+  The buttons are pointer only: the keyboard path is the toolbar's **Add after** (the same picker after the selection) or the Insert tab.
 * **Move handle.** The selected element's toolbar carries a handle; dragging it reorders with the same drop targets as the
   tree. A press before the lazy `drag` chunk has arrived starts the drag as soon as it does if the pointer is still
   down. A v1 section's handle moves the whole section (its top-level container), not the component inside it.
@@ -990,7 +992,7 @@ is stored.
   clamped, and shrinks while editing text so the format bar stays clear. The handle press is delegated on the stage.
 * **"+" handles.** From `canvas/points.js`: page level, the selection's container and its parent, the last hovered
   container, and always inside an empty container; a keyed pool of 32 px buttons with an insertion line on hover. The
-  picker's **Choose an element…** and **Insert a ready-made section…** open the Add tab (patterns shown) and insert at
+  picker's **Choose an element…** and **Insert a ready-made section…** open the Insert tab (patterns shown) and insert at
   the same position (`screen.addAt`, `docPos`, which maps frame keys, v1 section keys included, to a doc position).
 * **Text.** Enter edits the selected element's own text; the format bar shows B, I, Link, Clear on a heading (the
   `selection` message carries `kind`); the link panel is at most 360 px with a page and anchor list (`linkChoices`);
