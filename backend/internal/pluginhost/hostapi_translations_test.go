@@ -516,7 +516,7 @@ func TestEntitiesTranslationsGuards(t *testing.T) {
 }
 
 func TestEntitiesGetPathPrefixFollowsSDKRange(t *testing.T) {
-	for rng, want := range map[string]bool{"^0.14": false, "^0.15": true, ">=0.15.0 <1.0.0": true} {
+	for rng, want := range map[string]bool{"": false, ">=0.14": false, "^0.14": false, "^0.15": true, ">=0.15.0 <1.0.0": true} {
 		r := newTransRig(t, true, true)
 		paths := &fakePaths{gotPrefix: !want}
 		r.api.svc.Paths = paths
