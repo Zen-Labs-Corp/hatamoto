@@ -311,40 +311,41 @@ func HostFunctionsFor(perms []sdk.Permission) []string {
 // hostFns is the table of host functions. Names and permissions are the
 // contract documented in docs/PLUGIN_API.md.
 var hostFns = map[string]hostFn{
-	"permissions":          {run: fnPermissions},
-	sdk.FnLog:              {perm: sdk.PermLog, run: fnLog},
-	sdk.FnSettingsGet:      {perm: sdk.PermSettings, run: fnSettingsGet},
-	sdk.FnMailSend:         {perm: sdk.PermMailSend, run: fnMailSend},
-	sdk.FnHTTPFetch:        {perm: sdk.PermHTTPFetch, run: fnHTTPFetch},
-	sdk.FnKVGet:            {perm: sdk.PermKV, run: fnKVGet},
-	sdk.FnKVSet:            {perm: sdk.PermKV, run: fnKVSet},
-	sdk.FnKVDelete:         {perm: sdk.PermKV, run: fnKVDelete},
-	sdk.FnKVList:           {perm: sdk.PermKV, run: fnKVList},
-	sdk.FnDBQuery:          {perm: sdk.PermDB, run: fnDBQuery},
-	sdk.FnDBExec:           {perm: sdk.PermDB, run: fnDBExec},
-	sdk.FnEntitiesGet:      {perm: sdk.PermEntitiesRead, run: fnEntitiesGet},
-	sdk.FnEntitiesList:     {perm: sdk.PermEntitiesRead, run: fnEntitiesList},
-	sdk.FnEntitiesCreate:   {perm: sdk.PermEntitiesWrite, run: fnEntitiesCreate},
-	sdk.FnEntitiesUpdate:   {perm: sdk.PermEntitiesWrite, run: fnEntitiesUpdate},
-	sdk.FnEntitiesStatus:   {perm: sdk.PermEntitiesWrite, run: fnEntitiesStatus},
-	sdk.FnEntitiesDelete:   {perm: sdk.PermEntitiesWrite, run: fnEntitiesDelete},
-	sdk.FnTermsList:        {perm: sdk.PermTermsRead, run: fnTermsList},
-	sdk.FnTermsGet:         {perm: sdk.PermTermsRead, run: fnTermsGet},
-	sdk.FnTermsSave:        {perm: sdk.PermTermsWrite, run: fnTermsSave},
-	sdk.FnTermsDel:         {perm: sdk.PermTermsWrite, run: fnTermsDelete},
-	sdk.FnMenusList:        {perm: sdk.PermMenusRead, run: fnMenusList},
-	sdk.FnMenusGet:         {perm: sdk.PermMenusRead, run: fnMenusGet},
-	sdk.FnMenusSave:        {perm: sdk.PermMenusWrite, run: fnMenusSave},
-	sdk.FnMenusAddItem:     {perm: sdk.PermMenusWrite, run: fnMenusAddItem},
-	sdk.FnMenusDelItem:     {perm: sdk.PermMenusWrite, run: fnMenusDeleteItem},
-	sdk.FnMediaGet:         {perm: sdk.PermMediaRead, run: fnMediaGet},
-	sdk.FnMediaList:        {perm: sdk.PermMediaRead, run: fnMediaList},
-	sdk.FnMediaUpload:      {perm: sdk.PermMediaWrite, run: fnMediaUpload},
-	sdk.FnRedirectsList:    {perm: sdk.PermRedirectsRead, run: fnRedirectsList},
-	sdk.FnRedirectsCreate:  {perm: sdk.PermRedirectsWrite, run: fnRedirectsCreate},
-	sdk.FnRedirectsDelete:  {perm: sdk.PermRedirectsWrite, run: fnRedirectsDelete},
-	sdk.FnFormsList:        {perm: sdk.PermFormsRead, run: fnFormsList},
-	sdk.FnFormsSubmissions: {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
+	"permissions":              {run: fnPermissions},
+	sdk.FnLog:                  {perm: sdk.PermLog, run: fnLog},
+	sdk.FnSettingsGet:          {perm: sdk.PermSettings, run: fnSettingsGet},
+	sdk.FnMailSend:             {perm: sdk.PermMailSend, run: fnMailSend},
+	sdk.FnHTTPFetch:            {perm: sdk.PermHTTPFetch, run: fnHTTPFetch},
+	sdk.FnKVGet:                {perm: sdk.PermKV, run: fnKVGet},
+	sdk.FnKVSet:                {perm: sdk.PermKV, run: fnKVSet},
+	sdk.FnKVDelete:             {perm: sdk.PermKV, run: fnKVDelete},
+	sdk.FnKVList:               {perm: sdk.PermKV, run: fnKVList},
+	sdk.FnDBQuery:              {perm: sdk.PermDB, run: fnDBQuery},
+	sdk.FnDBExec:               {perm: sdk.PermDB, run: fnDBExec},
+	sdk.FnEntitiesGet:          {perm: sdk.PermEntitiesRead, run: fnEntitiesGet},
+	sdk.FnEntitiesList:         {perm: sdk.PermEntitiesRead, run: fnEntitiesList},
+	sdk.FnEntitiesTranslations: {perm: sdk.PermEntitiesRead, run: fnEntitiesTranslations},
+	sdk.FnEntitiesCreate:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesCreate},
+	sdk.FnEntitiesUpdate:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesUpdate},
+	sdk.FnEntitiesStatus:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesStatus},
+	sdk.FnEntitiesDelete:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesDelete},
+	sdk.FnTermsList:            {perm: sdk.PermTermsRead, run: fnTermsList},
+	sdk.FnTermsGet:             {perm: sdk.PermTermsRead, run: fnTermsGet},
+	sdk.FnTermsSave:            {perm: sdk.PermTermsWrite, run: fnTermsSave},
+	sdk.FnTermsDel:             {perm: sdk.PermTermsWrite, run: fnTermsDelete},
+	sdk.FnMenusList:            {perm: sdk.PermMenusRead, run: fnMenusList},
+	sdk.FnMenusGet:             {perm: sdk.PermMenusRead, run: fnMenusGet},
+	sdk.FnMenusSave:            {perm: sdk.PermMenusWrite, run: fnMenusSave},
+	sdk.FnMenusAddItem:         {perm: sdk.PermMenusWrite, run: fnMenusAddItem},
+	sdk.FnMenusDelItem:         {perm: sdk.PermMenusWrite, run: fnMenusDeleteItem},
+	sdk.FnMediaGet:             {perm: sdk.PermMediaRead, run: fnMediaGet},
+	sdk.FnMediaList:            {perm: sdk.PermMediaRead, run: fnMediaList},
+	sdk.FnMediaUpload:          {perm: sdk.PermMediaWrite, run: fnMediaUpload},
+	sdk.FnRedirectsList:        {perm: sdk.PermRedirectsRead, run: fnRedirectsList},
+	sdk.FnRedirectsCreate:      {perm: sdk.PermRedirectsWrite, run: fnRedirectsCreate},
+	sdk.FnRedirectsDelete:      {perm: sdk.PermRedirectsWrite, run: fnRedirectsDelete},
+	sdk.FnFormsList:            {perm: sdk.PermFormsRead, run: fnFormsList},
+	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 }
 
 func fnPermissions(_ context.Context, a *API, e *callEnv, _ json.RawMessage) (any, error) {
@@ -931,6 +932,61 @@ func (a *API) translationTarget(ctx context.Context, schema *entity.EntitySchema
 		return nil, herr(sdk.ErrInvalidArgument, "locale must differ from the locale of translation_of")
 	}
 	return target, nil
+}
+
+type translationDTO struct {
+	ID     string `json:"id"`
+	Locale string `json:"locale"`
+	Status string `json:"status"`
+	Path   string `json:"path,omitempty"`
+}
+
+// fnEntitiesTranslations lists the members of an entity's translation group
+// (the entity itself included), ordered by locale. It reads each member once
+// to place it, so a group costs one query per member.
+func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+	args, err := decodeArgs[struct {
+		ID string `json:"id"`
+	}](raw)
+	if err != nil {
+		return nil, err
+	}
+	if a.svc.Entities == nil {
+		return nil, unavailable("entities")
+	}
+	if a.svc.Groups == nil {
+		return nil, unavailable("translations")
+	}
+	id, err := parseID(args.ID)
+	if err != nil {
+		return nil, err
+	}
+	members, err := a.svc.Groups.Members(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := []translationDTO{}
+	if len(members) < 2 {
+		return out, nil
+	}
+	for _, m := range members {
+		dto := translationDTO{ID: m.ID.String(), Locale: m.Locale, Status: m.Status}
+		if a.svc.Paths != nil {
+			ent, err := a.svc.Entities.GetEntity(ctx, m.ID)
+			if err != nil {
+				return nil, err
+			}
+			if ent.Schema == nil {
+				if ent.Schema, err = a.svc.Entities.GetSchema(ctx, ent.SchemaID); err != nil {
+					return nil, err
+				}
+			}
+			dto.Path = a.svc.Paths.Path(ctx, ent)
+		}
+		out = append(out, dto)
+	}
+	slices.SortStableFunc(out, func(x, y translationDTO) int { return strings.Compare(x.Locale, y.Locale) })
+	return out, nil
 }
 
 func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {

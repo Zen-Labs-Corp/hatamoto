@@ -332,3 +332,73 @@ func TestEntitiesGroupInDTO(t *testing.T) {
 		t.Fatalf("%d grouped items, want 2", grouped)
 	}
 }
+
+type fakePaths struct{}
+
+func (fakePaths) Path(_ context.Context, e *entity.Entity) string {
+	return "/" + e.Locale + "/" + e.Slug
+}
+func (fakePaths) Resolve(context.Context, string) (*entity.Entity, error) {
+	return nil, entity.ErrEntityNotFound
+}
+func (fakePaths) BaseURL(context.Context) string { return "" }
+
+func (r *transRig) translations(t *testing.T, id uuid.UUID) ([]map[string]any, error) {
+	t.Helper()
+	raw, _ := json.Marshal(map[string]any{"id": id.String()})
+	res, err := fnEntitiesTranslations(context.Background(), r.api, nil, raw)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := json.Marshal(res)
+	var out []map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out, nil
+}
+
+func TestEntitiesTranslations(t *testing.T) {
+	r := newTransRig(t, true, true)
+	en, fr := r.seed(r.page, "en-XX"), r.seed(r.page, "fr-XX")
+	lone := r.seed(r.page, "en-XX")
+	g := uuid.New()
+	// Members arrive unordered; the result is ordered by locale.
+	members := []entity.Member{
+		{ID: fr.ID, Group: g, Locale: "fr-XX", Status: "published"},
+		{ID: en.ID, Group: g, Locale: "en-XX", Status: "draft"},
+	}
+	r.groups.members[en.ID], r.groups.members[fr.ID] = members, members
+
+	if got, err := r.translations(t, en.ID); err != nil || len(got) != 2 || got[0]["locale"] != "en-XX" || got[1]["locale"] != "fr-XX" {
+		t.Fatalf("translations = %v, %v", got, err)
+	} else if _, has := got[0]["path"]; has {
+		t.Fatalf("path present without Paths: %v", got[0])
+	}
+
+	r.api.svc.Paths = fakePaths{}
+	got, err := r.translations(t, fr.ID)
+	if err != nil || got[1]["path"] != "/fr-XX/"+fr.Slug || got[0]["status"] != "draft" {
+		t.Fatalf("translations with paths = %v, %v", got, err)
+	}
+
+	for name, m := range map[string][]entity.Member{"no group": nil, "one member": {{ID: lone.ID, Group: g}}} {
+		r.groups.members[lone.ID] = m
+		if got, err := r.translations(t, lone.ID); err != nil || got == nil || len(got) != 0 {
+			t.Fatalf("%s: translations = %#v, %v, want []", name, got, err)
+		}
+	}
+}
+
+func TestEntitiesTranslationsGuards(t *testing.T) {
+	if h := hostFns[sdk.FnEntitiesTranslations]; h.perm != sdk.PermEntitiesRead {
+		t.Fatalf("permission = %q, want %s", h.perm, sdk.PermEntitiesRead)
+	}
+	r := newTransRig(t, false, false)
+	_, err := r.translations(t, uuid.New())
+	wantCode(t, err, sdk.ErrUnavailable)
+	r = newTransRig(t, false, true)
+	raw, _ := json.Marshal(map[string]any{"id": "nope"})
+	_, err = fnEntitiesTranslations(context.Background(), r.api, nil, raw)
+	wantCode(t, err, sdk.ErrInvalidArgument)
+}
