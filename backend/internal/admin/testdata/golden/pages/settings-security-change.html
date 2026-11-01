@@ -138,7 +138,7 @@
 <div class="hm-copyrow"><div class="hm-field">
 <label class="hm-field__label" for="addr-candidate">Your private address</label>
 <input class="hm-field__control" type="text" id="addr-candidate" name="candidate_url" value="https://acme.example/n3xt-r4nd-8wpz" readonly="readonly">
-</div><button type="button" class="hm-btn hm-btn--secondary" data-hm-copy-field="addr-candidate"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span></button></div>
+</div><button type="button" class="hm-btn hm-btn--secondary" data-hm-copy-field="addr-candidate"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span></button><button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/settings/security/admin-address/change/regenerate" formnovalidate=""><span>Regenerate</span></button></div>
 <div class="hm-field">
 <label class="hm-field__label" for="custom">Your own address</label>
 <input class="hm-field__control" type="text" id="custom" name="custom" aria-describedby="custom-help" autocomplete="off" hx-get="/admin/settings/security/admin-address/change/strength" hx-push-url="false" hx-swap="innerHTML" hx-target="#addr-strength" hx-trigger="input changed delay:300ms">
@@ -149,7 +149,6 @@
 </div>
 </div><footer class="hm-card__foot">
 <a class="hm-btn hm-btn--secondary" href="/admin/settings/security/admin-address"><span>Cancel</span></a>
-<button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/settings/security/admin-address/change/regenerate" formnovalidate=""><span>Regenerate</span></button>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Change address</span></button>
 </footer></section>
 </form>

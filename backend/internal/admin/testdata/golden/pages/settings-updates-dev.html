@@ -134,14 +134,13 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="updates-settings-title">Update settings</h2></div>
 <div class="hm-card__body"><div class="hm-setlist">
 <div class="hm-setrow">
-<div class="hm-setrow__text"><div class="hm-field">
-<fieldset id="mode" class="hm-field__group" aria-describedby="mode-help"><legend class="hm-field__label">Mode</legend>
-<label class="hm-field__check" for="mode-0"><input class="hm-field__box" type="radio" id="mode-0" name="mode" value="auto" checked><span>Automatic</span></label>
-<label class="hm-field__check" for="mode-1"><input class="hm-field__box" type="radio" id="mode-1" name="mode" value="notify"><span>Notify only</span></label>
-<label class="hm-field__check" for="mode-2"><input class="hm-field__box" type="radio" id="mode-2" name="mode" value="off"><span>Off</span></label>
+<div class="hm-setrow__text"><fieldset class="hm-radiocards hm-radiocards--2"><legend class="hm-field__label">Mode</legend>
+<label class="hm-radiocard" for="mode-0"><input class="hm-radiocard__input" type="radio" id="mode-0" name="mode" value="auto" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Automatic</span><span class="hm-muted">Installs in the window</span></span></label>
+<label class="hm-radiocard" for="mode-1"><input class="hm-radiocard__input" type="radio" id="mode-1" name="mode" value="notify"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Notify only</span><span class="hm-muted">Tells you and waits</span></span></label>
+<label class="hm-radiocard" for="mode-2"><input class="hm-radiocard__input" type="radio" id="mode-2" name="mode" value="off"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Off</span><span class="hm-muted">No checks</span></span></label>
 </fieldset>
-<p class="hm-field__help" id="mode-help">Automatic installs releases in your maintenance window. Notify only tells you and waits.</p>
-</div></div>
+<p class="hm-field__help">Automatic installs releases in your maintenance window. Notify only tells you and waits.</p>
+</div>
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><label class="hm-setrow__name" for="channel">Channel</label>

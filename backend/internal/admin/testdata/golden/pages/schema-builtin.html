@@ -158,8 +158,9 @@
 <ol class="hm-fieldlist" role="list" data-hm-field-list>
 <li class="hm-fieldrow" id="row-r0" data-hm-field-row>
 <input type="hidden" name="field" value="r0"><input type="hidden" name="f.r0.raw" value="{&#34;type&#34;:&#34;string&#34;,&#34;format&#34;:&#34;richtext&#34;}">
-<details><summary class="hm-fieldrow__summary"><span class="hm-fieldrow__handle" aria-hidden="true" hidden>⠿</span> <span class="hm-fieldrow__title">body</span> <span class="hm-muted">Rich text · <code>body</code></span></summary>
+<details><summary class="hm-fieldrow__summary"><span class="hm-fieldrow__handle" aria-hidden="true" hidden>⠿</span> <span class="hm-fieldrow__title">body</span> <span class="hm-muted">Rich text</span> <code>body</code></summary>
 <div class="hm-fieldrow__body hm-stack">
+<div class="hm-pair">
 <div class="hm-field">
 <label class="hm-field__label" for="f-r0-title">Label</label>
 <input class="hm-field__control" type="text" id="f-r0-title" name="f.r0.title" aria-describedby="f-r0-title-help" autocomplete="off" data-hm-name-from="f-r0-name">
@@ -170,11 +171,14 @@
 <input class="hm-field__control" type="text" id="f-r0-name" name="f.r0.name" value="body" required aria-describedby="f-r0-name-help" autocomplete="off">
 <p class="hm-field__help" id="f-r0-name-help">Used in the data and the API. Renaming a field hides what was saved under the old name.</p>
 </div>
+</div>
+<div class="hm-pair">
 <div class="hm-field"><label class="hm-field__label" for="f-r0-kind">Kind</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-r0-kind" name="f.r0.kind" data-hm-kind>
 <option value="text">Text (one line)</option><option value="textarea">Text (several lines)</option><option value="richtext" selected>Rich text</option><option value="html">HTML</option><option value="number">Number</option><option value="integer">Whole number</option><option value="boolean">Yes / no</option><option value="select">Choice from a list</option><option value="image">Image</option><option value="url">Web address</option><option value="tags">Tags (list of words)</option><option value="reference">Link to other entities</option><option value="repeater">Repeating group (list)</option></select></div></div>
 <div class="hm-field">
 <label class="hm-field__label" for="f-r0-help">Help text</label>
 <input class="hm-field__control" type="text" id="f-r0-help" name="f.r0.help" autocomplete="off">
+</div>
 </div>
 <div class="hm-field" data-hm-for="select"><label class="hm-field__label" for="f-r0-options">Choices (one per line)</label><textarea class="hm-field__control" id="f-r0-options" name="f.r0.options" rows="4"></textarea></div>
 <div class="hm-field" data-hm-for="reference"><label class="hm-field__label" for="f-r0-ref">Links to</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="f-r0-ref" name="f.r0.ref"><option value="">Choose an entity type</option><option value="service">service</option><option value="page">page</option><option value="recipe">recipe</option></select></div></div>
@@ -233,11 +237,11 @@
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="sitemap_exclude"><input class="hm-field__box" type="checkbox" role="switch" id="sitemap_exclude" name="sitemap_exclude" value="true"><span>Leave this type out of the sitemap</span></label>
 </div>
+<div class="hm-row hm-row--top">
 <div class="hm-field">
 <label class="hm-field__label" for="sitemap_group">Sitemap group</label>
 <input class="hm-field__control" type="text" id="sitemap_group" name="sitemap_group" autocomplete="off">
 </div>
-<div class="hm-row hm-row--top">
 <div class="hm-field">
 <label class="hm-field__label" for="priority">Sitemap priority</label>
 <input class="hm-field__control" type="text" id="priority" name="priority" aria-describedby="priority-help" autocomplete="off" inputmode="decimal">

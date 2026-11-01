@@ -135,7 +135,7 @@
 <label class="hm-field__label" for="provider">Captcha provider</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="provider" name="provider"><option value="none">None</option><option value="turnstile" selected>Cloudflare Turnstile</option><option value="recaptcha">Google reCAPTCHA v3</option><option value="hcaptcha">hCaptcha</option></select></div>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="site-key">Site key</label>
 <input class="hm-field__control" type="text" id="site-key" name="site_key" value="0x4AAA-site" autocomplete="off">
 </div>
@@ -143,15 +143,14 @@
 <label class="hm-field__label" for="secret-key">Secret key</label>
 <input class="hm-field__control" type="password" id="secret-key" name="secret_key" placeholder="Saved" aria-describedby="secret-key-help" autocomplete="new-password">
 <p class="hm-field__help" id="secret-key-help">Leave blank to keep the saved secret key.</p>
-</div>
-<p><button type="button" class="hm-btn hm-btn--secondary" hx-include="closest form" hx-indicator="this" hx-post="/admin/settings/spam/test" hx-push-url="false" hx-select="#spam-test-result" hx-swap="outerHTML" hx-target="#spam-test-result"><span>Test connection</span></button></p>
-<p class="hm-field__help">Checks the keys entered above with the provider. Nothing is saved until you click Save.</p>
+</div></div>
+<div class="hm-row"><button type="button" class="hm-btn hm-btn--secondary" hx-include="closest form" hx-indicator="this" hx-post="/admin/settings/spam/test" hx-push-url="false" hx-select="#spam-test-result" hx-swap="outerHTML" hx-target="#spam-test-result"><span>Test connection</span></button><span class="hm-field__help">Checks the keys entered above with the provider. Nothing is saved until you click Save.</span></div>
 <div id="spam-test-result" aria-live="polite"></div>
 </div></section>
 <section class="hm-card" id="rules" aria-labelledby="rules-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="rules-title">Rules</h2><p class="hm-muted">These checks run on every form, with or without the captcha.</p></div>
 <div class="hm-card__body">
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="min-seconds">Minimum time to submit (seconds)</label>
 <input class="hm-field__control" type="number" id="min-seconds" name="min_seconds" value="3" aria-describedby="min-seconds-help" max="60" min="0" step="1">
 <p class="hm-field__help" id="min-seconds-help">Messages sent faster than this count as spam. 0 turns the check off.</p>
@@ -160,7 +159,7 @@
 <label class="hm-field__label" for="max-links">Max links per message</label>
 <input class="hm-field__control" type="number" id="max-links" name="max_links" value="2" aria-describedby="max-links-help" max="50" min="0" step="1">
 <p class="hm-field__help" id="max-links-help">Messages with more links than this count as spam. 0 blocks every link.</p>
-</div>
+</div></div>
 <div class="hm-field">
 <label class="hm-field__label" for="blocked-words">Blocked words</label>
 <textarea class="hm-field__control" id="blocked-words" name="blocked_words" rows="3" aria-describedby="blocked-words-help"></textarea>
@@ -168,30 +167,28 @@
 </div>
 <fieldset class="hm-field__group" id="scripts"><legend class="hm-field__label">Block scripts</legend>
 <div class="hm-field">
-<label class="hm-field__check" for="script-0"><input class="hm-field__box" type="checkbox" id="script-0" name="scripts" value="cyrillic"><span>Cyrillic</span></label>
+<label class="hm-field__chip" for="script-0"><input class="hm-field__chipbox" type="checkbox" id="script-0" name="scripts" value="cyrillic"><span>Cyrillic</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="script-1"><input class="hm-field__box" type="checkbox" id="script-1" name="scripts" value="cjk"><span>CJK</span></label>
+<label class="hm-field__chip" for="script-1"><input class="hm-field__chipbox" type="checkbox" id="script-1" name="scripts" value="cjk"><span>CJK</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="script-2"><input class="hm-field__box" type="checkbox" id="script-2" name="scripts" value="arabic"><span>Arabic</span></label>
+<label class="hm-field__chip" for="script-2"><input class="hm-field__chipbox" type="checkbox" id="script-2" name="scripts" value="arabic"><span>Arabic</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="script-3"><input class="hm-field__box" type="checkbox" id="script-3" name="scripts" value="hebrew"><span>Hebrew</span></label>
+<label class="hm-field__chip" for="script-3"><input class="hm-field__chipbox" type="checkbox" id="script-3" name="scripts" value="hebrew"><span>Hebrew</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="script-4"><input class="hm-field__box" type="checkbox" id="script-4" name="scripts" value="thai"><span>Thai</span></label>
+<label class="hm-field__chip" for="script-4"><input class="hm-field__chipbox" type="checkbox" id="script-4" name="scripts" value="thai"><span>Thai</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="script-5"><input class="hm-field__box" type="checkbox" id="script-5" name="scripts" value="devanagari"><span>Devanagari</span></label>
+<label class="hm-field__chip" for="script-5"><input class="hm-field__chipbox" type="checkbox" id="script-5" name="scripts" value="devanagari"><span>Devanagari</span></label>
 </div>
 </fieldset>
-<div class="hm-field">
-<fieldset id="action" class="hm-field__group"><legend class="hm-field__label">When a rule trips</legend>
-<label class="hm-field__check" for="action-0"><input class="hm-field__box" type="radio" id="action-0" name="action" value="spam" checked><span>Save as Spam, no notification</span></label>
-<label class="hm-field__check" for="action-1"><input class="hm-field__box" type="radio" id="action-1" name="action" value="refuse"><span>Refuse submission</span></label>
+<fieldset class="hm-radiocards hm-radiocards--2"><legend class="hm-field__label">When a rule trips</legend>
+<label class="hm-radiocard" for="action-0"><input class="hm-radiocard__input" type="radio" id="action-0" name="action" value="spam" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Save as Spam, no notification</span><span class="hm-muted">Kept under Submissions, Spam, for you to review</span></span></label>
+<label class="hm-radiocard" for="action-1"><input class="hm-radiocard__input" type="radio" id="action-1" name="action" value="refuse"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Refuse submission</span><span class="hm-muted">The visitor sees an error and nothing is stored</span></span></label>
 </fieldset>
-</div>
 </div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
 

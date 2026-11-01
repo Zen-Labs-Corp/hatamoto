@@ -135,57 +135,57 @@
 <section class="hm-card" id="variables-list" aria-labelledby="variables-list-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="variables-list-title">Variables</h2><p class="hm-muted">Use these in a title or description template. Write them between percent signs, for example %title% %sep% %sitename%. A variable that is unknown is left as written.</p></div>
 <div class="hm-card__body">
-<p><code>%title%</code> <span class="hm-muted">The page or entry title.</span></p>
-<p><code>%sitename%</code> <span class="hm-muted">The site name from Settings &gt; General.</span></p>
-<p><code>%tagline%</code> <span class="hm-muted">The tagline from Settings &gt; General.</span></p>
-<p><code>%sep%</code> <span class="hm-muted">The separator chosen under Titles &amp; meta.</span></p>
-<p><code>%page%</code> <span class="hm-muted">The page number of a listing, from page 2.</span></p>
-<p><code>%pagetotal%</code> <span class="hm-muted">The number of pages of a listing.</span></p>
-<p><code>%currentyear%</code> <span class="hm-muted">The current year.</span></p>
-<p><code>%excerpt%</code> <span class="hm-muted">The entry&#39;s excerpt.</span></p>
-<p><code>%author%</code> <span class="hm-muted">The author&#39;s name.</span></p>
-<p><code>%date%</code> <span class="hm-muted">The publish date of an entry.</span></p>
-<p><code>%term%</code> <span class="hm-muted">The name of a category, tag or other term.</span></p>
-<p><code>%searchphrase%</code> <span class="hm-muted">What the visitor searched for.</span></p>
-<p><code>%archive%</code> <span class="hm-muted">The heading of a content archive.</span></p>
-</div></section>
+<dl class="hm-dl"><dt><code>%title%</code></dt><dd>The page or entry title.</dd>
+<dt><code>%sitename%</code></dt><dd>The site name from Settings &gt; General.</dd>
+<dt><code>%tagline%</code></dt><dd>The tagline from Settings &gt; General.</dd>
+<dt><code>%sep%</code></dt><dd>The separator chosen under Titles &amp; meta.</dd>
+<dt><code>%page%</code></dt><dd>The page number of a listing, from page 2.</dd>
+<dt><code>%pagetotal%</code></dt><dd>The number of pages of a listing.</dd>
+<dt><code>%currentyear%</code></dt><dd>The current year.</dd>
+<dt><code>%excerpt%</code></dt><dd>The entry&#39;s excerpt.</dd>
+<dt><code>%author%</code></dt><dd>The author&#39;s name.</dd>
+<dt><code>%date%</code></dt><dd>The publish date of an entry.</dd>
+<dt><code>%term%</code></dt><dd>The name of a category, tag or other term.</dd>
+<dt><code>%searchphrase%</code></dt><dd>What the visitor searched for.</dd>
+<dt><code>%archive%</code></dt><dd>The heading of a content archive.</dd>
+</dl></div></section>
 <form method="post" action="/admin/settings/seo/general" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <section class="hm-card" id="custom" aria-labelledby="custom-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="custom-title">Custom variables</h2><p class="hm-muted">Your own variables, written %cv_name%. Use them for text you repeat in many templates, such as a brand line. Names use lowercase letters, digits and underscores.</p></div>
 <div class="hm-card__body">
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="variable-0-name">Variable 1 name</label>
 <input class="hm-field__control" type="text" id="variable-0-name" name="variable_name" value="brand" autocomplete="off" maxlength="24">
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="variable-0-value">Variable 1 value</label>
 <input class="hm-field__control" type="text" id="variable-0-value" name="variable_value" value="Acme" autocomplete="off" maxlength="200">
-</div>
-<div class="hm-field">
+</div></div>
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="variable-1-name">Variable 2 name</label>
 <input class="hm-field__control" type="text" id="variable-1-name" name="variable_name" autocomplete="off" maxlength="24">
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="variable-1-value">Variable 2 value</label>
 <input class="hm-field__control" type="text" id="variable-1-value" name="variable_value" autocomplete="off" maxlength="200">
-</div>
-<div class="hm-field">
+</div></div>
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="variable-2-name">Variable 3 name</label>
 <input class="hm-field__control" type="text" id="variable-2-name" name="variable_name" autocomplete="off" maxlength="24">
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="variable-2-value">Variable 3 value</label>
 <input class="hm-field__control" type="text" id="variable-2-value" name="variable_value" autocomplete="off" maxlength="200">
-</div>
-<div class="hm-field">
+</div></div>
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="variable-3-name">Variable 4 name</label>
 <input class="hm-field__control" type="text" id="variable-3-name" name="variable_name" autocomplete="off" maxlength="24">
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="variable-3-value">Variable 4 value</label>
 <input class="hm-field__control" type="text" id="variable-3-value" name="variable_value" autocomplete="off" maxlength="200">
-</div>
+</div></div>
 </div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
 

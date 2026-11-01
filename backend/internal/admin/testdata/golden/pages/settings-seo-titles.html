@@ -133,14 +133,14 @@
 <div class="hm-card__body">
 <div class="hm-field">
 <fieldset id="separator" class="hm-field__group"><legend class="hm-field__label">Separator</legend>
-<label class="hm-field__check" for="separator-0"><input class="hm-field__box" type="radio" id="separator-0" name="separator" value="|" checked><span>|</span></label>
-<label class="hm-field__check" for="separator-1"><input class="hm-field__box" type="radio" id="separator-1" name="separator" value="-"><span>-</span></label>
-<label class="hm-field__check" for="separator-2"><input class="hm-field__box" type="radio" id="separator-2" name="separator" value="•"><span>•</span></label>
-<label class="hm-field__check" for="separator-3"><input class="hm-field__box" type="radio" id="separator-3" name="separator" value="»"><span>»</span></label>
-<label class="hm-field__check" for="separator-4"><input class="hm-field__box" type="radio" id="separator-4" name="separator" value="·"><span>·</span></label>
-<label class="hm-field__check" for="separator-5"><input class="hm-field__box" type="radio" id="separator-5" name="separator" value="–"><span>–</span></label>
-<label class="hm-field__check" for="separator-6"><input class="hm-field__box" type="radio" id="separator-6" name="separator" value="—"><span>—</span></label>
-</fieldset>
+<div class="hm-field__chips"><label class="hm-field__chip hm-field__chip--mono" for="separator-0"><input class="hm-field__chipbox" type="radio" id="separator-0" name="separator" value="|" checked><span>|</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-1"><input class="hm-field__chipbox" type="radio" id="separator-1" name="separator" value="-"><span>-</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-2"><input class="hm-field__chipbox" type="radio" id="separator-2" name="separator" value="•"><span>•</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-3"><input class="hm-field__chipbox" type="radio" id="separator-3" name="separator" value="»"><span>»</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-4"><input class="hm-field__chipbox" type="radio" id="separator-4" name="separator" value="·"><span>·</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-5"><input class="hm-field__chipbox" type="radio" id="separator-5" name="separator" value="–"><span>–</span></label>
+<label class="hm-field__chip hm-field__chip--mono" for="separator-6"><input class="hm-field__chipbox" type="radio" id="separator-6" name="separator" value="—"><span>—</span></label>
+</div></fieldset>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="home">Homepage title</label>
@@ -180,7 +180,7 @@
 <textarea class="hm-field__control" id="type-page-description" name="type[page][description]" rows="2" aria-describedby="type-page-description-help" maxlength="300"></textarea>
 <p class="hm-field__help" id="type-page-description-help">Used when the entry has no description of its own. Left empty, the page keeps its usual description.</p>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="type-page-archive-title">Archive title</label>
 <input class="hm-field__control" type="text" id="type-page-archive-title" name="type[page][archive_title]" aria-describedby="type-page-archive-title-help" disabled="disabled" readonly="readonly">
 <p class="hm-field__help" id="type-page-archive-title-help">This built-in type keeps its archive title; it cannot be changed here.</p>
@@ -188,7 +188,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="type-page-archive-description">Archive description</label>
 <input class="hm-field__control" type="text" id="type-page-archive-description" name="type[page][archive_description]" disabled="disabled" readonly="readonly">
-</div>
+</div></div>
 </div></section>
 <section class="hm-card" id="seo-type-person" aria-labelledby="seo-type-person-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-person-title">Person</h2></div>
@@ -202,7 +202,7 @@
 <textarea class="hm-field__control" id="type-person-description" name="type[person][description]" rows="2" aria-describedby="type-person-description-help" maxlength="300"></textarea>
 <p class="hm-field__help" id="type-person-description-help">Used when the entry has no description of its own. Left empty, the page keeps its usual description.</p>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="type-person-archive-title">Archive title</label>
 <input class="hm-field__control" type="text" id="type-person-archive-title" name="type[person][archive_title]" aria-describedby="type-person-archive-title-help">
 <p class="hm-field__help" id="type-person-archive-title-help">The heading and title of this type&#39;s archive page. The same value as in the type&#39;s settings.</p>
@@ -210,7 +210,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="type-person-archive-description">Archive description</label>
 <textarea class="hm-field__control" id="type-person-archive-description" name="type[person][archive_description]" rows="2"></textarea>
-</div>
+</div></div>
 </div></section>
 <section class="hm-card" id="seo-type-recipe" aria-labelledby="seo-type-recipe-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-recipe-title">Recipe</h2></div>
@@ -224,7 +224,7 @@
 <textarea class="hm-field__control" id="type-recipe-description" name="type[recipe][description]" rows="2" aria-describedby="type-recipe-description-help" maxlength="300"></textarea>
 <p class="hm-field__help" id="type-recipe-description-help">Used when the entry has no description of its own. Left empty, the page keeps its usual description.</p>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="type-recipe-archive-title">Archive title</label>
 <input class="hm-field__control" type="text" id="type-recipe-archive-title" name="type[recipe][archive_title]" aria-describedby="type-recipe-archive-title-help">
 <p class="hm-field__help" id="type-recipe-archive-title-help">The heading and title of this type&#39;s archive page. The same value as in the type&#39;s settings.</p>
@@ -232,7 +232,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="type-recipe-archive-description">Archive description</label>
 <textarea class="hm-field__control" id="type-recipe-archive-description" name="type[recipe][archive_description]" rows="2"></textarea>
-</div>
+</div></div>
 </div></section>
 <section class="hm-card" id="seo-type-service" aria-labelledby="seo-type-service-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-service-title">Service</h2></div>
@@ -246,7 +246,7 @@
 <textarea class="hm-field__control" id="type-service-description" name="type[service][description]" rows="2" aria-describedby="type-service-description-help" maxlength="300">Read about %title%.</textarea>
 <p class="hm-field__help" id="type-service-description-help">Used when the entry has no description of its own. Left empty, the page keeps its usual description.</p>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="type-service-archive-title">Archive title</label>
 <input class="hm-field__control" type="text" id="type-service-archive-title" name="type[service][archive_title]" aria-describedby="type-service-archive-title-help">
 <p class="hm-field__help" id="type-service-archive-title-help">The heading and title of this type&#39;s archive page. The same value as in the type&#39;s settings.</p>
@@ -254,7 +254,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="type-service-archive-description">Archive description</label>
 <textarea class="hm-field__control" id="type-service-archive-description" name="type[service][archive_description]" rows="2"></textarea>
-</div>
+</div></div>
 </div></section>
 <section class="hm-card" id="taxonomy" aria-labelledby="taxonomy-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="taxonomy-title">Taxonomies</h2><p class="hm-muted">The title of a term page, such as a category or tag.</p></div>
@@ -273,20 +273,23 @@
 <div class="hm-card__body">
 <p><button type="button" class="hm-btn hm-btn--secondary" hx-include="closest form" hx-indicator="this" hx-post="/admin/settings/seo/titles/preview" hx-push-url="false" hx-select="#seo-preview" hx-swap="outerHTML" hx-target="#seo-preview"><span>Update preview</span></button></p>
 <div id="seo-preview" aria-live="polite">
-<p><strong>Homepage</strong><br>Acme Site</p>
-<p><strong>Page</strong><br>Sample title | Acme Site</p>
-<p><strong>Person</strong><br>Sample title | Acme Site</p>
-<p><strong>Recipe</strong><br>Sample title | Acme Site</p>
-<p><strong>Service</strong><br>Sample title | Services<br><span class="hm-muted">Read about Sample title.</span></p>
-<p><strong>Categories</strong><br>Sample title | Acme Site</p>
-<p><strong>Tags</strong><br>Sample title | Acme Site</p>
-<p><strong>Content archives</strong><br>Sample title | Acme Site</p>
-<p><strong>Author pages</strong><br>Sample title | Acme Site</p>
-<p><strong>Date archives</strong><br>Sample title | Acme Site</p>
-<p><strong>Search results</strong><br>Sample title | Acme Site</p>
-<p><strong>Page not found</strong><br>Sample title | Acme Site</p>
-</div>
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+<div class="hm-table__scroll" role="region" aria-label="Preview of page titles" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Preview of page titles</caption>
+<thead><tr><th scope="col">Kind</th><th scope="col">Title</th></tr></thead>
+<tbody><tr><th scope="row" class="hm-table__rowhead hm-muted">Homepage</th><td class="hm-col-plain">Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Page</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Person</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Recipe</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Service</th><td class="hm-col-plain">Sample title | Services<span class="hm-table__sub">Read about Sample title.</span></td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Categories</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Tags</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Content archives</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Author pages</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Date archives</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Search results</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+<tr><th scope="row" class="hm-table__rowhead hm-muted">Page not found</th><td class="hm-col-plain">Sample title | Acme Site</td></tr>
+</tbody></table></div></div>
+</div></section>
+<div class="hm-savebar"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></div>
 </form>
 
 </div>
