@@ -30,7 +30,7 @@ async function open(p, id) {
   await p.waitForFunction(() => !!window.__hmBuilder && document.querySelector("[data-hm-bs-tree]"));
   await wait(p, 700);
 }
-const saved = (p) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
+const saved = (p) => p.waitForFunction(() => /Saved|Draft saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
 async function add(p, key) {
   if ((await p.locator('[data-hm-bs-ltab="add"]').getAttribute("aria-selected")) !== "true") await p.locator('[data-hm-bs-ltab="add"]').click();
   await p.locator(`[data-pal="${key}"]`).first().click();
