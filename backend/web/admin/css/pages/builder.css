@@ -69,7 +69,7 @@
 .hm-bs__lead, .hm-bs__end { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
 .hm-bs__end { margin-inline-start: auto; flex: none; }
 /* The device switch sits in the middle of the bar: the title group and the tools take equal columns either side of it. */
-@media (min-width: 40rem) {
+@media not all and (max-width: 40rem) { /* the exact complement of the phone rules below: at 640px only the phone layout applies */
   .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
 }
