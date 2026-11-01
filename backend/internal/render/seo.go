@@ -97,21 +97,7 @@ func seoHead(v *PageView, replaceSiteGraph bool) headView {
 		h.Feeds = append(h.Feeds, f)
 	}
 
-	ogType := firstNonEmpty(v.Page.OGType, "website")
-	h.OG = appendMeta(h.OG, "og:title", rawTitle)
-	h.OG = appendMeta(h.OG, "og:description", h.Description)
-	h.OG = appendMeta(h.OG, "og:image", v.Page.OGImage)
-	h.OG = appendMeta(h.OG, "og:type", ogType)
-	h.OG = appendMeta(h.OG, "og:url", h.Canonical)
-
-	card := "summary"
-	if v.Page.OGImage != "" {
-		card = "summary_large_image"
-	}
-	h.Twitter = appendMeta(h.Twitter, "twitter:card", card)
-	h.Twitter = appendMeta(h.Twitter, "twitter:title", rawTitle)
-	h.Twitter = appendMeta(h.Twitter, "twitter:description", h.Description)
-	h.Twitter = appendMeta(h.Twitter, "twitter:image", v.Page.OGImage)
+	socialHead(&h, v, rawTitle)
 
 	for _, raw := range v.JSONLD {
 		if s, ok := jsonLDScript(raw); ok {

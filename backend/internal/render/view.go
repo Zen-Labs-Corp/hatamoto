@@ -545,6 +545,10 @@ type PageMeta struct {
 	// without these flags a written value cannot be told from a fallback; the
 	// SEO templates only fill in values that were not written.
 	TitleSet, DescriptionSet bool
+	// OGTitle and OGDescription are the social title and description an editor
+	// wrote on the entry. They win over the social templates and the meta
+	// description; empty means unset.
+	OGTitle, OGDescription string
 }
 
 // Alternate is one locale version of the current page. It is the contract
