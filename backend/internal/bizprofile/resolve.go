@@ -64,6 +64,38 @@ func merge(site, loc Profile) Profile {
 		GeoRegion:     pick(loc.GeoRegion, site.GeoRegion),
 		SameAs:        pickList(loc.SameAs, site.SameAs),
 		Rating:        site.Rating,
+
+		Naics:               pick(loc.Naics, site.Naics),
+		Isic:                pick(loc.Isic, site.Isic),
+		Duns:                pick(loc.Duns, site.Duns),
+		Lei:                 pick(loc.Lei, site.Lei),
+		Gln:                 pick(loc.Gln, site.Gln),
+		Founders:            pickList(loc.Founders, site.Founders),
+		Brands:              pickList(loc.Brands, site.Brands),
+		Memberships:         pickList(loc.Memberships, site.Memberships),
+		PaymentMethods:      pickList(loc.PaymentMethods, site.PaymentMethods),
+		AcceptsReservations: pickBool(loc.AcceptsReservations, site.AcceptsReservations),
+		BookingURL:          pick(loc.BookingURL, site.BookingURL),
+		OrderURL:            pick(loc.OrderURL, site.OrderURL),
+		MenuURL:             pick(loc.MenuURL, site.MenuURL),
+		ServiceRadiusKm:     pick(loc.ServiceRadiusKm, site.ServiceRadiusKm),
+		Services:            pickList(loc.Services, site.Services),
+		KnowsAbout:          pickList(loc.KnowsAbout, site.KnowsAbout),
+		Awards:              pickList(loc.Awards, site.Awards),
+		Amenities:           pickList(loc.Amenities, site.Amenities),
+		PublicAccess:        pickBool(loc.PublicAccess, site.PublicAccess),
+		FreeEntry:           pickBool(loc.FreeEntry, site.FreeEntry),
+		AmenityPresets: AmenityPresets{
+			Parking:          pickBool(loc.AmenityPresets.Parking, site.AmenityPresets.Parking),
+			WheelchairAccess: pickBool(loc.AmenityPresets.WheelchairAccess, site.AmenityPresets.WheelchairAccess),
+			Wifi:             pickBool(loc.AmenityPresets.Wifi, site.AmenityPresets.Wifi),
+			Toilets:          pickBool(loc.AmenityPresets.Toilets, site.AmenityPresets.Toilets),
+			AirConditioning:  pickBool(loc.AmenityPresets.AirConditioning, site.AmenityPresets.AirConditioning),
+		},
+		ParentOrg: site.ParentOrg,
+	}
+	if loc.ParentOrg.Name != "" {
+		out.ParentOrg = loc.ParentOrg
 	}
 	if loc.Rating.Value != "" {
 		out.Rating = loc.Rating
@@ -80,6 +112,14 @@ func pick(own, fallback string) string {
 
 func pickList[T any](own, fallback []T) []T {
 	if len(own) > 0 {
+		return own
+	}
+	return fallback
+}
+
+// pickBool is the tri-state fallback: a set value (even false) wins.
+func pickBool(own, fallback *bool) *bool {
+	if own != nil {
 		return own
 	}
 	return fallback
