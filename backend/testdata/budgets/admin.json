@@ -1,23 +1,23 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 57994,
+      "value": 59383,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "canvas_host_gzip": {
-      "value": 8045,
+      "value": 8050,
       "unit": "bytes",
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103525,
+      "value": 103542,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 103561
     },
     "editor_js_total_gzip": {
-      "value": 274238,
+      "value": 274711,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 275262
@@ -40,50 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "forge 1A canvas fixes: gap-placed + points with dedupe and wrapped-row rule, Add after toolbar button, Hide/Show label, docPos/addTarget guards, ownsText, Enter/heading bridge guards",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector forge 1B: editor_js_total_gzip 237554 to 238906 (+1352 B: nested box model, restore dialog, switches, Use data toggle); cap lowered 245760 to 241978 (current + 3 KiB) so further growth needs a reason; the old cap of 240 KiB had 6.8 KiB of unused room. admin_css_gzip 44999 to 45143 (+144 B: device badge modifiers, 24 px quick buttons, quiet Use data toggle)",
-      "date": "2026-10-26"
-    },
-    {
-      "reason": "builder-ux-canvas-inspector rebased onto main: canvas_bridge_gzip 15249 to 15879 (+630 B) is main's port handshake added to the branch's v2 select, outline and Enter/heading bridge work; other budgets re-measured after the merge",
-      "date": "2026-10-27"
-    },
-    {
-      "reason": "plugins redesign rebased onto main: admin CSS gzip grew with the plugin pages",
-      "date": "2026-10-29"
-    },
-    {
-      "reason": "builder SEO drawer: lazy seodrawer module and screen/sync wiring; editor_js_total_gzip 239136 to 242008 (+2872 B), editor_js_first_gzip 91907 to 92289 (+382 B), cap 241978 to 245080 (current + 3 KiB); builder CSS for the drawer",
-      "date": "2026-10-29"
-    },
-    {
-      "reason": "menu editor v2 layout rebased onto main: admin CSS gzip grew with the menu editor styles",
-      "date": "2026-10-30"
-    },
-    {
-      "reason": "seo drawer: focus return, posted name, failure note, inline canonical error",
-      "date": "2026-10-30"
-    },
-    {
-      "reason": "builder SEO polish rebased onto main: focus return, posted name, failure note, inline canonical error and the idle score badge in the lazy seodrawer chunk; editor_js_total_gzip 243001 to 244901 (+1900 B), cap unchanged",
-      "date": "2026-10-30"
-    },
-    {
-      "reason": "builder navigator redesign: navigator.js (one-row sections, hover controls, add-here gap) and new selinfo.js; editor_js_first_gzip 93234 to 96980 and editor_js_total_gzip 244901 to 248647 (+3746 B each), caps moved by the same amount; first paint stays under the 117 KiB ceiling",
-      "date": "2026-10-30"
-    },
-    {
-      "reason": "builder navigator review fixes: top-level-only collapse, hidden component state, rename source, indent and caret slot; editor_js_first_gzip 96980 to 98102 and editor_js_total_gzip 248647 to 249775 (+1122 and +1128 B, caps move by the same amount)",
-      "date": "2026-10-30"
-    },
-    {
-      "reason": "builder navigator visual fixes: token colour resolver, row layout; editor_js_first_gzip 98102 to 98523 and editor_js_total_gzip 249775 to 250196 (+421 B each, caps move by the same amount)",
-      "date": "2026-10-30"
-    },
     {
       "reason": "builder navigator content-field rows: editor_js_first_gzip 98523 to 99662 (+1139 B, cap 98640 to 99779) and editor_js_total_gzip 250196 to 251416 (+1220 B, cap 250909 to 252129; builderTotalCap 251416 + 1024)",
       "date": "2026-10-31"
@@ -158,6 +114,10 @@
     },
     {
       "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -\u003e 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
       "date": "2026-11-01"
     }
   ]

@@ -19,31 +19,31 @@
       "tol_abs": 2
     },
     "alloc_RenderNode10_bytes": {
-      "value": 2561,
+      "value": 2560,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPage72_allocs": {
-      "value": 554,
+      "value": 563,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 71669,
+      "value": 72154,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPageStat72_allocs": {
-      "value": 2169,
+      "value": 2178,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 177529,
+      "value": 178023,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -61,7 +61,7 @@
       "tol_abs": 64
     },
     "canvas_bridge_gzip": {
-      "value": 16376,
+      "value": 16411,
       "unit": "bytes",
       "tol_abs": 512
     },
@@ -86,7 +86,7 @@
       "tol_pct": 5
     },
     "golden_page-shell_bytes": {
-      "value": 4044,
+      "value": 4100,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -111,7 +111,7 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 37280,
+      "value": 37335,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -146,7 +146,7 @@
       "cap": 8192
     },
     "page_settings_html_bytes": {
-      "value": 7006,
+      "value": 7061,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -155,29 +155,17 @@
       "unit": "count"
     },
     "theme_default_css_gzip": {
-      "value": 14286,
+      "value": 14501,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "theme_default_js_gzip": {
-      "value": 5335,
+      "value": 5040,
       "unit": "bytes",
       "tol_abs": 512
     }
   },
   "history": [
-    {
-      "reason": "builder-e0-budget-split: idle prefetch of section-form chunks (first-paint +776 B)",
-      "date": "2026-10-24"
-    },
-    {
-      "reason": "builder-e1-style-depth: StyleSpec v2 all-keys page CSS metric",
-      "date": "2026-10-24"
-    },
-    {
-      "reason": "builder-e1-style-depth: StyleSpec v2 Style tab (labels lazy in style.js, hiddenAt, host.js)",
-      "date": "2026-10-24"
-    },
     {
       "reason": "builder-e1-style-depth: review fixes",
       "date": "2026-10-24"
@@ -251,7 +239,11 @@
       "date": "2026-10-29"
     },
     {
-      "reason": "canvas bridge forwards the builder shortcut set: canvas_bridge_gzip 15879 -> 16376 (+497 B)",
+      "reason": "canvas bridge forwards the builder shortcut set: canvas_bridge_gzip 15879 -\u003e 16376 (+497 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
       "date": "2026-11-01"
     }
   ]

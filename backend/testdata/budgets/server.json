@@ -1,23 +1,19 @@
 {
   "metrics": {
     "alloc_RenderNodesEndpoint_allocs": {
-      "value": 10200,
+      "value": 10198,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderNodesEndpoint_bytes": {
-      "value": 685717,
+      "value": 685633,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     }
   },
   "history": [
-    {
-      "reason": "admin design pass PR-A review fixes: select focus, toast live regions, busy guard timer",
-      "date": "2026-10-21"
-    },
     {
       "reason": "admin-charts: legend, skeleton, theme redraw",
       "date": "2026-10-22"
@@ -93,6 +89,10 @@
     {
       "reason": "builder-ux-canvas-inspector rebased onto main: canvas_bridge_gzip 15249 to 15879 (+630 B) is main's port handshake added to the branch's v2 select, outline and Enter/heading bridge work; other budgets re-measured after the merge",
       "date": "2026-10-27"
+    },
+    {
+      "reason": "admin-unslop phases 5, 6 and 7 landed in parallel: each fit the 1 KiB tolerance alone, together admin_css_gzip is 59383 B (setup/auth, builder and blog editor chrome, analytics screens restyled to the approved preview)",
+      "date": "2026-11-01"
     }
   ]
 }
