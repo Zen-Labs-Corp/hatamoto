@@ -399,6 +399,28 @@ func TestRowMenuOrder(t *testing.T) {
 	}
 }
 
+// A row button is a link: it needs an Href, and Danger gives it the danger variant.
+func TestRowButton(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	render := func(act ui.Action) (string, error) {
+		out, err := a.RenderPartial("hm/rowbutton", act)
+		return string(out), err
+	}
+	plain, err := render(ui.Action{Button: true, Label: "Open", Href: "/x"})
+	if err != nil || !strings.Contains(plain, "<a ") || !strings.Contains(plain, `href="/x"`) || !strings.Contains(plain, "hm-btn--secondary") || strings.Contains(plain, "hm-btn--danger") {
+		t.Errorf("plain row button = %q, %v", plain, err)
+	}
+	danger, err := render(ui.Action{Button: true, Label: "Unlink", Danger: true, Confirm: "Sure?", Href: "/x"})
+	if err != nil || !strings.Contains(danger, "hm-btn--danger") || !strings.Contains(danger, "data-hm-danger") {
+		t.Errorf("danger row button = %q, %v", danger, err)
+	}
+	if _, err := render(ui.Action{Button: true, Label: "Open"}); err == nil || !strings.Contains(err.Error(), "hm/rowbutton Href") {
+		t.Errorf("row button without Href: err = %v, want hm/rowbutton Href", err)
+	}
+}
+
 var (
 	hashRx     = regexp.MustCompile(`(admin|[a-z]+)\.[0-9a-f]{12}\.(css|js)`)
 	mapRx      = regexp.MustCompile(`(?s)(<script type="importmap"[^>]*>).*?(</script>)`)
