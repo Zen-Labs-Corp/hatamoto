@@ -211,6 +211,30 @@ func TestBridgeEnterEditsAndPaletteKeyIsForwarded(t *testing.T) {
 	}
 }
 
+// The frame forwards the builder's plain and Alt shortcuts (mod:false), but only outside form controls and text,
+// the selection keys only with an element selected, and never Alt+Left/Right (browser back/forward); the
+// Ctrl/Cmd chords are cancelled so Ctrl+D cannot bookmark the page.
+func TestBridgeForwardsShortcutSet(t *testing.T) {
+	t.Parallel()
+	for _, want := range []string{
+		"k === 'd' || k === 'D'",
+		"if (ctrl) e.preventDefault();",
+		"e.target.closest('input,textarea,select,button,summary,[contenteditable]')",
+		"var send = !alt && (k === '/' || k === '?' || k === 'a');",
+		"if (alt) send = (k === 'ArrowUp' || k === 'ArrowDown');",
+		"k === 'Escape' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace'",
+		"k === '1' || k === '2' || k === '3'",
+		"post2({ type: 'key', key: k, shift: !!shift, alt: !!alt, mod: false })",
+	} {
+		if !strings.Contains(canvasBridgeJS, want) {
+			t.Errorf("bridge missing %q", want)
+		}
+	}
+	if strings.Contains(canvasBridgeJS, "ArrowLeft") || strings.Contains(canvasBridgeJS, "ArrowRight") {
+		t.Error("Alt+Left/Right must never be forwarded")
+	}
+}
+
 // A format rewrites the editor's DOM, which breaks the browser's own undo: each format keeps a snapshot and
 // Ctrl/Cmd+Z (or the Edit menu's historyUndo) restores it while the text still is what the format produced.
 // The stack is per edit session, and the pure inline block stays free of it.

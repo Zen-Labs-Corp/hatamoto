@@ -1083,7 +1083,7 @@
       post2({ type: 'key', key: 'k', shift: false });
       return;
     }
-    var ctrl = mod && (k === 'z' || k === 'Z' || k === 'y' || k === 'd');
+    var ctrl = mod && (k === 'z' || k === 'Z' || k === 'y' || k === 'd' || k === 'D');
     // Node clipboard and wrap: never with Alt (Ctrl+Alt+C/V is the style clipboard)
     // and never while the page text is selected (a plain copy then).
     if (mod && !e.altKey && /^[cCxXvVgGhH]$/.test(k)) {
@@ -1091,7 +1091,23 @@
       ctrl = !((k === 'c' || k === 'x') && sel && !sel.isCollapsed);
     }
     if (ctrl && (k === 'h' || k === 'H')) e.preventDefault(); // the browser's history must not open over the builder's
-    if (ctrl || k === 'Delete') post2({ type: 'key', key: k, shift: !!e.shiftKey });
+    if (ctrl || k === 'Delete') {
+      if (ctrl) e.preventDefault(); // Ctrl/Cmd+D would bookmark the page
+      post2({ type: 'key', key: k, shift: !!e.shiftKey });
+      return;
+    }
+    // Plain and Alt keys the builder binds. Never from a form control or text, and the selection keys only with an
+    // element selected (so the page still scrolls); the host decides what they do, mod:false marks them as not a chord.
+    if (mod || (e.target.closest && e.target.closest('input,textarea,select,button,summary,[contenteditable]'))) return;
+    var alt = e.altKey, shift = e.shiftKey;
+    var send = !alt && (k === '/' || k === '?' || k === 'a');
+    if (selectedKey) {
+      if (alt) send = (k === 'ArrowUp' || k === 'ArrowDown');
+      else if (!shift) send = send || k === 'Escape' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace' || k === '1' || k === '2' || k === '3';
+    } else if (!alt && !shift) send = send || k === '1' || k === '2' || k === '3';
+    if (!send) return;
+    if (selectedKey) e.preventDefault();
+    post2({ type: 'key', key: k, shift: !!shift, alt: !!alt, mod: false });
   });
 
   // ---- patching ----
