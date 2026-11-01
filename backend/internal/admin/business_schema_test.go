@@ -23,8 +23,10 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range root.Props {
-		if p.Name == "business_type" || p.Name == "no_office" {
-			t.Errorf("site-wide schema still has %q", p.Name)
+		for _, gone := range localeOnlyProps {
+			if p.Name == gone {
+				t.Errorf("site-wide schema still has %q", p.Name)
+			}
 		}
 	}
 	out, err := schemaform.Render(site, nil, schemaform.Options{Prefix: "biz."})
@@ -37,12 +39,12 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 			t.Errorf("site form lacks %q", want)
 		}
 	}
-	for _, gone := range []string{"Latitude", "Longitude", "Map address"} {
+	for _, gone := range []string{"Latitude", "Longitude", "Map address", "Country name", "Image"} {
 		if strings.Contains(s, gone) {
 			t.Errorf("site form has the locale-only %q", gone)
 		}
 	}
-	for _, kept := range []string{"PO box", "Business profile address"} {
+	for _, kept := range []string{"PO box", "Business profile address", "Alternate name", "Slogan", "Founding date", "Employees from", "Employees to", "VAT ID", "Print the logo with its width and height", "Count is", "Best rating", "Worst rating"} {
 		if !strings.Contains(s, kept) {
 			t.Errorf("site form lacks %q", kept)
 		}
@@ -51,9 +53,14 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Latitude", "Longitude", "Map address"} {
+	for _, want := range []string{"Latitude", "Longitude", "Map address", "Country name", "VAT ID", "Description", `id="sf-biz-image"`} {
 		if !strings.Contains(string(card), want) {
 			t.Errorf("locale card form lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"Alternate name", "Slogan", "Founding date", "Employees from", "Print the logo with its width and height"} {
+		if strings.Contains(string(card), gone) {
+			t.Errorf("locale card form has the site-only %q", gone)
 		}
 	}
 	if strings.Contains(s, "Business type") || strings.Contains(s, "No office") {
@@ -67,6 +74,38 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 		if !strings.Contains(string(full), want) {
 			t.Errorf("locale form lacks %q", want)
 		}
+	}
+}
+
+func TestBusinessFormRoundTripsNewFields(t *testing.T) {
+	schema, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prev := bizprofile.Profile{Name: "Example Co", EmployeesMin: 10, EmployeesMax: 50, FoundingDate: "2009", Slogan: "Hello", LogoObject: true,
+		ContactPoints: []bizprofile.ContactPoint{{Type: "sales", Name: "Sales", AreaServed: "Europe", AvailableLanguage: "English"}},
+		Rating:        bizprofile.Rating{Value: "4.8", Best: "5", Worst: "1", Count: "120", CountType: "reviews"}}
+	html, err := schemaform.Render(schema, profileMap(t, prev), schemaform.Options{Prefix: "biz."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`value="10"`, `value="50"`, `value="2009"`, `value="Europe"`, "Languages", `<option value="reviews" selected>`} {
+		if !strings.Contains(string(html), want) {
+			t.Errorf("form lacks %q", want)
+		}
+	}
+	// Posting the rendered values back keeps the integers as integers.
+	form := url.Values{"biz.name": {"Example Co"}, "biz.employees_min": {"10"}, "biz.employees_max": {"50"}, "biz.rating.count_type": {"reviews"}}
+	vals, errs := schemaform.Decode(schema, form, profileMap(t, prev), schemaform.Options{Prefix: "biz."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.EmployeesMin != 10 || got.EmployeesMax != 50 || got.Rating.CountType != "reviews" {
+		t.Errorf("profile = %+v", got)
 	}
 }
 
@@ -119,7 +158,7 @@ func TestBusinessFormRoundTripsRepeaterRows(t *testing.T) {
 
 func TestBusinessValidationMessagesLandOnFieldIDs(t *testing.T) {
 	p := bizprofile.Profile{
-		Address:      bizprofile.Address{Lat: "999"},
+		Address:      bizprofile.Address{Lat: "999", Lng: "10"},
 		OpeningHours: []bizprofile.Hours{{Opens: "9am"}},
 	}
 	errs := profileErrors(bizprofile.Validate(p))
@@ -138,6 +177,34 @@ func TestBusinessValidationMessagesLandOnFieldIDs(t *testing.T) {
 	}
 	if len(summary) != 2 || summary[0].Label != "Address Latitude" || summary[1].Label != "Opening hours 1 Opens" {
 		t.Errorf("summary = %+v", summary)
+	}
+}
+
+// Every path Validate can flag must be a field of the form it is reported on.
+func TestBusinessValidationPathsOfNewFieldsLandOnFieldIDs(t *testing.T) {
+	site, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := bizprofile.Profile{
+		Description: strings.Repeat("x", 5000), AlternateName: strings.Repeat("x", 5000), Slogan: strings.Repeat("x", 5000),
+		FoundingDate: "soon", EmployeesMin: 9, EmployeesMax: 2, VATID: strings.Repeat("x", 5000),
+		ContactPoints: []bizprofile.ContactPoint{{Name: strings.Repeat("x", 5000), AreaServed: strings.Repeat("x", 5000), AvailableLanguage: strings.Repeat("x", 5000)}},
+		Rating:        bizprofile.Rating{Value: "0x1p3", Best: "NaN", Worst: "Inf", CountType: "both"},
+	}
+	msgs := bizprofile.Validate(p)
+	errs := profileErrors(msgs)
+	out, err := schemaform.Render(site, profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) < 10 {
+		t.Fatalf("only %d errors: %v", len(msgs), msgs)
+	}
+	for _, e := range formErrors("biz.", errs) {
+		if !strings.Contains(string(out), `id="`+e.ID+`"`) {
+			t.Errorf("summary id %q (%s) has no field in the site form", e.ID, e.Label)
+		}
 	}
 }
 
