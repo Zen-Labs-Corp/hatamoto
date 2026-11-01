@@ -95,6 +95,7 @@ export function mountDock(root, onPick = () => {}) {
     root.addEventListener("keydown", (e) => {
       const was = open();
       if (e.key !== "Escape" || e.defaultPrevented || !narrow.matches || !was || !e.target.closest?.(".hm-bs__dock, .hm-bs__nav, .hm-bs__inspector") || document.querySelector(":popover-open, dialog[open]")) return;
+      e.preventDefault(); // the Esc is spent: the keymap's parent-select must not follow
       close();
       was.focus();
     });

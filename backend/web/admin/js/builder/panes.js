@@ -213,7 +213,7 @@ export function mountPanes(root, opts) {
 }
 
 /**
- * The left pane's tabs (Navigator | Add): roving tabindex, arrows/Home/End move and show the panel.
+ * The left pane's tabs (Navigator | Insert): roving tabindex, arrows/Home/End move and show the panel.
  * onPick(name) runs when a tab is shown. Returns {pick(name, focus)}.
  */
 export function mountLeftTabs(root, onPick = () => {}) {

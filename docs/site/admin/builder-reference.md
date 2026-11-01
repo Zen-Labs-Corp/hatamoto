@@ -32,12 +32,12 @@ The builder edits `attributes.page_doc`, a tree of layout nodes. Hatamoto render
 |---|---|
 | Top bar | A back link, the page name, **Navigator** and **Inspector** buttons that show or hide each pane (`Ctrl/Cmd+Alt+[` and `]`), **Shortcuts**, **Undo**, **Redo**, **History**, the device switch, one status chip, **Save draft** and **Publish** (**Update page** once published), and a **More** menu. |
 | **Navigator** (left tab) | A tree of nodes. Rows can be dragged, renamed (F2, double-click or the **Rename** button) and folded with the caret; Ctrl or Cmd plus click selects several. Above it, a **Filter elements** box and **Collapse all**. |
-| **Add** (left tab) | A search box (focused when the tab opens) over the things you can insert, as tiles. Press Enter or click to insert after the selection (or into a selected container); Shift+Enter inserts and keeps the search open; press and drag to drop onto the canvas. Its foot holds **Save as block…** and **Save as template…**. |
-| Left pane foot | Always visible: **Add element** (opens the Add tab, same as `/`) and **Ctrl K** (opens the command palette). |
+| **Insert** (left tab) | A search box (focused when the tab opens) over the things you can insert, as cards (blocks in a grid). Press Enter or click to insert: sections, patterns and templates go after the selected section, a block into the selected container; Shift+Enter inserts and keeps the search open; press and drag to drop onto the canvas. Its foot holds **Save as block…** and **Save as template…**. |
+| Left pane foot | Always visible: **Add section** (opens the Insert tab, same as `/`) and **Ctrl K** (opens the command palette). |
 | Canvas (middle) | The page in a sandboxed frame, with a strip above it (breadcrumbs, zoom), a hover outline, a selection outline and a toolbar beside the selected element. The device switch sizes the frame and selects the breakpoint the Style tab edits. |
 | **Inspector** (right) | The settings panel, with the tabs **Content**, **Style** and **Advanced**. |
 
-On a screen 959 pixels wide or less the panes stack and a dock at the bottom switches between **Navigator**, **Add** and **Inspector**; selecting an element opens the Inspector sheet. At 640 pixels and below the device switch and **Undo** stay in the top bar, and **Save draft**, **Redo** and **History** move into **More**.
+On a screen 959 pixels wide or less the panes stack and a dock at the bottom switches between **Navigator**, **Insert** and **Inspector**; selecting an element opens the Inspector sheet. At 640 pixels and below the device switch and **Undo** stay in the top bar, and **Save draft**, **Redo** and **History** move into **More**.
 
 **Names.** The Navigator, the history and the messages use plain names for kinds: "Rich text" (`richtext`), "Accordion item", "Tab panel", "Columns", "Query loop", "Block: Promo" for a block reference, and so on. A name you gave an element wins over the kind name. A row reads "Name · Kind" when both differ.
 
@@ -47,7 +47,7 @@ On a screen 959 pixels wide or less the panes stack and a dock at the bottom swi
 
 **Start panel.** A page with no elements shows **Start this page** over the canvas: hero, features, call to action and FAQ first, then other theme sections, with **Start blank**. It goes away on the first insert.
 
-**Hints.** Two one-time notes ("Click to select. Double-click text to type." and "Press / or use Add to insert anything.") show until you press **Got it** or make your first insert, and are remembered per user in this browser.
+**Hints.** One hint bar over the page ("Click to select", "Double-click text to type", "Drag to resize spacing", "/ to insert", "Esc for the parent") shows until you press **Dismiss hints** or make your first insert, and is remembered per user in this browser.
 
 **More menu.** **Versions**, **SEO** (the drawer above; here only on a narrow screen, where the top bar has no SEO button), **Page settings** (slug and the rest, on the entity form), **Site styles** (owners only), **Keyboard shortcuts**, then in red **Delete page** (**Delete block** or **Delete part** on those screens), always behind a confirmation.
 
@@ -55,7 +55,7 @@ On a screen 959 pixels wide or less the panes stack and a dock at the bottom swi
 
 **Command palette.** `Ctrl/Cmd+K` opens a centred search from anywhere, even from a text box. It lists Recent, Patterns, Elements, Blocks and Commands: Undo, Redo, Desktop, Tablet, Phone, Show or hide Navigator, Show or hide Inspector, History, Keyboard shortcuts, Save as block…, Save as template…, Site styles (owners) and Preview (pages with a public address). Enter runs the chosen row; Shift+Enter on an element or pattern inserts it and leaves the palette open. Typing ranks matches by name first. `Ctrl/Cmd+K` also works while focus is on the page itself, inside the canvas frame. In a text edit on the canvas it is the link shortcut instead.
 
-**Patterns.** With no search the Add tab shows one short row of patterns and **Show all patterns (N)**. A search lists every match.
+**Patterns.** With no search the Insert tab shows one short row of patterns and **Show all patterns (N)**. A search lists every match.
 
 ### Node kinds
 
@@ -143,7 +143,7 @@ The server also renders the document as one nested form, the outline, inside `<n
 - **Canvas strip.** Above the page: the **breadcrumbs** (Page, then each parent down to the selected element; pick one to select that parent) and the **zoom** buttons **Fit**, **100**, **75** and **50**. Zoom never goes below 50 percent, except that **Fit** may go lower on a phone-sized editor screen. A chosen zoom stays when the window resizes. On Tablet or Phone a thin coloured band along the top of the page, with the device's name, shows which width you are editing.
 - **Element toolbar.** A small bar sits just outside the selected element (above it, or below it at the top edge): a drag handle, the element's name, then **Parent**, **Duplicate**, **Wrap**, **Add after**, **Hide** (its full name is "Hide on this device", or "Show on this device" when hidden), **Delete** and **More** (the same menu as a right-click). Move between the buttons with the arrow keys. On text the bar adds the hint "Double-click or Enter to edit text". While you type it shrinks to "Editing text · Enter to finish · Esc to cancel" and stays clear of the text formatting bar.
 - **Edit text.** Select a heading or text and press **Enter** (or double-click). **Enter** finishes and keeps your text; **Esc** cancels and puts the text back as it was. See [Formatting text on the page](#formatting-text-on-the-page). `Ctrl+K` (`Cmd+K`) opens the command palette from the page, and the link panel while you type.
-- **Add a section.** The round **+** buttons between elements, inside empty containers and at the top of the page (and on the empty page) open a picker of layouts: 1, 2, 3 or 4 columns, 33/67, 67/33 and a 2×2 grid. Pick one and an empty section with that layout is added at that spot and selected. The **+** buttons sit in the gaps between elements (never over their text) for the selected element's container and the one you point at, and an insertion line shows where the new section goes; **Choose an element…** and **Insert a ready-made section…** open the Add tab, which then inserts at the same spot. Empty cells are drawn with a dashed outline in the editor so you can click them. The **+** buttons are for the pointer; with the keyboard select an element and use **Add after** in its toolbar, which opens the same picker right after it, or the **Add** tab (`/`).
+- **Add a section.** The round **+** buttons between elements, inside empty containers and at the top of the page (and on the empty page) open a picker of layouts: 1, 2, 3 or 4 columns, 33/67, 67/33 and a 2×2 grid. Pick one and an empty section with that layout is added at that spot and selected. The **+** buttons sit in the gaps between elements (never over their text) for the selected element's container and the one you point at, and an insertion line shows where the new section goes; **Choose an element…** and **Insert a ready-made section…** open the Insert tab, which then inserts at the same spot. Empty cells are drawn with a dashed outline in the editor so you can click them. The **+** buttons are for the pointer; with the keyboard select an element and use **Add after** in its toolbar, which opens the same picker right after it, or the **Insert** tab (`/`).
 - **Element menu.** Right-click an element on the canvas or a row in the Navigator, or press **Shift+F10** (or the menu key) on a row. The menu offers Copy, Cut, Paste after, Paste inside, Duplicate, Rename, Wrap in container, Unwrap, Copy style, Paste style, Save as template…, Save as block… and Delete; what cannot apply here is greyed out. Arrow keys move, **Esc** closes it and focus goes back to the row.
 - **Copy and paste.** Copy and Cut put the elements on your system clipboard, so you can paste them into another page of the same site (or another browser tab). Paste adds them after the selection with new ids, and the server checks them like a save: anything that does not fit is refused with a message and nothing is pasted. An element with a block that does not exist on this site is pasted with the missing-block placeholder.
 - **Select several.** **Ctrl** or **Cmd** plus click adds or removes an element, **Shift** plus click selects the range among siblings, in the Navigator or on the canvas; **Ctrl+A** selects the siblings. Delete, Duplicate, Hide, Wrap and Copy act on all of them in one undo step. The inspector says how many are selected and edits none; drag, rename, Paste inside and style paste need exactly one.
@@ -154,16 +154,18 @@ The server also renders the document as one nested form, the outline, inside `<n
 
 ### Shortcuts
 
-Shortcuts act on the page, never inside a text field, except `Ctrl` or `Cmd` plus `S` and `Ctrl` or `Cmd` plus `K`, which work everywhere. Press `?` for the sheet, which is grouped (Add and insert, Select and move, Edit, View and device, History) and searchable.
+Shortcuts act on the page, never inside a text field, except `Ctrl` or `Cmd` plus `S` and `Ctrl` or `Cmd` plus `K`, which work everywhere. Press `?` for the sheet, which is grouped (Insert, Select and move, Edit, View and device, History) and searchable.
 
 | Keys | Action |
 |---|---|
-| Up, Down | previous, next element in the Navigator |
+| Up, Down | previous, next element in the Navigator; on the page, the previous, next section |
+| Esc | select the parent of the selected element |
+| 1, 2, 3 | Desktop, Tablet, Phone |
 | Left, Right | collapse or go to parent, expand or go to first child |
 | Home, End | first, last element |
-| Alt+Up, Alt+Down | move among siblings |
+| Alt+Up, Alt+Down | move among siblings (also with focus on the page) |
 | Alt+Left, Alt+Right | outdent, indent |
-| Delete | remove |
+| Delete, Backspace | remove |
 | Ctrl/Cmd+D | duplicate |
 | Ctrl/Cmd+C, Ctrl/Cmd+X, Ctrl/Cmd+V | copy, cut, paste after the selection |
 | Ctrl/Cmd+G, Ctrl/Cmd+Shift+G | wrap in a container, unwrap |
@@ -175,10 +177,10 @@ Shortcuts act on the page, never inside a text field, except `Ctrl` or `Cmd` plu
 | Ctrl/Cmd+Z | undo |
 | Ctrl/Cmd+Shift+Z, Ctrl+Y | redo |
 | Ctrl/Cmd+S | save |
-| Enter | on the page: edit the selected text. In the Navigator: open the element's settings in the inspector |
-| `/`, `A` | open the Add tab with its search focused |
+| Enter | on the page: edit the selected text, or select the first child. In the Navigator: open the element's settings in the inspector |
+| `/`, `A` | open the Insert tab with its search focused |
 | Ctrl/Cmd+K | command palette (in a canvas text edit: insert link) |
-| Shift+Enter (in the Add search) | insert and keep the search open |
+| Shift+Enter (in the Insert search) | insert and keep the search open |
 | Ctrl/Cmd+Alt+[ , Ctrl/Cmd+Alt+] | show or hide the Navigator, the Inspector |
 | `?` | shortcut sheet |
 | Escape | cancel a drag |
@@ -257,7 +259,7 @@ On a node, the Style tab has a Preset panel (apply, see which values differ from
 
 Three ways to reuse layout, none needing a database change:
 
-- **Templates.** **Save as template…** and **Save page as template…** at the foot of the Add tab (and in the element menu and the `Ctrl+K` palette) open a small name window and store a copy. Inserting always makes fresh ids. Templates are listed under **Theme > Templates** (`<admin>/theme/templates`) together with older section templates. A template is a copy: later edits do not propagate.
+- **Templates.** **Save as template…** and **Save page as template…** at the foot of the Insert tab (and in the element menu and the `Ctrl+K` palette) open a small name window and store a copy. Inserting always makes fresh ids. Templates are listed under **Theme > Templates** (`<admin>/theme/templates`) together with older section templates. A template is a copy: later edits do not propagate.
 - **Blocks.** **Save as block…** turns the selection into a shared block and puts a reference in its place. Pages that use the block all show its latest saved content. Blocks are listed under **Theme > Blocks** (`<admin>/theme/blocks`, owners and editors). A block opens in the same builder with **Save block** (no autosave, no Publish) and a "Used on N pages" list. Blocks are always drafts and never public pages. They can nest three deep, and a cycle is refused. Deleting a block leaves a "Missing block" box in the editor and only a comment on the public page. **Detach** turns a reference back into ordinary nodes.
 - **Layout parts.** **Theme > Layout parts** (`<admin>/theme/parts`, owners) assigns a header, footer, single or archive part to the site, or "None" to use the theme's own. A single or archive part must contain exactly one `slot` node, where the page content goes. Slots your theme does not support show "Your theme does not use this part".
 

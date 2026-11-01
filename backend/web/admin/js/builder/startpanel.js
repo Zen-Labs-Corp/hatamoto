@@ -12,7 +12,7 @@ export const shouldShowStart = (doc) => !doc?.nodes?.length;
 /**
  * mountStart(canvasEl, {patterns, urls, onPattern(item), onBlank}) -> {destroy}
  * patterns are palette items (group "Patterns"); a saved template's thumbnail is fetched, the rest are drawn at once.
- * Start blank takes the panel away first, then calls onBlank (which opens the Add tab with its search focused).
+ * Start blank takes the panel away first, then calls onBlank (which opens the Insert tab with its search focused).
  */
 export function mountStart(canvasEl, { patterns = [], urls = null, onPattern, onBlank }) {
   const shown = startersFirst(patterns).slice(0, MAX); // hero, features, call to action, FAQ first, not the theme's alphabet
@@ -28,7 +28,7 @@ export function mountStart(canvasEl, { patterns = [], urls = null, onPattern, on
     "section",
     { class: "hm-bs__start", "aria-labelledby": "hm-bs-start-h" },
     h("h2", { class: "hm-bs-start__h", id: "hm-bs-start-h", text: "Start this page" }),
-    h("p", { class: "hm-muted", text: shown.length ? "Pick a starting point, or start blank and add elements one at a time." : "Add your first element, one at a time." }),
+    h("p", { class: "hm-muted", text: shown.length ? "Pick a starting point, or start blank and insert blocks one at a time." : "Insert your first block, one at a time." }),
     shown.length ? h("ul", { class: "hm-bs-start__list" }, ...shown.map(tile)) : null,
     actButton("Start blank", { onclick: () => (destroy(), onBlank()) }),
   );

@@ -69,7 +69,7 @@ async function update() {
   if (r.status() !== 200) throw new Error("save answered " + r.status());
   await settle(600);
 }
-const saved = () => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
+const saved = () => p.waitForFunction(() => /\bSaved\b|\bDraft saved\b/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
 async function check(name, fn) {
   if (process.env.QA_ONLY && !/^setup/.test(name) && !new RegExp(process.env.QA_ONLY, "i").test(name)) return;
   try { console.log(`ok   ${name}: ${await fn()}`); }

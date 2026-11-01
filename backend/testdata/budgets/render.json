@@ -61,7 +61,7 @@
       "tol_abs": 64
     },
     "canvas_bridge_gzip": {
-      "value": 15879,
+      "value": 16376,
       "unit": "bytes",
       "tol_abs": 512
     },
@@ -249,6 +249,10 @@
     {
       "reason": "default theme nav disclosure",
       "date": "2026-10-29"
+    },
+    {
+      "reason": "canvas bridge forwards the builder shortcut set: canvas_bridge_gzip 15879 -> 16376 (+497 B)",
+      "date": "2026-11-01"
     }
   ]
 }

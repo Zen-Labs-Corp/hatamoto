@@ -66,7 +66,7 @@ async function update() {
   if (r.status() !== 200) throw new Error("save answered " + r.status());
   await settle(600);
 }
-const saved = () => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
+const saved = () => p.waitForFunction(() => /\bSaved\b|\bDraft saved\b/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
 async function check(name, fn) {
   if (process.env.QA_ONLY && !/^setup/.test(name) && !new RegExp(process.env.QA_ONLY, "i").test(name)) return;
   try { console.log(`ok   ${name}: ${await fn()}`); }
@@ -208,7 +208,7 @@ for (const [which, hid] of [["heading in a <section> container", "a"], ["heading
       const info = `text posts ${posts}; doc before blur "${docBefore}", after "${docAfter}"; canvas typed "${typed}", after "${after}"; status "${await status()}"`;
       if (!after?.includes(TYPED.trim())) throw new Error("REVERTED on the canvas: " + info);
       if (docAfter !== stored + TYPED) throw new Error("doc text not kept: " + info);
-      if (/Saved/.test(await status()) && !/Not saved|Unsaved|Saving|Update/.test(await status())) throw new Error("status is not dirty: " + info);
+      if (!(await p.locator("[data-hm-bs-save][data-hm-bs-dirty]").count())) throw new Error("the Update button is not dirty: " + info);
       if (!(await undoOn())) throw new Error("no undo entry: " + info);
       await p.locator("[data-hm-bs-undo]").first().click();
       await settle(900);

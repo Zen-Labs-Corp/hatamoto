@@ -1,26 +1,26 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 56702,
+      "value": 57994,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "canvas_host_gzip": {
-      "value": 7986,
+      "value": 8045,
       "unit": "bytes",
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 101523,
+      "value": 103525,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 101559
+      "cap": 103561
     },
     "editor_js_total_gzip": {
-      "value": 271498,
+      "value": 274238,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 272522
+      "cap": 275262
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -123,6 +123,42 @@
     {
       "reason": "builder Translations drawer: lazy translationsdrawer chunk and a delegated opener in screen.js; editor_js_first_gzip 101122 to 101254 (+132 B), editor_js_total_gzip 262338 to 263484 (+1146 B), caps move by the same amount",
       "date": "2026-10-31"
+    },
+    {
+      "reason": "builder chrome: editor_js_first_gzip 101391 -\u003e 103226 (+1835 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome: editor_js_total_gzip 270352 -\u003e 272745 (+2393 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome: admin_css_gzip 56702 -\u003e 57618 (+916 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome review fixes (Esc, Enter and Alt+Up/Down handling in phone.js and screen.js): editor_js_first_gzip 103226 to 103333 (+107 B), cap moves by the same amount",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome acceptance fixes (hint bar chips and x dismiss, published pending line): editor_js_first_gzip 103333 to 103395 (+62 B, cap moves by the same amount), editor_js_total_gzip 272745 to 273094 (+349 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome rebased onto the Translations drawer: editor_js_first_gzip 103395 -\u003e 103525 (+130 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome rebased onto the Translations drawer: editor_js_total_gzip 273094 -\u003e 274238 (+1144 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome rebased onto the Translations drawer: admin_css_gzip 57618 -\u003e 57994 (+376 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -\u003e 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
     }
   ]
 }

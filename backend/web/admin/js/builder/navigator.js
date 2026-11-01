@@ -279,7 +279,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     if (!rows.length) {
       const add = h("button", { type: "button", class: "hm-btn hm-btn--sm", text: "Add a section" });
       add.addEventListener("click", () => onAdd(add));
-      root.replaceChildren(h("p", { class: "hm-muted", text: "Nothing here yet. Use Add element or press / to insert something." }), add);
+      root.replaceChildren(h("p", { class: "hm-muted", text: "Nothing here yet. Use Add section or press / to insert something." }), add);
       return;
     }
     if (renaming && !rows.some((r) => r.id === renaming)) renaming = field = null;

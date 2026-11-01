@@ -1,6 +1,6 @@
 // Builder UX shell tasks (UX-1): T1..T10 from ref/tasks.md by mouse, by keyboard and at 390px, the first-use path
 // (visible buttons only, no shortcut) for T1, T2, T5 and T8, the shell checks (status chip, device announce, More menu,
-// Add tab, Ctrl+K, conflict and recovery banners, coach marks, phone dock, Site styles, dark mode) and axe on seven surfaces.
+// Add tab, Ctrl+K, conflict and recovery banners, hint bar, phone dock, Site styles, dark mode) and axe on seven surfaces.
 //
 // Counting. Every action goes through the actor `act(page, {mode, firstUse})`, which counts and refuses what the mode forbids:
 //   mouse     1440px, no keyboard except Tab/Enter/Escape and typing or select-all in a field (shortcuts are refused)
@@ -223,7 +223,9 @@ async function openBuilder(p, id, ms = 400) {
   await ready(p);
   await settle(p, ms);
 }
-const savedNow = (p, ms = 20000) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: ms });
+// The status line when the page is saved: "Saved", "Published · Saved" or "Draft saved · not live yet" (not "Not saved" or "Unsaved changes").
+const SAVED = "\\bSaved\\b|\\bDraft saved\\b";
+const savedNow = (p, ms = 20000) => p.waitForFunction((re) => new RegExp(re).test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), SAVED, { timeout: ms });
 const tileFor = (p, key) => p.locator(`[data-hm-bs-lpanel="add"] [data-pal="${key}"], [data-hm-bs-palette] [data-pal="${key}"]`).first();
 const device = (p, name) => p.locator(`[data-hm-bs-device="${name}"]`);
 
@@ -974,10 +976,10 @@ await check("topbar-chip: one status chip, Draft and Saved, then Not saved while
   await openBuilder(main, id);
   const chip = main.locator("[data-hm-bs-state]");
   const first = (await chip.innerText()).replace(/\s+/g, " ");
-  need(/Draft/.test(first) && /Saved/.test(first), "chip reads: " + first);
+  need(/Draft/.test(first) && new RegExp(SAVED).test(first), "chip reads: " + first);
   need((await main.locator("[data-hm-bs-status]").count()) === 0 || !(await main.locator("[data-hm-bs-status]").isVisible()), "the server badge shows next to the chip");
   await tileFor(main, "heading").click();
-  await main.waitForFunction(() => !/Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 3000 });
+  await main.waitForFunction((re) => !new RegExp(re).test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), SAVED, { timeout: 3000 });
   await savedNow(main);
   await drop(main, id);
   return `"${first}" -> unsaved -> saved`;
@@ -1018,7 +1020,7 @@ await check("more-menu-order: Versions, Page settings, Site styles (owner), Keyb
   return items.join(" | ");
 });
 
-await check("add-tab: Navigator | Add is a tab list with roving focus; the Add tab lists Patterns and searches", async () => {
+await check("add-tab: Navigator | Insert is a tab list with roving focus; the Insert tab lists Sections and searches", async () => {
   const id = await seeded(main, ["heading"]);
   const tabs = main.locator("[data-hm-bs-ltabs] [role=tab]");
   need((await tabs.count()) === 2, "two tabs expected");
@@ -1026,10 +1028,10 @@ await check("add-tab: Navigator | Add is a tab list with roving focus; the Add t
   need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("tabindex")) === "-1", "the inactive tab is in the tab order");
   await main.locator('[data-hm-bs-ltab="nav"]').focus();
   await main.keyboard.press("ArrowRight");
-  need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("aria-selected")) === "true", "ArrowRight did not select Add");
-  need(await main.locator("#hm-bs-lp-add").isVisible(), "the Add panel is hidden");
+  need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("aria-selected")) === "true", "ArrowRight did not select Insert");
+  need(await main.locator("#hm-bs-lp-add").isVisible(), "the Insert panel is hidden");
   const groups = await main.locator("[data-hm-bs-lpanel=add] h3").allInnerTexts();
-  need(groups.includes("Patterns") && groups.includes("Recent") === (groups[0] === "Recent"), "groups: " + groups.join("|"));
+  need(groups.includes("Sections") && groups.includes("Recent") === (groups[0] === "Recent"), "groups: " + groups.join("|"));
   await main.locator("#hm-bs-pal-q").fill("zzzz");
   need(/Nothing matches/.test(await main.locator("[data-hm-bs-lpanel=add]").innerText()), "no empty message");
   await main.locator("#hm-bs-pal-q").fill("");
@@ -1119,14 +1121,14 @@ await check("recovery-banner-noshift: an unsaved copy kept on the server is offe
   return "banner floats; canvas box unchanged";
 });
 
-await check("coachmarks-once: a hint shows on first use, dismisses for good and does not return after a reload", async () => {
+await check("coachmarks-once: the hint bar shows on first use, dismisses for good and does not return after a reload", async () => {
   const s = await newSession(browser, { theme: "light", width: 1440 });
   watch(s);
   const id = await seeded(main, ["heading"]); // made in another browser profile: this one has not inserted anything
   await openBuilder(s, id);
   const hints = s.locator(".hm-bs-hint");
-  need((await hints.count()) >= 1, "no hint on a first visit");
-  const n = await hints.count();
+  need((await hints.count()) === 1, "not exactly one hint bar on a first visit");
+  const n = 1;
   // Undoing a delete re-inserts the element, but it is not a first insert: the hints stay.
   await (await rowOfKind(s, "heading")).click();
   await s.keyboard.press("Delete");
@@ -1134,15 +1136,15 @@ await check("coachmarks-once: a hint shows on first use, dismisses for good and 
   await settle(s, 300);
   need((await nodes(s)).some((x) => x.t === "heading"), "undo did not bring the heading back");
   need((await hints.count()) === n, "an undo counted as a first insert and dismissed the hints");
-  for (let i = 0; i < n; i++) await s.locator(".hm-bs-hint").first().getByRole("button", { name: "Got it" }).click();
+  await s.getByRole("button", { name: "Dismiss hints" }).click();
   await openBuilder(s, id);
-  need((await s.locator(".hm-bs-hint").count()) === 0, "a hint came back after Got it");
+  need((await s.locator(".hm-bs-hint").count()) === 0, "the hint bar came back after Dismiss hints");
   await drop(main, id);
   await s.context().close();
   return `${n} hint(s) shown once`;
 });
 
-await check("phone-dock: Navigator, Add and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
+await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
   const id = await seeded(main, ["heading", "text"]);
   await main.setViewportSize({ width: 390, height: 844 });
   await settle(main, 400);
@@ -1150,7 +1152,7 @@ await check("phone-dock: Navigator, Add and Inspector sit in a dock; picking an 
     const dock = main.locator("[data-hm-bs-dock]");
     need(await dock.first().isVisible(), "no dock");
     const names = (await main.locator("[data-hm-bs-dock] button").allInnerTexts()).map((t) => t.trim());
-    need(names.join() === "Navigator,Add,Inspector", "dock: " + names.join());
+    need(names.join() === "Navigator,Insert,Inspector", "dock: " + names.join());
     await main.locator('[data-hm-bs-dock="nav"]').click();
     await (await rowOfKind(main, "heading")).click();
     await settle(main, 400);
@@ -1253,11 +1255,11 @@ await check("insertAt-resolves-after-insert: the UX-2 contract resolves true onl
   return JSON.stringify(r);
 });
 
-await check("add-tab-compact: one short Patterns row with a toggle, elements in view, and he + Enter inserts Heading", async () => {
+await check("add-tab-compact: one short Sections row with a toggle, blocks in view, and he + Enter inserts Heading", async () => {
   const id = await newDraft(main);
   await openBuilder(main, id);
   await showAdd(main);
-  const pats = main.locator('[data-hm-bs-palette] section[aria-label="Patterns"]');
+  const pats = main.locator('[data-hm-bs-palette] section[aria-label="Sections"]');
   const n = await pats.locator("[data-pal]").count();
   need(n >= 1 && n <= 4, `${n} pattern tiles show before Show all`);
   const toggle = pats.getByRole("button", { name: /^Show all patterns \(\d+\)$/ });
@@ -1271,7 +1273,7 @@ await check("add-tab-compact: one short Patterns row with a toggle, elements in 
     await main.evaluate(() => document.activeElement.blur()); // the "/" key is for focus outside controls
   }
   const pane = await main.locator('[data-hm-bs-lpanel="add"]').boundingBox();
-  const head = await main.locator('[data-hm-bs-palette] section[aria-label="Elements"] [data-pal="heading"]').boundingBox();
+  const head = await main.locator('[data-hm-bs-palette] section[aria-label="Blocks"] [data-pal="heading"]').boundingBox();
   need(head && head.y + head.height <= pane.y + pane.height, `Heading is below the fold: ${head?.y} vs pane bottom ${pane.y + pane.height}`);
   await main.keyboard.press("/");
   await main.keyboard.type("he");
@@ -1319,7 +1321,7 @@ await check("phone-chrome: one pane chooser (the dock) and the status chip says 
   await settle(main, 400);
   try {
     await main.locator('[data-hm-bs-dock="add"]').click();
-    need(!(await main.locator(".hm-bs__ltabs").isVisible()), "the inner Navigator | Add tab list shows under the dock");
+    need(!(await main.locator(".hm-bs__ltabs").isVisible()), "the inner Navigator | Insert tab list shows under the dock");
     const chip = await main.locator("[data-hm-bs-state] .hm-savestate").evaluate((e) => ({ after: getComputedStyle(e, "::after").content, w: parseFloat(getComputedStyle(e, "::after").width) }));
     need(/Saved/.test(chip.after) && chip.w > 20, "the chip shows " + JSON.stringify(chip));
     return "dock only, chip " + chip.after;
@@ -1533,9 +1535,9 @@ await check("axe: start panel on an empty page", async () => {
   await ax.locator(".hm-bs__start").waitFor({ timeout: 5000 });
   return axeOn(ax, "start panel");
 });
-await check("axe: Add tab (patterns and tiles)", async () => {
+await check("axe: Insert tab (sections and blocks)", async () => {
   await showAdd(ax);
-  return axeOn(ax, "Add tab");
+  return axeOn(ax, "Insert tab");
 });
 await check("axe: builder with a selection", async () => {
   await seed(ax, ["heading", "text"]);

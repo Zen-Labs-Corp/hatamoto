@@ -5,12 +5,12 @@ import { h } from "@hm/builder/dom";
 /** [group, [[keys, what]...]] in reading order. */
 export const GROUPS = [
   [
-    "Add and insert",
+    "Insert",
     [
-      ["/ or A", "Add an element (opens the Add tab)"],
+      ["/ or A", "Insert a block or section (opens the Insert tab)"],
       ["Ctrl/Cmd + K", "Search elements, patterns and commands"],
-      ["Enter in the Add search", "Insert the first element shown"],
-      ["Shift + Enter in the Add search", "Insert it and keep the search open for the next one"],
+      ["Enter in the Insert search", "Insert the first result shown"],
+      ["Shift + Enter in the Insert search", "Insert it and keep the search open for the next one"],
       ["Ctrl/Cmd + C / X / V", "Copy, cut and paste elements (paste goes after the selected one)"],
       ["Ctrl/Cmd + D", "Duplicate the element"],
     ],
@@ -18,14 +18,15 @@ export const GROUPS = [
   [
     "Select and move",
     [
-      ["Up / Down", "Select the previous / next element in the Navigator"],
+      ["Up / Down", "Select the previous / next element in the Navigator; on the page, the previous / next section"],
+      ["Esc", "Select the parent of the selected element"],
       ["Left / Right", "Collapse / expand, or go to the parent / first child"],
       ["Home / End", "Select the first / last element"],
       ["Ctrl/Cmd + A", "Select the element and its siblings"],
       ["Alt + Up / Down", "Move the element among its siblings"],
       ["Alt + Left", "Outdent: move it out, after its parent"],
       ["Alt + Right", "Indent: move it into the previous container"],
-      ["Enter", "Edit the selected element in the inspector"],
+      ["Enter", "Edit the selected element in the inspector (Navigator); on the page, edit its text or select its first child"],
       ["Shift + F10 or Menu key", "Open the element's actions menu"],
     ],
   ],
@@ -34,6 +35,7 @@ export const GROUPS = [
     [
       ["F2", "Rename the element in the Navigator"],
       ["Delete", "Delete the element"],
+      ["Backspace", "Delete the element (on the page or in the Navigator)"],
       ["H", "Hide or show the element at the current screen width (in the Navigator)"],
       ["Ctrl/Cmd + G", "Wrap the selected elements in a container"],
       ["Ctrl/Cmd + Shift + G", "Unwrap a container: its elements take its place"],
@@ -47,6 +49,7 @@ export const GROUPS = [
     [
       ["Ctrl/Cmd + Alt + [ / ]", "Show or hide the Navigator / Inspector pane"],
       ["Left / Right on a pane edge", "Resize the pane (Shift for bigger steps, Home / End for the limits, Enter to reset)"],
+      ["1 / 2 / 3", "Desktop / Tablet / Phone width"],
       ["?", "Show this list"],
     ],
   ],

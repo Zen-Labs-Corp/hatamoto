@@ -140,25 +140,25 @@ export function mapSaveReply(status, body = {}) {
 
 /** What the bar adds while a published page has unsaved changes, by the state of the server copy. */
 const KEEP_LINES = {
-  kept: "Unsaved changes, kept for you",
+  kept: "Draft saved · not live yet",
   failed: "Not saved. You appear to be offline.",
   expired: "Your session ended: sign in again in another tab.",
   refused: "Unsaved changes, not kept. Update the page to save them.",
 };
 
-/** The few words the bar keeps on a phone ("Draft · Saved"): no time, no reason (the full line stays for a screen reader). */
-export const shortLine = (q, status = "") => ({ pending: "Not saved", saving: "Saving…", saved: `${status ? status + " · " : ""}Saved`, error: "Not saved", conflict: "Changed elsewhere", stopped: "Not saved" })[q.state] ?? "";
+/** The few words the bar keeps on a phone ("Draft · Saved"): no reason (the full line stays for a screen reader). */
+export const shortLine = (q, status = "") => ({ pending: status === "Published" && !q.keep ? "Saving…" : "Not saved", saving: "Saving…", saved: `${status ? status + " · " : ""}Saved`, error: "Not saved", conflict: "Changed elsewhere", stopped: "Not saved" })[q.state] ?? "";
 
-/** The save-state line shown in the bar. at: the time of the last save, "10:42"; status: "Draft" or "Published" (empty for a block or part). */
-export function stateLine(q, { draft, at = "", status = "" } = {}) {
+/** The save-state line shown in the bar. status: "Draft" or "Published" (empty for a block or part). The time of the last save is savedTime(), for the title. */
+export function stateLine(q, { draft, status = "" } = {}) {
   switch (q.state) {
     case "pending":
       if (draft) return "Not saved";
-      return KEEP_LINES[q.keep] ?? "Unsaved changes";
+      return KEEP_LINES[q.keep] ?? (status === "Published" ? "Saving…" : "Unsaved changes"); // the recovery copy is on its way
     case "saving":
       return "Saving…";
     case "saved":
-      return `${status ? status + " · " : ""}Saved${at ? " " + at : ""}`;
+      return status === "Draft" ? "Draft saved · not live yet" : status ? `${status} · Saved` : "Saved";
     case "error":
       return `${q.message || "The page could not be saved."} Retrying…`;
     case "conflict":
@@ -169,6 +169,17 @@ export function stateLine(q, { draft, at = "", status = "" } = {}) {
       return "";
   }
 }
+
+/** The title of the save-state element: when the last save happened ("Saved at 14:02"), empty before one. */
+export const savedTime = (at) => (at ? `Saved at ${at}` : "");
+
+/**
+ * Whether the page carries changes the public copy does not have: only a published page can (a draft page is all draft), while the
+ * state is anything but saved and there are edits (kept as a draft on the server, or still held here). It clears on saved.
+ */
+export const updateState = (q, { status = "", dirty = false } = {}) => ({
+  unpublished: status === "Published" && !["saved", "idle", undefined].includes(q.state) && (q.keep === "kept" || !!dirty),
+});
 
 /**
  * createSaver({urls, csrf, boot, getDoc, getName, getSEO, onState, onAdopt, fetch, timers, delay})

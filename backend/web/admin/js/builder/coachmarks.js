@@ -1,14 +1,11 @@
-// Two one-time hints (a lazy chunk): how to select, and how to add. Each shows until it is dismissed
-// or the person makes a first insert, then never again; kept per user in localStorage (blocked storage
-// just means the hints show each visit). Non-modal notes: they never take the focus.
+// One dismissible hint bar (a lazy chunk): how to select, type, resize spacing, insert and step to the parent. It shows
+// until it is dismissed or the person makes a first insert, then never again; kept per user in localStorage (blocked
+// storage just means the bar shows each visit). A non-modal note: it never takes the focus.
 // Run: node --test scripts/admin-qa/unit/builder-coachmarks.test.mjs
-import { h, actButton } from "@hm/builder/dom";
+import { h } from "@hm/builder/dom";
 
 const KEY = "hm-builder-hints:";
-const HINTS = [
-  ["select", "Click to select. Double-click text to type."],
-  ["add", "Press / or use Add to insert anything."],
-];
+const LEGACY = ["select", "add"]; // the two earlier hints: both dismissed counts as the bar dismissed
 
 const read = (storage, user) => {
   try {
@@ -18,39 +15,49 @@ const read = (storage, user) => {
   }
 };
 
-export const shouldShow = (storage, user, name) => !read(storage, user)[name];
+export function shouldShow(storage, user) {
+  const flags = read(storage, user);
+  return !(flags.bar || LEGACY.every((n) => flags[n]));
+}
 
-export function dismiss(storage, user, name) {
+function mark(storage, user, names) {
   try {
-    storage.setItem(KEY + user, JSON.stringify({ ...read(storage, user), [name]: 1 }));
+    storage.setItem(KEY + user, JSON.stringify({ ...read(storage, user), ...Object.fromEntries(names.map((n) => [n, 1])) }));
   } catch {
     // shows again next visit
   }
 }
 
-/** Both hints, for good: the person inserted something before the hints had loaded. */
-export function dismissAll(storage, user) {
-  for (const [name] of HINTS) dismiss(storage, user, name);
+export const dismiss = (storage, user) => mark(storage, user, ["bar"]);
+
+/** The bar, for good: the person inserted something before the hints had loaded. */
+export const dismissAll = (storage, user) => mark(storage, user, ["bar", ...LEGACY]);
+
+const ITEMS = [
+  () => h("span", { text: "Click to select" }),
+  () => h("span", { text: "Double-click text to type" }),
+  () => h("span", {}, "Drag ", h("span", { class: "hm-bs-hint__bar", "aria-hidden": "true" }), " to resize spacing"),
+  () => h("span", {}, h("kbd", { text: "/" }), " to insert"),
+  () => h("span", {}, h("kbd", { text: "Esc" }), " for the parent"),
+];
+
+/** The server-rendered icon-only x button <template data-hm-bs-actx>; a plain button when the template is absent. */
+function dismissButton(onclick) {
+  const e = document.querySelector?.("template[data-hm-bs-actx]")?.content.firstElementChild?.cloneNode(true) ?? h("button", { type: "button", text: "x" });
+  e.setAttribute("aria-label", "Dismiss hints");
+  e.addEventListener("click", onclick);
+  return e;
 }
 
 /**
- * mountCoachmarks({canvasEl, navFoot, user, empty, storage}) -> {done}
- * The select hint sits on the canvas (not on an empty page, where the start panel leads); the add hint sits above the
- * left pane's footer. done() dismisses whatever is showing for good (the first insert).
+ * mountCoachmarks({canvasEl, user, empty, storage}) -> {done}
+ * One note on the canvas (not on an empty page, where the start panel leads). done() dismisses it for good (the first insert).
  */
-export function mountCoachmarks({ canvasEl, navFoot, user = "", empty = false, storage = globalThis.localStorage }) {
-  const marks = [];
-  for (const [name, text] of HINTS) {
-    if (!shouldShow(storage, user, name) || (name === "select" && empty)) continue;
-    const note = h("div", { class: `hm-bs-hint hm-bs-hint--${name}`, role: "note" }, h("p", { text }));
-    const close = () => (dismiss(storage, user, name), note.remove());
-    note.append(actButton("Got it", { onclick: close }));
-    (name === "add" ? navFoot : canvasEl)?.append(note);
-    marks.push({ note, name });
-  }
-  return {
-    done() {
-      for (const m of marks) (dismiss(storage, user, m.name), m.note.remove());
-    },
-  };
+export function mountCoachmarks({ canvasEl, user = "", empty = false, storage = globalThis.localStorage }) {
+  if (empty || !shouldShow(storage, user)) return { done() {} };
+  const note = h("div", { class: "hm-bs-hint", role: "note" }, ...ITEMS.map((f) => f()));
+  const close = () => (dismiss(storage, user), note.remove());
+  note.append(dismissButton(close));
+  canvasEl?.append(note);
+  return { done: close };
 }

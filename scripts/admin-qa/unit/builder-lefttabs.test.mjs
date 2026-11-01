@@ -1,4 +1,4 @@
-// The left pane's Navigator | Add tabs: roles, roving tabindex, arrows, the panel that shows.
+// The left pane's Navigator | Insert tabs: roles, roving tabindex, arrows, the panel that shows.
 // dom.js builds elements through `document`, so a tiny element stub stands in for the DOM.
 // Run: node --test scripts/admin-qa/unit/builder-lefttabs.test.mjs
 import { register } from "node:module";

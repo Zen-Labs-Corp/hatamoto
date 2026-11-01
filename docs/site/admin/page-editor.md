@@ -24,7 +24,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 1. Find the three panes:
 
-   - **Navigator** on the left lists every element of the page as a tree, with a **Filter** box, **Collapse all** and **Rename**. Drag a row to move it. Beside its tab is **Add**, where you pick what to insert.
+   - **Navigator** on the left lists every element of the page as a tree, with a **Filter** box, **Collapse all** and **Rename**. Drag a row to move it. Beside its tab is **Insert**, where you pick what to insert, as cards for elements and a grid of blocks.
    - The preview of the page in the middle. Point at an element to see a dashed outline, click it to select it, and double-click text (or press Enter) to type in it. A small toolbar next to the selected element has **Parent**, **Duplicate**, **Wrap**, **Hide**, **Delete** and **More**. Above the page, a strip shows where the element sits in the page (click a name to select that parent) and has **Fit**, **100**, **75** and **50** zoom buttons.
    - The **Inspector** on the right, with three tabs: **Content**, **Style** and **Advanced**.
 
@@ -32,7 +32,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 2. Start the page. On an empty page a **Start this page** panel offers a few starting points (a hero banner, features, a call to action, an FAQ) and **Start blank**. Pick one, or start blank and add elements one at a time.
 
-3. Add an element. Point between two elements, or inside an empty box, and a round **+** appears: press it to pick a layout (one to four columns, two uneven columns or a grid), **Choose an element…** or **Insert a ready-made section…**. Or open the **Add** tab, or press the **Add element** button at the foot of the left pane (or `/`). Type in the search box to find an element, a pattern (a ready-made group of elements) or a block (see below). Recent choices come first. Press Enter to insert the first result after the selected element, or inside it if it is a container, an element that holds others. Shift+Enter inserts it and keeps the search open for the next one. You can also drag a tile onto the preview.
+3. Add an element. Point between two elements, or inside an empty box, and a round **+** appears: press it to pick a layout (one to four columns, two uneven columns or a grid), **Choose an element…** or **Insert a ready-made section…**. Or open the **Insert** tab, or press the **Add section** button at the foot of the left pane (or `/`). Type in the search box to find an element, a pattern (a ready-made group of elements) or a block (see below). Recent choices come first. Press Enter to insert the first result. Sections, patterns and templates go after the selected section (or at the end of the page); a block goes inside the selected container. Shift+Enter inserts it and keeps the search open for the next one. You can also drag a tile onto the preview.
 
 4. Search everything with the command palette. Press `Ctrl+K` (`Cmd+K` on a Mac), or the **Ctrl K** button at the foot of the left pane. One box searches elements, patterns, blocks and commands such as Undo, Tablet, History or Save as block. While you are typing inside text on the page, `Ctrl+K` still means "add a link".
 
@@ -42,7 +42,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 7. Check other screen sizes. The device switch above the preview reads **Desktop**, **Tablet ≤1024** and **Phone ≤640**, the widest screen in pixels each one covers. On Tablet or Phone a chip reads "Editing Tablet" (or Phone) and a coloured band marks the top of the page, because Style changes then apply to that width only, so you can give phones their own spacing. Under **Show on**, three switches (Desktop, Tablet, Phone) choose where an element appears; each works on its own.
 
-8. Undo a mistake with **Undo** in the top bar, or `Ctrl+Z` (`Cmd+Z` on a Mac). **History** lists the steps in plain words, such as "Add Heading" or "Move Button", and you can go back to any of them. Press `?` to see every keyboard shortcut.
+8. Undo a mistake with **Undo** in the top bar, or `Ctrl+Z` (`Cmd+Z` on a Mac). **History** lists the steps in plain words, such as "Add Heading" or "Move Button", and you can go back to any of them. A hint bar over the page reminds you of the basics (click to select, double-click text to type, `/` to insert, `Esc` for the parent) until you press **Dismiss hints**. With the page selected, `Esc` selects the parent, `Alt+Up` and `Alt+Down` move the element, `Up` and `Down` step between sections, `Enter` edits its text or selects its first child, and `1`, `2` and `3` switch to Desktop, Tablet and Phone. Press `?` to see every keyboard shortcut.
 
 9. Save. On a draft, **Save draft** stores your work and **Publish** makes it live. Drafts also save themselves a few seconds after each change. Once a page is published, the button becomes **Update page**, and nothing changes on the live page until you press it.
 
@@ -50,11 +50,9 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 11. Open the **More** menu (the three dots) for **Versions**, **Page settings** (the address and search details), **Keyboard shortcuts**, and, for owners, **Site styles**. At the bottom, in red, is **Delete page**; it asks you to confirm first. When you edit a block or a layout part, the same entry reads **Delete block** or **Delete part**.
 
-Two small tips show once, the first time you use the builder: one about selecting and typing, one about adding. Press **Got it** to dismiss them; they do not come back.
-
 ### Reuse what you built
 
-1. Select an element, then open the **Add** tab and press **Save as block…** or **Save as template…**. Each opens a small window where you type a name.
+1. Select an element, then open the **Insert** tab and press **Save as block…** or **Save as template…**. Each opens a small window where you type a name.
 
    - A **block** is shared. Editing the block changes every page that uses it. Blocks are listed under **Theme > Blocks**.
    - A **template** is a copy you can insert on other pages. Later edits to the copy do not change the original.
@@ -67,7 +65,7 @@ Two small tips show once, the first time you use the builder: one about selectin
 
 ### On a phone
 
-1. On a narrow screen the panes become a dock at the bottom with **Navigator**, **Add** and **Inspector**. Tap a pane to open it as a sheet. Tapping an element in the list opens its settings. **Undo** and the device switch stay in the top bar.
+1. On a narrow screen the panes become a dock at the bottom with **Navigator**, **Insert** and **Inspector**. Tap a pane to open it as a sheet. Tapping an element in the list opens its settings. **Undo** and the device switch stay in the top bar.
 
 ## Check it worked
 

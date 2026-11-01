@@ -95,7 +95,7 @@ section) and a published one. Automated: every save and render shape, the outlin
 * Consistency: edit text, a prop, a style at base, md and sm, insert, move, duplicate and remove; Save; reload. The page
   is identical to what you left, and the public page shows it.
 * Undo and redo each of those edits, with the keyboard and the buttons; the canvas does not reload.
-* Keyboard only: build a three-section page with the Navigator, the Add tab (`/`) and the inspector (Enter). Tab
+* Keyboard only: build a three-section page with the Navigator, the Insert tab (`/`) and the inspector (Enter). Tab
   never gets trapped; focus is visible; the tree announces level, expanded and selected.
 * Shortcut sheet: `?` opens it, every row matches the key's behaviour, Escape closes it with focus back.
 * Shortcut keys do nothing while typing in an input; `Ctrl/Cmd+S` still saves.
@@ -183,7 +183,7 @@ client tests, the JS budget. The checks below need a person.
 
 * Select a section, **Save as block…**, name it: the canvas looks the same and the Navigator row reads "Block: <name>";
   one undo restores the section.
-* Add the block to a second page (Add tab, Blocks), publish both. Open **Edit block**, change the headline,
+* Add the block to a second page (Insert tab, Blocks), publish both. Open **Edit block**, change the headline,
   **Save block**: reload both public pages (logged out): both changed. Reload both canvases: both changed.
 * The block builder has no Publish and no autosave; the public URL of the block is a 404.
 * Delete a block in use: pages still render, the ref shows "Missing block"; Detach is disabled.
@@ -703,16 +703,16 @@ scripts/admin-qa/run-local.sh builder-ux-tasks.mjs      # result: scripts/admin-
 * Device switch reads Desktop, Tablet ≤1024, Phone ≤640. Choosing Tablet shows an amber "Editing Tablet" chip and a screen reader hears "Editing Tablet styles". Selected button stays ink, not amber.
 * The **Navigator** and **Inspector** buttons are labelled and hide their panes; Ctrl/Cmd+Alt+[ and ] do the same.
 * More menu order: Versions, Page settings, Site styles (owner only; absent for an editor), Keyboard shortcuts, a rule, Delete page last and red; Delete asks first. On a block, it reads Delete block.
-* Left pane: Navigator and Add tabs move with the arrow keys. Add has a focused search, Recent after a first insert, a Patterns row with Show all patterns, then the groups. Enter inserts, Shift+Enter inserts and keeps the search open, a drag still works.
-* The footer has **Add element** and **Ctrl K** buttons at all times.
+* Left pane: Navigator and Insert tabs move with the arrow keys. Insert has a focused search, Recent after a first insert, a Patterns row with Show all patterns, then the groups. Enter inserts, Shift+Enter inserts and keeps the search open, a drag still works.
+* The footer has **Add section** and **Ctrl K** buttons at all times.
 * Ctrl/Cmd+K opens the palette from the canvas pane, a field and the Navigator; the list shows Commands including Save as block…; Esc closes it. Double-click a heading, press Ctrl+K: the link dialog opens, not the palette. With keyboard focus inside the canvas frame (click the page, not a field) Ctrl+K opens the palette too.
 * Navigator: Filter, Collapse all, Rename; names read "Rich text", "Accordion item", "Block: Promo".
 * History rows read "Add Heading", "Delete Container", "Move Button", "Change Text colour (Tablet)", "Paste 3 elements", starting with "Original".
-* Empty page: the Start this page panel with thumbnails and Start blank; Start blank focuses the Add search. The two hints show once and not again after Got it or a first insert.
+* Empty page: the Start this page panel with thumbnails and Start blank; Start blank focuses the Insert search. The hint bar on the canvas ("Click to select", "Double-click text to type", "/ to insert", "Esc for the parent") shows until **Dismiss hints** or a first insert, and not again.
 * Conflict (two tabs): the banner floats over the canvas top with no layout shift, the chip says "Changed somewhere else", the three actions work.
 * Save as block… and Save as template… open a small dialog with the name focused; Esc cancels and focus returns to the opener.
 * Site styles (owner): the drawer opens at the right, saves without a reload, a bad hex or size is marked on its field, Accent shows only on a theme that uses builder colours.
-* 390 px: the bottom dock Navigator, Add, Inspector; selecting an element opens the Inspector sheet; Undo and the device switch stay in the top bar.
+* 390 px: the bottom dock Navigator, Insert, Inspector; selecting an element opens the Inspector sheet; Undo and the device switch stay in the top bar.
 * Shortcut sheet: grouped, searchable, never taller than the viewport.
 
 ## Builder UX canvas and inspector (builder-ux-canvas-inspector)

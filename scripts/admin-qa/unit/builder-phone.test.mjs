@@ -113,6 +113,16 @@ test("dock: roles only while narrow; the page is the base view with no tab selec
   assert.equal(tabs[0].getAttribute("role"), null);
 });
 
+test("dock: Esc inside the open sheet closes it and is spent (preventDefault), so the keymap does not also select the parent", () => {
+  const { rootEl, tabs } = dockRig(mq(true));
+  tabs[0].click();
+  const target = { closest: () => ({}) };
+  let prevented = false;
+  rootEl.fire("keydown", { key: "Escape", defaultPrevented: false, target, preventDefault: () => (prevented = true) });
+  assert.equal(rootEl.dataset.hmBsTab, "canvas");
+  assert.equal(prevented, true);
+});
+
 test("dock: a tab opens its sheet and tells the screen; tapping it again closes the sheet", () => {
   const picked = [];
   const { rootEl, tabs } = dockRig(mq(true), (n) => picked.push(n));
@@ -151,7 +161,7 @@ test("dock: Escape in a sheet closes it and returns focus to its tab; a popover 
   rootEl.fire("keydown", { key: "Escape", target: inSheet });
   assert.equal(rootEl.dataset.hmBsTab, "add", "a popover is open");
   globalThis.document.querySelector = () => null;
-  rootEl.fire("keydown", { key: "Escape", target: inSheet });
+  rootEl.fire("keydown", { key: "Escape", target: inSheet, preventDefault() {} });
   assert.equal(rootEl.dataset.hmBsTab, "canvas");
   assert.equal(globalThis.document.activeElement, tabs[1]);
 });

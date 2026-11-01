@@ -28,51 +28,65 @@ globalThis.document = { createElement: (t) => new El(t), createElementNS: (_n, t
 const store = (init = {}) => ({ data: { ...init }, getItem(k) { return this.data[k] ?? null; }, setItem(k, v) { this.data[k] = v; } });
 const C = await import(new URL("builder/coachmarks.js", root));
 
-test("hints are kept per user and dismiss persists for that user only", () => {
+const bar = (c) => c.kids.find((n) => n.attrs.role === "note");
+const dismissBtn = (c) => bar(c).walk().find((n) => n.tag === "button");
+
+test("the bar is kept per user and dismiss persists for that user only", () => {
   const s = store();
-  assert.equal(C.shouldShow(s, "u1", "add"), true);
-  C.dismiss(s, "u1", "add");
-  assert.equal(C.shouldShow(s, "u1", "add"), false);
-  assert.equal(C.shouldShow(s, "u1", "select"), true, "the other hint is untouched");
-  assert.equal(C.shouldShow(s, "u2", "add"), true);
+  assert.equal(C.shouldShow(s, "u1"), true);
+  C.dismiss(s, "u1");
+  assert.equal(C.shouldShow(s, "u1"), false);
+  assert.equal(C.shouldShow(s, "u2"), true);
 });
 
-test("storage that throws or holds junk shows the hints and never throws", () => {
+test("legacy flags: both hints dismissed hides the bar; one alone still shows it", () => {
+  assert.equal(C.shouldShow(store({ "hm-builder-hints:u": '{"select":1,"add":1}' }), "u"), false);
+  assert.equal(C.shouldShow(store({ "hm-builder-hints:u": '{"select":1}' }), "u"), true);
+  assert.equal(C.shouldShow(store({ "hm-builder-hints:u": '{"add":1}' }), "u"), true);
+});
+
+test("storage that throws or holds junk shows the bar and never throws", () => {
   const bad = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("full"); } };
-  assert.equal(C.shouldShow(bad, "u", "add"), true);
-  assert.doesNotThrow(() => C.dismiss(bad, "u", "add"));
-  assert.equal(C.shouldShow(store({ "hm-builder-hints:u": "{nope" }), "u", "add"), true);
+  assert.equal(C.shouldShow(bad, "u"), true);
+  assert.doesNotThrow(() => C.dismiss(bad, "u"));
+  assert.doesNotThrow(() => C.mountCoachmarks({ canvasEl: new El("div"), user: "u", storage: bad }).done());
+  assert.equal(C.shouldShow(store({ "hm-builder-hints:u": "{nope" }), "u"), true);
 });
 
-test("both hints mount as non-modal notes; Got it dismisses one for good", () => {
-  const s = store(), canvasEl = new El("div"), navFoot = new El("footer");
-  const m = C.mountCoachmarks({ canvasEl, navFoot, user: "u", storage: s });
-  assert.equal(canvasEl.kids[0].attrs.role, "note");
-  assert.equal(navFoot.kids[0].attrs.role, "note");
-  canvasEl.kids[0].walk().find((n) => n.tag === "button").click();
-  assert.equal(canvasEl.kids[0].removed, true);
-  assert.equal(C.shouldShow(s, "u", "select"), false);
-  assert.equal(C.shouldShow(s, "u", "add"), true);
-  m.done();
-  assert.equal(navFoot.kids[0].removed, true);
-  assert.equal(C.shouldShow(s, "u", "add"), false, "the first insert dismisses the rest");
+test("one non-modal note with exactly one button; Dismiss hints removes it for good", () => {
+  const s = store(), canvasEl = new El("div");
+  C.mountCoachmarks({ canvasEl, user: "u", storage: s });
+  assert.equal(canvasEl.kids.length, 1);
+  assert.equal(bar(canvasEl).attrs.class, "hm-bs-hint");
+  assert.equal(bar(canvasEl).walk().filter((n) => n.tag === "button").length, 1);
+  assert.equal(dismissBtn(canvasEl).attrs["aria-label"], "Dismiss hints");
+  dismissBtn(canvasEl).click();
+  assert.equal(bar(canvasEl).removed, true);
+  assert.equal(C.shouldShow(s, "u"), false);
+  const again = new El("div");
+  C.mountCoachmarks({ canvasEl: again, user: "u", storage: s });
+  assert.equal(again.kids.length, 0, "survives a remount");
 });
 
-test("an empty page gets only the add hint; a dismissed hint is not mounted again", () => {
-  const s = store(), canvasEl = new El("div"), navFoot = new El("footer");
-  C.mountCoachmarks({ canvasEl, navFoot, user: "u", empty: true, storage: s });
+test("an empty page mounts nothing", () => {
+  const canvasEl = new El("div");
+  const m = C.mountCoachmarks({ canvasEl, user: "u", empty: true, storage: store() });
   assert.equal(canvasEl.kids.length, 0);
-  assert.equal(navFoot.kids.length, 1);
-  C.dismiss(s, "u", "add");
-  const again = new El("footer");
-  C.mountCoachmarks({ canvasEl: new El("div"), navFoot: again, user: "u", empty: true, storage: s });
-  assert.equal(again.kids.length, 0);
+  assert.doesNotThrow(() => m.done());
 });
 
-test("dismissAll ends both hints for that user (an insert made before the hint chunk loaded)", () => {
+test("done() (the first insert) dismisses the bar for good; a stray navFoot is ignored", () => {
+  const s = store(), canvasEl = new El("div");
+  const m = C.mountCoachmarks({ canvasEl, navFoot: new El("footer"), user: "u", storage: s });
+  m.done();
+  assert.equal(bar(canvasEl).removed, true);
+  assert.equal(C.shouldShow(s, "u"), false);
+});
+
+test("dismissAll ends the bar for that user (an insert made before the hint chunk loaded)", () => {
   const s = store();
   C.dismissAll(s, "u1");
-  assert.equal(C.shouldShow(s, "u1", "select"), false);
-  assert.equal(C.shouldShow(s, "u1", "add"), false);
-  assert.equal(C.shouldShow(s, "u2", "add"), true);
+  assert.equal(C.shouldShow(s, "u1"), false);
+  assert.equal(C.shouldShow(s, "u2"), true);
+  assert.equal(JSON.parse(s.data["hm-builder-hints:u1"]).select, 1);
 });

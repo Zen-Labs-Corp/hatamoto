@@ -4,17 +4,17 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from "@hm/builder/navigator";
-import { hideTarget, selectionInfo, sectionOf } from "@hm/builder/selinfo";
+import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
 import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
-import { insertPoint, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
+import { insertPoint, sectionPoint, isSectionItem, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
 import { paletteExtra, wantsSlot } from "@hm/builder/reusecore";
 import { insertOps, insertAll } from "@hm/builder/reuseops";
 import { innerRef, loopAbove } from "@hm/builder/bridge";
-import { createRenderer, createSaver, stateLine, shortLine } from "@hm/builder/sync";
+import { createRenderer, createSaver, stateLine, shortLine, updateState, savedTime } from "@hm/builder/sync";
 import { mountPanes, mountLeftTabs } from "@hm/builder/panes";
 import { createPreviewState, mountDock, mountToolItems, shouldOpenInspector } from "@hm/builder/phone";
 import { h, $, $$ } from "@hm/builder/dom";
@@ -47,7 +47,7 @@ function start(root, boot) {
   let st = createStore(boot.doc);
   let selected = null; // the primary selection: the element the inspector shows (the last one picked)
   let selection = new Set(); // every selected id, the primary included
-  let addTarget = null; // {parent, index}: where a "+" asked the Add tab to insert; the next insert uses it
+  let addTarget = null; // {parent, index}: where a "+" asked the Insert tab to insert; the next insert uses it
   let anchor = null; // where a Shift-click range starts
   let device = "base";
   let styleTable = null;
@@ -61,6 +61,9 @@ function start(root, boot) {
   if (statusEl) (statusEl.hidden = true), (say.textContent = stateLine({ state: "saved" }, { status }));
   const savestate = $(stateEl, ".hm-savestate");
   savestate.dataset.short = shortLine({ state: "saved" }, status);
+  // The one save button ("Update" on a published page, the custom label on a block or part) flags changes that are not saved or live yet.
+  const updateBtn = $(bar, "[data-hm-bs-save=save]");
+  const updateName = updateBtn?.textContent.trim() ?? "";
   // The shared hm/savestate partial: only data-state and the text change.
   const SAVE_STATE = { pending: "unsaved", saving: "saving", saved: "saved", error: "error", conflict: "error", stopped: "error" };
   const banner = $(bar, "[data-hm-bs-banner]");
@@ -251,7 +254,7 @@ function start(root, boot) {
       },
       onContextMenu: (id, _k, x, y) => showMenu(id, x, y, true),
       // "k" from a text edit is "insert link"; from the page it is the command palette (keyAction)
-      onKey: (key, shift, ctx) => (key === "k" && ctx?.editing ? withBar((b) => b.link()) : keyAction(key, shift)),
+      onKey: (key, shift, ctx) => (key === "k" && ctx?.editing ? withBar((b) => b.link()) : keyAction(key, shift, ctx)),
       onDrift: () => renderer.stage(),
       onFrameLost: () => renderer.stage(),
       onSwap: () => (ui.b?.hide(), ui.i?.reset(), preview.ready()), // a new frame has no edit: no bar, and the next one is a new undo step
@@ -308,11 +311,12 @@ function start(root, boot) {
   // Templates and blocks: only when the site can use them (boot.reuse.available).
   const reuse = boot.reuse?.available ? boot.reuse : null;
   const insertFrom = (item, o) => {
-    const pos = posValid(st.doc, addTarget) ? addTarget : null; // a position the doc has outgrown falls back to the usual insert point
+    let pos = posValid(st.doc, addTarget) ? addTarget : null; // a position the doc has outgrown falls back to the usual insert point
     addTarget = null;
+    if (!pos && isSectionItem(item)) pos = sectionPoint(st.doc, selected); // a section lands after the selected one, never inside it
     return item.kind === "template" || item.kind === "block" ? insertReuse(item, pos, o) : insertItem(item, pos, o);
   };
-  // The left pane's tabs; the Add tab's body is the lazy addtab.js, mounted the first time the tab shows.
+  // The left pane's tabs; the Insert tab's body is the lazy addtab.js, mounted the first time the tab shows.
   let palette = null;
   const paletteChunk = lazy(() =>
     import("@hm/builder/addtab").then((m) => {
@@ -330,12 +334,12 @@ function start(root, boot) {
       return palette;
     }),
   );
-  const openPalette = (patterns = false) => paletteChunk().then((p) => (patterns ? p.showPatterns() : p.open())).catch(() => warn("The Add tab did not load. Reload the page."));
+  const openPalette = (patterns = false) => paletteChunk().then((p) => (patterns ? p.showPatterns() : p.open())).catch(() => warn("The Insert tab did not load. Reload the page."));
   // Phone: the dock opens the left pane (on its Navigator or Add tab) or the Inspector as a sheet over the page.
   const dock = mountDock(root, (name) => name !== "insp" && leftTabs.pick(name));
   const phonePane = (name) => dock.stacked() && dock.pick(name);
   const leftTabs = mountLeftTabs(root, (name) => {
-    if (name === "add") paletteChunk().catch(() => warn("The Add tab did not load. Reload the page."));
+    if (name === "add") paletteChunk().catch(() => warn("The Insert tab did not load. Reload the page."));
     if (dock.stacked() && ["nav", "add"].includes(root.dataset.hmBsTab)) dock.show(name); // the tab inside the sheet follows the dock
   });
   $(root, "[data-hm-bs-addbtn]")?.addEventListener("click", () => dispatch("palette"));
@@ -427,7 +431,7 @@ function start(root, boot) {
   idle(() => labelChunk().catch(() => {}));
   idle(() => clipChunk().catch(() => {}));
   idle(() => sheetChunk().catch(() => {})); // the shortcut sheet, so "?" opens it at once
-  idle(() => commandChunk().then(paletteChunk).catch(() => {})); // + the Add tab
+  idle(() => commandChunk().then(paletteChunk).catch(() => {})); // + the Insert tab
   idle(() => import("@hm/builder/fields").then((m) => m.prefetch()).catch(() => {})); // the section-form chunks (editor kit, repeater, content), likewise
   const decls = (_node, bp, key, value) => {
     const entry = styleTable?.find((e) => e.key === key);
@@ -467,10 +471,17 @@ function start(root, boot) {
       paintTools();
     },
     onState: (q) => {
-      const at = hmTime(new Date());
-      say.textContent = stateLine(q, { draft: saver.draft, at, status });
+      say.textContent = stateLine(q, { draft: saver.draft, status });
+      say.title = say.textContent; // the bar may cut the line short with an ellipsis
+      savestate.title = q.state === "saved" ? savedTime(hmTime(new Date())) : "";
       savestate.dataset.short = shortLine(q, status); // the phone bar shows this, not the full line
       savestate.dataset.state = SAVE_STATE[q.state] || "saved";
+      if (updateBtn && status !== "Draft") {
+        const open = status ? updateState(q, { status, dirty: saver.dirty }).unpublished : q.state !== "saved" && saver.dirty;
+        updateBtn.toggleAttribute("data-hm-bs-dirty", open);
+        if (open) updateBtn.setAttribute("aria-label", `${updateName}, ${status ? "unpublished" : "unsaved"} changes`);
+        else updateBtn.removeAttribute("aria-label");
+      }
       if (q.state === "conflict") showConflict(q.conflict?.message);
       else if (q.state === "error" || q.state === "stopped") {
         showSaveProblem(stateLine(q, { draft: saver.draft }));
@@ -593,7 +604,7 @@ function start(root, boot) {
           restore: () => tree.focus(),
           onPick: (l) => add(l.make(), l.name),
           onChoose: (r) => {
-            addTarget = pos; // the next insert from the Add tab goes here
+            addTarget = pos; // the next insert from the Insert tab goes here
             announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to add at position ${pos.index + 1}`);
             showAdd(r.mode === "pattern");
           },
@@ -602,7 +613,7 @@ function start(root, boot) {
       .catch(() => warn("The layout picker did not load. Reload the page."));
   }
 
-  /** keepOpen (Shift+Enter in the Add tab): the search keeps the focus and the filter, ready for the next one. */
+  /** keepOpen (Shift+Enter in the Insert tab): the search keeps the focus and the filter, ready for the next one. */
   function insertItem(item, pos, { keepOpen = false } = {}) {
     const node = makeNode(item, boot.kinds);
     const at = pos ?? insertPoint(st.doc, selected, boot.kinds);
@@ -890,6 +901,15 @@ function start(root, boot) {
       case "outdent":
       case "indent":
         return moveSelected(action);
+      case "parent":
+        return select(parentOf(st.doc, selected));
+      case "prevsection":
+      case "nextsection":
+        return select(stepSection(st.doc, selected, action === "prevsection" ? -1 : 1));
+      case "enter": {
+        const n = selected && find(st.doc, selected);
+        return ownsText(n) ? dispatch("edittext") : select(firstChildOf(st.doc, selected));
+      }
       case "rename":
         panes.toggle("nav", true); // the name is typed into the structure row
         leftTabs.pick("nav");
@@ -902,11 +922,41 @@ function start(root, boot) {
     }
   }
 
-  // Keys from the canvas frame arrive as the bridge's {key, shift}.
-  function keyAction(key, shift) {
-    const e = key === "Delete" ? { key } : { key, ctrlKey: true, shiftKey: shift };
+  /** Whether a page or canvas key would change anything now: a key that would do nothing is left to the browser. */
+  function acts(action) {
+    const n = selected && find(st.doc, selected);
+    switch (action) {
+      case "parent":
+        return !!parentOf(st.doc, selected) && !document.querySelector(":popover-open, dialog[open]");
+      case "prevsection":
+      case "nextsection":
+        return !!stepSection(st.doc, selected, action === "prevsection" ? -1 : 1);
+      case "enter":
+        return ownsText(n) || !!firstChildOf(st.doc, selected);
+      case "moveup":
+      case "movedown":
+        return !!moveOp(st.doc, selectionInfo(st.doc, selected)?.subject ?? selected, action, boot.kinds);
+      default:
+        return true;
+    }
+  }
+
+  /** Runs a keyed action; false (nothing done) for a no-op. The device keys are the top bar's own buttons. */
+  function perform(action, fromCanvas, inTree = false) {
+    // In the Navigator a refused move still runs, so moveSelected announces why nothing moved.
+    if (!acts(action) && !(inTree && (action === "moveup" || action === "movedown"))) return false;
+    if (action.startsWith("device-")) runCommand(action);
+    else dispatch(action, fromCanvas);
+    return true;
+  }
+
+  // Keys from the canvas frame arrive as the bridge's {key, shift} plus optional alt and mod. An absent mod is the
+  // older frame: every key but Delete is a Ctrl chord; mod:false marks a plain key (never a Ctrl chord).
+  function keyAction(key, shift, c = {}) {
+    const mod = c.mod ?? key !== "Delete";
+    const e = { key, ctrlKey: mod, shiftKey: shift, altKey: !!c.alt };
     const action = resolveKey(e, { free: true, selected: !!selected });
-    if (action) dispatch(action);
+    if (action) perform(action, true);
   }
 
   document.addEventListener("keydown", (e) => {
@@ -921,9 +971,8 @@ function start(root, boot) {
       range: !!getSelection()?.toString(),
     };
     const action = resolveKey(e, ctx);
-    if (!action) return;
-    e.preventDefault();
-    dispatch(action);
+    if (!action || (action === "parent" && e.defaultPrevented)) return;
+    if (perform(action, false, tr)) e.preventDefault();
   });
 
   const noteKey = `hm-builder-note:${boot.entity}`;
@@ -1060,7 +1109,7 @@ function start(root, boot) {
     },
   };
 
-  // An empty page opens the Add tab and a start panel of patterns; two hints show once per user.
+  // An empty page opens the Insert tab and a start panel of patterns; two hints show once per user.
   if (!st.doc.nodes.length) {
     leftTabs.pick("add");
     startChunk()
@@ -1071,7 +1120,7 @@ function start(root, boot) {
       })
       .catch(() => {});
   }
-  idle(() => hintChunk().then((m) => (inserted ? m.dismissAll(localStorage, boot.user ?? "") : (hints = m.mountCoachmarks({ canvasEl, navFoot: $(root, ".hm-bs__navfoot"), user: boot.user ?? "", empty: !st.doc.nodes.length })))).catch(() => {}));
+  idle(() => hintChunk().then((m) => (inserted ? m.dismissAll(localStorage, boot.user ?? "") : (hints = m.mountCoachmarks({ canvasEl, user: boot.user ?? "", empty: !st.doc.nodes.length })))).catch(() => {}));
 
   canvas.setViewport(WIDTHS.base, paneWidth());
   select(null);

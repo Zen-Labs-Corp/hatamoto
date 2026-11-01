@@ -87,7 +87,7 @@ func TestBuilderBarSaveStateAndMenu(t *testing.T) {
 	has(t, body, `data-hm-bs-state`, `class="hm-savestate" data-state="saved"`, `<span class="hm-savestate__text">Saved</span>`,
 		`popovertarget="bs-more"`, `data-hm-post="/admin/entities/`+r.ent.ID.String()+`/delete"`,
 		`aria-label="Undo"`,
-		`data-hm-bs-device-chip`, `data-hm-bs-sitestyles`, `>Keyboard shortcuts</button>`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `<span>Navigator</span>`, `<span>Inspector</span>`,
+		`data-hm-bs-device-chip`, `data-hm-bs-sitestyles`, `>Keyboard shortcuts</button>`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `aria-label="Navigator"`, `aria-label="Inspector"`, `data-hm-bs-toggle="nav"`, `data-hm-bs-toggle="insp"`,
 		`data-flip=""`)
 	lacks(t, body, "Update page", "data-hm-bs-device-item")
 	// Undo and Redo share one arrow icon: Undo alone is mirrored (css .hm-bs__tools [data-flip]), so the two differ.
