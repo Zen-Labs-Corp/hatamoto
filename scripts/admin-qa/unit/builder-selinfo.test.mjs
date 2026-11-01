@@ -12,7 +12,7 @@ register(
       return next(s, c);
     }`),
 );
-const { isCollapsed, rowIdOf, hideTarget, sectionOf, parentOf, selectionInfo, stepSection, inSection } = await import(new URL("builder/selinfo.js", root));
+const { isCollapsed, rowIdOf, hideTarget, sectionOf, parentOf, selectionInfo, stepSection, firstChildOf, inSection } = await import(new URL("builder/selinfo.js", root));
 
 const comp = (id, c) => ({ id, t: "component", p: { type: "hero" }, ...(c ? { c } : {}) });
 const sec = (id, c, extra = {}) => ({ id, t: "container", p: { tag: "section" }, c, ...extra });
@@ -126,4 +126,15 @@ test("hideTarget: the container, or the component when only it is hidden", () =>
   assert.equal(hideTarget(mk(hid, hid), "c", "base"), "s"); // both: the container first
   assert.equal(hideTarget(doc, "b1", "base"), "b1"); // a block: itself
   assert.equal(hideTarget(doc, "nope", "base"), null);
+});
+
+test("firstChildOf: first block of a container, of a collapsed section's component, null for a leaf, an empty component or an unknown id", () => {
+  assert.equal(firstChildOf(doc, "s2"), "x");
+  assert.equal(firstChildOf(doc, "g"), "b2");
+  assert.equal(firstChildOf(doc, "d"), "c3", "a plain container: its first child, the component");
+  assert.equal(firstChildOf(doc, "s1"), "b1", "a collapsed section row: the first block of its component");
+  assert.equal(firstChildOf(doc, "c1"), "b1", "the component id of that row");
+  assert.equal(firstChildOf(doc, "s4"), null, "a collapsed section without blocks");
+  assert.equal(firstChildOf(doc, "b1"), null);
+  assert.equal(firstChildOf(doc, "nope"), null);
 });

@@ -39,6 +39,13 @@ export function parentOf(doc, id) {
   return up === rowIdOf(doc, id) ? parentOf(doc, up) : up;
 }
 
+/** What Enter on a non-text selection selects: id of its first child block (a collapsed section's row: its component's first block); null for a leaf or an unknown id. */
+export function firstChildOf(doc, id) {
+  const l = locate(doc, id);
+  const n = l && (l.depth === 1 && isCollapsed(l.node) ? l.node.c[0] : l.node);
+  return n?.c?.[0]?.id ?? null;
+}
+
 /** Facts for the toolbar, band and Inspector header. depth is the ROW level: blocks inside a collapsed section count one less than their tree depth. */
 export function selectionInfo(doc, id) {
   const l = locate(doc, id);
