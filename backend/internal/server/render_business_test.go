@@ -202,6 +202,97 @@ func TestOrgView(t *testing.T) {
 	}
 }
 
+func TestOrgView_NewFields(t *testing.T) {
+	cfg := businessConfig(`{}`)
+	cfg.BusinessProfile = json.RawMessage(`{"description":"About us","alternate_name":"Example","slogan":"Be sample","founding_date":"2009-05","employees_min":10,"employees_max":50,"vat_id":"V1","logo_object":true,"rating":{"value":"4.5","count":"7","best":"5","worst":"1","count_type":"reviews"}}`)
+	got, err := orgView(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := render.OrgView{
+		Description: "About us", AlternateName: "Example", Slogan: "Be sample", FoundingDate: "2009-05",
+		EmployeesMin: 10, EmployeesMax: 50, VATID: "V1", LogoObject: true,
+		Rating: render.Rating{Value: "4.5", Count: "7", Best: "5", Worst: "1", CountType: "reviews"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("orgView = %+v, want %+v", got, want)
+	}
+	cfg.BusinessProfile = json.RawMessage(`{"org_address":"locale_or_site"}`)
+	if got := orgAddressMode(cfg); got != "locale_or_site" {
+		t.Errorf("orgAddressMode = %q", got)
+	}
+	cfg.BusinessProfile = json.RawMessage(`{"name":`)
+	if got := orgAddressMode(cfg); got != "" {
+		t.Errorf("orgAddressMode of a bad profile = %q, want empty", got)
+	}
+}
+
+func TestLocaleBusiness_NewFields(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	cfg := businessConfig(`{"fr":{"address":{"street":"Example Street 1"},"vat_id":"V2","description":"Local","image":"/media/o.jpg","country_name":"Exampleland",
+		"contact_points":[{"type":"sales","phone":"1","name":"Sales","area_served":"EU","available_language":"French"}],"rating":{"value":"3","best":"5","worst":"1","count_type":"reviews"}}}`)
+	b, err := localeBusiness(cfg, set, "fr")
+	if err != nil || b == nil {
+		t.Fatalf("fr: %+v, %v", b, err)
+	}
+	if b.VATID != "V2" || b.Description != "Local" || b.Image != "/media/o.jpg" || b.CountryName != "Exampleland" {
+		t.Errorf("card fields = %+v", b)
+	}
+	wantCP := []render.ContactPointView{{Type: "sales", Phone: "1", Name: "Sales", AreaServed: "EU", AvailableLanguage: "French"}}
+	if !reflect.DeepEqual(b.ContactPoints, wantCP) {
+		t.Errorf("contact points = %+v", b.ContactPoints)
+	}
+	if b.Rating != (render.Rating{Value: "3", Best: "5", Worst: "1", CountType: "reviews"}) {
+		t.Errorf("rating = %+v", b.Rating)
+	}
+}
+
+func TestLocaleNodeIDs(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	if got := localeNodeIDs(set); !reflect.DeepEqual(got, map[string]string{"en": "en", "fr": "fr"}) {
+		t.Errorf("ids = %v", got)
+	}
+	// The default has no segment and another locale's segment equals its
+	// lowercased tag: the default gets a distinct id.
+	clash := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "en-XX", Segment: "en"})
+	got := localeNodeIDs(clash)
+	if got["en-XX"] != "en" || got["en"] != "en-default" {
+		t.Errorf("colliding ids = %v", got)
+	}
+	cfg := businessConfig(`{"en":{"address":{"city":"A"}},"en-XX":{"address":{"city":"B"}}}`)
+	a, _ := localeBusiness(cfg, clash, "en")
+	b, _ := localeBusiness(cfg, clash, "en-XX")
+	if a == nil || b == nil || a.ID == b.ID {
+		t.Errorf("ids %+v %+v must differ", a, b)
+	}
+}
+
+func TestLocaleSummaries(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"},
+		entity.LocaleEntry{Tag: "nl", Segment: "nl", Hidden: true})
+	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"phone":"fr-phone","country_name":"Exampleland","geo_region":"XX","price_range":"$$","currency":"XXD",
+		"contact_points":[{"phone":"1"}]},"nl":{"phone":"hidden"}}`)
+	got, err := localeSummaries(cfg, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []render.LocaleSummary{
+		{Tag: "en", Language: "English"},
+		{Tag: "fr", Segment: "fr", CountryName: "Exampleland", Phone: "fr-phone", GeoRegion: "XX", Language: "French",
+			PriceRange: "$$", Currency: "XXD", ContactPoints: []render.ContactPointView{{Phone: "1"}}, HasOffice: true},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("summaries = %+v\nwant %+v", got, want)
+	}
+	one := businessSet(t, false, entity.LocaleEntry{Tag: "en"})
+	if got, err := localeSummaries(cfg, one); err != nil || got != nil {
+		t.Errorf("one locale: %+v, %v; want nil", got, err)
+	}
+	if _, err := localeSummaries(businessConfig(`[1]`), set); err == nil {
+		t.Error("bad locale map: want an error")
+	}
+}
+
 var ldRE = regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`)
 
 // graphTypes renders a page through the default theme and returns the @type of

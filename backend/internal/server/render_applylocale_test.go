@@ -96,4 +96,7 @@ func TestApplyLocale_SetsSegment(t *testing.T) {
 	if v.Locale != "" || v.Segment != "" {
 		t.Errorf("one locale: Locale=%q Segment=%q, want both empty", v.Locale, v.Segment)
 	}
+	if v.Locales != nil {
+		t.Errorf("one locale: Locales = %+v, want nil", v.Locales)
+	}
 }

@@ -56,6 +56,10 @@ type PageView struct {
 	// meta tag. It is set whether or not the locale has an office, and empty
 	// on shared pages and one-locale sites.
 	GeoRegion string
+	// Locales summarises every public locale for the Organization node. It is
+	// nil on a one-locale site; shared pages carry it too, and the renderer
+	// decides what a shared page prints.
+	Locales []LocaleSummary
 	// SEO holds the site-wide title and description templates. Nil keeps the
 	// built-in "<title> | <site>" head.
 	SEO      *seo.Settings
@@ -416,6 +420,13 @@ type SiteView struct {
 	// settings; empty when unset. They also feed the Organization JSON-LD.
 	Phone, Hours string
 	Address      Address
+	// LogoWidth and LogoHeight are the logo's pixel size, set only when the
+	// owner asked for an ImageObject logo and the size is known; zero otherwise.
+	LogoWidth, LogoHeight int
+	// OrgAddress is the site-wide choice of which address the Organization
+	// prints on a locale page (the bizprofile OrgAddress values; empty keeps the
+	// site-wide address everywhere).
+	OrgAddress string
 	// Org holds the site-wide business details that only the Organization
 	// JSON-LD node uses. The zero value adds nothing to the node.
 	Org OrgView
@@ -435,11 +446,24 @@ type OrgView struct {
 	// SameAs are extra profile URLs, added after the site's social links.
 	SameAs []string
 	Rating Rating
+	// Description is the owner's description; empty falls back to the tagline.
+	Description, AlternateName, Slogan string
+	// FoundingDate is YYYY, YYYY-MM or YYYY-MM-DD.
+	FoundingDate string
+	// EmployeesMin and EmployeesMax bound the staff size; zero is unset.
+	EmployeesMin, EmployeesMax int
+	VATID                      string
+	// LogoObject asks for the logo as an ImageObject (needs SiteView.LogoWidth
+	// and LogoHeight).
+	LogoObject bool
 }
 
 // Rating is an aggregate rating as the owner states it; Count may be empty.
+// Best and Worst bound Value and print only when set. CountType is "reviews"
+// for a review count and empty or "ratings" for a rating count.
 type Rating struct {
-	Value, Count string
+	Value, Count           string
+	Best, Worst, CountType string
 }
 
 // BusinessView is the resolved local business of one locale. Plain data: the
@@ -450,9 +474,12 @@ type BusinessView struct {
 	// Type is the schema.org type; empty means LocalBusiness.
 	Type string
 	// Name overrides the site name for this node; empty uses the site name.
-	Name                            string
-	Phone, Fax, Email, Hours        string
-	TaxID                           string
+	Name                     string
+	Phone, Fax, Email, Hours string
+	TaxID, VATID             string
+	// Description and Image are the locale's own, else the site-wide
+	// description; CountryName names the locale's country.
+	Description, Image, CountryName string
 	Address                         Address
 	POBox, Lat, Lng                 string
 	MapURL, GBPURL                  string
@@ -468,6 +495,29 @@ type BusinessView struct {
 // ContactPointView is one department or channel of a business.
 type ContactPointView struct {
 	Type, Phone, Email string
+	// Name labels the point; AreaServed is a region or country;
+	// AvailableLanguage is a language name. Each prints only when set.
+	Name, AreaServed, AvailableLanguage string
+}
+
+// LocaleSummary is what the Organization node needs to know about one public
+// locale, whether or not it has an office.
+type LocaleSummary struct {
+	Tag string
+	// Segment is the URL prefix without slash ("" when unprefixed); Home is the
+	// locale's absolute home URL.
+	Segment, Home string
+	CountryName   string
+	// Phone is the card's own phone; it is empty when the card sets none, so a
+	// locale never repeats the site-wide phone.
+	Phone                string
+	GeoRegion            string
+	Language             string
+	PriceRange, Currency string
+	// ContactPoints are the card's own contact points.
+	ContactPoints []ContactPointView
+	// HasOffice reports whether the card has an office address.
+	HasOffice bool
 }
 
 // HoursView is one block of regular opening hours (opens and closes are HH:MM).
