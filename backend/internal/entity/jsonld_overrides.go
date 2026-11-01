@@ -124,3 +124,16 @@ func applyTypeOverrides(doc map[string]any, e *Entity) {
 		doc["@type"] = t
 	}
 }
+
+// SchemaFixesJSONLDType reports whether the JSON-LD @type of a schema's entries
+// is decided by the schema itself (an x-schema-org-type annotation) or by a
+// plugin builder, so settings.schema_org_type has no effect on it.
+func SchemaFixesJSONLDType(sc *EntitySchema) bool {
+	if sc == nil {
+		return false
+	}
+	if _, ok := LookupJSONLDBuilder(sc.Slug); ok {
+		return true
+	}
+	return sc.Slug != personSchemaSlug && hasSchemaOrgAnnotations(sc.Schema)
+}

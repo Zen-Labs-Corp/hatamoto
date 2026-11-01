@@ -121,3 +121,67 @@ func TestSEOTitlesSaveRollsBackAcrossSchemasAndSettings(t *testing.T) {
 		t.Errorf("separator after save = %q, want the cache refreshed to |", got.Separator)
 	}
 }
+
+// A Schema tab save that fails on its second patch leaves the first one
+// unwritten; the same save without the failure keeps unknown settings keys.
+func TestSEOSchemaSaveRollsBackAndKeepsUnknownKeys(t *testing.T) {
+	ctx := context.Background()
+	env := newWireEnv(t, nil)
+	repo := entity.NewPostgresSchemaRepository(env.db)
+	svc := entity.NewService(repo, entity.NewPostgresEntityRepository(env.db), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := seoAdmin{db: env.db, store: seo.NewStore(env.db.Pool()), entities: svc}
+
+	var ids []entity.EntitySchema
+	for _, slug := range []string{"seo-sc-a", "seo-sc-b"} {
+		sc, err := repo.Create(ctx, &entity.CreateSchemaInput{
+			Name: slug, Slug: slug,
+			Schema:   json.RawMessage(`{"type":"object","properties":{}}`),
+			Settings: json.RawMessage(`{"url_pattern":"/` + slug + `/{slug}","custom_key":"keep"}`),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = repo.Delete(ctx, sc.ID) })
+		ids = append(ids, *sc)
+	}
+	first, second := ids[0], ids[1]
+	if bytes.Compare(first.ID[:], second.ID[:]) > 0 {
+		first, second = second, first
+	}
+	str := func(s string) *string { return &s }
+	off := false
+
+	err := a.SaveSchema(ctx, []admin.SEOSchemaPatch{
+		{ID: second.ID, Patch: entity.SchemaSEOPatch{SchemaOrgType: str("FAQPage")}},
+		{ID: first.ID, Patch: entity.SchemaSEOPatch{SchemaOrgType: str("Service")}},
+	})
+	var pe *admin.SEOPatchError
+	if !errors.As(err, &pe) || pe.ID != second.ID {
+		t.Fatalf("SaveSchema = %v, want the second patch refused", err)
+	}
+	got, err := svc.GetSchema(ctx, first.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := got.URLSettings(); st.SchemaOrgType != "" {
+		t.Errorf("first schema type = %q after a failed save", st.SchemaOrgType)
+	}
+
+	if err := a.SaveSchema(ctx, []admin.SEOSchemaPatch{
+		{ID: second.ID, Patch: entity.SchemaSEOPatch{SchemaOrgType: str("Article"), ArticleType: str("NewsArticle"), FAQFromContent: &off}},
+		{ID: first.ID, Patch: entity.SchemaSEOPatch{SchemaOrgType: str("Service")}},
+	}); err != nil {
+		t.Fatalf("SaveSchema: %v", err)
+	}
+	got, err = svc.GetSchema(ctx, second.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, _ := got.URLSettings()
+	if st.SchemaOrgType != "Article" || st.ArticleType != "NewsArticle" || st.FAQEnabled() {
+		t.Errorf("second settings = %+v", st)
+	}
+	if !strings.Contains(string(got.Settings), `"custom_key": "keep"`) {
+		t.Errorf("unknown key lost: %s", got.Settings)
+	}
+}

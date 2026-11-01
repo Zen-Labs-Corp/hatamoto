@@ -38,6 +38,10 @@ type SEOService interface {
 	// the templates, all in one transaction: either everything is saved or
 	// nothing is. A failing patch comes back as a *SEOPatchError.
 	SaveTitles(ctx context.Context, patches []SEOTitlePatch, fn func(*seo.Settings)) error
+	// SaveSchema writes the schema type, article subtype and FAQ flag of each
+	// patched type into the schema settings, all in one transaction. A failing
+	// patch comes back as a *SEOPatchError.
+	SaveSchema(ctx context.Context, patches []SEOSchemaPatch) error
 }
 
 // SEOTitlePatch is one type's archive title and description change.
@@ -81,6 +85,8 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+seoSocialPath, a.handleSEOSocial)
 	owner.HandleFunc("POST "+seoSocialPath, a.handleSEOSocialSave)
 	owner.HandleFunc("POST "+seoSocialPath+"/preview", a.handleSEOSocialPreview)
+	owner.HandleFunc("GET "+seoSchemaPath, a.handleSEOSchema)
+	owner.HandleFunc("POST "+seoSchemaPath, a.handleSEOSchemaSave)
 }
 
 // seoFieldID turns a validation field name ("type[doc][title]") into the id of
@@ -454,6 +460,8 @@ func seoFieldLabel(field string) string {
 		return kindLabel(m[2]) + " social title"
 	case "type":
 		return m[2] + " " + m[3]
+	case "schema":
+		return m[2] + " schema " + m[3]
 	case "taxonomy":
 		return kindLabel(m[2]) + " title"
 	case "archives":
