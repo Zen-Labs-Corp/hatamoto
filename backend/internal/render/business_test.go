@@ -322,7 +322,7 @@ func TestOrgNode_AreaServedAndContactPoints(t *testing.T) {
 	if site["telephone"] != "site-phone" || site["availableLanguage"] != "en-XX" {
 		t.Errorf("site point = %v", site)
 	}
-	if org["priceRange"] != "$$" || org["currenciesAccepted"] != "XXD" || org["vatID"] != "V-XX" {
+	if org["priceRange"] != "$$" || org["currenciesAccepted"] != "XXD" {
 		t.Errorf("locale values: %v", org)
 	}
 
@@ -468,5 +468,18 @@ func TestOrgNode_NoRepeatedContactPhone(t *testing.T) {
 			t.Errorf("telephone %v appears twice: %v", tel, points)
 		}
 		seen[tel] = true
+	}
+}
+
+func TestOrgNode_LocaleVATOnlyWithAnAddressSetting(t *testing.T) {
+	v := multiPage("")
+	v.Site.Org.VATID = "V-SITE"
+	if got := orgOf(t, v)["vatID"]; got != "V-SITE" {
+		t.Errorf("default setting: vatID = %v, want the site value", got)
+	}
+	v = multiPage("locale")
+	v.Site.Org.VATID = "V-SITE"
+	if got := orgOf(t, v)["vatID"]; got != "V-XX" {
+		t.Errorf("locale setting: vatID = %v, want the locale value", got)
 	}
 }

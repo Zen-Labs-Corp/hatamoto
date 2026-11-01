@@ -72,7 +72,7 @@ func orgNode(v *PageView, base string) map[string]any {
 		org["numberOfEmployees"] = n
 	}
 	vat := v.Site.Org.VATID
-	if localePage(v) && v.Business != nil {
+	if localePage(v) && v.Site.OrgAddress != "" && v.Business != nil {
 		vat = v.Business.VATID
 	}
 	setIf(org, "vatID", vat)
