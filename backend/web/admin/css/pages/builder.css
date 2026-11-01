@@ -225,8 +225,8 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-pal__card { gap: var(--space-1); padding: var(--space-2); min-inline-size: 0; }
 .hm-bs-pal__card .hm-bs-thumb { aspect-ratio: 48 / 32; border-radius: var(--radius-sm); background: var(--color-kasumi); }
 .hm-bs-pal__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); }
-.hm-bs-pal__blk { flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-2) var(--space-1); min-inline-size: 0; }
-.hm-bs-pal__blk .hm-bs-pal__n { font-size: var(--text-xs); max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-bs-pal__blk { flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-3) var(--space-1) var(--space-2-5); border-radius: var(--radius-md); min-inline-size: 0; }
+.hm-bs-pal__blk .hm-bs-pal__n { font-size: var(--text-xs); line-height: var(--leading-snug); max-inline-size: 100%; white-space: normal; text-wrap: balance; overflow-wrap: anywhere; }
 .hm-bs-pal__ico { display: inline-flex; color: var(--text-body); }
 .hm-bs-row { user-select: none; }
 .hm-bs-shield { position: fixed; inset: 0; z-index: var(--z-shield); cursor: grabbing; touch-action: none; }
