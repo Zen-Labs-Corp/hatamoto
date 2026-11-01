@@ -54,6 +54,22 @@ export function insertPoint(doc, selectedId, kinds) {
   return { parent: at.parentId, index: at.index + 1 };
 }
 
+/** Where a section goes: after the selected one (the top-level ancestor of any selection), else at the end of the page. */
+export function sectionPoint(doc, selectedId) {
+  const at = selectedId ? locate(doc, selectedId) : null;
+  return { parent: "", index: at ? at.path[0] + 1 : doc.nodes.length };
+}
+
+/** Whether an item is a whole section (a theme pattern or a saved template); saved synced blocks are parts and go by insertPoint. */
+export const isSectionItem = (item) => item.group === "Patterns" || item.kind === "template" || item.kind === "component";
+
+/** The Insert tab's three lists: sections (Patterns), blocks (the native kinds' groups), and the rest (plugin widgets, saved blocks). */
+export function insertSplit(items) {
+  const out = { sections: [], blocks: [], rest: [] };
+  for (const i of items) out[isSectionItem(i) ? "sections" : i.group === "Plugin widgets" || i.kind === "block" ? "rest" : "blocks"].push(i);
+  return out;
+}
+
 /**
  * A "+" point from the canvas (frame keys) as a document position {parent, index}, or null when the sibling or the container
  * it names is not in the doc (the layout lags an undo or a delete): the caller refuses instead of inserting at the top.

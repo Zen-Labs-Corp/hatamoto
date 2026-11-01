@@ -118,3 +118,26 @@ test("rank: whole name, start of name, start of a word, anywhere; elements befor
   assert.equal(keys("heading")[0], "Heading", "whole name first");
   assert.ok(S.score({ name: "Heading", aliases: ["title"] }, "title") > S.score({ name: "Title" }, "title"), "an alias is a half step behind the name");
 });
+
+test("sectionPoint: end of the page, after the top-level section, whatever the depth", () => {
+  const leaf = { id: "leaf", t: "heading" };
+  const doc = { nodes: [{ id: "a", t: "container", c: [{ id: "a1", t: "container", c: [leaf] }] }, { id: "b", t: "container", c: [{ id: "comp", t: "component", p: { type: "hero" } }] }] };
+  assert.deepEqual(P.sectionPoint(doc, null), { parent: "", index: 2 });
+  assert.deepEqual(P.sectionPoint(doc, "a"), { parent: "", index: 1 });
+  assert.deepEqual(P.sectionPoint(doc, "leaf"), { parent: "", index: 1 });
+  assert.deepEqual(P.sectionPoint(doc, "comp"), { parent: "", index: 2 }, "a v1 section component lands after its container");
+  assert.deepEqual(P.sectionPoint(doc, "nope"), { parent: "", index: 2 });
+});
+
+test("insertSplit: patterns are sections, native groups blocks, plugin widgets and saved blocks the rest", () => {
+  const items = [
+    ...P.itemsOf([{ kind: "container", children: true }, { kind: "heading" }, { kind: "chart", group: "Plugin widgets" }], sections),
+    ...U.paletteExtra(reuse),
+  ];
+  const s = P.insertSplit(items);
+  const keys = (l) => l.map((i) => i.key).sort();
+  assert.deepEqual(keys(s.sections), ["component:hero", `tpl:t1`].sort());
+  assert.deepEqual(keys(s.blocks), ["container", "heading"]);
+  assert.deepEqual(keys(s.rest), ["chart", `blk:${BLK}`, "blk:22222222-2222-4222-8222-222222222222"].sort());
+  assert.ok(P.isSectionItem({ kind: "template", group: "Patterns" }) && !P.isSectionItem({ kind: "block", group: "Blocks" }));
+});
