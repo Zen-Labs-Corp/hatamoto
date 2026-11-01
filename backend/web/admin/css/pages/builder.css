@@ -66,6 +66,9 @@
   .hm-bs__nav { overflow: hidden; } /* the panels scroll; the tabs and the footer stay */
 }
 .hm-bs__devices { display: inline-flex; align-items: center; flex: none; gap: var(--space-2); }
+.hm-bs__lead, .hm-bs__end { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.hm-bs__end { margin-inline-start: auto; }
+.hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: none; }
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
