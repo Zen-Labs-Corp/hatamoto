@@ -549,13 +549,17 @@ func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
 			ent := r.seed(r.page, "en-XX")
 			ent.Schema = r.page // the service reads it on update and status
 			r.groups.groupErr = fmt.Errorf("group of entity: %w", &pgconn.PgError{Message: "boom"})
+			r.groups.groupOf, r.groups.groupsFor = 0, 0
 			err := call(r, ent.ID)
 			if err == nil {
 				t.Fatal("no error")
 			}
+			if name == "list" && r.groups.groupsFor == 0 || name != "list" && r.groups.groupOf == 0 {
+				t.Fatalf("the group lookup never ran (groupOf = %d, groupsFor = %d)", r.groups.groupOf, r.groups.groupsFor)
+			}
 			he := r.api.toHostError("p", err)
-			if he.Code != sdk.ErrInternal || strings.Contains(he.Message, "boom") {
-				t.Fatalf("error = %s %q, want internal without the cause", he.Code, he.Message)
+			if he.Code != sdk.ErrInternal || he.Message != "translation group lookup failed" {
+				t.Fatalf("error = %s %q, want internal with the generic message", he.Code, he.Message)
 			}
 		})
 	}
