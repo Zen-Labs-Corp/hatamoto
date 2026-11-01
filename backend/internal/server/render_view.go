@@ -303,6 +303,8 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 		MetaTitle    string `json:"meta_title"`
 		MetaDesc     string `json:"meta_description"`
 		CanonicalURL string `json:"canonical_url"`
+		OGTitle      string `json:"og_title"`
+		OGDesc       string `json:"og_description"`
 		NoIndex      bool   `json:"no_index"`
 		SEO          struct {
 			Robots string `json:"robots"`
@@ -317,6 +319,12 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 	m.DescriptionSet = strings.TrimSpace(a.MetaDesc) != ""
 	if c := canonicalFromAttribute(a.CanonicalURL, baseURL); c != "" {
 		m.CanonicalURL = c
+	}
+	if t := strings.TrimSpace(a.OGTitle); t != "" {
+		m.OGTitle = t
+	}
+	if d := strings.TrimSpace(a.OGDesc); d != "" {
+		m.OGDescription = d
 	}
 	if a.NoIndex || strings.Contains(strings.ToLower(a.SEO.Robots), "noindex") {
 		m.NoIndex = true

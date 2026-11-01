@@ -146,7 +146,7 @@ handler tests run on in-memory fakes; the real services are exercised by
   the schema's URL pattern uses `{path}` or `{parent}`), author, terms, the
   SEO panel and the type's own fields through schemaform with the prefix
   `attr.`. SEO values live in the attributes (`meta_title`, `meta_description`,
-  `canonical_url`, `og_image`, `no_index`), the keys the public site reads, and
+  `canonical_url`, `og_image`, `og_title`, `og_description`, `no_index`), the keys the public site reads, and
   are removed from the schemaform output so a field is not shown twice.
   Structural buttons (`_add.`, `_move.`, `_remove.`) re-render without saving.
   Scheduling is `entity.Service.ScheduleEntity` (status `scheduled`,
@@ -261,7 +261,7 @@ Routes (all in the session and CSRF group; each answers 404 for an entity the bu
 | `POST /entities/{id}/edit/render` with `Content-Type: application/json` | node fragments for a posted doc and ops ([CANVAS.md](CANVAS.md#json-doc-mode-the-builder)); form posts keep the B2 mode |
 | `POST /entities/{id}/builder/stage` | `{doc}` -> `{url}` of the staged canvas page |
 | `POST /entities/{id}/builder/component` | `mode=form` -> `{html}`; `mode=decode` -> `{content, errors, structural, html?}` through `decodeComponent` |
-| `POST /entities/{id}/builder/save` | version-checked autosave, save and publish; an optional `seo` object (`title`, `description`, `canonical`, `og_image`, `no_index`) is written into the page's attributes by the same single update |
+| `POST /entities/{id}/builder/save` | version-checked autosave, save and publish; an optional `seo` object (`title`, `description`, `canonical`, `og_image`, `og_title`, `og_description`, `no_index`) is written into the page's attributes by the same single update |
 | `GET /entities/{id}/builder/seo` | the shared SEO panel (inputs, tabs, checks) for the SEO drawer; a bare fragment for an htmx-style request (`HX-Request` and `HX-Target` headers), pages only |
 | `POST /entities/{id}/builder/analyze` | the panel's live checks for the posted draft (`doc` form field plus the `seo_*` fields): the draft is rendered through the preview and only its `<main>` is analysed; writes nothing |
 | `POST /entities/{id}/builder/paste` | clipboard envelope -> `{nodes, missingBlocks}`: validated, sanitised, fresh ids; writes nothing |
@@ -812,7 +812,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has two tabs. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has three tabs. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -822,6 +822,25 @@ archive title and description of a type are the same values as in the type's set
 merges only the keys a tab owns, writes one `seo.settings` audit entry and clears the page
 cache. Update preview resolves a sample page of each kind through the same function the public
 head uses, without saving.
+
+Social (`<admin>/settings/seo/social`) sets what link previews show. It holds the default share
+image, the X handle (`@name`), the X card (large image or summary), the Facebook app id and page
+address, a social title template and image per content type, and a social title template per term
+kind. Two switches, both off by default, add tags: "Add site name and locale tags"
+(`og:site_name`, `og:locale` as `ll_CC`, so `en-US` becomes `en_US` and `en` stays `en`) and
+"Mark posts as articles" (`og:type` article with `article:published_time` and
+`article:modified_time`, for posts only). `twitter:site`, `fb:app_id` and `article:publisher`
+appear only when filled. The share image of a page is its own social image, then its featured
+image, then the type's default image, then the site default; a default image is written as an
+absolute address. A social title template changes `og:title` and `twitter:title` only, never
+the `<title>`. The Social tab saves only its own keys, so saving Titles & meta keeps it and the
+other way round. With nothing saved the public head is unchanged.
+
+An entry's SEO panel, on its Social tab, also takes a social title and a social description
+(attributes `og_title` and `og_description`). They win over the template and the meta
+description, and an empty value removes the key. The tab shows a share card preview built the
+way the public head builds it. The entity form, the blog editor and the Builder SEO drawer carry
+the fields; term panels do not.
 
 ### Performance
 

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"reflect"
 	"testing"
 
 	"hatamoto.dev/core/internal/seo"
@@ -37,6 +38,9 @@ func TestSEODefaultSettingsMatchLegacyHead(t *testing.T) {
 		got := seoHead(seoView(p, &def), false)
 		if got.Title != legacy.Title || got.Description != legacy.Description {
 			t.Errorf("%+v: got %q/%q, want %q/%q", p, got.Title, got.Description, legacy.Title, legacy.Description)
+		}
+		if !reflect.DeepEqual(got.OG, legacy.OG) || !reflect.DeepEqual(got.Twitter, legacy.Twitter) {
+			t.Errorf("%+v: social tags differ: OG %v vs %v, Twitter %v vs %v", p, got.OG, legacy.OG, got.Twitter, legacy.Twitter)
 		}
 	}
 }

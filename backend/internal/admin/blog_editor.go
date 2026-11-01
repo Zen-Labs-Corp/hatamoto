@@ -325,7 +325,8 @@ func slugifyName(s string) string {
 func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, p *posted, b blogBody) seoPanel {
 	in := seoInput{
 		Title: p.f.Name, MetaTitle: p.f.SEO.Title, MetaDescription: p.f.SEO.Description, Slug: p.f.Slug, Excerpt: b.Excerpt, Content: b.Content,
-		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs, Published: e.Status == entity.StatusPublished,
+		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs,
+		OGTitle: p.f.SEO.OGTitle, OGDescription: p.f.SEO.OGDescription, OGImage: p.f.SEO.OGImage, Social: true, Published: e.Status == entity.StatusPublished,
 	}
 	if a.deps.BaseURL != nil {
 		in.BaseURL = a.deps.BaseURL(r)
@@ -505,7 +506,7 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 }
 
 func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d *blogData) {
-	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}} {
 		if m := d.Errors[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}

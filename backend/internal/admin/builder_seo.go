@@ -125,6 +125,7 @@ func (a *Admin) builderSEOInput(r *http.Request, e *entity.Entity, sc *entity.En
 		Title: cmp.Or(strings.TrimSpace(name), e.Name), MetaTitle: f.Title, MetaDescription: f.Description, Slug: e.Slug, Canonical: f.Canonical,
 		Excerpt: str(attrsMap(e.Attributes), "excerpt"), Content: content, Published: e.Status == entity.StatusPublished,
 		Mode: ModeBody, NoKeyword: true, NoLLMs: true,
+		OGTitle: f.OGTitle, OGDescription: f.OGDescription, OGImage: f.OGImage, Social: true,
 	}
 	if a.deps.BaseURL != nil {
 		in.BaseURL = a.deps.BaseURL(r)

@@ -707,9 +707,9 @@ gets back `content`, `errors` and, when the form must change, new `html`.
 ### Saving
 
 `POST <admin>/entities/{id}/builder/save` takes `{version, doc, op, name, seo?}`; `op` is `autosave`, `save` or `publish`.
-`seo` is `{title, description, canonical, og_image, no_index}`, honoured for pages only and written into the page's
-attributes (`meta_title`, `meta_description`, `canonical_url`, `og_image`, `no_index`; an empty value removes the key)
-by the same single update as the doc, so one version is created and a stale `version` still writes nothing. A missing
+`seo` is `{title, description, canonical, og_image, og_title, og_description, no_index}`, honoured for pages only and written into the page's
+attributes (`meta_title`, `meta_description`, `canonical_url`, `og_image`, `og_title`, `og_description`, `no_index`; an empty value removes the key)
+by the same single update as the doc (`og_title` and `og_description` are the hand-written social title and description, at most 255 and 500 characters; a client that omits them deletes the stored values, so the drawer always sends both), so one version is created and a stale `version` still writes nothing. A missing
 `seo` leaves the stored values alone; a value the public head could not use is `422 {code:"invalid"}`. A canonical must be a path starting with a single `/`
 (no `//`, backslash or whitespace) or an http(s) address with a host; a new value that is neither is `422 {code:"invalid_canonical"}`
 and the drawer shows the message under the Canonical field. A value equal to the one already stored is not checked again.

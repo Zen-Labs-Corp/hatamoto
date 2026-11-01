@@ -472,3 +472,38 @@ func TestBuilderSaveSEOIgnoredForReuseBlocks(t *testing.T) {
 		t.Error("a reuse block got SEO attributes")
 	}
 }
+
+// The drawer round-trips the social title and description; a payload that
+// carries the stored values keeps them, one that blanks them deletes them.
+func TestBuilderSaveSEOSocialText(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.page.Attributes = json.RawMessage(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	body := saveBody(1, saveDoc, "save", `,"seo":{"og_title":" Share me ","og_description":"Short"}`)
+	if code, out := r.save(t, r.page, body); code != 200 || !out.OK {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	m := attrsOf(t, *r.rec.inputs[0].Attributes)
+	if string(m["og_title"]) != `"Share me"` || string(m["og_description"]) != `"Short"` {
+		t.Errorf("social text = %s / %s", m["og_title"], m["og_description"])
+	}
+
+	r = newSaveRig(t)
+	r.page.Attributes = json.RawMessage(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"og_title":"","og_description":" "}`)); code != 200 || !out.OK {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	m = attrsOf(t, *r.rec.inputs[0].Attributes)
+	if _, ok := m["og_title"]; ok {
+		t.Errorf("og_title kept: %s", m["og_title"])
+	}
+	if _, ok := m["og_description"]; ok {
+		t.Errorf("og_description kept: %s", m["og_description"])
+	}
+
+	r = newSaveRig(t)
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"og_title":"`+strings.Repeat("x", 256)+`"}`)); code != http.StatusUnprocessableEntity {
+		t.Errorf("over-long social title: %d %+v", code, out)
+	}
+}
