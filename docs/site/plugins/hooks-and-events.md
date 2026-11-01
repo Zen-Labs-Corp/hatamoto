@@ -27,6 +27,7 @@ A plugin handles a hook by exporting a function named after it: replace `.` with
 | `jsonld.enrich` | filter | `filter_jsonld_enrich` | JSONLDDoc | JSONLDDoc |
 | `sitemap.urls` | filter | `filter_sitemap_urls` | SitemapURLs | SitemapURLs |
 | `render.head` | filter | `filter_render_head` | HeadContext | HeadContext |
+| `render.site_graph` | filter | `filter_render_site_graph` | SiteGraph | SiteGraph |
 | `render.page` | filter | `filter_render_page` | PageContext | PageContext |
 | `entity.before_save` | filter | `filter_entity_before_save` | EntityDraft | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | BuilderDataRequest | BuilderDataRequest |
@@ -45,7 +46,7 @@ A filter that returns non-zero, traps, runs out of memory, exceeds its timeout o
 
 A hook that traps or times out three calls in a row is switched off for 30 seconds for that plugin and hook. When a request runs several filters under one deadline (page head, JSON-LD, sitemap), each filter gets at most its fair share of the time left, so a slow plugin cannot starve the ones after it.
 
-Output is bounded. One call returns at most `limits.max_output_bytes` (default 1 MiB, up to 4 MiB). `render.head` may add at most 64 tags and `sitemap.urls` at most 5,000 additions. JSON-LD arrays are capped at 1,000 elements and depth 32. Output over a cap counts as a failure.
+Output is bounded. One call returns at most `limits.max_output_bytes` (default 1 MiB, up to 4 MiB). `render.head` may add at most 64 tags, `render.site_graph` at most 64 elements per array and 20,000 tokens, and `sitemap.urls` at most 5,000 additions. JSON-LD arrays are capped at 1,000 elements and depth 32. Output over a cap counts as a failure.
 
 Default timeouts are 250 ms for filters and 10 seconds for actions. Override them per hook with `limits.hook_timeouts_ms` (see [The plugin manifest](manifest.md#limits)).
 
@@ -126,6 +127,15 @@ The filter may run more than once for one render: a page with a paged builder lo
 ```
 
 The kinds are `meta`, `link`, `script-src` and `jsonld`. The gtm plugin uses a single `meta` tag.
+
+
+### render.site_graph
+
+Since SDK 0.16.0. The input has the page's `path`, `language`, `schema_slug` and `entity_id` (and `locale` and `segment` on a site with several public locales) plus `nodes`, the JSON-LD nodes of the generic site graph: the Organization, the per-locale LocalBusiness and the WebSite. A node with the `@id` of a core node may add keys; it cannot change `@id` or `@type` or remove or overwrite a key the core node prints. A node with a new unique `@id` is appended. Arrays are capped at 64 elements at any depth and the result at 20,000 tokens; over the cap counts as a failure. On a failure, a timeout or a panic the graph is printed unchanged and the page is not cached. When a `render.head` result with `replace_site_graph` is accepted, this filter does not run.
+
+```json
+{ "path": "/", "language": "en-XX", "nodes": [ { "@id": "https://example.test#organization", "@type": "Organization", "slogan": "Added by a plugin" } ] }
+```
 
 ### render.page
 

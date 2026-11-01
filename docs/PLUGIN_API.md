@@ -1,4 +1,4 @@
-# Plugin API (SDK 0.15)
+# Plugin API (SDK 0.16)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
@@ -117,13 +117,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.15.0`; plugins built for `^0.5` to `^0.14` still load):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.16.0`; plugins built for `^0.5` to `^0.15` still load):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.15.0
+go get hatamoto.dev/sdk@v0.16.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -133,7 +133,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.15.0` is the git tag `v0.15.0`. The core repository stays
+plain release tags: version `0.16.0` is the git tag `v0.16.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -150,7 +150,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.15 is current.
+> SDK 0.16 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -170,6 +170,10 @@ different repository.
 > translation group (it needs `entities.read`, no new permission), and `entities.get` with a `path` reads a locale-prefixed path in that locale (only for a plugin whose `sdk` range requires 0.15 or later; `^0.14` and older resolve paths as before).
 > All new payload fields are left out when empty, so a one-language site sends the same JSON as before. A plugin built earlier ignores the unknown
 > fields; on a host older than SDK 0.15 they are absent, and `entities.translations` fails with `unknown_function`.
+>
+> **0.16 changes (additive):** the `render.site_graph` filter (see [SiteGraph](#sitegraph)) lets a plugin add keys to the
+> Organization, LocalBusiness and WebSite nodes of the generic site graph and append nodes of its own. Nothing else changes: a plugin built for 0.15 or older
+> loads and runs as before, and on a host older than SDK 0.16 the hook is never called.
 >
 > **0.11 changes:** a page-builder data source: the `builder.data` filter, the `builder.data` permission and the
 > `builder_sources` manifest field (see [builder.data](#builderdata) and [WIDGET_PACKS.md](WIDGET_PACKS.md)). Purely additive.
@@ -222,6 +226,7 @@ different repository.
 | `sitemap.urls` | filter | `filter_sitemap_urls` | [SitemapURLs](#sitemapurls) | SitemapURLs |
 | `form.submitted` | action | `on_form_submitted` | [FormSubmittedEvent](#formsubmittedevent) | none |
 | `render.head` | filter | `filter_render_head` | [HeadContext](#headcontext) | HeadContext |
+| `render.site_graph` | filter | `filter_render_site_graph` | [SiteGraph](#sitegraph) | SiteGraph |
 | `render.page` | filter | `filter_render_page` | [PageContext](#pagecontext) | PageContext |
 | `entity.before_save` | filter | `filter_entity_before_save` | [EntityDraft](#entitydraft) | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | [BuilderDataRequest](#builderdata) | BuilderDataRequest |
@@ -258,7 +263,7 @@ filter leaves out keep their previous value, so a plugin may return only what it
 changed (a field it does return replaces the old one as a whole).
 
 Output is bounded: at most `limits.max_output_bytes` (default 1 MiB, up to 4 MiB;
-more fails the call), `render.head` at most 64 tags, `sitemap.urls` at most 5,000
+more fails the call), `render.head` at most 64 tags, `render.site_graph` at most 64 elements per array and 20,000 tokens, `sitemap.urls` at most 5,000
 additions, and arrays and nesting in other payloads are capped (JSON-LD: 1,000
 elements per array, depth 32). Output over a cap is treated as a failure.
 
@@ -343,13 +348,26 @@ Additions only. The host sends `group`, `language`, `segment` and `file` (the gr
 
 #### HeadContext
 The input describes the page (`language` is the BCP 47 language of the page: the site language, or the page's locale on a site with several public locales) and carries no tags; since SDK 0.15 `locale` is the page's BCP 47 tag and `segment` its stored URL segment, both empty on a one-language site, and `segment` also empty for a default locale served without a prefix (`language` holds the same tag as `locale` on a multi-locale site); the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
-Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays. The generic graph includes the per-locale `LocalBusiness` node of a site with several public locales, so replacing it drops that node too. The payload of this filter is unchanged by per-locale business details. Hreflang de-duplication is exact: a plugin link is dropped only when its language (case-insensitive) and its address both equal a computed alternate, so any difference prints both.
+Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays. The generic graph includes the per-locale `LocalBusiness` node of a site with several public locales, so replacing it drops that node too. The payload of this filter is unchanged by per-locale business details. To extend the generic graph instead of replacing it, use [`render.site_graph`](#sitegraph); when a valid `replace_site_graph` result is accepted the generic graph is not built and `render.site_graph` does not run. Hreflang de-duplication is exact: a plugin link is dropped only when its language (case-insensitive) and its address both equal a computed alternate, so any difference prints both.
 ```json
 { "path": "/blog/x", "language": "en-XX", "locale": "en-XX", "segment": "xx", "schema_slug": "post", "entity_id": "string",
   "tags": [ { "kind": "meta|link|script-src|jsonld", "attrs": { "name": "robots", "content": "noindex" }, "jsonld": {} } ],
   "replace_site_graph": false }
 ```
 `tags`, `attrs` and `jsonld` are optional; `jsonld` is only used for kind `jsonld`.
+
+#### SiteGraph
+Since SDK 0.16.0. The input describes the page (`path`, `language`, `schema_slug`, `entity_id` and, on a site with several public locales, `locale` and `segment`, as in [HeadContext](#headcontext)) and carries the `nodes` of the generic site graph: the Organization, the per-locale LocalBusiness (only on a site with several public locales, for a locale with an office) and the WebSite. Return the nodes; the host merges your answer into its own graph:
+- A node with the `@id` of a core node may add keys the core node does not have. It cannot change `@id` or `@type`, and it cannot remove or overwrite a key the core node already prints.
+- A node with a new, unique `@id` is appended after the core nodes. A node without an `@id`, or one that repeats an `@id`, is dropped.
+- The host does not re-encode core values, so numbers and strings print as before.
+
+Output is bounded like the head filter: more than 64 elements in any one array (at any depth) or more than 20,000 tokens fails the call, so a plugin that echoes a large core array back must trim it or return only the nodes it changes. The filter is fail-open: on an error, a timeout or a panic the generic graph is printed unchanged and the page is not cached (a degraded page, like a failed `render.head`). With `replace_site_graph` accepted from `render.head`, the generic graph is not built and this filter does not run. Like `render.head` it runs once per render, so keep it free of side effects.
+```json
+{ "path": "/", "language": "en-XX", "locale": "en-XX", "segment": "xx", "schema_slug": "page", "entity_id": "string",
+  "nodes": [ { "@type": "Organization", "@id": "https://example.test#organization", "name": "Example Co" } ] }
+```
+`locale` and `segment` are left out on a one-language site.
 
 #### EntityDraft
 Return a modified draft to change `name`, `slug` or `attributes` before they are saved; other fields are ignored. `operation` is `create`, `update` or `restore`; `id` is `""` for create.
@@ -488,9 +506,9 @@ A **Term** may carry an optional `seo` object, `{ "meta_title", "meta_descriptio
 
 Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). `menus.add_item` accepts `link_type` `none` as it is; there are no new arguments. An item of another type saved without its target also renders as plain text. Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
 
-**`render.head` runs once per render.** A page served from the cache does not run it at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
+**`render.site_graph` and `render.head` run once per render.** A page served from the cache does not run it at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
 
-**Cached pages and plugin data.** What a plugin renders into a public page (template funcs, `render.head` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, up to 24 hours), including values a func reads with `kv.get` or `db.query`. A plugin cannot purge the page cache (there is no `cache.invalidate` host function): new `kv`/`db` data reaches cached pages when the TTL expires or when anything else clears the cache (an entity write, even by `entities.update`, a settings save, a menu or theme change). See [Page cache](THEMES.md#page-cache).
+**Cached pages and plugin data.** What a plugin renders into a public page (template funcs, `render.head`, `render.site_graph` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, up to 24 hours), including values a func reads with `kv.get` or `db.query`. A plugin cannot purge the page cache (there is no `cache.invalidate` host function): new `kv`/`db` data reaches cached pages when the TTL expires or when anything else clears the cache (an entity write, even by `entities.update`, a settings save, a menu or theme change). See [Page cache](THEMES.md#page-cache).
 
 **`page_sections` is derived.** `entities.get`/`entities.list` and the `entity.before_save` input carry `attributes.page_sections` computed from `attributes.page_doc` at read time (the same list the public JSON shows), and the key is absent for a builder-only page. The stored key is a frozen legacy mirror that is never read here. A write that sends back the derived `page_sections` unchanged is accepted as a no-op; one that changes it on a page that has a `page_doc` is refused (`page_sections_removed`), and a `before_save` edit to it is discarded with a warning: change `page_doc` instead.
 
