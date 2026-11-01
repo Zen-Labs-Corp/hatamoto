@@ -6,6 +6,8 @@
 .hm-aia-chart { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-aia-lgrow { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
 .hm-aia-legend { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-0-5) var(--space-1); margin-inline-start: calc(-1 * var(--space-2)); }
+/* Phone: the toggle and Show data share the first line, the legend wraps on its own line below them. */
+@media (max-width: 640px) { .hm-aia-lgrow { flex-wrap: wrap; } .hm-aia-legend { order: 1; flex-basis: 100%; } }
 .hm-aia-lg {
   display: inline-flex; align-items: center; gap: var(--space-2); height: 28px; padding: 0 var(--space-2);
   border: 0; border-radius: var(--radius-sm); background: none; font: inherit; font-size: var(--text-sm); color: var(--text); cursor: pointer;
