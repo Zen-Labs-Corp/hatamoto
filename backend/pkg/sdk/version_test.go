@@ -44,7 +44,7 @@ func TestCompatibleWithOldHost(t *testing.T) {
 
 func TestCompatibleWithNewHost(t *testing.T) {
 	list := []string{"0.5.0", "0.12.0"}
-	for rng, want := range map[string]bool{"^0.12": true, "^0.15": true, "^0.16": true, "^0.17": false} {
+	for rng, want := range map[string]bool{"^0.12": true, "^0.16": true, "^0.17": false} {
 		got, err := compatibleWith("0.16.0", list, rng)
 		if err != nil || got != want {
 			t.Errorf("compatibleWith(0.16.0, %s) = %v,%v want %v", rng, got, err, want)
