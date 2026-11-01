@@ -130,7 +130,7 @@ const MaxSitemapAdditions = 5000
 
 // SitemapURLs is the value filtered by sitemap.urls for one sitemap file.
 //
-// The host sends only Group and Language, and in Add the entries that
+// The host sends only Group, Language, Segment and File, and in Add the entries that
 // sitemap.urls filters before this one already added (empty for the first):
 // never the file's own URL list, because a Go guest spends about 0.5 s per
 // 5,000 URLs to decode and encode one. A plugin appends the entries it wants
@@ -142,9 +142,16 @@ const MaxSitemapAdditions = 5000
 // for the misc sitemap holding static routes. Language is the BCP 47 site
 // language. Filters that add a site-wide URL should target one file (usually
 // Group == "misc") or it appears in many.
+//
+// Since 0.15.0, on a multi-locale site Segment is the stored URL segment of
+// the file's locale (empty for an unprefixed default locale) and File is the
+// full file key ("xx-misc"; Group stays the bare name). Both are empty on a
+// one-language site.
 type SitemapURLs struct {
 	Group    string       `json:"group"`
 	Language string       `json:"language"`
+	Segment  string       `json:"segment,omitempty"`
+	File     string       `json:"file,omitempty"`
 	Add      []SitemapURL `json:"add"`
 }
 
