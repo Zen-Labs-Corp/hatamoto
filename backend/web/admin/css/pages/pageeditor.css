@@ -66,7 +66,7 @@
 .hm-pe__plus:hover .hm-pe__plusline, .hm-pe__plus:focus-visible .hm-pe__plusline { display: block; }
 .hm-pe__hint { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: var(--text-sm); }
 /* Hover name tag (same label as the Navigator) and the W x H badge under the selection. */
-.hm-pe__tag { position: absolute; left: -1px; bottom: 100%; max-width: 14rem; padding: 0 var(--space-1); border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--color-hai); color: var(--color-paper); font-size: var(--text-xs); line-height: var(--leading-5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hm-pe__tag { position: absolute; left: 0; top: 0; max-width: 14rem; padding: var(--space-0-5) var(--space-2); border-radius: 0 0 var(--radius-sm) 0; background: var(--color-accent); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .hm-pe__size[data-align="end"] { transform: translateX(-100%); margin-left: calc(-1 * var(--space-2)); } /* a section's: off the centred "Add section" pill */
 .hm-pe__size { position: absolute; transform: translateX(-50%); padding: 1px var(--space-1-5); border-radius: var(--radius-sm); background: var(--pe-ui-bg); color: var(--pe-ui-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); white-space: nowrap; pointer-events: none; }
 /* Direct manipulation layer (js/canvas/direct.js): padding hatch, pink handles, value badge, "Add section" strips. Own layer: hover redraws of the marks never touch an active drag. */
@@ -90,7 +90,7 @@
 .hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 50%; display: flex; transform: translate(-50%, 12px); pointer-events: none; cursor: pointer; }
 .hm-pe__gapline:not([data-show]) { visibility: hidden; } /* an invisible pill still counts as covering what lies under it (the page-top one over the top padding handle) */
 .hm-pe__gapline[data-show] { pointer-events: auto; }
-.hm-pe__pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; opacity: 0; box-shadow: 0 0 0 2px var(--surface); }
+.hm-pe__pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; opacity: 0; }
 .hm-pe__pill svg { width: 12px; height: 12px; }
 .hm-pe__gapline[data-show] .hm-pe__pill { opacity: .85; }
 .hm-pe__gapline[data-show]:hover .hm-pe__pill, .hm-pe__gapline:focus-visible .hm-pe__pill { opacity: 1; }
