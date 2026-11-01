@@ -9,11 +9,16 @@ main() {
       command -v stage_firstboot >/dev/null 2>&1 || die "stage not available in this build: stage_firstboot"
       stage_firstboot
       ;;
+    set-domain)
+      need_root
+      shift
+      fb_set_domain "$@"
+      ;;
     version)
       echo "hatamoto-firstboot 1"
       ;;
     *)
-      echo "usage: firstboot.sh [first-boot | version]" >&2
+      echo "usage: firstboot.sh [first-boot | set-domain HOST [--email ADDR] | version]" >&2
       exit 2
       ;;
   esac

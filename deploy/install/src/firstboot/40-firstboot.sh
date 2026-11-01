@@ -85,8 +85,9 @@ HM_ENV
   [ -z "$3" ] || printf 'HATAMOTO_SETUP_CODE=%s\n' "$3"
 }
 
-# fb_render_caddyfile HOST TLS EMAIL prints the Caddyfile: one site in front of the app.
+# fb_render_caddyfile HOST TLS EMAIL [OLD] prints the Caddyfile: one site in front of the app.
 # TLS is auto (public certificate), internal (Caddy's own CA) or off (plain http).
+# A different OLD host gets a second site that redirects permanently to HOST.
 fb_render_caddyfile() {
   printf '# Written by the Hatamoto installer.\n'
   if [ -n "$3" ] && [ "$2" != off ]; then
@@ -98,6 +99,13 @@ fb_render_caddyfile() {
   esac
   [ "$2" != internal ] || printf '\ttls internal\n'
   printf '\treverse_proxy 127.0.0.1:%s\n}\n' "$APP_PORT"
+  if [ -n "${4:-}" ] && [ "$4" != "$1" ]; then
+    case "$2" in
+      off) printf '\nhttp://%s {\n\tredir http://%s{uri} permanent\n}\n' "$4" "$1" ;;
+      internal) printf '\n%s {\n\ttls internal\n\tredir https://%s{uri} permanent\n}\n' "$4" "$1" ;;
+      *) printf '\n%s {\n\tredir https://%s{uri} permanent\n}\n' "$4" "$1" ;;
+    esac
+  fi
 }
 
 # fb_banner LINK CODE [DOMAIN IP] prints the message the owner sees on the
@@ -254,11 +262,12 @@ fb_database() {
   fi
 }
 
-# fb_wait_ready waits up to 120 s for the app's own readiness probe.
+# fb_wait_ready waits up to 120 s for the app's own readiness probe. Only the
+# HTTP status counts (that is the /ready contract); the body differs by release.
 fb_wait_ready() {
   fwr_i=0
   while [ "$fwr_i" -lt 120 ]; do
-    if [ "$(curl -fsS --max-time 3 "http://127.0.0.1:$APP_PORT/ready" 2>/dev/null || true)" = ok ]; then return 0; fi
+    if curl -fsS -o /dev/null --max-time 3 "http://127.0.0.1:$APP_PORT/ready" 2>/dev/null; then return 0; fi
     fwr_i=$((fwr_i + 1))
     fb_sleep
   done

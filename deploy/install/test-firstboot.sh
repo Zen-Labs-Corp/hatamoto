@@ -54,6 +54,8 @@ printf 'curl %s\n' "$*" >> "$CALLS"
 case "$*" in
   *--resolve*) [ -z "${FAKE_PROXY_FAIL:-}" ] || exit 22; echo ok ;;
   *api.ipify.org*) [ -n "${FAKE_IP:-}" ] && echo "$FAKE_IP" || exit 22 ;;
+  # Released binaries answer /ready with JSON, newer ones with "ok": only the status may count.
+  */ready*) echo '{"database":"connected","status":"ready"}' ;;
   *) echo ok ;;
 esac
 FAKE
@@ -176,7 +178,9 @@ done
 if printf '%s\n' "$env_out" | grep -q 'HATAMOTO_UPDATES'; then fail "env sets HATAMOTO_UPDATES"; fi
 pass "env content"
 
-cf() { pure fb_render_caddyfile "$@"; }
+# Render fully before printing: a `| grep -q` reader that exits on its first
+# match must not SIGPIPE a producer that is still writing (pipefail -> 141).
+cf() { local out; out="$(pure fb_render_caddyfile "$@")"; printf '%s\n' "$out"; }
 cf h.example auto "" | grep -qx 'h.example {' || fail "auto caddyfile"
 if cf h.example auto "" | grep -Eq 'tls internal|email'; then fail "auto caddyfile has extras"; fi
 cf h.example auto ops@example.com | grep -qxP '\temail ops@example.com' || fail "email missing"
@@ -185,6 +189,16 @@ cf h.example off ops@example.com | grep -qx 'http://h.example {' || fail "off ca
 if cf h.example off ops@example.com | grep -q email; then fail "off caddyfile carries an email"; fi
 cf h.example auto "" | grep -qxP '\treverse_proxy 127.0.0.1:8090' || fail "reverse_proxy missing"
 pass "Caddyfile for each TLS mode, with and without email"
+
+cf h.example auto "" old.example | grep -qx 'old.example {' || fail "redirect site missing"
+cf h.example auto "" old.example | grep -qxP '\tredir https://h.example\{uri\} permanent' || fail "redirect target"
+[ "$(cf h.example auto "" old.example | grep -c reverse_proxy)" = 1 ] || fail "old host proxied"
+cf h.example internal "" old.example | awk '/^old.example/{f=1} f' | grep -qxP '\ttls internal' || fail "redirect site lacks tls internal"
+cf h.example off "" old.example | grep -qx 'http://old.example {' || fail "off redirect site"
+cf h.example off "" old.example | grep -qxP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
+if cf h.example auto "" h.example | grep -q redir; then fail "same-host redirect"; fi
+[ "$(cf h.example auto "")" = "$(cf h.example auto "" "")" ] || fail "3-arg output changed"
+pass "Caddyfile old-host redirect for each TLS mode"
 
 # --- full run ---------------------------------------------------------------------
 r="$(mkroot full)"

@@ -10,6 +10,7 @@
 #   HATAMOTO_BACKUPS        1 (default) nightly local backups, 0 off
 #   HATAMOTO_PUBLIC_IP      public IPv4 address (default: detected)
 #   HATAMOTO_TLS            auto (default), internal or off
+#   HATAMOTO_PG_MAJOR       PostgreSQL major to install: 16, 17 or 18 (default 18; an existing cluster keeps its own)
 #   HATAMOTO_FIREWALL       1 (default) configure ufw, 0 skip
 #   HATAMOTO_RELEASE_BASE   release site (signatures still bind)
 set -eu
@@ -28,6 +29,8 @@ IN_BACKUPS="${HATAMOTO_BACKUPS:-1}"
 IN_PUBLIC_IP="${HATAMOTO_PUBLIC_IP:-}"
 # shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_TLS="${HATAMOTO_TLS:-auto}"
+# shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
+IN_PG_MAJOR="${HATAMOTO_PG_MAJOR:-}"
 # shellcheck disable=SC2034 # part contract: used by the install or firstboot parts
 IN_FIREWALL="${HATAMOTO_FIREWALL:-1}"
 # shellcheck disable=SC2034 # part contract: used by the install or firstboot parts

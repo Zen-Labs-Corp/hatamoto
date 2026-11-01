@@ -7,7 +7,7 @@ Postgres. There is no Node toolchain to install for the product itself.
 
 - **Go 1.27** (the exact toolchain is pinned by the `toolchain` line in
   `backend/go.mod`; with `GOTOOLCHAIN=auto`, the default, `go` fetches it).
-- **PostgreSQL 16** for the integration tests and for running the server
+- **PostgreSQL 16 or 18** (CI tests both) for the integration tests and for running the server
   (`docker compose up db` starts one on `127.0.0.1:5432`).
 - `git`, `bash`, `make`, `jq`, `curl` and [Caddy](https://caddyserver.com/) 2 for the
   repository checks (`make check` runs the Caddy splice test; `REAL_CADDY=/path/to/caddy`
@@ -124,7 +124,7 @@ it on `origin/main`.
 
 Needs: `gitleaks` (`go install github.com/zricethezav/gitleaks/v8@v8.30.1`),
 `staticcheck` v0.8.2 (`go install honnef.co/go/tools/cmd/staticcheck@v0.8.2`) and
-PostgreSQL 16 tools on `PATH` or in `PG_BIN` (a throwaway cluster is created and
+PostgreSQL 16 or 18 tools on `PATH` or in `PG_BIN` (a throwaway cluster is created and
 removed by `scripts/integration-gate.sh`). A missing tool fails the hook; it is
 never skipped silently. `HATAMOTO_SKIP_INTEGRATION=1` skips only the integration
 tests and says so loudly. Set `REAL_CADDY` to run the Caddy checks against a real

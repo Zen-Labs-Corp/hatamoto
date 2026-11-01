@@ -6,18 +6,66 @@
 APP_DIR=/opt/hatamoto
 APP_USER=hatamoto
 PGDG_KEY=/usr/share/keyrings/postgresql-archive-keyring.asc
-BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades postgresql-16 caddy"
+CADDY_KEY=/usr/share/keyrings/caddy-stable-archive-keyring.asc
+# Primary key fingerprint of the Caddy stable repository key (checked after download).
+CADDY_KEY_FPR=65760C51EDEA2017CEA2CA15155B6D79CA56EA34 # gitleaks:allow
+# Primary key fingerprint of the apt.postgresql.org key ACCC4CF8 (checked after download).
+PGDG_KEY_FPR=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 # gitleaks:allow
+BUILD_PACKAGES="ca-certificates curl jq openssl sudo iproute2 ufw unattended-upgrades caddy"
 
 # build_os prints "ID VERSION_ID CODENAME" from the os-release file, or dies.
+# Ubuntu LTS 22.04, 24.04, 26.04 and Debian 12, 13 are supported; another Ubuntu
+# release is tried with a warning (short-term releases work, they are just untested).
 build_os() {
   bo_file="$(dest /etc/os-release)"
-  [ -r "$bo_file" ] || die "cannot read /etc/os-release: supported systems are Ubuntu 24.04 and Debian 12"
+  bo_list="Ubuntu 22.04, 24.04, 26.04 LTS and Debian 12, 13 (amd64 or arm64)"
+  [ -r "$bo_file" ] || die "cannot read /etc/os-release: supported systems are $bo_list"
   # shellcheck source=/dev/null
   bo_line="$( . "$bo_file" && printf '%s %s %s' "${ID:-}" "${VERSION_ID:-}" "${VERSION_CODENAME:-}" )"
   case "$bo_line" in
-    "ubuntu 24.04 "* | "debian 12 "*) printf '%s\n' "$bo_line" ;;
-    *) die "unsupported system: ${bo_line% *}: supported systems are Ubuntu 24.04 and Debian 12 (amd64 or arm64)" ;;
+    "ubuntu 22.04 "* | "ubuntu 24.04 "* | "ubuntu 26.04 "* | "debian 12 "* | "debian 13 "*) ;;
+    "ubuntu "*) warn "${bo_line% *} is not a supported LTS release; trying anyway (supported: $bo_list)" ;;
+    *) die "unsupported system: ${bo_line% *}: supported systems are $bo_list" ;;
   esac
+  printf '%s\n' "$bo_line"
+}
+
+# build_pg_major prints the PostgreSQL major to install: 16, 17 or 18 (default 18).
+# An existing cluster keeps its major; HATAMOTO_PG_MAJOR may only confirm it.
+build_pg_major() {
+  bm_want="$IN_PG_MAJOR"
+  case "$bm_want" in
+    "" | 16 | 17 | 18) ;;
+    *) die "HATAMOTO_PG_MAJOR must be 16, 17 or 18 (got $bm_want)" ;;
+  esac
+  bm_have=""
+  for bm_dir in "$(dest /etc/postgresql)"/*; do
+    case "${bm_dir##*/}" in
+      *[!0-9]* | "") continue ;;
+    esac
+    [ -d "$bm_dir" ] || continue
+    bm_have="$bm_have ${bm_dir##*/}"
+  done
+  # shellcheck disable=SC2086 # the list is words on purpose
+  set -- $bm_have
+  if [ $# -eq 0 ]; then
+    printf '%s\n' "${bm_want:-18}"
+    return 0
+  fi
+  if [ $# -gt 1 ]; then
+    [ -n "$bm_want" ] || die "several PostgreSQL clusters exist ($bm_have ): set HATAMOTO_PG_MAJOR to the one Hatamoto should use (16, 17 or 18)"
+    case " $bm_have " in
+      *" $bm_want "*) printf '%s\n' "$bm_want"; return 0 ;;
+    esac
+    die "HATAMOTO_PG_MAJOR=$bm_want matches none of the existing PostgreSQL clusters ($bm_have )"
+  fi
+  case "$1" in
+    16 | 17 | 18) ;;
+    *) die "the existing PostgreSQL cluster is version $1: Hatamoto needs 16, 17 or 18, and the installer does not migrate clusters" ;;
+  esac
+  [ -z "$bm_want" ] || [ "$bm_want" = "$1" ] ||
+    die "HATAMOTO_PG_MAJOR=$bm_want, but the existing PostgreSQL cluster is version $1 (the installer does not migrate clusters)"
+  printf '%s\n' "$1"
 }
 
 # build_policy_deny keeps packages from starting services while they install
@@ -74,22 +122,91 @@ build_apt() {
   fi
 }
 
-# build_pgdg adds the PostgreSQL project's apt repository (Debian ships 15, not 16).
+# build_pgdg_suite ID CODENAME prints the apt.postgresql.org suite to use. The
+# five supported codenames publish their own suite and are not probed. An unknown
+# codename is probed (retry, timeout) and falls back to the newest LTS suite of the
+# same family only when the archive answers 404 or 410; any other failure dies,
+# so a network hiccup never writes a foreign suite.
+build_pgdg_suite() {
+  case "$2" in
+    jammy | noble | resolute | bookworm | trixie) printf '%s\n' "$2"; return 0 ;;
+  esac
+  case "$2" in
+    *[!a-z0-9]*) die "unexpected distribution codename '$2'" ;;
+  esac
+  if [ -n "$2" ]; then
+    bp_code="$(curl -sI --proto '=https' --tlsv1.2 --retry 3 --max-time 10 -o /dev/null -w '%{http_code}' \
+      "https://apt.postgresql.org/pub/repos/apt/dists/$2-pgdg/Release" 2>/dev/null)" || bp_code=000
+    case "$bp_code" in
+      2*) printf '%s\n' "$2"; return 0 ;;
+      404 | 410) ;;
+      *) build_policy_restore; die "cannot check apt.postgresql.org for a '$2' suite (HTTP $bp_code)" ;;
+    esac
+  fi
+  case "$1" in
+    ubuntu) bp_suite=resolute ;;
+    *) bp_suite=trixie ;;
+  esac
+  warn "apt.postgresql.org has no suite for '$2'; using $bp_suite"
+  printf '%s\n' "$bp_suite"
+}
+
+# build_pgdg ID CODENAME adds the PostgreSQL project's apt repository, which
+# carries every supported major (the distributions ship one or two). A list from an
+# earlier fallback is rewritten when the codename has its own suite.
 build_pgdg() {
   bg_list="$(dest /etc/apt/sources.list.d/pgdg.list)"
-  [ ! -f "$bg_list" ] || return 0
+  bg_suite="$(build_pgdg_suite "$1" "$2")"
+  if [ -f "$bg_list" ]; then
+    [ "$bg_suite" != "$2" ] || grep -q " $bg_suite-pgdg " "$bg_list" || rm -f "$bg_list"
+    [ ! -f "$bg_list" ] || return 0
+  fi
   mkdir -p "$(dirname "$(dest "$PGDG_KEY")")" "$(dirname "$bg_list")"
   curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
     --output "$(dest "$PGDG_KEY")" https://www.postgresql.org/media/keys/ACCC4CF8.asc ||
     { build_policy_restore; die "cannot fetch the PostgreSQL repository key"; }
-  printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$1" > "$bg_list"
+  bg_fpr="$(build_key_fpr "$(dest "$PGDG_KEY")")"
+  if [ "$bg_fpr" != "$PGDG_KEY_FPR" ]; then
+    rm -f "$(dest "$PGDG_KEY")"
+    build_policy_restore
+    die "the PostgreSQL repository key has fingerprint ${bg_fpr:-unknown}, expected $PGDG_KEY_FPR"
+  fi
+  printf 'deb [signed-by=%s] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_KEY" "$bg_suite" > "$bg_list"
 }
 
-# build_check_pg_dump: backups need a pg_dump of the server's major version (16).
+# build_key_fpr FILE prints the primary key fingerprint of an armored key file.
+# apt trusts every key in a signed-by file, so a file with more than one primary
+# key prints "several-keys" instead, which never matches a pin.
+build_key_fpr() {
+  gpg --show-keys --with-colons "$1" 2>/dev/null |
+    awk -F: '$1 == "pub" { n++; p = 1; next } p && $1 == "fpr" { if (f == "") f = $10; p = 0 }
+      END { print (n > 1) ? "several-keys" : f }'
+}
+
+# build_caddy ID CODENAME adds the Caddy project's apt repository on Ubuntu 22.04
+# (jammy), whose archive has no caddy package; other systems keep the distro's.
+build_caddy() {
+  bk_list="$(dest /etc/apt/sources.list.d/caddy-stable.list)"
+  [ "$1 $2" = "ubuntu jammy" ] || return 0
+  [ ! -f "$bk_list" ] || return 0
+  mkdir -p "$(dirname "$(dest "$CADDY_KEY")")" "$(dirname "$bk_list")"
+  curl --fail --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
+    --output "$(dest "$CADDY_KEY")" https://dl.cloudsmith.io/public/caddy/stable/gpg.key ||
+    { build_policy_restore; die "cannot fetch the Caddy repository key"; }
+  bk_fpr="$(build_key_fpr "$(dest "$CADDY_KEY")")"
+  if [ "$bk_fpr" != "$CADDY_KEY_FPR" ]; then
+    rm -f "$(dest "$CADDY_KEY")"
+    build_policy_restore
+    die "the Caddy repository key has fingerprint ${bk_fpr:-unknown}, expected $CADDY_KEY_FPR"
+  fi
+  printf 'deb [signed-by=%s] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main\n' "$CADDY_KEY" > "$bk_list"
+}
+
+# build_check_pg_dump MAJOR: backups need a pg_dump of the server's major version.
 build_check_pg_dump() {
   need_cmd pg_dump
   bc_major="$(pg_dump --version | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+(\.[0-9]+)*$/) { split($i, p, "."); print p[1]; exit } }')"
-  [ "$bc_major" = 16 ] || die "pg_dump is version ${bc_major:-unknown}, not 16: nightly backups would fail"
+  [ "$bc_major" = "$1" ] || die "pg_dump is version ${bc_major:-unknown}, not $1: nightly backups would fail"
 }
 
 build_user_and_dirs() {
@@ -103,12 +220,18 @@ build_user_and_dirs() {
 }
 
 # build_binary installs the verified binary. An existing install is kept unless
-# a version was asked for: the supervisor owns updates after that.
+# a version was asked for or it is older than the installer floor: the supervisor
+# owns updates after that, but a binary below the floor cannot finish first boot.
+# A version that cannot be read is kept.
 build_binary() {
   bb_bin="$(dest "$APP_DIR/bin/hatamoto")"
   if [ -x "$bb_bin" ] && [ -z "$IN_VERSION" ]; then
-    log "hatamoto is already installed, keeping it"
-    return 0
+    bb_have="$("$bb_bin" version 2>/dev/null | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+    if [ -z "$bb_have" ] || ! trust_version_lt "$bb_have" "$INSTALLER_MIN_VERSION"; then
+      log "hatamoto is already installed, keeping it"
+      return 0
+    fi
+    log "hatamoto $bb_have is older than $INSTALLER_MIN_VERSION, replacing it"
   fi
   bb_version="$(trust_pick_version)"
   bb_dir="$(mktemp -d)"
@@ -180,21 +303,21 @@ stage_build() {
   sb_os="$(build_os)"
   sb_id="${sb_os%% *}"
   sb_codename="${sb_os##* }"
+  sb_pg="$(build_pg_major)"
   arch >/dev/null
   need_cmd apt-get
-  log "build stage on $sb_os"
+  log "build stage on $sb_os, PostgreSQL $sb_pg"
 
   build_policy_deny
   build_apt update -qq
   build_apt install -y --no-install-recommends ca-certificates curl gnupg
-  if [ "$sb_id" = debian ]; then
-    build_pgdg "$sb_codename"
-    build_apt update -qq
-  fi
+  build_pgdg "$sb_id" "$sb_codename"
+  build_caddy "$sb_id" "$sb_codename"
+  build_apt update -qq
   # shellcheck disable=SC2086 # the list is words on purpose
-  build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES
+  build_apt install -y --no-install-recommends -o Dpkg::Options::=--force-confold $BUILD_PACKAGES "postgresql-$sb_pg"
   build_policy_restore
-  build_check_pg_dump
+  build_check_pg_dump "$sb_pg"
 
   build_user_and_dirs
   build_binary

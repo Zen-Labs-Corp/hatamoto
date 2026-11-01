@@ -3,7 +3,7 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 top="$(cd "$here/../.." && pwd)"
-for t in test-assemble.sh test-shellcheck.sh test-trust.sh test-build-stage.sh test-img-check.sh \
+for t in test-assemble.sh test-floor.sh test-shellcheck.sh test-trust.sh test-build-stage.sh test-img-check.sh \
   test-firstboot.sh test-motd-dns.sh test-backup-swap.sh test-docs-examples.sh; do
   echo "== $t"
   bash "$here/$t"

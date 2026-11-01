@@ -175,7 +175,7 @@ failed run belong to the cluster; drop them before retrying on the same cluster.
 ### Manual procedure (fallback)
 
 Use this when `hatamoto backup restore` cannot run, for example on a machine where you cannot install
-the matching release. Tested on PostgreSQL 16 only. The steps below were run end to end on a fresh PostgreSQL 16 cluster
+the matching release. Tested on PostgreSQL 16. The installer installs PostgreSQL 18 by default and checks that `pg_dump` matches the installed major. The steps below were run end to end on a fresh PostgreSQL 16 cluster
 with one plugin installed. Use a `pg_restore` and `psql` of the same major version as the server.
 `<app role>` is the role the application connects as (it owns the database and has no superuser,
 CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands as `<service-user>`.

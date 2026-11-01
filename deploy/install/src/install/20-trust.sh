@@ -142,16 +142,41 @@ trust_load_index() {
   esac
 }
 
-# trust_check_entry VERSION: the version is listed, not halted and not yanked.
+# trust_check_entry VERSION [LABEL]: the version is listed, not halted and not
+# yanked. LABEL, when given, is named in the message after the version.
 trust_check_entry() {
+  tc_name="$1${2:+ ($2)}"
   jq -e --arg v "$1" '[.releases[]? | select(.version == $v)] | length == 1' "$TRUST_TMP/index.json" >/dev/null 2>&1 ||
-    trust_die index-entry "$1 is not a release on the $TRUST_CHANNEL channel"
+    trust_die index-entry "$tc_name is not a release on the $TRUST_CHANNEL channel"
   if jq -e --arg v "$1" 'any(.yanked[]?; .version == $v)' "$TRUST_TMP/index.json" >/dev/null 2>&1; then
-    trust_die index-yanked "$1 was yanked"
+    trust_die index-yanked "$tc_name was yanked"
   fi
   if jq -e --arg v "$1" 'any(.releases[]?; .version == $v and .halted == true)' "$TRUST_TMP/index.json" >/dev/null 2>&1; then
-    trust_die index-halted "$1 is halted"
+    trust_die index-halted "$tc_name is halted"
   fi
+}
+
+# trust_version_lt A B succeeds when version A is older than B. Both look like
+# vX.Y.Z[-pre]; a pre-release sorts below the same triple.
+trust_version_lt() {
+  tl_a="${1#v}"
+  tl_b="${2#v}"
+  tl_ap=""
+  tl_bp=""
+  case "$tl_a" in *-*) tl_ap="${tl_a#*-}"; tl_a="${tl_a%%-*}" ;; esac
+  case "$tl_b" in *-*) tl_bp="${tl_b#*-}"; tl_b="${tl_b%%-*}" ;; esac
+  tl_i=1
+  while [ "$tl_i" -le 3 ]; do
+    tl_x="$(printf '%s\n' "$tl_a" | cut -d. -f"$tl_i")"
+    tl_y="$(printf '%s\n' "$tl_b" | cut -d. -f"$tl_i")"
+    [ "${tl_x:-0}" -lt "${tl_y:-0}" ] && return 0
+    [ "${tl_x:-0}" -gt "${tl_y:-0}" ] && return 1
+    tl_i=$((tl_i + 1))
+  done
+  [ -n "$tl_ap" ] || return 1
+  [ -z "$tl_bp" ] && return 0
+  [ "$tl_ap" != "$tl_bp" ] || return 1
+  [ "$(printf '%s\n%s\n' "$tl_ap" "$tl_bp" | LC_ALL=C sort | head -n 1)" = "$tl_ap" ]
 }
 
 # trust_select prints the newest plain x.y.z release whose ramp is at least $1 percent now.
@@ -174,24 +199,29 @@ trust_select() {
     | last | .version // empty' "$TRUST_TMP/index.json"
 }
 
-# trust_pick_version prints the version to install: HATAMOTO_VERSION when set
-# (it must be a listed, live release), else the newest fully rolled-out one.
+# trust_pick_version prints the version to install. The installer minimum must
+# be a live release. HATAMOTO_VERSION, when set, must be a listed, live release
+# no older than that minimum. Otherwise the newer of the minimum and the newest
+# fully rolled-out release is used. Stdout carries only the version.
 trust_pick_version() {
   trust_check_tools
   if [ -n "$IN_VERSION" ]; then
     trust_valid_version "$IN_VERSION" || die "FAILED CHECK: version: HATAMOTO_VERSION is not a version like v1.2.3"
   fi
   trust_load_index
+  trust_check_entry "$INSTALLER_MIN_VERSION" "the installer minimum"
   if [ -n "$IN_VERSION" ]; then
+    if trust_version_lt "$IN_VERSION" "$INSTALLER_MIN_VERSION"; then
+      trust_die version "$IN_VERSION is older than $INSTALLER_MIN_VERSION, the oldest release this installer supports"
+    fi
     trust_check_entry "$IN_VERSION"
     tp_version="$IN_VERSION"
   else
     tp_version="$(trust_select 100)"
-    if [ -z "$tp_version" ]; then
-      tp_version="$(trust_select 1)"
-      [ -z "$tp_version" ] || warn "no release is fully rolled out yet; using $tp_version, which is still ramping"
+    if [ -z "$tp_version" ] || trust_version_lt "$tp_version" "$INSTALLER_MIN_VERSION"; then
+      log "installing $INSTALLER_MIN_VERSION (installer minimum; newest fully rolled-out stable is ${tp_version:-none})" >&2
+      tp_version="$INSTALLER_MIN_VERSION"
     fi
-    [ -n "$tp_version" ] || trust_die index-entry "no usable release on the $TRUST_CHANNEL channel; set HATAMOTO_VERSION"
   fi
   rm -rf "$TRUST_TMP"
   TRUST_TMP=""
