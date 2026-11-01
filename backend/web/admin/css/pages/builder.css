@@ -166,6 +166,7 @@
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band, .hm-bs-row--band:hover { background: var(--bs-nav-band); }
 .hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--color-accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent); }
+.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind { color: color-mix(in srgb, var(--text-muted) 65%, var(--text)); } /* muted text needs a notch more ink on the tint */
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row[aria-selected="true"]:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
