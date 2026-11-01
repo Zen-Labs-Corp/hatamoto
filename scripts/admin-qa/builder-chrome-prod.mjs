@@ -96,18 +96,26 @@ async function open(href, pg = p) {
   await pg.waitForTimeout(800);
 }
 
-// The page point of a canvas element (the frame is scaled to fit its pane).
+// The page point of a canvas element (the frame is scaled to fit its pane). Scroll first and wait a frame, then read both
+// boxes: scrolling can move the frame itself on a long page, so a frame box read before it is stale.
 async function canvasPoint(id, fx = 0.5, fy = 0.5) {
   const f = await frame();
+  const found = await f.evaluate(async (i) => {
+    const e = document.querySelector(`[data-hm-node="${i}"], [data-hm-section="${i}"]`);
+    if (!e) return false;
+    e.scrollIntoView({ block: "center" });
+    await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+    return true;
+  }, id);
+  if (!found) return null;
   const box = await (await f.frameElement()).boundingBox();
   const r = await f.evaluate(([i, ax, ay]) => {
     const e = document.querySelector(`[data-hm-node="${i}"], [data-hm-section="${i}"]`);
     if (!e) return null;
-    e.scrollIntoView({ block: "center" });
     const bb = e.getBoundingClientRect();
     return { x: bb.x + bb.width * ax, y: bb.y + bb.height * ay, w: innerWidth };
   }, [id, fx, fy]);
-  if (!r) return null;
+  if (!r || !box) return null;
   const k = box.width / r.w;
   return { x: box.x + r.x * k, y: box.y + r.y * k };
 }
@@ -273,8 +281,13 @@ await check("Enter on the section with focus in the frame selects its first chil
   await p.keyboard.press("Enter");
   await settle(400);
   const f = await frame();
-  const editing = await f.evaluate(() => !!document.querySelector("[contenteditable]"));
-  if (!editing) throw new Error("Enter on the heading did not start a text edit");
+  // The bridge's own edit: a focused [data-hm-prop] made editable inside the heading. Page-wide text fields carry
+  // contenteditable all the time, so "any [contenteditable]" is not evidence.
+  const editing = await f.evaluate((i) => {
+    const a = document.activeElement;
+    return !!a && a.hasAttribute("data-hm-prop") && a.hasAttribute("contenteditable") && a.closest("[data-hm-node]")?.getAttribute("data-hm-node") === i;
+  }, head.id);
+  if (!editing) throw new Error("Enter on the heading did not start a text edit of the heading");
   await p.keyboard.press("Escape");
   await settle(300);
   return "first child selected, then text edit";
