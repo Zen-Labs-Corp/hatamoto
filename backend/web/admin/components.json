@@ -340,5 +340,23 @@
     "owner": "css/partials/chart.css",
     "partial": "hm/stats",
     "props": {}
+  },
+  "pair": {
+    "selector": ".hm-pair",
+    "owner": "css/partials/field.css",
+    "partial": "hm/pair-start",
+    "props": {}
+  },
+  "meterthin": {
+    "selector": ".hm-meter--thin .hm-meter__bar",
+    "owner": "css/partials/viz.css",
+    "partial": "hm/progress",
+    "props": {}
+  },
+  "statsmall": {
+    "selector": ".hm-statcard .hm-statcard__value--sm",
+    "owner": "css/partials/chart.css",
+    "partial": "hm/stat",
+    "props": {}
   }
 }

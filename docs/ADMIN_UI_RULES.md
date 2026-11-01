@@ -72,6 +72,8 @@ handoff material are stale, do not copy them.
 3. **Delete sits apart, at the far left, on editors.** On the sticky editor footer
    Delete is the first item and is pushed to the left edge with
    `hm-savebar__aside` (or `hm-card__foot-note`); Cancel and Save stay on the right.
+   The one exception is entity model edit (Settings > Entity types): Delete sits in the
+   page header, away from Save, and is absent on new and built-in types.
 4. **One switch for every on/off setting.** A lone boolean is an `hm/field` with
    Control `switch`. Pass `OffValue` when the handler needs an explicit "off" in
    the POST, because an unchecked switch posts nothing. Exceptions that stay
@@ -139,6 +141,8 @@ A change to one component edits only its own subsection below and its entry in t
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
+| meterthin | `.hm-meter--thin .hm-meter__bar` | `css/partials/viz.css` | `hm/progress` |  |
+| pair | `.hm-pair` | `css/partials/field.css` | `hm/pair-start` |  |
 | popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | radiocard | `.hm-radiocard` | `css/partials/radiocard.css` | `hm/radiocard` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
@@ -148,6 +152,7 @@ A change to one component edits only its own subsection below and its entry in t
 | select-list | `.hm-select__list` | `css/partials/select.css` | `hm/select` | `border-top-color: var(--border-control)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
 | statcard | `.hm-statcard` | `css/partials/chart.css` | `hm/stat` |  |
 | statgrid | `.hm-statgrid` | `css/partials/chart.css` | `hm/stats` |  |
+| statsmall | `.hm-statcard .hm-statcard__value--sm` | `css/partials/chart.css` | `hm/stat` |  |
 | swatches | `.hm-swatches__opt` | `css/partials/swatches.css` | `hm/swatches` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)` |
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
