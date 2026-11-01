@@ -382,8 +382,9 @@ Rules: UI-D3
   `--color-hai` label, and its trend line is `hm/spark`: server geometry, or live (`Stat.Spark` with `ui.Spark{Live: &ui.SparkLive{...}}`), where
   `js/aia/page.js` fills the paths of the server-rendered SVG from a data endpoint.
 - **Empty** (`hm/empty`): a solid hairline border; `Compact` for use inside a card.
-- **Stepper** (`hm/steps`): done steps show a check, the current step the accent,
-  and a "Step n of N" line follows; `Label` names the list (default "Progress").
+- **Stepper** (`hm/steps`): labelled pills with no connectors; done steps show a
+  check, the current step is outlined in the ink colour, and a "Step n of N" line
+  follows; `Label` names the list (default "Progress").
 - **Copy buttons**: `data-hm-copy-field="<input id>"` copies a field's value and
   `data-hm-copy-url="<path>"` the absolute address. One handler serves both.
 - **Pending state**: a plain POST form shows busy on its submitter (`aria-busy`,
@@ -528,10 +529,10 @@ a page never adds a second form or a second primary button inside the card. The 
 ### Shell, auth and error pages
 
 - **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
-- **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it.
+- **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it, rendered above the form. The sign-in button is full width and the quiet "Forgot your password?" link sits under it. The bare panel title is 24px, medium weight. On the setup address step, Regenerate sits beside Copy in the copy row; Continue stays the first submit and the only footer button.
 - **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.
-- **`hm/empty` `Code`, `Plain`, `H1`.** `Code` is a muted status ("404") above the title, `Plain` drops the frame to centre it inside a panel, `H1` makes the title the page heading. Full-page errors and `hm/errorpage` are built on it; an error page names its status with an icon (search, lock, alert).
+- **`hm/empty` `Code`, `Plain`, `H1`.** `Code` is a muted status ("404") above the title, `Plain` drops the frame to centre it inside a panel, `H1` makes the title the page heading. Full-page errors and `hm/errorpage` are built on it; a 404 shows the mono status code and no icon; the other error pages name their status with an icon (lock, alert).
 - **`hm/tabs` `ShowZero`.** A row opts in to showing a count of 0 (taxonomy kinds); by default 0 stays hidden.
 - **`#hm-confirm` is the one hand-written dialog.** `components.js` fills a single shared node, so it is not built with `hm/dialog-start`. A link or menu item with `data-hm-confirm` opens it; so does a submit `button[data-hm-confirm]` inside a form, which then posts that form's fields (without `_csrf`). Without script the button submits directly, so its card must already say what happens.
 - **`data-hm-carry="<input id>"`** on a link appends that input's value as `?email=` when clicked (the invite form's "Add with a password instead"); without script it is a plain link.
