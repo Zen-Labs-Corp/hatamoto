@@ -280,8 +280,8 @@ func printReportText(out io.Writer, r *localeconv.Report) {
 		fmt.Fprintf(out, "unmatched: %s=%s (%d)\n", u.Attribute, u.Value, u.Count)
 	}
 	s := r.SiteSettings
-	fmt.Fprintf(out, "site settings: language %q -> %q, locales %d -> %d, prefix_all %t -> %t, x_default %q -> %q\n",
-		s.Language[0], s.Language[1], s.LocalesCount[0], s.LocalesCount[1], s.PrefixAll[0], s.PrefixAll[1], s.XDefault[0], s.XDefault[1])
+	fmt.Fprintf(out, "site settings: language %q -> %q, locales %d -> %d, prefix_all %t -> %t, x_default %q -> %q, sitemap_naming %q -> %q\n",
+		s.Language[0], s.Language[1], s.LocalesCount[0], s.LocalesCount[1], s.PrefixAll[0], s.PrefixAll[1], s.XDefault[0], s.XDefault[1], s.SitemapNaming[0], s.SitemapNaming[1])
 }
 
 func countsText(m map[string]int) string {

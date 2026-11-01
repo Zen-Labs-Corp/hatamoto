@@ -257,6 +257,11 @@ func (a *Admin) handleConvertSuggest(w http.ResponseWriter, r *http.Request) {
 	}
 	plan, warnings, err := a.deps.LocaleConvert.Suggest(r.Context())
 	d := convertData{Warnings: convertIssues(warnings)}
+	if errors.Is(err, localeconv.ErrNoRegionTree) {
+		d.PlanError = "No region tree found: this site has no group of top-level pages with children to turn into locales."
+		a.renderConvert(w, r, http.StatusUnprocessableEntity, d)
+		return
+	}
 	if err != nil {
 		if a.convertFailed(w, r, err) {
 			return
@@ -448,6 +453,10 @@ func convertChecks(rep *localeconv.Report) ui.DataTable {
 	for _, u := range rep.UnmatchedValues {
 		unmatched = append(unmatched, fmt.Sprintf("%s=%s (%d)", u.Attribute, u.Value, u.Count))
 	}
+	naming, namingReason := rep.SiteSettings.SitemapNaming[1], "one file per locale and group"
+	if naming == localeconv.NamingLegacy {
+		namingReason = "the conversion removed per-locale sitemap groups; keeps the previous file names"
+	}
 	groups := fmt.Sprintf("%d singletons, %d conflicts", rep.Groups.Singletons, len(rep.Groups.Conflicts))
 	return ui.DataTable{
 		Caption: "Checks",
@@ -457,6 +466,7 @@ func convertChecks(rep *localeconv.Report) ui.DataTable {
 			{Label: "Renamed collisions", Cells: []string{strconv.Itoa(len(rep.RenamedCollisions)), sample(renamed, len(rep.RenamedCollisions))}},
 			{Label: "Groups formed", Cells: []string{strconv.Itoa(rep.Groups.Formed), groups}},
 			{Label: "Overrides updated (sitemap group dropped)", Cells: []string{strconv.Itoa(len(rep.Overrides.SitemapGroupRemoved)), sample(overrides, len(overrides))}},
+			{Label: "Sitemap file names", Cells: []string{naming, namingReason}},
 			{Label: "Redirects under segments", Cells: []string{strconv.Itoa(rep.Redirects.Count), "for information; " + sample(redirects, rep.Redirects.Count)}},
 			{Label: "Unmatched values", Cells: []string{strconv.Itoa(len(rep.UnmatchedValues)), sample(unmatched, len(unmatched))}},
 		},

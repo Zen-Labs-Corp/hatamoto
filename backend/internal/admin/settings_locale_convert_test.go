@@ -80,6 +80,7 @@ func convertReportFixture() *localeconv.Report {
 		Groups:            localeconv.GroupsReport{Formed: 18, Singletons: 2},
 		Overrides:         localeconv.OverridesReport{SitemapGroupRemoved: []localeconv.OverrideChange{{Schema: "page"}, {Schema: "service"}}},
 		Redirects:         localeconv.RedirectsReport{Count: 44, ItemsSample: []string{"/xx/home"}},
+		SiteSettings:      localeconv.SiteSettingsDelta{SitemapNaming: [2]string{"group", "legacy"}},
 	}
 }
 
@@ -193,6 +194,23 @@ func TestLocaleConvertSuggestFailureIsShown(t *testing.T) {
 	}
 }
 
+func TestLocaleConvertSuggestWithoutRegionTreeIsFriendly(t *testing.T) {
+	t.Parallel()
+
+	g, fc, _, _ := newConvertRig(t)
+	fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) {
+		return nil, nil, localeconv.ErrNoRegionTree
+	}
+	rec := g.do("POST", convertBase+"/suggest", "owner-token", url.Values{}, nil)
+	body := rec.Body.String()
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, "No region tree found: this site has no group of top-level pages") {
+		t.Fatalf("%d %s", rec.Code, body)
+	}
+	if strings.Contains(body, "The conversion could not run") {
+		t.Error("shows the generic failure")
+	}
+}
+
 func TestLocaleConvertReportPage(t *testing.T) {
 	t.Parallel()
 
@@ -204,7 +222,7 @@ func TestLocaleConvertReportPage(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Step 1: Plan", "Step 2: Report", "Step 3: Apply", "OK to apply", "/xx (id 11111111)", "shared (und)",
-		"Overrides updated (sitemap group dropped)", "Renamed collisions", "Redirects under segments", "Unmatched values",
+		"Overrides updated (sitemap group dropped)", "Sitemap file names", "keeps the previous file names", "Renamed collisions", "Redirects under segments", "Unmatched values",
 		"page: home to home-old-1", "3 pages have region qq", "Conversion #3", "Revert",
 		`href="` + convertBase + `/apply?plan=` + convertPlanSHA + `"`, convertBase + "/history/3/revert",
 	} {
