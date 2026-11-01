@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/url"
 	"regexp"
 	"slices"
@@ -156,6 +157,18 @@ func TestAgentPagePolicyOnly(t *testing.T) {
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestAgentPageLoadFailureRendersTheFlash(t *testing.T) {
+	t.Parallel()
+
+	g, fs := newAnalyticsRig(t)
+	fs.deniedErr = errors.New("database timeout")
+	rec := g.do("GET", "/admin/analytics/agents/gptbot", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 500 || !strings.Contains(body, "This agent could not be loaded.") || !strings.Contains(body, "<h1>GPTBot</h1>") || !strings.Contains(body, `class="hm-subnav"`) {
+		t.Fatalf("load failure: status %d, want the 500 shell with the flash and the title; body %.200q", rec.Code, body)
 	}
 }
 
