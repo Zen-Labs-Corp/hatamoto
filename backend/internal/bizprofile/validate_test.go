@@ -1,6 +1,9 @@
 package bizprofile
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseDecimal(t *testing.T) {
 	for _, v := range []string{"0", "5", "-33.5", "151.25", "0.0", "+51.5", ".5", "5.", "1e1", "-1.5E-2", "+.5e+1"} {
@@ -81,15 +84,24 @@ func TestValidate_NewTextLimits(t *testing.T) {
 		long += "a"
 	}
 	p := Profile{
-		VATID: long, AlternateName: long, Description: long, Slogan: long, CountryName: long,
+		VATID: long, AlternateName: long, Slogan: long, CountryName: long,
 		ContactPoints: []ContactPoint{{Name: long, AreaServed: long, AvailableLanguage: long}},
 	}
 	errs := Validate(p)
-	for _, path := range []string{"vat_id", "alternate_name", "description", "slogan", "country_name",
+	for _, path := range []string{"vat_id", "alternate_name", "slogan", "country_name",
 		"contact_points.0.name", "contact_points.0.area_served", "contact_points.0.available_language"} {
 		if errs[path] == "" {
 			t.Errorf("no error for %s", path)
 		}
+	}
+}
+
+func TestValidate_DescriptionLimit(t *testing.T) {
+	if errs := Validate(Profile{Description: strings.Repeat("a", maxDescLen)}); errs["description"] != "" {
+		t.Errorf("a %d character description was refused: %v", maxDescLen, errs)
+	}
+	if errs := Validate(Profile{Description: strings.Repeat("a", maxDescLen+1)}); errs["description"] == "" {
+		t.Error("an over-long description was accepted")
 	}
 }
 

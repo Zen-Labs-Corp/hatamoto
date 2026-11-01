@@ -15,6 +15,7 @@ import (
 // Field limits, equal to the site settings contact limits.
 const (
 	maxTextLen  = 200
+	maxDescLen  = 1000 // the description is prose in a textarea
 	maxPhoneLen = 50
 	maxURLLen   = 2000
 )
@@ -152,7 +153,9 @@ func Validate(p Profile) map[string]string {
 	text("tax_id", p.TaxID)
 	text("vat_id", p.VATID)
 	text("alternate_name", p.AlternateName)
-	text("description", p.Description)
+	if utf8.RuneCountInString(p.Description) > maxDescLen {
+		errs["description"] = fmt.Sprintf("Use at most %d characters.", maxDescLen)
+	}
 	text("slogan", p.Slogan)
 	text("country_name", p.CountryName)
 	if utf8.RuneCountInString(p.Image) > maxURLLen {
