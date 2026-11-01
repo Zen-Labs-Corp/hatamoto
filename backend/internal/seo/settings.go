@@ -57,6 +57,44 @@ type ArchiveTemplates struct {
 	NotFound string `json:"notfound"`
 }
 
+// SocialCards lists the valid Social.Card values. "" means large when an image
+// exists and no image card otherwise.
+var SocialCards = []string{"", "large", "summary"}
+
+// Limits on the social values.
+const maxSocialURLLen = 2048
+
+var (
+	twitterHandleRE = regexp.MustCompile(`^@[A-Za-z0-9_]{1,15}$`)
+	fbAppIDRE       = regexp.MustCompile(`^[0-9]{1,32}$`)
+)
+
+// SocialType holds the social overrides for one content type.
+type SocialType struct {
+	Title string `json:"title,omitempty"`
+	Image string `json:"image,omitempty"`
+}
+
+// Social configures the Open Graph and X tags. Every field is zero by default,
+// which keeps the public head exactly as it was before this key existed.
+type Social struct {
+	Image       string                `json:"image,omitempty"`        // site default share image
+	TwitterSite string                `json:"twitter_site,omitempty"` // "@name"
+	Card        string                `json:"card,omitempty"`         // see SocialCards
+	FBAppID     string                `json:"fb_app_id,omitempty"`
+	FBPage      string                `json:"fb_page,omitempty"`   // article:publisher
+	SiteTags    bool                  `json:"site_tags,omitempty"` // og:site_name + og:locale
+	Articles    bool                  `json:"articles,omitempty"`  // article:* on posts
+	Types       map[string]SocialType `json:"types,omitempty"`
+	Taxonomy    map[string]string     `json:"taxonomy,omitempty"` // title templates only
+}
+
+// IsZero reports whether no social setting is saved.
+func (s Social) IsZero() bool {
+	return s.Image == "" && s.TwitterSite == "" && s.Card == "" && s.FBAppID == "" &&
+		s.FBPage == "" && !s.SiteTags && !s.Articles && len(s.Types) == 0 && len(s.Taxonomy) == 0
+}
+
 // Settings is the SEO configuration. It is stored as one jsonb document so a
 // later tab can add keys without a migration.
 type Settings struct {
@@ -66,6 +104,7 @@ type Settings struct {
 	Taxonomy  map[string]string        `json:"taxonomy"`
 	Archives  ArchiveTemplates         `json:"archives"`
 	Variables map[string]string        `json:"variables"`
+	Social    Social                   `json:"social"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -126,6 +165,18 @@ func (s Settings) Clone() Settings {
 	for k, v := range s.Variables {
 		c.Variables[k] = v
 	}
+	if s.Social.Types != nil {
+		c.Social.Types = make(map[string]SocialType, len(s.Social.Types))
+		for k, v := range s.Social.Types {
+			c.Social.Types[k] = v
+		}
+	}
+	if s.Social.Taxonomy != nil {
+		c.Social.Taxonomy = make(map[string]string, len(s.Social.Taxonomy))
+		for k, v := range s.Social.Taxonomy {
+			c.Social.Taxonomy[k] = v
+		}
+	}
 	return c
 }
 
@@ -168,6 +219,40 @@ func (s Settings) Validate() []FieldError {
 	}
 	for _, kind := range sortedKeys(s.Taxonomy) {
 		check("taxonomy["+kind+"]", s.Taxonomy[kind])
+	}
+	errs = append(errs, s.validateSocial(check)...)
+	return errs
+}
+
+// validateSocial checks the social key. check validates one template.
+func (s Settings) validateSocial(check func(field, tpl string)) []FieldError {
+	var errs []FieldError
+	so := s.Social
+	url := func(field, v string) {
+		if v == "" {
+			return
+		}
+		if len(v) > maxSocialURLLen || !ValidCanonical(v) {
+			errs = append(errs, FieldError{field, "Enter a root-relative path or an http(s) address."})
+		}
+	}
+	if !containsString(SocialCards, so.Card) {
+		errs = append(errs, FieldError{"social[card]", "Choose one of the listed card types."})
+	}
+	if so.TwitterSite != "" && !twitterHandleRE.MatchString(so.TwitterSite) {
+		errs = append(errs, FieldError{"social[twitter_site]", "Use an X handle such as @name (letters, digits, underscore; 15 at most)."})
+	}
+	if so.FBAppID != "" && !fbAppIDRE.MatchString(so.FBAppID) {
+		errs = append(errs, FieldError{"social[fb_app_id]", "Use digits only."})
+	}
+	url("social[fb_page]", so.FBPage)
+	url("social[image]", so.Image)
+	for _, slug := range sortedKeys(so.Types) {
+		check("social["+slug+"][title]", so.Types[slug].Title)
+		url("social["+slug+"][image]", so.Types[slug].Image)
+	}
+	for _, kind := range sortedKeys(so.Taxonomy) {
+		check("social_taxonomy["+kind+"]", so.Taxonomy[kind])
 	}
 	return errs
 }
