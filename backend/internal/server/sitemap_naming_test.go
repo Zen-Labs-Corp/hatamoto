@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -237,5 +238,35 @@ func TestPlanSitemapNaming_LegacyKeepsGroupForFileNameSegment(t *testing.T) {
 	}
 	if plan.legacy() {
 		t.Error("legacy naming applied with a misc locale segment")
+	}
+}
+
+// The over-limit note names the file, not the count, so it is logged once
+// however many URLs the file gains; the log-once set is bounded.
+func TestSitemapLogOnce(t *testing.T) {
+	note := func(n int) string {
+		var entries []*entity.SitemapEntry
+		for i := 0; i < n; i++ {
+			entries = append(entries, namingEntry(fmt.Sprintf("p%d", i), "page", "fr", "2029-01-01"))
+		}
+		plan := namingPlan(t, namingSnap(t, true), "legacy", entries...)
+		if len(plan.notes) != 1 {
+			t.Fatalf("notes = %v", plan.notes)
+		}
+		return plan.notes[0]
+	}
+	if a, b := note(maxLegacyFileURLs+1), note(maxLegacyFileURLs+2); a != b {
+		t.Errorf("note changes with the count: %q vs %q", a, b)
+	}
+
+	var l logOnce
+	if !l.first("a") || l.first("a") {
+		t.Error("a message is not logged exactly once")
+	}
+	for i := 0; i < 5*maxSitemapLogged; i++ {
+		l.first(fmt.Sprint(i))
+	}
+	if len(l.seen) > maxSitemapLogged {
+		t.Errorf("seen grew to %d", len(l.seen))
 	}
 }

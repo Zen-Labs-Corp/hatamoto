@@ -266,9 +266,31 @@ func (s *Server) handlePublicSitemap(w http.ResponseWriter, r *http.Request) {
 	s.cacheSitemapXML(r, "index", xmlBytes)
 }
 
-// sitemapLogged remembers the planner reports already logged, so a cold cache
-// does not repeat them on every generation.
-var sitemapLogged sync.Map
+// maxSitemapLogged bounds how many planner reports are remembered.
+const maxSitemapLogged = 256
+
+// logOnce remembers the planner reports already logged, so a cold cache does
+// not repeat them on every generation. It forgets everything when full.
+type logOnce struct {
+	mu   sync.Mutex
+	seen map[string]struct{}
+}
+
+// first reports whether msg has not been seen since the set was last cleared.
+func (l *logOnce) first(msg string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if _, ok := l.seen[msg]; ok {
+		return false
+	}
+	if l.seen == nil || len(l.seen) >= maxSitemapLogged {
+		l.seen = map[string]struct{}{}
+	}
+	l.seen[msg] = struct{}{}
+	return true
+}
+
+var sitemapLogged logOnce
 
 // planSitemapLogged plans the sitemap and logs the planner's collisions and
 // notes once per distinct message.
@@ -278,7 +300,7 @@ func (s *Server) planSitemapLogged(in sitemapInput) *sitemapPlan {
 		return plan
 	}
 	for _, msg := range append(slices.Clone(plan.collisions), plan.notes...) {
-		if _, seen := sitemapLogged.LoadOrStore(msg, true); !seen {
+		if sitemapLogged.first(msg) {
 			s.logger.Warn("sitemap layout", slog.String("detail", msg))
 		}
 	}

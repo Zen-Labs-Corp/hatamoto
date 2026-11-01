@@ -389,7 +389,7 @@ func (p *sitemapPlan) splitLegacy(misc *sitemapGroup) {
 			}
 		}
 		if n > maxLegacyFileURLs {
-			p.notes = append(p.notes, fmt.Sprintf("sitemap file %q lists %d URLs, over the %d limit of the sitemap protocol; legacy files are not split", g.key, n, maxLegacyFileURLs))
+			p.notes = append(p.notes, fmt.Sprintf("sitemap file %q lists more URLs than the %d limit of the sitemap protocol; legacy files are not split", g.key, maxLegacyFileURLs))
 		}
 	}
 }
