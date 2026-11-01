@@ -217,11 +217,30 @@ func parseConvertForm(r *http.Request) error {
 	return nil
 }
 
+func isTooLarge(err error) bool {
+	var tooLarge *http.MaxBytesError
+	return errors.As(err, &tooLarge)
+}
+
+// convertFormError answers a form that could not be read: 413 when it ran past
+// the body cap, 400 for anything else (a malformed body).
+func (a *Admin) convertFormError(w http.ResponseWriter, r *http.Request, err error, tooLarge string) {
+	if isTooLarge(err) {
+		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", tooLarge)
+		return
+	}
+	a.Error(w, r, http.StatusBadRequest, "Bad request", "The request could not be read.")
+}
+
 // convertPlanText reads the posted plan. It reports false, with the page already
 // answered, when the plan is too large.
 func (a *Admin) convertPlanText(w http.ResponseWriter, r *http.Request) (string, bool) {
 	if err := parseConvertForm(r); err != nil {
-		a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
+		if isTooLarge(err) {
+			a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
+		} else {
+			a.renderConvert(w, r, http.StatusBadRequest, convertData{PlanError: "The request could not be read"})
+		}
 		return "", false
 	}
 	plan := strings.TrimSpace(r.PostFormValue("plan"))
@@ -511,7 +530,7 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := parseConvertForm(r); err != nil {
-		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The plan is larger than 1 MiB.")
+		a.convertFormError(w, r, err, "The plan is larger than 1 MiB.")
 		return
 	}
 	text, sha, fp := r.PostFormValue("plan"), r.PostFormValue("plan_sha256"), r.PostFormValue("data_fingerprint")
@@ -614,7 +633,7 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := parseConvertForm(r); err != nil {
-		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The request is larger than 1 MiB.")
+		a.convertFormError(w, r, err, "The request is larger than 1 MiB.")
 		return
 	}
 	force := r.PostFormValue("force") == "1"

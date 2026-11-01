@@ -568,6 +568,25 @@ func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
 	}
 }
 
+// A body that cannot be parsed is a bad request, not "too large".
+func TestLocaleConvertMalformedBodyIsBadRequest(t *testing.T) {
+	t.Parallel()
+
+	g, _, _, _ := newConvertRig(t)
+	g.elevate("owner-token")
+	for _, path := range []string{"/report", "/apply", "/history/3/revert"} {
+		req := httptest.NewRequest("POST", convertBase+path, strings.NewReader("--b\r\nContent-Disposition: form-data; name=\"plan\"\r\n\r\nno closing boundary"))
+		req.Header.Set("Content-Type", "multipart/form-data; boundary=b")
+		req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+		g.addFetchMeta(req, "owner-token", nil)
+		rec := httptest.NewRecorder()
+		g.h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d, want 400", path, rec.Code)
+		}
+	}
+}
+
 // convertH1 returns the text of the page's h1.
 func convertH1(body string) string {
 	_, rest, _ := strings.Cut(body, "<h1>")
