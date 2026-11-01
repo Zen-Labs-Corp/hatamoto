@@ -67,8 +67,8 @@ func TestDashboardActivityMergesBothSources(t *testing.T) {
 			t.Errorf("row %d = %q %q %q, want %v", i, r.Who, r.Badge.Label, r.Target, w)
 		}
 	}
-	if rows[3].Badge.Kind != "neutral" || rows[1].Badge.Kind != "danger" {
-		t.Error("history badges follow the Updates page: rollback danger, by hand neutral")
+	if rows[3].Badge.Kind != "neutral" || rows[1].Badge.Kind != "warning" {
+		t.Error("history badges follow the Updates page: rollback warning, by hand neutral")
 	}
 	if res.Sec.More == nil || res.Sec.More.Href != "/admin/audit" {
 		t.Errorf("more link %+v", res.Sec.More)
