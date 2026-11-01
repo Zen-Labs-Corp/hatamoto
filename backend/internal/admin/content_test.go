@@ -594,6 +594,8 @@ func TestSchemaScreens(t *testing.T) {
 	// a built-in type can be viewed, not saved
 	body = c.get(t, "owner-token", "/admin/settings/types/"+fid(2).String(), "schema-builtin")
 	has(t, body, "built-in entity type")
+	// the read-only notice draws the lock, not the info glyph
+	has(t, body, "Read-only", `<rect width="18" height="11"`)
 	lacks(t, body, "Add field")
 	if rec := c.post("/admin/settings/types/"+fid(2).String(), url.Values{"name": {"x"}}); rec.Code != 403 {
 		t.Errorf("builtin save: %d", rec.Code)

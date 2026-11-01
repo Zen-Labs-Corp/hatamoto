@@ -2,7 +2,7 @@
 {{define "modules"}}@hm/content{{end}}
 {{define "scripts"}}sortablejs{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Actions" .Actions}}
-{{if .ReadOnly}}{{template "hm/callout-start" (dict "Kind" "info" "Icon" "lock" "Title" "Read-only")}}This is a built-in entity type. It can be viewed, but not changed or deleted.{{template "hm/callout-end"}}{{else if .Builtin}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Built-in type")}}You can add fields and change its addresses and archive settings. Its own fields cannot be removed or changed, and the type cannot be deleted.{{template "hm/callout-end"}}{{end}}
+{{if .ReadOnly}}{{template "hm/callout-start" (dict "Kind" "info" "IconName" "lock" "Title" "Read-only")}}This is a built-in entity type. It can be viewed, but not changed or deleted.{{template "hm/callout-end"}}{{else if .Builtin}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Built-in type")}}You can add fields and change its addresses and archive settings. Its own fields cannot be removed or changed, and the type cannot be deleted.{{template "hm/callout-end"}}{{end}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{if .New}}{{adminPath}}/settings/types{{else}}{{adminPath}}/settings/types/{{.ID}}{{end}}" class="hm-stack hm-schemaform" novalidate>
 {{template "hm/csrf" $}}
