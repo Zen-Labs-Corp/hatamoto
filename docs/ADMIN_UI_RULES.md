@@ -76,7 +76,7 @@ handoff material are stale, do not copy them.
    the POST, because an unchecked switch posts nothing. Exceptions that stay
    checkboxes: multi-pick lists (API scopes, permissions, content types, terms, spam script blocks,
    table row and select-all, media tile select, the schemaform "clear the stored
-   value" box) and consent gates ("I understand ..."). 
+   value" box) and consent gates ("I understand ..."). A multi-pick list may be drawn as toggle chips: `hm/field` Control `chip` (one checkbox, optional `Code` key shown in mono) or `chipradio` (one radio group, optional `Mono`). Two short fields that belong together sit side by side between `hm/pair-start` and `hm/pair-end`.
 5. **Flat sticky footer only on four editor screens, the menu editor and the term editor:** entity edit, entity model edit,
    form editor and plugin settings, plus the menu editor, whose save bar stays in reach
    beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card. They use `.hm-savebar` (flat, hairline top
@@ -151,6 +151,7 @@ A change to one component edits only its own subsection below and its entry in t
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
 | tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
+| togglechip | `.hm-field__chip` | `css/partials/field.css` | `hm/field` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 <!-- components:end -->
 
 ### Button

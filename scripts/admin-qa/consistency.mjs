@@ -35,7 +35,7 @@ function check({ sticky, list, spec }) {
   const SHADOW_OK = ".hm-ed__bar, .hm-statcard";
   const BTN_OK = ".hm-filter-chip, .hm-bubble, .hm-ed__bar";
   // Multi-pick lists and consent gates stay checkboxes (docs/ADMIN_UI_RULES.md rule 4).
-  const MULTI = 'table, .hm-mediatile, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
+  const MULTI = 'table, .hm-mediatile, .hm-field__chip, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
   const visible = (el) => {
     if (!el.getClientRects().length) return false;
     const cs = getComputedStyle(el);
