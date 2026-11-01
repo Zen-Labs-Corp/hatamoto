@@ -51,6 +51,6 @@
 .hm-tabs__filter { flex: none; height: 32px; font-size: var(--text-sm); }
 .hm-tabs__menu-list { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
 .hm-tabs__menu [role="menuitem"] { justify-content: space-between; flex: none; }
-.hm-tabs__menu [role="menuitem"][aria-current="page"] { color: var(--color-accent); font-weight: var(--weight-medium); }
+.hm-tabs__menu [role="menuitem"][aria-current="page"] { color: var(--color-sumi); font-weight: var(--weight-medium); }
 .hm-tabs__menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-tabs__menu-empty { margin: 0; padding: var(--space-2); font-size: var(--text-sm); }
