@@ -50,8 +50,8 @@
   --chart-6: #3a7d74;
   /* plugin-facing names, kept as aliases of the series above */
   /* hm/barlist bar under sumi text (4.5:1 both themes, TestTokenContrast) */
-  --chart-bar-soft: #c9d3e8;
-  --chart-bar-quiet: #e0e5f0;
+  --chart-bar-soft: #d9d9dc;
+  --chart-bar-quiet: #e7e7e6;
   --chart-stack-1: var(--chart-1);
   --chart-stack-2: var(--chart-2);
   --chart-stack-3: var(--chart-3);
@@ -228,8 +228,8 @@
   --chart-4: #85858b;
   --chart-5: #d9a548;
   --chart-6: #6cbaa9;
-  --chart-bar-soft: #3a4560;
-  --chart-bar-quiet: #2b3246;
+  --chart-bar-soft: #3b3b3f;
+  --chart-bar-quiet: #2e2e31;
   color-scheme: dark;
 }
 
@@ -285,8 +285,8 @@
     --chart-4: #85858b;
     --chart-5: #d9a548;
     --chart-6: #6cbaa9;
-    --chart-bar-soft: #3a4560;
-    --chart-bar-quiet: #2b3246;
+    --chart-bar-soft: #3b3b3f;
+    --chart-bar-quiet: #2e2e31;
     color-scheme: dark;
   }
 }
