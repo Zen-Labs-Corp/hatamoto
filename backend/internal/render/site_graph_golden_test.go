@@ -43,7 +43,7 @@ func compareGraphGolden(t *testing.T, name string, got []byte) {
 // fixture: a locale with an office, one without, a shared page and a
 // single-locale site.
 func TestSiteGraphGolden(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "fixtures", "site-graph.json"))
+	raw, err := os.ReadFile(filepath.Join("testdata", "site-graph", "pages.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
