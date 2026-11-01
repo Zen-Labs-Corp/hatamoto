@@ -15,12 +15,14 @@
 .hm-bs__seo { position: fixed; inset-block: 56px 0; inset-inline-end: 0; z-index: var(--z-popup); inline-size: min(22.5rem, 100%); display: flex; flex-direction: column; background: var(--surface); border-inline-start: 1px solid var(--border); box-shadow: var(--shadow-3); }
 [data-hm-bs-seo] .hm-badge { margin-inline-start: var(--space-1); }
 .hm-bs__seo[hidden] { display: none; }
-/* Check rows in the drawer: message first, the status as a round pill (icon plus a hidden word, never colour alone). */
+/* Check rows in the drawer: message first, the status as a soft pill on the right (icon and the status word, never colour alone). */
 .hm-bs__seo .hm-bp__item { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.hm-bs__seo .hm-bp__mark { display: inline-flex; align-items: center; justify-content: center; padding: 0; block-size: var(--badge-h); min-inline-size: var(--badge-h); border-radius: var(--radius-full); }
-.hm-bs__seo .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, var(--color-paper)); }
-.hm-bs__seo .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, var(--color-paper)); }
-.hm-bs__seo .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 12%, var(--color-paper)); }
+.hm-bs__seo .hm-bp__mark { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); block-size: var(--badge-h); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; }
+.hm-bs__seo .hm-bp__word { position: static; inline-size: auto; block-size: auto; overflow: visible; clip-path: none; }
+.hm-bs__seo .hm-bp__word::after { content: none; }
+.hm-bs__seo .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); background: var(--color-success-soft); }
+.hm-bs__seo .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); background: var(--color-warning-soft); }
+.hm-bs__seo .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); background: var(--color-danger-soft); }
 .hm-bs__seo-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--border); }
 .hm-bs__seo-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--space-3); }
 .hm-bs__banner:empty { display: none; }
@@ -40,7 +42,8 @@
 .hm-bs__h { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs__navbar { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; margin-block-end: var(--space-2); }
 .hm-bs__navbar[hidden] { display: none; }
-.hm-bs__navbar input { flex: 1 1 8rem; min-inline-size: 6rem; }
+.hm-bs__navbar input { flex: 1 1 100%; min-inline-size: 0; } /* the field has its own row; Collapse all and Rename share the next one */
+.hm-bs__navbar > .hm-btn { flex: none; }
 .hm-bs__canvas { position: relative; min-width: 0; min-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--color-kasumi); border-block-start: 1px solid var(--border); }
 .hm-bs__canvas:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-2); }

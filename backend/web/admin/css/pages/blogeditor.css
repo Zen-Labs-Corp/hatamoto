@@ -135,6 +135,9 @@
 .hm-bp__item:first-child { border-top: 0; }
 .hm-bp__mark { flex: none; display: inline-flex; justify-content: center; padding-block-start: var(--space-0-5); }
 .hm-bp__mark svg { inline-size: 1em; block-size: 1em; }
+/* The status word: read out as "Good:" before the check, shown in the builder drawer's pill. */
+.hm-bp__word { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hm-bp__word::after { content: ":"; }
 .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); }
 .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); }
 .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); }
