@@ -52,3 +52,25 @@ func TestUnknownGroupKeyIgnored(t *testing.T) {
 		t.Errorf("unknown key rendered:\n%s", html)
 	}
 }
+
+func TestGroupsWrapInOneSectionEach(t *testing.T) {
+	html := renderGroups(t, `{"type":"object","x-hm-order":["a","b","c"],"properties":{
+		"a":{"type":"string","x-hm-group":"Profile"},
+		"b":{"type":"string","x-hm-group":"Links"},
+		"c":{"type":"string","x-hm-group":"Links"}}}`)
+	if o, c := strings.Count(html, `<div class="hm-sf-section">`), strings.Count(html, "</div>\n</div>"); o != 2 || c < 2 {
+		t.Errorf("sections = %d, closed = %d, want 2:\n%s", o, c, html)
+	}
+	if strings.Contains(renderGroups(t, `{"type":"object","properties":{"a":{"type":"string"}}}`), "hm-sf-section") {
+		t.Error("ungrouped schema gets a section wrapper")
+	}
+}
+
+func TestRepeaterItemLabelNamesTheAddButton(t *testing.T) {
+	html := renderGroups(t, `{"type":"object","properties":{
+		"points":{"type":"array","title":"Contact points","x-hm-item-label":"contact point","items":{"type":"object","properties":{"n":{"type":"string"}}}},
+		"faqs":{"type":"array","title":"Faqs","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
+	if !strings.Contains(html, ">Add contact point</button>") || !strings.Contains(html, ">Add Faqs item</button>") {
+		t.Errorf("Add buttons wrong:\n%s", html)
+	}
+}

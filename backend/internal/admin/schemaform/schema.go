@@ -34,6 +34,7 @@ type Node struct {
 	XMultiple     *bool    // x-multiple
 	Alias         []string // x-hm-alias
 	Group         string   // x-hm-group: section heading of a top-level property
+	ItemLabel     string   // x-hm-item-label: the Add button of a repeater reads "Add <label>"
 }
 
 // Prop is one named property.
@@ -118,6 +119,7 @@ func parseNode(raw json.RawMessage) (*Node, error) {
 	str("x-code-size", &n.XCode)
 	str("x-entity-schema", &n.XEntitySchema)
 	str("x-hm-group", &n.Group)
+	str("x-hm-item-label", &n.ItemLabel)
 	if v, ok := m["writeOnly"]; ok {
 		_ = json.Unmarshal(v, &n.WriteOnly)
 	}

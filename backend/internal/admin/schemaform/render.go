@@ -78,6 +78,7 @@ type fld struct {
 	Items                                          []*item
 	ItemScalar                                     bool
 	Count                                          int
+	ItemLabel                                      string // x-hm-item-label: what the Add button of a repeater adds
 	EntitySchema                                   string
 	Preview                                        string // image field: current URL
 	Secret, SecretSet                              bool   // writeOnly: never shown; SecretSet when a value is stored
@@ -138,6 +139,11 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 	heading := ""
 	for _, p := range groupedProps(root.Props) {
 		if g := strings.TrimSpace(p.Node.Group); g != heading {
+			if heading != "" {
+				if err := t.ExecuteTemplate(&out, "sf/group-end", nil); err != nil {
+					return "", err
+				}
+			}
 			heading = g
 			if err := t.ExecuteTemplate(&out, "sf/group", heading); err != nil {
 				return "", err
@@ -148,6 +154,11 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 			return "", err
 		}
 		out.WriteByte('\n')
+	}
+	if heading != "" {
+		if err := t.ExecuteTemplate(&out, "sf/group-end", nil); err != nil {
+			return "", err
+		}
 	}
 	return template.HTML(out.String()), nil //nolint:gosec // html/template output only
 }
@@ -485,6 +496,7 @@ func (n *Node) unknown(key string, _ any) bool {
 func (b *builder) repeater(f *fld, n *Node, v any, hint UIHint) {
 	items, _ := v.([]any)
 	f.Count = len(items)
+	f.ItemLabel = n.ItemLabel
 	f.Orderable = !hint.Unorderable && !b.opt.Disabled
 	it := n.Items
 	if it == nil {

@@ -45,7 +45,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "phone":{"type":"string","title":"Phone","x-hm-group":"Reach"},
 "fax":{"type":"string","title":"Fax","x-hm-group":"Reach"},
 "email":{"type":"string","title":"Email","format":"email","x-hm-group":"Reach"},
-"contact_points":{"type":"array","title":"Contact points","x-hm-group":"Reach","items":{"type":"object","properties":{
+"contact_points":{"type":"array","x-hm-item-label":"contact point","title":"Contact points","x-hm-group":"Reach","items":{"type":"object","properties":{
  "type":{"type":"string","title":"Type"},
  "name":{"type":"string","title":"Name"},
  "phone":{"type":"string","title":"Phone"},
@@ -53,17 +53,17 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "area_served":{"type":"string","title":"Area served"},
  "available_language":{"type":"string","title":"Languages"}}}},
 "hours_note":{"type":"string","title":"Hours note","x-hm-group":"Opening hours"},
-"opening_hours":{"type":"array","title":"Opening hours","x-hm-group":"Opening hours","items":{"type":"object","properties":{
+"opening_hours":{"type":"array","x-hm-item-label":"opening hours","title":"Opening hours","x-hm-group":"Opening hours","items":{"type":"object","properties":{
  "days":{"type":"array","title":"Days","items":{"type":"string","enum":%[2]s}},
  "opens":{"type":"string","title":"Opens","format":"time"},
  "closes":{"type":"string","title":"Closes","format":"time"}}}},
-"special_hours":{"type":"array","title":"Special opening hours","x-hm-group":"Opening hours","items":{"type":"object","properties":{
+"special_hours":{"type":"array","x-hm-item-label":"special opening hours","title":"Special opening hours","x-hm-group":"Opening hours","items":{"type":"object","properties":{
  "from":{"type":"string","title":"From","format":"date"},
  "to":{"type":"string","title":"To","format":"date"},
  "closed":{"type":"boolean","title":"Closed","default":false},
  "opens":{"type":"string","title":"Opens","format":"time"},
  "closes":{"type":"string","title":"Closes","format":"time"}}}},
-"sameas":{"type":"array","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
+"sameas":{"type":"array","x-hm-item-label":"profile address","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
 "rating":{"type":"object","title":"Aggregate rating","x-hm-group":"Profiles & rating","properties":{
  "value":{"type":"string","title":"Rating value"},
  "best":{"type":"string","title":"Best rating"},
@@ -92,24 +92,24 @@ var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "emplo
 // rather than schema descriptions because a text field shows its description
 // as the placeholder.
 var businessUI = map[string]schemaform.UIHint{
-	"tax_id":                            {Help: "The tax or company number printed on invoices."},
-	"description":                       {Help: "Empty uses the tagline."},
-	"founding_date":                     {Help: "A year, like 2009, or a full date, like 2009-04-30."},
-	"logo_object":                       {Help: "Only when the logo size is known. Otherwise the logo prints as an address."},
-	"contact_points.available_language": {Help: "A language name, like English. Empty uses the locale's language."},
-	"rating.best":                       {Help: "The top of your scale. Empty means 5."},
-	"rating.worst":                      {Help: "The bottom of your scale. Empty means 0."},
-	"hours_note":                        {Help: "Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written."},
-	"opening_hours.days":                {Help: "Day names separated by commas, like Monday, Tuesday."},
-	"special_hours.to":                  {Help: "Leave empty for a single day."},
-	"special_hours.closed":              {Help: "Closed all day; the times are ignored."},
-	"rating.value":                      {Help: "Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself."},
-	"currency":                          {Help: "A three letter code, like USD."},
-	"geo_region":                        {Help: "Printed as a geo.region tag on this locale's pages."},
-	"area_served":                       {Help: "Places this business serves, separated by commas."},
-	"sameas":                            {Help: "Social and directory profile addresses."},
-	"address.lat":                       {Help: "Between -90 and 90."},
-	"address.lng":                       {Help: "Between -180 and 180."},
+	"tax_id":                            {Help: "The tax or company number printed on invoices"},
+	"description":                       {Help: "Empty uses the tagline"},
+	"founding_date":                     {Help: "A year, like 2009, or a full date, like 2009-04-30"},
+	"logo_object":                       {Help: "Only when the logo size is known. Otherwise the logo prints as an address"},
+	"contact_points.available_language": {Help: "A language name, like English. Empty uses the locale's language"},
+	"rating.best":                       {Help: "The top of your scale. Empty means 5"},
+	"rating.worst":                      {Help: "The bottom of your scale. Empty means 0"},
+	"hours_note":                        {Help: "Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written"},
+	"opening_hours.days":                {Help: "Day names separated by commas, like Monday, Tuesday"},
+	"special_hours.to":                  {Help: "Leave empty for a single day"},
+	"special_hours.closed":              {Help: "Closed all day; the times are ignored"},
+	"rating.value":                      {Help: "Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself"},
+	"currency":                          {Help: "A three letter code, like USD"},
+	"geo_region":                        {Help: "Printed as a geo.region tag on this locale's pages"},
+	"area_served":                       {Help: "Places this business serves, separated by commas"},
+	"sameas":                            {Help: "Social and directory profile addresses"},
+	"address.lat":                       {Help: "Between -90 and 90"},
+	"address.lng":                       {Help: "Between -180 and 180"},
 }
 
 // businessSchema is the form of a locale card: the site-only properties are
