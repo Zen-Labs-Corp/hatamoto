@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 )
 
 // overviewPage is the body of the Overview section, in the order the page shows it.
@@ -159,7 +160,7 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 		Src:         a.dataURL("overview.json", rg, cmp), Chart: "fetches", Panels: "fetches|referrals",
 		Srcs:        a.dataURL("overview.json", rg, cmp) + "|" + a.dataURL("referrals.json", rg, cmp),
 		PanelLabels: "AI fetches per " + unit + "|AI-referred visits per " + unit, Sum: "AI fetches|AI-referred visits",
-		Override: `{"AI-referred visits":{"n":2,"marker":"square","dash":""}}`, Hero: true, Compare: cmp,
+		Override: `{"AI-referred visits":{"n":5,"marker":"square","dash":""}}`, Hero: true, Compare: cmp,
 		Table: withoutTotal(tbl.table("AI fetches and AI-referred visits per day", "Day"))}
 
 	p.Channels = a.channelsCard(ctx, rg, cmp)
@@ -201,6 +202,7 @@ func (a *Admin) channelsCard(ctx context.Context, rg agents.Range, cmp bool) *ui
 	return &ui.AiaChart{ID: "w-o-channels", Title: "Visits by channel",
 		Description: "Stacked by where people came from. Cookieless: counted per day, no visitor profiles.",
 		Src:         a.dataURL("traffic.json", rg, cmp), Chart: "channels", Compare: cmp,
+		Neutral: true, Accent: channelName(analytics.ChannelAI),
 		Toggle: &ui.Segmented{Mode: "buttons", Label: "Measure", Items: []ui.SegmentedItem{
 			{Label: "Visits", Pressed: true, Attrs: map[string]string{"data-chart-toggle": "channels"}},
 			{Label: "Leads", Disabled: true}, {Label: "Conv. rate", Disabled: true}}},

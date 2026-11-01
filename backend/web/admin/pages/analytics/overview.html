@@ -13,12 +13,10 @@
 <div class="hm-grid2">
 {{template "hm/card-start" (dict "ID" "w-o-top" "Title" "Top agents" "Description" "Most active AI agents. Select a name for details." "Heading" "h3")}}
 {{template "hm/barlist" .TopAgents}}
-<p class="hm-aia-more">{{template "hm/button" (dict "Label" "See all agents" "Href" .AgentsHref "Size" "sm")}}</p>
-{{template "hm/card-end"}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "See all agents" "Href" .AgentsHref "Size" "sm")}}{{template "hm/card-foot-end"}}
 {{template "hm/card-start" (dict "ID" "w-o-ass" "Title" "Top assistants" "Description" "Visits from AI assistants, by assistant." "Heading" "h3")}}
 {{template "hm/barlist" .TopAssistants}}
 <p class="hm-aia-small hm-aia-note">Counted per day; no visitors are tracked.</p>
-<p class="hm-aia-more">{{template "hm/button" (dict "Label" "See referrals" "Href" .ReferralsHref "Size" "sm")}}</p>
-{{template "hm/card-end"}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "See referrals" "Href" .ReferralsHref "Size" "sm")}}{{template "hm/card-foot-end"}}
 </div></div>{{end}}
 {{end}}{{end}}
