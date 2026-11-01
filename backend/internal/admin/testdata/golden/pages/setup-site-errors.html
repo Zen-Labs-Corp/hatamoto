@@ -55,6 +55,7 @@
 <p class="hm-field__help" id="url-help">The public address visitors use, like https://example.com. Needed to email password-reset and invitation links. You are on http://example.com now; leave this empty to decide later.</p>
 <p class="hm-field__error" id="url-error">Enter the address as https://example.com (no path)</p>
 </div>
+<div class="hm-setup-pair">
 <div class="hm-field hm-field--invalid">
 <label class="hm-field__label" for="language">Language</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="language" name="language" aria-invalid="true" aria-describedby="language-help language-error">{options}</select></div>
@@ -67,8 +68,9 @@
 <p class="hm-field__help" id="timezone-help">Scheduled posts publish in this time zone.</p>
 <p class="hm-field__error" id="timezone-error">Choose a time zone</p>
 </div>
+</div>
 <footer class="hm-card__foot hm-card__foot--plain">
-<a class="hm-btn hm-btn--secondary" href="/admin/setup/admin-address"><span>Back</span></a>
+<span class="hm-card__foot-note"><a class="hm-btn hm-btn--ghost" href="/admin/setup/admin-address"><span>Back</span></a></span>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Continue</span></button>
 </footer>
 </form>

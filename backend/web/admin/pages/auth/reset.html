@@ -9,5 +9,5 @@
 {{template "hm/foot"}}
 {{template "hm/button" dict "Label" "Save password" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
-</form>{{else}}{{template "hm/empty" (dict "Plain" true "H1" true "Icon" "alert" "Title" "This link no longer works" "Body" "Reset links work once and expire after an hour." "Actions" (list (dict "Dict" (dict "Label" "Ask for a new link" "Variant" "primary" "Href" (adminPath "forgot")))))}}{{end}}
+</form>{{else}}{{template "hm/empty" (dict "Plain" true "Compact" true "H1" true "Title" "This link no longer works" "Body" "Reset links work once and expire after an hour." "Actions" (list (dict "Dict" (dict "Label" "Ask for a new link" "Variant" "primary" "Href" (adminPath "forgot")))))}}{{end}}
 {{end}}{{end}}

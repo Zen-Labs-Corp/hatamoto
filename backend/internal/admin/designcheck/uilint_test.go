@@ -102,6 +102,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/schemas/edit.html", Needle: `value="up:{{$f.Key}}"`, Reason: "field row operations (move, remove) inside the editor"},
 	{Rule: "UI-01", File: "pages/schemas/edit.html", Needle: `save_json`, Reason: "action of the advanced JSON disclosure, a nested form of its own"},
 	{Rule: "UI-01", File: "pages/menus/edit.html", Needle: `"Add item"`, Reason: "inline add row next to its select"},
+	{Rule: "UI-01", File: "pages/setup/admin-address.html", Needle: `"Label" "Regenerate"`, Reason: "inline action beside the address it regenerates, in the copy row"},
 	{Rule: "UI-01", File: "pages/setup/done.html", Needle: `"Send me a test email"`, Reason: "one inline row: the email note and its test button, not a form footer"},
 	{Rule: "UI-01", File: "layouts/shell.html", Needle: `"Label" "No thanks"`, Reason: "answer in the owner's install stats banner: one inline row of text and two buttons, not a form footer"},
 	{Rule: "UI-01", File: "layouts/shell.html", Needle: `"Label" "Send stats"`, Reason: "answer in the owner's install stats banner: one inline row of text and two buttons, not a form footer"},

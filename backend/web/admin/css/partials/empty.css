@@ -8,6 +8,9 @@
 .hm-empty__title { font-weight: var(--weight-semibold); font-size: var(--text-title); margin: 0; }
 .hm-empty .hm-row { margin-top: var(--space-3); justify-content: center; }
 .hm-empty--plain { padding: var(--space-2) 0; border: 0; border-radius: 0; background: none; }
-.hm-empty__code { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-muted); }
+.hm-empty__code { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
 .hm-errorpage { padding: var(--space-6); }
 .hm-empty--regular .hm-empty__title { font-weight: var(--weight-regular); color: var(--text-muted); }
+.hm-empty--plain h1.hm-empty__title { font-size: var(--text-2xl); font-weight: var(--weight-medium); }
+/* Unframed full-page 404 inside the shell. */
+.hm-errorscreen { padding: calc(var(--space-12) * 2) 0; }

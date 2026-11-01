@@ -6,10 +6,10 @@
 {{if .EmailCheck}}{{template "hm/flash" (dict "Kind" "error" "Message" .EmailCheck "Inline" true)}}
 {{end}}<form method="post" action="{{adminPath}}/setup/email" class="hm-stack">
 {{template "hm/csrf" $}}
-{{template "hm/emailfields" .MailForm}}
+<div class="hm-setup-email">{{template "hm/emailfields" .MailForm}}</div>
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Back" "Href" .Back}}
-<a href="{{adminPath}}/setup/theme">Skip</a>
+<span class="hm-card__foot-note"><a href="{{adminPath}}/setup/theme">Skip</a></span>
+{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}
 {{template "hm/button" dict "Label" "Save and continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>

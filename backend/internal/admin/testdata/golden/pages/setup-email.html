@@ -44,7 +44,7 @@
 
 <form method="post" action="/admin/setup/email" class="hm-stack">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<div class="hm-field">
+<div class="hm-setup-email"><div class="hm-field">
 <label class="hm-field__label" for="provider">Provider</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="provider" name="provider" aria-describedby="provider-help"><option value="custom" selected>Custom</option><option value="ses">Amazon SES</option><option value="gmail">Gmail / Google Workspace</option></select></div>
 <p class="hm-field__help" id="provider-help">Amazon SES and Gmail fill in the host for you.</p>
@@ -86,10 +86,10 @@
 <label class="hm-field__label" for="from-name">From name</label>
 <input class="hm-field__control" type="text" id="from-name" name="from-name" aria-describedby="from-name-help" autocomplete="off">
 <p class="hm-field__help" id="from-name-help">Leave blank to use the site name.</p>
-</div>
+</div></div>
 <footer class="hm-card__foot hm-card__foot--plain">
-<a class="hm-btn hm-btn--secondary" href="/admin/setup/site"><span>Back</span></a>
-<a href="/admin/setup/theme">Skip</a>
+<span class="hm-card__foot-note"><a href="/admin/setup/theme">Skip</a></span>
+<a class="hm-btn hm-btn--ghost" href="/admin/setup/site"><span>Back</span></a>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save and continue</span></button>
 </footer>
 </form>

@@ -1,33 +1,29 @@
-/* Wizard progress: numbered circles; done shows a check, the current step is accented and has aria-current. Seven steps do not fit a narrow card in one row, so the row wraps instead of running out of it. */
+/* Wizard progress: numbered pills; done shows a check, the current step is outlined and has aria-current. Seven steps do not fit a narrow card in one row, so the row wraps instead of running out of it. */
 .hm-stepper { display: flex; flex-direction: column; gap: var(--space-2); }
-.hm-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: var(--space-2); font-size: var(--text-sm); color: var(--color-hai); }
-.hm-steps__item { display: flex; align-items: center; gap: var(--space-2); }
-/* The connector after each step but the last grows to fill the row: muted by default, in the done colour once the step is done. */
-.hm-steps__item:not(:last-child) { flex: 1 1 auto; }
-.hm-steps__item:not(:last-child)::after { content: ""; flex: 1 1 var(--space-4); min-width: var(--space-4); height: 2px; margin-inline: var(--space-2); border-radius: var(--radius-full); background: var(--color-kinu); }
-.hm-steps__item--done:not(:last-child)::after { background: var(--color-success); }
-.hm-steps__num { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: var(--radius-full); border: 1px solid var(--border-control); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
-.hm-steps__num .hm-icon { width: 14px; height: 14px; }
-.hm-steps__item--done { color: var(--color-sumi-soft); }
-.hm-steps__item--done .hm-steps__num { background: var(--color-success-soft); border-color: var(--color-success); color: var(--color-success); }
-.hm-steps__item--current { color: var(--color-sumi); font-weight: var(--weight-medium); }
-.hm-steps__item--current .hm-steps__num { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-paper); }
+.hm-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-muted); }
+.hm-steps__item { display: inline-flex; align-items: center; gap: var(--space-1); height: var(--control-h-xs); padding: 0 var(--space-3) 0 var(--space-1); border-radius: var(--radius-full); box-shadow: inset 0 0 0 1px var(--border); }
+.hm-steps__num { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--color-kasumi); font-family: var(--font-mono); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.hm-steps__num .hm-icon { width: var(--space-3); height: var(--space-3); }
+.hm-steps__item--done { background: var(--color-kasumi); box-shadow: none; color: var(--color-sumi-soft); }
+.hm-steps__item--done .hm-steps__num { background: var(--color-success); color: var(--color-paper); }
+.hm-steps__item--current { color: var(--color-sumi); font-weight: var(--weight-medium); box-shadow: inset 0 0 0 1px var(--color-sumi); }
+.hm-steps__item--current .hm-steps__num { background: var(--color-sumi); color: var(--color-paper); }
 .hm-steps__label { min-width: 0; white-space: nowrap; }
-/* On phones only the current step keeps a visible label; the others stay readable to assistive tech. */
-@media (max-width: 640px) {
-  .hm-steps__item:not(.hm-steps__item--current) .hm-steps__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .hm-stepper { position: relative; }
-  .hm-steps__item:not(:last-child)::after { min-width: var(--space-2); margin-inline: var(--space-1); }
-}
-.hm-steps__count { margin: 0; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-steps__count { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-field__control[type="color"] { width: 64px; min-height: var(--control-h); padding: var(--space-0-5); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); }
 .hm-field__control[type="color"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-/* Done step: a success cue and four link cards. */
-.hm-setup-done { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
-.hm-setup-done__icon { margin: 0; color: var(--color-success); }
-.hm-setup-done__icon .hm-icon { width: var(--space-12); height: var(--space-12); }
-.hm-setup-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-.hm-setup-link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--color-sumi); text-decoration: none; }
+/* Done step: a left-aligned heading and four link rows, each ending in a chevron. */
+.hm-setup-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.hm-setup-links { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+.hm-setup-link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--color-sumi); text-decoration: none; }
+.hm-setup-link > .hm-icon:last-child { margin-inline-start: auto; color: var(--text-muted); }
 .hm-setup-link:hover { background: var(--surface-hover); }
 .hm-setup-link:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 640px) { .hm-setup-links { grid-template-columns: minmax(0, 1fr); } }
+/* Setup forms: related fields sit in pairs above 640px and stack below. */
+.hm-setup-pair, .hm-setup-email { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@media (min-width: 641px) {
+  .hm-setup-pair, .hm-setup-email { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Email: provider, region and security take a full row; host/port, username/password and from address/name pair up. */
+  .hm-setup-email > :nth-child(1), .hm-setup-email > :nth-child(2), .hm-setup-email > :nth-child(5) { grid-column: 1 / -1; }
+}

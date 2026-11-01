@@ -8,7 +8,7 @@
 {{if lt (len .ThemeItems) 2}}<p class="hm-muted">More themes are in <a href="{{adminPath}}/theme/themes">Settings &rsaquo; Appearance</a>.</p>{{end}}
 {{template "hm/field" dict "ID" "colour" "Name" "colour" "Label" "Brand colour" "Type" "color" "Value" .Colour "Help" "Used for links and buttons on your site." "Error" .ColourErr}}
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Back" "Href" .Back}}
+<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Back" "Variant" "ghost" "Href" .Back}}</span>
 {{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>

@@ -1,2 +1,2 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/empty" (dict "H1" true "Icon" .Icon "Code" .Code "Title" .Heading "Body" .Message "Actions" .Actions)}}{{end}}{{end}}
+{{define "main"}}{{with .Data}}{{if eq .Code "404"}}<div class="hm-errorscreen">{{template "hm/empty" (dict "H1" true "Plain" true "Code" .Code "Title" .Heading "Body" .Message "Actions" .Actions)}}</div>{{else}}{{template "hm/empty" (dict "H1" true "Icon" .Icon "Code" .Code "Title" .Heading "Body" .Message "Actions" .Actions)}}{{end}}{{end}}{{end}}

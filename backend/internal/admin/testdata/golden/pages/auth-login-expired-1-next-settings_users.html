@@ -31,10 +31,10 @@
 
 <h1>Sign in</h1>
 
+<div id="login-status" class="hm-bare__notice"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="hm-flash hm-flash--neutral" role="status">Your session expired. Sign in again.</div></div>
 <form method="post" action="/admin/login" class="hm-stack hm-bare__form">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <input type="hidden" name="next" value="/admin/settings/users">
-<div id="login-status"><div class="hm-flash hm-flash--info" role="status">Your session expired. Sign in again.</div></div>
 <div class="hm-field">
 <label class="hm-field__label" for="email">Email <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="email" id="email" name="email" required aria-describedby="login-status" autocomplete="username" autofocus="autofocus">
@@ -43,11 +43,11 @@
 <label class="hm-field__label" for="password">Password <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="password" id="password" name="password" required aria-describedby="login-status" autocomplete="current-password">
 </div>
-<p class="hm-bare__aside"><a href="/admin/forgot">Forgot your password?</a></p>
 <footer class="hm-card__foot hm-card__foot--plain">
 <button type="submit" class="hm-btn hm-btn--primary"><span>Sign in</span></button>
 </footer>
 </form>
+<p class="hm-bare__links hm-bare__links--start"><a href="/admin/forgot">Forgot your password?</a></p>
 
 </div>
 </main>
