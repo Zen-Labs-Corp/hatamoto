@@ -362,7 +362,8 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-start__t { display: block; }
 .hm-bs-start__n { font-weight: var(--weight-medium); font-size: var(--text-sm); }
 /* One hint bar at the foot of the canvas: a row of short tips and Dismiss; it wraps on a phone. */
-.hm-bs-hint { position: absolute; z-index: var(--z-sticky); inset-block-end: var(--space-4); inset-inline-start: 50%; translate: -50% 0; max-inline-size: calc(100% - var(--space-6)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); color: var(--text); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--text); border-radius: var(--radius-md); text-align: start; }
+.hm-bs-hint { position: absolute; z-index: var(--z-sticky); inset-block-end: var(--space-4); inset-inline-start: 50%; translate: -50% 0; inline-size: max-content; max-inline-size: calc(100% - var(--space-6)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); color: var(--text); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--text); border-radius: var(--radius-md); text-align: start; }
+.hm-bs-hint > span { white-space: nowrap; }
 .hm-bs-hint > span:not(:last-of-type)::after { content: "·" / ""; margin-inline-start: var(--space-3); color: var(--text-muted); }
 .hm-bs-hint__bar { display: inline-block; inline-size: 1.5em; block-size: 0.5em; vertical-align: middle; border-radius: var(--radius-sm); background: var(--color-accent); }
 @media (forced-colors: active) { /* after the base rule: a media query adds no specificity, so the later rule wins */

@@ -2,7 +2,7 @@
 // until it is dismissed or the person makes a first insert, then never again; kept per user in localStorage (blocked
 // storage just means the bar shows each visit). A non-modal note: it never takes the focus.
 // Run: node --test scripts/admin-qa/unit/builder-coachmarks.test.mjs
-import { h, actButton } from "@hm/builder/dom";
+import { h } from "@hm/builder/dom";
 
 const KEY = "hm-builder-hints:";
 const LEGACY = ["select", "add"]; // the two earlier hints: both dismissed counts as the bar dismissed
@@ -37,9 +37,17 @@ const ITEMS = [
   () => h("span", { text: "Click to select" }),
   () => h("span", { text: "Double-click text to type" }),
   () => h("span", {}, "Drag ", h("span", { class: "hm-bs-hint__bar", "aria-hidden": "true" }), " to resize spacing"),
-  () => h("span", { text: "/ to insert" }),
-  () => h("span", { text: "Esc for the parent" }),
+  () => h("span", {}, h("kbd", { text: "/" }), " to insert"),
+  () => h("span", {}, h("kbd", { text: "Esc" }), " for the parent"),
 ];
+
+/** The server-rendered icon-only x button <template data-hm-bs-actx>; a plain button when the template is absent. */
+function dismissButton(onclick) {
+  const e = document.querySelector?.("template[data-hm-bs-actx]")?.content.firstElementChild?.cloneNode(true) ?? h("button", { type: "button", text: "x" });
+  e.setAttribute("aria-label", "Dismiss hints");
+  e.addEventListener("click", onclick);
+  return e;
+}
 
 /**
  * mountCoachmarks({canvasEl, user, empty, storage}) -> {done}
@@ -49,7 +57,7 @@ export function mountCoachmarks({ canvasEl, user = "", empty = false, storage = 
   if (empty || !shouldShow(storage, user)) return { done() {} };
   const note = h("div", { class: "hm-bs-hint", role: "note" }, ...ITEMS.map((f) => f()));
   const close = () => (dismiss(storage, user), note.remove());
-  note.append(actButton("Dismiss hints", { onclick: close, "aria-label": "Dismiss hints" }));
+  note.append(dismissButton(close));
   canvasEl?.append(note);
   return { done: close };
 }
