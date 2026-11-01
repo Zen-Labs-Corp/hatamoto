@@ -169,6 +169,14 @@ func TestImportWizardPagesGoldenAndA11y(t *testing.T) {
 	}
 }
 
+func TestImportScanningCalloutShowsThePhase(t *testing.T) {
+	g, _, ids := importRig(t)
+	body := g.do("GET", "/admin/settings/import/wordpress/"+ids["scanning"].String(), "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Now: Reading the source.") {
+		t.Errorf("the scanning callout keeps the live phase: %s", body)
+	}
+}
+
 func TestImportReadPathsNeedNoJavaScript(t *testing.T) {
 	g, _, ids := importRig(t)
 	// A running page reloads itself without JS (a <noscript> meta refresh) and
