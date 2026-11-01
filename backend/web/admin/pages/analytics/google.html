@@ -5,7 +5,7 @@
 {{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
 {{with .Body}}<div class="hm-stack">
 <h2 class="hm-visually-hidden">Googlebot activity</h2>
-{{if .Banner}}{{template "hm/callout-start" (dict "Kind" "info" "ID" "w-g-connect")}}Connect Search Console (plugin) to add impressions, clicks, position and index status.{{template "hm/callout-end"}}{{end}}
+{{if .Banner}}<p class="hm-aia-strip" id="w-g-connect" role="note">Connect Search Console (plugin) to add impressions, clicks, position and index status.</p>{{end}}
 <section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2>{{template "hm/stats" (dict "Variant" "strip" "Items" .KPIs)}}</section>
 {{template "hm/aia-chart" .Chart}}
 {{with .Search}}{{template "hm/aia-chart" .}}{{end}}

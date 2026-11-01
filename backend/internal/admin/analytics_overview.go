@@ -165,7 +165,7 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 
 	p.Channels = a.channelsCard(ctx, rg, cmp)
 
-	p.TopAgents = ui.BarList{Label: "Most active AI agents", Quiet: true, Empty: "No data for this period."}
+	p.TopAgents = ui.BarList{Label: "Most active AI agents", Quiet: true, Mono: true, Empty: "No data for this period."}
 	if t.AIFetches > 0 {
 		for i, ag := range ov.Top {
 			if i == topRows {
@@ -175,7 +175,7 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 				Value: fmtNum(ag.Hits), Share: shareText(ratio(ag.Hits, t.AIFetches)), N: float64(ag.Hits)})
 		}
 	}
-	p.TopAssistants = ui.BarList{Label: "AI-referred visits by assistant", Quiet: true, Empty: "No data for this period."}
+	p.TopAssistants = ui.BarList{Label: "AI-referred visits by assistant", Quiet: true, Mono: true, Empty: "No data for this period."}
 	if refs != nil && refs.Visits > 0 {
 		for i, as := range refs.Assistants {
 			if i == topRows {

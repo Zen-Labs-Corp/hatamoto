@@ -339,7 +339,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	for _, d := range devices {
 		deviceVisits += d.Visits
 	}
-	p.Devices = ui.BarList{Label: "Devices", NameHeading: "Device", ValueHeading: "Visits", Empty: "No visits in this period."}
+	p.Devices = ui.BarList{Label: "Devices", NameHeading: "Device", ValueHeading: "Visits", Mono: true, Empty: "No visits in this period."}
 	for _, d := range devices {
 		p.Devices.Items = append(p.Devices.Items, ui.BarItem{Label: titleWord(d.K1), Value: fmtNum(d.Visits), Share: share(d.Visits, deviceVisits), N: float64(d.Visits)})
 	}
