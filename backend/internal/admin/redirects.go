@@ -295,6 +295,7 @@ type explainData struct {
 	Path                      string
 	Asked                     bool
 	Err                       string
+	Inline                    bool // answered into the Test a URL card: the error shows in the answer, with status 200 so htmx swaps it
 	Normalised                string
 	Verdict                   string // one sentence: what happens to the URL
 	Kind                      string // redirect | page | notfound
@@ -340,6 +341,9 @@ func (a *Admin) handleRedirectExplain(w http.ResponseWriter, r *http.Request) {
 			}
 			a.fillExplanation(&d, ex)
 		}
+	}
+	if IsHTMX(r) {
+		d.Inline, status = true, http.StatusOK
 	}
 	v := a.NewView(w, r, "Explain a URL")
 	v.Data = d

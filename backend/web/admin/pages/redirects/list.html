@@ -2,7 +2,7 @@
 {{define "modules"}}@hm/content{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
 {{template "hm/tabs" dict "Label" "Redirect tools" "Items" .Tabs}}
-<form class="hm-card hm-redirect-test" method="get" action="{{adminPath}}/settings/redirects/explain" role="search" hx-get="{{adminPath}}/settings/redirects/explain" hx-trigger="submit" hx-target="#test-answer" hx-select="#explain-result" hx-swap="innerHTML" hx-indicator="#test-busy">
+<form class="hm-card hm-redirect-test" method="get" action="{{adminPath}}/settings/redirects/explain" role="search" hx-get="{{adminPath}}/settings/redirects/explain" hx-trigger="submit" hx-target="#test-answer" hx-select="#explain-answer" hx-swap="innerHTML" hx-indicator="#test-busy">
 <label class="hm-field__label" for="test-path">Test a URL</label>
 <div class="hm-row"><div class="hm-input-affix hm-redirect-test__input">{{with .Host}}<span class="hm-affix" aria-hidden="true">{{.}}</span>{{end}}<input class="hm-field__control" type="text" id="test-path" name="path" required placeholder="/old/path" autocomplete="off" aria-describedby="test-path-help"></div>{{template "hm/button" dict "Label" "Test" "Type" "submit"}}{{template "hm/indicator" dict "ID" "test-busy" "Text" "Testing"}}</div>
 <p class="hm-field__help" id="test-path-help">Shows which rule matches and where the visitor ends up.</p>

@@ -2,9 +2,11 @@
 {{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
 {{template "hm/tabs" dict "Label" "Redirect tools" "Items" .Tabs}}
 <form method="get" action="{{adminPath}}/settings/redirects/explain" class="hm-row hm-explain__form" role="search">
-{{template "hm/field" dict "ID" "path" "Name" "path" "Label" "Address path" "Value" .Path "Placeholder" "/old-page" "Required" true "Help" "The path of an address on your site, starting with /." "Error" .Err "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "path" "Name" "path" "Label" "Address path" "Value" .Path "Placeholder" "/old-page" "Required" true "Help" "The path of an address on your site, starting with /." "Error" (cond .Inline "" .Err) "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/button" dict "Label" "Explain" "Variant" "primary" "Type" "submit"}}
 </form>
+<div id="explain-answer">
+{{if and .Asked .Err .Inline}}{{template "hm/callout" (dict "Kind" "danger" "Title" .Err)}}{{end}}
 {{if and .Asked (not .Err)}}
 {{template "hm/card-start" dict "ID" "explain-result" "Title" "Result"}}
 {{template "hm/callout" (dict "Kind" .VerdictKind "Title" .VerdictTitle "Body" .Verdict)}}
@@ -17,4 +19,5 @@
 <p class="hm-muted">Address checked as <code>{{.Normalised}}</code> (repeated slashes and a trailing slash are ignored).</p>
 {{template "hm/card-end"}}
 {{end}}
+</div>
 {{end}}{{end}}

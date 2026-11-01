@@ -389,6 +389,21 @@ func TestRedirectExplain(t *testing.T) {
 	}
 }
 
+func TestRedirectExplainInlineShowsErrors(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newRedirectRig(t)
+	rec := g.do("GET", "/admin/settings/redirects/explain?path=old", "owner-token", nil, map[string]string{"HX-Request": "true"})
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Errorf("an htmx answer must be 200 so htmx swaps it, got %d", rec.Code)
+	}
+	i := strings.Index(body, `id="explain-answer"`)
+	if i < 0 || !strings.Contains(body[i:], "Enter an address path starting with /") {
+		t.Errorf("the error must sit inside #explain-answer: %q", body)
+	}
+}
+
 func TestRedirectCreateGoesToList(t *testing.T) {
 	t.Parallel()
 
@@ -406,7 +421,7 @@ func TestRedirectCreateGoesToList(t *testing.T) {
 	if strings.Index(body, "<table") < strings.Index(body, "Test a URL") {
 		t.Error("the Test a URL card must come before the table")
 	}
-	for _, want := range []string{`hx-select="#explain-result"`, `id="test-answer"`, `action="/admin/settings/redirects/explain"`} {
+	for _, want := range []string{`hx-select="#explain-answer"`, `id="test-answer"`, `action="/admin/settings/redirects/explain"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("Test a URL form lacks %s", want)
 		}
