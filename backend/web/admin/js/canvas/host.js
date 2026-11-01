@@ -385,7 +385,7 @@ export function createCanvas(root, handlers, opts = {}) {
       const box = layout[hint];
       const hh = hints()[hint];
       const chip = h("div", { class: "hm-pe__hint", role: "status" }, h("span", { text: hh.text }), h("a", { href: hh.href, text: hh.label }));
-      const close = h("button", { type: "button", class: "hm-btn hm-btn--sm hm-btn--ghost", "aria-label": "Dismiss", text: "×" });
+      const close = h("button", { type: "button", class: "hm-btn hm-btn--sm hm-btn--ghost", "aria-label": "Dismiss the tip", text: "×" });
       close.addEventListener("click", () => {
         hint = null;
         drawMarks();
