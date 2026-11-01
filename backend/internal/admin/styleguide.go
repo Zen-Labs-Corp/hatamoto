@@ -121,6 +121,10 @@ func styleguideSamples(prefix string) map[string][]sample {
 		"radiocard": {
 			{Label: "Default", Data: ui.RadioCard{Legend: "Theme", Name: "theme", Items: []ui.RadioCardItem{{Value: "default", Title: "Default", Description: "The built-in theme.", Checked: true, Tag: &ui.Badge{Label: "Active", Kind: "success"}}, {Value: "journal", Title: "Journal", Description: "Serif, calm blog."}}}},
 		},
+		"togglechip": {
+			{Label: "Checkbox", Data: map[string]any{"ID": "sgf-chip", "Name": "sg_chip", "Label": "Read posts", "Code": "posts:read", "Control": "chip", "Checked": true}},
+			{Label: "Radio group, mono", Data: map[string]any{"ID": "sgf-chipradio", "Name": "sg_chipradio", "Label": "Separator", "Control": "chipradio", "Mono": true, "Options": []ui.Option{{Value: "-", Label: "-", Selected: true}, {Value: "|", Label: "|"}}}},
+		},
 		"danger-confirm": {
 			// The phrase is the address the user is choosing, not where the admin is
 			// mounted, so it is the default address and never the live prefix.
