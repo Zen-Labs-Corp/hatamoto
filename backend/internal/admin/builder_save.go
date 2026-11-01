@@ -42,7 +42,10 @@ type builderSEO struct {
 	Description string `json:"description"`
 	Canonical   string `json:"canonical"`
 	OGImage     string `json:"og_image"`
-	NoIndex     bool   `json:"no_index"`
+	// OGTitle and OGDescription are the hand-written social title and description.
+	OGTitle       string `json:"og_title"`
+	OGDescription string `json:"og_description"`
+	NoIndex       bool   `json:"no_index"`
 }
 
 // Caps of the SEO values, as the term SEO fields have them.
@@ -64,6 +67,10 @@ func (s builderSEO) check(stored string) *entity.DocProblem {
 		return bad("Use at most 255 characters for the SEO title.")
 	case utf8.RuneCountInString(t(s.Description)) > builderSEODescMax:
 		return bad("Use at most 500 characters for the meta description.")
+	case utf8.RuneCountInString(t(s.OGTitle)) > builderSEOTitleMax:
+		return bad("Use at most 255 characters for the social title.")
+	case utf8.RuneCountInString(t(s.OGDescription)) > builderSEODescMax:
+		return bad("Use at most 500 characters for the social description.")
 	case utf8.RuneCountInString(t(s.OGImage)) > builderSEOURLMax, utf8.RuneCountInString(t(s.Canonical)) > builderSEOURLMax:
 		return bad("Use at most 2048 characters for an address.")
 	}

@@ -24,7 +24,7 @@ import (
 
 // seoKeys are the entity attributes the SEO panel edits (the keys the public
 // site reads). They are removed from the attribute form so a field is shown once.
-var seoKeys = []string{"meta_title", "meta_description", "canonical_url", "og_image", "no_index"}
+var seoKeys = []string{"meta_title", "meta_description", "canonical_url", "og_image", "og_title", "og_description", "no_index"}
 
 const (
 	attrPrefix     = "attr."
@@ -33,6 +33,7 @@ const (
 
 type seoForm struct {
 	Title, Description, Canonical, OGImage string
+	OGTitle, OGDescription                 string
 	NoIndex                                bool
 }
 
@@ -264,7 +265,8 @@ func dropNoIndexRobots(m map[string]any) {
 func seoFrom(m map[string]any) seoForm {
 	b, _ := m["no_index"].(bool)
 	b = b || robotsNoIndex(m)
-	return seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"), NoIndex: b}
+	return seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
+		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b}
 }
 
 // merge writes the SEO panel into attrs, dropping empty values.
@@ -280,6 +282,8 @@ func (s seoForm) merge(m map[string]any) {
 	set("meta_description", s.Description)
 	set("canonical_url", s.Canonical)
 	set("og_image", s.OGImage)
+	set("og_title", s.OGTitle)
+	set("og_description", s.OGDescription)
 	if s.NoIndex {
 		m["no_index"] = true
 	} else {
@@ -290,7 +294,8 @@ func (s seoForm) merge(m map[string]any) {
 
 func seoFromForm(r *http.Request) seoForm {
 	return seoForm{Title: r.PostFormValue("seo_title"), Description: r.PostFormValue("seo_description"), Canonical: r.PostFormValue("seo_canonical"),
-		OGImage: r.PostFormValue("seo_og_image"), NoIndex: r.PostFormValue("seo_noindex") == "true"}
+		OGImage: r.PostFormValue("seo_og_image"),
+		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true"}
 }
 
 func entityStatusOptions(selected string) []ui.Option {
@@ -489,7 +494,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
 	}
 	f.Panel = a.entityPanel(r, e, sc, f, values)
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -777,6 +782,10 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 					f.Errors["seo_canonical"] = msgs[0]
 				case "og_image":
 					f.Errors["seo_og_image"] = msgs[0]
+				case "og_title":
+					f.Errors["seo_og_title"] = msgs[0]
+				case "og_description":
+					f.Errors["seo_og_description"] = msgs[0]
 				case "no_index":
 				default:
 					if _, dup := p.errs[path]; !dup {
