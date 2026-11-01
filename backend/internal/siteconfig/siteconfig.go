@@ -56,6 +56,9 @@ type Config struct {
 	PrefixAll bool
 	// XDefaultLocale is the locale tag used for hreflang x-default ("" = unset).
 	XDefaultLocale string
+	// SitemapNaming is "group" (default, one sitemap file per locale and
+	// group) or "legacy" (one file per locale); "" is read as group.
+	SitemapNaming string
 	// Phone and BusinessHours are the public contact details, free text.
 	Phone         string
 	BusinessHours string
@@ -200,6 +203,7 @@ type UpdateInput struct {
 	Locales           *[]LocaleEntry
 	PrefixAll         *bool
 	XDefaultLocale    *string
+	SitemapNaming     *string // nil = unchanged
 	Phone             *string
 	BusinessHours     *string
 	LegacyWPRedirects *bool
@@ -325,6 +329,10 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if in.XDefaultLocale != nil {
 		xDefaultLocale = *in.XDefaultLocale
 	}
+	var sitemapNaming any
+	if in.SitemapNaming != nil {
+		sitemapNaming = *in.SitemapNaming
+	}
 	var publicBaseURL any
 	if in.PublicBaseURL != nil {
 		publicBaseURL = *in.PublicBaseURL
@@ -383,13 +391,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  prefix_all         = COALESCE($26, prefix_all),
 		  x_default_locale   = COALESCE($27, x_default_locale),
 		  business_profile   = COALESCE($28, business_profile),
+		  sitemap_naming     = COALESCE($29, sitemap_naming),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -465,7 +474,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_cache_max_mb, page_preload_enabled, page_preload_interval_seconds,
 		       page_preload_mode, page_preload_after_changes,
 		       locales, prefix_all, x_default_locale,
-		       business_profile, locale_profiles
+		       business_profile, locale_profiles, sitemap_naming
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -478,7 +487,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PagePreloadEnabled, &cfg.PagePreloadIntervalSeconds,
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
-		&businessProfile, &localeProfiles,
+		&businessProfile, &localeProfiles, &cfg.SitemapNaming,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
@@ -524,6 +533,9 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	}
 	if len(postalAddress) > 0 {
 		cfg.PostalAddress = json.RawMessage(postalAddress)
+	}
+	if cfg.SitemapNaming == "" {
+		cfg.SitemapNaming = "group"
 	}
 	cfg.BusinessProfile = json.RawMessage(businessProfile)
 	cfg.LocaleProfiles = json.RawMessage(localeProfiles)

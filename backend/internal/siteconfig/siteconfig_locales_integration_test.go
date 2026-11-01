@@ -121,3 +121,48 @@ func TestLocalesRoundTrip(t *testing.T) {
 		t.Fatalf("cleared = %#v %v %q", cfg.Locales, cfg.PrefixAll, cfg.XDefaultLocale)
 	}
 }
+
+func TestSitemapNamingRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SitemapNaming != "group" {
+		t.Fatalf("default SitemapNaming = %q, want group", cfg.SitemapNaming)
+	}
+
+	legacy, company := "legacy", "Renamed"
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{SitemapNaming: &legacy, CompanyName: &company})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SitemapNaming != "legacy" || cfg.CompanyName != company {
+		t.Fatalf("got %q %q", cfg.SitemapNaming, cfg.CompanyName)
+	}
+
+	// A nil patch leaves it, and a patch of it leaves other fields.
+	tag := "tagline"
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SitemapNaming != "legacy" {
+		t.Fatalf("nil patch changed SitemapNaming to %q", cfg.SitemapNaming)
+	}
+	group := "group"
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{SitemapNaming: &group})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SitemapNaming != "group" || cfg.CompanyName != company || cfg.Tagline != tag {
+		t.Fatalf("got %q %q %q", cfg.SitemapNaming, cfg.CompanyName, cfg.Tagline)
+	}
+
+	// The CHECK constraint refuses anything else.
+	bad := "x"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{SitemapNaming: &bad}); err == nil {
+		t.Fatal("update with sitemap_naming x succeeded, want CHECK violation")
+	}
+}
