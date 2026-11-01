@@ -25,8 +25,8 @@ const (
 	// builderFirstCap only seeds the first-paint cap in the budget file (measured 87,207 B + 2 KiB, E0);
 	// the cap stored in admin.json is the one enforced.
 	builderFirstCap = 87207 + 2048
-	// builderTotalCap is the cap of static + lazy JS: measured 271,413 B + 1 KiB (Translations drawer, +1,146 B; it was 270,267 B + 1 KiB, builder inspector visual pass: compact Style tab, size centre in the box model, +1,590 B; it was 268,677 B + 1 KiB, builder inspector redesign: header, context line, groups, box model, swatches and scrub, +6,339 B; it was 262,338 B + 1 KiB, builder canvas direct manipulation and visual fixes, +10,683 B; it was 251,655 B + 1 KiB, navigator field-row review fixes, +239 B; it was 251,416 B + 1 KiB, navigator field rows, +1,220 B; before that 249,775 B + 1 KiB, navigator review fixes; it was 248,647 B + 1 KiB, navigator redesign; before that 242,008 B + 3 KiB, SEO drawer).
-	builderTotalCap = 271413 + 1024
+	// builderTotalCap is the cap of static + lazy JS: measured 272,745 B + 1 KiB (builder chrome: top bar, hint bar, Insert tab cards and the page shortcuts, +2,393 B; it was 270,267 B + 1 KiB, builder inspector visual pass: compact Style tab, size centre in the box model, +1,590 B; it was 268,677 B + 1 KiB, builder inspector redesign: header, context line, groups, box model, swatches and scrub, +6,339 B; it was 262,338 B + 1 KiB, builder canvas direct manipulation and visual fixes, +10,683 B; it was 251,655 B + 1 KiB, navigator field-row review fixes, +239 B; it was 251,416 B + 1 KiB, navigator field rows, +1,220 B; before that 249,775 B + 1 KiB, navigator review fixes; it was 248,647 B + 1 KiB, navigator redesign; before that 242,008 B + 3 KiB, SEO drawer).
+	builderTotalCap = 272745 + 1024
 )
 
 // hmImportRx finds a static or dynamic import of a first-party module. Vendored

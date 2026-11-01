@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 56702,
+      "value": 57618,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 101523,
+      "value": 103226,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 101559
+      "cap": 103262
     },
     "editor_js_total_gzip": {
-      "value": 271498,
+      "value": 272745,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 272522
+      "cap": 273769
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -123,6 +123,18 @@
     {
       "reason": "builder Translations drawer: lazy translationsdrawer chunk and a delegated opener in screen.js; editor_js_first_gzip 101122 to 101254 (+132 B), editor_js_total_gzip 262338 to 263484 (+1146 B), caps move by the same amount",
       "date": "2026-10-31"
+    },
+    {
+      "reason": "builder chrome: editor_js_first_gzip 101391 -\u003e 103226 (+1835 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome: editor_js_total_gzip 270352 -\u003e 272745 (+2393 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome: admin_css_gzip 56702 -\u003e 57618 (+916 B)",
+      "date": "2026-11-01"
     }
   ]
 }
