@@ -140,7 +140,8 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		taken[first] = "an archive of your site"
 	}
 	for _, seg := range segments {
-		if reason := reservedSegmentReason(seg); reason != "" {
+		// A stored index or misc segment is live in group naming: only a new one is refused.
+		if reason := reservedSegmentReason(seg); reason != "" && !(stored[seg] && (seg == "index" || seg == "misc")) {
 			return fmt.Errorf("segment %q is %s", seg, reason)
 		}
 		if stored[seg] {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -227,6 +228,22 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 	}
 	if in.Locales != nil || in.PrefixAll != nil || in.XDefaultLocale != nil || in.Language != nil {
 		if !h.applyLocales(w, r, &in, &update) {
+			return
+		}
+	}
+	if in.SitemapNaming != nil && *in.SitemapNaming == "legacy" {
+		entries := update.Locales
+		if entries == nil {
+			cfg, err := h.store.Get(r.Context())
+			if err != nil {
+				h.logger.Error("site settings: load", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to update site settings")
+				return
+			}
+			entries = &cfg.Locales
+		}
+		if seg := siteconfig.SitemapFileSegment(*entries); seg != "" {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid sitemap_naming: the locale segment %q is also a sitemap file name (sitemap-%s.xml). Rename that segment first, or keep group", seg, seg))
 			return
 		}
 	}

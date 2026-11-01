@@ -239,7 +239,19 @@ func (p *sitemapPlan) locales() *entity.LocaleSet { return p.in.Snap.Locales() }
 func (p *sitemapPlan) multi() bool { return p.locales().Multi() }
 
 // legacy reports whether the plan uses the pre-locale file names.
-func (p *sitemapPlan) legacy() bool { return p.multi() && p.in.Naming == "legacy" }
+// A locale segment that is also a legacy file name (index, misc) keeps group
+// naming, so the index never lists one name twice.
+func (p *sitemapPlan) legacy() bool {
+	if !p.multi() || p.in.Naming != "legacy" {
+		return false
+	}
+	for _, e := range p.locales().Entries() {
+		if e.Segment == "index" || e.Segment == "misc" {
+			return false
+		}
+	}
+	return true
+}
 
 func (p *sitemapPlan) collide(msg string) {
 	if !slices.Contains(p.collisions, msg) {

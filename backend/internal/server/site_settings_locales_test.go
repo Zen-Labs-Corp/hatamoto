@@ -279,3 +279,18 @@ func TestValidateLocaleSettingsRejectsHiddenDefault(t *testing.T) {
 		t.Fatalf("want an x_default_locale error, got %v", err)
 	}
 }
+
+// A stored index or misc segment cannot switch to legacy naming, where its
+// locale file would share a name with the sitemap index or misc file.
+func TestSiteSettings_LegacyRefusedForFileNameSegment(t *testing.T) {
+	store := &localeStore{}
+	store.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "misc"}}
+	h := localeRouter(store, nil)
+	rec := doSite(h, http.MethodPatch, "/settings/site/", `{"sitemap_naming":"legacy"}`)
+	testutil.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "sitemap-misc.xml") || store.cfg.SitemapNaming == "legacy" {
+		t.Errorf("body %q naming %q", rec.Body, store.cfg.SitemapNaming)
+	}
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"sitemap_naming":"group"}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+}

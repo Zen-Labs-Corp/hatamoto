@@ -34,6 +34,19 @@ type LocaleEntry struct {
 	Hidden  bool   `json:"hidden,omitempty"` // not public: prefix 404s, left out of sitemaps and hreflang
 }
 
+// SitemapFileSegment returns the first locale segment that is also the name of
+// a sitemap file of the legacy naming ("index" or "misc"), or "". Such a
+// segment can stay in group naming but not in legacy naming, where its locale
+// file would share a name with the sitemap index or the misc file.
+func SitemapFileSegment(entries []LocaleEntry) string {
+	for _, e := range entries {
+		if e.Segment == "index" || e.Segment == "misc" {
+			return e.Segment
+		}
+	}
+	return ""
+}
+
 // Config is the in-memory shape of the singleton row.
 type Config struct {
 	CompanyName       string

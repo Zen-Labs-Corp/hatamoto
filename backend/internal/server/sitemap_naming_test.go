@@ -223,3 +223,19 @@ func TestPlanSitemapNaming_IndexLegacyGolden(t *testing.T) {
 		t.Errorf("index_multi_legacy differs:\n%s", got)
 	}
 }
+
+// A locale whose segment is a legacy file name (misc) keeps group naming, so
+// the index never lists sitemap-misc.xml twice.
+func TestPlanSitemapNaming_LegacyKeepsGroupForFileNameSegment(t *testing.T) {
+	plan := namingPlan(t, namingSnap(t, true, "misc"), "legacy", namingEntries()...)
+	seen := map[string]int{}
+	for _, e := range plan.Index().Sitemaps {
+		seen[e.Loc]++
+		if seen[e.Loc] > 1 {
+			t.Errorf("index lists %s twice", e.Loc)
+		}
+	}
+	if plan.legacy() {
+		t.Error("legacy naming applied with a misc locale segment")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -54,6 +55,11 @@ func (a *Admin) saveLocales(ctx context.Context, cfg *siteconfig.Config, entries
 				field = "xdefault"
 			}
 			return map[string]string{field: err.Error()}, nil
+		}
+	}
+	if naming != nil && *naming == "legacy" {
+		if seg := siteconfig.SitemapFileSegment(entries); seg != "" {
+			return map[string]string{"sitemap_naming": fmt.Sprintf("The locale segment %q is also a sitemap file name (sitemap-%s.xml). Rename that segment first, or keep Group", seg, seg)}, nil
 		}
 	}
 	in := siteconfig.UpdateInput{Locales: &entries, PrefixAll: &prefixAll, XDefaultLocale: &xdef, SitemapNaming: naming}

@@ -239,6 +239,16 @@ func TestAddressesSitemapNaming(t *testing.T) {
 	}
 }
 
+func TestAddressesRefusesLegacyForFileNameSegment(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "index"}}
+	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", url.Values{"sitemap_naming": {"legacy"}}, nil)
+	if rec.Code != 422 || site.cfg.SitemapNaming == "legacy" || !strings.Contains(rec.Body.String(), "sitemap-index.xml") {
+		t.Errorf("code=%d naming=%q", rec.Code, site.cfg.SitemapNaming)
+	}
+}
+
 func TestAddressesRejectsReservedSegmentField(t *testing.T) {
 	t.Parallel()
 	g, site := localeFixture(t)
