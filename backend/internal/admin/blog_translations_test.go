@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -79,5 +80,22 @@ func TestBlogEditorShowsAPanelLoadError(t *testing.T) {
 	g.err = errors.New("db down")
 	body := r.get(t, "owner-token", r.path(), "")
 	has(t, body, `id="be-tab-translations"`, "The translations could not be loaded.", "hm-callout--danger")
-	lacks(t, body, "db down")
+	has(t, body, `href="`+r.path()+`"><span>Retry</span></a>`)
+	lacks(t, body, "db down", "Reload the page")
+}
+
+func TestBlogEditorSaveErrorHidesPanelRetry(t *testing.T) {
+	t.Parallel()
+	r, g := blogTranslationsRig(t, "en", "pt-BR")
+	f := r.form(t)
+	f.Set("seo_canonical", "/c d")
+	f.Set("_op", "save")
+	g.err = errors.New("db down")
+	rec := r.post(r.path(), f)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("save with a bad canonical = %d, want 422", rec.Code)
+	}
+	body := rec.Body.String()
+	has(t, body, "The translations could not be loaded.")
+	lacks(t, body, "Retry")
 }

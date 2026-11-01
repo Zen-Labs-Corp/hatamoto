@@ -40,6 +40,8 @@
 .hm-table th.hm-table__right, .hm-table td.hm-table__right { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table th.hm-table__check, .hm-table td.hm-table__check { width: 40px; padding-right: 0; }
 .hm-table__actions { width: 1%; text-align: right; white-space: nowrap; }
+/* Row buttons and the row menu opener (also .hm-btn) sit in one cell; the menu popover itself is out of flow. */
+.hm-table__actions .hm-btn + .hm-btn { margin-inline-start: var(--space-2); }
 .hm-table__sort { display: inline-flex; align-items: center; gap: var(--space-1); color: inherit; text-decoration: none; }
 .hm-table__sort .hm-icon { width: 12px; height: 12px; opacity: .6; }
 .hm-table__sort:hover { color: var(--color-sumi); }
