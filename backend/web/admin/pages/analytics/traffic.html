@@ -25,7 +25,7 @@
 {{template "hm/barlist" .Devices}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" (dict "ID" "w-t-countries" "Title" "Countries" "Heading" "h3")}}
-{{if .CountriesSetup}}{{template "hm/empty" (dict "Title" "Set up country lookup" "Body" .CountriesSetup "Compact" true)}}{{else}}{{template "hm/barlist" .Countries}}
+{{if .CountriesSetup}}<div class="hm-empty hm-empty--compact"><p class="hm-empty__title">Set up country lookup</p><p class="hm-muted">{{.CountriesBefore}}<code class="hm-aia-mono">{{.CountriesEnv}}</code>{{.CountriesAfter}}</p></div>{{else}}{{template "hm/barlist" .Countries}}
 <p class="hm-aia-small hm-aia-note">From the IP at request time; the IP is discarded.</p>{{end}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" (dict "ID" "w-t-engagement" "Title" "Engagement" "Heading" "h3")}}
