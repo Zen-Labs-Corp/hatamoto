@@ -81,6 +81,7 @@ type rulesPage struct {
 	Tabs     []ui.Tab
 	Table    ui.Table
 	Actions  []ui.Button
+	Menu     []ui.Action
 	Sources  []ui.Option
 	Total    int
 	CSRFHint string
@@ -161,7 +162,7 @@ func (a *Admin) handleRules(w http.ResponseWriter, r *http.Request) {
 			phrase += " (anchor: " + *rl.AnchorText + ")"
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: "rule " + rl.MatchValue, Cells: []ui.Cell{
-			{Text: phrase, Link: a.adminPath + "/settings/linking/rules/" + id}, {Text: rl.TargetEntityName}, {Text: strconv.Itoa(rl.Priority), Bar: &ui.Bar{Label: "Priority " + strconv.Itoa(rl.Priority) + " of 100", Pct: float64(rl.Priority)}}, {Text: strconv.Itoa(rl.LinkCount)}, {Text: sourceLabel(rl.Source)}, {Badge: state},
+			{Text: phrase, Link: a.adminPath + "/settings/linking/rules/" + id}, {Text: rl.TargetEntityName}, {Text: strconv.Itoa(rl.Priority), Bar: &ui.Bar{Label: "Priority " + strconv.Itoa(rl.Priority) + " of 100", Pct: float64(rl.Priority), Kind: "ink"}}, {Text: strconv.Itoa(rl.LinkCount)}, {Text: sourceLabel(rl.Source)}, {Badge: state},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/settings/linking/rules/" + id},
 			{Label: toggle, Post: a.adminPath + "/settings/linking/rules/" + id + "/toggle"},
@@ -170,7 +171,7 @@ func (a *Admin) handleRules(w http.ResponseWriter, r *http.Request) {
 		}})
 	}
 	v := a.NewView(w, r, "Internal linking")
-	v.Data = rulesPage{Tabs: a.linkTabs(a.adminPath + "/settings/linking"), Table: t, Total: res.Total, Actions: []ui.Button{{Label: "New rule", Href: a.adminPath + "/settings/linking/rules/new", Variant: "primary", Icon: "plus"}}, Sources: srcOpts[1:]}
+	v.Data = rulesPage{Tabs: a.linkTabs(a.adminPath + "/settings/linking"), Table: t, Total: res.Total, Actions: []ui.Button{{Label: "New rule", Href: a.adminPath + "/settings/linking/rules/new", Variant: "primary", Icon: "plus"}}, Menu: []ui.Action{{Label: "Delete all rules", Href: a.adminPath + "/settings/linking/rules/delete-all", Danger: true}}, Sources: srcOpts[1:]}
 	a.Render(w, r, http.StatusOK, "linking/rules", v)
 }
 
