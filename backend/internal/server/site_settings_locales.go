@@ -21,8 +21,9 @@ import (
 // term-kind reservation (taxonomy.ReservedSegment) does not cover: the built-in
 // kinds' own archives and the root plugin UI mount. Segments are lowercase
 // words without dots, so file roots (robots.txt, favicon.ico, feed.xml) cannot
-// collide; "sitemap" also reserves its prefix (sitemap-*.xml).
-var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui"}
+// collide; "sitemap" also reserves its prefix (sitemap-*.xml). "index" and "misc"
+// would clash with the sitemap index and the misc file of the legacy naming.
+var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui", "index", "misc"}
 
 // localeSettingsRequest is the part of a site settings change the locale
 // checks look at: the default locale plus the list, prefix-all and x-default.

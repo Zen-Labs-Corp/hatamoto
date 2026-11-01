@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -47,16 +48,18 @@ type siteSettingsResponse struct {
 	// the default locale is Language. PrefixAll puts the default locale under
 	// its own segment too, XDefaultLocale is the hreflang x-default ("" = the
 	// first live copy).
-	Locales           []siteconfig.LocaleEntry `json:"locales"`
-	PrefixAll         bool                     `json:"prefix_all"`
-	XDefaultLocale    string                   `json:"x_default_locale"`
-	Phone             string                   `json:"phone"`
-	BusinessHours     string                   `json:"business_hours"`
-	Address           siteAddress              `json:"address"`
-	LegacyWPRedirects bool                     `json:"legacy_wp_redirects"`
-	HomepageEntityID  *uuid.UUID               `json:"homepage_entity_id,omitempty"`
-	ThemeConfig       siteconfig.ThemeConfig   `json:"theme_config"`
-	UpdatedAt         time.Time                `json:"updated_at"`
+	Locales        []siteconfig.LocaleEntry `json:"locales"`
+	PrefixAll      bool                     `json:"prefix_all"`
+	XDefaultLocale string                   `json:"x_default_locale"`
+	// SitemapNaming is "group" (default) or "legacy" (see siteconfig.Config).
+	SitemapNaming     string                 `json:"sitemap_naming"`
+	Phone             string                 `json:"phone"`
+	BusinessHours     string                 `json:"business_hours"`
+	Address           siteAddress            `json:"address"`
+	LegacyWPRedirects bool                   `json:"legacy_wp_redirects"`
+	HomepageEntityID  *uuid.UUID             `json:"homepage_entity_id,omitempty"`
+	ThemeConfig       siteconfig.ThemeConfig `json:"theme_config"`
+	UpdatedAt         time.Time              `json:"updated_at"`
 }
 
 // siteSettingsPatch is the PATCH body; omitted (null) fields are unchanged.
@@ -71,6 +74,7 @@ type siteSettingsPatch struct {
 	Locales           *[]siteconfig.LocaleEntry `json:"locales"`
 	PrefixAll         *bool                     `json:"prefix_all"`
 	XDefaultLocale    *string                   `json:"x_default_locale"`
+	SitemapNaming     *string                   `json:"sitemap_naming"`
 	Phone             *string                   `json:"phone"`
 	BusinessHours     *string                   `json:"business_hours"`
 	Address           *siteAddress              `json:"address"`
@@ -157,6 +161,7 @@ func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 		Locales:           append([]siteconfig.LocaleEntry{}, cfg.Locales...),
 		PrefixAll:         cfg.PrefixAll,
 		XDefaultLocale:    cfg.XDefaultLocale,
+		SitemapNaming:     cmp.Or(cfg.SitemapNaming, "group"),
 		Phone:             cfg.Phone,
 		BusinessHours:     cfg.BusinessHours,
 		Address:           siteAddress(postalAddress(cfg.PostalAddress)),
@@ -195,7 +200,12 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid primary_color")
 		return
 	}
+	if in.SitemapNaming != nil && *in.SitemapNaming != "group" && *in.SitemapNaming != "legacy" {
+		writeError(w, http.StatusBadRequest, "invalid sitemap_naming: use group or legacy")
+		return
+	}
 	update := siteconfig.UpdateInput{
+		SitemapNaming:     in.SitemapNaming,
 		CompanyName:       in.Name,
 		LogoURL:           in.LogoURL,
 		PrimaryColor:      in.PrimaryColor,

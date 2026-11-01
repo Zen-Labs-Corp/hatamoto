@@ -28,6 +28,9 @@ func (f *localeStore) Update(ctx context.Context, in siteconfig.UpdateInput) (*s
 	if in.XDefaultLocale != nil {
 		f.cfg.XDefaultLocale = *in.XDefaultLocale
 	}
+	if in.SitemapNaming != nil {
+		f.cfg.SitemapNaming = *in.SitemapNaming
+	}
 	return f.fakeSiteStore.Update(ctx, in)
 }
 
@@ -123,6 +126,32 @@ func TestSiteSettings_LocalesRoundTripAndLanguageGuard(t *testing.T) {
 	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"name":"Beta"}`)
 	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	testutil.Equal(t, 2, len(store.cfg.Locales))
+}
+
+func TestSiteSettings_SitemapNaming(t *testing.T) {
+	store := &localeStore{}
+	h := localeRouter(store, nil)
+	rec := doSite(h, http.MethodGet, "/settings/site/", "")
+	if !strings.Contains(rec.Body.String(), `"sitemap_naming":"group"`) {
+		t.Errorf("default not group: %s", rec.Body)
+	}
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"sitemap_naming":"legacy"}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	testutil.Equal(t, "legacy", store.cfg.SitemapNaming)
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"sitemap_naming":"x"}`)
+	testutil.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	testutil.Equal(t, "legacy", store.cfg.SitemapNaming)
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"name":"Beta"}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	testutil.Equal(t, "legacy", store.cfg.SitemapNaming)
+}
+
+func TestReservedSegmentReason_SitemapNames(t *testing.T) {
+	for _, seg := range []string{"index", "misc"} {
+		if reservedSegmentReason(seg) == "" {
+			t.Errorf("segment %q is not reserved", seg)
+		}
+	}
 }
 
 func TestSiteSettings_OneLocaleResponseUnchanged(t *testing.T) {
