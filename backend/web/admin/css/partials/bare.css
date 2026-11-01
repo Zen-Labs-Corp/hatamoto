@@ -1,7 +1,7 @@
 /* Bare layout (sign-in, setup, error pages): overrides of base.css .hm-bare* by specificity. */
 .hm-bare .hm-bare__panel h1 { font-size: var(--text-2xl); font-weight: var(--weight-medium); line-height: var(--leading-tight); }
 .hm-bare .hm-bare__brand { margin-bottom: var(--space-2); }
-/* Quiet links sit close under the primary button. */
-.hm-bare .hm-bare__links { margin-top: calc(-1 * var(--space-2)); }
+/* Quiet links sit close under the form's primary button. */
+.hm-bare .hm-bare__form + .hm-bare__links { margin-top: calc(-1 * var(--space-2)); }
 /* Code blocks inside the bare panel are flat and mono; elsewhere .hm-code keeps its bordered style (pages/forms.css). */
 .hm-bare__panel .hm-code { font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-normal); background: var(--color-kasumi); border: 0; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); overflow-x: auto; }
