@@ -87,6 +87,7 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+seoSocialPath+"/preview", a.handleSEOSocialPreview)
 	owner.HandleFunc("GET "+seoSchemaPath, a.handleSEOSchema)
 	owner.HandleFunc("POST "+seoSchemaPath, a.handleSEOSchemaSave)
+	owner.HandleFunc("GET "+seoKGPath, a.handleSEOKnowledgeGraph)
 }
 
 // seoFieldID turns a validation field name ("type[doc][title]") into the id of
