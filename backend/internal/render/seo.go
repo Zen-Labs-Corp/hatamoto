@@ -1,6 +1,7 @@
 package render
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"slices"
@@ -69,6 +70,12 @@ func hreflangLinks(v *PageView) []altLink {
 // replaceSiteGraph the generic Organization/WebSite graph is omitted because
 // a head filter supplies its own.
 func seoHead(v *PageView, replaceSiteGraph bool) headView {
+	return seoHeadWith(context.Background(), v, replaceSiteGraph, nil)
+}
+
+// seoHeadWith is seoHead with the render.site_graph filter, which extends the
+// core graph unless a head filter replaced it.
+func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg SiteGraphFilter) headView {
 	h := headView{}
 
 	rawTitle := firstNonEmpty(v.Page.Title, v.Page.Name, v.Site.Name)
@@ -115,7 +122,12 @@ func seoHead(v *PageView, replaceSiteGraph bool) headView {
 		}
 	}
 	if !replaceSiteGraph {
-		if s, ok := marshalLDScript(siteGraphLD(v)); ok {
+		core := siteGraphLD(v)
+		s, ok := marshalLDScript(extendSiteGraph(ctx, sg, v, core))
+		if !ok && sg != nil {
+			s, ok = marshalLDScript(core) // a filter answer that cannot be encoded: keep the core graph
+		}
+		if ok {
 			h.Scripts = append(h.Scripts, s)
 		}
 	}

@@ -34,6 +34,8 @@ type Options struct {
 	Settings map[string]any
 	// HeadFilter optionally lets plugins add head tags (fail-open).
 	HeadFilter HeadFilter
+	// SiteGraphFilter optionally lets plugins extend the site graph (fail-open).
+	SiteGraphFilter SiteGraphFilter
 	// Data feeds the recent, terms, menu and srcset template funcs (optional).
 	Data DataSource
 	// ThemeName names the theme in boot fault identifiers (see SetThemeName).
@@ -603,7 +605,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if lp := v.loopPaged; lp != nil {
 		d.Head = e.pagedHead(v, lp)
 	} else {
-		d.Head = buildHeadView(requestCtx(v), v, e.opts.HeadFilter)
+		d.Head = e.headView(v)
 	}
 	// Editor frames (preview and canvas) run no page scripts: no plugin
 	// site.scripts, island, hm.js or head-filter script tag, so nothing in the
@@ -854,4 +856,9 @@ func requestCtx(v *PageView) context.Context {
 		return v.Ctx
 	}
 	return context.Background()
+}
+
+// headView builds the head of v with the engine's plugin filters.
+func (e *Engine) headView(v *PageView) headView {
+	return buildHeadViewWith(requestCtx(v), v, e.opts.HeadFilter, e.opts.SiteGraphFilter)
 }
