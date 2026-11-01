@@ -14,8 +14,10 @@ import (
 // trimmed for the blog editor aside and the builder drawer.
 type translationsPanelData struct {
 	// Err replaces the panel with an error callout when the copies could not be loaded.
-	Err   string
-	Intro string
+	Err string
+	// RetryURL is the editor URL the error callout's Retry link opens.
+	RetryURL string
+	Intro    string
 	// Copies has an Open or Create row per language, and Unlink for those who
 	// may change links. No POST forms: the panel sits inside the editor form.
 	Copies ui.Table

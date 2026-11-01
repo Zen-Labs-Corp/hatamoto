@@ -1,5 +1,5 @@
-{{/* The Translations panel of an entry: who the copies are, with Open and Create, and what search engines see. Shared by the blog editor aside and the builder drawer (the Translations tab page has its own tables). It sits inside the editor form, so it has no field names and no POST forms. Data: translationsPanelData (Intro, Copies, Hreflang, Actions). */}}
-{{define "hm/translations"}}{{if .Err}}{{template "hm/callout" dict "Kind" "error" "Title" "Translations unavailable" "Body" .Err}}{{else}}<div class="hm-stack">
+{{/* The Translations panel of an entry: who the copies are, with Open and Create, and what search engines see. Shared by the blog editor aside and the builder drawer (the Translations tab page has its own tables). It sits inside the editor form, so it has no field names and no POST forms. Data: translationsPanelData (Err, RetryURL, Intro, Copies, Hreflang, Actions). */}}
+{{define "hm/translations"}}{{if .Err}}{{template "hm/callout-start" (dict "Kind" "error" "Title" "Translations unavailable")}}{{.Err}}{{if .RetryURL}} {{template "hm/button" (dict "Label" "Retry" "Size" "sm" "Href" .RetryURL)}}{{end}}{{template "hm/callout-end"}}{{else}}<div class="hm-stack">
 <p class="hm-muted">{{.Intro}}</p>
 {{template "hm/table" .Copies}}
 {{with .Hreflang}}<p class="hm-muted">Search engines see: {{.}}</p>{{end}}
