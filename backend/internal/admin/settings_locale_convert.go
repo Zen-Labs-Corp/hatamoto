@@ -101,6 +101,8 @@ type convertData struct {
 	History          []convertHistoryRow
 	// ReportURL and SuggestURL are the two form targets.
 	ReportURL, SuggestURL string
+	// BackURL is the Locales tab the page header links back to.
+	BackURL string
 }
 
 // convertHistoryRow is one past conversion; RevertHref is empty once reverted.
@@ -193,6 +195,7 @@ func (a *Admin) renderConvert(w http.ResponseWriter, r *http.Request, status int
 	}
 	d.History = a.convertHistory(hist)
 	d.ReportURL, d.SuggestURL = a.convertURL("report"), a.convertURL("suggest")
+	d.BackURL = a.url("settings", "locales")
 	if d.PlanError != "" {
 		d.Summary = append(d.Summary, ui.FieldError{ID: "plan", Label: "Plan", Message: d.PlanError})
 	}
