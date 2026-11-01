@@ -48,7 +48,7 @@ const hints = () => ({
  * root: the empty container. handlers: {onSelect(id, path?), onEdit, onEditText, onRichOpen, onSave, onContract(ok),
  * onLayout, sectionLabel(id)}. Protocol v2 (opts.v2) adds optional handlers:
  * onHover, onSelectNode, onContextMenu, onHandleDown, getSelection, onNodeText, onNodeTextEnd, onNodeTextLimit,
- * onSelection, onKey, onDrift (the frame disagrees with expectOrder), nodeLabel; onLayout then receives the
+ * onSelection, onKey(key, shift, {editing, alt?, mod?}), onDrift (the frame disagrees with expectOrder), nodeLabel; onLayout then receives the
  * node rects ({id,k,t,p,x,y,w,h}, document space). Returns the canvas controller.
  */
 /** The inline preview declarations [[prop, css]] for entry=value: null when the value is refused, [] for a settle key (only the server's css shows it). */
@@ -320,7 +320,11 @@ export function createCanvas(root, handlers, opts = {}) {
         break;
       case "key":
         if (/^s$/i.test(m.key)) break; // a frame never saves
-        handlers.onKey?.(m.key, m.shift, { editing: editingId !== null });
+        handlers.onKey?.(m.key, m.shift, {
+          editing: editingId !== null,
+          ...(m.alt !== undefined && { alt: m.alt }),
+          ...(m.mod !== undefined && { mod: m.mod }),
+        });
         break;
       case "painted":
         if (!m.ok) {

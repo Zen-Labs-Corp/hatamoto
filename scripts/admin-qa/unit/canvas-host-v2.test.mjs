@@ -143,6 +143,18 @@ test("a k key reaches onKey with the edit state: in a text edit it is the link, 
   assert.deepEqual(calls.filter((c) => c[0] === "key").map((c) => c[3]), [{ editing: false }, { editing: true }, { editing: false }]);
 });
 
+test("a key's alt and mod flags reach onKey only when the frame sent them", () => {
+  const { host, calls } = rig({ onKey: (...a) => calls.push(["key", ...a]) });
+  dom.deliver(host, { hm: 2, type: "key", key: "ArrowUp", shift: false, alt: true, mod: false });
+  dom.deliver(host, { hm: 2, type: "key", key: "/", shift: false, mod: false });
+  dom.deliver(host, { hm: 2, type: "key", key: "z", shift: false });
+  assert.deepEqual(calls.filter((c) => c[0] === "key").map((c) => c[3]), [
+    { editing: false, alt: true, mod: false },
+    { editing: false, mod: false },
+    { editing: false },
+  ]);
+});
+
 test("edit() posts the edit message for a node to the active frame", () => {
   const { canvas, frame } = rig();
   const before = frame.posted.length;
