@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -214,13 +215,24 @@ func siteGraphLD(v *PageView) map[string]any {
 	return map[string]any{"@context": "https://schema.org", "@graph": graph}
 }
 
-// ratingLD is the AggregateRating node, or nil without a value.
+// ratingLD is the AggregateRating node, or nil without a value. Best and Worst
+// print when set. Count prints as ratingCount (a string) by default and as
+// reviewCount (a JSON number) when the owner counts reviews; a review count
+// that is not a plain number is left out.
 func ratingLD(r Rating) map[string]any {
 	if r.Value == "" {
 		return nil
 	}
 	out := map[string]any{"@type": "AggregateRating", "ratingValue": r.Value}
-	setIf(out, "ratingCount", r.Count)
+	setIf(out, "bestRating", r.Best)
+	setIf(out, "worstRating", r.Worst)
+	if r.CountType == "reviews" {
+		if n, ok := bizprofile.ParseDecimal(r.Count); ok {
+			out["reviewCount"] = n
+		}
+	} else {
+		setIf(out, "ratingCount", r.Count)
+	}
 	return out
 }
 

@@ -229,3 +229,170 @@ func TestLocalBusinessOpeningHoursOmitEmptyTimes(t *testing.T) {
 		}
 	}
 }
+
+// multiPage is a page of locale xx on a site with locales xx, yy and zz, where
+// xx and zz have an office.
+func multiPage(mode string) *PageView {
+	v := businessPage(&BusinessView{
+		ID: "xx", Phone: "xx-phone", VATID: "V-XX",
+		Address: Address{Street: "Example Street 1", City: "Sample City"}, POBox: "Box 7",
+	})
+	v.Locale = "en-XX"
+	v.Site.OrgAddress = mode
+	v.Site.Language = "en-XX"
+	v.Locales = []LocaleSummary{
+		{Tag: "en-XX", CountryName: "Xland", Phone: "xx-phone", Language: "English", PriceRange: "$$", Currency: "XXD", HasOffice: true},
+		{Tag: "en-YY", CountryName: "Yland", Language: "English"},
+		{Tag: "fr-ZZ", CountryName: "Zland", Phone: "zz-phone", Language: "French",
+			ContactPoints: []ContactPointView{{Name: "Sales", AreaServed: "Europe", AvailableLanguage: "Franglais"}}, HasOffice: true},
+	}
+	return v
+}
+
+func orgOf(t *testing.T, v *PageView) map[string]any {
+	t.Helper()
+	return graphNodes(t, v)[0]
+}
+
+func TestOrgNode_AddressSetting(t *testing.T) {
+	tests := []struct {
+		mode, locale  string
+		office        bool
+		wantStreet    string
+		wantTelephone string
+	}{
+		{"", "xx", true, "Site Street", "site-phone"},
+		{"locale", "xx", true, "Example Street 1", "xx-phone"},
+		{"locale", "yy", false, "", ""},
+		{"locale_or_site", "xx", true, "Example Street 1", "xx-phone"},
+		{"locale_or_site", "yy", false, "Site Street", "site-phone"},
+	}
+	for _, tt := range tests {
+		v := multiPage(tt.mode)
+		if !tt.office {
+			v.Business = nil
+		}
+		org := orgOf(t, v)
+		addr, _ := org["address"].(map[string]any)
+		street, _ := addr["streetAddress"].(string)
+		tel, _ := org["telephone"].(string)
+		if street != tt.wantStreet || tel != tt.wantTelephone {
+			t.Errorf("mode %q office %v: street %q phone %q, want %q %q", tt.mode, tt.office, street, tel, tt.wantStreet, tt.wantTelephone)
+		}
+	}
+	// A shared page and a single-locale page always print the site address.
+	shared := multiPage("locale")
+	shared.Shared, shared.Business = true, nil
+	if addr, _ := orgOf(t, shared)["address"].(map[string]any); addr["streetAddress"] != "Site Street" {
+		t.Errorf("shared page address = %v", addr)
+	}
+	single := multiPage("locale")
+	single.Locales = nil
+	if addr, _ := orgOf(t, single)["address"].(map[string]any); addr["streetAddress"] != "Site Street" {
+		t.Errorf("single-locale address = %v", addr)
+	}
+}
+
+func TestOrgNode_AreaServedAndContactPoints(t *testing.T) {
+	org := orgOf(t, multiPage(""))
+	wantArea := []any{
+		map[string]any{"@type": "Country", "name": "Xland", "identifier": "XX"},
+		map[string]any{"@type": "Country", "name": "Yland", "identifier": "YY"},
+		map[string]any{"@type": "Country", "name": "Zland", "identifier": "ZZ"},
+	}
+	if !reflect.DeepEqual(org["areaServed"], wantArea) {
+		t.Errorf("areaServed = %v", org["areaServed"])
+	}
+	points, _ := org["contactPoint"].([]any)
+	if len(points) != 3 {
+		t.Fatalf("contactPoint = %v, want 2 locale points and the site point", org["contactPoint"])
+	}
+	xx, zz, site := points[0].(map[string]any), points[1].(map[string]any), points[2].(map[string]any)
+	if xx["telephone"] != "xx-phone" || xx["areaServed"] != "Xland" || xx["availableLanguage"] != "English" {
+		t.Errorf("xx point = %v", xx)
+	}
+	if zz["name"] != "Sales" || zz["areaServed"] != "Europe" || zz["availableLanguage"] != "Franglais" {
+		t.Errorf("zz point = %v", zz)
+	}
+	if site["telephone"] != "site-phone" || site["availableLanguage"] != "en-XX" {
+		t.Errorf("site point = %v", site)
+	}
+	if org["priceRange"] != "$$" || org["currenciesAccepted"] != "XXD" || org["vatID"] != "V-XX" {
+		t.Errorf("locale values: %v", org)
+	}
+
+	// One point only: an object, as on a single-locale site.
+	v := multiPage("")
+	v.Locales[0].Phone, v.Locales[2].Phone = "", ""
+	if _, ok := orgOf(t, v)["contactPoint"].(map[string]any); !ok {
+		t.Errorf("a single point must be an object: %v", orgOf(t, v)["contactPoint"])
+	}
+
+	// A shared page and a single-locale site print none of it.
+	for name, page := range map[string]*PageView{"shared": multiPage(""), "single": multiPage("")} {
+		if name == "shared" {
+			page.Shared, page.Business = true, nil
+		} else {
+			page.Locales = nil
+		}
+		org := orgOf(t, page)
+		for _, k := range []string{"areaServed", "image", "priceRange", "currenciesAccepted"} {
+			if _, ok := org[k]; ok {
+				t.Errorf("%s page prints %q", name, k)
+			}
+		}
+		if _, ok := org["contactPoint"].(map[string]any); !ok {
+			t.Errorf("%s page contactPoint = %v, want the site object", name, org["contactPoint"])
+		}
+	}
+}
+
+func TestOrgNode_ExtraFields(t *testing.T) {
+	v := businessPage(nil)
+	v.Site.LogoURL = "/media/logo.png"
+	v.Site.Tagline = "Tagline"
+	v.Site.Org = OrgView{
+		Description: "About", AlternateName: "Alt", Slogan: "Slo", FoundingDate: "2009", VATID: "V9",
+		EmployeesMin: 10, EmployeesMax: 50, LogoObject: true,
+	}
+	org := orgOf(t, v)
+	if org["description"] != "About" || org["alternateName"] != "Alt" || org["slogan"] != "Slo" || org["foundingDate"] != "2009" || org["vatID"] != "V9" {
+		t.Errorf("org = %v", org)
+	}
+	if n, _ := org["numberOfEmployees"].(map[string]any); n["@type"] != "QuantitativeValue" || n["minValue"] != float64(10) || n["maxValue"] != float64(50) {
+		t.Errorf("numberOfEmployees = %v", org["numberOfEmployees"])
+	}
+	if org["logo"] != "https://example.test/media/logo.png" {
+		t.Errorf("logo without dimensions must stay a string, got %v", org["logo"])
+	}
+	v.Site.LogoWidth, v.Site.LogoHeight = 640, 200
+	logo, _ := orgOf(t, v)["logo"].(map[string]any)
+	if logo["@type"] != "ImageObject" || logo["url"] != "https://example.test/media/logo.png" || logo["width"] != float64(640) || logo["height"] != float64(200) {
+		t.Errorf("logo = %v", logo)
+	}
+	v.Site.Org.LogoObject = false
+	if _, ok := orgOf(t, v)["logo"].(string); !ok {
+		t.Errorf("logo with the setting off must be a string")
+	}
+	v.Site.Org.Description = ""
+	if orgOf(t, v)["description"] != "Tagline" {
+		t.Errorf("description must fall back to the tagline")
+	}
+}
+
+func TestRatingLD(t *testing.T) {
+	if got := ratingLD(Rating{Value: "4", Count: "12"}); !reflect.DeepEqual(got, map[string]any{"@type": "AggregateRating", "ratingValue": "4", "ratingCount": "12"}) {
+		t.Errorf("default = %v", got)
+	}
+	got := ratingLD(Rating{Value: "4", Count: "12", Best: "5", Worst: "1", CountType: "reviews"})
+	want := map[string]any{"@type": "AggregateRating", "ratingValue": "4", "bestRating": "5", "worstRating": "1", "reviewCount": float64(12)}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("reviews = %v", got)
+	}
+	if b, _ := json.Marshal(got["reviewCount"]); string(b) != "12" {
+		t.Errorf("reviewCount JSON = %s, want 12", b)
+	}
+	if got := ratingLD(Rating{Value: "4", Count: "0x10", CountType: "reviews"}); got["reviewCount"] != nil || got["ratingCount"] != nil {
+		t.Errorf("bad review count printed: %v", got)
+	}
+}
