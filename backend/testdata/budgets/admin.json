@@ -11,10 +11,10 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103226,
+      "value": 103333,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 103262
+      "cap": 103369
     },
     "editor_js_total_gzip": {
       "value": 272745,
@@ -134,6 +134,10 @@
     },
     {
       "reason": "builder chrome: admin_css_gzip 56702 -\u003e 57618 (+916 B)",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome review fixes (Esc, Enter and Alt+Up/Down handling in phone.js and screen.js): editor_js_first_gzip 103226 to 103333 (+107 B), cap moves by the same amount",
       "date": "2026-11-01"
     }
   ]

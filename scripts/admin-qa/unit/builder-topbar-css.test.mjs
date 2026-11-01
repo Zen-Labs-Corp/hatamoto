@@ -21,6 +21,6 @@ test("forced colors keep the Update dot and the hint's resize glyph (both are ba
   assert.doesNotMatch(css, /so it also works in forced colours/);
 });
 
-test("the right group of the grid bar keeps its own width (an equal 1fr column overflowed at laptop widths)", () => {
-  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) auto max-content;/);
+test("the right group of the grid bar is never narrower than its content (an equal 1fr column overflowed at laptop widths)", () => {
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) auto minmax\(max-content, 1fr\);/);
 });
