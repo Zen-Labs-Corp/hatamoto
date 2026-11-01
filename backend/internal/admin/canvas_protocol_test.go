@@ -275,7 +275,20 @@ func refParseV2(typ string, m refObj) refObj {
 	case "key":
 		if k, ok := refIsStr(m["key"]); ok && len(k) >= 1 && len(k) <= 20 && shiftOK {
 			_ = shift
-			return out("key", "shift")
+			for _, opt := range []string{"alt", "mod"} {
+				if v, present := m[opt]; present {
+					if _, isBool := v.(bool); !isBool {
+						return nil
+					}
+				}
+			}
+			o := out("key", "shift")
+			for _, opt := range []string{"alt", "mod"} {
+				if v, present := m[opt]; present {
+					o[opt] = v
+				}
+			}
+			return o
 		}
 	}
 	return nil

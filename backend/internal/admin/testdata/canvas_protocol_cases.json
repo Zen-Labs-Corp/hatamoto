@@ -2479,6 +2479,89 @@
    }
   },
   {
+   "name": "v2 key alt",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "alt": true
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "alt": true
+   }
+  },
+  {
+   "name": "v2 key mod false",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "/",
+    "shift": false,
+    "mod": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "/",
+    "shift": false,
+    "mod": false
+   }
+  },
+  {
+   "name": "v2 key alt and mod",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "alt": true,
+    "mod": false
+   },
+   "expect": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "alt": true,
+    "mod": false
+   }
+  },
+  {
+   "name": "v2 key alt not boolean",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "alt": "yes"
+   }
+  },
+  {
+   "name": "v2 key mod not boolean",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "key",
+    "key": "ArrowUp",
+    "shift": false,
+    "mod": 1
+   }
+  },
+  {
    "name": "v2 key empty",
    "dir": "in",
    "valid": false,

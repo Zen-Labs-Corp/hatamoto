@@ -114,10 +114,16 @@ function parseV2(data) {
       return Number.isInteger(data.seq) && data.seq >= 0 && (data.ok === undefined || typeof data.ok === "boolean")
         ? { hm: 2, type: "painted", seq: data.seq, ok: data.ok !== false }
         : null;
-    case "key":
-      return isStr(data.key) && data.key.length >= 1 && data.key.length <= 20 && typeof data.shift === "boolean"
-        ? { hm: 2, type: "key", key: data.key, shift: data.shift }
-        : null;
+    case "key": {
+      // alt and mod are optional booleans; absent keeps the legacy meaning (a Ctrl chord)
+      const optBool = (v) => v === undefined || typeof v === "boolean";
+      if (!(isStr(data.key) && data.key.length >= 1 && data.key.length <= 20 && typeof data.shift === "boolean")) return null;
+      if (!optBool(data.alt) || !optBool(data.mod)) return null;
+      const out = { hm: 2, type: "key", key: data.key, shift: data.shift };
+      if (data.alt !== undefined) out.alt = data.alt;
+      if (data.mod !== undefined) out.mod = data.mod;
+      return out;
+    }
     default:
       return null;
   }
