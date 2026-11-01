@@ -24,6 +24,8 @@ type Stat struct {
 	Spark *Spark
 	// Muted marks Value as a placeholder such as "--"; it renders in the muted colour.
 	Muted bool
+	// Small shows Value one step smaller than a metric, for a secondary figure such as a timestamp.
+	Small bool
 }
 
 // StatChange is the change against the previous period. Dir is "up", "down" or

@@ -302,6 +302,7 @@ func sparkSummary(vals []int64, unit string) string {
 type Progress struct {
 	Label, Value, Kind string
 	Pct                float64
+	Thin               bool // a slimmer bar
 }
 
 // Width is Pct clamped to the bar.
