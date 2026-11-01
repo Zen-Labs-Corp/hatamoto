@@ -1166,8 +1166,8 @@ with a warning; the page still renders.
 
 **Head tags** – the `render.head` filter (`sdk.RenderHead`) receives the page
 (`Path`, `Language`, `SchemaSlug`, `EntityID` and, on a site with several public
-locales, `Locale` and `Segment`: the page's locale tag and its stored URL
-segment, the latter empty for a default locale served without a prefix) and appends structured tags. A
+locales, `Locale` and `Segment`: the page's locale tag and its URL prefix
+segment, the latter empty for a locale served without a prefix) and appends structured tags. A
 plugin never supplies raw HTML:
 
 | `Kind` | Allowed `Attrs` |
