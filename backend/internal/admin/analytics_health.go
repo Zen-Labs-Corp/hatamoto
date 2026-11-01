@@ -67,7 +67,7 @@ func responsesBar(s2, s3, s4, s5 int64) *ui.CategoryBar {
 		return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: shareText(ratio(n, all))}
 	}
 	return &ui.CategoryBar{Label: "Responses by status class", Columns: true, Segments: []ui.CategorySegment{
-		seg("2xx success", "success", s2), seg("3xx redirect", "series-1", s3), seg("4xx client error", "warning", s4), seg("5xx server error", "danger", s5)}}
+		seg("2xx success", "series-2", s2), seg("3xx redirect", "series-3", s3), seg("4xx client error", "warning", s4), seg("5xx server error", "danger", s5)}}
 }
 
 // verificationBar is the verification result of fetches as one bar; nil when none.
@@ -80,7 +80,7 @@ func verificationBar(verified, unverifiable, spoofed int64) *ui.CategoryBar {
 		return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: shareText(ratio(n, all))}
 	}
 	return &ui.CategoryBar{Label: "Fetches by verification result", Columns: true, Segments: []ui.CategorySegment{
-		seg("Verified", "success", verified), seg("Unverifiable", "series-6", unverifiable), seg("Spoofed", "danger", spoofed)}}
+		seg("Verified", "series-2", verified), seg("Unverifiable", "series-3", unverifiable), seg("Spoofed", "danger", spoofed)}}
 }
 
 func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, cmp bool) (any, error) {
@@ -125,7 +125,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 	p := &healthPage{
 		Hero: ui.AiaChart{ID: "w-h-hero", Title: "Verified and spoofed fetches", Description: "Each fetch is checked against the operator\u2019s published method.",
 			Src: src, Chart: "verified", Panels: "verified|spoofed", PanelLabels: "Verified fetches per " + unit + "|Spoofed fetches per " + unit,
-			Override: `{"Spoofed":{"cls":"hm-viz--danger","marker":"triangle","dash":""}}`, Hero: true, Compare: cmp,
+			Override: `{"Verified":{"n":2},"Spoofed":{"cls":"hm-viz--danger","marker":"triangle","dash":""}}`, Hero: true, Compare: cmp,
 			Table: withoutTotal(vm.table("Verified and spoofed fetches per day", "Day"))},
 		Verification: verificationBar(t.Verified, t.Unverifiable, t.Spoofed),
 		Spoofed:      ui.BarList{Label: "Spoofed fetches by claimed agent", Quiet: true, Empty: "No spoofed fetches in this period."},
@@ -213,9 +213,9 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 		if ag.IgnoresRobots {
 			honours = ui.Badge{Label: "No", Kind: "warning"}
 		}
-		policy := ui.Badge{Label: "Allowed", Kind: "success"}
+		policy := ui.Badge{Label: "Allowed", Kind: "neutral"}
 		if denied[purposeID(ag.Purpose)] {
-			policy = ui.Badge{Label: "Blocked"}
+			policy = ui.Badge{Label: "Blocked", Kind: "danger"}
 		}
 		p.Compliance.Rows.Rows = append(p.Compliance.Rows.Rows, []ui.AiaCell{{Text: ag.Name, Href: sectionHref(a.adminPath+"/analytics/agents/"+url.PathEscape(ag.ID), q)},
 			{Text: ag.Purpose}, {Badge: &honours}, {Badge: &policy}, {Text: fmtNum(ag.Hits)}})

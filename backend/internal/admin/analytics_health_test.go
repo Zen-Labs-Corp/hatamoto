@@ -45,9 +45,9 @@ func TestHealthSection(t *testing.T) {
 			t.Errorf("hero table missing %q", want)
 		}
 	}
-	// Verification: three results in the prototype's colours, then who was spoofed
+	// Verification: three results in ink, a light step and red, then who was spoofed
 	ver := cardOf(t, body, "w-h-ver")
-	for _, want := range []string{`Verified <span class="hm-catbar__value">30</span><span class="hm-catbar__share">75%</span>`, "Unverifiable", "hm-viz--series-6", `Spoofed <span class="hm-catbar__value">5</span><span class="hm-catbar__share">12%</span>`, "hm-viz--danger"} {
+	for _, want := range []string{`Verified <span class="hm-catbar__value">30</span><span class="hm-catbar__share">75%</span>`, "Unverifiable", "hm-viz--series-3", `Spoofed <span class="hm-catbar__value">5</span><span class="hm-catbar__share">12%</span>`, "hm-viz--danger"} {
 		if !strings.Contains(ver, want) {
 			t.Errorf("verification missing %q", want)
 		}
