@@ -133,3 +133,61 @@ func TestPatchSchemaSEOTxRunsNoHooks(t *testing.T) {
 		t.Fatalf("hook ran for a failed patch: %d calls", calls)
 	}
 }
+
+func TestUpdateSchemaSEOSettingsTypeKeys(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	existing := seedSchema(t, sr, func(s *EntitySchema) {
+		s.Settings = json.RawMessage(`{"future_key":1}`)
+	})
+	off := false
+	err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{
+		SchemaOrgType: strp("Article"), ArticleType: strp("NewsArticle"), FAQFromContent: &off,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(sr.schemas[existing.ID].Settings, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"future_key": `1`, "schema_org_type": `"Article"`, "article_type": `"NewsArticle"`, "faq_from_content": `false`,
+	}
+	for k, v := range want {
+		if string(got[k]) != v {
+			t.Errorf("%s = %s, want %s", k, got[k], v)
+		}
+	}
+	st, _ := sr.schemas[existing.ID].URLSettings()
+	if st.FAQEnabled() {
+		t.Error("FAQ should be off")
+	}
+
+	on := true
+	err = svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{
+		SchemaOrgType: strp(""), ArticleType: strp(""), FAQFromContent: &on,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(sr.schemas[existing.ID].Settings); s != `{"future_key":1}` {
+		t.Fatalf("settings = %s", s)
+	}
+}
+
+func TestUpdateSchemaSEOSettingsRejectsBadTypes(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	existing := seedSchema(t, sr)
+	for field, p := range map[string]SchemaSEOPatch{
+		"schema_org_type": {SchemaOrgType: strp("FAQPage")},
+		"article_type":    {ArticleType: strp("WebPage")},
+	} {
+		err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, p)
+		var se *SettingsError
+		if !errors.As(err, &se) || se.Field != field {
+			t.Errorf("%s: err = %v", field, err)
+		}
+	}
+}

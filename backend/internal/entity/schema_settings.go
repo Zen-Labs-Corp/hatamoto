@@ -49,6 +49,12 @@ type SchemaURLSettings struct {
 	// fields the generic document cannot supply (FAQPage, Product, Event) are
 	// excluded; use annotations or a plugin builder for those.
 	SchemaOrgType string `json:"schema_org_type,omitempty"`
+	// ArticleType is the @type of Article-family documents of this schema
+	// (one of AllowedArticleTypes, checked on write only).
+	ArticleType string `json:"article_type,omitempty"`
+	// FAQFromContent turns FAQPage extraction from the entry body on or off;
+	// absent means on.
+	FAQFromContent *bool `json:"faq_from_content,omitempty"`
 	// Editor selects the admin editing screen for the type: "" is the generic
 	// form, EditorPost is the post (TipTap) editor used by blog posts.
 	// Any other value, including a non-string, reads as "" (checked on write only).
@@ -82,6 +88,14 @@ var AllowedSchemaOrgTypes = []string{
 // IsAllowedSchemaOrgType reports whether t is in AllowedSchemaOrgTypes.
 func IsAllowedSchemaOrgType(t string) bool {
 	return slices.Contains(AllowedSchemaOrgTypes, t)
+}
+
+// AllowedArticleTypes is the allowlist for settings.article_type.
+var AllowedArticleTypes = []string{"Article", "BlogPosting", "NewsArticle"}
+
+// FAQEnabled reports whether FAQPage extraction from the body is on (the default).
+func (st SchemaURLSettings) FAQEnabled() bool {
+	return st.FAQFromContent == nil || *st.FAQFromContent
 }
 
 // Length limits (in characters, after trimming) for the archive settings.
@@ -181,6 +195,9 @@ func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
 	}
 	if st.SchemaOrgType != "" && !IsAllowedSchemaOrgType(st.SchemaOrgType) {
 		return settingsErr("schema_org_type", "settings.schema_org_type %q is not one of %s", st.SchemaOrgType, strings.Join(AllowedSchemaOrgTypes, ", "))
+	}
+	if st.ArticleType != "" && !slices.Contains(AllowedArticleTypes, st.ArticleType) {
+		return settingsErr("article_type", "settings.article_type %q is not one of %s", st.ArticleType, strings.Join(AllowedArticleTypes, ", "))
 	}
 	var obj map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &obj)

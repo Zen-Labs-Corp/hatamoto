@@ -9,11 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SchemaSEOPatch changes the archive title and description of a schema. A nil
-// field is left alone; an empty string removes the key.
+// SchemaSEOPatch changes the SEO-related settings of a schema. A nil field is
+// left alone; an empty string removes the key. FAQFromContent true removes the
+// key (the default is on); false stores false.
 type SchemaSEOPatch struct {
 	ArchiveTitle       *string
 	ArchiveDescription *string
+	SchemaOrgType      *string
+	ArticleType        *string
+	FAQFromContent     *bool
 }
 
 // UpdateSchemaSEOSettings writes the archive title and description into the
@@ -81,6 +85,19 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 	}
 	if err := set("archive_description", p.ArchiveDescription); err != nil {
 		return nil, err
+	}
+	if err := set("schema_org_type", p.SchemaOrgType); err != nil {
+		return nil, err
+	}
+	if err := set("article_type", p.ArticleType); err != nil {
+		return nil, err
+	}
+	if p.FAQFromContent != nil {
+		if *p.FAQFromContent {
+			delete(obj, "faq_from_content")
+		} else {
+			obj["faq_from_content"] = json.RawMessage("false")
+		}
 	}
 	return json.Marshal(obj)
 }
