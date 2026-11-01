@@ -11,13 +11,13 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103333,
+      "value": 103395,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 103369
+      "cap": 103431
     },
     "editor_js_total_gzip": {
-      "value": 272745,
+      "value": 273094,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 273769
@@ -138,6 +138,10 @@
     },
     {
       "reason": "builder chrome review fixes (Esc, Enter and Alt+Up/Down handling in phone.js and screen.js): editor_js_first_gzip 103226 to 103333 (+107 B), cap moves by the same amount",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "builder chrome acceptance fixes (hint bar chips and x dismiss, published pending line): editor_js_first_gzip 103333 to 103395 (+62 B, cap moves by the same amount), editor_js_total_gzip 272745 to 273094 (+349 B)",
       "date": "2026-11-01"
     }
   ]
