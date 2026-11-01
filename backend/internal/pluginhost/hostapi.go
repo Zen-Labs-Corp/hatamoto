@@ -906,22 +906,37 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 	return a.entityDTOGrouped(ctx, ent), nil
 }
 
+// localeRequiredSince is the first SDK version whose plugins must name the
+// locale of the entities they create.
+const localeRequiredSince = "0.15.0"
+
 // requiresLocale reports whether the calling plugin was built for SDK 0.15 or
-// later only: its range holds the current SDK but none of the older versions
-// the host still serves. Older plugins keep the site language as the default.
+// later only. Older plugins keep the site language as the default.
 func requiresLocale(env *callEnv) bool {
 	if env == nil {
 		return false
 	}
-	if ok, err := sdk.Satisfies(sdk.Version, env.manifest.SDK); err != nil || !ok {
-		return false
-	}
-	for _, v := range sdk.CompatibleWith {
-		if ok, _ := sdk.Satisfies(v, env.manifest.SDK); ok {
+	return rangeRequiresLocale(env.manifest.SDK, append(slices.Clone(sdk.CompatibleWith), sdk.Version))
+}
+
+// rangeRequiresLocale reports whether rng admits some version in compatible
+// at or after localeRequiredSince and none before it.
+func rangeRequiresLocale(rng string, compatible []string) bool {
+	admitsNew := false
+	for _, v := range compatible {
+		ok, err := sdk.Satisfies(v, rng)
+		if err != nil {
 			return false
 		}
+		if !ok {
+			continue
+		}
+		if older, _ := sdk.Satisfies(v, "<"+localeRequiredSince); older {
+			return false
+		}
+		admitsNew = true
 	}
-	return true
+	return admitsNew
 }
 
 // translationTarget loads and checks the entity a new entity of schema in
