@@ -342,7 +342,7 @@ test("badge fills score and tone from the analyze HTML", async () => {
   assert.equal(r.btn.kids.length, 1);
   assert.equal(r.btn.kids[0].tone, "warn");
   assert.equal(r.btn.kids[0].text, "82");
-  assert.equal(r.attrs["aria-label"], "SEO 82");
+  assert.equal(r.attrs["aria-label"], undefined); // the visible text names the button
 });
 
 test("badge stays plain on fetch failure", async () => {
