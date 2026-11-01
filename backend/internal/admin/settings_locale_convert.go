@@ -255,6 +255,11 @@ func (a *Admin) handleConvertSuggest(w http.ResponseWriter, r *http.Request) {
 	if !a.convertReady(w, r) {
 		return
 	}
+	// Suggest ignores the posted plan, but reading the form applies the body
+	// cap and answers a malformed body like the other routes.
+	if _, ok := a.convertPlanText(w, r); !ok {
+		return
+	}
 	plan, warnings, err := a.deps.LocaleConvert.Suggest(r.Context())
 	d := convertData{Warnings: convertIssues(warnings)}
 	if errors.Is(err, localeconv.ErrNoRegionTree) {

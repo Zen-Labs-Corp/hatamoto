@@ -539,6 +539,14 @@ func TestLocalesTabLinksToTheConversion(t *testing.T) {
 // convertMultipart posts a multipart form with one oversized field.
 func convertMultipart(g *rig, path string, fields map[string]string) *httptest.ResponseRecorder {
 	g.t.Helper()
+	return convertMultipartDeclared(g, path, fields, -1)
+}
+
+// convertMultipartDeclared posts the fields with a declared Content-Length
+// (declared >= 0), so the cap is enforced by the body reader and not by the
+// up-front size check.
+func convertMultipartDeclared(g *rig, path string, fields map[string]string, declared int64) *httptest.ResponseRecorder {
+	g.t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	for k, v := range fields {
@@ -547,6 +555,9 @@ func convertMultipart(g *rig, path string, fields map[string]string) *httptest.R
 	_ = mw.Close()
 	req := httptest.NewRequest("POST", path, &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if declared >= 0 {
+		req.ContentLength = declared
+	}
 	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
 	g.addFetchMeta(req, "owner-token", nil)
 	rec := httptest.NewRecorder()
@@ -567,6 +578,21 @@ func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
 	}
 	if len(fc.applied) != 0 {
 		t.Error("an oversized body was applied")
+	}
+
+	// A body that declares a small size but streams more is stopped by the
+	// MaxBytesReader on every route.
+	for _, c := range []struct{ path, want string }{
+		{"/report", "larger than 1 MiB"}, {"/suggest", "larger than 1 MiB"},
+		{"/apply", "Too large"}, {"/history/3/revert", "Too large"},
+	} {
+		rec := convertMultipartDeclared(g, convertBase+c.path, map[string]string{"plan": huge}, 1)
+		if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), c.want) {
+			t.Errorf("declared 1 %s: %d, want 413 with %q", c.path, rec.Code, c.want)
+		}
+	}
+	if len(fc.applied) != 0 || len(fc.reverted) != 0 {
+		t.Error("an oversized streamed body was applied or reverted")
 	}
 
 	// A declared size over the cap is refused before the body is touched.
