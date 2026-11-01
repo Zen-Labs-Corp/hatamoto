@@ -406,6 +406,14 @@ func TestRedirectCreateGoesToList(t *testing.T) {
 	if strings.Index(body, "<table") < strings.Index(body, "Test a URL") {
 		t.Error("the Test a URL card must come before the table")
 	}
+	for _, want := range []string{`hx-select="#explain-result"`, `id="test-answer"`, `action="/admin/settings/redirects/explain"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Test a URL form lacks %s", want)
+		}
+	}
+	if on, off, del := strings.Index(body, "Turn on"), strings.Index(body, "Turn off"), strings.LastIndex(body, "Delete"); !(on < off && off < del) {
+		t.Errorf("bulk order must be Turn on, Turn off, Delete (%d %d %d)", on, off, del)
+	}
 	for _, want := range []string{`data-hm-open="new-redirect"`, `id="new-redirect"`, `form="new-redirect-form"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
