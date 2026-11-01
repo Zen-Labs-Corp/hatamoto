@@ -416,6 +416,14 @@ func TestRowButton(t *testing.T) {
 	if err != nil || !strings.Contains(danger, "hm-btn--danger-text") || !strings.Contains(danger, "data-hm-danger") {
 		t.Errorf("danger row button = %q, %v", danger, err)
 	}
+	open, err := render(ui.Action{Button: true, Label: "Edit", Open: "dlg", Href: "/x"})
+	if err != nil || !strings.Contains(open, `data-hm-open="dlg"`) || !strings.Contains(open, "hm-btn--secondary") {
+		t.Errorf("open row button = %q, %v", open, err)
+	}
+	confirm, err := render(ui.Action{Button: true, Label: "Archive", Confirm: "Sure?", Href: "/x"})
+	if err != nil || !strings.Contains(confirm, `data-hm-confirm="Sure?"`) || !strings.Contains(confirm, "hm-btn--secondary") || strings.Contains(confirm, "data-hm-danger") || strings.Contains(confirm, "hm-btn--danger") {
+		t.Errorf("confirm row button = %q, %v", confirm, err)
+	}
 	if _, err := render(ui.Action{Button: true, Label: "Open"}); err == nil || !strings.Contains(err.Error(), "hm/rowbutton Href") {
 		t.Errorf("row button without Href: err = %v, want hm/rowbutton Href", err)
 	}

@@ -80,7 +80,7 @@ func TestBlogEditorShowsAPanelLoadError(t *testing.T) {
 	g.err = errors.New("db down")
 	body := r.get(t, "owner-token", r.path(), "")
 	has(t, body, `id="be-tab-translations"`, "The translations could not be loaded.", "hm-callout--danger")
-	has(t, body, "Retry", `href="`+r.path()+`"`)
+	has(t, body, `href="`+r.path()+`"><span>Retry</span></a>`)
 	lacks(t, body, "db down", "Reload the page")
 }
 
