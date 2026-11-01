@@ -82,7 +82,6 @@
 .hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: 0 1 auto; min-width: 4rem; overflow: hidden; } /* the status gives way after the title: an ellipsis, the full line in its title */
-.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state .hm-savestate { max-inline-size: 100%; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state .hm-savestate__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
 .hm-editor-bar:has([data-hm-bs-title]) > :not(.hm-editor-bar__title) { flex-shrink: 0; }
