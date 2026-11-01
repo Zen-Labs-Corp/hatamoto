@@ -224,6 +224,7 @@ func TestBridgeForwardsShortcutSet(t *testing.T) {
 		"if (alt) send = (k === 'ArrowUp' || k === 'ArrowDown');",
 		"k === 'Escape' || k === 'Enter' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace'",
 		"k === '1' || k === '2' || k === '3'",
+		"if (selectedKey || k === '/' || k === '?') e.preventDefault();",
 		"post2({ type: 'key', key: k, shift: !!shift, alt: !!alt, mod: false })",
 	} {
 		if !strings.Contains(canvasBridgeJS, want) {

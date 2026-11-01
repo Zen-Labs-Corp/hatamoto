@@ -1106,7 +1106,7 @@
       else if (!shift) send = send || k === 'Escape' || k === 'Enter' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace' || k === '1' || k === '2' || k === '3';
     } else if (!alt && !shift) send = send || k === '1' || k === '2' || k === '3';
     if (!send) return;
-    if (selectedKey) e.preventDefault();
+    if (selectedKey || k === '/' || k === '?') e.preventDefault(); // a bare / opens Quick Find in Firefox
     post2({ type: 'key', key: k, shift: !!shift, alt: !!alt, mod: false });
   });
 
