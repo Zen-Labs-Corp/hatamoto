@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/seo"
@@ -119,14 +120,36 @@ func TestSEOSocialRejectsInvalidInput(t *testing.T) {
 		s := newSEORig(t, newFakeSEO())
 		form := goodSocialForm()
 		edit(form)
-		next := seoSocialFromForm(form, socialState{Types: []seoSocialTypeRow{{Slug: "service"}}})
-		probe := seo.Defaults()
-		probe.Social = next.Set
-		if len(probe.Validate()) == 0 {
-			t.Errorf("%s: accepted", name)
+		rec := s.do("POST", "/admin/settings/seo/social", "owner-token", form, nil)
+		if rec.Code != 422 {
+			t.Errorf("%s: status %d, want 422", name, rec.Code)
+			continue
 		}
-		if s.svc.merges != 0 {
+		body := rec.Body.String()
+		if !strings.Contains(body, "problem") || !strings.Contains(body, "hm-field--invalid") {
+			t.Errorf("%s: no error shown", name)
+		}
+		if s.svc.merges != 0 || s.flushed != 0 {
 			t.Errorf("%s: something was saved", name)
 		}
+	}
+}
+
+func TestSEOSocialPageAndPreview(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	s.svc.set.Social.Types = map[string]seo.SocialType{"service": {Title: "%title% %sep% Services"}}
+	body := s.get(t, "/admin/settings/seo/social")
+	for _, name := range []string{"image", "twitter_site", "card", "fb_app_id", "fb_page", "site_tags", "articles", "social[service][title]", "social[service][image]", "social_taxonomy[tag]"} {
+		if seoControlTag(body, name) == "" {
+			t.Errorf("page lacks control %q", name)
+		}
+	}
+	form := goodSocialForm()
+	rec := s.do("POST", "/admin/settings/seo/social/preview", "owner-token", form, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Sample title "+seo.DefaultSeparator+" Services") || !strings.Contains(rec.Body.String(), "/media/service.png") {
+		t.Errorf("preview = %d, lacks the typed template or image", rec.Code)
+	}
+	if s.svc.merges != 0 {
+		t.Error("preview saved")
 	}
 }

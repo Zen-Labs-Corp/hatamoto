@@ -359,6 +359,8 @@ func TestSEOPagesGolden(t *testing.T) {
 	s.svc.set.Types["service"] = seo.TypeTemplates{Title: "%title% %sep% Services", Description: "Read about %title%."}
 	compareGolden(t, "pages/settings-seo-general.html", normalizePage(s.get(t, "/admin/settings/seo/general")))
 	compareGolden(t, "pages/settings-seo-titles.html", normalizePage(s.get(t, "/admin/settings/seo/titles")))
+	s.svc.set.Social = seo.Social{Image: "/media/card.png", TwitterSite: "@example", SiteTags: true, Types: map[string]seo.SocialType{"service": {Title: "%title% %sep% Services"}}}
+	compareGolden(t, "pages/settings-seo-social.html", normalizePage(s.get(t, "/admin/settings/seo/social")))
 }
 
 func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {

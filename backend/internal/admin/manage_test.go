@@ -724,10 +724,10 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 		"entities/parent":   true,                            // a fragment: content_forge_test.go
 		"entities/blogedit": true, "entities/seopanel": true, // v1-13: blog_editor_test.go
 		"entities/translation-new": true, "taxonomies/term-copy-new": true, // translations_copy_test.go, taxonomies_locales_test.go
-		"entities/buildertranslations": true,                              // a fragment: builder_translations_test.go
-		"entities/builderseo":          true,                              // a fragment: builder_seo_test.go
-		"dev/styleguide":               true,                              // styleguide_test.go (Dev only)
-		"settings/seo-general":         true, "settings/seo-titles": true, // seo_settings_test.go
+		"entities/buildertranslations": true,                                                           // a fragment: builder_translations_test.go
+		"entities/builderseo":          true,                                                           // a fragment: builder_seo_test.go
+		"dev/styleguide":               true,                                                           // styleguide_test.go (Dev only)
+		"settings/seo-general":         true, "settings/seo-titles": true, "settings/seo-social": true, // seo_settings_test.go
 	}
 	for _, names := range areaPages {
 		for _, n := range names {
