@@ -111,3 +111,49 @@ func TestValidate_BadLatKeepsOwnError(t *testing.T) {
 		t.Errorf("errors = %v", errs)
 	}
 }
+
+func TestValidate_ExtendedFields(t *testing.T) {
+	if errs := Validate(filledExtended()); len(errs) != 0 {
+		t.Fatalf("filled profile: %v", errs)
+	}
+	tests := []struct {
+		name string
+		p    Profile
+		path string
+		msg  string
+	}{
+		{"naics short", Profile{Naics: "5"}, "naics", "Enter 2 to 6 digits."},
+		{"naics letters", Profile{Naics: "54a1"}, "naics", "Enter 2 to 6 digits."},
+		{"isic", Profile{Isic: "620"}, "isic", "Enter 4 digits."},
+		{"duns", Profile{Duns: "12345678"}, "duns", "Enter 9 digits."},
+		{"lei", Profile{Lei: "short"}, "lei", "Enter 20 letters or digits."},
+		{"gln", Profile{Gln: "123"}, "gln", "Enter 13 digits."},
+		{"booking url", Profile{BookingURL: "book now"}, "booking_url", "Enter a full web address starting with http:// or https://."},
+		{"order url", Profile{OrderURL: "ftp://x.test"}, "order_url", "Enter a full web address starting with http:// or https://."},
+		{"menu url", Profile{MenuURL: "x"}, "menu_url", "Enter a full web address starting with http:// or https://."},
+		{"radius text", Profile{ServiceRadiusKm: "far"}, "service_radius_km", "Enter a distance in kilometres."},
+		{"radius zero", Profile{ServiceRadiusKm: "0"}, "service_radius_km", "Enter a distance in kilometres."},
+		{"founder nameless", Profile{Founders: []Person{{Name: "A"}, {URL: "https://example.test"}}}, "founders.1.name", "Enter a name."},
+		{"founder url", Profile{Founders: []Person{{Name: "A", URL: "x"}}}, "founders.0.url", "Enter a full web address starting with http:// or https://."},
+		{"membership nameless", Profile{Memberships: []Person{{}}}, "memberships.0.name", "Enter a name."},
+		{"parent nameless", Profile{ParentOrg: Person{URL: "https://example.test"}}, "parent_organisation.name", "Enter a name."},
+		{"parent url", Profile{ParentOrg: Person{Name: "P", URL: "x"}}, "parent_organisation.url", "Enter a full web address starting with http:// or https://."},
+		{"service nameless", Profile{Services: []Service{{Price: "5"}}}, "services.0.name", "Enter a name."},
+		{"service price text", Profile{Services: []Service{{Name: "S", Price: "cheap"}}}, "services.0.price", "Enter a price of 0 or more, such as 49.90."},
+		{"service price negative", Profile{Services: []Service{{Name: "S", Price: "-1"}}}, "services.0.price", "Enter a price of 0 or more, such as 49.90."},
+		{"service url", Profile{Services: []Service{{Name: "S", URL: "x"}}}, "services.0.url", "Enter a full web address starting with http:// or https://."},
+		{"amenity nameless", Profile{Amenities: []Amenity{{Value: true}}}, "amenities.0.name", "Enter a name."},
+		{"brand long", Profile{Brands: []string{"ok", strings.Repeat("x", 201)}}, "brands.1", "Use at most 200 characters."},
+		{"award long", Profile{Awards: []string{strings.Repeat("x", 201)}}, "awards.0", "Use at most 200 characters."},
+	}
+	for _, tt := range tests {
+		errs := Validate(tt.p)
+		if errs[tt.path] != tt.msg || len(errs) != 1 {
+			t.Errorf("%s: errs = %v, want only %s: %q", tt.name, errs, tt.path, tt.msg)
+		}
+	}
+	ok := Profile{Lei: "5493001kjtiigc8y1r12", ServiceRadiusKm: "12.5", Services: []Service{{Name: "S", Price: "0"}}}
+	if errs := Validate(ok); len(errs) != 0 {
+		t.Errorf("lowercase LEI, zero price: %v", errs)
+	}
+}
