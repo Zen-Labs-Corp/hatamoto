@@ -587,7 +587,7 @@ func TestSchemaScreens(t *testing.T) {
 
 	c := newContentRig(t)
 	body := c.get(t, "owner-token", "/admin/settings/types", "schemas-list")
-	has(t, body, "Service", "/services/{path}", "page (built in)")
+	has(t, body, "Service", "/services/{path}", "Built in")
 	id := fid(1).String()
 	body = c.get(t, "owner-token", "/admin/settings/types/"+id, "schema-edit")
 	has(t, body, `name="f.r0.name" value="summary"`, `data-hm-field-list`, "Move up", "preview-pattern", `data-hm-kind`)
