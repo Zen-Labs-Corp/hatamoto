@@ -87,6 +87,9 @@ func TestCopyDialogAndPageShareFields(t *testing.T) {
 		t.Errorf("dialog fields %v differ from page fields %v", dialog, pageForm)
 	}
 	has(t, page, "Company")
+	const help = "Copies the last saved version. Save first to include your latest edits."
+	has(t, tab, help)
+	has(t, page, help)
 }
 
 func TestCopyNewPageUnknownLocale(t *testing.T) {
