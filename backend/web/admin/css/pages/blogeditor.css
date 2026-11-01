@@ -139,6 +139,7 @@
 .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); }
 .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); }
 .hm-bp__summary { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
+.hm-bp__summary--pass strong, .hm-bp__summary--warn strong, .hm-bp__summary--fail strong { color: inherit; font-weight: var(--weight-medium); }
 .hm-be__count--warn .hm-be__count-msg { color: var(--color-warning); }
 .hm-be__count--fail .hm-be__count-msg { color: var(--color-danger); }
 .hm-bp__h { font-size: var(--text-md); margin: var(--space-3) 0 var(--space-2); }
