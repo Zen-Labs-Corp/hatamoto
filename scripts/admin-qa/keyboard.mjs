@@ -318,7 +318,8 @@ await check("builder tree: roving tab stop, arrows move the selection, Left/Righ
 await check("builder tree: Alt+arrows move, indent and outdent, Delete removes, Ctrl+Z restores", async () => {
   await openBuilder();
   const start = sig(await rows());
-  const second = async () => (await rows()).find((r) => r.level >= 2 && r.pos === 2);
+  // A content-field row (id "<section>#<key>") is level 2 too but never reaches onSelect: only a real child block can move.
+  const second = async () => (await rows()).find((r) => r.level >= 2 && r.pos === 2 && !String(r.id).includes("#"));
   let target = await second();
   // The seed has no section with two children: nest a heading into the seeded section (undone with the rest below).
   if (!target) {
@@ -342,9 +343,9 @@ await check("builder tree: Alt+arrows move, indent and outdent, Delete removes, 
   await press("Alt+ArrowRight");
   r = (await rows()).find((x) => x.id === id);
   if (r.level !== level) throw new Error("Alt+ArrowRight left level " + r.level);
-  const n = (await rows()).length;
   await press("Delete");
-  if ((await rows()).length >= n) throw new Error("Delete removed nothing");
+  // Compare ids, not the row count: removing the last child block brings the section's content-field rows back.
+  if ((await rows()).some((x) => x.id === id)) throw new Error("Delete removed nothing");
   for (let i = 0; i < 12 && sig(await rows()) !== start; i++) await press("Control+z");
   const end = sig(await rows());
   if (end !== start) throw new Error("undo did not restore the structure");
