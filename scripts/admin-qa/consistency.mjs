@@ -24,8 +24,8 @@ const PASSWORD = process.env.QA_PASSWORD || "qa-password-123";
 const NEWCOMER_EMAIL = process.env.QA_NEWCOMER_EMAIL || "newcomer@qa.test";
 
 // Screens that may carry the sticky flat footer (.hm-savebar): entity edit,
-// entity model edit, form editor, menu editor (approved, UI-02; plugin settings is not seedable, see urls.mjs).
-const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit", "theme-menus-edit"]);
+// entity model edit, form editor, menu editor, SEO Titles & meta (approved, UI-02; plugin settings is not seedable, see urls.mjs).
+const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit", "theme-menus-edit", "settings-seo-titles"]);
 
 // Runs in the page. Returns [rule, selector, message, value] tuples.
 function check({ sticky, list, spec }) {
