@@ -223,7 +223,9 @@ async function openBuilder(p, id, ms = 400) {
   await ready(p);
   await settle(p, ms);
 }
-const savedNow = (p, ms = 20000) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: ms });
+// The status line when the page is saved: "Saved", "Published · Saved" or "Draft saved · not live yet" (not "Not saved" or "Unsaved changes").
+const SAVED = "\\bSaved\\b|\\bDraft saved\\b";
+const savedNow = (p, ms = 20000) => p.waitForFunction((re) => new RegExp(re).test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), SAVED, { timeout: ms });
 const tileFor = (p, key) => p.locator(`[data-hm-bs-lpanel="add"] [data-pal="${key}"], [data-hm-bs-palette] [data-pal="${key}"]`).first();
 const device = (p, name) => p.locator(`[data-hm-bs-device="${name}"]`);
 
@@ -974,10 +976,10 @@ await check("topbar-chip: one status chip, Draft and Saved, then Not saved while
   await openBuilder(main, id);
   const chip = main.locator("[data-hm-bs-state]");
   const first = (await chip.innerText()).replace(/\s+/g, " ");
-  need(/Draft/.test(first) && /Saved/.test(first), "chip reads: " + first);
+  need(/Draft/.test(first) && new RegExp(SAVED).test(first), "chip reads: " + first);
   need((await main.locator("[data-hm-bs-status]").count()) === 0 || !(await main.locator("[data-hm-bs-status]").isVisible()), "the server badge shows next to the chip");
   await tileFor(main, "heading").click();
-  await main.waitForFunction(() => !/Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 3000 });
+  await main.waitForFunction((re) => !new RegExp(re).test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), SAVED, { timeout: 3000 });
   await savedNow(main);
   await drop(main, id);
   return `"${first}" -> unsaved -> saved`;
@@ -1142,7 +1144,7 @@ await check("coachmarks-once: the hint bar shows on first use, dismisses for goo
   return `${n} hint(s) shown once`;
 });
 
-await check("phone-dock: Navigator, Add and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
+await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
   const id = await seeded(main, ["heading", "text"]);
   await main.setViewportSize({ width: 390, height: 844 });
   await settle(main, 400);
@@ -1150,7 +1152,7 @@ await check("phone-dock: Navigator, Add and Inspector sit in a dock; picking an 
     const dock = main.locator("[data-hm-bs-dock]");
     need(await dock.first().isVisible(), "no dock");
     const names = (await main.locator("[data-hm-bs-dock] button").allInnerTexts()).map((t) => t.trim());
-    need(names.join() === "Navigator,Add,Inspector", "dock: " + names.join());
+    need(names.join() === "Navigator,Insert,Inspector", "dock: " + names.join());
     await main.locator('[data-hm-bs-dock="nav"]').click();
     await (await rowOfKind(main, "heading")).click();
     await settle(main, 400);
