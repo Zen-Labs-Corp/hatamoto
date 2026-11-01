@@ -13,7 +13,7 @@
 <form class="hm-row" method="get" action="{{adminPath}}/analytics/google" data-hm-autosubmit>
 {{range .Carry}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
 {{template "hm/segmented" .Filter}}
-<noscript>{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}</noscript>
+{{template "hm/button" dict "Label" "Apply" "Type" "submit"}}
 </form>
 {{template "hm/aia-rows" .Rows}}
 {{template "hm/card-end"}}
