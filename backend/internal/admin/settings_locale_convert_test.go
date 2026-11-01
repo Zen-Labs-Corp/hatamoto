@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync"
@@ -502,5 +505,55 @@ func TestLocalesTabLinksToTheConversion(t *testing.T) {
 	g.a.deps.Site.(*fakeSite).cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr"}}
 	if shown() {
 		t.Error("the link shows on a multi-locale site")
+	}
+}
+
+// convertMultipart posts a multipart form with one oversized field.
+func convertMultipart(g *rig, path string, fields map[string]string) *httptest.ResponseRecorder {
+	g.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		_ = mw.WriteField(k, v)
+	}
+	_ = mw.Close()
+	req := httptest.NewRequest("POST", path, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
+	t.Parallel()
+
+	g, fc, _, _ := newConvertRig(t)
+	g.elevate("owner-token")
+	huge := strings.Repeat("a", convertBodyLimit+1)
+	for _, path := range []string{"/report", "/suggest", "/apply", "/history/3/revert"} {
+		if rec := convertMultipart(g, convertBase+path, map[string]string{"plan": huge}); rec.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("multipart %s: %d, want 413", path, rec.Code)
+		}
+	}
+	if len(fc.applied) != 0 {
+		t.Error("an oversized body was applied")
+	}
+
+	// A declared size over the cap is refused before the body is touched.
+	req := httptest.NewRequest("POST", convertBase+"/report", strings.NewReader("x"))
+	req.ContentLength = convertBodyLimit + 1
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), "larger than 1 MiB") {
+		t.Errorf("declared size: %d", rec.Code)
+	}
+
+	// A normal plan still passes.
+	if rec := g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil); rec.Code != http.StatusOK {
+		t.Errorf("normal plan: %d", rec.Code)
 	}
 }

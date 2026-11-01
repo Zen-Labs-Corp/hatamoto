@@ -22,9 +22,12 @@ import (
 const (
 	// convertMaxPlan is the longest plan, in bytes, the page accepts. It is
 	// checked right after the form is read and before the plan is parsed. The
-	// form itself is read by the CSRF guard first, so the request body is only
-	// bounded by the 10 MiB limit of Go's form parser.
+	// request body is capped at convertBodyLimit by limitConvertBody before
+	// the CSRF guard reads the form.
 	convertMaxPlan = 1 << 20
+	// convertBodyLimit is the plan plus room for the other form fields and
+	// the multipart framing.
+	convertBodyLimit = convertMaxPlan + 1<<20
 
 	convertApplyPhrase  = "convert"
 	convertRevertPhrase = "revert"
@@ -129,6 +132,24 @@ func (a *Admin) convertURL(parts ...string) string {
 	return a.url(append([]string{"settings", "general", "locales", "convert"}, parts...)...)
 }
 
+// limitConvertBody caps what a Convert form may post before anything reads it
+// (the CSRF check parses the body). base is the Convert page URL. A declared
+// size over the cap is refused with a clear message.
+func limitConvertBody(base string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, base) {
+				if r.ContentLength > convertBodyLimit {
+					http.Error(w, "The plan is larger than 1 MiB. Split it into smaller plans.", http.StatusRequestEntityTooLarge)
+					return
+				}
+				r.Body = http.MaxBytesReader(w, r.Body, convertBodyLimit)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // mountLocaleConvert mounts the Convert page: owners only, and the role check
 // runs first so an editor gets 403 and never a password prompt. The page, the
 // suggestion and the dry run change nothing; the confirm pages and everything
@@ -179,10 +200,20 @@ func (a *Admin) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// parseConvertForm reads the posted form, urlencoded or multipart. The body is
+// already capped by limitConvertBody; a read past the cap is a
+// *http.MaxBytesError.
+func parseConvertForm(r *http.Request) error {
+	if err := r.ParseMultipartForm(convertBodyLimit); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		return err
+	}
+	return nil
+}
+
 // convertPlanText reads the posted plan. It reports false, with the page already
 // answered, when the plan is too large.
 func (a *Admin) convertPlanText(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if err := r.ParseForm(); err != nil {
+	if err := parseConvertForm(r); err != nil {
 		a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
 		return "", false
 	}
@@ -472,7 +503,7 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	if !a.convertReady(w, r) {
 		return
 	}
-	if err := r.ParseForm(); err != nil {
+	if err := parseConvertForm(r); err != nil {
 		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The plan is larger than 1 MiB.")
 		return
 	}
@@ -573,6 +604,10 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 	id, ok := convertID(r)
 	if !ok {
 		a.Error(w, r, http.StatusNotFound, "Not found", "There is no such conversion.")
+		return
+	}
+	if err := parseConvertForm(r); err != nil {
+		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The request is larger than 1 MiB.")
 		return
 	}
 	force := r.PostFormValue("force") == "1"

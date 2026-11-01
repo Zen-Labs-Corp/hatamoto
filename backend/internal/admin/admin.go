@@ -401,7 +401,7 @@ func (a *Admin) logger() *slog.Logger {
 // Mount registers every /admin route on r. Registration order is irrelevant:
 // ServeMux picks the most specific pattern.
 func (a *Admin) Mount(r *httpx.Group) {
-	g := r.Group(a.adminPath, limitImportBody(a.adminPath), a.limitUploadBody, a.guardFor(scopeAdmin))
+	g := r.Group(a.adminPath, limitImportBody(a.adminPath), limitConvertBody(a.convertURL()), a.limitUploadBody, a.guardFor(scopeAdmin))
 	g.HandleFunc("GET /_/{path...}", a.serveAssets)
 	root := r.Group("", a.guardFor(scopeRoot)) // /auth and /plugin-ui live outside the prefix
 	// The previous admin signed in at /auth/login (and /auth/register); old
