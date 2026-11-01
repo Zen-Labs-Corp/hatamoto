@@ -42,6 +42,12 @@
 .hm-bs__tools [data-flip] .hm-icon { transform: scaleX(-1); } /* one arrow icon: Undo is its mirror image, so it differs from Redo */
 .hm-bs__split { display: none; }
 .hm-bs__panes { display: inline-flex; gap: var(--space-1); }
+/* Editor bar: 32px icon buttons; the pane toggles sit between two 1px hairlines (after History, before Shortcuts). */
+.hm-bs__tools .hm-btn--icon, .hm-bs__panes .hm-btn--icon { --h: var(--control-h-sm); }
+.hm-bs__panes { align-items: center; gap: var(--space-1); margin-inline: var(--space-1); }
+.hm-bs__panes::before, .hm-bs__panes::after { content: ""; inline-size: 1px; block-size: var(--space-5); background: var(--border); }
+.hm-bs__panes::before { margin-inline-end: var(--space-1); }
+.hm-bs__panes::after { margin-inline-start: var(--space-1); }
 .hm-bs__nav[hidden], .hm-bs__inspector[hidden] { display: none; }
 .hm-bs__nav { order: 1; }
 .hm-bs__canvas { order: 0; }
