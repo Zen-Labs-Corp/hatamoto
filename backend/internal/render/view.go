@@ -48,6 +48,10 @@ type PageView struct {
 	// hreflang x-default entry ("" for none).
 	Alternates   []Alternate
 	XDefaultHref string
+	// Shared is set on a multi-locale site for a page that belongs to no locale
+	// (a shared entity, or a route without a locale scope). The Organization
+	// prints no locale-only detail there.
+	Shared bool
 	// Business is the resolved local business of the page's locale, printed as
 	// a LocalBusiness node in the site graph. Nil on shared pages, on one-locale
 	// sites and for locales without an office of their own.

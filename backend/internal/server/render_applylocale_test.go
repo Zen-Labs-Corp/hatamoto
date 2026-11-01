@@ -49,6 +49,9 @@ func TestApplyLocale_SharedPagesHaveNoBusiness(t *testing.T) {
 		if (v.GeoRegion != "") != tt.want {
 			t.Errorf("%s: GeoRegion = %q, want present = %v", tt.name, v.GeoRegion, tt.want)
 		}
+		if v.Shared != (tt.name == "shared entity page" || tt.name == "page without a locale scope") {
+			t.Errorf("%s: Shared = %v", tt.name, v.Shared)
+		}
 		if v.Locale != "en" {
 			t.Errorf("%s: Locale = %q, want the default locale", tt.name, v.Locale)
 		}
