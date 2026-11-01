@@ -54,6 +54,9 @@ func (s *Server) setupPlugins() {
 			FetchPerMinute: s.cfg.Plugins.FetchPerMinute,
 		},
 	}
+	if s.db != nil {
+		cfg.Services.Groups = entity.NewGroupStore(s.db.Pool())
+	}
 	if s.emailService != nil {
 		cfg.Services.Mail = s.emailService
 	}

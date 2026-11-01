@@ -47,11 +47,23 @@ type EntityPaths interface {
 	BaseURL(ctx context.Context) string
 }
 
+// TranslationGroups is the slice of the translation group store the
+// entities.* host functions use; *entity.GroupStore satisfies it.
+type TranslationGroups interface {
+	Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, error)
+	GroupOf(ctx context.Context, id uuid.UUID) (*uuid.UUID, error)
+	GroupsFor(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]entity.GroupMember, error)
+	Members(ctx context.Context, id uuid.UUID) ([]entity.Member, error)
+}
+
 // Services are the core services host functions call. A nil service makes its
 // functions fail with "unavailable".
 type Services struct {
-	Entities  *entity.Service
-	Paths     EntityPaths // optional: without it entities carry no path/url and cannot be read by path
+	Entities *entity.Service
+	Paths    EntityPaths // optional: without it entities carry no path/url and cannot be read by path
+	// Groups links translations. Without it translation_of is unavailable and
+	// entities carry no translation_group.
+	Groups    TranslationGroups
 	Terms     *taxonomy.Service
 	Menus     *menu.Service
 	Media     *media.Service
@@ -215,7 +227,7 @@ func isInvalid(err error) bool {
 	for _, e := range []error{
 		entity.ErrValidationFailed, entity.ErrSlugAlreadyExists, entity.ErrInvalidStatus, entity.ErrRejectedByPlugin,
 		entity.ErrParentNotFound, entity.ErrParentCycle, entity.ErrParentTooDeep, entity.ErrAmbiguousSlug, entity.ErrAuthorNotFound, entity.ErrHasChildren,
-		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved,
+		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved, entity.ErrInvalidGroup,
 		taxonomy.ErrTermSlugConflict, menu.ErrSlugAlreadyExists, menu.ErrInvalidLinkType, menu.ErrInvalidLocation, menu.ErrInvalidAttrs,
 		media.ErrInvalidMimeType, media.ErrFileTooLarge, media.ErrInvalidFile, media.ErrImageTooLarge,
 		redirect.ErrDuplicateSourcePath, redirect.ErrInvalidStatusCode, redirect.ErrInvalidPattern, redirect.ErrUnsafePattern,
@@ -590,6 +602,9 @@ type entityDTO struct {
 	Name       string `json:"name"`
 	Status     string `json:"status"`
 	Version    int    `json:"version"`
+	// TranslationGroup is the id shared by the entity's translations, absent
+	// when it has none (or the host has no translation groups).
+	TranslationGroup string `json:"translation_group,omitempty"`
 	// ParentID is the parent entity, absent for a root row. Path is the
 	// canonical public path and URL the same with the public origin in front
 	// (just the path while no origin is configured); both are absent when the
@@ -626,6 +641,33 @@ func (a *API) entityDTO(ctx context.Context, e *entity.Entity) entityDTO {
 		}
 	}
 	return dto
+}
+
+// entityDTOGrouped is entityDTO plus the translation group, looked up best
+// effort: a failed lookup leaves the field out and is logged.
+func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) entityDTO {
+	dto := a.entityDTO(ctx, e)
+	if a.svc.Groups == nil {
+		return dto
+	}
+	g, err := a.svc.Groups.GroupOf(ctx, e.ID)
+	if err != nil {
+		a.log.Warn("entity translation group lookup failed", slog.String("entity_id", e.ID.String()), slog.Any("error", err))
+		return dto
+	}
+	if g != nil {
+		dto.TranslationGroup = g.String()
+	}
+	return dto
+}
+
+// multiLocale reports whether the site serves two or more locales.
+func (a *API) multiLocale(ctx context.Context) (bool, error) {
+	snap, err := a.svc.Entities.URLRegistry().Snapshot(ctx)
+	if err != nil {
+		return false, err
+	}
+	return snap.Locales().Multi(), nil
 }
 
 // optionalID reads an optional entity id argument that may be explicitly null
@@ -716,7 +758,7 @@ func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage)
 	default:
 		return nil, herr(sdk.ErrInvalidArgument, "id, path, or slug (with an optional parent_id) is required")
 	}
-	return a.entityDTO(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent), nil
 }
 
 func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -756,9 +798,23 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 	if err != nil {
 		return nil, err
 	}
+	var groups map[uuid.UUID]entity.GroupMember
+	if a.svc.Groups != nil && len(res.Items) > 0 {
+		ids := make([]uuid.UUID, 0, len(res.Items))
+		for _, it := range res.Items {
+			ids = append(ids, it.ID)
+		}
+		if groups, err = a.svc.Groups.GroupsFor(ctx, ids); err != nil {
+			a.log.Warn("entity translation groups lookup failed", slog.Any("error", err))
+		}
+	}
 	items := make([]entityDTO, 0, len(res.Items))
 	for _, it := range res.Items {
-		items = append(items, a.entityDTO(ctx, it))
+		dto := a.entityDTO(ctx, it)
+		if g, ok := groups[it.ID]; ok {
+			dto.TranslationGroup = g.Group.String()
+		}
+		items = append(items, dto)
 	}
 	return map[string]any{"items": items, "next_cursor": res.NextCursor}, nil
 }
@@ -781,6 +837,9 @@ func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 		Locale     string          `json:"locale"`
 		ParentID   json.RawMessage `json:"parent_id"`
 		Attributes json.RawMessage `json:"attributes"`
+		// TranslationOf is an entity to become a translation of: the new
+		// entity joins its translation group (created when it has none).
+		TranslationOf string `json:"translation_of"`
 	}](raw)
 	if err != nil {
 		return nil, err
@@ -806,6 +865,21 @@ func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
+	if args.Locale == "" && entity.CanCopy(&entity.Entity{Schema: schema}) {
+		multi, err := a.multiLocale(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if multi {
+			return nil, herr(sdk.ErrInvalidArgument, "locale is required when the site has several locales")
+		}
+	}
+	var target *entity.Entity
+	if args.TranslationOf != "" {
+		if target, err = a.translationTarget(ctx, schema, args.TranslationOf, args.Locale); err != nil {
+			return nil, err
+		}
+	}
 	ent, err := a.svc.Entities.CreateEntity(ctx, nil, &entity.CreateEntityInput{
 		SchemaID: schema.ID, Name: args.Name, Slug: args.Slug, Locale: args.Locale, Attributes: args.Attributes, ParentID: parent,
 	})
@@ -813,7 +887,50 @@ func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 		return nil, err
 	}
 	ent.Schema = schema
-	return a.entityDTO(ctx, ent), nil
+	if target != nil {
+		// Create then link is not atomic: a failed link deletes the new entity
+		// again (the pattern of entity.CopyService).
+		if _, err := a.svc.Groups.Link(ctx, target.ID, ent.ID); err != nil {
+			if delErr := a.svc.Entities.DeleteEntity(ctx, ent.ID); delErr != nil {
+				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
+			}
+			return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
+		}
+	}
+	return a.entityDTOGrouped(ctx, ent), nil
+}
+
+// translationTarget loads and checks the entity a new entity of schema in
+// locale is to become a translation of.
+func (a *API) translationTarget(ctx context.Context, schema *entity.EntitySchema, id, locale string) (*entity.Entity, error) {
+	if a.svc.Groups == nil {
+		return nil, unavailable("translations")
+	}
+	tid, err := parseID(id)
+	if err != nil {
+		return nil, err
+	}
+	target, err := a.svc.Entities.GetEntity(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if target.SchemaID != schema.ID {
+		return nil, herr(sdk.ErrInvalidArgument, "translation_of must be an entity of the same schema")
+	}
+	if !entity.CanCopy(&entity.Entity{Schema: schema, Locale: target.Locale}) {
+		return nil, herr(sdk.ErrInvalidArgument, "entities of this schema have no translations")
+	}
+	if locale == "" {
+		return nil, herr(sdk.ErrInvalidArgument, "locale is required with translation_of")
+	}
+	norm, err := entity.NormalizeLocale(locale)
+	if err != nil {
+		return nil, err
+	}
+	if norm == target.Locale {
+		return nil, herr(sdk.ErrInvalidArgument, "locale must differ from the locale of translation_of")
+	}
+	return target, nil
 }
 
 func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -849,7 +966,7 @@ func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTO(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent), nil
 }
 
 func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -875,7 +992,7 @@ func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTO(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent), nil
 }
 
 func fnEntitiesDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {

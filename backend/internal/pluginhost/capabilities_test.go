@@ -43,6 +43,10 @@ func (f *memSchemas) GetBySlug(_ context.Context, slug string) (*entity.EntitySc
 	return f.schema, nil
 }
 
+func (f *memSchemas) List(context.Context) ([]*entity.EntitySchema, error) {
+	return []*entity.EntitySchema{f.schema}, nil
+}
+
 type memEntities struct {
 	entity.EntityRepository
 	mu   sync.Mutex
