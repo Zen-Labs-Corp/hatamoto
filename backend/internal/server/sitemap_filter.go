@@ -31,15 +31,19 @@ func (s *Server) applySitemapFilter(ctx context.Context, group string, urls []UR
 // applySitemapFilterFor runs the filter for a planned file: plugins see the
 // bare group and, on a multi-locale site, the locale, URL segment and full key
 // of the file.
-func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, urls []URL) []URL {
-	return s.applySitemapFilterPart(ctx, g, urls, g.key)
+func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, urls []URL, multi bool) []URL {
+	return s.applySitemapFilterPart(ctx, g, urls, g.key, multi)
 }
 
 // applySitemapFilterPart is applySitemapFilterFor for a file that may fold
 // several groups (legacy naming): g is one group, fileKey the key of the file
-// that lists it, which plugins see as File.
-func (s *Server) applySitemapFilterPart(ctx context.Context, g *sitemapGroup, urls []URL, fileKey string) []URL {
+// that lists it, which plugins see as File. On a multi-locale site File is
+// always set: a shared bare file ("blog", "misc") has a File but no language.
+func (s *Server) applySitemapFilterPart(ctx context.Context, g *sitemapGroup, urls []URL, fileKey string, multi bool) []URL {
 	var segment, file string
+	if multi {
+		file = fileKey
+	}
 	if g.locale != "" {
 		file = fileKey
 		if s.entityService != nil {
@@ -61,12 +65,12 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 	}
 	if len(parts) == 1 && parts[0].key == key {
 		urls, _ := plan.GroupURLs(key)
-		return s.applySitemapFilterFor(ctx, parts[0], urls)
+		return s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi())
 	}
 	var out []URL
 	seen := map[string]bool{}
 	for _, part := range parts {
-		for _, u := range s.applySitemapFilterPart(ctx, part, plan.rowURLs(part, nil), key) {
+		for _, u := range s.applySitemapFilterPart(ctx, part, plan.rowURLs(part, nil), key, plan.multi()) {
 			if !seen[u.Loc] {
 				seen[u.Loc] = true
 				out = append(out, u)

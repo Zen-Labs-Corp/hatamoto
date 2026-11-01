@@ -80,3 +80,26 @@ func TestSitemapFileURLs_FilterPerPart(t *testing.T) {
 		}
 	})
 }
+
+// The shared bare files of legacy naming send their file key, as the plugin
+// docs say, with no language or segment; a one-locale site still sends none.
+func TestSitemapFileURLs_SharedBareFileKey(t *testing.T) {
+	s := sitemapTestServer()
+	s.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	snap := namingSnap(t, true)
+	s.entityService = entity.NewService(&countingSchemaLister{}, nil, s.logger)
+	s.entityService.URLRegistry().SetLocales(func(context.Context) (*entity.LocaleSet, error) { return snap.Locales(), nil })
+	var seen []sdk.SitemapURLs
+	hooks.OnFilter(s.hooks.For("p"), sdk.SitemapURLsF, 10, func(_ context.Context, v sdk.SitemapURLs) (sdk.SitemapURLs, error) {
+		seen = append(seen, v)
+		return v, nil
+	})
+	plan := namingPlan(t, snap, "legacy", namingEntries()...)
+	for _, key := range []string{"blog", "misc"} {
+		seen = nil
+		s.sitemapFileURLs(context.Background(), plan, key)
+		if len(seen) != 1 || seen[0].Group != key || seen[0].File != key || seen[0].Language != "" || seen[0].Segment != "" {
+			t.Errorf("%s: filter calls = %+v", key, seen)
+		}
+	}
+}
