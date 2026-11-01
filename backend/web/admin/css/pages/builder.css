@@ -72,6 +72,7 @@
 @media not all and (max-width: 40rem) { /* the exact complement of the phone rules below: at 640px only the phone layout applies */
   .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
+  @media (max-width: 75rem) { .hm-bs__dlong { display: none; } .hm-bs__dshort { display: inline; } } /* laptops: Desktop / Tablet / Phone without the pixel limits, so the three groups fit */
 }
 /* Update, with changes that are not on the live page yet: a dot in the text colour (the forced-colors block below keeps it: system colours replace backgrounds). */
 .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { content: ""; display: inline-block; inline-size: 0.5em; block-size: 0.5em; margin-inline-start: var(--space-2); border-radius: 50%; background: currentColor; }
@@ -81,10 +82,12 @@
 }
 .hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
-.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: none; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: 0 1 auto; min-width: 4rem; overflow: hidden; } /* the status gives way after the title: an ellipsis, the full line in its title */
+.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state .hm-savestate { max-inline-size: 100%; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state .hm-savestate__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
 .hm-editor-bar:has([data-hm-bs-title]) > :not(.hm-editor-bar__title) { flex-shrink: 0; }
-.hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title) { flex-shrink: 0; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title):not(.hm-editor-bar__state) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; }
 .hm-bs__dshort { display: none; }
 .hm-bs__device { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }

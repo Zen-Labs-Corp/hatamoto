@@ -472,6 +472,7 @@ function start(root, boot) {
     },
     onState: (q) => {
       say.textContent = stateLine(q, { draft: saver.draft, status });
+      say.title = say.textContent; // the bar may cut the line short with an ellipsis
       savestate.title = q.state === "saved" ? savedTime(hmTime(new Date())) : "";
       savestate.dataset.short = shortLine(q, status); // the phone bar shows this, not the full line
       savestate.dataset.state = SAVE_STATE[q.state] || "saved";

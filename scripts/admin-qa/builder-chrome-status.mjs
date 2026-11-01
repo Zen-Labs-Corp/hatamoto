@@ -8,7 +8,7 @@
 // an edit with autosave off (a published page keeps only a recovery copy) reads "Draft saved · not live yet", the Update button
 // carries data-hm-bs-dirty and the name "Update, unpublished changes"; Update then reads "Published · Saved" and the indicator
 // clears. Offline shows the "Not saved" reason line. At 390 px the short line and the second row are in place. Axe on the
-// top bar in both themes. The bar is measured at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 wide (no overflow from 1100 up, 1000 is reported; Undo and the
+// top bar in both themes. The bar is measured at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 wide (no overflow and no overlap of the title group, the device switch and the tools from 1000 up; Undo and the
 // devices on their own row up to 414; the phone layout alone at 640). Screenshots: status-1600.png, status-390.png, bar-<width>.png.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -151,6 +151,11 @@ const barBox = () => p.evaluate(() => {
     pageOver: document.documentElement.scrollWidth - innerWidth,
     titleTop: r("[data-hm-bs-title]")?.top, undoTop: r("[data-hm-bs-undo]")?.top, devTop: r(".hm-bs__devices")?.top,
     grid: getComputedStyle(bar).display,
+    gap: (() => { // overlap of lead / devices / end, and the device switch's distance from the bar centre (px; a negative gap is an overlap)
+      const g = [".hm-bs__lead", ".hm-bs__devices", ".hm-bs__end"].map((q) => document.querySelector(q)?.getBoundingClientRect());
+      const mid = g[1] ? (g[1].left + g[1].right) / 2 - (bb.left + bb.right) / 2 : 0;
+      return { lead: Math.round(g[1].left - g[0].right), end: Math.round(g[2].left - g[1].right), off: Math.round(mid), leadOver: (() => { const l = document.querySelector('.hm-bs__lead'); return Math.max(0, Math.round(Math.max(...[...l.children].map((c) => c.getBoundingClientRect().right)) - l.getBoundingClientRect().right)); })() };
+    })(),
   };
 });
 const WIDTHS = [360, 390, 414, 640, 1000, 1100, 1280, 1300, 1600];
@@ -165,8 +170,9 @@ await check("top bar fit at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 
     await settle(500);
     const b = await barBox();
     await shot(`bar-${w}.png`);
-    out.push(`${w}:bar+${b.barOver}/page+${b.pageOver}/${b.grid === "grid" ? "grid" : "wrap"}${w <= 640 ? `/undo y${Math.round(b.undoTop)} dev y${Math.round(b.devTop)} title y${Math.round(b.titleTop)}` : ""}`);
-    if (w >= 1100 && (b.barOver > 1 || b.pageOver > 1)) fails.push(`the bar overflows at ${w}px: ${JSON.stringify(b)}`);
+    out.push(`${w}:bar+${b.barOver}/page+${b.pageOver}/${b.grid === "grid" ? "grid" : "wrap"}${w >= 1000 ? `/gap ${b.gap.lead},${b.gap.end}/off ${b.gap.off}/lead+${b.gap.leadOver}` : ""}${w <= 640 ? `/undo y${Math.round(b.undoTop)} dev y${Math.round(b.devTop)} title y${Math.round(b.titleTop)}` : ""}`);
+    if (w >= 1000 && (b.barOver > 1 || b.pageOver > 1)) fails.push(`the bar overflows at ${w}px: ${JSON.stringify(b)}`);
+    if (w >= 1000 && (b.gap.lead < -1 || b.gap.end < -1 || b.gap.leadOver > 1)) fails.push(`the bar groups overlap at ${w}px (lead→devices ${b.gap.lead}px, devices→end ${b.gap.end}px, title/status past the lead by ${b.gap.leadOver}px)`);
     if (w <= 640) {
       if (b.grid === "grid") fails.push(`at ${w}px the bar is still the grid layout (the phone rules must win)`);
       if (b.pageOver > 1) fails.push(`the page scrolls sideways by ${b.pageOver}px at ${w}px`);
@@ -175,7 +181,7 @@ await check("top bar fit at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 
   }
   await p.setViewportSize({ width: 1600, height: 950 });
   if (fails.length) throw new Error(fails.join("; ") + " [" + out.join(" ") + "]");
-  return out.join(" ") + " (1000 is reported, not asserted: the SEO score makes it wide, as it was before the chrome work)";
+  return out.join(" ") + "";
 });
 
 await check("390 px: the short line and the second row layout", async () => {
