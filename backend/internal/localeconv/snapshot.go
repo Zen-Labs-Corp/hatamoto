@@ -72,6 +72,8 @@ type SiteState struct {
 	Locales   []SiteLocale
 	PrefixAll bool
 	XDefault  string
+	// SitemapNaming is "group" or "legacy".
+	SitemapNaming string
 	// HomepageID is the explicit homepage setting ("" when unset). The server
 	// serves it for every locale before looking for a locale home, so the
 	// conversion clears it.

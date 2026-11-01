@@ -78,10 +78,11 @@ func (a *analysis) countRedirects() {
 func (a *analysis) settingsDelta() {
 	site := a.snap.Site
 	a.rep.SiteSettings = SiteSettingsDelta{
-		Language:     [2]string{site.Language, normalized(a.plan.Default)},
-		LocalesCount: [2]int{len(site.Locales), len(a.plan.Locales)},
-		PrefixAll:    [2]bool{site.PrefixAll, a.plan.PrefixAllValue()},
-		XDefault:     [2]string{site.XDefault, normalized(a.plan.XDefault)},
+		Language:      [2]string{site.Language, normalized(a.plan.Default)},
+		LocalesCount:  [2]int{len(site.Locales), len(a.plan.Locales)},
+		PrefixAll:     [2]bool{site.PrefixAll, a.plan.PrefixAllValue()},
+		XDefault:      [2]string{site.XDefault, normalized(a.plan.XDefault)},
+		SitemapNaming: [2]string{site.SitemapNaming, resolveNaming(a.plan, a.rep)},
 	}
 }
 

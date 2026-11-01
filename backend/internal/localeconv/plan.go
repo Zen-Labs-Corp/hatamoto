@@ -32,7 +32,7 @@ var segmentRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // extraReservedSegments are routes the site serves that taxonomy.ReservedSegment
 // does not cover. Kept in step with internal/server (which localeconv must not
 // import); the server's own list is the source of truth.
-var extraReservedSegments = []string{"category", "tag", "plugin-ui"}
+var extraReservedSegments = []string{"category", "tag", "plugin-ui", "index", "misc"}
 
 // ReservedSegmentReason says why seg is a route of its own, or "".
 func ReservedSegmentReason(seg string) string {
@@ -43,6 +43,27 @@ func ReservedSegmentReason(seg string) string {
 		return "reserved for a route of its own"
 	}
 	return ""
+}
+
+// Sitemap naming values of the plan; auto is resolved by resolveNaming.
+const (
+	NamingAuto   = "auto"
+	NamingGroup  = "group"
+	NamingLegacy = "legacy"
+)
+
+// resolveNaming is the sitemap_naming the conversion stores: an explicit group
+// or legacy wins; auto (or empty) picks legacy when the conversion removed
+// per-locale sitemap groups, so the file names stay what they were.
+func resolveNaming(p *Plan, rep *Report) string {
+	switch p.SitemapNaming {
+	case NamingGroup, NamingLegacy:
+		return p.SitemapNaming
+	}
+	if len(rep.Overrides.SitemapGroupRemoved) > 0 {
+		return NamingLegacy
+	}
+	return NamingGroup
 }
 
 // Plan is the conversion plan. The JSON field names are the plan file format.
@@ -58,6 +79,10 @@ type Plan struct {
 	Shared          string       `json:"shared"`
 	StripAttributes []string     `json:"strip_attributes"`
 	Home            HomeSpec     `json:"home"`
+	// SitemapNaming is "", "auto", "group" or "legacy". Empty means auto and is
+	// resolved in code (resolveNaming), so plans and their hash only change
+	// when a plan sets it.
+	SitemapNaming string `json:"sitemap_naming,omitempty"`
 }
 
 // LocaleSpec is one locale: its tag, URL segment and the top-level page that
@@ -203,6 +228,12 @@ func (p *Plan) Validate() []Issue {
 	}
 	if p.XDefault != "" && !tags[normalized(p.XDefault)] {
 		add(CodeXDefaultNotListed, "x_default %q is not one of the listed tags", p.XDefault)
+	}
+
+	switch p.SitemapNaming {
+	case "", NamingAuto, NamingGroup, NamingLegacy:
+	default:
+		add(CodeBadSitemapNaming, "sitemap_naming %q must be auto, group or legacy", p.SitemapNaming)
 	}
 
 	if p.LocaleFrom.Attribute == "" {

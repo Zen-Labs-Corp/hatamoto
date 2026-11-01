@@ -134,8 +134,8 @@ func (s *pgService) Revert(ctx context.Context, id int64, force bool, by string)
 	b := c.settingsBefore
 	if _, err := tx.Exec(ctx, `
 		UPDATE hatamoto_site_config SET language = $1, locales = $2::jsonb, prefix_all = $3, x_default_locale = $4,
-		       homepage_entity_id = $5::uuid
-		 WHERE id = TRUE`, b.Language, []byte(b.Locales), b.PrefixAll, b.XDefaultLocale, b.HomepageEntityID); err != nil {
+		       homepage_entity_id = $5::uuid, sitemap_naming = COALESCE(NULLIF($6::text, ''), sitemap_naming)
+		 WHERE id = TRUE`, b.Language, []byte(b.Locales), b.PrefixAll, b.XDefaultLocale, b.HomepageEntityID, b.SitemapNaming); err != nil {
 		return nil, fmt.Errorf("revert settings: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
@@ -203,8 +203,8 @@ func findConflicts(ctx context.Context, q querier, id int64, c *conversionRecord
 	a := c.settingsAfter
 	var same bool
 	if err := q.QueryRow(ctx, `
-		SELECT (language, locales, prefix_all, x_default_locale, homepage_entity_id::text) IS NOT DISTINCT FROM ($1::text, $2::jsonb, $3::boolean, $4::text, $5::text)
-		  FROM hatamoto_site_config WHERE id = TRUE`, a.Language, []byte(a.Locales), a.PrefixAll, a.XDefaultLocale, a.HomepageEntityID).Scan(&same); err != nil {
+		SELECT (language, locales, prefix_all, x_default_locale, homepage_entity_id::text, sitemap_naming) IS NOT DISTINCT FROM ($1::text, $2::jsonb, $3::boolean, $4::text, $5::text, COALESCE(NULLIF($6::text, ''), sitemap_naming))
+		  FROM hatamoto_site_config WHERE id = TRUE`, a.Language, []byte(a.Locales), a.PrefixAll, a.XDefaultLocale, a.HomepageEntityID, a.SitemapNaming).Scan(&same); err != nil {
 		return nil, fmt.Errorf("compare settings: %w", err)
 	}
 	if !same {

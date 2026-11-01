@@ -40,6 +40,7 @@ const (
 	CodeStripNeededAttribute = "strip_needed_attribute"
 	CodeBadHomeSlug          = "bad_home_slug"
 	CodeBadOnConflict        = "bad_on_conflict"
+	CodeBadSitemapNaming     = "bad_sitemap_naming"
 
 	CodePathChanges         = "path_changes"
 	CodeGroupTwoInLocale    = "group_two_in_locale"
@@ -188,10 +189,11 @@ type UnmatchedValue struct {
 
 // SiteSettingsDelta pairs each changed setting as [before, after].
 type SiteSettingsDelta struct {
-	Language     [2]string `json:"language"`
-	LocalesCount [2]int    `json:"locales_count"`
-	PrefixAll    [2]bool   `json:"prefix_all"`
-	XDefault     [2]string `json:"x_default"`
+	Language      [2]string `json:"language"`
+	LocalesCount  [2]int    `json:"locales_count"`
+	PrefixAll     [2]bool   `json:"prefix_all"`
+	XDefault      [2]string `json:"x_default"`
+	SitemapNaming [2]string `json:"sitemap_naming"`
 }
 
 // ApplyOpts are the inputs of Apply beyond the plan.
