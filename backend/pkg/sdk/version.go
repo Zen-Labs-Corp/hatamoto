@@ -31,7 +31,9 @@ package sdk
 // `locale` and `segment` on HeadContext, `segment` and `file` on SitemapURLs,
 // `translation_group` on the entity payloads, `translation_of` on
 // entities.create, the entities.translations host function and locale-prefixed
-// paths in entities.get. Purely additive.
+// paths in entities.get. Additive for plugins built for 0.14 or older; a plugin
+// declaring 0.15 or later must also pass `locale` to entities.create on a
+// multi-locale site (older plugins keep the site language as the default).
 const Version = "0.15.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.

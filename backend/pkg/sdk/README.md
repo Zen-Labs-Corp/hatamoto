@@ -41,7 +41,7 @@ needs in `plugin.json` (today `"sdk": "^0.11"`, so hosts before v0.31.0 still lo
 
 | SDK | Change |
 |---|---|
-| 0.15.0 | `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, `entities.translations`, locale-prefixed `entities.get` paths. Purely additive |
+| 0.15.0 | `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, `entities.translations`, locale-prefixed `entities.get` paths. Additive for plugins on 0.14 or older; a plugin declaring 0.15 or later must pass `locale` to `entities.create` on a multi-locale site |
 | 0.14.0 | `attribution` (first and last touch) on `FormSubmittedEvent`. Purely additive |
 | 0.13.0 | `locale` field on the entity payloads (`EntityRef`, `EntityEvent`, `EntitySummary`, `EntityDraft`). Purely additive |
 | 0.12.0 | `site.scripts` permission: a plugin's browser JavaScript (`assets/plugin.js`) is served and injected only once it is granted |

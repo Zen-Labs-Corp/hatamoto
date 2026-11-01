@@ -162,7 +162,7 @@ Older plugins keep working, with these changes to be aware of:
 - **0.12:** the `site.scripts` permission: a plugin's browser JavaScript is served only once it is granted. This is not purely additive: an installed plugin's JavaScript stops being injected until the owner grants `site.scripts`, whatever `sdk` range it declares. Enforcement reached hosts in v0.30.0. Declare the permission and ask owners to grant it. Which range to declare is covered in [The sdk range](#the-sdk-range).
 - **0.13:** entity payloads carry `locale` (`EntityRef`, `EntityEvent`, `EntitySummary`, `EntityDraft`). Purely additive.
 - **0.14:** `FormSubmittedEvent` carries `attribution` (first and last touch). Purely additive.
-- **0.15:** locale support: `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, the `entities.translations` host function and locale-prefixed paths in `entities.get`. Purely additive.
+- **0.15:** locale support: `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, the `entities.translations` host function and locale-prefixed paths in `entities.get`. Additive for plugins built for 0.14 or older, which keep creating entities without `locale` (the site language). A plugin declaring 0.15 or later must pass `locale` to `entities.create` on a multi-locale site for schemas that have translations.
 
 ## Limits and errors
 
