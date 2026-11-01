@@ -87,11 +87,17 @@ export function createSheet() {
     { class: "hm-dialog", id: "hm-bs-sheet", "aria-labelledby": "hm-bs-sheet-t", "data-size": "lg" },
     h("div", { class: "hm-dialog__panel" }, h("h2", { class: "hm-dialog__title", id: "hm-bs-sheet-t", text: "Keyboard shortcuts" }), h("div", { class: "hm-field hm-bs-sheet__q" }, search), status, body, h("div", { class: "hm-dialog__foot" }, close)),
   );
+  /** One keycap per key: "Ctrl/Cmd + Z" -> [Ctrl/Cmd] + [Z]. A phrase ("Enter in the Insert search") stays plain text. The separators keep the row's text as it was. */
+  const caps = (keys) => {
+    const parts = keys.split(/( \+ | or | \/ )/);
+    const isKey = (p, i) => i % 2 === 1 || !/\s/.test(p) || /^Menu key$/.test(p);
+    return parts.every(isKey) ? parts.map((p, i) => (i % 2 ? p : h("kbd", { class: "hm-bs-key", text: p }))) : [keys];
+  };
   function paint() {
     const shown = filterGroups(GROUPS, search.value);
     body.replaceChildren(
       ...(shown.length
-        ? shown.map(([name, rows]) => h("table", { class: "hm-bs-keys" }, h("caption", { class: "hm-bs-keys__g", text: name }), h("tbody", {}, ...rows.map(([keys, what]) => h("tr", {}, h("th", { scope: "row", class: "hm-bs-keys__k", text: keys }), h("td", { text: what }))))))
+        ? shown.map(([name, rows]) => h("table", { class: "hm-bs-keys" }, h("caption", { class: "hm-bs-keys__g", text: name }), h("tbody", {}, ...rows.map(([keys, what]) => h("tr", {}, h("th", { scope: "row", class: "hm-bs-keys__k" }, ...caps(keys)), h("td", { text: what }))))))
         : [h("p", { class: "hm-muted", text: "No shortcuts match." })]),
     );
     status.textContent = search.value ? `${shown.reduce((n, [, r]) => n + r.length, 0)} shortcuts` : "";
