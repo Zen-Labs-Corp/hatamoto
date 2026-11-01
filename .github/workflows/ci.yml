@@ -45,9 +45,10 @@ jobs:
       DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
       HATAMOTO_TEST_DB_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
       EMAIL_DISABLED: "true"
-      # Empty on PG18 (unset). "0" on PG16: skips TestRenderPageP50 and drops the
-      # 100 ms warm-load bound in the integration suite, so the doubled matrix
-      # does not flake on wall-clock bounds; PG18 keeps enforcing them.
+      # Empty on PG18 (unset). "0" on PG16 skips TestRenderPageP50 there, so the
+      # render bounds are enforced once per PR, on PG18. CI already drops the
+      # 100 ms warm-load bound on both legs; TestCompileCacheWarmLoad's
+      # warm < cold/5 check still runs on PG16.
       HATAMOTO_PERF_STRICT: ${{ matrix.perf_strict }}
       # SITEMAP_GOLDEN_DB is intentionally unset: that test needs a seeded dataset and skips.
     steps:
