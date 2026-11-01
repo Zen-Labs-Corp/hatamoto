@@ -241,6 +241,21 @@ func TestOrgAddressSaveRejectsUnknownValue(t *testing.T) {
 	}
 }
 
+func TestOrgAddressSaveRefusesAnUnreadableProfile(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	const stored = `{"tax_id":"TX-1","employees_min":"ten"}`
+	site.cfg.BusinessProfile = []byte(stored)
+	rec := g.do("POST", "/admin/settings/locales/organisation", "owner-token", url.Values{"org_address": {"locale"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "nothing was saved") {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	if string(site.cfg.BusinessProfile) != stored || g.flushed != 0 {
+		t.Errorf("an unreadable profile was overwritten: %s", site.cfg.BusinessProfile)
+	}
+}
+
 func TestOrgAddressSaveIsOwnerOnly(t *testing.T) {
 	t.Parallel()
 

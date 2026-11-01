@@ -227,7 +227,9 @@ func (a *Admin) handleOrgAddressSave(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := siteProfile(cfg)
 	if err != nil {
-		p = bizprofile.Profile{}
+		a.logger().Error("save organisation address: stored business profile unreadable", "err", err)
+		a.Error(w, r, http.StatusUnprocessableEntity, "Nothing was saved", "The stored business details cannot be read, so nothing was saved. Fix them in Settings, General first.")
+		return
 	}
 	p.OrgAddress = v
 	// The legacy columns hold phone, hours note and the five address keys; the
