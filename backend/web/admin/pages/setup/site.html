@@ -7,8 +7,10 @@
 {{template "hm/csrf" $}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Site name" "Value" .Site.Name "Required" true "Error" (index .SiteErrs "name") "Attrs" (attrmap "autofocus" "autofocus")}}
 {{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .Site.URL "Help" (printf "The public address visitors use, like https://example.com. Needed to email password-reset and invitation links. You are on %s now; leave this empty to decide later." .Detected) "Error" (index .SiteErrs "url") "Attrs" (attrmap "autocomplete" "url")}}
+<div class="hm-setup-pair">
 {{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Languages "Help" "The language of your content (for search engines and screen readers)." "Error" (index .SiteErrs "language")}}
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Timezones "Help" "Scheduled posts publish in this time zone." "Error" (index .SiteErrs "timezone")}}
+</div>
 {{template "hm/foot"}}
 {{with .Back}}{{template "hm/button" dict "Label" "Back" "Href" .}}{{end}}
 {{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}

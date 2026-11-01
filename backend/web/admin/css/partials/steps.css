@@ -21,3 +21,10 @@
 .hm-setup-link:hover { background: var(--surface-hover); }
 .hm-setup-link:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 640px) { .hm-setup-links { grid-template-columns: minmax(0, 1fr); } }
+/* Setup forms: related fields sit in pairs above 640px and stack below. */
+.hm-setup-pair, .hm-setup-email { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@media (min-width: 641px) {
+  .hm-setup-pair, .hm-setup-email { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Email: provider, region and security take a full row; host/port, username/password and from address/name pair up. */
+  .hm-setup-email > :nth-child(1), .hm-setup-email > :nth-child(2), .hm-setup-email > :nth-child(5) { grid-column: 1 / -1; }
+}
