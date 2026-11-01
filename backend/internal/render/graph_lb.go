@@ -1,5 +1,7 @@
 package render
 
+import "hatamoto.dev/core/internal/bizprofile"
+
 // localBusinessLD is the LocalBusiness node of the page's locale, linked to the
 // shared Organization by parentOrganization. It reads only the BusinessView:
 // the site-wide address is never a fallback.
@@ -22,6 +24,13 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 	setIf(lb, "priceRange", b.PriceRange)
 	setIf(lb, "currenciesAccepted", b.Currency)
 	setIf(lb, "hasMap", b.MapURL)
+	setIf(lb, "vatID", b.VATID)
+	setIf(lb, "legalName", b.Name)
+	setIf(lb, "url", localeHome(v, base))
+	if img := firstNonEmpty(b.Image, v.Site.LogoURL); img != "" {
+		lb["image"] = absURL(base, img)
+	}
+	setIf(lb, "description", firstNonEmpty(b.Description, v.Site.Org.Description, v.Site.Tagline))
 	addr := map[string]any{"@type": "PostalAddress"}
 	for k, val := range map[string]string{
 		"streetAddress": b.Address.Street, "addressLocality": b.Address.City, "addressRegion": b.Address.State,
@@ -30,8 +39,10 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		setIf(addr, k, val)
 	}
 	lb["address"] = addr
-	if b.Lat != "" && b.Lng != "" {
-		lb["geo"] = map[string]any{"@type": "GeoCoordinates", "latitude": b.Lat, "longitude": b.Lng}
+	if lat, ok := bizprofile.ParseDecimal(b.Lat); ok {
+		if lng, ok := bizprofile.ParseDecimal(b.Lng); ok {
+			lb["geo"] = map[string]any{"@type": "GeoCoordinates", "latitude": lat, "longitude": lng}
+		}
 	}
 	var specs []any
 	for _, h := range b.OpeningHours {
@@ -43,8 +54,14 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		setIf(spec, "closes", h.Closes)
 		specs = append(specs, spec)
 	}
+	if len(specs) > 0 {
+		lb["openingHoursSpecification"] = oneOrList(specs)
+	}
+	specs = nil
 	for _, h := range b.SpecialHours {
-		if h.From == "" {
+		// A row without a date, or with neither times nor a closed flag, says
+		// nothing: skip it rather than print a bare date range.
+		if h.From == "" || (!h.Closed && h.Opens == "" && h.Closes == "") {
 			continue
 		}
 		spec := map[string]any{
@@ -59,10 +76,18 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		specs = append(specs, spec)
 	}
 	if len(specs) > 0 {
-		lb["openingHoursSpecification"] = specs
+		lb["specialOpeningHoursSpecification"] = oneOrList(specs)
 	}
 	if len(b.AreaServed) > 0 {
 		lb["areaServed"] = b.AreaServed
+	} else if b.CountryName != "" {
+		lb["areaServed"] = countryLD(b.CountryName, v.Locale)
+	}
+	language := ""
+	for _, l := range v.Locales {
+		if l.Tag == v.Locale {
+			language = l.Language
+		}
 	}
 	var points []any
 	for _, c := range b.ContactPoints {
@@ -73,6 +98,9 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		setIf(cp, "contactType", c.Type)
 		setIf(cp, "telephone", c.Phone)
 		setIf(cp, "email", c.Email)
+		setIf(cp, "name", c.Name)
+		setIf(cp, "areaServed", c.AreaServed)
+		setIf(cp, "availableLanguage", firstNonEmpty(c.AvailableLanguage, language))
 		points = append(points, cp)
 	}
 	if len(points) > 0 {
@@ -85,4 +113,23 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		lb["aggregateRating"] = r
 	}
 	return lb
+}
+
+// oneOrList is the single node itself, or the list when there are several.
+func oneOrList(nodes []any) any {
+	if len(nodes) == 1 {
+		return nodes[0]
+	}
+	return nodes
+}
+
+// localeHome is the absolute home URL of the page's locale: the locale's own
+// entry in the locale list, else the base URL plus the locale's segment.
+func localeHome(v *PageView, base string) string {
+	for _, l := range v.Locales {
+		if l.Tag == v.Locale && l.Home != "" {
+			return l.Home
+		}
+	}
+	return base + "/" + v.Segment
 }

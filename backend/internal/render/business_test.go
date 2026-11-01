@@ -94,22 +94,24 @@ func TestSiteGraph_LocalBusinessNode(t *testing.T) {
 	if !reflect.DeepEqual(addr, want) {
 		t.Errorf("address = %v, want %v", addr, want)
 	}
-	if geo, _ := lb["geo"].(map[string]any); geo["latitude"] != "-12.5" || geo["longitude"] != "33.25" || geo["@type"] != "GeoCoordinates" {
+	// Pinned deliberately: coordinates are JSON numbers, one regular block is an
+	// object, and special hours have their own key.
+	if geo, _ := lb["geo"].(map[string]any); geo["latitude"] != -12.5 || geo["longitude"] != 33.25 || geo["@type"] != "GeoCoordinates" {
 		t.Errorf("geo = %v", lb["geo"])
 	}
-	specs, _ := lb["openingHoursSpecification"].([]any)
-	if len(specs) != 3 {
-		t.Fatalf("openingHoursSpecification = %v, want 3 (the block without days is skipped)", specs)
-	}
-	reg := specs[0].(map[string]any)
+	reg, _ := lb["openingHoursSpecification"].(map[string]any)
 	if !reflect.DeepEqual(reg["dayOfWeek"], []any{"Monday", "Tuesday"}) || reg["opens"] != "09:00" || reg["closes"] != "17:00" {
-		t.Errorf("regular hours = %v", reg)
+		t.Errorf("regular hours = %v (the block without days is skipped)", lb["openingHoursSpecification"])
 	}
-	closed := specs[1].(map[string]any)
+	specials, _ := lb["specialOpeningHoursSpecification"].([]any)
+	if len(specials) != 2 {
+		t.Fatalf("specialOpeningHoursSpecification = %v, want 2", specials)
+	}
+	closed := specials[0].(map[string]any)
 	if closed["validFrom"] != "2030-12-24" || closed["validThrough"] != "2030-12-26" || closed["opens"] != "00:00" || closed["closes"] != "00:00" {
 		t.Errorf("closed special hours = %v", closed)
 	}
-	day := specs[2].(map[string]any)
+	day := specials[1].(map[string]any)
 	if day["validThrough"] != "2030-01-01" || day["opens"] != "10:00" {
 		t.Errorf("single day special hours = %v", day)
 	}
@@ -216,17 +218,20 @@ func TestLocalBusinessOpeningHoursOmitEmptyTimes(t *testing.T) {
 		OpeningHours: []HoursView{{Days: []string{"Monday"}}},
 		SpecialHours: []SpecialHoursView{{From: "2030-01-01"}},
 	})
-	specs, _ := graphNodes(t, v)[1]["openingHoursSpecification"].([]any)
-	if len(specs) != 2 {
-		t.Fatalf("specs = %v", specs)
+	// Pinned deliberately: a special row with a date but no times and not
+	// closed prints nothing, so only the regular block remains.
+	lb := graphNodes(t, v)[1]
+	reg, _ := lb["openingHoursSpecification"].(map[string]any)
+	if reg == nil || reg["dayOfWeek"] == nil {
+		t.Fatalf("regular block = %v", lb["openingHoursSpecification"])
 	}
-	for _, s := range specs {
-		m, _ := s.(map[string]any)
-		for _, k := range []string{"opens", "closes"} {
-			if _, ok := m[k]; ok {
-				t.Errorf("%v has an empty %q key", m, k)
-			}
+	for _, k := range []string{"opens", "closes"} {
+		if _, ok := reg[k]; ok {
+			t.Errorf("%v has an empty %q key", reg, k)
 		}
+	}
+	if _, ok := lb["specialOpeningHoursSpecification"]; ok {
+		t.Errorf("a special row without times printed: %v", lb["specialOpeningHoursSpecification"])
 	}
 }
 
@@ -394,5 +399,61 @@ func TestRatingLD(t *testing.T) {
 	}
 	if got := ratingLD(Rating{Value: "4", Count: "0x10", CountType: "reviews"}); got["reviewCount"] != nil || got["ratingCount"] != nil {
 		t.Errorf("bad review count printed: %v", got)
+	}
+}
+
+func TestLocalBusinessNode_LocaleDetails(t *testing.T) {
+	v := multiPage("")
+	v.Segment = "xx"
+	v.Site.LogoURL = "/media/logo.png"
+	v.Site.Tagline = "Tagline"
+	v.Business.Name = "Branch"
+	v.Business.Lat, v.Business.Lng = "1.5", "2"
+	v.Business.CountryName = "Xland"
+	v.Business.ContactPoints = []ContactPointView{{Type: "sales", Phone: "1", Name: "Sales", AreaServed: "EU"}}
+	v.Locales[0].Home = "https://example.test/xx/"
+	lb := graphNodes(t, v)[1]
+	if lb["url"] != "https://example.test/xx/" || lb["legalName"] != "Branch" || lb["vatID"] != "V-XX" {
+		t.Errorf("lb = %v", lb)
+	}
+	if lb["image"] != "https://example.test/media/logo.png" || lb["description"] != "Tagline" {
+		t.Errorf("image/description fall back to the site: %v", lb)
+	}
+	if want := map[string]any{"@type": "Country", "name": "Xland", "identifier": "XX"}; !reflect.DeepEqual(lb["areaServed"], want) {
+		t.Errorf("areaServed = %v", lb["areaServed"])
+	}
+	cps, _ := lb["contactPoint"].([]any)
+	cp, _ := cps[0].(map[string]any)
+	if cp["name"] != "Sales" || cp["areaServed"] != "EU" || cp["availableLanguage"] != "English" {
+		t.Errorf("contact point = %v", cp)
+	}
+	v.Business.Image, v.Business.Description = "/media/office.png", "Local"
+	v.Business.AreaServed = []string{"Region"}
+	lb = graphNodes(t, v)[1]
+	if lb["image"] != "https://example.test/media/office.png" || lb["description"] != "Local" || !reflect.DeepEqual(lb["areaServed"], []any{"Region"}) {
+		t.Errorf("own values win: %v", lb)
+	}
+	v.Locales = nil
+	if got := graphNodes(t, v)[1]["url"]; got != "https://example.test/xx" {
+		t.Errorf("url fallback = %v", got)
+	}
+}
+
+func TestLocalBusinessNode_GeoAndHoursShapes(t *testing.T) {
+	v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}})
+	for _, c := range []struct{ lat, lng string }{{"1", ""}, {"", "1"}, {"0x1p3", "2"}, {"NaN", "2"}, {"1e3", "2"}} {
+		v.Business.Lat, v.Business.Lng = c.lat, c.lng
+		if _, ok := graphNodes(t, v)[1]["geo"]; ok {
+			t.Errorf("geo printed for %q, %q", c.lat, c.lng)
+		}
+	}
+	v.Business.OpeningHours = []HoursView{{Days: []string{"Monday"}, Opens: "09:00"}, {Days: []string{"Friday"}, Opens: "10:00"}}
+	v.Business.SpecialHours = []SpecialHoursView{{From: "2030-01-01", Closed: true}}
+	lb := graphNodes(t, v)[1]
+	if list, _ := lb["openingHoursSpecification"].([]any); len(list) != 2 {
+		t.Errorf("several regular blocks must be a list: %v", lb["openingHoursSpecification"])
+	}
+	if _, ok := lb["specialOpeningHoursSpecification"].(map[string]any); !ok {
+		t.Errorf("one special row must be an object: %v", lb["specialOpeningHoursSpecification"])
 	}
 }
