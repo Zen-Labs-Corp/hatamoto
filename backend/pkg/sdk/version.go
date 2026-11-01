@@ -26,9 +26,17 @@ package sdk
 //
 // 0.14.0 adds `attribution` (first and last touch) to FormSubmittedEvent.
 // Purely additive.
-const Version = "0.14.0"
+//
+// 0.15.0 adds locale support for plugins that manage a multi-locale site:
+// `locale` and `segment` on HeadContext, `segment` and `file` on SitemapURLs,
+// `translation_group` on the entity payloads, `translation_of` on
+// entities.create, the entities.translations host function and locale-prefixed
+// paths in entities.get. Additive for plugins built for 0.14 or older; a plugin
+// declaring 0.15 or later must also pass `locale` to entities.create on a
+// multi-locale site (older plugins keep the site language as the default).
+const Version = "0.15.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0"}

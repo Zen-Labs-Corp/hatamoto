@@ -309,7 +309,9 @@ func (s *Server) setupURL() string {
 // (the region attribute Suggest looks for). An ordinary nested site, where
 // /services and /about both have children, does not match. localeconv has no
 // exported equivalent; its Suggest does the real analysis when the owner opens
-// the conversion page.
+// the conversion page. A top-level page whose attributes are not a JSON object
+// (array, scalar) never matches; the CASE keeps jsonb_each_text from erroring on
+// it, which a plain AND would not (evaluation order is not guaranteed).
 func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error) {
 	return func(ctx context.Context) (bool, error) {
 		var found bool
@@ -318,7 +320,8 @@ func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error
 			JOIN hatamoto_entity_schemas s ON s.id = p.schema_id
 			WHERE s.slug = 'page' AND p.parent_id IS NULL AND p.variant_key IS NULL AND p.status = 'published'
 			  AND EXISTS (SELECT 1 FROM hatamoto_entities c WHERE c.parent_id = p.id)
-			  AND EXISTS (SELECT 1 FROM jsonb_each_text(p.attributes) a WHERE a.value = p.slug)`).Scan(&found)
+			  AND EXISTS (SELECT 1 FROM jsonb_each_text(
+					CASE WHEN jsonb_typeof(p.attributes) = 'object' THEN p.attributes ELSE '{}'::jsonb END) a WHERE a.value = p.slug)`).Scan(&found)
 		return found, err
 	}
 }

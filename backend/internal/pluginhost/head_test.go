@@ -2,8 +2,10 @@ package pluginhost
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/hooks"
@@ -86,5 +88,25 @@ func TestHeadScriptsDenyHook(t *testing.T) {
 	rt.SetScriptsDeny(func(p string) bool { return p == "gtm" })
 	if rt.scriptsAllowed("gtm") {
 		t.Fatal("the deny hook must win over a stored grant")
+	}
+}
+
+func TestHeadFilterCarriesLocaleAndSegment(t *testing.T) {
+	h := hooks.New(quietLog())
+	var got sdk.HeadContext
+	hooks.OnFilter(h.For("pl19r"), sdk.RenderHead, 10, func(_ context.Context, c sdk.HeadContext) (sdk.HeadContext, error) {
+		got = c
+		return c, nil
+	})
+	HeadFilter(h)(context.Background(), render.HeadContext{Path: "/", Locale: "en-XX", Segment: "xx"})
+	if got.Locale != "en-XX" || got.Segment != "xx" {
+		t.Fatalf("locale/segment not passed: %+v", got)
+	}
+	raw, err := json.Marshal(sdk.HeadContext{Path: "/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "locale") || strings.Contains(string(raw), "segment") {
+		t.Fatalf("one-language payload must omit locale and segment: %s", raw)
 	}
 }

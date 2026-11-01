@@ -40,6 +40,9 @@ type PageView struct {
 	// Locale is the locale tag of the page being rendered ("" on a one-locale
 	// site).
 	Locale string
+	// Segment is the stored URL segment of Locale ("" when unprefixed or on a
+	// one-locale site).
+	Segment string
 	// Alternates lists the page in every configured locale, in settings order.
 	// It is nil on a one-locale site. XDefaultHref is the absolute URL for the
 	// hreflang x-default entry ("" for none).

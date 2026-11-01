@@ -78,6 +78,13 @@ locale's pages print their own `LocalBusiness` node linked to the shared
 older releases still read them. Identity (site name, logo, tagline) is still not
 per locale.
 
+Follow-ups. Phase 2 (field inheritance between copies, the editor's
+Translations panel and Create copy) stays out of scope. Until it exists, a
+site's plugin can act as the inheritance engine: SDK 0.15 gives it `locale` and
+`translation_group` on entities, `translation_of` on `entities.create` and the
+`entities.translations` host function, plus `locale` and `segment` in the
+`render.head` and `sitemap.urls` payloads.
+
 ## Consequences
 
 - ROADMAP invariant 8 is replaced and the section 8 line removed. The roadmap
@@ -90,8 +97,9 @@ per locale.
 - Themes: `.Site.Language` is per page. Custom themes must range over the
   alternates in their `head` partial to print hreflang (see
   [`docs/THEMES.md`](../THEMES.md)).
-- Plugins: no SDK version change in phase 1. Existing fields carry the page's
-  locale (see [`docs/PLUGIN_API.md`](../PLUGIN_API.md)).
+- Plugins: phase 1 changed no SDK version; existing fields carry the page's
+  locale. SDK 0.15 then added the locale fields and translation host function
+  named above. They are additive for plugins built for 0.14 or older; a plugin declaring 0.15 or later must name a locale on `entities.create` on a multi-locale site (see [`docs/PLUGIN_API.md`](../PLUGIN_API.md)).
 - Unprefixed URLs of the default locale and of shared content share one
   namespace. When both have the same slug the default locale's page wins. A
   write-time collision check is left to a later phase.

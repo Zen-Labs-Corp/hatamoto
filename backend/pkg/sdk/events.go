@@ -39,17 +39,23 @@ type ImportEvent struct {
 }
 
 // HeadContext is the payload of the render.head filter. Path, Language,
-// SchemaSlug and EntityID describe the page; a filter appends to Tags.
+// SchemaSlug and EntityID describe the page; Locale and Segment name its locale
+// on a multi-locale site (since 0.15.0); a filter appends to Tags.
 // A filter that supplies its own Organization/WebSite graph as jsonld tags
 // sets ReplaceSiteGraph so the host omits its generic site graph. The flag
 // is preserved as long as later filters return the context they were given.
 // It is fail-open: if the chain times out or panics, or no valid jsonld tag
 // results, the generic graph is kept. Since 0.2.2.
 type HeadContext struct {
-	Path             string    `json:"path"`
-	Language         string    `json:"language"`
-	SchemaSlug       string    `json:"schema_slug"`
-	EntityID         string    `json:"entity_id"`
+	Path       string `json:"path"`
+	Language   string `json:"language"`
+	SchemaSlug string `json:"schema_slug"`
+	EntityID   string `json:"entity_id"`
+	// Locale is the BCP 47 tag of the page; empty on a one-language site.
+	Locale string `json:"locale,omitempty"`
+	// Segment is the stored URL segment of Locale; empty for an unprefixed
+	// default locale and on a one-language site.
+	Segment          string    `json:"segment,omitempty"`
 	Tags             []HeadTag `json:"tags,omitempty"`
 	ReplaceSiteGraph bool      `json:"replace_site_graph"`
 }
@@ -124,7 +130,7 @@ const MaxSitemapAdditions = 5000
 
 // SitemapURLs is the value filtered by sitemap.urls for one sitemap file.
 //
-// The host sends only Group and Language, and in Add the entries that
+// The host sends only Group, Language, Segment and File, and in Add the entries that
 // sitemap.urls filters before this one already added (empty for the first):
 // never the file's own URL list, because a Go guest spends about 0.5 s per
 // 5,000 URLs to decode and encode one. A plugin appends the entries it wants
@@ -136,9 +142,16 @@ const MaxSitemapAdditions = 5000
 // for the misc sitemap holding static routes. Language is the BCP 47 site
 // language. Filters that add a site-wide URL should target one file (usually
 // Group == "misc") or it appears in many.
+//
+// Since 0.15.0, on a multi-locale site Segment is the stored URL segment of
+// the file's locale (empty for an unprefixed default locale) and File is the
+// full file key ("xx-misc"; Group stays the bare name). Both are empty on a
+// one-language site.
 type SitemapURLs struct {
 	Group    string       `json:"group"`
 	Language string       `json:"language"`
+	Segment  string       `json:"segment,omitempty"`
+	File     string       `json:"file,omitempty"`
 	Add      []SitemapURL `json:"add"`
 }
 

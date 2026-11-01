@@ -30,7 +30,10 @@ type HeadContext struct {
 	Language   string
 	SchemaSlug string
 	EntityID   string
-	Tags       []HeadTag
+	// Locale and Segment name the page's locale; both empty on a one-locale site.
+	Locale  string
+	Segment string
+	Tags    []HeadTag
 	// ReplaceSiteGraph asks the host to omit its generic Organization/WebSite
 	// graph because the filter supplies its own as jsonld tags.
 	ReplaceSiteGraph bool
@@ -92,6 +95,7 @@ func buildHeadView(ctx context.Context, v *PageView, f HeadFilter) headView {
 	// graph is kept.
 	out := applyHeadFilter(ctx, f, HeadContext{
 		Path: v.Path, Language: v.Site.Language, SchemaSlug: v.SchemaSlug, EntityID: v.EntityID,
+		Locale: v.Locale, Segment: v.Segment,
 	})
 	var ldScripts []template.HTML
 	var extTags []extTag

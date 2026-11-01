@@ -87,6 +87,9 @@ func TestApplySitemapFilterFor_GroupName(t *testing.T) {
 	run := func(t *testing.T, snap *entity.URLSnapshot, entries []*entity.SitemapEntry, key string) sdk.SitemapURLs {
 		t.Helper()
 		s := sitemapTestServer()
+		s.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		s.entityService = entity.NewService(&countingSchemaLister{}, nil, s.logger)
+		s.entityService.URLRegistry().SetLocales(func(context.Context) (*entity.LocaleSet, error) { return snap.Locales(), nil })
 		var seen sdk.SitemapURLs
 		hooks.OnFilter(s.hooks.For("p"), sdk.SitemapURLsF, 10, func(_ context.Context, v sdk.SitemapURLs) (sdk.SitemapURLs, error) {
 			seen = v
@@ -108,14 +111,36 @@ func TestApplySitemapFilterFor_GroupName(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := run(t, snap, []*entity.SitemapEntry{localeEntry("about", "en", nil)}, "misc")
-		if got.Group != "misc" || got.Language != "" {
-			t.Fatalf("filter saw %+v; want group misc, no language", got)
+		if got.Group != "misc" || got.Language != "" || got.Segment != "" || got.File != "" {
+			t.Fatalf("filter saw %+v; want group misc, no language, segment or file", got)
 		}
 	})
 	t.Run("multi locale", func(t *testing.T) {
 		got := run(t, multiSitemapSnap(t, false), []*entity.SitemapEntry{localeEntry("a-propos", "fr", nil)}, "fr-misc")
-		if got.Group != "misc" || got.Language != "fr" {
-			t.Fatalf("filter saw %+v; want group misc, language fr", got)
+		if got.Group != "misc" || got.Language != "fr" || got.Segment != "fr" || got.File != "fr-misc" {
+			t.Fatalf("filter saw %+v; want group misc, language fr, segment fr, file fr-misc", got)
+		}
+	})
+	t.Run("unprefixed default with a stored segment", func(t *testing.T) {
+		set, err := entity.NewLocaleSet("en-XX", []entity.LocaleEntry{{Tag: "en-XX", Segment: "xx"}, {Tag: "fr-XX", Segment: "yy"}}, false, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+		reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+		snap, err := reg.Snapshot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := run(t, snap, []*entity.SitemapEntry{localeEntry("about", "en-XX", nil)}, "misc")
+		if got.Language != "en-XX" || got.Segment != "" {
+			t.Fatalf("filter saw %+v; want language en-XX and no segment", got)
+		}
+	})
+	t.Run("unprefixed default", func(t *testing.T) {
+		got := run(t, multiSitemapSnap(t, false), []*entity.SitemapEntry{localeEntry("about", "en", nil)}, "misc")
+		if got.Group != "misc" || got.Language != "en" || got.Segment != "" || got.File != "misc" {
+			t.Fatalf("filter saw %+v; want group misc, language en, no segment, file misc", got)
 		}
 	})
 }

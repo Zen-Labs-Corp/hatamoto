@@ -22,9 +22,12 @@ import (
 const (
 	// convertMaxPlan is the longest plan, in bytes, the page accepts. It is
 	// checked right after the form is read and before the plan is parsed. The
-	// form itself is read by the CSRF guard first, so the request body is only
-	// bounded by the 10 MiB limit of Go's form parser.
+	// request body is capped at convertBodyLimit by limitConvertBody before
+	// the CSRF guard reads the form.
 	convertMaxPlan = 1 << 20
+	// convertBodyLimit is the plan plus room for the other form fields and
+	// the multipart framing.
+	convertBodyLimit = convertMaxPlan + 1<<20
 
 	convertApplyPhrase  = "convert"
 	convertRevertPhrase = "revert"
@@ -118,15 +121,40 @@ type convertReport struct {
 	ApplyHref       string
 }
 
+const (
+	convertApplyDescription  = "Confirm this change to your region pages. You can revert it afterwards."
+	convertRevertDescription = "Confirm that you want to undo this conversion."
+)
+
 // convertConfirmData is the typed confirm page of Apply and Revert.
 type convertConfirmData struct {
-	Danger ui.DangerConfirm
+	// Description is the line under the page title.
+	Description string
+	Danger      ui.DangerConfirm
 	// Issues are what refused the last attempt.
 	Issues []convertIssue
 }
 
 func (a *Admin) convertURL(parts ...string) string {
 	return a.url(append([]string{"settings", "general", "locales", "convert"}, parts...)...)
+}
+
+// limitConvertBody caps what a Convert form may post before anything reads it
+// (the CSRF check parses the body). base is the Convert page URL. A declared
+// size over the cap is refused with a clear message.
+func limitConvertBody(base string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, base) {
+				if r.ContentLength > convertBodyLimit {
+					http.Error(w, "The plan is larger than 1 MiB. Split it into smaller plans.", http.StatusRequestEntityTooLarge)
+					return
+				}
+				r.Body = http.MaxBytesReader(w, r.Body, convertBodyLimit)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // mountLocaleConvert mounts the Convert page: owners only, and the role check
@@ -179,11 +207,40 @@ func (a *Admin) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// parseConvertForm reads the posted form, urlencoded or multipart. The body is
+// already capped by limitConvertBody; a read past the cap is a
+// *http.MaxBytesError.
+func parseConvertForm(r *http.Request) error {
+	if err := r.ParseMultipartForm(convertBodyLimit); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		return err
+	}
+	return nil
+}
+
+func isTooLarge(err error) bool {
+	var tooLarge *http.MaxBytesError
+	return errors.As(err, &tooLarge)
+}
+
+// convertFormError answers a form that could not be read: 413 when it ran past
+// the body cap, 400 for anything else (a malformed body).
+func (a *Admin) convertFormError(w http.ResponseWriter, r *http.Request, err error, tooLarge string) {
+	if isTooLarge(err) {
+		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", tooLarge)
+		return
+	}
+	a.Error(w, r, http.StatusBadRequest, "Bad request", "The request could not be read.")
+}
+
 // convertPlanText reads the posted plan. It reports false, with the page already
 // answered, when the plan is too large.
 func (a *Admin) convertPlanText(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if err := r.ParseForm(); err != nil {
-		a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
+	if err := parseConvertForm(r); err != nil {
+		if isTooLarge(err) {
+			a.renderConvert(w, r, http.StatusRequestEntityTooLarge, convertData{PlanError: "The plan is larger than 1 MiB"})
+		} else {
+			a.renderConvert(w, r, http.StatusBadRequest, convertData{PlanError: "The request could not be read"})
+		}
 		return "", false
 	}
 	plan := strings.TrimSpace(r.PostFormValue("plan"))
@@ -445,12 +502,12 @@ func (a *Admin) convertApplyDanger(r *http.Request, plan, sha, fp string) ui.Dan
 	}
 }
 
-func (a *Admin) renderConvertConfirm(w http.ResponseWriter, r *http.Request, status int, dc ui.DangerConfirm, issues []convertIssue, title string) {
+func (a *Admin) renderConvertConfirm(w http.ResponseWriter, r *http.Request, status int, dc ui.DangerConfirm, issues []convertIssue, title, description string) {
 	v := a.NewView(w, r, title)
 	v.Section, v.Tab = "general", "general"
 	v.Width = "compact"
 	v.Crumbs = a.areaCrumbs("general", Crumb{Label: "Convert regions", Href: a.convertURL()}, Crumb{Label: "Confirm"})
-	v.Data = convertConfirmData{Danger: dc, Issues: issues}
+	v.Data = convertConfirmData{Description: description, Danger: dc, Issues: issues}
 	a.Render(w, r, status, "settings/locale-convert-confirm", v)
 }
 
@@ -465,15 +522,15 @@ func (a *Admin) handleConvertApplyConfirm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, a.convertURL(), http.StatusSeeOther)
 		return
 	}
-	a.renderConvertConfirm(w, r, http.StatusOK, a.convertApplyDanger(r, plan, sha, fp), nil, "Convert region pages")
+	a.renderConvertConfirm(w, r, http.StatusOK, a.convertApplyDanger(r, plan, sha, fp), nil, "Convert region pages", convertApplyDescription)
 }
 
 func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	if !a.convertReady(w, r) {
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		a.Error(w, r, http.StatusRequestEntityTooLarge, "Too large", "The plan is larger than 1 MiB.")
+	if err := parseConvertForm(r); err != nil {
+		a.convertFormError(w, r, err, "The plan is larger than 1 MiB.")
 		return
 	}
 	text, sha, fp := r.PostFormValue("plan"), r.PostFormValue("plan_sha256"), r.PostFormValue("data_fingerprint")
@@ -484,7 +541,7 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	dc := a.convertApplyDanger(r, text, sha, fp)
 	dc, ok := CheckDangerPhrase(r, dc)
 	if !ok {
-		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Convert region pages")
+		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Convert region pages", convertApplyDescription)
 		return
 	}
 	plan, err := localeconv.ParsePlan(strings.NewReader(text))
@@ -563,7 +620,7 @@ func (a *Admin) handleConvertRevertConfirm(w http.ResponseWriter, r *http.Reques
 		a.Error(w, r, http.StatusNotFound, "Not found", "There is no such conversion.")
 		return
 	}
-	a.renderConvertConfirm(w, r, http.StatusOK, a.convertRevertDanger(r, id, false), nil, "Revert conversion")
+	a.renderConvertConfirm(w, r, http.StatusOK, a.convertRevertDanger(r, id, false), nil, "Revert conversion", convertRevertDescription)
 }
 
 func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
@@ -575,10 +632,14 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusNotFound, "Not found", "There is no such conversion.")
 		return
 	}
+	if err := parseConvertForm(r); err != nil {
+		a.convertFormError(w, r, err, "The request is larger than 1 MiB.")
+		return
+	}
 	force := r.PostFormValue("force") == "1"
 	dc, ok := CheckDangerPhrase(r, a.convertRevertDanger(r, id, force))
 	if !ok {
-		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Revert conversion")
+		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Revert conversion", convertRevertDescription)
 		return
 	}
 	res, err := a.deps.LocaleConvert.Revert(r.Context(), id, force, userLabel(userFrom(r.Context())))
@@ -592,7 +653,7 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 				canForce = false
 			}
 		}
-		a.renderConvertConfirm(w, r, http.StatusConflict, a.convertRevertDanger(r, id, canForce), convertIssues(be.Issues), "Revert conversion")
+		a.renderConvertConfirm(w, r, http.StatusConflict, a.convertRevertDanger(r, id, canForce), convertIssues(be.Issues), "Revert conversion", convertRevertDescription)
 		return
 	}
 	if err != nil {

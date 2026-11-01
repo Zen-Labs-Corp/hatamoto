@@ -90,8 +90,8 @@ func TestHeadExtFilterSeesContext(t *testing.T) {
 	t.Parallel()
 	var got HeadContext
 	f := func(_ context.Context, c HeadContext) HeadContext { got = c; return c }
-	buildHeadView(context.Background(), &PageView{Path: "/a", Site: SiteView{Language: "en"}, SchemaSlug: "page", EntityID: "e1"}, f)
-	if got.Path != "/a" || got.Language != "en" || got.SchemaSlug != "page" || got.EntityID != "e1" {
+	buildHeadView(context.Background(), &PageView{Path: "/a", Site: SiteView{Language: "en"}, SchemaSlug: "page", EntityID: "e1", Locale: "fr", Segment: "fr"}, f)
+	if got.Path != "/a" || got.Language != "en" || got.SchemaSlug != "page" || got.EntityID != "e1" || got.Locale != "fr" || got.Segment != "fr" {
 		t.Fatalf("%+v", got)
 	}
 }

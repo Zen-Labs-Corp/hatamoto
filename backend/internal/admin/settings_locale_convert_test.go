@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync"
@@ -215,6 +218,9 @@ func TestLocaleConvertReportPage(t *testing.T) {
 	if strings.ContainsAny(body, "\u2013\u2014") {
 		t.Error("em or en dash on the page")
 	}
+	if h1 := convertH1(body); h1 != "Convert region pages" {
+		t.Errorf("h1 = %q, want the page title", h1)
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
@@ -284,6 +290,9 @@ func TestLocaleConvertApplyFlow(t *testing.T) {
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	if h1 := convertH1(body); h1 != "Convert region pages" {
+		t.Errorf("confirm h1 = %q, want the page title", h1)
 	}
 	compareGolden(t, "pages/settings-locale-convert-confirm.html", normalizePage(body))
 
@@ -430,8 +439,12 @@ func TestLocaleConvertRevertFlow(t *testing.T) {
 	g, fc, events, flushed := newConvertRig(t)
 	g.elevate("owner-token")
 	path := convertBase + "/history/3/revert"
-	if rec := g.do("GET", path, "owner-token", nil, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Revert conversion #3") {
+	rec := g.do("GET", path, "owner-token", nil, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Revert conversion #3") {
 		t.Fatalf("confirm: %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "revert it afterwards") {
+		t.Error("the revert confirm page tells the editor they can revert it afterwards")
 	}
 	if rec := g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"nope"}}, nil); rec.Code != http.StatusUnprocessableEntity || len(fc.reverted) != 0 {
 		t.Fatalf("wrong phrase: %d", rec.Code)
@@ -447,7 +460,7 @@ func TestLocaleConvertRevertFlow(t *testing.T) {
 		}
 		return nil, &localeconv.BlockingError{Issues: []localeconv.Issue{{Code: localeconv.CodeRevertConflict, Message: "The page Pricing was edited after the conversion"}}}
 	}
-	rec := g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"revert"}}, nil)
+	rec = g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"revert"}}, nil)
 	body := rec.Body.String()
 	if rec.Code != http.StatusConflict || !strings.Contains(body, "The page Pricing was edited after the conversion") || !strings.Contains(body, `name="force" value="1"`) || !strings.Contains(body, "Revert anyway") {
 		t.Fatalf("conflict: %d %s", rec.Code, body)
@@ -503,4 +516,80 @@ func TestLocalesTabLinksToTheConversion(t *testing.T) {
 	if shown() {
 		t.Error("the link shows on a multi-locale site")
 	}
+}
+
+// convertMultipart posts a multipart form with one oversized field.
+func convertMultipart(g *rig, path string, fields map[string]string) *httptest.ResponseRecorder {
+	g.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		_ = mw.WriteField(k, v)
+	}
+	_ = mw.Close()
+	req := httptest.NewRequest("POST", path, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
+	t.Parallel()
+
+	g, fc, _, _ := newConvertRig(t)
+	g.elevate("owner-token")
+	huge := strings.Repeat("a", convertBodyLimit+1)
+	for _, path := range []string{"/report", "/suggest", "/apply", "/history/3/revert"} {
+		if rec := convertMultipart(g, convertBase+path, map[string]string{"plan": huge}); rec.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("multipart %s: %d, want 413", path, rec.Code)
+		}
+	}
+	if len(fc.applied) != 0 {
+		t.Error("an oversized body was applied")
+	}
+
+	// A declared size over the cap is refused before the body is touched.
+	req := httptest.NewRequest("POST", convertBase+"/report", strings.NewReader("x"))
+	req.ContentLength = convertBodyLimit + 1
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), "larger than 1 MiB") {
+		t.Errorf("declared size: %d", rec.Code)
+	}
+
+	// A normal plan still passes.
+	if rec := g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil); rec.Code != http.StatusOK {
+		t.Errorf("normal plan: %d", rec.Code)
+	}
+}
+
+// A body that cannot be parsed is a bad request, not "too large".
+func TestLocaleConvertMalformedBodyIsBadRequest(t *testing.T) {
+	t.Parallel()
+
+	g, _, _, _ := newConvertRig(t)
+	g.elevate("owner-token")
+	for _, path := range []string{"/report", "/apply", "/history/3/revert"} {
+		req := httptest.NewRequest("POST", convertBase+path, strings.NewReader("--b\r\nContent-Disposition: form-data; name=\"plan\"\r\n\r\nno closing boundary"))
+		req.Header.Set("Content-Type", "multipart/form-data; boundary=b")
+		req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+		g.addFetchMeta(req, "owner-token", nil)
+		rec := httptest.NewRecorder()
+		g.h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d, want 400", path, rec.Code)
+		}
+	}
+}
+
+// convertH1 returns the text of the page's h1.
+func convertH1(body string) string {
+	_, rest, _ := strings.Cut(body, "<h1>")
+	h1, _, _ := strings.Cut(rest, "</h1>")
+	return h1
 }

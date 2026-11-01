@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"hatamoto.dev/sdk"
@@ -24,23 +25,32 @@ const sitemapFilterTimeout = 2 * time.Second
 // entry's TTL expires; filters must therefore be deterministic and are not
 // re-run per request.
 func (s *Server) applySitemapFilter(ctx context.Context, group string, urls []URL) []URL {
-	return s.applySitemapFilterLang(ctx, group, "", urls)
+	return s.applySitemapFilterLang(ctx, group, "", "", "", urls)
 }
 
 // applySitemapFilterFor runs the filter for a planned file: plugins see the
-// bare group and, on a multi-locale site, the locale of the file.
+// bare group and, on a multi-locale site, the locale, URL segment and full key
+// of the file.
 func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, urls []URL) []URL {
-	return s.applySitemapFilterLang(ctx, g.base, g.locale, urls)
+	var segment, file string
+	if g.locale != "" {
+		file = g.key
+		if s.entityService != nil {
+			// Empty for a locale served without a prefix, even when a segment is stored.
+			segment = strings.TrimPrefix(s.urlSnapshot(ctx).Locales().Prefix(g.locale), "/")
+		}
+	}
+	return s.applySitemapFilterLang(ctx, g.base, g.locale, segment, file, urls)
 }
 
-func (s *Server) applySitemapFilterLang(ctx context.Context, group, language string, urls []URL) []URL {
+func (s *Server) applySitemapFilterLang(ctx context.Context, group, language, segment, file string, urls []URL) []URL {
 	if s.hooks == nil {
 		return urls
 	}
 	ctx, cancel := context.WithTimeout(ctx, sitemapFilterTimeout)
 	defer cancel()
 
-	out, ok := s.hooks.Apply(ctx, sdk.SitemapURLsF.Name, sdk.SitemapURLs{Group: group, Language: language}).(sdk.SitemapURLs)
+	out, ok := s.hooks.Apply(ctx, sdk.SitemapURLsF.Name, sdk.SitemapURLs{Group: group, Language: language, Segment: segment, File: file}).(sdk.SitemapURLs)
 	if !ok {
 		return urls
 	}
