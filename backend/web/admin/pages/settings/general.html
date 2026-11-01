@@ -9,11 +9,15 @@
 {{template "hm/formerrors" dict "Errors" .Ident.Summary}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Site name" "Value" .Ident.Site.Name "Required" true "Error" (index .Ident.SiteErrs "name")}}
 {{template "hm/field" dict "ID" "tagline" "Name" "tagline" "Label" "Tagline" "Value" .Ident.Tagline "Error" (index .Ident.SiteErrs "tagline")}}
-{{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .Ident.Site.URL "Help" "The public address, like https://example.com. Used in links and emails." "Error" (index .Ident.SiteErrs "url")}}
-{{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com." "Error" (index .Ident.SiteErrs "domain")}}
+{{template "hm/pair-start"}}
+{{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .Ident.Site.URL "Help" "The public address, like https://example.com. Used in links and emails" "Error" (index .Ident.SiteErrs "url")}}
+{{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com" "Error" (index .Ident.SiteErrs "domain")}}
+{{template "hm/pair-end"}}
+{{template "hm/pair-start"}}
 {{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Ident.Languages "Error" (index .Ident.SiteErrs "language")}}
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Ident.Timezones "Error" (index .Ident.SiteErrs "timezone")}}
-{{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png." "Error" (index .Ident.SiteErrs "logo")}}
+{{template "hm/pair-end"}}
+{{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png" "Error" (index .Ident.SiteErrs "logo")}}
 {{template "hm/card-foot"}}
 {{template "hm/button" dict "Label" "Save identity" "Variant" "primary" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
@@ -37,7 +41,7 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save business details</button>
 {{template "hm/card-start" dict "ID" "contact-card" "Title" "Business details" "Description" "Your organisation and the defaults every locale falls back to."}}
 {{template "hm/formerrors" dict "Errors" .Contact.Summary}}
-{{template "hm/field" dict "ID" "notify" "Name" "notify" "Label" "Notification email" "Type" "email" "Value" .Contact.Contact.NotifyEmail "Help" "Where form messages and alerts go." "Error" (index .Contact.ContactErrs "notify")}}
+{{template "hm/field" dict "ID" "notify" "Name" "notify" "Label" "Notification email" "Type" "email" "Value" .Contact.Contact.NotifyEmail "Help" "Where form messages and alerts go" "Error" (index .Contact.ContactErrs "notify")}}
 {{if .Contact.BizHint}}{{template "hm/callout-start" dict "Kind" "info"}}<p>Contact points, opening hours, area served, currency, price range and geo region are used on locale pages.</p>{{template "hm/button" dict "Label" "Add languages" "Href" .LocalesHref}}{{template "hm/callout-end"}}
 {{else}}{{template "hm/callout-start" dict "Kind" "info"}}<p>Each locale can override these details.</p>{{template "hm/button" dict "Label" "Set per-locale details in Settings > Locales" "Href" (adminPath "settings" "locales" "business")}}{{template "hm/callout-end"}}
 {{end}}{{.Contact.Biz}}

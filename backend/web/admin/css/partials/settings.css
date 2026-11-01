@@ -40,7 +40,10 @@
 .hm-section-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .hm-section-head__titles { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 
-.hm-jumpnav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+.hm-jumpnav { display: flex; flex-wrap: wrap; gap: var(--space-1); font-size: var(--text-sm); }
+.hm-jumpnav a { display: inline-flex; align-items: center; min-height: var(--control-h-xs); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--text-body); text-decoration: none; }
+.hm-jumpnav a:hover { background: var(--surface-hover); color: var(--text); }
+.hm-jumpnav a:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-fieldgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-4); }
 /* Design tokens: compact inputs, as many columns as fit. */
 .hm-fieldgrid--tokens { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-3) var(--space-4); }
