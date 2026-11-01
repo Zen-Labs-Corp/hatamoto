@@ -19,8 +19,7 @@
 {{end}}<div class="hm-field{{if index .Errors "seo_og_image"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="seo_og_image">Social image</label>
 <div class="hm-row"><input class="hm-field__control" type="text" id="seo_og_image" name="seo_og_image" value="{{.SEO.OGImage}}" data-hm-image autocomplete="off"{{with index .Errors "seo_og_image"}} aria-invalid="true" aria-describedby="seo_og_image-error"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "seo_og_image" "hidden" "hidden"))}}</div>
 {{with index .Errors "seo_og_image"}}<p class="hm-field__error" id="seo_og_image-error">{{.}}</p>{{end}}</div>
-{{template "hm/seopanel-card" dict "Panel" .Panel}}
-</section>
+{{template "hm/seopanel-card" dict "Panel" .Panel}}</section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
 {{template "hm/seopanel-schema" dict "Panel" .Panel}}
@@ -40,7 +39,8 @@
 {{define "hm/seopanel-schema"}}{{with .Panel}}<div id="seo-schema"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{if .JSONLD}}<details class="hm-bp__ld" open><summary>Structured data: {{.JSONLDType}}</summary><pre class="hm-bp__pre" tabindex="0">{{.JSONLD}}</pre></details>{{else}}<p class="hm-muted">{{or .JSONLDNote "No structured data can be built until the entry has a name."}}</p>{{end}}</div>{{end}}{{end}}
 
 {{/* hm/seopanel-card: the share card of the Social tab, as the public head will carry it. OOB swaps it in place with the checks; it renders nothing for a form with no social fields. */}}
-{{define "hm/seopanel-card"}}{{with .Panel}}<div id="seo-card"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{with .Card}}{{if .Show}}<div class="hm-seo__card" role="group" aria-label="Share card preview">{{if .Image}}<img class="hm-seo__card-img" src="{{.Image}}" alt="" loading="lazy">{{end}}<div class="hm-seo__card-body">{{if .Site}}<p class="hm-seo__card-site">{{.Site}}</p>{{end}}<p class="hm-seo__card-title">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</p><p class="hm-seo__card-desc">{{if .Description}}{{.Description}}{{else}}No description yet.{{end}}</p></div></div>{{end}}{{end}}</div>{{end}}{{end}}
+{{define "hm/seopanel-card"}}{{with .Panel}}{{if or .Card.Show $.OOB}}<div id="seo-card"{{if $.OOB}} hx-swap-oob="true"{{end}}>{{with .Card}}{{if .Show}}<div class="hm-seo__card" role="group" aria-label="Share card preview">{{if .Image}}<img class="hm-seo__card-img" src="{{.Image}}" alt="" loading="lazy">{{end}}<div class="hm-seo__card-body">{{if .Site}}<p class="hm-seo__card-site">{{.Site}}</p>{{end}}<p class="hm-seo__card-title">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</p><p class="hm-seo__card-desc">{{if .Description}}{{.Description}}{{else}}No description yet.{{end}}</p></div></div>{{end}}{{end}}</div>
+{{end}}{{end}}{{end}}
 
 {{/* hm/seopanel-results: the analysis (summary, search-result preview and the checks) that the analyze endpoint swaps into #be-panel. Data: the panel. */}}
 {{define "hm/seopanel-results"}}<div class="hm-bp">
