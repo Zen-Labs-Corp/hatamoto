@@ -222,11 +222,11 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 		rate = fixed(ratio(leads, totals.Visits), 1)
 	}
 	aiLeads := leadsOf[analytics.ChannelAI]
-	bestStat := ui.Stat{Label: "Best channel", Value: placeholder, Note: "No leads in this period."}
+	bestStat := ui.Stat{Label: "Best channel", Value: placeholder, Muted: true, Note: "No leads in this period."}
 	if best != "" {
 		bestStat = ui.Stat{Label: "Best channel", Badge: &ui.Badge{Label: best, Kind: "neutral", Wrap: true}, Note: fixed(bestRate, 1) + " conversion"}
 	}
-	topForm := ui.Stat{Label: "Top form", Value: placeholder, Note: "No leads in this period."}
+	topForm := ui.Stat{Label: "Top form", Value: placeholder, Muted: true, Note: "No leads in this period."}
 	if len(byForm) > 0 {
 		topForm = ui.Stat{Label: "Top form", Value: byForm[0].Name, Note: fmtNum(byForm[0].Leads) + " leads"}
 	}
@@ -237,7 +237,7 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 	p.KPIs = []ui.Stat{
 		{Label: "Leads", Value: fmtNum(leads), Note: "Every submission that is not spam.",
 			Change: kpiDelta(cmp, rg, float64(leads), float64(prevLeads), false, false)},
-		{Label: "Conv. rate", Value: rate, Note: "Leads per visit. Can pass 100% on a short range.",
+		{Label: "Conv. rate", Value: rate, Muted: rate == placeholder, Note: "Leads per visit. Can pass 100% on a short range.",
 			Change: kpiDelta(cmp, rg, ratio(leads, totals.Visits), ratio(prevLeads, prevVisits), true, false)},
 		{Label: "Leads from AI assistants", Value: fmtNum(aiLeads), Note: aiNote},
 		bestStat, topForm,

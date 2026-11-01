@@ -126,9 +126,9 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 
 	src := func(endpoint string) string { return a.dataURL(endpoint, rg, false) }
 	fetched := int64(published - never)
-	cov := ui.Stat{Label: "Published pages fetched at least once", Value: "n/a", Note: "No published pages yet."}
+	cov := ui.Stat{Label: "Published pages fetched at least once", Value: "n/a", Muted: true, Note: "No published pages yet."}
 	if published > 0 {
-		cov.Value = fixed(ratio(fetched, int64(published)), 0)
+		cov.Value, cov.Muted = fixed(ratio(fetched, int64(published)), 0), false
 		cov.Note = strconv.FormatInt(fetched, 10) + " of " + strconv.Itoa(published) + " published pages, since tracking began"
 	}
 	shareNow, sharePrev := ratio(t.AIVisits, t.Pageviews), ratio(prev.AIVisits, prev.Pageviews)

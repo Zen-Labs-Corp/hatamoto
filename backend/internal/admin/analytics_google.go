@@ -142,9 +142,9 @@ func (a *Admin) buildGoogle(ctx context.Context, q url.Values, rg agents.Range, 
 		crawls.Note = fixed(ratio(k.Verified, k.Hits), 0) + " verified"
 	}
 	pages := ui.Stat{Label: "Pages crawled", Value: strconv.Itoa(k.PagesCrawled), Note: "of " + strconv.Itoa(k.Published) + " published"}
-	first := ui.Stat{Label: "Publish to first crawl", Value: "n/a", Note: "No page was first crawled in this period."}
+	first := ui.Stat{Label: "Publish to first crawl", Value: "n/a", Muted: true, Note: "No page was first crawled in this period."}
 	if k.MedianFirstCrawl != nil {
-		first.Value, first.Note = medianWords(*k.MedianFirstCrawl), "median, pages published since tracking began"
+		first.Value, first.Muted, first.Note = medianWords(*k.MedianFirstCrawl), false, "median, pages published since tracking began"
 	}
 	p := &googlePage{Banner: !v.SearchPerformance, KPIs: []ui.Stat{crawls, pages, first}}
 	p.Chart = ui.AiaChart{ID: "w-g-crawl", Title: "Crawling", Description: "Googlebot fetches per " + per(rg) + ", stacked by response class.",
