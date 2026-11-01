@@ -6,7 +6,8 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Dry run</button>
 {{template "hm/card-start" dict "ID" "convert-plan" "Title" "Step 1: Plan" "Description" "Turn the region pages of your site into locales. Suggest reads your pages and writes a plan you can edit, then the dry run shows what would change. Nothing is saved until step 3."}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
-{{if .Warnings}}{{template "hm/callout-start" dict "Kind" "warning" "Title" "Check these"}}<ul>{{range .Warnings}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
+{{if .Notice}}{{template "hm/callout" dict "Kind" "info" "Body" .Notice}}
+{{end}}{{if .Warnings}}{{template "hm/callout-start" dict "Kind" "warning" "Title" "Check these"}}<ul>{{range .Warnings}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
 {{end}}{{if .Issues}}{{template "hm/callout-start" dict "Kind" "danger" "Title" "This cannot be applied yet"}}<ul>{{range .Issues}}<li>{{.Message}}</li>{{end}}</ul>{{template "hm/callout-end"}}
 {{end}}{{template "hm/field" dict "ID" "plan" "Name" "plan" "Label" "Plan (JSON)" "Control" "textarea" "Rows" 14 "Value" .Plan "Error" .PlanError "Help" "Up to 1 MiB. Leave it empty and press Suggest to start from your pages." "Attrs" (attrmap "spellcheck" "false" "autocomplete" "off" "autocapitalize" "none")}}
 {{template "hm/card-foot"}}

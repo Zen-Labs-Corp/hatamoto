@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/sdk"
@@ -73,6 +76,26 @@ func (f *locEntities) GetByID(_ context.Context, id uuid.UUID) (*entity.Entity, 
 	return nil, entity.ErrEntityNotFound
 }
 
+func (f *locEntities) Update(ctx context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
+	e, err := f.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if in.Name != nil {
+		e.Name = *in.Name
+	}
+	return e, nil
+}
+
+func (f *locEntities) UpdateStatus(ctx context.Context, id uuid.UUID, _ *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {
+	e, err := f.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	e.Status = st
+	return e, nil
+}
+
 func (f *locEntities) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -105,6 +128,8 @@ type fakeGroups struct {
 	members   map[uuid.UUID][]entity.Member
 	groupOf   int
 	groupsFor int
+	// groupErr fails GroupOf and GroupsFor.
+	groupErr error
 }
 
 func (f *fakeGroups) Link(_ context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
@@ -124,6 +149,9 @@ func (f *fakeGroups) GroupOf(_ context.Context, id uuid.UUID) (*uuid.UUID, error
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.groupOf++
+	if f.groupErr != nil {
+		return nil, f.groupErr
+	}
 	if m, ok := f.groups[id]; ok {
 		return &m.Group, nil
 	}
@@ -134,6 +162,9 @@ func (f *fakeGroups) GroupsFor(_ context.Context, ids []uuid.UUID) (map[uuid.UUI
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.groupsFor++
+	if f.groupErr != nil {
+		return nil, f.groupErr
+	}
 	out := map[uuid.UUID]entity.GroupMember{}
 	for _, id := range ids {
 		if m, ok := f.groups[id]; ok {
@@ -259,8 +290,7 @@ func TestEntitiesCreateTranslationOfRejects(t *testing.T) {
 			t.Errorf("%s: no error", name)
 			continue
 		}
-		var he *sdk.HostError
-		if errors.As(err, &he) && he.Code != c.code {
+		if he := r.api.toHostError("p", err); he.Code != c.code {
 			t.Errorf("%s: code %s, want %s", name, he.Code, c.code)
 		}
 	}
@@ -312,9 +342,20 @@ func TestEntitiesCreateTranslationOfLinkTimeoutDeletes(t *testing.T) {
 	_, err := r.call(t, fnEntitiesCreate, map[string]any{
 		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
 	})
-	if err == nil {
-		t.Fatal("no error")
+	wantCode(t, err, sdk.ErrTimeout)
+	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
+		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 	}
+}
+
+func TestEntitiesCreateLinkDeadlineIsTimeout(t *testing.T) {
+	r := newTransRig(t, true, true)
+	target := r.seed(r.page, "en-XX")
+	r.groups.linkErr = fmt.Errorf("lock translation groups: %w", context.DeadlineExceeded)
+	_, err := r.call(t, fnEntitiesCreate, map[string]any{
+		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+	})
+	wantCode(t, err, sdk.ErrTimeout)
 	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
 		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 	}
@@ -400,15 +441,19 @@ func TestEntitiesGroupInDTO(t *testing.T) {
 	}
 }
 
-type fakePaths struct{}
+type fakePaths struct {
+	// gotPrefix is the localePrefix argument of the last Resolve call.
+	gotPrefix bool
+}
 
-func (fakePaths) Path(_ context.Context, e *entity.Entity) string {
+func (*fakePaths) Path(_ context.Context, e *entity.Entity) string {
 	return "/" + e.Locale + "/" + e.Slug
 }
-func (fakePaths) Resolve(context.Context, string) (*entity.Entity, error) {
+func (f *fakePaths) Resolve(_ context.Context, _ string, localePrefix bool) (*entity.Entity, error) {
+	f.gotPrefix = localePrefix
 	return nil, entity.ErrEntityNotFound
 }
-func (fakePaths) BaseURL(context.Context) string { return "" }
+func (*fakePaths) BaseURL(context.Context) string { return "" }
 
 func (r *transRig) translations(t *testing.T, id uuid.UUID) ([]map[string]any, error) {
 	t.Helper()
@@ -443,7 +488,7 @@ func TestEntitiesTranslations(t *testing.T) {
 		t.Fatalf("path present without Paths: %v", got[0])
 	}
 
-	r.api.svc.Paths = fakePaths{}
+	r.api.svc.Paths = &fakePaths{}
 	got, err := r.translations(t, fr.ID)
 	if err != nil || got[1]["path"] != "/fr-XX/"+fr.Slug || got[0]["status"] != "draft" {
 		t.Fatalf("translations with paths = %v, %v", got, err)
@@ -468,4 +513,95 @@ func TestEntitiesTranslationsGuards(t *testing.T) {
 	raw, _ := json.Marshal(map[string]any{"id": "nope"})
 	_, err = fnEntitiesTranslations(context.Background(), r.api, nil, raw)
 	wantCode(t, err, sdk.ErrInvalidArgument)
+}
+
+func TestEntitiesGetPathPrefixFollowsSDKRange(t *testing.T) {
+	for rng, want := range map[string]bool{"": false, ">=0.14": false, "^0.14": false, "^0.15": true, ">=0.15.0 <1.0.0": true} {
+		r := newTransRig(t, true, true)
+		paths := &fakePaths{gotPrefix: !want}
+		r.api.svc.Paths = paths
+		r.sdk = rng
+		_, err := r.call(t, fnEntitiesGet, map[string]any{"path": "/xx/about"})
+		if !errors.Is(err, entity.ErrEntityNotFound) {
+			t.Fatalf("range %q: err = %v, want not found", rng, err)
+		}
+		if paths.gotPrefix != want {
+			t.Errorf("range %q: locale prefix = %v, want %v", rng, paths.gotPrefix, want)
+		}
+	}
+}
+
+func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
+	calls := map[string]func(r *transRig, id uuid.UUID) error{
+		"get": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesGet, map[string]any{"id": id.String()})
+			return err
+		},
+		"list": func(r *transRig, _ uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesList, map[string]any{"schema_slug": "page"})
+			return err
+		},
+		"create": func(r *transRig, _ uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX"})
+			return err
+		},
+		"update": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesUpdate, map[string]any{"id": id.String(), "name": "y"})
+			return err
+		},
+		"status": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesStatus, map[string]any{"id": id.String(), "status": "published"})
+			return err
+		},
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			r := newTransRig(t, true, true)
+			ent := r.seed(r.page, "en-XX")
+			ent.Schema = r.page // the service reads it on update and status
+			r.groups.groupErr = fmt.Errorf("group of entity: %w", &pgconn.PgError{Message: "boom"})
+			r.groups.groupOf, r.groups.groupsFor = 0, 0
+			err := call(r, ent.ID)
+			if err == nil {
+				t.Fatal("no error")
+			}
+			if name == "list" && r.groups.groupsFor == 0 || name != "list" && r.groups.groupOf == 0 {
+				t.Fatalf("the group lookup never ran (groupOf = %d, groupsFor = %d)", r.groups.groupOf, r.groups.groupsFor)
+			}
+			he := r.api.toHostError("p", err)
+			if he.Code != sdk.ErrInternal || he.Message != "translation group lookup failed" {
+				t.Fatalf("error = %s %q, want internal with the generic message", he.Code, he.Message)
+			}
+		})
+	}
+}
+
+func TestEntitiesCreateLinkErrorMapping(t *testing.T) {
+	for name, c := range map[string]struct {
+		linkErr error
+		code    string
+	}{
+		"store failure":  {errors.New("lock translation groups: boom"), sdk.ErrInternal},
+		"group rule":     {fmt.Errorf("%w: x", entity.ErrInvalidGroup), sdk.ErrInvalidArgument},
+		"locale is used": {entity.ErrLocaleTaken, sdk.ErrInvalidArgument},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newTransRig(t, true, true)
+			target := r.seed(r.page, "en-XX")
+			r.groups.linkErr = c.linkErr
+			_, err := r.call(t, fnEntitiesCreate, map[string]any{
+				"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+			})
+			if err == nil {
+				t.Fatal("no error")
+			}
+			he := r.api.toHostError("p", err)
+			if he.Code != c.code || (c.code == sdk.ErrInternal && strings.Contains(he.Message, "boom")) {
+				t.Fatalf("error = %s %q, want %s", he.Code, he.Message, c.code)
+			}
+			if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
+				t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
+			}
+		})
+	}
 }

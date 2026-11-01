@@ -120,6 +120,42 @@ func TestGroupStoreOneMemberGroup(t *testing.T) {
 	}
 }
 
+// A variant row never counts as a group member: a group whose only other
+// member is a variant reads as no group.
+func TestGroupStoreVariantRowsDoNotCount(t *testing.T) {
+	ctx := context.Background()
+	svc, schemaID, _ := localeFixture(t, `{}`)
+	db := newIntegrationDB(t)
+	gs := NewGroupStore(db.Pool())
+	mk := func(locale string) uuid.UUID {
+		t.Helper()
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: json.RawMessage(`{}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e.ID
+	}
+	en, fr := mk("en"), mk("fr")
+	if _, err := gs.Link(ctx, en, fr); err != nil {
+		t.Fatal(err)
+	}
+	if g, _ := gs.GroupOf(ctx, en); g == nil {
+		t.Fatal("two-member group not reported by GroupOf")
+	}
+	if m, _ := gs.GroupsFor(ctx, []uuid.UUID{en}); len(m) != 1 {
+		t.Fatalf("two-member group GroupsFor = %+v; want one entry", m)
+	}
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET variant_key = 'v' WHERE id = $1`, fr); err != nil {
+		t.Fatal(err)
+	}
+	if g, err := gs.GroupOf(ctx, en); err != nil || g != nil {
+		t.Errorf("GroupOf with only a variant sibling = %v, %v; want nil", g, err)
+	}
+	if m, err := gs.GroupsFor(ctx, []uuid.UUID{en}); err != nil || len(m) != 0 {
+		t.Errorf("GroupsFor with only a variant sibling = %+v, %v; want empty", m, err)
+	}
+}
+
 // Two Links add the same locale to one group through different members; the
 // group lock lets exactly one win. Repeated, each round released by a barrier.
 func TestGroupStoreLinkRace(t *testing.T) {

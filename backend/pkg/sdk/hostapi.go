@@ -52,7 +52,7 @@ func (e *HostError) Error() string { return fmt.Sprintf("hatamoto host: %s: %s",
 
 // Host function names, by capability.
 const (
-	FnEntitiesGet    = "entities.get"    // {id} | {path} | {slug, parent_id?, schema_slug? (with parent_id)} -> Entity
+	FnEntitiesGet    = "entities.get"    // {id} | {path} | {slug, parent_id?, schema_slug? (with parent_id)} -> Entity; a locale-prefixed path is read only for plugins requiring 0.15+
 	FnEntitiesList   = "entities.list"   // {schema_slug, status?, search?, limit?, cursor?} -> {items, next_cursor}
 	FnEntitiesCreate = "entities.create" // {schema_slug, name, slug?, locale? (required on a multi-locale site), translation_of?, parent_id?, attributes} -> Entity
 	FnEntitiesUpdate = "entities.update" // {id, name?, slug?, locale?, parent_id? (null = root), attributes?} -> Entity

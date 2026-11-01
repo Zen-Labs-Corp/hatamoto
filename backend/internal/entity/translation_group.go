@@ -270,7 +270,7 @@ func (s *GroupStore) GroupOf(ctx context.Context, id uuid.UUID) (*uuid.UUID, err
 		SELECT e.translation_group FROM hatamoto_entities e
 		WHERE e.id = $1 AND EXISTS (
 			SELECT 1 FROM hatamoto_entities o
-			WHERE o.translation_group = e.translation_group AND o.id <> e.id)`, id).Scan(&g)
+			WHERE o.translation_group = e.translation_group AND o.id <> e.id AND o.variant_key IS NULL)`, id).Scan(&g)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("group of entity: %w", err)
 	}
@@ -316,7 +316,7 @@ func (s *GroupStore) GroupsFor(ctx context.Context, ids []uuid.UUID) (map[uuid.U
 		SELECT e.id, e.translation_group, e.locale FROM hatamoto_entities e
 		WHERE e.id = ANY($1) AND e.translation_group IS NOT NULL AND EXISTS (
 			SELECT 1 FROM hatamoto_entities o
-			WHERE o.translation_group = e.translation_group AND o.id <> e.id)`, ids)
+			WHERE o.translation_group = e.translation_group AND o.id <> e.id AND o.variant_key IS NULL)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("groups for entities: %w", err)
 	}

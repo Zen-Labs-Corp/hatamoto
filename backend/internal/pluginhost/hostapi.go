@@ -41,8 +41,10 @@ type EntityPaths interface {
 	// Path is the canonical public path of ent ("/a/b").
 	Path(ctx context.Context, ent *entity.Entity) string
 	// Resolve returns the published entity served at path, or
-	// entity.ErrEntityNotFound.
-	Resolve(ctx context.Context, path string) (*entity.Entity, error)
+	// entity.ErrEntityNotFound. With localePrefix a leading locale segment
+	// ("/xx/about") is read as that locale; without it the path is read as
+	// the site language only.
+	Resolve(ctx context.Context, path string, localePrefix bool) (*entity.Entity, error)
 	// BaseURL is the configured public origin ("" when none is set).
 	BaseURL(ctx context.Context) string
 }
@@ -227,7 +229,7 @@ func isInvalid(err error) bool {
 	for _, e := range []error{
 		entity.ErrValidationFailed, entity.ErrSlugAlreadyExists, entity.ErrInvalidStatus, entity.ErrRejectedByPlugin,
 		entity.ErrParentNotFound, entity.ErrParentCycle, entity.ErrParentTooDeep, entity.ErrAmbiguousSlug, entity.ErrAuthorNotFound, entity.ErrHasChildren,
-		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved, entity.ErrInvalidGroup,
+		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved,
 		taxonomy.ErrTermSlugConflict, menu.ErrSlugAlreadyExists, menu.ErrInvalidLinkType, menu.ErrInvalidLocation, menu.ErrInvalidAttrs,
 		media.ErrInvalidMimeType, media.ErrFileTooLarge, media.ErrInvalidFile, media.ErrImageTooLarge,
 		redirect.ErrDuplicateSourcePath, redirect.ErrInvalidStatusCode, redirect.ErrInvalidPattern, redirect.ErrUnsafePattern,
@@ -644,22 +646,24 @@ func (a *API) entityDTO(ctx context.Context, e *entity.Entity) entityDTO {
 	return dto
 }
 
-// entityDTOGrouped is entityDTO plus the translation group, looked up best
-// effort: a failed lookup leaves the field out and is logged.
-func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) entityDTO {
+// entityDTOGrouped is entityDTO plus the translation group. A missing field
+// always means "ungrouped", so a failed lookup is an error, never a silent
+// omission. For create, update and status the write is already committed when
+// the lookup runs; the plugin sees internal and can read the entity back.
+func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) (entityDTO, error) {
 	dto := a.entityDTO(ctx, e)
 	if a.svc.Groups == nil {
-		return dto
+		return dto, nil
 	}
 	g, err := a.svc.Groups.GroupOf(ctx, e.ID)
 	if err != nil {
-		a.log.Warn("entity translation group lookup failed", slog.String("entity_id", e.ID.String()), slog.Any("error", err))
-		return dto
+		a.log.Warn("translation group lookup failed", slog.String("entity_id", e.ID.String()), slog.Any("error", err))
+		return entityDTO{}, herr(sdk.ErrInternal, "translation group lookup failed")
 	}
 	if g != nil {
 		dto.TranslationGroup = g.String()
 	}
-	return dto
+	return dto, nil
 }
 
 // multiLocale reports whether the site serves two or more locales.
@@ -692,7 +696,7 @@ func optionalID(raw json.RawMessage) (id *uuid.UUID, set bool, err error) {
 	return &u, true, nil
 }
 
-func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessage) (any, error) {
 	args, err := decodeArgs[struct {
 		ID       string          `json:"id"`
 		Slug     string          `json:"slug"`
@@ -737,7 +741,7 @@ func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage)
 		if !strings.HasPrefix(args.Path, "/") || strings.ContainsAny(args.Path, "?#") {
 			return nil, herr(sdk.ErrInvalidArgument, "path must be an absolute url path such as /a/b")
 		}
-		if ent, err = a.svc.Paths.Resolve(ctx, args.Path); err != nil {
+		if ent, err = a.svc.Paths.Resolve(ctx, args.Path, requiresLocale(env)); err != nil {
 			return nil, err
 		}
 	case args.Slug != "":
@@ -759,7 +763,7 @@ func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage)
 	default:
 		return nil, herr(sdk.ErrInvalidArgument, "id, path, or slug (with an optional parent_id) is required")
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -806,7 +810,8 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 			ids = append(ids, it.ID)
 		}
 		if groups, err = a.svc.Groups.GroupsFor(ctx, ids); err != nil {
-			a.log.Warn("entity translation groups lookup failed", slog.Any("error", err))
+			a.log.Warn("translation group lookup failed", slog.Any("error", err))
+			return nil, herr(sdk.ErrInternal, "translation group lookup failed")
 		}
 	}
 	items := make([]entityDTO, 0, len(res.Items))
@@ -900,10 +905,17 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 			if delErr != nil {
 				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
 			}
-			return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return nil, herr(sdk.ErrTimeout, "call timed out")
+			}
+			if errors.Is(err, entity.ErrInvalidGroup) {
+				return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
+			}
+			a.log.Warn("translation link failed", slog.String("entity_id", ent.ID.String()), slog.Any("error", err))
+			return nil, herr(sdk.ErrInternal, "translation_of: could not link the translation")
 		}
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 // localeRequiredSince is the first SDK version whose plugins must name the
@@ -1072,7 +1084,7 @@ func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -1098,7 +1110,7 @@ func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {

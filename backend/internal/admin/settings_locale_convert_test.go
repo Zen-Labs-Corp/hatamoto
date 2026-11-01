@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -194,20 +195,51 @@ func TestLocaleConvertSuggestFailureIsShown(t *testing.T) {
 	}
 }
 
-func TestLocaleConvertSuggestWithoutRegionTreeIsFriendly(t *testing.T) {
+func TestLocaleConvertSuggestWithoutRegionPages(t *testing.T) {
+	t.Parallel()
+
+	for name, err := range map[string]error{
+		"plain":   localeconv.ErrNoRegionTree,
+		"wrapped": fmt.Errorf("suggest: %w", localeconv.ErrNoRegionTree),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fc, _, _ := newConvertRig(t)
+			fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) { return nil, nil, err }
+			rec := g.do("POST", convertBase+"/suggest", "owner-token", url.Values{}, nil)
+			body := rec.Body.String()
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%d, want 200", rec.Code)
+			}
+			for _, want := range []string{"This site has no region pages to convert.", "hm-callout--info"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("missing %q", want)
+				}
+			}
+			for _, bad := range []string{"could not run", "aria-invalid", "\u2013", "\u2014"} {
+				if strings.Contains(body, bad) {
+					t.Errorf("unexpected %q", bad)
+				}
+			}
+			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+				t.Errorf("a11y: %s", strings.Join(issues, "; "))
+			}
+			if name == "plain" {
+				compareGolden(t, "pages/settings-locale-convert-suggest-empty.html", normalizePage(body))
+			}
+		})
+	}
+}
+
+func TestLocaleConvertSuggestRealFailureKeepsTheError(t *testing.T) {
 	t.Parallel()
 
 	g, fc, _, _ := newConvertRig(t)
-	fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) {
-		return nil, nil, localeconv.ErrNoRegionTree
-	}
+	fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) { return nil, nil, errors.New("db down") }
 	rec := g.do("POST", convertBase+"/suggest", "owner-token", url.Values{}, nil)
-	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, "No region tree found: this site has no group of top-level pages") {
-		t.Fatalf("%d %s", rec.Code, body)
-	}
-	if strings.Contains(body, "The conversion could not run") {
-		t.Error("shows the generic failure")
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "The conversion could not run") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -539,6 +571,14 @@ func TestLocalesTabLinksToTheConversion(t *testing.T) {
 // convertMultipart posts a multipart form with one oversized field.
 func convertMultipart(g *rig, path string, fields map[string]string) *httptest.ResponseRecorder {
 	g.t.Helper()
+	return convertMultipartDeclared(g, path, fields, -1)
+}
+
+// convertMultipartDeclared posts the fields with a declared Content-Length
+// (declared >= 0), so the cap is enforced by the body reader and not by the
+// up-front size check.
+func convertMultipartDeclared(g *rig, path string, fields map[string]string, declared int64) *httptest.ResponseRecorder {
+	g.t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	for k, v := range fields {
@@ -547,6 +587,9 @@ func convertMultipart(g *rig, path string, fields map[string]string) *httptest.R
 	_ = mw.Close()
 	req := httptest.NewRequest("POST", path, &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if declared >= 0 {
+		req.ContentLength = declared
+	}
 	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
 	g.addFetchMeta(req, "owner-token", nil)
 	rec := httptest.NewRecorder()
@@ -567,6 +610,21 @@ func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
 	}
 	if len(fc.applied) != 0 {
 		t.Error("an oversized body was applied")
+	}
+
+	// A body that declares a small size but streams more is stopped by the
+	// MaxBytesReader on every route.
+	for _, c := range []struct{ path, want string }{
+		{"/report", "larger than 1 MiB"}, {"/suggest", "larger than 1 MiB"},
+		{"/apply", "Too large"}, {"/history/3/revert", "Too large"},
+	} {
+		rec := convertMultipartDeclared(g, convertBase+c.path, map[string]string{"plan": huge}, 1)
+		if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), c.want) {
+			t.Errorf("declared 1 %s: %d, want 413 with %q", c.path, rec.Code, c.want)
+		}
+	}
+	if len(fc.applied) != 0 || len(fc.reverted) != 0 {
+		t.Error("an oversized streamed body was applied or reverted")
 	}
 
 	// A declared size over the cap is refused before the body is touched.
@@ -592,7 +650,7 @@ func TestLocaleConvertMalformedBodyIsBadRequest(t *testing.T) {
 
 	g, _, _, _ := newConvertRig(t)
 	g.elevate("owner-token")
-	for _, path := range []string{"/report", "/apply", "/history/3/revert"} {
+	for _, path := range []string{"/report", "/suggest", "/apply", "/history/3/revert"} {
 		req := httptest.NewRequest("POST", convertBase+path, strings.NewReader("--b\r\nContent-Disposition: form-data; name=\"plan\"\r\n\r\nno closing boundary"))
 		req.Header.Set("Content-Type", "multipart/form-data; boundary=b")
 		req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
