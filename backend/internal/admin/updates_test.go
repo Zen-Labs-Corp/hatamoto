@@ -223,6 +223,15 @@ func TestUpdatesPageStates(t *testing.T) {
 	}
 }
 
+func TestUpdatesModeCardsAreOneRowAndAnchored(t *testing.T) {
+	body := newUpdatesRig(t, baseUpdates()).get(t)
+	for _, want := range []string{`hm-radiocards--3`, `id="mode" aria-describedby="mode-help"`, `id="mode-help"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Mode lacks %q", want)
+		}
+	}
+}
+
 func TestUpdatesPageUnavailable(t *testing.T) {
 	for name, reason := range map[string]string{"unavailable": "the update address is invalid", "unavailable_default": ""} {
 		t.Run(name, func(t *testing.T) {

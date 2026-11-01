@@ -20,9 +20,9 @@
 <div class="hm-setrow__control">{{template "hm/badge" (dict "Label" .ModeValue "Kind" "neutral" "Icon" "lock")}}</div>
 </div>
 {{else}}<div class="hm-setrow">
-<div class="hm-setrow__text">{{template "hm/radiocard" (dict "Legend" "Mode" "Name" "mode" "Cols" 2 "Items" .ModeCards)}}
-<p class="hm-field__help">Automatic installs releases in your maintenance window. Notify only tells you and waits.</p>
-{{with index .Errs "mode"}}<p class="hm-field__error">{{.}}</p>{{end}}</div>
+<div class="hm-setrow__text">{{template "hm/radiocard" (dict "Legend" "Mode" "Name" "mode" "Cols" 3 "ID" "mode" "DescribedBy" (cond (ne (index .Errs "mode") "") "mode-help mode-error" "mode-help") "Items" .ModeCards)}}
+<p class="hm-field__help" id="mode-help">Automatic installs releases in your maintenance window. Notify only tells you and waits.</p>
+{{with index .Errs "mode"}}<p class="hm-field__error" id="mode-error">{{.}}</p>{{end}}</div>
 </div>
 {{end}}<div class="hm-setrow">
 <div class="hm-setrow__text">{{if .ChannelValue}}<p class="hm-setrow__name">Channel</p>{{else}}<label class="hm-setrow__name" for="channel">Channel</label>{{end}}

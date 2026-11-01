@@ -121,6 +121,12 @@ func TestSpamScriptChipsSitInARow(t *testing.T) {
 	}
 }
 
+func TestSpamActionCardsAreAnchored(t *testing.T) {
+	if body := newSpamRig(t, newFakeSpam()).get(t); !strings.Contains(body, `<fieldset class="hm-radiocards hm-radiocards--2" id="action"`) {
+		t.Error("the error-summary link #action needs a target")
+	}
+}
+
 func TestSpamPageDefaults(t *testing.T) {
 	body := newSpamRig(t, newFakeSpam()).get(t)
 	for _, want := range []string{`name="min_seconds" value="3"`, `name="max_links" value="2"`} {

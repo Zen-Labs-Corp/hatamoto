@@ -24,6 +24,10 @@ func TestPartialRadiocard(t *testing.T) {
 	if !strings.Contains(s, `hm-radiocards--2`) || !strings.Contains(s, `id="keep-2-1" name="keep"`) {
 		t.Errorf("columns and id prefix: %s", s)
 	}
+	s = checkPartial(t, a, "hm/radiocard", "three", ui.RadioCard{Legend: "Mode", Name: "mode", Cols: 3, ID: "mode", DescribedBy: "mode", Items: []ui.RadioCardItem{{Value: "a", Title: "A"}, {Value: "b", Title: "B"}, {Value: "c", Title: "C"}}})
+	if !strings.Contains(s, `hm-radiocards--3"`) || !strings.Contains(s, `id="mode" aria-describedby="mode"`) {
+		t.Errorf("three columns, id and describedby: %s", s)
+	}
 	if _, err := a.RenderPartial("hm/radiocard", ui.RadioCard{Name: "x"}); err == nil {
 		t.Error("radio cards without a legend must not render")
 	}
