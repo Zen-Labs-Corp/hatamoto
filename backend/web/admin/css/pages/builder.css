@@ -76,9 +76,8 @@
 }
 /* Update, with changes that are not on the live page yet: a dot in the text colour (the forced-colors block below keeps it: system colours replace backgrounds). */
 .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { content: ""; display: inline-block; inline-size: 0.5em; block-size: 0.5em; margin-inline-start: var(--space-2); border-radius: 50%; background: currentColor; }
-@media (forced-colors: active) { /* a background is replaced by Canvas there: keep the Update dot and the hint's resize glyph visible */
+@media (forced-colors: active) { /* a background is replaced by Canvas there: keep the Update dot visible (the hint's resize glyph is below its base rule) */
   .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { forced-color-adjust: none; background: ButtonText; }
-  .hm-bs-hint__bar { forced-color-adjust: none; background: CanvasText; }
 }
 .hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
@@ -367,6 +366,9 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-hint { position: absolute; z-index: var(--z-sticky); inset-block-end: var(--space-4); inset-inline-start: 50%; translate: -50% 0; max-inline-size: calc(100% - var(--space-6)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); color: var(--text); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--text); border-radius: var(--radius-md); text-align: start; }
 .hm-bs-hint > span:not(:last-of-type)::after { content: "·" / ""; margin-inline-start: var(--space-3); color: var(--text-muted); }
 .hm-bs-hint__bar { display: inline-block; inline-size: 1.5em; block-size: 0.5em; vertical-align: middle; border-radius: var(--radius-sm); background: var(--color-accent); }
+@media (forced-colors: active) { /* after the base rule: a media query adds no specificity, so the later rule wins */
+  .hm-bs-hint__bar { forced-color-adjust: none; background: CanvasText; }
+}
 @media (prefers-reduced-motion: no-preference) { .hm-bs-hint { animation: hm-bs-hint-in 0.2s ease-out; } }
 @keyframes hm-bs-hint-in { from { opacity: 0; } }
 .hm-menu__key { margin-inline-start: auto; padding-inline-start: var(--space-4); color: var(--color-hai); font-size: var(--text-xs); }
