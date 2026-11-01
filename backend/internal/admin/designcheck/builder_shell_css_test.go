@@ -62,8 +62,10 @@ func TestBuilderTopBarStaysOneRow(t *testing.T) {
 	if body := ruleBody(t, css, ".hm-editor-bar:has([data-hm-bs-title]) .hm-savestate__text"); !strings.Contains(body, "clip-path") {
 		t.Errorf("on a phone the chip text is visually hidden, not removed: %s", strings.TrimSpace(body))
 	}
-	if body := ruleBody(t, css, ".hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools"); !strings.Contains(body, "flex: 1 0 100%") {
-		t.Errorf("on a phone Undo and the device switch take their own row: %s", strings.TrimSpace(body))
+	for _, row := range []string{".hm-bs__tools", ".hm-bs__devices"} {
+		if body := ruleBody(t, css, ".hm-editor-bar:has([data-hm-bs-title]) "+row); !strings.Contains(body, "order: 1") {
+			t.Errorf("on a phone Undo and the device switch take their own row (%s): %s", row, strings.TrimSpace(body))
+		}
 	}
 	for _, shared := range []string{".hm-segmented__btn", ".hm-savestate {"} {
 		if strings.Contains(css, shared) {

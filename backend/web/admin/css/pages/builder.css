@@ -67,12 +67,20 @@
 }
 .hm-bs__devices { display: inline-flex; align-items: center; flex: none; gap: var(--space-2); }
 .hm-bs__lead, .hm-bs__end { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
-.hm-bs__end { margin-inline-start: auto; }
+.hm-bs__end { margin-inline-start: auto; flex: none; }
+/* The device switch sits in the middle of the bar: the title group and the tools take equal columns either side of it. */
+@media (min-width: 40rem) {
+  .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
+}
+/* Update, with changes that are not on the live page yet: a dot in the text colour (so it also works in forced colours). */
+.hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { content: ""; display: inline-block; inline-size: 0.5em; block-size: 0.5em; margin-inline-start: var(--space-2); border-radius: 50%; background: currentColor; }
 .hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: none; }
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
 .hm-editor-bar:has([data-hm-bs-title]) > :not(.hm-editor-bar__title) { flex-shrink: 0; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; }
 .hm-bs__dshort { display: none; }
 .hm-bs__device { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
@@ -85,11 +93,13 @@
    badge gives way to the dot, and its words stay for a screen reader. */
 @media (max-width: 40rem) {
   .hm-editor-bar:has([data-hm-bs-title]) { flex-wrap: wrap; gap: var(--space-1) var(--space-2); padding-block: var(--space-1); }
-  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools > :not([data-hm-bs-undo], .hm-bs__devices), .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-status] { display: none; }
+  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead, .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { display: contents; } /* the two groups dissolve: the row order below is the old flat bar */
+  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools > :not([data-hm-bs-undo]), .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-status] { display: none; }
   .hm-bs__dlong, .hm-bs__device { display: none; }
   .hm-bs__dshort { display: inline; }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { flex: 1 1 0; min-width: 3rem; }
-  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools { order: 1; flex: 1 0 100%; justify-content: space-between; }
+  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools { order: 1; }
+  .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__devices { order: 1; margin-inline-start: auto; }
   /* the long line stays for a screen reader; sighted people get the few words ("Draft · Saved"), not a bare dot */
   .hm-editor-bar:has([data-hm-bs-title]) .hm-savestate__text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-savestate::after { content: attr(data-short) / ""; white-space: nowrap; }
@@ -106,7 +116,7 @@
 .hm-bs-row--section:first-child { margin-block-start: 0; }
 .hm-bs-row--block, .hm-bs-row:not([aria-level="1"]) { padding-inline-start: calc(var(--space-2) + var(--space-bs-level) * var(--space-4)); font-size: var(--text-xs); }
 .hm-bs-row--block::before, .hm-bs-row:not([aria-level="1"])::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: calc(var(--space-6) + var(--space-1)); inline-size: 1px; background: var(--bs-nav-guide); }
-.hm-bs-row__idx { flex: none; inline-size: var(--space-4); text-align: end; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
+.hm-bs-row__idx { flex: none; inline-size: var(--space-4); text-align: end; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-body); }
 .hm-bs-row__thumb { flex: none; inline-size: 34px; block-size: 24px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: var(--space-0-5); padding: 0 var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bs-thumb); color: var(--bs-thumb-fg); }
 .hm-bs-row__thumb::before, .hm-bs-row__thumb::after { content: ""; block-size: var(--space-0-5); border-radius: var(--radius-2xs); background: currentColor; opacity: 0.6; align-self: flex-start; inline-size: 70%; }
 .hm-bs-row__thumb::after { inline-size: 40%; }
@@ -139,7 +149,9 @@
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band, .hm-bs-row--band:hover { background: var(--bs-nav-band); }
 .hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico, .hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: inherit; opacity: 0.8; }
+.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
+.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
+.hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: var(--bs-nav-on-accent); }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row[aria-selected="true"]:focus-visible { outline-color: var(--bs-nav-on-accent); outline-offset: -4px; }
