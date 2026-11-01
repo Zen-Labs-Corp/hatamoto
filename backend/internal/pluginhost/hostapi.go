@@ -830,7 +830,7 @@ func beginEntityWrite(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, depthKey{}, 1), nil
 }
 
-func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMessage) (any, error) {
 	args, err := decodeArgs[struct {
 		SchemaSlug string          `json:"schema_slug"`
 		Name       string          `json:"name"`
@@ -866,7 +866,7 @@ func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	if args.Locale == "" && entity.CanCopy(&entity.Entity{Schema: schema}) {
+	if args.Locale == "" && requiresLocale(env) && entity.CanCopy(&entity.Entity{Schema: schema}) {
 		multi, err := a.multiLocale(ctx)
 		if err != nil {
 			return nil, err
@@ -899,6 +899,24 @@ func fnEntitiesCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 		}
 	}
 	return a.entityDTOGrouped(ctx, ent), nil
+}
+
+// requiresLocale reports whether the calling plugin was built for SDK 0.15 or
+// later only: its range holds the current SDK but none of the older versions
+// the host still serves. Older plugins keep the site language as the default.
+func requiresLocale(env *callEnv) bool {
+	if env == nil {
+		return false
+	}
+	if ok, err := sdk.Satisfies(sdk.Version, env.manifest.SDK); err != nil || !ok {
+		return false
+	}
+	for _, v := range sdk.CompatibleWith {
+		if ok, _ := sdk.Satisfies(v, env.manifest.SDK); ok {
+			return false
+		}
+	}
+	return true
 }
 
 // translationTarget loads and checks the entity a new entity of schema in

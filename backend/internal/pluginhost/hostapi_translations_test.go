@@ -148,6 +148,8 @@ type transRig struct {
 	groups *fakeGroups
 	page   *entity.EntitySchema
 	person *entity.EntitySchema
+	// sdk is the calling plugin's manifest SDK range.
+	sdk string
 }
 
 // newTransRig builds an API over in-memory services. multi gives the site two
@@ -164,7 +166,7 @@ func newTransRig(t *testing.T, multi, withGroups bool) *transRig {
 			return entity.NewLocaleSet("en-XX", []entity.LocaleEntry{{Tag: "en-XX"}, {Tag: "fr-XX", Segment: "xx"}}, false, "")
 		})
 	}
-	r := &transRig{ents: ents, page: page, person: person, groups: &fakeGroups{
+	r := &transRig{sdk: "^0.15", ents: ents, page: page, person: person, groups: &fakeGroups{
 		groups: map[uuid.UUID]entity.GroupMember{}, members: map[uuid.UUID][]entity.Member{},
 	}}
 	s := Services{Entities: svc}
@@ -178,7 +180,7 @@ func newTransRig(t *testing.T, multi, withGroups bool) *transRig {
 func (r *transRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, json.RawMessage) (any, error), args any) (map[string]any, error) {
 	t.Helper()
 	raw, _ := json.Marshal(args)
-	res, err := fn(context.Background(), r.api, nil, raw)
+	res, err := fn(context.Background(), r.api, &callEnv{manifest: sdk.Manifest{SDK: r.sdk}}, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +288,20 @@ func TestEntitiesCreateLocaleRequiredOnMulti(t *testing.T) {
 	if _, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX"}); err != nil {
 		t.Fatalf("create with locale: %v", err)
 	}
+}
+
+func TestEntitiesCreateLocaleOptionalForOlderPlugins(t *testing.T) {
+	for _, rng := range []string{"^0.14", "^0.13", "^0.5", ""} {
+		r := newTransRig(t, true, true)
+		r.sdk = rng
+		if _, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"}); err != nil {
+			t.Fatalf("range %q: create without locale: %v", rng, err)
+		}
+	}
+	r := newTransRig(t, true, true)
+	r.sdk = ">=0.15.0 <1.0.0"
+	_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"})
+	wantCode(t, err, sdk.ErrInvalidArgument)
 }
 
 func TestEntitiesCreateSingleLocaleUnchanged(t *testing.T) {
