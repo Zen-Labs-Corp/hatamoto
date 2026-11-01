@@ -26,7 +26,7 @@ func TestSettingsForRoles(t *testing.T) {
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
 		"general": "general", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
-		"seo": "seo-general seo-titles seo-social", "redirects": "redirects", "linking": "linking", "users": "users", "api": "api",
+		"seo": "seo-general seo-titles seo-social seo-schema seo-kg", "redirects": "redirects", "linking": "linking", "users": "users", "api": "api",
 		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {

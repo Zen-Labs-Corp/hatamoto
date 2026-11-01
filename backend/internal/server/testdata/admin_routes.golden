@@ -131,6 +131,8 @@ GET /admin/settings/security/admin-address/change/strength -> admin.(*Admin).han
 GET /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeep-fm
 GET /admin/settings/seo -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneral-fm
+GET /admin/settings/seo/knowledge-graph -> admin.(*Admin).handleSEOKnowledgeGraph-fm
+GET /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchema-fm
 GET /admin/settings/seo/social -> admin.(*Admin).handleSEOSocial-fm
 GET /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitles-fm
 GET /admin/settings/spam -> admin.(*Admin).handleSpam-fm
@@ -312,6 +314,7 @@ POST /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddre
 POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).handleAddressChangeRegen-fm
 POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeepSave-fm
 POST /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneralSave-fm
+POST /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchemaSave-fm
 POST /admin/settings/seo/social -> admin.(*Admin).handleSEOSocialSave-fm
 POST /admin/settings/seo/social/preview -> admin.(*Admin).handleSEOSocialPreview-fm
 POST /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitlesSave-fm
