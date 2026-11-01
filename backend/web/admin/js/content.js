@@ -389,12 +389,20 @@ document.addEventListener("click", (evt) => {
   if (opened) evt.preventDefault();
 });
 
-// <form data-hm-autosubmit>: a change in any of its fields submits it. Without
-// JS the form shows an Apply button instead.
-document.addEventListener("change", (evt) => {
-  const form = evt.target.closest?.("form[data-hm-autosubmit]");
-  if (form) form.requestSubmit();
-});
+// <form data-hm-autosubmit>: a change in any of its fields submits it. Arrow keys move a radio
+// group's selection and fire change too (WCAG 3.2.2), so a radio submits only on a pointer click
+// (detail > 0; a keyboard-driven click has detail 0). Keyboard users press Apply or Enter.
+// content.js and aia/page.js carry the same copy; the first one loaded binds, the other skips.
+const autosubmit = (evt) => evt.target.closest?.("form[data-hm-autosubmit]")?.requestSubmit();
+if (!document.hmAutosubmit) {
+  document.hmAutosubmit = true;
+  document.addEventListener("change", (evt) => {
+    if (evt.target.type !== "radio") autosubmit(evt);
+  });
+  document.addEventListener("click", (evt) => {
+    if (evt.target.type === "radio" && evt.detail > 0) autosubmit(evt);
+  });
+}
 
 function init(root) {
   initFields(root);

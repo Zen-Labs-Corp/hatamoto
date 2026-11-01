@@ -7,7 +7,7 @@
 .hm-aia-plot { display: block; width: 100%; overflow: visible; border-radius: var(--radius-xs); }
 
 .hm-aia-grid { stroke: var(--border); }
-.hm-aia-axis { font-size: var(--text-xs); fill: var(--text-muted); }
+.hm-aia-axis { font-family: var(--font-mono); font-size: var(--text-xs); fill: var(--text-muted); }
 .hm-aia-panel-label { font-size: var(--text-xs); font-weight: var(--weight-medium); fill: var(--text); }
 
 .hm-aia-line { fill: none; stroke: var(--viz); }

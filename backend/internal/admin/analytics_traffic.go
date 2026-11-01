@@ -127,7 +127,11 @@ type trafficPage struct {
 	Countries    ui.BarList
 	// CountriesSetup is the empty-state body when no country database is loaded: the setting to make.
 	CountriesSetup string
-	Engagement     ui.BarList
+	// CountriesBefore and CountriesAfter are CountriesSetup around the setting name, so the page
+	// can set the name (CountriesEnv) in mono.
+	CountriesBefore, CountriesAfter string
+	CountriesEnv                    string
+	Engagement                      ui.BarList
 	// EngagementShown is whether the engagement setting is wired; EngagementOn its value.
 	EngagementShown, EngagementOn bool
 	// Geo is the read-only state of the country database (set with HATAMOTO_GEOIP_DB).
@@ -254,9 +258,9 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 			leading, leadingVisits = c.Name, n
 		}
 	}
-	topChannel := ui.Stat{Label: "Top channel", Value: placeholder, Note: "No visits in this period."}
+	topChannel := ui.Stat{Label: "Top channel", Value: placeholder, Muted: true, Note: "No visits in this period."}
 	if leading != "" {
-		topChannel = ui.Stat{Label: "Top channel", Badge: &ui.Badge{Label: leading, Kind: "neutral"}, Note: share(leadingVisits, totals.Visits) + " of visits"}
+		topChannel = ui.Stat{Label: "Top channel", Badge: &ui.Badge{Label: leading, Kind: "info", Wrap: true}, Note: share(leadingVisits, totals.Visits) + " of visits"}
 	}
 	perVisit := "No visits in this period."
 	if totals.Visits > 0 {
@@ -292,20 +296,26 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	}
 	cols, right = append(cols, "Trend"), append(right, false)
 	p.Channels = ui.AiaRows{Caption: "Visits by channel", Columns: cols, Right: right, Empty: "No visits in this period."}
-	for i, c := range trafficChannels {
+	for _, c := range trafficChannels {
 		n := byChannel[c.Key]
 		pct := ratio(n.Visits, totals.Visits)
 		name := ui.AiaCell{Text: c.Name}
+		shareKind := "neutral"
 		if c.Key == analytics.ChannelAI {
 			name.Badge = &ui.Badge{Label: "new", Kind: "info"}
+			shareKind = "series-1"
 		}
 		row := []ui.AiaCell{name, {Text: fmtNum(n.Visits)},
-			{Text: fixed(pct, 1), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: "series-" + strconv.Itoa(min(i+1, 6))}},
+			{Text: fixed(pct, 1), Bar: &ui.Bar{Label: c.Name + " share of visits", Pct: pct, Kind: shareKind}},
 			{Text: fmtNum(channelLeads[[2]string{c.Key}])}, {Text: rateText(channelLeads[[2]string{c.Key}], n.Visits)}}
 		if cmp {
 			row = append(row, ui.AiaCell{Text: kpiDelta(true, rg, float64(n.Visits), float64(prevChannels[c.Key].Visits), false, false).Text})
 		}
-		row = append(row, ui.AiaCell{Spark: liveSpark("aia-spark-t-"+c.Key, min(i+1, 6), ui.SparkLive{Src: src, Chart: "channels", Dataset: c.Name})})
+		sparkTone := 3
+		if c.Key == analytics.ChannelAI {
+			sparkTone = 1
+		}
+		row = append(row, ui.AiaCell{Spark: liveSpark("aia-spark-t-"+c.Key, sparkTone, ui.SparkLive{Src: src, Chart: "channels", Dataset: c.Name})})
 		p.Channels.Rows = append(p.Channels.Rows, row)
 	}
 	if totals.Visits == 0 && totals.Pageviews == 0 {
@@ -329,7 +339,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	for _, d := range devices {
 		deviceVisits += d.Visits
 	}
-	p.Devices = ui.BarList{Label: "Devices", NameHeading: "Device", ValueHeading: "Visits", Empty: "No visits in this period."}
+	p.Devices = ui.BarList{Label: "Devices", NameHeading: "Device", ValueHeading: "Visits", Mono: true, Empty: "No visits in this period."}
 	for _, d := range devices {
 		p.Devices.Items = append(p.Devices.Items, ui.BarItem{Label: titleWord(d.K1), Value: fmtNum(d.Visits), Share: share(d.Visits, deviceVisits), N: float64(d.Visits)})
 	}
@@ -347,9 +357,13 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	}
 	switch {
 	case !configured:
-		p.CountriesSetup = "Set HATAMOTO_GEOIP_DB to a DB-IP Lite or GeoLite2 country .mmdb file."
+		p.CountriesBefore, p.CountriesAfter = "Set ", " to a DB-IP Lite or GeoLite2 country .mmdb file."
 	case !loaded:
-		p.CountriesSetup = "The country file set in HATAMOTO_GEOIP_DB could not be read. Check the path, then restart."
+		p.CountriesBefore, p.CountriesAfter = "The country file set in ", " could not be read. Check the path, then restart."
+	}
+	if p.CountriesBefore != "" {
+		p.CountriesEnv = "HATAMOTO_GEOIP_DB"
+		p.CountriesSetup = p.CountriesBefore + p.CountriesEnv + p.CountriesAfter
 	}
 	p.Countries = ui.BarList{Label: "Countries", NameHeading: "Country", ValueHeading: "Visits", Empty: "No visits with a known country in this period."}
 	for _, c := range countries {

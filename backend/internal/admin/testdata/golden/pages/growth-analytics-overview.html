@@ -143,7 +143,7 @@
 <section class="hm-card" id="w-o-hero" aria-labelledby="w-o-hero-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-o-hero-title">Fetches and visits over time</h3><p class="hm-muted">AI agents reading your pages, and people arriving from AI assistants. Each has its own axis.</p></div>
 <div class="hm-card__body">
-<figure class="hm-aia-chart" id="w-o-hero-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/overview.json?from=2026-01-01&amp;to=2026-01-03" data-chart="fetches" data-title="Fetches and visits over time" data-panels="fetches|referrals" data-endpoints="/admin/analytics/data/overview.json?from=2026-01-01&amp;to=2026-01-03|/admin/analytics/data/referrals.json?from=2026-01-01&amp;to=2026-01-03" data-panel-labels="AI fetches per day|AI-referred visits per day" data-sum="AI fetches|AI-referred visits" data-override="{&#34;AI-referred visits&#34;:{&#34;n&#34;:2,&#34;marker&#34;:&#34;square&#34;,&#34;dash&#34;:&#34;&#34;}}" data-hero aria-labelledby="w-o-hero-title">
+<figure class="hm-aia-chart" id="w-o-hero-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/overview.json?from=2026-01-01&amp;to=2026-01-03" data-chart="fetches" data-title="Fetches and visits over time" data-panels="fetches|referrals" data-endpoints="/admin/analytics/data/overview.json?from=2026-01-01&amp;to=2026-01-03|/admin/analytics/data/referrals.json?from=2026-01-01&amp;to=2026-01-03" data-panel-labels="AI fetches per day|AI-referred visits per day" data-sum="AI fetches|AI-referred visits" data-override="{&#34;AI-referred visits&#34;:{&#34;n&#34;:5,&#34;marker&#34;:&#34;square&#34;,&#34;dash&#34;:&#34;&#34;}}" data-hero aria-labelledby="w-o-hero-title">
 <div class="hm-aia-lgrow"><div class="hm-aia-legend" role="group" aria-label="Show or hide series" data-aia-legend-list></div><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" aria-controls="w-o-hero-data" aria-expanded="false" data-aia-sd="" hidden="hidden"><span>Show data</span></button></div>
 <div data-aia-plot></div>
 <div class="hm-aia-data" id="w-o-hero-data" data-aia-data data-aia-table="fetches"><div class="hm-table__scroll hm-datatable hm-datatable--flat" role="region" aria-label="AI fetches and AI-referred visits per day" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">AI fetches and AI-referred visits per day</caption>
@@ -165,7 +165,7 @@
 <section class="hm-card" id="w-o-channels" aria-labelledby="w-o-channels-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-o-channels-title">Visits by channel</h3><p class="hm-muted">Stacked by where people came from. Cookieless: counted per day, no visitor profiles.</p></div>
 <div class="hm-card__body">
-<figure class="hm-aia-chart" id="w-o-channels-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/traffic.json?from=2026-01-01&amp;to=2026-01-03" data-chart="channels" data-title="Visits by channel" aria-labelledby="w-o-channels-title">
+<figure class="hm-aia-chart" id="w-o-channels-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/traffic.json?from=2026-01-01&amp;to=2026-01-03" data-chart="channels" data-title="Visits by channel" data-neutral data-accent="AI assistants" aria-labelledby="w-o-channels-title">
 <div class="hm-aia-lgrow"><div class="hm-segmented" role="group" aria-label="Measure"><button type="button" class="hm-segmented__btn" aria-pressed="true" data-chart-toggle="channels">Visits</button><button type="button" class="hm-segmented__btn" aria-pressed="false" disabled aria-disabled="true">Leads</button><button type="button" class="hm-segmented__btn" aria-pressed="false" disabled aria-disabled="true">Conv. rate</button></div>
 <div class="hm-aia-legend" role="group" aria-label="Show or hide series" data-aia-legend-list></div><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" aria-controls="w-o-channels-data" aria-expanded="false" data-aia-sd="" hidden="hidden"><span>Show data</span></button></div>
 <div data-aia-plot></div>
@@ -195,23 +195,21 @@
 <section class="hm-card" id="w-o-top" aria-labelledby="w-o-top-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-o-top-title">Top agents</h3><p class="hm-muted">Most active AI agents. Select a name for details.</p></div>
 <div class="hm-card__body">
-<div class="hm-barlist hm-barlist--quiet">
+<div class="hm-barlist hm-barlist--quiet hm-barlist--mono">
 <ul class="hm-barlist__list" aria-label="Most active AI agents">
 <li class="hm-barlist__row"><span class="hm-barlist__bar"><svg class="hm-barlist__fill" aria-hidden="true" focusable="false"><rect width="100%" height="100%" rx="4"/></svg><span class="hm-barlist__name" title="GPTBot"><a href="/admin/analytics/agents/gptbot?from=2026-01-01&amp;to=2026-01-03">GPTBot</a></span></span><span class="hm-barlist__value">900</span><span class="hm-barlist__share">73%</span></li>
 </ul></div>
-<p class="hm-aia-more"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/analytics/crawlers?from=2026-01-01&amp;to=2026-01-03"><span>See all agents</span></a></p>
-</div></section>
+</div><footer class="hm-card__foot"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/analytics/crawlers?from=2026-01-01&amp;to=2026-01-03"><span>See all agents</span></a></footer></section>
 <section class="hm-card" id="w-o-ass" aria-labelledby="w-o-ass-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-o-ass-title">Top assistants</h3><p class="hm-muted">Visits from AI assistants, by assistant.</p></div>
 <div class="hm-card__body">
-<div class="hm-barlist hm-barlist--quiet">
+<div class="hm-barlist hm-barlist--quiet hm-barlist--mono">
 <ul class="hm-barlist__list" aria-label="AI-referred visits by assistant">
 <li class="hm-barlist__row"><span class="hm-barlist__bar"><svg class="hm-barlist__fill" aria-hidden="true" focusable="false"><rect width="100%" height="100%" rx="4"/></svg><span class="hm-barlist__name" title="ChatGPT">ChatGPT</span></span><span class="hm-barlist__value">9</span><span class="hm-barlist__share">75%</span></li>
 <li class="hm-barlist__row"><span class="hm-barlist__bar"><svg class="hm-barlist__fill" aria-hidden="true" focusable="false"><rect width="33.33%" height="100%" rx="4"/></svg><span class="hm-barlist__name" title="Perplexity">Perplexity</span></span><span class="hm-barlist__value">3</span><span class="hm-barlist__share">25%</span></li>
 </ul></div>
 <p class="hm-aia-small hm-aia-note">Counted per day; no visitors are tracked.</p>
-<p class="hm-aia-more"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/analytics/referrals?from=2026-01-01&amp;to=2026-01-03"><span>See referrals</span></a></p>
-</div></section>
+</div><footer class="hm-card__foot"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/analytics/referrals?from=2026-01-01&amp;to=2026-01-03"><span>See referrals</span></a></footer></section>
 </div></div>
 
 </div>

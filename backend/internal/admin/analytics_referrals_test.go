@@ -31,7 +31,7 @@ func TestReferralsSection(t *testing.T) {
 		"AI-referred visits by assistant", "Daily visits, stacked by assistant. The five largest are named, the rest are grouped as Other.",
 		"By assistant", "Share of AI-referred visits.", "AI share of traffic", "AI-referred visits as a share of all pageviews.",
 		"Landing pages from AI assistants are not recorded yet. Referrals are counted per day per assistant.",
-		`data-chart="referrals"`, `data-ratio="referrals,pageviews"`, `data-ratio-label="AI share of traffic"`, `data-override="{&#34;AI share of traffic&#34;:{&#34;n&#34;:3}}"`, " data-hero",
+		`data-chart="referrals"`, `data-ratio="referrals,pageviews"`, `data-ratio-label="AI share of traffic"`, `data-override="{&#34;AI share of traffic&#34;:{&#34;n&#34;:1}}"`, " data-hero",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("referrals missing %q", want)

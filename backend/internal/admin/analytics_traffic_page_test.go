@@ -83,7 +83,7 @@ func TestTrafficPageCountriesEmptyStateWithoutGeoIP(t *testing.T) {
 	t.Parallel()
 
 	body := trafficRig(t).do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"Set up country lookup", "Set HATAMOTO_GEOIP_DB to a DB-IP Lite or GeoLite2 country .mmdb file.", "Not configured"} {
+	for _, want := range []string{"Set up country lookup", `Set <code class="hm-aia-mono">HATAMOTO_GEOIP_DB</code> to a DB-IP Lite or GeoLite2 country .mmdb file.`, "Not configured"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("without GeoIP missing %q", want)
 		}

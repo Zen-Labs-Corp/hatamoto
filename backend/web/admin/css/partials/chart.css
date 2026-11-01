@@ -81,7 +81,9 @@ button.hm-daterange__preset { width: 100%; border: 0; background: none; font: in
 .hm-statcard { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .hm-statcard__label { margin: 0; color: var(--text-body); font-size: var(--text-sm); font-weight: var(--weight-regular); }
 .hm-statcard__value { margin: 0; color: var(--color-sumi); font-size: var(--text-metric); line-height: var(--leading-8); font-weight: var(--weight-medium); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-.hm-statcard__status { margin: 0 0 var(--space-1); min-height: var(--leading-8); display: flex; align-items: center; }
+.hm-statcard__value--muted { color: var(--text-muted); }
+.hm-statcard__value { overflow-wrap: anywhere; }
+.hm-statcard__status { margin: 0 0 var(--space-1); min-height: var(--leading-8); display: flex; align-items: center; min-width: 0; }
 .hm-statcard--ring .hm-statcard__value { font-size: var(--text-xl); line-height: var(--leading-7); }
 .hm-statcard--ticker { gap: var(--space-2); }
 .hm-statcard--ticker .hm-statcard__value { margin-bottom: var(--space-1); }
@@ -103,7 +105,7 @@ button.hm-daterange__preset { width: 100%; border: 0; background: none; font: in
 .hm-ring__bar { stroke: var(--color-accent); stroke-linecap: round; }
 .hm-stat__pct { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-sumi); font-variant-numeric: tabular-nums; }
 /* Strip (analytics KPI row, Needs attention): the same separate cards, one row of equal columns on desktop, two below 960px. */
-.hm-statgrid--strip { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); list-style: none; padding: 0; }
+.hm-statgrid--strip { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); list-style: none; padding: 0; }
 /* Attention tile: a stat card whose value is a count, with a status badge above and an action below. */
 .hm-statcard--attention { align-items: flex-start; }
 .hm-statcard--attention p { margin: 0; }

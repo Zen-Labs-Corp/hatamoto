@@ -141,7 +141,7 @@ function tooltipNode(content) {
 /**
  * Draw a time chart into host's [data-aia-plot] (appended to the host when absent).
  * `spec` is one chartSpec or an array (one panel each). opts: chartId, title,
- * hero, cols, panelLabels, override. Series visibility and the open data table
+ * hero, cols, panelLabels, override, neutral. Series visibility and the open data table
  * are kept per chartId across redraws and remounts.
  * Returns {redraw, destroy, model}.
  */
@@ -155,7 +155,7 @@ export function drawTimeChart(host, spec, opts = {}) {
   const id = opts.chartId || "";
   const state = { model: null, geometry: null, hi: null, tapped: false };
   const phone = typeof matchMedia === "function" ? matchMedia("(max-width: 599px)") : null;
-  const build = () => buildModel(spec, { chartId: id, hidden: sharedHidden, title: opts.title, cols: opts.cols, panelLabels: opts.panelLabels, override: opts.override });
+  const build = () => buildModel(spec, { chartId: id, hidden: sharedHidden, title: opts.title, cols: opts.cols, panelLabels: opts.panelLabels, override: opts.override, neutral: opts.neutral });
 
   const live = host.querySelector("[data-aia-live]") || plot.insertAdjacentElement("afterend", div("hm-aia-live hm-visually-hidden")) || plot;
   live.setAttribute("data-aia-live", "");

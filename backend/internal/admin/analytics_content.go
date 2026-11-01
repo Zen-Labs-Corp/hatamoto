@@ -52,7 +52,7 @@ func (a *Admin) buildContent(ctx context.Context, q url.Values, rg agents.Range,
 	p := &contentPage{
 		Lede: strconv.FormatInt(fetched, 10) + " of " + strconv.Itoa(published) + " published pages have been fetched at least once since tracking began.",
 		Hero: ui.AiaChart{ID: "w-ct-hero", Title: "Fetches by page type", Description: "What AI agents read, grouped by the type of page.",
-			Src: a.dataURL("pages.json", rg, cmp), Chart: "by_type", Hero: true, Compare: cmp,
+			Src: a.dataURL("pages.json", rg, cmp), Chart: "by_type", Hero: true, Compare: cmp, Neutral: true,
 			Table: pv.typeM.table("AI fetches per day by page type", "Day")},
 		FirstCrawl: ui.AiaChart{ID: "w-ct-first", Title: "First crawls", Description: "Pages fetched for the first time, per " + unit + ".",
 			Src: a.dataURL("first-crawls.json", rg, false), Chart: "per_day", Cols: true, Table: fc.table},
@@ -64,7 +64,7 @@ func (a *Admin) buildContent(ctx context.Context, q url.Values, rg agents.Range,
 			return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: share(n, int64(published))}
 		}
 		p.Coverage = &ui.CategoryBar{Label: "Published pages by fetch status", Columns: true,
-			Segments: []ui.CategorySegment{seg("Fetched at least once", "series-1", fetched), seg("Never fetched", "series-6", int64(never))}}
+			Segments: []ui.CategorySegment{seg("Fetched at least once", "series-1", fetched), seg("Never fetched", "series-3", int64(never))}}
 		p.CoverageNote = strconv.FormatInt(fetched, 10) + " of " + strconv.Itoa(published) + " published pages have been fetched by at least one AI agent since tracking began. This is the state today, not filtered by the date range."
 	}
 	p.NeverByType = ui.BarList{Label: "Never fetched pages by page type", Quiet: true}
@@ -78,7 +78,7 @@ func (a *Admin) buildContent(ctx context.Context, q url.Values, rg agents.Range,
 		firsts += b.Count
 	}
 	if firsts > 0 {
-		kinds := map[string]string{"Same day": "series-1", "1 to 3 days": "series-2", "4 to 7 days": "series-3", "8 days or more": "series-5", "Not recorded": "series-6"}
+		kinds := map[string]string{"Same day": "series-1", "1 to 3 days": "series-2", "4 to 7 days": "series-3", "8 days or more": "series-4", "Not recorded": "neutral"}
 		p.FirstFetch = &ui.CategoryBar{Label: "Time from publish to first fetch", Columns: true}
 		for _, b := range fc.Buckets {
 			p.FirstFetch.Segments = append(p.FirstFetch.Segments, ui.CategorySegment{Label: b.Label, Kind: kinds[b.Label], N: float64(b.Count),

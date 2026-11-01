@@ -50,6 +50,8 @@ type fakeAgentStats struct {
 	healthCalls int
 	// verify, when set, is what VerificationHealth answers instead of a healthy default.
 	verify *agents.VerificationHealth
+	// deniedErr, when set, fails DeniedPurposes.
+	deniedErr error
 	// verifyErr, when set, fails VerificationHealth.
 	verifyErr error
 	// verifyIDs is the agent ids VerificationHealth was last asked for.
@@ -206,7 +208,7 @@ func (f *fakeAgentStats) FirstCrawls(context.Context, agents.Range, agents.Page)
 func (f *fakeAgentStats) DeniedPurposes(context.Context) ([]agents.Purpose, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.denied, nil
+	return f.denied, f.deniedErr
 }
 func (f *fakeAgentStats) SetDenied(_ context.Context, d []agents.Purpose) error {
 	f.mu.Lock()

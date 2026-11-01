@@ -36,6 +36,16 @@ func TestAiaPartials(t *testing.T) {
 	if strings.Contains(s, "style=") {
 		t.Error("hm/aia-chart: no style attributes (CSP)")
 	}
+	if strings.Contains(s, "data-neutral") || strings.Contains(s, "data-accent") {
+		t.Errorf("hm/aia-chart: no data-neutral or data-accent without Neutral:\n%s", s)
+	}
+	s = checkPartial(t, a, "hm/aia-chart", "neutral", ui.AiaChart{
+		ID: "w-ct-type", Title: "Fetches by page type", Src: "/x.json", Chart: "types", Neutral: true, Accent: "Docs",
+		Table: ui.DataTable{Caption: "Fetches by page type", Columns: []string{"Date"}, Flat: true},
+	})
+	if !strings.Contains(s, ` data-neutral data-accent="Docs"`) {
+		t.Errorf("hm/aia-chart: Neutral and Accent render data-neutral data-accent:\n%s", s)
+	}
 
 	s = checkPartial(t, a, "hm/aia-agents", "base", ui.AiaAgents{Caption: "AI agents by purpose", Groups: []ui.AiaAgentGroup{
 		{Purpose: "Training", Description: "Read pages to train AI models.", Summary: "27,997 fetches, 50% of all AI fetches.",

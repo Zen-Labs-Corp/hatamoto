@@ -43,6 +43,11 @@ type AiaChart struct {
 	Ratio, RatioLabel string
 	// Override is JSON restyling a series by name: {"Spoofed":{"cls":"hm-viz--danger"}}.
 	Override string
+	// Neutral colours every named series but the accent in neutral steps;
+	// Accent is the series label that carries the accent, empty = the first
+	// named series.
+	Neutral bool
+	Accent  string
 	// Toggle switches the drawn chart between Chart and AltChart (js/aia/page.js
 	// reads data-chart-toggle on its buttons); the data table follows, so
 	// AltTable is the table of AltChart. All three are set together.

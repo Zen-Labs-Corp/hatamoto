@@ -6,6 +6,8 @@
 .hm-aia-chart { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-aia-lgrow { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
 .hm-aia-legend { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-0-5) var(--space-1); margin-inline-start: calc(-1 * var(--space-2)); }
+/* Phone: the toggle and Show data share the first line, the legend wraps on its own line below them. */
+@media (max-width: 640px) { .hm-aia-lgrow { flex-wrap: wrap; } .hm-aia-legend { order: 1; flex-basis: 100%; } }
 .hm-aia-lg {
   display: inline-flex; align-items: center; gap: var(--space-2); height: 28px; padding: 0 var(--space-2);
   border: 0; border-radius: var(--radius-sm); background: none; font: inherit; font-size: var(--text-sm); color: var(--text); cursor: pointer;
@@ -17,6 +19,8 @@
 .hm-aia-data { min-width: 0; }
 
 /* Agents by purpose rides on the shared table (table.css); these are the cell helpers. */
+/* A quiet one-line notice: grey strip, muted text. */
+.hm-aia-strip { margin: 0; padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); background: var(--color-kasumi); color: var(--text-muted); font-size: var(--text-sm); }
 .hm-aia-small { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-aia-tip { cursor: help; border-radius: var(--radius-full); }
 .hm-aia-tip:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

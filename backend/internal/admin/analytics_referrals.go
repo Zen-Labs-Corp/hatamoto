@@ -33,11 +33,11 @@ func (a *Admin) buildReferrals(ctx context.Context, _ url.Values, rg agents.Rang
 	p := &referralsPage{
 		Hero: ui.AiaChart{ID: "w-rf-hero", Title: "AI-referred visits by assistant",
 			Description: daily + " visits, stacked by assistant. The five largest are named, the rest are grouped as Other.",
-			Src:         src, Chart: "referrals", Hero: true, Compare: cmp,
+			Src:         src, Chart: "referrals", Hero: true, Compare: cmp, Neutral: true,
 			Table: refs.refs},
 		ByAssistant: ui.BarList{Label: "AI-referred visits by assistant", Quiet: true, Empty: "No data for this period."},
 		Share: ui.AiaChart{ID: "w-rf-share", Title: "AI share of traffic", Description: "AI-referred visits as a share of all pageviews.",
-			Src: src, Chart: "referrals", Ratio: "referrals,pageviews", RatioLabel: "AI share of traffic", Override: `{"AI share of traffic":{"n":3}}`, Compare: cmp,
+			Src: src, Chart: "referrals", Ratio: "referrals,pageviews", RatioLabel: "AI share of traffic", Override: `{"AI share of traffic":{"n":1}}`, Compare: cmp,
 			Table: withoutTotal(tbl.table("AI-referred visits and pageviews per day", "Day"))},
 	}
 	for _, as := range refs.Assistants {

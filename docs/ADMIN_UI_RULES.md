@@ -295,7 +295,7 @@ the page is, or only how the same data is shown?
 
 | Choice | Row | Why |
 |---|---|---|
-| AI analytics: Overview, Crawlers, Content, Referrals, Health | sub-sidebar (`hm/areanav`), not tabs | five sections of one area, like Settings and Theme |
+| AI analytics: Overview, Traffic, Conversions, Content, Crawlers, Google, Referrals, Health | sub-sidebar (`hm/areanav`), not tabs | eight sections of one area, like Settings and Theme |
 | Group the chart: By operator, By purpose | pills | the same chart regrouped |
 | Date range | date picker in the page header; `ui.DateRange.Compare` adds a "Compare to previous period" switch inside it | one control for presets, custom ranges and the comparison |
 | Media: Grid, List | pills | the same files, another layout |
@@ -303,7 +303,7 @@ the page is, or only how the same data is shown?
 | Taxonomies: one tab per kind | tabs, level 2 under Entity models | a different set of terms |
 
 **AI analytics is an area, not a tab row.** Like Settings and Theme it has its own secondary sidebar
-(`hm/areanav`, a select on phones) with five sections: Overview, Crawlers, Content, Referrals and Health.
+(`hm/areanav`, a select on phones) with eight sections: Overview, Traffic, Conversions, Content, Crawlers, Google, Referrals and Health.
 The agent page (`<admin>/analytics/agents/{id}`) keeps Crawlers current. Add a section by registering it in
 `analyticsRegistry` (`settings_nav.go`), never by putting a tab row in the page.
 
@@ -413,6 +413,12 @@ its data table; the script draws the SVG over it. No charting library is shipped
   approved design, and carry the class `hm-viz--series-<n>` of the token number, so the tokens keep their
   numbers (`--chart-1..6`). "Other" is always last and always `--chart-6`. A series also has a dash and a
   marker shape, so colour is never the only cue (WCAG 1.4.1).
+- **One accent per chart.** A chart that compares categories (`ui.AiaChart.Neutral`) colours one series in the
+  accent (`--chart-1`, `Accent` names it; empty, or a name not in the data, = the first named series in the order the server sends) and every other named series in
+  neutral steps (`--chart-2..4`, repeating after three); "Other" keeps `--chart-6`. Amber and red are for problems only (4xx, 5xx, spoofed,
+  blocked), set by an explicit `Override`, which wins over the accent mechanism. The Overview hero keeps one panel
+  per series with its own axis and draws AI-referred visits in amber (`--chart-5`) by `Override`.
+- **Axis labels** (`.hm-aia-axis`) use `--font-mono`.
 - **Tokens only.** Colour comes from CSS classes (`hm-viz--*` set `--viz`), never from script, so a theme change
   needs no redraw. No hex literal in `aia*.css` or `js/aia`.
 - **Legend.** One `<button aria-pressed>` per series above the plot. Space and Enter toggle it; the last visible
@@ -433,6 +439,8 @@ its data table; the script draws the SVG over it. No charting library is shipped
   `hm/tracker` takes `States` (hatched danger, shorter warning, hollow no-data blocks); both are opt-in.
 - **Date picker.** The trigger shows the preset and its span ("Last 30 days · 20 Sep to 19 Oct"), and a second line
   "vs <span>" with compare on. Popover and input ids derive from `DateRange.ID` (default `range`).
+- **Policy badges.** `hm/aia-policy` and `hm/aia-policybadge` show Blocked as `danger` and Allowed as `neutral`; the
+  agent page header carries operator and purpose as `ChipBadges` (pills beside the title, Training `info`).
 - **Progress and tracker.** `hm/progress` is a `role=progressbar` with value attributes. `hm/tracker` takes
   `Start`, `End` and a `Legend`; `hm/categorybar` rounds only its outer segments.
 - **Adding a series.** Add a column to the `matrix` the page builds; the next entry of the series table in

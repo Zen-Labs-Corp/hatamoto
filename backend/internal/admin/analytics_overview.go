@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/analytics"
 )
 
 // overviewPage is the body of the Overview section, in the order the page shows it.
@@ -125,9 +126,9 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 
 	src := func(endpoint string) string { return a.dataURL(endpoint, rg, false) }
 	fetched := int64(published - never)
-	cov := ui.Stat{Label: "Published pages fetched at least once", Value: "n/a", Note: "No published pages yet."}
+	cov := ui.Stat{Label: "Published pages fetched at least once", Value: "n/a", Muted: true, Note: "No published pages yet."}
 	if published > 0 {
-		cov.Value = fixed(ratio(fetched, int64(published)), 0)
+		cov.Value, cov.Muted = fixed(ratio(fetched, int64(published)), 0), false
 		cov.Note = strconv.FormatInt(fetched, 10) + " of " + strconv.Itoa(published) + " published pages, since tracking began"
 	}
 	shareNow, sharePrev := ratio(t.AIVisits, t.Pageviews), ratio(prev.AIVisits, prev.Pageviews)
@@ -159,12 +160,12 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 		Src:         a.dataURL("overview.json", rg, cmp), Chart: "fetches", Panels: "fetches|referrals",
 		Srcs:        a.dataURL("overview.json", rg, cmp) + "|" + a.dataURL("referrals.json", rg, cmp),
 		PanelLabels: "AI fetches per " + unit + "|AI-referred visits per " + unit, Sum: "AI fetches|AI-referred visits",
-		Override: `{"AI-referred visits":{"n":2,"marker":"square","dash":""}}`, Hero: true, Compare: cmp,
+		Override: `{"AI-referred visits":{"n":5,"marker":"square","dash":""}}`, Hero: true, Compare: cmp,
 		Table: withoutTotal(tbl.table("AI fetches and AI-referred visits per day", "Day"))}
 
 	p.Channels = a.channelsCard(ctx, rg, cmp)
 
-	p.TopAgents = ui.BarList{Label: "Most active AI agents", Quiet: true, Empty: "No data for this period."}
+	p.TopAgents = ui.BarList{Label: "Most active AI agents", Quiet: true, Mono: true, Empty: "No data for this period."}
 	if t.AIFetches > 0 {
 		for i, ag := range ov.Top {
 			if i == topRows {
@@ -174,7 +175,7 @@ func (a *Admin) buildOverview(ctx context.Context, q url.Values, rg agents.Range
 				Value: fmtNum(ag.Hits), Share: shareText(ratio(ag.Hits, t.AIFetches)), N: float64(ag.Hits)})
 		}
 	}
-	p.TopAssistants = ui.BarList{Label: "AI-referred visits by assistant", Quiet: true, Empty: "No data for this period."}
+	p.TopAssistants = ui.BarList{Label: "AI-referred visits by assistant", Quiet: true, Mono: true, Empty: "No data for this period."}
 	if refs != nil && refs.Visits > 0 {
 		for i, as := range refs.Assistants {
 			if i == topRows {
@@ -201,6 +202,7 @@ func (a *Admin) channelsCard(ctx context.Context, rg agents.Range, cmp bool) *ui
 	return &ui.AiaChart{ID: "w-o-channels", Title: "Visits by channel",
 		Description: "Stacked by where people came from. Cookieless: counted per day, no visitor profiles.",
 		Src:         a.dataURL("traffic.json", rg, cmp), Chart: "channels", Compare: cmp,
+		Neutral: true, Accent: channelName(analytics.ChannelAI),
 		Toggle: &ui.Segmented{Mode: "buttons", Label: "Measure", Items: []ui.SegmentedItem{
 			{Label: "Visits", Pressed: true, Attrs: map[string]string{"data-chart-toggle": "channels"}},
 			{Label: "Leads", Disabled: true}, {Label: "Conv. rate", Disabled: true}}},

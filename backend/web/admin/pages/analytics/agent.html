@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/aia{{end}}
-{{define "main"}}{{with .Data}}{{$chips := ""}}{{with .Body}}{{$chips = .Chips}}{{end}}{{template "hm/pageheader" dict "Title" .Title "Chips" $chips "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
+{{define "main"}}{{with .Data}}{{$chips := ""}}{{with .Body}}{{$chips = .ChipBadges}}{{end}}{{template "hm/pageheader" dict "Title" .Title "ChipBadges" $chips "Description" .Lede "CSRF" $.CSRF "Range" .Range}}
 {{if .RangeErr}}{{template "hm/flash" (dict "Kind" "error" "Message" (printf "%s. Showing the last 30 days." .RangeErr) "Inline" true)}}{{end}}
 {{if .Err}}{{template "hm/flash" (dict "Kind" "error" "Message" .Err "Inline" true)}}{{end}}
 {{with .Body}}<div class="hm-stack">

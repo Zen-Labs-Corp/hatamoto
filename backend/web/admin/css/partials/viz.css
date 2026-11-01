@@ -13,6 +13,9 @@
 .hm-viz--series-4 { --viz: var(--chart-4); }
 .hm-viz--series-5 { --viz: var(--chart-5); }
 .hm-viz--series-6 { --viz: var(--chart-6); }
+/* Lighter steps of the accent: the intensity ramp of the agent activity tracker. */
+.hm-viz--series-1-mid { --viz: color-mix(in srgb, var(--chart-1) 65%, var(--color-paper)); }
+.hm-viz--series-1-low { --viz: color-mix(in srgb, var(--chart-1) 40%, var(--color-paper)); }
 
 /* BarList: the name sits on its bar, the value at the right edge. */
 .hm-barlist { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }

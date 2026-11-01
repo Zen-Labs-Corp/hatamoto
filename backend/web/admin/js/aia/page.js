@@ -9,6 +9,7 @@
 //     data-sum="AI fetches|AI visits"  per panel: add the datasets up into one series with that name
 //     [data-chart-toggle=<key>] buttons inside the figure flip data-chart (and the data table) to that key
 //     data-ratio-label="AI share"  data-title  data-hero  data-cols  data-panel-labels="A|B"
+//     data-neutral [data-accent="label"]  one accent series (the label, else the first named), the rest neutral steps
 //     data-override='{"Spoofed":{"cls":"hm-viz--danger","marker":"triangle"}}'
 //   <span data-hm-aia-chart="spark" data-src data-chart [data-minmax] [data-ratio] [data-dataset="label"]> the live hm/spark: sets d/points/label on its svg
 //   <div data-hm-aia-tracker> around a server-rendered hm/tracker
@@ -158,6 +159,7 @@ async function mount(fig) {
       cols: "cols" in d,
       panelLabels: list(d.panelLabels, "|"),
       override,
+      neutral: "neutral" in d ? { accent: d.accent || "" } : undefined,
     }),
   );
   if (regain) {
@@ -231,6 +233,21 @@ export function mountAll(root = document) {
     started.add(t);
     enhanceTracker(t);
   }
+}
+
+// <form data-hm-autosubmit>: a change in any of its fields submits it. Arrow keys move a radio
+// group's selection and fire change too (WCAG 3.2.2), so a radio submits only on a pointer click
+// (detail > 0; a keyboard-driven click has detail 0). Keyboard users press Apply or Enter.
+// content.js and aia/page.js carry the same copy; the first one loaded binds, the other skips.
+const autosubmit = (evt) => evt.target.closest?.("form[data-hm-autosubmit]")?.requestSubmit();
+if (!document.hmAutosubmit) {
+  document.hmAutosubmit = true;
+  document.addEventListener("change", (evt) => {
+    if (evt.target.type !== "radio") autosubmit(evt);
+  });
+  document.addEventListener("click", (evt) => {
+    if (evt.target.type === "radio" && evt.detail > 0) autosubmit(evt);
+  });
 }
 
 mountAll();

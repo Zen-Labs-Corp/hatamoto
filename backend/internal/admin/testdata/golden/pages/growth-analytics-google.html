@@ -134,7 +134,7 @@
 
 <div class="hm-stack">
 <h2 class="hm-visually-hidden">Googlebot activity</h2>
-<div class="hm-callout hm-callout--info" id="w-g-connect" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">Connect Search Console (plugin) to add impressions, clicks, position and index status.</div></div></div>
+<p class="hm-aia-strip" id="w-g-connect" role="note">Connect Search Console (plugin) to add impressions, clicks, position and index status.</p>
 <section aria-labelledby="aia-kpis-h"><h2 class="hm-visually-hidden" id="aia-kpis-h">Key figures</h2><div class="hm-statgrid hm-statgrid--strip"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Googlebot crawls</dt><dd class="hm-statcard__value">995</dd>
 <dd class="hm-statcard__note hm-muted">99% verified</dd></dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Pages crawled</dt><dd class="hm-statcard__value">41</dd>
 <dd class="hm-statcard__note hm-muted">of 144 published</dd></dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Publish to first crawl</dt><dd class="hm-statcard__value">6 h</dd>
@@ -143,7 +143,7 @@
 <section class="hm-card" id="w-g-crawl" aria-labelledby="w-g-crawl-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-g-crawl-title">Crawling</h3><p class="hm-muted">Googlebot fetches per day, stacked by response class.</p></div>
 <div class="hm-card__body">
-<figure class="hm-aia-chart" id="w-g-crawl-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/google.json?from=2026-01-01&amp;to=2026-01-03" data-chart="status" data-title="Crawling" data-override="{&#34;4xx&#34;:{&#34;cls&#34;:&#34;hm-viz--warning&#34;},&#34;5xx&#34;:{&#34;cls&#34;:&#34;hm-viz--danger&#34;}}" data-hero aria-labelledby="w-g-crawl-title">
+<figure class="hm-aia-chart" id="w-g-crawl-fig" data-hm-aia-chart="time" data-src="/admin/analytics/data/google.json?from=2026-01-01&amp;to=2026-01-03" data-chart="status" data-title="Crawling" data-override="{&#34;2xx&#34;:{&#34;n&#34;:2},&#34;3xx&#34;:{&#34;n&#34;:3},&#34;4xx&#34;:{&#34;cls&#34;:&#34;hm-viz--warning&#34;},&#34;5xx&#34;:{&#34;cls&#34;:&#34;hm-viz--danger&#34;}}" data-hero aria-labelledby="w-g-crawl-title">
 <div class="hm-aia-lgrow"><div class="hm-aia-legend" role="group" aria-label="Show or hide series" data-aia-legend-list></div><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" aria-controls="w-g-crawl-data" aria-expanded="false" data-aia-sd="" hidden="hidden"><span>Show data</span></button></div>
 <div data-aia-plot></div>
 <div class="hm-aia-data" id="w-g-crawl-data" data-aia-data data-aia-table="status"><div class="hm-empty hm-empty--compact">
@@ -162,7 +162,7 @@
 <section class="hm-card" id="w-g-pages" aria-labelledby="w-g-pages-title">
 <div class="hm-card__head"><h3 class="hm-card__title" id="w-g-pages-title">Pages through Google&#39;s eyes</h3><p class="hm-muted">Published pages and every path Googlebot fetched. Spoofed fetches are left out. Last crawl is the day, not the time.</p></div>
 <div class="hm-card__body">
-<form class="hm-row" method="get" action="/admin/analytics/google">
+<form class="hm-row" method="get" action="/admin/analytics/google" data-hm-autosubmit>
 <input type="hidden" name="from" value="2026-01-01"><input type="hidden" name="to" value="2026-01-03">
 <fieldset class="hm-segmented"><legend class="hm-visually-hidden">Filter pages</legend>
 <label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="filter" value="all" checked><span class="hm-segmented__btn">All</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="filter" value="not-crawled"><span class="hm-segmented__btn">Not crawled</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="filter" value="errors"><span class="hm-segmented__btn">Errors</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="filter" value="stale"><span class="hm-segmented__btn">Stale</span></label></fieldset>

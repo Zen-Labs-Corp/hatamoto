@@ -34,9 +34,9 @@ type healthCompliance struct {
 	PolicyHref string
 }
 
-// trackerKind is the colour of one day of the errors tracker: healthy up to 5%
-// of fetches failing, some errors above that, many above 10%, none when the
-// day had no fetches.
+// trackerKind is the colour of one day of the errors tracker: a neutral step
+// up to 5% of fetches failing, amber above that, red above 10%, an outline when
+// the day had no fetches. Only the bad days carry a hue.
 func trackerKind(failed, total int64) string {
 	switch f := ratio(failed, total); {
 	case total == 0:
@@ -46,8 +46,11 @@ func trackerKind(failed, total int64) string {
 	case f > 5:
 		return "warning"
 	}
-	return "success"
+	return healthyDay
 }
+
+// healthyDay is the tracker kind of a day without errors: a neutral step.
+const healthyDay = "series-4"
 
 // failingText is the tooltip words of one tracker day.
 func failingText(failed, total int64) string {
@@ -67,7 +70,7 @@ func responsesBar(s2, s3, s4, s5 int64) *ui.CategoryBar {
 		return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: shareText(ratio(n, all))}
 	}
 	return &ui.CategoryBar{Label: "Responses by status class", Columns: true, Segments: []ui.CategorySegment{
-		seg("2xx success", "success", s2), seg("3xx redirect", "series-1", s3), seg("4xx client error", "warning", s4), seg("5xx server error", "danger", s5)}}
+		seg("2xx success", "series-2", s2), seg("3xx redirect", "series-3", s3), seg("4xx client error", "warning", s4), seg("5xx server error", "danger", s5)}}
 }
 
 // verificationBar is the verification result of fetches as one bar; nil when none.
@@ -80,7 +83,7 @@ func verificationBar(verified, unverifiable, spoofed int64) *ui.CategoryBar {
 		return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: shareText(ratio(n, all))}
 	}
 	return &ui.CategoryBar{Label: "Fetches by verification result", Columns: true, Segments: []ui.CategorySegment{
-		seg("Verified", "success", verified), seg("Unverifiable", "series-6", unverifiable), seg("Spoofed", "danger", spoofed)}}
+		seg("Verified", "series-2", verified), seg("Unverifiable", "series-4", unverifiable), seg("Spoofed", "danger", spoofed)}}
 }
 
 func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, cmp bool) (any, error) {
@@ -125,7 +128,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 	p := &healthPage{
 		Hero: ui.AiaChart{ID: "w-h-hero", Title: "Verified and spoofed fetches", Description: "Each fetch is checked against the operator\u2019s published method.",
 			Src: src, Chart: "verified", Panels: "verified|spoofed", PanelLabels: "Verified fetches per " + unit + "|Spoofed fetches per " + unit,
-			Override: `{"Spoofed":{"cls":"hm-viz--danger","marker":"triangle","dash":""}}`, Hero: true, Compare: cmp,
+			Override: `{"Verified":{"n":2},"Spoofed":{"cls":"hm-viz--danger","marker":"triangle","dash":""}}`, Hero: true, Compare: cmp,
 			Table: withoutTotal(vm.table("Verified and spoofed fetches per day", "Day"))},
 		Verification: verificationBar(t.Verified, t.Unverifiable, t.Spoofed),
 		Spoofed:      ui.BarList{Label: "Spoofed fetches by claimed agent", Quiet: true, Empty: "No spoofed fetches in this period."},
@@ -149,7 +152,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 	if len(days) > 0 {
 		p.Tracker.Start, p.Tracker.End = shortDay(days[0]), shortDay(days[len(days)-1])
 	}
-	names := map[string]string{"success": "Healthy", "warning": "Some errors", "danger": "Many errors", "neutral": "No fetches"}
+	names := map[string]string{healthyDay: "Healthy", "warning": "Some errors", "danger": "Many errors", "neutral": "No fetches"}
 	for i, d := range days {
 		h := byDay[d]
 		failed := h.S4xx + h.S5xx
@@ -158,7 +161,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 		p.Tracker.Blocks = append(p.Tracker.Blocks, ui.TrackerBlock{Kind: kind, Tip: shortDay(d) + ": " + failingText(failed, h.Hits)})
 		seen[kind] = true
 	}
-	for _, k := range []string{"success", "warning", "danger", "neutral"} {
+	for _, k := range []string{healthyDay, "warning", "danger", "neutral"} {
 		if seen[k] {
 			p.Tracker.Legend = append(p.Tracker.Legend, ui.TrackerKey{Kind: k, Label: names[k]})
 		}
@@ -213,9 +216,9 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 		if ag.IgnoresRobots {
 			honours = ui.Badge{Label: "No", Kind: "warning"}
 		}
-		policy := ui.Badge{Label: "Allowed", Kind: "success"}
+		policy := ui.Badge{Label: "Allowed", Kind: "neutral"}
 		if denied[purposeID(ag.Purpose)] {
-			policy = ui.Badge{Label: "Blocked"}
+			policy = ui.Badge{Label: "Blocked", Kind: "danger"}
 		}
 		p.Compliance.Rows.Rows = append(p.Compliance.Rows.Rows, []ui.AiaCell{{Text: ag.Name, Href: sectionHref(a.adminPath+"/analytics/agents/"+url.PathEscape(ag.ID), q)},
 			{Text: ag.Purpose}, {Badge: &honours}, {Badge: &policy}, {Text: fmtNum(ag.Hits)}})
