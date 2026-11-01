@@ -224,7 +224,7 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 	aiLeads := leadsOf[analytics.ChannelAI]
 	bestStat := ui.Stat{Label: "Best channel", Value: placeholder, Note: "No leads in this period."}
 	if best != "" {
-		bestStat = ui.Stat{Label: "Best channel", Badge: &ui.Badge{Label: best, Kind: "neutral"}, Note: fixed(bestRate, 1) + " conversion"}
+		bestStat = ui.Stat{Label: "Best channel", Badge: &ui.Badge{Label: best, Kind: "neutral", Wrap: true}, Note: fixed(bestRate, 1) + " conversion"}
 	}
 	topForm := ui.Stat{Label: "Top form", Value: placeholder, Note: "No leads in this period."}
 	if len(byForm) > 0 {

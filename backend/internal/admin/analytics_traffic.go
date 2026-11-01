@@ -260,7 +260,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	}
 	topChannel := ui.Stat{Label: "Top channel", Value: placeholder, Muted: true, Note: "No visits in this period."}
 	if leading != "" {
-		topChannel = ui.Stat{Label: "Top channel", Badge: &ui.Badge{Label: leading, Kind: "info"}, Note: share(leadingVisits, totals.Visits) + " of visits"}
+		topChannel = ui.Stat{Label: "Top channel", Badge: &ui.Badge{Label: leading, Kind: "info", Wrap: true}, Note: share(leadingVisits, totals.Visits) + " of visits"}
 	}
 	perVisit := "No visits in this period."
 	if totals.Visits > 0 {
