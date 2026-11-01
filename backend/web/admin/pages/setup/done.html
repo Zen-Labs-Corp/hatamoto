@@ -1,11 +1,10 @@
 {{template "layouts/bare" .}}
 {{define "main"}}{{with .Data}}{{template "hm/steps" (dict "Items" .Steps "Label" "Setup progress")}}
-<div class="hm-setup-done"><p class="hm-setup-done__icon">{{icon "check-circle"}}</p>
-<h1>You are all set</h1>
+<div class="hm-setup-done"><h1>You are all set</h1>
 <p class="hm-muted">Your site is live. Here is where to go next:</p></div>
 {{if .Address}}<div class="hm-stack"><div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-done" "Name" "address" "Label" "Your admin address" "Value" .Address "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-done"))}}</div>
 {{if .Emailed}}<p class="hm-muted">We emailed it to you.</p>{{end}}</div>{{end}}
-<div class="hm-setup-links">{{range .Links}}<a class="hm-setup-link" href="{{.Href}}">{{icon .Icon}}<span>{{.Title}}</span></a>
+<div class="hm-setup-links">{{range .Links}}<a class="hm-setup-link" href="{{.Href}}">{{icon .Icon}}<span>{{.Title}}</span>{{icon "chevron-right"}}</a>
 {{end}}</div>
 {{if .Mail}}<form method="post" action="{{adminPath}}/settings/email/test" class="hm-row hm-row--between">
 {{template "hm/csrf" $}}<input type="hidden" name="return" value="done">

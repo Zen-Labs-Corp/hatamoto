@@ -12,12 +12,11 @@
 .hm-steps__count { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-field__control[type="color"] { width: 64px; min-height: var(--control-h); padding: var(--space-0-5); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); }
 .hm-field__control[type="color"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-/* Done step: a success cue and four link cards. */
-.hm-setup-done { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
-.hm-setup-done__icon { margin: 0; color: var(--color-success); }
-.hm-setup-done__icon .hm-icon { width: var(--space-12); height: var(--space-12); }
+/* Done step: a left-aligned heading and four link rows, each ending in a chevron. */
+.hm-setup-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
 .hm-setup-links { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
 .hm-setup-link { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--color-sumi); text-decoration: none; }
+.hm-setup-link > .hm-icon:last-child { margin-inline-start: auto; color: var(--text-muted); }
 .hm-setup-link:hover { background: var(--surface-hover); }
 .hm-setup-link:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 640px) { .hm-setup-links { grid-template-columns: minmax(0, 1fr); } }

@@ -548,7 +548,7 @@ func TestSetupDoneHasLinkCards(t *testing.T) {
 	g := newSetupRig(t)
 	g.count.n = 1
 	body := g.do("GET", "/admin/setup/done", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "hm-setup-done__icon") || strings.Count(body, `class="hm-setup-link"`) != 4 {
-		t.Errorf("success icon and four link cards expected:\n%s", body)
+	if strings.Contains(body, "hm-setup-done__icon") || strings.Count(body, `class="hm-setup-link"`) != 4 {
+		t.Errorf("four link cards and no success icon expected:\n%s", body)
 	}
 }
