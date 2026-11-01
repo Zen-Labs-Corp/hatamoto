@@ -10,7 +10,7 @@ import { resolveKey } from "@hm/builder/keymap";
 import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
-import { insertPoint, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
+import { insertPoint, sectionPoint, isSectionItem, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
 import { paletteExtra, wantsSlot } from "@hm/builder/reusecore";
 import { insertOps, insertAll } from "@hm/builder/reuseops";
 import { innerRef, loopAbove } from "@hm/builder/bridge";
@@ -311,8 +311,9 @@ function start(root, boot) {
   // Templates and blocks: only when the site can use them (boot.reuse.available).
   const reuse = boot.reuse?.available ? boot.reuse : null;
   const insertFrom = (item, o) => {
-    const pos = posValid(st.doc, addTarget) ? addTarget : null; // a position the doc has outgrown falls back to the usual insert point
+    let pos = posValid(st.doc, addTarget) ? addTarget : null; // a position the doc has outgrown falls back to the usual insert point
     addTarget = null;
+    if (!pos && isSectionItem(item)) pos = sectionPoint(st.doc, selected); // a section lands after the selected one, never inside it
     return item.kind === "template" || item.kind === "block" ? insertReuse(item, pos, o) : insertItem(item, pos, o);
   };
   // The left pane's tabs; the Insert tab's body is the lazy addtab.js, mounted the first time the tab shows.
