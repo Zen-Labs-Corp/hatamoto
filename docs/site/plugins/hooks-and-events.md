@@ -108,16 +108,16 @@ Modify and return `doc`, the schema.org document. Keep `entity` and `base_url` a
 
 ### sitemap.urls
 
-The filter is additions only. The host sends `group` (the sitemap file's group slug, `"misc"` for the misc sitemap) and `language` (reserved, always empty), plus in `add` the entries earlier plugins already added. It never sends the file's own URL list, because decoding and encoding 5,000 URLs costs a Go guest about half a second. Append your entries and return the value. The host adds the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. At most 5,000 entries in total. Target one file (usually `misc`) when adding site-wide URLs. The result is cached with the sitemap XML, so keep it deterministic.
+The filter is additions only. The host sends `group` (the sitemap file's group slug, `"misc"` for the misc sitemap), `language` (the BCP 47 tag of the locale a per-locale file belongs to, empty on a one-language site), `segment` (that locale's stored URL segment, empty for an unprefixed default locale) and `file` (the full file key such as `xx-misc`; `group` stays the bare name), plus in `add` the entries earlier plugins already added. It never sends the file's own URL list, because decoding and encoding 5,000 URLs costs a Go guest about half a second. Append your entries and return the value. The host adds the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. At most 5,000 entries in total. Target one file (usually `misc`) when adding site-wide URLs. The result is cached with the sitemap XML, so keep it deterministic.
 
 ```json
-{ "group": "misc", "language": "",
+{ "group": "misc", "language": "en-XX", "segment": "xx", "file": "xx-misc",
   "add": [ { "loc": "https://example.com/a", "lastmod": "2026-01-01", "changefreq": "weekly", "priority": 0.5 } ] }
 ```
 
 ### render.head
 
-The input describes the page and carries no tags: `path`, `language` (the BCP 47 site language, such as `en-AU`), `schema_slug` and `entity_id`. The result's `tags` are appended to the page head. The host builds and escapes the markup and drops attributes outside an allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes. Set `replace_site_graph` when your `jsonld` tags carry their own Organization and WebSite graph.
+The input describes the page and carries no tags: `path`, `language` (the BCP 47 language of the page, such as `en-AU`), `schema_slug` and `entity_id`. On a site with several public locales it also carries `locale` (the page's tag) and `segment` (its stored URL segment, empty for an unprefixed default locale), both left out on a one-language site; they arrived with SDK 0.15.0. The result's `tags` are appended to the page head. The host builds and escapes the markup and drops attributes outside an allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes. Set `replace_site_graph` when your `jsonld` tags carry their own Organization and WebSite graph.
 
 The filter may run more than once for one render: a page with a paged builder loop renders its head twice and keeps one result. Keep it free of side effects, such as `kv` counters or outbound pings.
 

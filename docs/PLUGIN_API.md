@@ -1,4 +1,4 @@
-# Plugin API (SDK 0.14)
+# Plugin API (SDK 0.15)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
@@ -117,13 +117,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.14.0`; plugins built for `^0.5` to `^0.13` still load):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.15.0`; plugins built for `^0.5` to `^0.14` still load):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.14.0
+go get hatamoto.dev/sdk@v0.15.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -133,7 +133,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.14.0` is the git tag `v0.14.0`. The core repository stays
+plain release tags: version `0.15.0` is the git tag `v0.15.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -145,12 +145,12 @@ different repository.
 > that shipped `assets/plugin.js` before 0.12 stops running its script until its author lists `site.scripts` in
 > `plugin.json` and the owner grants it. `plugin.css` is not gated.
 >
-> **Public locales (no version change):** on a site with several public locales
-> (see [ADR 0003](adr/0003-public-locales.md)) the existing fields carry the page's locale and no payload gains a field.
+> **Public locales:** on a site with several public locales
+> (see [ADR 0003](adr/0003-public-locales.md)) the existing fields carry the page's locale; SDK 0.15 adds the fields listed below.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.14 is current.
+> SDK 0.15 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -163,6 +163,13 @@ different repository.
 > **0.14 changes (additive):** `FormSubmittedEvent` carries `attribution` (`first` and `last` touch: `channel`, `source`, `medium`, `campaign`, `landing`), the
 > classified source of the browser tab that submitted the form. It is left out when none was recorded (no-JS posts, API posts, older submissions). It holds no URL, address or identifier.
 > A plugin built earlier ignores the unknown field; on a host older than SDK 0.14 it is absent.
+>
+> **0.15 changes (additive):** locale support for plugins that manage a multi-locale site.
+> `HeadContext` carries `locale` and `segment`, `SitemapURLs` carries `segment` and `file`, entities carry `translation_group`,
+> `entities.create` takes `translation_of` (and needs `locale` on a multi-locale site), the `entities.translations` host function lists a
+> translation group (it needs `entities.read`, no new permission), and `entities.get` with a `path` reads a locale-prefixed path in that locale.
+> All new payload fields are left out when empty, so a one-language site sends the same JSON as before. A plugin built earlier ignores the unknown
+> fields; on a host older than SDK 0.15 they are absent, and `entities.translations` fails with `unknown_function`.
 >
 > **0.11 changes:** a page-builder data source: the `builder.data` filter, the `builder.data` permission and the
 > `builder_sources` manifest field (see [builder.data](#builderdata) and [WIDGET_PACKS.md](WIDGET_PACKS.md)). Purely additive.
@@ -326,19 +333,19 @@ Modify and return `doc` (the schema.org document). Keep `entity` and `base_url` 
 ```
 
 #### SitemapURLs
-Additions only. The host sends `group` and `language` (the group slug of the sitemap file, `"misc"` for the misc sitemap; `language` is the BCP 47 tag of the locale a per-locale file belongs to, and empty on a one-language site) and in `add` the entries that `sitemap.urls` filters before yours already added (empty for the first). It never sends the file's own URL list: a Go guest needs about 0.5 s to decode and encode 5,000 URLs. Append your entries to `add` and return the value; the host appends the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. Set at most 5,000 entries in `add` in total (more fails the call, fail open). A filter that adds a site-wide URL should target one file (usually `"misc"`). The result is cached with the sitemap XML, so keep it deterministic.
+Additions only. The host sends `group`, `language`, `segment` and `file` (the group slug of the sitemap file, `"misc"` for the misc sitemap; `language` is the BCP 47 tag of the locale a per-locale file belongs to, and empty on a one-language site; `segment` is that locale's stored URL segment, empty for a default locale served without a prefix; `file` is the full file key, for example `xx-misc`, while `group` stays the bare name; `segment` and `file` are empty on a one-language site and since SDK 0.15) and in `add` the entries that `sitemap.urls` filters before yours already added (empty for the first). It never sends the file's own URL list: a Go guest needs about 0.5 s to decode and encode 5,000 URLs. Append your entries to `add` and return the value; the host appends the ones whose `loc` the file does not already have, so a plugin can neither change nor remove existing entries. Set at most 5,000 entries in `add` in total (more fails the call, fail open). A filter that adds a site-wide URL should target one file (usually `"misc"`). The result is cached with the sitemap XML, so keep it deterministic.
 ```json
-{ "group": "misc", "language": "",
+{ "group": "misc", "language": "en-XX", "segment": "xx", "file": "xx-misc",
   "add": [ { "loc": "https://example.com/a", "lastmod": "2026-01-01", "changefreq": "weekly", "priority": 0.5,
              "alternates": [ { "rel": "alternate", "hreflang": "fr", "href": "https://example.com/fr/a" } ] } ] }
 ```
 `alternates` is optional.
 
 #### HeadContext
-The input describes the page (`language` is the BCP 47 language of the page: the site language, or the page's locale on a site with several public locales) and carries no tags; the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
+The input describes the page (`language` is the BCP 47 language of the page: the site language, or the page's locale on a site with several public locales) and carries no tags; since SDK 0.15 `locale` is the page's BCP 47 tag and `segment` its stored URL segment, both empty on a one-language site, and `segment` also empty for a default locale served without a prefix (`language` holds the same tag as `locale` on a multi-locale site); the result's `tags` are **appended** to the page head. The host builds and escapes the markup, drops attributes outside the allowlist per kind (`meta`: `name`, `property`, `content`; `link`: `rel`, `href`, `type`, `hreflang`, `crossorigin`; `script-src`: `src`, `crossorigin`) and unsafe URL schemes.
 Set `replace_site_graph` when your `jsonld` tags carry their own Organization/WebSite graph; if the chain fails or no valid `jsonld` tag results, the generic graph stays. The generic graph includes the per-locale `LocalBusiness` node of a site with several public locales, so replacing it drops that node too. The payload of this filter is unchanged by per-locale business details. Hreflang de-duplication is exact: a plugin link is dropped only when its language (case-insensitive) and its address both equal a computed alternate, so any difference prints both.
 ```json
-{ "path": "/blog/x", "language": "en-AU", "schema_slug": "post", "entity_id": "string",
+{ "path": "/blog/x", "language": "en-XX", "locale": "en-XX", "segment": "xx", "schema_slug": "post", "entity_id": "string",
   "tags": [ { "kind": "meta|link|script-src|jsonld", "attrs": { "name": "robots", "content": "noindex" }, "jsonld": {} } ],
   "replace_site_graph": false }
 ```
@@ -410,7 +417,7 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 
 | Permission | Host functions |
 |---|---|
-| `entities.read` | `entities.get`, `entities.list` |
+| `entities.read` | `entities.get`, `entities.list`, `entities.translations` |
 | `entities.write` | `entities.create`, `entities.update`, `entities.set_status`, `entities.delete` |
 | `terms.read` / `terms.write` | `terms.list`, `terms.get` / `terms.save`, `terms.delete` |
 | `menus.read` / `menus.write` | `menus.list`, `menus.get` / `menus.save`, `menus.add_item`, `menus.delete_item` |
@@ -447,8 +454,9 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..] }` |
 | `entities.get` | `{ "id" }`, `{ "path": "/a/b" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (`schema_slug` needs `parent_id`; send one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "limit"? (50, max 200), "cursor"? }` | `{ "items": [Entity], "next_cursor" }` |
-| `entities.create` | `{ "schema_slug", "name", "slug"?, "parent_id"?, "attributes"? }` | Entity |
+| `entities.create` | `{ "schema_slug", "name", "slug"?, "locale"? (required on a multi-locale site for schemas that have translations), "translation_of"? (entity id), "parent_id"?, "attributes"? }` | Entity |
 | `entities.update` | `{ "id", "name"?, "slug"?, "parent_id"? (`null` = make a root), "attributes"? }` | Entity |
+| `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]` (the entity's translation group, itself included, ordered by locale; `[]` when it has none or is alone) |
 | `entities.set_status` | `{ "id", "status" }` (`draft`, `published`, ...) | Entity |
 | `entities.delete` | `{ "id" }` | `{}` |
 | `terms.list` | `{ "kind"?, "search"?, "limit"? }` | `{ "items", "total" }` |
@@ -488,7 +496,9 @@ Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. 
 
 **Entity writes** go through the same service as the admin API: schema validation, HTML sanitising, slug rules, `entity.before_save`, and events all apply (there is no way around them). **Re-entrancy guard:** a plugin write sets a depth of 1 on the context of everything it triggers. A plugin that writes from inside a hook (`entity.before_save`, `entity.created`, ...) of an editor's save is allowed one level; a write made while already inside the hooks of a plugin write fails with `reentrant`, so plugins cannot recurse. Reads are never guarded.
 
-**Entity trees (SDK 0.10).** An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `parent_id` is the parent entity (absent for a root); `path` is the canonical public path the site serves it at (`/services/seo/local`, from the schema's URL pattern and the parent chain); `url` is `path` behind the public origin when `PUBLIC_BASE_URL` (or the owner's site address) is set, otherwise the path alone. `entities.create` and `entities.update` take `parent_id` and apply the rules of the admin and REST API (the entity service, not a copy): the parent must exist, the move may not make the entity its own ancestor, and the chain may not be deeper than a URL can express (8 levels); a refused parent is `invalid_argument`. On update, omit `parent_id` to keep the parent, send `null` (or `""`) to make the entity a root. Slugs are unique per schema and locale, not among all siblings (a page and a post can share a slug at the root), so `entities.get` with `{ "slug", "parent_id", "schema_slug" }` can match one row per locale. It returns the site-language row when there is one (`"parent_id": null` means a root row), otherwise the one other-locale row, and it finds drafts; when no site-language row exists and two other-locale rows match, it is `invalid_argument` (no row is guessed). There is no `locale` selector: reach another locale's row by `id` (from `entities.list` or the entity payloads), never by slug. Without `schema_slug`, rows of several schemas sharing the slug give `invalid_argument` instead of a guess, so always send it when updating what you find; `schema_slug` without `parent_id`, or mixing `id`/`path`/`slug`, is `invalid_argument`; a bare `{ "slug" }` returns the site-language row first, then a root row before a nested one, then the oldest. `{ "path": "/a/b" }` resolves a URL with the router the public site uses, so it finds exactly what a visitor would get (published entities only; a trailing slash is ignored; redirects are not followed). Any other path is `not_found`.
+**Entity trees (SDK 0.10).** An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `parent_id` is the parent entity (absent for a root); `path` is the canonical public path the site serves it at (`/services/seo/local`, from the schema's URL pattern and the parent chain); `url` is `path` behind the public origin when `PUBLIC_BASE_URL` (or the owner's site address) is set, otherwise the path alone. `entities.create` and `entities.update` take `parent_id` and apply the rules of the admin and REST API (the entity service, not a copy): the parent must exist, the move may not make the entity its own ancestor, and the chain may not be deeper than a URL can express (8 levels); a refused parent is `invalid_argument`. On update, omit `parent_id` to keep the parent, send `null` (or `""`) to make the entity a root. Slugs are unique per schema and locale, not among all siblings (a page and a post can share a slug at the root), so `entities.get` with `{ "slug", "parent_id", "schema_slug" }` can match one row per locale. It returns the site-language row when there is one (`"parent_id": null` means a root row), otherwise the one other-locale row, and it finds drafts; when no site-language row exists and two other-locale rows match, it is `invalid_argument` (no row is guessed). There is no `locale` selector for slugs: reach another locale's row by `id` (from `entities.list`, the entity payloads or `entities.translations`), or by its locale-prefixed `path`, never by slug. Without `schema_slug`, rows of several schemas sharing the slug give `invalid_argument` instead of a guess, so always send it when updating what you find; `schema_slug` without `parent_id`, or mixing `id`/`path`/`slug`, is `invalid_argument`; a bare `{ "slug" }` returns the site-language row first, then a root row before a nested one, then the oldest. `{ "path": "/a/b" }` resolves a URL with the router the public site uses, so it finds exactly what a visitor would get (published entities only; a trailing slash is ignored; redirects are not followed). On a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale, as the public site does, and a path of a hidden locale is `not_found`; an unprefixed path is read as before. Any other path is `not_found`.
+
+**Translations (SDK 0.15).** An Entity carries `translation_group`, the id its translations share; it is absent when the entity has none or the host has no translation groups (a failed lookup also leaves it out and is logged). `entities.translations` with `{ "id" }` returns the members of that entity's group, the entity included, ordered by locale, each as `{ id, locale, status, path? }` (`path` is the canonical public path, absent when the host cannot compute paths). A group of one entity counts as no group: the result is `[]`. `entities.create` with `translation_of` (an entity id) makes the new entity join the group of that entity, creating the group when it has none. It needs `locale`, which must differ from the locale of the target, the target must have the same schema, and the schema must have translations; otherwise the call is `invalid_argument`. Without translation groups on the host, `translation_of` is `unavailable`. Create then link is not atomic: if the link fails after the entity was created, the host deletes the new entity again and returns `invalid_argument` (`translation_of: ...`). On a site with two or more locales `entities.create` without `locale` is `invalid_argument` ("locale is required when the site has several locales") for schemas that have translations; on a one-language site an empty `locale` still means the site language. The host does not copy or inherit fields between translations: a plugin that wants inheritance reads the source with `entities.get`, and writes the copy with `entities.create` and `translation_of`.
 
 **http.fetch** is the only network a plugin has. In order: the URL host and port must match `allowed_hosts` (`blocked` otherwise; `http` and `https` only, no credentials in the URL, methods GET/HEAD/POST/PUT/PATCH/DELETE); the host is **resolved by the host** and every answer must be a public address: loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7), link-local (169.254/16 including cloud metadata, fe80::/10), CGNAT, multicast, unspecified, documentation and reserved ranges, and IPv4-in-IPv6 forms (mapped, NAT64, 6to4) are refused, and one bad answer refuses the host; the connection is then made to the checked IP, never to the name again, so DNS cannot rebind between check and connect; every redirect hop (at most 5) repeats all of this. Request body at most 1 MiB, response at most 1 MiB (`truncated`), 10 s by default and 30 s at most. Redirects are followed (at most 5 hops, each re-checked as above); cookies and proxies from the environment are off; `Set-Cookie` and other response headers outside a short allowlist are not passed back.
 

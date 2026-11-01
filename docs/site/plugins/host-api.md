@@ -10,15 +10,15 @@ A plugin reaches the server through one imported function, `hm_call`, in the was
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.14.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.14.0` and also plugins built for `0.5.0` to `0.13.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.15.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.15.0` and also plugins built for `0.5.0` to `0.14.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.14.0"
+const Version = "0.15.0"
 var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.14.0`. SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.14.0` is the git tag `v0.14.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.15.0`. SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.15.0` is the git tag `v0.15.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -32,7 +32,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 
 | Permission | Host functions |
 |---|---|
-| `entities.read` | `entities.get`, `entities.list` |
+| `entities.read` | `entities.get`, `entities.list`, `entities.translations` |
 | `entities.write` | `entities.create`, `entities.update`, `entities.set_status`, `entities.delete` |
 | `terms.read` | `terms.list`, `terms.get` |
 | `terms.write` | `terms.save`, `terms.delete` |
@@ -102,8 +102,9 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 |---|---|---|
 | `entities.get` | `{ "id" }`, `{ "path" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "limit"? (50, max 200), "cursor"? }` | `{ "items", "next_cursor" }` |
-| `entities.create` | `{ "schema_slug", "name", "slug"?, "locale"?, "parent_id"?, "attributes"? }` | Entity |
+| `entities.create` | `{ "schema_slug", "name", "slug"?, "locale"? (required on a multi-locale site for schemas that have translations), "translation_of"? (entity id), "parent_id"?, "attributes"? }` | Entity |
 | `entities.update` | `{ "id", "name"?, "slug"?, "locale"?, "parent_id"? (`null` makes a root), "attributes"? }` | Entity |
+| `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]`, the entity's translation group ordered by locale, `[]` when it has none or is alone |
 | `entities.set_status` | `{ "id", "status" }` | Entity |
 | `entities.delete` | `{ "id" }` | `{}` |
 | `terms.list` / `terms.get` | `{ "kind"?, "search"?, "limit"? }` / `{ "kind", "slug" }` | `{ "items", "total" }` / Term |
@@ -140,7 +141,7 @@ Notes on specific functions:
 
 Entity writes go through the same service as the admin API, so schema validation, HTML sanitising, slug rules, `entity.before_save` and events all apply. A write from a plugin sets a re-entrancy depth of 1 on everything it triggers. A plugin that writes from inside a hook of an editor's save is allowed one level, while a write made inside the hooks of a plugin write fails with `reentrant`. Reads are never guarded.
 
-An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `path` is the canonical public path the site serves it at, and `url` is that path behind the public origin when it is known. `entities.create` and `entities.update` follow the same page rules as MCP: a changed `page_sections` on a page that has a `page_doc` fails with `page_sections_removed`, so send `attributes.page_doc` instead (see [Behaviour worth knowing](../ai-seo/mcp.md#behaviour-worth-knowing)). They take `parent_id` under the admin's rules: the parent must exist, an entity cannot become its own ancestor and the chain may be at most 8 levels deep. On update, omit `parent_id` to keep the parent and send `null` to make a root. `locale` is a BCP 47 tag such as `en` or `fr`; empty on create stores the site language. Slugs are unique per schema and locale, so a lookup by `{ "slug", "parent_id", "schema_slug" }` can match one row per locale: the site-language row comes first (`"parent_id": null` means a root), and rows in other locales are reached by `id` only. `{ "path": "/a/b" }` resolves a URL with the router the public site uses and finds published entities only.
+An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `path` is the canonical public path the site serves it at, and `url` is that path behind the public origin when it is known. `entities.create` and `entities.update` follow the same page rules as MCP: a changed `page_sections` on a page that has a `page_doc` fails with `page_sections_removed`, so send `attributes.page_doc` instead (see [Behaviour worth knowing](../ai-seo/mcp.md#behaviour-worth-knowing)). They take `parent_id` under the admin's rules: the parent must exist, an entity cannot become its own ancestor and the chain may be at most 8 levels deep. On update, omit `parent_id` to keep the parent and send `null` to make a root. `locale` is a BCP 47 tag such as `en` or `fr`; empty on create stores the site language. Slugs are unique per schema and locale, so a lookup by `{ "slug", "parent_id", "schema_slug" }` can match one row per locale: the site-language row comes first (`"parent_id": null` means a root), and rows in other locales are reached by `id` or by their locale-prefixed path only. `{ "path": "/a/b" }` resolves a URL with the router the public site uses and finds published entities only; on a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale and a hidden locale's path is `not_found`. An Entity also carries `translation_group` (SDK 0.15), the id its translations share, absent when it has none. `entities.create` with `translation_of` joins the new entity to the group of that entity (same schema, a different `locale` is required, `invalid_argument` otherwise); create then link is not atomic, so a failed link deletes the new entity again.
 
 ## http.fetch
 

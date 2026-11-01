@@ -59,7 +59,7 @@ A manifest that uses most fields:
 
 The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` and `~x`, and several comparators separated by spaces must all hold. Before 1.0 a caret stops at the next minor, so `^0.8` contains `0.8.x` only.
 
-The server serves SDK `0.14.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.13.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.15.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.14.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -162,6 +162,7 @@ Older plugins keep working, with these changes to be aware of:
 - **0.12:** the `site.scripts` permission: a plugin's browser JavaScript is served only once it is granted. This is not purely additive: an installed plugin's JavaScript stops being injected until the owner grants `site.scripts`, whatever `sdk` range it declares. Enforcement reached hosts in v0.30.0. Declare the permission and ask owners to grant it. Which range to declare is covered in [The sdk range](#the-sdk-range).
 - **0.13:** entity payloads carry `locale` (`EntityRef`, `EntityEvent`, `EntitySummary`, `EntityDraft`). Purely additive.
 - **0.14:** `FormSubmittedEvent` carries `attribution` (first and last touch). Purely additive.
+- **0.15:** locale support: `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, the `entities.translations` host function and locale-prefixed paths in `entities.get`. Purely additive.
 
 ## Limits and errors
 
