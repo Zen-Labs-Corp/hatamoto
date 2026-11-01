@@ -342,9 +342,20 @@ func TestEntitiesCreateTranslationOfLinkTimeoutDeletes(t *testing.T) {
 	_, err := r.call(t, fnEntitiesCreate, map[string]any{
 		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
 	})
-	if err == nil {
-		t.Fatal("no error")
+	wantCode(t, err, sdk.ErrTimeout)
+	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
+		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 	}
+}
+
+func TestEntitiesCreateLinkDeadlineIsTimeout(t *testing.T) {
+	r := newTransRig(t, true, true)
+	target := r.seed(r.page, "en-XX")
+	r.groups.linkErr = fmt.Errorf("lock translation groups: %w", context.DeadlineExceeded)
+	_, err := r.call(t, fnEntitiesCreate, map[string]any{
+		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+	})
+	wantCode(t, err, sdk.ErrTimeout)
 	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
 		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 	}

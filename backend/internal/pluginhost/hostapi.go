@@ -905,10 +905,13 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 			if delErr != nil {
 				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
 			}
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return nil, herr(sdk.ErrTimeout, "call timed out")
+			}
 			if errors.Is(err, entity.ErrInvalidGroup) {
 				return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
 			}
-			a.log.Warn("translation link failed", slog.Any("error", err))
+			a.log.Warn("translation link failed", slog.String("entity_id", ent.ID.String()), slog.Any("error", err))
 			return nil, herr(sdk.ErrInternal, "translation_of: could not link the translation")
 		}
 	}
