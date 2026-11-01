@@ -33,7 +33,7 @@ async function open(p, id) {
   await p.goto(`${base}${admin}/entities/${id}/edit?qa=1`);
   await p.waitForFunction(() => !!window.__hmBuilder && document.querySelector("[data-hm-bs-tree]"));
   await wait(p, 800);
-  for (const g of await p.getByRole("button", { name: "Got it" }).all()) await g.click().catch(() => {}); // the one-time hints cover the canvas
+  for (const g of await p.getByRole("button", { name: "Dismiss hints" }).all()) await g.click().catch(() => {}); // the hint bar covers the canvas
 }
 const saved = (p) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
 async function drop(p, id) {

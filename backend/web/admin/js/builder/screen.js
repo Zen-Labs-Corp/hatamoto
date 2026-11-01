@@ -1080,7 +1080,7 @@ function start(root, boot) {
       })
       .catch(() => {});
   }
-  idle(() => hintChunk().then((m) => (inserted ? m.dismissAll(localStorage, boot.user ?? "") : (hints = m.mountCoachmarks({ canvasEl, navFoot: $(root, ".hm-bs__navfoot"), user: boot.user ?? "", empty: !st.doc.nodes.length })))).catch(() => {}));
+  idle(() => hintChunk().then((m) => (inserted ? m.dismissAll(localStorage, boot.user ?? "") : (hints = m.mountCoachmarks({ canvasEl, user: boot.user ?? "", empty: !st.doc.nodes.length })))).catch(() => {}));
 
   canvas.setViewport(WIDTHS.base, paneWidth());
   select(null);

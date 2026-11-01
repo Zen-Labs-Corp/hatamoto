@@ -1,6 +1,6 @@
 // Builder UX shell tasks (UX-1): T1..T10 from ref/tasks.md by mouse, by keyboard and at 390px, the first-use path
 // (visible buttons only, no shortcut) for T1, T2, T5 and T8, the shell checks (status chip, device announce, More menu,
-// Add tab, Ctrl+K, conflict and recovery banners, coach marks, phone dock, Site styles, dark mode) and axe on seven surfaces.
+// Add tab, Ctrl+K, conflict and recovery banners, hint bar, phone dock, Site styles, dark mode) and axe on seven surfaces.
 //
 // Counting. Every action goes through the actor `act(page, {mode, firstUse})`, which counts and refuses what the mode forbids:
 //   mouse     1440px, no keyboard except Tab/Enter/Escape and typing or select-all in a field (shortcuts are refused)
@@ -1119,14 +1119,14 @@ await check("recovery-banner-noshift: an unsaved copy kept on the server is offe
   return "banner floats; canvas box unchanged";
 });
 
-await check("coachmarks-once: a hint shows on first use, dismisses for good and does not return after a reload", async () => {
+await check("coachmarks-once: the hint bar shows on first use, dismisses for good and does not return after a reload", async () => {
   const s = await newSession(browser, { theme: "light", width: 1440 });
   watch(s);
   const id = await seeded(main, ["heading"]); // made in another browser profile: this one has not inserted anything
   await openBuilder(s, id);
   const hints = s.locator(".hm-bs-hint");
-  need((await hints.count()) >= 1, "no hint on a first visit");
-  const n = await hints.count();
+  need((await hints.count()) === 1, "not exactly one hint bar on a first visit");
+  const n = 1;
   // Undoing a delete re-inserts the element, but it is not a first insert: the hints stay.
   await (await rowOfKind(s, "heading")).click();
   await s.keyboard.press("Delete");
@@ -1134,9 +1134,9 @@ await check("coachmarks-once: a hint shows on first use, dismisses for good and 
   await settle(s, 300);
   need((await nodes(s)).some((x) => x.t === "heading"), "undo did not bring the heading back");
   need((await hints.count()) === n, "an undo counted as a first insert and dismissed the hints");
-  for (let i = 0; i < n; i++) await s.locator(".hm-bs-hint").first().getByRole("button", { name: "Got it" }).click();
+  await s.getByRole("button", { name: "Dismiss hints" }).click();
   await openBuilder(s, id);
-  need((await s.locator(".hm-bs-hint").count()) === 0, "a hint came back after Got it");
+  need((await s.locator(".hm-bs-hint").count()) === 0, "the hint bar came back after Dismiss hints");
   await drop(main, id);
   await s.context().close();
   return `${n} hint(s) shown once`;
