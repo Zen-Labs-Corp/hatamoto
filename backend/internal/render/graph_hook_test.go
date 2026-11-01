@@ -232,3 +232,28 @@ func TestApplySiteGraphFilter_TimeoutAndPanicReturnNoNodes(t *testing.T) {
 		}
 	}
 }
+
+// The exported SiteGraph is the document the head emits: with and without a
+// filter, its encoding equals the site graph script of the same view.
+func TestSiteGraphMatchesHead(t *testing.T) {
+	filter := func(_ context.Context, in SiteGraphInput) SiteGraphInput {
+		in.Nodes = append(in.Nodes, map[string]any{"@id": "https://example.test#extra", "@type": "Thing", "name": "Extra"})
+		return in
+	}
+	for name, f := range map[string]SiteGraphFilter{"no filter": nil, "filter": filter} {
+		v := graphPage()
+		want := graphScript(t, v, f)
+		doc := SiteGraph(context.Background(), f, v)
+		b, err := json.Marshal(doc["@graph"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []map[string]any
+		if err := json.Unmarshal(b, &got); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: SiteGraph = %v, head = %v", name, got, want)
+		}
+	}
+}

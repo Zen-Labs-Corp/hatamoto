@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -60,6 +61,19 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 		v.PostsByAuthor = s.postsByAuthorFunc(ctx, v.Entity.Slug, v.Page.Name, v.PageNum, v.Uncacheable, v.PagedLoop, v.LoopOutOfRange)
 	}
 	return v, nil
+}
+
+// siteGraphPreview is the site-wide JSON-LD graph as the public pages emit
+// it: the same site view (logo size included) and render.site_graph filter,
+// on the homepage path.
+func (s *Server) siteGraphPreview(r *http.Request) (map[string]any, error) {
+	ctx := r.Context()
+	site, err := s.buildSiteView(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v := &render.PageView{BaseURL: s.publicBaseURL(r), Path: "/", Site: site, SEO: s.seoSettings(ctx)}
+	return render.SiteGraph(ctx, pluginhost.SiteGraphFilter(s.hooks), v), nil
 }
 
 // seoSettings returns the site's SEO templates from the cached store, or nil
