@@ -795,8 +795,8 @@ points to `hatamoto user reset-password`.
 Settings > Locales (`<admin>/settings/locales`, owner only) has three tabs. Locales lists the
 site's locales with Add locale (a new locale starts hidden unless Public is on), edit, reorder,
 remove (after a confirm page; the default locale and the search engine default stay) and a Public switch; a hidden locale is not served and is left out of sitemaps and hreflang.
-Addresses and search engines (`/addresses`) holds the default-locale prefix switch and the
-search engine default. Business details (`/business`) holds one card per locale that overrides
+Addresses and search engines (`/addresses`) holds the default-locale prefix switch, the
+search engine default and Sitemap file names (Group: `sitemap-xx-blog.xml`; Legacy: `sitemap-xx.xml`, the names a site used before locales; the names of the other layout redirect to the sitemap index). Saving clears the cached sitemaps. A locale segment of `index` or `misc` is refused. Business details (`/business`) holds one card per locale that overrides
 the site-wide details. Every write goes through one validated save that clears rendered pages.
 Settings > General no longer edits the locale list.
 
