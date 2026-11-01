@@ -1,0 +1,177 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@id": "https://example.test#organization",
+      "@type": "Organization",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "XX",
+        "addressLocality": "Sample City",
+        "postalCode": "1000",
+        "streetAddress": "1 Example Street"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "bestRating": "5",
+        "ratingValue": "4.6",
+        "reviewCount": 120,
+        "worstRating": "1"
+      },
+      "alternateName": "Example",
+      "areaServed": [
+        {
+          "@type": "Country",
+          "identifier": "XX",
+          "name": "Exland"
+        },
+        {
+          "@type": "Country",
+          "identifier": "YY",
+          "name": "Whyland"
+        },
+        {
+          "@type": "Country",
+          "identifier": "ZZ",
+          "name": "Zedland"
+        }
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "areaServed": "XX",
+          "availableLanguage": "English",
+          "contactType": "customer service",
+          "name": "Sales",
+          "telephone": "+00 111 1111"
+        },
+        {
+          "@type": "ContactPoint",
+          "areaServed": "Zedland",
+          "availableLanguage": "English",
+          "contactType": "customer service",
+          "telephone": "+00 333 3333"
+        },
+        {
+          "@type": "ContactPoint",
+          "availableLanguage": "en-XX",
+          "contactType": "customer service",
+          "telephone": "+00 111 1111"
+        }
+      ],
+      "currenciesAccepted": "XXD",
+      "description": "Example description",
+      "email": "hello@example.test",
+      "foundingDate": "2001-02",
+      "image": "https://example.test/media/logo.png",
+      "legalName": "Example Co Ltd",
+      "logo": {
+        "@type": "ImageObject",
+        "height": 80,
+        "url": "https://example.test/media/logo.png",
+        "width": 240
+      },
+      "name": "Example Co",
+      "numberOfEmployees": {
+        "@type": "QuantitativeValue",
+        "maxValue": 50,
+        "minValue": 10
+      },
+      "priceRange": "$$",
+      "sameAs": [
+        "https://example.test/profile"
+      ],
+      "slogan": "Sample slogan",
+      "taxID": "T-1",
+      "telephone": "+00 111 1111",
+      "url": "https://example.test",
+      "vatID": "XX111"
+    },
+    {
+      "@id": "https://example.test#localbusiness-xx",
+      "@type": "LocalBusiness",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "XX",
+        "addressLocality": "Sample City",
+        "postalCode": "1000",
+        "streetAddress": "1 Example Street"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingCount": "12",
+        "ratingValue": "4.5"
+      },
+      "areaServed": [
+        "Exland"
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "areaServed": "XX",
+          "availableLanguage": "English",
+          "contactType": "sales",
+          "name": "Sales",
+          "telephone": "+00 111 2222"
+        }
+      ],
+      "currenciesAccepted": "XXD",
+      "description": "The XX office",
+      "email": "xx@example.test",
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -12.5,
+        "longitude": 33.25
+      },
+      "hasMap": "https://example.test/map",
+      "image": "https://example.test/media/xx.png",
+      "legalName": "Example Co XX",
+      "name": "Example Co XX",
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "closes": "17:00",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday"
+        ],
+        "opens": "09:00"
+      },
+      "parentOrganization": {
+        "@id": "https://example.test#organization"
+      },
+      "priceRange": "$$",
+      "sameAs": [
+        "https://example.test/xx-profile"
+      ],
+      "specialOpeningHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "closes": "00:00",
+        "opens": "00:00",
+        "validFrom": "2030-12-24",
+        "validThrough": "2030-12-26"
+      },
+      "taxID": "T-XX",
+      "telephone": "+00 111 1111",
+      "url": "https://example.test/xx",
+      "vatID": "XX111"
+    },
+    {
+      "@id": "https://example.test#website",
+      "@type": "WebSite",
+      "inLanguage": "en-XX",
+      "name": "Example Co",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "query-input": "required name=search_term_string",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://example.test/search?q={search_term_string}"
+        }
+      },
+      "publisher": {
+        "@id": "https://example.test#organization"
+      },
+      "url": "https://example.test"
+    }
+  ]
+}

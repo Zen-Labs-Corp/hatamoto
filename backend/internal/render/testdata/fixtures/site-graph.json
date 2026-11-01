@@ -1,0 +1,373 @@
+{
+  "xx": {
+    "BaseURL": "https://example.test/",
+    "Site": {
+      "Name": "Example Co",
+      "Tagline": "Example tagline",
+      "LogoURL": "/media/logo.png",
+      "Language": "en-XX",
+      "Phone": "+00 000 0000",
+      "Hours": "",
+      "Address": {
+        "street": "1 Site Street",
+        "city": "Sample City",
+        "postal_code": "0000",
+        "country": "XX"
+      },
+      "LogoWidth": 240,
+      "LogoHeight": 80,
+      "OrgAddress": "locale_or_site",
+      "Org": {
+        "LegalName": "Example Co Ltd",
+        "TaxID": "T-1",
+        "Email": "hello@example.test",
+        "SameAs": [
+          "https://example.test/profile"
+        ],
+        "Rating": {
+          "Value": "4.6",
+          "Count": "120",
+          "Best": "5",
+          "Worst": "1",
+          "CountType": "reviews"
+        },
+        "Description": "Example description",
+        "AlternateName": "Example",
+        "Slogan": "Sample slogan",
+        "FoundingDate": "2001-02",
+        "EmployeesMin": 10,
+        "EmployeesMax": 50,
+        "VATID": "XX000",
+        "LogoObject": true
+      }
+    },
+    "Path": "/page",
+    "Locale": "en-XX",
+    "Segment": "xx",
+    "Alternates": [
+      {
+        "Locale": "en-XX",
+        "Lang": "en-XX",
+        "Href": "https://example.test/xx/page",
+        "Current": true,
+        "Default": false
+      },
+      {
+        "Locale": "en-YY",
+        "Lang": "en-YY",
+        "Href": "https://example.test/yy/page",
+        "Current": false,
+        "Default": false
+      },
+      {
+        "Locale": "en-ZZ",
+        "Lang": "en-ZZ",
+        "Href": "https://example.test/page",
+        "Current": false,
+        "Default": true
+      }
+    ],
+    "Locales": [
+      {
+        "Tag": "en-XX",
+        "Segment": "xx",
+        "Home": "https://example.test/xx",
+        "CountryName": "Exland",
+        "Phone": "+00 111 1111",
+        "GeoRegion": "XX",
+        "Language": "English",
+        "PriceRange": "$$",
+        "Currency": "XXD",
+        "HasOffice": true,
+        "ContactPoints": [
+          {
+            "Type": "sales",
+            "Phone": "+00 111 2222",
+            "Name": "Sales",
+            "AreaServed": "XX",
+            "AvailableLanguage": "English"
+          }
+        ]
+      },
+      {
+        "Tag": "en-YY",
+        "Segment": "yy",
+        "Home": "https://example.test/yy",
+        "CountryName": "Whyland",
+        "GeoRegion": "YY",
+        "Language": "English",
+        "HasOffice": false
+      },
+      {
+        "Tag": "en-ZZ",
+        "Segment": "",
+        "Home": "https://example.test",
+        "CountryName": "Zedland",
+        "Phone": "+00 333 3333",
+        "GeoRegion": "ZZ",
+        "Language": "English",
+        "HasOffice": true
+      }
+    ],
+    "Business": {
+      "ID": "xx",
+      "Name": "Example Co XX",
+      "Phone": "+00 111 1111",
+      "Email": "xx@example.test",
+      "TaxID": "T-XX",
+      "VATID": "XX111",
+      "Description": "The XX office",
+      "Image": "/media/xx.png",
+      "CountryName": "Exland",
+      "Address": {
+        "street": "1 Example Street",
+        "city": "Sample City",
+        "postal_code": "1000",
+        "country": "XX"
+      },
+      "Lat": "-12.5",
+      "Lng": "33.25",
+      "MapURL": "https://example.test/map",
+      "GeoRegion": "XX",
+      "OpeningHours": [
+        {
+          "Days": [
+            "Monday",
+            "Tuesday"
+          ],
+          "Opens": "09:00",
+          "Closes": "17:00"
+        }
+      ],
+      "SpecialHours": [
+        {
+          "From": "2030-12-24",
+          "To": "2030-12-26",
+          "Closed": true
+        },
+        {
+          "From": "2030-01-01"
+        }
+      ],
+      "AreaServed": [
+        "Exland"
+      ],
+      "Currency": "XXD",
+      "PriceRange": "$$",
+      "SameAs": [
+        "https://example.test/xx-profile"
+      ],
+      "ContactPoints": [
+        {
+          "Type": "sales",
+          "Phone": "+00 111 2222",
+          "Name": "Sales",
+          "AreaServed": "XX",
+          "AvailableLanguage": "English"
+        }
+      ],
+      "Rating": {
+        "Value": "4.5",
+        "Count": "12"
+      }
+    }
+  },
+  "yy": {
+    "BaseURL": "https://example.test/",
+    "Site": {
+      "Name": "Example Co",
+      "Tagline": "Example tagline",
+      "LogoURL": "/media/logo.png",
+      "Language": "en-XX",
+      "Phone": "+00 000 0000",
+      "Hours": "",
+      "Address": {
+        "street": "1 Site Street",
+        "city": "Sample City",
+        "postal_code": "0000",
+        "country": "XX"
+      },
+      "LogoWidth": 240,
+      "LogoHeight": 80,
+      "OrgAddress": "locale_or_site",
+      "Org": {
+        "LegalName": "Example Co Ltd",
+        "TaxID": "T-1",
+        "Email": "hello@example.test",
+        "SameAs": [
+          "https://example.test/profile"
+        ],
+        "Rating": {
+          "Value": "4.6",
+          "Count": "120",
+          "Best": "5",
+          "Worst": "1",
+          "CountType": "reviews"
+        },
+        "Description": "Example description",
+        "AlternateName": "Example",
+        "Slogan": "Sample slogan",
+        "FoundingDate": "2001-02",
+        "EmployeesMin": 10,
+        "EmployeesMax": 50,
+        "VATID": "XX000",
+        "LogoObject": true
+      }
+    },
+    "Path": "/page",
+    "Locale": "en-YY",
+    "Segment": "yy",
+    "Alternates": [
+      {
+        "Locale": "en-XX",
+        "Lang": "en-XX",
+        "Href": "https://example.test/xx/page",
+        "Current": false,
+        "Default": false
+      },
+      {
+        "Locale": "en-YY",
+        "Lang": "en-YY",
+        "Href": "https://example.test/yy/page",
+        "Current": true,
+        "Default": false
+      },
+      {
+        "Locale": "en-ZZ",
+        "Lang": "en-ZZ",
+        "Href": "https://example.test/page",
+        "Current": false,
+        "Default": true
+      }
+    ],
+    "Locales": [
+      {
+        "Tag": "en-XX",
+        "Segment": "xx",
+        "Home": "https://example.test/xx",
+        "CountryName": "Exland",
+        "Phone": "+00 111 1111",
+        "GeoRegion": "XX",
+        "Language": "English",
+        "PriceRange": "$$",
+        "Currency": "XXD",
+        "HasOffice": true,
+        "ContactPoints": [
+          {
+            "Type": "sales",
+            "Phone": "+00 111 2222",
+            "Name": "Sales",
+            "AreaServed": "XX",
+            "AvailableLanguage": "English"
+          }
+        ]
+      },
+      {
+        "Tag": "en-YY",
+        "Segment": "yy",
+        "Home": "https://example.test/yy",
+        "CountryName": "Whyland",
+        "GeoRegion": "YY",
+        "Language": "English",
+        "HasOffice": false
+      },
+      {
+        "Tag": "en-ZZ",
+        "Segment": "",
+        "Home": "https://example.test",
+        "CountryName": "Zedland",
+        "Phone": "+00 333 3333",
+        "GeoRegion": "ZZ",
+        "Language": "English",
+        "HasOffice": true
+      }
+    ]
+  },
+  "shared": {
+    "BaseURL": "https://example.test/",
+    "Site": {
+      "Name": "Example Co",
+      "Tagline": "Example tagline",
+      "LogoURL": "/media/logo.png",
+      "Language": "en-XX",
+      "Phone": "+00 000 0000",
+      "Hours": "",
+      "Address": {
+        "street": "1 Site Street",
+        "city": "Sample City",
+        "postal_code": "0000",
+        "country": "XX"
+      },
+      "LogoWidth": 240,
+      "LogoHeight": 80,
+      "OrgAddress": "locale_or_site",
+      "Org": {
+        "LegalName": "Example Co Ltd",
+        "TaxID": "T-1",
+        "Email": "hello@example.test",
+        "SameAs": [
+          "https://example.test/profile"
+        ],
+        "Rating": {
+          "Value": "4.6",
+          "Count": "120",
+          "Best": "5",
+          "Worst": "1",
+          "CountType": "reviews"
+        },
+        "Description": "Example description",
+        "AlternateName": "Example",
+        "Slogan": "Sample slogan",
+        "FoundingDate": "2001-02",
+        "EmployeesMin": 10,
+        "EmployeesMax": 50,
+        "VATID": "XX000",
+        "LogoObject": true
+      }
+    },
+    "Path": "/blog",
+    "Shared": true,
+    "Locales": [
+      {
+        "Tag": "en-XX",
+        "Segment": "xx",
+        "Home": "https://example.test/xx",
+        "CountryName": "Exland",
+        "Phone": "+00 111 1111",
+        "GeoRegion": "XX",
+        "Language": "English",
+        "PriceRange": "$$",
+        "Currency": "XXD",
+        "HasOffice": true,
+        "ContactPoints": [
+          {
+            "Type": "sales",
+            "Phone": "+00 111 2222",
+            "Name": "Sales",
+            "AreaServed": "XX",
+            "AvailableLanguage": "English"
+          }
+        ]
+      },
+      {
+        "Tag": "en-YY",
+        "Segment": "yy",
+        "Home": "https://example.test/yy",
+        "CountryName": "Whyland",
+        "GeoRegion": "YY",
+        "Language": "English",
+        "HasOffice": false
+      },
+      {
+        "Tag": "en-ZZ",
+        "Segment": "",
+        "Home": "https://example.test",
+        "CountryName": "Zedland",
+        "Phone": "+00 333 3333",
+        "GeoRegion": "ZZ",
+        "Language": "English",
+        "HasOffice": true
+      }
+    ]
+  }
+}
