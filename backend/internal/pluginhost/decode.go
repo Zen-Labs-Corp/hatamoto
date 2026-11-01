@@ -21,7 +21,7 @@ type shape struct {
 }
 
 var (
-	headShape    = shape{maxElems: 64, maxTokens: 20_000, maxDepth: 16}                       // render.head: at most 64 tags
+	headShape    = shape{maxElems: 64, maxTokens: 20_000, maxDepth: 16}                       // render.head: at most 64 tags; render.site_graph: same limits
 	sitemapShape = shape{maxElems: sdk.MaxSitemapAdditions, maxTokens: 200_000, maxDepth: 16} // sitemap.urls: additions only
 	// builder.data: at most 64 results or items, nothing deeper than an item's
 	// attrs. A full contract answer (16 requests of 48 items with 16 attrs,
@@ -33,7 +33,7 @@ var (
 
 func shapeOf(v any) shape {
 	switch v.(type) {
-	case sdk.HeadContext:
+	case sdk.HeadContext, sdk.SiteGraph:
 		return headShape
 	case sdk.SitemapURLs:
 		return sitemapShape

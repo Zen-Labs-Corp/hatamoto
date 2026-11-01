@@ -46,6 +46,8 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	// Empty for a locale served without a prefix, even when a segment is stored.
 	v.Segment = strings.TrimPrefix(set.Prefix(loc), "/")
 	v.Site.Language = loc
+	v.Shared = shared
+	v.Locales = s.localesView(ctx, snap, set, baseURL)
 	if !shared {
 		v.Business, v.GeoRegion = business(set, loc)
 	}
@@ -139,4 +141,26 @@ func xDefaultHref(set *entity.LocaleSet, alts []render.Alternate, live func(rend
 		}
 	}
 	return first
+}
+
+// localesView lists the public locales for the Organization node, each with its
+// absolute home URL. Nil without site settings or with an unreadable profile
+// (logged), which leaves the Organization as a one-locale site would print it.
+func (s *Server) localesView(ctx context.Context, snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL string) []render.LocaleSummary {
+	if s.siteConfig == nil {
+		return nil
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil {
+		return nil
+	}
+	out, err := localeSummaries(cfg, set)
+	if err != nil {
+		s.logger.Warn("render: invalid business profile, no locale summary printed", "error", err)
+		return nil
+	}
+	for i := range out {
+		out[i].Home = baseURL + snap.WithLocale(out[i].Tag, "/")
+	}
+	return out
 }

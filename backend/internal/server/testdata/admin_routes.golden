@@ -295,6 +295,7 @@ POST /admin/settings/locales/add -> admin.(*Admin).handleLocaleAdd-fm
 POST /admin/settings/locales/addresses -> admin.(*Admin).handleAddressesSave-fm
 POST /admin/settings/locales/business/{tag} -> admin.(*Admin).handleBusinessSave-fm
 POST /admin/settings/locales/order -> admin.(*Admin).handleLocaleOrder-fm
+POST /admin/settings/locales/organisation -> admin.(*Admin).handleOrgAddressSave-fm
 POST /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemove-fm
 POST /admin/settings/locales/update/{tag} -> admin.(*Admin).handleLocaleUpdate-fm
 POST /admin/settings/performance -> admin.(*Admin).handlePerformanceSave-fm

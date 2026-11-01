@@ -15,6 +15,7 @@ import (
 // Field limits, equal to the site settings contact limits.
 const (
 	maxTextLen  = 200
+	maxDescLen  = 1000 // the description is prose in a textarea
 	maxPhoneLen = 50
 	maxURLLen   = 2000
 )
@@ -73,7 +74,23 @@ var Days = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sat
 var (
 	timeRE     = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 	currencyRE = regexp.MustCompile(`^[A-Za-z]{3}$`)
+	decimalRE  = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
 )
+
+// ParseDecimal parses a decimal number: digits with an optional sign, fraction
+// (a leading or trailing dot is fine) and exponent. Unlike strconv.ParseFloat it
+// rejects hex floats, Inf, NaN and underscores, so a stored value always prints
+// as a JSON number.
+func ParseDecimal(v string) (float64, bool) {
+	if !decimalRE.MatchString(v) {
+		return 0, false
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || math.IsInf(f, 0) {
+		return 0, false
+	}
+	return f, true
+}
 
 // Validate checks a profile and returns a message per offending field, keyed by
 // the dotted JSON path (list items carry their index: "opening_hours.0.opens").
@@ -127,14 +144,39 @@ func Validate(p Profile) map[string]string {
 		if v == "" {
 			return
 		}
-		f, err := strconv.ParseFloat(v, 64)
-		if err != nil || math.IsNaN(f) || f < -limit || f > limit {
+		if f, ok := ParseDecimal(v); !ok || f < -limit || f > limit {
 			errs[path] = fmt.Sprintf("Enter a number between -%g and %g.", limit, limit)
 		}
 	}
 
 	text("name", p.Name)
 	text("tax_id", p.TaxID)
+	text("vat_id", p.VATID)
+	text("alternate_name", p.AlternateName)
+	if utf8.RuneCountInString(p.Description) > maxDescLen {
+		errs["description"] = fmt.Sprintf("Use at most %d characters.", maxDescLen)
+	}
+	text("slogan", p.Slogan)
+	text("country_name", p.CountryName)
+	if utf8.RuneCountInString(p.Image) > maxURLLen {
+		errs["image"] = fmt.Sprintf("Use at most %d characters.", maxURLLen)
+	}
+	if v := p.FoundingDate; v != "" && !isFoundingDate(v) {
+		errs["founding_date"] = "Use a year or a date such as 2009, 2009-05 or 2009-05-17."
+	}
+	if p.EmployeesMin < 0 {
+		errs["employees_min"] = "Enter a whole number of 0 or more."
+	}
+	if p.EmployeesMax < 0 {
+		errs["employees_max"] = "Enter a whole number of 0 or more."
+	} else if p.EmployeesMax > 0 && p.EmployeesMin > p.EmployeesMax {
+		errs["employees_max"] = "Enter a number that is not lower than the minimum."
+	}
+	switch p.OrgAddress {
+	case "", OrgAddressLocale, OrgAddressLocaleOrSite:
+	default:
+		errs["org_address"] = "Choose one of the listed address options."
+	}
 	if p.BusinessType != "" && !isType(p.BusinessType) {
 		errs["business_type"] = "Choose a business type from the list."
 	}
@@ -147,6 +189,15 @@ func Validate(p Profile) map[string]string {
 	text("address.po_box", a.POBox)
 	coord("address.lat", a.Lat, 90)
 	coord("address.lng", a.Lng, 180)
+	if (a.Lat == "") != (a.Lng == "") {
+		missing := "address.lng"
+		if a.Lng != "" {
+			missing = "address.lat"
+		}
+		if _, bad := errs[missing]; !bad {
+			errs[missing] = "Enter both latitude and longitude."
+		}
+	}
 	link("address.map_url", a.MapURL)
 	link("address.gbp_url", a.GBPURL)
 	phone("phone", p.Phone)
@@ -156,6 +207,9 @@ func Validate(p Profile) map[string]string {
 	for i, c := range p.ContactPoints {
 		at := func(k string) string { return "contact_points." + strconv.Itoa(i) + "." + k }
 		text(at("type"), c.Type)
+		text(at("name"), c.Name)
+		text(at("area_served"), c.AreaServed)
+		text(at("available_language"), c.AvailableLanguage)
 		phone(at("phone"), c.Phone)
 		email(at("email"), c.Email)
 	}
@@ -176,6 +230,9 @@ func Validate(p Profile) map[string]string {
 		date(at("to"), h.To)
 		clock(at("opens"), h.Opens)
 		clock(at("closes"), h.Closes)
+		if !h.Closed && h.Opens == "" && h.Closes == "" {
+			errs[at("opens")] = "Enter the times, or tick Closed."
+		}
 	}
 	for i, v := range p.AreaServed {
 		text("area_served."+strconv.Itoa(i), v)
@@ -188,11 +245,7 @@ func Validate(p Profile) map[string]string {
 	for i, v := range p.SameAs {
 		link("sameas."+strconv.Itoa(i), v)
 	}
-	if v := p.Rating.Value; v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(f) || f < 0 || f > 5 {
-			errs["rating.value"] = "Enter a number between 0 and 5."
-		}
-	}
+	validateRating(errs, p.Rating)
 	if c := p.Rating.Count; c != "" {
 		if n, err := strconv.Atoi(c); err != nil || n < 1 {
 			errs["rating.count"] = "Enter a whole number of 1 or more."
@@ -201,6 +254,52 @@ func Validate(p Profile) map[string]string {
 		}
 	}
 	return errs
+}
+
+// validateRating checks the rating bounds and that the value lies within them
+// (0 to 5 when a bound is not set).
+func validateRating(errs map[string]string, r Rating) {
+	lo, hi := 0.0, 5.0
+	bound := func(path, v string, def *float64) bool {
+		if v == "" {
+			return true
+		}
+		f, ok := ParseDecimal(v)
+		if !ok {
+			errs[path] = "Enter a number such as 5."
+			return false
+		}
+		*def = f
+		return true
+	}
+	okBest := bound("rating.best", r.Best, &hi)
+	okWorst := bound("rating.worst", r.Worst, &lo)
+	if okBest && okWorst && lo >= hi {
+		errs["rating.best"] = "Enter a best rating higher than the worst."
+		return
+	}
+	switch r.CountType {
+	case "", "ratings", "reviews":
+	default:
+		errs["rating.count_type"] = "Choose ratings or reviews."
+	}
+	if r.Value == "" || !okBest || !okWorst {
+		return
+	}
+	if f, ok := ParseDecimal(r.Value); !ok || f < lo || f > hi {
+		errs["rating.value"] = fmt.Sprintf("Enter a number between %g and %g.", lo, hi)
+	}
+}
+
+func isFoundingDate(v string) bool {
+	for _, layout := range []string{"2006", "2006-01", time.DateOnly} {
+		if len(v) == len(layout) {
+			if _, err := time.Parse(layout, v); err == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isType(v string) bool {

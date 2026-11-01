@@ -1,0 +1,49 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@id": "https://hatamoto.dev#organization",
+      "@type": "Organization",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "AU",
+        "addressLocality": "Sydney",
+        "addressRegion": "NSW",
+        "streetAddress": "1 Example St"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "availableLanguage": "en-AU",
+        "contactType": "customer service",
+        "hoursAvailable": "Mon-Fri 9:00-17:30",
+        "telephone": "+61 2 5550 0100"
+      },
+      "description": "Model it once. Every engine reads it.",
+      "logo": "https://hatamoto.dev/media/logo.svg",
+      "name": "Hatamoto",
+      "sameAs": [
+        "https://github.com/example-org"
+      ],
+      "telephone": "+61 2 5550 0100",
+      "url": "https://hatamoto.dev"
+    },
+    {
+      "@id": "https://hatamoto.dev#website",
+      "@type": "WebSite",
+      "inLanguage": "en-AU",
+      "name": "Hatamoto",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "query-input": "required name=search_term_string",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://hatamoto.dev/search?q={search_term_string}"
+        }
+      },
+      "publisher": {
+        "@id": "https://hatamoto.dev#organization"
+      },
+      "url": "https://hatamoto.dev"
+    }
+  ]
+}

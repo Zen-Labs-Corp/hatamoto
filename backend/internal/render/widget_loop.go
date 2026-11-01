@@ -45,7 +45,7 @@ func (e *Engine) pagedHead(v *PageView, lp *loopPaged) headView {
 	if lp.Page >= 2 {
 		hv.Page.CanonicalURL = strings.TrimRight(v.BaseURL, "/") + lp.Pagination.URL(lp.Page)
 	}
-	return buildHeadView(requestCtx(v), &hv, e.opts.HeadFilter)
+	return e.headView(&hv)
 }
 
 var loopOrders = map[string]string{

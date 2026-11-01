@@ -90,6 +90,7 @@ type Server struct {
 	apiCSRFKeyVal          []byte
 	entityService          *entity.Service
 	mediaService           *media.Service
+	logoSizes              logoSizeCache // logo pixel sizes by URL; see render_logo.go
 	menuService            *menu.Service
 	formService            *form.Service
 	spam                   *spam.Pipeline // nil in tests that skip spam checks
@@ -408,7 +409,10 @@ func (s *Server) setupDependencies() {
 		mediaConfig.MaxTotalBytes = int64(s.cfg.Demo.MediaQuotaMB) * 1024 * 1024
 	}
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
-	s.mediaService.SetChangeObserver(s.invalidateRendered)
+	s.mediaService.SetChangeObserver(func(ctx context.Context) {
+		s.logoSizes.reset()
+		s.invalidateRendered(ctx)
+	})
 
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)

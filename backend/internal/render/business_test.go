@@ -94,22 +94,24 @@ func TestSiteGraph_LocalBusinessNode(t *testing.T) {
 	if !reflect.DeepEqual(addr, want) {
 		t.Errorf("address = %v, want %v", addr, want)
 	}
-	if geo, _ := lb["geo"].(map[string]any); geo["latitude"] != "-12.5" || geo["longitude"] != "33.25" || geo["@type"] != "GeoCoordinates" {
+	// Pinned deliberately: coordinates are JSON numbers, one regular block is an
+	// object, and special hours have their own key.
+	if geo, _ := lb["geo"].(map[string]any); geo["latitude"] != -12.5 || geo["longitude"] != 33.25 || geo["@type"] != "GeoCoordinates" {
 		t.Errorf("geo = %v", lb["geo"])
 	}
-	specs, _ := lb["openingHoursSpecification"].([]any)
-	if len(specs) != 3 {
-		t.Fatalf("openingHoursSpecification = %v, want 3 (the block without days is skipped)", specs)
-	}
-	reg := specs[0].(map[string]any)
+	reg, _ := lb["openingHoursSpecification"].(map[string]any)
 	if !reflect.DeepEqual(reg["dayOfWeek"], []any{"Monday", "Tuesday"}) || reg["opens"] != "09:00" || reg["closes"] != "17:00" {
-		t.Errorf("regular hours = %v", reg)
+		t.Errorf("regular hours = %v (the block without days is skipped)", lb["openingHoursSpecification"])
 	}
-	closed := specs[1].(map[string]any)
+	specials, _ := lb["specialOpeningHoursSpecification"].([]any)
+	if len(specials) != 2 {
+		t.Fatalf("specialOpeningHoursSpecification = %v, want 2", specials)
+	}
+	closed := specials[0].(map[string]any)
 	if closed["validFrom"] != "2030-12-24" || closed["validThrough"] != "2030-12-26" || closed["opens"] != "00:00" || closed["closes"] != "00:00" {
 		t.Errorf("closed special hours = %v", closed)
 	}
-	day := specs[2].(map[string]any)
+	day := specials[1].(map[string]any)
 	if day["validThrough"] != "2030-01-01" || day["opens"] != "10:00" {
 		t.Errorf("single day special hours = %v", day)
 	}
@@ -216,16 +218,296 @@ func TestLocalBusinessOpeningHoursOmitEmptyTimes(t *testing.T) {
 		OpeningHours: []HoursView{{Days: []string{"Monday"}}},
 		SpecialHours: []SpecialHoursView{{From: "2030-01-01"}},
 	})
-	specs, _ := graphNodes(t, v)[1]["openingHoursSpecification"].([]any)
-	if len(specs) != 2 {
-		t.Fatalf("specs = %v", specs)
+	// Pinned deliberately: a special row with a date but no times and not
+	// closed prints nothing, so only the regular block remains.
+	lb := graphNodes(t, v)[1]
+	reg, _ := lb["openingHoursSpecification"].(map[string]any)
+	if reg == nil || reg["dayOfWeek"] == nil {
+		t.Fatalf("regular block = %v", lb["openingHoursSpecification"])
 	}
-	for _, s := range specs {
-		m, _ := s.(map[string]any)
-		for _, k := range []string{"opens", "closes"} {
-			if _, ok := m[k]; ok {
-				t.Errorf("%v has an empty %q key", m, k)
+	for _, k := range []string{"opens", "closes"} {
+		if _, ok := reg[k]; ok {
+			t.Errorf("%v has an empty %q key", reg, k)
+		}
+	}
+	if _, ok := lb["specialOpeningHoursSpecification"]; ok {
+		t.Errorf("a special row without times printed: %v", lb["specialOpeningHoursSpecification"])
+	}
+}
+
+// multiPage is a page of locale xx on a site with locales xx, yy and zz, where
+// xx and zz have an office.
+func multiPage(mode string) *PageView {
+	v := businessPage(&BusinessView{
+		ID: "xx", Phone: "xx-phone", VATID: "V-XX",
+		Address: Address{Street: "Example Street 1", City: "Sample City"}, POBox: "Box 7",
+	})
+	v.Locale = "en-XX"
+	v.Site.OrgAddress = mode
+	v.Site.Language = "en-XX"
+	v.Locales = []LocaleSummary{
+		{Tag: "en-XX", CountryName: "Xland", Phone: "xx-phone", Language: "English", PriceRange: "$$", Currency: "XXD", HasOffice: true},
+		{Tag: "en-YY", CountryName: "Yland", Language: "English"},
+		{Tag: "fr-ZZ", CountryName: "Zland", Phone: "zz-phone", Language: "French",
+			ContactPoints: []ContactPointView{{Name: "Sales", AreaServed: "Europe", AvailableLanguage: "Franglais"}}, HasOffice: true},
+	}
+	return v
+}
+
+func orgOf(t *testing.T, v *PageView) map[string]any {
+	t.Helper()
+	return graphNodes(t, v)[0]
+}
+
+func TestOrgNode_AddressSetting(t *testing.T) {
+	tests := []struct {
+		mode, locale  string
+		office        bool
+		wantStreet    string
+		wantTelephone string
+	}{
+		{"", "xx", true, "Site Street", "site-phone"},
+		{"locale", "xx", true, "Example Street 1", "xx-phone"},
+		{"locale", "yy", false, "", ""},
+		{"locale_or_site", "xx", true, "Example Street 1", "xx-phone"},
+		{"locale_or_site", "yy", false, "Site Street", "site-phone"},
+	}
+	for _, tt := range tests {
+		v := multiPage(tt.mode)
+		if !tt.office {
+			v.Business = nil
+		}
+		org := orgOf(t, v)
+		addr, _ := org["address"].(map[string]any)
+		street, _ := addr["streetAddress"].(string)
+		tel, _ := org["telephone"].(string)
+		if street != tt.wantStreet || tel != tt.wantTelephone {
+			t.Errorf("mode %q office %v: street %q phone %q, want %q %q", tt.mode, tt.office, street, tel, tt.wantStreet, tt.wantTelephone)
+		}
+	}
+	// A shared page and a single-locale page always print the site address.
+	shared := multiPage("locale")
+	shared.Shared, shared.Business = true, nil
+	if addr, _ := orgOf(t, shared)["address"].(map[string]any); addr["streetAddress"] != "Site Street" {
+		t.Errorf("shared page address = %v", addr)
+	}
+	single := multiPage("locale")
+	single.Locales = nil
+	if addr, _ := orgOf(t, single)["address"].(map[string]any); addr["streetAddress"] != "Site Street" {
+		t.Errorf("single-locale address = %v", addr)
+	}
+}
+
+func TestOrgNode_AreaServedAndContactPoints(t *testing.T) {
+	org := orgOf(t, multiPage(""))
+	wantArea := []any{
+		map[string]any{"@type": "Country", "name": "Xland", "identifier": "XX"},
+		map[string]any{"@type": "Country", "name": "Yland", "identifier": "YY"},
+		map[string]any{"@type": "Country", "name": "Zland", "identifier": "ZZ"},
+	}
+	if !reflect.DeepEqual(org["areaServed"], wantArea) {
+		t.Errorf("areaServed = %v", org["areaServed"])
+	}
+	points, _ := org["contactPoint"].([]any)
+	if len(points) != 3 {
+		t.Fatalf("contactPoint = %v, want 2 locale points and the site point", org["contactPoint"])
+	}
+	xx, zz, site := points[0].(map[string]any), points[1].(map[string]any), points[2].(map[string]any)
+	if xx["telephone"] != "xx-phone" || xx["areaServed"] != "Xland" || xx["availableLanguage"] != "English" {
+		t.Errorf("xx point = %v", xx)
+	}
+	if _, named := zz["name"]; named || zz["areaServed"] != "Zland" || zz["availableLanguage"] != "French" {
+		t.Errorf("zz point = %v", zz)
+	}
+	if site["telephone"] != "site-phone" || site["availableLanguage"] != "en-XX" {
+		t.Errorf("site point = %v", site)
+	}
+	if org["priceRange"] != "$$" || org["currenciesAccepted"] != "XXD" {
+		t.Errorf("locale values: %v", org)
+	}
+
+	// One point only: an object, as on a single-locale site.
+	v := multiPage("")
+	v.Locales[0].Phone, v.Locales[2].Phone = "", ""
+	if _, ok := orgOf(t, v)["contactPoint"].(map[string]any); !ok {
+		t.Errorf("a single point must be an object: %v", orgOf(t, v)["contactPoint"])
+	}
+
+	// A shared page and a single-locale site print none of it.
+	for name, page := range map[string]*PageView{"shared": multiPage(""), "single": multiPage("")} {
+		if name == "shared" {
+			page.Shared, page.Business = true, nil
+		} else {
+			page.Locales = nil
+		}
+		org := orgOf(t, page)
+		for _, k := range []string{"areaServed", "image", "priceRange", "currenciesAccepted"} {
+			if _, ok := org[k]; ok {
+				t.Errorf("%s page prints %q", name, k)
 			}
+		}
+		if _, ok := org["contactPoint"].(map[string]any); !ok {
+			t.Errorf("%s page contactPoint = %v, want the site object", name, org["contactPoint"])
+		}
+	}
+}
+
+func TestOrgNode_ExtraFields(t *testing.T) {
+	v := businessPage(nil)
+	v.Site.LogoURL = "/media/logo.png"
+	v.Site.Tagline = "Tagline"
+	v.Site.Org = OrgView{
+		Description: "About", AlternateName: "Alt", Slogan: "Slo", FoundingDate: "2009", VATID: "V9",
+		EmployeesMin: 10, EmployeesMax: 50, LogoObject: true,
+	}
+	org := orgOf(t, v)
+	if org["description"] != "About" || org["alternateName"] != "Alt" || org["slogan"] != "Slo" || org["foundingDate"] != "2009" || org["vatID"] != "V9" {
+		t.Errorf("org = %v", org)
+	}
+	if n, _ := org["numberOfEmployees"].(map[string]any); n["@type"] != "QuantitativeValue" || n["minValue"] != float64(10) || n["maxValue"] != float64(50) {
+		t.Errorf("numberOfEmployees = %v", org["numberOfEmployees"])
+	}
+	if org["logo"] != "https://example.test/media/logo.png" {
+		t.Errorf("logo without dimensions must stay a string, got %v", org["logo"])
+	}
+	v.Site.LogoWidth, v.Site.LogoHeight = 640, 200
+	logo, _ := orgOf(t, v)["logo"].(map[string]any)
+	if logo["@type"] != "ImageObject" || logo["url"] != "https://example.test/media/logo.png" || logo["width"] != float64(640) || logo["height"] != float64(200) {
+		t.Errorf("logo = %v", logo)
+	}
+	v.Site.Org.LogoObject = false
+	if _, ok := orgOf(t, v)["logo"].(string); !ok {
+		t.Errorf("logo with the setting off must be a string")
+	}
+	v.Site.Org.Description = ""
+	if orgOf(t, v)["description"] != "Tagline" {
+		t.Errorf("description must fall back to the tagline")
+	}
+}
+
+func TestRatingLD(t *testing.T) {
+	if got := ratingLD(Rating{Value: "4", Count: "12"}); !reflect.DeepEqual(got, map[string]any{"@type": "AggregateRating", "ratingValue": "4", "ratingCount": "12"}) {
+		t.Errorf("default = %v", got)
+	}
+	got := ratingLD(Rating{Value: "4", Count: "12", Best: "5", Worst: "1", CountType: "reviews"})
+	want := map[string]any{"@type": "AggregateRating", "ratingValue": "4", "bestRating": "5", "worstRating": "1", "reviewCount": float64(12)}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("reviews = %v", got)
+	}
+	if b, _ := json.Marshal(got["reviewCount"]); string(b) != "12" {
+		t.Errorf("reviewCount JSON = %s, want 12", b)
+	}
+	if got := ratingLD(Rating{Value: "4", Count: "0x10", CountType: "reviews"}); got["reviewCount"] != nil || got["ratingCount"] != nil {
+		t.Errorf("bad review count printed: %v", got)
+	}
+}
+
+func TestLocalBusinessNode_LocaleDetails(t *testing.T) {
+	v := multiPage("")
+	v.Segment = "xx"
+	v.Site.LogoURL = "/media/logo.png"
+	v.Site.Tagline = "Tagline"
+	v.Business.Name = "Branch"
+	v.Business.Lat, v.Business.Lng = "1.5", "2"
+	v.Business.CountryName = "Xland"
+	v.Business.ContactPoints = []ContactPointView{{Type: "sales", Phone: "1", Name: "Sales", AreaServed: "EU"}}
+	v.Locales[0].Home = "https://example.test/xx/"
+	lb := graphNodes(t, v)[1]
+	if lb["url"] != "https://example.test/xx/" || lb["legalName"] != "Branch" || lb["vatID"] != "V-XX" {
+		t.Errorf("lb = %v", lb)
+	}
+	if lb["image"] != "https://example.test/media/logo.png" || lb["description"] != "Tagline" {
+		t.Errorf("image/description fall back to the site: %v", lb)
+	}
+	if want := map[string]any{"@type": "Country", "name": "Xland", "identifier": "XX"}; !reflect.DeepEqual(lb["areaServed"], want) {
+		t.Errorf("areaServed = %v", lb["areaServed"])
+	}
+	cps, _ := lb["contactPoint"].([]any)
+	cp, _ := cps[0].(map[string]any)
+	if cp["name"] != "Sales" || cp["areaServed"] != "EU" || cp["availableLanguage"] != "English" {
+		t.Errorf("contact point = %v", cp)
+	}
+	v.Business.Image, v.Business.Description = "/media/office.png", "Local"
+	v.Business.AreaServed = []string{"Region"}
+	lb = graphNodes(t, v)[1]
+	if lb["image"] != "https://example.test/media/office.png" || lb["description"] != "Local" || !reflect.DeepEqual(lb["areaServed"], []any{"Region"}) {
+		t.Errorf("own values win: %v", lb)
+	}
+	v.Locales = nil
+	if got := graphNodes(t, v)[1]["url"]; got != "https://example.test/xx" {
+		t.Errorf("url fallback = %v", got)
+	}
+}
+
+func TestLocalBusinessNode_GeoAndHoursShapes(t *testing.T) {
+	v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}})
+	for _, c := range []struct{ lat, lng string }{{"1", ""}, {"", "1"}, {"0x1p3", "2"}, {"NaN", "2"}, {"Inf", "2"}} {
+		v.Business.Lat, v.Business.Lng = c.lat, c.lng
+		if _, ok := graphNodes(t, v)[1]["geo"]; ok {
+			t.Errorf("geo printed for %q, %q", c.lat, c.lng)
+		}
+	}
+	v.Business.OpeningHours = []HoursView{{Days: []string{"Monday"}, Opens: "09:00"}, {Days: []string{"Friday"}, Opens: "10:00"}}
+	v.Business.SpecialHours = []SpecialHoursView{{From: "2030-01-01", Closed: true}}
+	lb := graphNodes(t, v)[1]
+	if list, _ := lb["openingHoursSpecification"].([]any); len(list) != 2 {
+		t.Errorf("several regular blocks must be a list: %v", lb["openingHoursSpecification"])
+	}
+	if _, ok := lb["specialOpeningHoursSpecification"].(map[string]any); !ok {
+		t.Errorf("one special row must be an object: %v", lb["specialOpeningHoursSpecification"])
+	}
+}
+
+func TestOrgNode_NoRepeatedContactPhone(t *testing.T) {
+	v := multiPage("locale")
+	points, _ := orgOf(t, v)["contactPoint"].([]any)
+	seen := map[any]bool{}
+	for _, p := range points {
+		tel := p.(map[string]any)["telephone"]
+		if seen[tel] {
+			t.Errorf("telephone %v appears twice: %v", tel, points)
+		}
+		seen[tel] = true
+	}
+}
+
+func TestOrgNode_LocaleVATOnlyWithAnAddressSetting(t *testing.T) {
+	v := multiPage("")
+	v.Site.Org.VATID = "V-SITE"
+	if got := orgOf(t, v)["vatID"]; got != "V-SITE" {
+		t.Errorf("default setting: vatID = %v, want the site value", got)
+	}
+	v = multiPage("locale")
+	v.Site.Org.VATID = "V-SITE"
+	if got := orgOf(t, v)["vatID"]; got != "V-XX" {
+		t.Errorf("locale setting: vatID = %v, want the locale value", got)
+	}
+}
+
+func TestLocalBusiness_GeoKeepsHandTypedNumbers(t *testing.T) {
+	for _, c := range []struct {
+		lat, lng string
+		want     [2]float64
+	}{{"+51.5", ".5", [2]float64{51.5, 0.5}}, {"5.", "1e1", [2]float64{5, 10}}} {
+		v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}, Lat: c.lat, Lng: c.lng})
+		geo, _ := graphNodes(t, v)[1]["geo"].(map[string]any)
+		if geo["latitude"] != c.want[0] || geo["longitude"] != c.want[1] {
+			t.Errorf("%s,%s: geo = %v, want %v", c.lat, c.lng, geo, c.want)
+		}
+	}
+}
+
+// With an address setting the effective phone is the locale's, but the site
+// phone still prints as a point when no locale point carries it.
+func TestOrgNode_SitePhonePointWithAddressSetting(t *testing.T) {
+	for _, mode := range []string{"locale", "locale_or_site"} {
+		points, _ := orgOf(t, multiPage(mode))["contactPoint"].([]any)
+		var tels []any
+		for _, p := range points {
+			tels = append(tels, p.(map[string]any)["telephone"])
+		}
+		if want := []any{"xx-phone", "zz-phone", "site-phone"}; !reflect.DeepEqual(tels, want) {
+			t.Errorf("%s: contact point phones = %v, want %v", mode, tels, want)
 		}
 	}
 }

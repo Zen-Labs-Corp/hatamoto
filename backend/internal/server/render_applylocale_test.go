@@ -49,6 +49,9 @@ func TestApplyLocale_SharedPagesHaveNoBusiness(t *testing.T) {
 		if (v.GeoRegion != "") != tt.want {
 			t.Errorf("%s: GeoRegion = %q, want present = %v", tt.name, v.GeoRegion, tt.want)
 		}
+		if v.Shared != (tt.name == "shared entity page" || tt.name == "page without a locale scope") {
+			t.Errorf("%s: Shared = %v", tt.name, v.Shared)
+		}
 		if v.Locale != "en" {
 			t.Errorf("%s: Locale = %q, want the default locale", tt.name, v.Locale)
 		}
@@ -95,5 +98,8 @@ func TestApplyLocale_SetsSegment(t *testing.T) {
 	(&Server{}).applyLocaleSnap(context.Background(), one, &routeResult{Locale: "en"}, v, "https://example.test", lookup)
 	if v.Locale != "" || v.Segment != "" {
 		t.Errorf("one locale: Locale=%q Segment=%q, want both empty", v.Locale, v.Segment)
+	}
+	if v.Locales != nil {
+		t.Errorf("one locale: Locales = %+v, want nil", v.Locales)
 	}
 }

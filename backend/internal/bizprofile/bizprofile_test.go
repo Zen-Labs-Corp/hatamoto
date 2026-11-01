@@ -100,7 +100,8 @@ func TestResolve_FieldFallback(t *testing.T) {
 		AreaServed:   []string{"Site Area"},
 		SameAs:       []string{"https://example.test/site"},
 		OpeningHours: []Hours{{Days: []string{"Monday"}, Opens: "09:00", Closes: "17:00"}},
-		Rating:       Rating{Value: "4", Count: "10"},
+		Rating:       Rating{Value: "4", Count: "10", Best: "5", Worst: "1", CountType: "reviews"},
+		VATID:        "V-site", Description: "Site description",
 	}
 	t.Run("empty card inherits", func(t *testing.T) {
 		got := Resolve(site, &Profile{Address: Address{Street: "Example Street"}}).Profile
@@ -117,13 +118,20 @@ func TestResolve_FieldFallback(t *testing.T) {
 		if len(got.AreaServed) != 1 || len(got.SameAs) != 1 || len(got.OpeningHours) != 1 || got.Rating != site.Rating {
 			t.Errorf("list or rating did not fall back: %+v", got)
 		}
+		if got.VATID != "V-site" || got.Description != "Site description" {
+			t.Errorf("vat_id or description did not fall back: %+v", got)
+		}
+		if got.CountryName != "" || got.Image != "" {
+			t.Errorf("country_name and image are card-only: %+v", got)
+		}
 	})
 	t.Run("card overrides field by field", func(t *testing.T) {
 		loc := &Profile{
 			Name: "Branch", BusinessType: "Restaurant", Phone: "own-phone",
 			Address:    Address{Street: "Example Street"},
 			AreaServed: []string{"Own Area"},
-			Rating:     Rating{Value: "5", Count: "2"},
+			Rating:     Rating{Value: "5", Count: "2", Best: "10", Worst: "0", CountType: "ratings"},
+			VATID:      "V-own", Description: "Own description", CountryName: "Exampleland", Image: "/media/x.png",
 		}
 		got := Resolve(site, loc).Profile
 		if got.Name != "Branch" || got.BusinessType != "Restaurant" || got.Phone != "own-phone" {
@@ -134,6 +142,12 @@ func TestResolve_FieldFallback(t *testing.T) {
 		}
 		if len(got.AreaServed) != 1 || got.AreaServed[0] != "Own Area" || got.Rating.Value != "5" {
 			t.Errorf("list or rating override lost: %+v", got)
+		}
+		if got.Rating.Best != "10" || got.Rating.Worst != "0" || got.Rating.CountType != "ratings" {
+			t.Errorf("rating bounds travel with the card rating: %+v", got.Rating)
+		}
+		if got.VATID != "V-own" || got.Description != "Own description" || got.CountryName != "Exampleland" || got.Image != "/media/x.png" {
+			t.Errorf("new field overrides lost: %+v", got)
 		}
 	})
 }
@@ -211,5 +225,73 @@ func TestValidate_Boundaries(t *testing.T) {
 	}
 	if errs := Validate(ok); len(errs) != 0 {
 		t.Errorf("Validate at the limits = %v, want none", errs)
+	}
+}
+
+func TestResolveContact_NoOfficeStillResolves(t *testing.T) {
+	site := Profile{Phone: "site-phone", ContactPoints: []ContactPoint{{Type: "sales"}}, Currency: "USD"}
+	loc := &Profile{NoOffice: true, Phone: "own-phone", CountryName: "Exampleland"}
+	if r := Resolve(site, loc); r.Office || r.Profile.Phone != "" {
+		t.Fatalf("Resolve must stay zero without an office: %+v", r)
+	}
+	r := ResolveContact(site, loc)
+	if r.Office {
+		t.Error("Office = true for a NoOffice card")
+	}
+	if r.Profile.Phone != "own-phone" || r.Profile.CountryName != "Exampleland" || r.Profile.Currency != "USD" || len(r.Profile.ContactPoints) != 1 {
+		t.Errorf("ResolveContact = %+v", r.Profile)
+	}
+	if r := ResolveContact(site, nil); r.Office || r.Profile.Phone != "site-phone" {
+		t.Errorf("nil card = %+v", r)
+	}
+	if r := ResolveContact(site, &Profile{Address: Address{City: "Example City"}}); !r.Office {
+		t.Error("a card with a city has an office")
+	}
+}
+
+func TestProfile_EmptyMarshalsUnchanged(t *testing.T) {
+	b, err := json.Marshal(Profile{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"address":{},"rating":{}}`; string(b) != want {
+		t.Errorf("empty profile = %s, want %s", b, want)
+	}
+}
+
+func TestProfile_NewFieldsRoundTrip(t *testing.T) {
+	in := Profile{
+		Description: "d", AlternateName: "alt", Slogan: "s", FoundingDate: "2009-05",
+		EmployeesMin: 10, EmployeesMax: 50, VATID: "V1", CountryName: "Exampleland", Image: "/media/i.png",
+		LogoObject: true, OrgAddress: OrgAddressLocaleOrSite,
+		ContactPoints: []ContactPoint{{Type: "sales", Name: "Sales", AreaServed: "XX", AvailableLanguage: "English"}},
+		Rating:        Rating{Value: "4", Best: "5", Worst: "1", Count: "9", CountType: "reviews"},
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.ContactPoints[0] != in.ContactPoints[0] || out.Rating != in.Rating {
+		t.Errorf("nested round trip: %+v", out)
+	}
+	out.ContactPoints, in.ContactPoints = nil, nil
+	if out.Description != in.Description || out.EmployeesMin != 10 || out.EmployeesMax != 50 || out.FoundingDate != "2009-05" ||
+		!out.LogoObject || out.OrgAddress != OrgAddressLocaleOrSite || out.VATID != "V1" || out.CountryName != "Exampleland" ||
+		out.Image != "/media/i.png" || out.AlternateName != "alt" || out.Slogan != "s" {
+		t.Errorf("round trip: %+v", out)
+	}
+	// The admin form decodes numbers as float64: 10 marshals as 10 and parses back as an int.
+	var m map[string]any
+	if err := json.Unmarshal([]byte(`{"employees_min":10,"employees_max":50}`), &m); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(m)
+	p, err := Parse(raw)
+	if err != nil || p.EmployeesMin != 10 || p.EmployeesMax != 50 {
+		t.Errorf("float64 round trip: %+v, %v", p, err)
 	}
 }

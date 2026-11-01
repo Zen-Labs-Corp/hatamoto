@@ -99,7 +99,7 @@ site's plugin can act as the inheritance engine: SDK 0.15 gives it `locale` and
   [`docs/THEMES.md`](../THEMES.md)).
 - Plugins: phase 1 changed no SDK version; existing fields carry the page's
   locale. SDK 0.15 then added the locale fields and translation host function
-  named above. They are additive for plugins built for 0.14 or older; a plugin declaring 0.15 or later must name a locale on `entities.create` on a multi-locale site (see [`docs/PLUGIN_API.md`](../PLUGIN_API.md)).
+  named above, and SDK 0.16 the `render.site_graph` filter. They are additive for plugins built for 0.14 or older; a plugin declaring 0.15 or later must name a locale on `entities.create` on a multi-locale site (see [`docs/PLUGIN_API.md`](../PLUGIN_API.md)).
 - Unprefixed URLs of the default locale and of shared content share one
   namespace. When both have the same slug the default locale's page wins. A
   write-time collision check is left to a later phase.

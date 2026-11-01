@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/person"
@@ -100,6 +102,30 @@ func renderKeyURLs(t *testing.T, dsn, mediaDir string, paths []string) map[strin
 	return out
 }
 
+// Neutral business details that use every field added for the locale site graph.
+const businessProfileSeed = `{
+  "name": "Example Co", "tax_id": "TAX-0001", "vat_id": "VAT-0001",
+  "alternate_name": "Example", "description": "Makes examples.", "slogan": "Examples everywhere",
+  "founding_date": "2009-05", "employees_min": 10, "employees_max": 50,
+  "logo_object": true, "org_address": "locale_or_site",
+  "address": {"street": "1 Example Street", "city": "Example City", "country": "XX", "lat": "-33.5", "lng": "151.25"},
+  "phone": "+00 555 0100",
+  "contact_points": [{"type": "sales", "name": "Sales", "phone": "+00 555 0101", "area_served": "XX", "available_language": "English"}],
+  "opening_hours": [{"days": ["Monday", "Tuesday"], "opens": "09:00", "closes": "17:00"}],
+  "special_hours": [{"from": "2030-12-24", "to": "2030-12-26", "closed": true}, {"from": "2030-12-31", "opens": "10:00", "closes": "12:00"}],
+  "rating": {"value": "8.5", "best": "10", "worst": "1", "count": "120", "count_type": "reviews"}
+}`
+
+const localeProfilesSeed = `{
+  "en-XX": {
+    "name": "Example Co XX", "tax_id": "TAX-XX", "vat_id": "VAT-XX", "country_name": "Exampleland",
+    "description": "The XX office.", "image": "/media/tenant/pic.png",
+    "address": {"street": "2 Example Street", "city": "Example Town", "country": "XX"},
+    "phone": "+00 555 0200"
+  },
+  "en-YY": {"no_office": true, "country_name": "Otherland", "phone": "+00 555 0300"}
+}`
+
 func TestExportImportRoundTrip_Integration(t *testing.T) {
 	ctx := context.Background()
 	srcDSN, src := scratchDB(t)
@@ -124,6 +150,8 @@ func TestExportImportRoundTrip_Integration(t *testing.T) {
 	owner, parentID, childID, postID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	exec(`INSERT INTO hatamoto_users (id,email,password_hash,role,name) VALUES ($1,'owner@example.test','$2a$10$secret-hash-must-not-travel','owner','Owner')`, owner)
 	exec(`UPDATE hatamoto_site_config SET tagline='Round trip', language='en'`)
+	// Business details with every organisation, contact point, rating, hours and card field.
+	exec(`UPDATE hatamoto_site_config SET business_profile=$1::jsonb, locale_profiles=$2::jsonb`, businessProfileSeed, localeProfilesSeed)
 	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,created_by,created_at,updated_at,attributes)
 		SELECT $1,id,'Services','services','published','2026-03-01T10:00:00Z',$2,'2026-02-01T09:00:00Z','2026-03-02T11:12:13.123456Z',
 		'{"page_sections":[{"id":"h","type":"hero","sort_order":1,"content":{"headline":"Our services"}}]}'::jsonb
@@ -275,6 +303,35 @@ func TestExportImportRoundTrip_Integration(t *testing.T) {
 		if a, b := dump(src, q), dump(dst, q); a != b || a == "" {
 			t.Errorf("mismatch for %.60s…\n src: %s\n dst: %s", q, a, b)
 		}
+	}
+	for _, col := range []string{"business_profile", "locale_profiles"} {
+		a, b := dump(src, `SELECT `+col+`::text FROM hatamoto_site_config`), dump(dst, `SELECT `+col+`::text FROM hatamoto_site_config`)
+		if len(a) < 100 || a != b {
+			t.Errorf("%s differs or is empty after import:\n src: %s\n dst: %s", col, a, b)
+		}
+	}
+	srcSite, err := bizprofile.Parse([]byte(dump(src, `SELECT business_profile::text FROM hatamoto_site_config`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstSite, err := bizprofile.Parse([]byte(dump(dst, `SELECT business_profile::text FROM hatamoto_site_config`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(srcSite, dstSite) || srcSite.VATID != "VAT-0001" || srcSite.EmployeesMax != 50 || !srcSite.LogoObject ||
+		srcSite.OrgAddress != bizprofile.OrgAddressLocaleOrSite || srcSite.Rating.CountType != "reviews" || srcSite.ContactPoints[0].AvailableLanguage != "English" {
+		t.Errorf("business_profile decodes differently: src %+v dst %+v", srcSite, dstSite)
+	}
+	srcCards, err := bizprofile.ParseLocales([]byte(dump(src, `SELECT locale_profiles::text FROM hatamoto_site_config`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstCards, err := bizprofile.ParseLocales([]byte(dump(dst, `SELECT locale_profiles::text FROM hatamoto_site_config`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(srcCards, dstCards) || srcCards["en-XX"].VATID != "VAT-XX" || srcCards["en-XX"].CountryName != "Exampleland" || srcCards["en-XX"].Image == "" {
+		t.Errorf("locale_profiles decode differently: src %+v dst %+v", srcCards, dstCards)
 	}
 	if h := dump(dst, `SELECT password_hash FROM hatamoto_users`); h != "!reset-required" {
 		t.Errorf("imported password hash = %q", h)

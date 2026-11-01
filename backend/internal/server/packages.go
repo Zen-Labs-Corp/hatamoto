@@ -67,7 +67,7 @@ func (s *Server) setupPackages() {
 		opts.NewPreview = func(layers []fs.FS, settings map[string]any) (*render.Engine, error) {
 			return render.New(render.Options{
 				Layers: layers, Settings: settings,
-				HeadFilter: pluginhost.HeadFilter(s.hooks), ExtSources: pluginhost.ExtSources(s.hooks), Data: s.renderData, Refs: s.renderData, Logger: s.logger,
+				HeadFilter: pluginhost.HeadFilter(s.hooks), SiteGraphFilter: pluginhost.SiteGraphFilter(s.hooks), ExtSources: pluginhost.ExtSources(s.hooks), Data: s.renderData, Refs: s.renderData, Logger: s.logger,
 			})
 		}
 	}

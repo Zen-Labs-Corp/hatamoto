@@ -1,0 +1,106 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@id": "https://example.test#organization",
+      "@type": "Organization",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "XX",
+        "addressLocality": "Sample City",
+        "postalCode": "0000",
+        "streetAddress": "1 Site Street"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "bestRating": "5",
+        "ratingValue": "4.6",
+        "reviewCount": 120,
+        "worstRating": "1"
+      },
+      "alternateName": "Example",
+      "areaServed": [
+        {
+          "@type": "Country",
+          "identifier": "XX",
+          "name": "Exland"
+        },
+        {
+          "@type": "Country",
+          "identifier": "YY",
+          "name": "Whyland"
+        },
+        {
+          "@type": "Country",
+          "identifier": "ZZ",
+          "name": "Zedland"
+        }
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "areaServed": "Exland",
+          "availableLanguage": "English",
+          "contactType": "customer service",
+          "telephone": "+00 111 1111"
+        },
+        {
+          "@type": "ContactPoint",
+          "areaServed": "Zedland",
+          "availableLanguage": "English",
+          "contactType": "customer service",
+          "telephone": "+00 333 3333"
+        },
+        {
+          "@type": "ContactPoint",
+          "availableLanguage": "en-XX",
+          "contactType": "customer service",
+          "telephone": "+00 000 0000"
+        }
+      ],
+      "description": "Example description",
+      "email": "hello@example.test",
+      "foundingDate": "2001-02",
+      "image": "https://example.test/media/logo.png",
+      "legalName": "Example Co Ltd",
+      "logo": {
+        "@type": "ImageObject",
+        "height": 80,
+        "url": "https://example.test/media/logo.png",
+        "width": 240
+      },
+      "name": "Example Co",
+      "numberOfEmployees": {
+        "@type": "QuantitativeValue",
+        "maxValue": 50,
+        "minValue": 10
+      },
+      "sameAs": [
+        "https://example.test/profile"
+      ],
+      "slogan": "Sample slogan",
+      "taxID": "T-1",
+      "telephone": "+00 000 0000",
+      "url": "https://example.test",
+      "vatID": "XX000"
+    },
+    {
+      "@id": "https://example.test#website",
+      "@type": "WebSite",
+      "inLanguage": "en-XX",
+      "name": "Example Co",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "query-input": "required name=search_term_string",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://example.test/search?q={search_term_string}"
+        }
+      },
+      "publisher": {
+        "@id": "https://example.test#organization"
+      },
+      "url": "https://example.test"
+    }
+  ]
+}

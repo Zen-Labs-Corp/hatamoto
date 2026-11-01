@@ -210,10 +210,36 @@
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-name">Legal name</label>
 <input class="hm-field__control" type="text" id="sf-biz-name" name="biz.name" value="" placeholder="Enter Legal name">
 </div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-alternate_name">Alternate name</label>
+<input class="hm-field__control" type="text" id="sf-biz-alternate_name" name="biz.alternate_name" value="" placeholder="Enter Alternate name">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-description">Description</label>
+<textarea class="hm-field__control" id="sf-biz-description" name="biz.description" rows="6" aria-describedby="sf-biz-description-help">
+</textarea>
+<p class="hm-field__help" id="sf-biz-description-help">Empty uses the tagline.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-slogan">Slogan</label>
+<input class="hm-field__control" type="text" id="sf-biz-slogan" name="biz.slogan" value="" placeholder="Enter Slogan">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-founding_date">Founding date</label>
+<input class="hm-field__control" type="text" id="sf-biz-founding_date" name="biz.founding_date" value="" placeholder="Enter Founding date" aria-describedby="sf-biz-founding_date-help">
+<p class="hm-field__help" id="sf-biz-founding_date-help">A year, like 2009, or a full date, like 2009-04-30.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-employees_min">Employees from</label>
+<input class="hm-field__control" type="number" id="sf-biz-employees_min" name="biz.employees_min" value="" step="1" min="0">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-employees_max">Employees to</label>
+<input class="hm-field__control" type="number" id="sf-biz-employees_max" name="biz.employees_max" value="" step="1" min="0">
+</div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-tax_id">Tax ID</label>
 <input class="hm-field__control" type="text" id="sf-biz-tax_id" name="biz.tax_id" value="" placeholder="Enter Tax ID" aria-describedby="sf-biz-tax_id-help">
 <p class="hm-field__help" id="sf-biz-tax_id-help">The tax or company number printed on invoices.</p>
 </div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-vat_id">VAT ID</label>
+<input class="hm-field__control" type="text" id="sf-biz-vat_id" name="biz.vat_id" value="" placeholder="Enter VAT ID">
+</div>
+<div class="hm-field"><input type="hidden" name="_present.biz.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-biz-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-biz-logo_object" name="biz.logo_object" value="true" aria-describedby="sf-biz-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-biz-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address.</p></div>
+
 <h3 class="hm-sf-group">Address</h3>
 <fieldset class="hm-sf-object" id="sf-biz-address"><legend class="hm-field__label">Postal address</legend>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-address-street">Street</label>
@@ -279,9 +305,17 @@
 <fieldset class="hm-sf-object" id="sf-biz-rating"><legend class="hm-field__label">Aggregate rating</legend>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-value">Rating value</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-value" name="biz.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-biz-rating-value-help">
-<p class="hm-field__help" id="sf-biz-rating-value-help">Between 0 and 5. Search engines may ignore a rating you state yourself.</p>
+<p class="hm-field__help" id="sf-biz-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-best">Best rating</label>
+<input class="hm-field__control" type="text" id="sf-biz-rating-best" name="biz.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-biz-rating-best-help">
+<p class="hm-field__help" id="sf-biz-rating-best-help">The top of your scale. Empty means 5.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-worst">Worst rating</label>
+<input class="hm-field__control" type="text" id="sf-biz-rating-worst" name="biz.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-biz-rating-worst-help">
+<p class="hm-field__help" id="sf-biz-rating-worst-help">The bottom of your scale. Empty means 0.</p>
 </div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-count">Number of ratings</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-count" name="biz.rating.count" value="" placeholder="Enter Number of ratings">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-count_type">Count is</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-rating-count_type" name="biz.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
 </div></fieldset>
 
 <h3 class="hm-sf-group">Commerce</h3>

@@ -26,6 +26,7 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST /settings/locales/order", a.handleLocaleOrder)
 	owner.HandleFunc("GET /settings/locales/business", a.handleBusiness)
 	owner.HandleFunc("POST /settings/locales/business/{tag}", a.handleBusinessSave)
+	owner.HandleFunc("POST /settings/locales/organisation", a.handleOrgAddressSave)
 	owner.HandleFunc("GET /settings/locales/addresses", a.handleAddresses)
 	owner.HandleFunc("POST /settings/locales/addresses", a.handleAddressesSave)
 	owner.HandleFunc("GET /settings/locales/edit/{tag}", a.handleLocaleEdit)

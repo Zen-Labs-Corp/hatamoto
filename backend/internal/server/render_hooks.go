@@ -23,11 +23,12 @@ func (s *Server) setupRender() {
 	render.SetPublicAPIPrefix(s.cfg.PublicSite.APIPrefix)
 	render.SetTrackEngagement(func() bool { return s.analyticsService == nil || s.analyticsService.EngagementEnabled() })
 	engine, err := render.New(render.Options{
-		HeadFilter: pluginhost.HeadFilter(s.hooks),
-		ExtSources: pluginhost.ExtSources(s.hooks),
-		Data:       s.renderData,
-		Refs:       s.renderData,
-		Logger:     s.logger,
+		HeadFilter:      pluginhost.HeadFilter(s.hooks),
+		SiteGraphFilter: pluginhost.SiteGraphFilter(s.hooks),
+		ExtSources:      pluginhost.ExtSources(s.hooks),
+		Data:            s.renderData,
+		Refs:            s.renderData,
+		Logger:          s.logger,
 	})
 	if err != nil {
 		s.logger.Error("render: theme failed to load", "error", err)

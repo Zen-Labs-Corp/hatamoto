@@ -21,8 +21,18 @@ import (
 // address properties only a locale card has.
 const businessSchemaTpl = `{"type":"object","properties":{
 "name":{"type":"string","title":"Business name","x-hm-group":"Organisation"},
+"alternate_name":{"type":"string","title":"Alternate name","x-hm-group":"Organisation"},
 "business_type":{"type":"string","title":"Business type","enum":%[1]s,"x-hm-group":"Organisation"},
+"description":{"type":"string","title":"Description","format":"textarea","x-hm-group":"Organisation"},
+"slogan":{"type":"string","title":"Slogan","x-hm-group":"Organisation"},
+"founding_date":{"type":"string","title":"Founding date","x-hm-group":"Organisation"},
+"employees_min":{"type":"integer","title":"Employees from","minimum":0,"x-hm-group":"Organisation"},
+"employees_max":{"type":"integer","title":"Employees to","minimum":0,"x-hm-group":"Organisation"},
 "tax_id":{"type":"string","title":"Tax ID","x-hm-group":"Organisation"},
+"vat_id":{"type":"string","title":"VAT ID","x-hm-group":"Organisation"},
+"country_name":{"type":"string","title":"Country name","x-hm-group":"Organisation"},
+"image":{"type":"string","title":"Image","format":"uri","x-hm-group":"Organisation"},
+"logo_object":{"type":"boolean","title":"Print the logo with its width and height","default":false,"x-hm-group":"Organisation"},
 "no_office":{"type":"boolean","title":"No office in this locale","default":false,"x-hm-group":"Organisation"},
 "address":{"type":"object","title":"Postal address","x-hm-group":"Address","properties":{
  "street":{"type":"string","title":"Street"},
@@ -37,8 +47,11 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "email":{"type":"string","title":"Email","format":"email","x-hm-group":"Reach"},
 "contact_points":{"type":"array","title":"Contact points","x-hm-group":"Reach","items":{"type":"object","properties":{
  "type":{"type":"string","title":"Type"},
+ "name":{"type":"string","title":"Name"},
  "phone":{"type":"string","title":"Phone"},
- "email":{"type":"string","title":"Email","format":"email"}}}},
+ "email":{"type":"string","title":"Email","format":"email"},
+ "area_served":{"type":"string","title":"Area served"},
+ "available_language":{"type":"string","title":"Languages"}}}},
 "hours_note":{"type":"string","title":"Hours note","x-hm-group":"Opening hours"},
 "opening_hours":{"type":"array","title":"Opening hours","x-hm-group":"Opening hours","items":{"type":"object","properties":{
  "days":{"type":"array","title":"Days","items":{"type":"string","enum":%[2]s}},
@@ -53,7 +66,10 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "sameas":{"type":"array","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
 "rating":{"type":"object","title":"Aggregate rating","x-hm-group":"Profiles & rating","properties":{
  "value":{"type":"string","title":"Rating value"},
- "count":{"type":"string","title":"Number of ratings"}}},
+ "best":{"type":"string","title":"Best rating"},
+ "worst":{"type":"string","title":"Worst rating"},
+ "count":{"type":"string","title":"Number of ratings"},
+ "count_type":{"type":"string","title":"Count is","enum":["ratings","reviews"]}}},
 "currency":{"type":"string","title":"Currency","x-hm-group":"Commerce"},
 "price_range":{"type":"string","title":"Price range","x-hm-group":"Commerce"},
 "area_served":{"type":"array","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
@@ -67,27 +83,44 @@ const localeAddressProps = `
  "map_url":{"type":"string","title":"Map address","format":"uri"},`
 
 // locale-only property names, dropped from the site-wide form.
-var localeOnlyProps = []string{"business_type", "no_office"}
+var localeOnlyProps = []string{"business_type", "no_office", "country_name", "image"}
+
+// site-only property names, dropped from a locale card.
+var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object"}
 
 // businessUI holds the help text of the fields that need one. It is a hint map
 // rather than schema descriptions because a text field shows its description
 // as the placeholder.
 var businessUI = map[string]schemaform.UIHint{
-	"tax_id":               {Help: "The tax or company number printed on invoices."},
-	"hours_note":           {Help: "Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written."},
-	"opening_hours.days":   {Help: "Day names separated by commas, like Monday, Tuesday."},
-	"special_hours.to":     {Help: "Leave empty for a single day."},
-	"special_hours.closed": {Help: "Closed all day; the times are ignored."},
-	"rating.value":         {Help: "Between 0 and 5. Search engines may ignore a rating you state yourself."},
-	"currency":             {Help: "A three letter code, like USD."},
-	"geo_region":           {Help: "Printed as a geo.region tag on this locale's pages."},
-	"area_served":          {Help: "Places this business serves, separated by commas."},
-	"sameas":               {Help: "Social and directory profile addresses."},
-	"address.lat":          {Help: "Between -90 and 90."},
-	"address.lng":          {Help: "Between -180 and 180."},
+	"tax_id":                            {Help: "The tax or company number printed on invoices."},
+	"description":                       {Help: "Empty uses the tagline."},
+	"founding_date":                     {Help: "A year, like 2009, or a full date, like 2009-04-30."},
+	"logo_object":                       {Help: "Only when the logo size is known. Otherwise the logo prints as an address."},
+	"contact_points.available_language": {Help: "A language name, like English. Empty uses the locale's language."},
+	"rating.best":                       {Help: "The top of your scale. Empty means 5."},
+	"rating.worst":                      {Help: "The bottom of your scale. Empty means 0."},
+	"hours_note":                        {Help: "Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written."},
+	"opening_hours.days":                {Help: "Day names separated by commas, like Monday, Tuesday."},
+	"special_hours.to":                  {Help: "Leave empty for a single day."},
+	"special_hours.closed":              {Help: "Closed all day; the times are ignored."},
+	"rating.value":                      {Help: "Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself."},
+	"currency":                          {Help: "A three letter code, like USD."},
+	"geo_region":                        {Help: "Printed as a geo.region tag on this locale's pages."},
+	"area_served":                       {Help: "Places this business serves, separated by commas."},
+	"sameas":                            {Help: "Social and directory profile addresses."},
+	"address.lat":                       {Help: "Between -90 and 90."},
+	"address.lng":                       {Help: "Between -180 and 180."},
 }
 
-func businessSchema() json.RawMessage { return businessSchemaWith(localeAddressProps) }
+// businessSchema is the form of a locale card: the site-only properties are
+// left out.
+func businessSchema() json.RawMessage {
+	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), siteOnlyProps...)
+	if err != nil {
+		return businessSchemaWith(localeAddressProps)
+	}
+	return s
+}
 
 func businessSchemaWith(addressProps string) json.RawMessage {
 	types, _ := json.Marshal(bizprofile.Types)
@@ -152,6 +185,9 @@ func profileErrors(msgs map[string]string) schemaform.Errors {
 // segmentLabels name the keys whose humanized form reads badly.
 var segmentLabels = map[string]string{
 	"tax_id": "Tax ID", "po_box": "PO box", "lat": "Latitude", "lng": "Longitude",
+	"vat_id": "VAT ID", "alternate_name": "Alternate name", "country_name": "Country name",
+	"employees_min": "Employees from", "employees_max": "Employees to", "count_type": "Count is",
+	"available_language": "Languages", "area_served": "Area served", "founding_date": "Founding date",
 	"map_url": "Map address", "gbp_url": "Business profile address", "sameas": "Profile address",
 	"hours_note": "Hours note", "geo_region": "Geo region", "state": "State or region",
 }

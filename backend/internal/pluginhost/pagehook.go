@@ -79,7 +79,7 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 }
 
 // renderTimeHooks are the filters that run while a page renders.
-var renderTimeHooks = []string{sdk.RenderHead.Name, sdk.RenderPage.Name, sdk.JSONLDEnrich.Name, sdk.BuilderData.Name}
+var renderTimeHooks = []string{sdk.RenderHead.Name, sdk.RenderSiteGraph.Name, sdk.RenderPage.Name, sdk.JSONLDEnrich.Name, sdk.BuilderData.Name}
 
 // noteRenderFailure wraps a filter of a render-time hook so that any failure
 // (error, timeout, oversized output, breaker skip; a deliberate rejection is

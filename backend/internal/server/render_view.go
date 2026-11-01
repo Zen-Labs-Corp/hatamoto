@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/builder"
@@ -408,11 +410,13 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 		Phone:       cfg.Phone,
 		Hours:       cfg.BusinessHours,
 		Address:     postalAddress(cfg.PostalAddress),
+		OrgAddress:  orgAddressMode(cfg),
 	}
 	var oerr error
 	if site.Org, oerr = orgView(cfg); oerr != nil {
 		s.logger.Warn("render: invalid business profile dropped from the organization", "error", oerr)
 	}
+	site.LogoWidth, site.LogoHeight = s.logoSizes.size(ctx, site.Org.LogoObject, s.logoSearch(), site.LogoURL)
 	site.Settings = siteSettings(cfg.ThemeExtra)
 	var derr error
 	if site.Design, derr = builder.ParseDesign(cfg.ThemeExtra); derr != nil {
@@ -760,8 +764,108 @@ func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
 	}
 	return render.OrgView{
 		LegalName: p.Name, TaxID: p.TaxID, Fax: p.Fax, Email: p.Email, POBox: p.Address.POBox,
-		SameAs: same, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
+		SameAs: same, Rating: ratingView(p.Rating),
+		Description: p.Description, AlternateName: p.AlternateName, Slogan: p.Slogan,
+		FoundingDate: p.FoundingDate, EmployeesMin: p.EmployeesMin, EmployeesMax: p.EmployeesMax,
+		VATID: p.VATID, LogoObject: p.LogoObject,
 	}, nil
+}
+
+// orgAddressMode is the site-wide choice of the Organization address on locale
+// pages. An unreadable profile gives "", the site-wide address everywhere.
+func orgAddressMode(cfg *siteconfig.Config) string {
+	p, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return ""
+	}
+	return p.OrgAddress
+}
+
+func ratingView(r bizprofile.Rating) render.Rating {
+	return render.Rating{Value: r.Value, Count: r.Count, Best: r.Best, Worst: r.Worst, CountType: r.CountType}
+}
+
+func contactPointViews(points []bizprofile.ContactPoint) []render.ContactPointView {
+	var out []render.ContactPointView
+	for _, c := range points {
+		out = append(out, render.ContactPointView{
+			Type: c.Type, Phone: c.Phone, Email: c.Email,
+			Name: c.Name, AreaServed: c.AreaServed, AvailableLanguage: c.AvailableLanguage,
+		})
+	}
+	return out
+}
+
+// localeNodeIDs maps every locale tag of set to the suffix of its
+// LocalBusiness @id: the stored URL segment, else the lowercased tag. A
+// fallback that equals another locale's segment would give two businesses the
+// same @id, so it becomes "<tag>-default".
+func localeNodeIDs(set *entity.LocaleSet) map[string]string {
+	segments := make(map[string]bool)
+	for _, tag := range set.Tags() {
+		if seg, _ := set.Segment(tag); seg != "" {
+			segments[seg] = true
+		}
+	}
+	ids := make(map[string]string, len(segments))
+	for _, tag := range set.Tags() {
+		seg, _ := set.Segment(tag)
+		if seg == "" {
+			seg = strings.ToLower(tag)
+			if segments[seg] {
+				seg += "-default"
+			}
+		}
+		ids[tag] = seg
+	}
+	return ids
+}
+
+// localeSummaries lists every public locale of a multi-locale set with the
+// fields the Organization node uses, resolved from the cards whether or not a
+// locale has an office. It is nil on a one-locale site or when the profiles
+// cannot be read. Home is left empty: the caller knows the URL snapshot.
+func localeSummaries(cfg *siteconfig.Config, set *entity.LocaleSet) ([]render.LocaleSummary, error) {
+	if !set.Multi() {
+		return nil, nil
+	}
+	site, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return nil, err
+	}
+	site = bizprofile.FromLegacy(site, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
+	if err != nil {
+		return nil, err
+	}
+	var out []render.LocaleSummary
+	for _, tag := range set.PublicTags() {
+		var card *bizprofile.Profile
+		var own bizprofile.Profile
+		if c, ok := cards[tag]; ok {
+			card, own = &c, c
+		}
+		res := bizprofile.ResolveContact(site, card)
+		p := res.Profile
+		out = append(out, render.LocaleSummary{
+			Tag: tag, Segment: strings.TrimPrefix(set.Prefix(tag), "/"),
+			CountryName: p.CountryName, Phone: own.Phone, GeoRegion: p.GeoRegion,
+			Language: languageName(tag), PriceRange: p.PriceRange, Currency: p.Currency,
+			ContactPoints: contactPointViews(own.ContactPoints), HasOffice: res.Office,
+		})
+	}
+	return out, nil
+}
+
+// languageName is the English name of the language of a BCP 47 tag ("French"
+// for "fr-CA"), or "" when the tag cannot be parsed or has no name.
+func languageName(tag string) string {
+	t, err := language.Parse(tag)
+	if err != nil {
+		return ""
+	}
+	base, _ := t.Base()
+	return display.English.Languages().Name(base)
 }
 
 // localeBusinessView resolves the local business of loc for a page view, or nil
@@ -810,13 +914,10 @@ func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) 
 // It returns nil on a site with fewer than two locales, for a locale that is
 // not configured, has no office, or has no street or city of its own.
 func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (*render.BusinessView, error) {
-	seg, ok := set.Segment(loc)
-	if !ok || !set.Multi() {
+	if _, ok := set.Segment(loc); !ok || !set.Multi() {
 		return nil, nil
 	}
-	if seg == "" {
-		seg = strings.ToLower(loc)
-	}
+	seg := localeNodeIDs(set)[loc]
 	site, err := bizprofile.Parse(cfg.BusinessProfile)
 	if err != nil {
 		return nil, err
@@ -838,15 +939,14 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 	b := &render.BusinessView{
 		ID: seg, Type: p.BusinessType, Name: p.Name,
 		Phone: p.Phone, Fax: p.Fax, Email: p.Email, Hours: p.HoursNote, TaxID: p.TaxID,
+		VATID: p.VATID, Description: p.Description, Image: p.Image, CountryName: p.CountryName,
 		Address: render.Address{Street: p.Address.Street, City: p.Address.City, State: p.Address.State,
 			PostalCode: p.Address.PostalCode, Country: p.Address.Country},
 		POBox: p.Address.POBox, Lat: p.Address.Lat, Lng: p.Address.Lng,
 		MapURL: p.Address.MapURL, GBPURL: p.Address.GBPURL,
 		AreaServed: p.AreaServed, Currency: p.Currency, PriceRange: p.PriceRange, GeoRegion: p.GeoRegion,
-		SameAs: p.SameAs, Rating: render.Rating{Value: p.Rating.Value, Count: p.Rating.Count},
-	}
-	for _, c := range p.ContactPoints {
-		b.ContactPoints = append(b.ContactPoints, render.ContactPointView{Type: c.Type, Phone: c.Phone, Email: c.Email})
+		SameAs: p.SameAs, Rating: ratingView(p.Rating),
+		ContactPoints: contactPointViews(p.ContactPoints),
 	}
 	for _, h := range p.OpeningHours {
 		b.OpeningHours = append(b.OpeningHours, render.HoursView{Days: h.Days, Opens: h.Opens, Closes: h.Closes})

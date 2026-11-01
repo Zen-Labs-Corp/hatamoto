@@ -165,3 +165,142 @@ func TestBusinessAddRowReRendersOneCardWithoutSaving(t *testing.T) {
 		t.Error("adding a row saved the card")
 	}
 }
+
+func TestBusinessTabOrgAddressDefaultsToSiteAddress(t *testing.T) {
+	t.Parallel()
+
+	g, _ := localeRig(t, threeLocales...)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{
+		`action="/admin/settings/locales/organisation"`, "Organisation address on locale pages",
+		"Site address on every page", "The locale&#39;s office; none without one", "The locale&#39;s office; site address without one",
+		`name="org_address" value="" checked`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("tab lacks %q", want)
+		}
+	}
+	if n := strings.Count(body, `name="org_address"`); n != 3 {
+		t.Errorf("%d radios, want 3", n)
+	}
+	// Below two locales the tab is the empty state.
+	one, _ := localeRig(t, siteconfig.LocaleEntry{Tag: "en"})
+	if strings.Contains(one.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String(), "org_address") {
+		t.Error("the setting shows with one locale")
+	}
+}
+
+func TestOrgAddressSaveStoresEachChoiceAndKeepsTheProfile(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.Phone = "555 0100"
+	site.cfg.BusinessProfile = []byte(`{"tax_id":"TX-1","contact_points":[{"type":"sales","phone":"555 0111"}],"opening_hours":[{"days":["Monday"],"opens":"09:00","closes":"17:00"}]}`)
+	for _, c := range []struct{ value, want string }{
+		{bizprofile.OrgAddressLocale, `"org_address":"locale"`},
+		{bizprofile.OrgAddressLocaleOrSite, `"org_address":"locale_or_site"`},
+		{"", ""},
+	} {
+		rec := g.do("POST", "/admin/settings/locales/organisation", "owner-token", url.Values{"org_address": {c.value}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/locales/business#organisation-address" {
+			t.Fatalf("%q: %d %s", c.value, rec.Code, rec.Header().Get("Location"))
+		}
+		raw := string(site.cfg.BusinessProfile)
+		if c.want != "" && !strings.Contains(raw, c.want) || c.want == "" && strings.Contains(raw, "org_address") {
+			t.Errorf("%q: profile = %s", c.value, raw)
+		}
+		for _, keep := range []string{`"tax_id":"TX-1"`, `"phone":"555 0111"`, `"opens":"09:00"`} {
+			if !strings.Contains(raw, keep) {
+				t.Errorf("%q: profile lost %s: %s", c.value, keep, raw)
+			}
+		}
+		if strings.Contains(raw, "555 0100") || site.cfg.Phone != "555 0100" {
+			t.Errorf("%q: legacy phone leaked into the profile or changed: %s / %q", c.value, raw, site.cfg.Phone)
+		}
+		body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+		if want := `name="org_address" value="` + c.value + `" checked`; !strings.Contains(body, want) {
+			t.Errorf("%q: the tab does not read it back", c.value)
+		}
+	}
+	if g.flushed != 3 {
+		t.Errorf("render cache invalidated %d times, want 3", g.flushed)
+	}
+}
+
+func TestOrgAddressSaveRejectsUnknownValue(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.BusinessProfile = []byte(`{"tax_id":"TX-1"}`)
+	rec := g.do("POST", "/admin/settings/locales/organisation", "owner-token", url.Values{"org_address": {"always"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose one of the options.") {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	if string(site.cfg.BusinessProfile) != `{"tax_id":"TX-1"}` || g.flushed != 0 {
+		t.Errorf("an invalid save changed the profile: %s", site.cfg.BusinessProfile)
+	}
+}
+
+func TestOrgAddressSaveRefusesAnUnreadableProfile(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	const stored = `{"tax_id":"TX-1","employees_min":"ten"}`
+	site.cfg.BusinessProfile = []byte(stored)
+	rec := g.do("POST", "/admin/settings/locales/organisation", "owner-token", url.Values{"org_address": {"locale"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "nothing was saved") {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	if string(site.cfg.BusinessProfile) != stored || g.flushed != 0 {
+		t.Errorf("an unreadable profile was overwritten: %s", site.cfg.BusinessProfile)
+	}
+}
+
+func TestOrgAddressSaveIsOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/locales/organisation", "editor-token", url.Values{"org_address": {"locale"}}, nil); rec.Code != 403 {
+		t.Errorf("editor = %d, want 403", rec.Code)
+	}
+	if len(site.cfg.BusinessProfile) != 0 {
+		t.Errorf("an editor changed the profile: %s", site.cfg.BusinessProfile)
+	}
+}
+
+// The General business form has no org_address field; saving it keeps the
+// setting, and the setting's save keeps what General stored.
+func TestGeneralBusinessSaveKeepsOrgAddress(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.BusinessProfile = []byte(`{"org_address":"locale_or_site"}`)
+	form := url.Values{"notify": {"boss@example.com"}, "biz.tax_id": {"TX-2"}}
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	raw := string(site.cfg.BusinessProfile)
+	if !strings.Contains(raw, `"org_address":"locale_or_site"`) || !strings.Contains(raw, `"tax_id":"TX-2"`) {
+		t.Errorf("profile = %s", raw)
+	}
+}
+
+func TestLocaleCardHelpAndFallbacks(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.BusinessProfile = []byte(`{"vat_id":"VAT-1","description":"Site description"}`)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{
+		"Business name", "printed as its legal name", "Country name", "VAT ID", `placeholder="VAT-1"`, "Describes this locale&#39;s local business", "Site description", `name="loc_aa.image"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"Legal name", "Alternate name", "Slogan", "Employees from"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("card shows %q", gone)
+		}
+	}
+}

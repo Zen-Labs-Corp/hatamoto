@@ -90,6 +90,11 @@ func applyHeadFilter(ctx context.Context, f HeadFilter, in HeadContext) HeadCont
 
 // buildHeadView builds the full head: SEO output plus sanitised filter tags.
 func buildHeadView(ctx context.Context, v *PageView, f HeadFilter) headView {
+	return buildHeadViewWith(ctx, v, f, nil)
+}
+
+// buildHeadViewWith is buildHeadView with the render.site_graph filter sg.
+func buildHeadViewWith(ctx context.Context, v *PageView, f HeadFilter, sg SiteGraphFilter) headView {
 	// The filter runs first: its ReplaceSiteGraph decides what seoHead emits.
 	// On panic or timeout applyHeadFilter returns the input, so the generic
 	// graph is kept.
@@ -112,7 +117,7 @@ func buildHeadView(ctx context.Context, v *PageView, f HeadFilter) headView {
 	}
 	// Replace only when a plugin graph was actually accepted; otherwise the
 	// page would be left with no site graph at all.
-	h := seoHead(v, out.ReplaceSiteGraph && len(ldScripts) > 0)
+	h := seoHeadWith(ctx, v, out.ReplaceSiteGraph && len(ldScripts) > 0, sg)
 	h.Meta = appendMeta(h.Meta, "geo.region", v.GeoRegion)
 	h.Scripts = append(h.Scripts, ldScripts...)
 	h.Ext = append(h.Ext, dropDuplicateAlternates(extTags, h.Alt)...)
