@@ -113,6 +113,14 @@ func TestSpamPageGoldenAndNoSecret(t *testing.T) {
 	compareGolden(t, "pages/settings-spam.html", normalizePage(body))
 }
 
+func TestSpamScriptChipsSitInARow(t *testing.T) {
+	body := newSpamRig(t, newFakeSpam()).get(t)
+	i := strings.Index(body, `id="scripts"`)
+	if i < 0 || !strings.Contains(body[i:], `<div class="hm-field__chips">`) || strings.Index(body[i:], `hm-field__chips`) > strings.Index(body[i:], `name="scripts"`) {
+		t.Error("the block-script chips must sit inside .hm-field__chips")
+	}
+}
+
 func TestSpamPageDefaults(t *testing.T) {
 	body := newSpamRig(t, newFakeSpam()).get(t)
 	for _, want := range []string{`name="min_seconds" value="3"`, `name="max_links" value="2"`} {
