@@ -1,4 +1,4 @@
-// Screenshots of the builder shell (UX-1): desktop with a selection and Ctrl+K open, the Add tab, the start panel on an
+// Screenshots of the builder shell (UX-1): desktop with a selection and Ctrl+K open, the Insert tab, the start panel on an
 // empty page, the Site styles drawer, the phone dock with the Navigator sheet and the Inspector sheet, dark mode, the
 // conflict banner, the More menu and the shortcut sheet. Scratch pages are made through the Create menu route and deleted.
 // Run: scripts/admin-qa/run-local.sh builder-ux-shots.mjs   Output: SHOTS_OUT (default results/shots)
@@ -50,7 +50,7 @@ const empty = await draft(p);
 await open(p, empty);
 await shot(p, "03-start-panel");
 
-// a page with a hero, features and some text: selection, Ctrl+K, the Add tab, More, shortcuts, Site styles, conflict
+// a page with a hero, features and some text: selection, Ctrl+K, the Insert tab, More, shortcuts, Site styles, conflict
 await add(p, "component:hero");
 await add(p, "component:features");
 await add(p, "heading");

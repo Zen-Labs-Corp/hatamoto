@@ -53,7 +53,7 @@ async function selectCardAndStyle() {
   await p.keyboard.press("/");
   await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
-  await p.locator('[data-hm-bs-ltab="nav"]').click(); // the Add tab hides the tree: back to the Navigator for the row clicks
+  await p.locator('[data-hm-bs-ltab="nav"]').click(); // the Insert tab hides the tree: back to the Navigator for the row clicks
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
 }
 
@@ -256,6 +256,26 @@ for (const theme of ["light", "dark"]) {
       const box = await p.evaluate((tags) => axe.run(document.querySelector(".hm-bs-bm"), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length)), tags);
       if (popover.length || box.length) throw new Error(`popover: ${popover.join(", ") || "none"}; box model: ${box.join(", ") || "none"}`);
       return "popover 0, box model 0";
+    } finally {
+      await p.context().addCookies([{ name: "hm_theme", value: "light", url: base }]);
+    }
+  });
+}
+
+// The top bar (the SEO button's name) and the Navigator's row numbers, in both themes.
+for (const theme of ["light", "dark"]) {
+  await check(`axe: the top bar and the Navigator rows have no violations (${theme})`, async () => {
+    await p.context().addCookies([{ name: "hm_theme", value: theme, url: base }]);
+    try {
+      await open();
+      if ((await p.locator("html").getAttribute("data-admin-theme")) !== theme) throw new Error(`the page is not in the ${theme} theme`);
+      await p.evaluate(axe);
+      const run = (sel) => p.evaluate(([sel, tags]) => axe.run(document.querySelector(sel), { runOnly: { type: "tag", values: tags } }).then((r) => r.violations.map((x) => x.id + "×" + x.nodes.length + " " + x.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | "))), [sel, tags]);
+      const bar = await run(".hm-editor-bar");
+      const rows = await run("[data-hm-bs-tree]");
+      if (!(await p.locator(".hm-bs-row__idx").count())) throw new Error("no .hm-bs-row__idx in the Navigator");
+      if (bar.length || rows.length) throw new Error(`top bar: ${bar.join(", ") || "none"}; Navigator: ${rows.join(", ") || "none"}`);
+      return "top bar 0, Navigator 0";
     } finally {
       await p.context().addCookies([{ name: "hm_theme", value: "light", url: base }]);
     }
