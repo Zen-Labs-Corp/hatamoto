@@ -153,7 +153,7 @@ func TestUpdatesPageStates(t *testing.T) {
 		}, []string{"Rolled back v1.4.2", `<span id="updates-status-note">smoke failed: GET / returned 500</span>`}, []string{"Rolled back v1.4.2:"}},
 		{"rolled_back_no_reason", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", ""
-		}, []string{`id="updates-status"`, `hm-callout--danger`, `<p class="hm-callout__title">Rolled back v1.4.2</p>`}, []string{"updates-status-note"}},
+		}, []string{`id="updates-status"`, `hm-callout--warning`, `<p class="hm-callout__title">Rolled back v1.4.2</p>`}, []string{"updates-status-note"}},
 		{"off", func(f *fakeUpdates) { f.state.Mode = "off" }, []string{"Updates are off"}, nil},
 		{"notify", func(f *fakeUpdates) {
 			f.state.Mode = "notify"
@@ -735,8 +735,12 @@ func TestUpdatesHistoryLayout(t *testing.T) {
 		if r.Cells[1].Sub == "" {
 			t.Errorf("row %d: the error belongs under the badge", i)
 		}
-		if b.Kind != "danger" {
-			t.Errorf("row %d: %s is %s; a rollback or failure is danger like the status pill", i, b.Label, b.Kind)
+		want := "danger"
+		if b.Label == "Rolled back" {
+			want = "warning"
+		}
+		if b.Kind != want {
+			t.Errorf("row %d: %s is %s, want %s like the status pill", i, b.Label, b.Kind, want)
 		}
 	}
 }
