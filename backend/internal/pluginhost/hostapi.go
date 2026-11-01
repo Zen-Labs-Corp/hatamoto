@@ -892,7 +892,12 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 		// Create then link is not atomic: a failed link deletes the new entity
 		// again (the pattern of entity.CopyService).
 		if _, err := a.svc.Groups.Link(ctx, target.ID, ent.ID); err != nil {
-			if delErr := a.svc.Entities.DeleteEntity(ctx, ent.ID); delErr != nil {
+			// The call's context may be what failed the link (its deadline): the
+			// cleanup must outlive it, or the new entity stays behind.
+			delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			delErr := a.svc.Entities.DeleteEntity(delCtx, ent.ID)
+			cancel()
+			if delErr != nil {
 				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
 			}
 			return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)

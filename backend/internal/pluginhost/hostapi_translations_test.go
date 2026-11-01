@@ -73,7 +73,10 @@ func (f *locEntities) GetByID(_ context.Context, id uuid.UUID) (*entity.Entity, 
 	return nil, entity.ErrEntityNotFound
 }
 
-func (f *locEntities) Delete(_ context.Context, id uuid.UUID) error {
+func (f *locEntities) Delete(ctx context.Context, id uuid.UUID) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.deleted = append(f.deleted, id)
@@ -96,6 +99,7 @@ func (f *locEntities) List(context.Context, *entity.ListEntitiesFilter, *entity.
 type fakeGroups struct {
 	mu        sync.Mutex
 	linkErr   error
+	onLink    func() // runs inside Link, before it fails
 	linked    [][]uuid.UUID
 	groups    map[uuid.UUID]entity.GroupMember
 	members   map[uuid.UUID][]entity.Member
@@ -106,6 +110,9 @@ type fakeGroups struct {
 func (f *fakeGroups) Link(_ context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.onLink != nil {
+		f.onLink()
+	}
 	if f.linkErr != nil {
 		return uuid.Nil, f.linkErr
 	}
@@ -150,6 +157,8 @@ type transRig struct {
 	person *entity.EntitySchema
 	// sdk is the calling plugin's manifest SDK range.
 	sdk string
+	// ctx is the call context; nil means context.Background().
+	ctx context.Context
 }
 
 // newTransRig builds an API over in-memory services. multi gives the site two
@@ -180,7 +189,11 @@ func newTransRig(t *testing.T, multi, withGroups bool) *transRig {
 func (r *transRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, json.RawMessage) (any, error), args any) (map[string]any, error) {
 	t.Helper()
 	raw, _ := json.Marshal(args)
-	res, err := fn(context.Background(), r.api, &callEnv{manifest: sdk.Manifest{SDK: r.sdk}}, raw)
+	ctx := r.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	res, err := fn(ctx, r.api, &callEnv{manifest: sdk.Manifest{SDK: r.sdk}}, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +277,27 @@ func TestEntitiesCreateTranslationOfLinkFailureDeletes(t *testing.T) {
 		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
 	})
 	wantCode(t, err, sdk.ErrInvalidArgument)
+	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
+		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
+	}
+}
+
+// A link that fails because the call's context ended must still delete the new
+// entity: the cleanup does not run on the dead context.
+func TestEntitiesCreateTranslationOfLinkTimeoutDeletes(t *testing.T) {
+	r := newTransRig(t, true, true)
+	target := r.seed(r.page, "en-XX")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r.ctx = ctx
+	r.groups.onLink = cancel
+	r.groups.linkErr = context.Canceled
+	_, err := r.call(t, fnEntitiesCreate, map[string]any{
+		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+	})
+	if err == nil {
+		t.Fatal("no error")
+	}
 	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
 		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 	}
