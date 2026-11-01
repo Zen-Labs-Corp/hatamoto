@@ -98,7 +98,7 @@
 /* A full bar (Editing Tablet beside the long switch) squeezed More to nothing under the chip: only the title gives way. */
 .hm-editor-bar:has([data-hm-bs-title]) > :not(.hm-editor-bar__title) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title):not(.hm-editor-bar__state) { flex-shrink: 0; }
-.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; }
+.hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; flex-shrink: 100; }
 .hm-bs__dshort { display: none; }
 .hm-bs__device { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
 .hm-bs__device::before { content: ""; inline-size: 0.5em; block-size: 0.5em; border-radius: 50%; background: currentColor; }
