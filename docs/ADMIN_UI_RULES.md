@@ -65,6 +65,9 @@ handoff material are stale, do not copy them.
    presses the first submit button in source order, so a form with more than one
    submit starts with a hidden default submit (see UI-07). Cancel is the default
    secondary `hm/button` (no `Variant`): never ghost, never a bare link style.
+   The one exception is Back in the setup wizard and on the bare pages: it is a
+   ghost button at the far left of the footer (`hm-card__foot-note`), apart from
+   the primary on the right.
 3. **Delete sits apart, at the far left, on editors.** On the sticky editor footer
    Delete is the first item and is pushed to the left edge with
    `hm-savebar__aside` (or `hm-card__foot-note`); Cancel and Save stay on the right.
@@ -381,7 +384,7 @@ Rules: UI-D3
   lays the cards out as one row of separate cards (the analytics KPI row); a stat card is never joined to its neighbours. Every stat value uses `--text-metric` with a
   `--color-hai` label, and its trend line is `hm/spark`: server geometry, or live (`Stat.Spark` with `ui.Spark{Live: &ui.SparkLive{...}}`), where
   `js/aia/page.js` fills the paths of the server-rendered SVG from a data endpoint.
-- **Empty** (`hm/empty`): a solid hairline border; `Compact` for use inside a card.
+- **Empty** (`hm/empty`): a solid hairline border; `Compact` for use inside a card; with `Plain` it is the left-aligned, icon-free dead end on bare pages.
 - **Stepper** (`hm/steps`): labelled pills with no connectors; done steps show a
   check, the current step is outlined in the ink colour, and a "Step n of N" line
   follows; `Label` names the list (default "Progress").
@@ -529,10 +532,10 @@ a page never adds a second form or a second primary button inside the card. The 
 ### Shell, auth and error pages
 
 - **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
-- **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it, rendered above the form. The sign-in button is full width and the quiet "Forgot your password?" link sits under it. The bare panel title is 24px, medium weight. On the setup address step, Regenerate sits beside Copy in the copy row; the hidden default Continue stays first in the form (Enter submits Continue, never Regenerate) and the visible Continue is the only primary footer button. On the setup email step the footer puts Back and Skip on the left and Save on the right.
+- **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it, rendered above the form. The sign-in button is full width and the quiet "Forgot your password?" link sits under it. The bare panel title is 24px, medium weight. On the setup address step, Regenerate sits beside Copy in the copy row; the hidden default Continue stays first in the form (Enter submits Continue, never Regenerate) and the visible Continue is the only primary footer button. The setup wizard footers put a ghost Back at the far left and the primary on the right; on the setup email step Skip takes the far left and Back sits on the right beside Save. All setup step labels stay visible on phones. The bare panel is cardless: sign-in, setup and the bare error pages sit directly on the page background, with the brand aligned to the left edge of the column.
 - **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.
-- **`hm/empty` `Code`, `Plain`, `H1`.** `Code` is a muted status ("404") above the title, `Plain` drops the frame to centre it inside a panel, `H1` makes the title the page heading. Full-page errors and `hm/errorpage` are built on it; only the 404 is unframed and shows the mono status code with no icon; every other error page keeps its frame and names its status with an icon (lock, alert).
+- **`hm/empty` `Code`, `Plain`, `H1`.** `Code` is a muted status ("404") above the title, `Plain` drops the frame inside a panel (centred; with `Compact`, left aligned), `H1` makes the title the page heading. Full-page errors and `hm/errorpage` are built on it; inside the signed-in shell the 404 is unframed, shows the mono status code and has no icon, while the 403 and 500 keep their frame and name their status with an icon (lock, alert). Signed-out (bare) error pages are cardless like every bare page, and only the 404 drops the icon. Token dead ends (reset or accept with a bad token, accept when the account already exists) use `Plain` + `Compact`: left aligned, no icon.
 - **`hm/tabs` `ShowZero`.** A row opts in to showing a count of 0 (taxonomy kinds); by default 0 stays hidden.
 - **`#hm-confirm` is the one hand-written dialog.** `components.js` fills a single shared node, so it is not built with `hm/dialog-start`. A link or menu item with `data-hm-confirm` opens it; so does a submit `button[data-hm-confirm]` inside a form, which then posts that form's fields (without `_csrf`). Without script the button submits directly, so its card must already say what happens.
 - **`data-hm-carry="<input id>"`** on a link appends that input's value as `?email=` when clicked (the invite form's "Add with a password instead"); without script it is a plain link.
