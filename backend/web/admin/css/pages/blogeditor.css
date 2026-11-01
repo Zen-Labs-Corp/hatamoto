@@ -6,7 +6,7 @@
 .hm-be > .hm-be__recover { margin: var(--space-3) var(--space-4) 0; }
 .hm-editor-bar__crumbs { min-width: 0; }
 .hm-editor-bar__crumbs .hm-crumbs__list { flex-wrap: nowrap; white-space: nowrap; }
-.hm-editor-bar .hm-editor-bar__state { max-inline-size: none; overflow: visible; text-overflow: clip; white-space: normal; font-size: var(--text-sm); min-width: 0; }
+.hm-editor-bar .hm-editor-bar__state { max-inline-size: none; overflow: visible; text-overflow: clip; white-space: normal; font-family: var(--font-mono); font-size: var(--text-sm); min-width: 0; }
 .hm-menu .hm-be__menu-narrow[hidden] { display: none; }
 /* Phones: the bar is two rows (status, then the save buttons); Focus, Toolbar, Preview and Schedule move into the menu. */
 @media (max-width: 45rem) {
@@ -19,10 +19,10 @@
 .hm-be__grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 960px) { .hm-be__grid { grid-template-columns: minmax(0, 1fr) 22rem; } }
 .hm-be__main { max-width: 43.75rem; width: 100%; margin: 0 auto; min-width: 0; padding: var(--space-6) var(--space-4); }
-.hm-be__title { display: block; width: 100%; border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--text-3xl); font-weight: var(--weight-semibold); line-height: var(--leading-heading); letter-spacing: -0.02em; resize: none; overflow: hidden; padding: 0; }
+.hm-be__title { display: block; width: 100%; border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--text-3xl); font-weight: var(--weight-medium); line-height: var(--leading-heading); letter-spacing: -0.02em; resize: none; overflow: hidden; padding: 0; }
 .hm-be__title:focus-visible { outline: var(--focus-ring); outline-offset: 4px; }
 .hm-be__title::placeholder { color: var(--color-hai); }
-.hm-be__meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0 var(--space-6); font-size: var(--text-sm); color: var(--color-hai); }
+.hm-be__meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0 var(--space-6); font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-hai); }
 .hm-be__body { min-height: 24rem; }
 .hm-be .hm-ed__content .prose { min-height: 28rem; font-family: var(--font-ui); font-size: 1.0625rem; line-height: 1.75; color: var(--text); }
 /* Reading rhythm: the base reset zeroes margins, so the writing column sets its own
@@ -74,10 +74,10 @@
 .hm-be__side .hm-card { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }
 .hm-be__side .hm-card__head { padding: var(--space-4) var(--space-4) 0; }
 .hm-be__side .hm-card__body { padding: var(--space-3) var(--space-4) var(--space-4); }
-.hm-be__side .hm-card__title { font-size: var(--text-sm); line-height: var(--leading-5); font-weight: var(--weight-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hm-be__side .hm-card__title { font-size: var(--text-sm); line-height: var(--leading-5); font-weight: var(--weight-medium); color: var(--text); }
 .hm-be__panel { min-width: 0; }
 .hm-be__panel[hidden] { display: none; }
-.hm-be__panel-h { margin: 0; padding: var(--space-4) var(--space-4) 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hm-be__panel-h { margin: 0; padding: var(--space-4) var(--space-4) 0; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text); }
 /* The Post / SEO tab row: hm-tablist--bar sticks it above the panels. */
 .hm-be__tabrow[hidden] { display: none; }
 .hm-be__count { font-size: var(--text-sm); margin: 0; }
@@ -130,16 +130,15 @@
 .hm-bp__serp-url { margin: 0; font-size: var(--text-xs); color: var(--text-muted); overflow-wrap: anywhere; }
 .hm-bp__serp-title { margin: var(--space-0-5) 0; font-size: var(--text-title); color: var(--color-accent); }
 .hm-bp__serp-desc { margin: 0; font-size: var(--text-sm); }
-.hm-bp__list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
-.hm-bp__item { display: flex; gap: var(--space-2); align-items: baseline; }
-.hm-bp__mark { font-weight: var(--weight-semibold); flex: none; width: 1.2em; text-align: center; }
+.hm-bp__list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: 0; font-size: var(--text-sm); }
+.hm-bp__item { display: grid; grid-template-columns: var(--space-5) 1fr; gap: var(--space-2); padding: var(--space-2) 0; border-top: 1px solid var(--border); align-items: start; }
+.hm-bp__item:first-child { border-top: 0; }
+.hm-bp__mark { flex: none; display: inline-flex; justify-content: center; padding-block-start: var(--space-0-5); }
+.hm-bp__mark svg { inline-size: 1em; block-size: 1em; }
 .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); }
 .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); }
 .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); }
 .hm-bp__summary { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
-.hm-bp__summary--pass strong { color: var(--color-success); }
-.hm-bp__summary--warn strong { color: var(--color-warning); }
-.hm-bp__summary--fail strong { color: var(--color-danger); }
 .hm-be__count--warn .hm-be__count-msg { color: var(--color-warning); }
 .hm-be__count--fail .hm-be__count-msg { color: var(--color-danger); }
 .hm-bp__h { font-size: var(--text-md); margin: var(--space-3) 0 var(--space-2); }
