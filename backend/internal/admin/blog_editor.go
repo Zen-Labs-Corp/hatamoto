@@ -486,7 +486,10 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 	if set, ok := a.multiLocale(r.Context()); ok && full {
 		if tp, err := a.translationsPanel(r.Context(), r, e, set); err != nil {
 			a.logger().Error("translations panel failed", "entity", e.ID, "err", err)
-			d.Translations = &translationsPanelData{Err: "The translations could not be loaded.", RetryURL: a.adminPath + "/entities/" + e.ID.String() + "/edit"}
+			d.Translations = &translationsPanelData{Err: "The translations could not be loaded."}
+			if r.Method != http.MethodPost {
+				d.Translations.RetryURL = a.adminPath + "/entities/" + e.ID.String() + "/edit"
+			}
 			d.AsideTabs = append(d.AsideTabs, asideTab{ID: "be-tab-translations", Controls: "be-tabpanel-translations", Label: "Translations"})
 		} else if tp != nil {
 			d.Translations = tp
