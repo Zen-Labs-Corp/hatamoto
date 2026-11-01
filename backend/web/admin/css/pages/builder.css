@@ -154,7 +154,6 @@
 .hm-bs-row--band, .hm-bs-row--band:hover { background: var(--bs-nav-band); }
 .hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
-.hm-bs-row[aria-selected="true"] .hm-bs-row__meta, .hm-bs-row[aria-selected="true"] .hm-bs-row__kind, .hm-bs-row[aria-selected="true"] .hm-bs-row__ico { color: inherit; opacity: 0.8; }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__idx { color: var(--bs-nav-on-accent); }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: inherit; }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
