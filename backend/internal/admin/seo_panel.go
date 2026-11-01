@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/net/html"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -70,6 +71,10 @@ type seoInput struct {
 	TermKind string
 	Term     string
 	Home     bool
+
+	// SchemaType and CustomJSONLD are the entry's Schema tab values; only the
+	// forms that show the tab (entity form, blog editor) set them.
+	SchemaType, CustomJSONLD string
 }
 
 type serpPreview struct {
@@ -103,6 +108,32 @@ type seoPanel struct {
 	JSONLD, JSONLDType string
 	// JSONLDNote replaces the "no name" message when no preview is built.
 	JSONLDNote string
+	// ShowSchemaFields asks for the entry's schema type select and custom
+	// JSON-LD box above the preview; SchemaTypes are the select's options and
+	// CustomJSONLD the box's value.
+	ShowSchemaFields bool
+	SchemaTypes      []ui.Option
+	CustomJSONLD     string
+}
+
+// withSchemaFields turns the Schema tab's fields on for the form that shows
+// them. The select's first option names the @type the entry gets without an
+// override.
+func (p *seoPanel) withSchemaFields(sc *entity.EntitySchema, in seoInput) {
+	st, _ := sc.URLSettings()
+	def := "the type's schema"
+	if !entity.SchemaFixesJSONLDType(sc) {
+		if def = st.SchemaOrgType; def == "" {
+			if def = legacySchemaTypes[sc.Slug]; def == "" {
+				def = "Thing"
+			}
+		}
+	}
+	p.ShowSchemaFields, p.CustomJSONLD = true, in.CustomJSONLD
+	p.SchemaTypes = []ui.Option{{Value: "", Label: "Use type default (" + def + ")", Selected: in.SchemaType == ""}}
+	for _, t := range entity.AllowedSchemaOrgTypes {
+		p.SchemaTypes = append(p.SchemaTypes, ui.Option{Value: t, Label: t, Selected: in.SchemaType == t})
+	}
 }
 
 type heading struct {

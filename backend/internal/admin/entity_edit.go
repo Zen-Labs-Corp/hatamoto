@@ -594,6 +594,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		Title: f.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: f.Slug, Excerpt: str(attrs, "excerpt"),
 		Canonical: f.SEO.Canonical, Published: f.Status == string(entity.StatusPublished), Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true,
 		OGTitle: f.SEO.OGTitle, OGDescription: f.SEO.OGDescription, OGImage: f.SEO.OGImage, Social: true,
+		SchemaType: f.SEO.SchemaType, CustomJSONLD: f.SEO.CustomJSONLD,
 	}
 	if prop := bodyProperty(sc); prop != "" {
 		in.Mode, in.Content = ModeBody, str(attrs, prop)
@@ -614,6 +615,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		a.markHome(r.Context(), &in, e.ID)
 	}
 	panel := buildPanel(in)
+	panel.withSchemaFields(sc, in)
 	if e != nil {
 		panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: f, attrs: attrs}, in)
 	}

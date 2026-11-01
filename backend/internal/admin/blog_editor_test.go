@@ -633,3 +633,67 @@ func TestBlogEditorAuthorPickerCreditsPeopleAndTheOrganisation(t *testing.T) {
 		t.Errorf("organisation name: person=%v org=%v people=%d", e.BylinePersonID, e.BylineOrg, len(r.authors.list))
 	}
 }
+
+func TestBlogEditorSavesSchemaTabFields(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	ld := `{"@context":"https://schema.org","@type":"Thing","name":"Custom Name"}`
+	f := r.form(t)
+	f.Set("seo_schema_type", "NewsArticle")
+	f.Set("seo_custom_jsonld", ld)
+	f.Set("_op", "save")
+	if rec := r.post(r.path(), f); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := r.attrs(); got["schema_type"] != "NewsArticle" || got["custom_jsonld"] != ld || got["keep_me"] != float64(1) {
+		t.Fatalf("stored: %v", got)
+	}
+
+	// The panel previews the override and the extra block.
+	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	has(t, body, `Custom Name`, `NewsArticle`)
+
+	// A form without the fields keeps them.
+	f = r.form(t)
+	f.Del("seo_schema_type")
+	f.Del("seo_custom_jsonld")
+	f.Set("_op", "save")
+	if rec := r.post(r.path(), f); rec.Code != 303 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	if got := r.attrs(); got["schema_type"] != "NewsArticle" || got["custom_jsonld"] != ld {
+		t.Errorf("unposted fields dropped: %v", got)
+	}
+
+	// Invalid input is a field error and writes nothing.
+	f = r.form(t)
+	f.Set("seo_custom_jsonld", `{"@type":"Thing"}`)
+	f.Set("_op", "save")
+	rec := r.post(r.path(), f)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), `href="#seo_custom_jsonld"`) {
+		t.Errorf("invalid block: %d", rec.Code)
+	}
+	if got := r.attrs(); got["custom_jsonld"] != ld {
+		t.Errorf("a rejected save changed the block: %v", got)
+	}
+}
+
+func TestBlogEditorPreviewHonoursTheFAQSwitch(t *testing.T) {
+	t.Parallel()
+
+	faq := `<div class="faq"><div class="faq-item"><h3 class="faq-q">Is it fast?</h3><div class="faq-a"><p>Yes.</p></div></div></div>`
+	for _, tc := range []struct {
+		settings string
+		want     bool
+	}{{`{"url_pattern":"/blog/{slug}"}`, true}, {`{"url_pattern":"/blog/{slug}","faq_from_content":false}`, false}} {
+		r := newBlogRig(t)
+		r.postSch.Settings = []byte(tc.settings)
+		f := r.form(t)
+		f.Set("content", faq)
+		rec := r.post("/admin/entities/"+r.ent.ID.String()+"/edit/analyze", f)
+		if got := strings.Contains(rec.Body.String(), "&#34;FAQPage&#34;"); got != tc.want {
+			t.Errorf("settings %s: FAQPage in preview = %v, want %v", tc.settings, got, tc.want)
+		}
+	}
+}

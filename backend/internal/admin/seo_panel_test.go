@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -277,5 +278,45 @@ func TestSEOPanelShareCard(t *testing.T) {
 	out, err := a.RenderPartial("hm/seopanel-card", map[string]any{"Panel": buildPanel(base)})
 	if err != nil || !strings.Contains(string(out), "Guide | Docs") || !strings.Contains(string(out), `id="seo-card"`) {
 		t.Errorf("card partial: %v %s", err, out)
+	}
+}
+
+func TestSEOPanelSchemaFields(t *testing.T) {
+	t.Parallel()
+
+	sc := &entity.EntitySchema{Slug: "page", Schema: []byte(`{"type":"object"}`), Settings: []byte(`{}`)}
+	var p seoPanel
+	p.withSchemaFields(sc, seoInput{SchemaType: "Course", CustomJSONLD: "{}"})
+	if !p.ShowSchemaFields || p.CustomJSONLD != "{}" {
+		t.Errorf("panel = %+v", p)
+	}
+	if got := p.SchemaTypes[0]; got.Value != "" || got.Label != "Use type default (WebPage)" || got.Selected {
+		t.Errorf("first option = %+v", got)
+	}
+	selected := 0
+	for _, o := range p.SchemaTypes {
+		if o.Selected {
+			selected++
+			if o.Value != "Course" {
+				t.Errorf("selected %q", o.Value)
+			}
+		}
+	}
+	if selected != 1 || len(p.SchemaTypes) != 1+len(entity.AllowedSchemaOrgTypes) {
+		t.Errorf("options = %+v", p.SchemaTypes)
+	}
+
+	// A stored type setting is the default the label names; an annotated schema has its own.
+	sc = &entity.EntitySchema{Slug: "doc", Schema: []byte(`{"type":"object"}`), Settings: []byte(`{"schema_org_type":"Article"}`)}
+	p = seoPanel{}
+	p.withSchemaFields(sc, seoInput{})
+	if p.SchemaTypes[0].Label != "Use type default (Article)" || !p.SchemaTypes[0].Selected {
+		t.Errorf("first option = %+v", p.SchemaTypes[0])
+	}
+	sc = &entity.EntitySchema{Slug: "guide", Schema: []byte(`{"type":"object","x-schema-org-type":"Recipe"}`), Settings: []byte(`{}`)}
+	p = seoPanel{}
+	p.withSchemaFields(sc, seoInput{})
+	if p.SchemaTypes[0].Label != "Use type default (the type's schema)" {
+		t.Errorf("first option = %+v", p.SchemaTypes[0])
 	}
 }

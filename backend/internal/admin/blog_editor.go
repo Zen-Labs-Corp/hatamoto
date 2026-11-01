@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -300,7 +301,9 @@ func (a *Admin) readBlogForm(r *http.Request, prev map[string]any) (*posted, blo
 	}
 	b.mergeBlog(p.attrs)
 	b.mergeSEO(p.attrs)
+	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.merge(p.attrs)
+	p.f.SEO.mergeSchema(p.attrs)
 	return p, b
 }
 
@@ -327,6 +330,7 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 		Title: p.f.Name, MetaTitle: p.f.SEO.Title, MetaDescription: p.f.SEO.Description, Slug: p.f.Slug, Excerpt: b.Excerpt, Content: b.Content,
 		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs,
 		OGTitle: p.f.SEO.OGTitle, OGDescription: p.f.SEO.OGDescription, OGImage: p.f.SEO.OGImage, Social: true, Published: e.Status == entity.StatusPublished,
+		SchemaType: p.f.SEO.SchemaType, CustomJSONLD: p.f.SEO.CustomJSONLD,
 	}
 	if a.deps.BaseURL != nil {
 		in.BaseURL = a.deps.BaseURL(r)
@@ -344,6 +348,7 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 		a.markHome(r.Context(), &in, e.ID)
 	}
 	panel := buildPanel(in)
+	panel.withSchemaFields(sc, in)
 	panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, p, in)
 	return panel
 }
@@ -357,7 +362,12 @@ func (a *Admin) jsonLDPreview(e *entity.Entity, sc *entity.EntitySchema, p *post
 	}
 	ee := *e
 	ee.Schema, ee.Name, ee.Slug, ee.Attributes = sc, p.f.Name, p.f.Slug, raw
-	doc, err := entity.GenerateJSONLDWithFAQ(&ee, in.BaseURL, entity.ExtractFAQItems(in.Content))
+	// The same FAQ switch the public page honours.
+	var faq []entity.FAQItem
+	if st, _ := sc.URLSettings(); st.FAQEnabled() {
+		faq = entity.ExtractFAQItems(in.Content)
+	}
+	doc, err := entity.GenerateJSONLDWithFAQ(&ee, in.BaseURL, faq)
 	if err != nil || doc == nil {
 		return "", ""
 	}
@@ -378,7 +388,15 @@ func (a *Admin) jsonLDPreview(e *entity.Entity, sc *entity.EntitySchema, p *post
 	if err != nil {
 		return "", ""
 	}
-	return string(pretty), strings.Join(types, " + ")
+	text := string(pretty)
+	// The custom block is its own script after the generated one.
+	for _, extra := range entity.CustomJSONLDDocs(raw) {
+		var b bytes.Buffer
+		if json.Indent(&b, extra, "", "  ") == nil {
+			text += "\n\n" + b.String()
+		}
+	}
+	return text, strings.Join(types, " + ")
 }
 
 // crawlers is the AI-crawler card of a published post (nil otherwise).
@@ -506,7 +524,7 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 }
 
 func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d *blogData) {
-	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}} {
 		if m := d.Errors[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
