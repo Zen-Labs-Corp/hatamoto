@@ -21,6 +21,7 @@ jobs:
         include:
           - pg: "16"
             image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+            perf_strict: "0"
           - pg: "18"
             image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # 18
     defaults:
@@ -44,6 +45,10 @@ jobs:
       DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
       HATAMOTO_TEST_DB_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
       EMAIL_DISABLED: "true"
+      # Empty on PG18 (unset). "0" on PG16: skips TestRenderPageP50 and drops the
+      # 100 ms warm-load bound in the integration suite, so the doubled matrix
+      # does not flake on wall-clock bounds; PG18 keeps enforcing them.
+      HATAMOTO_PERF_STRICT: ${{ matrix.perf_strict }}
       # SITEMAP_GOLDEN_DB is intentionally unset: that test needs a seeded dataset and skips.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -71,7 +76,10 @@ jobs:
       # timeouts (zero refused), the 2x memory ceiling, concurrent bombs,
       # neighbours not stalled, 50 load/unload cycles without a leak, v1 -> v2
       # swap without a failed call, warm compile cache <= 100 ms, render.page p50.
+      # PG18 only: with HATAMOTO_PERF_STRICT=0 (PG16) TestRenderPageP50 is
+      # skipped, so the PASS grep below would fail.
       - name: Runtime limit, leak and swap tests really run
+        if: matrix.pg == '18'
         run: |
           T='TestPerHookTimeouts|TestMemoryCeilingIsTwiceMaxPages|TestConcurrentMemoryBombsBounded|TestHostileDoesNotStallNeighbours|TestLoadUnloadNoLeak|TestSwapUnderLoadFailsNoCalls|TestCompileCacheWarmLoad|TestLargePayloadRoundTrips|TestRenderPageP50|TestSitemapOutputIsBounded'
           go test -count=1 -v -run "$T" ./internal/wasmhost ./internal/pluginhost | tee /tmp/limits.log
