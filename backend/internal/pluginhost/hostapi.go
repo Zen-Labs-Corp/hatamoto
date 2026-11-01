@@ -41,8 +41,10 @@ type EntityPaths interface {
 	// Path is the canonical public path of ent ("/a/b").
 	Path(ctx context.Context, ent *entity.Entity) string
 	// Resolve returns the published entity served at path, or
-	// entity.ErrEntityNotFound.
-	Resolve(ctx context.Context, path string) (*entity.Entity, error)
+	// entity.ErrEntityNotFound. With localePrefix a leading locale segment
+	// ("/xx/about") is read as that locale; without it the path is read as
+	// the site language only.
+	Resolve(ctx context.Context, path string, localePrefix bool) (*entity.Entity, error)
 	// BaseURL is the configured public origin ("" when none is set).
 	BaseURL(ctx context.Context) string
 }
@@ -692,7 +694,7 @@ func optionalID(raw json.RawMessage) (id *uuid.UUID, set bool, err error) {
 	return &u, true, nil
 }
 
-func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessage) (any, error) {
 	args, err := decodeArgs[struct {
 		ID       string          `json:"id"`
 		Slug     string          `json:"slug"`
@@ -737,7 +739,7 @@ func fnEntitiesGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage)
 		if !strings.HasPrefix(args.Path, "/") || strings.ContainsAny(args.Path, "?#") {
 			return nil, herr(sdk.ErrInvalidArgument, "path must be an absolute url path such as /a/b")
 		}
-		if ent, err = a.svc.Paths.Resolve(ctx, args.Path); err != nil {
+		if ent, err = a.svc.Paths.Resolve(ctx, args.Path, requiresLocale(env)); err != nil {
 			return nil, err
 		}
 	case args.Slug != "":

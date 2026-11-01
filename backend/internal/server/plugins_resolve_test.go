@@ -28,7 +28,7 @@ func (r *siteLangRepo) GetPublishedBySlugAndSchemas(ctx context.Context, slug st
 	return e, nil
 }
 
-func TestPluginResolve_LocalePrefix(t *testing.T) {
+func TestResolvePluginPathLocalePrefixGate(t *testing.T) {
 	t.Parallel()
 	about := fixtureEntity("page", "about", "")
 	about.Locale = "fr-XX"
@@ -64,22 +64,27 @@ func TestPluginResolve_LocalePrefix(t *testing.T) {
 		name string
 		snap *entity.URLSnapshot
 		path string
-		want *entity.Entity // nil = not found
+		// prefix is whether the plugin may use locale-prefixed paths.
+		prefix bool
+		want   *entity.Entity // nil = not found
 	}{
-		{"prefixed path finds the locale's entity", multi, "/xx/about", about},
-		{"prefixed path with trailing slash", multi, "/xx/about/", about},
-		{"unprefixed path is the default locale", multi, "/welcome", welcome},
-		{"unprefixed path does not reach another locale", multi, "/about", nil},
-		{"prefixed path does not reach another locale", multi, "/xx/welcome", nil},
-		{"hidden locale prefix is not found", multi, "/yy/secret", nil},
-		{"locale home is not an entity", multi, "/xx", nil},
-		{"single locale: a prefix is just a path", single, "/xx/about", nil},
-		{"single locale: plain path", single, "/welcome", welcome},
+		{"prefixed path finds the locale's entity", multi, "/xx/about", true, about},
+		{"prefixed path with trailing slash", multi, "/xx/about/", true, about},
+		{"unprefixed path is the default locale", multi, "/welcome", true, welcome},
+		{"unprefixed path does not reach another locale", multi, "/about", true, nil},
+		{"prefixed path does not reach another locale", multi, "/xx/welcome", true, nil},
+		{"hidden locale prefix is not found", multi, "/yy/secret", true, nil},
+		{"locale home is not an entity", multi, "/xx", true, nil},
+		{"single locale: a prefix is just a path", single, "/xx/about", true, nil},
+		{"single locale: plain path", single, "/welcome", true, welcome},
+		{"gate off: prefixed path is not read in the locale", multi, "/xx/about", false, nil},
+		{"gate off: hidden locale prefix is not found", multi, "/yy/secret", false, nil},
+		{"gate off: unprefixed path is unchanged", multi, "/welcome", false, welcome},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := resolvePluginPath(context.Background(), repo, tc.snap, tc.path)
+			got, err := resolvePluginPath(context.Background(), repo, tc.snap, tc.path, tc.prefix)
 			if tc.want == nil {
 				if !errors.Is(err, entity.ErrEntityNotFound) {
 					t.Fatalf("got %v, %v, want not found", got, err)

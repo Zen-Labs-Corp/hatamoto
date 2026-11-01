@@ -400,15 +400,19 @@ func TestEntitiesGroupInDTO(t *testing.T) {
 	}
 }
 
-type fakePaths struct{}
+type fakePaths struct {
+	// gotPrefix is the localePrefix argument of the last Resolve call.
+	gotPrefix bool
+}
 
-func (fakePaths) Path(_ context.Context, e *entity.Entity) string {
+func (*fakePaths) Path(_ context.Context, e *entity.Entity) string {
 	return "/" + e.Locale + "/" + e.Slug
 }
-func (fakePaths) Resolve(context.Context, string) (*entity.Entity, error) {
+func (f *fakePaths) Resolve(_ context.Context, _ string, localePrefix bool) (*entity.Entity, error) {
+	f.gotPrefix = localePrefix
 	return nil, entity.ErrEntityNotFound
 }
-func (fakePaths) BaseURL(context.Context) string { return "" }
+func (*fakePaths) BaseURL(context.Context) string { return "" }
 
 func (r *transRig) translations(t *testing.T, id uuid.UUID) ([]map[string]any, error) {
 	t.Helper()
@@ -443,7 +447,7 @@ func TestEntitiesTranslations(t *testing.T) {
 		t.Fatalf("path present without Paths: %v", got[0])
 	}
 
-	r.api.svc.Paths = fakePaths{}
+	r.api.svc.Paths = &fakePaths{}
 	got, err := r.translations(t, fr.ID)
 	if err != nil || got[1]["path"] != "/fr-XX/"+fr.Slug || got[0]["status"] != "draft" {
 		t.Fatalf("translations with paths = %v, %v", got, err)
@@ -468,4 +472,20 @@ func TestEntitiesTranslationsGuards(t *testing.T) {
 	raw, _ := json.Marshal(map[string]any{"id": "nope"})
 	_, err = fnEntitiesTranslations(context.Background(), r.api, nil, raw)
 	wantCode(t, err, sdk.ErrInvalidArgument)
+}
+
+func TestEntitiesGetPathPrefixFollowsSDKRange(t *testing.T) {
+	for rng, want := range map[string]bool{"^0.14": false, "^0.15": true, ">=0.15.0 <1.0.0": true} {
+		r := newTransRig(t, true, true)
+		paths := &fakePaths{gotPrefix: !want}
+		r.api.svc.Paths = paths
+		r.sdk = rng
+		_, err := r.call(t, fnEntitiesGet, map[string]any{"path": "/xx/about"})
+		if !errors.Is(err, entity.ErrEntityNotFound) {
+			t.Fatalf("range %q: err = %v, want not found", rng, err)
+		}
+		if paths.gotPrefix != want {
+			t.Errorf("range %q: locale prefix = %v, want %v", rng, paths.gotPrefix, want)
+		}
+	}
 }
