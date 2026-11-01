@@ -201,17 +201,21 @@ func TestAgentPageCrumbs(t *testing.T) {
 	}
 }
 
-// The operator and purpose under the agent's name are labels, not statuses: plain tags, no status dot.
+// The operator and purpose beside the agent's name are labels, not statuses: plain tags in the
+// title row, no status dot; Training carries the info tone.
 func TestAgentPageChipsArePlainTags(t *testing.T) {
 	g, _ := newAnalyticsRig(t)
 	body := g.do("GET", "/admin/analytics/agents/gptbot", "owner-token", nil, nil).Body.String()
-	i := strings.Index(body, `class="hm-pageheader__chips"`)
+	i := strings.Index(body, `class="hm-pageheader__title hm-pageheader__title--chips"`)
 	if i < 0 {
-		t.Fatal("no chips under the agent name")
+		t.Fatal("no chips beside the agent name")
 	}
 	chips := body[i : i+strings.Index(body[i:], "</div>")]
-	if !strings.Contains(chips, "hm-badge--plain") || strings.Contains(chips, "hm-badge__dot") {
-		t.Errorf("chips are not plain dotless tags: %s", chips)
+	if !strings.Contains(chips, "hm-badge--plain") || !strings.Contains(chips, "hm-badge--info") {
+		t.Errorf("chips are not plain tags with an info Training: %s", chips)
+	}
+	if strings.Contains(body, `class="hm-pageheader__chips"`) {
+		t.Error("the chips also render under the name")
 	}
 }
 

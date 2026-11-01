@@ -42,6 +42,23 @@ func (p *agentPage) Chips() []string {
 	return c
 }
 
+// ChipBadges are the operator and purpose labels shown beside the agent's name: plain tags,
+// the Training purpose in the info tone.
+func (p *agentPage) ChipBadges() []ui.Badge {
+	var c []ui.Badge
+	if p.Operator != "" {
+		c = append(c, ui.Badge{Label: p.Operator, Plain: true})
+	}
+	if p.PurposeName != "" {
+		b := ui.Badge{Label: p.PurposeName, Plain: true}
+		if p.PurposeName == purposeLabels["training"] {
+			b.Kind = "info"
+		}
+		c = append(c, b)
+	}
+	return c
+}
+
 // agentPolicy is the Robots policy card. The form posts only this purpose, with
 // scope=one, to the Crawlers save handler, which merges it into the saved policy.
 type agentPolicy struct {
