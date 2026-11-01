@@ -19,12 +19,36 @@ type Resolved struct {
 // Rating, lists and text fall back to the site-wide value when the card's is
 // empty.
 func Resolve(site Profile, loc *Profile) Resolved {
-	if loc == nil || loc.NoOffice || (loc.Address.Street == "" && loc.Address.City == "") {
+	if !hasOffice(loc) {
 		return Resolved{}
 	}
+	return Resolved{Office: true, Profile: merge(site, *loc)}
+}
+
+// ResolveContact merges like Resolve but without the office rule: a locale
+// with no office still resolves its phone, contact points, country and the
+// other fallback fields. Office reports whether the card has an office; a nil
+// card resolves against the site-wide profile alone.
+func ResolveContact(site Profile, loc *Profile) Resolved {
+	var card Profile
+	if loc != nil {
+		card = *loc
+	}
+	return Resolved{Office: hasOffice(loc), Profile: merge(site, card)}
+}
+
+func hasOffice(loc *Profile) bool {
+	return loc != nil && !loc.NoOffice && (loc.Address.Street != "" || loc.Address.City != "")
+}
+
+func merge(site, loc Profile) Profile {
 	out := Profile{
 		Name:          loc.Name,
 		TaxID:         pick(loc.TaxID, site.TaxID),
+		VATID:         pick(loc.VATID, site.VATID),
+		CountryName:   loc.CountryName,
+		Description:   pick(loc.Description, site.Description),
+		Image:         loc.Image,
 		BusinessType:  pick(loc.BusinessType, DefaultType),
 		Address:       loc.Address,
 		Phone:         pick(loc.Phone, site.Phone),
@@ -44,7 +68,7 @@ func Resolve(site Profile, loc *Profile) Resolved {
 	if loc.Rating.Value != "" {
 		out.Rating = loc.Rating
 	}
-	return Resolved{Office: true, Profile: out}
+	return out
 }
 
 func pick(own, fallback string) string {

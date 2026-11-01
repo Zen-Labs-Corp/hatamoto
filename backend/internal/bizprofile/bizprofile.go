@@ -32,6 +32,11 @@ type ContactPoint struct {
 	Type  string `json:"type,omitempty"`
 	Phone string `json:"phone,omitempty"`
 	Email string `json:"email,omitempty"`
+	// Name labels the point (for example "Sales Europe"); AreaServed is a region
+	// or country; AvailableLanguage is a language name such as "English".
+	Name              string `json:"name,omitempty"`
+	AreaServed        string `json:"area_served,omitempty"`
+	AvailableLanguage string `json:"available_language,omitempty"`
 }
 
 // Hours is one block of regular opening hours; Opens and Closes are HH:MM.
@@ -55,7 +60,23 @@ type SpecialHours struct {
 type Rating struct {
 	Value string `json:"value,omitempty"`
 	Count string `json:"count,omitempty"`
+	// Best and Worst bound Value (default 5 and 0 when empty). CountType is
+	// "ratings" (default) or "reviews": what Count counts.
+	Best      string `json:"best,omitempty"`
+	Worst     string `json:"worst,omitempty"`
+	CountType string `json:"count_type,omitempty"`
 }
+
+// Values of Profile.OrgAddress. The empty value keeps the site-wide address on
+// every page.
+const (
+	// OrgAddressLocale prints the locale's office address and phone on the
+	// Organization, and none for a locale without an office.
+	OrgAddressLocale = "locale"
+	// OrgAddressLocaleOrSite is like OrgAddressLocale but falls back to the
+	// site-wide address for a locale without an office.
+	OrgAddressLocaleOrSite = "locale_or_site"
+)
 
 // Profile is the set of business fields. The site-wide profile uses every field
 // except BusinessType and NoOffice; a locale profile may use all of them.
@@ -79,6 +100,25 @@ type Profile struct {
 	GeoRegion     string         `json:"geo_region,omitempty"`
 	SameAs        []string       `json:"sameas,omitempty"`
 	Rating        Rating         `json:"rating"`
+
+	// Organisation details. Description, VATID, CountryName and Image also
+	// apply to a locale card; the rest is site-wide only.
+	Description   string `json:"description,omitempty"`
+	AlternateName string `json:"alternate_name,omitempty"`
+	Slogan        string `json:"slogan,omitempty"`
+	// FoundingDate is YYYY, YYYY-MM or YYYY-MM-DD.
+	FoundingDate string `json:"founding_date,omitempty"`
+	EmployeesMin int    `json:"employees_min,omitempty"`
+	EmployeesMax int    `json:"employees_max,omitempty"`
+	VATID        string `json:"vat_id,omitempty"`
+	// CountryName is the country as a locale card names it.
+	CountryName string `json:"country_name,omitempty"`
+	// Image is the media URL of a locale's local business image.
+	Image string `json:"image,omitempty"`
+	// LogoObject prints the logo as an ImageObject with its width and height.
+	LogoObject bool `json:"logo_object,omitempty"`
+	// OrgAddress is "", OrgAddressLocale or OrgAddressLocaleOrSite.
+	OrgAddress string `json:"org_address,omitempty"`
 }
 
 // Parse decodes a stored profile. Empty input, null and {} give the zero
