@@ -7,6 +7,7 @@
 .hm-pageheader__row:has(.hm-daterange) .hm-pageheader__text { flex: 1 1 24rem; }
 .hm-pageheader__chips { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
 .hm-pageheader__title { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.hm-pageheader__title--chips { gap: var(--space-2); }
 .hm-pageheader__text p { color: var(--color-hai); }
 .hm-crumbs { min-width: 0; overflow-wrap: anywhere; }
 .hm-crumbs__list { display: flex; gap: var(--space-1-5); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }

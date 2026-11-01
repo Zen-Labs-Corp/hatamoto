@@ -81,6 +81,7 @@ button.hm-daterange__preset { width: 100%; border: 0; background: none; font: in
 .hm-statcard { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .hm-statcard__label { margin: 0; color: var(--text-body); font-size: var(--text-sm); font-weight: var(--weight-regular); }
 .hm-statcard__value { margin: 0; color: var(--color-sumi); font-size: var(--text-metric); line-height: var(--leading-8); font-weight: var(--weight-medium); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.hm-statcard__value--muted { color: var(--text-muted); }
 .hm-statcard__status { margin: 0 0 var(--space-1); min-height: var(--leading-8); display: flex; align-items: center; }
 .hm-statcard--ring .hm-statcard__value { font-size: var(--text-xl); line-height: var(--leading-7); }
 .hm-statcard--ticker { gap: var(--space-2); }

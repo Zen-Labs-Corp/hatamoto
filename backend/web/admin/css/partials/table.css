@@ -22,7 +22,7 @@
 /* One header look for every table (hm/table, hm/datatable, analytics): small, sentence case, muted. */
 .hm-table thead th { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); background: transparent; }
 /* Group header rows (agents by purpose): one tbody per group, the title row spans every column. */
-.hm-table__group th { padding: var(--space-6) var(--space-4) var(--space-3); border-bottom: 0; text-align: left; white-space: normal; font-weight: var(--weight-regular); color: var(--text); }
+.hm-table__group th { background: var(--color-kasumi); padding: var(--space-6) var(--space-4) var(--space-3); border-bottom: 0; text-align: left; white-space: normal; font-weight: var(--weight-regular); color: var(--text); }
 .hm-table tbody:first-of-type .hm-table__group th { padding-top: var(--space-4); }
 .hm-table__group-title { margin: 0; font-size: var(--text-md); line-height: var(--leading-6); font-weight: var(--weight-semibold); color: var(--text); }
 .hm-table__group-desc { margin: var(--space-1) 0 0; max-width: 52ch; font-size: var(--text-sm); color: var(--text-muted); }
@@ -53,7 +53,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 .hm-table__sub { display: block; font-size: var(--text-xs); color: var(--color-hai); }
 .hm-inline { display: inline; }
 /* Inline proportion bar and trend line after a cell's text; both are SVG, widths are attributes. */
-.hm-cellbar { --viz: var(--color-accent); display: inline-block; vertical-align: middle; width: 96px; height: 6px; border-radius: var(--radius-full); overflow: hidden; }
+.hm-cellbar { --viz: var(--chart-3); display: inline-block; vertical-align: middle; width: 96px; height: 4px; border-radius: var(--radius-full); overflow: hidden; }
 .hm-cellbar__track { fill: var(--color-kasumi); }
 .hm-cellbar__fill { fill: var(--viz); }
 .hm-table .hm-spark { display: inline-block; vertical-align: middle; width: 120px; height: 32px; }
