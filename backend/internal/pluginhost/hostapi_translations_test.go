@@ -560,3 +560,33 @@ func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
 		})
 	}
 }
+
+func TestEntitiesCreateLinkErrorMapping(t *testing.T) {
+	for name, c := range map[string]struct {
+		linkErr error
+		code    string
+	}{
+		"store failure":  {errors.New("lock translation groups: boom"), sdk.ErrInternal},
+		"group rule":     {fmt.Errorf("%w: x", entity.ErrInvalidGroup), sdk.ErrInvalidArgument},
+		"locale is used": {entity.ErrLocaleTaken, sdk.ErrInvalidArgument},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newTransRig(t, true, true)
+			target := r.seed(r.page, "en-XX")
+			r.groups.linkErr = c.linkErr
+			_, err := r.call(t, fnEntitiesCreate, map[string]any{
+				"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+			})
+			if err == nil {
+				t.Fatal("no error")
+			}
+			he := r.api.toHostError("p", err)
+			if he.Code != c.code || (c.code == sdk.ErrInternal && strings.Contains(he.Message, "boom")) {
+				t.Fatalf("error = %s %q, want %s", he.Code, he.Message, c.code)
+			}
+			if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
+				t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
+			}
+		})
+	}
+}

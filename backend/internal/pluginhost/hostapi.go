@@ -229,7 +229,7 @@ func isInvalid(err error) bool {
 	for _, e := range []error{
 		entity.ErrValidationFailed, entity.ErrSlugAlreadyExists, entity.ErrInvalidStatus, entity.ErrRejectedByPlugin,
 		entity.ErrParentNotFound, entity.ErrParentCycle, entity.ErrParentTooDeep, entity.ErrAmbiguousSlug, entity.ErrAuthorNotFound, entity.ErrHasChildren,
-		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved, entity.ErrInvalidGroup,
+		entity.ErrInvalidDoc, entity.ErrPageSectionsRemoved,
 		taxonomy.ErrTermSlugConflict, menu.ErrSlugAlreadyExists, menu.ErrInvalidLinkType, menu.ErrInvalidLocation, menu.ErrInvalidAttrs,
 		media.ErrInvalidMimeType, media.ErrFileTooLarge, media.ErrInvalidFile, media.ErrImageTooLarge,
 		redirect.ErrDuplicateSourcePath, redirect.ErrInvalidStatusCode, redirect.ErrInvalidPattern, redirect.ErrUnsafePattern,
@@ -905,7 +905,11 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 			if delErr != nil {
 				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
 			}
-			return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
+			if errors.Is(err, entity.ErrInvalidGroup) {
+				return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
+			}
+			a.log.Warn("translation link failed", slog.Any("error", err))
+			return nil, herr(sdk.ErrInternal, "translation_of: could not link the translation")
 		}
 	}
 	return a.entityDTOGrouped(ctx, ent)
