@@ -76,6 +76,20 @@ func TestApplyLocale_SetsSegment(t *testing.T) {
 			t.Errorf("%s: Locale=%q Segment=%q, want segment %q", tt.locale, v.Locale, v.Segment, tt.want)
 		}
 	}
+	// A default served without a prefix reports no segment, even when one is stored.
+	storedSet, err := entity.NewLocaleSet("en-XX", []entity.LocaleEntry{{Tag: "en-XX", Segment: "xx"}, {Tag: "fr-XX", Segment: "yy"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := snapFor(storedSet)
+	for _, tt := range []struct{ locale, want string }{{"en-XX", ""}, {"fr-XX", "yy"}} {
+		v := &render.PageView{}
+		rr := &routeResult{Kind: resolveKindEntity, Locale: tt.locale, Page: &PublicPageResponse{Entity: &entity.Entity{Locale: tt.locale}}}
+		(&Server{}).applyLocaleSnap(context.Background(), stored, rr, v, "https://example.test", lookup)
+		if v.Segment != tt.want {
+			t.Errorf("stored segment, %s: Segment=%q, want %q", tt.locale, v.Segment, tt.want)
+		}
+	}
 	one := snapFor(businessSet(t, false, entity.LocaleEntry{Tag: "en"}))
 	v := &render.PageView{}
 	(&Server{}).applyLocaleSnap(context.Background(), one, &routeResult{Locale: "en"}, v, "https://example.test", lookup)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
@@ -42,7 +43,8 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 		loc = set.Default()
 	}
 	v.Locale = loc
-	v.Segment, _ = set.Segment(loc)
+	// Empty for a locale served without a prefix, even when a segment is stored.
+	v.Segment = strings.TrimPrefix(set.Prefix(loc), "/")
 	v.Site.Language = loc
 	if !shared {
 		v.Business, v.GeoRegion = business(set, loc)

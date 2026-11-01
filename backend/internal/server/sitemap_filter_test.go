@@ -121,6 +121,22 @@ func TestApplySitemapFilterFor_GroupName(t *testing.T) {
 			t.Fatalf("filter saw %+v; want group misc, language fr, segment fr, file fr-misc", got)
 		}
 	})
+	t.Run("unprefixed default with a stored segment", func(t *testing.T) {
+		set, err := entity.NewLocaleSet("en-XX", []entity.LocaleEntry{{Tag: "en-XX", Segment: "xx"}, {Tag: "fr-XX", Segment: "yy"}}, false, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+		reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+		snap, err := reg.Snapshot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := run(t, snap, []*entity.SitemapEntry{localeEntry("about", "en-XX", nil)}, "misc")
+		if got.Language != "en-XX" || got.Segment != "" {
+			t.Fatalf("filter saw %+v; want language en-XX and no segment", got)
+		}
+	})
 	t.Run("unprefixed default", func(t *testing.T) {
 		got := run(t, multiSitemapSnap(t, false), []*entity.SitemapEntry{localeEntry("about", "en", nil)}, "misc")
 		if got.Group != "misc" || got.Language != "en" || got.Segment != "" || got.File != "misc" {

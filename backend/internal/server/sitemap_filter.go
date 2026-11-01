@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"hatamoto.dev/sdk"
@@ -35,7 +36,8 @@ func (s *Server) applySitemapFilterFor(ctx context.Context, g *sitemapGroup, url
 	if g.locale != "" {
 		file = g.key
 		if s.entityService != nil {
-			segment, _ = s.urlSnapshot(ctx).Locales().Segment(g.locale)
+			// Empty for a locale served without a prefix, even when a segment is stored.
+			segment = strings.TrimPrefix(s.urlSnapshot(ctx).Locales().Prefix(g.locale), "/")
 		}
 	}
 	return s.applySitemapFilterLang(ctx, g.base, g.locale, segment, file, urls)
