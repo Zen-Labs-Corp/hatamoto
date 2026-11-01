@@ -56,13 +56,13 @@ func TestPartialSectionheadactOverflow(t *testing.T) {
 	out, err := newPartialAdmin(t).RenderPartial("hm/sectionheadact", map[string]any{
 		"V":        view,
 		"Action":   map[string]any{"Label": "New rule", "Href": "/admin/new", "Variant": "primary"},
-		"Overflow": []ui.Action{{Label: "Delete all rules", Post: "/admin/rules/delete-all", Danger: true}},
+		"Overflow": []ui.Action{{Label: "Delete all rules", Post: "/admin/rules/delete-all", Danger: true}, {Label: "Review rules", Href: "/admin/rules/review", Danger: true}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(out)
-	for _, want := range []string{`popovertarget="hm-overflow"`, `<form method="post" action="/admin/rules/delete-all"><input type="hidden" name="_csrf" value="tok">`, `hm-menu__item hm-menu__item--danger`} {
+	for _, want := range []string{`popovertarget="hm-overflow"`, `<form method="post" action="/admin/rules/delete-all"><input type="hidden" name="_csrf" value="tok">`, `hm-menu__item hm-menu__item--danger`, `hm-menu__item--danger" href="/admin/rules/review"`, `aria-expanded="false" aria-haspopup="menu" popovertarget="hm-overflow"`} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in %s", want, s)
 		}
