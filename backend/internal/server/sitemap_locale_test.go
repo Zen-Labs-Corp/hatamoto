@@ -211,3 +211,51 @@ func TestSitemapOmitsHiddenLocale(t *testing.T) {
 		t.Errorf("links = %+v", en[0].Links)
 	}
 }
+
+func TestSitemapAlternatesXDefault(t *testing.T) {
+	entries := []struct {
+		name    string
+		def     string
+		xdef    string
+		locales []string // locales that have a copy
+		want    string
+	}{
+		{"default not first", "fr", "", []string{"en", "fr", "nl"}, "https://x.io/fr/a"},
+		{"configured wins", "fr", "nl", []string{"en", "fr", "nl"}, "https://x.io/nl/a"},
+		{"configured without copy", "fr", "nl", []string{"en", "fr"}, "https://x.io/en/a"},
+		{"default without copy", "fr", "", []string{"en", "nl"}, "https://x.io/en/a"},
+	}
+	for _, tc := range entries {
+		t.Run(tc.name, func(t *testing.T) {
+			set, err := entity.NewLocaleSet(tc.def, []entity.LocaleEntry{{Tag: "en", Segment: "en"}, {Tag: "fr", Segment: "fr"}, {Tag: "nl", Segment: "nl"}}, true, tc.xdef)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+			reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+			snap, err := reg.Snapshot(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			g := uuid.New()
+			var es []*entity.SitemapEntry
+			for _, l := range tc.locales {
+				es = append(es, localeEntry("a", l, &g))
+			}
+			plan := planSitemap(sitemapInput{Snap: snap, BaseURL: "https://x.io", Today: testToday, Entries: es})
+			var links []HrefLang
+			for _, grp := range []string{"misc", "fr-misc", "nl-misc"} {
+				if urls, ok := plan.GroupURLs(grp); ok && len(urls) > 0 && len(urls[0].Links) > 0 {
+					links = urls[0].Links
+					break
+				}
+			}
+			if len(links) == 0 {
+				t.Fatal("no alternates")
+			}
+			if got := links[len(links)-1]; got.HrefLang != "x-default" || got.Href != tc.want {
+				t.Errorf("x-default = %+v, want %s", got, tc.want)
+			}
+		})
+	}
+}

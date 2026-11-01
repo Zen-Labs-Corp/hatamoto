@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -574,7 +575,7 @@ func (p *sitemapPlan) alternates(e *entity.SitemapEntry) []HrefLang {
 	}
 	set := p.locales()
 	var out []HrefLang
-	xdef := ""
+	var alts []render.Alternate
 	for _, tag := range set.PublicTags() {
 		for _, c := range cs {
 			if c.locale != tag {
@@ -582,14 +583,12 @@ func (p *sitemapPlan) alternates(e *entity.SitemapEntry) []HrefLang {
 			}
 			href := p.in.BaseURL + c.path
 			out = append(out, HrefLang{Rel: "alternate", HrefLang: tag, Href: href})
-			if xdef == "" || tag == set.XDefault() {
-				xdef = href
-			}
+			alts = append(alts, render.Alternate{Locale: tag, Href: href, Default: tag == set.Default()})
 			break
 		}
 	}
 	if len(out) < 2 {
 		return nil
 	}
-	return append(out, HrefLang{Rel: "alternate", HrefLang: "x-default", Href: xdef})
+	return append(out, HrefLang{Rel: "alternate", HrefLang: "x-default", Href: xDefaultHref(set, alts, func(render.Alternate) bool { return true })})
 }
