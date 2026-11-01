@@ -44,7 +44,7 @@ func TestGoogleWithoutProviderShowsTheBanner(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	for _, want := range []string{"What is Google doing?", "Google AI Overviews and Gemini use the same Googlebot crawl; Google-Extended only controls training use.",
-		"Connect Search Console</a> (plugin) to add impressions, clicks, position and index status.",
+		"Connect Search Console (plugin) to add impressions, clicks, position and index status.",
 		"Googlebot crawls", "995", "99% verified", "Pages crawled", "of 144 published", "Publish to first crawl", "6 h",
 		"Crawling", "Googlebot fetches per day, stacked by response class.", "google.json", "Pages through Google&#39;s eyes", ">Apply<",
 		"Hello &lt;world&gt;", "/post/hello", "556", "Edited page", ", stale", "/docs/v0/gone", ">404<", "Never", "Brand new page"} {
@@ -87,7 +87,7 @@ func TestGoogleFailingProviderIsABannerNotAnError(t *testing.T) {
 
 	g, _ := googleRig(t, &fakeSearchPerf{err: errors.New("boom")})
 	rec := g.do("GET", "/admin/analytics/google", "owner-token", nil, nil)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Connect Search Console</a> (plugin)") {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Connect Search Console (plugin)") {
 		t.Fatalf("status %d, banner missing", rec.Code)
 	}
 }
