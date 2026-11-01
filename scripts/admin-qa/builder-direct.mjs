@@ -53,7 +53,7 @@ async function open(name) {
   await p.waitForFunction(() => !!window.__hmBuilder, null, { timeout: 5000 });
   await settle(600);
 }
-const saved = () => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
+const saved = () => p.waitForFunction(() => /\bSaved\b|\bDraft saved\b/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
 const sig = async () => JSON.stringify(await tops());
 // Undo until the tree is what it was (Ctrl+Z needs focus off any input), then wait for the autosave to settle.
 async function restore(start) {

@@ -35,7 +35,7 @@ async function open(p, id) {
   await wait(p, 800);
   for (const g of await p.getByRole("button", { name: "Dismiss hints" }).all()) await g.click().catch(() => {}); // the hint bar covers the canvas
 }
-const saved = (p) => p.waitForFunction(() => /Saved/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
+const saved = (p) => p.waitForFunction(() => /\bSaved\b|\bDraft saved\b/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 20000 });
 async function drop(p, id) {
   await p.goto(`${base}${admin}/entities`);
   const t = await csrf(p);
