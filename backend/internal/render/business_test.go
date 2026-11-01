@@ -496,3 +496,18 @@ func TestLocalBusiness_GeoKeepsHandTypedNumbers(t *testing.T) {
 		}
 	}
 }
+
+// With an address setting the effective phone is the locale's, but the site
+// phone still prints as a point when no locale point carries it.
+func TestOrgNode_SitePhonePointWithAddressSetting(t *testing.T) {
+	for _, mode := range []string{"locale", "locale_or_site"} {
+		points, _ := orgOf(t, multiPage(mode))["contactPoint"].([]any)
+		var tels []any
+		for _, p := range points {
+			tels = append(tels, p.(map[string]any)["telephone"])
+		}
+		if want := []any{"xx-phone", "zz-phone", "site-phone"}; !reflect.DeepEqual(tels, want) {
+			t.Errorf("%s: contact point phones = %v, want %v", mode, tels, want)
+		}
+	}
+}

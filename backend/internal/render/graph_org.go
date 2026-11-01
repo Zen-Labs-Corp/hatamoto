@@ -129,8 +129,8 @@ func orgNode(v *PageView, base string) map[string]any {
 
 // orgContactPoints lists the Organization's contact points: on a locale page
 // one per locale that has a phone of its own (named by the card's country and
-// language only), then the site-wide point for the effective phone unless a
-// locale point already carries that number. Single-locale and shared pages print the site-wide point
+// language only), then a site-wide point for the effective phone and, on locale pages, the
+// site phone, each unless an earlier point already carries that number. Single-locale and shared pages print the site-wide point
 // alone, as before.
 func orgContactPoints(v *PageView, phone string) []any {
 	var points []any
@@ -147,8 +147,16 @@ func orgContactPoints(v *PageView, phone string) []any {
 			seen[l.Phone] = true
 		}
 	}
-	if phone != "" && !seen[phone] {
-		contact := map[string]any{"@type": "ContactPoint", "telephone": phone, "contactType": "customer service"}
+	phones := []string{phone}
+	if localePage(v) {
+		phones = append(phones, v.Site.Phone)
+	}
+	for _, p := range phones {
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		contact := map[string]any{"@type": "ContactPoint", "telephone": p, "contactType": "customer service"}
 		if v.Site.Language != "" {
 			contact["availableLanguage"] = v.Site.Language
 		}
