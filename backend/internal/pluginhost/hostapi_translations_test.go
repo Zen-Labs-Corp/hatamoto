@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/sdk"
@@ -73,6 +76,26 @@ func (f *locEntities) GetByID(_ context.Context, id uuid.UUID) (*entity.Entity, 
 	return nil, entity.ErrEntityNotFound
 }
 
+func (f *locEntities) Update(ctx context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
+	e, err := f.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if in.Name != nil {
+		e.Name = *in.Name
+	}
+	return e, nil
+}
+
+func (f *locEntities) UpdateStatus(ctx context.Context, id uuid.UUID, _ *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {
+	e, err := f.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	e.Status = st
+	return e, nil
+}
+
 func (f *locEntities) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -105,6 +128,8 @@ type fakeGroups struct {
 	members   map[uuid.UUID][]entity.Member
 	groupOf   int
 	groupsFor int
+	// groupErr fails GroupOf and GroupsFor.
+	groupErr error
 }
 
 func (f *fakeGroups) Link(_ context.Context, ids ...uuid.UUID) (uuid.UUID, error) {
@@ -124,6 +149,9 @@ func (f *fakeGroups) GroupOf(_ context.Context, id uuid.UUID) (*uuid.UUID, error
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.groupOf++
+	if f.groupErr != nil {
+		return nil, f.groupErr
+	}
 	if m, ok := f.groups[id]; ok {
 		return &m.Group, nil
 	}
@@ -134,6 +162,9 @@ func (f *fakeGroups) GroupsFor(_ context.Context, ids []uuid.UUID) (map[uuid.UUI
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.groupsFor++
+	if f.groupErr != nil {
+		return nil, f.groupErr
+	}
 	out := map[uuid.UUID]entity.GroupMember{}
 	for _, id := range ids {
 		if m, ok := f.groups[id]; ok {
@@ -259,8 +290,7 @@ func TestEntitiesCreateTranslationOfRejects(t *testing.T) {
 			t.Errorf("%s: no error", name)
 			continue
 		}
-		var he *sdk.HostError
-		if errors.As(err, &he) && he.Code != c.code {
+		if he := r.api.toHostError("p", err); he.Code != c.code {
 			t.Errorf("%s: code %s, want %s", name, he.Code, c.code)
 		}
 	}
@@ -487,5 +517,46 @@ func TestEntitiesGetPathPrefixFollowsSDKRange(t *testing.T) {
 		if paths.gotPrefix != want {
 			t.Errorf("range %q: locale prefix = %v, want %v", rng, paths.gotPrefix, want)
 		}
+	}
+}
+
+func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
+	calls := map[string]func(r *transRig, id uuid.UUID) error{
+		"get": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesGet, map[string]any{"id": id.String()})
+			return err
+		},
+		"list": func(r *transRig, _ uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesList, map[string]any{"schema_slug": "page"})
+			return err
+		},
+		"create": func(r *transRig, _ uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX"})
+			return err
+		},
+		"update": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesUpdate, map[string]any{"id": id.String(), "name": "y"})
+			return err
+		},
+		"status": func(r *transRig, id uuid.UUID) error {
+			_, err := r.call(t, fnEntitiesStatus, map[string]any{"id": id.String(), "status": "published"})
+			return err
+		},
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			r := newTransRig(t, true, true)
+			ent := r.seed(r.page, "en-XX")
+			ent.Schema = r.page // the service reads it on update and status
+			r.groups.groupErr = fmt.Errorf("group of entity: %w", &pgconn.PgError{Message: "boom"})
+			err := call(r, ent.ID)
+			if err == nil {
+				t.Fatal("no error")
+			}
+			he := r.api.toHostError("p", err)
+			if he.Code != sdk.ErrInternal || strings.Contains(he.Message, "boom") {
+				t.Fatalf("error = %s %q, want internal without the cause", he.Code, he.Message)
+			}
+		})
 	}
 }

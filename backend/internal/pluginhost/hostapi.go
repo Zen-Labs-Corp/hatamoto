@@ -646,22 +646,24 @@ func (a *API) entityDTO(ctx context.Context, e *entity.Entity) entityDTO {
 	return dto
 }
 
-// entityDTOGrouped is entityDTO plus the translation group, looked up best
-// effort: a failed lookup leaves the field out and is logged.
-func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) entityDTO {
+// entityDTOGrouped is entityDTO plus the translation group. A missing field
+// always means "ungrouped", so a failed lookup is an error, never a silent
+// omission. For create, update and status the write is already committed when
+// the lookup runs; the plugin sees internal and can read the entity back.
+func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) (entityDTO, error) {
 	dto := a.entityDTO(ctx, e)
 	if a.svc.Groups == nil {
-		return dto
+		return dto, nil
 	}
 	g, err := a.svc.Groups.GroupOf(ctx, e.ID)
 	if err != nil {
-		a.log.Warn("entity translation group lookup failed", slog.String("entity_id", e.ID.String()), slog.Any("error", err))
-		return dto
+		a.log.Warn("translation group lookup failed", slog.String("entity_id", e.ID.String()), slog.Any("error", err))
+		return entityDTO{}, herr(sdk.ErrInternal, "translation group lookup failed")
 	}
 	if g != nil {
 		dto.TranslationGroup = g.String()
 	}
-	return dto
+	return dto, nil
 }
 
 // multiLocale reports whether the site serves two or more locales.
@@ -761,7 +763,7 @@ func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessag
 	default:
 		return nil, herr(sdk.ErrInvalidArgument, "id, path, or slug (with an optional parent_id) is required")
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -808,7 +810,8 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 			ids = append(ids, it.ID)
 		}
 		if groups, err = a.svc.Groups.GroupsFor(ctx, ids); err != nil {
-			a.log.Warn("entity translation groups lookup failed", slog.Any("error", err))
+			a.log.Warn("translation group lookup failed", slog.Any("error", err))
+			return nil, herr(sdk.ErrInternal, "translation group lookup failed")
 		}
 	}
 	items := make([]entityDTO, 0, len(res.Items))
@@ -905,7 +908,7 @@ func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMes
 			return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
 		}
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 // localeRequiredSince is the first SDK version whose plugins must name the
@@ -1074,7 +1077,7 @@ func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -1100,7 +1103,7 @@ func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	return a.entityDTOGrouped(ctx, ent), nil
+	return a.entityDTOGrouped(ctx, ent)
 }
 
 func fnEntitiesDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
