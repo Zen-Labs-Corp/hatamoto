@@ -78,6 +78,9 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+seoTitlesPath, a.handleSEOTitles)
 	owner.HandleFunc("POST "+seoTitlesPath, a.handleSEOTitlesSave)
 	owner.HandleFunc("POST "+seoTitlesPath+"/preview", a.handleSEOTitlesPreview)
+	owner.HandleFunc("GET "+seoSocialPath, a.handleSEOSocial)
+	owner.HandleFunc("POST "+seoSocialPath, a.handleSEOSocialSave)
+	owner.HandleFunc("POST "+seoSocialPath+"/preview", a.handleSEOSocialPreview)
 }
 
 // seoFieldID turns a validation field name ("type[doc][title]") into the id of
@@ -445,6 +448,10 @@ func seoFieldLabel(field string) string {
 		return field
 	}
 	switch m[1] {
+	case "social":
+		return seoSocialLabel(m[2], m[3])
+	case "social_taxonomy":
+		return kindLabel(m[2]) + " social title"
 	case "type":
 		return m[2] + " " + m[3]
 	case "taxonomy":
@@ -597,4 +604,25 @@ func firstNonEmptyString(vs ...string) string {
 		}
 	}
 	return ""
+}
+
+// seoSocialLabel names a Social tab field: a fixed one ("card") or a content
+// type's ("doc", "title").
+func seoSocialLabel(name, part string) string {
+	if part != "" {
+		return name + " social " + part
+	}
+	switch name {
+	case "card":
+		return "X card"
+	case "twitter_site":
+		return "X handle"
+	case "fb_app_id":
+		return "Facebook app ID"
+	case "fb_page":
+		return "Facebook page"
+	case "image":
+		return "Default share image"
+	}
+	return name
 }
