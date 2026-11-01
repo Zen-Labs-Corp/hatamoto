@@ -39,10 +39,9 @@
       "contactPoint": [
         {
           "@type": "ContactPoint",
-          "areaServed": "XX",
+          "areaServed": "Exland",
           "availableLanguage": "English",
           "contactType": "customer service",
-          "name": "Sales",
           "telephone": "+00 111 1111"
         },
         {

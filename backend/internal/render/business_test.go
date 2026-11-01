@@ -316,7 +316,7 @@ func TestOrgNode_AreaServedAndContactPoints(t *testing.T) {
 	if xx["telephone"] != "xx-phone" || xx["areaServed"] != "Xland" || xx["availableLanguage"] != "English" {
 		t.Errorf("xx point = %v", xx)
 	}
-	if zz["name"] != "Sales" || zz["areaServed"] != "Europe" || zz["availableLanguage"] != "Franglais" {
+	if _, named := zz["name"]; named || zz["areaServed"] != "Zland" || zz["availableLanguage"] != "French" {
 		t.Errorf("zz point = %v", zz)
 	}
 	if site["telephone"] != "site-phone" || site["availableLanguage"] != "en-XX" {
@@ -455,5 +455,18 @@ func TestLocalBusinessNode_GeoAndHoursShapes(t *testing.T) {
 	}
 	if _, ok := lb["specialOpeningHoursSpecification"].(map[string]any); !ok {
 		t.Errorf("one special row must be an object: %v", lb["specialOpeningHoursSpecification"])
+	}
+}
+
+func TestOrgNode_NoRepeatedContactPhone(t *testing.T) {
+	v := multiPage("locale")
+	points, _ := orgOf(t, v)["contactPoint"].([]any)
+	seen := map[any]bool{}
+	for _, p := range points {
+		tel := p.(map[string]any)["telephone"]
+		if seen[tel] {
+			t.Errorf("telephone %v appears twice: %v", tel, points)
+		}
+		seen[tel] = true
 	}
 }
