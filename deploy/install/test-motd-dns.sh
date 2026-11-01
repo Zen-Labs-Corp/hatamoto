@@ -217,7 +217,9 @@ grep -qx 'systemctl disable --now hatamoto-dns-switch.timer' "$tmp/calls" || fai
 [ "$(cat "$r/var/lib/hatamoto-install/link")" = "https://cms.example.com/k7qm-x2rf-9tdc" ] || fail "set-domain link"
 grep -q 'Admin: https://cms.example.com/k7qm-x2rf-9tdc' "$tmp/o" || fail "admin link not printed"
 if grep -q 'K7M2' "$tmp/o"; then fail "set-domain printed the setup code"; fi
-[ -z "$(ls "$r/etc/caddy" | grep -v '^Caddyfile$')" ] || fail "caddy temp left: $(ls "$r/etc/caddy")"
+for f in "$r"/etc/caddy/*; do
+  [ "${f##*/}" = Caddyfile ] || fail "caddy temp left: ${f##*/}"
+done
 pass "set-domain with DNS ok rewrites env and Caddyfile, keeps the old host as a redirect"
 
 # same host again: no-op
@@ -310,6 +312,7 @@ isd="$tmp/asm/install.sh"
 floor="$(cat "$here/MIN_CORE_VERSION")"
 isd_root() { # isd_root NAME CORE_VERSION_OUTPUT
   local d; d="$(sd_root "$1" "$auto_cf")"
+  # shellcheck disable=SC2016 # the single-quoted script expands in the stub, not here
   printf '#!/bin/sh\ncase "$1" in version) echo "%s" ;; *) echo "$PUBLIC_BASE_URL/k7qm-x2rf-9tdc" ;; esac\n' "$2" > "$d/opt/hatamoto/bin/hatamoto"
   echo "$d"
 }

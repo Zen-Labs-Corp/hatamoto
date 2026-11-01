@@ -190,6 +190,7 @@ grep -qxF 'deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.asc] 
 [ -s "$cj/usr/share/keyrings/caddy-stable-archive-keyring.asc" ] || fail "caddy key not stored"
 [ "$(grep -c '^apt-get -o DPkg::Lock::Timeout=600 update' "$tmp/calls")" = 2 ] || fail "jammy must update once after adding both repositories"
 for sys in "ubuntu 24.04 noble" "debian 12 bookworm"; do
+  # shellcheck disable=SC2086 # $sys is split on purpose into positional parameters
   set -- $sys
   cn="$(mkroot "caddyno$1" "$1" "$2" "$3")"
   run_build "$cn" >/dev/null 2>&1 || fail "$sys build failed"
@@ -205,11 +206,11 @@ pass "Caddy repository on jammy only, key fingerprint pinned"
 pb="$(mkroot pgdgbad ubuntu 24.04 noble)"
 if run_build "$pb" FAKE_KEY_BAD=pgdg >/dev/null 2>"$tmp/err"; then fail "a PostgreSQL key with another fingerprint was accepted"; fi
 grep -q 'PostgreSQL repository key has fingerprint 0000.*expected B97B0AFC' "$tmp/err" || fail "pgdg fingerprint message: $(cat "$tmp/err")"
-[ ! -e "$pb/etc/apt/sources.list.d/pgdg.list" ] && [ ! -e "$pb/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg list or key kept for a bad key"
+if [ -e "$pb/etc/apt/sources.list.d/pgdg.list" ] || [ -e "$pb/usr/share/keyrings/postgresql-archive-keyring.asc" ]; then fail "pgdg list or key kept for a bad key"; fi
 pe="$(mkroot pgdgextra ubuntu 24.04 noble)"
 if run_build "$pe" FAKE_KEY_EXTRA=pgdg >/dev/null 2>"$tmp/err"; then fail "a PostgreSQL key file with an extra key was accepted"; fi
 grep -q 'PostgreSQL repository key has fingerprint several-keys' "$tmp/err" || fail "pgdg extra key message: $(cat "$tmp/err")"
-[ ! -e "$pe/etc/apt/sources.list.d/pgdg.list" ] && [ ! -e "$pe/usr/share/keyrings/postgresql-archive-keyring.asc" ] || fail "pgdg list or key kept for an extra key"
+if [ -e "$pe/etc/apt/sources.list.d/pgdg.list" ] || [ -e "$pe/usr/share/keyrings/postgresql-archive-keyring.asc" ]; then fail "pgdg list or key kept for an extra key"; fi
 ce="$(mkroot caddyextra ubuntu 22.04 jammy)"
 if run_build "$ce" FAKE_KEY_EXTRA=caddy >/dev/null 2>"$tmp/err"; then fail "a Caddy key file with an extra key was accepted"; fi
 grep -q 'Caddy repository key has fingerprint several-keys' "$tmp/err" || fail "caddy extra key message: $(cat "$tmp/err")"
@@ -218,6 +219,7 @@ pass "PostgreSQL repository key fingerprint pinned, an extra key is refused"
 
 # --- known codenames are never probed and keep their own suite, even when the archive looks down
 for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
+  # shellcheck disable=SC2086 # $sys is split on purpose into positional parameters
   set -- $sys
   kn="$(mkroot "known$3" "$1" "$2" "$3")"
   : > "$tmp/calls"
@@ -281,6 +283,7 @@ pass "apt update retried on the lists lock only, bounded, install not retried"
 # --- refusals
 systems="supported systems are Ubuntu 22.04, 24.04, 26.04 LTS and Debian 12, 13"
 for bad in "fedora 40 " "debian 11 bullseye"; do
+  # shellcheck disable=SC2086 # $bad is split on purpose into positional parameters
   set -- $bad
   if run_build "$(mkroot "bad$1$2" "$1" "$2" "${3:-}")" >/dev/null 2>"$tmp/err"; then fail "$1 $2 accepted"; fi
   grep -q "unsupported system: $1 $2: $systems" "$tmp/err" || fail "unsupported message for $1 $2: $(cat "$tmp/err")"
@@ -289,6 +292,7 @@ pass "unsupported OS dies with a message listing the five systems"
 
 # --- accepted systems
 for sys in "ubuntu 22.04 jammy" "ubuntu 24.04 noble" "ubuntu 26.04 resolute" "debian 12 bookworm" "debian 13 trixie"; do
+  # shellcheck disable=SC2086 # $sys is split on purpose into positional parameters
   set -- $sys
   run_build "$(mkroot "ok$1$2" "$1" "$2" "$3")" >/dev/null 2>"$tmp/err" || fail "$sys refused: $(cat "$tmp/err")"
   if grep -q 'not a supported LTS' "$tmp/err"; then fail "$sys warned"; fi
