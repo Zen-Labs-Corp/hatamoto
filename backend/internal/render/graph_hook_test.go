@@ -127,7 +127,7 @@ func TestMergeSiteGraph(t *testing.T) {
 		{"@id": "a", "n": 2, "k": 9},
 		{"@type": "NoID", "name": "dropped"},
 		{"@id": "c", "name": "new"},
-		{"@id": "c", "name": "duplicate"},
+		{"@id": "c", "name": "duplicate", "extra": "key"},
 		{"@id": "", "name": "empty id"},
 	}
 	got := mergeSiteGraph(core, plugin)

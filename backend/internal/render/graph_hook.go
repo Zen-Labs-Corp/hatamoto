@@ -99,13 +99,18 @@ func mergeSiteGraph(core, plugin []map[string]any) []map[string]any {
 		}
 	}
 	copied := make(map[int]bool)
+	appended := make(map[string]bool)
 	for _, p := range plugin {
 		id, ok := p["@id"].(string)
 		if !ok || id == "" {
 			continue
 		}
 		i, known := index[id]
+		if appended[id] {
+			continue
+		}
 		if !known {
+			appended[id] = true
 			index[id] = len(out)
 			copied[len(out)] = true
 			out = append(out, shallowCopy(p))
