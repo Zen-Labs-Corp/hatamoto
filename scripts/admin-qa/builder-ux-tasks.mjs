@@ -1018,7 +1018,7 @@ await check("more-menu-order: Versions, Page settings, Site styles (owner), Keyb
   return items.join(" | ");
 });
 
-await check("add-tab: Navigator | Add is a tab list with roving focus; the Add tab lists Patterns and searches", async () => {
+await check("add-tab: Navigator | Insert is a tab list with roving focus; the Insert tab lists Sections and searches", async () => {
   const id = await seeded(main, ["heading"]);
   const tabs = main.locator("[data-hm-bs-ltabs] [role=tab]");
   need((await tabs.count()) === 2, "two tabs expected");
@@ -1026,10 +1026,10 @@ await check("add-tab: Navigator | Add is a tab list with roving focus; the Add t
   need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("tabindex")) === "-1", "the inactive tab is in the tab order");
   await main.locator('[data-hm-bs-ltab="nav"]').focus();
   await main.keyboard.press("ArrowRight");
-  need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("aria-selected")) === "true", "ArrowRight did not select Add");
-  need(await main.locator("#hm-bs-lp-add").isVisible(), "the Add panel is hidden");
+  need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("aria-selected")) === "true", "ArrowRight did not select Insert");
+  need(await main.locator("#hm-bs-lp-add").isVisible(), "the Insert panel is hidden");
   const groups = await main.locator("[data-hm-bs-lpanel=add] h3").allInnerTexts();
-  need(groups.includes("Patterns") && groups.includes("Recent") === (groups[0] === "Recent"), "groups: " + groups.join("|"));
+  need(groups.includes("Sections") && groups.includes("Recent") === (groups[0] === "Recent"), "groups: " + groups.join("|"));
   await main.locator("#hm-bs-pal-q").fill("zzzz");
   need(/Nothing matches/.test(await main.locator("[data-hm-bs-lpanel=add]").innerText()), "no empty message");
   await main.locator("#hm-bs-pal-q").fill("");
@@ -1253,11 +1253,11 @@ await check("insertAt-resolves-after-insert: the UX-2 contract resolves true onl
   return JSON.stringify(r);
 });
 
-await check("add-tab-compact: one short Patterns row with a toggle, elements in view, and he + Enter inserts Heading", async () => {
+await check("add-tab-compact: one short Sections row with a toggle, blocks in view, and he + Enter inserts Heading", async () => {
   const id = await newDraft(main);
   await openBuilder(main, id);
   await showAdd(main);
-  const pats = main.locator('[data-hm-bs-palette] section[aria-label="Patterns"]');
+  const pats = main.locator('[data-hm-bs-palette] section[aria-label="Sections"]');
   const n = await pats.locator("[data-pal]").count();
   need(n >= 1 && n <= 4, `${n} pattern tiles show before Show all`);
   const toggle = pats.getByRole("button", { name: /^Show all patterns \(\d+\)$/ });
@@ -1271,7 +1271,7 @@ await check("add-tab-compact: one short Patterns row with a toggle, elements in 
     await main.evaluate(() => document.activeElement.blur()); // the "/" key is for focus outside controls
   }
   const pane = await main.locator('[data-hm-bs-lpanel="add"]').boundingBox();
-  const head = await main.locator('[data-hm-bs-palette] section[aria-label="Elements"] [data-pal="heading"]').boundingBox();
+  const head = await main.locator('[data-hm-bs-palette] section[aria-label="Blocks"] [data-pal="heading"]').boundingBox();
   need(head && head.y + head.height <= pane.y + pane.height, `Heading is below the fold: ${head?.y} vs pane bottom ${pane.y + pane.height}`);
   await main.keyboard.press("/");
   await main.keyboard.type("he");
@@ -1319,7 +1319,7 @@ await check("phone-chrome: one pane chooser (the dock) and the status chip says 
   await settle(main, 400);
   try {
     await main.locator('[data-hm-bs-dock="add"]').click();
-    need(!(await main.locator(".hm-bs__ltabs").isVisible()), "the inner Navigator | Add tab list shows under the dock");
+    need(!(await main.locator(".hm-bs__ltabs").isVisible()), "the inner Navigator | Insert tab list shows under the dock");
     const chip = await main.locator("[data-hm-bs-state] .hm-savestate").evaluate((e) => ({ after: getComputedStyle(e, "::after").content, w: parseFloat(getComputedStyle(e, "::after").width) }));
     need(/Saved/.test(chip.after) && chip.w > 20, "the chip shows " + JSON.stringify(chip));
     return "dock only, chip " + chip.after;
@@ -1533,9 +1533,9 @@ await check("axe: start panel on an empty page", async () => {
   await ax.locator(".hm-bs__start").waitFor({ timeout: 5000 });
   return axeOn(ax, "start panel");
 });
-await check("axe: Add tab (patterns and tiles)", async () => {
+await check("axe: Insert tab (sections and blocks)", async () => {
   await showAdd(ax);
-  return axeOn(ax, "Add tab");
+  return axeOn(ax, "Insert tab");
 });
 await check("axe: builder with a selection", async () => {
   await seed(ax, ["heading", "text"]);
