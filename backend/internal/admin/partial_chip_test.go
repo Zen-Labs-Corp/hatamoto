@@ -88,17 +88,27 @@ func TestPartialCalloutIconName(t *testing.T) {
 func TestPartialDangerConfirmButtons(t *testing.T) {
 	t.Parallel()
 
-	out, err := newPartialAdmin(t).RenderPartial("hm/danger-confirm", ui.DangerConfirm{ID: "dc", Action: "/x", Back: "/y", Phrase: "go", Title: "Sure?", Prompt: "Type go.", Label: "Do it"})
+	a := newPartialAdmin(t)
+	dc := ui.DangerConfirm{ID: "dc", Action: "/x", Back: "/y", Phrase: "go", Title: "Sure?", Prompt: "Type go.", Label: "Do it"}
+	out, err := a.RenderPartial("hm/danger-confirm", dc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(out); !strings.Contains(s, "hm-btn--danger") || strings.Contains(s, "hm-btn--ghost") || strings.Contains(s, "hm-btn--primary") {
+		t.Errorf("the default submit is the red danger button with a plain Cancel: %s", s)
+	}
+	dc.Tone = "ink"
+	out, err = a.RenderPartial("hm/danger-confirm", dc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(out)
 	for _, want := range []string{`hm-btn--ghost`, `hm-btn--primary`} {
 		if !strings.Contains(s, want) {
-			t.Errorf("missing %s in %s", want, s)
+			t.Errorf("Tone ink: missing %s in %s", want, s)
 		}
 	}
 	if strings.Contains(s, "hm-btn--danger") {
-		t.Errorf("the submit is ink, not red: %s", s)
+		t.Errorf("Tone ink: the submit is ink, not red: %s", s)
 	}
 }

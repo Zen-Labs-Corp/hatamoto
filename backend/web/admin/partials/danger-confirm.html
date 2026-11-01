@@ -1,9 +1,11 @@
 {{/* hm/danger-confirm: an inline danger card with a typed phrase. The form is
      self-contained and identical with and without JS. The submit never carries
      disabled in server HTML; components.js disables it until the typed text
-     equals the phrase, and the server checks confirm_phrase either way. */}}
+     equals the phrase, and the server checks confirm_phrase either way. The submit is
+     the red danger button; Tone "ink" (the locale convert confirm only) makes it
+     the filled ink primary with a ghost Cancel. */}}
 {{define "hm/danger-confirm"}}<form method="post" action="{{required "hm/danger-confirm Action" .Action}}" class="hm-danger-confirm" data-hm-danger-confirm data-hm-danger-phrase="{{required "hm/danger-confirm Phrase" .Phrase}}">{{template "hm/csrf" .}}{{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
 {{template "hm/card-start" (dict "Class" "hm-danger-confirm__card" "ID" (required "hm/danger-confirm ID" .ID) "Title" (required "hm/danger-confirm Title" .Title))}}
 {{range .Body}}<p>{{range .Parts}}{{if .Code}}<code>{{.Text}}</code>{{else if .Strong}}<strong>{{.Text}}</strong>{{else}}{{.Text}}{{end}}{{end}}</p>{{end}}
 {{template "hm/field" (dict "ID" (printf "%s-phrase" .ID) "Name" "confirm_phrase" "Label" (required "hm/danger-confirm Prompt" .Prompt) "Error" .Error "Attrs" (cond (ne .Error "") (attrmap "autocomplete" "off" "autocapitalize" "off" "autocorrect" "off" "spellcheck" "false" "data-hm-danger-input" "" "autofocus" "autofocus") (attrmap "autocomplete" "off" "autocapitalize" "off" "autocorrect" "off" "spellcheck" "false" "data-hm-danger-input" "")))}}
-{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" (or .CancelLabel "Cancel") "Variant" "ghost" "Href" (required "hm/danger-confirm Back" .Back))}}{{template "hm/button" (dict "Label" (required "hm/danger-confirm Label" .Label) "Variant" "primary" "Type" "submit" "Attrs" (attrmap "data-hm-danger-submit" ""))}}{{template "hm/card-foot-end"}}</form>{{end}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" (or .CancelLabel "Cancel") "Variant" (cond (eq .Tone "ink") "ghost" "") "Href" (required "hm/danger-confirm Back" .Back))}}{{template "hm/button" (dict "Label" (required "hm/danger-confirm Label" .Label) "Variant" (cond (eq .Tone "ink") "primary" "danger") "Type" "submit" "Attrs" (attrmap "data-hm-danger-submit" ""))}}{{template "hm/card-foot-end"}}</form>{{end}}

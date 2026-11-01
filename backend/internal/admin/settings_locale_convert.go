@@ -516,6 +516,7 @@ func (a *Admin) convertApplyDanger(r *http.Request, plan, sha, fp string) ui.Dan
 		Action: a.convertURL("apply"),
 		Back:   a.convertURL(),
 		Label:  "Convert now",
+		Tone:   "ink",
 		CSRF:   csrfToken(r.Context()),
 		Hidden: []ui.ConfirmHidden{{Name: "plan", Value: plan}, {Name: "plan_sha256", Value: sha}, {Name: "data_fingerprint", Value: fp}},
 		Body: []ui.DangerText{
