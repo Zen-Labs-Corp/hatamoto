@@ -611,3 +611,20 @@ func convertH1(body string) string {
 	h1, _, _ := strings.Cut(rest, "</h1>")
 	return h1
 }
+
+// A report stored before the sitemap naming existed shows the row as not
+// recorded, not as a blank value with a group reason.
+func TestConvertChecks_NamingNotRecorded(t *testing.T) {
+	t.Parallel()
+	table := convertChecks(&localeconv.Report{})
+	for _, row := range table.Rows {
+		if row.Label != "Sitemap file names" {
+			continue
+		}
+		if row.Cells[0] != "not recorded" || strings.Contains(row.Cells[1], "one file per locale") {
+			t.Errorf("row = %v", row.Cells)
+		}
+		return
+	}
+	t.Error("no Sitemap file names row")
+}

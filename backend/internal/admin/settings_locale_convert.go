@@ -454,8 +454,12 @@ func convertChecks(rep *localeconv.Report) ui.DataTable {
 		unmatched = append(unmatched, fmt.Sprintf("%s=%s (%d)", u.Attribute, u.Value, u.Count))
 	}
 	naming, namingReason := rep.SiteSettings.SitemapNaming[1], "one file per locale and group"
-	if naming == localeconv.NamingLegacy {
+	switch naming {
+	case localeconv.NamingLegacy:
 		namingReason = "the conversion removed per-locale sitemap groups; keeps the previous file names"
+	case "":
+		// A report stored before the setting existed.
+		naming, namingReason = "not recorded", "this conversion ran before the setting existed"
 	}
 	groups := fmt.Sprintf("%d singletons, %d conflicts", rep.Groups.Singletons, len(rep.Groups.Conflicts))
 	return ui.DataTable{
