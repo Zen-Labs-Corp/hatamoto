@@ -139,7 +139,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "partials/field.html", Needle: `hm-field__chipbox" type="checkbox"`, Reason: "toggle chip: one pill per option in a multi-pick group"},
 	{Rule: "UI-03", File: "pages/settings/packageconfirm.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `"confirm"`, Reason: reasonConsent},
-	{Rule: "UI-03", File: "pages/settings/spam.html", Needle: `"Name" "scripts"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/plugins/permissions.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "partials/form-apikey.html", Needle: `"scopes"`, Reason: reasonMulti},
