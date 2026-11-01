@@ -812,7 +812,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has three tabs. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has five tabs: General, Titles & meta, Social, Schema and Knowledge graph. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -841,6 +841,29 @@ An entry's SEO panel, on its Social tab, also takes a social title and a social 
 description, and an empty value removes the key. The tab shows a share card preview built the
 way the public head builds it. The entity form, the blog editor and the Builder SEO drawer carry
 the fields; term panels do not.
+
+Schema (`<admin>/settings/seo/schema`) sets the structured data type of each content type. A row
+per type offers the allowed schema.org types, with "Default" as the first option: choosing it
+stores nothing and the page keeps the markup it has today. Types whose Article-family type is
+chosen also offer a subtype (Article, BlogPosting or NewsArticle), and a switch turns off the
+FAQ data taken from a page's content (on by default). A type whose schema is annotated with a
+schema.org type, and a built-in type, are shown read-only, because their markup is set elsewhere.
+Precedence, highest first: a plugin's builder, the type's schema annotation, the type chosen
+here, then the built-in markup. Changing a type changes only `@type`; the `@id` and the other
+fields keep the shape of the generated markup. A type whose markup comes from a plugin ignores
+the override. Saving patches only the rows that changed.
+
+Knowledge graph (`<admin>/settings/seo/knowledge-graph`) is read-only. It shows the site's
+Organization and WebSite data the public head emits (name, logo, profile links, and the locales
+with their own business details), links to where each value is edited (General and Locales >
+Business details) and previews the resulting JSON-LD, built by the same code as the public site.
+
+An entry's SEO panel has a Schema tab, also on the entity form, the blog editor and the Builder
+SEO drawer. Schema type overrides the type of that entry's structured data (attribute
+`schema_type`; empty removes it). Custom JSON-LD (attribute `custom_jsonld`) is a JSON object
+with `@context` and `@type`, at most 16 KB, added next to the generated data and never merged
+into it; it is escaped so it cannot close the script tag. Term panels do not have the tab, and
+neither field appears in the `Accept: application/ld+json` response.
 
 ### Performance
 
