@@ -15,6 +15,12 @@
 .hm-bs__seo { position: fixed; inset-block: 56px 0; inset-inline-end: 0; z-index: var(--z-popup); inline-size: min(22.5rem, 100%); display: flex; flex-direction: column; background: var(--surface); border-inline-start: 1px solid var(--border); }
 [data-hm-bs-seo] .hm-badge { margin-inline-start: var(--space-1); }
 .hm-bs__seo[hidden] { display: none; }
+/* Check rows in the drawer: message first, the status as a round pill (icon plus a hidden word, never colour alone). */
+.hm-bs__seo .hm-bp__item { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.hm-bs__seo .hm-bp__mark { display: inline-flex; align-items: center; justify-content: center; padding: 0; block-size: var(--badge-h); min-inline-size: var(--badge-h); border-radius: var(--radius-full); }
+.hm-bs__seo .hm-bp__item--pass .hm-bp__mark { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, var(--color-paper)); }
+.hm-bs__seo .hm-bp__item--warn .hm-bp__mark { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, var(--color-paper)); }
+.hm-bs__seo .hm-bp__item--fail .hm-bp__mark { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 12%, var(--color-paper)); }
 .hm-bs__seo-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--border); }
 .hm-bs__seo-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--space-3); }
 .hm-bs__banner:empty { display: none; }
