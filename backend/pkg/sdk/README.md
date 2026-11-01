@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.14.0
+go get hatamoto.dev/sdk@v0.15.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (today `"sdk": "^0.11"`, so hosts before v0.31.0 still lo
 
 | SDK | Change |
 |---|---|
+| 0.15.0 | `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, `entities.translations`, locale-prefixed `entities.get` paths. Purely additive |
 | 0.14.0 | `attribution` (first and last touch) on `FormSubmittedEvent`. Purely additive |
 | 0.13.0 | `locale` field on the entity payloads (`EntityRef`, `EntityEvent`, `EntitySummary`, `EntityDraft`). Purely additive |
 | 0.12.0 | `site.scripts` permission: a plugin's browser JavaScript (`assets/plugin.js`) is served and injected only once it is granted |
