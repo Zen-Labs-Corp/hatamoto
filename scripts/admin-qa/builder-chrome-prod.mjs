@@ -261,10 +261,8 @@ await check("Esc selects the parent (no history step)", async () => {
   return "heading -> section";
 });
 
-await check("Enter on the section selects its first child (page focus); Enter on the heading in the frame edits its text", async () => {
-  await navRow(sec.id);
-  await settle(300);
-  await p.evaluate(() => document.activeElement?.blur?.()); // focus on the page, outside the frame and the Navigator
+await check("Enter on the section with focus in the frame selects its first child; Enter on the heading in the frame edits its text", async () => {
+  await clickCanvas(sec.id); // focus stays inside the canvas frame
   await p.keyboard.press("Enter");
   await settle(400);
   if ((await sel())[0] !== head.id) throw new Error(`Enter selected ${await sel()}, wanted ${head.id}`);

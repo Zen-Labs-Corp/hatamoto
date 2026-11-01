@@ -1103,7 +1103,7 @@
     var send = !alt && (k === '/' || k === '?' || k === 'a');
     if (selectedKey) {
       if (alt) send = (k === 'ArrowUp' || k === 'ArrowDown');
-      else if (!shift) send = send || k === 'Escape' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace' || k === '1' || k === '2' || k === '3';
+      else if (!shift) send = send || k === 'Escape' || k === 'Enter' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace' || k === '1' || k === '2' || k === '3';
     } else if (!alt && !shift) send = send || k === '1' || k === '2' || k === '3';
     if (!send) return;
     if (selectedKey) e.preventDefault();

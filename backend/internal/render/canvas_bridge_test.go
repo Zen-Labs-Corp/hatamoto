@@ -222,7 +222,7 @@ func TestBridgeForwardsShortcutSet(t *testing.T) {
 		"e.target.closest('input,textarea,select,button,summary,[contenteditable]')",
 		"var send = !alt && (k === '/' || k === '?' || k === 'a');",
 		"if (alt) send = (k === 'ArrowUp' || k === 'ArrowDown');",
-		"k === 'Escape' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace'",
+		"k === 'Escape' || k === 'Enter' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'Backspace'",
 		"k === '1' || k === '2' || k === '3'",
 		"post2({ type: 'key', key: k, shift: !!shift, alt: !!alt, mod: false })",
 	} {
