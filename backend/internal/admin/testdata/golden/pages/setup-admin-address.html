@@ -53,7 +53,7 @@
 <div class="hm-copyrow"><div class="hm-field">
 <label class="hm-field__label" for="addr-candidate">Your private address</label>
 <input class="hm-field__control" type="text" id="addr-candidate" name="candidate_url" value="https://acme.example/k7qm-x2rf-9tdc" readonly="readonly">
-</div><button type="button" class="hm-btn hm-btn--secondary" data-hm-copy-field="addr-candidate"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span></button></div>
+</div><button type="button" class="hm-btn hm-btn--secondary" data-hm-copy-field="addr-candidate"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span></button><button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/setup/admin-address/regenerate" formnovalidate=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg><span>Regenerate</span></button></div>
 <div class="hm-field">
 <label class="hm-field__label" for="custom">Your own address</label>
 <input class="hm-field__control" type="text" id="custom" name="custom" aria-describedby="custom-help" autocomplete="off" hx-get="/admin/setup/admin-address/strength" hx-push-url="false" hx-swap="innerHTML" hx-target="#addr-strength" hx-trigger="input changed delay:300ms">
@@ -62,7 +62,6 @@
 <div id="addr-strength" aria-live="polite"></div>
 <p class="hm-muted">Bookmark this. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.</p>
 <footer class="hm-card__foot hm-card__foot--plain">
-<button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/setup/admin-address/regenerate" formnovalidate=""><span>Regenerate</span></button>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Continue</span></button>
 </footer>
 </form>

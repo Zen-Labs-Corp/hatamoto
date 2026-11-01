@@ -16,12 +16,11 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Continue</button>
 {{template "hm/radiocard" (dict "Legend" "Admin address" "Name" "mode" "Items" .Addr.Items)}}
 <input type="hidden" name="candidate" value="{{.Addr.Candidate}}">
-<div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-candidate" "Name" "candidate_url" "Label" "Your private address" "Value" (print .Addr.Origin .Addr.Candidate) "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-candidate"))}}</div>
+<div class="hm-copyrow">{{template "hm/field" dict "ID" "addr-candidate" "Name" "candidate_url" "Label" "Your private address" "Value" (print .Addr.Origin .Addr.Candidate) "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "addr-candidate"))}}{{template "hm/button" (dict "Label" "Regenerate" "Icon" "refresh" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "setup" "admin-address" "regenerate") "formnovalidate" ""))}}</div>
 {{template "hm/field" dict "ID" "custom" "Name" "custom" "Label" "Your own address" "Value" .Addr.Custom "Help" (printf "Used when Choose my own is selected. Your address will be %s/ followed by what you type: letters, digits and dashes." .Addr.Origin) "Attrs" (attrmap "autocomplete" "off" "hx-get" (adminPath "setup" "admin-address" "strength") "hx-trigger" "input changed delay:300ms" "hx-target" "#addr-strength" "hx-swap" "innerHTML" "hx-push-url" "false")}}
 <div id="addr-strength" aria-live="polite">{{.Addr.StrengthHTML}}</div>
 <p class="hm-muted">Bookmark this. Scanners can't find it, and neither can you if you lose it. You can always see it on the server with <code>hatamoto admin-url</code>.</p>
 {{template "hm/foot"}}
-{{template "hm/button" (dict "Label" "Regenerate" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "setup" "admin-address" "regenerate") "formnovalidate" ""))}}
 {{template "hm/button" dict "Label" "Continue" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>{{end}}
