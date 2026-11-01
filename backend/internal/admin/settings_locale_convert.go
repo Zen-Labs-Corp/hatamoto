@@ -93,6 +93,8 @@ type convertData struct {
 	Summary []ui.FieldError
 	// PlanError is the field error of the plan textarea.
 	PlanError string
+	// Notice is an informational message that is not an error.
+	Notice string
 	// Issues are blocking problems of the last action, Warnings advice.
 	Issues, Warnings []convertIssue
 	Report           *convertReport
@@ -263,8 +265,7 @@ func (a *Admin) handleConvertSuggest(w http.ResponseWriter, r *http.Request) {
 	plan, warnings, err := a.deps.LocaleConvert.Suggest(r.Context())
 	d := convertData{Warnings: convertIssues(warnings)}
 	if errors.Is(err, localeconv.ErrNoRegionTree) {
-		d.PlanError = "No region tree found: this site has no group of top-level pages with children to turn into locales."
-		a.renderConvert(w, r, http.StatusUnprocessableEntity, d)
+		a.renderConvert(w, r, http.StatusOK, convertData{Notice: "This site has no region pages to convert."})
 		return
 	}
 	if err != nil {

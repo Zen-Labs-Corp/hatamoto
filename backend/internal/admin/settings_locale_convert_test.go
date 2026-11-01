@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -194,20 +195,51 @@ func TestLocaleConvertSuggestFailureIsShown(t *testing.T) {
 	}
 }
 
-func TestLocaleConvertSuggestWithoutRegionTreeIsFriendly(t *testing.T) {
+func TestLocaleConvertSuggestWithoutRegionPages(t *testing.T) {
+	t.Parallel()
+
+	for name, err := range map[string]error{
+		"plain":   localeconv.ErrNoRegionTree,
+		"wrapped": fmt.Errorf("suggest: %w", localeconv.ErrNoRegionTree),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fc, _, _ := newConvertRig(t)
+			fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) { return nil, nil, err }
+			rec := g.do("POST", convertBase+"/suggest", "owner-token", url.Values{}, nil)
+			body := rec.Body.String()
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%d, want 200", rec.Code)
+			}
+			for _, want := range []string{"This site has no region pages to convert.", "hm-callout--info"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("missing %q", want)
+				}
+			}
+			for _, bad := range []string{"could not run", "aria-invalid", "\u2013", "\u2014"} {
+				if strings.Contains(body, bad) {
+					t.Errorf("unexpected %q", bad)
+				}
+			}
+			if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+				t.Errorf("a11y: %s", strings.Join(issues, "; "))
+			}
+			if name == "plain" {
+				compareGolden(t, "pages/settings-locale-convert-suggest-empty.html", normalizePage(body))
+			}
+		})
+	}
+}
+
+func TestLocaleConvertSuggestRealFailureKeepsTheError(t *testing.T) {
 	t.Parallel()
 
 	g, fc, _, _ := newConvertRig(t)
-	fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) {
-		return nil, nil, localeconv.ErrNoRegionTree
-	}
+	fc.suggest = func() (*localeconv.Plan, []localeconv.Issue, error) { return nil, nil, errors.New("db down") }
 	rec := g.do("POST", convertBase+"/suggest", "owner-token", url.Values{}, nil)
-	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, "No region tree found: this site has no group of top-level pages") {
-		t.Fatalf("%d %s", rec.Code, body)
-	}
-	if strings.Contains(body, "The conversion could not run") {
-		t.Error("shows the generic failure")
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "The conversion could not run") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -618,7 +650,7 @@ func TestLocaleConvertMalformedBodyIsBadRequest(t *testing.T) {
 
 	g, _, _, _ := newConvertRig(t)
 	g.elevate("owner-token")
-	for _, path := range []string{"/report", "/apply", "/history/3/revert"} {
+	for _, path := range []string{"/report", "/suggest", "/apply", "/history/3/revert"} {
 		req := httptest.NewRequest("POST", convertBase+path, strings.NewReader("--b\r\nContent-Disposition: form-data; name=\"plan\"\r\n\r\nno closing boundary"))
 		req.Header.Set("Content-Type", "multipart/form-data; boundary=b")
 		req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
