@@ -83,7 +83,21 @@ func (p pluginEntityPaths) Resolve(ctx context.Context, path string) (*entity.En
 	if err != nil {
 		return nil, err
 	}
-	res, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(p.s.db), snap, path)
+	return resolvePluginPath(ctx, entity.NewPostgresPublicRepository(p.s.db), snap, path)
+}
+
+// resolvePluginPath finds the published entity served at path. On a
+// multi-locale site a locale-prefixed path is read in that locale, as the
+// public site does; a hidden locale is not served. An unprefixed path is read
+// as before (the site language).
+func resolvePluginPath(ctx context.Context, repo resolveRepo, snap *entity.URLSnapshot, path string) (*entity.Entity, error) {
+	if scoped, locale, rest, prefixed := localeScope(ctx, snap, path); prefixed {
+		if snap.Locales().IsHidden(locale) {
+			return nil, entity.ErrEntityNotFound
+		}
+		ctx, path = scoped, rest
+	}
+	res, err := resolveEntity(ctx, repo, snap, path)
 	if err != nil {
 		return nil, err
 	}
