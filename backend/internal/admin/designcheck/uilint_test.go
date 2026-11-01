@@ -81,8 +81,6 @@ var uiAllow = []uiAllowEntry{
 	// Also the only home of POST forms that used to skip the rule by class name (hm-inline)
 	// and of partial forms that were skipped as "partials".
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
-	{Rule: "UI-01", File: "pages/settings/email.html", Needle: `"Send a test email"`, Reason: "setting action bound to its own form by the form attribute, so it tests the saved settings without posting the form"},
-	{Rule: "UI-01", File: "pages/settings/email.html", Needle: `instead"`, Reason: "setting action bound to its own form by the form attribute, so it clears the saved settings without posting the form"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Check now"`, Reason: "setting row action bound to its own form by the form attribute"},
