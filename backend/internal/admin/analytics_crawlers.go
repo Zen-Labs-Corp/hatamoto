@@ -230,6 +230,7 @@ func (a *Admin) buildCrawlers(ctx context.Context, q url.Values, rg agents.Range
 		},
 		Hero: ui.AiaChart{ID: "w-cr-hero", Title: "All crawling by purpose", Description: "Stacked by what the crawler reads pages for.",
 			Src: a.dataURL("overview.json", rg, cmp) + "&group=purpose", Chart: "fetches_all", Hero: true, Compare: cmp,
+			Neutral: true, Accent: purposeLabels["user_fetch"],
 			Override: `{"` + searchSeriesName + `":{"n":6}}`,
 			Table:    ov.fetchAllM.table("Crawler fetches per day by purpose", "Day"),
 			Toggle: &ui.Segmented{Mode: "buttons", Label: "Crawlers shown", Items: []ui.SegmentedItem{

@@ -425,3 +425,7 @@ func TestCrawlersOnlySearchEnginesFetchedIsNotEmpty(t *testing.T) {
 		t.Errorf("nothing fetched: %d notices, want the chart's and the list's", n)
 	}
 }
+
+// Decided from preview: the Verification callout turns amber when most fetches cannot be
+// verified. agents.ClassifyHealth leaves unverifiable fetches out of its decision, so the
+// callout keeps its danger and success kinds until that classification grows a third level.
