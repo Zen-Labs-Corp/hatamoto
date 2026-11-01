@@ -697,3 +697,13 @@ func TestBlogEditorPreviewHonoursTheFAQSwitch(t *testing.T) {
 		}
 	}
 }
+
+func TestSEOPanelSchemaFieldsOnlyWhereTheTabEditsThem(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	has(t, body, `name="seo_schema_type"`, `name="seo_custom_jsonld"`, "Use type default (Article)", "Custom JSON-LD (added alongside)")
+	edit := r.do("GET", "/admin/entities/"+fid(11).String(), "owner-token", nil, nil).Body.String()
+	has(t, edit, `name="seo_schema_type"`, `name="seo_custom_jsonld"`)
+}
