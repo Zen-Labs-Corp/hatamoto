@@ -9,12 +9,6 @@
 .hm-steps__item--current { color: var(--color-sumi); font-weight: var(--weight-medium); box-shadow: inset 0 0 0 1px var(--color-sumi); }
 .hm-steps__item--current .hm-steps__num { background: var(--color-sumi); color: var(--color-paper); }
 .hm-steps__label { min-width: 0; white-space: nowrap; }
-/* On phones only the current step keeps a visible label; the others stay readable to assistive tech. */
-@media (max-width: 640px) {
-  .hm-steps__item:not(.hm-steps__item--current) .hm-steps__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .hm-steps__item:not(.hm-steps__item--current) { padding: 0 var(--space-1); }
-  .hm-stepper { position: relative; }
-}
 .hm-steps__count { margin: 0; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-field__control[type="color"] { width: 64px; min-height: var(--control-h); padding: var(--space-0-5); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); }
 .hm-field__control[type="color"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
