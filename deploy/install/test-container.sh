@@ -109,7 +109,10 @@ cp -r "$M_SITE" "$E/site-good"
 cp -r "$M_SITE" "$E/site-bad"
 M_SITE="$E/site-bad" mirror_tamper_binary "$VER" "linux-$arch"
 
-bash "$here/build-install.sh" --keys-dir "$M_TRUST" --out "$E/asm" >/dev/null
+# The test mirror only carries $VER, so this installer's floor is $VER (the shipped floor is
+# exercised by the floor legs); without it the floor check refuses the test release.
+printf '%s\n' "$VER" > "$E/floor-test"
+bash "$here/build-install.sh" --keys-dir "$M_TRUST" --floor-file "$E/floor-test" --out "$E/asm" >/dev/null
 cp "$here/img-check.sh" "$E/img-check.sh"
 }
 
