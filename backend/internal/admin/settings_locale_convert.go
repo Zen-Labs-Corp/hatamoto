@@ -121,9 +121,16 @@ type convertReport struct {
 	ApplyHref       string
 }
 
+const (
+	convertApplyDescription  = "Confirm this change to your region pages. You can revert it afterwards."
+	convertRevertDescription = "Confirm that you want to undo this conversion."
+)
+
 // convertConfirmData is the typed confirm page of Apply and Revert.
 type convertConfirmData struct {
-	Danger ui.DangerConfirm
+	// Description is the line under the page title.
+	Description string
+	Danger      ui.DangerConfirm
 	// Issues are what refused the last attempt.
 	Issues []convertIssue
 }
@@ -476,12 +483,12 @@ func (a *Admin) convertApplyDanger(r *http.Request, plan, sha, fp string) ui.Dan
 	}
 }
 
-func (a *Admin) renderConvertConfirm(w http.ResponseWriter, r *http.Request, status int, dc ui.DangerConfirm, issues []convertIssue, title string) {
+func (a *Admin) renderConvertConfirm(w http.ResponseWriter, r *http.Request, status int, dc ui.DangerConfirm, issues []convertIssue, title, description string) {
 	v := a.NewView(w, r, title)
 	v.Section, v.Tab = "general", "general"
 	v.Width = "compact"
 	v.Crumbs = a.areaCrumbs("general", Crumb{Label: "Convert regions", Href: a.convertURL()}, Crumb{Label: "Confirm"})
-	v.Data = convertConfirmData{Danger: dc, Issues: issues}
+	v.Data = convertConfirmData{Description: description, Danger: dc, Issues: issues}
 	a.Render(w, r, status, "settings/locale-convert-confirm", v)
 }
 
@@ -496,7 +503,7 @@ func (a *Admin) handleConvertApplyConfirm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, a.convertURL(), http.StatusSeeOther)
 		return
 	}
-	a.renderConvertConfirm(w, r, http.StatusOK, a.convertApplyDanger(r, plan, sha, fp), nil, "Convert region pages")
+	a.renderConvertConfirm(w, r, http.StatusOK, a.convertApplyDanger(r, plan, sha, fp), nil, "Convert region pages", convertApplyDescription)
 }
 
 func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
@@ -515,7 +522,7 @@ func (a *Admin) handleConvertApply(w http.ResponseWriter, r *http.Request) {
 	dc := a.convertApplyDanger(r, text, sha, fp)
 	dc, ok := CheckDangerPhrase(r, dc)
 	if !ok {
-		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Convert region pages")
+		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Convert region pages", convertApplyDescription)
 		return
 	}
 	plan, err := localeconv.ParsePlan(strings.NewReader(text))
@@ -594,7 +601,7 @@ func (a *Admin) handleConvertRevertConfirm(w http.ResponseWriter, r *http.Reques
 		a.Error(w, r, http.StatusNotFound, "Not found", "There is no such conversion.")
 		return
 	}
-	a.renderConvertConfirm(w, r, http.StatusOK, a.convertRevertDanger(r, id, false), nil, "Revert conversion")
+	a.renderConvertConfirm(w, r, http.StatusOK, a.convertRevertDanger(r, id, false), nil, "Revert conversion", convertRevertDescription)
 }
 
 func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
@@ -613,7 +620,7 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 	force := r.PostFormValue("force") == "1"
 	dc, ok := CheckDangerPhrase(r, a.convertRevertDanger(r, id, force))
 	if !ok {
-		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Revert conversion")
+		a.renderConvertConfirm(w, r, http.StatusUnprocessableEntity, dc, nil, "Revert conversion", convertRevertDescription)
 		return
 	}
 	res, err := a.deps.LocaleConvert.Revert(r.Context(), id, force, userLabel(userFrom(r.Context())))
@@ -627,7 +634,7 @@ func (a *Admin) handleConvertRevert(w http.ResponseWriter, r *http.Request) {
 				canForce = false
 			}
 		}
-		a.renderConvertConfirm(w, r, http.StatusConflict, a.convertRevertDanger(r, id, canForce), convertIssues(be.Issues), "Revert conversion")
+		a.renderConvertConfirm(w, r, http.StatusConflict, a.convertRevertDanger(r, id, canForce), convertIssues(be.Issues), "Revert conversion", convertRevertDescription)
 		return
 	}
 	if err != nil {

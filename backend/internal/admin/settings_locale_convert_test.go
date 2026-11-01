@@ -439,8 +439,12 @@ func TestLocaleConvertRevertFlow(t *testing.T) {
 	g, fc, events, flushed := newConvertRig(t)
 	g.elevate("owner-token")
 	path := convertBase + "/history/3/revert"
-	if rec := g.do("GET", path, "owner-token", nil, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Revert conversion #3") {
+	rec := g.do("GET", path, "owner-token", nil, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Revert conversion #3") {
 		t.Fatalf("confirm: %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "revert it afterwards") {
+		t.Error("the revert confirm page tells the editor they can revert it afterwards")
 	}
 	if rec := g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"nope"}}, nil); rec.Code != http.StatusUnprocessableEntity || len(fc.reverted) != 0 {
 		t.Fatalf("wrong phrase: %d", rec.Code)
@@ -456,7 +460,7 @@ func TestLocaleConvertRevertFlow(t *testing.T) {
 		}
 		return nil, &localeconv.BlockingError{Issues: []localeconv.Issue{{Code: localeconv.CodeRevertConflict, Message: "The page Pricing was edited after the conversion"}}}
 	}
-	rec := g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"revert"}}, nil)
+	rec = g.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"revert"}}, nil)
 	body := rec.Body.String()
 	if rec.Code != http.StatusConflict || !strings.Contains(body, "The page Pricing was edited after the conversion") || !strings.Contains(body, `name="force" value="1"`) || !strings.Contains(body, "Revert anyway") {
 		t.Fatalf("conflict: %d %s", rec.Code, body)
