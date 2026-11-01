@@ -704,7 +704,7 @@ scripts/admin-qa/run-local.sh builder-ux-tasks.mjs      # result: scripts/admin-
 * The **Navigator** and **Inspector** buttons are labelled and hide their panes; Ctrl/Cmd+Alt+[ and ] do the same.
 * More menu order: Versions, Page settings, Site styles (owner only; absent for an editor), Keyboard shortcuts, a rule, Delete page last and red; Delete asks first. On a block, it reads Delete block.
 * Left pane: Navigator and Insert tabs move with the arrow keys. Insert has a focused search, Recent after a first insert, a Patterns row with Show all patterns, then the groups. Enter inserts, Shift+Enter inserts and keeps the search open, a drag still works.
-* The footer has **Insert** and **Ctrl K** buttons at all times.
+* The footer has **Add section** and **Ctrl K** buttons at all times.
 * Ctrl/Cmd+K opens the palette from the canvas pane, a field and the Navigator; the list shows Commands including Save as block…; Esc closes it. Double-click a heading, press Ctrl+K: the link dialog opens, not the palette. With keyboard focus inside the canvas frame (click the page, not a field) Ctrl+K opens the palette too.
 * Navigator: Filter, Collapse all, Rename; names read "Rich text", "Accordion item", "Block: Promo".
 * History rows read "Add Heading", "Delete Container", "Move Button", "Change Text colour (Tablet)", "Paste 3 elements", starting with "Original".

@@ -32,8 +32,8 @@ The builder edits `attributes.page_doc`, a tree of layout nodes. Hatamoto render
 |---|---|
 | Top bar | A back link, the page name, **Navigator** and **Inspector** buttons that show or hide each pane (`Ctrl/Cmd+Alt+[` and `]`), **Shortcuts**, **Undo**, **Redo**, **History**, the device switch, one status chip, **Save draft** and **Publish** (**Update page** once published), and a **More** menu. |
 | **Navigator** (left tab) | A tree of nodes. Rows can be dragged, renamed (F2, double-click or the **Rename** button) and folded with the caret; Ctrl or Cmd plus click selects several. Above it, a **Filter elements** box and **Collapse all**. |
-| **Insert** (left tab) | A search box (focused when the tab opens) over the things you can insert, as cards (blocks in a grid). Press Enter or click to insert after the selection (or into a selected container); Shift+Enter inserts and keeps the search open; press and drag to drop onto the canvas. Its foot holds **Save as block…** and **Save as template…**. |
-| Left pane foot | Always visible: **Insert** (opens the Insert tab, same as `/`) and **Ctrl K** (opens the command palette). |
+| **Insert** (left tab) | A search box (focused when the tab opens) over the things you can insert, as cards (blocks in a grid). Press Enter or click to insert: sections, patterns and templates go after the selected section, a block into the selected container; Shift+Enter inserts and keeps the search open; press and drag to drop onto the canvas. Its foot holds **Save as block…** and **Save as template…**. |
+| Left pane foot | Always visible: **Add section** (opens the Insert tab, same as `/`) and **Ctrl K** (opens the command palette). |
 | Canvas (middle) | The page in a sandboxed frame, with a strip above it (breadcrumbs, zoom), a hover outline, a selection outline and a toolbar beside the selected element. The device switch sizes the frame and selects the breakpoint the Style tab edits. |
 | **Inspector** (right) | The settings panel, with the tabs **Content**, **Style** and **Advanced**. |
 

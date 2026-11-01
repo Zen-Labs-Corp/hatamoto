@@ -358,7 +358,7 @@ site's parts of that slot ("None" uses the theme's own), **Create <slot> part** 
 **Edit**; slots the active theme does not support show "Your theme does not use this part". Saving purges the page
 cache.
 
-The builder Add tab has groups **Templates** and **Blocks** (boot data, searched with the rest) and a foot with
+The builder Insert tab has groups **Templates** and **Blocks** (boot data, searched with the rest) and a foot with
 **Save as template…**, **Save page as template…** and **Save as block…** (each opens a small name dialog, no browser dialogs). A selected `ref` shows the block name or "Missing block", **Edit block** (new tab), **Detach** and **Used on
 N pages**; the Navigator row reads "Block: <name>". A block or part opens the same builder with **Save block** / **Save
 part**, no autosave, no Publish, and (blocks) a "Used on N pages" disclosure. Routes (session, CSRF, owner or editor):

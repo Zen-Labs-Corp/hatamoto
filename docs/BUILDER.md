@@ -625,7 +625,7 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
   marks the page changed, and from then on every save carries a `seo` object; before the first edit no save sends one, so a
   value changed elsewhere is never overwritten. SEO edits are not part of the recovery copy (doc and name only).
 * **Left pane** has two WAI-ARIA tabs with roving arrows, **Navigator** and **Insert**, and a permanent footer with
-  **Insert** (the `/` action) and **Ctrl K** (the command palette).
+  **Add section** (the `/` action) and **Ctrl K** (the command palette).
   * **Navigator**: an ARIA tree (`role=tree`, `treeitem`, `aria-level`, `aria-expanded`, `aria-selected`, one roving
     tab stop). Rows can be dragged. A toolbar has a Filter box, **Collapse all** and a visible **Rename** button (F2 and
     double-click still rename). Row names come from one map (`kindnames.js`): "Rich text", "Accordion item",
@@ -646,18 +646,17 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
     is solid accent; the section that contains the selection gets a tinted band. Hovering a row shows an eye (hide)
     and a more button (context menu), and hovering the edge between two sections (and below the last) shows
     **+ add section here**, which opens the picker at that position. These are mouse shortcuts only: from the
-    keyboard use `h`, the context menu key or Shift+F10, and **Insert** in the footer. The filter matches the
+    keyboard use `h`, the context menu key or Shift+F10, and **Add section** in the footer. The filter matches the
     component's name too. This is presentation only: the saved document is unchanged.
   * **Insert** (lazy `addtab.js`, mounted on first open): a search field (focused), Recent (last inserts per user,
     `recent.js`), Patterns (one short row of four with "Show all patterns (N)", drawn thumbnails from `patterns.js`),
     then Layout, Elements, Content, Media, Interactive, Data and Blocks. Search ranks by name first (`search.js`). It is
     inline, not a modal, so cards (and the blocks grid) can be dragged. Enter inserts the first tile, Shift+Enter inserts and keeps the
     search open. The foot has Save as block… and Save as template… (`reuse.js`, with the name dialog `savedialog.js`).
-  * Insert position (`insertPoint`): the "+" position through `insertAt`, else after the selection (inside a
-    selected container), else the end of the page.
+  * Insert position (`insertPoint`): the "+" position through `insertAt`, else sections, patterns, components and templates go after the selected top-level section
+    (`sectionPoint`), blocks inside the selected container, and an empty or unselected page takes the end.
 * **Command palette** (lazy `commandk.js`): `Ctrl/Cmd+K` anywhere except a canvas text edit, where it stays
-  "insert link" (`resolveKey` returns `null` when `ctx.canvasText`; the key from inside the canvas frame is not
-  forwarded by the bridge yet, because `canvas_bridge.js` is untouched in this change). A combobox over a listbox with
+  "insert link" (`resolveKey` returns `null` when `ctx.canvasText`; the bridge forwards the key from inside the canvas frame). A combobox over a listbox with
   `aria-activedescendant`: Recent, Patterns, Elements, Blocks and Commands (Undo, Redo, Desktop, Tablet, Phone, Show or
   hide Navigator, Show or hide Inspector, History, Keyboard shortcuts, Save as block…, Save as template…, Site styles
   for owners, Preview when the page has an address).

@@ -32,7 +32,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 
 2. Start the page. On an empty page a **Start this page** panel offers a few starting points (a hero banner, features, a call to action, an FAQ) and **Start blank**. Pick one, or start blank and add elements one at a time.
 
-3. Add an element. Point between two elements, or inside an empty box, and a round **+** appears: press it to pick a layout (one to four columns, two uneven columns or a grid), **Choose an element…** or **Insert a ready-made section…**. Or open the **Insert** tab, or press the **Insert** button at the foot of the left pane (or `/`). Type in the search box to find an element, a pattern (a ready-made group of elements) or a block (see below). Recent choices come first. Press Enter to insert the first result after the selected element, or inside it if it is a container, an element that holds others. Shift+Enter inserts it and keeps the search open for the next one. You can also drag a tile onto the preview.
+3. Add an element. Point between two elements, or inside an empty box, and a round **+** appears: press it to pick a layout (one to four columns, two uneven columns or a grid), **Choose an element…** or **Insert a ready-made section…**. Or open the **Insert** tab, or press the **Add section** button at the foot of the left pane (or `/`). Type in the search box to find an element, a pattern (a ready-made group of elements) or a block (see below). Recent choices come first. Press Enter to insert the first result. Sections, patterns and templates go after the selected section (or at the end of the page); a block goes inside the selected container. Shift+Enter inserts it and keeps the search open for the next one. You can also drag a tile onto the preview.
 
 4. Search everything with the command palette. Press `Ctrl+K` (`Cmd+K` on a Mac), or the **Ctrl K** button at the foot of the left pane. One box searches elements, patterns, blocks and commands such as Undo, Tablet, History or Save as block. While you are typing inside text on the page, `Ctrl+K` still means "add a link".
 
@@ -49,8 +49,6 @@ In this guide you open a page, add a block, change its text and publish the resu
 10. Set how the page looks in search results. Press **SEO** in the top bar to open the SEO drawer on the right: write the SEO title and description, pick a social image, and set a canonical address or ask search engines not to list the page. The checks run each time you open the drawer and again as you type in its fields, using your unsaved changes. The values are saved with the page. Press Esc to close the drawer.
 
 11. Open the **More** menu (the three dots) for **Versions**, **Page settings** (the address and search details), **Keyboard shortcuts**, and, for owners, **Site styles**. At the bottom, in red, is **Delete page**; it asks you to confirm first. When you edit a block or a layout part, the same entry reads **Delete block** or **Delete part**.
-
-Two small tips show once, the first time you use the builder: one about selecting and typing, one about adding. Press **Got it** to dismiss them; they do not come back.
 
 ### Reuse what you built
 
