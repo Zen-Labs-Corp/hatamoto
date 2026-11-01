@@ -135,7 +135,8 @@ func TestRenderPageP50(t *testing.T) {
 		slimBound = time.Millisecond
 	}
 	// The full payload is a regression guard: 10 ms off CI or when strict, 25 ms
-	// on CI, where the doubled PostgreSQL matrix shares runners.
+	// on CI, where hosted runners are noisy and the two-leg PostgreSQL matrix
+	// doubles the chances of a slow run.
 	fullBound := 10 * time.Millisecond
 	if os.Getenv("CI") != "" && os.Getenv("HATAMOTO_PERF_STRICT") != "1" {
 		fullBound = 25 * time.Millisecond
