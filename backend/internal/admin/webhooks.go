@@ -394,7 +394,7 @@ func (a *Admin) handleWebhookConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	d := confirmData{Post: a.adminPath + webhooksList + "/" + id + "/" + action, Back: a.adminPath + webhooksList}
 	if action == "delete" {
-		d.Title, d.Label, d.Danger = "Delete "+sub.Name+"?", "Delete webhook", true
+		d.Title, d.Label, d.Danger = "Delete webhook \""+sub.Name+"\"?", "Delete webhook", true
 		d.Message = "Its delivery log goes with it. This cannot be undone."
 	} else {
 		d.Title, d.Label = "Create a new secret for "+sub.Name+"?", "Create new secret"
@@ -479,7 +479,7 @@ func deliveryStatus(status string) ui.Badge {
 	case "failed":
 		return ui.Badge{Label: "Failed", Kind: "danger"}
 	}
-	return ui.Badge{Label: "Pending", Kind: "warning"}
+	return ui.Badge{Label: "Pending", Kind: "info"}
 }
 
 // deliveryAnswer is what the receiver said: its HTTP status, else the error.
@@ -517,10 +517,10 @@ func (a *Admin) deliveriesTable(r *http.Request, rows []webhook.DeliveryRow, pag
 		status := deliveryStatus(d.Status)
 		row := ui.Row{ID: d.ID, Label: d.Event + " at " + fmtDateTime(d.CreatedAt.UTC()), Cells: []ui.Cell{
 			{Text: fmtDateTime(d.CreatedAt.UTC()), Nowrap: true}, {Text: d.Event}, {Badge: &status},
-			{Text: fmt.Sprintf("%d/%d", d.Attempts, d.MaxAttempts)}, {Text: clipAnswer(deliveryAnswer(d)), Clip: true},
+			{Text: fmt.Sprintf("%d/%d", d.Attempts, d.MaxAttempts)}, {Text: clipAnswer(deliveryAnswer(d)), Mono: true, Clip: true},
 		}}
 		if d.Status == "failed" {
-			row.Actions = []ui.Action{{Label: "Retry", Post: a.adminPath + webhooksDeliveries + "/" + d.ID + "/retry"}}
+			row.Actions = []ui.Action{{Label: "Retry", Button: true, Post: a.adminPath + webhooksDeliveries + "/" + d.ID + "/retry"}}
 		}
 		t.Rows = append(t.Rows, row)
 	}
