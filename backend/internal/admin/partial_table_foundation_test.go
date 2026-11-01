@@ -11,11 +11,8 @@ func TestPartialTableBulkBar(t *testing.T) {
 	t.Parallel()
 
 	s := renderChips(t, "hm/table", fixtureTable())
-	if strings.Contains(s, "Tick rows") {
-		t.Errorf("the bulk bar keeps no lead-in text: %s", s)
-	}
-	if !strings.Contains(s, `<span data-hm-bulk-count aria-live="polite"></span>`) {
-		t.Errorf("the bulk count slot is missing: %s", s)
+	if !strings.Contains(s, `<span data-hm-bulk-count aria-live="polite">Tick rows, then choose:</span>`) {
+		t.Errorf("the bulk count slot keeps its lead-in for no-script use: %s", s)
 	}
 }
 
