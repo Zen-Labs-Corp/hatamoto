@@ -954,6 +954,18 @@ func (a *API) translationTarget(ctx context.Context, schema *entity.EntitySchema
 	if norm == target.Locale {
 		return nil, herr(sdk.ErrInvalidArgument, "locale must differ from the locale of translation_of")
 	}
+	// Refuse before creating anything: a taken locale would otherwise create the
+	// entity (and fire its events) only to delete it again. Link still checks
+	// for a concurrent writer.
+	members, err := a.svc.Groups.Members(ctx, target.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range members {
+		if m.Locale == norm {
+			return nil, herr(sdk.ErrInvalidArgument, "translation_of already has a translation in locale %s", norm)
+		}
+	}
 	return target, nil
 }
 

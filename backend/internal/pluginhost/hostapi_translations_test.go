@@ -282,6 +282,23 @@ func TestEntitiesCreateTranslationOfLinkFailureDeletes(t *testing.T) {
 	}
 }
 
+// A locale the target's group already has is refused before anything is
+// created, so no entity (and no created/deleted event pair) comes of it.
+func TestEntitiesCreateTranslationOfLocaleTakenRefusedEarly(t *testing.T) {
+	r := newTransRig(t, true, true)
+	target := r.seed(r.page, "en-XX")
+	taken := r.seed(r.page, "fr-XX")
+	r.groups.members[target.ID] = []entity.Member{{ID: target.ID, Locale: "en-XX"}, {ID: taken.ID, Locale: "fr-XX"}}
+	before := len(r.ents.list)
+	_, err := r.call(t, fnEntitiesCreate, map[string]any{
+		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
+	})
+	wantCode(t, err, sdk.ErrInvalidArgument)
+	if len(r.ents.list) != before || len(r.ents.deleted) != 0 || len(r.groups.linked) != 0 {
+		t.Fatalf("rows %d (was %d), deleted %v, linked %v: nothing may be created or deleted", len(r.ents.list), before, r.ents.deleted, r.groups.linked)
+	}
+}
+
 // A link that fails because the call's context ended must still delete the new
 // entity: the cleanup does not run on the dead context.
 func TestEntitiesCreateTranslationOfLinkTimeoutDeletes(t *testing.T) {
