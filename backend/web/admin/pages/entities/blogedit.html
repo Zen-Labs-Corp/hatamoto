@@ -114,7 +114,7 @@
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-seo" aria-labelledby="be-tab-seo" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>SEO and AEO</h2>
 {{template "hm/card-start" dict "ID" "be-seo"}}
-{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" (printf "%s/entities/%s/edit/analyze" adminPath .ID) "Include" "#hm-be" "Keyword" .Keyword "ShowKeyword" true "InLLMs" .InLLMs "ShowLLMs" true}}
+{{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" (printf "%s/entities/%s/edit/analyze" adminPath .ID) "Include" "#hm-be" "Keyword" .Keyword "ShowKeyword" true "InLLMs" .InLLMs "ShowLLMs" true "ShowSocialText" true}}
 {{template "hm/card-end"}}
 {{if .Crawlers}}{{template "hm/card-start" dict "ID" "be-crawlers" "Title" "AI crawlers" "Description" "Assistants that fetched this post."}}
 {{if .Crawlers.Error}}<p class="hm-muted">Crawler activity could not be loaded.</p>

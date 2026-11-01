@@ -11,6 +11,8 @@ export function readSEO(root) {
     description: val("seo_description"),
     canonical: val("seo_canonical"),
     og_image: val("seo_og_image"),
+    og_title: val("seo_og_title"),
+    og_description: val("seo_og_description"),
     no_index: !!root.querySelector('[name="seo_noindex"]')?.checked,
   };
 }

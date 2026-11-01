@@ -95,14 +95,15 @@ func TestPartialSEOPanel(t *testing.T) {
 	a := newPartialAdmin(t)
 	panel := buildPanel(seoInput{Title: "Go servers in production", Slug: "go-servers", Keyword: "Go servers", Content: "<p>Go servers are easy to ship.</p>", BaseURL: "https://example.test", Path: "/go-servers"})
 	data := map[string]any{
-		"Panel": panel, "SEO": seoForm{Title: "Go servers", Canonical: "https://example.test/go"}, "Errors": map[string]string{},
+		"Panel": panel, "SEO": seoForm{Title: "Go servers", Canonical: "https://example.test/go", OGTitle: "Share title", OGDescription: "Share text"}, "Errors": map[string]string{},
 		"Noun": "post", "AnalyzeURL": "/admin/entities/x/edit/analyze", "Include": "#form",
-		"Keyword": "Go servers", "ShowKeyword": true, "InLLMs": true, "ShowLLMs": true,
+		"Keyword": "Go servers", "ShowKeyword": true, "InLLMs": true, "ShowLLMs": true, "ShowSocialText": true,
 	}
 	s := checkPartial(t, a, "hm/seopanel", "default", data)
 	for _, want := range []string{
 		`data-hm-seo-tabs`, `id="seo-tab-search"`, `id="seo-tab-social"`, `id="seo-tab-schema"`, `id="seo-tab-advanced"`,
 		`id="seo-score"`, `name="seo_keyword"`, `name="seo_llms"`, `name="seo_canonical"`, `name="seo_og_image"`,
+		`name="seo_og_title"`, `name="seo_og_description"`, `value="Share title"`,
 		`hx-post="/admin/entities/x/edit/analyze"`, `id="be-panel"`,
 	} {
 		if !strings.Contains(s, want) {
@@ -114,6 +115,11 @@ func TestPartialSEOPanel(t *testing.T) {
 	if strings.Contains(s, `name="seo_keyword"`) || strings.Contains(s, `name="seo_llms"`) {
 		t.Error("the keyword and llms fields show only when asked for")
 	}
+	delete(data, "ShowSocialText")
+	if out, err := a.RenderPartial("hm/seopanel", data); err != nil || strings.Contains(string(out), `name="seo_og_title"`) || strings.Contains(string(out), `name="seo_og_description"`) {
+		t.Error("the social text fields show only with ShowSocialText (terms leave it off)")
+	}
+	data["ShowSocialText"] = true
 	data["NoHeading"] = true
 	s = checkPartial(t, a, "hm/seopanel", "no-heading", data)
 	if strings.Contains(s, "hm-seo__title") || !strings.Contains(s, `id="seo-score"`) {
