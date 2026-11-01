@@ -88,6 +88,38 @@ func TestGroupStore(t *testing.T) {
 	}
 }
 
+// A group left with one member (its other copy was deleted) counts as no group.
+func TestGroupStoreOneMemberGroup(t *testing.T) {
+	ctx := context.Background()
+	svc, schemaID, _ := localeFixture(t, `{}`)
+	db := newIntegrationDB(t)
+	gs := NewGroupStore(db.Pool())
+	mk := func(locale string) uuid.UUID {
+		t.Helper()
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: json.RawMessage(`{}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e.ID
+	}
+	en, fr := mk("en"), mk("fr")
+	if _, err := gs.Link(ctx, en, fr); err != nil {
+		t.Fatal(err)
+	}
+	if g, _ := gs.GroupOf(ctx, en); g == nil {
+		t.Fatal("two-member group not reported")
+	}
+	if _, err := db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, fr); err != nil {
+		t.Fatal(err)
+	}
+	if g, err := gs.GroupOf(ctx, en); err != nil || g != nil {
+		t.Errorf("GroupOf one-member group = %v, %v; want nil", g, err)
+	}
+	if m, err := gs.GroupsFor(ctx, []uuid.UUID{en}); err != nil || len(m) != 0 {
+		t.Errorf("GroupsFor one-member group = %+v, %v; want empty", m, err)
+	}
+}
+
 // Two Links add the same locale to one group through different members; the
 // group lock lets exactly one win. Repeated, each round released by a barrier.
 func TestGroupStoreLinkRace(t *testing.T) {

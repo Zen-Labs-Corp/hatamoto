@@ -262,10 +262,15 @@ func (s *GroupStore) SetOriginal(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// GroupOf returns the group of id, or nil when it has none.
+// GroupOf returns the group of id, or nil when it has none. A group whose
+// other members are gone (a delete can leave one behind) counts as none.
 func (s *GroupStore) GroupOf(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
 	var g *uuid.UUID
-	err := s.db.QueryRow(ctx, `SELECT translation_group FROM hatamoto_entities WHERE id = $1`, id).Scan(&g)
+	err := s.db.QueryRow(ctx, `
+		SELECT e.translation_group FROM hatamoto_entities e
+		WHERE e.id = $1 AND EXISTS (
+			SELECT 1 FROM hatamoto_entities o
+			WHERE o.translation_group = e.translation_group AND o.id <> e.id)`, id).Scan(&g)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("group of entity: %w", err)
 	}
@@ -300,16 +305,18 @@ func (s *GroupStore) LiveSiblings(ctx context.Context, id uuid.UUID, tags []stri
 	return out, rows.Err()
 }
 
-// GroupsFor returns group and locale for those of ids that are in a group,
-// keyed by entity id.
+// GroupsFor returns group and locale for those of ids that are in a group with
+// at least one other member, keyed by entity id.
 func (s *GroupStore) GroupsFor(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]GroupMember, error) {
 	out := map[uuid.UUID]GroupMember{}
 	if len(ids) == 0 {
 		return out, nil
 	}
 	rows, err := s.db.Query(ctx, `
-		SELECT id, translation_group, locale FROM hatamoto_entities
-		WHERE id = ANY($1) AND translation_group IS NOT NULL`, ids)
+		SELECT e.id, e.translation_group, e.locale FROM hatamoto_entities e
+		WHERE e.id = ANY($1) AND e.translation_group IS NOT NULL AND EXISTS (
+			SELECT 1 FROM hatamoto_entities o
+			WHERE o.translation_group = e.translation_group AND o.id <> e.id)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("groups for entities: %w", err)
 	}
