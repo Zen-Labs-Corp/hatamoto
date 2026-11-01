@@ -73,8 +73,12 @@
   .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
 }
-/* Update, with changes that are not on the live page yet: a dot in the text colour (so it also works in forced colours). */
+/* Update, with changes that are not on the live page yet: a dot in the text colour (the forced-colors block below keeps it: system colours replace backgrounds). */
 .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { content: ""; display: inline-block; inline-size: 0.5em; block-size: 0.5em; margin-inline-start: var(--space-2); border-radius: 50%; background: currentColor; }
+@media (forced-colors: active) { /* a background is replaced by Canvas there: keep the Update dot and the hint's resize glyph visible */
+  .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { forced-color-adjust: none; background: ButtonText; }
+  .hm-bs-hint__bar { forced-color-adjust: none; background: CanvasText; }
+}
 .hm-bs__devices[hidden] { display: none; }
 .hm-bs__devices .hm-segmented { flex-wrap: nowrap; align-self: center; } /* the shared control wraps when the bar is full: the device switch must stay one row */
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__state { white-space: nowrap; flex: none; }

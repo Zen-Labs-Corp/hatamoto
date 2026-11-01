@@ -11,3 +11,12 @@ test("the grid bar and the phone bar never match at the same width (640px belong
   assert.doesNotMatch(css, /@media \(min-width: 40rem\)/, "an inclusive min-width overlaps the phone rules at exactly 640px");
   assert.match(css, /@media not all and \(max-width: 40rem\) \{[^\n]*\n\s*\.hm-editor-bar:has\(\[data-hm-bs-title\]\) \{ display: grid;/);
 });
+
+test("forced colors keep the Update dot and the hint's resize glyph (both are backgrounds)", () => {
+  const i = css.indexOf("@media (forced-colors: active) { /* a background");
+  assert.ok(i > 0, "no forced-colors block for the dot and the glyph");
+  const block = css.slice(i, css.indexOf("\n}\n", i));
+  assert.match(block, /\[data-hm-bs-dirty\]::after \{ forced-color-adjust: none; background: ButtonText;/);
+  assert.match(block, /\.hm-bs-hint__bar \{ forced-color-adjust: none; background: CanvasText;/);
+  assert.doesNotMatch(css, /so it also works in forced colours/);
+});
