@@ -56,6 +56,8 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 .hm-cellbar { --viz: var(--chart-3); display: inline-block; vertical-align: middle; width: 96px; height: 4px; border-radius: var(--radius-full); overflow: hidden; }
 .hm-cellbar__track { fill: var(--color-kasumi); }
 .hm-cellbar__fill { fill: var(--viz); }
+/* The neutral wash is too faint on the track; a bar needs a mid grey to read as filled. */
+.hm-cellbar__fill.hm-viz--neutral { --viz: var(--chart-3); }
 .hm-table .hm-spark { display: inline-block; vertical-align: middle; width: 120px; height: 32px; }
 @media (max-width: 640px) {
   /* Tables rendered by hm/table (.hm-table--cards, the only ones that emit data-label) stack as
