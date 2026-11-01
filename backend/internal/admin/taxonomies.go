@@ -27,6 +27,7 @@ func (a *Admin) mountTaxonomies(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/merge", a.handleTermMerge)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/delete", a.handleTermDeleteConfirm)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/delete", a.handleTermDelete)
+	a.mountTermLocales(owner)
 }
 
 type termForm struct {
@@ -39,6 +40,8 @@ type termForm struct {
 	Crumbs                                  []ui.Crumb
 	SEO                                     seoForm
 	Panel                                   seoPanel
+	// Locales is the Locale field and copies block; nil on a single-locale site.
+	Locales *termLocales
 }
 
 type taxonomiesData struct {
@@ -358,6 +361,7 @@ func (a *Admin) renderTermEdit(w http.ResponseWriter, r *http.Request, status in
 	}
 	a.withSEOSettings(r, &in, "")
 	f.Panel = buildPanel(in)
+	f.Locales = a.termLocalesFor(r, t)
 	f.Panel.JSONLDNote = "The public archive page adds its own structured data: a collection page and breadcrumbs."
 	v := a.NewView(w, r, "Edit "+t.Name)
 	v.Data = f

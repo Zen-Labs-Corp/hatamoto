@@ -136,6 +136,10 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   copy in list order plus `x-default` (the x-default setting, else the first
   live copy). A locale with no copy is left out of the head; a theme language
   switcher can link it to that locale's home.
+* The admin creates the copies: the Translations tab, the entries list and Add locale
+  make a linked draft in another locale (each copy gets its own slug, so the
+  address under its prefix can match the original's), and a term has its own
+  locale and copies. See the Translations item in `docs/ADMIN.md`.
 * A locale can be hidden (Public off in Settings > Locales). Its prefix answers
   `404`, its pages are left out of sitemaps and `hreflang`, and it cannot be the
   x-default. The default locale cannot be hidden.

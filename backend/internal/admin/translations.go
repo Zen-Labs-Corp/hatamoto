@@ -22,6 +22,9 @@ type translationsData struct {
 	Hreflang   ui.Table
 	// Link is the "Link an existing page" dialog; nil hides it (no edit rights).
 	Link *linkDialog
+	// CopyForms are the Create copy dialogs, one per language without a copy;
+	// empty when the person may not create copies.
+	CopyForms []copyForm
 }
 
 // emptyCell is what a table cell with no value shows, as in the other admin tables.
@@ -145,6 +148,11 @@ func (a *Admin) fillTranslations(ctx context.Context, d *translationsData, e *en
 				text = "no copy, hidden"
 			}
 			row.Cells = []ui.Cell{lang, {Text: emptyCell}, {Text: text}}
+			if d.Link != nil && a.deps.Content.Copier != nil && entity.CanCopy(e) {
+				f := a.newCopyForm(ctx, e, tag, members, grouped, set)
+				d.CopyForms = append(d.CopyForms, f)
+				row.Actions = []ui.Action{{Label: "Create", Href: f.NewURL, Open: f.DialogID, Button: true, AriaLabel: "Create " + name + " " + tag + " copy"}}
+			}
 			d.Copies.Rows = append(d.Copies.Rows, row)
 			continue
 		}

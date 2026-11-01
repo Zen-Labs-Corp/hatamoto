@@ -57,7 +57,7 @@
 </div>
 <aside class="hm-be__side" aria-label="Post settings">
 <div class="hm-be__side-head" hidden data-hm-be-drawer-js><h2 class="hm-be__side-title">Post settings</h2>{{template "hm/button" (dict "Label" "Close" "Size" "sm" "Attrs" (attrmap "data-hm-be-settings-close" ""))}}</div>
-{{template "hm/tabs" (dict "Variant" "tablist" "Label" "Post settings" "Class" "hm-tablist--bar hm-be__tabrow" "Attrs" (attrmap "hidden" "hidden" "data-hm-be-tabs" "") "Items" (list (dict "ID" "be-tab-post" "Controls" "be-tabpanel-post" "Label" "Post" "Active" true) (dict "ID" "be-tab-seo" "Controls" "be-tabpanel-seo" "Label" "SEO and AEO")))}}
+{{template "hm/tabs" (dict "Variant" "tablist" "Label" "Post settings" "Class" "hm-tablist--bar hm-be__tabrow" "Attrs" (attrmap "hidden" "hidden" "data-hm-be-tabs" "") "Items" .AsideTabs)}}
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-post" aria-labelledby="be-tab-post" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>Post</h2>
 {{template "hm/card-start" dict "ID" "be-publish" "Title" "Publish"}}
@@ -122,8 +122,15 @@
 {{if .Crawlers.Rows}}<ul class="hm-bp__list" role="list">{{range .Crawlers.Rows}}<li class="hm-bp__item"><span><strong>{{.Name}}</strong> ({{.Operator}}) last fetched {{.Last}}{{with .Status}} · status {{.}}{{end}}</span></li>
 {{end}}</ul>{{else}}{{template "hm/empty" (dict "Title" "No AI crawler has fetched this post yet" "Compact" true)}}{{end}}{{end}}
 {{template "hm/card-end"}}{{end}}
-</section>
+</section>{{with .Translations}}
+<section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-translations" aria-labelledby="be-tab-translations" data-hm-be-panel>
+<h2 class="hm-be__panel-h" data-hm-be-panel-h>Translations</h2>
+{{template "hm/card-start" dict "ID" "be-translations"}}
+{{template "hm/translations" .}}
+{{template "hm/card-end"}}
+</section>{{end}}
 </aside>
 </div>
-</form>
+</form>{{with .Translations}}
+{{template "hm/translations-dialogs" (dict "CSRF" $.CSRF "P" .)}}{{end}}
 {{end}}{{end}}

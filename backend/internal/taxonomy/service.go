@@ -24,6 +24,8 @@ type Service struct {
 	// changed runs after any successful write (terms are part of rendered
 	// pages: names, archive links, widgets).
 	changed func(ctx context.Context)
+	// groups links term copies; see CreateTermCopy.
+	groups *TermGroupStore
 }
 
 // SetChangeObserver installs the callback run after a term was created,

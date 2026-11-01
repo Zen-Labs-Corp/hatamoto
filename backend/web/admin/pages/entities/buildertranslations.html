@@ -1,0 +1,3 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}<div id="hm-bs-translations">{{template "hm/translations" .}}</div>
+{{template "hm/translations-dialogs" (dict "CSRF" $.CSRF "P" .)}}{{end}}{{end}}

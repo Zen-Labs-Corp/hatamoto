@@ -121,6 +121,7 @@ type Server struct {
 	analyticsHandlers        *analytics.Handlers
 	geoConfigured, geoLoaded bool // HATAMOTO_GEOIP_DB set / country database opened
 	taxonomyService          *taxonomy.Service
+	termGroups               *taxonomy.TermGroupStore
 	taxonomyHandlers         *taxonomy.Handlers
 	authors                  *author.Store
 	//lint:ignore SA1019 the rollback mirror API stays mounted until the author package is removed
@@ -594,6 +595,8 @@ func (s *Server) setupDependencies() {
 	s.taxonomyService = taxonomy.NewService(taxonomyRepo, s.logger)
 	s.taxonomyService.SetMoveObserver(s.onTermsMoved)
 	s.taxonomyService.SetChangeObserver(s.invalidateRendered)
+	s.termGroups = taxonomy.NewTermGroupStore(s.db)
+	s.taxonomyService.SetGroupStore(s.termGroups)
 	s.taxonomyHandlers = taxonomy.NewHandlers(s.taxonomyService, s.logger)
 
 	// Bylines come from people (person entities); hatamoto_authors is only the

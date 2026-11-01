@@ -72,6 +72,8 @@ function start(root, boot) {
   const canvasEl = $(root, "[data-hm-bs-canvas]");
   const seoBtn = $(bar, "[data-hm-bs-seo]");
   const seoRoot = $(root, "[data-hm-bs-seo-drawer]");
+  const trBtn = $(bar, "[data-hm-bs-translations]");
+  const trRoot = $(root, "[data-hm-bs-translations-drawer]");
   const live = h("div", { class: "hm-visually-hidden", role: "status", "aria-live": "polite" });
   root.append(live);
   const announce = (msg) => {
@@ -98,6 +100,7 @@ function start(root, boot) {
   const hintChunk = lazy(() => import("@hm/builder/coachmarks")); // the two one-time hints
   const siteChunk = lazy(() => import("@hm/builder/sitestyles")); // Site styles, owners only
   const seoChunk = lazy(() => import("@hm/builder/seodrawer")); // the page's SEO drawer (a page only)
+  const trChunk = lazy(() => import("@hm/builder/translationsdrawer")); // the Translations drawer (multi-locale pages only)
   $$(bar, "[data-hm-bs-js]").forEach((el) => {
     el.hidden = false;
   });
@@ -989,6 +992,11 @@ function start(root, boot) {
         })
         .catch(() => warn("The SEO panel did not load. Reload the page.")),
     );
+  }
+  let trDrawer = null;
+  if (trBtn && trRoot) {
+    const bad = () => warn("The translations did not load. Reload the page.");
+    trBtn.addEventListener("click", () => trChunk().then((m) => (trDrawer ??= m.mountTranslationsDrawer({ btn: trBtn, root: trRoot, url: boot.urls.translations, onError: bad })).toggle()).catch(bad));
   }
   undoBtn?.addEventListener("click", doUndo);
   redoBtn?.addEventListener("click", doRedo);

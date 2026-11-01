@@ -79,13 +79,21 @@ type Action struct {
 	Danger bool
 	// Hint is a second, muted line under the label of a pageheader overflow item.
 	Hint   string
-	NewTab bool              // open Href in a new tab (a link menu item only)
+	NewTab bool // open Href in a new tab (a link menu item only)
+	// Open is the id of a dialog the link opens with JavaScript; Href stays the
+	// no-JS page (a link menu item only).
+	Open   string
 	Fields map[string]string // hidden fields sent with a Post action
 	// Confirm makes the action ask first. Href is then the confirmation page
 	// (works without JavaScript) and Post the action the page submits; with JS
 	// the link opens a native <dialog> showing Confirm instead of navigating.
 	Confirm      string
 	ConfirmLabel string // the dialog's confirm button (default: Label)
+	// Button shows the action as a visible button in the actions cell instead of
+	// a row menu item (a link action only: Href, Open or Confirm). AriaLabel
+	// names it when the row is not clear from the label alone.
+	Button    bool
+	AriaLabel string
 }
 
 // Row is one table row.
@@ -96,8 +104,22 @@ type Row struct {
 	Actions []Action
 }
 
-// SafeActions returns the row's non-destructive actions, in order.
+// SafeActions returns the row's non-destructive menu actions, in order.
 func (r Row) SafeActions() []Action { return filterActions(r.Actions, false) }
+
+// ButtonActions returns the actions shown as visible buttons, in order.
+func (r Row) ButtonActions() []Action {
+	var out []Action
+	for _, a := range r.Actions {
+		if a.Button {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// HasMenu reports whether any action belongs in the row menu.
+func (r Row) HasMenu() bool { return len(r.SafeActions())+len(r.DangerActions()) > 0 }
 
 // DangerActions returns the row's destructive actions, in order. A row menu
 // lists them last, behind a separator.
@@ -106,7 +128,7 @@ func (r Row) DangerActions() []Action { return filterActions(r.Actions, true) }
 func filterActions(actions []Action, danger bool) []Action {
 	var out []Action
 	for _, a := range actions {
-		if a.Danger == danger {
+		if a.Danger == danger && !a.Button {
 			out = append(out, a)
 		}
 	}
@@ -119,7 +141,8 @@ type Col struct {
 	Sortable   bool
 	Align      string // "" | right
 	// Role shapes the column: title (takes the slack and wraps), num (right,
-	// tabular digits), check, actions. With no title column, the first is it.
+	// tabular digits), check, actions, plain (wraps but takes no slack and has
+	// no minimum width: for a narrow table). With no title column, the first is it.
 	Role string
 	// WideOnly drops the column's cells from the compact phone cards (below
 	// 640px); the header stays in the sort strip only if it is sortable.
@@ -150,6 +173,16 @@ type BulkAction struct {
 	// number of checked rows). Without JavaScript the button posts and the
 	// handler answers with a confirmation page.
 	Confirm string
+	// Select adds a choice that posts with the button (the button first, then
+	// the select), for one action with a target such as a language.
+	Select *BulkSelect
+}
+
+// BulkSelect is the select beside a bulk button. Label names it for screen
+// readers; the chosen option posts as Name.
+type BulkSelect struct {
+	Name, Label string
+	Options     []Option
 }
 
 // Table is the hm/table partial. State lives in the URL (?q=&sort=&dir=&page=)
@@ -271,6 +304,8 @@ func (t Table) CellClass(i int) string {
 	switch t.role(i) {
 	case "title":
 		cls = append(cls, "hm-col-title")
+	case "plain":
+		cls = append(cls, "hm-col-plain")
 	case "num":
 		cls = append(cls, "hm-col-num")
 	case "check":
