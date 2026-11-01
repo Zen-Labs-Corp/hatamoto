@@ -20,3 +20,7 @@ test("forced colors keep the Update dot and the hint's resize glyph (both are ba
   assert.match(block, /\.hm-bs-hint__bar \{ forced-color-adjust: none; background: CanvasText;/);
   assert.doesNotMatch(css, /so it also works in forced colours/);
 });
+
+test("the right group of the grid bar keeps its own width (an equal 1fr column overflowed at laptop widths)", () => {
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) auto max-content;/);
+});

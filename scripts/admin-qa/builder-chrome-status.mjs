@@ -8,7 +8,8 @@
 // an edit with autosave off (a published page keeps only a recovery copy) reads "Draft saved · not live yet", the Update button
 // carries data-hm-bs-dirty and the name "Update, unpublished changes"; Update then reads "Published · Saved" and the indicator
 // clears. Offline shows the "Not saved" reason line. At 390 px the short line and the second row are in place. Axe on the
-// top bar in both themes. Screenshots at 1600, 1000 and 390 wide: status-1600.png, status-1000.png, status-390.png.
+// top bar in both themes. The bar is measured at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 wide (no overflow from 1100 up, 1000 is reported; Undo and the
+// devices on their own row up to 414; the phone layout alone at 640). Screenshots: status-1600.png, status-390.png, bar-<width>.png.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -137,12 +138,44 @@ await check("Update saves: Published · Saved, the indicator clears, the name is
   return `"${await statusText()}"`;
 });
 
-await check("1000 px: screenshot of the bar", async () => {
-  await p.setViewportSize({ width: 1000, height: 800 });
-  await settle(500);
-  await shot("status-1000.png");
+/** Layout numbers of the top bar at the current viewport: overflow of the bar, of the page, and the rows of title, Undo and the device switch. */
+const barBox = () => p.evaluate(() => {
+  const bar = document.querySelector(".hm-editor-bar");
+  const r = (sel) => document.querySelector(sel)?.getBoundingClientRect();
+  const kids = [...bar.querySelectorAll("*")].filter((e) => e.offsetParent && e.getBoundingClientRect().width);
+  const right = Math.max(...kids.map((e) => e.getBoundingClientRect().right));
+  const left = Math.min(...kids.map((e) => e.getBoundingClientRect().left));
+  const bb = bar.getBoundingClientRect();
+  return {
+    barOver: Math.max(0, Math.round(Math.max(right - bb.right, bb.left - left, bar.scrollWidth - bar.clientWidth))),
+    pageOver: document.documentElement.scrollWidth - innerWidth,
+    titleTop: r("[data-hm-bs-title]")?.top, undoTop: r("[data-hm-bs-undo]")?.top, devTop: r(".hm-bs__devices")?.top,
+    grid: getComputedStyle(bar).display,
+  };
+});
+const WIDTHS = [360, 390, 414, 640, 1000, 1100, 1280, 1300, 1600];
+
+await check("top bar fit at 360, 390, 414, 640, 1000, 1100, 1280, 1300 and 1600 px (published page with an unpublished edit: the widest bar)", async () => {
+  await open(pubId);
+  await addHeading();
+  await waitStatus(/Draft saved · not live yet/);
+  const out = [], fails = [];
+  for (const w of WIDTHS) {
+    await p.setViewportSize({ width: w, height: 844 });
+    await settle(500);
+    const b = await barBox();
+    await shot(`bar-${w}.png`);
+    out.push(`${w}:bar+${b.barOver}/page+${b.pageOver}/${b.grid === "grid" ? "grid" : "wrap"}${w <= 640 ? `/undo y${Math.round(b.undoTop)} dev y${Math.round(b.devTop)} title y${Math.round(b.titleTop)}` : ""}`);
+    if (w >= 1100 && (b.barOver > 1 || b.pageOver > 1)) fails.push(`the bar overflows at ${w}px: ${JSON.stringify(b)}`);
+    if (w <= 640) {
+      if (b.grid === "grid") fails.push(`at ${w}px the bar is still the grid layout (the phone rules must win)`);
+      if (b.pageOver > 1) fails.push(`the page scrolls sideways by ${b.pageOver}px at ${w}px`);
+      if (w <= 414 && (!(b.devTop > b.titleTop + 8) || Math.abs(b.undoTop - b.devTop) > 8)) fails.push(`at ${w}px Undo (y ${b.undoTop}) and the devices (y ${b.devTop}) are not their own row below the title (y ${b.titleTop})`);
+    }
+  }
   await p.setViewportSize({ width: 1600, height: 950 });
-  return "taken (the bar is wider than 1000 px on a published page, as it was before the chrome work: not asserted)";
+  if (fails.length) throw new Error(fails.join("; ") + " [" + out.join(" ") + "]");
+  return out.join(" ") + " (1000 is reported, not asserted: the SEO score makes it wide, as it was before the chrome work)";
 });
 
 await check("390 px: the short line and the second row layout", async () => {

@@ -68,9 +68,9 @@
 .hm-bs__devices { display: inline-flex; align-items: center; flex: none; gap: var(--space-2); }
 .hm-bs__lead, .hm-bs__end { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
 .hm-bs__end { margin-inline-start: auto; flex: none; }
-/* The device switch sits in the middle of the bar: the title group and the tools take equal columns either side of it. */
+/* The device switch sits in the middle of the bar: the title group takes what is left and the tools keep their own width (an equal column overflowed at laptop widths). */
 @media not all and (max-width: 40rem) { /* the exact complement of the phone rules below: at 640px only the phone layout applies */
-  .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto max-content; }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
 }
 /* Update, with changes that are not on the live page yet: a dot in the text colour (the forced-colors block below keeps it: system colours replace backgrounds). */
