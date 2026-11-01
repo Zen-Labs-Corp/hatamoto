@@ -88,7 +88,7 @@ func (a *Admin) keysTable(r *http.Request, keys []*auth.APIKey) ui.Table {
 		status := ui.Badge{Label: "Active", Kind: "success"}
 		switch {
 		case k.RevokedAt != nil || !k.IsActive:
-			status = ui.Badge{Label: "Revoked", Kind: "danger"}
+			status = ui.Badge{Label: "Revoked", Kind: "neutral"}
 		case k.ExpiresAt != nil && k.ExpiresAt.Before(now):
 			status = ui.Badge{Label: "Expired", Kind: "warning"}
 		}

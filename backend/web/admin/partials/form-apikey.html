@@ -2,6 +2,6 @@
 {{define "hm/form-apikey"}}{{template "hm/field" dict "ID" "key-name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Help" "What the key is for, like Deploy script." "Error" .NameErr}}
 <div class="hm-field"><fieldset class="hm-field__group" data-hm-scopes><legend class="hm-field__label">Access</legend>
 {{template "hm/button" (dict "Label" "Select all" "Size" "sm" "Attrs" (attrmap "data-hm-scopes-all" "" "hidden" "hidden"))}}
-{{range $i, $s := .Scopes}}{{template "hm/field" dict "ID" (printf "scope-%d" $i) "Name" "scopes" "Label" $s.Label "Control" "checkbox" "Value" $s.Value "Help" $s.Help "Checked" $s.Checked}}{{end}}
+{{range $i, $s := .Scopes}}{{template "hm/field" dict "ID" (printf "scope-%d" $i) "Name" "scopes" "Label" $s.Label "Code" $s.Value "Control" "checkbox" "Value" $s.Value "Help" $s.Help "Checked" $s.Checked}}{{end}}
 </fieldset></div>
 {{template "hm/field" dict "ID" "expiry" "Name" "expiry" "Label" "Expires" "Control" "select" "Options" .Expiry}}{{end}}
