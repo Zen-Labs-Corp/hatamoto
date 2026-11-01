@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -85,4 +87,101 @@ func TestEntityEditDOMOrderMatchesNarrowLayout(t *testing.T) {
 		t.Error("Terms must come before SEO")
 	}
 	has(t, body, `<aside class="hm-entityform__side" aria-label="Publishing and terms">`)
+}
+
+func TestSEOFormSchemaKeysAreSeparate(t *testing.T) {
+	t.Parallel()
+
+	for _, k := range seoSchemaKeys {
+		if slices.Contains(seoKeys, k) {
+			t.Errorf("%s is in seoKeys: the builder drawer would wipe it", k)
+		}
+	}
+	m := map[string]any{"schema_type": "Course", "custom_jsonld": "{}", "meta_title": "T"}
+	seoForm{Title: "New"}.merge(m)
+	if m["schema_type"] != "Course" || m["custom_jsonld"] != "{}" {
+		t.Errorf("merge touched the schema keys: %v", m)
+	}
+	seoForm{SchemaType: " Service ", CustomJSONLD: ""}.mergeSchema(m)
+	if m["schema_type"] != "Service" {
+		t.Errorf("schema_type = %v", m["schema_type"])
+	}
+	if _, ok := m["custom_jsonld"]; ok {
+		t.Error("empty custom_jsonld kept")
+	}
+	if f := seoFrom(map[string]any{"schema_type": "Course", "custom_jsonld": "{}"}); f.SchemaType != "Course" || f.CustomJSONLD != "{}" {
+		t.Errorf("seoFrom = %+v", f)
+	}
+}
+
+func TestEntityEditSavesSchemaTabFields(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(11).String()
+	ld := `{"@context":"https://schema.org","@type":"Thing","name":"x"}`
+	base := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}}
+	post := func(extra url.Values) *httptest.ResponseRecorder {
+		form := url.Values{}
+		for k, v := range base {
+			form[k] = v
+		}
+		for k, v := range extra {
+			form[k] = v
+		}
+		return c.do("POST", "/admin/entities/"+id, "editor-token", form, nil)
+	}
+
+	if rec := post(url.Values{"seo_schema_type": {"Course"}, "seo_custom_jsonld": {ld}}); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	got := attrsMap(c.ents.ents[fid(11)].Attributes)
+	if got["schema_type"] != "Course" || got["custom_jsonld"] != ld {
+		t.Fatalf("attributes = %v", got)
+	}
+	// A form without the fields keeps them; an empty field clears them.
+	if rec := post(nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := attrsMap(c.ents.ents[fid(11)].Attributes); got["schema_type"] != "Course" || got["custom_jsonld"] != ld {
+		t.Errorf("unposted fields were dropped: %v", got)
+	}
+	if rec := post(url.Values{"seo_schema_type": {""}, "seo_custom_jsonld": {""}}); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := attrsMap(c.ents.ents[fid(11)].Attributes); got["schema_type"] != nil || got["custom_jsonld"] != nil {
+		t.Errorf("empty fields kept: %v", got)
+	}
+}
+
+func TestEntityEditRejectsBadSchemaTabFields(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	before := string(c.ents.ents[fid(11)].Attributes)
+	for name, extra := range map[string]url.Values{
+		"seo-custom-jsonld": {"seo_custom_jsonld": {`{"@type":"Thing"}`}},
+		"seo-schema-type":   {"seo_schema_type": {"FAQPage"}},
+		"not-json":          {"seo_custom_jsonld": {`{`}},
+	} {
+		form := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}}
+		for k, v := range extra {
+			form[k] = v
+		}
+		rec := c.do("POST", "/admin/entities/"+fid(11).String(), "owner-token", form, nil)
+		if rec.Code != 422 {
+			t.Errorf("%s: save = %d, want 422", name, rec.Code)
+			continue
+		}
+		field := "seo_schema_type"
+		if strings.Contains(name, "json") {
+			field = "seo_custom_jsonld"
+		}
+		if !strings.Contains(rec.Body.String(), `href="#`+field+`"`) {
+			t.Errorf("%s: no summary link to %s", name, field)
+		}
+	}
+	if got := string(c.ents.ents[fid(11)].Attributes); got != before {
+		t.Errorf("a rejected save changed the entity: %s", got)
+	}
 }
