@@ -265,6 +265,120 @@ func setIf(m map[string]any, key, val string) {
 	}
 }
 
+// setList sets key to vals only when there are any.
+func setList(m map[string]any, key string, vals []string) {
+	if len(vals) > 0 {
+		m[key] = vals
+	}
+}
+
+// namedLD is a node of the given type with a name and an optional url, nil
+// without a name.
+func namedLD(typ, name, u string) map[string]any {
+	if name == "" {
+		return nil
+	}
+	n := map[string]any{"@type": typ, "name": name}
+	setIf(n, "url", u)
+	return n
+}
+
+// namedListLD maps people to nodes of typ, skipping nameless ones.
+func namedListLD(typ string, people []PersonView) any {
+	var out []any
+	for _, p := range people {
+		if n := namedLD(typ, p.Name, p.URL); n != nil {
+			out = append(out, n)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return oneOrList(out)
+}
+
+// offerCatalogLD is the services as an OfferCatalog, nil without a named one.
+func offerCatalogLD(services []ServiceView, currency string) map[string]any {
+	var offers []any
+	for _, s := range services {
+		if s.Name == "" {
+			continue
+		}
+		svc := map[string]any{"@type": "Service", "name": s.Name}
+		setIf(svc, "description", s.Description)
+		setIf(svc, "url", s.URL)
+		offer := map[string]any{"@type": "Offer", "itemOffered": svc}
+		if price, ok := bizprofile.ParseDecimal(s.Price); ok {
+			offer["price"] = price
+			setIf(offer, "priceCurrency", currency)
+		}
+		offers = append(offers, offer)
+	}
+	if len(offers) == 0 {
+		return nil
+	}
+	return map[string]any{"@type": "OfferCatalog", "name": "Services", "itemListElement": offers}
+}
+
+// actionsLD is the booking and order links as Reserve/Order actions.
+func actionsLD(booking, order string) []any {
+	var out []any
+	for _, a := range []struct{ typ, url string }{{"ReserveAction", booking}, {"OrderAction", order}} {
+		if a.url != "" {
+			out = append(out, map[string]any{"@type": a.typ, "target": map[string]any{"@type": "EntryPoint", "urlTemplate": a.url}})
+		}
+	}
+	return out
+}
+
+// amenitiesLD is the amenities as LocationFeatureSpecification nodes.
+func amenitiesLD(amenities []AmenityView) []any {
+	var out []any
+	for _, a := range amenities {
+		if a.Name != "" {
+			out = append(out, map[string]any{"@type": "LocationFeatureSpecification", "name": a.Name, "value": a.Value})
+		}
+	}
+	return out
+}
+
+// setDetailsLD prints the extended details shared by the Organization and the
+// local business, each only when set. currency is the services' price currency.
+func setDetailsLD(n map[string]any, d BusinessDetails, currency string) {
+	setIf(n, "naics", d.Naics)
+	setIf(n, "isicV4", d.Isic)
+	setIf(n, "duns", d.Duns)
+	setIf(n, "leiCode", d.Lei)
+	setIf(n, "globalLocationNumber", d.Gln)
+	if f := namedListLD("Person", d.Founders); f != nil {
+		n["founder"] = f
+	}
+	if p := namedLD("Organization", d.ParentOrg.Name, d.ParentOrg.URL); p != nil {
+		n["parentOrganization"] = p
+	}
+	if len(d.Brands) > 0 {
+		brands := make([]any, 0, len(d.Brands))
+		for _, b := range d.Brands {
+			brands = append(brands, map[string]any{"@type": "Brand", "name": b})
+		}
+		n["brand"] = oneOrList(brands)
+	}
+	setList(n, "knowsAbout", d.KnowsAbout)
+	setList(n, "award", d.Awards)
+	if m := namedListLD("Organization", d.Memberships); m != nil {
+		n["memberOf"] = m
+	}
+	if c := offerCatalogLD(d.Services, currency); c != nil {
+		n["hasOfferCatalog"] = c
+	}
+	if a := actionsLD(d.BookingURL, d.OrderURL); len(a) > 0 {
+		n["potentialAction"] = oneOrList(a)
+	}
+	if len(d.PaymentMethods) > 0 {
+		n["paymentAccepted"] = strings.Join(d.PaymentMethods, ", ")
+	}
+}
+
 // appendUnique appends the non-empty values not already in dst.
 func appendUnique(dst []string, vals ...string) []string {
 	for _, v := range vals {

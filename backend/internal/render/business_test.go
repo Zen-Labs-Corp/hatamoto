@@ -511,3 +511,57 @@ func TestOrgNode_SitePhonePointWithAddressSetting(t *testing.T) {
 		}
 	}
 }
+
+// extendedDetails is a fully filled BusinessDetails with neutral sample data.
+func extendedDetails() BusinessDetails {
+	return BusinessDetails{
+		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "ABCDEFGHIJ0123456789", Gln: "1234567890123",
+		Founders:    []PersonView{{Name: "Alex Sample", URL: "https://example.test/alex"}, {}},
+		ParentOrg:   PersonView{Name: "Parent Co", URL: "https://parent.example.test"},
+		Brands:      []string{"Brand A"},
+		Memberships: []PersonView{{Name: "Guild"}},
+		KnowsAbout:  []string{"Topic"}, Awards: []string{"Award"},
+		PaymentMethods: []string{"Cash", "Visa"},
+		BookingURL:     "https://example.test/book", OrderURL: "https://example.test/order",
+		Services: []ServiceView{{Name: "Repair", Description: "Fix", URL: "https://example.test/repair", Price: "12.5"}, {Description: "nameless"}},
+	}
+}
+
+func TestOrgNode_ExtendedDetails(t *testing.T) {
+	v := businessPage(nil)
+	if got := orgOf(t, v); got["naics"] != nil || got["founder"] != nil || got["hasOfferCatalog"] != nil || got["paymentAccepted"] != nil {
+		t.Fatalf("empty details must print nothing: %v", got)
+	}
+	v.Site.Org.BusinessDetails = extendedDetails()
+	v.Site.Org.Currency = "XXD"
+	org := orgOf(t, v)
+	for k, want := range map[string]any{
+		"naics": "541511", "isicV4": "6201", "duns": "123456789", "leiCode": "ABCDEFGHIJ0123456789",
+		"globalLocationNumber": "1234567890123", "paymentAccepted": "Cash, Visa",
+		"knowsAbout": []any{"Topic"}, "award": []any{"Award"},
+		"founder":            map[string]any{"@type": "Person", "name": "Alex Sample", "url": "https://example.test/alex"},
+		"parentOrganization": map[string]any{"@type": "Organization", "name": "Parent Co", "url": "https://parent.example.test"},
+		"brand":              map[string]any{"@type": "Brand", "name": "Brand A"},
+		"memberOf":           map[string]any{"@type": "Organization", "name": "Guild"},
+	} {
+		if !reflect.DeepEqual(org[k], want) {
+			t.Errorf("%s = %v, want %v", k, org[k], want)
+		}
+	}
+	cat, _ := org["hasOfferCatalog"].(map[string]any)
+	offers, _ := cat["itemListElement"].([]any)
+	if len(offers) != 1 {
+		t.Fatalf("offers = %v", cat)
+	}
+	offer := offers[0].(map[string]any)
+	if offer["price"] != 12.5 || offer["priceCurrency"] != "XXD" || offer["itemOffered"].(map[string]any)["name"] != "Repair" {
+		t.Errorf("offer = %v", offer)
+	}
+	acts, _ := org["potentialAction"].([]any)
+	if len(acts) != 2 || acts[0].(map[string]any)["@type"] != "ReserveAction" || acts[1].(map[string]any)["@type"] != "OrderAction" {
+		t.Errorf("potentialAction = %v", org["potentialAction"])
+	}
+	if _, ok := org["@id"]; !ok || org["parentOrganization"].(map[string]any)["@id"] != nil {
+		t.Errorf("parent organisation must be external, without @id: %v", org["parentOrganization"])
+	}
+}
