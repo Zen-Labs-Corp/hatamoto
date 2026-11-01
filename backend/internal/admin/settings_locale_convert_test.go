@@ -218,6 +218,9 @@ func TestLocaleConvertReportPage(t *testing.T) {
 	if strings.ContainsAny(body, "\u2013\u2014") {
 		t.Error("em or en dash on the page")
 	}
+	if h1 := convertH1(body); h1 != "Convert region pages" {
+		t.Errorf("h1 = %q, want the page title", h1)
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
@@ -287,6 +290,9 @@ func TestLocaleConvertApplyFlow(t *testing.T) {
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	if h1 := convertH1(body); h1 != "Convert region pages" {
+		t.Errorf("confirm h1 = %q, want the page title", h1)
 	}
 	compareGolden(t, "pages/settings-locale-convert-confirm.html", normalizePage(body))
 
@@ -556,4 +562,11 @@ func TestLocaleConvertCapsTheBodyBeforeItIsRead(t *testing.T) {
 	if rec := g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil); rec.Code != http.StatusOK {
 		t.Errorf("normal plan: %d", rec.Code)
 	}
+}
+
+// convertH1 returns the text of the page's h1.
+func convertH1(body string) string {
+	_, rest, _ := strings.Cut(body, "<h1>")
+	h1, _, _ := strings.Cut(rest, "</h1>")
+	return h1
 }
