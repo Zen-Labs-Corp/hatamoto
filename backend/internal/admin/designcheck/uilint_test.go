@@ -114,6 +114,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "partials/pluginhead.html", Needle: `{{if .Enabled}}disable`, Reason: "one-button POST form (Turn on or off) in the plugin header row"},
 	{Rule: "UI-01", File: "partials/sectionhead.html", Needle: `{{with $.Primary}}`, Reason: "one-button POST form in the section header"},
 	{Rule: "UI-01", File: "partials/pageheader.html", Needle: `id="hm-overflow"`, Reason: "overflow menu item that posts, inside a popup menu"},
+	{Rule: "UI-01", File: "partials/sectionhead.html", Needle: `id="hm-overflow"`, Reason: "overflow menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "partials/rowmenu.html", Needle: `{{$a.Post}}`, Reason: "row menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/theme"`, Reason: "theme toggle in the sidebar"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/logout"`, Reason: "sign out button in the sidebar"},
