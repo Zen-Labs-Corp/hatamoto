@@ -42,6 +42,7 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 		loc = set.Default()
 	}
 	v.Locale = loc
+	v.Segment, _ = set.Segment(loc)
 	v.Site.Language = loc
 	if !shared {
 		v.Business, v.GeoRegion = business(set, loc)

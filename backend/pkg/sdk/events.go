@@ -39,17 +39,23 @@ type ImportEvent struct {
 }
 
 // HeadContext is the payload of the render.head filter. Path, Language,
-// SchemaSlug and EntityID describe the page; a filter appends to Tags.
+// SchemaSlug and EntityID describe the page; Locale and Segment name its locale
+// on a multi-locale site (since 0.15.0); a filter appends to Tags.
 // A filter that supplies its own Organization/WebSite graph as jsonld tags
 // sets ReplaceSiteGraph so the host omits its generic site graph. The flag
 // is preserved as long as later filters return the context they were given.
 // It is fail-open: if the chain times out or panics, or no valid jsonld tag
 // results, the generic graph is kept. Since 0.2.2.
 type HeadContext struct {
-	Path             string    `json:"path"`
-	Language         string    `json:"language"`
-	SchemaSlug       string    `json:"schema_slug"`
-	EntityID         string    `json:"entity_id"`
+	Path       string `json:"path"`
+	Language   string `json:"language"`
+	SchemaSlug string `json:"schema_slug"`
+	EntityID   string `json:"entity_id"`
+	// Locale is the BCP 47 tag of the page; empty on a one-language site.
+	Locale string `json:"locale,omitempty"`
+	// Segment is the stored URL segment of Locale; empty for an unprefixed
+	// default locale and on a one-language site.
+	Segment          string    `json:"segment,omitempty"`
 	Tags             []HeadTag `json:"tags,omitempty"`
 	ReplaceSiteGraph bool      `json:"replace_site_graph"`
 }

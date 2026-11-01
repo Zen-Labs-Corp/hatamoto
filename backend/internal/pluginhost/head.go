@@ -17,7 +17,8 @@ func HeadFilter(h *hooks.Engine) render.HeadFilter {
 		return nil
 	}
 	return func(ctx context.Context, c render.HeadContext) render.HeadContext {
-		in := sdk.HeadContext{Path: c.Path, Language: c.Language, SchemaSlug: c.SchemaSlug, EntityID: c.EntityID}
+		in := sdk.HeadContext{Path: c.Path, Language: c.Language, SchemaSlug: c.SchemaSlug, EntityID: c.EntityID,
+			Locale: c.Locale, Segment: c.Segment}
 		out, ok := h.Apply(ctx, sdk.RenderHead.Name, in).(sdk.HeadContext)
 		if !ok {
 			return c
