@@ -296,7 +296,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	}
 	cols, right = append(cols, "Trend"), append(right, false)
 	p.Channels = ui.AiaRows{Caption: "Visits by channel", Columns: cols, Right: right, Empty: "No visits in this period."}
-	for i, c := range trafficChannels {
+	for _, c := range trafficChannels {
 		n := byChannel[c.Key]
 		pct := ratio(n.Visits, totals.Visits)
 		name := ui.AiaCell{Text: c.Name}
@@ -311,7 +311,11 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 		if cmp {
 			row = append(row, ui.AiaCell{Text: kpiDelta(true, rg, float64(n.Visits), float64(prevChannels[c.Key].Visits), false, false).Text})
 		}
-		row = append(row, ui.AiaCell{Spark: liveSpark("aia-spark-t-"+c.Key, min(i+1, 6), ui.SparkLive{Src: src, Chart: "channels", Dataset: c.Name})})
+		sparkTone := 3
+		if c.Key == analytics.ChannelAI {
+			sparkTone = 1
+		}
+		row = append(row, ui.AiaCell{Spark: liveSpark("aia-spark-t-"+c.Key, sparkTone, ui.SparkLive{Src: src, Chart: "channels", Dataset: c.Name})})
 		p.Channels.Rows = append(p.Channels.Rows, row)
 	}
 	if totals.Visits == 0 && totals.Pageviews == 0 {

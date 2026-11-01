@@ -62,15 +62,15 @@ func TestContentSection(t *testing.T) {
 	}
 	// coverage: fetched and never fetched, then the never-fetched pages by type
 	cov := cardOf(t, body, "w-ct-cov")
-	for _, want := range []string{`Fetched at least once <span class="hm-catbar__value">119</span><span class="hm-catbar__share">99%</span>`, `Never fetched <span class="hm-catbar__value">1</span><span class="hm-catbar__share">1%</span>`, "hm-viz--series-1", "hm-viz--series-6",
+	for _, want := range []string{`Fetched at least once <span class="hm-catbar__value">119</span><span class="hm-catbar__share">99%</span>`, `Never fetched <span class="hm-catbar__value">1</span><span class="hm-catbar__share">1%</span>`, "hm-viz--series-1", "hm-viz--series-3",
 		"Never fetched, by page type", ">Blog post<", "119 of 120 published pages have been fetched by at least one AI agent since tracking began."} {
 		if !strings.Contains(cov, want) {
 			t.Errorf("coverage missing %q", want)
 		}
 	}
-	// time to first fetch: the buckets cover the whole range, in the prototype's colours
+	// time to first fetch: the buckets cover the whole range, as one accent and neutral steps
 	ttf := cardOf(t, body, "w-ct-ttf")
-	for _, want := range []string{`Same day <span class="hm-catbar__value">1</span><span class="hm-catbar__share">100%</span>`, `1 to 3 days <span class="hm-catbar__value">0</span><span class="hm-catbar__share">0%</span>`, "8 days or more", "hm-viz--series-5", "First fetched by", "GPTBot"} {
+	for _, want := range []string{`Same day <span class="hm-catbar__value">1</span><span class="hm-catbar__share">100%</span>`, `1 to 3 days <span class="hm-catbar__value">0</span><span class="hm-catbar__share">0%</span>`, "8 days or more", "hm-viz--series-4", "First fetched by", "GPTBot"} {
 		if !strings.Contains(ttf, want) {
 			t.Errorf("time to first fetch missing %q", want)
 		}

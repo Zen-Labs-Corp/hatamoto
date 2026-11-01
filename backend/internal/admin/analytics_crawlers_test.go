@@ -351,7 +351,7 @@ func TestCrawlersHeroToggle(t *testing.T) {
 	g, _ := searchRig(t)
 	body := g.do("GET", "/admin/analytics/crawlers", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{`data-chart="fetches_all"`, `data-chart-toggle="fetches"`, `data-chart-toggle="fetches_all"`, `data-aia-table="fetches_all"`, `data-aia-table="fetches"`,
-		"Crawler fetches per day by purpose", "AI fetches per day by purpose", `data-override="{&#34;Search engines&#34;:{&#34;n&#34;:6}}"`} {
+		"Crawler fetches per day by purpose", "AI fetches per day by purpose", `data-neutral data-accent="User fetch"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("hero missing %q", want)
 		}
