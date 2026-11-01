@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -374,6 +375,12 @@ func TestSEOPagesGolden(t *testing.T) {
 	compareGolden(t, "pages/settings-seo-titles.html", normalizePage(s.get(t, "/admin/settings/seo/titles")))
 	s.svc.set.Social = seo.Social{Image: "/media/card.png", TwitterSite: "@example", SiteTags: true, Types: map[string]seo.SocialType{"service": {Title: "%title% %sep% Services"}}}
 	compareGolden(t, "pages/settings-seo-social.html", normalizePage(s.get(t, "/admin/settings/seo/social")))
+	s.a.deps.SiteGraph = func(*http.Request) (map[string]any, error) {
+		return map[string]any{"@context": "https://schema.org", "@graph": []any{map[string]any{"@type": "Organization", "name": "Acme"}}}, nil
+	}
+	s.ents.addSchema(5, "Guide", "guide", annotatedSchema, `{}`, false)
+	compareGolden(t, "pages/settings-seo-schema.html", normalizePage(s.get(t, "/admin/settings/seo/schema")))
+	compareGolden(t, "pages/settings-seo-knowledge-graph.html", normalizePage(s.get(t, "/admin/settings/seo/knowledge-graph")))
 }
 
 func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {
