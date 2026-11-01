@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,16 +16,20 @@ import (
 )
 
 type fakeLocaleSvc struct {
-	report   *localeconv.Report
-	applyEr  error
-	revEr    error
-	applied  int
-	revID    int64
-	revForce bool
-	history  []localeconv.HistoryItem
+	report     *localeconv.Report
+	applyEr    error
+	revEr      error
+	applied    int
+	revID      int64
+	revForce   bool
+	history    []localeconv.HistoryItem
+	suggestErr error
 }
 
 func (f *fakeLocaleSvc) Suggest(context.Context) (*localeconv.Plan, []localeconv.Issue, error) {
+	if f.suggestErr != nil {
+		return nil, nil, f.suggestErr
+	}
 	return &localeconv.Plan{Default: "en-XX"}, []localeconv.Issue{{Code: "no_tag", Message: "root yy has no tag"}}, nil
 }
 
@@ -133,6 +138,20 @@ func TestLocalesSuggestPrintsPlanAndWarnings(t *testing.T) {
 	}
 	if !strings.Contains(errOut, "no_tag") {
 		t.Fatalf("warning not on stderr: %q", errOut)
+	}
+}
+
+func TestLocalesSuggestNoRegionTree(t *testing.T) {
+	const sentence = "This site has no region pages to convert."
+	for _, e := range []error{localeconv.ErrNoRegionTree, fmt.Errorf("x: %w", localeconv.ErrNoRegionTree)} {
+		out, errOut, err := runLocales(t, &fakeLocaleSvc{suggestErr: e}, "--suggest")
+		if errOut != sentence+"\n" || out != "" || exitCode(err) != 2 {
+			t.Errorf("%v: out=%q errOut=%q code=%d", e, out, errOut, exitCode(err))
+		}
+	}
+	out, errOut, err := runLocales(t, &fakeLocaleSvc{suggestErr: errors.New("connection lost")}, "--suggest")
+	if exitCode(err) != 1 || out != "" || strings.Contains(errOut, sentence) {
+		t.Errorf("plain failure: out=%q errOut=%q err=%v", out, errOut, err)
 	}
 }
 

@@ -18,7 +18,7 @@ import (
 )
 
 const localesUsage = `  locales convert --suggest | --plan FILE [--apply] | --revert ID [--force] | --history  [--json | --text]
-                                   convert region page trees to core locales (dry run by default; exit 0 ok, 2 blocking errors, 1 usage or IO)`
+                                   convert region page trees to core locales (dry run by default; exit 0 ok, 2 blocking errors or nothing to convert, 1 usage or IO)`
 
 const localesConvertUsageLine = "usage: hatamoto locales convert --suggest | --plan FILE [--apply] | --revert ID [--force] | --history [--json | --text]"
 
@@ -132,6 +132,10 @@ func localesConvert(ctx context.Context, svc localeconv.Service, o *localesOpts,
 
 func localesSuggest(ctx context.Context, svc localeconv.Service, o *localesOpts, out, errOut io.Writer) error {
 	plan, warns, err := svc.Suggest(ctx)
+	if errors.Is(err, localeconv.ErrNoRegionTree) {
+		fmt.Fprintln(errOut, "This site has no region pages to convert.")
+		return exitError{2}
+	}
 	if err != nil {
 		return err
 	}
