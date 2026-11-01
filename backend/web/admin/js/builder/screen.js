@@ -14,7 +14,7 @@ import { insertPoint, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/
 import { paletteExtra, wantsSlot } from "@hm/builder/reusecore";
 import { insertOps, insertAll } from "@hm/builder/reuseops";
 import { innerRef, loopAbove } from "@hm/builder/bridge";
-import { createRenderer, createSaver, stateLine, shortLine } from "@hm/builder/sync";
+import { createRenderer, createSaver, stateLine, shortLine, updateState, savedTime } from "@hm/builder/sync";
 import { mountPanes, mountLeftTabs } from "@hm/builder/panes";
 import { createPreviewState, mountDock, mountToolItems, shouldOpenInspector } from "@hm/builder/phone";
 import { h, $, $$ } from "@hm/builder/dom";
@@ -61,6 +61,9 @@ function start(root, boot) {
   if (statusEl) (statusEl.hidden = true), (say.textContent = stateLine({ state: "saved" }, { status }));
   const savestate = $(stateEl, ".hm-savestate");
   savestate.dataset.short = shortLine({ state: "saved" }, status);
+  // The one save button ("Update" on a published page, the custom label on a block or part) flags changes that are not saved or live yet.
+  const updateBtn = $(bar, "[data-hm-bs-save=save]");
+  const updateName = updateBtn?.textContent.trim() ?? "";
   // The shared hm/savestate partial: only data-state and the text change.
   const SAVE_STATE = { pending: "unsaved", saving: "saving", saved: "saved", error: "error", conflict: "error", stopped: "error" };
   const banner = $(bar, "[data-hm-bs-banner]");
@@ -467,10 +470,16 @@ function start(root, boot) {
       paintTools();
     },
     onState: (q) => {
-      const at = hmTime(new Date());
-      say.textContent = stateLine(q, { draft: saver.draft, at, status });
+      say.textContent = stateLine(q, { draft: saver.draft, status });
+      savestate.title = q.state === "saved" ? savedTime(hmTime(new Date())) : "";
       savestate.dataset.short = shortLine(q, status); // the phone bar shows this, not the full line
       savestate.dataset.state = SAVE_STATE[q.state] || "saved";
+      if (updateBtn && status !== "Draft") {
+        const open = status ? updateState(q, { status, dirty: saver.dirty }).unpublished : q.state !== "saved" && saver.dirty;
+        updateBtn.toggleAttribute("data-hm-bs-dirty", open);
+        if (open) updateBtn.setAttribute("aria-label", `${updateName}, ${status ? "unpublished" : "unsaved"} changes`);
+        else updateBtn.removeAttribute("aria-label");
+      }
       if (q.state === "conflict") showConflict(q.conflict?.message);
       else if (q.state === "error" || q.state === "stopped") {
         showSaveProblem(stateLine(q, { draft: saver.draft }));
