@@ -85,13 +85,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 
 	// FAQ blocks written in the blog editor (div.faq-item) become a FAQPage
 	// next to the entity's own JSON-LD.
-	var faqItems []entity.FAQItem
-	var body struct {
-		Content string `json:"content"`
-	}
-	if json.Unmarshal(ent.Attributes, &body) == nil {
-		faqItems = entity.ExtractFAQItems(body.Content)
-	}
+	faqItems := pageFAQItems(ent)
 
 	// Canonical comes from the schema URL pattern.
 	pageRepo := entity.NewPostgresPublicRepository(s.db)
@@ -162,6 +156,9 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 		JSONLD:     jsonLD,
 		Meta:       meta,
 		Breadcrumb: breadcrumb,
+		// The entry's own JSON-LD block: extra scripts for the HTML page,
+		// never merged into the generated document.
+		ExtraJSONLD: entity.CustomJSONLDDocs(ent.Attributes),
 	}
 
 	// Include editorial provenance if present
@@ -275,4 +272,19 @@ func firstNonBlankAttr(attrs map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// pageFAQItems extracts the FAQ blocks of an entry's body, or nil when the
+// schema turned FAQ extraction off (settings.faq_from_content=false).
+func pageFAQItems(ent *entity.Entity) []entity.FAQItem {
+	if st, err := ent.Schema.URLSettings(); err == nil && !st.FAQEnabled() {
+		return nil
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if json.Unmarshal(ent.Attributes, &body) != nil {
+		return nil
+	}
+	return entity.ExtractFAQItems(body.Content)
 }

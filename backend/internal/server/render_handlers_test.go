@@ -853,3 +853,37 @@ func TestRenderHomeLocaleScope(t *testing.T) {
 		t.Errorf("one-locale home was scoped: load %v, view %v", loadScope, viewScope)
 	}
 }
+
+func TestPageViewFromRouteAppendsExtraJSONLD(t *testing.T) {
+	t.Parallel()
+	custom := []json.RawMessage{json.RawMessage(`{"@context":"https://schema.org","@type":"Thing"}`)}
+	rr := &routeResult{Page: &PublicPageResponse{
+		JSONLD:      map[string]interface{}{"@type": "Article"},
+		ExtraJSONLD: custom,
+	}}
+	v := pageViewFromRoute(rr, "https://x.io", "/p")
+	if len(v.JSONLD) != 2 || !strings.Contains(string(v.JSONLD[0]), "Article") || string(v.JSONLD[1]) != string(custom[0]) {
+		t.Fatalf("JSONLD = %s", v.JSONLD)
+	}
+	rr.Page.ExtraJSONLD = nil
+	if v := pageViewFromRoute(rr, "https://x.io", "/p"); len(v.JSONLD) != 1 {
+		t.Fatalf("JSONLD without custom block = %s", v.JSONLD)
+	}
+}
+
+func TestPageFAQItemsHonoursSchemaToggle(t *testing.T) {
+	t.Parallel()
+	content := `<div class="faq"><div class="faq-item"><h3 class="faq-q">Q?</h3><div class="faq-a"><p>A.</p></div></div></div>`
+	attrs, _ := json.Marshal(map[string]string{"content": content})
+	mk := func(settings string) *entity.Entity {
+		return &entity.Entity{Attributes: attrs, Schema: &entity.EntitySchema{Slug: "post", Settings: json.RawMessage(settings)}}
+	}
+	for _, s := range []string{``, `{}`, `{"faq_from_content":true}`} {
+		if len(pageFAQItems(mk(s))) == 0 {
+			t.Errorf("settings %q: FAQ items missing", s)
+		}
+	}
+	if items := pageFAQItems(mk(`{"faq_from_content":false}`)); items != nil {
+		t.Errorf("FAQ off still yields %v", items)
+	}
+}

@@ -96,7 +96,7 @@ func pageViewFromRoute(rr *routeResult, baseURL, path string) *render.PageView {
 		p := rr.Page
 		v.Page = pageMeta(p.Meta)
 		v.Breadcrumb = crumbs(p.Breadcrumb)
-		v.JSONLD = jsonLDDocs(p.JSONLD)
+		v.JSONLD = append(jsonLDDocs(p.JSONLD), p.ExtraJSONLD...)
 		v.AICrawlerComment = p.AICrawlerComment
 		if e := p.Entity; e != nil {
 			v.Page.Name = e.Name
