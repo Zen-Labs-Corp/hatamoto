@@ -22,6 +22,8 @@ type Stat struct {
 	Badge *Badge
 	// Spark is the optional trend line under a ticker card's value.
 	Spark *Spark
+	// Muted marks Value as a placeholder such as "--"; it renders in the muted colour.
+	Muted bool
 }
 
 // StatChange is the change against the previous period. Dir is "up", "down" or
