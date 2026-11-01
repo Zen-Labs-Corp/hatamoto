@@ -34,9 +34,9 @@ type healthCompliance struct {
 	PolicyHref string
 }
 
-// trackerKind is the colour of one day of the errors tracker: healthy up to 5%
-// of fetches failing, some errors above that, many above 10%, none when the
-// day had no fetches.
+// trackerKind is the colour of one day of the errors tracker: a neutral step
+// up to 5% of fetches failing, amber above that, red above 10%, an outline when
+// the day had no fetches. Only the bad days carry a hue.
 func trackerKind(failed, total int64) string {
 	switch f := ratio(failed, total); {
 	case total == 0:
@@ -46,8 +46,11 @@ func trackerKind(failed, total int64) string {
 	case f > 5:
 		return "warning"
 	}
-	return "success"
+	return healthyDay
 }
+
+// healthyDay is the tracker kind of a day without errors: a neutral step.
+const healthyDay = "series-4"
 
 // failingText is the tooltip words of one tracker day.
 func failingText(failed, total int64) string {
@@ -80,7 +83,7 @@ func verificationBar(verified, unverifiable, spoofed int64) *ui.CategoryBar {
 		return ui.CategorySegment{Label: label, Kind: kind, N: float64(n), Value: fmtNum(n), Share: shareText(ratio(n, all))}
 	}
 	return &ui.CategoryBar{Label: "Fetches by verification result", Columns: true, Segments: []ui.CategorySegment{
-		seg("Verified", "series-2", verified), seg("Unverifiable", "series-3", unverifiable), seg("Spoofed", "danger", spoofed)}}
+		seg("Verified", "series-2", verified), seg("Unverifiable", "series-4", unverifiable), seg("Spoofed", "danger", spoofed)}}
 }
 
 func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, cmp bool) (any, error) {
@@ -149,7 +152,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 	if len(days) > 0 {
 		p.Tracker.Start, p.Tracker.End = shortDay(days[0]), shortDay(days[len(days)-1])
 	}
-	names := map[string]string{"success": "Healthy", "warning": "Some errors", "danger": "Many errors", "neutral": "No fetches"}
+	names := map[string]string{healthyDay: "Healthy", "warning": "Some errors", "danger": "Many errors", "neutral": "No fetches"}
 	for i, d := range days {
 		h := byDay[d]
 		failed := h.S4xx + h.S5xx
@@ -158,7 +161,7 @@ func (a *Admin) buildHealth(ctx context.Context, q url.Values, rg agents.Range, 
 		p.Tracker.Blocks = append(p.Tracker.Blocks, ui.TrackerBlock{Kind: kind, Tip: shortDay(d) + ": " + failingText(failed, h.Hits)})
 		seen[kind] = true
 	}
-	for _, k := range []string{"success", "warning", "danger", "neutral"} {
+	for _, k := range []string{healthyDay, "warning", "danger", "neutral"} {
 		if seen[k] {
 			p.Tracker.Legend = append(p.Tracker.Legend, ui.TrackerKey{Kind: k, Label: names[k]})
 		}

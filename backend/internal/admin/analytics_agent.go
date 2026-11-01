@@ -221,7 +221,7 @@ func (a *Admin) buildAgent(ctx context.Context, q url.Values, rg agents.Range, c
 	p.Responses = responsesBar(s2, s3, s4, s5)
 	p.Verification = verificationBar(d.Verified, d.Unverifiable, d.Spoofed)
 
-	// Activity tracker: one block per day, green when the agent fetched.
+	// Activity tracker: one block per day, an accent step that deepens with the day's fetches.
 	days := d.dailyM.Days
 	counts := d.dailyM.Vals["Fetches"]
 	p.Tracker = ui.Tracker{Label: d.Name + " activity by day", States: true}
@@ -229,16 +229,20 @@ func (a *Admin) buildAgent(ctx context.Context, q url.Values, rg agents.Range, c
 		p.Tracker.Start, p.Tracker.End = shortDay(days[0]), shortDay(days[len(days)-1])
 	}
 	active := 0
+	var peak int64
+	for _, n := range counts {
+		peak = max(peak, n)
+	}
 	for i, day := range days {
 		blk := ui.TrackerBlock{Kind: "neutral", Tip: shortDay(day) + ": No fetches"}
 		if counts[i] > 0 {
 			active++
-			blk = ui.TrackerBlock{Kind: "success", Tip: shortDay(day) + ": " + fmtNum(counts[i]) + " fetches"}
+			blk = ui.TrackerBlock{Kind: activityKind(counts[i], peak), Tip: shortDay(day) + ": " + fmtNum(counts[i]) + " fetches"}
 		}
 		p.Tracker.Blocks = append(p.Tracker.Blocks, blk)
 	}
 	if active > 0 {
-		p.Tracker.Legend = append(p.Tracker.Legend, ui.TrackerKey{Kind: "success", Label: "Fetched"})
+		p.Tracker.Legend = append(p.Tracker.Legend, ui.TrackerKey{Kind: "series-1", Label: "Fetched"})
 	}
 	if active < len(days) {
 		p.Tracker.Legend = append(p.Tracker.Legend, ui.TrackerKey{Kind: "neutral", Label: "No fetches"})
@@ -246,4 +250,16 @@ func (a *Admin) buildAgent(ctx context.Context, q url.Values, rg agents.Range, c
 	p.TrackerCaption = "Active on " + strconv.Itoa(active) + " of " + strconv.Itoa(len(days)) + " days."
 	p.TrackerTable = withoutTotal(d.dailyM.table("Fetches per day by "+d.Name, "Day"))
 	return p, nil
+}
+
+// activityKind is the accent step of a day with fetches: the busiest third is
+// the full accent, the middle third and the quietest third are lighter steps.
+func activityKind(n, peak int64) string {
+	switch {
+	case n*3 >= peak*2:
+		return "series-1"
+	case n*3 >= peak:
+		return "series-1-mid"
+	}
+	return "series-1-low"
 }

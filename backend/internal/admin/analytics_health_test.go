@@ -47,7 +47,7 @@ func TestHealthSection(t *testing.T) {
 	}
 	// Verification: three results in ink, a light step and red, then who was spoofed
 	ver := cardOf(t, body, "w-h-ver")
-	for _, want := range []string{`Verified <span class="hm-catbar__value">30</span><span class="hm-catbar__share">75%</span>`, "Unverifiable", "hm-viz--series-3", `Spoofed <span class="hm-catbar__value">5</span><span class="hm-catbar__share">12%</span>`, "hm-viz--danger"} {
+	for _, want := range []string{`Verified <span class="hm-catbar__value">30</span><span class="hm-catbar__share">75%</span>`, "Unverifiable", "hm-viz--series-4", `Spoofed <span class="hm-catbar__value">5</span><span class="hm-catbar__share">12%</span>`, "hm-viz--danger"} {
 		if !strings.Contains(ver, want) {
 			t.Errorf("verification missing %q", want)
 		}
@@ -111,7 +111,7 @@ func TestTrackerKind(t *testing.T) {
 	for _, c := range []struct {
 		failed, total int64
 		want          string
-	}{{0, 0, "neutral"}, {0, 100, "success"}, {5, 100, "success"}, {6, 100, "warning"}, {10, 100, "warning"}, {11, 100, "danger"}, {100, 100, "danger"}} {
+	}{{0, 0, "neutral"}, {0, 100, healthyDay}, {5, 100, healthyDay}, {6, 100, "warning"}, {10, 100, "warning"}, {11, 100, "danger"}, {100, 100, "danger"}} {
 		if got := trackerKind(c.failed, c.total); got != c.want {
 			t.Errorf("trackerKind(%d, %d) = %s, want %s", c.failed, c.total, got, c.want)
 		}
