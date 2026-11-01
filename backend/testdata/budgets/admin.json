@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 57994,
+      "value": 59383,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -158,6 +158,10 @@
     },
     {
       "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -\u003e 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "date": "2026-11-01"
+    },
+    {
+      "reason": "admin restyle of editors and analytics pages adds CSS",
       "date": "2026-11-01"
     }
   ]
