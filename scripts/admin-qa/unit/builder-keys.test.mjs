@@ -226,12 +226,13 @@ test("pane toggles: physical bracket keys only, AltGr brackets are typed", () =>
 });
 
 const OLD_KEYS = ["Up / Down", "Left / Right", "Home / End", "Alt + Up / Down", "Alt + Left", "Alt + Right", "H", "Delete", "Ctrl/Cmd + D", "Ctrl/Cmd + C / X / V", "Ctrl/Cmd + G", "Ctrl/Cmd + Shift + G", "Ctrl/Cmd + A", "Ctrl/Cmd + H", "F2", "Shift + F10 or Menu key", "Ctrl/Cmd + Alt + C", "Ctrl/Cmd + Alt + V", "Ctrl/Cmd + Z", "Ctrl/Cmd + Shift + Z or Ctrl + Y", "Ctrl/Cmd + S", "Ctrl/Cmd + Alt + [ / ]", "Left / Right on a pane edge", "Enter", "/ or A", "?"];
+const NEW_KEYS = ["Esc", "Backspace", "1 / 2 / 3"];
 
 test("the sheet is grouped, keeps every old row and adds Ctrl/Cmd K, Shift+Enter, / and F2", () => {
-  assert.deepEqual(GROUPS.map(([g]) => g), ["Add and insert", "Select and move", "Edit", "View and device", "History"]);
+  assert.deepEqual(GROUPS.map(([g]) => g), ["Insert", "Select and move", "Edit", "View and device", "History"]);
   const keys = SHORTCUTS.map(([a]) => a);
   for (const old of OLD_KEYS) assert.ok(keys.includes(old), old);
-  for (const added of ["Ctrl/Cmd + K", "Shift + Enter in the Add search", "/ or A", "F2"]) assert.ok(keys.includes(added), added);
+  for (const added of [...NEW_KEYS, "Ctrl/Cmd + K", "Shift + Enter in the Insert search", "/ or A", "F2"]) assert.ok(keys.includes(added), added);
   assert.equal(new Set(keys).size, keys.length, "no row twice");
 });
 
@@ -245,7 +246,7 @@ test("filterGroups matches key text and description, ignores case and drops empt
   assert.deepEqual(undo.map(([g]) => g), ["History"]);
   assert.deepEqual(undo[0][1].map(([a]) => a), ["Ctrl/Cmd + Z"]);
   assert.deepEqual(filterGroups(GROUPS, "commands search").flatMap(([, r]) => r.map(([a]) => a)), ["Ctrl/Cmd + K"], "every word, in the description");
-  assert.deepEqual(filterGroups(GROUPS, "shift enter keep").flatMap(([, r]) => r.map(([a]) => a)), ["Shift + Enter in the Add search"]);
+  assert.deepEqual(filterGroups(GROUPS, "shift enter keep").flatMap(([, r]) => r.map(([a]) => a)), ["Shift + Enter in the Insert search"]);
   assert.deepEqual(filterGroups(GROUPS, "zzzz"), []);
 });
 
