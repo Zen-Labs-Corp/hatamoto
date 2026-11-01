@@ -263,11 +263,13 @@ await check("Esc selects the parent (no history step)", async () => {
 
 await check("Enter on the section with focus in the frame selects its first child; Enter on the heading in the frame edits its text", async () => {
   await clickCanvas(sec.id); // focus stays inside the canvas frame
+  if ((await p.evaluate(() => document.activeElement?.tagName)) !== "IFRAME") throw new Error("focus is not inside the canvas frame before Enter");
   await p.keyboard.press("Enter");
   await settle(400);
   if ((await sel())[0] !== head.id) throw new Error(`Enter selected ${await sel()}, wanted ${head.id}`);
   await shot("chrome-block.png");
   await clickCanvas(head.id);
+  if ((await p.evaluate(() => document.activeElement?.tagName)) !== "IFRAME") throw new Error("focus is not inside the canvas frame before Enter");
   await p.keyboard.press("Enter");
   await settle(400);
   const f = await frame();
