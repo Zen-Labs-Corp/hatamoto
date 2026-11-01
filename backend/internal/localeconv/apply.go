@@ -76,7 +76,7 @@ func (s *pgService) Apply(ctx context.Context, plan *Plan, opts ApplyOpts) (*Rec
 		{stepReparent, func() error { return writeParents(ctx, tx, rows) }},
 		{stepStrip, func() error { return writeStrips(ctx, tx, rows) }},
 		{stepSchemas, func() error { return writeSchemas(ctx, tx, ch.Schemas) }},
-		{stepSettings, func() error { return writeSettings(ctx, tx, plan) }},
+		{stepSettings, func() error { return writeSettings(ctx, tx, plan, resolveNaming(plan, rep)) }},
 	} {
 		if err := step.run(); err != nil {
 			return nil, nil, fmt.Errorf("convert (%s): %w", step.name, err)
@@ -189,7 +189,7 @@ func writeSchemas(ctx context.Context, tx pgx.Tx, changes []SchemaChange) error 
 // writeSettings sets the locale settings in one UPDATE and clears the explicit
 // homepage, which would otherwise win over every locale home. With two or more
 // locales the retag trigger returns without touching entities.
-func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
+func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan, naming string) error {
 	current, err := readSettings(ctx, tx)
 	if err != nil {
 		return err
@@ -205,8 +205,8 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan) error {
 	_, err = tx.Exec(ctx, `
 		UPDATE hatamoto_site_config
 		   SET language = $1, locales = $2::jsonb, prefix_all = $3, x_default_locale = $4,
-		       homepage_entity_id = NULL
-		 WHERE id = TRUE`, normalized(plan.Default), raw, plan.PrefixAllValue(), normalized(plan.XDefault))
+		       homepage_entity_id = NULL, sitemap_naming = $5
+		 WHERE id = TRUE`, normalized(plan.Default), raw, plan.PrefixAllValue(), normalized(plan.XDefault), naming)
 	return err
 }
 

@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -220,15 +222,31 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if s.redirectService != nil {
 		redirected = func(path string) bool { return s.redirectService.Peek(ctx, path) != nil }
 	}
+	naming, namingUnread := "group", false
+	if s.siteConfig != nil {
+		cfg, err := s.siteConfig.Get(ctx)
+		switch {
+		case err != nil:
+			// Serve the group layout, but never cache it as the site's own.
+			namingUnread = true
+			if s.logger != nil {
+				s.logger.Warn("sitemap: site config unreadable, using group naming", slog.String("error", err.Error()))
+			}
+		case cfg.SitemapNaming != "":
+			naming = cfg.SitemapNaming
+		}
+	}
 	return sitemapInput{
-		HomepageID: homepageID,
-		Redirected: redirected,
-		Snap:       snap,
-		Entries:    entries,
-		BaseURL:    baseURL,
-		Today:      time.Now().Format("2006-01-02"),
-		TenantSlug: canonicalTenantSlug,
-		Plugins:    sitemapHooksSnapshot(),
+		Naming:       naming,
+		NamingUnread: namingUnread,
+		HomepageID:   homepageID,
+		Redirected:   redirected,
+		Snap:         snap,
+		Entries:      entries,
+		BaseURL:      baseURL,
+		Today:        time.Now().Format("2006-01-02"),
+		TenantSlug:   canonicalTenantSlug,
+		Plugins:      sitemapHooksSnapshot(),
 	}, nil
 }
 
@@ -249,12 +267,74 @@ func (s *Server) handlePublicSitemap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	xmlBytes, err := writeXMLWithXSL(w, planSitemap(in).Index())
+	xmlBytes, err := writeXMLWithXSL(w, s.planSitemapLogged(in).Index())
 	if err != nil {
 		s.logger.Error("failed to marshal sitemap index XML", slog.String("error", err.Error()))
 		return
 	}
-	s.cacheSitemapXML(r, "index", xmlBytes)
+	if !in.NamingUnread {
+		s.cacheSitemapXML(r, "index", xmlBytes)
+	}
+}
+
+// maxSitemapLogged bounds how many planner reports are remembered.
+const maxSitemapLogged = 256
+
+// logOnce remembers the planner reports already logged, so a cold cache does
+// not repeat them on every generation. It forgets everything when full.
+type logOnce struct {
+	mu   sync.Mutex
+	seen map[string]struct{}
+}
+
+// first reports whether msg has not been seen since the set was last cleared.
+func (l *logOnce) first(msg string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if _, ok := l.seen[msg]; ok {
+		return false
+	}
+	if l.seen == nil || len(l.seen) >= maxSitemapLogged {
+		l.seen = map[string]struct{}{}
+	}
+	l.seen[msg] = struct{}{}
+	return true
+}
+
+var sitemapLogged logOnce
+
+// planSitemapLogged plans the sitemap and logs the planner's collisions and
+// notes once per distinct message.
+func (s *Server) planSitemapLogged(in sitemapInput) *sitemapPlan {
+	plan := planSitemap(in)
+	if s.logger == nil {
+		return plan
+	}
+	for _, msg := range append(slices.Clone(plan.collisions), plan.notes...) {
+		if sitemapLogged.first(msg) {
+			s.logger.Warn("sitemap layout", slog.String("detail", msg))
+		}
+	}
+	return plan
+}
+
+// historicName reports whether sub looks like a file name the site had under
+// another naming or before locales: misc, a bare group key, or a locale
+// segment alone or followed by a group. Only multi-locale sites have any.
+func (p *sitemapPlan) historicName(sub string) bool {
+	if !p.multi() {
+		return false
+	}
+	if sub == miscSitemapGroupKey || slices.Contains(p.bare, sub) {
+		return true
+	}
+	for _, e := range p.locales().Entries() {
+		seg, _ := p.locales().Segment(e.Tag)
+		if seg != "" && (sub == seg || strings.HasPrefix(sub, seg+"-")) {
+			return true
+		}
+	}
+	return false
 }
 
 // sitemapChild extracts <sub> from a "sitemap-<sub>.xml" file name. ServeMux
@@ -291,14 +371,20 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to generate sitemap")
 		return
 	}
-	plan := planSitemap(in)
+	plan := s.planSitemapLogged(in)
 
 	if !plan.HasGroup(sub) {
+		// A name the site used under the other naming, or before locales,
+		// leads to the index. Not cached: the answer follows the settings.
+		if plan.historicName(sub) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Redirect(w, r, "/sitemap.xml", http.StatusMovedPermanently)
+			return
+		}
 		writeError(w, http.StatusNotFound, "sitemap not found")
 		return
 	}
-	groupURLs, _ := plan.GroupURLs(sub)
-	urls := s.applySitemapFilterFor(r.Context(), plan.byKey[sub], groupURLs)
+	urls := s.sitemapFileURLs(r.Context(), plan, sub)
 
 	// The xhtml namespace is declared only when a sitemap.urls filter added alternates.
 	urlSet := URLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}
@@ -310,7 +396,9 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		s.logger.Error("failed to marshal sitemap XML", slog.String("error", err.Error()), slog.String("sub", sub))
 		return
 	}
-	s.cacheSitemapXML(r, sub, xmlBytes)
+	if !in.NamingUnread {
+		s.cacheSitemapXML(r, sub, xmlBytes)
+	}
 }
 
 // writeXMLWithXSL marshals v to indented XML, prepends the XSLT stylesheet

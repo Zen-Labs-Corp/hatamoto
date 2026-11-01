@@ -154,7 +154,7 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
 Sitemaps, search, feeds and llms.txt follow the visible locale; see
 [Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.
 
-A site that models regions as page trees with `overrides` on a region attribute (a `url_pattern` and a `sitemap_group` per region) can keep working as it is. To move it to real locales, use the converter in [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md): it sets the locale of each page from the attribute and leaves every `url_pattern` and the attribute match in place, so URLs do not change. It removes only the `sitemap_group` key of those overrides, because the per-locale sitemap files take over.
+A site that models regions as page trees with `overrides` on a region attribute (a `url_pattern` and a `sitemap_group` per region) can keep working as it is. To move it to real locales, use the converter in [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md): it sets the locale of each page from the attribute and leaves every `url_pattern` and the attribute match in place, so URLs do not change. It removes only the `sitemap_group` key of those overrides, because the per-locale sitemap files take over. With the plan's `sitemap_naming` on `auto` the conversion also sets the site's sitemap naming to `legacy`, so the sitemap index keeps the file names the site had before.
 
 ## Schema settings
 
@@ -258,6 +258,22 @@ A schema's archive (`archive_path`) lists its rows and those of its aliases
 * `{path}` and date URLs are listed at their canonical path (the same one the
   page's `canonical` and JSON-LD `url` use).
 * The cache is invalidated when schema settings change.
+* On a site with two or more public locales, each locale's files are named
+  `sitemap-<segment>-<group>.xml` (the `group` naming, the default). The site
+  setting `sitemap_naming` (Settings > Locales > Addresses and search engines,
+  "Sitemap file names") can switch it to `legacy`: one file `sitemap-<segment>.xml`
+  per prefixed locale holding all its groups, archive pages included, with no
+  repeated `<loc>`. Shared content keeps the bare `sitemap-<group>.xml` files, an
+  unprefixed default locale does too, and `sitemap-misc.xml` stays one file
+  (shared pages plus plugin static routes). If a segment equals a bare group key,
+  the bare group is merged into the segment file and the server logs it once.
+  Only one layout is served at a time: a missing name that looks like one of the other layout (a bare group key, `misc`,
+  a segment, or a segment followed by a group) answers `301` to `/sitemap.xml`,
+  uncached; any other missing name is a `404`. A site with one locale has no such
+  redirects.
+* Files are not split: a legacy file with more than 50,000 URLs is still one
+  file, which exceeds the sitemap protocol limit. The server logs a note once
+  when that happens. Use the group naming for such a site.
 
 ## Admin
 

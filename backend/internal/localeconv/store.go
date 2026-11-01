@@ -141,8 +141,8 @@ func loadSnapshot(ctx context.Context, q querier) (*Snapshot, error) {
 func loadSite(ctx context.Context, q querier) (SiteState, error) {
 	var site SiteState
 	var locales []byte
-	err := q.QueryRow(ctx, `SELECT language, locales, prefix_all, x_default_locale, COALESCE(homepage_entity_id::text, '') FROM hatamoto_site_config WHERE id = TRUE`).
-		Scan(&site.Language, &locales, &site.PrefixAll, &site.XDefault, &site.HomepageID)
+	err := q.QueryRow(ctx, `SELECT language, locales, prefix_all, x_default_locale, COALESCE(homepage_entity_id::text, ''), sitemap_naming FROM hatamoto_site_config WHERE id = TRUE`).
+		Scan(&site.Language, &locales, &site.PrefixAll, &site.XDefault, &site.HomepageID, &site.SitemapNaming)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return site, fmt.Errorf("load site settings: %w", err)
 	}
@@ -171,13 +171,16 @@ type settingsJSON struct {
 	XDefaultLocale string          `json:"x_default_locale"`
 	// HomepageEntityID is nil when no explicit homepage is set.
 	HomepageEntityID *string `json:"homepage_entity_id"`
+	// SitemapNaming is empty in records written before the setting existed;
+	// revert then leaves the column alone.
+	SitemapNaming string `json:"sitemap_naming"`
 }
 
 func readSettings(ctx context.Context, q querier) (settingsJSON, error) {
 	var st settingsJSON
 	var locales []byte
-	if err := q.QueryRow(ctx, `SELECT language, locales, prefix_all, x_default_locale, homepage_entity_id::text FROM hatamoto_site_config WHERE id = TRUE`).
-		Scan(&st.Language, &locales, &st.PrefixAll, &st.XDefaultLocale, &st.HomepageEntityID); err != nil {
+	if err := q.QueryRow(ctx, `SELECT language, locales, prefix_all, x_default_locale, homepage_entity_id::text, sitemap_naming FROM hatamoto_site_config WHERE id = TRUE`).
+		Scan(&st.Language, &locales, &st.PrefixAll, &st.XDefaultLocale, &st.HomepageEntityID, &st.SitemapNaming); err != nil {
 		return st, fmt.Errorf("read site settings: %w", err)
 	}
 	st.Locales = locales

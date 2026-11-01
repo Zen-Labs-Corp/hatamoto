@@ -1,6 +1,7 @@
 package localeconv
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -48,7 +49,7 @@ func TestParsePlanDefaults(t *testing.T) {
 
 func TestParsePlanStrict(t *testing.T) {
 	for name, in := range map[string]string{
-		"unknown field":  `{"locales":[],"sitemap_naming":"auto"}`,
+		"unknown field":  `{"locales":[],"bogus":"auto"}`,
 		"unknown nested": `{"locale_from":{"attribute":"a","bogus":1}}`,
 		"trailing data":  validPlan + `{}`,
 		"not json":       `nope`,
@@ -102,6 +103,9 @@ func TestValidateCodes(t *testing.T) {
 		{"bad shared", func(p *Plan) { p.Shared = "en-XX" }, CodeBadShared},
 		{"duplicate strip", func(p *Plan) { p.StripAttributes = []string{"a", "a"} }, CodeDuplicateStrip},
 		{"bad home slug", func(p *Plan) { p.Home.Slug = "Home Page" }, CodeBadHomeSlug},
+		{"bad sitemap_naming", func(p *Plan) { p.SitemapNaming = "flat" }, CodeBadSitemapNaming},
+		{"reserved index", func(p *Plan) { p.Locales[0].Segment = "index" }, CodeReservedSegment},
+		{"reserved misc", func(p *Plan) { p.Locales[0].Segment = "misc" }, CodeReservedSegment},
 		{"bad on_conflict", func(p *Plan) { p.Home.OnConflict = "skip" }, CodeBadOnConflict},
 	}
 	for _, tc := range cases {
@@ -132,5 +136,23 @@ func TestBlockingError(t *testing.T) {
 	var b *BlockingError
 	if !errors.As(err, &b) || !strings.Contains(err.Error(), "path_changes") {
 		t.Fatalf("unexpected: %v", err)
+	}
+}
+
+func TestSitemapNamingValuesValidate(t *testing.T) {
+	for _, v := range []string{"", "auto", "group", "legacy"} {
+		p := mustParse(t, validPlan)
+		p.SitemapNaming = v
+		if got := p.Validate(); len(got) != 0 {
+			t.Errorf("sitemap_naming %q: %v", v, got)
+		}
+	}
+}
+
+func TestSitemapNamingStaysOutOfThePlanJSONWhenUnset(t *testing.T) {
+	p := mustParse(t, validPlan)
+	raw, err := json.Marshal(p)
+	if err != nil || strings.Contains(string(raw), "sitemap_naming") {
+		t.Fatalf("plan json = %s (%v)", raw, err)
 	}
 }

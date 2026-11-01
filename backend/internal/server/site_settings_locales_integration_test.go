@@ -213,3 +213,29 @@ func TestLocaleSegmentChecks_NamesPage_Integration(t *testing.T) {
 		}
 	}
 }
+
+// A stored index or misc segment is live in group naming and must not block
+// saves; a new one is refused.
+func TestLocaleSegmentChecks_StoredFileNameSegment_Integration(t *testing.T) {
+	srv, ctx := localeCheckServer(t)
+	var prev []byte
+	hadSite := srv.db.Pool().QueryRow(ctx, `SELECT locales FROM hatamoto_site_config`).Scan(&prev) == nil
+	if _, err := srv.db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language, locales) VALUES ('Segment IT', 'en', $1::jsonb)
+		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = EXCLUDED.locales`, `[{"tag":"en","segment":""},{"tag":"fr","segment":"misc"}]`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if hadSite {
+			_, _ = srv.db.Pool().Exec(context.Background(), `UPDATE hatamoto_site_config SET locales=$1::jsonb`, string(prev))
+		} else {
+			_, _ = srv.db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_site_config`)
+		}
+	})
+	srv.siteConfig.Invalidate()
+	if err := srv.checkLocaleSegments(ctx, []string{"misc"}); err != nil {
+		t.Errorf("stored misc segment rejected: %v", err)
+	}
+	if err := srv.checkLocaleSegments(ctx, []string{"misc", "index"}); err == nil {
+		t.Error("new index segment accepted")
+	}
+}

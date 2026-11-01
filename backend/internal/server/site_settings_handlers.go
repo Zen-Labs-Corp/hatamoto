@@ -1,8 +1,10 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -47,16 +49,18 @@ type siteSettingsResponse struct {
 	// the default locale is Language. PrefixAll puts the default locale under
 	// its own segment too, XDefaultLocale is the hreflang x-default ("" = the
 	// first live copy).
-	Locales           []siteconfig.LocaleEntry `json:"locales"`
-	PrefixAll         bool                     `json:"prefix_all"`
-	XDefaultLocale    string                   `json:"x_default_locale"`
-	Phone             string                   `json:"phone"`
-	BusinessHours     string                   `json:"business_hours"`
-	Address           siteAddress              `json:"address"`
-	LegacyWPRedirects bool                     `json:"legacy_wp_redirects"`
-	HomepageEntityID  *uuid.UUID               `json:"homepage_entity_id,omitempty"`
-	ThemeConfig       siteconfig.ThemeConfig   `json:"theme_config"`
-	UpdatedAt         time.Time                `json:"updated_at"`
+	Locales        []siteconfig.LocaleEntry `json:"locales"`
+	PrefixAll      bool                     `json:"prefix_all"`
+	XDefaultLocale string                   `json:"x_default_locale"`
+	// SitemapNaming is "group" (default) or "legacy" (see siteconfig.Config).
+	SitemapNaming     string                 `json:"sitemap_naming"`
+	Phone             string                 `json:"phone"`
+	BusinessHours     string                 `json:"business_hours"`
+	Address           siteAddress            `json:"address"`
+	LegacyWPRedirects bool                   `json:"legacy_wp_redirects"`
+	HomepageEntityID  *uuid.UUID             `json:"homepage_entity_id,omitempty"`
+	ThemeConfig       siteconfig.ThemeConfig `json:"theme_config"`
+	UpdatedAt         time.Time              `json:"updated_at"`
 }
 
 // siteSettingsPatch is the PATCH body; omitted (null) fields are unchanged.
@@ -71,6 +75,7 @@ type siteSettingsPatch struct {
 	Locales           *[]siteconfig.LocaleEntry `json:"locales"`
 	PrefixAll         *bool                     `json:"prefix_all"`
 	XDefaultLocale    *string                   `json:"x_default_locale"`
+	SitemapNaming     *string                   `json:"sitemap_naming"`
 	Phone             *string                   `json:"phone"`
 	BusinessHours     *string                   `json:"business_hours"`
 	Address           *siteAddress              `json:"address"`
@@ -157,6 +162,7 @@ func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 		Locales:           append([]siteconfig.LocaleEntry{}, cfg.Locales...),
 		PrefixAll:         cfg.PrefixAll,
 		XDefaultLocale:    cfg.XDefaultLocale,
+		SitemapNaming:     cmp.Or(cfg.SitemapNaming, "group"),
 		Phone:             cfg.Phone,
 		BusinessHours:     cfg.BusinessHours,
 		Address:           siteAddress(postalAddress(cfg.PostalAddress)),
@@ -195,7 +201,12 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid primary_color")
 		return
 	}
+	if in.SitemapNaming != nil && *in.SitemapNaming != "group" && *in.SitemapNaming != "legacy" {
+		writeError(w, http.StatusBadRequest, "invalid sitemap_naming: use group or legacy")
+		return
+	}
 	update := siteconfig.UpdateInput{
+		SitemapNaming:     in.SitemapNaming,
 		CompanyName:       in.Name,
 		LogoURL:           in.LogoURL,
 		PrimaryColor:      in.PrimaryColor,
@@ -217,6 +228,22 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 	}
 	if in.Locales != nil || in.PrefixAll != nil || in.XDefaultLocale != nil || in.Language != nil {
 		if !h.applyLocales(w, r, &in, &update) {
+			return
+		}
+	}
+	if in.SitemapNaming != nil && *in.SitemapNaming == "legacy" {
+		entries := update.Locales
+		if entries == nil {
+			cfg, err := h.store.Get(r.Context())
+			if err != nil {
+				h.logger.Error("site settings: load", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to update site settings")
+				return
+			}
+			entries = &cfg.Locales
+		}
+		if seg := siteconfig.SitemapFileSegment(*entries); seg != "" {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid sitemap_naming: the locale segment %q is also a sitemap file name (sitemap-%s.xml). Rename that segment first, or keep group", seg, seg))
 			return
 		}
 	}

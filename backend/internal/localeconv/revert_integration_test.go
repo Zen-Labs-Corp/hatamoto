@@ -23,7 +23,7 @@ func recordedDump(t *testing.T, pool *pgxpool.Pool) string {
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_object('slug', s.slug, 'settings', s.settings) ORDER BY s.slug), '[]')::text FROM hatamoto_entity_schemas s`).Scan(&schemas); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale, 'homepage_entity_id', homepage_entity_id)::text
+	if err := pool.QueryRow(ctx, `SELECT jsonb_build_object('language', language, 'locales', locales, 'prefix_all', prefix_all, 'x_default_locale', x_default_locale, 'homepage_entity_id', homepage_entity_id, 'sitemap_naming', sitemap_naming)::text
 		FROM hatamoto_site_config WHERE id = TRUE`).Scan(&site); err != nil {
 		t.Fatal(err)
 	}
@@ -267,5 +267,82 @@ func TestHistoryListsNewestFirst(t *testing.T) {
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_locale_conversions`).Scan(&n); err != nil || n != 2 {
 		t.Errorf("records = %d (%v)", n, err)
+	}
+}
+
+func siteNaming(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	var v string
+	if err := pool.QueryRow(context.Background(), `SELECT sitemap_naming FROM hatamoto_site_config`).Scan(&v); err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+func TestAutoNamingPicksLegacyAndRevertRestoresGroup(t *testing.T) {
+	ctx := context.Background()
+	pool, svc, before, id := converted(t)
+	if got := siteNaming(t, pool); got != "legacy" {
+		t.Fatalf("sitemap_naming after apply = %q, want legacy (3 sitemap_group overrides removed)", got)
+	}
+	var b, a string
+	if err := pool.QueryRow(ctx, `SELECT settings_before->>'sitemap_naming', settings_after->>'sitemap_naming' FROM hatamoto_locale_conversions WHERE id = $1`, id).Scan(&b, &a); err != nil {
+		t.Fatal(err)
+	}
+	if b != "group" || a != "legacy" {
+		t.Errorf("record before/after = %q/%q", b, a)
+	}
+	if _, err := svc.Revert(ctx, id, false, "tester"); err != nil {
+		t.Fatal(err)
+	}
+	if got := siteNaming(t, pool); got != "group" {
+		t.Errorf("sitemap_naming after revert = %q, want group", got)
+	}
+	if recordedDump(t, pool) != before {
+		t.Error("revert is not byte-identical")
+	}
+}
+
+func TestExplicitNamingWinsOverAuto(t *testing.T) {
+	pool := scratchPool(t)
+	seedFixture(t, pool, fixtureSnap())
+	mustApply(t, testService(pool), fixturePlan(t, func(p *Plan) { p.SitemapNaming = "group" }))
+	if got := siteNaming(t, pool); got != "group" {
+		t.Errorf("sitemap_naming = %q, want group", got)
+	}
+}
+
+func TestAutoNamingStaysGroupWithoutRemovedGroups(t *testing.T) {
+	pool := scratchPool(t)
+	snap := fixtureSnap()
+	settings := pageSettings
+	for _, g := range []string{"xx", "yy", "zz"} {
+		settings = strings.ReplaceAll(settings, `,"sitemap_group":"`+g+`"`, "")
+	}
+	snap.Schemas[0].Settings = []byte(settings)
+	seedFixture(t, pool, snap)
+	mustApply(t, testService(pool), fixturePlan(t))
+	if got := siteNaming(t, pool); got != "group" {
+		t.Errorf("sitemap_naming = %q, want group", got)
+	}
+}
+
+// Records written before the setting existed carry no key: revert must not
+// write ” (the CHECK would abort it), leave the column alone and not count a
+// changed naming as a conflict.
+func TestRevertOfARecordWithoutNamingLeavesTheColumn(t *testing.T) {
+	ctx := context.Background()
+	pool, svc, _, id := converted(t)
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_locale_conversions SET settings_before = settings_before - 'sitemap_naming', settings_after = settings_after - 'sitemap_naming' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_site_config SET sitemap_naming = 'legacy'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Revert(ctx, id, false, "tester"); err != nil {
+		t.Fatalf("revert: %v", err)
+	}
+	if got := siteNaming(t, pool); got != "legacy" {
+		t.Errorf("sitemap_naming after revert = %q, want the manual legacy untouched", got)
 	}
 }

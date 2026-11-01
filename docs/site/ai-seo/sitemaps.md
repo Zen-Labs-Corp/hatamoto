@@ -16,7 +16,7 @@ A sitemap is a file that lists your pages for search engines. Hatamoto generates
 | `/sitemap-<group>.xml` | The URLs of one group, for example `/sitemap-blog.xml` or `/sitemap-misc.xml`. |
 | `/sitemap.xsl` | A stylesheet that makes the XML readable in a browser. The default theme ships it, and a theme cannot replace it. It is served with `Cache-Control: public, max-age=2592000`. |
 
-The index is also announced on the `Sitemap:` line of `/robots.txt`. An unknown child name answers `404`. Sitemap responses are served as `application/xml; charset=utf-8` with `Cache-Control: public, max-age=3600, s-maxage=3600`, and begin with an `xml-stylesheet` instruction pointing at `/sitemap.xsl`.
+The index is also announced on the `Sitemap:` line of `/robots.txt`. An unknown child name answers `404`; on a site with several locales a name from the other file layout answers `301` to the index (see [Several locales](#several-locales)). Sitemap responses are served as `application/xml; charset=utf-8` with `Cache-Control: public, max-age=3600, s-maxage=3600`, and begin with an `xml-stylesheet` instruction pointing at `/sitemap.xsl`.
 
 A trimmed index for a site with pages and posts:
 
@@ -113,6 +113,17 @@ On a site with two or more public locales the index lists one set of child files
 - Each locale's file is cached separately.
 - The `sitemap.urls` filter runs once per file. It gets the bare group name in `group` and the file's locale tag in `language`.
 
+### Sitemap file names
+
+Settings > Locales > Addresses and search engines has **Sitemap file names**, a site-wide choice:
+
+- **Group** (the default): `sitemap-<segment>-<group>.xml`, as above.
+- **Legacy**: the file names a site had before it used locales. Each locale that has a segment gets one file, `sitemap-<segment>.xml`, holding all of its groups (archive pages included, no URL twice). Shared content keeps the bare `sitemap-<group>.xml` files, as does a default locale without its own prefix, and `sitemap-misc.xml` stays one file with the shared misc pages and plugin static routes. The `sitemap.urls` filter runs once per group in a locale file, with `group` the bare group name and `file` the segment.
+
+The locale converter picks Legacy when it removed per-locale sitemap groups, so the index lists the same names as before the conversion. The segments `index` and `misc` are refused, because they name the index and the misc file.
+
+A missing file whose name belongs to the other layout (a bare group name, `misc`, a segment, or a segment followed by anything) answers `301` to `/sitemap.xml` with no caching, so search engines that remember an old name find the index. Every other missing name is a `404`. Files are not split: a Legacy file with more than 50,000 URLs stays one file and Hatamoto logs a note, so a very large locale should use Group.
+
 A site with one locale keeps its sitemap files exactly as before.
 
 ## The preview tool
@@ -128,5 +139,6 @@ The MCP tool `sitemap_preview` serves the real route in process and returns the 
 | A URL still shows after unpublishing | The cached file lives for up to an hour unless the change cleared it. Check that the unpublish was saved. |
 | `localhost` or an internal host in the URLs | Set `PUBLIC_BASE_URL`. See [URL patterns](url-patterns.md#the-public-base-url). |
 | `404` for `/sitemap-<name>.xml` | No content type or plugin uses that group. |
+| `301` for `/sitemap-<name>.xml` | The name belongs to the other file layout of a multi-locale site; follow it to the index. |
 
 Submit `https://example.com/sitemap.xml` once in each search engine's webmaster tool. The robots file already points to it.

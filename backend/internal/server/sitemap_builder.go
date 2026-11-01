@@ -51,6 +51,13 @@ type sitemapInput struct {
 	// Redirected reports whether a redirect rule claims path; such rows are
 	// dropped. Nil means no rules.
 	Redirected func(path string) bool
+	// Naming is the site's sitemap_naming setting: "" or "group" (one file per
+	// locale and group) or "legacy" (one file per prefixed locale holding all
+	// its groups). It only matters on a multi-locale site.
+	Naming string
+	// NamingUnread is set when the setting could not be read and Naming is
+	// only the default: the result is served but must not be cached.
+	NamingUnread bool
 }
 
 type groupRow struct {
@@ -71,6 +78,9 @@ type sitemapGroup struct {
 	// archive is the group's index path ("/post") from archive_path or a plugin.
 	archive string
 	rows    []groupRow
+	// folded is set on a legacy locale file: the per-group files it lists, in
+	// order. They are not registered in the plan themselves.
+	folded []*sitemapGroup
 }
 
 type sitemapPlan struct {
@@ -83,7 +93,15 @@ type sitemapPlan struct {
 	// copies lists, per translation group, the locale and path of every listed
 	// copy; GroupURLs turns them into alternates.
 	copies map[uuid.UUID][]localeCopy
+	// bare lists every bare group key of the site (also when the group has no
+	// rows), so a request for a historic file name can be recognised.
+	bare []string
+	// collisions and notes are reported to the caller, which logs them once.
+	collisions, notes []string
 }
+
+// maxLegacyFileURLs is the sitemap protocol limit; legacy files are not split.
+const maxLegacyFileURLs = 50000
 
 type localeCopy struct{ locale, path string }
 
@@ -194,7 +212,14 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 	// last. A multi-locale plan prunes while splitting: the rows of a bare group
 	// may all sit in its per-locale files (prefix-all, a fr-only schema).
 	if p.multi() {
-		p.splitByLocale(misc)
+		for _, g := range p.groups {
+			p.bare = append(p.bare, g.key)
+		}
+		if p.legacy() {
+			p.splitLegacy(misc)
+		} else {
+			p.splitByLocale(misc)
+		}
 		return p
 	}
 	var kept []*sitemapGroup
@@ -216,6 +241,27 @@ func (p *sitemapPlan) locales() *entity.LocaleSet { return p.in.Snap.Locales() }
 
 func (p *sitemapPlan) multi() bool { return p.locales().Multi() }
 
+// legacy reports whether the plan uses the pre-locale file names.
+// A locale segment that is also a legacy file name (index, misc) keeps group
+// naming, so the index never lists one name twice.
+func (p *sitemapPlan) legacy() bool {
+	if !p.multi() || p.in.Naming != "legacy" {
+		return false
+	}
+	for _, e := range p.locales().Entries() {
+		if e.Segment == "index" || e.Segment == "misc" {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *sitemapPlan) collide(msg string) {
+	if !slices.Contains(p.collisions, msg) {
+		p.collisions = append(p.collisions, msg)
+	}
+}
+
 // fileLocale is the locale whose sitemap files list e: its own, shared rows go
 // with the default locale.
 func (p *sitemapPlan) fileLocale(e *entity.SitemapEntry) string {
@@ -233,6 +279,9 @@ func (p *sitemapPlan) localized(base *sitemapGroup, tag string) *sitemapGroup {
 		key = seg + "-" + base.key
 	}
 	if g, ok := p.byKey[key]; ok {
+		if (g.locale != "" && (g.locale != tag || g.base != base.key)) || (g.locale == "" && key != base.key) {
+			p.collide(fmt.Sprintf("sitemap file %q is shared by several locale and group pairs; their rows are merged", key))
+		}
 		if g.locale == "" {
 			g.base, g.locale = base.key, tag // the unprefixed default file keeps the bare name
 		}
@@ -271,6 +320,96 @@ func (p *sitemapPlan) splitByLocale(misc *sitemapGroup) {
 	}
 }
 
+// splitLegacy lays the files out as a site had them before locales: each
+// prefixed locale gets one file "<segment>" holding all its groups, while the
+// shared rows (and the default locale when it has no prefix) keep the bare
+// group files. Locale files come first, then the bare groups, misc last.
+func (p *sitemapPlan) splitLegacy(misc *sitemapGroup) {
+	set := p.locales()
+	bare := p.groups
+	p.groups = nil
+
+	segFile := map[string]*sitemapGroup{}
+	for _, tag := range set.PublicTags() {
+		seg := strings.TrimPrefix(set.Prefix(tag), "/")
+		if seg == "" {
+			continue
+		}
+		c := &sitemapGroup{key: seg, locale: tag}
+		for _, b := range bare {
+			if b != misc {
+				if g := p.localized(b, tag); len(g.rows) > 0 {
+					c.folded = append(c.folded, g)
+				}
+			}
+		}
+		if g := p.localized(misc, tag); len(g.rows) > 0 {
+			c.folded = append(c.folded, g)
+		}
+		segFile[seg] = c
+		if len(c.folded) > 0 {
+			p.groups = append(p.groups, c)
+		}
+	}
+
+	unprefixedDefault := set.Prefix(set.Default()) == ""
+	var files []*sitemapGroup
+	for _, b := range bare {
+		g := b
+		if unprefixedDefault {
+			g = p.localized(b, set.Default()) // sets the file's locale; same group
+		}
+		if g == misc || len(g.rows) == 0 {
+			continue
+		}
+		if c := segFile[g.key]; c != nil && len(c.folded) > 0 {
+			c.folded = append(c.folded, g)
+			p.collide(fmt.Sprintf("segment %q and group %q name the same sitemap file; the group is merged into the locale file", g.key, g.key))
+			continue
+		}
+		files = append(files, g)
+	}
+	if unprefixedDefault {
+		p.localized(misc, set.Default())
+	}
+	p.groups = append(p.groups, files...)
+	p.groups = append(p.groups, misc)
+
+	p.byKey = map[string]*sitemapGroup{}
+	for _, g := range p.groups {
+		p.byKey[g.key] = g
+		if len(g.folded) == 0 {
+			continue
+		}
+		n := 0
+		for _, part := range g.folded {
+			if d := p.maxDate["group:"+part.key]; d > p.maxDate["group:"+g.key] {
+				p.maxDate["group:"+g.key] = d
+			}
+			n += len(part.rows)
+			if part.archive != "" {
+				n++
+			}
+		}
+		if n > maxLegacyFileURLs {
+			p.notes = append(p.notes, fmt.Sprintf("sitemap file %q lists more URLs than the %d limit of the sitemap protocol; legacy files are not split", g.key, maxLegacyFileURLs))
+		}
+	}
+}
+
+// FileParts returns the per-group files a child sitemap lists: the folded
+// parts of a legacy locale file, else the file itself.
+func (p *sitemapPlan) FileParts(key string) ([]*sitemapGroup, bool) {
+	g, ok := p.byKey[key]
+	if !ok {
+		return nil, false
+	}
+	if len(g.folded) > 0 {
+		return g.folded, true
+	}
+	return []*sitemapGroup{g}, true
+}
+
 const miscSitemapGroupKey = "misc"
 
 func (p *sitemapPlan) entryDate(e *entity.SitemapEntry) string {
@@ -285,9 +424,13 @@ func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
 		if p.locales().IsHidden(r.e.Locale) {
 			return // not public: the loader already skips these, the plan never lists them either
 		}
-		tag := p.fileLocale(r.e)
 		r.path = p.in.Snap.WithLocale(r.e.Locale, r.path)
-		g = p.localized(g, tag)
+		shared := r.e.Locale == "" || r.e.Locale == entity.LocaleShared
+		// Legacy names: shared rows stay in the bare group files when the
+		// default locale has a prefix of its own.
+		if !(p.legacy() && shared && p.locales().Prefix(p.locales().Default()) != "") {
+			g = p.localized(g, p.fileLocale(r.e))
+		}
 	}
 	if p.in.Redirected != nil && p.in.Redirected(r.path) {
 		return
@@ -366,6 +509,19 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 		return nil, false
 	}
 	base := p.in.BaseURL
+
+	if len(g.folded) > 0 {
+		seen := map[string]bool{}
+		for _, part := range g.folded {
+			for _, u := range p.rowURLs(part, nil) {
+				if !seen[u.Loc] {
+					seen[u.Loc] = true
+					urls = append(urls, u)
+				}
+			}
+		}
+		return urls, true
+	}
 
 	if g.base == miscSitemapGroupKey || key == miscSitemapGroupKey {
 		if g.locale != "" && g.locale != p.locales().Default() {

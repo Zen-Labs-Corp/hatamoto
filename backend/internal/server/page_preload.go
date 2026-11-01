@@ -301,14 +301,10 @@ func (s *Server) preloadPaths(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	plan := planSitemap(in)
+	plan := s.planSitemapLogged(in)
 	var locs []string
 	for _, g := range plan.groups {
-		urls, ok := plan.GroupURLs(g.key)
-		if !ok {
-			continue
-		}
-		for _, u := range s.applySitemapFilterFor(ctx, g, urls) {
+		for _, u := range s.sitemapFileURLs(ctx, plan, g.key) {
 			locs = append(locs, u.Loc)
 		}
 	}

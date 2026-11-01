@@ -152,6 +152,14 @@ func TestLocalesDryRunExitCodes(t *testing.T) {
 	if exitCode(err) != 2 || !strings.Contains(out, "blocked") || !strings.Contains(out, "path_changes") {
 		t.Fatalf("blocked dry run: err=%v out=%s", err, out)
 	}
+
+	named := okReport()
+	named.SiteSettings.SitemapNaming = [2]string{"group", "legacy"}
+	svc.report = named
+	out, _, err = runLocales(t, svc, "--plan", plan, "--text")
+	if err != nil || !strings.Contains(out, `sitemap_naming "group" -> "legacy"`) {
+		t.Fatalf("site settings line: err=%v out=%s", err, out)
+	}
 }
 
 func TestLocalesApply(t *testing.T) {

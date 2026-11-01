@@ -147,6 +147,14 @@ const MaxSitemapAdditions = 5000
 // the file's locale (empty for an unprefixed default locale) and File is the
 // full file key ("xx-misc"; Group stays the bare name). Both are empty on a
 // one-language site.
+//
+// With the site setting sitemap_naming "legacy" a prefixed locale has one file
+// holding all its groups: File is that file's key ("xx", not "xx-misc") and the
+// filter runs once per group in it, with Group the bare group name each time,
+// so a plugin that switches on Group == "misc" keeps working. The bare files
+// (File "blog", "misc") hold the shared rows and an unprefixed default locale;
+// the shared ones carry no Language or Segment. The group-mode payload is
+// unchanged.
 type SitemapURLs struct {
 	Group    string       `json:"group"`
 	Language string       `json:"language"`

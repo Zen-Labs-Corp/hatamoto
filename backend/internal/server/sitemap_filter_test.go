@@ -100,7 +100,7 @@ func TestApplySitemapFilterFor_GroupName(t *testing.T) {
 		if !ok {
 			t.Fatalf("no group %q", key)
 		}
-		s.applySitemapFilterFor(context.Background(), plan.byKey[key], urls)
+		s.applySitemapFilterFor(context.Background(), plan.byKey[key], urls, plan.multi())
 		return seen
 	}
 

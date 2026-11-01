@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -36,8 +38,9 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 // running site, store, then clear the rendered pages so a change (a Public
 // toggle, say) shows at once. It returns the form error per field ("locales",
 // "xdefault") when the input is rejected, and an error when the save itself
-// fails. An empty list makes the site single-locale and drops the flags.
-func (a *Admin) saveLocales(ctx context.Context, cfg *siteconfig.Config, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string) (map[string]string, error) {
+// fails. An empty list makes the site single-locale and drops the flags. A nil
+// naming leaves the sitemap file naming as stored.
+func (a *Admin) saveLocales(ctx context.Context, cfg *siteconfig.Config, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string, naming *string) (map[string]string, error) {
 	if len(entries) == 0 {
 		entries, xdef, prefixAll = []siteconfig.LocaleEntry{}, "", false
 	} else {
@@ -54,7 +57,12 @@ func (a *Admin) saveLocales(ctx context.Context, cfg *siteconfig.Config, entries
 			return map[string]string{field: err.Error()}, nil
 		}
 	}
-	in := siteconfig.UpdateInput{Locales: &entries, PrefixAll: &prefixAll, XDefaultLocale: &xdef}
+	if naming != nil && *naming == "legacy" {
+		if seg := siteconfig.SitemapFileSegment(entries); seg != "" {
+			return map[string]string{"sitemap_naming": fmt.Sprintf("The locale segment %q is also a sitemap file name (sitemap-%s.xml). Rename that segment first, or keep Group", seg, seg)}, nil
+		}
+	}
+	in := siteconfig.UpdateInput{Locales: &entries, PrefixAll: &prefixAll, XDefaultLocale: &xdef, SitemapNaming: naming}
 	if _, err := a.deps.Site.Update(ctx, in); err != nil {
 		return nil, err
 	}
@@ -298,7 +306,7 @@ func (a *Admin) handleLocaleAdd(w http.ResponseWriter, r *http.Request) {
 		seg = strings.ToLower(tag)
 	}
 	entries = append(entries, siteconfig.LocaleEntry{Tag: tag, Segment: seg, Name: f.Name, Hidden: !f.Public})
-	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale)
+	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale, nil)
 	if err != nil {
 		a.logger().Error("add locale failed", "locale", tag, "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locale could not be added.")
@@ -353,7 +361,7 @@ func (a *Admin) handleLocaleOrder(w http.ResponseWriter, r *http.Request) {
 // saveLocaleList stores entries and answers the Locales tab: a flash and a
 // redirect on success, an error page when the list is rejected or not saved.
 func (a *Admin) saveLocaleList(w http.ResponseWriter, r *http.Request, cfg *siteconfig.Config, entries []siteconfig.LocaleEntry, done string) {
-	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale)
+	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale, nil)
 	if err != nil {
 		a.logger().Error("save locales failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locales could not be saved.")
@@ -440,7 +448,7 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 			e.Segment = strings.ToLower(e.Tag)
 		}
 	}
-	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale)
+	errs, err := a.saveLocales(r.Context(), cfg, entries, cfg.PrefixAll, cfg.XDefaultLocale, nil)
 	if err != nil {
 		a.logger().Error("update locale failed", "locale", e.Tag, "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locale could not be saved.")
@@ -516,13 +524,22 @@ func (a *Admin) handleLocaleRemove(w http.ResponseWriter, r *http.Request) {
 
 // addressesData is the Addresses and search engines tab.
 type addressesData struct {
-	Default   string
-	PrefixAll bool
-	XDefault  []ui.Option
-	Errs      map[string]string
-	Summary   []ui.FieldError
-	Multi     bool
-	Empty     ui.Empty
+	Default       string
+	PrefixAll     bool
+	XDefault      []ui.Option
+	SitemapNaming []ui.Option
+	Errs          map[string]string
+	Summary       []ui.FieldError
+	Multi         bool
+	Empty         ui.Empty
+}
+
+// sitemapNamingOptions offers the two sitemap file layouts.
+func sitemapNamingOptions(current string) []ui.Option {
+	return []ui.Option{
+		{Value: "group", Label: "Group (sitemap-fr-blog.xml)", Selected: current == "group"},
+		{Value: "legacy", Label: "Legacy (sitemap-fr.xml)", Selected: current == "legacy"},
+	}
 }
 
 // xDefaultOptions offers Automatic and every public locale, never a hidden one.
@@ -536,15 +553,15 @@ func xDefaultOptions(cfg *siteconfig.Config, current string) []ui.Option {
 	return out
 }
 
-func (a *Admin) renderAddresses(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, prefixAll bool, xdef string, errs map[string]string) {
+func (a *Admin) renderAddresses(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, prefixAll bool, xdef, naming string, errs map[string]string) {
 	d := addressesData{
-		Default: localeDisplayName(localeSetOf(cfg).Default()), PrefixAll: prefixAll, XDefault: xDefaultOptions(cfg, xdef),
+		Default: localeDisplayName(localeSetOf(cfg).Default()), PrefixAll: prefixAll, XDefault: xDefaultOptions(cfg, xdef), SitemapNaming: sitemapNamingOptions(naming),
 		Errs: errs, Multi: len(cfg.Locales) > 1,
 		Empty: ui.Empty{Icon: "globe", Title: "Add a second locale first",
 			Body:    "Address prefixes and the search engine default apply once your site has two or more locales.",
 			Actions: []ui.Button{{Label: "Add a locale", Variant: "primary", Href: a.url("settings", "locales", "new")}}},
 	}
-	for _, k := range []struct{ key, label string }{{"locales", "Address prefix"}, {"xdefault", "Default for search engines"}} {
+	for _, k := range []struct{ key, label string }{{"locales", "Address prefix"}, {"xdefault", "Default for search engines"}, {"sitemap_naming", "Sitemap file names"}} {
 		if m := errs[k.key]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: "locale-" + k.key, Label: k.label, Message: m})
 		}
@@ -561,7 +578,7 @@ func (a *Admin) handleAddresses(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
-	a.renderAddresses(w, r, http.StatusOK, cfg, cfg.PrefixAll, cfg.XDefaultLocale, nil)
+	a.renderAddresses(w, r, http.StatusOK, cfg, cfg.PrefixAll, cfg.XDefaultLocale, cmp.Or(cfg.SitemapNaming, "group"), nil)
 }
 
 // handleAddressesSave stores the two flags with the stored locales unchanged,
@@ -577,14 +594,22 @@ func (a *Admin) handleAddressesSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prefixAll, xdef := r.PostFormValue("prefix_all") == "true", strings.TrimSpace(r.PostFormValue("xdefault"))
-	errs, err := a.saveLocales(r.Context(), cfg, cfg.Locales, prefixAll, xdef)
+	naming := strings.TrimSpace(r.PostFormValue("sitemap_naming"))
+	if naming == "" {
+		naming = cmp.Or(cfg.SitemapNaming, "group")
+	}
+	if naming != "group" && naming != "legacy" {
+		a.renderAddresses(w, r, http.StatusUnprocessableEntity, cfg, prefixAll, xdef, naming, map[string]string{"sitemap_naming": "Choose Group or Legacy"})
+		return
+	}
+	errs, err := a.saveLocales(r.Context(), cfg, cfg.Locales, prefixAll, xdef, &naming)
 	if err != nil {
 		a.logger().Error("save addresses failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be saved.")
 		return
 	}
 	if len(errs) > 0 {
-		a.renderAddresses(w, r, http.StatusUnprocessableEntity, cfg, prefixAll, xdef, errs)
+		a.renderAddresses(w, r, http.StatusUnprocessableEntity, cfg, prefixAll, xdef, naming, errs)
 		return
 	}
 	a.SetFlash(w, r, "success", "Address settings saved.")

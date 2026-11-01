@@ -115,7 +115,7 @@ func TestAnalyzeRecordsSchemaChangeAndSettingsDelta(t *testing.T) {
 	if len(ch.Schemas) != 1 || ch.Schemas[0].Slug != "page" || bytes.Contains(ch.Schemas[0].After, []byte("sitemap_group")) {
 		t.Errorf("schema changes = %+v", ch.Schemas)
 	}
-	want := SiteSettingsDelta{Language: [2]string{"en", "en-XX"}, LocalesCount: [2]int{0, 3}, PrefixAll: [2]bool{false, true}, XDefault: [2]string{"", "en-XX"}}
+	want := SiteSettingsDelta{Language: [2]string{"en", "en-XX"}, LocalesCount: [2]int{0, 3}, PrefixAll: [2]bool{false, true}, XDefault: [2]string{"", "en-XX"}, SitemapNaming: [2]string{"", "legacy"}}
 	if rep.SiteSettings != want {
 		t.Errorf("settings = %+v", rep.SiteSettings)
 	}

@@ -41,6 +41,7 @@ The plan is a JSON file (or the admin textarea). It is strict: unknown fields ar
 | `locale_from.fallback` | `"root"` or `"shared"` | optional, default `"root"` | `root`: a page without a mapped value takes the locale of its nearest region-home ancestor, none means shared. `shared`: a map miss means shared (`bad_fallback`) |
 | `group_from.attribute` | string | optional (absent: no groups) | non-empty when present (`bad_group_attribute`); pages sharing a value form one translation group |
 | `shared` | string | optional, default `"und"` | only `"und"` is accepted (`bad_shared`) |
+| `sitemap_naming` | `"auto"`, `"group"` or `"legacy"` | optional, default `"auto"` | anything else: `bad_sitemap_naming`. `auto` stores `legacy` when the conversion removes at least one `sitemap_group` key (step 6 below), else `group`. See [Sitemap file names](site/ai-seo/sitemaps.md#several-locales) |
 | `strip_attributes` | array of string | optional, default `[]` (keep all data) | no duplicates (`duplicate_strip_attribute`); must not contain `locale_from.attribute` while a schema override still matches on it (`strip_needed_attribute`) |
 | `home.slug` | string | optional, default `"home"` | valid slug (`bad_home_slug`) |
 | `home.on_conflict` | `"rename-archived"` or `"abort"` | optional, default `"rename-archived"` | a published page that collides always blocks (`published_collision`) (`bad_on_conflict`) |
@@ -72,7 +73,9 @@ Inside one transaction, in this order:
 4. Moves the direct children of a region home to the top level. Deeper pages keep their parents.
 5. Removes the keys named in `strip_attributes` (none by default).
 6. Edits schema URL overrides: for an override that matches on `locale_from.attribute`, only its `sitemap_group` key is removed. `url_pattern` and the `attribute`/`equals` match stay, so URLs do not change.
-7. Writes the site settings in one update: `language` (the default), the locale list, `prefix_all` and `x_default` and clears the explicit homepage setting (Settings, General, Homepage) if one is set. The server serves that page for every locale before it looks for a locale home, so left in place it would hide the region homes. The report warns with `homepage_cleared`; revert restores the setting.
+7. Writes the site settings in one update: `language` (the default), the locale list, `prefix_all` and `x_default`, `sitemap_naming` (resolved from the plan, see above) and clears the explicit homepage setting (Settings, General, Homepage) if one is set. The server serves that page for every locale before it looks for a locale home, so left in place it would hide the region homes. The report warns with `homepage_cleared`; revert restores the setting.
+
+   With `legacy` the sitemap index lists the file names the site had before the conversion (`sitemap-xx.xml` for a region, `sitemap-blog.xml` for shared content) instead of the per-locale group names, and the new group names answer `301` to `/sitemap.xml`. The report has a `Sitemap file names` row in the admin and the CLI text report shows `sitemap_naming "group" -> "legacy"` in its site settings line. A locale segment of `index` or `misc` is refused (`reserved_segment`), because those names belong to the sitemap index and the misc file.
 8. Stores the conversion record (the plan, the report, before and after values of every changed row and of the settings).
 
 Limitation: pages that belong to a plugin as variants (rows with a variant key) are not converted. They keep the locale they had before the conversion, which is no longer in any converted locale's visible set, so a plugin that looks variants up by locale may not find them. Check such plugins after the apply.
@@ -106,7 +109,7 @@ Two refusals can never be forced:
 - `already_reverted`: the conversion was reverted before.
 - `newer_conversion`: a later conversion is still applied; revert that one first.
 
-A clean revert restores exactly the recorded columns (locale, slug, parent, translation group, stripped attributes), the settings (the explicit homepage included) and the schema JSON; modified dates were never touched.
+A clean revert restores exactly the recorded columns (locale, slug, parent, translation group, stripped attributes), the settings (the explicit homepage and the sitemap naming included) and the schema JSON; modified dates were never touched.
 
 ## Audit trail
 

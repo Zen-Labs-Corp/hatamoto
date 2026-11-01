@@ -21,8 +21,9 @@ import (
 // term-kind reservation (taxonomy.ReservedSegment) does not cover: the built-in
 // kinds' own archives and the root plugin UI mount. Segments are lowercase
 // words without dots, so file roots (robots.txt, favicon.ico, feed.xml) cannot
-// collide; "sitemap" also reserves its prefix (sitemap-*.xml).
-var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui"}
+// collide; "sitemap" also reserves its prefix (sitemap-*.xml). "index" and "misc"
+// would clash with the sitemap index and the misc file of the legacy naming.
+var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui", "index", "misc"}
 
 // localeSettingsRequest is the part of a site settings change the locale
 // checks look at: the default locale plus the list, prefix-all and x-default.
@@ -139,7 +140,8 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		taken[first] = "an archive of your site"
 	}
 	for _, seg := range segments {
-		if reason := reservedSegmentReason(seg); reason != "" {
+		// A stored index or misc segment is live in group naming: only a new one is refused.
+		if reason := reservedSegmentReason(seg); reason != "" && !(stored[seg] && (seg == "index" || seg == "misc")) {
 			return fmt.Errorf("segment %q is %s", seg, reason)
 		}
 		if stored[seg] {

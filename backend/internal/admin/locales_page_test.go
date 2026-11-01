@@ -31,7 +31,7 @@ func TestSaveLocalesInvalidates(t *testing.T) {
 	g, site := localeFixture(t)
 	cfg, _ := site.Get(context.Background())
 	entries := []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: "Francais"}}
-	errs, err := g.a.saveLocales(context.Background(), cfg, entries, false, "")
+	errs, err := g.a.saveLocales(context.Background(), cfg, entries, false, "", nil)
 	if err != nil || len(errs) != 0 {
 		t.Fatalf("errs=%v err=%v", errs, err)
 	}
@@ -47,7 +47,7 @@ func TestSaveLocalesRejectsHiddenDefault(t *testing.T) {
 	t.Parallel()
 	g, site := localeFixture(t)
 	cfg, _ := site.Get(context.Background())
-	errs, err := g.a.saveLocales(context.Background(), cfg, []siteconfig.LocaleEntry{{Tag: "en", Hidden: true}, {Tag: "fr", Segment: "fr"}}, false, "")
+	errs, err := g.a.saveLocales(context.Background(), cfg, []siteconfig.LocaleEntry{{Tag: "en", Hidden: true}, {Tag: "fr", Segment: "fr"}}, false, "", nil)
 	if err != nil || !strings.Contains(errs["locales"], "cannot be hidden") {
 		t.Fatalf("errs=%v err=%v", errs, err)
 	}
@@ -58,7 +58,7 @@ func TestSaveLocalesRejectsHiddenDefault(t *testing.T) {
 	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
 		return nil, "", fieldErr{"x_default_locale", "x-default locale is hidden"}
 	}
-	errs, _ = g.a.saveLocales(context.Background(), cfg, site.cfg.Locales, false, "fr")
+	errs, _ = g.a.saveLocales(context.Background(), cfg, site.cfg.Locales, false, "fr", nil)
 	if errs["xdefault"] == "" || errs["locales"] != "" {
 		t.Errorf("errs = %v", errs)
 	}
@@ -69,7 +69,7 @@ func TestSaveLocalesEmptyListResets(t *testing.T) {
 	g, site := localeFixture(t)
 	site.cfg.PrefixAll, site.cfg.XDefaultLocale = true, "en"
 	cfg, _ := site.Get(context.Background())
-	if errs, err := g.a.saveLocales(context.Background(), cfg, nil, true, "en"); err != nil || len(errs) != 0 {
+	if errs, err := g.a.saveLocales(context.Background(), cfg, nil, true, "en", nil); err != nil || len(errs) != 0 {
 		t.Fatalf("errs=%v err=%v", errs, err)
 	}
 	if len(site.cfg.Locales) != 0 || site.cfg.PrefixAll || site.cfg.XDefaultLocale != "" {
@@ -217,6 +217,50 @@ func TestAddressesPrefixAll(t *testing.T) {
 	}
 }
 
+func TestAddressesSitemapNaming(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	body := g.do("GET", "/admin/settings/locales/addresses", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `name="sitemap_naming"`) || !strings.Contains(body, `<option value="group" selected`) {
+		t.Error("the select is missing or group is not the default")
+	}
+	if c := postForm(g, "/addresses", "sitemap_naming", "legacy"); c != 303 || site.cfg.SitemapNaming != "legacy" {
+		t.Fatalf("code=%d naming=%q", c, site.cfg.SitemapNaming)
+	}
+	if c := postForm(g, "/addresses", "sitemap_naming", "x"); c != 422 || site.cfg.SitemapNaming != "legacy" {
+		t.Errorf("bad value: code=%d naming=%q", c, site.cfg.SitemapNaming)
+	}
+	if c := postForm(g, "/addresses", "xdefault", ""); c != 303 || site.cfg.SitemapNaming != "legacy" {
+		t.Errorf("omitted field changed naming: code=%d naming=%q", c, site.cfg.SitemapNaming)
+	}
+	// Locale list saves leave it alone.
+	if c := postForm(g, "/update/fr", "public", "true"); c != 303 || site.cfg.SitemapNaming != "legacy" {
+		t.Errorf("locale update: code=%d naming=%q", c, site.cfg.SitemapNaming)
+	}
+}
+
+func TestAddressesRefusesLegacyForFileNameSegment(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "index"}}
+	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", url.Values{"sitemap_naming": {"legacy"}}, nil)
+	if rec.Code != 422 || site.cfg.SitemapNaming == "legacy" || !strings.Contains(rec.Body.String(), "sitemap-index.xml") {
+		t.Errorf("code=%d naming=%q", rec.Code, site.cfg.SitemapNaming)
+	}
+}
+
+func TestAddressesRejectsReservedSegmentField(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
+		return nil, "", fieldErr{"locales", `segment "misc" is a route of its own`}
+	}
+	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", url.Values{"sitemap_naming": {"legacy"}}, nil)
+	if rec.Code != 422 || site.cfg.SitemapNaming != "" {
+		t.Errorf("code=%d naming=%q", rec.Code, site.cfg.SitemapNaming)
+	}
+}
+
 func TestLocalePagesPassA11y(t *testing.T) {
 	t.Parallel()
 	g, _ := localeFixture(t)
@@ -237,7 +281,7 @@ func TestAddressesTabEmptyOnASingleLocaleSite(t *testing.T) {
 	g := newOwnerRig(t, true)
 	site := g.a.deps.Site.(*fakeSite)
 	body := g.do("GET", "/admin/settings/locales/addresses", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Add a second locale first") || !strings.Contains(body, `href="/admin/settings/locales/new"`) || strings.Contains(body, `name="prefix_all"`) {
+	if !strings.Contains(body, "Add a second locale first") || !strings.Contains(body, `href="/admin/settings/locales/new"`) || strings.Contains(body, `name="prefix_all"`) || strings.Contains(body, `name="sitemap_naming"`) {
 		t.Error("single-locale Addresses tab shows the form instead of the empty state")
 	}
 	rec := g.do("POST", "/admin/settings/locales/addresses", "owner-token", url.Values{"prefix_all": {"true"}}, nil)

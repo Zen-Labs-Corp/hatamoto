@@ -116,6 +116,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if in.XDefaultLocale != nil {
 		f.cfg.XDefaultLocale = *in.XDefaultLocale
 	}
+	if in.SitemapNaming != nil {
+		f.cfg.SitemapNaming = *in.SitemapNaming
+	}
 	if in.PublicBaseURL != nil {
 		f.cfg.PublicBaseURL = *in.PublicBaseURL
 	}
