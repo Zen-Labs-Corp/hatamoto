@@ -147,14 +147,14 @@ const KEEP_LINES = {
 };
 
 /** The few words the bar keeps on a phone ("Draft · Saved"): no reason (the full line stays for a screen reader). */
-export const shortLine = (q, status = "") => ({ pending: "Not saved", saving: "Saving…", saved: `${status ? status + " · " : ""}Saved`, error: "Not saved", conflict: "Changed elsewhere", stopped: "Not saved" })[q.state] ?? "";
+export const shortLine = (q, status = "") => ({ pending: status === "Published" && !q.keep ? "Saving…" : "Not saved", saving: "Saving…", saved: `${status ? status + " · " : ""}Saved`, error: "Not saved", conflict: "Changed elsewhere", stopped: "Not saved" })[q.state] ?? "";
 
 /** The save-state line shown in the bar. status: "Draft" or "Published" (empty for a block or part). The time of the last save is savedTime(), for the title. */
 export function stateLine(q, { draft, status = "" } = {}) {
   switch (q.state) {
     case "pending":
       if (draft) return "Not saved";
-      return KEEP_LINES[q.keep] ?? "Unsaved changes";
+      return KEEP_LINES[q.keep] ?? (status === "Published" ? "Saving…" : "Unsaved changes"); // the recovery copy is on its way
     case "saving":
       return "Saving…";
     case "saved":

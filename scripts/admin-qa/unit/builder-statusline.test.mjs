@@ -44,7 +44,8 @@ test("working states leave the status out", () => {
 test("pending: a draft page autosaves (Not saved); a published page keeps the edits as a draft", () => {
   assert.equal(stateLine({ state: "pending" }, { status: "Draft", draft: true }), "Not saved");
   assert.equal(stateLine({ state: "pending", keep: "kept" }, { status: "Published" }), "Draft saved · not live yet");
-  assert.equal(stateLine({ state: "pending" }, { status: "Published" }), "Unsaved changes");
+  assert.equal(stateLine({ state: "pending" }, { status: "Published" }), "Saving…", "never \"Unsaved changes\" before the recovery copy is kept");
+  assert.equal(stateLine({ state: "pending" }), "Unsaved changes", "a block or part has no recovery copy");
 });
 
 test("the failure lines of a published page are unchanged", () => {
@@ -58,6 +59,7 @@ test("shortLine: the few words a phone keeps, never a reason", () => {
   assert.equal(shortLine({ state: "saved" }, "Draft"), "Draft · Saved");
   assert.equal(shortLine({ state: "saved" }), "Saved");
   assert.equal(shortLine({ state: "pending" }), "Not saved");
+  assert.equal(shortLine({ state: "pending" }, "Published"), "Saving…");
   assert.equal(shortLine({ state: "saving" }), "Saving…");
   assert.equal(shortLine({ state: "error", message: "You appear to be offline." }), "Not saved");
   assert.equal(shortLine({ state: "conflict" }), "Changed elsewhere");
