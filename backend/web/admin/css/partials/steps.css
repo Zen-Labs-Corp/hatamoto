@@ -9,7 +9,7 @@
 .hm-steps__item--current { color: var(--color-sumi); font-weight: var(--weight-medium); box-shadow: inset 0 0 0 1px var(--color-sumi); }
 .hm-steps__item--current .hm-steps__num { background: var(--color-sumi); color: var(--color-paper); }
 .hm-steps__label { min-width: 0; white-space: nowrap; }
-.hm-steps__count { margin: 0; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-steps__count { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-field__control[type="color"] { width: 64px; min-height: var(--control-h); padding: var(--space-0-5); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); }
 .hm-field__control[type="color"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* Done step: a success cue and four link cards. */
