@@ -15,9 +15,11 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/localeconv"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 var sitemapLocRe = regexp.MustCompile(`<loc>([^<]*)</loc>`)
@@ -152,5 +154,64 @@ func TestSitemapNamingAcrossConversion_Integration(t *testing.T) {
 	revertedNames, _ := capture()
 	if !slices.Equal(revertedNames, beforeNames) {
 		t.Errorf("index files after revert = %v, want %v", revertedNames, beforeNames)
+	}
+}
+
+// A site config that cannot be read still gets a sitemap (group layout), but
+// that answer is not cached, so a legacy site is not stuck on it for an hour.
+func TestSitemapNamingUnreadNotCached_Integration(t *testing.T) {
+	base := os.Getenv("DATABASE_URL")
+	if base == "" {
+		t.Skip("DATABASE_URL not set - skipping sitemap naming integration test")
+	}
+	dsn := scratchMigratedDB(t, base)
+	t.Setenv("JWT_SECRET", strings.Repeat("j", 40))
+	t.Setenv("HATAMOTO_CANONICAL_SLUG", "sitemap-unread")
+	t.Setenv("HATAMOTO_SITE_NAME", "Sitemap Unread")
+	t.Setenv("PUBLIC_BASE_URL", "https://sitemap-unread.example.test")
+	t.Setenv("DATABASE_URL", dsn)
+	t.Setenv("ENVIRONMENT", "development")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, cfg.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Sitemap Unread', 'en')
+		ON CONFLICT (id) DO UPDATE SET language = 'en'`); err != nil {
+		t.Fatal(err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	srv := New(cfg, db, logger)
+	twice := func() (first, second *httptest.ResponseRecorder) {
+		get := func() *httptest.ResponseRecorder {
+			rec := httptest.NewRecorder()
+			srv.router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil))
+			return rec
+		}
+		return get(), get()
+	}
+	// Control: with a readable config the second answer comes from the cache.
+	if first, second := twice(); first.Code != http.StatusOK || second.Header().Get("X-Cache") != "HIT" {
+		t.Fatalf("control: codes %d/%d, second X-Cache %q, want a hit", first.Code, second.Code, second.Header().Get("X-Cache"))
+	}
+	_ = srv.infra.Cache.Delete(ctx, cache.SitemapKey("index"))
+
+	dead, err := database.New(ctx, cfg.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead.Close()
+	srv.siteConfig = siteconfig.NewStore(dead, logger)
+	first, second := twice()
+	if first.Code != http.StatusOK || second.Code != http.StatusOK {
+		t.Fatalf("an unreadable config must still serve: %d/%d", first.Code, second.Code)
+	}
+	if second.Header().Get("X-Cache") == "HIT" {
+		t.Error("the sitemap built without the naming was cached")
 	}
 }

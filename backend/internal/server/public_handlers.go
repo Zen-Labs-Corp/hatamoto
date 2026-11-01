@@ -222,22 +222,31 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if s.redirectService != nil {
 		redirected = func(path string) bool { return s.redirectService.Peek(ctx, path) != nil }
 	}
-	naming := "group"
+	naming, namingUnread := "group", false
 	if s.siteConfig != nil {
-		if cfg, err := s.siteConfig.Get(ctx); err == nil && cfg.SitemapNaming != "" {
+		cfg, err := s.siteConfig.Get(ctx)
+		switch {
+		case err != nil:
+			// Serve the group layout, but never cache it as the site's own.
+			namingUnread = true
+			if s.logger != nil {
+				s.logger.Warn("sitemap: site config unreadable, using group naming", slog.String("error", err.Error()))
+			}
+		case cfg.SitemapNaming != "":
 			naming = cfg.SitemapNaming
 		}
 	}
 	return sitemapInput{
-		Naming:     naming,
-		HomepageID: homepageID,
-		Redirected: redirected,
-		Snap:       snap,
-		Entries:    entries,
-		BaseURL:    baseURL,
-		Today:      time.Now().Format("2006-01-02"),
-		TenantSlug: canonicalTenantSlug,
-		Plugins:    sitemapHooksSnapshot(),
+		Naming:       naming,
+		NamingUnread: namingUnread,
+		HomepageID:   homepageID,
+		Redirected:   redirected,
+		Snap:         snap,
+		Entries:      entries,
+		BaseURL:      baseURL,
+		Today:        time.Now().Format("2006-01-02"),
+		TenantSlug:   canonicalTenantSlug,
+		Plugins:      sitemapHooksSnapshot(),
 	}, nil
 }
 
@@ -263,7 +272,9 @@ func (s *Server) handlePublicSitemap(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to marshal sitemap index XML", slog.String("error", err.Error()))
 		return
 	}
-	s.cacheSitemapXML(r, "index", xmlBytes)
+	if !in.NamingUnread {
+		s.cacheSitemapXML(r, "index", xmlBytes)
+	}
 }
 
 // maxSitemapLogged bounds how many planner reports are remembered.
@@ -385,7 +396,9 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		s.logger.Error("failed to marshal sitemap XML", slog.String("error", err.Error()), slog.String("sub", sub))
 		return
 	}
-	s.cacheSitemapXML(r, sub, xmlBytes)
+	if !in.NamingUnread {
+		s.cacheSitemapXML(r, sub, xmlBytes)
+	}
 }
 
 // writeXMLWithXSL marshals v to indented XML, prepends the XSLT stylesheet
