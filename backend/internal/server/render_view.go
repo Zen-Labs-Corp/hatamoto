@@ -416,7 +416,7 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	if site.Org, oerr = orgView(cfg); oerr != nil {
 		s.logger.Warn("render: invalid business profile dropped from the organization", "error", oerr)
 	}
-	site.LogoWidth, site.LogoHeight = logoSize(ctx, site.Org.LogoObject, s.logoSearch(), site.LogoURL)
+	site.LogoWidth, site.LogoHeight = s.logoSizes.size(ctx, site.Org.LogoObject, s.logoSearch(), site.LogoURL)
 	site.Settings = siteSettings(cfg.ThemeExtra)
 	var derr error
 	if site.Design, derr = builder.ParseDesign(cfg.ThemeExtra); derr != nil {

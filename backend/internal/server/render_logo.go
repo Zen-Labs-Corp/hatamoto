@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"hatamoto.dev/core/internal/media"
 )
@@ -24,6 +26,58 @@ func (s *Server) logoSearch() logoSearch {
 		}
 		return res.Items, nil
 	}
+}
+
+// logoCacheTTL bounds how long a looked-up logo size is reused; a media Update
+// or Delete drops the entries at once, an Upload (which does not notify) waits
+// for the TTL.
+const logoCacheTTL = 5 * time.Minute
+
+type logoSizeEntry struct {
+	w, h    int
+	expires time.Time
+}
+
+// logoSizeCache remembers logo sizes by logo URL, so a render does not search
+// the media library every time (the search is an unindexed scan). The zero
+// value is ready to use.
+type logoSizeCache struct {
+	mu sync.Mutex
+	m  map[string]logoSizeEntry
+}
+
+// size is logoSize through the cache; lookup errors are not remembered.
+func (c *logoSizeCache) size(ctx context.Context, on bool, search logoSearch, logoURL string) (w, h int) {
+	if !on || search == nil {
+		return 0, 0
+	}
+	c.mu.Lock()
+	e, ok := c.m[logoURL]
+	c.mu.Unlock()
+	if ok && time.Now().Before(e.expires) {
+		return e.w, e.h
+	}
+	failed := false
+	w, h = logoDimensionsWith(ctx, func(ctx context.Context, q string) ([]*media.Media, error) {
+		items, err := search(ctx, q)
+		failed = err != nil
+		return items, err
+	}, logoURL)
+	if !failed {
+		c.mu.Lock()
+		if c.m == nil || len(c.m) > 64 {
+			c.m = make(map[string]logoSizeEntry)
+		}
+		c.m[logoURL] = logoSizeEntry{w, h, time.Now().Add(logoCacheTTL)}
+		c.mu.Unlock()
+	}
+	return w, h
+}
+
+func (c *logoSizeCache) reset() {
+	c.mu.Lock()
+	c.m = nil
+	c.mu.Unlock()
 }
 
 // logoSize is the logo's pixel size when the owner asked for an ImageObject

@@ -73,3 +73,37 @@ func TestLogoSize(t *testing.T) {
 		t.Errorf("no media service: got %dx%d, want 0x0", gw, gh)
 	}
 }
+
+func TestLogoSizeCache(t *testing.T) {
+	w, h := 10, 20
+	calls := 0
+	var fail error
+	search := func(context.Context, string) ([]*media.Media, error) {
+		calls++
+		return []*media.Media{logoRow("logo.png", "", &w, &h)}, fail
+	}
+	var c logoSizeCache
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		if gw, gh := c.size(ctx, true, search, "/media/logo.png"); gw != 10 || gh != 20 {
+			t.Fatalf("got %dx%d, want 10x20", gw, gh)
+		}
+	}
+	if calls != 1 {
+		t.Errorf("%d lookups for one logo URL, want 1", calls)
+	}
+	c.reset()
+	c.size(ctx, true, search, "/media/logo.png")
+	if calls != 2 {
+		t.Errorf("%d lookups after reset, want 2", calls)
+	}
+	if gw, gh := c.size(ctx, false, nil, "/media/logo.png"); gw != 0 || gh != 0 {
+		t.Errorf("off or no media: got %dx%d, want 0x0", gw, gh)
+	}
+	fail = context.Canceled
+	c.size(ctx, true, search, "/media/other.png")
+	c.size(ctx, true, search, "/media/other.png")
+	if calls != 4 {
+		t.Errorf("%d lookups, a failed lookup must not be cached", calls)
+	}
+}
