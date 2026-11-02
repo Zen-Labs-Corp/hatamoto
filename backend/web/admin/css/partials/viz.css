@@ -100,6 +100,14 @@
 .hm-callout--compact { align-items: center; padding: var(--space-2) var(--space-3); }
 .hm-callout--compact > .hm-icon { margin-top: 0; }
 .hm-callout--compact .hm-callout__main { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+/* Shell notices: one hairline group on paper. The rows drop their own frame, tint and stripe. */
+.hm-notices .hm-callout { border: 0; border-radius: 0; background: none; color: var(--text-2); min-height: 40px; }
+.hm-page > .hm-notices .hm-callout { padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4); }
+.hm-notices .hm-callout + .hm-callout { border-top: 1px solid var(--border); }
+.hm-notices .hm-callout > .hm-icon { color: var(--callout-fg); }
+.hm-notices .hm-callout__dismiss { margin: 0; }
+.hm-notices form { display: flex; align-items: center; gap: var(--space-2); }
+.hm-notices form > span { flex: 1; }
 
 /* Analytics legend: Value and Share as right-aligned columns (CategoryBar.Columns). */
 .hm-catbar__legend--cols { display: grid; gap: var(--space-1); }

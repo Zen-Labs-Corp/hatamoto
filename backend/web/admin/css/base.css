@@ -128,7 +128,7 @@ form.hm-stack { max-width: 46rem; }
   display: flex; flex-direction: column; gap: var(--space-6);
 }
 /* Standing notices: the first thing in the page column, so they share its width on every page. */
-.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); }
+.hm-notices { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
 /* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
 .hm-notices:not(:has(.hm-callout)) { display: none; }
 .hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
