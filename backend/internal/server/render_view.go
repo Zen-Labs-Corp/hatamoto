@@ -1057,13 +1057,18 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 	if !res.Office {
 		return nil, nil
 	}
-	p := res.Profile
 	// Inherited services keep the site's prices, so they keep the site's
 	// currency; a locale that lists its own services uses its own.
-	servicesCurrency := p.Currency
+	servicesCurrency := res.Profile.Currency
 	if card == nil || len(card.Services) == 0 {
 		servicesCurrency = site.Currency
 	}
+	return newBusinessView(res.Profile, seg, servicesCurrency), nil
+}
+
+// newBusinessView maps a resolved business profile to the local business view
+// with the given node id.
+func newBusinessView(p bizprofile.Profile, seg, servicesCurrency string) *render.BusinessView {
 	b := &render.BusinessView{
 		ServicesCurrency: servicesCurrency,
 		ID:               seg, Type: p.BusinessType, Name: p.Name,
@@ -1088,7 +1093,7 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 	for _, h := range p.SpecialHours {
 		b.SpecialHours = append(b.SpecialHours, render.SpecialHoursView{From: h.From, To: h.To, Closed: h.Closed, Opens: h.Opens, Closes: h.Closes})
 	}
-	return b, nil
+	return b
 }
 
 // postalAddress decodes the site config's address JSON for the theme and the
