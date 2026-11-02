@@ -125,6 +125,8 @@
 <li><a class="hm-tabs__tab" href="/admin/settings/seo/social">Social</a></li>
 <li><a class="hm-tabs__tab" href="/admin/settings/seo/schema">Schema</a></li>
 <li><a class="hm-tabs__tab" href="/admin/settings/seo/knowledge-graph">Knowledge graph</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/seo/robots">Robots</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/seo/verification">Verification</a></li>
 </ul></nav>
 </header>
 
@@ -154,25 +156,41 @@
 <input class="hm-field__control" type="text" id="archives-archive" name="archives[archive]" value="%title% %sep% %sitename%" maxlength="300">
 </div>
 <div class="hm-field">
+<label class="hm-field__check hm-switch" for="index-archive"><input class="hm-field__box" type="checkbox" role="switch" id="index-archive" name="index[archive]" value="index" checked><span>Index content archives</span></label><input type="hidden" name="index[archive]" value="noindex">
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="archives-author">Author pages title</label>
 <input class="hm-field__control" type="text" id="archives-author" name="archives[author]" value="%title% %sep% %sitename%" maxlength="300">
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="index-author"><input class="hm-field__box" type="checkbox" role="switch" id="index-author" name="index[author]" value="index" checked><span>Index author pages</span></label><input type="hidden" name="index[author]" value="noindex">
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="archives-date">Date archives title</label>
 <input class="hm-field__control" type="text" id="archives-date" name="archives[date]" value="%title% %sep% %sitename%" maxlength="300">
 </div>
+
 <div class="hm-field">
 <label class="hm-field__label" for="archives-search">Search results title</label>
 <input class="hm-field__control" type="text" id="archives-search" name="archives[search]" value="%title% %sep% %sitename%" maxlength="300">
 </div>
 <div class="hm-field">
+<label class="hm-field__check hm-switch" for="index-search"><input class="hm-field__box" type="checkbox" role="switch" id="index-search" name="index[search]" value="index"><span>Index search results</span></label><input type="hidden" name="index[search]" value="noindex">
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="archives-notfound">Page not found title</label>
 <input class="hm-field__control" type="text" id="archives-notfound" name="archives[notfound]" value="%title% %sep% %sitename%" maxlength="300">
 </div>
+
 </div></section>
 <section class="hm-card" id="seo-type-page" aria-labelledby="seo-type-page-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-page-title">Page</h2></div>
 <div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__label" for="type-page-index">Search engines</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="type-page-index" name="type[page][index]" aria-describedby="type-page-index-help"><option value="index" selected>Index</option><option value="noindex">Noindex</option></select></div>
+<p class="hm-field__help" id="type-page-index-help">Noindex asks search engines to skip this type&#39;s pages, and drops them from the sitemap, feeds, llms.txt and site search.</p>
+</div>
 <div class="hm-field">
 <label class="hm-field__label" for="type-page-title">Title template</label>
 <input class="hm-field__control" type="text" id="type-page-title" name="type[page][title]" placeholder="%title% %sep% %sitename%" maxlength="300">
@@ -196,6 +214,11 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-person-title">Person</h2></div>
 <div class="hm-card__body">
 <div class="hm-field">
+<label class="hm-field__label" for="type-person-index">Search engines</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="type-person-index" name="type[person][index]" aria-describedby="type-person-index-help"><option value="index" selected>Index</option><option value="noindex">Noindex</option></select></div>
+<p class="hm-field__help" id="type-person-index-help">Noindex asks search engines to skip this type&#39;s pages, and drops them from the sitemap, feeds, llms.txt and site search.</p>
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="type-person-title">Title template</label>
 <input class="hm-field__control" type="text" id="type-person-title" name="type[person][title]" placeholder="%title% %sep% %sitename%" maxlength="300">
 </div>
@@ -218,6 +241,11 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-recipe-title">Recipe</h2></div>
 <div class="hm-card__body">
 <div class="hm-field">
+<label class="hm-field__label" for="type-recipe-index">Search engines</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="type-recipe-index" name="type[recipe][index]" aria-describedby="type-recipe-index-help"><option value="index" selected>Index</option><option value="noindex">Noindex</option></select></div>
+<p class="hm-field__help" id="type-recipe-index-help">Noindex asks search engines to skip this type&#39;s pages, and drops them from the sitemap, feeds, llms.txt and site search.</p>
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="type-recipe-title">Title template</label>
 <input class="hm-field__control" type="text" id="type-recipe-title" name="type[recipe][title]" placeholder="%title% %sep% %sitename%" maxlength="300">
 </div>
@@ -239,6 +267,11 @@
 <section class="hm-card" id="seo-type-service" aria-labelledby="seo-type-service-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-type-service-title">Service</h2></div>
 <div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__label" for="type-service-index">Search engines</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="type-service-index" name="type[service][index]" aria-describedby="type-service-index-help"><option value="index" selected>Index</option><option value="noindex">Noindex</option></select></div>
+<p class="hm-field__help" id="type-service-index-help">Noindex asks search engines to skip this type&#39;s pages, and drops them from the sitemap, feeds, llms.txt and site search.</p>
+</div>
 <div class="hm-field">
 <label class="hm-field__label" for="type-service-title">Title template</label>
 <input class="hm-field__control" type="text" id="type-service-title" name="type[service][title]" value="%title% %sep% Services" placeholder="%title% %sep% %sitename%" maxlength="300">
@@ -266,8 +299,14 @@
 <input class="hm-field__control" type="text" id="taxonomy-category" name="taxonomy[category]" placeholder="%title% %sep% %sitename%" maxlength="300">
 </div>
 <div class="hm-field">
+<label class="hm-field__check hm-switch" for="index-taxonomy-category"><input class="hm-field__box" type="checkbox" role="switch" id="index-taxonomy-category" name="index[taxonomy][category]" value="index" checked><span>Index Categories pages</span></label><input type="hidden" name="index[taxonomy][category]" value="noindex">
+</div>
+<div class="hm-field">
 <label class="hm-field__label" for="taxonomy-tag">Tags title</label>
 <input class="hm-field__control" type="text" id="taxonomy-tag" name="taxonomy[tag]" placeholder="%title% %sep% %sitename%" maxlength="300">
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="index-taxonomy-tag"><input class="hm-field__box" type="checkbox" role="switch" id="index-taxonomy-tag" name="index[taxonomy][tag]" value="index" checked><span>Index Tags pages</span></label><input type="hidden" name="index[taxonomy][tag]" value="noindex">
 </div>
 </div></section>
 <section class="hm-card" id="preview" aria-labelledby="preview-title">

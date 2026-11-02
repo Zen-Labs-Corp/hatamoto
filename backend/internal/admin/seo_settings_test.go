@@ -377,6 +377,8 @@ func TestSEOPagesGolden(t *testing.T) {
 	s.ents.addSchema(5, "Guide", "guide", annotatedSchema, `{}`, false)
 	compareGolden(t, "pages/settings-seo-schema.html", normalizePage(s.get(t, "/admin/settings/seo/schema")))
 	compareGolden(t, "pages/settings-seo-knowledge-graph.html", normalizePage(s.get(t, "/admin/settings/seo/knowledge-graph")))
+	compareGolden(t, "pages/settings-seo-robots.html", normalizePage(s.get(t, "/admin/settings/seo/robots")))
+	compareGolden(t, "pages/settings-seo-verification.html", normalizePage(s.get(t, "/admin/settings/seo/verification")))
 }
 
 func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {

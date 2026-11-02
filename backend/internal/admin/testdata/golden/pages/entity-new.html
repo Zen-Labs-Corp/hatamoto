@@ -263,6 +263,25 @@
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="seo_noindex"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noindex" name="seo_noindex" value="true"><span>Ask search engines not to list this service</span></label>
 </div>
+<input type="hidden" name="_seo_robots" value="1">
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_nofollow"><input class="hm-field__box" type="checkbox" role="switch" id="seo_nofollow" name="seo_nofollow" value="true"><span>Ask search engines not to follow links on this service</span></label>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_noarchive"><input class="hm-field__box" type="checkbox" role="switch" id="seo_noarchive" name="seo_noarchive" value="true"><span>Ask search engines not to show a cached copy</span></label>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_nosnippet"><input class="hm-field__box" type="checkbox" role="switch" id="seo_nosnippet" name="seo_nosnippet" value="true"><span>Ask search engines not to show a text snippet</span></label>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_max_snippet">Maximum snippet length</label>
+<input class="hm-field__control" type="text" id="seo_max_snippet" name="seo_max_snippet" aria-describedby="seo_max_snippet-help" autocomplete="off" inputmode="numeric">
+<p class="hm-field__help" id="seo_max_snippet-help">Characters. Empty uses the site default, -1 means no limit.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_max_image_preview">Maximum image preview</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="seo_max_image_preview" name="seo_max_image_preview"><option value="" selected>Use the site default</option><option value="none">none</option><option value="standard">standard</option><option value="large">large</option></select></div>
+</div>
 </section>
 </div>
 </div></section>

@@ -145,8 +145,11 @@ export const screens = [
   { name: "settings-spam", path: "/admin/settings/spam", mock: null, roles: O },
   { name: "settings-seo-general", path: "/admin/settings/seo/general", mock: null, roles: O },
   { name: "settings-seo-titles", path: "/admin/settings/seo/titles", mock: null, roles: O },
+  { name: "settings-seo-social", path: "/admin/settings/seo/social", mock: null, roles: O },
   { name: "settings-seo-schema", path: "/admin/settings/seo/schema", mock: null, roles: O },
   { name: "settings-seo-knowledge-graph", path: "/admin/settings/seo/knowledge-graph", mock: null, roles: O },
+  { name: "settings-seo-robots", path: "/admin/settings/seo/robots", mock: null, roles: O },
+  { name: "settings-seo-verification", path: "/admin/settings/seo/verification", mock: null, roles: O },
   { name: "settings-import", path: "/admin/settings/import", legacy: "/admin/import", mock: "settings-import", roles: O },
   { name: "settings-export", path: "/admin/settings/export", legacy: null, mock: "settings-export", roles: O },
   // Account, errors, signed-out
