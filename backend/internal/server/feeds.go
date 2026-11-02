@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/xml"
 	"net/http"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/seo"
 )
 
 const (
@@ -86,7 +86,7 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 	for i, e := range posts {
 		ids[i] = e.ID
 	}
-	items := feedItems(posts, base, locate, links, s.bylinesOf(ctx, ids...).creditedNames(ids))
+	items := feedItems(posts, base, locate, links, s.bylinesOf(ctx, ids...).creditedNames(ids), s.seoSettings(ctx))
 	body := buildRSS(meta, items)
 	if r.URL.Path == "/atom.xml" {
 		body = buildAtom(meta, items)
@@ -107,10 +107,10 @@ func writeFeed(w http.ResponseWriter, ctype string, body []byte) {
 // left out. Bodies get absolute links so they read correctly in a feed reader.
 // credited are the names of the person or organisation a post credits (never an
 // email address); a post credited to nobody keeps its plain-text byline.
-func feedItems(posts []*entity.Entity, base string, locate func(*entity.Entity) string, links map[string]string, credited map[uuid.UUID]string) []feedItem {
+func feedItems(posts []*entity.Entity, base string, locate func(*entity.Entity) string, links map[string]string, credited map[uuid.UUID]string, idx *seo.Settings) []feedItem {
 	var out []feedItem
 	for _, e := range posts {
-		if e == nil || e.Status != entity.StatusPublished || entityNoIndex(e) {
+		if e == nil || e.Status != entity.StatusPublished || entityNoIndex(e, idx) {
 			continue
 		}
 		path := locate(e)
@@ -139,14 +139,13 @@ func feedItems(posts []*entity.Entity, base string, locate func(*entity.Entity) 
 	return out
 }
 
-// entityNoIndex mirrors entity.NoIndexSQL: noindex posts stay out of feeds as
-// they do out of sitemaps and search.
-func entityNoIndex(e *entity.Entity) bool {
-	var m struct {
-		NoIndex bool `json:"no_index"`
+// entityNoIndex mirrors the sitemap: noindex posts, and posts of a noindex
+// type, stay out of feeds as they do out of sitemaps and search.
+func entityNoIndex(e *entity.Entity, idx *seo.Settings) bool {
+	if e.Schema != nil && idx.NoIndexType(e.Schema.Slug) {
+		return true
 	}
-	_ = json.Unmarshal(e.Metadata, &m)
-	return m.NoIndex || attrsNoIndex(e.Attributes)
+	return seo.EntryNoIndex(e.Metadata, e.Attributes)
 }
 
 // stripInvalidXML drops runes XML 1.0 forbids (e.g. a pasted \v): CDATA, unlike

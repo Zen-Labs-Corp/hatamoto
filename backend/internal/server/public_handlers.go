@@ -250,6 +250,7 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 		Today:        time.Now().Format("2006-01-02"),
 		TenantSlug:   canonicalTenantSlug,
 		Plugins:      sitemapHooksSnapshot(),
+		SEO:          s.seoSettings(ctx),
 	}, nil
 }
 

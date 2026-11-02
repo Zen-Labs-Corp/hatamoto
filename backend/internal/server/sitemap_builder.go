@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -49,6 +50,8 @@ type sitemapInput struct {
 	// root URL, so its own pattern URL is skipped.
 	HomepageID uuid.UUID
 	Plugins    sitemapPluginHooks
+	// SEO holds the per-type noindex switches; nil keeps every type listed.
+	SEO *seo.Settings
 	// Redirected reports whether a redirect rule claims path; such rows are
 	// dropped. Nil means no rules.
 	Redirected func(path string) bool
@@ -157,7 +160,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 	}
 
 	for _, e := range in.Entries {
-		if e.NoIndex || e.Slug == "" {
+		if e.NoIndex || in.SEO.NoIndexType(e.SchemaSlug) || e.Slug == "" {
 			continue
 		}
 		cfg, known := in.Snap.Config(e.SchemaSlug)
