@@ -7,7 +7,7 @@
   background: var(--color-paper); color: var(--color-sumi); font-size: var(--text-md);
 }
 /* Inside the list toolbar every control is one 32px row. */
-.hm-listbar .hm-field__control, .hm-listbar .hm-input-affix { height: var(--control-h-sm); border-radius: var(--radius-md); }
+.hm-listbar .hm-input-affix { height: var(--control-h-sm); border-radius: var(--radius-md); }
 .hm-listbar .hm-input-affix > .hm-field__control { height: 100%; }
 textarea.hm-field__control { height: auto; padding: var(--space-2) var(--space-3); min-height: 88px; resize: vertical; line-height: var(--leading-normal); }
 /* Lucide chevron-down; the stroke hex is --text-muted (--color-hai, tokens.css). */
@@ -16,6 +16,9 @@ select.hm-field__control {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e6e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-position: right var(--space-3) center; background-size: 16px 16px; background-repeat: no-repeat;
 }
+/* Dark: the stroke is the dark --color-hai (tokens.css, :root[data-admin-theme="dark"]). */
+:root[data-admin-theme="dark"] select.hm-field__control { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d8d93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { :root[data-admin-theme="auto"] select.hm-field__control { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d8d93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); } }
 /* Date and time inputs: same box as text; tabular digits, dimmed native picker icon. */
 input.hm-field__control[type="date"], input.hm-field__control[type="datetime-local"], input.hm-field__control[type="time"] { font-variant-numeric: tabular-nums; min-width: 0; }
 .hm-field__control::-webkit-calendar-picker-indicator { opacity: 0.6; cursor: pointer; border-radius: var(--radius-sm); }

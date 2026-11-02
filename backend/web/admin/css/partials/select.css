@@ -8,7 +8,10 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e6e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-position: right var(--space-3) center; background-size: 16px 16px; background-repeat: no-repeat;
 }
-.hm-listbar .hm-select__trigger { height: var(--control-h-sm); border-radius: var(--radius-md); }
+.hm-listbar__end > .hm-select .hm-select__trigger { height: var(--control-h-sm); border-radius: var(--radius-md); }
+/* Dark: the stroke is the dark --color-hai (tokens.css, :root[data-admin-theme="dark"]). */
+:root[data-admin-theme="dark"] .hm-select__trigger { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d8d93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { :root[data-admin-theme="auto"] .hm-select__trigger { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d8d93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); } }
 .hm-select__trigger[aria-expanded="true"] { border-color: var(--color-hai); }
 .hm-select__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-select__value[data-placeholder] { color: var(--text-muted); }
