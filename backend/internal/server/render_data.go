@@ -51,8 +51,15 @@ const (
 
 func newRenderData(s *Server) *renderData { return &renderData{s: s} }
 
+// ctx bounds a data func call. On a multi-locale site the context carries the visible locales (default plus
+// shared), so lists keep shared content that the bare site-language fallback
+// would hide. Single-locale sites get an unscoped context.
 func (d *renderData) ctx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), dataFuncTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), dataFuncTimeout)
+	if set := d.s.urlSnapshot(ctx).Locales(); set.Multi() {
+		ctx = entity.WithVisibleLocales(ctx, set.Default())
+	}
+	return ctx, cancel
 }
 
 // Recent lists the newest published entities of a schema (and its aliases).
