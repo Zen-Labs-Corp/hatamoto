@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -159,16 +160,71 @@ func TestPluginsCountIsOwnerOnly(t *testing.T) {
 	}
 }
 
-// The sidebar shows the Entities and Plugins counts, and only when there is something to count.
-func TestSidebarShowsEntityAndPluginCounts(t *testing.T) {
+// The Entities marker is the draft count, worded for the eye and for screen readers.
+func TestSidebarShowsDraftCount(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
+	want := `<span>Entities</span><span class="hm-nav-link__badge" title="1 draft to review"><span aria-hidden="true">1</span><span class="hm-visually-hidden">1 draft to review</span></span>`
 	body := c.get(t, "owner-token", "/admin/entities", "")
-	if !strings.Contains(body, `<span>Entities</span><span class="hm-nav-link__badge">4</span>`) {
-		t.Errorf("the Entities item lacks its count of 4")
+	if !strings.Contains(body, want) {
+		t.Errorf("the Entities item lacks its labelled draft count of 1")
 	}
-	if strings.Contains(body, `<span>Analytics</span><span class="hm-nav-link__badge">`) {
-		t.Error("Analytics must not carry a count")
+	if strings.Contains(body, `<span>Analytics</span><span class="hm-nav-link__badge"`) {
+		t.Error("Analytics must not carry a marker")
+	}
+
+	// The marker and the list's own Draft segment come from the same page and must agree.
+	nav := regexp.MustCompile(`<span>Entities</span><span class="hm-nav-link__badge"[^>]*><span aria-hidden="true">(\d+)</span>`).FindStringSubmatch(body)
+	seg := regexp.MustCompile(`id="entities-seg-draft-n">(\d+)</span>`).FindStringSubmatch(body)
+	if nav == nil || seg == nil {
+		t.Fatalf("nav marker %v, Draft segment %v: both must render", nav, seg)
+	}
+	if nav[1] != seg[1] {
+		t.Errorf("nav drafts %s, list Draft count %s", nav[1], seg[1])
+	}
+}
+
+// No drafts, no marker.
+func TestSidebarHidesMarkerWithoutDrafts(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	delete(c.ents.ents, fid(12))
+	body := c.get(t, "owner-token", "/admin/entities", "")
+	if strings.Contains(body, `<span>Entities</span><span class="hm-nav-link__badge"`) {
+		t.Error("the Entities item shows a marker at 0 drafts")
+	}
+}
+
+func TestCountLabel(t *testing.T) {
+	t.Parallel()
+
+	if got := countLabel("1", "draft to review", "drafts to review"); got != "1 draft to review" {
+		t.Errorf("singular: %q", got)
+	}
+	if got := countLabel("3", "draft to review", "drafts to review"); got != "3 drafts to review" {
+		t.Errorf("plural: %q", got)
+	}
+}
+
+// The Plugins marker says what it counts.
+func TestPluginsMarkerIsLabelled(t *testing.T) {
+	t.Parallel()
+
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Growth.Plugins = threePlugins{}
+	a.wireNavCounts()
+	found := false
+	for _, it := range a.nav.all() {
+		if it.ID == pluginsID {
+			found = true
+			if got := it.BadgeLabel("owner", "3"); got != "3 plugins installed" {
+				t.Errorf("label %q", got)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no Plugins nav item")
 	}
 }

@@ -6,7 +6,7 @@
 <div class="hm-nav-groups">
 {{range $i, $g := .NavGroups}}<div class="hm-nav-group">{{if $g.Label}}<p class="hm-nav-group__title" id="hm-nav-g{{$i}}">{{$g.Label}}</p>{{end}}
 <ul class="hm-nav-list" role="list"{{if $g.Label}} aria-labelledby="hm-nav-g{{$i}}"{{end}}>
-{{range $g.Items}}<li><a class="hm-nav-link" href="{{.Href}}"{{if .Current}} aria-current="{{.Current}}"{{end}}>{{icon (or .Icon "puzzle")}}<span>{{.Label}}</span>{{if .Badge}}<span class="hm-nav-link__badge">{{.Badge}}</span>{{end}}</a>
+{{range $g.Items}}<li><a class="hm-nav-link" href="{{.Href}}"{{if .Current}} aria-current="{{.Current}}"{{end}}>{{icon (or .Icon "puzzle")}}<span>{{.Label}}</span>{{if .Badge}}<span class="hm-nav-link__badge"{{with .BadgeLabel}} title="{{.}}"{{end}}><span aria-hidden="true">{{.Badge}}</span>{{with .BadgeLabel}}<span class="hm-visually-hidden">{{.}}</span>{{end}}</span>{{end}}</a>
 </li>
 {{end}}</ul>
 </div>

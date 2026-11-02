@@ -432,7 +432,11 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 			}
 			cells = append(cells, cell)
 		}
-		cells = append(cells, ui.Cell{Badge: statusBadge(e.Status)})
+		if e.Status == entity.StatusPublished {
+			cells = append(cells, ui.Cell{Text: "Published", Dot: true})
+		} else {
+			cells = append(cells, ui.Cell{Badge: statusBadge(e.Status)})
+		}
 		if hasAuthor {
 			cells = append(cells, ui.Cell{Text: authorName})
 		}
