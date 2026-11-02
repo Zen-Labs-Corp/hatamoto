@@ -34,8 +34,10 @@
 .hm-table .hm-col-num { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table__rowhead { font-weight: var(--weight-regular); }
 .hm-table__sub { display: block; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-regular); color: var(--color-hai); overflow-wrap: anywhere; }
-.hm-table__rowhead a { color: var(--color-accent); font-weight: var(--weight-regular); text-decoration-line: none; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.hm-table__rowhead a { color: var(--text); font-weight: var(--weight-medium); text-decoration-line: none; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
 .hm-table__rowhead a:hover { text-decoration-line: underline; }
+.hm-status { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-2); }
+.hm-status__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); flex: none; }
 .hm-table__rowhead a:focus-visible { outline-offset: 1px; border-radius: var(--radius-sm); }
 .hm-table th.hm-table__right, .hm-table td.hm-table__right { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table th.hm-table__check, .hm-table td.hm-table__check { width: 40px; padding-right: 0; }

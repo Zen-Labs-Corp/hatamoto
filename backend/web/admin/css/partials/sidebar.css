@@ -37,7 +37,7 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-kinu) 80%, transparent);
 }
 .hm-nav-link:hover .hm-icon, .hm-nav-link[aria-current="page"] .hm-icon { color: var(--text); }
-.hm-nav-link__badge { margin-left: auto; font-size: var(--text-sm); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.hm-nav-link__badge { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .hm-nav-link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 
 .hm-sidebar__foot {
