@@ -53,5 +53,6 @@ type scheduledPublishSink struct {
 func (w scheduledPublishSink) EntityPublished(ctx context.Context, id uuid.UUID, schemaSlug, slug, name string, version int) {
 	w.s.onEntitiesLive(ctx, []uuid.UUID{id})
 	w.s.invalidateRendered(ctx)
+	w.s.notifyIndexNowPublished(id)
 	w.next.EntityPublished(ctx, id, schemaSlug, slug, name, version)
 }
