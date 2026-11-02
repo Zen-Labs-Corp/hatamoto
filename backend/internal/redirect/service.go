@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,6 +68,9 @@ type Service struct {
 	// Async 404 logger
 	logCh chan logEntry
 	done  chan struct{}
+
+	// Optional 404 logging policy; nil logs everything.
+	logPolicy atomic.Pointer[func() Log404Policy]
 
 	// Async hit counter: hits are queued (dropped when full), summed per rule
 	// and written in batches by one goroutine.
@@ -166,8 +170,12 @@ func (s *Service) processLogEntries() {
 
 // ── 404 Log API ──────────────────────────────────────────────────────────────
 
-// Log404Async enqueues a 404 hit for background persistence. Never blocks.
+// Log404Async enqueues a 404 hit for background persistence unless the log
+// policy skips it. Never blocks.
 func (s *Service) Log404Async(path, referrer, userAgent string) {
+	if s.skipLog(path) {
+		return
+	}
 	select {
 	case s.logCh <- logEntry{Path: path, Referrer: referrer, UserAgent: userAgent}:
 	default:
