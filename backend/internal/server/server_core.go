@@ -63,6 +63,9 @@ func (s *Server) mountCoreProtectedRoutes(r *httpx.Group) {
 	// Interim until the Go-rendered settings UI (ROADMAP v1-10).
 	s.mountSiteSettingsRoutes(r)
 
+	// SEO settings (owner, or an API key with read:seo / write:seo).
+	s.mountSEOSettingsRoutes(r)
+
 	// User management (owner only). Creating/deleting users and changing roles
 	// is a privilege-granting surface; restrict to owner.
 	{
