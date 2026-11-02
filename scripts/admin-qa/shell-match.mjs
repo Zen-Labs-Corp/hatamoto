@@ -40,10 +40,10 @@ const p = await newSession(b, { width: 1440 });
 await visit(p, { path: "/admin/plugins" });
 const pl = await p.evaluate(() => ({
   counts: [...document.querySelectorAll(".hm-nav-link__badge")].map((e) => e.textContent.trim()),
-  filterAboveCard: (() => { const f = document.querySelector(".hm-pluginlist__filters"), c = document.querySelector("#installed"); return !f || !c || !!(f.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); })(),
+  filterInCard: !!document.querySelector("#installed .hm-card__body > .hm-pluginlist__filters"),
 }));
 check(pl.counts.length > 0, "sidebar shows no counts");
-check(pl.filterAboveCard, "plugins filter row is not above the card");
+check(pl.filterInCard, "plugins filter row is not inside the Installed plugins card");
 await visit(p, { path: "/admin/theme/colours" });
 const col = await p.evaluate(() => {
   const tops = [...document.querySelectorAll(".hm-swatchrow")].map((e) => Math.round(e.getBoundingClientRect().top));
