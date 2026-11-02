@@ -34,6 +34,12 @@ type Event struct {
 	Name       string
 	Status     string
 	Version    int
+	// PrevStatus is the status before the mutation, when known (updates and
+	// status changes); empty otherwise. Internal: plugin events do not carry it.
+	PrevStatus string
+	// Entity is the pre-delete copy (schema, parent, attributes), set for
+	// EventDeleted only. Internal: plugin events do not carry it.
+	Entity *Entity
 	// Import is set for EventImportCompleted only; the entity fields are zero.
 	Import *ImportSummary
 }
@@ -44,6 +50,18 @@ type Event struct {
 // cancelled as soon as the response is written.
 type EventSink interface {
 	Emit(ctx context.Context, ev Event)
+}
+
+// FanoutSink delivers every event to each non-nil sink, in order.
+type FanoutSink []EventSink
+
+// Emit implements EventSink.
+func (f FanoutSink) Emit(ctx context.Context, ev Event) {
+	for _, s := range f {
+		if s != nil {
+			s.Emit(ctx, ev)
+		}
+	}
 }
 
 // BeforeSaveInput is the draft handed to the before_save hook. Operation is
@@ -79,14 +97,14 @@ func (s *Service) SetEvents(e EventSink) { s.events = e }
 // SetBeforeSave installs the before_save hook; nil disables it.
 func (s *Service) SetBeforeSave(f BeforeSaveFunc) { s.beforeSave = f }
 
-func (s *Service) emit(ctx context.Context, kind EventKind, e *Entity, schemaSlug string) {
+func (s *Service) emit(ctx context.Context, kind EventKind, e *Entity, schemaSlug string, opts ...func(*Event)) {
 	if s.events == nil || e == nil {
 		return
 	}
 	if schemaSlug == "" && e.Schema != nil {
 		schemaSlug = e.Schema.Slug
 	}
-	s.events.Emit(ctx, Event{
+	ev := Event{
 		Kind:       kind,
 		ID:         e.ID,
 		SchemaSlug: schemaSlug,
@@ -95,7 +113,15 @@ func (s *Service) emit(ctx context.Context, kind EventKind, e *Entity, schemaSlu
 		Name:       e.Name,
 		Status:     string(e.Status),
 		Version:    e.Version,
-	})
+	}
+	for _, o := range opts {
+		o(&ev)
+	}
+	s.events.Emit(ctx, ev)
+}
+
+func withPrevStatus(st EntityStatus) func(*Event) {
+	return func(ev *Event) { ev.PrevStatus = string(st) }
 }
 
 // runBeforeSave runs the hook (if any) over the draft. When the hook changed

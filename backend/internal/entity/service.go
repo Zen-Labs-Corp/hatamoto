@@ -530,7 +530,7 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 func (s *Service) emitSaved(ctx context.Context, before, after *Entity) {
 	if before.Status != StatusPublished && after.Status == StatusPublished {
 		s.fireLive(ctx, after.ID)
-		s.emit(ctx, EventPublished, after, before.Schema.Slug)
+		s.emit(ctx, EventPublished, after, before.Schema.Slug, withPrevStatus(before.Status))
 		return
 	}
 	if after.Status == StatusPublished && before.Locale != after.Locale {
@@ -538,7 +538,7 @@ func (s *Service) emitSaved(ctx context.Context, before, after *Entity) {
 		// language): retire the automatic redirects at its path, as a publish does.
 		s.fireLive(ctx, after.ID)
 	}
-	s.emit(ctx, EventUpdated, after, before.Schema.Slug)
+	s.emit(ctx, EventUpdated, after, before.Schema.Slug, withPrevStatus(before.Status))
 }
 
 // fireLinkSync dispatches the post-Update v2 hooks in background goroutines.
@@ -638,9 +638,9 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 		s.fireLive(ctx, entity.ID)
 	}
 	if status == StatusPublished && prevStatus != StatusPublished {
-		s.emit(ctx, EventPublished, entity, schemaSlug)
+		s.emit(ctx, EventPublished, entity, schemaSlug, withPrevStatus(prevStatus))
 	} else {
-		s.emit(ctx, EventUpdated, entity, schemaSlug)
+		s.emit(ctx, EventUpdated, entity, schemaSlug, withPrevStatus(prevStatus))
 	}
 
 	return entity, nil
@@ -663,12 +663,16 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 	if !at.After(time.Now()) {
 		return nil, ErrScheduleInPast
 	}
-	if prev, err := s.entityRepo.GetByID(ctx, id); err == nil && prev.Schema != nil {
-		if prev.Schema.Slug == personSchemaSlug {
-			return nil, errPersonStatus
-		}
-		if IsReuseSchema(prev.Schema) {
-			return nil, errReuseStatus
+	var prevStatus EntityStatus
+	if prev, err := s.entityRepo.GetByID(ctx, id); err == nil {
+		prevStatus = prev.Status
+		if prev.Schema != nil {
+			if prev.Schema.Slug == personSchemaSlug {
+				return nil, errPersonStatus
+			}
+			if IsReuseSchema(prev.Schema) {
+				return nil, errReuseStatus
+			}
 		}
 	}
 	e, err := sc.Schedule(ctx, id, userID, at)
@@ -679,7 +683,7 @@ func (s *Service) ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid
 	if prev, err := s.entityRepo.GetByID(ctx, id); err == nil && prev.Schema != nil {
 		schemaSlug = prev.Schema.Slug
 	}
-	s.emit(ctx, EventUpdated, e, schemaSlug)
+	s.emit(ctx, EventUpdated, e, schemaSlug, withPrevStatus(prevStatus))
 	return e, nil
 }
 
@@ -729,7 +733,7 @@ func (s *Service) DeleteEntity(ctx context.Context, id uuid.UUID) error {
 	if deleted == nil {
 		deleted = &Entity{ID: id}
 	}
-	s.emit(ctx, EventDeleted, deleted, "")
+	s.emit(ctx, EventDeleted, deleted, "", func(ev *Event) { ev.Entity = deleted })
 
 	return nil
 }
