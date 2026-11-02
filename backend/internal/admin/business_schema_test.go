@@ -502,3 +502,27 @@ func TestParentOrganisationIsSiteOnly(t *testing.T) {
 		t.Error("the site form lacks Parent organisation")
 	}
 }
+
+// Awards and topics are one per line: a comma stays inside the title.
+func TestAwardsAndTopicsKeepCommas(t *testing.T) {
+	schema, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{
+		"_present.biz.awards": {"1"}, "biz.awards": {"Best Restaurant, Sydney 2030\r\nSecond Award"},
+		"_present.biz.knows_about": {"1"}, "biz.knows_about": {"Pipes, drains\nBoilers"},
+	}
+	vals, errs := schemaform.Decode(schema, form, nil, schemaform.Options{Prefix: "biz."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	p, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(p.Awards, []string{"Best Restaurant, Sydney 2030", "Second Award"}) ||
+		!reflect.DeepEqual(p.KnowsAbout, []string{"Pipes, drains", "Boilers"}) {
+		t.Errorf("awards = %q, knows_about = %q", p.Awards, p.KnowsAbout)
+	}
+}

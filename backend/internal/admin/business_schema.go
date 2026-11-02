@@ -92,8 +92,8 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "description":{"type":"string","title":"Description","format":"textarea"},
  "url":{"type":"string","title":"Web address","format":"uri"},
  "price":{"type":"string","title":"Price"}}}},
-"knows_about":{"type":"array","x-hm-item-label":"topic","title":"Knows about","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
-"awards":{"type":"array","x-hm-item-label":"award","title":"Awards","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"knows_about":{"type":"array","title":"Knows about","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"awards":{"type":"array","title":"Awards","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
 "memberships":{"type":"array","x-hm-item-label":"membership","title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "url":{"type":"string","title":"Web address","format":"uri"}}}},
@@ -208,8 +208,9 @@ var businessUI = map[string]schemaform.UIHint{
 	"amenity_presets.air_conditioning":  {Placeholder: notStated},
 	"public_access":                     {Placeholder: notStated},
 	"free_entry":                        {Placeholder: notStated},
+	"awards":                            {Help: "One award per line. Commas stay part of the title."},
 	"amenities":                         {Help: "Features beyond the list above."},
-	"knows_about":                       {Help: "Topics this business is expert in, separated by commas."},
+	"knows_about":                       {Help: "Topics this business is expert in, one per line."},
 	"address.lat":                       {Help: "Between -90 and 90"},
 	"address.lng":                       {Help: "Between -180 and 180"},
 }
@@ -277,7 +278,8 @@ func formErrors(prefix string, errs schemaform.Errors) []ui.FieldError {
 	return out
 }
 
-// tagLists are the string lists the form edits as one comma separated field.
+// tagLists are the string lists the form edits as one field (comma separated,
+// or one per line for awards and topics).
 var tagLists = []string{"area_served", "brands", "payment_methods", "knows_about", "awards"}
 
 // tagListField maps an item path ("brands.2") to its field ("brands"); other
