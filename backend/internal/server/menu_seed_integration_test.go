@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/render"
 )
 
 // The one-time upgrade seed and the new-site seed (needs a migrated Postgres):
@@ -224,6 +226,32 @@ func TestMenuSeedIntegration(t *testing.T) {
 		f, err := srv.menuService.GetMenuByLocation(ctx, "footer")
 		if err != nil || f.Slug != "footer" {
 			t.Fatalf("footer = %+v, %v", f, err)
+		}
+		if !marked() {
+			t.Error("marker not set")
+		}
+	})
+
+	t.Run("new site skips a core location the theme declares", func(t *testing.T) {
+		reset(false)
+		engine, err := render.New(render.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		theme := fstest.MapFS{"theme.json": {Data: []byte(`{"name":"x","menus":{"footer":{"title":"Footer"}}}`)}}
+		if err := engine.SetTheme(theme); err != nil {
+			t.Fatal(err)
+		}
+		srv.renderEngine = engine
+		t.Cleanup(func() { srv.renderEngine = nil })
+		if err := srv.SeedNewSiteMenus(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(headerMenus()) != 1 {
+			t.Fatal("header not seeded")
+		}
+		if _, err := srv.menuService.GetMenuByLocation(ctx, "footer"); err == nil {
+			t.Fatal("footer seeded although the theme declares it")
 		}
 		if !marked() {
 			t.Error("marker not set")

@@ -9,23 +9,13 @@ import (
 	"hatamoto.dev/core/internal/menu"
 )
 
-// menuLocationDecl is implemented by the render engine: the menu locations the
-// active theme declares.
-type menuLocationDecl interface {
-	MenuLocations() []menu.DeclLocation
-}
-
 // themeDeclaresLocation reports whether the active theme declares loc. The
 // theme seeds its own locations on activation, so core seeds skip them.
 func (s *Server) themeDeclaresLocation(loc string) bool {
 	if s.renderEngine == nil {
 		return false
 	}
-	d, ok := any(s.renderEngine).(menuLocationDecl)
-	if !ok {
-		return false
-	}
-	for _, l := range d.MenuLocations() {
+	for _, l := range s.renderEngine.MenuLocations() {
 		if l.Name == loc {
 			return true
 		}
