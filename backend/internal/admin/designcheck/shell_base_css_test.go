@@ -24,6 +24,34 @@ func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	}
 }
 
+// The notices strip shares the group's width and padding; over a subnav page (desktop) its
+// start padding adds the subnav column and gap so the banners line up with the cards.
+func TestNoticesAlignWithContentColumn(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	for _, want := range []string{
+		"max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad) var(--page-pad) 0;",
+		"@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--subnav-gap)); } }",
+		"@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--subnav-gap)); } }",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("base.css lacks %q", want)
+		}
+	}
+	s, err := os.ReadFile("../../../web/admin/css/partials/settings.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(s), "gap: var(--subnav-gap)") || !strings.Contains(string(s), ":root { --subnav-w: 184px; --subnav-gap: var(--space-4); }") {
+		t.Error("settings.css grid must use --subnav-gap, and the 960px block must narrow --subnav-w and --subnav-gap")
+	}
+}
+
 // The command fields (forgot with email off, setup without a code) sit in .hm-copyrow, the
 // secretbanner row, so the whole command is visible and Copy lines up with the input.
 func TestCommandFieldsUseCopyRow(t *testing.T) {

@@ -3,7 +3,7 @@
    owning the page padding; the page inside has none. The subnav has no box of its own, no icons and no
    visible title. Under 640px it becomes a horizontal scroller of the same links (real links, so nothing
    navigates on change: WCAG 3.2.2). */
-.hm-settings { display: grid; grid-template-columns: var(--subnav-w) minmax(0, 1fr); gap: var(--space-8); align-items: start; width: 100%; max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad); min-height: 100vh; }
+.hm-settings { display: grid; grid-template-columns: var(--subnav-w) minmax(0, 1fr); gap: var(--subnav-gap); align-items: start; width: 100%; max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad); min-height: 100vh; }
 .hm-settings > .hm-page { margin: 0; padding: 0; }
 /* Defaults of the Colours live-preview properties; themepreview.js overrides them on the form. */
 .hm-settings { --hm-preview-font-heading: var(--font-ui); --hm-preview-font-body: var(--font-ui); --hm-preview-radius-sm: var(--radius-sm); --hm-preview-radius-md: var(--radius-md); --hm-preview-radius-lg: var(--radius-lg); }
@@ -84,7 +84,7 @@
 /* Font stacks: one field per row, full width. */
 .hm-fieldgrid--stack { grid-template-columns: minmax(0, 1fr); }
 
-@media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); gap: var(--space-4); } .hm-fieldgrid--swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 960px) { :root { --subnav-w: 184px; --subnav-gap: var(--space-4); } .hm-fieldgrid--swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
   .hm-fieldgrid--tokens, .hm-fieldgrid--2, .hm-fieldgrid--swatches { grid-template-columns: minmax(0, 1fr); }
   .hm-settings { grid-template-columns: minmax(0, 1fr); min-height: 0; }

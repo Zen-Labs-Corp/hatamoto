@@ -100,6 +100,7 @@
   --chip-h: 1.5rem;
   --sidebar-w: 224px;
   --subnav-w: 208px;
+  --subnav-gap: var(--space-8); /* subnav to page; notices (base.css) align to the column after both */
   --sidebar-rail-w: 56px; /* collapsed sidebar: icons only */
   /* page widths (base.css): narrow = one readable form column, wide = tables
      and charts, full = editors */

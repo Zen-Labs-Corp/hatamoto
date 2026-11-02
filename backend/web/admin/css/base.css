@@ -113,6 +113,9 @@ form.hm-stack { max-width: 46rem; }
 /* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
 .hm-notices:not(:has(.hm-callout)) { display: none; }
 @media (max-width: 960px) { .hm-notices { padding: var(--space-4) var(--space-4) 0; } }
+/* Over a subnav page the banners line up with the content column, not the subnav (desktop; the phone bar stacks). */
+@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--subnav-gap)); } }
+@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--subnav-gap)); } }
 .hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 .hm-page[data-width="full"] { max-width: none; }
 .hm-bare {
