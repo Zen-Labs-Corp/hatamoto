@@ -1,0 +1,111 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@id": "https://example.test#organization",
+      "@type": "Organization",
+      "additionalProperty": [
+        {
+          "@type": "PropertyValue",
+          "maxValue": 10,
+          "minValue": 0,
+          "name": "Recommendation score",
+          "value": 9.6
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Tier",
+          "value": "Gold"
+        }
+      ],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "description": "Monthly retainer",
+              "name": "Search optimisation",
+              "provider": {
+                "@id": "https://example.test#organization"
+              },
+              "url": "https://example.test/quebec/services/seo"
+            },
+            "price": 900,
+            "priceCurrency": "GBP",
+            "priceSpecification": {
+              "@type": "UnitPriceSpecification",
+              "maxPrice": 1500,
+              "minPrice": 500,
+              "priceCurrency": "GBP",
+              "unitText": "MONTH"
+            }
+          }
+        ],
+        "name": "Offers"
+      },
+      "name": "Example Co",
+      "url": "https://example.test"
+    },
+    {
+      "@id": "https://example.test#localbusiness-locale",
+      "@type": "LocalBusiness",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Sample City",
+        "streetAddress": "Example Street 1"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "description": "Monthly retainer",
+              "name": "Search optimisation",
+              "provider": {
+                "@id": "https://example.test#organization"
+              },
+              "url": "https://example.test/quebec/services/seo"
+            },
+            "price": 900,
+            "priceCurrency": "GBP",
+            "priceSpecification": {
+              "@type": "UnitPriceSpecification",
+              "maxPrice": 1500,
+              "minPrice": 500,
+              "priceCurrency": "GBP",
+              "unitText": "MONTH"
+            }
+          }
+        ],
+        "name": "Offers"
+      },
+      "name": "Example Co",
+      "parentOrganization": {
+        "@id": "https://example.test#organization"
+      },
+      "url": "https://example.test/quebec"
+    },
+    {
+      "@id": "https://example.test#website",
+      "@type": "WebSite",
+      "inLanguage": "en-GB",
+      "name": "Example Co",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "query-input": "required name=search_term_string",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://example.test/search?q={search_term_string}"
+        }
+      },
+      "publisher": {
+        "@id": "https://example.test#organization"
+      },
+      "url": "https://example.test"
+    }
+  ]
+}
