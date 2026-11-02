@@ -277,7 +277,7 @@ func (a *Admin) handleMenuCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderMenuNew(w, r, f)
 		return
 	}
-	in := &menu.CreateMenuInput{Name: name}
+	in := &menu.CreateMenuInput{Name: name, TakeLocation: true}
 	if loc != "" {
 		in.Location = &loc
 	}
@@ -773,7 +773,7 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	loc := f.Location
-	_, err := a.deps.Growth.Menus.ReplaceMenu(r.Context(), m.ID, &menu.UpdateMenuInput{Name: &f.Name, Location: &loc}, items.out)
+	_, err := a.deps.Growth.Menus.ReplaceMenu(r.Context(), m.ID, &menu.UpdateMenuInput{Name: &f.Name, Location: &loc, TakeLocation: true}, items.out)
 	switch {
 	case errors.Is(err, menu.ErrEntityMissing):
 		f.Errors["name"] = "One of the linked pages no longer exists. Choose it again."

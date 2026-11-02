@@ -149,7 +149,7 @@ func TestTakeLocationUnassignsPreviousHolder(t *testing.T) {
 	ctx := context.Background()
 	loc := uniqueLoc()
 	cleanupLocation(t, repo, loc)
-	a, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "A", Slug: loc + "-a", Location: &loc})
+	a, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "A", Slug: loc + "-a", Location: &loc, TakeLocation: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestTakeLocationUnassignsPreviousHolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.UpdateMenu(ctx, b.ID, &UpdateMenuInput{Location: &loc}); err != nil {
+	if _, err := repo.UpdateMenu(ctx, b.ID, &UpdateMenuInput{Location: &loc, TakeLocation: true}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := repo.GetMenuByLocation(ctx, loc); got == nil || got.ID != b.ID || count(loc) != 1 {
@@ -168,17 +168,74 @@ func TestTakeLocationUnassignsPreviousHolder(t *testing.T) {
 	}
 
 	// ReplaceMenu and CreateMenu take it as well.
-	if err := repo.ReplaceMenu(ctx, a.ID, &UpdateMenuInput{Location: &loc}, nil); err != nil {
+	if err := repo.ReplaceMenu(ctx, a.ID, &UpdateMenuInput{Location: &loc, TakeLocation: true}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := repo.GetMenuByLocation(ctx, loc); got.ID != a.ID || count(loc) != 1 {
 		t.Fatalf("holder after ReplaceMenu = %+v, count %d", got, count(loc))
 	}
-	c, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "C", Slug: loc + "-c", Location: &loc})
+	c, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "C", Slug: loc + "-c", Location: &loc, TakeLocation: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := repo.GetMenuByLocation(ctx, loc); got.ID != c.ID || count(loc) != 1 {
 		t.Fatalf("holder after CreateMenu = %+v, count %d", got, count(loc))
+	}
+}
+
+// Without TakeLocation (plugin API, REST) holders coexist as before.
+func TestSaveWithoutTakeLocationLeavesHolders(t *testing.T) {
+	_, repo, count := seedTestService(t)
+	ctx := context.Background()
+	loc := uniqueLoc()
+	cleanupLocation(t, repo, loc)
+	a, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "A", Slug: loc + "-a", Location: &loc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "B", Slug: loc + "-b", Location: &loc}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "C", Slug: loc + "-c"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.UpdateMenu(ctx, c.ID, &UpdateMenuInput{Location: &loc}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.ReplaceMenu(ctx, a.ID, &UpdateMenuInput{Location: &loc}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(loc); n != 3 {
+		t.Fatalf("holders = %d, want 3 (no take-over)", n)
+	}
+}
+
+// Re-saving a holder with its current location never unassigns a legacy duplicate.
+func TestTakeLocationOnlyWhenLocationChanges(t *testing.T) {
+	_, repo, count := seedTestService(t)
+	ctx := context.Background()
+	loc := uniqueLoc()
+	cleanupLocation(t, repo, loc)
+	older, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "Old", Slug: loc + "-old", Location: &loc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer, err := repo.CreateMenu(ctx, &CreateMenuInput{Name: "New", Slug: loc + "-new", Location: &loc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "New renamed"
+	if err := repo.ReplaceMenu(ctx, newer.ID, &UpdateMenuInput{Name: &name, Location: &loc, TakeLocation: true}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.UpdateMenu(ctx, newer.ID, &UpdateMenuInput{Name: &name, Location: &loc, TakeLocation: true}); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(loc); n != 2 {
+		t.Fatalf("holders = %d, want 2 after re-saves", n)
+	}
+	if got, _ := repo.GetMenuByLocation(ctx, loc); got == nil || got.ID != older.ID {
+		t.Fatalf("rendered holder = %+v, want the older menu", got)
 	}
 }

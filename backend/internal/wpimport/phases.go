@@ -521,7 +521,7 @@ func (r *Runner) importMenu(ctx context.Context, m Menu) error {
 		return err
 	}
 	name := m.Name
-	fields := &menu.UpdateMenuInput{Name: &name}
+	fields := &menu.UpdateMenuInput{Name: &name, TakeLocation: true}
 	if loc := menuLocation(m); loc != "" {
 		fields.Location = &loc
 	}

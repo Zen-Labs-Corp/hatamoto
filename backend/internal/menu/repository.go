@@ -66,6 +66,24 @@ func lockLocation(ctx context.Context, tx pgx.Tx, location string) error {
 	return nil
 }
 
+// moveLocation runs when a menu is saved with location loc: if the location
+// changes and take is set, the other holders lose it. A save that keeps the
+// current location does nothing, so re-saving one of several legacy holders
+// never changes which menu the site renders.
+func moveLocation(ctx context.Context, tx pgx.Tx, take bool, loc string, id uuid.UUID) error {
+	if !take || loc == "" {
+		return nil
+	}
+	var cur *string
+	if err := tx.QueryRow(ctx, `SELECT location FROM hatamoto_menus WHERE id = $1`, id).Scan(&cur); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("failed to read menu location: %w", err)
+	}
+	if cur != nil && *cur == loc {
+		return nil
+	}
+	return takeLocation(ctx, tx, loc, id)
+}
+
 // takeLocation clears the location on every other menu holding it. Menus are
 // unassigned (NULL), never deleted.
 func takeLocation(ctx context.Context, tx pgx.Tx, location string, keep uuid.UUID) error {
@@ -93,7 +111,7 @@ func NewPostgresRepository(db *database.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-// CreateMenu inserts a new menu. A location is taken from its previous holder.
+// CreateMenu inserts a new menu. With TakeLocation the location is taken from its previous holder.
 func (r *PostgresRepository) CreateMenu(ctx context.Context, input *CreateMenuInput) (*Menu, error) {
 	id := uuid.New()
 	now := time.Now()
@@ -105,7 +123,7 @@ func (r *PostgresRepository) CreateMenu(ctx context.Context, input *CreateMenuIn
 			if err := lockLocation(ctx, tx, loc); err != nil {
 				return err
 			}
-			if err := takeLocation(ctx, tx, loc, id); err != nil {
+			if err := moveLocation(ctx, tx, input.TakeLocation, loc, id); err != nil {
 				return err
 			}
 		}
@@ -248,7 +266,7 @@ func (r *PostgresRepository) ListMenus(ctx context.Context) ([]*Menu, error) {
 	return menus, rows.Err()
 }
 
-// UpdateMenu modifies a menu. A location is taken from its previous holder.
+// UpdateMenu modifies a menu. With TakeLocation a changed location is taken from its previous holder.
 func (r *PostgresRepository) UpdateMenu(ctx context.Context, id uuid.UUID, input *UpdateMenuInput) (*Menu, error) {
 	loc := locationArg(input.Location)
 
@@ -258,7 +276,7 @@ func (r *PostgresRepository) UpdateMenu(ctx context.Context, id uuid.UUID, input
 			if err := lockLocation(ctx, tx, loc); err != nil {
 				return err
 			}
-			if err := takeLocation(ctx, tx, loc, id); err != nil {
+			if err := moveLocation(ctx, tx, input.TakeLocation, loc, id); err != nil {
 				return err
 			}
 		}
@@ -654,8 +672,8 @@ func containsString(s, substr string) bool {
 }
 
 // ReplaceMenu implements Repository. The menu row is locked for the whole
-// call, so concurrent replacements run one after the other. A location in
-// fields is taken from its previous holder.
+// call, so concurrent replacements run one after the other. With
+// fields.TakeLocation a changed location is taken from its previous holder.
 func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fields *UpdateMenuInput, items []ReplaceItem) error {
 	return r.db.WithTx(ctx, func(tx pgx.Tx) error {
 		// The location lock comes first, so every writer takes the locks in the same order.
@@ -673,7 +691,7 @@ func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fiel
 		}
 		if fields != nil && (fields.Name != nil || fields.Location != nil) {
 			if loc := locationArg(fields.Location); loc != "" {
-				if err := takeLocation(ctx, tx, loc, id); err != nil {
+				if err := moveLocation(ctx, tx, fields.TakeLocation, loc, id); err != nil {
 					return err
 				}
 			}

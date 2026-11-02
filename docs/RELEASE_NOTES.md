@@ -22,7 +22,7 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 - **Themes declare menu locations.** `theme.json` gains a `menus` key (not the existing `menu` presets key): up to 12 locations, each with an optional title and up to 24 default items, each a `url` or an `archive` slug. Templates read them with `menu "<location>"`. `hatamoto theme check` and `theme pack` refuse a malformed block. See [THEMES.md](THEMES.md#menu-locations-menus).
 - **Seeding.** Activating a theme creates a menu for each declared location that has default items and none yet. An update seeds only locations the previous version did not declare. Seeding never overwrites or deletes a menu, a deleted menu returns only when the theme is activated again, and switching themes leaves menus alone.
 - **The Menus picker** lists No location, then the core locations under Site, then the active theme's locations under its name; the list shows each menu's location as a badge, marked "not used by theme" when the theme does not declare it.
-- **One menu per location.** Assigning a location to a menu takes it from the previous holder, which is left unassigned. A WordPress import follows the same rule.
+- **One menu per location in the admin.** Choosing a location for a menu in the admin takes it from the previous holder, which is left unassigned; saving a menu without changing its location never does. A WordPress import follows the same rule. Plugin `menus.save` and the REST menu endpoints do not take locations: menus sharing a location coexist as before and the site renders the oldest.
 - Migrations: additive `menus_seeded_at` column on `hatamoto_site_config`.
 - No SDK, hook or plugin manifest change.
 

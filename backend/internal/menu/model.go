@@ -79,12 +79,19 @@ type CreateMenuInput struct {
 	Name     string  `json:"name"`
 	Slug     string  `json:"slug,omitempty"`
 	Location *string `json:"location,omitempty"`
+	// TakeLocation unassigns the menu that held Location. Only the admin and the
+	// WordPress import set it; the plugin API and REST decode into this struct,
+	// and `json:"-"` keeps them from asking for it, so there duplicates coexist.
+	TakeLocation bool `json:"-"`
 }
 
 // UpdateMenuInput represents input for updating a menu.
 type UpdateMenuInput struct {
 	Name     *string `json:"name,omitempty"`
 	Location *string `json:"location,omitempty"`
+	// TakeLocation: see CreateMenuInput. It applies only when the location
+	// changes; saving the current holder never unassigns another menu.
+	TakeLocation bool `json:"-"`
 }
 
 // CreateMenuItemInput represents input for creating a menu item.
