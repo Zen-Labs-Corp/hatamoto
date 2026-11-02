@@ -22,7 +22,7 @@ test("applyResponse maps replies to row states", () => {
   assert.deepEqual(ok.orig, { title: "T", description: "", keyword: "", noindex: "true" });
   const c = applyResponse(409, { status: "conflict", message: "Changed elsewhere: title.", values, conflicts: { title: "T" } });
   assert.equal(c.state, "conflict");
-  assert.deepEqual(c.refresh, ["title", "noindex"]);
+  assert.deepEqual(c.refresh, ["noindex"]); // the conflicting title keeps the user's value for Retry
   assert.equal(c.text, "Changed elsewhere: title.");
   assert.equal(applyResponse(422, { status: "error", message: "Too long." }).text, "Too long.");
   const bad = applyResponse(500, null);
@@ -59,7 +59,7 @@ test("a save reply never leaves an input behind a newer orig (another user's cha
   assert.deepEqual(applyResponse(200, { status: "saved", values: { ...values, description: "Old" } }, posted, posted).refresh, []);
 });
 
-test("only a failed save offers Retry", () => {
-  assert.equal(showsRetry("error"), true);
-  for (const s of ["idle", "unsaved", "saving", "saved", "conflict"]) assert.equal(showsRetry(s), false, s);
+test("a failed save and a conflict offer Retry", () => {
+  for (const s of ["error", "conflict"]) assert.equal(showsRetry(s), true, s);
+  for (const s of ["idle", "unsaved", "saving", "saved"]) assert.equal(showsRetry(s), false, s);
 });

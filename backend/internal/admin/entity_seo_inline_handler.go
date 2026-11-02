@@ -139,7 +139,7 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 		status := http.StatusOK
 		if len(res.Conflicts) > 0 {
 			out.Status, out.Conflicts, status = "conflict", res.Conflicts, http.StatusConflict
-			out.Message = "Changed elsewhere: " + strings.Join(slices.Sorted(maps.Keys(res.Conflicts)), ", ") + ". Review the current value."
+			out.Message = "Changed elsewhere: " + strings.Join(slices.Sorted(maps.Keys(res.Conflicts)), ", ") + ". Retry keeps your value."
 		}
 		reply(status, out)
 		return

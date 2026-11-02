@@ -140,7 +140,7 @@ func (a *Admin) handleTermSEOInline(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusOK
 	if len(conflicts) > 0 {
 		out.Status, out.Conflicts, status = "conflict", conflicts, http.StatusConflict
-		out.Message = "Changed elsewhere: " + strings.Join(slices.Sorted(maps.Keys(conflicts)), ", ") + ". Review the current value."
+		out.Message = "Changed elsewhere: " + strings.Join(slices.Sorted(maps.Keys(conflicts)), ", ") + ". Retry keeps your value."
 	}
 	reply(status, out)
 }

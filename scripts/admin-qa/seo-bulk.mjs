@@ -58,8 +58,9 @@ await check("a second session's change shows the conflict state", async () => {
   await titleBox(p).fill("QA mine " + Date.now());
   await p.keyboard.press("Tab");
   await p.waitForFunction(() => document.querySelector("tbody tr .hm-savestate")?.dataset.state === "conflict", null, { timeout: 15000 });
-  need((await titleBox(p).inputValue()).startsWith("QA other"), "the current value is not shown");
-  return "conflict";
+  need((await titleBox(p).inputValue()).startsWith("QA mine"), "the user's value was replaced");
+  need(await p.locator("tbody tr [data-hm-seobulk-save]").first().isVisible(), "no Retry button on a conflict");
+  return "conflict with Retry";
 });
 
 await check("Default tab leaves the remembered SEO view", async () => {

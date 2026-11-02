@@ -6,8 +6,8 @@ const TEXT = { unsaved: "Unsaved changes", saving: "Saving…", saved: "Saved", 
 /** The text a row's save indicator shows for a state. */
 export const stateText = (state) => TEXT[state] ?? "";
 
-/** Whether the row offers its Save button, as Retry: after a failed save (a conflict has nothing left to resend). */
-export const showsRetry = (state) => state === "error";
+/** Whether the row offers its Save button, as Retry: after a failed save or a conflict (the user's value is still in the field). */
+export const showsRetry = (state) => state === "error" || state === "conflict";
 
 /** Whether any field differs from the copy the row was loaded with. */
 export function rowDirty(values, orig) {
@@ -27,12 +27,14 @@ export function rowValues(fields) {
  * posted is what the save sent and current what the inputs hold now (both as rowValues):
  * a field the user did not touch since the post shows the server's value again, so input and
  * orig never disagree about a change someone else made; one edited meanwhile keeps the edit.
+ * A field that conflicts keeps the user's value too: it is dirty against the new orig, so Retry saves it.
  * The reply is {status, message, values}; a missing or odd reply is an error.
  */
 export function applyResponse(httpStatus, json, posted = {}, current = posted) {
   const vals = json?.values;
   const orig = vals ? { title: vals.title ?? "", description: vals.description ?? "", keyword: vals.keyword ?? "", noindex: vals.noindex ? "true" : "" } : null;
-  const refresh = orig ? Object.keys(orig).filter((n) => (current[n] ?? "") === (posted[n] ?? "") && orig[n] !== (current[n] ?? "")) : [];
+  const clash = json?.status === "conflict" ? (json.conflicts ?? {}) : {};
+  const refresh = orig ? Object.keys(orig).filter((n) => !(n in clash) && (current[n] ?? "") === (posted[n] ?? "") && orig[n] !== (current[n] ?? "")) : [];
   if (httpStatus === 200 && json?.status === "saved") return { state: "saved", text: stateText("saved"), orig, refresh };
   if (json?.status === "conflict") return { state: "conflict", text: json.message || stateText("conflict"), orig, refresh };
   return { state: "error", text: json?.message || stateText("error"), orig: null, refresh: [] };

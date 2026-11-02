@@ -27,14 +27,17 @@ const paint = (form, state, text) => {
   if (!s) return;
   s.dataset.state = state;
   const t = s.querySelector(".hm-savestate__text");
-  if (t) t.textContent = text ?? stateText(state);
+  if (t) {
+    t.textContent = text ?? stateText(state);
+    t.title = t.textContent; // the cell clips a long message
+  }
   retryButton(form, state);
 };
-// The Save button stays hidden for the script's blur saves, except after a failure: then it is the
-// keyboard-reachable Retry. A later edit of a field saves again on its own as well.
+// The Save button stays hidden for the script's blur saves, except after a failure or a conflict: then
+// it is the keyboard-reachable Retry (a conflict keeps the user's value to send again). A later edit of a field saves again on its own as well.
 const retryButton = (form, state) => {
   const b = form.querySelector("[data-hm-seobulk-save]");
-  if (!b || state === "unsaved" || state === "conflict") return;
+  if (!b || state === "unsaved") return;
   const show = showsRetry(state);
   const label = b.querySelector("span");
   if (label) label.textContent = show ? "Retry" : "Save";
