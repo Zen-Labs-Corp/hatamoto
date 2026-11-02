@@ -782,6 +782,7 @@ func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
 		Description: p.Description, AlternateName: p.AlternateName, Slogan: p.Slogan,
 		FoundingDate: p.FoundingDate, EmployeesMin: p.EmployeesMin, EmployeesMax: p.EmployeesMax,
 		VATID: p.VATID, LogoObject: p.LogoObject,
+		Currency: p.Currency, BusinessDetails: businessDetails(p),
 	}, nil
 }
 
@@ -797,6 +798,60 @@ func orgAddressMode(cfg *siteconfig.Config) string {
 
 func ratingView(r bizprofile.Rating) render.Rating {
 	return render.Rating{Value: r.Value, Count: r.Count, Best: r.Best, Worst: r.Worst, CountType: r.CountType}
+}
+
+// businessDetails maps the extended profile fields shared by the Organization
+// and the local business. Slices stay nil when empty.
+func businessDetails(p bizprofile.Profile) render.BusinessDetails {
+	return render.BusinessDetails{
+		Naics: p.Naics, Isic: p.Isic, Duns: p.Duns, Lei: p.Lei, Gln: p.Gln,
+		Founders: personViews(p.Founders), Memberships: personViews(p.Memberships),
+		ParentOrg: render.PersonView(p.ParentOrg),
+		Brands:    slices.Clone(p.Brands), PaymentMethods: slices.Clone(p.PaymentMethods),
+		KnowsAbout: slices.Clone(p.KnowsAbout), Awards: slices.Clone(p.Awards),
+		BookingURL: p.BookingURL, OrderURL: p.OrderURL,
+		Services: serviceViews(p.Services),
+	}
+}
+
+func personViews(people []bizprofile.Person) []render.PersonView {
+	var out []render.PersonView
+	for _, v := range people {
+		out = append(out, render.PersonView(v))
+	}
+	return out
+}
+
+func serviceViews(services []bizprofile.Service) []render.ServiceView {
+	var out []render.ServiceView
+	for _, v := range services {
+		out = append(out, render.ServiceView(v))
+	}
+	return out
+}
+
+// amenityViews lists the fixed presets that are set, in a fixed order, then the
+// custom rows whose name no preset already took (case-insensitive).
+func amenityViews(presets bizprofile.AmenityPresets, custom []bizprofile.Amenity) []render.AmenityView {
+	var out []render.AmenityView
+	for _, a := range []struct {
+		name string
+		v    *bool
+	}{
+		{"Parking", presets.Parking}, {"Wheelchair access", presets.WheelchairAccess}, {"Wifi", presets.Wifi},
+		{"Toilets", presets.Toilets}, {"Air conditioning", presets.AirConditioning},
+	} {
+		if a.v != nil {
+			out = append(out, render.AmenityView{Name: a.name, Value: *a.v})
+		}
+	}
+	taken := len(out)
+	for _, c := range custom {
+		if !slices.ContainsFunc(out[:taken], func(a render.AmenityView) bool { return strings.EqualFold(a.Name, c.Name) }) {
+			out = append(out, render.AmenityView{Name: c.Name, Value: c.Value})
+		}
+	}
+	return out
 }
 
 func contactPointViews(points []bizprofile.ContactPoint) []render.ContactPointView {
@@ -960,7 +1015,11 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 		MapURL: p.Address.MapURL, GBPURL: p.Address.GBPURL,
 		AreaServed: p.AreaServed, Currency: p.Currency, PriceRange: p.PriceRange, GeoRegion: p.GeoRegion,
 		SameAs: p.SameAs, Rating: ratingView(p.Rating),
-		ContactPoints: contactPointViews(p.ContactPoints),
+		ContactPoints:   contactPointViews(p.ContactPoints),
+		BusinessDetails: businessDetails(p),
+		MenuURL:         p.MenuURL, ServiceRadiusKm: p.ServiceRadiusKm,
+		Amenities:           amenityViews(p.AmenityPresets, p.Amenities),
+		AcceptsReservations: p.AcceptsReservations, PublicAccess: p.PublicAccess, FreeEntry: p.FreeEntry,
 	}
 	for _, h := range p.OpeningHours {
 		b.OpeningHours = append(b.OpeningHours, render.HoursView{Days: h.Days, Opens: h.Opens, Closes: h.Closes})
