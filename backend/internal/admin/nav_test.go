@@ -166,8 +166,11 @@ func TestSidebarPluginsNeverNests(t *testing.T) {
 	if strings.Contains(body, `aria-label="Plugins pages"`) {
 		t.Error("Plugins renders a child list")
 	}
-	if !strings.Contains(body, `href="/admin/bare" title="Bare"><svg`) {
+	if !strings.Contains(body, `href="/admin/bare"><svg`) {
 		t.Error("a top-level item without an icon renders no icon")
+	}
+	if strings.Contains(body, `class="hm-nav-link" href="/admin/bare" title=`) {
+		t.Error("nav links carry no title in markup: the collapse handler sets it only while the rail is collapsed")
 	}
 }
 

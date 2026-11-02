@@ -78,3 +78,26 @@ func TestSubnavCentresWithoutScrollingWindow(t *testing.T) {
 		t.Error("admin.js must centre the current subnav link by setting the scroller's scrollLeft")
 	}
 }
+
+// The rail's tooltip is a native title, which CSS cannot hide, so the collapse handler sets it only while collapsed.
+func TestRailTitlesOnlyWhileCollapsed(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/js/admin.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(b)
+	for _, want := range []string{"railTitles(true)", "railTitles(collapsed)", `removeAttribute("title")`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("admin.js lacks %q", want)
+		}
+	}
+	h, err := os.ReadFile("../../../web/admin/partials/sidebar.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(h), `class="hm-nav-link" href="{{.Href}}" title=`) {
+		t.Error("sidebar.html must not carry a static title on nav links")
+	}
+}

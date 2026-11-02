@@ -52,14 +52,18 @@ const sidebarToggle = document.querySelector("[data-hm-sidebar-toggle]");
 if (sidebarToggle) {
   sidebarToggle.hidden = false;
   const shell = document.querySelector(".hm-shell");
+  // A native tooltip repeats the label unless the rail hides it, so it is set only while collapsed.
+  const railTitles = (on) => document.querySelectorAll(".hm-nav-link").forEach((a) => on ? (a.title = a.querySelector("span").textContent) : a.removeAttribute("title"));
   if (rememberedSidebar(safeStorage("local"), window.matchMedia("(min-width: 769px)").matches)) {
     shell.dataset.sidebar = "collapsed";
     sidebarToggle.setAttribute("aria-expanded", "false");
+    railTitles(true);
   }
   sidebarToggle.addEventListener("click", () => {
     const collapsed = shell.dataset.sidebar !== "collapsed";
     shell.dataset.sidebar = collapsed ? "collapsed" : "open";
     sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+    railTitles(collapsed);
     rememberSidebar(safeStorage("local"), collapsed);
   });
 }
