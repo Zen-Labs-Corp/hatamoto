@@ -53,7 +53,6 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 	g.Tabs = []ui.Tab{
 		{Label: "Identity", Href: "#identity", Active: true},
 		{Label: "Homepage", Href: "#homepage-section"},
-		{Label: "Email", Href: "#email"},
 	}
 	g.IdentNote = template.HTML("The name, address and language of your site. Brand colours live in Theme › <a href=\"" +
 		html.EscapeString(a.url("theme", "colours")) + "\">Colours and fonts</a>.")
