@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/menu"
@@ -229,6 +230,34 @@ func TestMenuSeedIntegration(t *testing.T) {
 		}
 		if !marked() {
 			t.Error("marker not set")
+		}
+	})
+
+	t.Run("starter then seed keeps the starter header order", func(t *testing.T) {
+		reset(false)
+		exec(`DELETE FROM hatamoto_entities WHERE slug IN ('home','about','contact') OR slug LIKE 'hello-%' OR slug LIKE 'welcome-%'`)
+		inst := &starter.Installer{Entities: srv.entityService, Menus: srv.menuService, Forms: srv.formService, Site: srv.siteConfig}
+		if _, err := inst.Install(ctx, starter.Options{SiteName: "T"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := srv.SeedNewSiteMenus(ctx); err != nil {
+			t.Fatal(err)
+		}
+		ms := headerMenus()
+		if len(ms) != 1 {
+			t.Fatalf("header menus = %d", len(ms))
+		}
+		var got []string
+		pos := map[int]bool{}
+		for _, it := range ms[0].Items {
+			got = append(got, it.Label)
+			if pos[it.Position] {
+				t.Errorf("position %d used twice", it.Position)
+			}
+			pos[it.Position] = true
+		}
+		if strings.Join(got, ",") != "Home,About,Blog,Contact" {
+			t.Fatalf("header = %v", got)
 		}
 	})
 

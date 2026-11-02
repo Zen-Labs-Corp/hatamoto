@@ -553,9 +553,9 @@ func TestSetupDoneHasLinkCards(t *testing.T) {
 	}
 }
 
-// Theme activation (the theme step) runs before the content step, and it seeds
-// the locations the theme declares; the new-site seed skips those. So the content
-// step seeds once for every choice, before the choice branch.
+// The content step seeds once for every choice. The starter builds its own
+// Header and Footer, so for that choice the seed runs after it; otherwise the
+// seeded Header would tie with the starter's items at position 0.
 func TestSetupContentSeedsNewSiteMenusForEveryChoice(t *testing.T) {
 	t.Parallel()
 
@@ -565,8 +565,8 @@ func TestSetupContentSeedsNewSiteMenusForEveryChoice(t *testing.T) {
 		seeded := 0
 		g.a.deps.Content.SeedNewSiteMenus = func(context.Context) error {
 			seeded++
-			if g.starter.calls != 0 {
-				t.Errorf("%s: seed must run before the starter", choice)
+			if wantStarter := choice == "starter"; (g.starter.calls == 1) != wantStarter {
+				t.Errorf("%s: starter calls = %d when the seed ran", choice, g.starter.calls)
 			}
 			return nil
 		}
