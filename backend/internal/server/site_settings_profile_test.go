@@ -203,3 +203,20 @@ func TestSiteSettings_ProfileRejectedWritesNothing(t *testing.T) {
 	testutil.Equal(t, "", store.cfg.CompanyName)
 	testutil.Equal(t, 0, len(store.cfg.BusinessProfile))
 }
+
+func TestSiteSettings_ProfileStaleCardCanBeDeleted(t *testing.T) {
+	store := twoLocaleStore()
+	store.cfg.LocaleProfiles = json.RawMessage(`{"es":{"catalog_name":"Ofertas"},"fr-CA":{"catalog_name":"Offres"}}`)
+	h := localeRouter(store, nil)
+	// Writing a card for a tag that is not listed is still refused.
+	rec := doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"es":{"catalog_name":"x"}}}`)
+	testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+	// Deleting it works, and the listed card stays.
+	rec = doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"es":null}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	got := decodeProfileResp(t, rec.Body.String())
+	if _, ok := got.LocaleProfiles["es"]; ok {
+		t.Errorf("stale card still stored: %v", got.LocaleProfiles)
+	}
+	testutil.Equal(t, "Offres", got.LocaleProfiles["fr-CA"]["catalog_name"])
+}

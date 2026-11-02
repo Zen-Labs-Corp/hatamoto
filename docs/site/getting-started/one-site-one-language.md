@@ -61,7 +61,7 @@ The same endpoint carries the business details that Settings > General > Busines
 - `business_profile` is replaced whole: send every value you want to keep.
 - A tag in `locale_profiles` replaces that locale's card. `null` deletes the card, and so does an empty object `{}`. Tags you leave out are untouched.
 - An unknown key anywhere in a profile is refused.
-- On a site with several locales, each tag must be in the locale list once this request's `locales` change is applied. A tag that is not listed is refused.
+- On a site with several locales, each tag must be in the locale list once this request's `locales` change is applied. A tag that is not listed is refused. A site with one language refuses `locale_profiles`, because no card applies. A card that is still stored for a locale you removed shows up in `GET`, and `null` deletes it.
 - A profile that does not validate answers 422 and nothing is saved. The body names each field by its path:
 
 ```json

@@ -65,9 +65,10 @@ func addProfileErrors(fields map[string]string, prefix string, raw json.RawMessa
 }
 
 // prepareProfiles validates the profile fields of a PATCH against the locale
-// list the site will have afterwards. It returns the first-level problem as
+// list the site will have afterwards. A stored card of a locale that is no
+// longer listed can still be deleted with null. It returns the first-level problem as
 // fields (422) or, for a null site-wide profile, a message (400).
-func prepareProfiles(in *siteSettingsPatch, locales []siteconfig.LocaleEntry) (*profileWrite, map[string]string, string) {
+func prepareProfiles(in *siteSettingsPatch, locales []siteconfig.LocaleEntry, stored map[string]bool) (*profileWrite, map[string]string, string) {
 	w := &profileWrite{}
 	fields := map[string]string{}
 	if in.BusinessProfile != nil {
@@ -81,12 +82,13 @@ func prepareProfiles(in *siteSettingsPatch, locales []siteconfig.LocaleEntry) (*
 	for rawTag, raw := range in.LocaleProfiles {
 		prefix := "locale_profiles." + rawTag
 		tag, err := entity.NormalizeLocale(rawTag)
-		if err != nil || !hasLocale(locales, tag) {
+		isNull := string(bytes.TrimSpace(raw)) == "null"
+		if err != nil || !(hasLocale(locales, tag) || (isNull && stored[tag])) {
 			fields[prefix] = "That locale is not on your site."
 			continue
 		}
 		prefix = "locale_profiles." + tag
-		if string(bytes.TrimSpace(raw)) == "null" {
+		if isNull {
 			addCard(w, tag, nil)
 			continue
 		}

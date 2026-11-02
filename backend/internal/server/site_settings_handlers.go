@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
@@ -289,13 +290,13 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 	}
 	var profiles *profileWrite
 	if in.BusinessProfile != nil || in.LocaleProfiles != nil {
-		locales, ok := h.localesAfter(w, r, update)
+		locales, stored, ok := h.localesAfter(w, r, update)
 		if !ok {
 			return
 		}
 		var fields map[string]string
 		var msg string
-		if profiles, fields, msg = prepareProfiles(&in, locales); msg != "" {
+		if profiles, fields, msg = prepareProfiles(&in, locales, stored); msg != "" {
 			writeError(w, http.StatusBadRequest, msg)
 			return
 		} else if fields != nil {
@@ -332,17 +333,24 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 
 // localesAfter returns the locale list the site will have once update is
 // written: the new list when set, else the stored one.
-func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Request, update siteconfig.UpdateInput) ([]siteconfig.LocaleEntry, bool) {
-	if update.Locales != nil {
-		return *update.Locales, true
-	}
+func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Request, update siteconfig.UpdateInput) ([]siteconfig.LocaleEntry, map[string]bool, bool) {
 	cfg, err := h.store.Get(r.Context())
 	if err != nil {
 		h.logger.Error("site settings: load", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update site settings")
-		return nil, false
+		return nil, nil, false
 	}
-	return cfg.Locales, true
+	// A card that is stored but whose locale is gone can still be deleted.
+	stored := map[string]bool{}
+	if cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles); err == nil {
+		for tag := range cards {
+			stored[tag] = true
+		}
+	}
+	if update.Locales != nil {
+		return *update.Locales, stored, true
+	}
+	return cfg.Locales, stored, true
 }
 
 func (h *siteSettingsHandlers) handleGetTheme(w http.ResponseWriter, r *http.Request) {
