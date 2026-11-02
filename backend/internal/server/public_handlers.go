@@ -20,7 +20,9 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
 // NavigationItem represents a menu item.
@@ -226,7 +228,13 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if set := snap.Locales(); set.Multi() {
 		listCtx = entity.WithVisibleLocaleSet(ctx, set.PublicTags()...)
 	}
-	entries, err := repo.ListAllPublishedWithAttrs(listCtx, snap.OverrideAttributes())
+	seoSet := s.seoSettings(ctx)
+	attrKeys := snap.OverrideAttributes()
+	if seoSet != nil && seoSet.Sitemap.Images {
+		// Only a site that lists images pays for the extra attributes.
+		attrKeys = append(attrKeys, sitemapImageAttrs...)
+	}
+	entries, err := repo.ListAllPublishedWithAttrs(listCtx, attrKeys)
 	if err != nil {
 		return sitemapInput{}, err
 	}
@@ -254,7 +262,19 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 			naming = cfg.SitemapNaming
 		}
 	}
+	var terms []sitemapTerm
+	if seoSet != nil && seoSet.Sitemap.Taxonomy {
+		var err error
+		if terms, err = s.loadSitemapTerms(listCtx); err != nil {
+			// The files are served without the taxonomies, but not cached.
+			namingUnread = true
+			if s.logger != nil {
+				s.logger.Warn("sitemap: term archives unreadable, leaving taxonomy files out", slog.String("error", err.Error()))
+			}
+		}
+	}
 	return sitemapInput{
+		Terms:        terms,
 		Naming:       naming,
 		NamingUnread: namingUnread,
 		HomepageID:   homepageID,
@@ -265,8 +285,27 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 		Today:        time.Now().Format("2006-01-02"),
 		TenantSlug:   canonicalTenantSlug,
 		Plugins:      sitemapHooksSnapshot(),
-		SEO:          s.seoSettings(ctx),
+		SEO:          seoSet,
 	}, nil
+}
+
+// sitemapImageAttrs are the attributes the image entries are made from.
+var sitemapImageAttrs = []string{"og_image", "featured_image", "photo"}
+
+// loadSitemapTerms lists the term archives the taxonomy sitemaps may hold.
+func (s *Server) loadSitemapTerms(ctx context.Context) ([]sitemapTerm, error) {
+	found, err := taxonomy.NewPostgresRepository(s.db).ListSitemapTerms(ctx, seo.MaxSitemapURLs)
+	if err != nil {
+		return nil, err
+	}
+	terms := make([]sitemapTerm, len(found))
+	for i, t := range found {
+		terms[i] = sitemapTerm{Kind: t.Kind, Path: t.Path, NoIndex: t.NoIndex}
+		if !t.UpdatedAt.IsZero() {
+			terms[i].LastMod = t.UpdatedAt.UTC().Format("2006-01-02")
+		}
+	}
+	return terms, nil
 }
 
 // handlePublicSitemap returns the sitemap index listing all sub-sitemaps.

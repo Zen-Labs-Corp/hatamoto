@@ -63,8 +63,9 @@ type sitemapInput struct {
 	// locale and group) or "legacy" (one file per prefixed locale holding all
 	// its groups). It only matters on a multi-locale site.
 	Naming string
-	// NamingUnread is set when the setting could not be read and Naming is
-	// only the default: the result is served but must not be cached.
+	// NamingUnread is set when the setting (or the term list) could not be
+	// read and the plan is built from a default: the result is served but
+	// must not be cached.
 	NamingUnread bool
 }
 
