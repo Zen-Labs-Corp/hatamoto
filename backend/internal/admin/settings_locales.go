@@ -63,6 +63,8 @@ func localePlaceholders(site bizprofile.Profile, siteName string) map[string]str
 	for k, v := range map[string]string{
 		"name": siteName, "tax_id": site.TaxID, "vat_id": site.VATID, "description": site.Description, "phone": site.Phone, "fax": site.Fax, "email": site.Email,
 		"hours_note": site.HoursNote, "currency": site.Currency, "price_range": site.PriceRange, "geo_region": site.GeoRegion,
+		"naics": site.Naics, "isic": site.Isic, "duns": site.Duns, "lei": site.Lei, "gln": site.Gln,
+		"booking_url": site.BookingURL, "order_url": site.OrderURL, "menu_url": site.MenuURL,
 	} {
 		if v != "" {
 			out[k] = v
@@ -71,9 +73,16 @@ func localePlaceholders(site bizprofile.Profile, siteName string) map[string]str
 	return out
 }
 
+// inheritedFields are the locale card fields that cannot show a placeholder
+// (lists, numbers, switches); their help says where an empty field falls back.
+var inheritedFields = []string{
+	"founders", "parent_organisation", "brands", "memberships", "payment_methods", "accepts_reservations", "service_radius_km",
+	"services", "knows_about", "awards", "amenity_presets", "amenities", "public_access", "free_entry",
+}
+
 // localeUI is businessUI plus the help only a locale card needs.
 func localeUI() map[string]schemaform.UIHint {
-	h := make(map[string]schemaform.UIHint, len(businessUI)+7)
+	h := make(map[string]schemaform.UIHint, len(businessUI)+7+len(inheritedFields))
 	for k, v := range businessUI {
 		h[k] = v
 	}
@@ -84,6 +93,13 @@ func localeUI() map[string]schemaform.UIHint {
 	h["vat_id"] = schemaform.UIHint{Help: "Empty uses the site VAT ID."}
 	h["country_name"] = schemaform.UIHint{Help: "The country name printed in the areas served, like France."}
 	h["image"] = schemaform.UIHint{Help: "A photo of this locale's business."}
+	for _, k := range inheritedFields {
+		help := h[k].Help
+		if help != "" {
+			help += " "
+		}
+		h[k] = schemaform.UIHint{Help: help + "Empty uses the site-wide value."}
+	}
 	return h
 }
 
