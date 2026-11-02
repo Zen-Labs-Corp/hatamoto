@@ -257,3 +257,84 @@ func TestEntityEditKeepsTheFormOnACustomJSONLDError(t *testing.T) {
 		}
 	}
 }
+
+func TestEntityEditSavesRobotsDirectives(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(11).String()
+	post := func(token string, extra url.Values) *httptest.ResponseRecorder {
+		form := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}}
+		for k, v := range extra {
+			form[k] = v
+		}
+		return c.do("POST", "/admin/entities/"+id, token, form, nil)
+	}
+	robots := func() string {
+		seoMap, _ := attrsMap(c.ents.ents[fid(11)].Attributes)["seo"].(map[string]any)
+		return str(seoMap, "robots")
+	}
+
+	// An editor saves nofollow and a snippet limit; the stored value is composed.
+	if rec := post("editor-token", url.Values{"_seo_robots": {"1"}, "seo_nofollow": {"true"}, "seo_max_snippet": {"50"}}); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	if got := robots(); got != "nofollow, max-snippet:50" {
+		t.Fatalf("seo.robots = %q", got)
+	}
+	// A form that never showed the tab keeps the stored directives.
+	if rec := post("editor-token", nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := robots(); got != "nofollow, max-snippet:50" {
+		t.Errorf("unposted tab changed seo.robots: %q", got)
+	}
+	// The tab shows the stored values.
+	has(t, c.do("GET", "/admin/entities/"+id, "owner-token", nil, nil).Body.String(), `name="seo_max_snippet"`, `value="50"`, `name="_seo_robots"`)
+	// A bad limit is refused with the field error and writes nothing.
+	rec := post("editor-token", url.Values{"_seo_robots": {"1"}, "seo_max_snippet": {"-5"}})
+	if rec.Code == 303 || !strings.Contains(rec.Body.String(), "Enter a whole number") {
+		t.Errorf("bad max-snippet: %d", rec.Code)
+	}
+	if got := robots(); got != "nofollow, max-snippet:50" {
+		t.Errorf("a refused save changed seo.robots: %q", got)
+	}
+	// Unticking everything clears the key.
+	if rec := post("editor-token", url.Values{"_seo_robots": {"1"}}); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := robots(); got != "" {
+		t.Errorf("seo.robots = %q", got)
+	}
+}
+
+func TestSEOFormRobotsKeepsOtherTokens(t *testing.T) {
+	t.Parallel()
+
+	// Legacy value written by the builder or the React tab: noindex and an
+	// unknown token survive a save that changes only a robots field.
+	m := map[string]any{"no_index": true, "seo": map[string]any{"robots": "noindex, follow, unavailable_after:2030", "x": 1.0}}
+	f := seoFrom(m)
+	if !f.NoIndex || f.NoFollow {
+		t.Fatalf("seoFrom = %+v", f)
+	}
+	f.NoArchive = true
+	f.merge(m)
+	f.mergeRobots(m)
+	if got := str(m["seo"].(map[string]any), "robots"); got != "noindex, noarchive, unavailable_after:2030" {
+		t.Errorf("robots = %q", got)
+	}
+	// noindex off removes only that token.
+	f.NoIndex = false
+	f.merge(m)
+	f.mergeRobots(m)
+	if got := str(m["seo"].(map[string]any), "robots"); got != "noarchive, unavailable_after:2030" {
+		t.Errorf("robots = %q", got)
+	}
+	// The builder drawer's merge never touches the new directives.
+	b := map[string]any{"seo": map[string]any{"robots": "nofollow, max-snippet:50"}}
+	seoForm{Title: "T"}.merge(b)
+	if got := str(b["seo"].(map[string]any), "robots"); got != "nofollow, max-snippet:50" {
+		t.Errorf("builder merge changed robots: %q", got)
+	}
+}

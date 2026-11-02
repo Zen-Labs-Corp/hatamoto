@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,10 @@ type seoForm struct {
 	NoIndex                                bool
 	// SchemaType and CustomJSONLD are written by mergeSchema, not merge.
 	SchemaType, CustomJSONLD string
+	// The robots directives of the Advanced tab, written by mergeRobots, not
+	// merge. MaxSnippet is the typed text so a bad value can be shown again.
+	NoFollow, NoArchive, NoSnippet bool
+	MaxSnippet, MaxImagePreview    string
 }
 
 type termPick struct {
@@ -274,9 +279,78 @@ func dropNoIndexRobots(m map[string]any) {
 func seoFrom(m map[string]any) seoForm {
 	b, _ := m["no_index"].(bool)
 	b = b || robotsNoIndex(m)
-	return seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
+	seoMap, _ := m["seo"].(map[string]any)
+	d := seo.ParseDirectives(str(seoMap, "robots"))
+	f := seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
 		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b,
-		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld")}
+		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld"),
+		NoFollow: d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
+	if d.MaxSnippet != nil {
+		f.MaxSnippet = strconv.Itoa(*d.MaxSnippet)
+	}
+	return f
+}
+
+// mergeRobots writes the Advanced tab's directives into attributes.seo.robots.
+// It runs after merge, which already added or removed noindex; every other
+// token the field does not own (unknown ones too) is kept. The entity and blog
+// forms call it; the builder never does.
+func (s seoForm) mergeRobots(m map[string]any) {
+	seoMap, _ := m["seo"].(map[string]any)
+	d := seo.ParseDirectives(str(seoMap, "robots"))
+	d.NoFollow, d.NoArchive, d.NoSnippet = s.NoFollow, s.NoArchive, s.NoSnippet
+	d.MaxSnippet, d.MaxImagePreview = nil, ""
+	if n, err := strconv.Atoi(strings.TrimSpace(s.MaxSnippet)); err == nil && n >= -1 {
+		d.MaxSnippet = &n
+	}
+	if slices.Contains(seo.MaxImagePreviews, s.MaxImagePreview) {
+		d.MaxImagePreview = s.MaxImagePreview
+	}
+	if v := d.String(); v != "" {
+		if seoMap == nil {
+			seoMap = map[string]any{}
+			m["seo"] = seoMap
+		}
+		seoMap["robots"] = v
+	} else if seoMap != nil {
+		delete(seoMap, "robots")
+		if len(seoMap) == 0 {
+			delete(m, "seo")
+		}
+	}
+}
+
+// keepUnpostedRobots gives the Advanced tab fields the stored values when the
+// form did not carry the tab (marked by _seo_robots; an unticked switch sends
+// nothing), so a save that never showed it cannot clear them.
+func (s *seoForm) keepUnpostedRobots(r *http.Request, prev map[string]any) {
+	if r.PostForm.Get("_seo_robots") == "1" {
+		return
+	}
+	stored := seoFrom(prev)
+	s.NoFollow, s.NoArchive, s.NoSnippet = stored.NoFollow, stored.NoArchive, stored.NoSnippet
+	s.MaxSnippet, s.MaxImagePreview = stored.MaxSnippet, stored.MaxImagePreview
+}
+
+// robotsErrors checks the Advanced tab fields into the form's error map.
+func (s seoForm) robotsErrors(errs map[string]string) {
+	if v := strings.TrimSpace(s.MaxSnippet); v != "" {
+		if n, err := strconv.Atoi(v); err != nil || n < -1 {
+			errs["seo_max_snippet"] = "Enter a whole number, 0 or more, or -1 for no limit"
+		}
+	}
+	if s.MaxImagePreview != "" && !slices.Contains(seo.MaxImagePreviews, s.MaxImagePreview) {
+		errs["seo_max_image_preview"] = "Choose one of the listed sizes"
+	}
+}
+
+// ImagePreviewOptions are the options of the max-image-preview select.
+func (s seoForm) ImagePreviewOptions() []ui.Option {
+	opts := []ui.Option{{Value: "", Label: "Use the site default", Selected: s.MaxImagePreview == ""}}
+	for _, v := range seo.MaxImagePreviews[1:] {
+		opts = append(opts, ui.Option{Value: v, Label: v, Selected: s.MaxImagePreview == v})
+	}
+	return opts
 }
 
 // mergeSchema writes the Schema tab's two keys into attrs, dropping empty
@@ -343,7 +417,9 @@ func seoFromForm(r *http.Request) seoForm {
 	return seoForm{Title: r.PostFormValue("seo_title"), Description: r.PostFormValue("seo_description"), Canonical: r.PostFormValue("seo_canonical"),
 		OGImage: r.PostFormValue("seo_og_image"),
 		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true",
-		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld")}
+		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld"),
+		NoFollow: r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
+		MaxSnippet: strings.TrimSpace(r.PostFormValue("seo_max_snippet")), MaxImagePreview: r.PostFormValue("seo_max_image_preview")}
 }
 
 func entityStatusOptions(selected string) []ui.Option {
@@ -542,7 +618,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
 	}
 	f.Panel = a.entityPanel(r, e, sc, f, values)
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -791,8 +867,10 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	attrs, errs := schemaform.Decode(schema, r.PostForm, prev, schemaform.Options{Prefix: attrPrefix})
 	p.attrs, p.errs = attrs, errs
 	p.f.SEO.keepUnpostedSchema(r, prev)
+	p.f.SEO.keepUnpostedRobots(r, prev)
 	p.f.SEO.merge(p.attrs)
 	p.f.SEO.mergeSchema(p.attrs)
+	p.f.SEO.mergeRobots(p.attrs)
 	return p
 }
 
@@ -821,6 +899,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 		f.Errors["seo_canonical"] = "Use a full address starting with https:// or a path starting with /"
 	}
 	f.SEO.schemaErrors(f.Errors)
+	f.SEO.robotsErrors(f.Errors)
 	if raw, err := json.Marshal(p.attrs); err == nil {
 		if verrs := schemaform.Validate(sc.Schema, raw); len(verrs) > 0 {
 			if p.errs == nil {
