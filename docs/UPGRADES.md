@@ -159,6 +159,23 @@ The change is expand-only. The previous release ignores the new columns, keeps r
 
 To roll back, run the previous release against the migrated database. Do not run the migration's `down` step for this: it drops both columns and deletes every business profile and locale card you entered.
 
+## Business details live per locale
+
+Settings > Locales > Business details now holds a card for every locale, the default one included, and Settings > General no longer edits business details. The default locale's card is the organisation and the fallback for the other cards. The migration `202611021100_fold_default_business` (idempotent) folds the old default locale card, if there is one, into the default business (`business_profile` plus the phone, hours and address columns) and then deletes that card, so a second run changes nothing. A site with one language, or a default locale without a card, is left as it is. Importing an older archive folds the same way.
+
+To keep the other locales unchanged, the migration copies the site-wide value into each other card that left a field empty, for every field the default card had overridden. It does not copy the name, country name, image, business type, the no-office choice, the address block, latitude, longitude or map address. A rating or parent organisation is copied whole, and an on/off choice only into a card that had none.
+
+The Organization may change once. If the old default card overrode the address, contact points, email, legal name, tax ID or telephone, the default business now has those values, so the Organization on every page prints them. Two edge cases:
+
+- If the default card's phone equalled the site phone, the default locale's contact point is replaced by the site-wide one, which carries the hours.
+- If the default card had no name of its own, the default locale's LocalBusiness name and legal name become the site-wide legal name.
+
+Where the old default card had an office, the new switch **This locale has an office** is turned on, so the default page keeps its LocalBusiness. Where it had none, nothing is added.
+
+A field that the old default card set but the site-wide details left empty cannot be copied down. The other cards get a `no_inherit` marker for it instead, which keeps them printing nothing for that field. The card shows it as "Not inherited, empty", and the switch **use the default locale's value** removes the marker.
+
+To roll back, run the previous release against the migrated database. The migration's `down` step does nothing. The previous release reads the folded `business_profile` as the site-wide profile. For a site whose default card did not differ, that prints the same. Otherwise it loses the default locale's LocalBusiness and the default card's own overrides, which now sit in the site-wide data, and the other cards keep the values that were copied into them. Saving Settings > General on the previous release rewrites the profile from the fields it knows, so avoid that if you plan to move forward again.
+
 ## People (person profiles)
 
 Authors became people: one `person` entity per human, credited through
