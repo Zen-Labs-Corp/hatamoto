@@ -98,3 +98,37 @@ func TestDetectTSF(t *testing.T) {
 		t.Errorf("plugin %q", d.Detect.SEOPlugin)
 	}
 }
+
+func TestSEOLiveDiscouragedSourceSkipsRobotsAndArchiveNoindex(t *testing.T) {
+	for name, tc := range map[string]struct{ home, robots string }{
+		"robots":     {liveHome, "User-agent: *\nDisallow: /\n"},
+		"noindex-hp": {strings.Replace(liveHome, "<title>", `<meta name="robots" content="noindex, nofollow"><title>`, 1), "User-agent: *\nDisallow: /private/\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(tc.home)) })
+			mux.HandleFunc("/category/x/", func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte(`<html><head><meta name="robots" content="noindex"></head></html>`))
+			})
+			mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(tc.robots)) })
+			srv := httptest.NewServer(mux)
+			defer srv.Close()
+			c, err := NewClient(ClientOptions{URL: srv.URL, AllowPrivate: true, RatePerSec: 1000, Sleep: noSleep, MaxRetries: 0})
+			if err != nil {
+				t.Fatal(err)
+			}
+			live := readSEOLive(context.Background(), c, srv.URL+"/", "", srv.URL+"/category/x/")
+			if !live.Discouraged || len(live.Warnings) != 1 {
+				t.Fatalf("discouraged=%v warnings=%v", live.Discouraged, live.Warnings)
+			}
+			p := buildSEOPlan(nil, live, testSchemaOf, "")
+			s := applyPlan(t, p)
+			if len(s.Robots.ExtraLines) != 0 || s.Index.NoIndexArchive {
+				t.Errorf("imported robots %v / archive noindex %v", s.Robots.ExtraLines, s.Index.NoIndexArchive)
+			}
+			if !anyHas(p.NotMapped, "discourages search engines") {
+				t.Errorf("not mapped = %v", p.NotMapped)
+			}
+		})
+	}
+}

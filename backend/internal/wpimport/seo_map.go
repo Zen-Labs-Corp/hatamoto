@@ -441,6 +441,10 @@ func (b *seoBuilder) fromLive(l *seoLive) {
 			b.verification(name, v)
 		}
 	}
+	if l.Discouraged {
+		b.notMapped("Extra robots.txt lines and archive noindex: the source site discourages search engines, so they were not imported")
+		return
+	}
 	if len(l.RobotsExtra) > 0 {
 		b.robotsExtra(l.RobotsExtra)
 	}

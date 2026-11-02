@@ -24,6 +24,7 @@ type seoLive struct {
 	SiteTitle             string
 	RobotsExtra           []string
 	Noindex               map[string]bool
+	Discouraged           bool // the source asks search engines to stay away (staging or "discourage" setting)
 	Warnings              []string
 }
 
@@ -160,6 +161,7 @@ func readSEOLive(ctx context.Context, c *Client, home string, postURL, archiveUR
 		h := parseHeadSettings(body)
 		live.Plugin, live.SiteName, live.TwitterSite, live.HomeTitle = h.Plugin, h.SiteName, h.TwitterSite, h.Title
 		live.OrgName, live.OrgLogo, live.SameAs = h.OrgName, h.OrgLogo, h.SameAs
+		live.Discouraged = h.Noindex
 		for k, v := range h.Verification {
 			live.Verification[k] = v
 		}
@@ -186,11 +188,27 @@ func readSEOLive(ctx context.Context, c *Client, home string, postURL, archiveUR
 	}
 	if body, ok := fetch(base + "/robots.txt"); ok {
 		live.RobotsExtra = robotsExtra(string(body))
+		live.Discouraged = live.Discouraged || robotsDisallowsAll(string(body))
 		if sm := firstSitemap(string(body), c.Host()); sm != "" {
 			fetch(sm)
 		}
 	}
+	if live.Discouraged {
+		live.Warnings = append(live.Warnings, "SEO live read: the source site discourages search engines; its robots.txt lines and archive noindex were not imported")
+	}
 	return live
+}
+
+// robotsDisallowsAll reports a bare "Disallow: /" rule, which is what WordPress
+// serves while "Discourage search engines" is on.
+func robotsDisallowsAll(body string) bool {
+	for _, raw := range strings.Split(body, "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(raw), ":")
+		if ok && strings.EqualFold(strings.TrimSpace(k), "disallow") && strings.TrimSpace(v) == "/" {
+			return true
+		}
+	}
+	return false
 }
 
 func inferSeparator(postTitle, siteTitle string) string {
