@@ -171,3 +171,34 @@ func TestSitemapNamingRoundTrip(t *testing.T) {
 		t.Fatalf("after rejected update: %q %v, want group", cfg.SitemapNaming, err)
 	}
 }
+
+func TestMarkMenusSeededIsStable(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MenusSeededAt != nil {
+		t.Fatalf("MenusSeededAt = %v, want nil", cfg.MenusSeededAt)
+	}
+	if err := s.MarkMenusSeeded(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = s.Get(ctx)
+	if cfg.MenusSeededAt == nil {
+		t.Fatal("marker not set")
+	}
+	first := *cfg.MenusSeededAt
+	if err := s.MarkMenusSeeded(ctx); err != nil {
+		t.Fatal(err)
+	}
+	company := "Renamed"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{CompanyName: &company}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = s.Get(ctx)
+	if cfg.MenusSeededAt == nil || !cfg.MenusSeededAt.Equal(first) {
+		t.Fatalf("marker changed: %v, want %v", cfg.MenusSeededAt, first)
+	}
+}

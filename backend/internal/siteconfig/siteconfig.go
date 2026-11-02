@@ -92,7 +92,10 @@ type Config struct {
 	PublicBaseURL string
 	// SetupCompletedAt is when the first-run wizard finished (nil = still open).
 	SetupCompletedAt *time.Time
-	UpdatedAt        time.Time
+	// MenusSeededAt is when the one-time menu seeding finished (nil = not yet).
+	// Set by MarkMenusSeeded only, never by Update.
+	MenusSeededAt *time.Time
+	UpdatedAt     time.Time
 
 	// Page cache controls (Settings > Performance). Zero values are
 	// sentinels: TTL 0 = server default, MaxMB 0 = no limit, preload interval
@@ -457,6 +460,25 @@ func (s *Store) SetLocaleProfile(ctx context.Context, tag string, raw json.RawMe
 	return nil
 }
 
+// MarkMenusSeeded stamps the menu-seeding marker once and never clears it;
+// safe to call repeatedly.
+func (s *Store) MarkMenusSeeded(ctx context.Context) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config
+		SET menus_seeded_at = COALESCE(menus_seeded_at, NOW())
+		WHERE id = TRUE`); err != nil {
+		return fmt.Errorf("mark menus seeded: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // legacyTTLCap is the largest value the old binary's CHECK accepts for
 // page_cache_ttl_seconds; the new binary mirrors min(ttl, cap) into it.
 const legacyTTLCap = 86400
@@ -494,7 +516,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_cache_max_mb, page_preload_enabled, page_preload_interval_seconds,
 		       page_preload_mode, page_preload_after_changes,
 		       locales, prefix_all, x_default_locale,
-		       business_profile, locale_profiles, sitemap_naming
+		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -507,7 +529,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PagePreloadEnabled, &cfg.PagePreloadIntervalSeconds,
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
-		&businessProfile, &localeProfiles, &cfg.SitemapNaming,
+		&businessProfile, &localeProfiles, &cfg.SitemapNaming, &cfg.MenusSeededAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
