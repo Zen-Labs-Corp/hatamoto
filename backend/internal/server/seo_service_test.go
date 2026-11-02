@@ -49,10 +49,14 @@ func (f fakeSEOSchemas) ListSchemas(context.Context) ([]*entity.EntitySchema, er
 type fakeRobots struct {
 	denied []agents.Purpose
 	sets   int
+	err    error // returned by SetDenied
 }
 
 func (f *fakeRobots) DeniedPurposes(context.Context) ([]agents.Purpose, error) { return f.denied, nil }
 func (f *fakeRobots) SetDenied(_ context.Context, d []agents.Purpose) error {
+	if f.err != nil {
+		return f.err
+	}
 	f.sets++
 	f.denied = d
 	return nil
@@ -415,5 +419,33 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 	full[seoTypeSettingsKey], _ = json.Marshal(ts)
 	if f := fieldsOf(t, func() error { _, err := r.svc.Update(ctx, keyActor, full); return err }()); f["type_settings[post][archive_title]"] == "" {
 		t.Errorf("fields = %v", f)
+	}
+}
+
+// Settings that were saved are audited even when the crawler policy write fails after them.
+func TestSEOServiceAuditsSavedSettingsWhenPolicyWriteFails(t *testing.T) {
+	t.Parallel()
+
+	r := newSEORig(t)
+	r.robots.err = errors.New("connection reset")
+	_, err := r.svc.Update(context.Background(), keyActor, patchOf(t, `{"separator":"|","ai_crawlers":{"denied_purposes":["training"]}}`))
+	if err == nil || !strings.Contains(err.Error(), "crawler policy") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(r.audits) != 1 {
+		t.Fatalf("audits = %d, want 1", len(r.audits))
+	}
+	secs, _ := r.audits[0].Detail["sections"].([]string)
+	if !reflect.DeepEqual(secs, []string{"separator"}) {
+		t.Errorf("audited sections = %v", r.audits[0].Detail["sections"])
+	}
+
+	// Nothing saved, nothing to audit.
+	r.audits = nil
+	if _, err := r.svc.Update(context.Background(), keyActor, patchOf(t, `{"ai_crawlers":{"denied_purposes":["training"]}}`)); err == nil {
+		t.Fatal("no error")
+	}
+	if len(r.audits) != 0 {
+		t.Errorf("audited a write that saved nothing: %v", r.audits)
 	}
 }

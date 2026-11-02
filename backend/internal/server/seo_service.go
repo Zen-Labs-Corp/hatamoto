@@ -573,15 +573,26 @@ func (v *seoService) Update(ctx context.Context, actor seosvc.Actor, patch map[s
 	if plan.setDenied {
 		if err := v.robots.SetDenied(ctx, plan.denied); err != nil {
 			v.invalidate(ctx)
+			// The settings are committed, so they are audited even though
+			// the policy write failed.
+			saved := slices.DeleteFunc(slices.Clone(plan.touched), func(n string) bool { return n == seoAICrawlersKey })
+			if len(saved) > 0 {
+				v.auditSaved(ctx, actor, saved)
+			}
 			return nil, fmt.Errorf("save crawler policy (the other settings were saved): %w", err)
 		}
 	}
 	v.invalidate(ctx)
+	v.auditSaved(ctx, actor, plan.touched)
+	return v.Get(ctx)
+}
+
+// auditSaved records a write of the named sections.
+func (v *seoService) auditSaved(ctx context.Context, actor seosvc.Actor, sections []string) {
 	v.audit(ctx, admin.AuditEvent{
 		ActorID: actor.UserID, Actor: actor.Label(), Action: "seo.settings", Target: "seo",
-		Detail: seoAuditDetail(actor, plan.touched),
+		Detail: seoAuditDetail(actor, sections),
 	})
-	return v.Get(ctx)
 }
 
 // seoAuditDetail names who changed which sections. Values stay out: a section
