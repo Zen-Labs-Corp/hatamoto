@@ -8,6 +8,7 @@
 /* On a phone the five options do not fit: the track scrolls sideways inside the card instead of overflowing it. */
 @media (max-width: 640px) {
   .hm-listbar .hm-segmented { max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .hm-listbar .hm-segmented__btn:focus-visible, .hm-listbar .hm-segmented__input:focus-visible + .hm-segmented__btn { outline-offset: -2px; }
 }
 .hm-segmented__opt { position: relative; display: inline-flex; }
 /* input[type=radio] in base.css sizes every radio 16px at higher specificity; this one covers its whole label. */

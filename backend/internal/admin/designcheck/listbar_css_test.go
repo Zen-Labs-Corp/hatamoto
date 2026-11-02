@@ -96,6 +96,36 @@ func TestListToolbarIsOneSizedRow(t *testing.T) {
 	}
 }
 
+// At 1440 the segment, search, type select and Filters share one row: above the breakpoint the
+// row does not wrap (the search shrinks instead) and the end group stays right-aligned. table.css
+// sets flex-wrap on .hm-table__filters later in the cascade, so the rule must out-rank it.
+func TestListToolbarStaysOneRowWhenWide(t *testing.T) {
+	t.Parallel()
+
+	css := adminAsset(t, "css", "partials", "listbar.css")
+	i := strings.Index(css, "@media (min-width: 1360px)")
+	if i < 0 {
+		t.Fatal("listbar.css: no wide breakpoint for the one-row toolbar")
+	}
+	block := css[i:]
+	if j := strings.Index(block, "\n}"); j >= 0 {
+		block = block[:j]
+	}
+	for _, want := range []string{".hm-listbar.hm-table__filters { flex-wrap: nowrap; }", ".hm-listbar__end { flex: 0 1 auto; }"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("listbar.css wide block lacks %q", want)
+		}
+	}
+	for _, want := range []string{".hm-listbar__end { margin-inline-start: auto; }", ".hm-listbar .hm-table__search { flex: 0 1 260px; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("listbar.css lacks %q", want)
+		}
+	}
+	if seg := adminAsset(t, "css", "partials", "segmented.css"); !strings.Contains(seg, "outline-offset: -2px") {
+		t.Error("segmented.css: the phone segment focus ring is clipped without outline-offset: -2px")
+	}
+}
+
 // The Filters button sits beside 32px md-radius controls and must match them.
 func TestListToolbarFiltersButtonRadius(t *testing.T) {
 	t.Parallel()
