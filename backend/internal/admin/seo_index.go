@@ -68,17 +68,6 @@ func setFlag(m *map[string]bool, key string, on bool) {
 	}
 }
 
-// seoIndexSave copies the index switches the tab owns onto a fresh read.
-func seoIndexSave(dst *seo.Settings, idx seo.Index) {
-	dst.Index = idx
-	if len(dst.Index.NoIndexTypes) == 0 {
-		dst.Index.NoIndexTypes = nil
-	}
-	if len(dst.Index.NoIndexTaxonomy) == 0 {
-		dst.Index.NoIndexTaxonomy = nil
-	}
-}
-
 // seoIndexOptions is the index / noindex choice of a content type.
 func seoIndexOptions(noindex bool) []ui.Option {
 	return []ui.Option{

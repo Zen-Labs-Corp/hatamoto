@@ -205,3 +205,19 @@ func TestCustomVerificationRejectsReservedNames(t *testing.T) {
 		t.Errorf("x-check rejected: %v", errs)
 	}
 }
+
+func TestValidateWithAdminPath(t *testing.T) {
+	s := Defaults()
+	s.Robots.ExtraLines = []string{"Disallow: /admin-x/"}
+	if errs := s.ValidateWith(""); len(errs) != 0 {
+		t.Fatalf("no admin path must accept the line: %v", errs)
+	}
+	errs := s.ValidateWith("/admin-x")
+	if len(errs) != 1 || errs[0].Field != robotsExtraField {
+		t.Fatalf("admin path must reject the line once: %v", errs)
+	}
+	s.Robots.ExtraLines = []string{"bogus"}
+	if errs := s.ValidateWith("/admin-x"); len(errs) != 1 {
+		t.Fatalf("one error per field: %v", errs)
+	}
+}

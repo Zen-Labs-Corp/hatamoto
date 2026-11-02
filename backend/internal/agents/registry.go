@@ -36,6 +36,22 @@ var validPurposes = map[Purpose]bool{
 	PurposeSearch: true, PurposeSocial: true, PurposeSEO: true, PurposeArchive: true,
 }
 
+// ParsePurpose returns the purpose named s and whether it is a known one.
+func ParsePurpose(s string) (Purpose, bool) {
+	p := Purpose(s)
+	return p, validPurposes[p]
+}
+
+// PurposeNames lists every known purpose, sorted.
+func PurposeNames() []string {
+	names := make([]string, 0, len(validPurposes))
+	for p := range validPurposes {
+		names = append(names, string(p))
+	}
+	sort.Strings(names)
+	return names
+}
+
 // IsAI reports whether the purpose is one of the AI groups.
 func (p Purpose) IsAI() bool {
 	switch p {

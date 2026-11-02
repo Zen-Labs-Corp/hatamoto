@@ -204,3 +204,21 @@ func TestUASubstringsMatchLooksLikeBot(t *testing.T) {
 		}
 	}
 }
+
+func TestParsePurpose(t *testing.T) {
+	if p, ok := ParsePurpose("training"); !ok || p != PurposeTraining {
+		t.Fatalf("training: %q %v", p, ok)
+	}
+	if _, ok := ParsePurpose("bogus"); ok {
+		t.Fatal("bogus purpose accepted")
+	}
+	names := PurposeNames()
+	if len(names) != len(validPurposes) {
+		t.Fatalf("names %v", names)
+	}
+	for _, n := range names {
+		if _, ok := ParsePurpose(n); !ok {
+			t.Errorf("listed name %q does not parse", n)
+		}
+	}
+}
