@@ -35,6 +35,18 @@ A rendered page can hold up to four JSON-LD blocks:
 3. **A `CollectionPage`** on archive listings such as `/blog`.
 4. **The site graph.** An `Organization` and a `WebSite` node tied together by `@id`, built from site settings: name, logo, tagline, phone, opening hours, address and social links. The Organization also carries legal name, tax ID, fax, email, extra profile addresses and an aggregate rating, each only when you fill it in under Settings > General > Business details. The same section holds the extended details: identifier codes (`naics`, `isicV4`, `duns`, `leiCode`, `globalLocationNumber`), `founder`, an external `parentOrganization`, `brand`, `knowsAbout`, `award`, `memberOf`, a `hasOfferCatalog` of your services, and `potentialAction` for booking and ordering links (`ReserveAction`, `OrderAction`). When one of these is filled in, Hatamoto prints the key itself, so a `render.site_graph` plugin that sets the same key on the Organization (`brand`, `founder`, `knowsAbout`, `award`, `memberOf`, `hasOfferCatalog`, `potentialAction`, `parentOrganization` and the identifier codes) is overridden, as for any key the core node already prints. On a site with several public locales, a page of a locale with an office adds a third node, described below. The `WebSite` node carries a `SearchAction` pointing at `/search?q={search_term_string}`, and the article nodes refer back with `publisher` and `isPartOf` references, such as `https://example.com#organization`.
 
+### Services and extra properties
+
+These details come from Settings > General > Business details, or from `business_profile` and `locale_profiles` over the API. A site that leaves them empty prints the same graph as before.
+
+- **Catalogue name.** `catalog_name` becomes the `name` of the `hasOfferCatalog`. Empty prints `Services`.
+- **Price range.** A service with `price_min` or `price_max` gets a `priceSpecification` of type `UnitPriceSpecification` with `minPrice`, `maxPrice`, the currency and, when set, `unitText` from `unit_text`. The single `price` still prints as before and may sit next to it.
+- **Provider.** With `service_provider` on, every catalogue `Service` gets `provider` pointing at the Organization by `@id`. It is off by default, so existing sites print nothing new. A locale card can set it either way.
+- **Additional properties.** Each `additional_properties` row becomes one `PropertyValue` in `additionalProperty` with `name`, `value`, `minValue`, `maxValue` and `unitText`. A value that is a number prints as a number, anything else as text. They print on the Organization only.
+- **Service addresses.** An address that starts with a single `/`, such as `/services/seo`, is relative to the site. On a page of a locale it opens under that locale's segment. On a page that belongs to no locale it opens under the default locale. A full `https://` address is printed as it is.
+
+A `render.site_graph` plugin filter still runs after the core nodes are built, as before.
+
 ### The local business of a locale
 
 On a site with several public locales, Settings > General lists one card per locale. A locale's pages print a `LocalBusiness` node (or the subtype you choose) with `@id` `https://example.com#localbusiness-<segment>`, a `parentOrganization` reference to the Organization, and the card's address, phone, opening hours, area served and the other fields. A field left empty on the card uses the site-wide value. A site with fewer than two public locales prints no LocalBusiness, so the details that belong to the place (service radius, menu address, reservations, public access, free entry, amenities and payment methods) print nothing there.
