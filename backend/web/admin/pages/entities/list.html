@@ -3,5 +3,5 @@
 {{define "main"}}{{with .Data}}<div id="entities-head" class="hm-entities-head">{{template "hm/pageheader" dict "Title" .Title "Description" .Description "CSRF" $.CSRF "Menu" .Menu "Primary" .Primary}}</div>
 <div class="hm-entities">{{if .Table.FilterBar}}{{template "hm/filterbar" .Table}}
 <p id="entities-status" class="hm-visually-hidden" role="status">{{.Status}}</p>{{end}}
-<div id="entities-results">{{template "hm/tabs" dict "Label" "Columns" "Variant" "segmented" "Changes" "view" "Items" .ViewTabs}}{{template "hm/filterchips" .Table}}{{template "hm/table" .Results}}</div></div>
+<div id="entities-results">{{template "hm/filterchips" .Table}}{{template "hm/table" .Results}}</div></div>
 {{end}}{{end}}

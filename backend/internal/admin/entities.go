@@ -87,8 +87,6 @@ type entitiesData struct {
 	// swapped results) so a live update keeps an open popover.
 	Results ui.Table
 	Status  string // the live-region text, e.g. "12 entities"
-	// ViewTabs is the Columns toggle: Default or the inline SEO view.
-	ViewTabs []ui.Tab
 }
 
 // maxParentOptions caps the Parent filter (the parents with the most children).
@@ -513,8 +511,8 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		}
 		d.Menu = &create
 	}
-	d.ViewTabs = p.viewTabs(a.adminPath)
 	d.Results = d.Table
+	d.Results.ViewTabs = p.viewTabs(a.adminPath) // the Columns toggle sits in the table header
 	d.Results.SearchLabel, d.Results.PrimaryFilters, d.Results.PopoverFilters, d.Results.Segmented = "", nil, nil, nil
 	v := a.NewView(w, r, d.Title)
 	v.entityNav, v.entityManage = entitiesNavIn(a.adminPath, types, active), owner
