@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased: Shared content in template lists on multi-locale sites
+
+Theme data funcs (`recent`, `query`, `terms`, `attrValues`) now include shared (`und`) content plus the default locale on multi-locale sites. Known limit: on a non-default locale page the lists still use the default locale plus shared content.
+
+- Single-locale sites are unchanged.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.**
+
 ## Unreleased: Business details over the API and more graph fields
 
 An owner, or a script with an owner token, can now read and write the business profile and the per-locale cards through `GET` and `PATCH /api/v1/settings/site`. The profile also gains the fields the Organization and LocalBusiness graph could not print before, all editable in Settings > General > Business details and on each locale card.
