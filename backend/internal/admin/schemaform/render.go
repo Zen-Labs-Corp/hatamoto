@@ -54,6 +54,9 @@ type Options struct {
 	// Such a field is never filled in: it is a password input that says a
 	// value is stored, and offers to clear it.
 	Secrets map[string]bool
+	// Sections wraps each x-hm-group in a section of two-column pairs with a
+	// hairline above its heading. Off, a group is only a heading.
+	Sections bool
 }
 
 type opt struct {
@@ -136,16 +139,20 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 	}
 	b := &builder{opt: opt}
 	var out bytes.Buffer
+	open, shut := "sf/group", ""
+	if opt.Sections {
+		open, shut = "sf/section", "sf/section-end"
+	}
 	heading := ""
 	for _, p := range groupedProps(root.Props) {
 		if g := strings.TrimSpace(p.Node.Group); g != heading {
-			if heading != "" {
-				if err := t.ExecuteTemplate(&out, "sf/group-end", nil); err != nil {
+			if heading != "" && shut != "" {
+				if err := t.ExecuteTemplate(&out, shut, nil); err != nil {
 					return "", err
 				}
 			}
 			heading = g
-			if err := t.ExecuteTemplate(&out, "sf/group", heading); err != nil {
+			if err := t.ExecuteTemplate(&out, open, heading); err != nil {
 				return "", err
 			}
 		}
@@ -155,8 +162,8 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 		}
 		out.WriteByte('\n')
 	}
-	if heading != "" {
-		if err := t.ExecuteTemplate(&out, "sf/group-end", nil); err != nil {
+	if heading != "" && shut != "" {
+		if err := t.ExecuteTemplate(&out, shut, nil); err != nil {
 			return "", err
 		}
 	}

@@ -14,11 +14,13 @@
 .hm-sf-image { max-width: 240px; max-height: 160px; border-radius: var(--radius-md); border: 1px solid var(--border); object-fit: cover; }
 .hm-field__counter { text-align: right; font-size: var(--text-xs); }
 .hm-sf-group { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-medium); }
-/* Grouped forms (business details): the heading has a hairline above, short fields pair up, long ones and objects take the row. */
-.hm-sf-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; padding-top: var(--space-4); border-top: 1px solid var(--border); }
+/* Sections (Options.Sections, business details): a hairline above each heading, short fields pair up, long ones and objects take the row.
+   The section is the size container, so the pairs collapse with the card's width, not the viewport's. */
+.hm-sf-section { container-type: inline-size; display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
 .hm-sf-section:first-child { padding-top: 0; border-top: 0; }
-.hm-sf-section > .hm-sf-group, .hm-sf-section > fieldset, .hm-sf-section > .hm-field:has(textarea, .hm-field__check) { grid-column: 1 / -1; }
-@media (max-width: 640px) { .hm-sf-section { grid-template-columns: minmax(0, 1fr); } }
+.hm-sf-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.hm-sf-cols > fieldset, .hm-sf-cols > .hm-field:has(textarea, .hm-field__check) { grid-column: 1 / -1; }
+@container (min-width: 32rem) { .hm-sf-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* Long field titles: let the repeater's Add button and legends wrap instead of overflowing narrow containers (builder inspector). */
 .hm-repeater > .hm-btn { white-space: normal; height: auto; min-height: var(--control-h-sm); padding-block: calc(var(--space-1) + var(--space-px)); line-height: var(--leading-tight); text-align: start; max-width: 100%; }

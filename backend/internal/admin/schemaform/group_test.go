@@ -53,16 +53,33 @@ func TestUnknownGroupKeyIgnored(t *testing.T) {
 	}
 }
 
-func TestGroupsWrapInOneSectionEach(t *testing.T) {
-	html := renderGroups(t, `{"type":"object","x-hm-order":["a","b","c"],"properties":{
-		"a":{"type":"string","x-hm-group":"Profile"},
-		"b":{"type":"string","x-hm-group":"Links"},
-		"c":{"type":"string","x-hm-group":"Links"}}}`)
-	if o, c := strings.Count(html, `<div class="hm-sf-section">`), strings.Count(html, "</div>\n</div>"); o != 2 || c < 2 {
-		t.Errorf("sections = %d, closed = %d, want 2:\n%s", o, c, html)
+const twoGroups = `{"type":"object","x-hm-order":["a","b","c"],"properties":{
+	"a":{"type":"string","x-hm-group":"Profile"},
+	"b":{"type":"string","x-hm-group":"Links"},
+	"c":{"type":"string","x-hm-group":"Links"}}}`
+
+func TestGroupsWrapInOneSectionEachWhenOptedIn(t *testing.T) {
+	out, err := Render(json.RawMessage(twoGroups), nil, Options{Sections: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(out)
+	if o, c := strings.Count(html, `<div class="hm-sf-section">`), strings.Count(html, `<div class="hm-sf-cols">`); o != 2 || c != 2 {
+		t.Errorf("sections = %d, columns = %d, want 2 each:\n%s", o, c, html)
 	}
 	if strings.Contains(renderGroups(t, `{"type":"object","properties":{"a":{"type":"string"}}}`), "hm-sf-section") {
 		t.Error("ungrouped schema gets a section wrapper")
+	}
+}
+
+// Without Options.Sections a group is only a heading, as before sections existed.
+func TestGroupsStayPlainHeadingsByDefault(t *testing.T) {
+	html := renderGroups(t, twoGroups)
+	if strings.Contains(html, "hm-sf-section") || strings.Contains(html, "hm-sf-cols") {
+		t.Errorf("section wrapper without opt-in:\n%s", html)
+	}
+	if n := strings.Count(html, `<h3 class="hm-sf-group">`); n != 2 {
+		t.Errorf("headings = %d, want 2", n)
 	}
 }
 
