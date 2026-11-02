@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
@@ -13,7 +14,8 @@ import (
 // the default locale.
 func TestApplyLocale_SharedPagesHaveNoBusiness(t *testing.T) {
 	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
-	cfg := businessConfig(`{"en":{"geo_region":"ZZ-E","address":{"street":"Example Street 1","city":"Sample City"}},"fr":{"address":{"street":"Example Street 2","city":"Sample City"}}}`)
+	cfg := businessConfig(`{"fr":{"address":{"street":"Example Street 2","city":"Sample City"}}}`)
+	cfg.BusinessProfile = json.RawMessage(`{"name":"Example Legal","tax_id":"T1","email":"site@example.test","office":true,"geo_region":"ZZ-E","address":{"street":"Example Street 1","city":"Sample City"}}`)
 	if b, err := localeBusiness(cfg, set, "en"); err != nil || b == nil {
 		t.Fatalf("fixture: the default locale must have an office, got %+v, %v", b, err)
 	}
