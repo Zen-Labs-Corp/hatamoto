@@ -524,3 +524,53 @@ func TestMediaUsageCoversSiteMenusAndPlugins(t *testing.T) {
 		t.Errorf("delete warning does not count the site-level uses:\n%s", page)
 	}
 }
+
+// A list row loaded at version 1 saves its SEO title after someone else saved
+// the body (version 2): the title lands, the body edit stays. A second field
+// that changed in storage is reported, not overwritten.
+func TestEntitySEOInlineKeepsConcurrentBodyEdit(t *testing.T) {
+	p := newPGRig(t)
+	ctx := context.Background()
+	sc, err := p.ents.CreateSchema(ctx, &entity.CreateSchemaInput{Name: "Seo " + p.suffix, Slug: "seo" + p.suffix,
+		Schema:   json.RawMessage(`{"type":"object","properties":{"summary":{"type":"string"},"body":{"type":"string"}}}`),
+		Settings: json.RawMessage(`{"url_pattern":"/it-` + p.suffix + `/{path}"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.cleanups = append(p.cleanups, func() { _ = p.ents.DeleteSchema(ctx, sc.ID) })
+	e, err := p.ents.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Row " + p.suffix, Slug: "row-" + p.suffix, Attributes: json.RawMessage(`{"summary":"S","body":"one","meta_description":"Old description","canonical_url":"/keep"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.cleanups = append(p.cleanups, func() { _ = p.ents.DeleteEntity(ctx, e.ID) })
+	p.rig.a.deps.Content.Entities = p.ents
+
+	// User B saves the body: version 2, and a new description.
+	theirs := json.RawMessage(`{"summary":"S","body":"two","meta_description":"Their description","canonical_url":"/keep"}`)
+	if _, err := p.ents.UpdateEntity(ctx, e.ID, nil, &entity.UpdateEntityInput{Attributes: &theirs}); err != nil {
+		t.Fatal(err)
+	}
+	// User A's row still carries version 1 values.
+	rec := p.do("POST", "/admin/entities/"+e.ID.String()+"/seo", "editor-token", url.Values{
+		"title": {"Row title"}, "orig_title": {""},
+		"description": {"My description"}, "orig_description": {"Old description"},
+	}, map[string]string{"Accept": "application/json"})
+	var reply seoInlineReply
+	if err := json.Unmarshal(rec.Body.Bytes(), &reply); err != nil || rec.Code != 409 {
+		t.Fatalf("save = %d %v\n%s", rec.Code, err, rec.Body)
+	}
+	if reply.Status != "conflict" || reply.Conflicts["description"] != "Their description" || reply.Values.Title != "Row title" {
+		t.Errorf("reply = %+v", reply)
+	}
+	got, err := p.ents.GetEntity(ctx, e.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := attrsMap(got.Attributes)
+	if attrs["meta_title"] != "Row title" || attrs["body"] != "two" || attrs["meta_description"] != "Their description" || attrs["canonical_url"] != "/keep" || got.Version != 3 {
+		t.Errorf("v%d attrs = %v", got.Version, attrs)
+	}
+	if !strings.Contains(p.get("/admin/entities/"+e.ID.String()), `value="Row title"`) {
+		t.Error("the entity form does not show the inline title")
+	}
+}

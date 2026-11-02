@@ -18,8 +18,10 @@ const (
 
 // seoFields are the values the inline view shows and edits.
 type seoFields struct {
-	Title, Description, Keyword string
-	NoIndex                     bool
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Keyword     string `json:"keyword"`
+	NoIndex     bool   `json:"noindex"`
 }
 
 // seoEdit is one posted row: the new values, the values the row was loaded
