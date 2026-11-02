@@ -202,3 +202,58 @@ func TestEntityFormCustomJSONLDErrorReads(t *testing.T) {
 		}
 	}
 }
+
+func TestEntityEditSchemaPreviewShowsCustomBlocks(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(11).String()
+	form := func(ld string) url.Values {
+		return url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}, "seo_custom_jsonld": {ld}}
+	}
+	preview := func(body string) string {
+		i := strings.Index(body, `id="seo-schema"`)
+		if i < 0 {
+			t.Fatalf("no schema preview")
+		}
+		return body[i : i+strings.Index(body[i:], "</pre>")]
+	}
+	analyze := func(ld string) string {
+		return preview(c.do("POST", "/admin/entities/"+id+"/analyze", "owner-token", form(ld), map[string]string{"HX-Request": "true"}).Body.String())
+	}
+
+	// Posted valid block.
+	pv := analyze(`{"@context":"https://schema.org","@type":"Thing","name":"Posted Name"}`)
+	if !strings.Contains(pv, "&#34;Posted Name&#34;") || strings.Count(pv, "@context") < 2 {
+		t.Errorf("valid block missing from the preview: %s", pv)
+	}
+	// Posted invalid block: the generated document only.
+	if pv := analyze(`{"@type":"Thing","name":"Bad Name"}`); strings.Contains(pv, "Bad Name") || !strings.Contains(pv, "@context") {
+		t.Errorf("invalid block previewed: %s", pv)
+	}
+	// Stored block, on a fresh render.
+	if rec := c.do("POST", "/admin/entities/"+id, "owner-token", form(`{"@context":"https://schema.org","@type":"Thing","name":"Stored Name"}`), nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if pv := preview(c.do("GET", "/admin/entities/"+id, "owner-token", nil, nil).Body.String()); !strings.Contains(pv, "&#34;Stored Name&#34;") {
+		t.Errorf("stored block missing from the preview: %s", pv)
+	}
+}
+
+// A save refused on the custom JSON-LD keeps every posted field.
+func TestEntityEditKeepsTheFormOnACustomJSONLDError(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	form := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"Kept summary text"},
+		"seo_title": {"Kept meta title"}, "seo_custom_jsonld": {`{"@type":"Thing"}`}}
+	rec := c.do("POST", "/admin/entities/"+fid(11).String(), "owner-token", form, nil)
+	if rec.Code != 422 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	for _, want := range []string{"Kept summary text", "Kept meta title"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("re-render lost %q", want)
+		}
+	}
+}

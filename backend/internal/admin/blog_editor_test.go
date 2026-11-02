@@ -707,3 +707,68 @@ func TestSEOPanelSchemaFieldsOnlyWhereTheTabEditsThem(t *testing.T) {
 	edit := r.do("GET", "/admin/entities/"+fid(11).String(), "owner-token", nil, nil).Body.String()
 	has(t, edit, `name="seo_schema_type"`, `name="seo_custom_jsonld"`)
 }
+
+// schemaPreview is the generated-data block of the Schema tab in a rendered page.
+func schemaPreview(t *testing.T, body string) string {
+	t.Helper()
+	i := strings.Index(body, `id="seo-schema"`)
+	if i < 0 {
+		t.Fatalf("no schema preview in page")
+	}
+	j := strings.Index(body[i:], "</pre>")
+	if j < 0 {
+		return body[i:]
+	}
+	return body[i : i+j]
+}
+
+func TestBlogEditorSchemaPreviewShowsCustomBlocks(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	ld := `{"@context":"https://schema.org","@type":"Thing","name":"Custom Name"}`
+	f := r.form(t)
+	f.Set("seo_custom_jsonld", ld)
+	f.Set("_op", "save")
+	if rec := r.post(r.path(), f); rec.Code != 303 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	// Stored block, on a fresh render.
+	pv := schemaPreview(t, r.do("GET", r.path(), "owner-token", nil, nil).Body.String())
+	has(t, pv, "&#34;Article&#34;", "&#34;Custom Name&#34;")
+
+	// Posted valid block, on the live analysis.
+	f = r.form(t)
+	f.Set("seo_custom_jsonld", `{"@context":"https://schema.org","@type":"Thing","name":"Posted Name"}`)
+	pv = schemaPreview(t, r.post(r.path()+"/analyze", f).Body.String())
+	has(t, pv, "&#34;Article&#34;", "&#34;Posted Name&#34;")
+	if strings.Contains(pv, "Custom Name") {
+		t.Errorf("stored block shown next to the posted one")
+	}
+
+	// Posted invalid block: the generated document only.
+	f = r.form(t)
+	f.Set("seo_custom_jsonld", `{"@type":"Thing","name":"Bad Name"}`)
+	pv = schemaPreview(t, r.post(r.path()+"/analyze", f).Body.String())
+	has(t, pv, "&#34;Article&#34;")
+	if strings.Contains(pv, "Bad Name") || strings.Contains(pv, "Custom Name") {
+		t.Errorf("invalid block previewed: %s", pv)
+	}
+}
+
+// A save refused on the custom JSON-LD keeps the whole draft, like any other field error.
+func TestBlogEditorKeepsTheDraftOnACustomJSONLDError(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	f := r.form(t)
+	f.Set("content", "<p>Draft body kept</p>")
+	f.Set("seo_title", "Kept meta title")
+	f.Set("seo_custom_jsonld", `{"@type":"Thing"}`)
+	f.Set("_op", "save")
+	rec := r.post(r.path(), f)
+	if rec.Code != 422 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	has(t, rec.Body.String(), "Draft body kept", "Kept meta title", `{&#34;@type&#34;:&#34;Thing&#34;}`)
+}
