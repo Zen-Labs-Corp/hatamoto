@@ -372,6 +372,34 @@ func TestPartialTable(t *testing.T) {
 	}
 }
 
+func TestPartialTableEditCells(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	tb := fixtureTable()
+	tb.Bulk = nil
+	tb.Columns = []ui.Col{{Key: "name", Label: "Name"}, {Key: "title", Label: "SEO title"}, {Key: "desc", Label: "Description"}, {Key: "noindex", Label: "Noindex"}, {Key: "state", Label: "State"}}
+	form := "seo-u1"
+	tb.Rows = []ui.Row{{ID: "u1", Label: "Jo Ng", Cells: []ui.Cell{
+		{Text: "Jo Ng"},
+		{Edit: &ui.EditCell{Name: "title", Value: "Hello", Orig: "Hello", Placeholder: "Jo Ng | Site", Label: "SEO title for Jo Ng", Control: "text", Max: 60, Count: &ui.EditCount{Len: 5, Status: "warn", Msg: "Short"}, Form: form}},
+		{Edit: &ui.EditCell{Name: "description", Placeholder: "From the template", Label: "SEO description for Jo Ng", Control: "textarea", Max: 160, Count: &ui.EditCount{Status: "warn", Msg: "Empty"}, Form: form}},
+		{Edit: &ui.EditCell{Name: "noindex", Value: "true", Orig: "true", Label: "Noindex for Jo Ng", Control: "switch", Form: form}},
+		{Edit: &ui.EditCell{Control: "save", Form: form, Action: "/admin/entities/u1/seo", CSRF: "tok", Hidden: map[string]string{"back": "/admin/entities?view=seo"}}},
+	}}}
+	s := checkPartial(t, a, "hm/table", "seo", tb)
+	for _, want := range []string{
+		`for="seo-u1-title">SEO title for Jo Ng</label>`, `id="seo-u1-title" name="title" form="seo-u1" value="Hello"`, `name="orig_title" value="Hello" form="seo-u1"`,
+		`placeholder="Jo Ng | Site"`, `id="seo-u1-title-count"`, `5 / 60`, `<textarea class="hm-field__control" id="seo-u1-description"`, `0 / 160`,
+		`role="switch" id="seo-u1-noindex" name="noindex" value="true" form="seo-u1" checked`, `<form class="hm-cell-edit hm-cell-edit--save" id="seo-u1" method="post" action="/admin/entities/u1/seo"><input type="hidden" name="_csrf" value="tok">`,
+		`data-state="idle"`, `name="back" value="/admin/entities?view=seo"`, `<span>Save</span></button>`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("edit cells missing %q", want)
+		}
+	}
+}
+
 // A row menu lists links and forms as menuitems, the destructive one last
 // behind a separator, and its button names the row.
 func TestRowMenuOrder(t *testing.T) {

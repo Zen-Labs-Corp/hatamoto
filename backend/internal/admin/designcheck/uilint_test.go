@@ -80,6 +80,7 @@ var uiAllow = []uiAllowEntry{
 	// UI-01: submits that are row, setting or inline-add actions, not a form's save action.
 	// Also the only home of POST forms that used to skip the rule by class name (hm-inline)
 	// and of partial forms that were skipped as "partials".
+	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-seobulk-save`, Reason: "row action of an editable list: the row's own form saves that one row without JavaScript"},
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},

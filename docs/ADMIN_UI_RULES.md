@@ -133,6 +133,7 @@ A change to one component edits only its own subsection below and its entry in t
 | badge | `.hm-badge` | `css/partials/badge.css` | `hm/badge` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--badge-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-badge.hm-badge--sm`: `font-size: var(--text-2xs)`, `height: var(--badge-h-sm)`, `padding-left: var(--space-1)`, `padding-right: var(--space-1)` |
 | button | `.hm-btn` | `css/partials/button.css` | `hm/button` | `border-top-left-radius: var(--radius-sm)`, `border-top-width: 0`, `box-shadow: inset 0 0 0 1px var(--segment-ring), inset 0 -2px 0 var(--segment-bevel)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: calc(var(--space-3) + var(--space-px))`, `padding-right: calc(var(--space-3) + var(--space-px))`; `.hm-btn--danger`: `box-shadow: inset 0 -1px 0 var(--btn-edge-danger)`; `.hm-btn--ghost`: `box-shadow: none`; `.hm-btn--icon, .hm-btn[data-icon-only]`: `padding-left: 0`, `padding-right: 0`; `.hm-btn[aria-pressed="true"]`: `box-shadow: inset 0 0 0 1px var(--color-sumi)`; `.hm-btn--primary`: `box-shadow: inset 0 -1px 0 var(--btn-edge-primary)`; `.hm-btn--sm`: `padding-left: calc(var(--space-2) + var(--space-px))`, `padding-right: calc(var(--space-2) + var(--space-px))` |
 | card | `.hm-card` | `css/partials/card.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)` |
+| cell-edit | `.hm-cell-edit` | `css/partials/table.css` | `hm/celledit` |  |
 | chip | `.hm-msel__chip, .hm-msel__more, .hm-filter-chip` | `css/partials/multiselect.css` | none | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--chip-h)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
 | colophon | `.hm-colophon` | `css/partials/colophon.css` | none |  |
 | confirmcard | `.hm-confirmcard` | `css/partials/confirmcard.css` | `hm/confirmcard` | `display: flex`, `flex-direction: column`, `gap: var(--space-4)` |
@@ -602,6 +603,18 @@ Rules: use it when each choice needs a title and a sentence (the setup theme and
 Partial: `hm/danger-confirm`. Contract: `components.json` key `danger-confirm`.
 
 Rules: use it for an action that is hard to undo or weakens a security setting, where a stray click must not be enough (the admin address "use it anyway" step, later key rotation or deleting site content). It is an inline card, never a modal: a self-contained `<form method="post">` with a title, body paragraphs, one phrase input named `confirm_phrase`, and a footer with Cancel first and the red danger submit last. `Tone` `ink` swaps that for a filled ink primary submit with a ghost Cancel; only the locale convert confirm uses it. The server always checks the posted phrase with `CheckDangerPhrase` and the screen re-renders with status 422 and `Error` set on a mismatch or an empty value. The submit state in the browser is only a hint: server HTML never carries `disabled` on the submit, so the form works without JS, and `components.js` disables it until the typed text equals the phrase exactly. The comparison is exact in Go and in JS: no trim, no case folding. Body text is built from `ui.DangerPart` segments (plain, `Code`, `Strong`), never `template.HTML`. Pass a unique `ID` per card on a page. The card border stays the normal grey; danger shows as a red title (`--color-danger`, as in the danger dialog) and the red submit.
+
+### Editable cell
+
+Partial: `hm/celledit`, drawn by `hm/cell` when `ui.Cell.Edit` is set. Contract: `components.json` key `cell-edit`.
+
+Rules: for a list that edits one value per cell and saves a row at a time (the inline SEO view).
+Every control is bound with `form="<row form id>"` to the row's own form, has a visually hidden
+label that names the row ("SEO title for About"), and is followed by a hidden `orig_<name>` input
+holding the loaded value, so the server can reject a field that changed elsewhere. The counter is
+rendered by the server (`hm/seocount`). The last cell of the row is the form itself (`Control`
+"save"): a save state and a Save button, so the row saves without JavaScript; scripts only change
+`data-state` and the text, never the markup. A cell without `Edit` renders exactly as before.
 
 <!-- new-components-above -->
 

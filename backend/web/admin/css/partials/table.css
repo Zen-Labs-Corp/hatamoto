@@ -93,7 +93,11 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards thead th { padding-inline: 0; }
   .hm-table--cards thead th:not(.hm-table__check):not(:has(.hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
   .hm-table__filters .hm-field__control, .hm-table__filters .hm-select { flex: 1 1 100%; max-width: none; width: 100%; }
+  .hm-table--cards td:has(.hm-cell-edit) { flex: 1 1 100%; margin-inline-end: 0; }
 }
+/* Editable cell (inline SEO view): a control, its counter and the hidden loaded value. */
+.hm-cell-edit { display: flex; flex-direction: column; gap: var(--space-1); min-width: 14rem; white-space: normal; }
+.hm-cell-edit--save { flex-direction: row; align-items: center; gap: var(--space-2); min-width: 0; }
 .hm-table__nowrap { white-space: nowrap; }
 .hm-table__clip { display: inline-block; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .hm-table__scroll {
