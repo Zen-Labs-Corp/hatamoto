@@ -90,10 +90,14 @@ jobs:
       - name: Integration smoke (PG18 subset, one database per package)
         if: matrix.pg == '18' && inputs.tier != 'full'
         run: |
-          exclude=$(mktemp)
-          sed -e 's#^#hatamoto.dev/core/#' ../scripts/ci-smoke-exclude.txt > "$exclude"
-          pkgs=$(go list -tags=integration -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -vxFf "$exclude" || true)
-          PKGDB_PKGS="$pkgs" bash ../scripts/ci-integration-pkgdb.sh
+          pkgs=$(bash ../scripts/ci-smoke-pkgs.sh)
+          n=$(wc -w <<<"$pkgs")
+          if [ "$n" -eq 0 ]; then echo "smoke: empty package list" >&2; exit 1; fi
+          echo "smoke: $n packages"
+          set -o pipefail
+          PKGDB_PKGS="$pkgs" bash ../scripts/ci-integration-pkgdb.sh | tee /tmp/smoke.log
+          ran=$(grep -c '^=== .*: ok$' /tmp/smoke.log || true)
+          if [ "$ran" -ne "$n" ]; then echo "smoke: $ran of $n packages ran" >&2; exit 1; fi
       # The packages left out of the smoke still get their unit tests, with -short.
       - name: Unit tests of the packages left out of the smoke (-short)
         if: matrix.pg == '18' && inputs.tier != 'full'
