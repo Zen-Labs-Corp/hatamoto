@@ -134,6 +134,7 @@ GET /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneral-fm
 GET /admin/settings/seo/knowledge-graph -> admin.(*Admin).handleSEOKnowledgeGraph-fm
 GET /admin/settings/seo/robots -> admin.(*Admin).handleSEORobots-fm
 GET /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchema-fm
+GET /admin/settings/seo/sitemap -> admin.(*Admin).handleSEOSitemap-fm
 GET /admin/settings/seo/social -> admin.(*Admin).handleSEOSocial-fm
 GET /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitles-fm
 GET /admin/settings/seo/verification -> admin.(*Admin).handleSEOVerification-fm
@@ -318,6 +319,7 @@ POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddress
 POST /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneralSave-fm
 POST /admin/settings/seo/robots -> admin.(*Admin).handleSEORobotsSave-fm
 POST /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchemaSave-fm
+POST /admin/settings/seo/sitemap -> admin.(*Admin).handleSEOSitemapSave-fm
 POST /admin/settings/seo/social -> admin.(*Admin).handleSEOSocialSave-fm
 POST /admin/settings/seo/social/preview -> admin.(*Admin).handleSEOSocialPreview-fm
 POST /admin/settings/seo/titles -> admin.(*Admin).handleSEOTitlesSave-fm

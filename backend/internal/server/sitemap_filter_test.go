@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/sdk"
 )
 
@@ -19,7 +20,7 @@ func sitemapTestServer() *Server {
 
 func sampleURLs() []URL {
 	return []URL{{
-		Loc: "https://x.test/a", LastMod: "2026-01-01", ChangeFreq: "daily", Priority: 0.8,
+		Loc: "https://x.test/a", LastMod: "2026-01-01", ChangeFreq: "daily", Priority: ptr(0.8),
 		Links: []HrefLang{{Rel: "alternate", HrefLang: "en", Href: "https://x.test/a"}},
 	}}
 }
@@ -58,7 +59,7 @@ func TestSitemapFilterAddsEntriesOnly(t *testing.T) {
 	if seen.Group != "g" || len(seen.Add) != 0 {
 		t.Fatalf("filter saw %+v; want the group and no URLs", seen)
 	}
-	if len(got) != 3 || got[0].Priority != 0.8 || got[1].Loc != "https://x.test/extra" || got[1].Links[0].HrefLang != "fr" || got[2].Loc != "https://x.test/more" {
+	if len(got) != 3 || got[0].Priority == nil || *got[0].Priority != 0.8 || got[1].Loc != "https://x.test/extra" || got[1].Links[0].HrefLang != "fr" || got[2].Loc != "https://x.test/more" {
 		t.Fatalf("got %+v", got)
 	}
 	if len(in) != 1 {
@@ -143,4 +144,28 @@ func TestApplySitemapFilterFor_GroupName(t *testing.T) {
 			t.Fatalf("filter saw %+v; want group misc, language en, no segment, file misc", got)
 		}
 	})
+}
+
+// A plugin's additions to a split group are listed once, not in every chunk.
+func TestSitemapFilterAdditionsLandOnceInASplitGroup(t *testing.T) {
+	s := sitemapTestServer()
+	hooks.OnFilter(s.hooks.For("p"), sdk.SitemapURLsF, 10, func(_ context.Context, v sdk.SitemapURLs) (sdk.SitemapURLs, error) {
+		if v.Group == "post" {
+			v.Add = append(v.Add, sdk.SitemapURL{Loc: "http://example.test/extra"})
+		}
+		return v, nil
+	})
+	plan := planSitemap(smInput(t, smSettings(seo.Sitemap{MaxURLs: 2}),
+		entry("post", "a", "2025-01-01", nil), entry("post", "b", "2025-01-01", nil), entry("post", "c", "2025-01-01", nil)))
+	extra := 0
+	for _, key := range []string{"post", "post-2"} {
+		for _, u := range s.sitemapFileURLs(context.Background(), plan, key) {
+			if u.Loc == "http://example.test/extra" {
+				extra++
+			}
+		}
+	}
+	if extra != 1 {
+		t.Errorf("the added URL is listed %d times, want 1", extra)
+	}
 }

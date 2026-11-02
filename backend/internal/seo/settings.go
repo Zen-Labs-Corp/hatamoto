@@ -109,6 +109,7 @@ type Settings struct {
 	Index        Index        `json:"index,omitzero"`
 	Robots       Robots       `json:"robots,omitzero"`
 	Verification Verification `json:"verification,omitzero"`
+	Sitemap      Sitemap      `json:"sitemap,omitzero"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -189,6 +190,11 @@ func (s Settings) Clone() Settings {
 	}
 	c.Robots.ExtraLines = append([]string(nil), s.Robots.ExtraLines...)
 	c.Verification.Custom = append([]MetaTag(nil), s.Verification.Custom...)
+	if s.Sitemap.DefaultPriority != nil {
+		p := *s.Sitemap.DefaultPriority
+		c.Sitemap.DefaultPriority = &p
+	}
+	c.Sitemap.ExcludePaths = append([]string(nil), s.Sitemap.ExcludePaths...)
 	return c
 }
 
@@ -234,6 +240,7 @@ func (s Settings) Validate() []FieldError {
 	}
 	errs = append(errs, s.validateSocial(check)...)
 	errs = append(errs, s.validateRobotsVerification()...)
+	errs = append(errs, validateSitemap(s.Sitemap)...)
 	return errs
 }
 

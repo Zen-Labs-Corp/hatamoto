@@ -56,7 +56,7 @@ var settingsLive = map[string]bool{
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
-	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true,
+	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
 }
 
@@ -105,6 +105,7 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Roles: ownerOnly},
 		{ID: "seo-robots", Label: "Robots", Final: "/settings/seo/robots", Roles: ownerOnly},
 		{ID: "seo-verification", Label: "Verification", Final: "/settings/seo/verification", Roles: ownerOnly},
+		{ID: "seo-sitemap", Label: "Sitemap", Final: "/settings/seo/sitemap", Roles: ownerOnly},
 	}},
 	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},

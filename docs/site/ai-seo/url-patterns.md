@@ -112,7 +112,7 @@ The redirects screen is described in [Media, menus and redirects](../admin/media
 | `sitemap_group` | Sitemap group | string | Child sitemap name. Default: the first literal segment of the pattern, else `misc`. |
 | `aliases` | Other slugs served by this pattern | string[] | Extra type slugs that resolve to this type, for archives, route lookup and linking. Comma separated in the admin. |
 | `overrides` | none | object[] | `{attribute, equals, url_pattern, sitemap_group}`: entities whose `attributes[attribute]` equals `equals` use another pattern and group. |
-| `sitemap` | Sitemap priority, Sitemap change frequency, Leave this type out of the sitemap | object | `{priority, changefreq, exclude}`. `exclude` drops the type from the sitemap. |
+| `sitemap` | none (edited under Settings > SEO > Sitemap) | object | `{priority, changefreq, exclude}`. `exclude` drops the type from the sitemap. The schema editor links to the Sitemap tab instead of showing these fields, and saving a type keeps the object as stored. |
 | `section_pages` | Entities named like the archive address become section pages | bool | On a page-like type: a row whose slug equals the section prefix of another type (a `docs` page next to `/docs/{slug}`) is served at `/{slug}` and becomes that section's index in the sitemap. |
 | `schema_org_type` | Structured data type (JSON-LD) | string | JSON-LD `@type` for types without annotations or a plugin builder. See [JSON-LD](json-ld.md#typing-a-content-type-with-schema-org-type). |
 | `editor` | Editor | string | `""` (**Form**) for the generic form, or `"post"` (**Post editor**) to edit entities in the post editor, with autosave, preview and the SEO panel. The built-in post family always uses it, and the person type cannot. |

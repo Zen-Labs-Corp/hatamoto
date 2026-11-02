@@ -111,3 +111,51 @@ func TestPublicRepo_BaseRowsOnlyAndSchemaAliases(t *testing.T) {
 		t.Fatalf("ListAllPublished returned %d rows for slug shared, want 1", n)
 	}
 }
+
+func TestPublicRepo_SitemapHiddenFlag(t *testing.T) {
+	ctx := context.Background()
+	db := newIntegrationDB(t)
+	schemas := NewPostgresSchemaRepository(db)
+	pub := NewPostgresPublicRepository(db)
+
+	sc, err := schemas.Create(ctx, &CreateSchemaInput{Name: "it-hide", Slug: "it-hide", Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
+
+	hiddenID := seedRow(t, ctx, schemas, sc.ID, "hidden-one", "Hidden", "")
+	plainID := seedRow(t, ctx, schemas, sc.ID, "plain-one", "Plain", "")
+	conn, err := db.GetConn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.Exec(ctx, `UPDATE hatamoto_entities SET attributes = '{"hide_from_sitemap": true}'::jsonb WHERE id = $1`, hiddenID)
+	conn.Release()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	all, err := pub.ListAllPublished(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for _, e := range all {
+		switch e.ID {
+		case hiddenID:
+			seen++
+			if !e.Hidden || e.NoIndex {
+				t.Errorf("hidden entry: Hidden=%v NoIndex=%v, want true/false", e.Hidden, e.NoIndex)
+			}
+		case plainID:
+			seen++
+			if e.Hidden {
+				t.Error("plain entry reported Hidden")
+			}
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("found %d of the 2 seeded entries", seen)
+	}
+}

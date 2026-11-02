@@ -65,7 +65,11 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 	}
 	if len(parts) == 1 && parts[0].key == key {
 		urls, _ := plan.GroupURLs(key)
-		return s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi())
+		if parts[0].chunk > 0 {
+			// Plugin additions are listed once, in the first file of a split group.
+			return plan.dropStats(urls)
+		}
+		return plan.dropStats(s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi()))
 	}
 	var out []URL
 	seen := map[string]bool{}
@@ -76,6 +80,19 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 				out = append(out, u)
 			}
 		}
+	}
+	return plan.dropStats(out)
+}
+
+// dropStats removes priority and changefreq from every URL, including those a
+// sitemap.urls filter added, when the site switched them off.
+func (p *sitemapPlan) dropStats(urls []URL) []URL {
+	if sm := p.sitemapSettings(); sm == nil || !sm.NoStats {
+		return urls
+	}
+	out := slices.Clone(urls)
+	for i := range out {
+		out[i].Priority, out[i].ChangeFreq = nil, ""
 	}
 	return out
 }
@@ -118,7 +135,7 @@ func mergeSitemapAdditions(urls []URL, add []sdk.SitemapURL) []URL {
 func fromSDKSitemapURLs(urls []sdk.SitemapURL) []URL {
 	out := make([]URL, len(urls))
 	for i, u := range urls {
-		x := URL{Loc: u.Loc, LastMod: u.LastMod, ChangeFreq: u.ChangeFreq, Priority: u.Priority}
+		x := URL{Loc: u.Loc, LastMod: u.LastMod, ChangeFreq: u.ChangeFreq, Priority: ptr(u.Priority)}
 		for _, a := range u.Alternates {
 			x.Links = append(x.Links, HrefLang{Rel: a.Rel, HrefLang: a.HrefLang, Href: a.Href})
 		}
@@ -132,6 +149,17 @@ func fromSDKSitemapURLs(urls []sdk.SitemapURL) []URL {
 func sitemapHasLinks(urls []URL) bool {
 	for _, u := range urls {
 		if len(u.Links) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// sitemapHasImages reports whether any URL lists images, which require the
+// image namespace declaration on the urlset.
+func sitemapHasImages(urls []URL) bool {
+	for _, u := range urls {
+		if len(u.Images) > 0 {
 			return true
 		}
 	}

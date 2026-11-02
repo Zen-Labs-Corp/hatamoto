@@ -69,12 +69,8 @@
 <div class="hm-field{{if index .Errors "editor"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="editor">Editor</label>
 {{if .BuiltinPostEditor}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor" disabled><option>Post editor (built in)</option></select></div>{{else}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor"{{with index .Errors "editor"}} aria-invalid="true" aria-describedby="editor-error"{{end}}><option value="">Form</option><option value="post"{{if eq .Settings.Editor "post"}} selected{{end}}>Post editor</option></select></div>{{end}}
 {{with index .Errors "editor"}}<p class="hm-field__error" id="editor-error">{{.}}</p>{{end}}</div>
-{{template "hm/field" dict "ID" "sitemap_exclude" "Name" "sitemap_exclude" "Label" "Leave this type out of the sitemap" "Control" "switch" "Value" "true" "Checked" .Settings.Exclude}}
-<div class="hm-row hm-row--top">
 {{template "hm/field" dict "ID" "sitemap_group" "Name" "sitemap_group" "Label" "Sitemap group" "Value" .Settings.SitemapGroup "Attrs" (attrmap "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "priority" "Name" "priority" "Label" "Sitemap priority" "Value" .Settings.Priority "Help" "0 to 1." "Error" (index .Errors "priority") "Attrs" (attrmap "inputmode" "decimal" "autocomplete" "off")}}
-<div class="hm-field"><label class="hm-field__label" for="changefreq">Sitemap change frequency</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="changefreq" name="changefreq"><option value="">Default</option>{{range .ChangeFreqs}}<option value="{{.}}"{{if eq . $.Data.Settings.ChangeFreq}} selected{{end}}>{{.}}</option>{{end}}</select></div></div>
-</div>
+{{template "hm/button" dict "Label" "Sitemap: managed in SEO > Sitemap" "Href" (printf "%s/settings/seo/sitemap" adminPath)}}
 </div>
 {{template "hm/card-end"}}
 

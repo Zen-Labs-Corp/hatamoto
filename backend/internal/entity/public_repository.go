@@ -82,6 +82,9 @@ type SitemapEntry struct {
 	ChangeFreq    string    `json:"change_freq"`
 	NoIndex       bool      `json:"no_index"`
 	IncludeInLLMs bool      `json:"include_in_llms"`
+	// Hidden is attributes.hide_from_sitemap: the entry stays out of the
+	// sitemap but keeps its robots output (it is not NoIndex).
+	Hidden bool `json:"-"`
 	// Locale and Group place the entry in a locale and a translation group for
 	// the per-locale sitemaps (not serialised).
 	Locale string     `json:"-"`
@@ -466,6 +469,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 		SELECT e.id, e.slug, s.slug as schema_slug, e.updated_at,
 			` + NoIndexSQL + `,
 			COALESCE(NULLIF(e.attributes->'seo'->>'include_in_llms_txt', '')::boolean, true),
+			COALESCE(e.attributes->>'hide_from_sitemap', '') = 'true' AS hidden,
 			COALESCE(e.attributes->>'format', '') AS entity_format,
 			COALESCE(p.slug, '') AS parent_slug,
 			COALESCE(anc.path, '') AS ancestor_path,
@@ -503,7 +507,7 @@ func (r *PostgresPublicRepository) ListAllPublishedWithAttrs(ctx context.Context
 		var e SitemapEntry
 		var updatedAt time.Time
 		var attrsJSON []byte
-		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &e.Locale, &e.Group, &attrsJSON); err != nil {
+		if err := rows.Scan(&e.ID, &e.Slug, &e.SchemaSlug, &updatedAt, &e.NoIndex, &e.IncludeInLLMs, &e.Hidden, &e.EntityFormat, &e.ParentSlug, &e.AncestorPath, &e.PublishedAt, &e.Locale, &e.Group, &attrsJSON); err != nil {
 			return nil, fmt.Errorf("failed to scan sitemap entry: %w", err)
 		}
 		if len(attrKeys) > 0 {

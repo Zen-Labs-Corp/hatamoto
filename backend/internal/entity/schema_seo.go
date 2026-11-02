@@ -3,11 +3,23 @@ package entity
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// SchemaSitemapPatch replaces the three sitemap keys a type owns: exclude,
+// priority and changefreq. Other keys of the stored sitemap object stay.
+// Exclude false, a nil Priority and an empty ChangeFreq remove their key.
+type SchemaSitemapPatch struct {
+	Exclude    bool
+	Priority   *float64
+	ChangeFreq string
+}
+
+var sitemapChangeFreqs = []string{"always", "hourly", "daily", "weekly", "monthly", "yearly", "never"}
 
 // SchemaSEOPatch changes the SEO-related settings of a schema. A nil field is
 // left alone; an empty string removes the key. FAQFromContent true removes the
@@ -18,6 +30,7 @@ type SchemaSEOPatch struct {
 	SchemaOrgType      *string
 	ArticleType        *string
 	FAQFromContent     *bool
+	Sitemap            *SchemaSitemapPatch
 }
 
 // UpdateSchemaSEOSettings writes the archive title and description into the
@@ -103,5 +116,60 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 			obj["faq_from_content"] = json.RawMessage("false")
 		}
 	}
+	if p.Sitemap != nil {
+		if err := patchSitemapObject(obj, *p.Sitemap); err != nil {
+			return nil, err
+		}
+	}
 	return json.Marshal(obj)
+}
+
+// patchSitemapObject sets or removes the owned keys of obj["sitemap"] and
+// drops the object when nothing is left.
+func patchSitemapObject(obj map[string]json.RawMessage, sp SchemaSitemapPatch) error {
+	if pr := sp.Priority; pr != nil && (*pr < 0 || *pr > 1) {
+		return settingsErr("sitemap[priority]", "priority must be between 0 and 1")
+	}
+	if sp.ChangeFreq != "" && !slices.Contains(sitemapChangeFreqs, sp.ChangeFreq) {
+		return settingsErr("sitemap[changefreq]", "changefreq must be one of %s", strings.Join(sitemapChangeFreqs, ", "))
+	}
+	sm := map[string]json.RawMessage{}
+	if raw, ok := obj["sitemap"]; ok {
+		if err := json.Unmarshal(raw, &sm); err != nil || sm == nil {
+			sm = map[string]json.RawMessage{}
+		}
+	}
+	if sp.Exclude {
+		sm["exclude"] = json.RawMessage("true")
+	} else {
+		delete(sm, "exclude")
+	}
+	if sp.Priority != nil {
+		b, err := json.Marshal(*sp.Priority)
+		if err != nil {
+			return err
+		}
+		sm["priority"] = b
+	} else {
+		delete(sm, "priority")
+	}
+	if sp.ChangeFreq != "" {
+		b, err := json.Marshal(sp.ChangeFreq)
+		if err != nil {
+			return err
+		}
+		sm["changefreq"] = b
+	} else {
+		delete(sm, "changefreq")
+	}
+	if len(sm) == 0 {
+		delete(obj, "sitemap")
+		return nil
+	}
+	b, err := json.Marshal(sm)
+	if err != nil {
+		return err
+	}
+	obj["sitemap"] = b
+	return nil
 }

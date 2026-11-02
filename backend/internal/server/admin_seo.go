@@ -5,6 +5,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/admin"
@@ -31,12 +32,33 @@ func (a seoAdmin) Merge(ctx context.Context, fn func(*seo.Settings)) error {
 // transaction. Schema rows are locked in id order and the settings row last, so
 // two saves cannot deadlock. The caches are cleared only after the commit.
 func (a seoAdmin) SaveTitles(ctx context.Context, patches []admin.SEOTitlePatch, fn func(*seo.Settings)) error {
-	patches = slices.Clone(patches)
-	slices.SortFunc(patches, func(x, y admin.SEOTitlePatch) int { return bytes.Compare(x.ID[:], y.ID[:]) })
+	rows := make([]schemaPatch, len(patches))
+	for i, p := range patches {
+		rows[i] = schemaPatch{p.ID, p.Patch}
+	}
+	return a.saveWithSettings(ctx, rows, fn)
+}
+
+// SaveSitemap is SaveTitles for the sitemap tab.
+func (a seoAdmin) SaveSitemap(ctx context.Context, patches []admin.SEOSitemapPatch, fn func(*seo.Settings)) error {
+	rows := make([]schemaPatch, len(patches))
+	for i, p := range patches {
+		rows[i] = schemaPatch{p.ID, p.Patch}
+	}
+	return a.saveWithSettings(ctx, rows, fn)
+}
+
+type schemaPatch struct {
+	id    uuid.UUID
+	patch entity.SchemaSEOPatch
+}
+
+func (a seoAdmin) saveWithSettings(ctx context.Context, patches []schemaPatch, fn func(*seo.Settings)) error {
+	slices.SortFunc(patches, func(x, y schemaPatch) int { return bytes.Compare(x.id[:], y.id[:]) })
 	err := a.db.WithTx(ctx, func(tx pgx.Tx) error {
 		for _, p := range patches {
-			if err := a.entities.PatchSchemaSEOTx(ctx, tx, p.ID, p.Patch); err != nil {
-				return &admin.SEOPatchError{ID: p.ID, Err: err}
+			if err := a.entities.PatchSchemaSEOTx(ctx, tx, p.id, p.patch); err != nil {
+				return &admin.SEOPatchError{ID: p.id, Err: err}
 			}
 		}
 		return a.store.MergeTx(ctx, tx, fn)

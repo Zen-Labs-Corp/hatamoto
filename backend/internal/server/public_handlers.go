@@ -20,7 +20,9 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
 // NavigationItem represents a menu item.
@@ -93,17 +95,32 @@ type URLSet struct {
 	XMLName    xml.Name `xml:"urlset"`
 	XMLNS      string   `xml:"xmlns,attr"`
 	XMLNSXhtml string   `xml:"xmlns:xhtml,attr,omitempty"`
-	URLs       []URL    `xml:"url"`
+	// XMLNSImage is declared only when a URL lists images.
+	XMLNSImage string `xml:"xmlns:image,attr,omitempty"`
+	URLs       []URL  `xml:"url"`
 }
+
+// sitemapImageNS is the namespace of the image sitemap extension.
+const sitemapImageNS = "http://www.google.com/schemas/sitemap-image/1.1"
 
 // URL represents a single URL entry in the sitemap.
 type URL struct {
-	Loc        string     `xml:"loc"`
-	LastMod    string     `xml:"lastmod,omitempty"`
-	ChangeFreq string     `xml:"changefreq,omitempty"`
-	Priority   float64    `xml:"priority"`
-	Links      []HrefLang `xml:"xhtml:link,omitempty"`
+	Loc        string `xml:"loc"`
+	LastMod    string `xml:"lastmod,omitempty"`
+	ChangeFreq string `xml:"changefreq,omitempty"`
+	// Priority is nil when the site leaves priorities out; a pointer to 0 is
+	// still written.
+	Priority *float64   `xml:"priority,omitempty"`
+	Links    []HrefLang `xml:"xhtml:link,omitempty"`
+	Images   []ImageRef `xml:"image:image,omitempty"`
 }
+
+// ImageRef is an image:image element: an image shown on the page.
+type ImageRef struct {
+	Loc string `xml:"image:loc"`
+}
+
+func ptr[T any](v T) *T { return &v }
 
 // HrefLang represents an xhtml:link alternate element (added by plugin filters).
 type HrefLang struct {
@@ -211,7 +228,13 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if set := snap.Locales(); set.Multi() {
 		listCtx = entity.WithVisibleLocaleSet(ctx, set.PublicTags()...)
 	}
-	entries, err := repo.ListAllPublishedWithAttrs(listCtx, snap.OverrideAttributes())
+	seoSet := s.seoSettings(ctx)
+	attrKeys := snap.OverrideAttributes()
+	if seoSet != nil && seoSet.Sitemap.Images {
+		// Only a site that lists images pays for the extra attributes.
+		attrKeys = append(attrKeys, sitemapImageAttrs...)
+	}
+	entries, err := repo.ListAllPublishedWithAttrs(listCtx, attrKeys)
 	if err != nil {
 		return sitemapInput{}, err
 	}
@@ -239,7 +262,19 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 			naming = cfg.SitemapNaming
 		}
 	}
+	var terms []sitemapTerm
+	if seoSet != nil && seoSet.Sitemap.Taxonomy {
+		var err error
+		if terms, err = s.loadSitemapTerms(listCtx); err != nil {
+			// The files are served without the taxonomies, but not cached.
+			namingUnread = true
+			if s.logger != nil {
+				s.logger.Warn("sitemap: term archives unreadable, leaving taxonomy files out", slog.String("error", err.Error()))
+			}
+		}
+	}
 	return sitemapInput{
+		Terms:        terms,
 		Naming:       naming,
 		NamingUnread: namingUnread,
 		HomepageID:   homepageID,
@@ -250,8 +285,27 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 		Today:        time.Now().Format("2006-01-02"),
 		TenantSlug:   canonicalTenantSlug,
 		Plugins:      sitemapHooksSnapshot(),
-		SEO:          s.seoSettings(ctx),
+		SEO:          seoSet,
 	}, nil
+}
+
+// sitemapImageAttrs are the attributes the image entries are made from.
+var sitemapImageAttrs = []string{"og_image", "featured_image", "photo"}
+
+// loadSitemapTerms lists the term archives the taxonomy sitemaps may hold.
+func (s *Server) loadSitemapTerms(ctx context.Context) ([]sitemapTerm, error) {
+	found, err := taxonomy.NewPostgresRepository(s.db).ListSitemapTerms(ctx, seo.MaxSitemapURLs)
+	if err != nil {
+		return nil, err
+	}
+	terms := make([]sitemapTerm, len(found))
+	for i, t := range found {
+		terms[i] = sitemapTerm{Kind: t.Kind, Path: t.Path, NoIndex: t.NoIndex}
+		if !t.UpdatedAt.IsZero() {
+			terms[i].LastMod = t.UpdatedAt.UTC().Format("2006-01-02")
+		}
+	}
+	return terms, nil
 }
 
 // handlePublicSitemap returns the sitemap index listing all sub-sitemaps.
@@ -394,6 +448,9 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 	urlSet := URLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}
 	if sitemapHasLinks(urls) {
 		urlSet.XMLNSXhtml = "http://www.w3.org/1999/xhtml"
+	}
+	if sitemapHasImages(urls) {
+		urlSet.XMLNSImage = sitemapImageNS
 	}
 	xmlBytes, err := writeXMLWithXSL(w, urlSet)
 	if err != nil {

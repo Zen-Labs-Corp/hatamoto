@@ -103,8 +103,6 @@ func TestSlugScopeFollowsPattern_Integration(t *testing.T) {
 	}
 }
 
-func ptr[T any](v T) *T { return &v }
-
 // Names with no ASCII letters are saved, updated and imported: they get a hash
 // slug instead of failing the request.
 func TestNonASCIIBylines_Integration(t *testing.T) {

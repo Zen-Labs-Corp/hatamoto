@@ -303,9 +303,11 @@ func (a *Admin) readBlogForm(r *http.Request, prev map[string]any) (*posted, blo
 	b.mergeSEO(p.attrs)
 	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.keepUnpostedRobots(r, prev)
+	p.f.SEO.keepUnpostedSitemap(r, prev)
 	p.f.SEO.merge(p.attrs)
 	p.f.SEO.mergeSchema(p.attrs)
 	p.f.SEO.mergeRobots(p.attrs)
+	p.f.SEO.mergeSitemap(p.attrs)
 	return p, b
 }
 

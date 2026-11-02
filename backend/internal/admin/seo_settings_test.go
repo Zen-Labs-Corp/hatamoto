@@ -82,6 +82,20 @@ func (f *fakeSEO) SaveSchema(_ context.Context, patches []SEOSchemaPatch) error 
 	return nil
 }
 
+// SaveSitemap records each patch (built-in types take the sitemap keys), then
+// merges the settings; a failing merge leaves the patches as they were.
+func (f *fakeSEO) SaveSitemap(ctx context.Context, patches []SEOSitemapPatch, fn func(*seo.Settings)) error {
+	saved := maps.Clone(f.patches)
+	for _, p := range patches {
+		f.patches[p.ID] = p.Patch
+	}
+	if err := f.Merge(ctx, fn); err != nil {
+		f.patches = saved
+		return err
+	}
+	return nil
+}
+
 type seoRig struct {
 	*contentRig
 	svc     *fakeSEO
@@ -379,6 +393,7 @@ func TestSEOPagesGolden(t *testing.T) {
 	compareGolden(t, "pages/settings-seo-knowledge-graph.html", normalizePage(s.get(t, "/admin/settings/seo/knowledge-graph")))
 	compareGolden(t, "pages/settings-seo-robots.html", normalizePage(s.get(t, "/admin/settings/seo/robots")))
 	compareGolden(t, "pages/settings-seo-verification.html", normalizePage(s.get(t, "/admin/settings/seo/verification")))
+	compareGolden(t, "pages/settings-seo-sitemap.html", normalizePage(s.get(t, "/admin/settings/seo/sitemap")))
 }
 
 func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {

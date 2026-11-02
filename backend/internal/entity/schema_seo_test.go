@@ -210,3 +210,71 @@ func TestPatchSchemaSEOTxBuiltin(t *testing.T) {
 		t.Errorf("archive key on a built-in: %v, want ErrCannotModifyBuiltin", err)
 	}
 }
+
+func TestUpdateSchemaSEOSettingsSitemapPatch(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	ctx := context.Background()
+	existing := seedSchema(t, sr, func(s *EntitySchema) {
+		s.Settings = json.RawMessage(`{"url_pattern":"/docs/{slug}","sitemap":{"exclude":true,"priority":0.2,"future":"keep"}}`)
+	})
+	pri := 0.9
+	if err := svc.UpdateSchemaSEOSettings(ctx, existing.ID, SchemaSEOPatch{Sitemap: &SchemaSitemapPatch{Priority: &pri, ChangeFreq: "daily"}}); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := sr.schemas[existing.ID].URLSettings()
+	if st.Sitemap.Exclude || st.Sitemap.Priority == nil || *st.Sitemap.Priority != 0.9 || st.Sitemap.ChangeFreq != "daily" || st.URLPattern != "/docs/{slug}" {
+		t.Fatalf("settings = %s", sr.schemas[existing.ID].Settings)
+	}
+	var m map[string]map[string]json.RawMessage
+	_ = json.Unmarshal(sr.schemas[existing.ID].Settings, &m)
+	if string(m["sitemap"]["future"]) != `"keep"` {
+		t.Fatalf("unknown sub-key lost: %s", sr.schemas[existing.ID].Settings)
+	}
+
+	// A nil Sitemap leaves the object alone.
+	if err := svc.UpdateSchemaSEOSettings(ctx, existing.ID, SchemaSEOPatch{ArchiveTitle: strp("T")}); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := sr.schemas[existing.ID].URLSettings(); st.Sitemap.ChangeFreq != "daily" {
+		t.Fatalf("nil Sitemap changed the object: %s", sr.schemas[existing.ID].Settings)
+	}
+}
+
+func TestPatchSchemaSEOSettingsSitemapEmptyDropsKey(t *testing.T) {
+	t.Parallel()
+	raw := json.RawMessage(`{"url_pattern":"/x","sitemap":{"exclude":true,"changefreq":"daily"}}`)
+	out, err := patchSchemaSEOSettings(raw, SchemaSEOPatch{Sitemap: &SchemaSitemapPatch{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	_ = json.Unmarshal(out, &m)
+	if _, ok := m["sitemap"]; ok || string(m["url_pattern"]) != `"/x"` {
+		t.Fatalf("out = %s", out)
+	}
+}
+
+func TestPatchSchemaSEOTxSitemapBuiltinAndValidation(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	ctx := context.Background()
+	page := seedSchema(t, sr, func(s *EntitySchema) { s.Slug, s.IsBuiltin = "page", true })
+	if err := svc.UpdateSchemaSEOSettings(ctx, page.ID, SchemaSEOPatch{Sitemap: &SchemaSitemapPatch{Exclude: true}}); err != nil {
+		t.Fatalf("built-in sitemap patch: %v", err)
+	}
+	if st, _ := sr.schemas[page.ID].URLSettings(); !st.Sitemap.Exclude {
+		t.Fatalf("settings = %s", sr.schemas[page.ID].Settings)
+	}
+	for _, sp := range []SchemaSitemapPatch{
+		{Priority: func() *float64 { v := 1.5; return &v }()},
+		{Priority: func() *float64 { v := -0.1; return &v }()},
+		{ChangeFreq: "sometimes"},
+	} {
+		err := svc.UpdateSchemaSEOSettings(ctx, page.ID, SchemaSEOPatch{Sitemap: &sp})
+		var se *SettingsError
+		if !errors.As(err, &se) {
+			t.Errorf("%+v: err = %v, want SettingsError", sp, err)
+		}
+	}
+}

@@ -66,7 +66,7 @@ Unless the content type's `sitemap` setting says otherwise, an entity gets these
 | `blog`, `post`, `article` | `0.6` | `weekly` |
 | any other type | `0.5` | `monthly` |
 
-The entity that is served at `/` is listed with `1.0` and `daily`. A content type's `sitemap` object overrides both values. In the admin these are the **Sitemap priority** (0 to 1) and **Sitemap change frequency** fields of the entity type.
+The entity that is served at `/` is listed with `1.0` and `daily`. A content type's `sitemap` object overrides both values. In the admin these are the **Priority** (0 to 1) and **Change** fields of the content type's row in Settings > SEO > Sitemap. A site-wide default priority and change frequency there replaces the built-in value of every type; the type's own value still wins.
 
 ```json
 {
@@ -81,11 +81,16 @@ An entity is not listed when any of the following is true:
 
 - It is not published. Drafts, scheduled and archived entities never appear.
 - It is marked no-index: `metadata.no_index` or `attributes.no_index` is true, or `attributes.seo.robots` contains `noindex`. The editor's **Ask search engines not to list this page** switch sets this (see [robots.txt and llms.txt](robots-llms.md#per-page-controls)).
-- Its content type has `"sitemap": {"exclude": true}` (in the admin, **Leave this type out of the sitemap**). Such a type gets no entries and no index page.
+- Its content type has `"sitemap": {"exclude": true}` (in the admin, switch off **In sitemap** for the type in Settings > SEO > Sitemap). Such a type gets no entries and no index page.
+- Its entry has `attributes.hide_from_sitemap` set to true: the **Hide from sitemap (page stays indexable)** switch on the Advanced tab of the SEO panel. Only the sitemap is affected; the page is still indexable.
+- Its path matches a line of **Exclude paths** in Settings > SEO > Sitemap, an exact path or a prefix ending in `*`.
+- It is a person and **Author sitemap** is off.
 - A redirect rule claims its path. A path that answers with a redirect is not an address to index.
 - Its slug is reserved. The slug `home` is never advertised at `/{slug}`, and neither is a section prefix or the site's own canonical slug, because those URLs are dead or duplicates.
 - Its URL cannot be built, for instance because a required date or parent is missing.
 - It is a hidden person, or a built-in block or theme part. These are used by reference and never get a page.
+
+Settings > SEO > Sitemap also controls the output (see the SEO section of the admin guide). **Taxonomy sitemaps** add a `sitemap-taxonomy-<kind>.xml` child per taxonomy kind with published entries, **Include images** adds `<image:image>` entries (the `image` namespace is declared only then), **Output priority and change frequency** off drops both elements, and **Max URLs per file** splits a longer group into `sitemap-<group>-2.xml`, `sitemap-<group>-3.xml` and so on, each listed in the index. The defaults reproduce the output described above.
 
 Entities with nested paths or dated URLs are listed at their canonical path, the same one used by the page's canonical link and JSON-LD `url`. A move or rename that creates a redirect therefore removes the old path from the sitemap and lists the new one.
 
@@ -134,7 +139,7 @@ The MCP tool `sitemap_preview` serves the real route in process and returns the 
 
 | Symptom | Cause and fix |
 |---|---|
-| A page is missing | It is not published, it is marked no-index, a redirect rule claims its path, or its content type is excluded. |
+| A page is missing | It is not published, it is marked no-index, a redirect rule claims its path, its content type is excluded, it is hidden from the sitemap, or its path is in Exclude paths. |
 | A child file is missing from the index | A group with no rows is dropped, except `misc`. |
 | A URL still shows after unpublishing | The cached file lives for up to an hour unless the change cleared it. Check that the unpublish was saved. |
 | `localhost` or an internal host in the URLs | Set `PUBLIC_BASE_URL`. See [URL patterns](url-patterns.md#the-public-base-url). |
