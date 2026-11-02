@@ -102,3 +102,15 @@ func TestSEOSchemaOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// The Save footer sits after the closed cards: a stray closer pops the form
+// and the page column.
+func TestSEOSchemaPageMarkupBalanced(t *testing.T) {
+	s := newSchemaRig(t)
+	body := s.get(t, "/admin/settings/seo/schema")
+	for _, tag := range []string{"div", "section", "form"} {
+		if o, c := strings.Count(body, "<"+tag), strings.Count(body, "</"+tag+">"); o != c {
+			t.Errorf("<%s> opened %d times, closed %d", tag, o, c)
+		}
+	}
+}
