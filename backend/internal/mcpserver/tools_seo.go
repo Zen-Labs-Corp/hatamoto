@@ -37,6 +37,15 @@ func seoChecks(cs []seopanel.Check) []object {
 	return out
 }
 
+// serpChecks are the two search-result length checks. They count in the score
+// like the search checks, so they are listed with them.
+func serpChecks(p seosvc.Panel) []object {
+	return seoChecks([]seopanel.Check{
+		{ID: "title_length", Name: "Title length", Status: p.SERP.TitleStatus, Message: p.SERP.TitleMsg},
+		{ID: "description_length", Name: "Description length", Status: p.SERP.DescStatus, Message: p.SERP.DescMsg},
+	})
+}
+
 func (s *Server) registerSEO() {
 	svc := func() (seosvc.Service, error) {
 		if s.d.SEO == nil {
@@ -114,7 +123,7 @@ func (s *Server) registerSEO() {
 				return nil, seoError(err)
 			}
 			return object{
-				"seo_checks": seoChecks(p.SEO), "answer_checks": seoChecks(p.Answer),
+				"seo_checks": append(serpChecks(p), seoChecks(p.SEO)...), "answer_checks": seoChecks(p.Answer),
 				"score": p.Score(), "tone": p.ScoreTone(), "to_fix": p.ToFix(),
 				"pass": p.Pass, "warn": p.Warn, "fail": p.Fail, "total": p.Total,
 				"words": p.Words, "reading_minutes": p.ReadingMinutes, "faq": p.FAQ,

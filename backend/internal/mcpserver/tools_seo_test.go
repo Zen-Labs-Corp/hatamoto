@@ -21,6 +21,7 @@ type fakeSEO struct {
 	updErr  error
 	doc     seosvc.Doc
 	prevErr error
+	panel   seosvc.Panel
 }
 
 func (f *fakeSEO) Get(context.Context) (seosvc.Doc, error) { return f.doc, nil }
@@ -32,7 +33,7 @@ func (f *fakeSEO) Preview(context.Context, uuid.UUID) (seosvc.Preview, error) {
 	return seosvc.Preview{}, f.prevErr
 }
 func (f *fakeSEO) Analyze(context.Context, uuid.UUID) (seosvc.Panel, error) {
-	return seosvc.Panel{}, f.prevErr
+	return f.panel, f.prevErr
 }
 
 type fakeNotFound struct{ got redirect.NotFoundListParams }
@@ -144,5 +145,26 @@ func TestSEO404List(t *testing.T) {
 	text, isErr := callSEO(t, scopes, Deps{NotFound: nf}, "seo_404_list", map[string]any{"visitor": "robots"})
 	if !isErr || !strings.Contains(text, "visitor") || nf.got != (redirect.NotFoundListParams{}) {
 		t.Errorf("visitor robots: %v %q %+v", isErr, text, nf.got)
+	}
+}
+
+// Every check that counts in the score is listed, the two length checks too.
+func TestSEOAnalyzeListsLengthChecks(t *testing.T) {
+	f := &fakeSEO{}
+	f.panel.SERP.TitleStatus, f.panel.SERP.TitleMsg = "warn", "Title may be cut off in results (70 characters). Keep it under 60."
+	f.panel.SERP.DescStatus, f.panel.SERP.DescMsg = "pass", "Description is 140 characters: a good length."
+	f.panel.Warn, f.panel.Pass, f.panel.Total = 1, 1, 2
+	text, isErr := callSEO(t, []hmauth.APIKeyScope{hmauth.ScopeReadSEO}, Deps{SEO: f}, "seo_analyze", map[string]any{"entity_id": uuid.NewString()})
+	if isErr {
+		t.Fatal(text)
+	}
+	var out struct {
+		Checks []struct{ ID, Status, Message string } `json:"seo_checks"`
+	}
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Checks) != 2 || out.Checks[0].ID != "title_length" || out.Checks[0].Status != "warn" || !strings.Contains(out.Checks[0].Message, "cut off") || out.Checks[1].ID != "description_length" {
+		t.Errorf("seo_checks = %+v", out.Checks)
 	}
 }
