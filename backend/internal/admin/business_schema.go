@@ -277,7 +277,7 @@ func defaultUI() map[string]schemaform.UIHint {
 		h[k] = v
 	}
 	h["business_type"] = schemaform.UIHint{Help: "Empty prints " + bizprofile.DefaultType + "."}
-	h["office"] = schemaform.UIHint{Help: "Prints a LocalBusiness on this locale's pages when it has a street or city."}
+	h["office"] = schemaform.UIHint{Help: "Prints a LocalBusiness on this locale's pages when it has a street or city. A site with one language prints none."}
 	h["name"] = schemaform.UIHint{Help: "Names your organisation and is printed as its legal name. Empty uses the site name."}
 	h["country_name"] = schemaform.UIHint{Help: "The country name printed in the areas served, like France."}
 	h["service_radius_km"] = schemaform.UIHint{Help: "Kilometres around the coordinates. Needs both coordinates."}

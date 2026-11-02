@@ -8,7 +8,7 @@ Every locale, the default one included, now has its own business details, edited
 - **Office switch.** The default card has **This locale has an office**. The upgrade turns it on where the old default card had an office, so a default page that printed a local business keeps it.
 - **Not inherited.** A field that the old default card set but the site-wide details left empty is marked "Not inherited, empty" on the other cards, with a switch to inherit again.
 - **Default locale change.** Changing the Language in Settings > General folds the new default locale's card into the default business and keeps the old default's own details (address, office, name and the rest) as its card.
-- **REST.** `business_profile` is the default locale's business, including `office`. `locale_profiles` holds the other locales only, a write to the default tag answers 422, and a card may carry `no_inherit`.
+- **REST (client-visible change).** `business_profile` is the default locale's business, so besides today's keys it now carries `office` and the locale-only fields (`name`, `country_name`, `image`, `business_type`, and the address extras). `locale_profiles` holds the other locales only, and a card may carry `no_inherit`. Clients must tolerate these new keys. A write of a non-null card under the default locale's tag in `locale_profiles`, which used to succeed, now answers 422: write it to `business_profile` instead. A `null` still deletes a stored leftover.
 - No SDK, hook or plugin manifest change.
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data; see the upgrade note for what it shows.
