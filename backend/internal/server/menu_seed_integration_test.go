@@ -4,9 +4,11 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/admin/starter"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/render"
 )
@@ -84,6 +87,33 @@ func TestMenuSeedIntegration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_menus`)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE slug LIKE $1`, "ms-%-"+sfx)
 	})
+	// oldFallback is what the removed render-time fallback showed: the first 50
+	// published pages not hidden from the nav, linked through the registry, then
+	// Blog when the post archive has posts.
+	oldFallback := func(t *testing.T) []render.NavItem {
+		t.Helper()
+		links := srv.newNavLinks(ctx)
+		repo := entity.NewPostgresPublicRepository(db)
+		pages, err := repo.ListPublished(ctx, "page", 1, 50)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []render.NavItem
+		for _, p := range pages.Items {
+			var attrs map[string]any
+			_ = json.Unmarshal(p.Attributes, &attrs)
+			if attrs["hide_from_nav"] == true {
+				continue
+			}
+			if href, ok := links.page(p); ok {
+				out = append(out, render.NavItem{Label: p.Name, Href: href})
+			}
+		}
+		if posts, err := repo.ListPublishedBySchemas(ctx, []string{"post"}, 1, 1); err == nil && posts.Total > 0 {
+			out = append(out, render.NavItem{Label: "Blog", Href: "/blog"})
+		}
+		return out
+	}
 	headerMenus := func() []*menu.Menu {
 		t.Helper()
 		var out []*menu.Menu
@@ -117,6 +147,8 @@ func TestMenuSeedIntegration(t *testing.T) {
 
 	t.Run("upgrade seeds the old fallback once", func(t *testing.T) {
 		reset(true)
+		exec(`UPDATE hatamoto_site_config SET homepage_entity_id = (SELECT id FROM hatamoto_entities WHERE slug = $1)`, "ms-alpha-"+sfx)
+		t.Cleanup(func() { exec(`UPDATE hatamoto_site_config SET homepage_entity_id = NULL`) })
 		if err := srv.seedUpgradeHeader(ctx); err != nil {
 			t.Fatal(err)
 		}
@@ -125,16 +157,24 @@ func TestMenuSeedIntegration(t *testing.T) {
 			t.Fatalf("header menus = %+v", ms)
 		}
 		got := srv.newNavLinks(ctx).items(ms[0].Items)
+		if want := oldFallback(t); !reflect.DeepEqual(got, want) {
+			t.Fatalf("seeded header renders %+v\nthe old fallback showed %+v", got, want)
+		}
 		var labels []string
 		for _, n := range got {
-			if strings.HasPrefix(n.Href, "/ms-") && !strings.HasSuffix(n.Href, sfx) {
-				t.Errorf("unexpected href %q", n.Href)
-			}
 			labels = append(labels, n.Label)
 		}
 		joined := strings.Join(labels, ",")
 		if !strings.Contains(joined, "Alpha") || !strings.Contains(joined, "Gamma") || strings.Contains(joined, "Hidden") {
 			t.Errorf("labels = %s", joined)
+		}
+		for _, n := range got {
+			if n.Label == "Alpha" && n.Href != "/" {
+				t.Errorf("homepage item = %+v, want Alpha at /", n)
+			}
+		}
+		if n := got[len(got)-1]; n.Label != "Blog" || n.Href != "/blog" {
+			t.Errorf("last item = %+v, want Blog at /blog", n)
 		}
 		if last := ms[0].Items[len(ms[0].Items)-1]; last.Label != "Blog" || last.LinkType != menu.LinkTypeArchive ||
 			last.SchemaSlug == nil || *last.SchemaSlug != "post" || last.URL == nil || *last.URL == "" {
@@ -164,6 +204,45 @@ func TestMenuSeedIntegration(t *testing.T) {
 		}
 		if len(headerMenus()) != 0 {
 			t.Fatal("deleted header was re-created")
+		}
+	})
+
+	t.Run("upgrade keeps an attribute URL override", func(t *testing.T) {
+		reset(true)
+		var orig string
+		if err := db.Pool().QueryRow(ctx, `SELECT settings::text FROM hatamoto_entity_schemas WHERE slug = 'page'`).Scan(&orig); err != nil {
+			t.Fatal(err)
+		}
+		exec(`UPDATE hatamoto_entity_schemas SET settings = COALESCE(settings, '{}'::jsonb) ||
+			'{"overrides":[{"attribute":"kind","equals":"legal","url_pattern":"/legal/{slug}"}]}'::jsonb WHERE slug = 'page'`)
+		srv.entityService.URLRegistry().Invalidate()
+		t.Cleanup(func() {
+			exec(`UPDATE hatamoto_entity_schemas SET settings = $1::jsonb WHERE slug = 'page'`, orig)
+			srv.entityService.URLRegistry().Invalidate()
+		})
+		insert("page", "Terms", "ms-terms-"+sfx, `{"kind":"legal"}`)
+		if err := srv.seedUpgradeHeader(ctx); err != nil {
+			t.Fatal(err)
+		}
+		ms := headerMenus()
+		got := srv.newNavLinks(ctx).items(ms[0].Items)
+		if want := oldFallback(t); !reflect.DeepEqual(got, want) {
+			t.Fatalf("seeded header renders %+v\nthe old fallback showed %+v", got, want)
+		}
+		found := false
+		for i, n := range got {
+			if n.Label == "Terms" {
+				found = true
+				if n.Href != "/legal/ms-terms-"+sfx {
+					t.Errorf("Terms href = %q, want the override", n.Href)
+				}
+				if ms[0].Items[i].LinkType != menu.LinkTypeEntity {
+					t.Errorf("Terms must stay a live entity link, got %s", ms[0].Items[i].LinkType)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("Terms missing from the header")
 		}
 	})
 

@@ -15,6 +15,9 @@ import (
 // become entity items, so their links stay live.
 func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, error) {
 	links := s.newNavLinks(ctx)
+	if links.snap.Locales().Multi() {
+		s.logger.Warn("menu seed: this site has several languages; the Header is seeded from the default-language pages and their links, for every language")
+	}
 	publicRepo := entity.NewPostgresPublicRepository(s.db)
 	var items []menu.ReplaceItem
 
@@ -30,10 +33,17 @@ func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, er
 					continue
 				}
 			}
-			if _, ok := links.page(p); !ok {
+			want, ok := links.page(p)
+			if !ok {
 				continue
 			}
-			id := p.ID
+			id, slug, schema := p.ID, p.Slug, "page"
+			// A live entity link is only right while the menu renders the href
+			// the fallback showed; where it would not, keep that href.
+			if links.menuHref(&menu.MenuItem{LinkType: menu.LinkTypeEntity, EntityID: &id, EntitySlug: &slug, EntitySchemaSlug: &schema}) != want {
+				items = append(items, menu.ReplaceItem{Label: p.Name, LinkType: menu.LinkTypeCustom, URL: &want, Parent: -1})
+				continue
+			}
 			items = append(items, menu.ReplaceItem{Label: p.Name, LinkType: menu.LinkTypeEntity, EntityID: &id, Parent: -1})
 		}
 	}

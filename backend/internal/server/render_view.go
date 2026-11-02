@@ -739,7 +739,10 @@ func (l *navLinks) menuHref(it *menu.MenuItem) string {
 	if it.EntitySchemaSlug != nil && *it.EntitySchemaSlug != "" {
 		schema = *it.EntitySchemaSlug
 	}
-	if l.repo != nil && it.EntityID != nil && l.snap.NeedsEntityVars(schema) {
+	// An entity-keyed URL (parent, path, date tokens) or an attribute override
+	// needs the loaded entity; every other schema builds from the slug alone,
+	// so a menu costs one query per such item and none otherwise.
+	if l.repo != nil && it.EntityID != nil && l.snap.NeedsEntityURL(schema) {
 		if ent, err := l.repo.GetPublishedByID(l.ctx, *it.EntityID); err == nil && ent.Schema != nil {
 			return relatedLocator(l.ctx, l.snap, l.repo, schema)(ent)
 		}
