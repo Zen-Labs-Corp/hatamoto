@@ -388,6 +388,17 @@ func TestImportResumeAndCancel(t *testing.T) {
 	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), "settings file") {
 		t.Errorf("oversized start: %d %s", rec.Code, rec.Body.String())
 	}
+	// Resume re-uploads the export, so it keeps the WXR cap: a body past the
+	// settings cap still reaches the handler.
+	req = httptest.NewRequest("POST", "/admin/settings/import/wordpress/"+ids["failed"].String()+"/resume", strings.NewReader("x"))
+	req.ContentLength = importFormLimit + 1
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", map[string]string{"X-CSRF-Token": ""})
+	rec = httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	if rec.Code == http.StatusRequestEntityTooLarge {
+		t.Errorf("resume was capped like a settings form: %d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestSetupContentCanChooseWordPress(t *testing.T) {

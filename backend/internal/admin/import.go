@@ -34,7 +34,7 @@ const (
 	importBase = "/settings/import/wordpress"
 	// importBodyLimit bounds an import form: the export file and a little more.
 	importBodyLimit = importjob.MaxWXRBytes + 1<<20
-	// importFormLimit bounds every other import form (start, resume): the
+	// importFormLimit bounds the options and cancel forms: the
 	// optional settings file and a little more.
 	importFormLimit = wpimport.MaxSEOFileBytes + 1<<20
 	// pollEvery is how often the progress panel asks again (htmx), and how
@@ -54,16 +54,17 @@ func importStepList(current int) []ui.Step {
 }
 
 // limitImportBody caps what an import form may upload before anything reads
-// it (the CSRF check parses the body). The begin route takes the export file;
-// every other form takes at most the small settings file. A declared size over
-// the cap is refused with a clear message.
+// it (the CSRF check parses the body). Only the options (/start) and cancel
+// forms take the small cap; every other route, the begin and resume uploads
+// included, may carry the export file. A declared size over the cap is refused
+// with a clear message.
 func limitImportBody(prefix string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, prefix+importBase) {
-				limit, msg := int64(importFormLimit), fmt.Sprintf("That upload is too large. The settings file can be up to %d MiB.", wpimport.MaxSEOFileBytes>>20)
-				if r.URL.Path == prefix+importBase {
-					limit, msg = importBodyLimit, fmt.Sprintf("The file is larger than %d MB. Export fewer content types, or import from the site's address instead.", importjob.MaxWXRBytes>>20)
+				limit, msg := int64(importBodyLimit), fmt.Sprintf("The file is larger than %d MB. Export fewer content types, or import from the site's address instead.", importjob.MaxWXRBytes>>20)
+				if strings.HasSuffix(r.URL.Path, "/start") || strings.HasSuffix(r.URL.Path, "/cancel") {
+					limit, msg = importFormLimit, fmt.Sprintf("That upload is too large. The settings file can be up to %d MiB.", wpimport.MaxSEOFileBytes>>20)
 				}
 				if r.ContentLength > limit {
 					http.Error(w, msg, http.StatusRequestEntityTooLarge)
