@@ -119,6 +119,22 @@ func buildAssets(adminFS, vendorFS fs.FS, prefix string) (*Assets, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Fonts are fingerprinted like the js modules (the 1y immutable cache must
+	// not outlive an upgrade); base.css names them as url(fonts/<file>), which
+	// resolves next to the hashed bundle under prefix/_/.
+	fonts, err := fs.Glob(adminFS, "fonts/*.woff2")
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range fonts {
+		b, err := fs.ReadFile(adminFS, f)
+		if err != nil {
+			return nil, err
+		}
+		hashed := strings.TrimSuffix(f, ".woff2") + "." + hashName(b) + ".woff2"
+		a.files[hashed] = newAsset(b)
+		base = bytes.ReplaceAll(base, []byte("url("+f+")"), []byte("url("+hashed+")"))
+	}
 	var css []byte
 	for _, part := range append(append([][]byte{tokens, base}, partials...), pages...) {
 		css = append(css, part...)
@@ -342,6 +358,8 @@ func (a *Assets) Handler() http.Handler {
 		switch path.Ext(name) {
 		case ".mjs", ".js":
 			ct = "text/javascript; charset=utf-8"
+		case ".woff2":
+			ct = "font/woff2" // not in every host's mime table
 		}
 		if ct == "" {
 			ct = "application/octet-stream"

@@ -1,5 +1,10 @@
 /* Reset, typography, layout grid, focus ring, utilities. No inline styles are
    allowed in templates (CSP), so layout lives here. */
+/* The admin fonts ship with the binary (CSP font-src 'self'). The url() names
+   are rewritten to fingerprinted files when the bundle is built. They live
+   here, not in tokens.css, which plugin UIs fetch cross-origin. */
+@font-face { font-family: "Inter"; font-weight: 100 900; font-style: normal; font-display: swap; src: url(fonts/Inter-Variable.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 100 800; font-style: normal; font-display: swap; src: url(fonts/JetBrainsMono-Variable.woff2) format("woff2"); }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 /* Focus not obscured (WCAG 2.4.11): reserve room for the phone top bar. */

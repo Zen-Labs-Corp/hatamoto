@@ -9,7 +9,7 @@
 #                           the notice in binary redistributions)
 # OUTDIR/go-modules/        every compiled Go module's licence (tools/licenses)
 # OUTDIR/web-vendor/        the vendored JS NOTICE and licence texts
-# OUTDIR/fonts/OFL.txt      the bundled font licence
+# OUTDIR/fonts/             the bundled font licences (theme and admin fonts)
 #
 # The caller's environment picks the toolchain (the Makefile pins GOTOOLCHAIN).
 # Fails when the Go LICENSE is missing or is not the Go BSD-3 text, so a
@@ -34,3 +34,4 @@ cp "$lic" "$out/go/LICENSE"
 cp "$root/backend/web/vendor/NOTICE" "$out/web-vendor/NOTICE"
 cp -R "$root/backend/web/vendor/licenses" "$out/web-vendor/licenses"
 cp "$root/backend/internal/render/themes/default/assets/fonts/OFL.txt" "$out/fonts/OFL.txt"
+cp "$root/backend/web/admin/fonts/OFL-Inter.txt" "$root/backend/web/admin/fonts/OFL-JetBrainsMono.txt" "$out/fonts/"
