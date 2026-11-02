@@ -162,3 +162,41 @@ func TestSEOLiveStaysOnTheSourceOrigin(t *testing.T) {
 		t.Errorf("robots.txt requested at %q, want the host root", got)
 	}
 }
+
+func TestRobotsDisallowsAllIsGroupAware(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body string
+		want bool
+	}{
+		"star":            {"User-agent: *\nDisallow: /\n", true},
+		"named only":      {"User-agent: GPTBot\nDisallow: /\n", false},
+		"named then star": {"User-agent: GPTBot\nDisallow: /\nUser-agent: *\nDisallow: /private/\n", false},
+		"grouped agents":  {"User-agent: GPTBot\nUser-agent: *\nDisallow: /\n", true},
+		"star then named": {"User-agent: *\nDisallow: /x/\n\nUser-agent: CCBot\nDisallow: /\n", false},
+	} {
+		if got := robotsDisallowsAll(tc.body); got != tc.want {
+			t.Errorf("%s: got %v", name, got)
+		}
+	}
+}
+
+func TestSEOLiveNamedCrawlerBlockStillMapsRobotsLines(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(liveHome)) })
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("User-agent: GPTBot\nDisallow: /\nUser-agent: *\nDisallow: /private/\n"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c, err := NewClient(ClientOptions{URL: srv.URL, AllowPrivate: true, RatePerSec: 1000, Sleep: noSleep, MaxRetries: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	live := readSEOLive(context.Background(), c, srv.URL+"/", "", "")
+	if live.Discouraged || len(live.Warnings) != 0 {
+		t.Fatalf("discouraged=%v warnings=%v", live.Discouraged, live.Warnings)
+	}
+	if got := strings.Join(live.RobotsExtra, "|"); got != "User-agent: GPTBot|Disallow: /|User-agent: *|Disallow: /private/" {
+		t.Errorf("robots = %q", got)
+	}
+}

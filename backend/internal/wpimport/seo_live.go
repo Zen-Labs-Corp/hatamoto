@@ -195,12 +195,29 @@ func readSEOLive(ctx context.Context, c *Client, home string, postURL, archiveUR
 	return live
 }
 
-// robotsDisallowsAll reports a bare "Disallow: /" rule, which is what WordPress
-// serves while "Discourage search engines" is on.
+// robotsDisallowsAll reports a bare "Disallow: /" in a group addressed to "*",
+// which is what WordPress serves while "Discourage search engines" is on.
+// Consecutive User-agent lines form one group; a block aimed at one named
+// crawler (GPTBot and the like) does not discourage indexing.
 func robotsDisallowsAll(body string) bool {
+	star, prevAgent := false, false
 	for _, raw := range strings.Split(body, "\n") {
-		k, v, ok := strings.Cut(strings.TrimSpace(raw), ":")
-		if ok && strings.EqualFold(strings.TrimSpace(k), "disallow") && strings.TrimSpace(v) == "/" {
+		line := strings.TrimSpace(raw)
+		k, v, ok := strings.Cut(line, ":")
+		if !ok || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v = strings.ToLower(strings.TrimSpace(k)), strings.TrimSpace(v)
+		if k == "user-agent" {
+			if !prevAgent {
+				star = false
+			}
+			star = star || v == "*"
+			prevAgent = true
+			continue
+		}
+		prevAgent = false
+		if star && k == "disallow" && v == "/" {
 			return true
 		}
 	}
