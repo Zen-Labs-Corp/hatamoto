@@ -207,6 +207,7 @@ func Validate(p Profile) map[string]string {
 	for key, n := range map[string]int{
 		"founders": len(p.Founders), "memberships": len(p.Memberships), "brands": len(p.Brands), "payment_methods": len(p.PaymentMethods),
 		"knows_about": len(p.KnowsAbout), "awards": len(p.Awards), "services": len(p.Services), "amenities": len(p.Amenities),
+		"additional_properties": len(p.AdditionalProperties),
 	} {
 		if n > maxListItems {
 			errs[key] = fmt.Sprintf("Add at most %d items.", maxListItems)
@@ -214,6 +215,7 @@ func Validate(p Profile) map[string]string {
 	}
 
 	text("name", p.Name)
+	text("catalog_name", p.CatalogName)
 	text("tax_id", p.TaxID)
 	text("vat_id", p.VATID)
 	text("alternate_name", p.AlternateName)
@@ -339,8 +341,43 @@ func Validate(p Profile) map[string]string {
 		if utf8.RuneCountInString(v.Description) > maxDescLen {
 			errs[at+".description"] = fmt.Sprintf("Use at most %d characters.", maxDescLen)
 		}
-		link(at+".url", v.URL)
+		switch {
+		case v.URL == "":
+		case strings.HasPrefix(v.URL, "/"):
+			if !isSitePath(v.URL) {
+				errs[at+".url"] = serviceURLMsg
+			}
+		default:
+			if utf8.RuneCountInString(v.URL) > maxURLLen {
+				errs[at+".url"] = fmt.Sprintf("Use at most %d characters.", maxURLLen)
+			} else if !isHTTPURL(v.URL) {
+				errs[at+".url"] = serviceURLMsg
+			}
+		}
 		money(at+".price", v.Price)
+		money(at+".price_min", v.PriceMin)
+		money(at+".price_max", v.PriceMax)
+		if lo, ok := ParseDecimal(v.PriceMin); ok {
+			if hi, ok := ParseDecimal(v.PriceMax); ok && lo > hi {
+				errs[at+".price_max"] = "Price from must not be higher than Price to."
+			}
+		}
+		text(at+".unit_text", v.UnitText)
+	}
+	for i, v := range p.AdditionalProperties {
+		at := "additional_properties." + strconv.Itoa(i)
+		named(at, v.Name)
+		if strings.TrimSpace(v.Value) == "" {
+			errs[at+".value"] = "Enter a value."
+		} else {
+			text(at+".value", v.Value)
+		}
+		for key, n := range map[string]string{"min_value": v.MinValue, "max_value": v.MaxValue} {
+			if _, ok := ParseDecimal(n); n != "" && !ok {
+				errs[at+"."+key] = "Enter a number, such as 9.6."
+			}
+		}
+		text(at+".unit_text", v.UnitText)
 	}
 	for i, v := range p.Amenities {
 		named("amenities."+strconv.Itoa(i), v.Name)
@@ -417,6 +454,25 @@ func isDay(v string) bool {
 		}
 	}
 	return false
+}
+
+const serviceURLMsg = "Enter a full web address starting with http:// or https://, or a path starting with a single /, such as /services/seo."
+
+// isSitePath reports whether v is a root-relative path: one leading "/", not
+// "//" or "/\\" (both can name another host), no spaces or control characters.
+func isSitePath(v string) bool {
+	if len(v) < 1 || utf8.RuneCountInString(v) > maxURLLen || v[0] != '/' {
+		return false
+	}
+	if len(v) > 1 && (v[1] == '/' || v[1] == '\\') {
+		return false
+	}
+	for _, r := range v {
+		if r <= ' ' || r == 0x7f || r == '\\' {
+			return false
+		}
+	}
+	return true
 }
 
 func isHTTPURL(v string) bool {

@@ -191,3 +191,85 @@ func TestValidate_ListsAreCapped(t *testing.T) {
 		t.Errorf("50 brands: %v", msgs)
 	}
 }
+
+func TestValidateServiceURLRelative(t *testing.T) {
+	for url, ok := range map[string]bool{
+		"/services/seo": true, "/a?x=1": true, "/": true, "https://example.test/x": true,
+		"services/seo": false, "//example.test/x": false, `/\example.test`: false,
+		"javascript:alert(1)": false, "/a b": false, "/a\x00b": false, "ftp://example.test": false,
+	} {
+		errs := Validate(Profile{Services: []Service{{Name: "SEO", URL: url}}})
+		if _, bad := errs["services.0.url"]; bad == ok {
+			t.Errorf("url %q: valid=%v, errors=%v", url, ok, errs)
+		}
+	}
+	if msg := Validate(Profile{Services: []Service{{Name: "S", URL: "services/seo"}}})["services.0.url"]; !strings.Contains(msg, "/services/seo") {
+		t.Errorf("message = %q", msg)
+	}
+}
+
+func TestValidateServicePriceRange(t *testing.T) {
+	errs := Validate(Profile{Services: []Service{
+		{Name: "a", PriceMin: "10", PriceMax: "20", UnitText: "HOUR"},
+		{Name: "b", PriceMin: "abc", PriceMax: "-1"},
+		{Name: "c", PriceMin: "30", PriceMax: "20"},
+		{Name: "d", PriceMin: "5"},
+	}})
+	if len(errs) != 3 {
+		t.Fatalf("errs = %v", errs)
+	}
+	for _, k := range []string{"services.1.price_min", "services.1.price_max", "services.2.price_max"} {
+		if errs[k] == "" {
+			t.Errorf("missing %s in %v", k, errs)
+		}
+	}
+	if errs["services.2.price_max"] != "Price from must not be higher than Price to." {
+		t.Errorf("message = %q", errs["services.2.price_max"])
+	}
+	long := strings.Repeat("x", 201)
+	if Validate(Profile{Services: []Service{{Name: "a", UnitText: long}}})["services.0.unit_text"] == "" {
+		t.Error("long unit_text accepted")
+	}
+}
+
+func TestValidateAdditionalProperties(t *testing.T) {
+	errs := Validate(Profile{AdditionalProperties: []AdditionalProperty{
+		{Name: "Recommendation score", Value: "9.6", MinValue: "0", MaxValue: "10", UnitText: "pts"},
+		{Value: "x"},
+		{Name: "n"},
+		{Name: "n", Value: "v", MinValue: "low", MaxValue: "1e999"},
+	}})
+	for _, k := range []string{"additional_properties.1.name", "additional_properties.2.value", "additional_properties.3.min_value", "additional_properties.3.max_value"} {
+		if errs[k] == "" {
+			t.Errorf("missing %s in %v", k, errs)
+		}
+	}
+	if errs["additional_properties.2.value"] != "Enter a value." || errs["additional_properties.3.min_value"] != "Enter a number, such as 9.6." {
+		t.Errorf("messages = %v", errs)
+	}
+	if len(errs) != 4 {
+		t.Errorf("errs = %v", errs)
+	}
+}
+
+func TestValidateGapListCaps(t *testing.T) {
+	props := make([]AdditionalProperty, 51)
+	for i := range props {
+		props[i] = AdditionalProperty{Name: "x", Value: "y"}
+	}
+	if Validate(Profile{AdditionalProperties: props})["additional_properties"] == "" {
+		t.Error("51 additional properties accepted")
+	}
+	if len(Validate(Profile{AdditionalProperties: props[:50]})) != 0 {
+		t.Error("50 additional properties rejected")
+	}
+}
+
+func TestValidateCatalogName(t *testing.T) {
+	if len(Validate(Profile{CatalogName: "Example Co services"})) != 0 {
+		t.Error("valid catalogue name rejected")
+	}
+	if Validate(Profile{CatalogName: strings.Repeat("x", 201)})["catalog_name"] == "" {
+		t.Error("long catalogue name accepted")
+	}
+}
