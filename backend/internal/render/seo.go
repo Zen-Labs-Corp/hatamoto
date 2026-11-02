@@ -299,27 +299,95 @@ func namedListLD(typ string, people []PersonView) any {
 	return oneOrList(out)
 }
 
+// serviceURL resolves a service address for the page. An absolute address (and
+// anything that is not a single-slash site path, such as //host or /\host) is
+// returned unchanged. A site path opens under the page's locale: a locale page
+// uses that locale's home, a shared page the default locale's, and a site
+// without locales the base.
+func serviceURL(v *PageView, base, raw string) string {
+	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, `/\`) {
+		return raw
+	}
+	for _, l := range v.Locales {
+		if (localePage(v) && l.Tag == v.Locale) || (v.Shared && l.Default) {
+			if l.Home != "" {
+				return strings.TrimRight(l.Home, "/") + raw
+			}
+		}
+	}
+	return strings.TrimRight(base, "/") + raw
+}
+
 // offerCatalogLD is the services as an OfferCatalog, nil without a named one.
-func offerCatalogLD(services []ServiceView, currency string) map[string]any {
+func offerCatalogLD(v *PageView, base string, d BusinessDetails, currency string) map[string]any {
 	var offers []any
-	for _, s := range services {
+	for _, s := range d.Services {
 		if s.Name == "" {
 			continue
 		}
 		svc := map[string]any{"@type": "Service", "name": s.Name}
 		setIf(svc, "description", s.Description)
-		setIf(svc, "url", s.URL)
+		setIf(svc, "url", serviceURL(v, base, s.URL))
+		if d.ServiceProvider {
+			svc["provider"] = map[string]any{"@id": base + "#organization"}
+		}
 		offer := map[string]any{"@type": "Offer", "itemOffered": svc}
 		if price, ok := bizprofile.ParseDecimal(s.Price); ok {
 			offer["price"] = price
 			setIf(offer, "priceCurrency", currency)
+		}
+		if spec := priceSpecLD(s, currency); spec != nil {
+			offer["priceSpecification"] = spec
 		}
 		offers = append(offers, offer)
 	}
 	if len(offers) == 0 {
 		return nil
 	}
-	return map[string]any{"@type": "OfferCatalog", "name": "Services", "itemListElement": offers}
+	return map[string]any{"@type": "OfferCatalog", "name": firstNonEmpty(d.CatalogName, "Services"), "itemListElement": offers}
+}
+
+// priceSpecLD is the service's price range, nil unless a minimum or maximum parses.
+func priceSpecLD(s ServiceView, currency string) map[string]any {
+	spec := map[string]any{"@type": "UnitPriceSpecification"}
+	if n, ok := bizprofile.ParseDecimal(s.PriceMin); ok {
+		spec["minPrice"] = n
+	}
+	if n, ok := bizprofile.ParseDecimal(s.PriceMax); ok {
+		spec["maxPrice"] = n
+	}
+	if len(spec) == 1 {
+		return nil
+	}
+	setIf(spec, "priceCurrency", currency)
+	setIf(spec, "unitText", s.UnitText)
+	return spec
+}
+
+// propertyLD is the additional properties as PropertyValue nodes; rows without
+// a name are skipped. A value that parses as a decimal prints as a number.
+func propertyLD(props []PropertyView) []any {
+	var out []any
+	for _, p := range props {
+		if p.Name == "" {
+			continue
+		}
+		n := map[string]any{"@type": "PropertyValue", "name": p.Name}
+		if f, ok := bizprofile.ParseDecimal(p.Value); ok {
+			n["value"] = f
+		} else {
+			setIf(n, "value", p.Value)
+		}
+		if f, ok := bizprofile.ParseDecimal(p.MinValue); ok {
+			n["minValue"] = f
+		}
+		if f, ok := bizprofile.ParseDecimal(p.MaxValue); ok {
+			n["maxValue"] = f
+		}
+		setIf(n, "unitText", p.UnitText)
+		out = append(out, n)
+	}
+	return out
 }
 
 // actionsLD is the booking and order links as Reserve/Order actions.
@@ -346,7 +414,7 @@ func amenitiesLD(amenities []AmenityView) []any {
 
 // setDetailsLD prints the extended details shared by the Organization and the
 // local business, each only when set. currency is the services' price currency.
-func setDetailsLD(n map[string]any, d BusinessDetails, currency string) {
+func setDetailsLD(n map[string]any, v *PageView, base string, d BusinessDetails, currency string) {
 	setIf(n, "naics", d.Naics)
 	setIf(n, "isicV4", d.Isic)
 	setIf(n, "duns", d.Duns)
@@ -370,7 +438,7 @@ func setDetailsLD(n map[string]any, d BusinessDetails, currency string) {
 	if m := namedListLD("Organization", d.Memberships); m != nil {
 		n["memberOf"] = m
 	}
-	if c := offerCatalogLD(d.Services, currency); c != nil {
+	if c := offerCatalogLD(v, base, d, currency); c != nil {
 		n["hasOfferCatalog"] = c
 	}
 	if a := actionsLD(d.BookingURL, d.OrderURL); len(a) > 0 {
