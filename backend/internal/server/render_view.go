@@ -115,6 +115,9 @@ func pageViewFromRoute(rr *routeResult, baseURL, path string) *render.PageView {
 		if e := p.Entity; e != nil {
 			v.Page.Name = e.Name
 			applyAttributeMeta(&v.Page, e.Attributes, baseURL)
+			if seo.EntryNoIndex(e.Metadata, nil) {
+				v.Page.NoIndex = true
+			}
 			v.EntityID = e.ID.String()
 			if e.Schema != nil {
 				v.SchemaSlug = e.Schema.Slug
@@ -321,7 +324,6 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 		CanonicalURL string `json:"canonical_url"`
 		OGTitle      string `json:"og_title"`
 		OGDesc       string `json:"og_description"`
-		NoIndex      bool   `json:"no_index"`
 		SEO          struct {
 			Robots string `json:"robots"`
 		} `json:"seo"`
@@ -342,9 +344,10 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 	if d := strings.TrimSpace(a.OGDesc); d != "" {
 		m.OGDescription = d
 	}
-	if a.NoIndex || strings.Contains(strings.ToLower(a.SEO.Robots), "noindex") {
+	if seo.EntryNoIndex(nil, attrs) {
 		m.NoIndex = true
 	}
+	m.RobotsRaw = a.SEO.Robots
 }
 
 // canonicalFromAttribute turns the SEO panel's canonical address into the

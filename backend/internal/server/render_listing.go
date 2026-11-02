@@ -360,7 +360,7 @@ func (s *Server) fillListing(ctx context.Context, r *http.Request, lr *listingRo
 		f.TermID = lr.Term.ID
 	case render.KindSearch:
 		v.Query, v.SearchType = lr.Query, lr.Type
-		v.Page = render.PageMeta{Name: "Search", Title: "Search", NoIndex: true}
+		v.Page = render.PageMeta{Name: "Search", Title: "Search", NoIndex: s.seoSettings(ctx).NoIndexView(render.KindSearch, "", "")}
 		if lr.Query != "" && hasPositiveTerm(lr.Query) {
 			f.Search = lr.Query
 			query.Set("q", lr.Query)
@@ -372,6 +372,7 @@ func (s *Server) fillListing(ctx context.Context, r *http.Request, lr *listingRo
 				query.Set("type", lr.Type)
 			}
 			v.Page.Title = "Search: " + lr.Query
+			f.ExcludeSchemaSlugs = s.seoSettings(ctx).NoIndexTypeSlugs()
 		}
 	}
 	if lr.Kind == render.KindSearch && f.Search == "" {
