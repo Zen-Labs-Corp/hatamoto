@@ -941,16 +941,27 @@ func localeSummaries(cfg *siteconfig.Config, set *entity.LocaleSet) ([]render.Lo
 	for _, tag := range set.PublicTags() {
 		var card *bizprofile.Profile
 		var own bizprofile.Profile
-		if c, ok := cards[tag]; ok {
+		var office bool
+		if tag == set.Default() {
+			// The default business is the site profile itself. Its phone is
+			// the Organization's, so the locale adds no contact point of its own.
+			own = site
+			own.Phone = ""
+			card = &own
+			office = bizprofile.ResolveDefault(site).Office
+		} else if c, ok := cards[tag]; ok {
 			card, own = &c, c
 		}
 		res := bizprofile.ResolveContact(site, card)
 		p := res.Profile
+		if tag != set.Default() {
+			office = res.Office
+		}
 		out = append(out, render.LocaleSummary{
 			Tag: tag, Segment: strings.TrimPrefix(set.Prefix(tag), "/"), Default: tag == set.Default(),
 			CountryName: p.CountryName, Phone: own.Phone, GeoRegion: p.GeoRegion,
 			Language: languageName(tag), PriceRange: p.PriceRange, Currency: p.Currency,
-			ContactPoints: contactPointViews(own.ContactPoints), HasOffice: res.Office,
+			ContactPoints: contactPointViews(own.ContactPoints), HasOffice: office,
 			CatalogName: p.CatalogName, ServiceProvider: p.ServiceProvider != nil && *p.ServiceProvider,
 			AdditionalProperties: propertyViews(p.AdditionalProperties),
 		})
@@ -1001,6 +1012,9 @@ func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) 
 	if err != nil {
 		return ""
 	}
+	if loc == set.Default() {
+		return site.GeoRegion
+	}
 	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
 	if err != nil {
 		return ""
@@ -1011,9 +1025,11 @@ func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) 
 	return site.GeoRegion
 }
 
-// localeBusiness resolves the card of locale loc against the site-wide profile.
-// It returns nil on a site with fewer than two locales, for a locale that is
-// not configured, has no office, or has no street or city of its own.
+// localeBusiness resolves the local business of locale loc. The default locale
+// is the default business itself (the site profile, printed only with its
+// office switch on); every other locale is its card over that profile. It
+// returns nil on a site with fewer than two locales, for a locale that is not
+// configured, has no office, or has no street or city of its own.
 func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (*render.BusinessView, error) {
 	if _, ok := set.Segment(loc); !ok || !set.Multi() {
 		return nil, nil
@@ -1029,10 +1045,15 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 		return nil, err
 	}
 	var card *bizprofile.Profile
-	if c, ok := cards[loc]; ok {
-		card = &c
+	var res bizprofile.Resolved
+	if loc == set.Default() {
+		res = bizprofile.ResolveDefault(site)
+	} else {
+		if c, ok := cards[loc]; ok {
+			card = &c
+		}
+		res = bizprofile.Resolve(site, card)
 	}
-	res := bizprofile.Resolve(site, card)
 	if !res.Office {
 		return nil, nil
 	}

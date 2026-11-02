@@ -81,7 +81,8 @@ func TestLocaleBusiness_IDOfDefaultLocaleWithoutSegment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := businessConfig(`{"en-GB":{"address":{"city":"Sample City"}}}`)
+	cfg := businessConfig(`{}`)
+	cfg.BusinessProfile = json.RawMessage(`{"office":true}`)
 	b, err := localeBusiness(cfg, set, "en-GB")
 	if err != nil || b == nil || b.ID != "en-gb" {
 		t.Fatalf("got %+v, %v; want id en-gb (the default locale has no segment)", b, err)
@@ -89,7 +90,7 @@ func TestLocaleBusiness_IDOfDefaultLocaleWithoutSegment(t *testing.T) {
 }
 
 func TestLocaleBusiness_SingleLocaleAndBadData(t *testing.T) {
-	cards := `{"en":{"address":{"city":"Sample City"}}}`
+	cards := `{"fr":{"address":{"city":"Sample City"}}}`
 	one := businessSet(t, false, entity.LocaleEntry{Tag: "en"})
 	if b, err := localeBusiness(businessConfig(cards), one, "en"); err != nil || b != nil {
 		t.Errorf("one locale: %+v, %v; want nil", b, err)
@@ -260,7 +261,8 @@ func TestLocaleNodeIDs(t *testing.T) {
 	if got["en-XX"] != "en" || got["en"] != "en-default" {
 		t.Errorf("colliding ids = %v", got)
 	}
-	cfg := businessConfig(`{"en":{"address":{"city":"A"}},"en-XX":{"address":{"city":"B"}}}`)
+	cfg := businessConfig(`{"en-XX":{"address":{"city":"B"}}}`)
+	cfg.BusinessProfile = json.RawMessage(`{"office":true}`)
 	a, _ := localeBusiness(cfg, clash, "en")
 	b, _ := localeBusiness(cfg, clash, "en-XX")
 	if a == nil || b == nil || a.ID == b.ID {
@@ -442,5 +444,102 @@ func TestLocaleBusiness_InheritedServicesKeepSiteCurrency(t *testing.T) {
 		if b.ServicesCurrency != want || b.Currency != "EUR" {
 			t.Errorf("%s: ServicesCurrency = %q, Currency = %q, want %q and EUR", loc, b.ServicesCurrency, b.Currency, want)
 		}
+	}
+}
+
+// defaultBusinessConfig is a two-locale site whose default business has the
+// given profile JSON; the legacy columns hold the site address.
+func defaultBusinessConfig(profile, cards string) *siteconfig.Config {
+	cfg := businessConfig(cards)
+	cfg.BusinessProfile = json.RawMessage(profile)
+	return cfg
+}
+
+func TestLocaleBusiness_DefaultFollowsOfficeSwitch(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	tests := []struct {
+		name    string
+		profile string
+		address string
+		want    bool
+	}{
+		{"office with a street", `{"office":true,"name":"Example Branch"}`, `{"street":"Site Street"}`, true},
+		{"office with a city", `{"office":true}`, `{"city":"Site City"}`, true},
+		{"office without a street or city", `{"office":true}`, `{"country":"SC"}`, false},
+		{"office switch off", `{"name":"Example Branch"}`, `{"street":"Site Street","city":"Site City"}`, false},
+	}
+	for _, tt := range tests {
+		cfg := defaultBusinessConfig(tt.profile, `{}`)
+		cfg.PostalAddress = json.RawMessage(tt.address)
+		b, err := localeBusiness(cfg, set, "en")
+		if err != nil || (b != nil) != tt.want {
+			t.Errorf("%s: got %+v, %v; want a business: %v", tt.name, b, err, tt.want)
+			continue
+		}
+		if b != nil && (b.ID != "en" || b.Phone != "site-phone" || b.Hours != "site hours") {
+			t.Errorf("%s: default business = %+v", tt.name, b)
+		}
+	}
+
+	// A card stored under the default tag is an orphan: the default page never reads it.
+	cfg := defaultBusinessConfig(`{}`, `{"en":{"address":{"street":"Orphan Street"}}}`)
+	if b, err := localeBusiness(cfg, set, "en"); err != nil || b != nil {
+		t.Errorf("default-tag card read: %+v, %v; want nil", b, err)
+	}
+	if got := localeGeoRegion(defaultBusinessConfig(`{"geo_region":"XX"}`, `{"en":{"geo_region":"YY"}}`), set, "en"); got != "XX" {
+		t.Errorf("default geo region = %q, want the default business's", got)
+	}
+}
+
+// Another locale's business never takes the default business's name, country,
+// image or address, whatever the default business carries.
+func TestLocaleBusiness_OtherLocaleKeepsOwnIdentity(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	cfg := defaultBusinessConfig(`{"office":true,"name":"Example Branch","country_name":"Exampleland","image":"/media/d.jpg","business_type":"Restaurant",
+		"address":{"lat":"1.5","lng":"2.5","map_url":"https://example.test/map"},"tax_id":"T1"}`,
+		`{"fr":{"address":{"city":"Sample City"}}}`)
+	b, err := localeBusiness(cfg, set, "fr")
+	if err != nil || b == nil {
+		t.Fatalf("fr: %+v, %v", b, err)
+	}
+	if b.Name != "" || b.CountryName != "" || b.Image != "" || b.Type != bizprofile.DefaultType ||
+		b.Address.Street != "" || b.Lat != "" || b.Lng != "" || b.MapURL != "" {
+		t.Errorf("fr inherited identity fields: %+v", b)
+	}
+	if b.TaxID != "T1" {
+		t.Errorf("fr TaxID = %q, want the inherited value", b.TaxID)
+	}
+}
+
+func TestLocaleSummaries_DefaultIsTheDefaultBusiness(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	cfg := defaultBusinessConfig(`{"office":true,"country_name":"Exampleland","geo_region":"XX","price_range":"$$"}`,
+		`{"en":{"phone":"orphan","country_name":"Orphanland"},"fr":{"phone":"fr-phone"}}`)
+	got, err := localeSummaries(cfg, set)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("summaries = %+v, %v", got, err)
+	}
+	def, fr := got[0], got[1]
+	if def.Phone != "" || def.CountryName != "Exampleland" || def.GeoRegion != "XX" || def.PriceRange != "$$" || !def.HasOffice || !def.Default {
+		t.Errorf("default summary = %+v; want no own phone, the default business's country and an office", def)
+	}
+	if fr.Phone != "fr-phone" || fr.CountryName != "" {
+		t.Errorf("fr summary = %+v", fr)
+	}
+	cfg.BusinessProfile = json.RawMessage(`{"country_name":"Exampleland"}`)
+	if got, _ := localeSummaries(cfg, set); got[0].HasOffice {
+		t.Errorf("default summary has an office without the switch: %+v", got[0])
+	}
+}
+
+// The default business's map fields feed the default page's local business
+// only; the Organization view carries no geo.
+func TestOrgView_IgnoresDefaultBusinessGeo(t *testing.T) {
+	plain := defaultBusinessConfig(`{"office":true,"tax_id":"T1"}`, `{}`)
+	geo := defaultBusinessConfig(`{"office":true,"tax_id":"T1","address":{"lat":"1.5","lng":"2.5","map_url":"https://example.test/map"}}`, `{}`)
+	a, errA := orgView(plain)
+	b, errB := orgView(geo)
+	if errA != nil || errB != nil || !reflect.DeepEqual(a, b) {
+		t.Errorf("orgView changed with geo: %+v vs %+v (%v, %v)", a, b, errA, errB)
 	}
 }
