@@ -47,13 +47,11 @@ document.addEventListener("submit", (evt) => {
   field("back", location.pathname + location.search);
 });
 
-// Sidebar toggle (in the sidebar foot): collapses it to an icon rail. Hidden in the markup, so without
-// script there is no dead button.
+// Sidebar toggle: collapses it to a rail. Hidden in the markup: no dead button without script.
 const sidebarToggle = document.querySelector("[data-hm-sidebar-toggle]");
 if (sidebarToggle) {
   sidebarToggle.hidden = false;
   const shell = document.querySelector(".hm-shell");
-  // Remembered on desktop only: under 768px the sidebar is a top bar and its toggle is hidden.
   if (rememberedSidebar(safeStorage("local"), window.matchMedia("(min-width: 769px)").matches)) {
     shell.dataset.sidebar = "collapsed";
     sidebarToggle.setAttribute("aria-expanded", "false");
@@ -65,6 +63,8 @@ if (sidebarToggle) {
     rememberSidebar(safeStorage("local"), collapsed);
   });
 }
+
+document.querySelector('.hm-subnav [aria-current="page"]')?.scrollIntoView({ inline: "center", block: "nearest" });
 
 // Photo fallback (error does not bubble: capture).
 document.addEventListener("error", (e) => { if (e.target.matches?.("img[data-hm-photo]")) photoFallback(e.target); }, true);

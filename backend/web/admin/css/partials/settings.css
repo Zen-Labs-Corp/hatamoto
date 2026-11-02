@@ -12,7 +12,8 @@
 .hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 /* Cards in one .hm-cardform sit in a single block; give them the page rhythm. */
 .hm-settings .hm-cardform > .hm-card + .hm-card { margin-top: var(--space-6); }
-.hm-subnav { position: sticky; top: calc(var(--space-8) * 2 + var(--space-3)); display: flex; flex-direction: column; gap: var(--space-2); }
+/* Sticks at the group padding (no bar above it) and scrolls inside itself when a long list is taller than the viewport. */
+.hm-subnav { position: sticky; top: var(--page-pad); max-height: calc(100vh - 2 * var(--page-pad)); max-height: calc(100dvh - 2 * var(--page-pad)); overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2); }
 /* The area name stays in the heading outline for screen readers; the partial marks it visually hidden. */
 .hm-subnav__title { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
 .hm-subnav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-0-5); }
@@ -88,10 +89,20 @@
   .hm-fieldgrid--tokens, .hm-fieldgrid--2, .hm-fieldgrid--swatches { grid-template-columns: minmax(0, 1fr); }
   .hm-settings { grid-template-columns: minmax(0, 1fr); min-height: 0; }
   /* The subnav is a scroller above the page: one row of links under a hairline. */
-  .hm-subnav { position: static; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-bottom: 1px solid var(--border); }
+  /* Edge shadows appear only on the side that has more links (scroll-linked via background-attachment), so no mask hides focus outlines. */
+  .hm-subnav {
+    position: static; max-height: none; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-bottom: 1px solid var(--border);
+    --hm-edge: color-mix(in srgb, var(--text) 14%, transparent);
+    background:
+      linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--bg) 30%, transparent) right / 24px 100% no-repeat local,
+      linear-gradient(to right, var(--hm-edge), transparent) left / 12px 100% no-repeat scroll,
+      linear-gradient(to left, var(--hm-edge), transparent) right / 12px 100% no-repeat scroll;
+  }
   .hm-subnav__list { flex-direction: row; flex: none; }
   .hm-subnav__group, .hm-subnav__sep { display: none; }
-  .hm-subnav__link { flex: none; white-space: nowrap; border-radius: 0; }
+  .hm-subnav__link { flex: none; white-space: nowrap; border-radius: 0; border-bottom: 2px solid transparent; }
   .hm-subnav__link:hover, .hm-subnav__link[aria-current="page"] { background: transparent; }
-  .hm-subnav__link[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--text); }
+  /* A border, not a shadow: forced-colors mode keeps borders. */
+  .hm-subnav__link[aria-current="page"] { border-bottom-color: var(--text); }
 }

@@ -32,3 +32,24 @@ func TestSubnavIsAScrollerOfLinksOnPhones(t *testing.T) {
 		t.Error("subnav links carry no icons")
 	}
 }
+
+// The sticky subnav scrolls inside itself and sits at the group padding; the phone scroller marks
+// the current link with a border (forced-colors keeps it, unlike box-shadow) and shows edge shadows (no mask: TestTabRowsHaveNoEdgeFade).
+func TestSubnavStickyAndPhoneScroller(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/settings.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	for _, want := range []string{"top: var(--page-pad);", "max-height: calc(100dvh - 2 * var(--page-pad)); overflow-y: auto", "no-repeat scroll", "border-bottom-color: var(--text)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("settings.css lacks %q", want)
+		}
+	}
+	phone := css[strings.Index(css, "@media (max-width: 640px)"):]
+	if strings.Contains(phone, "box-shadow") {
+		t.Error("the phone subnav must not mark the current link with box-shadow (lost in forced-colors)")
+	}
+}
