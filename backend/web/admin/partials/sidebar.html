@@ -14,7 +14,6 @@
 {{with .User}}<div class="hm-sidebar__foot">
 <a class="hm-sidebar__me" href="{{adminPath}}/profile" aria-label="{{.Name}}, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="{{.Initials}}" aria-hidden="true"></span><span class="hm-sidebar__name">{{.Name}}</span></a>
 {{template "hm/themelogout" $}}
-{{template "hm/button" (dict "Variant" "ghost" "Size" "sm" "IconOnly" true "Icon" "panel-left" "AriaLabel" "Toggle sidebar" "Attrs" (attrmap "data-hm-sidebar-toggle" "" "hidden" "" "aria-expanded" "true" "aria-controls" "hm-sidebar" "data-tooltip" "Toggle sidebar" "data-tooltip-align" "end"))}}
 </div>{{end}}
 </nav>{{end}}
 
