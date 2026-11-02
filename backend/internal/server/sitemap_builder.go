@@ -107,6 +107,12 @@ type sitemapGroup struct {
 	// folded is set on a legacy locale file: the per-group files it lists, in
 	// order. They are not registered in the plan themselves.
 	folded []*sitemapGroup
+	// A group over the per-file URL limit is listed in several files: the
+	// first keeps the group's key and chunk 0, the others are named
+	// "<key>-2", "<key>-3", ... and point back at it through chunkOf. chunks
+	// is the number of files, set on every one of them.
+	chunkOf       *sitemapGroup
+	chunk, chunks int
 }
 
 type sitemapPlan struct {
@@ -127,6 +133,7 @@ type sitemapPlan struct {
 }
 
 // maxLegacyFileURLs is the sitemap protocol limit; legacy files are not split.
+// A lower limit saved in SEO > Sitemap replaces it.
 const maxLegacyFileURLs = 50000
 
 type localeCopy struct{ locale, path string }
@@ -272,6 +279,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		} else {
 			p.splitByLocale(misc)
 		}
+		p.splitFiles()
 		return p
 	}
 	var kept []*sitemapGroup
@@ -286,7 +294,51 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		}
 	}
 	p.groups = append(kept, misc)
+	p.splitFiles()
 	return p
+}
+
+// splitFiles moves the URLs of a group over the per-file limit into further
+// files. A legacy locale file folds several groups and is never split (see
+// maxLegacyFileURLs). The sitemap.urls filter keeps seeing the bare group:
+// children share its base.
+func (p *sitemapPlan) splitFiles() {
+	limit := p.sitemapSettings().EffectiveMaxURLs()
+	var out []*sitemapGroup
+	for _, g := range p.groups {
+		out = append(out, g)
+		if len(g.folded) > 0 {
+			continue
+		}
+		urls := p.groupURLs(g)
+		chunks := (len(urls) + limit - 1) / limit
+		if chunks < 2 {
+			continue
+		}
+		keys := make([]string, chunks)
+		taken := false
+		for i := 1; i < chunks; i++ {
+			keys[i] = fmt.Sprintf("%s-%d", g.key, i+1)
+			_, clash := p.byKey[keys[i]]
+			taken = taken || clash
+		}
+		if taken {
+			p.collide(fmt.Sprintf("sitemap file %q cannot be split: a file name it would use is taken", g.key))
+			continue
+		}
+		g.chunks = chunks
+		for i := 1; i < chunks; i++ {
+			c := &sitemapGroup{key: keys[i], base: g.base, locale: g.locale, chunkOf: g, chunk: i, chunks: chunks}
+			for _, u := range urls[i*limit : min((i+1)*limit, len(urls))] {
+				if u.LastMod > p.maxDate["group:"+c.key] {
+					p.maxDate["group:"+c.key] = u.LastMod
+				}
+			}
+			p.byKey[c.key] = c
+			out = append(out, c)
+		}
+	}
+	p.groups = out
 }
 
 func (p *sitemapPlan) locales() *entity.LocaleSet { return p.in.Snap.Locales() }
@@ -443,8 +495,8 @@ func (p *sitemapPlan) splitLegacy(misc *sitemapGroup) {
 				n++
 			}
 		}
-		if n > maxLegacyFileURLs {
-			p.notes = append(p.notes, fmt.Sprintf("sitemap file %q lists more URLs than the %d limit of the sitemap protocol; legacy files are not split", g.key, maxLegacyFileURLs))
+		if limit := p.sitemapSettings().EffectiveMaxURLs(); n > limit {
+			p.notes = append(p.notes, fmt.Sprintf("sitemap file %q lists more URLs than the %d limit of the sitemap protocol; legacy files are not split", g.key, limit))
 		}
 	}
 }
@@ -574,6 +626,21 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	if g.chunks < 2 {
+		return p.groupURLs(g), true
+	}
+	src := g
+	if g.chunkOf != nil {
+		src = g.chunkOf
+	}
+	limit := p.sitemapSettings().EffectiveMaxURLs()
+	all := p.groupURLs(src)
+	return all[min(g.chunk*limit, len(all)):min((g.chunk+1)*limit, len(all))], true
+}
+
+// groupURLs lists every URL of g, whatever the file limit.
+func (p *sitemapPlan) groupURLs(g *sitemapGroup) (urls []URL) {
+	key := g.key
 	base := p.in.BaseURL
 
 	if len(g.folded) > 0 {
@@ -586,12 +653,12 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 				}
 			}
 		}
-		return urls, true
+		return urls
 	}
 
 	if g.base == miscSitemapGroupKey || key == miscSitemapGroupKey {
 		if g.locale != "" && g.locale != p.locales().Default() {
-			return p.rowURLs(g, urls), true
+			return p.rowURLs(g, urls)
 		}
 		for _, r := range p.in.Plugins.Static {
 			loc := fmt.Sprintf("%s/%s", base, r.Path)
@@ -603,7 +670,7 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 		}
 	}
 
-	return p.rowURLs(g, urls), true
+	return p.rowURLs(g, urls)
 }
 
 // noIndexEntry asks the head's predicate whether the settings keep e's page
