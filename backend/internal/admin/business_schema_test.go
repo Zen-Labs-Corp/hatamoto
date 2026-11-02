@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -70,7 +71,7 @@ func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Business name", "Business type", "No office in this locale", `<option value="Restaurant">`} {
+	for _, want := range []string{"Legal name", "Business type", "No office in this locale", `<option value="Restaurant">`} {
 		if !strings.Contains(string(full), want) {
 			t.Errorf("locale form lacks %q", want)
 		}
@@ -235,4 +236,170 @@ func profileMap(t *testing.T, p bizprofile.Profile) map[string]any {
 		t.Fatal(err)
 	}
 	return m
+}
+
+// A fully filled form posts into a Profile, and the Profile renders back with
+// every new field present as a form id.
+func TestBusinessFormRoundTripsExtendedFields(t *testing.T) {
+	schema, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	yes, no := true, false
+	want := bizprofile.Profile{
+		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "5493001KJTIIGC8Y1R12", Gln: "1234567890123",
+		Founders:  []bizprofile.Person{{Name: "Ada Example", URL: "https://example.test/ada"}},
+		ParentOrg: bizprofile.Person{Name: "Example Holding", URL: "https://example.test"},
+		Brands:    []string{"Example Brand"}, PaymentMethods: []string{"Cash"},
+		AcceptsReservations: &yes, BookingURL: "https://example.test/book", OrderURL: "https://example.test/order", MenuURL: "https://example.test/menu",
+		ServiceRadiusKm: "25",
+		Services:        []bizprofile.Service{{Name: "Repair", Description: "Fixes things.", URL: "https://example.test/repair", Price: "49.90"}},
+		KnowsAbout:      []string{"Plumbing"}, Awards: []string{"Best Example 2030"},
+		Memberships:    []bizprofile.Person{{Name: "Example Guild", URL: "https://example.test/guild"}},
+		AmenityPresets: bizprofile.AmenityPresets{Parking: &yes, Wifi: &no},
+		Amenities:      []bizprofile.Amenity{{Name: "Pets welcome", Value: true}, {Name: "Smoking", Value: false}},
+		PublicAccess:   &yes, FreeEntry: &no,
+	}
+	if msgs := bizprofile.Validate(want); len(msgs) != 0 {
+		t.Fatalf("fixture invalid: %v", msgs)
+	}
+	html, err := schemaform.Render(schema, profileMap(t, want), schemaform.Options{Prefix: "biz."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"naics", "isic", "duns", "lei", "gln", "founders-0-name", "founders-0-url", "parent_organisation-name", "parent_organisation-url",
+		"brands", "payment_methods", "accepts_reservations", "booking_url", "order_url", "menu_url", "service_radius_km",
+		"services-0-name", "services-0-description", "services-0-url", "services-0-price", "knows_about", "awards",
+		"memberships-0-name", "memberships-0-url", "amenity_presets-parking", "amenity_presets-wheelchair_access", "amenity_presets-wifi",
+		"amenity_presets-toilets", "amenity_presets-air_conditioning", "amenities-0-name", "amenities-0-value", "public_access", "free_entry"} {
+		if !strings.Contains(string(html), `id="sf-biz-`+id+`"`) {
+			t.Errorf("form lacks id sf-biz-%s", id)
+		}
+	}
+	// Post the filled values back as a browser would: switches carry a
+	// _present marker, and an unticked one posts nothing.
+	form := url.Values{
+		"biz.naics": {"541511"}, "biz.isic": {"6201"}, "biz.duns": {"123456789"}, "biz.lei": {"5493001KJTIIGC8Y1R12"}, "biz.gln": {"1234567890123"},
+		"_present.biz.founders": {"1"}, "biz.founders.0.name": {"Ada Example"}, "biz.founders.0.url": {"https://example.test/ada"},
+		"biz.parent_organisation.name": {"Example Holding"}, "biz.parent_organisation.url": {"https://example.test"},
+		"_present.biz.brands":               {"1"},
+		"biz.brands":                        {"Example Brand"},
+		"_present.biz.payment_methods":      {"1"},
+		"biz.payment_methods":               {"Cash"},
+		"_present.biz.accepts_reservations": {"1"}, "biz.accepts_reservations": {"true"},
+		"biz.booking_url": {"https://example.test/book"}, "biz.order_url": {"https://example.test/order"}, "biz.menu_url": {"https://example.test/menu"},
+		"biz.service_radius_km": {"25"},
+		"_present.biz.services": {"1"}, "biz.services.0.name": {"Repair"}, "biz.services.0.description": {"Fixes things."},
+		"biz.services.0.url": {"https://example.test/repair"}, "biz.services.0.price": {"49.90"},
+		"_present.biz.knows_about": {"1"},
+		"biz.knows_about":          {"Plumbing"},
+		"_present.biz.awards":      {"1"},
+		"biz.awards":               {"Best Example 2030"},
+		"_present.biz.memberships": {"1"}, "biz.memberships.0.name": {"Example Guild"}, "biz.memberships.0.url": {"https://example.test/guild"},
+		"_present.biz.amenity_presets.parking": {"1"}, "biz.amenity_presets.parking": {"true"},
+		"_present.biz.amenity_presets.wifi": {"1"},
+		"_present.biz.amenities":            {"1"}, "biz.amenities.0.name": {"Pets welcome"}, "_present.biz.amenities.0.value": {"1"}, "biz.amenities.0.value": {"true"},
+		"biz.amenities.1.name": {"Smoking"}, "_present.biz.amenities.1.value": {"1"},
+		"_present.biz.public_access": {"1"}, "biz.public_access": {"true"},
+		"_present.biz.free_entry": {"1"},
+	}
+	vals, errs := schemaform.Decode(schema, form, nil, schemaform.Options{Prefix: "biz."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		g, _ := json.Marshal(got)
+		w, _ := json.Marshal(want)
+		t.Errorf("round trip\n got %s\nwant %s", g, w)
+	}
+}
+
+// A switch nobody touched stays unset, so a locale card keeps inheriting it and
+// an empty card is still deleted.
+func TestBusinessFormUntouchedSwitchesStayUnset(t *testing.T) {
+	vals, errs := schemaform.Decode(businessSchema(), url.Values{"loc.name": {"Example Branch"}}, nil, schemaform.Options{Prefix: "loc."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got.Name = ""
+	if !reflect.DeepEqual(got, bizprofile.Profile{}) {
+		raw, _ := json.Marshal(got)
+		t.Errorf("untouched form left %s", raw)
+	}
+}
+
+// A repeater row with only a switch set is a nameless row; Validate flags it on
+// an id the form has.
+func TestBusinessNamelessAmenityRowLandsOnFieldID(t *testing.T) {
+	p := bizprofile.Profile{Amenities: []bizprofile.Amenity{{Value: true}}}
+	errs := profileErrors(bizprofile.Validate(p))
+	if len(errs["amenities.0.name"]) == 0 {
+		t.Fatalf("errors = %v", errs)
+	}
+	out, err := schemaform.Render(businessSchema(), profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range formErrors("biz.", errs) {
+		if !strings.Contains(string(out), `id="`+e.ID+`"`) {
+			t.Errorf("summary id %q has no field in the form", e.ID)
+		}
+	}
+}
+
+// Every new Validate path is a field of the card it is reported on.
+func TestBusinessExtendedValidationPathsLandOnFieldIDs(t *testing.T) {
+	long := strings.Repeat("x", 5000)
+	p := bizprofile.Profile{
+		Naics: "x", Isic: "x", Duns: "x", Lei: "x", Gln: "x", BookingURL: "nope", OrderURL: "nope", MenuURL: "nope", ServiceRadiusKm: "far",
+		Founders:    []bizprofile.Person{{URL: "nope"}},
+		Memberships: []bizprofile.Person{{Name: long}},
+		Brands:      []string{long}, PaymentMethods: []string{long}, KnowsAbout: []string{long}, Awards: []string{long},
+		Services:  []bizprofile.Service{{Price: "cheap", URL: "nope"}},
+		Amenities: []bizprofile.Amenity{{Value: true}},
+	}
+	msgs := bizprofile.Validate(p)
+	errs := profileErrors(msgs)
+	if len(msgs) < 10 {
+		t.Fatalf("only %d errors: %v", len(msgs), msgs)
+	}
+	site, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
+		out, err := schemaform.Render(schema, profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range formErrors("biz.", errs) {
+			if !strings.Contains(string(out), `id="`+e.ID+`"`) {
+				t.Errorf("%s form: summary id %q (%s) has no field", name, e.ID, e.Label)
+			}
+		}
+	}
+}
+
+func TestBusinessSchemasLabelTheLegalName(t *testing.T) {
+	site, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
+		out, err := schemaform.Render(schema, nil, schemaform.Options{Prefix: "biz."})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(out), "Legal name") || strings.Contains(string(out), "Business name") {
+			t.Errorf("%s form does not label the name Legal name", name)
+		}
+	}
 }

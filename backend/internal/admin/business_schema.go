@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ import (
 // into it. %[1]s and %[2]s are the business type and weekday enums, %[3]s the
 // address properties only a locale card has.
 const businessSchemaTpl = `{"type":"object","properties":{
-"name":{"type":"string","title":"Business name","x-hm-group":"Organisation"},
+"name":{"type":"string","title":"Legal name","x-hm-group":"Organisation"},
 "alternate_name":{"type":"string","title":"Alternate name","x-hm-group":"Organisation"},
 "business_type":{"type":"string","title":"Business type","enum":%[1]s,"x-hm-group":"Organisation"},
 "description":{"type":"string","title":"Description","format":"textarea","x-hm-group":"Organisation"},
@@ -35,6 +36,18 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "image":{"type":"string","title":"Image","format":"uri","x-hm-group":"Organisation"},
 "logo_object":{"type":"boolean","title":"Print the logo with its width and height","default":false,"x-hm-group":"Organisation"},
 "no_office":{"type":"boolean","title":"No office in this locale","default":false,"x-hm-group":"Organisation"},
+"naics":{"type":"string","title":"NAICS code","x-hm-group":"Organisation"},
+"isic":{"type":"string","title":"ISIC code","x-hm-group":"Organisation"},
+"duns":{"type":"string","title":"D-U-N-S number","x-hm-group":"Organisation"},
+"lei":{"type":"string","title":"LEI","x-hm-group":"Organisation"},
+"gln":{"type":"string","title":"GLN","x-hm-group":"Organisation"},
+"founders":{"type":"array","x-hm-item-label":"founder","title":"Founders","x-hm-group":"Organisation","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}}},
+"parent_organisation":{"type":"object","title":"Parent organisation","x-hm-group":"Organisation","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}},
+"brands":{"type":"array","x-hm-item-label":"brand","title":"Brands","x-hm-group":"Organisation","items":{"type":"string"}},
 "address":{"type":"object","title":"Postal address","x-hm-group":"Address","properties":{
  "street":{"type":"string","title":"Street"},
  "city":{"type":"string","title":"City"},
@@ -64,17 +77,44 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "closed":{"type":"boolean","title":"Closed","default":false},
  "opens":{"type":"string","title":"Opens","format":"time"},
  "closes":{"type":"string","title":"Closes","format":"time"}}}},
+"currency":{"type":"string","title":"Currency","x-hm-group":"Commerce"},
+"price_range":{"type":"string","title":"Price range","x-hm-group":"Commerce"},
+"area_served":{"type":"array","x-hm-item-label":"area","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
+"geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"},
+"service_radius_km":{"type":"string","title":"Service radius (km)","x-hm-group":"Commerce"},
+"payment_methods":{"type":"array","x-hm-item-label":"payment method","title":"Payment methods","x-hm-group":"Commerce","items":{"type":"string"}},
+"accepts_reservations":{"type":"boolean","title":"Accepts reservations","x-hm-group":"Commerce"},
+"booking_url":{"type":"string","title":"Booking address","format":"uri","x-hm-group":"Commerce"},
+"order_url":{"type":"string","title":"Online ordering address","format":"uri","x-hm-group":"Commerce"},
+"menu_url":{"type":"string","title":"Menu address","format":"uri","x-hm-group":"Commerce"},
+"services":{"type":"array","x-hm-item-label":"service","title":"Services","x-hm-group":"Services","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "description":{"type":"string","title":"Description","format":"textarea"},
+ "url":{"type":"string","title":"Web address","format":"uri"},
+ "price":{"type":"string","title":"Price"}}}},
+"knows_about":{"type":"array","x-hm-item-label":"topic","title":"Knows about","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"awards":{"type":"array","x-hm-item-label":"award","title":"Awards","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"memberships":{"type":"array","x-hm-item-label":"membership","title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}}},
+"amenity_presets":{"type":"object","title":"Amenities","x-hm-group":"Expertise & amenities","properties":{
+ "parking":{"type":"boolean","title":"Parking"},
+ "wheelchair_access":{"type":"boolean","title":"Wheelchair access"},
+ "wifi":{"type":"boolean","title":"Wifi"},
+ "toilets":{"type":"boolean","title":"Toilets"},
+ "air_conditioning":{"type":"boolean","title":"Air conditioning"}}},
+"amenities":{"type":"array","x-hm-item-label":"amenity","title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "value":{"type":"boolean","title":"Available","default":false}}}},
+"public_access":{"type":"boolean","title":"Open to the public","x-hm-group":"Expertise & amenities"},
+"free_entry":{"type":"boolean","title":"Free entry","x-hm-group":"Expertise & amenities"},
 "sameas":{"type":"array","x-hm-item-label":"profile address","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
 "rating":{"type":"object","title":"Aggregate rating","x-hm-group":"Profiles & rating","properties":{
  "value":{"type":"string","title":"Rating value"},
  "best":{"type":"string","title":"Best rating"},
  "worst":{"type":"string","title":"Worst rating"},
  "count":{"type":"string","title":"Number of ratings"},
- "count_type":{"type":"string","title":"Count is","enum":["ratings","reviews"]}}},
-"currency":{"type":"string","title":"Currency","x-hm-group":"Commerce"},
-"price_range":{"type":"string","title":"Price range","x-hm-group":"Commerce"},
-"area_served":{"type":"array","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
-"geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"}}}`
+ "count_type":{"type":"string","title":"Count is","enum":["ratings","reviews"]}}}}}`
 
 // localeAddressProps are the address properties of a locale card. The site-wide
 // form leaves them out: coordinates and the map address describe one place.
@@ -109,6 +149,18 @@ var businessUI = map[string]schemaform.UIHint{
 	"geo_region":                        {Help: "Printed as a geo.region tag on this locale's pages."},
 	"area_served":                       {Help: "Places this business serves, separated by commas."},
 	"sameas":                            {Help: "Social and directory profile addresses."},
+	"naics":                             {Help: "Two to six digits"},
+	"isic":                              {Help: "Four digits, ISIC revision 4"},
+	"duns":                              {Help: "Nine digits"},
+	"lei":                               {Help: "Twenty letters and digits"},
+	"gln":                               {Help: "Thirteen digits"},
+	"service_radius_km":                 {Help: "Kilometres around the coordinates of this business. Needs both coordinates."},
+	"brands":                            {Help: "Brand names, separated by commas."},
+	"payment_methods":                   {Help: "Like Cash or Visa, separated by commas."},
+	"accepts_reservations":              {Help: "Leave unset to say nothing."},
+	"amenity_presets":                   {Help: "Leave a switch unset to say nothing about it."},
+	"amenities":                         {Help: "Features beyond the list above."},
+	"knows_about":                       {Help: "Topics this business is expert in, separated by commas."},
 	"address.lat":                       {Help: "Between -90 and 90"},
 	"address.lng":                       {Help: "Between -180 and 180"},
 }
@@ -135,14 +187,13 @@ func businessSchemaWith(addressProps string) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
 }
 
-// siteSchema is the site-wide form: the locale-only properties are dropped and
-// the name is the Organization's legal name.
+// siteSchema is the site-wide form: the locale-only properties are dropped.
 func siteSchema() (json.RawMessage, error) {
 	s, err := schemaform.WithoutProperties(businessSchemaWith(""), localeOnlyProps...)
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(strings.Replace(string(s), `"title":"Business name"`, `"title":"Legal name"`, 1)), nil
+	return json.RawMessage(strings.Replace(string(s), `"title":"Legal name"`, `"title":"Legal name"`, 1)), nil
 }
 
 // localeDisplayName is the English name of a BCP 47 tag ("French (Canada)"), or
@@ -169,12 +220,27 @@ func formErrors(prefix string, errs schemaform.Errors) []ui.FieldError {
 	out := make([]ui.FieldError, 0, len(paths))
 	for _, p := range paths {
 		out = append(out, ui.FieldError{
-			ID:      "sf-" + strings.ReplaceAll(prefix+p, ".", "-"),
+			ID:      "sf-" + strings.ReplaceAll(prefix+tagListField(p), ".", "-"),
 			Label:   pathLabel(p),
 			Message: strings.Join(errs[p], " "),
 		})
 	}
 	return out
+}
+
+// tagLists are the string lists the form edits as one comma separated field.
+var tagLists = []string{"area_served", "brands", "payment_methods", "knows_about", "awards"}
+
+// tagListField maps an item path ("brands.2") to its field ("brands"); other
+// paths stay as they are.
+func tagListField(path string) string {
+	name, idx, ok := strings.Cut(path, ".")
+	if ok && slices.Contains(tagLists, name) {
+		if _, err := strconv.Atoi(idx); err == nil {
+			return name
+		}
+	}
+	return path
 }
 
 // profileErrors adapts bizprofile.Validate messages to schemaform errors.
@@ -197,6 +263,10 @@ var segmentLabels = map[string]string{
 	"available_language": "Languages", "area_served": "Area served", "founding_date": "Founding date",
 	"map_url": "Map address", "gbp_url": "Business profile address", "sameas": "Profile address",
 	"hours_note": "Hours note", "geo_region": "Geo region", "state": "State or region",
+	"naics": "NAICS code", "isic": "ISIC code", "duns": "D-U-N-S number", "lei": "LEI", "gln": "GLN",
+	"parent_organisation": "Parent organisation", "service_radius_km": "Service radius (km)",
+	"booking_url": "Booking address", "order_url": "Online ordering address", "menu_url": "Menu address",
+	"knows_about": "Knows about", "url": "Web address", "wifi": "Wifi", "free_entry": "Free entry",
 }
 
 // pathLabel reads "opening_hours.0.opens" as "Opening hours 1 Opens".
