@@ -768,7 +768,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 
 | ID | Check |
 |---|---|
-| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens, the menu editor and Titles & meta (UI-02). |
+| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens, the menu editor and Titles & meta (UI-02), plus a card footer inside `.hm-card--sticky-foot`. |
 | UI-D2 | Every visible element has no shadow, a ring or inset shadow, or is inside a popup. The sticky blog editor toolbar and the stat card are the named exceptions. |
 | UI-D3 | `.hm-btn` sizes are 36px or 32px with radius 6px, plus the named exceptions (filter chip remove button, editor bubble and editor bar buttons). Inside `.hm-listbar` the radius may also be `--radius-md` (8px). |
 | UI-D4 | Every checkbox outside the multi-pick allowlist is a 32px by 18px switch with `role="switch"`. Every segmented radiogroup (`.hm-segmented` with radios) has two or more radios. |

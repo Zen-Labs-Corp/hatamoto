@@ -68,7 +68,8 @@ function check({ sticky, list, spec }) {
       if (px(cs.borderTopLeftRadius) !== 0) out.push(["UI-D1", s, "footer has a radius", cs.borderTopLeftRadius]);
       if (!plain && px(cs.borderTopWidth) !== 1) out.push(["UI-D1", s, "top border is not 1px", cs.borderTopWidth]);
       if (f.matches(".hm-savebar") && cs.position === "sticky" && !sticky) out.push(["UI-D1", s, "sticky footer outside the editor screens", cs.position]);
-      if (f.matches(".hm-card__foot") && cs.position === "sticky") out.push(["UI-D1", s, "card footer is sticky", cs.position]);
+      // The one opt-in exception: a card with hm-card--sticky-foot keeps its footer sticky (UI-02).
+      if (f.matches(".hm-card__foot") && cs.position === "sticky" && !f.closest(".hm-card--sticky-foot")) out.push(["UI-D1", s, "card footer is sticky", cs.position]);
       const par = f.parentElement;
       if (par && btns.length) {
         const pr = par.getBoundingClientRect(), pcs = getComputedStyle(par);
@@ -364,6 +365,8 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <div class="hm-card" style="border:1px solid #000"><div class="hm-card__body">
   <div class="hm-card__foot" id="d1d6" style="display:block;box-shadow:0 4px 6px #f00;border-top:1px solid #000"><button class="hm-btn" style="height:36px;border-radius:6px">Cancel</button></div>
 </div></div>
+<div class="hm-card" style="border:1px solid #000"><div class="hm-card__foot" id="d1stk" style="position:sticky;bottom:0;display:flex;justify-content:flex-end;border-top:1px solid #000"><button class="hm-btn" style="height:36px;border-radius:6px">Cancel</button></div></div>
+<div class="hm-card hm-card--sticky-foot" style="border:1px solid #000"><div class="hm-card__foot" id="d1stkok" style="position:sticky;bottom:0;display:flex;justify-content:flex-end;border-top:1px solid #000"><button class="hm-btn" style="height:36px;border-radius:6px">Cancel</button></div></div>
 <div class="hm-card__foot" id="d5" style="display:flex;justify-content:flex-end;border-top:1px solid #000;width:800px"><button class="hm-btn hm-btn--primary" style="height:36px;border-radius:6px">A</button><button class="hm-btn hm-btn--primary" style="height:36px;border-radius:6px">B</button></div>
 <div id="d2" style="box-shadow:0 8px 12px #000;width:20px;height:20px"></div>
 <button class="hm-btn" id="d3" style="height:50px;border-radius:0">Big</button>
@@ -411,8 +414,10 @@ if (selfTest) {
   // A registry Install row form is a row action: it must not be reported.
   if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10notice"))) { console.log("self-test FAILED: UI-D10 flagged a shell notices form (#d10notice)"); process.exit(1); }
   if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10pkg"))) { console.log("self-test FAILED: UI-D10 flagged a registry row form (#d10pkg)"); process.exit(1); }
+  // The opt-in hm-card--sticky-foot footer must not be reported as sticky.
+  if (found.some((v) => v[0] === "UI-D1" && v[1].endsWith("#d1stkok") && v[2] === "card footer is sticky")) { console.log("self-test FAILED: UI-D1 flagged an hm-card--sticky-foot footer (#d1stkok)"); process.exit(1); }
   // Each rule must fire on its own planted element, not just somewhere in the fixture.
-  const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": ["#d14~button border-top-left-radius", "#d14b~button box-shadow", "#d14b~button border-top-width"] };
+  const own = { "UI-D1": ["#d1d6", "#d1stk~card footer is sticky"], "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": ["#d14~button border-top-left-radius", "#d14b~button box-shadow", "#d14b~button border-top-width"] };
   const fired = [...new Set(found.map((v) => v[0]))].sort();
   const missing = Object.entries(own).flatMap(([r, ids]) => [ids].flat().map((id) => [r, id])).filter(([r, id]) => { const [sid, frag] = id.split("~"); return !found.some((v) => v[0] === r && v[1].endsWith(sid) && (!frag || v[2].includes(frag))); }).map(([r, id]) => `${r} on ${id}`);
   console.log(`self-test: fired ${fired.join(" ")}`);
