@@ -391,13 +391,9 @@ func (b *seoBuilder) siteTags() {
 }
 
 func (b *seoBuilder) robotsExtra(lines []string) {
-	var keep []string
-	for _, l := range lines {
-		if strings.Contains(strings.ToLower(l), "/admin") {
-			b.notMapped("robots.txt line: " + l)
-			continue
-		}
-		keep = append(keep, l)
+	keep, dropped := dropRobotsRules(lines, func(l string) bool { return strings.Contains(strings.ToLower(l), "/admin") })
+	for _, l := range dropped {
+		b.notMapped("robots.txt line: " + l)
 	}
 	if len(keep) == 0 {
 		return

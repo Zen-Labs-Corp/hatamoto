@@ -236,3 +236,19 @@ func portOf(rawURL string) string {
 	u, _ := url.Parse(rawURL)
 	return u.Port()
 }
+
+func TestRobotsExtraKeepsGroupsApart(t *testing.T) {
+	t.Parallel()
+
+	wp := "User-agent: *\nDisallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\n\n"
+	cases := map[string]struct{ body, want string }{
+		"wordpress default then GPTBot": {wp + "User-agent: GPTBot\nDisallow: /\n", "User-agent: GPTBot|Disallow: /"},
+		"emptied Googlebot then GPTBot": {"User-agent: Googlebot\nDisallow: /wp-admin/\n\nUser-agent: GPTBot\nDisallow: /\n", "User-agent: GPTBot|Disallow: /"},
+		"grouped agents stay together":  {"User-agent: A\nUser-agent: B\nDisallow: /x/\n", "User-agent: A|User-agent: B|Disallow: /x/"},
+	}
+	for name, c := range cases {
+		if got := strings.Join(robotsExtra(c.body), "|"); got != c.want {
+			t.Errorf("%s: %q, want %q", name, got, c.want)
+		}
+	}
+}

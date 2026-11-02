@@ -267,7 +267,7 @@ func robotsExtra(body string) []string {
 			out = append(out, line)
 			continue
 		}
-		k, v, ok := strings.Cut(line, ":")
+		k, _, ok := strings.Cut(line, ":")
 		if !ok {
 			return nil
 		}
@@ -278,39 +278,15 @@ func robotsExtra(body string) []string {
 		default:
 			return nil
 		}
-		if strings.Contains(v, "/wp-admin/") || strings.Contains(v, "admin-ajax") {
-			continue
-		}
 		out = append(out, line)
 	}
-	kept := dropEmptyAgentGroups(out)
+	kept, _ := dropRobotsRules(out, func(l string) bool {
+		return strings.Contains(l, "/wp-admin/") || strings.Contains(l, "admin-ajax")
+	})
 	for _, l := range kept {
 		if !strings.HasPrefix(l, "#") && !strings.HasPrefix(strings.ToLower(l), "user-agent") {
 			return kept
 		}
 	}
 	return nil
-}
-
-// dropEmptyAgentGroups removes User-agent lines that no longer head any rule.
-// Consecutive User-agent lines share the rule that follows them.
-func dropEmptyAgentGroups(lines []string) []string {
-	var kept []string
-	for i, l := range lines {
-		if strings.HasPrefix(strings.ToLower(l), "user-agent") {
-			hasRule := false
-			for _, n := range lines[i+1:] {
-				if strings.HasPrefix(n, "#") || strings.HasPrefix(strings.ToLower(n), "user-agent") {
-					continue
-				}
-				hasRule = true
-				break
-			}
-			if !hasRule {
-				continue
-			}
-		}
-		kept = append(kept, l)
-	}
-	return kept
 }

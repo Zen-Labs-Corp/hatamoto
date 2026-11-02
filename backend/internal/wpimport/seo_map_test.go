@@ -222,3 +222,13 @@ func TestSEOMapRankMathSeparatorEntity(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultAdminRobotsFilterDropsEmptiedGroup(t *testing.T) {
+	t.Parallel()
+
+	live := &seoLive{RobotsExtra: []string{"User-agent: X", "Disallow: /admin/", "User-agent: *", "Disallow: /private/"}}
+	s := applyPlan(t, buildSEOPlan(nil, live, testSchemaOf, ""))
+	if got := strings.Join(s.Robots.ExtraLines, "|"); got != "User-agent: *|Disallow: /private/" {
+		t.Errorf("robots = %q", got)
+	}
+}

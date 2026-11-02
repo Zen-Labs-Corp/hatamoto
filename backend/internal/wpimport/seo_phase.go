@@ -200,47 +200,54 @@ func (r *Runner) sampleURLs() (post, archive string) {
 	return post, archive
 }
 
-// dropAdminGroups removes the robots lines that name admin. A User-agent group
-// left without any rule goes with them, so its agents do not merge into the
-// next group.
-func dropAdminGroups(lines []string, admin string, res *SEOResult) []string {
+// dropRobotsRules removes the rule lines for which drop reports true and
+// returns what is left plus the lines removed. Lines are grouped first (the
+// User-agent lines before a rule head that rule's group), and a group left
+// without any rule goes with its agents, so they never merge into the next
+// group. A group that had no rules to begin with is kept.
+func dropRobotsRules(lines []string, drop func(rule string) bool) (keep, dropped []string) {
 	var groups [][]string
 	afterRule := true
 	for _, l := range lines {
-		low := strings.ToLower(l)
-		isAgent := strings.HasPrefix(low, "user-agent")
-		if isAgent && afterRule {
-			groups = append(groups, nil)
-		}
-		if len(groups) == 0 {
+		isAgent := strings.HasPrefix(strings.ToLower(l), "user-agent")
+		if (isAgent && afterRule) || len(groups) == 0 {
 			groups = append(groups, nil)
 		}
 		groups[len(groups)-1] = append(groups[len(groups)-1], l)
-		if !isAgent && !strings.HasPrefix(l, "#") {
-			afterRule = true
-		} else if isAgent {
+		if isAgent {
 			afterRule = false
+		} else if !strings.HasPrefix(l, "#") {
+			afterRule = true
 		}
 	}
-	var keep []string
 	for _, g := range groups {
 		var kept []string
-		rules, dropped := 0, false
+		rules, removed := 0, 0
 		for _, l := range g {
 			if !strings.HasPrefix(l, "#") && !strings.HasPrefix(strings.ToLower(l), "user-agent") {
-				if strings.Contains(strings.ToLower(l), admin) {
-					res.NotMapped = append(res.NotMapped, "robots.txt line: "+l)
-					dropped = true
+				if drop(l) {
+					dropped = append(dropped, l)
+					removed++
 					continue
 				}
 				rules++
 			}
 			kept = append(kept, l)
 		}
-		if dropped && rules == 0 {
+		if removed > 0 && rules == 0 {
 			continue
 		}
 		keep = append(keep, kept...)
+	}
+	return keep, dropped
+}
+
+// dropAdminGroups removes the robots lines that name admin, with the groups
+// they empty.
+func dropAdminGroups(lines []string, admin string, res *SEOResult) []string {
+	keep, dropped := dropRobotsRules(lines, func(l string) bool { return strings.Contains(strings.ToLower(l), admin) })
+	for _, l := range dropped {
+		res.NotMapped = append(res.NotMapped, "robots.txt line: "+l)
 	}
 	return keep
 }
