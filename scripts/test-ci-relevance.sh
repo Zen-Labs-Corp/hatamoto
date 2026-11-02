@@ -30,5 +30,11 @@ run false "push touching no match"      TIER=fast EVENT_NAME=push BEFORE_SHA="$b
 run true  "push, all-zero before"       TIER=fast EVENT_NAME=push BEFORE_SHA=0000000000000000000000000000000000000000 HEAD_SHA="$docs"
 run true  "push, empty before"          TIER=fast EVENT_NAME=push BEFORE_SHA= HEAD_SHA="$docs"
 run true  "push, unreachable before"    TIER=fast EVENT_NAME=push BEFORE_SHA=1111111111111111111111111111111111111111 HEAD_SHA="$docs"
+# A match followed by far more than a pipe buffer of paths: grep -q exits at the first
+# match and a piped printf would die of SIGPIPE (pipefail) and report "not relevant".
+mkdir -p "$T/big"
+for i in $(seq 1 3000); do : > "$T/big/a-very-long-file-name-to-fill-the-pipe-buffer-quickly-$i.txt"; done
+g add -A; g commit -q -m big; big=$(g rev-parse HEAD)
+run true  "match followed by a large diff" TIER=fast EVENT_NAME=pull_request BASE_SHA="$app" HEAD_SHA="$big" PATTERN='^(big/a-very-long-file-name-to-fill-the-pipe-buffer-quickly-1\.txt)$'
 run true  "unknown event"               TIER=fast EVENT_NAME=workflow_dispatch HEAD_SHA="$docs"
 echo "ci-relevance tests ok"

@@ -47,7 +47,7 @@ case "${EVENT_NAME:-}" in
 esac
 
 if files=$(git diff --name-only "$a" "$b" 2>/dev/null); then
-  if printf '%s\n' "$files" | grep -Eq "${PATTERN:?PATTERN is required}"; then
+  if grep -Eq "${PATTERN:?PATTERN is required}" <<<"$files"; then
     echo "relevant: $label changed, runs"
     emit true
   else
