@@ -85,6 +85,10 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+seoSocialPath, a.handleSEOSocial)
 	owner.HandleFunc("POST "+seoSocialPath, a.handleSEOSocialSave)
 	owner.HandleFunc("POST "+seoSocialPath+"/preview", a.handleSEOSocialPreview)
+	owner.HandleFunc("GET "+seoRobotsPath, a.handleSEORobots)
+	owner.HandleFunc("POST "+seoRobotsPath, a.handleSEORobotsSave)
+	owner.HandleFunc("GET "+seoVerificationPath, a.handleSEOVerification)
+	owner.HandleFunc("POST "+seoVerificationPath, a.handleSEOVerificationSave)
 	owner.HandleFunc("GET "+seoSchemaPath, a.handleSEOSchema)
 	owner.HandleFunc("POST "+seoSchemaPath, a.handleSEOSchemaSave)
 	owner.HandleFunc("GET "+seoKGPath, a.handleSEOKnowledgeGraph)
@@ -441,6 +445,8 @@ func seoTitlesErrors(st titlesState) []ui.FieldError {
 	return errs
 }
 
+var seoCustomTagRE = regexp.MustCompile(`^verification\[custom\]\[(\d+)\]\[(\w+)\]$`)
+
 var seoFieldRE = regexp.MustCompile(`^(\w+)\[([^\]]*)\](?:\[(\w+)\])?$`)
 
 func seoFieldLabel(field string) string {
@@ -450,11 +456,19 @@ func seoFieldLabel(field string) string {
 	case "home":
 		return "Homepage title"
 	}
+	if m := seoCustomTagRE.FindStringSubmatch(field); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return "Tag " + strconv.Itoa(n+1) + " " + m[2]
+	}
 	m := seoFieldRE.FindStringSubmatch(field)
 	if m == nil {
 		return field
 	}
 	switch m[1] {
+	case "robots":
+		return seoRobotsLabel(m[2])
+	case "verification":
+		return seoVerificationLabel(m[2])
 	case "social":
 		return seoSocialLabel(m[2], m[3])
 	case "social_taxonomy":
@@ -632,6 +646,30 @@ func seoSocialLabel(name, part string) string {
 		return "Facebook page"
 	case "image":
 		return "Default share image"
+	}
+	return name
+}
+
+func seoRobotsLabel(name string) string {
+	switch name {
+	case "max_snippet":
+		return "max-snippet"
+	case "max_image_preview":
+		return "max-image-preview"
+	case "extra":
+		return "Extra lines"
+	}
+	return name
+}
+
+func seoVerificationLabel(name string) string {
+	for _, s := range seoVerificationServices {
+		if s.Key == name {
+			return s.Label
+		}
+	}
+	if name == "custom" {
+		return "Custom tags"
 	}
 	return name
 }

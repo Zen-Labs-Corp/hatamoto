@@ -80,7 +80,7 @@ func (a *Admin) robotsData(ctx context.Context, denied []agents.Purpose, overrid
 // robotsReturnsFor matches the pages that carry the policy form; the form's
 // hidden "return" field names one of them so the save lands where it came from.
 func robotsReturnsFor(prefix string) *regexp.Regexp {
-	return regexp.MustCompile("^" + regexp.QuoteMeta(prefix) + `/analytics/(crawlers|health|agents/[^/]+)$`)
+	return regexp.MustCompile("^" + regexp.QuoteMeta(prefix) + `/(analytics/(crawlers|health|agents/[^/]+)|settings/seo/robots)$`)
 }
 
 // robotsReturn is where to go after a save: the form's "return" path when it is

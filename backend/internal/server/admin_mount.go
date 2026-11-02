@@ -17,6 +17,8 @@ import (
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/person"
+	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -92,6 +94,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	d.BaseURL = s.configuredBaseURL
 	d.CookieSecure = s.cfg.AdminCookieSecure
 	d.Invalidate = s.invalidateSiteSettings
+	d.RobotsPreview = s.robotsPreview
 	d.ValidateLocales = func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string) ([]siteconfig.LocaleEntry, string, error) {
 		return validateLocaleSettings(ctx, localeSettingsRequest{Default: def, Entries: entries, PrefixAll: prefixAll, XDefault: xdef}, s.checkLocaleSegments)
 	}
@@ -327,4 +330,11 @@ func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error
 					CASE WHEN jsonb_typeof(p.attributes) = 'object' THEN p.attributes ELSE '{}'::jsonb END) a WHERE a.value = p.slug)`).Scan(&found)
 		return found, err
 	}
+}
+
+// robotsPreview is the /robots.txt body for the given robots settings, built
+// the way handleRobots builds it, so the admin preview cannot drift from the
+// real file.
+func (s *Server) robotsPreview(r *http.Request, rs seo.Robots) string {
+	return render.RobotsForAdminLines(s.publicBaseURL(r), nil, rs.ExtraLines, s.robotsDenyTokens(r.Context()), s.adminPathValue())
 }
