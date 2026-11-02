@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -617,6 +618,77 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// SitemapTerm is a term archive the sitemap may list.
+type SitemapTerm struct {
+	Kind      string
+	Path      string // slash-joined slugs from the root term down
+	UpdatedAt time.Time
+	NoIndex   bool // the term's own SEO noindex
+}
+
+// ListSitemapTerms returns, for every kind, the terms with at least one
+// published entity, at most limit per kind, ordered by kind then path. It
+// applies the same published, base-row, hidden-person and locale rules as
+// ListPublicTerms. UpdatedAt is the later of the term and its newest entity.
+func (r *PostgresRepository) ListSitemapTerms(ctx context.Context, limit int) ([]SitemapTerm, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `
+        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at, seo, last_mod FROM (
+            SELECT `+termColsT+`, GREATEST(t.updated_at, MAX(e.updated_at)) AS last_mod,
+                   ROW_NUMBER() OVER (PARTITION BY t.kind ORDER BY t.slug, t.id) AS rn
+              FROM hatamoto_terms t
+              JOIN hatamoto_entity_terms et ON et.term_id = t.id
+              JOIN hatamoto_entities e ON e.id = et.entity_id
+                                      AND e.status = 'published' AND e.variant_key IS NULL
+              JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `+entity.HiddenPersonFor("$2")+`
+             GROUP BY t.id
+        ) q
+         WHERE rn <= $1
+         ORDER BY kind, slug
+    `, limit, entity.VisibleLocales(ctx))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var terms []*Term
+	var mods []time.Time
+	for rows.Next() {
+		t := &Term{}
+		var mod time.Time
+		if err := scanTerm(rows, t, nil, &mod); err != nil {
+			return nil, err
+		}
+		terms = append(terms, t)
+		mods = append(mods, mod)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	// A failed chain load leaves each term at its own slug (see FillPaths).
+	if err := FillPaths(ctx, r, terms...); err != nil {
+		return nil, err
+	}
+	out := make([]SitemapTerm, len(terms))
+	for i, t := range terms {
+		out[i] = SitemapTerm{Kind: t.Kind, Path: t.Path, UpdatedAt: mods[i], NoIndex: t.SEO != nil && t.SEO.NoIndex}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].Path < out[j].Path
+	})
+	return out, nil
 }
 
 // foreignKeyViolation tests for SQLSTATE 23503.
