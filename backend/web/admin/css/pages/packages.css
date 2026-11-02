@@ -28,6 +28,7 @@
 }
 .hm-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: var(--space-4); }
 .hm-theme { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-theme--active { border-color: var(--border); } /* Live state hook: still a hairline, the Live badge carries the state. */
 .hm-theme__head { display: flex; align-items: center; gap: var(--space-2); }
 .hm-theme__head .hm-theme__id { flex: 1; }
 .hm-theme__menu { margin-inline-start: var(--space-1); }
