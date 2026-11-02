@@ -28,8 +28,11 @@ on:
 permissions:
   contents: read
 
+# One pending run per group is kept and an older pending one is cancelled, so a queued
+# dispatch must not share a group with another: nightlies share one, a dispatch with a
+# sha is keyed on it, any other dispatch on its own run id.
 concurrency:
-  group: ci-full
+  group: ci-full-${{ github.event_name == 'schedule' && 'nightly' || inputs.sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:

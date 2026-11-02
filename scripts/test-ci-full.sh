@@ -64,6 +64,11 @@ o=$(plan schedule ""); want "$o" run=false "nightly skip compares the tested com
 g checkout -q --detach "$newer"
 o=$(plan workflow_dispatch ""); want "$o" "sha=$newer" "dispatch on main head"; want "$o" is_main=true "main head is main"
 
+# A queued dispatch must not be cancelled by another pending run: the concurrency group
+# is keyed on the sha or the run id, never one constant.
+grep -Eq '^  group: ci-full-.*(inputs\.sha|github\.run_id)' "$ROOT/.github/workflows/ci-full.yml" ||
+  fail "the ci-full concurrency group must be keyed per sha or run"
+
 # report <result> <is_main> <issues json>; leaves the gh calls in $GH_LOG
 report() {
   : > "$GH_LOG"; echo "$3" > "$GH_ISSUES"
