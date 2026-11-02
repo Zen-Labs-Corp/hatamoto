@@ -10,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
+	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -52,6 +53,9 @@ type sitemapInput struct {
 	Plugins    sitemapPluginHooks
 	// SEO holds the per-type noindex switches; nil keeps every type listed.
 	SEO *seo.Settings
+	// Terms are the term archives that may be listed; they are used only when
+	// the taxonomy sitemaps are switched on in SEO > Sitemap.
+	Terms []sitemapTerm
 	// Redirected reports whether a redirect rule claims path; such rows are
 	// dropped. Nil means no rules.
 	Redirected func(path string) bool
@@ -64,11 +68,27 @@ type sitemapInput struct {
 	NamingUnread bool
 }
 
+// sitemapTerm is a term archive: Path is the term's path inside its kind.
+type sitemapTerm struct {
+	Kind, Path string
+	LastMod    string // YYYY-MM-DD, "" for today
+	NoIndex    bool
+}
+
+// taxonomyGroupPrefix starts the group key of a taxonomy's sitemap file. Schema
+// groups are named after a URL segment or a sitemap_group, so a collision is
+// possible only by choice and is reported.
+const taxonomyGroupPrefix = "taxonomy-"
+
+// maxSitemapImages bounds the images listed for one URL.
+const maxSitemapImages = 10
+
 type groupRow struct {
 	e          *entity.SitemapEntry
 	path       string
 	priority   float64
 	changeFreq string
+	images     []string
 	// section marks a section landing page (the group's index).
 	section bool
 }
@@ -161,15 +181,22 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		p.junk[in.TenantSlug] = true
 	}
 
+	sm := p.sitemapSettings()
+	var taxKeys []string
 	for _, e := range in.Entries {
 		if e.NoIndex || p.noIndexEntry(e) || e.Slug == "" {
+			continue
+		}
+		// The hide flag only keeps the URL out of the sitemap; the page's
+		// robots output is untouched.
+		if e.Hidden || (sm != nil && sm.NoAuthor && e.SchemaSlug == entity.PersonSchemaSlug) {
 			continue
 		}
 		cfg, known := in.Snap.Config(e.SchemaSlug)
 		if known && cfg.Sitemap.Exclude {
 			continue
 		}
-		priority, changeFreq := sitemapStats(e, cfg, known)
+		priority, changeFreq := sitemapStats(e, cfg, known, sm)
 
 		if p.isHomepage(e) {
 			p.addGroupRow(misc, groupRow{e: e, path: "/", priority: 1.0, changeFreq: "daily"})
@@ -195,7 +222,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		// Plugin groups claim schemas that have no explicit settings.
 		if !explicit {
 			if pg := pluginGroupFor(in.Plugins.Groups, e.SchemaSlug); pg != nil {
-				p.addGroupRow(ensure(pg.Key), groupRow{e: e, path: "/" + pg.PathPrefix + e.Slug, priority: priority, changeFreq: changeFreq})
+				p.addGroupRow(ensure(pg.Key), groupRow{e: e, path: "/" + pg.PathPrefix + e.Slug, priority: priority, changeFreq: changeFreq, images: p.images(e)})
 				continue
 			}
 		}
@@ -211,7 +238,26 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		if group == "" {
 			group = miscSitemapGroupKey
 		}
-		p.addGroupRow(ensure(group), groupRow{e: e, path: path, priority: priority, changeFreq: changeFreq})
+		p.addGroupRow(ensure(group), groupRow{e: e, path: path, priority: priority, changeFreq: changeFreq, images: p.images(e)})
+	}
+
+	if sm != nil && sm.Taxonomy {
+		for _, t := range in.Terms {
+			if t.NoIndex || in.SEO.NoIndexView(string(seo.KindTaxonomy), "", t.Kind) {
+				continue
+			}
+			key := taxonomyGroupPrefix + t.Kind
+			if _, taken := p.byKey[key]; taken && !slices.Contains(taxKeys, key) {
+				p.collide(fmt.Sprintf("sitemap file %q is named by a content type group and a taxonomy; their rows are merged", key))
+			}
+			if !slices.Contains(taxKeys, key) {
+				taxKeys = append(taxKeys, key)
+			}
+			// A synthetic shared entry: the archive has one URL for all
+			// locales, listed in the default locale's file.
+			te := &entity.SitemapEntry{Slug: t.Path, UpdatedAt: t.LastMod}
+			p.addGroupRow(ensure(key), groupRow{e: te, path: taxonomy.ArchivePrefix(t.Kind) + t.Path, priority: sitemapIndexPriority, changeFreq: sitemapIndexChangeFreq})
+		}
 	}
 
 	// Drop groups that ended up with nothing to list; misc is always kept,
@@ -441,6 +487,9 @@ func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
 	if p.in.Redirected != nil && p.in.Redirected(r.path) {
 		return
 	}
+	if p.sitemapSettings().ExcludedPath(r.path) {
+		return
+	}
 	if p.multi() && r.e.Group != nil && r.e.Locale != entity.LocaleShared && !r.section {
 		p.copies[*r.e.Group] = append(p.copies[*r.e.Group], localeCopy{r.e.Locale, r.path})
 	}
@@ -475,8 +524,19 @@ func pluginGroupFor(groups []namedArchiveGroup, schemaSlug string) *namedArchive
 
 // sitemapStats returns the entry's priority and changefreq: the schema's
 // sitemap settings when set, else the repository defaults for its schema.
-func sitemapStats(e *entity.SitemapEntry, cfg *entity.SchemaURLConfig, known bool) (float64, string) {
+//
+// The site-wide default sits between them: a saved value replaces the
+// repository default of every type, a type's own setting still wins.
+func sitemapStats(e *entity.SitemapEntry, cfg *entity.SchemaURLConfig, known bool, sm *seo.Sitemap) (float64, string) {
 	priority, changeFreq := e.Priority, e.ChangeFreq
+	if sm != nil {
+		if sm.DefaultPriority != nil {
+			priority = *sm.DefaultPriority
+		}
+		if sm.DefaultChangeFreq != "" {
+			changeFreq = sm.DefaultChangeFreq
+		}
+	}
 	if known {
 		if cfg.Sitemap.Priority != nil {
 			priority = *cfg.Sitemap.Priority
@@ -535,7 +595,11 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 		}
 		for _, r := range p.in.Plugins.Static {
 			loc := fmt.Sprintf("%s/%s", base, r.Path)
-			urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: r.ChangeFreq, Priority: ptr(r.Priority)})
+			if p.sitemapSettings().ExcludedPath("/" + r.Path) {
+				continue
+			}
+			prio, cf := p.stats(r.Priority, r.ChangeFreq)
+			urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: cf, Priority: prio})
 		}
 	}
 
@@ -563,9 +627,11 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 	}
 	// An archive with nothing published in it is an empty page: not listed.
 	if g.archive != "" && !sectionPaths[g.archive] && len(g.rows) > 0 &&
-		!p.in.SEO.NoIndexView(string(seo.KindArchive), g.archiveSchema, "") {
+		!p.in.SEO.NoIndexView(string(seo.KindArchive), g.archiveSchema, "") &&
+		!p.sitemapSettings().ExcludedPath(g.archive) {
 		loc := base + g.archive
-		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: sitemapIndexChangeFreq, Priority: ptr(sitemapIndexPriority)})
+		prio, cf := p.stats(sitemapIndexPriority, sitemapIndexChangeFreq)
+		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: cf, Priority: prio})
 	}
 	for _, pass := range []bool{true, false} { // section pages, then the rest
 		for _, r := range g.rows {
@@ -573,7 +639,8 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 				continue
 			}
 			loc := base + r.path
-			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: r.changeFreq, Priority: ptr(r.priority), Links: p.alternates(r.e)})
+			prio, cf := p.stats(r.priority, r.changeFreq)
+			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: cf, Priority: prio, Links: p.alternates(r.e), Images: imageRefs(r.images)})
 		}
 	}
 	return urls
@@ -607,4 +674,62 @@ func (p *sitemapPlan) alternates(e *entity.SitemapEntry) []HrefLang {
 		return nil
 	}
 	return append(out, HrefLang{Rel: "alternate", HrefLang: "x-default", Href: xDefaultHref(set, alts, func(render.Alternate) bool { return true })})
+}
+
+// sitemapSettings returns the site-wide sitemap settings; nil means none are
+// saved, which every method of seo.Sitemap treats as the defaults.
+func (p *sitemapPlan) sitemapSettings() *seo.Sitemap {
+	if p.in.SEO == nil {
+		return nil
+	}
+	return &p.in.SEO.Sitemap
+}
+
+// stats is the priority and changefreq a URL is written with: both left out
+// when the site switched them off.
+func (p *sitemapPlan) stats(priority float64, changeFreq string) (*float64, string) {
+	if sm := p.sitemapSettings(); sm != nil && sm.NoStats {
+		return nil, ""
+	}
+	return ptr(priority), changeFreq
+}
+
+// images lists the absolute image URLs of e when the image entries are on:
+// og_image, featured_image and, for a person, photo, without duplicates, at
+// most maxSitemapImages. A value that is neither absolute nor site-relative
+// is skipped.
+func (p *sitemapPlan) images(e *entity.SitemapEntry) []string {
+	if sm := p.sitemapSettings(); sm == nil || !sm.Images {
+		return nil
+	}
+	keys := []string{"og_image", "featured_image"}
+	if e.SchemaSlug == entity.PersonSchemaSlug {
+		keys = append(keys, "photo")
+	}
+	var out []string
+	for _, k := range keys {
+		v := strings.TrimSpace(e.Attrs[k])
+		switch {
+		case strings.HasPrefix(v, "http://"), strings.HasPrefix(v, "https://"):
+		case strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "//"):
+			v = p.in.BaseURL + v
+		default:
+			continue
+		}
+		if !slices.Contains(out, v) && len(out) < maxSitemapImages {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func imageRefs(locs []string) []ImageRef {
+	if len(locs) == 0 {
+		return nil
+	}
+	refs := make([]ImageRef, len(locs))
+	for i, l := range locs {
+		refs[i] = ImageRef{Loc: l}
+	}
+	return refs
 }

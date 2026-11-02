@@ -65,7 +65,7 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 	}
 	if len(parts) == 1 && parts[0].key == key {
 		urls, _ := plan.GroupURLs(key)
-		return s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi())
+		return plan.dropStats(s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi()))
 	}
 	var out []URL
 	seen := map[string]bool{}
@@ -76,6 +76,19 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 				out = append(out, u)
 			}
 		}
+	}
+	return plan.dropStats(out)
+}
+
+// dropStats removes priority and changefreq from every URL, including those a
+// sitemap.urls filter added, when the site switched them off.
+func (p *sitemapPlan) dropStats(urls []URL) []URL {
+	if sm := p.sitemapSettings(); sm == nil || !sm.NoStats {
+		return urls
+	}
+	out := slices.Clone(urls)
+	for i := range out {
+		out[i].Priority, out[i].ChangeFreq = nil, ""
 	}
 	return out
 }
