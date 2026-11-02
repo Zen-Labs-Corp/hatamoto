@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
@@ -123,6 +124,12 @@ type DataDropper interface {
 	Drop(ctx context.Context, plugin string) error
 }
 
+// MenuSeeder creates menus for declared theme locations that hold none yet and
+// returns the locations it created.
+type MenuSeeder interface {
+	SeedDecl(ctx context.Context, locs []menu.DeclLocation) ([]string, error)
+}
+
 // Options wires a Manager. Plugins, Engine and Dropper are nil in the CLI,
 // which only writes the database; a running server applies it within a few
 // seconds (see Run).
@@ -145,6 +152,10 @@ type Options struct {
 	// applies to every source and refuses unsigned packages whatever the
 	// owner's opt-in says.
 	OnlySigners []string
+	// MenuSeeder creates the default menus a theme declares (theme.json
+	// "menus") when the theme is activated or updated. nil seeds nothing.
+	// *menu.Service satisfies it.
+	MenuSeeder MenuSeeder
 	// OnChange runs after what the site shows changed (theme, settings,
 	// plugins): the server clears its page cache.
 	OnChange func(ctx context.Context)
@@ -347,6 +358,12 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		}
 	}
 	m.reconcile(ctx)
+	var seeded []string
+	if updating && p.Kind == KindTheme {
+		if cfg, err := m.store.Config(ctx); err == nil && cfg.ActiveTheme == p.Name {
+			seeded = m.seedMenus(ctx, p.Name, newDeclLocations(m.declLocations(p.Name, prev.Manifest), m.declLocations(p.Name, p.Manifest)))
+		}
+	}
 	out := &Installed{Kind: p.Kind, Name: p.Name, Version: p.Version, Updated: updating}
 	if p.Kind == KindPlugin && m.Plugins != nil {
 		for _, st := range m.Plugins.Statuses() {
@@ -379,6 +396,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if need != nil && need.WidenedAccess {
 			detail["confirmed_widened_access"] = true
 		}
+	}
+	if len(seeded) > 0 {
+		detail["seeded_menus"] = strings.Join(seeded, ", ")
 	}
 	m.Audit(ctx, action, string(p.Kind)+":"+p.Name, detail)
 	return out, nil
@@ -747,8 +767,60 @@ func (m *Manager) Activate(ctx context.Context, name string, force bool) error {
 		return err
 	}
 	m.reconcile(ctx)
-	m.Audit(ctx, "package.activate", "theme:"+orDefault(name), map[string]any{"forced": force})
+	detail := map[string]any{"forced": force}
+	if len(layers) > 0 {
+		if raw, err := fs.ReadFile(layers[0], ThemeManifest); err == nil {
+			if seeded := m.seedMenus(ctx, name, m.declLocations(name, raw)); len(seeded) > 0 {
+				detail["seeded_menus"] = strings.Join(seeded, ", ")
+			}
+		}
+	}
+	m.Audit(ctx, "package.activate", "theme:"+orDefault(name), detail)
 	return m.theme.err
+}
+
+// declLocations reads the menu locations a theme.json declares; an invalid
+// block is logged and ignored, it never fails an install or activation.
+func (m *Manager) declLocations(theme string, manifest json.RawMessage) []menu.DeclLocation {
+	var meta struct {
+		Menus json.RawMessage `json:"menus"`
+	}
+	if err := json.Unmarshal(manifest, &meta); err != nil {
+		return nil
+	}
+	locs, err := menu.ParseDecl(meta.Menus)
+	if err != nil {
+		m.Logger.Warn("packages: theme menus ignored", "theme", theme, "error", err)
+		return nil
+	}
+	return locs
+}
+
+// newDeclLocations is the locations of next that prev did not declare.
+func newDeclLocations(prev, next []menu.DeclLocation) []menu.DeclLocation {
+	var out []menu.DeclLocation
+	for _, l := range next {
+		if !slices.ContainsFunc(prev, func(p menu.DeclLocation) bool { return p.Name == l.Name }) {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// seedMenus creates the default menus of locs and returns the locations
+// created. A failure is logged: seeding never fails the theme change.
+func (m *Manager) seedMenus(ctx context.Context, theme string, locs []menu.DeclLocation) []string {
+	if m.MenuSeeder == nil || len(locs) == 0 {
+		return nil
+	}
+	created, err := m.MenuSeeder.SeedDecl(ctx, locs)
+	if err != nil {
+		m.Logger.Warn("packages: seeding theme menus failed", "theme", theme, "error", err)
+	}
+	if len(created) > 0 && m.OnChange != nil {
+		m.OnChange(ctx)
+	}
+	return created
 }
 
 // themeLayers is the file systems of an installed theme ("" or DefaultTheme: none).

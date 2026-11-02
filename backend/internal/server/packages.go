@@ -42,6 +42,9 @@ func (s *Server) setupPackages() {
 		OnChange: s.invalidateRendered,
 		Logger:   s.logger,
 	}
+	if s.menuService != nil {
+		opts.MenuSeeder = s.menuService
+	}
 	if s.demoOn() {
 		// Public demo: first-party packages only, never a dev push.
 		opts.AllowDev = false
