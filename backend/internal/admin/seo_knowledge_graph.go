@@ -3,10 +3,13 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 const seoKGPath = "/settings/seo/knowledge-graph"
@@ -17,6 +20,33 @@ type seoKGData struct {
 	// PreviewError says why there is none.
 	Preview      string
 	PreviewError bool
+}
+
+// orgSameAs is the sameAs list of the Organization node: the theme social
+// links, the business profile links and the Google Business Profile URL, http
+// and https only, each once.
+func orgSameAs(cfg *siteconfig.Config) []string {
+	var out []string
+	add := func(raw string) {
+		if u, err := url.Parse(raw); err == nil && (u.Scheme == "http" || u.Scheme == "https") && !slices.Contains(out, raw) {
+			out = append(out, raw)
+		}
+	}
+	var theme struct {
+		Links map[string]string `json:"socialLinks"`
+	}
+	if json.Unmarshal(cfg.ThemeExtra, &theme) == nil {
+		for _, u := range theme.Links {
+			add(u)
+		}
+	}
+	if p, err := siteProfile(cfg); err == nil {
+		for _, u := range p.SameAs {
+			add(u)
+		}
+		add(p.Address.GBPURL)
+	}
+	return out
 }
 
 // seoKGTable lists the organization details the graph is built from, each with
@@ -34,9 +64,7 @@ func (a *Admin) seoKGTable(r *http.Request) ui.Table {
 	if a.deps.Site != nil {
 		if cfg, err := a.deps.Site.Get(r.Context()); err == nil && cfg != nil {
 			name, logo = cfg.CompanyName, cfg.LogoURL
-			if p, err := siteProfile(cfg); err == nil {
-				profileLinks = len(p.SameAs)
-			}
+			profileLinks = len(orgSameAs(cfg))
 			stored, _ := bizprofile.ParseLocales(cfg.LocaleProfiles)
 			for _, p := range stored {
 				if label, _ := localeBadge(p); label != "Defaults" {
@@ -63,7 +91,7 @@ func (a *Admin) seoKGTable(r *http.Request) ui.Table {
 	}{
 		{"name", "Organization name", nameCell, link("General", general)},
 		{"logo", "Logo", state(logo != ""), link("General", general)},
-		{"profiles", "Profile links (sameAs)", ui.Cell{Text: strconv.Itoa(profileLinks)}, link("Locales > Business details", locales)},
+		{"profiles", "Profile links (sameAs)", ui.Cell{Text: strconv.Itoa(profileLinks)}, link("General", general)},
 		{"locales", "Locales with their own business details", ui.Cell{Text: strconv.Itoa(localeCards)}, link("Locales > Business details", locales)},
 	}
 	for _, row := range rows {

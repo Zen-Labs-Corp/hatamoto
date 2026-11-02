@@ -58,3 +58,19 @@ func TestSEOKnowledgeGraphOwnerOnlyAndReadOnly(t *testing.T) {
 		t.Errorf("POST = %d: the tab has no save", rec.Code)
 	}
 }
+
+// The profile count is the sameAs union of the Organization node: theme social
+// links, business profile links and the Google Business Profile URL, each once,
+// http(s) only; the row links to General.
+func TestSEOKnowledgeGraphProfileLinksCount(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	cfg := &s.a.deps.Site.(*fakeSite).cfg
+	cfg.ThemeExtra = []byte(`{"socialLinks":{"x":"https://x.example/a","bad":"javascript:alert(1)","dup":"https://dup.example"}}`)
+	cfg.BusinessProfile = []byte(`{"sameas":["https://dup.example","https://b.example"],"address":{"gbp_url":"https://maps.example/c"}}`)
+	body := s.get(t, "/admin/settings/seo/knowledge-graph")
+	i := strings.Index(body, "Profile links")
+	row := body[i : i+strings.Index(body[i:], "</tr>")]
+	if !strings.Contains(row, ">4<") || !strings.Contains(row, `href="/admin/settings/general"`) {
+		t.Errorf("profile row = %s, want 4 links and a General link", row)
+	}
+}
