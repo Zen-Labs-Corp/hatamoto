@@ -245,6 +245,44 @@
 </div>
 <div class="hm-field"><input type="hidden" name="_present.biz.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-biz-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-biz-logo_object" name="biz.logo_object" value="true" aria-describedby="sf-biz-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-biz-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address.</p></div>
 
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-naics">NAICS code</label>
+<input class="hm-field__control" type="text" id="sf-biz-naics" name="biz.naics" value="" placeholder="Enter NAICS code" aria-describedby="sf-biz-naics-help">
+<p class="hm-field__help" id="sf-biz-naics-help">Two to six digits</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-isic">ISIC code</label>
+<input class="hm-field__control" type="text" id="sf-biz-isic" name="biz.isic" value="" placeholder="Enter ISIC code" aria-describedby="sf-biz-isic-help">
+<p class="hm-field__help" id="sf-biz-isic-help">Four digits, ISIC revision 4</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-duns">D-U-N-S number</label>
+<input class="hm-field__control" type="text" id="sf-biz-duns" name="biz.duns" value="" placeholder="Enter D-U-N-S number" aria-describedby="sf-biz-duns-help">
+<p class="hm-field__help" id="sf-biz-duns-help">Nine digits</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-lei">LEI</label>
+<input class="hm-field__control" type="text" id="sf-biz-lei" name="biz.lei" value="" placeholder="Enter LEI" aria-describedby="sf-biz-lei-help">
+<p class="hm-field__help" id="sf-biz-lei-help">Twenty letters and digits</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-gln">GLN</label>
+<input class="hm-field__control" type="text" id="sf-biz-gln" name="biz.gln" value="" placeholder="Enter GLN" aria-describedby="sf-biz-gln-help">
+<p class="hm-field__help" id="sf-biz-gln-help">Thirteen digits</p>
+</div>
+<fieldset class="hm-repeater" id="sf-biz-founders" data-hm-repeater data-path="biz.founders"><legend class="hm-field__label">Founders <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.biz.founders" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.founders" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add founder</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-biz-parent_organisation"><legend class="hm-field__label">Parent organisation</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-parent_organisation-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-biz-parent_organisation-name" name="biz.parent_organisation.name" value="" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-parent_organisation-url">Web address</label>
+<input class="hm-field__control" type="url" id="sf-biz-parent_organisation-url" name="biz.parent_organisation.url" value="" placeholder="Enter Web address">
+</div></fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-brands">Brands</label>
+<input type="hidden" name="_present.biz.brands" value="1"><input class="hm-field__control" type="text" id="sf-biz-brands" name="biz.brands" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-biz-brands-help">
+<p class="hm-field__help" id="sf-biz-brands-help">Brand names, separated by commas.</p>
+</div>
 </div>
 </div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
@@ -310,6 +348,104 @@
 
 </div>
 </div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-currency">Currency</label>
+<input class="hm-field__control" type="text" id="sf-biz-currency" name="biz.currency" value="" placeholder="Enter Currency" aria-describedby="sf-biz-currency-help">
+<p class="hm-field__help" id="sf-biz-currency-help">A three letter code, like USD</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-price_range">Price range</label>
+<input class="hm-field__control" type="text" id="sf-biz-price_range" name="biz.price_range" value="" placeholder="Enter Price range">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-area_served">Area served</label>
+<input type="hidden" name="_present.biz.area_served" value="1"><input class="hm-field__control" type="text" id="sf-biz-area_served" name="biz.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-biz-area_served-help">
+<p class="hm-field__help" id="sf-biz-area_served-help">Places this business serves, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-geo_region">Geo region</label>
+<input class="hm-field__control" type="text" id="sf-biz-geo_region" name="biz.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-biz-geo_region-help">
+<p class="hm-field__help" id="sf-biz-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-service_radius_km">Service radius (km)</label>
+<input class="hm-field__control" type="text" id="sf-biz-service_radius_km" name="biz.service_radius_km" value="" placeholder="Enter Service radius (km)" aria-describedby="sf-biz-service_radius_km-help">
+<p class="hm-field__help" id="sf-biz-service_radius_km-help">Kilometres around the coordinates of each locale card. Applies to locale cards that have both coordinates.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-payment_methods">Payment methods</label>
+<input type="hidden" name="_present.biz.payment_methods" value="1"><input class="hm-field__control" type="text" id="sf-biz-payment_methods" name="biz.payment_methods" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-biz-payment_methods-help">
+<p class="hm-field__help" id="sf-biz-payment_methods-help">Like Cash or Visa, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-accepts_reservations">Accepts reservations</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-accepts_reservations" name="biz.accepts_reservations" aria-describedby="sf-biz-accepts_reservations-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-biz-accepts_reservations-help">Choose Not stated to say nothing.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-booking_url">Booking address</label>
+<input class="hm-field__control" type="url" id="sf-biz-booking_url" name="biz.booking_url" value="" placeholder="Enter Booking address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-order_url">Online ordering address</label>
+<input class="hm-field__control" type="url" id="sf-biz-order_url" name="biz.order_url" value="" placeholder="Enter Online ordering address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-menu_url">Menu address</label>
+<input class="hm-field__control" type="url" id="sf-biz-menu_url" name="biz.menu_url" value="" placeholder="Enter Menu address">
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-biz-services" data-hm-repeater data-path="biz.services"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.biz.services" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Expertise &amp; amenities</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-knows_about">Knows about</label>
+<input type="hidden" name="_present.biz.knows_about" value="1"><textarea class="hm-field__control" id="sf-biz-knows_about" name="biz.knows_about" rows="4" placeholder="One item per line" aria-describedby="sf-biz-knows_about-help">
+</textarea>
+<p class="hm-field__help" id="sf-biz-knows_about-help">Topics this business is expert in, one per line.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-awards">Awards</label>
+<input type="hidden" name="_present.biz.awards" value="1"><textarea class="hm-field__control" id="sf-biz-awards" name="biz.awards" rows="4" placeholder="One item per line" aria-describedby="sf-biz-awards-help">
+</textarea>
+<p class="hm-field__help" id="sf-biz-awards-help">One award per line. Commas stay part of the title.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-biz-memberships" data-hm-repeater data-path="biz.memberships"><legend class="hm-field__label">Memberships <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.biz.memberships" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.memberships" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add membership</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-biz-amenity_presets" aria-describedby="sf-biz-amenity_presets-help"><legend class="hm-field__label">Amenities</legend>
+<p class="hm-field__help" id="sf-biz-amenity_presets-help">Choose Not stated on a line to say nothing about it.</p><div class="hm-field"><label class="hm-field__label" for="sf-biz-amenity_presets-parking">Parking</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-amenity_presets-parking" name="biz.amenity_presets.parking"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-amenity_presets-wheelchair_access">Wheelchair access</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-amenity_presets-wheelchair_access" name="biz.amenity_presets.wheelchair_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-amenity_presets-wifi">Wifi</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-amenity_presets-wifi" name="biz.amenity_presets.wifi"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-amenity_presets-toilets">Toilets</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-amenity_presets-toilets" name="biz.amenity_presets.toilets"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-biz-amenity_presets-air_conditioning">Air conditioning</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-amenity_presets-air_conditioning" name="biz.amenity_presets.air_conditioning"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-biz-amenities" data-hm-repeater data-path="biz.amenities" aria-describedby="sf-biz-amenities-help"><legend class="hm-field__label">Other amenities <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-biz-amenities-help">Features beyond the list above.</p><input type="hidden" name="_present.biz.amenities" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.amenities" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add amenity</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-public_access">Open to the public</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-public_access" name="biz.public_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-free_entry">Free entry</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-free_entry" name="biz.free_entry"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+</div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
 <div class="hm-sf-cols">
 <fieldset class="hm-repeater" id="sf-biz-sameas" data-hm-repeater data-path="biz.sameas" aria-describedby="sf-biz-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
@@ -335,25 +471,6 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-rating-count_type" name="biz.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
 </div></fieldset>
 
-</div>
-</div>
-<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
-<div class="hm-sf-cols">
-<div class="hm-field"><label class="hm-field__label" for="sf-biz-currency">Currency</label>
-<input class="hm-field__control" type="text" id="sf-biz-currency" name="biz.currency" value="" placeholder="Enter Currency" aria-describedby="sf-biz-currency-help">
-<p class="hm-field__help" id="sf-biz-currency-help">A three letter code, like USD</p>
-</div>
-<div class="hm-field"><label class="hm-field__label" for="sf-biz-price_range">Price range</label>
-<input class="hm-field__control" type="text" id="sf-biz-price_range" name="biz.price_range" value="" placeholder="Enter Price range">
-</div>
-<div class="hm-field"><label class="hm-field__label" for="sf-biz-area_served">Area served</label>
-<input type="hidden" name="_present.biz.area_served" value="1"><input class="hm-field__control" type="text" id="sf-biz-area_served" name="biz.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-biz-area_served-help">
-<p class="hm-field__help" id="sf-biz-area_served-help">Places this business serves, separated by commas.</p>
-</div>
-<div class="hm-field"><label class="hm-field__label" for="sf-biz-geo_region">Geo region</label>
-<input class="hm-field__control" type="text" id="sf-biz-geo_region" name="biz.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-biz-geo_region-help">
-<p class="hm-field__help" id="sf-biz-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
-</div>
 </div>
 </div>
 
