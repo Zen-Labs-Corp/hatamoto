@@ -634,6 +634,9 @@ type PageMeta struct {
 	OGType       string
 	CanonicalURL string
 	NoIndex      bool
+	// RobotsRaw is the entry's own robots directives (attributes.seo.robots).
+	// The head composes it with the site defaults.
+	RobotsRaw string
 	// TitleSet and DescriptionSet say an editor wrote the meta title or
 	// description on the entry. Title and Description merge in fallbacks, so
 	// without these flags a written value cannot be told from a fallback; the

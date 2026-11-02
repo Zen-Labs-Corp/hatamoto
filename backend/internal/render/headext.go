@@ -119,6 +119,7 @@ func buildHeadViewWith(ctx context.Context, v *PageView, f HeadFilter, sg SiteGr
 	// page would be left with no site graph at all.
 	h := seoHeadWith(ctx, v, out.ReplaceSiteGraph && len(ldScripts) > 0, sg)
 	h.Meta = appendMeta(h.Meta, "geo.region", v.GeoRegion)
+	verificationHead(&h, v)
 	h.Scripts = append(h.Scripts, ldScripts...)
 	h.Ext = append(h.Ext, dropDuplicateAlternates(extTags, h.Alt)...)
 	return h
