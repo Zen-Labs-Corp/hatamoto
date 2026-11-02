@@ -57,7 +57,7 @@ function enhance(select) {
     return i < 0 ? [text, ""] : [text.slice(0, i), text.slice(i + HINT.length)];
   };
   const isOpen = () => !list.hidden;
-  const items = () => [...list.children];
+  const items = () => [...list.querySelectorAll(".hm-select__option")];
   const enabled = (li) => li.getAttribute("aria-disabled") !== "true";
 
   // Mirror the native state onto the trigger and the label.
@@ -110,7 +110,17 @@ function enhance(select) {
   const open = () => {
     if (isOpen() || select.matches(":disabled")) return;
     list.replaceChildren();
+    let group = null;
     [...select.options].forEach((o, i) => {
+      const g = o.parentElement instanceof HTMLOptGroupElement ? o.parentElement : null;
+      if (g && g !== group) {
+        const h = document.createElement("li");
+        h.className = "hm-select__group";
+        h.setAttribute("role", "presentation");
+        h.textContent = g.label;
+        list.append(h);
+      }
+      group = g;
       const li = document.createElement("li");
       li.id = `${id}-opt-${i}`;
       li.className = "hm-select__option";

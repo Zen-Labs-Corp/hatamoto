@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -292,6 +293,7 @@ func (a *Admin) funcMap() template.FuncMap {
 		"callIcon":    calloutIcon,
 		"streq":       func(a any, b string) bool { s, _ := a.(string); return s == b },
 		"required":    required,
+		"optgroup":    optGroup,
 		"describedby": describedBy,
 		"attrs":       attrs,
 		"attrmap": func(kv ...string) map[string]string {
@@ -572,4 +574,24 @@ func (v *View) prefix() string {
 		return DefaultAdminPath
 	}
 	return v.adminPath
+}
+
+// optGroup is the Group label of a select option, "" for an option type
+// without one (hm/select takes any option shape).
+func optGroup(o any) string {
+	v := reflect.Indirect(reflect.ValueOf(o))
+	switch v.Kind() {
+	case reflect.Struct:
+		if f := v.FieldByName("Group"); f.IsValid() && f.Kind() == reflect.String {
+			return f.String()
+		}
+	case reflect.Map:
+		if v.Type().Key().Kind() == reflect.String {
+			if f := v.MapIndex(reflect.ValueOf("Group").Convert(v.Type().Key())); f.IsValid() {
+				s, _ := f.Interface().(string)
+				return s
+			}
+		}
+	}
+	return ""
 }

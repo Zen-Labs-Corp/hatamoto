@@ -13,6 +13,9 @@ import (
 type Option struct {
 	Value, Label string
 	Selected     bool
+	// Group puts the option under an <optgroup> of this label; consecutive
+	// options with the same Group share one. Empty renders no group.
+	Group string
 }
 
 // Button is the hm/button partial.
