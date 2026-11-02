@@ -6,7 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -68,5 +72,32 @@ func TestLog404PolicyUsesCache(t *testing.T) {
 	}
 	if q.queries != 1 {
 		t.Fatalf("%d queries for 50 policy reads", q.queries)
+	}
+}
+
+// blockingRow waits for its context, like a database that does not answer.
+type blockingRow struct{ ctx context.Context }
+
+func (r blockingRow) Scan(...any) error { <-r.ctx.Done(); return r.ctx.Err() }
+
+type blockingQuerier struct{ seoQuerier }
+
+func (q *blockingQuerier) QueryRow(ctx context.Context, _ string, _ ...any) pgx.Row {
+	return blockingRow{ctx}
+}
+
+// A cold cache with a hung database must not hold the request: the read is
+// deadlined and the policy falls back to logging everything.
+func TestLog404PolicyColdReadIsBounded(t *testing.T) {
+	s := &Server{logger: slog.New(slog.NewTextHandler(io.Discard, nil)), seoStore: seo.NewStore(&blockingQuerier{})}
+	done := make(chan redirect.Log404Policy, 1)
+	go func() { done <- s.log404Policy() }()
+	select {
+	case p := <-done:
+		if p.Disabled || len(p.Ignore) != 0 {
+			t.Fatalf("policy %+v", p)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("log404Policy blocked on a cold, unresponsive database")
 	}
 }

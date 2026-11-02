@@ -709,11 +709,17 @@ func mountOpsRoutes(r *httpx.Group, health, ready, media http.HandlerFunc) {
 	r.HandleFunc("GET /media/{rest...}", media)
 }
 
+// log404PolicyTimeout bounds the settings read behind the 404 log policy.
+const log404PolicyTimeout = 250 * time.Millisecond
+
 // log404Policy is the 404 logging policy from the SEO 404 monitor settings. It
-// runs on the request path, so it reads the cached settings only (see
-// seoSettings); without a store every 404 is logged.
+// runs on the request path: a warm cache answers at once and a cold read is
+// bounded by log404PolicyTimeout, after which the default (log everything) or
+// the last good copy applies. Without a store every 404 is logged.
 func (s *Server) log404Policy() redirect.Log404Policy {
-	m := s.seoSettings(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), log404PolicyTimeout)
+	defer cancel()
+	m := s.seoSettings(ctx)
 	if m == nil {
 		return redirect.Log404Policy{}
 	}

@@ -172,7 +172,8 @@ func (s *Service) processLogEntries() {
 // ── 404 Log API ──────────────────────────────────────────────────────────────
 
 // Log404Async enqueues a 404 hit for background persistence unless the log
-// policy skips it. Never blocks.
+// policy skips it. It never waits on the queue (a full queue drops the entry);
+// the policy function itself must be cheap, see SetLogPolicy.
 func (s *Service) Log404Async(path, referrer, userAgent string) {
 	if s.skipLog(path) {
 		return
