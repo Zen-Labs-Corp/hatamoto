@@ -68,6 +68,16 @@ var Types = []string{
 	"VeterinaryCare",
 }
 
+// IsFoodType reports whether a business type is a schema.org FoodEstablishment
+// (the only type that defines acceptsReservations and hasMenu).
+func IsFoodType(t string) bool {
+	switch t {
+	case "Restaurant", "BarOrPub", "Bakery", "CafeOrCoffeeShop":
+		return true
+	}
+	return false
+}
+
 // Days are the day names an opening hours block may list.
 var Days = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 

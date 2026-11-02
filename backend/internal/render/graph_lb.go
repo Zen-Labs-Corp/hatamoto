@@ -1,6 +1,10 @@
 package render
 
-import "hatamoto.dev/core/internal/bizprofile"
+import (
+	"strings"
+
+	"hatamoto.dev/core/internal/bizprofile"
+)
 
 // localBusinessLD is the LocalBusiness node of the page's locale, linked to the
 // shared Organization by parentOrganization. It reads only the BusinessView:
@@ -100,10 +104,15 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 	parent := lb["parentOrganization"]
 	setDetailsLD(lb, b.BusinessDetails, b.ServicesCurrency)
 	lb["parentOrganization"] = parent // the external parent prints on the Organization only
-	if b.AcceptsReservations != nil {
-		lb["acceptsReservations"] = *b.AcceptsReservations
+	if len(b.PaymentMethods) > 0 {
+		lb["paymentAccepted"] = strings.Join(b.PaymentMethods, ", ")
 	}
-	setIf(lb, "hasMenu", b.MenuURL)
+	if bizprofile.IsFoodType(typ) {
+		if b.AcceptsReservations != nil {
+			lb["acceptsReservations"] = *b.AcceptsReservations
+		}
+		setIf(lb, "hasMenu", b.MenuURL)
+	}
 	if b.PublicAccess != nil {
 		lb["publicAccess"] = *b.PublicAccess
 	}

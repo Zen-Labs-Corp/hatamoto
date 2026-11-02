@@ -537,8 +537,8 @@ func TestOrgNode_ExtendedDetails(t *testing.T) {
 	org := orgOf(t, v)
 	for k, want := range map[string]any{
 		"naics": "541511", "isicV4": "6201", "duns": "123456789", "leiCode": "ABCDEFGHIJ0123456789",
-		"globalLocationNumber": "1234567890123", "paymentAccepted": "Cash, Visa",
-		"knowsAbout": []any{"Topic"}, "award": []any{"Award"},
+		"globalLocationNumber": "1234567890123",
+		"knowsAbout":           []any{"Topic"}, "award": []any{"Award"},
 		"founder":            map[string]any{"@type": "Person", "name": "Alex Sample", "url": "https://example.test/alex"},
 		"parentOrganization": map[string]any{"@type": "Organization", "name": "Parent Co", "url": "https://parent.example.test"},
 		"brand":              map[string]any{"@type": "Brand", "name": "Brand A"},
@@ -547,6 +547,9 @@ func TestOrgNode_ExtendedDetails(t *testing.T) {
 		if !reflect.DeepEqual(org[k], want) {
 			t.Errorf("%s = %v, want %v", k, org[k], want)
 		}
+	}
+	if _, ok := org["paymentAccepted"]; ok {
+		t.Error("paymentAccepted is a LocalBusiness property, not an Organization one")
 	}
 	cat, _ := org["hasOfferCatalog"].(map[string]any)
 	offers, _ := cat["itemListElement"].([]any)
@@ -575,7 +578,7 @@ func TestLocalBusinessNode_ExtendedDetails(t *testing.T) {
 		}
 	}
 	b := &BusinessView{
-		ID: "xx", Lat: "1.5", Lng: "2", ServiceRadiusKm: "10", AreaServed: []string{"Region"},
+		ID: "xx", Type: "Restaurant", Lat: "1.5", Lng: "2", ServiceRadiusKm: "10", AreaServed: []string{"Region"},
 		BusinessDetails: extendedDetails(), Currency: "XXD", MenuURL: "https://example.test/menu",
 		AcceptsReservations: &no, PublicAccess: &yes, FreeEntry: &no,
 		Amenities: []AmenityView{{Name: "Wifi", Value: true}, {Name: "Parking", Value: false}},
@@ -622,5 +625,20 @@ func TestLocalBusinessOffersUseServicesCurrency(t *testing.T) {
 	offers, _ := cat["itemListElement"].([]any)
 	if len(offers) != 1 || offers[0].(map[string]any)["priceCurrency"] != "AUD" {
 		t.Errorf("offers = %v, want priceCurrency AUD", cat)
+	}
+}
+
+// acceptsReservations and hasMenu are FoodEstablishment properties: a Dentist
+// prints neither.
+func TestLocalBusinessFoodOnlyProperties(t *testing.T) {
+	yes := true
+	for typ, want := range map[string]bool{"Restaurant": true, "BarOrPub": true, "Bakery": true, "CafeOrCoffeeShop": true, "Dentist": false, "": false} {
+		b := &BusinessView{ID: "xx", Type: typ, AcceptsReservations: &yes, MenuURL: "https://example.test/menu"}
+		lb := graphNodes(t, businessPage(b))[1]
+		_, res := lb["acceptsReservations"]
+		_, menu := lb["hasMenu"]
+		if res != want || menu != want {
+			t.Errorf("type %q: acceptsReservations=%v hasMenu=%v, want %v", typ, res, menu, want)
+		}
 	}
 }

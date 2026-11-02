@@ -374,9 +374,6 @@ func setDetailsLD(n map[string]any, d BusinessDetails, currency string) {
 	if a := actionsLD(d.BookingURL, d.OrderURL); len(a) > 0 {
 		n["potentialAction"] = oneOrList(a)
 	}
-	if len(d.PaymentMethods) > 0 {
-		n["paymentAccepted"] = strings.Join(d.PaymentMethods, ", ")
-	}
 }
 
 // appendUnique appends the non-empty values not already in dst.
