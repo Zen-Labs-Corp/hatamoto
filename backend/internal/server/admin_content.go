@@ -81,6 +81,7 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		}
 		return s.activeThemeTitle(), s.renderEngine.MenuLocations()
 	}
+	d.SeedNewSiteMenus = s.SeedNewSiteMenus
 	d.MenuPreview = s.renderMenuPreview
 	d.Preview = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.renderEngine == nil {

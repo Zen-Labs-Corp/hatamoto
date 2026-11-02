@@ -151,7 +151,11 @@ type ContentDeps struct {
 	MenuTheme func() render.MenuDecl
 	// MenuLocations is the active theme's title and the menu locations it
 	// declares (theme.json "menus"). Nil leaves only the core locations.
-	MenuLocations func() (themeTitle string, locs []menu.DeclLocation)
+	// SeedNewSiteMenus gives a new site its Header and Footer menus (minus the
+	// locations the active theme seeds itself). Setup calls it once, before the
+	// content choice; an error is logged and never blocks setup. Nil skips it.
+	SeedNewSiteMenus func(ctx context.Context) error
+	MenuLocations    func() (themeTitle string, locs []menu.DeclLocation)
 	// MenuPreview renders the unsaved menu m, shown at location, inside the
 	// site's page as a full HTML document with the Content-Security-Policy to
 	// serve it under. It returns ErrMenuPreviewOff when rendering is off. Nil

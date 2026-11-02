@@ -527,6 +527,14 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		a.renderContent(w, r, http.StatusUnprocessableEntity, "empty", "Choose one of the options.")
 		return
 	}
+	// The theme step ran before this one and seeded the locations its theme
+	// declares on activation; the new-site seed skips those. Seeding first lets
+	// the starter's menu find the Header.
+	if seed := a.deps.Content.SeedNewSiteMenus; seed != nil {
+		if err := seed(r.Context()); err != nil {
+			a.logger().Error("setup: seed menus failed", "err", err)
+		}
+	}
 	u := userFrom(r.Context())
 	if choice == "starter" {
 		if a.deps.Starter == nil {

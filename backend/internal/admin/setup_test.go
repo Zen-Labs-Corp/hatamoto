@@ -552,3 +552,41 @@ func TestSetupDoneHasLinkCards(t *testing.T) {
 		t.Errorf("four link cards and no success icon expected:\n%s", body)
 	}
 }
+
+// Theme activation (the theme step) runs before the content step, and it seeds
+// the locations the theme declares; the new-site seed skips those. So the content
+// step seeds once for every choice, before the choice branch.
+func TestSetupContentSeedsNewSiteMenusForEveryChoice(t *testing.T) {
+	t.Parallel()
+
+	for _, choice := range []string{"empty", "starter", "wordpress"} {
+		g := newSetupRig(t)
+		g.count.n = 1
+		seeded := 0
+		g.a.deps.Content.SeedNewSiteMenus = func(context.Context) error {
+			seeded++
+			if g.starter.calls != 0 {
+				t.Errorf("%s: seed must run before the starter", choice)
+			}
+			return nil
+		}
+		if rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {choice}}, nil); rec.Code != 303 {
+			t.Fatalf("%s: %d", choice, rec.Code)
+		}
+		if seeded != 1 {
+			t.Errorf("%s: seed called %d times, want 1", choice, seeded)
+		}
+	}
+}
+
+func TestSetupContentSeedErrorDoesNotBlockSetup(t *testing.T) {
+	t.Parallel()
+
+	g := newSetupRig(t)
+	g.count.n = 1
+	g.a.deps.Content.SeedNewSiteMenus = func(context.Context) error { return errors.New("db down") }
+	rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil)
+	if rec.Code != 303 || g.site.cfg.SetupCompletedAt == nil {
+		t.Fatalf("a seed error must not fail setup: %d", rec.Code)
+	}
+}
