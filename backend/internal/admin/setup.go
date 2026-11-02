@@ -527,6 +527,20 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		a.renderContent(w, r, http.StatusUnprocessableEntity, "empty", "Choose one of the options.")
 		return
 	}
+	// The theme step ran before this one and seeded the locations its theme
+	// declares on activation. The starter builds its own Header and Footer, so
+	// for that choice the core seed runs after it and finds the locations held;
+	// the other choices seed first.
+	seed := func() {
+		if fn := a.deps.Content.SeedNewSiteMenus; fn != nil {
+			if err := fn(r.Context()); err != nil {
+				a.logger().Error("setup: seed menus failed", "err", err)
+			}
+		}
+	}
+	if choice != "starter" {
+		seed()
+	}
 	u := userFrom(r.Context())
 	if choice == "starter" {
 		if a.deps.Starter == nil {
@@ -544,6 +558,7 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.SetFlash(w, r, "success", starterSummary(res))
+		seed()
 	}
 	if _, err := a.deps.Site.Update(r.Context(), siteUpdateDone()); err != nil {
 		a.logger().Error("setup: mark complete failed", "err", err)

@@ -780,3 +780,87 @@ func TestPickerItemsDefaultOnce(t *testing.T) {
 		t.Fatal("no presets, no picker")
 	}
 }
+
+// newThemeMenuRig is a rig whose active theme, "Hanshi", declares header and follow.
+func newThemeMenuRig(t *testing.T) (*rig, *fakeMenus) {
+	t.Helper()
+	fm := newFakeMenus()
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Menus = fm
+		d.Growth.Pickers = fakePickers{}
+		d.Content.MenuLocations = func() (string, []menu.DeclLocation) {
+			return "Hanshi", []menu.DeclLocation{{Name: "header", Title: "Header"}, {Name: "follow", Title: "Follow"}}
+		}
+	})
+	return g, fm
+}
+
+func TestMenuLocationPickerGroups(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newThemeMenuRig(t)
+	m := fm.add("Promo bar", "promo-bar")
+	body := g.do("GET", "/admin/theme/menus/"+m.ID.String(), "owner-token", nil, nil).Body.String()
+	i := strings.Index(body, `id="location"`)
+	if i < 0 {
+		t.Fatal("no location select")
+	}
+	sel := body[i : i+strings.Index(body[i:], "</select>")]
+	for _, want := range []string{
+		`value="">No location`, `<optgroup label="Site">`, `value="header"`, `value="footer"`, `value="sidebar"`,
+		`<optgroup label="Hanshi">`, `value="follow"`, `<optgroup label="Not used by the active theme">`, `value="promo-bar" selected`,
+	} {
+		j := strings.Index(sel, want)
+		if j < 0 {
+			t.Fatalf("picker lacks %q:\n%s", want, sel)
+		}
+		sel = sel[j:]
+	}
+	if strings.Count(body[i:i+strings.Index(body[i:], "</select>")], `value="header"`) != 1 {
+		t.Error("a theme declaring header must not list it twice")
+	}
+}
+
+func TestMenuLocationAllowedOnCreateAndSave(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newThemeMenuRig(t)
+	rec := g.do("POST", "/admin/theme/menus", "owner-token", url.Values{"name": {"Follow us"}, "location": {"follow"}}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("declared location: %d", rec.Code)
+	}
+	rec = g.do("POST", "/admin/theme/menus", "owner-token", url.Values{"name": {"Elsewhere"}, "location": {"nowhere"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "listed locations") {
+		t.Errorf("undeclared location on create: %d", rec.Code)
+	}
+
+	m := fm.add("Promo bar", "promo-bar")
+	f := itemForm("Promo bar")
+	f.Set("location", "promo-bar")
+	if rec := g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	if len(fm.replaced) != 1 || *fm.replaced[0].Fields.Location != "promo-bar" {
+		t.Fatalf("a held location must survive a save: %+v", fm.replaced)
+	}
+	f.Set("location", "nowhere")
+	rec = g.do("POST", "/admin/theme/menus/"+m.ID.String(), "owner-token", f, nil)
+	if rec.Code != 422 || len(fm.replaced) != 1 || !strings.Contains(rec.Body.String(), "listed locations") {
+		t.Errorf("moving to an undeclared location: %d replaced=%d", rec.Code, len(fm.replaced))
+	}
+}
+
+func TestMenuListBadgeMarksUnusedLocation(t *testing.T) {
+	t.Parallel()
+
+	g, fm := newThemeMenuRig(t)
+	fm.add("Follow", "follow")
+	fm.add("Promo bar", "promo-bar")
+	body := g.do("GET", "/admin/theme/menus", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "promo-bar - not used by theme") {
+		t.Error("an undeclared location needs the badge")
+	}
+	if strings.Contains(body, "follow - not used by theme") || !strings.Contains(body, ">Follow<") {
+		t.Error("a declared location shows its title")
+	}
+}

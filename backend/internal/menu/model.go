@@ -3,6 +3,7 @@ package menu
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -78,12 +79,19 @@ type CreateMenuInput struct {
 	Name     string  `json:"name"`
 	Slug     string  `json:"slug,omitempty"`
 	Location *string `json:"location,omitempty"`
+	// TakeLocation unassigns the menu that held Location. Only the admin and the
+	// WordPress import set it; the plugin API and REST decode into this struct,
+	// and `json:"-"` keeps them from asking for it, so there duplicates coexist.
+	TakeLocation bool `json:"-"`
 }
 
 // UpdateMenuInput represents input for updating a menu.
 type UpdateMenuInput struct {
 	Name     *string `json:"name,omitempty"`
 	Location *string `json:"location,omitempty"`
+	// TakeLocation: see CreateMenuInput. It applies only when the location
+	// changes; saving the current holder never unassigns another menu.
+	TakeLocation bool `json:"-"`
 }
 
 // CreateMenuItemInput represents input for creating a menu item.
@@ -132,17 +140,18 @@ func ValidLinkType(lt string) bool {
 	}
 }
 
-// ValidLocation checks if a menu location is valid.
+var locationRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
+
+// ValidLocation checks the format of a menu location: empty (none) or a
+// lowercase key. Which locations a site offers is decided by the caller
+// (core locations plus the ones the active theme declares).
 func ValidLocation(loc string) bool {
-	if loc == "" {
-		return true // Location is optional
-	}
-	switch loc {
-	case LocationHeader, LocationFooter, LocationSidebar:
-		return true
-	default:
-		return false
-	}
+	return loc == "" || locationRe.MatchString(loc)
+}
+
+// IsCoreLocation reports whether loc is one of the locations every theme has.
+func IsCoreLocation(loc string) bool {
+	return loc == LocationHeader || loc == LocationFooter || loc == LocationSidebar
 }
 
 // ReplaceItem is one item of a ReplaceMenu call. Parent is the index of an

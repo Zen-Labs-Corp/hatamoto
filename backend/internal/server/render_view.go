@@ -504,44 +504,36 @@ func socialLinks(raw json.RawMessage) []render.Link {
 	return out
 }
 
-// headerNav is the header menu, or the published-pages fallback the JSON site
-// endpoint uses when no header menu exists. Entity links are built through the
-// URL registry (see navLinks), not the JSON API's "/{slug}" shortcut.
+// headerNav is the header menu: exactly its items, none when it is empty or
+// when no header menu exists. Entity links are built through the URL registry
+// (see navLinks).
 func (s *Server) headerNav(ctx context.Context, links *navLinks) []render.NavItem {
-	if nav := s.menuNav(ctx, "header", links); len(nav) > 0 {
-		return nav
-	}
-	items := s.fallbackNavigationWith(ctx, links.page)
-	out := make([]render.NavItem, 0, len(items))
-	for _, it := range items {
-		out = append(out, toRenderNav(it))
-	}
-	return out
+	nav, _ := s.menuNavFound(ctx, "header", links)
+	return nav
 }
 
 // menuNav returns the menu at location as render nav items; a missing menu or
 // a lookup error yields no items (the page still renders).
 func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) []render.NavItem {
+	nav, _ := s.menuNavFound(ctx, location, links)
+	return nav
+}
+
+// menuNavFound is menuNav that also reports whether a menu sits at location,
+// so an existing menu with no items stays distinguishable from none.
+func (s *Server) menuNavFound(ctx context.Context, location string, links *navLinks) ([]render.NavItem, bool) {
 	if s.menuService == nil {
-		return nil
+		return nil, false
 	}
 	m, err := s.menuService.GetMenuByLocation(ctx, location)
 	if err != nil || m == nil {
-		return nil
+		return nil, false
 	}
 	full, err := s.menuService.GetMenuWithItems(ctx, m.ID)
 	if err != nil || full == nil {
-		return nil
+		return nil, false
 	}
-	return links.items(full.Items)
-}
-
-func toRenderNav(n NavigationItem) render.NavItem {
-	out := render.NavItem{Label: n.Label, Href: n.Href, Target: n.Target}
-	for _, c := range n.Children {
-		out.Children = append(out.Children, toRenderNav(c))
-	}
-	return out
+	return links.items(full.Items), true
 }
 
 // formsForSections loads the active form definition behind every
@@ -655,8 +647,13 @@ type menuTargetRepo interface {
 }
 
 func (s *Server) newNavLinks(ctx context.Context) *navLinks {
+	return s.newNavLinksWith(ctx, s.urlSnapshot(ctx))
+}
+
+// newNavLinksWith is newNavLinks over a snapshot the caller already holds.
+func (s *Server) newNavLinksWith(ctx context.Context, snap *entity.URLSnapshot) *navLinks {
 	repo := entity.NewPostgresPublicRepository(s.db)
-	l := &navLinks{snap: s.urlSnapshot(ctx), ctx: ctx, repo: repo}
+	l := &navLinks{snap: snap, ctx: ctx, repo: repo}
 	if s.renderEngine != nil {
 		l.decl = s.renderEngine.MenuDecl()
 	}
@@ -726,6 +723,17 @@ func (l *navLinks) decorate(n *render.NavItem, it *menu.MenuItem) {
 }
 
 func (l *navLinks) menuHref(it *menu.MenuItem) string {
+	// An archive item with a schema (a theme default, the seeds) follows the
+	// schema's archive path, so it stays right if that changes. Its stored URL
+	// (kept for older binaries) is used only when the schema no longer resolves.
+	if it.LinkType == menu.LinkTypeArchive && it.SchemaSlug != nil && *it.SchemaSlug != "" {
+		if cfg, ok := l.snap.Config(*it.SchemaSlug); ok && cfg.ArchivePath != "" {
+			return cfg.ArchivePath
+		}
+		if it.URL == nil || *it.URL == "" {
+			return "#"
+		}
+	}
 	if it.URL != nil && *it.URL != "" || it.EntitySlug == nil || *it.EntitySlug == "" {
 		return getMenuItemHref(it)
 	}
@@ -736,7 +744,10 @@ func (l *navLinks) menuHref(it *menu.MenuItem) string {
 	if it.EntitySchemaSlug != nil && *it.EntitySchemaSlug != "" {
 		schema = *it.EntitySchemaSlug
 	}
-	if l.repo != nil && it.EntityID != nil && l.snap.NeedsEntityVars(schema) {
+	// An entity-keyed URL (parent, path, date tokens) or an attribute override
+	// needs the loaded entity; every other schema builds from the slug alone,
+	// so a menu costs one query per such item and none otherwise.
+	if l.repo != nil && it.EntityID != nil && l.snap.NeedsEntityURL(schema) {
 		if ent, err := l.repo.GetPublishedByID(l.ctx, *it.EntityID); err == nil && ent.Schema != nil {
 			return relatedLocator(l.ctx, l.snap, l.repo, schema)(ent)
 		}

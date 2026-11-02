@@ -18,6 +18,8 @@ type Service struct {
 	// changed runs after any successful write: menus are part of every
 	// rendered page, whoever wrote them (handlers, admin, MCP, plugins).
 	changed func(ctx context.Context)
+	// archivePaths resolves a schema's archive path for seeded archive items.
+	archivePaths func(ctx context.Context, schema string) string
 }
 
 // SetChangeObserver installs the callback run after a menu or menu item was

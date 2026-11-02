@@ -420,6 +420,12 @@ func (s *Server) setupDependencies() {
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
 	s.menuService = menu.NewService(menuRepo, s.logger)
+	s.menuService.SetArchivePaths(func(ctx context.Context, schema string) string {
+		if cfg, ok := s.urlSnapshot(ctx).Config(schema); ok {
+			return cfg.ArchivePath
+		}
+		return ""
+	})
 	s.menuService.SetChangeObserver(s.invalidateRendered) // plugin menus.* writes bypass the handlers
 
 	// Section template service
@@ -860,6 +866,13 @@ func (s *Server) Start() error {
 		refresher := agents.NewCDNRefresher(nil, agents.NewRangeRepository(s.db))
 		go agents.RunCDNRefresh(s.lifecycleCtx, 24*time.Hour, refresher.Refresh, middleware.SetTrustedCDN)
 	}
+	// Upgrade seed: before the listener accepts, since the render-time header
+	// fallback no longer exists. Bounded; a failure retries on the next start.
+	seedCtx, seedCancel := context.WithTimeout(s.lifecycleCtx, 20*time.Second)
+	if err := s.seedUpgradeHeader(seedCtx); err != nil {
+		s.logger.Warn("upgrade header menu seed failed", slog.String("error", err.Error()))
+	}
+	seedCancel()
 	s.loadPageCache(s.lifecycleCtx)
 	s.warnIfAdminAddressServed(s.lifecycleCtx)
 	if s.emailService != nil {

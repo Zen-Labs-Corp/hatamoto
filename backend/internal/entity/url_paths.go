@@ -95,6 +95,16 @@ func (s *URLSnapshot) NeedsEntityVars(schemaSlug string) bool {
 	return false
 }
 
+// NeedsEntityURL is NeedsEntityVars, or true when the schema has attribute
+// overrides: those pick the pattern from the entity's attributes, which a slug
+// alone cannot carry.
+func (s *URLSnapshot) NeedsEntityURL(schemaSlug string) bool {
+	if c, ok := s.Config(schemaSlug); ok && len(c.Overrides) > 0 {
+		return true
+	}
+	return s.NeedsEntityVars(schemaSlug)
+}
+
 // VarsForSitemap is VarsFor for a sitemap row.
 func (s *URLSnapshot) VarsForSitemap(e *SitemapEntry) urlpattern.Vars {
 	v := urlpattern.Vars{Slug: e.Slug, Parent: e.ParentSlug, Path: e.Slug}

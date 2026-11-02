@@ -521,20 +521,14 @@ func (r *Runner) importMenu(ctx context.Context, m Menu) error {
 		return err
 	}
 	name := m.Name
-	fields := &menu.UpdateMenuInput{Name: &name}
+	fields := &menu.UpdateMenuInput{Name: &name, TakeLocation: true}
 	if loc := menuLocation(m); loc != "" {
 		fields.Location = &loc
 	}
-	if _, err := r.d.Menus.ReplaceMenu(ctx, id, fields, items); err != nil && fields.Location != nil {
-		// The location may belong to another menu already: keep the items without it.
-		r.res.Warnings = append(r.res.Warnings, fmt.Sprintf("menu %q: location %q not set: %v", m.Name, *fields.Location, err))
-		fields.Location = nil
-		_, err = r.d.Menus.ReplaceMenu(ctx, id, fields, items)
-		return err
-	} else if err != nil {
-		return err
-	}
-	return nil
+	// A location is taken from its previous holder (which keeps its items,
+	// unassigned), so there is nothing to retry without it.
+	_, err = r.d.Menus.ReplaceMenu(ctx, id, fields, items)
+	return err
 }
 
 // menuItems converts the WordPress items, each parent before its children.

@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,7 +19,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
-	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/menu"
 )
 
 func must(t *testing.T, err error, what string) {
@@ -42,8 +41,8 @@ func eventually(t *testing.T, within time.Duration, cond func() bool, msg string
 	t.Fatal(msg)
 }
 
-// A page published by another process (the CLI builds a bare entity.Service:
-// no hook sink, its own pool) must show up in the header of a "/" the running
+// A header menu item added by another process (the CLI builds a bare
+// menu.Service: no hook sink, its own pool) must show up in the header of a "/" the running
 // server already cached, within the poll interval and without a purge call:
 //
 //	DATABASE_URL=... go test -tags integration ./internal/server -run ContentEpoch
@@ -93,6 +92,17 @@ func TestContentEpoch_CLIWriteRefreshesCachedHome_Integration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE slug LIKE $1`, "%"+sfx)
 	})
 
+	// The header lists only its menu, so the other process's write is a menu item.
+	hdrSlug := "ce-" + sfx
+	home := "/"
+	hdr, err := srv.menuService.CreateMenu(ctx, &menu.CreateMenuInput{Name: "CE header", Slug: hdrSlug, Location: ptr("header")})
+	must(t, err, "setup")
+	_, err = srv.menuService.CreateMenuItem(ctx, hdr.ID, &menu.CreateMenuItemInput{Label: "Start", LinkType: menu.LinkTypeCustom, URL: &home})
+	must(t, err, "setup")
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_menus WHERE slug = $1`, hdrSlug)
+	})
+
 	get := func() *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		srv.router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -130,11 +140,9 @@ func TestContentEpoch_CLIWriteRefreshesCachedHome_Integration(t *testing.T) {
 	cliDB, err := database.New(ctx, cfg.Database)
 	must(t, err, "setup")
 	t.Cleanup(cliDB.Close)
-	cli := entity.NewService(entity.NewPostgresSchemaRepository(cliDB), entity.NewPostgresEntityRepository(cliDB), log)
-	created, err := cli.CreateEntity(ctx, nil, &entity.CreateEntityInput{
-		SchemaID: pageSchemaID, Name: navLabel, Slug: "themes-" + sfx, Attributes: json.RawMessage(`{"page_sections":[]}`)})
-	must(t, err, "setup")
-	_, err = cli.UpdateEntityStatus(ctx, created.ID, nil, entity.StatusPublished)
+	cli := menu.NewService(menu.NewPostgresRepository(cliDB), log)
+	label := "/themes-" + sfx
+	_, err = cli.CreateMenuItem(ctx, hdr.ID, &menu.CreateMenuItemInput{Label: navLabel, LinkType: menu.LinkTypeCustom, URL: &label})
 	must(t, err, "setup")
 
 	// Still the old cached copy right after the write is allowed; it must not

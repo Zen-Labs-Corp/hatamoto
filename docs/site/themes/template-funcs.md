@@ -78,7 +78,7 @@ The subject comes first, like `hasPrefix`. Numbers are accepted where a string i
 
 ## Navigation helpers
 
-**`menu "header"`** returns the items of the menu at a location, like `.Site.Nav`. Each `NavItem` has `Label`, `Href`, `Target` and `Children`.
+**`menu "header"`** returns the items of the menu at a location, like `.Site.Nav`, for example `menu "footer"` or a location the theme declares such as `menu "follow"`. A location with no menu, or a menu with no items, returns an empty list. Each `NavItem` has `Label`, `Href`, `Target` and `Children`.
 
 **`navctx` and `navlink`** normalise the two call styles of the default navigation partials (a plain `[]NavItem`, or a `dict` with `Items` and `Path`).
 

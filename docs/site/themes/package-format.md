@@ -20,7 +20,7 @@ README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
 
 ## The manifest
 
-`theme.json` needs `name` and `version`, and may carry `description`, `settings_schema`, `screenshot` and `builder` (see [Builder contract](builder-contract.md)).
+`theme.json` needs `name` and `version`, and may carry `description`, `settings_schema`, `screenshot`, `menus` and `builder` (see [Builder contract](builder-contract.md)).
 
 | Key | Rule |
 | --- | --- |
@@ -28,6 +28,7 @@ README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
 | `version` | a semantic version such as `1.0.0` |
 | `description` | shown on the theme's card |
 | `settings_schema` | a JSON Schema in the supported subset; it becomes the theme's **Settings** form and reaches templates as `.Settings` |
+| `menus` | optional menu locations the theme renders, each with a `title` and optional `default` items (`label` plus `url` or `archive`). At most 12 locations and 24 items per location. A malformed block fails `hatamoto theme check`. Activating the theme creates a menu for each declared location that has default items and none yet, and never overwrites or deletes one |
 | `screenshot` | optional preview image under `assets/` (for example `assets/screenshot.webp`): PNG, WebP or JPEG, never SVG, at most 2 MiB, 640 to 2560 by 360 to 1600 pixels. An invalid screenshot is ignored on install. The registry requires it, and `hatamoto theme check <dir> --registry`, `theme pack --registry` and the registry build check it strictly |
 
 ```json

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/menu"
 )
 
 // SectionDef is one section type of a theme: its template source and schema.
@@ -53,6 +54,9 @@ type Theme struct {
 	// style, colour, badge and icon presets and suggested classes. Zero when
 	// the theme declares nothing.
 	Menu MenuDecl
+	// MenuLocations are the menu locations the theme declares (theme.json
+	// "menus"); nil when absent or invalid (lenient at runtime).
+	MenuLocations []menu.DeclLocation
 
 	chain Chain
 }
@@ -68,7 +72,8 @@ type themeManifest struct {
 	CSP struct {
 		StrictScripts bool `json:"strictScripts"`
 	} `json:"csp"`
-	Menu json.RawMessage `json:"menu"`
+	Menu  json.RawMessage `json:"menu"`
+	Menus json.RawMessage `json:"menus"`
 }
 
 // LoadTheme resolves theme.json (highest-precedence copy) and discovers section
@@ -86,6 +91,9 @@ func LoadTheme(c Chain) (*Theme, error) {
 		t.BuilderTokens = m.Builder.Tokens
 		t.StrictScripts = m.CSP.StrictScripts
 		t.Menu = parseMenuDecl(m.Menu)
+		if locs, err := menu.ParseDecl(m.Menus); err == nil {
+			t.MenuLocations = locs
+		}
 		for _, p := range m.Builder.Parts {
 			if builder.ValidPartSlot(p) { // unknown names are ignored
 				if t.BuilderParts == nil {

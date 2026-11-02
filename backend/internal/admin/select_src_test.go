@@ -42,3 +42,21 @@ func TestSelectJSRefocusWithoutID(t *testing.T) {
 		t.Error("select.js must not restore focus by the generated id alone")
 	}
 }
+
+// Group headings are presentational inside the listbox, so each grouped option must
+// point at its heading (assistive tech otherwise never announces the group), and a
+// click on a heading must not blur the trigger (focusout would close the list).
+func TestSelectJSGroupHeadingsAreAnnouncedAndKeepFocus(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../web/admin/js/select.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	for _, want := range []string{`li.setAttribute("aria-describedby", groupID)`, `h.addEventListener("mousedown", (e) => e.preventDefault())`} {
+		if !strings.Contains(src, want) {
+			t.Errorf("select.js: missing %s", want)
+		}
+	}
+}

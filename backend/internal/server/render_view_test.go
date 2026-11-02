@@ -86,6 +86,12 @@ func TestMenuHrefUsesRegistry(t *testing.T) {
 		"post entity":  {&menu.MenuItem{EntityID: &otherID, EntitySlug: str("hello"), EntitySchemaSlug: str("post")}, "/blog/hello"},
 		"explicit url": {&menu.MenuItem{URL: str("/x"), EntitySlug: str("about")}, "/x"},
 		"no target":    {&menu.MenuItem{}, "#"},
+		// The schema wins over the stored URL (kept for older binaries); the URL
+		// serves only when the schema does not resolve.
+		"archive schema first": {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("post"), URL: str("/stale")}, "/blog"},
+		"archive schema only":  {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("post")}, "/blog"},
+		"archive url fallback": {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("gone"), URL: str("/kept")}, "/kept"},
+		"archive unresolved":   {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("gone")}, "#"},
 	} {
 		if got := l.menuHref(tc.it); got != tc.want {
 			t.Errorf("%s: %q, want %q", name, got, tc.want)

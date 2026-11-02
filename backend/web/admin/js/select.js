@@ -57,7 +57,7 @@ function enhance(select) {
     return i < 0 ? [text, ""] : [text.slice(0, i), text.slice(i + HINT.length)];
   };
   const isOpen = () => !list.hidden;
-  const items = () => [...list.children];
+  const items = () => [...list.querySelectorAll(".hm-select__option")];
   const enabled = (li) => li.getAttribute("aria-disabled") !== "true";
 
   // Mirror the native state onto the trigger and the label.
@@ -110,12 +110,29 @@ function enhance(select) {
   const open = () => {
     if (isOpen() || select.matches(":disabled")) return;
     list.replaceChildren();
+    let group = null;
+    let groupID = "";
     [...select.options].forEach((o, i) => {
+      const g = o.parentElement instanceof HTMLOptGroupElement ? o.parentElement : null;
+      if (g && g !== group) {
+        const h = document.createElement("li");
+        h.className = "hm-select__group";
+        h.setAttribute("role", "presentation");
+        h.id = `${id}-grp-${i}`;
+        h.textContent = g.label;
+        // A click on the heading must not blur the trigger (focusout closes the list).
+        h.addEventListener("mousedown", (e) => e.preventDefault());
+        list.append(h);
+        groupID = h.id;
+      }
+      group = g;
       const li = document.createElement("li");
       li.id = `${id}-opt-${i}`;
       li.className = "hm-select__option";
       li.setAttribute("role", "option");
       li.setAttribute("aria-selected", String(o.selected));
+      // The heading is not a listbox child assistive tech announces, so each option points at it.
+      if (g) li.setAttribute("aria-describedby", groupID);
       if (o.disabled || o.parentElement?.disabled) li.setAttribute("aria-disabled", "true");
       if (o.value === "") li.setAttribute("data-placeholder", "");
       const [name, hint] = split(o.text);

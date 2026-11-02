@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 60608,
+      "value": 61502,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,13 +11,13 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103556,
+      "value": 103783,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 103561
+      "cap": 103900
     },
     "editor_js_total_gzip": {
-      "value": 274739,
+      "value": 274966,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 275262
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "Plugins Browse toolbar, badge sm variant and wide drawer CSS",
-      "date": "2026-10-31"
-    },
     {
       "reason": "builder canvas direct manipulation",
       "date": "2026-10-31"
@@ -118,6 +114,10 @@
     },
     {
       "reason": "admin shell match: fonts, icon rail, sidebar counts, plugins filter row",
+      "date": "2026-11-02"
+    },
+    {
+      "reason": "menus-real-data: optgroup select and menu location picker grow the editor bundle",
       "date": "2026-11-02"
     }
   ]

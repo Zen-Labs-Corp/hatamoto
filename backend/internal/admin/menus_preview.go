@@ -34,7 +34,7 @@ func (a *Admin) handleMenuPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	location := r.PostFormValue("location")
-	if !menu.ValidLocation(location) {
+	if !menu.ValidLocation(location) { // the theme may declare any well-formed name
 		location = ""
 	}
 	body, csp, err := a.deps.Content.MenuPreview(r, location, &menu.Menu{Items: a.previewMenuItems(r, rows)})

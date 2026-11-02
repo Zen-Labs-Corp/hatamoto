@@ -482,7 +482,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `terms.save` | `{ "kind", "slug"?, "name" }` (updates when kind+slug exists, else creates) | Term |
 | `terms.delete` | `{ "kind", "slug" }` | `{}` |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
-| `menus.save` | `{ "slug"?, "name", "location"? }` | Menu |
+| `menus.save` | `{ "slug"?, "name", "location"? }` | Menu. `location` is any well-formed name (`^[a-z][a-z0-9_-]{0,31}$`); the admin picker lists the core `header`, `footer` and `sidebar` and the names the active theme declares. A plugin never takes a location from another menu: menus that share a location coexist, and the site renders the oldest |
 | `menus.add_item` | `{ "menu_slug", "label", "link_type", "url"?, "entity_id"?, "parent_id"?, "open_in_new_tab"? }` | MenuItem |
 | `menus.delete_item` | `{ "id" }` | `{}` |
 | `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media (id, filename, mime_type, file_size, public_url, width, height, alt_text) |

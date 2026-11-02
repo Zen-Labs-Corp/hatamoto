@@ -29,6 +29,9 @@ func (r stubRepo) DeleteMenuItem(context.Context, uuid.UUID) error {
 func (r stubRepo) ReplaceMenu(context.Context, uuid.UUID, *UpdateMenuInput, []ReplaceItem) error {
 	return r.fail
 }
+func (r stubRepo) EnsureMenuAtLocation(_ context.Context, in EnsureInput) (*Menu, bool, error) {
+	return &Menu{ID: uuid.New(), Slug: in.Slug}, r.fail == nil, r.fail
+}
 func (r stubRepo) GetMenuWithItems(context.Context, uuid.UUID) (*Menu, error) { return &Menu{}, nil }
 func (r stubRepo) GetMenuByID(context.Context, uuid.UUID) (*Menu, error)      { return &Menu{}, nil }
 func (r stubRepo) CreateMenuItem(context.Context, uuid.UUID, *CreateMenuItemInput) (*MenuItem, error) {
@@ -48,6 +51,14 @@ func TestServiceWritesNotifyChangeObserver(t *testing.T) {
 		"UpdateMenu": func(s *Service) error { _, err := s.UpdateMenu(ctx, id, &UpdateMenuInput{}); return err },
 		"ReplaceMenu": func(s *Service) error {
 			_, err := s.ReplaceMenu(ctx, id, &UpdateMenuInput{}, nil)
+			return err
+		},
+		"SeedDecl": func(s *Service) error {
+			_, err := s.SeedDecl(ctx, []DeclLocation{
+				{Name: "follow", Title: "Follow", Default: []DeclItem{{Label: "a", URL: "/a"}}},
+				{Name: "promo", Title: "Promo", Default: []DeclItem{{Label: "b", Archive: "post"}}},
+				{Name: "bare", Title: "Bare"},
+			})
 			return err
 		},
 		"DeleteMenu": func(s *Service) error { return s.DeleteMenu(ctx, id) },

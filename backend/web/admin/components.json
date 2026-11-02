@@ -318,6 +318,11 @@
       "padding-right": "var(--space-3)"
     }
   },
+  "select-group": {
+    "selector": ".hm-select__group",
+    "owner": "css/partials/select.css",
+    "props": {}
+  },
   "savebar": {
     "selector": ".hm-savebar",
     "owner": "css/partials/savebar.css",
