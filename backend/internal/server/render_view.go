@@ -1019,7 +1019,7 @@ func localeGeoRegion(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) 
 	if err != nil {
 		return ""
 	}
-	if c, ok := cards[loc]; ok && c.GeoRegion != "" {
+	if c, ok := cards[loc]; ok && (c.GeoRegion != "" || !c.Inherits("geo_region")) {
 		return c.GeoRegion
 	}
 	return site.GeoRegion

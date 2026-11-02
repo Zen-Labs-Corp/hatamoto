@@ -425,3 +425,31 @@ func TestFoldGraph_OrganizationHasNoGeo(t *testing.T) {
 		}
 	}
 }
+
+// The geo.region meta of the other locales is the same after the fold: a
+// locale whose card has none, while the site-wide value was empty and the old
+// default card had one, keeps printing none (its card carries no_inherit).
+func TestFoldGeoRegion_OtherLocalesUnchanged(t *testing.T) {
+	t.Parallel()
+	tests := map[string]foldCase{
+		"site empty, default card sets it": foldBase0(foldSiteProfile, `{"geo_region":"XX-01"}`),
+		"site set, default card overrides": foldBase0(strings.Replace(foldSiteProfile, `{`, `{"geo_region":"XX-00",`, 1), `{"geo_region":"XX-01"}`),
+		"site set, card of another locale": {
+			profile: strings.Replace(foldSiteProfile, `{`, `{"geo_region":"XX-00",`, 1),
+			cards:   `{"` + foldDefault + `":{"geo_region":"XX-01"},"fr-CA":{"geo_region":"YY-02"},"de-XX":{}}`,
+		},
+	}
+	set := foldSet(t, true)
+	for name, c := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			after := foldConfig(t, c.config())
+			for _, loc := range []string{"fr-CA", "de-XX"} {
+				want := legacyViews{}.geoRegion(c.config(), loc)
+				if got := localeGeoRegion(after, set, loc); got != want {
+					t.Errorf("geo.region of %s = %q after the fold, was %q", loc, got, want)
+				}
+			}
+		})
+	}
+}
