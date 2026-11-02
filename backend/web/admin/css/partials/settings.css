@@ -84,7 +84,7 @@
 /* Font stacks: one field per row, full width. */
 .hm-fieldgrid--stack { grid-template-columns: minmax(0, 1fr); }
 
-@media (max-width: 960px) { :root { --subnav-w: 184px; } .hm-settings { gap: var(--space-4); } .hm-fieldgrid--swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); gap: var(--space-4); } .hm-fieldgrid--swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
   .hm-fieldgrid--tokens, .hm-fieldgrid--2, .hm-fieldgrid--swatches { grid-template-columns: minmax(0, 1fr); }
   .hm-settings { grid-template-columns: minmax(0, 1fr); min-height: 0; }

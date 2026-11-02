@@ -7,7 +7,7 @@ import (
 )
 
 // Dismissing the last banner leaves an empty .hm-notices behind (script removes only the callout).
-// The strip must collapse and the page's tighter top padding must only apply while it shows one.
+// The strip must collapse so it adds no gap to the page column.
 func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -15,17 +15,13 @@ func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	css := string(b)
-	if !strings.Contains(css, ".hm-notices:not(:has(.hm-callout)) { display: none; }") {
+	if !strings.Contains(string(b), ".hm-notices:not(:has(.hm-callout)) { display: none; }") {
 		t.Error("an .hm-notices with no callout must be display: none")
-	}
-	if !strings.Contains(css, ".hm-notices:has(.hm-callout) + .hm-settings, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }") || strings.Contains(css, ".hm-notices + .hm-page") {
-		t.Error("the reduced page padding must depend on the strip holding a callout")
 	}
 }
 
-// The notices strip shares the group's width and padding; over a subnav page (desktop) its
-// start padding adds the subnav column and gap so the banners line up with the cards.
+// The notices strip is the first child of .hm-page, so it spans the page content column on
+// every width variant (and beside the subnav) with no padding or max-width of its own.
 func TestNoticesAlignWithContentColumn(t *testing.T) {
 	t.Parallel()
 
@@ -33,22 +29,20 @@ func TestNoticesAlignWithContentColumn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	css := string(b)
-	for _, want := range []string{
-		"max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad) var(--page-pad) 0;",
-		"@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--space-8)); } }",
-		"@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--space-4)); } }",
-	} {
-		if !strings.Contains(css, want) {
-			t.Errorf("base.css lacks %q", want)
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, ".hm-notices") && (strings.Contains(line, "padding") || strings.Contains(line, "max-width")) {
+			t.Errorf("the notices strip takes its width from .hm-page, not %q", line)
 		}
 	}
-	s, err := os.ReadFile("../../../web/admin/css/partials/settings.css")
+	sh, err := os.ReadFile("../../../web/admin/layouts/shell.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(s), "gap: var(--space-8); align-items: start") || !strings.Contains(string(s), ":root { --subnav-w: 184px; } .hm-settings { gap: var(--space-4); }") {
-		t.Error("the 960px block must narrow --subnav-w and the grid gap to the values the notices strip adds")
+	html := string(sh)
+	page := strings.Index(html, `<div class="hm-page"`)
+	notices := strings.Index(html, `<div class="hm-notices">`)
+	if page < 0 || notices < page || notices > strings.Index(html, `{{template "main" .}}`) {
+		t.Error("shell.html must render .hm-notices inside .hm-page, before the page content")
 	}
 }
 

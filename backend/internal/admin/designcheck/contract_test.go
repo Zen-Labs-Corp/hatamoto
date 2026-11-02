@@ -204,9 +204,8 @@ func dc01Prefix(prop string) (prefixes []string, ok bool) {
 		return []string{"--radius-"}, true
 	case prop == "z-index":
 		return []string{"--z-"}, true
-	// --subnav-w: the notices strip pads past the subnav column to line up with the page.
 	case prop == "padding" || strings.HasPrefix(prop, "padding-"):
-		return []string{"--space-", "--page-pad", "--subnav-w"}, true
+		return []string{"--space-", "--page-pad"}, true
 	case prop == "margin" || strings.HasPrefix(prop, "margin-"), prop == "gap", prop == "row-gap", prop == "column-gap":
 		return []string{"--space-"}, true
 	}

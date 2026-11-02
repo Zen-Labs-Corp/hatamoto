@@ -107,15 +107,10 @@ form.hm-stack { max-width: 46rem; }
   padding: var(--page-pad);
   display: flex; flex-direction: column; gap: var(--space-6);
 }
-/* Standing notices: one full-width strip above the page column, same width on every page. */
-.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad) var(--page-pad) 0; }
-.hm-notices:has(.hm-callout) + .hm-settings, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }
+/* Standing notices: the first thing in the page column, so they share its width on every page. */
+.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); }
 /* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
 .hm-notices:not(:has(.hm-callout)) { display: none; }
-@media (max-width: 960px) { .hm-notices { padding: var(--space-4) var(--space-4) 0; } }
-/* Over a subnav page the banners line up with the content column, not the subnav (desktop; the phone bar stacks). */
-@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--space-8)); } }
-@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--space-4)); } }
 .hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 .hm-page[data-width="full"] { max-width: none; }
 .hm-bare {
