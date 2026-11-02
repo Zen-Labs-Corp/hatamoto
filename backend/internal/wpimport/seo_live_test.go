@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -199,4 +200,39 @@ func TestSEOLiveNamedCrawlerBlockStillMapsRobotsLines(t *testing.T) {
 	if got := strings.Join(live.RobotsExtra, "|"); got != "User-agent: GPTBot|Disallow: /|User-agent: *|Disallow: /private/" {
 		t.Errorf("robots = %q", got)
 	}
+}
+
+func TestSEOLiveFollowsApexToWWWRedirect(t *testing.T) {
+	for name, tc := range map[string]struct{ start, to string }{
+		"apex to www": {"localhost", "www.localhost"},
+		"www to apex": {"www.localhost", "localhost"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var srv *httptest.Server
+			mux := http.NewServeMux()
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				if r.Host == tc.start+":"+portOf(srv.URL) {
+					http.Redirect(w, r, "http://"+tc.to+":"+portOf(srv.URL)+r.URL.Path, http.StatusMovedPermanently)
+					return
+				}
+				w.Write([]byte(liveHome))
+			})
+			srv = httptest.NewServer(mux)
+			defer srv.Close()
+			base := "http://" + tc.start + ":" + portOf(srv.URL)
+			c, err := NewClient(ClientOptions{URL: base, AllowPrivate: true, RatePerSec: 1000, Sleep: noSleep, MaxRetries: 0})
+			if err != nil {
+				t.Fatal(err)
+			}
+			live := readSEOLive(context.Background(), c, base+"/", "", "")
+			if live.Plugin != "Rank Math" || len(live.Warnings) != 0 {
+				t.Errorf("plugin %q, warnings %v", live.Plugin, live.Warnings)
+			}
+		})
+	}
+}
+
+func portOf(rawURL string) string {
+	u, _ := url.Parse(rawURL)
+	return u.Port()
 }

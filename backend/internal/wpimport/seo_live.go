@@ -245,11 +245,14 @@ func inferSeparator(postTitle, siteTitle string) string {
 	return ""
 }
 
-// sameOrigin reports whether u is on the same host and port as base. Two URLs
-// without an explicit port match, so an http to https upgrade is accepted.
+// sameOrigin reports whether u is on the same site and port as base. A host and
+// its www. variant are the same site, and two URLs without an explicit port
+// match, so an http to https upgrade is accepted.
 func sameOrigin(u, base *url.URL) bool {
-	return u != nil && strings.EqualFold(u.Hostname(), base.Hostname()) && u.Port() == base.Port()
+	return u != nil && bareHost(u.Hostname()) == bareHost(base.Hostname()) && u.Port() == base.Port()
 }
+
+func bareHost(h string) string { return strings.TrimPrefix(strings.ToLower(h), "www.") }
 
 // robotsExtra returns the non-default robots.txt lines, or nil when anything
 // other than plain crawl directives is present.
