@@ -54,6 +54,16 @@ func TestAnalyticsUnderACustomAdminPath(t *testing.T) {
 	if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "/x-test/analytics/agents/gptbot?compare=1" {
 		t.Errorf("policy save: %d Location %q", rec.Code, loc)
 	}
+	form.Set("return", "/x-test/settings/seo/robots")
+	rec = g.do("POST", "/x-test/analytics/crawlers/robots", "owner-token", form, nil)
+	if loc := rec.Header().Get("Location"); loc != "/x-test/settings/seo/robots" {
+		t.Errorf("SEO Robots return path: Location %q", loc)
+	}
+	form.Set("return", "/admin/settings/seo/robots") // the default prefix is not this instance's
+	rec = g.do("POST", "/x-test/analytics/crawlers/robots", "owner-token", form, nil)
+	if loc := rec.Header().Get("Location"); loc != "/x-test/analytics/crawlers" {
+		t.Errorf("foreign SEO Robots return path: Location %q, want the crawlers list", loc)
+	}
 	form.Set("return", "/admin/analytics/crawlers") // the default prefix is not this instance's
 	rec = g.do("POST", "/x-test/analytics/crawlers/robots", "owner-token", form, nil)
 	if loc := rec.Header().Get("Location"); loc != "/x-test/analytics/crawlers" {

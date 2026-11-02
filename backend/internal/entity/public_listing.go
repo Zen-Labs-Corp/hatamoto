@@ -27,6 +27,9 @@ type ListFilter struct {
 	// full-text vector (name, excerpt, content), best match first. Entities
 	// marked no_index never appear in search results.
 	Search string
+	// ExcludeSchemaSlugs leaves entities of these schemas out of a Search; it
+	// is how noindex types stay out of site search results and their paging.
+	ExcludeSchemaSlugs []string
 	// Attr restricts to entities whose attribute Attr equals AttrEq (a string,
 	// or the number/boolean AttrEq spells), or that have the attribute at all
 	// when AttrEq is empty and AttrEqSet is false. With AttrEqSet an empty
@@ -167,6 +170,9 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 		where = append(where,
 			"e.search_vector @@ websearch_to_tsquery('simple', "+p+")",
 			"NOT "+NoIndexSQL)
+		if len(f.ExcludeSchemaSlugs) > 0 {
+			where = append(where, "s.slug <> ALL("+arg(f.ExcludeSchemaSlugs)+")")
+		}
 		rank = "ts_rank(e.search_vector, websearch_to_tsquery('simple', " + p + ")) DESC, "
 	}
 	cond := strings.Join(where, " AND ")

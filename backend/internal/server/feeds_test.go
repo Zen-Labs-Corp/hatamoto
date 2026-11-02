@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
+	"hatamoto.dev/core/internal/seo"
 )
 
 var updateFeedGoldens = flag.Bool("update-feeds", false, "rewrite testdata/feeds goldens")
@@ -84,7 +85,7 @@ func TestFeedItemsLocateAndAbsolutize(t *testing.T) {
 		}
 		return "/blog/" + e.Slug
 	}
-	got := feedItems(posts, "https://x.io", locate, map[string]string{"t1": "/blog/new"}, nil)
+	got := feedItems(posts, "https://x.io", locate, map[string]string{"t1": "/blog/new"}, nil, nil)
 	if len(got) != 1 {
 		t.Fatalf("items %+v", got)
 	}
@@ -119,7 +120,7 @@ func TestFeedItemsSkipNoIndexAndStripControlChars(t *testing.T) {
 		mk("attr", `{"no_index":true}`, `{}`),
 		mk("robots", `{"seo":{"robots":"noindex,follow"}}`, `{}`),
 	}
-	got := feedItems(posts, "https://x.io", func(e *entity.Entity) string { return "/blog/" + e.Slug }, nil, nil)
+	got := feedItems(posts, "https://x.io", func(e *entity.Entity) string { return "/blog/" + e.Slug }, nil, nil, nil)
 	if len(got) != 1 || got[0].Author != "Bo" || !strings.HasPrefix(got[0].ID, "urn:uuid:") {
 		t.Fatalf("items %+v", got)
 	}
@@ -151,11 +152,61 @@ func TestFeedItemsUsePersonAndOrganisationBylines(t *testing.T) {
 		org:     "Acme Org",
 	}
 	got := feedItems([]*entity.Entity{byPerson, byOrg, plain}, "https://x.io", func(e *entity.Entity) string { return "/blog/" + e.Slug }, nil,
-		b.creditedNames([]uuid.UUID{byPerson.ID, byOrg.ID, plain.ID}))
+		b.creditedNames([]uuid.UUID{byPerson.ID, byOrg.ID, plain.ID}), nil)
 	want := []string{"Ada Lovelace", "Acme Org", "Plain Text"}
 	for i, it := range got {
 		if it.Author != want[i] {
 			t.Errorf("item %d author = %q, want %q", i, it.Author, want[i])
 		}
+	}
+}
+
+// A noindex type drops out of feeds, llms.txt and the sitemap; nil settings
+// keep every type.
+func TestNoIndexTypeDropsOutOfFeedsLLMsAndSitemap(t *testing.T) {
+	t.Parallel()
+	idx := &seo.Settings{Index: seo.Index{NoIndexTypes: map[string]bool{"post": true}}}
+
+	pub := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	post := &entity.Entity{ID: uuid.New(), Name: "p", Slug: "p", Status: entity.StatusPublished, Attributes: []byte(`{}`), PublishedAt: &pub, Schema: &entity.EntitySchema{Slug: "post"}}
+	locate := func(e *entity.Entity) string { return "/blog/" + e.Slug }
+	if got := feedItems([]*entity.Entity{post}, "https://x.io", locate, nil, nil, nil); len(got) != 1 {
+		t.Errorf("nil settings: items %+v", got)
+	}
+	if got := feedItems([]*entity.Entity{post}, "https://x.io", locate, nil, nil, idx); len(got) != 0 {
+		t.Errorf("noindex type: items %+v", got)
+	}
+
+	listed := func(e *entity.SitemapEntry) { e.IncludeInLLMs = true }
+	entries := []*entity.SitemapEntry{
+		entry("post", "a", "2025-03-02", listed),
+		entry("page", "b", "2025-03-01", listed),
+		entry("page", "c", "2025-03-01", func(e *entity.SitemapEntry) { listed(e); e.NoIndex = true }),
+	}
+	slugs := func(es []*entity.SitemapEntry) (out []string) {
+		for _, e := range es {
+			out = append(out, e.Slug)
+		}
+		return out
+	}
+	if got := strings.Join(slugs(llmsEntries(entries, nil)), ","); got != "a,b" {
+		t.Errorf("llms nil settings = %s", got)
+	}
+	if got := strings.Join(slugs(llmsEntries(entries, idx)), ","); got != "b" {
+		t.Errorf("llms noindex type = %s", got)
+	}
+
+	snap := sitemapSnap(t, sitemapSchema("page", ""), sitemapSchema("post", ""))
+	in := basePlanInput(snap, entries...)
+	in.SEO = idx
+	plan := planSitemap(in)
+	for _, key := range []string{"blog", "post"} {
+		if plan.HasGroup(key) {
+			t.Errorf("sitemap still has group %s", key)
+		}
+	}
+	urls, _ := plan.GroupURLs("misc")
+	if got := strings.Join(urlsOf(urls), ","); got != "/b" {
+		t.Errorf("misc urls = %s", got)
 	}
 }

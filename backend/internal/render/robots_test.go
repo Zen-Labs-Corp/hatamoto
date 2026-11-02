@@ -50,3 +50,24 @@ func TestRobotsForAdminOnlyNamesTheDefault(t *testing.T) {
 		t.Error("RobotsWithDeny must be the default-address form")
 	}
 }
+
+func TestRobotsForAdminLinesNilIsByteIdentical(t *testing.T) {
+	if RobotsForAdminLines("https://x.io", nil, nil, []string{"GPTBot"}, "/admin") != RobotsForAdmin("https://x.io", nil, []string{"GPTBot"}, "/admin") {
+		t.Fatal("no lines must equal RobotsForAdmin")
+	}
+	if RobotsForAdminLines("https://x.io", nil, []string{"", "  "}, nil, "/admin") != Robots("https://x.io", nil) {
+		t.Fatal("blank lines must add nothing")
+	}
+}
+
+func TestRobotsForAdminLines(t *testing.T) {
+	got := RobotsForAdminLines("https://x.io", nil,
+		[]string{"Disallow: /private", "User-agent: Foo", "Disallow: /foo", "Disallow: /k7qm-x2rf/x"},
+		[]string{"GPTBot"}, "/k7qm-x2rf")
+	want := "User-agent: *\nAllow: /\nDisallow: /auth\nDisallow: /api\nDisallow: /client\nDisallow: /*?*_rsc=\n" +
+		"Disallow: /private\nUser-agent: Foo\nDisallow: /foo\n\n" +
+		"User-agent: GPTBot\nDisallow: /\n\nSitemap: https://x.io/sitemap.xml\n"
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

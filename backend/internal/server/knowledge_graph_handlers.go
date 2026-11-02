@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/seo"
 )
 
 // entityIncludesInLLMsTxt reports whether an entity should appear in the
@@ -33,6 +34,18 @@ func entityIncludesInLLMsTxt(ent *entity.Entity) bool {
 		return true
 	}
 	return *attrs.SEO.IncludeInLLMsTxt
+}
+
+// llmsEntries keeps the entries listed in llms.txt and the knowledge graph:
+// those that opt in and are not noindex, per entry or per type.
+func llmsEntries(all []*entity.SitemapEntry, idx *seo.Settings) []*entity.SitemapEntry {
+	out := make([]*entity.SitemapEntry, 0, len(all))
+	for _, e := range all {
+		if e.IncludeInLLMs && !e.NoIndex && !idx.NoIndexType(e.SchemaSlug) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // handleKnowledgeGraph returns a JSON-LD @graph array of all published entities for the tenant.
@@ -72,8 +85,9 @@ func (s *Server) handleKnowledgeGraph(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		entities = make([]*entity.Entity, 0, len(result.Items))
+		idx := s.seoSettings(r.Context())
 		for _, ent := range result.Items {
-			if entityIncludesInLLMsTxt(ent) {
+			if entityIncludesInLLMsTxt(ent) && !entityNoIndex(ent, idx) {
 				entities = append(entities, ent)
 			}
 		}
@@ -87,12 +101,7 @@ func (s *Server) handleKnowledgeGraph(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to build knowledge graph")
 			return
 		}
-		entries := make([]*entity.SitemapEntry, 0, len(allEntries))
-		for _, entry := range allEntries {
-			if entry.IncludeInLLMs {
-				entries = append(entries, entry)
-			}
-		}
+		entries := llmsEntries(allEntries, s.seoSettings(r.Context()))
 		total = len(entries)
 
 		// Manual pagination over the entries — fetch entities in the page range
@@ -175,12 +184,7 @@ func (s *Server) handleLLMsTxt(w http.ResponseWriter, r *http.Request) {
 
 	// Filter out entities the editor opted out of via the
 	// SEO tab's "Include in /llms.txt" toggle. Default is true (see SQL).
-	entries := make([]*entity.SitemapEntry, 0, len(allEntries))
-	for _, entry := range allEntries {
-		if entry.IncludeInLLMs {
-			entries = append(entries, entry)
-		}
-	}
+	entries := llmsEntries(allEntries, s.seoSettings(r.Context()))
 
 	lastUpdated := time.Now().UTC().Format("2006-01-02")
 	if len(entries) > 0 && len(entries[0].UpdatedAt) >= 10 {

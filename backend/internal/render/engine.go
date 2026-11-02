@@ -755,7 +755,7 @@ func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil
 	nv.Kind = KindNotFound
-	nv.Page.NoIndex = true
+	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
 	if nv.Page.Title == "" {
 		nv.Page.Title = "Page not found"
 	}
@@ -766,7 +766,7 @@ func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 func (e *Engine) RenderError(w io.Writer, v *PageView, status int) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil // a failing component must not render again on the error page
-	nv.Page.NoIndex = true
+	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
 	if nv.Page.Title == "" {
 		nv.Page.Title = http.StatusText(status)
 	}

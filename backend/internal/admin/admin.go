@@ -26,6 +26,7 @@ import (
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/localeconv"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
@@ -183,6 +184,9 @@ type Deps struct {
 	ValidateLocales func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xDefault string) ([]siteconfig.LocaleEntry, string, error)
 	// Invalidate clears the rendered-page cache after settings change.
 	Invalidate func(context.Context)
+	// RobotsPreview is the /robots.txt a request would get with the given
+	// robots settings (Settings > SEO > Robots); nil hides the preview card.
+	RobotsPreview func(r *http.Request, rs seo.Robots) string
 	// LocaleConvert is the region-tree conversion behind Settings > General >
 	// Convert existing region pages; nil answers those pages with 503.
 	LocaleConvert localeconv.Service

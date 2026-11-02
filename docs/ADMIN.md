@@ -812,7 +812,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has five tabs: General, Titles & meta, Social, Schema and Knowledge graph. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has seven tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots and Verification. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -861,6 +861,36 @@ Knowledge graph (`<admin>/settings/seo/knowledge-graph`) is read-only. It shows 
 Organization and WebSite data the public head emits (name, logo, profile links, and the locales
 with their own business details), links to where each value is edited (General and Locales >
 Business details) and previews the resulting JSON-LD, built by the same code as the public site.
+
+Titles & meta also decides what search engines may index. Each content type has a Search
+engines select (Index or Noindex), each term kind has an index switch, and so do author pages,
+the content archive and search results (search results stay noindex until you switch them on).
+A noindex type or view gets `noindex,follow` in its head. A noindex type also leaves the sitemap,
+the feeds, `llms.txt` and the site search, and so do its archive page and its author pages (for
+the Person type). Switching off author pages or the content archive keeps them out of the
+sitemap too. This is a behaviour change: `llms.txt` used to ignore noindex and
+now omits every noindex entry and type. Saving Titles & meta never touches the Robots or
+Verification settings. The page has no switch for date archives, which the public site does not
+serve yet.
+
+Robots (`<admin>/settings/seo/robots`) sets the site-wide default robots directives (maximum
+snippet length, maximum image preview, no archive, no snippet) and extra lines for `/robots.txt`.
+An entry's own `seo.robots` value wins over these defaults; it is stored token by token, so
+unknown directives survive a save. The panel's Advanced section (entity form and blog editor)
+edits nofollow, noarchive, nosnippet, the snippet length and the image preview next to noindex.
+A legacy `noindex, nofollow` value now renders as written instead of `noindex,follow`; a plain
+noindex still renders `noindex,follow`. Extra lines are appended after the generated rules and
+accept only `User-agent`, `Allow`, `Disallow`, `Crawl-delay`, `Sitemap` (an http(s) address) and
+`#` comments, at most 50 lines of 200 characters, with no control characters and no line that
+names the admin address. The page previews the resulting `/robots.txt`, built by the same code
+as the public route, and shows the AI crawler rules from Analytics. `/robots.txt` is cached for
+60 seconds, so a saved change can take up to a minute to appear.
+
+Verification (`<admin>/settings/seo/verification`) holds site ownership codes that the head emits
+as meta tags: `google-site-verification`, `msvalidate.01`, `yandex-verification`,
+`baidu-site-verification`, `p:domain_verify` and `facebook-domain-verification`, plus up to 10
+custom tags (name of lowercase letters, digits and `:._-`, content up to 300 characters).
+Empty fields emit nothing.
 
 An entry's SEO panel has a Schema tab. The two fields below are on the entity form and the blog
 editor; the Builder SEO drawer and the term panels show the tab with its preview only, without the

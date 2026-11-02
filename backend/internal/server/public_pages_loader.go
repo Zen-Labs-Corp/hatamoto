@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/seo"
 )
 
 // pageOutcome carries what the public page handlers used to write straight
@@ -130,7 +131,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 		meta.Title = ent.Name
 	}
 	meta.Description, meta.OGImage = metaDescriptionAndImage(attrs, ent.Schema)
-	if attrsNoIndex(ent.Attributes) {
+	if seo.EntryNoIndex(ent.Metadata, ent.Attributes) {
 		meta.NoIndex = true
 	}
 

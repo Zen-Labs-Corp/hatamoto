@@ -1,6 +1,7 @@
 package seo
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -198,5 +199,52 @@ func TestSocialIsZero(t *testing.T) {
 		if s.IsZero() {
 			t.Fatalf("%+v should not be zero", s)
 		}
+	}
+}
+
+func TestZeroSettingsEmitNoNewKeys(t *testing.T) {
+	raw, err := json.Marshal(Defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"index"`, `"robots"`, `"verification"`} {
+		if strings.Contains(string(raw), key) {
+			t.Errorf("defaults emit %s: %s", key, raw)
+		}
+	}
+	s, err := Decode([]byte(`{"separator":"|"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Index.NoIndexTypes != nil || s.Robots.ExtraLines != nil || s.Verification.Custom != nil {
+		t.Error("absent keys must stay nil")
+	}
+}
+
+func TestIndexRobotsVerificationRoundTripAndClone(t *testing.T) {
+	s := Defaults()
+	s.Index = Index{NoIndexTypes: map[string]bool{"release": true}, NoIndexTaxonomy: map[string]bool{"tag": true}, IndexSearch: true}
+	s.Robots = Robots{MaxSnippet: intp(50), ExtraLines: []string{"Disallow: /x"}}
+	s.Verification = Verification{Google: "g", Custom: []MetaTag{{"a", "b"}}}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := Decode(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !back.Index.NoIndexTypes["release"] || *back.Robots.MaxSnippet != 50 || back.Verification.Custom[0].Name != "a" {
+		t.Fatalf("round trip lost data: %+v", back)
+	}
+	c := s.Clone()
+	c.Index.NoIndexTypes["release"] = false
+	c.Index.NoIndexTaxonomy["tag"] = false
+	*c.Robots.MaxSnippet = 1
+	c.Robots.ExtraLines[0] = "changed"
+	c.Verification.Custom[0].Name = "changed"
+	if !s.Index.NoIndexTypes["release"] || !s.Index.NoIndexTaxonomy["tag"] || *s.Robots.MaxSnippet != 50 ||
+		s.Robots.ExtraLines[0] != "Disallow: /x" || s.Verification.Custom[0].Name != "a" {
+		t.Error("Clone shares state with the original")
 	}
 }

@@ -86,8 +86,10 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 	}
 	h.Canonical = firstNonEmpty(v.Page.CanonicalURL, strings.TrimRight(v.BaseURL, "/")+v.Path)
 	h.Alt = hreflangLinks(v)
-	if v.Page.NoIndex || v.Preview {
+	if v.Preview {
 		h.Robots = "noindex,follow"
+	} else {
+		h.Robots = seo.ComposeRobots(seo.ParseDirectives(v.Page.RobotsRaw), robotsDefaults(v.SEO), v.Page.NoIndex || settingsNoIndex(v))
 	}
 
 	if p := v.Pagination; p != nil {
@@ -529,4 +531,21 @@ func collectionPageLD(v *PageView, h headView) map[string]any {
 		doc["description"] = h.Description
 	}
 	return doc
+}
+
+// robotsDefaults returns the site-wide robots defaults, nil when none are saved.
+func robotsDefaults(s *seo.Settings) *seo.Robots {
+	if s == nil || s.Robots.IsZero() {
+		return nil
+	}
+	return &s.Robots
+}
+
+// settingsNoIndex reports whether the saved index switches make the page noindex.
+func settingsNoIndex(v *PageView) bool {
+	termKind := ""
+	if v.Term != nil {
+		termKind = v.Term.Kind
+	}
+	return v.SEO.NoIndexView(string(v.Kind), v.SchemaSlug, termKind)
 }
