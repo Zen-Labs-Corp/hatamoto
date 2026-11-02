@@ -159,6 +159,12 @@ func TestThemeLabelsShared(t *testing.T) {
 			t.Errorf("Colours and fonts lacks %q", want)
 		}
 	}
+	if strings.Contains(colours, "hm-callout") {
+		t.Error("Colours and fonts has a top callout again")
+	}
+	if n := strings.Count(colours, "hm-swatchrow__note"); n != 2 {
+		t.Errorf("%d swatch notes, want 2 (Secondary and Theme accent)", n)
+	}
 	tokens := g.do("GET", "/admin/theme/design-system", "owner-token", nil, nil).Body.String()
 	for _, name := range []string{"Surface", "Muted", "Accent"} {
 		if !strings.Contains(tokens, ">"+name+"</label>") {
