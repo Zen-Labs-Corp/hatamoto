@@ -17,7 +17,7 @@ No key, or a revoked/expired key, gets `401`. The key's rate limit applies to ev
 
 ## Scopes
 
-Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:entities` implies `read:entities`; `*` allows all. Media, menus, redirects and terms have their own write scopes: `write:entities` does **not** grant them, and existing keys do not gain them. They are MCP-only; REST API keys still reach nothing but entities and linking.
+Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:entities` implies `read:entities`; `*` allows all. Media, menus, redirects and terms have their own write scopes: `write:entities` does **not** grant them, and existing keys do not gain them. `write:media`, `write:menus`, `write:redirects` and `write:terms` are MCP-only. `read:seo` and `write:seo` also unlock one REST route, `GET|PATCH /api/v1/settings/seo`; otherwise REST API keys reach nothing but entities and linking. `write:seo` implies `read:seo`.
 
 | Scope | Tools |
 |---|---|
@@ -27,9 +27,11 @@ Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:ent
 | `write:terms` | `terms_create` |
 | `write:menus` | `menus_update` |
 | `write:redirects` | `redirects_create`, `redirects_delete` |
+| `read:seo` | `seo_get`, `seo_preview`, `seo_analyze`, `seo_404_list` |
+| `write:seo` | `seo_update` |
 | `read:reports` | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic`, `analytics_conversions` |
 
-`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update` and `redirects_delete` are marked destructive in the tool annotations, so clients can ask before running them.
+`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update`, `redirects_delete` and `seo_update` are marked destructive in the tool annotations, so clients can ask before running them.
 
 A term in `terms_list` carries its `seo` when one is saved. It is read-only here: `terms_create` takes no `seo`, and a term's search appearance is edited on its admin page.
 
@@ -50,6 +52,32 @@ Entity writes are attributed to the key's creator and tagged `[mcp:<key name>]` 
 - `jsonld_validate` reads the JSON-LD from the live page when the entity is published (otherwise it generates it from the draft) and checks JSON validity, `@context`, `@type` and the required fields of common types (Article, BlogPosting, WebPage, Organization, LocalBusiness, Product, Service, Event, FAQPage, HowTo, BreadcrumbList ...). Unknown types only get their `@type` checked.
 - `sitemap_preview` and `llms_txt_preview` serve the real route in process, so they return exactly what crawlers get.
 - AI referrals are counted per assistant and day only (the site keeps no visitor or per-page referral data); crawler hits are per page and per agent.
+
+## SEO tools
+
+Five tools read and change the site's search settings (Settings > SEO in the admin). They call the same service as `GET|PATCH /api/v1/settings/seo` (owner session or API key; `read:seo` for `GET`, `write:seo` for `PATCH`; no other REST route takes these scopes).
+
+| Tool | Scope | What it does |
+|---|---|---|
+| `seo_get` | `read:seo` | The whole SEO document: the 14 sections (`separator`, `home`, `types`, `taxonomy`, `archives`, `variables`, `social`, `index`, `robots`, `verification`, `sitemap`, `breadcrumbs`, `indexnow`, `monitor404`), `type_settings` (per content type, by slug) and `ai_crawlers`. |
+| `seo_update` | `write:seo` | Merges a partial document into the stored settings and returns nothing but success or the field errors. |
+| `seo_preview` | `read:seo` | The SEO part of a published entry's public head (title, description, robots, canonical, Open Graph and Twitter tags), built as a visitor would get it. A draft is not found. |
+| `seo_analyze` | `read:seo` | The entry's SEO panel checks, counts and score, from the stored entity (input: the entity `id`). No keyword or `llms.txt` checks. |
+| `seo_404_list` | `read:seo` | The 404 monitor. `visitor` is `""` (all), `people` or `bots`. |
+
+`seo_get` returns the document in the shape `seo_update` takes, so read, edit a copy and send it back. Fields keep their **stored polarity**: a switch that the admin shows as "enabled" may be stored as `disabled` (for example `monitor404.disabled`), and the document uses the stored name and meaning, not the admin label.
+
+How a patch merges:
+
+- Only the keys you send change; a section you send is merged into the stored one. Decoding is strict: an unknown key or field is refused.
+- Top-level keys are the 14 sections, `type_settings` and `ai_crawlers`. A `{}` patch writes nothing.
+- `null` on an entry of a map deletes it. This covers `types`, `taxonomy`, `variables`, `social.types`, `social.taxonomy` and the `index.noindex_*` maps.
+- `type_settings.<slug>` takes `archive_title`, `archive_description`, `schema_org_type`, `article_type`, `faq_from_content` and `sitemap` (`exclude`, `priority` or `null`, `change_freq`). An empty string clears a text field. `schema_org_type` is refused for `person` and for a type whose schema fixes the JSON-LD type.
+- `ai_crawlers.denied_purposes` replaces the whole list.
+- The IndexNow key is read-only: it is never returned and a patch that carries it is refused (`indexnow` error). Enabling IndexNow with no stored key generates one.
+- The whole patch is validated before anything is written, and the settings and per-type rows are saved in one transaction. A failure changes nothing.
+- Invalid input is a REST `422` `{"error": "...", "fields": {"<field>": "<message>"}}`, a tool error elsewhere. Field names look like `type[doc][title]`, `type_settings[<slug>][<field>]`, `ai_crawlers[denied_purposes]`; a body that does not decode is named by its section.
+- Each change writes an audit row with the way in (`api` or `mcp`), the key and the sections changed; values and the IndexNow key are not logged.
 
 ## Builder tools
 

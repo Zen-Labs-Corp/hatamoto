@@ -63,7 +63,7 @@ A request with no key, or with an invalid, revoked or expired key, answers `401`
 
 ## Scopes
 
-Every tool needs exactly one scope. A `read:` scope can never call a write tool. A `write:X` scope implies `read:X`, and `*` allows everything. The media, menu, redirect and term scopes are separate: `write:entities` does not grant them, and keys created before they existed do not gain them.
+Every tool needs exactly one scope. A `read:` scope can never call a write tool. A `write:X` scope implies `read:X` (so `write:seo` can also read SEO settings), and `*` allows everything. The media, menu, redirect and term scopes are separate: `write:entities` does not grant them, and keys created before they existed do not gain them.
 
 | Scope | Admin label | Tools |
 |---|---|---|
@@ -73,12 +73,14 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 | `write:terms` | Write terms | `terms_create` |
 | `write:menus` | Write menus | `menus_update` |
 | `write:redirects` | Write redirects | `redirects_create`, `redirects_delete` |
+| `read:seo` | Read SEO settings | `seo_get`, `seo_preview`, `seo_analyze`, `seo_404_list` |
+| `write:seo` | Change SEO settings | `seo_update` |
 | `read:reports` | Read reports | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic`, `analytics_conversions` |
 | `*` | Everything (full access) | all of the above |
 
 The scope list also contains `read:citations`, `write:reports`, `read:query_suites` and `write:query_suites`. No MCP tool uses them.
 
-The four scopes `write:media`, `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. A REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, and internal-link suggestions and inserts.
+The four scopes `write:media`, `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. The two SEO scopes also open one REST route, `GET|PATCH /api/v1/settings/seo`. Apart from that, a REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, and internal-link suggestions and inserts.
 
 A tool call without the needed scope fails with `forbidden: the API key lacks the <scope> scope`. The call is still written to the audit log.
 

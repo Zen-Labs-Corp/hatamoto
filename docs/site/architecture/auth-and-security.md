@@ -58,11 +58,11 @@ Failures show a "Request blocked" page. The JSON API applies a double-submit che
 
 API keys are created in the admin (Settings) or with `hatamoto apikey create`. A key is a random token with a fixed prefix; the database stores only a SHA-256 hash and a short prefix for identification. The scopes a key can hold are:
 
-`read:entities`, `write:entities`, `write:media`, `write:menus`, `write:redirects`, `write:terms`, plus the wildcard `*`. The admin form also offers `read:reports`, which unlocks the MCP insight tools, and four reserved scopes (`read:citations`, `write:reports`, `read:query_suites`, `write:query_suites`) that no route checks today, so they grant nothing.
+`read:entities`, `write:entities`, `write:media`, `write:menus`, `write:redirects`, `write:seo`, `write:terms`, `read:seo`, plus the wildcard `*`. The admin form also offers `read:reports`, which unlocks the MCP insight tools (`read:seo` and `write:seo` unlock the SEO tools and `GET|PATCH /api/v1/settings/seo`; `write:seo` implies `read:seo`), and four reserved scopes (`read:citations`, `write:reports`, `read:query_suites`, `write:query_suites`) that no route checks today, so they grant nothing.
 
 Two further limits apply to every key:
 
-1. **A fail-closed route allowlist.** Through the `/api/v1` group an API key can reach only the routes listed in `internal/middleware/apikey_route_auth.go` (entity read and write, versions, restore, render preview, internal linking, and similar). Everything else returns 403 no matter what scopes the key holds, including `*`.
+1. **A fail-closed route allowlist.** Through the `/api/v1` group an API key can reach only the routes listed in `internal/middleware/apikey_route_auth.go` (entity read and write, versions, restore, render preview, internal linking, `GET|PATCH /api/v1/settings/seo`, and similar). Everything else returns 403 no matter what scopes the key holds, including `*`.
 2. **A per-key rate limit** in requests per hour, default 1000, enforced in memory. The burst is a tenth of the hourly limit, and at least 10.
 
 MCP calls to `/mcp` authenticate the same way and are checked per tool against the key's scopes. Every MCP tool call is written to `hatamoto_mcp_audit` and pruned after 90 days.
