@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -590,7 +591,8 @@ func TestSchemaScreens(t *testing.T) {
 	has(t, body, "Service", "/services/{path}", "Built in")
 	id := fid(1).String()
 	body = c.get(t, "owner-token", "/admin/settings/types/"+id, "schema-edit")
-	has(t, body, `name="f.r0.name" value="summary"`, `data-hm-field-list`, "Move up", "preview-pattern", `data-hm-kind`)
+	has(t, body, `name="f.r0.name" value="summary"`, `data-hm-field-list`, "Move up", "preview-pattern", `data-hm-kind`, "Sitemap: managed in SEO &gt; Sitemap", "/admin/settings/seo/sitemap", `name="sitemap_group"`)
+	lacks(t, body, `name="priority"`, `name="changefreq"`, `name="sitemap_exclude"`)
 	// a built-in type can be viewed, not saved
 	body = c.get(t, "owner-token", "/admin/settings/types/"+fid(2).String(), "schema-builtin")
 	has(t, body, "built-in entity type")
@@ -659,8 +661,6 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 		f.Set("f.r5.required", "true")
 		f.Set("url_pattern", "/{year}/{month}/{slug}")
 		f.Set("schema_org_type", "Service")
-		f.Set("sitemap_exclude", "true")
-		f.Set("priority", "0.4")
 		f.Set("archive_path", "/services")
 	}))
 	if rec.Code != 303 {
@@ -683,8 +683,35 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 	}
 	var st entity.SchemaURLSettings
 	_ = json.Unmarshal(c.service.Settings, &st)
-	if st.URLPattern != "/{year}/{month}/{slug}" || st.SchemaOrgType != "Service" || !st.Sitemap.Exclude || *st.Sitemap.Priority != 0.4 || st.ArchivePath != "/services" {
+	if st.URLPattern != "/{year}/{month}/{slug}" || st.SchemaOrgType != "Service" || st.ArchivePath != "/services" {
 		t.Errorf("settings: %s", c.service.Settings)
+	}
+}
+
+// A schema save no longer owns settings.sitemap: the object edited under
+// SEO > Sitemap, including keys this form never knew, comes back untouched.
+func TestSchemaSaveKeepsSitemapSettings(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	seeded := `{"exclude":true,"priority":0.3,"changefreq":"monthly","unknown":{"k":1}}`
+	c.service.Settings = json.RawMessage(`{"url_pattern":"/services/{path}","sitemap":` + seeded + `}`)
+	rec := c.post("/admin/settings/types/"+fid(1).String(), schemaPost(c, func(f url.Values) { f.Set("sitemap_group", "svc") }))
+	if rec.Code != 303 {
+		t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		Sitemap *json.RawMessage `json:"sitemap"`
+		Group   string           `json:"sitemap_group"`
+	}
+	if err := json.Unmarshal(c.service.Settings, &got); err != nil || got.Sitemap == nil {
+		t.Fatalf("sitemap lost: %s", c.service.Settings)
+	}
+	var want, have any
+	_ = json.Unmarshal([]byte(seeded), &want)
+	_ = json.Unmarshal(*got.Sitemap, &have)
+	if !reflect.DeepEqual(want, have) || got.Group != "svc" {
+		t.Errorf("settings after save: %s", c.service.Settings)
 	}
 }
 
@@ -700,7 +727,6 @@ func TestSchemaValidation(t *testing.T) {
 		"pattern without slug": {func(f url.Values) { f.Set("url_pattern", "/blog/{year}") }, "{slug}"},
 		"pattern no slash":     {func(f url.Values) { f.Set("url_pattern", "blog/{slug}") }, "Must start with"},
 		"bad type":             {func(f url.Values) { f.Set("schema_org_type", "Bogus") }, "Choose one of the listed types"},
-		"bad priority":         {func(f url.Values) { f.Set("priority", "7") }, "0 to 1"},
 		"archive path":         {func(f url.Values) { f.Set("archive_path", "blog") }, "Start with a slash"},
 		"duplicate name":       {func(f url.Values) { f.Set("f.r1.name", "summary") }, "share a name"},
 		"bad name":             {func(f url.Values) { f.Set("f.r1.name", "1 bad name") }, "starting with a letter"},

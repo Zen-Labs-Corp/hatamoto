@@ -541,8 +541,8 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 // ---- settings ------------------------------------------------------------
 
 type schemaSettingsForm struct {
-	URLPattern, ArchivePath, SitemapGroup, Aliases, ArchiveTitle, ArchiveCrumbLabel, ArchiveDescription, SchemaOrgType, Editor, Priority, ChangeFreq string
-	Exclude, SectionPages                                                                                                                            bool
+	URLPattern, ArchivePath, SitemapGroup, Aliases, ArchiveTitle, ArchiveCrumbLabel, ArchiveDescription, SchemaOrgType, Editor string
+	SectionPages                                                                                                               bool
 }
 
 func settingsFormFrom(raw json.RawMessage) schemaSettingsForm {
@@ -551,10 +551,7 @@ func settingsFormFrom(raw json.RawMessage) schemaSettingsForm {
 	f := schemaSettingsForm{
 		URLPattern: st.URLPattern, ArchivePath: st.ArchivePath, SitemapGroup: st.SitemapGroup, Aliases: strings.Join(st.Aliases, ", "),
 		ArchiveTitle: st.ArchiveTitle, ArchiveCrumbLabel: st.ArchiveCrumbLabel, ArchiveDescription: st.ArchiveDescription, SchemaOrgType: st.SchemaOrgType, Editor: string(st.Editor),
-		ChangeFreq: st.Sitemap.ChangeFreq, Exclude: st.Sitemap.Exclude, SectionPages: st.SectionPages,
-	}
-	if st.Sitemap.Priority != nil {
-		f.Priority = strconv.FormatFloat(*st.Sitemap.Priority, 'f', -1, 64)
+		SectionPages: st.SectionPages,
 	}
 	return f
 }
@@ -564,11 +561,9 @@ func settingsFormFromPost(r *http.Request) schemaSettingsForm {
 	return schemaSettingsForm{
 		URLPattern: g("url_pattern"), ArchivePath: g("archive_path"), SitemapGroup: g("sitemap_group"), Aliases: g("aliases"),
 		ArchiveTitle: g("archive_title"), ArchiveCrumbLabel: g("archive_crumb_label"), ArchiveDescription: g("archive_description"), SchemaOrgType: g("schema_org_type"), Editor: g("editor"),
-		Priority: g("priority"), ChangeFreq: g("changefreq"), Exclude: r.PostFormValue("sitemap_exclude") == "true", SectionPages: r.PostFormValue("section_pages") == "true",
+		SectionPages: r.PostFormValue("section_pages") == "true",
 	}
 }
-
-var changeFreqs = []string{"", "always", "hourly", "daily", "weekly", "monthly", "yearly", "never"}
 
 // settingsJSON writes the form over the existing settings (keeping keys the
 // form does not edit, such as overrides) and checks it.
@@ -611,29 +606,6 @@ func (s schemaSettingsForm) settingsJSON(base json.RawMessage) (json.RawMessage,
 		m["section_pages"] = json.RawMessage("true")
 	} else {
 		delete(m, "section_pages")
-	}
-	sm := map[string]any{}
-	if s.Exclude {
-		sm["exclude"] = true
-	}
-	if s.ChangeFreq != "" {
-		if !slices.Contains(changeFreqs, s.ChangeFreq) {
-			errs["changefreq"] = "Choose one of the listed values"
-		}
-		sm["changefreq"] = s.ChangeFreq
-	}
-	if s.Priority != "" {
-		p, err := strconv.ParseFloat(s.Priority, 64)
-		if err != nil || p < 0 || p > 1 {
-			errs["priority"] = "Enter a number from 0 to 1"
-		} else {
-			sm["priority"] = p
-		}
-	}
-	if len(sm) > 0 {
-		m["sitemap"], _ = json.Marshal(sm)
-	} else {
-		delete(m, "sitemap")
 	}
 	if s.URLPattern != "" {
 		if _, err := urlpattern.Parse(s.URLPattern); err != nil {
@@ -721,7 +693,6 @@ type schemaForm struct {
 	Kinds, Items     []kindDef
 	Refs             []string
 	SchemaOrgTypes   []string
-	ChangeFreqs      []string
 	Entities         int
 	Actions          []ui.Button
 	AddKind          string
@@ -760,7 +731,7 @@ func (f *schemaForm) lockBuiltin(s *entity.EntitySchema) {
 }
 
 func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status int, f *schemaForm) {
-	f.Kinds, f.Items, f.SchemaOrgTypes, f.ChangeFreqs = fieldKinds, itemKinds, entity.AllowedSchemaOrgTypes, changeFreqs[1:]
+	f.Kinds, f.Items, f.SchemaOrgTypes = fieldKinds, itemKinds, entity.AllowedSchemaOrgTypes
 	if list, err := a.deps.Content.Entities.ListSchemas(r.Context()); err == nil {
 		for _, s := range list {
 			f.Refs = append(f.Refs, s.Slug)
@@ -769,7 +740,7 @@ func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status 
 	if f.Errors == nil {
 		f.Errors = map[string]string{}
 	}
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"priority", "Priority"}, {"changefreq", "Change frequency"}, {"schema_org_type", "Structured data type"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"schema_org_type", "Structured data type"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
