@@ -310,7 +310,9 @@ func (s seoForm) schemaErrors(errs map[string]string) {
 		errs["seo_schema_type"] = "Choose one of the listed schema types"
 	}
 	if err := entity.ValidateCustomJSONLD(s.CustomJSONLD); err != nil {
-		errs["seo_custom_jsonld"] = err.Error()
+		// Entity errors are lowercase Go strings; the form shows a sentence.
+		msg := err.Error()
+		errs["seo_custom_jsonld"] = strings.ToUpper(msg[:1]) + msg[1:]
 	}
 }
 
