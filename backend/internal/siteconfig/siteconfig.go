@@ -17,7 +17,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 )
 
 // cacheTTL is the read-cache lifetime. Site config changes rarely; 60s is
@@ -384,7 +387,21 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		preloadInterval = *in.PagePreloadIntervalSeconds
 	}
 
-	_, err = conn.Exec(ctx, `
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin site config update: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var oldLanguage string
+	if in.Language != nil {
+		// The row lock keeps a concurrent language change from folding twice.
+		if err := tx.QueryRow(ctx, `SELECT language FROM hatamoto_site_config WHERE id = TRUE FOR UPDATE`).Scan(&oldLanguage); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("read site language: %w", err)
+		}
+	}
+
+	_, err = tx.Exec(ctx, `
 		UPDATE hatamoto_site_config SET
 		  company_name       = COALESCE($1, company_name),
 		  logo_url           = COALESCE($2, logo_url),
@@ -425,10 +442,85 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
+	if in.Language != nil {
+		if err := foldDefaultBusiness(ctx, tx, oldLanguage, *in.Language); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit site config update: %w", err)
+	}
 
 	// Invalidate cache before re-load so callers don't see stale data.
 	s.Invalidate()
 	return s.Get(ctx)
+}
+
+// foldDefaultBusiness runs when the default locale changes: the card the new
+// default locale had becomes the default business (bizprofile.Fold), so the
+// column keeps meaning "the default locale's business" and the former default
+// keeps inheriting. It changes nothing when the language is the same, or when
+// no card sits under the new default. It runs in the caller's transaction,
+// after the UPDATE, so a patch that also sends business_profile folds on top
+// of what it stored.
+func foldDefaultBusiness(ctx context.Context, tx pgx.Tx, oldLanguage, newLanguage string) error {
+	oldTag, errOld := entity.NormalizeLocale(oldLanguage)
+	newTag, errNew := entity.NormalizeLocale(newLanguage)
+	if errNew != nil || (errOld == nil && oldTag == newTag) {
+		return nil
+	}
+	var (
+		profile, cards, address []byte
+		phone, hours            sql.NullString
+	)
+	err := tx.QueryRow(ctx, `
+		SELECT business_profile, locale_profiles, phone, business_hours, postal_address
+		FROM hatamoto_site_config WHERE id = TRUE`).Scan(&profile, &cards, &phone, &hours, &address)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read business profile: %w", err)
+	}
+	cards, err = normaliseCardKeys(cards)
+	if err != nil {
+		return fmt.Errorf("fold default business: %w", err)
+	}
+	out, changed, err := bizprofile.FoldRow(bizprofile.Row{
+		Default: newTag, BusinessProfile: profile, LocaleProfiles: cards,
+		Phone: phone.String, BusinessHours: hours.String, PostalAddress: address,
+	})
+	if err != nil {
+		return fmt.Errorf("fold default business: %w", err)
+	}
+	if !changed {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE hatamoto_site_config SET business_profile = $1, locale_profiles = $2,
+		  phone = $3, business_hours = $4, postal_address = $5, updated_at = NOW()
+		WHERE id = TRUE`, out.BusinessProfile, out.LocaleProfiles, out.Phone, out.BusinessHours, []byte(out.PostalAddress)); err != nil {
+		return fmt.Errorf("write folded business profile: %w", err)
+	}
+	return nil
+}
+
+// normaliseCardKeys re-keys the stored cards with entity.NormalizeLocale (older
+// rows can hold un-normalised tags such as en-UK). A key that is not a valid tag
+// stays as it is.
+func normaliseCardKeys(raw []byte) ([]byte, error) {
+	var in map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &in) != nil {
+		return raw, nil
+	}
+	out := make(map[string]json.RawMessage, len(in))
+	for k, v := range in {
+		if tag, err := entity.NormalizeLocale(k); err == nil {
+			k = tag
+		}
+		out[k] = v
+	}
+	return json.Marshal(out)
 }
 
 // SetLocaleProfile stores the business details of one locale, keyed by its
