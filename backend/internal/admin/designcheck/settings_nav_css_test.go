@@ -48,6 +48,13 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 			t.Errorf("settings.css lacks %q", want)
 		}
 	}
+	// Forced colors paint transparent borders, so the links' border must be Canvas there and only the current one Highlight.
+	forced := css[strings.Index(css, "@media (forced-colors: active)"):]
+	for _, want := range []string{".hm-subnav__link { border-bottom-color: Canvas; }", `.hm-subnav__link[aria-current="page"] { border-bottom-color: Highlight; }`} {
+		if !strings.Contains(forced, want) {
+			t.Errorf("the forced-colors block lacks %q: every link would show a marker", want)
+		}
+	}
 	phone := css[strings.Index(css, "@media (max-width: 640px)"):]
 	if strings.Contains(phone, "box-shadow") {
 		t.Error("the phone subnav must not mark the current link with box-shadow (lost in forced-colors)")

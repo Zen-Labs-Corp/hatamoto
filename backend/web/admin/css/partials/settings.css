@@ -105,4 +105,9 @@
   .hm-subnav__link:hover, .hm-subnav__link[aria-current="page"] { background: transparent; }
   /* A border, not a shadow: forced-colors mode keeps borders. */
   .hm-subnav__link[aria-current="page"] { border-bottom-color: var(--text); }
+  /* Forced colors paint transparent borders: hide them on every link but the current one. */
+  @media (forced-colors: active) {
+    .hm-subnav__link { border-bottom-color: Canvas; }
+    .hm-subnav__link[aria-current="page"] { border-bottom-color: Highlight; }
+  }
 }
