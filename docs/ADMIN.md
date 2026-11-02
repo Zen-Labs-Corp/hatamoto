@@ -916,7 +916,12 @@ A saved change clears the cached sitemap and the page cache.
 Breadcrumbs (`<admin>/settings/seo/breadcrumbs`, owner only) shapes the trail on public pages: the
 home label (empty means "Home"), a separator from a fixed list (empty keeps the theme's), switches to
 show the home crumb and the current page, and **Show term** to add an entry's primary term to its trail.
-With nothing saved the trail is unchanged, and the structured-data breadcrumbs are never affected.
+With nothing saved the trail is unchanged. Hiding the home or current crumb and the separator change
+only the visible trail. The home label, the primary term and an entry's breadcrumb title also apply to
+the structured-data `BreadcrumbList` and the public JSON API. On an entry, the Advanced tab of the SEO
+panel (entity form and blog editor) has **Breadcrumb title** (attribute `breadcrumb_title`, at most
+120 characters; replaces the entry's last crumb, empty uses its name) and **Primary term** (attribute
+`primary_term`; picks which of the entry's terms is the term crumb, automatic when empty).
 
 IndexNow (`<admin>/settings/seo/indexnow`, owner only) pings a search engine when a published entry
 changes. It is off by default. The first time it is switched on a key is generated and served at
