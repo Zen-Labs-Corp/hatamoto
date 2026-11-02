@@ -53,6 +53,36 @@ func TestCountBadge(t *testing.T) {
 // A render never waits on the count: the first call shows no badge while the
 // background refresh is still running, an expired value is served stale, and
 // only one refresh runs at a time.
+// A panicking count is recovered (a bare goroutine would otherwise end the process), shows no badge,
+// and a later refresh after the ttl still runs.
+func TestCountBadgePanicIsRecovered(t *testing.T) {
+	t.Parallel()
+
+	clock := time.Unix(1_700_000_000, 0)
+	now := func() time.Time { return clock }
+	panics := true
+	calls := 0
+	badge := countBadge(30*time.Second, now, syncRun, func() (int, error) {
+		calls++
+		if panics {
+			panic("boom")
+		}
+		return 7, nil
+	})
+
+	if got := badge(); got != "" || calls != 1 {
+		t.Fatalf("after a panic: badge %q, %d calls, want no badge after 1", got, calls)
+	}
+	if badge(); calls != 1 {
+		t.Errorf("a panic must stamp the time: %d calls within the ttl, want 1", calls)
+	}
+	panics = false
+	clock = clock.Add(31 * time.Second)
+	if got := badge(); got != "7" || calls != 2 {
+		t.Errorf("after the ttl: badge %q after %d calls, want 7 after 2 (inflight must be cleared)", got, calls)
+	}
+}
+
 func TestCountBadgeNeverBlocksOnCount(t *testing.T) {
 	t.Parallel()
 

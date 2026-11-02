@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
@@ -30,6 +31,16 @@ func countBadge(ttl time.Duration, now func() time.Time, run func(func()), count
 	)
 	refresh := func() {
 		text2 := ""
+		// The refresh runs in a bare goroutine, where a panic would end the process: log it and
+		// treat it as a failed count (no badge, retried after the ttl).
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("admin: nav count panicked", "panic", r)
+				mu.Lock()
+				at, text, inflight = now(), "", false
+				mu.Unlock()
+			}
+		}()
 		if n, err := count(); err == nil && n > 0 {
 			text2 = strconv.Itoa(n)
 		}
