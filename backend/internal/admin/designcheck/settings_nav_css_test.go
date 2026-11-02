@@ -43,7 +43,7 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := string(b)
-	for _, want := range []string{"position: sticky; top: 0;", "max-height: 100dvh; overflow-y: auto;", "border-right: 1px solid var(--border)", "no-repeat scroll", "border-bottom-color: var(--text)"} {
+	for _, want := range []string{"position: sticky; top: 0;", "max-height: 100dvh; overflow-y: auto;", "calc(var(--subnav-w) - 1px) 0 / 1px 100% no-repeat", "no-repeat scroll", "border-bottom-color: var(--text)"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("settings.css lacks %q", want)
 		}
@@ -55,7 +55,16 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 			t.Errorf("the forced-colors block lacks %q: every link would show a marker", want)
 		}
 	}
+	// The hairline is the grid's background, not the subnav's border or min-height: a subnav sized for the unscrolled
+	// state (100vh minus the top bar) stops 48px short of the bottom once the top bar has scrolled away.
+	desktop := css[:strings.Index(css, "@media (max-width: 960px)")]
+	if strings.Contains(desktop, "border-right") || strings.Contains(desktop, ".hm-subnav { position: sticky; top: 0; min-height") {
+		t.Error("the docked hairline must not hang on the sticky subnav's border or min-height")
+	}
 	phone := css[strings.Index(css, "@media (max-width: 640px)"):]
+	if !strings.Contains(phone, "background: none;") {
+		t.Error("the phone grid must drop the docked hairline (the scroller has its own bottom border)")
+	}
 	if !strings.Contains(phone, "max-height: none") {
 		t.Error("the phone subnav must drop the desktop max-height")
 	}
