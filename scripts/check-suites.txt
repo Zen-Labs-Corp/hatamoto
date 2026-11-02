@@ -44,3 +44,4 @@ t-verify-cut   scripts/verify-cutover.sh,scripts/test-verify-cutover.sh   bash s
 t-installer     deploy/install/**,deploy/systemd/**,deploy/install-unit.sh,backend/internal/release/keys/**   bash deploy/install/test-all.sh
 t-publish-install scripts/publish-install.sh,scripts/test-publish-install.sh,deploy/install/**   bash scripts/test-publish-install.sh
 t-ci-relevance   scripts/ci-relevance.sh,scripts/test-ci-relevance.sh   bash scripts/test-ci-relevance.sh
+t-ci-full   scripts/ci-full-plan.sh,scripts/ci-full-report.sh,scripts/test-ci-full.sh   bash scripts/test-ci-full.sh
