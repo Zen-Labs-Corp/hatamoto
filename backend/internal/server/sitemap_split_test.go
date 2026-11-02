@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -97,5 +98,22 @@ func TestSitemapSplit_HandlerServesChildren(t *testing.T) {
 	}
 	if s.sitemapFileURLs(httptest.NewRequest(http.MethodGet, "/", nil).Context(), plan, "post-3") != nil {
 		t.Error("unknown child lists URLs")
+	}
+}
+
+func TestSitemapSplit_PlanningRendersOnlyGroupsThatMayExceedTheLimit(t *testing.T) {
+	t.Parallel()
+	entries := []*entity.SitemapEntry{entry("post", "a", "2025-01-01", nil), entry("post", "b", "2025-01-01", nil)}
+	if plan := planSitemap(smInput(t, nil, entries...)); plan.renders != 0 {
+		t.Errorf("default planning rendered %d groups, want 0", plan.renders)
+	}
+	plan := planSitemap(smInput(t, smSettings(seo.Sitemap{MaxURLs: 2}), entries...))
+	if plan.renders != 1 {
+		t.Fatalf("planning rendered %d groups, want 1 (the group with 3 URLs; misc fits)", plan.renders)
+	}
+	plan.GroupURLs("post")
+	plan.GroupURLs("post-2")
+	if plan.renders != 1 {
+		t.Errorf("serving the chunks rendered the group again (%d renders)", plan.renders)
 	}
 }

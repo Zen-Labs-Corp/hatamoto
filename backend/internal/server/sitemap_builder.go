@@ -131,6 +131,11 @@ type sitemapPlan struct {
 	bare []string
 	// collisions and notes are reported to the caller, which logs them once.
 	collisions, notes []string
+	// rendered keeps the URLs of each group split into files, so a chunk is
+	// cut from them without rendering the group again.
+	rendered map[*sitemapGroup][]URL
+	// renders counts groupURLs calls, for tests.
+	renders int
 }
 
 // maxLegacyFileURLs is the sitemap protocol limit; legacy files are not split.
@@ -140,7 +145,7 @@ const maxLegacyFileURLs = 50000
 type localeCopy struct{ locale, path string }
 
 func planSitemap(in sitemapInput) *sitemapPlan {
-	p := &sitemapPlan{in: in, byKey: map[string]*sitemapGroup{}, junk: map[string]bool{}, maxDate: map[string]string{}, copies: map[uuid.UUID][]localeCopy{}}
+	p := &sitemapPlan{in: in, byKey: map[string]*sitemapGroup{}, junk: map[string]bool{}, maxDate: map[string]string{}, copies: map[uuid.UUID][]localeCopy{}, rendered: map[*sitemapGroup][]URL{}}
 	p.defPat, _ = urlpattern.Parse(defaultPattern)
 
 	ensure := func(key string) *sitemapGroup {
@@ -311,6 +316,9 @@ func (p *sitemapPlan) splitFiles() {
 		if len(g.folded) > 0 {
 			continue
 		}
+		if len(g.rows)+1+len(p.in.Plugins.Static) <= limit {
+			continue // cannot exceed the limit: nothing to render here
+		}
 		urls := p.groupURLs(g)
 		chunks := (len(urls) + limit - 1) / limit
 		if chunks < 2 {
@@ -328,6 +336,7 @@ func (p *sitemapPlan) splitFiles() {
 			continue
 		}
 		g.chunks = chunks
+		p.rendered[g] = urls
 		for i := 1; i < chunks; i++ {
 			c := &sitemapGroup{key: keys[i], base: g.base, locale: g.locale, chunkOf: g, chunk: i, chunks: chunks}
 			for _, u := range urls[i*limit : min((i+1)*limit, len(urls))] {
@@ -635,12 +644,13 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 		src = g.chunkOf
 	}
 	limit := p.sitemapSettings().EffectiveMaxURLs()
-	all := p.groupURLs(src)
+	all := p.rendered[src]
 	return all[min(g.chunk*limit, len(all)):min((g.chunk+1)*limit, len(all))], true
 }
 
 // groupURLs lists every URL of g, whatever the file limit.
 func (p *sitemapPlan) groupURLs(g *sitemapGroup) (urls []URL) {
+	p.renders++
 	key := g.key
 	base := p.in.BaseURL
 
