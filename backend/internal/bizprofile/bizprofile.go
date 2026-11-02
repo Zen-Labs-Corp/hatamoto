@@ -80,6 +80,19 @@ type Service struct {
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url,omitempty"`
 	Price       string `json:"price,omitempty"`
+	PriceMin    string `json:"price_min,omitempty"`
+	PriceMax    string `json:"price_max,omitempty"`
+	UnitText    string `json:"unit_text,omitempty"`
+}
+
+// AdditionalProperty is a free name/value fact about the organisation. Value
+// is text; MinValue and MaxValue are decimal strings.
+type AdditionalProperty struct {
+	Name     string `json:"name,omitempty"`
+	Value    string `json:"value,omitempty"`
+	MinValue string `json:"min_value,omitempty"`
+	MaxValue string `json:"max_value,omitempty"`
+	UnitText string `json:"unit_text,omitempty"`
 }
 
 // Amenity is a custom amenity row. Value has no omitempty: an explicit "no" is
@@ -171,9 +184,13 @@ type Profile struct {
 	MenuURL             string `json:"menu_url,omitempty"`
 	ServiceRadiusKm     string `json:"service_radius_km,omitempty"`
 	// Services and expertise.
-	Services   []Service `json:"services,omitempty"`
-	KnowsAbout []string  `json:"knows_about,omitempty"`
-	Awards     []string  `json:"awards,omitempty"`
+	// ServiceProvider is tri-state: a card can switch it off over a site-wide on.
+	CatalogName          string               `json:"catalog_name,omitempty"`
+	ServiceProvider      *bool                `json:"service_provider,omitempty"`
+	Services             []Service            `json:"services,omitempty"`
+	AdditionalProperties []AdditionalProperty `json:"additional_properties,omitempty"`
+	KnowsAbout           []string             `json:"knows_about,omitempty"`
+	Awards               []string             `json:"awards,omitempty"`
 	// Amenities: the fixed presets, then custom rows.
 	AmenityPresets AmenityPresets `json:"amenity_presets,omitzero"`
 	Amenities      []Amenity      `json:"amenities,omitempty"`

@@ -87,11 +87,22 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "booking_url":{"type":"string","title":"Booking address","format":"uri","x-hm-group":"Commerce"},
 "order_url":{"type":"string","title":"Online ordering address","format":"uri","x-hm-group":"Commerce"},
 "menu_url":{"type":"string","title":"Menu address","format":"uri","x-hm-group":"Commerce"},
+"catalog_name":{"type":"string","title":"Catalogue name","x-hm-group":"Services"},
+"service_provider":{"type":"string","enum":["yes","no"],"title":"Show the organisation as each service's provider","x-hm-group":"Services"},
 "services":{"type":"array","x-hm-item-label":"service","maxItems":50,"title":"Services","x-hm-group":"Services","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "description":{"type":"string","title":"Description","format":"textarea"},
- "url":{"type":"string","title":"Web address","format":"uri"},
- "price":{"type":"string","title":"Price"}}}},
+ "url":{"type":"string","title":"Web address"},
+ "price":{"type":"string","title":"Price"},
+ "price_min":{"type":"string","title":"Price from"},
+ "price_max":{"type":"string","title":"Price to"},
+ "unit_text":{"type":"string","title":"Unit"}}}},
+"additional_properties":{"type":"array","x-hm-item-label":"property","maxItems":50,"title":"Additional properties","x-hm-group":"Additional properties","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "value":{"type":"string","title":"Value"},
+ "min_value":{"type":"string","title":"Lowest"},
+ "max_value":{"type":"string","title":"Highest"},
+ "unit_text":{"type":"string","title":"Unit"}}}},
 "knows_about":{"type":"array","maxItems":50,"title":"Knows about","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
 "awards":{"type":"array","maxItems":50,"title":"Awards","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
 "memberships":{"type":"array","x-hm-item-label":"membership","maxItems":50,"title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
@@ -136,7 +147,7 @@ const notStated = "Not stated"
 // triPaths are the tri-state fields (*bool in the profile). The form edits them
 // as selects: empty is unset, "yes" is true, "no" is false.
 var triPaths = [][]string{
-	{"accepts_reservations"}, {"public_access"}, {"free_entry"},
+	{"accepts_reservations"}, {"service_provider"}, {"public_access"}, {"free_entry"},
 	{"amenity_presets", "parking"}, {"amenity_presets", "wheelchair_access"}, {"amenity_presets", "wifi"},
 	{"amenity_presets", "toilets"}, {"amenity_presets", "air_conditioning"},
 }
@@ -200,6 +211,13 @@ var businessUI = map[string]schemaform.UIHint{
 	"brands":                            {Help: "Brand names, separated by commas."},
 	"payment_methods":                   {Help: "Like Cash or Visa, separated by commas."},
 	"accepts_reservations":              {Help: "Choose Not stated to say nothing.", Placeholder: notStated},
+	"service_provider":                  {Help: "Choose Not stated to say nothing.", Placeholder: notStated},
+	"catalog_name":                      {Help: "Empty prints \"Services\"."},
+	"services.url":                      {Help: "Full address, or a path such as /services/seo: on a locale page it opens under that locale."},
+	"services.unit_text":                {Help: "For example MONTH or HOUR."},
+	"additional_properties":             {Help: "Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers."},
+	"additional_properties.value":       {Help: "A number, like 9.6, or text."},
+	"additional_properties.unit_text":   {Help: "For example POINTS or PERCENT."},
 	"amenity_presets":                   {Help: "Choose Not stated on a line to say nothing about it."},
 	"amenity_presets.parking":           {Placeholder: notStated},
 	"amenity_presets.wheelchair_access": {Placeholder: notStated},
@@ -317,7 +335,8 @@ var segmentLabels = map[string]string{
 	"naics": "NAICS code", "isic": "ISIC code", "duns": "D-U-N-S number", "lei": "LEI", "gln": "GLN",
 	"parent_organisation": "Parent organisation", "service_radius_km": "Service radius (km)",
 	"booking_url": "Booking address", "order_url": "Online ordering address", "menu_url": "Menu address",
-	"knows_about": "Knows about", "url": "Web address", "wifi": "Wifi", "free_entry": "Free entry",
+	"knows_about": "Knows about", "url": "Web address", "price_min": "Price from", "price_max": "Price to", "unit_text": "Unit",
+	"min_value": "Lowest", "max_value": "Highest", "catalog_name": "Catalogue name", "wifi": "Wifi", "free_entry": "Free entry",
 }
 
 // pathLabel reads "opening_hours.0.opens" as "Opening hours 1 Opens".

@@ -124,7 +124,21 @@ func orgNode(v *PageView, base string) map[string]any {
 	if r := ratingLD(v.Site.Org.Rating); r != nil {
 		org["aggregateRating"] = r
 	}
-	setDetailsLD(org, v.Site.Org.BusinessDetails, v.Site.Org.Currency)
+	props := v.Site.Org.AdditionalProperties
+	details := v.Site.Org.BusinessDetails
+	if localePage(v) {
+		for _, l := range v.Locales {
+			if l.Tag == v.Locale {
+				props = l.AdditionalProperties
+				details.CatalogName = l.CatalogName
+				details.ServiceProvider = l.ServiceProvider
+			}
+		}
+	}
+	if list := propertyLD(props); len(list) > 0 {
+		org["additionalProperty"] = list
+	}
+	setDetailsLD(org, v, base, details, v.Site.Org.Currency)
 	return org
 }
 

@@ -463,6 +463,8 @@ type OrgView struct {
 	LogoObject bool
 	// Currency is the site-wide currency code of the service prices.
 	Currency string
+	// AdditionalProperties are the site-wide additional properties.
+	AdditionalProperties []PropertyView
 	BusinessDetails
 }
 
@@ -479,13 +481,23 @@ type BusinessDetails struct {
 	KnowsAbout, Awards     []string
 	BookingURL, OrderURL   string
 	Services               []ServiceView
+	// CatalogName names the service catalogue; empty prints "Services".
+	CatalogName string
+	// ServiceProvider links every service to the Organization as its provider.
+	ServiceProvider bool
 }
 
 // PersonView is a named party with an optional web address.
 type PersonView struct{ Name, URL string }
 
 // ServiceView is one offered service; Price is a decimal string.
-type ServiceView struct{ Name, Description, URL, Price string }
+// PriceMin and PriceMax are an optional price range and UnitText its unit.
+// URL may be a site path such as /services/seo (see serviceURL).
+type ServiceView struct{ Name, Description, URL, Price, PriceMin, PriceMax, UnitText string }
+
+// PropertyView is one additional property of the Organization; Value is text
+// or a decimal, MinValue and MaxValue are decimals.
+type PropertyView struct{ Name, Value, MinValue, MaxValue, UnitText string }
 
 // AmenityView is one amenity feature. Value false is an explicit "no".
 type AmenityView struct {
@@ -528,6 +540,9 @@ type BusinessView struct {
 	Currency, PriceRange, GeoRegion string
 	SameAs                          []string
 	Rating                          Rating
+	// AdditionalProperties are the locale's resolved additional properties; the
+	// Organization prints them on this locale's pages.
+	AdditionalProperties []PropertyView
 	BusinessDetails
 	// MenuURL is the menu page; ServiceRadiusKm is a decimal string in km.
 	MenuURL, ServiceRadiusKm string
@@ -552,7 +567,9 @@ type LocaleSummary struct {
 	// Segment is the URL prefix without slash ("" when unprefixed); Home is the
 	// locale's absolute home URL.
 	Segment, Home string
-	CountryName   string
+	// Default marks the site's default locale.
+	Default     bool
+	CountryName string
 	// Phone is the card's own phone; it is empty when the card sets none, so a
 	// locale never repeats the site-wide phone.
 	Phone                string
@@ -563,6 +580,11 @@ type LocaleSummary struct {
 	ContactPoints []ContactPointView
 	// HasOffice reports whether the card has an office address.
 	HasOffice bool
+	// CatalogName, ServiceProvider and AdditionalProperties are the card's
+	// values resolved against the site-wide ones, office or not.
+	CatalogName          string
+	ServiceProvider      bool
+	AdditionalProperties []PropertyView
 }
 
 // HoursView is one block of regular opening hours (opens and closes are HH:MM).

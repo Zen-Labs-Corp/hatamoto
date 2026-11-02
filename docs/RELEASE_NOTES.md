@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased: Business details over the API and more graph fields
+
+An owner, or a script with an owner token, can now read and write the business profile and the per-locale cards through `GET` and `PATCH /api/v1/settings/site`. The profile also gains the fields the Organization and LocalBusiness graph could not print before, all editable in Settings > General > Business details and on each locale card.
+
+- **REST.** `GET` returns `business_profile` and `locale_profiles`. `PATCH` leaves absent fields unchanged, replaces the profile whole, replaces or deletes (`null` or `{}`) a card per tag, refuses unknown keys and answers 422 with field paths when a profile does not validate. A card tag must be in the locale list on a multi-locale site. The `phone`, `business_hours` and `address` settings always replace the profile's phone, hours note and address, even when empty. Owners only.
+- **Graph.** A catalogue name for `hasOfferCatalog`, a `priceSpecification` per service (price from, price to, unit), an opt-in `provider` on every catalogue service, and an `additionalProperty` list on the Organization.
+- **Service addresses.** A service address may be a site path such as `/services/seo`. On a locale page it opens under that locale, elsewhere under the default locale. Full addresses are unchanged.
+- **Cards.** Every new field is also editable on a locale card. An empty card value inherits the site-wide one; a provider of Not stated inherits.
+- **Final JSON field names.** `business_profile`, `locale_profiles`, `catalog_name`, `service_provider` (true/false, card can override), `services[].price_min`, `services[].price_max`, `services[].unit_text`, `additional_properties[].name`, `.value`, `.min_value`, `.max_value`, `.unit_text`.
+- Sites that leave the new fields empty see no change in their graph.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.**
+
 ## Unreleased: Conversions and lead attribution
 
 **Analytics > Conversions** shows what turns into leads. A lead is every form submission that is not spam. Each submission now keeps the **first and last touch** of the visit it came from (channel, source, medium, campaign, landing page), so the page can show leads by channel per day, a funnel (Visits, Viewed 2+ pages, Saw a form, Started the form, Submitted), **AI: what you give vs what you get** (pages each AI company fetched against the visitors and leads its assistant sent back) and the Recent leads. **Analytics > Traffic** now fills its Leads and Conv. rate columns and the First touch | Last touch choice works (First is the default). Forms > Submissions gets a **Came from** card on each submission, and the CSV export gains six attribution columns after Referrer. MCP gets an `analytics_conversions` tool.

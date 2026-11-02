@@ -278,7 +278,7 @@ func TestLocaleSummaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []render.LocaleSummary{
-		{Tag: "en", Language: "English"},
+		{Tag: "en", Default: true, Language: "English"},
 		{Tag: "fr", Segment: "fr", CountryName: "Exampleland", Phone: "fr-phone", GeoRegion: "XX", Language: "French",
 			PriceRange: "$$", Currency: "XXD", ContactPoints: []render.ContactPointView{{Phone: "1"}}, HasOffice: true},
 	}

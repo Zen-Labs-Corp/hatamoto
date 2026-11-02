@@ -102,7 +102,7 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		}
 	}
 	parent := lb["parentOrganization"]
-	setDetailsLD(lb, b.BusinessDetails, b.ServicesCurrency)
+	setDetailsLD(lb, v, base, b.BusinessDetails, b.ServicesCurrency)
 	lb["parentOrganization"] = parent // the external parent prints on the Organization only
 	if len(b.PaymentMethods) > 0 {
 		lb["paymentAccepted"] = strings.Join(b.PaymentMethods, ", ")

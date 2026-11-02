@@ -369,11 +369,30 @@
 </div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
 <div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-catalog_name">Catalogue name</label>
+<input class="hm-field__control" type="text" id="sf-biz-catalog_name" name="biz.catalog_name" value="" placeholder="Enter Catalogue name" aria-describedby="sf-biz-catalog_name-help">
+<p class="hm-field__help" id="sf-biz-catalog_name-help">Empty prints &#34;Services&#34;.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-biz-service_provider">Show the organisation as each service&#39;s provider</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-biz-service_provider" name="biz.service_provider" aria-describedby="sf-biz-service_provider-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-biz-service_provider-help">Choose Not stated to say nothing.</p>
+</div>
 <fieldset class="hm-repeater" id="sf-biz-services" data-hm-repeater data-path="biz.services"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
 <input type="hidden" name="_present.biz.services" value="1">
 <ol class="hm-repeater__list" role="list" data-hm-sortable>
 </ol>
 <button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Additional properties</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-biz-additional_properties" data-hm-repeater data-path="biz.additional_properties" aria-describedby="sf-biz-additional_properties-help"><legend class="hm-field__label">Additional properties <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-biz-additional_properties-help">Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers.</p><input type="hidden" name="_present.biz.additional_properties" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.additional_properties" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add property</button>
 </fieldset>
 
 </div>

@@ -18,7 +18,10 @@ import (
 )
 
 // fakeSiteStore applies siteconfig.UpdateInput the way the SQL COALESCE does.
-type fakeSiteStore struct{ cfg siteconfig.Config }
+type fakeSiteStore struct {
+	cfg        siteconfig.Config
+	cardWrites []string // tags passed to SetLocaleProfile, in order
+}
 
 func (f *fakeSiteStore) Get(context.Context) (*siteconfig.Config, error) { c := f.cfg; return &c, nil }
 
@@ -56,7 +59,25 @@ func (f *fakeSiteStore) Update(_ context.Context, in siteconfig.UpdateInput) (*s
 	if in.LegacyWPRedirects != nil {
 		f.cfg.LegacyWPRedirects = *in.LegacyWPRedirects
 	}
+	if len(in.BusinessProfile) > 0 {
+		f.cfg.BusinessProfile = in.BusinessProfile
+	}
 	return f.Get(context.Background())
+}
+
+// SetLocaleProfile merges one locale card into the stored map like the SQL
+// does; empty raw deletes it.
+func (f *fakeSiteStore) SetLocaleProfile(_ context.Context, tag string, raw json.RawMessage) error {
+	f.cardWrites = append(f.cardWrites, tag)
+	m := map[string]json.RawMessage{}
+	_ = json.Unmarshal(f.cfg.LocaleProfiles, &m)
+	if len(raw) == 0 {
+		delete(m, tag)
+	} else {
+		m[tag] = raw
+	}
+	f.cfg.LocaleProfiles, _ = json.Marshal(m)
+	return nil
 }
 
 func siteSettingsRouter(role string, store *fakeSiteStore, invalidated *int) http.Handler {

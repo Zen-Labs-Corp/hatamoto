@@ -46,6 +46,41 @@ Public contact details sit beside the language in the same site settings and app
 
 Owners can read and change these over the API with `GET` and `PATCH` on `/api/v1/settings/site`, as well as in the admin, except `legacy_wp_redirects`, which is API only.
 
+### Business details over the API
+
+The same endpoint carries the business details that Settings > General > Business details edits:
+
+| Field | Meaning |
+|---|---|
+| `business_profile` | The site-wide business profile, as one object. |
+| `locale_profiles` | An object of locale cards, keyed by language tag such as `fr-CA`. |
+
+`GET` returns both. `PATCH` follows the same rules as the other fields:
+
+- A field you leave out stays as it is.
+- `business_profile` is replaced whole: send every value you want to keep.
+- A tag in `locale_profiles` replaces that locale's card. `null` deletes the card, and so does an empty object `{}`. Tags you leave out are untouched.
+- An unknown key anywhere in a profile is refused.
+- On a site with several locales, each tag must be in the locale list once this request's `locales` change is applied. A tag that is not listed is refused. A site with one language refuses `locale_profiles`, because no card applies. A card that is still stored for a locale you removed shows up in `GET`, and `null` deletes it.
+- A profile that does not validate answers 422 and nothing is saved. The body names each field by its path:
+
+```json
+{"error":"validation failed","fields":{"locale_profiles.fr-CA.services.0.url":"Enter a full web address starting with http:// or https://, or a path starting with a single /, such as /services/seo."}}
+```
+
+Inside `business_profile`, `phone`, `hours_note` and the address `street`, `city`, `state`, `postal_code` and `country` are always replaced by the `phone`, `business_hours` and `address` settings above, even when those are empty. Set those settings instead. The structured `opening_hours` is not replaced.
+
+```bash
+curl -X PATCH https://example.com/api/v1/settings/site \
+  -H "Authorization: Bearer <owner-session-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"locale_profiles":{"fr-CA":{"address":{"street":"1 Example Street","city":"Sample City"},"catalog_name":"Services","service_provider":true,"services":[{"name":"SEO","url":"/services/seo","price_min":"2000","price_max":"50000","unit_text":"MONTH"}],"additional_properties":[{"name":"Recommendation score","value":"9.6","min_value":"0","max_value":"10"}]}}}'
+```
+
+A card is replaced whole, so this example sends the locale's office address too. `GET` the card first and send it back with your changes, or a field you leave out is removed, and a card without a street or city removes the locale's office. A card without an office still sets `catalog_name`, `service_provider` and `additional_properties` for that locale's pages.
+
+Only owners can use these fields. The JSON-LD page shows [what each field prints](../ai-seo/json-ld.md).
+
 ## URLs have no language or region
 
 Public URLs are built from content, never from a language:

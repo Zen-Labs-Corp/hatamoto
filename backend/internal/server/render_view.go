@@ -785,7 +785,8 @@ func orgView(cfg *siteconfig.Config) (render.OrgView, error) {
 		Description: p.Description, AlternateName: p.AlternateName, Slogan: p.Slogan,
 		FoundingDate: p.FoundingDate, EmployeesMin: p.EmployeesMin, EmployeesMax: p.EmployeesMax,
 		VATID: p.VATID, LogoObject: p.LogoObject,
-		Currency: p.Currency, BusinessDetails: businessDetails(p),
+		Currency: p.Currency, AdditionalProperties: propertyViews(p.AdditionalProperties),
+		BusinessDetails: businessDetails(p),
 	}, nil
 }
 
@@ -813,7 +814,8 @@ func businessDetails(p bizprofile.Profile) render.BusinessDetails {
 		Brands:    slices.Clone(p.Brands), PaymentMethods: slices.Clone(p.PaymentMethods),
 		KnowsAbout: slices.Clone(p.KnowsAbout), Awards: slices.Clone(p.Awards),
 		BookingURL: p.BookingURL, OrderURL: p.OrderURL,
-		Services: serviceViews(p.Services),
+		Services:    serviceViews(p.Services),
+		CatalogName: p.CatalogName, ServiceProvider: p.ServiceProvider != nil && *p.ServiceProvider,
 	}
 }
 
@@ -828,7 +830,21 @@ func personViews(people []bizprofile.Person) []render.PersonView {
 func serviceViews(services []bizprofile.Service) []render.ServiceView {
 	var out []render.ServiceView
 	for _, v := range services {
-		out = append(out, render.ServiceView(v))
+		out = append(out, render.ServiceView{
+			Name: v.Name, Description: v.Description, URL: v.URL, Price: v.Price,
+			PriceMin: v.PriceMin, PriceMax: v.PriceMax, UnitText: v.UnitText,
+		})
+	}
+	return out
+}
+
+// propertyViews maps the additional properties; rows without a name are skipped.
+func propertyViews(props []bizprofile.AdditionalProperty) []render.PropertyView {
+	var out []render.PropertyView
+	for _, v := range props {
+		if v.Name != "" {
+			out = append(out, render.PropertyView(v))
+		}
 	}
 	return out
 }
@@ -920,10 +936,12 @@ func localeSummaries(cfg *siteconfig.Config, set *entity.LocaleSet) ([]render.Lo
 		res := bizprofile.ResolveContact(site, card)
 		p := res.Profile
 		out = append(out, render.LocaleSummary{
-			Tag: tag, Segment: strings.TrimPrefix(set.Prefix(tag), "/"),
+			Tag: tag, Segment: strings.TrimPrefix(set.Prefix(tag), "/"), Default: tag == set.Default(),
 			CountryName: p.CountryName, Phone: own.Phone, GeoRegion: p.GeoRegion,
 			Language: languageName(tag), PriceRange: p.PriceRange, Currency: p.Currency,
 			ContactPoints: contactPointViews(own.ContactPoints), HasOffice: res.Office,
+			CatalogName: p.CatalogName, ServiceProvider: p.ServiceProvider != nil && *p.ServiceProvider,
+			AdditionalProperties: propertyViews(p.AdditionalProperties),
 		})
 	}
 	return out, nil
@@ -1025,9 +1043,10 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 		MapURL: p.Address.MapURL, GBPURL: p.Address.GBPURL,
 		AreaServed: p.AreaServed, Currency: p.Currency, PriceRange: p.PriceRange, GeoRegion: p.GeoRegion,
 		SameAs: p.SameAs, Rating: ratingView(p.Rating),
-		ContactPoints:   contactPointViews(p.ContactPoints),
-		BusinessDetails: businessDetails(p),
-		MenuURL:         p.MenuURL, ServiceRadiusKm: p.ServiceRadiusKm,
+		ContactPoints:        contactPointViews(p.ContactPoints),
+		AdditionalProperties: propertyViews(p.AdditionalProperties),
+		BusinessDetails:      businessDetails(p),
+		MenuURL:              p.MenuURL, ServiceRadiusKm: p.ServiceRadiusKm,
 		Amenities:           amenityViews(p.AmenityPresets, p.Amenities),
 		AcceptsReservations: p.AcceptsReservations, PublicAccess: p.PublicAccess, FreeEntry: p.FreeEntry,
 	}
