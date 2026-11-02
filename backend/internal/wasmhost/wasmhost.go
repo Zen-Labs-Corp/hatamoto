@@ -146,6 +146,11 @@ type plugin struct {
 	brkMu    sync.Mutex
 	breakers map[string]*breaker // by export
 
+	// Test seams, nil in production: beforeCall runs on the instance about to
+	// be called, afterCall right after the call with the per-call cancel.
+	beforeCall func(*extism.Plugin)
+	afterCall  func(context.CancelFunc)
+
 	logMu     sync.Mutex
 	logTokens float64
 	logLast   time.Time
@@ -546,15 +551,59 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	if err := ctx.Err(); err != nil {
 		// The caller gave up while we waited; the instance never ran, so it
 		// is healthy: keep it.
-		p.release(context.Background(), inst)
+		p.release(inst)
 		return nil, fmt.Errorf("%s.%s: caller gave up before the call: %w", name, export, err)
 	}
 	callerCtx := ctx
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(callerCtx, timeout)
 	defer cancel()
+	cancelCall := cancel // the current attempt's; replaced on retry
 
-	start := time.Now()
-	rc, out, err := inst.CallWithContext(ctx, export, in)
+	var (
+		start   time.Time
+		rc      uint32
+		out     []byte
+		callErr error
+	)
+	run := func() {
+		if p.beforeCall != nil {
+			p.beforeCall(inst)
+		}
+		start = time.Now()
+		rc, out, callErr = inst.CallWithContext(ctx, export, in)
+		if p.afterCall != nil {
+			p.afterCall(cancelCall)
+		}
+	}
+	run()
+	if isClosedErr(callErr) && !isResetErr(callErr) {
+		// The instance never ran (the check is the first thing the call
+		// does), so one retry on a fresh instance is safe. The slot stays
+		// held across it.
+		p.discardClosed(export, inst)
+		startCtx, cancelStart := context.WithTimeout(callerCtx, maxStartWait)
+		var err error
+		inst, err = p.newInstance(startCtx)
+		cancelStart()
+		if err != nil {
+			if ctxErr := startCtx.Err(); ctxErr != nil {
+				return nil, fmt.Errorf("%s.%s: starting an instance: %w", name, export, ctxErr)
+			}
+			return nil, err
+		}
+		// The cold start must not eat the hook's own timeout.
+		cancel()
+		var cancelRetry context.CancelFunc
+		ctx, cancelRetry = context.WithTimeout(callerCtx, timeout)
+		defer cancelRetry()
+		cancelCall = cancelRetry
+		run()
+	}
+	err = callErr
+	if isClosedErr(err) {
+		p.discardClosed(export, inst)
+		return nil, fmt.Errorf("%s.%s: %w", name, export, err)
+	}
 	if err == nil && rc != 0 {
 		err = fmt.Errorf("%s.%s returned %d", name, export, rc)
 	}
@@ -562,16 +611,17 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		err = fmt.Errorf("%w: %d bytes (max %d)", ErrOutputTooLarge, len(out), p.manifest.Limits.MaxOutputBytes)
 	}
 	if err != nil {
-		switch {
-		case strings.HasPrefix(err.Error(), sdk.RejectPrefix):
-			p.succeeded(export)
-			p.release(ctx, inst)
-			return nil, err
-		case isGuestError(err):
+		reject := strings.HasPrefix(err.Error(), sdk.RejectPrefix)
+		if reject || isGuestError(err) {
 			// The guest ran to the end and reported a failure through the
-			// PDK: its runtime is healthy, so keep the instance.
+			// PDK: its runtime is healthy and the plugin is not charged. The
+			// instance is pooled only if the deadline has not passed, since
+			// wazero may be closing the module of a done context.
 			p.succeeded(export)
-			p.release(ctx, inst)
+			p.releaseUnlessDone(ctx, inst)
+			if reject {
+				return nil, err
+			}
 			return nil, fmt.Errorf("%s.%s: %w", name, export, err)
 		}
 		// A caller deadline (render.head, jsonld.enrich) that cut the guest
@@ -590,21 +640,65 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		return nil, fmt.Errorf("%s.%s after %s: %w", name, export, ran.Round(time.Millisecond), err)
 	}
 	p.succeeded(export)
-	p.release(ctx, inst)
+	p.releaseUnlessDone(ctx, inst)
 	return out, nil
 }
 
-func (p *plugin) release(ctx context.Context, inst *extism.Plugin) {
+// releaseUnlessDone pools inst, or discards it when ctx is done: a deadline
+// that hit at the tail of the call may have had wazero close the module.
+func (p *plugin) releaseUnlessDone(ctx context.Context, inst *extism.Plugin) {
+	if ctx.Err() != nil {
+		p.discarded.Add(1)
+		_ = inst.Close(context.Background())
+		return
+	}
+	p.release(inst)
+}
+
+// release returns inst to the pool, or closes it when the pool is full. It
+// closes with a background context: a per-call context may already be done.
+func (p *plugin) release(inst *extism.Plugin) {
 	select {
 	case p.pool <- inst:
 	default:
-		_ = inst.Close(ctx)
+		_ = inst.Close(context.Background())
 	}
 }
+
+// discardClosed drops an instance whose module is already closed.
+func (p *plugin) discardClosed(export string, inst *extism.Plugin) {
+	p.discarded.Add(1)
+	_ = inst.Close(context.Background())
+	p.log.Warn("wasmhost: discarded closed plugin instance", slog.String("export", export))
+}
+
+// isClosedErr reports the two plain errors extism go-sdk v1.7.1 raises when a
+// module of the instance is closed: "module is closed" (extism.go:454-455,
+// the main module, the first thing CallWithContext checks) and "reset"
+// (extism.go:372-375, SetInput on a closed kernel module, before f.Call). The
+// SDK has no IsClosed, so the text is the only handle; a bump must keep the
+// closed-instance test green.
+func isClosedErr(err error) bool {
+	return err != nil && (err.Error() == "module is closed" || isResetErr(err))
+}
+
+// isResetErr matches "reset" alone. Unlike "module is closed" a guest can
+// also report that text through the PDK, so it is not provably pre-guest:
+// the instance is discarded but the call is not retried.
+func isResetErr(err error) bool { return err != nil && err.Error() == "reset" }
 
 // plainError is the concrete type of errors.New: Extism reports a guest's PDK
 // error message that way, whereas traps, timeouts and exits come back as
 // wazero (or wrapped) error types.
 var plainError = reflect.TypeOf(errors.New(""))
 
-func isGuestError(err error) bool { return reflect.TypeOf(err) == plainError }
+// initFailurePrefix starts extism's plain error for a failed guest
+// _initialize (go-sdk v1.7.1 extism.go:486, "failed to initialize runtime: %v").
+// It wraps traps and deadline exits, so it is a failure, not a guest error.
+// Version-pinned: recheck on an extism bump.
+const initFailurePrefix = "failed to initialize runtime: "
+
+func isGuestError(err error) bool {
+	return reflect.TypeOf(err) == plainError && !isClosedErr(err) &&
+		!strings.HasPrefix(err.Error(), initFailurePrefix)
+}
