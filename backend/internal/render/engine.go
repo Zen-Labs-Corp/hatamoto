@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/menu"
 )
 
 // Options configures an Engine.
@@ -828,6 +829,10 @@ func (e *Engine) BuilderParts() []string {
 // MenuDecl is what the live theme declares for menu items (theme.json
 // "menu"); the zero value when it declares nothing.
 func (e *Engine) MenuDecl() MenuDecl { return e.current().theme.Menu }
+
+// MenuLocations are the menu locations the live theme declares (theme.json
+// "menus"); nil when it declares none.
+func (e *Engine) MenuLocations() []menu.DeclLocation { return e.current().theme.MenuLocations }
 
 // Version is the content hash of the effective theme files; it keys the HTML cache.
 func (e *Engine) Version() string { return e.current().version }
