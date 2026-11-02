@@ -98,3 +98,23 @@ func TestListToolbarFiltersButtonRadius(t *testing.T) {
 		t.Error("button.css: the Filters button in .hm-listbar must use var(--radius-md)")
 	}
 }
+
+// On a phone the nowrap status segment scrolls inside the card; it must not run past it.
+func TestListToolbarSegmentScrollsOnPhones(t *testing.T) {
+	t.Parallel()
+
+	css := adminAsset(t, "css", "partials", "segmented.css")
+	i := strings.Index(css, "@media (max-width: 640px)")
+	if i < 0 {
+		t.Fatal("segmented.css: no phone breakpoint for the list toolbar segment")
+	}
+	block := css[i:]
+	if j := strings.Index(block, "\n}"); j >= 0 {
+		block = block[:j]
+	}
+	for _, want := range []string{".hm-listbar .hm-segmented", "max-width: 100%", "overflow-x: auto"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("segmented.css phone block lacks %q", want)
+		}
+	}
+}
