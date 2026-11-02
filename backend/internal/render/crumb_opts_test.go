@@ -1,6 +1,7 @@
 package render
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -69,5 +70,20 @@ func TestBreadcrumbWidgetOptions(t *testing.T) {
 	}
 	if out := render(seo.Breadcrumbs{HideHome: true, HideCurrent: true}, trail[:1]); !strings.Contains(out, ">Home<") {
 		t.Errorf("a one-crumb trail must survive: %s", out)
+	}
+}
+
+// A custom separator must not leak onto the first printed crumb: a doc whose
+// schema has no archive path starts its trail at a data-sep item.
+func TestDocCrumbSeparatorSkipsFirstItem(t *testing.T) {
+	t.Parallel()
+	css, err := os.ReadFile("themes/default/assets/css/docs.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(css), "\n") {
+		if strings.Contains(line, "li[data-sep]") && !strings.Contains(line, "li + li[data-sep]") {
+			t.Errorf("separator rule matches the first crumb: %s", line)
+		}
 	}
 }
