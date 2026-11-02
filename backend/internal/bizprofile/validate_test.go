@@ -143,7 +143,7 @@ func TestValidate_ExtendedFields(t *testing.T) {
 		{"service nameless", Profile{Services: []Service{{Price: "5"}}}, "services.0.name", "Enter a name."},
 		{"service price text", Profile{Services: []Service{{Name: "S", Price: "cheap"}}}, "services.0.price", "Enter a price of 0 or more, such as 49.90."},
 		{"service price negative", Profile{Services: []Service{{Name: "S", Price: "-1"}}}, "services.0.price", "Enter a price of 0 or more, such as 49.90."},
-		{"service url", Profile{Services: []Service{{Name: "S", URL: "x"}}}, "services.0.url", "Enter a full web address starting with http:// or https://."},
+		{"service url", Profile{Services: []Service{{Name: "S", URL: "x"}}}, "services.0.url", serviceURLMsg},
 		{"amenity nameless", Profile{Amenities: []Amenity{{Value: true}}}, "amenities.0.name", "Enter a name."},
 		{"brand long", Profile{Brands: []string{"ok", strings.Repeat("x", 201)}}, "brands.1", "Use at most 200 characters."},
 		{"award long", Profile{Awards: []string{strings.Repeat("x", 201)}}, "awards.0", "Use at most 200 characters."},
