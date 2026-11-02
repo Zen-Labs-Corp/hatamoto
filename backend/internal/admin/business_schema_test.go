@@ -406,7 +406,7 @@ func TestBusinessSchemasLabelTheLegalName(t *testing.T) {
 }
 
 var (
-	hiddenInput = regexp.MustCompile(`<input[^>]*type="hidden"[^>]*>`)
+	hiddenInput = regexp.MustCompile(`<input[^>]*type="(?:hidden|text)"[^>]*>`)
 	selectBlock = regexp.MustCompile(`(?s)<select[^>]*name="([^"]+)"[^>]*>(.*?)</select>`)
 	attrValue   = func(tag, name string) string {
 		m := regexp.MustCompile(`\s` + name + `="([^"]*)"`).FindStringSubmatch(tag)
@@ -418,7 +418,7 @@ var (
 )
 
 // browserPost is what a browser submits for the rendered form untouched: every
-// hidden input and the selected option of every select.
+// hidden and text input and the selected option of every select.
 func browserPost(rendered string) url.Values {
 	form := url.Values{}
 	for _, tag := range hiddenInput.FindAllString(rendered, -1) {
@@ -524,5 +524,34 @@ func TestAwardsAndTopicsKeepCommas(t *testing.T) {
 	if !reflect.DeepEqual(p.Awards, []string{"Best Restaurant, Sydney 2030", "Second Award"}) ||
 		!reflect.DeepEqual(p.KnowsAbout, []string{"Pipes, drains", "Boilers"}) {
 		t.Errorf("awards = %q, knows_about = %q", p.Awards, p.KnowsAbout)
+	}
+}
+
+// An "Other amenities" row that was added and never touched is dropped on
+// save, like a blank row of any other repeater.
+func TestUntouchedAddedAmenityRowIsDropped(t *testing.T) {
+	schema, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	opt := schemaform.Options{Prefix: "biz.", UI: businessUI}
+	vals, _ := schemaform.Decode(schema, url.Values{"_present.biz.amenities": {"1"}, "_add.biz.amenities": {"1"}}, nil, opt)
+	if items, _ := vals["amenities"].([]any); len(items) != 1 {
+		t.Fatalf("add button left %v", vals["amenities"])
+	}
+	out, err := schemaform.Render(schema, vals, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vals, errs := schemaform.Decode(schema, browserPost(string(out)), nil, opt)
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	p, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Amenities) != 0 {
+		t.Errorf("untouched row kept: %+v", p.Amenities)
 	}
 }

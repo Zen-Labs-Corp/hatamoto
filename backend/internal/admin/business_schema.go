@@ -105,7 +105,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "air_conditioning":{"type":"string","enum":["yes","no"],"title":"Air conditioning"}}},
 "amenities":{"type":"array","x-hm-item-label":"amenity","title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
- "value":{"type":"boolean","title":"Available","default":false}}}},
+ "value":{"type":"boolean","title":"Available"}}}},
 "public_access":{"type":"string","enum":["yes","no"],"title":"Open to the public","x-hm-group":"Expertise & amenities"},
 "free_entry":{"type":"string","enum":["yes","no"],"title":"Free entry","x-hm-group":"Expertise & amenities"},
 "sameas":{"type":"array","x-hm-item-label":"profile address","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
