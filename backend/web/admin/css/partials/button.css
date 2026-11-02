@@ -20,8 +20,8 @@
 .hm-btn--primary:hover { background: var(--color-sumi-soft); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
 .hm-btn--primary:active { background: var(--color-sumi); box-shadow: inset 0 -1px 0 var(--btn-edge-primary); }
 .hm-btn--ghost { background: transparent; box-shadow: none; }
-.hm-btn--ghost:hover { background: var(--color-kasumi); box-shadow: none; }
-.hm-btn--ghost:active { background: var(--color-kasumi); box-shadow: none; }
+.hm-btn--ghost:hover { background: var(--btn-ghost-hover, var(--color-kasumi)); box-shadow: none; }
+.hm-btn--ghost:active { background: var(--btn-ghost-hover, var(--color-kasumi)); box-shadow: none; }
 .hm-btn--danger { background: var(--color-danger); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
 .hm-btn--danger:hover { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); filter: brightness(0.92); }
 .hm-btn--danger:active { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }

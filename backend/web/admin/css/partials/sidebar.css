@@ -10,8 +10,8 @@
   background: var(--raised); border-right: 1px solid var(--color-kinu);
   /* --surface-hover equals --raised, so on this background it would not show. */
   --sidebar-hover: color-mix(in srgb, var(--text) 7%, var(--raised));
+  --btn-ghost-hover: var(--sidebar-hover);
 }
-.hm-sidebar .hm-btn--ghost:hover, .hm-sidebar .hm-btn--ghost:active { background: var(--sidebar-hover); }
 .hm-sidebar__head { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .hm-sidebar__brand { flex: 1; min-width: 0; padding: var(--space-1) var(--space-2); color: var(--text); text-decoration: none; }
 .hm-sidebar__brand > span:not(.hm-brand__seal) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

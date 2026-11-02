@@ -105,6 +105,7 @@ func TestSidebarHoverIsVisible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	css := string(b)
 	hovers := 0
 	for i, line := range strings.Split(string(b), "\n") {
 		if !strings.Contains(line, ":hover") && !strings.Contains(line, ":active") {
@@ -117,8 +118,11 @@ func TestSidebarHoverIsVisible(t *testing.T) {
 			}
 		}
 	}
-	if hovers < 3 {
-		t.Errorf("found %d sidebar hover fills, want link, profile and ghost buttons", hovers)
+	if hovers < 2 {
+		t.Errorf("found %d sidebar hover fills, want link and profile", hovers)
+	}
+	if !strings.Contains(css, "--btn-ghost-hover: var(--sidebar-hover)") {
+		t.Error("the sidebar must set --btn-ghost-hover so its ghost foot buttons show a hover")
 	}
 }
 
