@@ -122,7 +122,11 @@ func importFixtures() (map[uuid.UUID]*importjob.Run, map[string]uuid.UUID) {
 		Errors:       []wpimport.ItemError{{Kind: "media", ID: "9", Title: "https://old.example.com/wp-content/uploads/gone.jpg", Err: "HTTP 404"}},
 		Warnings:     []string{"site title is Old here, Acme in WordPress"},
 		URLConflicts: []wpimport.URLConflict{{URL: "/about", Target: "/about-2", Reason: "a live page answers at /about"}},
-		Audit:        &wpimport.AuditResult{Checked: 40, OK: 30, Redirected: 8, Failures: []wpimport.AuditFailure{{URL: "/old/missing", Status: 404, Reason: "answers 404"}}}}
+		Audit:        &wpimport.AuditResult{Checked: 40, OK: 30, Redirected: 8, Failures: []wpimport.AuditFailure{{URL: "/old/missing", Status: 404, Reason: "answers 404"}}},
+		SEO: &wpimport.SEOResult{Plugin: "rankmath", Sources: []string{"live", "file:rankmath"},
+			Applied: []wpimport.SEORow{{Key: "separator", Label: "Separator", Value: "–"}, {Key: "title.post", Label: "Posts title", Value: "%title% %sep% %sitename%"},
+				{Key: "verify.google", Label: "Google verification code", Value: "abc123example"}},
+			NotMapped: []string{"Local SEO module", "redirections (see Redirects)"}}}
 	dn.EntityIDs = map[string]uuid.UUID{"77": fixedID(8)}
 	dn.Redirects = []importjob.RedirectRow{{From: "/2024/05/hello", To: "/blog/hello", Code: 301}}
 	runs[ids["done"]] = dn
@@ -144,7 +148,15 @@ func importRig(t *testing.T) (*rig, *fakeImport, map[string]uuid.UUID) {
 }
 
 func TestImportWizardPagesGoldenAndA11y(t *testing.T) {
-	g, _, ids := importRig(t)
+	g, f, ids := importRig(t)
+	// A finished import into a site with content lists what would change. It
+	// joins the fixtures just before its page, so the source page's history stays as is.
+	existingDone := *f.runs[ids["done"]]
+	existingDone.ID = fixedID(9)
+	res := *existingDone.Result
+	res.SiteMode = wpimport.ModeExisting
+	res.SEO = &wpimport.SEOResult{Plugin: "rankmath", Would: []wpimport.SEORow{{Key: "separator", Label: "Separator", Current: "-", Value: "–"}}, NotMapped: []string{"Local SEO module"}}
+	existingDone.Result = &res
 	pages := []struct{ name, path string }{
 		{"source", "/admin/settings/import/wordpress"},
 		{"source-resync", "/admin/settings/import/wordpress?from=" + ids["done"].String()},
@@ -155,10 +167,14 @@ func TestImportWizardPagesGoldenAndA11y(t *testing.T) {
 		{"options-existing", "/admin/settings/import/wordpress/" + ids["existing"].String() + "/options"},
 		{"running", "/admin/settings/import/wordpress/" + ids["running"].String()},
 		{"report", "/admin/settings/import/wordpress/" + ids["done"].String()},
+		{"report-existing", "/admin/settings/import/wordpress/" + existingDone.ID.String()},
 		{"report-failed", "/admin/settings/import/wordpress/" + ids["failed"].String()},
 		{"report-interrupted", "/admin/settings/import/wordpress/" + ids["interrupted"].String()},
 	}
 	for _, p := range pages {
+		if p.name == "report-existing" {
+			f.runs[existingDone.ID] = &existingDone
+		}
 		rec := g.do("GET", p.path, "owner-token", nil, nil)
 		if rec.Code != 200 {
 			t.Fatalf("%s: %d %s", p.name, rec.Code, rec.Body.String())
@@ -603,5 +619,18 @@ func TestImportStartSEOFile(t *testing.T) {
 	}
 	if len(f.started) != 3 {
 		t.Errorf("a refused file still started a run: %d", len(f.started))
+	}
+}
+
+func TestImportOptionsShowTheDetectedPlugin(t *testing.T) {
+	g, f, ids := importRig(t)
+	rep := *f.runs[ids["scanned"]].Report
+	rep.SEOPlugin = "rankmath"
+	f.runs[ids["scanned"]].Report = &rep
+	body := g.do("GET", "/admin/settings/import/wordpress/"+ids["scanned"].String()+"/options", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`enctype="multipart/form-data"`, `id="seo_live"`, `name="seo_file"`, "Detected plugin: Rank Math"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("options page lacks %q", want)
+		}
 	}
 }

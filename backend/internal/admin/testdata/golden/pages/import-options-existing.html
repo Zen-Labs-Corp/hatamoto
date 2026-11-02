@@ -108,7 +108,7 @@
 <li class="hm-steps__item"><span class="hm-steps__num" aria-hidden="true">5</span><span class="hm-steps__label">Report</span></li>
 </ol><p class="hm-steps__count">Step 3 of 5</p></div>
 
-<form method="post" action="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000006/start" class="hm-stack">
+<form method="post" action="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000006/start" enctype="multipart/form-data" class="hm-stack">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <section class="hm-card" id="opt-content" aria-labelledby="opt-content-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="opt-content-title">Content</h2></div>
@@ -141,6 +141,21 @@
 <div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">This site already has content, so its URL patterns stay as they are and every old address that moves gets a 301 redirect.</div></div></div>
 <input type="hidden" name="patterns" value="keep">
 
+</div></section>
+<section class="hm-card" id="opt-seo" aria-labelledby="opt-seo-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="opt-seo-title">SEO settings</h2></div>
+<div class="hm-card__body">
+<div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">This site already has content. SEO settings are listed in the report, nothing is changed.</div></div></div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="seo_live"><input class="hm-field__box" type="checkbox" role="switch" id="seo_live" name="seo_live" value="1" checked aria-describedby="seo_live-help"><span>Read SEO settings from the live site</span></label>
+<p class="hm-field__help" id="seo_live-help">Head tags, robots.txt and the sitemap of the old site.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_file">Plugin settings file (optional)</label>
+<input class="hm-field__control" type="file" id="seo_file" name="seo_file" aria-describedby="seo_file-help" accept=".json,.txt,.ini">
+<p class="hm-field__help" id="seo_file-help">Rank Math .json, Yoast export or TSF .json. Up to 1 MiB. Only the values it maps are kept.</p>
+</div>
+<p class="hm-muted">Detected plugin: Yoast SEO</p>
 </div></section>
 <section class="hm-card" id="opt-reimport" aria-labelledby="opt-reimport-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="opt-reimport-title">Re-import</h2></div>

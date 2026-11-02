@@ -52,8 +52,7 @@
 {{else}}<p class="hm-muted">{{if .Existing}}Nothing would change.{{else}}No SEO settings were found to import.{{end}}</p>{{end}}
 {{if .NotMapped}}<h3>Not mapped</h3><ul>{{range .NotMapped}}<li>{{.}}</li>{{end}}</ul>{{end}}
 <p class="hm-muted"><a href="{{.URL}}">Open Settings &gt; SEO</a></p>
-{{template "hm/card-end"}}{{end}}
-{{template "hm/card-start" dict "Title" "Pages to review" "ID" "low" "Heading" "h2"}}
+{{template "hm/card-end"}}{{end}}{{template "hm/card-start" dict "Title" "Pages to review" "ID" "low" "Heading" "h2"}}
 {{if .Low}}<p>These imported with some loss. Open each one to check it.</p>
 <div class="hm-table__scroll" role="region" aria-label="Pages to review" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Imported pages that need a review, with the reason</caption>
 <thead><tr><th scope="col">Page</th><th scope="col">Why</th></tr></thead>
