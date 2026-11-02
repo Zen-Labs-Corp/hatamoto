@@ -24,6 +24,9 @@ type NavItem struct {
 	Exact bool
 	// Badge is evaluated per render for the viewer's role ("" hides it).
 	Badge func(role string) string
+	// BadgeLabel words a non-empty badge for the viewer ("3 drafts to review"): it is the
+	// marker's title and its screen-reader text.
+	BadgeLabel func(role, badge string) string
 	// Visible, when set, decides visibility per role instead of Roles.
 	Visible func(role string) bool
 	// HrefFor, when set, resolves the link per role instead of Href.
@@ -34,6 +37,7 @@ type NavItem struct {
 // aria-current value: "page" on the link of the page, "" otherwise.
 type NavEntry struct {
 	Label, Href, Icon, Badge string
+	BadgeLabel               string
 	Current                  string
 	Group                    string
 }
@@ -169,6 +173,9 @@ func (n *Nav) For(role, path string) []NavEntry {
 		}
 		if it.Badge != nil {
 			e.Badge = it.Badge(role)
+		}
+		if e.Badge != "" && it.BadgeLabel != nil {
+			e.BadgeLabel = it.BadgeLabel(role, e.Badge)
 		}
 		m := it.matchLen(path)
 		cands = append(cands, cand{e, m})

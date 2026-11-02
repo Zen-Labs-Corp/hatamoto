@@ -64,13 +64,24 @@ func countBadge(ttl time.Duration, now func() time.Time, run func(func()), count
 	}
 }
 
-// wireNavCounts gives the sidebar's Entities and Plugins items their counts
-// (the preview's "Entities 158", "Plugins 3"). The Plugins count is the
+// countLabel words a count: "1 draft to review", "3 drafts to review".
+func countLabel(n, one, many string) string {
+	if n == "1" {
+		return "1 " + one
+	}
+	return n + " " + many
+}
+
+// wireNavCounts gives the sidebar's Entities and Plugins items their markers:
+// the drafts waiting for review and the installed plugins. The Plugins count is the
 // owner's: an editor admitted by a plugin UI does not see the installed total.
 func (a *Admin) wireNavCounts() {
-	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityTotal)
+	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityDrafts)
 	plugins := countBadge(navCountTTL, time.Now, navRefreshRun, a.pluginTotal)
-	a.nav.update("entities", func(it *NavItem) { it.Badge = func(string) string { return entities() } })
+	a.nav.update("entities", func(it *NavItem) {
+		it.Badge = func(string) string { return entities() }
+		it.BadgeLabel = func(_, b string) string { return countLabel(b, "draft to review", "drafts to review") }
+	})
 	a.nav.update(pluginsID, func(it *NavItem) {
 		it.Badge = func(role string) string {
 			if role != "owner" {
@@ -78,12 +89,13 @@ func (a *Admin) wireNavCounts() {
 			}
 			return plugins()
 		}
+		it.BadgeLabel = func(_, b string) string { return countLabel(b, "plugin installed", "plugins installed") }
 	})
 }
 
-// entityTotal counts the entities the Entities list shows (reuse schemas
-// excluded), as the list's own counts do.
-func (a *Admin) entityTotal() (int, error) {
+// entityDrafts counts the drafts the Entities list shows (reuse schemas
+// excluded), as the list's own Draft count does.
+func (a *Admin) entityDrafts() (int, error) {
 	c := a.deps.Content
 	if c.Entities == nil {
 		return 0, nil
@@ -94,7 +106,7 @@ func (a *Admin) entityTotal() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return a.entityCounts(ctx, schemas, nil).all, nil
+	return a.entityCounts(ctx, schemas, nil).byStatus["draft"], nil
 }
 
 // pluginTotal counts the installed plugins.
