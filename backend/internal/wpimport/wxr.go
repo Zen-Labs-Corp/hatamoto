@@ -498,6 +498,8 @@ func detectFromMeta(d *Dump) {
 		d.Detect.SEOPlugin = "seopress"
 	case has("_aioseo_"):
 		d.Detect.SEOPlugin = "aioseo"
+	case has("_genesis_"), has("_tsf_"):
+		d.Detect.SEOPlugin = "tsf"
 	}
 	if has("_elementor_") {
 		d.Detect.PageBuilders = appendUnique(d.Detect.PageBuilders, "Elementor")

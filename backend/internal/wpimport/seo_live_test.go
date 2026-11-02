@@ -1,0 +1,100 @@
+package wpimport
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"hatamoto.dev/core/internal/safefetch"
+)
+
+const liveHome = `<!doctype html><html><head>
+<!-- This site is optimized with Rank Math - https://rankmath.com -->
+<title>Example Blog</title>
+<meta property="og:site_name" content="Example Blog" />
+<meta name="twitter:site" content="@example" />
+<meta name="google-site-verification" content="g-code" />
+<meta name="msvalidate.01" content="b-code" />
+<script type="application/ld+json">{"@graph":[{"@type":"WebSite"},{"@type":"Organization","name":"Example Org","logo":{"@type":"ImageObject","url":"https://example.com/logo.png"},"sameAs":["https://example.com/p"]}]}</script>
+<script type="application/ld+json">{not json</script>
+</head><body></body></html>`
+
+func TestSEOLiveReadsPublicPages(t *testing.T) {
+	var offHost atomic.Int32
+	off := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { offHost.Add(1) }))
+	defer off.Close()
+	var sitemap atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(liveHome)) })
+	mux.HandleFunc("/hello/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html><head><title>Hello – Example Blog</title></head></html>`))
+	})
+	mux.HandleFunc("/broken/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "boom", 500) })
+	mux.HandleFunc("/category/x/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html><head><meta name="robots" content="noindex, follow"></head></html>`))
+	})
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("User-agent: *\nDisallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\nDisallow: /private/\nSitemap: " + strings.Replace(off.URL, "127.0.0.1", "localhost", 1) + "/sm.xml\n"))
+	})
+	mux.HandleFunc("/sm.xml", func(w http.ResponseWriter, r *http.Request) { sitemap.Add(1) })
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c, err := NewClient(ClientOptions{URL: srv.URL, AllowPrivate: true, RatePerSec: 1000, Sleep: noSleep, MaxRetries: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	live := readSEOLive(context.Background(), c, srv.URL+"/", srv.URL+"/hello/", srv.URL+"/category/x/")
+	if live.Plugin != "Rank Math" || live.SiteName != "Example Blog" || live.TwitterSite != "@example" {
+		t.Errorf("%+v", live)
+	}
+	if live.Verification["google"] != "g-code" || live.Verification["bing"] != "b-code" {
+		t.Errorf("verification %v", live.Verification)
+	}
+	if live.OrgName != "Example Org" || live.OrgLogo != "https://example.com/logo.png" || len(live.SameAs) != 1 {
+		t.Errorf("org %q %q %v", live.OrgName, live.OrgLogo, live.SameAs)
+	}
+	if live.Separator != "–" || !live.Noindex["archive"] {
+		t.Errorf("sep %q noindex %v", live.Separator, live.Noindex)
+	}
+	if got := strings.Join(live.RobotsExtra, "|"); got != "User-agent: *|Disallow: /private/" {
+		t.Errorf("robots %q", got)
+	}
+	if offHost.Load() != 0 || sitemap.Load() != 0 {
+		t.Errorf("off-host sitemap fetched: %d %d", offHost.Load(), sitemap.Load())
+	}
+
+	live = readSEOLive(context.Background(), c, srv.URL+"/", srv.URL+"/broken/", "")
+	if len(live.Warnings) != 1 || !strings.Contains(live.Warnings[0], "SEO live read: "+srv.URL+"/broken/") {
+		t.Errorf("warnings %v", live.Warnings)
+	}
+}
+
+func TestSEOLiveBlockedWithoutAllowPrivate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(liveHome)) }))
+	defer srv.Close()
+	c, err := NewClient(ClientOptions{URL: srv.URL, RatePerSec: 1000, Sleep: noSleep, Timeout: 5 * time.Second})
+	if err != nil {
+		// construction itself may refuse private hosts
+		if !errors.Is(err, safefetch.ErrBlocked) {
+			t.Fatal(err)
+		}
+		return
+	}
+	live := readSEOLive(context.Background(), c, srv.URL+"/", "", "")
+	if len(live.Warnings) == 0 || !strings.Contains(live.Warnings[0], safefetch.ErrBlocked.Error()) {
+		t.Errorf("warnings %v", live.Warnings)
+	}
+}
+
+func TestDetectTSF(t *testing.T) {
+	d := &Dump{Items: []Item{{Meta: map[string]string{"_genesis_title": "x"}}}}
+	detectFromMeta(d)
+	if d.Detect.SEOPlugin != "tsf" {
+		t.Errorf("plugin %q", d.Detect.SEOPlugin)
+	}
+}
