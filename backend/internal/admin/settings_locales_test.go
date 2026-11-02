@@ -353,3 +353,22 @@ func TestBusinessSaveStoresACardWithOnlyAnExtendedField(t *testing.T) {
 		t.Errorf("a card with zero values was kept: %+v", m["aa"])
 	}
 }
+
+// A LEI is stored in capitals, however it was typed, on both forms.
+func TestBusinessSaveUppercasesLEI(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{"notify": {"boss@example.com"}, "biz.lei": {"5493001kjtiigc8y1r12"}}, nil); rec.Code != 303 {
+		t.Fatalf("site save: %d %s", rec.Code, rec.Body.String())
+	}
+	if raw := string(site.cfg.BusinessProfile); !strings.Contains(raw, `"lei":"5493001KJTIIGC8Y1R12"`) {
+		t.Errorf("site profile = %s", raw)
+	}
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{"loc_aa.lei": {"5493001kjtiigc8y1r12"}}, nil); rec.Code != 303 {
+		t.Fatalf("card save: %d", rec.Code)
+	}
+	if raw := string(site.cfg.LocaleProfiles); !strings.Contains(raw, `"lei":"5493001KJTIIGC8Y1R12"`) {
+		t.Errorf("card profile = %s", raw)
+	}
+}

@@ -240,6 +240,7 @@ func (a *Admin) handleContactSave(w http.ResponseWriter, r *http.Request) {
 	}
 	vals, perrs := schemaform.Decode(schema, r.PostForm, profileValues(prev), schemaform.Options{Prefix: bizPrefix})
 	p, perr := valuesProfile(vals)
+	p.Lei = strings.ToUpper(p.Lei)
 	// Coordinates and the map address belong to a locale card; a stored
 	// site-wide value is ignored and dropped on save.
 	p.Address.Lat, p.Address.Lng, p.Address.MapURL = "", "", ""

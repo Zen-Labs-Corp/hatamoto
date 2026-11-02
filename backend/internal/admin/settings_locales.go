@@ -167,6 +167,7 @@ func (a *Admin) handleBusinessSave(w http.ResponseWriter, r *http.Request) {
 	stored, _ := bizprofile.ParseLocales(cfg.LocaleProfiles)
 	vals, perrs := schemaform.Decode(businessSchema(), r.PostForm, profileValues(stored[tag]), schemaform.Options{Prefix: locPrefix(localeAnchor(*entry))})
 	p, perr := valuesProfile(vals)
+	p.Lei = strings.ToUpper(p.Lei)
 	prefix := locPrefix(localeAnchor(*entry))
 	edit := &localeEdit{Tag: tag, Vals: vals, Open: openAfterAdd(r.PostForm, prefix, vals)}
 	if schemaform.Structural(r.PostForm) {
