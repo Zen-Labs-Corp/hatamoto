@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 59472,
+      "value": 60608,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,13 +11,13 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103542,
+      "value": 103556,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 103561
     },
     "editor_js_total_gzip": {
-      "value": 274725,
+      "value": 274739,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 275262
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder navigator field-row review fixes (section follows the focused field row, alias keys, icons): editor_js_first_gzip 99662 to 99901 (+239 B, cap 99779 to 100018) and editor_js_total_gzip 251416 to 251655 (+239 B, cap 252129 to 252368; builderTotalCap 251655 + 1024)",
-      "date": "2026-10-31"
-    },
     {
       "reason": "Plugins Browse toolbar, badge sm variant and wide drawer CSS",
       "date": "2026-10-31"
@@ -119,6 +115,10 @@
     {
       "reason": "social SEO settings and share card",
       "date": "2026-11-01"
+    },
+    {
+      "reason": "admin shell match: fonts, icon rail, sidebar counts, plugins filter row",
+      "date": "2026-11-02"
     }
   ]
 }

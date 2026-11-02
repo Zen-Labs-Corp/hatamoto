@@ -176,6 +176,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"settings/api":          {"@hm/apikeys"},
 		"settings/apikeynew":    {"@hm/apikeys"},
 		"settings/general":      {"@hm/searchselect"},
+		"settings/plugins":      {"@hm/slashfocus"},
 		"settings/seo-robots":   {"@hm/aia"},
 		"setup/account":         {"@hm/setupcode"},
 		"taxonomies/list":       {"@hm/content"},
