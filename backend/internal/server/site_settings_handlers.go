@@ -22,6 +22,7 @@ import (
 type siteSettingsStore interface {
 	Get(ctx context.Context) (*siteconfig.Config, error)
 	Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error)
+	SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error
 }
 
 // siteSettingsHandlers serves the owner-only site settings admin API: site
@@ -61,6 +62,10 @@ type siteSettingsResponse struct {
 	HomepageEntityID  *uuid.UUID             `json:"homepage_entity_id,omitempty"`
 	ThemeConfig       siteconfig.ThemeConfig `json:"theme_config"`
 	UpdatedAt         time.Time              `json:"updated_at"`
+	// BusinessProfile is the site-wide business details and LocaleProfiles the
+	// per-locale cards keyed by tag; both are objects, empty when unset.
+	BusinessProfile json.RawMessage            `json:"business_profile"`
+	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
 }
 
 // siteSettingsPatch is the PATCH body; omitted (null) fields are unchanged.
@@ -81,6 +86,10 @@ type siteSettingsPatch struct {
 	Address           *siteAddress              `json:"address"`
 	LegacyWPRedirects *bool                     `json:"legacy_wp_redirects"`
 	HomepageEntityID  *uuid.UUID                `json:"homepage_entity_id"`
+	// BusinessProfile replaces the site-wide profile; LocaleProfiles replaces
+	// (object) or deletes (null) single locale cards. Raw so null is visible.
+	BusinessProfile json.RawMessage            `json:"business_profile"`
+	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
 }
 
 // siteAddress is the business postal address (stored as JSON in
@@ -150,6 +159,20 @@ func (s *Server) invalidateSiteSettings(ctx context.Context) {
 	s.invalidateRendered(ctx)
 }
 
+func (h *siteSettingsHandlers) responseFrom(cfg *siteconfig.Config) siteSettingsResponse {
+	resp := siteSettingsFrom(cfg)
+	site, cards, err := profilesFrom(cfg)
+	if err != nil {
+		h.logger.Error("site settings: parse business profile", "error", err)
+	}
+	resp.BusinessProfile = profileJSON(site)
+	resp.LocaleProfiles = make(map[string]json.RawMessage, len(cards))
+	for tag, card := range cards {
+		resp.LocaleProfiles[tag] = profileJSON(card)
+	}
+	return resp
+}
+
 func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 	resp := siteSettingsResponse{
 		Name:              cfg.CompanyName,
@@ -184,7 +207,7 @@ func (h *siteSettingsHandlers) handleGet(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "failed to load site settings")
 		return
 	}
-	writeJSON(w, http.StatusOK, siteSettingsFrom(cfg))
+	writeJSON(w, http.StatusOK, h.responseFrom(cfg))
 }
 
 func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Request) {
@@ -264,14 +287,62 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		}
 		update.PostalAddress = raw
 	}
+	var profiles *profileWrite
+	if in.BusinessProfile != nil || in.LocaleProfiles != nil {
+		locales, ok := h.localesAfter(w, r, update)
+		if !ok {
+			return
+		}
+		var fields map[string]string
+		var msg string
+		if profiles, fields, msg = prepareProfiles(&in, locales); msg != "" {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		} else if fields != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "fields": fields})
+			return
+		}
+		update.BusinessProfile = profiles.site
+	}
 	cfg, err := h.store.Update(r.Context(), update)
 	if err != nil {
 		h.logger.Error("site settings: update", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update site settings")
 		return
 	}
+	if profiles != nil && len(profiles.cards) > 0 {
+		for _, tag := range profiles.sortedTags() {
+			if err := h.store.SetLocaleProfile(r.Context(), tag, profiles.cards[tag]); err != nil {
+				h.logger.Error("site settings: update locale profile", "locale", tag, "error", err)
+				h.invalidate(r.Context())
+				writeError(w, http.StatusInternalServerError, "failed to update site settings")
+				return
+			}
+		}
+		if cfg, err = h.store.Get(r.Context()); err != nil {
+			h.logger.Error("site settings: load", "error", err)
+			h.invalidate(r.Context())
+			writeError(w, http.StatusInternalServerError, "failed to update site settings")
+			return
+		}
+	}
 	h.invalidate(r.Context())
-	writeJSON(w, http.StatusOK, siteSettingsFrom(cfg))
+	writeJSON(w, http.StatusOK, h.responseFrom(cfg))
+}
+
+// localesAfter returns the locale list the site will have once update is
+// written: the new list when set, else the stored one.
+func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Request, update siteconfig.UpdateInput) ([]siteconfig.LocaleEntry, bool) {
+	if update.Locales != nil {
+		return *update.Locales, true
+	}
+	cfg, err := h.store.Get(r.Context())
+	if err != nil {
+		h.logger.Error("site settings: load", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update site settings")
+		return nil, false
+	}
+	return cfg.Locales, true
 }
 
 func (h *siteSettingsHandlers) handleGetTheme(w http.ResponseWriter, r *http.Request) {
