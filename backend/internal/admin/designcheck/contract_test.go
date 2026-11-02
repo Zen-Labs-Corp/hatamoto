@@ -370,7 +370,7 @@ var contractAllow = []uiAllowEntry{
 	{Rule: "DC-02", File: "css/partials/listbox.css", Needle: "min-width: 30px; padding: 0", Reason: "the dark selection bubble sizes its icon buttons as 30px squares; it is a toolbar, not a form button"},
 	{Rule: "DC-02", File: "css/pages/blogeditor.css", Needle: ".hm-be__side .hm-card {", Reason: "the editor side rail uses flat, borderless cards; follow-up: a card variant"},
 	{Rule: "DC-02", File: "css/pages/content.css", Needle: `input[type="file"].hm-field__control`, Reason: "a native file input needs less padding than a text field"},
-	{Rule: "DC-02", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Reason: "a colour swatch input is a block, not a text field; follow-up: move to field.css"},
+	{Rule: "DC-02", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 4, Reason: "a colour swatch input is a block, not a text field; follow-up: move to field.css"},
 }
 
 // componentSpec is one entry of components.json, the single source of

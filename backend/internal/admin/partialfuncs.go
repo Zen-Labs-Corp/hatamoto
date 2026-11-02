@@ -23,11 +23,11 @@ func required(what string, v any) (any, error) {
 }
 
 // calloutKind maps a flash-style or callout kind (a string from a dict or a Go
-// struct) to the callout vocabulary: info (default), success, warning, danger.
+// struct) to the callout vocabulary: info (default), neutral, success, warning, danger.
 func calloutKind(kind any) string {
 	k, _ := kind.(string)
 	switch k {
-	case "success", "warning", "danger":
+	case "neutral", "success", "warning", "danger":
 		return k
 	case "error":
 		return "danger"

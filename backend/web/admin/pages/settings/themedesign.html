@@ -1,13 +1,13 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-{{template "hm/callout-start" (dict "Kind" "info")}}Applied by the live theme to every page. The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="{{adminPath}}/theme/design-system">Accent under Design system</a>.{{template "hm/callout-end"}}
+{{template "hm/callout-start" (dict "Kind" "neutral")}}Applied by the live theme to every page. The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="{{adminPath}}/theme/design-system">Accent under Design system</a>.{{template "hm/callout-end"}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/theme/colours" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "colours-card" "Title" "Colours" "Heading" "h2" "Description" "Brand, background and text colours. The brand colour is your main one, used for buttons, links and highlights."}}<div class="hm-fieldgrid hm-fieldgrid--swatches">
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "primary" "Name" "primary" "Label" "Brand colour" "Type" "color" "Value" .Form.Primary "Error" (index .Errs "primary")}}<code class="hm-swatchrow__hex">{{.Form.Primary}}</code></div>
-<div class="hm-swatchrow">{{template "hm/field" dict "ID" "secondary" "Name" "secondary" "Label" "Secondary colour (for themes that use it)" "Type" "color" "Value" .Form.Secondary "Error" (index .Errs "secondary")}}<code class="hm-swatchrow__hex">{{.Form.Secondary}}</code></div>
-<div class="hm-swatchrow">{{template "hm/field" dict "ID" "accent" "Name" "accent" "Label" "Theme accent (for themes that use it)" "Type" "color" "Value" .Form.Accent "Error" (index .Errs "accent")}}<code class="hm-swatchrow__hex">{{.Form.Accent}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "secondary" "Name" "secondary" "Label" "Secondary colour" "Type" "color" "Value" .Form.Secondary "Error" (index .Errs "secondary")}}<code class="hm-swatchrow__hex">{{.Form.Secondary}}</code></div>
+<div class="hm-swatchrow">{{template "hm/field" dict "ID" "accent" "Name" "accent" "Label" "Theme accent" "Type" "color" "Value" .Form.Accent "Error" (index .Errs "accent")}}<code class="hm-swatchrow__hex">{{.Form.Accent}}</code></div>
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "background" "Name" "background" "Label" "Background colour" "Type" "color" "Value" .Form.Background "Error" (index .Errs "background")}}<code class="hm-swatchrow__hex">{{.Form.Background}}</code></div>
 <div class="hm-swatchrow">{{template "hm/field" dict "ID" "text" "Name" "text" "Label" "Text colour" "Type" "color" "Value" .Form.Text "Error" (index .Errs "text")}}<code class="hm-swatchrow__hex">{{.Form.Text}}</code></div></div>{{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "fonts-card" "Title" "Fonts" "Heading" "h2" "Description" "Font stacks for body text and headings."}}<div class="hm-fieldgrid hm-fieldgrid--stack">
