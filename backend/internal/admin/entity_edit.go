@@ -39,6 +39,12 @@ const (
 // removed from the attribute form.
 var seoSchemaKeys = []string{"schema_type", "custom_jsonld"}
 
+// seoSitemapKeys is the entity attribute of the Advanced tab's "Hide from
+// sitemap" switch. Like seoSchemaKeys it stays out of seoKeys: the builder's
+// SEO drawer rewrites seoKeys and would wipe it. It is removed from the
+// attribute form.
+var seoSitemapKeys = []string{"hide_from_sitemap"}
+
 type seoForm struct {
 	Title, Description, Canonical, OGImage string
 	OGTitle, OGDescription                 string
@@ -50,6 +56,9 @@ type seoForm struct {
 	NoFollow, NoArchive, NoSnippet bool
 	MaxSnippet, MaxImagePreview    string
 	robotsKept                     bool // the form carried no Advanced tab: seo.robots is left as stored
+	// HideFromSitemap keeps the entry out of /sitemap.xml while it stays
+	// indexable; written by mergeSitemap, not merge.
+	HideFromSitemap bool
 }
 
 type termPick struct {
@@ -285,7 +294,8 @@ func seoFrom(m map[string]any) seoForm {
 	f := seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
 		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b,
 		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld"),
-		NoFollow: d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
+		HideFromSitemap: m["hide_from_sitemap"] == true || str(m, "hide_from_sitemap") == "true",
+		NoFollow:        d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
 	if d.MaxSnippet != nil {
 		f.MaxSnippet = strconv.Itoa(*d.MaxSnippet)
 	}
@@ -335,6 +345,25 @@ func (s *seoForm) keepUnpostedRobots(r *http.Request, prev map[string]any) {
 	s.robotsKept = true
 	s.NoFollow, s.NoArchive, s.NoSnippet = stored.NoFollow, stored.NoArchive, stored.NoSnippet
 	s.MaxSnippet, s.MaxImagePreview = stored.MaxSnippet, stored.MaxImagePreview
+}
+
+// mergeSitemap writes the Advanced tab's "Hide from sitemap" switch into
+// attributes.hide_from_sitemap: true when on, the key removed when off.
+func (s seoForm) mergeSitemap(m map[string]any) {
+	if s.HideFromSitemap {
+		m["hide_from_sitemap"] = true
+	} else {
+		delete(m, "hide_from_sitemap")
+	}
+}
+
+// keepUnpostedSitemap gives the switch its stored value when the form did not
+// carry it (marked by _seo_sitemap; an unticked switch sends nothing).
+func (s *seoForm) keepUnpostedSitemap(r *http.Request, prev map[string]any) {
+	if r.PostForm.Get("_seo_sitemap") == "1" {
+		return
+	}
+	s.HideFromSitemap = seoFrom(prev).HideFromSitemap
 }
 
 // robotsErrors checks the Advanced tab fields into the form's error map.
@@ -423,7 +452,8 @@ func seoFromForm(r *http.Request) seoForm {
 		OGImage: r.PostFormValue("seo_og_image"),
 		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true",
 		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld"),
-		NoFollow: r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
+		HideFromSitemap: r.PostFormValue("seo_hide_sitemap") == "true",
+		NoFollow:        r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
 		MaxSnippet: strings.TrimSpace(r.PostFormValue("seo_max_snippet")), MaxImagePreview: r.PostFormValue("seo_max_image_preview")}
 }
 
@@ -589,7 +619,7 @@ func (a *Admin) entityTabs(id, active string) []ui.Tab {
 
 // renderAttrs renders the schema's own fields. SEO keys are shown by the SEO panel.
 func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors) (template.HTML, error) {
-	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys)...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys)...)
 	if err != nil {
 		return "", err
 	}
@@ -864,7 +894,7 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	for _, id := range r.PostForm["term"] {
 		p.picked[id] = true
 	}
-	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys)...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys)...)
 	if err != nil {
 		p.f.Errors["name"] = "This entity type's schema is invalid."
 		return p
@@ -873,9 +903,11 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	p.attrs, p.errs = attrs, errs
 	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.keepUnpostedRobots(r, prev)
+	p.f.SEO.keepUnpostedSitemap(r, prev)
 	p.f.SEO.merge(p.attrs)
 	p.f.SEO.mergeSchema(p.attrs)
 	p.f.SEO.mergeRobots(p.attrs)
+	p.f.SEO.mergeSitemap(p.attrs)
 	return p
 }
 

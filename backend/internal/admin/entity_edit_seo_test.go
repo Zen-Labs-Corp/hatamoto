@@ -338,3 +338,49 @@ func TestSEOFormRobotsKeepsOtherTokens(t *testing.T) {
 		t.Errorf("builder merge changed robots: %q", got)
 	}
 }
+
+func TestSEOFormHideFromSitemap(t *testing.T) {
+	t.Parallel()
+
+	if slices.Contains(seoKeys, "hide_from_sitemap") {
+		t.Error("hide_from_sitemap is in seoKeys: the builder drawer would wipe it")
+	}
+	post := func(vals url.Values) seoForm {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(vals.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		_ = r.ParseForm()
+		return seoFromForm(r)
+	}
+	// Posted on with the marker: stored as true, noindex untouched.
+	m := map[string]any{"no_index": true}
+	f := post(url.Values{"_seo_sitemap": {"1"}, "seo_hide_sitemap": {"true"}})
+	f.mergeSitemap(m)
+	if m["hide_from_sitemap"] != true || m["no_index"] != true || !seoFrom(m).HideFromSitemap {
+		t.Errorf("on: %v", m)
+	}
+	// Marker without the switch: cleared, key removed.
+	f = post(url.Values{"_seo_sitemap": {"1"}})
+	f.mergeSitemap(m)
+	if _, ok := m["hide_from_sitemap"]; ok || seoFrom(m).HideFromSitemap {
+		t.Errorf("off: %v", m)
+	}
+	// No marker: the stored value is kept either way, and noindex is not implied.
+	stored := map[string]any{"hide_from_sitemap": true}
+	r := httptest.NewRequest("POST", "/", strings.NewReader("seo_title=x"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_ = r.ParseForm()
+	f = seoFromForm(r)
+	f.keepUnpostedSitemap(r, stored)
+	next := map[string]any{}
+	f.merge(next)
+	f.mergeSitemap(next)
+	if next["hide_from_sitemap"] != true || next["no_index"] == true {
+		t.Errorf("unposted marker did not keep the stored value: %v", next)
+	}
+	// The builder drawer's merge leaves the key alone.
+	b := map[string]any{"hide_from_sitemap": true}
+	seoForm{Title: "T"}.merge(b)
+	if b["hide_from_sitemap"] != true {
+		t.Errorf("builder merge touched the key: %v", b)
+	}
+}
