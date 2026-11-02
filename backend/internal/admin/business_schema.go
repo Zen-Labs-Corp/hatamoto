@@ -41,13 +41,13 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "duns":{"type":"string","title":"D-U-N-S number","x-hm-group":"Organisation"},
 "lei":{"type":"string","title":"LEI","x-hm-group":"Organisation"},
 "gln":{"type":"string","title":"GLN","x-hm-group":"Organisation"},
-"founders":{"type":"array","x-hm-item-label":"founder","title":"Founders","x-hm-group":"Organisation","items":{"type":"object","properties":{
+"founders":{"type":"array","x-hm-item-label":"founder","maxItems":50,"title":"Founders","x-hm-group":"Organisation","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "url":{"type":"string","title":"Web address","format":"uri"}}}},
 "parent_organisation":{"type":"object","title":"Parent organisation","x-hm-group":"Organisation","properties":{
  "name":{"type":"string","title":"Name"},
  "url":{"type":"string","title":"Web address","format":"uri"}}},
-"brands":{"type":"array","x-hm-item-label":"brand","title":"Brands","x-hm-group":"Organisation","items":{"type":"string"}},
+"brands":{"type":"array","x-hm-item-label":"brand","maxItems":50,"title":"Brands","x-hm-group":"Organisation","items":{"type":"string"}},
 "address":{"type":"object","title":"Postal address","x-hm-group":"Address","properties":{
  "street":{"type":"string","title":"Street"},
  "city":{"type":"string","title":"City"},
@@ -82,19 +82,19 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "area_served":{"type":"array","x-hm-item-label":"area","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
 "geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"},
 "service_radius_km":{"type":"string","title":"Service radius (km)","x-hm-group":"Commerce"},
-"payment_methods":{"type":"array","x-hm-item-label":"payment method","title":"Payment methods","x-hm-group":"Commerce","items":{"type":"string"}},
+"payment_methods":{"type":"array","x-hm-item-label":"payment method","maxItems":50,"title":"Payment methods","x-hm-group":"Commerce","items":{"type":"string"}},
 "accepts_reservations":{"type":"string","enum":["yes","no"],"title":"Accepts reservations","x-hm-group":"Commerce"},
 "booking_url":{"type":"string","title":"Booking address","format":"uri","x-hm-group":"Commerce"},
 "order_url":{"type":"string","title":"Online ordering address","format":"uri","x-hm-group":"Commerce"},
 "menu_url":{"type":"string","title":"Menu address","format":"uri","x-hm-group":"Commerce"},
-"services":{"type":"array","x-hm-item-label":"service","title":"Services","x-hm-group":"Services","items":{"type":"object","properties":{
+"services":{"type":"array","x-hm-item-label":"service","maxItems":50,"title":"Services","x-hm-group":"Services","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "description":{"type":"string","title":"Description","format":"textarea"},
  "url":{"type":"string","title":"Web address","format":"uri"},
  "price":{"type":"string","title":"Price"}}}},
-"knows_about":{"type":"array","title":"Knows about","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
-"awards":{"type":"array","title":"Awards","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
-"memberships":{"type":"array","x-hm-item-label":"membership","title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+"knows_about":{"type":"array","maxItems":50,"title":"Knows about","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"awards":{"type":"array","maxItems":50,"title":"Awards","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"memberships":{"type":"array","x-hm-item-label":"membership","maxItems":50,"title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "url":{"type":"string","title":"Web address","format":"uri"}}}},
 "amenity_presets":{"type":"object","title":"Amenities","x-hm-group":"Expertise & amenities","properties":{
@@ -103,7 +103,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "wifi":{"type":"string","enum":["yes","no"],"title":"Wifi"},
  "toilets":{"type":"string","enum":["yes","no"],"title":"Toilets"},
  "air_conditioning":{"type":"string","enum":["yes","no"],"title":"Air conditioning"}}},
-"amenities":{"type":"array","x-hm-item-label":"amenity","title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+"amenities":{"type":"array","x-hm-item-label":"amenity","maxItems":50,"title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "value":{"type":"boolean","title":"Available"}}}},
 "public_access":{"type":"string","enum":["yes","no"],"title":"Open to the public","x-hm-group":"Expertise & amenities"},

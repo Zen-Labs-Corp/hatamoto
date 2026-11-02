@@ -18,6 +18,9 @@ const (
 	maxDescLen  = 1000 // the description is prose in a textarea
 	maxPhoneLen = 50
 	maxURLLen   = 2000
+	// maxListItems keeps each list short enough for the 64-element array cap
+	// of the render.site_graph plugin filter.
+	maxListItems = 50
 	// maxRadiusKm keeps the radius in metres a finite JSON number.
 	maxRadiusKm = 20000
 )
@@ -198,6 +201,15 @@ func Validate(p Profile) map[string]string {
 			at := key + "." + strconv.Itoa(i)
 			named(at, v.Name)
 			link(at+".url", v.URL)
+		}
+	}
+
+	for key, n := range map[string]int{
+		"founders": len(p.Founders), "memberships": len(p.Memberships), "brands": len(p.Brands), "payment_methods": len(p.PaymentMethods),
+		"knows_about": len(p.KnowsAbout), "awards": len(p.Awards), "services": len(p.Services), "amenities": len(p.Amenities),
+	} {
+		if n > maxListItems {
+			errs[key] = fmt.Sprintf("Add at most %d items.", maxListItems)
 		}
 	}
 

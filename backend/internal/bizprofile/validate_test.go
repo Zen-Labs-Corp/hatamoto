@@ -159,3 +159,35 @@ func TestValidate_ExtendedFields(t *testing.T) {
 		t.Errorf("lowercase LEI, zero price: %v", errs)
 	}
 }
+
+// Each new list stays under the 64-element array cap of the site graph filter.
+func TestValidate_ListsAreCapped(t *testing.T) {
+	many := func(n int) []string {
+		out := make([]string, n)
+		for i := range out {
+			out[i] = "x"
+		}
+		return out
+	}
+	p51 := make([]Person, 51)
+	for i := range p51 {
+		p51[i].Name = "x"
+	}
+	s51 := make([]Service, 51)
+	a51 := make([]Amenity, 51)
+	for i := range s51 {
+		s51[i].Name, a51[i].Name = "x", "x"
+	}
+	for key, p := range map[string]Profile{
+		"founders": {Founders: p51}, "memberships": {Memberships: p51}, "brands": {Brands: many(51)},
+		"payment_methods": {PaymentMethods: many(51)}, "knows_about": {KnowsAbout: many(51)}, "awards": {Awards: many(51)},
+		"services": {Services: s51}, "amenities": {Amenities: a51},
+	} {
+		if msg := Validate(p)[key]; msg != "Add at most 50 items." {
+			t.Errorf("%s: %q", key, msg)
+		}
+	}
+	if msgs := Validate(Profile{Brands: many(50)}); len(msgs) != 0 {
+		t.Errorf("50 brands: %v", msgs)
+	}
+}

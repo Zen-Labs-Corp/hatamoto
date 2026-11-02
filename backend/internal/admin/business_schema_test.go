@@ -555,3 +555,22 @@ func TestUntouchedAddedAmenityRowIsDropped(t *testing.T) {
 		t.Errorf("untouched row kept: %+v", p.Amenities)
 	}
 }
+
+// The new lists carry maxItems in the form, matching bizprofile.Validate.
+func TestBusinessSchemaCapsNewLists(t *testing.T) {
+	root, err := schemaform.ParseSchema(businessSchema())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"founders", "brands", "payment_methods", "services", "knows_about", "awards", "memberships", "amenities"} {
+		var n *schemaform.Node
+		for _, p := range root.Props {
+			if p.Name == name {
+				n = p.Node
+			}
+		}
+		if n == nil || n.MaxItems == nil || *n.MaxItems != 50 {
+			t.Errorf("%s: maxItems is not 50", name)
+		}
+	}
+}
