@@ -546,7 +546,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	if err := ctx.Err(); err != nil {
 		// The caller gave up while we waited; the instance never ran, so it
 		// is healthy: keep it.
-		p.release(context.Background(), inst)
+		p.release(inst)
 		return nil, fmt.Errorf("%s.%s: caller gave up before the call: %w", name, export, err)
 	}
 	callerCtx := ctx
@@ -555,6 +555,27 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 
 	start := time.Now()
 	rc, out, err := inst.CallWithContext(ctx, export, in)
+	if isClosedErr(err) {
+		// The instance never ran (the check is the first thing the call
+		// does), so one retry on a fresh instance is safe. The slot stays
+		// held across it.
+		p.discardClosed(export, inst)
+		startCtx, cancelStart := context.WithTimeout(callerCtx, maxStartWait)
+		inst, err = p.newInstance(startCtx)
+		cancelStart()
+		if err != nil {
+			if ctxErr := startCtx.Err(); ctxErr != nil {
+				return nil, fmt.Errorf("%s.%s: starting an instance: %w", name, export, ctxErr)
+			}
+			return nil, err
+		}
+		start = time.Now()
+		rc, out, err = inst.CallWithContext(ctx, export, in)
+		if isClosedErr(err) {
+			p.discardClosed(export, inst)
+			return nil, fmt.Errorf("%s.%s: %w", name, export, err)
+		}
+	}
 	if err == nil && rc != 0 {
 		err = fmt.Errorf("%s.%s returned %d", name, export, rc)
 	}
@@ -563,15 +584,15 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	}
 	if err != nil {
 		switch {
-		case strings.HasPrefix(err.Error(), sdk.RejectPrefix):
+		case ctx.Err() == nil && strings.HasPrefix(err.Error(), sdk.RejectPrefix):
 			p.succeeded(export)
-			p.release(ctx, inst)
+			p.release(inst)
 			return nil, err
-		case isGuestError(err):
+		case ctx.Err() == nil && isGuestError(err):
 			// The guest ran to the end and reported a failure through the
 			// PDK: its runtime is healthy, so keep the instance.
 			p.succeeded(export)
-			p.release(ctx, inst)
+			p.release(inst)
 			return nil, fmt.Errorf("%s.%s: %w", name, export, err)
 		}
 		// A caller deadline (render.head, jsonld.enrich) that cut the guest
@@ -590,21 +611,42 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		return nil, fmt.Errorf("%s.%s after %s: %w", name, export, ran.Round(time.Millisecond), err)
 	}
 	p.succeeded(export)
-	p.release(ctx, inst)
+	if ctx.Err() != nil {
+		// The deadline hit at the tail of the call, and wazero may be closing
+		// the module on context done: never pool it.
+		p.discarded.Add(1)
+		_ = inst.Close(context.Background())
+		return out, nil
+	}
+	p.release(inst)
 	return out, nil
 }
 
-func (p *plugin) release(ctx context.Context, inst *extism.Plugin) {
+// release returns inst to the pool, or closes it when the pool is full. It
+// closes with a background context: a per-call context may already be done.
+func (p *plugin) release(inst *extism.Plugin) {
 	select {
 	case p.pool <- inst:
 	default:
-		_ = inst.Close(ctx)
+		_ = inst.Close(context.Background())
 	}
 }
+
+// discardClosed drops an instance whose module is already closed.
+func (p *plugin) discardClosed(export string, inst *extism.Plugin) {
+	p.discarded.Add(1)
+	_ = inst.Close(context.Background())
+	p.log.Warn("wasmhost: discarded closed plugin instance", slog.String("export", export))
+}
+
+// isClosedErr reports extism go-sdk v1.7.1's plain error from CallWithContext
+// (extism.go:455), returned before anything runs. The SDK has no IsClosed, so
+// the text is the only handle; a bump must keep the closed-instance test green.
+func isClosedErr(err error) bool { return err != nil && err.Error() == "module is closed" }
 
 // plainError is the concrete type of errors.New: Extism reports a guest's PDK
 // error message that way, whereas traps, timeouts and exits come back as
 // wazero (or wrapped) error types.
 var plainError = reflect.TypeOf(errors.New(""))
 
-func isGuestError(err error) bool { return reflect.TypeOf(err) == plainError }
+func isGuestError(err error) bool { return reflect.TypeOf(err) == plainError && !isClosedErr(err) }
