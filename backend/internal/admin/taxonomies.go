@@ -156,7 +156,7 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 		view = seoView
 	}
 	d := taxonomiesData{Kind: kind, ViewTabs: []ui.Tab{
-		{Label: "Default", Href: a.taxView(kind, ""), Active: view == ""},
+		{Label: "Default", Href: a.taxView(kind, defaultView), Active: view == ""},
 		{Label: "SEO", Href: a.taxView(kind, seoView), Active: view == seoView},
 	}}
 	for _, k := range kinds {

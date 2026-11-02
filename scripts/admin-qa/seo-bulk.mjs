@@ -62,6 +62,17 @@ await check("a second session's change shows the conflict state", async () => {
   return "conflict";
 });
 
+await check("Default tab leaves the remembered SEO view", async () => {
+  await p.goto(base + LIST, { waitUntil: "load" });
+  await p.getByRole("link", { name: "Default", exact: true }).click();
+  await p.waitForURL(/view=default/);
+  await p.waitForLoadState("load");
+  need((await p.locator(".hm-cell-edit").count()) === 0, "the SEO columns are still shown after Default");
+  await p.goto(base + "/admin/entities", { waitUntil: "load" });
+  need(!p.url().includes("view=seo"), "the plain list bounced back to the SEO view");
+  return "default stays";
+});
+
 await b.close();
 if (errors.length) console.log("page errors:", errors.join(" | "));
 writeResult("seo-bulk.json", { results });

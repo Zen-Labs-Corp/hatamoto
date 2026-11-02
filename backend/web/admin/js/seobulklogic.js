@@ -39,5 +39,5 @@ export function viewRedirect(search, stored) {
   return `?${q}`;
 }
 
-/** The view to remember for a list URL: "seo" when asked, "" when the URL names another or none. */
+/** The view to remember for a list URL: "seo" when asked, "" when the URL names another (the Default tab's view=default) or none. */
 export const viewToRemember = (search) => (new URLSearchParams(search).get("view") === "seo" ? "seo" : "");

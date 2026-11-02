@@ -16,6 +16,10 @@ import (
 // seoView is the value of ?view= that switches a list to its inline SEO columns.
 const seoView = "seo"
 
+// defaultView is the explicit ?view= of the Default tab. The list treats it like no view; the
+// browser uses it to forget a remembered SEO view (seobulk.js).
+const defaultView = "default"
+
 // viewTabs is the Columns toggle. Both links keep every filter, the sort and the
 // search; the page resets.
 func (p listParams) viewTabs(prefix string) []ui.Tab {
@@ -31,7 +35,7 @@ func (p listParams) viewTabs(prefix string) []ui.Tab {
 		return prefix + "/entities?" + q.Encode()
 	}
 	return []ui.Tab{
-		{Label: "Default", Href: href(""), Active: p.view == ""},
+		{Label: "Default", Href: href(defaultView), Active: p.view == ""},
 		{Label: "SEO", Href: href(seoView), Active: p.view == seoView},
 	}
 }

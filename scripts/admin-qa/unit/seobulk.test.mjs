@@ -35,6 +35,9 @@ test("the SEO view is remembered and restored once", () => {
   assert.equal(viewRedirect("?type=post", "seo"), "?type=post&view=seo");
   assert.equal(viewRedirect("?view=seo", "seo"), null);
   assert.equal(viewRedirect("", ""), null);
+  // the Default tab names its view, so a remembered SEO view does not bounce it back
+  assert.equal(viewRedirect("?type=post&view=default", "seo"), null);
+  assert.equal(viewToRemember("?view=default"), "");
   assert.equal(viewToRemember("?view=seo"), "seo");
   assert.equal(viewToRemember("?type=post"), "");
 });
