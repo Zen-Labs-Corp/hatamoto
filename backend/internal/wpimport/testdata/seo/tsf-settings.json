@@ -1,0 +1,13 @@
+{
+  "autodescription-site-settings": {
+    "title_separator": "pipe",
+    "site_title": "Example Site",
+    "homepage_title": "Example Home",
+    "homepage_description": "Welcome to https://example.com",
+    "title_location": "right",
+    "category_noindex": 1,
+    "google_verification": "abc123verifytoken",
+    "twitter_site": "@exampleuser",
+    "unknown_option": "x"
+  }
+}

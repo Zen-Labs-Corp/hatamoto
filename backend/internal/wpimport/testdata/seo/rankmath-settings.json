@@ -1,0 +1,28 @@
+{
+  "modules": ["link-counter", "sitemap", "rich-snippet"],
+  "settings": {
+    "general": {
+      "google_verify": "abc123verifytoken",
+      "bing_verify": "",
+      "strip_category_base": "off",
+      "rss_before_content": "Originally posted on https://example.com"
+    },
+    "titles": {
+      "title_separator": "|",
+      "pt_post_title": "%title% %sep% %sitename%",
+      "pt_post_description": "%excerpt%",
+      "pt_page_title": "%title% %sep% %sitename%",
+      "pt_post_custom_robots": "off",
+      "tax_category_robots": ["noindex"],
+      "homepage_title": "%sitename% %sep% %sitedesc%",
+      "homepage_description": "A site about examples at https://example.com",
+      "twitter_author_names": "exampleuser",
+      "open_graph_image": "https://example.com/wp-content/uploads/og.png",
+      "pt_post_unknown_option": "%unknown_var% %title%"
+    },
+    "sitemap": {
+      "items_per_page": 200,
+      "include_images": "on"
+    }
+  }
+}
