@@ -15,12 +15,17 @@ type Row struct {
 	Phone           string
 	BusinessHours   string
 	PostalAddress   []byte
+	// Previous is the default locale before a language change. When it is set
+	// and differs from Default, FoldRow stores the old default business as that
+	// locale's card (SwapDefault) before it folds.
+	Previous string
 }
 
 // FoldRow runs Fold on a stored row: it parses the columns, applies the legacy
 // values, folds, and splits the result back into the columns. The migration,
 // the language change and the import share it. The bool is false, and the row
-// returned as it was, when no card sits under the default tag.
+// returned as it was, when no card sits under the default tag and no previous
+// default is swapped out.
 func FoldRow(r Row) (Row, bool, error) {
 	if r.Default == "" {
 		return r, false, nil
@@ -33,10 +38,15 @@ func FoldRow(r Row) (Row, bool, error) {
 	if err != nil {
 		return r, false, err
 	}
-	if _, ok := cards[r.Default]; !ok {
+	swap := r.Previous != "" && r.Previous != r.Default
+	if _, ok := cards[r.Default]; !ok && !swap {
 		return r, false, nil
 	}
-	out := Fold(FoldIn{Default: r.Default, Site: FromLegacy(site, r.Phone, r.BusinessHours, r.PostalAddress), Cards: cards})
+	in := FoldIn{Default: r.Default, Site: FromLegacy(site, r.Phone, r.BusinessHours, r.PostalAddress), Cards: cards}
+	if swap {
+		in = SwapDefault(in, r.Previous)
+	}
+	out := Fold(in)
 	stored, phone, hours, addr := SplitLegacy(out.Business)
 	res := Row{Default: r.Default, Phone: phone, BusinessHours: hours, PostalAddress: addr}
 	if res.BusinessProfile, err = json.Marshal(stored); err != nil {

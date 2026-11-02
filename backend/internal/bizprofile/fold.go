@@ -168,7 +168,7 @@ func foldInto(out *FoldOut, s, d Profile, others map[string]*Profile) {
 			for _, c := range others {
 				os = append(os, target{c, reflect.ValueOf(c).Elem().Field(i)})
 			}
-			out.foldInherit(name, jsonKey(typ.Field(i)), fv.Field(i), sv.Field(i), dv.Field(i), os)
+			out.foldInherit(name, jsonKey(typ.Field(i)), fv.Field(i), sv.Field(i), dv.Field(i), os, d.NoInherit)
 		case kindLocaleOnly:
 			if isSet(name, dv.Field(i)) {
 				fv.Field(i).Set(dv.Field(i))
@@ -194,22 +194,31 @@ type target struct {
 }
 
 // foldInherit lays d over f when d overrides s and copies s down into the
-// cards os that left the field empty. AmenityPresets recurses per preset.
-func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []target) {
+// cards os that left the field empty. AmenityPresets recurses per preset. A key
+// in dMarks (the default card's NoInherit, which SwapDefault writes) means the
+// default card leaves the field empty on purpose: the business loses the
+// site-wide value, like any other override.
+func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []target, dMarks []string) {
 	if f.Type() == reflect.TypeFor[AmenityPresets]() {
 		for j := 0; j < f.NumField(); j++ {
 			var sub []target
 			for _, o := range os {
 				sub = append(sub, target{o.card, o.v.Field(j)})
 			}
-			out.foldInherit("", key+"."+jsonKey(f.Type().Field(j)), f.Field(j), s.Field(j), d.Field(j), sub)
+			out.foldInherit("", key+"."+jsonKey(f.Type().Field(j)), f.Field(j), s.Field(j), d.Field(j), sub, dMarks)
 		}
 		return
 	}
-	if !isSet(name, d) || reflect.DeepEqual(d.Interface(), s.Interface()) {
+	if cleared := !isSet(name, d) && slices.Contains(dMarks, key); cleared {
+		if !isSet(name, s) {
+			return
+		}
+		f.SetZero()
+	} else if !isSet(name, d) || reflect.DeepEqual(d.Interface(), s.Interface()) {
 		return
+	} else {
+		f.Set(d)
 	}
-	f.Set(d)
 	out.OrgChanges = append(out.OrgChanges, key)
 	for _, o := range os {
 		switch {

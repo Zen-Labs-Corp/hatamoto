@@ -418,7 +418,7 @@ owner and an editor), then run the commands under "Harness".
   locale's card first (the Organisation, with the office switch), then one card per other
   locale with grey placeholders from the default card. A single-language site shows one card.
   A field marked not inherited reads "Not inherited, empty", with a switch above the card's
-  fields to inherit again. Changing the Language on General folds the new default's card.
+  fields to inherit again. Changing the Language on General folds the new default's card and keeps the old default's details as its card.
 * **API page**: `/admin/settings/api-keys` (owner only) holds the create form and the key
   table; a new API key is shown once. `/admin/settings/api` answers 301 to it.
 * **Export tab**: `/admin/settings/export` (owner only) shows the `hatamoto export` and

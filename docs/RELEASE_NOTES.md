@@ -7,7 +7,7 @@ Every locale, the default one included, now has its own business details, edited
 - **Upgrade.** A migration folds the card stored for the default locale into the default business, and copies the values it overrode into the other cards so those locales print what they printed before. A site whose default locale card differed from the site-wide details may see its Organization change once. Read the upgrade note before you move: [Business details live per locale](UPGRADES.md#business-details-live-per-locale).
 - **Office switch.** The default card has **This locale has an office**. The upgrade turns it on where the old default card had an office, so a default page that printed a local business keeps it.
 - **Not inherited.** A field that the old default card set but the site-wide details left empty is marked "Not inherited, empty" on the other cards, with a switch to inherit again.
-- **Default locale change.** Changing the Language in Settings > General folds the new default locale's card into the default business.
+- **Default locale change.** Changing the Language in Settings > General folds the new default locale's card into the default business and keeps the old default's own details (address, office, name and the rest) as its card.
 - **REST.** `business_profile` is the default locale's business, including `office`. `locale_profiles` holds the other locales only, a write to the default tag answers 422, and a card may carry `no_inherit`.
 - No SDK, hook or plugin manifest change.
 

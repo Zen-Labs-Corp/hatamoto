@@ -64,3 +64,26 @@ func TestFoldRow_BadJSON(t *testing.T) {
 		}
 	}
 }
+
+// A previous default swaps the old business into its card even when the new
+// default has no card, and the column values follow the stripped business.
+func TestFoldRow_PreviousDefault(t *testing.T) {
+	t.Parallel()
+	row := Row{
+		Default: tagOther, Previous: tagDef,
+		BusinessProfile: []byte(`{"office":true}`), LocaleProfiles: []byte(`{}`),
+		Phone: "111", PostalAddress: []byte(`{"street":"1 Site St","city":"Siteville"}`),
+	}
+	out, changed, err := FoldRow(row)
+	if err != nil || !changed {
+		t.Fatalf("FoldRow = %v, %v", changed, err)
+	}
+	cards, err := ParseLocales(out.LocaleProfiles)
+	if err != nil || cards[tagDef].Address.Street != "1 Site St" || cards[tagDef].NoOffice {
+		t.Errorf("LocaleProfiles = %s, %v", out.LocaleProfiles, err)
+	}
+	p, _ := Parse(out.BusinessProfile)
+	if p.Office || strings.Contains(string(out.PostalAddress), "Site St") || out.Phone != "111" {
+		t.Errorf("business = %s, address %s, phone %q", out.BusinessProfile, out.PostalAddress, out.Phone)
+	}
+}
