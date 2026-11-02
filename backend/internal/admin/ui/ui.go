@@ -61,6 +61,7 @@ type Cell struct {
 	Text     string
 	Link     string
 	Badge    *Badge
+	Dot      bool   // quiet status: text with a decorative success dot (published rows)
 	Depth    int    // indent of a tree row's name, in levels
 	Nowrap   bool   // keep the text on one line (dates)
 	Mono     bool   // muted monospace text (a slug or an address)
