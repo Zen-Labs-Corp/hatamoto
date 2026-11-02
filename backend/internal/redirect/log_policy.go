@@ -14,7 +14,8 @@ type Log404Policy struct {
 }
 
 // SetLogPolicy installs the function Log404Async consults before it queues an
-// entry. It must be cheap and must not block (no database read per call).
+// entry. It runs on the request path, so it must be cheap and bounded (a
+// cached or deadlined read, never an open-ended database call).
 // Without a policy every 404 is logged.
 func (s *Service) SetLogPolicy(fn func() Log404Policy) {
 	if fn == nil {
@@ -34,6 +35,11 @@ func (s *Service) skipLog(path string) bool {
 	return p.Disabled || matchIgnore(p.Ignore, path)
 }
 
+// maxMatchPath is the longest path the ignore patterns are matched against.
+// Matching costs len(pattern)*len(path), so longer (attacker-chosen) paths are
+// not matched and are logged as if no pattern applied.
+const maxMatchPath = 2048
+
 // matchIgnore reports whether path, without its query string, matches any
 // pattern.
 func matchIgnore(patterns []string, path string) bool {
@@ -42,6 +48,9 @@ func matchIgnore(patterns []string, path string) bool {
 	}
 	if i := strings.IndexByte(path, '?'); i >= 0 {
 		path = path[:i]
+	}
+	if len(path) > maxMatchPath {
+		return false
 	}
 	for _, p := range patterns {
 		if wildcardMatch(p, path) {

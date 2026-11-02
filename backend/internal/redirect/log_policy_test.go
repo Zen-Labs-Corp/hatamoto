@@ -3,6 +3,7 @@ package redirect
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -93,5 +94,15 @@ func TestMatchIgnore(t *testing.T) {
 	}
 	if matchIgnore(nil, "/a") {
 		t.Error("no patterns must not match")
+	}
+}
+
+// Paths beyond maxMatchPath skip pattern matching and are logged.
+func TestLog404PolicyOverlongPathIsLogged(t *testing.T) {
+	long := "/" + strings.Repeat("a", maxMatchPath) + ".php"
+	short := "/" + strings.Repeat("a", maxMatchPath-10) + ".php"
+	got := logged(func() Log404Policy { return Log404Policy{Ignore: []string{"*.php"}} }, long, short)
+	if len(got) != 1 || got[0] != long {
+		t.Fatalf("got %d paths", len(got))
 	}
 }
