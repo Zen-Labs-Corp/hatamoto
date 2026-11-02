@@ -422,7 +422,7 @@ owner and an editor), then run the commands under "Harness".
   segmented tabs (overview, agents, pages, first crawls, errors, spoofed, robots) keep the
   date range when you switch.
 * **At 390 pixels**: the sidebar is a top bar (brand and footer icons on one row, the primary items with icons over
-  labels below; no counts); the Settings and Theme section lists are a horizontal scroller of links.
+  labels below; no counts) and the page top bar below it shows only a back link to the parent crumb, with no toggle; the Settings and Theme section lists are a horizontal scroller of links.
 * **Row menus**: every table row has a ⋯ menu named "Actions for <row>", opens with Enter or
   Space, closes with Escape, and has the destructive item last behind a separator.
 * **Widths**: every page is `narrow`, `compact`, `wide` or `full` (`data-width`; `compact` is the narrow column kept narrow inside Settings, where other widths are lifted to the wide column); the page and blog

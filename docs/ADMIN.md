@@ -24,9 +24,8 @@ The sidebar has five primary items: **Entities** (`<admin>/entities`), **Theme**
 (`<admin>/plugins`; it never has children) and **Settings** (`<admin>/settings`). Theme and
 Settings are shown when the signed-in role can reach at least one of their tabs. The footer holds an avatar link to `<admin>/profile`
 and two icon buttons, theme (`POST <admin>/theme`) and sign out (`POST <admin>/logout`), each
-a real form with an `aria-label` and a tooltip. Sign-in lands on `<admin>/entities`. Below 640
-pixels the sidebar becomes a top bar and the Settings section list becomes a select with a Go
-button (plain HTML, no script). Every nav and template icon name must exist in the icon map
+a real form with an `aria-label` and a tooltip. Sign-in lands on `<admin>/entities`. A top bar above the page holds one toggle that hides the sidebar (remembered in the browser) and the breadcrumb. Below 640
+pixels the sidebar becomes a top bar, the toggle goes, and the Settings section list becomes a horizontal scroller of links. Every nav and template icon name must exist in the icon map
 (`icons.go`); an unknown name is a render error.
 
 **People** (`<admin>/people`) sits under Entities (the Entities list has a People button, and the
@@ -134,8 +133,7 @@ handler tests run on in-memory fakes; the real services are exercised by
 
 * **Entities**: a secondary sidebar (like Settings and Plugins) lists "All
   entities" and one entry per entity type with its entry count, then, for
-  owners, "Manage entity types"; below 640px it is a select + Go (a GET form with
-  `type`, no JS). `?type=<slug>` shows that type with its plural as the title,
+  owners, "Manage entity types"; below 640px it is a horizontal scroller of links. `?type=<slug>` shows that type with its plural as the title,
   one "New <type>" button and no Type column; an unknown slug shows All. The
   list keeps its filters (`q`, `type`, `status`, `author`,
   `term` with descendants, `from`/`to` updated dates, `sort`, `dir`, `page`) in
@@ -743,8 +741,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   one (`plugins_nav.go`, `partials/pluginsnav.html`): "All plugins", then one entry per installed plugin
   (`<admin>/plugins/{name}/settings`), read from the plugin registry so a new install adds an entry.
   A plugin that is off or uninstalling is muted with an "Off" marker; a failed or blocked one with
-  "Failed". At 640px and below it becomes the labelled "Plugin" select plus Go, a plain GET form to
-  `<admin>/plugins/go?plugin=<name>` (303 to that plugin; an empty value is the list, an unknown name
+  "Failed". At 640px and below it is a horizontal scroller of links. `<admin>/plugins/go?plugin=<name>` (a GET, 303 to that plugin; an empty value is the list, an unknown name
   lands on the role's home), so a plugin named `go` has no bare `<admin>/plugins/go` shortcut; its `/go/settings` still works. An editor sees only the plugins whose UI admits editors, and no "All plugins".
 * **Plugin list.** `<admin>/plugins` (owner) is one line per plugin: name, description, status badge
   (Active, Disabled, Failed, Blocked, Uninstalling) and a "Settings" link. The header has Browse
