@@ -6,11 +6,15 @@
   border: 1px solid var(--border-field); border-radius: var(--radius-sm);
   background: var(--color-paper); color: var(--color-sumi); font-size: var(--text-md);
 }
+/* Inside the list toolbar every control is one 32px row. */
+.hm-listbar .hm-field__control, .hm-listbar .hm-input-affix { height: var(--control-h-sm); border-radius: var(--radius-md); }
+.hm-listbar .hm-input-affix > .hm-field__control { height: 100%; }
 textarea.hm-field__control { height: auto; padding: var(--space-2) var(--space-3); min-height: 88px; resize: vertical; line-height: var(--leading-normal); }
+/* Lucide chevron-down; the stroke hex is --text-muted (--color-hai, tokens.css). */
 select.hm-field__control {
   appearance: none; padding-right: var(--space-8);
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e6e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right var(--space-3) center; background-size: 16px 16px; background-repeat: no-repeat;
 }
 /* Date and time inputs: same box as text; tabular digits, dimmed native picker icon. */
 input.hm-field__control[type="date"], input.hm-field__control[type="datetime-local"], input.hm-field__control[type="time"] { font-variant-numeric: tabular-nums; min-width: 0; }
