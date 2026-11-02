@@ -67,6 +67,10 @@ func TestGroupsWrapInOneSectionEachWhenOptedIn(t *testing.T) {
 	if o, c := strings.Count(html, `<div class="hm-sf-section">`), strings.Count(html, `<div class="hm-sf-cols">`); o != 2 || c != 2 {
 		t.Errorf("sections = %d, columns = %d, want 2 each:\n%s", o, c, html)
 	}
+	// Each section closes its columns and itself before the next opens.
+	if !strings.Contains(html, "</div>\n</div>\n<div class=\"hm-sf-section\">") || !strings.HasSuffix(strings.TrimSpace(html), "</div>\n</div>") {
+		t.Errorf("sections not closed in order:\n%s", html)
+	}
 	if strings.Contains(renderGroups(t, `{"type":"object","properties":{"a":{"type":"string"}}}`), "hm-sf-section") {
 		t.Error("ungrouped schema gets a section wrapper")
 	}
