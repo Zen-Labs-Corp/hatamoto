@@ -135,9 +135,6 @@ const localeAddressProps = `
  "lng":{"type":"string","title":"Longitude"},
  "map_url":{"type":"string","title":"Map address","format":"uri"},`
 
-// locale-only property names, dropped from the site-wide form.
-var localeOnlyProps = []string{"business_type", "no_office", "country_name", "image"}
-
 // site-only property names, dropped from a locale card.
 var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object", "parent_organisation"}
 
@@ -269,15 +266,6 @@ func businessSchemaWith(addressProps string) json.RawMessage {
 	types, _ := json.Marshal(bizprofile.Types)
 	days, _ := json.Marshal(bizprofile.Days)
 	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
-}
-
-// siteSchema is the site-wide form: the locale-only properties are dropped.
-func siteSchema() (json.RawMessage, error) {
-	s, err := schemaform.WithoutProperties(businessSchemaWith(""), localeOnlyProps...)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
 }
 
 // defaultUI is businessUI plus the help the default card needs: the fields a

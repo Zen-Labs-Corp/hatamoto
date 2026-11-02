@@ -13,78 +13,50 @@ import (
 	"hatamoto.dev/core/internal/bizprofile"
 )
 
-func TestBusinessSchemaParsesAndSiteVariantDropsLocaleOnlyFields(t *testing.T) {
+func TestBusinessSchemasParseAndDifferByCard(t *testing.T) {
 	if _, err := schemaform.ParseSchema(businessSchema()); err != nil {
 		t.Fatal(err)
 	}
-	site, err := siteSchema()
-	if err != nil {
+	if _, err := schemaform.ParseSchema(defaultSchema()); err != nil {
 		t.Fatal(err)
 	}
-	root, err := schemaform.ParseSchema(site)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range root.Props {
-		for _, gone := range localeOnlyProps {
-			if p.Name == gone {
-				t.Errorf("site-wide schema still has %q", p.Name)
-			}
-		}
-	}
-	out, err := schemaform.Render(site, nil, schemaform.Options{Prefix: "biz."})
+	out, err := schemaform.Render(defaultSchema(), nil, schemaform.Options{Prefix: "biz."})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(out)
 	for _, want := range []string{"Legal name", "Organisation", "Address", "Reach", "Opening hours", "Profiles &amp; rating", "Commerce"} {
 		if !strings.Contains(s, want) {
-			t.Errorf("site form lacks %q", want)
+			t.Errorf("default form lacks %q", want)
 		}
 	}
-	for _, gone := range []string{"Latitude", "Longitude", "Map address", "Country name", "Image"} {
-		if strings.Contains(s, gone) {
-			t.Errorf("site form has the locale-only %q", gone)
-		}
-	}
-	for _, kept := range []string{"PO box", "Business profile address", "Alternate name", "Slogan", "Founding date", "Employees from", "Employees to", "VAT ID", "Print the logo with its width and height", "Count is", "Best rating", "Worst rating"} {
+	for _, kept := range []string{"PO box", "Business profile address", "Alternate name", "Slogan", "Founding date", "Employees from", "Employees to", "VAT ID", "Print the logo with its width and height", "Count is", "Best rating", "Worst rating",
+		"Latitude", "Longitude", "Map address", "Country name", "Business type", "This locale has an office"} {
 		if !strings.Contains(s, kept) {
-			t.Errorf("site form lacks %q", kept)
+			t.Errorf("default form lacks %q", kept)
 		}
+	}
+	if strings.Contains(s, "No office") {
+		t.Error("default form has the no-office switch")
 	}
 	card, err := schemaform.Render(businessSchema(), nil, schemaform.Options{Prefix: "biz."})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Latitude", "Longitude", "Map address", "Country name", "VAT ID", "Description", `id="sf-biz-image"`} {
+	for _, want := range []string{"Latitude", "Longitude", "Map address", "Country name", "VAT ID", "Description", `id="sf-biz-image"`, "No office in this locale", "Business type", `<option value="Restaurant">`} {
 		if !strings.Contains(string(card), want) {
 			t.Errorf("locale card form lacks %q", want)
 		}
 	}
-	for _, gone := range []string{"Alternate name", "Slogan", "Founding date", "Employees from", "Print the logo with its width and height"} {
+	for _, gone := range []string{"Alternate name", "Slogan", "Founding date", "Employees from", "Print the logo with its width and height", "This locale has an office"} {
 		if strings.Contains(string(card), gone) {
-			t.Errorf("locale card form has the site-only %q", gone)
-		}
-	}
-	if strings.Contains(s, "Business type") || strings.Contains(s, "No office") {
-		t.Error("site form shows a locale-only field")
-	}
-	full, err := schemaform.Render(businessSchema(), nil, schemaform.Options{Prefix: "loc_x."})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"Legal name", "Business type", "No office in this locale", `<option value="Restaurant">`} {
-		if !strings.Contains(string(full), want) {
-			t.Errorf("locale form lacks %q", want)
+			t.Errorf("locale card form has the default-only %q", gone)
 		}
 	}
 }
 
 func TestBusinessFormRoundTripsNewFields(t *testing.T) {
-	schema, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	schema := defaultSchema()
 	prev := bizprofile.Profile{Name: "Example Co", EmployeesMin: 10, EmployeesMax: 50, FoundingDate: "2009", Slogan: "Hello", LogoObject: true,
 		ContactPoints: []bizprofile.ContactPoint{{Type: "sales", Name: "Sales", AreaServed: "Europe", AvailableLanguage: "English"}},
 		Rating:        bizprofile.Rating{Value: "4.8", Best: "5", Worst: "1", Count: "120", CountType: "reviews"}}
@@ -185,10 +157,7 @@ func TestBusinessValidationMessagesLandOnFieldIDs(t *testing.T) {
 
 // Every path Validate can flag must be a field of the form it is reported on.
 func TestBusinessValidationPathsOfNewFieldsLandOnFieldIDs(t *testing.T) {
-	site, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	site := defaultSchema()
 	p := bizprofile.Profile{
 		Description: strings.Repeat("x", 5000), AlternateName: strings.Repeat("x", 5000), Slogan: strings.Repeat("x", 5000),
 		FoundingDate: "soon", EmployeesMin: 9, EmployeesMax: 2, VATID: strings.Repeat("x", 5000),
@@ -244,10 +213,7 @@ func profileMap(t *testing.T, p bizprofile.Profile) map[string]any {
 // A fully filled form posts into a Profile, and the Profile renders back with
 // every new field present as a form id.
 func TestBusinessFormRoundTripsExtendedFields(t *testing.T) {
-	schema, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	schema := defaultSchema()
 	yes, no := true, false
 	want := bizprofile.Profile{
 		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "5493001KJTIIGC8Y1R12", Gln: "1234567890123",
@@ -372,10 +338,7 @@ func TestBusinessExtendedValidationPathsLandOnFieldIDs(t *testing.T) {
 	if len(msgs) < 10 {
 		t.Fatalf("only %d errors: %v", len(msgs), msgs)
 	}
-	site, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	site := defaultSchema()
 	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
 		out, err := schemaform.Render(schema, profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
 		if err != nil {
@@ -390,10 +353,7 @@ func TestBusinessExtendedValidationPathsLandOnFieldIDs(t *testing.T) {
 }
 
 func TestBusinessSchemasLabelTheLegalName(t *testing.T) {
-	site, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	site := defaultSchema()
 	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
 		out, err := schemaform.Render(schema, nil, schemaform.Options{Prefix: "biz."})
 		if err != nil {
@@ -438,10 +398,7 @@ func browserPost(rendered string) url.Values {
 
 // A tri-state field set to "no" can be put back to "Not stated".
 func TestBusinessFormTriStateReturnsToUnset(t *testing.T) {
-	schema, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	schema := defaultSchema()
 	no := false
 	prev := bizprofile.Profile{AcceptsReservations: &no, PublicAccess: &no, AmenityPresets: bizprofile.AmenityPresets{Wifi: &no}}
 	opt := schemaform.Options{Prefix: "biz.", UI: businessUI}
@@ -493,7 +450,7 @@ func TestParentOrganisationIsSiteOnly(t *testing.T) {
 	if strings.Contains(string(card), "Parent organisation") {
 		t.Error("the locale card offers Parent organisation")
 	}
-	site, _ := siteSchema()
+	site := defaultSchema()
 	out, err := schemaform.Render(site, nil, schemaform.Options{Prefix: "biz."})
 	if err != nil {
 		t.Fatal(err)
@@ -505,10 +462,7 @@ func TestParentOrganisationIsSiteOnly(t *testing.T) {
 
 // Awards and topics are one per line: a comma stays inside the title.
 func TestAwardsAndTopicsKeepCommas(t *testing.T) {
-	schema, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	schema := defaultSchema()
 	form := url.Values{
 		"_present.biz.awards": {"1"}, "biz.awards": {"Best Restaurant, Sydney 2030\r\nSecond Award"},
 		"_present.biz.knows_about": {"1"}, "biz.knows_about": {"Pipes, drains\nBoilers"},
@@ -530,10 +484,7 @@ func TestAwardsAndTopicsKeepCommas(t *testing.T) {
 // An "Other amenities" row that was added and never touched is dropped on
 // save, like a blank row of any other repeater.
 func TestUntouchedAddedAmenityRowIsDropped(t *testing.T) {
-	schema, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	schema := defaultSchema()
 	opt := schemaform.Options{Prefix: "biz.", UI: businessUI}
 	vals, _ := schemaform.Decode(schema, url.Values{"_present.biz.amenities": {"1"}, "_add.biz.amenities": {"1"}}, nil, opt)
 	if items, _ := vals["amenities"].([]any); len(items) != 1 {
@@ -597,10 +548,7 @@ func gapForm(prefix, provider string) url.Values {
 }
 
 func TestBusinessFormRoundTripsGapFields(t *testing.T) {
-	site, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	site := defaultSchema()
 	for name, schema := range map[string]json.RawMessage{"site": site, "card": businessSchema()} {
 		for provider, want := range map[string]bool{"yes": true, "no": false} {
 			vals, errs := schemaform.Decode(schema, gapForm("biz.", provider), nil, schemaform.Options{Prefix: "biz."})
@@ -655,10 +603,7 @@ func TestBusinessGapUntouchedServiceProviderStaysUnset(t *testing.T) {
 }
 
 func TestBusinessGapValidationPathsLandOnFieldIDs(t *testing.T) {
-	site, err := siteSchema()
-	if err != nil {
-		t.Fatal(err)
-	}
+	site := defaultSchema()
 	p := bizprofile.Profile{
 		Services:             []bizprofile.Service{{Name: "SEO", PriceMin: "abc"}},
 		AdditionalProperties: []bizprofile.AdditionalProperty{{Name: "Score", Value: "1"}, {Name: "Rank"}},

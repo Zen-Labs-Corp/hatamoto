@@ -281,7 +281,7 @@ POST /admin/settings/email/test -> admin.(*Admin).handleEmailSettingsTest-fm
 POST /admin/settings/forms -> admin.(*Admin).handleFormCreate-fm
 POST /admin/settings/forms/{id}/delete -> admin.(*Admin).handleFormDelete-fm
 POST /admin/settings/forms/{id}/edit -> admin.(*Admin).handleFormSave-fm
-POST /admin/settings/general/contact -> admin.(*Admin).handleContactSave-fm
+POST /admin/settings/general/email -> admin.(*Admin).handleNotifySave-fm
 POST /admin/settings/general/homepage -> admin.(*Admin).handleHomepageSave-fm
 POST /admin/settings/general/identity -> admin.(*Admin).handleSiteSave-fm
 POST /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConvertApply-fm

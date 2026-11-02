@@ -71,10 +71,10 @@ type adminArea struct {
 }
 
 var settingsRegistry = []settingsSectionDef{
-	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity, homepage and business details.", Group: "Site", Tabs: []settingsTabDef{
+	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity and homepage.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
 	}},
-	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses and search engines.", Group: "Site", Tabs: []settingsTabDef{
+	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses, search engines and business details.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},
 		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Roles: ownerOnly},
 		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Roles: ownerOnly},
