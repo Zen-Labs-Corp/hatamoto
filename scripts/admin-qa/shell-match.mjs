@@ -99,7 +99,7 @@ try {
   check((rail.hidden ?? ["?"]).length === 0, `rail controls not reachable: ${rail.hidden}`);
   await p.click("[data-hm-sidebar-toggle]");
 
-  // Plugins: filter row inside the card, "/" focuses the search, counts in the nav. The seeded
+  // Plugins: filter row at the top of the card, above the heading, "/" focuses the search, counts in the nav. The seeded
   // install has no plugin, and the page then shows an empty state with no filter row: that is
   // reported as skipped (see the manual checks above), not passed.
   await visit(p, { path: "/admin/plugins" });
@@ -107,7 +107,8 @@ try {
   if (await p.$("#installed")) {
     const pl = await probe(p, "plugins", () => {
       const need = (s) => document.querySelector(s) ?? (() => { throw new Error("missing " + s); })();
-      need("#installed .hm-card__body > .hm-pluginlist__filters");
+      const f = need("#installed > .hm-pluginlist__filters"), h = need("#installed .hm-card__head");
+      if (!(f.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) throw new Error("filter row is not above the Installed plugins heading");
       const link = [...document.querySelectorAll(".hm-nav-link")].find((a) => a.textContent.includes("Plugins"));
       return { badge: link?.querySelector(".hm-nav-link__badge")?.textContent.trim() ?? "", keys: need("#plugins-q").getAttribute("aria-keyshortcuts"), button: !!document.querySelector(".hm-pluginlist__search button") };
     });

@@ -106,10 +106,10 @@ func TestGrowthPageGoldens(t *testing.T) {
 		body := normalizePage(rec.Body.String())
 		compareGolden(t, "pages/growth-"+p.name+".html", body)
 		if p.name == "plugins" {
-			// The filter row is the first thing in the card body, not a strip above the card.
+			// The filter row is the card's top strip, above the heading.
 			card := body[strings.Index(body, `<section class="hm-card" id="installed"`):]
-			if !strings.Contains(card[:strings.Index(card, "<ul")], `class="hm-pluginlist__filters"`) || !strings.Contains(body, `aria-keyshortcuts="/"`) {
-				t.Error("plugins: the filter row must sit inside the Installed plugins card and carry aria-keyshortcuts")
+			if strings.Index(card, `class="hm-pluginlist__filters"`) < 0 || strings.Index(card, `class="hm-pluginlist__filters"`) > strings.Index(card, `id="installed-title"`) || !strings.Contains(body, `aria-keyshortcuts="/"`) {
+				t.Error("plugins: the filter row must sit at the top of the Installed plugins card, above its heading, and carry aria-keyshortcuts")
 			}
 		}
 		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
