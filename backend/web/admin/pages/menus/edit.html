@@ -9,7 +9,7 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save</button>
 {{template "hm/card-start" dict "ID" "menu-details" "Title" "Details"}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "100" "autocomplete" "off")}}
-{{template "hm/field" dict "ID" "location" "Name" "location" "Label" "Location" "Control" "select" "Options" .Locations "Help" "Where your theme shows this menu."}}
+{{template "hm/field" dict "ID" "location" "Name" "location" "Label" "Location" "Control" "select" "Options" .Locations "Error" (index .Errors "location") "Help" "Where your theme shows this menu. Themes can add their own locations."}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "menu-items" "Title" "Items" "Description" "Reorder with the buttons or by dragging. Indent an item to make it a sub-item of the one above. Nothing changes on your site until you save the menu."}}
 {{if index .Errors "items"}}<p class="hm-field__error">{{index .Errors "items"}}</p>{{end}}

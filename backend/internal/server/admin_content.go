@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
 	"hatamoto.dev/core/internal/render"
@@ -73,6 +75,12 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		}
 		return s.renderEngine.MenuDecl()
 	}
+	d.MenuLocations = func() (string, []menu.DeclLocation) {
+		if s.renderEngine == nil {
+			return "", nil
+		}
+		return s.activeThemeTitle(), s.renderEngine.MenuLocations()
+	}
 	d.MenuPreview = s.renderMenuPreview
 	d.Preview = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.renderEngine == nil {
@@ -130,4 +138,18 @@ type termGrouper struct {
 
 func (g termGrouper) CreateTermCopy(ctx context.Context, srcID uuid.UUID, locale, name, slug string) (*taxonomy.Term, error) {
 	return g.svc.CreateTermCopy(ctx, srcID, locale, name, slug)
+}
+
+// activeThemeTitle is the active theme's name for people: "kumo-dark" is
+// "Kumo Dark".
+func (s *Server) activeThemeTitle() string {
+	name := "default"
+	if s.packages != nil {
+		name = s.packages.ActiveTheme()
+	}
+	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ").Replace(name))
+	for i, w := range words {
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(words, " ")
 }

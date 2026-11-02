@@ -119,13 +119,69 @@ func (a *Admin) mountMenus(authed *httpx.Group) {
 	authed.HandleFunc("GET /pick/terms", a.handlePickTerms)
 }
 
-func locationOptions(selected string) []ui.Option {
-	return []ui.Option{
-		{Value: "", Label: "No location", Selected: selected == ""},
-		{Value: menu.LocationHeader, Label: "Header", Selected: selected == menu.LocationHeader},
-		{Value: menu.LocationFooter, Label: "Footer", Selected: selected == menu.LocationFooter},
-		{Value: menu.LocationSidebar, Label: "Sidebar", Selected: selected == menu.LocationSidebar},
+const (
+	groupSite    = "Site"
+	groupUnused  = "Not used by the active theme"
+	themeGroupFB = "Theme"
+)
+
+// themeLocations is the active theme's title and the locations it declares.
+func (a *Admin) themeLocations() (string, []menu.DeclLocation) {
+	if a.deps.Content.MenuLocations == nil {
+		return "", nil
 	}
+	return a.deps.Content.MenuLocations()
+}
+
+// locationOptions is the Location picker: "No location", the core locations
+// under Site (a theme that declares header only supplies the list title), the
+// theme's own locations under its title, and the selected location under
+// "Not used by the active theme" when it is neither.
+func (a *Admin) locationOptions(selected string) []ui.Option {
+	title, decls := a.themeLocations()
+	if title == "" {
+		title = themeGroupFB
+	}
+	out := []ui.Option{
+		{Value: "", Label: "No location", Selected: selected == ""},
+		{Value: menu.LocationHeader, Label: "Header", Selected: selected == menu.LocationHeader, Group: groupSite},
+		{Value: menu.LocationFooter, Label: "Footer", Selected: selected == menu.LocationFooter, Group: groupSite},
+		{Value: menu.LocationSidebar, Label: "Sidebar", Selected: selected == menu.LocationSidebar, Group: groupSite},
+	}
+	for _, d := range decls {
+		if !menu.IsCoreLocation(d.Name) {
+			out = append(out, ui.Option{Value: d.Name, Label: d.Title, Selected: selected == d.Name, Group: title})
+		}
+	}
+	if selected != "" && !menu.IsCoreLocation(selected) && !declares(decls, selected) {
+		out = append(out, ui.Option{Value: selected, Label: selected, Selected: true, Group: groupUnused})
+	}
+	return out
+}
+
+func existingLocation(m *menu.Menu) string {
+	if m.Location == nil {
+		return ""
+	}
+	return *m.Location
+}
+
+func declares(decls []menu.DeclLocation, loc string) bool {
+	return slices.ContainsFunc(decls, func(d menu.DeclLocation) bool { return d.Name == loc })
+}
+
+// locationAllowed reports whether a menu may be saved at loc: none, a core
+// location, one the theme declares, or the one it already holds (a location the
+// theme stopped declaring stays put until the owner moves it).
+func (a *Admin) locationAllowed(loc, current string) bool {
+	if !menu.ValidLocation(loc) {
+		return false
+	}
+	if loc == "" || menu.IsCoreLocation(loc) || loc == current {
+		return true
+	}
+	_, decls := a.themeLocations()
+	return declares(decls, loc)
 }
 
 // typeOptions lists the types, "No link" last, with selected marked.
@@ -138,9 +194,20 @@ func typeOptions(selected string) []ui.Option {
 	return append(out, ui.Option{Value: menu.LinkTypeNone, Label: "No link", Selected: selected == menu.LinkTypeNone})
 }
 
-func locationLabel(loc *string) string {
+// locationLabel is the list badge: the declared title, else the capitalised
+// key, and for a non-core location the theme does not declare "<key> - not used
+// by theme".
+func locationLabel(loc *string, decls []menu.DeclLocation) string {
 	if loc == nil || *loc == "" {
 		return "None"
+	}
+	for _, d := range decls {
+		if d.Name == *loc {
+			return d.Title
+		}
+	}
+	if !menu.IsCoreLocation(*loc) {
+		return *loc + " - not used by theme"
 	}
 	return strings.ToUpper((*loc)[:1]) + (*loc)[1:]
 }
@@ -162,6 +229,7 @@ func (a *Admin) handleMenus(w http.ResponseWriter, r *http.Request) {
 		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "location", Label: "Location"}, {Key: "slug", Label: "Identifier"}},
 		Empty:   ui.Empty{Icon: "menu", Title: "No menus yet", Body: "Create a menu, then choose where it appears."},
 	}
+	_, decls := a.themeLocations()
 	for _, m := range menus {
 		id := m.ID.String()
 		kind := "neutral"
@@ -170,7 +238,7 @@ func (a *Admin) handleMenus(w http.ResponseWriter, r *http.Request) {
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: m.Name, Cells: []ui.Cell{
 			{Text: m.Name, Link: a.adminPath + "/theme/menus/" + id},
-			{Badge: &ui.Badge{Label: locationLabel(m.Location), Kind: kind}},
+			{Badge: &ui.Badge{Label: locationLabel(m.Location, decls), Kind: kind}},
 			{Text: m.Slug, Mono: true},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/theme/menus/" + id},
@@ -185,7 +253,7 @@ func (a *Admin) handleMenus(w http.ResponseWriter, r *http.Request) {
 		Locations []ui.Option
 		Errors    map[string]string
 		Name      string
-	}{Table: t, Locations: locationOptions("")}
+	}{Table: t, Locations: a.locationOptions("")}
 	a.Render(w, r, http.StatusOK, "menus/list", v)
 }
 
@@ -202,7 +270,7 @@ func (a *Admin) handleMenuCreate(w http.ResponseWriter, r *http.Request) {
 	case utf8.RuneCountInString(name) > maxNameLen:
 		f.Errors["name"] = "Use up to 100 characters."
 	}
-	if !menu.ValidLocation(loc) {
+	if !a.locationAllowed(loc, "") {
 		f.Errors["location"] = "Choose one of the listed locations."
 	}
 	if len(f.Errors) > 0 {
@@ -240,7 +308,7 @@ func (a *Admin) handleMenuNew(w http.ResponseWriter, r *http.Request) {
 
 // renderMenuNew shows the no-JS create page; with errors it is a 422 that keeps what was typed.
 func (a *Admin) renderMenuNew(w http.ResponseWriter, r *http.Request, f menuForm) {
-	f.Locations = locationOptions(f.Location)
+	f.Locations = a.locationOptions(f.Location)
 	status := http.StatusOK
 	if len(f.Errors) > 0 {
 		status = http.StatusUnprocessableEntity
@@ -386,7 +454,7 @@ func pickerItems(list []render.MenuPreset) []map[string]any {
 }
 
 func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status int, f menuForm) {
-	f.Locations = locationOptions(f.Location)
+	f.Locations = a.locationOptions(f.Location)
 	f.AddTypes = typeOptions(f.AddType)
 	f.MaxDepth, f.MaxItems = maxMenuDepth, maxMenuItems
 	if a.deps.Content.MenuTheme != nil {
@@ -414,6 +482,9 @@ func (a *Admin) renderMenuForm(w http.ResponseWriter, r *http.Request, status in
 	f.Summary = nil
 	if m := f.Errors["name"]; m != "" {
 		f.Summary = append(f.Summary, ui.FieldError{ID: "name", Label: "Name", Message: m})
+	}
+	if m := f.Errors["location"]; m != "" {
+		f.Summary = append(f.Summary, ui.FieldError{ID: "location", Label: "Location", Message: m})
 	}
 	for _, it := range f.Items {
 		if len(it.Err) == 0 {
@@ -682,8 +753,8 @@ func (a *Admin) handleMenuSave(w http.ResponseWriter, r *http.Request) {
 	} else if utf8.RuneCountInString(f.Name) > maxNameLen {
 		f.Errors["name"] = "Use at most 100 characters"
 	}
-	if !menu.ValidLocation(f.Location) {
-		f.Location = ""
+	if !a.locationAllowed(f.Location, existingLocation(m)) {
+		f.Errors["location"] = "Choose one of the listed locations."
 	}
 	if len(f.Items) > maxMenuItems {
 		f.Errors["name"] = "A menu holds at most 200 items"
