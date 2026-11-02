@@ -465,7 +465,7 @@ func TestWebhookDeleteAndConfirmPagesWorkWithoutJS(t *testing.T) {
 	g, f := newWebhookRig(t)
 	del := g.do("GET", "/admin/settings/webhooks/"+crmID+"/delete", "owner-token", nil, nil)
 	body := del.Body.String()
-	if del.Code != 200 || !strings.Contains(body, "Delete Old CRM?") || !strings.Contains(body, `action="/admin/settings/webhooks/`+crmID+`/delete"`) || !strings.Contains(body, "delivery log") {
+	if del.Code != 200 || !strings.Contains(body, "Delete webhook &#34;Old CRM&#34;?") || !strings.Contains(body, `action="/admin/settings/webhooks/`+crmID+`/delete"`) || !strings.Contains(body, "delivery log") {
 		t.Fatalf("delete confirm: %d", del.Code)
 	}
 	compareGolden(t, "pages/settings-webhooks-delete-confirm.html", normalizePage(body))

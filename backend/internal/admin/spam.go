@@ -40,7 +40,7 @@ type spamData struct {
 	MaxLinks        string
 	BlockedWords    string
 	Scripts         []ui.Option
-	ActionOptions   []ui.Option
+	ActionCards     []ui.RadioCardItem
 	// RequiredForms counts forms that require the check; shown with the
 	// warning when no provider keys are usable.
 	RequiredForms int
@@ -233,9 +233,9 @@ func (a *Admin) renderSpamPage(w http.ResponseWriter, r *http.Request, status in
 	} {
 		d.Scripts = append(d.Scripts, ui.Option{Value: s.v, Label: s.label, Selected: contains(shown.BlockedScripts, s.v)})
 	}
-	d.ActionOptions = []ui.Option{
-		{Value: spam.ActionSpam, Label: "Save as Spam, no notification", Selected: shown.Action != spam.ActionRefuse},
-		{Value: spam.ActionRefuse, Label: "Refuse submission", Selected: shown.Action == spam.ActionRefuse},
+	d.ActionCards = []ui.RadioCardItem{
+		{Value: spam.ActionSpam, Title: "Save as Spam, no notification", Description: "Kept under Submissions, Spam, for you to review", Checked: shown.Action != spam.ActionRefuse},
+		{Value: spam.ActionRefuse, Title: "Refuse submission", Description: "The visitor sees an error and nothing is stored", Checked: shown.Action == spam.ActionRefuse},
 	}
 	for _, e := range errs {
 		d.Errs[e.ID] = e.Message

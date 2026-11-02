@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/content{{end}}
-{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions "Overflow" .Menu}}
 {{template "hm/tabs" dict "Label" "Internal linking sections" "Items" .Tabs}}
 {{template "hm/table" .Table}}
 <details class="hm-card hm-disclosure" id="clean-up"><summary>Clean up rules</summary>
@@ -8,6 +8,5 @@
 <form method="post" action="{{adminPath}}/settings/linking/rules/delete-source" class="hm-stack">{{template "hm/csrf" $}}
 <div class="hm-field"><label class="hm-field__label" for="del-source">Delete every rule from a source</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="del-source" name="source">{{range .Sources}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div></div>
 {{template "hm/foot"}}{{template "hm/button" dict "Label" "Delete these rules" "Type" "submit" "Variant" "danger"}}{{template "hm/foot-end"}}</form>
-<p>{{template "hm/button" dict "Label" "Delete all rules" "Href" (adminPath "settings" "linking" "rules" "delete-all") "Variant" "danger"}}</p>
 </div></details>
 {{end}}{{end}}

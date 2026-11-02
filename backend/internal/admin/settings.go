@@ -211,7 +211,7 @@ func siteBusinessHTML(vals map[string]any, errs schemaform.Errors, open string) 
 	if err != nil {
 		return "", err
 	}
-	return schemaform.Render(schema, vals, schemaform.Options{Prefix: bizPrefix, UI: businessUI, Errors: errs, OpenPath: open})
+	return schemaform.Render(schema, vals, schemaform.Options{Sections: true, AddIcon: plusIcon(), Prefix: bizPrefix, UI: businessUI, Errors: errs, OpenPath: open})
 }
 
 func (a *Admin) handleContactSave(w http.ResponseWriter, r *http.Request) {

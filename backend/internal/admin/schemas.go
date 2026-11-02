@@ -68,9 +68,9 @@ func (a *Admin) handleSchemas(w http.ResponseWriter, r *http.Request) {
 		if st, err := s.URLSettings(); err == nil && st.URLPattern != "" {
 			pattern = st.URLPattern
 		}
-		row := ui.Row{ID: id, Label: s.Name, Cells: []ui.Cell{name, {Text: s.Slug}, {Text: strconv.Itoa(len(fieldRows(s.Schema)))}, {Text: strconv.Itoa(count)}, {Text: pattern}}}
+		row := ui.Row{ID: id, Label: s.Name, Cells: []ui.Cell{name, {Text: s.Slug, Mono: true}, {Text: strconv.Itoa(len(fieldRows(s.Schema)))}, {Text: strconv.Itoa(count)}, {Text: pattern, Mono: pattern != "Default"}}}
 		if s.IsBuiltin {
-			row.Cells[1] = ui.Cell{Text: s.Slug + " (built in)"}
+			row.Cells[1] = ui.Cell{Text: s.Slug, Mono: true, Tag: &ui.Badge{Label: "Built in", Kind: "neutral"}}
 			row.Actions = []ui.Action{{Label: "View", Href: a.adminPath + "/settings/types/" + id}}
 		} else {
 			row.Actions = []ui.Action{{Label: "Edit", Href: a.adminPath + "/settings/types/" + id}, {Label: "Delete", Href: a.adminPath + "/settings/types/" + id + "/delete", Post: a.adminPath + "/settings/types/" + id + "/delete", Danger: true,
@@ -784,6 +784,11 @@ func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status 
 		title = "New entity type"
 	} else if title == "" {
 		title = "Edit entity type"
+	}
+	if !f.New && !f.Builtin {
+		del := a.adminPath + "/settings/types/" + f.ID + "/delete"
+		f.Actions = []ui.Button{{Label: "Delete", Variant: "danger-text", Href: del, Attrs: map[string]string{
+			"data-hm-confirm": "This entity type will be deleted. This only works while no entities use it.", "data-hm-confirm-label": "Delete entity type", "data-hm-post": del, "data-hm-danger": ""}}}
 	}
 	v := a.NewView(w, r, title)
 	v.Data = f

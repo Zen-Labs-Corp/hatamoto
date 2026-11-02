@@ -9,10 +9,14 @@
 {{template "hm/formerrors" dict "Errors" .Ident.Summary}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Site name" "Value" .Ident.Site.Name "Required" true "Error" (index .Ident.SiteErrs "name")}}
 {{template "hm/field" dict "ID" "tagline" "Name" "tagline" "Label" "Tagline" "Value" .Ident.Tagline "Error" (index .Ident.SiteErrs "tagline")}}
+{{template "hm/pair-start"}}
 {{template "hm/field" dict "ID" "url" "Name" "url" "Label" "Site address" "Type" "url" "Value" .Ident.Site.URL "Help" "The public address, like https://example.com. Used in links and emails." "Error" (index .Ident.SiteErrs "url")}}
-{{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com." "Error" (index .Ident.SiteErrs "domain")}}
+{{template "hm/field" dict "ID" "domain" "Name" "domain" "Label" "Custom domain" "Value" .Ident.Domain "Help" "Optional, like www.example.com" "Error" (index .Ident.SiteErrs "domain")}}
+{{template "hm/pair-end"}}
+{{template "hm/pair-start"}}
 {{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Ident.Languages "Error" (index .Ident.SiteErrs "language")}}
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Ident.Timezones "Error" (index .Ident.SiteErrs "timezone")}}
+{{template "hm/pair-end"}}
 {{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png." "Error" (index .Ident.SiteErrs "logo")}}
 {{template "hm/card-foot"}}
 {{template "hm/button" dict "Label" "Save identity" "Variant" "primary" "Type" "submit"}}

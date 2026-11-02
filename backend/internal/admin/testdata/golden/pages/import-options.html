@@ -159,13 +159,11 @@
 <section class="hm-card" id="opt-urls" aria-labelledby="opt-urls-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="opt-urls-title">URLs</h2></div>
 <div class="hm-card__body">
-<div class="hm-field">
-<fieldset id="patterns" class="hm-field__group" aria-describedby="patterns-help"><legend class="hm-field__label">URL structure</legend>
-<label class="hm-field__check" for="patterns-0"><input class="hm-field__box" type="radio" id="patterns-0" name="patterns" value="wordpress" checked><span>Use the WordPress URL structure: most old addresses keep working as they are</span></label>
-<label class="hm-field__check" for="patterns-1"><input class="hm-field__box" type="radio" id="patterns-1" name="patterns" value="keep"><span>Keep this site&#39;s URL patterns: every moved address gets a 301 redirect</span></label>
+<fieldset class="hm-radiocards hm-radiocards--2"><legend class="hm-field__label">URL structure</legend>
+<label class="hm-radiocard" for="patterns-0"><input class="hm-radiocard__input" type="radio" id="patterns-0" name="patterns" value="wordpress" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Use the WordPress URL structure</span><span class="hm-muted">Most old addresses keep working as they are.</span></span></label>
+<label class="hm-radiocard" for="patterns-1"><input class="hm-radiocard__input" type="radio" id="patterns-1" name="patterns" value="keep"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Keep this site&#39;s URL patterns</span><span class="hm-muted">Every moved address gets a 301 redirect.</span></span></label>
 </fieldset>
-<p class="hm-field__help" id="patterns-help">WordPress permalinks become the pattern /{year}/{month}/{slug}.</p>
-</div>
+<p class="hm-field__help">WordPress permalinks become the pattern /{year}/{month}/{slug}.</p>
 </div></section>
 <section class="hm-card" id="opt-reimport" aria-labelledby="opt-reimport-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="opt-reimport-title">Re-import</h2></div>

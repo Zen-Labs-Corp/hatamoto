@@ -24,8 +24,8 @@ const PASSWORD = process.env.QA_PASSWORD || "qa-password-123";
 const NEWCOMER_EMAIL = process.env.QA_NEWCOMER_EMAIL || "newcomer@qa.test";
 
 // Screens that may carry the sticky flat footer (.hm-savebar): entity edit,
-// entity model edit, form editor, menu editor (approved, UI-02; plugin settings is not seedable, see urls.mjs).
-const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit", "theme-menus-edit"]);
+// entity model edit, form editor, menu editor, SEO Titles & meta (approved, UI-02; plugin settings is not seedable, see urls.mjs).
+const STICKY_SCREENS = new Set(["entity-details-post", "entity-edit-post", "entity-edit-page", "settings-types-new", "settings-types-edit", "settings-forms-new", "settings-forms-edit", "theme-menus-edit", "settings-seo-titles"]);
 
 // Runs in the page. Returns [rule, selector, message, value] tuples.
 function check({ sticky, list, spec }) {
@@ -35,7 +35,7 @@ function check({ sticky, list, spec }) {
   const SHADOW_OK = ".hm-ed__bar, .hm-statcard";
   const BTN_OK = ".hm-filter-chip, .hm-bubble, .hm-ed__bar";
   // Multi-pick lists and consent gates stay checkboxes (docs/ADMIN_UI_RULES.md rule 4).
-  const MULTI = 'table, .hm-mediatile, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
+  const MULTI = 'table, .hm-mediatile, .hm-field__chip, [data-multipick], .hm-fieldrow__clear, [name="scopes"], [name="events"], [name="understand"], [name^="perm"], [name="types"], [name="terms"], [name="scripts"], [name="tier"], [name="cat"]';
   const visible = (el) => {
     if (!el.getClientRects().length) return false;
     const cs = getComputedStyle(el);

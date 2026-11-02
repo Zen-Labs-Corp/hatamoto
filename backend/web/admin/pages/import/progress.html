@@ -5,10 +5,10 @@
 <div id="import-progress" class="hm-import__progress" hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="#import-steps" hx-select="#import-steps" hx-swap="innerHTML" hx-select-oob="#import-log-text:innerHTML" hx-indicator="#import-busy">
 {{template "hm/indicator" dict "ID" "import-busy" "Text" ""}}
 <div id="import-steps" role="status">
-{{if .Scanning}}{{template "hm/callout" (dict "Kind" "info" "Title" .Phase "Body" "Reading the old site. A large site can take several minutes.")}}
+{{if .Scanning}}{{template "hm/callout" (dict "Kind" "info" "Title" "Reading the source" "Body" (printf "Now: %s. A large site can take several minutes." .Phase))}}
 {{else}}{{template "hm/progress" .Progress}}{{template "hm/tracker" .Tracker}}{{end}}
 </div>
-<details class="hm-import__log"><summary>Activity</summary><pre class="hm-code" tabindex="0" id="import-log-text">{{range .Log}}{{.}}
+<details class="hm-import__log" open><summary>Activity</summary><pre class="hm-code" tabindex="0" id="import-log-text">{{range .Log}}{{.}}
 {{end}}</pre></details>
 </div>
 {{template "hm/foot"}}

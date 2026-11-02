@@ -307,6 +307,17 @@
     "partial": "hm/field",
     "props": {}
   },
+  "togglechip": {
+    "selector": ".hm-field__chip",
+    "owner": "css/partials/field.css",
+    "partial": "hm/field",
+    "props": {
+      "border-top-left-radius": "var(--radius-full)",
+      "font-size": "var(--text-sm)",
+      "padding-left": "var(--space-3)",
+      "padding-right": "var(--space-3)"
+    }
+  },
   "savebar": {
     "selector": ".hm-savebar",
     "owner": "css/partials/savebar.css",
@@ -328,6 +339,24 @@
     "selector": ".hm-statgrid",
     "owner": "css/partials/chart.css",
     "partial": "hm/stats",
+    "props": {}
+  },
+  "pair": {
+    "selector": ".hm-pair",
+    "owner": "css/partials/field.css",
+    "partial": "hm/pair-start",
+    "props": {}
+  },
+  "meterthin": {
+    "selector": ".hm-meter--thin .hm-meter__bar",
+    "owner": "css/partials/viz.css",
+    "partial": "hm/progress",
+    "props": {}
+  },
+  "statsmall": {
+    "selector": ".hm-statcard .hm-statcard__value--sm",
+    "owner": "css/partials/chart.css",
+    "partial": "hm/stat",
     "props": {}
   }
 }

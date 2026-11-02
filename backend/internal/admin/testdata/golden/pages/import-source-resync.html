@@ -132,13 +132,10 @@
 <form method="post" action="/admin/settings/import/wordpress" enctype="multipart/form-data" class="hm-stack">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <div class="hm-import__source hm-stack">
-<div class="hm-field">
-<fieldset id="kind" class="hm-field__group" aria-describedby="kind-help"><legend class="hm-field__label">Where is the site?</legend>
-<label class="hm-field__check" for="kind-0"><input class="hm-field__box" type="radio" id="kind-0" name="kind" value="rest" checked><span>From the site&#39;s address (recommended)</span></label>
-<label class="hm-field__check" for="kind-1"><input class="hm-field__box" type="radio" id="kind-1" name="kind" value="wxr"><span>From an export file</span></label>
+<fieldset class="hm-radiocards hm-radiocards--2"><legend class="hm-field__label">Where is the site?</legend>
+<label class="hm-radiocard" for="kind-0"><input class="hm-radiocard__input" type="radio" id="kind-0" name="kind" value="rest" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">From the site&#39;s address <span class="hm-badge hm-badge--info hm-badge--sm"><span class="hm-badge__dot" aria-hidden="true"></span>Recommended</span></span><span class="hm-muted">Recommended. Includes menus, settings and, with an application password, drafts.</span></span></label>
+<label class="hm-radiocard" for="kind-1"><input class="hm-radiocard__input" type="radio" id="kind-1" name="kind" value="wxr"><span class="hm-radiocard__body"><span class="hm-radiocard__title">From an export file</span><span class="hm-muted">A file from Tools, Export, All content in WordPress.</span></span></label>
 </fieldset>
-<p class="hm-field__help" id="kind-help">Reading it from its address is recommended: it includes menus, settings and, with an application password, drafts. An export file comes from Tools, Export, All content in WordPress.</p>
-</div>
 <section class="hm-card" id="rest" aria-labelledby="rest-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="rest-title">From the site&#39;s address</h2></div>
 <div class="hm-card__body">
@@ -177,11 +174,11 @@
 <div class="hm-table__scroll" role="region" aria-label="Earlier imports" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Earlier imports</caption>
 <thead><tr><th scope="col">Source</th><th scope="col">Started</th><th scope="col">State</th></tr></thead>
 <tbody><tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000001">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--info"><span class="hm-badge__dot" aria-hidden="true"></span>Scanning</span></td></tr>
-<tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000002">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Scanned</span></td></tr>
+<tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000002">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--info"><span class="hm-badge__dot" aria-hidden="true"></span>Scanned</span></td></tr>
 <tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000003">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--info"><span class="hm-badge__dot" aria-hidden="true"></span>Importing</span></td></tr>
 <tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000004">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Completed</span></td></tr>
 <tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000005">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--danger"><span class="hm-badge__dot" aria-hidden="true"></span>Failed</span></td></tr>
-<tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000006">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Scanned</span></td></tr>
+<tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000006">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--info"><span class="hm-badge__dot" aria-hidden="true"></span>Scanned</span></td></tr>
 <tr><th scope="row" class="hm-table__rowhead"><a href="/admin/settings/import/wordpress/00000000-0000-4000-8000-000000000007">https://old.example.com</a></th><td data-label="Started">4 Mar 2026 05:06</td><td data-label="State"><span class="hm-badge hm-badge--warning"><span class="hm-badge__dot" aria-hidden="true"></span>Interrupted</span></td></tr>
 </tbody></table></div></div></section>
 

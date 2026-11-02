@@ -1,3 +1,5 @@
 /* Provider-specific fields of the email form: only the field set for the chosen provider shows. */
 form:has(#provider option:checked:not([value="ses"])) [data-email-only="ses"],
 form:has(#provider option:checked:not([value="custom"])) [data-email-only="custom"] { display: none; }
+/* With Host hidden, Port is the pair's only visible field: it takes the full row, not half of it. */
+form:has(#provider option:checked:not([value="custom"])) .hm-pair:has([data-email-only="custom"]) { grid-template-columns: minmax(0, 1fr); }

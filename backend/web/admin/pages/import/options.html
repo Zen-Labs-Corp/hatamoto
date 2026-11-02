@@ -18,7 +18,8 @@
 {{template "hm/card-start" dict "Title" "URLs" "ID" "opt-urls" "Heading" "h2"}}
 {{if .Existing}}{{template "hm/callout-start" (dict "Kind" "info")}}This site already has content, so its URL patterns stay as they are and every old address that moves gets a 301 redirect.{{template "hm/callout-end"}}
 <input type="hidden" name="patterns" value="keep">
-{{else}}{{template "hm/field" dict "ID" "patterns" "Name" "patterns" "Label" "URL structure" "Control" "radio" "Options" .Patterns "Help" (cond (ne .Pattern "") (printf "WordPress permalinks become the pattern %s." .Pattern) "WordPress permalinks cannot be copied as a pattern, so every old address redirects.")}}{{end}}
+{{else}}{{template "hm/radiocard" (dict "Legend" "URL structure" "Name" "patterns" "Cols" 2 "Items" .Patterns)}}
+<p class="hm-field__help">{{cond (ne .Pattern "") (printf "WordPress permalinks become the pattern %s." .Pattern) "WordPress permalinks cannot be copied as a pattern, so every old address redirects."}}</p>{{end}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "Title" "Re-import" "ID" "opt-reimport" "Heading" "h2"}}
 {{template "hm/field" dict "ID" "keep_edited" "Name" "keep_edited" "Label" "Keep my edits on re-import" "Control" "switch" "Value" "1" "Checked" .Edited "Help" "Pages you edited here since the last import are left alone. Without this, a re-import overwrites such edits and lists them."}}

@@ -257,14 +257,14 @@ var updatesBadges = map[string]struct {
 		return "Waiting to update"
 	}},
 	updMajor:           {"info", func(st UpdatesStatus) string { return "Major " + st.AvailableMajor + " available" }},
-	updFailed:          {"warning", func(st UpdatesStatus) string { return withVersion("Update failed", st.Target) }},
+	updFailed:          {"danger", func(st UpdatesStatus) string { return withVersion("Update failed", st.Target) }},
 	updBackupFailed:    {"danger", func(st UpdatesStatus) string { return "Backup failed" }},
 	updBlocked:         {"warning", func(UpdatesStatus) string { return "Blocked" }},
-	updCheckFailed:     {"warning", func(UpdatesStatus) string { return "Update check failed" }},
+	updCheckFailed:     {"danger", func(UpdatesStatus) string { return "Update check failed" }},
 	updUnavailable:     {"warning", func(UpdatesStatus) string { return "Updates are unavailable" }},
 	updRolledBackYank:  {"warning", func(UpdatesStatus) string { return "Release withdrawn" }},
 	updRollbackPending: {"warning", func(UpdatesStatus) string { return "Release withdrawn, rollback pending" }},
-	updRolledBack:      {"danger", func(st UpdatesStatus) string { return strings.TrimSpace("Rolled back " + st.Target) }},
+	updRolledBack:      {"warning", func(st UpdatesStatus) string { return strings.TrimSpace("Rolled back " + st.Target) }},
 	updOff:             {"neutral", func(UpdatesStatus) string { return "Updates are off" }},
 	updNotify:          {"neutral", func(st UpdatesStatus) string { return withVersion("Update available, notify only", st.Target) }},
 	updDev:             {"neutral", func(UpdatesStatus) string { return "Dev build: updates are disabled" }},
@@ -405,7 +405,7 @@ type updatesData struct {
 	NoBackupTarget           string // set in the backup_failed state: the version "Update without a backup" installs
 	Applying                 bool
 	Zone                     string
-	ModeOptions              []ui.Option
+	ModeCards                []ui.RadioCardItem
 	ModeValue, ModeLockNote  string // set when the environment locks the mode: the value, and who set it
 	ChannelOptions           []ui.Option
 	ChannelValue             string
@@ -778,9 +778,13 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 	if in == nil {
 		in = &updatesInput{Mode: st.Mode, Channel: st.Channel, Start: hourText(st.WindowStart), End: hourText(st.WindowEnd), Defer: strconv.Itoa(st.DeferDays)}
 	}
-	modes := []struct{ Value, Label string }{{"auto", "Automatic"}, {"notify", "Notify only"}, {"off", "Off"}}
+	modes := []struct{ Value, Label, Description string }{
+		{"auto", "Automatic", "Installs in the window"},
+		{"notify", "Notify only", "Tells you and waits"},
+		{"off", "Off", "No checks"},
+	}
 	for _, m := range modes {
-		d.ModeOptions = append(d.ModeOptions, ui.Option{Value: m.Value, Label: m.Label, Selected: m.Value == in.Mode})
+		d.ModeCards = append(d.ModeCards, ui.RadioCardItem{Value: m.Value, Title: m.Label, Description: m.Description, Checked: m.Value == in.Mode})
 		if st.Locks.Mode && m.Value == st.Mode {
 			d.ModeValue, d.ModeLockNote = m.Label, "Set by "+st.Locks.ModeVar+" on the server."
 		}
@@ -929,13 +933,13 @@ func agoText(d time.Duration) string {
 }
 
 // updatesHistoryBadge is the Result pill of a supervisor event: a short
-// label; the error goes under it. A rollback is danger here as in the status.
+// label; the error goes under it. A rollback is a warning here as in the status.
 func updatesHistoryBadge(row UpdatesHistoryRow) ui.Badge {
 	switch row.Phase {
 	case "success":
 		return ui.Badge{Label: "Updated", Kind: "success"}
 	case "rolled_back":
-		return ui.Badge{Label: "Rolled back", Kind: "danger"}
+		return ui.Badge{Label: "Rolled back", Kind: "warning"}
 	case "failed":
 		return ui.Badge{Label: "Failed", Kind: "danger"}
 	case "manual_rollback", "rolled-back-offline":

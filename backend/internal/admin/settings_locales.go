@@ -117,7 +117,7 @@ func (a *Admin) localeCards(cfg *siteconfig.Config, edit *localeEdit) ([]localeC
 			}
 		}
 		c.Badge, c.BadgeKind = localeBadge(p)
-		form, err := schemaform.Render(businessSchema(), vals, schemaform.Options{Prefix: locPrefix(anchor), UI: hints, Placeholders: ph, Errors: errs, OpenPath: open})
+		form, err := schemaform.Render(businessSchema(), vals, schemaform.Options{Sections: true, AddIcon: plusIcon(), Prefix: locPrefix(anchor), UI: hints, Placeholders: ph, Errors: errs, OpenPath: open})
 		if err != nil {
 			return nil, err
 		}

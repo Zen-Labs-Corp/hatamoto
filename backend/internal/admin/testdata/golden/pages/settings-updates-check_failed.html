@@ -123,10 +123,10 @@
 </header>
 
 <div class="hm-statgrid"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Version · stable channel</dt><dd class="hm-statcard__value">v1.4.1</dd>
-</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Status</dt><dd class="hm-statcard__status"><span class="hm-badge hm-badge--warning"><span class="hm-badge__dot" aria-hidden="true"></span>Update check failed</span></dd>
+</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Status</dt><dd class="hm-statcard__status"><span class="hm-badge hm-badge--danger"><span class="hm-badge__dot" aria-hidden="true"></span>Update check failed</span></dd>
 </dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Last check</dt><dd class="hm-statcard__value">12 minutes ago · failed</dd>
 </dl></div>
-<div class="hm-callout hm-callout--warning" id="updates-status" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><span id="updates-status-note">fetch channel manifest: timeout</span> </div></div></div>
+<div class="hm-callout hm-callout--danger" id="updates-status" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><span id="updates-status-note">fetch channel manifest: timeout</span> </div></div></div>
 
 <form method="post" action="/admin/settings/updates" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
@@ -140,14 +140,13 @@
 <div class="hm-setrow__control"><button type="submit" class="hm-btn hm-btn--secondary" form="check-form"><span>Check now</span></button></div>
 </div>
 <div class="hm-setrow">
-<div class="hm-setrow__text"><div class="hm-field">
-<fieldset id="mode" class="hm-field__group" aria-describedby="mode-help"><legend class="hm-field__label">Mode</legend>
-<label class="hm-field__check" for="mode-0"><input class="hm-field__box" type="radio" id="mode-0" name="mode" value="auto" checked><span>Automatic</span></label>
-<label class="hm-field__check" for="mode-1"><input class="hm-field__box" type="radio" id="mode-1" name="mode" value="notify"><span>Notify only</span></label>
-<label class="hm-field__check" for="mode-2"><input class="hm-field__box" type="radio" id="mode-2" name="mode" value="off"><span>Off</span></label>
+<div class="hm-setrow__text"><fieldset class="hm-radiocards hm-radiocards--3" id="mode" aria-describedby="mode-help"><legend class="hm-field__label">Mode</legend>
+<label class="hm-radiocard" for="mode-0"><input class="hm-radiocard__input" type="radio" id="mode-0" name="mode" value="auto" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Automatic</span><span class="hm-muted">Installs in the window</span></span></label>
+<label class="hm-radiocard" for="mode-1"><input class="hm-radiocard__input" type="radio" id="mode-1" name="mode" value="notify"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Notify only</span><span class="hm-muted">Tells you and waits</span></span></label>
+<label class="hm-radiocard" for="mode-2"><input class="hm-radiocard__input" type="radio" id="mode-2" name="mode" value="off"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Off</span><span class="hm-muted">No checks</span></span></label>
 </fieldset>
 <p class="hm-field__help" id="mode-help">Automatic installs releases in your maintenance window. Notify only tells you and waits.</p>
-</div></div>
+</div>
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><label class="hm-setrow__name" for="channel">Channel</label>

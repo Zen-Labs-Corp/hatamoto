@@ -314,7 +314,7 @@ func cacheUse(s PageCacheStats) *ui.Progress {
 	if s.CapBytes <= 0 {
 		return nil
 	}
-	p := &ui.Progress{Label: "Cache use", Value: cacheSize(s) + " of " + megabytes(s.CapBytes), Pct: float64(s.Bytes) / float64(s.CapBytes) * 100}
+	p := &ui.Progress{Label: "Cache use", Value: cacheSize(s) + " of " + megabytes(s.CapBytes), Pct: float64(s.Bytes) / float64(s.CapBytes) * 100, Kind: "ink", Thin: true}
 	switch {
 	case p.Pct >= 100:
 		p.Kind = "danger"
@@ -336,7 +336,7 @@ func performanceStats(s PageCacheStats, pre PreloadStatus, loc *time.Location) [
 	return []ui.Stat{
 		{Label: "Pages cached", Value: thousands(s.Pages)},
 		{Label: "Cache size", Value: cacheSize(s)},
-		{Label: "Last preload", Value: last},
+		{Label: "Last preload", Value: last, Small: true},
 	}
 }
 

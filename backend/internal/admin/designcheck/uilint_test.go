@@ -81,10 +81,9 @@ var uiAllow = []uiAllowEntry{
 	// Also the only home of POST forms that used to skip the rule by class name (hm-inline)
 	// and of partial forms that were skipped as "partials".
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
-	{Rule: "UI-01", File: "pages/settings/email.html", Needle: `"Send a test email"`, Reason: "setting action bound to its own form by the form attribute, so it tests the saved settings without posting the form"},
-	{Rule: "UI-01", File: "pages/settings/email.html", Needle: `instead"`, Reason: "setting action bound to its own form by the form attribute, so it clears the saved settings without posting the form"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
+	{Rule: "UI-01", File: "pages/settings/security-change.html", Needle: `"Regenerate"`, Reason: "inline action beside the copy button: formaction posts a new candidate without changing the address"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Check now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Unpin"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/updates.html", Needle: `"Reset ID"`, Reason: "setting row action bound to its own form by the form attribute"},
@@ -114,6 +113,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "partials/pluginhead.html", Needle: `{{if .Enabled}}disable`, Reason: "one-button POST form (Turn on or off) in the plugin header row"},
 	{Rule: "UI-01", File: "partials/sectionhead.html", Needle: `{{with $.Primary}}`, Reason: "one-button POST form in the section header"},
 	{Rule: "UI-01", File: "partials/pageheader.html", Needle: `id="hm-overflow"`, Reason: "overflow menu item that posts, inside a popup menu"},
+	{Rule: "UI-01", File: "partials/sectionhead.html", Needle: `id="hm-overflow"`, Reason: "overflow menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "partials/rowmenu.html", Needle: `{{$a.Post}}`, Reason: "row menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/theme"`, Reason: "theme toggle in the sidebar"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/logout"`, Reason: "sign out button in the sidebar"},
@@ -137,13 +137,12 @@ var uiAllow = []uiAllowEntry{
 
 	// UI-03: checkboxes that are not a lone on/off setting.
 	{Rule: "UI-03", File: "partials/filterbar.html", Needle: `"Control" "checkbox"`, Reason: reasonMulti},
+	{Rule: "UI-03", File: "partials/field.html", Needle: `hm-field__chipbox" type="checkbox"`, Reason: "toggle chip: one pill per option in a multi-pick group"},
 	{Rule: "UI-03", File: "pages/settings/packageconfirm.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `"confirm"`, Reason: reasonConsent},
-	{Rule: "UI-03", File: "pages/settings/spam.html", Needle: `"Name" "scripts"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/plugins/permissions.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "partials/form-apikey.html", Needle: `"scopes"`, Reason: reasonMulti},
-	{Rule: "UI-03", File: "partials/form-webhook.html", Needle: `"events"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/import/options.html", Needle: `.Types`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/entities/edit.html", Needle: `name="term"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/entities/blogedit.html", Needle: `name="term"`, Reason: reasonMulti},
@@ -268,6 +267,8 @@ var uiStickyTemplates = map[string]bool{
 	"pages/plugins/plugin.html":  true,
 	// The menu editor: Save, Discard and the unsaved state stay in reach beside a long tree.
 	"pages/menus/edit.html": true,
+	// Titles & meta: one save bar below a long list of patterns.
+	"pages/settings/seo-titles.html": true,
 	// The robots policy form's pending-changes bar, shared by Crawlers, Health and the agent page.
 	"partials/aia-policy.html": true,
 }

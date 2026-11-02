@@ -52,3 +52,64 @@ func TestUnknownGroupKeyIgnored(t *testing.T) {
 		t.Errorf("unknown key rendered:\n%s", html)
 	}
 }
+
+const twoGroups = `{"type":"object","x-hm-order":["a","b","c"],"properties":{
+	"a":{"type":"string","x-hm-group":"Profile"},
+	"b":{"type":"string","x-hm-group":"Links"},
+	"c":{"type":"string","x-hm-group":"Links"}}}`
+
+func TestGroupsWrapInOneSectionEachWhenOptedIn(t *testing.T) {
+	out, err := Render(json.RawMessage(twoGroups), nil, Options{Sections: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(out)
+	if o, c := strings.Count(html, `<div class="hm-sf-section">`), strings.Count(html, `<div class="hm-sf-cols">`); o != 2 || c != 2 {
+		t.Errorf("sections = %d, columns = %d, want 2 each:\n%s", o, c, html)
+	}
+	// Each section closes its columns and itself before the next opens.
+	if !strings.Contains(html, "</div>\n</div>\n<div class=\"hm-sf-section\">") || !strings.HasSuffix(strings.TrimSpace(html), "</div>\n</div>") {
+		t.Errorf("sections not closed in order:\n%s", html)
+	}
+	if strings.Contains(renderGroups(t, `{"type":"object","properties":{"a":{"type":"string"}}}`), "hm-sf-section") {
+		t.Error("ungrouped schema gets a section wrapper")
+	}
+}
+
+// Without Options.Sections a group is only a heading, as before sections existed.
+func TestGroupsStayPlainHeadingsByDefault(t *testing.T) {
+	html := renderGroups(t, twoGroups)
+	if strings.Contains(html, "hm-sf-section") || strings.Contains(html, "hm-sf-cols") {
+		t.Errorf("section wrapper without opt-in:\n%s", html)
+	}
+	if n := strings.Count(html, `<h3 class="hm-sf-group">`); n != 2 {
+		t.Errorf("headings = %d, want 2", n)
+	}
+}
+
+func TestRepeaterItemLabelNamesTheAddButton(t *testing.T) {
+	html := renderGroups(t, `{"type":"object","properties":{
+		"points":{"type":"array","title":"Contact points","x-hm-item-label":"contact point","items":{"type":"object","properties":{"n":{"type":"string"}}}},
+		"faqs":{"type":"array","title":"Faqs","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
+	if !strings.Contains(html, ">Add contact point</button>") || !strings.Contains(html, ">Add Faqs item</button>") {
+		t.Errorf("Add buttons wrong:\n%s", html)
+	}
+}
+
+func TestAddIconOnlyWhenGiven(t *testing.T) {
+	schema := json.RawMessage(`{"type":"object","properties":{"points":{"type":"array","x-hm-item-label":"point","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
+	plain, err := Render(schema, nil, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(plain), `formnovalidate>Add point</button>`) {
+		t.Errorf("plain Add button changed:\n%s", plain)
+	}
+	withIcon, err := Render(schema, nil, Options{AddIcon: `<svg id="plus"></svg>`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(withIcon), `formnovalidate><svg id="plus"></svg>Add point</button>`) {
+		t.Errorf("icon missing:\n%s", withIcon)
+	}
+}

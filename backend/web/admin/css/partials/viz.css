@@ -7,6 +7,7 @@
 .hm-viz--danger { --viz: var(--color-danger); }
 .hm-viz--info { --viz: var(--color-accent); }
 .hm-viz--neutral { --viz: var(--color-nezumi); }
+.hm-viz--ink { --viz: var(--color-sumi); }
 .hm-viz--series-1 { --viz: var(--chart-1); }
 .hm-viz--series-2 { --viz: var(--chart-2); }
 .hm-viz--series-3 { --viz: var(--chart-3); }
@@ -77,6 +78,7 @@
 .hm-meter__head { display: flex; justify-content: space-between; gap: var(--space-4); margin: 0; font-size: var(--text-sm); color: var(--color-sumi-soft); }
 .hm-meter__value { font-weight: var(--weight-medium); color: var(--color-sumi); font-variant-numeric: tabular-nums; }
 .hm-meter__bar { display: block; width: 100%; height: 8px; }
+.hm-meter--thin .hm-meter__bar { height: 4px; }
 .hm-meter__track { fill: var(--color-kasumi); }
 .hm-meter__fill { fill: var(--viz); }
 

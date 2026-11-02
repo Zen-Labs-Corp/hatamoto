@@ -189,6 +189,12 @@ func TestLinkingRulesListAndFilters(t *testing.T) {
 			t.Errorf("missing %q", want)
 		}
 	}
+	if !strings.Contains(body, "hm-viz--ink") {
+		t.Error("priority bar is not ink")
+	}
+	if strings.Count(body, "Delete all rules") != 1 || !strings.Contains(body, `role="menuitem" class="hm-menu__item hm-menu__item--danger" href="/admin/settings/linking/rules/delete-all"`) {
+		t.Error("Delete all rules belongs once, in the header overflow menu")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}

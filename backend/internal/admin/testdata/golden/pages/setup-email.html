@@ -54,7 +54,7 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="ses-region" name="ses-region" aria-describedby="ses-region-help"><option value="us-east-1" selected>us-east-1</option><option value="us-east-2">us-east-2</option><option value="us-west-1">us-west-1</option><option value="us-west-2">us-west-2</option><option value="ca-central-1">ca-central-1</option><option value="sa-east-1">sa-east-1</option><option value="eu-west-1">eu-west-1</option><option value="eu-west-2">eu-west-2</option><option value="eu-west-3">eu-west-3</option><option value="eu-central-1">eu-central-1</option><option value="eu-north-1">eu-north-1</option><option value="eu-south-1">eu-south-1</option><option value="ap-south-1">ap-south-1</option><option value="ap-northeast-1">ap-northeast-1</option><option value="ap-northeast-2">ap-northeast-2</option><option value="ap-northeast-3">ap-northeast-3</option><option value="ap-southeast-1">ap-southeast-1</option><option value="ap-southeast-2">ap-southeast-2</option></select></div>
 <p class="hm-field__help" id="ses-region-help">Only used with Amazon SES.</p>
 </div></div>
-<div data-email-only="custom"><div class="hm-field">
+<div class="hm-pair"><div data-email-only="custom"><div class="hm-field">
 <label class="hm-field__label" for="host">Host</label>
 <input class="hm-field__control" type="text" id="host" name="host" aria-describedby="host-help" autocomplete="off">
 <p class="hm-field__help" id="host-help">Only used with Custom, for example smtp.example.com.</p>
@@ -63,12 +63,12 @@
 <label class="hm-field__label" for="port">Port</label>
 <input class="hm-field__control" type="number" id="port" name="port" value="587" aria-describedby="port-help" max="65535" min="1" step="1">
 <p class="hm-field__help" id="port-help">Usually 587 with STARTTLS or 465 with TLS (SSL).</p>
-</div>
+</div></div>
 <div class="hm-field">
 <label class="hm-field__label" for="security">Security</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="security" name="security"><option value="starttls" selected>STARTTLS</option><option value="tls">TLS (SSL)</option><option value="none">None (localhost only)</option></select></div>
 </div>
-<div class="hm-field">
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="username">Username</label>
 <input class="hm-field__control" type="text" id="username" name="username" aria-describedby="username-help" autocomplete="off">
 <p class="hm-field__help" id="username-help">Leave the username and password blank if the server needs no sign-in.</p>
@@ -77,8 +77,8 @@
 <label class="hm-field__label" for="password">Password</label>
 <input class="hm-field__control" type="password" id="password" name="password" aria-describedby="password-help" autocomplete="new-password">
 <p class="hm-field__help" id="password-help">The password stays on the server and is never shown again.</p>
-</div>
-<div class="hm-field">
+</div></div>
+<div class="hm-pair"><div class="hm-field">
 <label class="hm-field__label" for="from">From address</label>
 <input class="hm-field__control" type="email" id="from" name="from" autocomplete="off">
 </div>
@@ -86,7 +86,7 @@
 <label class="hm-field__label" for="from-name">From name</label>
 <input class="hm-field__control" type="text" id="from-name" name="from-name" aria-describedby="from-name-help" autocomplete="off">
 <p class="hm-field__help" id="from-name-help">Leave blank to use the site name.</p>
-</div></div>
+</div></div></div>
 <footer class="hm-card__foot hm-card__foot--plain">
 <span class="hm-card__foot-note"><a href="/admin/setup/theme">Skip</a></span>
 <a class="hm-btn hm-btn--ghost" href="/admin/setup/site"><span>Back</span></a>

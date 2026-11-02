@@ -54,6 +54,12 @@ type Options struct {
 	// Such a field is never filled in: it is a password input that says a
 	// value is stored, and offers to clear it.
 	Secrets map[string]bool
+	// Sections wraps each x-hm-group in a section of two-column pairs with a
+	// hairline above its heading. Off, a group is only a heading.
+	Sections bool
+	// AddIcon is drawn before the label of a repeater's Add button. It is
+	// trusted markup from the caller (an icon); empty draws none.
+	AddIcon template.HTML
 }
 
 type opt struct {
@@ -78,6 +84,8 @@ type fld struct {
 	Items                                          []*item
 	ItemScalar                                     bool
 	Count                                          int
+	AddIcon                                        template.HTML
+	ItemLabel                                      string // x-hm-item-label: what the Add button of a repeater adds
 	EntitySchema                                   string
 	Preview                                        string // image field: current URL
 	Secret, SecretSet                              bool   // writeOnly: never shown; SecretSet when a value is stored
@@ -135,11 +143,20 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 	}
 	b := &builder{opt: opt}
 	var out bytes.Buffer
+	open, shut := "sf/group", ""
+	if opt.Sections {
+		open, shut = "sf/section", "sf/section-end"
+	}
 	heading := ""
 	for _, p := range groupedProps(root.Props) {
 		if g := strings.TrimSpace(p.Node.Group); g != heading {
+			if heading != "" && shut != "" {
+				if err := t.ExecuteTemplate(&out, shut, nil); err != nil {
+					return "", err
+				}
+			}
 			heading = g
-			if err := t.ExecuteTemplate(&out, "sf/group", heading); err != nil {
+			if err := t.ExecuteTemplate(&out, open, heading); err != nil {
 				return "", err
 			}
 		}
@@ -148,6 +165,11 @@ func Render(schema json.RawMessage, values map[string]any, opt Options) (templat
 			return "", err
 		}
 		out.WriteByte('\n')
+	}
+	if heading != "" && shut != "" {
+		if err := t.ExecuteTemplate(&out, shut, nil); err != nil {
+			return "", err
+		}
 	}
 	return template.HTML(out.String()), nil //nolint:gosec // html/template output only
 }
@@ -485,6 +507,8 @@ func (n *Node) unknown(key string, _ any) bool {
 func (b *builder) repeater(f *fld, n *Node, v any, hint UIHint) {
 	items, _ := v.([]any)
 	f.Count = len(items)
+	f.ItemLabel = n.ItemLabel
+	f.AddIcon = b.opt.AddIcon
 	f.Orderable = !hint.Unorderable && !b.opt.Disabled
 	it := n.Items
 	if it == nil {

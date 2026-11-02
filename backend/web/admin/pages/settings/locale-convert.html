@@ -1,5 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Description" "Move region pages into real locales. Review a dry run before anything changes."}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Description" "Move region pages into real locales. Review a dry run before anything changes." "Actions" (list (dict "Dict" (dict "Label" "Back to Locales" "Variant" "secondary" "Href" .BackURL)))}}
 <section class="hm-stack">
 <form method="post" action="{{.ReportURL}}" class="hm-cardform">
 {{template "hm/csrf" $}}
@@ -21,6 +21,7 @@
 {{template "hm/card-start" dict "ID" "convert-report-card" "Title" "Step 2: Report" "Description" "What the conversion would do to your site."}}
 <p>{{if .OK}}{{template "hm/badge" dict "Label" "OK to apply" "Kind" "success"}}{{else}}{{template "hm/badge" dict "Label" "Not OK to apply" "Kind" "danger"}}{{end}}</p>
 {{.Locales}}
+<h3>Checks</h3>
 {{.Checks}}
 {{template "hm/card-end"}}
 </section>

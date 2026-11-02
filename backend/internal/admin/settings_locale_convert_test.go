@@ -686,3 +686,15 @@ func TestConvertChecks_NamingNotRecorded(t *testing.T) {
 	}
 	t.Error("no Sitemap file names row")
 }
+
+func TestLocaleConvertLinksBackAndLabelsTheChecks(t *testing.T) {
+	t.Parallel()
+
+	g, _, _, _ := newConvertRig(t)
+	body := g.do("POST", convertBase+"/report", "owner-token", url.Values{"plan": {convertPlanJSON}}, nil).Body.String()
+	for _, want := range []string{"Back to Locales", "<h3>Checks</h3>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+}

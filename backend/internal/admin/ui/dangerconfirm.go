@@ -17,7 +17,10 @@ type DangerConfirm struct {
 	// Label is the danger submit text; CancelLabel defaults to "Cancel".
 	Label       string
 	CancelLabel string
-	CSRF        string
+	// Tone "ink" draws the submit as the filled ink primary with a ghost
+	// Cancel; empty keeps the red danger submit.
+	Tone string
+	CSRF string
 	// Error is set by the server helper after a failed check.
 	Error string
 	Body  []DangerText

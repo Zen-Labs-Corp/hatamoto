@@ -3,8 +3,9 @@
 {{template "hm/card-start" dict "ID" "admin-address-card" "Title" "Admin address" "Heading" "h2" "Description" "Where you sign in to manage your site. Keep it private: visitors and scanners get a plain page not found."}}<div class="hm-setlist">
 <div class="hm-copyrow">{{template "hm/field" dict "ID" "admin-address-url" "Name" "address" "Label" "Address" "Value" .Address "Attrs" (attrmap "readonly" "readonly")}}{{template "hm/button" (dict "Label" "Copy" "Icon" "copy" "Attrs" (attrmap "data-hm-copy-field" "admin-address-url"))}}</div>
 <div class="hm-setrow">
-<div class="hm-setrow__text"><p class="hm-setrow__name">Strength: {{template "hm/badge" .Strength}}</p>
+<div class="hm-setrow__text"><p class="hm-setrow__name">Strength:</p>
 {{if .Reasons}}<ul class="hm-field__help">{{range .Reasons}}<li>{{.}}</li>{{end}}</ul>{{end}}</div>
+<div class="hm-setrow__control">{{template "hm/badge" .Strength}}</div>
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">{{.Chosen}}</p></div>

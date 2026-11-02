@@ -4,8 +4,9 @@
 .hm-radiocards { display: grid; gap: var(--space-3); margin: 0; padding: 0; border: 0; min-width: 0; }
 .hm-radiocards > legend { padding: 0; margin-bottom: var(--space-2); }
 .hm-radiocards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.hm-radiocards--2 > legend { grid-column: 1 / -1; }
-@media (max-width: 640px) { .hm-radiocards--2 { grid-template-columns: minmax(0, 1fr); } }
+.hm-radiocards--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hm-radiocards--2 > legend, .hm-radiocards--3 > legend { grid-column: 1 / -1; }
+@media (max-width: 640px) { .hm-radiocards--2, .hm-radiocards--3 { grid-template-columns: minmax(0, 1fr); } }
 .hm-radiocard {
   display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4);
   border: 1px solid var(--border-control); border-radius: var(--radius-md);

@@ -302,6 +302,7 @@ func sparkSummary(vals []int64, unit string) string {
 type Progress struct {
 	Label, Value, Kind string
 	Pct                float64
+	Thin               bool // a slimmer bar
 }
 
 // Width is Pct clamped to the bar.
@@ -323,6 +324,7 @@ func (b Bar) Width() string { return pct(min(max(b.Pct, 0), 100)) }
 // adds a dismiss button that is remembered for the browser session.
 type Callout struct {
 	Kind, Title, Body, ID, DismissKey string
+	IconName                          string // replaces the glyph of the Kind, for example "lock"
 	Compact                           bool
 	Attrs                             map[string]string // extra data-*/aria-* attributes on the root
 }

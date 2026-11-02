@@ -2,7 +2,7 @@
 {{define "hm/form-webhook"}}{{template "hm/field" dict "ID" "webhook-name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Help" "What this webhook is for, like Zapier." "Error" (index .Errs "name")}}
 {{template "hm/field" dict "ID" "webhook-url" "Name" "url" "Label" "Address" "Type" "url" "Value" .URL "Required" true "Placeholder" "https://example.com/hooks/hatamoto" "Help" "Where Hatamoto sends the POST." "Error" (index .Errs "url")}}
 <div class="hm-field"><fieldset class="hm-field__group" id="webhook-events"><legend class="hm-field__label">Events</legend>
-{{range $i, $e := .EventOptions}}{{template "hm/field" dict "ID" (printf "event-%d" $i) "Name" "events" "Label" $e.Label "Control" "checkbox" "Value" $e.Value "Checked" $e.Checked}}{{end}}
+<div class="hm-field__chips">{{range $i, $e := .EventOptions}}{{template "hm/field" dict "ID" (printf "event-%d" $i) "Name" "events" "Label" $e.Label "Mono" true "Control" "chip" "Value" $e.Value "Checked" $e.Checked}}{{end}}</div>
 {{with index .Errs "events"}}<p class="hm-field__error">{{.}}</p>{{end}}
 </fieldset></div>
 {{template "hm/field" dict "ID" "webhook-active" "Name" "active" "Label" "Active" "Control" "switch" "Value" "true" "Checked" .Active}}

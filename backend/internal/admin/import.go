@@ -160,7 +160,7 @@ type importSourceData struct {
 	Summary []ui.FieldError
 	Recent  []importRunRow
 	Trend   ui.Tracker
-	Kinds   []ui.Option
+	Kinds   []ui.RadioCardItem
 	MaxMB   int
 }
 
@@ -179,7 +179,7 @@ func importStatusBadge(status string) ui.Badge {
 	case importjob.StatusScanning:
 		return ui.Badge{Label: "Scanning", Kind: "info"}
 	}
-	return ui.Badge{Label: "Scanned", Kind: "neutral"}
+	return ui.Badge{Label: "Scanned", Kind: "info"}
 }
 
 func runSource(run importjob.Run) string {
@@ -203,9 +203,9 @@ func (a *Admin) renderImportSource(w http.ResponseWriter, r *http.Request, svc I
 		}
 		d.Trend = importTrend(d.Recent, runs)
 	}
-	d.Kinds = []ui.Option{
-		{Value: importjob.KindREST, Label: "From the site's address (recommended)", Selected: d.Kind == importjob.KindREST},
-		{Value: importjob.KindWXR, Label: "From an export file", Selected: d.Kind == importjob.KindWXR},
+	d.Kinds = []ui.RadioCardItem{
+		{Value: importjob.KindREST, Title: "From the site's address", Description: "Recommended. Includes menus, settings and, with an application password, drafts.", Checked: d.Kind == importjob.KindREST, Tag: &ui.Badge{Label: "Recommended", Kind: "info", Size: "sm"}},
+		{Value: importjob.KindWXR, Title: "From an export file", Description: "A file from Tools, Export, All content in WordPress.", Checked: d.Kind == importjob.KindWXR},
 	}
 	v := a.NewView(w, r, "Import from WordPress")
 	v.Data = d
@@ -548,7 +548,7 @@ type importOptionsData struct {
 	Media    bool
 	Edited   bool
 	Existing bool
-	Patterns []ui.Option
+	Patterns []ui.RadioCardItem
 	Pattern  string // the WordPress structure as a URL pattern ("" when none)
 	Error    string
 	Action   string
@@ -586,9 +586,9 @@ func (a *Admin) renderImportOptions(w http.ResponseWriter, r *http.Request, stat
 		add(t, "Custom type "+t, rep.CustomTypes[t])
 	}
 	keep := o.KeepPatterns || existing || rep.PermalinkPattern == ""
-	d.Patterns = []ui.Option{
-		{Value: "wordpress", Label: "Use the WordPress URL structure: most old addresses keep working as they are", Selected: !keep},
-		{Value: "keep", Label: "Keep this site's URL patterns: every moved address gets a 301 redirect", Selected: keep},
+	d.Patterns = []ui.RadioCardItem{
+		{Value: "wordpress", Title: "Use the WordPress URL structure", Description: "Most old addresses keep working as they are.", Checked: !keep},
+		{Value: "keep", Title: "Keep this site's URL patterns", Description: "Every moved address gets a 301 redirect.", Checked: keep},
 	}
 	v := a.NewView(w, r, "Import options")
 	v.Data = d

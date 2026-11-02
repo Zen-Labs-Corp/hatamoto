@@ -95,7 +95,7 @@ func (a *Admin) handleRedirects(w http.ResponseWriter, r *http.Request) {
 		ID: "redirects", Caption: "Redirect rules", BaseURL: a.adminPath + "/settings/redirects", CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "source", Label: "From"}, {Key: "target", Label: "To"}, {Key: "code", Label: "Type"}, {Key: "hits", Label: "Hits", Align: "right"}, {Key: "state", Label: "State"}},
 		Query:   q, SearchLabel: "Search redirects",
-		Bulk:    []ui.BulkAction{{Label: "Delete", Action: a.adminPath + "/settings/redirects/bulk", Value: "delete", Danger: true}, {Label: "Turn off", Action: a.adminPath + "/settings/redirects/bulk", Value: "off"}, {Label: "Turn on", Action: a.adminPath + "/settings/redirects/bulk", Value: "on"}},
+		Bulk:    []ui.BulkAction{{Label: "Turn on", Action: a.adminPath + "/settings/redirects/bulk", Value: "on"}, {Label: "Turn off", Action: a.adminPath + "/settings/redirects/bulk", Value: "off"}, {Label: "Delete", Action: a.adminPath + "/settings/redirects/bulk", Value: "delete", Danger: true}},
 		BulkURL: a.adminPath + "/settings/redirects/bulk",
 		Page:    ui.Pagination{Page: page, PerPage: redirectsPerPage, Total: total, BaseURL: a.adminPath + "/settings/redirects", Query: query},
 		Empty:   ui.Empty{Icon: "corner-up-right", Title: "No redirects", Body: "A redirect sends visitors from an old address to a new one. Create one, or start from the 404 log.", Actions: []ui.Button{{Label: "New redirect", Href: a.adminPath + "/settings/redirects/new", Variant: "primary"}}},
@@ -295,6 +295,7 @@ type explainData struct {
 	Path                      string
 	Asked                     bool
 	Err                       string
+	Inline                    bool // answered into the Test a URL card: the error shows in the answer, with status 200 so htmx swaps it
 	Normalised                string
 	Verdict                   string // one sentence: what happens to the URL
 	Kind                      string // redirect | page | notfound
@@ -340,6 +341,9 @@ func (a *Admin) handleRedirectExplain(w http.ResponseWriter, r *http.Request) {
 			}
 			a.fillExplanation(&d, ex)
 		}
+	}
+	if IsHTMX(r) {
+		d.Inline, status = true, http.StatusOK
 	}
 	v := a.NewView(w, r, "Explain a URL")
 	v.Data = d

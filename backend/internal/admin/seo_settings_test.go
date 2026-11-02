@@ -425,3 +425,22 @@ func TestSEOTitlesArchiveFieldsEditableForPersonType(t *testing.T) {
 		t.Errorf("person patch = %+v", p)
 	}
 }
+
+func TestSEOSettingsMarkup(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	general := s.get(t, "/admin/settings/seo/general")
+	for _, want := range []string{`<dl class="hm-dl">`, `<dt><code>%title%</code></dt>`, `class="hm-pair"`} {
+		if !strings.Contains(general, want) {
+			t.Errorf("general: missing %q", want)
+		}
+	}
+	titles := s.get(t, "/admin/settings/seo/titles")
+	for _, want := range []string{`hm-field__chip`, `id="seo-preview"`, `<table class="hm-table">`, `<div class="hm-savebar">`} {
+		if !strings.Contains(titles, want) {
+			t.Errorf("titles: missing %q", want)
+		}
+	}
+	if strings.Contains(titles, "hm-card__foot") {
+		t.Error("titles: the save button belongs in the sticky save bar")
+	}
+}

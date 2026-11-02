@@ -1,6 +1,6 @@
 /* WordPress import wizard */
 .hm-import__progress { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
-.hm-import__log pre { max-height: 16rem; }
+.hm-import__log pre { max-height: 16rem; font-family: var(--font-mono); font-size: var(--text-xs); }
 /* One source card at a time. The rules need :has() and a checked radio, so a browser without :has() or without the checked radio shows both cards. */
 .hm-import__source:has(#kind-0:checked) #wxr-card,
 .hm-import__source:has(#kind-1:checked) #rest { display: none; }
