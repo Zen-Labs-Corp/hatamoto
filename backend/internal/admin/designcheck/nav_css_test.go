@@ -121,3 +121,28 @@ func TestSidebarHoverIsVisible(t *testing.T) {
 		t.Errorf("found %d sidebar hover fills, want link, profile and ghost buttons", hovers)
 	}
 }
+
+// On phones the nav items are icon over label; a visible count would be a third line, so
+// the mobile block must clip it (visually hidden, not display:none: it stays in the name).
+func TestPhoneNavBadgeIsVisuallyHidden(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	i := strings.Index(css, "@media (max-width: 768px)")
+	if i < 0 {
+		t.Fatal("no phone block in sidebar.css")
+	}
+	phone := css[i:]
+	j := strings.Index(phone, ".hm-nav-link__badge {")
+	if j < 0 {
+		t.Fatal("the phone block does not style .hm-nav-link__badge")
+	}
+	rule := phone[j : j+strings.Index(phone[j:], "}")]
+	if !strings.Contains(rule, "clip: rect(0 0 0 0)") || strings.Contains(rule, "display: none") {
+		t.Errorf("phone badge rule must visually hide, not display:none: %s", rule)
+	}
+}
