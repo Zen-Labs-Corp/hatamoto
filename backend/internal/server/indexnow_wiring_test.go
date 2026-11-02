@@ -65,6 +65,15 @@ func TestIndexNowEligible(t *testing.T) {
 		"entry noindex":     {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = json.RawMessage(`{"no_index":true}`) }), false},
 		"hidden in sitemap": {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = json.RawMessage(`{"hide_from_sitemap":true}`) }), false},
 		"type noindex":      {noindexPages, page(nil), false},
+		"hidden person":     {&seo.Settings{}, page(func(e *entity.Entity) { e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug} }), false},
+		"public person": {&seo.Settings{}, page(func(e *entity.Entity) {
+			e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug}
+			e.Attributes = json.RawMessage(`{"public":true}`)
+		}), true},
+		"no author pages": {&seo.Settings{Sitemap: seo.Sitemap{NoAuthor: true}}, page(func(e *entity.Entity) {
+			e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug}
+			e.Attributes = json.RawMessage(`{"public":true}`)
+		}), false},
 	} {
 		if got := indexNowEligible(c.set, c.e); got != c.want {
 			t.Errorf("%s: got %v want %v", name, got, c.want)
@@ -78,6 +87,7 @@ type inRig struct {
 	mu     sync.Mutex
 	posted []map[string]any
 	runner *indexnow.Runner
+	res    *indexNowResolver
 	logs   strings.Builder
 }
 
@@ -105,6 +115,7 @@ func newInRig(t *testing.T, set seo.IndexNow) *inRig {
 		path:     func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug },
 		warnBase: func() {},
 	}
+	g.res = res
 	g.runner = indexnow.New(res, slog.New(slog.NewTextHandler(&g.logs, nil)), indexnow.Options{
 		Client:      srv.Client(),
 		EndpointURL: func(string) string { return srv.URL + "/indexnow" },
@@ -130,6 +141,17 @@ func (g *inRig) urls(t *testing.T) []string {
 		}
 	}
 	return out
+}
+
+func TestIndexNowSkipsHiddenLocale(t *testing.T) {
+	g := newInRig(t, seo.IndexNow{Enabled: true, Key: testIndexNowKey})
+	g.res.localeHidden = func(_ context.Context, l string) bool { return l == "fr" }
+	e := g.page("bonjour", entity.StatusPublished)
+	e.Locale = "fr"
+	indexNowSink{r: g.runner}.Emit(context.Background(), entity.Event{Kind: entity.EventPublished, ID: e.ID})
+	if got := g.urls(t); len(got) != 0 {
+		t.Fatalf("hidden locale pinged: %v", got)
+	}
 }
 
 func TestIndexNowPublishSubmitsOneURL(t *testing.T) {

@@ -70,7 +70,9 @@ type indexNowResolver struct {
 	baseURL  func(ctx context.Context) string
 	get      func(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
 	path     func(ctx context.Context, e *entity.Entity) string
-	warnBase func() // called when IndexNow is on but no base URL is known
+	// localeHidden reports a configured locale that is not public; nil means none.
+	localeHidden func(ctx context.Context, locale string) bool
+	warnBase     func() // called when IndexNow is on but no base URL is known
 }
 
 func (s *Server) newIndexNowResolver() *indexNowResolver {
@@ -92,6 +94,9 @@ func (s *Server) newIndexNowResolver() *indexNowResolver {
 		get: s.entityRepo.GetByID,
 		path: func(ctx context.Context, e *entity.Entity) string {
 			return locateEntity(ctx, s.urlSnapshot(ctx), entity.NewPostgresPublicRepository(s.db), e).Path
+		},
+		localeHidden: func(ctx context.Context, locale string) bool {
+			return s.urlSnapshot(ctx).Locales().IsHidden(locale)
 		},
 		warnBase: func() {
 			s.indexNowBaseWarn.Do(func() {
@@ -142,7 +147,7 @@ func (r *indexNowResolver) URLs(ctx context.Context, it indexnow.Item) []string 
 	}
 	var out []string
 	for _, e := range ents {
-		if !indexNowEligible(set, e) {
+		if !indexNowEligible(set, e) || (r.localeHidden != nil && r.localeHidden(ctx, e.Locale)) {
 			continue
 		}
 		if p := r.path(ctx, e); p != "" && !set.Sitemap.ExcludedPath(p) {
@@ -163,6 +168,11 @@ func indexNowEligible(set *seo.Settings, e *entity.Entity) bool {
 	}
 	kind := seo.KindSingle
 	if e.Schema.Slug == entity.PersonSchemaSlug {
+		// Like the sitemap: a person page exists only when marked public, and
+		// the owner may leave author pages out.
+		if entity.FlattenAttributes(e.Attributes)["public"] != "true" || set.Sitemap.NoAuthor {
+			return false
+		}
 		kind = seo.KindAuthor
 	}
 	return !set.NoIndexView(string(kind), e.Schema.Slug, "")
