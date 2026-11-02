@@ -4,14 +4,31 @@ on:
   push:
     branches: [main]
   pull_request:
+  # ci-full.yml calls this workflow with tier: full (nightly, on demand). Without
+  # inputs (push, pull_request) the tier is fast. Job names do not change, so the
+  # required checks keep reporting under the same names.
+  workflow_call:
+    inputs:
+      tier:
+        type: string
+        default: fast
+        description: "fast | full"
+      sha:
+        type: string
+        default: ""
+        description: "Commit to test (empty: the event's own ref)"
 
 permissions:
   contents: read
 
 jobs:
-  # The Go integration suite on PostgreSQL 16 and 18 (the installer installs 18 by default).
-  # The required check is the aggregate job `backend` below, so its name does not depend on
-  # the matrix legs.
+  # The Go suite. Fast tier (PRs, push to main): PostgreSQL 18 only (the installer installs 18
+  # by default; the PG16 leg still reports, with every step skipped: zizmor cannot analyse
+  # a computed matrix), an integration smoke over every package except the slow ones listed in
+  # scripts/ci-smoke-exclude.txt (those get `go test -short`), and the cheap must-run checks.
+  # Full tier (ci-full): PostgreSQL 16 and 18, the whole integration run, the race run,
+  # the must-run steps and govulncheck. The required check is the aggregate job `backend`
+  # below, so its name does not depend on the matrix legs.
   backend-matrix:
     name: backend-matrix (PostgreSQL ${{ matrix.pg }})
     runs-on: ubuntu-latest
@@ -53,22 +70,40 @@ jobs:
       # SITEMAP_GOLDEN_DB is intentionally unset: that test needs a seeded dataset and skips.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: matrix.pg == '18' || inputs.tier == 'full'
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: matrix.pg == '18' || inputs.tier == 'full'
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: Apply migrations
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: go run ./cmd/hatamoto migrate
-      - run: go vet -tags=integration ./...
+      - if: matrix.pg == '18' || inputs.tier == 'full'
+        run: go vet -tags=integration ./...
       # Builds examples/plugins/hello and the hostile test guests (each its own
       # module) with GOOS=wasip1. internal/admin and internal/server each take
       # close to Go's 10 minute default on a hosted runner.
+      - name: Integration smoke (PG18 subset, one database per package)
+        if: matrix.pg == '18' && inputs.tier != 'full'
+        run: |
+          exclude=$(mktemp)
+          sed -e 's#^#hatamoto.dev/core/#' ../scripts/ci-smoke-exclude.txt > "$exclude"
+          pkgs=$(go list -tags=integration -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -vxFf "$exclude" || true)
+          PKGDB_PKGS="$pkgs" bash ../scripts/ci-integration-pkgdb.sh
+      # The packages left out of the smoke still get their unit tests, with -short.
+      - name: Unit tests of the packages left out of the smoke (-short)
+        if: matrix.pg == '18' && inputs.tier != 'full'
+        run: sed -e 's#^#hatamoto.dev/core/#' ../scripts/ci-smoke-exclude.txt | xargs go test -short -count=1
       - name: Run integration tests, one database per package
+        if: inputs.tier == 'full'
         run: bash ../scripts/ci-integration-pkgdb.sh
       # The sandbox tests are the v1-16 done criterion: fail if they were skipped or not built.
       - name: Hostile plugin tests really run
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: |
           go test -count=1 -v -run 'TestHostileGuests|TestSpinningPlugin|TestOversizedOutput' ./internal/wasmhost ./internal/pluginhost | tee /tmp/hostile.log
           grep -q -e '^--- PASS: TestHostileGuests ' /tmp/hostile.log
@@ -93,6 +128,7 @@ jobs:
       # and denied capabilities return typed errors; the plugin host runs clean
       # under the race detector.
       - name: Plugin capability tests really run
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: |
           go test -count=1 -v -tags=integration -run 'TestPluginCannotReadCoreTables|TestPluginEscapesHoldWithoutTheGuard|TestPluginMigrationCannotTouchCore|TestPluginSessionStateDoesNotLeak|TestPluginRoleHasNoCorePrivileges|TestPluginPasswordRotation|TestTwoDatabasesOneCluster|TestMigrationRevokesProceduresAndAggregates|TestDeniedUntilGranted|TestFetchBlocksPrivateTargets' ./internal/pluginhost | tee /tmp/caps.log
           # Both provisioning modes must run (a missing psql would skip bootstrap).
@@ -103,11 +139,14 @@ jobs:
           for t in TestPluginPasswordRotation TestMigrationRevokesProceduresAndAggregates TestDeniedUntilGranted TestFetchBlocksPrivateTargets; do
             grep -q -e "^--- PASS: $t " /tmp/caps.log
           done
-      - run: go test -race -count=1 ./internal/wasmhost ./internal/pluginhost
+      - name: Race detector (wasmhost, pluginhost)
+        if: inputs.tier == 'full'
+        run: go test -race -count=1 ./internal/wasmhost ./internal/pluginhost
       # v1-18 done criteria: a plugin and a theme install from a signed registry
       # without a restart, uninstall changes no core table, hostile packages
       # (zip slip, bomb, bad signature, wrong signer, oversized) are refused.
       - name: Package tests really run
+        if: inputs.tier == 'full'
         run: |
           go test -count=1 -v -tags=integration -run 'TestPluginAndThemeInstallFromSignedRegistryWithoutRestart|TestHostilePackagesAreNotInstalled|TestMissingSectionsBlockActivation|TestReconcilePicksUpAnotherProcessesInstall|TestHostileArchivesAreRefused|TestZipBombIsRefused|TestVerifyRefusals' ./internal/packages | tee /tmp/pkg.log
           for t in TestPluginAndThemeInstallFromSignedRegistryWithoutRestart TestHostilePackagesAreNotInstalled TestMissingSectionsBlockActivation TestReconcilePicksUpAnotherProcessesInstall TestHostileArchivesAreRefused TestZipBombIsRefused TestVerifyRefusals; do
@@ -118,6 +157,7 @@ jobs:
       # Outgoing webhooks are core. A skipped integration test (no DATABASE_URL)
       # passes silently, so each name must show as PASSed.
       - name: Core webhook tests really run
+        if: inputs.tier == 'full'
         run: |
           go test -count=1 -v -tags=integration -run 'TestWebhooksCore' ./internal/webhook | tee /tmp/wh.log
           for t in TestWebhooksCoreDeliversSignedPayloadsAndRetries TestWebhooksCoreBurstIsQueuedWholeAndDelivered TestWebhooksCoreHungReceiverNeitherTrapsNorBlocksCapture TestWebhooksCoreDeadClaimCountsAsAnAttempt TestWebhooksCoreScheduledPublishEnqueues TestWebhooksCoreFormSubmittedCarriesNoFields; do
@@ -139,6 +179,7 @@ jobs:
       # pass silently. must_run <pkg> <Test>...: runs exactly those tests and
       # requires a "--- PASS" line for each (and no SKIP).
       - name: Must-run tests
+        if: inputs.tier == 'full'
         run: |
           must_run() {
             pkg=$1; shift
@@ -156,16 +197,22 @@ jobs:
           must_run ./internal/wasmhost TestHostileGuests
           # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
           bash ../scripts/test-sdk-external.sh
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: govulncheck
+        if: inputs.tier == 'full'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Vendored JS matches vendor.json
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: go run ./tools/vendor verify
       - name: Go module licences are all permissive
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: go run ./tools/licenses
       - name: Build the example plugins
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: make -C .. plugins
       # The first-party plugins live in the hatamoto-first-party monorepo and are built from manifests
       # (make registry COMMUNITY_DIR=...); here only the build script's offline fixture test runs.
       - name: Registry build tests
+        if: matrix.pg == '18' || inputs.tier == 'full'
         run: |
           ../registry/test-build-community.sh
           ../registry/test-build-community-themes.sh
