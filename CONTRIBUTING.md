@@ -7,7 +7,7 @@ Postgres. There is no Node toolchain to install for the product itself.
 
 - **Go 1.27** (the exact toolchain is pinned by the `toolchain` line in
   `backend/go.mod`; with `GOTOOLCHAIN=auto`, the default, `go` fetches it).
-- **PostgreSQL 16 or 18** (CI tests both) for the integration tests and for running the server
+- **PostgreSQL 16 or 18** (pull requests run a PG18 smoke; the `ci-full` workflow tests 16 and 18) for the integration tests and for running the server
   (`docker compose up db` starts one on `127.0.0.1:5432`).
 - `git`, `bash`, `make`, `jq`, `curl` and [Caddy](https://caddyserver.com/) 2 for the
   repository checks (`make check` runs the Caddy splice test; `REAL_CADDY=/path/to/caddy`
@@ -131,7 +131,7 @@ tests and says so loudly. Set `REAL_CADDY` to run the Caddy checks against a rea
 binary. Tests known to be flaky on `main` are listed in `scripts/known-flakes.txt`:
 one that fails is re-run alone and only counts as a pass if it passes then and the rest of its package passes too. A package listed as `<package> *` (load-sensitive as a whole) that fails is re-run once in full and must pass then. A package that panics fails whatever is listed.
 Passes are cached per tree in `<git common dir>/hatamoto-gate-cache/` (`.githooks/lib/gate-cache.sh`): re-pushing an unchanged tree (an amended message, a rebase that changed nothing) skips the gates it passed; `HATAMOTO_GATE_CACHE=off` re-runs them. DCO and gitleaks are never cached. The pre-push hook sets `HATAMOTO_PERF_STRICT=0` unless it is set: absolute perf goals are noise on a shared machine, the regression bounds still apply.
-`HATAMOTO_PREPUSH_RACE=1` adds the race run CI had (`go test -race ./internal/wasmhost ./internal/pluginhost`); it is opt-in because it is slow. Run it before touching those packages.
+`HATAMOTO_PREPUSH_RACE=1` adds the race run `ci-full` has (`go test -race ./internal/wasmhost ./internal/pluginhost`); it is opt-in because it is slow. Run it before touching those packages.
 
 **Affected or full.** A push runs only what it can affect: `go list -test` gives the
 import graph, the changed packages plus their reverse dependencies are tested, and a
@@ -149,12 +149,19 @@ workflow or `deploy/sql` changes, when a non-Go file under `backend/` maps to no
 skipped for the environment (so not with `HATAMOTO_SKIP_INTEGRATION=1`) records `full-suite`
 for the tree; an affected push never does.
 
-**The full suite runs once, in CI.** With the GitHub `ci` workflow active, `scripts/ship.sh`
+**PRs run a fast tier; the full suite runs in `ci-full`.** Pull requests and pushes to main run
+the fast tier: `backend` (build, vet, PG18 smoke, unit `-short`), `admin-ui` only when admin UI
+paths change, `n-1` only when migrations change; `sdk (1.26)` and `wordpress-importer` pass
+immediately. The full suite runs in the `ci-full` workflow, nightly (skipped when main is
+unchanged since the last green run) or by hand
+(`gh workflow run ci-full --ref main [-f sha=<sha>]`). A failing nightly opens one issue,
+"ci-full failing on main", and the next green run closes it. A release requires a green
+`ci-full` on the exact commit. With the GitHub `ci` workflow active, `scripts/ship.sh`
 does not wait: it turns on GitHub auto-merge pinned to the checked head, starts a deploy waiter
 in the background on the shipping machine, prints `SHIP-H QUEUED ... log=<path>` and exits.
-GitHub merges the PR when the ruleset's required checks pass (`backend` is the whole Go suite
-with `-tags=integration`, `admin-ui` the UI gate). The waiter (log under
-`<git-common-dir>/ship-logs/`) re-checks those two on the merged head and deploys; a failed
+GitHub merges the PR when the ruleset's required checks pass (`backend` is the fast tier,
+`admin-ui` the UI gate). The waiter (log under
+`<git-common-dir>/ship-logs/`) re-checks `backend` and `admin-ui` (both must be SUCCESS) on the merged head and deploys; a failed
 check, a push or a closed PR ends it with nothing merged or deployed, and the PR stays open for
 a fix. `scripts/ship.sh --wait <PR>` is the blocking ship (wait for CI here, `SHIP_CI_WAIT`,
 then merge and deploy). Run `scripts/pipeline-gate.sh full` before the push only if you want

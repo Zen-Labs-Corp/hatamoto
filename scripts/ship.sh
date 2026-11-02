@@ -10,7 +10,7 @@
 # on this machine, prints `SHIP-H QUEUED pr=N head=SHA deploy=background|none log=PATH` and
 # exits 0. GitHub merges the PR when the ruleset's required checks pass. The waiter
 # (`--after-auto`, log under <git-common-dir>/ship-logs/) polls the PR; once it is merged it
-# re-checks that `backend` and `admin-ui` passed on the pinned head and runs the normal deploy
+# re-checks that `backend` (the fast CI tier) and `admin-ui` passed on the pinned head and runs the normal deploy
 # (one deploy at a time: <git-common-dir>/ship-deploy.lock). A failed check, a push, a closed
 # PR or auto-merge being switched off ends the waiter with nothing deployed; the PR stays open
 # for a fix. With --no-deploy there is no waiter: GitHub's merge is the ship.
@@ -47,9 +47,11 @@
 # - CI mode (the 'ci' workflow is active), default: queued (see above); GitHub's ruleset is the
 #   merge gate and the waiter re-checks backend + admin-ui before it deploys.
 # - CI mode with --wait: ship waits for the PR head's checks (SHIP_CI_WAIT),
-#   stops at the first failed one, and merges only when every check is green, `backend` (the
-#   whole Go suite with -tags=integration, vet) and `admin-ui` included. Those checks ARE the
-#   full suite and the UI gate, run on GitHub's runners, so nothing is re-run here.
+#   stops at the first failed one, and merges only when every check is green, `backend` and
+#   `admin-ui` included. `backend` is the fast tier (build, vet, PG18 smoke, unit) and `admin-ui`
+#   the UI gate (it runs only when admin UI changed, and ends SUCCESS either way), run on GitHub's
+#   runners, so nothing is re-run here. The full suite runs in `ci-full` (nightly, on demand, and
+#   the release gate).
 # - Local mode (the 'ci' workflow is disabled): the local UI gate, then the FULL suite (every
 #   package and check suite) on the PR head, once per tree. It runs the installed pre-push
 #   snapshot with HATAMOTO_PREPUSH_FULL=1 and reuses a `full-suite` pass recorded for the same
@@ -394,7 +396,7 @@ fi
 
 # ci_checks_gate: CI mode's merge gate. Polls the PR head's checks until none is pending
 # (SHIP_CI_WAIT seconds, every SHIP_CI_POLL), stops at the first failed one, and requires
-# `backend` (the whole Go suite) and `admin-ui` to have run and passed: mergeStateStatus CLEAN
+# `backend` (the fast tier) and `admin-ui` to have run and passed: mergeStateStatus CLEAN
 # only reflects the checks that the ruleset lists. A push during the wait aborts (the checks
 # would be for another commit). statusCheckRollup is read with `gh pr view` (gh 2.46 has no
 # `gh pr checks --json`). Rows: name, status, conclusion; a StatusContext has context/state
@@ -568,7 +570,7 @@ case "$STATE" in
         echo "SHIP-H ABORT: PR #$PR checks are green but it is not clean ($MSTATUS: a required review, an unresolved thread or a conflict)" >&2
         exit 1
       fi
-      echo "full suite on ${HEAD_SHA:0:12}: covered by CI (backend, admin-ui and every other check green); not re-run here"
+      echo "fast CI tier on ${HEAD_SHA:0:12}: backend, admin-ui and every other check green (the full suite runs in ci-full); not re-run here"
     else
       if [[ "$MSTATUS" != CLEAN ]]; then
         echo "SHIP-H ABORT: PR #$PR is not mergeable/clean ($MERGEABLE/$MSTATUS)" >&2

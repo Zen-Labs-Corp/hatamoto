@@ -38,7 +38,9 @@ This page writes the admin address as `<admin>`. Tests and the QA harness pin `H
 - Shipping: the local git hooks (`make hooks`, CONTRIBUTING.md "Local gates") run `make check` (with `make design-check`) and the affected tests before every push. `scripts/ship.sh` picks
   its gate from the workflow state (`gh workflow list --all --json name,state`).
   `ci` active: ship waits for the PR checks; every one must be green, and `backend` and
-  `admin-ui` must be SUCCESS (no local re-run). `ci` not
+  `admin-ui` must be SUCCESS (no local re-run). In CI `admin-ui` is path-gated: it runs the
+  Chrome gate only when admin UI paths or workflows changed (SUCCESS otherwise) and always
+  runs in `ci-full`. `ci` not
   active: ship runs the local UI gate on the PR head commit in a temporary worktree
   (`make design-check`, then `scripts/admin-qa/run-local.sh`,
   strict) and aborts on failure. There it never skips: missing Postgres or Chrome
