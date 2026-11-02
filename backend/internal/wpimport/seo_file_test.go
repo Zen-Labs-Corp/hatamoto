@@ -92,3 +92,21 @@ func TestSEOFileOversized(t *testing.T) {
 		t.Errorf("exactly 1 MiB should not be 'larger': %v", err)
 	}
 }
+
+func TestSEOFileRankMathTopLevelSections(t *testing.T) {
+	f, err := ParseSEOFile(strings.NewReader(`{"modules":["a"],"general":{"google_verify":"abc"},"titles":{"title_separator":"-"},"sitemap":{"x":"1"},"redirections":{}}`))
+	if err != nil || f.Plugin != "rankmath" {
+		t.Fatalf("top-level: %v %+v", err, f)
+	}
+	if f.Values["google_verify"] != "abc" || f.Values["title_separator"] != "-" {
+		t.Errorf("values = %v", f.Values)
+	}
+}
+
+func TestSEOFileRankMathWrapperWithoutValuesIsRefused(t *testing.T) {
+	for _, in := range []string{`{"modules":[]}`, `{"modules":[],"settings":{}}`, `{"settings":{"general":{}}}`} {
+		if _, err := ParseSEOFile(strings.NewReader(in)); !errors.Is(err, ErrSEOFileFormat) {
+			t.Errorf("%s: %v", in, err)
+		}
+	}
+}

@@ -50,12 +50,19 @@ func parseSEOJSON(data []byte) (*SEOFile, error) {
 	settings, hasSettings := root["settings"].(map[string]any)
 	if hasModules || hasSettings {
 		vals := map[string]any{}
-		for _, sec := range []string{"general", "titles", "sitemap"} {
-			if m, ok := settings[sec].(map[string]any); ok {
-				for k, v := range flattenSEO(m) {
-					vals[k] = v
+		// Rank Math exports keep the sections at the top level next to
+		// "modules"; some tools nest them under "settings".
+		for _, holder := range []map[string]any{settings, root} {
+			for _, sec := range []string{"general", "titles", "sitemap"} {
+				if m, ok := holder[sec].(map[string]any); ok {
+					for k, v := range flattenSEO(m) {
+						vals[k] = v
+					}
 				}
 			}
+		}
+		if len(vals) == 0 {
+			return nil, errSEOFormat
 		}
 		return &SEOFile{Plugin: "rankmath", Values: vals}, nil
 	}

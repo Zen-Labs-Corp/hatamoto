@@ -213,3 +213,12 @@ func TestSEOMapRankMathRobotsNeedCustomSwitch(t *testing.T) {
 		})
 	}
 }
+
+func TestSEOMapRankMathSeparatorEntity(t *testing.T) {
+	for in, want := range map[string]string{"&ndash;": "–", "&raquo;": "»", "|": "|"} {
+		s := applyPlan(t, buildSEOPlan(&SEOFile{Plugin: "rankmath", Values: map[string]any{"title_separator": in}}, nil, testSchemaOf, ""))
+		if s.Separator != want {
+			t.Errorf("%q -> %q, want %q", in, s.Separator, want)
+		}
+	}
+}

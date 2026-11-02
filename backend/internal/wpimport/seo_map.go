@@ -3,6 +3,7 @@ package wpimport
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"regexp"
 	"sort"
 	"strings"
@@ -204,6 +205,7 @@ func (b *seoBuilder) fromFile(file *SEOFile, spec seoSpec, schemaOf func(string)
 		if names := seoSeparatorNames[plugin]; names != nil {
 			sep = names[strings.ToLower(raw)]
 		}
+		sep = html.UnescapeString(sep)
 		if containsSep(sep) {
 			b.str("separator", "Separator", "separator", sep,
 				func(s seo.Settings) string { return s.Separator }, func(s *seo.Settings, v string) { s.Separator = v })
