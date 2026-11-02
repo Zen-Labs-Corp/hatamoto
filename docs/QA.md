@@ -410,9 +410,15 @@ owner and an editor), then run the commands under "Harness".
   `content-model`, `seo`, `team`) answer 302 to the first tab the role can reach;
   `/admin/theme` answers 303 to the first Theme section (for an editor, Blocks), and
   `/admin/settings?section=appearance` (also `menus`, `menus-forms`) lands on Theme.
-* **General page**: `/admin/settings/general` holds identity, homepage, contact and email
-  (no brand colour: that is Theme → Colours and fonts). Saving one block with an error
-  re-renders the page with the error next to that block; the other blocks are untouched.
+* **General page**: `/admin/settings/general` holds identity, homepage and email (the
+  notification email sits in the Email card; no brand colour: that is Theme → Colours and fonts).
+  Saving one block with an error re-renders the page with the error next to that block; the
+  other blocks are untouched. It has no business details.
+* **Business details page**: `/admin/settings/locales/business` (owner only) shows the default
+  locale's card first (the Organisation, with the office switch), then one card per other
+  locale with grey placeholders from the default card. A single-language site shows one card.
+  A field marked not inherited reads "Not inherited, empty", with a switch above the card's
+  fields to inherit again. Changing the Language on General folds the new default's card.
 * **API page**: `/admin/settings/api-keys` (owner only) holds the create form and the key
   table; a new API key is shown once. `/admin/settings/api` answers 301 to it.
 * **Export tab**: `/admin/settings/export` (owner only) shows the `hatamoto export` and
