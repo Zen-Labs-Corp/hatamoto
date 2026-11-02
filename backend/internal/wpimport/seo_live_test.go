@@ -252,3 +252,14 @@ func TestRobotsExtraKeepsGroupsApart(t *testing.T) {
 		}
 	}
 }
+
+func TestRobotsDisallowsAllIgnoresInlineComments(t *testing.T) {
+	t.Parallel()
+
+	if !robotsDisallowsAll("User-agent: * # everyone\nDisallow: / # staging\n") {
+		t.Error("an inline comment hid the site-wide block")
+	}
+	if robotsDisallowsAll("User-agent: GPTBot\nDisallow: / # ai\n") {
+		t.Error("a named crawler counted as discouraging")
+	}
+}

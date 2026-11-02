@@ -207,6 +207,7 @@ func robotsDisallowsAll(body string) bool {
 		if !ok || strings.HasPrefix(line, "#") {
 			continue
 		}
+		v, _, _ = strings.Cut(v, "#")
 		k, v = strings.ToLower(strings.TrimSpace(k)), strings.TrimSpace(v)
 		if k == "user-agent" {
 			if !prevAgent {
