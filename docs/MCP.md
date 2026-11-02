@@ -31,7 +31,7 @@ Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:ent
 | `write:seo` | `seo_update` |
 | `read:reports` | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic`, `analytics_conversions` |
 
-`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update`, `redirects_delete` and `seo_update` are marked destructive in the tool annotations, so clients can ask before running them.
+`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update` and `redirects_delete` are marked destructive in the tool annotations, so clients can ask before running them.
 
 A term in `terms_list` carries its `seo` when one is saved. It is read-only here: `terms_create` takes no `seo`, and a term's search appearance is edited on its admin page.
 
@@ -60,9 +60,9 @@ Five tools read and change the site's search settings (Settings > SEO in the adm
 | Tool | Scope | What it does |
 |---|---|---|
 | `seo_get` | `read:seo` | The whole SEO document: the 14 sections (`separator`, `home`, `types`, `taxonomy`, `archives`, `variables`, `social`, `index`, `robots`, `verification`, `sitemap`, `breadcrumbs`, `indexnow`, `monitor404`), `type_settings` (per content type, by slug) and `ai_crawlers`. |
-| `seo_update` | `write:seo` | Merges a partial document into the stored settings and returns nothing but success or the field errors. |
-| `seo_preview` | `read:seo` | The SEO part of a published entry's public head (title, description, robots, canonical, Open Graph and Twitter tags), built as a visitor would get it. A draft is not found. |
-| `seo_analyze` | `read:seo` | The entry's SEO panel checks, counts and score, from the stored entity (input: the entity `id`). No keyword or `llms.txt` checks. |
+| `seo_update` | `write:seo` | Merges a partial document into the stored settings and returns the whole updated document, or the field errors (a refused patch changes nothing). |
+| `seo_preview` | `read:seo` | (input: `entity_id`) The SEO part of a published entry's public head (title, description, robots, canonical, Open Graph and Twitter tags), built as a visitor would get it. A draft is not found. |
+| `seo_analyze` | `read:seo` | The entry's SEO panel checks, counts and score, from the stored entity (input: `entity_id`), the title and description length checks included. No keyword or `llms.txt` checks. |
 | `seo_404_list` | `read:seo` | The 404 monitor. `visitor` is `""` (all), `people` or `bots`. |
 
 `seo_get` returns the document in the shape `seo_update` takes, so read, edit a copy and send it back. Fields keep their **stored polarity**: a switch that the admin shows as "enabled" may be stored as `disabled` (for example `monitor404.disabled`), and the document uses the stored name and meaning, not the admin label.
