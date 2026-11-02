@@ -1,11 +1,11 @@
 /* Settings and Plugins frame: the section sidebar beside the page, and the section head
-   (title, description, link tabs). The page keeps its own width and sits next
-   to the subnav. Under 640px the list becomes a select and a Go button, a
+   (title, description, link tabs). Subnav and page are one group, centred at --page-wide and
+   owning the page padding; the page inside has none. Under 640px the list becomes a select and a Go button, a
    plain GET form with no change-to-navigate (WCAG 3.2.2). */
-.hm-settings { display: grid; grid-template-columns: var(--subnav-w) minmax(0, 1fr); align-items: start; min-height: 100vh; }
-.hm-settings > .hm-page { margin-inline: 0; }
-/* Settings pages share the wide column (narrow, wide or full alike), except data-width="compact" pages (Performance, Updates, General, Email), which keep the narrow 760px column. The attribute selector outranks the per-width rules in base.css. */
-.hm-settings > .hm-page[data-width] { max-width: var(--page-wide); }
+.hm-settings { display: grid; grid-template-columns: var(--subnav-w) minmax(0, 1fr); gap: var(--space-8); align-items: start; width: 100%; max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad); min-height: 100vh; }
+.hm-settings > .hm-page { margin: 0; padding: 0; }
+/* Settings pages fill the group's content column (narrow, wide or full alike), except data-width="compact" pages (Performance, Updates, General, Email), which keep the narrow 760px column. The attribute selector outranks the per-width rules in base.css. */
+.hm-settings > .hm-page[data-width] { max-width: none; }
 .hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 /* Cards in one .hm-cardform sit in a single block; give them the page rhythm. */
 .hm-settings .hm-cardform > .hm-card + .hm-card { margin-top: var(--space-6); }
@@ -77,7 +77,7 @@
 /* Font stacks: one field per row, full width. */
 .hm-fieldgrid--stack { grid-template-columns: minmax(0, 1fr); }
 
-@media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); } }
+@media (max-width: 960px) { .hm-settings { grid-template-columns: 184px minmax(0, 1fr); gap: var(--space-4); } }
 @media (max-width: 640px) {
   .hm-fieldgrid--tokens, .hm-fieldgrid--2 { grid-template-columns: minmax(0, 1fr); }
   .hm-settings { grid-template-columns: minmax(0, 1fr); min-height: 0; }

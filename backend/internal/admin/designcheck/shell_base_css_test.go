@@ -19,7 +19,7 @@ func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	if !strings.Contains(css, ".hm-notices:not(:has(.hm-callout)) { display: none; }") {
 		t.Error("an .hm-notices with no callout must be display: none")
 	}
-	if !strings.Contains(css, ".hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }") || strings.Contains(css, ".hm-notices + .hm-page") {
+	if !strings.Contains(css, ".hm-notices:has(.hm-callout) + .hm-settings, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }") || strings.Contains(css, ".hm-notices + .hm-page") {
 		t.Error("the reduced page padding must depend on the strip holding a callout")
 	}
 }

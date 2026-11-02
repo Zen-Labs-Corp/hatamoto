@@ -100,20 +100,20 @@ form.hm-stack { max-width: 46rem; }
 }
 /* Page widths: <div class="hm-page" data-width="narrow|compact|wide|full"> inside
    main. narrow = one readable form column, wide = tables and charts, full =
-   editors, compact = narrow that stays narrow inside Settings (see partials/settings.css). The shell centres the page beside the sidebar. */
+   editors, compact = narrow that stays narrow inside Settings (see partials/settings.css). Every page except full
+   centres in one --page-wide group beside the sidebar (the subnav pages centre subnav and page together). */
 .hm-page {
   width: 100%; max-width: var(--page-wide); margin-inline: auto;
   padding: var(--page-pad);
   display: flex; flex-direction: column; gap: var(--space-6);
 }
 /* Standing notices: one full-width strip above the page column, same width on every page. */
-.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--page-pad) var(--page-pad) 0; }
-.hm-notices:has(.hm-callout) + .hm-settings > .hm-page, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }
+.hm-notices { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad) var(--page-pad) 0; }
+.hm-notices:has(.hm-callout) + .hm-settings, .hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }
 /* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
 .hm-notices:not(:has(.hm-callout)) { display: none; }
 @media (max-width: 960px) { .hm-notices { padding: var(--space-4) var(--space-4) 0; } }
 .hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
-.hm-page:not([data-width="narrow"], [data-width="compact"]) { max-width: none; }
 .hm-page[data-width="full"] { max-width: none; }
 .hm-bare {
   min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4);
@@ -141,7 +141,7 @@ form.hm-stack { max-width: 46rem; }
   .hm-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 }
 @media (max-width: 960px) {
-  .hm-page { padding: var(--space-6) var(--space-4); }
+  .hm-page, .hm-settings { padding: var(--space-6) var(--space-4); }
 }
 
 @media (prefers-reduced-motion: reduce) {
