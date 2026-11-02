@@ -89,7 +89,7 @@ func TestEntitiesSubnavTypeView(t *testing.T) {
 	// filters keep the type in the forms
 	has(t, body, `name="type" value="post"`)
 	// header: plural title, one primary button, no Create menu, no description
-	has(t, body, "<h1>Posts</h1>", `<li><a href="/admin/entities">Entities</a></li><li aria-current="page">Posts</li>`)
+	has(t, body, "<h1>Posts</h1>")
 	lacks(t, body, `popovertarget="create-menu"`, "Pages, posts and other content")
 	if n := strings.Count(body, "New post"); n != 1 {
 		t.Errorf("New post appears %d times, want 1", n)

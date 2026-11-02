@@ -41,7 +41,7 @@ func TestAnalyticsUnderACustomAdminPath(t *testing.T) {
 				}
 			}
 		}
-		if p == "/agents/gptbot" && !strings.Contains(body, `<li><a href="/x-test/analytics/crawlers">Crawlers</a></li>`) {
+		if p == "/agents/gptbot" && !strings.Contains(rec.Header().Get(crumbHrefsHeader), "/x-test/analytics/crawlers") {
 			t.Error("agent page: Crawlers crumb is not under /x-test")
 		}
 	}

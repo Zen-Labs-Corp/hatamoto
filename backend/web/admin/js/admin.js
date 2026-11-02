@@ -47,13 +47,13 @@ document.addEventListener("submit", (evt) => {
   field("back", location.pathname + location.search);
 });
 
-// Top bar toggle: collapses the sidebar. Hidden in the markup, so without
+// Sidebar toggle (in the sidebar foot): collapses it to an icon rail. Hidden in the markup, so without
 // script there is no dead button.
 const sidebarToggle = document.querySelector("[data-hm-sidebar-toggle]");
 if (sidebarToggle) {
   sidebarToggle.hidden = false;
   const shell = document.querySelector(".hm-shell");
-  // Remembered on desktop only: under 768px the sidebar is a top bar and has no toggle.
+  // Remembered on desktop only: under 768px the sidebar is a top bar and its toggle is hidden.
   if (rememberedSidebar(safeStorage("local"), window.matchMedia("(min-width: 769px)").matches)) {
     shell.dataset.sidebar = "collapsed";
     sidebarToggle.setAttribute("aria-expanded", "false");

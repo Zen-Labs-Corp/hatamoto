@@ -197,12 +197,12 @@ function check({ sticky, list, spec }) {
     }
   }
 
-  // UI-D7: exactly one VISIBLE breadcrumb trail per screen: the top bar (compact on phones),
-  // or on the editor screens the editor bar. The editor bar trail is hidden on phones; its
+  // UI-D7: at most one VISIBLE breadcrumb trail per screen: none on the shell pages (no top bar), and on
+  // the editor screens the editor bar. The editor bar trail is hidden on phones; its
   // back link is the trail there, so it must be visible instead. A hidden trail does not count.
   const crumbs = [...document.querySelectorAll('nav[aria-label="Breadcrumb"]')].filter(visible);
   if (crumbs.length > 1) out.push(["UI-D7", sel(crumbs[1]), "more than one visible breadcrumb trail", crumbs.length]);
-  const bar = document.querySelector(".hm-topbar, .hm-editor-bar");
+  const bar = document.querySelector(".hm-editor-bar");
   if (bar && !crumbs.some((n) => bar.contains(n))) {
     const back = bar.matches(".hm-editor-bar") && [...bar.querySelectorAll(".hm-editor-bar__back")].some(visible);
     if (!back) out.push(["UI-D7", sel(bar), "no visible breadcrumb trail", 0]);
@@ -367,7 +367,7 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <button data-hm-open="d13b" id="d13bo"></button><div id="d13b"></div>
 <style>:root{--color-sumi:#111827;--color-paper:#ffffff;--border:#e5e7eb;--border-field:#d1d5db;--segment-ring:var(--border);--segment-bevel:var(--border-field);--border-control:#8b919a;--shadow-1:0 1px 2px rgba(0,0,0,.2);--color-hai:#4b5563;--btn-edge-primary:rgb(0 0 0 / .35)}</style>
 <nav aria-label="Breadcrumb" id="d7a"><ol><li>Home</li></ol></nav><nav aria-label="Breadcrumb" id="d7b"><ol><li>Home</li></ol></nav>
-<div class="hm-topbar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
+<div class="hm-editor-bar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
 <nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#e5e7eb;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <button type="button" class="hm-segmented__btn" id="d8ok" aria-pressed="true" style="border:0;background:var(--color-paper);color:var(--color-sumi);box-shadow:0 0 0 1px var(--border),inset 0 -1px 0 var(--border-field)">On</button>
 <nav class="hm-tabs" data-variant="segmented" id="d9seg"><ul><li><a href="/x?view=a">A</a></li><li><a href="/y?view=a">B</a></li></ul></nav>

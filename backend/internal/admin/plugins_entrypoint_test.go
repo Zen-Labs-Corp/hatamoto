@@ -61,12 +61,11 @@ func TestPluginPageTrails(t *testing.T) {
 		d.Growth.Packages, d.Growth.Plugins = fp, &fakePlugins{settings: map[string]map[string]any{}}
 	})
 	for path, want := range map[string]string{
-		"/admin/plugins/browse":        "Home > Plugins > Browse",
-		"/admin/plugins/gallery/about": "Home > Plugins > Browse > Gallery",
-		"/admin/plugins/security":      "Home > Plugins > Package security",
+		"/admin/plugins/browse":        "Plugins > Browse",
+		"/admin/plugins/gallery/about": "Plugins > Browse > Gallery",
+		"/admin/plugins/security":      "Plugins > Package security",
 	} {
-		body := g.do("GET", path, "owner-token", nil, nil).Body.String()
-		if got := strings.Join(trailLabels(t, body), " > "); got != want {
+		if got := strings.Join(trailLabels(t, g.do("GET", path, "owner-token", nil, nil)), " > "); got != want {
 			t.Errorf("%s: trail %q, want %q", path, got, want)
 		}
 	}
