@@ -846,8 +846,12 @@ Schema (`<admin>/settings/seo/schema`) sets the structured data type of each con
 per type offers the allowed schema.org types, with "Default" as the first option: choosing it
 stores nothing and the page keeps the markup it has today. Types whose Article-family type is
 chosen also offer a subtype (Article, BlogPosting or NewsArticle), and a switch turns off the
-FAQ data taken from a page's content (on by default). A type whose schema is annotated with a
-schema.org type, and a built-in type, are shown read-only, because their markup is set elsewhere.
+FAQ data taken from a page's content (on by default). Pages and Posts, though built in, are
+editable like any other type, and saving writes only these SEO settings, never the type's shape.
+The type select is read-only for Person (its markup is built in), for a type whose schema is
+annotated with a schema.org type, and for a type whose markup comes from a plugin, because the
+type cannot take effect there; the FAQ switch, and the subtype when the type is an Article, stay
+editable on those rows.
 Precedence, highest first: a plugin's builder, the type's schema annotation, the type chosen
 here, then the built-in markup. Changing a type changes only `@type`; the `@id` and the other
 fields keep the shape of the generated markup. A type whose markup comes from a plugin ignores
@@ -858,12 +862,14 @@ Organization and WebSite data the public head emits (name, logo, profile links, 
 with their own business details), links to where each value is edited (General and Locales >
 Business details) and previews the resulting JSON-LD, built by the same code as the public site.
 
-An entry's SEO panel has a Schema tab, also on the entity form, the blog editor and the Builder
-SEO drawer. Schema type overrides the type of that entry's structured data (attribute
-`schema_type`; empty removes it). Custom JSON-LD (attribute `custom_jsonld`) is a JSON object
-with `@context` and `@type`, at most 16 KB, added next to the generated data and never merged
-into it; it is escaped so it cannot close the script tag. Term panels do not have the tab, and
-neither field appears in the `Accept: application/ld+json` response.
+An entry's SEO panel has a Schema tab. The two fields below are on the entity form and the blog
+editor; the Builder SEO drawer and the term panels show the tab with its preview only, without the
+fields. Schema type overrides the type of that entry's structured data (attribute `schema_type`;
+empty removes it). Custom JSON-LD (attribute `custom_jsonld`) is a JSON object, or an array of
+objects, each with `@context` and `@type`, at most 16 KB, added next to the generated data and
+never merged into it; it is escaped so it cannot close the script tag. The
+`Accept: application/ld+json` response carries the schema type override, but not the custom
+block.
 
 ### Performance
 
