@@ -12,8 +12,12 @@ import (
 // frontend.
 func (s *Server) handleRobots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=300, s-maxage=300")
-	_, _ = w.Write([]byte(render.RobotsForAdmin(s.publicBaseURL(r), nil, s.robotsDenyTokens(r.Context()), s.adminPathValue())))
+	w.Header().Set("Cache-Control", "public, max-age=60, s-maxage=60")
+	var lines []string
+	if set := s.seoSettings(r.Context()); set != nil {
+		lines = set.Robots.ExtraLines
+	}
+	_, _ = w.Write([]byte(render.RobotsForAdminLines(s.publicBaseURL(r), nil, lines, s.robotsDenyTokens(r.Context()), s.adminPathValue())))
 }
 
 // handleSitemapXSL serves /sitemap.xsl, referenced by the sitemap processing

@@ -30,6 +30,16 @@ func RobotsWithDeny(origin string, extra, denyTokens []string) string {
 // "/admin": the default is public knowledge, any other address stays out of a
 // file every crawler reads.
 func RobotsForAdmin(origin string, extra, denyTokens []string, adminPath string) string {
+	return RobotsForAdminLines(origin, extra, nil, denyTokens, adminPath)
+}
+
+// RobotsForAdminLines is RobotsForAdmin plus the owner's extra robots.txt
+// lines, written verbatim right after the built-in Disallow lines of the
+// "User-agent: *" group and before the deny groups: a bare Disallow joins the
+// "*" group, a User-agent line starts its own group. Empty lines and any line
+// naming a non-empty adminPath are skipped, so a configured admin address is
+// never published. With no lines the output equals RobotsForAdmin.
+func RobotsForAdminLines(origin string, extra, lines, denyTokens []string, adminPath string) string {
 	var b strings.Builder
 	b.WriteString("User-agent: *\nAllow: /\n")
 	for _, p := range append(append([]string{}, defaultDisallow...), extra...) {
@@ -39,6 +49,19 @@ func RobotsForAdmin(origin string, extra, denyTokens []string, adminPath string)
 		if p = strings.TrimSpace(p); p != "" {
 			b.WriteString("Disallow: " + p + "\n")
 		}
+	}
+	wrote := false
+	admin := strings.ToLower(strings.TrimSpace(adminPath))
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" || (admin != "" && strings.Contains(strings.ToLower(l), admin)) {
+			continue
+		}
+		b.WriteString(l + "\n")
+		wrote = true
+	}
+	if wrote {
+		b.WriteString("\n")
 	}
 	for _, t := range denyTokens {
 		if t = strings.TrimSpace(t); t != "" {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/seo"
 )
 
 func TestRenderRootRobots(t *testing.T) {
@@ -25,7 +26,7 @@ func TestRenderRootRobots(t *testing.T) {
 	if !strings.Contains(body, "Disallow: /api\n") || !strings.Contains(body, "Sitemap: https://example.test/sitemap.xml\n") {
 		t.Fatalf("body:\n%s", body)
 	}
-	if w.Header().Get("Cache-Control") != "public, max-age=300, s-maxage=300" {
+	if w.Header().Get("Cache-Control") != "public, max-age=60, s-maxage=60" {
 		t.Fatalf("cache-control %q", w.Header().Get("Cache-Control"))
 	}
 }
@@ -89,5 +90,15 @@ func TestDetermineBaseURLHonoursForwardedHeadersOnlyFromTrustedProxies(t *testin
 		if got := determineBaseURL(req); got != tc.want {
 			t.Errorf("%s: got %s want %s", tc.remote, got, tc.want)
 		}
+	}
+}
+
+func TestHandleRobotsAppendsSavedLines(t *testing.T) {
+	s := &Server{seoStore: seo.NewStore(&seoQuerier{row: seoRow{raw: []byte(`{"robots":{"extra_lines":["Disallow: /private"]}}`)}})}
+	req := httptest.NewRequest(http.MethodGet, "http://example.test/robots.txt", nil)
+	w := httptest.NewRecorder()
+	s.handleRobots(w, req)
+	if !strings.Contains(w.Body.String(), "Disallow: /*?*_rsc=\nDisallow: /private\n") {
+		t.Fatalf("body:\n%s", w.Body.String())
 	}
 }
