@@ -533,14 +533,7 @@ func normaliseCardKeys(raw []byte) ([]byte, error) {
 	if len(raw) == 0 || json.Unmarshal(raw, &in) != nil {
 		return raw, nil
 	}
-	out := make(map[string]json.RawMessage, len(in))
-	for k, v := range in {
-		if tag, err := entity.NormalizeLocale(k); err == nil {
-			k = tag
-		}
-		out[k] = v
-	}
-	return json.Marshal(out)
+	return json.Marshal(bizprofile.CanonicalKeys(in, entity.NormalizeLocale))
 }
 
 // SetLocaleProfile stores the business details of one locale, keyed by its

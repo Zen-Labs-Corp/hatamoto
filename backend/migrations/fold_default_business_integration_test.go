@@ -161,6 +161,19 @@ func TestFoldDefaultBusiness_LegacyTag(t *testing.T) {
 	assertFoldIdempotent(t, db)
 }
 
+// Two keys that normalise to the same tag: the already canonical one is the
+// default card, every time (map order must not decide).
+func TestFoldDefaultBusiness_DuplicateNormalisedKeys(t *testing.T) {
+	for i := 0; i < 6; i++ {
+		db := foldDB(t, "en-GB", `{}`, `{"en-UK": {"description": "Legacy text."}, "en-GB": {"description": "Canonical text."}}`, "", "", "")
+		foldUp(t, db)
+		r := readBusiness(t, db)
+		if p := profileOf(t, r.profile); p.Description != "Canonical text." || len(cardsOf(t, r.cards)) != 0 {
+			t.Fatalf("run %d: row = %+v", i, r)
+		}
+	}
+}
+
 // An invalid language leaves the row as stored.
 func TestFoldDefaultBusiness_InvalidLanguage(t *testing.T) {
 	db := foldDB(t, "not a tag", `{}`, `{"en-XX": {"description": "x"}}`, "", "", "")

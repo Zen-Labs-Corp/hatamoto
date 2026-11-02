@@ -301,14 +301,7 @@ func foldDefaultBusiness(ctx context.Context, tx pgx.Tx) error {
 	if err != nil {
 		return err
 	}
-	canonical := make(map[string]bizprofile.Profile, len(cards))
-	for k, v := range cards {
-		if tag, err := entity.NormalizeLocale(k); err == nil {
-			k = tag
-		}
-		canonical[k] = v
-	}
-	if locs, err = json.Marshal(canonical); err != nil {
+	if locs, err = json.Marshal(bizprofile.CanonicalKeys(cards, entity.NormalizeLocale)); err != nil {
 		return err
 	}
 	row := bizprofile.Row{Default: def, BusinessProfile: profile, LocaleProfiles: locs, PostalAddress: addr}

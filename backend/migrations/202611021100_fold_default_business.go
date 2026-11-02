@@ -66,14 +66,7 @@ func normaliseCardKeys(raw []byte) ([]byte, error) {
 	if err != nil || len(m) == 0 {
 		return raw, err
 	}
-	out := make(map[string]bizprofile.Profile, len(m))
-	for k, v := range m {
-		if tag, err := entity.NormalizeLocale(k); err == nil {
-			k = tag
-		}
-		out[k] = v
-	}
-	return json.Marshal(out)
+	return json.Marshal(bizprofile.CanonicalKeys(m, entity.NormalizeLocale))
 }
 
 // nullIfEmpty writes an empty value back as NULL when the column held NULL, so
