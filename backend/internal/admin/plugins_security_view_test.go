@@ -49,7 +49,7 @@ func TestSecurityPageOff(t *testing.T) {
 	if strings.Contains(body, " disabled") {
 		t.Error("the submit button is disabled in server HTML")
 	}
-	if got := strings.Join(trailLabels(t, g.do("GET", "/admin/plugins/security", "owner-token", nil, nil)), " / "); got != "Plugins / Package security" {
+	if got := strings.Join(trailLabels(t, body), " / "); got != "Home / Plugins / Package security" {
 		t.Errorf("crumbs %q", got)
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {

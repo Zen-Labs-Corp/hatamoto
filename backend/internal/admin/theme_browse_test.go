@@ -130,7 +130,7 @@ func TestThemeBrowsePopulated(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	if got := strings.Join(trailLabels(t, g.do("GET", "/admin/theme/browse", "owner-token", nil, nil)), " / "); got != "Theme / Themes / Browse" {
+	if got := strings.Join(trailLabels(t, body), " / "); got != "Home / Theme / Themes / Browse" {
 		t.Errorf("crumbs %q", got)
 	}
 }

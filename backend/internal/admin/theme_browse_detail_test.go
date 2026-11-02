@@ -63,10 +63,10 @@ func TestThemeBrowseDetailInstall(t *testing.T) {
 	if strings.Contains(body, "javascript:") {
 		t.Error("an unsafe address is rendered")
 	}
-	if got := strings.Join(trailLabels(t, g.do("GET", "/admin/theme/themes/fresh/about", "owner-token", nil, nil)), " / "); got != "Theme / Themes / Browse / Fresh" {
+	if got := strings.Join(trailLabels(t, body), " / "); got != "Home / Theme / Themes / Browse / Fresh" {
 		t.Errorf("crumbs %q", got)
 	}
-	if rec := g.do("GET", "/admin/theme/themes/fresh/about", "owner-token", nil, nil); !strings.Contains(rec.Header().Get(crumbHrefsHeader), "/admin/theme/browse") {
+	if m := topbarTrail.FindStringSubmatch(body); m == nil || !strings.Contains(m[1], `href="/admin/theme/browse"`) {
 		t.Error("crumb back to Browse missing")
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {

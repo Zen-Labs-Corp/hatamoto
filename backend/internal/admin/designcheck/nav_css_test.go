@@ -150,20 +150,3 @@ func TestPhoneNavBadgeIsVisuallyHidden(t *testing.T) {
 		t.Errorf("phone badge rule must visually hide, not display:none: %s", rule)
 	}
 }
-
-// The collapsed icon rail keeps the profile, theme and sign-out controls reachable (stacked icon
-// buttons) instead of hiding them behind the toggle; nav links carry a title for sighted users.
-func TestCollapsedRailKeepsFootControls(t *testing.T) {
-	t.Parallel()
-
-	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, line := range strings.Split(string(b), "\n") {
-		if strings.Contains(line, `[data-sidebar="collapsed"]`) && strings.Contains(line, "display: none") &&
-			(strings.Contains(line, "__me") || strings.Contains(line, "__foot")) {
-			t.Errorf("sidebar.css:%d the collapsed rail hides a foot control: %s", i+1, line)
-		}
-	}
-}

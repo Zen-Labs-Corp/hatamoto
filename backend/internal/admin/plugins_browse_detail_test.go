@@ -51,7 +51,7 @@ func TestBrowseDetailNotInstalled(t *testing.T) {
 	if strings.Contains(body, "/admin/plugins/fresh/settings") {
 		t.Error("Settings shown for a plugin that is not installed")
 	}
-	if got := strings.Join(trailLabels(t, g.do("GET", "/admin/plugins/fresh/about", "owner-token", nil, nil)), " / "); got != "Plugins / Browse / Fresh" {
+	if got := strings.Join(trailLabels(t, body), " / "); got != "Home / Plugins / Browse / Fresh" {
 		t.Errorf("crumbs %q", got)
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {

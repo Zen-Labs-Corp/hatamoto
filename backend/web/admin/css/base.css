@@ -93,15 +93,35 @@ form.hm-stack { max-width: 46rem; }
   .hm-editor-bar__state { max-inline-size: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); }
 }
 .hm-content { min-width: 0; }
-/* Collapsed sidebar (desktop only; a stored "collapsed" must not touch the phone top bar after
-   a rotate): an icon rail, see partials/sidebar.css. */
+/* Top bar: sidebar toggle and the breadcrumb, a hairline below. The toggle needs script, so it
+   stays hidden until admin.js shows it. */
+.hm-topbar { display: flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg); }
+.hm-topbar__sep { width: 1px; height: 16px; background: var(--border); }
+.hm-topbar__crumbs ol { display: flex; gap: var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }
+.hm-topbar__crumbs li + li::before { content: "\203A"; margin-right: var(--space-2); display: inline-block; transform: translateY(-1px); }
+.hm-topbar__crumbs a { color: var(--color-hai); text-decoration: none; }
+.hm-topbar__crumbs a:hover { color: var(--color-sumi); text-decoration: underline; }
+.hm-topbar__crumbs a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.hm-topbar__crumbs [aria-current] { color: var(--color-sumi); font-weight: var(--weight-medium); }
+/* Only where the toggle exists: a stored "collapsed" must not hide the phone top bar after a rotate. */
 @media (min-width: 769px) {
-  .hm-shell[data-sidebar="collapsed"] { grid-template-columns: var(--sidebar-rail-w) minmax(0, 1fr); }
+  .hm-shell[data-sidebar="collapsed"] { grid-template-columns: minmax(0, 1fr); }
+  .hm-shell[data-sidebar="collapsed"] > .hm-sidebar { display: none; }
+}
+/* Phones: the sidebar is already a top bar, so the toggle goes and the trail shrinks to a
+   back link to the parent ("\2039 Taxonomies"). A trail of one shows as is. */
+@media (max-width: 768px) {
+  .hm-topbar { height: auto; min-height: 40px; padding: var(--space-2) var(--space-4); }
+  .hm-topbar > .hm-btn, .hm-topbar__sep { display: none; }
+  .hm-topbar__crumbs { min-width: 0; }
+  .hm-topbar__crumbs li { display: none; }
+  .hm-topbar__crumbs li:nth-last-child(2), .hm-topbar__crumbs li:only-child { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hm-topbar__crumbs li + li::before { content: none; margin: 0; }
+  .hm-topbar__crumbs li:nth-last-child(2)::before { content: "\2039"; margin-right: var(--space-2); }
 }
 /* Page widths: <div class="hm-page" data-width="narrow|compact|wide|full"> inside
    main. narrow = one readable form column, wide = tables and charts, full =
-   editors, compact = narrow that stays narrow inside Settings (see partials/settings.css). Every page except full
-   centres in one --page-wide group beside the sidebar (the subnav pages centre subnav and page together). */
+   editors, compact = narrow that stays narrow inside Settings (see partials/settings.css). The shell centres the page beside the sidebar. */
 .hm-page {
   width: 100%; max-width: var(--page-wide); margin-inline: auto;
   padding: var(--page-pad);
@@ -112,6 +132,7 @@ form.hm-stack { max-width: 46rem; }
 /* A dismissed banner is removed by script and leaves the strip empty: no box, no extra gap. */
 .hm-notices:not(:has(.hm-callout)) { display: none; }
 .hm-page[data-width="narrow"], .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
+.hm-page:not([data-width="narrow"], [data-width="compact"]) { max-width: none; }
 .hm-page[data-width="full"] { max-width: none; }
 .hm-bare {
   min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4);
@@ -139,7 +160,7 @@ form.hm-stack { max-width: 46rem; }
   .hm-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 }
 @media (max-width: 960px) {
-  .hm-page, .hm-settings { padding: var(--space-6) var(--space-4); }
+  .hm-page { padding: var(--space-6) var(--space-4); }
 }
 
 @media (prefers-reduced-motion: reduce) {
