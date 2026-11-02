@@ -124,6 +124,10 @@ func TestShellNoticesAreOneHairlineGroup(t *testing.T) {
 		".hm-notices .hm-callout { border: 0; border-radius: 0; background: none; color: var(--text-2); min-height: 40px; }",
 		".hm-notices .hm-callout + .hm-callout { border-top: 1px solid var(--border); }",
 		".hm-notices .hm-callout > .hm-icon { color: var(--callout-fg); }",
+		".hm-notices .hm-callout__body { flex: 1; }",
+		".hm-notices .hm-callout--danger { color: var(--callout-fg); }",
+		".hm-notices form { display: flex; flex-wrap: wrap;",
+		".hm-notices form > span { flex: 1 1 16rem; }",
 	} {
 		if !strings.Contains(viz, want) {
 			t.Errorf("viz.css must style the notice rows as group rows: missing %q", want)

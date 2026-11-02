@@ -106,8 +106,10 @@
 .hm-notices .hm-callout + .hm-callout { border-top: 1px solid var(--border); }
 .hm-notices .hm-callout > .hm-icon { color: var(--callout-fg); }
 .hm-notices .hm-callout__dismiss { margin: 0; }
-.hm-notices form { display: flex; align-items: center; gap: var(--space-2); }
-.hm-notices form > span { flex: 1; }
+.hm-notices .hm-callout__body { flex: 1; }
+.hm-notices .hm-callout--danger { color: var(--callout-fg); }
+.hm-notices form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.hm-notices form > span { flex: 1 1 16rem; }
 
 /* Analytics legend: Value and Share as right-aligned columns (CategoryBar.Columns). */
 .hm-catbar__legend--cols { display: grid; gap: var(--space-1); }
