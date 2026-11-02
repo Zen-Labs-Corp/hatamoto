@@ -647,8 +647,13 @@ type menuTargetRepo interface {
 }
 
 func (s *Server) newNavLinks(ctx context.Context) *navLinks {
+	return s.newNavLinksWith(ctx, s.urlSnapshot(ctx))
+}
+
+// newNavLinksWith is newNavLinks over a snapshot the caller already holds.
+func (s *Server) newNavLinksWith(ctx context.Context, snap *entity.URLSnapshot) *navLinks {
 	repo := entity.NewPostgresPublicRepository(s.db)
-	l := &navLinks{snap: s.urlSnapshot(ctx), ctx: ctx, repo: repo}
+	l := &navLinks{snap: snap, ctx: ctx, repo: repo}
 	if s.renderEngine != nil {
 		l.decl = s.renderEngine.MenuDecl()
 	}

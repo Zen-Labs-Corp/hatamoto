@@ -14,7 +14,11 @@ import (
 // without a public URL) and a Blog link when the post archive has posts. Pages
 // become entity items, so their links stay live.
 func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, error) {
-	links := s.newNavLinks(ctx)
+	snap, err := s.urlSnapshotOrErr(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("url registry: %w", err)
+	}
+	links := s.newNavLinksWith(ctx, snap)
 	if links.snap.Locales().Multi() {
 		s.logger.Warn("menu seed: this site has several languages; the Header is seeded from the default-language pages and their links, for every language")
 	}
@@ -48,7 +52,7 @@ func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, er
 		}
 	}
 
-	if it, ok := s.blogArchiveItem(ctx, publicRepo, true); ok {
+	if it, ok := s.blogArchiveItem(ctx, snap, publicRepo, true); ok {
 		items = append(items, it)
 	}
 	return items, nil
@@ -56,8 +60,8 @@ func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, er
 
 // blogArchiveItem is the Blog link to the post archive; false when the post
 // family has no archive path, or, with needPosts, no published post.
-func (s *Server) blogArchiveItem(ctx context.Context, repo *entity.PostgresPublicRepository, needPosts bool) (menu.ReplaceItem, bool) {
-	cfg, ok := s.urlSnapshot(ctx).Config("post")
+func (s *Server) blogArchiveItem(ctx context.Context, snap *entity.URLSnapshot, repo *entity.PostgresPublicRepository, needPosts bool) (menu.ReplaceItem, bool) {
+	cfg, ok := snap.Config("post")
 	if !ok || cfg.ArchivePath == "" {
 		return menu.ReplaceItem{}, false
 	}
@@ -122,8 +126,12 @@ func (s *Server) SeedNewSiteMenus(ctx context.Context) error {
 			return fmt.Errorf("seed theme menus: %w", err)
 		}
 	}
+	snap, err := s.urlSnapshotOrErr(ctx)
+	if err != nil {
+		return fmt.Errorf("url registry: %w", err)
+	}
 	var items []menu.ReplaceItem
-	if it, ok := s.blogArchiveItem(ctx, entity.NewPostgresPublicRepository(s.db), false); ok {
+	if it, ok := s.blogArchiveItem(ctx, snap, entity.NewPostgresPublicRepository(s.db), false); ok {
 		items = append(items, it)
 	}
 	if _, _, err := s.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{

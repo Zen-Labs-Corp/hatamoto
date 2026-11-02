@@ -281,6 +281,23 @@ func TestMenuSeedIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("url registry failure leaves the marker unset for a retry", func(t *testing.T) {
+		reset(true)
+		svc := srv.entityService
+		srv.entityService = nil
+		t.Cleanup(func() { srv.entityService = svc })
+		if err := srv.seedUpgradeHeader(ctx); err == nil {
+			t.Fatal("seed must fail when the url registry is unavailable")
+		}
+		if marked() || len(headerMenus()) != 0 {
+			t.Fatal("a failed seed stamped the marker or created a menu")
+		}
+		srv.entityService = svc
+		if err := srv.seedUpgradeHeader(ctx); err != nil || !marked() {
+			t.Fatalf("retry: %v, marked %v", err, marked())
+		}
+	})
+
 	t.Run("unfinished setup seeds nothing", func(t *testing.T) {
 		reset(false)
 		if err := srv.seedUpgradeHeader(ctx); err != nil {
