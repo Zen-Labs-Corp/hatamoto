@@ -1,12 +1,12 @@
-{{define "content"}}{{$nav := menu "sidebar"}}{{$pos := navPos $nav .Path}}{{$b := docBody .Body}}{{$cur := ""}}{{$open := ""}}{{with $pos.Current}}{{$cur = .Href}}{{$open = .Href}}{{end}}{{with $pos.Trail}}{{$open = (index . 0).Href}}{{end}}{{$type := .SchemaSlug}}{{$cards := ""}}{{with $pos.Current}}{{if .Children}}{{$cards = "children"}}{{end}}{{else}}{{if and $nav (hasPrefix (index $nav 0).Href (printf "%s/" (trimSuffix .Path "/")))}}{{$cards = "landing"}}{{end}}{{end}}<div class="hm-doc">
+{{define "content"}}{{$nav := menu "sidebar"}}{{$pos := navPos $nav .Path}}{{$b := docBody .Body}}{{$cur := ""}}{{$open := ""}}{{with $pos.Current}}{{$cur = .Href}}{{$open = .Href}}{{end}}{{with $pos.Trail}}{{$open = (index . 0).Href}}{{end}}{{$co := .CrumbOpts}}{{$type := .SchemaSlug}}{{$cards := ""}}{{with $pos.Current}}{{if .Children}}{{$cards = "children"}}{{end}}{{else}}{{if and $nav (hasPrefix (index $nav 0).Href (printf "%s/" (trimSuffix .Path "/")))}}{{$cards = "landing"}}{{end}}{{end}}<div class="hm-doc">
 <details class="hm-doc__navm"><summary>Documentation menu</summary>
 <nav aria-label="Documentation">{{template "doc-search" dict "Type" $type}}{{template "doc-nav" dict "Nav" $nav "Cur" $cur "Open" $open}}</nav></details>
 <article class="hm-doc__main">
 {{if or $pos.Current $pos.Trail (gt (len .Breadcrumb) 2)}}<nav class="hm-doc__crumbs" aria-label="Breadcrumb"><ol>
 {{if gt (len .Breadcrumb) 2}}{{with index .Breadcrumb 1}}<li><a href="{{.URL}}">{{.Name}}</a></li>
-{{end}}{{end}}{{range $pos.Trail}}{{if and .Href (ne .Href "#")}}<li><a href="{{.Href}}">{{.Label}}</a></li>
-{{end}}{{end}}{{with $pos.Current}}<li><span aria-current="page">{{.Label}}</span></li>
-{{end}}</ol></nav>
+{{end}}{{end}}{{range $pos.Trail}}{{if and .Href (ne .Href "#")}}<li{{if $co.Sep}} data-sep="{{$co.Sep}}"{{end}}><a href="{{.Href}}">{{.Label}}</a></li>
+{{end}}{{end}}{{if not $co.HideCurrent}}{{with $pos.Current}}<li{{if $co.Sep}} data-sep="{{$co.Sep}}"{{end}}><span aria-current="page">{{.Label}}</span></li>
+{{end}}{{end}}</ol></nav>
 {{end}}<h1 class="hm-doc__title">{{if .Entity}}{{.Entity.Title}}{{else}}{{.Page.Name}}{{end}}</h1>
 {{if $b.HTML}}<div class="hm-prose hm-entry">{{$b.HTML}}</div>
 {{end}}{{range .Blocks}}{{template "section" .}}

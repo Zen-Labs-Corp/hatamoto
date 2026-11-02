@@ -95,8 +95,17 @@ func init() {
 			Current    bool
 		}
 		var cs []crumb
-		for i, c := range w.View.Breadcrumb {
-			last := i == len(w.View.Breadcrumb)-1
+		co := w.View.CrumbOpts()
+		trail := w.View.Breadcrumb
+		lo, hi := 0, len(trail)
+		if co.HideHome && hi-lo > 1 {
+			lo++
+		}
+		if co.HideCurrent && hi-lo > 1 {
+			hi--
+		}
+		for i, c := range trail[lo:hi] {
+			last := i+lo == len(trail)-1
 			cr := crumb{Name: c.Name, Current: last}
 			if !last {
 				cr.Href = safeURL(c.URL)
@@ -109,7 +118,10 @@ func init() {
 			}
 			cs = []crumb{{Name: "Home"}, {Name: "Section"}, {Name: "This page", Current: true}} // canvas placeholder trail
 		}
-		return struct{ Crumbs []crumb }{cs}, nil
+		return struct {
+			Crumbs []crumb
+			Sep    string
+		}{cs, co.Sep}, nil
 	})
 }
 

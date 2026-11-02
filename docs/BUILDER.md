@@ -270,7 +270,7 @@ through `builder.NewTree`. Both nest by the kinds table `children` flag, not by 
 | `tabpanel` | Interactive | `label` | `section` |
 | `form` | Data | `slug` | the theme contact form markup; nothing publicly for an unknown slug |
 | `menu` | Data | `location`, `label` | `nav` with nested lists of the menu at that location |
-| `breadcrumbs` | Data | none | `nav > ol` of the page trail; nothing when empty |
+| `breadcrumbs` | Data | none | `nav > ol` of the page trail; nothing when empty. The SEO breadcrumb settings can hide the home or current crumb and change the separator (`data-sep` on the `li`); JSON-LD keeps the full trail |
 
 Per-kind CSS: the head holds `BaseCSS`, then the CSS of the kinds present on the page (registry order), then the
 per-node rules. A page that uses none of the widgets is byte-identical to before, with one exception: a native `image` whose src has

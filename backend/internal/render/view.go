@@ -663,6 +663,23 @@ type Alternate struct {
 	Default bool
 }
 
+// CrumbOpts shapes the visible breadcrumb trail. JSON-LD ignores it and keeps
+// the full trail. The zero value is the default trail.
+type CrumbOpts struct {
+	Sep                   string
+	HideHome, HideCurrent bool
+}
+
+// CrumbOpts returns the saved breadcrumb view options; the zero value when no
+// SEO settings are loaded.
+func (v *PageView) CrumbOpts() CrumbOpts {
+	if v == nil || v.SEO == nil {
+		return CrumbOpts{}
+	}
+	b := v.SEO.Breadcrumbs
+	return CrumbOpts{Sep: b.Separator, HideHome: b.HideHome, HideCurrent: b.HideCurrent}
+}
+
 // Crumb is one breadcrumb step.
 type Crumb struct {
 	Name string
