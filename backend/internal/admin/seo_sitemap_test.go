@@ -111,6 +111,8 @@ func TestSEOSitemapRejectsBadInput(t *testing.T) {
 	}{
 		"path with a middle star": {url.Values{"sitemap_exclude_paths": {"/a*b"}}, "sitemap-exclude_paths"},
 		"max urls too large":      {url.Values{"sitemap_max_urls": {"50001"}}, "sitemap-max_urls"},
+		"max urls zero":           {url.Values{"sitemap_max_urls": {"0"}}, "sitemap-max_urls"},
+		"max urls negative":       {url.Values{"sitemap_max_urls": {"-5"}}, "sitemap-max_urls"},
 		"max urls not a number":   {url.Values{"sitemap_max_urls": {"many"}}, "sitemap-max_urls"},
 		"default priority":        {url.Values{"sitemap_default_priority": {"2"}}, "sitemap-default_priority"},
 		"type priority":           {url.Values{"sitemap[service][include]": {"true"}, "sitemap[service][priority]": {"1.5"}}, "sitemap-service-priority"},

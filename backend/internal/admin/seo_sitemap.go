@@ -133,7 +133,7 @@ func seoSitemapFromForm(form url.Values, stored sitemapState) sitemapState {
 		next.Set.MaxURLs = 0
 		if next.MaxURLs != "" {
 			n, err := strconv.Atoi(next.MaxURLs)
-			if err != nil {
+			if err != nil || n < 1 {
 				next.Errs = append(next.Errs, seo.FieldError{Field: "sitemap[max_urls]", Message: "Enter a whole number from 1 to " + strconv.Itoa(seo.MaxSitemapURLs) + "."})
 			} else if n != seo.MaxSitemapURLs {
 				next.Set.MaxURLs = n // the limit itself is the default and stays unstored
