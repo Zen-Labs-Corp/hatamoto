@@ -17,7 +17,8 @@ type Resolved struct {
 //
 // Name is the card's own override only; the caller falls back to the site name.
 // Rating, lists and text fall back to the site-wide value when the card's is
-// empty.
+// empty, except for the fields listed in the card's NoInherit, which never fall
+// back.
 func Resolve(site Profile, loc *Profile) Resolved {
 	if !hasOffice(loc) {
 		return Resolved{}
@@ -112,6 +113,7 @@ func merge(site, loc Profile) Profile {
 	if loc.Rating.Value != "" {
 		out.Rating = loc.Rating
 	}
+	keepOwn(&out, loc)
 	return out
 }
 

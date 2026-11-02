@@ -148,6 +148,10 @@ type Profile struct {
 	GeoRegion     string         `json:"geo_region,omitempty"`
 	SameAs        []string       `json:"sameas,omitempty"`
 	Rating        Rating         `json:"rating"`
+	// NoInherit lists the JSON keys of inheritable fields this card leaves
+	// deliberately empty: they do not fall back to the default business. Set on
+	// non-default cards only; see Inherits.
+	NoInherit []string `json:"no_inherit,omitempty"`
 
 	// Organisation details. Description, VATID, CountryName and Image also
 	// apply to a locale card; the rest is site-wide only.

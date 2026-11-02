@@ -3,6 +3,7 @@ package bizprofile
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -26,6 +27,8 @@ const (
 	kindAddress
 	// kindOffice: NoOffice and Office, recomputed from the default card.
 	kindOffice
+	// kindMarker: NoInherit, a card-only marker that Fold never moves.
+	kindMarker
 )
 
 // classification lists every Profile field. A test requires an entry for each
@@ -50,6 +53,7 @@ var classification = map[string]fieldKind{
 	"GeoRegion":            kindInherit,
 	"SameAs":               kindInherit,
 	"Rating":               kindInherit,
+	"NoInherit":            kindMarker,
 	"Description":          kindInherit,
 	"AlternateName":        kindOrgOnly,
 	"Slogan":               kindOrgOnly,
@@ -129,7 +133,8 @@ type FoldOut struct {
 //   - The default card is dropped, so folding again changes nothing.
 //
 // A site-wide value that is empty cannot be copied down: a card that inherited
-// "nothing" now inherits the default card's value.
+// "nothing" would now inherit the default card's value, so the card gets the
+// field's key in NoInherit instead and keeps printing nothing for it.
 func Fold(in FoldIn) FoldOut {
 	others := make(map[string]*Profile, len(in.Cards))
 	for tag, c := range in.Cards {
@@ -159,9 +164,9 @@ func foldInto(out *FoldOut, s, d Profile, others map[string]*Profile) {
 		name := typ.Field(i).Name
 		switch classification[name] {
 		case kindInherit, kindLegacy:
-			var os []reflect.Value
+			var os []target
 			for _, c := range others {
-				os = append(os, reflect.ValueOf(c).Elem().Field(i))
+				os = append(os, target{c, reflect.ValueOf(c).Elem().Field(i)})
 			}
 			out.foldInherit(name, jsonKey(typ.Field(i)), fv.Field(i), sv.Field(i), dv.Field(i), os)
 		case kindLocaleOnly:
@@ -181,14 +186,21 @@ func foldInto(out *FoldOut, s, d Profile, others map[string]*Profile) {
 	f.NoOffice = false
 }
 
+// target is a card that may receive a copied-down field: the card, for its
+// NoInherit marker, and the field's value.
+type target struct {
+	card *Profile
+	v    reflect.Value
+}
+
 // foldInherit lays d over f when d overrides s and copies s down into the
 // cards os that left the field empty. AmenityPresets recurses per preset.
-func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []reflect.Value) {
+func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []target) {
 	if f.Type() == reflect.TypeFor[AmenityPresets]() {
 		for j := 0; j < f.NumField(); j++ {
-			var sub []reflect.Value
+			var sub []target
 			for _, o := range os {
-				sub = append(sub, o.Field(j))
+				sub = append(sub, target{o.card, o.v.Field(j)})
 			}
 			out.foldInherit("", key+"."+jsonKey(f.Type().Field(j)), f.Field(j), s.Field(j), d.Field(j), sub)
 		}
@@ -199,12 +211,50 @@ func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []re
 	}
 	f.Set(d)
 	out.OrgChanges = append(out.OrgChanges, key)
-	if !isSet(name, s) {
-		return
-	}
 	for _, o := range os {
-		if !isSet(name, o) {
-			o.Set(s)
+		switch {
+		case isSet(name, o.v):
+		case isSet(name, s):
+			o.v.Set(s)
+		case !slices.Contains(o.card.NoInherit, key):
+			o.card.NoInherit = append(o.card.NoInherit, key)
+		}
+	}
+}
+
+// inheritPaths maps the JSON key of every inheritable field to its field index
+// path in Profile (AmenityPresets keys are "amenity_presets.<key>").
+var inheritPaths = func() map[string][]int {
+	paths := map[string][]int{}
+	typ := reflect.TypeFor[Profile]()
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		if k := classification[f.Name]; k != kindInherit && k != kindLegacy {
+			continue
+		}
+		if f.Type != reflect.TypeFor[AmenityPresets]() {
+			paths[jsonKey(f)] = []int{i}
+			continue
+		}
+		for j := 0; j < f.Type.NumField(); j++ {
+			paths[jsonKey(f)+"."+jsonKey(f.Type.Field(j))] = []int{i, j}
+		}
+	}
+	return paths
+}()
+
+// Inherits reports whether the card falls back to the default business for the
+// field with the given JSON key; false when the key is in NoInherit.
+func (p Profile) Inherits(key string) bool {
+	return !slices.Contains(p.NoInherit, key)
+}
+
+// keepOwn sets out's fields named in loc.NoInherit to loc's own values.
+func keepOwn(out *Profile, loc Profile) {
+	ov, lv := reflect.ValueOf(out).Elem(), reflect.ValueOf(loc)
+	for _, key := range loc.NoInherit {
+		if path, ok := inheritPaths[key]; ok {
+			ov.FieldByIndex(path).Set(lv.FieldByIndex(path))
 		}
 	}
 }

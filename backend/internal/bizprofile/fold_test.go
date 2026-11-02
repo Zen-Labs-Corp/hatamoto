@@ -331,3 +331,64 @@ func TestSplitLegacy_InverseOfFromLegacy(t *testing.T) {
 		t.Errorf("FromLegacy(SplitLegacy(p)) = %+v, want %+v", got, p)
 	}
 }
+
+func TestFold_NoInheritMarker(t *testing.T) {
+	t.Parallel()
+	def := Profile{
+		OpeningHours:   []Hours{{Days: []string{"Monday"}, Opens: "09:00", Closes: "17:00"}},
+		SameAs:         []string{"https://example.test/d"},
+		ContactPoints:  []ContactPoint{{Type: "sales", Phone: "1"}},
+		Currency:       "EUR",
+		FreeEntry:      bp(true),
+		Rating:         Rating{Value: "4"},
+		AmenityPresets: AmenityPresets{Wifi: bp(false)},
+	}
+	o := Fold(FoldIn{Default: tagDef, Site: Profile{}, Cards: map[string]Profile{
+		tagDef: def, tagOther: {Currency: "CAD"}, tagThird: {},
+	}})
+	want := []string{"contact_points", "currency", "opening_hours", "sameas", "rating", "free_entry", "amenity_presets.wifi"}
+	got := o.Cards[tagThird].NoInherit
+	slices.Sort(want)
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		t.Errorf("NoInherit = %v, want %v", got, want)
+	}
+	if slices.Contains(o.Cards[tagOther].NoInherit, "currency") || o.Cards[tagOther].Inherits("opening_hours") || !o.Cards[tagOther].Inherits("currency") {
+		t.Errorf("other card = %+v", o.Cards[tagOther])
+	}
+	if len(o.Business.NoInherit) != 0 {
+		t.Errorf("business carries a marker: %v", o.Business.NoInherit)
+	}
+	again := Fold(FoldIn{Default: tagDef, Site: o.Business, Cards: o.Cards})
+	if !reflect.DeepEqual(again.Cards, o.Cards) {
+		t.Errorf("second fold changed the cards: %+v", again.Cards)
+	}
+	// A marker is not added when the site-wide value is set (copied down) or
+	// when the card has its own value.
+	o = Fold(FoldIn{Default: tagDef, Site: Profile{Currency: "USD"}, Cards: map[string]Profile{
+		tagDef: {Currency: "EUR"}, tagOther: {}, tagThird: {Currency: "CAD"},
+	}})
+	if len(o.Cards[tagOther].NoInherit) != 0 || o.Cards[tagOther].Currency != "USD" || len(o.Cards[tagThird].NoInherit) != 0 {
+		t.Errorf("cards = %+v", o.Cards)
+	}
+}
+
+func TestResolve_NoInherit(t *testing.T) {
+	t.Parallel()
+	site := Profile{
+		Currency: "EUR", SameAs: []string{"https://example.test"}, Rating: Rating{Value: "4"},
+		FreeEntry: bp(true), AmenityPresets: AmenityPresets{Wifi: bp(true), Parking: bp(true)},
+		ParentOrg: Person{Name: "Parent"},
+	}
+	loc := Profile{
+		Address: Address{City: "Town"}, Currency: "CAD",
+		NoInherit: []string{"currency", "sameas", "rating", "free_entry", "amenity_presets.wifi", "parent_organisation", "bogus"},
+	}
+	p := Resolve(site, &loc).Profile
+	if p.Currency != "CAD" || p.SameAs != nil || p.Rating.Value != "" || p.FreeEntry != nil || p.ParentOrg.Name != "" {
+		t.Errorf("marked fields fell back: %+v", p)
+	}
+	if p.AmenityPresets.Wifi != nil || p.AmenityPresets.Parking == nil {
+		t.Errorf("presets = %+v", p.AmenityPresets)
+	}
+}

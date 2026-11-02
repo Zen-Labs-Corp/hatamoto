@@ -273,3 +273,21 @@ func TestValidateCatalogName(t *testing.T) {
 		t.Error("long catalogue name accepted")
 	}
 }
+
+func TestValidate_NoInherit(t *testing.T) {
+	t.Parallel()
+	if errs := Validate(Profile{NoInherit: []string{"sameas", "amenity_presets.wifi"}}); len(errs) != 0 {
+		t.Errorf("valid keys: %v", errs)
+	}
+	for _, keys := range [][]string{{"name"}, {"bogus"}, {"sameas", "sameas"}, {"office"}, {"amenity_presets"}} {
+		if errs := Validate(Profile{NoInherit: keys}); errs["no_inherit"] == "" {
+			t.Errorf("%v accepted", keys)
+		}
+	}
+	if errs := ValidateDefault(Profile{NoInherit: []string{"sameas"}}); errs["no_inherit"] == "" {
+		t.Error("default business accepted no_inherit")
+	}
+	if errs := ValidateDefault(Profile{}); len(errs) != 0 {
+		t.Errorf("default: %v", errs)
+	}
+}
