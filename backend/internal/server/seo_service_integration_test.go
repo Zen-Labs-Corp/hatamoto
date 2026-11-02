@@ -202,3 +202,48 @@ func TestSEOServicePreviewMatchesPublicHeadIntegration(t *testing.T) {
 		t.Error("preview of an unknown entry succeeded")
 	}
 }
+
+// The homepage entry is previewed as "/" serves it, not at its own slug.
+func TestSEOServicePreviewHomepageIntegration(t *testing.T) {
+	ctx := context.Background()
+	env := newWireEnv(t, map[string]string{"PUBLIC_BASE_URL": "https://seo-it.example.test"})
+	slug := "seo-home-" + uuid.NewString()[:6]
+	schemaID, entityID := uuid.New(), uuid.New()
+	if _, err := env.db.Pool().Exec(ctx, `INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`,
+		schemaID, slug, `{"url_pattern":"/{slug}"}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.db.Pool().Exec(ctx, `INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes)
+		VALUES ($1,$2,'Welcome',$3,'published',now(),'{"meta_description":"The front door"}'::jsonb)`, entityID, schemaID, slug); err != nil {
+		t.Fatal(err)
+	}
+	var prevHome *uuid.UUID
+	hadSite := env.db.Pool().QueryRow(ctx, `SELECT homepage_entity_id FROM hatamoto_site_config`).Scan(&prevHome) == nil
+	if _, err := env.db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, homepage_entity_id) VALUES ('Home IT', $1)
+		ON CONFLICT (id) DO UPDATE SET homepage_entity_id = EXCLUDED.homepage_entity_id`, entityID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if hadSite {
+			_, _ = env.db.Pool().Exec(context.Background(), `UPDATE hatamoto_site_config SET homepage_entity_id=$1`, prevHome)
+		}
+	})
+	s, _ := env.server(t, "/admin")
+	svc := s.newSEOService()
+
+	pv, err := svc.Preview(ctx, entityID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := get(s, "/")
+	if rec.Code != 200 {
+		t.Fatalf("homepage: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if m := titleRE.FindStringSubmatch(body); m == nil || html.UnescapeString(m[1]) != pv.Title {
+		t.Errorf("title: preview %q, page %v", pv.Title, m)
+	}
+	if want := "https://seo-it.example.test/"; pv.Canonical != want || !strings.Contains(body, `rel="canonical" href="`+want+`"`) {
+		t.Errorf("canonical: preview %q, want %q", pv.Canonical, want)
+	}
+}

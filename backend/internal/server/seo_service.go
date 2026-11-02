@@ -671,11 +671,20 @@ func (v *seoService) Preview(ctx context.Context, id uuid.UUID) (seosvc.Preview,
 		return seosvc.Preview{}, err
 	}
 	path := s.entityPublicPath(ctx, e)
+	home := s.isHomepage(ctx, e.ID)
+	if home {
+		path = "/" // the homepage is served there, not at its own slug
+	}
 	req, err := s.internalRequest(ctx, path)
 	if err != nil {
 		return seosvc.Preview{}, err
 	}
-	rr, _, err := s.resolveRouteForRender(ctx, path, req)
+	var rr *routeResult
+	if home {
+		rr, _, err = homeRoute(s.loadHomepage(withoutAccept(req)))
+	} else {
+		rr, _, err = s.resolveRouteForRender(ctx, path, req)
+	}
 	if err != nil {
 		return seosvc.Preview{}, err
 	}
@@ -746,10 +755,10 @@ func (s *Server) isHomepage(ctx context.Context, id uuid.UUID) bool {
 	if cfg, err := s.siteConfig.Get(ctx); err == nil && cfg != nil && cfg.HomepageEntityID != uuid.Nil {
 		return cfg.HomepageEntityID == id
 	}
-	home, err := s.internalRequest(ctx, "/")
+	req, err := s.internalRequest(ctx, "/")
 	if err != nil {
 		return false
 	}
-	rr, _, err := s.resolveRouteForRender(ctx, "/", home)
+	rr, _, err := homeRoute(s.loadHomepage(req))
 	return err == nil && rr != nil && rr.Page != nil && rr.Page.Entity != nil && rr.Page.Entity.ID == id
 }
