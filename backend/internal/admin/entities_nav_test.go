@@ -203,7 +203,7 @@ func TestEntitiesStatusSegmentedKeepsFilters(t *testing.T) {
 	if n := strings.Count(seg, ` checked`); n != 1 {
 		t.Errorf("%d checked options, want 1", n)
 	}
-	lacks(t, body, `class="hm-tabs`)
+	lacks(t, body, `class="hm-tabs__tab" href="/admin/entities?status=`) // the status filter is not a tab row; the Columns toggle is
 }
 
 // The filter form swaps only the results; the header (title, count) and the status control's
