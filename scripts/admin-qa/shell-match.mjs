@@ -77,9 +77,10 @@ try {
       r.selectNodeContents(btn.firstChild);
       return Math.abs(r.getBoundingClientRect().bottom - c.getBoundingClientRect().bottom);
     });
-    return { entCount: entLink.querySelector(".hm-nav-link__badge")?.textContent.trim() ?? "", maxOff: Math.max(...off) };
+    return { entCount: entLink.querySelector(".hm-nav-link__badge [aria-hidden]")?.textContent.trim() ?? "", maxOff: Math.max(...off) };
   });
-  check(/^\d+$/.test(ent.entCount ?? ""), `Entities nav item has no count (${ent.entCount})`);
+  // The marker is the draft count and is absent at 0 drafts; when present, its aria-hidden digits are a number.
+  if (ent.entCount) check(/^\d+$/.test(ent.entCount), `Entities nav marker is not a count (${ent.entCount})`);
   check(ent.maxOff <= 1, `segmented counts are ${ent.maxOff}px off their label baseline`);
 
   // Sidebar toggle: click and Enter hide and show the sidebar (display none, subnav stays), aria-expanded follows, a reload keeps it.
@@ -107,7 +108,7 @@ try {
       const f = need("#installed .hm-card__body > .hm-pluginlist__filters"), h = need("#installed-title");
       if (!(f.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) throw new Error("filter row is not above the Installed plugins heading");
       const link = [...document.querySelectorAll(".hm-nav-link")].find((a) => a.textContent.includes("Plugins"));
-      return { badge: link?.querySelector(".hm-nav-link__badge")?.textContent.trim() ?? "", keys: need("#plugins-q").getAttribute("aria-keyshortcuts"), button: !!document.querySelector(".hm-pluginlist__search button") };
+      return { badge: link?.querySelector(".hm-nav-link__badge [aria-hidden]")?.textContent.trim() ?? "", keys: need("#plugins-q").getAttribute("aria-keyshortcuts"), button: !!document.querySelector(".hm-pluginlist__search button") };
     });
     check(/^\d+$/.test(pl.badge ?? ""), `Plugins nav item has no count (${pl.badge})`);
     check(pl.keys === "/" && pl.button === false, "plugins search lacks aria-keyshortcuts or has a Filter button");
