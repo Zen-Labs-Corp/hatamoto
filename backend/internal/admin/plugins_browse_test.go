@@ -181,7 +181,7 @@ func TestBrowseCrumbsAndAccess(t *testing.T) {
 	t.Parallel()
 
 	g, _ := browseRig(t, browseView(1))
-	if got := strings.Join(trailLabels(t, g.do("GET", "/admin/plugins/browse", "owner-token", nil, nil)), " / "); got != "Plugins / Browse" {
+	if got := strings.Join(trailLabels(t, getBrowse(g, "")), " / "); got != "Home / Plugins / Browse" {
 		t.Errorf("crumbs %q", got)
 	}
 	if rec := g.do("GET", "/admin/plugins/browse", "editor-token", nil, nil); rec.Code != 403 {

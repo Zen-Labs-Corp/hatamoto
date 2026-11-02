@@ -195,14 +195,20 @@ func TestAgentPageCrumbs(t *testing.T) {
 	t.Parallel()
 
 	g, _ := newAnalyticsRig(t)
-	rec := g.do("GET", "/admin/analytics/agents/gptbot?from="+day(-6)+"&to="+day(0)+"&compare=1", "owner-token", nil, nil)
-	if got := strings.Join(trailLabels(t, rec), " > "); got != "Analytics > Crawlers > GPTBot" {
-		t.Errorf("trail %q", got)
+	body := g.do("GET", "/admin/analytics/agents/gptbot?from="+day(-6)+"&to="+day(0)+"&compare=1", "owner-token", nil, nil).Body.String()
+	nav := body[strings.Index(body, `aria-label="Breadcrumb"`):]
+	nav = nav[:strings.Index(nav, "</nav>")]
+	last := -1
+	for _, want := range []string{"Analytics", "Crawlers", "GPTBot"} {
+		i := strings.Index(nav, ">"+want+"<")
+		if i < 0 || i < last {
+			t.Errorf("crumb %q missing or out of order in %s", want, nav)
+		}
+		last = i
 	}
-	nav := strings.ReplaceAll(rec.Header().Get(crumbHrefsHeader), "\x1f", " ")
 	// Going back to Crawlers keeps the range and compare setting, as the removed back link did.
 	for _, want := range []string{"from=" + day(-6), "to=" + day(0), "compare=1"} {
-		if !regexp.MustCompile(`/admin/analytics/crawlers\?[^ ]*` + want).MatchString(nav) {
+		if !regexp.MustCompile(`href="/admin/analytics/crawlers\?[^"]*` + want).MatchString(nav) {
 			t.Errorf("the Crawlers crumb lost %s: %s", want, nav)
 		}
 	}

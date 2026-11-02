@@ -49,6 +49,19 @@ func colophonOf(body string) string {
 	return body[i : i+j+len("</footer>")]
 }
 
+// topbarOf is the shell's top bar in body.
+func topbarOf(body string) string {
+	i := strings.Index(body, `<div class="hm-topbar">`)
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(body[i:], `<main id="hm-main"`)
+	if j < 0 {
+		return body[i:]
+	}
+	return body[i : i+j]
+}
+
 func TestShellColophon(t *testing.T) {
 	t.Parallel()
 
@@ -77,8 +90,12 @@ func TestShellColophon(t *testing.T) {
 		if i, j := strings.Index(body, "</main>"), strings.Index(body, `<footer class="hm-colophon">`); i < 0 || j < i {
 			t.Errorf("%s: the colophon must follow </main>", tc.name)
 		}
-		if strings.Contains(body, "hm-updchip") || strings.Contains(body, "hm-topbar") {
-			t.Errorf("%s: the update chip and the top bar are gone, but the page still has them", tc.name)
+		top := topbarOf(body)
+		if top == "" {
+			t.Fatalf("%s: no top bar", tc.name)
+		}
+		if strings.Contains(top, "hm-updchip") || strings.Contains(body, "hm-updchip") || strings.Contains(body, "hm-topbar__chip") {
+			t.Errorf("%s: the update chip is gone, but the page still has it:\n%s", tc.name, top)
 		}
 		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 			t.Errorf("%s: a11y: %v", tc.name, issues)
