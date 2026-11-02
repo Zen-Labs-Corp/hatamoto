@@ -191,3 +191,17 @@ func TestEntryCountIsCheckedBeforeTheDirectoryIsRead(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestParseThemeInvalidMenusIsRecorded(t *testing.T) {
+	p, err := themePackage(t, `{"name":"kumo","version":"1.0.0","menus":{"Bad Name":{}}}`, nil)
+	if err != nil {
+		t.Fatalf("Parse refused: %v", err)
+	}
+	if p.MenusErr == nil {
+		t.Fatal("MenusErr not set")
+	}
+	p, err = themePackage(t, `{"name":"kumo","version":"1.0.0","menus":{"follow":{"title":"Follow"}}}`, nil)
+	if err != nil || p.MenusErr != nil {
+		t.Fatalf("valid block: %v / %v", err, p.MenusErr)
+	}
+}

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
 )
 
@@ -97,6 +98,9 @@ type Package struct {
 	// absent). Parse stays lenient so installed themes keep loading; publishing
 	// paths (theme check --registry) refuse on it.
 	ScreenshotErr error
+	// MenusErr is why theme.json's "menus" is invalid (nil: valid or absent).
+	// Parse stays lenient like ScreenshotErr; theme check and pack refuse on it.
+	MenusErr error
 
 	data []byte
 	zr   *zip.Reader
@@ -143,6 +147,8 @@ type ThemeMeta struct {
 	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
 	// Screenshot is an optional preview image under assets/, see ValidateScreenshot.
 	Screenshot string `json:"screenshot,omitempty"`
+	// Menus declares menu locations, see menu.ParseDecl.
+	Menus json.RawMessage `json:"menus,omitempty"`
 }
 
 // ThemeMeta decodes theme.json of a theme package.
@@ -402,6 +408,7 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		if m.Screenshot != "" {
 			p.ScreenshotErr = ValidateScreenshot(m.Screenshot, assets)
 		}
+		_, p.MenusErr = menu.ParseDecl(m.Menus)
 		p.Name, p.Version = m.Name, m.Version
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
@@ -241,6 +242,48 @@ func TestThemeCheckRegistryRefusesInvalidScreenshots(t *testing.T) {
 		}
 		if err := runThemeCheck([]string{dir}, &bytes.Buffer{}); err != nil {
 			t.Errorf("%s: plain check refused: %v", name, err)
+		}
+	}
+}
+
+func TestThemeCheckRefusesInvalidMenus(t *testing.T) {
+	var many, items strings.Builder
+	for i := 0; i < 13; i++ {
+		if i > 0 {
+			many.WriteString(",")
+		}
+		fmt.Fprintf(&many, `"loc%d":{}`, i)
+	}
+	for i := 0; i < 25; i++ {
+		if i > 0 {
+			items.WriteString(",")
+		}
+		items.WriteString(`{"label":"a","url":"/a"}`)
+	}
+	for name, c := range map[string]struct{ menus, want string }{
+		"bad location":    {`{"Bad Name":{}}`, "menus: location"},
+		"13 locations":    {"{" + many.String() + "}", "menus"},
+		"25 items":        {`{"follow":{"default":[` + items.String() + `]}}`, "menus.follow"},
+		"javascript url":  {`{"follow":{"default":[{"label":"a","url":"javascript:alert(1)"}]}}`, "menus.follow"},
+		"url and archive": {`{"follow":{"default":[{"label":"a","url":"/a","archive":"post"}]}}`, "menus.follow"},
+		"unknown key":     {`{"follow":{"bogus":1}}`, "menus.follow"},
+	} {
+		files := themeFiles(t, "bad", "assets/shot.png", testPNG(t))
+		files["theme.json"] = `{"name":"bad","version":"1.0.0","screenshot":"assets/shot.png","menus":` + c.menus + `}`
+		dir := writeDir(t, files)
+		for _, args := range [][]string{{dir}, {dir, "--registry"}} {
+			err := runThemeCheck(args, &bytes.Buffer{})
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("%s %v: err = %v, want it to contain %q", name, args, err, c.want)
+			}
+		}
+	}
+	files := themeFiles(t, "good", "assets/shot.png", testPNG(t))
+	files["theme.json"] = `{"name":"good","version":"1.0.0","screenshot":"assets/shot.png","menus":{"follow":{"title":"Follow","default":[{"label":"Blog","archive":"post"}]}}}`
+	dir := writeDir(t, files)
+	for _, args := range [][]string{{dir}, {dir, "--registry"}} {
+		if err := runThemeCheck(args, &bytes.Buffer{}); err != nil {
+			t.Errorf("valid menus %v: %v", args, err)
 		}
 	}
 }
