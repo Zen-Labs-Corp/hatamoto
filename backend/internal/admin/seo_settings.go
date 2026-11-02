@@ -101,6 +101,10 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+seoBreadcrumbsPath, a.handleSEOBreadcrumbsSave)
 	owner.HandleFunc("GET "+seoIndexNowPath, a.handleSEOIndexNow)
 	owner.HandleFunc("POST "+seoIndexNowPath, a.handleSEOIndexNowSave)
+	owner.HandleFunc("GET "+seo404Path, a.handleSEO404)
+	owner.HandleFunc("POST "+seo404Path, a.handleSEO404Save)
+	owner.HandleFunc("GET "+seo404DeletePath, a.handleSEO404Delete)
+	owner.HandleFunc("POST "+seo404DeletePath, a.handleSEO404DeleteSave)
 	owner.HandleFunc("GET "+seoKGPath, a.handleSEOKnowledgeGraph)
 }
 
@@ -495,6 +499,8 @@ func seoFieldLabel(field string) string {
 		return seoSitemapLabel(m[2], m[3])
 	case "breadcrumbs":
 		return map[string]string{"home_label": "Home label", "separator": "Separator"}[m[2]]
+	case "monitor404":
+		return map[string]string{"retention_days": "Keep entries for", "ignore_patterns": "Never log these paths"}[m[2]]
 	case "indexnow":
 		return map[string]string{"key": "Key", "endpoint": "Search engine"}[m[2]]
 	case "social":

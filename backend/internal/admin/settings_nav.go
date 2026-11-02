@@ -56,7 +56,7 @@ var settingsLive = map[string]bool{
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
-	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true,
+	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
 }
 
@@ -108,6 +108,7 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-sitemap", Label: "Sitemap", Final: "/settings/seo/sitemap", Roles: ownerOnly},
 		{ID: "seo-breadcrumbs", Label: "Breadcrumbs", Final: "/settings/seo/breadcrumbs", Roles: ownerOnly},
 		{ID: "seo-indexnow", Label: "IndexNow", Final: "/settings/seo/indexnow", Roles: ownerOnly},
+		{ID: "seo-404", Label: "404 monitor", Final: "/settings/seo/404-monitor", Roles: ownerOnly},
 	}},
 	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},
