@@ -15,7 +15,9 @@ func TestNavItemsArchiveBySchemaSlug(t *testing.T) {
 		href string
 	}{
 		"schema only":           {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("post")}, "/blog"},
-		"explicit url wins":     {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("post"), URL: str("/category/news")}, "/category/news"},
+		"schema wins over url":  {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("post"), URL: str("/category/news")}, "/blog"},
+		"url without schema":    {&menu.MenuItem{LinkType: menu.LinkTypeArchive, URL: str("/category/news")}, "/category/news"},
+		"url when schema gone":  {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("nope"), URL: str("/blog")}, "/blog"},
 		"unknown schema":        {&menu.MenuItem{LinkType: menu.LinkTypeArchive, SchemaSlug: str("nope")}, "#"},
 		"archive without hints": {&menu.MenuItem{LinkType: menu.LinkTypeArchive}, "#"},
 	} {

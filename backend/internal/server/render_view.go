@@ -718,13 +718,16 @@ func (l *navLinks) decorate(n *render.NavItem, it *menu.MenuItem) {
 }
 
 func (l *navLinks) menuHref(it *menu.MenuItem) string {
-	// An archive item that names only a schema (a theme default, the seeds)
-	// follows the schema's archive path, so it stays right if that changes.
-	if it.LinkType == menu.LinkTypeArchive && (it.URL == nil || *it.URL == "") && it.SchemaSlug != nil && *it.SchemaSlug != "" {
+	// An archive item with a schema (a theme default, the seeds) follows the
+	// schema's archive path, so it stays right if that changes. Its stored URL
+	// (kept for older binaries) is used only when the schema no longer resolves.
+	if it.LinkType == menu.LinkTypeArchive && it.SchemaSlug != nil && *it.SchemaSlug != "" {
 		if cfg, ok := l.snap.Config(*it.SchemaSlug); ok && cfg.ArchivePath != "" {
 			return cfg.ArchivePath
 		}
-		return "#"
+		if it.URL == nil || *it.URL == "" {
+			return "#"
+		}
 	}
 	if it.URL != nil && *it.URL != "" || it.EntitySlug == nil || *it.EntitySlug == "" {
 		return getMenuItemHref(it)

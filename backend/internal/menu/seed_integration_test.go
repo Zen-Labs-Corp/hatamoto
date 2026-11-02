@@ -69,6 +69,7 @@ func TestSeedDeclCreatesOnceAndNeverOverwrites(t *testing.T) {
 	decl := []DeclLocation{{Name: loc, Title: "Follow", Default: []DeclItem{
 		{Label: "Blog", Archive: "post"}, {Label: "Contact", URL: "/contact"}}}}
 
+	svc.SetArchivePaths(func(_ context.Context, schema string) string { return "/archive/" + schema })
 	created, err := svc.SeedDecl(ctx, decl)
 	if err != nil || len(created) != 1 || created[0] != loc {
 		t.Fatalf("first seed = %v, %v", created, err)
@@ -78,6 +79,9 @@ func TestSeedDeclCreatesOnceAndNeverOverwrites(t *testing.T) {
 		t.Fatalf("menu = %+v, %v", m, err)
 	}
 	full, err := repo.GetMenuWithItems(ctx, m.ID)
+	if err != nil || len(full.Items) != 2 || full.Items[0].URL == nil || *full.Items[0].URL != "/archive/post" {
+		t.Fatalf("seeded archive item must carry the archive path as URL: %+v, %v", full, err)
+	}
 	if err != nil || len(full.Items) != 2 || full.Items[0].LinkType != LinkTypeArchive ||
 		full.Items[0].SchemaSlug == nil || *full.Items[0].SchemaSlug != "post" ||
 		full.Items[1].URL == nil || *full.Items[1].URL != "/contact" {

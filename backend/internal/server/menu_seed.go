@@ -58,8 +58,10 @@ func (s *Server) blogArchiveItem(ctx context.Context, repo *entity.PostgresPubli
 			return menu.ReplaceItem{}, false
 		}
 	}
-	schema := cfg.SchemaSlug
-	return menu.ReplaceItem{Label: "Blog", LinkType: menu.LinkTypeArchive, SchemaSlug: &schema, Parent: -1}, true
+	// The schema keeps the link following a path change; the URL is what a
+	// binary from before this release renders after a rollback.
+	schema, path := cfg.SchemaSlug, cfg.ArchivePath
+	return menu.ReplaceItem{Label: "Blog", LinkType: menu.LinkTypeArchive, SchemaSlug: &schema, URL: &path, Parent: -1}, true
 }
 
 // seedUpgradeHeader gives a site that predates real menus the Header menu the

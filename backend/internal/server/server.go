@@ -420,6 +420,12 @@ func (s *Server) setupDependencies() {
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
 	s.menuService = menu.NewService(menuRepo, s.logger)
+	s.menuService.SetArchivePaths(func(ctx context.Context, schema string) string {
+		if cfg, ok := s.urlSnapshot(ctx).Config(schema); ok {
+			return cfg.ArchivePath
+		}
+		return ""
+	})
 	s.menuService.SetChangeObserver(s.invalidateRendered) // plugin menus.* writes bypass the handlers
 
 	// Section template service

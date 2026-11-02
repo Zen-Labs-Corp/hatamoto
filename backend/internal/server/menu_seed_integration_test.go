@@ -137,7 +137,7 @@ func TestMenuSeedIntegration(t *testing.T) {
 			t.Errorf("labels = %s", joined)
 		}
 		if last := ms[0].Items[len(ms[0].Items)-1]; last.Label != "Blog" || last.LinkType != menu.LinkTypeArchive ||
-			last.SchemaSlug == nil || *last.SchemaSlug != "post" {
+			last.SchemaSlug == nil || *last.SchemaSlug != "post" || last.URL == nil || *last.URL == "" {
 			t.Errorf("last item = %+v", last)
 		}
 		for _, it := range ms[0].Items[:len(ms[0].Items)-1] {

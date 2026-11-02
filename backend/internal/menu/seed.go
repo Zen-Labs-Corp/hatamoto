@@ -39,6 +39,9 @@ func (s *Service) SeedDecl(ctx context.Context, locs []DeclLocation) ([]string, 
 			if d.Archive != "" {
 				schema := d.Archive
 				it.LinkType, it.SchemaSlug = LinkTypeArchive, &schema
+				if path := s.archivePath(ctx, schema); path != "" {
+					it.URL = &path
+				}
 			} else {
 				u := d.URL
 				it.LinkType, it.URL = LinkTypeCustom, &u
@@ -66,4 +69,19 @@ func (s *Service) ensure(ctx context.Context, in EnsureInput) (*Menu, bool, erro
 		return nil, false, ErrInvalidLocation
 	}
 	return s.repo.EnsureMenuAtLocation(ctx, in)
+}
+
+// SetArchivePaths installs the lookup SeedDecl uses to store a schema's
+// archive path next to an archive item, so a binary that only reads the URL
+// (after a rollback) still has a link. Without it the item carries the schema
+// alone, which every current binary resolves.
+func (s *Service) SetArchivePaths(fn func(ctx context.Context, schema string) string) {
+	s.archivePaths = fn
+}
+
+func (s *Service) archivePath(ctx context.Context, schema string) string {
+	if s.archivePaths == nil {
+		return ""
+	}
+	return s.archivePaths(ctx, schema)
 }
