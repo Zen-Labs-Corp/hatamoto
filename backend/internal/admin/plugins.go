@@ -129,8 +129,6 @@ type pluginsPage struct {
 	// Actions are the header's Browse and Upload buttons; Overflow its menu.
 	Actions  []ui.Button
 	Overflow []ui.Action
-	// EmptyActions is the empty state's Browse button.
-	EmptyActions []ui.Button
 	// CanInstall is set when a package manager is wired: browsing, uploading
 	// and the package pages exist.
 	CanInstall bool
@@ -272,7 +270,6 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		if !checked.IsZero() {
 			check.Hint = "Last checked " + agoText(pluginsNow().Sub(checked))
 		}
-		d.EmptyActions = d.Actions[1:]
 		d.Overflow = append(d.Overflow, check)
 		if a.deps.AuditLog != nil {
 			d.Overflow = append(d.Overflow, ui.Action{Label: "Activity log", Hint: "Installs, updates, permission changes", Href: a.adminPath + auditRel})

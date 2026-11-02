@@ -73,7 +73,7 @@
 <div class="hm-settings">
 <nav class="hm-subnav" aria-label="Plugins">
 <h2 class="hm-subnav__title hm-visually-hidden">Plugins</h2>
-<ul class="hm-subnav__list" role="list"><li><a class="hm-subnav__link" href="/admin/plugins"><span class="hm-subnav__text">All plugins</span></a></li>
+<ul class="hm-subnav__list" role="list"><li><a class="hm-subnav__link" href="/admin/plugins" aria-current="page"><span class="hm-subnav__text">All plugins</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/plugins/hello/settings"><span class="hm-subnav__text">hello</span></a></li>
 </ul>
 </nav>
@@ -84,10 +84,13 @@
 <div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Browse plugins</h1></div><p class="hm-muted">From registry.example. Signed index, refreshed 3 hours ago.</p></div>
 <div class="hm-row"></div></div>
 </header>
-<form class="hm-table__filters hm-filterbar hm-filterbar--bare" role="search" method="get" action="/admin/plugins/browse" hx-get="/admin/plugins/browse" hx-trigger="input changed delay:300ms from:#browse-q, change from:#browse-q, change from:#browse-p0, change from:#browse-seg, change from:#browse-filters, submit" hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status:innerHTML" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#browse-busy">
-<div class="hm-filterbar__start"><fieldset class="hm-segmented" id="browse-seg"><legend class="hm-visually-hidden">Publisher</legend>
+<form class="hm-table__filters hm-filterbar hm-listbar" role="search" method="get" action="/admin/plugins/browse" hx-get="/admin/plugins/browse" hx-trigger="input changed delay:300ms from:#browse-q, change from:#browse-q, change from:#browse-p0, change from:#browse-seg, change from:#browse-filters, submit" hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status:innerHTML" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#browse-busy">
+<div class="hm-listbar__start"><fieldset class="hm-segmented" id="browse-seg"><legend class="hm-visually-hidden">Publisher</legend>
 <label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="" checked><span class="hm-segmented__btn">All</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="first-party"><span class="hm-segmented__btn">First-party</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="community"><span class="hm-segmented__btn">Community</span></label></fieldset>
-<button type="button" class="hm-btn" popovertarget="browse-filters" aria-haspopup="dialog" aria-expanded="false"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>Filters <span class="hm-btn-count" id="browse-count"><span class="hm-visually-hidden">, </span>1<span class="hm-visually-hidden"> active</span></span></button>
+</div>
+<span class="hm-listbar__grow"></span>
+<div class="hm-listbar__end"><label class="hm-visually-hidden" for="browse-q">Search plugins</label><div class="hm-input-affix hm-table__search"><span class="hm-affix" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><input class="hm-field__control" type="search" id="browse-q" name="q" value="" placeholder="Search plugins"></div><label class="hm-visually-hidden" for="browse-p0">Sort</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="browse-p0" name="sort"><option value="name" selected>Name A to Z</option><option value="name-desc">Name Z to A</option></select></div>
+<button type="button" class="hm-btn hm-btn--sm" popovertarget="browse-filters" aria-haspopup="dialog" aria-expanded="false"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>Filters <span class="hm-btn-count" id="browse-count"><span class="hm-visually-hidden">, </span>1<span class="hm-visually-hidden"> active</span></span></button>
 <div class="hm-popover-panel" popover id="browse-filters" role="dialog" aria-labelledby="browse-filters-t">
 <header><h2 id="browse-filters-t">Filters</h2></header>
 <div class="hm-popover-panel__body"><div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Permissions</legend><div class="hm-field">
@@ -96,9 +99,11 @@
 <label class="hm-field__check" for="browse-f0-1"><input class="hm-field__box" type="checkbox" id="browse-f0-1" name="perm" value="noscripts"><span>No front-end scripts</span></label>
 </div></fieldset></div>
 <div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Category</legend><div class="hm-field">
-<label class="hm-field__check" for="browse-f1-0"><input class="hm-field__box" type="checkbox" id="browse-f1-0" name="cat" value="Content"><span>Content</span></label>
+<label class="hm-field__check" for="browse-f1-0"><input class="hm-field__box" type="checkbox" id="browse-f1-0" name="cat" value="Analytics"><span>Analytics</span></label>
 </div><div class="hm-field">
-<label class="hm-field__check" for="browse-f1-1"><input class="hm-field__box" type="checkbox" id="browse-f1-1" name="cat" value="Media"><span>Media</span></label>
+<label class="hm-field__check" for="browse-f1-1"><input class="hm-field__box" type="checkbox" id="browse-f1-1" name="cat" value="Content"><span>Content</span></label>
+</div><div class="hm-field">
+<label class="hm-field__check" for="browse-f1-2"><input class="hm-field__box" type="checkbox" id="browse-f1-2" name="cat" value="Media"><span>Media</span></label>
 </div></fieldset></div>
 <div class="hm-field">
 <label class="hm-field__check hm-switch" for="browse-f2"><input class="hm-field__box" type="checkbox" role="switch" id="browse-f2" name="hide" value="1" checked><span>Hide installed</span></label><input type="hidden" name="hide" value="0">
@@ -106,36 +111,35 @@
 </div>
 
 </div></div>
-<div class="hm-filterbar__end"><label class="hm-visually-hidden" for="browse-q">Search plugins</label><div class="hm-input-affix hm-table__search"><span class="hm-affix" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><input class="hm-field__control" type="search" id="browse-q" name="q" value="" placeholder="Search plugins"></div><label class="hm-visually-hidden" for="browse-p0">Sort</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="browse-p0" name="sort"><option value="name" selected>Name A to Z</option><option value="name-desc">Name Z to A</option></select></div>
-</div>
 <noscript><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply=""><span>Apply filters</span></button></noscript>
 
 <span class="hm-indicator" id="browse-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form>
-<p id="browse-status" class="hm-visually-hidden" role="status">2 plugins</p>
+<p id="browse-status" class="hm-visually-hidden" role="status">3 plugins</p>
 <div id="browse-results" class="hm-pluginbrowse__results">
-<div class="hm-pluginbrowse__meta"><p class="hm-muted">2 plugins</p>
+<div class="hm-pluginbrowse__meta"><p class="hm-mono hm-muted">3 plugins</p>
 </div>
 <p class="hm-muted hm-pluginbrowse__installed">1 installed hidden · <a href="/admin/plugins/browse?hide=0">Show installed</a></p>
 <section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
 <ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
+<span class="hm-plugincard__meta hm-mono">2 permissions</span>
 <span class="hm-plugincard__desc">Photo galleries for pages.</span>
-<span class="hm-plugincard__foot"><span class="hm-mono">2 permissions</span><span class="hm-plugincard__action">Install</span></span></a></li></ul>
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li></ul>
 </section><h2 class="hm-pluginbrowse__heading">All plugins</h2>
 <ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
+<span class="hm-plugincard__meta hm-mono">2 permissions</span>
 <span class="hm-plugincard__desc">Photo galleries for pages.</span>
-<span class="hm-plugincard__foot"><span class="hm-mono">2 permissions</span><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/seo-helper/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/google-analytics/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Google Analytics</span></span></span>
+<span class="hm-plugincard__meta hm-mono">First-party · 2 permissions</span>
+<span class="hm-plugincard__desc">Adds the Google tag for your GA4 measurement ID.</span>
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/seo-helper/about" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">S</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">seo-helper</span></span></span>
+<span class="hm-plugincard__meta hm-mono">No permissions</span>
 <span class="hm-plugincard__desc">Checks titles.</span>
-<span class="hm-plugincard__foot"><span class="hm-mono">No permissions</span><span class="hm-plugincard__action">Install</span></span></a></li></ul>
-<nav class="hm-pagination" aria-label="Pagination">
-<p class="hm-pagination__summary hm-muted">Showing 1–2 of 2</p>
-<ul class="hm-pagination__list">
-<li><span class="hm-pagination__link" aria-disabled="true">Previous</span></li>
-<li><a class="hm-pagination__link" href="/admin/plugins/browse" aria-current="page"><span class="hm-visually-hidden">Page </span>1</a></li>
-<li><span class="hm-pagination__link" aria-disabled="true">Next</span></li>
-</ul></nav>
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li></ul>
+
 
 </div>
 

@@ -99,3 +99,20 @@ func TestSubnavCentresWithoutScrollingWindow(t *testing.T) {
 		t.Error("admin.js must centre the current subnav link by setting the scroller's scrollLeft")
 	}
 }
+
+// The Colours swatch cells share one top edge: a note under Secondary or Theme accent makes that cell
+// taller, so the row must pack its tracks at the start (not centre them) and the note sits in its own row.
+func TestSwatchRowsShareATopEdge(t *testing.T) {
+	t.Parallel()
+
+	css, err := os.ReadFile("../../../web/admin/css/partials/settings.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(css)
+	for _, want := range []string{".hm-swatchrow { display: grid;", "align-content: start;", ".hm-swatchrow__note { grid-column: 2; grid-row: 3;"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("settings.css lacks %q: swatch cells would start at different heights", want)
+		}
+	}
+}

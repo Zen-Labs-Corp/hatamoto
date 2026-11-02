@@ -523,7 +523,21 @@ func TestThemesPageListsEverything(t *testing.T) {
 		t.Error("Preview must stay a new-tab menu item")
 	}
 	if strings.Count(body, "hm-theme--active") != 1 {
-		t.Error("exactly one card carries the Live ring")
+		t.Error("exactly one card carries the Live state")
+	}
+	if strings.Contains(body, "hm-card__foot") {
+		t.Error("theme cards have no footer band")
+	}
+	if strings.Count(body, `class="hm-theme__head"`) != 3 {
+		t.Error("each card puts its menu in the name row")
+	}
+	live := body[strings.Index(body, `id="theme-sunrise"`):]
+	live = live[:strings.Index(live, "</section>")]
+	if !strings.Contains(live, `<svg class="hm-theme__preview"`) || !strings.Contains(live, `<rect fill="#`) || !strings.Contains(live, "menu-theme-sunrise") || !strings.Contains(live, ">Live<") {
+		t.Errorf("the live card is not painted from its colours: %s", live)
+	}
+	if strings.Contains(dusk[:strings.Index(dusk, "</section>")], "hm-theme__preview") {
+		t.Error("an inactive theme is painted")
 	}
 	if rec := g.do("GET", "/admin/theme/themes", "editor-token", nil, nil); rec.Code != 403 {
 		t.Errorf("editor: %d", rec.Code)

@@ -393,3 +393,31 @@ func TestPluginsPageTabsFilterAndEmpty(t *testing.T) {
 		t.Error("the banner's Turn off now does not ask to come back to the list")
 	}
 }
+
+// TestPluginsEmptyStateOnlyExplains pins the API-keys pattern: the header
+// keeps Upload and Browse, the empty state has no button and the page has no
+// "Browse the plugin registry" footer link.
+func TestPluginsEmptyStateOnlyExplains(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = nil
+	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	i := strings.Index(body, `class="hm-empty`)
+	if i < 0 || !strings.Contains(body, "No plugins installed") {
+		t.Fatalf("no empty state")
+	}
+	empty := body[i:]
+	if j := strings.Index(empty, "</div>"); j > 0 {
+		empty = empty[:j]
+	}
+	if strings.Contains(empty, "hm-btn") || strings.Contains(empty, "<a ") {
+		t.Errorf("the empty state has an action: %s", empty)
+	}
+	if strings.Contains(body, "Browse the plugin registry") {
+		t.Error("the footer link is back")
+	}
+	if !strings.Contains(body, ">Upload<") || !strings.Contains(body, ">Browse plugins<") {
+		t.Error("the header lost Upload or Browse")
+	}
+}

@@ -70,11 +70,12 @@
 .hm-fieldgrid--steps .hm-field__control { text-align: end; font-family: var(--font-mono); }
 .hm-fieldgrid--steps .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
 /* A colour input is a bordered tile: swatch left, label above the mono hex. The field wrapper drops out of the grid so its label, input and messages place directly. */
-.hm-swatchrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-3); min-width: 0; padding: 0; border: 0; background: none; }
+.hm-swatchrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; align-content: start; column-gap: var(--space-3); min-width: 0; padding: 0; border: 0; background: none; }
 .hm-swatchrow > .hm-field { display: contents; }
 .hm-swatchrow .hm-field__control[type="color"] { grid-column: 1; grid-row: 1 / span 2; }
-.hm-swatchrow .hm-field__label { grid-column: 2; grid-row: 1; align-self: end; font-family: var(--font-mono); }
+.hm-swatchrow .hm-field__label { grid-column: 2; grid-row: 1; align-self: end; font-family: var(--font-ui); }
 .hm-swatchrow .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
+.hm-swatchrow__note { grid-column: 2; grid-row: 3; align-self: start; margin: var(--space-1) 0 0; font-size: var(--text-xs); }
 .hm-swatchrow__hex { grid-column: 2; grid-row: 2; align-self: start; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
 /* Live previews on the Colours page: values come from the form via CSSOM custom properties (themepreview.js). */
 .hm-fontsample { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--raised); }

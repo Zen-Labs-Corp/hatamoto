@@ -159,6 +159,12 @@ func TestThemeLabelsShared(t *testing.T) {
 			t.Errorf("Colours and fonts lacks %q", want)
 		}
 	}
+	if strings.Contains(colours, "hm-callout") {
+		t.Error("Colours and fonts has a top callout again")
+	}
+	if n := strings.Count(colours, "hm-swatchrow__note"); n != 2 {
+		t.Errorf("%d swatch notes, want 2 (Secondary and Theme accent)", n)
+	}
 	tokens := g.do("GET", "/admin/theme/design-system", "owner-token", nil, nil).Body.String()
 	for _, name := range []string{"Surface", "Muted", "Accent"} {
 		if !strings.Contains(tokens, ">"+name+"</label>") {
@@ -253,5 +259,36 @@ func TestThemeFetchModeNeedsCSRF(t *testing.T) {
 	}
 	if rec := g.do("POST", "/admin/theme/colours", "editor-token", url.Values{"primary": {"#112233"}}, nil); rec.Code != 403 || !strings.Contains(rec.Body.String(), "Not allowed") {
 		t.Errorf("editor html: %d", rec.Code)
+	}
+}
+
+// The Secondary and Accent inputs keep their note id and, on error, add the error id: ONE aria-describedby each.
+func TestThemeColoursNoteDescribedBy(t *testing.T) {
+	t.Parallel()
+
+	_, pk, fp := newPackageRig(t)
+	g := newRig(t, func(d *Deps) {
+		d.Site = themeSite{newFakeSite("Acme Site")}
+		d.Growth.Plugins, d.Growth.Packages = fp, pk
+	})
+	form := url.Values{"primary": {"#112233"}, "secondary": {"bad"}, "accent": {"#778899"}, "background": {"#ffffff"}, "text": {"#000000"},
+		"font": {"Inter, sans-serif"}, "heading_font": {"Georgia, serif"}, "radius_sm": {"2px"}, "radius_md": {"6px"}, "radius_lg": {"1rem"}}
+	input := func(body, id string) string {
+		i := strings.Index(body, `id="`+id+`"`)
+		if i < 0 {
+			t.Fatalf("no input %s", id)
+		}
+		start := strings.LastIndex(body[:i], "<input")
+		return body[start : i+strings.Index(body[i:], ">")]
+	}
+
+	body := g.do("POST", "/admin/theme/colours", "owner-token", form, nil).Body.String()
+	sec := input(body, "secondary")
+	if strings.Count(sec, "aria-describedby=") != 1 || !strings.Contains(sec, `aria-describedby="secondary-error secondary-note"`) {
+		t.Errorf("secondary with error: %s", sec)
+	}
+	acc := input(body, "accent")
+	if strings.Count(acc, "aria-describedby=") != 1 || !strings.Contains(acc, `aria-describedby="accent-note"`) {
+		t.Errorf("accent without error: %s", acc)
 	}
 }

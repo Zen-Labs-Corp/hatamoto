@@ -81,6 +81,7 @@ var uiAllow = []uiAllowEntry{
 	// Also the only home of POST forms that used to skip the rule by class name (hm-inline)
 	// and of partial forms that were skipped as "partials".
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-seobulk-save`, Reason: "row action of an editable list: the row's own form saves that one row without JavaScript"},
+	{Rule: "UI-01", File: "pages/settings/theme.html", Needle: `(printf "Update to %s" .Update) "Variant" "secondary" "Size" "sm" "Type" "submit"`, Reason: "the Live card's Update action sits in its own one-button form in the card body, now that theme cards have no footer band"},
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
@@ -212,7 +213,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-fieldgrid--steps > .hm-field", Max: 2, Reason: "design system scales are one row per step: label left, mono input right"},
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-fieldgrid--steps .hm-field__control", Reason: "right-aligned mono input of a scale row"},
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-card--preset .hm-card__head > p", Reason: "preset key and count read as one mono line; hm/card-start takes a plain string for the description"},
-	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-swatchrow .hm-field__label", Reason: "a swatch label reads in mono beside its hex, as in the approved preview"},
+	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-swatchrow .hm-field__label", Reason: "a swatch label sits in the tile grid above its mono hex; it keeps the UI font"},
 	{Rule: "UI-06", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 5, Reason: "native colour input needs its own box"},
 	{Rule: "UI-05", File: "js/canvas/fmtbar.js", Needle: `class: "hm-btn`, Max: 3, Reason: reasonEditor},
 	{Rule: "UI-06", File: "css/partials/listbox.css", Needle: ".hm-bubble .hm-btn", Reason: "editor bubble buttons"},

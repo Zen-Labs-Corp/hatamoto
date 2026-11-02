@@ -119,16 +119,17 @@ try {
     console.warn("skipped: " + skipped[0]);
   }
 
-  // Colours and fonts: 3 swatches a row, neutral callout, font sample, corner previews.
+  // Colours and fonts: 3 swatches a row, notes under two swatches, font sample, corner previews.
   await visit(p, { path: "/admin/theme/colours" });
   const col = await probe(p, "colours", () => {
     const need = (s) => document.querySelector(s) ?? (() => { throw new Error("missing " + s); })();
     const tops = [...document.querySelectorAll(".hm-swatchrow")].map((e) => Math.round(e.getBoundingClientRect().top));
     need(".hm-fontsample"); need(".hm-cornersample__box");
-    return { n: tops.length, perRow: tops.filter((t) => t === tops[0]).length, edge: getComputedStyle(need(".hm-callout--neutral")).borderInlineStartWidth, sampleFont: getComputedStyle(need(".hm-fontsample__heading")).fontFamily };
+    return { n: tops.length, perRow: tops.filter((t) => t === tops[0]).length, notes: document.querySelectorAll(".hm-swatchrow__note").length, callouts: document.querySelectorAll("main .hm-callout").length, sampleFont: getComputedStyle(need(".hm-fontsample__heading")).fontFamily };
   });
   check(col.n > 0 && col.perRow === 3, `swatches per row ${col.perRow} of ${col.n}, want 3`);
-  check(col.edge === "1px", `neutral callout edge ${col.edge}`);
+  check(col.callouts === 0, `colours page has ${col.callouts} callouts, want none`);
+  check(col.notes === 2, `colours page has ${col.notes} swatch notes, want 2`);
   check(!!col.sampleFont, "font sample has no font");
 
   writeResult("shell-match.json", { engine, problems: bad, skipped });

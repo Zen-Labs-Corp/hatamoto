@@ -87,10 +87,9 @@
 
 
 <header class="hm-section-head">
-<div class="hm-section-head__titles"><h1>Colours and fonts</h1><p class="hm-muted">Brand colours, fonts and corners.</p></div>
+<div class="hm-section-head__titles"><h1>Colours and fonts</h1><p class="hm-muted">Brand colours, fonts and corners, applied by the live theme to every page.</p></div>
 
 </header>
-<div class="hm-callout hm-callout--neutral" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">Applied by the live theme to every page. The default theme does not use the secondary and theme accent colours. The accent the page builder uses is <a href="/admin/theme/design-system">Accent under Design system</a>.</div></div></div>
 
 <form method="post" action="/admin/theme/colours" class="hm-cardform" data-hm-preview-root>
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
@@ -103,12 +102,12 @@
 </div><code class="hm-swatchrow__hex">#0ea5e9</code></div>
 <div class="hm-swatchrow"><div class="hm-field">
 <label class="hm-field__label" for="secondary">Secondary colour</label>
-<input class="hm-field__control" type="color" id="secondary" name="secondary" value="#64748b">
-</div><code class="hm-swatchrow__hex">#64748b</code></div>
+<input class="hm-field__control" type="color" id="secondary" name="secondary" value="#64748b" aria-describedby="secondary-note">
+</div><code class="hm-swatchrow__hex">#64748b</code><p class="hm-swatchrow__note hm-muted" id="secondary-note">Not used by the default theme.</p></div>
 <div class="hm-swatchrow"><div class="hm-field">
 <label class="hm-field__label" for="accent">Theme accent</label>
-<input class="hm-field__control" type="color" id="accent" name="accent" value="#f59e0b">
-</div><code class="hm-swatchrow__hex">#f59e0b</code></div>
+<input class="hm-field__control" type="color" id="accent" name="accent" value="#f59e0b" aria-describedby="accent-note">
+</div><code class="hm-swatchrow__hex">#f59e0b</code><p class="hm-swatchrow__note hm-muted" id="accent-note">Not used by the default theme. The page builder uses <a href="/admin/theme/design-system">Accent under Design system</a>.</p></div>
 <div class="hm-swatchrow"><div class="hm-field">
 <label class="hm-field__label" for="background">Background colour</label>
 <input class="hm-field__control" type="color" id="background" name="background" value="#ffffff">

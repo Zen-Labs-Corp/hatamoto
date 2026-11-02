@@ -28,7 +28,14 @@
 }
 .hm-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: var(--space-4); }
 .hm-theme { display: flex; flex-direction: column; gap: var(--space-3); }
-.hm-theme--active { box-shadow: 0 0 0 1px var(--admin-accent); }
+.hm-theme--active { border-color: var(--border); } /* Live state hook: still a hairline, the Live badge carries the state. */
+.hm-theme__head { display: flex; align-items: center; gap: var(--space-2); }
+.hm-theme__head .hm-theme__id { flex: 1; }
+.hm-theme__menu { margin-inline-start: var(--space-1); }
+.hm-theme__actions { display: flex; align-items: center; gap: var(--space-2); }
+.hm-theme__actions:empty { display: none; }
+/* The live theme's own colours: a painted miniature, never the admin accent. */
+.hm-theme__preview { display: block; width: 100%; aspect-ratio: 16 / 10; border-bottom: 1px solid var(--border); border-radius: var(--radius-md) var(--radius-md) 0 0; }
 .hm-theme__id { min-width: 0; }
 .hm-theme__meta { margin: var(--space-0-5) 0 0; font-size: var(--text-sm); }
 /* The site miniature: a static mock of a page, tokens only (no data behind it). */
@@ -40,8 +47,9 @@
 .hm-theme__mockline--short { width: 60%; }
 .hm-theme__mock > .hm-theme__mockcards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: auto; background: none; }
 .hm-theme__mockcards > span { height: var(--space-8); border-radius: var(--radius-sm); background: var(--color-paper); box-shadow: 0 0 0 1px var(--border); }
-.hm-theme--active .hm-theme__mock > .hm-theme__mockhead { background: var(--color-accent); }
 .hm-theme__strip { display: block; width: 100%; height: var(--space-3); }
+/* Hairlines between the five swatches (the strip is stretched, so the stroke must not scale). */
+.hm-theme__strip rect { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .hm-theme__swatch--none { fill: var(--border); }
 .hm-pluginframe { width: 100%; min-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .hm-pluginframe-host [data-hm-pluginframe-notice][hidden] { display: none; }
