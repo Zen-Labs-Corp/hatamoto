@@ -1019,19 +1019,23 @@ A declared location appears in the admin Location picker under the theme's name,
 | `default` | Optional array of at most 24 items. Without it the location is only listed in the picker and no menu is seeded. |
 | Item | `label` (required, 1 to 60 characters, no control characters) and exactly one of `url` or `archive`. No other keys. |
 | `url` | A site path starting with a single `/`, or an `http(s)` URL with a host, up to 2048 characters. |
-| `archive` | A schema slug, `^[a-z][a-z0-9_-]{0,63}$`. It resolves to that schema's archive path when the page renders, so the link follows the site's URL patterns. |
+| `archive` | A schema slug, `^[a-z][a-z0-9_-]{0,63}$`. It resolves to that schema's archive path when the page renders, so the link follows the site's URL patterns. The seeded item also stores the path it resolved to, which only a downgrade to an older release uses. |
 
 Items are flat; use the admin to nest them afterwards.
 
 **Checking.** `hatamoto theme check` and `theme pack` (with or without `--registry`) refuse a theme whose `menus` breaks
 any rule, with a message that names the field, for example `theme.json: menus.follow.default[0]: set either url or archive, not both`.
-An installed theme with an invalid block still loads: the block is ignored and a warning is logged.
+An installed theme with an invalid block still loads: the block is ignored when the site renders, and a warning is logged
+when the theme is activated or updated.
 
 **Seeding.**
 
 - Activating a theme creates, for each declared location that has default items and that no menu holds yet, a menu titled
   like the location with the location name as its slug.
-- Updating a theme seeds only locations the previous version did not declare.
+- Updating the active theme seeds only locations the previous version did not declare; updating a theme that is not
+  active seeds nothing.
+- A theme that declares `header` or `footer` with no default items still leaves the site its core Header and Footer
+  (created empty when setup runs); declared defaults win where they exist.
 - Seeding never changes or deletes a menu. A menu the owner deleted comes back only when the theme is activated again.
   Switching to another theme leaves every menu alone.
 

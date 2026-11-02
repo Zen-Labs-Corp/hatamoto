@@ -24,10 +24,12 @@ Navigation now comes only from menus. Before, a site without a Header menu still
 - **Seeding.** Activating a theme creates a menu for each declared location that has default items and none yet. An update seeds only locations the previous version did not declare. Seeding never overwrites or deletes a menu, a deleted menu returns only when the theme is activated again, and switching themes leaves menus alone.
 - **The Menus picker** lists No location, then the core locations under Site, then the active theme's locations under its name; the list shows each menu's location as a badge, marked "not used by theme" when the theme does not declare it.
 - **One menu per location in the admin.** Choosing a location for a menu in the admin takes it from the previous holder, which is left unassigned; saving a menu without changing its location never does. A WordPress import follows the same rule. Plugin `menus.save` and the REST menu endpoints do not take locations: menus sharing a location coexist as before and the site renders the oldest.
+- **An assigned Header with no items loses its automatic links.** The upgrade seed leaves any site that already has a Header menu alone, so an assigned but empty Header now renders nothing. Add items under Menus.
+- **New pages are no longer added to the header automatically.** The upgrade seed is a one-time snapshot; pages published later appear in the header only when you add them to the menu.
+- **Plugins.** `menus.save` and the REST menu endpoints accept any well-formed location name and never take a location from another menu. There is no SDK, hook or manifest change.
 - Migrations: additive `menus_seeded_at` column on `hatamoto_site_config`.
-- No SDK, hook or plugin manifest change.
 
-**Rollback floor: unchanged.** An older binary ignores the new column and shows the old automatic list again where no Header menu exists.
+**Rollback floor: unchanged.** An older binary ignores the new column. The seeded menus stay: a site that was seeded keeps its real Header (the old automatic list returns only where no Header menu exists), and a seeded Blog link keeps working because it also stores its path. In the older admin, saving a menu at a theme-declared (non-core) location clears that location.
 
 ## Unreleased: Conversions and lead attribution
 
