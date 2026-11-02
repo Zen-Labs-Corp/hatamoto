@@ -82,23 +82,26 @@ func TestSegmentedTrackDoesNotStretch(t *testing.T) {
 	}
 }
 
-// A stored "collapsed" sidebar must not touch the phone top bar (the toggle is hidden there):
-// the rail grid column and the rail rules of sidebar.css sit inside @media (min-width: 769px).
+// A stored "collapsed" sidebar must not hide the phone top bar (the toggle is hidden there):
+// the collapse rules sit inside @media (min-width: 769px) and hide the sidebar outright, no icon rail.
 func TestCollapsedSidebarOnlyOnDesktop(t *testing.T) {
 	t.Parallel()
 
-	for file, rule := range map[string]string{
-		"base.css":             `.hm-shell[data-sidebar="collapsed"] { grid-template-columns: var(--sidebar-rail-w) minmax(0, 1fr); }`,
-		"partials/sidebar.css": `.hm-shell[data-sidebar="collapsed"] .hm-sidebar { padding-inline: var(--space-2); }`,
+	b, err := os.ReadFile("../../../web/admin/css/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	for _, rule := range []string{
+		`.hm-shell[data-sidebar="collapsed"] { grid-template-columns: minmax(0, 1fr); }`,
+		`.hm-shell[data-sidebar="collapsed"] > .hm-sidebar { display: none; }`,
 	} {
-		b, err := os.ReadFile("../../../web/admin/css/" + file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		css := string(b)
 		i := strings.Index(css, rule)
 		if i < 0 || !strings.Contains(css[max(0, i-400):i], "@media (min-width: 769px)") {
-			t.Errorf("%s: the collapsed sidebar rule must sit inside @media (min-width: 769px)", file)
+			t.Errorf("base.css: %q must sit inside @media (min-width: 769px)", rule)
 		}
+	}
+	if strings.Contains(css, "--sidebar-rail-w") {
+		t.Error("base.css: the collapsed sidebar is hidden, not shrunk to a rail")
 	}
 }

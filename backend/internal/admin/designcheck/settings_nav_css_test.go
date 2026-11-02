@@ -33,7 +33,7 @@ func TestSubnavIsAScrollerOfLinksOnPhones(t *testing.T) {
 	}
 }
 
-// The sticky subnav scrolls inside itself and sits at the group padding; the phone scroller marks
+// The subnav is docked: sticky at the top of the column, a hairline on its right; the phone scroller marks
 // the current link with a border (forced-colors keeps it, unlike box-shadow) and shows edge shadows (no mask: TestTabRowsHaveNoEdgeFade).
 func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 	t.Parallel()
@@ -43,7 +43,7 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := string(b)
-	for _, want := range []string{"top: var(--page-pad);", "max-height: calc(100dvh - 2 * var(--page-pad)); overflow-y: auto", "no-repeat scroll", "border-bottom-color: var(--text)"} {
+	for _, want := range []string{"position: sticky; top: 0; min-height: calc(100vh - 48px);", "border-right: 1px solid var(--border)", "no-repeat scroll", "border-bottom-color: var(--text)"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("settings.css lacks %q", want)
 		}
@@ -76,28 +76,5 @@ func TestSubnavCentresWithoutScrollingWindow(t *testing.T) {
 	}
 	if !strings.Contains(js, "subnav.scrollLeft") {
 		t.Error("admin.js must centre the current subnav link by setting the scroller's scrollLeft")
-	}
-}
-
-// The rail's tooltip is a native title, which CSS cannot hide, so the collapse handler sets it only while collapsed.
-func TestRailTitlesOnlyWhileCollapsed(t *testing.T) {
-	t.Parallel()
-
-	b, err := os.ReadFile("../../../web/admin/js/admin.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	js := string(b)
-	for _, want := range []string{"railTitles(true)", "railTitles(collapsed)", `removeAttribute("title")`} {
-		if !strings.Contains(js, want) {
-			t.Errorf("admin.js lacks %q", want)
-		}
-	}
-	h, err := os.ReadFile("../../../web/admin/partials/sidebar.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(h), `class="hm-nav-link" href="{{.Href}}" title=`) {
-		t.Error("sidebar.html must not carry a static title on nav links")
 	}
 }
