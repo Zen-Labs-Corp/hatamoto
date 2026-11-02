@@ -306,6 +306,23 @@ func TestLocaleCardHelpAndFallbacks(t *testing.T) {
 	}
 }
 
+func TestLocaleCardTriStateKeepsNotStated(t *testing.T) {
+	t.Parallel()
+
+	g, _ := localeRig(t, threeLocales...)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`<option value="">Not stated</option>`, "Not stated uses the site-wide value."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"Select Accepts reservations", "Choose Not stated to say nothing"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("card shows %q", gone)
+		}
+	}
+}
+
 func TestLocaleCardFallsBackToSiteIdentifiersAndLinks(t *testing.T) {
 	t.Parallel()
 

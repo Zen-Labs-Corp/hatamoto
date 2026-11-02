@@ -99,7 +99,15 @@ func localeUI() map[string]schemaform.UIHint {
 		if help != "" {
 			help += " "
 		}
-		h[k] = schemaform.UIHint{Help: help + "Empty uses the site-wide value."}
+		hint := h[k]
+		hint.Help = help + "Empty uses the site-wide value."
+		h[k] = hint
+	}
+	// A tri-state's empty choice is "Not stated": on a card it inherits.
+	for _, k := range []string{"accepts_reservations", "public_access", "free_entry", "amenity_presets"} {
+		hint := h[k]
+		hint.Help = notStated + " uses the site-wide value."
+		h[k] = hint
 	}
 	return h
 }
