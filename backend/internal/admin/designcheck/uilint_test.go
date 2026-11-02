@@ -724,12 +724,12 @@ var uiCrumbEditors = map[string]bool{
 	"layouts/editor.html": true, "pages/entities/blogedit.html": true,
 }
 
-// UI-09: the trail lives in the top bar only. The page header takes no Crumbs
+// UI-09: the shell renders no trail (only the editor bar does). The page header takes no Crumbs
 // and no page renders a panel breadcrumb of its own.
 func lintUI09(f uiFile, add func(int, string, string)) {
 	if f.name == "partials/pageheader.html" {
 		if i := strings.Index(f.src, "Crumbs"); i >= 0 {
-			add(i, "UI-09", "the page header renders no breadcrumbs; handlers set View.Crumbs for the top bar")
+			add(i, "UI-09", "the page header renders no breadcrumbs; handlers set View.Crumbs (the shell does not render it)")
 		}
 		return
 	}
@@ -742,7 +742,7 @@ func lintUI09(f uiFile, add func(int, string, string)) {
 		}
 	}
 	for _, m := range regexp.MustCompile(`class="hm-crumbs`).FindAllStringIndex(f.src, -1) {
-		add(m[0], "UI-09", "a panel breadcrumb: the top bar already shows the trail")
+		add(m[0], "UI-09", "a panel breadcrumb: only the editor bar renders a trail")
 	}
 }
 
