@@ -13,7 +13,7 @@ func TestBusinessHintsKeepSentencePeriods(t *testing.T) {
 		"currency": true, "address.lat": true, "address.lng": true,
 		"special_hours.to": true, "founding_date": true,
 	}
-	for _, ui := range []map[string]schemaform.UIHint{businessUI, localeUI()} {
+	for _, ui := range []map[string]schemaform.UIHint{businessUI, defaultUI(), localeUI()} {
 		for k, hint := range ui {
 			h := hint.Help
 			if h == "" {

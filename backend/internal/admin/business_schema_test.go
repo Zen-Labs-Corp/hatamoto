@@ -683,3 +683,47 @@ func TestBusinessGapValidationPathsLandOnFieldIDs(t *testing.T) {
 		t.Errorf("label = %q", got)
 	}
 }
+
+// The default card is the organisation: every field of the site-wide form, the
+// legacy phone, hours and address, the coordinates and the office switch, but
+// no "no office" switch. A locale card has the reverse.
+func TestDefaultSchemaHasEverythingButNoOffice(t *testing.T) {
+	prev := bizprofile.Profile{Name: "Example Co", Office: true, Phone: "555 0100", HoursNote: "Mon to Fri", Slogan: "Hello", LogoObject: true, EmployeesMin: 3,
+		Address:      bizprofile.Address{Street: "1 Main St", City: "Town", PostalCode: "1000", Country: "AU", Lat: "-33.5", Lng: "151.2", MapURL: "https://maps.example/x"},
+		ParentOrg:    bizprofile.Person{Name: "Parent", URL: "https://parent.example"},
+		Rating:       bizprofile.Rating{Value: "4.5", Best: "5"},
+		BusinessType: "Restaurant", CountryName: "Australia",
+	}
+	html, err := schemaform.Render(defaultSchema(), profileMap(t, prev), schemaform.Options{Prefix: "loc_x.", UI: defaultUI()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"This locale has an office", "Latitude", "Map address", "Alternate name", "Slogan", "Parent organisation", "Rating value", "Business type", "Country name", `id="sf-loc_x-image"`, "Hours note", "Phone", "Print the logo with its width and height"} {
+		if !strings.Contains(string(html), want) {
+			t.Errorf("default form lacks %q", want)
+		}
+	}
+	if strings.Contains(string(html), "No office in this locale") {
+		t.Error("default form has the no-office switch")
+	}
+	form := url.Values{"loc_x.name": {"Example Co"}, "loc_x.office": {"true"}, "loc_x.phone": {"555 0199"}, "loc_x.hours_note": {"Daily"}, "loc_x.address.street": {"2 Side St"}, "loc_x.address.lat": {"-34"}, "loc_x.address.lng": {"151"}, "loc_x.address.map_url": {"https://maps.example/y"}}
+	vals, errs := schemaform.Decode(defaultSchema(), form, profileMap(t, prev), schemaform.Options{Prefix: "loc_x."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Office || got.Phone != "555 0199" || got.HoursNote != "Daily" || got.Address.Street != "2 Side St" || got.Address.Lat != "-34" || got.Address.Lng != "151" || got.Address.MapURL != "https://maps.example/y" {
+		t.Errorf("profile = %+v", got)
+	}
+
+	card, err := schemaform.Render(businessSchema(), nil, schemaform.Options{Prefix: "loc_y."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(card), "No office in this locale") || strings.Contains(string(card), "This locale has an office") {
+		t.Error("locale card has the wrong office switches")
+	}
+}
