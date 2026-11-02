@@ -178,6 +178,17 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.0.7",
+      "record_sig": "d7effd9870698586:WUcVLOSPTcPCaiSGsW5/hOw8eEuvNtSblZq/u3t960FDSOxmOHft0Yyzn8iuKUHOf8iT+7O5Q7vCBSkTfLqGBw==",
+      "ramp": [
+        {
+          "from": "2026-11-04T10:06:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
