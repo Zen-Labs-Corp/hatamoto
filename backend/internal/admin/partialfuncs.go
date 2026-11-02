@@ -49,13 +49,18 @@ func calloutIcon(kind any) string {
 }
 
 // describedBy joins the ids of the help and error elements a control points at.
-func describedBy(id string, help, errMsg any) string {
+func describedBy(id string, help, errMsg any, extra ...any) string {
 	var ids []string
 	if s, _ := help.(string); s != "" {
 		ids = append(ids, id+"-help")
 	}
 	if s, _ := errMsg.(string); s != "" {
 		ids = append(ids, id+"-error")
+	}
+	for _, e := range extra { // caller-owned ids (a note outside the partial), after help and error
+		if s, _ := e.(string); s != "" {
+			ids = append(ids, s)
+		}
 	}
 	return strings.Join(ids, " ")
 }
