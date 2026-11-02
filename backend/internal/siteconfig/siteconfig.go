@@ -537,21 +537,18 @@ func nullIfEmpty(v string, was sql.NullString) any {
 }
 
 // swappedDefault is the old default tag when the old default business must be
-// moved out of the default business: the site has a locale list and either
+// moved out of the default business: the site has a list of several locales and either
 // the old default is still listed next to another locale (keep is true: it
 // gets a card), or it was removed from the list in the same request (keep is
 // false: it has no pages, so no card is stored, but the new default must still
 // not print its address). Otherwise it is "".
 func swappedDefault(oldTag string, errOld error, rawLocales []byte) (tag string, keep bool) {
 	var list []LocaleEntry
-	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) == 0 {
+	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) < 2 {
 		return "", false
 	}
 	for _, e := range list {
 		if t, err := entity.NormalizeLocale(e.Tag); err == nil && t == oldTag {
-			if len(list) < 2 {
-				return "", false
-			}
 			return oldTag, true
 		}
 	}

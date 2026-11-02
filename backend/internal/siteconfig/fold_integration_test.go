@@ -393,3 +393,43 @@ func TestUpdateLanguageRemovingOldDefaultStripsItsAddress(t *testing.T) {
 		t.Errorf("card kept for a locale that left the list: %s", cfg.LocaleProfiles)
 	}
 }
+
+// A single-language site has no other locale to hold the business, so changing
+// its language keeps the business whole, whether the list is empty or has one
+// entry.
+func TestUpdateLanguageOnSingleLanguageSiteKeepsBusiness(t *testing.T) {
+	for name, before := range map[string][]siteconfig.LocaleEntry{
+		"one entry": {{Tag: "en-XX"}},
+		"no list":   {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			s := scratchStore(t)
+			old := "en-XX"
+			if _, err := s.Update(ctx, siteconfig.UpdateInput{
+				Language: &old, Locales: &before,
+				PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
+				BusinessProfile: json.RawMessage(`{"office":true,"country_name":"Exampleland","image":"/img/x.png","business_type":"Store"}`),
+			}); err != nil {
+				t.Fatal(err)
+			}
+			lang := "fr-CA"
+			after := []siteconfig.LocaleEntry{{Tag: "fr-CA"}}
+			cfg, err := s.Update(ctx, siteconfig.UpdateInput{Language: &lang, Locales: &after})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var bp map[string]any
+			if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+				t.Fatal(err)
+			}
+			if bp["office"] != true || bp["country_name"] != "Exampleland" || bp["image"] != "/img/x.png" || bp["business_type"] != "Store" {
+				t.Errorf("business = %v, want it kept", bp)
+			}
+			var addr map[string]string
+			if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example St" {
+				t.Errorf("PostalAddress = %s, want it kept", cfg.PostalAddress)
+			}
+		})
+	}
+}
