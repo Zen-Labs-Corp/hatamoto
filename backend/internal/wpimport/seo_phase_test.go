@@ -83,3 +83,30 @@ func TestSEORowsOnlyListDifferences(t *testing.T) {
 		t.Errorf("would = %+v", would)
 	}
 }
+
+func TestSEOPhaseSourceUploadsAreNotCopied(t *testing.T) {
+	r := seoTestRunner(t, "http://127.0.0.1:1", Options{NoSEOLive: true, SEOFile: &SEOFile{Plugin: "rankmath", Values: map[string]any{
+		"open_graph_image":    "http://127.0.0.1:1/wp-content/uploads/2024/og.png",
+		"knowledgegraph_logo": "http://127.0.0.1:1/wp-content/uploads/logo.png",
+	}}})
+	if err := r.importSEO(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	res := r.res.SEO
+	if res == nil || len(res.Applied) != 0 || !anyHas(res.NotMapped, "Default share image: upload it") || !anyHas(res.NotMapped, "Organization logo: upload it") {
+		t.Errorf("seo = %+v", res)
+	}
+}
+
+func TestSEOPhaseIsSourceUpload(t *testing.T) {
+	r := seoTestRunner(t, "http://127.0.0.1:1", Options{})
+	for raw, want := range map[string]bool{
+		"http://127.0.0.1:1/wp-content/uploads/a.png":      true,
+		"http://127.0.0.1:1/images/a.png":                  false,
+		"https://cdn.example.com/wp-content/uploads/a.png": false,
+	} {
+		if got := r.isSourceUpload(raw); got != want {
+			t.Errorf("%s = %v", raw, got)
+		}
+	}
+}

@@ -43,6 +43,7 @@ func (r *Runner) importSEO(ctx context.Context) error {
 	plan := buildSEOPlan(r.opts.SEOFile, live, r.slugOf, r.dump.Detect.SEOPlugin)
 	res.Plugin = plan.Plugin
 	res.NotMapped = append(res.NotMapped, plan.NotMapped...)
+	plan.Fields = r.dropSourceUploads(plan.Fields, res)
 
 	if len(plan.Fields) > 0 {
 		r.applySEOPlan(ctx, res, plan)
@@ -52,6 +53,31 @@ func (r *Runner) importSEO(ctx context.Context) error {
 		r.res.SEO = nil
 	}
 	return nil
+}
+
+// isSourceUpload reports a link into the source site's own media library: it
+// would stop working once the old site is gone, so it is not copied.
+func (r *Runner) isSourceUpload(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && r.hosts[strings.ToLower(u.Hostname())] && strings.Contains(u.Path, "/wp-content/uploads/")
+}
+
+// dropSourceUploads removes the default share image when it is a source
+// upload and lists it under Not mapped instead.
+func (r *Runner) dropSourceUploads(fields []seoField, res *SEOResult) []seoField {
+	kept := fields[:0:0]
+	for _, f := range fields {
+		if f.Key == "social.image" {
+			s := seo.Defaults()
+			f.Apply(&s)
+			if r.isSourceUpload(f.Show(s)) {
+				res.NotMapped = append(res.NotMapped, "Default share image: upload it in Settings > SEO")
+				continue
+			}
+		}
+		kept = append(kept, f)
+	}
+	return kept
 }
 
 // applySEOPlan validates the plan against the current settings and writes it

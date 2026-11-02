@@ -139,6 +139,9 @@ func (r *Runner) seoOrganization(ctx context.Context, file *SEOFile, live *seoLi
 	}
 	if !isWebURL(logo) {
 		logo = ""
+	} else if r.isSourceUpload(logo) {
+		res.NotMapped = append(res.NotMapped, "Organization logo: upload it in the site settings")
+		logo = ""
 	}
 	if name == "" && logo == "" && len(sameAs) == 0 {
 		return
