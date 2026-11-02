@@ -14,7 +14,7 @@ import (
 )
 
 const liveHome = `<!doctype html><html><head>
-<!-- This site is optimized with Rank Math - https://rankmath.com -->
+<!-- This site is optimized with Rank Math - https://rankmath.example.com -->
 <title>Example Blog</title>
 <meta property="og:site_name" content="Example Blog" />
 <meta name="twitter:site" content="@example" />
@@ -130,5 +130,35 @@ func TestSEOLiveDiscouragedSourceSkipsRobotsAndArchiveNoindex(t *testing.T) {
 				t.Errorf("not mapped = %v", p.NotMapped)
 			}
 		})
+	}
+}
+
+func TestSEOLiveStaysOnTheSourceOrigin(t *testing.T) {
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html><head><meta name="google-site-verification" content="other"></head></html>`))
+	}))
+	defer other.Close()
+	var robotsPath atomic.Value
+	mux := http.NewServeMux()
+	mux.HandleFunc("/blog/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(liveHome)) })
+	mux.HandleFunc("/jump/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, other.URL+"/x/", http.StatusFound) })
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) { robotsPath.Store(r.URL.Path) })
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c, err := NewClient(ClientOptions{URL: srv.URL + "/blog", AllowPrivate: true, RatePerSec: 1000, Sleep: noSleep, MaxRetries: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Another port of the same host is not the source.
+	wrongPort := strings.Replace(srv.URL, "127.0.0.1:", "127.0.0.1:1", 1) + "/blog/"
+	live := readSEOLive(context.Background(), c, srv.URL+"/blog/", srv.URL+"/jump/", wrongPort)
+	if live.Plugin != "Rank Math" || live.Noindex["archive"] || live.Verification["google"] != "g-code" {
+		t.Errorf("plugin %q, noindex %v, verification %v", live.Plugin, live.Noindex, live.Verification)
+	}
+	if len(live.Warnings) != 1 || !strings.Contains(live.Warnings[0], "redirected to another site") {
+		t.Errorf("warnings %v", live.Warnings)
+	}
+	if got, _ := robotsPath.Load().(string); got != "/robots.txt" {
+		t.Errorf("robots.txt requested at %q, want the host root", got)
 	}
 }

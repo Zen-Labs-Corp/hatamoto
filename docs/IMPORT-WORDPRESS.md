@@ -146,7 +146,7 @@ in the report. Media files are skipped.
 Sources, both optional and combined:
 
 - **Live read** (on by default; `--no-seo-live` or the wizard switch turns it off). It reads the old site's public
-  pages, bounded: the home page, one post, one archive, `robots.txt` and one sitemap, all on the source's own host.
+  pages, bounded: the home page, one post, one archive and `robots.txt`, all on the source's own host.
   A read that fails is a warning, never an error.
 - **Settings file** (wizard only): a Rank Math settings `.json`, a Yoast export or a TSF settings `.json`; other
   formats are refused. Up to 1 MiB. It is data only, never executed; its values are read, only the mapped values

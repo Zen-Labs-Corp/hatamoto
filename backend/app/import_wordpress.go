@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -256,12 +257,23 @@ func printSEOResult(out io.Writer, s *wpimport.SEOResult) {
 	}
 	fmt.Fprintf(out, "  SEO settings: applied %d, would change %d, not mapped %d\n", len(s.Applied), len(s.Would), len(s.NotMapped))
 	for _, row := range s.Applied {
-		fmt.Fprintf(out, "    applied: %s: %s\n", row.Label, row.Value)
+		fmt.Fprintf(out, "    applied: %s: %s\n", cliText(row.Label), cliText(row.Value))
 	}
 	for _, row := range s.Would {
-		fmt.Fprintf(out, "    would change: %s: %q -> %q\n", row.Label, row.Current, row.Value)
+		fmt.Fprintf(out, "    would change: %s: %q -> %q\n", cliText(row.Label), row.Current, row.Value)
 	}
 	for _, n := range s.NotMapped {
-		fmt.Fprintf(out, "    not mapped: %s\n", n)
+		fmt.Fprintf(out, "    not mapped: %s\n", cliText(n))
 	}
+}
+
+// cliText drops control characters from text that came from the source site,
+// so it cannot drive the terminal.
+func cliText(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
 }

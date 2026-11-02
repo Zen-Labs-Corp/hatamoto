@@ -666,11 +666,14 @@ const seoFileRefused = "That is not a supported settings file. Use a Rank Math .
 // readSEOFile parses the optional settings file of the options form. The
 // bytes are dropped here: only the parsed values go on, in memory.
 func readSEOFile(r *http.Request) (*wpimport.SEOFile, string) {
-	f, _, err := r.FormFile("seo_file")
+	f, hdr, err := r.FormFile("seo_file")
 	if err != nil {
 		return nil, ""
 	}
 	defer f.Close()
+	if hdr.Size > wpimport.MaxSEOFileBytes {
+		return nil, seoFileRefused
+	}
 	seo, err := wpimport.ParseSEOFile(f)
 	if err != nil {
 		return nil, seoFileRefused

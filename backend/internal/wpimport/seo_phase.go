@@ -43,6 +43,7 @@ func (r *Runner) importSEO(ctx context.Context) error {
 	plan := buildSEOPlan(r.opts.SEOFile, live, r.slugOf, r.dump.Detect.SEOPlugin)
 	res.Plugin = plan.Plugin
 	res.NotMapped = append(res.NotMapped, plan.NotMapped...)
+	res.NotMapped = append(res.NotMapped, plan.Notes...)
 	plan.Fields = r.dropSourceUploads(plan.Fields, res)
 
 	if len(plan.Fields) > 0 {

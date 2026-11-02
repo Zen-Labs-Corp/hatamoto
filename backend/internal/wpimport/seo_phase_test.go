@@ -2,6 +2,7 @@ package wpimport
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -108,5 +109,12 @@ func TestSEOPhaseIsSourceUpload(t *testing.T) {
 		if got := r.isSourceUpload(raw); got != want {
 			t.Errorf("%s = %v", raw, got)
 		}
+	}
+}
+
+func TestSEORowJSONShape(t *testing.T) {
+	b, err := json.Marshal(SEORow{Key: "k", Label: "L", Value: "v"})
+	if err != nil || string(b) != `{"key":"k","label":"L","value":"v"}` {
+		t.Errorf("%s %v", b, err)
 	}
 }

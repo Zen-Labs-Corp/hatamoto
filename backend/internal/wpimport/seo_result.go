@@ -1,7 +1,12 @@
 package wpimport
 
 // SEORow is one global SEO setting: Current is empty in Applied rows.
-type SEORow struct{ Key, Label, Current, Value string }
+type SEORow struct {
+	Key     string `json:"key"`
+	Label   string `json:"label"`
+	Current string `json:"current,omitempty"`
+	Value   string `json:"value"`
+}
 
 // SEOResult is what the SEO settings step did.
 type SEOResult struct {

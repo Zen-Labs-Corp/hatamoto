@@ -217,3 +217,15 @@ func TestSEOImportOrganizationNameReplacesImportedTitle_Integration(t *testing.T
 		t.Errorf("no applied kg.name row: %+v", r.res.SEO)
 	}
 }
+
+func TestSEOImportLossyTranslationIsListed_Integration(t *testing.T) {
+	d, _ := newSEODeps(t)
+	f := &SEOFile{Plugin: "rankmath", Values: map[string]any{"pt_post_title": "%title% %page%"}}
+	r := seoRunner(t, d, "http://127.0.0.1:1", ModeEmpty, Options{NoSEOLive: true, SEOFile: f})
+	if err := r.importSEO(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(r.res.SEO.NotMapped, "\n"), "is approximated") {
+		t.Errorf("not mapped = %v", r.res.SEO.NotMapped)
+	}
+}

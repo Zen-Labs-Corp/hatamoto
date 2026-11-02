@@ -141,18 +141,21 @@ func hasType(t any, want string) bool {
 	return false
 }
 
-// readSEOLive fetches the home page, one post, one archive, robots.txt and one
-// sitemap from the site's own host. Failures become Warnings.
+// readSEOLive fetches the home page, one post, one archive and robots.txt from the site's own host. Failures become Warnings.
 func readSEOLive(ctx context.Context, c *Client, home string, postURL, archiveURL string) *seoLive {
 	live := &seoLive{Verification: map[string]string{}, Noindex: map[string]bool{}}
 	fetch := func(u string) ([]byte, bool) {
 		pu, err := url.Parse(u)
-		if err != nil || u == "" || strings.ToLower(pu.Hostname()) != c.Host() {
+		if err != nil || u == "" || !sameOrigin(pu, c.Base) {
 			return nil, false
 		}
-		body, _, err := c.Do(ctx, u, 2<<20)
+		body, _, final, err := c.doFinal(ctx, u, 2<<20)
 		if err != nil {
 			live.Warnings = append(live.Warnings, fmt.Sprintf("SEO live read: %s: %v", u, err))
+			return nil, false
+		}
+		if !sameOrigin(final, c.Base) {
+			live.Warnings = append(live.Warnings, fmt.Sprintf("SEO live read: %s redirected to another site and was skipped", u))
 			return nil, false
 		}
 		return body, true
@@ -182,16 +185,9 @@ func readSEOLive(ctx context.Context, c *Client, home string, postURL, archiveUR
 	}
 	live.Separator = inferSeparator(live.PostTitle, live.SiteTitle)
 
-	base := strings.TrimRight(home, "/")
-	if base == "" {
-		base = c.Base.String()
-	}
-	if body, ok := fetch(base + "/robots.txt"); ok {
+	if body, ok := fetch(c.Base.Scheme + "://" + c.Base.Host + "/robots.txt"); ok {
 		live.RobotsExtra = robotsExtra(string(body))
 		live.Discouraged = live.Discouraged || robotsDisallowsAll(string(body))
-		if sm := firstSitemap(string(body), c.Host()); sm != "" {
-			fetch(sm)
-		}
 	}
 	if live.Discouraged {
 		live.Warnings = append(live.Warnings, "SEO live read: the source site discourages search engines; its robots.txt lines and archive noindex were not imported")
@@ -232,19 +228,10 @@ func inferSeparator(postTitle, siteTitle string) string {
 	return ""
 }
 
-func firstSitemap(robots, host string) string {
-	for _, line := range strings.Split(robots, "\n") {
-		k, v, ok := strings.Cut(strings.TrimSpace(line), ":")
-		if !ok || !strings.EqualFold(strings.TrimSpace(k), "sitemap") {
-			continue
-		}
-		v = strings.TrimSpace(v)
-		if u, err := url.Parse(v); err == nil && strings.ToLower(u.Hostname()) == host {
-			return v
-		}
-		return ""
-	}
-	return ""
+// sameOrigin reports whether u is on the same host and port as base. Two URLs
+// without an explicit port match, so an http to https upgrade is accepted.
+func sameOrigin(u, base *url.URL) bool {
+	return u != nil && strings.EqualFold(u.Hostname(), base.Hostname()) && u.Port() == base.Port()
 }
 
 // robotsExtra returns the non-default robots.txt lines, or nil when anything
