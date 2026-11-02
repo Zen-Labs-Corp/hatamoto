@@ -20,11 +20,13 @@
 <link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/searchselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/jumptabs.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/repeater.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/searchselect.HASH.js" integrity="sha256-rLH5dgw1s&#43;ujRNqNX7g0dgQgajm7nrh4jWkKFzxXxPA="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/jumptabs.HASH.js" integrity="sha256-J7ODH6BhjvPR4XZrrWTi5rrpcyWmWTnGHD05Y1b/lCQ="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/repeater.HASH.js" integrity="sha256-hkA7Zrqy1TodSSPNd/hYAY&#43;P6MBfnbmN5U8wQizNneA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
@@ -105,12 +107,16 @@
 <div class="hm-section-head__titles"><h1>General</h1><p class="hm-muted">Site identity, homepage and business details.</p></div>
 
 </header>
-<nav class="hm-jumpnav" aria-label="On this page"><a href="#identity">Identity</a><a href="#homepage-section">Homepage</a><a href="#contact">Business details</a><a href="#email">Email</a></nav>
+<nav class="hm-tabs" aria-label="On this page"><ul class="hm-tabs__list" role="list">
+<li><a class="hm-tabs__tab" href="#identity" aria-current="page">Identity</a></li>
+<li><a class="hm-tabs__tab" href="#homepage-section">Homepage</a></li>
+<li><a class="hm-tabs__tab" href="#contact">Business details</a></li>
+</ul></nav>
 <section id="identity" class="hm-stack">
 <form method="post" action="/admin/settings/general/identity" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <section class="hm-card" id="identity-card" aria-labelledby="identity-card-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="identity-card-title">Identity</h2><p class="hm-muted">The name, address and language of your site. Brand colours live in Appearance.</p></div>
+<div class="hm-card__head"><h2 class="hm-card__title" id="identity-card-title">Identity</h2><p class="hm-muted">The name, address and language of your site. Brand colours live in Theme › <a href="/admin/theme/colours">Colours and fonts</a>.</p></div>
 <div class="hm-card__body">
 
 <div class="hm-field">

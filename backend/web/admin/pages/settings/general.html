@@ -1,11 +1,11 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/searchselect{{end}}
+{{define "modules"}}@hm/searchselect @hm/jumptabs{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
-<nav class="hm-jumpnav" aria-label="On this page"><a href="#identity">Identity</a><a href="#homepage-section">Homepage</a><a href="#contact">Business details</a><a href="#email">Email</a></nav>
+{{template "hm/tabs" dict "Label" "On this page" "Items" .Tabs}}
 <section id="identity" class="hm-stack">
 <form method="post" action="{{adminPath}}/settings/general/identity" class="hm-cardform">
 {{template "hm/csrf" $}}
-{{template "hm/card-start" dict "ID" "identity-card" "Title" "Identity" "Description" "The name, address and language of your site. Brand colours live in Appearance."}}
+{{template "hm/card-start" dict "ID" "identity-card" "Title" "Identity" "DescriptionHTML" .IdentNote}}
 {{template "hm/formerrors" dict "Errors" .Ident.Summary}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Site name" "Value" .Ident.Site.Name "Required" true "Error" (index .Ident.SiteErrs "name")}}
 {{template "hm/field" dict "ID" "tagline" "Name" "tagline" "Label" "Tagline" "Value" .Ident.Tagline "Error" (index .Ident.SiteErrs "tagline")}}
