@@ -118,7 +118,7 @@ func mergeSitemapAdditions(urls []URL, add []sdk.SitemapURL) []URL {
 func fromSDKSitemapURLs(urls []sdk.SitemapURL) []URL {
 	out := make([]URL, len(urls))
 	for i, u := range urls {
-		x := URL{Loc: u.Loc, LastMod: u.LastMod, ChangeFreq: u.ChangeFreq, Priority: u.Priority}
+		x := URL{Loc: u.Loc, LastMod: u.LastMod, ChangeFreq: u.ChangeFreq, Priority: ptr(u.Priority)}
 		for _, a := range u.Alternates {
 			x.Links = append(x.Links, HrefLang{Rel: a.Rel, HrefLang: a.HrefLang, Href: a.Href})
 		}
@@ -132,6 +132,17 @@ func fromSDKSitemapURLs(urls []sdk.SitemapURL) []URL {
 func sitemapHasLinks(urls []URL) bool {
 	for _, u := range urls {
 		if len(u.Links) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// sitemapHasImages reports whether any URL lists images, which require the
+// image namespace declaration on the urlset.
+func sitemapHasImages(urls []URL) bool {
+	for _, u := range urls {
+		if len(u.Images) > 0 {
 			return true
 		}
 	}

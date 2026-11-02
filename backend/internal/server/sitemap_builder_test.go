@@ -312,8 +312,8 @@ func TestSitemapBuilder_SettingsAndPlugins(t *testing.T) {
 	if want := []string{"/about"}; !reflect.DeepEqual(urlsOf(misc), want) {
 		t.Errorf("misc = %v, want %v", urlsOf(misc), want)
 	}
-	if misc[0].Priority != 0.3 || misc[0].ChangeFreq != "yearly" {
-		t.Errorf("settings stats = %v %v", misc[0].Priority, misc[0].ChangeFreq)
+	if misc[0].Priority == nil || *misc[0].Priority != 0.3 || misc[0].ChangeFreq != "yearly" {
+		t.Errorf("settings stats = %v %v", *misc[0].Priority, misc[0].ChangeFreq)
 	}
 	docs, _ := plan.GroupURLs("docs")
 	if want := []string{"/docs/branch/leaf", "/docs/bare"}; !reflect.DeepEqual(urlsOf(docs), want) {

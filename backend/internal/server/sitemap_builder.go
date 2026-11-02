@@ -535,7 +535,7 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 		}
 		for _, r := range p.in.Plugins.Static {
 			loc := fmt.Sprintf("%s/%s", base, r.Path)
-			urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: r.ChangeFreq, Priority: r.Priority})
+			urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: r.ChangeFreq, Priority: ptr(r.Priority)})
 		}
 	}
 
@@ -565,7 +565,7 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 	if g.archive != "" && !sectionPaths[g.archive] && len(g.rows) > 0 &&
 		!p.in.SEO.NoIndexView(string(seo.KindArchive), g.archiveSchema, "") {
 		loc := base + g.archive
-		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: sitemapIndexChangeFreq, Priority: sitemapIndexPriority})
+		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: sitemapIndexChangeFreq, Priority: ptr(sitemapIndexPriority)})
 	}
 	for _, pass := range []bool{true, false} { // section pages, then the rest
 		for _, r := range g.rows {
@@ -573,7 +573,7 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 				continue
 			}
 			loc := base + r.path
-			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: r.changeFreq, Priority: r.priority, Links: p.alternates(r.e)})
+			urls = append(urls, URL{Loc: loc, LastMod: p.entryDate(r.e), ChangeFreq: r.changeFreq, Priority: ptr(r.priority), Links: p.alternates(r.e)})
 		}
 	}
 	return urls

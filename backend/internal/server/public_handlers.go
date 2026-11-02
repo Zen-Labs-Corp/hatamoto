@@ -93,17 +93,32 @@ type URLSet struct {
 	XMLName    xml.Name `xml:"urlset"`
 	XMLNS      string   `xml:"xmlns,attr"`
 	XMLNSXhtml string   `xml:"xmlns:xhtml,attr,omitempty"`
-	URLs       []URL    `xml:"url"`
+	// XMLNSImage is declared only when a URL lists images.
+	XMLNSImage string `xml:"xmlns:image,attr,omitempty"`
+	URLs       []URL  `xml:"url"`
 }
+
+// sitemapImageNS is the namespace of the image sitemap extension.
+const sitemapImageNS = "http://www.google.com/schemas/sitemap-image/1.1"
 
 // URL represents a single URL entry in the sitemap.
 type URL struct {
-	Loc        string     `xml:"loc"`
-	LastMod    string     `xml:"lastmod,omitempty"`
-	ChangeFreq string     `xml:"changefreq,omitempty"`
-	Priority   float64    `xml:"priority"`
-	Links      []HrefLang `xml:"xhtml:link,omitempty"`
+	Loc        string `xml:"loc"`
+	LastMod    string `xml:"lastmod,omitempty"`
+	ChangeFreq string `xml:"changefreq,omitempty"`
+	// Priority is nil when the site leaves priorities out; a pointer to 0 is
+	// still written.
+	Priority *float64   `xml:"priority,omitempty"`
+	Links    []HrefLang `xml:"xhtml:link,omitempty"`
+	Images   []ImageRef `xml:"image:image,omitempty"`
 }
+
+// ImageRef is an image:image element: an image shown on the page.
+type ImageRef struct {
+	Loc string `xml:"image:loc"`
+}
+
+func ptr[T any](v T) *T { return &v }
 
 // HrefLang represents an xhtml:link alternate element (added by plugin filters).
 type HrefLang struct {
@@ -394,6 +409,9 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 	urlSet := URLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}
 	if sitemapHasLinks(urls) {
 		urlSet.XMLNSXhtml = "http://www.w3.org/1999/xhtml"
+	}
+	if sitemapHasImages(urls) {
+		urlSet.XMLNSImage = sitemapImageNS
 	}
 	xmlBytes, err := writeXMLWithXSL(w, urlSet)
 	if err != nil {

@@ -19,7 +19,7 @@ func sitemapTestServer() *Server {
 
 func sampleURLs() []URL {
 	return []URL{{
-		Loc: "https://x.test/a", LastMod: "2026-01-01", ChangeFreq: "daily", Priority: 0.8,
+		Loc: "https://x.test/a", LastMod: "2026-01-01", ChangeFreq: "daily", Priority: ptr(0.8),
 		Links: []HrefLang{{Rel: "alternate", HrefLang: "en", Href: "https://x.test/a"}},
 	}}
 }
@@ -58,7 +58,7 @@ func TestSitemapFilterAddsEntriesOnly(t *testing.T) {
 	if seen.Group != "g" || len(seen.Add) != 0 {
 		t.Fatalf("filter saw %+v; want the group and no URLs", seen)
 	}
-	if len(got) != 3 || got[0].Priority != 0.8 || got[1].Loc != "https://x.test/extra" || got[1].Links[0].HrefLang != "fr" || got[2].Loc != "https://x.test/more" {
+	if len(got) != 3 || got[0].Priority == nil || *got[0].Priority != 0.8 || got[1].Loc != "https://x.test/extra" || got[1].Links[0].HrefLang != "fr" || got[2].Loc != "https://x.test/more" {
 		t.Fatalf("got %+v", got)
 	}
 	if len(in) != 1 {
