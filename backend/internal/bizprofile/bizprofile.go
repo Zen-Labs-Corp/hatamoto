@@ -130,7 +130,10 @@ type Profile struct {
 	TaxID        string `json:"tax_id,omitempty"`
 	BusinessType string `json:"business_type,omitempty"`
 	// NoOffice marks a locale without an office: it prints no local business.
-	NoOffice      bool           `json:"no_office,omitempty"`
+	NoOffice bool `json:"no_office,omitempty"`
+	// Office is set on the default business only: the default locale prints a
+	// local business when it is on and the address has a street or a city.
+	Office        bool           `json:"office,omitempty"`
 	Address       Address        `json:"address"`
 	Phone         string         `json:"phone,omitempty"`
 	Fax           string         `json:"fax,omitempty"`

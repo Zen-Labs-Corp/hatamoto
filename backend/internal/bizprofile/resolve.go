@@ -37,6 +37,15 @@ func ResolveContact(site Profile, loc *Profile) Resolved {
 	return Resolved{Office: hasOffice(loc), Profile: merge(site, card)}
 }
 
+// ResolveDefault resolves the default business f for the default locale's own
+// page: the local business is printed only when the Office switch is on and f
+// has a street or a city.
+func ResolveDefault(f Profile) Resolved {
+	loc := f
+	loc.NoOffice = !f.Office
+	return Resolve(f, &loc)
+}
+
 func hasOffice(loc *Profile) bool {
 	return loc != nil && !loc.NoOffice && (loc.Address.Street != "" || loc.Address.City != "")
 }
