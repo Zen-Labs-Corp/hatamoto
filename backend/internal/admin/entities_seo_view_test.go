@@ -43,6 +43,14 @@ func TestEntitiesSEOViewGolden(t *testing.T) {
 	def := c.get(t, "owner-token", "/admin/entities", "")
 	has(t, def, `aria-label="Select all rows in Entities"`, `aria-label="Columns"`, `aria-current="page">Default`)
 	lacks(t, def, `name="orig_title"`, `name="view"`)
+	// The toggle is part of the table header, not a strip above the table.
+	for name, page := range map[string]string{"default": def, "seo": body} {
+		head := page[strings.Index(page, "<thead>"):strings.Index(page, "</thead>")]
+		has(t, head, `aria-label="Columns"`, `aria-current="page"`, `data-changes="view"`, `>Actions</span>`)
+		if strings.Index(page, `aria-label="Columns"`) < strings.Index(page, "<thead>") {
+			t.Errorf("%s view: the Columns toggle sits above the table header", name)
+		}
+	}
 	// An editor sees the same view.
 	has(t, c.get(t, "editor-token", "/admin/entities?view=seo", ""), `name="orig_title"`)
 }
