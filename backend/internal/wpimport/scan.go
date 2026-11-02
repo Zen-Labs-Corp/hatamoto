@@ -68,7 +68,7 @@ type Report struct {
 
 // mapped namespaces are handled (or reported) by name; they are not "unsupported".
 var mappedNamespaces = map[string]string{
-	"yoast/": "Yoast SEO", "rankmath/": "Rank Math", "seopress/": "SEOPress", "aioseo/": "All in One SEO",
+	"yoast/": "Yoast SEO", "rankmath/": "Rank Math", "seopress/": "SEOPress", "aioseo/": "All in One SEO", "tsf/": "The SEO Framework",
 	"contact-form-7/": "Contact Form 7", "gravityforms/": "Gravity Forms", "wpforms/": "WPForms", "ninja-forms": "Ninja Forms",
 	"elementor/": "Elementor", "pll/": "Polylang", "wpml/": "WPML",
 }

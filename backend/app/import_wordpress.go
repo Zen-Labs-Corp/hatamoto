@@ -22,12 +22,12 @@ import (
 )
 
 const importWordPressUsage = `usage: hatamoto import wordpress (--url URL [--user U --app-password P] | --wxr FILE) [--scan-only] [--resume RUN]
-                                [--audit-url URL] [--allow-private-hosts] [--no-permalinks] [--keep-edited] [--json]`
+                                [--audit-url URL] [--allow-private-hosts] [--no-permalinks] [--keep-edited] [--no-seo-live] [--json]`
 
 type wpFlags struct {
 	url, user, pass, wxr, resume, auditURL  string
 	scanOnly, allowPrivate, noPerma, asJSON bool
-	keepEdited                              bool
+	keepEdited, noSEOLive                   bool
 	mediaConc, maxItems                     int
 }
 
@@ -44,6 +44,7 @@ func parseWPFlags(args []string) (*wpFlags, error) {
 		fs.BoolVar(&f.allowPrivate, "allow-private-hosts", false, "allow a source on a private or loopback address")
 		fs.BoolVar(&f.noPerma, "no-permalinks", false, "keep the current URL patterns instead of the WordPress permalink structure")
 		fs.BoolVar(&f.keepEdited, "keep-edited", false, "on a re-run, leave items alone that were edited in Hatamoto since the last import (default: overwrite and list them)")
+		fs.BoolVar(&f.noSEOLive, "no-seo-live", false, "do not read the SEO settings (verification tags, social handle, robots.txt) from the live site")
 		fs.BoolVar(&f.asJSON, "json", false, "print the final report as JSON")
 		fs.IntVar(&f.mediaConc, "media-concurrency", 4, "parallel media downloads")
 		fs.IntVar(&f.maxItems, "max-items", 0, "refuse sources with more items than this (default 50000)")
@@ -163,7 +164,7 @@ func importWordPress(ctx context.Context, deps *wpimport.Deps, f *wpFlags, out i
 
 	opts := wpimport.Options{
 		AllowPrivate: f.allowPrivate, Client: client, MediaConcurrency: f.mediaConc, NoPermalinks: f.noPerma,
-		KeepEdited: f.keepEdited, Progress: say, Stored: storedOptions(f),
+		KeepEdited: f.keepEdited, NoSEOLive: f.noSEOLive, Progress: say, Stored: storedOptions(f),
 	}
 	if f.auditURL != "" {
 		// The audit target is the operator's own new site: trusted, unlike the
@@ -197,6 +198,9 @@ func importWordPress(ctx context.Context, deps *wpimport.Deps, f *wpFlags, out i
 
 func storedOptions(f *wpFlags) map[string]any {
 	o := map[string]any{"url": f.url, "user": f.user, "allow_private": f.allowPrivate, "no_permalinks": f.noPerma}
+	if f.noSEOLive {
+		o["no_seo_live"] = true
+	}
 	if f.wxr != "" {
 		o["wxr"] = filepath.Base(f.wxr)
 	}
@@ -234,6 +238,7 @@ func printImportResult(out io.Writer, r *wpimport.Result, took time.Duration, as
 	for _, u := range r.WPContentLeft {
 		fmt.Fprintf(out, "  wp-content URL left: %s\n", u)
 	}
+	printSEOResult(out, r.SEO)
 	if a := r.Audit; a != nil {
 		fmt.Fprintf(out, "  URL audit: %d checked, %d answer 200, %d answer one 301, %d failed\n", a.Checked, a.OK, a.Redirected, len(a.Failures))
 		for _, fl := range a.Failures {
@@ -241,5 +246,22 @@ func printImportResult(out io.Writer, r *wpimport.Result, took time.Duration, as
 		}
 	} else {
 		fmt.Fprintln(out, "  URL audit skipped: pass --audit-url https://your-new-site to check every old URL")
+	}
+}
+
+// printSEOResult lists what the SEO settings step applied, would change or could not map.
+func printSEOResult(out io.Writer, s *wpimport.SEOResult) {
+	if s == nil {
+		return
+	}
+	fmt.Fprintf(out, "  SEO settings: applied %d, would change %d, not mapped %d\n", len(s.Applied), len(s.Would), len(s.NotMapped))
+	for _, row := range s.Applied {
+		fmt.Fprintf(out, "    applied: %s: %s\n", row.Label, row.Value)
+	}
+	for _, row := range s.Would {
+		fmt.Fprintf(out, "    would change: %s: %q -> %q\n", row.Label, row.Current, row.Value)
+	}
+	for _, n := range s.NotMapped {
+		fmt.Fprintf(out, "    not mapped: %s\n", n)
 	}
 }

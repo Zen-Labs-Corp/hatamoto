@@ -3,6 +3,7 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -338,6 +339,22 @@ func TestWordPressImportSEOSiteWithContentWritesNothing_Integration(t *testing.T
 	for _, row := range res.SEO.Would {
 		if row.Key == "verification.google" && (row.Current != "mine" || row.Value != "abc123") {
 			t.Errorf("google row = %+v", row)
+		}
+	}
+}
+
+// printImportResult shows the SEO rows of a site with content, so the CLI user sees
+// what would change although nothing was written.
+func TestWordPressImportSEOCLIText_Integration(t *testing.T) {
+	r := newWPRig(t, modesSite)
+	r.publish("post", "my-post", "My post", map[string]any{"content": "<p>Written here</p>"})
+	res := r.runSEO(modesDump(), seoTestFile(t))
+	var out bytes.Buffer
+	printImportResult(&out, res, time.Second, false)
+	text := out.String()
+	for _, want := range []string{"SEO settings: applied 0, would change ", "would change: Google verification: \"\" -> \"abc123\""} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output lacks %q:\n%s", want, text)
 		}
 	}
 }
