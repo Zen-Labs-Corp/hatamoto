@@ -49,6 +49,7 @@ type seoForm struct {
 	// merge. MaxSnippet is the typed text so a bad value can be shown again.
 	NoFollow, NoArchive, NoSnippet bool
 	MaxSnippet, MaxImagePreview    string
+	robotsKept                     bool // the form carried no Advanced tab: seo.robots is left as stored
 }
 
 type termPick struct {
@@ -296,6 +297,9 @@ func seoFrom(m map[string]any) seoForm {
 // token the field does not own (unknown ones too) is kept. The entity and blog
 // forms call it; the builder never does.
 func (s seoForm) mergeRobots(m map[string]any) {
+	if s.robotsKept {
+		return
+	}
 	seoMap, _ := m["seo"].(map[string]any)
 	d := seo.ParseDirectives(str(seoMap, "robots"))
 	d.NoFollow, d.NoArchive, d.NoSnippet = s.NoFollow, s.NoArchive, s.NoSnippet
@@ -328,6 +332,7 @@ func (s *seoForm) keepUnpostedRobots(r *http.Request, prev map[string]any) {
 		return
 	}
 	stored := seoFrom(prev)
+	s.robotsKept = true
 	s.NoFollow, s.NoArchive, s.NoSnippet = stored.NoFollow, stored.NoArchive, stored.NoSnippet
 	s.MaxSnippet, s.MaxImagePreview = stored.MaxSnippet, stored.MaxImagePreview
 }
