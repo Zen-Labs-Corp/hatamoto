@@ -214,6 +214,8 @@ func (out *FoldOut) foldInherit(name, key string, f, s, d reflect.Value, os []ta
 	for _, o := range os {
 		switch {
 		case isSet(name, o.v):
+		case slices.Contains(o.card.NoInherit, key):
+			// Already marked: stays empty on purpose.
 		case isSet(name, s):
 			o.v.Set(s)
 		case !slices.Contains(o.card.NoInherit, key):

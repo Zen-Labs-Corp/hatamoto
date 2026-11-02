@@ -392,3 +392,20 @@ func TestResolve_NoInherit(t *testing.T) {
 		t.Errorf("presets = %+v", p.AmenityPresets)
 	}
 }
+
+// A card that already lists a field in no_inherit keeps it empty: the fold does
+// not copy the site-wide value into it.
+func TestFold_KeepsExistingMarker(t *testing.T) {
+	t.Parallel()
+	o := Fold(FoldIn{Default: tagDef, Site: Profile{Email: "a@x.test"}, Cards: map[string]Profile{
+		tagDef:   {Email: "b@x.test"},
+		tagOther: {NoInherit: []string{"email"}},
+		tagThird: {},
+	}})
+	if got := o.Cards[tagOther]; got.Email != "" || !slices.Equal(got.NoInherit, []string{"email"}) {
+		t.Errorf("marked card = %+v, want email empty and the marker kept", got)
+	}
+	if got := o.Cards[tagThird]; got.Email != "a@x.test" {
+		t.Errorf("unmarked card email = %q, want the copied site value", got.Email)
+	}
+}
