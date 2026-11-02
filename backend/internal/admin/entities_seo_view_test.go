@@ -126,3 +126,13 @@ func TestEntitiesViewToggleIsAGroupInTheHeader(t *testing.T) {
 	has(t, head, `role="group"`, `aria-label="Columns"`, `aria-label="Actions"`, `aria-current="page">Default`)
 	lacks(t, head, "<nav")
 }
+
+// With no rows the table has no header; the toggle must still be there to leave the SEO view.
+func TestEntitiesViewToggleSurvivesAnEmptyList(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	body := c.get(t, "owner-token", "/admin/entities?view=seo&q=zzznomatchzzz", "")
+	has(t, body, `role="group"`, `aria-label="Columns"`, `data-changes="view"`, `href="/admin/entities`)
+	lacks(t, body, "<thead>")
+}
