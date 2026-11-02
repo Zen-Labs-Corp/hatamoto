@@ -14,6 +14,20 @@ An owner, or a script with an owner token, can now read and write the business p
 
 **Rollback floor: unchanged.**
 
+## Unreleased: Menus are always real data
+
+Navigation now comes only from menus. Before, a site without a Header menu still showed an automatic list of its first pages and a Blog link; that render-time fallback is gone, so a location with no menu, or an assigned menu with no items, renders nothing.
+
+- **Existing sites keep their header.** A site that relied on the fallback gets a real **Header** menu on first start after the upgrade (its first 50 published pages that are not hidden from the nav, plus Blog when there are posts). It runs once, so a Header you delete later stays deleted. A new site gets a Header and an empty Footer when setup content is chosen.
+- **Themes declare menu locations.** `theme.json` gains a `menus` key (not the existing `menu` presets key): up to 12 locations, each with an optional title and up to 24 default items, each a `url` or an `archive` slug. Templates read them with `menu "<location>"`. `hatamoto theme check` and `theme pack` refuse a malformed block. See [THEMES.md](THEMES.md#menu-locations-menus).
+- **Seeding.** Activating a theme creates a menu for each declared location that has default items and none yet. An update seeds only locations the previous version did not declare. Seeding never overwrites or deletes a menu, a deleted menu returns only when the theme is activated again, and switching themes leaves menus alone.
+- **The Menus picker** lists No location, then the core locations under Site, then the active theme's locations under its name; the list shows each menu's location as a badge, marked "not used by theme" when the theme does not declare it.
+- **One menu per location.** Assigning a location to a menu takes it from the previous holder, which is left unassigned. A WordPress import follows the same rule.
+- Migrations: additive `menus_seeded_at` column on `hatamoto_site_config`.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.** An older binary ignores the new column and shows the old automatic list again where no Header menu exists.
+
 ## Unreleased: Conversions and lead attribution
 
 **Analytics > Conversions** shows what turns into leads. A lead is every form submission that is not spam. Each submission now keeps the **first and last touch** of the visit it came from (channel, source, medium, campaign, landing page), so the page can show leads by channel per day, a funnel (Visits, Viewed 2+ pages, Saw a form, Started the form, Submitted), **AI: what you give vs what you get** (pages each AI company fetched against the visitors and leads its assistant sent back) and the Recent leads. **Analytics > Traffic** now fills its Leads and Conv. rate columns and the First touch | Last touch choice works (First is the default). Forms > Submissions gets a **Came from** card on each submission, and the CSV export gains six attribution columns after Referrer. MCP gets an `analytics_conversions` tool.

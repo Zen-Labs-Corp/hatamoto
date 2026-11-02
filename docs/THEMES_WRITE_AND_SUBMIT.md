@@ -80,6 +80,7 @@ package format allows ([PACKAGES.md](PACKAGES.md)).
 | `description` | shown on the directory card |
 | `screenshot` | **required for the registry**: path to a preview image under `assets/` |
 | `settings_schema` | optional, a JSON Schema that becomes a settings form, see [THEMES.md](THEMES.md#installing-and-activating-themes) |
+| `menus` | optional, the menu locations the theme renders and their default items, see [THEMES.md](THEMES.md#menu-locations-menus). `theme check` refuses a malformed block |
 
 ### 3. Make the screenshot
 
@@ -125,7 +126,7 @@ hatamoto theme check ./hatamoto-kumo --registry
 This needs no key and no database, and writes nothing. It parses the folder as a
 theme package (name, semver version, the package safety rules in
 [PACKAGES.md](PACKAGES.md#safety-rules-for-the-archive) and the screenshot
-rules above) and, with `--registry`, also requires a valid screenshot and
+rules above) and the `menus` block when there is one, and, with `--registry`, also requires a valid screenshot and
 refuses the name `default`. On success it prints `ok: theme kumo v0.1.0`. This is
 the same check the registry runs, so if it passes here it passes there.
 

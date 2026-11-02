@@ -33,7 +33,7 @@ Anything else at the root, any other top-level directory, hidden files
 package needs `plugin.wasm` (optional when it ships `widgets/`: a widget-only pack has no code) and a valid `plugin.json` (name `^[a-z][a-z0-9-]{1,39}$`,
 semver version, `sdk` range, see PLUGIN_API.md). A theme package needs
 `theme.json` with `name`, `version` and optionally `description`,
-`settings_schema` and `screenshot` (a preview image under `assets/`; an invalid one is ignored on install, and only `--registry` checks and requires it, see [THEMES.md](THEMES.md#writing-and-submitting-a-theme)), and must not hold `plugin.wasm` or `widgets/`. The name `default` is reserved
+`settings_schema`, `menus` (menu locations, see [THEMES.md](THEMES.md#menu-locations-menus); a malformed block fails `theme check` and `theme pack`) and `screenshot` (a preview image under `assets/`; an invalid one is ignored on install, and only `--registry` checks and requires it, see [THEMES.md](THEMES.md#writing-and-submitting-a-theme)), and must not hold `plugin.wasm` or `widgets/`. The name `default` is reserved
 for the built-in theme. Install and update are keyed by `(kind, name)`:
 installing version 1.1.0 of an installed package replaces 1.0.0.
 Plugin names `browse`, `security` and `webhooks` are reserved too (the admin serves `/plugins/browse` and `/plugins/security`; webhooks are part of core): a new install under one of them is refused. A plugin already installed as `browse` or `security` can still be updated and uninstalled.

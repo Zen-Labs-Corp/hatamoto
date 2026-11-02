@@ -97,7 +97,7 @@ the share of items that import without loss, with each medium or low item and wh
 | Media library | media, downloaded through the SSRF guard (size cap = the media limit), deduplicated by content hash; every size (`-300x200`, `-scaled`) maps to the one original |
 | Body | `attributes.content`, sanitised by the rich-text policy |
 | SEO title, description, canonical, noindex, social image | `meta_title`, `meta_description`, `seo.canonical`, `no_index`, `og_image` |
-| Menus | menus with nesting; pages become entity links; location from the menu name (header, footer, sidebar) |
+| Menus | menus with nesting; pages become entity links; location from the menu name (header, footer, sidebar); the imported menu takes the location from its previous holder, which is left unassigned |
 | Private, password-protected and draft content | drafts (listed in the report) |
 
 Body conversion: Gutenberg comments are stripped; YouTube and Vimeo embeds are kept as iframes (also from a
