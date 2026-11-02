@@ -103,9 +103,8 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 /* Save state: dot and short text on one line (never one letter per line); a long message is clipped with an
    ellipsis, the full text stays in the live region and the title. */
 .hm-cell-edit--save { flex-flow: row wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 6rem; max-width: 10rem; white-space: nowrap; }
-.hm-cell-edit--save .hm-savestate { flex: 0 1 auto; min-width: 0; overflow-wrap: normal; }
+.hm-cell-edit--save .hm-savestate { min-width: 0; overflow-wrap: normal; }
 .hm-cell-edit--save .hm-savestate__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hm-cell-edit--save .hm-btn { flex: none; }
 .hm-table__nowrap { white-space: nowrap; }
 .hm-table__clip { display: inline-block; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 /* Rows of the inline SEO view: the name column stays narrow, every cell starts at the top, the switch hugs its column. */
