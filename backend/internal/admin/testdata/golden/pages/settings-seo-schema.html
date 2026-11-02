@@ -134,22 +134,28 @@
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-schema-guide-title">Guide</h2></div>
 <div class="hm-card__body">
 <p>Set by the type&#39;s schema.</p>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="schema-guide-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-guide-faq" name="schema[guide][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label><input type="hidden" name="schema[guide][faq]" value="false">
+</div>
 </div></section>
 <section class="hm-card" id="seo-schema-page" aria-labelledby="seo-schema-page-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-schema-page-title">Page</h2></div>
 <div class="hm-card__body">
-<p>Built in: its schema type cannot be changed.</p>
+<div class="hm-field">
+<label class="hm-field__label" for="schema-page-type">Schema type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema-page-type" name="schema[page][type]" aria-describedby="schema-page-type-help"><option value="" selected>Default (WebPage)</option><option value="Article">Article</option><option value="BlogPosting">BlogPosting</option><option value="NewsArticle">NewsArticle</option><option value="DefinedTerm">DefinedTerm</option><option value="Person">Person</option><option value="Service">Service</option><option value="Course">Course</option><option value="HowTo">HowTo</option><option value="WebPage">WebPage</option><option value="CreativeWork">CreativeWork</option><option value="Organization">Organization</option><option value="LocalBusiness">LocalBusiness</option></select></div>
+<p class="hm-field__help" id="schema-page-type-help">The default keeps the built-in markup for this type. Choosing a type here switches it to the generic markup, which lists fewer fields.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="schema-page-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-page-faq" name="schema[page][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label><input type="hidden" name="schema[page][faq]" value="false">
+</div>
 </div></section>
 <section class="hm-card" id="seo-schema-person" aria-labelledby="seo-schema-person-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="seo-schema-person-title">Person</h2></div>
 <div class="hm-card__body">
+<p>Person markup is built in.</p>
 <div class="hm-field">
-<label class="hm-field__label" for="schema-person-type">Schema type</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema-person-type" name="schema[person][type]" aria-describedby="schema-person-type-help"><option value="" selected>Default (Person)</option><option value="Article">Article</option><option value="BlogPosting">BlogPosting</option><option value="NewsArticle">NewsArticle</option><option value="DefinedTerm">DefinedTerm</option><option value="Person">Person</option><option value="Service">Service</option><option value="Course">Course</option><option value="HowTo">HowTo</option><option value="WebPage">WebPage</option><option value="CreativeWork">CreativeWork</option><option value="Organization">Organization</option><option value="LocalBusiness">LocalBusiness</option></select></div>
-<p class="hm-field__help" id="schema-person-type-help">The default keeps the built-in markup for this type. Choosing a type here switches it to the generic markup, which lists fewer fields.</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="schema-person-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-person-faq" name="schema[person][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label>
+<label class="hm-field__check hm-switch" for="schema-person-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-person-faq" name="schema[person][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label><input type="hidden" name="schema[person][faq]" value="false">
 </div>
 </div></section>
 <section class="hm-card" id="seo-schema-recipe" aria-labelledby="seo-schema-recipe-title">
@@ -161,7 +167,7 @@
 <p class="hm-field__help" id="schema-recipe-type-help">Used as the type in this type&#39;s structured data.</p>
 </div>
 <div class="hm-field">
-<label class="hm-field__check hm-switch" for="schema-recipe-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-recipe-faq" name="schema[recipe][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label>
+<label class="hm-field__check hm-switch" for="schema-recipe-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-recipe-faq" name="schema[recipe][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label><input type="hidden" name="schema[recipe][faq]" value="false">
 </div>
 </div></section>
 <section class="hm-card" id="seo-schema-service" aria-labelledby="seo-schema-service-title">
@@ -173,7 +179,7 @@
 <p class="hm-field__help" id="schema-service-type-help">Used as the type in this type&#39;s structured data.</p>
 </div>
 <div class="hm-field">
-<label class="hm-field__check hm-switch" for="schema-service-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-service-faq" name="schema[service][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label>
+<label class="hm-field__check hm-switch" for="schema-service-faq"><input class="hm-field__box" type="checkbox" role="switch" id="schema-service-faq" name="schema[service][faq]" value="true" checked><span>Add FAQ markup from question headings in the content</span></label><input type="hidden" name="schema[service][faq]" value="false">
 </div>
 </div></section>
 <footer class="hm-card__foot hm-card__foot--plain"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer>

@@ -74,13 +74,8 @@ func (f *fakeSEO) SaveTitles(ctx context.Context, patches []SEOTitlePatch, fn fu
 	return nil
 }
 
-// SaveSchema records each patch; a built-in type refuses like the real one.
+// SaveSchema records each patch; built-in types take the schema keys.
 func (f *fakeSEO) SaveSchema(_ context.Context, patches []SEOSchemaPatch) error {
-	for _, p := range patches {
-		if f.builtin[p.ID] {
-			return &SEOPatchError{ID: p.ID, Err: entity.ErrCannotModifyBuiltin}
-		}
-	}
 	for _, p := range patches {
 		f.patches[p.ID] = p.Patch
 	}
@@ -91,6 +86,7 @@ type seoRig struct {
 	*contentRig
 	svc     *fakeSEO
 	person  *entity.EntitySchema
+	post    *entity.EntitySchema
 	events  []AuditEvent
 	flushed int
 }

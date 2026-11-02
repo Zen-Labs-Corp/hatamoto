@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -41,14 +42,19 @@ type seoSchemaRow struct {
 	// that comes from a dedicated builder an explicit type replaces.
 	Legacy string
 	Rich   bool
-	// ReadOnly rows are shown, never saved; Note says why.
-	ReadOnly bool
-	Note     string
+	// TypeReadOnly rows show Note instead of the type select: the type
+	// cannot take effect there. The subtype and FAQ switch stay editable.
+	TypeReadOnly bool
+	Note         string
 
 	TypeOptions    []ui.Option
 	SubtypeOptions []ui.Option
 	// ShowSubtype is true when the effective @type is an Article.
 	ShowSubtype bool
+
+	// fixedType is the @type of a TypeReadOnly row, "" when unknown (a plugin
+	// builder decides it).
+	fixedType string
 
 	storedType, storedSubtype string
 	storedFAQ                 bool
@@ -84,10 +90,12 @@ func (a *Admin) seoSchemaStored(r *http.Request) []seoSchemaRow {
 			Type: st.SchemaOrgType, Subtype: st.ArticleType, FAQ: st.FAQEnabled(),
 		}
 		switch {
-		case sc.IsBuiltin && sc.Slug != entity.PersonSchemaSlug:
-			row.ReadOnly, row.Note = true, "Built in: its schema type cannot be changed."
+		case sc.Slug == entity.PersonSchemaSlug:
+			row.TypeReadOnly, row.Note = true, "Person markup is built in."
+			row.fixedType = "Person"
 		case entity.SchemaFixesJSONLDType(sc):
-			row.ReadOnly, row.Note = true, "Set by the type's schema."
+			row.TypeReadOnly, row.Note = true, "Set by the type's schema."
+			row.fixedType = annotatedSchemaType(sc.Schema)
 		}
 		row.storedType, row.storedSubtype, row.storedFAQ = row.Type, row.Subtype, row.FAQ
 		rows = append(rows, row)
@@ -96,15 +104,28 @@ func (a *Admin) seoSchemaStored(r *http.Request) []seoSchemaRow {
 	return rows
 }
 
+// annotatedSchemaType is the x-schema-org-type of a type's schema, or "".
+func annotatedSchemaType(schema []byte) string {
+	var doc struct {
+		Type string `json:"x-schema-org-type"`
+	}
+	_ = json.Unmarshal(schema, &doc)
+	return doc.Type
+}
+
 // seoSchemaFromForm applies the posted fields over stored. A row the page did
-// not list, or a read-only one, keeps what is stored; a subtype that was not
-// posted (the select only shows for Article types) is kept too.
+// not list keeps what is stored, and so does the type of a TypeReadOnly row; a
+// subtype that was not posted (the select only shows for Article types) is
+// kept too. A row's fields are posted when its type is (editable rows) or its
+// FAQ switch is (type read-only rows, which always post it).
 func seoSchemaFromForm(form url.Values, stored []seoSchemaRow) []seoSchemaRow {
 	next := make([]seoSchemaRow, 0, len(stored))
 	for _, row := range stored {
 		p := "schema[" + row.Slug + "]"
-		if !row.ReadOnly && form.Has(p+"[type]") {
-			row.Type = strings.TrimSpace(form.Get(p + "[type]"))
+		if form.Has(p+"[type]") && !row.TypeReadOnly || form.Has(p+"[faq]") && row.TypeReadOnly {
+			if !row.TypeReadOnly {
+				row.Type = strings.TrimSpace(form.Get(p + "[type]"))
+			}
 			if form.Has(p + "[subtype]") {
 				row.Subtype = strings.TrimSpace(form.Get(p + "[subtype]"))
 			}
@@ -150,12 +171,9 @@ func (a *Admin) handleSEOSchemaSave(w http.ResponseWriter, r *http.Request) {
 	var patches []SEOSchemaPatch
 	rowOf := map[uuid.UUID]seoSchemaRow{}
 	for _, row := range next {
-		if row.ReadOnly {
-			continue
-		}
 		var p entity.SchemaSEOPatch
 		changed := false
-		if row.Type != row.storedType {
+		if row.Type != row.storedType && !row.TypeReadOnly {
 			p.SchemaOrgType, changed = &row.Type, true
 		}
 		if row.Subtype != row.storedSubtype {
@@ -208,7 +226,10 @@ func (a *Admin) renderSEOSchema(w http.ResponseWriter, r *http.Request, status i
 			row.SubtypeOptions = append(row.SubtypeOptions, ui.Option{Value: t, Label: t, Selected: row.Subtype == t})
 		}
 		effective := firstNonEmptyString(row.Type, row.Legacy)
-		row.ShowSubtype = !row.ReadOnly && slices.Contains(entity.AllowedArticleTypes, effective)
+		if row.TypeReadOnly {
+			effective = row.fixedType
+		}
+		row.ShowSubtype = slices.Contains(entity.AllowedArticleTypes, effective) || row.TypeReadOnly && row.fixedType == "" && row.Slug != entity.PersonSchemaSlug
 	}
 	d.Types = rows
 	v := a.NewView(w, r, "SEO")

@@ -191,3 +191,22 @@ func TestUpdateSchemaSEOSettingsRejectsBadTypes(t *testing.T) {
 		}
 	}
 }
+
+// A built-in type takes the schema type, article type and FAQ keys, but its
+// archive keys stay closed unless it is person.
+func TestPatchSchemaSEOTxBuiltin(t *testing.T) {
+	t.Parallel()
+	svc, sr, _ := newTestService()
+	page := seedSchema(t, sr, func(s *EntitySchema) { s.Slug, s.IsBuiltin = "page", true })
+	off := false
+	if err := svc.UpdateSchemaSEOSettings(context.Background(), page.ID, SchemaSEOPatch{SchemaOrgType: strp("Service"), FAQFromContent: &off}); err != nil {
+		t.Fatalf("type keys: %v", err)
+	}
+	st, _ := sr.schemas[page.ID].URLSettings()
+	if st.SchemaOrgType != "Service" || st.FAQEnabled() {
+		t.Errorf("settings = %s", sr.schemas[page.ID].Settings)
+	}
+	if err := svc.UpdateSchemaSEOSettings(context.Background(), page.ID, SchemaSEOPatch{ArchiveTitle: strp("X")}); !errors.Is(err, ErrCannotModifyBuiltin) {
+		t.Errorf("archive key on a built-in: %v, want ErrCannotModifyBuiltin", err)
+	}
+}
