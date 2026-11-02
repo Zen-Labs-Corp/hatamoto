@@ -108,7 +108,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 		if p.name == "plugins" {
 			// The filter row is the card's top strip, above the heading.
 			card := body[strings.Index(body, `<section class="hm-card" id="installed"`):]
-			if strings.Index(card, `class="hm-pluginlist__filters"`) < 0 || strings.Index(card, `class="hm-pluginlist__filters"`) > strings.Index(card, `id="installed-title"`) || !strings.Contains(body, `aria-keyshortcuts="/"`) {
+			if !strings.Contains(card, `class="hm-pluginlist__filters"`) || strings.Index(card, `class="hm-pluginlist__filters"`) > strings.Index(card, `id="installed-title"`) || !strings.Contains(body, `aria-keyshortcuts="/"`) {
 				t.Error("plugins: the filter row must sit at the top of the Installed plugins card, above its heading, and carry aria-keyshortcuts")
 			}
 		}
