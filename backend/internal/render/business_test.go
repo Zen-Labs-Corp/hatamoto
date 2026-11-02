@@ -612,3 +612,15 @@ func TestLocalBusinessNode_ExtendedDetails(t *testing.T) {
 		t.Error("radius without coordinates must print nothing")
 	}
 }
+
+// The LocalBusiness prices its services in ServicesCurrency, not in the
+// locale's own currency.
+func TestLocalBusinessOffersUseServicesCurrency(t *testing.T) {
+	b := &BusinessView{ID: "xx", Currency: "EUR", ServicesCurrency: "AUD", BusinessDetails: extendedDetails()}
+	lb := graphNodes(t, businessPage(b))[1]
+	cat, _ := lb["hasOfferCatalog"].(map[string]any)
+	offers, _ := cat["itemListElement"].([]any)
+	if len(offers) != 1 || offers[0].(map[string]any)["priceCurrency"] != "AUD" {
+		t.Errorf("offers = %v, want priceCurrency AUD", cat)
+	}
+}

@@ -1005,8 +1005,15 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 		return nil, nil
 	}
 	p := res.Profile
+	// Inherited services keep the site's prices, so they keep the site's
+	// currency; a locale that lists its own services uses its own.
+	servicesCurrency := p.Currency
+	if card == nil || len(card.Services) == 0 {
+		servicesCurrency = site.Currency
+	}
 	b := &render.BusinessView{
-		ID: seg, Type: p.BusinessType, Name: p.Name,
+		ServicesCurrency: servicesCurrency,
+		ID:               seg, Type: p.BusinessType, Name: p.Name,
 		Phone: p.Phone, Fax: p.Fax, Email: p.Email, Hours: p.HoursNote, TaxID: p.TaxID,
 		VATID: p.VATID, Description: p.Description, Image: p.Image, CountryName: p.CountryName,
 		Address: render.Address{Street: p.Address.Street, City: p.Address.City, State: p.Address.State,

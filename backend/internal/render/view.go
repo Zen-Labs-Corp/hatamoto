@@ -507,6 +507,9 @@ type BusinessView struct {
 	ID string
 	// Type is the schema.org type; empty means LocalBusiness.
 	Type string
+	// ServicesCurrency is the currency of the service prices: the site's when
+	// the locale inherits the site's services.
+	ServicesCurrency string
 	// Name overrides the site name for this node; empty uses the site name.
 	Name                     string
 	Phone, Fax, Email, Hours string

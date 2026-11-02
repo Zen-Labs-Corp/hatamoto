@@ -98,7 +98,7 @@ func localBusinessLD(v *PageView, base string) map[string]any {
 		}
 	}
 	parent := lb["parentOrganization"]
-	setDetailsLD(lb, b.BusinessDetails, b.Currency)
+	setDetailsLD(lb, b.BusinessDetails, b.ServicesCurrency)
 	lb["parentOrganization"] = parent // the external parent prints on the Organization only
 	if b.AcceptsReservations != nil {
 		lb["acceptsReservations"] = *b.AcceptsReservations

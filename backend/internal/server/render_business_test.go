@@ -427,3 +427,20 @@ func TestLocaleBusiness_ExtendedDetails(t *testing.T) {
 		t.Errorf("dedupe = %+v", got)
 	}
 }
+
+// A locale that inherits the site's services prices them in the site currency,
+// whatever currency the locale itself sets.
+func TestLocaleBusiness_InheritedServicesKeepSiteCurrency(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"}, entity.LocaleEntry{Tag: "nl", Segment: "nl"})
+	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"currency":"EUR"},"nl":{"address":{"city":"Sample City"},"currency":"EUR","services":[{"name":"Own","price":"1"}]}}`)
+	cfg.BusinessProfile = json.RawMessage(`{"currency":"AUD","services":[{"name":"Repair","price":"100"}]}`)
+	for loc, want := range map[string]string{"fr": "AUD", "nl": "EUR"} {
+		b, _ := localeBusiness(cfg, set, loc)
+		if b == nil {
+			t.Fatalf("%s: no business", loc)
+		}
+		if b.ServicesCurrency != want || b.Currency != "EUR" {
+			t.Errorf("%s: ServicesCurrency = %q, Currency = %q, want %q and EUR", loc, b.ServicesCurrency, b.Currency, want)
+		}
+	}
+}
