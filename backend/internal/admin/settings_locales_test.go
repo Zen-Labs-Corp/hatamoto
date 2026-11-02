@@ -389,3 +389,78 @@ func TestBusinessSaveUppercasesLEI(t *testing.T) {
 		t.Errorf("card profile = %s", raw)
 	}
 }
+
+func TestSiteBusinessSaveKeepsGapFields(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	form := gapForm("biz.", "yes")
+	form.Set("notify", "boss@example.com")
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	got, err := bizprofile.Parse(site.cfg.BusinessProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CatalogName != "Marketing Services" || got.ServiceProvider == nil || !*got.ServiceProvider ||
+		len(got.Services) != 1 || got.Services[0].PriceMax != "50000" || got.Services[0].URL != "/services/seo" ||
+		len(got.AdditionalProperties) != 1 || got.AdditionalProperties[0].MaxValue != "10" {
+		t.Errorf("stored profile = %s", site.cfg.BusinessProfile)
+	}
+	// An empty site stays free of the new keys.
+	g, site = localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{"notify": {"boss@example.com"}, "biz.name": {"Example Co"}}, nil); rec.Code != 303 {
+		t.Fatalf("plain save: %d", rec.Code)
+	}
+	for _, k := range []string{"catalog_name", "service_provider", "additional_properties", "price_min"} {
+		if strings.Contains(string(site.cfg.BusinessProfile), k) {
+			t.Errorf("an untouched form stored %q: %s", k, site.cfg.BusinessProfile)
+		}
+	}
+}
+
+func TestBusinessSaveCardGapFields(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", gapForm("loc_aa.", "no"), nil); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	m, err := bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := m["aa"]
+	if c.CatalogName != "Marketing Services" || c.ServiceProvider == nil || *c.ServiceProvider ||
+		len(c.Services) != 1 || c.Services[0].UnitText != "MONTH" || len(c.AdditionalProperties) != 1 || c.AdditionalProperties[0].Name != "Recommendation score" {
+		t.Errorf("card = %s", site.cfg.LocaleProfiles)
+	}
+	// A card with only the provider answer is kept, not dropped as empty.
+	g, site = localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/locales/business/ab", "owner-token", url.Values{"loc_ab.service_provider": {"no"}}, nil); rec.Code != 303 {
+		t.Fatalf("provider only: %d", rec.Code)
+	}
+	m, _ = bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+	if _, ok := m["ab"]; !ok {
+		t.Error("a card with only service_provider=no was dropped")
+	}
+}
+
+func TestLocaleCardGapHelpAndPlaceholders(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.BusinessProfile = []byte(`{"catalog_name":"Marketing Services"}`)
+	site.cfg.LocaleProfiles = []byte(`{"aa":{"services":[{"name":"SEO"}],"additional_properties":[{"name":"Score","value":"1"}]}}`)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`placeholder="Marketing Services"`, "Extra facts printed on the organisation", "Empty uses the site-wide value.",
+		"Not stated uses the site-wide value.", "Price from", "Lowest", "on a locale page it opens under that locale."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Choose Not stated to say nothing") {
+		t.Error("card shows the site-wide tri-state help")
+	}
+}

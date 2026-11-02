@@ -61,7 +61,7 @@ func localeBadge(p bizprofile.Profile) (label, kind string) {
 func localePlaceholders(site bizprofile.Profile, siteName string) map[string]string {
 	out := map[string]string{}
 	for k, v := range map[string]string{
-		"name": siteName, "tax_id": site.TaxID, "vat_id": site.VATID, "description": site.Description, "phone": site.Phone, "fax": site.Fax, "email": site.Email,
+		"name": siteName, "catalog_name": site.CatalogName, "tax_id": site.TaxID, "vat_id": site.VATID, "description": site.Description, "phone": site.Phone, "fax": site.Fax, "email": site.Email,
 		"hours_note": site.HoursNote, "currency": site.Currency, "price_range": site.PriceRange, "geo_region": site.GeoRegion,
 		"naics": site.Naics, "isic": site.Isic, "duns": site.Duns, "lei": site.Lei, "gln": site.Gln,
 		"booking_url": site.BookingURL, "order_url": site.OrderURL, "menu_url": site.MenuURL,
@@ -78,6 +78,7 @@ func localePlaceholders(site bizprofile.Profile, siteName string) map[string]str
 var inheritedFields = []string{
 	"founders", "brands", "memberships", "payment_methods", "accepts_reservations", "service_radius_km",
 	"services", "knows_about", "awards", "amenity_presets", "amenities", "public_access", "free_entry",
+	"additional_properties",
 }
 
 // localeUI is businessUI plus the help only a locale card needs.
@@ -104,7 +105,7 @@ func localeUI() map[string]schemaform.UIHint {
 		h[k] = hint
 	}
 	// A tri-state's empty choice is "Not stated": on a card it inherits.
-	for _, k := range []string{"accepts_reservations", "public_access", "free_entry", "amenity_presets"} {
+	for _, k := range []string{"accepts_reservations", "service_provider", "public_access", "free_entry", "amenity_presets"} {
 		hint := h[k]
 		hint.Help = notStated + " uses the site-wide value."
 		h[k] = hint

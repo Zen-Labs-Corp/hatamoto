@@ -562,7 +562,7 @@ func TestBusinessSchemaCapsNewLists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"founders", "brands", "payment_methods", "services", "knows_about", "awards", "memberships", "amenities"} {
+	for _, name := range []string{"founders", "brands", "payment_methods", "services", "knows_about", "awards", "memberships", "amenities", "additional_properties"} {
 		var n *schemaform.Node
 		for _, p := range root.Props {
 			if p.Name == name {
@@ -572,5 +572,114 @@ func TestBusinessSchemaCapsNewLists(t *testing.T) {
 		if n == nil || n.MaxItems == nil || *n.MaxItems != 50 {
 			t.Errorf("%s: maxItems is not 50", name)
 		}
+	}
+}
+
+// gapForm is a form that fills every catalogue and additional-property field
+// under prefix.
+func gapForm(prefix, provider string) url.Values {
+	return url.Values{
+		prefix + "catalog_name":                        {"Marketing Services"},
+		prefix + "service_provider":                    {provider},
+		prefix + "services.0.name":                     {"SEO"},
+		prefix + "services.0.url":                      {"/services/seo"},
+		prefix + "services.0.price_min":                {"2000"},
+		prefix + "services.0.price_max":                {"50000"},
+		prefix + "services.0.unit_text":                {"MONTH"},
+		prefix + "additional_properties.0.name":        {"Recommendation score"},
+		prefix + "additional_properties.0.value":       {"9.6"},
+		prefix + "additional_properties.0.min_value":   {"0"},
+		prefix + "additional_properties.0.max_value":   {"10"},
+		prefix + "additional_properties.0.unit_text":   {"points"},
+		"_present." + prefix + "services":              {"1"},
+		"_present." + prefix + "additional_properties": {"1"},
+	}
+}
+
+func TestBusinessFormRoundTripsGapFields(t *testing.T) {
+	site, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, schema := range map[string]json.RawMessage{"site": site, "card": businessSchema()} {
+		for provider, want := range map[string]bool{"yes": true, "no": false} {
+			vals, errs := schemaform.Decode(schema, gapForm("biz.", provider), nil, schemaform.Options{Prefix: "biz."})
+			if len(errs) != 0 {
+				t.Fatalf("%s: decode errors = %v", name, errs)
+			}
+			got, err := valuesProfile(vals)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.CatalogName != "Marketing Services" || got.ServiceProvider == nil || *got.ServiceProvider != want {
+				t.Errorf("%s/%s: catalogue = %q provider = %v", name, provider, got.CatalogName, got.ServiceProvider)
+			}
+			wantSvc := bizprofile.Service{Name: "SEO", URL: "/services/seo", PriceMin: "2000", PriceMax: "50000", UnitText: "MONTH"}
+			if len(got.Services) != 1 || got.Services[0] != wantSvc {
+				t.Errorf("%s: services = %+v", name, got.Services)
+			}
+			wantProp := bizprofile.AdditionalProperty{Name: "Recommendation score", Value: "9.6", MinValue: "0", MaxValue: "10", UnitText: "points"}
+			if len(got.AdditionalProperties) != 1 || got.AdditionalProperties[0] != wantProp {
+				t.Errorf("%s: properties = %+v", name, got.AdditionalProperties)
+			}
+			if msgs := bizprofile.Validate(got); len(msgs) != 0 {
+				t.Errorf("%s: a valid profile reports %v", name, msgs)
+			}
+			// The stored values read back into the rendered form.
+			html, err := schemaform.Render(schema, profileMap(t, got), schemaform.Options{Prefix: "biz."})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantSel := `<option value="` + provider + `" selected>`
+			for _, w := range []string{`value="Marketing Services"`, `value="/services/seo"`, `value="50000"`, `value="MONTH"`, `value="Recommendation score"`, `value="9.6"`, wantSel} {
+				if !strings.Contains(string(html), w) {
+					t.Errorf("%s/%s: form lacks %q", name, provider, w)
+				}
+			}
+		}
+	}
+}
+
+func TestBusinessGapUntouchedServiceProviderStaysUnset(t *testing.T) {
+	vals, errs := schemaform.Decode(businessSchema(), url.Values{"loc.name": {"Example Branch"}, "loc.service_provider": {""}}, nil, schemaform.Options{Prefix: "loc."})
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ServiceProvider != nil {
+		t.Errorf("an untouched select stored %v", *got.ServiceProvider)
+	}
+}
+
+func TestBusinessGapValidationPathsLandOnFieldIDs(t *testing.T) {
+	site, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := bizprofile.Profile{
+		Services:             []bizprofile.Service{{Name: "SEO", PriceMin: "abc"}},
+		AdditionalProperties: []bizprofile.AdditionalProperty{{Name: "Score", Value: "1"}, {Name: "Rank"}},
+	}
+	msgs := bizprofile.Validate(p)
+	for _, path := range []string{"services.0.price_min", "additional_properties.1.value"} {
+		if _, ok := msgs[path]; !ok {
+			t.Fatalf("no error on %s: %v", path, msgs)
+		}
+	}
+	errs := profileErrors(msgs)
+	out, err := schemaform.Render(site, profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range formErrors("biz.", errs) {
+		if !strings.Contains(string(out), `id="`+e.ID+`"`) {
+			t.Errorf("summary id %q (%s) has no field in the site form", e.ID, e.Label)
+		}
+	}
+	if got := pathLabel("services.0.price_min"); got != "Services 1 Price from" {
+		t.Errorf("label = %q", got)
 	}
 }
