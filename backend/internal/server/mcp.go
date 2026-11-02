@@ -48,6 +48,10 @@ func (s *Server) mountMCP(r *httpx.Group) {
 		Design:         s.mcpDesign,
 		RenderPage:     s.mcpRenderPage,
 	}
+	deps.NotFound = s.redirectService
+	if svc := s.newSEOService(); svc != nil {
+		deps.SEO = svc
+	}
 	if s.sectionTemplateService != nil {
 		deps.Templates = s.sectionTemplateService
 	}

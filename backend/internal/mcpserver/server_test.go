@@ -140,12 +140,15 @@ func TestSiteWriteScopesAreSeparate(t *testing.T) {
 		"menus_update":     {hmauth.ScopeWriteMenus, map[string]any{"id": uuid.NewString()}},
 		"redirects_create": {hmauth.ScopeWriteRedirects, map[string]any{"source_path": "/a", "target_url": "/b"}},
 		"redirects_delete": {hmauth.ScopeWriteRedirects, map[string]any{"id": uuid.NewString()}},
+		"seo_update":       {hmauth.ScopeWriteSEO, map[string]any{"patch": map[string]any{}}},
+		"seo_preview":      {hmauth.ScopeReadSEO, map[string]any{"entity_id": uuid.NewString()}},
 	}
 	// Keys holding every other scope (including write:entities) are refused.
 	others := func(skip hmauth.APIKeyScope) []hmauth.APIKeyScope {
 		var s []hmauth.APIKeyScope
 		for _, sc := range hmauth.ValidScopes() {
-			if sc != skip && sc != hmauth.ScopeAll {
+			// write:seo implies read:seo, so it is skipped with its read scope.
+			if sc != skip && sc != hmauth.ScopeAll && !(skip == hmauth.ScopeReadSEO && sc == hmauth.ScopeWriteSEO) {
 				s = append(s, sc)
 			}
 		}
@@ -196,7 +199,8 @@ func TestDestructiveAnnotations(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]bool{"redirects_delete": true, "menus_update": true, "entities_update": true, "entities_unpublish": true,
-		"entities_create": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false}
+		"entities_create": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false,
+		"seo_update": false, "seo_get": false}
 	for _, tool := range list.Tools {
 		if w, ok := want[tool.Name]; ok {
 			got := tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
