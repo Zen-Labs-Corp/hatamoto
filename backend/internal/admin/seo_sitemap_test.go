@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -83,5 +84,46 @@ func TestSEOSitemapEditorForbidden(t *testing.T) {
 	}
 	if s.svc.merges != 0 {
 		t.Errorf("editor changed settings")
+	}
+}
+
+func TestSEOSitemapPageLists(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	body := s.get(t, "/admin/settings/seo/sitemap")
+	for _, want := range []string{
+		`name="sitemap_author"`, `name="sitemap_taxonomy"`, `name="sitemap_images"`, `name="sitemap_stats"`, `name="sitemap_max_urls"`,
+		`value="50000"`, `name="sitemap_default_priority"`, `name="sitemap_default_changefreq"`, `name="sitemap_exclude_paths"`,
+		`name="sitemap[page][include]"`, `name="sitemap[service][priority]"`, `name="sitemap[service][changefreq]"`, `href="/sitemap.xml"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "sitemap[theme_part]") {
+		t.Error("reuse types are listed")
+	}
+}
+
+func TestSEOSitemapRejectsBadInput(t *testing.T) {
+	for name, tc := range map[string]struct {
+		form url.Values
+		want string
+	}{
+		"path with a middle star": {url.Values{"sitemap_exclude_paths": {"/a*b"}}, "sitemap-exclude_paths"},
+		"max urls too large":      {url.Values{"sitemap_max_urls": {"50001"}}, "sitemap-max_urls"},
+		"max urls not a number":   {url.Values{"sitemap_max_urls": {"many"}}, "sitemap-max_urls"},
+		"default priority":        {url.Values{"sitemap_default_priority": {"2"}}, "sitemap-default_priority"},
+		"type priority":           {url.Values{"sitemap[service][include]": {"true"}, "sitemap[service][priority]": {"1.5"}}, "sitemap-service-priority"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := newSEORig(t, newFakeSEO())
+			rec := s.do("POST", "/admin/settings/seo/sitemap", "owner-token", tc.form, nil)
+			if rec.Code != 422 || !strings.Contains(rec.Body.String(), `id="`+tc.want+`"`) {
+				t.Fatalf("save = %d, want 422 naming %s", rec.Code, tc.want)
+			}
+			if s.svc.merges != 0 || len(s.svc.patches) != 0 || s.flushed != 0 {
+				t.Errorf("a rejected save changed something")
+			}
+		})
 	}
 }
