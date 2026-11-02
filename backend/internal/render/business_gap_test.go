@@ -148,7 +148,10 @@ func TestOrgAdditionalProperty(t *testing.T) {
 	// A card's resolved list wins on its locale page.
 	lp := gapPage("fr-ZZ", false)
 	lp.Site.Org.AdditionalProperties = v.Site.Org.AdditionalProperties
-	lp.Business = &BusinessView{ID: "zz", AdditionalProperties: []PropertyView{{Name: "Tier", Value: "Silver"}}}
+	lp.Business = &BusinessView{ID: "zz"}
+	for i := range lp.Locales {
+		lp.Locales[i].AdditionalProperties = []PropertyView{{Name: "Tier", Value: "Silver"}}
+	}
 	got, _ := orgOf(t, lp)["additionalProperty"].([]any)
 	if len(got) != 1 || got[0].(map[string]any)["value"] != "Silver" {
 		t.Errorf("card override = %v", got)

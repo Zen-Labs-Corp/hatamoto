@@ -940,6 +940,8 @@ func localeSummaries(cfg *siteconfig.Config, set *entity.LocaleSet) ([]render.Lo
 			CountryName: p.CountryName, Phone: own.Phone, GeoRegion: p.GeoRegion,
 			Language: languageName(tag), PriceRange: p.PriceRange, Currency: p.Currency,
 			ContactPoints: contactPointViews(own.ContactPoints), HasOffice: res.Office,
+			CatalogName: p.CatalogName, ServiceProvider: p.ServiceProvider != nil && *p.ServiceProvider,
+			AdditionalProperties: propertyViews(p.AdditionalProperties),
 		})
 	}
 	return out, nil

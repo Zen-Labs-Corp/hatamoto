@@ -580,6 +580,11 @@ type LocaleSummary struct {
 	ContactPoints []ContactPointView
 	// HasOffice reports whether the card has an office address.
 	HasOffice bool
+	// CatalogName, ServiceProvider and AdditionalProperties are the card's
+	// values resolved against the site-wide ones, office or not.
+	CatalogName          string
+	ServiceProvider      bool
+	AdditionalProperties []PropertyView
 }
 
 // HoursView is one block of regular opening hours (opens and closes are HH:MM).

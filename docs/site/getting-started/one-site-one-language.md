@@ -74,8 +74,10 @@ The profile also holds phone, opening hours and address, but `phone`, `business_
 curl -X PATCH https://example.com/api/v1/settings/site \
   -H "Authorization: Bearer <owner-session-token>" \
   -H 'Content-Type: application/json' \
-  -d '{"locale_profiles":{"fr-CA":{"catalog_name":"Services","service_provider":true,"services":[{"name":"SEO","url":"/services/seo","price_min":"2000","price_max":"50000","unit_text":"MONTH"}],"additional_properties":[{"name":"Recommendation score","value":"9.6","min_value":"0","max_value":"10"}]}}}'
+  -d '{"locale_profiles":{"fr-CA":{"address":{"street":"1 Example Street","city":"Sample City"},"catalog_name":"Services","service_provider":true,"services":[{"name":"SEO","url":"/services/seo","price_min":"2000","price_max":"50000","unit_text":"MONTH"}],"additional_properties":[{"name":"Recommendation score","value":"9.6","min_value":"0","max_value":"10"}]}}}'
 ```
+
+A card is replaced whole, so this example sends the locale's office address too. `GET` the card first and send it back with your changes, or a field you leave out is removed, and a card without a street or city removes the locale's office. A card without an office still sets `catalog_name`, `service_provider` and `additional_properties` for that locale's pages.
 
 Only owners can use these fields. The JSON-LD page shows [what each field prints](../ai-seo/json-ld.md).
 

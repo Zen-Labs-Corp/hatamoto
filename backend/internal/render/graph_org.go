@@ -125,13 +125,20 @@ func orgNode(v *PageView, base string) map[string]any {
 		org["aggregateRating"] = r
 	}
 	props := v.Site.Org.AdditionalProperties
-	if localePage(v) && v.Business != nil {
-		props = v.Business.AdditionalProperties
+	details := v.Site.Org.BusinessDetails
+	if localePage(v) {
+		for _, l := range v.Locales {
+			if l.Tag == v.Locale {
+				props = l.AdditionalProperties
+				details.CatalogName = l.CatalogName
+				details.ServiceProvider = l.ServiceProvider
+			}
+		}
 	}
 	if list := propertyLD(props); len(list) > 0 {
 		org["additionalProperty"] = list
 	}
-	setDetailsLD(org, v, base, v.Site.Org.BusinessDetails, v.Site.Org.Currency)
+	setDetailsLD(org, v, base, details, v.Site.Org.Currency)
 	return org
 }
 

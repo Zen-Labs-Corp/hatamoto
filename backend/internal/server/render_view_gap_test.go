@@ -83,3 +83,26 @@ func TestLocaleSummariesMarkDefault(t *testing.T) {
 		t.Errorf("default marks = %v", def)
 	}
 }
+
+func TestLocaleSummariesResolveCardWithoutOffice(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	cfg := gapConfig(`{"fr": {"catalog_name":"Offres","service_provider":false,
+	  "additional_properties":[{"name":"Tier","value":"Gold"}]}}`)
+	got, err := localeSummaries(cfg, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range got {
+		switch l.Tag {
+		case "fr":
+			if l.HasOffice || l.CatalogName != "Offres" || l.ServiceProvider ||
+				!reflect.DeepEqual(l.AdditionalProperties, []render.PropertyView{{Name: "Tier", Value: "Gold"}}) {
+				t.Errorf("fr = %+v", l)
+			}
+		case "en":
+			if l.CatalogName != "Offers" || !l.ServiceProvider || len(l.AdditionalProperties) != 1 {
+				t.Errorf("en did not inherit: %+v", l)
+			}
+		}
+	}
+}

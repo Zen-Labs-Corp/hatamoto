@@ -28,6 +28,9 @@ func gapGraphPage(locale string, shared bool) *PageView {
 		{Name: "Tier", Value: "Gold"},
 	}
 	v.Site.Org = OrgView{Currency: "GBP", BusinessDetails: details, AdditionalProperties: props}
+	for i := range v.Locales {
+		v.Locales[i].CatalogName, v.Locales[i].ServiceProvider, v.Locales[i].AdditionalProperties = "Offers", true, props
+	}
 	if !shared {
 		v.Business = &BusinessView{
 			ID: "locale", ServicesCurrency: "GBP", Address: Address{Street: "Example Street 1", City: "Sample City"},
@@ -56,6 +59,35 @@ func TestSiteGraphGap(t *testing.T) {
 			d.ServiceProvider, d.CatalogName = false, ""
 			d.Services = []ServiceView{{Name: "Search optimisation", URL: "https://other.example.test/seo", Price: "900"}}
 		}
+		for i := range v.Locales {
+			v.Locales[i].CatalogName, v.Locales[i].ServiceProvider = "", false
+		}
 		compareGraphGolden(t, "site-graph-gap-provider-off", graphJSON(t, v))
 	})
+}
+
+// TestSiteGraphGapCardWithoutOffice pins that a locale card without an office
+// still sets the catalogue name, provider flag and properties of that locale's
+// Organization over the site-wide values.
+func TestSiteGraphGapCardWithoutOffice(t *testing.T) {
+	v := gapGraphPage("fr-CA", false)
+	v.Business = nil
+	for i := range v.Locales {
+		if v.Locales[i].Tag == "fr-CA" {
+			v.Locales[i].CatalogName, v.Locales[i].ServiceProvider = "Offres", false
+			v.Locales[i].AdditionalProperties = []PropertyView{{Name: "Tier", Value: "Silver"}}
+		}
+	}
+	org := orgOf(t, v)
+	props, _ := org["additionalProperty"].([]any)
+	if len(props) != 1 || props[0].(map[string]any)["value"] != "Silver" {
+		t.Errorf("additionalProperty = %v", org["additionalProperty"])
+	}
+	catalog, _ := org["hasOfferCatalog"].(map[string]any)
+	if catalog["name"] != "Offres" {
+		t.Errorf("catalogue = %v", catalog)
+	}
+	if bytesContains(graphJSON(t, v), `"provider"`) {
+		t.Error("provider printed although the card turns it off")
+	}
 }

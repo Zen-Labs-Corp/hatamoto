@@ -41,7 +41,7 @@ These details come from Settings > General > Business details, or from `business
 
 - **Catalogue name.** `catalog_name` becomes the `name` of the `hasOfferCatalog`. Empty prints `Services`.
 - **Price range.** A service with `price_min` or `price_max` gets a `priceSpecification` of type `UnitPriceSpecification` with `minPrice`, `maxPrice`, the currency and, when set, `unitText` from `unit_text`. The single `price` still prints as before and may sit next to it.
-- **Provider.** With `service_provider` on, every catalogue `Service` gets `provider` pointing at the Organization by `@id`. It is off by default, so existing sites print nothing new. A locale card can set it either way.
+- **Provider.** With `service_provider` on, every catalogue `Service` gets `provider` pointing at the Organization by `@id`. It is off by default, so existing sites print nothing new. A locale card can set it either way, with or without an office, and it applies to that locale's Organization and LocalBusiness catalogues. The same goes for the card's `catalog_name` and `additional_properties`.
 - **Additional properties.** Each `additional_properties` row becomes one `PropertyValue` in `additionalProperty` with `name`, `value`, `minValue`, `maxValue` and `unitText`. A value that is a number prints as a number, anything else as text. They print on the Organization only.
 - **Service addresses.** An address that starts with a single `/`, such as `/services/seo`, is relative to the site. On a page of a locale it opens under that locale's segment. On a page that belongs to no locale it opens under the default locale. A full `https://` address is printed as it is.
 
