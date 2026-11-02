@@ -261,29 +261,45 @@ func TestMenuSeedIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("new site skips a core location the theme declares", func(t *testing.T) {
-		reset(false)
+	setTheme := func(t *testing.T, themeJSON string) {
+		t.Helper()
 		engine, err := render.New(render.Options{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		theme := fstest.MapFS{"theme.json": {Data: []byte(`{"name":"x","menus":{"footer":{"title":"Footer"}}}`)}}
-		if err := engine.SetTheme(theme); err != nil {
+		if err := engine.SetTheme(fstest.MapFS{"theme.json": {Data: []byte(themeJSON)}}); err != nil {
 			t.Fatal(err)
 		}
 		srv.renderEngine = engine
 		t.Cleanup(func() { srv.renderEngine = nil })
+	}
+
+	t.Run("new site: a title-only core declaration still gets the core menus", func(t *testing.T) {
+		reset(false)
+		setTheme(t, `{"name":"x","menus":{"header":{"title":"Main"},"footer":{"title":"Footer"}}}`)
 		if err := srv.SeedNewSiteMenus(ctx); err != nil {
 			t.Fatal(err)
 		}
 		if len(headerMenus()) != 1 {
-			t.Fatal("header not seeded")
+			t.Fatal("header not seeded for a title-only declaration")
 		}
-		if _, err := srv.menuService.GetMenuByLocation(ctx, "footer"); err == nil {
-			t.Fatal("footer seeded although the theme declares it")
+		if f, err := srv.menuService.GetMenuByLocation(ctx, "footer"); err != nil || f.Slug != "footer" {
+			t.Fatalf("footer = %+v, %v", f, err)
 		}
 		if !marked() {
 			t.Error("marker not set")
+		}
+	})
+
+	t.Run("new site: theme header defaults win over the core header", func(t *testing.T) {
+		reset(false)
+		setTheme(t, `{"name":"x","menus":{"header":{"title":"Main","default":[{"label":"Docs","url":"/docs"}]}}}`)
+		if err := srv.SeedNewSiteMenus(ctx); err != nil {
+			t.Fatal(err)
+		}
+		ms := headerMenus()
+		if len(ms) != 1 || ms[0].Name != "Main" || len(ms[0].Items) != 1 || ms[0].Items[0].Label != "Docs" {
+			t.Fatalf("header = %+v", ms)
 		}
 	})
 

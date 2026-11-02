@@ -9,20 +9,6 @@ import (
 	"hatamoto.dev/core/internal/menu"
 )
 
-// themeDeclaresLocation reports whether the active theme declares loc. The
-// theme seeds its own locations on activation, so core seeds skip them.
-func (s *Server) themeDeclaresLocation(loc string) bool {
-	if s.renderEngine == nil {
-		return false
-	}
-	for _, l := range s.renderEngine.MenuLocations() {
-		if l.Name == loc {
-			return true
-		}
-	}
-	return false
-}
-
 // upgradeHeaderItems is the header an upgraded site used to get at render
 // time: the first 50 published pages (minus the ones hidden from the nav or
 // without a public URL) and a Blog link when the post archive has posts. Pages
@@ -107,31 +93,36 @@ func (s *Server) seedUpgradeHeader(ctx context.Context) error {
 	return s.siteConfig.MarkMenusSeeded(ctx)
 }
 
-// SeedNewSiteMenus creates the core Header (with a Blog link when the post
-// archive exists) and an empty Footer for a new site, skipping any location the
-// active theme declares (the theme seeds those on activation), and sets the
-// marker so the upgrade seed never runs on it. Setup calls it once.
+// SeedNewSiteMenus gives a new site its menus and sets the marker so the
+// upgrade seed never runs on it. The active theme's declared defaults go first
+// (they are normally seeded on activation already; this catches a theme that
+// was active before the manager could seed), then the core Header (with a Blog
+// link when the post archive exists) and an empty Footer. Each is created only
+// where no menu holds the location, so a theme's defaults win and a theme that
+// declares a core location without defaults still gets the core menu. Setup
+// calls it once.
 func (s *Server) SeedNewSiteMenus(ctx context.Context) error {
 	if s.menuService == nil || s.siteConfig == nil {
 		return nil
 	}
-	if !s.themeDeclaresLocation(menu.LocationHeader) {
-		var items []menu.ReplaceItem
-		if it, ok := s.blogArchiveItem(ctx, entity.NewPostgresPublicRepository(s.db), false); ok {
-			items = append(items, it)
-		}
-		if _, _, err := s.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{
-			Name: "Header", Slug: menu.LocationHeader, Location: menu.LocationHeader, Items: items,
-		}); err != nil {
-			return fmt.Errorf("ensure header menu: %w", err)
+	if s.renderEngine != nil {
+		if _, err := s.menuService.SeedDecl(ctx, s.renderEngine.MenuLocations()); err != nil {
+			return fmt.Errorf("seed theme menus: %w", err)
 		}
 	}
-	if !s.themeDeclaresLocation(menu.LocationFooter) {
-		if _, _, err := s.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{
-			Name: "Footer", Slug: menu.LocationFooter, Location: menu.LocationFooter,
-		}); err != nil {
-			return fmt.Errorf("ensure footer menu: %w", err)
-		}
+	var items []menu.ReplaceItem
+	if it, ok := s.blogArchiveItem(ctx, entity.NewPostgresPublicRepository(s.db), false); ok {
+		items = append(items, it)
+	}
+	if _, _, err := s.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{
+		Name: "Header", Slug: menu.LocationHeader, Location: menu.LocationHeader, Items: items,
+	}); err != nil {
+		return fmt.Errorf("ensure header menu: %w", err)
+	}
+	if _, _, err := s.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{
+		Name: "Footer", Slug: menu.LocationFooter, Location: menu.LocationFooter,
+	}); err != nil {
+		return fmt.Errorf("ensure footer menu: %w", err)
 	}
 	return s.siteConfig.MarkMenusSeeded(ctx)
 }
