@@ -401,6 +401,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		}
 	}
 
+	// A language change swaps the business first; the request's own business
+	// fields are written afterwards, so they land on the new default.
+	var late [4]any
+	if in.Language != nil {
+		late = [4]any{postalAddress, phone, businessHours, businessProfile}
+		postalAddress, phone, businessHours, businessProfile = nil, nil, nil, nil
+	}
+
 	_, err = tx.Exec(ctx, `
 		UPDATE hatamoto_site_config SET
 		  company_name       = COALESCE($1, company_name),
@@ -446,6 +454,15 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		if err := foldDefaultBusiness(ctx, tx, oldLanguage, *in.Language); err != nil {
 			return nil, err
 		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE hatamoto_site_config SET
+			  postal_address   = COALESCE($1, postal_address),
+			  phone            = COALESCE($2, phone),
+			  business_hours   = COALESCE($3, business_hours),
+			  business_profile = COALESCE($4, business_profile)
+			WHERE id = TRUE`, late[0], late[1], late[2], late[3]); err != nil {
+			return nil, fmt.Errorf("update business fields: %w", err)
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit site config update: %w", err)
@@ -464,8 +481,8 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 // still lists the old default; on a single-language site there is no page left
 // for a card. It changes nothing when the language is the same, or when there
 // is neither a swap nor a card under the new default. It runs in the caller's
-// transaction, after the UPDATE, so a patch that also sends business_profile
-// folds on top of what it stored.
+// transaction, after the UPDATE; the business fields of the same request are
+// written after it.
 func foldDefaultBusiness(ctx context.Context, tx pgx.Tx, oldLanguage, newLanguage string) error {
 	oldTag, errOld := entity.NormalizeLocale(oldLanguage)
 	newTag, errNew := entity.NormalizeLocale(newLanguage)

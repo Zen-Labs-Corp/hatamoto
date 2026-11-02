@@ -72,8 +72,9 @@ func TestUpdateLanguageFoldsNewDefaultCard(t *testing.T) {
 	}
 }
 
-// The same language, or a language without a card, leaves the profile alone.
-func TestUpdateLanguageFoldOnlyOnChange(t *testing.T) {
+// The same language leaves the profile alone; a language without a card strips
+// the old default's locale-only fields.
+func TestUpdateLanguageSameLanguageAndNoCard(t *testing.T) {
 	ctx := context.Background()
 	s := scratchStore(t)
 	seedFoldSite(t, s)
@@ -113,7 +114,7 @@ func TestUpdateLanguageFoldOnlyOnChange(t *testing.T) {
 	}
 }
 
-// A profile sent with the language change is folded after it is stored, and
+// A profile sent with the language change is written after the swap, and
 // SetLocaleProfile keeps working next to the transactional update.
 func TestUpdateLanguageFoldsProfileSentTogether(t *testing.T) {
 	ctx := context.Background()
@@ -128,8 +129,8 @@ func TestUpdateLanguageFoldsProfileSentTogether(t *testing.T) {
 	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 		t.Fatal(err)
 	}
-	if bp["tax_id"] != "T2" {
-		t.Errorf("tax_id = %v, want the card's value over the stored profile", bp["tax_id"])
+	if bp["tax_id"] != "T3" {
+		t.Errorf("tax_id = %v, want the request's value on the new default", bp["tax_id"])
 	}
 	if err := s.SetLocaleProfile(ctx, "de-XX", json.RawMessage(`{"name":"Renamed"}`)); err != nil {
 		t.Fatal(err)
@@ -294,5 +295,56 @@ func TestUpdateLanguageKeepsNullPhoneAndHours(t *testing.T) {
 	}
 	if phone != nil || hours != nil {
 		t.Errorf("phone = %v, business_hours = %v, want both NULL", phone, hours)
+	}
+}
+
+// The business fields of a request that also changes the language belong to the
+// new default; the old default keeps its own business as its card.
+func TestUpdateLanguageWithBusinessFieldsLandsOnNewDefault(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	seedFoldSite(t, s)
+	old := "en-XX"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{
+		Language:        &old,
+		PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
+		BusinessProfile: json.RawMessage(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetLocaleProfile(ctx, "fr-CA", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	lang, phone := "fr-CA", "555 0300"
+	cfg, err := s.Update(ctx, siteconfig.UpdateInput{
+		Language: &lang, Phone: &phone,
+		PostalAddress:   json.RawMessage(`{"street":"2 Sample Ave"}`),
+		BusinessProfile: json.RawMessage(`{"tax_id":"T3","office":true,"country_name":"Sampleland"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bp map[string]any
+	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+		t.Fatal(err)
+	}
+	if bp["country_name"] != "Sampleland" || bp["office"] != true {
+		t.Errorf("new default business = %v, want the request's values", bp)
+	}
+	if cfg.Phone != phone {
+		t.Errorf("Phone = %q, want the request's", cfg.Phone)
+	}
+	var addr map[string]string
+	if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "2 Sample Ave" {
+		t.Errorf("PostalAddress = %s, want the request's", cfg.PostalAddress)
+	}
+	var cards map[string]map[string]any
+	if err := json.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
+		t.Fatal(err)
+	}
+	old1, _ := cards["en-XX"]["address"].(map[string]any)
+	if old1["street"] != "1 Example St" || cards["en-XX"]["country_name"] != "Exampleland" {
+		t.Errorf("old default card = %v, want its own address and country", cards["en-XX"])
 	}
 }
