@@ -1,0 +1,1517 @@
+<!-- multi -->
+<!doctype html>
+<html lang="en" data-admin-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<meta name="admin-base" content="/admin">
+<meta name="htmx-config" content="{&#34;allowEval&#34;:false,&#34;allowScriptTags&#34;:false,&#34;historyCacheSize&#34;:0,&#34;includeIndicatorStyles&#34;:false,&#34;inlineScriptNonce&#34;:&#34;NONCE&#34;,&#34;inlineStyleNonce&#34;:&#34;NONCE&#34;,&#34;refreshOnHistoryMiss&#34;:true,&#34;responseHandling&#34;:[{&#34;code&#34;:&#34;204&#34;,&#34;swap&#34;:false},{&#34;code&#34;:&#34;[23]..&#34;,&#34;swap&#34;:true},{&#34;code&#34;:&#34;422&#34;,&#34;error&#34;:false,&#34;swap&#34;:true},{&#34;code&#34;:&#34;[45]..&#34;,&#34;error&#34;:true,&#34;swap&#34;:false}]}">
+<title>Business details · Hatamoto</title>
+<link rel="stylesheet" href="/admin/_/admin.HASH.css">
+<script type="importmap" nonce="NONCE">{…}</script>
+<link rel="modulepreload" href="/admin/_/js/dates.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/shelllogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/components.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/daterange.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/multiselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/select.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/repeater.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/content.HASH.js" integrity="sha256-SRI">
+<script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
+<script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/repeater.HASH.js" integrity="sha256-hkA7Zrqy1TodSSPNd/hYAY&#43;P6MBfnbmN5U8wQizNneA="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-jEv5sXDLJqz3GleUjvxo9z9jI4mF9/Ga&#43;iezmM8txhY="></script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<div class="hm-shell">
+<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
+<div class="hm-sidebar__head">
+<a class="hm-brand hm-sidebar__brand" href="/admin/entities"><span class="hm-brand__seal" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path fill="currentColor" stroke="none" d="M12.49 2.21C12.11 3.41 11.49 4.6 10.72 5.57V5.39H7.94V2.21H5.55V5.39H2.44V7.69H4.6V11.16C4.6 13.92 4.31 17.33 2 20.23C2.58 20.63 3.39 21.25 3.83 21.75C6.22 18.78 6.71 15.17 6.78 11.97H8.19C8.11 16.97 8 18.76 7.73 19.22C7.57 19.45 7.42 19.53 7.15 19.53C6.86 19.53 6.34 19.51 5.76 19.45C6.09 20.05 6.32 21 6.36 21.65C7.15 21.69 7.9 21.67 8.4 21.56C8.96 21.46 9.33 21.27 9.73 20.69C10.25 19.92 10.35 17.45 10.45 10.68C10.45 10.39 10.45 9.71 10.45 9.71H6.78V7.69H10.72V7.05C11.12 7.3 11.49 7.59 11.74 7.79C12.2 7.32 12.65 6.74 13.09 6.07H21.65V4.1H14.17C14.36 3.64 14.54 3.18 14.69 2.73ZM16.83 18.8C17.97 19.69 19.45 20.98 20.15 21.79L22 20.63C21.27 19.88 19.96 18.82 18.88 18.01H21.81V16.06H20.01V9.81H21.44V7.9H20.01V6.67H17.72V7.9H14.96V6.67H12.72V7.9H11.12V9.81H12.72V16.06H10.72V18.01H13.42C12.59 18.82 11.3 19.74 10.12 20.26C10.62 20.63 11.33 21.27 11.72 21.69C13.11 21.07 14.75 19.84 15.75 18.76L14.46 18.01H18.18ZM14.96 9.81H17.72V10.81H14.96ZM14.96 12.38H17.72V13.4H14.96ZM14.96 14.96H17.72V16.06H14.96Z"/></svg></span><span>Example Co</span></a>
+<a class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" href="https://acme.example/" aria-label="Open site in a new window" data-tooltip="Open site" data-tooltip-align="end" rel="noopener" target="_blank"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+</div>
+<div class="hm-nav-groups">
+<div class="hm-nav-group">
+<ul class="hm-nav-list" role="list">
+<li><a class="hm-nav-link" href="/admin"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Overview</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g1">Site</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g1">
+<li><a class="hm-nav-link" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Entities</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/analytics"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Analytics</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g2">Customize</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g2">
+<li><a class="hm-nav-link" href="/admin/plugins"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg><span>Plugins</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/theme"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Theme</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/settings" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a>
+</li>
+</ul>
+</div>
+</div>
+<div class="hm-sidebar__foot">
+<a class="hm-sidebar__me" href="/admin/profile" aria-label="Owner Olga, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="OO" aria-hidden="true"></span><span class="hm-sidebar__name">Owner Olga</span></a>
+
+<form method="post" action="/admin/theme"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only data-hm-theme-toggle aria-label="Switch theme" data-tooltip="Switch theme" data-tooltip-align="end"><span class="hm-theme-icon hm-theme-icon--light"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><span class="hm-theme-icon hm-theme-icon--dark"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span></button></form>
+<form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Sign out" data-tooltip="Sign out" data-tooltip-align="end"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></form>
+</div>
+</nav>
+<div class="hm-shell__main">
+<div class="hm-topbar"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Toggle sidebar" aria-controls="hm-sidebar" aria-expanded="true" data-hm-sidebar-toggle="" hidden=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button><span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="/admin">Home</a></li><li><a href="/admin/settings">Settings</a></li><li aria-current="page">Business details</li></ol></nav></div>
+<main id="hm-main" class="hm-content">
+<div class="hm-settings">
+<nav class="hm-subnav" aria-label="Settings">
+<h2 class="hm-subnav__title hm-visually-hidden">Settings</h2>
+<ul class="hm-subnav__list" role="list"><li class="hm-subnav__group" role="presentation">Site</li>
+<li><a class="hm-subnav__link" href="/admin/settings/general"><span>General</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/locales" aria-current="page"><span class="hm-subnav__text">Locales</span><span class="hm-subnav__marker">3</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/email"><span>Email</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/users"><span>Users</span></a></li>
+<li class="hm-subnav__group" role="presentation">Content</li>
+<li><a class="hm-subnav__link" href="/admin/settings/media"><span>Media</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/types"><span>Entity models</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/forms"><span>Forms</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/seo/general"><span>SEO</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/redirects"><span>Redirects</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/linking"><span>Internal linking</span></a></li>
+<li class="hm-subnav__group" role="presentation">System</li>
+<li><a class="hm-subnav__link" href="/admin/settings/api-keys"><span>API</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/webhooks"><span>Webhooks</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/performance"><span>Performance</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/updates"><span>Updates</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/backups"><span>Backups</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/import"><span>Import &amp; export</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/security/admin-address"><span>Security</span></a></li>
+</ul>
+</nav>
+<div class="hm-page" data-width="compact">
+
+
+<header class="hm-section-head">
+<div class="hm-section-head__titles"><h1>Locales</h1><p class="hm-muted">Languages, addresses and search engines.</p></div>
+<nav class="hm-tabs" aria-label="Locales"><ul class="hm-tabs__list" role="list">
+<li><a class="hm-tabs__tab" href="/admin/settings/locales">Locales</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/locales/addresses">Addresses and search engines</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/locales/business" aria-current="page">Business details</a></li>
+</ul></nav>
+</header>
+<nav class="hm-jumpnav" aria-label="Locales"><a href="#locale-en">English</a><a href="#locale-aa">Afar</a><a href="#locale-ab">Abkhazian</a></nav>
+<section id="organisation-address" class="hm-stack">
+<form method="post" action="/admin/settings/locales/organisation" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<section class="hm-card" id="organisation-address-card" aria-labelledby="organisation-address-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="organisation-address-card-title">Organisation address</h2><p class="hm-muted">Which address the organisation prints on locale pages. Shared pages and single-language sites always use the default locale&#39;s address.</p></div>
+<div class="hm-card__body">
+<div class="hm-field">
+<fieldset id="org-address" class="hm-field__group"><legend class="hm-field__label">Organisation address on locale pages</legend>
+<label class="hm-field__check" for="org-address-0"><input class="hm-field__box" type="radio" id="org-address-0" name="org_address" value="" checked><span>The default locale&#39;s address on every page</span></label>
+<label class="hm-field__check" for="org-address-1"><input class="hm-field__box" type="radio" id="org-address-1" name="org_address" value="locale"><span>The locale&#39;s office; none without one</span></label>
+<label class="hm-field__check" for="org-address-2"><input class="hm-field__box" type="radio" id="org-address-2" name="org_address" value="locale_or_site"><span>The locale&#39;s office; the default locale&#39;s address without one</span></label>
+</fieldset>
+</div>
+</div><footer class="hm-card__foot">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save organisation address</span></button>
+</footer></section>
+</form>
+</section>
+<section id="locale-cards" class="hm-stack">
+<section class="hm-card" id="locales-card" aria-labelledby="locales-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="locales-card-title">Business details</h2><p class="hm-muted">Each locale is its own business. The default locale is also your organisation; other locales use its values for empty fields (grey text).</p></div>
+<div class="hm-card__body">
+<details class="hm-disclosure" id="locale-en" open><summary>English <span class="hm-badge hm-badge--neutral hm-badge--wrap hm-badge--mono">en</span> <span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Default</span> <span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Office</span></summary><div class="hm-disclosure__body">
+<form method="post" action="/admin/settings/locales/business/en" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save English</button>
+
+<p class="hm-muted">This is also your organisation.</p>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Organisation</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-name">Legal name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-name" name="loc_en.name" value="" placeholder="Example Co" aria-describedby="sf-loc_en-name-help">
+<p class="hm-field__help" id="sf-loc_en-name-help">Names your organisation and is printed as its legal name. Empty uses the site name.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-alternate_name">Alternate name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-alternate_name" name="loc_en.alternate_name" value="" placeholder="Enter Alternate name">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-business_type">Business type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-business_type" name="loc_en.business_type" aria-describedby="sf-loc_en-business_type-help"><option value="">Select Business type</option><option value="LocalBusiness">LocalBusiness</option><option value="AccountingService">AccountingService</option><option value="AutoRepair">AutoRepair</option><option value="BarOrPub">BarOrPub</option><option value="Bakery">Bakery</option><option value="BeautySalon">BeautySalon</option><option value="BookStore">BookStore</option><option value="CafeOrCoffeeShop">CafeOrCoffeeShop</option><option value="ChildCare">ChildCare</option><option value="ClothingStore">ClothingStore</option><option value="DaySpa">DaySpa</option><option value="Dentist">Dentist</option><option value="Electrician">Electrician</option><option value="EmploymentAgency">EmploymentAgency</option><option value="FinancialService">FinancialService</option><option value="FitnessCenter">FitnessCenter</option><option value="Florist">Florist</option><option value="GeneralContractor">GeneralContractor</option><option value="HairSalon">HairSalon</option><option value="HardwareStore">HardwareStore</option><option value="HealthClub">HealthClub</option><option value="HomeAndConstructionBusiness">HomeAndConstructionBusiness</option><option value="HVACBusiness">HVACBusiness</option><option value="InsuranceAgency">InsuranceAgency</option><option value="LegalService">LegalService</option><option value="Library">Library</option><option value="LodgingBusiness">LodgingBusiness</option><option value="MedicalBusiness">MedicalBusiness</option><option value="MovingCompany">MovingCompany</option><option value="Notary">Notary</option><option value="Optician">Optician</option><option value="Physician">Physician</option><option value="Plumber">Plumber</option><option value="ProfessionalService">ProfessionalService</option><option value="RealEstateAgent">RealEstateAgent</option><option value="Restaurant">Restaurant</option><option value="RoofingContractor">RoofingContractor</option><option value="SelfStorage">SelfStorage</option><option value="ShoppingCenter">ShoppingCenter</option><option value="SportsActivityLocation">SportsActivityLocation</option><option value="Store">Store</option><option value="TravelAgency">TravelAgency</option><option value="VeterinaryCare">VeterinaryCare</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-business_type-help">Empty prints LocalBusiness.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-description">Description</label>
+<textarea class="hm-field__control" id="sf-loc_en-description" name="loc_en.description" rows="6" aria-describedby="sf-loc_en-description-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-description-help">Empty uses the tagline.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-slogan">Slogan</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-slogan" name="loc_en.slogan" value="" placeholder="Enter Slogan">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-founding_date">Founding date</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-founding_date" name="loc_en.founding_date" value="" placeholder="Enter Founding date" aria-describedby="sf-loc_en-founding_date-help">
+<p class="hm-field__help" id="sf-loc_en-founding_date-help">A year, like 2009, or a full date, like 2009-04-30</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-employees_min">Employees from</label>
+<input class="hm-field__control" type="number" id="sf-loc_en-employees_min" name="loc_en.employees_min" value="" step="1" min="0">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-employees_max">Employees to</label>
+<input class="hm-field__control" type="number" id="sf-loc_en-employees_max" name="loc_en.employees_max" value="" step="1" min="0">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-tax_id">Tax ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-tax_id" name="loc_en.tax_id" value="TX-1" placeholder="Enter Tax ID" aria-describedby="sf-loc_en-tax_id-help">
+<p class="hm-field__help" id="sf-loc_en-tax_id-help">The tax or company number printed on invoices.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-vat_id">VAT ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-vat_id" name="loc_en.vat_id" value="" placeholder="Enter VAT ID">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-country_name">Country name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-country_name" name="loc_en.country_name" value="" placeholder="Enter Country name" aria-describedby="sf-loc_en-country_name-help">
+<p class="hm-field__help" id="sf-loc_en-country_name-help">The country name printed in the areas served, like France.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-image">Image</label>
+<div class="hm-row"><input class="hm-field__control" type="url" id="sf-loc_en-image" name="loc_en.image" value="" placeholder="https://" data-hm-image aria-describedby="sf-loc_en-image-help"><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-loc_en-image" hidden>Choose from library</button></div>
+<p class="hm-field__help" id="sf-loc_en-image-help">A photo of this business.</p>
+</div>
+<div class="hm-field"><input type="hidden" name="_present.loc_en.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-loc_en-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_en-logo_object" name="loc_en.logo_object" value="true" aria-describedby="sf-loc_en-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-loc_en-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address.</p></div>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-naics">NAICS code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-naics" name="loc_en.naics" value="" placeholder="Enter NAICS code" aria-describedby="sf-loc_en-naics-help">
+<p class="hm-field__help" id="sf-loc_en-naics-help">Two to six digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-isic">ISIC code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-isic" name="loc_en.isic" value="" placeholder="Enter ISIC code" aria-describedby="sf-loc_en-isic-help">
+<p class="hm-field__help" id="sf-loc_en-isic-help">Four digits, ISIC revision 4.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-duns">D-U-N-S number</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-duns" name="loc_en.duns" value="" placeholder="Enter D-U-N-S number" aria-describedby="sf-loc_en-duns-help">
+<p class="hm-field__help" id="sf-loc_en-duns-help">Nine digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-lei">LEI</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-lei" name="loc_en.lei" value="" placeholder="Enter LEI" aria-describedby="sf-loc_en-lei-help">
+<p class="hm-field__help" id="sf-loc_en-lei-help">Twenty letters and digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-gln">GLN</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-gln" name="loc_en.gln" value="" placeholder="Enter GLN" aria-describedby="sf-loc_en-gln-help">
+<p class="hm-field__help" id="sf-loc_en-gln-help">Thirteen digits.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-founders" data-hm-repeater data-path="loc_en.founders"><legend class="hm-field__label">Founders <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.founders" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.founders" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add founder</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-parent_organisation"><legend class="hm-field__label">Parent organisation</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-parent_organisation-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-parent_organisation-name" name="loc_en.parent_organisation.name" value="" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-parent_organisation-url">Web address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-parent_organisation-url" name="loc_en.parent_organisation.url" value="" placeholder="Enter Web address">
+</div></fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-brands">Brands</label>
+<input type="hidden" name="_present.loc_en.brands" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-brands" name="loc_en.brands" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-brands-help">
+<p class="hm-field__help" id="sf-loc_en-brands-help">Brand names, separated by commas.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><input type="hidden" name="_present.loc_en.office" value="1"><label class="hm-field__check hm-switch" for="sf-loc_en-office"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_en-office" name="loc_en.office" value="true" checked aria-describedby="sf-loc_en-office-help"><span>This locale has an office</span></label><p class="hm-field__help" id="sf-loc_en-office-help">Prints a LocalBusiness on this locale&#39;s pages when it has a street or city.</p></div>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-address"><legend class="hm-field__label">Postal address</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-street">Street</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-street" name="loc_en.address.street" value="1 Example Street" placeholder="Enter Street">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-city">City</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-city" name="loc_en.address.city" value="Exampleton" placeholder="Enter City">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-state">State or region</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-state" name="loc_en.address.state" value="" placeholder="Enter State or region">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-postal_code">Postal code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-postal_code" name="loc_en.address.postal_code" value="" placeholder="Enter Postal code">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-country">Country</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-country" name="loc_en.address.country" value="" placeholder="Enter Country">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-po_box">PO box</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-po_box" name="loc_en.address.po_box" value="" placeholder="Enter PO box">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-lat">Latitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-lat" name="loc_en.address.lat" value="" placeholder="Enter Latitude" aria-describedby="sf-loc_en-address-lat-help">
+<p class="hm-field__help" id="sf-loc_en-address-lat-help">Between -90 and 90</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-lng">Longitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-lng" name="loc_en.address.lng" value="" placeholder="Enter Longitude" aria-describedby="sf-loc_en-address-lng-help">
+<p class="hm-field__help" id="sf-loc_en-address-lng-help">Between -180 and 180</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-map_url">Map address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-address-map_url" name="loc_en.address.map_url" value="" placeholder="Enter Map address">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-gbp_url">Business profile address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-address-gbp_url" name="loc_en.address.gbp_url" value="" placeholder="Enter Business profile address">
+</div></fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Reach</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-phone">Phone</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-phone" name="loc_en.phone" value="555 0100" placeholder="Enter Phone">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-fax">Fax</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-fax" name="loc_en.fax" value="" placeholder="Enter Fax">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-email">Email</label>
+<input class="hm-field__control" type="email" id="sf-loc_en-email" name="loc_en.email" value="" placeholder="Enter Email">
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-contact_points" data-hm-repeater data-path="loc_en.contact_points"><legend class="hm-field__label">Contact points <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.contact_points" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.contact_points" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add contact point</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Opening hours</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-hours_note">Hours note</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-hours_note" name="loc_en.hours_note" value="" placeholder="Enter Hours note" aria-describedby="sf-loc_en-hours_note-help">
+<p class="hm-field__help" id="sf-loc_en-hours_note-help">Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-opening_hours" data-hm-repeater data-path="loc_en.opening_hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.opening_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.opening_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add opening hours</button>
+</fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_en-special_hours" data-hm-repeater data-path="loc_en.special_hours"><legend class="hm-field__label">Special opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.special_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.special_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add special opening hours</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-currency">Currency</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-currency" name="loc_en.currency" value="" placeholder="Enter Currency" aria-describedby="sf-loc_en-currency-help">
+<p class="hm-field__help" id="sf-loc_en-currency-help">A three letter code, like USD</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-price_range">Price range</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-price_range" name="loc_en.price_range" value="" placeholder="Enter Price range">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-area_served">Area served</label>
+<input type="hidden" name="_present.loc_en.area_served" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-area_served" name="loc_en.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-area_served-help">
+<p class="hm-field__help" id="sf-loc_en-area_served-help">Places this business serves, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-geo_region">Geo region</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-geo_region" name="loc_en.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-loc_en-geo_region-help">
+<p class="hm-field__help" id="sf-loc_en-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-service_radius_km">Service radius (km)</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-service_radius_km" name="loc_en.service_radius_km" value="" placeholder="Enter Service radius (km)" aria-describedby="sf-loc_en-service_radius_km-help">
+<p class="hm-field__help" id="sf-loc_en-service_radius_km-help">Kilometres around the coordinates. Needs both coordinates.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-payment_methods">Payment methods</label>
+<input type="hidden" name="_present.loc_en.payment_methods" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-payment_methods" name="loc_en.payment_methods" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-payment_methods-help">
+<p class="hm-field__help" id="sf-loc_en-payment_methods-help">Like Cash or Visa, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-accepts_reservations">Accepts reservations</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-accepts_reservations" name="loc_en.accepts_reservations" aria-describedby="sf-loc_en-accepts_reservations-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-accepts_reservations-help">Choose Not stated to say nothing.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-booking_url">Booking address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-booking_url" name="loc_en.booking_url" value="" placeholder="Enter Booking address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-order_url">Online ordering address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-order_url" name="loc_en.order_url" value="" placeholder="Enter Online ordering address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-menu_url">Menu address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-menu_url" name="loc_en.menu_url" value="" placeholder="Enter Menu address">
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-catalog_name">Catalogue name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-catalog_name" name="loc_en.catalog_name" value="" placeholder="Enter Catalogue name" aria-describedby="sf-loc_en-catalog_name-help">
+<p class="hm-field__help" id="sf-loc_en-catalog_name-help">Empty prints &#34;Services&#34;.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-service_provider">Show the organisation as each service&#39;s provider</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-service_provider" name="loc_en.service_provider" aria-describedby="sf-loc_en-service_provider-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-service_provider-help">Choose Not stated to say nothing.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-services" data-hm-repeater data-path="loc_en.services"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.services" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Additional properties</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_en-additional_properties" data-hm-repeater data-path="loc_en.additional_properties" aria-describedby="sf-loc_en-additional_properties-help"><legend class="hm-field__label">Additional properties <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-additional_properties-help">Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers.</p><input type="hidden" name="_present.loc_en.additional_properties" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.additional_properties" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add property</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Expertise &amp; amenities</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-knows_about">Knows about</label>
+<input type="hidden" name="_present.loc_en.knows_about" value="1"><textarea class="hm-field__control" id="sf-loc_en-knows_about" name="loc_en.knows_about" rows="4" placeholder="One item per line" aria-describedby="sf-loc_en-knows_about-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-knows_about-help">Topics this business is expert in, one per line.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-awards">Awards</label>
+<input type="hidden" name="_present.loc_en.awards" value="1"><textarea class="hm-field__control" id="sf-loc_en-awards" name="loc_en.awards" rows="4" placeholder="One item per line" aria-describedby="sf-loc_en-awards-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-awards-help">One award per line. Commas stay part of the title.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-memberships" data-hm-repeater data-path="loc_en.memberships"><legend class="hm-field__label">Memberships <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.memberships" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.memberships" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add membership</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-amenity_presets" aria-describedby="sf-loc_en-amenity_presets-help"><legend class="hm-field__label">Amenities</legend>
+<p class="hm-field__help" id="sf-loc_en-amenity_presets-help">Choose Not stated on a line to say nothing about it.</p><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-parking">Parking</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-parking" name="loc_en.amenity_presets.parking"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-wheelchair_access">Wheelchair access</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-wheelchair_access" name="loc_en.amenity_presets.wheelchair_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-wifi">Wifi</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-wifi" name="loc_en.amenity_presets.wifi"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-toilets">Toilets</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-toilets" name="loc_en.amenity_presets.toilets"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-air_conditioning">Air conditioning</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-air_conditioning" name="loc_en.amenity_presets.air_conditioning"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_en-amenities" data-hm-repeater data-path="loc_en.amenities" aria-describedby="sf-loc_en-amenities-help"><legend class="hm-field__label">Other amenities <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-amenities-help">Features beyond the list above.</p><input type="hidden" name="_present.loc_en.amenities" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.amenities" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add amenity</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-public_access">Open to the public</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-public_access" name="loc_en.public_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-free_entry">Free entry</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-free_entry" name="loc_en.free_entry"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_en-sameas" data-hm-repeater data-path="loc_en.sameas" aria-describedby="sf-loc_en-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-sameas-help">Social and directory profile addresses.</p><input type="hidden" name="_present.loc_en.sameas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.sameas" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add profile address</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-rating"><legend class="hm-field__label">Aggregate rating</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-value">Rating value</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-value" name="loc_en.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-loc_en-rating-value-help">
+<p class="hm-field__help" id="sf-loc_en-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-best">Best rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-best" name="loc_en.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-loc_en-rating-best-help">
+<p class="hm-field__help" id="sf-loc_en-rating-best-help">The top of your scale. Empty means 5.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-worst">Worst rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-worst" name="loc_en.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-loc_en-rating-worst-help">
+<p class="hm-field__help" id="sf-loc_en-rating-worst-help">The bottom of your scale. Empty means 0.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-count">Number of ratings</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-count" name="loc_en.rating.count" value="" placeholder="Enter Number of ratings">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-count_type">Count is</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-rating-count_type" name="loc_en.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
+</div></fieldset>
+
+</div>
+</div>
+
+<footer class="hm-card__foot hm-card__foot--plain">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save English</span></button>
+</footer>
+</form></div></details>
+<details class="hm-disclosure" id="locale-aa"><summary>Afar <span class="hm-badge hm-badge--neutral hm-badge--wrap hm-badge--mono">aa</span> <span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Defaults</span></summary><div class="hm-disclosure__body">
+<form method="post" action="/admin/settings/locales/business/aa" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save Afar</button>
+
+<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Not inherited, empty</legend>
+<div class="hm-field">
+<label class="hm-field__check" for="inherit-aa-hours_note"><input class="hm-field__box" type="checkbox" id="inherit-aa-hours_note" name="loc_aa.inherit" value="hours_note"><span>Hours note: use the default locale&#39;s value</span></label>
+</div></fieldset></div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Organisation</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-name">Legal name</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-name" name="loc_aa.name" value="" placeholder="Example Co" aria-describedby="sf-loc_aa-name-help">
+<p class="hm-field__help" id="sf-loc_aa-name-help">Names this locale&#39;s local business and is printed as its legal name. Empty uses the site name.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-business_type">Business type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-business_type" name="loc_aa.business_type" aria-describedby="sf-loc_aa-business_type-help"><option value="">Select Business type</option><option value="LocalBusiness">LocalBusiness</option><option value="AccountingService">AccountingService</option><option value="AutoRepair">AutoRepair</option><option value="BarOrPub">BarOrPub</option><option value="Bakery">Bakery</option><option value="BeautySalon">BeautySalon</option><option value="BookStore">BookStore</option><option value="CafeOrCoffeeShop">CafeOrCoffeeShop</option><option value="ChildCare">ChildCare</option><option value="ClothingStore">ClothingStore</option><option value="DaySpa">DaySpa</option><option value="Dentist">Dentist</option><option value="Electrician">Electrician</option><option value="EmploymentAgency">EmploymentAgency</option><option value="FinancialService">FinancialService</option><option value="FitnessCenter">FitnessCenter</option><option value="Florist">Florist</option><option value="GeneralContractor">GeneralContractor</option><option value="HairSalon">HairSalon</option><option value="HardwareStore">HardwareStore</option><option value="HealthClub">HealthClub</option><option value="HomeAndConstructionBusiness">HomeAndConstructionBusiness</option><option value="HVACBusiness">HVACBusiness</option><option value="InsuranceAgency">InsuranceAgency</option><option value="LegalService">LegalService</option><option value="Library">Library</option><option value="LodgingBusiness">LodgingBusiness</option><option value="MedicalBusiness">MedicalBusiness</option><option value="MovingCompany">MovingCompany</option><option value="Notary">Notary</option><option value="Optician">Optician</option><option value="Physician">Physician</option><option value="Plumber">Plumber</option><option value="ProfessionalService">ProfessionalService</option><option value="RealEstateAgent">RealEstateAgent</option><option value="Restaurant">Restaurant</option><option value="RoofingContractor">RoofingContractor</option><option value="SelfStorage">SelfStorage</option><option value="ShoppingCenter">ShoppingCenter</option><option value="SportsActivityLocation">SportsActivityLocation</option><option value="Store">Store</option><option value="TravelAgency">TravelAgency</option><option value="VeterinaryCare">VeterinaryCare</option></select></div>
+<p class="hm-field__help" id="sf-loc_aa-business_type-help">Empty prints LocalBusiness.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-description">Description</label>
+<textarea class="hm-field__control" id="sf-loc_aa-description" name="loc_aa.description" rows="6" aria-describedby="sf-loc_aa-description-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_aa-description-help">Describes this locale&#39;s local business. Empty uses the default locale&#39;s description.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-tax_id">Tax ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-tax_id" name="loc_aa.tax_id" value="" placeholder="TX-1" aria-describedby="sf-loc_aa-tax_id-help">
+<p class="hm-field__help" id="sf-loc_aa-tax_id-help">The tax or company number printed on invoices.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-vat_id">VAT ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-vat_id" name="loc_aa.vat_id" value="" placeholder="Enter VAT ID" aria-describedby="sf-loc_aa-vat_id-help">
+<p class="hm-field__help" id="sf-loc_aa-vat_id-help">Empty uses the default locale&#39;s VAT ID.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-country_name">Country name</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-country_name" name="loc_aa.country_name" value="" placeholder="Enter Country name" aria-describedby="sf-loc_aa-country_name-help">
+<p class="hm-field__help" id="sf-loc_aa-country_name-help">The country name printed in the areas served, like France.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-image">Image</label>
+<div class="hm-row"><input class="hm-field__control" type="url" id="sf-loc_aa-image" name="loc_aa.image" value="" placeholder="https://" data-hm-image aria-describedby="sf-loc_aa-image-help"><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-loc_aa-image" hidden>Choose from library</button></div>
+<p class="hm-field__help" id="sf-loc_aa-image-help">A photo of this locale&#39;s business.</p>
+</div>
+<div class="hm-field"><input type="hidden" name="_present.loc_aa.no_office" value="default"><label class="hm-field__check hm-switch" for="sf-loc_aa-no_office"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_aa-no_office" name="loc_aa.no_office" value="true" aria-describedby="sf-loc_aa-no_office-help"><span>No office in this locale</span></label><p class="hm-field__help" id="sf-loc_aa-no_office-help">This locale prints the organisation only, no local business.</p></div>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-naics">NAICS code</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-naics" name="loc_aa.naics" value="" placeholder="Enter NAICS code" aria-describedby="sf-loc_aa-naics-help">
+<p class="hm-field__help" id="sf-loc_aa-naics-help">Two to six digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-isic">ISIC code</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-isic" name="loc_aa.isic" value="" placeholder="Enter ISIC code" aria-describedby="sf-loc_aa-isic-help">
+<p class="hm-field__help" id="sf-loc_aa-isic-help">Four digits, ISIC revision 4.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-duns">D-U-N-S number</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-duns" name="loc_aa.duns" value="" placeholder="Enter D-U-N-S number" aria-describedby="sf-loc_aa-duns-help">
+<p class="hm-field__help" id="sf-loc_aa-duns-help">Nine digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-lei">LEI</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-lei" name="loc_aa.lei" value="" placeholder="Enter LEI" aria-describedby="sf-loc_aa-lei-help">
+<p class="hm-field__help" id="sf-loc_aa-lei-help">Twenty letters and digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-gln">GLN</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-gln" name="loc_aa.gln" value="" placeholder="Enter GLN" aria-describedby="sf-loc_aa-gln-help">
+<p class="hm-field__help" id="sf-loc_aa-gln-help">Thirteen digits.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_aa-founders" data-hm-repeater data-path="loc_aa.founders" aria-describedby="sf-loc_aa-founders-help"><legend class="hm-field__label">Founders <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-founders-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_aa.founders" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.founders" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add founder</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-brands">Brands</label>
+<input type="hidden" name="_present.loc_aa.brands" value="1"><input class="hm-field__control" type="text" id="sf-loc_aa-brands" name="loc_aa.brands" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_aa-brands-help">
+<p class="hm-field__help" id="sf-loc_aa-brands-help">Brand names, separated by commas. Empty uses the default locale&#39;s value.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-sf-object" id="sf-loc_aa-address"><legend class="hm-field__label">Postal address</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-street">Street</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-street" name="loc_aa.address.street" value="" placeholder="Enter Street">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-city">City</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-city" name="loc_aa.address.city" value="" placeholder="Enter City">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-state">State or region</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-state" name="loc_aa.address.state" value="" placeholder="Enter State or region">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-postal_code">Postal code</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-postal_code" name="loc_aa.address.postal_code" value="" placeholder="Enter Postal code">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-country">Country</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-country" name="loc_aa.address.country" value="" placeholder="Enter Country">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-po_box">PO box</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-po_box" name="loc_aa.address.po_box" value="" placeholder="Enter PO box">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-lat">Latitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-lat" name="loc_aa.address.lat" value="" placeholder="Enter Latitude" aria-describedby="sf-loc_aa-address-lat-help">
+<p class="hm-field__help" id="sf-loc_aa-address-lat-help">Between -90 and 90</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-lng">Longitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-address-lng" name="loc_aa.address.lng" value="" placeholder="Enter Longitude" aria-describedby="sf-loc_aa-address-lng-help">
+<p class="hm-field__help" id="sf-loc_aa-address-lng-help">Between -180 and 180</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-map_url">Map address</label>
+<input class="hm-field__control" type="url" id="sf-loc_aa-address-map_url" name="loc_aa.address.map_url" value="" placeholder="Enter Map address">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-address-gbp_url">Business profile address</label>
+<input class="hm-field__control" type="url" id="sf-loc_aa-address-gbp_url" name="loc_aa.address.gbp_url" value="" placeholder="Enter Business profile address">
+</div></fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Reach</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-phone">Phone</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-phone" name="loc_aa.phone" value="" placeholder="555 0100">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-fax">Fax</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-fax" name="loc_aa.fax" value="" placeholder="Enter Fax">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-email">Email</label>
+<input class="hm-field__control" type="email" id="sf-loc_aa-email" name="loc_aa.email" value="" placeholder="Enter Email">
+</div>
+<fieldset class="hm-repeater" id="sf-loc_aa-contact_points" data-hm-repeater data-path="loc_aa.contact_points"><legend class="hm-field__label">Contact points <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_aa.contact_points" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.contact_points" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add contact point</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Opening hours</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-hours_note">Hours note</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-hours_note" name="loc_aa.hours_note" value="" placeholder="Not inherited, empty" aria-describedby="sf-loc_aa-hours_note-help">
+<p class="hm-field__help" id="sf-loc_aa-hours_note-help">Not inherited, empty.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_aa-opening_hours" data-hm-repeater data-path="loc_aa.opening_hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_aa.opening_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.opening_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add opening hours</button>
+</fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_aa-special_hours" data-hm-repeater data-path="loc_aa.special_hours"><legend class="hm-field__label">Special opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_aa.special_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.special_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add special opening hours</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-currency">Currency</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-currency" name="loc_aa.currency" value="" placeholder="Enter Currency" aria-describedby="sf-loc_aa-currency-help">
+<p class="hm-field__help" id="sf-loc_aa-currency-help">A three letter code, like USD</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-price_range">Price range</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-price_range" name="loc_aa.price_range" value="" placeholder="Enter Price range">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-area_served">Area served</label>
+<input type="hidden" name="_present.loc_aa.area_served" value="1"><input class="hm-field__control" type="text" id="sf-loc_aa-area_served" name="loc_aa.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_aa-area_served-help">
+<p class="hm-field__help" id="sf-loc_aa-area_served-help">Places this business serves, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-geo_region">Geo region</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-geo_region" name="loc_aa.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-loc_aa-geo_region-help">
+<p class="hm-field__help" id="sf-loc_aa-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-service_radius_km">Service radius (km)</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-service_radius_km" name="loc_aa.service_radius_km" value="" placeholder="Enter Service radius (km)" aria-describedby="sf-loc_aa-service_radius_km-help">
+<p class="hm-field__help" id="sf-loc_aa-service_radius_km-help">Kilometres around this locale&#39;s coordinates. Needs both coordinates. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-payment_methods">Payment methods</label>
+<input type="hidden" name="_present.loc_aa.payment_methods" value="1"><input class="hm-field__control" type="text" id="sf-loc_aa-payment_methods" name="loc_aa.payment_methods" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_aa-payment_methods-help">
+<p class="hm-field__help" id="sf-loc_aa-payment_methods-help">Like Cash or Visa, separated by commas. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-accepts_reservations">Accepts reservations</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-accepts_reservations" name="loc_aa.accepts_reservations" aria-describedby="sf-loc_aa-accepts_reservations-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_aa-accepts_reservations-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-booking_url">Booking address</label>
+<input class="hm-field__control" type="url" id="sf-loc_aa-booking_url" name="loc_aa.booking_url" value="" placeholder="Enter Booking address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-order_url">Online ordering address</label>
+<input class="hm-field__control" type="url" id="sf-loc_aa-order_url" name="loc_aa.order_url" value="" placeholder="Enter Online ordering address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-menu_url">Menu address</label>
+<input class="hm-field__control" type="url" id="sf-loc_aa-menu_url" name="loc_aa.menu_url" value="" placeholder="Enter Menu address">
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-catalog_name">Catalogue name</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-catalog_name" name="loc_aa.catalog_name" value="" placeholder="Enter Catalogue name" aria-describedby="sf-loc_aa-catalog_name-help">
+<p class="hm-field__help" id="sf-loc_aa-catalog_name-help">Empty uses the default locale&#39;s value, or &#34;Services&#34; when that is empty too.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-service_provider">Show the organisation as each service&#39;s provider</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-service_provider" name="loc_aa.service_provider" aria-describedby="sf-loc_aa-service_provider-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_aa-service_provider-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_aa-services" data-hm-repeater data-path="loc_aa.services" aria-describedby="sf-loc_aa-services-help"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-services-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_aa.services" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Additional properties</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_aa-additional_properties" data-hm-repeater data-path="loc_aa.additional_properties" aria-describedby="sf-loc_aa-additional_properties-help"><legend class="hm-field__label">Additional properties <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-additional_properties-help">Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers. Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_aa.additional_properties" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.additional_properties" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add property</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Expertise &amp; amenities</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-knows_about">Knows about</label>
+<input type="hidden" name="_present.loc_aa.knows_about" value="1"><textarea class="hm-field__control" id="sf-loc_aa-knows_about" name="loc_aa.knows_about" rows="4" placeholder="One item per line" aria-describedby="sf-loc_aa-knows_about-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_aa-knows_about-help">Topics this business is expert in, one per line. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-awards">Awards</label>
+<input type="hidden" name="_present.loc_aa.awards" value="1"><textarea class="hm-field__control" id="sf-loc_aa-awards" name="loc_aa.awards" rows="4" placeholder="One item per line" aria-describedby="sf-loc_aa-awards-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_aa-awards-help">One award per line. Commas stay part of the title. Empty uses the default locale&#39;s value.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_aa-memberships" data-hm-repeater data-path="loc_aa.memberships" aria-describedby="sf-loc_aa-memberships-help"><legend class="hm-field__label">Memberships <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-memberships-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_aa.memberships" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.memberships" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add membership</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_aa-amenity_presets" aria-describedby="sf-loc_aa-amenity_presets-help"><legend class="hm-field__label">Amenities</legend>
+<p class="hm-field__help" id="sf-loc_aa-amenity_presets-help">Not stated uses the default locale&#39;s value.</p><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-amenity_presets-parking">Parking</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-amenity_presets-parking" name="loc_aa.amenity_presets.parking"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-amenity_presets-wheelchair_access">Wheelchair access</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-amenity_presets-wheelchair_access" name="loc_aa.amenity_presets.wheelchair_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-amenity_presets-wifi">Wifi</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-amenity_presets-wifi" name="loc_aa.amenity_presets.wifi"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-amenity_presets-toilets">Toilets</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-amenity_presets-toilets" name="loc_aa.amenity_presets.toilets"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-amenity_presets-air_conditioning">Air conditioning</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-amenity_presets-air_conditioning" name="loc_aa.amenity_presets.air_conditioning"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_aa-amenities" data-hm-repeater data-path="loc_aa.amenities" aria-describedby="sf-loc_aa-amenities-help"><legend class="hm-field__label">Other amenities <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-amenities-help">Features beyond the list above. Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_aa.amenities" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.amenities" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add amenity</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-public_access">Open to the public</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-public_access" name="loc_aa.public_access" aria-describedby="sf-loc_aa-public_access-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_aa-public_access-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-free_entry">Free entry</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-free_entry" name="loc_aa.free_entry" aria-describedby="sf-loc_aa-free_entry-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_aa-free_entry-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_aa-sameas" data-hm-repeater data-path="loc_aa.sameas" aria-describedby="sf-loc_aa-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_aa-sameas-help">Social and directory profile addresses.</p><input type="hidden" name="_present.loc_aa.sameas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_aa.sameas" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add profile address</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_aa-rating"><legend class="hm-field__label">Aggregate rating</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-rating-value">Rating value</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-rating-value" name="loc_aa.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-loc_aa-rating-value-help">
+<p class="hm-field__help" id="sf-loc_aa-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-rating-best">Best rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-rating-best" name="loc_aa.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-loc_aa-rating-best-help">
+<p class="hm-field__help" id="sf-loc_aa-rating-best-help">The top of your scale. Empty means 5.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-rating-worst">Worst rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-rating-worst" name="loc_aa.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-loc_aa-rating-worst-help">
+<p class="hm-field__help" id="sf-loc_aa-rating-worst-help">The bottom of your scale. Empty means 0.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-rating-count">Number of ratings</label>
+<input class="hm-field__control" type="text" id="sf-loc_aa-rating-count" name="loc_aa.rating.count" value="" placeholder="Enter Number of ratings">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_aa-rating-count_type">Count is</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_aa-rating-count_type" name="loc_aa.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
+</div></fieldset>
+
+</div>
+</div>
+
+<footer class="hm-card__foot hm-card__foot--plain">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save Afar</span></button>
+</footer>
+</form></div></details>
+<details class="hm-disclosure" id="locale-ab"><summary>Abkhazian <span class="hm-badge hm-badge--neutral hm-badge--wrap hm-badge--mono">ab</span> <span class="hm-badge hm-badge--neutral"><span class="hm-badge__dot" aria-hidden="true"></span>Defaults</span></summary><div class="hm-disclosure__body">
+<form method="post" action="/admin/settings/locales/business/ab" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save Abkhazian</button>
+
+<div class="hm-sf-section"><h3 class="hm-sf-group">Organisation</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-name">Legal name</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-name" name="loc_ab.name" value="" placeholder="Example Co" aria-describedby="sf-loc_ab-name-help">
+<p class="hm-field__help" id="sf-loc_ab-name-help">Names this locale&#39;s local business and is printed as its legal name. Empty uses the site name.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-business_type">Business type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-business_type" name="loc_ab.business_type" aria-describedby="sf-loc_ab-business_type-help"><option value="">Select Business type</option><option value="LocalBusiness">LocalBusiness</option><option value="AccountingService">AccountingService</option><option value="AutoRepair">AutoRepair</option><option value="BarOrPub">BarOrPub</option><option value="Bakery">Bakery</option><option value="BeautySalon">BeautySalon</option><option value="BookStore">BookStore</option><option value="CafeOrCoffeeShop">CafeOrCoffeeShop</option><option value="ChildCare">ChildCare</option><option value="ClothingStore">ClothingStore</option><option value="DaySpa">DaySpa</option><option value="Dentist">Dentist</option><option value="Electrician">Electrician</option><option value="EmploymentAgency">EmploymentAgency</option><option value="FinancialService">FinancialService</option><option value="FitnessCenter">FitnessCenter</option><option value="Florist">Florist</option><option value="GeneralContractor">GeneralContractor</option><option value="HairSalon">HairSalon</option><option value="HardwareStore">HardwareStore</option><option value="HealthClub">HealthClub</option><option value="HomeAndConstructionBusiness">HomeAndConstructionBusiness</option><option value="HVACBusiness">HVACBusiness</option><option value="InsuranceAgency">InsuranceAgency</option><option value="LegalService">LegalService</option><option value="Library">Library</option><option value="LodgingBusiness">LodgingBusiness</option><option value="MedicalBusiness">MedicalBusiness</option><option value="MovingCompany">MovingCompany</option><option value="Notary">Notary</option><option value="Optician">Optician</option><option value="Physician">Physician</option><option value="Plumber">Plumber</option><option value="ProfessionalService">ProfessionalService</option><option value="RealEstateAgent">RealEstateAgent</option><option value="Restaurant">Restaurant</option><option value="RoofingContractor">RoofingContractor</option><option value="SelfStorage">SelfStorage</option><option value="ShoppingCenter">ShoppingCenter</option><option value="SportsActivityLocation">SportsActivityLocation</option><option value="Store">Store</option><option value="TravelAgency">TravelAgency</option><option value="VeterinaryCare">VeterinaryCare</option></select></div>
+<p class="hm-field__help" id="sf-loc_ab-business_type-help">Empty prints LocalBusiness.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-description">Description</label>
+<textarea class="hm-field__control" id="sf-loc_ab-description" name="loc_ab.description" rows="6" aria-describedby="sf-loc_ab-description-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_ab-description-help">Describes this locale&#39;s local business. Empty uses the default locale&#39;s description.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-tax_id">Tax ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-tax_id" name="loc_ab.tax_id" value="" placeholder="TX-1" aria-describedby="sf-loc_ab-tax_id-help">
+<p class="hm-field__help" id="sf-loc_ab-tax_id-help">The tax or company number printed on invoices.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-vat_id">VAT ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-vat_id" name="loc_ab.vat_id" value="" placeholder="Enter VAT ID" aria-describedby="sf-loc_ab-vat_id-help">
+<p class="hm-field__help" id="sf-loc_ab-vat_id-help">Empty uses the default locale&#39;s VAT ID.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-country_name">Country name</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-country_name" name="loc_ab.country_name" value="" placeholder="Enter Country name" aria-describedby="sf-loc_ab-country_name-help">
+<p class="hm-field__help" id="sf-loc_ab-country_name-help">The country name printed in the areas served, like France.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-image">Image</label>
+<div class="hm-row"><input class="hm-field__control" type="url" id="sf-loc_ab-image" name="loc_ab.image" value="" placeholder="https://" data-hm-image aria-describedby="sf-loc_ab-image-help"><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-loc_ab-image" hidden>Choose from library</button></div>
+<p class="hm-field__help" id="sf-loc_ab-image-help">A photo of this locale&#39;s business.</p>
+</div>
+<div class="hm-field"><input type="hidden" name="_present.loc_ab.no_office" value="default"><label class="hm-field__check hm-switch" for="sf-loc_ab-no_office"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_ab-no_office" name="loc_ab.no_office" value="true" aria-describedby="sf-loc_ab-no_office-help"><span>No office in this locale</span></label><p class="hm-field__help" id="sf-loc_ab-no_office-help">This locale prints the organisation only, no local business.</p></div>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-naics">NAICS code</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-naics" name="loc_ab.naics" value="" placeholder="Enter NAICS code" aria-describedby="sf-loc_ab-naics-help">
+<p class="hm-field__help" id="sf-loc_ab-naics-help">Two to six digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-isic">ISIC code</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-isic" name="loc_ab.isic" value="" placeholder="Enter ISIC code" aria-describedby="sf-loc_ab-isic-help">
+<p class="hm-field__help" id="sf-loc_ab-isic-help">Four digits, ISIC revision 4.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-duns">D-U-N-S number</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-duns" name="loc_ab.duns" value="" placeholder="Enter D-U-N-S number" aria-describedby="sf-loc_ab-duns-help">
+<p class="hm-field__help" id="sf-loc_ab-duns-help">Nine digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-lei">LEI</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-lei" name="loc_ab.lei" value="" placeholder="Enter LEI" aria-describedby="sf-loc_ab-lei-help">
+<p class="hm-field__help" id="sf-loc_ab-lei-help">Twenty letters and digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-gln">GLN</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-gln" name="loc_ab.gln" value="" placeholder="Enter GLN" aria-describedby="sf-loc_ab-gln-help">
+<p class="hm-field__help" id="sf-loc_ab-gln-help">Thirteen digits.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_ab-founders" data-hm-repeater data-path="loc_ab.founders" aria-describedby="sf-loc_ab-founders-help"><legend class="hm-field__label">Founders <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-founders-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_ab.founders" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.founders" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add founder</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-brands">Brands</label>
+<input type="hidden" name="_present.loc_ab.brands" value="1"><input class="hm-field__control" type="text" id="sf-loc_ab-brands" name="loc_ab.brands" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_ab-brands-help">
+<p class="hm-field__help" id="sf-loc_ab-brands-help">Brand names, separated by commas. Empty uses the default locale&#39;s value.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-sf-object" id="sf-loc_ab-address"><legend class="hm-field__label">Postal address</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-street">Street</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-street" name="loc_ab.address.street" value="" placeholder="Enter Street">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-city">City</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-city" name="loc_ab.address.city" value="" placeholder="Enter City">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-state">State or region</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-state" name="loc_ab.address.state" value="" placeholder="Enter State or region">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-postal_code">Postal code</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-postal_code" name="loc_ab.address.postal_code" value="" placeholder="Enter Postal code">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-country">Country</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-country" name="loc_ab.address.country" value="" placeholder="Enter Country">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-po_box">PO box</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-po_box" name="loc_ab.address.po_box" value="" placeholder="Enter PO box">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-lat">Latitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-lat" name="loc_ab.address.lat" value="" placeholder="Enter Latitude" aria-describedby="sf-loc_ab-address-lat-help">
+<p class="hm-field__help" id="sf-loc_ab-address-lat-help">Between -90 and 90</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-lng">Longitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-address-lng" name="loc_ab.address.lng" value="" placeholder="Enter Longitude" aria-describedby="sf-loc_ab-address-lng-help">
+<p class="hm-field__help" id="sf-loc_ab-address-lng-help">Between -180 and 180</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-map_url">Map address</label>
+<input class="hm-field__control" type="url" id="sf-loc_ab-address-map_url" name="loc_ab.address.map_url" value="" placeholder="Enter Map address">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-address-gbp_url">Business profile address</label>
+<input class="hm-field__control" type="url" id="sf-loc_ab-address-gbp_url" name="loc_ab.address.gbp_url" value="" placeholder="Enter Business profile address">
+</div></fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Reach</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-phone">Phone</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-phone" name="loc_ab.phone" value="" placeholder="555 0100">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-fax">Fax</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-fax" name="loc_ab.fax" value="" placeholder="Enter Fax">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-email">Email</label>
+<input class="hm-field__control" type="email" id="sf-loc_ab-email" name="loc_ab.email" value="" placeholder="Enter Email">
+</div>
+<fieldset class="hm-repeater" id="sf-loc_ab-contact_points" data-hm-repeater data-path="loc_ab.contact_points"><legend class="hm-field__label">Contact points <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_ab.contact_points" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.contact_points" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add contact point</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Opening hours</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-hours_note">Hours note</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-hours_note" name="loc_ab.hours_note" value="" placeholder="Enter Hours note" aria-describedby="sf-loc_ab-hours_note-help">
+<p class="hm-field__help" id="sf-loc_ab-hours_note-help">Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_ab-opening_hours" data-hm-repeater data-path="loc_ab.opening_hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_ab.opening_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.opening_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add opening hours</button>
+</fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_ab-special_hours" data-hm-repeater data-path="loc_ab.special_hours"><legend class="hm-field__label">Special opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_ab.special_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.special_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add special opening hours</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-currency">Currency</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-currency" name="loc_ab.currency" value="" placeholder="Enter Currency" aria-describedby="sf-loc_ab-currency-help">
+<p class="hm-field__help" id="sf-loc_ab-currency-help">A three letter code, like USD</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-price_range">Price range</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-price_range" name="loc_ab.price_range" value="" placeholder="Enter Price range">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-area_served">Area served</label>
+<input type="hidden" name="_present.loc_ab.area_served" value="1"><input class="hm-field__control" type="text" id="sf-loc_ab-area_served" name="loc_ab.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_ab-area_served-help">
+<p class="hm-field__help" id="sf-loc_ab-area_served-help">Places this business serves, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-geo_region">Geo region</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-geo_region" name="loc_ab.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-loc_ab-geo_region-help">
+<p class="hm-field__help" id="sf-loc_ab-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-service_radius_km">Service radius (km)</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-service_radius_km" name="loc_ab.service_radius_km" value="" placeholder="Enter Service radius (km)" aria-describedby="sf-loc_ab-service_radius_km-help">
+<p class="hm-field__help" id="sf-loc_ab-service_radius_km-help">Kilometres around this locale&#39;s coordinates. Needs both coordinates. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-payment_methods">Payment methods</label>
+<input type="hidden" name="_present.loc_ab.payment_methods" value="1"><input class="hm-field__control" type="text" id="sf-loc_ab-payment_methods" name="loc_ab.payment_methods" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_ab-payment_methods-help">
+<p class="hm-field__help" id="sf-loc_ab-payment_methods-help">Like Cash or Visa, separated by commas. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-accepts_reservations">Accepts reservations</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-accepts_reservations" name="loc_ab.accepts_reservations" aria-describedby="sf-loc_ab-accepts_reservations-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_ab-accepts_reservations-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-booking_url">Booking address</label>
+<input class="hm-field__control" type="url" id="sf-loc_ab-booking_url" name="loc_ab.booking_url" value="" placeholder="Enter Booking address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-order_url">Online ordering address</label>
+<input class="hm-field__control" type="url" id="sf-loc_ab-order_url" name="loc_ab.order_url" value="" placeholder="Enter Online ordering address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-menu_url">Menu address</label>
+<input class="hm-field__control" type="url" id="sf-loc_ab-menu_url" name="loc_ab.menu_url" value="" placeholder="Enter Menu address">
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-catalog_name">Catalogue name</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-catalog_name" name="loc_ab.catalog_name" value="" placeholder="Enter Catalogue name" aria-describedby="sf-loc_ab-catalog_name-help">
+<p class="hm-field__help" id="sf-loc_ab-catalog_name-help">Empty uses the default locale&#39;s value, or &#34;Services&#34; when that is empty too.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-service_provider">Show the organisation as each service&#39;s provider</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-service_provider" name="loc_ab.service_provider" aria-describedby="sf-loc_ab-service_provider-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_ab-service_provider-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_ab-services" data-hm-repeater data-path="loc_ab.services" aria-describedby="sf-loc_ab-services-help"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-services-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_ab.services" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Additional properties</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_ab-additional_properties" data-hm-repeater data-path="loc_ab.additional_properties" aria-describedby="sf-loc_ab-additional_properties-help"><legend class="hm-field__label">Additional properties <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-additional_properties-help">Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers. Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_ab.additional_properties" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.additional_properties" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add property</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Expertise &amp; amenities</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-knows_about">Knows about</label>
+<input type="hidden" name="_present.loc_ab.knows_about" value="1"><textarea class="hm-field__control" id="sf-loc_ab-knows_about" name="loc_ab.knows_about" rows="4" placeholder="One item per line" aria-describedby="sf-loc_ab-knows_about-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_ab-knows_about-help">Topics this business is expert in, one per line. Empty uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-awards">Awards</label>
+<input type="hidden" name="_present.loc_ab.awards" value="1"><textarea class="hm-field__control" id="sf-loc_ab-awards" name="loc_ab.awards" rows="4" placeholder="One item per line" aria-describedby="sf-loc_ab-awards-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_ab-awards-help">One award per line. Commas stay part of the title. Empty uses the default locale&#39;s value.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_ab-memberships" data-hm-repeater data-path="loc_ab.memberships" aria-describedby="sf-loc_ab-memberships-help"><legend class="hm-field__label">Memberships <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-memberships-help">Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_ab.memberships" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.memberships" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add membership</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_ab-amenity_presets" aria-describedby="sf-loc_ab-amenity_presets-help"><legend class="hm-field__label">Amenities</legend>
+<p class="hm-field__help" id="sf-loc_ab-amenity_presets-help">Not stated uses the default locale&#39;s value.</p><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-amenity_presets-parking">Parking</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-amenity_presets-parking" name="loc_ab.amenity_presets.parking"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-amenity_presets-wheelchair_access">Wheelchair access</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-amenity_presets-wheelchair_access" name="loc_ab.amenity_presets.wheelchair_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-amenity_presets-wifi">Wifi</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-amenity_presets-wifi" name="loc_ab.amenity_presets.wifi"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-amenity_presets-toilets">Toilets</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-amenity_presets-toilets" name="loc_ab.amenity_presets.toilets"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-amenity_presets-air_conditioning">Air conditioning</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-amenity_presets-air_conditioning" name="loc_ab.amenity_presets.air_conditioning"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_ab-amenities" data-hm-repeater data-path="loc_ab.amenities" aria-describedby="sf-loc_ab-amenities-help"><legend class="hm-field__label">Other amenities <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-amenities-help">Features beyond the list above. Empty uses the default locale&#39;s value.</p><input type="hidden" name="_present.loc_ab.amenities" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.amenities" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add amenity</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-public_access">Open to the public</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-public_access" name="loc_ab.public_access" aria-describedby="sf-loc_ab-public_access-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_ab-public_access-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-free_entry">Free entry</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-free_entry" name="loc_ab.free_entry" aria-describedby="sf-loc_ab-free_entry-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_ab-free_entry-help">Not stated uses the default locale&#39;s value.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_ab-sameas" data-hm-repeater data-path="loc_ab.sameas" aria-describedby="sf-loc_ab-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_ab-sameas-help">Social and directory profile addresses.</p><input type="hidden" name="_present.loc_ab.sameas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_ab.sameas" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add profile address</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_ab-rating"><legend class="hm-field__label">Aggregate rating</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-rating-value">Rating value</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-rating-value" name="loc_ab.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-loc_ab-rating-value-help">
+<p class="hm-field__help" id="sf-loc_ab-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-rating-best">Best rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-rating-best" name="loc_ab.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-loc_ab-rating-best-help">
+<p class="hm-field__help" id="sf-loc_ab-rating-best-help">The top of your scale. Empty means 5.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-rating-worst">Worst rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-rating-worst" name="loc_ab.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-loc_ab-rating-worst-help">
+<p class="hm-field__help" id="sf-loc_ab-rating-worst-help">The bottom of your scale. Empty means 0.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-rating-count">Number of ratings</label>
+<input class="hm-field__control" type="text" id="sf-loc_ab-rating-count" name="loc_ab.rating.count" value="" placeholder="Enter Number of ratings">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_ab-rating-count_type">Count is</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_ab-rating-count_type" name="loc_ab.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
+</div></fieldset>
+
+</div>
+</div>
+
+<footer class="hm-card__foot hm-card__foot--plain">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save Abkhazian</span></button>
+</footer>
+</form></div></details>
+</div></section>
+</section>
+
+</div>
+</div>
+</main>
+<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto dev build">Hatamoto dev build <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
+</div>
+</div>
+<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--secondary" data-hm-confirm-cancel=""><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--danger" data-hm-confirm-ok=""><span>Confirm</span></button></div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
+</body>
+</html>
+
+
+<!-- single -->
+<!doctype html>
+<html lang="en" data-admin-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<meta name="admin-base" content="/admin">
+<meta name="htmx-config" content="{&#34;allowEval&#34;:false,&#34;allowScriptTags&#34;:false,&#34;historyCacheSize&#34;:0,&#34;includeIndicatorStyles&#34;:false,&#34;inlineScriptNonce&#34;:&#34;NONCE&#34;,&#34;inlineStyleNonce&#34;:&#34;NONCE&#34;,&#34;refreshOnHistoryMiss&#34;:true,&#34;responseHandling&#34;:[{&#34;code&#34;:&#34;204&#34;,&#34;swap&#34;:false},{&#34;code&#34;:&#34;[23]..&#34;,&#34;swap&#34;:true},{&#34;code&#34;:&#34;422&#34;,&#34;error&#34;:false,&#34;swap&#34;:true},{&#34;code&#34;:&#34;[45]..&#34;,&#34;error&#34;:true,&#34;swap&#34;:false}]}">
+<title>Business details · Hatamoto</title>
+<link rel="stylesheet" href="/admin/_/admin.HASH.css">
+<script type="importmap" nonce="NONCE">{…}</script>
+<link rel="modulepreload" href="/admin/_/js/dates.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/shelllogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/components.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/daterange.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/multiselect.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/select.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/recovery.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/adminpath.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/repeater.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/content.HASH.js" integrity="sha256-SRI">
+<script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
+<script nonce="NONCE" defer src="/admin/_/vendor/sortable-1.15.7.min.js" integrity="sha256-v0JBvHP&#43;9/EcWaKDpp/oBRzdMcbY/1orm6IZ54Mfz3Y="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/repeater.HASH.js" integrity="sha256-hkA7Zrqy1TodSSPNd/hYAY&#43;P6MBfnbmN5U8wQizNneA="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-jEv5sXDLJqz3GleUjvxo9z9jI4mF9/Ga&#43;iezmM8txhY="></script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+
+</head>
+<body>
+<a class="hm-skip" href="#hm-main">Skip to content</a>
+<div class="hm-shell">
+<nav class="hm-sidebar" id="hm-sidebar" aria-label="Admin">
+<div class="hm-sidebar__head">
+<a class="hm-brand hm-sidebar__brand" href="/admin/entities"><span class="hm-brand__seal" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path fill="currentColor" stroke="none" d="M12.49 2.21C12.11 3.41 11.49 4.6 10.72 5.57V5.39H7.94V2.21H5.55V5.39H2.44V7.69H4.6V11.16C4.6 13.92 4.31 17.33 2 20.23C2.58 20.63 3.39 21.25 3.83 21.75C6.22 18.78 6.71 15.17 6.78 11.97H8.19C8.11 16.97 8 18.76 7.73 19.22C7.57 19.45 7.42 19.53 7.15 19.53C6.86 19.53 6.34 19.51 5.76 19.45C6.09 20.05 6.32 21 6.36 21.65C7.15 21.69 7.9 21.67 8.4 21.56C8.96 21.46 9.33 21.27 9.73 20.69C10.25 19.92 10.35 17.45 10.45 10.68C10.45 10.39 10.45 9.71 10.45 9.71H6.78V7.69H10.72V7.05C11.12 7.3 11.49 7.59 11.74 7.79C12.2 7.32 12.65 6.74 13.09 6.07H21.65V4.1H14.17C14.36 3.64 14.54 3.18 14.69 2.73ZM16.83 18.8C17.97 19.69 19.45 20.98 20.15 21.79L22 20.63C21.27 19.88 19.96 18.82 18.88 18.01H21.81V16.06H20.01V9.81H21.44V7.9H20.01V6.67H17.72V7.9H14.96V6.67H12.72V7.9H11.12V9.81H12.72V16.06H10.72V18.01H13.42C12.59 18.82 11.3 19.74 10.12 20.26C10.62 20.63 11.33 21.27 11.72 21.69C13.11 21.07 14.75 19.84 15.75 18.76L14.46 18.01H18.18ZM14.96 9.81H17.72V10.81H14.96ZM14.96 12.38H17.72V13.4H14.96ZM14.96 14.96H17.72V16.06H14.96Z"/></svg></span><span>Example Co</span></a>
+<a class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" href="https://acme.example/" aria-label="Open site in a new window" data-tooltip="Open site" data-tooltip-align="end" rel="noopener" target="_blank"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+</div>
+<div class="hm-nav-groups">
+<div class="hm-nav-group">
+<ul class="hm-nav-list" role="list">
+<li><a class="hm-nav-link" href="/admin"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Overview</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g1">Site</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g1">
+<li><a class="hm-nav-link" href="/admin/entities"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Entities</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/analytics"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Analytics</span></a>
+</li>
+</ul>
+</div>
+<div class="hm-nav-group"><p class="hm-nav-group__title" id="hm-nav-g2">Customize</p>
+<ul class="hm-nav-list" role="list" aria-labelledby="hm-nav-g2">
+<li><a class="hm-nav-link" href="/admin/plugins"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg><span>Plugins</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/theme"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Theme</span></a>
+</li>
+<li><a class="hm-nav-link" href="/admin/settings" aria-current="page"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a>
+</li>
+</ul>
+</div>
+</div>
+<div class="hm-sidebar__foot">
+<a class="hm-sidebar__me" href="/admin/profile" aria-label="Owner Olga, your profile" data-tooltip="Your profile"><span class="hm-avatar" data-initials="OO" aria-hidden="true"></span><span class="hm-sidebar__name">Owner Olga</span></a>
+
+<form method="post" action="/admin/theme"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm" data-icon-only data-hm-theme-toggle aria-label="Switch theme" data-tooltip="Switch theme" data-tooltip-align="end"><span class="hm-theme-icon hm-theme-icon--light"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><span class="hm-theme-icon hm-theme-icon--dark"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span></button></form>
+<form method="post" action="/admin/logout"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><button type="submit" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Sign out" data-tooltip="Sign out" data-tooltip-align="end"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></form>
+</div>
+</nav>
+<div class="hm-shell__main">
+<div class="hm-topbar"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Toggle sidebar" aria-controls="hm-sidebar" aria-expanded="true" data-hm-sidebar-toggle="" hidden=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button><span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="/admin">Home</a></li><li><a href="/admin/settings">Settings</a></li><li aria-current="page">Business details</li></ol></nav></div>
+<main id="hm-main" class="hm-content">
+<div class="hm-settings">
+<nav class="hm-subnav" aria-label="Settings">
+<h2 class="hm-subnav__title hm-visually-hidden">Settings</h2>
+<ul class="hm-subnav__list" role="list"><li class="hm-subnav__group" role="presentation">Site</li>
+<li><a class="hm-subnav__link" href="/admin/settings/general"><span>General</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/locales" aria-current="page"><span>Locales</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/email"><span>Email</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/users"><span>Users</span></a></li>
+<li class="hm-subnav__group" role="presentation">Content</li>
+<li><a class="hm-subnav__link" href="/admin/settings/media"><span>Media</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/types"><span>Entity models</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/forms"><span>Forms</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/seo/general"><span>SEO</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/redirects"><span>Redirects</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/linking"><span>Internal linking</span></a></li>
+<li class="hm-subnav__group" role="presentation">System</li>
+<li><a class="hm-subnav__link" href="/admin/settings/api-keys"><span>API</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/webhooks"><span>Webhooks</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/performance"><span>Performance</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/updates"><span>Updates</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/backups"><span>Backups</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/import"><span>Import &amp; export</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/security/admin-address"><span>Security</span></a></li>
+</ul>
+</nav>
+<div class="hm-page" data-width="compact">
+
+
+<header class="hm-section-head">
+<div class="hm-section-head__titles"><h1>Locales</h1><p class="hm-muted">Languages, addresses and search engines.</p></div>
+<nav class="hm-tabs" aria-label="Locales"><ul class="hm-tabs__list" role="list">
+<li><a class="hm-tabs__tab" href="/admin/settings/locales">Locales</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/locales/addresses">Addresses and search engines</a></li>
+<li><a class="hm-tabs__tab" href="/admin/settings/locales/business" aria-current="page">Business details</a></li>
+</ul></nav>
+</header>
+<section id="locale-cards" class="hm-stack">
+<section class="hm-card" id="locales-card" aria-labelledby="locales-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="locales-card-title">Business details</h2><p class="hm-muted">Each locale is its own business. The default locale is also your organisation; other locales use its values for empty fields (grey text).</p></div>
+<div class="hm-card__body">
+<details class="hm-disclosure" id="locale-en" open><summary>English <span class="hm-badge hm-badge--neutral hm-badge--wrap hm-badge--mono">en</span> <span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Default</span> <span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>Office</span></summary><div class="hm-disclosure__body">
+<form method="post" action="/admin/settings/locales/business/en" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save English</button>
+
+<p class="hm-muted">This is also your organisation.</p>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Organisation</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-name">Legal name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-name" name="loc_en.name" value="" placeholder="Example Co" aria-describedby="sf-loc_en-name-help">
+<p class="hm-field__help" id="sf-loc_en-name-help">Names your organisation and is printed as its legal name. Empty uses the site name.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-alternate_name">Alternate name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-alternate_name" name="loc_en.alternate_name" value="" placeholder="Enter Alternate name">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-business_type">Business type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-business_type" name="loc_en.business_type" aria-describedby="sf-loc_en-business_type-help"><option value="">Select Business type</option><option value="LocalBusiness">LocalBusiness</option><option value="AccountingService">AccountingService</option><option value="AutoRepair">AutoRepair</option><option value="BarOrPub">BarOrPub</option><option value="Bakery">Bakery</option><option value="BeautySalon">BeautySalon</option><option value="BookStore">BookStore</option><option value="CafeOrCoffeeShop">CafeOrCoffeeShop</option><option value="ChildCare">ChildCare</option><option value="ClothingStore">ClothingStore</option><option value="DaySpa">DaySpa</option><option value="Dentist">Dentist</option><option value="Electrician">Electrician</option><option value="EmploymentAgency">EmploymentAgency</option><option value="FinancialService">FinancialService</option><option value="FitnessCenter">FitnessCenter</option><option value="Florist">Florist</option><option value="GeneralContractor">GeneralContractor</option><option value="HairSalon">HairSalon</option><option value="HardwareStore">HardwareStore</option><option value="HealthClub">HealthClub</option><option value="HomeAndConstructionBusiness">HomeAndConstructionBusiness</option><option value="HVACBusiness">HVACBusiness</option><option value="InsuranceAgency">InsuranceAgency</option><option value="LegalService">LegalService</option><option value="Library">Library</option><option value="LodgingBusiness">LodgingBusiness</option><option value="MedicalBusiness">MedicalBusiness</option><option value="MovingCompany">MovingCompany</option><option value="Notary">Notary</option><option value="Optician">Optician</option><option value="Physician">Physician</option><option value="Plumber">Plumber</option><option value="ProfessionalService">ProfessionalService</option><option value="RealEstateAgent">RealEstateAgent</option><option value="Restaurant">Restaurant</option><option value="RoofingContractor">RoofingContractor</option><option value="SelfStorage">SelfStorage</option><option value="ShoppingCenter">ShoppingCenter</option><option value="SportsActivityLocation">SportsActivityLocation</option><option value="Store">Store</option><option value="TravelAgency">TravelAgency</option><option value="VeterinaryCare">VeterinaryCare</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-business_type-help">Empty prints LocalBusiness.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-description">Description</label>
+<textarea class="hm-field__control" id="sf-loc_en-description" name="loc_en.description" rows="6" aria-describedby="sf-loc_en-description-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-description-help">Empty uses the tagline.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-slogan">Slogan</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-slogan" name="loc_en.slogan" value="" placeholder="Enter Slogan">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-founding_date">Founding date</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-founding_date" name="loc_en.founding_date" value="" placeholder="Enter Founding date" aria-describedby="sf-loc_en-founding_date-help">
+<p class="hm-field__help" id="sf-loc_en-founding_date-help">A year, like 2009, or a full date, like 2009-04-30</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-employees_min">Employees from</label>
+<input class="hm-field__control" type="number" id="sf-loc_en-employees_min" name="loc_en.employees_min" value="" step="1" min="0">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-employees_max">Employees to</label>
+<input class="hm-field__control" type="number" id="sf-loc_en-employees_max" name="loc_en.employees_max" value="" step="1" min="0">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-tax_id">Tax ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-tax_id" name="loc_en.tax_id" value="TX-1" placeholder="Enter Tax ID" aria-describedby="sf-loc_en-tax_id-help">
+<p class="hm-field__help" id="sf-loc_en-tax_id-help">The tax or company number printed on invoices.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-vat_id">VAT ID</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-vat_id" name="loc_en.vat_id" value="" placeholder="Enter VAT ID">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-country_name">Country name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-country_name" name="loc_en.country_name" value="" placeholder="Enter Country name" aria-describedby="sf-loc_en-country_name-help">
+<p class="hm-field__help" id="sf-loc_en-country_name-help">The country name printed in the areas served, like France.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-image">Image</label>
+<div class="hm-row"><input class="hm-field__control" type="url" id="sf-loc_en-image" name="loc_en.image" value="" placeholder="https://" data-hm-image aria-describedby="sf-loc_en-image-help"><button type="button" class="hm-btn hm-btn--sm" data-hm-media-picker="sf-loc_en-image" hidden>Choose from library</button></div>
+<p class="hm-field__help" id="sf-loc_en-image-help">A photo of this business.</p>
+</div>
+<div class="hm-field"><input type="hidden" name="_present.loc_en.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-loc_en-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_en-logo_object" name="loc_en.logo_object" value="true" aria-describedby="sf-loc_en-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-loc_en-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address.</p></div>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-naics">NAICS code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-naics" name="loc_en.naics" value="" placeholder="Enter NAICS code" aria-describedby="sf-loc_en-naics-help">
+<p class="hm-field__help" id="sf-loc_en-naics-help">Two to six digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-isic">ISIC code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-isic" name="loc_en.isic" value="" placeholder="Enter ISIC code" aria-describedby="sf-loc_en-isic-help">
+<p class="hm-field__help" id="sf-loc_en-isic-help">Four digits, ISIC revision 4.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-duns">D-U-N-S number</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-duns" name="loc_en.duns" value="" placeholder="Enter D-U-N-S number" aria-describedby="sf-loc_en-duns-help">
+<p class="hm-field__help" id="sf-loc_en-duns-help">Nine digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-lei">LEI</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-lei" name="loc_en.lei" value="" placeholder="Enter LEI" aria-describedby="sf-loc_en-lei-help">
+<p class="hm-field__help" id="sf-loc_en-lei-help">Twenty letters and digits.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-gln">GLN</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-gln" name="loc_en.gln" value="" placeholder="Enter GLN" aria-describedby="sf-loc_en-gln-help">
+<p class="hm-field__help" id="sf-loc_en-gln-help">Thirteen digits.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-founders" data-hm-repeater data-path="loc_en.founders"><legend class="hm-field__label">Founders <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.founders" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.founders" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add founder</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-parent_organisation"><legend class="hm-field__label">Parent organisation</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-parent_organisation-name">Name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-parent_organisation-name" name="loc_en.parent_organisation.name" value="" placeholder="Enter Name">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-parent_organisation-url">Web address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-parent_organisation-url" name="loc_en.parent_organisation.url" value="" placeholder="Enter Web address">
+</div></fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-brands">Brands</label>
+<input type="hidden" name="_present.loc_en.brands" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-brands" name="loc_en.brands" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-brands-help">
+<p class="hm-field__help" id="sf-loc_en-brands-help">Brand names, separated by commas.</p>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><input type="hidden" name="_present.loc_en.office" value="1"><label class="hm-field__check hm-switch" for="sf-loc_en-office"><input class="hm-field__box" type="checkbox" role="switch" id="sf-loc_en-office" name="loc_en.office" value="true" checked aria-describedby="sf-loc_en-office-help"><span>This locale has an office</span></label><p class="hm-field__help" id="sf-loc_en-office-help">Prints a LocalBusiness on this locale&#39;s pages when it has a street or city.</p></div>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-address"><legend class="hm-field__label">Postal address</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-street">Street</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-street" name="loc_en.address.street" value="1 Example Street" placeholder="Enter Street">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-city">City</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-city" name="loc_en.address.city" value="Exampleton" placeholder="Enter City">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-state">State or region</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-state" name="loc_en.address.state" value="" placeholder="Enter State or region">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-postal_code">Postal code</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-postal_code" name="loc_en.address.postal_code" value="" placeholder="Enter Postal code">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-country">Country</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-country" name="loc_en.address.country" value="" placeholder="Enter Country">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-po_box">PO box</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-po_box" name="loc_en.address.po_box" value="" placeholder="Enter PO box">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-lat">Latitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-lat" name="loc_en.address.lat" value="" placeholder="Enter Latitude" aria-describedby="sf-loc_en-address-lat-help">
+<p class="hm-field__help" id="sf-loc_en-address-lat-help">Between -90 and 90</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-lng">Longitude</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-address-lng" name="loc_en.address.lng" value="" placeholder="Enter Longitude" aria-describedby="sf-loc_en-address-lng-help">
+<p class="hm-field__help" id="sf-loc_en-address-lng-help">Between -180 and 180</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-map_url">Map address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-address-map_url" name="loc_en.address.map_url" value="" placeholder="Enter Map address">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-address-gbp_url">Business profile address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-address-gbp_url" name="loc_en.address.gbp_url" value="" placeholder="Enter Business profile address">
+</div></fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Reach</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-phone">Phone</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-phone" name="loc_en.phone" value="555 0100" placeholder="Enter Phone">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-fax">Fax</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-fax" name="loc_en.fax" value="" placeholder="Enter Fax">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-email">Email</label>
+<input class="hm-field__control" type="email" id="sf-loc_en-email" name="loc_en.email" value="" placeholder="Enter Email">
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-contact_points" data-hm-repeater data-path="loc_en.contact_points"><legend class="hm-field__label">Contact points <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.contact_points" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.contact_points" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add contact point</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Opening hours</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-hours_note">Hours note</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-hours_note" name="loc_en.hours_note" value="" placeholder="Enter Hours note" aria-describedby="sf-loc_en-hours_note-help">
+<p class="hm-field__help" id="sf-loc_en-hours_note-help">Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-opening_hours" data-hm-repeater data-path="loc_en.opening_hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.opening_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.opening_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add opening hours</button>
+</fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_en-special_hours" data-hm-repeater data-path="loc_en.special_hours"><legend class="hm-field__label">Special opening hours <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.special_hours" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.special_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add special opening hours</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-currency">Currency</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-currency" name="loc_en.currency" value="" placeholder="Enter Currency" aria-describedby="sf-loc_en-currency-help">
+<p class="hm-field__help" id="sf-loc_en-currency-help">A three letter code, like USD</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-price_range">Price range</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-price_range" name="loc_en.price_range" value="" placeholder="Enter Price range">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-area_served">Area served</label>
+<input type="hidden" name="_present.loc_en.area_served" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-area_served" name="loc_en.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-area_served-help">
+<p class="hm-field__help" id="sf-loc_en-area_served-help">Places this business serves, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-geo_region">Geo region</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-geo_region" name="loc_en.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-loc_en-geo_region-help">
+<p class="hm-field__help" id="sf-loc_en-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-service_radius_km">Service radius (km)</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-service_radius_km" name="loc_en.service_radius_km" value="" placeholder="Enter Service radius (km)" aria-describedby="sf-loc_en-service_radius_km-help">
+<p class="hm-field__help" id="sf-loc_en-service_radius_km-help">Kilometres around the coordinates. Needs both coordinates.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-payment_methods">Payment methods</label>
+<input type="hidden" name="_present.loc_en.payment_methods" value="1"><input class="hm-field__control" type="text" id="sf-loc_en-payment_methods" name="loc_en.payment_methods" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-loc_en-payment_methods-help">
+<p class="hm-field__help" id="sf-loc_en-payment_methods-help">Like Cash or Visa, separated by commas.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-accepts_reservations">Accepts reservations</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-accepts_reservations" name="loc_en.accepts_reservations" aria-describedby="sf-loc_en-accepts_reservations-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-accepts_reservations-help">Choose Not stated to say nothing.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-booking_url">Booking address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-booking_url" name="loc_en.booking_url" value="" placeholder="Enter Booking address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-order_url">Online ordering address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-order_url" name="loc_en.order_url" value="" placeholder="Enter Online ordering address">
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-menu_url">Menu address</label>
+<input class="hm-field__control" type="url" id="sf-loc_en-menu_url" name="loc_en.menu_url" value="" placeholder="Enter Menu address">
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Services</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-catalog_name">Catalogue name</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-catalog_name" name="loc_en.catalog_name" value="" placeholder="Enter Catalogue name" aria-describedby="sf-loc_en-catalog_name-help">
+<p class="hm-field__help" id="sf-loc_en-catalog_name-help">Empty prints &#34;Services&#34;.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-service_provider">Show the organisation as each service&#39;s provider</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-service_provider" name="loc_en.service_provider" aria-describedby="sf-loc_en-service_provider-help"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<p class="hm-field__help" id="sf-loc_en-service_provider-help">Choose Not stated to say nothing.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-services" data-hm-repeater data-path="loc_en.services"><legend class="hm-field__label">Services <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.services" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.services" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add service</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Additional properties</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_en-additional_properties" data-hm-repeater data-path="loc_en.additional_properties" aria-describedby="sf-loc_en-additional_properties-help"><legend class="hm-field__label">Additional properties <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-additional_properties-help">Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers.</p><input type="hidden" name="_present.loc_en.additional_properties" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.additional_properties" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add property</button>
+</fieldset>
+
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Expertise &amp; amenities</h3>
+<div class="hm-sf-cols">
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-knows_about">Knows about</label>
+<input type="hidden" name="_present.loc_en.knows_about" value="1"><textarea class="hm-field__control" id="sf-loc_en-knows_about" name="loc_en.knows_about" rows="4" placeholder="One item per line" aria-describedby="sf-loc_en-knows_about-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-knows_about-help">Topics this business is expert in, one per line.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-awards">Awards</label>
+<input type="hidden" name="_present.loc_en.awards" value="1"><textarea class="hm-field__control" id="sf-loc_en-awards" name="loc_en.awards" rows="4" placeholder="One item per line" aria-describedby="sf-loc_en-awards-help">
+</textarea>
+<p class="hm-field__help" id="sf-loc_en-awards-help">One award per line. Commas stay part of the title.</p>
+</div>
+<fieldset class="hm-repeater" id="sf-loc_en-memberships" data-hm-repeater data-path="loc_en.memberships"><legend class="hm-field__label">Memberships <span class="hm-muted">(0 items)</span></legend>
+<input type="hidden" name="_present.loc_en.memberships" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.memberships" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add membership</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-amenity_presets" aria-describedby="sf-loc_en-amenity_presets-help"><legend class="hm-field__label">Amenities</legend>
+<p class="hm-field__help" id="sf-loc_en-amenity_presets-help">Choose Not stated on a line to say nothing about it.</p><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-parking">Parking</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-parking" name="loc_en.amenity_presets.parking"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-wheelchair_access">Wheelchair access</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-wheelchair_access" name="loc_en.amenity_presets.wheelchair_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-wifi">Wifi</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-wifi" name="loc_en.amenity_presets.wifi"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-toilets">Toilets</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-toilets" name="loc_en.amenity_presets.toilets"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-amenity_presets-air_conditioning">Air conditioning</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-amenity_presets-air_conditioning" name="loc_en.amenity_presets.air_conditioning"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div></fieldset>
+
+<fieldset class="hm-repeater" id="sf-loc_en-amenities" data-hm-repeater data-path="loc_en.amenities" aria-describedby="sf-loc_en-amenities-help"><legend class="hm-field__label">Other amenities <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-amenities-help">Features beyond the list above.</p><input type="hidden" name="_present.loc_en.amenities" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.amenities" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add amenity</button>
+</fieldset>
+
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-public_access">Open to the public</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-public_access" name="loc_en.public_access"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-free_entry">Free entry</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-free_entry" name="loc_en.free_entry"><option value="">Not stated</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+</div>
+</div>
+</div>
+<div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
+<div class="hm-sf-cols">
+<fieldset class="hm-repeater" id="sf-loc_en-sameas" data-hm-repeater data-path="loc_en.sameas" aria-describedby="sf-loc_en-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
+<p class="hm-field__help" id="sf-loc_en-sameas-help">Social and directory profile addresses.</p><input type="hidden" name="_present.loc_en.sameas" value="1">
+<ol class="hm-repeater__list" role="list" data-hm-sortable>
+</ol>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.loc_en.sameas" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add profile address</button>
+</fieldset>
+
+<fieldset class="hm-sf-object" id="sf-loc_en-rating"><legend class="hm-field__label">Aggregate rating</legend>
+<div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-value">Rating value</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-value" name="loc_en.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-loc_en-rating-value-help">
+<p class="hm-field__help" id="sf-loc_en-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-best">Best rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-best" name="loc_en.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-loc_en-rating-best-help">
+<p class="hm-field__help" id="sf-loc_en-rating-best-help">The top of your scale. Empty means 5.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-worst">Worst rating</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-worst" name="loc_en.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-loc_en-rating-worst-help">
+<p class="hm-field__help" id="sf-loc_en-rating-worst-help">The bottom of your scale. Empty means 0.</p>
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-count">Number of ratings</label>
+<input class="hm-field__control" type="text" id="sf-loc_en-rating-count" name="loc_en.rating.count" value="" placeholder="Enter Number of ratings">
+</div><div class="hm-field"><label class="hm-field__label" for="sf-loc_en-rating-count_type">Count is</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="sf-loc_en-rating-count_type" name="loc_en.rating.count_type"><option value="">Select Count is</option><option value="ratings">Ratings</option><option value="reviews">Reviews</option></select></div>
+</div></fieldset>
+
+</div>
+</div>
+
+<footer class="hm-card__foot hm-card__foot--plain">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save English</span></button>
+</footer>
+</form></div></details>
+</div></section>
+</section>
+
+</div>
+</div>
+</main>
+<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto dev build">Hatamoto dev build <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
+</div>
+</div>
+<div class="hm-toasts"><div id="hm-toasts" role="status" aria-live="polite"></div><div id="hm-toasts-alert" role="alert"></div></div>
+<dialog class="hm-dialog" id="hm-confirm" aria-labelledby="hm-confirm-title" aria-describedby="hm-confirm-message">
+<form method="post" class="hm-dialog__panel"><input type="hidden" name="_csrf" value="">
+<h2 class="hm-dialog__title" id="hm-confirm-title">Are you sure?</h2>
+<p class="hm-dialog__body" id="hm-confirm-message" data-hm-confirm-message></p>
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--secondary" data-hm-confirm-cancel=""><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--danger" data-hm-confirm-ok=""><span>Confirm</span></button></div>
+</form></dialog>
+<template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
+</body>
+</html>
+
+

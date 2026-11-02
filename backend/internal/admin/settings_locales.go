@@ -255,7 +255,7 @@ func profileKeySet(m map[string]any, key string) bool {
 	case string:
 		return x != ""
 	case bool:
-		return x
+		return true // a false only survives marshalling on a tri-state answer
 	case float64:
 		return x != 0
 	case []any:
