@@ -47,6 +47,7 @@ func (r *Runner) importSEO(ctx context.Context) error {
 	if len(plan.Fields) > 0 {
 		r.applySEOPlan(ctx, res, plan)
 	}
+	r.seoExtras(ctx, r.opts.SEOFile, live, res)
 	if len(res.Applied)+len(res.Would)+len(res.NotMapped) == 0 {
 		r.res.SEO = nil
 	}
