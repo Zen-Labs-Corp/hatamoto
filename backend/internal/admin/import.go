@@ -331,7 +331,7 @@ type importProgressData struct {
 var phaseLabels = map[string]string{
 	"read": "Reading the source", "settings": "Site settings", "schemas": "Content types", "media": "Media files", "authors": "Authors",
 	"terms": "Categories and tags", "content": "Pages and posts", "links": "Internal links", "menus": "Menus", "redirects": "Redirects",
-	"finish": "Final checks", "audit": "Checking every old URL",
+	"seo": "SEO settings", "finish": "Final checks", "audit": "Checking every old URL",
 }
 
 func (a *Admin) handleImportRun(w http.ResponseWriter, r *http.Request) {

@@ -634,3 +634,11 @@ func TestImportOptionsShowTheDetectedPlugin(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryImportPhaseHasALabel(t *testing.T) {
+	for _, p := range importjob.Phases {
+		if phaseLabels[p] == "" {
+			t.Errorf("phase %q has no label", p)
+		}
+	}
+}
