@@ -11,34 +11,63 @@ import (
 // every render, and a count that is a few seconds old is fine.
 const navCountTTL = 30 * time.Second
 
-// countBadge returns a NavItem.Badge showing count's value, computed at most
-// once per ttl. Zero and errors give "" (no badge), and a failed count is
-// not retried before the ttl passes, so a down database is not hit per render.
-func countBadge(ttl time.Duration, now func() time.Time, count func() (int, error)) func() string {
+// navRefreshRun starts a background count refresh. Tests swap it for a
+// synchronous runner so a first render already shows the count.
+var navRefreshRun = func(f func()) { go f() }
+
+// countBadge returns a NavItem.Badge showing count's value. A render never
+// waits on count: it gets the cached value, possibly stale, and once the ttl
+// has passed one background refresh (guarded against overlap) replaces it. The
+// first render before any value exists shows no badge. Zero and errors give ""
+// (no badge), and a failed count is not retried before the ttl passes, so a
+// down database is not hit per render.
+func countBadge(ttl time.Duration, now func() time.Time, run func(func()), count func() (int, error)) func() string {
 	var (
-		mu   sync.Mutex
-		at   time.Time
-		text string
+		mu       sync.Mutex
+		at       time.Time
+		text     string
+		inflight bool
 	)
+	refresh := func() {
+		text2 := ""
+		if n, err := count(); err == nil && n > 0 {
+			text2 = strconv.Itoa(n)
+		}
+		mu.Lock()
+		at, text, inflight = now(), text2, false
+		mu.Unlock()
+	}
 	return func() string {
 		mu.Lock()
+		start := (at.IsZero() || now().Sub(at) >= ttl) && !inflight
+		if start {
+			inflight = true
+		}
+		mu.Unlock()
+		if start {
+			run(refresh)
+		}
+		mu.Lock()
 		defer mu.Unlock()
-		if !at.IsZero() && now().Sub(at) < ttl {
-			return text
-		}
-		at, text = now(), ""
-		if n, err := count(); err == nil && n > 0 {
-			text = strconv.Itoa(n)
-		}
 		return text
 	}
 }
 
 // wireNavCounts gives the sidebar's Entities and Plugins items their counts
-// (the preview's "Entities 158", "Plugins 3").
+// (the preview's "Entities 158", "Plugins 3"). The Plugins count is the
+// owner's: an editor admitted by a plugin UI does not see the installed total.
 func (a *Admin) wireNavCounts() {
-	a.nav.update("entities", func(it *NavItem) { it.Badge = countBadge(navCountTTL, time.Now, a.entityTotal) })
-	a.nav.update(pluginsID, func(it *NavItem) { it.Badge = countBadge(navCountTTL, time.Now, a.pluginTotal) })
+	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityTotal)
+	plugins := countBadge(navCountTTL, time.Now, navRefreshRun, a.pluginTotal)
+	a.nav.update("entities", func(it *NavItem) { it.Badge = func(string) string { return entities() } })
+	a.nav.update(pluginsID, func(it *NavItem) {
+		it.Badge = func(role string) string {
+			if role != "owner" {
+				return ""
+			}
+			return plugins()
+		}
+	})
 }
 
 // entityTotal counts the entities the Entities list shows (reuse schemas
