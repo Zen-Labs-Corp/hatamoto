@@ -34,6 +34,7 @@ import (
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/importjob"
+	"hatamoto.dev/core/internal/indexnow"
 	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/media"
@@ -97,6 +98,8 @@ type Server struct {
 	spamStore              *spam.Store
 	seoStore               *seo.Store // site-wide SEO templates; nil in tests that skip them
 	seoLogOnce             sync.Once
+	indexNow               *indexnow.Runner // nil in demo mode
+	indexNowBaseWarn       sync.Once
 	spamVerifier           *spam.HTTPVerifier
 	emailService           *email.Service
 	mailStore              smtpSettingsStore
@@ -459,7 +462,12 @@ func (s *Server) setupDependencies() {
 
 	// Entity events and before_save hook (plugin host).
 	s.entitySink = pluginhost.NewEntitySink(s.hooks, s.logger)
-	s.entityService.SetEvents(s.entitySink)
+	sinks := entity.FanoutSink{s.entitySink}
+	if !s.demoOn() {
+		s.indexNow = indexnow.New(s.newIndexNowResolver(), s.logger, indexnow.Options{})
+		sinks = append(sinks, indexNowSink{r: s.indexNow})
+	}
+	s.entityService.SetEvents(sinks)
 	s.entitySink.SetLocaleLookup(func(ctx context.Context, id uuid.UUID) string {
 		e, err := s.entityService.GetEntity(ctx, id)
 		if err != nil {
@@ -850,6 +858,9 @@ func (s *Server) Start() error {
 
 	// Plugin hook actions run under the same lifecycle context.
 	s.hooks.SetLifecycleContext(s.lifecycleCtx)
+	if s.indexNow != nil {
+		go s.indexNow.Run(s.lifecycleCtx)
+	}
 
 	// The supervisor's loopback probe, only when it asked for one.
 	s.startSmokeFromEnv(os.Getenv("HATAMOTO_SMOKE_ADDR"), os.Getenv("HATAMOTO_SMOKE_TOKEN"))
@@ -889,6 +900,10 @@ func (s *Server) Shutdown() error {
 	// Signal scheduler goroutines to exit.
 	if s.lifecycleCancel != nil {
 		s.lifecycleCancel()
+	}
+	// The IndexNow runner flushes what is queued once the context ends.
+	if s.indexNow != nil {
+		s.indexNow.Wait(ctx)
 	}
 	// A running preload watches the lifecycle context; wait for it to exit.
 	s.stopPreload()

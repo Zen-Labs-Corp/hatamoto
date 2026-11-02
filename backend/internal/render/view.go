@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/builder"
@@ -661,6 +662,98 @@ type Alternate struct {
 	Current bool
 	Missing bool
 	Default bool
+}
+
+// CrumbOpts shapes the visible breadcrumb trail. JSON-LD ignores it and keeps
+// the full trail. The zero value is the default trail.
+type CrumbOpts struct {
+	Sep                   string
+	HideHome, HideCurrent bool
+	// Shaped is set when the trail carries a saved home label, primary term or
+	// breadcrumb title, so a layout that prints its own trail must print
+	// .Breadcrumb instead.
+	Shaped bool
+}
+
+// CrumbOpts returns the saved breadcrumb view options; the zero value when no
+// SEO settings are loaded.
+func (v *PageView) CrumbOpts() CrumbOpts {
+	if v == nil || v.SEO == nil {
+		return CrumbOpts{}
+	}
+	b := v.SEO.Breadcrumbs
+	title, _ := v.Attrs["breadcrumb_title"].(string)
+	return CrumbOpts{
+		Sep: b.Separator, HideHome: b.HideHome, HideCurrent: b.HideCurrent,
+		Shaped: b.HomeLabel != "" || b.ShowTerm || strings.TrimSpace(title) != "",
+	}
+}
+
+// VisibleCrumb is one printed step of the visible trail.
+type VisibleCrumb struct {
+	Name, Href string
+	Current    bool
+}
+
+// VisibleCrumbs is .Breadcrumb minus the home and current crumbs the owner
+// hid. A one-crumb remainder is never trimmed away.
+func (v *PageView) VisibleCrumbs() []VisibleCrumb {
+	co := v.CrumbOpts()
+	trail := v.Breadcrumb
+	lo, hi := 0, len(trail)
+	if co.HideHome && hi-lo > 1 {
+		lo++
+	}
+	if co.HideCurrent && hi-lo > 1 {
+		hi--
+	}
+	var out []VisibleCrumb
+	for i, c := range trail[lo:hi] {
+		last := i+lo == len(trail)-1
+		vc := VisibleCrumb{Name: c.Name, Current: last}
+		if !last {
+			vc.Href = safeURL(c.URL)
+		}
+		out = append(out, vc)
+	}
+	return out
+}
+
+// DocHeadCrumbs is the shaped head of a doc trail: the home crumb (unless
+// hidden) and the archive and term crumbs between home and the entry. A middle
+// crumb linking to firstTrail, the first sidebar ancestor, is dropped so the
+// archive is not printed twice.
+func (v *PageView) DocHeadCrumbs(firstTrail string) []VisibleCrumb {
+	trail := v.Breadcrumb
+	if len(trail) == 0 {
+		return nil
+	}
+	var out []VisibleCrumb
+	if !v.CrumbOpts().HideHome {
+		out = append(out, VisibleCrumb{Name: trail[0].Name, Href: safeURL(trail[0].URL)})
+	}
+	for _, c := range trail[1:max(1, len(trail)-1)] {
+		if firstTrail != "" && normPath(c.URL) == normPath(firstTrail) {
+			continue
+		}
+		out = append(out, VisibleCrumb{Name: c.Name, Href: safeURL(c.URL)})
+	}
+	return out
+}
+
+// DocCurrentCrumb is the label of the current crumb of a doc trail: the
+// breadcrumb title when set, else the sidebar label, else the entry's crumb.
+func (v *PageView) DocCurrentCrumb(sidebarLabel string) string {
+	if t, _ := v.Attrs["breadcrumb_title"].(string); strings.TrimSpace(t) != "" {
+		return strings.TrimSpace(t)
+	}
+	if sidebarLabel != "" {
+		return sidebarLabel
+	}
+	if n := len(v.Breadcrumb); n > 0 {
+		return v.Breadcrumb[n-1].Name
+	}
+	return ""
 }
 
 // Crumb is one breadcrumb step.

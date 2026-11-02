@@ -179,6 +179,8 @@ func TestImport_ParentsDatesIdempotencyAndOneEvent(t *testing.T) {
 	testutil.Equal(t, []EventKind{EventImportCompleted}, sink.kinds())
 	sum := sink.events[0].Import
 	testutil.RequireNotNil(t, sum)
+	testutil.Equal(t, 3, len(sum.IDs), "the summary lists the stored entities")
+	sum.IDs = nil
 	testutil.Equal(t, ImportSummary{Source: "test", Created: 3, Failed: 1}, *sum)
 
 	// Re-running the same batch updates in place.

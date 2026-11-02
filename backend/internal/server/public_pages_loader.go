@@ -143,14 +143,24 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	// the frontend actually routes -- the bug production surfaced was
 	// terminal crumbs of shape https://.../<slug> that dropped the section
 	// prefix and 404'd in Google's Rich Results Test.
-	breadcrumb := []BreadcrumbItem{
-		{Label: "Home", Href: s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")},
+	crumbCfg := seo.Breadcrumbs{}
+	if set := s.seoSettings(ctx); set != nil {
+		crumbCfg = set.Breadcrumbs
 	}
+	crumbIn := crumbInput{
+		Home:  BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")},
+		Entry: BreadcrumbItem{Label: ent.Name, Href: loc.Path},
+		Cfg:   crumbCfg,
+	}
+	crumbIn.Title, _ = attrs["breadcrumb_title"].(string)
 	if loc.ArchivePath != "" {
-		breadcrumb = append(breadcrumb, BreadcrumbItem{Label: loc.ArchiveName, Href: loc.ArchivePath})
+		crumbIn.Archive = &BreadcrumbItem{Label: loc.ArchiveName, Href: loc.ArchivePath}
 	}
-	entityPath := loc.Path
-	breadcrumb = append(breadcrumb, BreadcrumbItem{Label: ent.Name, Href: entityPath})
+	if crumbCfg.ShowTerm {
+		pick, _ := attrs["primary_term"].(string)
+		crumbIn.Term = primaryTerm(pick, s.crumbTerms(ctx, ent.ID))
+	}
+	breadcrumb := shapeCrumbs(crumbIn)
 
 	response := PublicPageResponse{
 		Entity:     ent,

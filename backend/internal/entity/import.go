@@ -82,6 +82,9 @@ type ImportResult struct {
 type ImportSummary struct {
 	Source                   string
 	Created, Updated, Failed int
+	// IDs are the stored entities (created or updated). Internal: plugin
+	// import events do not carry them.
+	IDs []uuid.UUID
 }
 
 // Import stores a batch of entities without any per-entity event: it sets
@@ -140,7 +143,7 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 	s.fireLive(ctx, stored...)
 	if s.events != nil {
 		s.events.Emit(ctx, Event{Kind: EventImportCompleted, Import: &ImportSummary{
-			Source: batch.Source, Created: res.Created, Updated: res.Updated, Failed: res.Failed,
+			Source: batch.Source, Created: res.Created, Updated: res.Updated, Failed: res.Failed, IDs: stored,
 		}})
 	}
 	return res, nil

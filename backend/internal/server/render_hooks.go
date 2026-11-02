@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"hatamoto.dev/core/internal/httpx"
 
@@ -69,6 +70,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		feed:       s.handleFeed,
 		xsl:        s.handleSitemapXSL,
 		formPost:   s.handlePublicFormPost,
+		keyFile:    s.indexNowKeyFile,
 		capture:    capture,
 	})
 }
@@ -85,6 +87,8 @@ type renderRoutes struct {
 	feed       http.HandlerFunc
 	xsl        http.HandlerFunc
 	formPost   http.HandlerFunc
+	// keyFile (optional) answers GET /<name> with the IndexNow key while it is on.
+	keyFile func(ctx context.Context, name string) (key string, ok bool)
 	// capture (optional) records AI-agent hits on every crawler-visible route.
 	capture func(http.Handler) http.Handler
 }
@@ -130,6 +134,12 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		if _, ok := sitemapChild(req.PathValue("file")); ok {
 			subSitemap.ServeHTTP(w, req)
 			return
+		}
+		if rt.keyFile != nil && strings.HasSuffix(req.PathValue("file"), ".txt") {
+			if key, ok := rt.keyFile(req.Context(), req.PathValue("file")); ok {
+				serveKeyFile(w, key)
+				return
+			}
 		}
 		page.ServeHTTP(w, req)
 	})
