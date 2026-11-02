@@ -246,14 +246,18 @@ type Table struct {
 	Target       string
 	FilterCount  int
 	Bare         bool
+	ListBar      bool // one 32px row (hm/listbar): segment at the start, search, selects and Filters at the end
 	ChipsOutside bool
-	OOB          string            // extra out-of-band selectors the filter swap also refreshes, comma separated
-	Hidden       map[string]string // fixed query values the filter form carries, e.g. the open form
-	Bulk         []BulkAction
-	BulkURL      string
-	Page         Pagination
-	Empty        Empty
-	Error        string // non-empty renders the error state with Retry
+	// ViewTabs is the Default/SEO toggle, rendered in the actions header cell
+	// (which it adds, with an empty cell per row, when no row has actions).
+	ViewTabs []Tab
+	OOB      string            // extra out-of-band selectors the filter swap also refreshes, comma separated
+	Hidden   map[string]string // fixed query values the filter form carries, e.g. the open form
+	Bulk     []BulkAction
+	BulkURL  string
+	Page     Pagination
+	Empty    Empty
+	Error    string // non-empty renders the error state with Retry
 	// CreatedID marks the row with this ID as just created: it gets the
 	// hm-row--new class and a visually hidden "(new)" so colour is not alone.
 	CreatedID string
@@ -350,8 +354,12 @@ func (t Table) CellClass(i int) string {
 	return strings.Join(cls, " ")
 }
 
-// HasActions reports whether any row has actions (adds the actions column).
+// HasActions reports whether the table has an actions column: any row has
+// actions, or the header cell carries the ViewTabs toggle.
 func (t Table) HasActions() bool {
+	if len(t.ViewTabs) > 0 {
+		return true
+	}
 	for _, r := range t.Rows {
 		if len(r.Actions) > 0 {
 			return true

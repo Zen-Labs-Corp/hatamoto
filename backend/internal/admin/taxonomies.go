@@ -52,8 +52,6 @@ type taxonomiesData struct {
 	Form  termForm
 	// Actions is the header row: the "New term" link that opens the dialog.
 	Actions []ui.Button
-	// ViewTabs is the Columns toggle: Default or the inline SEO view.
-	ViewTabs []ui.Tab
 }
 
 func (a *Admin) taxBase(kind string) string {
@@ -155,16 +153,17 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 	if r.URL.Query().Get("view") == seoView {
 		view = seoView
 	}
-	d := taxonomiesData{Kind: kind, ViewTabs: []ui.Tab{
-		{Label: "Default", Href: a.taxView(kind, defaultView), Active: view == ""},
-		{Label: "SEO", Href: a.taxView(kind, seoView), Active: view == seoView},
-	}}
+	d := taxonomiesData{Kind: kind}
 	for _, k := range kinds {
 		d.Tabs = append(d.Tabs, ui.Tab{Label: kindLabel(k), Href: a.taxView(k, view), Count: counts[k], Active: k == kind})
 	}
 	t := ui.Table{
 		ID: "terms", Caption: "Terms of kind " + kind, BaseURL: a.adminPath + "/settings/taxonomies", CSRF: csrfToken(ctx),
 		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "slug", Label: "Slug"}, {Key: "entities", Label: "Entities", Align: "right"}},
+		ViewTabs: []ui.Tab{
+			{Label: "Default", Href: a.taxView(kind, defaultView), Active: view == ""},
+			{Label: "SEO", Href: a.taxView(kind, seoView), Active: view == seoView},
+		},
 		Empty: ui.Empty{Icon: "tag", Title: "No " + kind + " terms yet", Body: "Add the first one.",
 			Actions: []ui.Button{{Label: "New term", Href: a.adminPath + "/settings/taxonomies/new?kind=" + url.QueryEscape(kind), Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-term"}}}},
 	}

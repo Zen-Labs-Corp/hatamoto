@@ -11,6 +11,8 @@
   text-decoration: none; cursor: pointer;
   transition: background-color 120ms var(--ease), box-shadow 120ms var(--ease);
 }
+/* The Filters button in the list toolbar matches the other 32px controls there. */
+.hm-listbar__end > .hm-btn { border-radius: var(--radius-md); }
 .hm-btn:hover { background: var(--color-shiro); box-shadow: inset 0 0 0 1px var(--segment-bevel), inset 0 -2px 0 var(--segment-bevel); }
 .hm-btn:active { background: var(--color-kasumi); box-shadow: inset 0 0 0 1px var(--segment-bevel); }
 .hm-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; position: relative; z-index: var(--z-raised); }

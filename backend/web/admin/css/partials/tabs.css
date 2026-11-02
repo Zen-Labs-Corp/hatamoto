@@ -22,17 +22,18 @@
 .hm-tabs__tab:focus-visible, .hm-tablist__tab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
 .hm-tabs__tab[aria-current="page"], .hm-tablist__tab[aria-selected="true"] { color: var(--color-sumi); }
 .hm-tabs__tab[aria-current="page"]::after, .hm-tablist__tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--space-2); right: var(--space-2); bottom: 0; height: 2px; background: var(--color-sumi); border-radius: var(--radius-2xs); }
-.hm-tabs__count { font-size: var(--text-xs); color: var(--color-hai); background: var(--color-kasumi); border-radius: var(--radius-full); padding: 0 var(--space-1-5); }
+.hm-tabs__count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-hai); background: var(--color-kasumi); border-radius: var(--radius-full); padding: 0 var(--space-1-5); }
 /* In a segmented row the count is plain muted text on the label baseline, like hm/segmented. */
-.hm-tabs[data-variant="segmented"] .hm-tabs__count { padding: 0; background: none; border-radius: 0; font-size: inherit; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.hm-tabs[data-variant="segmented"] .hm-tabs__count { padding: 0; background: none; border-radius: 0; font-family: var(--font-mono); font-size: inherit; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .hm-tablist { flex: none; } /* overflow-y: hidden would let a flex column squeeze the row to 0 height */
 /* A bar above panels (blog editor): sticky, paper behind, content inset like the panels, the hairline edge to edge. */
 .hm-tablist--bar { position: sticky; top: 0; z-index: var(--z-raised); margin: 0; padding-inline: var(--space-4); background-color: var(--color-paper); background-position: 0 100%; background-size: 100% 1px; }
 .hm-tablist__tab { appearance: none; background: none; border: 0; cursor: pointer; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--color-kasumi); max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; box-shadow: none; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__list::-webkit-scrollbar { display: none; }
-/* A view switch in a results card: own row, inset to the 16px toolbar padding, the filterbar's border above, a gap before the table header. */
-.hm-entities .hm-tabs[data-variant="segmented"] { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+/* In the list toolbar the track is one 32px control: its tabs take what the border and padding leave. */
+.hm-listbar .hm-tabs[data-variant="segmented"] .hm-tabs__list { box-sizing: border-box; height: var(--control-h-sm); }
+.hm-listbar .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: calc(var(--control-h-sm) - 2 * var(--space-px) - 2 * var(--space-0-5)); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: var(--control-h-xs); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--color-sumi); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab:hover { background: var(--color-shiro); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }

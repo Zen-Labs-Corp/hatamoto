@@ -1,0 +1,22 @@
+/* List toolbar (hm/listbar): one row, status segment at the start, search + selects + Filters at the end.
+   Control height and radius are set on the owners (field.css, select.css, segmented.css) for controls inside .hm-listbar. */
+.hm-listbar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+.hm-listbar__start, .hm-listbar__end { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.hm-listbar__grow { flex: 1; }
+/* Wide enough for segment + controls: never wrap, the search gives way instead. Narrower, the end group wraps but stays right-aligned. */
+.hm-listbar__end { margin-inline-start: auto; }
+@media (min-width: 1360px) {
+  .hm-listbar.hm-table__filters { flex-wrap: nowrap; } /* table.css wraps .hm-table__filters later in the cascade */
+  .hm-listbar__start { flex: 0 0 auto; }
+  .hm-listbar__end { flex: 0 1 auto; }
+}
+.hm-listbar .hm-table__search { flex: 0 1 260px; }
+.hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }
+/* The hidden busy indicator is out of flow, not a third item. */
+.hm-listbar > .hm-indicator { position: absolute; inset-inline-end: var(--space-4); inset-block-start: calc(100% + var(--space-1)); }
+@media (max-width: 640px) {
+  .hm-listbar__start, .hm-listbar__end { flex: 1 1 100%; flex-wrap: wrap; }
+  .hm-listbar__grow { display: none; }
+  .hm-listbar__end { margin-inline-start: 0; }
+  .hm-listbar .hm-table__search { flex: 1 1 100%; }
+}

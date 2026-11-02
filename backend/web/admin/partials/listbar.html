@@ -1,0 +1,4 @@
+{{/* hm/listbar: the one-row toolbar of a list card. The status segment sits at the start; search, the primary selects and the Filters button at the end. Takes the hm/filterbar data (ListBar) and renders inside its form. */}}
+{{define "hm/listbar"}}<div class="hm-listbar__start">{{template "hm/filterbar-segmented" .}}</div>
+<span class="hm-listbar__grow"></span>
+<div class="hm-listbar__end">{{template "hm/filterbar-search" .}}{{template "hm/filterbar-primary" .}}{{template "hm/filterbar-popover" .}}</div>{{end}}

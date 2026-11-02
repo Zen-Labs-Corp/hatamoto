@@ -40,6 +40,10 @@
 .hm-table th.hm-table__right, .hm-table td.hm-table__right { text-align: right; font-variant-numeric: tabular-nums; }
 .hm-table th.hm-table__check, .hm-table td.hm-table__check { width: 40px; padding-right: 0; }
 .hm-table__actions { width: 1%; text-align: right; white-space: nowrap; }
+/* The Default/SEO toggle lives in the actions header cell. */
+.hm-table th.hm-table__views { text-align: end; font-weight: var(--weight-regular); }
+/* The view toggle above an empty or failed list, where there is no header to hold it. */
+.hm-table__viewsrow { display: flex; justify-content: flex-end; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
 /* Row buttons and the row menu opener (also .hm-btn) sit in one cell; the menu popover itself is out of flow. */
 .hm-table__actions .hm-btn + .hm-btn { margin-inline-start: var(--space-2); }
 .hm-table__sort { display: inline-flex; align-items: center; gap: var(--space-1); color: inherit; text-decoration: none; }
@@ -92,6 +96,8 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards thead tr { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
   .hm-table--cards thead th { padding-inline: 0; }
   .hm-table--cards thead th:not(.hm-table__check):not(:has(.hm-table__sort)) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
+  /* The view toggle in the actions header cell stays visible and reachable. */
+  .hm-table--cards thead:has(.hm-table__views), .hm-table--cards thead tr th.hm-table__views.hm-table__actions { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
   .hm-table__filters .hm-field__control, .hm-table__filters .hm-select { flex: 1 1 100%; max-width: none; width: 100%; }
   .hm-table--cards td:has(.hm-cell-edit) { flex: 1 1 100%; margin-inline-end: 0; }
 }

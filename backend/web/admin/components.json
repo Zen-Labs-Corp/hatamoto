@@ -334,6 +334,12 @@
     "partial": "hm/table",
     "props": {}
   },
+  "listbar": {
+    "selector": ".hm-listbar",
+    "owner": "css/partials/listbar.css",
+    "partial": "hm/listbar",
+    "props": {}
+  },
   "cell-edit": {
     "selector": ".hm-cell-edit",
     "owner": "css/partials/table.css",
