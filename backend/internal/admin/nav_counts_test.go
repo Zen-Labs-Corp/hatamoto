@@ -1,8 +1,8 @@
 package admin
 
 import (
-	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -174,22 +174,15 @@ func TestSidebarShowsDraftCount(t *testing.T) {
 		t.Error("Analytics must not carry a marker")
 	}
 
-	schemas, err := c.ents.ListSchemas(context.Background())
-	if err != nil {
-		t.Fatal(err)
+	// The marker and the list's own Draft segment come from the same page and must agree.
+	nav := regexp.MustCompile(`<span>Entities</span><span class="hm-nav-link__badge"[^>]*><span aria-hidden="true">(\d+)</span>`).FindStringSubmatch(body)
+	seg := regexp.MustCompile(`id="entities-seg-draft-n">(\d+)</span>`).FindStringSubmatch(body)
+	if nav == nil || seg == nil {
+		t.Fatalf("nav marker %v, Draft segment %v: both must render", nav, seg)
 	}
-	if got, list := c.a.entityCounts(context.Background(), schemas, nil).byStatus["draft"], mustDrafts(t, c.a); got != list {
-		t.Errorf("nav drafts %d, list Draft count %d", list, got)
+	if nav[1] != seg[1] {
+		t.Errorf("nav drafts %s, list Draft count %s", nav[1], seg[1])
 	}
-}
-
-func mustDrafts(t *testing.T, a *Admin) int {
-	t.Helper()
-	n, err := a.entityDrafts()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return n
 }
 
 // No drafts, no marker.
@@ -222,11 +215,16 @@ func TestPluginsMarkerIsLabelled(t *testing.T) {
 	a := &Admin{nav: defaultNav("/admin")}
 	a.deps.Growth.Plugins = threePlugins{}
 	a.wireNavCounts()
+	found := false
 	for _, it := range a.nav.all() {
 		if it.ID == pluginsID {
+			found = true
 			if got := it.BadgeLabel("owner", "3"); got != "3 plugins installed" {
 				t.Errorf("label %q", got)
 			}
 		}
+	}
+	if !found {
+		t.Fatal("no Plugins nav item")
 	}
 }
