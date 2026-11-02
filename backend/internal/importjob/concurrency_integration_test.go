@@ -83,7 +83,7 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	r := &rig{t: t, pool: scratchPool(t), release: make(chan struct{})}
 	r.m = New(Config{Pool: r.pool, Key: DeriveKey("jwt-secret-of-the-server-0123456789"), SpoolDir: filepath.Join(t.TempDir(), "spool"), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), NoSweepLoop: true})
-	r.m.runFn = func(ctx context.Context, id uuid.UUID, _ *record, _ Options, _ Actor, _ string, j *job) {
+	r.m.runFn = func(ctx context.Context, id uuid.UUID, _ *record, _ Options, _ *wpimport.SEOFile, _ Actor, _ string, j *job) {
 		r.engines.Add(1)
 		select {
 		case <-r.release:
@@ -161,7 +161,7 @@ func TestConcurrentStartRunsOneEngine(t *testing.T) {
 		do           func(m *Manager, id uuid.UUID) error
 	}{
 		{"start", StatusScanned, func(m *Manager, id uuid.UUID) error {
-			return m.Start(context.Background(), id, Actor{}, "h", DefaultOptions())
+			return m.Start(context.Background(), id, Actor{}, "h", DefaultOptions(), nil)
 		}},
 		{"resume", StatusFailed, func(m *Manager, id uuid.UUID) error { return m.Resume(context.Background(), id, Actor{}, "h", nil) }},
 	} {
@@ -210,7 +210,7 @@ func TestCancelInTheStartGapWins(t *testing.T) {
 			t.Errorf("cancel in the gap: %v", err)
 		}
 	}
-	if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions()); err != nil {
+	if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions(), nil); err != nil {
 		t.Fatal(err)
 	}
 	r.waitFree(id)
@@ -226,7 +226,7 @@ func TestStartIsConditionalOnTheStatus(t *testing.T) {
 	r := newRig(t)
 	for _, status := range []string{StatusCompleted} {
 		id := r.run(status)
-		if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions()); !errors.Is(err, ErrState) {
+		if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions(), nil); !errors.Is(err, ErrState) {
 			t.Errorf("start from %s: %v", status, err)
 		}
 		if got := r.status(id); got != status {
@@ -245,7 +245,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = r.m.Start(ctx, id, Actor{}, "h", DefaultOptions())
+	err = r.m.Start(ctx, id, Actor{}, "h", DefaultOptions(), nil)
 	if !errors.Is(err, ErrImportRunning) || !strings.Contains(err.Error(), "another import is running") {
 		t.Fatalf("start while the lock is held: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 	release()
 
 	// The wizard's job holds it: the command line is refused.
-	if err := r.m.Start(ctx, id, Actor{}, "h", DefaultOptions()); err != nil {
+	if err := r.m.Start(ctx, id, Actor{}, "h", DefaultOptions(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := wpimport.AcquireImportLock(ctx, r.pool); !errors.Is(err, wpimport.ErrImportRunning) {
@@ -279,7 +279,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 func TestShutdownMidRunLeavesTheRunInterrupted(t *testing.T) {
 	r := newRig(t)
 	id := r.run(StatusScanned)
-	if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions()); err != nil {
+	if err := r.m.Start(context.Background(), id, Actor{}, "h", DefaultOptions(), nil); err != nil {
 		t.Fatal(err)
 	}
 	for r.engines.Load() == 0 {

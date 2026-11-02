@@ -494,6 +494,8 @@ func (s *RESTSource) loadSEO(ctx context.Context, d *Dump) {
 			plugin = "seopress"
 		case strings.HasPrefix(ns, "aioseo/") && plugin == "":
 			plugin = "aioseo"
+		case strings.HasPrefix(ns, "tsf/") && plugin == "":
+			plugin = "tsf"
 		}
 	}
 	d.Detect.SEOPlugin = plugin

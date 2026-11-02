@@ -716,7 +716,7 @@ interfaces are filled by `server/admin_growth_mount.go`; a nil member answers a 
 `hatamoto_import_runs`. A page that shows a running job carries `View.Refresh` (a `<noscript>` meta refresh in
 `layouts/shell`) and polls itself with htmx (`hx-get ...?poll=<state>`, `hx-select` on its own id); a poll that
 finds the run in another state answers `HX-Redirect`, so the page moves on by itself. `limitImportBody` caps an
-import form's body before the CSRF check reads it. The private-host override is not reachable from here.
+import form's body before the CSRF check reads it. The Options step is multipart: it carries an optional SEO plugin settings file (1 MiB cap, parsed in memory, never stored). The private-host override is not reachable from here.
 
 ## Packages and themes (v1-18)
 

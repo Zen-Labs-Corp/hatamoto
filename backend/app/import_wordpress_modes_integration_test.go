@@ -3,11 +3,14 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/redirect"
@@ -267,5 +270,95 @@ func TestWordPressResumeOfAnotherSourceFails_Integration(t *testing.T) {
 	}
 	if res, err := runner.Run(r.ctx, first.RunID); err == nil || res != nil {
 		t.Fatalf("resume across sources: res=%v err=%v", res, err)
+	}
+}
+
+// runSEO runs an import that carries an SEO settings file and skips the live read.
+func (r *wpRig) runSEO(dump *wpimport.Dump, file *wpimport.SEOFile) *wpimport.Result {
+	r.t.Helper()
+	st := wpimport.NewStore(r.db.Pool(), strings.TrimRight(dump.Site.URL, "/"))
+	runner, err := wpimport.NewRunner(r.deps, st, dump, wpimport.Options{AllowPrivate: true, NoSEOLive: true, SEOFile: file})
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	res, err := runner.Run(r.ctx, uuid.Nil)
+	if err != nil {
+		r.t.Fatalf("run: %v", err)
+	}
+	return res
+}
+
+func seoTestFile(t *testing.T) *wpimport.SEOFile {
+	t.Helper()
+	f, err := wpimport.ParseSEOFile(strings.NewReader(`{"modules":[],"settings":{"general":{"google_verify":"abc123"},"titles":{
+		"title_separator":"–","pt_post_title":"%title% %sep% %sitename%","tax_category_custom_robots":"on","tax_category_robots":["noindex"],"twitter_author_names":"exampleuser"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+func TestWordPressImportSEOEmptySite_Integration(t *testing.T) {
+	r := newWPRig(t, modesSite)
+	res := r.runSEO(modesDump(), seoTestFile(t))
+	if res.Failed != 0 || len(res.Errors) != 0 {
+		t.Fatalf("errors: %+v", res.Errors)
+	}
+	if res.SEO == nil || res.SEO.Plugin != "rankmath" || len(res.SEO.Applied) == 0 || len(res.SEO.Would) != 0 {
+		t.Fatalf("seo = %+v", res.SEO)
+	}
+	got := r.str(`SELECT settings->>'separator' || '|' || (settings->'social'->>'twitter_site') || '|' || (settings->'verification'->>'google') || '|' || (settings->'index'->'noindex_taxonomy'->>'category') FROM hatamoto_seo_settings`)
+	if got != "–|@exampleuser|abc123|true" {
+		t.Errorf("stored settings = %q", got)
+	}
+	// The per-type template needs the schemas phase to have run first.
+	if title := r.str(`SELECT COALESCE(settings->'types'->'post'->>'title', '') FROM hatamoto_seo_settings`); title == "" {
+		t.Errorf("types.post.title not imported (seo phase ran before schemas?)")
+	}
+	// Re-running keeps the same settings.
+	again := r.runSEO(modesDump(), seoTestFile(t))
+	if again.SEO == nil || len(again.SEO.Applied) != len(res.SEO.Applied) {
+		t.Errorf("re-run seo = %+v", again.SEO)
+	}
+}
+
+func TestWordPressImportSEOSiteWithContentWritesNothing_Integration(t *testing.T) {
+	r := newWPRig(t, modesSite)
+	r.publish("page", "about", "About us", map[string]any{"content": "<p>Our own About page</p>"})
+	r.publish("post", "my-post", "My post", map[string]any{"content": "<p>Written here</p>"})
+	if _, err := r.db.Pool().Exec(r.ctx, `INSERT INTO hatamoto_seo_settings (id, settings) VALUES (TRUE, '{"separator":"-","verification":{"google":"mine"}}') ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings`); err != nil {
+		t.Fatal(err)
+	}
+	before := r.str(`SELECT settings::text FROM hatamoto_seo_settings`)
+	res := r.runSEO(modesDump(), seoTestFile(t))
+	if res.SiteMode != wpimport.ModeExisting || res.Failed != 0 {
+		t.Fatalf("mode=%q failed=%d", res.SiteMode, res.Failed)
+	}
+	if after := r.str(`SELECT settings::text FROM hatamoto_seo_settings`); after != before {
+		t.Errorf("SEO settings changed:\n before %s\n after  %s", before, after)
+	}
+	if res.SEO == nil || len(res.SEO.Applied) != 0 || len(res.SEO.Would) == 0 {
+		t.Fatalf("seo = %+v", res.SEO)
+	}
+	for _, row := range res.SEO.Would {
+		if row.Key == "verification.google" && (row.Current != "mine" || row.Value != "abc123") {
+			t.Errorf("google row = %+v", row)
+		}
+	}
+}
+
+// printImportResult shows the SEO rows of a site with content, so the CLI user sees
+// what would change although nothing was written.
+func TestWordPressImportSEOCLIText_Integration(t *testing.T) {
+	r := newWPRig(t, modesSite)
+	r.publish("post", "my-post", "My post", map[string]any{"content": "<p>Written here</p>"})
+	res := r.runSEO(modesDump(), seoTestFile(t))
+	var out bytes.Buffer
+	printImportResult(&out, res, time.Second, false)
+	text := out.String()
+	for _, want := range []string{"SEO settings: applied 0, would change ", "would change: Google verification: \"\" -> \"abc123\""} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output lacks %q:\n%s", want, text)
+		}
 	}
 }

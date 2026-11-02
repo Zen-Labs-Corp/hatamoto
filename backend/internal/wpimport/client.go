@@ -163,11 +163,19 @@ func cloneValues(q url.Values) url.Values {
 // Do GETs rawURL with the limiter, retries and the size cap, and returns the
 // body and headers. Credentials are only sent to the site's own host.
 func (c *Client) Do(ctx context.Context, rawURL string, maxBytes int64) ([]byte, http.Header, error) {
+	body, hdr, _, err := c.doFinal(ctx, rawURL, maxBytes)
+	return body, hdr, err
+}
+
+// doFinal is Do that also returns the URL the body came from, after redirects.
+func (c *Client) doFinal(ctx context.Context, rawURL string, maxBytes int64) ([]byte, http.Header, *url.URL, error) {
 	var body []byte
 	var hdr http.Header
+	var final *url.URL
 	err := c.attempt(ctx, rawURL, func(resp *http.Response) error {
 		var err error
 		hdr = resp.Header
+		final = resp.Request.URL
 		body, err = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 		if err == nil && int64(len(body)) > maxBytes {
 			return fmt.Errorf("GET %s: response over %d bytes", rawURL, maxBytes)
@@ -177,7 +185,7 @@ func (c *Client) Do(ctx context.Context, rawURL string, maxBytes int64) ([]byte,
 		}
 		return err
 	})
-	return body, hdr, err
+	return body, hdr, final, err
 }
 
 // attempt runs one logical request with retries on network errors, 429 and 5xx.

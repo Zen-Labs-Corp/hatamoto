@@ -52,7 +52,7 @@ const (
 )
 
 // Phases a run goes through, in order, for the progress display.
-var Phases = []string{"read", "settings", "schemas", "media", "authors", "terms", "content", "links", "menus", "redirects", "finish", "audit"}
+var Phases = []string{"read", "settings", "schemas", "seo", "media", "authors", "terms", "content", "links", "menus", "redirects", "finish", "audit"}
 
 // Actor is who started or stopped a job.
 type Actor struct {
@@ -84,6 +84,9 @@ type Options struct {
 	KeepPatterns bool `json:"keep_patterns"`
 	// KeepEdited leaves items alone that were edited here since the last import.
 	KeepEdited bool `json:"keep_edited"`
+	// NoSEOLive skips reading the old site's SEO settings from its pages
+	// (inverted so older stored options keep the read on).
+	NoSEOLive bool `json:"no_seo_live"`
 }
 
 // DefaultOptions imports everything and copies the permalink structure.
@@ -123,8 +126,11 @@ type Config struct {
 	Handler func() http.Handler
 	// Purge clears the server's caches (rendered pages, sitemaps, URL
 	// patterns) after an import.
-	Purge  func(ctx context.Context)
-	Logger *slog.Logger
+	Purge func(ctx context.Context)
+	// AdminPath returns the site's live admin address, which imported
+	// robots.txt lines must not name; nil leaves only the default check.
+	AdminPath func() string
+	Logger    *slog.Logger
 	// NoSweepLoop turns off the background retention sweep (tests call Sweep
 	// themselves; a concurrent sweep would race them).
 	NoSweepLoop bool
@@ -146,7 +152,7 @@ type Manager struct {
 	cache *cached
 
 	// runFn is the import itself; tests replace it with a fake engine.
-	runFn func(ctx context.Context, id uuid.UUID, rec *record, o Options, actor Actor, host string, j *job)
+	runFn func(ctx context.Context, id uuid.UUID, rec *record, o Options, seo *wpimport.SEOFile, actor Actor, host string, j *job)
 	// gap, when set, runs after a start has changed the run's status and
 	// before its job launches (tests use it to cancel in that window).
 	gap func()
@@ -558,18 +564,20 @@ func (m *Manager) scanJob(ctx context.Context, id uuid.UUID, j *job) {
 // ---- Start, Resume, Cancel ----
 
 // Start imports the scanned source with the chosen options. host is the
-// address the audit asks the site at (the admin's own Host).
-func (m *Manager) Start(ctx context.Context, id uuid.UUID, actor Actor, host string, o Options) error {
-	return m.startRun(ctx, id, actor, host, &o, nil)
+// address the audit asks the site at (the admin's own Host). seo is an
+// optional parsed settings file: it lives in memory for this run only and is
+// never stored or audited.
+func (m *Manager) Start(ctx context.Context, id uuid.UUID, actor Actor, host string, o Options, seo *wpimport.SEOFile) error {
+	return m.startRun(ctx, id, actor, host, &o, nil, seo)
 }
 
 // Resume continues a failed, canceled or interrupted run with the options it
 // had. cred replaces the stored credential (nil keeps it).
 func (m *Manager) Resume(ctx context.Context, id uuid.UUID, actor Actor, host string, cred *Source) error {
-	return m.startRun(ctx, id, actor, host, nil, cred)
+	return m.startRun(ctx, id, actor, host, nil, cred, nil)
 }
 
-func (m *Manager) startRun(ctx context.Context, id uuid.UUID, actor Actor, host string, o *Options, cred *Source) (err error) {
+func (m *Manager) startRun(ctx context.Context, id uuid.UUID, actor Actor, host string, o *Options, cred *Source, seo *wpimport.SEOFile) (err error) {
 	// The slot comes first: nothing below changes anything until this request
 	// is the only one starting the run.
 	j, err := m.reserve(id, false)
@@ -644,11 +652,11 @@ func (m *Manager) startRun(ctx context.Context, id uuid.UUID, actor Actor, host 
 		m.launch(id, j, func(ctx context.Context, j *job) { m.scanJob(ctx, id, j) })
 		return nil
 	}
-	m.launch(id, j, func(ctx context.Context, j *job) { m.runFn(ctx, id, rec, *o, actor, host, j) })
+	m.launch(id, j, func(ctx context.Context, j *job) { m.runFn(ctx, id, rec, *o, seo, actor, host, j) })
 	return nil
 }
 
-func (m *Manager) runJob(ctx context.Context, id uuid.UUID, rec *record, o Options, actor Actor, host string, j *job) {
+func (m *Manager) runJob(ctx context.Context, id uuid.UUID, rec *record, o Options, seo *wpimport.SEOFile, actor Actor, host string, j *job) {
 	fail := func(err error) {
 		how := m.settle(id, j, err)
 		m.audit(context.Background(), actor, "import.stopped", id, map[string]any{"error": m.scrub(id, err), "canceled": how == "canceled", "shutdown": how == "shutdown"})
@@ -670,7 +678,10 @@ func (m *Manager) runJob(ctx context.Context, id uuid.UUID, rec *record, o Optio
 	}
 	opts := wpimport.Options{
 		Actor: &actor.ID, AllowPrivate: m.AllowPrivate, Client: client, NoPermalinks: o.KeepPatterns, KeepEdited: o.KeepEdited,
-		SkipMedia: !o.Media, Progress: j.say, Purge: m.cfg.Purge, Stored: map[string]any{"kind": rec.st.Kind, "url": rec.st.URL, "user": rec.st.User, "wizard": o},
+		SkipMedia: !o.Media, NoSEOLive: o.NoSEOLive, SEOFile: seo, Progress: j.say, Purge: m.cfg.Purge, Stored: map[string]any{"kind": rec.st.Kind, "url": rec.st.URL, "user": rec.st.User, "wizard": o},
+	}
+	if m.cfg.AdminPath != nil {
+		opts.AdminPath = m.cfg.AdminPath()
 	}
 	if m.cfg.Handler != nil {
 		if h := m.cfg.Handler(); h != nil {

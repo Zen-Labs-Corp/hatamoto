@@ -10,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/taxonomy"
 )
@@ -27,6 +28,7 @@ type Deps struct {
 	People     *person.Store
 	Redirects  *redirect.Service
 	Site       *siteconfig.Store
+	SEO        *seo.Store
 	Logger     *slog.Logger
 }
 
@@ -66,7 +68,7 @@ func NewDeps(db *database.DB, cfg DepsConfig, logger *slog.Logger) *Deps {
 		Media:    media.NewService(media.NewPostgresRepository(db), mc, logger),
 		Taxonomy: taxonomy.NewService(termRepo, logger), TermRepo: termRepo,
 		Menus:  menu.NewService(menu.NewPostgresRepository(db), logger),
-		People: person.NewPoolStore(db.Pool()), Redirects: redirect.NewService(db, logger), Site: site, Logger: logger,
+		People: person.NewPoolStore(db.Pool()), Redirects: redirect.NewService(db, logger), Site: site, SEO: seo.NewStore(db.Pool()), Logger: logger,
 	}
 }
 

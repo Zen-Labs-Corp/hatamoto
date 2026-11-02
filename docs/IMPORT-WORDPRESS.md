@@ -97,6 +97,7 @@ the share of items that import without loss, with each medium or low item and wh
 | Media library | media, downloaded through the SSRF guard (size cap = the media limit), deduplicated by content hash; every size (`-300x200`, `-scaled`) maps to the one original |
 | Body | `attributes.content`, sanitised by the rich-text policy |
 | SEO title, description, canonical, noindex, social image | `meta_title`, `meta_description`, `seo.canonical`, `no_index`, `og_image` |
+| Global SEO settings (title separator, home, archive and 404 titles, per-type title templates and noindex, social handle and card, verification tags, robots.txt extras, per-type sitemap exclusion, organization name, logo and profiles) | the site's SEO settings, the `post`/type schemas' sitemap setting and the site configuration. See "Global SEO settings" below. |
 | Menus | menus with nesting; pages become entity links; location from the menu name (header, footer, sidebar); the imported menu takes the location from its previous holder, which is left unassigned |
 | Private, password-protected and draft content | drafts (listed in the report) |
 
@@ -139,6 +140,25 @@ After the import every URL of the old sitemap (Yoast's `sitemap_index.xml`, Word
 items) is requested on the new site without following redirects. It passes when it answers **200**, or
 **one 301/308 to a URL that answers 200**; a 302, a chain, a 404 or a redirect to nowhere is a failure listed
 in the report. Media files are skipped.
+
+## Global SEO settings
+
+Sources, both optional and combined:
+
+- **Live read** (on by default; `--no-seo-live` or the wizard switch turns it off). It reads the old site's public
+  pages, bounded: the home page, one post, one archive and `robots.txt`, all on the source's own host.
+  A read that fails is a warning, never an error.
+- **Settings file** (wizard only): a Rank Math settings `.json`, a Yoast export or a TSF settings `.json`; other
+  formats are refused. Up to 1 MiB. It is data only, never executed; its values are read, only the mapped values
+  are kept and nothing from the file is stored. A **Resume** does not carry it: upload it again.
+
+Plugin option names are matched on a best-effort basis; an option a plugin version renamed is listed as not
+mapped rather than guessed.
+
+The report's "SEO settings" card lists **Applied** rows on an empty site. On a site with content nothing is
+written: the same rows appear as **Would change**, so an existing site's SEO settings never change. **Not mapped**
+lists what has no Hatamoto equivalent (for example Local SEO, redirection and IndexNow options, noindex on date
+archives or 404 pages). A value that fails validation is listed there with the reason.
 
 ## Limits
 
@@ -210,12 +230,15 @@ without JavaScript:
 3. **Options**: which post types, drafts, menus; media on or off (off imports no file and leaves images out
    of the text, so no `wp-content` URL remains); keep this site's URL patterns or copy WordPress's
    structure (a site with content always keeps its own); leave edited pages alone on a re-import.
+   An **SEO settings** card shows the detected plugin, a switch for the live read and an optional plugin settings
+   file (Rank Math JSON, Yoast export or TSF JSON, up to 1 MiB; the form is multipart).
 4. **Run**: a background job on the server process. The page shows the phase and recent activity and updates
    itself by htmx polling every 3 seconds; without JavaScript a `<noscript>` meta refresh reloads it. Stop
    cancels it (what was imported stays). A run that was running when the server restarted shows as
    *interrupted* and has a **Resume** button; resuming skips finished work like `--resume` does.
 5. **Report**: per-item errors, warnings, the redirects created, the URL audit (run in process against this
-   site's own handler, every old URL with a link), the old URLs a live page already answers, edits that were
+   site's own handler, every old URL with a link), the **SEO settings** (Applied, or Would change on a site with
+   content, and Not mapped), the old URLs a live page already answers, edits that were
    overwritten or kept, and the pages to review, each linking to its edit screen. **Re-sync** opens the Source
    step prefilled with the address and username (never the password).
 

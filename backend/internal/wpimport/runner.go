@@ -50,6 +50,14 @@ type Options struct {
 	// attachments inside bodies are removed or unlinked, as for a file that
 	// cannot be fetched (no wp-content URL is left behind).
 	SkipMedia bool
+	// NoSEOLive skips reading the global SEO settings from the live site; the
+	// zero value reads it.
+	NoSEOLive bool
+	// AdminPath is the site's admin address; imported robots.txt lines naming
+	// it are dropped. Empty skips that check.
+	AdminPath string
+	// SEOFile is an uploaded settings export. Memory only: never put it in Stored.
+	SEOFile *SEOFile
 	// Options are written to the run (no secrets) so --resume can reuse them.
 	Stored map[string]any
 }
@@ -101,6 +109,8 @@ type Result struct {
 	Errors   []ItemError  `json:"errors,omitempty"`
 	Warnings []string     `json:"warnings,omitempty"`
 	Report   *Report      `json:"report,omitempty"`
+	// SEO is what the global SEO settings step applied or would change.
+	SEO *SEOResult `json:"seo,omitempty"`
 }
 
 type entInfo struct {
@@ -232,6 +242,7 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 	}{
 		{"settings", r.importSettings},
 		{"schemas", r.prepareSchemas},
+		{"seo", r.importSEO},
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},
