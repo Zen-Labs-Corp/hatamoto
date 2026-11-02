@@ -181,9 +181,13 @@ handler tests run on in-memory fakes; the real services are exercised by
   Settings keep keys the form does not edit (overrides). The
   address pattern preview is `GET <admin>/settings/types/preview-pattern`.
   Besides the address and archive settings (`url_pattern`, `archive_path`,
-  `archive_title`, `archive_description`, `archive_crumb_label`, sitemap and JSON-LD
+  `archive_title`, `archive_description`, `archive_crumb_label`, the sitemap group and the JSON-LD
   type, and an Editor select: Form, or Post editor to edit the type like a blog post), `archive_crumb_label` is the section label in an entry's breadcrumb
   (falls back to `archive_title`, then the type name; the BreadcrumbList JSON-LD uses it).
+  The editor no longer has fields for sitemap priority, change frequency or leaving the type out
+  of the sitemap: it links to Settings > SEO > Sitemap instead. Storage is unchanged (`settings.sitemap`
+  with `priority`, `changefreq` and `exclude`), a schema save leaves that object as it is, and the
+  **Sitemap group** field (`sitemap_group`) stays in the editor.
   Built-in types are read-only **except `person`**: its editor can add fields and
   change every setting above, but the core fields (`job_title`, `short_bio`, `bio`,
   `photo`, `public`, `public_email`, `website`, `linkedin`, `x`, `github`,
@@ -812,7 +816,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has seven tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots and Verification. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has eight tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots, Verification and Sitemap. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -892,6 +896,23 @@ as meta tags: `google-site-verification`, `msvalidate.01`, `yandex-verification`
 custom tags (name of lowercase letters, digits and `:._-`, content up to 300 characters).
 Empty fields emit nothing.
 
+Sitemap (`<admin>/settings/seo/sitemap`, owner only) controls what `/sitemap.xml` lists. The Output
+card has switches for **Author sitemap** (on: people who wrote entries are listed), **Taxonomy
+sitemaps** (off: when on, each taxonomy with published entries gets a `taxonomy-<kind>` child file
+listing its term archives; a term marked no-index, or a taxonomy kind the site's SEO settings keep out of search, is left out), **Include images** (off: an entry's `og_image` and `featured_image`, and a person's
+`photo`, are listed as image entries, at most ten per URL, relative paths made absolute) and
+**Output priority and change frequency** (on). It also has **Max URLs per file** (default and
+maximum 50,000: a longer group continues in numbered files, `<group>-2`, `<group>-3`, and the index
+lists each) and an optional **Default priority** and **Default change**. A blank default keeps each
+type's own value; a filled one replaces the built-in value of every type, and a type's own
+setting in the table below still wins. With nothing saved the sitemap is the same as before the
+tab existed. One card per content type has **In sitemap**, **Priority** and **Change**; they edit the
+type's `sitemap` setting (`exclude`, `priority`, `changefreq`) that the schema editor used to show,
+and only changed rows are written. Exclude paths takes one address per line: an exact path, or a
+prefix when the line ends in `*` (`/legal/*` also matches `/legal`); at most 100 lines, each
+starting with `/`. Excluded addresses are left out of the sitemap only; the pages stay reachable.
+A saved change clears the cached sitemap and the page cache.
+
 An entry's SEO panel has a Schema tab. The two fields below are on the entity form and the blog
 editor; the Builder SEO drawer and the term panels show the tab with its preview only, without the
 fields. Schema type overrides the type of that entry's structured data (attribute `schema_type`;
@@ -900,6 +921,12 @@ objects, each with `@context` and `@type`, at most 16 KB, added next to the gene
 never merged into it; it is escaped so it cannot close the script tag. The
 `Accept: application/ld+json` response carries the schema type override, but not the custom
 block.
+
+The Advanced tab of the same panel on the entity form and the blog editor has **Hide from sitemap
+(page stays indexable)** (attribute `hide_from_sitemap`, stored as `true`, removed when off). It
+keeps the entry out of `/sitemap.xml` only: the page's robots output and indexing are untouched,
+unlike the no-index switch. Editors can set it. The Builder SEO drawer and the term panels do not
+show it, and saving there keeps the stored value.
 
 ### Performance
 

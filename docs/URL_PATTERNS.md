@@ -168,7 +168,7 @@ admin schema API). All keys optional; unknown keys are ignored.
 | `sitemap_group` | string   | Child sitemap name. Default: first literal segment of the pattern, else `misc`. |
 | `aliases`       | string[] | Extra schema slugs that resolve to this schema (archive, route lookup, linking). |
 | `overrides`     | object[] | `{attribute, equals, url_pattern, sitemap_group}`: entities whose `attributes[attribute] == equals` use another pattern/group. |
-| `sitemap`       | object   | `{priority, changefreq, exclude}`; `exclude` drops the schema from the sitemap. |
+| `sitemap`       | object   | `{priority, changefreq, exclude}`; `exclude` drops the schema from the sitemap. Edited under Settings > SEO > Sitemap; the schema editor does not show or rewrite it. |
 | `section_pages` | bool     | On a page-like schema: a row whose slug equals a section prefix of another schema (a `docs` page vs `/docs/{slug}`) is served at `/{slug}` and becomes that section's index in the sitemap. |
 | `schema_org_type` | string | JSON-LD `@type` for entities of this schema when it has no `x-schema-org-*` annotations and no plugin JSON-LD builder. One of `Article`, `BlogPosting`, `NewsArticle`, `DefinedTerm`, `Person`, `Service`, `Course`, `HowTo`, `WebPage`, `CreativeWork`, `Organization`, `LocalBusiness`. Types that need fields the generic document cannot supply (`FAQPage`, `Product`, `Event`) are rejected: use annotations or a plugin builder. Emits `name`, `description`, `url`, `@id`, `image`, `datePublished`, `dateModified` (plus `headline` for the article types). Precedence: plugin builder > `x-schema-org-*` annotations > `schema_org_type` > `Thing`. Validated on write only; an unknown stored value is ignored for JSON-LD and never affects URL routing. |
 | `editor` | string | `""` (default: the generic form) or `"post"`: edit entities of this schema in the post (TipTap) editor, as blog posts are, with autosaved drafts, preview and the SEO and AEO panel. The built-in `post`, `article`, `blog_post` and `blog` schemas always use it. Other attributes are kept on save and stay editable on the entity Details page. Validated on write: any other value is rejected, `"post"` needs the schema to declare a string `content` property, and the `person` schema cannot use it. A stored value that is not valid is ignored on read and never affects URL routing. |
@@ -253,8 +253,8 @@ A schema's archive (`archive_path`) lists its rows and those of its aliases
 * `misc` collects pages, overrides with group `misc`, the homepage (`/`) and
   plugin static routes.
 * The index lists only non-empty children.
-* Priority/changefreq come from `settings.sitemap`, else the schema defaults.
-* Entities with `no_index` and rows of `sitemap.exclude` schemas are omitted.
+* Priority/changefreq come from `settings.sitemap`, else the site-wide default of Settings > SEO > Sitemap, else the schema defaults.
+* Entities with `no_index` or `attributes.hide_from_sitemap`, rows of `sitemap.exclude` schemas and paths matching the site's exclude paths are omitted.
 * `{path}` and date URLs are listed at their canonical path (the same one the
   page's `canonical` and JSON-LD `url` use).
 * The cache is invalidated when schema settings change.
