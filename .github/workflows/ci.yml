@@ -220,6 +220,8 @@ jobs:
   # v1-25b: the previous release's binary must boot and serve on this tree's
   # schema (docs/UPGRADES.md, Schema rules). Needs the full history (tags and the
   # merge-base with origin/main), so fetch-depth is 0. Repo root, not backend/.
+  # Fast tier: the job always runs (a required check must not be skipped), but its steps only
+  # when migration paths or workflows changed (scripts/ci-relevance.sh); ci-full always runs them.
   n-1:
     runs-on: ubuntu-latest
     services:
@@ -243,14 +245,29 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
           fetch-depth: 0
+      - name: Decide whether this job applies
+        id: rel
+        env:
+          TIER: ${{ inputs.tier }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          LABEL: migration
+          PATTERN: '^(backend/migrations/|scripts/check-migrations\.sh$|scripts/n-1\.sh$|\.github/workflows/)'
+        run: bash scripts/ci-relevance.sh
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: steps.rel.outputs.relevant == 'true'
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: Migration linter
+        if: steps.rel.outputs.relevant == 'true'
         run: bash scripts/check-migrations.sh
       - name: Previous release on this schema
+        if: steps.rel.outputs.relevant == 'true'
         run: bash scripts/n-1.sh
 
   # The stable required check for the matrix above: green only when every leg is.
@@ -283,11 +300,18 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
       - name: Does this leg apply?
         id: gate
         env:
           LEG: ${{ matrix.go }}
+          TIER: ${{ inputs.tier }}
         run: |
+          if [ "$TIER" != full ] && [ "$LEG" = 1.26 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "sdk 1.26 runs in ci-full: skipping the Go $LEG leg"
+            exit 0
+          fi
           # major.minor only: go 1.26, 1.26.0 and 1.26.3 all mean 1.26.
           declared=$(awk '$1 == "go" { print $2; exit }' go.mod | cut -d. -f1,2)
           if [ "$(printf '%s\n%s\n' "$declared" "$LEG" | sort -V | tail -1)" = "$LEG" ]; then
@@ -322,6 +346,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: backend/go.mod
@@ -362,6 +387,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: backend/go.mod
@@ -374,10 +400,12 @@ jobs:
       - name: zizmor
         run: pipx run zizmor==1.31.1 --offline --format plain .github/workflows/*.yml
 
-  # The installer end to end in a systemd container, once per supported distro: against
+  # ci-full only (not a required check, so a skipped job is fine): the installer end to end in a
+  # systemd container, once per supported distro: against
   # a local mirror (ubuntu2404, debian12), and the floor-* legs against the real released
   # floor binary with the production keys.
   installer-e2e:
+    if: inputs.tier == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -388,6 +416,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: backend/go.mod
@@ -401,6 +430,8 @@ jobs:
   # Admin UI consistency (docs/ADMIN_UI_RULES.md): a real server, seeded, and
   # computed-style checks in Chrome. Any violation fails the job; the screenshots,
   # JSON results and server log are kept as an artifact either way.
+  # Fast tier: the job always runs (ship.sh and the ruleset need SUCCESS, not SKIPPED), but its
+  # steps only when admin UI paths or workflows changed (scripts/ci-relevance.sh); ci-full always.
   admin-ui:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -428,16 +459,33 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+      - name: Decide whether this job applies
+        id: rel
+        env:
+          TIER: ${{ inputs.tier }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          LABEL: admin UI
+          PATTERN: '^(backend/web/admin/|backend/internal/admin/|scripts/admin-qa/|\.github/workflows/)'
+        run: bash scripts/ci-relevance.sh
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: steps.rel.outputs.relevant == 'true'
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.rel.outputs.relevant == 'true'
         with:
           node-version: 20
       - name: Build hatamoto
+        if: steps.rel.outputs.relevant == 'true'
         run: cd backend && go build -o "$RUNNER_TEMP/hatamoto" ./cmd/hatamoto
       - name: Install the QA harness
+        if: steps.rel.outputs.relevant == 'true'
         working-directory: scripts/admin-qa
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
@@ -447,6 +495,7 @@ jobs:
       # ~120 module requests blew the 30s navigation timeout. The binary just built
       # embeds the same files.
       - name: Start the server
+        if: steps.rel.outputs.relevant == 'true'
         run: |
           work=$(mktemp -d)
           cd "$work"
@@ -461,15 +510,18 @@ jobs:
           echo "server did not come up" >&2
           exit 1
       - name: Seed
+        if: steps.rel.outputs.relevant == 'true'
         run: HATAMOTO_BIN="$RUNNER_TEMP/hatamoto" bash scripts/admin-qa/seed.sh
       - name: Consistency self-test (planted violations must fire)
+        if: steps.rel.outputs.relevant == 'true'
         run: PW="$GITHUB_WORKSPACE/scripts/admin-qa/node_modules/playwright-core" CHROME=$(which google-chrome) node scripts/admin-qa/consistency.mjs --self-test
       - name: Consistency checks
+        if: steps.rel.outputs.relevant == 'true'
         run: |
           PW="$GITHUB_WORKSPACE/scripts/admin-qa/node_modules/playwright-core" CHROME=$(which google-chrome) QA_STRICT=1 \
             node scripts/admin-qa/consistency.mjs
       - name: Keep screenshots, results and server log
-        if: always()
+        if: always() && steps.rel.outputs.relevant == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: admin-ui
@@ -482,8 +534,8 @@ jobs:
   # public page with a self-built plugin granted site.scripts; every attack must fail and every positive
   # control must succeed. Required check: add "admin-attack" to the ruleset.
   # There is no workflow-level `paths:` filter on purpose: a workflow skipped by a path filter leaves a
-  # required check pending forever. The job always runs and reports; the first step decides from the
-  # changed files whether the rest does anything (a skipped step is a success).
+  # required check pending forever. The job always runs and reports; the first step decides whether
+  # the rest does anything (a skipped step is a success). The attack suite runs in ci-full only.
   admin-attack:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -509,29 +561,19 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
           fetch-depth: 0
-      - name: Decide whether the attack suite applies
+      - name: Decide whether this job applies
         id: rel
         env:
+          TIER: ${{ inputs.tier }}
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ "$EVENT_NAME" != "pull_request" ]; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA"); then
-            if printf '%s\n' "$files" | grep -Eq '^(backend/internal/(admin|render|middleware|auth|adminpath|server|session|recovery|packages|config|httpx|pluginhost)/|backend/go\.(mod|sum)$|backend/web/admin/|test/admin-attack/|scripts/admin-qa/|\.github/workflows/ci\.yml$)'; then
-              echo "relevant=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "relevant=false" >> "$GITHUB_OUTPUT"
-              echo "No admin, render, middleware, auth, session, config or related change: attack suite skipped."
-            fi
-          else
-            # The diff failed: fail safe and run the suite.
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          fi
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          LABEL: attack suite
+          FULL_ONLY: "1"
+        run: bash scripts/ci-relevance.sh
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.rel.outputs.relevant == 'true'
         with:
@@ -561,7 +603,8 @@ jobs:
 
   # v1-22: the WordPress importer against a real, seeded WordPress (WordPress +
   # MariaDB + wp-cli in Docker) and a scratch Postgres. Slower than the rest, so
-  # it is its own job; test/wpfixture/README.md describes the fixture.
+  # it is its own job; test/wpfixture/README.md describes the fixture. Fast tier: the job reports
+  # SUCCESS at once with a log line (a required check); ci-full runs it.
   wordpress-importer:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -589,19 +632,28 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha }}
+      - name: Moved to ci-full
+        if: inputs.tier != 'full'
+        run: echo "wordpress-importer runs in ci-full (nightly or on demand), not on PRs"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: inputs.tier == 'full'
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: Start and seed the WordPress fixture
+        if: inputs.tier == 'full'
         working-directory: .
         timeout-minutes: 20
         run: test/wpfixture/docker-up.sh
       - name: Export the fixture variables
+        if: inputs.tier == 'full'
         working-directory: .
         run: cat test/wpfixture/out/wpfixture.env.host >> "$GITHUB_ENV"
-      - run: go run ./cmd/hatamoto migrate
+      - if: inputs.tier == 'full'
+        run: go run ./cmd/hatamoto migrate
       - name: Importer integration tests
+        if: inputs.tier == 'full'
         run: |
           go test -count=1 -v -tags=integration -timeout 20m -run 'WordPress' ./app | tee /tmp/wpimport.log
           # A skipped test would make the done criteria vacuous.
@@ -611,10 +663,11 @@ jobs:
       # v1-22b: the admin wizard drives the same import end to end (httptest +
       # a real session) and migrates its own scratch database.
       - name: Import wizard integration test
+        if: inputs.tier == 'full'
         run: |
           go test -count=1 -v -tags=integration -timeout 20m -run 'WordPressWizard' ./internal/server | tee /tmp/wpwizard.log
           grep -q -e "^--- PASS: TestWordPressWizardImport_Integration " /tmp/wpwizard.log
       - name: Fixture logs
-        if: failure()
+        if: inputs.tier == 'full' && failure()
         working-directory: .
         run: docker compose -f test/wpfixture/docker-compose.yml logs --no-color --tail=200
