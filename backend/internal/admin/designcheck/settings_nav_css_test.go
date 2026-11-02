@@ -62,6 +62,9 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		t.Error("the docked hairline must not hang on the sticky subnav's border or min-height")
 	}
 	phone := css[strings.Index(css, "@media (max-width: 640px)"):]
+	if !strings.Contains(phone, "padding: var(--space-2) var(--space-4) 0;") {
+		t.Error("the phone scroller must be inset like the page below it (16px sides)")
+	}
 	if !strings.Contains(phone, "background: none;") {
 		t.Error("the phone grid must drop the docked hairline (the scroller has its own bottom border)")
 	}

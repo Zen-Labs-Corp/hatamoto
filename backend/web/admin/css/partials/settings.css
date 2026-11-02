@@ -93,7 +93,7 @@
   /* The subnav is a scroller above the page: one row of links under a hairline. */
   /* Edge shadows appear only on the side that has more links (scroll-linked via background-attachment), so no mask hides focus outlines. */
   .hm-subnav {
-    position: static; max-height: none; padding: 0; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-bottom: 1px solid var(--border);
+    position: static; max-height: none; padding: var(--space-2) var(--space-4) 0; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-bottom: 1px solid var(--border);
     --hm-edge: color-mix(in srgb, var(--text) 14%, transparent);
     background:
       linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
