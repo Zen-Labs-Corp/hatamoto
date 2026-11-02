@@ -349,3 +349,71 @@ func TestSEOWriteErrorMapsEntityRefusals(t *testing.T) {
 		t.Errorf("a database error became a validation error: %+v", got)
 	}
 }
+
+// seo_get's document is a valid patch: sending it back unchanged is accepted
+// and writes no value, and a real edit among the unchanged built-in fields
+// writes only that edit.
+func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	r := newSEORig(t)
+	r.svc.schemas = append(r.svc.schemas.(fakeSEOSchemas),
+		&entity.EntitySchema{ID: uuid.New(), Slug: entity.PersonSchemaSlug, IsBuiltin: true, Settings: json.RawMessage(`{"schema_org_type":"Person"}`)})
+	ctx := context.Background()
+	doc, err := r.svc.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(doc)
+	var full map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &full); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := r.svc.Update(ctx, keyActor, full); err != nil {
+		t.Fatalf("the unchanged document was refused: %v", err)
+	}
+	fixed := map[uuid.UUID]*entity.EntitySchema{}
+	for _, sc := range r.svc.schemas.(fakeSEOSchemas) {
+		fixed[sc.ID] = sc
+	}
+	checkFixed := func() {
+		t.Helper()
+		for _, p := range r.back.patches {
+			switch sc := fixed[p.id]; {
+			case sc.Slug == "post" && (p.patch.ArchiveTitle != nil || p.patch.ArchiveDescription != nil),
+				sc.Slug == entity.PersonSchemaSlug && p.patch.SchemaOrgType != nil:
+				t.Errorf("an unchanged fixed field of %s was written: %+v", sc.Slug, p.patch)
+			}
+		}
+	}
+	checkFixed()
+
+	var ts map[string]map[string]any
+	if err := json.Unmarshal(full[seoTypeSettingsKey], &ts); err != nil {
+		t.Fatal(err)
+	}
+	ts["doc"]["archive_title"] = "Every doc"
+	full[seoTypeSettingsKey], _ = json.Marshal(ts)
+	r.back.patches = nil
+	if _, err := r.svc.Update(ctx, keyActor, full); err != nil {
+		t.Fatalf("the edited document was refused: %v", err)
+	}
+	var got *string
+	for _, p := range r.back.patches {
+		if p.id == r.docType.ID {
+			got = p.patch.ArchiveTitle
+		}
+	}
+	checkFixed()
+	if got == nil || *got != "Every doc" {
+		t.Errorf("doc archive title = %v", got)
+	}
+
+	// A real change to a forbidden field is still refused.
+	ts["post"]["archive_title"] = "changed"
+	full[seoTypeSettingsKey], _ = json.Marshal(ts)
+	if f := fieldsOf(t, func() error { _, err := r.svc.Update(ctx, keyActor, full); return err }()); f["type_settings[post][archive_title]"] == "" {
+		t.Errorf("fields = %v", f)
+	}
+}

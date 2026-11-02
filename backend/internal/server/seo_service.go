@@ -470,13 +470,27 @@ func seoSchemaPatch(sc *entity.EntitySchema, p seoTypeSettings, field string, fe
 		ArchiveTitle: p.ArchiveTitle, ArchiveDescription: p.ArchiveDescription,
 		SchemaOrgType: p.SchemaOrgType, ArticleType: p.ArticleType, FAQFromContent: p.FAQFromContent,
 	}
-	if sc.IsBuiltin && sc.Slug != entity.PersonSchemaSlug && (p.ArchiveTitle != nil || p.ArchiveDescription != nil) {
-		fe.add(field+"[archive_title]", "The archive text of a built-in type cannot be changed.")
-		ok = false
+	// A value the type cannot take is refused only when it differs from the
+	// stored one: seo_get writes every field, so sending it back unchanged is
+	// a no-op.
+	cur, _ := sc.URLSettings()
+	if sc.IsBuiltin && sc.Slug != entity.PersonSchemaSlug {
+		if p.ArchiveTitle != nil && *p.ArchiveTitle != cur.ArchiveTitle {
+			fe.add(field+"[archive_title]", "The archive text of a built-in type cannot be changed.")
+			ok = false
+		}
+		if p.ArchiveDescription != nil && *p.ArchiveDescription != cur.ArchiveDescription {
+			fe.add(field+"[archive_description]", "The archive text of a built-in type cannot be changed.")
+			ok = false
+		}
+		out.ArchiveTitle, out.ArchiveDescription = nil, nil
 	}
-	if p.SchemaOrgType != nil && (sc.Slug == entity.PersonSchemaSlug || entity.SchemaFixesJSONLDType(sc)) {
-		fe.add(field+"[schema_org_type]", "This type's schema type is fixed by the type itself.")
-		ok = false
+	if sc.Slug == entity.PersonSchemaSlug || entity.SchemaFixesJSONLDType(sc) {
+		if p.SchemaOrgType != nil && *p.SchemaOrgType != cur.SchemaOrgType {
+			fe.add(field+"[schema_org_type]", "This type's schema type is fixed by the type itself.")
+			ok = false
+		}
+		out.SchemaOrgType = nil
 	}
 	if p.Sitemap != nil {
 		st, _ := sc.URLSettings()
