@@ -147,21 +147,15 @@
 <p class="hm-field__help" id="indexnow-endpoint-help">The search engine that receives the pings. They share them with the others.</p>
 </div>
 <p class="hm-muted">Last ping: see the server log.</p>
-</div></section>
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
-</form>
-<form method="post" action="/admin/settings/seo/indexnow" class="hm-cardform">
-<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<section class="hm-card" id="key" aria-labelledby="key-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="key-title">Key</h2><p class="hm-muted">Search engines fetch this key from your site to check the pings are yours.</p></div>
-<div class="hm-card__body">
 <div class="hm-field">
 <label class="hm-field__label" for="indexnow-key">Key</label>
 <input class="hm-field__control" type="text" id="indexnow-key" name="key_display" aria-describedby="indexnow-key-help" disabled="disabled" readonly="readonly">
 <p class="hm-field__help" id="indexnow-key-help">A key is made the first time you turn the pings on.</p>
 </div>
-</div></section>
-</div><footer class="hm-card__foot"><input type="hidden" name="regenerate" value="true"><button type="submit" class="hm-btn hm-btn--secondary"><span>New key</span></button></footer></section>
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</form>
+<form method="post" action="/admin/settings/seo/indexnow" id="indexnow-regenerate">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="regenerate" value="true">
 </form>
 
 </div>

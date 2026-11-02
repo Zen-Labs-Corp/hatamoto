@@ -7,15 +7,11 @@
 {{template "hm/field" dict "ID" "indexnow-enabled" "Name" "enabled" "Label" "Send IndexNow pings when public pages change" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .State.Enabled}}
 {{template "hm/field" dict "ID" "indexnow-endpoint" "Name" "endpoint" "Label" "Endpoint" "Control" "select" "Options" .Endpoints "Help" "The search engine that receives the pings. They share them with the others." "Error" (index .Errs "indexnow-endpoint")}}
 <p class="hm-muted">Last ping: see the server log.</p>
-{{template "hm/card-end"}}
-{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
-</form>
-<form method="post" action="{{adminPath}}/settings/seo/indexnow" class="hm-cardform">
-{{template "hm/csrf" $}}
-{{template "hm/card-start" dict "ID" "key" "Title" "Key" "Heading" "h2" "Description" "Search engines fetch this key from your site to check the pings are yours."}}
 {{if .State.Key}}{{template "hm/field" dict "ID" "indexnow-key" "Name" "key_display" "Label" "Key" "Value" .State.Key "Help" .KeyHelp "Attrs" (attrmap "readonly" "readonly" "spellcheck" "false" "autocomplete" "off")}}
 {{else}}{{template "hm/field" dict "ID" "indexnow-key" "Name" "key_display" "Label" "Key" "Help" "A key is made the first time you turn the pings on." "Attrs" (attrmap "readonly" "readonly" "disabled" "disabled")}}{{end}}
-{{template "hm/card-end"}}
-{{template "hm/card-foot"}}<input type="hidden" name="regenerate" value="true">{{template "hm/button" dict "Label" "New key" "Type" "submit"}}{{template "hm/card-foot-end"}}
+{{template "hm/card-foot"}}{{if .State.Key}}{{template "hm/button" dict "Label" "New key" "Type" "submit" "Attrs" (attrmap "form" "indexnow-regenerate")}}{{end}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+<form method="post" action="{{adminPath}}/settings/seo/indexnow" id="indexnow-regenerate">
+{{template "hm/csrf" $}}<input type="hidden" name="regenerate" value="true">
 </form>
 {{end}}{{end}}
