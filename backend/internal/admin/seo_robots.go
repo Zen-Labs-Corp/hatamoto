@@ -96,12 +96,11 @@ func (a *Admin) seoRobotsErrors(set seo.Settings, st robotsState) []ui.FieldErro
 	probe := set.Clone()
 	probe.Robots = st.Set
 	found := append([]seo.FieldError(nil), st.Errs...)
-	for _, fe := range probe.Validate() {
+	for _, fe := range probe.ValidateWith(a.adminPath) {
 		if strings.HasPrefix(fe.Field, "robots") {
 			found = append(found, fe)
 		}
 	}
-	found = append(found, seo.ValidateRobotsLines(st.Set.ExtraLines, a.adminPath)...)
 	var errs []ui.FieldError
 	seen := map[string]bool{}
 	for _, fe := range found {

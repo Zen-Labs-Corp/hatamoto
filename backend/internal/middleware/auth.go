@@ -136,6 +136,40 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 	}
 }
 
+// RequireOwnerOrKeyScope admits an API key holding read (GET/HEAD) or write
+// (any other method) scope, or a session whose role is owner. Keys carry
+// synthesised editor claims, so the decision for a key never looks at the role.
+func RequireOwnerOrKeyScope(read, write auth.APIKeyScope) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			trace(r, "ownerOrKey")
+			key, hasKey := GetAPIKey(r.Context())
+			if hasKey || GetAuthType(r.Context()) == AuthTypeAPIKey {
+				need := write
+				if r.Method == http.MethodGet || r.Method == http.MethodHead {
+					need = read
+				}
+				if !hasKey || !key.HasScope(need) {
+					http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+			claims, ok := GetClaims(r.Context())
+			if !ok {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			if claims.Role != "owner" {
+				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // GetUserID extracts user ID from context (shorthand).
 func GetUserID(ctx context.Context) (uuid.UUID, bool) {
 	claims, ok := GetClaims(ctx)

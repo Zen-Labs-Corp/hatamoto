@@ -410,9 +410,9 @@ func seoTitlesFromForm(form url.Values, stored titlesState) titlesState {
 	next := titlesState{Set: stored.Set.Clone(), Kinds: stored.Kinds}
 	set := &next.Set
 	set.Separator = form.Get("separator")
-	set.Home = seoTemplateOrDefault(form.Get("home"))
+	set.Home = seo.TemplateOrDefault(form.Get("home"))
 	for _, k := range seoArchiveKeys {
-		setArchiveValue(&set.Archives, k.Key, seoTemplateOrDefault(form.Get("archives["+k.Key+"]")))
+		setArchiveValue(&set.Archives, k.Key, seo.TemplateOrDefault(form.Get("archives["+k.Key+"]")))
 	}
 	for _, row := range stored.Types {
 		p := "type[" + row.Slug + "]"
@@ -444,13 +444,6 @@ func seoTitlesFromForm(form url.Values, stored titlesState) titlesState {
 	}
 	set.Index = seoIndexFromForm(form, set.Index, stored.Types, stored.Kinds)
 	return next
-}
-
-func seoTemplateOrDefault(v string) string {
-	if v = strings.TrimSpace(v); v != "" {
-		return v
-	}
-	return seo.DefaultTitle
 }
 
 // seoTitlesErrors validates the submitted tab: the template rules plus the
@@ -550,7 +543,8 @@ func (a *Admin) handleSEOTitlesSave(w http.ResponseWriter, r *http.Request) {
 	n := next.Set
 	apply := func(s *seo.Settings) {
 		s.Separator, s.Home, s.Archives = n.Separator, n.Home, n.Archives
-		seoIndexSave(s, n.Index)
+		s.Index = n.Index
+		seo.NormalizeIndex(&s.Index)
 		for _, row := range next.Types {
 			if t, ok := n.Types[row.Slug]; ok {
 				s.Types[row.Slug] = t

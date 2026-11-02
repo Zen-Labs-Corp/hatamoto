@@ -25,6 +25,7 @@ import (
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/seosvc"
 	"hatamoto.dev/core/internal/taxonomy"
 )
 
@@ -80,6 +81,13 @@ type Deps struct {
 	// events do not cover (menus, redirects, terms).
 	Changed func(ctx context.Context)
 
+	// SEO and NotFound serve the seo_* tools; both are optional and the tools
+	// say so when one is nil.
+	SEO      seosvc.Service
+	NotFound interface {
+		List404Entries(ctx context.Context, p redirect.NotFoundListParams) ([]*redirect.NotFoundEntry, int, error)
+	}
+
 	// The builder tools. BuilderEntities defaults to Entities; the others
 	// are optional and the tools that need one say so when it is nil.
 	BuilderEntities entity.BuilderStore
@@ -107,6 +115,7 @@ func New(d Deps, version string) http.Handler {
 	s.registerContent()
 	s.registerInsight()
 	s.registerBuilder()
+	s.registerSEO()
 
 	// A base64 upload of the largest allowed file (plus JSON framing) must fit.
 	// The SDK's DNS-rebinding guard rejects a non-loopback Host on a loopback

@@ -41,7 +41,7 @@ func (a *Admin) termsSEOTable(ctx context.Context, t ui.Table, nodes []termNode,
 		var phTitle, phDesc string
 		if lc.set != nil {
 			in := seoInput{Title: n.Name, Kind: seo.KindTaxonomy, TermKind: n.Kind, Term: n.Name, SEO: lc.set, SiteName: lc.site, Tagline: lc.tagline}
-			r := seo.Resolve(lc.set, in.resolverInput())
+			r := seo.Resolve(lc.set, in.ResolverInput())
 			phTitle, phDesc = strings.TrimSpace(r.Title), strings.TrimSpace(r.Description)
 		}
 		edit := func(name, value, label, ph, control string, max int) ui.Cell {

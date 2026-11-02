@@ -64,6 +64,18 @@ Until they accept, the invitation appears under **Pending invitations**, with **
 
 6. When a program no longer needs its key, use the key's row in the list: **Revoke** stops it at once, **New secret** replaces it with a fresh one (the old secret stops working), and **Delete** removes it.
 
+### Change SEO settings with a key
+
+A key with **Change SEO settings** can edit the site's search settings. Only the fields you send change, and `null` removes an entry from a list of settings. This example turns the 404 monitor off (stored as `disabled`) and sets the title separator:
+
+```bash
+curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
+  -d '{"monitor404": {"disabled": true}, "separator": "-"}' \
+  https://example.com/api/v1/settings/seo
+```
+
+A wrong field answers `422` with a `fields` list that names each one. **Read SEO settings** is enough for `GET` on the same address.
+
 ## Check it worked
 
 - Your colleague appears in the users list with the role you chose, and their **Last sign-in** shows a date once they have signed in.

@@ -51,6 +51,7 @@ func TestMiddlewareChainGolden(t *testing.T) {
 		{"GET", "/api/v1/users/p1/extra"}, {"DELETE", "/api/v1/public/site"},
 		{"GET", "/api/v1/entities/p1/terms"}, {"PUT", "/api/v1/entities/p1/terms"},
 		{"GET", "/api/v1/settings/site"}, {"PATCH", "/api/v1/settings/site"},
+		{"GET", "/api/v1/settings/seo"}, {"PATCH", "/api/v1/settings/seo"},
 		{"HEAD", "/api/v1/me"}, {"HEAD", "/api/v1/users/"}, {"HEAD", "/sitemap-en.xml"}, {"HEAD", "/theme/assets/x.css"},
 		{"POST", "/theme/assets/x.css"}, {"GET", "/foo"}, {"GET", "/foo/bar"}, {"HEAD", "/foo/bar"},
 		{"OPTIONS", "/api/v1/me"},

@@ -202,6 +202,18 @@ func (s Settings) Clone() Settings {
 	return c
 }
 
+// ValidateWith is Validate plus the robots rule that needs the admin address:
+// no extra robots line may name adminPath. An empty adminPath is Validate.
+func (s Settings) ValidateWith(adminPath string) []FieldError {
+	errs := s.Validate()
+	for _, fe := range errs {
+		if fe.Field == robotsExtraField {
+			return errs // one problem per field; the stricter check adds nothing
+		}
+	}
+	return append(errs, ValidateRobotsLines(s.Robots.ExtraLines, adminPath)...)
+}
+
 // Validate checks every field and returns one error per problem.
 func (s Settings) Validate() []FieldError {
 	var errs []FieldError

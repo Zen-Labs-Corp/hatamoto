@@ -85,7 +85,7 @@ func (lc seoListContext) placeholders(e *entity.Entity, sc *entity.EntitySchema,
 	if sc != nil {
 		in.SchemaSlug = sc.Slug
 	}
-	r := seo.Resolve(lc.set, in.resolverInput())
+	r := seo.Resolve(lc.set, in.ResolverInput())
 	return strings.TrimSpace(r.Title), strings.TrimSpace(r.Description)
 }
 

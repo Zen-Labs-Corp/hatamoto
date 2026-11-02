@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased: SEO settings over the API and MCP
+
+An owner, or a script with an API key, can now read and change the site's SEO settings through `GET` and `PATCH /api/v1/settings/seo`, and an MCP client can do the same with five new tools. This is a minor, additive release.
+
+- **Scopes.** Two new API key scopes, `read:seo` and `write:seo` (`write:seo` implies `read:seo`). Existing keys do not gain them, except `*` keys, which allow everything and so can now read and change SEO settings too (site-wide noindex, robots lines, the AI-crawler policy). Review any `*` key before you upgrade. The admin key form lists them as **Read SEO settings** and **Change SEO settings**.
+- **REST.** `GET` needs `read:seo`, `PATCH` needs `write:seo`; an owner session works too. `PATCH` merges: absent fields are unchanged, `null` deletes a map entry, unknown keys are refused, and invalid input answers `422` with a `fields` map. The IndexNow key is never returned and cannot be set. Fields keep their stored polarity (for example `monitor404.disabled`). This is the only non-entity route an API key reaches besides the existing allowlist.
+- **MCP.** `seo_get`, `seo_update` (`write:seo`), `seo_preview`, `seo_analyze` and `seo_404_list`; all but `seo_update` need `read:seo`.
+- Every change writes an audit row with the way in, the key and the sections changed.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.**
+
 ## Unreleased: Shared content in template lists on multi-locale sites
 
 Theme data funcs (`recent`, `query`, `terms`, `attrValues`) now include shared (`und`) content plus the default locale on multi-locale sites. Known limit: on a non-default locale page the lists still use the default locale plus shared content.

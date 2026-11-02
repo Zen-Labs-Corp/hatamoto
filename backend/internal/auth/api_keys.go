@@ -46,7 +46,10 @@ const (
 	ScopeWriteMenus     APIKeyScope = "write:menus"
 	ScopeWriteRedirects APIKeyScope = "write:redirects"
 	ScopeWriteTerms     APIKeyScope = "write:terms"
-	ScopeAll            APIKeyScope = "*"
+	// SEO settings (Settings > SEO): write:seo implies read:seo.
+	ScopeReadSEO  APIKeyScope = "read:seo"
+	ScopeWriteSEO APIKeyScope = "write:seo"
+	ScopeAll      APIKeyScope = "*"
 )
 
 // ValidScopes returns all valid API key scopes.
@@ -63,6 +66,8 @@ func ValidScopes() []APIKeyScope {
 		ScopeWriteMenus,
 		ScopeWriteRedirects,
 		ScopeWriteTerms,
+		ScopeReadSEO,
+		ScopeWriteSEO,
 		ScopeAll,
 	}
 }

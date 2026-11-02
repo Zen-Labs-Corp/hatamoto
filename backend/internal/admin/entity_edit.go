@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/seo"
+	"hatamoto.dev/core/internal/seopanel"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/urlpattern"
 )
@@ -271,13 +272,6 @@ func attrsMap(raw json.RawMessage) map[string]any {
 
 func str(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 
-// robotsNoIndex reports whether attributes.seo.robots (written by the React
-// SEO tab, a comma separated list such as "noindex, follow") asks for noindex.
-func robotsNoIndex(m map[string]any) bool {
-	seo, _ := m["seo"].(map[string]any)
-	return strings.Contains(strings.ToLower(str(seo, "robots")), "noindex")
-}
-
 // dropNoIndexRobots removes the noindex directive from attributes.seo.robots,
 // keeping its other directives (and removing the key when none are left).
 func dropNoIndexRobots(m map[string]any) {
@@ -299,20 +293,12 @@ func dropNoIndexRobots(m map[string]any) {
 }
 
 func seoFrom(m map[string]any) seoForm {
-	b, _ := m["no_index"].(bool)
-	b = b || robotsNoIndex(m)
-	seoMap, _ := m["seo"].(map[string]any)
-	d := seo.ParseDirectives(str(seoMap, "robots"))
-	f := seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
-		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b,
-		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld"),
-		HideFromSitemap: m["hide_from_sitemap"] == true || str(m, "hide_from_sitemap") == "true",
-		BreadcrumbTitle: str(m, "breadcrumb_title"), PrimaryTerm: str(m, "primary_term"),
-		NoFollow: d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
-	if d.MaxSnippet != nil {
-		f.MaxSnippet = strconv.Itoa(*d.MaxSnippet)
-	}
-	return f
+	f := seopanel.FromAttrs(m)
+	return seoForm{Title: f.Title, Description: f.Description, Canonical: f.Canonical, OGImage: f.OGImage,
+		OGTitle: f.OGTitle, OGDescription: f.OGDescription, NoIndex: f.NoIndex,
+		SchemaType: f.SchemaType, CustomJSONLD: f.CustomJSONLD, HideFromSitemap: f.HideFromSitemap,
+		BreadcrumbTitle: f.BreadcrumbTitle, PrimaryTerm: f.PrimaryTerm,
+		NoFollow: f.NoFollow, NoArchive: f.NoArchive, NoSnippet: f.NoSnippet, MaxSnippet: f.MaxSnippet, MaxImagePreview: f.MaxImagePreview}
 }
 
 // mergeRobots writes the Advanced tab's directives into attributes.seo.robots.
@@ -747,25 +733,6 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	a.Render(w, r, status, "entities/edit", v)
 }
 
-// bodyProperty is the schema's text property the SEO checks read as the body:
-// "content" or "body" when the type has one of type string, else "".
-func bodyProperty(sc *entity.EntitySchema) string {
-	var s struct {
-		Properties map[string]struct {
-			Type string `json:"type"`
-		} `json:"properties"`
-	}
-	if json.Unmarshal(sc.Schema, &s) != nil {
-		return ""
-	}
-	for _, name := range []string{"content", "body"} {
-		if s.Properties[name].Type == "string" {
-			return name
-		}
-	}
-	return ""
-}
-
 // entityPanel builds the shared SEO panel for the entity as the form holds it.
 // A type with no text body is checked on its title, description and address
 // only. e is nil on a new entity.
@@ -776,7 +743,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		OGTitle: f.SEO.OGTitle, OGDescription: f.SEO.OGDescription, OGImage: f.SEO.OGImage, Social: true,
 		SchemaType: f.SEO.SchemaType, CustomJSONLD: f.SEO.CustomJSONLD,
 	}
-	if prop := bodyProperty(sc); prop != "" {
+	if prop := seopanel.BodyProperty(sc); prop != "" {
 		in.Mode, in.Content = ModeBody, str(attrs, prop)
 	}
 	if a.deps.BaseURL != nil {

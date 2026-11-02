@@ -97,6 +97,8 @@ func TestEveryProtectedRouteDeniedForKeyUnlessAllowlisted(t *testing.T) {
 		"POST /api/v1/entities/{id}/restore/{version}": true,
 		"POST /api/v1/linking/suggest/{entity_id}":     true, // non-mutating suggestions (read:entities)
 		"POST /api/v1/linking/insert":                  true, // wrap one anchor (write:entities)
+		"GET /api/v1/settings/seo/":                    true, // read:seo
+		"PATCH /api/v1/settings/seo/":                  true, // write:seo
 	}
 
 	seen := map[string]bool{}
