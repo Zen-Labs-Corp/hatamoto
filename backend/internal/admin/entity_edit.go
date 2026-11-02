@@ -310,7 +310,7 @@ func (s seoForm) schemaErrors(errs map[string]string) {
 		errs["seo_schema_type"] = "Choose one of the listed schema types"
 	}
 	if err := entity.ValidateCustomJSONLD(s.CustomJSONLD); err != nil {
-		errs["seo_custom_jsonld"] = "The block " + err.Error()
+		errs["seo_custom_jsonld"] = err.Error()
 	}
 }
 

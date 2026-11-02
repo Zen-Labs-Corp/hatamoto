@@ -31,34 +31,34 @@ func parseCustomJSONLD(s string) ([]map[string]json.RawMessage, error) {
 		return nil, nil
 	}
 	if len(s) > MaxCustomJSONLDBytes {
-		return nil, fmt.Errorf("must be at most %d KB", MaxCustomJSONLDBytes>>10)
+		return nil, fmt.Errorf("Keep it to %d KB or less", MaxCustomJSONLDBytes>>10)
 	}
 	var raw json.RawMessage
 	if err := json.Unmarshal([]byte(s), &raw); err != nil {
-		return nil, fmt.Errorf("is not valid JSON")
+		return nil, fmt.Errorf("Enter valid JSON")
 	}
 	var docs []map[string]json.RawMessage
 	switch raw[0] {
 	case '{':
 		var one map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &one); err != nil {
-			return nil, fmt.Errorf("is not valid JSON")
+			return nil, fmt.Errorf("Enter valid JSON")
 		}
 		docs = []map[string]json.RawMessage{one}
 	case '[':
 		if err := json.Unmarshal(raw, &docs); err != nil {
-			return nil, fmt.Errorf("must be an object or an array of objects")
+			return nil, fmt.Errorf("Use one object or an array of objects")
 		}
 	default:
-		return nil, fmt.Errorf("must be an object or an array of objects")
+		return nil, fmt.Errorf("Use one object or an array of objects")
 	}
 	if len(docs) == 0 {
-		return nil, fmt.Errorf("must hold at least one object")
+		return nil, fmt.Errorf("Add at least one object")
 	}
 	for _, d := range docs {
 		for _, k := range []string{"@context", "@type"} {
 			if !nonEmptyJSON(d[k]) {
-				return nil, fmt.Errorf("every object needs a non-empty %s", k)
+				return nil, fmt.Errorf("Give every object a non-empty %s", k)
 			}
 		}
 	}

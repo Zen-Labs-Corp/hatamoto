@@ -185,3 +185,20 @@ func TestEntityEditRejectsBadSchemaTabFields(t *testing.T) {
 		t.Errorf("a rejected save changed the entity: %s", got)
 	}
 }
+
+// The field error reads as a sentence on its own.
+func TestEntityFormCustomJSONLDErrorReads(t *testing.T) {
+	c := newContentRig(t)
+	for in, want := range map[string]string{
+		`{`:                 "Enter valid JSON",
+		`{"@type":"Thing"}`: "Give every object a non-empty @context",
+		`[]`:                "Add at least one object",
+		`3`:                 "Use one object or an array of objects",
+	} {
+		form := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}, "seo_custom_jsonld": {in}}
+		rec := c.do("POST", "/admin/entities/"+fid(11).String(), "owner-token", form, nil)
+		if body := rec.Body.String(); rec.Code != 422 || !strings.Contains(body, want) || strings.Contains(body, "The block") {
+			t.Errorf("%q: %d, want a message with %q", in, rec.Code, want)
+		}
+	}
+}
