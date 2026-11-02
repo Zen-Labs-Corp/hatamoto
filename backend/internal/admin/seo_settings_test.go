@@ -82,6 +82,20 @@ func (f *fakeSEO) SaveSchema(_ context.Context, patches []SEOSchemaPatch) error 
 	return nil
 }
 
+// SaveSitemap records each patch (built-in types take the sitemap keys), then
+// merges the settings; a failing merge leaves the patches as they were.
+func (f *fakeSEO) SaveSitemap(ctx context.Context, patches []SEOSitemapPatch, fn func(*seo.Settings)) error {
+	saved := maps.Clone(f.patches)
+	for _, p := range patches {
+		f.patches[p.ID] = p.Patch
+	}
+	if err := f.Merge(ctx, fn); err != nil {
+		f.patches = saved
+		return err
+	}
+	return nil
+}
+
 type seoRig struct {
 	*contentRig
 	svc     *fakeSEO

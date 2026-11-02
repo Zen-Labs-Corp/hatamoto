@@ -42,6 +42,10 @@ type SEOService interface {
 	// patched type into the schema settings, all in one transaction. A failing
 	// patch comes back as a *SEOPatchError.
 	SaveSchema(ctx context.Context, patches []SEOSchemaPatch) error
+	// SaveSitemap writes the sitemap exclusion, priority and change frequency
+	// of each patched type and merges the site-wide sitemap settings, all in
+	// one transaction. A failing patch comes back as a *SEOPatchError.
+	SaveSitemap(ctx context.Context, patches []SEOSitemapPatch, fn func(*seo.Settings)) error
 }
 
 // SEOTitlePatch is one type's archive title and description change.
@@ -91,6 +95,8 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+seoVerificationPath, a.handleSEOVerificationSave)
 	owner.HandleFunc("GET "+seoSchemaPath, a.handleSEOSchema)
 	owner.HandleFunc("POST "+seoSchemaPath, a.handleSEOSchemaSave)
+	owner.HandleFunc("GET "+seoSitemapPath, a.handleSEOSitemap)
+	owner.HandleFunc("POST "+seoSitemapPath, a.handleSEOSitemapSave)
 	owner.HandleFunc("GET "+seoKGPath, a.handleSEOKnowledgeGraph)
 }
 
@@ -481,6 +487,8 @@ func seoFieldLabel(field string) string {
 		return seoRobotsLabel(m[2])
 	case "verification":
 		return seoVerificationLabel(m[2])
+	case "sitemap":
+		return seoSitemapLabel(m[2], m[3])
 	case "social":
 		return seoSocialLabel(m[2], m[3])
 	case "social_taxonomy":
