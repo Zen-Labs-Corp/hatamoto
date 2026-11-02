@@ -341,6 +341,16 @@
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-schema" aria-labelledby="seo-tab-schema" data-hm-seo-panel>
 <h4 class="hm-seo__panel-h" data-hm-seo-panel-h>Schema</h4>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_schema_type">Schema type</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="seo_schema_type" name="seo_schema_type" aria-describedby="seo_schema_type-help"><option value="" selected>Use type default (Article)</option><option value="Article">Article</option><option value="BlogPosting">BlogPosting</option><option value="NewsArticle">NewsArticle</option><option value="DefinedTerm">DefinedTerm</option><option value="Person">Person</option><option value="Service">Service</option><option value="Course">Course</option><option value="HowTo">HowTo</option><option value="WebPage">WebPage</option><option value="CreativeWork">CreativeWork</option><option value="Organization">Organization</option><option value="LocalBusiness">LocalBusiness</option></select></div>
+<p class="hm-field__help" id="seo_schema_type-help">Overrides the type of this post&#39;s structured data. It has no effect on types whose markup comes from a plugin.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_custom_jsonld">Custom JSON-LD (added alongside)</label>
+<textarea class="hm-field__control" id="seo_custom_jsonld" name="seo_custom_jsonld" rows="6" aria-describedby="seo_custom_jsonld-help" autocomplete="off" spellcheck="false"></textarea>
+<p class="hm-field__help" id="seo_custom_jsonld-help">Must be valid JSON with @context and @type. Max 16 KB. It is added next to the generated data, never merged into it.</p>
+</div>
 <div id="seo-schema"><details class="hm-bp__ld" open><summary>Structured data: Article &#43; FAQPage</summary><pre class="hm-bp__pre" tabindex="0">{
   &#34;@context&#34;: &#34;https://schema.org&#34;,
   &#34;@graph&#34;: [

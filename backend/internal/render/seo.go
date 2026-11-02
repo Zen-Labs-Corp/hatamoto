@@ -122,12 +122,7 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 		}
 	}
 	if !replaceSiteGraph {
-		core := siteGraphLD(v)
-		s, ok := marshalLDScript(extendSiteGraph(ctx, sg, v, core))
-		if !ok && sg != nil {
-			s, ok = marshalLDScript(core) // a filter answer that cannot be encoded: keep the core graph
-		}
-		if ok {
+		if s, ok := marshalLDScript(SiteGraph(ctx, sg, v)); ok {
 			h.Scripts = append(h.Scripts, s)
 		}
 	}
@@ -191,6 +186,21 @@ func breadcrumbLD(v *PageView) map[string]any {
 		doc["@id"] = absURL(v.BaseURL, last.URL) + "#breadcrumb"
 	} else {
 		doc["@id"] = v.BaseURL + "#breadcrumb"
+	}
+	return doc
+}
+
+// SiteGraph is the site-wide @graph document the page head emits: the core
+// Organization + WebSite graph extended by the render.site_graph filter sg
+// (nil for none). A filter answer that cannot be encoded is dropped for the
+// core graph. The admin preview and the head both call it.
+func SiteGraph(ctx context.Context, sg SiteGraphFilter, v *PageView) map[string]any {
+	core := siteGraphLD(v)
+	doc := extendSiteGraph(ctx, sg, v, core)
+	if sg != nil {
+		if _, err := json.Marshal(doc); err != nil {
+			return core
+		}
 	}
 	return doc
 }

@@ -165,3 +165,14 @@ func TestValidateEditorSetting(t *testing.T) {
 		}
 	}
 }
+
+func TestFAQEnabledDefaultsOn(t *testing.T) {
+	t.Parallel()
+	var st SchemaURLSettings
+	if !st.FAQEnabled() {
+		t.Error("absent key must read as on")
+	}
+	if err := json.Unmarshal([]byte(`{"faq_from_content":false}`), &st); err != nil || st.FAQEnabled() {
+		t.Errorf("false must read as off: %v", err)
+	}
+}

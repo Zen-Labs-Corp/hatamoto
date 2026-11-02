@@ -9,11 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SchemaSEOPatch changes the archive title and description of a schema. A nil
-// field is left alone; an empty string removes the key.
+// SchemaSEOPatch changes the SEO-related settings of a schema. A nil field is
+// left alone; an empty string removes the key. FAQFromContent true removes the
+// key (the default is on); false stores false.
 type SchemaSEOPatch struct {
 	ArchiveTitle       *string
 	ArchiveDescription *string
+	SchemaOrgType      *string
+	ArticleType        *string
+	FAQFromContent     *bool
 }
 
 // UpdateSchemaSEOSettings writes the archive title and description into the
@@ -31,20 +35,24 @@ func (s *Service) UpdateSchemaSEOSettings(ctx context.Context, id uuid.UUID, p S
 }
 
 // PatchSchemaSEOTx is UpdateSchemaSEOSettings inside the caller's transaction:
-// it locks the schema row, patches the archive keys and writes with the same
-// validators and built-in guard as UpdateSchema (a built-in type other than
-// person returns ErrCannotModifyBuiltin). It runs no hooks: after the commit
-// the caller must call SchemaChanged.
+// it locks the schema row, patches the SEO keys and writes with the same
+// validators as UpdateSchema. A built-in type takes the schema type, article
+// type and FAQ keys (they never change its shape); its archive keys change only
+// on person, like UpdateSchema. It runs no hooks: after the commit the caller
+// must call SchemaChanged.
 func (s *Service) PatchSchemaSEOTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, p SchemaSEOPatch) error {
 	existing, err := s.schemaRepo.GetByIDForUpdate(ctx, tx, id)
 	if err != nil {
 		return err
 	}
+	if existing.IsBuiltin && existing.Slug != PersonSchemaSlug && (p.ArchiveTitle != nil || p.ArchiveDescription != nil) {
+		return ErrCannotModifyBuiltin
+	}
 	merged, err := patchSchemaSEOSettings(existing.Settings, p)
 	if err != nil {
 		return err
 	}
-	_, err = s.writeSchemaTx(ctx, tx, existing, &UpdateSchemaInput{Settings: &merged})
+	_, err = s.writeSchemaTx(ctx, tx, existing, &UpdateSchemaInput{Settings: &merged}, true)
 	return err
 }
 
@@ -81,6 +89,19 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 	}
 	if err := set("archive_description", p.ArchiveDescription); err != nil {
 		return nil, err
+	}
+	if err := set("schema_org_type", p.SchemaOrgType); err != nil {
+		return nil, err
+	}
+	if err := set("article_type", p.ArticleType); err != nil {
+		return nil, err
+	}
+	if p.FAQFromContent != nil {
+		if *p.FAQFromContent {
+			delete(obj, "faq_from_content")
+		} else {
+			obj["faq_from_content"] = json.RawMessage("false")
+		}
 	}
 	return json.Marshal(obj)
 }

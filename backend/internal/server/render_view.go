@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -62,6 +63,19 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	return v, nil
 }
 
+// siteGraphPreview is the site-wide JSON-LD graph as the public pages emit
+// it: the same site view (logo size included) and render.site_graph filter,
+// on the homepage path.
+func (s *Server) siteGraphPreview(r *http.Request) (map[string]any, error) {
+	ctx := r.Context()
+	site, err := s.buildSiteView(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v := &render.PageView{BaseURL: s.publicBaseURL(r), Path: "/", Site: site, SEO: s.seoSettings(ctx)}
+	return render.SiteGraph(ctx, pluginhost.SiteGraphFilter(s.hooks), v), nil
+}
+
 // seoSettings returns the site's SEO templates from the cached store, or nil
 // when there is no store. A read error serves the last good copy or the
 // defaults (see seo.Store.Get) and is logged once.
@@ -96,7 +110,7 @@ func pageViewFromRoute(rr *routeResult, baseURL, path string) *render.PageView {
 		p := rr.Page
 		v.Page = pageMeta(p.Meta)
 		v.Breadcrumb = crumbs(p.Breadcrumb)
-		v.JSONLD = jsonLDDocs(p.JSONLD)
+		v.JSONLD = append(jsonLDDocs(p.JSONLD), p.ExtraJSONLD...)
 		v.AICrawlerComment = p.AICrawlerComment
 		if e := p.Entity; e != nil {
 			v.Page.Name = e.Name

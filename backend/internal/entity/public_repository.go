@@ -909,6 +909,7 @@ func (r *PostgresPublicRepository) ListPublishedByAttribute(ctx context.Context,
 func GenerateJSONLD(entity *Entity, baseURL string) (map[string]any, error) {
 	doc, err := generateBaseJSONLD(entity, baseURL)
 	if err == nil && doc != nil {
+		applyTypeOverrides(doc, entity)
 		// Once per call, success path only: plugins see the final document.
 		if enrich := currentJSONLDEnricher(); enrich != nil {
 			enrich(entity, baseURL, doc)

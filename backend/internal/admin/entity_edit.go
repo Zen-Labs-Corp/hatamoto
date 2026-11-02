@@ -31,10 +31,19 @@ const (
 	scheduleLayout = "2006-01-02T15:04"
 )
 
+// seoSchemaKeys are the entity attributes of the SEO panel's Schema tab: the
+// per-entry schema type and one custom JSON-LD block. They are kept apart from
+// seoKeys because only the entity and blog forms edit them; the builder's SEO
+// drawer rewrites seoKeys and must leave these alone. Like seoKeys they are
+// removed from the attribute form.
+var seoSchemaKeys = []string{"schema_type", "custom_jsonld"}
+
 type seoForm struct {
 	Title, Description, Canonical, OGImage string
 	OGTitle, OGDescription                 string
 	NoIndex                                bool
+	// SchemaType and CustomJSONLD are written by mergeSchema, not merge.
+	SchemaType, CustomJSONLD string
 }
 
 type termPick struct {
@@ -266,7 +275,45 @@ func seoFrom(m map[string]any) seoForm {
 	b, _ := m["no_index"].(bool)
 	b = b || robotsNoIndex(m)
 	return seoForm{Title: str(m, "meta_title"), Description: str(m, "meta_description"), Canonical: str(m, "canonical_url"), OGImage: str(m, "og_image"),
-		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b}
+		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b,
+		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld")}
+}
+
+// mergeSchema writes the Schema tab's two keys into attrs, dropping empty
+// values. The entity and blog forms call it after merge; the builder never does.
+func (s seoForm) mergeSchema(m map[string]any) {
+	for k, v := range map[string]string{"schema_type": s.SchemaType, "custom_jsonld": s.CustomJSONLD} {
+		if v = strings.TrimSpace(v); v != "" {
+			m[k] = v
+		} else {
+			delete(m, k)
+		}
+	}
+}
+
+// keepUnpostedSchema gives the Schema tab fields the stored values when the
+// form carried no such field (a script posting the plain entity fields), so a
+// save that never showed the tab cannot clear them.
+func (s *seoForm) keepUnpostedSchema(r *http.Request, prev map[string]any) {
+	stored := seoFrom(prev)
+	if !r.PostForm.Has("seo_schema_type") {
+		s.SchemaType = stored.SchemaType
+	}
+	if !r.PostForm.Has("seo_custom_jsonld") {
+		s.CustomJSONLD = stored.CustomJSONLD
+	}
+}
+
+// schemaErrors checks the Schema tab fields into the form's error map.
+func (s seoForm) schemaErrors(errs map[string]string) {
+	if t := strings.TrimSpace(s.SchemaType); t != "" && !entity.IsAllowedSchemaOrgType(t) {
+		errs["seo_schema_type"] = "Choose one of the listed schema types"
+	}
+	if err := entity.ValidateCustomJSONLD(s.CustomJSONLD); err != nil {
+		// Entity errors are lowercase Go strings; the form shows a sentence.
+		msg := err.Error()
+		errs["seo_custom_jsonld"] = strings.ToUpper(msg[:1]) + msg[1:]
+	}
 }
 
 // merge writes the SEO panel into attrs, dropping empty values.
@@ -295,7 +342,8 @@ func (s seoForm) merge(m map[string]any) {
 func seoFromForm(r *http.Request) seoForm {
 	return seoForm{Title: r.PostFormValue("seo_title"), Description: r.PostFormValue("seo_description"), Canonical: r.PostFormValue("seo_canonical"),
 		OGImage: r.PostFormValue("seo_og_image"),
-		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true"}
+		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true",
+		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld")}
 }
 
 func entityStatusOptions(selected string) []ui.Option {
@@ -460,7 +508,7 @@ func (a *Admin) entityTabs(id, active string) []ui.Tab {
 
 // renderAttrs renders the schema's own fields. SEO keys are shown by the SEO panel.
 func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors) (template.HTML, error) {
-	schema, err := schemaform.WithoutProperties(sc.Schema, seoKeys...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys)...)
 	if err != nil {
 		return "", err
 	}
@@ -494,7 +542,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
 	}
 	f.Panel = a.entityPanel(r, e, sc, f, values)
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -548,6 +596,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		Title: f.Name, MetaTitle: f.SEO.Title, MetaDescription: f.SEO.Description, Slug: f.Slug, Excerpt: str(attrs, "excerpt"),
 		Canonical: f.SEO.Canonical, Published: f.Status == string(entity.StatusPublished), Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true,
 		OGTitle: f.SEO.OGTitle, OGDescription: f.SEO.OGDescription, OGImage: f.SEO.OGImage, Social: true,
+		SchemaType: f.SEO.SchemaType, CustomJSONLD: f.SEO.CustomJSONLD,
 	}
 	if prop := bodyProperty(sc); prop != "" {
 		in.Mode, in.Content = ModeBody, str(attrs, prop)
@@ -568,6 +617,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		a.markHome(r.Context(), &in, e.ID)
 	}
 	panel := buildPanel(in)
+	panel.withSchemaFields(sc, in)
 	if e != nil {
 		panel.JSONLD, panel.JSONLDType = a.jsonLDPreview(e, sc, &posted{f: f, attrs: attrs}, in)
 	}
@@ -733,14 +783,16 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	for _, id := range r.PostForm["term"] {
 		p.picked[id] = true
 	}
-	schema, err := schemaform.WithoutProperties(sc.Schema, seoKeys...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys)...)
 	if err != nil {
 		p.f.Errors["name"] = "This entity type's schema is invalid."
 		return p
 	}
 	attrs, errs := schemaform.Decode(schema, r.PostForm, prev, schemaform.Options{Prefix: attrPrefix})
 	p.attrs, p.errs = attrs, errs
+	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.merge(p.attrs)
+	p.f.SEO.mergeSchema(p.attrs)
 	return p
 }
 
@@ -768,6 +820,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 	if !seo.CanonicalOK(f.SEO.Canonical, storedCanonical) {
 		f.Errors["seo_canonical"] = "Use a full address starting with https:// or a path starting with /"
 	}
+	f.SEO.schemaErrors(f.Errors)
 	if raw, err := json.Marshal(p.attrs); err == nil {
 		if verrs := schemaform.Validate(sc.Schema, raw); len(verrs) > 0 {
 			if p.errs == nil {
@@ -787,7 +840,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 					f.Errors["seo_og_title"] = msgs[0]
 				case "og_description":
 					f.Errors["seo_og_description"] = msgs[0]
-				case "no_index":
+				case "no_index", "schema_type", "custom_jsonld":
 				default:
 					if _, dup := p.errs[path]; !dup {
 						p.errs[path] = msgs

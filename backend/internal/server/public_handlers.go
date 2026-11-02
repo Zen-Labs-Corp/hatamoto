@@ -33,12 +33,15 @@ type NavigationItem struct {
 
 // PublicPageResponse represents a public page API response.
 type PublicPageResponse struct {
-	Entity     *entity.Entity           `json:"entity"`
-	JSONLD     map[string]interface{}   `json:"json_ld,omitempty"`
-	Meta       PageMeta                 `json:"meta"`
-	Breadcrumb []BreadcrumbItem         `json:"breadcrumb"`
-	Editorial  json.RawMessage          `json:"editorial,omitempty"`
-	Segments   []ContentSegmentResponse `json:"segments,omitempty"`
+	Entity     *entity.Entity         `json:"entity"`
+	JSONLD     map[string]interface{} `json:"json_ld,omitempty"`
+	Meta       PageMeta               `json:"meta"`
+	Breadcrumb []BreadcrumbItem       `json:"breadcrumb"`
+	Editorial  json.RawMessage        `json:"editorial,omitempty"`
+	// ExtraJSONLD holds the entry's custom JSON-LD objects, rendered as extra
+	// ld+json scripts after JSONLD. HTML pages only.
+	ExtraJSONLD []json.RawMessage        `json:"-"`
+	Segments    []ContentSegmentResponse `json:"segments,omitempty"`
 	// AICrawlerComment is the HTML comment block embedded in the page for
 	// AI/LLM crawlers. Empty when the entity has been opted out via the
 	// SEO tab's "Include in /llms.txt" toggle.

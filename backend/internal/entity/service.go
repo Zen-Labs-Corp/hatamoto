@@ -171,7 +171,7 @@ func (s *Service) UpdateSchema(ctx context.Context, id uuid.UUID, input *UpdateS
 		if existing, err = s.schemaRepo.GetByIDForUpdate(ctx, tx, id); err != nil {
 			return err
 		}
-		schema, err = s.writeSchemaTx(ctx, tx, existing, input)
+		schema, err = s.writeSchemaTx(ctx, tx, existing, input, false)
 		return err
 	})
 	if err != nil {
@@ -191,9 +191,10 @@ func (s *Service) UpdateSchema(ctx context.Context, id uuid.UUID, input *UpdateS
 }
 
 // writeSchemaTx validates input against the locked existing schema and writes
-// it inside tx. A built-in schema only changes as checkBuiltinUpdate allows.
-func (s *Service) writeSchemaTx(ctx context.Context, tx pgx.Tx, existing *EntitySchema, input *UpdateSchemaInput) (*EntitySchema, error) {
-	if existing.IsBuiltin {
+// it inside tx. A built-in schema only changes as checkBuiltinUpdate allows,
+// unless the caller has done its own built-in check (builtinChecked).
+func (s *Service) writeSchemaTx(ctx context.Context, tx pgx.Tx, existing *EntitySchema, input *UpdateSchemaInput, builtinChecked bool) (*EntitySchema, error) {
+	if existing.IsBuiltin && !builtinChecked {
 		if err := checkBuiltinUpdate(existing, input); err != nil {
 			return nil, err
 		}

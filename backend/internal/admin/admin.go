@@ -205,6 +205,9 @@ type Deps struct {
 	// SEO is the SEO settings store behind Settings > SEO; nil answers those
 	// pages with 503. Set it only when non-nil.
 	SEO SEOService
+	// SiteGraph returns the site-wide Organization + WebSite JSON-LD graph
+	// exactly as the public head emits it; nil hides the preview.
+	SiteGraph func(r *http.Request) (map[string]any, error)
 	// EmailSettings is the SMTP configuration behind Settings > Email and the
 	// setup wizard's Email step; nil answers those pages with 503.
 	EmailSettings EmailSettingsService

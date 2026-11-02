@@ -50,3 +50,25 @@ func (a seoAdmin) SaveTitles(ctx context.Context, patches []admin.SEOTitlePatch,
 	}
 	return nil
 }
+
+// SaveSchema patches the schema rows in one transaction, locked in id order,
+// and clears the schema caches after the commit.
+func (a seoAdmin) SaveSchema(ctx context.Context, patches []admin.SEOSchemaPatch) error {
+	patches = slices.Clone(patches)
+	slices.SortFunc(patches, func(x, y admin.SEOSchemaPatch) int { return bytes.Compare(x.ID[:], y.ID[:]) })
+	err := a.db.WithTx(ctx, func(tx pgx.Tx) error {
+		for _, p := range patches {
+			if err := a.entities.PatchSchemaSEOTx(ctx, tx, p.ID, p.Patch); err != nil {
+				return &admin.SEOPatchError{ID: p.ID, Err: err}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(patches) > 0 {
+		a.entities.SchemaChanged()
+	}
+	return nil
+}

@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+<p class="hm-muted">The knowledge graph tells search engines who runs the site. It is built from your business details, which you edit in General and Locales. Nothing is edited here.</p>
+{{template "hm/table" .Table}}
+{{template "hm/card-start" dict "ID" "kg-preview" "Title" "Preview" "Heading" "h2" "Description" "The site-wide Organization and WebSite data, exactly as the public pages print it."}}
+{{if .Preview}}<pre class="hm-bp__pre" tabindex="0">{{.Preview}}</pre>
+{{else if .PreviewError}}<p class="hm-muted">The preview could not be built right now.</p>
+{{else}}<p class="hm-muted">No preview is available.</p>
+{{end}}{{template "hm/card-end"}}
+</section>
+{{end}}{{end}}

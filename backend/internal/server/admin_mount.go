@@ -118,6 +118,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.seoStore != nil && s.entityService != nil && s.db != nil {
 		d.SEO = seoAdmin{db: s.db, store: s.seoStore, entities: s.entityService}
 	}
+	if s.siteConfig != nil {
+		d.SiteGraph = s.siteGraphPreview
+	}
 	if s.backups != nil {
 		d.Backups = s.backups
 	}

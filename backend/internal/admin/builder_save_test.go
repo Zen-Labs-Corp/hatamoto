@@ -507,3 +507,18 @@ func TestBuilderSaveSEOSocialText(t *testing.T) {
 		t.Errorf("over-long social title: %d %+v", code, out)
 	}
 }
+
+func TestBuilderSaveSEOKeepsTheSchemaTabKeys(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.page.Attributes = json.RawMessage(`{"title":"T","schema_type":"Course","custom_jsonld":"{\"@context\":\"https://schema.org\",\"@type\":\"Thing\"}","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	seo := `,"seo":{"title":"Hello"}`
+	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	m := attrsOf(t, r.ents.ents[r.page.ID].Attributes)
+	if string(m["meta_title"]) != `"Hello"` || string(m["schema_type"]) != `"Course"` || !strings.Contains(string(m["custom_jsonld"]), "Thing") {
+		t.Errorf("attributes = %s", r.ents.ents[r.page.ID].Attributes)
+	}
+}

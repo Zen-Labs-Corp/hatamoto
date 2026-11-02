@@ -56,7 +56,7 @@ var settingsLive = map[string]bool{
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
-	"seo-general": true, "seo-titles": true, "seo-social": true,
+	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
 }
 
@@ -101,6 +101,8 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Roles: ownerOnly},
 		{ID: "seo-titles", Label: "Titles & meta", Final: "/settings/seo/titles", Roles: ownerOnly},
 		{ID: "seo-social", Label: "Social", Final: "/settings/seo/social", Roles: ownerOnly},
+		{ID: "seo-schema", Label: "Schema", Final: "/settings/seo/schema", Roles: ownerOnly},
+		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Roles: ownerOnly},
 	}},
 	{ID: "redirects", Label: "Redirects", Icon: "corner-up-right", Desc: "Send old and changed addresses to the right page.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "redirects", Label: "Redirects", Final: "/settings/redirects"},
