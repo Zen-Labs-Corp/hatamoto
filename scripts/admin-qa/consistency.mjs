@@ -134,12 +134,17 @@ function check({ sticky, list, spec }) {
   }
 
   // UI-D3: button size
+  // Controls inside .hm-listbar are the one exception to the radius: the list toolbar sets every
+  // control to --control-h-sm with --radius-md (listbar.css), so 8 is accepted there and only there.
+  const LISTBAR = ".hm-listbar";
+  const listbarRadius = (() => { const d = document.createElement("div"); d.style.borderTopLeftRadius = "var(--radius-md)"; document.body.appendChild(d); const v = px(getComputedStyle(d).borderTopLeftRadius); d.remove(); return v; })();
   for (const b of document.querySelectorAll(".hm-btn")) {
     const r0 = b.getBoundingClientRect();
     if (!visible(b) || b.closest(BTN_OK) || r0.height <= 1) continue; // 1px = visually hidden (Enter-key submit)
     const cs = getComputedStyle(b);
     const h = px(cs.height), r = px(cs.borderTopLeftRadius);
-    if (!((h === 36 || h === 32) && r === 6)) out.push(["UI-D3", sel(b), "button size/radius is not 36|32 / 6", `${h} / ${r}`]);
+    const okR = r === 6 || (r === listbarRadius && b.closest(LISTBAR));
+    if (!((h === 36 || h === 32) && okR)) out.push(["UI-D3", sel(b), "button size/radius is not 36|32 / 6 (32 / 8 in a list toolbar)", `${h} / ${r}`]);
   }
 
   // UI-D4: switches and segmented controls
@@ -191,7 +196,10 @@ function check({ sticky, list, spec }) {
       const cs = getComputedStyle(el);
       for (const [prop, value] of Object.entries(props)) {
         if (prop === "height" && el.matches(".hm-badge--wrap")) continue; // a wrapping badge grows with its text on narrow screens (badge.css)
-        const got = cs.getPropertyValue(prop), exp = wanted(prop, value);
+        const exp = wanted(prop, value);
+        const got = cs.getPropertyValue(prop);
+        // In a list toolbar the radius may also be --radius-md instead of --radius-sm (see UI-D3).
+        if (prop === "border-top-left-radius" && value === "var(--radius-sm)" && el.closest(LISTBAR) && got === wanted(prop, "var(--radius-md)")) continue;
         if (got !== exp) out.push(["UI-D14", sel(el), `${name} ${prop} is not ${value}`, `${got} != ${exp}`]);
       }
     }
@@ -228,7 +236,7 @@ function check({ sticky, list, spec }) {
   // sub row sits under an underline row.
   const here = location.href.startsWith("http") ? location.href : "http://qa.test/"; // the self-test page is about:blank
   const PILL_PARAMS = new Set(["group", "from", "to", "range", "view"]);
-  const rows = [...document.querySelectorAll("nav.hm-tabs")].filter(visible);
+  const rows = [...document.querySelectorAll("nav.hm-tabs, div.hm-tabs[role=group]")].filter(visible);
   let tabRows = 0, underlineSeen = false;
   for (const r of rows) {
     const variant = r.getAttribute("data-variant") || "";
@@ -263,7 +271,7 @@ function check({ sticky, list, spec }) {
     if (!page || !head) out.push(["UI-D10", "div.hm-page", "no page header on a list screen", ""]);
     else {
       const first = [...page.children].filter((c) => c.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_PRECEDING)
-        .find((c) => visible(c) && !c.matches("nav.hm-tabs, .hm-secretbanner, .hm-flash, .hm-callout, .hm-formerrors, dialog, form[role=search], .hm-filterbar, .hm-media-toolbar"));
+        .find((c) => visible(c) && !c.matches("nav.hm-tabs, div.hm-tabs[role=group], .hm-secretbanner, .hm-flash, .hm-callout, .hm-formerrors, dialog, form[role=search], .hm-filterbar, .hm-media-toolbar"));
       if (!first || !(first.matches(LISTY) || first.querySelector(LISTY))) out.push(["UI-D10", first ? sel(first) : "div.hm-page", "the list is not the first content block after the header", ""]);
       for (const f of page.querySelectorAll("form")) {
         if ((f.getAttribute("method") || "").toLowerCase() !== "post" || f.closest("dialog, .hm-notices, .hm-table, .hm-datatable, .hm-pluginlist, .hm-themes, .hm-pkg") || f.matches("#unsigned") || f.querySelector("#unsigned") || f.querySelector(LISTY) || (f.getAttribute("id") || "").startsWith("bulk-")) continue; // the bulk action form of the table, wrapping it or tied to its select boxes by form=

@@ -13,7 +13,7 @@ const selfTest = process.argv.includes("--self-test");
 const EDITOR_EMAIL = process.env.QA_EDITOR_EMAIL || "editor@qa.test";
 const OWNER_EMAIL = process.env.QA_EMAIL || "owner@qa.test";
 const MAX_PAGES = 200; // the nav link set is finite; this only stops a runaway (e.g. a link that mints new paths)
-const LINKS = "nav#hm-sidebar a.hm-nav-link, a.hm-sidebar__me, nav.hm-subnav a.hm-subnav__link, nav.hm-tabs a[href]";
+const LINKS = "nav#hm-sidebar a.hm-nav-link, a.hm-sidebar__me, nav.hm-subnav a.hm-subnav__link, nav.hm-tabs a[href], div.hm-tabs[role=group] a[href]";
 const KEEP = new Set(["type", "tab", "form"]);
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
