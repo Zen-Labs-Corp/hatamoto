@@ -828,7 +828,7 @@ func personViews(people []bizprofile.Person) []render.PersonView {
 func serviceViews(services []bizprofile.Service) []render.ServiceView {
 	var out []render.ServiceView
 	for _, v := range services {
-		out = append(out, render.ServiceView(v))
+		out = append(out, render.ServiceView{Name: v.Name, Description: v.Description, URL: v.URL, Price: v.Price})
 	}
 	return out
 }

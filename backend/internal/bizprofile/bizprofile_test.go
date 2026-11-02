@@ -388,3 +388,81 @@ func TestMerge_ExtendedOverrides(t *testing.T) {
 		t.Errorf("amenities = %+v", got.Amenities)
 	}
 }
+
+func boolPtr(b bool) *bool { return &b }
+
+func gapSite() Profile {
+	return Profile{
+		CatalogName:          "Site catalogue",
+		ServiceProvider:      boolPtr(true),
+		Services:             []Service{{Name: "SEO", PriceMin: "10", PriceMax: "20", UnitText: "HOUR"}},
+		AdditionalProperties: []AdditionalProperty{{Name: "Recommendation score", Value: "9.6"}},
+	}
+}
+
+func TestMergeInheritsGapFields(t *testing.T) {
+	site := gapSite()
+	got := ResolveContact(site, nil).Profile
+	if got.CatalogName != "Site catalogue" || got.ServiceProvider == nil || !*got.ServiceProvider {
+		t.Errorf("catalogue/provider not inherited: %+v", got)
+	}
+	if !reflect.DeepEqual(got.AdditionalProperties, site.AdditionalProperties) {
+		t.Errorf("additional properties = %+v", got.AdditionalProperties)
+	}
+	if s := got.Services[0]; s.PriceMin != "10" || s.PriceMax != "20" || s.UnitText != "HOUR" {
+		t.Errorf("service range not inherited: %+v", s)
+	}
+}
+
+func TestMergeCardOverridesGapFields(t *testing.T) {
+	card := Profile{
+		CatalogName:          "Card catalogue",
+		ServiceProvider:      boolPtr(false),
+		AdditionalProperties: []AdditionalProperty{{Name: "Rank", Value: "1"}},
+	}
+	got := ResolveContact(gapSite(), &card).Profile
+	if got.CatalogName != "Card catalogue" {
+		t.Errorf("catalog name = %q", got.CatalogName)
+	}
+	if got.ServiceProvider == nil || *got.ServiceProvider {
+		t.Errorf("service_provider = %v, want explicit false", got.ServiceProvider)
+	}
+	if len(got.AdditionalProperties) != 1 || got.AdditionalProperties[0].Name != "Rank" {
+		t.Errorf("additional properties = %+v", got.AdditionalProperties)
+	}
+}
+
+func TestGapFieldsOmittedWhenEmpty(t *testing.T) {
+	b, err := json.Marshal(Profile{Services: []Service{{Name: "SEO"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"catalog_name", "service_provider", "additional_properties", "price_min", "price_max", "unit_text"} {
+		if strings.Contains(string(b), key) {
+			t.Errorf("%s printed for an empty value: %s", key, b)
+		}
+	}
+}
+
+func TestParseKeepsGapFields(t *testing.T) {
+	raw := `{"catalog_name":"C","service_provider":false,"services":[{"name":"S","price_min":"1","price_max":"2","unit_text":"MONTH"}],` +
+		`"additional_properties":[{"name":"N","value":"V","min_value":"1","max_value":"2","unit_text":"U"}]}`
+	p, err := Parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Profile{
+		CatalogName:          "C",
+		ServiceProvider:      boolPtr(false),
+		Services:             []Service{{Name: "S", PriceMin: "1", PriceMax: "2", UnitText: "MONTH"}},
+		AdditionalProperties: []AdditionalProperty{{Name: "N", Value: "V", MinValue: "1", MaxValue: "2", UnitText: "U"}},
+	}
+	if !reflect.DeepEqual(p, want) {
+		t.Errorf("Parse = %+v, want %+v", p, want)
+	}
+	b, _ := json.Marshal(p)
+	back, err := Parse(b)
+	if err != nil || !reflect.DeepEqual(back, want) {
+		t.Errorf("round trip = %s (%v)", b, err)
+	}
+}
