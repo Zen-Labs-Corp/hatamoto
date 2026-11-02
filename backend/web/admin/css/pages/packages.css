@@ -17,7 +17,7 @@
 .hm-pluginlist__issue { text-decoration: none; }
 .hm-pluginlist__link { white-space: nowrap; }
 /* The filter row is the card's top strip, above the heading. */
-.hm-pluginlist__filters { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-kinu); }
+.hm-pluginlist__filters { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-kinu); }
 .hm-pluginlist__search { display: flex; align-items: center; min-width: 16rem; }
 .hm-pluginlist__search .hm-input-affix { flex: 1; }
 .hm-pluginlist__kbd { margin-inline-end: var(--space-2); padding: 0 var(--space-1-5); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }

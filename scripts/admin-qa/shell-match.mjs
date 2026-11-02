@@ -107,7 +107,7 @@ try {
   if (await p.$("#installed")) {
     const pl = await probe(p, "plugins", () => {
       const need = (s) => document.querySelector(s) ?? (() => { throw new Error("missing " + s); })();
-      const f = need("#installed > .hm-pluginlist__filters"), h = need("#installed .hm-card__head");
+      const f = need("#installed .hm-card__body > .hm-pluginlist__filters"), h = need("#installed-title");
       if (!(f.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) throw new Error("filter row is not above the Installed plugins heading");
       const link = [...document.querySelectorAll(".hm-nav-link")].find((a) => a.textContent.includes("Plugins"));
       return { badge: link?.querySelector(".hm-nav-link__badge")?.textContent.trim() ?? "", keys: need("#plugins-q").getAttribute("aria-keyshortcuts"), button: !!document.querySelector(".hm-pluginlist__search button") };
