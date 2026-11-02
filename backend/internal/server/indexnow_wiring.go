@@ -180,8 +180,8 @@ func indexNowEligible(set *seo.Settings, e *entity.Entity) bool {
 
 // indexNowKeyFile answers GET /<key>.txt while IndexNow is on: the key as
 // plain text. name is the single path segment.
-func (s *Server) indexNowKeyFile(name string) (string, bool) {
-	set := s.seoSettings(context.Background())
+func (s *Server) indexNowKeyFile(ctx context.Context, name string) (string, bool) {
+	set := s.seoSettings(ctx)
 	if set == nil || !set.IndexNow.Enabled || set.IndexNow.Key == "" || name != set.IndexNow.Key+".txt" {
 		return "", false
 	}
@@ -190,5 +190,7 @@ func (s *Server) indexNowKeyFile(name string) (string, bool) {
 
 func serveKeyFile(w http.ResponseWriter, key string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	// The key changes when it is renewed or IndexNow is switched off; a shared cache must not keep serving it.
+	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(key))
 }

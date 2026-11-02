@@ -222,7 +222,7 @@ func TestIndexNowKeyFileRoute(t *testing.T) {
 	mountRenderRoutes(r, renderRoutes{
 		pages: f.h, assets: stub("assets"), robots: stub("robots"), sitemap: stub("sitemap"),
 		subSitemap: stub("sub"), llms: stub("llms"), feed: stub("feed"), xsl: stub("xsl"), formPost: stub("form"),
-		keyFile: func(name string) (string, bool) {
+		keyFile: func(_ context.Context, name string) (string, bool) {
 			return testIndexNowKey, on && name == testIndexNowKey+".txt"
 		},
 	})
@@ -232,6 +232,9 @@ func TestIndexNowKeyFileRoute(t *testing.T) {
 	w := getPath(h, "/"+testIndexNowKey+".txt")
 	if w.Code != http.StatusOK || w.Body.String() != testIndexNowKey || w.Header().Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("on: %d %q %q", w.Code, w.Body, w.Header().Get("Content-Type"))
+	}
+	if got := w.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
 	if w := getPath(h, "/other.txt"); strings.Contains(w.Body.String(), testIndexNowKey) {
 		t.Fatal("served for a wrong name")
@@ -243,7 +246,7 @@ func TestIndexNowKeyFileRoute(t *testing.T) {
 }
 
 func TestIndexNowKeyFileFollowsSettings(t *testing.T) {
-	if _, ok := (&Server{}).indexNowKeyFile("x.txt"); ok {
+	if _, ok := (&Server{}).indexNowKeyFile(context.Background(), "x.txt"); ok {
 		t.Fatal("served without a settings store")
 	}
 }

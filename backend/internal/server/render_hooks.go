@@ -88,7 +88,7 @@ type renderRoutes struct {
 	xsl        http.HandlerFunc
 	formPost   http.HandlerFunc
 	// keyFile (optional) answers GET /<name> with the IndexNow key while it is on.
-	keyFile func(name string) (key string, ok bool)
+	keyFile func(ctx context.Context, name string) (key string, ok bool)
 	// capture (optional) records AI-agent hits on every crawler-visible route.
 	capture func(http.Handler) http.Handler
 }
@@ -136,7 +136,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 			return
 		}
 		if rt.keyFile != nil && strings.HasSuffix(req.PathValue("file"), ".txt") {
-			if key, ok := rt.keyFile(req.PathValue("file")); ok {
+			if key, ok := rt.keyFile(req.Context(), req.PathValue("file")); ok {
 				serveKeyFile(w, key)
 				return
 			}
