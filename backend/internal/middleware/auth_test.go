@@ -260,3 +260,44 @@ func TestAuthMiddleware_APICookieBearerAndFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestRequireOwnerOrKeyScope(t *testing.T) {
+	h := RequireOwnerOrKeyScope(auth.ScopeReadSEO, auth.ScopeWriteSEO)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	keyCtx := func(scope auth.APIKeyScope) context.Context {
+		ctx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{Scopes: []auth.APIKeyScope{scope}})
+		ctx = context.WithValue(ctx, authTypeContextKey, AuthTypeAPIKey)
+		// keys run with editor claims; the role must not matter
+		return ContextWithClaims(ctx, &auth.Claims{UserID: uuid.New(), Role: "editor"})
+	}
+	session := func(role string) context.Context {
+		return ContextWithClaims(context.Background(), &auth.Claims{UserID: uuid.New(), Role: role})
+	}
+	cases := []struct {
+		name   string
+		ctx    context.Context
+		method string
+		want   int
+	}{
+		{"owner GET", session("owner"), "GET", 200},
+		{"owner PATCH", session("owner"), "PATCH", 200},
+		{"editor GET", session("editor"), "GET", 403},
+		{"editor PATCH", session("editor"), "PATCH", 403},
+		{"read key GET", keyCtx(auth.ScopeReadSEO), "GET", 200},
+		{"read key PATCH", keyCtx(auth.ScopeReadSEO), "PATCH", 403},
+		{"write key GET", keyCtx(auth.ScopeWriteSEO), "GET", 200},
+		{"write key PATCH", keyCtx(auth.ScopeWriteSEO), "PATCH", 200},
+		{"other key GET", keyCtx(auth.ScopeWriteEntities), "GET", 403},
+		{"other key PATCH", keyCtx(auth.ScopeWriteEntities), "PATCH", 403},
+		{"no auth", context.Background(), "GET", 401},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(c.method, "/", nil).WithContext(c.ctx)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != c.want {
+			t.Errorf("%s: got %d want %d", c.name, rec.Code, c.want)
+		}
+	}
+}

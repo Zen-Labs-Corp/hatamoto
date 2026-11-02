@@ -124,6 +124,35 @@ func TestAuthOrAPIKeyAllowlist(t *testing.T) {
 	}
 }
 
+func TestAuthOrAPIKeySEOSettings(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{
+		"read":  testKey(auth.ScopeReadSEO),
+		"write": testKey(auth.ScopeWriteSEO),
+		"all":   testKey(auth.ScopeAll),
+		"other": testKey(auth.ScopeWriteEntities),
+	})
+	cases := []struct {
+		method, path string
+		want         map[string]bool
+	}{
+		{"GET", "/api/v1/settings/seo", map[string]bool{"read": true, "write": true, "all": true}},
+		{"GET", "/api/v1/settings/seo/", map[string]bool{"read": true, "write": true, "all": true}},
+		{"PATCH", "/api/v1/settings/seo", map[string]bool{"write": true, "all": true}},
+		{"PATCH", "/api/v1/settings/seo/", map[string]bool{"write": true, "all": true}},
+	}
+	for _, c := range cases {
+		for _, name := range []string{"read", "write", "all", "other"} {
+			wantCode := http.StatusForbidden
+			if c.want[name] {
+				wantCode = http.StatusOK
+			}
+			if rec := do(h.handler, c.method, c.path, name); rec.Code != wantCode {
+				t.Errorf("%s %s with %s key: got %d want %d", c.method, c.path, name, rec.Code, wantCode)
+			}
+		}
+	}
+}
+
 func TestDeniedRoutes(t *testing.T) {
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"all": testKey(auth.ScopeAll)})
 	denied := []struct{ method, path string }{
@@ -164,6 +193,16 @@ func TestDeniedRoutes(t *testing.T) {
 		{"POST", "/api/v1/linking/rules"},
 		{"DELETE", "/api/v1/linking/rules/all"},
 		{"GET", "/api/v1/linking/equity"},
+		// settings/seo: GET and PATCH only, exact path
+		{"PUT", "/api/v1/settings/seo"},
+		{"POST", "/api/v1/settings/seo"},
+		{"DELETE", "/api/v1/settings/seo"},
+		{"GET", "/api/v1/settings/seo/extra"},
+		{"PATCH", "/api/v1/settings/seo/extra"},
+		{"GET", "/api/v1/settings/seo/../site"},
+		{"GET", "/api/v1/settings/seo%2Fx"},
+		{"GET", "/api/v1/settings/site"},
+		{"PATCH", "/api/v1/settings/site"},
 	}
 	for _, c := range denied {
 		if rec := do(h.handler, c.method, c.path, "all"); rec.Code != http.StatusForbidden {

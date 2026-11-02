@@ -222,6 +222,8 @@ func (s *Server) handleGetAPIKeyScopes(w http.ResponseWriter, r *http.Request) {
 		auth.ScopeWriteMenus:       "Edit menus (MCP only)",
 		auth.ScopeWriteRedirects:   "Create and delete redirects (MCP only)",
 		auth.ScopeWriteTerms:       "Create tags and categories (MCP only)",
+		auth.ScopeReadSEO:          "Read Settings > SEO values, the AI-crawler policy and the 404 log",
+		auth.ScopeWriteSEO:         "Change Settings > SEO values and the AI-crawler policy (includes read)",
 		auth.ScopeAll:              "Full access to all resources",
 	}
 

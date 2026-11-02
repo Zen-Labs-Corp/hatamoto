@@ -56,6 +56,9 @@ var (
 		// stored content, the same power as PATCH /entities/{id} (write).
 		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/suggest/[^/]+/?$`), auth.ScopeReadEntities},
 		{http.MethodPost, keyRoutePattern(`^/api/v1/linking/insert/?$`), auth.ScopeWriteEntities},
+		// Settings > SEO: read and partial update only.
+		{http.MethodGet, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeReadSEO},
+		{http.MethodPatch, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeWriteSEO},
 	}
 )
 
