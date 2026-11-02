@@ -69,6 +69,15 @@
 .hm-swatchrow .hm-field__label { grid-column: 2; grid-row: 1; align-self: end; font-family: var(--font-mono); }
 .hm-swatchrow .hm-field > :not(.hm-field__label, .hm-field__control) { grid-column: 1 / -1; }
 .hm-swatchrow__hex { grid-column: 2; grid-row: 2; align-self: start; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+/* Live previews on the Colours page: values come from the form via CSSOM custom properties (themepreview.js). */
+.hm-fontsample { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--raised); }
+.hm-fontsample__heading { margin: 0; font-family: var(--hm-preview-font-heading, var(--font-ui)); font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.hm-fontsample__body { margin: 0; font-family: var(--hm-preview-font-body, var(--font-ui)); font-size: var(--text-sm); color: var(--text-2); }
+.hm-cornersample { display: flex; gap: var(--space-3); }
+.hm-cornersample__box { width: 4rem; height: 3rem; border: 1px solid var(--border-field); background: var(--raised); }
+.hm-cornersample__box--sm { border-radius: var(--hm-preview-radius-sm, var(--radius-sm)); }
+.hm-cornersample__box--md { border-radius: var(--hm-preview-radius-md, var(--radius-md)); }
+.hm-cornersample__box--lg { border-radius: var(--hm-preview-radius-lg, var(--radius-lg)); }
 /* Font stacks: one field per row, full width. */
 .hm-fieldgrid--stack { grid-template-columns: minmax(0, 1fr); }
 
