@@ -45,8 +45,9 @@ type browseCard struct {
 	FirstParty                                      bool
 	// Action is the label in the card footer: Install, Installed or Update.
 	Action string
-	// Perms is the footer's permission count text.
-	Perms string
+	// Meta is the muted mono line under the name: the permission count,
+	// prefixed "First-party · " for first-party plugins.
+	Meta string
 }
 
 // browseGroup is one checkbox group of the Filters popover.
@@ -213,15 +214,19 @@ func (a *Admin) browseCard(e RegistryEntry) browseCard {
 	if c.Title == "" {
 		c.Title = e.Name
 	}
+	c.Description = stripTitlePrefix(c.Title, c.Description)
 	r, _ := utf8.DecodeRuneInString(c.Title)
 	c.Initial = string(unicode.ToUpper(r))
 	switch n := len(e.Permissions); {
 	case n == 0:
-		c.Perms = "No permissions"
+		c.Meta = "No permissions"
 	case n == 1:
-		c.Perms = "1 permission"
+		c.Meta = "1 permission"
 	default:
-		c.Perms = fmt.Sprintf("%d permissions", n)
+		c.Meta = fmt.Sprintf("%d permissions", n)
+	}
+	if c.FirstParty {
+		c.Meta = "First-party · " + c.Meta
 	}
 	switch {
 	case e.Update:
@@ -334,7 +339,7 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	about := e.About
 	if about == "" {
-		about = e.Description
+		about = stripTitlePrefix(cmp.Or(e.Title, e.Name), e.Description)
 	}
 	for _, para := range strings.Split(about, "\n") {
 		if para = strings.TrimSpace(para); para != "" {
@@ -368,4 +373,20 @@ func httpURL(s string) string {
 		return ""
 	}
 	return u.String()
+}
+
+// stripTitlePrefix drops a leading "<title>:" (any case) from a registry
+// description, so the card does not repeat its own heading, and capitalises
+// the first letter that follows. Anything else is returned trimmed only.
+func stripTitlePrefix(title, desc string) string {
+	desc = strings.TrimSpace(desc)
+	if title == "" || len(desc) <= len(title) || !strings.EqualFold(desc[:len(title)], title) || desc[len(title)] != ':' {
+		return desc
+	}
+	rest := strings.TrimSpace(desc[len(title)+1:])
+	if rest == "" {
+		return desc
+	}
+	r, n := utf8.DecodeRuneInString(rest)
+	return string(unicode.ToUpper(r)) + rest[n:]
 }

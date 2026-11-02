@@ -55,6 +55,9 @@ func TestBrowsePaging(t *testing.T) {
 	if !strings.Contains(second, "Showing 13–24 of 25") {
 		t.Error("page 2 summary")
 	}
+	if n := strings.Count(first, "25 plugins"); n != 2 { // visible count + hidden live region
+		t.Errorf("count text appears %d times, want the visible count and the live region", n)
+	}
 	if issues := a11y.Check(first, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
@@ -346,10 +349,39 @@ func TestBrowseCardPillAndDrawerWidth(t *testing.T) {
 
 	g, _ := browseRig(t, installedView())
 	body := getBrowse(g, "")
-	if !strings.Contains(body, "hm-badge--sm") || !strings.Contains(body, `data-width="wide"`) {
-		t.Error("First-party pill must be small and the plugin panel wide")
+	if !strings.Contains(body, `data-width="wide"`) {
+		t.Error("the plugin panel must be wide")
+	}
+	if strings.Contains(body, "hm-badge") {
+		t.Error("browse cards carry no star pill")
 	}
 	if strings.Count(body, `role="search"`) != 1 || strings.Contains(body, "hm-pluginbrowse__facets") {
 		t.Error("one search form and no facet column")
+	}
+}
+
+// TestBrowseCardMetaAndPager pins the quiet card (one muted mono meta line for
+// first-party plugins, no star pill, stripped description) and that the pager
+// shows only when there is a second page.
+func TestBrowseCardMetaAndPager(t *testing.T) {
+	t.Parallel()
+
+	view := RegistryView{Host: "registry.example.test", Entries: []RegistryEntry{
+		{Kind: "plugin", Name: "ga", Title: "Google Analytics", Version: "1.0.0", Tier: "first-party", Permissions: []string{"settings.read", "http.fetch"},
+			Description: "Google Analytics: adds the Google tag for your GA4 measurement ID."},
+		{Kind: "plugin", Name: "other", Title: "Other", Version: "1.0.0", Permissions: []string{"kv"}},
+	}}
+	g, _ := browseRig(t, view)
+	body := getBrowse(g, "")
+	for _, want := range []string{`class="hm-plugincard__meta hm-mono">First-party · 2 permissions<`, `>1 permission<`, ">Adds the Google tag for your GA4 measurement ID.<", "hm-listbar"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("browse page misses %q", want)
+		}
+	}
+	if strings.Contains(body, "Google Analytics: adds") || strings.Contains(body, "hm-badge") {
+		t.Error("the title prefix or the star pill is back on the card")
+	}
+	if strings.Contains(body, "hm-pagination") || strings.Contains(body, "Showing ") {
+		t.Error("the pager shows on a single page")
 	}
 }
