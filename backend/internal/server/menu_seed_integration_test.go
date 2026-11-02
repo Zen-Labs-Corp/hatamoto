@@ -85,6 +85,7 @@ func TestMenuSeedIntegration(t *testing.T) {
 	t.Cleanup(func() {
 		c := context.Background()
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_menus`)
+		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_site_config`)
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE slug LIKE $1`, "ms-%-"+sfx)
 	})
 	// oldFallback is what the removed render-time fallback showed: the first 50
@@ -331,7 +332,16 @@ func TestMenuSeedIntegration(t *testing.T) {
 
 	t.Run("starter then seed keeps the starter header order", func(t *testing.T) {
 		reset(false)
-		exec(`DELETE FROM hatamoto_entities WHERE slug IN ('home','about','contact') OR slug LIKE 'hello-%' OR slug LIKE 'welcome-%'`)
+		const starterRows = `slug IN ('home','about','contact') OR slug LIKE 'hello-%' OR slug LIKE 'welcome-%'`
+		exec(`DELETE FROM hatamoto_entities WHERE ` + starterRows)
+		// The starter leaves its pages, post and contact form behind; later tests
+		// in the package expect a database without them.
+		t.Cleanup(func() {
+			c := context.Background()
+			_, _ = db.Pool().Exec(c, `UPDATE hatamoto_site_config SET homepage_entity_id = NULL`)
+			_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entities WHERE `+starterRows)
+			_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_forms WHERE slug = 'contact'`)
+		})
 		inst := &starter.Installer{Entities: srv.entityService, Menus: srv.menuService, Forms: srv.formService, Site: srv.siteConfig}
 		if _, err := inst.Install(ctx, starter.Options{SiteName: "T"}); err != nil {
 			t.Fatal(err)
