@@ -187,3 +187,33 @@ func TestSEOImportExistingSiteWritesNothing_Integration(t *testing.T) {
 		}
 	}
 }
+
+// The settings phase fills the company name with the WordPress title; the
+// organization name from the SEO plugin must still replace it.
+func TestSEOImportOrganizationNameReplacesImportedTitle_Integration(t *testing.T) {
+	d, _ := newSEODeps(t)
+	ctx := context.Background()
+	f := &SEOFile{Plugin: "rankmath", Values: map[string]any{"knowledgegraph_name": "Example Inc"}}
+	r := seoRunner(t, d, "http://127.0.0.1:1", ModeEmpty, Options{NoSEOLive: true, SEOFile: f})
+	r.dump.Site.Title = "Example Blog"
+	if err := r.importSettings(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.importSEO(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cur, err := d.Site.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cur.CompanyName != "Example Inc" {
+		t.Errorf("company name = %q", cur.CompanyName)
+	}
+	var found bool
+	for _, row := range r.res.SEO.Applied {
+		found = found || row.Key == "kg.name"
+	}
+	if !found {
+		t.Errorf("no applied kg.name row: %+v", r.res.SEO)
+	}
+}

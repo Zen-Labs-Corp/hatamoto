@@ -161,7 +161,9 @@ func (r *Runner) seoOrganization(ctx context.Context, file *SEOFile, live *seoLi
 	}
 	if name != "" {
 		wouldRows("kg.name", "Organization name", cur.CompanyName, name)
-		if !existing && cur.CompanyName == "" {
+		// The settings phase already copied the WordPress title into the name:
+		// that is a placeholder the organization name may replace.
+		if !existing && (cur.CompanyName == "" || cur.CompanyName == strings.TrimSpace(r.dump.Site.Title)) && name != cur.CompanyName {
 			in.CompanyName = &name
 			rows = append(rows, SEORow{Key: "kg.name", Label: "Organization name", Value: name})
 		}
