@@ -146,7 +146,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="url">Site address</label>
 <input class="hm-field__control" type="url" id="url" name="url" aria-describedby="url-help">
-<p class="hm-field__help" id="url-help">The public address, like https://example.com. Used in links and emails</p>
+<p class="hm-field__help" id="url-help">The public address, like https://example.com. Used in links and emails.</p>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="domain">Custom domain</label>
@@ -167,7 +167,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="logo">Logo address</label>
 <input class="hm-field__control" type="text" id="logo" name="logo" aria-describedby="logo-help">
-<p class="hm-field__help" id="logo-help">A web address or a path like /media/logo.png</p>
+<p class="hm-field__help" id="logo-help">A web address or a path like /media/logo.png.</p>
 </div>
 </div><footer class="hm-card__foot">
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save identity</span></button>
@@ -207,10 +207,11 @@
 <div class="hm-field">
 <label class="hm-field__label" for="notify">Notification email</label>
 <input class="hm-field__control" type="email" id="notify" name="notify" aria-describedby="notify-help">
-<p class="hm-field__help" id="notify-help">Where form messages and alerts go</p>
+<p class="hm-field__help" id="notify-help">Where form messages and alerts go.</p>
 </div>
 <div class="hm-callout hm-callout--info" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><p>Contact points, opening hours, area served, currency, price range and geo region are used on locale pages.</p><a class="hm-btn hm-btn--secondary" href="/admin/settings/locales"><span>Add languages</span></a></div></div></div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Organisation</h3>
+<div class="hm-sf-cols">
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-name">Legal name</label>
 <input class="hm-field__control" type="text" id="sf-biz-name" name="biz.name" value="" placeholder="Enter Legal name">
 </div>
@@ -220,7 +221,7 @@
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-description">Description</label>
 <textarea class="hm-field__control" id="sf-biz-description" name="biz.description" rows="6" aria-describedby="sf-biz-description-help">
 </textarea>
-<p class="hm-field__help" id="sf-biz-description-help">Empty uses the tagline</p>
+<p class="hm-field__help" id="sf-biz-description-help">Empty uses the tagline.</p>
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-slogan">Slogan</label>
 <input class="hm-field__control" type="text" id="sf-biz-slogan" name="biz.slogan" value="" placeholder="Enter Slogan">
@@ -237,15 +238,17 @@
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-tax_id">Tax ID</label>
 <input class="hm-field__control" type="text" id="sf-biz-tax_id" name="biz.tax_id" value="" placeholder="Enter Tax ID" aria-describedby="sf-biz-tax_id-help">
-<p class="hm-field__help" id="sf-biz-tax_id-help">The tax or company number printed on invoices</p>
+<p class="hm-field__help" id="sf-biz-tax_id-help">The tax or company number printed on invoices.</p>
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-vat_id">VAT ID</label>
 <input class="hm-field__control" type="text" id="sf-biz-vat_id" name="biz.vat_id" value="" placeholder="Enter VAT ID">
 </div>
-<div class="hm-field"><input type="hidden" name="_present.biz.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-biz-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-biz-logo_object" name="biz.logo_object" value="true" aria-describedby="sf-biz-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-biz-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address</p></div>
+<div class="hm-field"><input type="hidden" name="_present.biz.logo_object" value="default"><label class="hm-field__check hm-switch" for="sf-biz-logo_object"><input class="hm-field__box" type="checkbox" role="switch" id="sf-biz-logo_object" name="biz.logo_object" value="true" aria-describedby="sf-biz-logo_object-help"><span>Print the logo with its width and height</span></label><p class="hm-field__help" id="sf-biz-logo_object-help">Only when the logo size is known. Otherwise the logo prints as an address.</p></div>
 
 </div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Address</h3>
+<div class="hm-sf-cols">
 <fieldset class="hm-sf-object" id="sf-biz-address"><legend class="hm-field__label">Postal address</legend>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-address-street">Street</label>
 <input class="hm-field__control" type="text" id="sf-biz-address-street" name="biz.address.street" value="" placeholder="Enter Street">
@@ -264,7 +267,9 @@
 </div></fieldset>
 
 </div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Reach</h3>
+<div class="hm-sf-cols">
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-phone">Phone</label>
 <input class="hm-field__control" type="text" id="sf-biz-phone" name="biz.phone" value="" placeholder="Enter Phone">
 </div>
@@ -278,48 +283,52 @@
 <input type="hidden" name="_present.biz.contact_points" value="1">
 <ol class="hm-repeater__list" role="list" data-hm-sortable>
 </ol>
-<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.contact_points" value="1" formnovalidate>Add contact point</button>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.contact_points" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add contact point</button>
 </fieldset>
 
 </div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Opening hours</h3>
+<div class="hm-sf-cols">
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-hours_note">Hours note</label>
 <input class="hm-field__control" type="text" id="sf-biz-hours_note" name="biz.hours_note" value="" placeholder="Enter Hours note" aria-describedby="sf-biz-hours_note-help">
-<p class="hm-field__help" id="sf-biz-hours_note-help">Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written</p>
+<p class="hm-field__help" id="sf-biz-hours_note-help">Free text, like Mon to Fri 9 to 5. Themes and the contact point show it as written.</p>
 </div>
 <fieldset class="hm-repeater" id="sf-biz-opening_hours" data-hm-repeater data-path="biz.opening_hours"><legend class="hm-field__label">Opening hours <span class="hm-muted">(0 items)</span></legend>
 <input type="hidden" name="_present.biz.opening_hours" value="1">
 <ol class="hm-repeater__list" role="list" data-hm-sortable>
 </ol>
-<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.opening_hours" value="1" formnovalidate>Add opening hours</button>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.opening_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add opening hours</button>
 </fieldset>
 
 <fieldset class="hm-repeater" id="sf-biz-special_hours" data-hm-repeater data-path="biz.special_hours"><legend class="hm-field__label">Special opening hours <span class="hm-muted">(0 items)</span></legend>
 <input type="hidden" name="_present.biz.special_hours" value="1">
 <ol class="hm-repeater__list" role="list" data-hm-sortable>
 </ol>
-<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.special_hours" value="1" formnovalidate>Add special opening hours</button>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.special_hours" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add special opening hours</button>
 </fieldset>
 
 </div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Profiles &amp; rating</h3>
+<div class="hm-sf-cols">
 <fieldset class="hm-repeater" id="sf-biz-sameas" data-hm-repeater data-path="biz.sameas" aria-describedby="sf-biz-sameas-help"><legend class="hm-field__label">Profile addresses <span class="hm-muted">(0 items)</span></legend>
-<p class="hm-field__help" id="sf-biz-sameas-help">Social and directory profile addresses</p><input type="hidden" name="_present.biz.sameas" value="1">
+<p class="hm-field__help" id="sf-biz-sameas-help">Social and directory profile addresses.</p><input type="hidden" name="_present.biz.sameas" value="1">
 <ol class="hm-repeater__list" role="list" data-hm-sortable>
 </ol>
-<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.sameas" value="1" formnovalidate>Add profile address</button>
+<button type="submit" class="hm-btn hm-btn--sm" name="_add.biz.sameas" value="1" formnovalidate><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add profile address</button>
 </fieldset>
 
 <fieldset class="hm-sf-object" id="sf-biz-rating"><legend class="hm-field__label">Aggregate rating</legend>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-value">Rating value</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-value" name="biz.rating.value" value="" placeholder="Enter Rating value" aria-describedby="sf-biz-rating-value-help">
-<p class="hm-field__help" id="sf-biz-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself</p>
+<p class="hm-field__help" id="sf-biz-rating-value-help">Within your best and worst rating, 0 to 5 when those are empty. Search engines may ignore a rating you state yourself.</p>
 </div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-best">Best rating</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-best" name="biz.rating.best" value="" placeholder="Enter Best rating" aria-describedby="sf-biz-rating-best-help">
-<p class="hm-field__help" id="sf-biz-rating-best-help">The top of your scale. Empty means 5</p>
+<p class="hm-field__help" id="sf-biz-rating-best-help">The top of your scale. Empty means 5.</p>
 </div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-worst">Worst rating</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-worst" name="biz.rating.worst" value="" placeholder="Enter Worst rating" aria-describedby="sf-biz-rating-worst-help">
-<p class="hm-field__help" id="sf-biz-rating-worst-help">The bottom of your scale. Empty means 0</p>
+<p class="hm-field__help" id="sf-biz-rating-worst-help">The bottom of your scale. Empty means 0.</p>
 </div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-count">Number of ratings</label>
 <input class="hm-field__control" type="text" id="sf-biz-rating-count" name="biz.rating.count" value="" placeholder="Enter Number of ratings">
 </div><div class="hm-field"><label class="hm-field__label" for="sf-biz-rating-count_type">Count is</label>
@@ -327,7 +336,9 @@
 </div></fieldset>
 
 </div>
+</div>
 <div class="hm-sf-section"><h3 class="hm-sf-group">Commerce</h3>
+<div class="hm-sf-cols">
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-currency">Currency</label>
 <input class="hm-field__control" type="text" id="sf-biz-currency" name="biz.currency" value="" placeholder="Enter Currency" aria-describedby="sf-biz-currency-help">
 <p class="hm-field__help" id="sf-biz-currency-help">A three letter code, like USD</p>
@@ -337,11 +348,12 @@
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-area_served">Area served</label>
 <input type="hidden" name="_present.biz.area_served" value="1"><input class="hm-field__control" type="text" id="sf-biz-area_served" name="biz.area_served" value="" data-hm-tags placeholder="Separate with commas" aria-describedby="sf-biz-area_served-help">
-<p class="hm-field__help" id="sf-biz-area_served-help">Places this business serves, separated by commas</p>
+<p class="hm-field__help" id="sf-biz-area_served-help">Places this business serves, separated by commas.</p>
 </div>
 <div class="hm-field"><label class="hm-field__label" for="sf-biz-geo_region">Geo region</label>
 <input class="hm-field__control" type="text" id="sf-biz-geo_region" name="biz.geo_region" value="" placeholder="Enter Geo region" aria-describedby="sf-biz-geo_region-help">
-<p class="hm-field__help" id="sf-biz-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages</p>
+<p class="hm-field__help" id="sf-biz-geo_region-help">Printed as a geo.region tag on this locale&#39;s pages.</p>
+</div>
 </div>
 </div>
 
