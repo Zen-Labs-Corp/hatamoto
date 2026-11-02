@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"sort"
 	"strconv"
 	"strings"
@@ -110,6 +111,12 @@ var businessUI = map[string]schemaform.UIHint{
 	"sameas":                            {Help: "Social and directory profile addresses."},
 	"address.lat":                       {Help: "Between -90 and 90"},
 	"address.lng":                       {Help: "Between -180 and 180"},
+}
+
+// plusIcon is the glyph of the Add buttons in the business forms.
+func plusIcon() template.HTML {
+	svg, _ := iconSVG("plus") // a constant name; TestIconsAllNamesPresent covers it
+	return svg
 }
 
 // businessSchema is the form of a locale card: the site-only properties are

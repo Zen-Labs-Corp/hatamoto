@@ -57,6 +57,9 @@ type Options struct {
 	// Sections wraps each x-hm-group in a section of two-column pairs with a
 	// hairline above its heading. Off, a group is only a heading.
 	Sections bool
+	// AddIcon is drawn before the label of a repeater's Add button. It is
+	// trusted markup from the caller (an icon); empty draws none.
+	AddIcon template.HTML
 }
 
 type opt struct {
@@ -81,6 +84,7 @@ type fld struct {
 	Items                                          []*item
 	ItemScalar                                     bool
 	Count                                          int
+	AddIcon                                        template.HTML
 	ItemLabel                                      string // x-hm-item-label: what the Add button of a repeater adds
 	EntitySchema                                   string
 	Preview                                        string // image field: current URL
@@ -504,6 +508,7 @@ func (b *builder) repeater(f *fld, n *Node, v any, hint UIHint) {
 	items, _ := v.([]any)
 	f.Count = len(items)
 	f.ItemLabel = n.ItemLabel
+	f.AddIcon = b.opt.AddIcon
 	f.Orderable = !hint.Unorderable && !b.opt.Disabled
 	it := n.Items
 	if it == nil {

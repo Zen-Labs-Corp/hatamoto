@@ -95,3 +95,21 @@ func TestRepeaterItemLabelNamesTheAddButton(t *testing.T) {
 		t.Errorf("Add buttons wrong:\n%s", html)
 	}
 }
+
+func TestAddIconOnlyWhenGiven(t *testing.T) {
+	schema := json.RawMessage(`{"type":"object","properties":{"points":{"type":"array","x-hm-item-label":"point","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
+	plain, err := Render(schema, nil, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(plain), `formnovalidate>Add point</button>`) {
+		t.Errorf("plain Add button changed:\n%s", plain)
+	}
+	withIcon, err := Render(schema, nil, Options{AddIcon: `<svg id="plus"></svg>`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(withIcon), `formnovalidate><svg id="plus"></svg>Add point</button>`) {
+		t.Errorf("icon missing:\n%s", withIcon)
+	}
+}
