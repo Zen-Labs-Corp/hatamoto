@@ -89,34 +89,64 @@ func TestDocCrumbSeparatorSkipsFirstItem(t *testing.T) {
 }
 
 // A saved home label, primary term or breadcrumb title must show in the
-// visible doc trail: Start > term > doc.
+// visible doc trail without losing the sidebar parents: Start > Docs >
+// [term] > Themes > Layouts.
 func TestSingleDocShapedTrail(t *testing.T) {
 	t.Parallel()
 	e := newTestEngine(t, Options{Data: docData{}})
-	trail := []Crumb{{Name: "Start", URL: "/"}, {Name: "Guides", URL: "/term/guides"}, {Name: "Layouts", URL: "/docs/themes/layouts"}}
-	build := func(b seo.Breadcrumbs, attrs map[string]any) *PageView {
+	build := func(b seo.Breadcrumbs, attrs map[string]any, term bool) *PageView {
 		v := hierarchyView()
 		v.EntityID, v.SchemaSlug, v.Kind, v.Path = "e9", "doc", KindSingle, "/docs/themes/layouts"
 		v.Entity = &EntityView{ID: "e9", Title: "Layouts", Schema: "doc"}
-		v.Breadcrumb = trail
+		v.Breadcrumb = []Crumb{{Name: "Start", URL: "/"}, {Name: "Docs", URL: "/docs"}}
+		if term {
+			v.Breadcrumb = append(v.Breadcrumb, Crumb{Name: "Guides", URL: "/term/guides"})
+		}
+		v.Breadcrumb = append(v.Breadcrumb, Crumb{Name: "Layouts", URL: "/docs/themes/layouts"})
 		v.Attrs = attrs
 		v.SEO = &seo.Settings{Breadcrumbs: b}
 		return v
 	}
-	want := `<li><a href="/">Start</a></li>
-<li><a href="/term/guides">Guides</a></li>
-<li><span aria-current="page">Layouts</span></li>`
-	for name, v := range map[string]*PageView{
-		"home label": build(seo.Breadcrumbs{HomeLabel: "Start"}, nil),
-		"show term":  build(seo.Breadcrumbs{ShowTerm: true}, nil),
-		"title":      build(seo.Breadcrumbs{}, map[string]any{"breadcrumb_title": "Layouts"}),
+	// items lists the crumbs of the doc trail in order; a link is "text>href".
+	items := func(t *testing.T, out string) string {
+		t.Helper()
+		_, rest, ok := strings.Cut(out, `aria-label="Breadcrumb"><ol>`)
+		list, _, ok2 := strings.Cut(rest, "</ol>")
+		if !ok || !ok2 {
+			t.Fatalf("no trail:\n%s", out)
+		}
+		var got []string
+		for _, li := range strings.Split(list, "<li")[1:] {
+			if i := strings.Index(li, `href="`); i >= 0 {
+				href, _, _ := strings.Cut(li[i+6:], `"`)
+				_, txt, _ := strings.Cut(li[i:], "\">")
+				txt, _, _ = strings.Cut(txt, "<")
+				got = append(got, txt+">"+href)
+				continue
+			}
+			_, txt, _ := strings.Cut(li, "page\">")
+			txt, _, _ = strings.Cut(txt, "<")
+			got = append(got, txt)
+		}
+		return strings.Join(got, " | ")
+	}
+	const base = "Docs>/docs | Themes>/docs/themes | "
+	for name, tc := range map[string]struct {
+		v    *PageView
+		want string
+	}{
+		"home label": {build(seo.Breadcrumbs{HomeLabel: "Start"}, nil, false), "Start>/ | " + base + "Layouts"},
+		"show term":  {build(seo.Breadcrumbs{ShowTerm: true}, nil, true), "Start>/ | Docs>/docs | Guides>/term/guides | Themes>/docs/themes | Layouts"},
+		"title":      {build(seo.Breadcrumbs{}, map[string]any{"breadcrumb_title": "Layouts II"}, false), "Start>/ | " + base + "Layouts II"},
+		"hide home":  {build(seo.Breadcrumbs{HomeLabel: "Start", HideHome: true}, nil, false), base + "Layouts"},
+		"hide cur":   {build(seo.Breadcrumbs{HomeLabel: "Start", HideCurrent: true}, nil, false), "Start>/ | Docs>/docs | Themes>/docs/themes"},
 	} {
-		if out := renderToString(t, e, v); !strings.Contains(out, want) {
-			t.Errorf("%s: visible trail not shaped:\n%s", name, mainInner(t, out))
+		if got := items(t, renderToString(t, e, tc.v)); got != tc.want {
+			t.Errorf("%s:\n got %s\nwant %s", name, got, tc.want)
 		}
 	}
-	out := renderToString(t, e, build(seo.Breadcrumbs{HomeLabel: "Start", Separator: "›", HideCurrent: true}, nil))
-	if !strings.Contains(out, `<li data-sep="›"><a href="/term/guides">Guides</a></li>`) || strings.Contains(out, `<span aria-current="page">Layouts`) {
-		t.Errorf("separator or hide-current ignored:\n%s", mainInner(t, out))
+	out := renderToString(t, e, build(seo.Breadcrumbs{HomeLabel: "Start", Separator: "›"}, nil, false))
+	if !strings.Contains(out, `<li data-sep="›"><a href="/docs/themes">Themes</a></li>`) || strings.Contains(out, `<li data-sep="›"><a href="/">`) {
+		t.Errorf("separator wrong:\n%s", mainInner(t, out))
 	}
 }

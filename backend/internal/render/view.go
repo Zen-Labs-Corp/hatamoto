@@ -719,6 +719,43 @@ func (v *PageView) VisibleCrumbs() []VisibleCrumb {
 	return out
 }
 
+// DocHeadCrumbs is the shaped head of a doc trail: the home crumb (unless
+// hidden) and the archive and term crumbs between home and the entry. A middle
+// crumb linking to firstTrail, the first sidebar ancestor, is dropped so the
+// archive is not printed twice.
+func (v *PageView) DocHeadCrumbs(firstTrail string) []VisibleCrumb {
+	trail := v.Breadcrumb
+	if len(trail) == 0 {
+		return nil
+	}
+	var out []VisibleCrumb
+	if !v.CrumbOpts().HideHome {
+		out = append(out, VisibleCrumb{Name: trail[0].Name, Href: safeURL(trail[0].URL)})
+	}
+	for _, c := range trail[1:max(1, len(trail)-1)] {
+		if firstTrail != "" && normPath(c.URL) == normPath(firstTrail) {
+			continue
+		}
+		out = append(out, VisibleCrumb{Name: c.Name, Href: safeURL(c.URL)})
+	}
+	return out
+}
+
+// DocCurrentCrumb is the label of the current crumb of a doc trail: the
+// breadcrumb title when set, else the sidebar label, else the entry's crumb.
+func (v *PageView) DocCurrentCrumb(sidebarLabel string) string {
+	if t, _ := v.Attrs["breadcrumb_title"].(string); strings.TrimSpace(t) != "" {
+		return strings.TrimSpace(t)
+	}
+	if sidebarLabel != "" {
+		return sidebarLabel
+	}
+	if n := len(v.Breadcrumb); n > 0 {
+		return v.Breadcrumb[n-1].Name
+	}
+	return ""
+}
+
 // Crumb is one breadcrumb step.
 type Crumb struct {
 	Name string
