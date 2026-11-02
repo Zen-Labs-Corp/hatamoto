@@ -79,7 +79,7 @@ func TestThemeFrameRendersForThemePages(t *testing.T) {
 		`<nav class="hm-subnav" aria-label="Theme">`, `<h2 class="hm-subnav__title hm-visually-hidden">Theme</h2>`,
 		`<a class="hm-subnav__link" href="/admin/theme/menus" aria-current="page">`,
 		`<a class="hm-subnav__link" href="/admin/theme/templates">`,
-		`<a class="hm-nav-link" href="/admin/theme" aria-current="page">`,
+		`<a class="hm-nav-link" href="/admin/theme" title="Theme" aria-current="page">`,
 		`<h1>Menus</h1>`)
 	lacks(t, body, `href="/admin/theme/themes"`, `aria-label="Settings"`, "hm-subnav-select")
 }

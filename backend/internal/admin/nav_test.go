@@ -166,7 +166,7 @@ func TestSidebarPluginsNeverNests(t *testing.T) {
 	if strings.Contains(body, `aria-label="Plugins pages"`) {
 		t.Error("Plugins renders a child list")
 	}
-	if !strings.Contains(body, `href="/admin/bare"><svg`) {
+	if !strings.Contains(body, `href="/admin/bare" title="Bare"><svg`) {
 		t.Error("a top-level item without an icon renders no icon")
 	}
 }

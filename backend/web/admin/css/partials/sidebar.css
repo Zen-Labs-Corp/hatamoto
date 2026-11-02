@@ -78,22 +78,23 @@ img.hm-avatar { object-fit: cover; }
   :root[data-admin-theme="auto"] .hm-theme-icon--dark { display: inline-flex; }
 }
 
-/* Collapsed (desktop): an icon rail. Labels, counts, group titles and the brand name are
-   visually hidden, not display:none, so every link keeps its accessible name. The foot keeps
-   only the toggle, which is how the rail opens again. */
+/* Collapsed (desktop): an icon rail. Labels, counts, group titles, the brand name and the
+   profile name are visually hidden, not display:none, so every control keeps its accessible name
+   (nav links also carry a title: the rail's overflow would clip the tooltip primitive). The foot
+   stacks the profile avatar, theme, sign-out and the toggle as icon buttons. */
 @media (min-width: 769px) {
   .hm-shell[data-sidebar="collapsed"] .hm-sidebar { padding-inline: var(--space-2); }
   .hm-shell[data-sidebar="collapsed"] .hm-nav-link > span,
+  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__name,
   .hm-shell[data-sidebar="collapsed"] .hm-nav-group__title,
   .hm-shell[data-sidebar="collapsed"] .hm-sidebar__brand > span:not(.hm-brand__seal) {
     position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
   .hm-shell[data-sidebar="collapsed"] .hm-nav-link, .hm-shell[data-sidebar="collapsed"] .hm-sidebar__brand { justify-content: center; padding-inline: 0; }
-  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__head > .hm-btn,
-  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__me,
-  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__foot > form { display: none; }
-  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__foot { justify-content: center; }
+  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__head > .hm-btn { display: none; }
+  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__foot { flex-direction: column; justify-content: center; }
+  .hm-shell[data-sidebar="collapsed"] .hm-sidebar__me { flex: none; justify-content: center; padding: 0; }
 }
 
 @media (max-width: 768px) {
