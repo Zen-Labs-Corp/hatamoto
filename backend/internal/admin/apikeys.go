@@ -42,6 +42,8 @@ var scopeHelp = map[string]string{
 	"write:menus":        "Change navigation menus.",
 	"write:redirects":    "Create and change redirects.",
 	"write:terms":        "Create and change taxonomy terms.",
+	"read:seo":           "Read every Settings > SEO value, the 404 log, previews and analysis.",
+	"write:seo":          "Change Settings > SEO values and the AI-crawler policy. Includes reading.",
 	"*":                  "Everything above, and anything added later. Give it only to keys you fully trust.",
 }
 
@@ -64,7 +66,16 @@ func scopeOptions(checked map[string]bool) []scopeOption {
 	return out
 }
 
+// scopeLabelOverride names scopes whose derived label would read badly.
+var scopeLabelOverride = map[string]string{
+	"read:seo":  "Read SEO settings",
+	"write:seo": "Change SEO settings",
+}
+
 func scopeLabel(s string) string {
+	if l, ok := scopeLabelOverride[s]; ok {
+		return l
+	}
 	if s == "*" {
 		return "Everything (full access)"
 	}
