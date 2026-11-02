@@ -60,6 +60,7 @@ await check("a second session's change shows the conflict state", async () => {
   await p.waitForFunction(() => document.querySelector("tbody tr .hm-savestate")?.dataset.state === "conflict", null, { timeout: 15000 });
   need((await titleBox(p).inputValue()).startsWith("QA mine"), "the user's value was replaced");
   need(await p.locator("tbody tr [data-hm-seobulk-save]").first().isVisible(), "no Retry button on a conflict");
+  need(/is now “QA other/.test((await p.locator("tbody tr .hm-savestate__text").first().textContent()) ?? ""), "the conflict notice does not show the other value");
   return "conflict with Retry";
 });
 
