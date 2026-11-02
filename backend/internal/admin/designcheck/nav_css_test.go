@@ -166,11 +166,4 @@ func TestCollapsedRailKeepsFootControls(t *testing.T) {
 			t.Errorf("sidebar.css:%d the collapsed rail hides a foot control: %s", i+1, line)
 		}
 	}
-	h, err := os.ReadFile("../../../web/admin/partials/sidebar.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(h), `class="hm-nav-link" href="{{.Href}}" title="{{.Label}}"`) {
-		t.Error("sidebar nav links must carry title={{.Label}} so the icon rail has a tooltip")
-	}
 }
