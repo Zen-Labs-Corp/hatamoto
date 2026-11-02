@@ -29,7 +29,7 @@
 .hm-subnav__link[aria-current="page"] { background: var(--surface-hover); color: var(--text); }
 .hm-subnav__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .hm-subnav__marker { font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--text-muted); }
-.hm-subnav--entities .hm-subnav__marker { font-variant-numeric: tabular-nums; }
+.hm-subnav--entities .hm-subnav__marker { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hm-subnav--entities .hm-subnav__link[aria-current="page"] .hm-subnav__marker { color: var(--text); }
 .hm-subnav__group { padding: var(--space-3) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
 .hm-subnav__list > .hm-subnav__group:first-child { padding-top: 0; }

@@ -22,9 +22,9 @@
 .hm-tabs__tab:focus-visible, .hm-tablist__tab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
 .hm-tabs__tab[aria-current="page"], .hm-tablist__tab[aria-selected="true"] { color: var(--color-sumi); }
 .hm-tabs__tab[aria-current="page"]::after, .hm-tablist__tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--space-2); right: var(--space-2); bottom: 0; height: 2px; background: var(--color-sumi); border-radius: var(--radius-2xs); }
-.hm-tabs__count { font-size: var(--text-xs); color: var(--color-hai); background: var(--color-kasumi); border-radius: var(--radius-full); padding: 0 var(--space-1-5); }
+.hm-tabs__count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-hai); background: var(--color-kasumi); border-radius: var(--radius-full); padding: 0 var(--space-1-5); }
 /* In a segmented row the count is plain muted text on the label baseline, like hm/segmented. */
-.hm-tabs[data-variant="segmented"] .hm-tabs__count { padding: 0; background: none; border-radius: 0; font-size: inherit; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.hm-tabs[data-variant="segmented"] .hm-tabs__count { padding: 0; background: none; border-radius: 0; font-family: var(--font-mono); font-size: inherit; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .hm-tablist { flex: none; } /* overflow-y: hidden would let a flex column squeeze the row to 0 height */
 /* A bar above panels (blog editor): sticky, paper behind, content inset like the panels, the hairline edge to edge. */
 .hm-tablist--bar { position: sticky; top: 0; z-index: var(--z-raised); margin: 0; padding-inline: var(--space-4); background-color: var(--color-paper); background-position: 0 100%; background-size: 100% 1px; }
