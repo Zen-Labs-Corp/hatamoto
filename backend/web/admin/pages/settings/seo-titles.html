@@ -7,8 +7,10 @@
 {{template "hm/field" dict "ID" "separator" "Name" "separator" "Label" "Separator" "Control" "chipradio" "Mono" true "Options" .Separators "Error" (index .Errs "separator")}}
 {{template "hm/field" dict "ID" "home" "Name" "home" "Label" "Homepage title" "Value" .Home "Help" (printf "Default: %s" .DefaultTitle) "Error" (index .Errs "home") "Attrs" (attrmap "maxlength" (printf "%d" .MaxTemplate))}}
 {{range .Archives}}{{template "hm/field" dict "ID" (printf "archives-%s" .Key) "Name" (printf "archives[%s]" .Key) "Label" (printf "%s title" .Label) "Value" .Value "Error" (index $.Data.Errs (printf "archives-%s" .Key)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{if .IndexLabel}}{{template "hm/field" dict "ID" (printf "index-%s" .Key) "Name" (printf "index[%s]" .Key) "Label" .IndexLabel "Control" "switch" "Value" "index" "OffValue" "noindex" "Checked" .Index}}{{end}}
 {{end}}{{template "hm/card-end"}}
 {{range .Types}}{{template "hm/card-start" dict "ID" (printf "seo-type-%s" .Slug) "Title" .Name "Heading" "h2"}}
+{{template "hm/field" dict "ID" (printf "type-%s-index" .Slug) "Name" (printf "type[%s][index]" .Slug) "Label" "Search engines" "Control" "select" "Options" .IndexOptions "Help" "Noindex asks search engines to skip this type's pages, and drops them from the sitemap, feeds, llms.txt and site search."}}
 {{template "hm/field" dict "ID" (printf "type-%s-title" .Slug) "Name" (printf "type[%s][title]" .Slug) "Label" "Title template" "Value" .Title "Placeholder" $.Data.DefaultTitle "Error" (index $.Data.Errs (printf "type-%s-title" .Slug)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
 {{template "hm/field" dict "ID" (printf "type-%s-description" .Slug) "Name" (printf "type[%s][description]" .Slug) "Label" "Description template" "Control" "textarea" "Rows" 2 "Value" .Description "Help" "Used when the entry has no description of its own. Left empty, the page keeps its usual description." "Error" (index $.Data.Errs (printf "type-%s-description" .Slug)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
 {{if .ArchiveReadOnly}}{{template "hm/pair-start"}}{{template "hm/field" dict "ID" (printf "type-%s-archive-title" .Slug) "Name" (printf "type[%s][archive_title]" .Slug) "Label" "Archive title" "Value" .ArchiveTitle "Help" "This built-in type keeps its archive title; it cannot be changed here." "Attrs" (attrmap "readonly" "readonly" "disabled" "disabled")}}
@@ -18,6 +20,7 @@
 {{end}}{{template "hm/card-end"}}
 {{end}}{{if .Terms}}{{template "hm/card-start" dict "ID" "taxonomy" "Title" "Taxonomies" "Heading" "h2" "Description" "The title of a term page, such as a category or tag."}}
 {{range .Terms}}{{template "hm/field" dict "ID" (printf "taxonomy-%s" .Kind) "Name" (printf "taxonomy[%s]" .Kind) "Label" (printf "%s title" .Label) "Value" .Title "Placeholder" $.Data.DefaultTitle "Error" (index $.Data.Errs (printf "taxonomy-%s" .Kind)) "Attrs" (attrmap "maxlength" (printf "%d" $.Data.MaxTemplate))}}
+{{template "hm/field" dict "ID" (printf "index-taxonomy-%s" .Kind) "Name" (printf "index[taxonomy][%s]" .Kind) "Label" (printf "Index %s pages" .Label) "Control" "switch" "Value" "index" "OffValue" "noindex" "Checked" .Index}}
 {{end}}{{template "hm/card-end"}}
 {{end}}{{template "hm/card-start" dict "ID" "preview" "Title" "Preview" "Heading" "h2" "Description" "A sample page of each kind, resolved the way the public site does it."}}
 <p>{{template "hm/button" dict "Label" "Update preview" "Type" "button" "Attrs" (attrmap "hx-post" (adminPath "settings" "seo" "titles" "preview") "hx-include" "closest form" "hx-target" "#seo-preview" "hx-select" "#seo-preview" "hx-swap" "outerHTML" "hx-push-url" "false" "hx-indicator" "this")}}</p>

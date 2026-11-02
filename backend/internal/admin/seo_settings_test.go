@@ -460,3 +460,84 @@ func TestSEOSettingsMarkup(t *testing.T) {
 		t.Error("titles: the save button belongs in the sticky save bar")
 	}
 }
+
+func TestSEOTitlesPageListsIndexControls(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	s.svc.set.Index = seo.Index{NoIndexTypes: map[string]bool{"recipe": true}, NoIndexAuthor: true}
+	body := s.get(t, "/admin/settings/seo/titles")
+	for _, name := range []string{"type[service][index]", "index[taxonomy][tag]", "index[taxonomy][category]", "index[archive]", "index[author]", "index[search]"} {
+		if seoControlTag(body, name) == "" {
+			t.Errorf("page lacks %q", name)
+		}
+	}
+	if strings.Contains(body, `name="index[date]"`) || strings.Contains(body, `name="index[notfound]"`) {
+		t.Error("an archive without an index switch got one")
+	}
+	if tag := seoControlTag(body, "index[author]"); strings.Contains(tag, "checked") {
+		t.Errorf("a noindex author archive shows as indexed: %s", tag)
+	}
+	if tag := seoControlTag(body, "index[archive]"); !strings.Contains(tag, "checked") {
+		t.Errorf("the default (indexed) archive switch is off: %s", tag)
+	}
+	if tag := seoControlTag(body, "index[search]"); strings.Contains(tag, "checked") {
+		t.Errorf("search results are indexed by default: %s", tag)
+	}
+	i := strings.Index(body, `name="type[recipe][index]"`)
+	if j := strings.Index(body[i:], "</select>"); !strings.Contains(body[i:i+j], `value="noindex" selected`) {
+		t.Error("the recipe type does not show noindex selected")
+	}
+}
+
+func TestSEOTitlesSavePersistsIndexSwitches(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	form := goodTitlesForm()
+	form.Set("type[recipe][index]", "noindex") // no templates: the row must survive anyway
+	form.Set("type[service][index]", "index")
+	form.Set("index[taxonomy][tag]", "noindex")
+	form.Set("index[taxonomy][category]", "index")
+	form.Set("index[author]", "noindex")
+	form.Set("index[archive]", "index")
+	form.Set("index[search]", "index")
+	if rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	got := s.svc.set
+	if _, kept := got.Types["recipe"]; kept {
+		t.Error("an empty template row was stored")
+	}
+	want := seo.Index{
+		NoIndexTypes: map[string]bool{"recipe": true}, NoIndexTaxonomy: map[string]bool{"tag": true},
+		NoIndexAuthor: true, IndexSearch: true,
+	}
+	if !maps.Equal(got.Index.NoIndexTypes, want.NoIndexTypes) || !maps.Equal(got.Index.NoIndexTaxonomy, want.NoIndexTaxonomy) ||
+		got.Index.NoIndexAuthor != want.NoIndexAuthor || got.Index.NoIndexArchive || got.Index.IndexSearch != want.IndexSearch {
+		t.Fatalf("index = %+v, want %+v", got.Index, want)
+	}
+
+	// Switching everything back to indexed leaves no maps behind.
+	form.Set("type[recipe][index]", "index")
+	form.Set("index[taxonomy][tag]", "index")
+	form.Set("index[author]", "index")
+	form.Set("index[search]", "noindex")
+	if rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("second save = %d", rec.Code)
+	}
+	if !s.svc.set.Index.IsZero() || s.svc.set.Index.NoIndexTypes != nil || s.svc.set.Index.NoIndexTaxonomy != nil {
+		t.Errorf("index = %+v, want zero", s.svc.set.Index)
+	}
+}
+
+func TestSEOTitlesSaveWithoutIndexKeysKeepsIndex(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	s.svc.set.Index = seo.Index{
+		NoIndexTypes: map[string]bool{"recipe": true}, NoIndexTaxonomy: map[string]bool{"tag": true},
+		NoIndexAuthor: true, NoIndexArchive: true, IndexSearch: true,
+	}
+	if rec := s.do("POST", "/admin/settings/seo/titles", "owner-token", goodTitlesForm(), nil); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	got := s.svc.set.Index
+	if !got.NoIndexTypes["recipe"] || !got.NoIndexTaxonomy["tag"] || !got.NoIndexAuthor || !got.NoIndexArchive || !got.IndexSearch {
+		t.Errorf("a post without index keys changed the index switches: %+v", got)
+	}
+}

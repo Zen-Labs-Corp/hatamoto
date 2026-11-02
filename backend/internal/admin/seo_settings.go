@@ -253,17 +253,28 @@ func seoRowID(i int, part string) string { return "variable-" + strconv.Itoa(i) 
 
 // seoTypeRow is one content type of the Titles & meta tab.
 type seoTypeRow struct {
-	ID                                        uuid.UUID
-	Slug, Name                                string
-	Title, Description                        string
-	ArchiveTitle, ArchiveDescription          string
-	ArchiveReadOnly                           bool
+	ID                               uuid.UUID
+	Slug, Name                       string
+	Title, Description               string
+	ArchiveTitle, ArchiveDescription string
+	ArchiveReadOnly                  bool
+	// IndexOptions is the Index / Noindex choice, filled when the page is drawn.
+	IndexOptions                              []ui.Option
 	storedArchiveTitle, storedArchiveDescript string
 }
 
-type seoTermRow struct{ Kind, Label, Title string }
+type seoTermRow struct {
+	Kind, Label, Title string
+	// Index is whether the kind's term pages are indexed.
+	Index bool
+}
 
-type seoArchiveRow struct{ Key, Label, Value string }
+type seoArchiveRow struct {
+	Key, Label, Value string
+	// IndexLabel names the index switch of this archive; empty means it has none.
+	IndexLabel string
+	Index      bool
+}
 
 type seoPreviewLine struct{ Label, Title, Description string }
 
@@ -417,6 +428,7 @@ func seoTitlesFromForm(form url.Values, stored titlesState) titlesState {
 			delete(set.Taxonomy, kind)
 		}
 	}
+	set.Index = seoIndexFromForm(form, set.Index, stored.Types, stored.Kinds)
 	return next
 }
 
@@ -516,6 +528,7 @@ func (a *Admin) handleSEOTitlesSave(w http.ResponseWriter, r *http.Request) {
 	n := next.Set
 	apply := func(s *seo.Settings) {
 		s.Separator, s.Home, s.Archives = n.Separator, n.Home, n.Archives
+		seoIndexSave(s, n.Index)
 		for _, row := range next.Types {
 			if t, ok := n.Types[row.Slug]; ok {
 				s.Types[row.Slug] = t
@@ -566,7 +579,7 @@ func (a *Admin) renderSEOTitles(w http.ResponseWriter, r *http.Request, status i
 	set := st.Set
 	d := seoTitlesData{
 		Summary: errs, Errs: map[string]string{}, Home: set.Home,
-		Types: st.Types, DefaultTitle: seo.DefaultTitle, MaxTemplate: seo.MaxTemplateLen,
+		Types: append([]seoTypeRow(nil), st.Types...), DefaultTitle: seo.DefaultTitle, MaxTemplate: seo.MaxTemplateLen,
 	}
 	for _, e := range errs {
 		d.Errs[e.ID] = e.Message
@@ -574,11 +587,18 @@ func (a *Admin) renderSEOTitles(w http.ResponseWriter, r *http.Request, status i
 	for _, sep := range seo.Separators {
 		d.Separators = append(d.Separators, ui.Option{Value: sep, Label: sep, Selected: set.Separator == sep})
 	}
+	for i := range d.Types {
+		d.Types[i].IndexOptions = seoIndexOptions(set.Index.NoIndexTypes[d.Types[i].Slug])
+	}
+	indexed := map[string]bool{"archive": !set.Index.NoIndexArchive, "author": !set.Index.NoIndexAuthor, "search": set.Index.IndexSearch}
 	for _, k := range seoArchiveKeys {
-		d.Archives = append(d.Archives, seoArchiveRow{Key: k.Key, Label: k.Label, Value: archiveValue(set.Archives, k.Key)})
+		d.Archives = append(d.Archives, seoArchiveRow{
+			Key: k.Key, Label: k.Label, Value: archiveValue(set.Archives, k.Key),
+			IndexLabel: seoIndexArchiveKeys[k.Key], Index: indexed[k.Key],
+		})
 	}
 	for _, kind := range st.Kinds {
-		d.Terms = append(d.Terms, seoTermRow{Kind: kind, Label: kindLabel(kind), Title: set.Taxonomy[kind]})
+		d.Terms = append(d.Terms, seoTermRow{Kind: kind, Label: kindLabel(kind), Title: set.Taxonomy[kind], Index: !set.Index.NoIndexTaxonomy[kind]})
 	}
 	d.Preview = a.seoPreview(r.Context(), st)
 
