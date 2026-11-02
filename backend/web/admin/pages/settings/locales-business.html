@@ -12,7 +12,7 @@
 </form>
 </section>
 {{end}}<section id="locale-cards" class="hm-stack">
-{{template "hm/card-start" dict "ID" "locales-card" "Title" "Business details" "Description" "Each locale is its own business. The default locale is also your organisation; other locales use its values for empty fields (grey text). Changing the Language in Settings > General swaps the roles: the old default's own details move to its card here, and the new default's card becomes the organisation."}}
+{{if .Multi}}{{template "hm/card-start" dict "ID" "locales-card" "Title" "Business details" "Description" "Each locale is its own business. The default locale is also your organisation; other locales use its values for empty fields (grey text). Changing the Language in Settings > General swaps the roles: the old default's own details move to its card here, and the new default's card becomes the organisation."}}{{else}}{{template "hm/card-start" dict "ID" "locales-card" "Title" "Business details" "Description" "Each locale is its own business. The default locale is also your organisation; other locales use its values for empty fields (grey text)."}}{{end}}
 {{range .Locales}}{{$c := .}}<details class="hm-disclosure" id="locale-{{.Anchor}}"{{if .Open}} open{{end}}><summary>{{.Name}} {{template "hm/badge" dict "Label" .Tag "Mono" true}} {{template "hm/badge" dict "Label" .Badge "Kind" .BadgeKind}}{{if .Office}} {{template "hm/badge" dict "Label" "Office" "Kind" "success"}}{{end}}</summary><div class="hm-disclosure__body">
 <form method="post" action="{{.Action}}" class="hm-cardform">
 {{template "hm/csrf" $}}
