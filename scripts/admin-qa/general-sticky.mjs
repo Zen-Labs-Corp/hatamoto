@@ -1,5 +1,5 @@
-// Settings > General: with the Identity card top at the viewport top (1440x900) its Save button
-// is on screen (the card footer is sticky), and the "On this page" strip marks exactly one tab
+// Settings > General: with the long Business details card top at the viewport top (1440x900) its footer is sticky at the
+// viewport bottom and its Save button is on screen, and the "On this page" strip marks exactly one tab
 // current (Identity first, then the one clicked).
 // node scripts/admin-qa/general-sticky.mjs     Exit 1 on a failed check.
 // QA_SHOT=<file.png> also saves a screenshot of that scrolled view.
@@ -17,10 +17,19 @@ const current = () => p.$$eval('nav.hm-tabs [aria-current]', (els) => els.map((e
 
 check("Identity is current on load", JSON.stringify(await current()) === '["Identity"]', JSON.stringify(await current()));
 
-await p.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; window.scrollTo(0, document.querySelector("#identity-card").getBoundingClientRect().top + window.scrollY); });
+// The long Business details card is taller than the viewport, so only a sticky footer keeps Save on screen.
+await p.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; window.scrollTo(0, document.querySelector("#contact-card").getBoundingClientRect().top + window.scrollY); });
 await p.waitForTimeout(200);
-const box = await p.locator("#identity-card").getByRole("button", { name: "Save identity" }).boundingBox();
-check("Save identity is within the 900px viewport", !!box && box.y >= 0 && box.y + box.height <= 900, JSON.stringify(box));
+const m = await p.evaluate(() => {
+  const card = document.querySelector("#contact-card");
+  const foot = card.querySelector(".hm-card__foot");
+  return { vh: innerHeight, cardH: card.offsetHeight, cardBottom: card.getBoundingClientRect().bottom, footBottom: foot.getBoundingClientRect().bottom, position: getComputedStyle(foot).position };
+});
+check("Business details card is taller than the viewport", m.cardH > m.vh, JSON.stringify(m));
+check("card footer is position: sticky", m.position === "sticky", m.position);
+check("footer sits at the viewport bottom while the card runs below it", Math.abs(m.footBottom - m.vh) <= 2 && m.cardBottom > m.vh, JSON.stringify(m));
+const box = await p.locator("#contact-card .hm-card__foot").getByRole("button", { name: "Save business details" }).boundingBox();
+check("the card Save button is within the 900px viewport", !!box && box.y >= 0 && box.y + box.height <= 900, JSON.stringify(box));
 if (process.env.QA_SHOT) await p.screenshot({ path: process.env.QA_SHOT });
 
 await p.locator("nav.hm-tabs").getByRole("link", { name: "Homepage" }).click();
