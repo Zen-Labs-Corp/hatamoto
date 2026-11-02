@@ -65,6 +65,10 @@ func (s *Server) sitemapFileURLs(ctx context.Context, plan *sitemapPlan, key str
 	}
 	if len(parts) == 1 && parts[0].key == key {
 		urls, _ := plan.GroupURLs(key)
+		if parts[0].chunk > 0 {
+			// Plugin additions are listed once, in the first file of a split group.
+			return plan.dropStats(urls)
+		}
 		return plan.dropStats(s.applySitemapFilterFor(ctx, parts[0], urls, plan.multi()))
 	}
 	var out []URL
