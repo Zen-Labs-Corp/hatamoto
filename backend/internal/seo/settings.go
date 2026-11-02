@@ -110,6 +110,8 @@ type Settings struct {
 	Robots       Robots       `json:"robots,omitzero"`
 	Verification Verification `json:"verification,omitzero"`
 	Sitemap      Sitemap      `json:"sitemap,omitzero"`
+	Breadcrumbs  Breadcrumbs  `json:"breadcrumbs,omitzero"`
+	IndexNow     IndexNow     `json:"indexnow,omitzero"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -241,6 +243,8 @@ func (s Settings) Validate() []FieldError {
 	errs = append(errs, s.validateSocial(check)...)
 	errs = append(errs, s.validateRobotsVerification()...)
 	errs = append(errs, validateSitemap(s.Sitemap)...)
+	errs = append(errs, validateBreadcrumbs(s.Breadcrumbs)...)
+	errs = append(errs, validateIndexNow(s.IndexNow)...)
 	return errs
 }
 
