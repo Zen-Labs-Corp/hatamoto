@@ -39,6 +39,48 @@ type Repository interface {
 	// ReplaceMenu applies the menu fields (when set) and replaces every item
 	// in one transaction: either all of it happens or none of it.
 	ReplaceMenu(ctx context.Context, id uuid.UUID, fields *UpdateMenuInput, items []ReplaceItem) error
+
+	// EnsureMenuAtLocation creates the menu with its items unless a menu
+	// already holds the location. The check and the insert run under one
+	// per-location lock, so concurrent callers create exactly one menu. The
+	// bool reports whether a menu was created; otherwise the existing holder
+	// is returned untouched.
+	EnsureMenuAtLocation(ctx context.Context, in EnsureInput) (*Menu, bool, error)
+}
+
+// EnsureInput describes the menu EnsureMenuAtLocation creates.
+type EnsureInput struct {
+	Name     string
+	Slug     string
+	Location string
+	Items    []ReplaceItem
+}
+
+// lockLocation takes a transaction-scoped lock on a location, so "one holder
+// per location" checks and moves do not race.
+func lockLocation(ctx context.Context, tx pgx.Tx, location string) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('hatamoto_menu_location:' || $1))`, location)
+	if err != nil {
+		return fmt.Errorf("failed to lock menu location: %w", err)
+	}
+	return nil
+}
+
+// takeLocation clears the location on every other menu holding it. Menus are
+// unassigned (NULL), never deleted.
+func takeLocation(ctx context.Context, tx pgx.Tx, location string, keep uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_menus SET location = NULL, updated_at = NOW() WHERE location = $1 AND id <> $2`, location, keep); err != nil {
+		return fmt.Errorf("failed to release menu location: %w", err)
+	}
+	return nil
+}
+
+// locationArg is the non-empty location of an optional location value.
+func locationArg(loc *string) string {
+	if loc == nil {
+		return ""
+	}
+	return *loc
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -51,35 +93,35 @@ func NewPostgresRepository(db *database.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-// CreateMenu inserts a new menu.
+// CreateMenu inserts a new menu. A location is taken from its previous holder.
 func (r *PostgresRepository) CreateMenu(ctx context.Context, input *CreateMenuInput) (*Menu, error) {
-	conn, err := r.db.GetConn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Release()
-
 	id := uuid.New()
 	now := time.Now()
-
-	query := `
-		INSERT INTO hatamoto_menus (id, name, slug, location, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, slug, location, created_at, updated_at
-	`
+	loc := locationArg(input.Location)
 
 	var m Menu
-	err = conn.QueryRow(ctx, query,
-		id, input.Name, input.Slug, input.Location, now, now,
-	).Scan(&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt)
-
+	err := r.db.WithTx(ctx, func(tx pgx.Tx) error {
+		if loc != "" {
+			if err := lockLocation(ctx, tx, loc); err != nil {
+				return err
+			}
+			if err := takeLocation(ctx, tx, loc, id); err != nil {
+				return err
+			}
+		}
+		return tx.QueryRow(ctx, `
+			INSERT INTO hatamoto_menus (id, name, slug, location, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, name, slug, location, created_at, updated_at
+		`, id, input.Name, input.Slug, input.Location, now, now,
+		).Scan(&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt)
+	})
 	if err != nil {
 		if isPgUniqueViolation(err) {
 			return nil, ErrSlugAlreadyExists
 		}
 		return nil, fmt.Errorf("failed to create menu: %w", err)
 	}
-
 	return &m, nil
 }
 
@@ -153,6 +195,7 @@ func (r *PostgresRepository) GetMenuByLocation(ctx context.Context, location str
 		SELECT id, name, slug, location, created_at, updated_at
 		FROM hatamoto_menus
 		WHERE location = $1
+		ORDER BY created_at, id
 		LIMIT 1
 	`
 
@@ -205,35 +248,36 @@ func (r *PostgresRepository) ListMenus(ctx context.Context) ([]*Menu, error) {
 	return menus, rows.Err()
 }
 
-// UpdateMenu modifies a menu.
+// UpdateMenu modifies a menu. A location is taken from its previous holder.
 func (r *PostgresRepository) UpdateMenu(ctx context.Context, id uuid.UUID, input *UpdateMenuInput) (*Menu, error) {
-	conn, err := r.db.GetConn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Release()
-
-	query := `
-		UPDATE hatamoto_menus
-		SET name = COALESCE($2, name),
-		    location = COALESCE($3, location),
-		    updated_at = NOW()
-		WHERE id = $1
-		RETURNING id, name, slug, location, created_at, updated_at
-	`
+	loc := locationArg(input.Location)
 
 	var m Menu
-	err = conn.QueryRow(ctx, query, id, input.Name, input.Location).Scan(
-		&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt,
-	)
-
+	err := r.db.WithTx(ctx, func(tx pgx.Tx) error {
+		if loc != "" {
+			if err := lockLocation(ctx, tx, loc); err != nil {
+				return err
+			}
+			if err := takeLocation(ctx, tx, loc, id); err != nil {
+				return err
+			}
+		}
+		return tx.QueryRow(ctx, `
+			UPDATE hatamoto_menus
+			SET name = COALESCE($2, name),
+			    location = COALESCE($3, location),
+			    updated_at = NOW()
+			WHERE id = $1
+			RETURNING id, name, slug, location, created_at, updated_at
+		`, id, input.Name, input.Location).Scan(
+			&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt)
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrMenuNotFound
 		}
 		return nil, fmt.Errorf("failed to update menu: %w", err)
 	}
-
 	return &m, nil
 }
 
@@ -610,9 +654,16 @@ func containsString(s, substr string) bool {
 }
 
 // ReplaceMenu implements Repository. The menu row is locked for the whole
-// call, so concurrent replacements run one after the other.
+// call, so concurrent replacements run one after the other. A location in
+// fields is taken from its previous holder.
 func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fields *UpdateMenuInput, items []ReplaceItem) error {
 	return r.db.WithTx(ctx, func(tx pgx.Tx) error {
+		// The location lock comes first, so every writer takes the locks in the same order.
+		if loc := locationArg(fieldsLocation(fields)); loc != "" {
+			if err := lockLocation(ctx, tx, loc); err != nil {
+				return err
+			}
+		}
 		var locked uuid.UUID
 		if err := tx.QueryRow(ctx, `SELECT id FROM hatamoto_menus WHERE id = $1 FOR UPDATE`, id).Scan(&locked); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -621,6 +672,11 @@ func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fiel
 			return fmt.Errorf("failed to lock menu: %w", err)
 		}
 		if fields != nil && (fields.Name != nil || fields.Location != nil) {
+			if loc := locationArg(fields.Location); loc != "" {
+				if err := takeLocation(ctx, tx, loc, id); err != nil {
+					return err
+				}
+			}
 			if _, err := tx.Exec(ctx, `UPDATE hatamoto_menus SET name = COALESCE($2, name), location = COALESCE($3, location), updated_at = NOW() WHERE id = $1`,
 				id, fields.Name, fields.Location); err != nil {
 				return fmt.Errorf("failed to update menu: %w", err)
@@ -632,34 +688,102 @@ func (r *PostgresRepository) ReplaceMenu(ctx context.Context, id uuid.UUID, fiel
 		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_menu_items WHERE menu_id = $1`, id); err != nil {
 			return fmt.Errorf("failed to clear menu items: %w", err)
 		}
-		ids := make([]uuid.UUID, len(items))
-		next := map[int]int{} // position per parent index
-		for i, it := range items {
-			ids[i] = uuid.New()
-			var parent *uuid.UUID
-			if it.Parent >= 0 {
-				parent = &ids[it.Parent]
-			}
-			pos := next[it.Parent]
-			next[it.Parent]++
-			attrsJSON, err := encodeAttrs(it.Attrs)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(ctx, `
-				INSERT INTO hatamoto_menu_items (id, menu_id, parent_id, label, link_type, entity_id, url, schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())`,
-				ids[i], id, parent, it.Label, it.LinkType, it.EntityID, it.URL, it.SchemaSlug, pos, it.OpenInNewTab, it.CSSClasses, attrsJSON)
-			if err != nil {
-				var pgErr *pgconn.PgError
-				if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-					return ErrEntityMissing
-				}
-				return fmt.Errorf("failed to create menu item: %w", err)
-			}
-		}
-		return nil
+		return insertItems(ctx, tx, id, items)
 	})
+}
+
+func fieldsLocation(fields *UpdateMenuInput) *string {
+	if fields == nil {
+		return nil
+	}
+	return fields.Location
+}
+
+// insertItems writes items (Parent indexes refer to earlier entries) to a menu.
+func insertItems(ctx context.Context, tx pgx.Tx, menuID uuid.UUID, items []ReplaceItem) error {
+	ids := make([]uuid.UUID, len(items))
+	next := map[int]int{} // position per parent index
+	for i, it := range items {
+		ids[i] = uuid.New()
+		var parent *uuid.UUID
+		if it.Parent >= 0 {
+			parent = &ids[it.Parent]
+		}
+		pos := next[it.Parent]
+		next[it.Parent]++
+		attrsJSON, err := encodeAttrs(it.Attrs)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO hatamoto_menu_items (id, menu_id, parent_id, label, link_type, entity_id, url, schema_slug, position, open_in_new_tab, css_classes, attrs, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())`,
+			ids[i], menuID, parent, it.Label, it.LinkType, it.EntityID, it.URL, it.SchemaSlug, pos, it.OpenInNewTab, it.CSSClasses, attrsJSON)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+				return ErrEntityMissing
+			}
+			return fmt.Errorf("failed to create menu item: %w", err)
+		}
+	}
+	return nil
+}
+
+// EnsureMenuAtLocation implements Repository.
+func (r *PostgresRepository) EnsureMenuAtLocation(ctx context.Context, in EnsureInput) (*Menu, bool, error) {
+	var m Menu
+	created := false
+	err := r.db.WithTx(ctx, func(tx pgx.Tx) error {
+		if err := lockLocation(ctx, tx, in.Location); err != nil {
+			return err
+		}
+		err := tx.QueryRow(ctx, `
+			SELECT id, name, slug, location, created_at, updated_at
+			FROM hatamoto_menus WHERE location = $1 ORDER BY created_at, id LIMIT 1`, in.Location).Scan(
+			&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("failed to look up menu location: %w", err)
+		}
+
+		slug, err := freeSlug(ctx, tx, in.Slug)
+		if err != nil {
+			return err
+		}
+		id := uuid.New()
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO hatamoto_menus (id, name, slug, location, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, NOW(), NOW())
+			RETURNING id, name, slug, location, created_at, updated_at`,
+			id, in.Name, slug, in.Location).Scan(
+			&m.ID, &m.Name, &m.Slug, &m.Location, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			return fmt.Errorf("failed to create menu: %w", err)
+		}
+		created = true
+		return insertItems(ctx, tx, id, in.Items)
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return &m, created, nil
+}
+
+// freeSlug is slug when no menu uses it, else slug-menu, slug-2, ... slug-5.
+func freeSlug(ctx context.Context, tx pgx.Tx, slug string) (string, error) {
+	candidates := []string{slug, slug + "-menu", slug + "-2", slug + "-3", slug + "-4", slug + "-5"}
+	for _, c := range candidates {
+		var taken bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_menus WHERE slug = $1)`, c).Scan(&taken); err != nil {
+			return "", fmt.Errorf("failed to check menu slug: %w", err)
+		}
+		if !taken {
+			return c, nil
+		}
+	}
+	return "", ErrSlugAlreadyExists
 }
 
 // encodeAttrs is the jsonb text stored in the attrs column.
