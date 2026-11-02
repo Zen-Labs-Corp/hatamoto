@@ -69,3 +69,61 @@ func TestPruneRecoveryCopies_Integration(t *testing.T) {
 		t.Errorf("29 day old copy: %d rows left (err=%v), want 1", n, err)
 	}
 }
+
+// DATABASE_URL=... go test -tags=integration ./internal/worker -run Prune404
+func TestPrune404Retention_Integration(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.Pool().Exec(ctx, q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	prefix := "/prune404-" + uuid.NewString()[:8]
+	t.Cleanup(func() { _, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_404_log WHERE path LIKE $1`, prefix+"%") })
+	count := func(path string) int {
+		t.Helper()
+		var n int
+		if err := db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_404_log WHERE path = $1`, prefix+path).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	seed := func() {
+		exec(`DELETE FROM hatamoto_404_log WHERE path LIKE $1`, prefix+"%")
+		exec(`INSERT INTO hatamoto_404_log (path, last_seen_at) VALUES
+			($1 || '/20', now() - interval '20 days'),
+			($1 || '/40', now() - interval '40 days'),
+			($1 || '/100', now() - interval '100 days')`, prefix)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	seed()
+	w := NewPruneWorker(db, 2, logger)
+	w.SetRetention404(func(context.Context) int { return 30 })
+	if err := w.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if count("/20") != 1 || count("/40") != 0 || count("/100") != 0 {
+		t.Errorf("30 days: 20d=%d 40d=%d 100d=%d", count("/20"), count("/40"), count("/100"))
+	}
+
+	seed()
+	w.SetRetention404(func(context.Context) int { return 7 }) // unknown: 90 days
+	if err := w.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if count("/20") != 1 || count("/40") != 1 || count("/100") != 0 {
+		t.Errorf("unknown: 20d=%d 40d=%d 100d=%d", count("/20"), count("/40"), count("/100"))
+	}
+}
