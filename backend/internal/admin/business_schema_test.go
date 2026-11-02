@@ -482,3 +482,23 @@ func TestBusinessFormTriStateReturnsToUnset(t *testing.T) {
 		t.Error("the form does not offer Not stated")
 	}
 }
+
+// The parent organisation prints on the Organization only, so a locale card
+// has no field for it.
+func TestParentOrganisationIsSiteOnly(t *testing.T) {
+	card, err := schemaform.Render(businessSchema(), nil, schemaform.Options{Prefix: "loc."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(card), "Parent organisation") {
+		t.Error("the locale card offers Parent organisation")
+	}
+	site, _ := siteSchema()
+	out, err := schemaform.Render(site, nil, schemaform.Options{Prefix: "biz."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "Parent organisation") {
+		t.Error("the site form lacks Parent organisation")
+	}
+}

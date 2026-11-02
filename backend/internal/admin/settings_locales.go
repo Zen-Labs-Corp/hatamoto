@@ -76,7 +76,7 @@ func localePlaceholders(site bizprofile.Profile, siteName string) map[string]str
 // inheritedFields are the locale card fields that cannot show a placeholder
 // (lists, numbers, switches); their help says where an empty field falls back.
 var inheritedFields = []string{
-	"founders", "parent_organisation", "brands", "memberships", "payment_methods", "accepts_reservations", "service_radius_km",
+	"founders", "brands", "memberships", "payment_methods", "accepts_reservations", "service_radius_km",
 	"services", "knows_about", "awards", "amenity_presets", "amenities", "public_access", "free_entry",
 }
 

@@ -127,7 +127,7 @@ const localeAddressProps = `
 var localeOnlyProps = []string{"business_type", "no_office", "country_name", "image"}
 
 // site-only property names, dropped from a locale card.
-var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object"}
+var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object", "parent_organisation"}
 
 // notStated labels the empty choice of a tri-state field: unset, so nothing is
 // printed (and a locale card inherits the site-wide answer).
