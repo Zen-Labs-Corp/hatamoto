@@ -28,6 +28,9 @@ func (s *Server) newImportManager() *importjob.Manager {
 			if s.redirectService != nil {
 				s.redirectService.InvalidateCache()
 			}
+			if s.seoStore != nil {
+				s.seoStore.Invalidate()
+			}
 			s.invalidateRendered(ctx)
 		},
 	})
