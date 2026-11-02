@@ -272,13 +272,6 @@ func attrsMap(raw json.RawMessage) map[string]any {
 
 func str(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 
-// robotsNoIndex reports whether attributes.seo.robots (written by the React
-// SEO tab, a comma separated list such as "noindex, follow") asks for noindex.
-func robotsNoIndex(m map[string]any) bool {
-	seo, _ := m["seo"].(map[string]any)
-	return strings.Contains(strings.ToLower(str(seo, "robots")), "noindex")
-}
-
 // dropNoIndexRobots removes the noindex directive from attributes.seo.robots,
 // keeping its other directives (and removing the key when none are left).
 func dropNoIndexRobots(m map[string]any) {

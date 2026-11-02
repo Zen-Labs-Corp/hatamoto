@@ -38,7 +38,7 @@ func SEOPreview(ctx context.Context, v *PageView) SEOPreviewTags {
 func seoMetas(in []metaPair) []SEOMeta {
 	out := make([]SEOMeta, 0, len(in))
 	for _, m := range in {
-		out = append(out, SEOMeta{Key: m.Key, Content: m.Content})
+		out = append(out, SEOMeta(m))
 	}
 	return out
 }
