@@ -1,0 +1,89 @@
+name: ci-full
+# The run name carries the tested commit: a dispatch can only name a branch, so the
+# run's own head sha is the branch head, not necessarily the commit under test.
+run-name: ci-full @ ${{ inputs.sha || github.sha }}
+
+# The full suite. PRs and pushes to main run only the fast tier of ci.yml; this runs
+# everything: PostgreSQL 16 and 18, the whole integration run, race, must-run steps,
+# admin-ui, admin-attack, wordpress-importer, installer-e2e, n-1, sdk 1.26 and 1.27.
+# It calls ci.yml with tier: full, so no job body is duplicated.
+#
+# Nightly, skipped when the newest green run already tested the head of main. By hand,
+# for the head of a ref or for one commit:
+#   gh workflow run ci-full --ref main [-f sha=<commit>]
+# A red run on the head of main opens (or updates) the issue "ci-full failing on main";
+# the next green run closes it.
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to test (default: the head of the ref)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-full
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.p.outputs.run }}
+      sha: ${{ steps.p.outputs.sha }}
+      is_main: ${{ steps.p.outputs.is_main }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Resolve the commit and whether to run
+        id: p
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.sha }}
+        run: bash scripts/ci-full-plan.sh
+
+  suite:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    permissions:
+      contents: read
+    # The classic local reference, which GitHub documents; zizmor's `$/` form is not used.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    with:
+      tier: full
+      sha: ${{ needs.plan.outputs.sha }}
+
+  # The only job that may write issues.
+  report:
+    name: Report to the tracking issue
+    needs: [plan, suite]
+    if: always() && needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.suite.result }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          IS_MAIN: ${{ needs.plan.outputs.is_main }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/ci-full-report.sh
