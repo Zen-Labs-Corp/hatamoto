@@ -105,3 +105,41 @@ func TestCollapsedSidebarOnlyOnDesktop(t *testing.T) {
 		t.Error("base.css: the collapsed sidebar is hidden, not shrunk to a rail")
 	}
 }
+
+// Sign 1 (unslop2): the shell notices are one hairline group on paper, not stacked tinted boxes.
+// Reverting the frame, the row reset or the two button variants brings the boxes back.
+func TestShellNoticesAreOneHairlineGroup(t *testing.T) {
+	t.Parallel()
+
+	base := adminAsset(t, "css", "base.css")
+	for _, want := range []string{
+		".hm-notices { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);",
+	} {
+		if !strings.Contains(base, want) {
+			t.Errorf("base.css must frame the notices as one group: missing %q", want)
+		}
+	}
+	viz := adminAsset(t, "css", "partials", "viz.css")
+	for _, want := range []string{
+		".hm-notices .hm-callout { border: 0; border-radius: 0; background: none; color: var(--text-2); min-height: 40px; }",
+		".hm-notices .hm-callout + .hm-callout { border-top: 1px solid var(--border); }",
+		".hm-notices .hm-callout > .hm-icon { color: var(--callout-fg); }",
+		".hm-notices .hm-callout__body { flex: 1; }",
+		".hm-notices .hm-callout--danger { color: var(--callout-fg); }",
+		".hm-notices form { display: flex; flex-wrap: wrap;",
+		".hm-notices form > span { flex: 1 1 16rem; }",
+	} {
+		if !strings.Contains(viz, want) {
+			t.Errorf("viz.css must style the notice rows as group rows: missing %q", want)
+		}
+	}
+	shell := readWeb(t, "layouts/shell.html")
+	if !strings.Contains(shell, `"Label" "No thanks" "Size" "sm" "Variant" "ghost"`) {
+		t.Error(`the stats notice's "No thanks" must be a ghost button`)
+	}
+	for _, line := range strings.Split(shell, "\n") {
+		if strings.Contains(line, "data-hm-stats-banner") && strings.Contains(line, `"Variant" "primary"`) {
+			t.Error(`the stats notice's "Send stats" must be a secondary (outline) button`)
+		}
+	}
+}
