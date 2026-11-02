@@ -83,6 +83,21 @@ func (v Verification) IsZero() bool {
 		v.Pinterest == "" && v.Facebook == "" && len(v.Custom) == 0
 }
 
+// reservedMetaNames are head tags the page already owns: a custom tag with one
+// of these names would duplicate or override them (robots above all).
+var reservedMetaNames = map[string]bool{
+	"robots": true, "googlebot": true, "bingbot": true, "description": true,
+	"viewport": true, "referrer": true, "generator": true, "theme-color": true,
+	"geo.region": true, "google-site-verification": true, "msvalidate.01": true,
+	"yandex-verification": true, "baidu-site-verification": true,
+	"p:domain_verify": true, "facebook-domain-verification": true,
+}
+
+// ReservedMetaName reports whether a custom verification tag may not use name.
+func ReservedMetaName(name string) bool {
+	return reservedMetaNames[name] || strings.HasPrefix(name, "og:") || strings.HasPrefix(name, "twitter:")
+}
+
 // Metas lists the tags to render, built-in services first, then the custom
 // tags. Empty values are skipped.
 func (v Verification) Metas() []MetaTag {
@@ -94,7 +109,11 @@ func (v Verification) Metas() []MetaTag {
 		{"p:domain_verify", v.Pinterest},
 		{"facebook-domain-verification", v.Facebook},
 	}
-	all = append(all, v.Custom...)
+	for _, m := range v.Custom {
+		if !ReservedMetaName(m.Name) {
+			all = append(all, m)
+		}
+	}
 	var out []MetaTag
 	for _, m := range all {
 		if m.Name != "" && m.Content != "" {
@@ -368,6 +387,8 @@ func (s Settings) validateRobotsVerification() []FieldError {
 		base := fmt.Sprintf("%s[custom][%d]", verificationPrefix, i)
 		if len(m.Name) > maxMetaNameLen || !metaNameRE.MatchString(m.Name) {
 			errs = append(errs, FieldError{base + "[name]", "Use lowercase letters, digits and : . _ - (64 characters at most)."})
+		} else if ReservedMetaName(m.Name) {
+			errs = append(errs, FieldError{base + "[name]", "This name is used by the page itself. Choose another."})
 		}
 		code(base+"[content]", m.Content)
 	}

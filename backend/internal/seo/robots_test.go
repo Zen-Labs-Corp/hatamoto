@@ -183,3 +183,25 @@ func TestValidateRobotsAndVerificationSettings(t *testing.T) {
 		t.Error("custom tag cap not enforced")
 	}
 }
+
+func TestCustomVerificationRejectsReservedNames(t *testing.T) {
+	for _, name := range []string{"robots", "googlebot", "bingbot", "description", "viewport", "referrer", "generator", "theme-color", "geo.region", "google-site-verification", "msvalidate.01", "og:title", "twitter:card"} {
+		s := Defaults()
+		s.Verification.Custom = []MetaTag{{name, "x"}}
+		found := false
+		for _, e := range s.Validate() {
+			found = found || e.Field == "verification[custom][0][name]"
+		}
+		if !found {
+			t.Errorf("%q accepted", name)
+		}
+		if got := s.Verification.Metas(); len(got) != 0 {
+			t.Errorf("%q rendered: %v", name, got)
+		}
+	}
+	s := Defaults()
+	s.Verification.Custom = []MetaTag{{"x-check", "1"}}
+	if errs := s.Validate(); len(errs) != 0 || len(s.Verification.Metas()) != 1 {
+		t.Errorf("x-check rejected: %v", errs)
+	}
+}
