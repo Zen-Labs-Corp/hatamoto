@@ -90,28 +90,9 @@ func init() {
 	})
 	registerWidget("breadcrumbs", func(w *widgetCtx) (any, error) {
 		w.Class = "hm-crumbs"
-		type crumb struct {
-			Name, Href string
-			Current    bool
-		}
-		var cs []crumb
+		type crumb = VisibleCrumb
 		co := w.View.CrumbOpts()
-		trail := w.View.Breadcrumb
-		lo, hi := 0, len(trail)
-		if co.HideHome && hi-lo > 1 {
-			lo++
-		}
-		if co.HideCurrent && hi-lo > 1 {
-			hi--
-		}
-		for i, c := range trail[lo:hi] {
-			last := i+lo == len(trail)-1
-			cr := crumb{Name: c.Name, Current: last}
-			if !last {
-				cr.Href = safeURL(c.URL)
-			}
-			cs = append(cs, cr)
-		}
+		cs := w.View.VisibleCrumbs()
 		if len(cs) == 0 {
 			if !w.Canvas {
 				return nil, errWidgetEmpty

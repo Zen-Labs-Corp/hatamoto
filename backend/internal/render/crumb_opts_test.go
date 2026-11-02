@@ -87,3 +87,36 @@ func TestDocCrumbSeparatorSkipsFirstItem(t *testing.T) {
 		}
 	}
 }
+
+// A saved home label, primary term or breadcrumb title must show in the
+// visible doc trail: Start > term > doc.
+func TestSingleDocShapedTrail(t *testing.T) {
+	t.Parallel()
+	e := newTestEngine(t, Options{Data: docData{}})
+	trail := []Crumb{{Name: "Start", URL: "/"}, {Name: "Guides", URL: "/term/guides"}, {Name: "Layouts", URL: "/docs/themes/layouts"}}
+	build := func(b seo.Breadcrumbs, attrs map[string]any) *PageView {
+		v := hierarchyView()
+		v.EntityID, v.SchemaSlug, v.Kind, v.Path = "e9", "doc", KindSingle, "/docs/themes/layouts"
+		v.Entity = &EntityView{ID: "e9", Title: "Layouts", Schema: "doc"}
+		v.Breadcrumb = trail
+		v.Attrs = attrs
+		v.SEO = &seo.Settings{Breadcrumbs: b}
+		return v
+	}
+	want := `<li><a href="/">Start</a></li>
+<li><a href="/term/guides">Guides</a></li>
+<li><span aria-current="page">Layouts</span></li>`
+	for name, v := range map[string]*PageView{
+		"home label": build(seo.Breadcrumbs{HomeLabel: "Start"}, nil),
+		"show term":  build(seo.Breadcrumbs{ShowTerm: true}, nil),
+		"title":      build(seo.Breadcrumbs{}, map[string]any{"breadcrumb_title": "Layouts"}),
+	} {
+		if out := renderToString(t, e, v); !strings.Contains(out, want) {
+			t.Errorf("%s: visible trail not shaped:\n%s", name, mainInner(t, out))
+		}
+	}
+	out := renderToString(t, e, build(seo.Breadcrumbs{HomeLabel: "Start", Separator: "›", HideCurrent: true}, nil))
+	if !strings.Contains(out, `<li data-sep="›"><a href="/term/guides">Guides</a></li>`) || strings.Contains(out, `<span aria-current="page">Layouts`) {
+		t.Errorf("separator or hide-current ignored:\n%s", mainInner(t, out))
+	}
+}

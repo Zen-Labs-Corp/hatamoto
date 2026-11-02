@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/builder"
@@ -668,6 +669,10 @@ type Alternate struct {
 type CrumbOpts struct {
 	Sep                   string
 	HideHome, HideCurrent bool
+	// Shaped is set when the trail carries a saved home label, primary term or
+	// breadcrumb title, so a layout that prints its own trail must print
+	// .Breadcrumb instead.
+	Shaped bool
 }
 
 // CrumbOpts returns the saved breadcrumb view options; the zero value when no
@@ -677,7 +682,41 @@ func (v *PageView) CrumbOpts() CrumbOpts {
 		return CrumbOpts{}
 	}
 	b := v.SEO.Breadcrumbs
-	return CrumbOpts{Sep: b.Separator, HideHome: b.HideHome, HideCurrent: b.HideCurrent}
+	title, _ := v.Attrs["breadcrumb_title"].(string)
+	return CrumbOpts{
+		Sep: b.Separator, HideHome: b.HideHome, HideCurrent: b.HideCurrent,
+		Shaped: b.HomeLabel != "" || b.ShowTerm || strings.TrimSpace(title) != "",
+	}
+}
+
+// VisibleCrumb is one printed step of the visible trail.
+type VisibleCrumb struct {
+	Name, Href string
+	Current    bool
+}
+
+// VisibleCrumbs is .Breadcrumb minus the home and current crumbs the owner
+// hid. A one-crumb remainder is never trimmed away.
+func (v *PageView) VisibleCrumbs() []VisibleCrumb {
+	co := v.CrumbOpts()
+	trail := v.Breadcrumb
+	lo, hi := 0, len(trail)
+	if co.HideHome && hi-lo > 1 {
+		lo++
+	}
+	if co.HideCurrent && hi-lo > 1 {
+		hi--
+	}
+	var out []VisibleCrumb
+	for i, c := range trail[lo:hi] {
+		last := i+lo == len(trail)-1
+		vc := VisibleCrumb{Name: c.Name, Current: last}
+		if !last {
+			vc.Href = safeURL(c.URL)
+		}
+		out = append(out, vc)
+	}
+	return out
 }
 
 // Crumb is one breadcrumb step.

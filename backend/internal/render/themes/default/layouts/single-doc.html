@@ -2,7 +2,10 @@
 <details class="hm-doc__navm"><summary>Documentation menu</summary>
 <nav aria-label="Documentation">{{template "doc-search" dict "Type" $type}}{{template "doc-nav" dict "Nav" $nav "Cur" $cur "Open" $open}}</nav></details>
 <article class="hm-doc__main">
-{{if or $pos.Current $pos.Trail (gt (len .Breadcrumb) 2)}}<nav class="hm-doc__crumbs" aria-label="Breadcrumb"><ol>
+{{if and $co.Shaped .Breadcrumb}}<nav class="hm-doc__crumbs" aria-label="Breadcrumb"><ol>
+{{range $i, $c := .VisibleCrumbs}}<li{{if and $i $co.Sep}} data-sep="{{$co.Sep}}"{{end}}>{{if $c.Href}}<a href="{{$c.Href}}">{{$c.Name}}</a>{{else}}<span{{if $c.Current}} aria-current="page"{{end}}>{{$c.Name}}</span>{{end}}</li>
+{{end}}</ol></nav>
+{{else if or $pos.Current $pos.Trail (gt (len .Breadcrumb) 2)}}<nav class="hm-doc__crumbs" aria-label="Breadcrumb"><ol>
 {{if gt (len .Breadcrumb) 2}}{{with index .Breadcrumb 1}}<li><a href="{{.URL}}">{{.Name}}</a></li>
 {{end}}{{end}}{{range $pos.Trail}}{{if and .Href (ne .Href "#")}}<li{{if $co.Sep}} data-sep="{{$co.Sep}}"{{end}}><a href="{{.Href}}">{{.Label}}</a></li>
 {{end}}{{end}}{{if not $co.HideCurrent}}{{with $pos.Current}}<li{{if $co.Sep}} data-sep="{{$co.Sep}}"{{end}}><span aria-current="page">{{.Label}}</span></li>
