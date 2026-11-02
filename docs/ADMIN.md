@@ -151,6 +151,14 @@ handler tests run on in-memory fakes; the real services are exercised by
   Structural buttons (`_add.`, `_move.`, `_remove.`) re-render without saving.
   Scheduling is `entity.Service.ScheduleEntity` (status `scheduled`,
   `published_at` set; `worker.PublishWorker` publishes it when due).
+* **SEO view**: `?view=seo` on the entity list swaps the columns for the SEO title,
+  description, focus keyword (post-style types only) and a noindex switch, each an
+  editable cell with a server-rendered counter and the resolved template as placeholder.
+  A field saves when it loses focus (`@hm/seobulk`, `POST <admin>/entities/{id}/seo`, JSON
+  when asked for it); without JavaScript the row's Save button posts and redirects back.
+  Only changed fields are written; a field changed elsewhere since the row loaded shows the
+  "Changed elsewhere" state with the current value. The taxonomy list has the same view
+  (`?kind=<kind>&view=seo`, owners, `POST <admin>/settings/taxonomies/terms/{id}/seo`).
 * **Translations** (multi-locale sites only): an entry's Details gains a Translations tab with the
   copy count (`1/3`) and a Locale select (never the shared locale; a clash with another copy in the
   group is refused). `GET <admin>/entities/{id}/translations` lists the copies by language, a

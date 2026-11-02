@@ -26,6 +26,7 @@ export const screens = [
   ...(process.env.HATAMOTO_DEV === "1" ? [{ name: "styleguide", path: "/admin/_styleguide", mock: null, roles: O }] : []),
   // Entities
   { name: "entities", path: "/admin/entities", mock: "content", roles: OE, states: [rowMenu, { name: "filters", click: '[popovertarget$="filters"]' }], primary: true },
+  { name: "entities-seo", path: "/admin/entities?view=seo", mock: null, roles: OE, expect: "[data-hm-cell-edit]" },
   { name: "entities-type", path: "/admin/entities?type=post", mock: null, roles: OE },
   { name: "entity-new", path: "/admin/entities/new", mock: null, roles: OE },
   { name: "people", path: "/admin/people", mock: null, roles: OE, list: true, states: [newDialog] },
@@ -105,6 +106,7 @@ export const screens = [
   { name: "settings-types-new", path: "/admin/settings/types/new", legacy: "/admin/schemas/new", mock: null, roles: O },
   { name: "settings-types-edit", path: "/admin/settings/types/{type}", mock: null, roles: O },
   { name: "settings-taxonomies", path: "/admin/settings/taxonomies", legacy: "/admin/taxonomies", mock: "settings-taxonomies", roles: O, list: true, states: [newDialog] },
+  { name: "settings-taxonomies-seo", path: "/admin/settings/taxonomies?kind=category&view=seo", mock: null, roles: O, list: true, expect: "[data-hm-cell-edit]" },
   { name: "settings-taxonomies-new", path: "/admin/settings/taxonomies/new", mock: null, roles: O },
   // Forms
   { name: "settings-forms", path: "/admin/settings/forms", legacy: "/admin/forms", mock: "settings-forms", roles: OE, primary: true },
