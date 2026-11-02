@@ -14,6 +14,11 @@ func subnavLink(body, href string) string {
 	return m
 }
 
+// subnavSection is the Plugins subnav markup of body.
+func subnavSection(body string) string {
+	return regexp.MustCompile(`(?s)<nav class="hm-subnav" aria-label="Plugins">.*?</nav>`).FindString(body)
+}
+
 func TestPluginsSubnavListsEveryPlugin(t *testing.T) {
 	t.Parallel()
 
@@ -39,6 +44,26 @@ func TestPluginsSubnavListsEveryPlugin(t *testing.T) {
 	list := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(subnavLink(list, "/admin/plugins"), `aria-current="page"`) {
 		t.Error("All plugins is current on the list")
+	}
+	// Child pages of the list keep "All plugins" current, and never two entries.
+	for _, path := range []string{"/admin/plugins/browse", "/admin/plugins/security", "/admin/plugins/seo-tools/about"} {
+		page := g.do("GET", path, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(subnavLink(page, "/admin/plugins"), `aria-current="page"`) {
+			t.Errorf("%s: All plugins is not current", path)
+		}
+		if n := strings.Count(page, `class="hm-subnav__link`); n != 6 {
+			t.Errorf("%s: %d subnav links, want 6 (no new entries)", path, n)
+		}
+		if n := strings.Count(subnavSection(page), `aria-current="page"`); n != 1 {
+			t.Errorf("%s: %d current subnav entries, want 1", path, n)
+		}
+	}
+	about := g.do("GET", "/admin/plugins/hello/about", "owner-token", nil, nil).Body.String()
+	if strings.Contains(subnavLink(about, "/admin/plugins"), "aria-current") || !strings.Contains(subnavLink(about, "/admin/plugins/hello/settings"), "aria-current") {
+		t.Error("an installed plugin's About page keeps its own entry current")
+	}
+	if n := strings.Count(subnavSection(about), `aria-current="page"`); n != 1 {
+		t.Errorf("hello about: %d current subnav entries, want 1", n)
 	}
 	// The permissions tab sits in the same frame.
 	if !strings.Contains(g.do("GET", "/admin/plugins/hello/permissions", "owner-token", nil, nil).Body.String(), `aria-label="Plugins"`) {
