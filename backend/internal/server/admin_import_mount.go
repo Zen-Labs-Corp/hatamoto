@@ -21,7 +21,7 @@ func (s *Server) newImportManager() *importjob.Manager {
 		MediaDir: mediaDirOr(s.cfg.Server.MediaUploadDir), MediaBaseURL: s.cfg.Server.MediaBaseURL, MediaMaxMB: s.cfg.Server.MediaMaxSizeMB,
 	}, s.logger)
 	return importjob.New(importjob.Config{
-		Pool: s.db.Pool(), Deps: deps, Key: importjob.DeriveKey(s.cfg.Secret), Logger: s.logger,
+		Pool: s.db.Pool(), Deps: deps, Key: importjob.DeriveKey(s.cfg.Secret), Logger: s.logger, AdminPath: s.adminPathValue,
 		Handler: func() http.Handler { return s.router },
 		Purge: func(ctx context.Context) {
 			s.entityService.URLRegistry().Invalidate()

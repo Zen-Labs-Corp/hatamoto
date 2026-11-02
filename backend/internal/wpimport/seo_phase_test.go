@@ -118,3 +118,23 @@ func TestSEORowJSONShape(t *testing.T) {
 		t.Errorf("%s %v", b, err)
 	}
 }
+
+func TestSEOPhaseRobotsLinesNamingTheAdminAddressAreDropped(t *testing.T) {
+	r := seoTestRunner(t, "http://127.0.0.1:1", Options{AdminPath: "/hm-7f3k"})
+	live := &seoLive{RobotsExtra: []string{"User-agent: *", "Disallow: /private/", "Disallow: /hm-7f3k/"}}
+	res := &SEOResult{}
+	plan := buildSEOPlan(nil, live, testSchemaOf, "")
+	plan.Fields = r.dropAdminRobotsLines(plan.Fields, res)
+	s := applyPlan(t, plan)
+	if got := strings.Join(s.Robots.ExtraLines, "|"); got != "User-agent: *|Disallow: /private/" {
+		t.Errorf("robots = %q", got)
+	}
+	if !anyHas(res.NotMapped, "/hm-7f3k/") {
+		t.Errorf("not mapped = %v", res.NotMapped)
+	}
+	// Only the admin line: no robots field is left.
+	only := buildSEOPlan(nil, &seoLive{RobotsExtra: []string{"Disallow: /hm-7f3k/"}}, testSchemaOf, "")
+	if got := r.dropAdminRobotsLines(only.Fields, &SEOResult{}); len(got) != 0 {
+		t.Errorf("fields left: %d", len(got))
+	}
+}

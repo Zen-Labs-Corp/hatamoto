@@ -126,8 +126,11 @@ type Config struct {
 	Handler func() http.Handler
 	// Purge clears the server's caches (rendered pages, sitemaps, URL
 	// patterns) after an import.
-	Purge  func(ctx context.Context)
-	Logger *slog.Logger
+	Purge func(ctx context.Context)
+	// AdminPath returns the site's live admin address, which imported
+	// robots.txt lines must not name; nil leaves only the default check.
+	AdminPath func() string
+	Logger    *slog.Logger
 	// NoSweepLoop turns off the background retention sweep (tests call Sweep
 	// themselves; a concurrent sweep would race them).
 	NoSweepLoop bool
@@ -676,6 +679,9 @@ func (m *Manager) runJob(ctx context.Context, id uuid.UUID, rec *record, o Optio
 	opts := wpimport.Options{
 		Actor: &actor.ID, AllowPrivate: m.AllowPrivate, Client: client, NoPermalinks: o.KeepPatterns, KeepEdited: o.KeepEdited,
 		SkipMedia: !o.Media, NoSEOLive: o.NoSEOLive, SEOFile: seo, Progress: j.say, Purge: m.cfg.Purge, Stored: map[string]any{"kind": rec.st.Kind, "url": rec.st.URL, "user": rec.st.User, "wizard": o},
+	}
+	if m.cfg.AdminPath != nil {
+		opts.AdminPath = m.cfg.AdminPath()
 	}
 	if m.cfg.Handler != nil {
 		if h := m.cfg.Handler(); h != nil {

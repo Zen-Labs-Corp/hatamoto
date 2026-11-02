@@ -53,6 +53,9 @@ type Options struct {
 	// NoSEOLive skips reading the global SEO settings from the live site; the
 	// zero value reads it.
 	NoSEOLive bool
+	// AdminPath is the site's admin address; imported robots.txt lines naming
+	// it are dropped. Empty skips that check.
+	AdminPath string
 	// SEOFile is an uploaded settings export. Memory only: never put it in Stored.
 	SEOFile *SEOFile
 	// Options are written to the run (no secrets) so --resume can reuse them.

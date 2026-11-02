@@ -45,6 +45,7 @@ func (r *Runner) importSEO(ctx context.Context) error {
 	res.NotMapped = append(res.NotMapped, plan.NotMapped...)
 	res.NotMapped = append(res.NotMapped, plan.Notes...)
 	plan.Fields = r.dropSourceUploads(plan.Fields, res)
+	plan.Fields = r.dropAdminRobotsLines(plan.Fields, res)
 
 	if len(plan.Fields) > 0 {
 		r.applySEOPlan(ctx, res, plan)
@@ -79,6 +80,39 @@ func (r *Runner) dropSourceUploads(fields []seoField, res *SEOResult) []seoField
 		kept = append(kept, f)
 	}
 	return kept
+}
+
+// dropAdminRobotsLines keeps imported robots.txt lines that name the site's
+// admin address out of the public file: the settings validator only checks
+// that address on the Settings > SEO save path.
+func (r *Runner) dropAdminRobotsLines(fields []seoField, res *SEOResult) []seoField {
+	admin := strings.ToLower(strings.TrimSpace(r.opts.AdminPath))
+	if admin == "" || admin == "/" {
+		return fields
+	}
+	out := fields[:0:0]
+	for _, f := range fields {
+		if f.Key != "robots.extra" {
+			out = append(out, f)
+			continue
+		}
+		s := seo.Defaults()
+		f.Apply(&s)
+		var keep []string
+		for _, l := range s.Robots.ExtraLines {
+			if strings.Contains(strings.ToLower(l), admin) {
+				res.NotMapped = append(res.NotMapped, "robots.txt line: "+l)
+				continue
+			}
+			keep = append(keep, l)
+		}
+		if len(keep) == 0 {
+			continue
+		}
+		f.Apply = func(s *seo.Settings) { s.Robots.ExtraLines = append([]string(nil), keep...) }
+		out = append(out, f)
+	}
+	return out
 }
 
 // applySEOPlan validates the plan against the current settings and writes it
