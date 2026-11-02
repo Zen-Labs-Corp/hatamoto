@@ -8,7 +8,10 @@
   display: flex; flex-direction: column; gap: var(--space-5);
   padding: var(--space-4) var(--space-3) var(--space-3);
   background: var(--raised); border-right: 1px solid var(--color-kinu);
+  /* --surface-hover equals --raised, so on this background it would not show. */
+  --sidebar-hover: color-mix(in srgb, var(--text) 7%, var(--raised));
 }
+.hm-sidebar .hm-btn--ghost:hover, .hm-sidebar .hm-btn--ghost:active { background: var(--sidebar-hover); }
 .hm-sidebar__head { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .hm-sidebar__brand { flex: 1; min-width: 0; padding: var(--space-1) var(--space-2); color: var(--text); text-decoration: none; }
 .hm-sidebar__brand > span:not(.hm-brand__seal) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -26,7 +29,7 @@
   font-size: var(--text-md); font-weight: var(--weight-regular);
 }
 .hm-nav-link .hm-icon { color: var(--text-2); }
-.hm-nav-link:hover { background: var(--surface-hover); color: var(--text); }
+.hm-nav-link:hover { background: var(--sidebar-hover); color: var(--text); }
 /* Active item: a faint white chip with a near-invisible ring. Ink text and
    icon, weight 500; no accent colour and no indicator anywhere in the menu. */
 .hm-nav-link[aria-current="page"] {
@@ -47,7 +50,7 @@
   padding: 0 var(--space-1); border-radius: var(--radius-nav);
   color: var(--text); text-decoration: none; font-size: var(--text-sm); font-weight: var(--weight-medium);
 }
-.hm-sidebar__me:hover { background: var(--surface-hover); }
+.hm-sidebar__me:hover { background: var(--sidebar-hover); }
 .hm-sidebar__me:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-sidebar__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-avatar {

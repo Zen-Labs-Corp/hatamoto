@@ -95,3 +95,29 @@ func TestSidebarCurrentIsNotSuppressedBySubnav(t *testing.T) {
 		t.Error("sidebar.css hides the current area pill when a subnav exists; the primary rail must show it on every area")
 	}
 }
+
+// The sidebar sits on --raised, which --surface-hover equals in both themes, so its hover
+// fills (links, profile, ghost foot buttons) use --sidebar-hover and never the token or kasumi.
+func TestSidebarHoverIsVisible(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hovers := 0
+	for i, line := range strings.Split(string(b), "\n") {
+		if !strings.Contains(line, ":hover") && !strings.Contains(line, ":active") {
+			continue
+		}
+		if strings.Contains(line, "background") {
+			hovers++
+			if !strings.Contains(line, "--sidebar-hover") {
+				t.Errorf("sidebar.css:%d hover fill must use --sidebar-hover (--surface-hover equals the sidebar background): %s", i+1, line)
+			}
+		}
+	}
+	if hovers < 3 {
+		t.Errorf("found %d sidebar hover fills, want link, profile and ghost buttons", hovers)
+	}
+}
