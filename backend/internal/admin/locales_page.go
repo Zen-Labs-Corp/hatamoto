@@ -196,6 +196,9 @@ func (a *Admin) localesTable(r *http.Request, cfg *siteconfig.Config) ui.Table {
 			vis = ui.Badge{Label: "Hidden, not public yet", Kind: "warning"}
 		}
 		label, kind := localeBadge(stored[e.Tag])
+		if e.Tag == defTag {
+			label, kind = "Organisation", "success" // the default locale's business is the organisation
+		}
 		row := ui.Row{ID: e.Tag, Label: name, Cells: []ui.Cell{first, addr, {Badge: &vis}, {Badge: &ui.Badge{Label: label, Kind: kind}}}}
 		if multi {
 			row.Actions = a.localeRowActions(entries, i, defTag)
