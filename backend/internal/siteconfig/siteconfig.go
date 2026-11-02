@@ -506,10 +506,11 @@ func foldDefaultBusiness(ctx context.Context, tx pgx.Tx, oldLanguage, newLanguag
 	if err != nil {
 		return fmt.Errorf("fold default business: %w", err)
 	}
+	previous, keep := swappedDefault(oldTag, errOld, locales)
 	out, changed, err := bizprofile.FoldRow(bizprofile.Row{
 		Default: newTag, BusinessProfile: profile, LocaleProfiles: cards,
 		Phone: phone.String, BusinessHours: hours.String, PostalAddress: address,
-		Previous: swappedDefault(oldTag, errOld, locales),
+		Previous: previous, DropPrevious: previous != "" && !keep,
 	})
 	if err != nil {
 		return fmt.Errorf("fold default business: %w", err)
@@ -536,19 +537,25 @@ func nullIfEmpty(v string, was sql.NullString) any {
 }
 
 // swappedDefault is the old default tag when the old default business must be
-// kept as a card: the site has several locales and one of them is the old
-// default. Otherwise it is "".
-func swappedDefault(oldTag string, errOld error, rawLocales []byte) string {
+// moved out of the default business: the site has a locale list and either
+// the old default is still listed next to another locale (keep is true: it
+// gets a card), or it was removed from the list in the same request (keep is
+// false: it has no pages, so no card is stored, but the new default must still
+// not print its address). Otherwise it is "".
+func swappedDefault(oldTag string, errOld error, rawLocales []byte) (tag string, keep bool) {
 	var list []LocaleEntry
-	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) < 2 {
-		return ""
+	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) == 0 {
+		return "", false
 	}
 	for _, e := range list {
-		if tag, err := entity.NormalizeLocale(e.Tag); err == nil && tag == oldTag {
-			return oldTag
+		if t, err := entity.NormalizeLocale(e.Tag); err == nil && t == oldTag {
+			if len(list) < 2 {
+				return "", false
+			}
+			return oldTag, true
 		}
 	}
-	return ""
+	return oldTag, false
 }
 
 // normaliseCardKeys re-keys the stored cards with entity.NormalizeLocale (older

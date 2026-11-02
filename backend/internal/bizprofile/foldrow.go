@@ -19,6 +19,9 @@ type Row struct {
 	// and differs from Default, FoldRow stores the old default business as that
 	// locale's card (SwapDefault) before it folds.
 	Previous string
+	// DropPrevious stores no card for Previous (it has no pages any more); the
+	// business is stripped of its address and office all the same.
+	DropPrevious bool
 }
 
 // FoldRow runs Fold on a stored row: it parses the columns, applies the legacy
@@ -47,6 +50,9 @@ func FoldRow(r Row) (Row, bool, error) {
 		in = SwapDefault(in, r.Previous)
 	}
 	out := Fold(in)
+	if swap && r.DropPrevious {
+		delete(out.Cards, r.Previous)
+	}
 	stored, phone, hours, addr := SplitLegacy(out.Business)
 	res := Row{Default: r.Default, Phone: phone, BusinessHours: hours, PostalAddress: addr}
 	if res.BusinessProfile, err = json.Marshal(stored); err != nil {

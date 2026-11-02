@@ -348,3 +348,48 @@ func TestUpdateLanguageWithBusinessFieldsLandsOnNewDefault(t *testing.T) {
 		t.Errorf("old default card = %v, want its own address and country", cards["en-XX"])
 	}
 }
+
+// A request that drops the old default from the locale list and switches the
+// default stores no card for it, and the new default does not print its
+// address or office.
+func TestUpdateLanguageRemovingOldDefaultStripsItsAddress(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	seedFoldSite(t, s)
+	if err := s.SetLocaleProfile(ctx, "fr-CA", nil); err != nil {
+		t.Fatal(err)
+	}
+	old := "en-XX"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{
+		Language:        &old,
+		PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
+		BusinessProfile: json.RawMessage(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	lang := "fr-CA"
+	locales := []siteconfig.LocaleEntry{{Tag: "fr-CA", Segment: "fr"}, {Tag: "de-XX", Segment: "dx"}}
+	cfg, err := s.Update(ctx, siteconfig.UpdateInput{Language: &lang, Locales: &locales})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bp map[string]any
+	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+		t.Fatal(err)
+	}
+	if bp["office"] == true || bp["country_name"] != nil {
+		t.Errorf("new default business = %v, want no office and no country name", bp)
+	}
+	var addr map[string]string
+	if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "" {
+		t.Errorf("PostalAddress = %s, want the old address gone", cfg.PostalAddress)
+	}
+	var cards map[string]json.RawMessage
+	if err := json.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cards["en-XX"]; ok {
+		t.Errorf("card kept for a locale that left the list: %s", cfg.LocaleProfiles)
+	}
+}
