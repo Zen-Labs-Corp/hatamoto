@@ -36,8 +36,8 @@ func TestNoticesAlignWithContentColumn(t *testing.T) {
 	css := string(b)
 	for _, want := range []string{
 		"max-width: var(--page-wide); margin-inline: auto; padding: var(--page-pad) var(--page-pad) 0;",
-		"@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--subnav-gap)); } }",
-		"@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--subnav-gap)); } }",
+		"@media (min-width: 769px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--page-pad) + var(--subnav-w) + var(--space-8)); } }",
+		"@media (min-width: 769px) and (max-width: 960px) { .hm-notices:has(+ .hm-settings) { padding-inline-start: calc(var(--space-4) + var(--subnav-w) + var(--space-4)); } }",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("base.css lacks %q", want)
@@ -47,8 +47,8 @@ func TestNoticesAlignWithContentColumn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(s), "gap: var(--subnav-gap)") || !strings.Contains(string(s), ":root { --subnav-w: 184px; --subnav-gap: var(--space-4); }") {
-		t.Error("settings.css grid must use --subnav-gap, and the 960px block must narrow --subnav-w and --subnav-gap")
+	if !strings.Contains(string(s), "gap: var(--space-8); align-items: start") || !strings.Contains(string(s), ":root { --subnav-w: 184px; } .hm-settings { gap: var(--space-4); }") {
+		t.Error("the 960px block must narrow --subnav-w and the grid gap to the values the notices strip adds")
 	}
 }
 
