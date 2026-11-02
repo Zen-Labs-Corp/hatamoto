@@ -31,6 +31,9 @@
 .hm-tablist__tab { appearance: none; background: none; border: 0; cursor: pointer; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__list { display: inline-flex; gap: var(--space-0-5); margin: 0; padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--color-kasumi); max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; box-shadow: none; }
 .hm-tabs[data-variant="segmented"] .hm-tabs__list::-webkit-scrollbar { display: none; }
+/* In the list toolbar the track is one 32px control: its tabs take what the border and padding leave. */
+.hm-listbar .hm-tabs[data-variant="segmented"] .hm-tabs__list { box-sizing: border-box; height: var(--control-h-sm); }
+.hm-listbar .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: calc(var(--control-h-sm) - 2 * var(--space-px) - 2 * var(--space-0-5)); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab { height: var(--control-h-xs); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--color-sumi); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab:hover { background: var(--color-shiro); }
 .hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
