@@ -45,7 +45,9 @@ type seoListContext struct {
 	homeID        string
 }
 
-func (a *Admin) seoListContext(ctx context.Context) seoListContext {
+// seoListContext loads the settings once per request. withHome also finds the
+// entity the site serves at "/" (terms have none).
+func (a *Admin) seoListContext(ctx context.Context, withHome bool) seoListContext {
 	var lc seoListContext
 	if a.deps.SEO != nil {
 		if set, err := a.deps.SEO.Get(ctx); err == nil {
@@ -55,13 +57,13 @@ func (a *Admin) seoListContext(ctx context.Context) seoListContext {
 	if a.deps.Site != nil {
 		if cfg, err := a.deps.Site.Get(ctx); err == nil && cfg != nil {
 			lc.site, lc.tagline = cfg.CompanyName, cfg.Tagline
-			if cfg.HomepageEntityID != uuid.Nil {
+			if withHome && cfg.HomepageEntityID != uuid.Nil {
 				lc.homeID = cfg.HomepageEntityID.String()
 				return lc
 			}
 		}
 	}
-	if a.deps.Growth.Explain != nil {
+	if withHome && a.deps.Growth.Explain != nil {
 		if ex, err := a.deps.Growth.Explain.ExplainURL(ctx, "/"); err == nil {
 			lc.homeID = ex.Page.EntityID
 		}
@@ -138,7 +140,7 @@ func (a *Admin) entitiesSEORow(e *entity.Entity, sc *entity.EntitySchema, lc seo
 func (a *Admin) renderEntitiesSEO(w http.ResponseWriter, r *http.Request, p listParams, res *entity.OffsetPagedResult[*entity.Entity], byID map[uuid.UUID]*entity.EntitySchema, t ui.Table, types []typeTab, resolved *entity.EntitySchema) {
 	ctx := r.Context()
 	t.Columns = entitiesSEOColumns()
-	lc := a.seoListContext(ctx)
+	lc := a.seoListContext(ctx, true)
 	back := r.URL.RequestURI()
 	if !strings.HasPrefix(back, a.adminPath+"/entities") {
 		back = a.adminPath + "/entities?" + url.Values{"view": {seoView}}.Encode()
