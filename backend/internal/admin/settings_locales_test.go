@@ -292,15 +292,100 @@ func TestLocaleCardHelpAndFallbacks(t *testing.T) {
 	site.cfg.BusinessProfile = []byte(`{"vat_id":"VAT-1","description":"Site description"}`)
 	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{
-		"Business name", "printed as its legal name", "Country name", "VAT ID", `placeholder="VAT-1"`, "Describes this locale&#39;s local business", "Site description", `name="loc_aa.image"`,
+		"Legal name", "printed as its legal name", "Country name", "VAT ID", `placeholder="VAT-1"`, "Describes this locale&#39;s local business", "Site description", `name="loc_aa.image"`,
+		"NAICS code", "Empty uses the site-wide value.", "Kilometres around this locale&#39;s coordinates.",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("card lacks %q", want)
 		}
 	}
-	for _, gone := range []string{"Legal name", "Alternate name", "Slogan", "Employees from"} {
+	for _, gone := range []string{"Business name", "Alternate name", "Slogan", "Employees from"} {
 		if strings.Contains(body, gone) {
 			t.Errorf("card shows %q", gone)
 		}
+	}
+}
+
+func TestLocaleCardTriStateKeepsNotStated(t *testing.T) {
+	t.Parallel()
+
+	g, _ := localeRig(t, threeLocales...)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`<option value="">Not stated</option>`, "Not stated uses the site-wide value."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"Select Accepts reservations", "Choose Not stated to say nothing"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("card shows %q", gone)
+		}
+	}
+}
+
+func TestLocaleCardFallsBackToSiteIdentifiersAndLinks(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.BusinessProfile = []byte(`{"naics":"541511","isic":"6201","duns":"123456789","lei":"5493001KJTIIGC8Y1R12","gln":"1234567890123",` +
+		`"booking_url":"https://example.test/book","order_url":"https://example.test/order","menu_url":"https://example.test/menu"}`)
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`placeholder="541511"`, `placeholder="6201"`, `placeholder="123456789"`, `placeholder="5493001KJTIIGC8Y1R12"`,
+		`placeholder="1234567890123"`, `placeholder="https://example.test/book"`, `placeholder="https://example.test/order"`, `placeholder="https://example.test/menu"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+}
+
+func TestBusinessSaveStoresACardWithOnlyAnExtendedField(t *testing.T) {
+	t.Parallel()
+
+	for name, form := range map[string]url.Values{
+		"text":   {"loc_aa.naics": {"541511"}},
+		"yes":    {"loc_aa.accepts_reservations": {"yes"}},
+		"no":     {"loc_aa.accepts_reservations": {"no"}},
+		"preset": {"loc_aa.amenity_presets.wifi": {"no"}},
+	} {
+		g, site := localeRig(t, threeLocales...)
+		if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", form, nil); rec.Code != 303 {
+			t.Fatalf("%s: save: %d", name, rec.Code)
+		}
+		m, err := bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := m["aa"]; !ok {
+			t.Errorf("%s: a card with only an extended field was dropped as empty", name)
+		}
+	}
+	// Untouched switches and empty fields leave nothing to store.
+	g, site := localeRig(t, threeLocales...)
+	site.cfg.LocaleProfiles = []byte(`{"aa":{"naics":"541511"}}`)
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{"loc_aa.naics": {""}, "loc_aa.booking_url": {""}}, nil); rec.Code != 303 {
+		t.Fatalf("clear: %d", rec.Code)
+	}
+	m, _ := bizprofile.ParseLocales(site.cfg.LocaleProfiles)
+	if _, ok := m["aa"]; ok {
+		t.Errorf("a card with zero values was kept: %+v", m["aa"])
+	}
+}
+
+// A LEI is stored in capitals, however it was typed, on both forms.
+func TestBusinessSaveUppercasesLEI(t *testing.T) {
+	t.Parallel()
+
+	g, site := localeRig(t, threeLocales...)
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{"notify": {"boss@example.com"}, "biz.lei": {"5493001kjtiigc8y1r12"}}, nil); rec.Code != 303 {
+		t.Fatalf("site save: %d %s", rec.Code, rec.Body.String())
+	}
+	if raw := string(site.cfg.BusinessProfile); !strings.Contains(raw, `"lei":"5493001KJTIIGC8Y1R12"`) {
+		t.Errorf("site profile = %s", raw)
+	}
+	if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", url.Values{"loc_aa.lei": {"5493001kjtiigc8y1r12"}}, nil); rec.Code != 303 {
+		t.Fatalf("card save: %d", rec.Code)
+	}
+	if raw := string(site.cfg.LocaleProfiles); !strings.Contains(raw, `"lei":"5493001KJTIIGC8Y1R12"`) {
+		t.Errorf("card profile = %s", raw)
 	}
 }

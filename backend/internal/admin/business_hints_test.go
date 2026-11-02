@@ -16,6 +16,9 @@ func TestBusinessHintsKeepSentencePeriods(t *testing.T) {
 	for _, ui := range []map[string]schemaform.UIHint{businessUI, localeUI()} {
 		for k, hint := range ui {
 			h := hint.Help
+			if h == "" {
+				continue // placeholder-only hint
+			}
 			if fragments[k] {
 				if strings.HasSuffix(h, ".") {
 					t.Errorf("%s: fragment hint %q should not end with a period", k, h)

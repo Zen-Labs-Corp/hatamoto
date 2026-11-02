@@ -18,6 +18,11 @@ const (
 	maxDescLen  = 1000 // the description is prose in a textarea
 	maxPhoneLen = 50
 	maxURLLen   = 2000
+	// maxListItems keeps each list short enough for the 64-element array cap
+	// of the render.site_graph plugin filter.
+	maxListItems = 50
+	// maxRadiusKm keeps the radius in metres a finite JSON number.
+	maxRadiusKm = 20000
 )
 
 // Types are the business types a profile may name: LocalBusiness and a curated
@@ -68,6 +73,16 @@ var Types = []string{
 	"VeterinaryCare",
 }
 
+// IsFoodType reports whether a business type is a schema.org FoodEstablishment
+// (the only type that defines acceptsReservations and hasMenu).
+func IsFoodType(t string) bool {
+	switch t {
+	case "Restaurant", "BarOrPub", "Bakery", "CafeOrCoffeeShop":
+		return true
+	}
+	return false
+}
+
 // Days are the day names an opening hours block may list.
 var Days = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
@@ -75,6 +90,11 @@ var (
 	timeRE     = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 	currencyRE = regexp.MustCompile(`^[A-Za-z]{3}$`)
 	decimalRE  = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
+	naicsRE    = regexp.MustCompile(`^\d{2,6}$`)
+	isicRE     = regexp.MustCompile(`^\d{4}$`)
+	dunsRE     = regexp.MustCompile(`^\d{9}$`)
+	leiRE      = regexp.MustCompile(`^[A-Z0-9]{20}$`)
+	glnRE      = regexp.MustCompile(`^\d{13}$`)
 )
 
 // ParseDecimal parses a decimal number: digits with an optional sign, fraction
@@ -146,6 +166,50 @@ func Validate(p Profile) map[string]string {
 		}
 		if f, ok := ParseDecimal(v); !ok || f < -limit || f > limit {
 			errs[path] = fmt.Sprintf("Enter a number between -%g and %g.", limit, limit)
+		}
+	}
+
+	ident := func(path, v string, re *regexp.Regexp, msg string) {
+		if v != "" && !re.MatchString(strings.ToUpper(v)) {
+			errs[path] = msg
+		}
+	}
+	// named checks a row that needs a name; the repeater cannot drop an
+	// otherwise empty row whose switch always counts as set.
+	named := func(path, name string) {
+		if strings.TrimSpace(name) == "" {
+			errs[path+".name"] = "Enter a name."
+			return
+		}
+		text(path+".name", name)
+	}
+	money := func(path, v string) {
+		if v == "" {
+			return
+		}
+		if f, ok := ParseDecimal(v); !ok || f < 0 {
+			errs[path] = "Enter a price of 0 or more, such as 49.90."
+		}
+	}
+	texts := func(key string, vs []string) {
+		for i, v := range vs {
+			text(key+"."+strconv.Itoa(i), v)
+		}
+	}
+	people := func(key string, ps []Person) {
+		for i, v := range ps {
+			at := key + "." + strconv.Itoa(i)
+			named(at, v.Name)
+			link(at+".url", v.URL)
+		}
+	}
+
+	for key, n := range map[string]int{
+		"founders": len(p.Founders), "memberships": len(p.Memberships), "brands": len(p.Brands), "payment_methods": len(p.PaymentMethods),
+		"knows_about": len(p.KnowsAbout), "awards": len(p.Awards), "services": len(p.Services), "amenities": len(p.Amenities),
+	} {
+		if n > maxListItems {
+			errs[key] = fmt.Sprintf("Add at most %d items.", maxListItems)
 		}
 	}
 
@@ -246,6 +310,41 @@ func Validate(p Profile) map[string]string {
 		link("sameas."+strconv.Itoa(i), v)
 	}
 	validateRating(errs, p.Rating)
+	ident("naics", p.Naics, naicsRE, "Enter 2 to 6 digits.")
+	ident("isic", p.Isic, isicRE, "Enter 4 digits.")
+	ident("duns", p.Duns, dunsRE, "Enter 9 digits.")
+	ident("lei", p.Lei, leiRE, "Enter 20 letters or digits.")
+	ident("gln", p.Gln, glnRE, "Enter 13 digits.")
+	people("founders", p.Founders)
+	people("memberships", p.Memberships)
+	if p.ParentOrg != (Person{}) {
+		named("parent_organisation", p.ParentOrg.Name)
+		link("parent_organisation.url", p.ParentOrg.URL)
+	}
+	texts("brands", p.Brands)
+	texts("payment_methods", p.PaymentMethods)
+	texts("knows_about", p.KnowsAbout)
+	texts("awards", p.Awards)
+	link("booking_url", p.BookingURL)
+	link("order_url", p.OrderURL)
+	link("menu_url", p.MenuURL)
+	if v := p.ServiceRadiusKm; v != "" {
+		if f, ok := ParseDecimal(v); !ok || f <= 0 || f > maxRadiusKm {
+			errs["service_radius_km"] = "Enter a distance in kilometres."
+		}
+	}
+	for i, v := range p.Services {
+		at := "services." + strconv.Itoa(i)
+		named(at, v.Name)
+		if utf8.RuneCountInString(v.Description) > maxDescLen {
+			errs[at+".description"] = fmt.Sprintf("Use at most %d characters.", maxDescLen)
+		}
+		link(at+".url", v.URL)
+		money(at+".price", v.Price)
+	}
+	for i, v := range p.Amenities {
+		named("amenities."+strconv.Itoa(i), v.Name)
+	}
 	if c := p.Rating.Count; c != "" {
 		if n, err := strconv.Atoi(c); err != nil || n < 1 {
 			errs["rating.count"] = "Enter a whole number of 1 or more."

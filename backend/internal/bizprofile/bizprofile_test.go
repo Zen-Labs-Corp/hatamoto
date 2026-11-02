@@ -2,6 +2,7 @@ package bizprofile
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -293,5 +294,97 @@ func TestProfile_NewFieldsRoundTrip(t *testing.T) {
 	p, err := Parse(raw)
 	if err != nil || p.EmployeesMin != 10 || p.EmployeesMax != 50 {
 		t.Errorf("float64 round trip: %+v, %v", p, err)
+	}
+}
+
+func boolp(v bool) *bool { return &v }
+
+func filledExtended() Profile {
+	return Profile{
+		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "5493001KJTIIGC8Y1R12", Gln: "1234567890123",
+		Founders:            []Person{{Name: "A Founder", URL: "https://example.test/a"}},
+		ParentOrg:           Person{Name: "Parent Co", URL: "https://example.test/p"},
+		Brands:              []string{"Brand One"},
+		Memberships:         []Person{{Name: "Guild", URL: "https://example.test/g"}},
+		PaymentMethods:      []string{"Cash", "Card"},
+		AcceptsReservations: boolp(true),
+		BookingURL:          "https://example.test/book", OrderURL: "https://example.test/order", MenuURL: "https://example.test/menu",
+		ServiceRadiusKm: "25",
+		Services:        []Service{{Name: "Repair", Description: "Fixes", URL: "https://example.test/r", Price: "49.90"}},
+		KnowsAbout:      []string{"Plumbing"},
+		Awards:          []string{"Best of 2030"},
+		AmenityPresets: AmenityPresets{
+			Parking: boolp(true), WheelchairAccess: boolp(false), Wifi: boolp(true), Toilets: boolp(true), AirConditioning: boolp(false),
+		},
+		Amenities:    []Amenity{{Name: "Pool", Value: false}},
+		PublicAccess: boolp(true), FreeEntry: boolp(false),
+	}
+}
+
+func TestExtendedFields_RoundTrip(t *testing.T) {
+	in := filledExtended()
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(in, out) {
+		t.Errorf("round trip:\n in=%+v\nout=%+v", in, out)
+	}
+	if !strings.Contains(string(b), `"value":false`) {
+		t.Errorf("explicit false amenity must be stored: %s", b)
+	}
+}
+
+// Every extended field must be resolved: an empty card inherits the whole site
+// profile, and a card with the same values over an empty site keeps them.
+func TestMerge_ExtendedFieldsAllResolved(t *testing.T) {
+	full := filledExtended()
+	if got := merge(full, Profile{}); !reflect.DeepEqual(got, withBase(full)) {
+		t.Errorf("inherit:\n got=%+v\nwant=%+v", got, withBase(full))
+	}
+	if got := merge(Profile{}, full); !reflect.DeepEqual(got, withBase(full)) {
+		t.Errorf("override:\n got=%+v\nwant=%+v", got, withBase(full))
+	}
+}
+
+// withBase sets the fields merge fills regardless of the card (the business type default).
+func withBase(p Profile) Profile {
+	p.BusinessType = DefaultType
+	return p
+}
+
+func TestMerge_ExtendedOverrides(t *testing.T) {
+	site := filledExtended()
+	loc := Profile{
+		Naics:               "7211",
+		Brands:              []string{"Local Brand"},
+		ParentOrg:           Person{Name: "Local Parent"},
+		AcceptsReservations: boolp(false),
+		AmenityPresets:      AmenityPresets{Parking: boolp(false)},
+		Amenities:           []Amenity{{Name: "Garden", Value: true}},
+		PublicAccess:        boolp(false),
+	}
+	got := merge(site, loc)
+	if got.Naics != "7211" || got.Isic != site.Isic {
+		t.Errorf("scalars: %q %q", got.Naics, got.Isic)
+	}
+	if !reflect.DeepEqual(got.Brands, []string{"Local Brand"}) || !reflect.DeepEqual(got.Founders, site.Founders) {
+		t.Errorf("lists replace whole: %+v", got)
+	}
+	if got.ParentOrg.Name != "Local Parent" {
+		t.Errorf("parent = %+v", got.ParentOrg)
+	}
+	if got.AcceptsReservations == nil || *got.AcceptsReservations || got.PublicAccess == nil || *got.PublicAccess {
+		t.Error("an explicit false must override a site true")
+	}
+	if p := got.AmenityPresets; p.Parking == nil || *p.Parking || p.Wifi == nil || !*p.Wifi {
+		t.Errorf("presets merge per key: %+v", p)
+	}
+	if !reflect.DeepEqual(got.Amenities, loc.Amenities) {
+		t.Errorf("amenities = %+v", got.Amenities)
 	}
 }

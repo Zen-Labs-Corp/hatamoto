@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ import (
 // into it. %[1]s and %[2]s are the business type and weekday enums, %[3]s the
 // address properties only a locale card has.
 const businessSchemaTpl = `{"type":"object","properties":{
-"name":{"type":"string","title":"Business name","x-hm-group":"Organisation"},
+"name":{"type":"string","title":"Legal name","x-hm-group":"Organisation"},
 "alternate_name":{"type":"string","title":"Alternate name","x-hm-group":"Organisation"},
 "business_type":{"type":"string","title":"Business type","enum":%[1]s,"x-hm-group":"Organisation"},
 "description":{"type":"string","title":"Description","format":"textarea","x-hm-group":"Organisation"},
@@ -35,6 +36,18 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "image":{"type":"string","title":"Image","format":"uri","x-hm-group":"Organisation"},
 "logo_object":{"type":"boolean","title":"Print the logo with its width and height","default":false,"x-hm-group":"Organisation"},
 "no_office":{"type":"boolean","title":"No office in this locale","default":false,"x-hm-group":"Organisation"},
+"naics":{"type":"string","title":"NAICS code","x-hm-group":"Organisation"},
+"isic":{"type":"string","title":"ISIC code","x-hm-group":"Organisation"},
+"duns":{"type":"string","title":"D-U-N-S number","x-hm-group":"Organisation"},
+"lei":{"type":"string","title":"LEI","x-hm-group":"Organisation"},
+"gln":{"type":"string","title":"GLN","x-hm-group":"Organisation"},
+"founders":{"type":"array","x-hm-item-label":"founder","maxItems":50,"title":"Founders","x-hm-group":"Organisation","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}}},
+"parent_organisation":{"type":"object","title":"Parent organisation","x-hm-group":"Organisation","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}},
+"brands":{"type":"array","x-hm-item-label":"brand","maxItems":50,"title":"Brands","x-hm-group":"Organisation","items":{"type":"string"}},
 "address":{"type":"object","title":"Postal address","x-hm-group":"Address","properties":{
  "street":{"type":"string","title":"Street"},
  "city":{"type":"string","title":"City"},
@@ -64,17 +77,44 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "closed":{"type":"boolean","title":"Closed","default":false},
  "opens":{"type":"string","title":"Opens","format":"time"},
  "closes":{"type":"string","title":"Closes","format":"time"}}}},
+"currency":{"type":"string","title":"Currency","x-hm-group":"Commerce"},
+"price_range":{"type":"string","title":"Price range","x-hm-group":"Commerce"},
+"area_served":{"type":"array","x-hm-item-label":"area","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
+"geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"},
+"service_radius_km":{"type":"string","title":"Service radius (km)","x-hm-group":"Commerce"},
+"payment_methods":{"type":"array","x-hm-item-label":"payment method","maxItems":50,"title":"Payment methods","x-hm-group":"Commerce","items":{"type":"string"}},
+"accepts_reservations":{"type":"string","enum":["yes","no"],"title":"Accepts reservations","x-hm-group":"Commerce"},
+"booking_url":{"type":"string","title":"Booking address","format":"uri","x-hm-group":"Commerce"},
+"order_url":{"type":"string","title":"Online ordering address","format":"uri","x-hm-group":"Commerce"},
+"menu_url":{"type":"string","title":"Menu address","format":"uri","x-hm-group":"Commerce"},
+"services":{"type":"array","x-hm-item-label":"service","maxItems":50,"title":"Services","x-hm-group":"Services","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "description":{"type":"string","title":"Description","format":"textarea"},
+ "url":{"type":"string","title":"Web address","format":"uri"},
+ "price":{"type":"string","title":"Price"}}}},
+"knows_about":{"type":"array","maxItems":50,"title":"Knows about","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"awards":{"type":"array","maxItems":50,"title":"Awards","x-hm-field":"lines","x-hm-group":"Expertise & amenities","items":{"type":"string"}},
+"memberships":{"type":"array","x-hm-item-label":"membership","maxItems":50,"title":"Memberships","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "url":{"type":"string","title":"Web address","format":"uri"}}}},
+"amenity_presets":{"type":"object","title":"Amenities","x-hm-group":"Expertise & amenities","properties":{
+ "parking":{"type":"string","enum":["yes","no"],"title":"Parking"},
+ "wheelchair_access":{"type":"string","enum":["yes","no"],"title":"Wheelchair access"},
+ "wifi":{"type":"string","enum":["yes","no"],"title":"Wifi"},
+ "toilets":{"type":"string","enum":["yes","no"],"title":"Toilets"},
+ "air_conditioning":{"type":"string","enum":["yes","no"],"title":"Air conditioning"}}},
+"amenities":{"type":"array","x-hm-item-label":"amenity","maxItems":50,"title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
+ "name":{"type":"string","title":"Name"},
+ "value":{"type":"boolean","title":"Available"}}}},
+"public_access":{"type":"string","enum":["yes","no"],"title":"Open to the public","x-hm-group":"Expertise & amenities"},
+"free_entry":{"type":"string","enum":["yes","no"],"title":"Free entry","x-hm-group":"Expertise & amenities"},
 "sameas":{"type":"array","x-hm-item-label":"profile address","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
 "rating":{"type":"object","title":"Aggregate rating","x-hm-group":"Profiles & rating","properties":{
  "value":{"type":"string","title":"Rating value"},
  "best":{"type":"string","title":"Best rating"},
  "worst":{"type":"string","title":"Worst rating"},
  "count":{"type":"string","title":"Number of ratings"},
- "count_type":{"type":"string","title":"Count is","enum":["ratings","reviews"]}}},
-"currency":{"type":"string","title":"Currency","x-hm-group":"Commerce"},
-"price_range":{"type":"string","title":"Price range","x-hm-group":"Commerce"},
-"area_served":{"type":"array","title":"Area served","x-hm-group":"Commerce","items":{"type":"string"}},
-"geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"}}}`
+ "count_type":{"type":"string","title":"Count is","enum":["ratings","reviews"]}}}}}`
 
 // localeAddressProps are the address properties of a locale card. The site-wide
 // form leaves them out: coordinates and the map address describe one place.
@@ -87,7 +127,49 @@ const localeAddressProps = `
 var localeOnlyProps = []string{"business_type", "no_office", "country_name", "image"}
 
 // site-only property names, dropped from a locale card.
-var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object"}
+var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object", "parent_organisation"}
+
+// notStated labels the empty choice of a tri-state field: unset, so nothing is
+// printed (and a locale card inherits the site-wide answer).
+const notStated = "Not stated"
+
+// triPaths are the tri-state fields (*bool in the profile). The form edits them
+// as selects: empty is unset, "yes" is true, "no" is false.
+var triPaths = [][]string{
+	{"accepts_reservations"}, {"public_access"}, {"free_entry"},
+	{"amenity_presets", "parking"}, {"amenity_presets", "wheelchair_access"}, {"amenity_presets", "wifi"},
+	{"amenity_presets", "toilets"}, {"amenity_presets", "air_conditioning"},
+}
+
+// triToForm and triFromForm convert the tri-state values of a profile map
+// between the stored booleans and the select choices.
+func triToForm(vals map[string]any) {
+	triConvert(vals, func(b bool) any { return map[bool]string{true: "yes", false: "no"}[b] })
+}
+func triFromForm(vals map[string]any) { triConvert(vals, nil) }
+
+func triConvert(vals map[string]any, toForm func(bool) any) {
+	for _, path := range triPaths {
+		m := vals
+		for _, k := range path[:len(path)-1] {
+			m, _ = m[k].(map[string]any)
+		}
+		if m == nil {
+			continue
+		}
+		last := path[len(path)-1]
+		switch v := m[last].(type) {
+		case bool:
+			if toForm != nil {
+				m[last] = toForm(v)
+			}
+		case string:
+			if toForm == nil {
+				m[last] = v == "yes"
+			}
+		}
+	}
+}
 
 // businessUI holds the help text of the fields that need one. It is a hint map
 // rather than schema descriptions because a text field shows its description
@@ -109,6 +191,26 @@ var businessUI = map[string]schemaform.UIHint{
 	"geo_region":                        {Help: "Printed as a geo.region tag on this locale's pages."},
 	"area_served":                       {Help: "Places this business serves, separated by commas."},
 	"sameas":                            {Help: "Social and directory profile addresses."},
+	"naics":                             {Help: "Two to six digits."},
+	"isic":                              {Help: "Four digits, ISIC revision 4."},
+	"duns":                              {Help: "Nine digits."},
+	"lei":                               {Help: "Twenty letters and digits."},
+	"gln":                               {Help: "Thirteen digits."},
+	"service_radius_km":                 {Help: "Kilometres around the coordinates of each locale card. Applies to locale cards that have both coordinates."},
+	"brands":                            {Help: "Brand names, separated by commas."},
+	"payment_methods":                   {Help: "Like Cash or Visa, separated by commas."},
+	"accepts_reservations":              {Help: "Choose Not stated to say nothing.", Placeholder: notStated},
+	"amenity_presets":                   {Help: "Choose Not stated on a line to say nothing about it."},
+	"amenity_presets.parking":           {Placeholder: notStated},
+	"amenity_presets.wheelchair_access": {Placeholder: notStated},
+	"amenity_presets.wifi":              {Placeholder: notStated},
+	"amenity_presets.toilets":           {Placeholder: notStated},
+	"amenity_presets.air_conditioning":  {Placeholder: notStated},
+	"public_access":                     {Placeholder: notStated},
+	"free_entry":                        {Placeholder: notStated},
+	"awards":                            {Help: "One award per line. Commas stay part of the title."},
+	"amenities":                         {Help: "Features beyond the list above."},
+	"knows_about":                       {Help: "Topics this business is expert in, one per line."},
 	"address.lat":                       {Help: "Between -90 and 90"},
 	"address.lng":                       {Help: "Between -180 and 180"},
 }
@@ -135,14 +237,13 @@ func businessSchemaWith(addressProps string) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
 }
 
-// siteSchema is the site-wide form: the locale-only properties are dropped and
-// the name is the Organization's legal name.
+// siteSchema is the site-wide form: the locale-only properties are dropped.
 func siteSchema() (json.RawMessage, error) {
 	s, err := schemaform.WithoutProperties(businessSchemaWith(""), localeOnlyProps...)
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(strings.Replace(string(s), `"title":"Business name"`, `"title":"Legal name"`, 1)), nil
+	return s, nil
 }
 
 // localeDisplayName is the English name of a BCP 47 tag ("French (Canada)"), or
@@ -169,12 +270,28 @@ func formErrors(prefix string, errs schemaform.Errors) []ui.FieldError {
 	out := make([]ui.FieldError, 0, len(paths))
 	for _, p := range paths {
 		out = append(out, ui.FieldError{
-			ID:      "sf-" + strings.ReplaceAll(prefix+p, ".", "-"),
+			ID:      "sf-" + strings.ReplaceAll(prefix+tagListField(p), ".", "-"),
 			Label:   pathLabel(p),
 			Message: strings.Join(errs[p], " "),
 		})
 	}
 	return out
+}
+
+// tagLists are the string lists the form edits as one field (comma separated,
+// or one per line for awards and topics).
+var tagLists = []string{"area_served", "brands", "payment_methods", "knows_about", "awards"}
+
+// tagListField maps an item path ("brands.2") to its field ("brands"); other
+// paths stay as they are.
+func tagListField(path string) string {
+	name, idx, ok := strings.Cut(path, ".")
+	if ok && slices.Contains(tagLists, name) {
+		if _, err := strconv.Atoi(idx); err == nil {
+			return name
+		}
+	}
+	return path
 }
 
 // profileErrors adapts bizprofile.Validate messages to schemaform errors.
@@ -197,6 +314,10 @@ var segmentLabels = map[string]string{
 	"available_language": "Languages", "area_served": "Area served", "founding_date": "Founding date",
 	"map_url": "Map address", "gbp_url": "Business profile address", "sameas": "Profile address",
 	"hours_note": "Hours note", "geo_region": "Geo region", "state": "State or region",
+	"naics": "NAICS code", "isic": "ISIC code", "duns": "D-U-N-S number", "lei": "LEI", "gln": "GLN",
+	"parent_organisation": "Parent organisation", "service_radius_km": "Service radius (km)",
+	"booking_url": "Booking address", "order_url": "Online ordering address", "menu_url": "Menu address",
+	"knows_about": "Knows about", "url": "Web address", "wifi": "Wifi", "free_entry": "Free entry",
 }
 
 // pathLabel reads "opening_hours.0.opens" as "Opening hours 1 Opens".

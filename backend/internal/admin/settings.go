@@ -157,11 +157,14 @@ func profileValues(p bizprofile.Profile) map[string]any {
 	raw, _ := json.Marshal(p)
 	m := map[string]any{}
 	_ = json.Unmarshal(raw, &m)
+	triToForm(m)
 	return m
 }
 
 // valuesProfile reads decoded form values back into a profile.
 func valuesProfile(vals map[string]any) (bizprofile.Profile, error) {
+	vals = cloneJSON(vals)
+	triFromForm(vals)
 	raw, err := json.Marshal(vals)
 	if err != nil {
 		return bizprofile.Profile{}, err
@@ -237,6 +240,7 @@ func (a *Admin) handleContactSave(w http.ResponseWriter, r *http.Request) {
 	}
 	vals, perrs := schemaform.Decode(schema, r.PostForm, profileValues(prev), schemaform.Options{Prefix: bizPrefix})
 	p, perr := valuesProfile(vals)
+	p.Lei = strings.ToUpper(p.Lei)
 	// Coordinates and the map address belong to a locale card; a stored
 	// site-wide value is ignored and dropped on save.
 	p.Address.Lat, p.Address.Lng, p.Address.MapURL = "", "", ""

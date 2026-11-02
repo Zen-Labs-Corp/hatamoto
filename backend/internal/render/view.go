@@ -460,6 +460,36 @@ type OrgView struct {
 	// LogoObject asks for the logo as an ImageObject (needs SiteView.LogoWidth
 	// and LogoHeight).
 	LogoObject bool
+	// Currency is the site-wide currency code of the service prices.
+	Currency string
+	BusinessDetails
+}
+
+// BusinessDetails are the extended business details shared by the Organization
+// (site-wide values) and the local business (the locale's resolved values).
+// Every slice is nil and every string empty when unset.
+type BusinessDetails struct {
+	// Identifiers: NAICS, ISIC v4, D-U-N-S, LEI and GLN codes.
+	Naics, Isic, Duns, Lei, Gln string
+	Founders, Memberships       []PersonView
+	// ParentOrg is an external parent organisation; empty Name means none.
+	ParentOrg              PersonView
+	Brands, PaymentMethods []string
+	KnowsAbout, Awards     []string
+	BookingURL, OrderURL   string
+	Services               []ServiceView
+}
+
+// PersonView is a named party with an optional web address.
+type PersonView struct{ Name, URL string }
+
+// ServiceView is one offered service; Price is a decimal string.
+type ServiceView struct{ Name, Description, URL, Price string }
+
+// AmenityView is one amenity feature. Value false is an explicit "no".
+type AmenityView struct {
+	Name  string
+	Value bool
 }
 
 // Rating is an aggregate rating as the owner states it; Count may be empty.
@@ -477,6 +507,9 @@ type BusinessView struct {
 	ID string
 	// Type is the schema.org type; empty means LocalBusiness.
 	Type string
+	// ServicesCurrency is the currency of the service prices: the site's when
+	// the locale inherits the site's services.
+	ServicesCurrency string
 	// Name overrides the site name for this node; empty uses the site name.
 	Name                     string
 	Phone, Fax, Email, Hours string
@@ -494,6 +527,13 @@ type BusinessView struct {
 	Currency, PriceRange, GeoRegion string
 	SameAs                          []string
 	Rating                          Rating
+	BusinessDetails
+	// MenuURL is the menu page; ServiceRadiusKm is a decimal string in km.
+	MenuURL, ServiceRadiusKm string
+	// Amenities lists the fixed presets then custom rows, merged.
+	Amenities []AmenityView
+	// AcceptsReservations, PublicAccess and FreeEntry are tri-state: nil is unset.
+	AcceptsReservations, PublicAccess, FreeEntry *bool
 }
 
 // ContactPointView is one department or channel of a business.

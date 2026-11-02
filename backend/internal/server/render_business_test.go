@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"testing"
 
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -361,5 +362,85 @@ func TestLocaleGeoRegion(t *testing.T) {
 	one := businessSet(t, false, entity.LocaleEntry{Tag: "en"})
 	if got := localeGeoRegion(cfg, one, "en"); got != "" {
 		t.Errorf("one-locale site: %q, want none", got)
+	}
+}
+
+const extendedSiteProfile = `{"name":"Example Legal","naics":"541511","isic":"6201","duns":"123456789","lei":"ABCDEFGHIJ0123456789","gln":"1234567890123",
+"founders":[{"name":"Alex Sample","url":"https://example.test/alex"}],"parent_organisation":{"name":"Parent Co"},
+"brands":["Brand A"],"memberships":[{"name":"Guild"}],"payment_methods":["Cash"],"currency":"XXD",
+"accepts_reservations":true,"booking_url":"https://example.test/book","menu_url":"https://example.test/menu","service_radius_km":"5",
+"services":[{"name":"Repair","price":"10"}],"knows_about":["Topic"],"awards":["Award"],
+"amenity_presets":{"wifi":true,"parking":true},"amenities":[{"name":"WIFI","value":false},{"name":"Garden","value":true}],
+"public_access":true,"free_entry":false}`
+
+func TestOrgView_ExtendedDetails(t *testing.T) {
+	cfg := businessConfig(`{}`)
+	cfg.BusinessProfile = json.RawMessage(extendedSiteProfile)
+	got, err := orgView(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := render.BusinessDetails{
+		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "ABCDEFGHIJ0123456789", Gln: "1234567890123",
+		Founders:    []render.PersonView{{Name: "Alex Sample", URL: "https://example.test/alex"}},
+		ParentOrg:   render.PersonView{Name: "Parent Co"},
+		Brands:      []string{"Brand A"},
+		Memberships: []render.PersonView{{Name: "Guild"}}, PaymentMethods: []string{"Cash"},
+		KnowsAbout: []string{"Topic"}, Awards: []string{"Award"}, BookingURL: "https://example.test/book",
+		Services: []render.ServiceView{{Name: "Repair", Price: "10"}},
+	}
+	if !reflect.DeepEqual(got.BusinessDetails, want) || got.Currency != "XXD" {
+		t.Errorf("orgView details = %+v", got)
+	}
+}
+
+func TestLocaleBusiness_ExtendedDetails(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
+	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"naics":"11","brands":["Own"],"accepts_reservations":false,"amenity_presets":{"wifi":false},"amenities":[{"name":"Pool","value":true}]}}`)
+	cfg.BusinessProfile = json.RawMessage(extendedSiteProfile)
+	b, err := localeBusiness(cfg, set, "fr")
+	if err != nil || b == nil {
+		t.Fatalf("%+v, %v", b, err)
+	}
+	if b.Naics != "11" || b.Isic != "6201" || !reflect.DeepEqual(b.Brands, []string{"Own"}) || !reflect.DeepEqual(b.KnowsAbout, []string{"Topic"}) {
+		t.Errorf("override/inherit = %+v", b)
+	}
+	if b.AcceptsReservations == nil || *b.AcceptsReservations || b.PublicAccess == nil || !*b.PublicAccess {
+		t.Errorf("tri-state: reservations must be the explicit false, public access inherited")
+	}
+	if b.MenuURL != "https://example.test/menu" || b.ServiceRadiusKm != "5" {
+		t.Errorf("menu/radius = %q %q", b.MenuURL, b.ServiceRadiusKm)
+	}
+	// Presets come first (parking inherited, wifi overridden to no), then the
+	// locale's custom rows; the locale list replaces the site's whole.
+	want := []render.AmenityView{{Name: "Parking", Value: true}, {Name: "Wifi", Value: false}, {Name: "Pool", Value: true}}
+	if !reflect.DeepEqual(b.Amenities, want) {
+		t.Errorf("amenities = %+v, want %+v", b.Amenities, want)
+	}
+	// Site-level custom rows dedupe against presets, case-insensitively.
+	if got := amenityViews(bizprofile.AmenityPresets{}, []bizprofile.Amenity{{Name: "Wifi", Value: true}}); len(got) != 1 {
+		t.Errorf("custom without preset = %+v", got)
+	}
+	yes := true
+	got := amenityViews(bizprofile.AmenityPresets{Wifi: &yes}, []bizprofile.Amenity{{Name: "WIFI", Value: false}, {Name: "Garden", Value: true}})
+	if want := []render.AmenityView{{Name: "Wifi", Value: true}, {Name: "Garden", Value: true}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("dedupe = %+v", got)
+	}
+}
+
+// A locale that inherits the site's services prices them in the site currency,
+// whatever currency the locale itself sets.
+func TestLocaleBusiness_InheritedServicesKeepSiteCurrency(t *testing.T) {
+	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"}, entity.LocaleEntry{Tag: "nl", Segment: "nl"})
+	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"currency":"EUR"},"nl":{"address":{"city":"Sample City"},"currency":"EUR","services":[{"name":"Own","price":"1"}]}}`)
+	cfg.BusinessProfile = json.RawMessage(`{"currency":"AUD","services":[{"name":"Repair","price":"100"}]}`)
+	for loc, want := range map[string]string{"fr": "AUD", "nl": "EUR"} {
+		b, _ := localeBusiness(cfg, set, loc)
+		if b == nil {
+			t.Fatalf("%s: no business", loc)
+		}
+		if b.ServicesCurrency != want || b.Currency != "EUR" {
+			t.Errorf("%s: ServicesCurrency = %q, Currency = %q, want %q and EUR", loc, b.ServicesCurrency, b.Currency, want)
+		}
 	}
 }

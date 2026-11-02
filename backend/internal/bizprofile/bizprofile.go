@@ -67,6 +67,38 @@ type Rating struct {
 	CountType string `json:"count_type,omitempty"`
 }
 
+// Person is a named party with an optional web address: a founder, a parent
+// organisation or a membership.
+type Person struct {
+	Name string `json:"name,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
+// Service is one offered service. Price is a decimal string.
+type Service struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Price       string `json:"price,omitempty"`
+}
+
+// Amenity is a custom amenity row. Value has no omitempty: an explicit "no" is
+// stored.
+type Amenity struct {
+	Name  string `json:"name"`
+	Value bool   `json:"value"`
+}
+
+// AmenityPresets are the fixed amenities. A nil value is unset (inherited by a
+// locale card); an explicit false is stored.
+type AmenityPresets struct {
+	Parking          *bool `json:"parking,omitempty"`
+	WheelchairAccess *bool `json:"wheelchair_access,omitempty"`
+	Wifi             *bool `json:"wifi,omitempty"`
+	Toilets          *bool `json:"toilets,omitempty"`
+	AirConditioning  *bool `json:"air_conditioning,omitempty"`
+}
+
 // Values of Profile.OrgAddress. The empty value keeps the site-wide address on
 // every page.
 const (
@@ -119,6 +151,34 @@ type Profile struct {
 	LogoObject bool `json:"logo_object,omitempty"`
 	// OrgAddress is "", OrgAddressLocale or OrgAddressLocaleOrSite.
 	OrgAddress string `json:"org_address,omitempty"`
+
+	// Identifiers: NAICS, ISIC v4, D-U-N-S, LEI and GLN codes.
+	Naics string `json:"naics,omitempty"`
+	Isic  string `json:"isic,omitempty"`
+	Duns  string `json:"duns,omitempty"`
+	Lei   string `json:"lei,omitempty"`
+	Gln   string `json:"gln,omitempty"`
+	// Organisation relations.
+	Founders       []Person `json:"founders,omitempty"`
+	ParentOrg      Person   `json:"parent_organisation,omitzero"`
+	Brands         []string `json:"brands,omitempty"`
+	Memberships    []Person `json:"memberships,omitempty"`
+	PaymentMethods []string `json:"payment_methods,omitempty"`
+	// Commerce. ServiceRadiusKm is a decimal string in kilometres.
+	AcceptsReservations *bool  `json:"accepts_reservations,omitempty"`
+	BookingURL          string `json:"booking_url,omitempty"`
+	OrderURL            string `json:"order_url,omitempty"`
+	MenuURL             string `json:"menu_url,omitempty"`
+	ServiceRadiusKm     string `json:"service_radius_km,omitempty"`
+	// Services and expertise.
+	Services   []Service `json:"services,omitempty"`
+	KnowsAbout []string  `json:"knows_about,omitempty"`
+	Awards     []string  `json:"awards,omitempty"`
+	// Amenities: the fixed presets, then custom rows.
+	AmenityPresets AmenityPresets `json:"amenity_presets,omitzero"`
+	Amenities      []Amenity      `json:"amenities,omitempty"`
+	PublicAccess   *bool          `json:"public_access,omitempty"`
+	FreeEntry      *bool          `json:"free_entry,omitempty"`
 }
 
 // Parse decodes a stored profile. Empty input, null and {} give the zero

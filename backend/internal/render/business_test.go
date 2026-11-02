@@ -511,3 +511,134 @@ func TestOrgNode_SitePhonePointWithAddressSetting(t *testing.T) {
 		}
 	}
 }
+
+// extendedDetails is a fully filled BusinessDetails with neutral sample data.
+func extendedDetails() BusinessDetails {
+	return BusinessDetails{
+		Naics: "541511", Isic: "6201", Duns: "123456789", Lei: "ABCDEFGHIJ0123456789", Gln: "1234567890123",
+		Founders:    []PersonView{{Name: "Alex Sample", URL: "https://example.test/alex"}, {}},
+		ParentOrg:   PersonView{Name: "Parent Co", URL: "https://parent.example.test"},
+		Brands:      []string{"Brand A"},
+		Memberships: []PersonView{{Name: "Guild"}},
+		KnowsAbout:  []string{"Topic"}, Awards: []string{"Award"},
+		PaymentMethods: []string{"Cash", "Visa"},
+		BookingURL:     "https://example.test/book", OrderURL: "https://example.test/order",
+		Services: []ServiceView{{Name: "Repair", Description: "Fix", URL: "https://example.test/repair", Price: "12.5"}, {Description: "nameless"}},
+	}
+}
+
+func TestOrgNode_ExtendedDetails(t *testing.T) {
+	v := businessPage(nil)
+	if got := orgOf(t, v); got["naics"] != nil || got["founder"] != nil || got["hasOfferCatalog"] != nil || got["paymentAccepted"] != nil {
+		t.Fatalf("empty details must print nothing: %v", got)
+	}
+	v.Site.Org.BusinessDetails = extendedDetails()
+	v.Site.Org.Currency = "XXD"
+	org := orgOf(t, v)
+	for k, want := range map[string]any{
+		"naics": "541511", "isicV4": "6201", "duns": "123456789", "leiCode": "ABCDEFGHIJ0123456789",
+		"globalLocationNumber": "1234567890123",
+		"knowsAbout":           []any{"Topic"}, "award": []any{"Award"},
+		"founder":            map[string]any{"@type": "Person", "name": "Alex Sample", "url": "https://example.test/alex"},
+		"parentOrganization": map[string]any{"@type": "Organization", "name": "Parent Co", "url": "https://parent.example.test"},
+		"brand":              map[string]any{"@type": "Brand", "name": "Brand A"},
+		"memberOf":           map[string]any{"@type": "Organization", "name": "Guild"},
+	} {
+		if !reflect.DeepEqual(org[k], want) {
+			t.Errorf("%s = %v, want %v", k, org[k], want)
+		}
+	}
+	if _, ok := org["paymentAccepted"]; ok {
+		t.Error("paymentAccepted is a LocalBusiness property, not an Organization one")
+	}
+	cat, _ := org["hasOfferCatalog"].(map[string]any)
+	offers, _ := cat["itemListElement"].([]any)
+	if len(offers) != 1 {
+		t.Fatalf("offers = %v", cat)
+	}
+	offer := offers[0].(map[string]any)
+	if offer["price"] != 12.5 || offer["priceCurrency"] != "XXD" || offer["itemOffered"].(map[string]any)["name"] != "Repair" {
+		t.Errorf("offer = %v", offer)
+	}
+	acts, _ := org["potentialAction"].([]any)
+	if len(acts) != 2 || acts[0].(map[string]any)["@type"] != "ReserveAction" || acts[1].(map[string]any)["@type"] != "OrderAction" {
+		t.Errorf("potentialAction = %v", org["potentialAction"])
+	}
+	if _, ok := org["@id"]; !ok || org["parentOrganization"].(map[string]any)["@id"] != nil {
+		t.Errorf("parent organisation must be external, without @id: %v", org["parentOrganization"])
+	}
+}
+
+func TestLocalBusinessNode_ExtendedDetails(t *testing.T) {
+	yes, no := true, false
+	empty := graphNodes(t, businessPage(&BusinessView{ID: "xx"}))[1]
+	for _, k := range []string{"naics", "founder", "brand", "hasOfferCatalog", "potentialAction", "paymentAccepted", "acceptsReservations", "hasMenu", "publicAccess", "isAccessibleForFree", "amenityFeature"} {
+		if _, ok := empty[k]; ok {
+			t.Errorf("%s printed for an empty business", k)
+		}
+	}
+	b := &BusinessView{
+		ID: "xx", Type: "Restaurant", Lat: "1.5", Lng: "2", ServiceRadiusKm: "10", AreaServed: []string{"Region"},
+		BusinessDetails: extendedDetails(), Currency: "XXD", MenuURL: "https://example.test/menu",
+		AcceptsReservations: &no, PublicAccess: &yes, FreeEntry: &no,
+		Amenities: []AmenityView{{Name: "Wifi", Value: true}, {Name: "Parking", Value: false}},
+	}
+	lb := graphNodes(t, businessPage(b))[1]
+	for k, want := range map[string]any{
+		"naics": "541511", "isicV4": "6201", "paymentAccepted": "Cash, Visa", "hasMenu": "https://example.test/menu",
+		"acceptsReservations": false, "publicAccess": true, "isAccessibleForFree": false,
+		"parentOrganization": map[string]any{"@id": "https://example.test#organization"},
+	} {
+		if !reflect.DeepEqual(lb[k], want) {
+			t.Errorf("%s = %v, want %v", k, lb[k], want)
+		}
+	}
+	feats, _ := lb["amenityFeature"].([]any)
+	if len(feats) != 2 || feats[1].(map[string]any)["value"] != false {
+		t.Errorf("amenityFeature = %v", lb["amenityFeature"])
+	}
+	served, _ := lb["areaServed"].([]any)
+	if len(served) != 2 || served[0] != "Region" {
+		t.Fatalf("areaServed = %v", lb["areaServed"])
+	}
+	circle := served[1].(map[string]any)
+	if circle["@type"] != "GeoCircle" || circle["geoRadius"] != float64(10000) ||
+		!reflect.DeepEqual(circle["geoMidpoint"], map[string]any{"@type": "GeoCoordinates", "latitude": 1.5, "longitude": float64(2)}) {
+		t.Errorf("circle = %v", circle)
+	}
+	b.AreaServed, b.CountryName = nil, ""
+	if c, _ := graphNodes(t, businessPage(b))[1]["areaServed"].(map[string]any); c["@type"] != "GeoCircle" {
+		t.Errorf("lone circle must be an object: %v", c)
+	}
+	b.Lat = ""
+	if _, ok := graphNodes(t, businessPage(b))[1]["areaServed"]; ok {
+		t.Error("radius without coordinates must print nothing")
+	}
+}
+
+// The LocalBusiness prices its services in ServicesCurrency, not in the
+// locale's own currency.
+func TestLocalBusinessOffersUseServicesCurrency(t *testing.T) {
+	b := &BusinessView{ID: "xx", Currency: "EUR", ServicesCurrency: "AUD", BusinessDetails: extendedDetails()}
+	lb := graphNodes(t, businessPage(b))[1]
+	cat, _ := lb["hasOfferCatalog"].(map[string]any)
+	offers, _ := cat["itemListElement"].([]any)
+	if len(offers) != 1 || offers[0].(map[string]any)["priceCurrency"] != "AUD" {
+		t.Errorf("offers = %v, want priceCurrency AUD", cat)
+	}
+}
+
+// acceptsReservations and hasMenu are FoodEstablishment properties: a Dentist
+// prints neither.
+func TestLocalBusinessFoodOnlyProperties(t *testing.T) {
+	yes := true
+	for typ, want := range map[string]bool{"Restaurant": true, "BarOrPub": true, "Bakery": true, "CafeOrCoffeeShop": true, "Dentist": false, "": false} {
+		b := &BusinessView{ID: "xx", Type: typ, AcceptsReservations: &yes, MenuURL: "https://example.test/menu"}
+		lb := graphNodes(t, businessPage(b))[1]
+		_, res := lb["acceptsReservations"]
+		_, menu := lb["hasMenu"]
+		if res != want || menu != want {
+			t.Errorf("type %q: acceptsReservations=%v hasMenu=%v, want %v", typ, res, menu, want)
+		}
+	}
+}
