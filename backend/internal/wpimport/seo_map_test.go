@@ -194,3 +194,22 @@ func TestSEOMapFileWinsOverLive(t *testing.T) {
 		t.Errorf("settings = %+v", s)
 	}
 }
+
+func TestSEOMapRankMathRobotsNeedCustomSwitch(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		custom any
+		want   bool
+	}{{"on", "on", true}, {"off", "off", false}, {"missing", nil, false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			vals := map[string]any{"pt_post_robots": []string{"noindex"}, "tax_category_robots": []string{"noindex"}}
+			if tc.custom != nil {
+				vals["pt_post_custom_robots"], vals["tax_category_custom_robots"] = tc.custom, tc.custom
+			}
+			s := applyPlan(t, buildSEOPlan(&SEOFile{Plugin: "rankmath", Values: vals}, nil, testSchemaOf, ""))
+			if s.Index.NoIndexTypes["post"] != tc.want || s.Index.NoIndexTaxonomy["category"] != tc.want {
+				t.Errorf("custom=%v: types=%v taxonomy=%v, want %v", tc.custom, s.Index.NoIndexTypes, s.Index.NoIndexTaxonomy, tc.want)
+			}
+		})
+	}
+}

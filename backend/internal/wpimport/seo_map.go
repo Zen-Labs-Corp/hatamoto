@@ -36,10 +36,12 @@ type seoSpec struct {
 	typeNoindex, taxNoindex       *regexp.Regexp
 	notMappedKeys                 map[string]string // option key prefix -> label
 	notMappedNoindex              map[string]string // option key -> label, when noindex
+	customRobots                  bool              // *_robots only applies when *_custom_robots is on (Rank Math)
 }
 
 var seoSpecs = map[string]seoSpec{
 	"rankmath": {
+		customRobots: true,
 		opt: map[string]string{
 			"sep": "title_separator", "home": "homepage_title",
 			"author": "author_archive_title", "date": "date_archive_title",
@@ -251,7 +253,8 @@ func (b *seoBuilder) fromFile(file *SEOFile, spec seoSpec, schemaOf func(string)
 					})
 			}
 		}
-		if m := matchName(spec.typeNoindex, k); m != "" && !strings.HasPrefix(m, "tax-") {
+		robotsOn := !spec.customRobots || truthy(vals[strings.TrimSuffix(k, "_robots")+"_custom_robots"])
+		if m := matchName(spec.typeNoindex, k); m != "" && !strings.HasPrefix(m, "tax-") && robotsOn {
 			if slug, ok := schemaOf(m); ok && hasRobot(vals[k], "noindex") {
 				b.flag("noindex.type."+slug, "Noindex: "+slug, "index[noindex_types]",
 					func(s seo.Settings) bool { return s.Index.NoIndexTypes[slug] },
@@ -263,7 +266,7 @@ func (b *seoBuilder) fromFile(file *SEOFile, spec seoSpec, schemaOf func(string)
 					})
 			}
 		}
-		if m := matchName(spec.taxNoindex, k); m != "" && hasRobot(vals[k], "noindex") {
+		if m := matchName(spec.taxNoindex, k); m != "" && robotsOn && hasRobot(vals[k], "noindex") {
 			if kind := termKind(m); taxonomy.ValidKind(kind) {
 				b.flag("noindex.taxonomy."+kind, "Noindex: "+kind, "index[noindex_taxonomy]",
 					func(s seo.Settings) bool { return s.Index.NoIndexTaxonomy[kind] },

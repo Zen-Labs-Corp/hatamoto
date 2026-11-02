@@ -13,6 +13,7 @@
       "pt_post_description": "%excerpt%",
       "pt_page_title": "%title% %sep% %sitename%",
       "pt_post_custom_robots": "off",
+      "tax_category_custom_robots": "on",
       "tax_category_robots": ["noindex"],
       "homepage_title": "%sitename% %sep% %sitedesc%",
       "homepage_description": "A site about examples at https://example.com",

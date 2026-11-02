@@ -291,7 +291,7 @@ func (r *wpRig) runSEO(dump *wpimport.Dump, file *wpimport.SEOFile) *wpimport.Re
 func seoTestFile(t *testing.T) *wpimport.SEOFile {
 	t.Helper()
 	f, err := wpimport.ParseSEOFile(strings.NewReader(`{"modules":[],"settings":{"general":{"google_verify":"abc123"},"titles":{
-		"title_separator":"–","pt_post_title":"%title% %sep% %sitename%","tax_category_robots":["noindex"],"twitter_author_names":"exampleuser"}}}`))
+		"title_separator":"–","pt_post_title":"%title% %sep% %sitename%","tax_category_custom_robots":"on","tax_category_robots":["noindex"],"twitter_author_names":"exampleuser"}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
