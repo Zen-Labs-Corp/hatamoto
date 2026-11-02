@@ -138,3 +138,14 @@ func TestSEOPhaseRobotsLinesNamingTheAdminAddressAreDropped(t *testing.T) {
 		t.Errorf("fields left: %d", len(got))
 	}
 }
+
+func TestSEOPhaseDroppingAdminLinesAlsoDropsEmptyUserAgentGroup(t *testing.T) {
+	r := seoTestRunner(t, "http://127.0.0.1:1", Options{AdminPath: "/hm-7f3k"})
+	live := &seoLive{RobotsExtra: []string{"User-agent: GPTBot", "Disallow: /hm-7f3k/", "User-agent: *", "Disallow: /private/"}}
+	plan := buildSEOPlan(nil, live, testSchemaOf, "")
+	plan.Fields = r.dropAdminRobotsLines(plan.Fields, &SEOResult{})
+	s := applyPlan(t, plan)
+	if got := strings.Join(s.Robots.ExtraLines, "|"); got != "User-agent: *|Disallow: /private/" {
+		t.Errorf("robots = %q", got)
+	}
+}

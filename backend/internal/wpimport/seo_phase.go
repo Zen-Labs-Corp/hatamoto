@@ -98,14 +98,7 @@ func (r *Runner) dropAdminRobotsLines(fields []seoField, res *SEOResult) []seoFi
 		}
 		s := seo.Defaults()
 		f.Apply(&s)
-		var keep []string
-		for _, l := range s.Robots.ExtraLines {
-			if strings.Contains(strings.ToLower(l), admin) {
-				res.NotMapped = append(res.NotMapped, "robots.txt line: "+l)
-				continue
-			}
-			keep = append(keep, l)
-		}
+		keep := dropAdminGroups(s.Robots.ExtraLines, admin, res)
 		if len(keep) == 0 {
 			continue
 		}
@@ -205,4 +198,49 @@ func (r *Runner) sampleURLs() (post, archive string) {
 		}
 	}
 	return post, archive
+}
+
+// dropAdminGroups removes the robots lines that name admin. A User-agent group
+// left without any rule goes with them, so its agents do not merge into the
+// next group.
+func dropAdminGroups(lines []string, admin string, res *SEOResult) []string {
+	var groups [][]string
+	afterRule := true
+	for _, l := range lines {
+		low := strings.ToLower(l)
+		isAgent := strings.HasPrefix(low, "user-agent")
+		if isAgent && afterRule {
+			groups = append(groups, nil)
+		}
+		if len(groups) == 0 {
+			groups = append(groups, nil)
+		}
+		groups[len(groups)-1] = append(groups[len(groups)-1], l)
+		if !isAgent && !strings.HasPrefix(l, "#") {
+			afterRule = true
+		} else if isAgent {
+			afterRule = false
+		}
+	}
+	var keep []string
+	for _, g := range groups {
+		var kept []string
+		rules, dropped := 0, false
+		for _, l := range g {
+			if !strings.HasPrefix(l, "#") && !strings.HasPrefix(strings.ToLower(l), "user-agent") {
+				if strings.Contains(strings.ToLower(l), admin) {
+					res.NotMapped = append(res.NotMapped, "robots.txt line: "+l)
+					dropped = true
+					continue
+				}
+				rules++
+			}
+			kept = append(kept, l)
+		}
+		if dropped && rules == 0 {
+			continue
+		}
+		keep = append(keep, kept...)
+	}
+	return keep
 }
