@@ -63,8 +63,8 @@ type siteSettingsResponse struct {
 	HomepageEntityID  *uuid.UUID             `json:"homepage_entity_id,omitempty"`
 	ThemeConfig       siteconfig.ThemeConfig `json:"theme_config"`
 	UpdatedAt         time.Time              `json:"updated_at"`
-	// BusinessProfile is the site-wide business details and LocaleProfiles the
-	// per-locale cards keyed by tag; both are objects, empty when unset.
+	// BusinessProfile is the default locale's business details and LocaleProfiles the
+	// other locales' cards keyed by tag; both are objects, empty when unset.
 	BusinessProfile json.RawMessage            `json:"business_profile"`
 	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
 }
@@ -87,8 +87,8 @@ type siteSettingsPatch struct {
 	Address           *siteAddress              `json:"address"`
 	LegacyWPRedirects *bool                     `json:"legacy_wp_redirects"`
 	HomepageEntityID  *uuid.UUID                `json:"homepage_entity_id"`
-	// BusinessProfile replaces the site-wide profile; LocaleProfiles replaces
-	// (object) or deletes (null) single locale cards. Raw so null is visible.
+	// BusinessProfile replaces the default locale's business; LocaleProfiles
+	// replaces (object) or deletes (null) the cards of the other locales. Raw so null is visible.
 	BusinessProfile json.RawMessage            `json:"business_profile"`
 	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
 }
@@ -168,7 +168,11 @@ func (h *siteSettingsHandlers) responseFrom(cfg *siteconfig.Config) siteSettings
 	}
 	resp.BusinessProfile = profileJSON(site)
 	resp.LocaleProfiles = make(map[string]json.RawMessage, len(cards))
+	def := normalisedTag(siteLanguage(cfg))
 	for tag, card := range cards {
+		if normalisedTag(tag) == def {
+			continue // a leftover card of the default locale: its business is business_profile
+		}
 		resp.LocaleProfiles[tag] = profileJSON(card)
 	}
 	return resp
@@ -290,13 +294,13 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 	}
 	var profiles *profileWrite
 	if in.BusinessProfile != nil || in.LocaleProfiles != nil {
-		locales, stored, ok := h.localesAfter(w, r, update)
+		def, locales, stored, ok := h.localesAfter(w, r, update)
 		if !ok {
 			return
 		}
 		var fields map[string]string
 		var msg string
-		if profiles, fields, msg = prepareProfiles(&in, locales, stored); msg != "" {
+		if profiles, fields, msg = prepareProfiles(&in, def, locales, stored); msg != "" {
 			writeError(w, http.StatusBadRequest, msg)
 			return
 		} else if fields != nil {
@@ -331,14 +335,18 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, h.responseFrom(cfg))
 }
 
-// localesAfter returns the locale list the site will have once update is
-// written: the new list when set, else the stored one.
-func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Request, update siteconfig.UpdateInput) ([]siteconfig.LocaleEntry, map[string]bool, bool) {
+// localesAfter returns the default locale and the locale list the site will
+// have once update is written: the new values when set, else the stored ones.
+func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Request, update siteconfig.UpdateInput) (string, []siteconfig.LocaleEntry, map[string]bool, bool) {
 	cfg, err := h.store.Get(r.Context())
 	if err != nil {
 		h.logger.Error("site settings: load", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update site settings")
-		return nil, nil, false
+		return "", nil, nil, false
+	}
+	def := siteLanguage(cfg)
+	if update.Language != nil {
+		def = *update.Language
 	}
 	// A card that is stored but whose locale is gone can still be deleted.
 	stored := map[string]bool{}
@@ -348,9 +356,9 @@ func (h *siteSettingsHandlers) localesAfter(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if update.Locales != nil {
-		return *update.Locales, stored, true
+		return def, *update.Locales, stored, true
 	}
-	return cfg.Locales, stored, true
+	return def, cfg.Locales, stored, true
 }
 
 func (h *siteSettingsHandlers) handleGetTheme(w http.ResponseWriter, r *http.Request) {
