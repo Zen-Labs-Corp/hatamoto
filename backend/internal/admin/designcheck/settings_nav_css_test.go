@@ -53,3 +53,21 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		t.Error("the phone subnav must not mark the current link with box-shadow (lost in forced-colors)")
 	}
 }
+
+// The subnav is centred by setting the scroller's own scrollLeft: scrollIntoView would also scroll the window
+// (and undo a #fragment position after a save redirect).
+func TestSubnavCentresWithoutScrollingWindow(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/js/admin.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(b)
+	if strings.Contains(js, "scrollIntoView") {
+		t.Error("admin.js must not use scrollIntoView: it scrolls the window")
+	}
+	if !strings.Contains(js, "subnav.scrollLeft") {
+		t.Error("admin.js must centre the current subnav link by setting the scroller's scrollLeft")
+	}
+}

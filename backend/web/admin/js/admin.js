@@ -64,7 +64,10 @@ if (sidebarToggle) {
   });
 }
 
-document.querySelector('.hm-subnav [aria-current="page"]')?.scrollIntoView({ inline: "center", block: "nearest" });
+// Centre the current subnav link inside its own scroller only, so the window never moves.
+const subnavLink = document.querySelector('.hm-subnav [aria-current="page"]');
+const subnav = subnavLink?.closest(".hm-subnav");
+if (subnav && subnav.scrollWidth > subnav.clientWidth) subnav.scrollLeft += subnavLink.getBoundingClientRect().left - subnav.getBoundingClientRect().left - (subnav.clientWidth - subnavLink.offsetWidth) / 2;
 
 // Photo fallback (error does not bubble: capture).
 document.addEventListener("error", (e) => { if (e.target.matches?.("img[data-hm-photo]")) photoFallback(e.target); }, true);
