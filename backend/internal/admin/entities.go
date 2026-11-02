@@ -485,7 +485,6 @@ func (a *Admin) newTypeAction(label, slug string, draft bool) ui.Action {
 func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listParams, t ui.Table, total int, types []typeTab, resolved *entity.EntitySchema) {
 	d := entitiesData{Table: t, Title: "Entities", Description: "Pages, posts and other content on your site."}
 	if total >= 0 {
-		d.Description = fmt.Sprintf("%d %s. %s", total, plural(total, "entity", "entities"), d.Description)
 		d.Status = fmt.Sprintf("%d %s", total, plural(total, "entity", "entities"))
 	}
 	owner := false

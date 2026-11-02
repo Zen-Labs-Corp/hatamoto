@@ -236,11 +236,14 @@ func TestEntitiesCreateMenuHasTypesOnly(t *testing.T) {
 	has(t, body, "Manage entity types")
 }
 
-func TestEntitiesDescriptionCountsResults(t *testing.T) {
+func TestEntitiesSubtitleHasNoCount(t *testing.T) {
 	t.Parallel()
 
 	c, _ := newNavRig(t)
-	has(t, c.get(t, "owner-token", "/admin/entities", ""), "6 entities. Pages, posts and other content on your site.")
+	body := c.get(t, "owner-token", "/admin/entities", "")
+	has(t, body, "Pages, posts and other content on your site.")
+	lacks(t, body, "6 entities. Pages")
+	has(t, body, "6 entities")
 	has(t, c.get(t, "owner-token", "/admin/entities?type=post", ""), "2 posts")
 }
 
