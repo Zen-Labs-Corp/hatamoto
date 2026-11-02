@@ -141,11 +141,11 @@ func (s *Settings) NoIndexView(kind, schemaSlug, termKind string) bool {
 	case KindPage, KindSingle, KindHome:
 		return s.Index.NoIndexTypes[schemaSlug]
 	case KindArchive:
-		return s.Index.NoIndexArchive
+		return s.Index.NoIndexArchive || s.Index.NoIndexTypes[schemaSlug]
 	case KindTaxonomy:
 		return s.Index.NoIndexTaxonomy[termKind]
 	case KindAuthor:
-		return s.Index.NoIndexAuthor
+		return s.Index.NoIndexAuthor || s.Index.NoIndexTypes[schemaSlug]
 	}
 	return false
 }

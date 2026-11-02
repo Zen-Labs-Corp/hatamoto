@@ -81,7 +81,9 @@ type sitemapGroup struct {
 	base, locale string
 	// archive is the group's index path ("/post") from archive_path or a plugin.
 	archive string
-	rows    []groupRow
+	// archiveSchema is the content type the archive lists, "" for a plugin's.
+	archiveSchema string
+	rows          []groupRow
 	// folded is set on a legacy locale file: the per-group files it lists, in
 	// order. They are not registered in the plan themselves.
 	folded []*sitemapGroup
@@ -132,7 +134,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		}
 		g := ensure(cfg.SitemapGroup)
 		if g.archive == "" {
-			g.archive = cfg.ArchivePath
+			g.archive, g.archiveSchema = cfg.ArchivePath, cfg.SchemaSlug
 		}
 		if first := cfg.Pattern.FirstLiteral(); first != "" && prefixGroup[first] == "" {
 			prefixGroup[first] = cfg.SitemapGroup
@@ -160,7 +162,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 	}
 
 	for _, e := range in.Entries {
-		if e.NoIndex || in.SEO.NoIndexType(e.SchemaSlug) || e.Slug == "" {
+		if e.NoIndex || p.noIndexEntry(e) || e.Slug == "" {
 			continue
 		}
 		cfg, known := in.Snap.Config(e.SchemaSlug)
@@ -540,6 +542,16 @@ func (p *sitemapPlan) GroupURLs(key string) (urls []URL, ok bool) {
 	return p.rowURLs(g, urls), true
 }
 
+// noIndexEntry asks the head's predicate whether the settings keep e's page
+// out of search: a person is served as an author page, the rest as entries.
+func (p *sitemapPlan) noIndexEntry(e *entity.SitemapEntry) bool {
+	kind := seo.KindSingle
+	if e.SchemaSlug == entity.PersonSchemaSlug {
+		kind = seo.KindAuthor
+	}
+	return p.in.SEO.NoIndexView(string(kind), e.SchemaSlug, "")
+}
+
 // rowURLs appends the archive page and the rows of g to urls.
 func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 	base := p.in.BaseURL
@@ -550,7 +562,8 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 		}
 	}
 	// An archive with nothing published in it is an empty page: not listed.
-	if g.archive != "" && !sectionPaths[g.archive] && len(g.rows) > 0 {
+	if g.archive != "" && !sectionPaths[g.archive] && len(g.rows) > 0 &&
+		!p.in.SEO.NoIndexView(string(seo.KindArchive), g.archiveSchema, "") {
 		loc := base + g.archive
 		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: sitemapIndexChangeFreq, Priority: sitemapIndexPriority})
 	}

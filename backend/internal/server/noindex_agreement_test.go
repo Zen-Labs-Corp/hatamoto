@@ -98,3 +98,72 @@ func TestNoIndexPredicateAgreesAcrossConsumers(t *testing.T) {
 		})
 	}
 }
+
+// The view-level switches (author pages, content archives, the type switch on a
+// home, person or archive view) must reach the head and the sitemap alike.
+func TestNoIndexViewSwitchesAgreeHeadAndSitemap(t *testing.T) {
+	t.Parallel()
+	engine, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	noIndex := func(i seo.Index) *seo.Settings { return &seo.Settings{Index: i} }
+	cases := []struct {
+		name     string
+		settings *seo.Settings
+		kind     string
+		schema   string
+		slug     string
+		listed   string // URL the sitemap must list (or omit) for the view
+		want     bool   // noindex
+	}{
+		{"author indexed", nil, render.KindAuthor, "person", "ada", "/team/ada", false},
+		{"author switch off", noIndex(seo.Index{NoIndexAuthor: true}), render.KindAuthor, "person", "ada", "/team/ada", true},
+		{"person type noindex", noIndex(seo.Index{NoIndexTypes: map[string]bool{"person": true}}), render.KindAuthor, "person", "ada", "/team/ada", true},
+		{"archive indexed", nil, render.KindArchive, "post", "", "/blog", false},
+		{"archive switch off", noIndex(seo.Index{NoIndexArchive: true}), render.KindArchive, "post", "", "/blog", true},
+		{"archive of noindex type", noIndex(seo.Index{NoIndexTypes: map[string]bool{"post": true}}), render.KindArchive, "post", "", "/blog", true},
+		{"home indexed", nil, render.KindHome, "page", "home", "/", false},
+		{"home of noindex type", noIndex(seo.Index{NoIndexTypes: map[string]bool{"page": true}}), render.KindHome, "page", "home", "/", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			v := pageViewFromRoute(&routeResult{Page: &PublicPageResponse{Entity: &entity.Entity{ID: uuid.New(), Name: "x", Slug: "x"}}}, "https://x.io", "/x")
+			v.Kind, v.SchemaSlug, v.SEO = tc.kind, tc.schema, tc.settings
+			v.Author = &render.AuthorView{Name: "Ada", Slug: "ada", URL: "/team/ada"}
+			var buf bytes.Buffer
+			if err := engine.RenderPage(&buf, v); err != nil {
+				t.Fatal(err)
+			}
+			m := pageRobotsRe.FindStringSubmatch(buf.String())
+			if got := m != nil && strings.Contains(m[1], "noindex"); got != tc.want {
+				t.Errorf("head noindex = %v, want %v (robots %q)", got, tc.want, m)
+			}
+
+			snap := sitemapSnap(t,
+				sitemapSchema("page", ""),
+				sitemapSchema("post", `{"url_pattern":"/blog/{slug}","archive_path":"/blog"}`),
+				sitemapSchema("person", `{"url_pattern":"/team/{slug}"}`))
+			pageID := uuid.New()
+			in := basePlanInput(snap,
+				entry("page", "home", "2025-03-01", func(e *entity.SitemapEntry) { e.ID = pageID }),
+				entry("post", "hello", "2025-03-01", nil),
+				entry("person", "ada", "2025-03-01", nil))
+			in.HomepageID, in.SEO = pageID, tc.settings
+			plan := planSitemap(in)
+			listed := false
+			for _, g := range plan.groups {
+				urls, _ := plan.GroupURLs(g.key)
+				for _, u := range urlsOf(urls) {
+					if u == tc.listed {
+						listed = true
+					}
+				}
+			}
+			if listed == tc.want {
+				t.Errorf("sitemap lists %s = %v, want %v", tc.listed, listed, !tc.want)
+			}
+		})
+	}
+}

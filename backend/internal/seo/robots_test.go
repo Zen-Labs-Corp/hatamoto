@@ -96,7 +96,8 @@ func TestNoIndexView(t *testing.T) {
 		{s, "taxonomy", "", "tag", true},
 		{s, "taxonomy", "", "category", false},
 		{s, "author", "", "", true},
-		{s, "archive", "release", "", false},
+		{s, "archive", "release", "", true}, // a noindex type takes its archive with it
+		{s, "archive", "doc", "", false},
 		{s, "search", "", "", true},
 		{idx, "search", "", "", false},
 		{idx, "archive", "x", "", true},

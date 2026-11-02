@@ -865,8 +865,10 @@ Business details) and previews the resulting JSON-LD, built by the same code as 
 Titles & meta also decides what search engines may index. Each content type has a Search
 engines select (Index or Noindex), each term kind has an index switch, and so do author pages,
 the content archive and search results (search results stay noindex until you switch them on).
-A noindex type or view gets `noindex,follow` in its head and leaves the sitemap, the feeds,
-`llms.txt` and the site search. This is a behaviour change: `llms.txt` used to ignore noindex and
+A noindex type or view gets `noindex,follow` in its head. A noindex type also leaves the sitemap,
+the feeds, `llms.txt` and the site search, and so do its archive page and its author pages (for
+the Person type). Switching off author pages or the content archive keeps them out of the
+sitemap too. This is a behaviour change: `llms.txt` used to ignore noindex and
 now omits every noindex entry and type. Saving Titles & meta never touches the Robots or
 Verification settings. The page has no switch for date archives, which the public site does not
 serve yet.
