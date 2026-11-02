@@ -386,6 +386,7 @@ func New(d Deps) (*Admin, error) {
 			return a.url("plugins", url.PathEscape(a.firstUIPlugin(role)), "settings")
 		}
 	})
+	a.wireNavCounts()
 	if d.Dir != "" {
 		a.adminFS = os.DirFS(d.Dir)
 	}

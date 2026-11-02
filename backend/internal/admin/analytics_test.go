@@ -1327,12 +1327,6 @@ func TestAnalyticsCompareIsCarried(t *testing.T) {
 			t.Errorf("sidebar link %s lacks the carry", h)
 		}
 	}
-	for _, want := range []string{`<input type="hidden" name="from" value="` + from + `">`, `<input type="hidden" name="compare" value="1">`} {
-		sel := body[strings.Index(body, `class="hm-subnav-select"`):]
-		if !strings.Contains(sel[:strings.Index(sel, "</form>")], want) {
-			t.Errorf("phone select lacks %q", want)
-		}
-	}
 	// the picker form posts compare through the switch, never as a hidden input
 	pop := body[strings.Index(body, `data-hm-daterange`):]
 	if strings.Contains(pop[:strings.Index(pop, "</form>")], `type="hidden" name="compare"`) {

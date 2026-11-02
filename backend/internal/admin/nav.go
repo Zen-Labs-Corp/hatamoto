@@ -22,8 +22,8 @@ type NavItem struct {
 	// Exact limits the item to Href alone: Overview lives at /admin, which is
 	// the parent of every other admin path.
 	Exact bool
-	// Badge is evaluated per render ("" hides it).
-	Badge func() string
+	// Badge is evaluated per render for the viewer's role ("" hides it).
+	Badge func(role string) string
 	// Visible, when set, decides visibility per role instead of Roles.
 	Visible func(role string) bool
 	// HrefFor, when set, resolves the link per role instead of Href.
@@ -168,7 +168,7 @@ func (n *Nav) For(role, path string) []NavEntry {
 			e.Href = it.HrefFor(role)
 		}
 		if it.Badge != nil {
-			e.Badge = it.Badge()
+			e.Badge = it.Badge(role)
 		}
 		m := it.matchLen(path)
 		cands = append(cands, cand{e, m})

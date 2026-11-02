@@ -476,6 +476,10 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	return v
 }
 
+// viewSeen is a test seam called with each View just before it renders (crumbs
+// defaulted); nil in production.
+var viewSeen func(http.ResponseWriter, *View)
+
 // Render writes page with status. Normal requests get the whole
 // document; an htmx request targeting a region gets only the page's "main"
 // block. A template error becomes a 500 page, never a half-written response.
@@ -489,6 +493,9 @@ func (a *Admin) Render(w http.ResponseWriter, r *http.Request, status int, page 
 	}
 	if len(v.Crumbs) == 0 {
 		v.Crumbs = defaultAreaCrumbs(a.adminPath, v.Path, v.Section, v.Tab, v.Title)
+	}
+	if viewSeen != nil {
+		viewSeen(w, v)
 	}
 	name := "page"
 	if isFragment(r) {

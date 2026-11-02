@@ -80,12 +80,12 @@ func TestCreateRerenderKeepsTheNewPageTrail(t *testing.T) {
 		{"menus", menus.do, "/admin/theme/menus/new", "/admin/theme/menus", url.Values{"name": {" "}}},
 	}
 	for _, tc := range cases {
-		want := strings.Join(trailLabels(t, tc.do("GET", tc.page, "owner-token", nil, nil).Body.String()), " > ")
+		want := strings.Join(trailLabels(t, tc.do("GET", tc.page, "owner-token", nil, nil)), " > ")
 		rec := tc.do("POST", tc.post, "owner-token", tc.form, nil)
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("%s: %d", tc.name, rec.Code)
 		}
-		if got := strings.Join(trailLabels(t, rec.Body.String()), " > "); got != want || !strings.HasPrefix(got, "Home > Settings > ") && !strings.HasPrefix(got, "Home > Theme > ") {
+		if got := strings.Join(trailLabels(t, rec), " > "); got != want || !strings.HasPrefix(got, "Settings > ") && !strings.HasPrefix(got, "Theme > ") {
 			t.Errorf("%s: 422 trail %q, /new trail %q", tc.name, got, want)
 		}
 	}
@@ -98,10 +98,11 @@ func TestThemeUploadFallbackIsAThemePage(t *testing.T) {
 	pkgs, _, _ := newPackageRig(t)
 	list := pkgs.do("GET", "/admin/theme/themes", "owner-token", nil, nil).Body.String()
 	has(t, list, `href="/admin/plugins/upload?for=theme"`)
-	body := pkgs.do("GET", "/admin/plugins/upload?for=theme", "owner-token", nil, nil).Body.String()
+	rec := pkgs.do("GET", "/admin/plugins/upload?for=theme", "owner-token", nil, nil)
+	body := rec.Body.String()
 	has(t, body, "<h1", "Upload theme", `href="/admin/theme/themes"`)
 	lacks(t, body, "Upload package")
-	if got := strings.Join(trailLabels(t, body), " > "); got != "Home > Theme > Themes > Upload theme" {
+	if got := strings.Join(trailLabels(t, rec), " > "); got != "Theme > Themes > Upload theme" {
 		t.Errorf("trail %q", got)
 	}
 	plain := pkgs.do("GET", "/admin/plugins/upload", "owner-token", nil, nil).Body.String()

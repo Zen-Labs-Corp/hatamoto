@@ -367,7 +367,7 @@ func (f *designForm) validate() map[string]string {
 }
 
 var designLabels = []struct{ id, label string }{
-	{"primary", "Brand colour"}, {"secondary", "Secondary colour (for themes that use it)"}, {"accent", "Theme accent (for themes that use it)"}, {"background", "Background colour"}, {"text", "Text colour"},
+	{"primary", "Brand colour"}, {"secondary", "Secondary colour"}, {"accent", "Theme accent"}, {"background", "Background colour"}, {"text", "Text colour"},
 	{"font", "Body font"}, {"heading_font", "Heading font"}, {"radius_sm", "Small corners"}, {"radius_md", "Medium corners"}, {"radius_lg", "Large corners"},
 }
 

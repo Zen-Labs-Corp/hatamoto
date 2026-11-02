@@ -154,7 +154,7 @@ func TestThemeLabelsShared(t *testing.T) {
 		d.Growth.Plugins, d.Growth.Packages = fp, pk
 	})
 	colours := g.do("GET", "/admin/theme/colours", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"Theme accent (for themes that use it)", "Secondary colour (for themes that use it)", "Accent under Design system"} {
+	for _, want := range []string{"Theme accent", "Secondary colour", "Accent under Design system"} {
 		if !strings.Contains(colours, want) {
 			t.Errorf("Colours and fonts lacks %q", want)
 		}

@@ -95,3 +95,75 @@ func TestSidebarCurrentIsNotSuppressedBySubnav(t *testing.T) {
 		t.Error("sidebar.css hides the current area pill when a subnav exists; the primary rail must show it on every area")
 	}
 }
+
+// The sidebar sits on --raised, which --surface-hover equals in both themes, so its hover
+// fills (links, profile, ghost foot buttons) use --sidebar-hover and never the token or kasumi.
+func TestSidebarHoverIsVisible(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	hovers := 0
+	for i, line := range strings.Split(string(b), "\n") {
+		if !strings.Contains(line, ":hover") && !strings.Contains(line, ":active") {
+			continue
+		}
+		if strings.Contains(line, "background") {
+			hovers++
+			if !strings.Contains(line, "--sidebar-hover") {
+				t.Errorf("sidebar.css:%d hover fill must use --sidebar-hover (--surface-hover equals the sidebar background): %s", i+1, line)
+			}
+		}
+	}
+	if hovers < 2 {
+		t.Errorf("found %d sidebar hover fills, want link and profile", hovers)
+	}
+	if !strings.Contains(css, "--btn-ghost-hover: var(--sidebar-hover)") {
+		t.Error("the sidebar must set --btn-ghost-hover so its ghost foot buttons show a hover")
+	}
+}
+
+// On phones the nav items are icon over label; a visible count would be a third line, so
+// the mobile block must clip it (visually hidden, not display:none: it stays in the name).
+func TestPhoneNavBadgeIsVisuallyHidden(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	i := strings.Index(css, "@media (max-width: 768px)")
+	if i < 0 {
+		t.Fatal("no phone block in sidebar.css")
+	}
+	phone := css[i:]
+	j := strings.Index(phone, ".hm-nav-link__badge {")
+	if j < 0 {
+		t.Fatal("the phone block does not style .hm-nav-link__badge")
+	}
+	rule := phone[j : j+strings.Index(phone[j:], "}")]
+	if !strings.Contains(rule, "clip: rect(0 0 0 0)") || strings.Contains(rule, "display: none") {
+		t.Errorf("phone badge rule must visually hide, not display:none: %s", rule)
+	}
+}
+
+// The collapsed icon rail keeps the profile, theme and sign-out controls reachable (stacked icon
+// buttons) instead of hiding them behind the toggle; nav links carry a title for sighted users.
+func TestCollapsedRailKeepsFootControls(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/partials/sidebar.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, line := range strings.Split(string(b), "\n") {
+		if strings.Contains(line, `[data-sidebar="collapsed"]`) && strings.Contains(line, "display: none") &&
+			(strings.Contains(line, "__me") || strings.Contains(line, "__foot")) {
+			t.Errorf("sidebar.css:%d the collapsed rail hides a foot control: %s", i+1, line)
+		}
+	}
+}

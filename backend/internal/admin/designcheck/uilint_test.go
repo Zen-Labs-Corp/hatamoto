@@ -205,7 +205,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-fieldgrid--steps > .hm-field", Max: 2, Reason: "design system scales are one row per step: label left, mono input right"},
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-fieldgrid--steps .hm-field__control", Reason: "right-aligned mono input of a scale row"},
 	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-card--preset .hm-card__head > p", Reason: "preset key and count read as one mono line; hm/card-start takes a plain string for the description"},
-	{Rule: "UI-06", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 2, Reason: "native colour input needs its own box"},
+	{Rule: "UI-06", File: "css/partials/settings.css", Needle: ".hm-swatchrow .hm-field__label", Reason: "a swatch label reads in mono beside its hex, as in the approved preview"},
+	{Rule: "UI-06", File: "css/partials/steps.css", Needle: `.hm-field__control[type="color"]`, Max: 5, Reason: "native colour input needs its own box"},
 	{Rule: "UI-05", File: "js/canvas/fmtbar.js", Needle: `class: "hm-btn`, Max: 3, Reason: reasonEditor},
 	{Rule: "UI-06", File: "css/partials/listbox.css", Needle: ".hm-bubble .hm-btn", Reason: "editor bubble buttons"},
 	{Rule: "UI-06", File: "css/pages/blogeditor.css", Needle: ".hm-be__links > .hm-dialog__foot", Reason: "the links dialog is a flex column with a scrolling body; its footer pads to the list's inset and keeps a hairline above it (TestBlogEditorDialogLayout)"},
@@ -723,12 +724,12 @@ var uiCrumbEditors = map[string]bool{
 	"layouts/editor.html": true, "pages/entities/blogedit.html": true,
 }
 
-// UI-09: the trail lives in the top bar only. The page header takes no Crumbs
+// UI-09: the shell renders no trail (only the editor bar does). The page header takes no Crumbs
 // and no page renders a panel breadcrumb of its own.
 func lintUI09(f uiFile, add func(int, string, string)) {
 	if f.name == "partials/pageheader.html" {
 		if i := strings.Index(f.src, "Crumbs"); i >= 0 {
-			add(i, "UI-09", "the page header renders no breadcrumbs; handlers set View.Crumbs for the top bar")
+			add(i, "UI-09", "the page header renders no breadcrumbs; handlers set View.Crumbs (the shell does not render it)")
 		}
 		return
 	}
@@ -741,7 +742,7 @@ func lintUI09(f uiFile, add func(int, string, string)) {
 		}
 	}
 	for _, m := range regexp.MustCompile(`class="hm-crumbs`).FindAllStringIndex(f.src, -1) {
-		add(m[0], "UI-09", "a panel breadcrumb: the top bar already shows the trail")
+		add(m[0], "UI-09", "a panel breadcrumb: only the editor bar renders a trail")
 	}
 }
 

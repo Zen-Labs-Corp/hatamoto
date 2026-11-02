@@ -197,12 +197,12 @@ function check({ sticky, list, spec }) {
     }
   }
 
-  // UI-D7: exactly one VISIBLE breadcrumb trail per screen: the top bar (compact on phones),
-  // or on the editor screens the editor bar. The editor bar trail is hidden on phones; its
+  // UI-D7: at most one VISIBLE breadcrumb trail per screen: none on the shell pages (no top bar), and on
+  // the editor screens the editor bar. The editor bar trail is hidden on phones; its
   // back link is the trail there, so it must be visible instead. A hidden trail does not count.
   const crumbs = [...document.querySelectorAll('nav[aria-label="Breadcrumb"]')].filter(visible);
   if (crumbs.length > 1) out.push(["UI-D7", sel(crumbs[1]), "more than one visible breadcrumb trail", crumbs.length]);
-  const bar = document.querySelector(".hm-topbar, .hm-editor-bar");
+  const bar = document.querySelector(".hm-editor-bar");
   if (bar && !crumbs.some((n) => bar.contains(n))) {
     const back = bar.matches(".hm-editor-bar") && [...bar.querySelectorAll(".hm-editor-bar__back")].some(visible);
     if (!back) out.push(["UI-D7", sel(bar), "no visible breadcrumb trail", 0]);
@@ -254,7 +254,7 @@ function check({ sticky, list, spec }) {
   }
 
   // UI-D10: list first. On list screens the first content block after the header is
-  // the list, there is no post form beside it outside a dialog, and the header has
+  // the list, there is no post form beside it outside a dialog (shell notices, `.hm-notices`, are chrome and exempt), and the header has
   // one primary that opens a create page.
   if (list) {
     const page = document.querySelector(".hm-page");
@@ -266,7 +266,7 @@ function check({ sticky, list, spec }) {
         .find((c) => visible(c) && !c.matches("nav.hm-tabs, .hm-secretbanner, .hm-flash, .hm-callout, .hm-formerrors, dialog, form[role=search], .hm-filterbar, .hm-media-toolbar"));
       if (!first || !(first.matches(LISTY) || first.querySelector(LISTY))) out.push(["UI-D10", first ? sel(first) : "div.hm-page", "the list is not the first content block after the header", ""]);
       for (const f of page.querySelectorAll("form")) {
-        if ((f.getAttribute("method") || "").toLowerCase() !== "post" || f.closest("dialog, .hm-table, .hm-datatable, .hm-pluginlist, .hm-themes, .hm-pkg") || f.matches("#unsigned") || f.querySelector("#unsigned") || f.querySelector(LISTY) || (f.getAttribute("id") || "").startsWith("bulk-")) continue; // the bulk action form of the table, wrapping it or tied to its select boxes by form=
+        if ((f.getAttribute("method") || "").toLowerCase() !== "post" || f.closest("dialog, .hm-notices, .hm-table, .hm-datatable, .hm-pluginlist, .hm-themes, .hm-pkg") || f.matches("#unsigned") || f.querySelector("#unsigned") || f.querySelector(LISTY) || (f.getAttribute("id") || "").startsWith("bulk-")) continue; // the bulk action form of the table, wrapping it or tied to its select boxes by form=
         out.push(["UI-D10", sel(f), "post form beside the list outside a dialog", f.getAttribute("action") || ""]);
       }
       const prim = [...head.querySelectorAll(".hm-btn--primary")].filter(visible);
@@ -367,14 +367,14 @@ const FIXTURE = `<!doctype html><body style="margin:0;width:800px">
 <button data-hm-open="d13b" id="d13bo"></button><div id="d13b"></div>
 <style>:root{--color-sumi:#111827;--color-paper:#ffffff;--border:#e5e7eb;--border-field:#d1d5db;--segment-ring:var(--border);--segment-bevel:var(--border-field);--border-control:#8b919a;--shadow-1:0 1px 2px rgba(0,0,0,.2);--color-hai:#4b5563;--btn-edge-primary:rgb(0 0 0 / .35)}</style>
 <nav aria-label="Breadcrumb" id="d7a"><ol><li>Home</li></ol></nav><nav aria-label="Breadcrumb" id="d7b"><ol><li>Home</li></ol></nav>
-<div class="hm-topbar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
+<div class="hm-editor-bar" id="d7c"><nav aria-label="Breadcrumb" style="display:none"><ol><li>Home</li></ol></nav></div>
 <nav class="hm-tabs" data-variant="segmented"><ul><li><a id="d8" href="/x?view=a" aria-current="page" style="border:2px solid #000;box-shadow:0 1px 2px #000;background:#e5e7eb;color:#000">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <button type="button" class="hm-segmented__btn" id="d8ok" aria-pressed="true" style="border:0;background:var(--color-paper);color:var(--color-sumi);box-shadow:0 0 0 1px var(--border),inset 0 -1px 0 var(--border-field)">On</button>
 <nav class="hm-tabs" data-variant="segmented" id="d9seg"><ul><li><a href="/x?view=a">A</a></li><li><a href="/y?view=a">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" data-changes="group" id="d9undecl"><ul><li><a href="/x?view=a">A</a></li><li><a href="/x?view=b">B</a></li></ul></nav>
 <nav class="hm-tabs" data-variant="segmented" id="d9none"><ul><li><a href="/x">A</a></li></ul></nav>
 <nav class="hm-tabs" id="d9t1"><ul><li><a href="/p">P</a></li></ul></nav><nav class="hm-tabs" data-variant="sub" id="d9t2" style="margin-top:40px"><ul><li><a href="/p/a">A</a></li></ul></nav><nav class="hm-tabs" id="d9t3"><ul><li><a href="/p/b">B</a></li></ul></nav>
-<div class="hm-page"><header class="hm-pageheader"><h1>List</h1><a class="hm-btn hm-btn--primary" href="/things/new" style="height:36px;border-radius:6px;display:inline-block">New</a></header><div class="hm-table" id="d10t">rows</div><form method="post" action="/things" id="d10"></form><div class="hm-pkg"><form method="post" action="/pkg/fetch" id="d10pkg"></form></div></div>
+<div class="hm-page"><header class="hm-pageheader"><h1>List</h1><a class="hm-btn hm-btn--primary" href="/things/new" style="height:36px;border-radius:6px;display:inline-block">New</a></header><div class="hm-table" id="d10t">rows</div><form method="post" action="/things" id="d10"></form><div class="hm-pkg"><form method="post" action="/pkg/fetch" id="d10pkg"></form></div><div class="hm-notices"><form method="post" action="/notice/choice" id="d10notice"></form></div></div>
 <style>:root{--radius-sm:6px}</style><button class="hm-btn" id="d14" style="border-radius:2px">Plant</button><button class="hm-btn" id="d14ok" style="border:0;border-radius:6px;font-size:16px;padding:0;box-shadow:inset 0 0 0 1px var(--segment-ring),inset 0 -2px 0 var(--segment-bevel)">Compliant</button><button class="hm-btn" id="d14b" style="border:1px solid #8b919a;border-radius:6px;font-size:16px;padding:0;box-shadow:none">Old</button><button class="hm-btn hm-btn--primary" id="d14pok" style="border:0;border-radius:6px;font-size:16px;padding:0;box-shadow:inset 0 -1px 0 var(--btn-edge-primary)">Primary</button>
 <input class="hm-field__control" id="d11" style="border:1px solid #8b919a">
 <input class="hm-field__control" id="d11h" style="border:1px solid #d1d5db">
@@ -401,6 +401,7 @@ if (selfTest) {
   // The real selected-pill recipe must pass UI-D8.
   if (found.some((v) => v[0] === "UI-D8" && v[1].endsWith("#d8ok"))) { console.log("self-test FAILED: UI-D8 flagged the real pill recipe (#d8ok)"); process.exit(1); }
   // A registry Install row form is a row action: it must not be reported.
+  if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10notice"))) { console.log("self-test FAILED: UI-D10 flagged a shell notices form (#d10notice)"); process.exit(1); }
   if (found.some((v) => v[0] === "UI-D10" && v[1].endsWith("#d10pkg"))) { console.log("self-test FAILED: UI-D10 flagged a registry row form (#d10pkg)"); process.exit(1); }
   // Each rule must fire on its own planted element, not just somewhere in the fixture.
   const own = { "UI-D1": "#d1d6", "UI-D2": "#d2", "UI-D3": "#d3", "UI-D4": ["#d4a", "#d4s~fewer than 2"], "UI-D5": "#d5", "UI-D6": "#d1d6", "UI-D7": ["#d7b", "#d7c"], "UI-D8": ["#d8~has a border", "#d8~has no ring", "#d8~non-ring shadow", "#d8~not the paper fill", "#d8~not sumi"], "UI-D9": ["#d9seg", "#d9undecl~did not declare", "#d9none~does not declare", "#d9t3", "#d9t2~directly under"], "UI-D10": "#d10", "UI-D11": ["#d11", "#d11h", "#d11r"], "UI-D12": ["#d12~far-left aside", "#d12bdel~left edge"], "UI-D13": ["#d13~no title", "#d13bo~does not resolve"], "UI-D14": ["#d14~button border-top-left-radius", "#d14b~button box-shadow", "#d14b~button border-top-width"] };

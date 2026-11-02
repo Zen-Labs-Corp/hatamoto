@@ -353,7 +353,7 @@ Three ways to tell the user something; pick by how long it lives and where it is
 
 - **Callout (`hm/callout-start` / `-end`, or `hm/callout` with a `Body`).** A
   standing notice that belongs to the page: a warning, a limit, a state the user must
-  act on. Dict: `Kind` (`info`, `success`, `warning`, `danger`; `error` maps to
+  act on. Dict: `Kind` (`info`, `neutral`, `success`, `warning`, `danger`; `neutral` is a quiet grey note; `error` maps to
   `danger`), optional `Title`, `Compact`, `DismissKey` (makes it dismissible; the
   choice is kept for the browser session), `ID` and `Attrs`. It needs a `Title` or a
   `Body`. The shell banners are compact, dismissible callouts. Never hand-write
@@ -488,7 +488,7 @@ colour that is not a token; anything a second page needs becomes a partial.
 - **Split spark.** A KPI with a comparison draws the previous period as a grey
   `.hm-spark__prev` line left of a `.hm-spark__divider`, the current period in the accent
   line; the note says what is compared. Only Submissions and AI-referred visits have one.
-- **Update status.** The overview has no updates card and the top bar no update chip. The
+- **Update status.** The overview has no updates card and the shell no update chip. The
   top banner is narrowed to what needs an action: `rolled_back`, `blocked`, `backup_failed`.
   A major release and updates off for 90+ days are shown on Settings › Updates only.
 
@@ -546,16 +546,16 @@ a page never adds a second form or a second primary button inside the card. The 
 
 ### Shell, auth and error pages
 
-- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
+- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (Inter and JetBrains Mono ship as woff2 files from the admin origin under `/_/fonts`, so the CSP `font-src 'self'` is unchanged; the system stacks are the fallback).
 - **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it, rendered above the form. The sign-in button is full width and the quiet "Forgot your password?" link sits under it. The bare panel title is 24px, medium weight. On the setup address step, Regenerate sits beside Copy in the copy row; the hidden default Continue stays first in the form (Enter submits Continue, never Regenerate) and the visible Continue is the only primary footer button. The setup wizard footers put a ghost Back at the far left and the primary on the right; on the setup email step Skip takes the far left and Back sits on the right beside Save. All setup step labels stay visible on phones. The bare panel is cardless: sign-in, setup and the bare error pages sit directly on the page background, with the brand aligned to the left edge of the column.
-- **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
+- **Standing notices** (setup pending, site address, update) render in `.hm-notices`, the first child of `.hm-page`, so they take the page column's width: narrower on narrow or compact pages, lined up with the cards. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.
 - **`hm/empty` `Code`, `Plain`, `H1`.** `Code` is a muted status ("404") above the title, `Plain` drops the frame inside a panel (centred; with `Compact`, left aligned), `H1` makes the title the page heading. Full-page errors and `hm/errorpage` are built on it; inside the signed-in shell the 404 is unframed, shows the mono status code and has no icon, while the 403 and 500 keep their frame and name their status with an icon (lock, alert). Signed-out (bare) error pages are cardless like every bare page, and only the 404 drops the icon. Token dead ends (reset or accept with a bad token, accept when the account already exists) use `Plain` + `Compact`: left aligned, no icon.
 - **`hm/tabs` `ShowZero`.** A row opts in to showing a count of 0 (taxonomy kinds); by default 0 stays hidden.
 - **`#hm-confirm` is the one hand-written dialog.** `components.js` fills a single shared node, so it is not built with `hm/dialog-start`. A link or menu item with `data-hm-confirm` opens it; so does a submit `button[data-hm-confirm]` inside a form, which then posts that form's fields (without `_csrf`). Without script the button submits directly, so its card must already say what happens.
 - **`data-hm-carry="<input id>"`** on a link appends that input's value as `?email=` when clicked (the invite form's "Add with a password instead"); without script it is a plain link.
 - **Colophon.** Every shell page (never the bare or editor layouts) ends with `.hm-colophon` after `</main>`: one muted `--text-xs` link, "Hatamoto <version> · Stand close. Serve well.", to https://hatamoto.dev (`View.AppVersion`: `app.Version` with one leading v, or "dev build"). `.hm-shell__main` is a flex column with `.hm-content` growing, so the line sits at the foot of a short page and after the content of a long one; centred under 768px (`css/partials/colophon.css`).
-- **The sidebar** is sticky at `100dvh`; its collapsed state persists in `localStorage` (`hm-sidebar`) on desktop. Under 768px it is a top bar and has no toggle. When a subnav is shown, only the subnav item carries the active chip.
+- **The sidebar** is sticky at `100dvh`; its collapsed state persists in `localStorage` (`hm-sidebar`) on desktop. There is no top bar: the collapse toggle sits in the sidebar foot and collapses it to a 56px icon rail on desktop. Under 768px the sidebar is a top bar (brand and footer on one row, the items icon over label on the next) and has no toggle. Entities and Plugins show their counts. Every page sits in one centred group of at most 1440px; on Settings, Theme and Plugins the subnav and the page are centred together. The subnav has no icons and a visually hidden title; under 640px it is a horizontal scroller of the same links. When a subnav is shown, only the subnav item carries the active chip.
 
 ### Segmented
 
@@ -606,19 +606,17 @@ Rules: use it for an action that is hard to undo or weakens a security setting, 
 
 ## Breadcrumbs
 
-The trail lives in the top bar and nowhere else. A page never repeats it in its own
-panel, so `hm/pageheader` takes no `Crumbs`. Handlers that open a page below a list
-set `View.Crumbs` (`settingsCrumbs` for Settings pages, `entityCrumbs` for entity
-sub-pages); a page with no crumbs falls back to Home, its section and its title.
-The last crumb is the current page and is not a link. The one exception is the
-editor bar of the page and blog editors, which have no top bar and show their own
-trail. The lint and the Chrome check enforce it: exactly one visible `Breadcrumb`
-navigation per screen and viewport.
+The shell renders no breadcrumb: it has no top bar, and the trail was dropped with it.
+Crumbs are handler data. Handlers that open a page below a list set `View.Crumbs`
+(`settingsCrumbs` for Settings pages, `entityCrumbs` for entity sub-pages); the shell
+does not draw them, `hm/pageheader` takes no `Crumbs`, and a page never repeats a trail
+in its own panel. The only visible trail is the editor bar of the page and blog editors.
 
-On phones (768px and below) the top bar stays and shows a compact trail: a back link to
-the parent crumb (for example "‹ Taxonomies"). The editor bar's trail is hidden on
-phones; its back link (`.hm-editor-bar__back`) is the way up there, and UI-D7 requires
-it to be visible instead.
+Orientation on every other page comes from three things: the sidebar item and the
+subnav item of the current page, both marked `aria-current="page"`, and the page's `h1`.
+On phones (768px and below) the sidebar is a top bar with the same marker. The editor
+bar's trail is hidden on phones; its back link (`.hm-editor-bar__back`) is the way up
+there, and UI-D7 requires it to be visible instead.
 
 ## Create pattern
 
@@ -736,7 +734,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-06 | `css/pages/*.css` and other partial CSS may not set visual properties (colour, background, border, shadow, font, padding, height, outline, opacity, text-transform) on a shared component (any class block in the selector of a `components.json` entry, with its `__element` and `--modifier` classes: `.hm-btn*`, `.hm-card*`, `.hm-field*`, `.hm-switch*`, `.hm-table*`, `.hm-menu*`, `.hm-dialog*`, ...) unless the file is that component's `owner`. A page that needs another look adds a modifier in the owner's CSS (`.hm-tablist--bar`); the few layout-plus-padding uses are allowlisted with a reason. This covers descendant selectors (`.page .hm-btn`), compound selectors (`.hm-btn.page-x`, `.hm-card.is-x`, `.hm-btn[data-x]`, `.hm-btn:not(.x)`) and functional forms (`:is(.hm-btn, .x)`, `:where(.hm-card)`). A lone component class with only simple pseudos (`.hm-btn:hover`, `.hm-btn::after`) is the component's own state and is allowed. Layout-only declarations (width, margin, flex, gap) are allowed. |
 | UI-07 | In a `<form>` with more than one submit button, the first submit in source order is the primary action or a hidden default submit (`hm-visually-hidden`), never a secondary such as Preview, because Enter presses the first submit. Buttons that belong to another form through `form="..."` are not counted. A bare `<input type="submit">` is never counted as primary. |
 | UI-08 | A `hm/tabs` row is an underline row (no `Variant`) or the level-2 `sub` row, because its items navigate. `Variant "segmented"` is only for rows that declare what their items change: `"Changes" "view"`, one or more of `group`, `from`, `to`, `range`, `view`. `Variant` must be a literal in the template, and `Variant "tablist"` is the JS role=tablist row (buttons that switch panels in place, see JS tablists below); any value other than empty, `segmented`, `sub` or `tablist` is rejected. Chrome (UI-D9) checks the path and that the rendered links change only the declared params; the lint does not see the items. See Tabs below. |
-| UI-09 | The top bar is the only place a breadcrumb trail renders. `partials/pageheader.html` mentions no `Crumbs`, and no page or layout passes `"Crumbs"` to `hm/pageheader` or writes `class="hm-crumbs"`, except the editor bar of `layouts/editor` and the editor template `blogedit.html`. Handlers set `View.Crumbs`. |
+| UI-09 | The shell renders no breadcrumb trail; only the editor bar does. `partials/pageheader.html` mentions no `Crumbs`, and no page or layout passes `"Crumbs"` to `hm/pageheader` or writes `class="hm-crumbs"`, except the editor bar of `layouts/editor` and the editor template `blogedit.html`. Handlers set `View.Crumbs`. |
 | UI-10 | A page template that renders `hm/table`, `hm/datatable`, `hm-themes` or `hm-pluginlist` has no post form outside the span between `hm/dialog-start` and `hm/dialog-end`, and no `hm-reveal` card. Create forms live in a dialog, with a `/new` page that renders the same fields. Named allowlist entries cover edit or destructive forms (the robots policy editor, deleting rules by source), per-row registry actions (Install, Update on the theme and plugin pages) the unsigned packages setting, and the Settings > Updates forms (the update policy form, the Install stats switch form, and the Check now, Update now, Unpin and Reset ID row actions beside the read-only history table). |
 | UI-11 | `css/partials/field.css` sets `.hm-field__control` to `var(--border-field)` at rest and has a `.hm-field__control:hover` rule whose border is `var(--color-hai)` or `var(--border-control)`. No other CSS puts `--border-control` on `.hm-field__control` or `.hm-input-affix`. |
 | DC-01 | In admin CSS (`tokens.css` and `.prose` rules excepted) `font-size`, `font-weight`, `line-height`, `border-radius`, `padding*`, `margin*`, `gap` and `z-index` use design tokens (`--text-*`, `--weight-*`, `--leading-*`, `--radius-*`, `--space-*` or `--page-pad*` for padding, `--z-*`). Allowed non-token values: `0`, `auto`, `inherit`, `1px` and `-1px` hairlines, `50%` radius, and `calc()` of tokens and plain numbers. The `font` shorthand is parsed. |
@@ -754,10 +752,10 @@ Label renames that touch template wording are not done here. Each is owned by th
 | UI-D4 | Every checkbox outside the multi-pick allowlist is a 32px by 18px switch with `role="switch"`. Every segmented radiogroup (`.hm-segmented` with radios) has two or more radios. |
 | UI-D5 | At most one primary button per footer, per dialog footer and per page header. |
 | UI-D6 | A card footer is never inside the card body, and is as wide as the card. |
-| UI-D7 | Exactly one visible `nav[aria-label="Breadcrumb"]` per screen at 1440 and 390: the top bar trail (compact on phones), or the editor bar trail on the editor screens, whose back link stands in for it on phones. A second visible trail in the panel, or a trail hidden by CSS, is the violation. |
+| UI-D7 | Exactly one visible `nav[aria-label="Breadcrumb"]` per screen at 1440 and 390: none on shell pages, and the editor bar trail on the editor screens, whose back link stands in for it on phones. A second visible trail in the panel, or a trail hidden by CSS, is the violation. |
 | UI-D8 | The selected item of a segmented control (pill row, radio or button) is a paper pill (`--color-paper` fill, `--color-sumi` text) with no border and a hairline ring (ring and inset shadow parts only, no drop shadow), compared against the resolved tokens, light and dark. |
 | UI-D9 | Tabs navigate, pills rearrange in place. A segmented row stays on one path and its items differ only in the params it declares with `Changes` (`group`, `from`, `to`, `range`, `view`); a segmented row with no `Changes` fails. A page has at most two tab rows, and a `sub` row sits under an underline row. |
-| UI-D10 | On list screens (`list: true` in `urls.mjs`) the first content block after the header is the list, no post form sits beside it outside a dialog (the bulk action form of the table, `id="bulk-..."`, and forms inside rows are not beside it), and the header has exactly one primary that opens a create page (`/new`, `/upload` or `/invite`). |
+| UI-D10 | On list screens (`list: true` in `urls.mjs`) the first content block after the header is the list, no post form sits beside it outside a dialog (the bulk action form of the table, `id="bulk-..."`, forms inside rows and forms inside the shell's standing notices, `.hm-notices`, are not beside it), and the header has exactly one primary that opens a create page (`/new`, `/upload` or `/invite`). |
 | UI-D11 | Text inputs, selects and textareas at rest have the computed border colour of `--border-field`, not `--border-control`. On `hover: true` screens the border darkens to `--color-hai` or `--border-control` under the pointer. |
 | UI-D12 | On an editor savebar Delete is the far-left control, inside `.hm-savebar__aside`, at the savebar's content-box left edge. No Delete (a new item) is fine. |
 | UI-D13 | Every `[data-hm-open]` resolves to a `<dialog>` that has a title (`aria-labelledby` text or `aria-label`). Live: opening it puts focus on a control inside the dialog, and closing returns focus to the opener. |

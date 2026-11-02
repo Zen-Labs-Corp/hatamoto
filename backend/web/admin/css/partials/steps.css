@@ -11,6 +11,9 @@
 .hm-steps__label { min-width: 0; white-space: nowrap; }
 .hm-steps__count { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-field__control[type="color"] { width: 64px; min-height: var(--control-h); padding: var(--space-0-5); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); }
+.hm-field__control[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.hm-field__control[type="color"]::-webkit-color-swatch { border: 0; border-radius: var(--radius-md); }
+.hm-field__control[type="color"]::-moz-color-swatch { border: 0; border-radius: var(--radius-md); }
 .hm-field__control[type="color"]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* Done step: a left-aligned heading and four link rows, each ending in a chevron. */
 .hm-setup-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }

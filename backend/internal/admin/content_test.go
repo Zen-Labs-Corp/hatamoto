@@ -118,6 +118,14 @@ func has(t *testing.T, body string, wants ...string) {
 	}
 }
 
+// warmNavCounts renders one page so the sidebar's cached counts are filled,
+// then zeroes the fake's query counters: a test of a page's own queries then
+// sees only the page's (the sidebar count is a separate, cached query).
+func warmNavCounts(c *contentRig) {
+	c.do("GET", "/admin/profile", "owner-token", nil, nil)
+	c.ents.lists, c.ents.counts = 0, 0
+}
+
 func lacks(t *testing.T, body string, nots ...string) {
 	t.Helper()
 	for _, w := range nots {
@@ -133,6 +141,7 @@ func TestEntityListQueriesAreBounded(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
+	warmNavCounts(c)
 	body := c.get(t, "owner-token", "/admin/entities", "")
 	if c.ents.lists != 1 || c.ents.counts != 1 {
 		t.Errorf("list queries = %d, count queries = %d, want 1 and 1", c.ents.lists, c.ents.counts)

@@ -421,10 +421,8 @@ owner and an editor), then run the commands under "Harness".
 * **AI analytics tabs**: Crawlers, Referrals, Pageviews, each its own URL; the Crawlers
   segmented tabs (overview, agents, pages, first crawls, errors, spoofed, robots) keep the
   date range when you switch.
-* **At 390 pixels**: the sidebar is a top bar (brand, avatar, theme, sign-out, then the five
-  primary items with icons over labels); the Settings and Theme section lists are a "Settings
-  section" / "Theme section" select with a Go button that works without JavaScript (it does not
-  navigate on change).
+* **At 390 pixels**: the sidebar is a top bar (brand and footer icons on one row, the primary items with icons over
+  labels below; no counts); the Settings and Theme section lists are a horizontal scroller of links.
 * **Row menus**: every table row has a ⋯ menu named "Actions for <row>", opens with Enter or
   Space, closes with Escape, and has the destructive item last behind a separator.
 * **Widths**: every page is `narrow`, `compact`, `wide` or `full` (`data-width`; `compact` is the narrow column kept narrow inside Settings, where other widths are lifted to the wide column); the page and blog

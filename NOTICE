@@ -14,6 +14,9 @@ This product includes third-party software under its own licences:
 - The Geist and Geist Mono fonts in the default theme, under the SIL Open
   Font License 1.1: see
   backend/internal/render/themes/default/assets/fonts/OFL.txt.
+- The Inter and JetBrains Mono fonts served by the admin, under the SIL Open
+  Font License 1.1: see backend/web/admin/fonts/OFL-Inter.txt and
+  backend/web/admin/fonts/OFL-JetBrainsMono.txt.
 - Go modules listed in backend/go.mod, each under its own licence.
 - axe-core 4.14.0 (Deque Systems), under the Mozilla Public License 2.0, in
   scripts/admin-qa/vendor/axe.min.js: a development QA tool, unmodified and

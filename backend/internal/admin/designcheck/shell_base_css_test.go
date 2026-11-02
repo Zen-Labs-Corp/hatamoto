@@ -7,7 +7,7 @@ import (
 )
 
 // Dismissing the last banner leaves an empty .hm-notices behind (script removes only the callout).
-// The strip must collapse and the page's tighter top padding must only apply while it shows one.
+// The strip must collapse so it adds no gap to the page column.
 func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -15,12 +15,34 @@ func TestNoticesStripCollapsesWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	css := string(b)
-	if !strings.Contains(css, ".hm-notices:not(:has(.hm-callout)) { display: none; }") {
+	if !strings.Contains(string(b), ".hm-notices:not(:has(.hm-callout)) { display: none; }") {
 		t.Error("an .hm-notices with no callout must be display: none")
 	}
-	if !strings.Contains(css, ".hm-notices:has(.hm-callout) + .hm-page { padding-top: var(--space-4); }") || strings.Contains(css, ".hm-notices + .hm-page") {
-		t.Error("the reduced page padding must depend on the strip holding a callout")
+}
+
+// The notices strip is the first child of .hm-page, so it spans the page content column on
+// every width variant (and beside the subnav) with no padding or max-width of its own.
+func TestNoticesAlignWithContentColumn(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("../../../web/admin/css/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, ".hm-notices") && (strings.Contains(line, "padding") || strings.Contains(line, "max-width")) {
+			t.Errorf("the notices strip takes its width from .hm-page, not %q", line)
+		}
+	}
+	sh, err := os.ReadFile("../../../web/admin/layouts/shell.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(sh)
+	page := strings.Index(html, `<div class="hm-page"`)
+	notices := strings.Index(html, `<div class="hm-notices">`)
+	if page < 0 || notices < page || notices > strings.Index(html, `{{template "main" .}}`) {
+		t.Error("shell.html must render .hm-notices inside .hm-page, before the page content")
 	}
 }
 
@@ -60,17 +82,23 @@ func TestSegmentedTrackDoesNotStretch(t *testing.T) {
 	}
 }
 
-// A stored "collapsed" sidebar must not hide the phone top bar (the toggle is hidden there).
+// A stored "collapsed" sidebar must not touch the phone top bar (the toggle is hidden there):
+// the rail grid column and the rail rules of sidebar.css sit inside @media (min-width: 769px).
 func TestCollapsedSidebarOnlyOnDesktop(t *testing.T) {
 	t.Parallel()
 
-	b, err := os.ReadFile("../../../web/admin/css/base.css")
-	if err != nil {
-		t.Fatal(err)
-	}
-	css := string(b)
-	i := strings.Index(css, `.hm-shell[data-sidebar="collapsed"] > .hm-sidebar { display: none; }`)
-	if i < 0 || !strings.Contains(css[max(0, i-200):i], "@media (min-width: 769px)") {
-		t.Error("the collapsed sidebar rule must sit inside @media (min-width: 769px)")
+	for file, rule := range map[string]string{
+		"base.css":             `.hm-shell[data-sidebar="collapsed"] { grid-template-columns: var(--sidebar-rail-w) minmax(0, 1fr); }`,
+		"partials/sidebar.css": `.hm-shell[data-sidebar="collapsed"] .hm-sidebar { padding-inline: var(--space-2); }`,
+	} {
+		b, err := os.ReadFile("../../../web/admin/css/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		css := string(b)
+		i := strings.Index(css, rule)
+		if i < 0 || !strings.Contains(css[max(0, i-400):i], "@media (min-width: 769px)") {
+			t.Errorf("%s: the collapsed sidebar rule must sit inside @media (min-width: 769px)", file)
+		}
 	}
 }

@@ -87,6 +87,8 @@
    results stay hm/flash. */
 .hm-callout { position: relative; display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--callout-fg); border-inline-start-width: 3px; background: var(--callout-bg); color: var(--callout-fg); }
 .hm-callout--info { --callout-fg: var(--color-accent); --callout-bg: var(--color-accent-soft); }
+/* Neutral: a quiet explanatory note, no tint and no accent edge. */
+.hm-callout--neutral { --callout-fg: var(--text-2); --callout-bg: var(--raised); border-color: var(--border); border-inline-start-width: 1px; }
 .hm-callout--success { --callout-fg: var(--color-success); --callout-bg: var(--color-success-soft); }
 .hm-callout--warning { --callout-fg: var(--color-warning); --callout-bg: var(--color-warning-soft); }
 .hm-callout--danger { --callout-fg: var(--color-danger); --callout-bg: var(--color-danger-soft); }

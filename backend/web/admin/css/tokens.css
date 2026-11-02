@@ -60,12 +60,14 @@
   --chart-stack-other: var(--chart-6);
 
   /* handoff vocabulary, aliased */
-  /* calm: one paper surface; dark pages sit on shiro under paper chrome */
-  --bg: var(--color-paper);
+  /* calm: the page sits on shiro, cards (--surface) stay paper */
+  --bg: var(--color-shiro);
+  --raised: var(--color-kasumi);
   --surface: var(--color-paper);
   --surface-hover: var(--color-kasumi);
   --text: var(--color-sumi);
   --text-body: var(--color-sumi-soft);
+  --text-2: var(--text-body);
   --text-muted: var(--color-hai);
   --border: var(--color-kinu);
   /* control borders must reach 3:1 against the surface (WCAG 1.4.11), which
@@ -98,6 +100,7 @@
   --chip-h: 1.5rem;
   --sidebar-w: 224px;
   --subnav-w: 208px;
+  --sidebar-rail-w: 56px; /* collapsed sidebar: icons only */
   /* page widths (base.css): narrow = one readable form column, wide = tables
      and charts, full = editors */
   --page-narrow: 760px;

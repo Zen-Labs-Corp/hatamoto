@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -128,13 +127,16 @@ func TestSettingsFrameRendersForSettingsPages(t *testing.T) {
 	for _, want := range []string{
 		`<nav class="hm-subnav" aria-label="Settings">`,
 		`<a class="hm-subnav__link" href="/admin/settings/general" aria-current="page">`,
-		`<form class="hm-subnav-select" method="get" action="/admin/settings">`,
-		`<option value="redirects">Redirects</option>`, `<option value="api">API</option>`, `<option value="entity-models">Entity models</option>`,
+		`<h2 class="hm-subnav__title hm-visually-hidden">Settings</h2>`,
+		`href="/admin/settings/redirects"`, `href="/admin/settings/locales"`,
 		`<header class="hm-section-head">`, `<h1>General</h1>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("settings page lacks %q", want)
 		}
+	}
+	if strings.Contains(body, "hm-subnav-select") || strings.Contains(body, `<nav class="hm-subnav" aria-label="Settings"><h2 class="hm-subnav__title">`) || strings.Contains(body, `hm-subnav__link"`+` href="/admin/settings/general" aria-current="page"><svg`) {
+		t.Error("the subnav still carries the phone select or icons")
 	}
 	if strings.Contains(body, `Settings sections`) {
 		t.Error("the old settings tab strip is still rendered")
@@ -154,45 +156,28 @@ func TestSettingsCrumbsChain(t *testing.T) {
 	}
 }
 
-// Every Settings page has one trail, in the top bar, that starts Home, Settings
-// and ends on the current page. The page header renders no crumbs of its own.
+// Every Settings page's crumb data starts Settings and ends on the current page.
+// The shell draws no top bar and the page header no crumbs of its own.
 func TestSettingsPageCrumbsStartAtSettings(t *testing.T) {
 	t.Parallel()
 
 	g := newRig(t)
-	topbar := regexp.MustCompile(`(?s)<nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol>(.*?)</ol></nav>`)
-	items := regexp.MustCompile(`<li[^>]*>(.*?)</li>`)
-	check := func(name, body string, wantLen int, last string) {
+	check := func(name string, got []string, body string, wantLen int, last string) {
 		t.Helper()
-		if n := strings.Count(body, `aria-label="Breadcrumb"`); n != 1 {
-			t.Errorf("%s: %d Breadcrumb navs, want 1", name, n)
+		if strings.Contains(body, `aria-label="Breadcrumb"`) || strings.Contains(body, "hm-crumbs") || strings.Contains(body, "hm-topbar") {
+			t.Errorf("%s: a breadcrumb trail is rendered", name)
 		}
-		if strings.Contains(body, "hm-crumbs") {
-			t.Errorf("%s: panel crumbs rendered", name)
-		}
-		m := topbar.FindStringSubmatch(body)
-		if m == nil {
-			t.Errorf("%s: no top bar trail", name)
-			return
-		}
-		li := items.FindAllStringSubmatch(m[1], -1)
-		if len(li) != wantLen || !strings.Contains(li[0][1], ">Home</a>") || !strings.Contains(li[1][1], ">Settings</") {
-			t.Errorf("%s: trail %q, want %d items starting Home, Settings", name, m[1], wantLen)
-			return
-		}
-		tail := m[1][strings.LastIndex(m[1], "<li"):]
-		if !strings.Contains(tail, `aria-current="page"`) || !strings.Contains(tail, last) {
-			t.Errorf("%s: last crumb %q is not the current %q", name, tail, last)
+		if len(got) != wantLen || got[0] != "Settings" || got[len(got)-1] != last {
+			t.Errorf("%s: crumbs %v, want %d starting Settings and ending %q", name, got, wantLen, last)
 		}
 	}
-	// A tab page has no crumbs of its own: the top bar falls back to section and title.
+	// A tab page sets no crumbs and draws none.
 	rec := g.do("GET", "/admin/settings/general", "owner-token", nil, nil)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("general: status %d", rec.Code)
+	if body := rec.Body.String(); strings.Contains(body, `aria-label="Breadcrumb"`) || strings.Contains(body, "hm-topbar") {
+		t.Error("general: a breadcrumb trail is rendered")
 	}
-	check("general", rec.Body.String(), 3, "General")
 
-	// A sub-page sets its crumbs; the top bar renders the whole chain.
+	// A sub-page sets its crumbs; Render keeps the whole chain.
 	for name, crumbs := range map[string][]Crumb{
 		"types edit":  areaCrumbs("types", Crumb{Label: "Team"}),
 		"forms entry": areaCrumbs("forms", Crumb{Label: "Contact", Href: "/admin/settings/forms/x/edit"}, Crumb{Label: "Submission"}),
@@ -202,8 +187,7 @@ func TestSettingsPageCrumbsStartAtSettings(t *testing.T) {
 		v := g.a.NewView(rr, req, "T")
 		v.Data, v.Crumbs = profileData{}, crumbs
 		g.a.Render(rr, req, http.StatusOK, "profile/index", v)
-		last := crumbs[len(crumbs)-1].Label
-		check(name, rr.Body.String(), len(crumbs)+1, last)
+		check(name, trailLabels(t, rr), rr.Body.String(), len(crumbs), crumbs[len(crumbs)-1].Label)
 	}
 }
 
@@ -259,16 +243,13 @@ func TestAreaNavRendersGroupHeadings(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	html := rec.Body.String()
-	for _, h := range []string{">Site</li>", ">Content</li>", ">System</li>", `<optgroup label="System">`, `<optgroup label="Site">`} {
+	for _, h := range []string{">Site</li>", ">Content</li>", ">System</li>"} {
 		if !strings.Contains(html, h) {
 			t.Errorf("areanav missing %q", h)
 		}
 	}
-	if strings.Count(html, "<optgroup") != strings.Count(html, "</optgroup>") {
-		t.Error("unbalanced optgroup")
-	}
-	if !strings.Contains(html, ">Go<") {
-		t.Error("the Go button must stay (WCAG 3.2.2)")
+	if strings.Contains(html, "<optgroup") || strings.Contains(html, ">Go<") {
+		t.Error("the phone select is gone: the subnav is links only (WCAG 3.2.2)")
 	}
 	// The Theme area has no headings.
 	rec = g.do("GET", "/admin/theme/themes", "owner-token", nil, nil)

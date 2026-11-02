@@ -267,13 +267,13 @@ func TestPluginsGoSelect(t *testing.T) {
 		t.Errorf("a plugin named all: %q", got)
 	}
 	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`<option value="" selected>All plugins</option>`, `<option value="all">all</option>`, `<option value="hello">hello</option>`} {
+	for _, want := range []string{`href="/admin/plugins" aria-current="page"><span class="hm-subnav__text">All plugins</span>`, `href="/admin/plugins/all/settings"><span class="hm-subnav__text">all</span>`, `href="/admin/plugins/hello/settings"><span class="hm-subnav__text">hello</span>`} {
 		if !strings.Contains(body, want) {
-			t.Errorf("the select lacks %q", want)
+			t.Errorf("the subnav lacks %q", want)
 		}
 	}
-	if strings.Contains(body, `<option value="all">All plugins`) {
-		t.Error("All plugins must not use a value a plugin name can take")
+	if strings.Contains(body, "hm-subnav-select") {
+		t.Error("the subnav is links only; the select is gone")
 	}
 }
 

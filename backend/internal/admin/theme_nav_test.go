@@ -76,13 +76,12 @@ func TestThemeFrameRendersForThemePages(t *testing.T) {
 	}
 	body := rec.Body.String()
 	has(t, body,
-		`<nav class="hm-subnav" aria-label="Theme">`, `<h2 class="hm-subnav__title">Theme</h2>`,
+		`<nav class="hm-subnav" aria-label="Theme">`, `<h2 class="hm-subnav__title hm-visually-hidden">Theme</h2>`,
 		`<a class="hm-subnav__link" href="/admin/theme/menus" aria-current="page">`,
 		`<a class="hm-subnav__link" href="/admin/theme/templates">`,
-		`<form class="hm-subnav-select" method="get" action="/admin/theme">`, `id="hm-theme-section"`,
 		`<a class="hm-nav-link" href="/admin/theme" aria-current="page">`,
 		`<h1>Menus</h1>`)
-	lacks(t, body, `href="/admin/theme/themes"`, `aria-label="Settings"`)
+	lacks(t, body, `href="/admin/theme/themes"`, `aria-label="Settings"`, "hm-subnav-select")
 }
 
 // The Theme area sits under /admin/theme, which is also the exact path of the
