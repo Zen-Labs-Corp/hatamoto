@@ -34,6 +34,9 @@ const (
 	importBase = "/settings/import/wordpress"
 	// importBodyLimit bounds an import form: the export file and a little more.
 	importBodyLimit = importjob.MaxWXRBytes + 1<<20
+	// importFormLimit bounds every other import form (start, resume): the
+	// optional settings file and a little more.
+	importFormLimit = wpimport.MaxSEOFileBytes + 1<<20
 	// pollEvery is how often the progress panel asks again (htmx), and how
 	// often a browser without JS reloads the page.
 	pollSeconds = 3
@@ -51,17 +54,22 @@ func importStepList(current int) []ui.Step {
 }
 
 // limitImportBody caps what an import form may upload before anything reads
-// it (the CSRF check parses the body). A declared size over the cap is
-// refused with a clear message.
+// it (the CSRF check parses the body). The begin route takes the export file;
+// every other form takes at most the small settings file. A declared size over
+// the cap is refused with a clear message.
 func limitImportBody(prefix string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, prefix+importBase) {
-				if r.ContentLength > importBodyLimit {
-					http.Error(w, fmt.Sprintf("The file is larger than %d MB. Export fewer content types, or import from the site's address instead.", importjob.MaxWXRBytes>>20), http.StatusRequestEntityTooLarge)
+				limit, msg := int64(importFormLimit), fmt.Sprintf("That upload is too large. The settings file can be up to %d MiB.", wpimport.MaxSEOFileBytes>>20)
+				if r.URL.Path == prefix+importBase {
+					limit, msg = importBodyLimit, fmt.Sprintf("The file is larger than %d MB. Export fewer content types, or import from the site's address instead.", importjob.MaxWXRBytes>>20)
+				}
+				if r.ContentLength > limit {
+					http.Error(w, msg, http.StatusRequestEntityTooLarge)
 					return
 				}
-				r.Body = http.MaxBytesReader(w, r.Body, importBodyLimit)
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
 			}
 			next.ServeHTTP(w, r)
 		})

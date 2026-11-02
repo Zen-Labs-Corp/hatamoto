@@ -378,6 +378,16 @@ func TestImportResumeAndCancel(t *testing.T) {
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized: %d", rec.Code)
 	}
+	// The options form takes only a small settings file: a WXR-sized body is refused too.
+	req = httptest.NewRequest("POST", "/admin/settings/import/wordpress/"+ids["failed"].String()+"/start", strings.NewReader("x"))
+	req.ContentLength = importFormLimit + 1
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", map[string]string{"X-CSRF-Token": ""})
+	rec = httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(rec.Body.String(), "settings file") {
+		t.Errorf("oversized start: %d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestSetupContentCanChooseWordPress(t *testing.T) {
