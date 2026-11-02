@@ -127,13 +127,16 @@ func TestSettingsFrameRendersForSettingsPages(t *testing.T) {
 	for _, want := range []string{
 		`<nav class="hm-subnav" aria-label="Settings">`,
 		`<a class="hm-subnav__link" href="/admin/settings/general" aria-current="page">`,
-		`<form class="hm-subnav-select" method="get" action="/admin/settings">`,
-		`<option value="redirects">Redirects</option>`, `<option value="api">API</option>`, `<option value="entity-models">Entity models</option>`,
+		`<h2 class="hm-subnav__title hm-visually-hidden">Settings</h2>`,
+		`href="/admin/settings/redirects"`, `href="/admin/settings/locales"`,
 		`<header class="hm-section-head">`, `<h1>General</h1>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("settings page lacks %q", want)
 		}
+	}
+	if strings.Contains(body, "hm-subnav-select") || strings.Contains(body, `<nav class="hm-subnav" aria-label="Settings"><h2 class="hm-subnav__title">`) || strings.Contains(body, `hm-subnav__link"`+` href="/admin/settings/general" aria-current="page"><svg`) {
+		t.Error("the subnav still carries the phone select or icons")
 	}
 	if strings.Contains(body, `Settings sections`) {
 		t.Error("the old settings tab strip is still rendered")
@@ -240,16 +243,13 @@ func TestAreaNavRendersGroupHeadings(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	html := rec.Body.String()
-	for _, h := range []string{">Site</li>", ">Content</li>", ">System</li>", `<optgroup label="System">`, `<optgroup label="Site">`} {
+	for _, h := range []string{">Site</li>", ">Content</li>", ">System</li>"} {
 		if !strings.Contains(html, h) {
 			t.Errorf("areanav missing %q", h)
 		}
 	}
-	if strings.Count(html, "<optgroup") != strings.Count(html, "</optgroup>") {
-		t.Error("unbalanced optgroup")
-	}
-	if !strings.Contains(html, ">Go<") {
-		t.Error("the Go button must stay (WCAG 3.2.2)")
+	if strings.Contains(html, "<optgroup") || strings.Contains(html, ">Go<") {
+		t.Error("the phone select is gone: the subnav is links only (WCAG 3.2.2)")
 	}
 	// The Theme area has no headings.
 	rec = g.do("GET", "/admin/theme/themes", "owner-token", nil, nil)
