@@ -7,7 +7,7 @@ import (
 
 // Narrow and compact pages keep the 760px column; an earlier merge dropped the cap and 36
 // pages went full width. Every other page fills the space beside the sidebar. Beside the
-// docked subnav a page keeps its own width, left-aligned, and compact ones stay narrow.
+// docked subnav wide and full pages fill the column, narrow ones keep --page-wide and compact ones --page-narrow.
 func TestPageWidthCSS(t *testing.T) {
 	t.Parallel()
 
@@ -34,10 +34,15 @@ func TestPageWidthCSS(t *testing.T) {
 	if strings.Contains(settings, "margin-inline: auto") {
 		t.Error("settings.css: the subnav and page group must not centre; the subnav touches the sidebar")
 	}
-	const wide = `.hm-settings > .hm-page[data-width] { max-width: var(--page-wide); }`
+	const narrow = `.hm-settings > .hm-page[data-width="narrow"] { max-width: var(--page-wide); }`
 	const compact = `.hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }`
-	w, c := strings.Index(settings, wide), strings.Index(settings, compact)
-	if w < 0 || c < 0 || c < w {
-		t.Errorf("settings.css must hold the compact rule after the wide override (wide at %d, compact at %d)", w, c)
+	for _, want := range []string{narrow, compact} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("settings.css lacks %q", want)
+		}
+	}
+	// A rule for every width would cap wide pages at 1440px beside the subnav (they must fill the column).
+	if strings.Contains(settings, `.hm-page[data-width] {`) || strings.Contains(settings, `.hm-page[data-width="wide"]`) || strings.Contains(settings, `.hm-page[data-width="full"]`) {
+		t.Error("settings.css must not cap wide or full pages beside the subnav")
 	}
 }

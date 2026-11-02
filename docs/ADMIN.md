@@ -96,7 +96,7 @@ Crawlers stays current). Owners and editors reach all of it; only owners change 
 The old `?tab=` URLs and `/pageviews` redirect to the new sections.
 
 Every page has a width, `narrow`, `compact`, `wide` or `full` (`data-width` on the layout): forms are
-narrow, lists wide, `compact` is narrow that stays narrow inside Settings (other Settings pages use the wide column), the page and blog editors full (they use their own layout, without the
+narrow, lists wide, `compact` is narrow that stays narrow inside Settings (beside a subnav, narrow pages use the wide column and wide and full pages fill the space), the page and blog editors full (they use their own layout, without the
 sidebar).
 
 ## Routes

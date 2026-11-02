@@ -7,8 +7,8 @@
 .hm-settings > .hm-page { margin-inline: 0; }
 /* Defaults of the Colours live-preview properties; themepreview.js overrides them on the form. */
 .hm-settings { --hm-preview-font-heading: var(--font-ui); --hm-preview-font-body: var(--font-ui); --hm-preview-radius-sm: var(--radius-sm); --hm-preview-radius-md: var(--radius-md); --hm-preview-radius-lg: var(--radius-lg); }
-/* Settings pages share the wide column (narrow, wide or full alike), except data-width="compact" pages (Performance, Updates, General, Email), which keep the narrow 760px column. The attribute selector outranks the per-width rules in base.css. */
-.hm-settings > .hm-page[data-width] { max-width: var(--page-wide); }
+/* Beside the subnav, wide and full pages fill the column (base.css); compact ones keep the narrow 760px column, and narrow ones (forms) the wide one. The attribute selector outranks the per-width rules in base.css. */
+.hm-settings > .hm-page[data-width="narrow"] { max-width: var(--page-wide); }
 .hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 /* Cards in one .hm-cardform sit in a single block; give them the page rhythm. */
 .hm-settings .hm-cardform > .hm-card + .hm-card { margin-top: var(--space-6); }
