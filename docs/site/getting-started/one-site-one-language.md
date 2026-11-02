@@ -65,10 +65,10 @@ The same endpoint carries the business details that Settings > General > Busines
 - A profile that does not validate answers 422 and nothing is saved. The body names each field by its path:
 
 ```json
-{"error":"validation failed","fields":{"locale_profiles.fr-CA.services.0.url":"must be a full address or a path that starts with /"}}
+{"error":"validation failed","fields":{"locale_profiles.fr-CA.services.0.url":"Enter a full web address starting with http:// or https://, or a path starting with a single /, such as /services/seo."}}
 ```
 
-The profile also holds phone, opening hours and address, but `phone`, `business_hours` and `address` above still win. The values inside a profile are ignored while those settings are filled in.
+Inside `business_profile`, `phone`, `hours_note` and the address `street`, `city`, `state`, `postal_code` and `country` are always replaced by the `phone`, `business_hours` and `address` settings above, even when those are empty. Set those settings instead. The structured `opening_hours` is not replaced.
 
 ```bash
 curl -X PATCH https://example.com/api/v1/settings/site \
