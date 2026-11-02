@@ -51,6 +51,19 @@ want "$o" is_main=false "an older sha is not main"; want "$o" run=true "dispatch
 plan workflow_dispatch "not-a-sha" >/dev/null 2>&1 && fail "a malformed sha was accepted"
 plan workflow_dispatch "1111111111111111111111111111111111111111" >/dev/null 2>&1 && fail "an unknown commit was accepted"
 
+# Main moved on while the run was queued (or the dispatch names another ref): the tested
+# sha is the checked-out HEAD, the one the run name shows; origin/main only sets is_main.
+g commit -q --allow-empty -m three; newer=$(g rev-parse HEAD)
+g update-ref refs/remotes/origin/main "$newer"; g checkout -q --detach "$head"
+runs "$old" "$old"
+o=$(plan workflow_dispatch ""); want "$o" "sha=$head" "dispatch tests the checked-out commit, not origin/main"
+want "$o" is_main=false "a checked-out commit behind origin/main is not main"
+o=$(plan schedule ""); want "$o" "sha=$head" "a queued nightly tests the checked-out commit"
+runs "$head" "$head"
+o=$(plan schedule ""); want "$o" run=false "nightly skip compares the tested commit"
+g checkout -q --detach "$newer"
+o=$(plan workflow_dispatch ""); want "$o" "sha=$newer" "dispatch on main head"; want "$o" is_main=true "main head is main"
+
 # report <result> <is_main> <issues json>; leaves the gh calls in $GH_LOG
 report() {
   : > "$GH_LOG"; echo "$3" > "$GH_ISSUES"
