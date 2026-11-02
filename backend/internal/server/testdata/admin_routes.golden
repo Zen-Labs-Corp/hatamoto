@@ -130,7 +130,9 @@ GET /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddres
 GET /admin/settings/security/admin-address/change/strength -> admin.(*Admin).handleSetupAddressStrength-fm
 GET /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeep-fm
 GET /admin/settings/seo -> admin.(*Admin).mountSettingsFrame.func1
+GET /admin/settings/seo/breadcrumbs -> admin.(*Admin).handleSEOBreadcrumbs-fm
 GET /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneral-fm
+GET /admin/settings/seo/indexnow -> admin.(*Admin).handleSEOIndexNow-fm
 GET /admin/settings/seo/knowledge-graph -> admin.(*Admin).handleSEOKnowledgeGraph-fm
 GET /admin/settings/seo/robots -> admin.(*Admin).handleSEORobots-fm
 GET /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchema-fm
@@ -316,7 +318,9 @@ POST /admin/settings/redirects/{id}/toggle -> admin.(*Admin).handleRedirectToggl
 POST /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddressChangeSave-fm
 POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).handleAddressChangeRegen-fm
 POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeepSave-fm
+POST /admin/settings/seo/breadcrumbs -> admin.(*Admin).handleSEOBreadcrumbsSave-fm
 POST /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneralSave-fm
+POST /admin/settings/seo/indexnow -> admin.(*Admin).handleSEOIndexNowSave-fm
 POST /admin/settings/seo/robots -> admin.(*Admin).handleSEORobotsSave-fm
 POST /admin/settings/seo/schema -> admin.(*Admin).handleSEOSchemaSave-fm
 POST /admin/settings/seo/sitemap -> admin.(*Admin).handleSEOSitemapSave-fm
