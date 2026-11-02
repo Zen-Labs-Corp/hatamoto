@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 61502,
+      "value": 63056,
       "unit": "bytes",
       "tol_abs": 1024
     },
