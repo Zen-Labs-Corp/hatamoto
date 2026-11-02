@@ -152,7 +152,7 @@ for the tree; an affected push never does.
 **PRs run a fast tier; the full suite runs in `ci-full`.** Pull requests and pushes to main run
 the fast tier: `backend` (build, vet, PG18 smoke, unit `-short`), `admin-ui` only when admin UI
 paths change, `n-1` only when migrations change; `sdk (1.26)` and `wordpress-importer` pass
-immediately. The full suite runs in the `ci-full` workflow, nightly (skipped when main is
+immediately. The registry build tests run on push to main and in `ci-full`, not on PRs. The full suite runs in the `ci-full` workflow, nightly (skipped when main is
 unchanged since the last green run) or by hand
 (`gh workflow run ci-full --ref main [-f sha=<sha>]`). A failing nightly opens one issue,
 "ci-full failing on main", and the next green run closes it. A release requires a green
