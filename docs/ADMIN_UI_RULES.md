@@ -85,7 +85,7 @@ handoff material are stale, do not copy them.
 5. **Flat sticky footer only on four editor screens, the menu editor, the term editor and Titles & meta:** entity edit, entity model edit,
    form editor and plugin settings, plus the menu editor, whose save bar stays in reach
    beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card, and Settings > SEO > Titles & meta, whose one save bar stays in reach below its long list of patterns (the approved design shows it sticky). They use `.hm-savebar` (flat, hairline top
-   border, no radius, no shadow). Every other form uses a card footer.
+   border, no radius, no shadow). Every other form uses a card footer. One opt-in exception: the Identity, Homepage and Business details cards on Settings > General add `hm-card--sticky-foot` (via card-start `Class`), which keeps that card footer sticky at the bottom of the viewport on a tall card.
 6. **No shadows except popups and focus or selected rings.** Allowed:
    `none`, ring shadows such as `0 0 0 2px`, `inset` shadows (selected marker,
    hairline), and `--shadow-2` or `--shadow-3` on popups only: dialogs, menus,
@@ -768,7 +768,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 
 | ID | Check |
 |---|---|
-| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens, the menu editor and Titles & meta (UI-02). |
+| UI-D1 | `.hm-card__foot` and `.hm-savebar`: flex, right-aligned, no shadow, no radius, 1px top border. The last visible button is primary or danger when there is one, and its siblings sit to its left. The right edge matches the parent's content edge within 1px. Sticky is allowed only on the four editor screens, the menu editor and Titles & meta (UI-02), plus a card footer inside `.hm-card--sticky-foot`. |
 | UI-D2 | Every visible element has no shadow, a ring or inset shadow, or is inside a popup. The sticky blog editor toolbar and the stat card are the named exceptions. |
 | UI-D3 | `.hm-btn` sizes are 36px or 32px with radius 6px, plus the named exceptions (filter chip remove button, editor bubble and editor bar buttons). Inside `.hm-listbar` the radius may also be `--radius-md` (8px). |
 | UI-D4 | Every checkbox outside the multi-pick allowlist is a 32px by 18px switch with `role="switch"`. Every segmented radiogroup (`.hm-segmented` with radios) has two or more radios. |

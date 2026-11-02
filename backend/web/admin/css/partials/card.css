@@ -15,6 +15,8 @@
 .hm-cardform .hm-card__body > details.hm-presetdetails { max-width: none; }
 .hm-cardform .hm-card__body > details > :not(.hm-presetgrid) { max-width: 46rem; }
 .hm-card__foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+/* Opt-in (Settings > General): the card footer stays in reach on a long card. */
+.hm-card--sticky-foot .hm-card__foot { position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--color-paper); border-top: 1px solid var(--color-kinu); border-end-end-radius: var(--radius-lg); border-end-start-radius: var(--radius-lg); }
 .hm-card__foot--plain { border-top: 0; padding-inline: 0; }
 .hm-card__foot-note { margin-inline-end: auto; }
 /* Inline modifier: the card dissolves into a bare row of fields (no frame, no heading). */

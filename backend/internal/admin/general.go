@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"html"
+	"html/template"
 	"net/http"
 
 	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -16,6 +19,11 @@ type generalData struct {
 	Home    *homepageData
 
 	MailOn bool
+
+	// Tabs is the in-page strip; IdentNote is the Identity description with
+	// its link to Theme colours, built here so the href is escaped once.
+	Tabs      []ui.Tab
+	IdentNote template.HTML
 
 	// bizValues, bizErrs and bizOpen carry a failed or structural save of the
 	// site-wide business form back into the page.
@@ -68,6 +76,14 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 	}
 	g.MailOn = a.mailConfigured()
 	g.Multi, g.LocalesHref = localeSetOf(cfg).Multi(), a.url("settings", "locales")
+
+	g.Tabs = []ui.Tab{
+		{Label: "Identity", Href: "#identity", Active: true},
+		{Label: "Homepage", Href: "#homepage-section"},
+		{Label: "Business details", Href: "#contact"},
+	}
+	g.IdentNote = template.HTML("The name, address and language of your site. Brand colours live in Theme › <a href=\"" +
+		html.EscapeString(a.url("theme", "colours")) + "\">Colours and fonts</a>.")
 
 	v := a.NewView(w, r, "General")
 	v.Width = "compact"
