@@ -20,7 +20,7 @@
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Default}}<p class="hm-muted">This is also your organisation.</p>
 {{end}}{{if .Inherit}}<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Not inherited, empty</legend>
-{{range .Inherit}}{{template "hm/field" dict "ID" .ID "Name" $c.InheritName "Control" "checkbox" "Label" .Label "Value" .Key}}{{end}}</fieldset></div>
+{{range .Inherit}}{{template "hm/field" dict "ID" .ID "Name" $c.InheritName "Control" "switch" "Label" .Label "Value" .Key}}{{end}}</fieldset></div>
 {{end}}{{.Form}}
 {{template "hm/foot"}}
 {{template "hm/button" dict "Label" (printf "Save %s" .Name) "Variant" "primary" "Type" "submit"}}
