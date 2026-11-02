@@ -55,6 +55,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 		Host: "registry.example", FetchedAt: stamp.Add(-3 * time.Hour),
 		Entries: []RegistryEntry{
 			{Kind: "plugin", Name: "hello", Title: "Hello", Version: "1.1.0", Description: "Says hello.", Permissions: []string{"kv"}, Installed: true, InstalledVersion: "1.0.0", Update: true, Tier: "first-party", Category: "Content"},
+			{Kind: "plugin", Name: "google-analytics", Title: "Google Analytics", Version: "1.0.0", Description: "Google Analytics: adds the Google tag for your GA4 measurement ID.", Permissions: []string{"settings.read", "http.fetch"}, Tier: "first-party", Category: "Analytics"},
 			{Kind: "plugin", Name: "gallery", Title: "Gallery", Version: "2.0.0", Description: "Photo galleries for pages.", Author: "Example Author", Tier: "community", Category: "Media", Featured: true,
 				Permissions: []string{"kv", "media.read"}, About: "Adds a gallery section.\nWorks with the media library.", Features: []string{"Grid layout", "Lightbox"}, Size: 20480, Source: "https://example.com/gallery", Homepage: "https://example.com/gallery"},
 			{Kind: "plugin", Name: "seo-helper", Version: "0.3.0", Description: "Checks titles.", Permissions: []string{}},
@@ -115,5 +116,20 @@ func TestGrowthPageGoldens(t *testing.T) {
 		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 			t.Errorf("%s a11y: %s", p.name, strings.Join(issues, "; "))
 		}
+	}
+
+	// With nothing installed the list only explains: no button in the empty state, no footer link.
+	empty := newRig(t, func(d *Deps) {
+		d.Growth.Packages = pk
+		d.Growth.Plugins = &fakePlugins{settings: map[string]map[string]any{}}
+	})
+	rec := empty.do("GET", "/admin/plugins", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("plugins-empty: %d", rec.Code)
+	}
+	body := normalizePage(rec.Body.String())
+	compareGolden(t, "pages/growth-plugins-empty.html", body)
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("plugins-empty a11y: %s", strings.Join(issues, "; "))
 	}
 }
