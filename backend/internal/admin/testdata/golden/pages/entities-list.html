@@ -26,7 +26,7 @@
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-jEv5sXDLJqz3GleUjvxo9z9jI4mF9/Ga&#43;iezmM8txhY="></script>
-<script type="module" nonce="NONCE" src="/admin/_/js/seobulk.HASH.js" integrity="sha256-bj7C6L6jw4g0OzhTfRllP/2Ks/vzxj5UG7kiQkhnH0c="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/seobulk.HASH.js" integrity="sha256-ovbAH9DUM7mrJ7LvcuWrCy/khf0fIfybjXDj1iZ9euc="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
@@ -112,7 +112,7 @@
 <span class="hm-indicator" id="entities-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form>
 <p id="entities-status" class="hm-visually-hidden" role="status">4 entities</p>
 <div id="entities-results"><nav class="hm-tabs" data-variant="segmented" data-changes="view" aria-label="Columns"><ul class="hm-tabs__list" role="list">
-<li><a class="hm-tabs__tab" href="/admin/entities" aria-current="page">Default</a></li>
+<li><a class="hm-tabs__tab" href="/admin/entities?view=default" aria-current="page">Default</a></li>
 <li><a class="hm-tabs__tab" href="/admin/entities?view=seo">SEO</a></li>
 </ul></nav><div class="hm-card hm-tablecard" id="entities">
 <form id="bulk-entities" class="hm-table__bulk" data-hm-bulk-toolbar method="post" action="/admin/entities/bulk"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><span data-hm-bulk-count aria-live="polite">Tick rows, then choose:</span><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formaction="/admin/entities/bulk" name="action" value="publish"><span>Publish</span></button><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formaction="/admin/entities/bulk" name="action" value="draft"><span>Move to draft</span></button><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" formaction="/admin/entities/bulk" name="action" value="archive"><span>Archive</span></button><button type="submit" class="hm-btn hm-btn--danger-text hm-btn--sm" data-hm-bulk-confirm="Delete {n} selected entities? This cannot be undone." data-hm-confirm-label="Delete" formaction="/admin/entities/bulk" name="action" value="delete"><span>Delete</span></button></form>
