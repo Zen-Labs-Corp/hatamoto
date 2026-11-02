@@ -105,6 +105,10 @@ type Settings struct {
 	Archives  ArchiveTemplates         `json:"archives"`
 	Variables map[string]string        `json:"variables"`
 	Social    Social                   `json:"social"`
+
+	Index        Index        `json:"index,omitzero"`
+	Robots       Robots       `json:"robots,omitzero"`
+	Verification Verification `json:"verification,omitzero"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -177,6 +181,14 @@ func (s Settings) Clone() Settings {
 			c.Social.Taxonomy[k] = v
 		}
 	}
+	c.Index.NoIndexTypes = cloneMap(s.Index.NoIndexTypes)
+	c.Index.NoIndexTaxonomy = cloneMap(s.Index.NoIndexTaxonomy)
+	if s.Robots.MaxSnippet != nil {
+		n := *s.Robots.MaxSnippet
+		c.Robots.MaxSnippet = &n
+	}
+	c.Robots.ExtraLines = append([]string(nil), s.Robots.ExtraLines...)
+	c.Verification.Custom = append([]MetaTag(nil), s.Verification.Custom...)
 	return c
 }
 
@@ -221,6 +233,7 @@ func (s Settings) Validate() []FieldError {
 		check("taxonomy["+kind+"]", s.Taxonomy[kind])
 	}
 	errs = append(errs, s.validateSocial(check)...)
+	errs = append(errs, s.validateRobotsVerification()...)
 	return errs
 }
 
@@ -324,4 +337,16 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// cloneMap copies m, keeping nil as nil.
+func cloneMap[V any](m map[string]V) map[string]V {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string]V, len(m))
+	for k, v := range m {
+		c[k] = v
+	}
+	return c
 }
