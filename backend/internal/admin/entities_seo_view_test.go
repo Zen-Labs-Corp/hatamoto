@@ -115,3 +115,14 @@ func TestEntitiesSEOViewKeywordOnlyForWritingView(t *testing.T) {
 		t.Errorf("keyword inputs = %d, want 1 (only the post)", n)
 	}
 }
+
+// The toggle sits in a table header cell, where a <nav> is invalid; the cell keeps a short name.
+func TestEntitiesViewToggleIsAGroupInTheHeader(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	body := c.get(t, "owner-token", "/admin/entities", "")
+	head := body[strings.Index(body, "<thead>"):strings.Index(body, "</thead>")]
+	has(t, head, `role="group"`, `aria-label="Columns"`, `aria-label="Actions"`, `aria-current="page">Default`)
+	lacks(t, head, "<nav")
+}
