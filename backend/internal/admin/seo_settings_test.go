@@ -393,6 +393,7 @@ func TestSEOPagesGolden(t *testing.T) {
 	compareGolden(t, "pages/settings-seo-knowledge-graph.html", normalizePage(s.get(t, "/admin/settings/seo/knowledge-graph")))
 	compareGolden(t, "pages/settings-seo-robots.html", normalizePage(s.get(t, "/admin/settings/seo/robots")))
 	compareGolden(t, "pages/settings-seo-verification.html", normalizePage(s.get(t, "/admin/settings/seo/verification")))
+	compareGolden(t, "pages/settings-seo-sitemap.html", normalizePage(s.get(t, "/admin/settings/seo/sitemap")))
 }
 
 func TestSEOTitlesFromFormKeepsTypesNotInTheForm(t *testing.T) {
