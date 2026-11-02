@@ -83,7 +83,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "geo_region":{"type":"string","title":"Geo region","x-hm-group":"Commerce"},
 "service_radius_km":{"type":"string","title":"Service radius (km)","x-hm-group":"Commerce"},
 "payment_methods":{"type":"array","x-hm-item-label":"payment method","title":"Payment methods","x-hm-group":"Commerce","items":{"type":"string"}},
-"accepts_reservations":{"type":"boolean","title":"Accepts reservations","x-hm-group":"Commerce"},
+"accepts_reservations":{"type":"string","enum":["yes","no"],"title":"Accepts reservations","x-hm-group":"Commerce"},
 "booking_url":{"type":"string","title":"Booking address","format":"uri","x-hm-group":"Commerce"},
 "order_url":{"type":"string","title":"Online ordering address","format":"uri","x-hm-group":"Commerce"},
 "menu_url":{"type":"string","title":"Menu address","format":"uri","x-hm-group":"Commerce"},
@@ -98,16 +98,16 @@ const businessSchemaTpl = `{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "url":{"type":"string","title":"Web address","format":"uri"}}}},
 "amenity_presets":{"type":"object","title":"Amenities","x-hm-group":"Expertise & amenities","properties":{
- "parking":{"type":"boolean","title":"Parking"},
- "wheelchair_access":{"type":"boolean","title":"Wheelchair access"},
- "wifi":{"type":"boolean","title":"Wifi"},
- "toilets":{"type":"boolean","title":"Toilets"},
- "air_conditioning":{"type":"boolean","title":"Air conditioning"}}},
+ "parking":{"type":"string","enum":["yes","no"],"title":"Parking"},
+ "wheelchair_access":{"type":"string","enum":["yes","no"],"title":"Wheelchair access"},
+ "wifi":{"type":"string","enum":["yes","no"],"title":"Wifi"},
+ "toilets":{"type":"string","enum":["yes","no"],"title":"Toilets"},
+ "air_conditioning":{"type":"string","enum":["yes","no"],"title":"Air conditioning"}}},
 "amenities":{"type":"array","x-hm-item-label":"amenity","title":"Other amenities","x-hm-group":"Expertise & amenities","items":{"type":"object","properties":{
  "name":{"type":"string","title":"Name"},
  "value":{"type":"boolean","title":"Available","default":false}}}},
-"public_access":{"type":"boolean","title":"Open to the public","x-hm-group":"Expertise & amenities"},
-"free_entry":{"type":"boolean","title":"Free entry","x-hm-group":"Expertise & amenities"},
+"public_access":{"type":"string","enum":["yes","no"],"title":"Open to the public","x-hm-group":"Expertise & amenities"},
+"free_entry":{"type":"string","enum":["yes","no"],"title":"Free entry","x-hm-group":"Expertise & amenities"},
 "sameas":{"type":"array","x-hm-item-label":"profile address","title":"Profile addresses","x-hm-group":"Profiles & rating","items":{"type":"string","format":"uri"}},
 "rating":{"type":"object","title":"Aggregate rating","x-hm-group":"Profiles & rating","properties":{
  "value":{"type":"string","title":"Rating value"},
@@ -128,6 +128,48 @@ var localeOnlyProps = []string{"business_type", "no_office", "country_name", "im
 
 // site-only property names, dropped from a locale card.
 var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object"}
+
+// notStated labels the empty choice of a tri-state field: unset, so nothing is
+// printed (and a locale card inherits the site-wide answer).
+const notStated = "Not stated"
+
+// triPaths are the tri-state fields (*bool in the profile). The form edits them
+// as selects: empty is unset, "yes" is true, "no" is false.
+var triPaths = [][]string{
+	{"accepts_reservations"}, {"public_access"}, {"free_entry"},
+	{"amenity_presets", "parking"}, {"amenity_presets", "wheelchair_access"}, {"amenity_presets", "wifi"},
+	{"amenity_presets", "toilets"}, {"amenity_presets", "air_conditioning"},
+}
+
+// triToForm and triFromForm convert the tri-state values of a profile map
+// between the stored booleans and the select choices.
+func triToForm(vals map[string]any) {
+	triConvert(vals, func(b bool) any { return map[bool]string{true: "yes", false: "no"}[b] })
+}
+func triFromForm(vals map[string]any) { triConvert(vals, nil) }
+
+func triConvert(vals map[string]any, toForm func(bool) any) {
+	for _, path := range triPaths {
+		m := vals
+		for _, k := range path[:len(path)-1] {
+			m, _ = m[k].(map[string]any)
+		}
+		if m == nil {
+			continue
+		}
+		last := path[len(path)-1]
+		switch v := m[last].(type) {
+		case bool:
+			if toForm != nil {
+				m[last] = toForm(v)
+			}
+		case string:
+			if toForm == nil {
+				m[last] = v == "yes"
+			}
+		}
+	}
+}
 
 // businessUI holds the help text of the fields that need one. It is a hint map
 // rather than schema descriptions because a text field shows its description
@@ -157,8 +199,15 @@ var businessUI = map[string]schemaform.UIHint{
 	"service_radius_km":                 {Help: "Kilometres around the coordinates of this business. Needs both coordinates."},
 	"brands":                            {Help: "Brand names, separated by commas."},
 	"payment_methods":                   {Help: "Like Cash or Visa, separated by commas."},
-	"accepts_reservations":              {Help: "Leave unset to say nothing."},
-	"amenity_presets":                   {Help: "Leave a switch unset to say nothing about it."},
+	"accepts_reservations":              {Help: "Choose Not stated to say nothing.", Placeholder: notStated},
+	"amenity_presets":                   {Help: "Choose Not stated on a line to say nothing about it."},
+	"amenity_presets.parking":           {Placeholder: notStated},
+	"amenity_presets.wheelchair_access": {Placeholder: notStated},
+	"amenity_presets.wifi":              {Placeholder: notStated},
+	"amenity_presets.toilets":           {Placeholder: notStated},
+	"amenity_presets.air_conditioning":  {Placeholder: notStated},
+	"public_access":                     {Placeholder: notStated},
+	"free_entry":                        {Placeholder: notStated},
 	"amenities":                         {Help: "Features beyond the list above."},
 	"knows_about":                       {Help: "Topics this business is expert in, separated by commas."},
 	"address.lat":                       {Help: "Between -90 and 90"},
@@ -193,7 +242,7 @@ func siteSchema() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(strings.Replace(string(s), `"title":"Legal name"`, `"title":"Legal name"`, 1)), nil
+	return s, nil
 }
 
 // localeDisplayName is the English name of a BCP 47 tag ("French (Canada)"), or

@@ -326,9 +326,9 @@ func TestBusinessSaveStoresACardWithOnlyAnExtendedField(t *testing.T) {
 
 	for name, form := range map[string]url.Values{
 		"text":   {"loc_aa.naics": {"541511"}},
-		"switch": {"_present.loc_aa.accepts_reservations": {"1"}, "loc_aa.accepts_reservations": {"true"}},
-		"no":     {"_present.loc_aa.accepts_reservations": {"1"}},
-		"preset": {"_present.loc_aa.amenity_presets.wifi": {"1"}},
+		"yes":    {"loc_aa.accepts_reservations": {"yes"}},
+		"no":     {"loc_aa.accepts_reservations": {"no"}},
+		"preset": {"loc_aa.amenity_presets.wifi": {"no"}},
 	} {
 		g, site := localeRig(t, threeLocales...)
 		if rec := g.do("POST", "/admin/settings/locales/business/aa", "owner-token", form, nil); rec.Code != 303 {

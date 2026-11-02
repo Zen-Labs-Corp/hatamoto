@@ -2,8 +2,10 @@ package admin
 
 import (
 	"encoding/json"
+	"html"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -235,6 +237,7 @@ func profileMap(t *testing.T, p bizprofile.Profile) map[string]any {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
+	triToForm(m)
 	return m
 }
 
@@ -282,12 +285,12 @@ func TestBusinessFormRoundTripsExtendedFields(t *testing.T) {
 		"biz.naics": {"541511"}, "biz.isic": {"6201"}, "biz.duns": {"123456789"}, "biz.lei": {"5493001KJTIIGC8Y1R12"}, "biz.gln": {"1234567890123"},
 		"_present.biz.founders": {"1"}, "biz.founders.0.name": {"Ada Example"}, "biz.founders.0.url": {"https://example.test/ada"},
 		"biz.parent_organisation.name": {"Example Holding"}, "biz.parent_organisation.url": {"https://example.test"},
-		"_present.biz.brands":               {"1"},
-		"biz.brands":                        {"Example Brand"},
-		"_present.biz.payment_methods":      {"1"},
-		"biz.payment_methods":               {"Cash"},
-		"_present.biz.accepts_reservations": {"1"}, "biz.accepts_reservations": {"true"},
-		"biz.booking_url": {"https://example.test/book"}, "biz.order_url": {"https://example.test/order"}, "biz.menu_url": {"https://example.test/menu"},
+		"_present.biz.brands":          {"1"},
+		"biz.brands":                   {"Example Brand"},
+		"_present.biz.payment_methods": {"1"},
+		"biz.payment_methods":          {"Cash"},
+		"biz.accepts_reservations":     {"yes"},
+		"biz.booking_url":              {"https://example.test/book"}, "biz.order_url": {"https://example.test/order"}, "biz.menu_url": {"https://example.test/menu"},
 		"biz.service_radius_km": {"25"},
 		"_present.biz.services": {"1"}, "biz.services.0.name": {"Repair"}, "biz.services.0.description": {"Fixes things."},
 		"biz.services.0.url": {"https://example.test/repair"}, "biz.services.0.price": {"49.90"},
@@ -296,12 +299,10 @@ func TestBusinessFormRoundTripsExtendedFields(t *testing.T) {
 		"_present.biz.awards":      {"1"},
 		"biz.awards":               {"Best Example 2030"},
 		"_present.biz.memberships": {"1"}, "biz.memberships.0.name": {"Example Guild"}, "biz.memberships.0.url": {"https://example.test/guild"},
-		"_present.biz.amenity_presets.parking": {"1"}, "biz.amenity_presets.parking": {"true"},
-		"_present.biz.amenity_presets.wifi": {"1"},
-		"_present.biz.amenities":            {"1"}, "biz.amenities.0.name": {"Pets welcome"}, "_present.biz.amenities.0.value": {"1"}, "biz.amenities.0.value": {"true"},
+		"biz.amenity_presets.parking": {"yes"}, "biz.amenity_presets.wifi": {"no"},
+		"_present.biz.amenities": {"1"}, "biz.amenities.0.name": {"Pets welcome"}, "_present.biz.amenities.0.value": {"1"}, "biz.amenities.0.value": {"true"},
 		"biz.amenities.1.name": {"Smoking"}, "_present.biz.amenities.1.value": {"1"},
-		"_present.biz.public_access": {"1"}, "biz.public_access": {"true"},
-		"_present.biz.free_entry": {"1"},
+		"biz.public_access": {"yes"}, "biz.free_entry": {"no"},
 	}
 	vals, errs := schemaform.Decode(schema, form, nil, schemaform.Options{Prefix: "biz."})
 	if len(errs) != 0 {
@@ -401,5 +402,83 @@ func TestBusinessSchemasLabelTheLegalName(t *testing.T) {
 		if !strings.Contains(string(out), "Legal name") || strings.Contains(string(out), "Business name") {
 			t.Errorf("%s form does not label the name Legal name", name)
 		}
+	}
+}
+
+var (
+	hiddenInput = regexp.MustCompile(`<input[^>]*type="hidden"[^>]*>`)
+	selectBlock = regexp.MustCompile(`(?s)<select[^>]*name="([^"]+)"[^>]*>(.*?)</select>`)
+	attrValue   = func(tag, name string) string {
+		m := regexp.MustCompile(`\s` + name + `="([^"]*)"`).FindStringSubmatch(tag)
+		if m == nil {
+			return ""
+		}
+		return html.UnescapeString(m[1])
+	}
+)
+
+// browserPost is what a browser submits for the rendered form untouched: every
+// hidden input and the selected option of every select.
+func browserPost(rendered string) url.Values {
+	form := url.Values{}
+	for _, tag := range hiddenInput.FindAllString(rendered, -1) {
+		form.Add(attrValue(tag, "name"), attrValue(tag, "value"))
+	}
+	for _, m := range selectBlock.FindAllStringSubmatch(rendered, -1) {
+		val := ""
+		for _, o := range regexp.MustCompile(`<option[^>]*>`).FindAllString(m[2], -1) {
+			if strings.Contains(o, " selected") {
+				val = attrValue(o, "value")
+			}
+		}
+		form.Set(m[1], val)
+	}
+	return form
+}
+
+// A tri-state field set to "no" can be put back to "Not stated".
+func TestBusinessFormTriStateReturnsToUnset(t *testing.T) {
+	schema, err := siteSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	no := false
+	prev := bizprofile.Profile{AcceptsReservations: &no, PublicAccess: &no, AmenityPresets: bizprofile.AmenityPresets{Wifi: &no}}
+	opt := schemaform.Options{Prefix: "biz.", UI: businessUI}
+	out, err := schemaform.Render(schema, profileValues(prev), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := browserPost(string(out))
+	// Untouched, the stored "no" survives the round trip.
+	vals, errs := schemaform.Decode(schema, form, profileValues(prev), opt)
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err := valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AcceptsReservations == nil || *got.AcceptsReservations || got.AmenityPresets.Wifi == nil || got.PublicAccess == nil {
+		t.Fatalf("untouched post changed the profile: %+v", got)
+	}
+	// Choosing "Not stated" on each removes the key.
+	form.Set("biz.accepts_reservations", "")
+	form.Set("biz.public_access", "")
+	form.Set("biz.amenity_presets.wifi", "")
+	vals, errs = schemaform.Decode(schema, form, profileValues(prev), opt)
+	if len(errs) != 0 {
+		t.Fatalf("decode errors = %v", errs)
+	}
+	got, err = valuesProfile(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AcceptsReservations != nil || got.PublicAccess != nil || got.AmenityPresets.Wifi != nil {
+		raw, _ := json.Marshal(got)
+		t.Errorf("Not stated left %s", raw)
+	}
+	if !strings.Contains(string(out), `<option value="">Not stated</option>`) {
+		t.Error("the form does not offer Not stated")
 	}
 }

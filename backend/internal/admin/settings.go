@@ -157,11 +157,14 @@ func profileValues(p bizprofile.Profile) map[string]any {
 	raw, _ := json.Marshal(p)
 	m := map[string]any{}
 	_ = json.Unmarshal(raw, &m)
+	triToForm(m)
 	return m
 }
 
 // valuesProfile reads decoded form values back into a profile.
 func valuesProfile(vals map[string]any) (bizprofile.Profile, error) {
+	vals = cloneJSON(vals)
+	triFromForm(vals)
 	raw, err := json.Marshal(vals)
 	if err != nil {
 		return bizprofile.Profile{}, err

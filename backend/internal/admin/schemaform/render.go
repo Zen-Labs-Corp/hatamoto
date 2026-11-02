@@ -349,6 +349,7 @@ func (b *builder) field(name string, n *Node, v any, required bool, path, errPat
 	switch k {
 	case "select":
 		f.Value = asString(v)
+		f.Placeholder = firstNonEmpty(hint.Placeholder, "Select "+f.Label)
 		for _, e := range n.Enum {
 			f.Options = append(f.Options, opt{Value: e, Label: optionLabel(e), Selected: e == f.Value})
 		}
