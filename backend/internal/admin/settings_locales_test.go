@@ -293,7 +293,7 @@ func TestLocaleCardHelpAndFallbacks(t *testing.T) {
 	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{
 		"Legal name", "printed as its legal name", "Country name", "VAT ID", `placeholder="VAT-1"`, "Describes this locale&#39;s local business", "Site description", `name="loc_aa.image"`,
-		"NAICS code", "Empty uses the site-wide value.",
+		"NAICS code", "Empty uses the site-wide value.", "Kilometres around this locale&#39;s coordinates.",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("card lacks %q", want)

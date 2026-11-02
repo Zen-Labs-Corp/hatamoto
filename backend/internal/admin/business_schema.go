@@ -196,7 +196,7 @@ var businessUI = map[string]schemaform.UIHint{
 	"duns":                              {Help: "Nine digits"},
 	"lei":                               {Help: "Twenty letters and digits"},
 	"gln":                               {Help: "Thirteen digits"},
-	"service_radius_km":                 {Help: "Kilometres around the coordinates of this business. Needs both coordinates."},
+	"service_radius_km":                 {Help: "Kilometres around the coordinates of each locale card. Applies to locale cards that have both coordinates."},
 	"brands":                            {Help: "Brand names, separated by commas."},
 	"payment_methods":                   {Help: "Like Cash or Visa, separated by commas."},
 	"accepts_reservations":              {Help: "Choose Not stated to say nothing.", Placeholder: notStated},

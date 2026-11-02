@@ -92,6 +92,7 @@ func localeUI() map[string]schemaform.UIHint {
 	h["description"] = schemaform.UIHint{Help: "Describes this locale's local business. Empty uses the site description."}
 	h["vat_id"] = schemaform.UIHint{Help: "Empty uses the site VAT ID."}
 	h["country_name"] = schemaform.UIHint{Help: "The country name printed in the areas served, like France."}
+	h["service_radius_km"] = schemaform.UIHint{Help: "Kilometres around this locale's coordinates. Needs both coordinates."}
 	h["image"] = schemaform.UIHint{Help: "A photo of this locale's business."}
 	for _, k := range inheritedFields {
 		help := h[k].Help
