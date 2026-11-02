@@ -205,14 +205,14 @@ for mode in fail pending missing uiskipped ctxfail ghError; do
   grep -q "SHIP-H ABORT" <<< "$O" || { echo "$O"; echo "FAIL: mode=$mode did not abort with SHIP-H ABORT"; exit 1; }
   if grep -qF "gh pr merge" <<< "$O"; then echo "$O"; echo "FAIL: mode=$mode reached the merge"; exit 1; fi
 done
-# CI mode: green checks are the full suite; nothing is re-run locally, and the dry run says so
+# CI mode: green checks are the fast tier; nothing is re-run locally, and the dry run says so
 # ahead of the merge line
 O=$(open_pr pass)
-fs=$(grep -nF "full suite on 0123456789ab: covered by CI" <<< "$O" | head -1 | cut -d: -f1)
+fs=$(grep -nF "fast CI tier on 0123456789ab" <<< "$O" | head -1 | cut -d: -f1)
 mg=$(grep -nF "DRY: gh pr merge" <<< "$O" | head -1 | cut -d: -f1)
-[[ -n $fs && -n $mg ]] && (( fs < mg )) || { echo "$O"; echo "FAIL: CI mode did not take the green checks as the full suite before the merge ($fs, $mg)"; exit 1; }
+[[ -n $fs && -n $mg ]] && (( fs < mg )) || { echo "$O"; echo "FAIL: CI mode did not take the green checks as the fast tier before the merge ($fs, $mg)"; exit 1; }
 ! grep -qF "would run full suite" <<< "$O" || { echo "$O"; echo "FAIL: CI mode still runs the local full suite"; exit 1; }
-# the backend check (the Go suite) must have run and passed, like admin-ui
+# the backend check (the fast tier) must have run and passed, like admin-ui
 O=$(open_pr nobackend) && { echo "$O"; echo "FAIL: ship merged without the backend check"; exit 1; }
 grep -qF "check backend is 'missing'" <<< "$O" && ! grep -qF "gh pr merge" <<< "$O" || { echo "$O"; echo "FAIL: a missing backend check did not abort"; exit 1; }
 # a pending check is waited for (not a dry run: SHIP_CI_WAIT), a failure stops the wait at once,
