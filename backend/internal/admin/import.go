@@ -25,7 +25,7 @@ type ImportService interface {
 	Begin(ctx context.Context, actor importjob.Actor, src importjob.Source) (uuid.UUID, error)
 	Get(ctx context.Context, id uuid.UUID) (*importjob.Run, error)
 	Recent(ctx context.Context, limit int) ([]importjob.Run, error)
-	Start(ctx context.Context, id uuid.UUID, actor importjob.Actor, host string, o importjob.Options) error
+	Start(ctx context.Context, id uuid.UUID, actor importjob.Actor, host string, o importjob.Options, seo *wpimport.SEOFile) error
 	Resume(ctx context.Context, id uuid.UUID, actor importjob.Actor, host string, cred *importjob.Source) error
 	Cancel(ctx context.Context, id uuid.UUID, actor importjob.Actor) error
 }
@@ -305,6 +305,8 @@ func fieldLabel(f string) string {
 		return "Application password"
 	case "wxr":
 		return "Export file"
+	case "seo_file":
+		return "Plugin settings file"
 	}
 	return "Source"
 }
@@ -437,6 +439,8 @@ func seoName(s string) string {
 		return "SEOPress"
 	case "aioseo":
 		return "All in One SEO"
+	case "tsf":
+		return "The SEO Framework"
 	case "":
 		return ""
 	}
@@ -548,21 +552,26 @@ type importOptionsData struct {
 	Media    bool
 	Edited   bool
 	Existing bool
-	Patterns []ui.RadioCardItem
-	Pattern  string // the WordPress structure as a URL pattern ("" when none)
-	Error    string
-	Action   string
-	Back     string
+	// SEO is the live-read switch; SEOPlugin the detected plugin's name;
+	// SEOFileError the refusal of an uploaded settings file.
+	SEO          bool
+	SEOPlugin    string
+	SEOFileError string
+	Patterns     []ui.RadioCardItem
+	Pattern      string // the WordPress structure as a URL pattern ("" when none)
+	Error        string
+	Action       string
+	Back         string
 }
 
-func (a *Admin) renderImportOptions(w http.ResponseWriter, r *http.Request, status int, run *importjob.Run, o importjob.Options, errMsg string) {
+func (a *Admin) renderImportOptions(w http.ResponseWriter, r *http.Request, status int, run *importjob.Run, o importjob.Options, errMsg, fileErr string) {
 	rep := run.Report
 	if rep == nil {
 		a.ErrorBack(w, r, http.StatusConflict, "Scan first", "This import has no scan report yet.", a.runURL(run.ID), "Back to the import")
 		return
 	}
 	existing := rep.SiteMode == wpimport.ModeExisting
-	d := importOptionsData{Steps: importStepList(2), Run: run, Drafts: o.Drafts, Menus: o.Menus, Media: o.Media, Edited: o.KeepEdited,
+	d := importOptionsData{Steps: importStepList(2), Run: run, Drafts: o.Drafts, Menus: o.Menus, Media: o.Media, Edited: o.KeepEdited, SEO: !o.NoSEOLive, SEOPlugin: seoName(rep.SEOPlugin), SEOFileError: fileErr,
 		Existing: existing, Pattern: rep.PermalinkPattern, Error: errMsg, Action: a.runURL(run.ID) + "/start", Back: a.runURL(run.ID)}
 	want := map[string]bool{}
 	for _, t := range o.Types {
@@ -605,7 +614,7 @@ func (a *Admin) handleImportOptions(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, a.runURL(run.ID), http.StatusSeeOther)
 		return
 	}
-	a.renderImportOptions(w, r, http.StatusOK, run, run.Options, "")
+	a.renderImportOptions(w, r, http.StatusOK, run, run.Options, "", "")
 }
 
 func (a *Admin) handleImportStart(w http.ResponseWriter, r *http.Request) {
@@ -617,7 +626,10 @@ func (a *Admin) handleImportStart(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, a.runURL(run.ID), http.StatusSeeOther)
 		return
 	}
-	_ = r.ParseForm()
+	if err := parseImportUpload(w, r); err != nil {
+		a.renderImportOptions(w, r, http.StatusUnprocessableEntity, run, run.Options, uploadErrorMessage(err), "")
+		return
+	}
 	valid := map[string]bool{"post": run.Report.Posts > 0, "page": run.Report.Pages > 0}
 	for t, n := range run.Report.CustomTypes {
 		valid[t] = n > 0
@@ -631,17 +643,39 @@ func (a *Admin) handleImportStart(w http.ResponseWriter, r *http.Request) {
 	existing := run.Report.SiteMode == wpimport.ModeExisting
 	o := importjob.Options{
 		Types: types, Drafts: r.PostFormValue("drafts") != "", Menus: r.PostFormValue("menus") != "", Media: r.PostFormValue("media") != "",
-		KeepPatterns: r.PostFormValue("patterns") == "keep" || existing, KeepEdited: r.PostFormValue("keep_edited") != "",
+		KeepPatterns: r.PostFormValue("patterns") == "keep" || existing, KeepEdited: r.PostFormValue("keep_edited") != "", NoSEOLive: r.PostFormValue("seo_live") == "",
 	}
 	if len(types) == 0 {
-		a.renderImportOptions(w, r, http.StatusUnprocessableEntity, run, o, "Choose at least one kind of content to import.")
+		a.renderImportOptions(w, r, http.StatusUnprocessableEntity, run, o, "Choose at least one kind of content to import.", "")
 		return
 	}
-	err := svc.Start(r.Context(), run.ID, importActor(r), r.Host, o)
+	seo, fileErr := readSEOFile(r)
+	if fileErr != "" {
+		a.renderImportOptions(w, r, http.StatusUnprocessableEntity, run, o, "", fileErr)
+		return
+	}
+	err := svc.Start(r.Context(), run.ID, importActor(r), r.Host, o, seo)
 	if a.importActionFailed(w, r, run.ID, err) {
 		return
 	}
 	http.Redirect(w, r, a.runURL(run.ID), http.StatusSeeOther)
+}
+
+const seoFileRefused = "That is not a supported settings file. Use a Rank Math .json, a Yoast export or a TSF .json, up to 1 MiB."
+
+// readSEOFile parses the optional settings file of the options form. The
+// bytes are dropped here: only the parsed values go on, in memory.
+func readSEOFile(r *http.Request) (*wpimport.SEOFile, string) {
+	f, _, err := r.FormFile("seo_file")
+	if err != nil {
+		return nil, ""
+	}
+	defer f.Close()
+	seo, err := wpimport.ParseSEOFile(f)
+	if err != nil {
+		return nil, seoFileRefused
+	}
+	return seo, ""
 }
 
 // importActionFailed answers a Start, Resume or Cancel error; it reports
@@ -768,9 +802,20 @@ type importReportData struct {
 	Low         []lowRow
 	MoreLow     int
 	SiteMode    string
+	SEO         *seoReportView
 	ResyncURL   string
 	ResumeTo    string
 	CSRFHint    bool
+}
+
+// seoReportView is the "SEO settings" card: Applied on a new site, Would on
+// a site with content, never both.
+type seoReportView struct {
+	Existing  bool
+	Applied   []wpimport.SEORow
+	Would     []wpimport.SEORow
+	NotMapped []string
+	URL       string
 }
 
 type lowRow struct {
@@ -837,6 +882,9 @@ func (a *Admin) renderImportReport(w http.ResponseWriter, r *http.Request, run *
 			for _, f := range au.Hidden {
 				d.AuditHidden = append(d.AuditHidden, linkRow{Path: f.URL, Note: f.Reason})
 			}
+		}
+		if sr := res.SEO; sr != nil {
+			d.SEO = &seoReportView{Existing: res.SiteMode == wpimport.ModeExisting, Applied: sr.Applied, Would: sr.Would, NotMapped: sr.NotMapped, URL: a.adminPath + seoTitlesPath}
 		}
 		for _, rd := range run.Redirects {
 			d.Redirects = append(d.Redirects, linkRow{Path: rd.From, Link: sitePath(rd.From), Note: fmt.Sprintf("%d to %s", rd.Code, rd.To)})

@@ -2,7 +2,7 @@
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Import options" "Description" "Choose what comes across. You can run the import again later to pick up changes." "CSRF" $.CSRF}}
 {{template "hm/steps" (dict "Items" .Steps "Label" "Import progress")}}
 {{if .Error}}{{template "hm/flash" (dict "Kind" "error" "Message" .Error "Inline" true)}}{{end}}
-<form method="post" action="{{.Action}}" class="hm-stack">
+<form method="post" action="{{.Action}}" enctype="multipart/form-data" class="hm-stack">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "Title" "Content" "ID" "opt-content" "Heading" "h2"}}<div class="hm-stack">
 <div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">What to import</legend>
@@ -20,6 +20,12 @@
 <input type="hidden" name="patterns" value="keep">
 {{else}}{{template "hm/radiocard" (dict "Legend" "URL structure" "Name" "patterns" "Cols" 2 "Items" .Patterns)}}
 <p class="hm-field__help">{{cond (ne .Pattern "") (printf "WordPress permalinks become the pattern %s." .Pattern) "WordPress permalinks cannot be copied as a pattern, so every old address redirects."}}</p>{{end}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "Title" "SEO settings" "ID" "opt-seo" "Heading" "h2"}}
+{{if .Existing}}{{template "hm/callout-start" (dict "Kind" "info")}}This site already has content. SEO settings are listed in the report, nothing is changed.{{template "hm/callout-end"}}{{end}}
+{{template "hm/field" dict "ID" "seo_live" "Name" "seo_live" "Label" "Read SEO settings from the live site" "Control" "switch" "Value" "1" "Checked" .SEO "Help" "Head tags, robots.txt and the sitemap of the old site."}}
+{{template "hm/field" dict "ID" "seo_file" "Name" "seo_file" "Label" "Plugin settings file (optional)" "Type" "file" "Help" "Rank Math .json, Yoast export or TSF .json. Up to 1 MiB. Only the values it maps are kept." "Error" .SEOFileError "Attrs" (attrmap "accept" ".json,.txt,.ini")}}
+{{with .SEOPlugin}}<p class="hm-muted">Detected plugin: {{.}}</p>{{end}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "Title" "Re-import" "ID" "opt-reimport" "Heading" "h2"}}
 {{template "hm/field" dict "ID" "keep_edited" "Name" "keep_edited" "Label" "Keep my edits on re-import" "Control" "switch" "Value" "1" "Checked" .Edited "Help" "Pages you edited here since the last import are left alone. Without this, a re-import overwrites such edits and lists them."}}

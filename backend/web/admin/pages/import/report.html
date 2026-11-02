@@ -40,6 +40,19 @@
 {{end}}</tbody></table></div><p class="hm-muted"><a href="{{adminPath}}/settings/redirects">Manage all redirects</a></p>
 {{else}}<p class="hm-muted">None were needed: the old addresses are served as they are.</p>{{end}}
 {{template "hm/card-end"}}
+{{with .SEO}}{{template "hm/card-start" dict "Title" "SEO settings" "ID" "seo" "Heading" "h2"}}
+{{if .Would}}<div class="hm-table__scroll" role="region" aria-label="SEO settings that would change" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">SEO settings that would change, as they are here and in WordPress</caption>
+<thead><tr><th scope="col">Setting</th><th scope="col">Here now</th><th scope="col">In WordPress</th></tr></thead>
+<tbody>{{range .Would}}<tr><th scope="row" class="hm-table__rowhead">{{.Label}}</th><td data-label="Here now">{{if .Current}}{{.Current}}{{else}}--{{end}}</td><td data-label="In WordPress">{{.Value}}</td></tr>
+{{end}}</tbody></table></div>
+{{else if .Applied}}<div class="hm-table__scroll" role="region" aria-label="SEO settings applied" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">SEO settings this import applied</caption>
+<thead><tr><th scope="col">Setting</th><th scope="col">Value</th></tr></thead>
+<tbody>{{range .Applied}}<tr><th scope="row" class="hm-table__rowhead">{{.Label}}</th><td data-label="Value">{{if .Value}}{{.Value}}{{else}}--{{end}}</td></tr>
+{{end}}</tbody></table></div>
+{{else}}<p class="hm-muted">{{if .Existing}}Nothing would change.{{else}}No SEO settings were found to import.{{end}}</p>{{end}}
+{{if .NotMapped}}<h3>Not mapped</h3><ul>{{range .NotMapped}}<li>{{.}}</li>{{end}}</ul>{{end}}
+<p class="hm-muted"><a href="{{.URL}}">Open Settings &gt; SEO</a></p>
+{{template "hm/card-end"}}{{end}}
 {{template "hm/card-start" dict "Title" "Pages to review" "ID" "low" "Heading" "h2"}}
 {{if .Low}}<p>These imported with some loss. Open each one to check it.</p>
 <div class="hm-table__scroll" role="region" aria-label="Pages to review" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Imported pages that need a review, with the reason</caption>

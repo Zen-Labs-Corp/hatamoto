@@ -27,13 +27,14 @@ func init() {
 
 // fakeImport is an ImportService over fixed runs.
 type fakeImport struct {
-	mu      sync.Mutex
-	runs    map[uuid.UUID]*importjob.Run
-	began   []importjob.Source
-	started []importjob.Options
-	resumed []*importjob.Source
-	cancels int
-	err     error
+	mu       sync.Mutex
+	runs     map[uuid.UUID]*importjob.Run
+	began    []importjob.Source
+	started  []importjob.Options
+	seoFiles []*wpimport.SEOFile
+	resumed  []*importjob.Source
+	cancels  int
+	err      error
 }
 
 func (f *fakeImport) Begin(_ context.Context, _ importjob.Actor, src importjob.Source) (uuid.UUID, error) {
@@ -62,10 +63,11 @@ func (f *fakeImport) Recent(context.Context, int) ([]importjob.Run, error) {
 	sort.Slice(out, func(i, j int) bool { return out[i].ID.String() < out[j].ID.String() })
 	return out, nil
 }
-func (f *fakeImport) Start(_ context.Context, _ uuid.UUID, _ importjob.Actor, _ string, o importjob.Options) error {
+func (f *fakeImport) Start(_ context.Context, _ uuid.UUID, _ importjob.Actor, _ string, o importjob.Options, seo *wpimport.SEOFile) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.started = append(f.started, o)
+	f.seoFiles = append(f.seoFiles, seo)
 	return nil
 }
 func (f *fakeImport) Resume(_ context.Context, _ uuid.UUID, _ importjob.Actor, _ string, c *importjob.Source) error {
@@ -310,7 +312,7 @@ func TestImportPrivateHostOverrideIsNotOnTheWeb(t *testing.T) {
 func TestImportStartOptions(t *testing.T) {
 	g, f, ids := importRig(t)
 	rec := g.do("POST", "/admin/settings/import/wordpress/"+ids["scanned"].String()+"/start", "owner-token",
-		url.Values{"types": {"post", "page", "bogus"}, "menus": {"1"}, "media": {"1"}, "patterns": {"keep"}}, nil)
+		url.Values{"types": {"post", "page", "bogus"}, "menus": {"1"}, "media": {"1"}, "seo_live": {"1"}, "patterns": {"keep"}}, nil)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("start: %d", rec.Code)
 	}
@@ -411,6 +413,7 @@ func TestImportPagesEscapeHostileSourceStrings(t *testing.T) {
 			res.Errors = []wpimport.ItemError{{Kind: evil, ID: "9", Title: evil, Err: evil}}
 			res.URLConflicts = []wpimport.URLConflict{{URL: "javascript:alert(1)", Target: "//evil.example/x", Reason: evil}}
 			res.Audit = &wpimport.AuditResult{Checked: 1, Failures: []wpimport.AuditFailure{{URL: "//evil.example/x", Status: 404, Reason: evil}}}
+			res.SEO = &wpimport.SEOResult{Applied: []wpimport.SEORow{{Key: "k", Label: evil, Value: evil}}, Would: []wpimport.SEORow{{Key: "k", Label: evil, Current: evil, Value: evil}}, NotMapped: []string{evil}}
 			r.Result = &res
 		}
 		body := g.do("GET", "/admin/settings/import/wordpress/"+id.String(), "owner-token", nil, nil).Body.String()
@@ -548,5 +551,57 @@ func TestImportCancelConfirmChecksTheRun(t *testing.T) {
 	}
 	if rec := g.do("GET", base+uuid.NewString()+"/cancel", "owner-token", nil, nil); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown run: %d, want 404", rec.Code)
+	}
+}
+
+// importStartMultipart posts the options form as multipart: token first, then
+// the fields, then an optional settings file.
+func importStartMultipart(g *rig, id uuid.UUID, file string) *httptest.ResponseRecorder {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("_csrf", csrfValue)
+	_ = mw.WriteField("types", "post")
+	_ = mw.WriteField("seo_live", "1")
+	if file != "" {
+		part, _ := mw.CreateFormFile("seo_file", "settings.json")
+		_, _ = part.Write([]byte(file))
+	}
+	_ = mw.Close()
+	req := httptest.NewRequest("POST", "/admin/settings/import/wordpress/"+id.String()+"/start", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	g.addFetchMeta(req, "owner-token", map[string]string{"X-CSRF-Token": ""})
+	rec := httptest.NewRecorder()
+	g.h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestImportStartSEOFile(t *testing.T) {
+	g, f, ids := importRig(t)
+	rm := `{"modules":["x"],"settings":{"titles":{"title_separator":"-"}}}`
+	if rec := importStartMultipart(g, ids["scanned"], rm); rec.Code != http.StatusSeeOther {
+		t.Fatalf("multipart start: %d", rec.Code)
+	}
+	if len(f.started) != 1 || f.started[0].NoSEOLive || f.seoFiles[0] == nil || f.seoFiles[0].Plugin != "rankmath" {
+		t.Fatalf("started %+v file %+v", f.started, f.seoFiles)
+	}
+	// No file: the run starts without one.
+	if rec := importStartMultipart(g, ids["scanned"], ""); rec.Code != http.StatusSeeOther || f.seoFiles[1] != nil {
+		t.Fatalf("no file: %d %+v", rec.Code, f.seoFiles)
+	}
+	// Switch off posts nothing: live read off.
+	g.do("POST", "/admin/settings/import/wordpress/"+ids["scanned"].String()+"/start", "owner-token", url.Values{"types": {"post"}}, nil)
+	if !f.started[2].NoSEOLive {
+		t.Errorf("switch off: %+v", f.started[2])
+	}
+	// Garbage and oversized files are refused before anything starts.
+	for name, file := range map[string]string{"garbage": "not a settings file", "oversized": `{"settings":"` + strings.Repeat("a", wpimport.MaxSEOFileBytes) + `"}`} {
+		rec := importStartMultipart(g, ids["scanned"], file)
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "not a supported settings file") {
+			t.Errorf("%s: %d", name, rec.Code)
+		}
+	}
+	if len(f.started) != 3 {
+		t.Errorf("a refused file still started a run: %d", len(f.started))
 	}
 }
