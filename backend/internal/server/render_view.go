@@ -504,44 +504,36 @@ func socialLinks(raw json.RawMessage) []render.Link {
 	return out
 }
 
-// headerNav is the header menu, or the published-pages fallback the JSON site
-// endpoint uses when no header menu exists. Entity links are built through the
-// URL registry (see navLinks), not the JSON API's "/{slug}" shortcut.
+// headerNav is the header menu: exactly its items, none when it is empty or
+// when no header menu exists. Entity links are built through the URL registry
+// (see navLinks).
 func (s *Server) headerNav(ctx context.Context, links *navLinks) []render.NavItem {
-	if nav := s.menuNav(ctx, "header", links); len(nav) > 0 {
-		return nav
-	}
-	items := s.fallbackNavigationWith(ctx, links.page)
-	out := make([]render.NavItem, 0, len(items))
-	for _, it := range items {
-		out = append(out, toRenderNav(it))
-	}
-	return out
+	nav, _ := s.menuNavFound(ctx, "header", links)
+	return nav
 }
 
 // menuNav returns the menu at location as render nav items; a missing menu or
 // a lookup error yields no items (the page still renders).
 func (s *Server) menuNav(ctx context.Context, location string, links *navLinks) []render.NavItem {
+	nav, _ := s.menuNavFound(ctx, location, links)
+	return nav
+}
+
+// menuNavFound is menuNav that also reports whether a menu sits at location,
+// so an existing menu with no items stays distinguishable from none.
+func (s *Server) menuNavFound(ctx context.Context, location string, links *navLinks) ([]render.NavItem, bool) {
 	if s.menuService == nil {
-		return nil
+		return nil, false
 	}
 	m, err := s.menuService.GetMenuByLocation(ctx, location)
 	if err != nil || m == nil {
-		return nil
+		return nil, false
 	}
 	full, err := s.menuService.GetMenuWithItems(ctx, m.ID)
 	if err != nil || full == nil {
-		return nil
+		return nil, false
 	}
-	return links.items(full.Items)
-}
-
-func toRenderNav(n NavigationItem) render.NavItem {
-	out := render.NavItem{Label: n.Label, Href: n.Href, Target: n.Target}
-	for _, c := range n.Children {
-		out.Children = append(out.Children, toRenderNav(c))
-	}
-	return out
+	return links.items(full.Items), true
 }
 
 // formsForSections loads the active form definition behind every
@@ -726,6 +718,14 @@ func (l *navLinks) decorate(n *render.NavItem, it *menu.MenuItem) {
 }
 
 func (l *navLinks) menuHref(it *menu.MenuItem) string {
+	// An archive item that names only a schema (a theme default, the seeds)
+	// follows the schema's archive path, so it stays right if that changes.
+	if it.LinkType == menu.LinkTypeArchive && (it.URL == nil || *it.URL == "") && it.SchemaSlug != nil && *it.SchemaSlug != "" {
+		if cfg, ok := l.snap.Config(*it.SchemaSlug); ok && cfg.ArchivePath != "" {
+			return cfg.ArchivePath
+		}
+		return "#"
+	}
 	if it.URL != nil && *it.URL != "" || it.EntitySlug == nil || *it.EntitySlug == "" {
 		return getMenuItemHref(it)
 	}

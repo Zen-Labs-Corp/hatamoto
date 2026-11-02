@@ -229,4 +229,29 @@ func TestMenuSeedIntegration(t *testing.T) {
 			t.Error("marker not set")
 		}
 	})
+
+	t.Run("header nav is the menu and nothing else", func(t *testing.T) {
+		reset(true)
+		links := srv.newNavLinks(ctx)
+		if nav := srv.headerNav(ctx, links); len(nav) != 0 {
+			t.Fatalf("no header menu: nav = %+v", nav)
+		}
+		if _, _, err := srv.menuService.EnsureMenuAtLocation(ctx, menu.EnsureInput{Name: "Header", Slug: "header", Location: "header"}); err != nil {
+			t.Fatal(err)
+		}
+		if nav := srv.headerNav(ctx, links); len(nav) != 0 {
+			t.Fatalf("empty header menu with published pages: nav = %+v", nav)
+		}
+		if _, found := srv.menuNavFound(ctx, "header", links); !found {
+			t.Fatal("empty header menu reported as missing")
+		}
+		url := "/custom"
+		m, _ := srv.menuService.GetMenuByLocation(ctx, "header")
+		if _, err := srv.menuService.ReplaceMenu(ctx, m.ID, nil, []menu.ReplaceItem{{Label: "Custom", LinkType: menu.LinkTypeCustom, URL: &url, Parent: -1}}); err != nil {
+			t.Fatal(err)
+		}
+		if nav := srv.headerNav(ctx, links); len(nav) != 1 || nav[0].Href != "/custom" {
+			t.Fatalf("nav = %+v", nav)
+		}
+	})
 }

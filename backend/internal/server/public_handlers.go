@@ -25,14 +25,6 @@ import (
 	"hatamoto.dev/core/internal/taxonomy"
 )
 
-// NavigationItem represents a menu item.
-type NavigationItem struct {
-	Label    string           `json:"label"`
-	Href     string           `json:"href"`
-	Target   string           `json:"target,omitempty"`
-	Children []NavigationItem `json:"children,omitempty"`
-}
-
 // PublicPageResponse represents a public page API response.
 type PublicPageResponse struct {
 	Entity     *entity.Entity         `json:"entity"`
@@ -164,51 +156,6 @@ func (s *Server) publicTenantMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-// fallbackNavigationWith is fallbackNavigation with the page link builder
-// injected; pageHref reports false to leave a page out of the navigation.
-func (s *Server) fallbackNavigationWith(ctx context.Context, pageHref func(*entity.Entity) (string, bool)) []NavigationItem {
-	var navigation []NavigationItem
-	publicRepo := entity.NewPostgresPublicRepository(s.db)
-	pages, err := publicRepo.ListPublished(ctx, "page", 1, 50)
-
-	if err == nil && pages != nil {
-		for _, p := range pages.Items {
-			// Parse attributes to check if item should be in nav
-			var attrs map[string]interface{}
-			if err := json.Unmarshal(p.Attributes, &attrs); err == nil {
-				// Skip items marked as hidden from nav
-				if hidden, ok := attrs["hide_from_nav"].(bool); ok && hidden {
-					continue
-				}
-			}
-
-			href, ok := pageHref(p)
-			if !ok {
-				continue
-			}
-			navigation = append(navigation, NavigationItem{
-				Label: p.Name,
-				Href:  href,
-			})
-		}
-	}
-
-	// Add the post archive to navigation if posts exist. The post family
-	// (a schema plus its aliases) and its archive path come from the
-	// URL registry rather than a hard-coded schema slug.
-	if cfg, ok := s.urlSnapshot(ctx).Config("post"); ok && cfg.ArchivePath != "" {
-		slugs := append([]string{cfg.SchemaSlug}, cfg.Aliases...)
-		posts, err := publicRepo.ListPublishedBySchemas(ctx, slugs, 1, 1)
-		if err == nil && posts != nil && posts.Total > 0 {
-			navigation = append(navigation, NavigationItem{
-				Label: "Blog",
-				Href:  cfg.ArchivePath,
-			})
-		}
-	}
-	return navigation
 }
 
 // sitemapXSLPI is the XML processing instruction that references the XSLT stylesheet.
