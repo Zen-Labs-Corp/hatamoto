@@ -350,7 +350,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		a.renderEntitiesSEO(w, r, p, res, byID, ui.Table{
 			ID: "entities", Caption: caption + " SEO", BaseURL: a.adminPath + "/entities", CSRF: csrfToken(ctx), SortKey: p.sortKey, SortDir: p.dir, Query: p.q,
 			SearchLabel: "Search titles and URLs", PrimaryFilters: primary, PopoverFilters: popover, Chips: chips, ClearHref: p.hrefWithout(a.adminPath, "from", "to", "author", "term"),
-			Hidden: hidden, Segmented: status, Bare: true, Live: true, Target: "entities-results", ChipsOutside: true, OOB: oob,
+			Hidden: hidden, Segmented: status, ListBar: true, Live: true, Target: "entities-results", ChipsOutside: true, OOB: oob,
 			Page:  ui.Pagination{Page: res.Page, PerPage: entitiesPerPage, Total: res.Total, BaseURL: a.adminPath + "/entities", Query: p.query()},
 			Empty: ui.Empty{Icon: "file-text", Title: "No entities match", Body: "Try other filters, or create the first one."},
 		}, types, resolved)
@@ -386,7 +386,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		ID: "entities", Caption: caption, BaseURL: a.adminPath + "/entities", CSRF: csrfToken(ctx),
 		Columns: cols,
 		SortKey: p.sortKey, SortDir: p.dir, Query: p.q, SearchLabel: "Search titles and URLs", PrimaryFilters: primary, PopoverFilters: popover, Chips: chips, ClearHref: p.hrefWithout(a.adminPath, "from", "to", "author", "term"),
-		Hidden: hidden, Segmented: status, Bare: true, Live: true, Target: "entities-results", ChipsOutside: true,
+		Hidden: hidden, Segmented: status, ListBar: true, Live: true, Target: "entities-results", ChipsOutside: true,
 		OOB: oob,
 		Bulk: []ui.BulkAction{
 			{Label: "Publish", Action: a.adminPath + "/entities/bulk", Value: "publish"},

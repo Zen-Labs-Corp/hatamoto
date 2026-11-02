@@ -143,6 +143,7 @@ A change to one component edits only its own subsection below and its entry in t
 | dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)`; `.hm-dialog[data-side="end"]`: `border-top-left-radius: 0` |
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
+| listbar | `.hm-listbar` | `css/partials/listbar.css` | `hm/listbar` |  |
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | meterthin | `.hm-meter--thin .hm-meter__bar` | `css/partials/viz.css` | `hm/progress` |  |
 | pair | `.hm-pair` | `css/partials/field.css` | `hm/pair-start` |  |

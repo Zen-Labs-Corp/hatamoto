@@ -246,6 +246,7 @@ type Table struct {
 	Target       string
 	FilterCount  int
 	Bare         bool
+	ListBar      bool // one 32px row (hm/listbar): segment at the start, search, selects and Filters at the end
 	ChipsOutside bool
 	// ViewTabs is the Default/SEO toggle, rendered in the actions header cell
 	// (which it adds, with an empty cell per row, when no row has actions).
