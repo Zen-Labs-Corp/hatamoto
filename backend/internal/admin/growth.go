@@ -58,6 +58,7 @@ type RedirectStore interface {
 	ListRecent404Entries(ctx context.Context, since time.Time, limit int) ([]*redirect.NotFoundEntry, error)
 	Ignore404Entry(ctx context.Context, id uuid.UUID) error
 	Delete404Entry(ctx context.Context, id uuid.UUID) error
+	DeleteAll404Entries(ctx context.Context) (int64, error)
 }
 
 // URLExplanation answers "what happens to this URL": the redirect providers in

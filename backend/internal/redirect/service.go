@@ -45,6 +45,7 @@ type Store interface {
 	ListRecent404Entries(ctx context.Context, since time.Time, limit int) ([]*NotFoundEntry, error)
 	Ignore404Entry(ctx context.Context, id uuid.UUID) error
 	Delete404Entry(ctx context.Context, id uuid.UUID) error
+	DeleteAll404Entries(ctx context.Context) (int64, error)
 	Link404ToRedirect(ctx context.Context, entryID, redirectID uuid.UUID) error
 	CreateRedirect(ctx context.Context, input *CreateRedirectInput) (*Redirect, error)
 	GetRedirectByID(ctx context.Context, id uuid.UUID) (*Redirect, error)
@@ -202,6 +203,11 @@ func (s *Service) Ignore404Entry(ctx context.Context, id uuid.UUID) error {
 // Delete404Entry deletes a 404 entry.
 func (s *Service) Delete404Entry(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete404Entry(ctx, id)
+}
+
+// DeleteAll404Entries empties the 404 log and returns how many rows went.
+func (s *Service) DeleteAll404Entries(ctx context.Context) (int64, error) {
+	return s.repo.DeleteAll404Entries(ctx)
 }
 
 // ── Redirect CRUD ────────────────────────────────────────────────────────────

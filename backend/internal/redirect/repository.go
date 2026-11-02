@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/database"
 )
 
@@ -83,6 +84,12 @@ func (r *Repository) List404Entries(ctx context.Context, params NotFoundListPara
 	if params.Search != "" {
 		where = append(where, fmt.Sprintf("path ILIKE $%d", argIdx))
 		args = append(args, "%"+params.Search+"%")
+		argIdx++
+	}
+
+	if clause, arg := visitorClause(params.Visitor, argIdx); clause != "" {
+		where = append(where, clause)
+		args = append(args, arg)
 		argIdx++
 	}
 
@@ -215,6 +222,46 @@ func (r *Repository) Delete404Entry(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+// DeleteAll404Entries empties the 404 log and returns the number of rows removed.
+func (r *Repository) DeleteAll404Entries(ctx context.Context) (int64, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer conn.Release()
+
+	tag, err := conn.Exec(ctx, "DELETE FROM hatamoto_404_log")
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all 404 entries: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// visitorClause returns the WHERE clause for a Visitor filter and its single
+// argument (a text[] of LIKE patterns bound to $idx), or "" for no filter. It
+// mirrors agents.Registry.LooksLikeBot: a user agent is a bot when its
+// lowercase form contains one of the registry substrings. No user agent text
+// reaches the SQL, only escaped registry literals as a bound parameter.
+func visitorClause(visitor string, idx int) (string, []string) {
+	var match string
+	switch visitor {
+	case VisitorBots:
+		match = "(lower(last_user_agent) LIKE ANY($%d))"
+	case VisitorPeople:
+		match = "(last_user_agent IS NULL OR NOT (lower(last_user_agent) LIKE ANY($%d)))"
+	default:
+		return "", nil
+	}
+	subs := agents.Default().UASubstrings()
+	pats := make([]string, len(subs))
+	for i, s := range subs {
+		pats[i] = "%" + likeEscaper.Replace(s) + "%"
+	}
+	return fmt.Sprintf(match, idx), pats
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // Link404ToRedirect sets the redirect_id on a 404 entry.
 func (r *Repository) Link404ToRedirect(ctx context.Context, entryID, redirectID uuid.UUID) error {

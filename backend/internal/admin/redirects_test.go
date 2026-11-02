@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/redirect"
 )
 
@@ -111,6 +112,19 @@ func (f *fakeRedirects) DeleteRedirect(_ context.Context, id uuid.UUID) error {
 // (default 50), so tests see what production would.
 func (f *fakeRedirects) List404Entries(_ context.Context, p redirect.NotFoundListParams) ([]*redirect.NotFoundEntry, int, error) {
 	out := f.sorted()
+	if p.Visitor != "" {
+		var kept []*redirect.NotFoundEntry
+		for _, e := range out {
+			ua := ""
+			if e.LastUserAgent != nil {
+				ua = *e.LastUserAgent
+			}
+			if agents.Default().LooksLikeBot(ua) == (p.Visitor == redirect.VisitorBots) {
+				kept = append(kept, e)
+			}
+		}
+		out = kept
+	}
 	total := len(out)
 	if p.PerPage <= 0 {
 		p.PerPage = 50
@@ -159,6 +173,12 @@ func (f *fakeRedirects) Delete404Entry(_ context.Context, id uuid.UUID) error {
 	}
 	delete(f.log, id)
 	return nil
+}
+
+func (f *fakeRedirects) DeleteAll404Entries(context.Context) (int64, error) {
+	n := int64(len(f.log))
+	clear(f.log)
+	return n, nil
 }
 
 type fakeExplainer struct{ answers map[string]URLExplanation }
@@ -475,5 +495,24 @@ func TestRedirectsToItself(t *testing.T) {
 		if got := redirectsToItself(c.source, c.target, "example.test"); got != c.want {
 			t.Errorf("redirectsToItself(%q, %q) = %v, want %v", c.source, c.target, got, c.want)
 		}
+	}
+}
+
+func TestFakeRedirectsVisitorAndDeleteAll(t *testing.T) {
+	f := newFakeRedirects()
+	bot, person := "GPTBot/1.1", "Mozilla/5.0 Chrome/124 Safari/537.36"
+	for i, ua := range []*string{&bot, &person, nil} {
+		id := uuid.New()
+		f.log[id] = &redirect.NotFoundEntry{ID: id, Path: "/p" + string(rune('a'+i)), HitCount: 1, LastUserAgent: ua}
+	}
+	ctx := context.Background()
+	for visitor, want := range map[string]int{"": 3, redirect.VisitorBots: 1, redirect.VisitorPeople: 2} {
+		_, total, _ := f.List404Entries(ctx, redirect.NotFoundListParams{Visitor: visitor})
+		if total != want {
+			t.Errorf("visitor %q: %d, want %d", visitor, total, want)
+		}
+	}
+	if n, err := f.DeleteAll404Entries(ctx); err != nil || n != 3 || len(f.log) != 0 {
+		t.Errorf("DeleteAll: %d %v, %d left", n, err, len(f.log))
 	}
 }

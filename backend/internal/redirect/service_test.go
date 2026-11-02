@@ -76,6 +76,7 @@ func (f *fakeStore) ListRecent404Entries(context.Context, time.Time, int) ([]*No
 }
 func (f *fakeStore) Ignore404Entry(context.Context, uuid.UUID) error               { return nil }
 func (f *fakeStore) Delete404Entry(context.Context, uuid.UUID) error               { return nil }
+func (f *fakeStore) DeleteAll404Entries(context.Context) (int64, error)            { return 0, nil }
 func (f *fakeStore) Link404ToRedirect(context.Context, uuid.UUID, uuid.UUID) error { return nil }
 func (f *fakeStore) DeleteRedirect(context.Context, uuid.UUID) error               { return nil }
 func (f *fakeStore) ListRedirects(context.Context, RedirectListParams) ([]*Redirect, int, error) {
