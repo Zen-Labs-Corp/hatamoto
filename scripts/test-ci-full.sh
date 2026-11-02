@@ -53,6 +53,9 @@ plan workflow_dispatch "1111111111111111111111111111111111111111" >/dev/null 2>&
 
 # Main moved on while the run was queued (or the dispatch names another ref): the tested
 # sha is the checked-out HEAD, the one the run name shows; origin/main only sets is_main.
+# an older green run (a dispatch) does not hide a later green run on the head
+echo "[{\"displayTitle\":\"ci-full @ $old\",\"headSha\":\"$old\"},{\"displayTitle\":\"ci-full @ $head\",\"headSha\":\"$head\"}]" > "$GH_RUNS"
+o=$(plan schedule ""); want "$o" run=false "nightly skips when any recent green run tested the head"
 g commit -q --allow-empty -m three; newer=$(g rev-parse HEAD)
 g update-ref refs/remotes/origin/main "$newer"; g checkout -q --detach "$head"
 runs "$old" "$old"
@@ -88,6 +91,7 @@ report success true "$open"
 grep -q '^issue close 7' "$GH_LOG" || fail "the matching issue must be closed"
 report success true '[{"number":8,"title":"other"}]'
 [ "$(calls comment)" = 0 ] && [ "$(calls close)" = 0 ] || fail "success without our issue must not touch others"
+grep -q -e '--search in:title "ci-full failing on main"' "$GH_LOG" || fail "the issue lookup must search by title"
 report failure false "$open"
 ! grep -q '^issue' "$GH_LOG" || fail "a non-main run must not touch issues"
 report cancelled true "$open"

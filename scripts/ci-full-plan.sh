@@ -7,7 +7,7 @@
 # Out:     sha=<tested commit>, is_main=true|false, run=true|false.
 #
 # A dispatch always runs. A scheduled run is skipped when the newest green ci-full
-# run already tested the checked-out commit. The tested sha of a run is carried in its
+# run (of the last 20) already tested the checked-out commit. The tested sha of a run is carried in its
 # run name ("ci-full @ <sha>"): a dispatch can only name a branch, so headSha of
 # the run is the branch head, not necessarily the tested commit.
 set -Eeuo pipefail
@@ -31,8 +31,8 @@ fi
 run=true
 if [ "$event" = schedule ]; then
   last=$(gh run list --workflow ci-full.yml --status success --limit 20 --json displayTitle,headSha 2>/dev/null |
-    jq -r 'if length == 0 then "" else .[0] | ((.displayTitle | capture("@ (?<s>[0-9a-f]{40})").s) // .headSha) end' 2>/dev/null || true)
-  if [ -n "$last" ] && [ "$last" = "$sha" ]; then
+    jq -r --arg sha "$sha" '[.[] | ((.displayTitle | capture("@ (?<s>[0-9a-f]{40})").s) // .headSha)] | if index($sha) then $sha else "" end' 2>/dev/null || true)
+  if [ -n "$last" ]; then
     echo "ci-full already green on ${sha:0:12}: skipping"
     run=false
   fi

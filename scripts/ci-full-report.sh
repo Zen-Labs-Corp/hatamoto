@@ -20,7 +20,7 @@ case "$result" in
     ;;
 esac
 
-number=$(gh issue list --state open --limit 100 --json number,title |
+number=$(gh issue list --state open --limit 100 --search "in:title \"$title\"" --json number,title |
   jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty')
 body="ci-full on ${SHA:-unknown}: $result. Run: ${RUN_URL:-unknown}"
 
