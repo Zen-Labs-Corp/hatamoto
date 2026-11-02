@@ -353,7 +353,7 @@ Three ways to tell the user something; pick by how long it lives and where it is
 
 - **Callout (`hm/callout-start` / `-end`, or `hm/callout` with a `Body`).** A
   standing notice that belongs to the page: a warning, a limit, a state the user must
-  act on. Dict: `Kind` (`info`, `success`, `warning`, `danger`; `error` maps to
+  act on. Dict: `Kind` (`info`, `neutral`, `success`, `warning`, `danger`; `neutral` is a quiet grey note; `error` maps to
   `danger`), optional `Title`, `Compact`, `DismissKey` (makes it dismissible; the
   choice is kept for the browser session), `ID` and `Attrs`. It needs a `Title` or a
   `Body`. The shell banners are compact, dismissible callouts. Never hand-write
@@ -546,7 +546,7 @@ a page never adds a second form or a second primary button inside the card. The 
 
 ### Shell, auth and error pages
 
-- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (token only: no font file is shipped, the admin CSP allows none).
+- **Brand and type.** The brand mark is the vermilion seal 旗, drawn as an inline SVG icon (`seal`), not as text (`.hm-brand__seal`, `--color-brand`) in the sidebar and on the bare layouts. The accent is indigo. Figures and meta use `--font-mono`, which names JetBrains Mono first and falls back to the system mono (Inter and JetBrains Mono ship as woff2 files from the admin origin under `/_/fonts`, so the CSP `font-src 'self'` is unchanged; the system stacks are the fallback).
 - **One flash slot per layout.** Shell: the first child of `.hm-page`. Bare (sign in, setup, profile step): under the brand, inside the panel. Editor: under the editor bar. A page never renders a second slot; the sign-in form's one status line (`#login-status`, wired to both inputs with `aria-describedby`) is that page's use of it, rendered above the form. The sign-in button is full width and the quiet "Forgot your password?" link sits under it. The bare panel title is 24px, medium weight. On the setup address step, Regenerate sits beside Copy in the copy row; the hidden default Continue stays first in the form (Enter submits Continue, never Regenerate) and the visible Continue is the only primary footer button. The setup wizard footers put a ghost Back at the far left and the primary on the right; on the setup email step Skip takes the far left and Back sits on the right beside Save. All setup step labels stay visible on phones. The bare panel is cardless: sign-in, setup and the bare error pages sit directly on the page background, with the brand aligned to the left edge of the column.
 - **Standing notices** (setup pending, site address, update) render in `.hm-notices`, a full-width strip above the page column, so they are the same width on narrow and wide pages. They stay dismissible `hm/callout` compact callouts.
 - **`hm/pageheader` `Badge`.** An optional `ui.Badge` renders after the title, in the same row; actions are top-aligned with the title.
@@ -555,7 +555,7 @@ a page never adds a second form or a second primary button inside the card. The 
 - **`#hm-confirm` is the one hand-written dialog.** `components.js` fills a single shared node, so it is not built with `hm/dialog-start`. A link or menu item with `data-hm-confirm` opens it; so does a submit `button[data-hm-confirm]` inside a form, which then posts that form's fields (without `_csrf`). Without script the button submits directly, so its card must already say what happens.
 - **`data-hm-carry="<input id>"`** on a link appends that input's value as `?email=` when clicked (the invite form's "Add with a password instead"); without script it is a plain link.
 - **Colophon.** Every shell page (never the bare or editor layouts) ends with `.hm-colophon` after `</main>`: one muted `--text-xs` link, "Hatamoto <version> · Stand close. Serve well.", to https://hatamoto.dev (`View.AppVersion`: `app.Version` with one leading v, or "dev build"). `.hm-shell__main` is a flex column with `.hm-content` growing, so the line sits at the foot of a short page and after the content of a long one; centred under 768px (`css/partials/colophon.css`).
-- **The sidebar** is sticky at `100dvh`; its collapsed state persists in `localStorage` (`hm-sidebar`) on desktop. Under 768px it is a top bar and has no toggle. When a subnav is shown, only the subnav item carries the active chip.
+- **The sidebar** is sticky at `100dvh`; its collapsed state persists in `localStorage` (`hm-sidebar`) on desktop. There is no top bar: the collapse toggle sits in the sidebar foot and collapses it to a 56px icon rail on desktop. Under 768px the sidebar is a bottom bar and has no toggle. Entities and Plugins show their counts. Every page sits in one centred group of at most 1440px; on Settings, Theme and Plugins the subnav and the page are centred together. The subnav has no icons and a visually hidden title; under 640px it is a horizontal scroller of the same links. When a subnav is shown, only the subnav item carries the active chip.
 
 ### Segmented
 
@@ -606,7 +606,7 @@ Rules: use it for an action that is hard to undo or weakens a security setting, 
 
 ## Breadcrumbs
 
-The trail lives in the top bar and nowhere else. A page never repeats it in its own
+The trail renders in the page header area and nowhere else. A page never repeats it in its own
 panel, so `hm/pageheader` takes no `Crumbs`. Handlers that open a page below a list
 set `View.Crumbs` (`settingsCrumbs` for Settings pages, `entityCrumbs` for entity
 sub-pages); a page with no crumbs falls back to Home, its section and its title.
