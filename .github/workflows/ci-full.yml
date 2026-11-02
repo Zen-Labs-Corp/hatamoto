@@ -3,9 +3,11 @@ name: ci-full
 # run's own head sha is the branch head, not necessarily the commit under test.
 run-name: ci-full @ ${{ inputs.sha || github.sha }}
 
-# The full suite. PRs and pushes to main run only the fast tier of ci.yml; this runs
+# The full suite. PRs run only the fast tier of ci.yml, and pushes to main add the registry
+# build tests on PostgreSQL 18; this runs
 # everything: PostgreSQL 16 and 18, the whole integration run, race, must-run steps,
 # admin-ui, admin-attack, wordpress-importer, installer-e2e, n-1, sdk 1.26 and 1.27.
+# The registry build tests run on both PostgreSQL legs.
 # It calls ci.yml with tier: full, so no job body is duplicated.
 #
 # Nightly, skipped when the newest green run already tested the head of main. By hand,

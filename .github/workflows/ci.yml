@@ -26,8 +26,9 @@ jobs:
   # by default; the PG16 leg still reports, with every step skipped: zizmor cannot analyse
   # a computed matrix), an integration smoke over every package except the slow ones listed in
   # scripts/ci-smoke-exclude.txt (those get `go test -short`), and the cheap must-run checks.
+  # The registry build tests run on push to main (PostgreSQL 18) and in the full tier, not on PRs.
   # Full tier (ci-full): PostgreSQL 16 and 18, the whole integration run, the race run,
-  # the must-run steps and govulncheck. The required check is the aggregate job `backend`
+  # the must-run steps, the registry build tests and govulncheck. The required check is the aggregate job `backend`
   # below, so its name does not depend on the matrix legs.
   backend-matrix:
     name: backend-matrix (PostgreSQL ${{ matrix.pg }})
@@ -216,7 +217,7 @@ jobs:
       # The first-party plugins live in the hatamoto-first-party monorepo and are built from manifests
       # (make registry COMMUNITY_DIR=...); here only the build script's offline fixture test runs.
       - name: Registry build tests
-        if: matrix.pg == '18' || inputs.tier == 'full'
+        if: (matrix.pg == '18' && github.event_name == 'push') || inputs.tier == 'full'
         run: |
           ../registry/test-build-community.sh
           ../registry/test-build-community-themes.sh
