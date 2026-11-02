@@ -71,29 +71,15 @@ func TestSwapDefault_Table(t *testing.T) {
 			},
 		},
 		{
-			name: "a card already under the old tag is not overwritten",
+			name: "a leftover card under the old tag loses to the business",
 			site: Profile{Name: "Legal", CountryName: "Exampleland", Address: office, Office: true},
 			cards: map[string]Profile{tagDef: {
-				Name: "Own Name", Address: Address{Street: "9 Own St"}, NoOffice: true, Email: "own@x.test", NoInherit: []string{"currency"},
+				Name: "Own Name", Address: Address{Street: "9 Own St"}, NoOffice: true, Email: "own@x.test",
 			}},
 			check: func(t *testing.T, o FoldOut) {
 				c := o.Cards[tagDef]
-				if c.Name != "Own Name" || c.Address.Street != "9 Own St" || c.Address.City != "" || !c.NoOffice || c.Email != "own@x.test" || !slices.Equal(c.NoInherit, []string{"currency"}) {
-					t.Errorf("existing card changed: %+v", c)
-				}
-				if c.CountryName != "Exampleland" {
-					t.Errorf("CountryName = %q, want it filled in", c.CountryName)
-				}
-			},
-		},
-		{
-			name:  "an existing card without an address takes the business's address and office",
-			site:  Profile{Address: office, Office: true},
-			cards: map[string]Profile{tagDef: {Address: Address{Lat: "7"}}},
-			check: func(t *testing.T, o FoldOut) {
-				c := o.Cards[tagDef]
-				if c.Address.Street != "1 Example St" || c.Address.Lat != "7" || c.NoOffice {
-					t.Errorf("card = %+v", c)
+				if c.Name != "Legal" || c.Address.Street != "1 Example St" || c.NoOffice || c.Email != "" || c.CountryName != "Exampleland" {
+					t.Errorf("leftover won over the business: %+v", c)
 				}
 			},
 		},

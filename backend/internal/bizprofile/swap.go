@@ -11,10 +11,10 @@ package bizprofile
 //     Fold copies the old value into the card where the new default's card
 //     overrides it, and marks the field not inherited where the old business
 //     left it empty.
-//   - A card already stored under previous (a leftover) is not overwritten:
-//     its own values win and it only gains what it left empty. An address of
-//     its own (street or city) keeps its office switch; otherwise the business's
-//     address fills the block and the office switch follows the business.
+//   - A card already stored under previous (a leftover) is discarded. It is
+//     hidden while previous is the default, so the owner never saw it and the
+//     pages printed the business; the business wins and its address is never
+//     lost.
 //   - The business loses its country name, image, business type, address block
 //     and office switch, so the new default never prints the old default's
 //     address or country. It keeps its name (the legal name of the
@@ -22,20 +22,10 @@ package bizprofile
 //     default the office stays off until the owner gives it an address.
 func SwapDefault(in FoldIn, previous string) FoldIn {
 	f := in.Site
-	card := in.Cards[previous]
-	fill := func(dst *string, src string) {
-		if *dst == "" {
-			*dst = src
-		}
+	card := Profile{
+		Name: f.Name, CountryName: f.CountryName, Image: f.Image, BusinessType: f.BusinessType,
+		Address: f.Address, NoOffice: !f.Office,
 	}
-	fill(&card.Name, f.Name)
-	fill(&card.CountryName, f.CountryName)
-	fill(&card.Image, f.Image)
-	fill(&card.BusinessType, f.BusinessType)
-	if card.Address.Street == "" && card.Address.City == "" {
-		card.NoOffice = card.NoOffice || !f.Office
-	}
-	card.Address = foldAddress(f.Address, card.Address)
 
 	f.CountryName, f.Image, f.BusinessType = "", "", ""
 	f.Address = Address{}
