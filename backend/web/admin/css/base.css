@@ -28,8 +28,6 @@ h3 { font-size: var(--text-md); line-height: var(--leading-5-5); font-weight: va
    rules (.hm-table__rowhead). */
 a { color: var(--color-accent); text-decoration-line: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
 a:hover { text-decoration-color: currentColor; }
-.hm-table__rowhead > a { text-decoration-line: none; color: var(--color-accent); font-weight: var(--weight-medium); }
-.hm-table__rowhead > a:hover { text-decoration-line: underline; }
 img, svg { display: block; max-width: 100%; }
 code, kbd, samp, pre { font-family: var(--font-mono); font-size: var(--text-sm); }
 kbd { border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); padding: 0 var(--space-1); background: var(--color-paper); }

@@ -1,6 +1,8 @@
 package designcheck
 
 import (
+	"io/fs"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,6 +42,22 @@ func TestQuietRowsAndNavMarkers(t *testing.T) {
 	}
 	if hover := lineWith(table, ".hm-table__rowhead a:hover {"); !strings.Contains(hover, "underline") {
 		t.Error("table.css: the row title does not underline on hover")
+	}
+	// No admin stylesheet may give a row title link an accent colour back.
+	err := filepath.WalkDir(filepath.Join(webAdmin, "css"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(p) != ".css" {
+			return err
+		}
+		for _, l := range strings.Split(readSrc(t, p), "\n") {
+			sel, _, ok := strings.Cut(l, "{")
+			if ok && strings.Contains(sel, ".hm-table__rowhead") && strings.Contains(sel, "a") && strings.Contains(l, "accent") {
+				t.Errorf("%s: an accent colour on a row title: %s", p, strings.TrimSpace(l))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	if dot := lineWith(table, ".hm-status__dot {"); !strings.Contains(dot, "var(--color-success)") {
 		t.Error("table.css: .hm-status__dot is not the success colour")
