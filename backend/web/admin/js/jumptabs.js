@@ -10,18 +10,25 @@ function init(root) {
     const mark = (link) => {
       links.forEach((a) => (a === link ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
     };
+    // A tapped/hash target stays current until the user scrolls by hand (the page may be too short to bring it to the top).
+    let pinned = false;
     const fromHash = () => {
       const i = links.findIndex((a) => a.getAttribute("href") === location.hash);
-      if (i >= 0) mark(links[i]);
+      if (i < 0) return;
+      pinned = true;
+      mark(links[i]);
+    };
+    // The current section is the last one whose top has reached the scroll-padding line.
+    const spy = () => {
+      if (pinned) return;
+      const line = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      let i = 0;
+      targets.forEach((t, n) => { if (t.getBoundingClientRect().top <= line + 8) i = n; });
+      mark(links[i]);
     };
     window.addEventListener("hashchange", fromHash);
-    const seen = new Set();
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => (e.isIntersecting ? seen.add(e.target) : seen.delete(e.target)));
-      const i = targets.findIndex((t) => seen.has(t));
-      if (i >= 0) mark(links[i]);
-    }, { rootMargin: "0px 0px -60% 0px" });
-    targets.forEach((t) => io.observe(t));
+    window.addEventListener("scroll", spy, { passive: true });
+    ["wheel", "touchmove", "keydown"].forEach((ev) => window.addEventListener(ev, () => { pinned = false; }, { passive: true }));
     fromHash();
   });
 }
