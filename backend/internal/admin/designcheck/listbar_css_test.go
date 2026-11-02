@@ -83,3 +83,18 @@ func TestListToolbarIsOneSizedRow(t *testing.T) {
 		}
 	}
 }
+
+// The Filters button sits beside 32px md-radius controls and must match them.
+func TestListToolbarFiltersButtonRadius(t *testing.T) {
+	t.Parallel()
+
+	var found bool
+	for _, line := range strings.Split(adminAsset(t, "css", "partials", "button.css"), "\n") {
+		if strings.HasPrefix(line, ".hm-listbar__end > .hm-btn") && strings.Contains(line, "border-radius: var(--radius-md)") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("button.css: the Filters button in .hm-listbar must use var(--radius-md)")
+	}
+}

@@ -197,6 +197,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-04", File: "css/pages/pageeditor.css", Needle: ".hm-pe__toolbar {", Reason: "the canvas element toolbar floats over the page like a popup"},
 	// UI-06: the list toolbar sizes the controls it holds; the sizing lives in each control's owner file.
 	{Rule: "UI-06", File: "css/partials/field.css", Needle: ".hm-listbar", Max: 3, Reason: "the list toolbar row sets its inputs to one 32px height and the md radius; listbar_css_test.go asserts it"},
+	{Rule: "UI-06", File: "css/partials/button.css", Needle: ".hm-listbar__end", Reason: "the Filters button in the list toolbar takes the md radius like its neighbours; listbar_css_test.go asserts it"},
 	{Rule: "UI-06", File: "css/partials/select.css", Needle: ".hm-listbar", Reason: "the list toolbar row sets the select trigger to 32px and the md radius; listbar_css_test.go asserts it"},
 	{Rule: "UI-06", File: "css/partials/segmented.css", Needle: ".hm-listbar", Max: 3, Reason: "the list toolbar row sets the status segment track to 32px; listbar_css_test.go asserts it"},
 	{Rule: "UI-06", File: "css/partials/tabs.css", Needle: ".hm-listbar", Max: 3, Reason: "the list toolbar row sets a segmented tab track to 32px; listbar_css_test.go asserts it"},
