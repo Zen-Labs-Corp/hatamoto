@@ -12,7 +12,8 @@
 .hm-settings > .hm-page[data-width="compact"] { max-width: var(--page-narrow); }
 /* Cards in one .hm-cardform sit in a single block; give them the page rhythm. */
 .hm-settings .hm-cardform > .hm-card + .hm-card { margin-top: var(--space-6); }
-.hm-subnav { position: sticky; top: 0; min-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-8) var(--space-3) var(--space-4); border-right: 1px solid var(--border); }
+/* Sticks at the top and scrolls inside itself when a long list is taller than the viewport. */
+.hm-subnav { position: sticky; top: 0; min-height: calc(100vh - 48px); max-height: 100vh; max-height: 100dvh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-8) var(--space-3) var(--space-4); border-right: 1px solid var(--border); }
 /* The area name stays in the heading outline for screen readers; the partial marks it visually hidden. */
 .hm-subnav__title { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
 .hm-subnav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-0-5); }
@@ -90,7 +91,7 @@
   /* The subnav is a scroller above the page: one row of links under a hairline. */
   /* Edge shadows appear only on the side that has more links (scroll-linked via background-attachment), so no mask hides focus outlines. */
   .hm-subnav {
-    position: static; min-height: 0; padding: 0; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border);
+    position: static; min-height: 0; max-height: none; padding: 0; flex-direction: row; gap: var(--space-1); overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border);
     --hm-edge: color-mix(in srgb, var(--text) 14%, transparent);
     background:
       linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,

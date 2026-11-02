@@ -43,7 +43,7 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := string(b)
-	for _, want := range []string{"position: sticky; top: 0; min-height: calc(100vh - 48px);", "border-right: 1px solid var(--border)", "no-repeat scroll", "border-bottom-color: var(--text)"} {
+	for _, want := range []string{"position: sticky; top: 0;", "max-height: 100dvh; overflow-y: auto;", "border-right: 1px solid var(--border)", "no-repeat scroll", "border-bottom-color: var(--text)"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("settings.css lacks %q", want)
 		}
@@ -56,6 +56,9 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		}
 	}
 	phone := css[strings.Index(css, "@media (max-width: 640px)"):]
+	if !strings.Contains(phone, "max-height: none") {
+		t.Error("the phone subnav must drop the desktop max-height")
+	}
 	if strings.Contains(phone, "box-shadow") {
 		t.Error("the phone subnav must not mark the current link with box-shadow (lost in forced-colors)")
 	}
