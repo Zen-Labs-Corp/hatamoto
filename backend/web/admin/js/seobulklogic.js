@@ -21,13 +21,17 @@ export function rowValues(fields) {
 /**
  * What a save reply means for the row: the indicator state and text, the values that
  * become the new loaded copy (orig), and the fields to show again from the server.
- * The reply is {status, message, values, conflicts}; a missing or odd reply is an error.
+ * posted is what the save sent and current what the inputs hold now (both as rowValues):
+ * a field the user did not touch since the post shows the server's value again, so input and
+ * orig never disagree about a change someone else made; one edited meanwhile keeps the edit.
+ * The reply is {status, message, values}; a missing or odd reply is an error.
  */
-export function applyResponse(httpStatus, json) {
+export function applyResponse(httpStatus, json, posted = {}, current = posted) {
   const vals = json?.values;
   const orig = vals ? { title: vals.title ?? "", description: vals.description ?? "", keyword: vals.keyword ?? "", noindex: vals.noindex ? "true" : "" } : null;
-  if (httpStatus === 200 && json?.status === "saved") return { state: "saved", text: stateText("saved"), orig, refresh: [] };
-  if (json?.status === "conflict") return { state: "conflict", text: json.message || stateText("conflict"), orig, refresh: Object.keys(json.conflicts ?? {}) };
+  const refresh = orig ? Object.keys(orig).filter((n) => (current[n] ?? "") === (posted[n] ?? "") && orig[n] !== (current[n] ?? "")) : [];
+  if (httpStatus === 200 && json?.status === "saved") return { state: "saved", text: stateText("saved"), orig, refresh };
+  if (json?.status === "conflict") return { state: "conflict", text: json.message || stateText("conflict"), orig, refresh };
   return { state: "error", text: json?.message || stateText("error"), orig: null, refresh: [] };
 }
 

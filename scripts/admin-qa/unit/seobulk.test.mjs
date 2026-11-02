@@ -22,7 +22,7 @@ test("applyResponse maps replies to row states", () => {
   assert.deepEqual(ok.orig, { title: "T", description: "", keyword: "", noindex: "true" });
   const c = applyResponse(409, { status: "conflict", message: "Changed elsewhere: title.", values, conflicts: { title: "T" } });
   assert.equal(c.state, "conflict");
-  assert.deepEqual(c.refresh, ["title"]);
+  assert.deepEqual(c.refresh, ["title", "noindex"]);
   assert.equal(c.text, "Changed elsewhere: title.");
   assert.equal(applyResponse(422, { status: "error", message: "Too long." }).text, "Too long.");
   const bad = applyResponse(500, null);
@@ -40,4 +40,21 @@ test("the SEO view is remembered and restored once", () => {
   assert.equal(viewToRemember("?view=default"), "");
   assert.equal(viewToRemember("?view=seo"), "seo");
   assert.equal(viewToRemember("?type=post"), "");
+});
+
+test("a save reply never leaves an input behind a newer orig (another user's change is shown, not reverted)", () => {
+  // A loaded {title: Old t, description: Old}; B set description to Theirs; A saves a new title.
+  const posted = { title: "New t", description: "Old", keyword: "", noindex: "" };
+  const values = { title: "New t", description: "Theirs", keyword: "", noindex: false };
+  const r = applyResponse(200, { status: "saved", values }, posted, posted);
+  assert.equal(r.orig.description, "Theirs");
+  assert.deepEqual(r.refresh, ["description"]);
+  // the same on the non-conflicting fields of a conflict reply
+  const c = applyResponse(409, { status: "conflict", values: { ...values, title: "B t" } }, posted, posted);
+  assert.deepEqual(c.refresh.sort(), ["description", "title"]);
+  // a field edited while the save was in flight keeps the edit
+  const typed = { ...posted, description: "Mine" };
+  assert.deepEqual(applyResponse(200, { status: "saved", values }, posted, typed).refresh, []);
+  // nothing to refresh when the server stored what was shown
+  assert.deepEqual(applyResponse(200, { status: "saved", values: { ...values, description: "Old" } }, posted, posted).refresh, []);
 });

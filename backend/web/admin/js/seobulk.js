@@ -47,13 +47,14 @@ export function mountSEOBulk(doc = document) {
     const fields = fieldsOf(form);
     if (!rowDirty(rowValues(fields), origOf(form))) return;
     pending.add(form);
+    const posted = rowValues(fields);
     paint(form, "saving");
     let res = { state: "error", text: stateText("error"), orig: null, refresh: [] };
     let json = null;
     try {
       const r = await fetch(form.getAttribute("action"), { method: "POST", body: new URLSearchParams(new FormData(form)), headers: { Accept: "application/json" } });
       json = await r.json().catch(() => null);
-      res = applyResponse(r.status, json);
+      res = applyResponse(r.status, json, posted, rowValues(fieldsOf(form)));
     } catch {
       /* network failure: the error state stays */
     }
@@ -66,8 +67,8 @@ export function mountSEOBulk(doc = document) {
     }
     for (const n of res.refresh) {
       const f = fields[n];
-      if (f?.type === "checkbox") f.checked = json.values[n] === true;
-      else if (f) f.value = json.values[n] ?? "";
+      if (f?.type === "checkbox") f.checked = res.orig[n] === "true";
+      else if (f) f.value = res.orig[n] ?? "";
     }
     for (const [n, c] of Object.entries(json?.counters ?? {})) paintCount(form, n, c);
     paint(form, res.state, res.text);
