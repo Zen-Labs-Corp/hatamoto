@@ -3,6 +3,7 @@ package menu
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,17 +133,18 @@ func ValidLinkType(lt string) bool {
 	}
 }
 
-// ValidLocation checks if a menu location is valid.
+var locationRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
+
+// ValidLocation checks the format of a menu location: empty (none) or a
+// lowercase key. Which locations a site offers is decided by the caller
+// (core locations plus the ones the active theme declares).
 func ValidLocation(loc string) bool {
-	if loc == "" {
-		return true // Location is optional
-	}
-	switch loc {
-	case LocationHeader, LocationFooter, LocationSidebar:
-		return true
-	default:
-		return false
-	}
+	return loc == "" || locationRe.MatchString(loc)
+}
+
+// IsCoreLocation reports whether loc is one of the locations every theme has.
+func IsCoreLocation(loc string) bool {
+	return loc == LocationHeader || loc == LocationFooter || loc == LocationSidebar
 }
 
 // ReplaceItem is one item of a ReplaceMenu call. Parent is the index of an
