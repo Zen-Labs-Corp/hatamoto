@@ -1,10 +1,10 @@
-// Live shell matches the approved preview: background, centred 1440 group, fonts, no top bar,
-// sidebar toggle and counts, icon-free subnav, plugins filter row, 3-up swatches, neutral callout.
+// Live shell matches the approved preview: background, docked subnav and full-width content, fonts,
+// top bar with one toggle and the breadcrumb, sidebar hide and reload, counts, icon-free subnav, plugins filter row, 3-up swatches, neutral callout.
 // node scripts/admin-qa/shell-match.mjs [chromium|firefox|webkit]
 // An asserted element that is missing fails the run (it never passes by default).
 // Manual checks the script cannot make: the Colours corner previews draw their radius while a
 // radius field is edited, the 390px sidebar top bar looks right with counts hidden, and
-// the collapsed rail tooltips show on hover.
+// the phone top bar keeps only the back link.
 import { launch, newSession, visit, writeResult, sizes } from "./lib.mjs";
 
 const engine = ["chromium", "firefox", "webkit"].includes(process.argv[2]) ? process.argv[2] : "chromium";
@@ -24,29 +24,35 @@ try {
     await visit(p, { path: "/admin/settings/general" });
     const r = await probe(p, `${width} general`, () => {
       const need = (s) => document.querySelector(s) ?? (() => { throw new Error("missing " + s); })();
-      const g = need(".hm-settings").getBoundingClientRect(), side = need(".hm-sidebar").getBoundingClientRect();
+      const sub = need(".hm-subnav").getBoundingClientRect(), side = need(".hm-sidebar").getBoundingClientRect();
       return {
         bg: getComputedStyle(document.body).backgroundColor,
         topbar: !!document.querySelector(".hm-topbar"),
+        crumbs: document.querySelectorAll('.hm-topbar nav[aria-label="Breadcrumb"]').length,
         inter: document.fonts.check("14px Inter"),
         subnavIcons: document.querySelectorAll(".hm-subnav .hm-icon").length,
         subnavLinks: document.querySelectorAll(".hm-subnav__link").length,
         subnavCurrent: document.querySelectorAll(".hm-subnav__link[aria-current=page]").length,
         navCurrent: document.querySelectorAll(".hm-nav-link[aria-current=page]").length,
-        groupW: g.width, left: g.left - side.right, right: innerWidth - g.right,
-        toggle: !!document.querySelector("[data-hm-sidebar-toggle]"),
+        subLeft: sub.left - side.right,
+        toggles: document.querySelectorAll("[data-hm-sidebar-toggle]").length,
       };
     });
     check(r.bg === "rgb(250, 250, 249)", `${width}: body background ${r.bg}`);
-    check(r.topbar === false, `${width}: .hm-topbar present`);
+    check(r.topbar && r.crumbs === 1, `${width}: top bar ${r.topbar} with ${r.crumbs} breadcrumb navs, want 1`);
+    check(r.toggles === 1, `${width}: ${r.toggles} sidebar toggles, want 1`);
     check(r.inter, `${width}: Inter not available`);
     check(r.subnavLinks > 0 && r.subnavIcons === 0, `${width}: subnav has ${r.subnavLinks} links and ${r.subnavIcons} icons`);
     check(r.subnavCurrent === 1 && r.navCurrent === 1, `${width}: aria-current on ${r.subnavCurrent} subnav and ${r.navCurrent} sidebar links, want 1 each`);
-    if (width >= 1440) {
-      check(r.groupW <= 1440, `${width}: group ${r.groupW}px > 1440`);
-      check(Math.abs(r.left - r.right) <= 2, `${width}: group not centred (${r.left} vs ${r.right})`);
+    if (width >= 769) {
+      check(Math.abs(r.subLeft) <= 1, `${width}: subnav is ${r.subLeft}px from the sidebar, want touching`);
     }
-    if (width >= 769) check(r.toggle, `${width}: no sidebar toggle`);
+    if (width === 2200) {
+      // A page without a width cap fills the space beside the sidebar.
+      await visit(p, { path: "/admin/entities" });
+      const e = await probe(p, "2200 entities", () => ({ right: innerWidth - document.querySelector(".hm-page").getBoundingClientRect().right }));
+      check(e.right <= 32, `${width}: Entities content ends ${e.right}px from the viewport edge, want <= 32`);
+    }
     await p.close();
   }
 
@@ -76,28 +82,19 @@ try {
   check(/^\d+$/.test(ent.entCount ?? ""), `Entities nav item has no count (${ent.entCount})`);
   check(ent.maxOff <= 1, `segmented counts are ${ent.maxOff}px off their label baseline`);
 
-  // Sidebar toggle: click and Enter collapse and expand it, aria-expanded follows.
-  const toggleState = () => p.evaluate(() => ({ exp: document.querySelector("[data-hm-sidebar-toggle]").getAttribute("aria-expanded"), side: document.querySelector(".hm-shell").dataset.sidebar ?? "" }));
+  // Sidebar toggle: click and Enter hide and show the sidebar (display none, subnav stays), aria-expanded follows, a reload keeps it.
+  const toggleState = () => p.evaluate(() => ({ exp: document.querySelector("[data-hm-sidebar-toggle]").getAttribute("aria-expanded"), side: document.querySelector(".hm-shell").dataset.sidebar ?? "", display: getComputedStyle(document.querySelector(".hm-sidebar")).display }));
   const t0 = await toggleState();
   await p.click("[data-hm-sidebar-toggle]");
   const t1 = await toggleState();
+  await p.reload();
+  const t1r = await toggleState();
   await p.focus("[data-hm-sidebar-toggle]");
   await p.keyboard.press("Enter");
   const t2 = await toggleState();
-  check(t0.exp === "true" && t1.exp === "false" && t1.side === "collapsed", `toggle click: ${JSON.stringify([t0, t1])}`);
-  check(t2.exp === "true" && t2.side !== "collapsed", `toggle Enter: ${JSON.stringify(t2)}`);
-
-  // Collapsed rail: links keep a tooltip, and the theme, sign-out and profile controls stay reachable.
-  await p.click("[data-hm-sidebar-toggle]");
-  const rail = await probe(p, "rail", () => {
-    const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden"; };
-    const links = [...document.querySelectorAll(".hm-sidebar .hm-nav-link")];
-    const names = ["[data-hm-theme-toggle]", 'form[action$="/logout"] button', ".hm-sidebar__me"];
-    return { untitled: links.filter((a) => !(a.title || a.dataset.tooltip)).length, hidden: names.filter((s) => { const e = document.querySelector(s); return !e || !vis(e) || !(e.getAttribute("aria-label") || e.textContent.trim()); }) };
-  });
-  check(rail.untitled === 0, `${rail.untitled} collapsed rail links have no tooltip`);
-  check((rail.hidden ?? ["?"]).length === 0, `rail controls not reachable: ${rail.hidden}`);
-  await p.click("[data-hm-sidebar-toggle]");
+  check(t0.exp === "true" && t1.exp === "false" && t1.side === "collapsed" && t1.display === "none", `toggle click: ${JSON.stringify([t0, t1])}`);
+  check(t1r.side === "collapsed" && t1r.display === "none", `collapsed state lost on reload: ${JSON.stringify(t1r)}`);
+  check(t2.exp === "true" && t2.side !== "collapsed" && t2.display !== "none", `toggle Enter: ${JSON.stringify(t2)}`);
 
   // Plugins: filter row at the top of the card, above the heading, "/" focuses the search, counts in the nav. The seeded
   // install has no plugin, and the page then shows an empty state with no filter row: that is
