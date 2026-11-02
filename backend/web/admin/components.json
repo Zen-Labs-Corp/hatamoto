@@ -334,6 +334,12 @@
     "partial": "hm/table",
     "props": {}
   },
+  "status": {
+    "selector": ".hm-status",
+    "owner": "css/partials/table.css",
+    "partial": "hm/cell",
+    "props": {}
+  },
   "listbar": {
     "selector": ".hm-listbar",
     "owner": "css/partials/listbar.css",
