@@ -132,6 +132,8 @@ func TestValidate_ExtendedFields(t *testing.T) {
 		{"order url", Profile{OrderURL: "ftp://x.test"}, "order_url", "Enter a full web address starting with http:// or https://."},
 		{"menu url", Profile{MenuURL: "x"}, "menu_url", "Enter a full web address starting with http:// or https://."},
 		{"radius text", Profile{ServiceRadiusKm: "far"}, "service_radius_km", "Enter a distance in kilometres."},
+		{"radius huge", Profile{ServiceRadiusKm: "1e306"}, "service_radius_km", "Enter a distance in kilometres."},
+		{"radius above the cap", Profile{ServiceRadiusKm: "20001"}, "service_radius_km", "Enter a distance in kilometres."},
 		{"radius zero", Profile{ServiceRadiusKm: "0"}, "service_radius_km", "Enter a distance in kilometres."},
 		{"founder nameless", Profile{Founders: []Person{{Name: "A"}, {URL: "https://example.test"}}}, "founders.1.name", "Enter a name."},
 		{"founder url", Profile{Founders: []Person{{Name: "A", URL: "x"}}}, "founders.0.url", "Enter a full web address starting with http:// or https://."},

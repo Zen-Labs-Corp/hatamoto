@@ -18,6 +18,8 @@ const (
 	maxDescLen  = 1000 // the description is prose in a textarea
 	maxPhoneLen = 50
 	maxURLLen   = 2000
+	// maxRadiusKm keeps the radius in metres a finite JSON number.
+	maxRadiusKm = 20000
 )
 
 // Types are the business types a profile may name: LocalBusiness and a curated
@@ -315,7 +317,7 @@ func Validate(p Profile) map[string]string {
 	link("order_url", p.OrderURL)
 	link("menu_url", p.MenuURL)
 	if v := p.ServiceRadiusKm; v != "" {
-		if f, ok := ParseDecimal(v); !ok || f <= 0 {
+		if f, ok := ParseDecimal(v); !ok || f <= 0 || f > maxRadiusKm {
 			errs["service_radius_km"] = "Enter a distance in kilometres."
 		}
 	}
