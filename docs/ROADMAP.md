@@ -317,6 +317,7 @@ everything `go:embed`ed. English-only admin. Every screen is keyboard-usable and
   - `hatamoto_import_runs` + `hatamoto_import_map` make re-runs idempotent (re-sync before cutover).
   - Mapping: post body to `attributes.content` (edited in the blog editor); Yoast, Rank Math and SEOPress fields to SEO fields; Gutenberg comments stripped; YouTube/Vimeo embeds kept; shortcodes, forms and page-builder pages listed in the report; members-only content imported as normal drafts.
   - `hatamoto import wordpress` CLI (the admin wizard is v1-22b).
+  - Global SEO settings (live read of the old site, optional Rank Math / Yoast / TSF settings file, `--no-seo-live`): in review; an existing site is only reported, never changed.
 - **Done when:** against a dockerised fixture WordPress (nested pages, dated permalinks, Yoast, gallery, embed, Contact Form 7): every old URL returns 200 or one 301, no `wp-content` URLs remain, SEO titles match 100%, a re-run creates zero duplicates.
 
 #### v1-22b-import-wizard (backend, M)
