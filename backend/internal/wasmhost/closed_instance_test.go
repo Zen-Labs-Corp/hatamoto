@@ -55,6 +55,9 @@ func TestIsGuestErrorRejectsClosed(t *testing.T) {
 	if !isGuestError(errors.New("boom")) {
 		t.Error("a plain guest error must be a guest error")
 	}
+	if isGuestError(errors.New("failed to initialize runtime: module closed with context deadline exceeded")) {
+		t.Error("an init failure is not a guest error")
+	}
 	if isGuestError(fmt.Errorf("module is closed")) {
 		t.Error("a closed module is not a guest error")
 	}
@@ -144,7 +147,7 @@ func TestRetryGetsFreshTimeout(t *testing.T) {
 // old result and is not charged, but its instance is never pooled.
 func TestRejectWithDeadAfterCallDiscards(t *testing.T) {
 	h := newHost(t)
-	m := hookManifest("rej", sdk.Limits{MaxInstances: 1}, map[string]string{"mode": "reject"})
+	m := hookManifest("rej", sdk.Limits{MaxInstances: 1, HookTimeoutsMS: map[string]uint64{"entity.before_save": 5000}}, map[string]string{"mode": "reject"})
 	if err := h.Load(context.Background(), m, hostileWasm); err != nil {
 		t.Fatal(err)
 	}

@@ -692,4 +692,13 @@ func isResetErr(err error) bool { return err != nil && err.Error() == "reset" }
 // wazero (or wrapped) error types.
 var plainError = reflect.TypeOf(errors.New(""))
 
-func isGuestError(err error) bool { return reflect.TypeOf(err) == plainError && !isClosedErr(err) }
+// initFailurePrefix starts extism's plain error for a failed guest
+// _initialize (go-sdk v1.7.1 extism.go:486, "failed to initialize runtime: %v").
+// It wraps traps and deadline exits, so it is a failure, not a guest error.
+// Version-pinned: recheck on an extism bump.
+const initFailurePrefix = "failed to initialize runtime: "
+
+func isGuestError(err error) bool {
+	return reflect.TypeOf(err) == plainError && !isClosedErr(err) &&
+		!strings.HasPrefix(err.Error(), initFailurePrefix)
+}
