@@ -503,10 +503,19 @@ func foldDefaultBusiness(ctx context.Context, tx pgx.Tx, oldLanguage, newLanguag
 	if _, err := tx.Exec(ctx, `
 		UPDATE hatamoto_site_config SET business_profile = $1, locale_profiles = $2,
 		  phone = $3, business_hours = $4, postal_address = $5, updated_at = NOW()
-		WHERE id = TRUE`, out.BusinessProfile, out.LocaleProfiles, out.Phone, out.BusinessHours, []byte(out.PostalAddress)); err != nil {
+		WHERE id = TRUE`, out.BusinessProfile, out.LocaleProfiles, nullIfEmpty(out.Phone, phone), nullIfEmpty(out.BusinessHours, hours), []byte(out.PostalAddress)); err != nil {
 		return fmt.Errorf("write folded business profile: %w", err)
 	}
 	return nil
+}
+
+// nullIfEmpty writes an empty value back as NULL when the column held NULL, so
+// a language change does not turn an untouched legacy column into ”.
+func nullIfEmpty(v string, was sql.NullString) any {
+	if v == "" && !was.Valid {
+		return nil
+	}
+	return v
 }
 
 // swappedDefault is the old default tag when the old default business must be

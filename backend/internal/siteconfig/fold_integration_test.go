@@ -271,3 +271,28 @@ func TestUpdateLanguageSingleLocaleKeepsBusiness(t *testing.T) {
 		t.Errorf("address lost: %s", cfg.PostalAddress)
 	}
 }
+
+// A language change leaves NULL phone and business_hours columns NULL.
+func TestUpdateLanguageKeepsNullPhoneAndHours(t *testing.T) {
+	ctx := context.Background()
+	s, db := scratchStoreDB(t)
+	locales := []siteconfig.LocaleEntry{{Tag: "en-XX", Segment: "en"}, {Tag: "fr-CA", Segment: "fr"}}
+	def := "en-XX"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{Language: &def, Locales: &locales}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_site_config SET phone = NULL, business_hours = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	lang := "fr-CA"
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{Language: &lang}); err != nil {
+		t.Fatal(err)
+	}
+	var phone, hours *string
+	if err := db.Pool().QueryRow(ctx, `SELECT phone, business_hours FROM hatamoto_site_config`).Scan(&phone, &hours); err != nil {
+		t.Fatal(err)
+	}
+	if phone != nil || hours != nil {
+		t.Errorf("phone = %v, business_hours = %v, want both NULL", phone, hours)
+	}
+}

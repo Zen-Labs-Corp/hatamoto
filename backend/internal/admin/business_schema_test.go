@@ -634,10 +634,10 @@ func TestBusinessGapValidationPathsLandOnFieldIDs(t *testing.T) {
 // no "no office" switch. A locale card has the reverse.
 func TestDefaultSchemaHasEverythingButNoOffice(t *testing.T) {
 	prev := bizprofile.Profile{Name: "Example Co", Office: true, Phone: "555 0100", HoursNote: "Mon to Fri", Slogan: "Hello", LogoObject: true, EmployeesMin: 3,
-		Address:      bizprofile.Address{Street: "1 Main St", City: "Town", PostalCode: "1000", Country: "AU", Lat: "-33.5", Lng: "151.2", MapURL: "https://maps.example/x"},
+		Address:      bizprofile.Address{Street: "1 Main St", City: "Town", PostalCode: "1000", Country: "XX", Lat: "1.5", Lng: "2.5", MapURL: "https://maps.example/x"},
 		ParentOrg:    bizprofile.Person{Name: "Parent", URL: "https://parent.example"},
 		Rating:       bizprofile.Rating{Value: "4.5", Best: "5"},
-		BusinessType: "Restaurant", CountryName: "Australia",
+		BusinessType: "Restaurant", CountryName: "Exampleland",
 	}
 	html, err := schemaform.Render(defaultSchema(), profileMap(t, prev), schemaform.Options{Prefix: "loc_x.", UI: defaultUI()})
 	if err != nil {

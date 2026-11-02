@@ -532,10 +532,10 @@ func TestDefaultBusinessSaveWritesLegacyColumns(t *testing.T) {
 	t.Parallel()
 
 	g, site := localeRig(t, threeLocales...)
-	site.cfg.BusinessProfile = []byte(`{"org_address":"locale","address":{"lat":"-33.5","lng":"151.2","map_url":"https://maps.example/x"}}`)
+	site.cfg.BusinessProfile = []byte(`{"org_address":"locale","address":{"lat":"1.5","lng":"2.5","map_url":"https://maps.example/x"}}`)
 	form := url.Values{"loc_en.name": {"Example Co"}, "loc_en.phone": {"555 0100"}, "loc_en.hours_note": {"Mon to Fri"}, "loc_en.tax_id": {"TX-1"},
-		"loc_en.address.street": {"1 Example Street"}, "loc_en.address.city": {"Exampleton"}, "loc_en.address.postal_code": {"1000"}, "loc_en.address.country": {"AU"},
-		"loc_en.address.lat": {"-33.5"}, "loc_en.address.lng": {"151.2"}, "loc_en.address.map_url": {"https://maps.example/x"}, "_present.loc_en.office": {"1"}, "loc_en.office": {"true"}}
+		"loc_en.address.street": {"1 Example Street"}, "loc_en.address.city": {"Exampleton"}, "loc_en.address.postal_code": {"1000"}, "loc_en.address.country": {"XX"},
+		"loc_en.address.lat": {"1.5"}, "loc_en.address.lng": {"2.5"}, "loc_en.address.map_url": {"https://maps.example/x"}, "_present.loc_en.office": {"1"}, "loc_en.office": {"true"}}
 	rec := g.do("POST", "/admin/settings/locales/business/en", "owner-token", form, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/locales/business#locale-en" {
 		t.Fatalf("save: %d %s", rec.Code, rec.Header().Get("Location"))
@@ -544,7 +544,7 @@ func TestDefaultBusinessSaveWritesLegacyColumns(t *testing.T) {
 		t.Errorf("columns = %q %q", site.cfg.Phone, site.cfg.BusinessHours)
 	}
 	var addr map[string]string
-	if err := json.Unmarshal(site.cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example Street" || addr["city"] != "Exampleton" || addr["postal_code"] != "1000" || addr["country"] != "AU" {
+	if err := json.Unmarshal(site.cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example Street" || addr["city"] != "Exampleton" || addr["postal_code"] != "1000" || addr["country"] != "XX" {
 		t.Errorf("postal address = %s", site.cfg.PostalAddress)
 	}
 	var stored map[string]any
@@ -562,7 +562,7 @@ func TestDefaultBusinessSaveWritesLegacyColumns(t *testing.T) {
 			t.Errorf("the profile JSON still holds address.%s: %s", k, site.cfg.BusinessProfile)
 		}
 	}
-	if stored["org_address"] != "locale" || stored["tax_id"] != "TX-1" || stored["office"] != true || a["lat"] != "-33.5" || a["lng"] != "151.2" || a["map_url"] != "https://maps.example/x" {
+	if stored["org_address"] != "locale" || stored["tax_id"] != "TX-1" || stored["office"] != true || a["lat"] != "1.5" || a["lng"] != "2.5" || a["map_url"] != "https://maps.example/x" {
 		t.Errorf("profile = %s", site.cfg.BusinessProfile)
 	}
 	if len(site.cfg.LocaleProfiles) > 0 && string(site.cfg.LocaleProfiles) != "{}" {
