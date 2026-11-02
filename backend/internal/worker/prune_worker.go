@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/database"
@@ -16,6 +17,9 @@ type PruneWorker struct {
 	db        *database.DB
 	batchSize int
 	logger    *slog.Logger
+
+	// retention404 reports the 404 log retention in days; nil keeps the default.
+	retention404 func(context.Context) int
 }
 
 func NewPruneWorker(db *database.DB, batchSize int, logger *slog.Logger) *PruneWorker {
@@ -32,7 +36,44 @@ type pruneJob struct {
 	where string // must reference only the table; no params
 }
 
-// retentionJobs are the batched prunes. The 404 log is aged by last_seen_at.
+// retention404Where holds the only WHERE clauses the 404 log prune may use,
+// keyed by retention in days. The text is interpolated into SQL, so it is never
+// built from a stored value.
+var retention404Where = map[int]string{
+	30:  "last_seen_at < NOW() - INTERVAL '30 days'",
+	90:  "last_seen_at < NOW() - INTERVAL '90 days'",
+	180: "last_seen_at < NOW() - INTERVAL '180 days'",
+	365: "last_seen_at < NOW() - INTERVAL '365 days'",
+}
+
+// defaultRetention404 applies when the configured value is missing or unknown,
+// so a failed read never shortens retention.
+const defaultRetention404 = 90
+
+// SetRetention404 makes each Run read the 404 log retention (days) from fn.
+// Values outside retention404Where fall back to 90 days.
+func (w *PruneWorker) SetRetention404(fn func(context.Context) int) { w.retention404 = fn }
+
+// jobs returns retentionJobs with the 404 log where-clause for this run.
+func (w *PruneWorker) jobs(ctx context.Context) []pruneJob {
+	jobs := slices.Clone(retentionJobs)
+	if w.retention404 == nil {
+		return jobs
+	}
+	where, ok := retention404Where[w.retention404(ctx)]
+	if !ok {
+		where = retention404Where[defaultRetention404]
+	}
+	for i := range jobs {
+		if jobs[i].name == "404-log" {
+			jobs[i].where = where
+		}
+	}
+	return jobs
+}
+
+// retentionJobs are the batched prunes. The 404 log is aged by last_seen_at
+// (90 days unless SetRetention404 says otherwise).
 var retentionJobs = []pruneJob{
 	{"404-log", "hatamoto_404_log", "last_seen_at < NOW() - INTERVAL '90 days'"},
 	{"mcp-audit", "hatamoto_mcp_audit", "at < NOW() - INTERVAL '90 days'"},
@@ -48,7 +89,7 @@ func (w *PruneWorker) Run(ctx context.Context) error {
 	}
 	defer conn.Release()
 
-	for _, j := range retentionJobs {
+	for _, j := range w.jobs(ctx) {
 		removed, err := w.pruneBatched(adminCtx, conn, j)
 		if err != nil {
 			// Log and continue: one table's failure shouldn't block the others.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/redirect"
 )
@@ -167,7 +168,11 @@ func (a *Admin) handleNotFoundLog(w http.ResponseWriter, r *http.Request) {
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	page := pageParam(r)
-	list, total, err := rs.List404Entries(r.Context(), redirect.NotFoundListParams{Search: q, Page: page, PerPage: redirectsPerPage})
+	show := r.URL.Query().Get("show")
+	if show != redirect.VisitorPeople && show != redirect.VisitorBots {
+		show = ""
+	}
+	list, total, err := rs.List404Entries(r.Context(), redirect.NotFoundListParams{Search: q, Visitor: show, Page: page, PerPage: redirectsPerPage})
 	if err != nil {
 		a.logger().Error("list 404 log failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The 404 log could not be loaded.")
@@ -177,10 +182,18 @@ func (a *Admin) handleNotFoundLog(w http.ResponseWriter, r *http.Request) {
 	if q != "" {
 		query.Set("q", q)
 	}
+	if show != "" {
+		query.Set("show", show)
+	}
 	t := ui.Table{
 		ID: "notfound", Caption: "Addresses that returned 404", BaseURL: a.adminPath + "/settings/redirects/404", CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "path", Label: "Address"}, {Key: "hits", Label: "Hits", Align: "right"}, {Key: "last", Label: "Last seen"}, {Key: "referrer", Label: "Came from"}, {Key: "state", Label: "State"}},
+		Columns: []ui.Col{{Key: "path", Label: "Address"}, {Key: "hits", Label: "Hits", Align: "right"}, {Key: "last", Label: "Last seen"}, {Key: "referrer", Label: "Came from"}, {Key: "visitor", Label: "Last visitor"}, {Key: "state", Label: "State"}},
 		Query:   q, SearchLabel: "Search the 404 log",
+		Filters: []ui.Filter{{Name: "show", Label: "Show", Options: []ui.Option{
+			{Value: "", Label: "All", Selected: show == ""},
+			{Value: redirect.VisitorPeople, Label: "People", Selected: show == redirect.VisitorPeople},
+			{Value: redirect.VisitorBots, Label: "Bots", Selected: show == redirect.VisitorBots},
+		}}},
 		Page:  ui.Pagination{Page: page, PerPage: redirectsPerPage, Total: total, BaseURL: a.adminPath + "/settings/redirects/404", Query: query},
 		Empty: ui.Empty{Icon: "check", Title: "No missing pages logged", Body: "Addresses visitors asked for that did not exist show up here."},
 	}
@@ -197,6 +210,10 @@ func (a *Admin) handleNotFoundLog(w http.ResponseWriter, r *http.Request) {
 		if e.LastReferrer != nil {
 			ref = truncate(*e.LastReferrer, 60)
 		}
+		visitor := &ui.Badge{Label: "Person", Kind: "neutral"}
+		if e.LastUserAgent != nil && agents.Default().LooksLikeBot(*e.LastUserAgent) {
+			visitor = &ui.Badge{Label: "Bot", Kind: "info"}
+		}
 		var acts []ui.Action
 		if e.RedirectID == nil {
 			acts = append(acts, ui.Action{Label: "Create redirect", Href: a.adminPath + "/settings/redirects/new?" + url.Values{"source": {e.Path}, "log": {id}}.Encode()})
@@ -208,13 +225,13 @@ func (a *Admin) handleNotFoundLog(w http.ResponseWriter, r *http.Request) {
 		acts = append(acts, ui.Action{Label: "Delete", Href: a.adminPath + "/settings/redirects/404/" + id + "/delete", Post: a.adminPath + "/settings/redirects/404/" + id + "/delete", Danger: true, ConfirmLabel: "Delete entry",
 			Confirm: "The entry for " + e.Path + " is deleted from the log. It returns if the address is requested again."})
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: e.Path, Cells: []ui.Cell{
-			{Text: e.Path}, {Text: strconv.Itoa(e.HitCount)}, {Text: fmtDateTime(e.LastSeenAt)}, {Text: ref}, {Badge: state},
+			{Text: e.Path}, {Text: strconv.Itoa(e.HitCount)}, {Text: fmtDateTime(e.LastSeenAt)}, {Text: ref}, {Badge: visitor}, {Badge: state},
 		}, Actions: acts})
 	}
 	d := redirectsPage{Tabs: a.redirectTabs(a.adminPath + "/settings/redirects/404"), Table: t}
 	// Page 1 is ordered by hits, so its open entries are the busiest; past it,
-	// or while searching, a "top" list would be wrong.
-	if page == 1 && q == "" {
+	// or while searching or filtering, a "top" list would be wrong.
+	if page == 1 && q == "" && show == "" {
 		d.Top = ui.BarList{Label: "Most requested missing pages. Select an address to create a redirect for it", NameHeading: "Address (select to create a redirect)", ValueHeading: "Hits"}
 		for _, e := range list {
 			if e.RedirectID != nil || e.Ignored || len(d.Top.Items) == notFoundTop {

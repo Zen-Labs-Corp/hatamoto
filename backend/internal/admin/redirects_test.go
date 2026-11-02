@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"sort"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/redirect"
 )
 
@@ -111,6 +113,19 @@ func (f *fakeRedirects) DeleteRedirect(_ context.Context, id uuid.UUID) error {
 // (default 50), so tests see what production would.
 func (f *fakeRedirects) List404Entries(_ context.Context, p redirect.NotFoundListParams) ([]*redirect.NotFoundEntry, int, error) {
 	out := f.sorted()
+	if p.Visitor != "" {
+		var kept []*redirect.NotFoundEntry
+		for _, e := range out {
+			ua := ""
+			if e.LastUserAgent != nil {
+				ua = *e.LastUserAgent
+			}
+			if agents.Default().LooksLikeBot(ua) == (p.Visitor == redirect.VisitorBots) {
+				kept = append(kept, e)
+			}
+		}
+		out = kept
+	}
 	total := len(out)
 	if p.PerPage <= 0 {
 		p.PerPage = 50
@@ -159,6 +174,12 @@ func (f *fakeRedirects) Delete404Entry(_ context.Context, id uuid.UUID) error {
 	}
 	delete(f.log, id)
 	return nil
+}
+
+func (f *fakeRedirects) DeleteAll404Entries(context.Context) (int64, error) {
+	n := int64(len(f.log))
+	clear(f.log)
+	return n, nil
 }
 
 type fakeExplainer struct{ answers map[string]URLExplanation }
@@ -475,5 +496,67 @@ func TestRedirectsToItself(t *testing.T) {
 		if got := redirectsToItself(c.source, c.target, "example.test"); got != c.want {
 			t.Errorf("redirectsToItself(%q, %q) = %v, want %v", c.source, c.target, got, c.want)
 		}
+	}
+}
+
+func TestFakeRedirectsVisitorAndDeleteAll(t *testing.T) {
+	f := newFakeRedirects()
+	bot, person := "GPTBot/1.1", "Mozilla/5.0 Chrome/124 Safari/537.36"
+	for i, ua := range []*string{&bot, &person, nil} {
+		id := uuid.New()
+		f.log[id] = &redirect.NotFoundEntry{ID: id, Path: "/p" + string(rune('a'+i)), HitCount: 1, LastUserAgent: ua}
+	}
+	ctx := context.Background()
+	for visitor, want := range map[string]int{"": 3, redirect.VisitorBots: 1, redirect.VisitorPeople: 2} {
+		_, total, _ := f.List404Entries(ctx, redirect.NotFoundListParams{Visitor: visitor})
+		if total != want {
+			t.Errorf("visitor %q: %d, want %d", visitor, total, want)
+		}
+	}
+	if n, err := f.DeleteAll404Entries(ctx); err != nil || n != 3 || len(f.log) != 0 {
+		t.Errorf("DeleteAll: %d %v, %d left", n, err, len(f.log))
+	}
+}
+
+func TestNotFoundLogVisitorFilter(t *testing.T) {
+	t.Parallel()
+
+	g, fr := newRedirectRig(t)
+	bot := "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+	person := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15"
+	fr.addLog("/person-one", 5).LastUserAgent = &person
+	fr.addLog("/unknown-agent", 4)
+	for i := 0; i < redirectsPerPage+1; i++ {
+		fr.addLog(fmt.Sprintf("/bot-%02d", i), 1).LastUserAgent = &bot
+	}
+	get := func(q string) string {
+		return g.do("GET", "/admin/settings/redirects/404"+q, "owner-token", nil, nil).Body.String()
+	}
+
+	all := get("")
+	for _, want := range []string{"Last visitor", `name="show"`, ">Person<", ">Bot<"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("unfiltered log lacks %q", want)
+		}
+	}
+	people := get("?show=people")
+	if !strings.Contains(people, "/person-one") || !strings.Contains(people, "/unknown-agent") || strings.Contains(people, "/bot-00") || strings.Contains(people, ">Bot<") {
+		t.Errorf("people filter: %s", people)
+	}
+	if strings.Contains(people, "hm-barlist") {
+		t.Error("a filtered log must not show the top list")
+	}
+	bots := get("?show=bots")
+	if strings.Contains(bots, "/person-one") || strings.Contains(bots, "/unknown-agent") || !strings.Contains(bots, "/bot-00") {
+		t.Errorf("bots filter: %s", bots)
+	}
+	if !strings.Contains(bots, "show=bots") || !strings.Contains(bots, "page=2") {
+		t.Error("pagination must keep the filter")
+	}
+	if bad := get("?show=aliens"); !strings.Contains(bad, "/person-one") || !strings.Contains(bad, "hm-barlist") {
+		t.Error("an unknown show value must mean all")
+	}
+	if issues := a11y.Check(bots, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
 	}
 }

@@ -112,6 +112,7 @@ type Settings struct {
 	Sitemap      Sitemap      `json:"sitemap,omitzero"`
 	Breadcrumbs  Breadcrumbs  `json:"breadcrumbs,omitzero"`
 	IndexNow     IndexNow     `json:"indexnow,omitzero"`
+	Monitor404   Monitor404   `json:"monitor404,omitzero"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -197,6 +198,7 @@ func (s Settings) Clone() Settings {
 		c.Sitemap.DefaultPriority = &p
 	}
 	c.Sitemap.ExcludePaths = append([]string(nil), s.Sitemap.ExcludePaths...)
+	c.Monitor404.IgnorePatterns = append([]string(nil), s.Monitor404.IgnorePatterns...)
 	return c
 }
 
@@ -245,6 +247,7 @@ func (s Settings) Validate() []FieldError {
 	errs = append(errs, validateSitemap(s.Sitemap)...)
 	errs = append(errs, validateBreadcrumbs(s.Breadcrumbs)...)
 	errs = append(errs, validateIndexNow(s.IndexNow)...)
+	errs = append(errs, validateMonitor404(s.Monitor404)...)
 	return errs
 }
 

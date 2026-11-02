@@ -489,6 +489,7 @@ func (s *Server) setupDependencies() {
 	// Redirect / 404 monitor service
 	s.redirectService = redirect.NewService(s.db, s.logger)
 	s.redirectService.SameHostOnly = s.demoOn()
+	s.redirectService.SetLogPolicy(s.log404Policy)
 
 	// Agent (AI crawler) hit capture. Page paths are resolved to entities in the
 	// writer goroutine, off the request path.
@@ -573,9 +574,12 @@ func (s *Server) setupDependencies() {
 			}
 		}
 
-		// Batched prune of high-churn tables (404 log 90d).
+		// Batched prune of high-churn tables (404 log: 90 days unless the
+		// SEO 404 monitor settings say otherwise).
 		if workerJobEnabled("prune") {
-			s.scheduler.SetPruneWorker(worker.NewPruneWorker(s.db, 5000, s.logger))
+			pw := worker.NewPruneWorker(s.db, 5000, s.logger)
+			pw.SetRetention404(s.retention404Days)
+			s.scheduler.SetPruneWorker(pw)
 		}
 
 		// Entity-version retention: coalesce identical-consecutive versions and
@@ -703,6 +707,32 @@ func mountOpsRoutes(r *httpx.Group, health, ready, media http.HandlerFunc) {
 	r.HandleFunc("GET /health", health)
 	r.HandleFunc("GET /ready", ready)
 	r.HandleFunc("GET /media/{rest...}", media)
+}
+
+// log404PolicyTimeout bounds the settings read behind the 404 log policy.
+const log404PolicyTimeout = 250 * time.Millisecond
+
+// log404Policy is the 404 logging policy from the SEO 404 monitor settings. It
+// runs on the request path: a warm cache answers at once and a cold read is
+// bounded by log404PolicyTimeout, after which the default (log everything) or
+// the last good copy applies. Without a store every 404 is logged.
+func (s *Server) log404Policy() redirect.Log404Policy {
+	ctx, cancel := context.WithTimeout(context.Background(), log404PolicyTimeout)
+	defer cancel()
+	m := s.seoSettings(ctx)
+	if m == nil {
+		return redirect.Log404Policy{}
+	}
+	return redirect.Log404Policy{Disabled: m.Monitor404.Disabled, Ignore: m.Monitor404.IgnorePatterns}
+}
+
+// retention404Days is the 404 log retention in days for the prune worker. A
+// missing store gives the default, never a shorter period.
+func (s *Server) retention404Days(ctx context.Context) int {
+	if m := s.seoSettings(ctx); m != nil {
+		return m.Monitor404.Days()
+	}
+	return seo.DefaultRetention404
 }
 
 // setupRoutes configures all API routes.

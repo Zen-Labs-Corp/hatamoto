@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -194,6 +195,31 @@ func (r *Registry) LooksLikeBot(ua string) bool {
 		}
 	}
 	return false
+}
+
+// UASubstrings returns the lowercase literals LooksLikeBot searches for: every
+// generic hint and every agent UA pattern, deduplicated and sorted. A user
+// agent looks like a bot exactly when its lowercase form contains one of them.
+func (r *Registry) UASubstrings() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		s = strings.ToLower(s)
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, h := range r.GenericUAHints {
+		add(h)
+	}
+	for i := range r.Agents {
+		for _, p := range r.Agents[i].UA {
+			add(p)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // UAHintRegexp is the case-insensitive union of every UA pattern and generic

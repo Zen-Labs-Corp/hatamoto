@@ -153,6 +153,7 @@ export const screens = [
   { name: "settings-seo-sitemap", path: "/admin/settings/seo/sitemap", mock: null, roles: O },
   { name: "settings-seo-breadcrumbs", path: "/admin/settings/seo/breadcrumbs", mock: null, roles: O },
   { name: "settings-seo-indexnow", path: "/admin/settings/seo/indexnow", mock: null, roles: O },
+  { name: "settings-seo-404", path: "/admin/settings/seo/404-monitor", mock: null, roles: O },
   { name: "settings-import", path: "/admin/settings/import", legacy: "/admin/import", mock: "settings-import", roles: O },
   { name: "settings-export", path: "/admin/settings/export", legacy: null, mock: "settings-export", roles: O },
   // Account, errors, signed-out

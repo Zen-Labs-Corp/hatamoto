@@ -169,3 +169,38 @@ func TestGoogleRDNSHasNoGoogleusercontent(t *testing.T) {
 		}
 	}
 }
+
+var sampleUAs = []string{
+	"", "Mozilla/5.0 Chrome/124 Safari/537.36", "node-fetch/1.0", "GPTBot/1.1",
+	"Mozilla/5.0 (compatible; Googlebot/2.1)", "SOMETHING CRAWLER 1.0", "a%b_c\\d",
+	"python-requests/2.31", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+}
+
+// UASubstrings is the data LooksLikeBot searches: a UA is a bot exactly when
+// its lowercase form contains one of the literals.
+func TestUASubstringsMatchLooksLikeBot(t *testing.T) {
+	reg := Default()
+	subs := reg.UASubstrings()
+	if len(subs) == 0 {
+		t.Fatal("no substrings")
+	}
+	seen := map[string]bool{}
+	for _, s := range subs {
+		if s == "" || s != strings.ToLower(s) || seen[s] {
+			t.Fatalf("bad or duplicate literal %q", s)
+		}
+		seen[s] = true
+	}
+	for _, ua := range sampleUAs {
+		got := false
+		for _, s := range subs {
+			if strings.Contains(strings.ToLower(ua), s) {
+				got = true
+				break
+			}
+		}
+		if got != reg.LooksLikeBot(ua) {
+			t.Errorf("%q: substrings say %v, LooksLikeBot says %v", ua, got, reg.LooksLikeBot(ua))
+		}
+	}
+}

@@ -816,7 +816,7 @@ is linked with `POST .../link` (only while the term has no copies) and removed f
 
 ### SEO
 
-Settings > SEO (owner-only) has ten tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots, Verification, Sitemap, Breadcrumbs and IndexNow. General (`<admin>/settings/seo/general`) lists the
+Settings > SEO (owner-only) has eleven tabs: General, Titles & meta, Social, Schema, Knowledge graph, Robots, Verification, Sitemap, Breadcrumbs, IndexNow and 404 monitor. General (`<admin>/settings/seo/general`) lists the
 built-in variables (`%title%`, `%sitename%`, `%sep%` and so on) and holds up to 20 custom
 variables, used as `%cv_name%`. Titles & meta (`<admin>/settings/seo/titles`) sets the separator,
 the homepage, archive, author, search and not-found titles, the date archive title (the public site has no date archive pages yet, so only the preview uses it), a title and description
@@ -927,6 +927,19 @@ IndexNow (`<admin>/settings/seo/indexnow`, owner only) pings a search engine whe
 changes. It is off by default. The first time it is switched on a key is generated and served at
 `/<key>.txt`; **New key** replaces it. The engine is picked from a fixed list. Pings are only
 reported in the server log; the key is never written to the audit log or flash messages.
+
+404 monitor (`<admin>/settings/seo/404-monitor`, owner only) controls the 404 log that Settings >
+Redirects keeps. Logging is on by default, entries are kept 90 days and no path is ignored. **Keep
+entries for** takes 30, 90, 180 or 365 days; the daily prune removes older entries (an unknown
+value keeps 90). **Never log these paths** takes one pattern per line (at most 50): `*` matches any
+text anywhere, the query string is ignored and matching is case-sensitive, so `/wp-admin/*` and
+`*.php` both work. A new pattern stops future logging only; entries already logged are kept. The
+tab shows how many addresses are logged and links to the log. **Delete all…** in the Danger zone
+opens a confirm page that needs the typed phrase `delete 404 log`, empties the log and writes the
+audit entry `404log.cleared` with the number of deleted entries only, never the paths. On Settings
+> Redirects > 404 log, **Show** limits the list to All, People or Bots, judged by the last user
+agent of each address (so it is approximate: an address both people and bots request shows the
+latest visitor), and a **Last visitor** column says Person or Bot.
 
 An entry's SEO panel has a Schema tab. The two fields below are on the entity form and the blog
 editor; the Builder SEO drawer and the term panels show the tab with its preview only, without the

@@ -71,7 +71,16 @@ type NotFoundListParams struct {
 	Search  string `json:"search"`
 	Page    int    `json:"page"`
 	PerPage int    `json:"per_page"`
+	// Visitor limits the list by the last user agent: "" all, "people" or
+	// "bots" (see agents.Registry.LooksLikeBot). A missing user agent is a person.
+	Visitor string `json:"visitor"`
 }
+
+// Values for NotFoundListParams.Visitor.
+const (
+	VisitorPeople = "people"
+	VisitorBots   = "bots"
+)
 
 // RedirectListParams controls redirect listing.
 type RedirectListParams struct {
