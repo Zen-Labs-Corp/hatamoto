@@ -85,7 +85,7 @@ handoff material are stale, do not copy them.
 5. **Flat sticky footer only on four editor screens, the menu editor, the term editor and Titles & meta:** entity edit, entity model edit,
    form editor and plugin settings, plus the menu editor, whose save bar stays in reach
    beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card, and Settings > SEO > Titles & meta, whose one save bar stays in reach below its long list of patterns (the approved design shows it sticky). They use `.hm-savebar` (flat, hairline top
-   border, no radius, no shadow). Every other form uses a card footer.
+   border, no radius, no shadow). Every other form uses a card footer. One opt-in exception: the Identity, Homepage and Business details cards on Settings > General add `hm-card--sticky-foot` (via card-start `Class`), which keeps that card footer sticky at the bottom of the viewport on a tall card.
 6. **No shadows except popups and focus or selected rings.** Allowed:
    `none`, ring shadows such as `0 0 0 2px`, `inset` shadows (selected marker,
    hairline), and `--shadow-2` or `--shadow-3` on popups only: dialogs, menus,

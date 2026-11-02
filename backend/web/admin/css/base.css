@@ -11,6 +11,7 @@ html { -webkit-text-size-adjust: 100%; }
 @media (max-width: 768px) { html { scroll-padding-top: 120px; } }
 /* Focus not obscured by the sticky save bar. */
 html:has(.hm-savebar) { scroll-padding-bottom: 96px; }
+html:has(.hm-card--sticky-foot) { scroll-padding-bottom: 96px; }
 body {
   margin: 0;
   background: var(--bg);
