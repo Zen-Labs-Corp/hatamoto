@@ -49,7 +49,7 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 		}
 	}
 	// Forced colors paint transparent borders, so the links' border must be Canvas there and only the current one Highlight.
-	forced := css[strings.Index(css, "@media (forced-colors: active)"):]
+	forced := css[strings.LastIndex(css, "@media (forced-colors: active)"):]
 	for _, want := range []string{".hm-subnav__link { border-bottom-color: Canvas; }", `.hm-subnav__link[aria-current="page"] { border-bottom-color: Highlight; }`} {
 		if !strings.Contains(forced, want) {
 			t.Errorf("the forced-colors block lacks %q: every link would show a marker", want)
@@ -58,6 +58,12 @@ func TestSubnavStickyAndPhoneScroller(t *testing.T) {
 	// The hairline is the grid's background, not the subnav's border or min-height: a subnav sized for the unscrolled
 	// state (100vh minus the top bar) stops 48px short of the bottom once the top bar has scrolled away.
 	desktop := css[:strings.Index(css, "@media (max-width: 960px)")]
+	// Forced colors drop the gradient, so only there the subnav draws the hairline as a real border.
+	const forcedLine = "@media (forced-colors: active) and (min-width: 641px) { .hm-subnav { border-right: 1px solid CanvasText; } }"
+	if !strings.Contains(desktop, forcedLine) {
+		t.Errorf("settings.css lacks %q: the docked line vanishes in forced-colors mode", forcedLine)
+	}
+	desktop = strings.Replace(desktop, forcedLine, "", 1)
 	if strings.Contains(desktop, "border-right") || strings.Contains(desktop, ".hm-subnav { position: sticky; top: 0; min-height") {
 		t.Error("the docked hairline must not hang on the sticky subnav's border or min-height")
 	}

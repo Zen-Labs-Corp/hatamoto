@@ -7,6 +7,8 @@
   /* The docked hairline belongs to the grid, not the sticky subnav: it spans the column to the bottom of the page, so it never stops short once the top bar has scrolled away. */
   background: linear-gradient(var(--border), var(--border)) calc(var(--subnav-w) - 1px) 0 / 1px 100% no-repeat; }
 .hm-settings > .hm-page { margin-inline: 0; }
+/* Forced colors drop the gradient hairline: draw it as a real border on the docked subnav (its last pixel, where the gradient sits). */
+@media (forced-colors: active) and (min-width: 641px) { .hm-subnav { border-right: 1px solid CanvasText; } }
 /* Defaults of the Colours live-preview properties; themepreview.js overrides them on the form. */
 .hm-settings { --hm-preview-font-heading: var(--font-ui); --hm-preview-font-body: var(--font-ui); --hm-preview-radius-sm: var(--radius-sm); --hm-preview-radius-md: var(--radius-md); --hm-preview-radius-lg: var(--radius-lg); }
 /* Beside the subnav, wide and full pages fill the column (base.css); compact ones keep the narrow 760px column, and narrow ones (forms) the wide one. The attribute selector outranks the per-width rules in base.css. */
