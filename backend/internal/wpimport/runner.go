@@ -238,8 +238,8 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		fn   func(context.Context) error
 	}{
 		{"settings", r.importSettings},
-		{"seo", r.importSEO},
 		{"schemas", r.prepareSchemas},
+		{"seo", r.importSEO},
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},

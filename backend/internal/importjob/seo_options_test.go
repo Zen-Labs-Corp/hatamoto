@@ -35,8 +35,8 @@ func TestOptionsCarryNoSEOFile(t *testing.T) {
 	}
 }
 
-func TestPhasesIncludeSEOAfterSettings(t *testing.T) {
-	if Phases[1] != "settings" || Phases[2] != "seo" {
+func TestPhasesIncludeSEOAfterSchemas(t *testing.T) {
+	if Phases[1] != "settings" || Phases[2] != "schemas" || Phases[3] != "seo" {
 		t.Fatalf("Phases = %v", Phases)
 	}
 }

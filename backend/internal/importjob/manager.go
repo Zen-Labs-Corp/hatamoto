@@ -52,7 +52,7 @@ const (
 )
 
 // Phases a run goes through, in order, for the progress display.
-var Phases = []string{"read", "settings", "seo", "schemas", "media", "authors", "terms", "content", "links", "menus", "redirects", "finish", "audit"}
+var Phases = []string{"read", "settings", "schemas", "seo", "media", "authors", "terms", "content", "links", "menus", "redirects", "finish", "audit"}
 
 // Actor is who started or stopped a job.
 type Actor struct {

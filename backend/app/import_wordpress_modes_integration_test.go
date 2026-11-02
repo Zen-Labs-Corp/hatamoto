@@ -311,6 +311,10 @@ func TestWordPressImportSEOEmptySite_Integration(t *testing.T) {
 	if got != "–|@exampleuser|abc123|true" {
 		t.Errorf("stored settings = %q", got)
 	}
+	// The per-type template needs the schemas phase to have run first.
+	if title := r.str(`SELECT COALESCE(settings->'types'->'post'->>'title', '') FROM hatamoto_seo_settings`); title == "" {
+		t.Errorf("types.post.title not imported (seo phase ran before schemas?)")
+	}
 	// Re-running keeps the same settings.
 	again := r.runSEO(modesDump(), seoTestFile(t))
 	if again.SEO == nil || len(again.SEO.Applied) != len(res.SEO.Applied) {
