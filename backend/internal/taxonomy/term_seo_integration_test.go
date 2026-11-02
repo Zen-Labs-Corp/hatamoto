@@ -5,6 +5,7 @@ package taxonomy
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,5 +70,64 @@ func TestTermSEORoundTrip(t *testing.T) {
 	}
 	if cleared, _ := repo.GetTerm(ctx, term.ID); cleared == nil || cleared.SEO != nil {
 		t.Fatalf("not cleared: %+v", cleared)
+	}
+}
+
+// The inline term save patches title, description and noindex through UpdateTerm
+// with no parent change: canonical, social image, parent and slug survive, and
+// the stored seo document carries the new values.
+func TestTermSEOInlineRoundTrip(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1, MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	svc := NewService(NewPostgresRepository(db), nil)
+
+	slug := "seo-" + uuid.NewString()[:8]
+	parent, err := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: slug + "-p", Slug: slug + "-p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := svc.CreateTerm(ctx, CreateTermInput{Kind: "category", Name: slug, Slug: slug, ParentID: &parent.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_terms WHERE id = ANY($1)`, []uuid.UUID{term.ID, parent.ID})
+	})
+	start := TermSEO{MetaTitle: "Old", CanonicalURL: "/canon", OGImage: "/og.png"}
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: term.ID, Name: term.Name, Slug: term.Slug, SEO: &start}); err != nil {
+		t.Fatal(err)
+	}
+
+	cur, err := svc.GetTerm(ctx, term.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := *cur.SEO
+	next.MetaTitle, next.MetaDescription, next.NoIndex = "New", "Desc", true
+	if _, err := svc.UpdateTerm(ctx, UpdateTermInput{ID: cur.ID, Name: cur.Name, Slug: cur.Slug, SEO: &next}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.GetTerm(ctx, term.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := TermSEO{MetaTitle: "New", MetaDescription: "Desc", CanonicalURL: "/canon", OGImage: "/og.png", NoIndex: true}
+	if got.SEO == nil || *got.SEO != want {
+		t.Fatalf("seo = %+v, want %+v", got.SEO, want)
+	}
+	if got.ParentID == nil || *got.ParentID != parent.ID || got.Slug != slug {
+		t.Fatalf("parent/slug changed: %+v", got)
+	}
+	var raw string
+	if err := db.Pool().QueryRow(ctx, `SELECT seo::text FROM hatamoto_terms WHERE id = $1`, term.ID).Scan(&raw); err != nil || !strings.Contains(raw, `"no_index": true`) {
+		t.Fatalf("stored seo = %q, %v", raw, err)
 	}
 }

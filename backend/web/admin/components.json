@@ -334,6 +334,12 @@
     "partial": "hm/table",
     "props": {}
   },
+  "cell-edit": {
+    "selector": ".hm-cell-edit",
+    "owner": "css/partials/table.css",
+    "partial": "hm/celledit",
+    "props": {}
+  },
   "statcard": {
     "selector": ".hm-statcard",
     "owner": "css/partials/chart.css",

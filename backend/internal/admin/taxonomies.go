@@ -23,6 +23,7 @@ func (a *Admin) mountTaxonomies(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/taxonomies/terms", a.handleTermCreate)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}", a.handleTermEdit)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}", a.handleTermSave)
+	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/seo", a.handleTermSEOInline)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/merge", a.handleTermMergeForm)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/merge", a.handleTermMerge)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/delete", a.handleTermDeleteConfirm)
@@ -51,10 +52,20 @@ type taxonomiesData struct {
 	Form  termForm
 	// Actions is the header row: the "New term" link that opens the dialog.
 	Actions []ui.Button
+	// ViewTabs is the Columns toggle: Default or the inline SEO view.
+	ViewTabs []ui.Tab
 }
 
 func (a *Admin) taxBase(kind string) string {
 	return a.adminPath + "/settings/taxonomies?kind=" + url.QueryEscape(kind)
+}
+
+// taxView is the taxonomy list of a kind in a view ("" is the default one).
+func (a *Admin) taxView(kind, view string) string {
+	if view == "" {
+		return a.taxBase(kind)
+	}
+	return a.taxBase(kind) + "&view=" + url.QueryEscape(view)
 }
 
 // kindsOf lists the kinds that exist (tag and category always do).
@@ -140,9 +151,16 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 	for _, n := range nodes {
 		counts[n.Kind]++
 	}
-	d := taxonomiesData{Kind: kind}
+	view := ""
+	if r.URL.Query().Get("view") == seoView {
+		view = seoView
+	}
+	d := taxonomiesData{Kind: kind, ViewTabs: []ui.Tab{
+		{Label: "Default", Href: a.taxView(kind, defaultView), Active: view == ""},
+		{Label: "SEO", Href: a.taxView(kind, seoView), Active: view == seoView},
+	}}
 	for _, k := range kinds {
-		d.Tabs = append(d.Tabs, ui.Tab{Label: kindLabel(k), Href: a.taxBase(k), Count: counts[k], Active: k == kind})
+		d.Tabs = append(d.Tabs, ui.Tab{Label: kindLabel(k), Href: a.taxView(k, view), Count: counts[k], Active: k == kind})
 	}
 	t := ui.Table{
 		ID: "terms", Caption: "Terms of kind " + kind, BaseURL: a.adminPath + "/settings/taxonomies", CSRF: csrfToken(ctx),
@@ -173,6 +191,9 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 	t.CreatedID = createdID(r)
 	t.Rows = pinFirst(t.Rows, t.CreatedID)
 	d.Table = t
+	if view == seoView {
+		d.Table = a.termsSEOTable(ctx, t, nodes, kind)
+	}
 	d.Form = termFormOptions(nodes, kinds, kind, termForm{})
 	d.Actions = []ui.Button{{Label: "New term", Href: a.adminPath + "/settings/taxonomies/new?kind=" + url.QueryEscape(kind), Variant: "primary", Icon: "plus", Attrs: map[string]string{"data-hm-open": "new-term"}}}
 	v := a.NewView(w, r, "Taxonomies")

@@ -247,16 +247,32 @@ func (b blogBody) mergeBlog(attrs map[string]any) {
 	set("featured_image", b.Featured)
 }
 
-// mergeSEO writes the focus keyword and the llms.txt choice into attributes.seo.
-func (b blogBody) mergeSEO(attrs map[string]any) {
+// mergeFocusKeyword writes the focus keyword into attributes.seo.focus_keyword
+// (an empty keyword removes it, and an emptied seo map is dropped). The blog
+// editor and the inline SEO view both write the keyword through here.
+func mergeFocusKeyword(attrs map[string]any, kw string) {
 	seo, _ := attrs["seo"].(map[string]any)
 	if seo == nil {
 		seo = map[string]any{}
 	}
-	if k := strings.TrimSpace(b.Keyword); k != "" {
+	if k := strings.TrimSpace(kw); k != "" {
 		seo["focus_keyword"] = k
 	} else {
 		delete(seo, "focus_keyword")
+	}
+	if len(seo) == 0 {
+		delete(attrs, "seo")
+	} else {
+		attrs["seo"] = seo
+	}
+}
+
+// mergeSEO writes the focus keyword and the llms.txt choice into attributes.seo.
+func (b blogBody) mergeSEO(attrs map[string]any) {
+	mergeFocusKeyword(attrs, b.Keyword)
+	seo, _ := attrs["seo"].(map[string]any)
+	if seo == nil {
+		seo = map[string]any{}
 	}
 	if b.InLLMs {
 		delete(seo, "include_in_llms_txt") // listed unless switched off

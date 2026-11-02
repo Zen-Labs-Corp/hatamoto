@@ -73,6 +73,10 @@ for i in $(seq 1 57); do
 done
 echo "seeded $n posts"
 
+# Two category terms, so the taxonomy SEO list (view=seo) has rows to edit.
+form /admin/settings/taxonomies/terms "kind=category" "name=QA News" "slug=qa-news"
+form /admin/settings/taxonomies/terms "kind=category" "name=QA Guides" "slug=qa-guides"
+
 # The product supports 301, 302, 307 and 308 only (no 410).
 "$BIN" redirect create --from /qa-moved --to /about --status 301 >/dev/null 2>&1 && echo "redirect 301"
 "$BIN" redirect create --from /qa-temp --to /contact --status 302 >/dev/null 2>&1 && echo "redirect 302"

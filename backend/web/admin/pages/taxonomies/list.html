@@ -1,7 +1,8 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/content{{end}}
+{{define "modules"}}@hm/content @hm/seobulk{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
 {{template "hm/tabs" dict "Label" "Kinds" "Items" .Tabs "Variant" "sub" "ShowZero" true}}
+{{template "hm/tabs" dict "Label" "Columns" "Variant" "segmented" "Changes" "view" "Items" .ViewTabs}}
 {{template "hm/table" .Table}}
 {{template "hm/dialog-start" dict "ID" "new-term" "Title" "New term" "Static" true}}
 <form id="new-term-form" method="post" action="{{adminPath}}/settings/taxonomies/terms">

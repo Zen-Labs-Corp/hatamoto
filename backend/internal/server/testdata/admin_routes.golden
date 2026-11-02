@@ -234,6 +234,7 @@ POST /admin/entities/{id}/edit/preview -> admin.(*Admin).handlePreviewPost-fm
 POST /admin/entities/{id}/edit/recovery -> admin.(*Admin).handleBlogRecoveryPut-fm
 POST /admin/entities/{id}/edit/recovery/discard -> admin.(*Admin).handleBlogRecoveryDiscard-fm
 POST /admin/entities/{id}/edit/render -> admin.(*Admin).handlePageRender-fm
+POST /admin/entities/{id}/seo -> admin.(*Admin).handleEntitySEOInline-fm
 POST /admin/entities/{id}/status -> admin.(*Admin).handleEntityStatus-fm
 POST /admin/entities/{id}/translations/copy -> admin.(*Admin).handleTranslationCopy-fm
 POST /admin/entities/{id}/translations/link -> admin.(*Admin).handleTranslationLink-fm
@@ -346,6 +347,7 @@ POST /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDe
 POST /admin/settings/taxonomies/terms/{id}/link -> admin.(*Admin).handleTermLink-fm
 POST /admin/settings/taxonomies/terms/{id}/locale -> admin.(*Admin).handleTermLocale-fm
 POST /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMerge-fm
+POST /admin/settings/taxonomies/terms/{id}/seo -> admin.(*Admin).handleTermSEOInline-fm
 POST /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlink-fm
 POST /admin/settings/types -> admin.(*Admin).handleSchemaCreate-fm
 POST /admin/settings/types/{id} -> admin.(*Admin).handleSchemaSave-fm

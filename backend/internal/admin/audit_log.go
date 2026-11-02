@@ -23,6 +23,7 @@ var auditLabels = map[string]string{
 	"entity.unpublish":             "Unpublished",
 	"entity.archive":               "Archived",
 	"entity.update":                "Edited",
+	"term.seo_update":              "Edited term SEO",
 	"entity.schedule":              "Scheduled",
 	"entity.delete":                "Deleted",
 	"entity.restore_version":       "Restored a version",

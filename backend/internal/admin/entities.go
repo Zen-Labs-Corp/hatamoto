@@ -52,6 +52,7 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("GET /entities/{id}", a.handleEntityEdit)
 	authed.HandleFunc("POST /entities/{id}", a.handleEntitySave)
 	authed.HandleFunc("POST /entities/{id}/analyze", a.handleEntityAnalyze)
+	authed.HandleFunc("POST /entities/{id}/seo", a.handleEntitySEOInline)
 	authed.HandleFunc("POST /entities/{id}/status", a.handleEntityStatus)
 	authed.HandleFunc("GET /entities/{id}/delete", a.handleEntityDeleteConfirm)
 	authed.HandleFunc("POST /entities/{id}/delete", a.handleEntityDelete)
@@ -86,6 +87,8 @@ type entitiesData struct {
 	// swapped results) so a live update keeps an open popover.
 	Results ui.Table
 	Status  string // the live-region text, e.g. "12 entities"
+	// ViewTabs is the Columns toggle: Default or the inline SEO view.
+	ViewTabs []ui.Tab
 }
 
 // maxParentOptions caps the Parent filter (the parents with the most children).
@@ -115,6 +118,7 @@ func statusBadge(s entity.EntityStatus) *ui.Badge {
 // listParams are the entity list's filters, read from the URL.
 type listParams struct {
 	q, status, typ, author, term, under, from, to, sortKey, dir string
+	view                                                        string // "" (default columns) or seoView
 	page                                                        int
 }
 
@@ -123,6 +127,9 @@ func readListParams(r *http.Request) listParams {
 	p := listParams{
 		q: strings.TrimSpace(q.Get("q")), status: q.Get("status"), typ: q.Get("type"), author: q.Get("author"), term: q.Get("term"), under: q.Get("under"),
 		from: q.Get("from"), to: q.Get("to"), sortKey: q.Get("sort"), dir: q.Get("dir"),
+	}
+	if q.Get("view") == seoView {
+		p.view = seoView
 	}
 	p.page, _ = strconv.Atoi(q.Get("page"))
 	if p.page < 1 {
@@ -152,6 +159,9 @@ func (p listParams) query() url.Values {
 		if s != "" {
 			v.Set(k, s)
 		}
+	}
+	if p.view != "" {
+		v.Set("view", p.view)
 	}
 	if p.sortKey != "updated" || p.dir != "desc" {
 		v.Set("sort", p.sortKey)
@@ -298,6 +308,9 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	// The filter form is one GET: what it has no field for rides along as hidden values.
 	hidden := map[string]string{}
+	if p.view != "" {
+		hidden["view"] = p.view
+	}
 	var primary []ui.Filter
 	if len(typeOpts) > 2 {
 		primary = append(primary, ui.Filter{Name: "type", Label: "Type", Options: typeOpts})
@@ -333,6 +346,17 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	if res.TotalPages > 0 && p.page > res.TotalPages {
 		p.page = res.TotalPages
+	}
+
+	if p.view == seoView {
+		a.renderEntitiesSEO(w, r, p, res, byID, ui.Table{
+			ID: "entities", Caption: caption + " SEO", BaseURL: a.adminPath + "/entities", CSRF: csrfToken(ctx), SortKey: p.sortKey, SortDir: p.dir, Query: p.q,
+			SearchLabel: "Search titles and URLs", PrimaryFilters: primary, PopoverFilters: popover, Chips: chips, ClearHref: p.hrefWithout(a.adminPath, "from", "to", "author", "term"),
+			Hidden: hidden, Segmented: status, Bare: true, Live: true, Target: "entities-results", ChipsOutside: true, OOB: oob,
+			Page:  ui.Pagination{Page: res.Page, PerPage: entitiesPerPage, Total: res.Total, BaseURL: a.adminPath + "/entities", Query: p.query()},
+			Empty: ui.Empty{Icon: "file-text", Title: "No entities match", Body: "Try other filters, or create the first one."},
+		}, types, resolved)
+		return
 	}
 
 	// The Type column (and each row's Type cell) is dropped on a type's list.
@@ -490,6 +514,7 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		}
 		d.Menu = &create
 	}
+	d.ViewTabs = p.viewTabs(a.adminPath)
 	d.Results = d.Table
 	d.Results.SearchLabel, d.Results.PrimaryFilters, d.Results.PopoverFilters, d.Results.Segmented = "", nil, nil, nil
 	v := a.NewView(w, r, d.Title)

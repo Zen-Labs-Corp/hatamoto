@@ -71,6 +71,31 @@ type Cell struct {
 	Tag      *Badge // small badge after the text, e.g. "not encrypted"
 	Bar      *Bar   // inline proportion bar after the text
 	Spark    *Spark // trend line after the text (a focusable role=img with a summary)
+	// Edit turns the cell into an editable control (see EditCell); the other
+	// fields are then ignored.
+	Edit *EditCell
+}
+
+// EditCell is an editable table cell: one control bound by form= to the row's own form,
+// a hidden copy of the loaded value (orig_<name>) so the server can tell a stale row from
+// a changed one, and an optional server-rendered counter. Control "save" is the row's
+// last cell instead: the row form itself with its save state and a Save button.
+type EditCell struct {
+	Name, Value, Orig, Placeholder string
+	Label                          string // the accessible name, e.g. "SEO title for About"
+	Control                        string // "text" | "textarea" | "switch" | "save"
+	Max                            int    // counter limit; used with Count
+	Count                          *EditCount
+	Form                           string // id of the row form the control belongs to
+	// Control "save" only: the form's POST target, CSRF token and hidden fields.
+	Action, CSRF string
+	Hidden       map[string]string
+}
+
+// EditCount is the character counter under an edit cell (hm/seocount).
+type EditCount struct {
+	Len         int
+	Status, Msg string
 }
 
 // Action is a row or overflow-menu action: a link (Href) or a POST form (Post).

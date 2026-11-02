@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
 // termNode is one term in tree order: its depth below the root of its kind.
@@ -18,6 +20,7 @@ type termNode struct {
 	Depth       int
 	Count       int
 	HasChildren bool
+	SEO         *taxonomy.TermSEO
 }
 
 // maxTermPages bounds how many pages of 200 terms the admin loads for a tree.
@@ -41,7 +44,7 @@ func (a *Admin) termNodesOf(ctx context.Context, kind string) ([]termNode, error
 			return nil, err
 		}
 		for _, t := range res.Items {
-			all = append(all, termNode{ID: t.ID, ParentID: t.ParentID, Kind: t.Kind, Name: t.Name, Slug: t.Slug, Description: t.Description, Count: t.EntityCount})
+			all = append(all, termNode{ID: t.ID, ParentID: t.ParentID, Kind: t.Kind, Name: t.Name, Slug: t.Slug, Description: t.Description, Count: t.EntityCount, SEO: t.SEO})
 		}
 		if len(res.Items) == 0 || page*200 >= res.Total {
 			break
