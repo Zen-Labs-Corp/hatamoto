@@ -217,6 +217,7 @@ var businessUI = map[string]schemaform.UIHint{
 	"services.unit_text":                {Help: "For example MONTH or HOUR."},
 	"additional_properties":             {Help: "Extra facts printed on the organisation, like a score. Lowest and Highest are optional numbers."},
 	"additional_properties.value":       {Help: "A number, like 9.6, or text."},
+	"additional_properties.unit_text":   {Help: "For example POINTS or PERCENT."},
 	"amenity_presets":                   {Help: "Choose Not stated on a line to say nothing about it."},
 	"amenity_presets.parking":           {Placeholder: notStated},
 	"amenity_presets.wheelchair_access": {Placeholder: notStated},

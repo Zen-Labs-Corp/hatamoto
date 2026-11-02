@@ -91,6 +91,7 @@ func localeUI() map[string]schemaform.UIHint {
 	h["no_office"] = schemaform.UIHint{Help: "This locale prints the organisation only, no local business."}
 	h["name"] = schemaform.UIHint{Help: "Names this locale's local business and is printed as its legal name. Empty uses the site name."}
 	h["description"] = schemaform.UIHint{Help: "Describes this locale's local business. Empty uses the site description."}
+	h["catalog_name"] = schemaform.UIHint{Help: "Empty uses the site-wide name, or \"Services\" when that is empty too."}
 	h["vat_id"] = schemaform.UIHint{Help: "Empty uses the site VAT ID."}
 	h["country_name"] = schemaform.UIHint{Help: "The country name printed in the areas served, like France."}
 	h["service_radius_km"] = schemaform.UIHint{Help: "Kilometres around this locale's coordinates. Needs both coordinates."}
