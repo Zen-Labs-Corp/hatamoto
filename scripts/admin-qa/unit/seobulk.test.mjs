@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { rowDirty, rowValues, applyResponse, viewRedirect, viewToRemember, stateText } = await import(new URL("../../../backend/web/admin/js/seobulklogic.js", import.meta.url));
+const { showsRetry, rowDirty, rowValues, applyResponse, viewRedirect, viewToRemember, stateText } = await import(new URL("../../../backend/web/admin/js/seobulklogic.js", import.meta.url));
 
 test("rowDirty compares each field with its loaded copy", () => {
   assert.equal(rowDirty({ title: "a", noindex: "" }, { title: "a", noindex: "" }), false);
@@ -57,4 +57,9 @@ test("a save reply never leaves an input behind a newer orig (another user's cha
   assert.deepEqual(applyResponse(200, { status: "saved", values }, posted, typed).refresh, []);
   // nothing to refresh when the server stored what was shown
   assert.deepEqual(applyResponse(200, { status: "saved", values: { ...values, description: "Old" } }, posted, posted).refresh, []);
+});
+
+test("only a failed save offers Retry", () => {
+  assert.equal(showsRetry("error"), true);
+  for (const s of ["idle", "unsaved", "saving", "saved", "conflict"]) assert.equal(showsRetry(s), false, s);
 });

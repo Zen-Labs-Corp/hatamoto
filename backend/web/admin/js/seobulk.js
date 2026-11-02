@@ -1,7 +1,7 @@
 // The inline SEO view of the entity and term lists: a field saves when it loses focus after a change.
 // Without JavaScript each row is a form with its own Save button; here the button hides and the
 // row's hm/savestate shows the outcome. Delegated on the document so an htmx swap keeps working.
-import { applyResponse, rowDirty, rowValues, stateText, viewRedirect, viewToRemember } from "@hm/seobulklogic";
+import { applyResponse, rowDirty, rowValues, showsRetry, stateText, viewRedirect, viewToRemember } from "@hm/seobulklogic";
 import { safeStorage } from "@hm/shelllogic";
 
 const NAMES = ["title", "description", "keyword", "noindex"];
@@ -28,6 +28,18 @@ const paint = (form, state, text) => {
   s.dataset.state = state;
   const t = s.querySelector(".hm-savestate__text");
   if (t) t.textContent = text ?? stateText(state);
+  retryButton(form, state);
+};
+// The Save button stays hidden for the script's blur saves, except after a failure: then it is the
+// keyboard-reachable Retry. A later edit of a field saves again on its own as well.
+const retryButton = (form, state) => {
+  const b = form.querySelector("[data-hm-seobulk-save]");
+  if (!b || state === "unsaved" || state === "conflict") return;
+  const show = showsRetry(state);
+  const label = b.querySelector("span");
+  if (label) label.textContent = show ? "Retry" : "Save";
+  if (!show && !b.hidden && b.ownerDocument.activeElement === b) form.elements.namedItem("title")?.focus();
+  b.hidden = !show;
 };
 const paintCount = (form, name, c) => {
   const p = document.getElementById(`${form.id}-${name}-count`);
@@ -42,8 +54,12 @@ const paintCount = (form, name, c) => {
 /** Wires the list. Returns what a test needs. */
 export function mountSEOBulk(doc = document) {
   const pending = new Set();
+  const queued = new Set();
   const save = async (form) => {
-    if (pending.has(form)) return;
+    if (pending.has(form)) {
+      queued.add(form); // a change made while a save is in flight is saved once that one is done
+      return;
+    }
     const fields = fieldsOf(form);
     if (!rowDirty(rowValues(fields), origOf(form))) return;
     pending.add(form);
@@ -72,6 +88,7 @@ export function mountSEOBulk(doc = document) {
     }
     for (const [n, c] of Object.entries(json?.counters ?? {})) paintCount(form, n, c);
     paint(form, res.state, res.text);
+    if (queued.delete(form)) return save(form);
     // an edit made while the save was in flight is still unsaved
     if (res.state === "saved" && rowDirty(rowValues(fieldsOf(form)), origOf(form))) paint(form, "unsaved");
   };

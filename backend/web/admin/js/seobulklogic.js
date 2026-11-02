@@ -6,6 +6,9 @@ const TEXT = { unsaved: "Unsaved changes", saving: "Saving…", saved: "Saved", 
 /** The text a row's save indicator shows for a state. */
 export const stateText = (state) => TEXT[state] ?? "";
 
+/** Whether the row offers its Save button, as Retry: after a failed save (a conflict has nothing left to resend). */
+export const showsRetry = (state) => state === "error";
+
 /** Whether any field differs from the copy the row was loaded with. */
 export function rowDirty(values, orig) {
   return Object.keys(orig).some((k) => (values[k] ?? "") !== (orig[k] ?? ""));

@@ -73,6 +73,46 @@ await check("Default tab leaves the remembered SEO view", async () => {
   return "default stays";
 });
 
+await check("a failed save offers Retry and a change made while saving is saved after it", async () => {
+  await p.goto(base + LIST, { waitUntil: "load" });
+  const row = p.locator("tbody tr").first();
+  const save = row.locator("[data-hm-seobulk-save]");
+  need(await save.isHidden(), "Save is visible before any failure");
+  let fail = true;
+  await p.route("**/seo", async (route) => (fail ? route.abort() : route.continue()));
+  await titleBox(p).fill("QA retry " + Date.now());
+  await p.keyboard.press("Tab");
+  await p.waitForFunction(() => document.querySelector("tbody tr .hm-savestate")?.dataset.state === "error", null, { timeout: 15000 });
+  need(await save.isVisible(), "no Retry after a failed save");
+  need(/Retry/.test((await save.textContent()) ?? ""), "the button is not labelled Retry");
+  fail = false;
+  await save.focus();
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(() => document.querySelector("tbody tr .hm-savestate")?.dataset.state === "saved", null, { timeout: 15000 });
+  need(await save.isHidden(), "Retry stays after a good save");
+  // a second edit arriving while the first save is held back
+  let release;
+  const held = new Promise((r) => (release = r));
+  await p.unroute("**/seo");
+  await p.route("**/seo", async (route) => {
+    await held;
+    await route.continue();
+  });
+  const t1 = "QA one " + Date.now();
+  const t2 = "QA two " + Date.now();
+  await titleBox(p).fill(t1);
+  await p.keyboard.press("Tab");
+  await row.locator('textarea[name="description"]').fill(t2);
+  await p.keyboard.press("Tab");
+  release();
+  await p.waitForFunction(() => document.querySelector("tbody tr .hm-savestate")?.dataset.state === "saved", null, { timeout: 15000 });
+  await p.unroute("**/seo");
+  await p.reload({ waitUntil: "load" });
+  need((await titleBox(p).inputValue()) === t1, "first edit lost");
+  need((await row.locator('textarea[name="description"]').inputValue()) === t2, "the edit made while saving was dropped");
+  return "retry + queued";
+});
+
 await b.close();
 if (errors.length) console.log("page errors:", errors.join(" | "));
 writeResult("seo-bulk.json", { results });
