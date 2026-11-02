@@ -1,5 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "modules"}}@hm/content{{end}}
+{{define "modules"}}@hm/content @hm/seobulk{{end}}
 {{define "main"}}{{with .Data}}<div id="entities-head" class="hm-entities-head">{{template "hm/pageheader" dict "Title" .Title "Description" .Description "CSRF" $.CSRF "Menu" .Menu "Primary" .Primary}}</div>
 <div class="hm-entities">{{if .Table.FilterBar}}{{template "hm/filterbar" .Table}}
 <p id="entities-status" class="hm-visually-hidden" role="status">{{.Status}}</p>{{end}}

@@ -158,7 +158,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"entities/blogedit":     {"@hm/blogeditor", "@hm/seopanel", "@hm/editor/slash"},
 		"entities/builder":      {"@hm/builder", "@hm/builder/screen", "@hm/canvas/host"},
 		"entities/edit":         {"@hm/repeater", "@hm/content", "@hm/entityform", "@hm/seopanel"},
-		"entities/list":         {"@hm/content"},
+		"entities/list":         {"@hm/content", "@hm/seobulk"},
 		"entities/translations": {"@hm/searchselect"},
 		"forms/edit":            {"@hm/content"},
 		"forms/submissions":     {"@hm/content"},
@@ -180,7 +180,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"settings/plugins":      {"@hm/slashfocus"},
 		"settings/seo-robots":   {"@hm/aia"},
 		"setup/account":         {"@hm/setupcode"},
-		"taxonomies/list":       {"@hm/content"},
+		"taxonomies/list":       {"@hm/content", "@hm/seobulk"},
 		"taxonomies/new":        {"@hm/content"},
 		"taxonomies/term":       {"@hm/seopanel"},
 	}
