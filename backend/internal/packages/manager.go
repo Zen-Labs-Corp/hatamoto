@@ -768,7 +768,8 @@ func (m *Manager) Activate(ctx context.Context, name string, force bool) error {
 	}
 	m.reconcile(ctx)
 	detail := map[string]any{"forced": force}
-	if len(layers) > 0 {
+	// A theme the engine could not load is not active: seed nothing for it.
+	if len(layers) > 0 && m.theme.err == nil {
 		if raw, err := fs.ReadFile(layers[0], ThemeManifest); err == nil {
 			if seeded := m.seedMenus(ctx, name, m.declLocations(name, raw)); len(seeded) > 0 {
 				detail["seeded_menus"] = strings.Join(seeded, ", ")

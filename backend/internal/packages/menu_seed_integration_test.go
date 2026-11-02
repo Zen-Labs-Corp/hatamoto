@@ -133,6 +133,26 @@ func TestActivateSeedsDeclaredMenus(t *testing.T) {
 	}
 }
 
+func TestActivateSeedsNothingWhenTheThemeFailedToLoad(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	svc := r.menuSvc()
+	r.installTheme(r.menuTheme("1.0.0", followDecl))
+	if err := r.mgr.Activate(ctx, "sunrise", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.DeleteMenu(ctx, menusAt(t, svc, "follow").ID); err != nil {
+		t.Fatal(err)
+	}
+	r.mgr.theme.err = errors.New("theme not applied")
+	if err := r.mgr.Activate(ctx, "sunrise", true); err == nil {
+		t.Fatal("activation must report the load failure")
+	}
+	if menusAt(t, svc, "follow") != nil {
+		t.Fatal("a theme that failed to load seeded its menus")
+	}
+}
+
 func TestUpdateSeedsOnlyNewLocationsOfActiveTheme(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
