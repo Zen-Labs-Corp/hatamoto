@@ -65,9 +65,15 @@ func (a *Admin) seoKGTable(r *http.Request) ui.Table {
 		if cfg, err := a.deps.Site.Get(r.Context()); err == nil && cfg != nil {
 			name, logo = cfg.CompanyName, cfg.LogoURL
 			profileLinks = len(orgSameAs(cfg))
+			// The default locale's business is the organisation itself, never a
+			// card of its own: only the other locales count.
+			def := cfg.Language
+			if entries, err := localeEntries(cfg); err == nil {
+				def = defaultTag(cfg, entries)
+			}
 			stored, _ := bizprofile.ParseLocales(cfg.LocaleProfiles)
-			for _, p := range stored {
-				if label, _ := localeBadge(p); label != "Defaults" {
+			for tag, p := range stored {
+				if label, _ := localeBadge(p); tag != def && label != "Defaults" {
 					localeCards++
 				}
 			}
@@ -91,7 +97,7 @@ func (a *Admin) seoKGTable(r *http.Request) ui.Table {
 	}{
 		{"name", "Organization name", nameCell, link("General", general)},
 		{"logo", "Logo", state(logo != ""), link("General", general)},
-		{"profiles", "Profile links (sameAs)", ui.Cell{Text: strconv.Itoa(profileLinks)}, link("General", general)},
+		{"profiles", "Profile links (sameAs)", ui.Cell{Text: strconv.Itoa(profileLinks)}, link("Business details", locales)},
 		{"locales", "Locales with their own business details", ui.Cell{Text: strconv.Itoa(localeCards)}, link("Locales > Business details", locales)},
 	}
 	for _, row := range rows {
