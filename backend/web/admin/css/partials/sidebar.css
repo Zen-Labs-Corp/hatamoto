@@ -7,7 +7,7 @@
   position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto;
   display: flex; flex-direction: column; gap: var(--space-5);
   padding: var(--space-4) var(--space-3) var(--space-3);
-  background: var(--color-shiro); border-right: 1px solid var(--color-kinu);
+  background: var(--raised); border-right: 1px solid var(--color-kinu);
 }
 .hm-sidebar__head { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .hm-sidebar__brand { flex: 1; min-width: 0; padding: var(--space-1) var(--space-2); color: var(--text); text-decoration: none; }
@@ -22,10 +22,10 @@
 .hm-nav-link {
   display: flex; align-items: center; gap: var(--space-2);
   min-height: 34px; padding: 0 var(--space-2);
-  border-radius: var(--radius-nav); color: var(--text-body); text-decoration: none;
-  font-size: var(--text-sm); font-weight: var(--weight-regular);
+  border-radius: var(--radius-nav); color: var(--text-2); text-decoration: none;
+  font-size: var(--text-md); font-weight: var(--weight-regular);
 }
-.hm-nav-link .hm-icon { color: var(--color-sumi-soft); }
+.hm-nav-link .hm-icon { color: var(--text-2); }
 .hm-nav-link:hover { background: var(--surface-hover); color: var(--text); }
 /* Active item: a faint white chip with a near-invisible ring. Ink text and
    icon, weight 500; no accent colour and no indicator anywhere in the menu. */
@@ -34,7 +34,7 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-kinu) 80%, transparent);
 }
 .hm-nav-link:hover .hm-icon, .hm-nav-link[aria-current="page"] .hm-icon { color: var(--text); }
-.hm-nav-link__badge { margin-left: auto; font-size: var(--text-xs); color: var(--text-muted); }
+.hm-nav-link__badge { margin-left: auto; font-size: var(--text-sm); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .hm-nav-link:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 
 .hm-sidebar__foot {

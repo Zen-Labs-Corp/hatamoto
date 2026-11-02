@@ -46,6 +46,7 @@ func TestEntitiesSubnavAllView(t *testing.T) {
 	t.Parallel()
 
 	c, _ := newNavRig(t)
+	warmNavCounts(c)
 	body := c.get(t, "owner-token", "/admin/entities", "")
 	nav := subnavOf(body)
 	has(t, nav, `aria-label="Entities"`, `<h2 class="hm-subnav__title hm-visually-hidden">Entities</h2>`)
