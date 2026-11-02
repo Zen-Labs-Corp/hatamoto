@@ -45,6 +45,14 @@ var seoSchemaKeys = []string{"schema_type", "custom_jsonld"}
 // attribute form.
 var seoSitemapKeys = []string{"hide_from_sitemap"}
 
+// seoCrumbKeys are the entity attributes of the Advanced tab's breadcrumb
+// title and primary term. Like seoSitemapKeys they stay out of seoKeys (the
+// builder drawer would wipe them) and out of the attribute form.
+var seoCrumbKeys = []string{"breadcrumb_title", "primary_term"}
+
+// maxCrumbTitle is the longest breadcrumb title, in characters.
+const maxCrumbTitle = 120
+
 type seoForm struct {
 	Title, Description, Canonical, OGImage string
 	OGTitle, OGDescription                 string
@@ -59,6 +67,10 @@ type seoForm struct {
 	// HideFromSitemap keeps the entry out of /sitemap.xml while it stays
 	// indexable; written by mergeSitemap, not merge.
 	HideFromSitemap bool
+	// BreadcrumbTitle and PrimaryTerm (a term id) are written by mergeCrumbs,
+	// not merge. PrimaryTerms are the picker's options, set by fill.
+	BreadcrumbTitle, PrimaryTerm string
+	PrimaryTerms                 []ui.Option
 }
 
 type termPick struct {
@@ -295,7 +307,8 @@ func seoFrom(m map[string]any) seoForm {
 		OGTitle: str(m, "og_title"), OGDescription: str(m, "og_description"), NoIndex: b,
 		SchemaType: str(m, "schema_type"), CustomJSONLD: str(m, "custom_jsonld"),
 		HideFromSitemap: m["hide_from_sitemap"] == true || str(m, "hide_from_sitemap") == "true",
-		NoFollow:        d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
+		BreadcrumbTitle: str(m, "breadcrumb_title"), PrimaryTerm: str(m, "primary_term"),
+		NoFollow: d.NoFollow, NoArchive: d.NoArchive, NoSnippet: d.NoSnippet, MaxImagePreview: d.MaxImagePreview}
 	if d.MaxSnippet != nil {
 		f.MaxSnippet = strconv.Itoa(*d.MaxSnippet)
 	}
@@ -364,6 +377,43 @@ func (s *seoForm) keepUnpostedSitemap(r *http.Request, prev map[string]any) {
 		return
 	}
 	s.HideFromSitemap = seoFrom(prev).HideFromSitemap
+}
+
+// mergeCrumbs writes the Advanced tab's breadcrumb title and primary term into
+// attrs; an empty value removes the key.
+func (s seoForm) mergeCrumbs(m map[string]any) {
+	for k, v := range map[string]string{"breadcrumb_title": s.BreadcrumbTitle, "primary_term": s.PrimaryTerm} {
+		if v = strings.TrimSpace(v); v != "" {
+			m[k] = v
+		} else {
+			delete(m, k)
+		}
+	}
+}
+
+// keepUnpostedCrumbs gives the two fields their stored values when the form did
+// not carry them (marked by _seo_crumb; an emptied select still posts "").
+func (s *seoForm) keepUnpostedCrumbs(r *http.Request, prev map[string]any) {
+	if r.PostForm.Get("_seo_crumb") == "1" {
+		return
+	}
+	stored := seoFrom(prev)
+	s.BreadcrumbTitle, s.PrimaryTerm = stored.BreadcrumbTitle, stored.PrimaryTerm
+}
+
+// crumbErrors checks the breadcrumb fields into the form's error map. When the
+// form carried the term picker (termsSet), the primary term must be one of the
+// posted terms.
+func (s seoForm) crumbErrors(errs map[string]string, picked map[string]bool, termsSet bool) {
+	if len([]rune(s.BreadcrumbTitle)) > maxCrumbTitle {
+		errs["seo_breadcrumb_title"] = "Use at most 120 characters"
+	}
+	if s.PrimaryTerm == "" {
+		return
+	}
+	if _, err := uuid.Parse(s.PrimaryTerm); err != nil || (termsSet && !picked[s.PrimaryTerm]) {
+		errs["seo_primary_term"] = "Choose one of this entry's terms"
+	}
 }
 
 // robotsErrors checks the Advanced tab fields into the form's error map.
@@ -453,7 +503,8 @@ func seoFromForm(r *http.Request) seoForm {
 		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true",
 		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld"),
 		HideFromSitemap: r.PostFormValue("seo_hide_sitemap") == "true",
-		NoFollow:        r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
+		BreadcrumbTitle: strings.TrimSpace(r.PostFormValue("seo_breadcrumb_title")), PrimaryTerm: strings.TrimSpace(r.PostFormValue("seo_primary_term")),
+		NoFollow: r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
 		MaxSnippet: strings.TrimSpace(r.PostFormValue("seo_max_snippet")), MaxImagePreview: r.PostFormValue("seo_max_image_preview")}
 }
 
@@ -513,11 +564,27 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 				g.Terms = append(g.Terms, termPick{ID: n.ID.String(), Name: n.Name, Depth: min(n.Depth, 8), Checked: picked[n.ID.String()]})
 			}
 			f.KindOptions = kindOptions(kinds, f.NewTermKind)
+			f.SEO.PrimaryTerms = primaryTermOptions(f.TermGroups, f.SEO.PrimaryTerm)
 		}
 		if u := userFrom(ctx); u != nil && u.Role == "owner" {
 			f.CanCreateTerm = f.ShowTerms
 		}
 	}
+}
+
+// primaryTermOptions is the primary-term picker: "Automatic", then the terms
+// ticked in the form. A stored pick that is no longer ticked is not offered.
+func primaryTermOptions(groups []termGroup, selected string) []ui.Option {
+	out := []ui.Option{{Label: "Automatic (first category)"}}
+	for _, g := range groups {
+		for _, t := range g.Terms {
+			if t.Checked {
+				out = append(out, ui.Option{Value: t.ID, Label: t.Name + " (" + g.Kind + ")", Selected: t.ID == selected})
+			}
+		}
+	}
+	out[0].Selected = !slices.ContainsFunc(out[1:], func(o ui.Option) bool { return o.Selected })
+	return out
 }
 
 // parentSearchLimit caps the matches the parent picker lists at once; typing
@@ -619,7 +686,7 @@ func (a *Admin) entityTabs(id, active string) []ui.Tab {
 
 // renderAttrs renders the schema's own fields. SEO keys are shown by the SEO panel.
 func renderAttrs(sc *entity.EntitySchema, values map[string]any, errs schemaform.Errors) (template.HTML, error) {
-	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys)...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys, seoCrumbKeys)...)
 	if err != nil {
 		return "", err
 	}
@@ -894,7 +961,7 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	for _, id := range r.PostForm["term"] {
 		p.picked[id] = true
 	}
-	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys)...)
+	schema, err := schemaform.WithoutProperties(sc.Schema, slices.Concat(seoKeys, seoSchemaKeys, seoSitemapKeys, seoCrumbKeys)...)
 	if err != nil {
 		p.f.Errors["name"] = "This entity type's schema is invalid."
 		return p
@@ -904,10 +971,12 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 	p.f.SEO.keepUnpostedSchema(r, prev)
 	p.f.SEO.keepUnpostedRobots(r, prev)
 	p.f.SEO.keepUnpostedSitemap(r, prev)
+	p.f.SEO.keepUnpostedCrumbs(r, prev)
 	p.f.SEO.merge(p.attrs)
 	p.f.SEO.mergeSchema(p.attrs)
 	p.f.SEO.mergeRobots(p.attrs)
 	p.f.SEO.mergeSitemap(p.attrs)
+	p.f.SEO.mergeCrumbs(p.attrs)
 	return p
 }
 
@@ -937,6 +1006,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 	}
 	f.SEO.schemaErrors(f.Errors)
 	f.SEO.robotsErrors(f.Errors)
+	f.SEO.crumbErrors(f.Errors, p.picked, p.termsSet)
 	if raw, err := json.Marshal(p.attrs); err == nil {
 		if verrs := schemaform.Validate(sc.Schema, raw); len(verrs) > 0 {
 			if p.errs == nil {
@@ -956,7 +1026,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 					f.Errors["seo_og_title"] = msgs[0]
 				case "og_description":
 					f.Errors["seo_og_description"] = msgs[0]
-				case "no_index", "schema_type", "custom_jsonld":
+				case "no_index", "schema_type", "custom_jsonld", "breadcrumb_title", "primary_term":
 				default:
 					if _, dup := p.errs[path]; !dup {
 						p.errs[path] = msgs
