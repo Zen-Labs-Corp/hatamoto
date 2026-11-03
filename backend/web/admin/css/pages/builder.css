@@ -332,13 +332,6 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-copt > .hm-muted { margin-inline-start: auto; }
 .hm-bs-custom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .hm-bs-native { width: 3rem; height: 2rem; padding: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: none; }
-/* The compact length control (lengthControl compact): a column with no spin arrows. */
-.hm-bs-len--c { flex-direction: column; align-items: stretch; gap: var(--space-1); }
-.hm-bs-len--c .hm-bs-len__n { flex-direction: column; align-items: stretch; }
-.hm-bs-len--c .hm-bs-num, .hm-bs-len--c .hm-bs-unit { width: 100%; font-size: var(--text-xs); }
-/* A click in a side field is a click to type: the spin arrows of a narrow field sat under the pointer and stepped the value (arrow keys still step it). */
-.hm-bs-len--c .hm-bs-num { -moz-appearance: textfield; appearance: textfield; }
-.hm-bs-len--c .hm-bs-num::-webkit-inner-spin-button, .hm-bs-len--c .hm-bs-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .hm-bs-slider:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* The row chrome: dot, label, source text, reset. Colour only decorates; the source is always text. */
 .hm-bs-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
