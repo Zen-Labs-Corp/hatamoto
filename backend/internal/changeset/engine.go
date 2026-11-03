@@ -142,13 +142,7 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		if it.Kind == KindMedia && (it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1) {
 			return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
 		}
-		var items, size int64
-		if err := tx.QueryRow(ctx, `
-			SELECT COUNT(*), COALESCE(SUM(octet_length(payload::text)), 0) FROM hatamoto_changeset_items WHERE changeset_id = $1`,
-			csID).Scan(&items, &size); err != nil {
-			return fmt.Errorf("failed to measure the changeset: %w", err)
-		}
-		if items >= int64(maxStagedItems) || size+int64(len(payload)) > maxStagedBytes {
+		if cs.Items >= int64(maxStagedItems) || cs.PayloadBytes+int64(len(payload)) > maxStagedBytes {
 			return fmt.Errorf("%w: at most %d items and %d MiB", ErrQuotaExceeded, maxStagedItems, maxStagedBytes>>20)
 		}
 		_, err = tx.Exec(ctx, `
@@ -158,6 +152,10 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 			csID, string(it.Kind), it.Op, it.SourceKey, it.TargetID, it.BaseToken, payload, keys)
 		if err != nil {
 			return fmt.Errorf("failed to stage item: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET item_count = item_count + 1, payload_bytes = payload_bytes + $2 WHERE id = $1`,
+			csID, len(payload)); err != nil {
+			return fmt.Errorf("failed to count the staged item: %w", err)
 		}
 		return nil
 	})

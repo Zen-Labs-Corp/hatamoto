@@ -1094,6 +1094,14 @@ func TestChangesetStageQuota(t *testing.T) {
 		t.Fatalf("items = %d, want 2", n)
 	}
 
+	var items, bytes int64
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1`, f.begin("")).Scan(&items, &bytes); err != nil || items != 0 || bytes != 0 {
+		t.Fatalf("a new changeset counts %d items, %d bytes (%v)", items, bytes, err)
+	}
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1`, cs).Scan(&items, &bytes); err != nil || items != 2 || bytes <= 0 {
+		t.Fatalf("running totals after two items: %d items, %d bytes (%v)", items, bytes, err)
+	}
+
 	maxStagedItems, maxStagedBytes = 100, 600
 	cs = f.begin("")
 	big := strings.Repeat("x", 400)

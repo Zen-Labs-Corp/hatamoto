@@ -92,6 +92,11 @@ func TestPluginRunsMigration_Down(t *testing.T) {
 	if _, err := p.DownTo(ctx, pluginRunsVersion-1); err != nil {
 		t.Fatalf("down: %v", err)
 	}
+	for _, c := range []string{"item_count", "payload_bytes"} {
+		if columnExists(t, db, "hatamoto_changesets", c) {
+			t.Errorf("hatamoto_changesets.%s still exists after down", c)
+		}
+	}
 	for _, c := range []string{"name", "phase", "cursor", "params", "hosts", "upload_id", "progress", "summary", "reason", "changeset_id", "steps"} {
 		if columnExists(t, db, "hatamoto_runs", c) {
 			t.Errorf("hatamoto_runs.%s still exists after down", c)
@@ -109,5 +114,36 @@ func TestPluginRunsMigration_Down(t *testing.T) {
 	}
 	if _, err := p.Up(ctx); err != nil {
 		t.Fatalf("up again: %v", err)
+	}
+}
+
+// A changeset the previous release left staged gets its running totals from
+// its items, so the staging quota does not start from zero.
+func TestPluginRunsMigration_ChangesetCountersBackfill(t *testing.T) {
+	ctx := context.Background()
+	db, _ := scratchDB(t)
+	p := provider(t, db)
+	if _, err := p.UpTo(ctx, pluginRunsVersion-1); err != nil {
+		t.Fatalf("up to previous: %v", err)
+	}
+	var runID string
+	if err := db.QueryRowContext(ctx, `INSERT INTO hatamoto_runs (plugin) VALUES ('a') RETURNING id`).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	var csID int64
+	if err := db.QueryRowContext(ctx, `INSERT INTO hatamoto_changesets (run_id, plugin, expires_at) VALUES ($1, 'a', now() + interval '1 day') RETURNING id`, runID).Scan(&csID); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 2; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, payload) VALUES ($1, $2, 'entity', 'upsert', '{"a":1}')`, csID, i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := p.Up(ctx); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+	var n, b int64
+	if err := db.QueryRowContext(ctx, `SELECT item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1`, csID).Scan(&n, &b); err != nil || n != 2 || b <= 0 {
+		t.Fatalf("counters = %d items, %d bytes (%v)", n, b, err)
 	}
 }

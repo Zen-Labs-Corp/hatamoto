@@ -26,6 +26,18 @@ ALTER TABLE hatamoto_runs
     ADD COLUMN IF NOT EXISTS changeset_id bigint,
     ADD COLUMN IF NOT EXISTS steps        integer NOT NULL DEFAULT 0;
 
+-- Running totals of a changeset's items and payload bytes, so the staging
+-- quota is an O(1) read under the changeset's row lock. A changeset the
+-- previous release left staged is counted once here.
+ALTER TABLE hatamoto_changesets
+    ADD COLUMN IF NOT EXISTS item_count    integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS payload_bytes bigint  NOT NULL DEFAULT 0;
+UPDATE hatamoto_changesets c
+   SET item_count = t.n, payload_bytes = t.b
+  FROM (SELECT changeset_id, count(*) AS n, COALESCE(sum(octet_length(payload::text)), 0) AS b
+          FROM hatamoto_changeset_items GROUP BY changeset_id) t
+ WHERE t.changeset_id = c.id AND c.state = 'staged';
+
 -- state: running | finished | failed
 UPDATE hatamoto_runs SET state = 'finished' WHERE state = 'running';
 CREATE UNIQUE INDEX IF NOT EXISTS hatamoto_runs_one_active ON hatamoto_runs (plugin) WHERE state = 'running';
@@ -52,6 +64,9 @@ CREATE TABLE IF NOT EXISTS hatamoto_run_uploads (
 DROP TABLE IF EXISTS hatamoto_run_uploads;
 DROP TABLE IF EXISTS hatamoto_run_proposals;
 DROP INDEX IF EXISTS hatamoto_runs_one_active;
+ALTER TABLE hatamoto_changesets
+    DROP COLUMN IF EXISTS payload_bytes,
+    DROP COLUMN IF EXISTS item_count;
 ALTER TABLE hatamoto_runs
     DROP COLUMN IF EXISTS steps,
     DROP COLUMN IF EXISTS changeset_id,
