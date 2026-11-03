@@ -340,6 +340,26 @@ test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; 
   assert.equal(m.calls.at(-1).value, null, "Auto unsets");
 });
 
+test("a text block: Typography and Spacing open, then Effects, then Layout, Fill and Corners & border closed; every key stays reachable", () => {
+  const m = mount(heading(), { parent: section({ gap: "space-4" }) });
+  const heads = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0]);
+  assert.deepEqual(heads.map((b) => [b.kids[0].textContent, b.attrs["aria-expanded"]]), [["Typography", "true"], ["Spacing", "true"], ["Effects", "false"], ["Layout", "false"], ["Fill", "false"], ["Corners & border", "false"]]);
+  const spacing = m.group("Spacing");
+  assert.match(m.find((n) => n.className === "hm-bs-hintline", spacing)[0].textContent, /^Space between blocks comes from the section's Gap \(16px\)\.$/);
+  assert.ok(m.find((n) => n.dataset?.v === "full" || n.attrs?.["aria-label"] === "Reset Background" || n.className === "hm-bs-morebtn", m.group("Layout")).length, "Layout keeps its More");
+});
+
+test("Wt is an inline field: its short label sits beside the select inside one 28px field", () => {
+  const m = mount(heading(), { parent: section() });
+  const r2 = m.find((n) => n.className === "hm-bs-r2", m.group("Typography"))[0];
+  const fld = m.find((n) => n.className === "hm-bs-fld" && n.kids.some((k) => k.tag === "select"), r2)[0];
+  assert.ok(fld, "the select is inside a .hm-bs-fld");
+  assert.equal(fld.kids[0].tag, "label");
+  assert.equal(fld.kids[0].attrs.for, fld.kids[1].attrs.id, "the label names the select");
+  assert.equal(fld.kids[0].kids[0].textContent, "Wt");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-lbl"), r2).length, 0, "no above-the-control label");
+});
+
 test("the Text style select writes the size token and the weight in one batch with one label", () => {
   const m = mount(heading(), { parent: section() });
   const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];

@@ -64,12 +64,13 @@ test("Typography is offered for every kind, closed when nothing is set unless th
   }
 });
 
-test("a text kind lists Typography first and opens it; other kinds put Typography after Effects, closed, so a section reads Layout, Spacing, Fill, Corners & border, Effects", () => {
+test("a text kind lists Typography, Spacing and Effects first and opens the first two; other kinds put Typography after Effects, closed, so a section reads Layout, Spacing, Fill, Corners & border, Effects", () => {
   for (const t of ["heading", "text", "button"]) {
     const gs = figmaGroups(old, { t });
-    assert.deepEqual(gs.map((g) => g.name), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"], t);
+    assert.deepEqual(gs.map((g) => g.name), ["Typography", "Spacing", "Effects", "Layout", "Fill", "Corners & border"], t);
     assert.equal(initialOpen("Typography", false, { t }), true, t);
-    assert.equal(initialOpen("Layout", false, { t }), false, "only Typography opens by default");
+    assert.equal(initialOpen("Spacing", false, { t }), true, t);
+    for (const closed of ["Effects", "Layout", "Fill", "Corners & border"]) assert.equal(initialOpen(closed, false, { t }), false, `${closed} starts closed`);
   }
   for (const t of ["container", "image", "divider"]) {
     assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"], t);
@@ -87,7 +88,8 @@ test("open state: a value set here opens a group, none starts it closed, a secti
   assert.equal(initialOpen("Fill", false, { t: "container" }), false);
   assert.equal(initialOpen("Layout", false, { t: "container" }), true);
   assert.equal(initialOpen("Spacing", false, { t: "container" }), true);
-  assert.equal(initialOpen("Spacing", false, { t: "heading" }), false);
+  assert.equal(initialOpen("Spacing", false, { t: "heading" }), true, "a text block opens Spacing (margins and the Gap note)");
+  assert.equal(initialOpen("Spacing", false, { t: "image" }), false);
   assert.equal(initialOpen("Effects", false, null), false);
 });
 

@@ -14,6 +14,9 @@ const FIGMA = [
   { name: "Typography", from: ["Typography"] },
 ];
 
+/** A text kind's order: what a text block needs first (Typography, Spacing, Effects); the groups a section is about follow, closed. */
+const TEXT_ORDER = ["Typography", "Spacing", "Effects", "Layout", "Fill", "Corners & border"];
+
 /** The kinds whose content is text: their Typography group comes first and starts open. */
 const TEXT_KINDS = new Set(["heading", "text", "button"]);
 export const isTextKind = (node) => TEXT_KINDS.has(node?.t);
@@ -47,12 +50,12 @@ function primaryKeys(name, node) {
  * `entries` is the whole group (for the set-here dot); `sub` is [{name, entries}] per style group it took, in order: the UI
  * draws a sub-heading for a sub whose name differs from the group's. `primary` (in PRIMARY order) and `more` (in
  * group order) split `entries`. Empty groups are dropped.
- * For a text kind (node) Typography is the first group; every other kind keeps the order above, where Typography is last so a
+ * For a text kind (node) the order is TEXT_ORDER (Typography, Spacing, Effects, then Layout, Fill, Corners & border); every other kind keeps the order above, where Typography is last so a
  * section reads Layout, Spacing, Fill, Corners & border, Effects.
  */
 export function figmaGroups(groups, node = null) {
   const by = new Map(groups.map((g) => [g.name, g]));
-  const order = isTextKind(node) ? [...FIGMA.filter((f) => f.name === "Typography"), ...FIGMA.filter((f) => f.name !== "Typography")] : FIGMA;
+  const order = isTextKind(node) ? TEXT_ORDER.map((n) => FIGMA.find((f) => f.name === n)) : FIGMA;
   return order.map((f) => {
     const sub = f.from.map((n) => by.get(n)).filter(Boolean).map((g) => ({ name: g.name, entries: g.entries }));
     const entries = sub.flatMap((s) => s.entries);
@@ -68,8 +71,8 @@ export const groupHasValue = (entries, own) => groupDot(entries, own);
 /** Whether any entry of a group's More list has a value set here: the disclosure then starts open. */
 export const moreHasValue = (g, own) => groupDot(g.more, own);
 
-/** A group starts open when it has a value set here; Layout and Spacing also start open on a container (a section), Typography on a text kind. */
-export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing")) || (name === "Typography" && isTextKind(node));
+/** A group starts open when it has a value set here; Layout and Spacing also start open on a container (a section), Typography and Spacing on a text kind. */
+export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing")) || (isTextKind(node) && (name === "Typography" || name === "Spacing"));
 
 /** Short field labels for the scrub handles; the full name stays the accessible name. */
 export const SHORT = { w: "W", maxw: "W", h: "H", minh: "H", gap: "Gap", fs: "Sz", fw: "Wt", lh: "LH", ls: "LS", radius: "R", bw: "B", mt: "↑", mb: "↓" };

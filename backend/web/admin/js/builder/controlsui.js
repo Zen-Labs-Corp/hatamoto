@@ -41,7 +41,7 @@ export function row({ id, name, label, body, status, note, onReset, scrub, compa
 export const tplIcon = (name) => document.querySelector?.("template[data-hm-bs-ico]")?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true) ?? h("span", { "data-ico": name });
 
 /** Shows the short form of name in label with the full name after it, visually hidden (WCAG 2.5.3 Label in Name). */
-function shortLabel(label, name, short) {
+export function shortLabel(label, name, short) {
   if (!short || short === name) return;
   label.textContent = "";
   label.append(h("span", { text: short }), h("span", { class: "hm-visually-hidden", text: ` ${name.toLowerCase()}` }));

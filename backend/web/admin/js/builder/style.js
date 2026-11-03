@@ -8,7 +8,7 @@ import { BP_NAME, BPS, NAMES, atLabel, ownValue, inheritedValue, hiddenAt } from
 import { showOnWrites } from "@hm/builder/showon";
 import { contextLine, stateChoices } from "@hm/builder/inspctx";
 import { rowState, groupDot, isLength, buildPalette, linkSets, probe, splitValue, joinValue, stepFor, boundsFor } from "@hm/builder/controls";
-import { row, lengthControl, colourControl, stopSlider, tplIcon } from "@hm/builder/controlsui";
+import { row, lengthControl, colourControl, stopSlider, tplIcon, shortLabel } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
 import { swatchRow } from "@hm/builder/swatches";
@@ -447,11 +447,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     return box;
   }
 
-  /** One control for entry. inline (a length only): the 28px scrub field of the primary rows, no row chrome (the dot, reset and source chip are the legacy row's); clearing the text unsets it. */
+  /** One control for entry. inline (a length, or a select: the Wt field): the 28px scrub field of the primary rows, no row chrome (the dot, reset and source chip are the legacy row's); clearing the text unsets it. */
   function field(entry, title, { inline = false, buttons: asButtons = null } = {}) {
     const id = `hm-bs-s${++uid}`;
     const c = asButtons ? { kind: "buttons", options: asButtons.filter(([v]) => v === "" || Object.hasOwn(entry.enum ?? {}, v)) } : control(entry);
-    inline &&= c.kind === "length";
+    inline &&= c.kind === "length" || c.kind === "select";
     const name = title ?? NAMES[entry.key] ?? entry.key;
     let own = ownValue(cur, bp, entry.key);
     const unsetSrc = stateFor(entry.key, null); // where the value comes from when nothing is set here (the server's cascade)
@@ -463,6 +463,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const fromPreset = unsetSrc.source === "preset" ? unsetSrc.value : null;
     const unset = inh ? `Inherited: ${inh.value}` : "Not set";
     let el; // the select or text input, or the row of a button group
+    let fld = null; // the 28px field around an inline select
     let num = null; // the number field of a count group
     let box = null; // the field's row, set once built
     let sync = () => {}; // repaints the control from `own`
@@ -480,6 +481,13 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
         stops?.sync(own, inh?.value ?? fromPreset);
       };
       if (entry.key === "op") stops = stopSlider({ name, options: c.options.map(([v]) => v), apply });
+      if (inline) {
+        // [Wt  500 v]: the short name at the left of the select, inside the one 28px field
+        const lb = h("label", { class: "hm-field__label hm-bs-fld__lb", for: id, text: name });
+        shortLabel(lb, name, SHORT[entry.key]);
+        el.classList.add("hm-bs-fld__n");
+        fld = h("div", { class: "hm-bs-fld" }, lb, el);
+      }
     } else if (grouped) {
       const buttons = c.options.map(([v, label, aria, ico]) => {
         const b = h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", "aria-label": aria, text: label });
@@ -577,7 +585,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
 
     /** The inline field's wrapper: the field, the screen-reader status and the refusal note; paint marks the field's dot for the CSS. */
     function inlineView() {
-      return { el: h("div", { class: "hm-bs-fldbox" }, el, status, note), paint: (state) => (el.dataset.dot = state.dot) };
+      return { el: h("div", { class: "hm-bs-fldbox" }, fld ?? el, status, note), paint: (state) => ((fld ?? el).dataset.dot = state.dot) };
     }
   }
 }
