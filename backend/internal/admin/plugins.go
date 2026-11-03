@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/permtext"
+	"hatamoto.dev/sdk"
 )
 
 // ErrPluginNotFound, ErrBadGrant and ErrCommunityGrant are what PluginAdmin.Grant answers.
@@ -42,6 +43,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	owner.HandleFunc("POST /plugins/{name}/settings", a.handlePluginSettingsSave)
 	owner.HandleFunc("GET /plugins/{name}/permissions", a.handlePluginPermissions)
 	owner.HandleFunc("POST /plugins/{name}/grant", a.handlePluginGrant)
+	owner.HandleFunc("POST /plugins/{name}/runs/{run}/start", a.handlePluginRunStart)
 }
 
 // pluginURL is the admin path of a plugin's page ("settings", "permissions").
@@ -54,6 +56,8 @@ type permRow struct {
 	Granted    bool
 	// Refused rows are never allowed for this plugin: unticked and disabled.
 	Refused bool
+	// Removed rows name a permission SDK 0.17 removed: shown, never askable.
+	Removed bool
 }
 
 // legacyWebhooksPlugin is the former first-party webhooks plugin. Webhooks are core now
@@ -91,8 +95,11 @@ type pluginRow struct {
 	updatable bool
 }
 
-// attention says the row needs the owner: a stopped script or section.
-func (r pluginRow) attention() bool { return r.ScriptsBlocked || r.SectionsStopped }
+// attention says the row needs the owner: a plugin that failed or is blocked,
+// a stopped script or section.
+func (r pluginRow) attention() bool {
+	return r.State.Marker == "Failed" || r.ScriptsBlocked || r.SectionsStopped
+}
 
 // disabled says the owner turned the plugin off.
 func (r pluginRow) disabled() bool { return r.State.Badge.Label == "Disabled" }
@@ -487,9 +494,10 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 	}
 	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions"), HooksText: strings.Join(p.Hooks, ", ")}
 	for _, perm := range p.Permissions {
-		refused := slices.Contains(p.Refused, perm)
+		removed := sdk.RemovedPermission(sdk.Permission(perm))
+		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
-		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused})
+		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused, Removed: removed})
 		switch {
 		case refused:
 		case g:

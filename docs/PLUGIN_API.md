@@ -1,8 +1,8 @@
-# Plugin API (SDK 0.16)
+# Plugin API (SDK 0.17)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
-> **Upcoming change.** In SDK 0.17 the direct `entities.*` write functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`) are replaced by changesets, with no shim. See [ADR 0004](adr/0004-plugin-changesets.md). Until then this page describes the current API.
+> **0.17 changes (breaking).** Content writes move into **runs** and **changesets** (see [Runs and changesets](#runs-and-changesets) and [ADR 0004](adr/0004-plugin-changesets.md)), shipped with core 1.1.0. The twelve direct write functions are removed with no shim: `entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create` and `redirects.delete`. So are the five permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write`. Replacements: the `changeset.*` functions for content, `media.import_url` with `changeset.media.attach` for media. A manifest that requests a removed permission is refused at load with a message naming the replacement; a call to a removed function returns `unavailable` naming it. New: the `runs` manifest block, the `on_run_step` export, `run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`, and the error codes `phase_denied` and `not_owned`. The run and changeset functions (`run.*`, `buffer.*`, `upload.read`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`) reject arguments nested deeper than 32 levels, arrays of more than 10,000 elements and requests of more than 200,000 JSON tokens with `invalid_argument`; the other functions keep their existing limits (a request is at most 1 MiB). Stored grants for a removed permission are left in place and ignored. The changelog entries below are history: they name functions that 0.17 removed. A plugin built for `^0.5` to `^0.16` that never wrote content loads and runs as before.
 
 Hatamoto plugins are WebAssembly modules run by the host with
 [Extism](https://extism.org) on wazero. A plugin ships as a **package**, a signed
@@ -119,13 +119,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.16.0`; plugins built for `^0.5` to `^0.15` still load):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.17.0`; plugins built for `^0.5` to `^0.16` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.16.0
+go get hatamoto.dev/sdk@v0.17.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -135,7 +135,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.16.0` is the git tag `v0.16.0`. The core repository stays
+plain release tags: version `0.17.0` is the git tag `v0.17.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -152,7 +152,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.16 is current.
+> SDK 0.17 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -438,11 +438,11 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 | Permission | Host functions |
 |---|---|
 | `entities.read` | `entities.get`, `entities.list`, `entities.translations` |
-| `entities.write` | `entities.create`, `entities.update`, `entities.set_status`, `entities.delete` |
-| `terms.read` / `terms.write` | `terms.list`, `terms.get` / `terms.save`, `terms.delete` |
-| `menus.read` / `menus.write` | `menus.list`, `menus.get` / `menus.save`, `menus.add_item`, `menus.delete_item` |
-| `media.read` / `media.write` | `media.get`, `media.list` / `media.upload` |
-| `redirects.read` / `redirects.write` | `redirects.list` / `redirects.create`, `redirects.delete` |
+| `terms.read` | `terms.list`, `terms.get` |
+| `menus.read` | `menus.list`, `menus.get` |
+| `media.read` | `media.get`, `media.list` |
+| `redirects.read` | `redirects.list` |
+| removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write`, `redirects.write`: no longer exist. Use a run and the `changeset.*` functions (no permission needed). A manifest that lists one is refused at load |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
@@ -467,31 +467,19 @@ There is one import, `hm_call` in wasm module `extism:host/user`. It takes a poi
 { "ok": false, "error": { "code": "capability_denied", "capability": "kv", "message": "kv.get needs the \"kv\" permission, which the owner has not granted" } }
 ```
 
-Error codes: `capability_denied` (the error also has `capability`: the missing permission), `invalid_argument` (bad or unknown argument, validation failure, a conflict), `not_found`, `rate_limited`, `blocked` (refused by policy: http.fetch allowlist or address guard, SQL guard, database privileges), `reentrant`, `timeout`, `unavailable` (the backing service is not configured, or the plugin's database role is missing), `internal`, `unknown_function`. Arguments are strict: an unknown field is `invalid_argument`. Every call has a deadline (at most 15 s and never longer than the hook call that is running), a request is at most 1 MiB and a result at most 2 MiB (ask for less: `limit`/`cursor`). IDs are UUID strings.
+Error codes: `capability_denied` (the error also has `capability`: the missing permission), `invalid_argument` (bad or unknown argument, validation failure, a conflict), `not_found`, `rate_limited`, `blocked` (refused by policy: http.fetch allowlist or address guard, SQL guard, database privileges), `reentrant`, `timeout`, `unavailable` (the backing service is not configured, or the plugin's database role is missing; also a call to a function removed in 0.17), `internal`, `unknown_function`, `phase_denied` (the function is not available in the current run phase, or is a run function called outside a run) and `not_owned` (a run tried to change an object the owner or another source owns; see [Runs and changesets](#runs-and-changesets)). Arguments are strict: an unknown field is `invalid_argument`. Every call has a deadline (at most 15 s and never longer than the hook call that is running), a request is at most 1 MiB and a result at most 2 MiB (ask for less: `limit`/`cursor`). IDs are UUID strings.
 
 | Function | Arguments | Result |
 |---|---|---|
 | `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..] }` |
 | `entities.get` | `{ "id" }`, `{ "path": "/a/b" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (`schema_slug` needs `parent_id`; send one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "limit"? (50, max 200), "cursor"? }` | `{ "items": [Entity], "next_cursor" }` |
-| `entities.create` | `{ "schema_slug", "name", "slug"?, "locale"? (required on a multi-locale site for schemas that have translations, for plugins declaring 0.15 or later), "translation_of"? (entity id), "parent_id"?, "attributes"? }` | Entity |
-| `entities.update` | `{ "id", "name"?, "slug"?, "parent_id"? (`null` = make a root), "attributes"? }` | Entity |
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]` (the entity's translation group, itself included, ordered by locale; `[]` when it has none or is alone) |
-| `entities.set_status` | `{ "id", "status" }` (`draft`, `published`, ...) | Entity |
-| `entities.delete` | `{ "id" }` | `{}` |
 | `terms.list` | `{ "kind"?, "search"?, "limit"? }` | `{ "items", "total" }` |
 | `terms.get` | `{ "kind", "slug" }` | Term |
-| `terms.save` | `{ "kind", "slug"?, "name" }` (updates when kind+slug exists, else creates) | Term |
-| `terms.delete` | `{ "kind", "slug" }` | `{}` |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
-| `menus.save` | `{ "slug"?, "name", "location"? }` | Menu. `location` is any well-formed name (`^[a-z][a-z0-9_-]{0,31}$`); the admin picker lists the core `header`, `footer` and `sidebar` and the names the active theme declares. A plugin never takes a location from another menu: menus that share a location coexist, and the site renders the oldest |
-| `menus.add_item` | `{ "menu_slug", "label", "link_type", "url"?, "entity_id"?, "parent_id"?, "open_in_new_tab"? }` | MenuItem |
-| `menus.delete_item` | `{ "id" }` | `{}` |
 | `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media (id, filename, mime_type, file_size, public_url, width, height, alt_text) |
-| `media.upload` | `{ "filename", "mime_type", "data_b64" }` (the 1 MiB request cap applies: about 750 KB of file) | media. The stored type is **sniffed from the bytes** (`mime_type` is advisory) and must be an allowed type (images except SVG, PDF, MP4/WebM) whose extension matches the filename, as for uploads through the admin; anything else is `invalid_argument` |
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
-| `redirects.create` | `{ "source_path", "target_url", "status_code"? (301) }` | Redirect |
-| `redirects.delete` | `{ "id" }` | `{}` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items": [ { id, status, data, created_at } ], "total" }`. IP address and user agent are never included |
 | `settings.get` | `{}` | the plugin's own settings object, schema defaults merged in (write-only values included: they are the plugin's own secrets) |
@@ -504,23 +492,128 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows": [[..]], "truncated"? }` (at most 1,000 rows and 1 MiB) |
 | `db.exec` | `{ "sql", "args"? }` | `{ "rows_affected" }` |
 
-A **Term** may carry an optional `seo` object, `{ "meta_title", "meta_description", "canonical_url", "og_image", "no_index" }` (every member optional, the whole object left out when nothing is saved): the search appearance an owner set on the term's edit page. It is an additive field of `terms.get`, `terms.list` and `terms.save` results; `terms.save` never changes a saved `seo` (it is read-only through the host API, the REST term routes and MCP; edit it on the term's admin page).
+A **Term** may carry an optional `seo` object, `{ "meta_title", "meta_description", "canonical_url", "og_image", "no_index" }` (every member optional, the whole object left out when nothing is saved): the search appearance an owner set on the term's edit page. It is an additive field of `terms.get` and `terms.list` results and is read-only through the host API, the REST term routes and MCP; edit it on the term's admin page (`changeset.term.upsert` does not set it).
 
-Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). `menus.add_item` accepts `link_type` `none` as it is; there are no new arguments. An item of another type saved without its target also renders as plain text. Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
+Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. A `none` item has no link and is shown as plain text, for example a heading above a group of links (existing `#` items were migrated to it). Menu items are staged with `changeset.menu.upsert`, whose items carry a `label` and a `url` or `entity_key`; `menus.get` returns the item types. An item of another type saved without its target also renders as plain text. Every item carries an `attrs` object, `{}` when empty, with `style`, `color`, `badge` and `icon` (ids of presets the active theme declares; an id the theme does not know is kept and not shown), `show_on` (`desktop` or `mobile`; empty means all devices), `id`, `title`, `aria_label` and `rel` (a list of `nofollow`, `sponsored`, `ugc`, `me`). `css_classes` is at most 200 characters; it must not contain control characters, quotes, backticks or angle brackets.
 
 **`render.site_graph` and `render.head` can run more than once per render** (a page with a paged builder loop builds its head twice). A page served from the cache does not run them at all, so keep the filter free of side effects (no `kv` counters or outbound pings).
 
-**Cached pages and plugin data.** What a plugin renders into a public page (template funcs, `render.head`, `render.site_graph` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, up to 24 hours), including values a func reads with `kv.get` or `db.query`. A plugin cannot purge the page cache (there is no `cache.invalidate` host function): new `kv`/`db` data reaches cached pages when the TTL expires or when anything else clears the cache (an entity write, even by `entities.update`, a settings save, a menu or theme change). See [Page cache](THEMES.md#page-cache).
+**Cached pages and plugin data.** What a plugin renders into a public page (template funcs, `render.head`, `render.site_graph` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, up to 24 hours), including values a func reads with `kv.get` or `db.query`. A plugin cannot purge the page cache (there is no `cache.invalidate` host function): new `kv`/`db` data reaches cached pages when the TTL expires or when anything else clears the cache (an entity write, a publish of a changeset, a settings save, a menu or theme change). See [Page cache](THEMES.md#page-cache).
 
 **`page_sections` is derived.** `entities.get`/`entities.list` and the `entity.before_save` input carry `attributes.page_sections` computed from `attributes.page_doc` at read time (the same list the public JSON shows), and the key is absent for a builder-only page. The stored key is a frozen legacy mirror that is never read here. A write that sends back the derived `page_sections` unchanged is accepted as a no-op; one that changes it on a page that has a `page_doc` is refused (`page_sections_removed`), and a `before_save` edit to it is discarded with a warning: change `page_doc` instead.
 
-**Entity writes** go through the same service as the admin API: schema validation, HTML sanitising, slug rules, `entity.before_save`, and events all apply (there is no way around them). **Re-entrancy guard:** a plugin write sets a depth of 1 on the context of everything it triggers. A plugin that writes from inside a hook (`entity.before_save`, `entity.created`, ...) of an editor's save is allowed one level; a write made while already inside the hooks of a plugin write fails with `reentrant`, so plugins cannot recurse. Reads are never guarded.
+**Entity writes** happen only when the owner publishes a changeset, through the same service as the admin API: schema validation, HTML sanitising, slug rules and events all apply. A plugin does not write directly, so the old re-entrancy guard for plugin writes is gone and `reentrant` is no longer returned (the code stays in the list for older plugins). Reads are never guarded. `entity.before_save` filters are not run on changeset content (see [Runs and changesets](#runs-and-changesets)).
 
-**Entity trees (SDK 0.10).** An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `parent_id` is the parent entity (absent for a root); `path` is the canonical public path the site serves it at (`/services/seo/local`, from the schema's URL pattern and the parent chain); `url` is `path` behind the public origin when `PUBLIC_BASE_URL` (or the owner's site address) is set, otherwise the path alone. `entities.create` and `entities.update` take `parent_id` and apply the rules of the admin and REST API (the entity service, not a copy): the parent must exist, the move may not make the entity its own ancestor, and the chain may not be deeper than a URL can express (8 levels); a refused parent is `invalid_argument`. On update, omit `parent_id` to keep the parent, send `null` (or `""`) to make the entity a root. Slugs are unique per schema and locale, not among all siblings (a page and a post can share a slug at the root), so `entities.get` with `{ "slug", "parent_id", "schema_slug" }` can match one row per locale. It returns the site-language row when there is one (`"parent_id": null` means a root row), otherwise the one other-locale row, and it finds drafts; when no site-language row exists and two other-locale rows match, it is `invalid_argument` (no row is guessed). There is no `locale` selector for slugs: reach another locale's row by `id` (from `entities.list`, the entity payloads or `entities.translations`), or by its locale-prefixed `path`, never by slug. Without `schema_slug`, rows of several schemas sharing the slug give `invalid_argument` instead of a guess, so always send it when updating what you find; `schema_slug` without `parent_id`, or mixing `id`/`path`/`slug`, is `invalid_argument`; a bare `{ "slug" }` returns the site-language row first, then a root row before a nested one, then the oldest. `{ "path": "/a/b" }` resolves a URL with the router the public site uses, so it finds exactly what a visitor would get (published entities only; a trailing slash is ignored; redirects are not followed). For a plugin whose `sdk` range requires 0.15 or later, on a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale, as the public site does, and a path of a hidden locale is `not_found`; an unprefixed path is read as before. A plugin built for `^0.14` or older gets no prefix handling and resolves paths exactly as before 0.15. Any other path is `not_found`.
+**Entity trees (SDK 0.10).** An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `parent_id` is the parent entity (absent for a root); `path` is the canonical public path the site serves it at (`/services/seo/local`, from the schema's URL pattern and the parent chain); `url` is `path` behind the public origin when `PUBLIC_BASE_URL` (or the owner's site address) is set, otherwise the path alone. A changeset entity upsert takes `parent_key` (the entity service applies the rules of the admin and REST API when the changeset is published): the parent must exist, the move may not make the entity its own ancestor, and the chain may not be deeper than a URL can express (8 levels); a refused parent is `invalid_argument`. Slugs are unique per schema and locale, not among all siblings (a page and a post can share a slug at the root), so `entities.get` with `{ "slug", "parent_id", "schema_slug" }` can match one row per locale. It returns the site-language row when there is one (`"parent_id": null` means a root row), otherwise the one other-locale row, and it finds drafts; when no site-language row exists and two other-locale rows match, it is `invalid_argument` (no row is guessed). There is no `locale` selector for slugs: reach another locale's row by `id` (from `entities.list`, the entity payloads or `entities.translations`), or by its locale-prefixed `path`, never by slug. Without `schema_slug`, rows of several schemas sharing the slug give `invalid_argument` instead of a guess, so always send it when you act on what you find; `schema_slug` without `parent_id`, or mixing `id`/`path`/`slug`, is `invalid_argument`; a bare `{ "slug" }` returns the site-language row first, then a root row before a nested one, then the oldest. `{ "path": "/a/b" }` resolves a URL with the router the public site uses, so it finds exactly what a visitor would get (published entities only; a trailing slash is ignored; redirects are not followed). For a plugin whose `sdk` range requires 0.15 or later, on a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale, as the public site does, and a path of a hidden locale is `not_found`; an unprefixed path is read as before. A plugin built for `^0.14` or older gets no prefix handling and resolves paths exactly as before 0.15. Any other path is `not_found`.
 
-**Translations (SDK 0.15).** An Entity carries `translation_group`, the id its translations share; it is absent when the entity has none or the host has no translation groups (a missing field always means the entity is ungrouped; a failed lookup in `entities.get`, `entities.list`, `entities.create`, `entities.update` or `entities.status` returns `internal`, and for create, update and status the write has already happened). `entities.translations` with `{ "id" }` returns the members of that entity's group, the entity included, ordered by locale, each as `{ id, locale, status, path? }` (`path` is the canonical public path, absent when the host cannot compute paths). A group of one entity counts as no group: the result is `[]`. `entities.create` with `translation_of` (an entity id) makes the new entity join the group of that entity, creating the group when it has none. It needs `locale`, which must differ from the locale of the target, the target must have the same schema, and the schema must have translations; otherwise the call is `invalid_argument`. Without translation groups on the host, `translation_of` is `unavailable`. Create then link is not atomic: if the link fails after the entity was created, the host deletes the new entity again and returns `invalid_argument` (`translation_of: ...`) only when the group rules are violated (an invalid group, such as a locale already taken); a link that runs out of time returns `timeout`; any other link failure returns `internal` with a generic message. For a plugin whose `sdk` range requires 0.15 or later, on a site with two or more locales `entities.create` without `locale` is `invalid_argument` ("locale is required when the site has several locales") for schemas that have translations; for plugins built for 0.14 or older, and on a one-language site, an empty `locale` still means the site language. The host does not copy or inherit fields between translations: a plugin that wants inheritance reads the source with `entities.get`, and writes the copy with `entities.create` and `translation_of`.
+**Translations (SDK 0.15).** An Entity carries `translation_group`, the id its translations share; it is absent when the entity has none or the host has no translation groups (a missing field always means the entity is ungrouped; a failed lookup in `entities.get` or `entities.list` returns `internal`). `entities.translations` with `{ "id" }` returns the members of that entity's group, the entity included, ordered by locale, each as `{ id, locale, status, path? }` (`path` is the canonical public path, absent when the host cannot compute paths). A group of one entity counts as no group: the result is `[]`. The host does not copy or inherit fields between translations: a plugin that wants inheritance reads the source with `entities.get`, and stages the copy with `changeset.entity.upsert`.
 
 **http.fetch** is the only network a plugin has. In order: the URL host and port must match `allowed_hosts` (`blocked` otherwise; `http` and `https` only, no credentials in the URL, methods GET/HEAD/POST/PUT/PATCH/DELETE); the host is **resolved by the host** and every answer must be a public address: loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7), link-local (169.254/16 including cloud metadata, fe80::/10), CGNAT, multicast, unspecified, documentation and reserved ranges, and IPv4-in-IPv6 forms (mapped, NAT64, 6to4) are refused, and one bad answer refuses the host; the connection is then made to the checked IP, never to the name again, so DNS cannot rebind between check and connect; every redirect hop (at most 5) repeats all of this. Request body at most 1 MiB, response at most 1 MiB (`truncated`), 10 s by default and 30 s at most. Redirects are followed (at most 5 hops, each re-checked as above); cookies and proxies from the environment are off; `Set-Cookie` and other response headers outside a short allowlist are not passed back.
+
+## Runs and changesets
+
+Since SDK 0.17 a plugin no longer writes content directly. The owner starts a **run**; the plugin's `on_run_step` export is called by the host, collects data, and **stages** objects into a **changeset**. Nothing is live until the owner reviews and publishes the changeset (see [ADR 0004](adr/0004-plugin-changesets.md)). No host function, flag or environment variable writes live content outside a published changeset.
+
+Runs need **no permission**. They are gated by the run itself: a run function called outside a run is `phase_denied`, and every function is checked against the current phase.
+
+### The `runs` block
+
+```json
+"runs": [
+  {
+    "name": "import",
+    "title": "Import from a file",
+    "inputs": [ { "name": "source", "label": "Source address", "type": "url", "required": true } ],
+    "stages": ["fetch", "transform"],
+    "proposes": ["site_settings"]
+  }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `name` | `^[a-z][a-z0-9_-]*$` style identifier (the plugin name rule), unique within the plugin |
+| `title` | shown to the owner when starting the run; required |
+| `inputs` | values the owner enters at start (at most 16): `{ "name", "label", "type"?, "required"?, "options"? }`; `type` is `text` (default), `url`, `number`, `bool` or `select` (with `options`) |
+| `stages` | must be exactly `["fetch", "transform"]` |
+| `proposes` | proposal kinds the run may submit with `changeset.propose`: `site_settings`, `url_patterns`, `home_page`, `menu_location` |
+
+A plugin declares at most 8 runs. A plugin with a `runs` block must export `on_run_step`; otherwise it is refused at load.
+
+### `on_run_step`
+
+The host calls `on_run_step` with `{ "run_id", "phase", "cursor" }` (`phase` is `fetch` or `transform`; `cursor` is the last `run.checkpoint` of the phase, empty at the start) until the plugin calls `run.finish` in both phases. The output carries nothing (`{}`): progress and completion are reported with `run.*` calls. In Go, register it with `guest.OnRunStep`.
+
+- A step runs under the usual hook timeout (10 s by default, `limits.hook_timeouts_ms["on_run_step"]`) and the sandbox limits below. State that must survive a step goes into `run.checkpoint` (at most 4 KiB) or the buffer, never into the instance.
+- A step that fails, times out or trips the circuit breaker fails the run; steps are not retried. `run.fail {reason}` fails it deliberately. A failed run discards its changeset and buffer.
+- `run.finish` ends the current phase: fetch moves to transform (the cursor resets), transform finishes the run and leaves the changeset staged for the owner. A step cap bounds a plugin that never finishes.
+- **One run per plugin is active at a time.** Starting a second is refused. A run left `running` by a server crash is failed and discarded at the next start.
+- The owner starts a run from the admin with the plugin's inputs, the **hosts** it may fetch from (confirmed at start) and, when the run needs one, an uploaded file.
+
+### Phases
+
+The fetch phase collects data from the outside and sees no site data; the transform phase sees the published site but has no network. Inside a run a function that is not listed is denied.
+
+| Functions | fetch | transform |
+|---|---|---|
+| `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
+| `http.fetch`, `upload.read`, `buffer.put`, `media.import_url` | yes | `phase_denied` |
+| `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, `changeset.*` | `phase_denied` | yes |
+| `entities.get`, `entities.list`, `entities.translations`, `terms.list`, `terms.get`, `menus.get`, `menus.list`, `media.get`, `media.list`, `redirects.list` (published reads) | `phase_denied` | yes |
+| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | `phase_denied` | `phase_denied` |
+
+Outside a run, the run-only functions (`run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`) return `phase_denied` ("only available inside a run"); every other function behaves as before.
+
+`http.fetch` inside a run still needs the `http.fetch` grant. Only the host list changes: in the fetch phase the hosts the owner confirmed for the run **replace** `allowed_hosts`. `media.import_url` needs no grant, shares the same guarded client and per-plugin rate limit, and fetches only from the run's hosts.
+
+### Run functions
+
+| Function | Phase | Arguments | Result |
+|---|---|---|---|
+| `run.info` | both | `{}` | `{ "run_id", "name", "phase", "cursor", "params"?, "hosts"?, "upload_id"? }` (`params` holds the owner's inputs by name) |
+| `run.checkpoint` | both | `{ "cursor" }` (at most 4 KiB) | `{}`; passed back on the next step |
+| `run.progress` | both | `{ "done", "total"?, "message"? }` | `{}`; shown in the run view |
+| `run.finish` | both | `{ "summary"? }` | `{}`; ends the phase |
+| `run.fail` | both | `{ "reason" }` | `{}`; fails the run |
+| `upload.read` | fetch | `{ "upload_id", "offset", "len" }` (len at most 256 KiB) | `{ "data_b64", "size", "eof" }`; only the run's own upload |
+| `buffer.put` | fetch | `{ "key", "value_b64" }` | `{}` |
+| `buffer.get` | transform | `{ "key" }` | `{ "found", "value_b64"? }` |
+| `buffer.list` | transform | `{ "prefix"?, "after"?, "limit"? }` | `{ "keys", "next"? }` |
+| `media.import_url` | fetch | `{ "url", "filename"? }` | `{ "handle" }`; a staged file to pass to `changeset.media.attach` |
+| `site.info` | transform | `{}` | `{ "title", "tagline"?, "time_zone", "language", "locales"?, "url_patterns"? }`; never secrets |
+| `entities.slug_taken` | transform | `{ "schema", "slug", "locale"? }` | `{ "taken" }`; published, public entities only |
+
+The buffer is per run: at most 64 MiB, 10,000 keys, keys of 256 bytes, values of 1 MiB (the request cap). A put over a quota is `invalid_argument`. No function takes a filesystem path.
+
+### Changeset functions
+
+All run in the transform phase and stage an item; each returns `{ "source_key", "created" }` (`created` is true when no earlier run mapped the key). `source_key` is the plugin's own stable key: the same key on a later run updates the object the first run created, so runs are idempotent. Stage parents before children.
+
+| Function | Arguments |
+|---|---|
+| `changeset.entity.upsert` | `{ "source_key", "schema", "slug"?, "parent_key"?, "locale"?, "name", "attributes"?, "seo"? }`; `parent_key` is the source key of a parent staged earlier in the run or mapped by an earlier run; `seo` is `{ "meta_title", "meta_description", "canonical", "robots" }` |
+| `changeset.term.upsert` | `{ "source_key", "kind", "slug", "name", "description"? }` |
+| `changeset.person.upsert` | `{ "source_key", "slug", "name", "bio"? }`: a byline, never a user account. It is a term of the byline kind; where the site has none, the call is `unavailable` |
+| `changeset.media.attach` | `{ "source_key", "handle", "alt"? }`; the handle comes from this run's `media.import_url` |
+| `changeset.menu.upsert` | `{ "source_key", "slug", "name", "items"? }`, items `{ "label", "url"?, "entity_key"?, "children"? }`; the plugin's own menus, never a menu location |
+| `changeset.redirect.upsert` | `{ "source_key", "from", "to", "status_code"? }`; the target is on the same site, and `from` may not be a live path |
+| `changeset.delete` | `{ "kind", "source_key" }`; `kind` is `entity`, `term`, `menu`, `media` or `redirect`; only objects a run created |
+| `changeset.propose` | `{ "kind", "payload" }`; `kind` must be in the run's `proposes` |
+
+Proposals are changes to site settings the owner signs off separately, not content: `site_settings` is limited to the title, tagline, time zone and language; the other kinds are `url_patterns`, `home_page` and `menu_location`. A kind the run did not declare is `invalid_argument`.
+
+### Ownership
+
+Every staged object remembers its origin. A run may create and update only objects it (or an earlier run of the same plugin) created, found by `source_key`. A call that would change an object created by the owner or by another source returns `not_owned`; ownership is decided by the host from the `source_key`, a plugin cannot pass an origin. The changeset errors map to the usual codes: an unknown kind, a bad item or an unsupported operation is `invalid_argument`; a missing object is `not_found`; an expired or unstaged changeset is `unavailable`.
+
+Two behaviours to know:
+
+- **`entity.before_save` filters do not see changeset content.** Content staged by a run is written when the owner publishes it, by the core, and plugin `entity.before_save` filters are not run on it yet. Do not rely on that hook to adjust imported content.
+- The owner's review decides what goes live; a plugin cannot publish.
+
+### Errors added in 0.17
+
+`phase_denied`: the function is not available in the current phase, or is a run function called outside a run. `not_owned`: the object belongs to the owner or another source. Both are in the error-code list under [Host functions](#host-functions).
 
 ## Own data
 
@@ -625,7 +718,7 @@ and the interface may change until a plugin surface is designed for it.
 Also fixed:
 - **No filesystem**: nothing is mounted (empty `AllowedPaths`); stdout and stderr are discarded (unless the host process itself runs with `EXTISM_ENABLE_WASI_OUTPUT` set, which routes them to the host's own stdout and stderr).
 - **No network** except the guarded `http.fetch`: Extism's own `http_request` is never granted.
-- **No host functions** beyond Extism's built-ins (`config`, `log`, input/output, vars with a 64 KiB cap) and the one `hm_call` import (see [Host functions](#host-functions)), whose every function is permission checked. Logs written with the PDK (`pdk.Log`) reach the host log tagged with the plugin name; each line is cut at 4 KiB and a plugin gets a burst of 20 lines, then 10 per second (the rest is dropped, with one notice).
+- **No host functions** beyond Extism's built-ins (`config`, `log`, input/output, vars with a 64 KiB cap) and the one `hm_call` import (see [Host functions](#host-functions)), whose every function is permission checked (run functions need no permission and are checked against the run phase). Logs written with the PDK (`pdk.Log`) reach the host log tagged with the plugin name; each line is cut at 4 KiB and a plugin gets a burst of 20 lines, then 10 per second (the rest is dropped, with one notice).
 - **Module size**: `plugin.wasm` up to 64 MiB.
 - A Go guest costs about 0.5 ms per hook call, so keep hook payloads small; a first compile takes about a second per Go module, a cached load about 50 ms (`TestCompileCacheWarmLoad` asserts at most 100 ms). A `render.page` round trip on the default slim payload costs about 0.5 to 0.8 ms (p50 480 µs for 4 blocks, 660 µs for 8, 810 µs for 12; `TestRenderPageP50` asserts under 1 ms). With `render_page.full_blocks` it costs about 0.5 ms plus 0.5 ms per KB of blocks: 1.2 ms for 4 short blocks, 4.1 ms for a 7 KB page of 12 blocks (`BenchmarkRenderPage`), so use it only when the plugin must read block content.
 

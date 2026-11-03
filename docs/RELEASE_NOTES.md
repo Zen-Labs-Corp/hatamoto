@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
+
+Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).
+
+- **Removed permissions.** `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A plugin that requests one is not loaded: it stays installed, shows the reason on the plugins page, and its imports, webhooks and cron jobs stop until you install a version built for runs. Grants you stored for them are ignored.
+- **Removed host functions.** `entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create` and `redirects.delete`. A call answers `unavailable` and names the replacement.
+- **Plugins that never wrote content** (built for `^0.5` to `^0.16`) load and run as before.
+- **Argument limits on the new functions.** The run and changeset functions refuse arguments nested deeper than 32 levels, arrays over 10,000 elements and requests over 200,000 JSON tokens with `invalid_argument`. Functions that existed before keep their limits; see the plugin API reference.
+- **The update check does not warn.** The pre-update check compares SDK ranges only, so a plugin built for `^0.16` that requests a removed permission passes it. Check your plugins before you update.
+- **Migration.** New tables and columns only (expand-only).
+
+**Rollback floor: unchanged.** The 1.0.x binary runs against the migrated data and ignores the new tables. Publish or discard every open changeset before you roll back: 1.0.x cannot show or publish one, so its staged content would only wait for the 72 hour expiry. A plugin built for runs does not load on 1.0.x.
+
 ## Unreleased: Business details live per locale
 
 Every locale, the default one included, now has its own business details, edited under Settings > Locales > Business details. The default locale's card comes first and is your organisation and the fallback for the others. Settings > General keeps Identity, Homepage and Email, and the notification email moved into its Email card.

@@ -236,6 +236,8 @@ type GrowthDeps struct {
 	SearchPerf searchperf.Provider
 	Linking    LinkingStore
 	Plugins    PluginAdmin
+	// PluginRuns starts plugin runs (nil = the start route answers "not available").
+	PluginRuns RunStarter
 	Packages   PackageAdmin
 	FormMail   FormMailer
 	// AgentRegistry names the crawlers (agents.Default() when nil).

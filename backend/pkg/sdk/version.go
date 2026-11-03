@@ -39,9 +39,24 @@ package sdk
 // 0.16.0 adds the render.site_graph filter (SiteGraph): a plugin adds keys to
 // the Organization, LocalBusiness and WebSite nodes of the generic site graph
 // and appends nodes. Purely additive.
-const Version = "0.16.0"
+//
+// 0.17.0 moves content writes into runs and is a break for plugins that write
+// content. The 12 direct write functions (entities.create, entities.update,
+// entities.set_status, entities.delete, terms.save, terms.delete, menus.save,
+// menus.add_item, menus.delete_item, media.upload, redirects.create,
+// redirects.delete) and the five *.write permissions are removed: a manifest
+// that requests one is refused at load, and a call to a removed function
+// returns `unavailable`. A plugin now declares a `runs` block, exports
+// on_run_step, collects data in a fetch phase (run.*, upload.read, buffer.put,
+// media.import_url, http.fetch) and stages content in a transform phase
+// (buffer.get, buffer.list, site.info, entities.slug_taken, changeset.*) into
+// a changeset the owner reviews and publishes. Calls outside their phase fail
+// with `phase_denied`; changing an object the owner or another source owns
+// fails with `not_owned`. Plugins that never wrote content are unaffected and
+// keep loading.
+const Version = "0.17.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0"}

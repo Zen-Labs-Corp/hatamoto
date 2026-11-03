@@ -190,6 +190,9 @@ type loadedPlugin struct {
 	sha    string
 	pkg    *Package
 	pinned bool // from HATAMOTO_PLUGIN_DIR: reconcile leaves it alone
+	// err is why the package was refused at load ("" when it was not): the
+	// admin shows it, since the log line is not where an owner looks.
+	err string
 }
 
 type appliedTheme struct {
@@ -886,6 +889,14 @@ func (m *Manager) Blocked(kind Kind, name string) string {
 	return m.blocked[string(kind)+"/"+name]
 }
 
+// LoadError says why an installed plugin package was refused at load, for
+// instance because it still asks for a removed permission ("" when it was not).
+func (m *Manager) LoadError(name string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.loaded[name].err
+}
+
 // ScriptsBlocked reports whether an installed plugin ships assets/plugin.js that
 // pages do not link because the owner has not granted it site.scripts. A
 // package without plugin.wasm never has its plugin.js linked (only a loaded
@@ -1153,7 +1164,7 @@ func (m *Manager) reconcilePlugins(ctx context.Context, rows []Row) bool {
 		p, _, err := m.loadUsable(ctx, KindPlugin, name)
 		if err != nil {
 			m.Logger.Error("packages: load plugin package", "plugin", name, "error", err)
-			m.loaded[name] = loadedPlugin{sha: row.SHA256} // do not retry until it changes
+			m.loaded[name] = loadedPlugin{sha: row.SHA256, err: err.Error()} // do not retry until it changes
 			continue
 		}
 		if p.Has(PluginWasm) { // a widget-only package has no code to load

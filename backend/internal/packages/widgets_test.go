@@ -403,3 +403,17 @@ func TestPackOwningAnElementSettingStaysUsableButIsNotInstalled(t *testing.T) {
 		t.Error("the kind does not own anchor")
 	}
 }
+
+// A plugin package the plugin loader already refused is not read (and its
+// refusal not logged) again at every reconcile.
+func TestReadWidgetsSkipsPackageRefusedAtLoad(t *testing.T) {
+	var logs bytes.Buffer
+	m := &Manager{Logger: slog.New(slog.NewTextHandler(&logs, nil)), loaded: map[string]loadedPlugin{"old-sync": {sha: "h1"}}}
+	e := m.readWidgets(context.Background(), Row{Kind: KindPlugin, Name: "old-sync", SHA256: "h1"})
+	if e.sha != "h1" || len(e.schemas) != 0 {
+		t.Fatalf("entry = %+v, want a cached empty entry for h1", e)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("logged: %s", logs.String())
+	}
+}

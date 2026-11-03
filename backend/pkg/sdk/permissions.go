@@ -10,21 +10,16 @@ type Permission = string
 
 // The capability set. Names are part of the SDK's compatibility surface.
 const (
-	PermEntitiesRead   Permission = "entities.read"
-	PermEntitiesWrite  Permission = "entities.write"
-	PermTermsRead      Permission = "terms.read"
-	PermTermsWrite     Permission = "terms.write"
-	PermMenusRead      Permission = "menus.read"
-	PermMenusWrite     Permission = "menus.write"
-	PermMediaRead      Permission = "media.read"
-	PermMediaWrite     Permission = "media.write"
-	PermRedirectsRead  Permission = "redirects.read"
-	PermRedirectsWrite Permission = "redirects.write"
-	PermFormsRead      Permission = "forms.read"
-	PermSettings       Permission = "settings"
-	PermLog            Permission = "log"
-	PermMailSend       Permission = "mail.send"
-	PermHTTPFetch      Permission = "http.fetch"
+	PermEntitiesRead  Permission = "entities.read"
+	PermTermsRead     Permission = "terms.read"
+	PermMenusRead     Permission = "menus.read"
+	PermMediaRead     Permission = "media.read"
+	PermRedirectsRead Permission = "redirects.read"
+	PermFormsRead     Permission = "forms.read"
+	PermSettings      Permission = "settings"
+	PermLog           Permission = "log"
+	PermMailSend      Permission = "mail.send"
+	PermHTTPFetch     Permission = "http.fetch"
 	// PermHTTPFetchAny lets http.fetch call any public address (allowed_hosts
 	// "*"), for plugins that call URLs the owner types in. It is separate from
 	// PermHTTPFetch so the permission prompt can warn about it, and an update
@@ -52,12 +47,29 @@ const (
 
 // Permissions lists every capability, in a stable order.
 var Permissions = []Permission{
-	PermEntitiesRead, PermEntitiesWrite, PermTermsRead, PermTermsWrite,
-	PermMenusRead, PermMenusWrite, PermMediaRead, PermMediaWrite,
-	PermRedirectsRead, PermRedirectsWrite, PermFormsRead,
+	PermEntitiesRead, PermTermsRead, PermMenusRead, PermMediaRead,
+	PermRedirectsRead, PermFormsRead,
 	PermSettings, PermLog, PermMailSend, PermHTTPFetch, PermHTTPFetchAny, PermKV, PermDB,
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
 }
 
 // ValidPermission reports whether p is a known capability.
 func ValidPermission(p Permission) bool { return slices.Contains(Permissions, p) }
+
+// removedPermissions are the write permissions that went away in SDK 0.17.0,
+// each with the changeset function that replaces it. Content is written by a
+// run through a changeset the owner reviews, never directly.
+var removedPermissions = map[Permission]string{
+	"entities.write":  FnChangesetEntityUpsert,
+	"terms.write":     FnChangesetTermUpsert,
+	"menus.write":     FnChangesetMenuUpsert,
+	"media.write":     FnChangesetMediaAttach,
+	"redirects.write": FnChangesetRedirectUpsert,
+}
+
+// RemovedPermission reports whether p is one of the write permissions SDK
+// 0.17.0 removed, as opposed to a name that was never valid.
+func RemovedPermission(p Permission) bool {
+	_, gone := removedPermissions[p]
+	return gone
+}

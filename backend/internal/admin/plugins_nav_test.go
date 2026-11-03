@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"html"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
@@ -208,6 +209,19 @@ func TestPluginEmptyStateFollowsTheDeclaredUI(t *testing.T) {
 	fp.list = append(fp.list, PluginInfo{Name: "crashed", Error: "boom", UI: &PluginUIInfo{Title: "C"}})
 	if body := g.do("GET", "/admin/plugins/crashed/settings", "owner-token", nil, nil).Body.String(); !strings.Contains(body, failed) || strings.Contains(body, off) || strings.Contains(body, "turn it on again") || !strings.Contains(body, "restart the server") {
 		t.Error("a plugin with an error says it failed to start and needs a fix and a restart")
+	}
+}
+
+// A plugin refused at load says why on its page, not only in the log.
+func TestPluginPageShowsLoadRefusal(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	const refusal = `plugin "old-sync" not loaded: permission "entities.write" was removed in Hatamoto 1.1. Replace it with a run. See docs/PLUGIN_API.md "Runs and changesets"`
+	fp.list = append(fp.list, PluginInfo{Name: "old-sync", Version: "1.0.0", Package: &PackageMeta{Enabled: true, LoadError: refusal}})
+	body := html.UnescapeString(g.do("GET", "/admin/plugins/old-sync/settings", "owner-token", nil, nil).Body.String())
+	if !strings.Contains(body, "This plugin failed to start") || !strings.Contains(body, refusal) || strings.Contains(body, "shown above") {
+		t.Errorf("the page must show the load refusal:\n%s", body)
 	}
 }
 
@@ -481,5 +495,25 @@ func TestPluginPermissionsPageUsesCardsGaugeAndCallout(t *testing.T) {
 	none := g.do("GET", "/admin/plugins/hello/permissions", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(quiet, "hm-meter") || strings.Contains(none, "hm-meter") || !strings.Contains(none, "It asks for no permissions.") {
 		t.Error("gauge shown without permissions, or the empty text is missing")
+	}
+}
+
+// Failed and blocked plugins are what "Needs attention" is for.
+func TestPluginsNeedsAttentionCountsFailed(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	fp.list = append(fp.list,
+		PluginInfo{Name: "old-sync", Version: "1.0.0", Package: &PackageMeta{Enabled: true, LoadError: "not loaded"}},
+		PluginInfo{Name: "stuck", Version: "1.0.0", Package: &PackageMeta{Enabled: true, Blocked: "needs a newer host"}},
+	)
+	body := g.do("GET", "/admin/plugins?view=attention", "owner-token", nil, nil).Body.String()
+	if !regexp.MustCompile(`(?s)Needs attention.{0,200}?>3<`).MatchString(body) { // the rig's own failed "broken" plus the two added here
+		t.Errorf("the tab must count the failed and the blocked plugins:\n%s", body)
+	}
+	for _, n := range []string{"/admin/plugins/old-sync/settings", "/admin/plugins/stuck/settings"} {
+		if !strings.Contains(body, n) {
+			t.Errorf("the view lacks a row for %s", n)
+		}
 	}
 }

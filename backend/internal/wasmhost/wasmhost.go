@@ -482,6 +482,17 @@ func (h *Host) acquire(name string) (*plugin, error) {
 	}
 }
 
+type freshKey struct{}
+
+// WithFreshInstance marks ctx so Call runs on a cold instance and closes it
+// afterwards, never touching the pool: the guest's memory cannot carry data
+// from one call to the next. A cold start costs a module instantiation.
+func WithFreshInstance(ctx context.Context) context.Context {
+	return context.WithValue(ctx, freshKey{}, true)
+}
+
+func isFresh(ctx context.Context) bool { v, _ := ctx.Value(freshKey{}).(bool); return v }
+
 // Call runs export on plugin name with JSON input and returns its output.
 //
 // A trap, timeout, out-of-memory or guest error returns an error and discards
@@ -500,6 +511,7 @@ func (h *Host) acquire(name string) (*plugin, error) {
 // by a short caller deadline that it had to itself is charged as usual.
 func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte, error) {
 	entry := time.Now()
+	fresh := isFresh(ctx)
 	p, err := h.acquire(name)
 	if err != nil {
 		return nil, err
@@ -532,9 +544,13 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	}
 
 	var inst *extism.Plugin
-	select {
-	case inst = <-p.pool:
-	default:
+	if !fresh { // a fresh call never runs on a pooled instance's memory
+		select {
+		case inst = <-p.pool:
+		default:
+		}
+	}
+	if inst == nil {
 		startCtx, cancelStart := context.WithTimeout(ctx, maxStartWait)
 		var err error
 		inst, err = p.newInstance(startCtx)
@@ -551,7 +567,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	if err := ctx.Err(); err != nil {
 		// The caller gave up while we waited; the instance never ran, so it
 		// is healthy: keep it.
-		p.release(inst)
+		p.keep(inst, fresh)
 		return nil, fmt.Errorf("%s.%s: caller gave up before the call: %w", name, export, err)
 	}
 	callerCtx := ctx
@@ -618,7 +634,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 			// instance is pooled only if the deadline has not passed, since
 			// wazero may be closing the module of a done context.
 			p.succeeded(export)
-			p.releaseUnlessDone(ctx, inst)
+			p.releaseUnlessDone(ctx, inst, fresh)
 			if reject {
 				return nil, err
 			}
@@ -640,15 +656,25 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		return nil, fmt.Errorf("%s.%s after %s: %w", name, export, ran.Round(time.Millisecond), err)
 	}
 	p.succeeded(export)
-	p.releaseUnlessDone(ctx, inst)
+	p.releaseUnlessDone(ctx, inst, fresh)
 	return out, nil
 }
 
 // releaseUnlessDone pools inst, or discards it when ctx is done: a deadline
 // that hit at the tail of the call may have had wazero close the module.
-func (p *plugin) releaseUnlessDone(ctx context.Context, inst *extism.Plugin) {
+func (p *plugin) releaseUnlessDone(ctx context.Context, inst *extism.Plugin, fresh bool) {
 	if ctx.Err() != nil {
 		p.discarded.Add(1)
+		_ = inst.Close(context.Background())
+		return
+	}
+	p.keep(inst, fresh)
+}
+
+// keep pools inst, or closes it when the call was fresh: its memory must not
+// outlive the call.
+func (p *plugin) keep(inst *extism.Plugin, fresh bool) {
+	if fresh {
 		_ = inst.Close(context.Background())
 		return
 	}

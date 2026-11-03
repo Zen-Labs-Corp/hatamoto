@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -67,6 +68,15 @@ type Runtime struct {
 
 	mu       sync.Mutex
 	statuses []Status
+
+	runWG sync.WaitGroup // drivers started by StartRun
+	// runMu guards runsClosed and the WaitGroup Add against Close's Wait.
+	runMu      sync.Mutex
+	runsClosed bool
+	// runCtx ends when the runtime closes: drivers stop between steps, cut
+	// the step in flight and fail their run (see Close).
+	runCtx   context.Context
+	stopRuns context.CancelFunc
 }
 
 // NewRuntime returns a Runtime. cacheDir is the compiled-code cache ("" =
@@ -80,12 +90,31 @@ func NewRuntime(log *slog.Logger, engine *hooks.Engine, cacheDir string) (*Runti
 		return nil, err
 	}
 	r := &Runtime{host: host, engine: engine, log: log, assets: map[string]Assets{}}
+	r.runCtx, r.stopRuns = context.WithCancel(context.Background())
 	r.Configure(Config{})
 	return r, nil
 }
 
-// Close unloads every plugin.
+// runShutdownWait bounds how long Close waits for run drivers to fail their
+// runs before it closes the host and the database anyway.
+const runShutdownWait = 15 * time.Second
+
+// Close stops the run drivers, waits for them (a driver fails its run as
+// interrupted, so the run does not wait for recovery), then unloads every
+// plugin.
 func (r *Runtime) Close(ctx context.Context) {
+	r.runMu.Lock()
+	r.runsClosed = true
+	r.runMu.Unlock()
+	r.stopRuns()
+	done := make(chan struct{})
+	go func() { r.runWG.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-ctx.Done():
+	case <-time.After(runShutdownWait):
+		r.log.Warn("run drivers did not stop in time; recovery will fail their runs")
+	}
 	r.host.Close(ctx)
 	if r.caps.db != nil {
 		r.caps.db.Close()
@@ -243,6 +272,10 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	}
 	if err := r.host.Load(ctx, m, wasm); err != nil {
 		return fail(err)
+	}
+	if len(m.Runs) > 0 && !r.host.HasExport(m.Name, sdk.RunStepExport) {
+		r.Unload(ctx, m.Name) // the module just loaded is unusable; do not keep it or an older version
+		return fail(fmt.Errorf("plugin %q declares runs but does not export %s", m.Name, sdk.RunStepExport))
 	}
 	r.engine.RemovePlugin(m.Name) // a re-load replaced the module: drop the old module's hooks
 	st.Loaded = true

@@ -251,3 +251,22 @@ func (s *Service) StagedKeyModTime(key string) (time.Time, error) {
 	}
 	return fi.ModTime(), nil
 }
+
+// OpenStaged opens the staged file at key for random-access reads and returns
+// it with its size. The caller closes it. Only keys under the staged
+// directory are accepted.
+func (s *Service) OpenStaged(key string) (*os.File, int64, error) {
+	if err := checkKey(key); err != nil || !isStagedKey(key) {
+		return nil, 0, fmt.Errorf("not a staged blob key %q", key)
+	}
+	f, err := os.Open(s.local.localPath(key))
+	if err != nil {
+		return nil, 0, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, err
+	}
+	return f, fi.Size(), nil
+}

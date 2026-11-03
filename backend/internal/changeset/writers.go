@@ -22,6 +22,11 @@ import (
 const (
 	reasonMoved = "moved"
 	reasonGone  = "gone"
+	// reasonParentMissing: the entity's parent_key maps to nothing, because
+	// the parent was skipped or never staged.
+	reasonParentMissing = "parent_missing"
+	// reasonEntityMissing: a menu item's entity key maps to nothing.
+	reasonEntityMissing = "entity_missing"
 	// reasonLocation: the menu is assigned to a location, which only the owner changes.
 	reasonLocation = "has_location"
 	// reasonRevertMoved is why a revert left an object in place.
@@ -92,7 +97,72 @@ type entityPayload struct {
 	Locale     string          `json:"locale"`
 	Attributes json.RawMessage `json:"attributes"`
 	ParentID   *uuid.UUID      `json:"parent_id"`
-	Status     string          `json:"status"`
+	// ParentKey names the parent by the source key an entity item of the same
+	// origin was staged under. It is resolved at publish, against the items
+	// applied earlier in the same transaction, so a parent must be staged
+	// before its children.
+	ParentKey string     `json:"parent_key"`
+	SEO       *entitySEO `json:"seo"`
+	Status    string     `json:"status"`
+}
+
+// entitySEO is the search metadata of an entity. It is merged into the
+// attributes keys the public site reads (meta_title, meta_description,
+// canonical_url and seo.robots).
+type entitySEO struct {
+	MetaTitle       string `json:"meta_title"`
+	MetaDescription string `json:"meta_description"`
+	Canonical       string `json:"canonical"`
+	Robots          string `json:"robots"`
+}
+
+// mergeSEO returns attrs with s merged in; empty fields leave the attribute alone.
+func mergeSEO(attrs json.RawMessage, s *entitySEO) (json.RawMessage, error) {
+	if s == nil {
+		return attrs, nil
+	}
+	m := map[string]any{}
+	if len(attrs) > 0 && string(attrs) != "null" {
+		if err := json.Unmarshal(attrs, &m); err != nil {
+			return nil, fmt.Errorf("%w: attributes must be an object to carry seo", ErrInvalidItem)
+		}
+	}
+	for k, v := range map[string]string{"meta_title": s.MetaTitle, "meta_description": s.MetaDescription, "canonical_url": s.Canonical} {
+		if v != "" {
+			m[k] = v
+		}
+	}
+	if s.Robots != "" {
+		sm, _ := m["seo"].(map[string]any)
+		if sm == nil {
+			sm = map[string]any{}
+		}
+		sm["robots"] = s.Robots
+		m["seo"] = sm
+	}
+	return json.Marshal(m)
+}
+
+// liveEntityTarget returns the entity a source key maps to, or "" when the key
+// maps to nothing or to an entity since deleted (the mapping outlives it), so
+// the item becomes a conflict instead of failing the publish.
+func liveEntityTarget(ctx context.Context, tx Tx, origin, sourceKey string) (string, error) {
+	id, err := mappedTarget(ctx, tx, origin, KindEntity, sourceKey)
+	if err != nil || id == "" {
+		return "", err
+	}
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return "", fmt.Errorf("%w: mapped target %q", ErrInvalidItem, id)
+	}
+	var ok bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE id = $1)`, uid).Scan(&ok); err != nil {
+		return "", fmt.Errorf("failed to look up mapped entity: %w", err)
+	}
+	if !ok {
+		return "", nil
+	}
+	return id, nil
 }
 
 func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
@@ -108,8 +178,28 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 	if err != nil {
 		return Outcome{}, err
 	}
-	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: p.Attributes,
-		ParentID: p.ParentID, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
+	parent := p.ParentID
+	if p.ParentKey != "" {
+		if parent != nil {
+			return Outcome{}, fmt.Errorf("%w: parent_id and parent_key are exclusive", ErrInvalidItem)
+		}
+		pid, err := liveEntityTarget(ctx, tx, origin, p.ParentKey)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if pid == "" {
+			return Outcome{Conflict: true, Detail: reasonParentMissing}, nil
+		}
+		if parent, err = parseTarget(pid); err != nil {
+			return Outcome{}, err
+		}
+	}
+	attrs, err := mergeSEO(p.Attributes, p.SEO)
+	if err != nil {
+		return Outcome{}, err
+	}
+	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: attrs,
+		ParentID: parent, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
 		BaseVersion: ver, BaseUpdatedAt: at}
 	res, err := w.Svc.ApplyChangesetTx(ctx, tx, op)
 	switch {
@@ -311,6 +401,9 @@ type menuPayload struct {
 	Slug  string             `json:"slug"`
 	Name  string             `json:"name"`
 	Items []menu.ReplaceItem `json:"items"`
+	// EntityKeys links items by index to the entity published under a source
+	// key of the same origin, resolved at publish like an entity's parent_key.
+	EntityKeys map[int]string `json:"entity_keys"`
 }
 
 func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
@@ -325,6 +418,23 @@ func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, ta
 	at, err := parseTime(it.BaseToken)
 	if err != nil {
 		return Outcome{}, err
+	}
+	for i, key := range p.EntityKeys {
+		if i < 0 || i >= len(p.Items) {
+			return Outcome{}, fmt.Errorf("%w: entity key for item %d of %d", ErrInvalidItem, i, len(p.Items))
+		}
+		eid, err := liveEntityTarget(ctx, tx, origin, key)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if eid == "" {
+			return Outcome{Conflict: true, Detail: reasonEntityMissing}, nil
+		}
+		uid, err := parseTarget(eid)
+		if err != nil {
+			return Outcome{}, err
+		}
+		p.Items[i].LinkType, p.Items[i].EntityID = menu.LinkTypeEntity, uid
 	}
 	res, err := w.Svc.ApplyChangesetTx(ctx, tx, menu.MenuOp{ID: id, Slug: p.Slug, Name: p.Name, Items: p.Items,
 		BaseUpdatedAt: at, Origin: origin, Delete: it.Op == OpDelete})

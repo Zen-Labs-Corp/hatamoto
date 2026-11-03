@@ -17,13 +17,16 @@ type changesetRow struct {
 	Plugin    string
 	State     string
 	ExpiresAt time.Time
+	// Items and PayloadBytes are the running totals the staging quota reads.
+	Items        int64
+	PayloadBytes int64
 }
 
 // lockChangeset reads and row-locks a changeset.
 func lockChangeset(ctx context.Context, tx pgx.Tx, id int64) (changesetRow, error) {
 	var c changesetRow
-	err := tx.QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
-		Scan(&c.ID, &c.RunID, &c.Plugin, &c.State, &c.ExpiresAt)
+	err := tx.QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at, item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
+		Scan(&c.ID, &c.RunID, &c.Plugin, &c.State, &c.ExpiresAt, &c.Items, &c.PayloadBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}
@@ -65,7 +68,12 @@ func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]Stor
 	return out, rows.Err()
 }
 
-func mappedTarget(ctx context.Context, tx pgx.Tx, origin string, kind Kind, sourceKey string) (string, error) {
+// rowQuerier is what mappedTarget needs: a transaction or the pool.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func mappedTarget(ctx context.Context, tx rowQuerier, origin string, kind Kind, sourceKey string) (string, error) {
 	if sourceKey == "" {
 		return "", nil
 	}

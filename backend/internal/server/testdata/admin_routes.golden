@@ -262,6 +262,7 @@ POST /admin/plugins/{name}/bridge -> admin.(*Admin).handlePluginBridge-fm
 POST /admin/plugins/{name}/disable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/enable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/grant -> admin.(*Admin).handlePluginGrant-fm
+POST /admin/plugins/{name}/runs/{run}/start -> admin.(*Admin).handlePluginRunStart-fm
 POST /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettingsSave-fm
 POST /admin/plugins/{name}/uninstall -> admin.(*Admin).handlePluginUninstall-fm
 POST /admin/plugins/{name}/update -> admin.(*Admin).handlePluginUpdate-fm

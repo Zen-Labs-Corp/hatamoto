@@ -152,6 +152,14 @@ DATABASE_URL=postgres://user:pw@localhost:5432/postgres?sslmode=disable bash scr
 seconds (default 60). `make check` runs the linter and its fixture tests; the `n-1` job in the CI
 workflow runs both scripts with full git history so the baseline resolves.
 
+## Plugins write through runs
+
+Core 1.1.0 (SDK 0.17.0) removes the direct content write API of plugins with no shim; see [ADR 0004](adr/0004-plugin-changesets.md). The five permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` and the twelve functions behind them are gone. Content now enters through a run: the plugin stages changes into a changeset and the owner publishes or discards it.
+
+Before you update, list the plugins that request one of those permissions. After the update they are not loaded (the plugins page shows why) and everything they did, imports, webhooks and cron jobs, stops until you install a version built for runs. Stored grants for the removed permissions stay in the database and are ignored. The update check compares SDK ranges only and does not flag these plugins.
+
+The migrations add tables, columns and one partial unique index (one running run per plugin) and change nothing that 1.0.x reads, so a rollback works: run the previous release against the migrated database. Publish or discard every open changeset first. 1.0.x does not know changesets, so it cannot publish or discard one; its staged content is never applied and is dropped when it expires after 72 hours. Runs still marked running when you roll back are failed by the 1.1 release the next time it starts. Do not run the migrations' `down` steps for this: they drop the run and changeset tables.
+
 ## Menus: no-link items and rollback
 
 Menu items gained a `none` link type (text only), and the migration turns existing `#` items into it. The schema change is expand-only, so rolling back to the previous release works and public rendering is unaffected. The previous release's admin cannot save a menu that contains a no-link item, though: it asks for an address on those items. Retype them as `#` there, or stay on this release, until you move forward again. The same holds for entity, page, archive and custom items saved without a target (this release accepts them and renders them as plain text): the previous release's admin refuses to save a menu that contains one until you choose a target for it.

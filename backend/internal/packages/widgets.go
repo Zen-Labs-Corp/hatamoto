@@ -288,6 +288,9 @@ func (m *Manager) reconcileWidgets(ctx context.Context, rows []Row) bool {
 // A failure is logged and cached as "no widgets" until the package changes.
 func (m *Manager) readWidgets(ctx context.Context, r Row) widgetEntry {
 	e := widgetEntry{sha: r.SHA256}
+	if l, ok := m.loaded[r.Name]; ok && l.pkg == nil && l.sha == r.SHA256 {
+		return e // reconcilePlugins already refused this exact package and logged why
+	}
 	p := m.loaded[r.Name].pkg
 	if p == nil || m.loaded[r.Name].sha != r.SHA256 {
 		var err error

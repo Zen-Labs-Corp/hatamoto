@@ -1075,3 +1075,38 @@ func (f *fixture) mustTx() Tx {
 	f.t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	return tx
 }
+
+// A changeset holds at most maxStagedItems items and maxStagedBytes of
+// payload; the item past either limit is refused and nothing else changes.
+func TestChangesetStageQuota(t *testing.T) {
+	f := newFixture(t)
+	oldItems, oldBytes := maxStagedItems, maxStagedBytes
+	t.Cleanup(func() { maxStagedItems, maxStagedBytes = oldItems, oldBytes })
+
+	maxStagedItems, maxStagedBytes = 2, 1<<20
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("q1-"+f.tag, "q1-"+f.tag, "a"))
+	f.stage(cs, f.entityItem("q2-"+f.tag, "q2-"+f.tag, "b"))
+	if err := f.eng.Stage(f.ctx, cs, f.entityItem("q3-"+f.tag, "q3-"+f.tag, "c")); !errors.Is(err, ErrQuotaExceeded) {
+		t.Fatalf("third item: %v, want ErrQuotaExceeded", err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM hatamoto_changeset_items WHERE changeset_id = $1`, cs); n != 2 {
+		t.Fatalf("items = %d, want 2", n)
+	}
+
+	var items, bytes int64
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1`, f.begin("")).Scan(&items, &bytes); err != nil || items != 0 || bytes != 0 {
+		t.Fatalf("a new changeset counts %d items, %d bytes (%v)", items, bytes, err)
+	}
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT item_count, payload_bytes FROM hatamoto_changesets WHERE id = $1`, cs).Scan(&items, &bytes); err != nil || items != 2 || bytes <= 0 {
+		t.Fatalf("running totals after two items: %d items, %d bytes (%v)", items, bytes, err)
+	}
+
+	maxStagedItems, maxStagedBytes = 100, 600
+	cs = f.begin("")
+	big := strings.Repeat("x", 400)
+	f.stage(cs, f.entityItem("b1-"+f.tag, "b1-"+f.tag, big))
+	if err := f.eng.Stage(f.ctx, cs, f.entityItem("b2-"+f.tag, "b2-"+f.tag, big)); !errors.Is(err, ErrQuotaExceeded) {
+		t.Fatalf("second big item: %v, want ErrQuotaExceeded", err)
+	}
+}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"strings"
 	"sync"
 	"testing"
 
@@ -252,161 +251,6 @@ func (r *transRig) seed(schema *entity.EntitySchema, locale string) *entity.Enti
 		Locale: locale, Status: entity.StatusDraft, Attributes: json.RawMessage(`{}`), Version: 1})
 }
 
-func TestEntitiesCreateTranslationOf(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	out, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "slug": "copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.groups.linked) != 1 || r.groups.linked[0][0] != target.ID || r.groups.linked[0][1].String() != out["id"] {
-		t.Fatalf("linked = %v, want [target, created]", r.groups.linked)
-	}
-	if out["locale"] != "fr-XX" {
-		t.Fatalf("locale = %v", out["locale"])
-	}
-}
-
-func TestEntitiesCreateTranslationOfRejects(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	other := r.seed(r.person, "en-XX")
-	before := len(r.ents.list)
-	for name, c := range map[string]struct {
-		args map[string]any
-		code string
-	}{
-		"same locale":    {map[string]any{"schema_slug": "page", "name": "x", "locale": "en-XX", "translation_of": target.ID.String()}, sdk.ErrInvalidArgument},
-		"other schema":   {map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX", "translation_of": other.ID.String()}, sdk.ErrInvalidArgument},
-		"unknown target": {map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX", "translation_of": uuid.NewString()}, sdk.ErrNotFound},
-		"bad target id":  {map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX", "translation_of": "nope"}, sdk.ErrInvalidArgument},
-		"no locale":      {map[string]any{"schema_slug": "page", "name": "x", "translation_of": target.ID.String()}, sdk.ErrInvalidArgument},
-		"person target":  {map[string]any{"schema_slug": "person", "name": "x", "locale": "fr-XX", "translation_of": other.ID.String()}, sdk.ErrInvalidArgument},
-	} {
-		_, err := r.call(t, fnEntitiesCreate, c.args)
-		if err == nil {
-			t.Errorf("%s: no error", name)
-			continue
-		}
-		if he := r.api.toHostError("p", err); he.Code != c.code {
-			t.Errorf("%s: code %s, want %s", name, he.Code, c.code)
-		}
-	}
-	if len(r.ents.list) != before || len(r.groups.linked) != 0 {
-		t.Fatalf("a rejected create left rows or links: %d rows, %v", len(r.ents.list), r.groups.linked)
-	}
-}
-
-func TestEntitiesCreateTranslationOfLinkFailureDeletes(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	r.groups.linkErr = entity.ErrLocaleTaken
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	wantCode(t, err, sdk.ErrInvalidArgument)
-	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
-		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
-	}
-}
-
-// A locale the target's group already has is refused before anything is
-// created, so no entity (and no created/deleted event pair) comes of it.
-func TestEntitiesCreateTranslationOfLocaleTakenRefusedEarly(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	taken := r.seed(r.page, "fr-XX")
-	r.groups.members[target.ID] = []entity.Member{{ID: target.ID, Locale: "en-XX"}, {ID: taken.ID, Locale: "fr-XX"}}
-	before := len(r.ents.list)
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	wantCode(t, err, sdk.ErrInvalidArgument)
-	if len(r.ents.list) != before || len(r.ents.deleted) != 0 || len(r.groups.linked) != 0 {
-		t.Fatalf("rows %d (was %d), deleted %v, linked %v: nothing may be created or deleted", len(r.ents.list), before, r.ents.deleted, r.groups.linked)
-	}
-}
-
-// A link that fails because the call's context ended must still delete the new
-// entity: the cleanup does not run on the dead context.
-func TestEntitiesCreateTranslationOfLinkTimeoutDeletes(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	r.ctx = ctx
-	r.groups.onLink = cancel
-	r.groups.linkErr = context.Canceled
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	wantCode(t, err, sdk.ErrTimeout)
-	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
-		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
-	}
-}
-
-func TestEntitiesCreateLinkDeadlineIsTimeout(t *testing.T) {
-	r := newTransRig(t, true, true)
-	target := r.seed(r.page, "en-XX")
-	r.groups.linkErr = fmt.Errorf("lock translation groups: %w", context.DeadlineExceeded)
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	wantCode(t, err, sdk.ErrTimeout)
-	if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
-		t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
-	}
-}
-
-func TestEntitiesCreateTranslationOfNeedsGroups(t *testing.T) {
-	r := newTransRig(t, false, false)
-	target := r.seed(r.page, "")
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{
-		"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-	})
-	wantCode(t, err, sdk.ErrUnavailable)
-}
-
-func TestEntitiesCreateLocaleRequiredOnMulti(t *testing.T) {
-	r := newTransRig(t, true, true)
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"})
-	wantCode(t, err, sdk.ErrInvalidArgument)
-	if _, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "person", "name": "x"}); err != nil {
-		t.Fatalf("a schema without translations needs no locale: %v", err)
-	}
-	if _, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX"}); err != nil {
-		t.Fatalf("create with locale: %v", err)
-	}
-}
-
-func TestEntitiesCreateLocaleOptionalForOlderPlugins(t *testing.T) {
-	for _, rng := range []string{"^0.14", "^0.13", "^0.5", ""} {
-		r := newTransRig(t, true, true)
-		r.sdk = rng
-		if _, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"}); err != nil {
-			t.Fatalf("range %q: create without locale: %v", rng, err)
-		}
-	}
-	r := newTransRig(t, true, true)
-	r.sdk = ">=0.15.0 <1.0.0"
-	_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"})
-	wantCode(t, err, sdk.ErrInvalidArgument)
-}
-
-func TestEntitiesCreateSingleLocaleUnchanged(t *testing.T) {
-	r := newTransRig(t, false, false)
-	out, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := out["translation_group"]; ok {
-		t.Fatalf("translation_group present without groups: %v", out)
-	}
-}
-
 func TestEntitiesGroupInDTO(t *testing.T) {
 	r := newTransRig(t, true, true)
 	a, b, c := r.seed(r.page, "en-XX"), r.seed(r.page, "fr-XX"), r.seed(r.page, "en-XX")
@@ -541,18 +385,6 @@ func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
 			_, err := r.call(t, fnEntitiesList, map[string]any{"schema_slug": "page"})
 			return err
 		},
-		"create": func(r *transRig, _ uuid.UUID) error {
-			_, err := r.call(t, fnEntitiesCreate, map[string]any{"schema_slug": "page", "name": "x", "locale": "fr-XX"})
-			return err
-		},
-		"update": func(r *transRig, id uuid.UUID) error {
-			_, err := r.call(t, fnEntitiesUpdate, map[string]any{"id": id.String(), "name": "y"})
-			return err
-		},
-		"status": func(r *transRig, id uuid.UUID) error {
-			_, err := r.call(t, fnEntitiesStatus, map[string]any{"id": id.String(), "status": "published"})
-			return err
-		},
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {
@@ -571,36 +403,6 @@ func TestEntitiesGroupLookupFailureIsInternal(t *testing.T) {
 			he := r.api.toHostError("p", err)
 			if he.Code != sdk.ErrInternal || he.Message != "translation group lookup failed" {
 				t.Fatalf("error = %s %q, want internal with the generic message", he.Code, he.Message)
-			}
-		})
-	}
-}
-
-func TestEntitiesCreateLinkErrorMapping(t *testing.T) {
-	for name, c := range map[string]struct {
-		linkErr error
-		code    string
-	}{
-		"store failure":  {errors.New("lock translation groups: boom"), sdk.ErrInternal},
-		"group rule":     {fmt.Errorf("%w: x", entity.ErrInvalidGroup), sdk.ErrInvalidArgument},
-		"locale is used": {entity.ErrLocaleTaken, sdk.ErrInvalidArgument},
-	} {
-		t.Run(name, func(t *testing.T) {
-			r := newTransRig(t, true, true)
-			target := r.seed(r.page, "en-XX")
-			r.groups.linkErr = c.linkErr
-			_, err := r.call(t, fnEntitiesCreate, map[string]any{
-				"schema_slug": "page", "name": "Copy", "locale": "fr-XX", "translation_of": target.ID.String(),
-			})
-			if err == nil {
-				t.Fatal("no error")
-			}
-			he := r.api.toHostError("p", err)
-			if he.Code != c.code || (c.code == sdk.ErrInternal && strings.Contains(he.Message, "boom")) {
-				t.Fatalf("error = %s %q, want %s", he.Code, he.Message, c.code)
-			}
-			if len(r.ents.deleted) != 1 || len(r.ents.list) != 1 {
-				t.Fatalf("deleted = %v, rows = %d: the created entity must be removed", r.ents.deleted, len(r.ents.list))
 			}
 		})
 	}
