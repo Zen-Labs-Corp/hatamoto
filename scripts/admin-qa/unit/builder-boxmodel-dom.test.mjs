@@ -298,5 +298,5 @@ test("each ring's caption carries its total in px, following the sides", () => {
 test("a hint line says how to edit", () => {
   const b = make([...MARGIN, ...PADDING]);
   const hint = b.find((n) => n.className === "hm-bs-hintline")[0];
-  assert.match(hint.textContent, /^Drag a number or the pink handles on the canvas\./);
+  assert.match(hint.textContent, /^Drag a number or a handle\. Shift moves by 10\.$/);
 });

@@ -28,8 +28,11 @@
 .hm-bs-ctx__bp .hm-icon { inline-size: 14px; block-size: 14px; }
 .hm-bs-classnote { margin: 0; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .hm-bs-classnote[hidden], .hm-bs-classnote:empty { display: none; }
+.hm-bs-classnote { padding-block: var(--space-0-5); } /* the class's Detach row is one more row of the Design tab: it must not push Effects out of the pane */
+.hm-bs-classnote .hm-btn { --h: var(--space-6); }
 /* The header's class chip sits under the kind line; the hosts hold the class note and the apply/save form and take no room while empty. */
-.hm-bs-heading [data-hm-bs-classchip] { display: inline-flex; max-inline-size: 100%; margin: var(--space-0-5) 0 0 var(--space-1); }
+.hm-bs-heading > .hm-bs-sub { display: inline-block; vertical-align: middle; } /* the class chip shares the kind line */
+.hm-bs-heading [data-hm-bs-classchip] { display: inline-flex; vertical-align: middle; max-inline-size: 100%; margin: 0 0 0 var(--space-1); }
 .hm-bs-classhost { min-width: 0; }
 .hm-bs-classhost:empty { display: none; }
 .hm-bs-classhost > .hm-bs-class { margin: 0; padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--border); }
@@ -101,8 +104,8 @@
 
 /* Style tab density (the mockup's .r rows): 12px text, the label in a narrow left column, the control on the right, 28px controls. */
 .hm-bs-style { gap: 0; font-size: var(--text-xs); }
-.hm-bs__inspector .hm-bs-style .hm-bs-ctx { margin-block-start: 0; padding-block: var(--space-1-5); border-bottom: 1px solid var(--border); }
-.hm-bs-style .hm-bs-grp { padding-block: var(--space-0-5) var(--space-1-5); }
+.hm-bs__inspector .hm-bs-style .hm-bs-ctx { margin-block-start: 0; padding-block: var(--space-1); border-bottom: 1px solid var(--border); }
+.hm-bs-style .hm-bs-grp { padding-block: var(--space-0-5) var(--space-1); }
 .hm-bs-style .hm-bs-grp > .hm-bs-grp__h { min-block-size: var(--space-6); } /* the header row is its 24px button: all six groups plus the rows of an open section fit the pane */
 .hm-bs-style .hm-bs-grp__b, .hm-bs-style .hm-bs-grp__sub { gap: var(--space-1-5); }
 .hm-bs-style button.hm-bs-grp__t, .hm-bs-style .hm-bs-ctx__note, .hm-bs-style .hm-bs-err { font-size: var(--text-xs); }

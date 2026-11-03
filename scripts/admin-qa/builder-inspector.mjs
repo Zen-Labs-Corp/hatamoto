@@ -173,6 +173,50 @@ await check("A1: Design is the section's default tab; groups run Layout, Spacing
   }
 });
 
+await check("A1 margin: the Effects header also ends inside the pane with a class applied and with the Hover state", async () => {
+  await select(sec.id);
+  const effects = () => p.locator(".hm-bs-grp__t", { hasText: /^Effects/ }).first().evaluate((e) => [Math.round(e.getBoundingClientRect().bottom), Math.round(document.querySelector('[data-hm-bs-pane="insp"]').getBoundingClientRect().bottom)]);
+  const inside = async (what) => {
+    const at = await effects();
+    if (at[0] >= at[1]) throw new Error(`${what}: the Effects header ends at ${at[0]}px, not inside the pane (ends at ${at[1]}px)`);
+    const note = await p.locator(".hm-bs-ctx__note").first().evaluate((e) => [Math.round(e.getBoundingClientRect().height), parseFloat(getComputedStyle(e).lineHeight)]);
+    if (note[0] > note[1] * 1.5) throw new Error(`${what}: the context note wraps (${note[0]}px high)`);
+    return `${what} ${at[0]}px of ${at[1]}px`;
+  };
+  const fill = p.locator(".hm-bs-grp__t", { hasText: /^Fill/ }).first();
+  if ((await fill.getAttribute("aria-expanded")) !== "true") await fill.click();
+  await p.locator(".hm-bs-swatches .hm-bs-pill").first().click(); // Fill open with a background: the tight case, as in A1
+  await settle(500);
+  let undos = 1;
+  const out = [];
+  const hover = async (on) => { await p.locator('select[aria-label="State"]').first().selectOption(on ? "hover" : ""); await settle(400); };
+  try {
+    out.push(await inside("bare"));
+    await hover(true);
+    out.push(await inside("Hover state"));
+    await hover(false);
+    // The class is made through "Save as class", with the server's answer faked in the browser: nothing is created on the site.
+    await ctx.route(/\/builder\/presets$/, (r) => r.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ name: "qa-class", label: "Qa class", s: { base: {} } }) }));
+    await p.locator(".hm-bs-header button.hm-bs-more").first().click();
+    await p.locator('.hm-menu [role="menuitem"]', { hasText: /^Save as class/ }).first().click();
+    await p.locator(".hm-bs-classform input").first().fill("qa-class");
+    await p.locator(".hm-bs-classform button", { hasText: /^Save class$/ }).first().click();
+    await settle(900);
+    undos++;
+    if (!(await p.locator("[data-hm-bs-classchip]").count())) throw new Error("the class chip is not in the header");
+    await shot("a1-class.png");
+    out.push(await inside("class chip"));
+    await hover(true);
+    out.push(await inside("class chip + Hover"));
+    await shot("a1-class-hover.png");
+  } finally {
+    await hover(false).catch(() => {});
+    for (let i = 0; i < undos; i++) await undo(); // the background and the class go again
+    await ctx.unroute(/\/builder\/presets$/).catch(() => {});
+  }
+  return out.join("; ");
+});
+
 await check("A2: no visible Inspector heading or class row; the header menu offers Save as class", async () => {
   await select(sec.id);
   const heading = await p.evaluate(() => {

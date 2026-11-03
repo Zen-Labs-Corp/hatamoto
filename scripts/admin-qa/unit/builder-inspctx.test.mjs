@@ -35,8 +35,10 @@ test("override note per device", () => {
 });
 
 test("override note names the state when one is chosen", () => {
-  assert.match(overrideNote("md", "hover"), /≤1024px\. Applies only in the Hover state\.$/);
-  assert.match(overrideNote("base", "active"), /Pressed state\.$/);
+  assert.equal(overrideNote("md", "hover"), "Hover state only; overrides Desktop on screens ≤1024px.");
+  assert.equal(overrideNote("sm", "focus"), "Focus state only; overrides Tablet on screens ≤640px.");
+  assert.equal(overrideNote("base", "active"), "Pressed state only, on every screen size.");
+  for (const d of ["base", "md", "sm"]) assert.ok(overrideNote(d, "parent-hover").length <= overrideNote("base").length, "a state note is no longer than the longest plain one: it stays on one line");
 });
 
 test("Parent hover is offered only for a parent that can take it", () => {

@@ -12,11 +12,12 @@ export const stateChoices = (parent) => STATE_CHOICES.filter(([id]) => id !== "p
 
 const stateName = (id) => STATE_CHOICES.find(([s]) => s === id)?.[1] ?? id;
 
-/** What the values set at this breakpoint (and state) do, in one short sentence. */
+/** What the values set at this breakpoint (and state) do, in one short sentence (a State only swaps the lead, so the line stays one line). */
 export function overrideNote(device, state = "") {
-  const base =
-    device === "md" ? `Values set here override Desktop on screens ≤${BREAKPOINT_MAX.md}px.` : device === "sm" ? `Values set here override Tablet on screens ≤${BREAKPOINT_MAX.sm}px.` : "Applies to every screen size unless Tablet or Phone override it.";
-  return state ? `${base} Applies only in the ${stateName(state)} state.` : base;
+  const lead = state ? `${stateName(state)} state only` : "";
+  if (device === "md") return `${lead ? `${lead}; overrides` : "Values set here override"} Desktop on screens ≤${BREAKPOINT_MAX.md}px.`;
+  if (device === "sm") return `${lead ? `${lead}; overrides` : "Values set here override"} Tablet on screens ≤${BREAKPOINT_MAX.sm}px.`;
+  return lead ? `${lead}, on every screen size.` : "Applies to every screen size unless Tablet or Phone override it.";
 }
 
 let seq = 0;
