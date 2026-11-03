@@ -383,6 +383,16 @@ test("hovering a handle shows its band's hatch and a value badge off to the side
   assert.equal(r.badge.hidden, true);
 });
 
+test("a handle hover does not stick to the next section when the selection moves under a still pointer", () => {
+  const r = rig();
+  r.handle("top").fire("pointerenter");
+  assert.equal(r.hatch("top").hidden, false);
+  r.state.selected = "b"; // no pointerleave comes: the handles moved away from the pointer
+  r.direct.update();
+  assert.equal(r.hatch("top").hidden, true);
+  assert.equal(r.badge.hidden, true);
+});
+
 test("the inspector's hover event shows that side's hatch and value; null clears it", () => {
   const r = rig();
   fireDoc("hm-pad-hover", { detail: { side: "left" } });

@@ -53,6 +53,7 @@ export function mountDirect(canvas, hd) {
   };
   let hoverSide = null; // from the inspector's padding fields
   let overSide = null; // the handle under the pointer: its band shows too
+  let shownId = null; // the section the handles were last drawn for
   const hot = () => overSide ?? hoverSide;
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
@@ -80,6 +81,8 @@ export function mountDirect(canvas, hd) {
 
   function paint() {
     const t = (current = target());
+    if (t?.id !== shownId) overSide = null; // the selection moved under a still pointer: no pointerleave comes, so the old hover is dropped
+    shownId = t?.id ?? null;
     layer.hidden = !t;
     if (!t) {
       for (const s of SIDE_LIST) hatches[s].hidden = handles[s].hidden = true;
