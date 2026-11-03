@@ -488,7 +488,7 @@ test("the real table: a text block shows the six Figma groups with Typography fi
   const names = (m) => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t").map((b) => b.kids[0].textContent);
   const text = mount({ id: "t", t: "text", s: {} }, { table: full });
   assert.deepEqual(names(text), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"]);
-  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })).slice(0, 4), ["Layout", "Spacing", "Fill", "Typography"], "other kinds keep the order");
+  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"], "other kinds put Typography last");
   const head = (name) => text.find((n) => n.className === "hm-bs-grp__t" && n.kids[0].textContent === name)[0];
   assert.deepEqual(["Typography", "Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["true", "false", "false", "false"]);
   const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
