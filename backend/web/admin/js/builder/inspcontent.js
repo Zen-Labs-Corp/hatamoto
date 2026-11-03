@@ -282,7 +282,8 @@ export function createContent(ctx) {
       return slot;
     }
     const panel = h("div", { class: "hm-bs-content" });
-    const props = (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
+    // field mode (opts.only) edits one content field: the section's own props (its Title) are not that field's
+    const props = opts.only ? [] : (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
     for (const p of orderProps(node, props)) panel.append(propField(node, p));
     if (ITEMS.has(node.t))
       import("@hm/builder/items")
