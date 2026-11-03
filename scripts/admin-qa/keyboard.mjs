@@ -266,7 +266,7 @@ const pick = async (id) => { await p.locator(`${TREE}[data-id="${id}"]`).click()
 const addHeadings = async (n) => {
   const start = (await rows()).length;
   await pick((await rows())[0].id);
-  for (let i = 0; i < n; i++) { await press("/"); await p.keyboard.type("divider"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
+  for (let i = 0; i < n; i++) { await press("a"); await p.keyboard.type("divider"); await settle(); await press("ArrowDown"); await press("Enter"); await settle(300); }
   return start;
 };
 const undoWidgets = async (start) => {
@@ -538,7 +538,7 @@ const styleOn = async () => {
   await openBuilder();
   const start = (await rows()).length;
   await pick((await rows())[0].id);
-  await press("/");
+  await press("a");
   await p.keyboard.type("divider"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-panel] [role="tab"]', { hasText: "Style" }).click(); await settle();
