@@ -146,7 +146,7 @@ await check("select the section: header, context line, groups and box model show
   return `pill "${pill}", State dropdown, four padding numbers`;
 });
 
-await check("A1: Design is the section's default tab; groups run Layout, Spacing, Fill, Corners & border, Effects; Layout has a More toggle (the Effects header position is reported, not asserted)", async () => {
+await check("A1: Design is the section's default tab; groups run Layout, Spacing, Fill, Corners & border, Effects; Layout has a More toggle; the Effects header ends inside the pane without scrolling (also with Fill open)", async () => {
   await select(sec.id);
   if ((await p.locator('[role="tab"][data-tab="style"]').first().getAttribute("aria-selected")) !== "true") throw new Error("the Design tab is not selected by default");
   const fill = p.locator(".hm-bs-grp__t", { hasText: /^Fill/ }).first();
@@ -159,10 +159,11 @@ await check("A1: Design is the section's default tab; groups run Layout, Spacing
     if (idx.some((i, k) => i < 0 || (k && i <= idx[k - 1]))) throw new Error("group order: " + names.join(" | "));
     const effects = () => p.locator(".hm-bs-grp__t", { hasText: /^Effects/ }).first().evaluate((e) => [Math.round(e.getBoundingClientRect().bottom), Math.round(document.querySelector('[data-hm-bs-pane="insp"]').getBoundingClientRect().bottom)]);
     const open = await effects();
-    await fill.click(); // Fill collapsed: the header must fit then (with Fill open on a section with a background it is lower, the gap the report names)
+    if (open[0] >= open[1]) throw new Error(`the Effects header ends at ${open[0]}px, not inside the pane (ends at ${open[1]}px) with Fill open`);
+    await fill.click(); // Fill collapsed: it fits then too
     await settle(200);
     const at = await effects();
-    // The Effects header is NOT asserted: at 1600x950 it ends below the pane (a known gap of the inspector restyle), so its position is reported only.
+    if (at[0] >= at[1]) throw new Error(`the Effects header ends at ${at[0]}px, not inside the pane (ends at ${at[1]}px) with Fill collapsed`);
     if (!(await p.locator(".hm-bs-morebtn", { hasText: /layout/i }).count())) throw new Error("no More layout options toggle");
     return `groups ${names.join(" | ")}; Effects header at ${at[0]}px of ${at[1]}px (${open[0]}px with Fill open; pane ends at ${open[1]}px)`;
   } finally {
