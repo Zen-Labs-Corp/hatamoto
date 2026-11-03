@@ -331,16 +331,22 @@ test("inline length: the unit suffix shows only when the unit is not px", () => 
   assert.equal(suffix.hidden, true);
 });
 
-test("inline length: a space token shows its resolved number; typing a number writes in the shown unit, a token name or a unit value as typed, empty clears", () => {
+test("inline length: a space token shows as its name; a number typed after it or after a clear writes px (the unit shown), a token name or a unit value as typed, empty clears", () => {
   const { len, applied } = inline("gap");
+  const suffix = all(len.el, (n) => n.className === "hm-bs-fld__u")[0];
   len.sync("space-4");
-  assert.equal(len.num.value, "1");
+  assert.equal(len.num.value, "space-4");
+  assert.equal(suffix.hidden, true, "no rem suffix next to a token");
   const type = (v) => ((len.num.value = v), len.num.fire("change"));
+  type("24");
+  len.sync("2rem");
+  len.sync(null);
+  assert.equal(suffix.hidden, true);
   type("24");
   type("space-7");
   type("3rem");
   type("");
-  assert.deepEqual(applied, ["24rem", "space-7", "3rem", null], "24 takes the unit last shown (rem from space-4)");
+  assert.deepEqual(applied, ["24px", "24px", "space-7", "3rem", null], "24 is px after a token or a clear, not the rem last shown");
 });
 
 test("inline length: arrow keys step the typed number, Shift by ten", () => {

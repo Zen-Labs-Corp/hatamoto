@@ -169,7 +169,8 @@ function resolveLength(entry, palette, value) {
  */
 function inlineLength({ id, entry, name, palette, describe, apply, short, scrub }) {
   const p = probe(entry);
-  let unit = p.units.includes("px") ? "px" : (p.units[0] ?? "");
+  const fallback = p.units.includes("px") ? "px" : (p.units[0] ?? "");
+  let unit = fallback;
   let shown = ""; // an unset field's placeholder (inherited or from the class)
   const label = h("label", { class: "hm-field__label hm-bs-fld__lb", for: id, text: name });
   if (scrub) scrubLabel(label, { id, name, short, ...scrub });
@@ -180,8 +181,8 @@ function inlineLength({ id, entry, name, palette, describe, apply, short, scrub 
   const plain = /^-?(\d+\.?\d*|\.\d+)$/;
   const text = (s) => (s.kind === "num" ? s.num : s.kind === "token" ? s.token : s.kind === "auto" ? "auto" : (s.raw ?? ""));
   function sync(value, inherited = "") {
-    const s = resolveLength(entry, palette, value);
-    if (s.kind === "num" && s.num !== "" && (s.unit !== "" || p.bare)) unit = s.unit;
+    const s = splitValue(entry, value); // a token stays a token here: its resolved number would show in a unit the field does not
+    unit = s.kind === "num" && s.num !== "" && (s.unit !== "" || p.bare) ? s.unit : fallback; // the unit written next is the one shown (px without a suffix)
     shown = inherited === null ? "" : String(inherited);
     num.value = text(s);
     num.placeholder = text(resolveLength(entry, palette, shown));
@@ -196,7 +197,9 @@ function inlineLength({ id, entry, name, palette, describe, apply, short, scrub 
     if ((e.key !== "ArrowUp" && e.key !== "ArrowDown") || e.altKey || e.ctrlKey || e.metaKey) return;
     e.preventDefault();
     const typed = num.value.trim();
-    const from = plain.test(typed) ? Number(typed) : Number(resolveLength(entry, palette, shown).num || 0);
+    const at = plain.test(typed) ? null : resolveLength(entry, palette, typed || shown); // a token steps from its own size, in that size's unit
+    if (at?.kind === "num" && at.unit !== "" && typed !== "") unit = at.unit;
+    const from = at ? Number(at.num || 0) : Number(typed);
     const next = String(stepValue(from, e.key === "ArrowUp" ? 1 : -1, stepFor(entry, unit), e.shiftKey, boundsFor(entry.key, entry, unit)));
     num.value = next;
     apply(joinValue({ kind: "num", num: next, unit })); // no session: each press is its own undo step
