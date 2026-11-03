@@ -46,10 +46,10 @@ export const screens = [
   // page: the first selects a navigator row, so the second finds the inspector's Style tab.
   { name: "builder-shell", path: "/admin/entities/{page}/edit", mock: null, roles: OE, states: [
     { name: "navigator-focus", click: '[data-hm-bs-tree] [role="treeitem"]' },
-    { name: "inspector-style", click: '[role="tab"][data-tab="style"]' },
-    { name: "effects-group", click: 'button.hm-bs-grp__t:has-text("Effects")' }, // the last Style group (Effects) opens
-    { name: "box-model", click: ".hm-bs-bm__m > .hm-bs-bm__t" }, // the Spacing group's margin and padding rings
-    { name: "typography-group", click: 'button.hm-bs-grp__t:has-text("Typography")' }, // opens Typography (closed until a type key is set); the group stays open for the next state
+    { name: "inspector-style", click: '[role="tab"][data-tab="style"]' }, // Design is already the open tab: the click only re-selects it
+    { name: "effects-group", click: 'button.hm-bs-grp__t:has-text("Effects")' }, // Effects is closed on a selected section (a click toggles: a group that opens set would close)
+    { name: "box-model", click: ".hm-bs-bm__m" }, // the Spacing group's margin ring (its caption does not take pointer events)
+    { name: "typography-group", click: 'button.hm-bs-grp__t:has-text("Typography")' }, // opens Typography on a section (closed until a type key is set); the group stays open for the next state
     { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover
     { name: "palette-open", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" },
     { name: "shortcuts-open", click: "[data-hm-bs-keys]" },

@@ -124,8 +124,8 @@ Editor screens only: `node a11y.mjs entity-edit-post entity-edit-page`,
 (`?outline=1`, the no-JS form shown as the page) open the page whose name is
 `QA_PAGE_NAME`; it must carry a `page_doc` (a page without one opens the v1
 editor, which `entity-edit-page` covers). `builder-shell` states run in order
-on one page: `navigator-focus` (click a tree row), `inspector-style` (the Style
-tab of the selected element), `palette-open` (`/` from the tree), `shortcuts-open`
+on one page: `navigator-focus` (click a tree row), `inspector-style` (the Design
+tab, open from the start, of the selected element), `effects-group`, `box-model` (the margin ring), `typography-group`, `palette-open` (`/` from the tree), `shortcuts-open`
 (the Shortcuts dialog).
 
 ```sh
@@ -141,7 +141,7 @@ page; each undoes what it edits):
 |---|---|
 | `builder-tree` | one roving tab stop; Up/Down/Home/End select; Left/Right fold and move to parent or first child; Alt+arrows move, indent and outdent keeping focus; Delete removes; Ctrl+Z restores the structure |
 | `builder-palette` | `/` focuses the search; the filter narrows; ArrowDown/Up move between search and list; Enter inserts and returns focus to the tree; undo removes the inserts |
-| `builder-tabs` | Enter moves focus into the inspector; Left/Right/Home/End move between Content, Style and Advanced with one tab stop and a matching panel |
+| `builder-tabs` | Enter moves focus into the inspector; Left/Right/Home/End move between Design, Content and Advanced with one tab stop and a matching panel |
 | `builder-sheet` | `?` opens the shortcut dialog, Tab stays in it, Esc closes it and returns focus to where it came from |
 
 `node scripts/admin-qa/builder-states.mjs [chromium]` (same `QA_PAGE_NAME` page; it inserts a divider widget per check, because the seeded v1-converted rows are not canvas nodes, and undoes it) checks the State switch by keyboard (one tab stop, arrows select), a hover-lift (`ty:-4px` on Hover moves the forced canvas element, Normal restores it), forced hover at phone width, State and force cleared on a selection change, reduced motion, and axe on the Style tab (every group opened), the open colour popover and the box model. Style groups are disclosure buttons (Transform and Transition start closed): the script opens them first. `urls.mjs` `builder-shell` also has the states `box-model` and `colour-popover-open` for consistency, a11y and shots.
