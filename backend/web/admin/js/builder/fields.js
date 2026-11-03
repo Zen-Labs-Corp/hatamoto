@@ -38,11 +38,13 @@ export function applyOnly(form, node, keys) {
 
 /**
  * Enter in a one-line input would submit the form through its first submit button, a repeater's add, remove or move (possibly in a hidden block). Cancel it.
+ * An input of another form nested in this one (the rich text editor's Link and Image rows) submits that form itself: leave it be.
  * Returns true when it cancelled the key.
  */
 export function noImplicitSubmit(e) {
   const t = e.target;
   if (e.key !== "Enter" || e.defaultPrevented || t?.tagName !== "INPUT" || /^(submit|button|reset|checkbox|radio)$/.test(t.type)) return false;
+  if (t.form && t.form !== e.currentTarget) return false;
   e.preventDefault();
   return true;
 }

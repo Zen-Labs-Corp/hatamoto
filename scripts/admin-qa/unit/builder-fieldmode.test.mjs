@@ -97,4 +97,11 @@ test("Enter in a one-line input is cancelled so no hidden list button is pressed
   assert.deepEqual(key("TEXTAREA", "textarea"), [false, false], "a new line in a textarea");
   assert.deepEqual(key("BUTTON", "submit"), [false, false], "a repeater button still activates");
   assert.deepEqual(key("INPUT", "checkbox"), [false, false]);
+  const form = {};
+  const inner = (owner) => {
+    const e = { key: "Enter", defaultPrevented: false, currentTarget: form, target: { tagName: "INPUT", type: "text", form: owner }, preventDefault() { this.defaultPrevented = true; } };
+    return [noImplicitSubmit(e), e.defaultPrevented];
+  };
+  assert.deepEqual(inner(form), [true, true], "an input of the section form itself");
+  assert.deepEqual(inner({}), [false, false], "an input of a nested form submits that form");
 });
