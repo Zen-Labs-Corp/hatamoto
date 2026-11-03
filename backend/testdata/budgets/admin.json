@@ -17,10 +17,10 @@
       "cap": 107275
     },
     "editor_js_total_gzip": {
-      "value": 285115,
+      "value": 286662,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 286139
+      "cap": 287686
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,6 +40,10 @@
     }
   },
   "history": [
+    {
+      "reason": "builder inspector match to the mockup: icon Align rows, one-line Fill row, Wt field, Advanced type scale: editor_js_total_gzip 285115 -\u003e 286662 (+1547 B), cap moves by the same amount",
+      "date": "2026-11-03"
+    },
     {
       "reason": "builder inspector visual pass: compact Style tab, box model size centre, Typography-first order",
       "date": "2026-10-31"
