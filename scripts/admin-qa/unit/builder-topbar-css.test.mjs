@@ -34,3 +34,11 @@ test("the page title is plain at rest and boxed on hover and focus, scoped to th
   assert.match(css, /\[data-hm-bs-title\]:focus-visible \{[^}]*outline: var\(--focus-ring\)/);
   assert.match(css, /forced-colors: active\) \{ \.hm-editor-bar \[data-hm-bs-title\] \{ border-color: ButtonBorder/);
 });
+
+test("the hint bar is a zero-height sticky anchor with the box above it, the glyph in the padding guide colour, and blocks keep a 56px minimum", () => {
+  assert.match(css, /\.hm-bs-hint \{ position: sticky; inset-block-end: var\(--space-4\);[^}]*block-size: 0;/);
+  assert.match(css, /\.hm-bs-hint__box \{ position: absolute; inset-block-end: 0;[^}]*border: 1px solid var\(--border\)/);
+  assert.match(css, /\.hm-bs-hint__bar \{[^}]*background: var\(--color-guide-pad\)/);
+  assert.match(css, /\.hm-bs-pal__blk \{ min-block-size: 56px;/);
+  assert.match(css, /\.hm-bs-pal__card--dark \.hm-bs-thumb \{ background: var\(--color-inverse-bg\)/);
+});

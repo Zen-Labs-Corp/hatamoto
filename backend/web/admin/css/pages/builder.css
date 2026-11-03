@@ -285,8 +285,10 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 /* Sections are preview cards (two across, thumbnail above name and hint); blocks are a three-across grid of icon over name. */
 .hm-bs-pal__card { gap: var(--space-1); padding: var(--space-2); min-inline-size: 0; }
 .hm-bs-pal__card .hm-bs-thumb { aspect-ratio: 48 / 32; border-radius: var(--radius-sm); background: var(--color-kasumi); }
+.hm-bs-pal__card:hover { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.hm-bs-pal__card--dark .hm-bs-thumb { background: var(--color-inverse-bg); fill: var(--color-inverse-fg); }
 .hm-bs-pal__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); }
-.hm-bs-pal__blk { flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-3) var(--space-1) var(--space-2-5); border-radius: var(--radius-md); min-inline-size: 0; }
+.hm-bs-pal__blk { min-block-size: 56px; flex-direction: column; justify-content: center; text-align: center; gap: var(--space-1); padding: var(--space-3) var(--space-1) var(--space-2-5); border-radius: var(--radius-md); min-inline-size: 0; }
 .hm-bs-pal__blk .hm-bs-pal__n { font-size: var(--text-xs); line-height: var(--leading-snug); max-inline-size: 100%; white-space: normal; text-wrap: balance; overflow-wrap: anywhere; }
 .hm-bs-pal__ico { display: inline-flex; color: var(--text-body); }
 .hm-bs-row { user-select: none; }
@@ -420,17 +422,24 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-start__pat:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-bs-start__t { display: block; }
 .hm-bs-start__n { font-weight: var(--weight-medium); font-size: var(--text-sm); }
-/* One hint bar at the foot of the canvas: a row of short tips and Dismiss; it wraps on a phone. */
-.hm-bs-hint { position: absolute; z-index: var(--z-sticky); inset-block-end: var(--space-4); inset-inline-start: 50%; translate: -50% 0; inline-size: max-content; max-inline-size: calc(100% - var(--space-6)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); color: var(--text); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--text); border-radius: var(--radius-md); text-align: start; }
-.hm-bs-hint > span { white-space: nowrap; }
-.hm-bs-hint > span:not(:last-of-type)::after { content: "·" / ""; margin-inline-start: var(--space-3); color: var(--text-muted); }
-.hm-bs-hint__bar { display: inline-block; inline-size: 1.5em; block-size: 0.5em; vertical-align: middle; border-radius: var(--radius-sm); background: var(--color-accent); }
+/* One hint bar fixed at the bottom of the stage on every page: a zero-height sticky anchor, the last child of the scrolling canvas, with the box hung above it. A short page pins it to the pane bottom (flex column + auto margin). */
+.hm-bs__canvas:has(> .hm-bs-hint) { display: flex; flex-direction: column; }
+.hm-bs__canvas:has(> .hm-bs-hint) > :not(.hm-bs-hint) { flex: none; }
+.hm-bs-hint { position: sticky; inset-block-end: var(--space-4); z-index: var(--z-sticky); flex: none; margin-block-start: auto; block-size: 0; pointer-events: none; }
+.hm-bs-hint__box { position: absolute; inset-block-end: 0; inset-inline-start: 50%; translate: -50% 0; pointer-events: auto; inline-size: max-content; max-inline-size: calc(100% - var(--space-6)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); color: var(--text); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); text-align: start; }
+.hm-bs-hint__box > span { white-space: nowrap; }
+.hm-bs-hint__box > span:not(:last-of-type)::after { content: "·" / ""; margin-inline-start: var(--space-3); color: var(--text-muted); }
+.hm-bs-hint__bar { display: inline-block; inline-size: 1.5em; block-size: 0.5em; vertical-align: middle; border-radius: var(--radius-sm); background: var(--color-guide-pad); }
 @media (forced-colors: active) { /* after the base rule: a media query adds no specificity, so the later rule wins */
   .hm-bs-hint__bar { forced-color-adjust: none; background: CanvasText; }
 }
-@media (prefers-reduced-motion: no-preference) { .hm-bs-hint { animation: hm-bs-hint-in 0.2s ease-out; } }
+@media (prefers-reduced-motion: no-preference) { .hm-bs-hint__box { animation: hm-bs-hint-in 0.2s ease-out; } }
 @keyframes hm-bs-hint-in { from { opacity: 0; } }
 .hm-menu__key { margin-inline-start: auto; padding-inline-start: var(--space-4); color: var(--color-hai); font-size: var(--text-xs); }
+/* "/" popover: section cards at the selection (the picker's panel, with the two-across card list). */
+.hm-bs-slashpop { margin: 0; inset: auto; inline-size: 300px; max-block-size: 360px; overflow: auto; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text); }
+.hm-bs-slashpop:popover-open { position: fixed; }
+.hm-bs-slashpop__t { margin: 0 0 var(--space-2); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
 .hm-bs-picker { margin: 0; inset: auto; padding: var(--space-2); border: 1px solid var(--color-kinu); border-radius: var(--radius-md); background: var(--color-paper); color: var(--color-sumi); box-shadow: var(--shadow-3); }
 .hm-bs-picker:popover-open { position: fixed; }
 .hm-bs-picker__list { display: grid; grid-template-columns: repeat(2, minmax(9rem, 1fr)); gap: var(--space-1); }
