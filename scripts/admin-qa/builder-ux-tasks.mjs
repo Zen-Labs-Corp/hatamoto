@@ -1145,7 +1145,7 @@ await check("coachmarks-once: the hint bar shows on first use, dismisses for goo
   return `${n} hint(s) shown once`;
 });
 
-await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
+await check("phone-dock: Layers, Insert, Pages and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
   const id = await seeded(main, ["heading", "text"]);
   await main.setViewportSize({ width: 390, height: 844 });
   await settle(main, 400);
@@ -1153,7 +1153,7 @@ await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking 
     const dock = main.locator("[data-hm-bs-dock]");
     need(await dock.first().isVisible(), "no dock");
     const names = (await main.locator("[data-hm-bs-dock] button").allInnerTexts()).map((t) => t.trim());
-    need(names.join() === "Navigator,Insert,Inspector", "dock: " + names.join());
+    need(names.join() === "Layers,Insert,Pages,Inspector", "dock: " + names.join());
     await main.locator('[data-hm-bs-dock="nav"]').click();
     await (await rowOfKind(main, "heading")).click();
     await settle(main, 400);

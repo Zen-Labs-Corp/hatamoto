@@ -360,7 +360,7 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-ss__row { display: flex; align-items: center; gap: var(--space-2); }
 .hm-bs-ss__pick { flex: none; inline-size: var(--control-h); block-size: var(--control-h); padding: 0; border: 1px solid var(--border-field); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
 
-/* Phone dock: Navigator, Add and Inspector along the bottom. The page is the base view; a tab opens one pane as a
+/* Phone dock: Layers, Insert, Pages and Inspector along the bottom. The page is the base view; a tab opens one pane as a
    sheet over it, above the dock. Own classes (not hm/segmented): a bottom bar is its own control.
    The pane toggles in the top bar are hidden here: the dock chooses the pane and a saved collapse is ignored. */
 .hm-bs__dock { display: none; }
@@ -373,12 +373,12 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
   .hm-bs__dock-btn[aria-selected="true"] { background: var(--color-kasumi); color: var(--color-sumi); box-shadow: inset 0 2px 0 var(--color-sumi); }
   .hm-bs__dock-btn:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
   @media (forced-colors: active) { .hm-bs__dock-btn[aria-selected="true"] { forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; } }
-  .hm-bs:has(.hm-bs__dock:not([hidden])):not([data-hm-bs-tab="nav"]):not([data-hm-bs-tab="add"]) .hm-bs__nav,
+  .hm-bs:has(.hm-bs__dock:not([hidden])):not([data-hm-bs-tab="nav"]):not([data-hm-bs-tab="add"]):not([data-hm-bs-tab="pages"]) .hm-bs__nav,
   .hm-bs:has(.hm-bs__dock:not([hidden])):not([data-hm-bs-tab="insp"]) .hm-bs__inspector { display: none; }
   .hm-bs:has(.hm-bs__dock:not([hidden])) .hm-bs__nav,
   .hm-bs:has(.hm-bs__dock:not([hidden])) .hm-bs__inspector { position: fixed; inset-inline: 0; inset-block-end: var(--hm-bs-dock-h); z-index: var(--z-sticky); max-block-size: 70dvh; overflow: auto; border-block-start: 1px solid var(--border); }
   .hm-bs:has(.hm-bs__dock:not([hidden])) .hm-bs__nav { overflow: hidden; }
-  .hm-bs:has(.hm-bs__dock:not([hidden])) .hm-bs__ltabs { display: none; } /* the dock already picks Navigator or Add: no second tab list for the same choice */
+  .hm-bs:has(.hm-bs__dock:not([hidden])) .hm-bs__ltabs { display: none; } /* the dock already picks Layers, Insert or Pages: no second tab list for the same choice */
   .hm-bs-pal__item { touch-action: auto; } /* a sheet scrolls under the finger; tap adds, dragging onto a covered page is a desktop gesture */
 }
 

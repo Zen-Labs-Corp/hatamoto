@@ -117,7 +117,7 @@ func TestOutlineRenders(t *testing.T) {
 
 	// Without ?outline=1 the shell is served and the outline sits inside noscript.
 	_, body = r.get(t, "")
-	has(t, body, `data-hm-bs-dock`, `id="hm-bs-canvas"`)
+	has(t, body, `data-hm-bs-dock`, `data-hm-bs-dock="pages"`, `id="hm-bs-canvas"`)
 	i := strings.Index(body, "<noscript>")
 	if !strings.Contains(body, "data-hm-builder") || i < 0 || !strings.Contains(body[i:], `name="n.h1.p.text"`) || strings.Contains(body[:i], `name="n.h1.p.text"`) {
 		t.Error("the outline belongs inside <noscript> beside the shell")
