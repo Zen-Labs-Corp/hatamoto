@@ -217,7 +217,7 @@ func TestPluginPageShowsLoadRefusal(t *testing.T) {
 	t.Parallel()
 
 	g, fp := newPluginRig(t)
-	const refusal = `plugin "old-sync" not loaded: permission "entities.write" was removed in Hatamoto 1.1. Replace it with a run. See docs/PLUGIN_API.md "Runs and changesets".`
+	const refusal = `plugin "old-sync" not loaded: permission "entities.write" was removed in Hatamoto 1.1. Replace it with a run. See docs/PLUGIN_API.md "Runs and changesets"`
 	fp.list = append(fp.list, PluginInfo{Name: "old-sync", Version: "1.0.0", Package: &PackageMeta{Enabled: true, LoadError: refusal}})
 	body := html.UnescapeString(g.do("GET", "/admin/plugins/old-sync/settings", "owner-token", nil, nil).Body.String())
 	if !strings.Contains(body, "This plugin failed to start") || !strings.Contains(body, refusal) || strings.Contains(body, "shown above") {

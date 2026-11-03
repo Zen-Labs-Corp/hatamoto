@@ -398,7 +398,7 @@ func (m Manifest) validateCapabilities() error {
 		if repl, gone := removedPermissions[p]; gone {
 			return fmt.Errorf("plugin %q not loaded: permission %q was removed in Hatamoto 1.1.\n"+
 				"  Replace it with a run: declare a \"runs\" block in plugin.json and call %s\n"+
-				"  from on_run_step. See docs/PLUGIN_API.md \"Runs and changesets\".", m.Name, p, repl)
+				"  from on_run_step. See docs/PLUGIN_API.md \"Runs and changesets\"", m.Name, p, repl)
 		}
 		if !ValidPermission(p) {
 			return fmt.Errorf("sdk: plugin %q: unknown permission %q", m.Name, p)
