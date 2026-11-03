@@ -114,7 +114,7 @@ func TestBuilderBarPreview(t *testing.T) {
 
 	r.ent.Status = entity.StatusDraft
 	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
-	has(t, body, `disabled aria-disabled="true" title="Publish to view" data-hm-bs-preview`)
+	has(t, body, `aria-disabled="true" data-hm-bs-preview="" disabled="disabled" title="Publish to view"`)
 	lacks(t, body, `rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]"`)
 }
 
