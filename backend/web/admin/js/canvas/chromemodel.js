@@ -3,7 +3,7 @@
 
 /**
  * The element toolbar. info (screen's toolbarState): {name, kind, parentId, parentName, canUp, canDown, hidden, editing}.
- * -> {title: {icon, name}, up: {id, text, aria} | null, buttons: [{act, icon, aria, disabled?}]}. No buttons while text is edited.
+ * -> {title: {icon, name}, up: {id, text, aria, title} | null, buttons: [{act, icon, aria, disabled?}]}. No buttons while text is edited.
  */
 export function toolbarModel(info) {
   const name = info.name || info.kind || "";
@@ -11,7 +11,7 @@ export function toolbarModel(info) {
   const button = (act, icon, aria, disabled) => ({ act, icon, aria, ...(disabled ? { disabled: true } : {}) });
   return {
     title: { icon: info.kind, name },
-    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `Select parent, ${parent}` } : null,
+    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `${name} ↑ ${parent}`, title: `Select parent, ${parent}` } : null,
     buttons: info.editing
       ? []
       : [

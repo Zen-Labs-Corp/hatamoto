@@ -155,8 +155,12 @@ export function mountToolbar(canvas, handlers) {
       sep.hidden = editing;
       if (toParent) {
         up.textContent = model.up.text;
-        chip.setAttribute("aria-label", model.up.aria);
-      } else chip.removeAttribute("aria-label");
+        chip.setAttribute("aria-label", model.up.aria); // the visible text, so the name contains the label
+        chip.setAttribute("title", model.up.title);
+      } else {
+        chip.removeAttribute("aria-label");
+        chip.removeAttribute("title");
+      }
       for (const m of model.buttons) {
         const b = acts.find((x) => x.getAttribute("data-act") === m.act);
         b.setAttribute("aria-label", m.aria);
