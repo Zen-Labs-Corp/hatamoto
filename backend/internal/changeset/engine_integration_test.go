@@ -1,0 +1,623 @@
+//go:build integration
+
+package changeset
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"image"
+	"image/color"
+	"image/png"
+	"io/fs"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/taxonomy"
+)
+
+type eventLog struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (l *eventLog) Emit(context.Context, entity.Event) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.n++
+}
+
+func (l *eventLog) count() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.n
+}
+
+type fixture struct {
+	t      *testing.T
+	ctx    context.Context
+	db     *database.DB
+	eng    *Engine
+	media  *media.Service
+	events *eventLog
+	schema *entity.EntitySchema
+	dir    string
+	now    time.Time
+	tag    string
+}
+
+func newFixture(t *testing.T) *fixture {
+	t.Helper()
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	schemas := entity.NewPostgresSchemaRepository(db)
+	tag := uuid.NewString()[:8]
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "cs " + tag, Slug: "cs-" + tag,
+		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := &eventLog{}
+	entSvc := entity.NewService(schemas, entity.NewPostgresEntityRepository(db), logger)
+	entSvc.SetEvents(events)
+	dir := t.TempDir()
+	mediaSvc := media.NewService(media.NewPostgresRepository(db), media.Config{UploadDir: dir, BaseURL: "/media", MaxSizeMB: 10}, logger)
+
+	f := &fixture{t: t, ctx: ctx, db: db, media: mediaSvc, events: events, schema: sc, dir: dir, tag: tag,
+		now: time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)}
+	f.eng = &Engine{
+		DB: db, Blobs: mediaSvc, Logger: logger, Now: func() time.Time { return f.now },
+		Writers: map[Kind]KindWriter{
+			KindEntity:   EntityWriter{Svc: entSvc},
+			KindTerm:     TermWriter{Svc: taxonomy.NewService(taxonomy.NewPostgresRepository(db), logger)},
+			KindMenu:     MenuWriter{Svc: menu.NewService(menu.NewPostgresRepository(db), logger)},
+			KindRedirect: RedirectWriter{Svc: redirect.NewService(db, logger)},
+			KindMedia:    MediaWriter{Svc: mediaSvc},
+		},
+	}
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+		_ = schemas.Delete(bg, sc.ID)
+		for _, q := range []string{
+			`DELETE FROM hatamoto_terms WHERE slug LIKE $1`,
+			`DELETE FROM hatamoto_menus WHERE slug LIKE $1`,
+			`DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`,
+			`DELETE FROM hatamoto_changeset_source_keys WHERE source_key LIKE $1`,
+		} {
+			arg := tag + "%"
+			if strings.Contains(q, "source_path") {
+				arg = tag
+			}
+			_, _ = db.Pool().Exec(bg, q, arg)
+		}
+	})
+	return f
+}
+
+func raw(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func (f *fixture) begin(plugin string) int64 {
+	f.t.Helper()
+	id, err := f.eng.Begin(f.ctx, uuid.New(), plugin)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return id
+}
+
+func (f *fixture) stage(cs int64, it Item) {
+	f.t.Helper()
+	if err := f.eng.Stage(f.ctx, cs, it); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func (f *fixture) entityItem(key, slug, content string) Item {
+	return Item{Kind: KindEntity, Op: OpUpsert, SourceKey: key, Payload: raw(map[string]any{
+		"schema": f.schema.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": content}})}
+}
+
+func (f *fixture) count(q string, args ...any) int {
+	f.t.Helper()
+	var n int
+	if err := f.db.Pool().QueryRow(f.ctx, q, args...).Scan(&n); err != nil {
+		f.t.Fatal(err)
+	}
+	return n
+}
+
+func (f *fixture) entities() int {
+	return f.count(`SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID)
+}
+
+func (f *fixture) state(cs int64) string {
+	f.t.Helper()
+	var s string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT state FROM hatamoto_changesets WHERE id = $1`, cs).Scan(&s); err != nil {
+		f.t.Fatal(err)
+	}
+	return s
+}
+
+func (f *fixture) publish(cs int64) Result {
+	f.t.Helper()
+	res, err := f.eng.Publish(f.ctx, cs)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return res
+}
+
+func (f *fixture) entityToken(id string) string {
+	f.t.Helper()
+	var v int
+	var at time.Time
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT version, updated_at FROM hatamoto_entities WHERE id = $1`, id).Scan(&v, &at); err != nil {
+		f.t.Fatal(err)
+	}
+	return EntityToken(v, at)
+}
+
+func (f *fixture) stageFile(run uuid.UUID, name string) string {
+	f.t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	img.Set(1, 1, color.RGBA{200, 10, 10, 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		f.t.Fatal(err)
+	}
+	key, err := f.media.StageBlob(f.ctx, run, &buf, name)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return key
+}
+
+func (f *fixture) fileExists(key string) bool {
+	_, err := os.Stat(filepath.Join(f.dir, key))
+	return err == nil
+}
+
+// liveFiles counts files outside the staged directory.
+func (f *fixture) liveFiles() int {
+	n := 0
+	_ = filepath.WalkDir(f.dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() && !strings.Contains(filepath.ToSlash(p), "/staged/") {
+			n++
+		}
+		return nil
+	})
+	return n
+}
+
+func (f *fixture) runOf(cs int64) uuid.UUID {
+	f.t.Helper()
+	var id uuid.UUID
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT run_id FROM hatamoto_changesets WHERE id = $1`, cs).Scan(&id); err != nil {
+		f.t.Fatal(err)
+	}
+	return id
+}
+
+func TestChangesetPublishAtomic(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	run := f.runOf(cs)
+	f.stage(cs, f.entityItem("a-"+f.tag, "atomic-"+f.tag, "ok"))
+	f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, Payload: raw(map[string]any{"kind": "tag", "name": "T", "slug": f.tag + "-term"})})
+	f.stage(cs, Item{Kind: KindRedirect, Op: OpUpsert, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-old", "target": "/new"})})
+	f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, Payload: raw(map[string]any{"name": "M", "slug": f.tag + "-menu"})})
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, BlobKeys: []string{f.stageFile(run, "p.png")}, Payload: raw(map[string]any{"filename": "p.png"})})
+	// The last item breaks the schema (content is required).
+	bad := f.entityItem("b-"+f.tag, "atomic-bad-"+f.tag, "x")
+	bad.Payload = raw(map[string]any{"schema": f.schema.Slug, "name": "Bad", "attributes": map[string]any{}})
+	f.stage(cs, bad)
+
+	if _, err := f.eng.Publish(f.ctx, cs); err == nil {
+		t.Fatal("publish succeeded with an invalid last item")
+	}
+	if n := f.entities(); n != 0 {
+		t.Errorf("entities = %d, want 0", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-term"); n != 0 {
+		t.Errorf("terms = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-old"); n != 0 {
+		t.Errorf("redirects = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-menu"); n != 0 {
+		t.Errorf("menus = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_media WHERE origin = 'owner' AND original_filename = 'p.png' AND created_at > $1`, time.Now().Add(-time.Minute)); n != 0 {
+		t.Errorf("media rows = %d", n)
+	}
+	if n := f.liveFiles(); n != 0 {
+		t.Errorf("%d published media files left behind", n)
+	}
+	if got := f.state(cs); got != StateStaged {
+		t.Errorf("state = %s, want staged", got)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_changeset_source_keys WHERE source_key LIKE $1`, "%-"+f.tag); n != 0 {
+		t.Errorf("source keys = %d", n)
+	}
+}
+
+func TestChangesetNoEventsOnRollback(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("a-"+f.tag, "ev-"+f.tag, "ok"))
+	bad := f.entityItem("b-"+f.tag, "", "x")
+	bad.Payload = raw(map[string]any{"schema": f.schema.Slug, "name": "Bad", "attributes": map[string]any{}})
+	f.stage(cs, bad)
+	if _, err := f.eng.Publish(f.ctx, cs); err == nil {
+		t.Fatal("want an error")
+	}
+	if n := f.events.count(); n != 0 {
+		t.Fatalf("%d events after a rolled-back publish", n)
+	}
+
+	ok := f.begin("")
+	f.stage(ok, f.entityItem("c-"+f.tag, "ev2-"+f.tag, "ok"))
+	f.publish(ok)
+	if n := f.events.count(); n != 1 {
+		t.Fatalf("events after commit = %d, want 1 batch event", n)
+	}
+}
+
+func TestChangesetConflictSkipped(t *testing.T) {
+	f := newFixture(t)
+	first := f.begin("")
+	f.stage(first, f.entityItem("e-"+f.tag, "conf-"+f.tag, "v1"))
+	f.stage(first, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r-" + f.tag,
+		Payload: raw(map[string]any{"source_path": "/" + f.tag + "-r", "target": "/a"})})
+	f.publish(first)
+
+	var entID, redID string
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID).Scan(&entID)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-r").Scan(&redID)
+	staleEnt := f.entityToken(entID)
+	var at time.Time
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT updated_at FROM hatamoto_redirects WHERE id = $1`, redID).Scan(&at)
+
+	second := f.begin("")
+	upd := f.entityItem("", "conf-"+f.tag, "v2")
+	upd.TargetID, upd.BaseToken = entID, staleEnt
+	f.stage(second, upd)
+	f.stage(second, Item{Kind: KindRedirect, Op: OpUpsert, TargetID: redID, BaseToken: TimeToken(at),
+		Payload: raw(map[string]any{"source_path": "/" + f.tag + "-r", "target": "/b"})})
+	f.stage(second, f.entityItem("e2-"+f.tag, "conf2-"+f.tag, "other"))
+
+	// The owner edits the entity meanwhile.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET name = 'edited', updated_at = updated_at + interval '1 second' WHERE id = $1`, entID); err != nil {
+		t.Fatal(err)
+	}
+	res := f.publish(second)
+	if res.Applied != 2 || res.Skipped != 1 || len(res.Conflicts) != 1 || res.Conflicts[0].Kind != KindEntity || res.Conflicts[0].Reason != "moved" {
+		t.Fatalf("result = %+v", res)
+	}
+	if n := f.entities(); n != 2 {
+		t.Errorf("entities = %d, want 2 (the conflict skipped, the new one published)", n)
+	}
+	var content, target string
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT attributes->>'content' FROM hatamoto_entities WHERE id = $1`, entID).Scan(&content)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT target_url FROM hatamoto_redirects WHERE id = $1`, redID).Scan(&target)
+	if content != "v1" || target != "/b" {
+		t.Errorf("content = %q (want v1), redirect target = %q (want /b)", content, target)
+	}
+}
+
+func TestChangesetSlugSuffix(t *testing.T) {
+	f := newFixture(t)
+	// A draft already holds the slugs; a changeset must not collide with it.
+	seed := f.begin("")
+	f.stage(seed, f.entityItem("", "same-"+f.tag, "draft"))
+	f.stage(seed, Item{Kind: KindTerm, Op: OpUpsert, Payload: raw(map[string]any{"kind": "tag", "name": "T", "slug": f.tag + "-same"})})
+	f.stage(seed, Item{Kind: KindMenu, Op: OpUpsert, Payload: raw(map[string]any{"name": "M", "slug": f.tag + "-same"})})
+	f.publish(seed)
+
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("", "same-"+f.tag, "new"))
+	f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, Payload: raw(map[string]any{"kind": "tag", "name": "T", "slug": f.tag + "-same"})})
+	f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, Payload: raw(map[string]any{"name": "M", "slug": f.tag + "-same"})})
+	f.publish(cs)
+
+	if n := f.count(`SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1 AND slug = $2`, f.schema.ID, "same-"+f.tag+"-2"); n != 1 {
+		t.Errorf("entity -2 count = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-same-2"); n != 1 {
+		t.Errorf("term -2 count = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-same-2"); n != 1 {
+		t.Errorf("menu -2 count = %d", n)
+	}
+}
+
+func TestChangesetRevert(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	create, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stage(create, f.entityItem("e-"+f.tag, "rev-"+f.tag, "original"))
+	f.stage(create, Item{Kind: KindTerm, Op: OpUpsert, SourceKey: "t-" + f.tag, Payload: raw(map[string]any{"kind": "tag", "name": "Orig", "slug": f.tag + "-rev"})})
+	f.stage(create, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r-" + f.tag, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-rev", "target": "/x"})})
+	f.stage(create, Item{Kind: KindMenu, Op: OpUpsert, SourceKey: "m-" + f.tag, Payload: raw(map[string]any{"name": "Orig", "slug": f.tag + "-rev"})})
+	f.stage(create, Item{Kind: KindMedia, Op: OpUpsert, SourceKey: "i-" + f.tag, BlobKeys: []string{f.stageFile(run, "r.png")},
+		Payload: raw(map[string]any{"filename": "r.png"})})
+	f.publish(create)
+	if f.liveFiles() == 0 {
+		t.Fatal("published media left no file")
+	}
+
+	// Second changeset: update the entity, term and menu, delete the redirect.
+	second := f.begin("")
+	ids := map[string]string{}
+	for q, dst := range map[string]string{
+		`SELECT id FROM hatamoto_entities WHERE schema_id = $1`: "e", `SELECT id FROM hatamoto_terms WHERE slug = $1`: "t",
+		`SELECT id FROM hatamoto_redirects WHERE source_path = $1`: "r", `SELECT id FROM hatamoto_menus WHERE slug = $1`: "m",
+	} {
+		var arg any = f.tag + "-rev"
+		switch dst {
+		case "e":
+			arg = f.schema.ID
+		case "r":
+			arg = "/" + f.tag + "-rev"
+		}
+		var id string
+		if err := f.db.Pool().QueryRow(f.ctx, q, arg).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids[dst] = id
+	}
+	upd := f.entityItem("", "", "changed")
+	upd.TargetID = ids["e"]
+	upd.Payload = raw(map[string]any{"attributes": map[string]any{"content": "changed"}})
+	f.stage(second, upd)
+	f.stage(second, Item{Kind: KindTerm, Op: OpUpsert, TargetID: ids["t"], Payload: raw(map[string]any{"name": "Changed", "slug": f.tag + "-rev"})})
+	f.stage(second, Item{Kind: KindMenu, Op: OpUpsert, TargetID: ids["m"], Payload: raw(map[string]any{"name": "Changed"})})
+	f.stage(second, Item{Kind: KindRedirect, Op: OpDelete, TargetID: ids["r"]})
+	f.publish(second)
+
+	if _, err := f.eng.Revert(f.ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	var content, tname, mname, rtarget string
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT attributes->>'content' FROM hatamoto_entities WHERE id = $1`, ids["e"]).Scan(&content)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT name FROM hatamoto_terms WHERE id = $1`, ids["t"]).Scan(&tname)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT name FROM hatamoto_menus WHERE id = $1`, ids["m"]).Scan(&mname)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT target_url FROM hatamoto_redirects WHERE id = $1`, ids["r"]).Scan(&rtarget)
+	if content != "original" || tname != "Orig" || mname != "Orig" || rtarget != "/x" {
+		t.Fatalf("after revert: content=%q term=%q menu=%q redirect=%q", content, tname, mname, rtarget)
+	}
+	if got := f.state(second); got != StateReverted {
+		t.Errorf("state = %s", got)
+	}
+
+	if _, err := f.eng.Revert(f.ctx, create); err != nil {
+		t.Fatal(err)
+	}
+	if f.entities() != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rev") != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-rev") != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-rev") != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_media WHERE original_filename = 'r.png' AND origin = 'owner' AND created_at > $1`, time.Now().Add(-time.Minute)) != 0 {
+		t.Fatal("created rows survived the revert")
+	}
+	if n := f.liveFiles(); n != 0 {
+		t.Errorf("%d media files survived the revert", n)
+	}
+	if _, err := f.eng.Revert(f.ctx, create); !errors.Is(err, ErrNotPublished) {
+		t.Errorf("second revert = %v, want ErrNotPublished", err)
+	}
+}
+
+func TestChangesetDiscardDeletesBlobs(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	cs, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := f.stageFile(run, "d.png")
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, BlobKeys: []string{key}, Payload: raw(map[string]any{"filename": "d.png"})})
+	f.stage(cs, f.entityItem("", "disc-"+f.tag, "x"))
+	if _, err := f.db.Pool().Exec(f.ctx, `INSERT INTO hatamoto_run_buffer (run_id, key, value) VALUES ($1, 'k', '\x01')`, run); err != nil {
+		t.Fatal(err)
+	}
+	if !f.fileExists(key) {
+		t.Fatal("staged file missing")
+	}
+	if err := f.eng.Discard(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if f.fileExists(key) {
+		t.Error("staged file survived discard")
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1`, cs); n != 0 {
+		t.Errorf("items = %d", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_run_buffer WHERE run_id = $1`, run); n != 0 {
+		t.Errorf("buffer rows = %d", n)
+	}
+	if got := f.state(cs); got != StateDiscarded {
+		t.Errorf("state = %s", got)
+	}
+	if f.entities() != 0 {
+		t.Error("discard published something")
+	}
+	if err := f.eng.Discard(f.ctx, cs); !errors.Is(err, ErrNotStaged) {
+		t.Errorf("second discard = %v", err)
+	}
+}
+
+func TestChangesetExpiry72h(t *testing.T) {
+	f := newFixture(t)
+	t0 := f.now
+	run := uuid.New()
+	ok := f.begin("")
+	stale, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := f.stageFile(run, "e.png")
+	f.stage(stale, Item{Kind: KindMedia, Op: OpUpsert, BlobKeys: []string{key}, Payload: raw(map[string]any{"filename": "e.png"})})
+	f.stage(ok, f.entityItem("", "exp-"+f.tag, "x"))
+	lazy := f.begin("")
+	f.stage(lazy, f.entityItem("", "exp2-"+f.tag, "x"))
+
+	f.now = t0.Add(71 * time.Hour)
+	if n, err := f.eng.Expire(f.ctx); err != nil || f.state(stale) != StateStaged {
+		t.Fatalf("expired at 71h: n=%d err=%v state=%s", n, err, f.state(stale))
+	}
+	f.publish(ok)
+
+	f.now = t0.Add(73 * time.Hour)
+	if _, err := f.eng.Publish(f.ctx, lazy); !errors.Is(err, ErrExpired) {
+		t.Fatalf("publish at 73h = %v, want ErrExpired", err)
+	}
+	if got := f.state(lazy); got != StateExpired {
+		t.Errorf("lazy expiry state = %s", got)
+	}
+	if n, err := f.eng.Expire(f.ctx); err != nil || n < 1 {
+		t.Fatalf("Expire = %d, %v", n, err)
+	}
+	if got := f.state(stale); got != StateExpired {
+		t.Errorf("state = %s, want expired", got)
+	}
+	if f.fileExists(key) {
+		t.Error("staged file of an expired changeset survived")
+	}
+	if err := f.eng.Stage(f.ctx, stale, f.entityItem("", "late", "x")); err == nil {
+		t.Error("staged into an expired changeset")
+	}
+	if n := f.entities(); n != 1 {
+		t.Errorf("entities = %d, want 1", n)
+	}
+}
+
+func TestChangesetRerunNoDuplicate(t *testing.T) {
+	f := newFixture(t)
+	for _, content := range []string{"one", "two"} {
+		cs := f.begin("")
+		f.stage(cs, f.entityItem("same-key-"+f.tag, "rerun-"+f.tag, content))
+		f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, SourceKey: "t-" + f.tag, Payload: raw(map[string]any{"kind": "tag", "name": content, "slug": f.tag + "-rerun"})})
+		f.publish(cs)
+	}
+	if n := f.entities(); n != 1 {
+		t.Errorf("entities = %d, want 1", n)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug LIKE $1`, f.tag+"-rerun%"); n != 1 {
+		t.Errorf("terms = %d, want 1", n)
+	}
+	var content string
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT attributes->>'content' FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID).Scan(&content)
+	if content != "two" {
+		t.Errorf("content = %q, want the second run's", content)
+	}
+	if n := f.count(`SELECT count(*) FROM hatamoto_changeset_source_keys WHERE source_key LIKE $1`, "%"+f.tag); n != 2 {
+		t.Errorf("source keys = %d, want 2", n)
+	}
+}
+
+// AttachStagedTx inserts a library row with the op's origin and no run, and
+// the library listing leaves rows that still belong to a run out.
+func TestMediaAttachStagedAndLibraryFilter(t *testing.T) {
+	f := newFixture(t)
+	ctx := f.ctx
+	run := uuid.New()
+	key := f.stageFile(run, "lib.png")
+
+	tx, err := f.db.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := f.media.AttachStagedTx(ctx, tx, media.MediaOp{StagedKey: key, Filename: "lib.png", Origin: "plugin:" + f.tag})
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var origin string
+	var runID *uuid.UUID
+	if err := f.db.Pool().QueryRow(ctx, `SELECT origin, run_id FROM hatamoto_media WHERE id = $1`, m.ID).Scan(&origin, &runID); err != nil {
+		t.Fatal(err)
+	}
+	if origin != "plugin:"+f.tag || runID != nil {
+		t.Fatalf("origin = %q, run_id = %v", origin, runID)
+	}
+	if !f.fileExists(m.StoragePath) || !f.fileExists(key) {
+		t.Fatal("attach must copy the file and leave the staged one for DeleteStaged")
+	}
+
+	// A row that still belongs to a run (a copy of the attached one).
+	if _, err := f.db.Pool().Exec(ctx, `
+		INSERT INTO hatamoto_media (id, filename, original_filename, mime_type, file_size, storage_provider, storage_path, folder, run_id)
+		SELECT gen_random_uuid(), 'staged-' || filename, original_filename, mime_type, file_size, storage_provider, 'staged-' || storage_path, folder, $2
+		FROM hatamoto_media WHERE id = $1`, m.ID, run); err != nil {
+		t.Fatal(err)
+	}
+	list, err := f.media.List(ctx, nil, 100, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawAttached bool
+	for _, it := range list.Items {
+		if strings.HasPrefix(it.Filename, "staged-") {
+			t.Errorf("library lists the run's row %s", it.Filename)
+		}
+		sawAttached = sawAttached || it.ID == m.ID
+	}
+	if !sawAttached {
+		t.Error("library does not list the attached media")
+	}
+	var total int
+	if err := f.db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_media WHERE run_id IS NULL`).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if list.Total != total {
+		t.Errorf("library total = %d, want %d rows with no run", list.Total, total)
+	}
+
+	if err := f.media.DeleteStaged(ctx, []string{key}); err != nil {
+		t.Fatal(err)
+	}
+	if f.fileExists(key) {
+		t.Error("DeleteStaged left the file")
+	}
+	_, _ = f.db.Pool().Exec(ctx, `DELETE FROM hatamoto_media WHERE original_filename = 'lib.png' AND (id = $1 OR run_id = $2)`, m.ID, run)
+}
