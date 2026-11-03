@@ -5,7 +5,7 @@
 //            null means the screen does not exist there
 //  - roles:  who may open it (owner always; editor per the role map)
 //  - states: extra a11y states, opened by clicking `click` (best effort: a missing
-//            trigger is reported as skipped, and fails the run under QA_STRICT=1)
+//            trigger is reported as skipped, and fails the run under QA_STRICT=1); `pre` is a selector clicked first (a trigger inside a menu)
 //  - list:   a list screen: the table comes first, create is a header action (UI-D10)
 //  - submit: { fill: {selector: value}, check: selector, button: selector } fills the page form and submits it; the screen is then the page it lands on
 //  - expect: a selector that must exist on the final page (the screen fails otherwise)
@@ -51,9 +51,10 @@ export const screens = [
     { name: "box-model", click: ".hm-bs-bm__m" }, // the Spacing group's margin ring (its caption does not take pointer events)
     { name: "typography-group", click: 'button.hm-bs-grp__t:has-text("Typography")' }, // opens Typography on a section (closed until a type key is set); the group stays open for the next state
     { name: "colour-popover-open", click: 'button.hm-bs-swatch[aria-label^="Text colour"]' }, // the site palette popover
-    { name: "palette-open", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" },
-    { name: "shortcuts-open", click: "[data-hm-bs-keys]" },
-    { name: "navigator-tab", click: '[data-hm-bs-ltab="nav"]' }, // "/" above left the Add tab open and the tree hidden
+    { name: "slash-popover", click: '[data-hm-bs-tree] [role="treeitem"]', press: "/" }, // the section cards at the selection
+    { name: "shortcuts-open", pre: '[popovertarget="bs-more"]', click: "[data-hm-bs-keys]" }, // the sheet is a ⋯ menu item: open the menu first
+    { name: "insert-tab", click: '[data-hm-bs-ltab="add"]' }, // section cards and block tiles
+    { name: "navigator-tab", click: '[data-hm-bs-ltab="nav"]' }, // the Insert tab above left the tree hidden
     { name: "context-menu", click: '[data-hm-bs-tree] [role="treeitem"]', press: "Shift+F10" }, // the element actions menu at the row
     { name: "history-open", click: "[data-hm-bs-history]" },
     { name: "structure-picker", click: "[data-hm-pe-plus]" }, // the layouts under the first "+"

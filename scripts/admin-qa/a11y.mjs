@@ -58,6 +58,7 @@ for (const width of [1440, 390]) for (const theme of ["light", "dark"]) {
     for (const st of s.states || []) {
       const t = p.locator(st.click).first();
       if (!(await t.count())) { skipped++; if (process.env.QA_STRICT === "1") bad++; console.log(`${(s.name + " " + st.name).padEnd(52)} skipped (no trigger ${st.click})`); continue; }
+      if (st.pre) await p.locator(st.pre).first().click(); // a trigger that sits in a menu: open the menu first
       await t.click();
       if (st.press) await p.keyboard.press(st.press);
       await p.waitForTimeout(250);
