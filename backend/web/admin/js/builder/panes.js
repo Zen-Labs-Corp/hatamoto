@@ -213,13 +213,14 @@ export function mountPanes(root, opts) {
 }
 
 /**
- * The left pane's tabs (Navigator | Insert): roving tabindex, arrows/Home/End move and show the panel.
+ * The left pane's tabs (Layers | Insert | Pages): roving tabindex, arrows/Home/End move and show the panel.
  * onPick(name) runs when a tab is shown. Returns {pick(name, focus)}.
  */
 export function mountLeftTabs(root, onPick = () => {}) {
   const list = $(root, "[data-hm-bs-ltabs]");
   const tabs = list ? Array.from(list.querySelectorAll("[data-hm-bs-ltab]")) : [];
   const panels = Array.from(root.querySelectorAll("[data-hm-bs-lpanel]"));
+  const foot = root.querySelector("[data-hm-bs-navfoot]"); // "Add section" belongs to the Layers tab: Insert is its own list and Pages has no use for it
   const pick = (name, focus = false) => {
     for (const t of tabs) {
       const on = t.dataset.hmBsLtab === name;
@@ -228,6 +229,7 @@ export function mountLeftTabs(root, onPick = () => {}) {
       if (on && focus) t.focus();
     }
     for (const p of panels) p.hidden = p.dataset.hmBsLpanel !== name;
+    if (foot) foot.hidden = name !== "nav";
     onPick(name);
   };
   list?.addEventListener("keydown", (e) => {

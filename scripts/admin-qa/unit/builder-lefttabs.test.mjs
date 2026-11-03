@@ -49,10 +49,11 @@ function rig() {
   const pPages = new El({ hmBsLpanel: "pages" });
   pPages.hidden = true;
   const rootEl = new El();
-  rootEl.find = (sel) => (sel === "[data-hm-bs-ltabs]" ? [list] : sel === "[data-hm-bs-lpanel]" ? [pNav, pAdd, pPages] : []);
+  rootEl.find = (sel) => (sel === "[data-hm-bs-ltabs]" ? [list] : sel === "[data-hm-bs-navfoot]" ? [foot] : sel === "[data-hm-bs-lpanel]" ? [pNav, pAdd, pPages] : []);
+  const foot = new El();
   const picked = [];
   const tabs = mountLeftTabs(rootEl, (n) => picked.push(n));
-  return { nav, add, pages, list, pNav, pAdd, pPages, tabs, picked };
+  return { foot, nav, add, pages, list, pNav, pAdd, pPages, tabs, picked };
 }
 
 test("pick shows one panel, marks one tab selected and roves tabindex", () => {
@@ -63,6 +64,14 @@ test("pick shows one panel, marks one tab selected and roves tabindex", () => {
   assert.deepEqual([r.nav.tabIndex, r.add.tabIndex, r.pages.tabIndex], [-1, 0, -1]);
   assert.deepEqual([r.pNav.hidden, r.pAdd.hidden, r.pPages.hidden], [true, false, true]);
   assert.deepEqual(r.picked, ["add"]);
+});
+
+test("the Add section footer shows on Layers only", () => {
+  const r = rig();
+  for (const [name, hidden] of [["add", true], ["pages", true], ["nav", false]]) {
+    r.tabs.pick(name);
+    assert.equal(r.foot.hidden, hidden, name);
+  }
 });
 
 test("arrows, Home and End move between the tabs and wrap", () => {
