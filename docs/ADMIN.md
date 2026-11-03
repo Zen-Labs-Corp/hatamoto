@@ -254,7 +254,7 @@ form-mode `POST /edit/render` is `415` (JSON only) and `POST /edit/preview` of a
 ## Builder editor (B3)
 
 Every page opens the builder at `/edit` (the choice is in `handleEntityEditor`); a page without a doc opens on its
-in-memory conversion. User-facing behaviour, saves and shortcuts are in [BUILDER.md](BUILDER.md#editor).
+in-memory conversion. User-facing behaviour, saves and shortcuts are in [BUILDER.md](BUILDER.md#editor). The top bar carries the device switch, the Fit ▾ zoom menu and Preview; shortcuts live in the ⋯ menu; `/` opens a section popover at the selection and `A` the Insert tab.
 
 Bindable props show a **Bind** button beside the control. It opens a "Bind to" select of the sources valid for that
 prop (`loop.item.*` only inside a loop; the list is boot data from `builder.BindSources`, the server stays the

@@ -703,11 +703,12 @@ scripts/admin-qa/run-local.sh builder-ux-tasks.mjs      # result: scripts/admin-
 
 `QA_ONLY` (regex of task ids or check names), `QA_MODE` and `QA_RUNS` narrow it; exit 1 on any problem. `builder-ux-shots.mjs` takes the screenshots. By hand, light and dark, on a draft page:
 
-* Top bar: one status chip, "Draft · Saved 14:02" after a save, "Saving…" while it runs, "Not saved" on failure.
+* Top bar: the page name is plain text until hovered or focused; the device switch is centred, with an icon per device. **Fit ▾** lists Fit, 50, 75 and 100 and its label names the applied zoom; **Preview** opens the public page in a new tab. One status chip, "Draft · Saved 14:02" after a save, "Saving…" while it runs, "Not saved" on failure.
 * Device switch reads Desktop, Tablet ≤1024, Phone ≤640. Choosing Tablet shows an amber "Editing Tablet" chip and a screen reader hears "Editing Tablet styles". Selected button stays ink, not amber.
 * The **Navigator** and **Inspector** buttons are labelled and hide their panes; Ctrl/Cmd+Alt+[ and ] do the same.
-* More menu order: Versions, Page settings, Site styles (owner only; absent for an editor), Keyboard shortcuts, a rule, Delete page last and red; Delete asks first. On a block, it reads Delete block.
+* More menu order: Versions, Page settings, Site styles (owner only; absent for an editor), Keyboard shortcuts (the only place for them: no separate button; Esc from the sheet returns to the ⋯ button), a rule, Delete page last and red; Delete asks first. On a block, it reads Delete block.
 * Left pane: Navigator and Insert tabs move with the arrow keys. Insert has a focused search, Recent after a first insert, a Patterns row with Show all patterns, then the groups. Enter inserts, Shift+Enter inserts and keeps the search open, a drag still works.
+* Press `/` with a section selected: a popover of section cards opens at it, the tab does not switch and the inspector keeps its content; Enter inserts after the section, Esc closes. `A` opens the Insert tab with its search focused (nothing selected: `/` does the same). The hint bar sits at the bottom of the canvas pane and **Dismiss hints** hides it.
 * The footer has **Add element** and **Ctrl K** buttons at all times.
 * Ctrl/Cmd+K opens the palette from the canvas pane, a field and the Navigator; the list shows Commands including Save as block…; Esc closes it. Double-click a heading, press Ctrl+K: the link dialog opens, not the palette. With keyboard focus inside the canvas frame (click the page, not a field) Ctrl+K opens the palette too.
 * Navigator: Filter, Collapse all, Rename; names read "Rich text", "Accordion item", "Block: Promo".
@@ -731,9 +732,9 @@ QA_ONLY=restore-dialog scripts/admin-qa/run-local.sh builder-ux-tasks.mjs
 
 By hand, in light, dark and at phone width, on a page you can throw away:
 
-* Hover an element: a dashed grey outline only. Click it: a solid outline and a toolbar outside it with Parent, Duplicate, Wrap, Hide, Delete and More; arrow keys move between them. On a text the hint reads "Double-click or Enter to edit text".
-* Strip above the page: breadcrumbs select each parent, "Page" selects nothing. Zoom Fit, 100, 75 and 50 work; there is no zoom below 50 (Fit may go lower only at phone width); a resize keeps a chosen zoom. Tablet and Phone show a coloured band with the label.
-* Round **+** between elements, at the top, and inside an empty box: the picker lists the six layouts, **Choose an element…** and **Insert a ready-made section…**; each inserts at the spot. The empty page offers one too.
+* Hover an element: a 1 px accent outline and its name. Click it: corner handles, a centred W × H badge and a toolbar outside it with Parent, Duplicate, Wrap, Hide, Delete and More; arrow keys move between them. On a text the hint reads "Double-click or Enter to edit text".
+* Stage bar above the page: breadcrumbs select each parent, "Page" selects nothing; it reads the page width and scale (for example `1440px · 75%`). In the top bar, **Fit ▾** applies Fit, 100, 75 and 50; there is no zoom below 50 (Fit may go lower only at phone width); a resize keeps a chosen zoom. Tablet and Phone show a coloured band with the label.
+* Pointing at the boundary between two sections shows a thin **Add section** line. Round **+** between elements, at the top, and inside an empty box: the picker lists the six layouts, **Choose an element…** and **Insert a ready-made section…**; each inserts at the spot. The empty page offers one too.
 * Select a text, press Enter: you are typing. Enter again keeps it; do it again, type, press Esc: the text goes back. Ctrl/Cmd+K while typing opens the link panel (no wider than 360 px, with a page and anchor list); with the page itself focused it opens the command palette.
 * A heading's bar shows B, I, Link, Clear; a text's bar shows the full set. Make words bold, then press Ctrl/Cmd+Z: the bold goes. Type, then Ctrl/Cmd+Z: the typing goes first. There is no redo for a format.
 * Inspector: the header names the element, "Editing Tablet" on Tablet, and **Element options** has Copy style, Paste style (greyed with a tip until a copy) and Restore from an earlier version…. The row under it says **Class**, not Preset or Overrides.
