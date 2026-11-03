@@ -944,3 +944,22 @@ func TestPluginAdminRoutesAreOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// A plugin that still requests a removed write permission shows it as removed
+// and disabled, not as a permission the owner can tick.
+func TestPermissionsPageRefusesRemovedPermission(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "legacy", Version: "1.0.0", Permissions: []string{"kv", "entities.write"}})
+	body := g.do("GET", "/admin/plugins/legacy/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Removed in Hatamoto 1.1") {
+		t.Fatalf("no removal notice:\n%s", body)
+	}
+	if !regexp.MustCompile(`value="entities.write" disabled`).MatchString(body) || regexp.MustCompile(`value="kv" disabled`).MatchString(body) {
+		t.Fatalf("the removed permission must be the only disabled row:\n%s", body)
+	}
+	if !strings.Contains(body, "1 of 1 allowed") && !strings.Contains(body, "0 of 1 allowed") {
+		t.Errorf("the gauge counts the removed permission:\n%s", body)
+	}
+}
