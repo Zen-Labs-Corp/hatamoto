@@ -22,6 +22,8 @@ import (
 const (
 	reasonMoved = "moved"
 	reasonGone  = "gone"
+	// reasonLocation: the menu is assigned to a location, which only the owner changes.
+	reasonLocation = "has_location"
 	// reasonRevertMoved is why a revert left an object in place.
 	reasonRevertMoved = "changed_since_publish"
 )
@@ -317,6 +319,8 @@ func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, ta
 	switch {
 	case errors.Is(err, menu.ErrMenuNotFound) && id != nil:
 		return Outcome{Conflict: true, Detail: reasonGone}, nil
+	case errors.Is(err, menu.ErrMenuHasLocation):
+		return Outcome{Conflict: true, Detail: reasonLocation}, nil
 	case err != nil:
 		return Outcome{}, err
 	case res.Conflict:

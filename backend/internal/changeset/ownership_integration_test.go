@@ -3,6 +3,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -133,5 +134,72 @@ func TestChangesetOwnershipHandOverCaughtAtPublish(t *testing.T) {
 	}
 	if n := f.count(`SELECT count(*) FROM hatamoto_terms WHERE name = 'Renamed' AND origin = 'plugin:alpha'`); n != 1 {
 		t.Errorf("term update not applied (%d)", n)
+	}
+}
+
+// The home page singleton is the home-page setting. A plugin-made page the
+// owner picked as home stays updatable by that plugin's changesets, and no
+// changeset can change which page is the home page.
+func TestChangesetHomePageSettingIsNotReachable(t *testing.T) {
+	f := newFixture(t)
+	objs := f.alphaObjects()
+	if _, err := f.db.Pool().Exec(f.ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Example', 'en') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	var prev *string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT homepage_entity_id::text FROM hatamoto_site_config WHERE id = TRUE`).Scan(&prev); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = f.db.Pool().Exec(context.Background(), `UPDATE hatamoto_site_config SET homepage_entity_id = $1::uuid WHERE id = TRUE`, prev)
+	})
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_site_config SET homepage_entity_id = $1::uuid WHERE id = TRUE`, objs[KindEntity]); err != nil {
+		t.Fatal(err)
+	}
+	homepage := func() string {
+		var id *string
+		if err := f.db.Pool().QueryRow(f.ctx, `SELECT homepage_entity_id::text FROM hatamoto_site_config WHERE id = TRUE`).Scan(&id); err != nil || id == nil {
+			t.Fatalf("homepage = %v, %v", id, err)
+		}
+		return *id
+	}
+
+	cs := f.begin("alpha")
+	for _, kind := range []Kind{"home", "settings"} {
+		if err := f.eng.Stage(f.ctx, cs, Item{Kind: kind, Op: OpUpsert, Payload: raw(map[string]any{"homepage_entity_id": uuid.NewString()})}); !errors.Is(err, ErrSingleton) {
+			t.Errorf("staging %q = %v, want ErrSingleton", kind, err)
+		}
+	}
+	upd := Item{Kind: KindEntity, Op: OpUpsert, TargetID: objs[KindEntity], Payload: raw(map[string]any{"attributes": map[string]any{"content": "home v2"}})}
+	f.stage(cs, upd)
+	if res := f.publish(cs); res.Applied != 1 || res.Skipped != 0 {
+		t.Fatalf("update of the plugin's home page: %+v", res)
+	}
+	if got := homepage(); got != objs[KindEntity] {
+		t.Errorf("homepage_entity_id = %s after publish", got)
+	}
+	if _, err := f.eng.Revert(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if got := homepage(); got != objs[KindEntity] {
+		t.Errorf("homepage_entity_id = %s after revert", got)
+	}
+}
+
+func TestChangesetDeleteOfLocatedMenuIsConflict(t *testing.T) {
+	f := newFixture(t)
+	objs := f.alphaObjects()
+	loc := "cs-" + f.tag
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_menus SET location = $2 WHERE id = $1`, objs[KindMenu], loc); err != nil {
+		t.Fatal(err)
+	}
+	cs := f.begin("alpha")
+	f.stage(cs, Item{Kind: KindMenu, Op: OpDelete, TargetID: objs[KindMenu]})
+	res := f.publish(cs)
+	if res.Skipped != 1 || len(res.Conflicts) != 1 || res.Conflicts[0].Reason != reasonLocation {
+		t.Fatalf("result = %+v", res)
+	}
+	if f.count(`SELECT count(*) FROM hatamoto_menus WHERE id = $1 AND location = $2`, objs[KindMenu], loc) != 1 {
+		t.Error("the located menu was deleted")
 	}
 }

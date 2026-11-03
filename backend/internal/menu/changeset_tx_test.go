@@ -254,3 +254,49 @@ func TestChangesetTxRejectsBadParentIndex(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInvalidMenu", err)
 	}
 }
+
+func TestChangesetTxKeepsOwnersLocation(t *testing.T) {
+	f := newCSFixture(t)
+	ctx := context.Background()
+	res := f.apply(t, MenuOp{Name: "Located", Slug: slugBase(t), Items: []ReplaceItem{{Label: "One", LinkType: LinkTypeCustom, URL: u("/1"), Parent: -1}}})
+	// The owner assigns the menu to a location after the changeset created it.
+	if _, err := f.db.Pool().Exec(ctx, `UPDATE hatamoto_menus SET location = 'cs-test-loc' WHERE id = $1`, res.ID); err != nil {
+		t.Fatal(err)
+	}
+	location := func() *string {
+		var l *string
+		if err := f.db.Pool().QueryRow(ctx, `SELECT location FROM hatamoto_menus WHERE id = $1`, res.ID).Scan(&l); err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+
+	// A changeset may not delete it: the location would go empty.
+	err := f.db.WithTx(ctx, func(tx pgx.Tx) error {
+		_, err := f.svc.ApplyChangesetTx(ctx, tx, MenuOp{ID: &res.ID, Delete: true})
+		return err
+	})
+	if !errors.Is(err, ErrMenuHasLocation) {
+		t.Fatalf("delete of a located menu = %v, want ErrMenuHasLocation", err)
+	}
+
+	// Update and restore leave the location alone.
+	upd := f.apply(t, MenuOp{ID: &res.ID, Name: "Renamed"})
+	if err := f.db.WithTx(ctx, func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(ctx, tx, upd.Before) }); err != nil {
+		t.Fatal(err)
+	}
+	if l := location(); l == nil || *l != "cs-test-loc" {
+		t.Errorf("location after update and restore = %v", l)
+	}
+
+	// The owner moves the location away: a restore from the old pre-image must not take it back.
+	if _, err := f.db.Pool().Exec(ctx, `UPDATE hatamoto_menus SET location = NULL WHERE id = $1`, res.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.db.WithTx(ctx, func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(ctx, tx, upd.Before) }); err != nil {
+		t.Fatal(err)
+	}
+	if l := location(); l != nil {
+		t.Errorf("restore re-assigned location %q", *l)
+	}
+}

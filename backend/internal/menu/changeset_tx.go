@@ -217,7 +217,8 @@ func applyExistingTx(ctx context.Context, tx pgx.Tx, op MenuOp) (MenuTxResult, e
 	id := *op.ID
 	var updatedAt time.Time
 	var slug string
-	if err := tx.QueryRow(ctx, `SELECT slug, updated_at FROM hatamoto_menus WHERE id = $1 FOR UPDATE`, id).Scan(&slug, &updatedAt); err != nil {
+	var location *string
+	if err := tx.QueryRow(ctx, `SELECT slug, updated_at, location FROM hatamoto_menus WHERE id = $1 FOR UPDATE`, id).Scan(&slug, &updatedAt, &location); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return MenuTxResult{}, ErrMenuNotFound
 		}
@@ -236,6 +237,9 @@ func applyExistingTx(ctx context.Context, tx pgx.Tx, op MenuOp) (MenuTxResult, e
 		return MenuTxResult{}, fmt.Errorf("encode menu pre-image: %w", err)
 	}
 	if op.Delete {
+		if location != nil { // deleting it would empty a location of the site
+			return MenuTxResult{}, ErrMenuHasLocation
+		}
 		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_menus WHERE id = $1`, id); err != nil {
 			return MenuTxResult{}, fmt.Errorf("failed to delete menu: %w", err)
 		}
@@ -289,12 +293,14 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before json
 		return fmt.Errorf("decode menu pre-image: %w", err)
 	}
 	// An update trigger stamps updated_at, so the restored row is "now"; created_at is kept.
+	// A location is never assigned here: the owner decides where a menu shows,
+	// so a live menu keeps its location and a re-created one has none.
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO hatamoto_menus (id, name, slug, location, origin, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
-		ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, location = EXCLUDED.location,
+		INSERT INTO hatamoto_menus (id, name, slug, origin, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug,
 			origin = EXCLUDED.origin, updated_at = NOW()`,
-		m.ID, m.Name, m.Slug, m.Location, m.Origin, m.CreatedAt); err != nil {
+		m.ID, m.Name, m.Slug, m.Origin, m.CreatedAt); err != nil {
 		return fmt.Errorf("failed to restore menu: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_menu_items WHERE menu_id = $1`, m.ID); err != nil {
