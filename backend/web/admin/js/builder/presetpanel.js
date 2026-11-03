@@ -30,8 +30,9 @@ export function presetPanel(node, current, { api, commit, draw, root, id, ready 
   const act = (ops, focus, name) => {
     if (!ops.length || !commit(ops, { label: name })) return false;
     draw();
-    // The redrawn panel fills its Preset section once the lazy chunks are in: focus the named control then, never <body>.
-    ready().then(() => (root.querySelector(`[data-focus="${focus}"]`) ?? root.querySelector('[role="tab"][tabindex="0"]'))?.focus());
+    // The redrawn panel fills its Preset section once the lazy chunks are in: focus the named control then, else the header menu or the tab (a hidden control cannot take focus), never <body>.
+    const shown = (el) => el && !el.closest("[hidden]");
+    ready().then(() => [`[data-focus="${focus}"]`, ".hm-bs-more", '[role="tab"][tabindex="0"]'].map((q) => root.querySelector(q)).find(shown)?.focus());
     return true;
   };
   const select = h("select", { id, class: "hm-field__control", "data-focus": "select", "aria-describedby": `${id}-d` });
