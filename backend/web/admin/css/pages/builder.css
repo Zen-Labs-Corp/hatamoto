@@ -157,7 +157,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 /* Navigator tree: flat rows (one li each), indent by aria-level. */
 .hm-bs-tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 /* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is solid accent with paper text (ADMIN_UI_RULES, Selected state). */
-.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-2); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: color-mix(in srgb, var(--color-accent) 12%, var(--surface)); --bs-nav-guide: var(--border); --bs-thumb: var(--surface); --bs-thumb-fg: var(--text-muted); }
+.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-3); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: color-mix(in srgb, var(--color-accent) 12%, var(--surface)); --bs-nav-guide: var(--border); --bs-thumb: var(--surface); --bs-thumb-fg: var(--text-muted); }
 .hm-bs-row { position: relative; display: flex; align-items: center; gap: var(--space-1-5); block-size: var(--bs-nav-block-h); padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; color: var(--text); font-size: var(--text-sm); }
 .hm-bs-row--section { block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--space-bs-gap); }
 .hm-bs-row--section:first-child { margin-block-start: 0; }
