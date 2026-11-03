@@ -224,7 +224,7 @@ func TestListPublishedFiltered_HidesBlocksAndHiddenPeople(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Release()
-	sfx := uuid.NewString()[:8]
+	sfx := searchToken()
 	ids := map[string]uuid.UUID{"block": uuid.New(), "person-hidden": uuid.New(), "person-public": uuid.New()}
 	for slug, id := range ids {
 		kind, attrs := "block", `{}`
