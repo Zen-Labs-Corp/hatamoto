@@ -187,6 +187,21 @@ test("dragging previews with setVar (no commit), updates the label, hatch and ba
   assert.equal(r.handle("top").captured.length, 1, "the pointer is captured");
 });
 
+test("the grabbed handle follows the pointer, not the band's middle (a lagging handle leaves the pointer over the frame, which swallows the release)", () => {
+  const r = rig();
+  const top0 = parseFloat(r.handle("top").style.top);
+  down(r, "top");
+  move(r, "top", 0, 24);
+  assert.equal(parseFloat(r.handle("top").style.top), top0 + 24, "the handle moved by the pointer's 24px, not by half the padding change");
+  move(r, "top", 0, 40);
+  assert.equal(parseFloat(r.handle("top").style.top), top0 + 40);
+  const left0 = parseFloat(r.handle("left").style.left);
+  r.handle("top").fire("pointerup", { pointerId: 7 });
+  down(r, "left");
+  move(r, "left", 16, 0);
+  assert.equal(parseFloat(r.handle("left").style.left), left0 + 16, "a side handle follows along x");
+});
+
 test("pointer-up commits exactly once with the final writes and the inspector's label", () => {
   const r = rig();
   down(r, "top");

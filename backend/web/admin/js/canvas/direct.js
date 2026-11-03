@@ -108,9 +108,16 @@ export function mountDirect(canvas, hd) {
         const hnd = handles[s];
         hnd.hidden = false;
         const room = canvas.stage.offsetWidth || Infinity; // the frame: a handle on its edge (padding 0) must not be cut off
-        hnd.style.left = `${VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room)}px`;
+        let left = VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room);
         let top = VERTICAL[s] ? at[s][1] : at[s][1] * sc;
-        if (s === "top") top = (drag ? topC : Math.min(topC, botC - HANDLE_LONG)) - HANDLE_HALF; // its box hangs from the top (the toolbar's avoid reads it); a short section: it ends where the bottom one starts
+        if (s === "top") top = Math.min(topC, botC - HANDLE_LONG) - HANDLE_HALF; // its box hangs from the top (the toolbar's avoid reads it); a short section: it ends where the bottom one starts
+        if (drag && s === drag.side) {
+          // The band's middle moves at half the pointer's speed: the grabbed handle follows the pointer instead, or it would be left behind
+          // and the release would land on the frame, which never reports it to the host.
+          left = drag.h0.left + (VERTICAL[s] ? 0 : drag.dx);
+          top = drag.h0.top + (VERTICAL[s] ? drag.dy : 0);
+        }
+        hnd.style.left = `${left}px`;
         hnd.style.top = `${top}px`;
         hnd.setAttribute("aria-valuenow", String(pd[i]));
         hnd.setAttribute("aria-label", padAria(s, pd[i]));
@@ -225,6 +232,9 @@ export function mountDirect(canvas, hd) {
         start,
         x0: e.clientX,
         y0: e.clientY,
+        dx: 0,
+        dy: 0,
+        h0: { left: parseFloat(hnd.style.left) || 0, top: parseFloat(hnd.style.top) || 0 }, // where the handle was grabbed
         live: { [side]: start, [OPPOSITE[side]]: valueOf(current, OPPOSITE[side]) },
         previewed: false,
         entries: Object.fromEntries(keys.map((s) => [s, hd.styleEntry(SIDES[s])])),
@@ -244,7 +254,9 @@ export function mountDirect(canvas, hd) {
     });
     hnd.addEventListener("pointermove", (e) => {
       if (!drag || drag.side !== side) return;
-      const d = VERTICAL[side] ? e.clientY - drag.y0 : e.clientX - drag.x0;
+      drag.dx = e.clientX - drag.x0;
+      drag.dy = e.clientY - drag.y0;
+      const d = VERTICAL[side] ? drag.dy : drag.dx;
       const px = padValue({ start: drag.start, d, scale: canvas.scale, side, shift: e.shiftKey });
       drag.live[side] = px;
       if (drag.alt) drag.live[OPPOSITE[side]] = px;
