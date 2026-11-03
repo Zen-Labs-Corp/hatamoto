@@ -770,7 +770,19 @@ func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessag
 	default:
 		return nil, herr(sdk.ErrInvalidArgument, "id, path, or slug (with an optional parent_id) is required")
 	}
+	if runSeesOnlyPublished(ctx, ent.Status) {
+		return nil, herr(sdk.ErrNotFound, "entity not found")
+	}
 	return a.entityDTOGrouped(ctx, ent)
+}
+
+// runSeesOnlyPublished reports whether a read of an entity with this status
+// must be refused: inside a run the transform phase reads published content
+// only (ADR 0004 s2), so drafts, scheduled and archived entities cannot be
+// copied into staged content or out through a later phase.
+func runSeesOnlyPublished(ctx context.Context, status entity.EntityStatus) bool {
+	_, inRun := RunFrom(ctx)
+	return inRun && status != entity.StatusPublished
 }
 
 func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -794,6 +806,12 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 			return nil, err
 		}
 		filter.SchemaID = &s.ID
+	}
+	if _, inRun := RunFrom(ctx); inRun {
+		if args.Status != "" && args.Status != string(entity.StatusPublished) {
+			return nil, herr(sdk.ErrInvalidArgument, "a run reads published entities only")
+		}
+		args.Status = string(entity.StatusPublished)
 	}
 	if args.Status != "" {
 		st := entity.EntityStatus(args.Status)
@@ -897,6 +915,12 @@ func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.Ra
 		return nil, err
 	}
 	out := []translationDTO{}
+	if _, inRun := RunFrom(ctx); inRun { // published members only, and only for a published entity
+		members = slices.DeleteFunc(members, func(m entity.Member) bool { return m.Status != string(entity.StatusPublished) })
+		if !slices.ContainsFunc(members, func(m entity.Member) bool { return m.ID == id }) {
+			return nil, herr(sdk.ErrNotFound, "entity not found")
+		}
+	}
 	if len(members) < 2 {
 		return out, nil
 	}

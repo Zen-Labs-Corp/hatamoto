@@ -56,6 +56,7 @@ func newCSRig(t *testing.T) *csRig {
 			changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, log)},
 		}}
 		s.Changesets = r.eng
+		s.Entities = ents
 		s.LivePath = func(_ context.Context, p string) bool { return r.live[p] }
 		t.Cleanup(func() {
 			bg := context.Background()
@@ -258,5 +259,45 @@ func TestChangesetFnsPropose(t *testing.T) {
 	}
 	if _, he := r.call(sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeURLPatterns, Payload: json.RawMessage(`{}`)}); he == nil || he.Code != sdk.ErrInvalidArgument {
 		t.Fatalf("undeclared kind: %v", he)
+	}
+}
+
+// Inside a run the transform phase reads published entities only: a draft
+// answers not_found by id and is absent from lists, and a list cannot ask for
+// drafts.
+func TestRunEntityReadsPublishedOnly(t *testing.T) {
+	r := newCSRig(t)
+	ctx := context.Background()
+	if err := r.a.grants.(*GrantStore).Set(ctx, r.rc.Plugin, []string{sdk.PermEntitiesRead}); err != nil {
+		t.Fatal(err)
+	}
+	r.mustCall(sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: r.key("pub"), Schema: r.schema, Slug: r.key("pub"), Name: "Pub"})
+	r.mustCall(sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: r.key("dr"), Schema: r.schema, Slug: r.key("dr"), Name: "Draft"})
+	r.publish()
+	if _, err := r.runs.DB.Pool().Exec(ctx, `UPDATE hatamoto_entities SET status = 'published' WHERE slug = $1`, r.key("pub")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.runs.DB.Pool().Exec(ctx, `UPDATE hatamoto_entities SET status = 'draft' WHERE slug = $1`, r.key("dr")); err != nil {
+		t.Fatal(err)
+	}
+	var pubID, draftID string
+	_ = r.runs.DB.Pool().QueryRow(ctx, `SELECT id::text FROM hatamoto_entities WHERE slug = $1`, r.key("pub")).Scan(&pubID)
+	_ = r.runs.DB.Pool().QueryRow(ctx, `SELECT id::text FROM hatamoto_entities WHERE slug = $1`, r.key("dr")).Scan(&draftID)
+
+	r.mustCall(sdk.FnEntitiesGet, map[string]string{"id": pubID})
+	if _, he := r.call(sdk.FnEntitiesGet, map[string]string{"id": draftID}); he == nil || he.Code != sdk.ErrNotFound {
+		t.Fatalf("draft by id: %v", he)
+	}
+	if _, he := r.call(sdk.FnEntitiesList, map[string]string{"schema_slug": r.schema, "status": "draft"}); he == nil || he.Code != sdk.ErrInvalidArgument {
+		t.Fatalf("draft list: %v", he)
+	}
+	var list struct {
+		Items []struct{ ID string } `json:"items"`
+	}
+	if err := json.Unmarshal(r.mustCall(sdk.FnEntitiesList, map[string]string{"schema_slug": r.schema}), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 || list.Items[0].ID != pubID {
+		t.Fatalf("list in a run: %+v", list.Items)
 	}
 }
