@@ -328,5 +328,5 @@ test("a remembered field row is dropped when focus leaves the tree, so a forced 
 test("screen.js: the drag pick skips field rows and onSelectField selects the field", () => {
   const src = readFileSync(new URL("../../../backend/web/admin/js/builder/screen.js", import.meta.url), "utf8");
   assert.match(src, /closest\?\.\("[^"]*\[data-field\][^"]*"\) \? null/);
-  assert.match(src, /onSelectField: \(id, key\) => toField\(id, key\)/);
+  assert.match(src, /onSelectField: \(id, key, o\) => toField\(id, key, o\)/);
 });

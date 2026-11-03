@@ -138,3 +138,28 @@ test("firstChildOf: first block of a container, of a collapsed section's compone
   assert.equal(firstChildOf(doc, "b1"), null);
   assert.equal(firstChildOf(doc, "nope"), null);
 });
+
+test("fieldId / parseFieldId round-trip; anything else is not a field id", async () => {
+  const { fieldId, parseFieldId } = await import(new URL("builder/selinfo.js", root));
+  assert.equal(fieldId("c1", "eyebrow"), "c1#eyebrow");
+  assert.deepEqual(parseFieldId("c1#eyebrow"), { componentId: "c1", key: "eyebrow" });
+  assert.deepEqual(parseFieldId(fieldId("c-1", "a#b")), { componentId: "c-1", key: "a#b" }, "only the first # splits");
+  for (const bad of ["c1", "#k", "c1#", "", null, undefined]) assert.equal(parseFieldId(bad), null, String(bad));
+});
+
+test("escapeTarget: a field selection goes to its section first, then the usual parent", async () => {
+  const { escapeTarget } = await import(new URL("builder/selinfo.js", root));
+  assert.equal(escapeTarget(doc, "c1", { componentId: "c1", key: "headline" }), "c1");
+  assert.equal(escapeTarget(doc, "c1", null), null, "a section has no parent");
+  assert.equal(escapeTarget(doc, "b1", null), parentOf(doc, "b1"));
+});
+
+test("fieldGuard: Delete and Cut with a field selected only say how to reach the section", async () => {
+  const { fieldGuard } = await import(new URL("builder/selinfo.js", root));
+  const f = { componentId: "c1", key: "headline" };
+  assert.match(fieldGuard("remove", f), /Select the section.*Esc/);
+  assert.match(fieldGuard("cutnode", f), /Esc/);
+  assert.equal(fieldGuard("remove", null), null);
+  assert.equal(fieldGuard("copynode", f), null);
+  assert.equal(fieldGuard("rename", f), null, "rename keeps acting on the section");
+});

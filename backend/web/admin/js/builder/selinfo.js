@@ -79,3 +79,18 @@ export function stepSection(doc, id, dir) {
 
 /** True when id lies inside section row sectionId without being that row itself (drives the tinted band). */
 export const inSection = (doc, sectionId, id) => sectionOf(doc, id)?.id === sectionId && rowIdOf(doc, id) !== sectionId;
+
+/** The UI-only id of a selected content field: "<componentId>#<key>" (a node id has no "#"). */
+export const fieldId = (componentId, key) => `${componentId}#${key}`;
+
+/** The inverse of fieldId: {componentId, key}, or null for anything that is not a field id. */
+export function parseFieldId(s) {
+  const i = typeof s === "string" ? s.indexOf("#") : -1;
+  return i > 0 && i < s.length - 1 ? { componentId: s.slice(0, i), key: s.slice(i + 1) } : null;
+}
+
+/** What Esc selects: with a field selected its section (the component, whose row is the section), else the parent. null at section level. */
+export const escapeTarget = (doc, selected, field) => (field ? field.componentId : parentOf(doc, selected));
+
+/** What a field selection says instead of removing: the note for Delete and Cut (they never take the section along), null for any other action or without a field. */
+export const fieldGuard = (action, field) => (field && (action === "remove" || action === "cutnode") ? "Select the section to remove it: press Esc." : null);

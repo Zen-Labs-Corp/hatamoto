@@ -67,3 +67,20 @@ test("an unknown id clears the selection", () => {
   assert.equal(r.selection.size, 0);
   assert.equal(r.primary, null);
 });
+
+// screen.js wiring of the field selection (a whole-file read: screen.js needs a browser to mount).
+import { readFileSync } from "node:fs";
+const screenSrc = readFileSync(new URL("../../../backend/web/admin/js/builder/screen.js", import.meta.url), "utf8");
+
+test("screen.js: choose() sets the field first so every other select clears it; Delete, Cut and Esc go through the guards", () => {
+  assert.match(screenSrc, /function choose\([^)]*field = null\) \{\n\s+const was = selection\.size;\n\s+selectedField = field;/);
+  assert.match(screenSrc, /select\(id, false, \{ pick: !keys \}, true, \{ componentId: id, key \}\)/);
+  assert.match(screenSrc, /function removeSelected\(\) \{\n\s+const note = fieldGuard\("remove", selectedField\);/);
+  assert.match(screenSrc, /fieldGuard\(action, selectedField\)/);
+  assert.match(screenSrc, /escapeTarget\(st\.doc, selected, selectedField\)/);
+  assert.match(screenSrc, /selectedField: \(\) => \(selectedField \? fieldId\(/);
+});
+
+test("screen.js: no Rename button or Ctrl K button is wired any more", () => {
+  assert.doesNotMatch(screenSrc, /data-hm-bs-rename|data-hm-bs-cmdk/);
+});
