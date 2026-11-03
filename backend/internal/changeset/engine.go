@@ -67,6 +67,9 @@ func (e *Engine) Begin(ctx context.Context, runID uuid.UUID, plugin string) (int
 
 // Stage adds it to a staged changeset. Nothing live changes.
 func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
+	if singletonKinds[it.Kind] {
+		return fmt.Errorf("%w: %q", ErrSingleton, it.Kind)
+	}
 	if _, ok := e.Writers[it.Kind]; !ok {
 		return fmt.Errorf("%w: %q", ErrNoWriter, it.Kind)
 	}
@@ -75,9 +78,6 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 	}
 	if it.Op == OpDelete && it.TargetID == "" {
 		return fmt.Errorf("%w: delete needs a target", ErrInvalidItem)
-	}
-	if it.Kind == KindMedia && (it.Op == OpDelete || it.TargetID != "" || len(it.BlobKeys) != 1) {
-		return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
 	}
 	payload := it.Payload
 	if len(payload) == 0 {
@@ -97,6 +97,18 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		}
 		if !e.now().Before(cs.ExpiresAt) {
 			return ErrExpired
+		}
+		target := it.TargetID
+		if target == "" {
+			if target, err = mappedTarget(ctx, tx, Origin(cs.Plugin), it.Kind, it.SourceKey); err != nil {
+				return err
+			}
+		}
+		if err := e.checkOwnership(ctx, tx, cs.Plugin, it.Kind, target); err != nil {
+			return err
+		}
+		if it.Kind == KindMedia && (it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1) {
+			return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, target_id, base_token, payload, blob_keys)

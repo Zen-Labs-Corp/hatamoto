@@ -38,10 +38,9 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 		if err != nil {
 			return err
 		}
-		origin := Origin(cs.Plugin)
 		for _, it := range items {
 			keys = append(keys, it.BlobKeys...)
-			if err := e.publishItem(ctx, tx, origin, it, &res, &undos); err != nil {
+			if err := e.publishItem(ctx, tx, cs.Plugin, it, &res, &undos); err != nil {
 				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
 			}
 		}
@@ -68,7 +67,7 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 	return res, nil
 }
 
-func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, origin string, it StoredItem, res *Result, undos *[]func(context.Context)) error {
+func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it StoredItem, res *Result, undos *[]func(context.Context)) error {
 	w, ok := e.Writers[it.Kind]
 	if !ok {
 		return fmt.Errorf("%w: %q", ErrNoWriter, it.Kind)
@@ -76,10 +75,19 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, origin string, it S
 	target := it.TargetID
 	if target == "" {
 		var err error
-		if target, err = mappedTarget(ctx, tx, origin, it.Kind, it.SourceKey); err != nil {
+		if target, err = mappedTarget(ctx, tx, Origin(plugin), it.Kind, it.SourceKey); err != nil {
 			return err
 		}
 	}
+	// The object may have changed hands since the item was staged.
+	if err := e.checkOwnership(ctx, tx, plugin, it.Kind, target); errors.Is(err, ErrNotOwned) {
+		res.Skipped++
+		res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: ReasonNotOwned})
+		return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil)
+	} else if err != nil {
+		return err
+	}
+	origin := Origin(plugin)
 	out, err := w.Apply(ctx, tx, origin, it.Item, target)
 	if out.Undo != nil {
 		*undos = append(*undos, out.Undo)
