@@ -58,11 +58,14 @@ export function mountDirect(canvas, hd) {
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
   let lastHover = null; // the pill is reached by crossing the stage, which ends the frame's hover: it stays until the pointer leaves the canvas
-  canvas.stage.parentElement?.addEventListener("mouseleave", () => {
-    if (!lastHover) return;
+  // A pointer leaving a frame that holds it gives the pane no mouseleave, so the page's own pointer events end it: any over something outside the canvas pane.
+  const onOutside = (e) => {
+    const pane = canvas.stage.parentElement;
+    if (!lastHover || !pane || pane.contains(e.target)) return;
     lastHover = null;
     paintStrips();
-  });
+  };
+  document.addEventListener("mouseover", onOutside);
 
   // The section whose handles show: the selected one, when it is a section, editable, and not being typed in.
   function target() {
@@ -144,13 +147,13 @@ export function mountDirect(canvas, hd) {
     while (n && n.p !== "") n = canvas.nodes.find((x) => x.id === n.p);
     return n?.id ?? null;
   };
-  // A pill shows (and takes the pointer) around the hovered section, alone on an empty page, and on the selected section's own edges the
-  // page ends at (after it, and before the first one), so mouse and touch can always add at the end or the top. After the selected section it is also the one
-  // tab stop. The rest are inert, so no invisible element swallows a click.
+  // A pill shows (and takes the pointer) around the hovered section and alone on an empty page. At rest the selected section's edges show none:
+  // its padding handles and W x H badge own them. Hovering the selected section shows its two pills ("sel"), drawn at the right end of the row
+  // (data-sel, pageeditor.css) clear of the centred handle and badge. The boundary after the selected section is also the one tab stop.
+  // The rest are inert, so no invisible element swallows a click.
   function showOf(b, selTop, hoverTop) {
     if (b.before === null && b.after === null) return "page";
-    if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover";
-    if (selTop && (b.before === selTop || (b.before === null && b.after === selTop))) return "sel";
+    if (hoverTop && (b.before === hoverTop || b.after === hoverTop)) return hoverTop === selTop ? "sel" : "hover";
     return null;
   }
 
@@ -177,7 +180,9 @@ export function mountDirect(canvas, hd) {
       const show = showOf(b, selTop, hoverTop);
       if (show) p.setAttribute("data-show", show);
       else p.removeAttribute("data-show");
-      p.setAttribute("tabindex", (show === "sel" && b.before !== null) || show === "page" ? "0" : "-1");
+      if (selTop && (b.before === selTop || b.after === selTop)) p.setAttribute("data-sel", "");
+      else p.removeAttribute("data-sel");
+      p.setAttribute("tabindex", (selTop && b.before === selTop) || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
     });
   }
@@ -317,6 +322,7 @@ export function mountDirect(canvas, hd) {
     update,
     destroy() {
       document.removeEventListener("hm-pad-hover", onHover);
+      document.removeEventListener("mouseover", onOutside);
       document.removeEventListener("keydown", onEsc, true);
       layer.remove();
       strips.remove();

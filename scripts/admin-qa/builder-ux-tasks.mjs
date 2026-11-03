@@ -1553,6 +1553,10 @@ await check("axe: Style tab (State, groups, source chips, Show on, box model)", 
   try { return await axeOn(ax, "Style tab"); } finally { await ax.getByRole("tab", { name: "Content" }).click(); }
 });
 await check("axe: layout picker open", async () => {
+  const own = await canvasPoint(ax, textSel((await nodes(ax)).find((n) => n.t === "heading").id)); // hover the selected section: its edge pills show
+  await ax.mouse.move(own.x - 10, own.y, { steps: 3 });
+  await ax.mouse.move(own.x, own.y, { steps: 3 });
+  await settle(ax, 300);
   await ax.locator(`[data-hm-pe-gapline][data-show="sel"]`).first().click(); // the pill after the selected section
   await ax.getByRole("dialog", { name: "Add a section" }).waitFor({ timeout: 3000 });
   try { return await axeOn(ax, "layout picker"); } finally { await ax.keyboard.press("Escape"); await settle(ax, 200); }

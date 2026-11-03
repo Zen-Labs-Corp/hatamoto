@@ -343,6 +343,15 @@ export function createCanvas(root, handlers, opts = {}) {
     }
   }
 
+  // The frame reports a hover when the pointer moves over a node, but not when it leaves for the page around it: the page's own pointer events end it.
+  const onPageOver = (e) => {
+    if (hoverId === null || root.contains(e.target)) return;
+    hoverId = null;
+    handlers.onHover?.(null);
+    drawMarks();
+  };
+  document.addEventListener("mouseover", onPageOver);
+
   // The move handle lives in the toolbar (chrome.js), which is built once: the press is delegated on the stage.
   stage.addEventListener("pointerdown", (e) => {
     const grip = e.target.closest?.(".hm-pe__handle");
@@ -610,6 +619,7 @@ export function createCanvas(root, handlers, opts = {}) {
       closePort(0);
       closePort(1);
       window.removeEventListener("message", onRequest);
+      document.removeEventListener("mouseover", onPageOver);
       stage.remove();
       chrome?.destroy?.();
     },

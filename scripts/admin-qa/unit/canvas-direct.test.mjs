@@ -430,10 +430,11 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(r.adds[1][1], strips[1], "the picker anchors on the strip");
 });
 
-test("a pill shows around the hover, alone on an empty page and on the selection's own end edges; the boundary after the selection is the one tab stop", () => {
+test("a pill shows around the hover, alone on an empty page and on the selected section's edges only while it is hovered; the boundary after the selection is the one tab stop", () => {
   const shows = (r) => r.strips.children.map((s) => s.attrs["data-show"] ?? null);
   const r = rig({ nodes: sections() }); // a selected, nothing hovered
-  assert.deepEqual(shows(r), ["sel", "sel", null], "the selected first section shows a pill before and after it without hover");
+  assert.deepEqual(shows(r), [null, null, null], "at rest the selected section's edges show no pill: its handles and badge own them");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs["data-sel"] ?? null), ["", "", null], "its edges are marked, so the pill is drawn clear of the centred handle and badge");
   assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"], "the boundary after it is the one tab stop");
   r.state.selected = "x"; // a block inside a: its section's boundary
   r.direct.update();
@@ -446,10 +447,10 @@ test("a pill shows around the hover, alone on an empty page and on the selection
   r.state.hover = null; // the pointer crossed onto the pill: the frame's hover ended, the pill stays
   r.direct.update();
   assert.deepEqual(shows(r), [null, "hover", "hover"]);
-  const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section adds no pill over its padding handles
-  assert.deepEqual(shows(own), ["sel", "sel", null], "hovering the selected section changes nothing");
-  const next = rig({ nodes: sections(), hover: "b" }); // hovering the next section shows its edge, the selected section's own bottom edge included
-  assert.deepEqual(shows(next), ["sel", "hover", "hover"]);
+  const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section shows its two edge pills
+  assert.deepEqual(shows(own), ["sel", "sel", null]);
+  const next = rig({ nodes: sections(), hover: "b" }); // hovering the next section shows its edges, the selected section's bottom one included
+  assert.deepEqual(shows(next), [null, "hover", "hover"]);
   assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "page", "an empty page's only pill shows");
 });
 

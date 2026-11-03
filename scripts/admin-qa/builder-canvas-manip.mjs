@@ -206,12 +206,41 @@ await check("A1 select a section on the canvas: 4 padding handles with aria-labe
   if (!/mono|menlo|consolas|courier/i.test(tagFont)) throw new Error(`the selection name tag is not mono: ${tagFont}`);
   const tbb = await tb.boundingBox();
   if (tbb.y > ob.y + 40) throw new Error(`the toolbar is below the top of the selection (${tbb.y.toFixed(0)} vs ${ob.y.toFixed(0)})`);
-  if ((await p.locator("[data-hm-pe-gapline][data-show]:not([data-show=sel])").count())) throw new Error("an Add section line is shown without a hover beyond the selection edges");
+  const nav = await row(sec.id).boundingBox();
+  await p.mouse.move(nav.x + nav.width / 2, nav.y + nav.height / 2, { steps: 5 }); // off the canvas: the click that selected the section left the pointer on it
+  await settle(300);
+  if ((await p.locator("[data-hm-pe-gapline][data-show]").count())) throw new Error(`an Add section pill is shown at rest ${await p.locator("[data-hm-pe-gapline][data-show]").evaluateAll((e) => e.map((x) => x.dataset.show + "@" + x.style.top))}: it must not cover the padding handles or the size badge`);
   top0 = await padNow("top");
   await p.locator('[role="tab"][data-tab="style"]').first().click().catch(() => {}); // the inspector's padding fields
   await settle(400);
   await shot("section-selected.png");
   return `${labels.join(", ")}; badge "${size}"; toolbar ${bg}; chip "${chip}"`;
+});
+
+await check("A3 hover the selected section's bottom boundary: a clickable 'Add section' pill clear of the padding handle and the size badge; click opens the picker, not a padding drag", async () => {
+  const pad0 = await padNow("bottom");
+  const at = await pointOf(sec.id, 0.5, 0.5);
+  await p.mouse.move(at.x - 20, at.y, { steps: 3 });
+  await p.mouse.move(at.x, at.y, { steps: 3 });
+  await settle(400);
+  const line = p.locator("[data-hm-pe-gapline][data-sel][tabindex='0']").first(); // the boundary after the selected section
+  const pill = line.locator(".hm-pe__pill");
+  if (!(await pill.isVisible())) throw new Error("no pill on the selected section's bottom boundary under hover");
+  const pb = await pill.boundingBox();
+  const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  for (const [what, loc] of [["padding handle", padh("bottom")], ["size badge", p.locator("[data-hm-pe-size]").first()]]) {
+    const o = await loc.boundingBox();
+    if (o && hit(pb, o)) throw new Error(`the pill ${JSON.stringify(pb)} overlaps the ${what} ${JSON.stringify(o)}`);
+  }
+  await p.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2, { steps: 4 });
+  await p.mouse.down();
+  await p.mouse.up();
+  const dlg = p.getByRole("dialog", { name: "Add a section" });
+  await dlg.waitFor({ timeout: 3000 });
+  await p.keyboard.press("Escape");
+  await settle(300);
+  if ((await padNow("bottom")) !== pad0) throw new Error("the click on the pill changed the bottom padding");
+  return "pill shown on hover, clear of the handle and badge, click opened the picker";
 });
 
 await check("A1 drag the top handle +40 px: value badge + hatch during the drag, ONE undo entry on pointerup, padding-top changed", async () => {

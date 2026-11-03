@@ -90,8 +90,9 @@
 .hm-pe__padbadge { position: absolute; transform: translate(-50%, -50%); padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-2xs); background: var(--pe-guide-pad); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); pointer-events: none; }
 .hm-pe__padbadge[hidden] { display: none; }
 /* "Add section" on a boundary: a full-width, 26px row centred on it (a 2px accent line and a centred pill). The row itself never takes the pointer; only the pill does, and only while direct.js
-   sets data-show (around the hovered section, and on the selected section's end edges). After the selected section the row is also the one tab stop. Anything else is visibility:hidden, so nothing invisible swallows a click. */
+   sets data-show (around the hovered section, and on the selected section's edges while it is hovered). After the selected section the row is also the one tab stop. On the selected section's edges (data-sel) the pill sits at the row's right end: the padding handle and the W × H badge are centred there. Anything else is visibility:hidden, so nothing invisible swallows a click. */
 .hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; block-size: 26px; transform: translateY(-50%); pointer-events: none; cursor: pointer; }
+.hm-pe__gapline[data-sel] { justify-content: flex-end; padding-inline-end: var(--space-4); }
 .hm-pe__gapline:not([data-show]):not([tabindex="0"]) { visibility: hidden; } /* an invisible pill still counts as covering what lies under it (the page-top one over the top padding handle) */
 .hm-pe__gapline::before { content: ""; position: absolute; inset-inline: 0; top: 50%; block-size: 2px; transform: translateY(-50%); background: var(--color-accent); opacity: 0; pointer-events: none; }
 .hm-pe__gapline[data-show]::before, .hm-pe__gapline:focus-visible::before { opacity: .85; }
