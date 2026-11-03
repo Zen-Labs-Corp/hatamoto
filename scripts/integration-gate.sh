@@ -4,6 +4,7 @@
 # against a throwaway, migrated Postgres.
 #
 # PG_BIN  directory with initdb, pg_ctl and createdb (default: found on PATH).
+# INT_GATE_SOCKDIR  where the short socket directory lives (default /tmp; tests isolate it)
 # TMPDIR  where the cluster lives (default /tmp); removed on exit. May contain spaces.
 #         Only the Unix socket directory is elsewhere (a short /tmp path: socket paths are
 #         limited to ~100 bytes); the DSN uses TCP.
@@ -32,7 +33,7 @@ for b in initdb pg_ctl createdb; do
 done
 
 T=$(mktemp -d "${TMPDIR:-/tmp}/int-gate.XXXXXX")
-S=$(mktemp -d /tmp/hmpg.XXXX) || { echo "integration-gate: cannot create a socket directory in /tmp" >&2; exit 2; }    # socket directory only: a few bytes, short path, no spaces
+S=$(mktemp -d "${INT_GATE_SOCKDIR:-/tmp}/hmpg.XXXX") || { echo "integration-gate: cannot create a socket directory in ${INT_GATE_SOCKDIR:-/tmp}" >&2; exit 2; }    # socket directory only: a few bytes, short path, no spaces
 mkdir "$T/home" "$T/run"
 export TMPDIR=$T GOTMPDIR=$T
 kill_tree() { # kill_tree <pid>: the job and everything under it (go-test-flaky, go test, test binaries)
