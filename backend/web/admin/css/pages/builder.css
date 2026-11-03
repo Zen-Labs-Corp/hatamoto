@@ -82,17 +82,15 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__navbar > .hm-btn { flex: none; }
 .hm-bs__canvas { position: relative; min-width: 0; min-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--color-kasumi); border-block-start: 1px solid var(--border); }
 .hm-bs__canvas:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
-.hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-2); }
+.hm-bs__tools { display: inline-flex; align-items: center; gap: var(--space-1); } /* tight enough that the right group stays within the centred device switch's column */
 .hm-bs__tools[hidden] { display: none; }
 .hm-bs__tools [data-flip] .hm-icon { transform: scaleX(-1); } /* one arrow icon: Undo is its mirror image, so it differs from Redo */
 .hm-bs__split { display: none; }
 .hm-bs__panes { display: inline-flex; gap: var(--space-1); }
 /* Editor bar: 32px icon buttons; the pane toggles sit between two 1px hairlines (after History, before Shortcuts). */
 .hm-bs__tools .hm-btn--icon, .hm-bs__panes .hm-btn--icon { --h: var(--control-h-sm); }
-.hm-bs__panes { align-items: center; gap: var(--space-1); margin-inline: var(--space-1); }
+.hm-bs__panes { align-items: center; gap: var(--space-1); }
 .hm-bs__panes::before, .hm-bs__panes::after { content: ""; inline-size: 1px; block-size: var(--space-5); background: var(--border); }
-.hm-bs__panes::before { margin-inline-end: var(--space-1); }
-.hm-bs__panes::after { margin-inline-start: var(--space-1); }
 .hm-bs__nav[hidden], .hm-bs__inspector[hidden] { display: none; }
 .hm-bs__nav { order: 1; }
 .hm-bs__canvas { order: 0; }
@@ -118,10 +116,10 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 }
 .hm-bs__devices { display: inline-flex; align-items: center; flex: none; gap: var(--space-2); }
 .hm-bs__lead, .hm-bs__end { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
-.hm-bs__end { margin-inline-start: auto; flex: none; }
+.hm-bs__end { margin-inline-start: auto; flex: none; gap: var(--space-1); }
 /* The device switch sits in the middle of the bar: the title group and the tools take equal columns either side of it, the tools never narrower than their content (an equal column overflowed at laptop widths). */
 @media not all and (max-width: 40rem) { /* the exact complement of the phone rules below: at 640px only the phone layout applies */
-  .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr); }
+  .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr); column-gap: var(--space-2); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
   @media (max-width: 75rem) { .hm-bs__dlong { display: none; } .hm-bs__dshort { display: inline; } } /* laptops: Desktop / Tablet / Phone without the pixel limits, so the three groups fit */
 }
