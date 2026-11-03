@@ -31,8 +31,8 @@ const errors = [];
 const blocked = [];
 
 // Nothing is ever saved: these endpoints are cut in the browser and counted.
-async function session(theme) {
-  const ctx = await b.newContext({ viewport: { width: 1600, height: 950 }, bypassCSP: true }); // axe is injected as an inline script
+async function session(theme, viewport = { width: 1600, height: 950 }) {
+  const ctx = await b.newContext({ viewport, bypassCSP: true }); // axe is injected as an inline script
   await ctx.addCookies([{ name: "hm_theme", value: theme, url: base }]);
   await ctx.route(/\/builder\/(save|autosave|recovery|publish)(\/discard)?$/, (r) => {
     blocked.push(`${r.request().method()} ${new URL(r.request().url()).pathname.replace(/[0-9a-f-]{36}/, "<id>")}`);
@@ -40,7 +40,7 @@ async function session(theme) {
   });
   const pg = await ctx.newPage();
   await login(pg);
-  pg.on("pageerror", (e) => errors.push(e.message));
+  pg.on("pageerror", (e) => { errors.push(e.message); if (process.env.QA_VERBOSE) console.log("pageerror", pg.url()); });
   pg.on("dialog", (d) => d.accept().catch(() => {}));
   return pg;
 }
@@ -247,7 +247,8 @@ await check("A4: the Pages tab lists the pages, marks the current one and links 
   else if (!process.env.QA_BASE_URL) {
     const other = p.locator('[data-hm-bs-pages] a.hm-bs-page:not([aria-current])').first();
     const to = await other.getAttribute("href");
-    await Promise.all([p.waitForURL(`**${to}`), other.click()]);
+    // a browser navigation, not a click: leaving the builder through a link starts a cross-document view transition that the page aborts
+    await p.goto(base + to, { waitUntil: "load" });
     need(p.url().includes(to), `opened ${p.url()}, wanted ${to}`);
     await open(href); // back to the page under test
     note = ", opened another page and came back";
@@ -287,8 +288,7 @@ await check("A6: dark theme: the same row is solid, readable and photographed", 
 });
 
 await check("A7: phone width: the dock reaches the Pages tab and its list", async () => {
-  const ph = await session("light");
-  await ph.setViewportSize({ width: 390, height: 844 });
+  const ph = await session("light", { width: 390, height: 844 });
   await ph.goto(base + href, { waitUntil: "load" });
   await ph.waitForFunction(() => !!window.__hmBuilder, null, { timeout: 8000 });
   await ph.waitForTimeout(1200);
