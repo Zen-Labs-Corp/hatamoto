@@ -497,3 +497,23 @@ func TestPluginPermissionsPageUsesCardsGaugeAndCallout(t *testing.T) {
 		t.Error("gauge shown without permissions, or the empty text is missing")
 	}
 }
+
+// Failed and blocked plugins are what "Needs attention" is for.
+func TestPluginsNeedsAttentionCountsFailed(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	fp.list = append(fp.list,
+		PluginInfo{Name: "old-sync", Version: "1.0.0", Package: &PackageMeta{Enabled: true, LoadError: "not loaded"}},
+		PluginInfo{Name: "stuck", Version: "1.0.0", Package: &PackageMeta{Enabled: true, Blocked: "needs a newer host"}},
+	)
+	body := g.do("GET", "/admin/plugins?view=attention", "owner-token", nil, nil).Body.String()
+	if !regexp.MustCompile(`(?s)Needs attention.{0,200}?>3<`).MatchString(body) { // the rig's own failed "broken" plus the two added here
+		t.Errorf("the tab must count the failed and the blocked plugins:\n%s", body)
+	}
+	for _, n := range []string{"/admin/plugins/old-sync/settings", "/admin/plugins/stuck/settings"} {
+		if !strings.Contains(body, n) {
+			t.Errorf("the view lacks a row for %s", n)
+		}
+	}
+}

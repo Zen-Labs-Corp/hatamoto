@@ -95,8 +95,11 @@ type pluginRow struct {
 	updatable bool
 }
 
-// attention says the row needs the owner: a stopped script or section.
-func (r pluginRow) attention() bool { return r.ScriptsBlocked || r.SectionsStopped }
+// attention says the row needs the owner: a plugin that failed or is blocked,
+// a stopped script or section.
+func (r pluginRow) attention() bool {
+	return r.State.Marker == "Failed" || r.ScriptsBlocked || r.SectionsStopped
+}
 
 // disabled says the owner turned the plugin off.
 func (r pluginRow) disabled() bool { return r.State.Badge.Label == "Disabled" }
