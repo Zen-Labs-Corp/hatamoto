@@ -14,7 +14,7 @@ register(
     }`),
 );
 
-const { figmaGroups, groupHasValue, initialOpen, SHORT, canScrub } = await import(new URL("builder/inspgroups.js", root));
+const { figmaGroups, groupHasValue, moreHasValue, initialOpen, SHORT, canScrub, PRIMARY, WIDTH_PRESETS, widthOf } = await import(new URL("builder/inspgroups.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 const by = (keys) => keys.map((k) => table.find((e) => e.key === k)).filter(Boolean);
 
@@ -92,7 +92,74 @@ test("open state: a value set here opens a group, none starts it closed, a secti
 });
 
 test("short labels and which labels scrub", () => {
-  assert.deepEqual(SHORT, { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS" });
+  assert.deepEqual(SHORT, { w: "W", maxw: "W", h: "H", minh: "H", gap: "Gap", fs: "Sz", fw: "Wt", lh: "LH", ls: "LS", radius: "R", bw: "B", mt: "↑", mb: "↓" });
   for (const k of ["w", "h", "gap", "fs", "lh", "ls", "radius"]) assert.equal(canScrub(table.find((e) => e.key === k)), true, k);
   for (const k of ["pt", "ml", "bg", "ta", "shadow"]) assert.equal(canScrub(table.find((e) => e.key === k)), false, k);
+});
+
+const split = (node) => Object.fromEntries(figmaGroups(old, node).map((g) => [g.name, g]));
+const ks = (es) => es.map((e) => e.key);
+
+test("primary and more split every group's entries exactly once", () => {
+  for (const t of ["container", "heading", "image", "divider"]) {
+    for (const g of figmaGroups(old, { t })) {
+      assert.deepEqual([...ks(g.primary), ...ks(g.more)].sort(), ks(g.entries).sort(), `${t} ${g.name}`);
+      assert.equal(new Set([...ks(g.primary), ...ks(g.more)]).size, g.entries.length, `${t} ${g.name} no key twice`);
+    }
+  }
+});
+
+test("a section's Layout primary rows are Width, Align, Gap, Height; the rest is More", () => {
+  const l = split({ t: "container" }).Layout;
+  assert.deepEqual(ks(l.primary), PRIMARY.Layout.filter((k) => ks(l.entries).includes(k)));
+  assert.deepEqual(ks(l.primary), ["maxw", "ai", "gap", "minh"]);
+  for (const k of ["dir", "jc", "wrap", "as", "w", "h", "maxh"]) assert.ok(ks(l.more).includes(k), k);
+});
+
+test("a state view drops keys: the primary list only has the keys present", () => {
+  const l = figmaGroups(old.map((g) => ({ ...g, entries: g.entries.filter((e) => e.key !== "maxw") })), { t: "container" }).find((g) => g.name === "Layout");
+  assert.deepEqual(ks(l.primary), ["ai", "gap", "minh"]);
+});
+
+test("a non-section's Layout is all More", () => {
+  for (const t of ["image", "heading", "divider"]) {
+    const l = split({ t }).Layout;
+    assert.deepEqual(l.primary, [], t);
+    assert.equal(l.more.length, l.entries.length, t);
+  }
+});
+
+test("a text block's Spacing primary is the top and bottom margin, the rest is More; other kinds have the box model only", () => {
+  const s = split({ t: "heading" }).Spacing;
+  assert.deepEqual(ks(s.primary), ["mt", "mb"]);
+  assert.deepEqual(ks(s.more).sort(), ["ml", "mr", "pb", "pl", "pr", "pt"]);
+  assert.deepEqual(split({ t: "container" }).Spacing.primary, []);
+});
+
+test("Fill, Corners and Effects primary rows; More holds the rest", () => {
+  const g = split({ t: "container" });
+  assert.deepEqual(ks(g.Fill.primary), ["bg"]);
+  assert.deepEqual(ks(g.Fill.more), ["bgimg"]);
+  assert.deepEqual(ks(g["Corners & border"].primary), ["radius", "bw"]);
+  assert.deepEqual(ks(g["Corners & border"].more), ["bs", "bc"]);
+  assert.deepEqual(ks(g.Effects.primary), ["shadow"]);
+  assert.ok(ks(g.Effects.more).includes("op") && ks(g.Effects.more).includes("display"));
+  assert.deepEqual(ks(split({ t: "heading" }).Typography.primary), ["fs", "fw", "lh", "ls", "ta", "color"]);
+  assert.deepEqual(ks(split({ t: "heading" }).Typography.more), ["ff"]);
+});
+
+test("More opens when any of its keys has a value here", () => {
+  const g = split({ t: "container" }).Layout;
+  assert.equal(moreHasValue(g, (k) => ({ dir: "row" })[k] ?? null), true);
+  assert.equal(moreHasValue(g, (k) => ({ maxw: "full" })[k] ?? null), false, "a primary key does not open More");
+  assert.equal(moreHasValue(g, () => null), false);
+});
+
+test("width presets map to the existing maxw values and back", () => {
+  assert.deepEqual(WIDTH_PRESETS, { full: "full", wide: "container", text: "45rem" });
+  assert.equal(widthOf("full"), "full");
+  assert.equal(widthOf("container"), "wide");
+  assert.equal(widthOf("45rem"), "text");
+  assert.equal(widthOf("720px"), "");
+  assert.equal(widthOf(null), "");
 });
