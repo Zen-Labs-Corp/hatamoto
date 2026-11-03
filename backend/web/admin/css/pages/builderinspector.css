@@ -7,6 +7,7 @@
 .hm-bs-nameinput { inline-size: 100%; min-block-size: 24px; font: inherit; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0 var(--space-1); text-overflow: ellipsis; }
 .hm-bs-nameinput:hover { border-color: var(--border); }
 .hm-bs-nameinput:focus-visible { outline: var(--focus-ring); outline-offset: 1px; background: var(--surface); border-color: var(--color-accent); }
+.hm-bs-heading > .hm-bs-name + .hm-bs-sub { margin-block-start: 0; } /* the kind line sits right under the name (the mockup's header) */
 .hm-bs-sub { display: block; padding-inline: var(--space-1); color: var(--text-muted); font-size: var(--text-xs); }
 .hm-bs-sublink { min-block-size: 24px; padding: 0; font: inherit; color: var(--color-accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
 .hm-bs-sublink:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
@@ -45,20 +46,21 @@
 .hm-bs-showon > label:has([aria-current="true"]) { outline: 2px solid var(--color-sumi); outline-offset: 3px; border-radius: var(--radius-sm); }
 
 /* Box model: padding nested in margin, one number per side. Rings are tinted by the guide tokens and also dashed and captioned: colour is never the only signal. */
-.hm-bs-bm { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.hm-bs-bm { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; container-type: inline-size; }
 .hm-bs-bm__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .hm-bs-bm__presets { display: flex; flex: 1 1 auto; gap: var(--space-0-5); padding: var(--space-0-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); }
 .hm-bs-bm__presets > .hm-bs-opt { flex: 1 1 0; }
-.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "cap cap cap" ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-0-5); min-width: 0; padding: var(--space-1); border-radius: var(--radius-md); }
+.hm-bs-bm__m, .hm-bs-bm__p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; position: relative; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: ". t ." "l c r" ". b ."; align-items: center; justify-items: center; gap: var(--space-0-5); min-width: 0; padding: var(--space-1); border-radius: var(--radius-md); }
 .hm-bs-bm__m { border: 1px dashed var(--color-guide-margin); background: color-mix(in srgb, var(--color-guide-margin) 10%, var(--surface)); }
 .hm-bs-bm__p { border: 1px dashed var(--color-guide-pad); background: color-mix(in srgb, var(--color-guide-pad) 10%, var(--surface)); }
-.hm-bs-bm__t { grid-area: cap; justify-self: start; pointer-events: none; /* its own row: the caption can never sit on the top number */ font-size: var(--text-xs); font-weight: var(--weight-medium); color: color-mix(in srgb, var(--text-muted) 65%, var(--text)); } /* on the tinted ring: plain muted misses 4.5:1 */
+.hm-bs-bm__t { grid-area: 1 / 1 / 2 / -1; justify-self: start; pointer-events: none; /* beside the top number (the mockup's corner caption); a narrow box gives it its own row, so it can never sit on the number */ font-size: var(--text-2xs); font-weight: var(--weight-medium); color: color-mix(in srgb, var(--text-muted) 65%, var(--text)); } /* on the tinted ring: plain muted misses 4.5:1 */
 .hm-bs-bm__c { grid-area: c; justify-self: stretch; display: flex; align-items: center; justify-content: center; align-self: stretch; min-width: 0; }
 .hm-bs-bm__c:has(> .hm-bs-bm__el) { overflow: hidden; container-type: inline-size; } /* a centre too narrow for the size text clips it instead of painting over the side numbers */
 .hm-bs-bm__c > .hm-bs-bm__p { flex: 1 1 0; }
 .hm-bs-bm > .hm-bs-bm__m > .hm-bs-err, .hm-bs-bm__p > .hm-bs-err { grid-column: 1 / -1; justify-self: start; }
-.hm-bs-bm__el { box-sizing: border-box; min-inline-size: 0; max-inline-size: 100%; overflow: hidden; padding: var(--space-2) var(--space-1); white-space: nowrap; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
+.hm-bs-bm__el { box-sizing: border-box; min-inline-size: 0; max-inline-size: 100%; overflow: hidden; padding: var(--space-1); white-space: nowrap; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-body); font-size: var(--text-xs); text-align: center; }
 .hm-bs-bm__n { box-sizing: border-box; inline-size: 2.25rem; min-inline-size: 2.25rem; min-block-size: 1.5rem; padding: 0 var(--space-px); font: inherit; font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: center; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); touch-action: none; }
+@container (max-width: 16rem) { .hm-bs-bm__m, .hm-bs-bm__p { grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "cap cap cap" ". t ." "l c r" ". b ."; } .hm-bs-bm__t { grid-area: cap; } }
 @container (max-width: 6rem) { .hm-bs-bm__el { font-size: var(--text-2xs); } } /* the size steps down, then wraps at the multiplication sign */
 @container (max-width: 4.5rem) { .hm-bs-bm__el { white-space: normal; } }
 .hm-bs-bm__n--top { grid-area: t; cursor: ns-resize; }
@@ -99,7 +101,7 @@
 
 /* Style tab density (the mockup's .r rows): 12px text, the label in a narrow left column, the control on the right, 28px controls. */
 .hm-bs-style { gap: 0; font-size: var(--text-xs); }
-.hm-bs-style .hm-bs-ctx { padding-block: var(--space-2); border-bottom: 1px solid var(--border); }
+.hm-bs__inspector .hm-bs-style .hm-bs-ctx { margin-block-start: var(--space-1); padding-block: var(--space-2); border-bottom: 1px solid var(--border); }
 .hm-bs-style .hm-bs-grp { padding-block: 0 var(--space-3); }
 .hm-bs-style .hm-bs-grp__b, .hm-bs-style .hm-bs-grp__sub { gap: var(--space-2); }
 .hm-bs-style button.hm-bs-grp__t, .hm-bs-style .hm-bs-ctx__note, .hm-bs-style .hm-bs-err { font-size: var(--text-xs); }
@@ -109,6 +111,8 @@
 .hm-bs-style .hm-bs-field { position: relative; display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: start; gap: var(--space-1) var(--space-2); }
 .hm-bs-style .hm-bs-field > :not(.hm-bs-head) { grid-column: 2; }
 .hm-bs-style .hm-bs-field > .hm-bs-head + * { grid-row: 1; }
+.hm-bs-style .hm-bs-width > .hm-bs-lbl { grid-column: 1; grid-row: 1; display: flex; align-items: center; min-block-size: var(--control-h-xs); } /* Width: the label beside the track like every other row */
+.hm-bs-style .hm-bs-width > .hm-bs-opts { grid-row: 1; }
 .hm-bs-style .hm-bs-head { grid-column: 1; grid-row: 1; min-block-size: var(--control-h-xs); gap: var(--space-1); }
 .hm-bs-style .hm-bs-head > .hm-bs-dot { position: absolute; inset-inline-start: calc(-1 * var(--space-3)); }
 .hm-bs-style .hm-bs-reset { min-block-size: 24px; min-inline-size: 24px; padding: 0; }

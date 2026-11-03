@@ -38,7 +38,7 @@ const keysOf = (gs) => gs.flatMap((g) => g.entries.map((e) => e.key));
 
 test("the six Figma groups in order, every key exactly once", () => {
   const gs = figmaGroups(old);
-  assert.deepEqual(gs.map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]);
+  assert.deepEqual(gs.map((g) => g.name), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"]);
   const want = old.flatMap((g) => g.entries.map((e) => e.key)).sort();
   assert.deepEqual(keysOf(gs).sort(), want);
   assert.equal(new Set(keysOf(gs)).size, want.length, "no key twice");
@@ -47,7 +47,7 @@ test("the six Figma groups in order, every key exactly once", () => {
 test("Layout takes Layout, In its parent and Size; Effects takes the sub-blocks", () => {
   const gs = figmaGroups(old);
   assert.deepEqual(gs[0].sub.map((s) => s.name), ["Layout", "In its parent", "Size"]);
-  assert.deepEqual(gs[5].sub.map((s) => s.name), ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"]);
+  assert.deepEqual(gs[4].sub.map((s) => s.name), ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"]);
   assert.equal(gs[1].sub.length, 1);
 });
 
@@ -64,7 +64,7 @@ test("Typography is offered for every kind, closed when nothing is set unless th
   }
 });
 
-test("a text kind lists Typography first and opens it; other kinds keep the order and Typography closed", () => {
+test("a text kind lists Typography first and opens it; other kinds put Typography after Effects, closed, so a section reads Layout, Spacing, Fill, Corners & border, Effects", () => {
   for (const t of ["heading", "text", "button"]) {
     const gs = figmaGroups(old, { t });
     assert.deepEqual(gs.map((g) => g.name), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"], t);
@@ -72,7 +72,7 @@ test("a text kind lists Typography first and opens it; other kinds keep the orde
     assert.equal(initialOpen("Layout", false, { t }), false, "only Typography opens by default");
   }
   for (const t of ["container", "image", "divider"]) {
-    assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"], t);
+    assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"], t);
     assert.equal(initialOpen("Typography", false, { t }), false, t);
   }
   assert.equal(keysOf(figmaGroups(old, { t: "heading" })).length, keysOf(figmaGroups(old)).length, "reordering loses no key");

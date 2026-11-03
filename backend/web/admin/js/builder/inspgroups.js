@@ -4,14 +4,14 @@
 
 import { groupDot, isLength } from "@hm/builder/controls";
 
-/** The Figma groups in display order; `from` names the style groups each one takes (every old group lands in exactly one). */
+/** The Figma groups in display order (Typography last: a text kind moves it first); `from` names the style groups each one takes (every old group lands in exactly one). */
 const FIGMA = [
   { name: "Layout", from: ["Layout", "In its parent", "Size"] },
   { name: "Spacing", from: ["Spacing"] },
   { name: "Fill", from: ["Background"] },
-  { name: "Typography", from: ["Typography"] },
   { name: "Corners & border", from: ["Border"] },
   { name: "Effects", from: ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"] },
+  { name: "Typography", from: ["Typography"] },
 ];
 
 /** The kinds whose content is text: their Typography group comes first and starts open. */
@@ -47,7 +47,8 @@ function primaryKeys(name, node) {
  * `entries` is the whole group (for the set-here dot); `sub` is [{name, entries}] per style group it took, in order: the UI
  * draws a sub-heading for a sub whose name differs from the group's. `primary` (in PRIMARY order) and `more` (in
  * group order) split `entries`. Empty groups are dropped.
- * For a text kind (node) Typography is the first group; every other kind keeps the order above.
+ * For a text kind (node) Typography is the first group; every other kind keeps the order above, where Typography is last so a
+ * section reads Layout, Spacing, Fill, Corners & border, Effects.
  */
 export function figmaGroups(groups, node = null) {
   const by = new Map(groups.map((g) => [g.name, g]));
