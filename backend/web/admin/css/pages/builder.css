@@ -139,6 +139,14 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title):not(.hm-editor-bar__state) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; flex-shrink: 100; }
 .hm-bs__dshort { display: none; }
+/* The page title is plain text until it is pointed at or focused: then it shows its field box. Scoped by the builder-only hook (the blog editor shares .hm-editor-bar__title). */
+.hm-editor-bar [data-hm-bs-title] { border-color: transparent; background: transparent; box-shadow: none; text-overflow: ellipsis; }
+.hm-editor-bar [data-hm-bs-title]:hover { border-color: var(--border-field); background: var(--surface); }
+.hm-editor-bar [data-hm-bs-title]:focus-visible { border-color: var(--border-field); background: var(--surface); outline: var(--focus-ring); outline-offset: 0; }
+@media (forced-colors: active) { .hm-editor-bar [data-hm-bs-title] { border-color: ButtonBorder; } }
+/* Device buttons: the pixel limit is muted text inside the button; Fit and Preview sit in the tools group, which keeps only Undo on a phone. */
+.hm-bs__dmute { margin-inline-start: var(--space-1); font-weight: var(--weight-regular); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.hm-bs__tools [data-hm-bs-zoomtrigger], .hm-bs__tools [data-hm-bs-preview] { --h: var(--control-h-sm); }
 /* Phones: ‹ name ● state ⋯ Update on the first row; Undo and the device switch on a second row (the shared segmented
    control and chip keep their sizes, so they do not fit beside Update). Redo, panes and help live in ⋯; the status
    badge gives way to the dot, and its words stay for a screen reader. */
