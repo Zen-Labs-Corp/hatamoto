@@ -25,6 +25,12 @@ import (
 // run cannot lock its plugin out for good.
 const StaleRunAfter = time.Hour
 
+// MaxRunAge is the longest a run may take. Its changeset expires 72 hours
+// after it opens and takes its staged files with it, so a run is failed (and
+// the changeset discarded) a day before that rather than finish on an
+// expired changeset.
+const MaxRunAge = changeset.TTL - 24*time.Hour
+
 // maxRunInputBytes bounds one owner-supplied run input; maxRunHosts the
 // hosts the owner confirms for one run.
 const (
@@ -255,6 +261,10 @@ func (r *Runtime) drive(runID uuid.UUID) {
 		m, ok := r.manifest(run.Plugin)
 		if !ok {
 			r.failRunCtx(bg, run, "the plugin was unloaded")
+			return
+		}
+		if time.Since(run.CreatedAt) > MaxRunAge {
+			r.failRunCtx(bg, run, fmt.Sprintf("the run took longer than %s", MaxRunAge))
 			return
 		}
 		var n int

@@ -371,3 +371,30 @@ func TestRunDriverDatabaseErrorFailsRun(t *testing.T) {
 		t.Fatalf("changeset %s", s)
 	}
 }
+
+// A run older than MaxRunAge is failed before its next step, so it cannot
+// outlive its changeset's expiry and finish against it.
+func TestRunOlderThanMaxAgeFails(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	old := &plugrun.Store{DB: r.db, Now: func() time.Time { return time.Now().Add(-MaxRunAge - time.Hour) }}
+	run, err := old.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs, err := r.eng.Begin(ctx, run.ID, runnerPlugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.runs.SetChangeset(ctx, run.ID, cs); err != nil {
+		t.Fatal(err)
+	}
+	r.rt.drive(run.ID)
+	got, _ := r.runs.Get(ctx, run.ID)
+	if got.State != plugrun.StateFailed || !strings.Contains(got.Reason, "took longer") || got.Steps != 0 {
+		t.Fatalf("run %s steps=%d %q", got.State, got.Steps, got.Reason)
+	}
+	if s := r.changesetState(cs); s != changeset.StateDiscarded {
+		t.Fatalf("changeset %s", s)
+	}
+}
