@@ -14,10 +14,6 @@ import (
 var icons = func() map[string]string {
 	m := maps.Clone(lucideIcons)
 	m["mark"] = `<path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/>`
-	// Three lines flush left, centred and flush right: the builder inspector's Align rows.
-	m["align-left"] = `<line x1="21" x2="3" y1="6" y2="6"/><line x1="15" x2="3" y1="12" y2="12"/><line x1="17" x2="3" y1="18" y2="18"/>`
-	m["align-center"] = `<line x1="21" x2="3" y1="6" y2="6"/><line x1="17" x2="7" y1="12" y2="12"/><line x1="19" x2="5" y1="18" y2="18"/>`
-	m["align-right"] = `<line x1="21" x2="3" y1="6" y2="6"/><line x1="21" x2="9" y1="12" y2="12"/><line x1="21" x2="7" y1="18" y2="18"/>`
 	// The seal is the outline of the character 旗 (hata, "flag") from Noto Sans
 	// CJK JP Bold 2.004 (SIL Open Font License 1.1, (c) 2014-2021 Adobe (http://www.adobe.com/)), fitted to 20 of
 	// the 24 units. It is a filled path, not text, so it never needs a CJK font
