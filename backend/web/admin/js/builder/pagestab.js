@@ -32,7 +32,8 @@ export function mountPages(host, { pages = [], announce = () => {} } = {}) {
   function draw() {
     const shown = filterPages(pages, search.value);
     list.replaceChildren(...shown.map(row));
-    const msg = !pages.length ? "No other pages yet." : !shown.length ? "No pages match." : "";
+    const q = search.value.trim();
+    const msg = q && !shown.length ? "No pages match." : !pages.length ? "No pages yet." : !q && pages.every((p) => p.current) ? "No other pages yet." : ""; // the list holds the current page too
     note.textContent = msg;
     if (msg) note.removeAttribute("hidden");
     else note.setAttribute("hidden", "");

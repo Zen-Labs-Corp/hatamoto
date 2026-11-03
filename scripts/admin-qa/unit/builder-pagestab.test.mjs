@@ -57,5 +57,17 @@ test("the filter matches title and path; no match and no pages say so", () => {
   assert.equal(ui.el.walk().find((n) => n.tag === "p").textContent, "No pages match.");
   const empty = new El("div");
   mountPages(empty, { pages: [] });
-  assert.equal(empty.walk().find((n) => n.tag === "p").textContent, "No other pages yet.");
+  assert.equal(empty.walk().find((n) => n.tag === "p").textContent, "No pages yet.");
+});
+
+test("a site whose only page is the current one says there are no other pages", () => {
+  const host = new El("div");
+  mountPages(host, { pages: [pages[0]] });
+  assert.equal(links(host).length, 1);
+  const note = host.walk().find((n) => n.tag === "p");
+  assert.equal(note.textContent, "No other pages yet.");
+  assert.equal(note.attrs.hidden, undefined);
+  const many = new El("div");
+  mountPages(many, { pages });
+  assert.equal(many.walk().find((n) => n.tag === "p").textContent, "");
 });
