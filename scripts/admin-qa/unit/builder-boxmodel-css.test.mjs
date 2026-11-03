@@ -32,7 +32,7 @@ test("the selected choice option has a semibold label (ADMIN_UI_RULES rule 6)", 
 
 test("the ring caption has its own band above the top number and the size text wraps instead of overflowing", () => {
   const rings = /^\.hm-bs-bm__m, \.hm-bs-bm__p \{([^}]*)\}/m.exec(css)?.[1] ?? "";
-  assert.match(rings, /grid-template-areas:\s*"cap cap cap"/, "the caption has its own grid row");
+  assert.match(rings, /grid-template-rows:\s*auto minmax\(0, 1fr\) auto;[^"]*grid-template-areas:\s*"\. t \."/, "the caption has its own auto grid row above the number row");
   assert.doesNotMatch(/^\.hm-bs-bm__t \{([^}]*)\}/m.exec(css)?.[1] ?? "", /position:\s*absolute/);
   const el = /^\.hm-bs-bm__el \{([^}]*)\}/m.exec(css)?.[1] ?? "";
   assert.match(css, /@container \(max-width: [\d.]+rem\) \{ \.hm-bs-bm__el \{ white-space: normal; \}/, "the size keeps one line while it fits and wraps at the multiplication sign only when it does not");
