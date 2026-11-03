@@ -193,11 +193,12 @@ const { mountStyle } = await import(new URL("../../../backend/web/admin/js/build
 const { readFileSync } = await import("node:fs");
 const full = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 
-const mount = (node, { bp = "base", state = "", parent = null } = {}) => {
+const FS = { sm: "0.875rem", md: "1rem", xl: "1.5rem", "2xl": "2rem" };
+const mount = (node, { bp = "base", state = "", parent = null, fs = FS } = {}) => {
   const calls = [];
   const el = mountStyle({
     node, parent, table: full, bp, state, display: "block", presets: [],
-    palette: { colors: [], space: { 4: "1rem" }, fs: {} },
+    palette: { colors: [], space: { 4: "1rem" }, fs },
     commit: (key, value, at, opts) => (calls.push({ key, value, at, opts }), true),
     commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
   });
@@ -287,4 +288,96 @@ test("a block that is not a section keeps its Layout behind More", () => {
   const layout = m.group("Layout");
   assert.equal(m.find((n) => n.dataset?.v === "full", layout).length, 0, "no Width buttons");
   assert.equal(m.find((n) => n.className === "hm-bs-more", layout).length, 1);
+});
+
+// ---- Corners, Effects, Typography and a text block's Spacing -------------------------------
+
+const heading = (s = {}) => ({ id: "h", t: "heading", s: { base: s } });
+const press = (m, label, group) => m.find((n) => n.tag === "button" && n.attrs["aria-label"] === label, group ? m.group(group) : m.el)[0];
+
+test("Corners & border: radius and border width sit two-up; the hint stays", () => {
+  const m = mount(section());
+  const g = m.group("Corners & border");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", g);
+  assert.equal(r2.length, 1);
+  assert.deepEqual(m.find((n) => n.className?.includes("hm-bs-fld__lb"), r2[0]).map((n) => n.kids[0]?.textContent), ["R", "B"]);
+  assert.ok(m.find((n) => n.textContent === "A width shows only once a border style is set.", g).length);
+});
+
+test("Effects: Shadow is None|S|M|L buttons writing none|sm|md|lg; the active one unsets; the rest is behind More", () => {
+  const m = mount(section());
+  const g = m.group("Effects");
+  const row = m.find((n) => n.className === "hm-bs-opts", g)[0];
+  assert.deepEqual(row.kids.map((b) => b.textContent), ["None", "S", "M", "L"]);
+  assert.deepEqual(row.kids.map((b) => b.attrs["aria-label"]), ["None", "Small", "Medium", "Large"]);
+  for (const [name, v] of [["Small", "sm"], ["Medium", "md"], ["Large", "lg"], ["None", "none"]]) {
+    press(m, name, "Effects").fire("click");
+    assert.deepEqual(m.calls.at(-1), { key: "shadow", value: v, at: "base", opts: { label: "Change Shadow" } });
+  }
+  press(m, "None", "Effects").fire("click");
+  assert.equal(m.calls.at(-1).value, null, "pressing the active one unsets");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Opacity slider" || n.attrs?.["aria-label"] === "Reset Opacity", g).length > 0, true, "opacity stays reachable");
+  assert.equal(m.find((n) => n.className === "hm-bs-more", g)[0].textContent, "More effects options");
+});
+
+test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto|L|C|R", () => {
+  const m = mount(heading(), { parent: section() });
+  const groups = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0].kids[0].textContent);
+  assert.equal(groups[0], "Typography");
+  const typo = m.group("Typography");
+  assert.equal(typo.kids[0].kids[0].kids[0].attrs["aria-expanded"], "true");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", typo);
+  assert.equal(r2.length, 2);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.textContent), ["Auto", "L", "C", "R"]);
+  press(m, "Center", "Typography").fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "ta", value: "center", at: "base", opts: { label: "Change Text align" } });
+  press(m, "Auto", "Typography").fire("click");
+  assert.equal(m.calls.at(-1).value, null, "Auto unsets");
+});
+
+test("the Text style select writes the size token and the weight in one batch with one label", () => {
+  const m = mount(heading(), { parent: section() });
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.deepEqual(sel.kids.map((o) => o.attrs.value), ["", "2xl", "xl", "md", "sm"], "one option per site size, biggest first");
+  sel.value = "2xl";
+  sel.fire("change");
+  assert.deepEqual(m.calls.at(-1), { batch: [{ key: "fs", value: "2xl" }, { key: "fw", value: "bold" }], at: "base", opts: { label: "Change Text style" } });
+  assert.equal(sel.value, "2xl", "it shows the preset now that both keys match");
+  sel.value = "sm";
+  sel.fire("change");
+  assert.deepEqual(m.calls.at(-1).batch, [{ key: "fs", value: "sm" }, { key: "fw", value: "normal" }]);
+});
+
+test("the Text style select reads Custom when fs and fw do not match a preset, and is absent without site sizes", () => {
+  const sel = (m) => m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.equal(sel(mount(heading({ fs: "xl", fw: "bold" }))).value, "xl");
+  assert.equal(sel(mount(heading({ fs: "xl", fw: "400" }))).value, "");
+  assert.equal(sel(mount(heading(), { fs: {} })), undefined);
+});
+
+test("a text block's Spacing is two margin fields and a hint with the section's gap; the other sides are behind More", () => {
+  const parent = section({ gap: "space-4" });
+  const m = mount(heading(), { parent });
+  const g = m.group("Spacing");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-bm"), g).length, 0, "no box model");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", g)[0];
+  assert.deepEqual(m.find((n) => n.className?.includes("hm-bs-fld__lb"), r2).map((n) => n.kids[0]?.textContent), ["\u2191", "\u2193"]);
+  assert.equal(m.find((n) => n.className === "hm-bs-hint", g)[0].textContent, "Space between blocks comes from the section's Gap (16px).");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", g)[0];
+  for (const side of ["Padding top", "Padding left", "Margin right"]) assert.ok(m.find((n) => n.attrs?.["aria-label"] === `Reset ${side}`, more).length, side);
+  assert.equal(mount(heading(), { parent: section() }).find((n) => n.className === "hm-bs-hint").map((n) => n.textContent)[0], "Space between blocks comes from the section's Gap.");
+});
+
+test("a section keeps the box model in Spacing, no More", () => {
+  const m = mount(section());
+  const g = m.group("Spacing");
+  assert.equal(m.find((n) => n.className === "hm-bs-bm hm-bs-bm--nested", g).length, 1);
+  assert.equal(m.find((n) => n.className === "hm-bs-more", g).length, 0);
+});
+
+test("Fill keeps the colour field and the theme pills; Fill's other keys are behind More", () => {
+  const m = mount(section({ bgimg: "/media/a.jpg" }));
+  const g = m.group("Fill");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", g).length > 0, true);
+  assert.equal(m.find((n) => n.className === "hm-bs-more", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
 });

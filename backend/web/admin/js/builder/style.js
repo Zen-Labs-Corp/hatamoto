@@ -59,6 +59,11 @@ const OPTION_NAMES = {
 const BUTTON_KEYS = new Set(["dir", "ai", "jc", "wrap", "as"]);
 // Count keys edited as presets 1..PRESETS plus a bounded number field.
 const PRESETS = 4;
+// Enum keys edited as a short row of buttons: [value, visible text, accessible name]. An empty value is "Auto": pressing it unsets.
+const BUTTON_ROWS = {
+  shadow: [["none", "None", "None"], ["sm", "S", "Small"], ["md", "M", "Medium"], ["lg", "L", "Large"]],
+  ta: [["", "Auto", "Auto"], ["left", "L", "Left"], ["center", "C", "Center"], ["right", "R", "Right"]],
+};
 // Parents whose children are laid out by the container controls (span, align self).
 const HOSTS = new Set(["container", "columns"]);
 
@@ -200,11 +205,12 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   function paintGroups() {
     for (const { entries, dot, vh } of groups) dot.hidden = vh.hidden = !groupDot(entries, (k) => ownValue(cur, bp, k));
     for (const b of boxModels) b.paint();
-    for (const paint of widthRows) paint();
+    for (const paint of [...widthRows, ...typePresets]) paint();
   }
   const visibility = { paint: null, show: null }; // the Show on paint function and the "Show as" field
   const groups = []; // [{entries, dot}] of the group headers
   const boxModels = []; // the Spacing group's box model
+  const typePresets = []; // the Text style select's paint: it follows fs and fw
   const widthRows = []; // the paint functions of the Width buttons: they follow every maxw write
   const applies = new Map(); // key -> the apply function of its field, for a control that writes another control's key
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
@@ -223,10 +229,10 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     });
     root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, h("h4", { class: "hm-bs-grp__hd" }, head)), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
-    if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     const boxed = g.name === "Spacing" && !isTextKind(cur); // the box model shows every side: nothing goes behind More
     const showOn = g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k));
     body.append(...primaryRows(g, boxed));
+    if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     const more = boxed ? [] : g.more;
     if (more.length || showOn) body.append(moreBlock(g, more, gid, showOn));
   }
@@ -237,18 +243,67 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   }
   return root;
 
-  /** The rows of a group that show without opening More: the Layout rows of a section, the box model of Spacing, else one field per primary key. */
+  /** The rows of a group that show without opening More: the Layout rows of a section, the box model of Spacing, else the group's own rows (two-up where the keys pair). */
   function primaryRows(g, boxed) {
     if (boxed) return spacingRows(g.entries);
     const by = new Map(g.primary.map((e) => [e.key, e]));
-    if (g.name !== "Layout") return g.primary.map((e) => field(e));
-    const rows = [];
-    const maxw = by.get("maxw") && field(by.get("maxw"), undefined, { inline: true });
-    if (maxw) rows.push(widthRow(by.get("maxw")), maxw);
-    if (by.get("ai")) rows.push(field(by.get("ai"), "Align"));
-    const two = ["gap", "minh"].filter((k) => by.has(k)).map((k) => field(by.get(k), undefined, { inline: true }));
-    if (two.length) rows.push(h("div", { class: "hm-bs-r2" }, ...two));
-    return rows;
+    const one = (k, title, opts) => (by.has(k) ? [field(by.get(k), title, opts)] : []);
+    const pair = (...keys) => {
+      const fields = keys.flatMap((k) => one(k, undefined, { inline: true }));
+      return fields.length ? [h("div", { class: "hm-bs-r2" }, ...fields)] : [];
+    };
+    switch (g.name) {
+      case "Layout": {
+        const maxw = one("maxw", undefined, { inline: true }); // before the buttons: they write through its apply
+        return [...(maxw.length ? [widthRow(by.get("maxw"))] : []), ...maxw, ...one("ai", "Align"), ...pair("gap", "minh")];
+      }
+      case "Corners & border":
+        return pair("radius", "bw");
+      case "Effects":
+        return one("shadow", undefined, { buttons: BUTTON_ROWS.shadow });
+      case "Typography":
+        return [...typeRow(by), ...pair("fs", "fw"), ...pair("lh", "ls"), ...one("ta", "Align", { buttons: BUTTON_ROWS.ta }), ...one("color")];
+      case "Spacing":
+        return [...pair("mt", "mb"), ...gapHint(by)];
+      default:
+        return g.primary.map((e) => field(e));
+    }
+  }
+
+  /** "Space between blocks comes from the section's Gap (16px)." under a text block's margins: the parent's gap at this width, when there is a section. */
+  function gapHint(by) {
+    if (!by.size || !parent) return [];
+    const v = ownValue(parent, device, "gap") ?? inheritedAt(parent, device, "gap")?.value ?? null;
+    const t = /^space-\d+$/.test(v ?? "") ? palette.space?.[v.slice(6)] : v;
+    const m = /^(\d+(?:\.\d+)?)(px|rem|em)$/.exec(t ?? "");
+    const shown = m ? `${Math.round(Number(m[1]) * (m[2] === "px" ? 1 : 16))}px` : null;
+    return [h("p", { class: "hm-bs-hint", text: `Space between blocks comes from the section's Gap${shown ? ` (${shown})` : ""}.` })];
+  }
+
+  /** The Text style select: one option per site font size (palette.fs), writing fs and fw together (one undo step). Bigger sizes are bold, smaller regular; "Custom" when the two do not match one. */
+  function typeRow(by) {
+    if (!by.has("fs") || !by.has("fw")) return [];
+    const px = (v) => {
+      const m = /^(\d+(?:\.\d+)?)(px|rem|em)$/.exec(v ?? "");
+      return m ? Number(m[1]) * (m[2] === "px" ? 1 : 16) : 0;
+    };
+    const steps = Object.entries(palette.fs ?? {}).sort((x, y) => px(y[1]) - px(x[1])).filter(([t]) => Object.hasOwn(by.get("fs").tokens ?? {}, t));
+    if (!steps.length) return [];
+    const weight = (v) => (px(v) >= 24 ? "bold" : "normal");
+    const id = `hm-bs-s${++uid}`;
+    const sel = h("select", { id, class: "hm-field__control hm-bs-ctl" }, h("option", { value: "", text: "Custom" }), ...steps.map(([t, v]) => h("option", { value: t, text: `${t} (${v})` })));
+    const paint = () => {
+      const fs = ownValue(cur, bp, "fs");
+      sel.value = steps.some(([t, v]) => t === fs && ownValue(cur, bp, "fw") === weight(v)) ? fs : "";
+    };
+    sel.addEventListener("change", () => {
+      const step = steps.find(([t]) => t === sel.value);
+      if (!step) return paint();
+      if (!commitBatch([{ key: "fs", value: step[0] }, { key: "fw", value: weight(step[1]) }], bp, { label: "Change Text style" })) paint();
+    });
+    typePresets.push(paint);
+    paint();
+    return [h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: "Text style" })), sel)];
   }
 
   /** The legacy full rows of the keys behind a group's More toggle (and Show on, for Layout), shown or hidden by the toggle (closed, not removed: the controls keep painting). */
@@ -375,9 +430,9 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   }
 
   /** One control for entry. inline (a length only): the 28px scrub field of the primary rows, no row chrome (the dot, reset and source chip are the legacy row's); clearing the text unsets it. */
-  function field(entry, title, { inline = false } = {}) {
+  function field(entry, title, { inline = false, buttons: asButtons = null } = {}) {
     const id = `hm-bs-s${++uid}`;
-    const c = control(entry);
+    const c = asButtons ? { kind: "buttons", options: asButtons.filter(([v]) => v === "" || Object.hasOwn(entry.enum ?? {}, v)) } : control(entry);
     inline &&= c.kind === "length";
     const name = title ?? NAMES[entry.key] ?? entry.key;
     let own = ownValue(cur, bp, entry.key);
@@ -408,18 +463,18 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       };
       if (entry.key === "op") stops = stopSlider({ name, options: c.options.map(([v]) => v), apply });
     } else if (grouped) {
-      const buttons = c.options.map(([v, label]) => h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", text: label }));
+      const buttons = c.options.map(([v, label, aria]) => h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", "aria-label": aria, text: label }));
       num = c.number ? h("input", { id, class: "hm-field__control hm-bs-ctl hm-bs-num", type: "number", min: String(c.min), max: String(c.max), step: "1", "aria-label": c.options.length ? `${name}, other number` : name, "aria-describedby": describe }) : null;
       sync = () => {
         for (const b of buttons) {
-          b.setAttribute("aria-pressed", String(own === b.dataset.v));
+          b.setAttribute("aria-pressed", String((own ?? "") === b.dataset.v));
           b.classList.toggle("hm-bs-opt--inherited", own === null && inh?.value === b.dataset.v);
         }
         if (num) num.value = own !== null && !c.options.some(([v]) => v === own) ? own : "";
       };
       for (const b of buttons) {
         b.addEventListener("click", () => {
-          const v = own === b.dataset.v ? null : b.dataset.v; // pressing the active one unsets it
+          const v = (own ?? "") === b.dataset.v ? null : b.dataset.v || null; // pressing the active one unsets it; Auto (no value) unsets too
           if (commit(entry.key, v)) {
             own = v;
             paint();
