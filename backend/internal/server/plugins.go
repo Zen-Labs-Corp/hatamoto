@@ -63,7 +63,9 @@ func (s *Server) setupPlugins() {
 	if s.scheduler != nil {
 		cfg.Scheduler = s.scheduler
 	}
+	s.setupPluginRuns(&cfg.Services)
 	rt.Configure(cfg)
+	s.recoverPluginRuns(ctx, rt)
 }
 
 // pluginEntityPaths answers the entities.* host functions with the public

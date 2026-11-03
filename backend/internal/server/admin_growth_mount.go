@@ -49,6 +49,7 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 		g.Linking = linkingAdmin{s}
 	}
 	g.Plugins = pluginAdmin{s: s}
+	g.PluginRuns = pluginRunStarter{s}
 	if s.packages != nil {
 		g.Packages = &packageAdmin{s: s}
 		g.Plugins = pluginAdmin{s: s, pkgs: g.Packages.(*packageAdmin)}

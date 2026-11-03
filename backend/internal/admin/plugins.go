@@ -42,6 +42,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	owner.HandleFunc("POST /plugins/{name}/settings", a.handlePluginSettingsSave)
 	owner.HandleFunc("GET /plugins/{name}/permissions", a.handlePluginPermissions)
 	owner.HandleFunc("POST /plugins/{name}/grant", a.handlePluginGrant)
+	owner.HandleFunc("POST /plugins/{name}/runs/{run}/start", a.handlePluginRunStart)
 }
 
 // pluginURL is the admin path of a plugin's page ("settings", "permissions").
