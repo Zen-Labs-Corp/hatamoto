@@ -66,7 +66,7 @@ export function mountInspector(root, api) {
       .then((m) => {
         clearTimeout(busy);
         if (mine !== gen || !slot.isConnected) return;
-        const body = build(m.createContent({ api, root, commit, draw, kindInfo, gen: () => gen, pushRich: (c) => rich.push(c), setFields: (f) => (fields = f) }));
+        const body = build(m.createContent({ api, root, visibilityGroup, commit, draw, kindInfo, gen: () => gen, pushRich: (c) => rich.push(c), setFields: (f) => (fields = f) }));
         slot.replaceWith(body);
       })
       .catch((err) => {
@@ -85,8 +85,38 @@ export function mountInspector(root, api) {
   // The class logic (apply, save, drift note) loads with the header; it pulls in designops.js.
   const presetChunk = lazy(() => import("@hm/builder/presetpanel"));
 
-  function stylePanel(node) {
+  /** The mountStyle options both its users share (the Design tab and the Advanced tab's Visibility group). */
+  function styleArgs(node) {
     const design = api.design;
+    return {
+      node,
+      parent: locate(api.getDoc(), node.id)?.parent ?? null,
+      table: api.styleTable(),
+      bp: api.device(),
+      display: kindInfo(node.t)?.display,
+      presets: design.presets,
+      palette: design.palette,
+      user: api.user ?? "",
+      onEditSiteColours: api.canStyle ? api.editSiteStyles : null,
+      announce: api.announce,
+      size: () => api.size?.() ?? null,
+      commit: (key, value, bp = api.device(), opts) => {
+        const ok = commit([{ op: "setStyle", id: node.id, bp, key, value }], { label: "Style", ...opts });
+        if (ok) info?.();
+        return ok;
+      },
+      commitMany: (writes, bp = api.device(), opts) => {
+        const ok = commit(writes.map(({ key, value, bp: at = bp }) => ({ op: "setStyle", id: node.id, bp: at, key, value })), { label: "Style", ...opts });
+        if (ok) info?.();
+        return ok;
+      },
+    };
+  }
+
+  /** The Advanced tab's Visibility group (the same style code as the Design tab, Show on and Show as only); resolves to its element. */
+  const visibilityGroup = (node) => styleChunk().then(({ mountStyle }) => mountStyle({ ...styleArgs(node), only: "visibility" }));
+
+  function stylePanel(node) {
     const current = () => find(api.getDoc(), node.id);
     const slot = h("div", { class: "hm-bs-styleslot" });
     const mine = gen;
@@ -98,34 +128,7 @@ export function mountInspector(root, api) {
       .then(({ mountStyle }) => {
         clearTimeout(busy);
         if (mine !== gen || !slot.isConnected) return;
-        const body = mountStyle({
-            node,
-            parent: locate(api.getDoc(), node.id)?.parent ?? null,
-            table: api.styleTable(),
-            bp: api.device(),
-            state,
-            onState: (next) => {
-              setState(next);
-              draw();
-            },
-            display: kindInfo(node.t)?.display,
-            presets: design.presets,
-            palette: design.palette,
-            user: api.user ?? "",
-            onEditSiteColours: api.canStyle ? api.editSiteStyles : null,
-            announce: api.announce,
-            size: () => api.size?.() ?? null,
-            commit: (key, value, bp = api.device(), opts) => {
-              const ok = commit([{ op: "setStyle", id: node.id, bp, key, value }], { label: "Style", ...opts });
-              if (ok) info?.();
-              return ok;
-            },
-            commitMany: (writes, bp = api.device(), opts) => {
-              const ok = commit(writes.map(({ key, value, bp: at = bp }) => ({ op: "setStyle", id: node.id, bp: at, key, value })), { label: "Style", ...opts });
-              if (ok) info?.();
-              return ok;
-            },
-          });
+        const body = mountStyle({ ...styleArgs(node), state, onState: (next) => (setState(next), draw()) });
         const ctx = body.querySelector?.(".hm-bs-ctx");
         if (ctx) ctx.after(noteHost);
         else body.prepend?.(noteHost);

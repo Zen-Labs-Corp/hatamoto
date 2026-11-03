@@ -150,7 +150,7 @@ let refocus = false; // a State choice remounts the panel: the new State select 
  * the screen's setStyle command (bp defaults to the one being edited); a refused value is
  * flagged and never committed. Controls update in place after a commit: nothing redraws.
  */
-export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, user = "", size = () => null, onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
+export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, only = "", user = "", size = () => null, onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
   if (!table) return h("p", { class: "hm-muted", text: "Loading style options…" });
   const bp = state ? `${device}:${state}` : device; // the style-map key every control reads and writes
   const lab = (k) => (state && !k.includes(":") ? `Normal, ${atLabel(k)}` : atLabel(k));
@@ -160,7 +160,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     announce(id ? `State: ${name}. Canvas shows ${name.toLowerCase()}.` : "State: Normal.");
     onState(id);
   };
-  const root = h("div", { class: "hm-bs-style" }, contextLine({ device, state, choices: stateChoices(parent), onState: pick }));
+  const root = h("div", { class: "hm-bs-style" }, ...(only ? [] : [contextLine({ device, state, choices: stateChoices(parent), onState: pick })]));
   const preset = presetOf(node, presets);
   const palette = buildPalette(bootPalette, table); // site colours, spacing and font sizes: token labels and swatches
   const cur = { ...node, s: Object.fromEntries(Object.entries(node.s ?? {}).map(([b, m]) => [b, { ...m }])) }; // follows the commits made here
@@ -214,7 +214,17 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   const widthRows = []; // the paint functions of the Width buttons: they follow every maxw write
   const applies = new Map(); // key -> the apply function of its field, for a control that writes another control's key
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
-  for (const g of figmaGroups(groupsFor(table, cur, parent, state), cur)) {
+  if (only === "visibility") {
+    // the Advanced tab's Visibility group: Show on and "Show as", with the sync between them (the Design tab leaves both out)
+    const entry = table.find((e) => e.key === "display");
+    if (entry && table.some((e) => e.key === "hide")) {
+      const show = showOnRow();
+      visibility.show = { entry, box: field(entry) };
+      root.append(h("div", { class: "hm-bs-grp" }, h("h4", { class: "hm-bs-grp__hd", text: "Visibility" }), h("div", { class: "hm-bs-grp__b" }, show, visibility.show.box)));
+    }
+    return root;
+  }
+  for (const g of figmaGroups(groupsFor(table, cur, parent, state, new Set(["display"])), cur)) {
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
     const vh = h("span", { class: "hm-visually-hidden", hidden: true, text: "A value is set here" });
     const gid = `hm-bs-g${++uid}`;
@@ -230,11 +240,10 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, h("h4", { class: "hm-bs-grp__hd" }, head)), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
     const boxed = g.name === "Spacing" && !isTextKind(cur); // the box model shows every side: nothing goes behind More
-    const showOn = g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k));
     body.append(...primaryRows(g, boxed));
     if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     const more = boxed ? [] : g.more;
-    if (more.length || showOn) body.append(moreBlock(g, more, gid, showOn));
+    if (more.length) body.append(moreBlock(g, more, gid));
   }
   paintGroups();
   if (refocus) {
@@ -306,8 +315,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     return [h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: "Text style" })), sel)];
   }
 
-  /** The legacy full rows of the keys behind a group's More toggle (and Show on, for Layout), shown or hidden by the toggle (closed, not removed: the controls keep painting). */
-  function moreBlock(g, entries, gid, showOn) {
+  /** The legacy full rows of the keys behind a group's More toggle, shown or hidden by the toggle (closed, not removed: the controls keep painting). */
+  function moreBlock(g, entries, gid) {
     const keep = new Set(entries);
     const key = `${g.name}:more`;
     const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
@@ -319,13 +328,9 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       box.hidden = !now;
       openGroups.set(key, now);
     });
-    if (showOn) box.append(showOnRow());
     const subs = g.sub.map((sub) => ({ name: sub.name, entries: sub.entries.filter((e) => keep.has(e)) })).filter((sub) => sub.entries.length);
     for (const sub of subs) {
       const boxes = sub.entries.map((e) => field(e));
-      sub.entries.forEach((e, i) => {
-        if (e.key === "display") visibility.show = { entry: e, box: boxes[i] };
-      });
       const block = h("div", { class: "hm-bs-grp__sub" }, ...(subs.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
       box.append(block);
       if (sub.name === "Position") position = { fs: block, boxes };

@@ -51,10 +51,10 @@ function boundChip(root, id, text) {
 
 /**
  * createContent(ctx) -> {propField, contentPanel, advancedPanel}
- * ctx: {api, root, commit, draw, kindInfo, gen() (the draw generation), pushRich(ctl), setFields(f)}
+ * ctx: {api, root, visibilityGroup(node) (a promise of the Visibility group), commit, draw, kindInfo, gen() (the draw generation), pushRich(ctl), setFields(f)}
  */
 export function createContent(ctx) {
-  const { api, root, commit, draw, kindInfo, gen, pushRich, setFields } = ctx;
+  const { api, root, visibilityGroup, commit, draw, kindInfo, gen, pushRich, setFields } = ctx;
 
   const setProp = (id, key, value, opts = {}) => commit([{ op: "setProp", id, key, value }], { label: `Change ${propName(key)}`, ...opts });
 
@@ -354,6 +354,14 @@ export function createContent(ctx) {
     idEl.value = node.id;
     panel.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: idf, text: "Element ID (read only)" }), idEl));
     for (const p of kindInfo(node.t)?.props ?? []) if (p.key === "hidden" || (p.key === "tag" && p.enum)) panel.append(propField(node, { ...p }));
+    // Show on and Show as live here, not on the Design tab; the slot keeps their place while the style chunk loads.
+    const visibility = h("div", { class: "hm-bs-visibility" });
+    panel.append(visibility);
+    const mine = gen();
+    visibilityGroup(node)
+      .then((group) => mine === gen() && visibility.isConnected && visibility.replaceWith(group))
+      .catch(console.error);
+    panel.append(h("h4", { class: "hm-bs-grp__hd", text: "Anchor & attributes" }));
     import("@hm/builder/elementsettings").then((m) => m.advancedExtras(node, panel, { api, commit })).catch(console.error);
     return panel;
   }
