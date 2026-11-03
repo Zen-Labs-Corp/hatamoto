@@ -512,11 +512,17 @@ func (e *Engine) preflight(ctx context.Context, dir string) error {
 // mb rounds up, so a backup that needs 1 byte never reads "need 0 MB".
 func mb(n uint64) uint64 { return (n + 1<<20 - 1) >> 20 }
 
+// stagedDir names the directory holding media staged by unpublished changesets.
+const stagedDir = "staged"
+
 func dirBytes(dir string) uint64 {
 	var n uint64
 	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // a missing or unreadable upload dir counts as empty
+		}
+		if d.IsDir() && d.Name() == stagedDir {
+			return filepath.SkipDir // unpublished changeset media is not backed up
 		}
 		if d.Type().IsRegular() {
 			if fi, err := d.Info(); err == nil {

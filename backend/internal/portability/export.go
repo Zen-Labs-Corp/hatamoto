@@ -143,7 +143,13 @@ func exportTable(ctx context.Context, tx pgx.Tx, tw *tar.Writer, t table, mod ti
 	for _, c := range append(append([]string{}, t.drop...), gen...) {
 		expr += fmt.Sprintf(" - '%s'", c) // column names come from catalog/our table, never the archive
 	}
-	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT %s::text FROM public.%s t ORDER BY 1`, expr, t.name))
+	// Staged media belongs to an unpublished changeset run: transient state
+	// that is neither exported nor restored.
+	where := ""
+	if t.name == "hatamoto_media" {
+		where = " WHERE t.run_id IS NULL"
+	}
+	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT %s::text FROM public.%s t%s ORDER BY 1`, expr, t.name, where))
 	if err != nil {
 		return 0, nil, err
 	}
