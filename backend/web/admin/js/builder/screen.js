@@ -848,6 +848,7 @@ function start(root, boot) {
   /** "/": section cards at the selection (the Insert tab on a phone or with nothing selected); a pick lands after the selected section. */
   function openSlash() {
     if (dock.stacked() || !selected) return showAdd();
+    addTarget = null; // a pending "+" spot must not redirect this pick
     const pick = $(canvasEl, "[data-hm-pe-outline]:not(.hm-pe__outline--member):not(.hm-pe__outline--field)") ?? canvasEl;
     const items = itemsOf(boot.kinds, boot.sections, { slot: !!reuse && wantsSlot(reuse) })
       .concat(reuse ? paletteExtra(reuse, boot.entity) : [])
