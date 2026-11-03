@@ -514,7 +514,12 @@ func variantExt(mimeType, origExt string) string {
 // dirSize is the total size of the regular files under dir.
 func dirSize(dir string) int64 {
 	var n int64
-	_ = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
+	// Staged files of unpublished changesets do not count against the quota.
+	staged := filepath.Join(dir, legacyMediaTenantDir, stagedDir)
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err == nil && d.IsDir() && p == staged {
+			return filepath.SkipDir
+		}
 		if err == nil && d.Type().IsRegular() {
 			if info, ierr := d.Info(); ierr == nil {
 				n += info.Size()

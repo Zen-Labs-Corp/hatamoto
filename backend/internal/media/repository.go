@@ -65,6 +65,30 @@ func (r *PostgresRepository) Create(ctx context.Context, m *Media) error {
 	return nil
 }
 
+// insertMediaTx inserts m inside tx with the given origin and no run.
+func insertMediaTx(ctx context.Context, tx pgx.Tx, m *Media, origin string) error {
+	variants, err := m.MarshalVariants()
+	if err != nil {
+		return fmt.Errorf("failed to marshal variants: %w", err)
+	}
+	if origin == "" {
+		origin = "owner"
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO hatamoto_media (
+			id, filename, original_filename, mime_type, file_size,
+			storage_provider, storage_path, public_url, width, height, variants,
+			alt_text, caption, folder, uploaded_by, created_at, updated_at, origin
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+		m.ID, m.Filename, m.OriginalFilename, m.MimeType, m.FileSize,
+		m.StorageProvider, m.StoragePath, m.PublicURL, m.Width, m.Height, variants,
+		m.AltText, m.Caption, m.Folder, m.UploadedBy, m.CreatedAt, m.UpdatedAt, origin)
+	if err != nil {
+		return fmt.Errorf("failed to create media: %w", err)
+	}
+	return nil
+}
+
 // GetByID retrieves a media record by ID.
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Media, error) {
 	conn, err := r.db.GetConn(ctx)
@@ -118,9 +142,9 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 		       storage_provider, storage_path, public_url, width, height, variants,
 		       alt_text, caption, folder, uploaded_by, created_at, updated_at
 		FROM hatamoto_media
-		WHERE 1=1
+		WHERE run_id IS NULL
 	`
-	countQuery := `SELECT COUNT(*) FROM hatamoto_media WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM hatamoto_media WHERE run_id IS NULL`
 
 	args := []any{}
 	argIdx := 1
