@@ -435,13 +435,76 @@ func restoreErr(err error) error {
 	return fmt.Errorf("failed to restore entity: %w", err)
 }
 
+// PathState is where an entity lived before a changeset write, for the path
+// observer and link sync AfterChangeset runs once the write committed.
+type PathState struct {
+	ID       uuid.UUID
+	Slug     string
+	ParentID *uuid.UUID
+	Locale   string
+	Status   EntityStatus
+}
+
+// PathStateOf reads the PathState out of the pre-image ApplyChangesetTx returned.
+func PathStateOf(before json.RawMessage) (PathState, error) {
+	var snap entitySnapshot
+	if err := json.Unmarshal(before, &snap); err != nil {
+		return PathState{}, fmt.Errorf("invalid pre-image: %w", err)
+	}
+	return PathState{ID: snap.ID, Slug: snap.Slug, ParentID: snap.ParentID, Locale: snap.Locale, Status: EntityStatus(snap.Status)}, nil
+}
+
+// PathStateTx is the live PathState of id (ErrEntityNotFound when absent):
+// read it before a revert overwrites the row.
+func (s *Service) PathStateTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (PathState, error) {
+	st := PathState{ID: id}
+	err := tx.QueryRow(ctx, `SELECT slug, parent_id, locale, status FROM hatamoto_entities WHERE id = $1`, id).Scan(&st.Slug, &st.ParentID, &st.Locale, &st.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PathState{}, ErrEntityNotFound
+	}
+	if err != nil {
+		return PathState{}, fmt.Errorf("failed to read entity: %w", err)
+	}
+	return st, nil
+}
+
+// AfterPathChange runs what a normal save runs when it moved a published
+// entity: the path observer (automatic redirects, inbound link rewrite) and
+// link sync. Call it after the commit with the pre-write state of each entity;
+// an entity whose slug and parent did not change is left alone by both.
+func (s *Service) AfterPathChange(ctx context.Context, prev []PathState) {
+	for _, p := range prev {
+		after, err := s.entityRepo.GetByID(ctx, p.ID)
+		if err != nil {
+			continue
+		}
+		before := *after
+		before.Slug, before.ParentID, before.Locale, before.Status = p.Slug, p.ParentID, p.Locale, p.Status
+		s.fireLinkSync(&before, after, nil)
+		s.firePathChange(ctx, &before, after, nil)
+	}
+}
+
 // AfterChangeset runs the side effects of a committed changeset: link-index
 // refresh, the live observer and ONE batch event (import.completed with
-// source ChangesetSource, never a per-entity event). Call it only after the
-// transaction committed; on rollback call nothing.
-func (s *Service) AfterChangeset(ctx context.Context, created, updated, deleted []uuid.UUID) {
+// source ChangesetSource, never a per-entity event). prev holds the pre-write
+// PathState of the updated entities; those get AfterPathChange instead of a
+// plain reindex. Call it only after the transaction committed; on rollback
+// call nothing.
+func (s *Service) AfterChangeset(ctx context.Context, created, updated, deleted []uuid.UUID, prev []PathState) {
 	stored := append(append([]uuid.UUID{}, created...), updated...)
-	s.reindexLinks(stored)
+	had := make(map[uuid.UUID]bool, len(prev))
+	for _, p := range prev {
+		had[p.ID] = true
+	}
+	var plain []uuid.UUID
+	for _, id := range stored {
+		if !had[id] {
+			plain = append(plain, id)
+		}
+	}
+	s.reindexLinks(plain)
+	s.AfterPathChange(ctx, prev)
 	s.fireLive(ctx, stored...)
 	if s.events != nil && len(stored)+len(deleted) > 0 {
 		s.events.Emit(ctx, Event{Kind: EventImportCompleted, Import: &ImportSummary{

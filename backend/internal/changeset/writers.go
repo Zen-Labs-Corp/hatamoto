@@ -126,15 +126,23 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 	if err != nil {
 		return nil, fmt.Errorf("%w: target %q", ErrInvalidItem, it.TargetID)
 	}
+	// An overwritten row may move back to another path: remember where it is.
+	var post func(context.Context)
+	if len(it.Before) > 0 {
+		if prev, err := w.Svc.PathStateTx(ctx, tx, id); err == nil {
+			post = func(ctx context.Context) { w.Svc.AfterPathChange(ctx, []entity.PathState{prev}) }
+		}
+	}
 	err = w.Svc.RestoreChangesetTx(ctx, tx, id, it.Before)
 	if errors.Is(err, entity.ErrHasChildren) {
 		return nil, fmt.Errorf("%w: %v", ErrRevertConflict, err)
 	}
-	return nil, err
+	return post, err
 }
 
 func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {
 	var created, updated, deleted []uuid.UUID
+	var prev []entity.PathState
 	for _, a := range applied {
 		id, err := uuid.Parse(a.TargetID)
 		if err != nil {
@@ -147,9 +155,14 @@ func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {
 			deleted = append(deleted, id)
 		default:
 			updated = append(updated, id)
+			if len(a.Before) > 0 {
+				if st, err := entity.PathStateOf(a.Before); err == nil {
+					prev = append(prev, st)
+				}
+			}
 		}
 	}
-	w.Svc.AfterChangeset(ctx, created, updated, deleted)
+	w.Svc.AfterChangeset(ctx, created, updated, deleted, prev)
 }
 
 // TermWriter adapts the taxonomy package; Svc is notified after the commit.

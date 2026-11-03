@@ -124,6 +124,8 @@ type AppliedItem struct {
 	TargetID string
 	Created  bool
 	Deleted  bool
+	// Before is the pre-image of an update or delete (nil for a create).
+	Before json.RawMessage
 }
 
 // KindWriter applies and restores items of one kind inside the engine's

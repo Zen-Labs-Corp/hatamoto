@@ -114,7 +114,7 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 		}
 	}
 	res.Applied++
-	res.Items = append(res.Items, AppliedItem{Kind: it.Kind, TargetID: out.TargetID, Created: out.Created, Deleted: out.Deleted})
+	res.Items = append(res.Items, AppliedItem{Kind: it.Kind, TargetID: out.TargetID, Created: out.Created, Deleted: out.Deleted, Before: out.Before})
 	return nil
 }
 

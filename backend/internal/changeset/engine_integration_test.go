@@ -52,6 +52,7 @@ type fixture struct {
 	ctx    context.Context
 	db     *database.DB
 	eng    *Engine
+	ent    *entity.Service
 	media  *media.Service
 	events *eventLog
 	schema *entity.EntitySchema
@@ -88,7 +89,7 @@ func newFixture(t *testing.T) *fixture {
 	dir := t.TempDir()
 	mediaSvc := media.NewService(media.NewPostgresRepository(db), media.Config{UploadDir: dir, BaseURL: "/media", MaxSizeMB: 10}, logger)
 
-	f := &fixture{t: t, ctx: ctx, db: db, media: mediaSvc, events: events, schema: sc, dir: dir, tag: tag,
+	f := &fixture{t: t, ctx: ctx, db: db, ent: entSvc, media: mediaSvc, events: events, schema: sc, dir: dir, tag: tag,
 		now: time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)}
 	f.eng = &Engine{
 		DB: db, Blobs: mediaSvc, Logger: logger, Now: func() time.Time { return f.now },
@@ -648,5 +649,38 @@ func TestChangesetRevertCreateWithChildrenIsConflict(t *testing.T) {
 	f.db.Pool().QueryRow(f.ctx, `SELECT parent_id FROM hatamoto_entities WHERE id = $1`, kid).Scan(&kidParent)
 	if f.entities() != 2 || kidParent == nil || *kidParent != parent {
 		t.Errorf("parent removed or child re-rooted (entities=%d, parent=%v)", f.entities(), kidParent)
+	}
+}
+
+func TestChangesetSlugChangeRunsPathObserver(t *testing.T) {
+	f := newFixture(t)
+	type move struct{ from, to string }
+	var moves []move
+	f.ent.SetPathObserver(func(_ context.Context, before, after *entity.Entity, _ *uuid.UUID) {
+		moves = append(moves, move{before.Slug, after.Slug})
+	})
+	first := f.begin("")
+	pub := f.entityItem("e-"+f.tag, "old-"+f.tag, "x")
+	pub.Payload = raw(map[string]any{"schema": f.schema.Slug, "name": "N", "slug": "old-" + f.tag, "status": "published", "attributes": map[string]any{"content": "x"}})
+	f.stage(first, pub)
+	f.publish(first)
+	if len(moves) != 0 {
+		t.Fatalf("a create moved something: %v", moves)
+	}
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	second := f.begin("")
+	f.stage(second, Item{Kind: KindEntity, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"slug": "new-" + f.tag})})
+	f.publish(second)
+	if len(moves) != 1 || moves[0] != (move{"old-" + f.tag, "new-" + f.tag}) {
+		t.Fatalf("after publish: moves = %v", moves)
+	}
+	if _, err := f.eng.Revert(f.ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	if len(moves) != 2 || moves[1] != (move{"new-" + f.tag, "old-" + f.tag}) {
+		t.Fatalf("after revert: moves = %v", moves)
 	}
 }

@@ -322,7 +322,7 @@ func TestChangesetTxNoEventBeforeAfterChangeset(t *testing.T) {
 	if f.rec.count() != 0 || len(lived) != 0 {
 		t.Fatalf("side effects before AfterChangeset: %d events, %d live", f.rec.count(), len(lived))
 	}
-	f.svc.AfterChangeset(f.ctx, []uuid.UUID{created.ID}, nil, nil)
+	f.svc.AfterChangeset(f.ctx, []uuid.UUID{created.ID}, nil, nil, nil)
 	if f.rec.count() != 1 || f.rec.events[0].Kind != EventImportCompleted || f.rec.events[0].Import.Source != ChangesetSource {
 		t.Errorf("events = %+v", f.rec.events)
 	}
