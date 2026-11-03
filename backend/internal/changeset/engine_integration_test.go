@@ -1003,3 +1003,44 @@ func TestChangesetPathStepOnlyForMovedEntities(t *testing.T) {
 	waitFor(ids["a"], 3)
 	waitFor(ids["c"], 3) // not 4: the revert's path step does not reindex again
 }
+
+// A plugin redirect may not take the home page or a wildcard source, and a
+// revert does not bring back a deleted one over a page that has taken its path.
+func TestChangesetRedirectSourceRules(t *testing.T) {
+	f := newFixture(t)
+	live := map[string]bool{}
+	f.eng.Writers[KindRedirect] = RedirectWriter{Svc: redirect.NewService(f.db, slog.Default()),
+		SourceLive: func(_ context.Context, p string) (bool, error) { return live[p], nil }}
+
+	cs := f.begin("acme")
+	for i, src := range []string{"/", "/" + f.tag + "-wild/*"} {
+		f.stage(cs, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r" + string(rune('0'+i)) + f.tag, Payload: raw(map[string]any{"source_path": src, "target": "/x"})})
+	}
+	res := f.publish(cs)
+	if res.Applied != 0 || res.Skipped != 2 {
+		t.Fatalf("home page and wildcard sources: %+v", res)
+	}
+
+	src := "/" + f.tag + "-gone"
+	create := f.begin("acme")
+	f.stage(create, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "g-" + f.tag, Payload: raw(map[string]any{"source_path": src, "target": "/x"})})
+	f.publish(create)
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_redirects WHERE source_path = $1`, src).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	del := f.begin("acme")
+	f.stage(del, Item{Kind: KindRedirect, Op: OpDelete, TargetID: id})
+	f.publish(del)
+	live[src] = true // the owner publishes a page there
+	res, err := f.eng.Revert(f.ctx, del)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Applied != 0 || res.Skipped != 1 || f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, src) != 0 {
+		t.Fatalf("revert put a redirect over a live page: %+v", res)
+	}
+	if got := f.state(del); got != StatePublished {
+		t.Errorf("state = %s", got)
+	}
+}

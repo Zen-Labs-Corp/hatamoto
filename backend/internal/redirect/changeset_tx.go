@@ -41,9 +41,9 @@ type RedirectOp struct {
 	Delete        bool
 	// SameHostOnly refuses an absolute target (the public demo rule).
 	SameHostOnly bool
-	// SourceLive reports whether a path is served by a live page. A source that
-	// is only allowed on a path nothing serves (every origin but the owner) is
-	// checked with it; nil skips the check.
+	// SourceLive reports whether a path is served by a live page. A source of
+	// any origin but the owner must be on a path nothing serves; nil skips that
+	// check (not the home-page and wildcard refusal, see SourceShadows).
 	SourceLive func(ctx context.Context, path string) (bool, error)
 }
 
@@ -52,13 +52,26 @@ const ownerOrigin = "owner"
 
 func isOwner(origin string) bool { return origin == "" || origin == ownerOrigin }
 
-// sourceLive reports whether op, written by a non-owner origin, would put a
-// redirect on a live page.
-func (op RedirectOp) sourceLive(ctx context.Context, source string) (bool, error) {
-	if isOwner(op.Origin) || op.SourceLive == nil {
+// SourceShadows reports whether a redirect written by origin at source would
+// shadow something the owner serves. Redirects are matched before pages, so a
+// non-owner origin may not take the home page, may not use a wildcard source
+// (its literal prefix could cover any number of live pages) and may not take a
+// path live reports as served. live nil skips only that last check.
+func SourceShadows(ctx context.Context, origin, source string, live func(ctx context.Context, path string) (bool, error)) (bool, error) {
+	if isOwner(origin) {
 		return false, nil
 	}
-	return op.SourceLive(ctx, source)
+	if strings.Trim(source, "/") == "" || IsPatternSource(source) {
+		return true, nil
+	}
+	if live == nil {
+		return false, nil
+	}
+	return live(ctx, source)
+}
+
+func (op RedirectOp) sourceLive(ctx context.Context, source string) (bool, error) {
+	return SourceShadows(ctx, op.Origin, source, op.SourceLive)
 }
 
 // Preimage is a redirect row as stored, enough to put it back.

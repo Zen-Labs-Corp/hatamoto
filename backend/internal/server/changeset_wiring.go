@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
@@ -59,10 +60,20 @@ func (s *Server) changesetAudit(ctx context.Context, action, target string, deta
 	s.adminAudit(ctx, e)
 }
 
-// pathIsLivePage reports whether a published entity is served at path. The
+// pathIsLivePage reports whether the site serves a page at path: a published
+// entity, a schema archive, or a home page (the site's or a locale's). The
 // changeset redirect writer refuses a plugin redirect there: redirects are
-// matched before pages, so it would shadow the owner's page.
+// matched before pages, so it would shadow the owner's page. Like the public
+// resolver it strips a locale prefix and scopes the lookup to that locale.
 func (s *Server) pathIsLivePage(ctx context.Context, path string) (bool, error) {
-	page, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(s.db), s.urlSnapshot(ctx), path)
-	return page != nil && page.Entity != nil, err
+	if len(path) > 1 {
+		path = strings.TrimSuffix(path, "/")
+	}
+	snap := s.urlSnapshot(ctx)
+	ctx, _, rest, _ := localeScope(ctx, snap, path)
+	if rest == "/" {
+		return true, nil
+	}
+	page, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(s.db), snap, rest)
+	return page != nil, err
 }

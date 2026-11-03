@@ -289,6 +289,12 @@ func (w RedirectWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func
 	if err := json.Unmarshal(it.Before, &pre); err != nil {
 		return nil, fmt.Errorf("redirect pre-image: %w", err)
 	}
+	// A page may have taken the path since: the restored redirect would shadow it.
+	if shadows, err := redirect.SourceShadows(ctx, pre.Origin, pre.SourcePath, w.SourceLive); err != nil {
+		return nil, err
+	} else if shadows {
+		return nil, fmt.Errorf("%w: %s is served by a page", ErrRevertConflict, pre.SourcePath)
+	}
 	res, err := redirect.RestoreChangesetTx(ctx, tx, pre)
 	if err == nil && res.Conflict != "" {
 		err = fmt.Errorf("redirect not restored: %s", res.Conflict)
