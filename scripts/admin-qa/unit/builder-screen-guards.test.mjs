@@ -53,3 +53,11 @@ test("a refused Alt+Up/Down in the Navigator still reaches moveSelected, which a
   assert.match(src, /perform\(action, false, tr\)/);
   assert.match(src, /if \(!op\) return announce\("It cannot move further that way"\)/);
 });
+
+test("the Fit menu drives the canvas zoom, the Shortcuts item closes ⋯ before the sheet opens, device buttons keep their icon", () => {
+  assert.match(src, /#bs-zoom \[data-zoom\]/);
+  assert.match(src, /canvas\.setZoom\(m === "fit" \? "fit" : Number\(m\)\)/);
+  assert.match(src, /\[data-hm-bs-keys\]"\)\?\.addEventListener\("click", \(e\) => \{\s*e\.currentTarget\.closest\("\[popover\]"\)\?\.hidePopover\?\.\(\);[^\n]*\n\s*dispatch\("sheet"\)/);
+  assert.match(src, /b\.append\(h\("span", \{ class: "hm-bs__dlong" \}/);
+  assert.doesNotMatch(src, /b\.replaceChildren\(h\("span", \{ class: "hm-bs__dlong"/);
+});

@@ -27,3 +27,10 @@ test("forced colors keep the Update dot and the hint's resize glyph (both are ba
 test("the right group of the grid bar is never narrower than its content (an equal 1fr column overflowed at laptop widths)", () => {
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\) auto minmax\(max-content, 1fr\);/);
 });
+
+test("the page title is plain at rest and boxed on hover and focus, scoped to the builder hook", () => {
+  assert.match(css, /\.hm-editor-bar \[data-hm-bs-title\] \{ border-color: transparent; background: transparent;/);
+  assert.match(css, /\[data-hm-bs-title\]:hover \{ border-color: var\(--border-field\)/);
+  assert.match(css, /\[data-hm-bs-title\]:focus-visible \{[^}]*outline: var\(--focus-ring\)/);
+  assert.match(css, /forced-colors: active\) \{ \.hm-editor-bar \[data-hm-bs-title\] \{ border-color: ButtonBorder/);
+});

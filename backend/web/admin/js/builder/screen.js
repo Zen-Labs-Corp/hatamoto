@@ -7,7 +7,7 @@ import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from
 import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf, fieldId, escapeTarget, fieldGuard } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
-import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
+import { BP_NAME, BREAKPOINT_MAX, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
 import { insertPoint, sectionPoint, isSectionItem, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
@@ -303,7 +303,6 @@ function start(root, boot) {
       stamp: () => st.past[st.past.length - 1],
       onAddSection: (index, el) => addAt({ parent: "", index }, el),
       onCrumb: (id) => select(id, false, { pick: true }), // null is the Page crumb: nothing selected; not "from the canvas", so the frame follows
-      onZoom: (mode) => announce(mode === "fit" ? "Zoom: fit to the pane." : `Zoom: ${mode}%.`),
       onAdd: (pt, btn) => {
         const pos = docPos(st.doc, pt);
         if (pos) addAt(pos, btn);
@@ -1032,7 +1031,30 @@ function start(root, boot) {
     if (res.note) showNote(res.note);
   }
 
-  $(bar, "[data-hm-bs-keys]")?.addEventListener("click", () => dispatch("sheet"));
+  $(bar, "[data-hm-bs-keys]")?.addEventListener("click", (e) => {
+    e.currentTarget.closest("[popover]")?.hidePopover?.(); // the menu closes first and hands focus back to ⋯, so the sheet returns there
+    dispatch("sheet");
+  });
+  // Fit ▾: the zoom menu in the tools group. The trigger says what is applied; the menu items are radios.
+  const zoomTrigger = $(bar, "[data-hm-bs-zoomtrigger]");
+  const zoomItems = $$(bar, "#bs-zoom [data-zoom]");
+  const showZoom = () => {
+    const z = String(canvas.zoom);
+    const text = z === "fit" ? "Fit" : `${z}%`;
+    zoomItems.forEach((i) => i.setAttribute("aria-checked", String(i.dataset.zoom === z)));
+    const label = $(zoomTrigger, "span");
+    if (label) label.textContent = text;
+    zoomTrigger?.setAttribute("aria-label", `Zoom: ${text}`);
+  };
+  zoomItems.forEach((i) =>
+    i.addEventListener("click", () => {
+      const m = i.dataset.zoom;
+      canvas.setZoom(m === "fit" ? "fit" : Number(m));
+      showZoom();
+      i.closest("[popover]")?.hidePopover?.();
+      announce(m === "fit" ? "Zoom: fit to the pane." : `Zoom: ${m}%.`);
+    }),
+  );
   const siteBtn = $(bar, "[data-hm-bs-sitestyles]");
   if (boot.canStyle && boot.siteStyles && siteBtn) {
     siteBtn.hidden = false;
@@ -1087,8 +1109,9 @@ function start(root, boot) {
   nameInput?.addEventListener("input", () => saver.changed());
   mountToolItems(bar, matchMedia.bind(window));
   $$(bar, "[data-hm-bs-device]").forEach((b) => {
-    const d = b.dataset.hmBsDevice; // real widths in the label; the short name on a phone (CSS)
-    b.replaceChildren(h("span", { class: "hm-bs__dlong", text: DEVICE_LABEL[d] }), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
+    const d = b.dataset.hmBsDevice; // the icon stays; real widths (muted) in the label, the short name on a phone (CSS)
+    const limit = BREAKPOINT_MAX[d];
+    b.append(h("span", { class: "hm-bs__dlong" }, BP_NAME[d], ...(limit ? [" ", h("span", { class: "hm-bs__dmute", text: `≤${limit}` })] : [])), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
     b.addEventListener("click", () => {
       device = d;
       root.dataset.hmDevice = d;
