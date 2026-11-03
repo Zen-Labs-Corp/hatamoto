@@ -17,3 +17,8 @@ test("sections sit 56px apart: the 44px row plus a 12px gap", () => {
   assert.match(rule(".hm-bs-tree"), /--bs-nav-section-h: 44px/);
   assert.match(rule(".hm-bs-tree"), /--space-bs-gap: var\(--space-3\)/); // the margin between sections and the height of the add-here gap
 });
+
+test("the add-here pill is no taller than the gap, so it never covers the band above", () => {
+  assert.match(rule(".hm-bs-gap__btn"), /block-size: var\(--space-bs-gap\)/);
+  assert.match(rule(".hm-bs-gap"), /block-size: var\(--space-bs-gap\)/);
+});
