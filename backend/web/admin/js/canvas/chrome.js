@@ -190,9 +190,10 @@ export function mountToolbar(canvas, handlers) {
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
     const label = sizeText(sel); // CSS px, whatever the zoom
     if (size.textContent !== label) size.textContent = label;
-    const at = sizeAnchor(box);
+    const tag = canvas.stage.querySelector(".hm-pe__tag--sel");
+    const at = sizeAnchor(box, tag?.offsetWidth ?? 0, size.offsetWidth);
     size.style.left = `${at.x}px`;
-    size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;
+    size.style.top = `calc(${box.y + box.h + (at.below ? tag.offsetHeight + 2 : 0)}px + var(--space-1))`; // under the name tag when they would overlap
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };
     if (fmt && fmt !== watched) grown?.observe((watched = fmt));

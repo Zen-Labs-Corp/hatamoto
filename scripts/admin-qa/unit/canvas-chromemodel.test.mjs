@@ -112,8 +112,10 @@ test("hatchRects: no padding known is no area; padding larger than the box does 
 });
 
 test("the size badge is centred under the selection, section or block", () => {
-  assert.deepEqual(sizeAnchor({ x: 0, y: 100, w: 400, h: 200 }), { x: 200, align: "center" });
-  assert.deepEqual(sizeAnchor({ x: 50, y: 0, w: 100, h: 10 }, true), { x: 100, align: "center" });
+  assert.deepEqual(sizeAnchor({ x: 0, y: 100, w: 400, h: 200 }), { x: 200, align: "center", below: false });
+  assert.deepEqual(sizeAnchor({ x: 50, y: 0, w: 100, h: 10 }), { x: 100, align: "center", below: false });
+  assert.equal(sizeAnchor({ x: 0, y: 0, w: 400, h: 40 }, 60, 70).below, false, "a wide element keeps tag and badge side by side");
+  assert.equal(sizeAnchor({ x: 0, y: 0, w: 120, h: 40 }, 60, 70).below, true, "a small element drops the badge under the tag");
 });
 
 test("a handle on the frame's edge is pulled inside by half its thickness; a short frame still gives a position", () => {

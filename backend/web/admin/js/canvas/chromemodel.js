@@ -70,8 +70,14 @@ export function hatchRects(box, pd) {
   ];
 }
 
-/** Where the size badge hangs under a selection: its x (px, any unit the box is in), always the box's middle; the "Add section" pill only shows on hover. */
-export const sizeAnchor = (box) => ({ x: box.x + box.w / 2, align: "center" });
+/**
+ * Where the size badge hangs under a selection: its x (px, any unit the box is in), always the box's middle. The selection's name tag hangs from the
+ * box's left edge on the same row: when the two would touch (a small element), `below` says the badge drops to a second row.
+ */
+export const sizeAnchor = (box, tagW = 0, badgeW = 0) => {
+  const x = box.x + box.w / 2;
+  return { x, align: "center", below: tagW > 0 && x - badgeW / 2 < box.x + tagW + 4 };
+};
 
 /** A handle's centre kept so a handle `half` px thick stays inside 0..max: padding 0 puts its centre on the frame's edge, where it would be cut in half. */
 export const keepInside = (centre, half, max) => Math.max(half, Math.min(centre, Math.max(half, max - half)));
