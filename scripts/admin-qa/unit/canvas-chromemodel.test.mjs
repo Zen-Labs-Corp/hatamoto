@@ -34,7 +34,7 @@ test("a section has no way up; the buttons are in the toolbar's order", () => {
 test("a block gets '↑ <parent name>' and its id; built from the real selection facts", () => {
   const info = selectionInfo(doc, "h");
   const m = toolbarModel({ ...base, name: "Heading", kind: info.kind, parentId: info.parentId, parentName: "Section" });
-  assert.deepEqual(m.up, { id: "s3", text: "↑ Section", aria: "Heading ↑ Section", title: "Select parent, Section" }, "the accessible name holds the visible text");
+  assert.deepEqual(m.up, { id: "s3", text: "↑ Section", aria: "Heading ↑ Section, select parent", title: "Select parent, Section" }, "the accessible name holds the visible text and says what it does");
   assert.equal(toolbarModel({ ...base, parentId: "p", parentName: "" }).up.text, "↑ parent", "an unnamed parent still reads");
 });
 

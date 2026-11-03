@@ -11,7 +11,7 @@ export function toolbarModel(info) {
   const button = (act, icon, aria, disabled) => ({ act, icon, aria, ...(disabled ? { disabled: true } : {}) });
   return {
     title: { icon: info.kind, name },
-    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `${name} ↑ ${parent}`, title: `Select parent, ${parent}` } : null,
+    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `${name} ↑ ${parent}, select parent`, title: `Select parent, ${parent}` } : null,
     buttons: info.editing
       ? []
       : [
