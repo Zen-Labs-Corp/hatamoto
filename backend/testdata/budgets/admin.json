@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 107862,
+      "value": 108180,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 108150
+      "cap": 108468
     },
     "editor_js_total_gzip": {
-      "value": 290019,
+      "value": 292701,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 291043
+      "cap": 293725
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -131,6 +131,10 @@
     {
       "reason": "builder chrome match (top bar, stage bar, canvas selection marks, Insert cards, slash popover): editor_js_total_gzip 286662 -> 290019 (+3357 B), editor_js_first_gzip 106987 -> 107862 (+875 B), admin_css_gzip 65543 -> 66978 (+1435 B), canvas_host_gzip 8410 -> 8645, measured; caps move with the measurements",
       "date": "2026-11-03"
+    },
+    {
+      "reason": "builder chrome review fixes (Fit menu radio items, Add section pill placement, Preview states): editor_js_total_gzip 290019 -> 292701 (+2682 B), editor_js_first_gzip 107862 -> 108180 (+318 B), measured; caps move by the same amount",
+      "date": "2026-11-04"
     }
   ]
 }
