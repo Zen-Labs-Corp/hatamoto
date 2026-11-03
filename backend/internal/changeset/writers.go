@@ -25,6 +25,8 @@ const (
 	// reasonParentMissing: the entity's parent_key maps to nothing, because
 	// the parent was skipped or never staged.
 	reasonParentMissing = "parent_missing"
+	// reasonEntityMissing: a menu item's entity key maps to nothing.
+	reasonEntityMissing = "entity_missing"
 	// reasonLocation: the menu is assigned to a location, which only the owner changes.
 	reasonLocation = "has_location"
 	// reasonRevertMoved is why a revert left an object in place.
@@ -377,6 +379,9 @@ type menuPayload struct {
 	Slug  string             `json:"slug"`
 	Name  string             `json:"name"`
 	Items []menu.ReplaceItem `json:"items"`
+	// EntityKeys links items by index to the entity published under a source
+	// key of the same origin, resolved at publish like an entity's parent_key.
+	EntityKeys map[int]string `json:"entity_keys"`
 }
 
 func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
@@ -391,6 +396,23 @@ func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, ta
 	at, err := parseTime(it.BaseToken)
 	if err != nil {
 		return Outcome{}, err
+	}
+	for i, key := range p.EntityKeys {
+		if i < 0 || i >= len(p.Items) {
+			return Outcome{}, fmt.Errorf("%w: entity key for item %d of %d", ErrInvalidItem, i, len(p.Items))
+		}
+		eid, err := mappedTarget(ctx, tx, origin, KindEntity, key)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if eid == "" {
+			return Outcome{Conflict: true, Detail: reasonEntityMissing}, nil
+		}
+		uid, err := parseTarget(eid)
+		if err != nil {
+			return Outcome{}, err
+		}
+		p.Items[i].LinkType, p.Items[i].EntityID = menu.LinkTypeEntity, uid
 	}
 	res, err := w.Svc.ApplyChangesetTx(ctx, tx, menu.MenuOp{ID: id, Slug: p.Slug, Name: p.Name, Items: p.Items,
 		BaseUpdatedAt: at, Origin: origin, Delete: it.Op == OpDelete})

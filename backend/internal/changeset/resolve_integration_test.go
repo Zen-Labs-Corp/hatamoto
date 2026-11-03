@@ -122,3 +122,34 @@ func TestEntitySEOPayload(t *testing.T) {
 		t.Fatalf("seo attributes: %q %q %q %q", title, desc, canon, robots)
 	}
 }
+
+// A menu item links to an entity published earlier in the same changeset by
+// its source key; a key that maps to nothing skips the menu.
+func TestMenuEntityKey(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("alpha")
+	slug := f.tag + "-mp"
+	f.stage(cs, f.entityItem(f.tag+"-mpk", slug, "x"))
+	f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, SourceKey: f.tag + "-m", Payload: raw(map[string]any{
+		"slug": f.tag + "-m", "name": "M",
+		"items":       []map[string]any{{"Label": "Home", "LinkType": "none", "Parent": -1}, {"Label": "Page", "LinkType": "none", "Parent": 0}},
+		"entity_keys": map[string]string{"1": f.tag + "-mpk"}})})
+	f.publish(cs)
+	var linked string
+	if err := f.db.Pool().QueryRow(f.ctx, `
+		SELECT i.entity_id::text FROM hatamoto_menu_items i JOIN hatamoto_menus m ON m.id = i.menu_id
+		WHERE m.slug = $1 AND i.label = 'Page'`, f.tag+"-m").Scan(&linked); err != nil {
+		t.Fatal(err)
+	}
+	if linked != f.entityID(slug) {
+		t.Fatalf("menu item links %s, want %s", linked, f.entityID(slug))
+	}
+
+	cs2 := f.begin("alpha")
+	f.stage(cs2, Item{Kind: KindMenu, Op: OpUpsert, Payload: raw(map[string]any{
+		"slug": f.tag + "-m2", "name": "M2", "items": []map[string]any{{"Label": "X", "LinkType": "none", "Parent": -1}},
+		"entity_keys": map[string]string{"0": f.tag + "-nobody"}})})
+	if res := f.publish(cs2); res.Skipped != 1 || res.Conflicts[0].Reason != reasonEntityMissing {
+		t.Fatalf("result %+v", res)
+	}
+}
