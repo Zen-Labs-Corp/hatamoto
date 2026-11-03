@@ -114,15 +114,23 @@ func (r *Runtime) StartRun(ctx context.Context, plugin, name string, in StartRun
 // WaitRuns blocks until every driver started by StartRun has returned.
 func (r *Runtime) WaitRuns() { r.runWG.Wait() }
 
-// RecoverRuns fails every run still marked running and discards its
-// changeset. Call it once at startup, before runs can start: a run found
-// then was left by the previous process and no driver owns it.
+// RecoverAfter is how long a running run must have gone without a step before
+// RecoverRuns fails it. A step lasts at most a slot wait, a cold start and the
+// hook timeout (about a minute), and every step refreshes updated_at, so a
+// run quiet for longer has no live driver on any replica. A restarting
+// replica therefore leaves the runs another replica is driving alone.
+const RecoverAfter = 10 * time.Minute
+
+// RecoverRuns fails every run that has not moved for RecoverAfter and
+// discards its changeset. Call it once at startup: such a run was left by a
+// process that died. A run younger than that may belong to another replica
+// and is left alone; a later start fails it once it is StaleRunAfter old.
 func (r *Runtime) RecoverRuns(ctx context.Context) error {
 	runs := r.caps.api.svc.Runs
 	if runs == nil {
 		return nil
 	}
-	stale, err := runs.StaleRunning(ctx, 0)
+	stale, err := runs.StaleRunning(ctx, RecoverAfter)
 	if err != nil {
 		return err
 	}

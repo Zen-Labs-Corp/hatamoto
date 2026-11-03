@@ -249,22 +249,41 @@ func TestRunStaleCutoff(t *testing.T) {
 	}
 }
 
-// At startup a run still marked running was left by the previous process:
-// it fails and its changeset is discarded, whatever its age.
+// At startup a run that has not moved for RecoverAfter was left by a dead
+// process: it fails and its changeset is discarded. A run that moved
+// recently may belong to another replica and survives.
 func TestRunRecoverAtStartup(t *testing.T) {
 	r := newDriverRig(t)
 	ctx := context.Background()
-	run, err := r.runs.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
-	if err != nil {
+	left := func(age time.Duration) (plugrun.Run, int64) {
+		old := &plugrun.Store{DB: r.db, Now: func() time.Time { return time.Now().Add(-age) }}
+		run, err := old.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		cs, err := r.eng.Begin(ctx, run.ID, runnerPlugin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := old.SetChangeset(ctx, run.ID, cs); err != nil {
+			t.Fatal(err)
+		}
+		return run, cs
+	}
+	live, liveCS := left(time.Minute)
+	if err := r.rt.RecoverRuns(ctx); err != nil {
 		t.Fatal(err)
 	}
-	cs, err := r.eng.Begin(ctx, run.ID, runnerPlugin)
-	if err != nil {
+	if got, _ := r.runs.Get(ctx, live.ID); got.State != plugrun.StateRunning {
+		t.Fatalf("a run another replica may drive was failed: %s", got.State)
+	}
+	if s := r.changesetState(liveCS); s != changeset.StateStaged {
+		t.Fatalf("live changeset %s", s)
+	}
+	if err := r.runs.Fail(ctx, live.ID, "cleanup"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.runs.SetChangeset(ctx, run.ID, cs); err != nil {
-		t.Fatal(err)
-	}
+	run, cs := left(RecoverAfter + time.Minute)
 	if err := r.rt.RecoverRuns(ctx); err != nil {
 		t.Fatal(err)
 	}
