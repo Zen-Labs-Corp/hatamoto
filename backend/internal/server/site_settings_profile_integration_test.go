@@ -113,7 +113,7 @@ func TestSettingsSave_RESTProfile_Integration(t *testing.T) {
 
 // Changing the default locale through the API folds the new default's card
 // into business_profile; the default's tag then takes no card of its own, and
-// the old default inherits.
+// the old default keeps its business as its card.
 func TestSettingsSave_RESTDefaultLocaleFold_Integration(t *testing.T) {
 	do, stored := restProfileFixture(t)
 	locales := func(def string) string {
@@ -151,8 +151,10 @@ func TestSettingsSave_RESTDefaultLocaleFold_Integration(t *testing.T) {
 	if _, ok := got.LocaleProfiles["en-XY"]; ok {
 		t.Errorf("new default still listed in locale_profiles: %v", got.LocaleProfiles)
 	}
-	if _, ok := got.LocaleProfiles["en-XX"]; ok {
-		t.Errorf("old default got a card: %v", got.LocaleProfiles)
+	// The old default keeps its own business as its card: the values the new
+	// default overrides are copied down, and it has no office of its own.
+	if xx := got.LocaleProfiles["en-XX"]; xx["tax_id"] != "T1" || xx["catalog_name"] != "Offers" || xx["no_office"] != true {
+		t.Errorf("en-XX = %v, want the old default's business as its card", xx)
 	}
 	if xz := got.LocaleProfiles["en-XZ"]; xz["description"] != "Example XZ" || xz["tax_id"] != "T1" || xz["catalog_name"] != "Offers" {
 		t.Errorf("en-XZ = %v, want its own value and the old default's copied down", xz)
