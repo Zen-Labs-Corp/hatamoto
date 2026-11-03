@@ -27,7 +27,6 @@
 .hm-bs-ctx__bp .hm-icon { inline-size: 14px; block-size: 14px; }
 .hm-bs-classnote { margin: 0; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .hm-bs-classnote[hidden] { display: none; }
-.hm-bs-header .hm-bs-chip { flex: none; margin-inline-start: var(--space-1); }
 .hm-bs-ctx .hm-bs-ctx__state { flex: 1 1 auto; inline-size: auto; min-inline-size: 0; }
 .hm-bs-ctx__note { flex: 1 1 100%; margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
 
