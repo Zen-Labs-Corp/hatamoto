@@ -462,10 +462,23 @@ func TestBuilderPageList(t *testing.T) {
 	r.ents.addEntity(74, r.service, "Not a page", "not-a-page", entity.StatusPublished, `{"summary":"x"}`, t0) // the builder does not edit this type
 	// like production: the would-be address, whatever the status
 	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
+	post := r.ents.addSchema(20, "Post", "post", `{"type":"object","properties":{"content":{"type":"string"}}}`, `{}`, true)
+	for i := range 150 {
+		r.ents.addEntity(1000+i, post, "Post", fmt.Sprintf("post-%d", i), entity.StatusPublished, `{"content":"x"}`, t0)
+	}
 	req := httptest.NewRequest("GET", "/", nil)
+	r.ents.mu.Lock()
+	r.ents.lists = 0
+	r.ents.mu.Unlock()
 	byTitle := map[string]bootPage{}
 	for _, p := range r.a.builderPageList(req, r.ent) {
 		byTitle[p.Title] = p
+	}
+	r.ents.mu.Lock()
+	lists := r.ents.lists
+	r.ents.mu.Unlock()
+	if lists > 3 { // the page and service types, one list each; the 150 posts must cost none (2 pages of 100)
+		t.Errorf("%d list calls: the post type was listed", lists)
 	}
 	if _, ok := byTitle["Old"]; ok || len(byTitle) < 3 {
 		t.Fatalf("page list = %+v, want Landing, Pricing and Secret but not the archived Old", byTitle)

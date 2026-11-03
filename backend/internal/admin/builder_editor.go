@@ -213,7 +213,7 @@ func (a *Admin) builderOptions(r *http.Request) map[string][]string {
 // (nil: any). Entities are listed one page per schema page and their paths are
 // resolved in one batch per list, never one query per entity. Nothing is
 // visited when the entity or path services are not wired.
-func (a *Admin) walkRoutable(r *http.Request, status *entity.EntityStatus, visit func(e *entity.Entity, path string) bool) {
+func (a *Admin) walkRoutable(r *http.Request, status *entity.EntityStatus, skip func(*entity.EntitySchema) bool, visit func(e *entity.Entity, path string) bool) {
 	c := a.deps.Content
 	if c.Entities == nil || (c.PublicPath == nil && c.PublicPaths == nil) {
 		return
@@ -226,7 +226,7 @@ func (a *Admin) walkRoutable(r *http.Request, status *entity.EntityStatus, visit
 		return cmp.Compare(btoi(x.Slug != "page"), btoi(y.Slug != "page")) // pages first
 	})
 	for _, sc := range schemas {
-		if entity.IsReuseSchema(sc) {
+		if entity.IsReuseSchema(sc) || (skip != nil && skip(sc)) {
 			continue
 		}
 		if c.PublicPaths != nil {
@@ -274,7 +274,7 @@ func (a *Admin) builderPages(r *http.Request) []string {
 	out := []string{}
 	pub := entity.StatusPublished
 	seen := map[string]bool{}
-	a.walkRoutable(r, &pub, func(_ *entity.Entity, p string) bool {
+	a.walkRoutable(r, &pub, nil, func(_ *entity.Entity, p string) bool {
 		if p != "" && !seen[p] {
 			seen[p] = true
 			out = append(out, p)
@@ -308,7 +308,9 @@ func (a *Admin) builderPageList(r *http.Request, cur *entity.Entity) []bootPage 
 		return bootPage{ID: id, Title: e.Name, Path: p, EditHref: a.adminPath + "/entities/" + id + "/edit", Status: string(e.Status), Current: cur != nil && e.ID == cur.ID}
 	}
 	found := false
-	a.walkRoutable(r, nil, func(e *entity.Entity, p string) bool {
+	// posts and people are never pages: skip their schemas before listing them, so a large blog costs no queries
+	notPages := func(sc *entity.EntitySchema) bool { return postEditorFor(sc) || sc.Slug == personSchemaSlug }
+	a.walkRoutable(r, nil, notPages, func(e *entity.Entity, p string) bool {
 		if e.Status == entity.StatusArchived || !pageEditorFor(e.Schema, e) {
 			return true // a post, a person or any entity the builder does not edit is no page to open
 		}
