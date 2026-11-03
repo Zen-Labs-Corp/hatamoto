@@ -236,6 +236,7 @@ function start(root, boot) {
     const n = find(st.doc, hideTarget(st.doc, id, device) ?? id); // the node the toolbar's Hide toggles
     return !!n && hiddenAt(n, device);
   };
+  let zoomSync = () => {}; // set with the Fit menu below; the canvas calls it whenever its zoom or scale changes
   const canvas = createCanvas(
     canvasEl,
     {
@@ -310,7 +311,7 @@ function start(root, boot) {
         else announce("That spot has moved. Select the element and use Insert after in the More menu.");
       }, // the "+" between elements and inside empty containers
     },
-    { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined) }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
+    { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined), onZoom: () => zoomSync() }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
   );
 
   // The first render: a loading state until a frame is swapped in, then "Preview unavailable" with
@@ -1061,11 +1062,11 @@ function start(root, boot) {
     if (label) label.textContent = text;
     zoomTrigger?.setAttribute("aria-label", `Zoom: ${text}`);
   };
+  zoomSync = showZoom;
   zoomItems.forEach((i) =>
     i.addEventListener("click", () => {
       const m = i.dataset.zoom;
       canvas.setZoom(m === "fit" ? "fit" : Number(m));
-      showZoom();
       i.closest("[popover]")?.hidePopover?.();
       announce(m === "fit" ? "Zoom: fit to the pane." : `Zoom: ${m}%.`);
     }),

@@ -88,7 +88,7 @@ func TestBuilderBarSaveStateAndMenu(t *testing.T) {
 		`popovertarget="bs-more"`, `data-hm-post="/admin/entities/`+r.ent.ID.String()+`/delete"`,
 		`aria-label="Undo"`,
 		`data-hm-bs-sitestyles`, `data-hm-bs-keys aria-haspopup="dialog" aria-keyshortcuts="?">Keyboard shortcuts</button>`,
-		`data-hm-bs-zoomtrigger`, `id="bs-zoom"`, `data-zoom="fit"`, `data-zoom="50"`, `data-zoom="75"`, `data-zoom="100"`, `data-hm-bs-preview`, `title="Publish to view"`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `aria-label="Navigator"`, `aria-label="Inspector"`, `data-hm-bs-toggle="nav"`, `data-hm-bs-toggle="insp"`,
+		`data-hm-bs-zoomtrigger`, `id="bs-zoom"`, `class="hm-menu__item" role="menuitemradio" aria-checked="true" data-zoom="fit"`, `data-zoom="fit"`, `data-zoom="50"`, `data-zoom="75"`, `data-zoom="100"`, `data-hm-bs-preview`, `title="Publish to view"`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `aria-label="Navigator"`, `aria-label="Inspector"`, `data-hm-bs-toggle="nav"`, `data-hm-bs-toggle="insp"`,
 		`data-flip=""`)
 	lacks(t, body, "Update page", "data-hm-bs-device-item", `aria-label="Shortcuts"`, `data-hm-bs-proxy="[data-hm-bs-keys]"`)
 	if n := strings.Count(body, "data-hm-bs-keys"); n != 1 {

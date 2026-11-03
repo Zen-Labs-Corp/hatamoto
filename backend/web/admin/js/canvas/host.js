@@ -481,6 +481,7 @@ export function createCanvas(root, handlers, opts = {}) {
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
       chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** The pane resized: a Fit zoom follows it, an explicit zoom keeps its scale. */
     fit(paneWidth) {
@@ -488,6 +489,7 @@ export function createCanvas(root, handlers, opts = {}) {
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
       chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** Sets the zoom ("fit", 100, 75 or 50); the scale never goes below the floor in layout.js. */
     setZoom(mode) {
@@ -495,6 +497,7 @@ export function createCanvas(root, handlers, opts = {}) {
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
       chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** The device the strip's band shows ("base", "md" or "sm"). */
     setDevice(d) {
