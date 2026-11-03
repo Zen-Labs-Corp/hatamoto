@@ -22,6 +22,9 @@ import (
 const (
 	reasonMoved = "moved"
 	reasonGone  = "gone"
+	// reasonParentMissing: the entity's parent_key maps to nothing, because
+	// the parent was skipped or never staged.
+	reasonParentMissing = "parent_missing"
 	// reasonLocation: the menu is assigned to a location, which only the owner changes.
 	reasonLocation = "has_location"
 	// reasonRevertMoved is why a revert left an object in place.
@@ -92,7 +95,50 @@ type entityPayload struct {
 	Locale     string          `json:"locale"`
 	Attributes json.RawMessage `json:"attributes"`
 	ParentID   *uuid.UUID      `json:"parent_id"`
-	Status     string          `json:"status"`
+	// ParentKey names the parent by the source key an entity item of the same
+	// origin was staged under. It is resolved at publish, against the items
+	// applied earlier in the same transaction, so a parent must be staged
+	// before its children.
+	ParentKey string     `json:"parent_key"`
+	SEO       *entitySEO `json:"seo"`
+	Status    string     `json:"status"`
+}
+
+// entitySEO is the search metadata of an entity. It is merged into the
+// attributes keys the public site reads (meta_title, meta_description,
+// canonical_url and seo.robots).
+type entitySEO struct {
+	MetaTitle       string `json:"meta_title"`
+	MetaDescription string `json:"meta_description"`
+	Canonical       string `json:"canonical"`
+	Robots          string `json:"robots"`
+}
+
+// mergeSEO returns attrs with s merged in; empty fields leave the attribute alone.
+func mergeSEO(attrs json.RawMessage, s *entitySEO) (json.RawMessage, error) {
+	if s == nil {
+		return attrs, nil
+	}
+	m := map[string]any{}
+	if len(attrs) > 0 && string(attrs) != "null" {
+		if err := json.Unmarshal(attrs, &m); err != nil {
+			return nil, fmt.Errorf("%w: attributes must be an object to carry seo", ErrInvalidItem)
+		}
+	}
+	for k, v := range map[string]string{"meta_title": s.MetaTitle, "meta_description": s.MetaDescription, "canonical_url": s.Canonical} {
+		if v != "" {
+			m[k] = v
+		}
+	}
+	if s.Robots != "" {
+		sm, _ := m["seo"].(map[string]any)
+		if sm == nil {
+			sm = map[string]any{}
+		}
+		sm["robots"] = s.Robots
+		m["seo"] = sm
+	}
+	return json.Marshal(m)
 }
 
 func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
@@ -108,8 +154,28 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 	if err != nil {
 		return Outcome{}, err
 	}
-	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: p.Attributes,
-		ParentID: p.ParentID, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
+	parent := p.ParentID
+	if p.ParentKey != "" {
+		if parent != nil {
+			return Outcome{}, fmt.Errorf("%w: parent_id and parent_key are exclusive", ErrInvalidItem)
+		}
+		pid, err := mappedTarget(ctx, tx, origin, KindEntity, p.ParentKey)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if pid == "" {
+			return Outcome{Conflict: true, Detail: reasonParentMissing}, nil
+		}
+		if parent, err = parseTarget(pid); err != nil {
+			return Outcome{}, err
+		}
+	}
+	attrs, err := mergeSEO(p.Attributes, p.SEO)
+	if err != nil {
+		return Outcome{}, err
+	}
+	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: attrs,
+		ParentID: parent, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
 		BaseVersion: ver, BaseUpdatedAt: at}
 	res, err := w.Svc.ApplyChangesetTx(ctx, tx, op)
 	switch {

@@ -65,7 +65,12 @@ func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]Stor
 	return out, rows.Err()
 }
 
-func mappedTarget(ctx context.Context, tx pgx.Tx, origin string, kind Kind, sourceKey string) (string, error) {
+// rowQuerier is what mappedTarget needs: a transaction or the pool.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func mappedTarget(ctx context.Context, tx rowQuerier, origin string, kind Kind, sourceKey string) (string, error) {
 	if sourceKey == "" {
 		return "", nil
 	}

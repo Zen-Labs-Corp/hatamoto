@@ -49,11 +49,14 @@ func (e *Engine) audit(ctx context.Context, action string, csID int64, detail ma
 }
 
 // Begin opens a staged changeset of plugin ("" is the owner) in run runID,
-// creating the run on first use. It expires TTL from now.
+// creating the run on first use. It expires TTL from now. A run row Begin
+// creates itself is not driven by anyone, so it is born 'finished' and never
+// counts as the plugin's one active run; a driven run is inserted by the run
+// store first (state 'running') and Begin finds it.
 func (e *Engine) Begin(ctx context.Context, runID uuid.UUID, plugin string) (int64, error) {
 	var id int64
 	err := e.DB.WithTx(ctx, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_runs (id, plugin) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, runID, plugin); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_runs (id, plugin, state) VALUES ($1, $2, 'finished') ON CONFLICT (id) DO NOTHING`, runID, plugin); err != nil {
 			return fmt.Errorf("failed to create run: %w", err)
 		}
 		return tx.QueryRow(ctx, `
@@ -61,6 +64,27 @@ func (e *Engine) Begin(ctx context.Context, runID uuid.UUID, plugin string) (int
 			runID, plugin, e.now().Add(TTL)).Scan(&id)
 	})
 	return id, err
+}
+
+// Resolve returns the object plugin ("" is the owner) published under
+// sourceKey in an earlier changeset; ok is false when no run has mapped the
+// key. Items staged but not yet published have no mapping.
+func (e *Engine) Resolve(ctx context.Context, plugin string, kind Kind, sourceKey string) (targetID string, ok bool, err error) {
+	targetID, err = mappedTarget(ctx, e.DB.Pool(), Origin(plugin), kind, sourceKey)
+	return targetID, targetID != "", err
+}
+
+// HasStaged reports whether the changeset already holds an item of kind with
+// sourceKey, so a later item can name it (a child's parent_key).
+func (e *Engine) HasStaged(ctx context.Context, csID int64, kind Kind, sourceKey string) (bool, error) {
+	var ok bool
+	err := e.DB.Pool().QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM hatamoto_changeset_items WHERE changeset_id = $1 AND kind = $2 AND source_key = $3)`,
+		csID, string(kind), sourceKey).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("failed to look up staged item: %w", err)
+	}
+	return ok, nil
 }
 
 // Stage adds it to a staged changeset. Nothing live changes.
