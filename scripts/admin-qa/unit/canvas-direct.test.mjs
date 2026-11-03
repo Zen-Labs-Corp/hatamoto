@@ -571,3 +571,23 @@ test("pillShift: a pill whose own row is outside the bounds stays on it (a secti
   assert.equal(pillShift(pill, [obstacle], 1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row below the bounds");
   assert.equal(pillShift({ ...pill, y: -60 }, [obstacle], -1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row above the bounds");
 });
+
+test("a pill with no free spot yields the other pill, never the selected section's tab stop", () => {
+  const rect = { left: 0, top: 0, width: 88, height: 26, right: 88, bottom: 26 };
+  const box = (o) => ({ getBoundingClientRect: () => o, hidden: false });
+  const saved = ["getBoundingClientRect", "querySelectorAll", "parentElement"].map((k) => [k, Object.getOwnPropertyDescriptor(El.prototype, k)]);
+  Object.defineProperties(El.prototype, {
+    getBoundingClientRect: { configurable: true, value: () => rect },
+    querySelectorAll: { configurable: true, value: () => [box({ left: -50, top: -5000, width: 1000, height: 10000 })] }, // blocks the row, and bounds leave no other spot
+    parentElement: { configurable: true, get: () => ({ ...box({ left: 0, top: 0, width: 1000, height: 26 }), addEventListener() {}, removeEventListener() {} }) },
+  });
+  try {
+    const r = rig();
+    const pills = r.strips.children;
+    assert.ok(pills.length >= 2);
+    assert.ok(pills.some((q) => q.attrs["data-yield"] !== undefined), "the collision is real: something yielded");
+    for (const q of pills) if (q.attrs.tabindex === "0") assert.equal(q.attrs["data-yield"], undefined, "a tab stop is never data-yield");
+  } finally {
+    for (const [k, d] of saved) d ? Object.defineProperty(El.prototype, k, d) : delete El.prototype[k];
+  }
+});

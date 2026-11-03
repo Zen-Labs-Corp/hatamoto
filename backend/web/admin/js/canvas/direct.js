@@ -178,7 +178,14 @@ export function mountDirect(canvas, hd) {
     const bounds = sr ? { x: sr.left, y: sr.top + (canvas.inset ?? 0), w: sr.width, h: sr.height - (canvas.inset ?? 0) } : null;
     const dy = pillShift(rectOf(pill), [...others, ...near.map((q) => rectOf(q.children[0]))], outward, 4, bounds);
     if (dy) pill.style.top = `${dy}px`;
-    if (dy === null) near.forEach((q) => overlaps(rectOf(pill), rectOf(q.children[0])) && q.setAttribute("data-yield", ""));
+    if (dy === null) {
+      const stop = (e) => e.getAttribute("tabindex") === "0"; // a tab stop is never hidden: the other pill yields
+      near.forEach((q) => {
+        if (!overlaps(rectOf(pill), rectOf(q.children[0]))) return;
+        if (!stop(q)) q.setAttribute("data-yield", "");
+        else if (!stop(p)) p.setAttribute("data-yield", "");
+      });
+    }
   }
 
   function paintStrips() {
