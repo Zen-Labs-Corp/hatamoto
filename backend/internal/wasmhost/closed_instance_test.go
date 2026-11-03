@@ -185,3 +185,36 @@ func TestGuestErrorWithDeadAfterCallDiscards(t *testing.T) {
 		t.Fatalf("discarded = %d, pooled = %d, want 1 and 0", got, len(p.pool))
 	}
 }
+
+// A fresh call runs on a cold instance and closes it: the pooled instance is
+// left alone and nothing from the call is pooled.
+func TestFreshInstanceNeverPooled(t *testing.T) {
+	h := newHost(t)
+	load(t, h, "stub", sdk.Limits{MaxInstances: 2})
+	p := (*h.reg.Load())["stub"]
+	for len(p.pool) > 0 { // load may have warmed one
+		_ = (<-p.pool).Close(context.Background())
+	}
+	fresh := WithFreshInstance(context.Background())
+
+	if out, err := h.Call(fresh, "stub", "echo", []byte("a")); err != nil || string(out) != "a" {
+		t.Fatalf("fresh call: %q %v", out, err)
+	}
+	if len(p.pool) != 0 {
+		t.Fatalf("fresh call pooled its instance: %d", len(p.pool))
+	}
+	if _, err := call(h, "stub", "echo", "b"); err != nil || len(p.pool) != 1 {
+		t.Fatalf("plain call: %v, pooled %d", err, len(p.pool))
+	}
+	warm := <-p.pool
+	p.pool <- warm
+	if _, err := h.Call(fresh, "stub", "echo", []byte("c")); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.pool) != 1 {
+		t.Fatalf("pool = %d after a fresh call, want the warm instance only", len(p.pool))
+	}
+	if got := <-p.pool; got != warm {
+		t.Fatal("fresh call replaced the pooled instance")
+	}
+}

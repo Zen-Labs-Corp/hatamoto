@@ -223,7 +223,11 @@ func checkRunHosts(hosts []string) ([]string, error) {
 // drive runs the steps of one run: it calls on_run_step with the run's phase
 // and cursor until the plugin finishes the transform phase or the run fails.
 // A step that errors, a tripped circuit breaker, run.fail and the step cap
-// all fail the run; a failed step is never retried.
+// all fail the run; a failed step is never retried. Every step runs on a
+// cold instance that is closed afterwards (ADR 0004 inv. 4): guest memory
+// must not carry data across phases, runs or into ordinary hooks. The cost
+// is one module instantiation per step, small against a step's own work
+// (steps are network or batch sized, seconds apart).
 func (r *Runtime) drive(runID uuid.UUID) {
 	runs := r.caps.api.svc.Runs
 	bg := context.Background()
@@ -251,7 +255,7 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			rc.Proposes = m.Runs[i].Proposes
 		}
 		in, _ := json.Marshal(sdk.RunStep{RunID: runID.String(), Phase: run.Phase, Cursor: run.Cursor})
-		if _, err := r.host.Call(WithRun(bg, rc), run.Plugin, sdk.RunStepExport, in); err != nil {
+		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(bg, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
 			reason := "step failed: " + err.Error()
 			if errors.Is(err, wasmhost.ErrCircuitOpen) {
 				reason = "plugin disabled after repeated failures: " + err.Error()
