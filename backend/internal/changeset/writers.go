@@ -143,6 +143,28 @@ func mergeSEO(attrs json.RawMessage, s *entitySEO) (json.RawMessage, error) {
 	return json.Marshal(m)
 }
 
+// liveEntityTarget returns the entity a source key maps to, or "" when the key
+// maps to nothing or to an entity since deleted (the mapping outlives it), so
+// the item becomes a conflict instead of failing the publish.
+func liveEntityTarget(ctx context.Context, tx Tx, origin, sourceKey string) (string, error) {
+	id, err := mappedTarget(ctx, tx, origin, KindEntity, sourceKey)
+	if err != nil || id == "" {
+		return "", err
+	}
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return "", fmt.Errorf("%w: mapped target %q", ErrInvalidItem, id)
+	}
+	var ok bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE id = $1)`, uid).Scan(&ok); err != nil {
+		return "", fmt.Errorf("failed to look up mapped entity: %w", err)
+	}
+	if !ok {
+		return "", nil
+	}
+	return id, nil
+}
+
 func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
 	var p entityPayload
 	if err := decodePayload(it.Payload, &p); err != nil {
@@ -161,7 +183,7 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 		if parent != nil {
 			return Outcome{}, fmt.Errorf("%w: parent_id and parent_key are exclusive", ErrInvalidItem)
 		}
-		pid, err := mappedTarget(ctx, tx, origin, KindEntity, p.ParentKey)
+		pid, err := liveEntityTarget(ctx, tx, origin, p.ParentKey)
 		if err != nil {
 			return Outcome{}, err
 		}
@@ -401,7 +423,7 @@ func (w MenuWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, ta
 		if i < 0 || i >= len(p.Items) {
 			return Outcome{}, fmt.Errorf("%w: entity key for item %d of %d", ErrInvalidItem, i, len(p.Items))
 		}
-		eid, err := mappedTarget(ctx, tx, origin, KindEntity, key)
+		eid, err := liveEntityTarget(ctx, tx, origin, key)
 		if err != nil {
 			return Outcome{}, err
 		}

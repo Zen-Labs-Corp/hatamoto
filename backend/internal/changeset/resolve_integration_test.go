@@ -153,3 +153,33 @@ func TestMenuEntityKey(t *testing.T) {
 		t.Fatalf("result %+v", res)
 	}
 }
+
+// A source key whose entity the owner deleted after the publish maps to a
+// dead id. Items that name it as parent or menu entity are skipped as
+// conflicts; the rest of the changeset still publishes.
+func TestStaleMappingSkipsItem(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("alpha")
+	f.stage(cs, f.entityItem(f.tag+"-sp", f.tag+"-sp", "parent"))
+	f.publish(cs)
+	if _, err := f.db.Pool().Exec(f.ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, f.entityID(f.tag+"-sp")); err != nil {
+		t.Fatal(err)
+	}
+
+	cs2 := f.begin("alpha")
+	child := f.entityItem(f.tag+"-sc", f.tag+"-sc", "child")
+	child.Payload = raw(map[string]any{"schema": f.schema.Slug, "name": "child", "slug": f.tag + "-sc", "parent_key": f.tag + "-sp"})
+	f.stage(cs2, child)
+	f.stage(cs2, f.entityItem(f.tag+"-so", f.tag+"-so", "other"))
+	f.stage(cs2, Item{Kind: KindMenu, Op: OpUpsert, Payload: raw(map[string]any{
+		"slug": f.tag + "-sm", "name": "M", "items": []map[string]any{{"Label": "X", "LinkType": "none", "Parent": -1}},
+		"entity_keys": map[string]string{"0": f.tag + "-sp"}})})
+	res := f.publish(cs2)
+	if res.Applied != 1 || res.Skipped != 2 || len(res.Conflicts) != 2 {
+		t.Fatalf("result %+v", res)
+	}
+	reasons := map[string]bool{res.Conflicts[0].Reason: true, res.Conflicts[1].Reason: true}
+	if !reasons[reasonParentMissing] || !reasons[reasonEntityMissing] {
+		t.Fatalf("conflict reasons %+v", res.Conflicts)
+	}
+}
