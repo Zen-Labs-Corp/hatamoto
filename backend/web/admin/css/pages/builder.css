@@ -145,6 +145,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 /* Device buttons: the pixel limit is muted text inside the button; Fit and Preview sit in the tools group, which keeps only Undo on a phone. */
 .hm-bs__dmute { margin-inline-start: var(--space-1); font-weight: var(--weight-regular); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .hm-bs__tools [data-hm-bs-zoomtrigger], .hm-bs__tools [data-hm-bs-preview] { --h: var(--control-h-sm); }
+.hm-bs__tools [data-hm-bs-zoomtrigger] .hm-icon { order: 1; } /* "Fit ▾": the label first, then the chevron (hm/button puts the icon before the label) */
 /* Phones: ‹ name ● state ⋯ Update on the first row; Undo and the device switch on a second row (the shared segmented
    control and chip keep their sizes, so they do not fit beside Update). Redo, panes and help live in ⋯; the status
    badge gives way to the dot, and its words stay for a screen reader. */
