@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/sdk"
@@ -81,6 +82,7 @@ type Services struct {
 
 	// Run services. A nil one makes the functions that need it unavailable.
 	Changesets *changeset.Engine
+	Runs       *plugrun.Store
 	Uploads    UploadReader
 	Site       SiteSource
 	// SlugTaken reports whether a published, public entity holds the slug.
