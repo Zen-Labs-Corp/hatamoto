@@ -122,8 +122,9 @@ test("a section shows four slider handles with the live px; a block shows none",
   }
   assert.equal(r.handle("top").attrs["aria-label"], "Top padding, 112px");
   assert.equal(r.handle("left").attrs["aria-valuenow"], "24");
-  assert.equal(r.handle("top").style.top, "212px", "the inner edge of the top padding: (y 100 + 112)");
-  assert.equal(r.handle("right").style.left, "1240px");
+  assert.equal(r.handle("top").style.top, "144px", "the middle of the top band (y 100 + 112/2 = 156), the 24px box hanging 12px above it");
+  assert.equal(r.handle("right").style.left, "1260px", "the middle of the right band (1280 - 40/2)");
+  assert.equal(r.handle("left").style.left, "12px", "the middle of the left band (12), kept 12px inside the frame");
   const block = rig({ section: false });
   assert.ok(["top", "right", "bottom", "left"].every((s) => block.handle(s).hidden === true));
   const none = rig({ selected: null });
@@ -354,6 +355,19 @@ test("arrow keys stop at 0 without committing, and alt carries the opposite side
   assert.deepEqual(r.commits[0].writes.map((w) => w.key), ["pt", "pb"]);
 });
 
+test("hovering a handle shows its band's hatch and a value badge off to the side; leaving clears them", () => {
+  const r = rig();
+  r.handle("top").fire("pointerenter");
+  assert.equal(r.hatch("top").hidden, false);
+  assert.equal(r.badge.textContent, "112");
+  assert.equal(r.badge.style.left, "680px", "40px right of the band's middle (640)");
+  r.handle("left").fire("pointerenter");
+  assert.equal(r.badge.style.top, "278px", "30px above the left band's middle (100 + 112 + 192/2 = 308)");
+  r.handle("left").fire("pointerleave");
+  assert.equal(r.hatch("left").hidden, true);
+  assert.equal(r.badge.hidden, true);
+});
+
 test("the inspector's hover event shows that side's hatch and value; null clears it", () => {
   const r = rig();
   fireDoc("hm-pad-hover", { detail: { side: "left" } });
@@ -391,14 +405,14 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(r.adds[1][1], strips[1], "the picker anchors on the strip");
 });
 
-test("a pill takes the pointer only while it shows: after the selection (the one tab stop), around the hover, never otherwise", () => {
+test("a pill shows only around the hover (or alone on an empty page); the boundary after the selection is the one tab stop, never otherwise", () => {
   const shows = (r) => r.strips.children.map((s) => s.attrs["data-show"] ?? null);
   const r = rig({ nodes: sections() }); // a selected, nothing hovered
-  assert.deepEqual(shows(r), [null, "sel", null], "only the boundary after the selected section");
-  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
+  assert.deepEqual(shows(r), [null, null, null], "the selection shows no pill");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"], "but the boundary after it stays the one tab stop");
   r.state.selected = "x"; // a block inside a: its section's boundary
   r.direct.update();
-  assert.deepEqual(shows(r), [null, "sel", null]);
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
   r.state.selected = null;
   r.state.hover = "b";
   r.direct.update();
@@ -408,8 +422,10 @@ test("a pill takes the pointer only while it shows: after the selection (the one
   r.direct.update();
   assert.deepEqual(shows(r), [null, "hover", "hover"]);
   const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section adds no pill over its padding handles
-  assert.deepEqual(shows(own), [null, "sel", null]);
-  assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "sel", "an empty page's only pill shows");
+  assert.deepEqual(shows(own), [null, null, null]);
+  const next = rig({ nodes: sections(), hover: "b" }); // hovering the next section shows its edge, the selected section's own bottom edge included
+  assert.deepEqual(shows(next), [null, "hover", "hover"]);
+  assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "page", "an empty page's only pill shows");
 });
 
 test("strips follow layout changes in place and go while text is edited", () => {
@@ -440,13 +456,13 @@ test("a padding handle stacks above the boundary strips: a section edge with 0 p
   assert.ok(z(handle) > z(strip), `handle z-index ${z(handle)} must exceed the strip's ${z(strip)}`);
 });
 
-test("the pill is pill-sized and inert until shown; its focus ring is real: no invisible full-width strip", () => {
+test("the boundary row never takes the pointer itself; its pill does while shown; the focus ring is real", () => {
   const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
   const line = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
   assert.match(line, /pointer-events:\s*none/);
-  assert.match(line, /translate\(-50%, 12px\)/, "hangs below the boundary, clear of the padding handles");
-  assert.doesNotMatch(line, /\bright:|width:\s*100%/);
-  assert.match(css, /\.hm-pe__gapline\[data-show\] \{ pointer-events: auto/);
+  assert.match(line, /translateY\(-50%\)/, "centred on the boundary");
+  assert.match(css, /\.hm-pe__gapline\[data-show\] \.hm-pe__pill \{[^}]*pointer-events: auto/, "only the shown pill takes the pointer, not the full-width row");
+  assert.match(css, /\.hm-pe__gapline:not\(\[data-show\]\):not\(\[tabindex="0"\]\) \{ visibility: hidden/, "an inert row is hidden; the tab stop stays focusable");
   assert.match(css, /\.hm-pe__gapline:focus-visible \.hm-pe__pill \{ outline/);
   assert.doesNotMatch(css, /\.hm-pe__pill:focus-visible/, "the pill is never the focused element");
 });

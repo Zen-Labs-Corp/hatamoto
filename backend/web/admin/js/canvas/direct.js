@@ -52,6 +52,8 @@ export function mountDirect(canvas, hd) {
     seq++;
   };
   let hoverSide = null; // from the inspector's padding fields
+  let overSide = null; // the handle under the pointer: its band shows too
+  const hot = () => overSide ?? hoverSide;
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
   let lastHover = null; // the pill is reached by crossing the stage, which ends the frame's hover: it stays until the pointer leaves the canvas
@@ -88,33 +90,40 @@ export function mountDirect(canvas, hd) {
       const { x, y, w, h } = t.box;
       for (const r of hatchRects({ w, h }, pd)) {
         const hatch = hatches[r.side];
-        const on = drag ? r.side === drag.side || (drag.alt && r.side === OPPOSITE[drag.side]) : r.side === hoverSide;
+        const on = drag ? r.side === drag.side || (drag.alt && r.side === OPPOSITE[drag.side]) : r.side === hot();
         hatch.hidden = !on;
         hatch.style.left = `${(x + r.x) * sc}px`;
         hatch.style.top = `${(y + r.y) * sc}px`;
         hatch.style.width = `${r.w * sc}px`;
         hatch.style.height = `${r.h * sc}px`;
       }
-      const at = { top: [x + w / 2, y + pd[0]], right: [x + w - pd[1], y + h / 2], bottom: [x + w / 2, y + h - pd[2]], left: [x + pd[3], y + h / 2] };
+      // Each handle sits in the middle of its padding band, kept 8px inside the section so a section with no padding still shows it (and a short one never stacks them)
+      const EDGE = 8;
+      const y0 = y * sc;
+      const y1 = (y + h) * sc;
+      const topC = Math.max(y0 + EDGE, (y + pd[0] / 2) * sc);
+      const botC = Math.min(y1 - EDGE, (y + h - pd[2] / 2) * sc);
+      const at = { top: [x + w / 2, topC], right: [x + w - pd[1] / 2, y + h / 2], bottom: [x + w / 2, botC], left: [x + pd[3] / 2, y + h / 2] };
       SIDE_LIST.forEach((s, i) => {
         const hnd = handles[s];
         hnd.hidden = false;
         const room = canvas.stage.offsetWidth || Infinity; // the frame: a handle on its edge (padding 0) must not be cut off
         hnd.style.left = `${VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room)}px`;
-        let top = at[s][1] * sc;
-        if (s === "top" && !drag) top = Math.min(top, at.bottom[1] * sc - HANDLE_HALF - HANDLE_LONG); // a short section: the top handle ends where the bottom one starts, never under it
+        let top = VERTICAL[s] ? at[s][1] : at[s][1] * sc;
+        if (s === "top") top = (drag ? topC : Math.min(topC, botC - HANDLE_LONG)) - HANDLE_HALF; // its box hangs from the top (the toolbar's avoid reads it); a short section: it ends where the bottom one starts
         hnd.style.top = `${top}px`;
         hnd.setAttribute("aria-valuenow", String(pd[i]));
         hnd.setAttribute("aria-label", padAria(s, pd[i]));
       });
-      const shown = drag ? drag.side : hoverSide;
+      const shown = drag ? drag.side : hot();
       badge.hidden = !shown;
       if (shown) {
         const i = SIDE_LIST.indexOf(shown);
         const r = hatchRects({ w, h }, pd)[i];
         badge.textContent = String(pd[i]);
-        badge.style.left = `${(x + r.x + r.w / 2) * sc}px`;
-        badge.style.top = `${(y + r.y + r.h / 2) * sc}px`;
+        // off to the side of the handle, so the value is not under the pointer
+        badge.style.left = `${(x + r.x + r.w / 2) * sc + (VERTICAL[shown] ? 40 : 0)}px`;
+        badge.style.top = `${(y + r.y + r.h / 2) * sc + (VERTICAL[shown] ? 0 : -30)}px`;
       }
     }
     paintStrips();
@@ -125,12 +134,12 @@ export function mountDirect(canvas, hd) {
     while (n && n.p !== "") n = canvas.nodes.find((x) => x.id === n.p);
     return n?.id ?? null;
   };
-  // A pill takes the pointer only while it shows: after the selected section ("sel", the one tab stop, visible without hover for touch), around
-  // the hovered one ("hover"), or on an empty page. The rest are inert, so no invisible element swallows a click.
+  // A pill shows (and takes the pointer) only around the hovered section, or alone on an empty page. After the selected section it is the one tab stop, invisible
+  // until it has keyboard focus. The rest are inert, so no invisible element swallows a click.
   function showOf(b, selTop, hoverTop) {
-    if (b.before === null && b.after === null) return "sel";
-    if (selTop && b.before === selTop) return "sel";
+    if (b.before === null && b.after === null) return "page";
     if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover"; // the selected section's handles own its edges
+    if (selTop && b.before === selTop) return "sel";
     return null;
   }
 
@@ -155,9 +164,9 @@ export function mountDirect(canvas, hd) {
       p._b = b;
       p.setAttribute("aria-label", b.before === null ? "Add section at the top" : b.after === null ? "Add section at the end" : `Add section after ${hd.nameOf?.(b.before) || "this one"}`);
       const show = showOf(b, selTop, hoverTop);
-      if (show) p.setAttribute("data-show", show);
+      if (show === "hover" || show === "page") p.setAttribute("data-show", show);
       else p.removeAttribute("data-show");
-      p.setAttribute("tabindex", show === "sel" ? "0" : "-1");
+      p.setAttribute("tabindex", show === "sel" || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
     });
   }
@@ -224,6 +233,14 @@ export function mountDirect(canvas, hd) {
       hnd.setPointerCapture?.(e.pointerId);
       document.addEventListener("keydown", onEsc, true);
       paint();
+    });
+    hnd.addEventListener("pointerenter", () => {
+      overSide = side;
+      if (!drag) paint();
+    });
+    hnd.addEventListener("pointerleave", () => {
+      overSide = null;
+      if (!drag) paint();
     });
     hnd.addEventListener("pointermove", (e) => {
       if (!drag || drag.side !== side) return;

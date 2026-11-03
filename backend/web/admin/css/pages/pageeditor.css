@@ -75,33 +75,36 @@
 /* Direct manipulation layer (js/canvas/direct.js): padding hatch, pink handles, value badge, "Add section" strips. Own layer: hover redraws of the marks never touch an active drag. */
 .hm-pe__pad { position: absolute; inset: 0; pointer-events: none; }
 .hm-pe__pad[hidden] { display: none; }
-.hm-pe__hatch { position: absolute; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--pe-guide-pad) 35%, transparent) 0 4px, transparent 4px 8px); pointer-events: none; }
+.hm-pe__hatch { position: absolute; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--pe-guide-pad) 16%, transparent) 0 4px, transparent 4px 8px); pointer-events: none; }
 .hm-pe__hatch[hidden] { display: none; }
 .hm-pe__padh { position: absolute; z-index: var(--z-raised); display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); }
-.hm-pe__padh::after { content: ""; display: block; border-radius: var(--radius-2xs); background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface); }
+.hm-pe__padh::after { content: ""; display: block; box-sizing: border-box; border: 2px solid var(--surface); border-radius: var(--radius-md); background: var(--pe-guide-pad); opacity: .9; box-shadow: var(--shadow-2); }
 .hm-pe__padh[data-side="top"], .hm-pe__padh[data-side="bottom"] { width: 44px; height: 24px; cursor: ns-resize; }
-.hm-pe__padh[data-side="top"] { transform: translate(-50%, 0); } /* hangs inward from the padding's inner edge: the toolbar floats just above the section and must not cover it */
+.hm-pe__padh[data-side="top"] { transform: translate(-50%, 0); } /* its box hangs from the top of the band (direct.js sets that top): the toolbar floats just above the section and must not cover it */
 .hm-pe__padh[data-side="left"], .hm-pe__padh[data-side="right"] { width: 24px; height: 44px; cursor: ew-resize; }
-.hm-pe__padh[data-side="top"]::after, .hm-pe__padh[data-side="bottom"]::after { width: 28px; height: 6px; }
-.hm-pe__padh[data-side="left"]::after, .hm-pe__padh[data-side="right"]::after { width: 6px; height: 28px; }
-.hm-pe__padh:hover::after { background: var(--pe-guide-pad); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--pe-guide-pad) 35%, transparent); }
-.hm-pe__padh:focus-visible { outline: var(--focus-ring); outline-offset: 1px; border-radius: var(--radius-sm); }
+.hm-pe__padh[data-side="top"]::after, .hm-pe__padh[data-side="bottom"]::after { width: 28px; height: 8px; }
+.hm-pe__padh[data-side="left"]::after, .hm-pe__padh[data-side="right"]::after { width: 8px; height: 28px; }
+.hm-pe__padh:hover::after { opacity: 1; transform: scale(1.15); }
+.hm-pe__padh:focus-visible { outline: none; } /* the ring goes on the visible pill, not the 44px target */
+.hm-pe__padh:focus-visible::after { opacity: 1; outline: var(--focus-ring); outline-offset: 2px; }
 .hm-pe__padbadge { position: absolute; transform: translate(-50%, -50%); padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-2xs); background: var(--pe-guide-pad); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); pointer-events: none; }
 .hm-pe__padbadge[hidden] { display: none; }
-/* "Add section" pills on the boundaries between top-level sections. Pill-sized and inert (no pointer events, invisible) until direct.js sets data-show:
-   after the selected section (always visible: the keyboard and touch way in), around the hovered one. So nothing invisible swallows a click. They hang 12px below the boundary so a padding handle (±12px about the inner edge, 0 padding at worst) never covers them. */
-.hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 50%; display: flex; transform: translate(-50%, 12px); pointer-events: none; cursor: pointer; }
-.hm-pe__gapline:not([data-show]) { visibility: hidden; } /* an invisible pill still counts as covering what lies under it (the page-top one over the top padding handle) */
-.hm-pe__gapline[data-show] { pointer-events: auto; }
-.hm-pe__pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; opacity: 0; }
+/* "Add section" on a boundary: a full-width, 26px row centred on it (a 2px accent line and a centred pill). The row itself never takes the pointer; only the pill does, and only while direct.js
+   sets data-show (around the hovered section). After the selected section the row is the one tab stop: invisible until it has keyboard focus. Anything else is visibility:hidden, so nothing invisible swallows a click. */
+.hm-pe__gapline { all: unset; box-sizing: border-box; position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; block-size: 26px; transform: translateY(-50%); pointer-events: none; cursor: pointer; }
+.hm-pe__gapline:not([data-show]):not([tabindex="0"]) { visibility: hidden; } /* an invisible pill still counts as covering what lies under it (the page-top one over the top padding handle) */
+.hm-pe__gapline::before { content: ""; position: absolute; inset-inline: 0; top: 50%; block-size: 2px; transform: translateY(-50%); background: var(--color-accent); opacity: 0; pointer-events: none; }
+.hm-pe__gapline[data-show]::before, .hm-pe__gapline:focus-visible::before { opacity: .85; }
+.hm-pe__pill { position: relative; display: inline-flex; align-items: center; gap: var(--space-1); height: 26px; padding: 0 var(--space-3); border-radius: var(--radius-lg); background: var(--color-accent); color: var(--surface); box-shadow: var(--shadow-2); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; opacity: 0; pointer-events: none; }
 .hm-pe__pill svg { width: 12px; height: 12px; }
-.hm-pe__gapline[data-show] .hm-pe__pill { opacity: .85; }
-.hm-pe__gapline[data-show]:hover .hm-pe__pill, .hm-pe__gapline:focus-visible .hm-pe__pill { opacity: 1; }
+.hm-pe__gapline[data-show] .hm-pe__pill { opacity: .85; pointer-events: auto; }
+.hm-pe__gapline[data-show] .hm-pe__pill:hover, .hm-pe__gapline:focus-visible .hm-pe__pill { opacity: 1; }
 .hm-pe__gapline:focus-visible .hm-pe__pill { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-pe__toolbar, .hm-pe__tag, .hm-pe__size, .hm-pe__padbadge, .hm-pe__pill { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
   .hm-pe__hdl { background: Canvas; border-color: Highlight; }
-  .hm-pe__padh::after { background: Highlight; }
+  .hm-pe__padh::after { background: Highlight; border-color: Canvas; }
+  .hm-pe__gapline::before { background: Highlight; }
   .hm-pe__hatch { background: none; border: 1px dashed Highlight; }
   .hm-pe__tbtn:focus-visible, .hm-pe__tchip:focus-visible { outline-color: Highlight; }
 }
