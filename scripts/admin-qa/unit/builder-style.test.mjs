@@ -324,7 +324,7 @@ test("Effects: Shadow is None|S|M|L buttons writing none|sm|md|lg; the active on
   assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].textContent, "More effects options");
 });
 
-test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto|L|C|R|J", () => {
+test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto and three icon buttons", () => {
   const m = mount(heading(), { parent: section() });
   const groups = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0].kids[0].textContent);
   assert.equal(groups[0], "Typography");
@@ -332,7 +332,8 @@ test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; 
   assert.equal(typo.kids[0].kids[0].kids[0].attrs["aria-expanded"], "true");
   const r2 = m.find((n) => n.className === "hm-bs-r2", typo);
   assert.equal(r2.length, 2);
-  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.textContent), ["Auto", "L", "C", "R", "J"]);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.attrs["aria-label"]), ["Auto", "Left", "Center", "Right"]);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.attrs.title ?? null), [null, "Left", "Center", "Right"], "the icon buttons carry their name as a title");
   press(m, "Center", "Typography").fire("click");
   assert.deepEqual(m.calls.at(-1), { key: "ta", value: "center", at: "base", opts: { label: "Change Text align" } });
   press(m, "Auto", "Typography").fire("click");
@@ -403,11 +404,32 @@ test("the Text style select repaints the Sz and Wt fields from the batch it wrot
   assert.equal(wt.length, 1, "the weight control shows bold");
 });
 
-test("Align reaches every ta value: Justify writes justify and shows pressed when ta is justify", () => {
+test("Align reaches every ta value: Justify is in More typography options, as the full row", () => {
   const m = mount(heading(), { parent: section() });
-  press(m, "Justify", "Typography").fire("click");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", m.group("Typography"))[0];
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "justify"), more)[0];
+  assert.ok(sel, "a select with justify in More");
+  sel.value = "justify";
+  sel.fire("change");
   assert.deepEqual(m.calls.at(-1), { key: "ta", value: "justify", at: "base", opts: { label: "Change Text align" } });
-  const on = mount(heading({ ta: "justify" }), { parent: section() });
-  assert.equal(press(on, "Justify", "Typography").attrs["aria-pressed"], "true");
-  assert.equal(press(on, "Left", "Typography").attrs["aria-pressed"], "false");
+  assert.equal(press(m, "Center", "Typography").attrs["aria-pressed"], "false", "the icon row shows none pressed for justify");
+  press(m, "Center", "Typography").fire("click");
+  assert.equal(sel.value, "center", "the full row follows the icon row");
+});
+
+test("Align (ai) is three icon buttons; baseline and stretch are in More layout options", () => {
+  const m = mount(section());
+  const layout = m.group("Layout");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", layout)[0];
+  const inMore = new Set(m.find(() => true, more));
+  const icons = m.find((n) => n.tag === "button" && /^Align (start|center|end)$/.test(n.attrs["aria-label"] ?? "") && !inMore.has(n), layout);
+  assert.deepEqual(icons.map((b) => [b.attrs["aria-label"], b.attrs.title, b.textContent]), [["Align start", "Align start", ""], ["Align center", "Align center", ""], ["Align end", "Align end", ""]]);
+  const full = m.find((n) => n.tag === "button" && n.dataset?.v === "baseline", more);
+  assert.equal(full.length, 1, "baseline stays reachable in More");
+  m.find((n) => n.dataset?.v === "stretch", more)[0].fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "ai", value: "stretch", at: "base", opts: { label: "Change Align items" } });
+  assert.equal(icons.every((b) => b.attrs["aria-pressed"] === "false"), true);
+  icons[1].fire("click");
+  assert.equal(full[0].attrs["aria-pressed"], "false");
+  assert.equal(m.find((n) => n.dataset?.v === "center", more)[0].attrs["aria-pressed"], "true", "the full row follows the icon row");
 });

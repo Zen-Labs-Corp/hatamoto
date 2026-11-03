@@ -8,7 +8,7 @@ import { BP_NAME, BPS, NAMES, atLabel, ownValue, inheritedValue, hiddenAt } from
 import { showOnWrites } from "@hm/builder/showon";
 import { contextLine, stateChoices } from "@hm/builder/inspctx";
 import { rowState, groupDot, isLength, buildPalette, linkSets, probe, splitValue, joinValue, stepFor, boundsFor } from "@hm/builder/controls";
-import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/controlsui";
+import { row, lengthControl, colourControl, stopSlider, tplIcon } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
 import { swatchRow } from "@hm/builder/swatches";
@@ -59,11 +59,14 @@ const OPTION_NAMES = {
 const BUTTON_KEYS = new Set(["dir", "ai", "jc", "wrap", "as"]);
 // Count keys edited as presets 1..PRESETS plus a bounded number field.
 const PRESETS = 4;
-// Enum keys edited as a short row of buttons: [value, visible text, accessible name]. An empty value is "Auto": pressing it unsets.
+// Enum keys edited as a short row of buttons: [value, visible text, accessible name, icon]. An empty value is "Auto": pressing it unsets. A button with an icon shows the glyph and no text.
+// The rest of ai (baseline, stretch) and ta (justify) stay reachable in the group's More, through the full row.
 const BUTTON_ROWS = {
   shadow: [["none", "None", "None"], ["sm", "S", "Small"], ["md", "M", "Medium"], ["lg", "L", "Large"]],
-  ta: [["", "Auto", "Auto"], ["left", "L", "Left"], ["center", "C", "Center"], ["right", "R", "Right"], ["justify", "J", "Justify"]],
+  ta: [["", "Auto", "Auto"], ["left", "", "Left", "align-left"], ["center", "", "Center", "align-center"], ["right", "", "Right", "align-right"]],
+  ai: [["start", "", "Align start", "align-left"], ["center", "", "Align center", "align-center"], ["end", "", "Align end", "align-right"]],
 };
+const ALSO_IN_MORE = new Set(["ai", "ta"]); // keys whose primary row is the icon row above: the full control is in More too
 // Parents whose children are laid out by the container controls (span, align self).
 const HOSTS = new Set(["container", "columns"]);
 
@@ -188,6 +191,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     if (key === "pos") showOffsets();
     syncVisibility([key], key);
     paintGroups();
+    const twins = repaints.get(key); // a key with two rows (the icon row and its full row in More): the other one follows
+    if (twins?.length > 1) twins.forEach((f) => f());
     return true;
   }
   /** Several writes as one commit (one undo step); a write may carry its own bp, and a null that has nothing to clear is dropped. */
@@ -199,7 +204,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     for (const { key, value, bp: b = at } of todo) remember(key, value, b);
     syncVisibility(todo.map((w) => w.key), "hide");
     paintGroups();
-    for (const { key } of todo) repaints.get(key)?.();
+    for (const { key } of todo) repaints.get(key)?.forEach((f) => f());
     return true;
   }
   /** The group headers' "set here" dot: any key of the group has a value at the style-map key being edited. */
@@ -245,7 +250,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     body.append(...primaryRows(g, boxed));
     if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     const more = boxed ? [] : g.more;
-    if (more.length) body.append(moreBlock(g, more, gid));
+    const again = boxed ? [] : g.primary.filter((e) => ALSO_IN_MORE.has(e.key));
+    if (more.length || again.length) body.append(moreBlock(g, more, gid, again));
   }
   paintGroups();
   if (refocus) {
@@ -266,7 +272,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     switch (g.name) {
       case "Layout": {
         const maxw = one("maxw", undefined, { inline: true }); // before the buttons: they write through its apply
-        return [...(maxw.length ? [widthRow(by.get("maxw")), labelled("Max width", maxw[0])] : []), ...one("ai", "Align"), ...pair("gap", "minh")];
+        return [...(maxw.length ? [widthRow(by.get("maxw")), labelled("Max width", maxw[0])] : []), ...one("ai", "Align", { buttons: BUTTON_ROWS.ai }), ...pair("gap", "minh")];
       }
       case "Corners & border":
         return pair("radius", "bw");
@@ -323,8 +329,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   }
 
   /** The legacy full rows of the keys behind a group's More toggle, shown or hidden by the toggle (closed, not removed: the controls keep painting). */
-  function moreBlock(g, entries, gid) {
-    const keep = new Set(entries);
+  function moreBlock(g, entries, gid, again = []) {
+    const keep = new Set([...entries, ...again]); // `again`: primary keys shown here in full too; only `entries` open the block by themselves
     const key = `${g.name}:more`;
     const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
     const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
@@ -475,7 +481,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       };
       if (entry.key === "op") stops = stopSlider({ name, options: c.options.map(([v]) => v), apply });
     } else if (grouped) {
-      const buttons = c.options.map(([v, label, aria]) => h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", "aria-label": aria, text: label }));
+      const buttons = c.options.map(([v, label, aria, ico]) => {
+        const b = h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", "aria-label": aria, text: label });
+        if (ico) (b.setAttribute("title", aria), b.append(tplIcon(ico)));
+        return b;
+      });
       num = c.number ? h("input", { id, class: "hm-field__control hm-bs-ctl hm-bs-num", type: "number", min: String(c.min), max: String(c.max), step: "1", "aria-label": c.options.length ? `${name}, other number` : name, "aria-describedby": describe }) : null;
       sync = () => {
         for (const b of buttons) {
@@ -539,10 +549,10 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     if (input && !len && !col) input.addEventListener("change", () => apply(input.value.trim() || null));
     const label = inline ? null : grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
     applies.set(entry.key, apply);
-    repaints.set(entry.key, () => {
+    repaints.set(entry.key, [...(repaints.get(entry.key) ?? []), () => {
       own = ownValue(cur, bp, entry.key);
       paint();
-    });
+    }]);
     const view = inline ? inlineView() : row({
       id,
       name,
