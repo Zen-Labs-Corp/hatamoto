@@ -263,6 +263,45 @@ content writes outside a run.
 - Standing approvals and changesets need new core tables; that migration is part
   of core 2.0.
 
+### 11. Data-level boundaries (headless-ready, not headless)
+
+Hatamoto stays a single binary that renders its own public site
+([ADR 0002](0002-single-binary.md), ROADMAP decision 2: no headless mode). This
+ADR adds no public content API. It does keep every boundary at the level of
+structured data, so a content API can be added later (a future ADR) without
+changing how plugins work:
+
+- **Changesets hold structured data**: entity fields, attributes, terms,
+  redirects and proposals as typed values, never rendered pages.
+- **Risk checks run on that data**, not on rendered HTML: link hosts and query
+  parameters, embeds, control characters, slugs and singletons are found in the
+  stored fields. The same checks would apply to content served through an API.
+- **Preview is defined as "render the changeset's data"**. In this release core's
+  renderer is the only implementation. The changeset, its diff and its approval
+  state are not tied to it.
+- **Plugin output to pages is typed data.** Every surface this ADR adds returns
+  typed values only. Existing surfaces already do: template functions return
+  plain text that core escapes, `jsonld.enrich` returns objects, `render.page`
+  returns section blocks validated against their schemas, `builder.data`
+  returns data. The one exception is template packs (`partials/`, `sections/`):
+  they stay trusted template markup, checked as today, and they render only
+  through core's renderer.
+
+### 12. Content-improving tools are core features in this release
+
+A plugin cannot propose edits to objects it does not own. Tools that change
+the owner's own content (search and replace, bulk fixes, broken-link repair)
+are core features. They build a changeset with the owner as origin and go
+through the same preview, risk-weighted diff and publish as plugin runs.
+
+**Delegated runs are deferred.** In such a run the owner picks objects and a
+plugin proposes edits to them. Most of the tools that would want it (rewriting
+text, generating alt text, checking links) need to read the owner's content
+and reach the network in the same task. That combination is the exfiltration
+path section 2 closes. Allowing it needs its own consent model (which objects,
+sent to which host, for one run), and that is left to a later ADR. It fits
+this design as a new run scope with no change to the host functions above.
+
 ## Out of scope: separate threat surface
 
 **REST API keys and the MCP server** write to the site directly, by design: they
@@ -272,6 +311,10 @@ service tokens that the owner creates and revokes, are scoped by role, and are
 audited, and they cannot reach plugin routes. Their threats (token theft, an
 over-scoped key, a compromised external tool) are real but different, and
 they need their own design, not this one.
+
+**A public content API and headless front ends** are out of scope (section
+11). A future ADR decides them; this one only keeps the boundaries at the data
+level so that decision does not reopen plugin design.
 
 **Supply chain hardening** (separate signing keys for packages and for the
 registry index, an append-only public release log, installs and updates that
