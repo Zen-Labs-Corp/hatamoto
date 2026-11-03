@@ -128,3 +128,22 @@ test("a field header reads \"<Label>\" and \"Field in <Section>\"; the section n
   assert.equal(picked, "c1");
   assert.equal(all(el).some((n) => n.tag === "input" || n.attrs.role === "menu" || n.attrs.popovertarget), false);
 });
+
+test("a class gives the header a chip and the menu Apply class / Save as class rows that run the class actions", () => {
+  const ran = [];
+  const classes = { label: "Card", apply: () => ran.push("apply"), save: () => ran.push("save") };
+  const el = header({ node: doc.nodes[0].c[0], api: api(), name: "Heading", classes });
+  const items = all(el).filter((n) => n.attrs.role === "menuitem").map((n) => n.textContent);
+  assert.deepEqual(items.slice(0, 3), ["Apply class…", "Save as class…", "Copy style"]);
+  assert.ok(all(el).some((n) => /hm-bs-chip/.test(n.attrs.class ?? "") && n.textContent === "Card"), "the class chip");
+  for (const t of ["Apply class…", "Save as class…"]) all(el).find((n) => n.textContent === t).on.click[0]();
+  assert.deepEqual(ran, ["apply", "save"]);
+});
+
+test("no class logic (a component) or no create right: no chip, no Apply row, no Save row", () => {
+  const none = all(header({ node: doc.nodes[0], api: api(), name: "S" }));
+  assert.ok(!none.some((n) => /class/i.test(n.textContent) || /hm-bs-chip/.test(n.attrs.class ?? "")));
+  const noSave = all(header({ node: doc.nodes[0], api: api(), name: "S", classes: { label: "", apply() {}, save: null } }));
+  assert.ok(noSave.some((n) => n.textContent === "Apply class…"));
+  assert.ok(!noSave.some((n) => n.textContent === "Save as class…" || /hm-bs-chip/.test(n.attrs.class ?? "")));
+});

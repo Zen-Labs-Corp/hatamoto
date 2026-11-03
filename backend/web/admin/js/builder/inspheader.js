@@ -1,7 +1,7 @@
 // The inspector header (a lazy chunk, drawn after the element name so first paint carries only
 // the name and the tab shell): a type-icon tile, the editable name, "Section · N blocks" or
-// "Block in <parent>", and the "..." menu with Copy style, Paste style and Restore from an earlier version.
-import { h, actButton } from "@hm/builder/dom";
+// "Block in <parent>", a chip with the class when one is set, and the "..." menu with Apply class, Save as class, Copy style, Paste style and Restore from an earlier version.
+import { h, actButton, chip } from "@hm/builder/dom";
 import { clipboard } from "@hm/builder/design";
 import { find } from "@hm/builder/store";
 import { ICON_FOR, label } from "@hm/builder/navigator";
@@ -42,8 +42,9 @@ function fieldHeader({ field, api }) {
 /**
  * header({node, api, name, field}) -> the header element: icon tile, editable name, subtitle, "..." menu (in that focus order).
  * api: {getDoc(), reuse?, select(id), rename(id, value), copyStyle(), pasteStyle(), restore?(id)}. The restore row shows only when the screen offers it.
+ * classes: {label, apply(), save()?} from presetpanel (null for a component): the class chip and the two menu rows; save is absent when the user cannot create classes.
  */
-export function header({ node, api, name, field: picked = null }) {
+export function header({ node, api, name, field: picked = null, classes = null }) {
   if (picked) return fieldHeader({ field: picked, api });
   const id = `hm-bs-hm${++uid}`;
   const model = headerModel({ node, doc: api.getDoc(), blocks: api.reuse?.blocks });
@@ -65,9 +66,12 @@ export function header({ node, api, name, field: picked = null }) {
   const sub = model.parent
     ? h("small", { class: "hm-bs-sub" }, h("span", { text: "Block in " }), h("button", { type: "button", class: "hm-bs-sublink", text: model.parent.name, onclick: () => api.select(model.parent.id) }))
     : h("small", { class: "hm-bs-sub", text: model.count ? `Section · ${pluralBlocks(model.count)}` : "Section" });
+  const classRows = [];
+  if (classes) classRows.push([h("button", { type: "button", role: "menuitem", text: "Apply class…" }), classes.apply]);
+  if (classes?.save) classRows.push([h("button", { type: "button", role: "menuitem", text: "Save as class…" }), classes.save]);
   const copy = h("button", { type: "button", role: "menuitem", text: "Copy style" });
   const paste = h("button", { type: "button", role: "menuitem", text: "Paste style" });
-  const rows = [copy, paste];
+  const rows = [...classRows.map(([b]) => b), ...(classRows.length ? [h("div", { role: "separator" })] : []), copy, paste];
   const restore = api.restore ? h("button", { type: "button", role: "menuitem", text: "Restore from an earlier version…" }) : null;
   if (restore) rows.push(h("div", { role: "separator" }), restore);
   const menu = h("div", { class: "hm-menu", id, popover: "auto", role: "menu", "aria-label": "Element options" }, ...rows);
@@ -85,8 +89,9 @@ export function header({ node, api, name, field: picked = null }) {
     menu.hidePopover?.();
     fn();
   };
+  for (const [b, fn] of classRows) b.addEventListener("click", run(fn));
   copy.addEventListener("click", run(() => api.copyStyle()));
   paste.addEventListener("click", run(() => api.pasteStyle()));
   restore?.addEventListener("click", run(() => api.restore(node.id)));
-  return h("div", { class: "hm-bs-header" }, h("span", { class: "hm-bs-ico", "aria-hidden": "true" }, typeIcon(model.icon)), h("div", { class: "hm-bs-heading" }, h("h3", { class: "hm-bs-name" }, field), sub), opener, menu);
+  return h("div", { class: "hm-bs-header" }, h("span", { class: "hm-bs-ico", "aria-hidden": "true" }, typeIcon(model.icon)), h("div", { class: "hm-bs-heading" }, h("h3", { class: "hm-bs-name" }, field), sub, classes?.label ? chip(classes.label, { class: "hm-bs-chip" }) : null), opener, menu);
 }
