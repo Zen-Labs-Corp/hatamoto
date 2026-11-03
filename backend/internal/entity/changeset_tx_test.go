@@ -17,14 +17,13 @@ import (
 )
 
 type csFixture struct {
-	t       *testing.T
-	ctx     context.Context
-	db      *database.DB
-	svc     *Service
-	repo    *PostgresEntityRepository
-	schema  *EntitySchema
-	rec     *csRecorder
-	cleanup []uuid.UUID
+	t      *testing.T
+	ctx    context.Context
+	db     *database.DB
+	svc    *Service
+	repo   *PostgresEntityRepository
+	schema *EntitySchema
+	rec    *csRecorder
 }
 
 type csRecorder struct {
