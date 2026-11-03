@@ -55,10 +55,12 @@ Levels:
 One language per install; multilingual UI not yet. Every content entity carries a `locale` (BCP 47),
 slugs are unique per schema and locale, and public pages serve only the site language.
 
-The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and to 0.15.0 for the locale support, to 0.16.0 for the site graph filter and to 0.17.0 for runs (a break, see below) although no rule here requires it for an additive field
+The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and to 0.15.0 for the locale support, and to 0.16.0 for the site graph filter although no rule here requires it for an additive field
 (plugins ignore unknown JSON fields, and no permission is involved), because a published SDK tree cannot
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
+
+The 0.17.0 bump is not additive: it removes the direct content write permissions and functions in favour of runs and changesets, shipped with core 1.1.0 (see the one-time exception below).
 
 ## What 0.x means
 
