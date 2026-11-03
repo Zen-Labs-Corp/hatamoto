@@ -203,7 +203,7 @@ await check("a click at the centre of a heading inside a 2-column section select
   await settle(400);
   if ((await sel())[0] !== cols.c[0].id) throw new Error(`the crumb ${chain[chain.length - 2]} selected ${(await sel())[0]}`);
   if ((await crumbs()).length !== chain.length - 1) throw new Error("the strip did not follow the selection");
-  // Zoom: 50% fixes the scale at the floor, and Fit comes back; the Tablet band is labelled and coloured.
+  // Zoom: 50% fixes the scale at the floor, and Fit comes back; the Tablet band is coloured (the context line, not the strip, names the width).
   const width = () => p.locator(".hm-pe__stage").evaluate((e) => e.getBoundingClientRect().width);
   await p.locator('[data-hm-pe-strip] [data-zoom="100"]').click();
   const w100 = await width();
@@ -213,15 +213,13 @@ await check("a click at the centre of a heading inside a 2-column section select
   await p.locator('[data-hm-pe-strip] [data-zoom="fit"]').click();
   await p.locator('[data-hm-bs-device="md"]').click();
   await settle(300);
-  const label = await p.locator(".hm-pe__bandlabel").textContent();
-  if (!/^Tablet · editing styles up to 1024 px · Desktop is not changed$/.test(label)) throw new Error("band label: " + label);
+  if ((await p.locator(".hm-pe__bandlabel").count()) !== 0) throw new Error("a band label is drawn at Tablet");
   const band = await p.locator(".hm-pe__stage").evaluate((e) => getComputedStyle(e, "::before").backgroundColor);
   if (band === "rgba(0, 0, 0, 0)") throw new Error("no band at Tablet");
   await p.locator('[data-hm-bs-device="base"]').click();
   await settle(200);
-  if (!(await p.locator(".hm-pe__bandlabel").isHidden())) throw new Error("a band label shows on Desktop");
   await restore(start);
-  return `heading selected, not its column or section; crumbs ${chain.join(" > ")}; zoom 50% = half of 100%; Tablet band labelled`;
+  return `heading selected, not its column or section; crumbs ${chain.join(" > ")}; zoom 50% = half of 100%; Tablet band coloured`;
 });
 
 let start1 = "";

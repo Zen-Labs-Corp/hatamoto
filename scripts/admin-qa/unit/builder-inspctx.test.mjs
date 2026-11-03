@@ -35,8 +35,10 @@ test("override note per device", () => {
 });
 
 test("override note names the state when one is chosen", () => {
-  assert.match(overrideNote("md", "hover"), /≤1024px\. Applies only in the Hover state\.$/);
-  assert.match(overrideNote("base", "active"), /Pressed state\.$/);
+  assert.equal(overrideNote("md", "hover"), "Hover state only; overrides Desktop on screens ≤1024px.");
+  assert.equal(overrideNote("sm", "focus"), "Focus state only; overrides Tablet on screens ≤640px.");
+  assert.equal(overrideNote("base", "active"), "Pressed state only, on every screen size.");
+  for (const d of ["base", "md", "sm"]) assert.ok(overrideNote(d, "parent-hover").length <= overrideNote("base").length, "a state note is no longer than the longest plain one: it stays on one line");
 });
 
 test("Parent hover is offered only for a parent that can take it", () => {
@@ -49,7 +51,9 @@ test("Parent hover is offered only for a parent that can take it", () => {
 
 test("the line holds a pill, a labelled State select and the note it is described by", () => {
   const line = contextLine({ device: "md", state: "focus", choices: stateChoices({ t: "container" }), onState() {} });
-  assert.equal(find(line, (n) => n.attrs.class === "hm-bs-ctx__bp")[0].textContent, "Tablet");
+  const [pill] = find(line, (n) => n.attrs.class === "hm-bs-ctx__bp");
+  assert.equal(pill.textContent, "Tablet");
+  assert.equal(pill.attrs["data-device"], "md", "the device colours the pill");
   const [select] = find(line, (n) => n.tag === "select");
   assert.equal(select.attrs["aria-label"], "State");
   assert.match(select.attrs.class, /(^| )hm-field__control( |$)/, "the State select is the field primitive, not a bare select");
@@ -81,6 +85,7 @@ test("the breakpoint pill clones the admin's badge when the page carries the tem
     const line = contextLine({ device: "sm", onState() {} });
     const [pill] = find(line, (n) => n === badge);
     assert.equal(pill.attrs.class, "hm-badge hm-bs-ctx__bp");
+    assert.equal(pill.attrs["data-device"], "sm");
     assert.equal(pill.textContent, "Phone");
   } finally {
     delete document.querySelector;

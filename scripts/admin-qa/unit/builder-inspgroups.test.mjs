@@ -14,7 +14,7 @@ register(
     }`),
 );
 
-const { figmaGroups, groupHasValue, initialOpen, SHORT, canScrub } = await import(new URL("builder/inspgroups.js", root));
+const { figmaGroups, groupHasValue, moreHasValue, initialOpen, SHORT, canScrub, PRIMARY, WIDTH_PRESETS, widthOf } = await import(new URL("builder/inspgroups.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 const by = (keys) => keys.map((k) => table.find((e) => e.key === k)).filter(Boolean);
 
@@ -38,7 +38,7 @@ const keysOf = (gs) => gs.flatMap((g) => g.entries.map((e) => e.key));
 
 test("the six Figma groups in order, every key exactly once", () => {
   const gs = figmaGroups(old);
-  assert.deepEqual(gs.map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"]);
+  assert.deepEqual(gs.map((g) => g.name), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"]);
   const want = old.flatMap((g) => g.entries.map((e) => e.key)).sort();
   assert.deepEqual(keysOf(gs).sort(), want);
   assert.equal(new Set(keysOf(gs)).size, want.length, "no key twice");
@@ -47,7 +47,7 @@ test("the six Figma groups in order, every key exactly once", () => {
 test("Layout takes Layout, In its parent and Size; Effects takes the sub-blocks", () => {
   const gs = figmaGroups(old);
   assert.deepEqual(gs[0].sub.map((s) => s.name), ["Layout", "In its parent", "Size"]);
-  assert.deepEqual(gs[5].sub.map((s) => s.name), ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"]);
+  assert.deepEqual(gs[4].sub.map((s) => s.name), ["Effects", "Position", "Transform", "Filter", "Transition", "Visibility"]);
   assert.equal(gs[1].sub.length, 1);
 });
 
@@ -64,15 +64,16 @@ test("Typography is offered for every kind, closed when nothing is set unless th
   }
 });
 
-test("a text kind lists Typography first and opens it; other kinds keep the order and Typography closed", () => {
+test("a text kind lists Typography, Spacing and Effects first and opens the first two; other kinds put Typography after Effects, closed, so a section reads Layout, Spacing, Fill, Corners & border, Effects", () => {
   for (const t of ["heading", "text", "button"]) {
     const gs = figmaGroups(old, { t });
-    assert.deepEqual(gs.map((g) => g.name), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"], t);
+    assert.deepEqual(gs.map((g) => g.name), ["Typography", "Spacing", "Effects", "Layout", "Fill", "Corners & border"], t);
     assert.equal(initialOpen("Typography", false, { t }), true, t);
-    assert.equal(initialOpen("Layout", false, { t }), false, "only Typography opens by default");
+    assert.equal(initialOpen("Spacing", false, { t }), true, t);
+    for (const closed of ["Effects", "Layout", "Fill", "Corners & border"]) assert.equal(initialOpen(closed, false, { t }), false, `${closed} starts closed`);
   }
   for (const t of ["container", "image", "divider"]) {
-    assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Typography", "Corners & border", "Effects"], t);
+    assert.deepEqual(figmaGroups(old, { t }).map((g) => g.name), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"], t);
     assert.equal(initialOpen("Typography", false, { t }), false, t);
   }
   assert.equal(keysOf(figmaGroups(old, { t: "heading" })).length, keysOf(figmaGroups(old)).length, "reordering loses no key");
@@ -87,12 +88,82 @@ test("open state: a value set here opens a group, none starts it closed, a secti
   assert.equal(initialOpen("Fill", false, { t: "container" }), false);
   assert.equal(initialOpen("Layout", false, { t: "container" }), true);
   assert.equal(initialOpen("Spacing", false, { t: "container" }), true);
-  assert.equal(initialOpen("Spacing", false, { t: "heading" }), false);
+  assert.equal(initialOpen("Corners & border", false, { t: "container" }), true, "a section opens Corners & border");
+  assert.equal(initialOpen("Corners & border", false, { t: "heading" }), false);
+  assert.equal(initialOpen("Spacing", false, { t: "heading" }), true, "a text block opens Spacing (margins and the Gap note)");
+  assert.equal(initialOpen("Spacing", false, { t: "image" }), false);
   assert.equal(initialOpen("Effects", false, null), false);
 });
 
 test("short labels and which labels scrub", () => {
-  assert.deepEqual(SHORT, { w: "W", h: "H", gap: "Gap", fs: "Sz", lh: "LH", ls: "LS" });
+  assert.deepEqual(SHORT, { w: "W", maxw: "W", h: "H", minh: "H", gap: "Gap", fs: "Sz", fw: "Wt", lh: "LH", ls: "LS", radius: "R", bw: "B", mt: "↑", mb: "↓" });
   for (const k of ["w", "h", "gap", "fs", "lh", "ls", "radius"]) assert.equal(canScrub(table.find((e) => e.key === k)), true, k);
   for (const k of ["pt", "ml", "bg", "ta", "shadow"]) assert.equal(canScrub(table.find((e) => e.key === k)), false, k);
+});
+
+const split = (node) => Object.fromEntries(figmaGroups(old, node).map((g) => [g.name, g]));
+const ks = (es) => es.map((e) => e.key);
+
+test("primary and more split every group's entries exactly once", () => {
+  for (const t of ["container", "heading", "image", "divider"]) {
+    for (const g of figmaGroups(old, { t })) {
+      assert.deepEqual([...ks(g.primary), ...ks(g.more)].sort(), ks(g.entries).sort(), `${t} ${g.name}`);
+      assert.equal(new Set([...ks(g.primary), ...ks(g.more)]).size, g.entries.length, `${t} ${g.name} no key twice`);
+    }
+  }
+});
+
+test("a section's Layout primary rows are Width, Align, Gap, Height; the rest is More", () => {
+  const l = split({ t: "container" }).Layout;
+  assert.deepEqual(ks(l.primary), PRIMARY.Layout.filter((k) => ks(l.entries).includes(k)));
+  assert.deepEqual(ks(l.primary), ["maxw", "ai", "gap", "minh"]);
+  for (const k of ["dir", "jc", "wrap", "as", "w", "h", "maxh"]) assert.ok(ks(l.more).includes(k), k);
+});
+
+test("a state view drops keys: the primary list only has the keys present", () => {
+  const l = figmaGroups(old.map((g) => ({ ...g, entries: g.entries.filter((e) => e.key !== "maxw") })), { t: "container" }).find((g) => g.name === "Layout");
+  assert.deepEqual(ks(l.primary), ["ai", "gap", "minh"]);
+});
+
+test("a non-section's Layout is all More", () => {
+  for (const t of ["image", "heading", "divider"]) {
+    const l = split({ t }).Layout;
+    assert.deepEqual(l.primary, [], t);
+    assert.equal(l.more.length, l.entries.length, t);
+  }
+});
+
+test("a text block's Spacing primary is the top and bottom margin, the rest is More; other kinds have the box model only", () => {
+  const s = split({ t: "heading" }).Spacing;
+  assert.deepEqual(ks(s.primary), ["mt", "mb"]);
+  assert.deepEqual(ks(s.more).sort(), ["ml", "mr", "pb", "pl", "pr", "pt"]);
+  assert.deepEqual(split({ t: "container" }).Spacing.primary, []);
+});
+
+test("Fill, Corners and Effects primary rows; More holds the rest", () => {
+  const g = split({ t: "container" });
+  assert.deepEqual(ks(g.Fill.primary), ["bg"]);
+  assert.deepEqual(ks(g.Fill.more), ["bgimg"]);
+  assert.deepEqual(ks(g["Corners & border"].primary), ["radius", "bw"]);
+  assert.deepEqual(ks(g["Corners & border"].more), ["bs", "bc"]);
+  assert.deepEqual(ks(g.Effects.primary), ["shadow"]);
+  assert.ok(ks(g.Effects.more).includes("op") && ks(g.Effects.more).includes("display"));
+  assert.deepEqual(ks(split({ t: "heading" }).Typography.primary), ["fs", "fw", "lh", "ls", "ta", "color"]);
+  assert.deepEqual(ks(split({ t: "heading" }).Typography.more), ["ff"]);
+});
+
+test("More opens when any of its keys has a value here", () => {
+  const g = split({ t: "container" }).Layout;
+  assert.equal(moreHasValue(g, (k) => ({ dir: "row" })[k] ?? null), true);
+  assert.equal(moreHasValue(g, (k) => ({ maxw: "full" })[k] ?? null), false, "a primary key does not open More");
+  assert.equal(moreHasValue(g, () => null), false);
+});
+
+test("width presets map to the existing maxw values and back", () => {
+  assert.deepEqual(WIDTH_PRESETS, { full: "full", wide: "container", text: "45rem" });
+  assert.equal(widthOf("full"), "full");
+  assert.equal(widthOf("container"), "wide");
+  assert.equal(widthOf("45rem"), "text");
+  assert.equal(widthOf("720px"), "");
+  assert.equal(widthOf(null), "");
 });

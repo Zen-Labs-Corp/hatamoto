@@ -1,4 +1,4 @@
-// The Style tab's Show on switches and the "Show as" select stay in step, and a switch is one commit
+// The Advanced tab's Visibility group: Show on switches and the "Show as" select stay in step, and a switch is one commit
 // that leaves the other widths as they were. A small element stub stands in for the DOM.
 // Run: node --test scripts/admin-qa/unit/builder-visibility.test.mjs
 import { register } from "node:module";
@@ -36,14 +36,14 @@ globalThis.CSS = { escape: (s) => s };
 const { mountStyle } = await import(new URL("builder/style.js", root));
 
 const table = [
-  { key: "w", kind: "text", props: ["width"], tokens: {}, pattern: ".*" }, // Size: the Layout group, which holds Show on, needs a key
+  { key: "w", kind: "text", props: ["width"], tokens: {}, pattern: ".*" }, // a Design tab key, to show the Design tab leaves both Visibility controls out
   { key: "hide", kind: "enum", props: ["display"], enum: { 1: "none" } },
   { key: "display", kind: "enum", props: ["display"], enum: { block: "block", flex: "flex", none: "none" } },
 ];
 const mount = (node, extra = {}) => {
   const calls = [];
   const el = mountStyle({
-    node, table, bp: "sm", display: "block",
+    node, table, bp: "sm", display: "block", only: "visibility",
     commit: (key, value, bp) => (calls.push([{ key, value }, bp]), true),
     commitMany: (writes, bp) => (calls.push([writes, bp]), true),
     ...extra,
@@ -84,4 +84,13 @@ test("Show as none switches the width off", () => {
   sel.value = "none";
   sel.fire("change");
   assert.equal(m.boxes()[2].checked, false);
+});
+
+test("the Design tab has neither Show on nor Show as; the Advanced group has both", () => {
+  const design = mount({ t: "text" }, { only: "" });
+  assert.equal(design.boxes().length, 0);
+  assert.equal(design.select(), undefined);
+  const adv = mount({ t: "text" });
+  assert.equal(adv.boxes().length, 3);
+  assert.ok(adv.select());
 });

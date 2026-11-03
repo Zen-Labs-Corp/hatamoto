@@ -164,3 +164,342 @@ test("stateOptions: Parent hover only with a parent that is not a ref or compone
   assert.deepEqual(ids({ t: "container" }), ["", "hover", "focus", "active", "parent-hover"]);
   for (const p of [null, { t: "ref" }, { t: "component" }]) assert.deepEqual(ids(p), ["", "hover", "focus", "active"]);
 });
+
+// ---- mountStyle: the Layout group's primary rows, More and the width buttons ----------------
+
+class El {
+  constructor(tag) {
+    Object.assign(this, { tag, attrs: {}, kids: [], on: {}, hidden: false, dataset: {}, className: "", textContent: "", value: "", checked: false, placeholder: "", classes: new Set() });
+    this.style = { setProperty() {}, removeProperty() {} };
+    this.classList = { toggle: (c, on) => (on ? this.classes.add(c) : this.classes.delete(c)), add: (c) => this.classes.add(c) };
+  }
+  setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; if (k === "class") this.className = String(v); if (k.startsWith("data-")) this.dataset[k.slice(5)] = String(v); }
+  getAttribute(k) { return this.attrs[k] ?? null; }
+  removeAttribute(k) { delete this.attrs[k]; }
+  toggleAttribute(k, on) { if (on) this.attrs[k] = ""; else delete this.attrs[k]; }
+  matches() { return false; }
+  append(...k) { for (const x of k) { this.kids.push(x); x.parent = this; } }
+  replaceChildren(...k) { this.kids = []; this.append(...k); }
+  remove() { if (this.parent) this.parent.kids = this.parent.kids.filter((x) => x !== this); }
+  replaceWith(n) { const p = this.parent; p.kids[p.kids.indexOf(this)] = n; n.parent = p; }
+  addEventListener(t, f) { (this.on[t] ??= []).push(f); }
+  fire(t, ev = {}) { (this.on[t] ?? []).forEach((f) => f({ preventDefault() {}, ...ev })); }
+  querySelector() { return null; }
+  walk(f) { f(this); this.kids.forEach((k) => k.walk(f)); }
+}
+globalThis.document = { createElement: (t) => new El(t) };
+globalThis.CSS = { escape: (s) => s };
+const { mountStyle } = await import(new URL("../../../backend/web/admin/js/builder/style.js", import.meta.url));
+const { readFileSync } = await import("node:fs");
+const full = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
+
+const FS = { sm: "0.875rem", md: "1rem", xl: "1.5rem", "2xl": "2rem" };
+const mount = (node, { bp = "base", state = "", parent = null, fs = FS, colors = [], presets = [] } = {}) => {
+  const calls = [];
+  const el = mountStyle({
+    node, parent, table: full, bp, state, display: "block", presets,
+    palette: { colors, space: { 4: "1rem" }, fs },
+    commit: (key, value, at, opts) => (calls.push({ key, value, at, opts }), true),
+    commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
+  });
+  const find = (pred, from = el) => { const r = []; from.walk((n) => pred(n) && r.push(n)); return r; };
+  const group = (name) => find((n) => n.className === "hm-bs-grp").find((g) => g.kids[0].kids[0].kids[0].kids[0].textContent === name);
+  return { el, calls, find, group };
+};
+const section = (s = {}) => ({ id: "n", t: "container", s: { base: s } });
+
+test("group headings are h4 with the button inside, which keeps aria-expanded", () => {
+  const m = mount(section());
+  const head = m.group("Layout").kids[0].kids[0];
+  assert.equal(head.tag, "h4");
+  assert.equal(head.kids[0].tag, "button");
+  assert.ok(["true", "false"].includes(head.kids[0].attrs["aria-expanded"]));
+});
+
+test("a section's Layout shows Width, Max width, Align and Gap/Height without a select or a slider; the rest is behind More", () => {
+  const m = mount(section());
+  const layout = m.group("Layout");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", layout)[0];
+  const inMore = new Set(m.find(() => true, more));
+  const primary = m.find((n) => (n.tag === "select" || n.attrs.type === "range") && !inMore.has(n), layout);
+  assert.deepEqual(primary, [], "no select, no slider in the primary rows");
+  const labels = m.find((n) => n.className?.includes("hm-bs-fld__lb") && !inMore.has(n), layout).map((n) => n.kids[0]?.textContent ?? n.textContent);
+  assert.deepEqual(labels, ["W", "Gap", "H"]);
+  const rows = m.find((n) => n.className === "hm-field hm-bs-field hm-bs-lrow", layout);
+  assert.equal(rows.length, 1, "the Max width row");
+  assert.equal(rows[0].kids[0].textContent, "Max width", "its label sits in the row's label column");
+  assert.ok(m.find((n) => n.className === "hm-bs-fld", rows[0]).length, "beside the inline scrub field");
+  const widths = m.find((n) => n.dataset?.v && ["full", "wide", "text"].includes(n.dataset.v), layout).map((b) => b.textContent);
+  assert.deepEqual(widths, ["Full", "Wide", "Text"]);
+  const toggle = m.find((n) => n.className === "hm-bs-morebtn", layout)[0];
+  assert.equal(toggle.textContent, "More layout options");
+  assert.equal(toggle.attrs["aria-expanded"], "false");
+  assert.equal(more.hidden, true);
+  assert.ok(m.find((n) => n.attrs?.["aria-label"] === "Reset Row gap" || n.textContent === "Row gap", more).length, "legacy rows stay in More");
+});
+
+test("More opens by itself when a key behind it has a value here, not for a primary key", () => {
+  const withMore = mount(section({ rgap: "8px" }));
+  const t = withMore.find((n) => n.className === "hm-bs-morebtn", withMore.group("Layout"))[0];
+  assert.equal(t.attrs["aria-expanded"], "true");
+  assert.equal(withMore.find((n) => n.className === "hm-bs-grp__more", withMore.group("Layout"))[0].hidden, false);
+  const primaryOnly = mount(section({ maxw: "full" }));
+  assert.equal(primaryOnly.find((n) => n.className === "hm-bs-morebtn", primaryOnly.group("Layout"))[0].attrs["aria-expanded"], "false");
+});
+
+test("the More toggle shows and hides its rows", () => {
+  const m = mount(section());
+  const layout = m.group("Layout");
+  const t = m.find((n) => n.className === "hm-bs-morebtn", layout)[0];
+  const box = m.find((n) => n.className === "hm-bs-grp__more", layout)[0];
+  t.fire("click");
+  assert.equal(t.attrs["aria-expanded"], "true");
+  assert.equal(box.hidden, false);
+  t.fire("click");
+  assert.equal(box.hidden, true);
+});
+
+test("Width buttons: pressed state follows maxw (full, container, 45rem), another value presses none", () => {
+  const pressed = (maxw) => {
+    const m = mount(section(maxw === null ? {} : { maxw }));
+    return m.find((n) => ["full", "wide", "text"].includes(n.dataset?.v) && n.attrs["aria-pressed"] === "true").map((b) => b.dataset.v);
+  };
+  assert.deepEqual(pressed("full"), ["full"]);
+  assert.deepEqual(pressed("container"), ["wide"]);
+  assert.deepEqual(pressed("45rem"), ["text"]);
+  assert.deepEqual(pressed("720px"), []);
+  assert.deepEqual(pressed(null), []);
+});
+
+test("Width buttons write maxw through the one commit path; the active one unsets; the Max width field follows", () => {
+  const m = mount(section());
+  const btn = (v) => m.find((n) => n.dataset?.v === v && n.tag === "button")[0];
+  btn("wide").fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "maxw", value: "container", at: "base", opts: { label: "Change Max width" } });
+  assert.equal(btn("wide").attrs["aria-pressed"], "true");
+  btn("text").fire("click");
+  assert.equal(m.calls.at(-1).value, "45rem");
+  assert.equal(btn("wide").attrs["aria-pressed"], "false");
+  btn("text").fire("click");
+  assert.equal(m.calls.at(-1).value, null, "pressing the active one unsets it");
+  btn("full").fire("click");
+  const field = m.find((n) => n.tag === "input" && n.attrs["aria-describedby"] && n.attrs.type === "text" && n.value === "full");
+  assert.equal(field.length, 1, "the Max width field shows the token");
+});
+
+test("a block that is not a section keeps its Layout behind More", () => {
+  const m = mount({ id: "i", t: "image", s: { base: {} } }, { parent: section() });
+  const layout = m.group("Layout");
+  assert.equal(m.find((n) => n.dataset?.v === "full", layout).length, 0, "no Width buttons");
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", layout).length, 1);
+});
+
+// ---- Corners, Effects, Typography and a text block's Spacing -------------------------------
+
+const heading = (s = {}) => ({ id: "h", t: "heading", s: { base: s } });
+const press = (m, label, group) => m.find((n) => n.tag === "button" && n.attrs["aria-label"] === label, group ? m.group(group) : m.el)[0];
+
+test("Corners & border: radius and border width sit two-up; the hint stays", () => {
+  const m = mount(section());
+  const g = m.group("Corners & border");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", g);
+  assert.equal(r2.length, 1);
+  assert.deepEqual(m.find((n) => n.className?.includes("hm-bs-fld__lb"), r2[0]).map((n) => n.kids[0]?.textContent), ["R", "B"]);
+  assert.ok(m.find((n) => n.textContent === "A width shows only once a border style is set.", g).length);
+});
+
+test("Effects: Shadow is None|S|M|L buttons writing none|sm|md|lg; the active one unsets; the rest is behind More", () => {
+  const m = mount(section());
+  const g = m.group("Effects");
+  const row = m.find((n) => n.className === "hm-bs-opts", g)[0];
+  assert.deepEqual(row.kids.map((b) => b.textContent), ["None", "S", "M", "L"]);
+  assert.deepEqual(row.kids.map((b) => b.attrs["aria-label"]), ["None", "Small", "Medium", "Large"]);
+  for (const [name, v] of [["Small", "sm"], ["Medium", "md"], ["Large", "lg"], ["None", "none"]]) {
+    press(m, name, "Effects").fire("click");
+    assert.deepEqual(m.calls.at(-1), { key: "shadow", value: v, at: "base", opts: { label: "Change Shadow" } });
+  }
+  press(m, "None", "Effects").fire("click");
+  assert.equal(m.calls.at(-1).value, null, "pressing the active one unsets");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Opacity slider" || n.attrs?.["aria-label"] === "Reset Opacity", g).length > 0, true, "opacity stays reachable");
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].textContent, "More effects options");
+});
+
+test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto and three icon buttons", () => {
+  const m = mount(heading(), { parent: section() });
+  const groups = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0].kids[0].textContent);
+  assert.equal(groups[0], "Typography");
+  const typo = m.group("Typography");
+  assert.equal(typo.kids[0].kids[0].kids[0].attrs["aria-expanded"], "true");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", typo);
+  assert.equal(r2.length, 2);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.attrs["aria-label"]), ["Auto", "Left", "Center", "Right"]);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.attrs.title ?? null), [null, "Left", "Center", "Right"], "the icon buttons carry their name as a title");
+  press(m, "Center", "Typography").fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "ta", value: "center", at: "base", opts: { label: "Change Text align" } });
+  press(m, "Auto", "Typography").fire("click");
+  assert.equal(m.calls.at(-1).value, null, "Auto unsets");
+});
+
+test("a text block: Typography and Spacing open, then Effects, then Layout, Fill and Corners & border closed; every key stays reachable", () => {
+  const m = mount(heading(), { parent: section({ gap: "space-4" }) });
+  const heads = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0]);
+  assert.deepEqual(heads.map((b) => [b.kids[0].textContent, b.attrs["aria-expanded"]]), [["Typography", "true"], ["Spacing", "true"], ["Effects", "false"], ["Layout", "false"], ["Fill", "false"], ["Corners & border", "false"]]);
+  const spacing = m.group("Spacing");
+  assert.match(m.find((n) => n.className === "hm-bs-hintline", spacing)[0].textContent, /^Space between blocks comes from the section's Gap \(16px\)\.$/);
+  assert.ok(m.find((n) => n.dataset?.v === "full" || n.attrs?.["aria-label"] === "Reset Background" || n.className === "hm-bs-morebtn", m.group("Layout")).length, "Layout keeps its More");
+});
+
+test("Wt is an inline field: its short label sits beside the select inside one 28px field", () => {
+  const m = mount(heading(), { parent: section() });
+  const r2 = m.find((n) => n.className === "hm-bs-r2", m.group("Typography"))[0];
+  const fld = m.find((n) => n.className === "hm-bs-fld" && n.kids.some((k) => k.tag === "select"), r2)[0];
+  assert.ok(fld, "the select is inside a .hm-bs-fld");
+  assert.equal(fld.kids[0].tag, "label");
+  assert.equal(fld.kids[0].attrs.for, fld.kids[1].attrs.id, "the label names the select");
+  assert.equal(fld.kids[0].kids[0].textContent, "Wt");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-lbl"), r2).length, 0, "no above-the-control label");
+});
+
+test("the Text style select writes the size token and the weight in one batch with one label", () => {
+  const m = mount(heading(), { parent: section() });
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.deepEqual(sel.kids.map((o) => o.attrs.value), ["", "2xl", "xl", "md", "sm"], "one option per site size, biggest first");
+  sel.value = "2xl";
+  sel.fire("change");
+  assert.deepEqual(m.calls.at(-1), { batch: [{ key: "fs", value: "2xl" }, { key: "fw", value: "bold" }], at: "base", opts: { label: "Change Text style" } });
+  assert.equal(sel.value, "2xl", "it shows the preset now that both keys match");
+  sel.value = "sm";
+  sel.fire("change");
+  assert.deepEqual(m.calls.at(-1).batch, [{ key: "fs", value: "sm" }, { key: "fw", value: "normal" }]);
+});
+
+test("the Text style select reads Custom when fs and fw do not match a preset, and is absent without site sizes", () => {
+  const sel = (m) => m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.equal(sel(mount(heading({ fs: "xl", fw: "bold" }))).value, "xl");
+  assert.equal(sel(mount(heading({ fs: "xl", fw: "400" }))).value, "");
+  assert.equal(sel(mount(heading(), { fs: {} })), undefined);
+});
+
+test("a text block's Spacing is two margin fields and a hint with the section's gap; the other sides are behind More", () => {
+  const parent = section({ gap: "space-4" });
+  const m = mount(heading(), { parent });
+  const g = m.group("Spacing");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-bm"), g).length, 0, "no box model");
+  const r2 = m.find((n) => n.className === "hm-bs-r2", g)[0];
+  assert.deepEqual(m.find((n) => n.className?.includes("hm-bs-fld__lb"), r2).map((n) => n.kids[0]?.textContent), ["\u2191", "\u2193"]);
+  assert.equal(m.find((n) => n.className === "hm-bs-hintline", g)[0].textContent, "Space between blocks comes from the section's Gap (16px).");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", g)[0];
+  for (const side of ["Padding top", "Padding left", "Margin right"]) assert.ok(m.find((n) => n.attrs?.["aria-label"] === `Reset ${side}`, more).length, side);
+  assert.equal(mount(heading(), { parent: section() }).find((n) => n.className === "hm-bs-hintline").map((n) => n.textContent)[0], "Space between blocks comes from the section's Gap.");
+});
+
+test("a section keeps the box model in Spacing, no More", () => {
+  const m = mount(section());
+  const g = m.group("Spacing");
+  assert.equal(m.find((n) => n.className === "hm-bs-bm hm-bs-bm--nested", g).length, 1);
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g).length, 0);
+});
+
+test("Fill keeps the colour field and the theme pills; Fill's other keys are behind More", () => {
+  const m = mount(section({ bgimg: "/media/a.jpg" }));
+  const g = m.group("Fill");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", g).length > 0, true);
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
+});
+
+test("Fill is one row: [swatch name] with the colour or token name, no label, the reset inside the row", () => {
+  const rowOf = (m) => m.find((n) => n.className === "hm-field hm-bs-field hm-bs-fillrow", m.group("Fill"))[0];
+  const m = mount(section({ bg: "#112233" }));
+  const row = rowOf(m);
+  assert.ok(row, "the Fill row");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-lbl"), row).length, 0, "no wrapping label");
+  assert.equal(m.find((n) => n.className === "hm-bs-colour__t", row)[0].textContent, "#112233", "a custom colour shows its hex");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", row.kids[0]).length, 1, "the reset sits in the row's field");
+  const none = mount(section());
+  assert.equal(none.find((n) => n.className === "hm-bs-colour__t", rowOf(none))[0].textContent, "None");
+  assert.equal(none.find((n) => n.attrs?.["aria-label"] === "Reset Background", rowOf(none)).every((b) => b.hidden), true, "nothing to reset when unset");
+});
+
+test("the Text style select repaints the Sz and Wt fields from the batch it wrote, still one commit", () => {
+  const node = heading({ fs: "16px", fw: "normal" });
+  const m = mount(node);
+  const field = (short) => {
+    const lb = m.find((n) => n.className?.includes("hm-bs-fld__lb") && n.kids[0]?.textContent === short)[0];
+    return m.find((n) => n.attrs?.id === lb.attrs.for && n.tag !== "label")[0];
+  };
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.equal(field("Sz").value, "16");
+  sel.value = "2xl";
+  sel.fire("change");
+  assert.equal(m.calls.length, 1, "one batch");
+  assert.notEqual(field("Sz").value, "16", "the size field shows the preset, so a scrub starts from it");
+  const wt = m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "bold") && n.value === "bold", m.group("Typography"));
+  assert.equal(wt.length, 1, "the weight control shows bold");
+});
+
+test("Align reaches every ta value: Justify is in More typography options, as the full row", () => {
+  const m = mount(heading(), { parent: section() });
+  const more = m.find((n) => n.className === "hm-bs-grp__more", m.group("Typography"))[0];
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "justify"), more)[0];
+  assert.ok(sel, "a select with justify in More");
+  sel.value = "justify";
+  sel.fire("change");
+  assert.deepEqual(m.calls.at(-1), { key: "ta", value: "justify", at: "base", opts: { label: "Change Text align" } });
+  assert.equal(press(m, "Center", "Typography").attrs["aria-pressed"], "false", "the icon row shows none pressed for justify");
+  press(m, "Center", "Typography").fire("click");
+  assert.equal(sel.value, "center", "the full row follows the icon row");
+});
+
+test("Align (ai) is three icon buttons; baseline and stretch are in More layout options", () => {
+  const m = mount(section());
+  const layout = m.group("Layout");
+  const more = m.find((n) => n.className === "hm-bs-grp__more", layout)[0];
+  const inMore = new Set(m.find(() => true, more));
+  const icons = m.find((n) => n.tag === "button" && /^Align (start|center|end)$/.test(n.attrs["aria-label"] ?? "") && !inMore.has(n), layout);
+  assert.deepEqual(icons.map((b) => [b.attrs["aria-label"], b.attrs.title, b.textContent]), [["Align start", "Align start", ""], ["Align center", "Align center", ""], ["Align end", "Align end", ""]]);
+  const full = m.find((n) => n.tag === "button" && n.dataset?.v === "baseline", more);
+  assert.equal(full.length, 1, "baseline stays reachable in More");
+  m.find((n) => n.dataset?.v === "stretch", more)[0].fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "ai", value: "stretch", at: "base", opts: { label: "Change Align items" } });
+  assert.equal(icons.every((b) => b.attrs["aria-pressed"] === "false"), true);
+  icons[1].fire("click");
+  assert.equal(full[0].attrs["aria-pressed"], "false");
+  assert.equal(m.find((n) => n.dataset?.v === "center", more)[0].attrs["aria-pressed"], "true", "the full row follows the icon row");
+});
+
+const moreBtn = (m, group) => m.find((n) => n.className === "hm-bs-morebtn", m.group(group))[0];
+
+test("More opens by itself for a value the icon rows cannot show: ta justify, ai baseline or stretch", () => {
+  const ta = mount({ id: "more-ta", t: "heading", s: { base: { ta: "justify" } } }, { parent: section() });
+  assert.equal(moreBtn(ta, "Typography").attrs["aria-expanded"], "true", "justify: More typography is open");
+  const sel = ta.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "justify"), ta.group("Typography"))[0];
+  assert.equal(sel.value, "justify", "and it names the value");
+  for (const v of ["baseline", "stretch"]) assert.equal(moreBtn(mount({ id: `more-ai-${v}`, t: "container", s: { base: { ai: v } } }), "Layout").attrs["aria-expanded"], "true", `${v}: More layout is open`);
+  assert.equal(moreBtn(mount({ id: "more-ai-c", t: "container", s: { base: { ai: "center" } } }), "Layout").attrs["aria-expanded"], "false", "a value the icon row shows leaves More closed");
+});
+
+test("a value only More shows opens it even after More was closed by hand on that element", () => {
+  const closed = mount({ id: "more-closed", t: "container", s: { base: {} } });
+  const b = moreBtn(closed, "Layout");
+  b.fire("click");
+  b.fire("click");
+  assert.equal(b.attrs["aria-expanded"], "false", "closed by hand");
+  assert.equal(moreBtn(mount({ id: "more-closed", t: "container", s: { base: { jc: "center" } } }), "Layout").attrs["aria-expanded"], "true");
+});
+
+test("a group the user opened on one element does not open on the next: kind defaults hold per selection", () => {
+  const head = (m) => m.find((n) => n.className === "hm-bs-grp__t", m.group("Fill"))[0];
+  const fill = (m) => head(m).attrs["aria-expanded"];
+  const a = mount({ id: "memo-a", t: "container", s: { base: {} } });
+  assert.equal(fill(a), "false");
+  head(a).fire("click");
+  assert.equal(fill(mount({ id: "memo-a", t: "container", s: { base: {} } })), "true", "sticky for the same element across re-renders");
+  assert.equal(fill(mount({ id: "memo-b", t: "heading", s: { base: {} } }, { parent: section() })), "false", "a later element starts from its kind's default");
+});
+
+test("Wt shows 'From class' when the node's class gives the weight", () => {
+  const wt = (m) => m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "bold"), m.group("Typography"))[0];
+  const classed = mount({ id: "wt-a", t: "heading", p: { preset: "lead" }, s: { base: {} } }, { parent: section(), presets: [{ name: "lead", label: "Lead", s: { base: { fw: "bold" } } }] });
+  assert.match(wt(classed).kids[0].textContent, /^From class: /);
+  assert.equal(wt(mount({ id: "wt-b", t: "heading", s: { base: {} } }, { parent: section() })).kids[0].textContent, "Not set");
+});

@@ -300,7 +300,7 @@ the page is, or only how the same data is shown?
   tablist bar, the inner one a section of the panel), and the inner one never navigates.
 - **JS tablists** switch panels in the same document and are not `hm/tabs`
   rows (they are buttons with `aria-selected`, not links). Three of them, the blog
-  editor's Post / SEO and AEO tabs, the builder inspector's Content / Style / Advanced
+  editor's Post / SEO and AEO tabs, the builder inspector's Design / Content / Advanced
   tabs and the shared SEO panel's Search / Social / Schema / Advanced tabs (`hm/seopanel`,
   module `@hm/seopanel`, shown stacked under their headings without JavaScript), use `.hm-tablist` / `.hm-tablist__tab`: the exact `hm/tabs` underline recipe (same type,
   ink underline, hover pill, hairline), declared in `tabs.css` as selector lists on the link-tab
@@ -598,6 +598,8 @@ Accent is for links and focus; ink is for selection and tabs (the builder Layers
 - `.hm-theme--active` (Themes page): the state hook of the live theme card. It stays a hairline like every card; the Live badge carries the state, not a ring.
 - `.hm-btn[aria-pressed="true"]` (blog editor Focus and Toolbar, date range presets): a toggle button, not a choice among siblings. It keeps the 1px ink ring and kasumi fill of a pressed button.
 - `.hm-aia-lg` legend toggles (chart series): the toggle shows a series on or off, and its swatch carries the series colour, so the pressed state is dimming, not a fill.
+
+The builder inspector's Design tab shows a group's main rows and puts the rest behind a quiet "More … options" toggle (`.hm-bs-morebtn`, `aria-expanded`; a value set in a hidden row opens it). Its length fields are 28px scrub fields (`.hm-bs-fld`: a short label that is also the drag handle, the number, a unit suffix only when not px), not a select with a slider.
 
 ### Radiocard
 

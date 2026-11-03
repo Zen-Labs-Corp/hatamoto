@@ -8,11 +8,11 @@ import { BP_NAME, BPS, NAMES, atLabel, ownValue, inheritedValue, hiddenAt } from
 import { showOnWrites } from "@hm/builder/showon";
 import { contextLine, stateChoices } from "@hm/builder/inspctx";
 import { rowState, groupDot, isLength, buildPalette, linkSets, probe, splitValue, joinValue, stepFor, boundsFor } from "@hm/builder/controls";
-import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/controlsui";
+import { row, lengthControl, colourControl, stopSlider, tplIcon, shortLabel } from "@hm/builder/controlsui";
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
 import { swatchRow } from "@hm/builder/swatches";
-import { figmaGroups, groupHasValue, initialOpen, canScrub, SHORT } from "@hm/builder/inspgroups";
+import { figmaGroups, groupHasValue, moreHasValue, initialOpen, canScrub, isTextKind, SHORT, WIDTH_PRESETS, widthOf } from "@hm/builder/inspgroups";
 
 // Labels of the keys added by StyleSpec v2. They live here, in the lazy chunk, so first paint does not carry them;
 // the first-paint inspector reads NAMES[key] ?? key and runs after this chunk has loaded.
@@ -59,6 +59,14 @@ const OPTION_NAMES = {
 const BUTTON_KEYS = new Set(["dir", "ai", "jc", "wrap", "as"]);
 // Count keys edited as presets 1..PRESETS plus a bounded number field.
 const PRESETS = 4;
+// Enum keys edited as a short row of buttons: [value, visible text, accessible name, icon]. An empty value is "Auto": pressing it unsets. A button with an icon shows the glyph and no text.
+// The rest of ai (baseline, stretch) and ta (justify) stay reachable in the group's More, through the full row.
+const BUTTON_ROWS = {
+  shadow: [["none", "None", "None"], ["sm", "S", "Small"], ["md", "M", "Medium"], ["lg", "L", "Large"]],
+  ta: [["", "Auto", "Auto"], ["left", "", "Left", "align-left"], ["center", "", "Center", "align-center"], ["right", "", "Right", "align-right"]],
+  ai: [["start", "", "Align start", "align-left"], ["center", "", "Align center", "align-center"], ["end", "", "Align end", "align-right"]],
+};
+const ALSO_IN_MORE = new Set(["ai", "ta"]); // keys whose primary row is the icon row above: the full control is in More too
 // Parents whose children are laid out by the container controls (span, align self).
 const HOSTS = new Set(["container", "columns"]);
 
@@ -133,7 +141,7 @@ export function inheritedAt(node, at, key) {
   return null;
 }
 
-// Which groups the user opened or closed, kept for the page session (not stored): a group otherwise starts open only when it has a value set here.
+// Which groups the user opened or closed, per element (`id:group`), kept for the page session (not stored): a group otherwise starts open per the kind's defaults or when it has a value set here. A new selection starts from the defaults again.
 const openGroups = new Map();
 
 let uid = 0;
@@ -145,7 +153,7 @@ let refocus = false; // a State choice remounts the panel: the new State select 
  * the screen's setStyle command (bp defaults to the one being edited); a refused value is
  * flagged and never committed. Controls update in place after a commit: nothing redraws.
  */
-export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, user = "", size = () => null, onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
+export function mountStyle({ node, parent = null, table, bp: device, state = "", onState = () => {}, display, presets = [], palette: bootPalette = null, only = "", user = "", size = () => null, onEditSiteColours = null, commit: commitStyle, commitMany, announce = () => {} }) {
   if (!table) return h("p", { class: "hm-muted", text: "Loading style options…" });
   const bp = state ? `${device}:${state}` : device; // the style-map key every control reads and writes
   const lab = (k) => (state && !k.includes(":") ? `Normal, ${atLabel(k)}` : atLabel(k));
@@ -155,7 +163,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     announce(id ? `State: ${name}. Canvas shows ${name.toLowerCase()}.` : "State: Normal.");
     onState(id);
   };
-  const root = h("div", { class: "hm-bs-style" }, contextLine({ device, state, choices: stateChoices(parent), onState: pick }));
+  const root = h("div", { class: "hm-bs-style" }, ...(only ? [] : [contextLine({ device, state, choices: stateChoices(parent), onState: pick })]));
   const preset = presetOf(node, presets);
   const palette = buildPalette(bootPalette, table); // site colours, spacing and font sizes: token labels and swatches
   const cur = { ...node, s: Object.fromEntries(Object.entries(node.s ?? {}).map(([b, m]) => [b, { ...m }])) }; // follows the commits made here
@@ -183,6 +191,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     if (key === "pos") showOffsets();
     syncVisibility([key], key);
     paintGroups();
+    const twins = repaints.get(key); // a key with two rows (the icon row and its full row in More): the other one follows
+    if (twins?.length > 1) twins.forEach((f) => f());
     return true;
   }
   /** Several writes as one commit (one undo step); a write may carry its own bp, and a null that has nothing to clear is dropped. */
@@ -194,44 +204,55 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     for (const { key, value, bp: b = at } of todo) remember(key, value, b);
     syncVisibility(todo.map((w) => w.key), "hide");
     paintGroups();
+    for (const { key } of todo) repaints.get(key)?.forEach((f) => f());
     return true;
   }
   /** The group headers' "set here" dot: any key of the group has a value at the style-map key being edited. */
   function paintGroups() {
     for (const { entries, dot, vh } of groups) dot.hidden = vh.hidden = !groupDot(entries, (k) => ownValue(cur, bp, k));
     for (const b of boxModels) b.paint();
+    for (const paint of [...widthRows, ...typePresets]) paint();
   }
   const visibility = { paint: null, show: null }; // the Show on paint function and the "Show as" field
   const groups = []; // [{entries, dot}] of the group headers
   const boxModels = []; // the Spacing group's box model
+  const typePresets = []; // the Text style select's paint: it follows fs and fw
+  const widthRows = []; // the paint functions of the Width buttons: they follow every maxw write
+  const repaints = new Map(); // key -> repaint of its field from the node's value, for a batch that wrote the key behind the field's back
+  const applies = new Map(); // key -> the apply function of its field, for a control that writes another control's key
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
-  for (const g of figmaGroups(groupsFor(table, cur, parent, state), cur)) {
+  if (only === "visibility") {
+    // the Advanced tab's Visibility group: Show on and "Show as", with the sync between them (the Design tab leaves both out)
+    const entry = table.find((e) => e.key === "display");
+    if (entry && table.some((e) => e.key === "hide")) {
+      const show = showOnRow();
+      visibility.show = { entry, box: field(entry) };
+      root.append(h("div", { class: "hm-bs-grp" }, h("h4", { class: "hm-bs-grp__hd", text: "Visibility" }), h("div", { class: "hm-bs-grp__b" }, show, visibility.show.box)));
+    }
+    return root;
+  }
+  for (const g of figmaGroups(groupsFor(table, cur, parent, state, new Set(["display"])), cur)) {
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
     const vh = h("span", { class: "hm-visually-hidden", hidden: true, text: "A value is set here" });
     const gid = `hm-bs-g${++uid}`;
-    const open = openGroups.get(g.name) ?? initialOpen(g.name, groupHasValue(g.entries, (k) => ownValue(cur, bp, k)), cur);
+    const memo = `${cur.id}:${g.name}`;
+    const open = openGroups.get(memo) ?? initialOpen(g.name, groupHasValue(g.entries, (k) => ownValue(cur, bp, k)), cur);
     const head = h("button", { type: "button", class: "hm-bs-grp__t", id: `${gid}-t`, "aria-expanded": String(open), "aria-controls": `${gid}-r` }, h("span", { text: g.name }), dot, vh);
     const body = h("div", { class: "hm-bs-grp__b", id: `${gid}-r`, hidden: !open }); // collapsed, not removed: the controls keep painting, so a closed header's dot stays right
     head.addEventListener("click", () => {
       const now = head.getAttribute("aria-expanded") !== "true";
       head.setAttribute("aria-expanded", String(now));
       body.hidden = !now;
-      openGroups.set(g.name, now);
+      openGroups.set(memo, now);
     });
-    root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, head), body)); // plain blocks: six named regions would crowd the landmark list
+    root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, h("h4", { class: "hm-bs-grp__hd" }, head)), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
-    if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
-    if (g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k))) body.append(showOnRow());
-    for (const sub of g.sub) {
-      const box = linkSets(sub.entries.map((e) => e.key)).length ? spacingBox(sub.entries) : null;
-      const boxes = [...(box ? [box.el] : []), ...sub.entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
-      sub.entries.forEach((e, i) => {
-        if (e.key === "display") visibility.show = { entry: e, box: boxes[i] }; // the display block has no box model, so the indices still line up
-      });
-      const block = h("div", { class: "hm-bs-grp__sub" }, ...(g.sub.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
-      body.append(block);
-      if (sub.name === "Position") position = { fs: block, boxes };
-    }
+    const boxed = g.name === "Spacing" && !isTextKind(cur); // the box model shows every side: nothing goes behind More
+    body.append(...primaryRows(g, boxed));
+    const more = boxed ? [] : g.more;
+    const again = boxed ? [] : g.primary.filter((e) => ALSO_IN_MORE.has(e.key));
+    if (more.length || again.length) body.append(moreBlock(g, more, gid, again));
+    else if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
   }
   paintGroups();
   if (refocus) {
@@ -239,6 +260,125 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     queueMicrotask(() => root.querySelector('select[aria-label="State"]')?.focus()); // after the caller has attached the panel
   }
   return root;
+
+  /** The rows of a group that show without opening More: the Layout rows of a section, the box model of Spacing, else the group's own rows (two-up where the keys pair). */
+  function primaryRows(g, boxed) {
+    if (boxed) return spacingRows(g.entries);
+    const by = new Map(g.primary.map((e) => [e.key, e]));
+    const one = (k, title, opts) => (by.has(k) ? [field(by.get(k), title, opts)] : []);
+    const pair = (...keys) => {
+      const fields = keys.flatMap((k) => one(k, undefined, { inline: true }));
+      return fields.length ? [h("div", { class: "hm-bs-r2" }, ...fields)] : [];
+    };
+    switch (g.name) {
+      case "Layout": {
+        const maxw = one("maxw", undefined, { inline: true }); // before the buttons: they write through its apply
+        return [...(maxw.length ? [widthRow(by.get("maxw")), labelled("Max width", maxw[0])] : []), ...one("ai", "Align", { buttons: BUTTON_ROWS.ai }), ...pair("gap", "minh")];
+      }
+      case "Corners & border":
+        return pair("radius", "bw");
+      case "Effects":
+        return one("shadow", undefined, { buttons: BUTTON_ROWS.shadow });
+      case "Typography":
+        return [...typeRow(by), ...pair("fs", "fw"), ...pair("lh", "ls"), ...one("ta", "Align", { buttons: BUTTON_ROWS.ta }), ...one("color")];
+      case "Spacing":
+        return [...pair("mt", "mb"), ...gapHint(by)];
+      default:
+        return g.primary.map((e) => field(e));
+    }
+  }
+
+  /** The label column of the other rows beside an inline field, which has no row chrome of its own; its short label ("W") names the field, so this one is for the eye only. */
+  function labelled(text, box) {
+    return h("div", { class: "hm-field hm-bs-field hm-bs-lrow" }, h("span", { class: "hm-field__label hm-bs-lbl", "aria-hidden": "true", text }), box);
+  }
+
+  /** "Space between blocks comes from the section's Gap (16px)." under a text block's margins: the parent's gap at this width, when there is a section. */
+  function gapHint(by) {
+    if (!by.size || !parent) return [];
+    const v = ownValue(parent, device, "gap") ?? inheritedAt(parent, device, "gap")?.value ?? null;
+    const t = /^space-\d+$/.test(v ?? "") ? palette.space?.[v.slice(6)] : v;
+    const m = /^(\d+(?:\.\d+)?)(px|rem|em)$/.exec(t ?? "");
+    const shown = m ? `${Math.round(Number(m[1]) * (m[2] === "px" ? 1 : 16))}px` : null;
+    return [h("p", { class: "hm-bs-hintline", text: `Space between blocks comes from the section's Gap${shown ? ` (${shown})` : ""}.` })];
+  }
+
+  /** The Text style select: one option per site font size (palette.fs), writing fs and fw together (one undo step). Bigger sizes are bold, smaller regular; "Custom" when the two do not match one. */
+  function typeRow(by) {
+    if (!by.has("fs") || !by.has("fw")) return [];
+    const px = (v) => {
+      const m = /^(\d+(?:\.\d+)?)(px|rem|em)$/.exec(v ?? "");
+      return m ? Number(m[1]) * (m[2] === "px" ? 1 : 16) : 0;
+    };
+    const steps = Object.entries(palette.fs ?? {}).sort((x, y) => px(y[1]) - px(x[1])).filter(([t]) => Object.hasOwn(by.get("fs").tokens ?? {}, t));
+    if (!steps.length) return [];
+    const weight = (v) => (px(v) >= 24 ? "bold" : "normal");
+    const id = `hm-bs-s${++uid}`;
+    const sel = h("select", { id, class: "hm-field__control hm-bs-ctl" }, h("option", { value: "", text: "Custom" }), ...steps.map(([t, v]) => h("option", { value: t, text: `${t} (${v})` })));
+    const paint = () => {
+      const fs = ownValue(cur, bp, "fs");
+      sel.value = steps.some(([t, v]) => t === fs && ownValue(cur, bp, "fw") === weight(v)) ? fs : "";
+    };
+    sel.addEventListener("change", () => {
+      const step = steps.find(([t]) => t === sel.value);
+      if (!step) return paint();
+      if (!commitBatch([{ key: "fs", value: step[0] }, { key: "fw", value: weight(step[1]) }], bp, { label: "Change Text style" })) paint();
+    });
+    typePresets.push(paint);
+    paint();
+    return [h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: "Text style" })), sel)];
+  }
+
+  /** The legacy full rows of the keys behind a group's More toggle, shown or hidden by the toggle (closed, not removed: the controls keep painting). */
+  function moreBlock(g, entries, gid, again = []) {
+    const keep = new Set([...entries, ...again]); // `again`: primary keys shown here in full too; a value of theirs the icon row cannot show opens it too
+    const key = `${cur.id}:${g.name}:more`;
+    // A value only More can show (or that the icon row has no button for) opens it, whatever was closed by hand before.
+    const hidden = moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k)) || again.some((e) => { const v = ownValue(cur, bp, e.key); return v !== null && !BUTTON_ROWS[e.key].some(([b]) => b === v); });
+    const open = hidden || (openGroups.get(key) ?? false);
+    const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
+    const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open }, ...(GROUP_HINTS[g.name] ? [h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] })] : [])); // the hint sits with the rows it is about (border style and sides)
+    toggle.addEventListener("click", () => {
+      const now = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(now));
+      box.hidden = !now;
+      openGroups.set(key, now);
+    });
+    const subs = g.sub.map((sub) => ({ name: sub.name, entries: sub.entries.filter((e) => keep.has(e)) })).filter((sub) => sub.entries.length);
+    for (const sub of subs) {
+      const boxes = sub.entries.map((e) => field(e));
+      const block = h("div", { class: "hm-bs-grp__sub" }, ...(subs.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
+      box.append(block);
+      if (sub.name === "Position") position = { fs: block, boxes };
+    }
+    return h("div", { class: "hm-bs-more__w" }, toggle, box);
+  }
+
+  /** The Spacing group as the box model (margin and padding rings) plus a field for any side that is not part of a ring. */
+  function spacingRows(entries) {
+    const box = linkSets(entries.map((e) => e.key)).length ? spacingBox(entries) : null;
+    return [...(box ? [box.el] : []), ...entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
+  }
+
+  /** Full | Wide | Text: three buttons writing the existing maxw key (Full = full, Wide = container, Text = 45rem); pressing the active one unsets it. */
+  function widthRow(entry) {
+    const id = `hm-bs-s${++uid}`;
+    const buttons = Object.keys(WIDTH_PRESETS).map((k) => h("button", { type: "button", class: "hm-bs-opt", "data-v": k, "aria-pressed": "false", text: k[0].toUpperCase() + k.slice(1) }));
+    const el = h("div", { class: "hm-field hm-bs-field hm-bs-width" }, h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: "Width" }), h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": `${id}-l` }, ...buttons));
+    const paint = () => {
+      const now = widthOf(stateFor(entry.key).value);
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.v === now));
+    };
+    for (const b of buttons) {
+      b.addEventListener("click", () => {
+        const v = WIDTH_PRESETS[b.dataset.v];
+        applies.get(entry.key)?.(ownValue(cur, bp, entry.key) === v ? null : v); // through the Max width field: it validates, commits and repaints
+      });
+    }
+    widthRows.push(paint);
+    paint();
+    return el;
+  }
 
   function showOffsets() {
     if (!position) return;
@@ -310,9 +450,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     return box;
   }
 
-  function field(entry, title) {
+  /** One control for entry. inline (a length, or a select: the Wt field): the 28px scrub field of the primary rows, no row chrome (the dot, reset and source chip are the legacy row's); clearing the text unsets it. */
+  function field(entry, title, { inline = false, buttons: asButtons = null } = {}) {
     const id = `hm-bs-s${++uid}`;
-    const c = control(entry);
+    const c = asButtons ? { kind: "buttons", options: asButtons.filter(([v]) => v === "" || Object.hasOwn(entry.enum ?? {}, v)) } : control(entry);
+    inline &&= c.kind === "length" || c.kind === "select";
     const name = title ?? NAMES[entry.key] ?? entry.key;
     let own = ownValue(cur, bp, entry.key);
     const unsetSrc = stateFor(entry.key, null); // where the value comes from when nothing is set here (the server's cascade)
@@ -324,6 +466,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const fromPreset = unsetSrc.source === "preset" ? unsetSrc.value : null;
     const unset = inh ? `Inherited: ${inh.value}` : "Not set";
     let el; // the select or text input, or the row of a button group
+    let fld = null; // the 28px field around an inline select
     let num = null; // the number field of a count group
     let box = null; // the field's row, set once built
     let sync = () => {}; // repaints the control from `own`
@@ -333,7 +476,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     let pills = null; // the Fill group's theme colour pills (the background only)
 
     if (c.kind === "select") {
-      el = h("select", { id, class: "hm-field__control hm-bs-ctl", "aria-describedby": describe }, h("option", { value: "", text: unset }));
+      el = h("select", { id, class: "hm-field__control hm-bs-ctl", "aria-describedby": describe }, h("option", { value: "", text: inline && fromPreset !== null ? `From class: ${c.options.find(([v]) => v === fromPreset)?.[1] ?? fromPreset}` : unset })); // the inline field has no source chip: the empty option says where the value comes from
       for (const [v, label] of c.options) el.append(h("option", { value: v, text: label }));
       sync = () => {
         if (own !== null && !c.options.some(([v]) => v === own) && !el.querySelector(`option[value="${CSS.escape(own)}"]`)) el.append(h("option", { value: own, text: `${own} (custom)` }));
@@ -341,19 +484,30 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
         stops?.sync(own, inh?.value ?? fromPreset);
       };
       if (entry.key === "op") stops = stopSlider({ name, options: c.options.map(([v]) => v), apply });
+      if (inline) {
+        // [Wt  500 v]: the short name at the left of the select, inside the one 28px field
+        const lb = h("label", { class: "hm-field__label hm-bs-fld__lb", for: id, text: name });
+        shortLabel(lb, name, SHORT[entry.key]);
+        el.classList.add("hm-bs-fld__n");
+        fld = h("div", { class: "hm-bs-fld" }, lb, el);
+      }
     } else if (grouped) {
-      const buttons = c.options.map(([v, label]) => h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", text: label }));
+      const buttons = c.options.map(([v, label, aria, ico]) => {
+        const b = h("button", { type: "button", class: "hm-bs-opt", "data-v": v, "aria-pressed": "false", "aria-label": aria, text: label });
+        if (ico) (b.setAttribute("title", aria), b.append(tplIcon(ico)));
+        return b;
+      });
       num = c.number ? h("input", { id, class: "hm-field__control hm-bs-ctl hm-bs-num", type: "number", min: String(c.min), max: String(c.max), step: "1", "aria-label": c.options.length ? `${name}, other number` : name, "aria-describedby": describe }) : null;
       sync = () => {
         for (const b of buttons) {
-          b.setAttribute("aria-pressed", String(own === b.dataset.v));
+          b.setAttribute("aria-pressed", String((own ?? "") === b.dataset.v));
           b.classList.toggle("hm-bs-opt--inherited", own === null && inh?.value === b.dataset.v);
         }
         if (num) num.value = own !== null && !c.options.some(([v]) => v === own) ? own : "";
       };
       for (const b of buttons) {
         b.addEventListener("click", () => {
-          const v = own === b.dataset.v ? null : b.dataset.v; // pressing the active one unsets it
+          const v = (own ?? "") === b.dataset.v ? null : b.dataset.v || null; // pressing the active one unsets it; Auto (no value) unsets too
           if (commit(entry.key, v)) {
             own = v;
             paint();
@@ -363,7 +517,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       el = h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": `${id}-l`, "aria-describedby": describe }, ...buttons);
       if (num) el.append(num);
     } else if (c.kind === "length") {
-      len = lengthControl({ id, entry, name, palette, describe, apply });
+      len = lengthControl({ id, entry, name, palette, describe, apply, inline, short: SHORT[entry.key], scrub: inline && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined });
       el = len.el;
       sync = () => {
         len.sync(own, inh ? String(inh.value) : fromPreset !== null ? String(fromPreset) : "");
@@ -404,13 +558,19 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       return true;
     }
     if (input && !len && !col) input.addEventListener("change", () => apply(input.value.trim() || null));
-    const label = grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
-    const view = row({
+    const label = inline ? null : grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
+    applies.set(entry.key, apply);
+    repaints.set(entry.key, [...(repaints.get(entry.key) ?? []), () => {
+      own = ownValue(cur, bp, entry.key);
+      paint();
+    }]);
+    const view = inline ? inlineView() : row({
       id,
       name,
       label,
-      scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
-      body: [el, pills?.el, stops?.el, datalist],
+      scrub: len && !inline && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
+      body: [...(pills ? [] : [el]), pills?.el, stops?.el, datalist],
+      compact: pills ? [el, col.text] : null, // the Fill row: [swatch  Brand], no label (the group says it), the pills under it
       status,
       note,
       onReset: () => {
@@ -425,6 +585,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     box = view.el;
     paint();
     return box;
+
+    /** The inline field's wrapper: the field, the screen-reader status and the refusal note; paint marks the field's dot for the CSS. */
+    function inlineView() {
+      return { el: h("div", { class: "hm-bs-fldbox" }, fld ?? el, status, note), paint: (state) => ((fld ?? el).dataset.dot = state.dot) };
+    }
   }
 }
 

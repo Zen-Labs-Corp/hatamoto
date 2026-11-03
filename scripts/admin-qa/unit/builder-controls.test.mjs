@@ -276,3 +276,96 @@ test("stepValue: a value already outside the bounds is stepped, not snapped to t
   assert.equal(C.stepValue(-8, 1, 1, false, b), -7);
   assert.equal(C.stepValue(0, -1, 1, false, b), 0, "padding still stops at 0");
 });
+
+// ---- the inline 28px field (controlsui.lengthControl({inline})) -------------------------
+
+class El {
+  constructor(tag) {
+    Object.assign(this, { tag, attrs: {}, kids: [], on: {}, hidden: false, className: "", textContent: "", value: "", placeholder: "", classes: new Set() });
+    this.classList = { toggle: (c, on) => (on ? this.classes.add(c) : this.classes.delete(c)), add: (c) => this.classes.add(c) };
+  }
+  setAttribute(k, v) { this.attrs[k] = String(v); if (k === "hidden") this.hidden = true; if (k === "class") this.className = String(v); }
+  getAttribute(k) { return this.attrs[k] ?? null; }
+  removeAttribute(k) { delete this.attrs[k]; }
+  append(...k) { for (const x of k) { this.kids.push(x); x.parent = this; } }
+  addEventListener(t, f) { (this.on[t] ??= []).push(f); }
+  fire(t, ev = {}) { (this.on[t] ??= []).forEach((f) => f({ preventDefault() {}, ...ev })); }
+  walk(f) { f(this); this.kids.forEach((k) => k.walk(f)); }
+}
+globalThis.document = { createElement: (t) => new El(t) };
+const { lengthControl } = await import(new URL("builder/controlsui.js", root));
+const all = (el, pred) => { const r = []; el.walk((n) => pred(n) && r.push(n)); return r; };
+const palette = { colors: [], space: { 4: "1rem" }, fs: {} };
+const inline = (key, extra = {}) => {
+  const applied = [];
+  const len = lengthControl({ id: "f", entry: e(key), name: "Gap", palette, describe: "", inline: true, short: "Gap", apply: (v) => (applied.push(v), true), ...extra });
+  return { len, applied };
+};
+
+test("inline length: a label, one text field and a suffix; no select, no slider", () => {
+  const { len } = inline("gap");
+  assert.deepEqual(all(len.el, (n) => n.tag === "select" || n.attrs.type === "range"), []);
+  assert.equal(len.el.className, "hm-bs-fld");
+  assert.equal(len.num.attrs.id, "f");
+  assert.equal(len.label.attrs.for, "f", "the label names the field");
+});
+
+test("inline length: the short label shows, the full name follows hidden (label in name)", () => {
+  const { len } = inline("fs", { name: "Font size", short: "Sz" });
+  assert.equal(len.label.kids[0].textContent, "Sz");
+  assert.equal(len.label.kids[1].textContent, " font size");
+  assert.match(len.label.kids[1].className, /hm-visually-hidden/);
+});
+
+test("inline length: the unit suffix shows only when the unit is not px", () => {
+  const { len } = inline("gap");
+  const suffix = all(len.el, (n) => n.className === "hm-bs-fld__u")[0];
+  len.sync("12px");
+  assert.equal(len.num.value, "12");
+  assert.equal(suffix.hidden, true);
+  len.sync("2rem");
+  assert.equal(len.num.value, "2");
+  assert.equal(suffix.textContent, "rem");
+  assert.equal(suffix.hidden, false);
+  len.sync(null);
+  assert.equal(suffix.hidden, true);
+});
+
+test("inline length: a space token shows as its name; a number typed after it or after a clear writes px (the unit shown), a token name or a unit value as typed, empty clears", () => {
+  const { len, applied } = inline("gap");
+  const suffix = all(len.el, (n) => n.className === "hm-bs-fld__u")[0];
+  len.sync("space-4");
+  assert.equal(len.num.value, "space-4");
+  assert.equal(suffix.hidden, true, "no rem suffix next to a token");
+  const type = (v) => ((len.num.value = v), len.num.fire("change"));
+  type("24");
+  len.sync("2rem");
+  len.sync(null);
+  assert.equal(suffix.hidden, true);
+  type("24");
+  type("space-7");
+  type("3rem");
+  type("");
+  assert.deepEqual(applied, ["24px", "24px", "space-7", "3rem", null], "24 is px after a token or a clear, not the rem last shown");
+});
+
+test("inline length: arrow keys step the typed number, Shift by ten", () => {
+  const { len, applied } = inline("gap");
+  len.sync("10px");
+  len.num.fire("keydown", { key: "ArrowUp" });
+  len.num.fire("keydown", { key: "ArrowUp", shiftKey: true });
+  assert.equal(applied[0], "11px");
+  assert.equal(applied[1], "21px");
+});
+
+test("inline length: a scrub drags from the label", () => {
+  const { len } = inline("gap", { scrub: { get: () => 8, apply() {}, step: () => 1, bounds: () => ({ min: 0, max: 99 }) } });
+  assert.ok(len.label.classes.has("hm-bs-scrub"));
+  assert.equal(len.label.attrs.title, "Drag to change");
+});
+
+test("the legacy length control has no compact mode any more", () => {
+  const len = lengthControl({ id: "g", entry: e("pt"), name: "Padding top", palette, describe: "", apply() {}, compact: true });
+  assert.ok(!/hm-bs-len--c/.test(len.el.className));
+  assert.ok(all(len.el, (n) => n.attrs.type === "range").length === 1);
+});

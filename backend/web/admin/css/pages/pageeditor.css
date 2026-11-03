@@ -13,16 +13,12 @@
 .hm-pe__crumb:hover { color: var(--text); background: var(--surface-hover); }
 .hm-pe__crumb[aria-current="true"] { color: var(--text); font-weight: var(--weight-semibold); cursor: default; }
 .hm-pe__crumb:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.hm-pe__bandlabel { flex: 1 0 100%; order: -1; padding: var(--space-0-5) var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-xs); } /* its own row above the crumbs: they keep the full width */
-.hm-pe__bandlabel[hidden] { display: none; }
 .hm-pe__crumbnav { flex: 1 1 14rem; }
 .hm-pe__zoom { flex: 0 0 auto; align-self: center; }
 /* The device band: a 4 px bar over the page and its label. An absent data-hm-device is Desktop (no band). */
 [data-hm-device="md"] .hm-pe__stage::before, [data-hm-device="sm"] .hm-pe__stage::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 4px; pointer-events: none; }
 [data-hm-device="md"] .hm-pe__stage::before { background: var(--color-device-tablet); }
 [data-hm-device="sm"] .hm-pe__stage::before { background: var(--color-device-phone); }
-[data-hm-device="md"] .hm-pe__bandlabel { color: var(--color-device-tablet); background: var(--color-device-tablet-soft); }
-[data-hm-device="sm"] .hm-pe__bandlabel { color: var(--color-device-phone); background: var(--color-device-phone-soft); }
 .hm-pe__marks { position: absolute; inset: 0; pointer-events: none; }
 .hm-pe__outline { position: absolute; left: 0; right: 0; border: 2px solid var(--color-accent); border-radius: var(--radius-sm); pointer-events: none; }
 .hm-pe__hover { position: absolute; border: 1px dashed var(--color-hai); pointer-events: none; }

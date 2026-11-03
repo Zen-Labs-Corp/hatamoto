@@ -1086,16 +1086,12 @@ function start(root, boot) {
   $$(bar, "[data-hm-bs-save]").forEach((b) => b.addEventListener("click", () => saveNow(b.dataset.hmBsSave)));
   nameInput?.addEventListener("input", () => saver.changed());
   mountToolItems(bar, matchMedia.bind(window));
-  const chip = $(bar, "[data-hm-bs-device-chip]");
   $$(bar, "[data-hm-bs-device]").forEach((b) => {
     const d = b.dataset.hmBsDevice; // real widths in the label; the short name on a phone (CSS)
     b.replaceChildren(h("span", { class: "hm-bs__dlong", text: DEVICE_LABEL[d] }), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
     b.addEventListener("click", () => {
       device = d;
       root.dataset.hmDevice = d;
-      chip.hidden = d === "base";
-      chip.dataset.device = d;
-      chip.textContent = `Editing ${BP_NAME[d]}`;
       announce(`Editing ${BP_NAME[d]} styles.`);
       $$(bar, "[data-hm-bs-device]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
       canvas.setViewport(WIDTHS[device], paneWidth());

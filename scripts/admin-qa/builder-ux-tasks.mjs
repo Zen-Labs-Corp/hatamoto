@@ -985,20 +985,23 @@ await check("topbar-chip: one status chip, Draft and Saved, then Not saved while
   return `"${first}" -> unsaved -> saved`;
 });
 
-await check("device-announce: switching the width says so in the live region and shows a labelled chip", async () => {
+await check("device-announce: switching the width says so in the live region and in the inspector context line (no top-bar chip)", async () => {
   const id = await seeded(main);
   await device(main, "md").click();
   await settle(main, 400);
-  const chip = main.locator("[data-hm-bs-device-chip]");
-  need(await chip.isVisible(), "no device chip on Tablet");
-  const chipText = await chip.innerText();
-  need(/Tablet/.test(chipText), "chip: " + chipText);
+  need((await main.locator("[data-hm-bs-device-chip]").count()) === 0, "the removed top-bar device chip is back");
+  await main.locator('[data-hm-bs-ltab="nav"]').click(); // the Layers tab: a fresh page may open on Add
+  await main.locator("[data-hm-bs-tree] [role=treeitem]").first().click();
+  const pill = main.locator(".hm-bs-ctx__bp");
+  await pill.waitFor({ timeout: 5000 });
+  const chipText = (await pill.innerText()).replace(/\s+/g, " ").trim();
+  need(/Tablet/.test(chipText), "context pill: " + chipText);
   const live = await main.locator('[role="status"][aria-live="polite"].hm-visually-hidden').allInnerTexts();
   need(live.some((t) => /Tablet|tablet/.test(t)), "live region: " + live.join("|"));
   const labels = await main.locator(".hm-bs__devices [data-hm-bs-device]").allInnerTexts();
   need(labels.every((l) => /\d{3,4}/.test(l.replace(/\s+/g, " ")) || /Desktop/.test(l)), "device labels lack their widths: " + labels.join("|"));
   await device(main, "base").click();
-  need(await chip.isHidden(), "the chip stays on Desktop");
+  need(!/Tablet/.test(await pill.innerText()), "the context pill still says Tablet on Desktop");
   await drop(main, id);
   return `${chipText}; labels ${labels.join(" / ").replace(/\s+/g, " ")}`;
 });
@@ -1493,23 +1496,19 @@ await check("zoom-floor: a fixed zoom is exact, survives a resize, and Fit never
   return `100% ${seen["100"].toFixed(2)}, 75% ${seen["75"].toFixed(2)}, 50% ${seen["50"].toFixed(2)}; 75% kept across a resize; Fit floor 0.5`;
 });
 
-await check("device-band: Tablet and Phone each show a coloured band and a label with their width; Desktop shows none", async () => {
+await check("device-band: Tablet and Phone each show a coloured band; Desktop shows none, and no band label is drawn", async () => {
   const { id } = await columnsWithHeading(main);
-  const label = main.locator(".hm-pe__bandlabel");
   const colour = () => main.locator(".hm-pe__stage").evaluate((e) => getComputedStyle(e, "::before").backgroundColor);
-  need(await label.isHidden(), "a band label shows on Desktop");
   const got = {};
-  for (const [d, re] of [["md", /^Tablet · editing styles up to 1024 px · Desktop is not changed$/], ["sm", /^Phone · editing styles up to 640 px · Desktop is not changed$/]]) {
+  for (const d of ["md", "sm"]) {
     await device(main, d).click();
     await settle(main, 300);
-    const t = await label.textContent();
-    need(re.test(t), `the ${d} label reads "${t}"`);
+    need((await main.locator(".hm-pe__bandlabel").count()) === 0, "a band label is drawn at " + d);
     got[d] = await colour();
     need(got[d] !== "rgba(0, 0, 0, 0)", "no band at " + d);
   }
   await device(main, "base").click();
   await settle(main, 200);
-  need(await label.isHidden(), "the band label stays on Desktop");
   await drop(main, id);
   return `Tablet ${got.md}, Phone ${got.sm}`;
 });

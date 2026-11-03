@@ -28,7 +28,7 @@ class El {
   replaceChildren(...k) { this.kids.forEach((x) => (x.parent = null)); this.kids = []; this.append(...k); }
   remove() { if (this.parent) { this.parent.kids = this.parent.kids.filter((x) => x !== this); this.parent = null; } }
   replaceWith(n) { const p = this.parent; p.kids[p.kids.indexOf(this)] = n; n.parent = p; this.parent = null; }
-  addEventListener() {}
+  addEventListener(t, f) { (this.on[t] ??= []).push(f); }
   querySelector() { return null; }
   closest() { return null; }
   walk(f) { f(this); this.kids.forEach((k) => k.walk(f)); }
@@ -74,8 +74,21 @@ test("attach(el) stays connected across draw() and its remover detaches it", () 
 
 test("the Content panel renders its fields once the chunk resolves", async () => {
   const { el, ins } = mount();
-  ins.draw();
+  ins.draw(); // opens on Design: pick the Content tab
+  const content = find(el, (n) => n.attrs["data-tab"] === "content");
+  find(el, (n) => n.attrs.role === "tablist").on.click[0]({ target: { closest: () => ({ dataset: { tab: "content" } }) } });
+  assert.ok(content);
   const drawn = () => find(el, (n) => n.attrs["data-prop"] === "text" || n.dataset.prop === "text");
   for (let i = 0; i < 100 && !drawn(); i++) await settle(); // the lazy chunk can take longer than one tick on a busy machine
   assert.ok(drawn(), "the Text field is drawn");
+});
+
+test("the tabs read Design, Content, Advanced; Design is selected first and there is no Class row", () => {
+  const { el, ins } = mount();
+  ins.draw();
+  const tabs = [];
+  el.walk((n) => n.attrs.role === "tab" && tabs.push(n));
+  assert.deepEqual(tabs.map((t) => [t.dataset.tab ?? t.attrs["data-tab"], t.textContent]), [["style", "Design"], ["content", "Content"], ["advanced", "Advanced"]]);
+  assert.deepEqual(tabs.map((t) => t.attrs["aria-selected"]), ["true", "false", "false"]);
+  assert.ok(!find(el, (n) => n.attrs.class === "hm-bs-class" && !n.attrs.hidden), "no visible class row above the tabs");
 });

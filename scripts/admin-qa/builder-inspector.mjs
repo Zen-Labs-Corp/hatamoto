@@ -1,7 +1,8 @@
 // Builder inspector, driven like a user: select a section, change its padding through the box model (typed value, arrow
 // keys, a scrub drag), switch to Phone and change the padding there (the override lands on the Phone key only, Desktop
 // is untouched), set a value in the Hover state, undo and redo every step, select a block ("Block in <section>") and
-// take screenshots.
+// take screenshots. Also the Design-tab acceptance checks (A1 groups and layout, A2 header menu, A3 no selects in primary rows,
+// A4 text block, A5 one context line and the width announcement).
 //
 // Runs two ways:
 //   local   PG_BIN=<pg bin dir> bash scripts/admin-qa/run-local.sh builder-inspector.mjs     (seeded throwaway instance)
@@ -145,6 +146,119 @@ await check("select the section: header, context line, groups and box model show
   return `pill "${pill}", State dropdown, four padding numbers`;
 });
 
+await check("A1: Design is the section's default tab; groups run Layout, Spacing, Fill, Corners & border, Effects; Layout has a More toggle; the Effects header ends inside the pane without scrolling (Corners & border open; also with Fill open)", async () => {
+  await select(sec.id);
+  if ((await p.locator('[role="tab"][data-tab="style"]').first().getAttribute("aria-selected")) !== "true") throw new Error("the Design tab is not selected by default");
+  const fill = p.locator(".hm-bs-grp__t", { hasText: /^Fill/ }).first();
+  if ((await fill.getAttribute("aria-expanded")) !== "true") await fill.click();
+  await p.locator(".hm-bs-swatches .hm-bs-pill").first().click(); // a background, so Fill is open as it is on a real section
+  await settle(500);
+  try {
+    const names = (await p.locator(".hm-bs-grp__t").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
+    const idx = ["Layout", "Spacing", "Fill", "Corners & border", "Effects"].map((w) => names.findIndex((n) => n.startsWith(w)));
+    if (idx.some((i, k) => i < 0 || (k && i <= idx[k - 1]))) throw new Error("group order: " + names.join(" | "));
+    const effects = () => p.locator(".hm-bs-grp__t", { hasText: /^Effects/ }).first().evaluate((e) => [Math.round(e.getBoundingClientRect().bottom), Math.round(document.querySelector('[data-hm-bs-pane="insp"]').getBoundingClientRect().bottom)]);
+    const corners = p.locator(".hm-bs-grp__t", { hasText: /^Corners/ }).first();
+    if ((await corners.getAttribute("aria-expanded")) !== "true") throw new Error("Corners & border is not open by default on a section");
+    const open = await effects();
+    if (open[0] >= open[1]) throw new Error(`the Effects header ends at ${open[0]}px, not inside the pane (ends at ${open[1]}px) with Fill open`);
+    await fill.click(); // Fill collapsed: it fits then too
+    await settle(200);
+    const at = await effects();
+    if (at[0] >= at[1]) throw new Error(`the Effects header ends at ${at[0]}px, not inside the pane (ends at ${at[1]}px) with Fill collapsed`);
+    if (!(await p.locator(".hm-bs-morebtn", { hasText: /layout/i }).count())) throw new Error("no More layout options toggle");
+    return `groups ${names.join(" | ")}; Effects header at ${at[0]}px of ${at[1]}px (${open[0]}px with Fill open; pane ends at ${open[1]}px)`;
+  } finally {
+    await undo(); // the background goes again
+  }
+});
+
+await check("A1 margin: the Effects header also ends inside the pane with a class applied and with the Hover state", async () => {
+  await select(sec.id);
+  const effects = () => p.locator(".hm-bs-grp__t", { hasText: /^Effects/ }).first().evaluate((e) => [Math.round(e.getBoundingClientRect().bottom), Math.round(document.querySelector('[data-hm-bs-pane="insp"]').getBoundingClientRect().bottom)]);
+  const inside = async (what) => {
+    const at = await effects();
+    if (at[0] >= at[1]) throw new Error(`${what}: the Effects header ends at ${at[0]}px, not inside the pane (ends at ${at[1]}px)`);
+    const note = await p.locator(".hm-bs-ctx__note").first().evaluate((e) => [Math.round(e.getBoundingClientRect().height), parseFloat(getComputedStyle(e).lineHeight)]);
+    if (note[0] > note[1] * 1.5) throw new Error(`${what}: the context note wraps (${note[0]}px high)`);
+    return `${what} ${at[0]}px of ${at[1]}px`;
+  };
+  const fill = p.locator(".hm-bs-grp__t", { hasText: /^Fill/ }).first();
+  if ((await fill.getAttribute("aria-expanded")) !== "true") await fill.click();
+  await p.locator(".hm-bs-swatches .hm-bs-pill").first().click(); // Fill open with a background: the tight case, as in A1
+  await settle(500);
+  let undos = 1;
+  const out = [];
+  const hover = async (on) => { await p.locator('select[aria-label="State"]').first().selectOption(on ? "hover" : ""); await settle(400); };
+  try {
+    out.push(await inside("bare"));
+    await hover(true);
+    out.push(await inside("Hover state"));
+    await hover(false);
+    // The class is made through "Save as class", with the server's answer faked in the browser: nothing is created on the site.
+    await ctx.route(/\/builder\/presets$/, (r) => r.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ name: "qa-class", label: "Qa class", s: { base: {} } }) }));
+    await p.locator(".hm-bs-header button.hm-bs-more").first().click();
+    await p.locator('.hm-menu [role="menuitem"]', { hasText: /^Save as class/ }).first().click();
+    await p.locator(".hm-bs-classform input").first().fill("qa-class");
+    await p.locator(".hm-bs-classform button", { hasText: /^Save class$/ }).first().click();
+    await settle(900);
+    undos++;
+    if (!(await p.locator("[data-hm-bs-classchip]").count())) throw new Error("the class chip is not in the header");
+    await shot("a1-class.png");
+    out.push(await inside("class chip"));
+    await hover(true);
+    out.push(await inside("class chip + Hover"));
+    await shot("a1-class-hover.png");
+  } finally {
+    await hover(false).catch(() => {});
+    for (let i = 0; i < undos; i++) await undo(); // the background and the class go again
+    await ctx.unroute(/\/builder\/presets$/).catch(() => {});
+  }
+  return out.join("; ");
+});
+
+await check("A2: no visible Inspector heading or class row; the header menu offers Save as class", async () => {
+  await select(sec.id);
+  const heading = await p.evaluate(() => {
+    const h = [...document.querySelectorAll(".hm-bs__h")].find((e) => /^Inspector$/.test(e.textContent.trim()));
+    if (!h) return "gone";
+    const r = h.getBoundingClientRect();
+    return r.width <= 1 && r.height <= 1 ? "hidden" : "visible";
+  });
+  if (heading === "visible") throw new Error("the Inspector heading is visible");
+  if (await p.locator(".hm-bs-classrow:visible").count()) throw new Error("a Class row shows above the tabs");
+  await p.locator(".hm-bs-header button.hm-bs-more").first().click();
+  const items = (await p.locator('.hm-menu [role="menuitem"]:visible').allInnerTexts()).map((t) => t.trim());
+  if (!items.some((t) => /^Save as class/.test(t))) throw new Error("menu items: " + items.join(" | "));
+  await p.keyboard.press("Escape");
+  await settle(200);
+  return `Inspector heading ${heading}; menu: ${items.join(" | ")}`;
+});
+
+await check("A3: the visible Layout and Spacing primary rows hold no select and no range slider; length fields are 28px with a name", async () => {
+  await select(sec.id);
+  const r = await p.evaluate(() => {
+    const out = { bad: [], fields: 0 };
+    for (const g of document.querySelectorAll(".hm-bs-grp")) {
+      const t = g.querySelector(".hm-bs-grp__t > span")?.textContent.trim() ?? "";
+      if (!/^(Layout|Spacing)/.test(t)) continue;
+      for (const e of g.querySelectorAll("select, input[type=range]")) if (e.offsetParent && !e.closest(".hm-bs-grp__more")) out.bad.push(t + ": " + e.tagName + " " + (e.getAttribute("aria-label") ?? ""));
+      for (const f of g.querySelectorAll(".hm-bs-fld")) {
+        if (!f.offsetParent || f.closest(".hm-bs-grp__more")) continue;
+        out.fields++;
+        const h = f.getBoundingClientRect().height;
+        if (Math.abs(h - 28) > 1.5) out.bad.push(t + ": field " + h + "px high");
+        const inp = f.querySelector("input");
+        if (!inp?.getAttribute("aria-label") && !inp?.labels?.length && !inp?.getAttribute("aria-labelledby")) out.bad.push(t + ": a field has no accessible name");
+      }
+    }
+    return out;
+  });
+  if (r.bad.length) throw new Error(r.bad.join("; "));
+  if (!r.fields) throw new Error("no 28px primary fields found");
+  return `${r.fields} primary fields, no select or range`;
+});
+
 let top0 = null;
 await check("Desktop: type 48 in padding top; undo and redo", async () => {
   top0 = await authored(sec.id, "base", "pt");
@@ -236,6 +350,23 @@ await check("Phone: the Hover state writes the sm:hover key (a theme colour pill
   return `${k}.bg ${v}`;
 });
 
+await check("A5: at Phone exactly one context line shows, no device chip or band label exists, and the width change is announced", async () => {
+  await device("base");
+  await select(sec.id);
+  await p.evaluate(() => {
+    window.__qaLive = [];
+    new MutationObserver(() => { window.__qaLive.push(...[...document.querySelectorAll("[aria-live]")].map((e) => e.textContent.trim()).filter(Boolean)); }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  await device("sm");
+  const lines = await p.locator(".hm-bs-ctx:visible").count();
+  if (lines !== 1) throw new Error(lines + " context lines show");
+  if (await p.locator("[data-hm-bs-device-chip]:visible").count()) throw new Error("the device chip shows");
+  if (await p.locator(".hm-pe__bandlabel").count()) throw new Error("a canvas band label exists");
+  const live = await p.evaluate(() => window.__qaLive);
+  if (!live.some((t) => /Editing Phone styles\./.test(t))) throw new Error("live region: " + live.join(" | "));
+  return `one context line, announced "Editing Phone styles."`;
+});
+
 await check("back on Desktop, select the heading: header reads Block in <section>", async () => {
   await device("base");
   await row(head.id).click();
@@ -245,6 +376,21 @@ await check("back on Desktop, select the heading: header reads Block in <section
   if (!/^Block in /.test(sub)) throw new Error(`header says "${sub}"`);
   await shot("inspector-block.png");
   return `"${sub}"`;
+});
+
+await check("A4: a heading block opens on Design with Typography first and open; the Block in link selects the section", async () => {
+  await row(head.id).click();
+  await settle(600);
+  const tab = await p.locator('[role="tab"][data-tab="style"]').first().getAttribute("aria-selected");
+  if (tab !== "true") throw new Error("the Design tab is not selected");
+  const first = p.locator(".hm-bs-grp__t").first();
+  const name = (await first.innerText()).trim();
+  if (!/^Typography/.test(name)) throw new Error("first group is " + name);
+  if ((await first.getAttribute("aria-expanded")) !== "true") throw new Error("Typography is closed");
+  await p.locator(".hm-bs-sublink").first().click();
+  await settle(500);
+  if ((await sel())[0] !== sec.id) throw new Error("the Block in link selected " + (await sel()));
+  return "Typography first and open; link selected the section";
 });
 
 /** Box model geometry in the page: every ring's numbers are centred on the inner box, inside their ring, clear of the caption, and the size is visible. Returns problem strings. */

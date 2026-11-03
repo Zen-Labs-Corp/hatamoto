@@ -31,7 +31,7 @@
 .hm-bs__banner { pointer-events: none; } /* only a banner itself takes clicks, never the strip around it */
 .hm-bs__banner > * { pointer-events: auto; }
 .hm-bs__banner .hm-flash, .hm-bs__banner .hm-callout { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) var(--space-3) 0; }
-.hm-bs__nav, .hm-bs__inspector { padding: var(--space-4); min-width: 0; background: var(--surface); border-block-start: 1px solid var(--border); }
+.hm-bs__nav, .hm-bs__inspector { padding: 0; min-width: 0; background: var(--surface); border-block-start: 1px solid var(--border); }
 .hm-bs__nav { display: flex; flex-direction: column; padding: 0; }
 .hm-bs__ltabs { padding: var(--space-2) var(--space-2) 0; }
 .hm-bs__ltabs[hidden], .hm-bs__lpanel[hidden], .hm-bs__navfoot[hidden] { display: none; }
@@ -139,11 +139,6 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead > :not(.hm-editor-bar__title):not(.hm-editor-bar__state) { flex-shrink: 0; }
 .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { min-width: 5rem; flex-shrink: 100; }
 .hm-bs__dshort { display: none; }
-.hm-bs__device { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
-.hm-bs__device::before { content: ""; inline-size: 0.5em; block-size: 0.5em; border-radius: 50%; background: currentColor; }
-.hm-bs__device[hidden] { display: none; }
-.hm-bs__device[data-device="md"] { color: var(--color-device-tablet); background: var(--color-device-tablet-soft); }
-.hm-bs__device[data-device="sm"] { color: var(--color-device-phone); background: var(--color-device-phone-soft); }
 /* Phones: ‹ name ● state ⋯ Update on the first row; Undo and the device switch on a second row (the shared segmented
    control and chip keep their sizes, so they do not fit beside Update). Redo, panes and help live in ⋯; the status
    badge gives way to the dot, and its words stay for a screen reader. */
@@ -151,7 +146,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
   .hm-editor-bar:has([data-hm-bs-title]) { flex-wrap: wrap; gap: var(--space-1) var(--space-2); padding-block: var(--space-1); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__lead, .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { display: contents; } /* the two groups dissolve: the row order below is the old flat bar */
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools > :not([data-hm-bs-undo]), .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-status] { display: none; }
-  .hm-bs__dlong, .hm-bs__device { display: none; }
+  .hm-bs__dlong { display: none; }
   .hm-bs__dshort { display: inline; }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-editor-bar__title { flex: 1 1 0; min-width: 3rem; }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__tools { order: 1; }
@@ -233,12 +228,14 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 /* Inspector: tabs, fields, style groups. */
 .hm-bs-name { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs-name + * { margin-block-start: var(--space-3); }
-.hm-tablist.hm-bs-sections { margin: 0 0 var(--space-3); }
+.hm-bs__inspector .hm-bs-sections { margin: 0; padding-inline: var(--space-2); border-block-end: 1px solid var(--border); }
+.hm-bs__inspector .hm-bs-header { margin-bottom: 0; padding: var(--space-1-5) var(--space-3); gap: var(--space-2-5); border-block-end: 1px solid var(--border); }
+.hm-bs__inspector .hm-bs-ctx, .hm-bs__inspector .hm-bs-content, .hm-bs__inspector .hm-bs-advanced, .hm-bs__inspector [data-hm-bs-panel] > .hm-muted { margin-inline: var(--space-3); margin-block-start: var(--space-3); }
 .hm-bs-panel:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-panel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .hm-bs-content, .hm-bs-advanced, .hm-bs-style, .hm-bs-fields, .hm-bs-fieldsholder, .hm-bs-linkopts, .hm-bs-anchor { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 /* Figma-style groups: a header row (name, set-here dot, + / - glyph) over a collapsible body. */
-.hm-bs-grp { border-bottom: 1px solid var(--border); padding-block: var(--space-1) var(--space-3); min-width: 0; }
+.hm-bs-grp { border-block-end: 1px solid var(--border); padding: var(--space-1) var(--space-3) var(--space-3); min-width: 0; }
 .hm-bs-grp > .hm-bs-grp__h { display: flex; align-items: center; min-block-size: 2rem; }
 button.hm-bs-grp__t { appearance: none; display: flex; align-items: center; gap: var(--space-2); width: 100%; min-block-size: 24px; padding: 0; margin: 0; font: inherit; font-weight: var(--weight-semibold); text-align: start; color: var(--text); background: none; border: 0; cursor: pointer; }
 button.hm-bs-grp__t[aria-expanded="false"] { color: var(--text-muted); font-weight: var(--weight-medium); }
@@ -335,13 +332,6 @@ button.hm-bs-grp__t:focus-visible { outline: var(--focus-ring); outline-offset: 
 .hm-bs-copt > .hm-muted { margin-inline-start: auto; }
 .hm-bs-custom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .hm-bs-native { width: 3rem; height: 2rem; padding: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: none; }
-/* The compact length control (lengthControl compact): a column with no spin arrows. */
-.hm-bs-len--c { flex-direction: column; align-items: stretch; gap: var(--space-1); }
-.hm-bs-len--c .hm-bs-len__n { flex-direction: column; align-items: stretch; }
-.hm-bs-len--c .hm-bs-num, .hm-bs-len--c .hm-bs-unit { width: 100%; font-size: var(--text-xs); }
-/* A click in a side field is a click to type: the spin arrows of a narrow field sat under the pointer and stepped the value (arrow keys still step it). */
-.hm-bs-len--c .hm-bs-num { -moz-appearance: textfield; appearance: textfield; }
-.hm-bs-len--c .hm-bs-num::-webkit-inner-spin-button, .hm-bs-len--c .hm-bs-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .hm-bs-slider:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 /* The row chrome: dot, label, source text, reset. Colour only decorates; the source is always text. */
 .hm-bs-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }

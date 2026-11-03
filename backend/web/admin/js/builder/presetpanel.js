@@ -1,6 +1,7 @@
-// The Class row under the inspector header (a lazy chunk): apply a class, the drift list with
-// reset, detach, and "Save as class...". Every edit is one batch from designops.js. The stored
-// key stays `preset`; "class" is the word people see.
+// The class logic behind the inspector header (a lazy chunk): the header menu's "Apply class..." and
+// "Save as class..." reveal a small editor under the header; the drift note ("Differs from class", reset,
+// detach) sits under the Design tab's context line and only exists while a class is set. Every edit is one
+// batch from designops.js. The stored key stays `preset`; "class" is the word people see.
 import { h, actButton, warnNote } from "@hm/builder/dom";
 import { NAMES, atLabel } from "@hm/builder/bp";
 import { drift } from "@hm/builder/design";
@@ -18,14 +19,20 @@ export function presetOptions(presets, current) {
 /** The drift list rows: [{bp, key, text}] for each own value that differs from the preset. */
 export const driftRows = (d) => d.overrides.map(({ bp, key, own, preset, at }) => ({ bp, key, text: `${styleName(key)} (${atLabel(bp)}): ${own}, class has ${preset}${at && at !== bp ? ` on ${atLabel(at)}` : ""}` }));
 
-/** The Class row: "Class: card v  Save as class...", with the drift list under it when styles differ. Commits are one batch each and redraw the panel, then put focus back. */
+/**
+ * presetPanel(...) -> {el, note, paint, actions: {apply(), save()}, label}
+ * el: the class editor (select, save form), hidden until apply()/save() reveals it; note: the drift note host (empty without a class);
+ * paint: repaints the note after a style edit; label: the class name for the header chip ("" without a class).
+ * Commits are one batch each and redraw the panel, then put focus back.
+ */
 export function presetPanel(node, current, { api, commit, draw, root, id, ready = () => Promise.resolve() }) {
   const design = api.design;
   const act = (ops, focus, name) => {
     if (!ops.length || !commit(ops, { label: name })) return false;
     draw();
-    // The redrawn panel fills its Preset section once the lazy chunks are in: focus the named control then, never <body>.
-    ready().then(() => (root.querySelector(`[data-focus="${focus}"]`) ?? root.querySelector('[role="tab"][tabindex="0"]'))?.focus());
+    // The redrawn panel fills its Preset section once the lazy chunks are in: focus the named control then, else the header menu or the tab (a hidden control cannot take focus), never <body>.
+    const shown = (el) => el && !el.closest("[hidden]");
+    ready().then(() => [`[data-focus="${focus}"]`, ".hm-bs-more", '[role="tab"][tabindex="0"]'].map((q) => root.querySelector(q)).find(shown)?.focus());
     return true;
   };
   const select = h("select", { id, class: "hm-field__control", "data-focus": "select", "aria-describedby": `${id}-d` });
@@ -33,10 +40,12 @@ export function presetPanel(node, current, { api, commit, draw, root, id, ready 
   select.value = node.p?.preset ?? "";
   select.addEventListener("change", () => act(applyOps(current(), select.value), "select", "Apply class"));
   const info = h("div", { id: `${id}-d`, class: "hm-bs-drift" });
+  const note = h("div", { class: "hm-bs-classnote" });
   const btn = (text, focus, run, aria) => actButton(text, { "data-focus": focus, ...(aria ? { "aria-label": aria } : {}), onclick: run });
   function paint() {
     const n = current();
     if (!n) return;
+    if (!n.p?.preset) return note.replaceChildren();
     const d = drift(n, design.presets, api.styleTable(), { tokens: design.tokens });
     const preset = design.presets.find((p) => p.name === n.p?.preset);
     const kids = [];
@@ -58,24 +67,26 @@ export function presetPanel(node, current, { api, commit, draw, root, id, ready 
     }
     if (design.tokens && d.literals.length) kids.push(h("p", { class: "hm-muted", text: `Custom values: ${[...new Set(d.literals.map((l) => styleName(l.key)))].join(", ")}.` }));
     info.replaceChildren(...kids);
+    note.replaceChildren(info);
   }
   paint();
   const row = h("div", { class: "hm-bs-classrow" }, h("label", { class: "hm-field__label", for: id, text: "Class" }), select);
-  const el = h("div", { class: "hm-bs-class" }, row, info);
-  if (design.canCreate) {
-    const form = saveForm(api, node, current, act, id);
-    const open = actButton("Save as class…", { "aria-expanded": "false", "aria-controls": `${id}-f` });
-    form.id = `${id}-f`;
+  const applyBox = h("div", {}, row); // `hidden` on the flex row itself would lose to its display rule
+  const el = h("div", { class: "hm-bs-class", hidden: true }, applyBox);
+  const form = design.canCreate ? saveForm(api, node, current, act, id) : null;
+  if (form) {
     form.hidden = true;
-    open.addEventListener("click", () => {
-      form.hidden = !form.hidden;
-      open.setAttribute("aria-expanded", String(!form.hidden));
-      if (!form.hidden) form.querySelector("input")?.focus();
-    });
-    row.append(open);
     el.append(form);
   }
-  return { el, paint };
+  /** Shows the editor part named by `which`, hides the other, and moves focus into it. */
+  const reveal = (which) => {
+    el.hidden = false;
+    applyBox.hidden = which !== "apply";
+    if (form) form.hidden = which !== "save";
+    (which === "apply" ? select : form?.querySelector("input"))?.focus();
+  };
+  const preset = design.presets.find((p) => p.name === node.p?.preset);
+  return { el, note, paint, actions: { apply: () => reveal("apply"), save: () => form && reveal("save") }, label: node.p?.preset ? preset?.label || node.p.preset : "" };
 }
 
 /** "Save as class": the node's own styles become a new preset (created on the server, never updated from here). */

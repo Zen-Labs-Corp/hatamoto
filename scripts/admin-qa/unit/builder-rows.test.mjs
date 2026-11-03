@@ -64,7 +64,7 @@ const mount = (node, { bp = "base", state = "", table: tbl = table } = {}) => {
   const row = (name) => {
     const reset = find((n) => n.attrs["aria-label"] === `Reset ${name}`)[0];
     const head = reset.parent;
-    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
+    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")) ?? head, /* the one-line Fill row carries the dot on its field */ src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
   };
   return { el, calls, row, groupDot: () => find((n) => n.className === "hm-bs-dot" && n.dataset.dot === "set")[0], find };
 };
@@ -441,7 +441,7 @@ test("the context line is the first child and the groups follow; there is no Ess
   assert.equal(select.attrs["aria-label"], "State");
   assert.ok(!root.textContent.includes("Editing"), "the sentence is gone");
   assert.ok(!root.textContent.includes("More style options"));
-  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].textContent);
+  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].kids[0].textContent);
   assert.ok(names.includes("Spacing"), names.join());
   const rings = []; root.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
   assert.equal(rings.length, 1, "one nested box model, in Spacing");
@@ -484,13 +484,13 @@ test("a style write carries a human history label: the control name and the widt
   assert.equal(tablet.calls[0].opts.label, "Change Padding bottom (Tablet)");
 });
 
-test("the real table: a text block shows the six Figma groups with Typography first and open, a divider has Typography too, Fill and Corners start closed; Font size scrubs from its label", () => {
+test("the real table: a text block shows the six Figma groups, Typography and Spacing first and open, Effects next, then Layout, Fill and Corners closed; a divider has Typography too, Fill and Corners start closed; Font size scrubs from its label", () => {
   const names = (m) => m.find((n) => n.tag === "button" && n.className === "hm-bs-grp__t").map((b) => b.kids[0].textContent);
   const text = mount({ id: "t", t: "text", s: {} }, { table: full });
-  assert.deepEqual(names(text), ["Typography", "Layout", "Spacing", "Fill", "Corners & border", "Effects"]);
-  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })).slice(0, 4), ["Layout", "Spacing", "Fill", "Typography"], "other kinds keep the order");
+  assert.deepEqual(names(text), ["Typography", "Spacing", "Effects", "Layout", "Fill", "Corners & border"]);
+  assert.deepEqual(names(mount({ id: "d", t: "divider", s: {} }, { table: full })), ["Layout", "Spacing", "Fill", "Corners & border", "Effects", "Typography"], "other kinds put Typography last");
   const head = (name) => text.find((n) => n.className === "hm-bs-grp__t" && n.kids[0].textContent === name)[0];
-  assert.deepEqual(["Typography", "Fill", "Corners & border", "Effects"].map((g) => head(g).attrs["aria-expanded"]), ["true", "false", "false", "false"]);
+  assert.deepEqual(["Typography", "Spacing", "Effects", "Layout", "Fill", "Corners & border"].map((g) => head(g).attrs["aria-expanded"]), ["true", "true", "false", "false", "false", "false"]);
   const label = text.find((n) => n.tag === "label" && n.classes.has("hm-bs-scrub") && n.kids[0]?.textContent === "Sz")[0];
   assert.equal(label.kids.map((k) => k.textContent).join(""), "Sz font size");
 });

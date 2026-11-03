@@ -78,6 +78,7 @@ test("the inspector draws field mode: header + that field's editor only, no tabs
   assert.match(src, /\(api\.getField\?\.\(\)\?\.key \?\? null\) !== drawnKey/);
   const content = readFileSync(new URL("builder/inspcontent.js", root), "utf8");
   assert.match(content, /only: opts\.only \?\? null/);
+  assert.match(content, /const props = opts\.only \? \[\] :/, "the section's own props (Title) stay out of a field's editor");
 });
 
 test("applyOnly keeps a block that carries a validation error visible", () => {

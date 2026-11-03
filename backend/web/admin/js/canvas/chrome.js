@@ -1,8 +1,6 @@
-// The canvas strip: breadcrumbs of the selected element, the zoom control and the device band
-// label. A lazy chunk of the canvas host (loaded after the first layout, never preloaded): the
+// The canvas strip: breadcrumbs of the selected element, and the zoom control. A lazy chunk of the canvas host (loaded after the first layout, never preloaded): the
 // host keeps geometry and state, this builds the DOM once and repaints it on `update()`.
 // The strip is sticky over the scroller and takes no clicks itself; only its buttons do.
-import { BP_NAME, BREAKPOINT_MAX } from "@hm/builder/bp";
 import { sizeAnchor, sizeText, toolbarModel } from "@hm/canvas/chromemodel";
 import { placeToolbar, withinFrame } from "@hm/canvas/layout";
 import { insertionPoints } from "@hm/canvas/points";
@@ -22,8 +20,6 @@ function h(tag, props = {}, ...kids) {
 }
 
 const ZOOM_NAME = (m) => (m === "fit" ? "Fit" : `${m}%`);
-/** The band label of a narrower device; Desktop shows none. */
-export const bandText = (d) => (d === "md" || d === "sm" ? `${BP_NAME[d]} · editing styles up to ${BREAKPOINT_MAX[d]} px · Desktop is not changed` : "");
 
 /**
  * mountStrip(canvas, handlers) -> {update, destroy}
@@ -32,8 +28,6 @@ export const bandText = (d) => (d === "md" || d === "sm" ? `${BP_NAME[d]} · edi
 export function mountStrip(canvas, handlers) {
   const crumbs = h("ol", { class: "hm-pe__crumbs" });
   const nav = h("nav", { "aria-label": "Selected element path", class: "hm-pe__crumbnav" }, crumbs);
-  // not a live region: the device change is announced once by the builder screen; a repaint on every hover would re-read this
-  const band = h("span", { class: "hm-pe__bandlabel", hidden: true });
   const zoomBtns = ORDER.map((m) => {
     const b = h("button", { type: "button", class: "hm-segmented__btn", "data-zoom": m, "aria-label": m === "fit" ? "Zoom to fit" : `Zoom ${m}%`, text: ZOOM_NAME(m) });
     b.addEventListener("click", () => {
@@ -44,7 +38,7 @@ export function mountStrip(canvas, handlers) {
     return b;
   });
   const zoomBox = h("div", { class: "hm-pe__zoom hm-segmented", role: "group", "aria-label": "Zoom" }, ...zoomBtns);
-  const strip = h("div", { class: "hm-pe__strip", "data-hm-pe-strip": "" }, nav, band, zoomBox);
+  const strip = h("div", { class: "hm-pe__strip", "data-hm-pe-strip": "" }, nav, zoomBox);
   canvas.stage.parentElement?.insertBefore(strip, canvas.stage);
 
   let shown = "";
@@ -65,9 +59,6 @@ export function mountStrip(canvas, handlers) {
         }),
       );
     }
-    const text = bandText(canvas.device);
-    band.hidden = !text;
-    if (band.textContent !== text) band.textContent = text;
     zoomBtns.forEach((b) => b.setAttribute("aria-pressed", String(String(canvas.zoom) === b.dataset.zoom)));
     canvas.setInset(strip.offsetHeight);
   }

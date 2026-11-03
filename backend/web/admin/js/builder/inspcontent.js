@@ -51,10 +51,10 @@ function boundChip(root, id, text) {
 
 /**
  * createContent(ctx) -> {propField, contentPanel, advancedPanel}
- * ctx: {api, root, commit, draw, kindInfo, gen() (the draw generation), pushRich(ctl), setFields(f)}
+ * ctx: {api, root, visibilityGroup(node) (a promise of the Visibility group), commit, draw, kindInfo, gen() (the draw generation), pushRich(ctl), setFields(f)}
  */
 export function createContent(ctx) {
-  const { api, root, commit, draw, kindInfo, gen, pushRich, setFields } = ctx;
+  const { api, root, visibilityGroup, commit, draw, kindInfo, gen, pushRich, setFields } = ctx;
 
   const setProp = (id, key, value, opts = {}) => commit([{ op: "setProp", id, key, value }], { label: `Change ${propName(key)}`, ...opts });
 
@@ -282,7 +282,8 @@ export function createContent(ctx) {
       return slot;
     }
     const panel = h("div", { class: "hm-bs-content" });
-    const props = (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
+    // field mode (opts.only) edits one content field: the section's own props (its Title) are not that field's
+    const props = opts.only ? [] : (kindInfo(node.t)?.props ?? []).filter((p) => !ADVANCED.has(p.key) && !SKIP.has(p.key) && p.type !== "object" && !(p.key === "html" && INLINE.has(node.t)) && !(node.t === "list" && p.key === "items"));
     for (const p of orderProps(node, props)) panel.append(propField(node, p));
     if (ITEMS.has(node.t))
       import("@hm/builder/items")
@@ -347,6 +348,12 @@ export function createContent(ctx) {
     return panel;
   }
 
+  /** The Advanced tab's type scale: its shared fields keep their own classes and take the builder's `hm-bs-fs` (see builderinspector.css). */
+  const scaled = (el) => {
+    for (const f of el.querySelectorAll(".hm-field__control, .hm-field__label, .hm-field__check, .hm-switch, .hm-muted")) f.classList.add("hm-bs-fs");
+    return el;
+  };
+
   function advancedPanel(node) {
     const panel = h("div", { class: "hm-bs-advanced" });
     const idf = `hm-bs-id${++uid}`;
@@ -354,8 +361,16 @@ export function createContent(ctx) {
     idEl.value = node.id;
     panel.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: idf, text: "Element ID (read only)" }), idEl));
     for (const p of kindInfo(node.t)?.props ?? []) if (p.key === "hidden" || (p.key === "tag" && p.enum)) panel.append(propField(node, { ...p }));
-    import("@hm/builder/elementsettings").then((m) => m.advancedExtras(node, panel, { api, commit })).catch(console.error);
-    return panel;
+    // Show on and Show as live here, not on the Design tab; the slot keeps their place while the style chunk loads.
+    const visibility = h("div", { class: "hm-bs-visibility" });
+    panel.append(visibility);
+    const mine = gen();
+    visibilityGroup(node)
+      .then((group) => mine === gen() && visibility.isConnected && visibility.replaceWith(scaled(group)))
+      .catch(console.error);
+    panel.append(h("h4", { class: "hm-bs-grp__hd", text: "Anchor & attributes" }));
+    import("@hm/builder/elementsettings").then((m) => (m.advancedExtras(node, panel, { api, commit }), scaled(panel))).catch(console.error);
+    return scaled(panel);
   }
 
   return { propField, contentPanel, advancedPanel };

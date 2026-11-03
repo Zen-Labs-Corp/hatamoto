@@ -12,20 +12,21 @@ export const stateChoices = (parent) => STATE_CHOICES.filter(([id]) => id !== "p
 
 const stateName = (id) => STATE_CHOICES.find(([s]) => s === id)?.[1] ?? id;
 
-/** What the values set at this breakpoint (and state) do, in one short sentence. */
+/** What the values set at this breakpoint (and state) do, in one short sentence (a State only swaps the lead, so the line stays one line). */
 export function overrideNote(device, state = "") {
-  const base =
-    device === "md" ? `Values set here override Desktop on screens ≤${BREAKPOINT_MAX.md}px.` : device === "sm" ? `Values set here override Tablet on screens ≤${BREAKPOINT_MAX.sm}px.` : "Applies to every screen size unless Tablet or Phone override it.";
-  return state ? `${base} Applies only in the ${stateName(state)} state.` : base;
+  const lead = state ? `${stateName(state)} state only` : "";
+  if (device === "md") return `${lead ? `${lead}; overrides` : "Values set here override"} Desktop on screens ≤${BREAKPOINT_MAX.md}px.`;
+  if (device === "sm") return `${lead ? `${lead}; overrides` : "Values set here override"} Tablet on screens ≤${BREAKPOINT_MAX.sm}px.`;
+  return lead ? `${lead}, on every screen size.` : "Applies to every screen size unless Tablet or Phone override it.";
 }
 
 let seq = 0;
 
-/** div.hm-bs-ctx: breakpoint badge (the admin's badge clone), State select (aria-label "State"), note. onState(id) runs on change. */
+/** div.hm-bs-ctx: breakpoint badge (the admin's badge clone; data-device colours it, no device icon template exists on the page), State select (aria-label "State"), note. onState(id) runs on change. */
 export function contextLine({ device, state = "", choices = STATE_CHOICES, onState }) {
   const note = h("p", { class: "hm-bs-ctx__note", id: `hm-bs-ctx-note-${++seq}`, text: overrideNote(device, state) });
   const select = h("select", { class: "hm-field__control hm-bs-ctl hm-bs-ctx__state", "aria-label": "State", "aria-describedby": note.getAttribute("id") }, ...choices.map(([id, name]) => h("option", { value: id, text: name })));
   select.value = state;
   select.addEventListener("change", () => onState?.(select.value));
-  return h("div", { class: "hm-bs-ctx" }, chip(BP_NAME[device] ?? BP_NAME.base, { class: "hm-bs-ctx__bp" }), select, note);
+  return h("div", { class: "hm-bs-ctx" }, chip(BP_NAME[device] ?? BP_NAME.base, { class: "hm-bs-ctx__bp", "data-device": device }), select, note);
 }
