@@ -15,7 +15,7 @@ test("the open/closed glyph of a group header has an empty alternative text", ()
 test("the inspector pane has no padding of its own: tabs, header and groups are full-bleed rows that own their inset", () => {
   assert.match(css, /\.hm-bs__nav, \.hm-bs__inspector \{ padding: 0;/);
   assert.match(css, /^\.hm-bs-grp \{ border-block-end: 1px solid var\(--border\); padding: var\(--space-1\) var\(--space-3\) var\(--space-3\);/m);
-  assert.match(css, /^\.hm-tablist\.hm-bs-sections \{ margin: 0; padding-inline: var\(--space-2\); border-block-end: 1px solid var\(--border\); \}/m);
+  assert.match(css, /^\.hm-bs__inspector \.hm-bs-sections \{ margin: 0; padding-inline: var\(--space-2\); border-block-end: 1px solid var\(--border\); \}/m);
   assert.match(css, /^\.hm-bs__inspector \.hm-bs-header \{[^}]*border-block-end: 1px solid var\(--border\);/m);
   assert.doesNotMatch(css, /\.hm-bs__device[ [:{]/, "the top-bar device chip rules are gone");
 });

@@ -93,5 +93,5 @@ export function header({ node, api, name, field: picked = null, classes = null }
   copy.addEventListener("click", run(() => api.copyStyle()));
   paste.addEventListener("click", run(() => api.pasteStyle()));
   restore?.addEventListener("click", run(() => api.restore(node.id)));
-  return h("div", { class: "hm-bs-header" }, h("span", { class: "hm-bs-ico", "aria-hidden": "true" }, typeIcon(model.icon)), h("div", { class: "hm-bs-heading" }, h("h3", { class: "hm-bs-name" }, field), sub, classes?.label ? chip(classes.label, { class: "hm-bs-chip" }) : null), opener, menu);
+  return h("div", { class: "hm-bs-header" }, h("span", { class: "hm-bs-ico", "aria-hidden": "true" }, typeIcon(model.icon)), h("div", { class: "hm-bs-heading" }, h("h3", { class: "hm-bs-name" }, field), sub, classes?.label ? chip(classes.label, { "data-hm-bs-classchip": "" }) : null), opener, menu);
 }

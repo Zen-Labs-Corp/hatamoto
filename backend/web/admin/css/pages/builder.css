@@ -228,7 +228,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 /* Inspector: tabs, fields, style groups. */
 .hm-bs-name { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 .hm-bs-name + * { margin-block-start: var(--space-3); }
-.hm-tablist.hm-bs-sections { margin: 0; padding-inline: var(--space-2); border-block-end: 1px solid var(--border); }
+.hm-bs__inspector .hm-bs-sections { margin: 0; padding-inline: var(--space-2); border-block-end: 1px solid var(--border); }
 .hm-bs__inspector .hm-bs-header { margin-bottom: 0; padding: var(--space-3) var(--space-3) var(--space-2-5); gap: var(--space-2-5); border-block-end: 1px solid var(--border); }
 .hm-bs__inspector .hm-bs-ctx, .hm-bs__inspector .hm-bs-content, .hm-bs__inspector .hm-bs-advanced, .hm-bs__inspector [data-hm-bs-panel] > .hm-muted { margin-inline: var(--space-3); margin-block-start: var(--space-3); }
 .hm-bs-panel:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
