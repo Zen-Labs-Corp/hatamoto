@@ -212,7 +212,8 @@ These exist today and stay binding for run steps:
   connect.
 - **Input.** Host function arguments are decoded strictly (an unknown field is
   `invalid_argument`), capped at 1 MiB per request and 2 MiB per result, with a
-  nesting depth limit. No host function takes a filesystem path.
+  nesting depth limit (core 2.0 adds it to any decoder that lacks one). No host
+  function takes a filesystem path.
 
 ### 9. Host functions
 
