@@ -466,3 +466,23 @@ test("Align (ai) is three icon buttons; baseline and stretch are in More layout 
   assert.equal(full[0].attrs["aria-pressed"], "false");
   assert.equal(m.find((n) => n.dataset?.v === "center", more)[0].attrs["aria-pressed"], "true", "the full row follows the icon row");
 });
+
+const moreBtn = (m, group) => m.find((n) => n.className === "hm-bs-morebtn", m.group(group))[0];
+
+test("More opens by itself for a value the icon rows cannot show: ta justify, ai baseline or stretch", () => {
+  const ta = mount({ id: "more-ta", t: "heading", s: { base: { ta: "justify" } } }, { parent: section() });
+  assert.equal(moreBtn(ta, "Typography").attrs["aria-expanded"], "true", "justify: More typography is open");
+  const sel = ta.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "justify"), ta.group("Typography"))[0];
+  assert.equal(sel.value, "justify", "and it names the value");
+  for (const v of ["baseline", "stretch"]) assert.equal(moreBtn(mount({ id: `more-ai-${v}`, t: "container", s: { base: { ai: v } } }), "Layout").attrs["aria-expanded"], "true", `${v}: More layout is open`);
+  assert.equal(moreBtn(mount({ id: "more-ai-c", t: "container", s: { base: { ai: "center" } } }), "Layout").attrs["aria-expanded"], "false", "a value the icon row shows leaves More closed");
+});
+
+test("a value only More shows opens it even after More was closed by hand on that element", () => {
+  const closed = mount({ id: "more-closed", t: "container", s: { base: {} } });
+  const b = moreBtn(closed, "Layout");
+  b.fire("click");
+  b.fire("click");
+  assert.equal(b.attrs["aria-expanded"], "false", "closed by hand");
+  assert.equal(moreBtn(mount({ id: "more-closed", t: "container", s: { base: { jc: "center" } } }), "Layout").attrs["aria-expanded"], "true");
+});

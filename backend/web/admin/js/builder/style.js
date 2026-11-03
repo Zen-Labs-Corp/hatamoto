@@ -330,9 +330,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
 
   /** The legacy full rows of the keys behind a group's More toggle, shown or hidden by the toggle (closed, not removed: the controls keep painting). */
   function moreBlock(g, entries, gid, again = []) {
-    const keep = new Set([...entries, ...again]); // `again`: primary keys shown here in full too; only `entries` open the block by themselves
+    const keep = new Set([...entries, ...again]); // `again`: primary keys shown here in full too; a value of theirs the icon row cannot show opens it too
     const key = `${g.name}:more`;
-    const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
+    // A value only More can show (or that the icon row has no button for) opens it, whatever was closed by hand before.
+    const hidden = moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k)) || again.some((e) => { const v = ownValue(cur, bp, e.key); return v !== null && !BUTTON_ROWS[e.key].some(([b]) => b === v); });
+    const open = hidden || (openGroups.get(key) ?? false);
     const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
     const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open }, ...(GROUP_HINTS[g.name] ? [h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] })] : [])); // the hint sits with the rows it is about (border style and sides)
     toggle.addEventListener("click", () => {
