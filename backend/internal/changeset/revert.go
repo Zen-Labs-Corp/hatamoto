@@ -1,0 +1,139 @@
+package changeset
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// Revert undoes a published changeset in one transaction, last item first:
+// created objects are removed, updated and deleted ones are restored from the
+// pre-image stored at publish. Any item error rolls the whole revert back.
+func (e *Engine) Revert(ctx context.Context, csID int64) (Result, error) {
+	var (
+		res   Result
+		posts []func(context.Context)
+	)
+	err := e.DB.WithTx(ctx, func(tx pgx.Tx) error {
+		cs, err := lockChangeset(ctx, tx, csID)
+		if err != nil {
+			return err
+		}
+		if cs.State != StatePublished {
+			return ErrNotPublished
+		}
+		items, err := loadItems(ctx, tx, csID, true)
+		if err != nil {
+			return err
+		}
+		origin := Origin(cs.Plugin)
+		restored := map[string]bool{} // objects this revert already wrote: their token moved by our own hand
+		for _, it := range items {
+			if it.Result != ResultApplied {
+				continue
+			}
+			moved, err := e.movedSincePublish(ctx, tx, it, restored)
+			if err != nil {
+				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
+			}
+			if moved {
+				res.Skipped++
+				res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: it.TargetID, Reason: reasonRevertMoved})
+				continue
+			}
+			restored[string(it.Kind)+":"+it.TargetID] = true
+			w, ok := e.Writers[it.Kind]
+			if !ok {
+				return fmt.Errorf("item %d: %w: %q", it.Seq, ErrNoWriter, it.Kind)
+			}
+			post, err := w.Restore(ctx, tx, it)
+			if errors.Is(err, ErrRevertConflict) {
+				res.Skipped++
+				res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: it.TargetID, Reason: reasonRevertMoved})
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
+			}
+			if post != nil {
+				posts = append(posts, post)
+			}
+			created := it.Before == nil
+			if it.SourceKey != "" {
+				if created {
+					err = dropMapping(ctx, tx, origin, it.Kind, it.SourceKey)
+				} else {
+					err = saveMapping(ctx, tx, origin, it.Kind, it.SourceKey, it.TargetID)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			if err := markReverted(ctx, tx, it); err != nil {
+				return err
+			}
+			res.Applied++
+			// The reverse of a create is a delete; of a delete, a create.
+			res.Items = append(res.Items, AppliedItem{Kind: it.Kind, TargetID: it.TargetID, Created: !created && it.Op == OpDelete, Deleted: created})
+		}
+		if res.Skipped > 0 {
+			// Conflicts stay for the owner to resolve: the changeset stays
+			// published so the revert can be run again.
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET state = 'reverted', reverted_at = $2 WHERE id = $1`, csID, e.now()); err != nil {
+			return fmt.Errorf("failed to mark changeset reverted: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Result{}, err
+	}
+	e.afterCommit(ctx, res.Items)
+	for _, post := range posts {
+		post(ctx)
+	}
+	e.logger().Info(fmt.Sprintf("changeset reverted: %d restored", res.Applied))
+	e.audit(ctx, "changeset.revert", csID, map[string]any{"restored": res.Applied})
+	return res, nil
+}
+
+// movedSincePublish reports whether the live object of it changed after the
+// publish (an owner edit, a later changeset): revert must not overwrite that.
+func (e *Engine) movedSincePublish(ctx context.Context, tx pgx.Tx, it StoredItem, restored map[string]bool) (bool, error) {
+	if it.AfterToken == "" || restored[string(it.Kind)+":"+it.TargetID] {
+		return false, nil
+	}
+	tok, err := liveToken(ctx, tx, it.Kind, it.TargetID)
+	if err != nil {
+		return false, err
+	}
+	return tok != "" && tok != it.AfterToken, nil
+}
+
+// markReverted records that it was restored and hands the live token to the
+// published items built directly on it (their before_token is the token the
+// restore just replaced), so reverting newest-first finds no false conflict.
+func markReverted(ctx context.Context, tx pgx.Tx, it StoredItem) error {
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_changeset_items SET result = $2 WHERE id = $1`, it.ID, ResultReverted); err != nil {
+		return fmt.Errorf("failed to mark item reverted: %w", err)
+	}
+	if it.BeforeToken == "" {
+		return nil
+	}
+	tok, err := liveToken(ctx, tx, it.Kind, it.TargetID)
+	if err != nil || tok == "" {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE hatamoto_changeset_items i SET after_token = $4
+		FROM hatamoto_changesets c
+		WHERE i.changeset_id = c.id AND c.state = 'published'
+		  AND i.kind = $1 AND i.target_id = $2 AND i.after_token = $3`, string(it.Kind), it.TargetID, it.BeforeToken, tok)
+	if err != nil {
+		return fmt.Errorf("failed to chain tokens: %w", err)
+	}
+	return nil
+}

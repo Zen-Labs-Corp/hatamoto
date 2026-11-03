@@ -30,6 +30,7 @@ const (
 var (
 	ErrMenuNotFound      = errors.New("menu not found")
 	ErrMenuItemNotFound  = errors.New("menu item not found")
+	ErrMenuHasLocation   = errors.New("menu is assigned to a location: unassign it first")
 	ErrSlugAlreadyExists = errors.New("menu slug already exists")
 	ErrInvalidLinkType   = errors.New("invalid link type")
 	ErrInvalidLocation   = errors.New("invalid menu location")

@@ -2,6 +2,8 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **Upcoming change.** In SDK 0.17 the direct `entities.*` write functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`) are replaced by changesets, with no shim. See [ADR 0004](adr/0004-plugin-changesets.md). Until then this page describes the current API.
+
 Hatamoto plugins are WebAssembly modules run by the host with
 [Extism](https://extism.org) on wazero. A plugin ships as a **package**, a signed
 `.hmp` zip you install from the admin, the registry or the CLI (see

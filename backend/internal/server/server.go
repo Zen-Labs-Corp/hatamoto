@@ -26,6 +26,7 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/author"
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
@@ -147,6 +148,7 @@ type Server struct {
 	stats     *installstats.Service
 	// webhooks queues and manages outgoing webhooks; webhookDeliverer sends them.
 	webhooks         *webhook.Service
+	changesets       *changeset.Engine
 	webhookDeliverer *webhook.Deliverer
 	// webhookDeliveryOn is true when a scheduled job will send queued webhooks.
 	webhookDeliveryOn bool
@@ -620,6 +622,7 @@ func (s *Server) setupDependencies() {
 	s.termGroups = taxonomy.NewTermGroupStore(s.db)
 	s.taxonomyService.SetGroupStore(s.termGroups)
 	s.taxonomyHandlers = taxonomy.NewHandlers(s.taxonomyService, s.logger)
+	s.setupChangesets()
 
 	// Bylines come from people (person entities); hatamoto_authors is only the
 	// rollback mirror the resolver keeps in step (internal/person). The store

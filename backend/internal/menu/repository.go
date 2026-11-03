@@ -380,6 +380,9 @@ func (r *PostgresRepository) CreateMenuItem(ctx context.Context, menuID uuid.UUI
 	if err != nil {
 		return nil, fmt.Errorf("failed to create menu item: %w", err)
 	}
+	if err := touchMenu(ctx, conn, menuID); err != nil {
+		return nil, err
+	}
 	item.Attrs = decodeAttrs(rawAttrs)
 
 	// Fetch entity info if linked
@@ -480,6 +483,9 @@ func (r *PostgresRepository) UpdateMenuItem(ctx context.Context, id uuid.UUID, i
 		}
 		return nil, fmt.Errorf("failed to update menu item: %w", err)
 	}
+	if err := touchMenu(ctx, conn, item.MenuID); err != nil {
+		return nil, err
+	}
 	item.Attrs = decodeAttrs(rawAttrs)
 
 	if item.EntityID != nil {
@@ -505,7 +511,8 @@ func (r *PostgresRepository) DeleteMenuItem(ctx context.Context, id uuid.UUID) e
 
 	// Get the item's parent_id
 	var parentID *uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT parent_id FROM hatamoto_menu_items WHERE id = $1`, id).Scan(&parentID)
+	var menuID uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT parent_id, menu_id FROM hatamoto_menu_items WHERE id = $1`, id).Scan(&parentID, &menuID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrMenuItemNotFound
@@ -527,6 +534,9 @@ func (r *PostgresRepository) DeleteMenuItem(ctx context.Context, id uuid.UUID) e
 
 	if result.RowsAffected() == 0 {
 		return ErrMenuItemNotFound
+	}
+	if err := touchMenu(ctx, tx, menuID); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -632,11 +642,25 @@ func (r *PostgresRepository) ReorderItems(ctx context.Context, menuID uuid.UUID,
 			return fmt.Errorf("failed to update item position: %w", err)
 		}
 	}
+	if err := touchMenu(ctx, tx, menuID); err != nil {
+		return err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	return nil
+}
+
+// touchMenu moves the menu's updated_at: an item edit is an edit of the menu,
+// and a changeset revert compares that timestamp to see whether the menu moved.
+func touchMenu(ctx context.Context, q interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, menuID uuid.UUID) error {
+	if _, err := q.Exec(ctx, `UPDATE hatamoto_menus SET updated_at = NOW() WHERE id = $1`, menuID); err != nil {
+		return fmt.Errorf("failed to touch menu: %w", err)
+	}
 	return nil
 }
 
