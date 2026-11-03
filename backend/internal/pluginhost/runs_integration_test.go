@@ -203,7 +203,7 @@ func TestRunSecondStartRefused(t *testing.T) {
 	r.rt.WaitRuns()
 }
 
-// A run that has not moved for an hour is assumed lost and failed by the
+// A run that has not moved for RecoverAfter is assumed lost and failed by the
 // next start; a younger one still blocks.
 func TestRunStaleCutoff(t *testing.T) {
 	r := newDriverRig(t)
@@ -224,14 +224,14 @@ func TestRunStaleCutoff(t *testing.T) {
 		run.ChangesetID = &cs
 		return run
 	}
-	young := left(30 * time.Minute)
+	young := left(RecoverAfter - time.Minute)
 	if _, err := r.start(""); !errors.Is(err, ErrActiveRun) {
-		t.Fatalf("a 30 minute old run must still block: %v", err)
+		t.Fatalf("a run younger than RecoverAfter must still block: %v", err)
 	}
 	if err := r.runs.Fail(ctx, young.ID, "cleanup"); err != nil {
 		t.Fatal(err)
 	}
-	stale := left(2 * time.Hour)
+	stale := left(RecoverAfter + time.Minute)
 	id, err := r.start("")
 	if err != nil {
 		t.Fatalf("start over a stale run: %v", err)
@@ -444,5 +444,29 @@ func TestRunStepsDoNotShareGuestMemory(t *testing.T) {
 	_, err := r.rt.Host().Call(context.Background(), runnerPlugin, sdk.RunStepExport, []byte(`{}`))
 	if err == nil || strings.Contains(err.Error(), "leaked") {
 		t.Fatalf("an ordinary call after the run: %v", err) // want the trap of a call outside a run, not the mark
+	}
+}
+
+// A run orphaned after startup (a crash restarted within seconds) is failed
+// by the periodic pass once it has been quiet for RecoverAfter.
+func TestRunRecoveredPeriodically(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	old := &plugrun.Store{DB: r.db, Now: func() time.Time { return time.Now().Add(-RecoverAfter - time.Minute) }}
+	run, err := old.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.rt.RecoverRunsEvery(10 * time.Millisecond)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		got, _ := r.runs.Get(ctx, run.ID)
+		if got.State == plugrun.StateFailed {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the periodic pass left the run %s", got.State)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }

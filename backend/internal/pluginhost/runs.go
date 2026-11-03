@@ -20,11 +20,6 @@ import (
 	"hatamoto.dev/sdk"
 )
 
-// StaleRunAfter is how long a running run may go without a step before
-// StartRun treats it as left behind by a crash and fails it, so one lost
-// run cannot lock its plugin out for good.
-const StaleRunAfter = time.Hour
-
 // MaxRunAge is the longest a run may take. Its changeset expires 72 hours
 // after it opens and takes its staged files with it, so a run is failed (and
 // the changeset discarded) a day before that rather than finish on an
@@ -121,16 +116,17 @@ func (r *Runtime) StartRun(ctx context.Context, plugin, name string, in StartRun
 func (r *Runtime) WaitRuns() { r.runWG.Wait() }
 
 // RecoverAfter is how long a running run must have gone without a step before
-// RecoverRuns fails it. A step lasts at most a slot wait, a cold start and the
+// recovery fails it. A step lasts at most a slot wait, a cold start and the
 // hook timeout (about a minute), and every step refreshes updated_at, so a
-// run quiet for longer has no live driver on any replica. A restarting
+// run quiet for longer has no live driver on any replica. Recovery on one
 // replica therefore leaves the runs another replica is driving alone.
 const RecoverAfter = 10 * time.Minute
 
 // RecoverRuns fails every run that has not moved for RecoverAfter and
-// discards its changeset. Call it once at startup: such a run was left by a
-// process that died. A run younger than that may belong to another replica
-// and is left alone; a later start fails it once it is StaleRunAfter old.
+// discards its changeset: such a run was left by a process that died (or its
+// driver gave up while the database was down). A younger run may belong to
+// another replica and is left alone. Call it at startup and then
+// periodically (see RecoverRunsEvery).
 func (r *Runtime) RecoverRuns(ctx context.Context) error {
 	runs := r.caps.api.svc.Runs
 	if runs == nil {
@@ -146,17 +142,38 @@ func (r *Runtime) RecoverRuns(ctx context.Context) error {
 	return nil
 }
 
+// RecoverRunsEvery calls RecoverRuns every interval until the runtime
+// closes, so a run orphaned by a crash is failed about RecoverAfter later
+// even when the process restarted at once. Every replica may run it: failing
+// a run is conditional on it still running.
+func (r *Runtime) RecoverRunsEvery(interval time.Duration) {
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-r.runCtx.Done():
+				return
+			case <-t.C:
+				if err := r.RecoverRuns(r.runCtx); err != nil && r.runCtx.Err() == nil {
+					r.log.Error("plugins: failed to recover interrupted runs", slog.Any("error", err))
+				}
+			}
+		}
+	}()
+}
+
 // failStale fails the plugin's running run when it has not moved for
-// StaleRunAfter.
+// RecoverAfter, so a start does not wait for the next recovery pass.
 func (r *Runtime) failStale(ctx context.Context, plugin string) error {
 	runs := r.caps.api.svc.Runs
-	stale, err := runs.StaleRunning(ctx, StaleRunAfter)
+	stale, err := runs.StaleRunning(ctx, RecoverAfter)
 	if err != nil {
 		return err
 	}
 	for _, run := range stale {
 		if run.Plugin == plugin {
-			r.failRunCtx(ctx, run, "no step for over an hour; assumed lost")
+			r.failRunCtx(ctx, run, "no step for over "+RecoverAfter.String()+"; assumed lost")
 		}
 	}
 	return nil
@@ -323,7 +340,7 @@ var (
 // try runs op, retrying a database error a few times. It reports whether op
 // succeeded. When it keeps failing the run is failed (and its changeset
 // discarded), so no run stays running without a driver; if even that cannot
-// be written the database is down, and RecoverRuns fails the run once it has
+// be written the database is down, and RecoverRunsEvery fails the run once it has
 // been quiet for RecoverAfter. A run that ended elsewhere (ErrNotRunning) is
 // left alone.
 func (r *Runtime) try(run plugrun.Run, what string, op func() error) bool {
