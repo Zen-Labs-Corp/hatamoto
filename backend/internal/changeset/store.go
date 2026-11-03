@@ -38,7 +38,7 @@ func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]Stor
 	}
 	rows, err := tx.Query(ctx, `
 		SELECT id, seq, kind, op, COALESCE(source_key, ''), COALESCE(target_id, ''), COALESCE(base_token, ''),
-		       payload, before, blob_keys, COALESCE(result, ''), COALESCE(result_detail, '')
+		       payload, before, blob_keys, COALESCE(result, ''), COALESCE(result_detail, ''), COALESCE(after_token, '')
 		FROM hatamoto_changeset_items WHERE changeset_id = $1 ORDER BY seq `+order, csID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read items: %w", err)
@@ -50,7 +50,7 @@ func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]Stor
 		var kind string
 		var payload, before []byte
 		if err := rows.Scan(&it.ID, &it.Seq, &kind, &it.Op, &it.SourceKey, &it.TargetID, &it.BaseToken,
-			&payload, &before, &it.BlobKeys, &it.Result, &it.ResultDetail); err != nil {
+			&payload, &before, &it.BlobKeys, &it.Result, &it.ResultDetail, &it.AfterToken); err != nil {
 			return nil, err
 		}
 		it.Kind = Kind(kind)

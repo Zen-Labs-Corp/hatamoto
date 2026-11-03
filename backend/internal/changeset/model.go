@@ -100,6 +100,7 @@ type StoredItem struct {
 	ID           int64
 	Seq          int
 	Before       json.RawMessage
+	AfterToken   string // live token when the publish ended; empty when none was recorded
 	Result       string
 	ResultDetail string
 }

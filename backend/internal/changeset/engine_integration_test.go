@@ -427,15 +427,21 @@ func TestChangesetRevert(t *testing.T) {
 		t.Errorf("state = %s", got)
 	}
 
-	if _, err := f.eng.Revert(f.ctx, create); err != nil {
+	// Reverting the second changeset wrote entity, term, menu and redirect again,
+	// so the first one no longer owns them: revert leaves them and reports it.
+	res, err := f.eng.Revert(f.ctx, create)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if f.entities() != 0 ||
-		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rev") != 0 ||
-		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-rev") != 0 ||
-		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-rev") != 0 ||
+	if res.Applied != 1 || res.Skipped != 4 {
+		t.Fatalf("create revert result = %+v, want only the media removed", res)
+	}
+	if f.entities() != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rev") != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-rev") != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-rev") != 1 ||
 		f.count(`SELECT count(*) FROM hatamoto_media WHERE original_filename = 'r.png' AND origin = 'owner' AND created_at > $1`, time.Now().Add(-time.Minute)) != 0 {
-		t.Fatal("created rows survived the revert")
+		t.Fatal("unexpected rows after the first changeset's revert")
 	}
 	if n := f.liveFiles(); n != 0 {
 		t.Errorf("%d media files survived the revert", n)
@@ -682,5 +688,49 @@ func TestChangesetSlugChangeRunsPathObserver(t *testing.T) {
 	}
 	if len(moves) != 2 || moves[1] != (move{"new-" + f.tag, "old-" + f.tag}) {
 		t.Fatalf("after revert: moves = %v", moves)
+	}
+}
+
+func TestChangesetRevertSkipsObjectsEditedSincePublish(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("e-"+f.tag, "mv-"+f.tag, "x"))
+	f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, SourceKey: "t-" + f.tag, Payload: raw(map[string]any{"kind": "tag", "name": "T", "slug": f.tag + "-mv"})})
+	f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, SourceKey: "m-" + f.tag, Payload: raw(map[string]any{"name": "M", "slug": f.tag + "-mv"})})
+	f.stage(cs, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r-" + f.tag, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-mv", "target": "/x"})})
+	f.stage(cs, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r2-" + f.tag, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-keep", "target": "/x"})})
+	f.publish(cs)
+	// The owner edits four of the five objects after the publish.
+	for _, q := range []string{
+		`UPDATE hatamoto_entities SET name = 'Owner edit' WHERE schema_id = $1`,
+	} {
+		if _, err := f.db.Pool().Exec(f.ctx, q, f.schema.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, q := range []string{
+		`UPDATE hatamoto_terms SET name = 'Owner edit', updated_at = now() WHERE slug = $1`,
+		`UPDATE hatamoto_menus SET name = 'Owner edit' WHERE slug = $1`,
+		`UPDATE hatamoto_redirects SET target_url = '/owner' WHERE source_path = '/' || $1`,
+	} {
+		if _, err := f.db.Pool().Exec(f.ctx, q, f.tag+"-mv"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res, err := f.eng.Revert(f.ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Skipped != 4 || res.Applied != 1 || len(res.Conflicts) != 4 {
+		t.Fatalf("result = %+v", res)
+	}
+	if f.entities() != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1 AND name = 'Owner edit'`, f.tag+"-mv") != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1 AND name = 'Owner edit'`, f.tag+"-mv") != 1 ||
+		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = '/' || $1 AND target_url = '/owner'`, f.tag+"-mv") != 1 {
+		t.Error("an edited object was overwritten or deleted by the revert")
+	}
+	if f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = '/' || $1`, f.tag+"-keep") != 0 {
+		t.Error("the untouched redirect survived the revert")
 	}
 }

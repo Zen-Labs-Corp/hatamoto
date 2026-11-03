@@ -38,11 +38,19 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 		if err != nil {
 			return err
 		}
+		var applied []appliedRef
 		for _, it := range items {
 			keys = append(keys, it.BlobKeys...)
+			n := len(res.Items)
 			if err := e.publishItem(ctx, tx, cs.Plugin, it, &res, &undos); err != nil {
 				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
 			}
+			if len(res.Items) > n {
+				applied = append(applied, appliedRef{it.ID, it.Kind, res.Items[n].TargetID})
+			}
+		}
+		if err := recordAfterTokens(ctx, tx, applied); err != nil {
+			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET state = 'published', published_at = $2 WHERE id = $1`, csID, e.now()); err != nil {
 			return fmt.Errorf("failed to mark changeset published: %w", err)

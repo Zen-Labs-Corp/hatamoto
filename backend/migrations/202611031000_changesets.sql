@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS hatamoto_changeset_items (
     base_token    text,
     payload       jsonb NOT NULL DEFAULT '{}'::jsonb,
     before        jsonb,                         -- pre-image, written at publish, used by revert
+    after_token   text,                          -- token of the live object when the publish ended; revert skips an object that moved since
     blob_keys     text[] NOT NULL DEFAULT '{}',
     result        text,                          -- applied|skipped_conflict|skipped_other
     result_detail text

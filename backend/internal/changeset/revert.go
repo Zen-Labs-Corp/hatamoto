@@ -29,10 +29,21 @@ func (e *Engine) Revert(ctx context.Context, csID int64) (Result, error) {
 			return err
 		}
 		origin := Origin(cs.Plugin)
+		restored := map[string]bool{} // objects this revert already wrote: their token moved by our own hand
 		for _, it := range items {
 			if it.Result != ResultApplied {
 				continue
 			}
+			moved, err := e.movedSincePublish(ctx, tx, it, restored)
+			if err != nil {
+				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
+			}
+			if moved {
+				res.Skipped++
+				res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: it.TargetID, Reason: reasonRevertMoved})
+				continue
+			}
+			restored[string(it.Kind)+":"+it.TargetID] = true
 			w, ok := e.Writers[it.Kind]
 			if !ok {
 				return fmt.Errorf("item %d: %w: %q", it.Seq, ErrNoWriter, it.Kind)
@@ -79,4 +90,17 @@ func (e *Engine) Revert(ctx context.Context, csID int64) (Result, error) {
 	e.logger().Info(fmt.Sprintf("changeset reverted: %d restored", res.Applied))
 	e.audit(ctx, "changeset.revert", csID, map[string]any{"restored": res.Applied})
 	return res, nil
+}
+
+// movedSincePublish reports whether the live object of it changed after the
+// publish (an owner edit, a later changeset): revert must not overwrite that.
+func (e *Engine) movedSincePublish(ctx context.Context, tx pgx.Tx, it StoredItem, restored map[string]bool) (bool, error) {
+	if it.AfterToken == "" || restored[string(it.Kind)+":"+it.TargetID] {
+		return false, nil
+	}
+	tok, err := liveToken(ctx, tx, it.Kind, it.TargetID)
+	if err != nil {
+		return false, err
+	}
+	return tok != "" && tok != it.AfterToken, nil
 }
