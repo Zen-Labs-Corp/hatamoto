@@ -46,7 +46,7 @@
 .hm-bs__ltablist { display: flex; gap: var(--space-0-5); }
 .hm-bs__ltab { appearance: none; border: 0; background: none; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font: inherit; font-weight: var(--weight-medium); color: var(--text-muted); }
 .hm-bs__ltab:hover { color: var(--text); }
-.hm-bs__ltab[aria-selected="true"] { background: var(--surface-hover); color: var(--text); }
+.hm-bs__ltab[aria-selected="true"] { background-color: var(--color-paper); color: var(--color-sumi); box-shadow: 0 0 0 1px var(--segment-ring); } /* the selected look of the shared segmented control: a paper pill with a hairline ring */
 .hm-bs__ltab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs__search { position: relative; display: flex; align-items: center; flex: 1 1 100%; }
 .hm-bs__search [data-hm-bs-searchico] { position: absolute; inset-inline-start: var(--space-2); display: inline-flex; color: var(--text-muted); pointer-events: none; }

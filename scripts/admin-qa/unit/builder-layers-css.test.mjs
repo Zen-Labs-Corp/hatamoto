@@ -28,3 +28,10 @@ test("the Pages tab: a muted page icon, the path small and muted, the current pa
   assert.match(rule(".hm-bs-page__path"), /font-size: var\(--text-xs\)[^}]*color: var\(--text-muted\)/);
   assert.match(rule('.hm-bs-page[aria-current="page"], .hm-bs-page[aria-current="page"]:hover'), /background: var\(--bs-nav-accent/);
 });
+
+test("the active left tab is a paper pill with a hairline ring, like a selected segment", () => {
+  const r = rule('.hm-bs__ltab[aria-selected="true"]');
+  assert.match(r, /background-color: var\(--color-paper\)/);
+  assert.match(r, /box-shadow: 0 0 0 1px var\(--segment-ring\)/);
+  assert.doesNotMatch(r, /surface-hover/);
+});
