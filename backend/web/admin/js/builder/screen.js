@@ -307,7 +307,7 @@ function start(root, boot) {
       onAdd: (pt, btn) => {
         const pos = docPos(st.doc, pt);
         if (pos) addAt(pos, btn);
-        else announce("That spot has moved. Select the element and use Add after in the More menu.");
+        else announce("That spot has moved. Select the element and use Insert after in the More menu.");
       }, // the "+" between elements and inside empty containers
     },
     { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined) }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
@@ -609,7 +609,7 @@ function start(root, boot) {
     const add = (node, name) => {
       if (!run([{ op: "insert", parent: pos.parent, index: pos.index, node }], { label: addLabel(pos, name) })) return;
       select(node.id);
-      announce(`Added ${name} at position ${pos.index + 1}`);
+      announce(`Inserted ${name} at position ${pos.index + 1}`);
     };
     pickChunk()
       .then((P) =>
@@ -619,7 +619,7 @@ function start(root, boot) {
           onPick: (l) => add(l.make(), l.name),
           onChoose: (r) => {
             addTarget = pos; // the next insert from the Insert tab goes here
-            announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to add at position ${pos.index + 1}`);
+            announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to insert at position ${pos.index + 1}`);
             showAdd(r.mode === "pattern");
           },
         }),
@@ -631,10 +631,10 @@ function start(root, boot) {
   function insertItem(item, pos, { keepOpen = false } = {}) {
     const node = makeNode(item, boot.kinds);
     const at = pos ?? insertPoint(st.doc, selected, boot.kinds);
-    if (!run([{ op: "insert", parent: at.parent, index: at.index, node }], { label: "Add" })) return false;
+    if (!run([{ op: "insert", parent: at.parent, index: at.index, node }], { label: "Insert" })) return false;
     select(node.id);
     settle(keepOpen);
-    announce(`Added ${label(node.id)} to ${position(node.id)}`);
+    announce(`Inserted ${label(node.id)} to ${position(node.id)}`);
     return true;
   }
 
@@ -654,7 +654,7 @@ function start(root, boot) {
       reuseUI?.say(err.message);
       return announce(err.message), false;
     }
-    if (!run(pos ? insertAll(pos.parent, pos.index, nodes) : insertOps(st.doc, selected, nodes, boot.kinds), { label: `Add ${item.name}` })) return false;
+    if (!run(pos ? insertAll(pos.parent, pos.index, nodes) : insertOps(st.doc, selected, nodes, boot.kinds), { label: `Insert ${item.name}` })) return false;
     select(nodes[0].id);
     settle(keepOpen);
     announce(`Inserted ${item.name}`);
@@ -669,10 +669,10 @@ function start(root, boot) {
         select(spec.id);
         announce(`Moved ${label(spec.id)} to ${position(spec.id)}`);
       }
-    } else if (run([target.op], { label: "Add" })) {
+    } else if (run([target.op], { label: "Insert" })) {
       palette?.used(spec.key); // a dragged item counts for Recent too
       select(spec.node.id);
-      announce(`Added ${label(spec.node.id)} to ${position(spec.node.id)}`);
+      announce(`Inserted ${label(spec.node.id)} to ${position(spec.node.id)}`);
     }
   }
 

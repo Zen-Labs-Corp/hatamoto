@@ -21,7 +21,7 @@ const before = { v: 2, nodes: [{ id: "c", t: "container", c: [{ id: "b", t: "but
 const d = (ops, label = "") => derive(ops, before, { kindName, label });
 
 const cases = [
-  ["add", [{ op: "insert", parent: "", index: 0, node: { id: "n", t: "heading" } }], "Add", "Add Heading"],
+  ["add", [{ op: "insert", parent: "", index: 0, node: { id: "n", t: "heading" } }], "Insert", "Insert Heading"],
   ["duplicate", [{ op: "insert", parent: "", index: 1, node: { id: "n", t: "button" } }], "Duplicate", "Duplicate Button"],
   ["duplicate many", [{ op: "insert", parent: "", index: 1, node: { id: "n" } }, { op: "insert", parent: "", index: 2, node: { id: "m" } }], "Duplicate", "Duplicate 2 elements"],
   ["delete", [{ op: "remove", id: "c" }], "Remove", "Delete Container"],
@@ -36,8 +36,8 @@ const cases = [
 for (const [name, ops, label, want] of cases) test(`derive: ${name}`, () => assert.equal(d(ops, label), want));
 
 test("isGeneric: verbs and Edit <key> are replaced, specific labels stay", () => {
-  for (const l of ["", "Add", "Move", "Remove", "Style", "Change", "Duplicate", "Edit text", "Edit href"]) assert.equal(isGeneric(l), true, l);
-  for (const l of ["Paste 3 elements", "Wrap in Container", "Rename", "Add Heading", "Change Font size (Tablet)", "Change Link", "Bind Text", "Change Number of columns"]) assert.equal(isGeneric(l), false, l);
+  for (const l of ["", "Add", "Insert", "Move", "Remove", "Style", "Change", "Duplicate", "Edit text", "Edit href"]) assert.equal(isGeneric(l), true, l);
+  for (const l of ["Paste 3 elements", "Wrap in Container", "Rename", "Insert Heading", "Change Font size (Tablet)", "Change Link", "Bind Text", "Change Number of columns"]) assert.equal(isGeneric(l), false, l);
 });
 
 test("a derived label lands in the history entry", () => {

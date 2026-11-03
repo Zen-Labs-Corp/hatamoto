@@ -32,7 +32,7 @@ test("toolbar Delete, Duplicate and Hide act on the same node as Move: the colla
   assert.match(src, /const isHiddenAt = \(id\) => \{\s*const n = find\(st\.doc, hideTarget\(st\.doc, id, device\) \?\? id\)/);
 });
 
-test("Add after lives in the More menu: dispatch opens the picker at the selection's index + 1, and no dead onAddAfter handler is left", () => {
+test("Insert after lives in the More menu: dispatch opens the picker at the selection's index + 1, and no dead onAddAfter handler is left", () => {
   assert.doesNotMatch(src, /onAddAfter/);
   const i = src.indexOf('case "addafter"');
   assert.ok(i > 0, "no addafter case in dispatch");
@@ -68,4 +68,10 @@ test('"/" opens the section popover with a selection and falls back to the Inser
   assert.match(src, /case "slash":\s*return openSlash\(\);/);
   assert.match(src, /case "palette":\s*return showAdd\(\);/);
   assert.match(src, /onPick: \(item\) => insertFrom\(item, \{\}\)/); // a section item lands after the selected section (sectionPoint)
+});
+
+test("inserting says Insert in history labels and announcements (the Add section line, pill and footer keep their name)", () => {
+  assert.doesNotMatch(src, /label: "Add"|label: `Add |announce\(`Added |use Add after/);
+  assert.match(src, /label: "Insert"/);
+  assert.match(src, /label: `Insert \$\{item\.name\}`/);
 });

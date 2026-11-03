@@ -1,10 +1,10 @@
-// History labels (a lazy chunk, loaded when idle): "Add Heading", "Delete Container", "Move Button",
+// History labels (a lazy chunk, loaded when idle): "Insert Heading", "Delete Container", "Move Button",
 // "Change Text colour (Tablet)". Derived from the ops and the document BEFORE the commit, so a removed
 // element can still be named. Callers that pass a specific label ("Paste 3 elements") keep it.
 import { find } from "@hm/builder/store";
 import { BP_NAME, NAMES } from "@hm/builder/bp";
 
-const GENERIC = new Set(["Add", "Move", "Remove", "Delete", "Duplicate", "Style", "Change"]);
+const GENERIC = new Set(["Add", "Insert", "Move", "Remove", "Delete", "Duplicate", "Style", "Change"]);
 
 /** Whether a label is missing or only a verb the derivation replaces ("Edit text" too). */
 export const isGeneric = (l) => !l || GENERIC.has(l) || /^Edit \w+$/.test(l);
@@ -23,7 +23,7 @@ export function derive(ops, before, { kindName, label = "" }) {
   const ids = (op) => new Set(ops.filter((x) => x.op === op).map((x) => x.id ?? x.node?.id));
   switch (o.op) {
     case "insert": {
-      const verb = label === "Duplicate" ? "Duplicate" : "Add";
+      const verb = label === "Duplicate" ? "Duplicate" : "Insert";
       return many(verb, ids("insert")) ?? `${verb} ${nameOf(o.node)}`;
     }
     case "remove":

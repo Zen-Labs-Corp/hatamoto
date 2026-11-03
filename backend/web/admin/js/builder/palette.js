@@ -100,4 +100,4 @@ export function posValid(doc, pos) {
 }
 
 /** The history label of a layout added at pos: a section at the page level, else the element's own name. */
-export const addLabel = (pos, name) => (pos.parent ? `Add ${name}` : `Add section: ${name}`);
+export const addLabel = (pos, name) => (pos.parent ? `Insert ${name}` : `Insert section: ${name}`);
