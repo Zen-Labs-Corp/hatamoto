@@ -69,7 +69,7 @@ type StartRunInput struct {
 // the run ends. The driver never uses the caller's context.
 func (r *Runtime) StartRun(ctx context.Context, plugin, name string, in StartRunInput) (uuid.UUID, error) {
 	svc := r.caps.api.svc
-	if svc.Runs == nil || svc.Changesets == nil {
+	if svc.Runs == nil || svc.Changesets == nil || r.runCtx.Err() != nil {
 		return uuid.Nil, ErrRunsUnavailable
 	}
 	m, ok := r.manifest(plugin)
@@ -237,7 +237,8 @@ func checkRunHosts(hosts []string) ([]string, error) {
 // drive runs the steps of one run: it calls on_run_step with the run's phase
 // and cursor until the plugin finishes the transform phase or the run fails.
 // A step that errors, a tripped circuit breaker, run.fail and the step cap
-// all fail the run; a failed step is never retried. A database error is
+// all fail the run; a failed step is never retried. Closing the runtime cuts
+// the step in flight and fails the run as interrupted. A database error is
 // retried, then fails the run too: the driver never returns and leaves the run
 // running (see try). Every step runs on a
 // cold instance that is closed afterwards (ADR 0004 inv. 4): guest memory
@@ -263,6 +264,10 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			r.failRunCtx(bg, run, "the plugin was unloaded")
 			return
 		}
+		if r.runCtx.Err() != nil {
+			r.failRunCtx(bg, run, reasonShutdown)
+			return
+		}
 		if time.Since(run.CreatedAt) > MaxRunAge {
 			r.failRunCtx(bg, run, fmt.Sprintf("the run took longer than %s", MaxRunAge))
 			return
@@ -281,9 +286,11 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			rc.Proposes = m.Runs[i].Proposes
 		}
 		in, _ := json.Marshal(sdk.RunStep{RunID: runID.String(), Phase: run.Phase, Cursor: run.Cursor})
-		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(bg, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
+		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(r.runCtx, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
 			reason := "step failed: " + err.Error()
-			if errors.Is(err, wasmhost.ErrCircuitOpen) {
+			if r.runCtx.Err() != nil {
+				reason = reasonShutdown
+			} else if errors.Is(err, wasmhost.ErrCircuitOpen) {
 				reason = "plugin disabled after repeated failures: " + err.Error()
 			}
 			r.failRunCtx(bg, run, reason)
@@ -304,6 +311,8 @@ func (r *Runtime) drive(runID uuid.UUID) {
 		}
 	}
 }
+
+const reasonShutdown = "interrupted by a shutdown"
 
 // Database errors the driver retries before it gives the run up.
 var (

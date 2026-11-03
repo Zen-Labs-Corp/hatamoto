@@ -398,3 +398,35 @@ func TestRunOlderThanMaxAgeFails(t *testing.T) {
 		t.Fatalf("changeset %s", s)
 	}
 }
+
+// Closing the runtime fails the runs its drivers hold and discards their
+// changesets, instead of leaving them running for recovery.
+func TestRunShutdownFailsRun(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	run, err := r.runs.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs, err := r.eng.Begin(ctx, run.ID, runnerPlugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.runs.SetChangeset(ctx, run.ID, cs); err != nil {
+		t.Fatal(err)
+	}
+	r.rt.runWG.Add(1)
+	go func() { defer r.rt.runWG.Done(); r.rt.drive(run.ID) }()
+	r.rt.stopRuns()
+	r.rt.WaitRuns()
+	got, _ := r.runs.Get(ctx, run.ID)
+	if got.State != plugrun.StateFailed || got.Reason != reasonShutdown {
+		t.Fatalf("run %s %q", got.State, got.Reason)
+	}
+	if s := r.changesetState(cs); s != changeset.StateDiscarded {
+		t.Fatalf("changeset %s", s)
+	}
+	if _, err := r.start(""); !errors.Is(err, ErrRunsUnavailable) {
+		t.Fatalf("start after close: %v", err)
+	}
+}
