@@ -17,7 +17,9 @@ ships as SDK 2.0 and core 2.0.
 2. A changeset nobody publishes or discards within 72 hours is deleted, with its
    staged files.
 3. Risky changes (links to new sites, redirects, hidden characters, deletions,
-   slug changes) are listed one by one and approved one by one.
+   slug changes) are listed one by one and approved one by one. The only
+   exception: redirects may be approved as a group when every target is a page
+   in the same changeset.
 4. Site-wide things (site settings, URL patterns, home page, menu locations)
    can only be proposed. Each proposal is approved on its own, after the owner
    signs in again.
@@ -99,6 +101,11 @@ public site. The owner previews the site with the changeset applied, then
 **publishes** it (one database transaction) or **discards** it. A published
 changeset can be **reverted** as a whole.
 
+A plugin declares its runs in a `runs` block of `plugin.json`: for each run its
+`name`, `title`, `inputs`, `stages` and `proposes` (the object kinds the run may
+propose). The install scan report and the registry review read this block. A run
+that proposes a kind it did not declare is refused.
+
 Hooks, routes and cron cannot write content. They keep the plugin's own data
 (`kv`, `db`), logging, mail and the read functions.
 
@@ -124,7 +131,8 @@ Every entity, term, byline, menu, redirect and media item carries an **origin**:
 `owner` or `plugin:<name>`. A changeset may update or delete only objects whose
 origin is the plugin's own. Objects are matched by the plugin's stable
 `source_key` (for example a WordPress post id), and core keeps that mapping, so
-re-runs update and never duplicate.
+re-runs update and never duplicate. A plugin that tries to change an object
+whose ownership has passed to the owner gets the host error `not_owned`.
 
 - **A human edit hands the object to the owner.** Changes to the body, slug,
   parent, template or SEO fields set the origin to `owner`; the plugin can no
@@ -163,7 +171,7 @@ never overwritten. The rest of the changeset publishes.
   | Class | Examples | Approval |
   |---|---|---|
   | Low | plain text in a body, a title, an image alt | grouped, approved with the changeset |
-  | High | a new external host in a link, a changed link target or query parameter (affiliate ids), an embed or iframe, zero-width or bidirectional control characters, a redirect, a slug change, a delete | itemised, each ticked |
+  | High | a new external host in a link, a changed link target or query parameter (affiliate ids), an embed or iframe, zero-width or bidirectional control characters, a redirect, a slug change, a delete | itemised, each ticked (redirects may be approved as a group only when every target is a page in the same changeset) |
   | Critical | any singleton proposal (site settings, URL patterns, home page, menu location) | itemised, step-up verification |
 
   A changeset that contains any high or critical item cannot be approved with a
