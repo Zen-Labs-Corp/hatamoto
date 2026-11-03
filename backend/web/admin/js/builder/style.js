@@ -266,7 +266,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     switch (g.name) {
       case "Layout": {
         const maxw = one("maxw", undefined, { inline: true }); // before the buttons: they write through its apply
-        return [...(maxw.length ? [widthRow(by.get("maxw"))] : []), ...maxw, ...one("ai", "Align"), ...pair("gap", "minh")];
+        return [...(maxw.length ? [widthRow(by.get("maxw")), labelled("Max width", maxw[0])] : []), ...one("ai", "Align"), ...pair("gap", "minh")];
       }
       case "Corners & border":
         return pair("radius", "bw");
@@ -279,6 +279,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       default:
         return g.primary.map((e) => field(e));
     }
+  }
+
+  /** The label column of the other rows beside an inline field, which has no row chrome of its own; its short label ("W") names the field, so this one is for the eye only. */
+  function labelled(text, box) {
+    return h("div", { class: "hm-field hm-bs-field hm-bs-lrow" }, h("span", { class: "hm-field__label hm-bs-lbl", "aria-hidden": "true", text }), box);
   }
 
   /** "Space between blocks comes from the section's Gap (16px)." under a text block's margins: the parent's gap at this width, when there is a section. */

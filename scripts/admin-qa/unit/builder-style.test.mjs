@@ -225,6 +225,10 @@ test("a section's Layout shows Width, Max width, Align and Gap/Height without a 
   assert.deepEqual(primary, [], "no select, no slider in the primary rows");
   const labels = m.find((n) => n.className?.includes("hm-bs-fld__lb") && !inMore.has(n), layout).map((n) => n.kids[0]?.textContent ?? n.textContent);
   assert.deepEqual(labels, ["W", "Gap", "H"]);
+  const rows = m.find((n) => n.className === "hm-field hm-bs-field hm-bs-lrow", layout);
+  assert.equal(rows.length, 1, "the Max width row");
+  assert.equal(rows[0].kids[0].textContent, "Max width", "its label sits in the row's label column");
+  assert.ok(m.find((n) => n.className === "hm-bs-fld", rows[0]).length, "beside the inline scrub field");
   const widths = m.find((n) => n.dataset?.v && ["full", "wide", "text"].includes(n.dataset.v), layout).map((b) => b.textContent);
   assert.deepEqual(widths, ["Full", "Wide", "Text"]);
   const toggle = m.find((n) => n.className === "hm-bs-morebtn", layout)[0];
