@@ -33,7 +33,10 @@ test("not while the canvas has a text edit open (that is insert link), and not w
 test("a plain k is not the palette, and the other keys are unchanged", () => {
   assert.equal(resolveKey({ key: "k" }, { free: true }), null);
   assert.equal(resolveKey(k("s"), { text: true }), "save");
-  assert.equal(resolveKey({ key: "/" }, { free: true }), "palette");
+  assert.equal(resolveKey({ key: "/" }, { free: true }), "slash");
+  assert.equal(resolveKey({ key: "a" }, { free: true }), "palette");
+  assert.equal(resolveKey({ key: "A" }, { free: true }), "palette");
+  assert.equal(resolveKey({ key: "a", shiftKey: true }, { free: true }), null);
   assert.equal(resolveKey(k("z"), { free: true }), "undo");
 });
 

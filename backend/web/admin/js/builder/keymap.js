@@ -15,7 +15,7 @@ const ALT = { ArrowUp: "moveup", ArrowDown: "movedown", ArrowLeft: "outdent", Ar
  * range (text is selected on the page: Ctrl+C/X/A stay the browser's),
  * canvasText (the canvas has a text edit open: Ctrl/Cmd+K is the link shortcut there),
  * control (the target is a button, link or other control: Enter stays its own)}.
- * Actions: save undo redo duplicate copystyle pastestyle remove inspect palette sheet prev next first last
+ * Actions: save undo redo duplicate copystyle pastestyle remove inspect palette slash sheet prev next first last
  * collapse expand moveup movedown outdent indent togglenav toggleinspector copynode cutnode pastenode
  * wrap unwrap selectsiblings history rename menu commandk enter parent prevsection nextsection device-base device-md device-sm.
  * Page and canvas focus (not the navigator): Esc selects the parent, Up/Down step to the previous/next section, Enter edits the
@@ -69,7 +69,8 @@ export function resolveKey(e, ctx) {
   if (ctx.selected && ((k === "F10" && e.shiftKey) || k === "ContextMenu")) return "menu";
   if (k === "F2" && ctx.tree && ctx.selected && !e.shiftKey) return "rename";
   if (k === "?") return "sheet";
-  if ((k === "/" || lower === "a") && !e.shiftKey) return "palette";
+  if (k === "/" && !e.shiftKey) return "slash"; // a section popover at the selection (the Insert tab when there is none)
+  if (lower === "a" && !e.shiftKey) return "palette";
   if (k === "Delete" && ctx.selected) return "remove";
   if (ctx.tree) {
     if (k === "Enter" && ctx.selected) return "inspect";

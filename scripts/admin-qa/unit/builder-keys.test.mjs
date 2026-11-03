@@ -50,7 +50,7 @@ test("global keys", () => {
   assert.equal(resolveKey(k("Delete"), free), "remove");
   assert.equal(resolveKey(k("d", { ctrlKey: true }), free), "duplicate");
   assert.equal(resolveKey(k("D", { metaKey: true }), free), "duplicate");
-  assert.equal(resolveKey(k("/"), free), "palette");
+  assert.equal(resolveKey(k("/"), free), "slash");
   assert.equal(resolveKey(k("a"), free), "palette");
   assert.equal(resolveKey(k("?", { shiftKey: true }), free), "sheet");
   assert.equal(resolveKey(k("z", { ctrlKey: true }), free), "undo");

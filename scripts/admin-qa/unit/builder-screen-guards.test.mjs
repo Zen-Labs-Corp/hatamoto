@@ -61,3 +61,11 @@ test("the Fit menu drives the canvas zoom, the Shortcuts item closes ⋯ before 
   assert.match(src, /b\.append\(h\("span", \{ class: "hm-bs__dlong" \}/);
   assert.doesNotMatch(src, /b\.replaceChildren\(h\("span", \{ class: "hm-bs__dlong"/);
 });
+
+test('"/" opens the section popover with a selection and falls back to the Insert tab on a phone or with none', () => {
+  const i = src.indexOf("function openSlash()");
+  assert.match(src.slice(i, i + 200), /if \(dock\.stacked\(\) \|\| !selected\) return showAdd\(\);/);
+  assert.match(src, /case "slash":\s*return openSlash\(\);/);
+  assert.match(src, /case "palette":\s*return showAdd\(\);/);
+  assert.match(src, /onPick: \(item\) => insertFrom\(item, \{\}\)/); // a section item lands after the selected section (sectionPoint)
+});

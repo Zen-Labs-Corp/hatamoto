@@ -97,6 +97,7 @@ function start(root, boot) {
   const sheetChunk = lazy(() => import("@hm/builder/keys"));
   const historyChunk = lazy(() => import("@hm/builder/history"));
   const pickChunk = lazy(() => import("@hm/builder/picker"));
+  const slashChunk = lazy(() => import("@hm/builder/slashpop"));
   const menuChunk = lazy(() => import("@hm/builder/ctxmenu"));
   const clipChunk = lazy(() => import("@hm/builder/clipops")); // multi-selection ops, node clipboard
   const commandChunk = lazy(() => import("@hm/builder/commandk")); // the Ctrl/Cmd+K palette
@@ -843,6 +844,18 @@ function start(root, boot) {
     return openPalette(patterns);
   }
 
+  /** "/": section cards at the selection (the Insert tab on a phone or with nothing selected); a pick lands after the selected section. */
+  function openSlash() {
+    if (dock.stacked() || !selected) return showAdd();
+    const pick = $(canvasEl, "[data-hm-pe-outline]:not(.hm-pe__outline--member):not(.hm-pe__outline--field)") ?? canvasEl;
+    const items = itemsOf(boot.kinds, boot.sections, { slot: !!reuse && wantsSlot(reuse) })
+      .concat(reuse ? paletteExtra(reuse, boot.entity) : [])
+      .filter(isSectionItem);
+    slashChunk()
+      .then((M) => M.openSlashPopover({ anchorRect: pick.getBoundingClientRect(), items, onPick: (item) => insertFrom(item, {}), restore: () => tree.focus() }))
+      .catch(() => warn("The section list did not load. Reload the page."));
+  }
+
   /** A command picked in the palette: the same actions as the buttons and keys. */
   function runCommand(id) {
     if (id.startsWith("device-")) return $(bar, `[data-hm-bs-device="${id.slice(7)}"]`)?.click();
@@ -910,6 +923,8 @@ function start(root, boot) {
           .catch(() => warn("The command palette did not load. Reload the page."));
       case "palette":
         return showAdd();
+      case "slash":
+        return openSlash();
       case "edittext": {
         const n = selected && find(st.doc, selected);
         if (!ownsText(n)) return; // only the element's own text, as Enter in the frame (never a descendant's)
