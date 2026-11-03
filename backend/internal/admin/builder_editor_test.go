@@ -114,8 +114,14 @@ func TestBuilderBarPreview(t *testing.T) {
 
 	r.ent.Status = entity.StatusDraft
 	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
-	has(t, body, `aria-label="Preview" aria-disabled="true" data-hm-bs-preview="" disabled="disabled" title="Publish to view"`)
-	lacks(t, body, `rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]"`)
+	has(t, body, `aria-label="Preview" aria-describedby="bs-preview-why" aria-disabled="true" data-hm-bs-preview="" title="Publish to view"`, `id="bs-preview-why">Publish to view</span>`)
+	lacks(t, body, `rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]"`, `disabled="disabled" title="Publish to view"`)
+
+	// No Publish action (a reusable block) or no public address: Preview is absent, not a false promise.
+	r.ent.Status = entity.StatusPublished
+	r.a.deps.Content.PublicPath = func(context.Context, *entity.Entity) string { return "" }
+	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	lacks(t, body, `data-hm-bs-preview`, `Publish to view`)
 }
 
 // A published page says "Update" in the bar and in the no-JS outline: one label for one action.

@@ -228,7 +228,7 @@ await check("A1: the title is plain until pointed at, the device switch is centr
   if (!(await p.locator('[data-hm-pe-strip] nav[aria-label="Selected element path"]').count())) throw new Error("the stage bar lost its breadcrumbs");
   // Preview: a link to the page when published, otherwise disabled with a reason.
   const pv = p.locator("[data-hm-bs-preview]").first();
-  const link = await pv.evaluate((e) => ({ href: e.getAttribute("href"), target: e.getAttribute("target"), rel: e.getAttribute("rel"), disabled: e.hasAttribute("disabled"), title: e.getAttribute("title") }));
+  const link = await pv.evaluate((e) => ({ href: e.getAttribute("href"), target: e.getAttribute("target"), rel: e.getAttribute("rel"), disabled: e.getAttribute("aria-disabled") === "true" && !e.hasAttribute("disabled"), title: e.getAttribute("title") }));
   if (link.href) { if (link.target !== "_blank" || !/noopener/.test(link.rel || "")) throw new Error(`Preview link ${JSON.stringify(link)}`); }
   else if (!link.disabled || link.title !== "Publish to view") throw new Error(`Preview on a draft ${JSON.stringify(link)}`);
   // Shortcuts: the ⋯ menu item only, no separate bar icon.

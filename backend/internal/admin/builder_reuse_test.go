@@ -102,7 +102,7 @@ func TestBlockAndPartOpenTheBuilderWithoutPublish(t *testing.T) {
 	r := newReuseRig(t)
 	body := r.get(t, "owner-token", r.url(r.block, "/edit"), "")
 	has(t, body, `data-hm-builder`, "Save block", `data-hm-bs-usage`, "No page uses this block yet", `aria-label="Block name"`)
-	lacks(t, body, ">Publish<", "Update page", "Delete page", "This entity", "Delete entity")
+	lacks(t, body, ">Publish<", "Update page", "Delete page", "This entity", "Delete entity", "data-hm-bs-preview", "Publish to view")
 	has(t, body, `data-hm-confirm="This block and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete block"`, `data-hm-danger>Delete block</a>`)
 	if i := strings.Index(body, `"reuse":`); i < 0 || !strings.Contains(body[i:], `"role":"block"`) {
 		t.Errorf("boot reuse missing: %.300s", body)
