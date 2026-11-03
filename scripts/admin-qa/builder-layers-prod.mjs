@@ -286,6 +286,23 @@ await check("A6: dark theme: the same row is solid, readable and photographed", 
   return `${bg} on ${fg}`;
 });
 
+await check("A7: phone width: the dock reaches the Pages tab and its list", async () => {
+  const ph = await session("light");
+  await ph.setViewportSize({ width: 390, height: 844 });
+  await ph.goto(base + href, { waitUntil: "load" });
+  await ph.waitForFunction(() => !!window.__hmBuilder, null, { timeout: 8000 });
+  await ph.waitForTimeout(1200);
+  const dock = ph.locator("[data-hm-bs-dock]");
+  need(await dock.first().isVisible(), "no dock");
+  const names = (await dock.locator("button").allInnerTexts()).map((t) => t.trim()).join();
+  need(names === "Layers,Insert,Pages,Inspector", `dock: ${names}`);
+  await ph.locator('[data-hm-bs-dock="pages"]').click();
+  await settle(400);
+  need(await ph.locator("[data-hm-bs-pages] a.hm-bs-page").first().isVisible(), "the Pages list is not visible on the phone");
+  if (SHOTS) await ph.screenshot({ path: path.join(SHOTS, "layers-phone.png") });
+  return "dock " + names + ", Pages list visible";
+});
+
 await check("end: the document is unchanged and no save request got through", async () => {
   need((await sig()) === (await sig()), "unstable");
   await open(href);
