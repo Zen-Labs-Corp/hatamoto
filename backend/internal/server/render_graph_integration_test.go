@@ -90,10 +90,9 @@ func TestRenderGraph_Integration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id=$1`, schemaID)
 	})
 
+	// The default locale's business is the site profile itself (its address and
+	// phone live in the legacy columns), not a card.
 	const cards = `{
-	  "en": {"address":{"street":"1 En Street","city":"Sample City","country":"XA"},"phone":"+00 100","country_name":"Enland",
-	         "contact_points":[{"type":"sales","phone":"+00 101","name":"Sales"}],
-	         "opening_hours":[{"days":["Monday"],"opens":"09:00","closes":"17:00"}]},
 	  "fr": {"no_office":true,"country_name":"Frland"},
 	  "nl": {"address":{"street":"1 Nl Street","city":"Sample Town","country":"XB"},"phone":"+00 300","country_name":"Nlland",
 	         "special_hours":[{"from":"2030-01-01"}],"rating":{"value":"4.5","count":"12"}}
@@ -101,13 +100,17 @@ func TestRenderGraph_Integration(t *testing.T) {
 	const siteAddress = `{"street":"1 Site Street","city":"Site City","country":"XS"}`
 	setProfile := func(orgAddress string) {
 		t.Helper()
-		biz := map[string]any{"name": "Example Co Ltd", "org_address": orgAddress}
+		biz := map[string]any{
+			"name": "Example Co Ltd", "org_address": orgAddress, "office": true, "country_name": "Enland",
+			"contact_points": []map[string]string{{"type": "sales", "phone": "+00 101", "name": "Sales"}},
+			"opening_hours":  []map[string]any{{"days": []string{"Monday"}, "opens": "09:00", "closes": "17:00"}},
+		}
 		bizJSON, _ := json.Marshal(biz)
-		exec(`INSERT INTO hatamoto_site_config (company_name, language, locales, prefix_all, business_profile, locale_profiles, postal_address)
-			VALUES ('Example Co', 'en', $1::jsonb, false, $2::jsonb, $3::jsonb, $4::jsonb)
+		exec(`INSERT INTO hatamoto_site_config (company_name, language, locales, prefix_all, business_profile, locale_profiles, postal_address, phone)
+			VALUES ('Example Co', 'en', $1::jsonb, false, $2::jsonb, $3::jsonb, $4::jsonb, '+00 100')
 			ON CONFLICT (id) DO UPDATE SET language='en', locales=EXCLUDED.locales, prefix_all=false, homepage_entity_id=NULL,
 			  business_profile=EXCLUDED.business_profile, locale_profiles=EXCLUDED.locale_profiles,
-			  phone='', postal_address=EXCLUDED.postal_address`,
+			  phone=EXCLUDED.phone, postal_address=EXCLUDED.postal_address`,
 			`[{"tag":"en","segment":""},{"tag":"fr","segment":"fr"},{"tag":"nl","segment":"nl"}]`, string(bizJSON), cards, siteAddress)
 	}
 	srv := New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -188,8 +191,8 @@ func TestRenderGraph_Integration(t *testing.T) {
 
 	for _, tc := range []struct{ setting, frStreet, enStreet string }{
 		{"", "1 Site Street", "1 Site Street"},
-		{"locale", "", "1 En Street"},
-		{"locale_or_site", "1 Site Street", "1 En Street"},
+		{"locale", "", "1 Site Street"},
+		{"locale_or_site", "1 Site Street", "1 Site Street"},
 	} {
 		setProfile(tc.setting)
 		if got := street(node(graph("/fr/"+slug), "Organization")); got != tc.frStreet {
