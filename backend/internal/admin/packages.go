@@ -99,6 +99,9 @@ type PackageMeta struct {
 	// Blocked says why policy keeps the package from loading (a signer that is
 	// no longer trusted, a dev package in production); "" when it is not.
 	Blocked string
+	// LoadError is why the package was refused at load (a permission the host
+	// removed, an unreadable archive); "" when it was not.
+	LoadError string
 	// ScriptsBlocked is set when the plugin ships browser JavaScript (an
 	// assets/plugin.js, or script tags for the page head) that is not loaded
 	// because the owner has not granted site.scripts.
