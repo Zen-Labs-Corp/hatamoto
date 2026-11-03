@@ -1,0 +1,44 @@
+// The Pages tab body (a lazy chunk, mounted the first time the tab shows): a filter field and the
+// site's pages, the current one marked. Each row is a link to that page's builder (list + open only).
+import { h } from "@hm/builder/dom";
+
+/** The pages whose title or path contains q (case-insensitive); all of them for a blank q. */
+export function filterPages(pages, q) {
+  const s = q.trim().toLowerCase();
+  return s ? pages.filter((p) => `${p.title} ${p.path}`.toLowerCase().includes(s)) : pages;
+}
+
+/**
+ * mountPages(host, {pages, announce}): pages is boot.pageList [{id,title,path,editHref,status,current}].
+ * Returns {el, draw}; draw() repaints from the filter field.
+ */
+export function mountPages(host, { pages = [], announce = () => {} } = {}) {
+  const search = h("input", { type: "search", class: "hm-field__control", id: "hm-bs-pages-q", placeholder: "Find a page…", autocomplete: "off", "aria-label": "Find a page", "aria-controls": "hm-bs-pages-list" });
+  const list = h("ul", { class: "hm-bs-pages", id: "hm-bs-pages-list" });
+  const note = h("p", { class: "hm-muted hm-bs-pages__empty", hidden: true });
+  const el = h("div", { class: "hm-bs-pages__body" }, h("div", { class: "hm-bs-pages__q" }, search), list, note);
+  host.replaceChildren(el);
+  const row = (p) =>
+    h(
+      "li",
+      {},
+      h(
+        "a",
+        { class: "hm-bs-page", href: p.editHref, "aria-current": p.current ? "page" : false },
+        h("span", { class: "hm-bs-page__title", text: p.title || "Untitled" }),
+        h("span", { class: "hm-bs-page__path", text: p.path || "Draft" }),
+      ),
+    );
+  function draw() {
+    const shown = filterPages(pages, search.value);
+    list.replaceChildren(...shown.map(row));
+    const msg = !pages.length ? "No other pages yet." : !shown.length ? "No pages match." : "";
+    note.textContent = msg;
+    if (msg) note.removeAttribute("hidden");
+    else note.setAttribute("hidden", "");
+    if (search.value.trim()) announce(shown.length === 1 ? "1 page" : `${shown.length} pages`);
+  }
+  search.addEventListener("input", draw);
+  draw();
+  return { el, draw };
+}

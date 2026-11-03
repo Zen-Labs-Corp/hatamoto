@@ -349,8 +349,14 @@ function start(root, boot) {
   // Phone: the dock opens the left pane (on its Navigator or Add tab) or the Inspector as a sheet over the page.
   const dock = mountDock(root, (name) => name !== "insp" && leftTabs.pick(name));
   const phonePane = (name) => dock.stacked() && dock.pick(name);
+  // The Pages tab body is a lazy chunk too, mounted the first time the tab shows.
+  let pagesUI = null;
   const leftTabs = mountLeftTabs(root, (name) => {
     if (name === "add") paletteChunk().catch(() => warn("The Insert tab did not load. Reload the page."));
+    if (name === "pages" && !pagesUI)
+      import("@hm/builder/pagestab")
+        .then((m) => (pagesUI ??= m.mountPages($(root, "[data-hm-bs-pages]"), { pages: boot.pageList ?? [], announce })))
+        .catch(() => warn("The Pages tab did not load. Reload the page."));
     if (dock.stacked() && ["nav", "add"].includes(root.dataset.hmBsTab)) dock.show(name); // the tab inside the sheet follows the dock
   });
   $(root, "[data-hm-bs-addbtn]")?.addEventListener("click", () => dispatch("palette"));
