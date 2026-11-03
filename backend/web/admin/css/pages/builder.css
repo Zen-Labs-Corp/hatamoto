@@ -39,7 +39,10 @@
 .hm-bs__navfoot { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border-block-start: 1px solid var(--border); background: var(--surface); }
 /* the "/" key sits inside the Add element button; an empty alt keeps it out of the button's name (aria-keyshortcuts says it) */
 .hm-bs__navfoot [data-hm-bs-addbtn]::after { content: "/" / ""; margin-inline-start: var(--space-1); min-inline-size: 1.4em; padding: 0 var(--space-1); text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-hai); border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); background: var(--color-paper); }
-.hm-bs__navfoot [data-hm-bs-addbtn] { flex: 1; justify-content: center; block-size: var(--control-h-sm); border: 1px dashed var(--border-control); border-radius: var(--radius-md); background: transparent; color: var(--text-body); font-weight: var(--weight-medium); }
+/* a plain button, not .hm-btn: the dashed full-width strip has its own border and radius (like .hm-bs__collapse) */
+.hm-bs__navfoot [data-hm-bs-addbtn] { appearance: none; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-block-size: 24px; block-size: var(--control-h-sm); padding: 0 var(--space-3); border: 1px dashed var(--border-control); border-radius: var(--radius-md); background: transparent; color: var(--text-body); font: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; }
+.hm-bs__navfoot [data-hm-bs-addbtn]:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+@media (forced-colors: active) { .hm-bs__navfoot [data-hm-bs-addbtn] { border-color: ButtonText; } .hm-bs__navfoot [data-hm-bs-addbtn]:hover { border-color: Highlight; } }
 .hm-bs__navfoot [data-hm-bs-addbtn]:hover { border-color: var(--color-accent); background: var(--color-accent-soft); color: var(--text); }
 .hm-bs__h { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 /* Layers | Insert | Pages pills, the search field, the caption row and the page row (Layers panel). */

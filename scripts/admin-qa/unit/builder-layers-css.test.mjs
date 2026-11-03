@@ -57,3 +57,11 @@ test("chevron and Collapse are quiet: muted thin chevron, muted regular-weight C
   assert.match(c, /color: var\(--text-muted\)/);
   assert.match(c, /font-weight: var\(--weight-regular\)/);
 });
+
+test("the Add section footer is a plain dashed button with a focus ring and a forced-colors edge", () => {
+  const b = rule('.hm-bs__navfoot [data-hm-bs-addbtn]');
+  assert.match(b, /border: 1px dashed var\(--border-control\)/);
+  assert.match(b, /min-block-size: 24px/);
+  assert.match(css, /\[data-hm-bs-addbtn\]:focus-visible \{ outline: var\(--focus-ring\)/);
+  assert.match(css, /forced-colors: active\) \{ \.hm-bs__navfoot \[data-hm-bs-addbtn\] \{ border-color: ButtonText/);
+});
