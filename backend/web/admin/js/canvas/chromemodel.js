@@ -85,14 +85,20 @@ export const keepInside = (centre, half, max) => Math.max(half, Math.min(centre,
 const clear = (r, o, gap) => r.x + r.w + gap <= o.x || o.x + o.w + gap <= r.x || r.y + r.h + gap <= o.y || o.y + o.h + gap <= r.y;
 
 /**
- * How far a selected section's "Add section" pill moves off its row (px, + is down) so it never touches what else sits there: the padding handles, the W x H badge and
- * the toolbar. `pill` is its rect at the row's right end, `obstacles` the rects of those, all in one space. 0 when the row is clear with `gap` to spare. Otherwise the nearest
- * spot just outside an obstacle that clears every one, the `outward` side (+1 below a bottom edge, -1 above a top edge) favoured by a pill's height.
+ * How far a selected section's "Add section" pill moves off its row (px, + is down) so it never touches what else sits there: the padding handles, the W x H badge, the
+ * toolbar and the other boundaries' pills. `pill` is its rect at the row's right end, `obstacles` the rects of those, all in one space; `bounds` (optional, same space) is the
+ * visible area it must stay inside (the stage below its sticky bar), so a pill is never moved out of sight. 0 when the row is clear with `gap` to spare. Otherwise the nearest
+ * spot just outside an obstacle that clears every one, the `outward` side (+1 below a bottom edge, -1 above a top edge) favoured by a pill's height; a spot outside the bounds
+ * is no spot, which leaves the inward ones. null when no spot is free: the caller keeps the default and yields to the colliding pill.
  */
-export function pillShift(pill, obstacles, outward, gap = 4) {
-  const free = (dy) => obstacles.every((o) => clear({ ...pill, y: pill.y + dy }, o, gap));
+export function pillShift(pill, obstacles, outward, gap = 4, bounds = null) {
+  const inside = (y) => !bounds || (y >= bounds.y && y + pill.h <= bounds.y + bounds.h);
+  const free = (dy) => inside(pill.y + dy) && obstacles.every((o) => clear({ ...pill, y: pill.y + dy }, o, gap));
   if (free(0)) return 0;
   const spots = obstacles.flatMap((o) => [o.y + o.h + gap - pill.y, o.y - gap - pill.h - pill.y]).filter(free);
   const cost = (d) => Math.abs(d) + (Math.sign(d) === outward ? 0 : pill.h); // the nearest spot, the outward side favoured by a pill's height
-  return spots.sort((x, y) => cost(x) - cost(y))[0] ?? 0;
+  return spots.sort((x, y) => cost(x) - cost(y))[0] ?? null;
 }
+
+/** Whether two rects touch or overlap. */
+export const overlaps = (a, b) => !clear(a, b, 0);

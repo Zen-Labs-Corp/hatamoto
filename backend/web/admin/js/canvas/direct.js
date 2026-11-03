@@ -4,7 +4,7 @@
 // end a drag. A drag only previews in the frame (setVar, no commit); pointer-up makes ONE commit through handlers.onPadCommit.
 import { styleDecls } from "@hm/canvas/host";
 import { toBridge } from "@hm/canvas/protocol";
-import { boundaryIndex, hatchRects, keepInside, pillPoints, pillShift } from "@hm/canvas/chromemodel";
+import { boundaryIndex, hatchRects, keepInside, overlaps, pillPoints, pillShift } from "@hm/canvas/chromemodel";
 import { OPPOSITE, SIDES, padAria, padLabel, padValue, padWrites, startPx } from "@hm/canvas/padding";
 
 const SIDE_LIST = ["top", "right", "bottom", "left"]; // the order of a layout node's `pd`
@@ -66,6 +66,9 @@ export function mountDirect(canvas, hd) {
     paintStrips();
   };
   document.addEventListener("mouseover", onOutside);
+  // The pane scrolling moves the toolbar (pinned to the view's top) and the view's bounds under a selected section's pills: they are placed again, after the toolbar's own listener.
+  const onScroll = () => pills.some((q) => q.hasAttribute("data-sel")) && paintStrips();
+  canvas.stage.parentElement?.addEventListener("scroll", onScroll, { passive: true });
 
   // The section whose handles show: the selected one, when it is a section, editable, and not being typed in.
   function target() {
@@ -157,20 +160,25 @@ export function mountDirect(canvas, hd) {
     return null;
   }
 
-  // A selected section's pill sits at the row's right end. On a narrow stage (a phone at 50%) or a short section that is under the centred handle, the badge or the toolbar:
-  // measured against their rects, it drops to its own row (below a bottom edge, above a top one) instead. `outward` is 0 for a pill off the selected section's edges.
+  // A selected section's pill sits at the row's right end. On a narrow stage (a phone at 50%) or a short section that is under the centred handle, the badge, the toolbar or
+  // the next boundary's pill: measured against their rects, it drops to its own row (below a bottom edge, above a top one) instead, never out of the visible stage (under the
+  // sticky bar). `outward` is 0 for a pill off the selected section's edges. With no free spot it keeps its row and the colliding pill yields (one pill per boundary stays clickable).
+  const rectOf = (e) => {
+    const r = e.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  };
   function placePill(p, outward) {
     const pill = p.children[0];
-    pill.style.top = "";
     if (!outward || typeof pill.getBoundingClientRect !== "function") return;
-    const rect = (e) => {
-      const r = e.getBoundingClientRect();
-      return { x: r.left, y: r.top, w: r.width, h: r.height };
-    };
     const stage = canvas.stage;
-    const others = [...stage.querySelectorAll("[data-hm-pe-padh], [data-hm-pe-size], [data-hm-pe-toolbar]")].filter((e) => !e.hidden);
-    const dy = pillShift(rect(pill), others.map(rect), outward);
+    const others = [...stage.querySelectorAll("[data-hm-pe-padh], [data-hm-pe-size], [data-hm-pe-toolbar], .hm-pe__tag--sel")].filter((e) => !e.hidden).map(rectOf);
+    const near = pills.filter((q) => q !== p && !q.hasAttribute("data-yield"));
+    const scroller = stage.parentElement;
+    const sr = scroller?.getBoundingClientRect?.();
+    const bounds = sr ? { x: sr.left, y: sr.top + (canvas.inset ?? 0), w: sr.width, h: sr.height - (canvas.inset ?? 0) } : null;
+    const dy = pillShift(rectOf(pill), [...others, ...near.map((q) => rectOf(q.children[0]))], outward, 4, bounds);
     if (dy) pill.style.top = `${dy}px`;
+    if (dy === null) near.forEach((q) => overlaps(rectOf(pill), rectOf(q.children[0])) && q.setAttribute("data-yield", ""));
   }
 
   function paintStrips() {
@@ -180,6 +188,7 @@ export function mountDirect(canvas, hd) {
     const hoverTop = lastHover ? topOf(lastHover) : null;
     strips.hidden = canvas.editingId != null;
     while (pills.length > points.length) pills.pop().remove();
+    pills.forEach((q) => q.removeAttribute?.("data-yield"));
     points.forEach((b, i) => {
       let p = pills[i];
       if (!p) {
@@ -200,8 +209,10 @@ export function mountDirect(canvas, hd) {
       else p.removeAttribute("data-sel");
       p.setAttribute("tabindex", (selTop && b.before === selTop) || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
-      placePill(p, selTop && (b.before === selTop || b.after === selTop) ? (b.before === selTop ? 1 : -1) : 0); // for every state: the pill must not jump while the pointer is on its way to it
+      p.children[0].style.top = "";
     });
+    // once every row is in place, so each pill measures its neighbours where they really are; for every state: the pill must not jump while the pointer is on its way to it
+    points.forEach((b, i) => placePill(pills[i], selTop && (b.before === selTop || b.after === selTop) ? (b.before === selTop ? 1 : -1) : 0));
   }
 
   /** Previews (or, with null, restores) one side in the frame. Nothing is committed. */
@@ -340,6 +351,7 @@ export function mountDirect(canvas, hd) {
     destroy() {
       document.removeEventListener("hm-pad-hover", onHover);
       document.removeEventListener("mouseover", onOutside);
+      canvas.stage.parentElement?.removeEventListener("scroll", onScroll);
       document.removeEventListener("keydown", onEsc, true);
       layer.remove();
       strips.remove();

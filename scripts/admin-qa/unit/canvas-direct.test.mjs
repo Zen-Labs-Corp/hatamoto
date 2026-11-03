@@ -55,7 +55,7 @@ globalThis.document = {
 const fireDoc = (type, e) => (docListeners[type] ?? []).slice().forEach((f) => f({ preventDefault() {}, stopPropagation() {}, ...e }));
 
 const { mountDirect } = await import(new URL("canvas/direct.js", root));
-const { pillShift } = await import(new URL("canvas/chromemodel.js", root));
+const { overlaps, pillShift } = await import(new URL("canvas/chromemodel.js", root));
 const { validToBridge } = await import(new URL("canvas/protocol.js", root));
 const { padWrites } = await import(new URL("canvas/padding.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
@@ -538,4 +538,28 @@ test("a selected section's pill stays at the row's right end when it clears the 
   assert.ok(pillShift(pill(195), top, -1) < 0, "above for a top edge");
   // a toolbar over the top pill's upper edge: above is no better, so it goes inward
   assert.ok(pillShift(pill(390), [{ x: 100, y: 450, w: 290, h: 40 }], -1) > 0, "inward when above is blocked");
+});
+
+test("a pill never leaves the visible stage: the page-top pill on a phone at 50% goes inward, not under the sticky bar", () => {
+  // the stage starts at y 40 (below the bar); the top boundary is at y 40, the top handle [75,119] x [36,60], the toolbar inside at y 48
+  const bounds = { x: 0, y: 40, w: 195, h: 600 };
+  const pill = { x: 91, y: 27, w: 88, h: 26 };
+  const handle = { x: 75, y: 36, w: 44, h: 24 };
+  const dy = pillShift(pill, [handle], -1, 4, bounds);
+  assert.ok(pill.y + dy >= bounds.y, `the pill's top is at ${pill.y + dy}, above the bounds' ${bounds.y}`);
+  assert.ok(pill.y + dy >= handle.y + handle.h + 4, "inward: below the handle");
+  assert.equal(pillShift(pill, [handle], -1, 4, null), 36 - 4 - 26 - 27, "without bounds the old spot above the handle");
+  // nothing free: the caller keeps the default and yields the neighbour
+  assert.equal(pillShift(pill, [handle], -1, 4, { x: 0, y: 40, w: 195, h: 40 }), null);
+});
+
+test("a bottom pill does not land on the next boundary's pill when the next section is short (60px)", () => {
+  const sel = { x: 91, y: 487, w: 88, h: 26 }; // boundary at y 500
+  const handle = { x: 75, y: 480, w: 44, h: 24 };
+  const badge = { x: 61, y: 508, w: 72, h: 22 };
+  const next = { x: 53, y: 530, w: 88, h: 26 }; // the next boundary, 60px further down (centred)
+  const dy = pillShift(sel, [handle, badge, next], 1, 4, { x: 0, y: 40, w: 195, h: 900 });
+  assert.notEqual(dy, null);
+  const moved = { ...sel, y: sel.y + dy };
+  assert.ok([handle, badge, next].every((o) => !overlaps(moved, o)), `the moved pill ${JSON.stringify(moved)} touches an obstacle`);
 });

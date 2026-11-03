@@ -235,6 +235,16 @@ async function pillsClear(where) {
   for (const [which, pl] of [["bottom", pill], ["top", p.locator("[data-hm-pe-gapline][data-sel]").first().locator(".hm-pe__pill")]]) {
     if (!(await pl.isVisible())) continue;
     const pb = await pl.boundingBox();
+    // on the stage, not under the sticky stage bar or off the scroller, and the topmost thing at its centre: nothing covers it
+    const seen = await pl.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const sc = e.closest("[data-hm-pe-gapline]").parentElement.parentElement.parentElement.getBoundingClientRect();
+      const bar = document.querySelector(".hm-pe__strip")?.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { r: { t: r.top, b: r.bottom }, sc: { t: bar ? Math.max(sc.top, bar.bottom) : sc.top, b: sc.bottom }, hit: !!top && e.contains(top) };
+    });
+    if (seen.r.t < seen.sc.t - 0.5 || seen.r.b > seen.sc.b + 0.5) throw new Error(`${where}: the ${which} pill [${seen.r.t.toFixed(0)},${seen.r.b.toFixed(0)}] is outside the visible stage [${seen.sc.t.toFixed(0)},${seen.sc.b.toFixed(0)}] (under the stage bar?)`);
+    if (!seen.hit) throw new Error(`${where}: something covers the ${which} pill (elementFromPoint at its centre is not the pill)`);
     for (const [what, loc] of others) {
       const o = (await loc.isVisible()) ? await loc.boundingBox() : null;
       if (o && hit(pb, o)) throw new Error(`${where}: the ${which} pill ${JSON.stringify(pb)} overlaps the ${what} ${JSON.stringify(o)}`);
