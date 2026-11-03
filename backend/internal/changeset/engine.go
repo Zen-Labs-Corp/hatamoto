@@ -87,6 +87,13 @@ func (e *Engine) HasStaged(ctx context.Context, csID int64, kind Kind, sourceKey
 	return ok, nil
 }
 
+// The most one changeset may hold: items, and the bytes of their payloads.
+// Without them a run could fill the database before the 72 h expiry.
+var (
+	maxStagedItems = 50000
+	maxStagedBytes = int64(256 << 20)
+)
+
 // Stage adds it to a staged changeset. Nothing live changes.
 func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 	if singletonKinds[it.Kind] {
@@ -134,6 +141,15 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		}
 		if it.Kind == KindMedia && (it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1) {
 			return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
+		}
+		var items, size int64
+		if err := tx.QueryRow(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(octet_length(payload::text)), 0) FROM hatamoto_changeset_items WHERE changeset_id = $1`,
+			csID).Scan(&items, &size); err != nil {
+			return fmt.Errorf("failed to measure the changeset: %w", err)
+		}
+		if items >= int64(maxStagedItems) || size+int64(len(payload)) > maxStagedBytes {
+			return fmt.Errorf("%w: at most %d items and %d MiB", ErrQuotaExceeded, maxStagedItems, maxStagedBytes>>20)
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, target_id, base_token, payload, blob_keys)

@@ -66,6 +66,8 @@ var (
 	ErrInvalidItem   = errors.New("invalid changeset item")
 	ErrNoWriter      = errors.New("no writer for this kind")
 	ErrUnsupportedOp = errors.New("operation not supported for this kind")
+	// ErrQuotaExceeded means the changeset holds as many items or bytes as it may.
+	ErrQuotaExceeded = errors.New("changeset quota exceeded")
 
 	// ErrRevertConflict is what a writer's Restore returns, before it writes
 	// anything, for an object the revert must not touch (something was built on

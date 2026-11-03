@@ -2,9 +2,11 @@ package pluginhost
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
 )
@@ -156,4 +158,12 @@ func flattenMenuForTest(tree []sdk.MenuItem, out *[]menuItemView, keys map[int]s
 		*out = append(*out, menuItemView{it.Label, it.LinkType, it.Parent})
 	}
 	return nil
+}
+
+func TestQuotaErrorMapsToInvalidArgument(t *testing.T) {
+	a := &API{}
+	he := a.toHostError("p", fmt.Errorf("stage: %w", changeset.ErrQuotaExceeded))
+	if he == nil || he.Code != sdk.ErrInvalidArgument || !strings.Contains(he.Message, "quota") {
+		t.Fatalf("quota error mapped to %+v", he)
+	}
 }

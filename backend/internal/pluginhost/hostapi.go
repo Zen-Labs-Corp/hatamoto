@@ -207,7 +207,7 @@ func (a *API) toHostError(plugin string, err error) *sdk.HostError {
 	case errors.Is(err, changeset.ErrNotStaged), errors.Is(err, changeset.ErrExpired):
 		return herr(sdk.ErrUnavailable, "%s", err.Error())
 	case errors.Is(err, changeset.ErrSingleton), errors.Is(err, changeset.ErrInvalidItem), errors.Is(err, changeset.ErrUnknownKind),
-		errors.Is(err, changeset.ErrUnsupportedOp), errors.Is(err, changeset.ErrNoWriter):
+		errors.Is(err, changeset.ErrUnsupportedOp), errors.Is(err, changeset.ErrNoWriter), errors.Is(err, changeset.ErrQuotaExceeded):
 		return herr(sdk.ErrInvalidArgument, "%s", err.Error())
 	case isNotFound(err):
 		return herr(sdk.ErrNotFound, "%s", err.Error())
