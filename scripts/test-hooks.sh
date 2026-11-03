@@ -521,13 +521,16 @@ else
 fi
 # The real integration gate stops its Postgres and removes its directories on TERM.
 if [[ -x ${PG_BIN:-}/initdb ]] || command -v initdb >/dev/null; then
-  mkdir "$tmp/gt"
-  GO_QUEUE_FORCE_LOCAL=1 TMPDIR="$tmp/gt" bash "$src/scripts/integration-gate.sh" "$src" ./internal/budgetfile >"$tmp/gt.out" 2>&1 &
+  mkdir "$tmp/gt" "$tmp/gt-sock"    # private dirs: a concurrent real gate must not show up in the leak checks
+  GO_QUEUE_FORCE_LOCAL=1 TMPDIR="$tmp/gt" INT_GATE_SOCKDIR="$tmp/gt-sock" bash "$src/scripts/integration-gate.sh" "$src" ./internal/budgetfile >"$tmp/gt.out" 2>&1 &
   gpid=$!
-  for _ in $(seq 100); do compgen -G "$tmp/gt/int-gate.*/data/postmaster.pid" >/dev/null && break; sleep 0.3; done
-  pgpid=$(head -1 "$tmp"/gt/int-gate.*/data/postmaster.pid 2>/dev/null)
+  pgpid=
+  for _ in $(seq 400); do   # up to 2 min: initdb is slow when other gates run
+    pgpid=$(head -1 "$tmp"/gt/int-gate.*/data/postmaster.pid 2>/dev/null)
+    [[ -n $pgpid ]] && kill -0 "$pgpid" 2>/dev/null && break; pgpid=; sleep 0.3
+  done
   kill -TERM "$gpid"; wait "$gpid" 2>/dev/null; sleep 1
-  [[ -n $pgpid ]] && ! kill -0 "$pgpid" 2>/dev/null && [[ -z $(ls -A "$tmp/gt") ]] \
+  [[ -n $pgpid ]] && ! kill -0 "$pgpid" 2>/dev/null && [[ -z $(ls -A "$tmp/gt"; ls -A "$tmp/gt-sock") ]] \
     && ok "A7 integration-gate stops Postgres and removes its directories on SIGTERM" || bad "A7 integration-gate left Postgres or directories behind (pg pid '$pgpid')"
 else
   echo "skip integration-gate SIGTERM: no PostgreSQL tools (set PG_BIN)"
@@ -535,10 +538,10 @@ fi
 
 # --- the integration gate works with a space in TMPDIR (needs the real repo and Postgres tools) ---
 if [[ -x ${PG_BIN:-}/initdb ]] || command -v initdb >/dev/null; then
-  mkdir "$tmp/has space"; socks=$(ls -d /tmp/hmpg.* 2>/dev/null | wc -l)
+  mkdir "$tmp/has space" "$tmp/has-sock"
   expect pass "integration-gate works with a space in TMPDIR" \
-    env TMPDIR="$tmp/has space" bash "$src/scripts/integration-gate.sh" "$src" ./internal/budgetfile
-  [[ -z $(ls -A "$tmp/has space") && $(ls -d /tmp/hmpg.* 2>/dev/null | wc -l) == "$socks" ]] && ok "integration-gate removes its directories" || bad "integration-gate leaves directories behind"
+    env TMPDIR="$tmp/has space" INT_GATE_SOCKDIR="$tmp/has-sock" bash "$src/scripts/integration-gate.sh" "$src" ./internal/budgetfile
+  [[ -z $(ls -A "$tmp/has space"; ls -A "$tmp/has-sock") ]] && ok "integration-gate removes its directories" || bad "integration-gate leaves directories behind"
 else
   echo "skip integration-gate with a space in TMPDIR: no PostgreSQL tools (set PG_BIN)"
 fi
