@@ -21,7 +21,7 @@
   cursor: pointer; transition: background-color 120ms var(--ease);
 }
 /* An item Icon sits before the label. */
-.hm-segmented__btn { gap: var(--space-1-5); }
+.hm-segmented__btn:has(> .hm-icon) { gap: var(--space-1-5); } /* only an icon item: a count item has its own margin */
 .hm-segmented__btn .hm-icon { width: 14px; height: 14px; flex: none; }
 .hm-segmented__btn:hover:not(:disabled), .hm-segmented__opt:hover .hm-segmented__input:not(:disabled) + .hm-segmented__btn { background: var(--color-shiro); }
 .hm-segmented__btn[aria-pressed="true"] { background-color: var(--color-paper); color: var(--color-sumi); font-weight: var(--weight-semibold); box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel); }
