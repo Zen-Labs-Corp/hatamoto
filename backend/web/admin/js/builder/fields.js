@@ -15,6 +15,8 @@ export function prefetch() {
   import("@hm/content").catch(() => {});
 }
 
+const INVALID = ".hm-field--invalid, .hm-field__error, [aria-invalid=\"true\"]";
+
 /**
  * Shows only the top-level form blocks that hold the content field `keys` ([key, ...aliases]) of component `node`, and hides the rest
  * (the other fields and the group headings). Hidden, never removed or disabled: a hidden control is still submitted, so the decode keeps every other value.
@@ -28,7 +30,7 @@ export function applyOnly(form, node, keys) {
   };
   const mine = (el) => [el, ...el.querySelectorAll("[name], [data-path]")].some((x) => owns(x.getAttribute("name")) || owns(x.getAttribute("data-path")));
   for (const el of Array.from(form.children)) {
-    const show = mine(el);
+    const show = mine(el) || !!el.querySelector(INVALID); // an error is never hidden: the decode refuses to commit while it stands
     el.hidden = !show;
     el.style.display = show ? "" : "none"; // the CSSOM (CSP-safe): a theme class may override the hidden attribute
   }

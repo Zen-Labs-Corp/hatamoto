@@ -19,7 +19,7 @@ const { applyOnly } = await import(new URL("builder/fields.js", root));
 const control = (name) => ({ getAttribute: (k) => (k === "name" ? name : null), disabled: false });
 const block = (own, ...names) => {
   const kids = names.map(control);
-  return { hidden: false, style: { display: "" }, getAttribute: (k) => (k === "data-path" ? own : null), querySelectorAll: () => kids, kids };
+  return { invalid: false, querySelector: function () { return this.invalid ? {} : null; }, hidden: false, style: { display: "" }, getAttribute: (k) => (k === "data-path" ? own : null), querySelectorAll: () => kids, kids };
 };
 const N = "n.c1.c.";
 const mkForm = () => {
@@ -78,4 +78,11 @@ test("the inspector draws field mode: header + that field's editor only, no tabs
   assert.match(src, /\(api\.getField\?\.\(\)\?\.key \?\? null\) !== drawnKey/);
   const content = readFileSync(new URL("builder/inspcontent.js", root), "utf8");
   assert.match(content, /only: opts\.only \?\? null/);
+});
+
+test("applyOnly keeps a block that carries a validation error visible", () => {
+  const { form, blocks } = mkForm();
+  blocks.headline.invalid = true;
+  applyOnly(form, "c1", ["eyebrow"]);
+  assert.deepEqual(shown(blocks), ["eyebrow", "headline"]);
 });
