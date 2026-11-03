@@ -220,7 +220,7 @@ export function mountLeftTabs(root, onPick = () => {}) {
   const list = $(root, "[data-hm-bs-ltabs]");
   const tabs = list ? Array.from(list.querySelectorAll("[data-hm-bs-ltab]")) : [];
   const panels = Array.from(root.querySelectorAll("[data-hm-bs-lpanel]"));
-  const foot = root.querySelector("[data-hm-bs-navfoot]"); // "Add section" belongs to the Layers tab: Insert is its own list and Pages has no use for it
+  const foot = root.querySelector("[data-hm-bs-navfoot]");
   const pick = (name, focus = false) => {
     for (const t of tabs) {
       const on = t.dataset.hmBsLtab === name;

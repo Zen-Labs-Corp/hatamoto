@@ -141,7 +141,7 @@ export function metaOf(row, quiet = false, colourOf = () => null) {
 /** What a section row's thumbnail shows: the container's base background (a hex or a token name as written; null when none) and its text alignment. */
 export function thumbOf(container, inner = null) {
   const set = (b) => typeof b?.bg === "string" && b.bg.trim();
-  const own = [container.s?.base, inner?.s?.base].find(set) ?? {}; // the wrapper's background, else the component's own
+  const own = [container.s?.base, inner?.s?.base].find(set) ?? {};
   const base = { ...(inner?.s?.base ?? {}), ...(container.s?.base ?? {}) };
   return { bg: set(own) ? own.bg.trim() : null, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
 }
@@ -521,7 +521,6 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   });
   root.addEventListener("focusin", (e) => (ff = e.target.dataset?.field != null ? e.target.dataset.id : null));
   root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
-  // A click moves focus to the row through a repaint, which Chrome may count as keyboard focus: data-pointer (builder.css) hides the focus ring until the next key.
   root.addEventListener("pointerdown", () => root.setAttribute("data-pointer", ""));
   root.addEventListener("keydown", (e) => {
     root.removeAttribute("data-pointer");
