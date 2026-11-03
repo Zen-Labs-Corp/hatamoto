@@ -22,3 +22,9 @@ test("the add-here pill is no taller than the gap, so it never covers the band a
   assert.match(rule(".hm-bs-gap__btn"), /block-size: var\(--space-bs-gap\)/);
   assert.match(rule(".hm-bs-gap"), /block-size: var\(--space-bs-gap\)/);
 });
+
+test("the Pages tab: a muted page icon, the path small and muted, the current page solid", () => {
+  assert.match(rule(".hm-bs-page__ico"), /color: var\(--text-muted\)/);
+  assert.match(rule(".hm-bs-page__path"), /font-size: var\(--text-xs\)[^}]*color: var\(--text-muted\)/);
+  assert.match(rule('.hm-bs-page[aria-current="page"], .hm-bs-page[aria-current="page"]:hover'), /background: var\(--bs-nav-accent/);
+});

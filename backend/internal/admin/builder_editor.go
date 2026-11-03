@@ -294,8 +294,9 @@ type bootPage struct {
 	Current  bool   `json:"current,omitempty"`
 }
 
-// builderPageList lists the routable, non-archived entities (drafts included,
-// path "" for an unpublished one) for the Pages tab, capped at maxBuilderPages.
+// builderPageList lists the routable, non-archived entities the builder edits
+// (pageEditorFor: pages and the types that carry sections, never posts or
+// people; drafts included, path "" for an unpublished one) for the Pages tab, capped at maxBuilderPages.
 // The page being edited is added when the walk did not reach it.
 func (a *Admin) builderPageList(r *http.Request, cur *entity.Entity) []bootPage {
 	out := []bootPage{}
@@ -308,8 +309,8 @@ func (a *Admin) builderPageList(r *http.Request, cur *entity.Entity) []bootPage 
 	}
 	found := false
 	a.walkRoutable(r, nil, func(e *entity.Entity, p string) bool {
-		if e.Status == entity.StatusArchived {
-			return true
+		if e.Status == entity.StatusArchived || !pageEditorFor(e.Schema, e) {
+			return true // a post, a person or any entity the builder does not edit is no page to open
 		}
 		pg := row(e, p)
 		found = found || pg.Current

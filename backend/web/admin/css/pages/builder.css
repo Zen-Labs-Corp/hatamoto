@@ -62,6 +62,9 @@
 a.hm-bs-page { min-block-size: var(--control-h); color: var(--text); text-decoration: none; }
 a.hm-bs-page:hover { background: var(--surface-hover); }
 a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hm-bs-page__ico { flex: none; display: inline-flex; color: var(--text-muted); }
+.hm-bs-page__ico .hm-icon { inline-size: 14px; block-size: 14px; }
+.hm-bs-page[aria-current="page"] .hm-bs-page__ico { color: inherit; }
 .hm-bs-page__title { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
 .hm-bs-page__path { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--text-muted); }
 .hm-bs-page[aria-current="page"], .hm-bs-page[aria-current="page"]:hover { background: var(--bs-nav-accent, var(--color-accent)); color: var(--bs-nav-on-accent, var(--color-paper)); }

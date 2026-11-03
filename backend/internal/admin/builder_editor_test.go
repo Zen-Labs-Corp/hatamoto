@@ -459,6 +459,7 @@ func TestBuilderPageList(t *testing.T) {
 	r.ents.addEntity(71, r.page, "Pricing", "pricing", entity.StatusPublished, `{"body":"x"}`, t0)
 	r.ents.addEntity(72, r.page, "Secret", "secret", entity.StatusDraft, `{"body":"x"}`, t0)
 	r.ents.addEntity(73, r.page, "Old", "old", entity.StatusArchived, `{"body":"x"}`, t0)
+	r.ents.addEntity(74, r.service, "Not a page", "not-a-page", entity.StatusPublished, `{"summary":"x"}`, t0) // the builder does not edit this type
 	// like production: the would-be address, whatever the status
 	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
 	req := httptest.NewRequest("GET", "/", nil)
@@ -468,6 +469,9 @@ func TestBuilderPageList(t *testing.T) {
 	}
 	if _, ok := byTitle["Old"]; ok || len(byTitle) < 3 {
 		t.Fatalf("page list = %+v, want Landing, Pricing and Secret but not the archived Old", byTitle)
+	}
+	if _, ok := byTitle["Not a page"]; ok {
+		t.Errorf("page list = %+v, want only the entities the builder edits", byTitle)
 	}
 	if p := byTitle["Landing"]; !p.Current || p.Status != "draft" || p.EditHref != "/admin/entities/"+r.ent.ID.String()+"/edit" {
 		t.Errorf("current page = %+v", p)

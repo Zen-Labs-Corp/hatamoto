@@ -82,3 +82,14 @@ test("the filter field sits in the same search wrapper (icon + inset) as the Lay
   assert.ok(wrap.walk().some((n) => "data-hm-bs-searchico" in n.attrs), "no search icon");
   assert.ok(wrap.walk().some((n) => n.tag === "input"));
 });
+
+test("every page row starts with a page icon and keeps its title and muted path", () => {
+  const host = new El("div");
+  mountPages(host, { pages });
+  for (const a of links(host)) {
+    assert.match(a.kids[0].attrs.class, /hm-bs-page__ico/);
+    assert.equal(a.kids[0].attrs["aria-hidden"], "true");
+    assert.match(a.kids[1].attrs.class, /hm-bs-page__title/);
+    assert.match(a.kids[2].attrs.class, /hm-bs-page__path/);
+  }
+});
