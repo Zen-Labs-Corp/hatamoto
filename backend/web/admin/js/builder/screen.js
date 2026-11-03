@@ -853,6 +853,7 @@ function start(root, boot) {
     const items = itemsOf(boot.kinds, boot.sections, { slot: !!reuse && wantsSlot(reuse) })
       .concat(reuse ? paletteExtra(reuse, boot.entity) : [])
       .filter(isSectionItem);
+    if (!items.length) return showAdd(); // nothing to list here: the Insert tab says why
     slashChunk()
       .then((M) => M.openSlashPopover({ anchorRect: pick.getBoundingClientRect(), items, onPick: (item) => insertFrom(item, {}), restore: () => tree.focus() }))
       .catch(() => warn("The section list did not load. Reload the page."));
