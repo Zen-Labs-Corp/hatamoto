@@ -491,8 +491,8 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 	}
 	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions"), HooksText: strings.Join(p.Hooks, ", ")}
 	for _, perm := range p.Permissions {
-		removed := !sdk.ValidPermission(sdk.Permission(perm))
-		refused := removed || slices.Contains(p.Refused, perm)
+		removed := sdk.RemovedPermission(sdk.Permission(perm))
+		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
 		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused, Removed: removed})
 		switch {

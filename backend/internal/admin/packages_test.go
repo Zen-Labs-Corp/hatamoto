@@ -963,3 +963,23 @@ func TestPermissionsPageRefusesRemovedPermission(t *testing.T) {
 		t.Errorf("the gauge counts the removed permission:\n%s", body)
 	}
 }
+
+// Only the five permissions SDK 0.17 removed carry the removal notice; a
+// permission that is invalid for any other reason is refused with the generic
+// message.
+func TestPermissionsPageLabelsOnlyRemovedPermissions(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "odd", Version: "1.0.0", Permissions: []string{"entities.writ", "terms.write"}})
+	body := g.do("GET", "/admin/plugins/odd/permissions", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, "Removed in Hatamoto 1.1"); n != 1 {
+		t.Fatalf("removal notice shown %d times, want once (terms.write only):\n%s", n, body)
+	}
+	if !strings.Contains(body, "Not allowed for community plugins") {
+		t.Fatalf("the unknown permission must keep the generic refusal:\n%s", body)
+	}
+	if !regexp.MustCompile(`value="entities.writ" disabled`).MatchString(body) {
+		t.Fatalf("the unknown permission must still be disabled:\n%s", body)
+	}
+}

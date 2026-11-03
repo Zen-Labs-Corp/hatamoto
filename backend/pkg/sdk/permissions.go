@@ -66,3 +66,10 @@ var removedPermissions = map[Permission]string{
 	"media.write":     FnChangesetMediaAttach,
 	"redirects.write": FnChangesetRedirectUpsert,
 }
+
+// RemovedPermission reports whether p is one of the write permissions SDK
+// 0.17.0 removed, as opposed to a name that was never valid.
+func RemovedPermission(p Permission) bool {
+	_, gone := removedPermissions[p]
+	return gone
+}

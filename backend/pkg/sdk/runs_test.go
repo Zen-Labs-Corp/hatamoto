@@ -89,3 +89,16 @@ func TestRemovedPermissionsAreNotValid(t *testing.T) {
 		}
 	}
 }
+
+func TestRemovedPermissionIsOnlyTheFiveRemoved(t *testing.T) {
+	for p := range removedPermissions {
+		if !RemovedPermission(p) {
+			t.Errorf("%q is removed but not reported", p)
+		}
+	}
+	for _, p := range []Permission{"entities.writ", "kv", ""} {
+		if RemovedPermission(p) {
+			t.Errorf("%q reported as removed", p)
+		}
+	}
+}
