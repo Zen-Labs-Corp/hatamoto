@@ -84,3 +84,8 @@ test("screen.js: choose() sets the field first so every other select clears it; 
 test("screen.js: no Rename button or Ctrl K button is wired any more", () => {
   assert.doesNotMatch(screenSrc, /data-hm-bs-rename|data-hm-bs-cmdk/);
 });
+
+test("screen.js: choose() tells the canvas which field is selected (its key, then its aliases)", () => {
+  assert.match(screenSrc, /canvas\.setSelectedField\(selectedField && fieldRef\(selectedField\)\)/);
+  assert.match(screenSrc, /paths: \[key, \.\.\.\(def\?\.alias \?\? \[\]\)\]\.slice\(0, 6\)/);
+});

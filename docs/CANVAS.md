@@ -78,6 +78,7 @@ last message of a batch). A node reference is `{sel:"section"|"node", key:id}`; 
 | `select` | node ref, `scrollIntoView` | selects a node |
 | `scrollTo` | `y` | scrolls the frame |
 | `format` | node ref, `cmd` (`bold`, `italic`, `underline`, `strike`, `code`, `link`, `unlink`, `clear`, `done`), `href` (required for `link`), optional `newTab` | applies an inline mark to the selection of the heading or text being edited; `done` ends the edit |
+| `field` | node ref (the section), `paths` (1 to 6 `data-hm-field` paths, or `null`) | marks a content field of the selected section: the next `layout` carries the box of the markers whose `data-hm-field` is one of `paths` or starts with `path.`; `null` clears it. Never changes the DOM |
 | `force` | node ref, `state` (`hover`, `focus`, `active`, `parent-hover` or `null`) | shows a state on the node by setting `data-hm-force` on it (on its parent node for `parent-hover`); `null` clears it |
 
 Bridge to parent:
@@ -85,7 +86,7 @@ Bridge to parent:
 | Type | Fields |
 |---|---|
 | `ready` | `contract:"2"` |
-| `layout` | `nodes:[{id,k,t,p,x,y,w,h,c?,dir?,pd?}]`, `main:{x,y,w,h}`, `docH` |
+| `layout` | `nodes:[{id,k,t,p,x,y,w,h,c?,dir?,pd?}]`, `main:{x,y,w,h}`, `docH`, optional `field:{x,y,w,h}` (the union of the marked field's boxes in document px; absent when no `field` is set or the theme has no marker for it: the host then keeps the section outline) |
 | `hover` | `id` (or `null`), `k` |
 | `select` | `id`, `k`, `shift`, `ctrl` (Ctrl or Cmd held: toggle in a multi-selection) |
 | `contextmenu` | `id`, `k`, `x`, `y` (right-click on a node; `x`,`y` are frame-viewport px) |
@@ -108,6 +109,7 @@ These are what `protocol.js` enforces and `testdata/canvas_protocol_cases.json` 
 * `layout`: at most 5,000 nodes; `t` is at most 100 characters; `p` is `""` or an id; `c`, when present, is `1`; `dir`,
   when present, is `row`, `column` or `grid`; `pd`, when present, is exactly four integers from 0 to 10,000 (the bridge sends it for every top-level node; an older bridge omits it); `docH` and the `main` rect are finite numbers.
 * `force`: a node ref and `state`, which is one of `hover`, `focus`, `active`, `parent-hover` or `null` (exact case; anything else or a missing `state` is refused; the validators do not look at extra fields). `data-hm-force` lives only in the bridge's DOM: it is never serialised, saved or present in public output, and the force-aware selectors (`SEL[data-hm-force="hover"]`) are compiled only for canvas renders. A `select` of another node, `force null` or a tab change clears it; the bridge re-applies it after `patch`, `insert`, `move` and `css`.
+* `field`: a node ref and `paths`, which is `null` or an array of 1 to 6 strings matching `^[A-Za-z0-9_.-]{1,100}$` (anything else, or a missing `paths`, is refused). `layout.field`, when present, is four finite numbers. The host draws the field box as `.hm-pe__outline--field` instead of the section outline and re-sends the message after a frame reload.
 * `hover`: `id` is `null`, or an id with a `k`.
 * `text`: `prop` matches `^[A-Za-z0-9_-]{1,40}$`. Exactly one of `value` or `html` is present, each a string of at most 200,000 characters: `html` only with `prop` `html`, `value` only with any other prop (both, neither, `html` on another prop and `value` on `html` are refused; other fields are dropped). The parent never trusts `html`: the server sanitises it on save and render.
 * `selection`: `id`, `k`, `prop` as for `text`; `rect` has four finite numbers; `marks` has at most 6 entries, each one of `bold`, `italic`, `underline`, `strike`, `code`, `link`, without repeats. `kind`, when present, is `heading` or `text` (anything else drops the whole message). Sent while a heading or text is being edited, when the selection moves.

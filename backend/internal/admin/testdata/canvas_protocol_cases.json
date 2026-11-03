@@ -1337,14 +1337,32 @@
    "name": "v2 textlimit",
    "dir": "in",
    "valid": true,
-   "msg": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "html"},
-   "expect": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "html"}
+   "msg": {
+    "hm": 2,
+    "type": "textlimit",
+    "id": "h1",
+    "k": "n",
+    "prop": "html"
+   },
+   "expect": {
+    "hm": 2,
+    "type": "textlimit",
+    "id": "h1",
+    "k": "n",
+    "prop": "html"
+   }
   },
   {
    "name": "v2 textlimit bad prop",
    "dir": "in",
    "valid": false,
-   "msg": {"hm": 2, "type": "textlimit", "id": "h1", "k": "n", "prop": "a b"}
+   "msg": {
+    "hm": 2,
+    "type": "textlimit",
+    "id": "h1",
+    "k": "n",
+    "prop": "a b"
+   }
   },
   {
    "name": "v2 textend bad prop",
@@ -3987,6 +4005,278 @@
     "sel": "node",
     "key": "x y",
     "cmd": "bold"
+   }
+  },
+  {
+   "name": "v2 layout with field",
+   "dir": "in",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000,
+    "field": {
+     "x": 10,
+     "y": 20,
+     "w": 300,
+     "h": 40
+    }
+   },
+   "expect": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000,
+    "field": {
+     "x": 10,
+     "y": 20,
+     "w": 300,
+     "h": 40
+    }
+   }
+  },
+  {
+   "name": "v2 layout field bad rect",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000,
+    "field": {
+     "x": 10,
+     "y": 20,
+     "w": 300
+    }
+   }
+  },
+  {
+   "name": "v2 layout field not object",
+   "dir": "in",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "layout",
+    "nodes": [
+     {
+      "id": "c-hero",
+      "k": "s",
+      "t": "hero",
+      "p": "",
+      "x": 0,
+      "y": 10.5,
+      "w": 800,
+      "h": 300
+     }
+    ],
+    "main": {
+     "x": 0,
+     "y": 0,
+     "w": 800,
+     "h": 2000
+    },
+    "docH": 2000,
+    "field": "x"
+   }
+  },
+  {
+   "name": "out field paths",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     "eyebrow",
+     "kicker",
+     "cards.0"
+    ]
+   }
+  },
+  {
+   "name": "out field cleared",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": null
+   }
+  },
+  {
+   "name": "out field with seq",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     "eyebrow"
+    ],
+    "seq": 3
+   }
+  },
+  {
+   "name": "out field six paths",
+   "dir": "out",
+   "valid": true,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     "a",
+     "b",
+     "c",
+     "d",
+     "e",
+     "f"
+    ]
+   }
+  },
+  {
+   "name": "out field seven paths",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     "a",
+     "b",
+     "c",
+     "d",
+     "e",
+     "f",
+     "g"
+    ]
+   }
+  },
+  {
+   "name": "out field empty paths",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": []
+   }
+  },
+  {
+   "name": "out field bad path",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     "a b"
+    ]
+   }
+  },
+  {
+   "name": "out field path not a string",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero",
+    "paths": [
+     1
+    ]
+   }
+  },
+  {
+   "name": "out field missing paths",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "c-hero"
+   }
+  },
+  {
+   "name": "out field bad key",
+   "dir": "out",
+   "valid": false,
+   "msg": {
+    "hm": 2,
+    "type": "field",
+    "sel": "section",
+    "key": "x y",
+    "paths": [
+     "eyebrow"
+    ]
    }
   }
  ]

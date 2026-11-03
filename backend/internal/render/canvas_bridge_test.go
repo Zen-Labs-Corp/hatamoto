@@ -75,9 +75,19 @@ func TestBridgeV2PostsOnlyFixtureTypes(t *testing.T) {
 	if !strings.Contains(src, "if (!v2) return;") || !strings.Contains(src, "if (v2) { sendLayout2(); return; }") {
 		t.Error("v2 behaviour is not gated on the init handshake")
 	}
-	for _, typ := range []string{"init", "patch", "insert", "move", "remove", "setVar", "css", "edit", "select", "scrollTo", "force", "format"} {
+	for _, typ := range []string{"init", "patch", "insert", "move", "remove", "setVar", "css", "edit", "select", "scrollTo", "field", "force", "format"} {
 		if !strings.Contains(src, "case '"+typ+"'") {
 			t.Errorf("bridge does not handle v2 %q", typ)
+		}
+	}
+}
+
+// The selected field's box is read from [data-hm-field] markers inside its section only, and rides on the layout.
+func TestBridgeFieldRectComesFromSectionMarkers(t *testing.T) {
+	src := bridgeSource(t)
+	for _, want := range []string{"function fieldRect(", "sec.querySelectorAll('[data-hm-field]')", "msg.field = fr", "case 'field':"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("bridge lost field piece %s", want)
 		}
 	}
 }

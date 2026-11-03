@@ -41,6 +41,7 @@
   var BLANK = /^[\t\n\f\r \u00a0]*$/;
   var v2 = false; // set by the parent's {hm:2,type:'init'}; until then v1 only
   var selectedKey = ''; // v2 selection (any node), re-applied after patches
+  var fieldSel = null; // v2 selected content field {sel,key,paths}: its marker rects ride on every layout
   var editingProp = null; // v2 inline-edited [data-hm-prop] element
 
   function post(msg) {
@@ -439,6 +440,13 @@
     }
     return true;
   }
+  var FIELD_PATH_RE = /^[A-Za-z0-9_.-]{1,100}$/;
+  function okPaths(p) {
+    if (p === null) return true;
+    if (!Array.isArray(p) || p.length < 1 || p.length > 6) return false;
+    for (var i = 0; i < p.length; i++) if (!isStr(p[i]) || !FIELD_PATH_RE.test(p[i])) return false;
+    return true;
+  }
   function okDecls(d) {
     if (!Array.isArray(d) || d.length > 50) return false;
     for (var i = 0; i < d.length; i++) {
@@ -462,6 +470,7 @@
       case 'css': return subject && okCSS(m.css);
       case 'select': return subject && typeof m.scrollIntoView === 'boolean';
       case 'scrollTo': return typeof m.y === 'number' && isFinite(m.y);
+      case 'field': return subject && okPaths(m.paths);
       case 'format': return subject && isStr(m.cmd) && /^(bold|italic|underline|strike|code|link|unlink|clear|done)$/.test(m.cmd) &&
         (m.href === undefined ? m.cmd !== 'link' : (isStr(m.href) && m.href.length >= 1 && m.href.length <= 2000)) &&
         (m.newTab === undefined || typeof m.newTab === 'boolean');
@@ -530,11 +539,32 @@
     }
     var main = doc.querySelector('main') || doc.body;
     var mr = main.getBoundingClientRect();
-    post2({
+    var msg = {
       type: 'layout', nodes: nodes,
       main: { x: mr.left + sx, y: mr.top + sy, w: mr.width, h: mr.height },
       docH: contentBottom()
-    });
+    };
+    var fr = fieldRect(sx, sy);
+    if (fr) msg.field = fr;
+    post2(msg);
+  }
+  // The union of the selected field's [data-hm-field] markers (a path, or path.* below it) inside its section, in document space; null when the theme marks none.
+  function fieldRect(sx, sy) {
+    if (!fieldSel) return null;
+    var sec = find(fieldSel.sel, fieldSel.key) || find('node', fieldSel.key);
+    if (!sec) return null;
+    var marks = sec.querySelectorAll('[data-hm-field]');
+    var l = Infinity, t = Infinity, rt = -Infinity, b = -Infinity;
+    for (var i = 0; i < marks.length && i < 2000; i++) {
+      var f = marks[i].getAttribute('data-hm-field');
+      var hit = false;
+      for (var j = 0; j < fieldSel.paths.length && !hit; j++) hit = f === fieldSel.paths[j] || f.indexOf(fieldSel.paths[j] + '.') === 0;
+      if (!hit) continue;
+      var r = marks[i].getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      l = Math.min(l, r.left); t = Math.min(t, r.top); rt = Math.max(rt, r.right); b = Math.max(b, r.bottom);
+    }
+    return l === Infinity ? null : { x: l + sx, y: t + sy, w: rt - l, h: b - t };
   }
   // scrollHeight never drops below the frame's own height, so a canvas sized to
   // it could not shrink after a delete: use the bottom of the last content box.
@@ -1250,6 +1280,9 @@
         if (editingProp && nodeOf(editingProp) !== find(m.sel, m.key)) stopProp(); // the host moved on to another node
         if (forced && forced.key !== m.key) forced = null;
         selectNode(find(m.sel, m.key), m.scrollIntoView);
+        return true;
+      case 'field':
+        fieldSel = m.paths ? { sel: m.sel, key: m.key, paths: m.paths.slice() } : null;
         return true;
       case 'scrollTo':
         window.scrollTo(0, m.y);

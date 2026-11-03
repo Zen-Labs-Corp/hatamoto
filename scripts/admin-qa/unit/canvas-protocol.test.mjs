@@ -67,3 +67,16 @@ test("protocol: layout pd survives as a copy and an old bridge's omission stays 
   assert.notEqual(got.nodes[0].pd, pd);
   assert.equal("pd" in parseFrameMessage(layout(node)).nodes[0], false);
 });
+
+test("protocol: toBridge.field builds messages validToBridge accepts, within 6 well-formed paths", () => {
+  const ok = toBridgeField(["eyebrow", "cards.0"]);
+  assert.deepEqual(ok, { hm: 2, type: "field", sel: "section", key: "c1", paths: ["eyebrow", "cards.0"] });
+  assert.equal(validToBridge(ok), true);
+  assert.equal(validToBridge(toBridgeField(null)), true);
+  assert.equal(validToBridge(toBridgeField(undefined)), true, "no paths clears");
+  assert.equal(validToBridge(toBridgeField(["a", "b", "c", "d", "e", "f", "g"])), false);
+  assert.equal(validToBridge(toBridgeField(["a b"])), false);
+});
+function toBridgeField(paths) {
+  return protocol.toBridge.field({ sel: "section", key: "c1", paths });
+}

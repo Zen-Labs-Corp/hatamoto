@@ -684,6 +684,13 @@ function start(root, boot) {
     choose(known ? { selection: new Set([id]), primary: id, anchor: id } : { selection: new Set(), primary: null, anchor: null }, fromCanvas, scroll, user, known ? field : null);
   }
 
+  /** The frame message for a selected field: its section and the data-hm-field paths that make it up (the key, then its aliases). */
+  function fieldRef({ componentId, key }) {
+    const comp = find(st.doc, componentId);
+    const def = boot.sections?.find((x) => x.type === comp?.p?.type)?.fields?.find((f) => f.key === key);
+    return { sel: "section", key: componentId, paths: [key, ...(def?.alias ?? [])].slice(0, 6) };
+  }
+
   // scroll: bring the node into view in the frame; off when the pointer is already on it.
   function choose(r, fromCanvas = false, scroll = !fromCanvas, userPick = false, field = null) {
     const was = selection.size;
@@ -700,6 +707,7 @@ function start(root, boot) {
       const { sel, key } = frameRef(n, l);
       canvas.setSelectedNode(selected && key, { sel, scroll });
     }
+    canvas.setSelectedField(selectedField && fieldRef(selectedField));
     inspector.show();
     if (shouldOpenInspector({ stacked: dock.stacked(), selected, userPick })) dock.pick("insp");
     reuseUI?.refresh();
