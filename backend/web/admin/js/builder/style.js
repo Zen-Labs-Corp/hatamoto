@@ -141,7 +141,7 @@ export function inheritedAt(node, at, key) {
   return null;
 }
 
-// Which groups the user opened or closed, kept for the page session (not stored): a group otherwise starts open only when it has a value set here.
+// Which groups the user opened or closed, per element (`id:group`), kept for the page session (not stored): a group otherwise starts open per the kind's defaults or when it has a value set here. A new selection starts from the defaults again.
 const openGroups = new Map();
 
 let uid = 0;
@@ -235,14 +235,15 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
     const vh = h("span", { class: "hm-visually-hidden", hidden: true, text: "A value is set here" });
     const gid = `hm-bs-g${++uid}`;
-    const open = openGroups.get(g.name) ?? initialOpen(g.name, groupHasValue(g.entries, (k) => ownValue(cur, bp, k)), cur);
+    const memo = `${cur.id}:${g.name}`;
+    const open = openGroups.get(memo) ?? initialOpen(g.name, groupHasValue(g.entries, (k) => ownValue(cur, bp, k)), cur);
     const head = h("button", { type: "button", class: "hm-bs-grp__t", id: `${gid}-t`, "aria-expanded": String(open), "aria-controls": `${gid}-r` }, h("span", { text: g.name }), dot, vh);
     const body = h("div", { class: "hm-bs-grp__b", id: `${gid}-r`, hidden: !open }); // collapsed, not removed: the controls keep painting, so a closed header's dot stays right
     head.addEventListener("click", () => {
       const now = head.getAttribute("aria-expanded") !== "true";
       head.setAttribute("aria-expanded", String(now));
       body.hidden = !now;
-      openGroups.set(g.name, now);
+      openGroups.set(memo, now);
     });
     root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, h("h4", { class: "hm-bs-grp__hd" }, head)), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
@@ -331,7 +332,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   /** The legacy full rows of the keys behind a group's More toggle, shown or hidden by the toggle (closed, not removed: the controls keep painting). */
   function moreBlock(g, entries, gid, again = []) {
     const keep = new Set([...entries, ...again]); // `again`: primary keys shown here in full too; a value of theirs the icon row cannot show opens it too
-    const key = `${g.name}:more`;
+    const key = `${cur.id}:${g.name}:more`;
     // A value only More can show (or that the icon row has no button for) opens it, whatever was closed by hand before.
     const hidden = moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k)) || again.some((e) => { const v = ownValue(cur, bp, e.key); return v !== null && !BUTTON_ROWS[e.key].some(([b]) => b === v); });
     const open = hidden || (openGroups.get(key) ?? false);

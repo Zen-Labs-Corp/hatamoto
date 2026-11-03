@@ -486,3 +486,13 @@ test("a value only More shows opens it even after More was closed by hand on tha
   assert.equal(b.attrs["aria-expanded"], "false", "closed by hand");
   assert.equal(moreBtn(mount({ id: "more-closed", t: "container", s: { base: { jc: "center" } } }), "Layout").attrs["aria-expanded"], "true");
 });
+
+test("a group the user opened on one element does not open on the next: kind defaults hold per selection", () => {
+  const head = (m) => m.find((n) => n.className === "hm-bs-grp__t", m.group("Fill"))[0];
+  const fill = (m) => head(m).attrs["aria-expanded"];
+  const a = mount({ id: "memo-a", t: "container", s: { base: {} } });
+  assert.equal(fill(a), "false");
+  head(a).fire("click");
+  assert.equal(fill(mount({ id: "memo-a", t: "container", s: { base: {} } })), "true", "sticky for the same element across re-renders");
+  assert.equal(fill(mount({ id: "memo-b", t: "heading", s: { base: {} } }, { parent: section() })), "false", "a later element starts from its kind's default");
+});
