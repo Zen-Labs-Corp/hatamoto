@@ -875,3 +875,56 @@ func TestChangesetRevertWithConflictCanRetry(t *testing.T) {
 		t.Error("term survived the second revert")
 	}
 }
+
+// An edit of a menu's items moves the menu: a revert after it leaves the menu
+// alone instead of replacing the owner's items.
+func TestChangesetRevertSkipsMenuAfterItemEdit(t *testing.T) {
+	url := "/a"
+	edits := map[string]func(f *fixture, svc *menu.Service, menuID uuid.UUID, itemID uuid.UUID) error{
+		"create": func(f *fixture, svc *menu.Service, m, _ uuid.UUID) error {
+			u := "/c"
+			_, err := svc.CreateMenuItem(f.ctx, m, &menu.CreateMenuItemInput{Label: "Contact", LinkType: menu.LinkTypeCustom, URL: &u})
+			return err
+		},
+		"update": func(f *fixture, svc *menu.Service, _, i uuid.UUID) error {
+			l := "Renamed"
+			_, err := svc.UpdateMenuItem(f.ctx, i, &menu.UpdateMenuItemInput{Label: &l})
+			return err
+		},
+		"delete": func(f *fixture, svc *menu.Service, _, i uuid.UUID) error { return svc.DeleteMenuItem(f.ctx, i) },
+		"reorder": func(f *fixture, svc *menu.Service, m, i uuid.UUID) error {
+			return svc.ReorderItems(f.ctx, m, []menu.ReorderInput{{ID: i, Position: 7}})
+		},
+	}
+	for name, edit := range edits {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			svc := menu.NewService(menu.NewPostgresRepository(f.db), slog.Default())
+			cs := f.begin("")
+			f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, SourceKey: "m-" + f.tag, Payload: raw(map[string]any{
+				"name": "M", "slug": f.tag + "-mi", "items": []menu.ReplaceItem{{Label: "A", LinkType: menu.LinkTypeCustom, URL: &url, Parent: -1}}})})
+			f.publish(cs)
+			var mid, iid uuid.UUID
+			if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_menus WHERE slug = $1`, f.tag+"-mi").Scan(&mid); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_menu_items WHERE menu_id = $1`, mid).Scan(&iid); err != nil {
+				t.Fatal(err)
+			}
+			time.Sleep(10 * time.Millisecond)
+			if err := edit(f, svc, mid, iid); err != nil {
+				t.Fatal(err)
+			}
+			res, err := f.eng.Revert(f.ctx, cs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Skipped != 1 || res.Applied != 0 || len(res.Conflicts) != 1 || res.Conflicts[0].Reason != reasonRevertMoved {
+				t.Fatalf("result = %+v", res)
+			}
+			if f.count(`SELECT count(*) FROM hatamoto_menus WHERE id = $1`, mid) != 1 {
+				t.Error("the edited menu was deleted by the revert")
+			}
+		})
+	}
+}
