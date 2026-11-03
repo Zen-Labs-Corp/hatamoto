@@ -367,10 +367,10 @@ test("a text block's Spacing is two margin fields and a hint with the section's 
   assert.equal(m.find((n) => n.className?.includes("hm-bs-bm"), g).length, 0, "no box model");
   const r2 = m.find((n) => n.className === "hm-bs-r2", g)[0];
   assert.deepEqual(m.find((n) => n.className?.includes("hm-bs-fld__lb"), r2).map((n) => n.kids[0]?.textContent), ["\u2191", "\u2193"]);
-  assert.equal(m.find((n) => n.className === "hm-bs-hint", g)[0].textContent, "Space between blocks comes from the section's Gap (16px).");
+  assert.equal(m.find((n) => n.className === "hm-bs-hintline", g)[0].textContent, "Space between blocks comes from the section's Gap (16px).");
   const more = m.find((n) => n.className === "hm-bs-grp__more", g)[0];
   for (const side of ["Padding top", "Padding left", "Margin right"]) assert.ok(m.find((n) => n.attrs?.["aria-label"] === `Reset ${side}`, more).length, side);
-  assert.equal(mount(heading(), { parent: section() }).find((n) => n.className === "hm-bs-hint").map((n) => n.textContent)[0], "Space between blocks comes from the section's Gap.");
+  assert.equal(mount(heading(), { parent: section() }).find((n) => n.className === "hm-bs-hintline").map((n) => n.textContent)[0], "Space between blocks comes from the section's Gap.");
 });
 
 test("a section keeps the box model in Spacing, no More", () => {

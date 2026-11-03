@@ -49,7 +49,7 @@ test("a box model number has a visible resting edge from a token", () => {
 
 test("the ring caption total and the hint line have rules", () => {
   assert.match(css, /^\.hm-bs-bm__tot \{/m);
-  assert.match(css, /^\.hm-bs-hint \{/m);
+  assert.match(css, /^\.hm-bs-hintline \{/m);
 });
 
 test("every class the compact fields and More toggles render has a rule and the label column is 4.5rem", () => {

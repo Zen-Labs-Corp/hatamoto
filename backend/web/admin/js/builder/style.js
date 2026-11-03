@@ -299,7 +299,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const t = /^space-\d+$/.test(v ?? "") ? palette.space?.[v.slice(6)] : v;
     const m = /^(\d+(?:\.\d+)?)(px|rem|em)$/.exec(t ?? "");
     const shown = m ? `${Math.round(Number(m[1]) * (m[2] === "px" ? 1 : 16))}px` : null;
-    return [h("p", { class: "hm-bs-hint", text: `Space between blocks comes from the section's Gap${shown ? ` (${shown})` : ""}.` })];
+    return [h("p", { class: "hm-bs-hintline", text: `Space between blocks comes from the section's Gap${shown ? ` (${shown})` : ""}.` })];
   }
 
   /** The Text style select: one option per site font size (palette.fs), writing fs and fw together (one undo step). Bigger sizes are bold, smaller regular; "Custom" when the two do not match one. */

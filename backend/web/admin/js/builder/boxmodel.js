@@ -197,7 +197,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
     });
     tools.push(link, ...built.map((b) => b.reset));
   }
-  const hintLine = outer ? h("p", { class: "hm-bs-hint", text: "Drag a number or the pink handles on the canvas. Shift moves by 10." }) : null;
+  const hintLine = outer ? h("p", { class: "hm-bs-hintline", text: "Drag a number or the pink handles on the canvas. Shift moves by 10." }) : null;
   const el = h("div", { class: `hm-bs-bm${inner ? " hm-bs-bm--nested" : ""}` }, ...(tools.length ? [h("div", { class: "hm-bs-bm__tools" }, ...tools)] : []), ...(outer ? [outer.el] : []), hintLine);
   return { el, keys: rings.flatMap((r) => r.keys), paint: () => painters.forEach((p) => p()) };
 }
