@@ -7,7 +7,7 @@ Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A
 - **Removed permissions.** `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A plugin that requests one is not loaded: it stays installed, shows the reason on the plugins page, and its imports, webhooks and cron jobs stop until you install a version built for runs. Grants you stored for them are ignored.
 - **Removed host functions.** `entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create` and `redirects.delete`. A call answers `unavailable` and names the replacement.
 - **Plugins that never wrote content** (built for `^0.5` to `^0.16`) load and run as before.
-- **Host call limits.** Every host call now refuses arguments nested deeper than 32 levels, arrays over 10,000 elements and requests over 200,000 JSON tokens with `invalid_argument`; see the plugin API reference.
+- **Argument limits on the new functions.** The run and changeset functions refuse arguments nested deeper than 32 levels, arrays over 10,000 elements and requests over 200,000 JSON tokens with `invalid_argument`. Functions that existed before keep their limits; see the plugin API reference.
 - **The update check does not warn.** The pre-update check compares SDK ranges only, so a plugin built for `^0.16` that requests a removed permission passes it. Check your plugins before you update.
 - **Migration.** New tables and columns only (expand-only).
 

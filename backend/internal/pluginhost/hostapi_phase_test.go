@@ -188,15 +188,33 @@ func TestChangesetArgsSize(t *testing.T) {
 	}
 }
 
-func TestChangesetArgsDepth(t *testing.T) {
+// The element, token and depth limits cover the run and changeset functions
+// only: a function that predates runs keeps accepting what it always did.
+func TestRunFnArgsShape(t *testing.T) {
 	a := hostCallAPI(t)
 	deep := func(n int) string { return strings.Repeat("[", n) + strings.Repeat("]", n) }
-	if resp := callLog(t, a, `{"level":"info","message":"x"}`); !resp.OK {
-		t.Fatalf("flat call failed: %+v", resp.Error)
+	call := func(fn, args string) sdk.CallResponse {
+		in := []byte(`{"fn":"` + fn + `","args":` + args + `}`)
+		var resp sdk.CallResponse
+		if err := json.Unmarshal(a.Call(context.Background(), "p", in), &resp); err != nil {
+			t.Fatal(err)
+		}
+		return resp
 	}
-	resp := callLog(t, a, `{"level":"info","message":"x","extra":`+deep(40)+`}`)
-	if resp.OK || resp.Error.Code != sdk.ErrInvalidArgument || !strings.Contains(resp.Error.Message, "nesting deeper") {
-		t.Fatalf("40 levels deep: %+v", resp)
+	if resp := call(sdk.FnBufferPut, `{"key":"k","value":`+deep(40)+`}`); resp.OK || !strings.Contains(resp.Error.Message, "nesting deeper") {
+		t.Fatalf("40 levels deep to a run function: %+v", resp)
+	}
+	long := "[" + strings.Repeat("1,", 20000) + "1]"
+	if resp := call(sdk.FnBufferPut, `{"key":"k","value":`+long+`}`); resp.OK || !strings.Contains(resp.Error.Message, "more than") {
+		t.Fatalf("20000 elements to a run function: %+v", resp)
+	}
+	// An existing function gets past the shape check (its own strict decoding
+	// then refuses the unknown field, which is not a shape error).
+	for _, extra := range []string{deep(40), long} {
+		resp := callLog(t, a, `{"level":"info","message":"x","extra":`+extra+`}`)
+		if resp.OK || strings.Contains(resp.Error.Message, "nesting deeper") || strings.Contains(resp.Error.Message, "more than") {
+			t.Fatalf("an existing function was shape-checked: %+v", resp)
+		}
 	}
 }
 

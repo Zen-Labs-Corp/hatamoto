@@ -265,8 +265,12 @@ func (a *API) dispatch(ctx context.Context, plugin string, in []byte) (any, erro
 	if err := json.Unmarshal(in, &req); err != nil {
 		return nil, herr(sdk.ErrInvalidArgument, "request is not a JSON {fn, args}")
 	}
-	if err := defaultShape.check(req.Args); err != nil {
-		return nil, herr(sdk.ErrInvalidArgument, "arguments: %v", err)
+	// Run and changeset functions are new in 0.17 and bounded from the start;
+	// the functions that predate them keep their old, looser acceptance.
+	if runOnly[req.Fn] {
+		if err := defaultShape.check(req.Args); err != nil {
+			return nil, herr(sdk.ErrInvalidArgument, "arguments: %v", err)
+		}
 	}
 	if repl, gone := removedFns[req.Fn]; gone {
 		return nil, herr(sdk.ErrUnavailable, "%s was removed in SDK 0.17; use %s inside a run", req.Fn, repl)
