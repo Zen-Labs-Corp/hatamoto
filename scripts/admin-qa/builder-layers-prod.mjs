@@ -223,12 +223,13 @@ await check("A3b: the gap between two sections shows the 2px line and the round 
   await gap.scrollIntoViewIfNeeded();
   await gap.hover({ force: true });
   await settle(200);
-  const g = await gap.evaluate((e) => ({ h: e.getBoundingClientRect().height, line: getComputedStyle(e, "::before").opacity, btn: getComputedStyle(e.firstElementChild).display, r: getComputedStyle(e.firstElementChild).borderRadius }));
-  need(Math.round(g.h) === 8, `gap height ${g.h}`);
+  const g = await gap.evaluate((e) => ({ h: e.getBoundingClientRect().height, line: getComputedStyle(e, "::before").opacity, btn: getComputedStyle(e.firstElementChild).display, bh: e.firstElementChild.getBoundingClientRect().height, r: getComputedStyle(e.firstElementChild).borderRadius }));
+  need(Math.round(g.h) === 12, `gap height ${g.h}`);
+  need(g.bh <= g.h + 0.5, `the plus (${g.bh}px) is taller than the gap (${g.h}px): it covers the band above`);
   need(g.line === "1" && g.btn !== "none", `line opacity ${g.line}, plus display ${g.btn}`);
   await shot("layers-gap.png");
   await p.mouse.move(5, 5);
-  return `8px gap, line shown, plus ${g.r}`;
+  return `12px gap, line shown, plus ${g.r}`;
 });
 
 await check("A4: the Pages tab lists the pages, marks the current one and links to each page's builder", async () => {
