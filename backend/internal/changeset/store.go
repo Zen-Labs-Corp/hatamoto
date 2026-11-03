@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type changesetRow struct {
 	ID        int64
+	RunID     uuid.UUID
 	Plugin    string
 	State     string
 	ExpiresAt time.Time
@@ -20,8 +22,8 @@ type changesetRow struct {
 // lockChangeset reads and row-locks a changeset.
 func lockChangeset(ctx context.Context, tx pgx.Tx, id int64) (changesetRow, error) {
 	var c changesetRow
-	err := tx.QueryRow(ctx, `SELECT id, plugin, state, expires_at FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
-		Scan(&c.ID, &c.Plugin, &c.State, &c.ExpiresAt)
+	err := tx.QueryRow(ctx, `SELECT id, run_id, plugin, state, expires_at FROM hatamoto_changesets WHERE id = $1 FOR UPDATE`, id).
+		Scan(&c.ID, &c.RunID, &c.Plugin, &c.State, &c.ExpiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}

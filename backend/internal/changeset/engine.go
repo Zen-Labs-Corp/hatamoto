@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/media"
 )
 
 // Engine stages, publishes, discards, reverts and expires changesets.
@@ -102,6 +105,9 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		if err := e.checkOwnership(ctx, tx, cs.Plugin, it.Kind, target); err != nil {
 			return err
 		}
+		if err := checkBlobKeys(cs.RunID, it); err != nil {
+			return err
+		}
 		if it.Kind == KindMedia && (it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1) {
 			return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
 		}
@@ -115,6 +121,22 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 		}
 		return nil
 	})
+}
+
+// checkBlobKeys refuses staged files that are not the run's own: only media
+// items carry files, and each must sit under the run's staged directory, or
+// one run could publish or delete another run's files.
+func checkBlobKeys(runID uuid.UUID, it Item) error {
+	if len(it.BlobKeys) > 0 && it.Kind != KindMedia {
+		return fmt.Errorf("%w: %s items carry no files", ErrInvalidItem, it.Kind)
+	}
+	prefix := media.StagedPrefix(runID) + "/"
+	for _, k := range it.BlobKeys {
+		if !strings.HasPrefix(k, prefix) || path.Clean(k) != k {
+			return fmt.Errorf("%w: file %q is not staged by this run", ErrInvalidItem, k)
+		}
+	}
+	return nil
 }
 
 // Discard drops a staged changeset: its items, the run's buffer and the staged files.

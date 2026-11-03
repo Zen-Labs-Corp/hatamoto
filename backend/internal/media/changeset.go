@@ -29,6 +29,10 @@ func stagedPrefix(runID uuid.UUID) string {
 	return path.Join(legacyMediaTenantDir, stagedDir, runID.String())
 }
 
+// StagedPrefix is the blob key prefix of the staged files of one run: a key
+// that does not start with it plus "/" is not one of that run's files.
+func StagedPrefix(runID uuid.UUID) string { return stagedPrefix(runID) }
+
 // isStagedKey reports whether key lives under a run's staged directory.
 func isStagedKey(key string) bool {
 	return strings.HasPrefix(key, legacyMediaTenantDir+"/"+stagedDir+"/")

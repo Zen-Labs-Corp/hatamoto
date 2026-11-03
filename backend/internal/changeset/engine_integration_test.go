@@ -734,3 +734,34 @@ func TestChangesetRevertSkipsObjectsEditedSincePublish(t *testing.T) {
 		t.Error("the untouched redirect survived the revert")
 	}
 }
+
+func TestChangesetStageRefusesForeignBlobKeys(t *testing.T) {
+	f := newFixture(t)
+	runA := uuid.New()
+	a, err := f.eng.Begin(f.ctx, runA, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := f.stageFile(uuid.New(), "a.png")
+	media := func(keys ...string) Item {
+		return Item{Kind: KindMedia, Op: OpUpsert, BlobKeys: keys, Payload: raw(map[string]any{"filename": "a.png"})}
+	}
+	if err := f.eng.Stage(f.ctx, a, media(foreign)); !errors.Is(err, ErrInvalidItem) {
+		t.Errorf("another run's file: %v", err)
+	}
+	own := f.stageFile(runA, "own.png")
+	if err := f.eng.Stage(f.ctx, a, media(strings.Replace(own, runA.String()+"/", runA.String()+"/../"+uuid.NewString()+"/", 1))); !errors.Is(err, ErrInvalidItem) {
+		t.Errorf("traversal key: %v", err)
+	}
+	ent := f.entityItem("", "blob-"+f.tag, "x")
+	ent.BlobKeys = []string{own}
+	if err := f.eng.Stage(f.ctx, a, ent); !errors.Is(err, ErrInvalidItem) {
+		t.Errorf("files on an entity item: %v", err)
+	}
+	if err := f.eng.Stage(f.ctx, a, media(own)); err != nil {
+		t.Errorf("the run's own file: %v", err)
+	}
+	if !f.fileExists(foreign) {
+		t.Error("the foreign file is gone")
+	}
+}
