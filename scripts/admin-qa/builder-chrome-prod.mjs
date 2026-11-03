@@ -214,6 +214,11 @@ await check("A1: the title is plain until pointed at, the device switch is centr
   const zooms = await p.locator("#bs-zoom [data-zoom]").evaluateAll((es) => es.map((e) => e.dataset.zoom));
   if (zooms.join() !== "fit,50,75,100") throw new Error(`Fit menu items ${zooms}`);
   await trig.click();
+  await settle(200);
+  const first = await p.evaluate(() => document.activeElement?.dataset.zoom);
+  await p.keyboard.press("ArrowDown"); // the menu opens on its first item (Fit): ArrowDown moves to 50
+  const next = await p.evaluate(() => document.activeElement?.dataset.zoom);
+  if (first !== "fit" || next !== "50") throw new Error(`the Fit menu focuses "${first}" on open and "${next}" after ArrowDown, not fit then 50`);
   await p.locator('#bs-zoom [data-zoom="75"]').click();
   await settle(400);
   const dims = p.locator("[data-hm-pe-dims]");
