@@ -70,13 +70,8 @@ export function hatchRects(box, pd) {
   ];
 }
 
-/**
- * Where the size badge hangs under a selection: its x (px, any unit the box is in) and which edge of the badge sits there.
- * A top-level element's badge (a section) hangs from its right edge: the centred "Add section" pill sits on the same boundary and would hide it.
- */
-export function sizeAnchor(box, section) {
-  return section ? { x: box.x + box.w, align: "end" } : { x: box.x + box.w / 2, align: "center" };
-}
+/** Where the size badge hangs under a selection: its x (px, any unit the box is in), always the box's middle; the "Add section" pill only shows on hover. */
+export const sizeAnchor = (box) => ({ x: box.x + box.w / 2, align: "center" });
 
 /** A handle's centre kept so a handle `half` px thick stays inside 0..max: padding 0 puts its centre on the frame's edge, where it would be cut in half. */
 export const keepInside = (centre, half, max) => Math.max(half, Math.min(centre, Math.max(half, max - half)));

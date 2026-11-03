@@ -111,10 +111,9 @@ test("hatchRects: no padding known is no area; padding larger than the box does 
   assert.ok(hatchRects({ w: 100, h: 50 }, [40, 0, 40, 0]).every((x) => x.h >= 0));
 });
 
-test("a section's size badge hangs from its right edge, off the centred 'Add section' pill; a block's stays centred", () => {
-  const box = { x: 0, y: 100, w: 400, h: 200 };
-  assert.deepEqual(sizeAnchor(box, true), { x: 400, align: "end" });
-  assert.deepEqual(sizeAnchor(box, false), { x: 200, align: "center" });
+test("the size badge is centred under the selection, section or block", () => {
+  assert.deepEqual(sizeAnchor({ x: 0, y: 100, w: 400, h: 200 }), { x: 200, align: "center" });
+  assert.deepEqual(sizeAnchor({ x: 50, y: 0, w: 100, h: 10 }, true), { x: 100, align: "center" });
 });
 
 test("a handle on the frame's edge is pulled inside by half its thickness; a short frame still gives a position", () => {

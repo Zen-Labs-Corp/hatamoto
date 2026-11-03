@@ -371,6 +371,12 @@ export function createCanvas(root, handlers, opts = {}) {
         outline.style.width = `${node.w * scale}px`;
         outline.style.right = "auto";
       }
+      // Corner squares and the element's mono name tag: stateless, so the redraw may rebuild them. Not while its text is typed (the formatting bar owns that space).
+      if (editingId !== (node ? node.id : sel.id)) {
+        outline.append(...["nw", "ne", "sw", "se"].map((c) => h("span", { class: "hm-pe__hdl", "data-corner": c })));
+        const name = (node ? handlers.nodeLabel?.(node.id, node.k, node.t) : handlers.sectionLabel?.(sel.id)) ?? "";
+        if (name) outline.append(h("span", { class: "hm-pe__tag hm-pe__tag--sel", text: name }));
+      }
       marks.append(outline);
     }
     // The rest of a multi-selection: outlined, no tag.

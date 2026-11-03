@@ -75,14 +75,15 @@ export function mountToolbar(canvas, handlers) {
   const handle = h("span", { class: "hm-pe__handle", "data-id": "", "aria-hidden": "true", title: "Drag to move", text: "\u283f" });
   const chipIcon = h("span", { "aria-hidden": "true" });
   const name = h("span", { class: "hm-pe__tname" });
-  const chip = h("span", { class: "hm-pe__tchip" }, chipIcon, name);
-  const up = h("button", { type: "button", class: "hm-pe__tup", "data-act": "parent", tabindex: "-1" });
+  const up = h("span", { class: "hm-pe__up" });
+  // one chip: the element's name, and its parent muted after it; pressing it selects the parent
+  const chip = h("button", { type: "button", class: "hm-pe__tchip", "data-act": "parent", tabindex: "-1" }, chipIcon, name, up);
   const sep = h("span", { class: "hm-pe__tsep", "aria-hidden": "true" });
   const acts = initial.buttons.map((m) => h("button", { type: "button", class: "hm-pe__tbtn", "data-act": m.act, tabindex: "-1" }, icon(m.icon)));
-  const buttons = [up, ...acts];
+  const buttons = [chip, ...acts];
   const actions = h("div", { class: "hm-pe__tactions" }, ...acts);
   const hint = h("span", { class: "hm-pe__thint" });
-  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, chip, up, sep, actions, hint);
+  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, chip, sep, actions, hint);
   const size = h("span", { class: "hm-pe__size", "data-hm-pe-size": "", "aria-hidden": "true", hidden: true });
   canvas.stage.append(bar, size);
 
@@ -148,12 +149,14 @@ export function mountToolbar(canvas, handlers) {
       handle.hidden = editing || !handlers.onHandleDown;
       handle.setAttribute("data-id", sel.id);
       upId = model.up?.id ?? null;
-      up.hidden = !model.up || editing;
-      sep.hidden = up.hidden;
-      if (model.up) {
+      const toParent = !!model.up && !editing;
+      chip.toggleAttribute("disabled", !toParent);
+      up.hidden = !toParent;
+      sep.hidden = editing;
+      if (toParent) {
         up.textContent = model.up.text;
-        up.setAttribute("aria-label", model.up.aria);
-      }
+        chip.setAttribute("aria-label", model.up.aria);
+      } else chip.removeAttribute("aria-label");
       for (const m of model.buttons) {
         const b = acts.find((x) => x.getAttribute("data-act") === m.act);
         b.setAttribute("aria-label", m.aria);
@@ -183,9 +186,8 @@ export function mountToolbar(canvas, handlers) {
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
     const label = sizeText(sel); // CSS px, whatever the zoom
     if (size.textContent !== label) size.textContent = label;
-    const at = sizeAnchor(box, canvas.nodes?.find((n) => n.id === sel.id)?.p === ""); // a top-level element has the "Add section" pill under it
+    const at = sizeAnchor(box);
     size.style.left = `${at.x}px`;
-    size.setAttribute("data-align", at.align);
     size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };

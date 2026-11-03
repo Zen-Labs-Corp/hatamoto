@@ -256,7 +256,8 @@ test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lan
   walk(canvas.stage);
   assert.deepEqual(Object.keys(btn).sort(), ["duplicate", "more", "movedown", "moveup", "parent", "remove", "togglehide"]);
   assert.ok(btn.moveup.hasAttribute("disabled"), "a first element cannot move up");
-  assert.equal(btn.parent.hidden, true, "a top-level element has no parent to select");
+  assert.ok(btn.parent.hasAttribute("disabled"), "a top-level element has no parent to select");
+  assert.equal(btn.parent.children.at(-1).hidden, true, "and the chip shows no parent");
   const stops = Object.values(btn).filter((b) => b.attrs.tabindex === "0");
   assert.equal(stops.length, 1, "one tab stop");
   assert.ok(!stops[0].hasAttribute("disabled"), "and it is not a disabled one");
@@ -281,6 +282,23 @@ test("the strip carries no device band label (the inspector context line shows t
   const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", viewport: 1280, scale: 1, setInset() {}, stage };
   mountStrip(canvas, {});
   assert.ok(!strip.children.some((c) => c.attrs.class === "hm-pe__bandlabel"), "no band label element");
+});
+
+test("a selected element carries four corner squares and its mono name tag; a field outline carries neither", () => {
+  const { host, canvas } = rig({ nodeLabel: (_id, _k, t) => `Label ${t}`, sectionLabel: () => "Hero" });
+  const box = { x: 0, y: 0, w: 100, h: 20 };
+  const layout = (field) => ({ hm: 2, type: "layout", docH: 400, main: { x: 0, y: 0, w: 100, h: 400 }, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }, { id: "h1", k: "n", t: "heading", p: "s1", ...box }], ...(field && { field }) });
+  const outline = (cls) => { let hit = null; const walk = (e) => { if (e.attrs?.class === cls) hit = e; (e.children ?? []).forEach(walk); }; walk(host); return hit; };
+  dom.deliver(host, layout());
+  dom.deliver(host, { hm: 2, type: "select", id: "h1", k: "n", shift: false, ctrl: false });
+  const kids = outline("hm-pe__outline").children;
+  assert.deepEqual(kids.filter((c) => c.attrs.class === "hm-pe__hdl").map((c) => c.attrs["data-corner"]), ["nw", "ne", "sw", "se"]);
+  const tag = kids.find((c) => c.attrs.class === "hm-pe__tag hm-pe__tag--sel");
+  assert.equal(tag.textContent, "Label heading");
+  canvas.setSelectedNode("s1", { sel: "section" });
+  canvas.setSelectedField({ sel: "section", key: "s1", paths: ["eyebrow"] });
+  dom.deliver(host, layout({ x: 5, y: 6, w: 40, h: 8 }));
+  assert.equal(outline("hm-pe__outline hm-pe__outline--field").children.length, 0);
 });
 
 test("a selected field is outlined by its reported box in place of the section; no box keeps the section outline", () => {

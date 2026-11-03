@@ -21,18 +21,25 @@
 [data-hm-device="sm"] .hm-pe__stage::before { background: var(--color-device-phone); }
 .hm-pe__marks { position: absolute; inset: 0; pointer-events: none; }
 .hm-pe__outline { position: absolute; left: 0; right: 0; border: 2px solid var(--color-accent); border-radius: var(--radius-sm); pointer-events: none; }
-.hm-pe__hover { position: absolute; border: 1px dashed var(--color-hai); pointer-events: none; }
+.hm-pe__hover { position: absolute; border: 1px solid var(--color-accent); pointer-events: none; }
+/* Selection corners: 8px squares centred on the outline's corners. */
+.hm-pe__hdl { position: absolute; box-sizing: border-box; width: 8px; height: 8px; background: var(--surface); border: 1.5px solid var(--color-accent); border-radius: 2px; pointer-events: none; }
+.hm-pe__hdl[data-corner^="n"] { top: -5px; }
+.hm-pe__hdl[data-corner^="s"] { bottom: -5px; }
+.hm-pe__hdl[data-corner$="w"] { left: -5px; }
+.hm-pe__hdl[data-corner$="e"] { right: -5px; }
 /* Canvas-only aliases: the guide pink and the always-dark surface of the floating toolbar (it must not flip with the theme). */
 .hm-pe, .hm-pe__stage { --pe-guide-pad: var(--color-guide-pad); --pe-ui-bg: var(--color-inverse-bg); --pe-ui-fg: var(--color-inverse-fg); --pe-ui-muted: var(--color-inverse-muted); --pe-ui-hover: var(--color-inverse-hover); }
 /* The element toolbar floats outside the element (built once, moved by place(), sits inside the top edge when there is no room: [data-inside]); its buttons take clicks, the gaps do too, so it never lets a press through to text under it. */
 .hm-pe__toolbar { position: absolute; z-index: calc(var(--z-raised) + 1); /* over the "+" buttons */ display: flex; align-items: center; gap: var(--space-px); width: max-content; max-width: 100vw; padding: var(--space-0-5); background: var(--pe-ui-bg); color: var(--pe-ui-fg); border-radius: var(--radius-md); box-shadow: var(--shadow-2); font-size: var(--text-xs); white-space: nowrap; pointer-events: auto; }
 .hm-pe__toolbar[hidden], .hm-pe__tactions[hidden], .hm-pe__thint[hidden], .hm-pe__handle[hidden] { display: none; }
-.hm-pe__tchip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2) 0 var(--space-1); font-weight: var(--weight-semibold); color: var(--pe-ui-fg); }
+.hm-pe__tchip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-1); height: 28px; padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-sm); font-weight: var(--weight-semibold); color: var(--pe-ui-fg); white-space: nowrap; }
 .hm-pe__tchip svg { width: 14px; height: 14px; flex: none; }
 .hm-pe__tname { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-semibold); }
-.hm-pe__tup { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 28px; padding: 0 var(--space-2); border-radius: var(--radius-sm); color: var(--pe-ui-muted); font-weight: var(--weight-medium); cursor: pointer; white-space: nowrap; }
-.hm-pe__tup:hover { background: var(--pe-ui-hover); color: var(--pe-ui-fg); }
-.hm-pe__tup:focus-visible { outline: 2px solid var(--pe-ui-fg); outline-offset: -2px; }
+.hm-pe__tchip:not([disabled]) { cursor: pointer; }
+.hm-pe__tchip:not([disabled]):hover { background: var(--pe-ui-hover); }
+.hm-pe__tchip:focus-visible { outline: 2px solid var(--pe-ui-fg); outline-offset: -2px; }
+.hm-pe__up { color: var(--pe-ui-muted); font-weight: var(--weight-medium); }
 .hm-pe__tsep { flex: none; width: 1px; height: 16px; margin: 0 var(--space-0-5); background: var(--pe-ui-hover); }
 .hm-pe__tactions { display: flex; gap: var(--space-px); min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .hm-pe__tbtn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-width: 28px; height: 28px; padding: 0 var(--space-1-5); border-radius: var(--radius-sm); color: var(--pe-ui-muted); cursor: pointer; white-space: nowrap; }
@@ -62,9 +69,9 @@
 .hm-pe__plus:hover .hm-pe__plusline, .hm-pe__plus:focus-visible .hm-pe__plusline { display: block; }
 .hm-pe__hint { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: var(--text-sm); }
 /* Hover name tag (same label as the Navigator) and the W x H badge under the selection. */
-.hm-pe__tag { position: absolute; left: 0; top: 0; max-width: 14rem; padding: var(--space-0-5) var(--space-2); border-radius: 0 0 var(--radius-sm) 0; background: var(--color-accent); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-.hm-pe__size[data-align="end"] { transform: translateX(-100%); margin-left: calc(-1 * var(--space-2)); } /* a section's: off the centred "Add section" pill */
-.hm-pe__size { position: absolute; transform: translateX(-50%); padding: 1px var(--space-1-5); border-radius: var(--radius-sm); background: var(--pe-ui-bg); color: var(--pe-ui-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); white-space: nowrap; pointer-events: none; }
+.hm-pe__tag { position: absolute; left: -1px; inset-block-start: -20px; max-width: 14rem; padding: var(--space-0-5) var(--space-2); border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0; background: var(--color-accent); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.hm-pe__tag--sel { left: -2px; inset-block-start: calc(100% + var(--space-1)); border-radius: 0 var(--radius-sm) var(--radius-sm) var(--radius-sm); } /* the selected element's tag hangs under its outline's left edge (the toolbar owns the space above) */
+.hm-pe__size { position: absolute; transform: translateX(-50%); padding: 1px var(--space-1-5); border-radius: var(--radius-sm); background: var(--color-accent); color: var(--color-paper); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: var(--leading-5); white-space: nowrap; pointer-events: none; }
 /* Direct manipulation layer (js/canvas/direct.js): padding hatch, pink handles, value badge, "Add section" strips. Own layer: hover redraws of the marks never touch an active drag. */
 .hm-pe__pad { position: absolute; inset: 0; pointer-events: none; }
 .hm-pe__pad[hidden] { display: none; }
@@ -93,9 +100,10 @@
 .hm-pe__gapline:focus-visible .hm-pe__pill { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .hm-pe__toolbar, .hm-pe__tag, .hm-pe__size, .hm-pe__padbadge, .hm-pe__pill { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+  .hm-pe__hdl { background: Canvas; border-color: Highlight; }
   .hm-pe__padh::after { background: Highlight; }
   .hm-pe__hatch { background: none; border: 1px dashed Highlight; }
-  .hm-pe__tbtn:focus-visible, .hm-pe__tup:focus-visible { outline-color: Highlight; }
+  .hm-pe__tbtn:focus-visible, .hm-pe__tchip:focus-visible { outline-color: Highlight; }
 }
 
 /* Shared Tiptap kit (editor/kit.js): toolbar, content area, html tabs. */
