@@ -420,11 +420,11 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(r.adds[1][1], strips[1], "the picker anchors on the strip");
 });
 
-test("a pill shows only around the hover (or alone on an empty page); the boundary after the selection is the one tab stop, never otherwise", () => {
+test("a pill shows around the hover, alone on an empty page and on the selection's own end edges; the boundary after the selection is the one tab stop", () => {
   const shows = (r) => r.strips.children.map((s) => s.attrs["data-show"] ?? null);
   const r = rig({ nodes: sections() }); // a selected, nothing hovered
-  assert.deepEqual(shows(r), [null, null, null], "the selection shows no pill");
-  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"], "but the boundary after it stays the one tab stop");
+  assert.deepEqual(shows(r), ["sel", "sel", null], "the selected first section shows a pill before and after it without hover");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"], "the boundary after it is the one tab stop");
   r.state.selected = "x"; // a block inside a: its section's boundary
   r.direct.update();
   assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
@@ -437,9 +437,9 @@ test("a pill shows only around the hover (or alone on an empty page); the bounda
   r.direct.update();
   assert.deepEqual(shows(r), [null, "hover", "hover"]);
   const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section adds no pill over its padding handles
-  assert.deepEqual(shows(own), [null, null, null]);
+  assert.deepEqual(shows(own), ["sel", "sel", null], "hovering the selected section changes nothing");
   const next = rig({ nodes: sections(), hover: "b" }); // hovering the next section shows its edge, the selected section's own bottom edge included
-  assert.deepEqual(shows(next), [null, "hover", "hover"]);
+  assert.deepEqual(shows(next), ["sel", "hover", "hover"]);
   assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "page", "an empty page's only pill shows");
 });
 

@@ -206,7 +206,7 @@ await check("A1 select a section on the canvas: 4 padding handles with aria-labe
   if (!/mono|menlo|consolas|courier/i.test(tagFont)) throw new Error(`the selection name tag is not mono: ${tagFont}`);
   const tbb = await tb.boundingBox();
   if (tbb.y > ob.y + 40) throw new Error(`the toolbar is below the top of the selection (${tbb.y.toFixed(0)} vs ${ob.y.toFixed(0)})`);
-  if (await p.locator("[data-hm-pe-gapline][data-show]").count()) throw new Error("an Add section line is shown without a hover");
+  if ((await p.locator("[data-hm-pe-gapline][data-show]:not([data-show=sel])").count())) throw new Error("an Add section line is shown without a hover beyond the selection edges");
   top0 = await padNow("top");
   await p.locator('[role="tab"][data-tab="style"]').first().click().catch(() => {}); // the inspector's padding fields
   await settle(400);

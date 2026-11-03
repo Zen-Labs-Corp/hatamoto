@@ -141,12 +141,13 @@ export function mountDirect(canvas, hd) {
     while (n && n.p !== "") n = canvas.nodes.find((x) => x.id === n.p);
     return n?.id ?? null;
   };
-  // A pill shows (and takes the pointer) only around the hovered section, or alone on an empty page. After the selected section it is the one tab stop, invisible
-  // until it has keyboard focus. The rest are inert, so no invisible element swallows a click.
+  // A pill shows (and takes the pointer) around the hovered section, alone on an empty page, and on the selected section's own edges the
+  // page ends at (after it, and before the first one), so mouse and touch can always add at the end or the top. After the selected section it is also the one
+  // tab stop. The rest are inert, so no invisible element swallows a click.
   function showOf(b, selTop, hoverTop) {
     if (b.before === null && b.after === null) return "page";
-    if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover"; // the selected section's handles own its edges
-    if (selTop && b.before === selTop) return "sel";
+    if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover";
+    if (selTop && (b.before === selTop || (b.before === null && b.after === selTop))) return "sel";
     return null;
   }
 
@@ -171,9 +172,9 @@ export function mountDirect(canvas, hd) {
       p._b = b;
       p.setAttribute("aria-label", b.before === null ? "Add section at the top" : b.after === null ? "Add section at the end" : `Add section after ${hd.nameOf?.(b.before) || "this one"}`);
       const show = showOf(b, selTop, hoverTop);
-      if (show === "hover" || show === "page") p.setAttribute("data-show", show);
+      if (show) p.setAttribute("data-show", show);
       else p.removeAttribute("data-show");
-      p.setAttribute("tabindex", show === "sel" || show === "page" ? "0" : "-1");
+      p.setAttribute("tabindex", (show === "sel" && b.before !== null) || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
     });
   }
