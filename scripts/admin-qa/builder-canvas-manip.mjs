@@ -260,6 +260,36 @@ async function pillsClear(where) {
   await settle(300);
   if ((await padNow("bottom")) !== pad0) throw new Error("the click on the pill changed the bottom padding");
 }
+// A section taller than the pane, its bottom boundary scrolled off-screen: the pill stays on that boundary, it is not moved into the visible part of the section. Skipped when the section fits the pane.
+async function tallSectionPill(where) {
+  const lines = p.locator("[data-hm-pe-gapline][data-sel]");
+  if ((await lines.count()) < 2) return null;
+  const m = await lines.first().evaluate((e) => {
+    const sc = e.parentElement.parentElement.parentElement;
+    const c = (l) => { const r = l.querySelector(".hm-pe__pill").getBoundingClientRect(); return r.top + r.height / 2; };
+    const [a, b] = [...document.querySelectorAll("[data-hm-pe-gapline][data-sel]")].map(c).sort((x, y) => x - y);
+    return { h: b - a, pane: sc.clientHeight - (document.querySelector(".hm-pe__strip")?.offsetHeight ?? 0) };
+  });
+  if (m.h <= m.pane + 60) return null;
+  const scrolled = await lines.first().evaluate((e) => {
+    const sc = e.parentElement.parentElement.parentElement;
+    const bottom = Math.max(...[...document.querySelectorAll("[data-hm-pe-gapline][data-sel] .hm-pe__pill")].map((x) => x.getBoundingClientRect().bottom));
+    sc.scrollTop += Math.max(0, bottom - sc.getBoundingClientRect().bottom + 80); // the section's bottom boundary below the view
+    return true;
+  });
+  await settle(300);
+  const hit = await p.evaluate(() => {
+    const sc = document.querySelector("[data-hm-pe-gapline]").parentElement.parentElement.parentElement.getBoundingClientRect();
+    const x = sc.left + sc.width / 2, y = sc.top + sc.height / 2;
+    return { x, y };
+  });
+  await p.mouse.move(hit.x - 20, hit.y, { steps: 3 });
+  await p.mouse.move(hit.x, hit.y, { steps: 3 });
+  await settle(400);
+  const over = await p.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".hm-pe__pill"), hit);
+  if (over) throw new Error(`${where}: an 'Add section' pill sits over the visible middle of a section taller than the pane (scrolled=${scrolled})`);
+  return `tall section (${m.h.toFixed(0)}px in a ${m.pane}px pane)`;
+}
 const zoomTo = async (z) => { await p.locator("[data-hm-bs-zoomtrigger]").click(); await p.locator(`#bs-zoom [data-zoom="${z}"]`).click(); await settle(500); };
 
 await check("A3 hover the selected section's edges: clickable 'Add section' pills clear of the padding handles, size badge and toolbar at Desktop, Phone 100% and Phone 50%; click opens the picker, not a padding drag", async () => {
@@ -273,6 +303,8 @@ await check("A3 hover the selected section's edges: clickable 'Add section' pill
       await selectOnCanvas(sec.id);
       await pillsClear(`phone ${z}%`);
       seen.push(`phone ${z}%`);
+      const tall = await tallSectionPill(`phone ${z}%`);
+      if (tall) seen.push(tall);
     }
   } finally {
     await zoomTo("fit").catch(() => {});

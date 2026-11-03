@@ -28,6 +28,7 @@ class El {
   }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   removeAttribute(k) { delete this.attrs[k]; }
+  hasAttribute(k) { return k in this.attrs; }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   append(...kids) { kids.forEach((k) => (k.parent = this)); this.children.push(...kids); }
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
@@ -562,4 +563,11 @@ test("a bottom pill does not land on the next boundary's pill when the next sect
   assert.notEqual(dy, null);
   const moved = { ...sel, y: sel.y + dy };
   assert.ok([handle, badge, next].every((o) => !overlaps(moved, o)), `the moved pill ${JSON.stringify(moved)} touches an obstacle`);
+});
+
+test("pillShift: a pill whose own row is outside the bounds stays on it (a section taller than the pane)", () => {
+  const obstacle = { x: 0, y: 440, w: 300, h: 40 };
+  const pill = { x: 91, y: 900, w: 88, h: 26 };
+  assert.equal(pillShift(pill, [obstacle], 1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row below the bounds");
+  assert.equal(pillShift({ ...pill, y: -60 }, [obstacle], -1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row above the bounds");
 });
