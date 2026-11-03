@@ -1,4 +1,4 @@
-// The builder top bar's markup: labelled pane toggles, Undo mirrored from Redo, the More menu order, device chip and tokens.
+// The builder top bar's markup: labelled pane toggles, Undo mirrored from Redo, the More menu order, device chip removal and tokens.
 // Run: node --test scripts/admin-qa/unit/builder-topbar.test.mjs
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 
 const web = new URL("../../../backend/web/admin/", import.meta.url);
 const html = readFileSync(new URL("pages/entities/builder.html", web), "utf8");
+const screen = readFileSync(new URL("js/builder/screen.js", web), "utf8");
 const tokens = readFileSync(new URL("css/tokens.css", web), "utf8");
 const more = html.slice(html.indexOf('id="bs-more"'), html.indexOf("{{if .Shell.SaveLabel}}"));
 
@@ -37,8 +38,11 @@ test("More menu order: Versions, Page settings, Site styles, Keyboard shortcuts,
   assert.doesNotMatch(html, /data-hm-bs-device-item/);
 });
 
-test("device chip exists and the server badge is wrapped so JS can retire it", () => {
-  assert.match(html, /data-hm-bs-device-chip/);
+test("the device chip is gone (the inspector context line is the one place) and the width change is still announced", () => {
+  assert.doesNotMatch(html, /data-hm-bs-device-chip/);
+  assert.doesNotMatch(screen, /device-chip/);
+  assert.match(screen, /announce\(`Editing \$\{BP_NAME\[d\]\} styles\.`\)/);
+  assert.match(html, /<h2 class="hm-bs__h hm-visually-hidden">Inspector<\/h2>/);
   assert.match(html, /<span data-hm-bs-status>/);
 });
 

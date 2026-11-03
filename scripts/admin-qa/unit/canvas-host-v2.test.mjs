@@ -255,17 +255,13 @@ test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lan
   delete globalThis.requestAnimationFrame;
 });
 
-test("the device label is not a live region (it is repainted on every hover) and is its own element, apart from the crumbs", async () => {
+test("the strip carries no device band label (the inspector context line shows the device)", async () => {
   const { mountStrip } = await import(new URL("../../../backend/web/admin/js/canvas/chrome.js", import.meta.url));
   let strip = null;
   const stage = { parentElement: { insertBefore: (e) => (strip = e) }, parentNode: null };
   const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", setInset() {}, setZoom() {}, stage };
   mountStrip(canvas, {});
-  const band = strip.children.find((c) => c.attrs.class === "hm-pe__bandlabel");
-  assert.ok(band, "a band label element");
-  assert.equal(band.attrs.role, undefined);
-  assert.match(band.textContent, /^Tablet · editing styles/);
-  assert.ok(!strip.children[0].children.some((c) => c === band), "not inside the crumbs nav");
+  assert.ok(!strip.children.some((c) => c.attrs.class === "hm-pe__bandlabel"), "no band label element");
 });
 
 test("a selected field is outlined by its reported box in place of the section; no box keeps the section outline", () => {

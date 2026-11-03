@@ -7,7 +7,7 @@
 {{with .Shell.StatusBadge}}<span data-hm-bs-status>{{template "hm/badge" .}}</span>{{end}}
 <span class="hm-editor-bar__state" data-hm-bs-state>{{template "hm/savestate" (dict "State" "saved" "Text" "Saved")}}</span>
 </span>
-<span class="hm-bs__devices" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-bs-device" "base")) (dict "Label" "Tablet" "Attrs" (attrmap "data-hm-bs-device" "md")) (dict "Label" "Phone" "Attrs" (attrmap "data-hm-bs-device" "sm"))))}}<span class="hm-bs__device" hidden data-hm-bs-device-chip></span></span>
+<span class="hm-bs__devices" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-bs-device" "base")) (dict "Label" "Tablet" "Attrs" (attrmap "data-hm-bs-device" "md")) (dict "Label" "Phone" "Attrs" (attrmap "data-hm-bs-device" "sm"))))}}</span>
 <span class="hm-bs__end">
 <span class="hm-bs__tools" hidden data-hm-bs-js>
 {{template "hm/button" (dict "Label" "Undo" "AriaLabel" "Undo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-bs-undo" "" "data-flip" "" "disabled" "disabled" "title" "Undo (Ctrl/Cmd + Z)"))}}
@@ -68,7 +68,7 @@
 <div class="hm-bs__split hm-bs__split--nav" role="separator" aria-orientation="vertical" aria-label="Resize the navigator pane" aria-controls="hm-bs-nav" tabindex="0" hidden data-hm-bs-js data-hm-bs-split="nav"></div>
 <section class="hm-bs__canvas" id="hm-bs-canvas" aria-label="Page canvas" data-hm-bs-canvas><div class="hm-bs__banner" data-hm-bs-banner></div></section>
 <div class="hm-bs__split hm-bs__split--insp" role="separator" aria-orientation="vertical" aria-label="Resize the inspector pane" aria-controls="hm-bs-inspector" tabindex="0" hidden data-hm-bs-js data-hm-bs-split="insp"></div>
-<aside class="hm-bs__inspector" id="hm-bs-inspector" data-hm-bs-pane="insp" aria-label="Inspector"><h2 class="hm-bs__h">Inspector</h2><div data-hm-bs-panel><p class="hm-muted">Select an element on the page to edit it.</p></div></aside>
+<aside class="hm-bs__inspector" id="hm-bs-inspector" data-hm-bs-pane="insp" aria-label="Inspector"><h2 class="hm-bs__h hm-visually-hidden">Inspector</h2><div data-hm-bs-panel><p class="hm-muted">Select an element on the page to edit it.</p></div></aside>
 {{if .Data.Shell.Translations}}<aside class="hm-bs__seo" id="hm-bs-translations-drawer" role="dialog" aria-label="Translations" hidden data-hm-bs-translations-drawer><div class="hm-bs__seo-head"><h2 class="hm-bs__h">Translations</h2>{{template "hm/button" (dict "Label" "Close" "AriaLabel" "Close translations" "IconOnly" true "Icon" "x" "Variant" "ghost" "Attrs" (attrmap "data-hm-trdrawer-close" ""))}}</div><div class="hm-bs__seo-body" data-hm-trdrawer-body></div></aside>{{end}}
 {{if not .Data.Shell.Role}}<aside class="hm-bs__seo" id="hm-bs-seo-drawer" role="dialog" aria-label="SEO" hidden data-hm-bs-seo-drawer><div class="hm-bs__seo-head"><h2 class="hm-bs__h">SEO</h2>{{template "hm/button" (dict "Label" "Close" "AriaLabel" "Close SEO" "IconOnly" true "Icon" "x" "Variant" "ghost" "Attrs" (attrmap "data-hm-seodrawer-close" ""))}}</div><div class="hm-bs__seo-body" data-hm-seodrawer-body></div></aside>{{end}}
 {{.Data.Shell.Boot}}
