@@ -217,30 +217,60 @@ await check("A1 select a section on the canvas: 4 padding handles with aria-labe
   return `${labels.join(", ")}; badge "${size}"; toolbar ${bg}; chip "${chip}"`;
 });
 
-await check("A3 hover the selected section's bottom boundary: a clickable 'Add section' pill clear of the padding handle and the size badge; click opens the picker, not a padding drag", async () => {
+// The selected section's two edge pills while it is hovered, against everything else drawn on those edges.
+async function pillsClear(where) {
   const pad0 = await padNow("bottom");
-  const at = await pointOf(sec.id, 0.5, 0.5);
-  await p.mouse.move(at.x - 20, at.y, { steps: 3 });
-  await p.mouse.move(at.x, at.y, { steps: 3 });
-  await settle(400);
+  for (const [fx, fy] of [[0.5, 0.01], [0.5, 0.5], [0.3, 0.99], [0.4, 0.5]]) { // a few moves inside the section: the frame reports a hover only when the pointer changes node
+    const at = await pointOf(sec.id, fx, fy);
+    await p.mouse.move(at.x - 20, at.y, { steps: 3 });
+    await p.mouse.move(at.x, at.y, { steps: 3 });
+    await settle(400);
+    if (await p.locator("[data-hm-pe-gapline][data-show]").count()) break;
+  }
   const line = p.locator("[data-hm-pe-gapline][data-sel][tabindex='0']").first(); // the boundary after the selected section
   const pill = line.locator(".hm-pe__pill");
-  if (!(await pill.isVisible())) throw new Error("no pill on the selected section's bottom boundary under hover");
-  const pb = await pill.boundingBox();
+  if (!(await pill.isVisible())) throw new Error(`${where}: no pill on the selected section's bottom boundary under hover`);
   const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-  for (const [what, loc] of [["padding handle", padh("bottom")], ["size badge", p.locator("[data-hm-pe-size]").first()]]) {
-    const o = await loc.boundingBox();
-    if (o && hit(pb, o)) throw new Error(`the pill ${JSON.stringify(pb)} overlaps the ${what} ${JSON.stringify(o)}`);
+  const others = [...["top", "right", "bottom", "left"].map((s) => [`${s} padding handle`, padh(s)]), ["size badge", p.locator("[data-hm-pe-size]").first()], ["toolbar", p.locator("[data-hm-pe-toolbar]").first()]];
+  for (const [which, pl] of [["bottom", pill], ["top", p.locator("[data-hm-pe-gapline][data-sel]").first().locator(".hm-pe__pill")]]) {
+    if (!(await pl.isVisible())) continue;
+    const pb = await pl.boundingBox();
+    for (const [what, loc] of others) {
+      const o = (await loc.isVisible()) ? await loc.boundingBox() : null;
+      if (o && hit(pb, o)) throw new Error(`${where}: the ${which} pill ${JSON.stringify(pb)} overlaps the ${what} ${JSON.stringify(o)}`);
+    }
   }
+  const pb = await pill.boundingBox();
   await p.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2, { steps: 4 });
   await p.mouse.down();
   await p.mouse.up();
   const dlg = p.getByRole("dialog", { name: "Add a section" });
-  await dlg.waitFor({ timeout: 3000 });
+  await dlg.waitFor({ timeout: 3000 }).catch(() => { throw new Error(`${where}: the click on the pill ${JSON.stringify(pb)} did not open the picker`); });
   await p.keyboard.press("Escape");
   await settle(300);
   if ((await padNow("bottom")) !== pad0) throw new Error("the click on the pill changed the bottom padding");
-  return "pill shown on hover, clear of the handle and badge, click opened the picker";
+}
+const zoomTo = async (z) => { await p.locator("[data-hm-bs-zoomtrigger]").click(); await p.locator(`#bs-zoom [data-zoom="${z}"]`).click(); await settle(500); };
+
+await check("A3 hover the selected section's edges: clickable 'Add section' pills clear of the padding handles, size badge and toolbar at Desktop, Phone 100% and Phone 50%; click opens the picker, not a padding drag", async () => {
+  await pillsClear("desktop");
+  const seen = ["desktop"];
+  try {
+    await p.locator('[data-hm-bs-device="sm"]').click();
+    await settle(600);
+    for (const z of ["100", "50"]) {
+      await zoomTo(z);
+      await selectOnCanvas(sec.id);
+      await pillsClear(`phone ${z}%`);
+      seen.push(`phone ${z}%`);
+    }
+  } finally {
+    await zoomTo("fit").catch(() => {});
+    await p.locator('[data-hm-bs-device="base"]').click();
+    await settle(500);
+    await selectOnCanvas(sec.id).catch(() => {});
+  }
+  return `pills shown on hover, clear of the handles, badge and toolbar, click opened the picker (${seen.join(", ")})`;
 });
 
 await check("A1 drag the top handle +40 px: value badge + hatch during the drag, ONE undo entry on pointerup, padding-top changed", async () => {

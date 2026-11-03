@@ -4,7 +4,7 @@
 // end a drag. A drag only previews in the frame (setVar, no commit); pointer-up makes ONE commit through handlers.onPadCommit.
 import { styleDecls } from "@hm/canvas/host";
 import { toBridge } from "@hm/canvas/protocol";
-import { boundaryIndex, hatchRects, keepInside, pillPoints } from "@hm/canvas/chromemodel";
+import { boundaryIndex, hatchRects, keepInside, pillPoints, pillShift } from "@hm/canvas/chromemodel";
 import { OPPOSITE, SIDES, padAria, padLabel, padValue, padWrites, startPx } from "@hm/canvas/padding";
 
 const SIDE_LIST = ["top", "right", "bottom", "left"]; // the order of a layout node's `pd`
@@ -157,6 +157,22 @@ export function mountDirect(canvas, hd) {
     return null;
   }
 
+  // A selected section's pill sits at the row's right end. On a narrow stage (a phone at 50%) or a short section that is under the centred handle, the badge or the toolbar:
+  // measured against their rects, it drops to its own row (below a bottom edge, above a top one) instead. `outward` is 0 for a pill off the selected section's edges.
+  function placePill(p, outward) {
+    const pill = p.children[0];
+    pill.style.top = "";
+    if (!outward || typeof pill.getBoundingClientRect !== "function") return;
+    const rect = (e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    };
+    const stage = canvas.stage;
+    const others = [...stage.querySelectorAll("[data-hm-pe-padh], [data-hm-pe-size], [data-hm-pe-toolbar]")].filter((e) => !e.hidden);
+    const dy = pillShift(rect(pill), others.map(rect), outward);
+    if (dy) pill.style.top = `${dy}px`;
+  }
+
   function paintStrips() {
     const points = canvas.editingId != null ? [] : pillPoints(canvas.nodes);
     if (canvas.hoverId) lastHover = canvas.hoverId;
@@ -184,6 +200,7 @@ export function mountDirect(canvas, hd) {
       else p.removeAttribute("data-sel");
       p.setAttribute("tabindex", (selTop && b.before === selTop) || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
+      placePill(p, selTop && (b.before === selTop || b.after === selTop) ? (b.before === selTop ? 1 : -1) : 0); // for every state: the pill must not jump while the pointer is on its way to it
     });
   }
 

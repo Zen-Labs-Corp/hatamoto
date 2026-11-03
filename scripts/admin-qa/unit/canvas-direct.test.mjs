@@ -55,6 +55,7 @@ globalThis.document = {
 const fireDoc = (type, e) => (docListeners[type] ?? []).slice().forEach((f) => f({ preventDefault() {}, stopPropagation() {}, ...e }));
 
 const { mountDirect } = await import(new URL("canvas/direct.js", root));
+const { pillShift } = await import(new URL("canvas/chromemodel.js", root));
 const { validToBridge } = await import(new URL("canvas/protocol.js", root));
 const { padWrites } = await import(new URL("canvas/padding.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
@@ -520,4 +521,21 @@ test("a short section: the top handle never lies over the bottom one (the 24px t
   const top = parseFloat(r.handle("top").style.top);
   const bottomStart = parseFloat(r.handle("bottom").style.top) - 12; // centred on the inner edge, 24px tall
   assert.ok(top + 24 <= bottomStart, `top handle ends at ${top + 24}, bottom starts at ${bottomStart}`);
+});
+
+test("a selected section's pill stays at the row's right end when it clears the handle and badge, and drops to its own row when it does not", () => {
+  const wide = { handle: { x: 598, y: 478, w: 44, h: 24 }, badge: { x: 584, y: 506, w: 72, h: 22 } }; // a 1240px stage: both centred, far left of the pill
+  const pill = (W) => ({ x: W - 16 - 88, y: 487, w: 88, h: 26 }); // the row's right end, centred on a boundary at y 500
+  assert.equal(pillShift(pill(1240), [wide.handle, wide.badge], 1), 0, "wide: stays at the right end");
+  // a phone at 50%: the stage is 195px, the handle [75,119] and badge [61,133] reach the pill [91,179]
+  const narrow = [{ x: 75, y: 480, w: 44, h: 24 }, { x: 61, y: 508, w: 72, h: 22 }];
+  const dy = pillShift(pill(195), narrow, 1);
+  assert.equal(dy, 508 + 22 + 4 - 487, "narrow: its own row under the badge");
+  const moved = { ...pill(195), y: 487 + dy };
+  assert.ok(narrow.every((o) => moved.y >= o.y + o.h + 4 || moved.x + moved.w + 4 <= o.x || o.x + o.w + 4 <= moved.x), "and clear of every obstacle");
+  // the top pill goes above the boundary
+  const top = [{ x: 75, y: 496, w: 44, h: 24 }, { x: 61, y: 466, w: 72, h: 22 }];
+  assert.ok(pillShift(pill(195), top, -1) < 0, "above for a top edge");
+  // a toolbar over the top pill's upper edge: above is no better, so it goes inward
+  assert.ok(pillShift(pill(390), [{ x: 100, y: 450, w: 290, h: 40 }], -1) > 0, "inward when above is blocked");
 });
