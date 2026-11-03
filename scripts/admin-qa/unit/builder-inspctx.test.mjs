@@ -49,7 +49,9 @@ test("Parent hover is offered only for a parent that can take it", () => {
 
 test("the line holds a pill, a labelled State select and the note it is described by", () => {
   const line = contextLine({ device: "md", state: "focus", choices: stateChoices({ t: "container" }), onState() {} });
-  assert.equal(find(line, (n) => n.attrs.class === "hm-bs-ctx__bp")[0].textContent, "Tablet");
+  const [pill] = find(line, (n) => n.attrs.class === "hm-bs-ctx__bp");
+  assert.equal(pill.textContent, "Tablet");
+  assert.equal(pill.attrs["data-device"], "md", "the device colours the pill");
   const [select] = find(line, (n) => n.tag === "select");
   assert.equal(select.attrs["aria-label"], "State");
   assert.match(select.attrs.class, /(^| )hm-field__control( |$)/, "the State select is the field primitive, not a bare select");
@@ -81,6 +83,7 @@ test("the breakpoint pill clones the admin's badge when the page carries the tem
     const line = contextLine({ device: "sm", onState() {} });
     const [pill] = find(line, (n) => n === badge);
     assert.equal(pill.attrs.class, "hm-badge hm-bs-ctx__bp");
+    assert.equal(pill.attrs["data-device"], "sm");
     assert.equal(pill.textContent, "Phone");
   } finally {
     delete document.querySelector;
