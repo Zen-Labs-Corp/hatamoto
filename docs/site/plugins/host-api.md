@@ -126,7 +126,7 @@ Notes on specific functions:
 
 ## Runs and changesets
 
-Content changes are made by a **run** the owner starts. The plugin declares it in the manifest (`runs`, see [The manifest](manifest.md#runs)) and exports `on_run_step`. The host calls the export in two phases, **fetch** (network, the owner's upload and a buffer, no site data) and **transform** (the buffer and the published site, no network), until the plugin calls `run.finish` in both. The plugin **stages** objects into a changeset; nothing is live until the owner publishes it. Runs need no permission. Full contract, including every argument: [Plugin API](../../PLUGIN_API.md#runs-and-changesets).
+Content changes are made by a **run** the owner starts. The plugin declares it in the manifest (`runs`, see [The manifest](manifest.md#runs)) and exports `on_run_step`. The host calls the export in two phases, **fetch** (network, the owner's upload and a buffer, no site data) and **transform** (the buffer and the published site, no network), until the plugin calls `run.finish` in both. The plugin **stages** objects into a changeset; nothing is live until the owner publishes it. Runs need no permission. Full contract, including every argument: [Plugin API](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/PLUGIN_API.md#runs-and-changesets).
 
 | Functions | fetch | transform |
 |---|---|---|
