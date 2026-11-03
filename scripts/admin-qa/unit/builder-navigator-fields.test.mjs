@@ -183,7 +183,7 @@ test("metaOf keeps the full field count while a filter hides some fields", () =>
 });
 
 // --- mounted: paint and handlers ---
-function mount({ d = doc, selected = null } = {}) {
+function mount({ d = doc, selected = null, selectedField = null } = {}) {
   const painted = [];
   const icons = { querySelector: (q) => { const m = /data-ico="([^"]+)"/.exec(q); return m ? Object.assign(el("span"), { attrs: { "data-ico": m[1] } }) : null; } };
   const rootEl = {
@@ -197,7 +197,7 @@ function mount({ d = doc, selected = null } = {}) {
   console.warn = () => {};
   const tree = mountNavigator(rootEl, {
     getDoc: () => d, getSelected: () => selected, onSelect: spy("select"), onToggleHide: spy("hide"), onMenu: spy("menu"), onRename: spy("rename"), onAddAt: spy("addAt"),
-    onField: spy("field"), getSections: () => sections,
+    getSelectedField: () => selectedField, onSelectField: spy("field"), getSections: () => sections,
   });
   console.warn = warn;
   tree.draw();
@@ -224,7 +224,7 @@ test("paint: a field row is a level-2 treeitem named 'Label · text' with a mute
   assert.equal(withClass(mount().rows()[0], "hm-bs-row__meta")[0].text, "4 blocks · #102030");
 });
 
-test("click and Enter/Space on a field row call onField(componentId, key) and nothing else", () => {
+test("click and Enter/Space on a field row call onSelectField(componentId, key) and nothing else", () => {
   const m = mount();
   m.rootEl.listeners.click(hit(fieldRow));
   const stop = { preventDefault() {}, stopPropagation() {} };
@@ -251,36 +251,62 @@ test("a field id never reaches onSelect, onToggleHide, onRename or onMenu with '
   assert.equal(m.calls.filter((c) => c[0] === "field").length, 2);
 });
 
-test("act: from a focused field row, keys start there; onto a field row its section becomes the selection", () => {
+test("act: from a focused field row, keys start there; onto a field row selects the field, onto a section selects it", () => {
   const m = mount({ selected: "s1" });
   m.rootEl.contains = () => true;
   document.activeElement = { dataset: { id: "s1#body", field: "body" } };
   assert.equal(m.tree.act("next"), true);
-  assert.deepEqual(m.calls.filter((c) => c[0] === "select"), [], "next field row: no selection");
+  assert.deepEqual(m.calls, [["field", "c1", "cta", { keys: true }]], "next field row: that field is selected, the section is not");
+  m.calls.length = 0;
   document.activeElement = { dataset: { id: "s1#cards", field: "cards" } };
   m.tree.act("next");
-  assert.deepEqual(m.calls.filter((c) => c[0] === "select"), [["select", "s2"]], "onto the next section selects it");
+  assert.deepEqual(m.calls, [["select", "s2"]], "onto the next section selects it");
   m.calls.length = 0;
   document.activeElement = { dataset: { id: "s1#body", field: "body" } };
   m.tree.act("collapse");
-  assert.deepEqual(m.calls, [], "Left back onto the section already selected: repaint, no select");
-  assert.deepEqual(m.calls.filter((c) => c[0] === "field"), []);
+  assert.deepEqual(m.calls, [], "Left back onto the section already selected (no field selected): repaint, no select");
   document.activeElement = null;
 });
 
-test("act: arrow onto another section's field row selects that section, keeps the tab stop on the field row", () => {
-  let selected = "s2";
-  const m = mount({ selected });
+test("act: Left from a selected field row selects its section (which clears the field)", () => {
+  const m = mount({ selected: "c1", selectedField: { componentId: "c1", key: "body" } });
   m.rootEl.contains = () => true;
-  document.activeElement = { dataset: { id: "s2", field: undefined } };
-  delete document.activeElement.dataset.field;
+  document.activeElement = { dataset: { id: "s1#body", field: "body" } };
+  m.tree.act("collapse");
+  assert.deepEqual(m.calls, [["select", "s1"]]);
+  document.activeElement = null;
+});
+
+test("act: arrow onto another section's field row selects that field, keeps the tab stop on the field row", () => {
+  const m = mount({ selected: "s2" });
+  m.rootEl.contains = () => true;
+  document.activeElement = { dataset: { id: "s2" } };
   assert.equal(m.tree.act("prev"), true);
-  assert.deepEqual(m.calls.filter((c) => c[0] === "select"), [["select", "s1"]], "Delete/F2/menu act on selection: it must be the field's section");
-  assert.equal(m.calls.some((c) => String(c[1]).includes("#")), false);
+  assert.deepEqual(m.calls, [["field", "c1", "cards", { keys: true }]]);
   m.tree.draw();
   const stop = m.rows().find((r) => r.attrs.tabindex === "0");
-  assert.equal(stop.attrs["data-id"], "s1#cards", "the repaint after select keeps focus on the field row");
+  assert.equal(stop.attrs["data-id"], "s1#cards", "the repaint after the select keeps focus on the field row");
   document.activeElement = null;
+});
+
+test("paint: a selected field row is the only selected row; its section is banded, not selected", () => {
+  const sf = { componentId: "c1", key: "body" };
+  const rs = mount({ selected: "c1", selectedField: sf }).rows();
+  const sel = rs.filter((r) => r.attrs["aria-selected"] === "true").map((r) => r.attrs["data-id"]);
+  assert.deepEqual(sel, ["s1#body"]);
+  assert.match(rs.find((r) => r.attrs["data-id"] === "s1").attrs.class, /hm-bs-row--band\b/);
+  assert.equal(rs.find((r) => r.attrs.tabindex === "0").attrs["data-id"], "s1#body", "the selected field row is the tab stop");
+  const plain = mount({ selected: "c1" }).rows().filter((r) => r.attrs["aria-selected"] === "true").map((r) => r.attrs["data-id"]);
+  assert.deepEqual(plain, ["s1"], "no field selected: the section row is");
+});
+
+test("a selected field whose value was emptied keeps its row; an unselected empty one has none", () => {
+  const emptied = { ...doc, nodes: [sec("s1", [comp("c1", undefined, { content: { ...content, headline: "" } })]), ...doc.nodes.slice(1)] };
+  const ids = (m) => m.rows().map((r) => r.attrs["data-id"]);
+  assert.equal(ids(mount({ d: emptied })).includes("s1#headline"), false);
+  const m = mount({ d: emptied, selected: "c1", selectedField: { componentId: "c1", key: "headline" } });
+  assert.equal(ids(m).includes("s1#headline"), true);
+  assert.equal(m.rows().find((r) => r.attrs["data-id"] === "s1#headline").attrs["aria-selected"], "true");
 });
 
 test("a remembered field row is dropped when focus leaves the tree, so a forced draw focuses the selection", () => {
@@ -299,8 +325,8 @@ test("a remembered field row is dropped when focus leaves the tree, so a forced 
   document.activeElement = null;
 });
 
-test("screen.js: the drag pick skips field rows and onField opens the Inspector field", () => {
+test("screen.js: the drag pick skips field rows and onSelectField selects the field", () => {
   const src = readFileSync(new URL("../../../backend/web/admin/js/builder/screen.js", import.meta.url), "utf8");
   assert.match(src, /closest\?\.\("[^"]*\[data-field\][^"]*"\) \? null/);
-  assert.match(src, /onField: \(id, key\) => toField\(id, key\)/);
+  assert.match(src, /onSelectField: \(id, key\) => toField\(id, key\)/);
 });

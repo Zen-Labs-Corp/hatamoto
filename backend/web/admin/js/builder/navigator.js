@@ -247,13 +247,14 @@ export function thumbColours(bg) {
  * Rows: a section is one numbered row (index, thumbnail, name, meta line); a block is a smaller row with a type icon, its opening text and its kind. The eye and more
  * buttons on a row and the gap are mouse affordances only: aria-hidden, no focus, no data-id (keyboard: h, the context menu, the footer's Add). Their icons are cloned
  * from template[data-hm-bs-ico] (UI-05); getSelected() may be a component id from the canvas: its collapsed section's row is the selected one.
- * onField(componentId, key) opens the Inspector on a content-field row (Click/Enter); such a row never reaches onSelect, onRename, onToggleHide or a drag, and its menu is its section's.
+ * getSelectedField() -> {componentId,key} | null is the selected content field: its row is the selected one (its section row is only banded) and keeps its row even when its value is empty.
+ * onSelectField(componentId, key, {keys}) selects a content-field row (Click/Enter, or an arrow onto it with keys: true); such a row never reaches onSelect, onRename, onToggleHide or a drag, and its menu is its section's.
  * onRename(id, value, innerId) saves a name typed in a row (double-click or F2; value "" removes it); innerId is the component whose old name the row was showing (clear it too, in the same step).
  * getDevice() is the active breakpoint: rows hidden at it carry a badge. The h key on a row calls onToggleHide(id).
  * draw() repaints on the next frame (keeping focus when it was in the tree; draw(true) moves focus to the selected row);
  * act(action) runs a navigation key and returns whether it was one.
  */
-export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], onField = () => {}, getPageName = () => "", getTokenColour = () => null, bar = null, announce = () => {} }) {
+export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], getSelectedField = () => null, onSelectField = () => {}, getPageName = () => "", getTokenColour = () => null, bar = null, announce = () => {} }) {
   const collapsed = new Set();
   const badgeTpl = root.closest("[data-hm-builder]")?.querySelector("template[data-hm-bs-hidden-badge]"); // the server-rendered pill
   if (!badgeTpl) console.warn("builder navigator: template[data-hm-bs-hidden-badge] not found inside [data-hm-builder]; Hidden rows lose the pill look");
@@ -269,7 +270,10 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   const nameOf = (n, top = false) => (top && isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
   /** A background as a hex: a hex as written, a token through getTokenColour (null when unknown). */
   const hexOf = (bg) => (thumbColours(bg) ? bg : (getTokenColour(bg) ?? null));
-  const fieldsOf = (c) => fieldRows(c.p?.content, getSections().find((s) => s.type === c.p?.type)?.fields);
+  const fieldsOf = (c) => {
+    const sf = getSelectedField();
+    return fieldRows(c.p?.content, getSections().find((s) => s.type === c.p?.type)?.fields, sf?.componentId === c.id ? sf.key : null);
+  };
   const rowsNow = () => rowsOf(getDoc(), collapsed, filter, nameOf, fieldsOf);
   let ff = null; // the focused field row: it keeps the tab stop and the focus through a repaint
   const filterEl = bar?.querySelector("[data-hm-bs-filter]");
@@ -285,6 +289,9 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const selRow = sel ? rowIdOf(doc, sel) : null; // the canvas selects a collapsed section by its component: the row is the container
     const members = new Set(getSelection().map((id) => rowIdOf(doc, id) ?? id));
     const rows = rowsNow();
+    const sf = getSelectedField();
+    const sfRow = sf && rowIdOf(doc, sf.componentId) ? `${rowIdOf(doc, sf.componentId)}#${sf.key}` : null;
+    const fieldSel = sfRow && rows.some((r) => r.id === sfRow) ? sfRow : null; // a selected field row replaces its section as the selected row
     const n = doc.nodes.length;
     if (countEl) countEl.textContent = `PAGE · ${n} SECTION${n === 1 ? "" : "S"}`; // typed uppercase: the design check bans text-transform
     if (pageTitleEl) pageTitleEl.textContent = getPageName();
@@ -302,7 +309,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       return;
     }
     if (renaming && !rows.some((r) => r.id === renaming)) renaming = field = null;
-    const stop = rows.some((r) => r.id === ff) ? ff : rows.some((r) => r.id === selRow) ? selRow : rows[0].id;
+    const stop = rows.some((r) => r.id === ff) ? ff : fieldSel ? fieldSel : rows.some((r) => r.id === selRow) ? selRow : rows[0].id;
     const device = getDevice();
     const band = sel ? (sectionOf(doc, sel)?.id ?? null) : null; // the section holding the selection (once per draw)
     const last = rows.length - 1;
@@ -322,7 +329,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
         "aria-level": String(r.level),
         "aria-setsize": String(r.size),
         "aria-posinset": String(r.pos),
-        "aria-selected": String(r.id === selRow || members.has(r.id)),
+        "aria-selected": String(fieldSel ? r.id === fieldSel : r.id === selRow || members.has(r.id)),
         "aria-expanded": r.kids ? String(r.expanded) : false,
         "data-field": f?.key ?? false,
         "data-comp": f?.componentId ?? false,
@@ -442,7 +449,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const rows = rowsNow();
     if (action === "rename") return rename(sel), true;
     const at = document.activeElement;
-    const from = root.contains(at) && at.dataset?.field != null ? at.dataset.id : sel; // a focused field row is where keys start
+    const sf = getSelectedField();
+    const from = root.contains(at) && at.dataset?.field != null ? at.dataset.id : (rows.find((r) => r.field && sf && r.field.componentId === sf.componentId && r.field.key === sf.key)?.id ?? sel); // a focused or selected field row is where keys start
     if (!["prev", "next", "first", "last", "collapse", "expand"].includes(action)) return false;
     const r = step(rows, from, action);
     if (!r) return true;
@@ -451,13 +459,12 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     else if (r.expand) collapsed.delete(r.expand);
     ff = null;
     if (r.select?.includes("#")) {
-      // onto a field row: DOM focus stays on it (ff keeps the tab stop through the repaint), its section is the selection so Delete, F2 and the menu act on it
+      // onto a field row: it becomes the selection; DOM focus stays on it (ff keeps the tab stop through the repaint)
       ff = r.select;
-      const owner = r.select.split("#")[0];
-      if (owner !== sel) onSelect(owner);
-      else paint(), focus();
+      const f = rows.find((x) => x.id === r.select).field;
+      onSelectField(f.componentId, f.key, { keys: true });
     }
-    else if (r.select && r.select === sel && from !== sel) paint(), focus(); // back to the section already selected
+    else if (r.select && r.select === sel && from !== sel && !sf) paint(), focus(); // back to the section already selected
     else if (r.select) onSelect(r.select);
     else paint();
     return true;
@@ -501,7 +508,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     }
     const row = e.target.closest?.("[data-id]");
     if (!row) return;
-    if (row.dataset.field != null) return onField(row.dataset.comp, row.dataset.field);
+    if (row.dataset.field != null) return onSelectField(row.dataset.comp, row.dataset.field);
     wantFocus = true;
     if (e.target.closest("[data-caret]")) return toggle(row.dataset.id);
     // pick: a plain click or tap. Modifier clicks (multi-select) and the second click of a double-click are not a pick, and neither are keys.
@@ -511,7 +518,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
   root.addEventListener("keydown", (e) => {
     const row = e.target.closest?.("[data-id]");
-    if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onField(row.dataset.comp, row.dataset.field)) : undefined;
+    if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onSelectField(row.dataset.comp, row.dataset.field)) : undefined;
     if (!row || e.target !== row || e.key !== "h" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     e.preventDefault();
     onToggleHide(row.dataset.id);

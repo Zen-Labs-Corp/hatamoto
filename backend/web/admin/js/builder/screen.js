@@ -132,7 +132,7 @@ function start(root, boot) {
     onMenu: (id, x, y) => showMenu(id, x, y),
     onAdd: (btn) => addAt({ parent: "", index: 0 }, btn),
     onAddAt: (index, el) => addAt({ parent: "", index }, el),
-    onField: (id, key) => toField(id, key), // a field row of a theme section: the Inspector focuses that field
+    onSelectField: (id, key) => toField(id, key), // a field row of a theme section: the Inspector focuses that field
     onRename: rename,
     getNote: (n) => presetNote(n, design.presets),
     getBlocks: () => boot.reuse?.blocks ?? [],
