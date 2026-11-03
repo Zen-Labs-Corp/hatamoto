@@ -8,6 +8,7 @@
 // The centre shows the selected element's rendered size ("1280 × 460") when size() gives one; the screen repaints it on
 // every canvas layout through an "hm-layout" event on the centre element.
 // Hovering or focusing a padding side dispatches a bubbling "hm-pad-hover" event ({side} or {side: null}).
+// Each ring's caption carries its total (the four sides in px, "Padding 96"); a hint line under the rings says how to edit.
 // The pure parts (ring order, link sets, typed values, scrub maths) are controls.js and scrub.js.
 import { h, actButton } from "@hm/builder/dom";
 import { linkSets, writesFor, stepFor, stepValue, boundsFor, sourceOf } from "@hm/builder/controls";
@@ -43,6 +44,8 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
     return m ? { n: Number(m[1]), unit: m[2].toLowerCase() || "px" } : { n: 0, unit: "px" };
   };
   const numberOf = (k) => numberFrom(stateOf(k).value);
+  /** A side in px for the caption total: rem and em count 16, a unit that has no fixed px size counts 0. */
+  const px = ({ n, unit }) => Math.round(unit === "px" ? n : unit === "rem" || unit === "em" ? n * 16 : 0);
   const painters = [];
   // Starts linked when something is set and every ring with a value has the same one on all four sides.
   const alike = ({ keys }) => keys.every((k) => own(k) === own(keys[0]));
@@ -146,7 +149,9 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
       err.hidden = true;
     });
     const core = h("div", { class: "hm-bs-bm__c" }); // the element, or the padding ring inside the margin ring
-    const el = h("div", { class: `hm-bs-bm__${ring === "margin" ? "m" : "p"}`, role: "group", "aria-label": label }, h("span", { class: "hm-bs-bm__t", text: label }), ...inputs, core, err);
+    const total = h("span", { class: "hm-bs-bm__tot" }); // the caption's number: the four sides added up, in px
+    painters.push(() => (total.textContent = ` ${keys.reduce((sum, k) => sum + px(numberOf(k)), 0)}`));
+    const el = h("div", { class: `hm-bs-bm__${ring === "margin" ? "m" : "p"}`, role: "group", "aria-label": label }, h("span", { class: "hm-bs-bm__t" }, h("span", { text: label }), total), ...inputs, core, err);
     return { el, core, reset };
   });
 
@@ -192,6 +197,7 @@ export function boxModel({ entries, name, palette, stateOf, commit, commitBatch,
     });
     tools.push(link, ...built.map((b) => b.reset));
   }
-  const el = h("div", { class: `hm-bs-bm${inner ? " hm-bs-bm--nested" : ""}` }, ...(tools.length ? [h("div", { class: "hm-bs-bm__tools" }, ...tools)] : []), ...(outer ? [outer.el] : []));
+  const hintLine = outer ? h("p", { class: "hm-bs-hint", text: "Drag a number or the pink handles on the canvas. Shift moves by 10." }) : null;
+  const el = h("div", { class: `hm-bs-bm${inner ? " hm-bs-bm--nested" : ""}` }, ...(tools.length ? [h("div", { class: "hm-bs-bm__tools" }, ...tools)] : []), ...(outer ? [outer.el] : []), hintLine);
   return { el, keys: rings.flatMap((r) => r.keys), paint: () => painters.forEach((p) => p()) };
 }

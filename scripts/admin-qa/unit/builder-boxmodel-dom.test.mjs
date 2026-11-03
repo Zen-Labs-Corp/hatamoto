@@ -285,3 +285,18 @@ test("Reset sits in the tools row beside the presets, not inside a ring", () => 
   assert.equal(reset.textContent, "Reset padding", "each reset names its ring on screen");
   assert.equal(b.btn("Reset margin").textContent, "Reset margin");
 });
+
+test("each ring's caption carries its total in px, following the sides", () => {
+  const b = make([...MARGIN, ...PADDING], { own: { pt: "96px", pb: "2rem" }, inh: { mt: "10px" } });
+  const tot = (ring) => b.find((n) => n.className === "hm-bs-bm__tot" && n.parent.parent.attrs["aria-label"] === ring)[0];
+  assert.equal(tot("Padding").textContent, " 128");
+  assert.equal(tot("Margin").textContent, " 10");
+  const cap = b.find((n) => n.className === "hm-bs-bm__t")[0];
+  assert.equal(cap.kids[0].textContent, "Margin", "the ring name stays its own element");
+});
+
+test("a hint line says how to edit", () => {
+  const b = make([...MARGIN, ...PADDING]);
+  const hint = b.find((n) => n.className === "hm-bs-hint")[0];
+  assert.match(hint.textContent, /^Drag a number or the pink handles on the canvas\./);
+});
