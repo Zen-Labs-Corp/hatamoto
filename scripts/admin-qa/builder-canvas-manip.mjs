@@ -136,7 +136,7 @@ const redo = async () => { await p.evaluate(() => document.activeElement?.blur?.
 const key = async (combo) => { await p.evaluate(() => document.activeElement?.blur?.()); await p.locator(TREE).first().focus().catch(() => {}); await p.keyboard.press(combo); await settle(350); };
 // The padding-top the inspector shows (Style tab); null when its field is not on screen.
 const inspectorTop = async () => {
-  const f = p.locator('input[aria-label="Padding top"]').first();
+  const f = p.locator('.hm-bs-bm__p input[data-side="top"]').first(); // the box model's field (its aria-label carries the spoken value)
   return (await f.count()) && (await f.isVisible()) ? f.inputValue() : null;
 };
 const authored = async (id, bp, k) => (await find(id))?.s?.[bp]?.[k] ?? null;
@@ -193,6 +193,20 @@ await check("A1 select a section on the canvas: 4 padding handles with aria-labe
   if ((0.299 * r + 0.587 * g + 0.114 * bl) > 60) throw new Error("toolbar is not dark: " + bg);
   const chip = (await p.locator("[data-hm-pe-toolbar] .hm-pe__tname").textContent()).trim();
   if (!chip) throw new Error("the toolbar chip has no name");
+  // The selection: 4 corner squares, the accent W × H badge centred under it, a mono name tag, the toolbar above (or just inside) the outline, no "Add section" line on show.
+  const outline = p.locator(".hm-pe__outline").first();
+  if ((await outline.locator(".hm-pe__hdl").count()) !== 4) throw new Error("the selection has no 4 corner squares");
+  const ob = await outline.boundingBox();
+  const sb = await p.locator("[data-hm-pe-size]").first().boundingBox();
+  if (Math.abs(sb.x + sb.width / 2 - (ob.x + ob.width / 2)) > 4) throw new Error(`the size badge is not centred under the selection (${(sb.x + sb.width / 2).toFixed(0)} vs ${(ob.x + ob.width / 2).toFixed(0)})`);
+  const badgeBg = await p.locator("[data-hm-pe-size]").first().evaluate((e) => getComputedStyle(e).backgroundColor);
+  const accent = await p.evaluate(() => { const e = document.createElement("i"); e.style.color = "var(--color-accent)"; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; });
+  if (badgeBg !== accent) throw new Error(`the size badge is ${badgeBg}, not the accent ${accent}`);
+  const tagFont = await outline.locator(".hm-pe__tag").first().evaluate((e) => getComputedStyle(e).fontFamily);
+  if (!/mono|menlo|consolas|courier/i.test(tagFont)) throw new Error(`the selection name tag is not mono: ${tagFont}`);
+  const tbb = await tb.boundingBox();
+  if (tbb.y > ob.y + 40) throw new Error(`the toolbar is below the top of the selection (${tbb.y.toFixed(0)} vs ${ob.y.toFixed(0)})`);
+  if (await p.locator("[data-hm-pe-gapline][data-show]").count()) throw new Error("an Add section line is shown without a hover");
   top0 = await padNow("top");
   await p.locator('[role="tab"][data-tab="style"]').first().click().catch(() => {}); // the inspector's padding fields
   await settle(400);
@@ -301,7 +315,7 @@ await check("A3 block selected: toolbar shows '↑ <section>' and a click select
   const up = p.locator('[data-hm-pe-toolbar] [data-act="parent"]');
   await up.waitFor({ state: "visible", timeout: 3000 });
   const text = (await up.textContent()).trim();
-  if (!/^↑\s*\S/.test(text)) throw new Error(`parent button reads "${text}"`);
+  if (!/\S\s*↑\s*\S/.test(text)) throw new Error(`parent button reads "${text}", not "Name ↑ Parent"`);
   if ((await p.locator("[data-hm-pe-padh]:not([hidden])").count()) !== 0) throw new Error("a block shows padding handles");
   await shot("block-selected.png");
   await up.click();
@@ -321,6 +335,9 @@ await check("A4 hover another element: outline + name tag", async () => {
   if (!(await tag.count())) throw new Error("no hover outline with a name tag");
   const text = (await tag.first().textContent()).trim();
   if (!text) throw new Error("the name tag is empty");
+  const ring = await p.locator("[data-hm-pe-hover]").first().evaluate((e) => { const c = getComputedStyle(e); return [c.borderTopStyle, c.borderTopWidth, c.borderTopColor]; });
+  const acc = await p.evaluate(() => { const e = document.createElement("i"); e.style.color = "var(--color-accent)"; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; });
+  if (ring[0] !== "solid" || ring[1] !== "1px" || ring[2] !== acc) throw new Error(`the hover outline is ${ring.join(" ")}, not 1px solid accent`);
   return `outline with tag "${text}"`;
 });
 

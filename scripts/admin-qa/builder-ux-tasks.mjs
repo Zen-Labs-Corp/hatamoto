@@ -1457,7 +1457,7 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
   await main.mouse.move(pt.x + 40, pt.y + 20);
   await settle(main, 300);
   need(await main.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected), "a hover redraw rebuilt the toolbar");
-  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label").replace(/^(Select parent),.*/, "$1")));
+  const acts = await main.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => (b.dataset.act === "parent" ? "Select parent" : b.getAttribute("aria-label"))));
   need(acts.join("|") === "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions", "toolbar buttons: " + acts.join("|"));
   // the keyboard path to the picker: More, then Add after
   await main.locator('[data-hm-pe-toolbar] [data-act="more"]').focus();
@@ -1480,7 +1480,7 @@ await check("toolbar-outside: the element toolbar floats outside the selected el
 await check("zoom-floor: a fixed zoom is exact, survives a resize, and Fit never goes under half size", async () => {
   const { id } = await columnsWithHeading(main);
   const scale = async () => { const f = await frame(main); const b = await (await f.frameElement()).boundingBox(); return b.width / (await f.evaluate(() => innerWidth)); };
-  const z = (m) => main.locator(`[data-hm-pe-strip] [data-zoom="${m}"]`).click();
+  const z = async (m) => { await main.locator("[data-hm-bs-zoomtrigger]").click(); await main.locator(`#bs-zoom [data-zoom="${m}"]`).click(); };
   const seen = {};
   for (const m of ["100", "75", "50"]) { await z(m); await settle(main, 300); seen[m] = await scale(); need(Math.abs(seen[m] - Number(m) / 100) < 0.02, `zoom ${m}% gave scale ${seen[m]}`); }
   await z("75");

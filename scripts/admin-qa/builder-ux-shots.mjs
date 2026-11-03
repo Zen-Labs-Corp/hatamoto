@@ -81,6 +81,7 @@ await wait(p, 500);
 await shot(p, "04-site-styles-drawer");
 await p.keyboard.press("Escape");
 
+await p.locator('[popovertarget="bs-more"]').click();
 await p.locator("[data-hm-bs-keys]").click();
 await p.locator("#hm-bs-sheet[open]").waitFor();
 await wait(p, 400);

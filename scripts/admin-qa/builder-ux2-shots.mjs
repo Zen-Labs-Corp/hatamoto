@@ -117,10 +117,12 @@ await shot(p, "03-layout-picker");
 await p.keyboard.press("Escape");
 
 // zoom control
-await p.locator('[data-hm-pe-strip] [data-zoom="75"]').click();
+await p.locator("[data-hm-bs-zoomtrigger]").click();
+await p.locator('#bs-zoom [data-zoom="75"]').click();
 await wait(p, 500);
 await shot(p, "04-zoom-75");
-await p.locator('[data-hm-pe-strip] [data-zoom="fit"]').click();
+await p.locator("[data-hm-bs-zoomtrigger]").click();
+await p.locator('#bs-zoom [data-zoom="fit"]').click();
 await wait(p, 300);
 
 // device band: Tablet and Phone

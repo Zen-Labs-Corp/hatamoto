@@ -351,12 +351,12 @@ await check("builder tree: Alt+arrows move, indent and outdent, Delete removes, 
   if (end !== start) throw new Error("undo did not restore the structure");
   return "moves keep focus on the row; undo restores the tree";
 });
-await check("builder palette: / opens search, filter narrows, ArrowDown enters the list, Enter inserts and focus returns to the tree", async () => {
+await check("builder palette: A opens search, filter narrows, ArrowDown enters the list, Enter inserts and focus returns to the tree", async () => {
   await openBuilder();
   const start = (await rows()).length;
   await pick((await rows())[0].id);
-  await press("/");
-  if (!(await p.evaluate(() => document.activeElement?.id === "hm-bs-pal-q"))) throw new Error("/ did not focus the palette search");
+  await press("a"); // "/" now opens the section popover at the selection; A keeps the Insert tab search
+  if (!(await p.evaluate(() => document.activeElement?.id === "hm-bs-pal-q"))) throw new Error("A did not focus the palette search");
   await p.keyboard.type("button"); await settle();
   const shown = await p.locator("[data-pal]").count();
   if (shown < 1 || shown > 3) throw new Error(`filter "button" shows ${shown} items`);
@@ -407,10 +407,12 @@ await check("builder shortcut sheet: ? opens the dialog, Tab trapped, Esc closes
   if (await p.evaluate(() => !!document.querySelector("dialog#hm-bs-sheet[open]"))) throw new Error("Esc did not close the sheet");
   const back = await p.evaluate(() => document.activeElement?.closest?.('[data-hm-bs-tree]') ? "tree" : document.activeElement?.tagName);
   if (back !== "tree") throw new Error("focus after Esc: " + back);
+  await p.locator('[popovertarget="bs-more"]').click(); // the Shortcuts item lives in the ⋯ menu
   await p.locator("[data-hm-bs-keys]").focus(); await p.keyboard.press("Enter");
   await p.waitForSelector("dialog#hm-bs-sheet[open]", { timeout: 2000 });
   await p.keyboard.press("Escape");
-  if (!(await p.evaluate(() => document.activeElement?.hasAttribute("data-hm-bs-keys")))) throw new Error("focus not back on the Shortcuts button");
+  if (!(await p.evaluate(() => document.activeElement?.closest?.('[popovertarget="bs-more"], [data-hm-bs-keys]')))) throw new Error("focus not back on the ⋯ menu button or the Shortcuts item");
+  await p.evaluate(() => document.getElementById("bs-more")?.hidePopover?.()); // leave the ⋯ menu closed for the next check
   return "trapped over 6 Tabs; Esc returns focus to the tree row or the button that opened it";
 });
 
