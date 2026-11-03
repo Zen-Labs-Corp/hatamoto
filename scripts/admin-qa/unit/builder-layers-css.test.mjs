@@ -35,3 +35,8 @@ test("the active left tab is a paper pill with a hairline ring, like a selected 
   assert.match(r, /box-shadow: 0 0 0 1px var\(--segment-ring\)/);
   assert.doesNotMatch(r, /surface-hover/);
 });
+
+test("no focus ring after a mouse click, still the paper ring on a selected row with the keyboard", () => {
+  assert.match(css, /\[data-pointer\] > \.hm-bs-tree \.hm-bs-row:focus-visible[^{]*\{ outline: none; \}/);
+  assert.match(rule('.hm-bs-row[aria-selected="true"]:focus-visible'), /outline: 2px solid var\(--bs-nav-on-accent\)/);
+});

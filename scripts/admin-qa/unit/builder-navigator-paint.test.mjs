@@ -51,6 +51,7 @@ function mount({ selected = null, filterText = "", d = doc, getTokenColour } = {
   const rootEl = {
     closest: () => ({ querySelector: (q) => (q.includes("data-hm-bs-ico") ? tpl : null) }),
     contains: () => false, replaceChildren: (...k) => painted.push(k), listeners: {}, addEventListener(t, f) { this.listeners[t] = f; },
+    attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); }, removeAttribute(k) { delete this.attrs[k]; },
     querySelector: () => null, querySelectorAll: () => [],
   };
   const calls = [];
@@ -236,4 +237,13 @@ test("every row carries its depth as --space-bs-level, and every row has a caret
   assert.deepEqual(rows.map((r) => [r.attrs["data-id"], r.props["--space-bs-level"]]), [["d", "1"], ["g", "2"], ["k", "3"], ["x", "4"], ["y", "3"]]);
   for (const r of rows) assert.equal(withClass(r, "hm-bs-row__caret").length, 1, r.attrs["data-id"]);
   assert.deepEqual(rows.map((r) => withAttr(r, "data-caret").length), [1, 1, 1, 0, 0]);
+});
+
+test("a pointer press hides the focus ring (data-pointer) until the next key", () => {
+  const m = mount();
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
+  m.rootEl.listeners.pointerdown();
+  assert.equal("data-pointer" in m.rootEl.attrs, true);
+  m.rootEl.listeners.keydown({ key: "ArrowDown", target: { closest: () => null } });
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
 });

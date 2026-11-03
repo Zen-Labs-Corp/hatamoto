@@ -189,6 +189,7 @@ function mount({ d = doc, selected = null, selectedField = null } = {}) {
   const rootEl = {
     closest: () => ({ querySelector: (q) => (q.includes("data-hm-bs-ico") ? { content: icons } : null) }),
     contains: () => false, replaceChildren: (...k) => painted.push(k), listeners: {}, addEventListener(t, f) { this.listeners[t] = f; },
+    setAttribute() {}, removeAttribute() {},
     querySelector: () => null, querySelectorAll: () => [],
   };
   const calls = [];

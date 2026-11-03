@@ -521,7 +521,10 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   });
   root.addEventListener("focusin", (e) => (ff = e.target.dataset?.field != null ? e.target.dataset.id : null));
   root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
+  // A click moves focus to the row through a repaint, which Chrome may count as keyboard focus: data-pointer (builder.css) hides the focus ring until the next key.
+  root.addEventListener("pointerdown", () => root.setAttribute("data-pointer", ""));
   root.addEventListener("keydown", (e) => {
+    root.removeAttribute("data-pointer");
     const row = e.target.closest?.("[data-id]");
     if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onSelectField(row.dataset.comp, row.dataset.field)) : undefined;
     if (!row || e.target !== row || e.key !== "h" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
