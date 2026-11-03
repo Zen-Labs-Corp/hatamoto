@@ -441,7 +441,7 @@ test("the context line is the first child and the groups follow; there is no Ess
   assert.equal(select.attrs["aria-label"], "State");
   assert.ok(!root.textContent.includes("Editing"), "the sentence is gone");
   assert.ok(!root.textContent.includes("More style options"));
-  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].textContent);
+  const names = root.kids.slice(1).map((k) => k.kids[0].kids[0].kids[0].kids[0].textContent);
   assert.ok(names.includes("Spacing"), names.join());
   const rings = []; root.walk((n) => n.attrs.class?.includes("hm-bs-bm--nested") && rings.push(n));
   assert.equal(rings.length, 1, "one nested box model, in Spacing");

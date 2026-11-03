@@ -12,7 +12,7 @@ import { row, lengthControl, colourControl, stopSlider } from "@hm/builder/contr
 import { boxModel } from "@hm/builder/boxmodel";
 import { presetOf, presetValueAt, presetStateValueAt } from "@hm/builder/presetsrc";
 import { swatchRow } from "@hm/builder/swatches";
-import { figmaGroups, groupHasValue, initialOpen, canScrub, SHORT } from "@hm/builder/inspgroups";
+import { figmaGroups, groupHasValue, moreHasValue, initialOpen, canScrub, isTextKind, SHORT, WIDTH_PRESETS, widthOf } from "@hm/builder/inspgroups";
 
 // Labels of the keys added by StyleSpec v2. They live here, in the lazy chunk, so first paint does not carry them;
 // the first-paint inspector reads NAMES[key] ?? key and runs after this chunk has loaded.
@@ -200,10 +200,13 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   function paintGroups() {
     for (const { entries, dot, vh } of groups) dot.hidden = vh.hidden = !groupDot(entries, (k) => ownValue(cur, bp, k));
     for (const b of boxModels) b.paint();
+    for (const paint of widthRows) paint();
   }
   const visibility = { paint: null, show: null }; // the Show on paint function and the "Show as" field
   const groups = []; // [{entries, dot}] of the group headers
   const boxModels = []; // the Spacing group's box model
+  const widthRows = []; // the paint functions of the Width buttons: they follow every maxw write
+  const applies = new Map(); // key -> the apply function of its field, for a control that writes another control's key
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
   for (const g of figmaGroups(groupsFor(table, cur, parent, state), cur)) {
     const dot = h("span", { class: "hm-bs-dot", "data-dot": "set", hidden: true, "aria-hidden": "true" });
@@ -218,20 +221,14 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       body.hidden = !now;
       openGroups.set(g.name, now);
     });
-    root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, head), body)); // plain blocks: six named regions would crowd the landmark list
+    root.append(h("div", { class: "hm-bs-grp" }, h("div", { class: "hm-bs-grp__h" }, h("h4", { class: "hm-bs-grp__hd" }, head)), body)); // plain blocks: six named regions would crowd the landmark list
     groups.push({ entries: g.entries, dot, vh });
     if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
-    if (g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k))) body.append(showOnRow());
-    for (const sub of g.sub) {
-      const box = linkSets(sub.entries.map((e) => e.key)).length ? spacingBox(sub.entries) : null;
-      const boxes = [...(box ? [box.el] : []), ...sub.entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
-      sub.entries.forEach((e, i) => {
-        if (e.key === "display") visibility.show = { entry: e, box: boxes[i] }; // the display block has no box model, so the indices still line up
-      });
-      const block = h("div", { class: "hm-bs-grp__sub" }, ...(g.sub.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
-      body.append(block);
-      if (sub.name === "Position") position = { fs: block, boxes };
-    }
+    const boxed = g.name === "Spacing" && !isTextKind(cur); // the box model shows every side: nothing goes behind More
+    const showOn = g.name === "Layout" && !state && ["hide", "display"].every((k) => table.some((e) => e.key === k));
+    body.append(...primaryRows(g, boxed));
+    const more = boxed ? [] : g.more;
+    if (more.length || showOn) body.append(moreBlock(g, more, gid, showOn));
   }
   paintGroups();
   if (refocus) {
@@ -239,6 +236,73 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     queueMicrotask(() => root.querySelector('select[aria-label="State"]')?.focus()); // after the caller has attached the panel
   }
   return root;
+
+  /** The rows of a group that show without opening More: the Layout rows of a section, the box model of Spacing, else one field per primary key. */
+  function primaryRows(g, boxed) {
+    if (boxed) return spacingRows(g.entries);
+    const by = new Map(g.primary.map((e) => [e.key, e]));
+    if (g.name !== "Layout") return g.primary.map((e) => field(e));
+    const rows = [];
+    const maxw = by.get("maxw") && field(by.get("maxw"), undefined, { inline: true });
+    if (maxw) rows.push(widthRow(by.get("maxw")), maxw);
+    if (by.get("ai")) rows.push(field(by.get("ai"), "Align"));
+    const two = ["gap", "minh"].filter((k) => by.has(k)).map((k) => field(by.get(k), undefined, { inline: true }));
+    if (two.length) rows.push(h("div", { class: "hm-bs-r2" }, ...two));
+    return rows;
+  }
+
+  /** The legacy full rows of the keys behind a group's More toggle (and Show on, for Layout), shown or hidden by the toggle (closed, not removed: the controls keep painting). */
+  function moreBlock(g, entries, gid, showOn) {
+    const keep = new Set(entries);
+    const key = `${g.name}:more`;
+    const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
+    const toggle = h("button", { type: "button", class: "hm-bs-more", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
+    const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open });
+    toggle.addEventListener("click", () => {
+      const now = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(now));
+      box.hidden = !now;
+      openGroups.set(key, now);
+    });
+    if (showOn) box.append(showOnRow());
+    const subs = g.sub.map((sub) => ({ name: sub.name, entries: sub.entries.filter((e) => keep.has(e)) })).filter((sub) => sub.entries.length);
+    for (const sub of subs) {
+      const boxes = sub.entries.map((e) => field(e));
+      sub.entries.forEach((e, i) => {
+        if (e.key === "display") visibility.show = { entry: e, box: boxes[i] };
+      });
+      const block = h("div", { class: "hm-bs-grp__sub" }, ...(subs.length > 1 && sub.name !== g.name ? [h("h4", { class: "hm-bs-subhead", text: sub.name })] : []), ...boxes);
+      box.append(block);
+      if (sub.name === "Position") position = { fs: block, boxes };
+    }
+    return h("div", { class: "hm-bs-more__w" }, toggle, box);
+  }
+
+  /** The Spacing group as the box model (margin and padding rings) plus a field for any side that is not part of a ring. */
+  function spacingRows(entries) {
+    const box = linkSets(entries.map((e) => e.key)).length ? spacingBox(entries) : null;
+    return [...(box ? [box.el] : []), ...entries.filter((e) => !box?.keys.includes(e.key)).map((e) => field(e))];
+  }
+
+  /** Full | Wide | Text: three buttons writing the existing maxw key (Full = full, Wide = container, Text = 45rem); pressing the active one unsets it. */
+  function widthRow(entry) {
+    const id = `hm-bs-s${++uid}`;
+    const buttons = Object.keys(WIDTH_PRESETS).map((k) => h("button", { type: "button", class: "hm-bs-opt", "data-v": k, "aria-pressed": "false", text: k[0].toUpperCase() + k.slice(1) }));
+    const el = h("div", { class: "hm-field hm-bs-field hm-bs-width" }, h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: "Width" }), h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": `${id}-l` }, ...buttons));
+    const paint = () => {
+      const now = widthOf(stateFor(entry.key).value);
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.v === now));
+    };
+    for (const b of buttons) {
+      b.addEventListener("click", () => {
+        const v = WIDTH_PRESETS[b.dataset.v];
+        applies.get(entry.key)?.(ownValue(cur, bp, entry.key) === v ? null : v); // through the Max width field: it validates, commits and repaints
+      });
+    }
+    widthRows.push(paint);
+    paint();
+    return el;
+  }
 
   function showOffsets() {
     if (!position) return;
@@ -310,9 +374,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     return box;
   }
 
-  function field(entry, title) {
+  /** One control for entry. inline (a length only): the 28px scrub field of the primary rows, no row chrome (the dot, reset and source chip are the legacy row's); clearing the text unsets it. */
+  function field(entry, title, { inline = false } = {}) {
     const id = `hm-bs-s${++uid}`;
     const c = control(entry);
+    inline &&= c.kind === "length";
     const name = title ?? NAMES[entry.key] ?? entry.key;
     let own = ownValue(cur, bp, entry.key);
     const unsetSrc = stateFor(entry.key, null); // where the value comes from when nothing is set here (the server's cascade)
@@ -363,7 +429,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       el = h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": `${id}-l`, "aria-describedby": describe }, ...buttons);
       if (num) el.append(num);
     } else if (c.kind === "length") {
-      len = lengthControl({ id, entry, name, palette, describe, apply });
+      len = lengthControl({ id, entry, name, palette, describe, apply, inline, short: SHORT[entry.key], scrub: inline && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined });
       el = len.el;
       sync = () => {
         len.sync(own, inh ? String(inh.value) : fromPreset !== null ? String(fromPreset) : "");
@@ -404,12 +470,13 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       return true;
     }
     if (input && !len && !col) input.addEventListener("change", () => apply(input.value.trim() || null));
-    const label = grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
-    const view = row({
+    const label = inline ? null : grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
+    applies.set(entry.key, apply);
+    const view = inline ? inlineView() : row({
       id,
       name,
       label,
-      scrub: len && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
+      scrub: len && !inline && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
       body: [el, pills?.el, stops?.el, datalist],
       status,
       note,
@@ -425,6 +492,11 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     box = view.el;
     paint();
     return box;
+
+    /** The inline field's wrapper: the field, the screen-reader status and the refusal note; paint marks the field's dot for the CSS. */
+    function inlineView() {
+      return { el: h("div", { class: "hm-bs-fldbox" }, el, status, note), paint: (state) => (el.dataset.dot = state.dot) };
+    }
   }
 }
 
