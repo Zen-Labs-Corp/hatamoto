@@ -38,8 +38,11 @@ func TestEditorsCSSRules(t *testing.T) {
 	if !strings.Contains(css, "@media (forced-colors: active) { .hm-bs-row[aria-selected=\"true\"] { outline: 2px solid Highlight;") {
 		t.Error("the selected Layers row needs its Highlight outline in forced-colors mode")
 	}
-	if !strings.Contains(css, "--bs-nav-band: color-mix(") {
-		t.Error("the Layers band (--bs-nav-band) must stay an accent-soft mix, lighter than the solid selected row")
+	if !strings.Contains(css, "--bs-nav-band: color-mix(in srgb, var(--color-accent) ") {
+		t.Error("the Layers band (--bs-nav-band) must be an accent tint (accent-soft is grey in the admin palette), lighter than the solid selected row")
+	}
+	if !strings.Contains(css, ".hm-bs-row--band::before") {
+		t.Error("the Layers band needs its accent edge, a cue that is not colour alone")
 	}
 
 	if !strings.Contains(css, "inline-size: min(max(var(--hm-bs-insp), 22.5rem), 100%)") {

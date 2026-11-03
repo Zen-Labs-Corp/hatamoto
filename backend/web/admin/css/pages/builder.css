@@ -157,7 +157,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 /* Navigator tree: flat rows (one li each), indent by aria-level. */
 .hm-bs-tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 /* Navigator rows. The custom properties alias admin tokens (no literals); the selected row is solid accent with paper text (ADMIN_UI_RULES, Selected state). */
-.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-2); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: color-mix(in srgb, var(--color-accent-soft) 45%, var(--surface)); --bs-nav-guide: var(--border); --bs-thumb: var(--surface-hover); --bs-thumb-fg: var(--text-muted); }
+.hm-bs-tree { --space-bs-level: 2; --bs-nav-section-h: 44px; --bs-nav-block-h: 28px; --space-bs-gap: var(--space-2); --bs-nav-accent: var(--color-accent); --bs-nav-on-accent: var(--color-paper); --bs-nav-band: color-mix(in srgb, var(--color-accent) 12%, var(--surface)); --bs-nav-guide: var(--border); --bs-thumb: var(--surface); --bs-thumb-fg: var(--text-muted); }
 .hm-bs-row { position: relative; display: flex; align-items: center; gap: var(--space-1-5); block-size: var(--bs-nav-block-h); padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; color: var(--text); font-size: var(--text-sm); }
 .hm-bs-row--section { block-size: var(--bs-nav-section-h); font-weight: var(--weight-semibold); margin-block-start: var(--space-bs-gap); }
 .hm-bs-row--section:first-child { margin-block-start: 0; }
@@ -194,7 +194,9 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-gap:hover .hm-bs-gap__btn { display: inline-flex; }
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band { background: var(--bs-nav-band); }
-.hm-bs-row--band:hover { background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--surface)); }
+.hm-bs-row--band:hover { background: color-mix(in srgb, var(--color-accent) 18%, var(--surface)); }
+.hm-bs-row--band::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 2px; background: var(--bs-nav-accent); } /* a non-colour cue: the accent edge marks the section that holds the selection */
+.hm-bs-row--band .hm-bs-row__meta, .hm-bs-row--band .hm-bs-row__kind { color: var(--text-body); } /* the tint is darker than the panel: muted text would drop under 4.5:1 */
 .hm-bs-row--band-first { border-start-start-radius: var(--radius-md); border-start-end-radius: var(--radius-md); }
 .hm-bs-row--band-last { border-end-start-radius: var(--radius-md); border-end-end-radius: var(--radius-md); }
 .hm-bs-row[aria-selected="true"], .hm-bs-row[aria-selected="true"]:hover { background: var(--bs-nav-accent); color: var(--bs-nav-on-accent); }
