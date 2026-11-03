@@ -303,6 +303,29 @@ await check("A7: phone width: the dock reaches the Pages tab and its list", asyn
   return "dock " + names + ", Pages list visible";
 });
 
+await check("A8: Enter in a rich text field's Link row applies the link (the nested form submits itself)", async () => {
+  const insp = p.locator("#hm-bs-inspector");
+  need(await p.evaluate(() => window.__hmBuilder.insertAt({ parent: "", index: 0 }, "component:hero")), "the scratch hero was not inserted (the page is not saved: the end check reloads it)");
+  await settle(900);
+  await pick(p.locator(SECTIONS).first());
+  need((await insp.locator(".hm-ed__bar").count()) > 0, "the inserted hero shows no rich text field in the inspector");
+  const edit = insp.locator(".hm-ed__content [contenteditable]").first();
+  await edit.click();
+  await p.keyboard.press("Control+A");
+  await p.keyboard.type("qa link text");
+  await p.keyboard.press("Control+A");
+  await p.locator('#hm-bs-inspector button[title="Link"]:visible, .hm-ed__bubble button[title="Link"]:visible').first().click(); // the toolbar or the bubble over the selection
+  const row = insp.locator("form.hm-ed__linkform:not([hidden]) input").first();
+  await row.waitFor({ timeout: 3000 });
+  await row.fill("/qa-enter");
+  await row.press("Enter");
+  await settle(400);
+  const href = await edit.locator("a").first().getAttribute("href", { timeout: 3000 });
+  need(href === "/qa-enter", `link href ${href}`);
+  need((await insp.locator("form.hm-ed__linkform:not([hidden])").count()) === 0, "the Link row is still open");
+  return `Enter applied the link ${href}`;
+});
+
 await check("end: the document is unchanged and no save request got through", async () => {
   need((await sig()) === (await sig()), "unstable");
   await open(href);
