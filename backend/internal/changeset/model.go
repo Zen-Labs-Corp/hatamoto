@@ -63,6 +63,11 @@ var (
 	ErrInvalidItem   = errors.New("invalid changeset item")
 	ErrNoWriter      = errors.New("no writer for this kind")
 	ErrUnsupportedOp = errors.New("operation not supported for this kind")
+
+	// ErrRevertConflict is what a writer's Restore returns, before it writes
+	// anything, for an object the revert must not touch (something was built on
+	// it or it changed since the publish). Revert skips the item and reports it.
+	ErrRevertConflict = errors.New("object changed since the changeset was published")
 )
 
 // Origin is the origin recorded on content a plugin's changeset creates. An

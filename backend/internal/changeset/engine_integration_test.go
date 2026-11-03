@@ -621,3 +621,32 @@ func TestMediaAttachStagedAndLibraryFilter(t *testing.T) {
 	}
 	_, _ = f.db.Pool().Exec(ctx, `DELETE FROM hatamoto_media WHERE original_filename = 'lib.png' AND (id = $1 OR run_id = $2)`, m.ID, run)
 }
+
+func TestChangesetRevertCreateWithChildrenIsConflict(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("p-"+f.tag, "par-"+f.tag, "x"))
+	f.publish(cs)
+	var parent uuid.UUID
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_entities WHERE schema_id = $1`, f.schema.ID).Scan(&parent); err != nil {
+		t.Fatal(err)
+	}
+	var kid uuid.UUID
+	if err := f.db.Pool().QueryRow(f.ctx, `
+		INSERT INTO hatamoto_entities (schema_id, name, slug, status, attributes, parent_id)
+		VALUES ($1, 'K', 'kid-' || $3::text, 'draft', '{"content":"x"}', $2) RETURNING id`, f.schema.ID, parent, f.tag).Scan(&kid); err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.eng.Revert(f.ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Skipped != 1 || len(res.Conflicts) != 1 || res.Conflicts[0].TargetID != parent.String() {
+		t.Fatalf("result = %+v", res)
+	}
+	var kidParent *uuid.UUID
+	f.db.Pool().QueryRow(f.ctx, `SELECT parent_id FROM hatamoto_entities WHERE id = $1`, kid).Scan(&kidParent)
+	if f.entities() != 2 || kidParent == nil || *kidParent != parent {
+		t.Errorf("parent removed or child re-rooted (entities=%d, parent=%v)", f.entities(), kidParent)
+	}
+}

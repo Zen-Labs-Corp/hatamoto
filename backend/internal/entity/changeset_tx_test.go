@@ -330,3 +330,59 @@ func TestChangesetTxNoEventBeforeAfterChangeset(t *testing.T) {
 		t.Errorf("live = %v", lived)
 	}
 }
+
+func TestChangesetTxRestoreDeleteKeepsLinks(t *testing.T) {
+	f := newCSFixture(t)
+	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "L", Slug: "links", Attributes: json.RawMessage(`{"content":"x"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var termID, group uuid.UUID
+	slug := "t-" + uuid.NewString()[:8]
+	if err := f.db.Pool().QueryRow(f.ctx, `INSERT INTO hatamoto_terms (kind, slug, name) VALUES ('tag', $1, 'T') RETURNING id`, slug).Scan(&termID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = f.db.Pool().Exec(f.ctx, `DELETE FROM hatamoto_terms WHERE id = $1`, termID) })
+	group = uuid.New()
+	if _, err := f.db.Pool().Exec(f.ctx, `INSERT INTO hatamoto_entity_terms (entity_id, term_id) VALUES ($1, $2)`, e.ID, termID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET translation_group = $2, translation_original = true WHERE id = $1`, e.ID, group); err != nil {
+		t.Fatal(err)
+	}
+	del, err := f.apply(TxOp{ID: &e.ID, Delete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.inTx(func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(f.ctx, tx, e.ID, del.Before) }); err != nil {
+		t.Fatal(err)
+	}
+	var linked int
+	var gotGroup *uuid.UUID
+	var original bool
+	f.db.Pool().QueryRow(f.ctx, `SELECT count(*) FROM hatamoto_entity_terms WHERE entity_id = $1 AND term_id = $2`, e.ID, termID).Scan(&linked)
+	f.db.Pool().QueryRow(f.ctx, `SELECT translation_group, translation_original FROM hatamoto_entities WHERE id = $1`, e.ID).Scan(&gotGroup, &original)
+	if linked != 1 || gotGroup == nil || *gotGroup != group || !original {
+		t.Errorf("after restore: term links %d, translation group %v original %v", linked, gotGroup, original)
+	}
+}
+
+func TestChangesetTxRestoreCreateRefusesWithChildren(t *testing.T) {
+	f := newCSFixture(t)
+	cr, err := f.apply(TxOp{Schema: f.schema.Slug, Name: "P", Slug: "parent", Attributes: json.RawMessage(`{"content":"x"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "K", Slug: "kid", ParentID: &cr.ID, Attributes: json.RawMessage(`{"content":"x"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.inTx(func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(f.ctx, tx, cr.ID, nil) })
+	if !errors.Is(err, ErrHasChildren) {
+		t.Fatalf("restore = %v, want ErrHasChildren", err)
+	}
+	got, err := f.repo.GetByID(f.ctx, child.ID)
+	if err != nil || got.ParentID == nil || *got.ParentID != cr.ID {
+		t.Errorf("child re-rooted: %+v %v", got, err)
+	}
+}

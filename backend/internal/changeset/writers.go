@@ -22,6 +22,8 @@ import (
 const (
 	reasonMoved = "moved"
 	reasonGone  = "gone"
+	// reasonRevertMoved is why a revert left an object in place.
+	reasonRevertMoved = "changed_since_publish"
 )
 
 func parseTarget(target string) (*uuid.UUID, error) {
@@ -124,7 +126,11 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 	if err != nil {
 		return nil, fmt.Errorf("%w: target %q", ErrInvalidItem, it.TargetID)
 	}
-	return nil, w.Svc.RestoreChangesetTx(ctx, tx, id, it.Before)
+	err = w.Svc.RestoreChangesetTx(ctx, tx, id, it.Before)
+	if errors.Is(err, entity.ErrHasChildren) {
+		return nil, fmt.Errorf("%w: %v", ErrRevertConflict, err)
+	}
+	return nil, err
 }
 
 func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {

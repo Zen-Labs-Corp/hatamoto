@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,11 @@ func (e *Engine) Revert(ctx context.Context, csID int64) (Result, error) {
 				return fmt.Errorf("item %d: %w: %q", it.Seq, ErrNoWriter, it.Kind)
 			}
 			post, err := w.Restore(ctx, tx, it)
+			if errors.Is(err, ErrRevertConflict) {
+				res.Skipped++
+				res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: it.TargetID, Reason: reasonRevertMoved})
+				continue
+			}
 			if err != nil {
 				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
 			}

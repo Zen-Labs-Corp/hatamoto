@@ -80,14 +80,23 @@ type entitySnapshot struct {
 	BylineOrg      bool            `json:"byline_org"`
 	Origin         string          `json:"origin"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+
+	TranslationGroup    *uuid.UUID `json:"translation_group,omitempty"`
+	TranslationOriginal bool       `json:"translation_original"`
+	VariantKey          *string    `json:"variant_key,omitempty"`
+	// Terms are the term links a delete drops with the row (cascade); only
+	// deleteTx fills them.
+	Terms []uuid.UUID `json:"terms,omitempty"`
 }
 
 const snapshotColumns = `id, schema_id, name, slug, locale, status, attributes, metadata, version,
-	created_by, updated_by, created_at, published_at, parent_id, author_id, byline_person_id, byline_org, origin, updated_at`
+	created_by, updated_by, created_at, published_at, parent_id, author_id, byline_person_id, byline_org, origin, updated_at,
+	translation_group, translation_original, variant_key`
 
 func (e *entitySnapshot) scan(row pgx.Row) error {
 	return row.Scan(&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata, &e.Version,
-		&e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.Origin, &e.UpdatedAt)
+		&e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.Origin, &e.UpdatedAt,
+		&e.TranslationGroup, &e.TranslationOriginal, &e.VariantKey)
 }
 
 // ApplyChangesetTx applies op inside tx, in its own savepoint: on any error
@@ -128,23 +137,35 @@ func (s *Service) ApplyChangesetTx(ctx context.Context, tx pgx.Tx, op TxOp) (res
 		(op.BaseUpdatedAt != nil && !op.BaseUpdatedAt.Truncate(time.Microsecond).Equal(cur.UpdatedAt.Truncate(time.Microsecond))) {
 		return TxResult{ID: cur.ID, Slug: cur.Slug, Conflict: true}, ErrConflict
 	}
+	if op.Delete {
+		return deleteTx(ctx, sp, cur)
+	}
 	before, err := json.Marshal(cur)
 	if err != nil {
 		return TxResult{}, err
 	}
-	if op.Delete {
-		return deleteTx(ctx, sp, cur, before)
-	}
 	return s.updateTx(ctx, sp, op, cur, before)
 }
 
-func deleteTx(ctx context.Context, tx pgx.Tx, cur *entitySnapshot, before json.RawMessage) (TxResult, error) {
+func deleteTx(ctx context.Context, tx pgx.Tx, cur *entitySnapshot) (TxResult, error) {
 	var kids bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE parent_id = $1)`, cur.ID).Scan(&kids); err != nil {
 		return TxResult{}, fmt.Errorf("failed to check children: %w", err)
 	}
 	if kids {
 		return TxResult{}, ErrHasChildren
+	}
+	rows, err := tx.Query(ctx, `SELECT term_id FROM hatamoto_entity_terms WHERE entity_id = $1 ORDER BY term_id`, cur.ID)
+	if err != nil {
+		return TxResult{}, fmt.Errorf("failed to read term links: %w", err)
+	}
+	cur.Terms, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return TxResult{}, fmt.Errorf("failed to read term links: %w", err)
+	}
+	before, err := json.Marshal(cur)
+	if err != nil {
+		return TxResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, cur.ID); err != nil {
 		return TxResult{}, fmt.Errorf("failed to delete entity: %w", err)
@@ -317,8 +338,10 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 }
 
 // RestoreChangesetTx reverts one applied op inside tx: an empty before (the
-// row was created) deletes the row; otherwise the row is re-created or
-// overwritten from the pre-image ApplyChangesetTx returned.
+// row was created) deletes the row, or returns ErrHasChildren when entities
+// were added below it since (deleting would re-root them); otherwise the row
+// is re-created (with its term links and translation link) or overwritten
+// from the pre-image ApplyChangesetTx returned.
 func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before json.RawMessage) (err error) {
 	sp, err := tx.Begin(ctx)
 	if err != nil {
@@ -332,10 +355,14 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 		err = sp.Commit(ctx)
 	}()
 	if len(before) == 0 {
+		var kids bool
+		if err := sp.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE parent_id = $1)`, id).Scan(&kids); err != nil {
+			return fmt.Errorf("failed to check children: %w", err)
+		}
+		if kids {
+			return ErrHasChildren
+		}
 		if _, err := sp.Exec(ctx, `DELETE FROM hatamoto_entities WHERE id = $1`, id); err != nil {
-			if isPgUniqueViolation(err) {
-				return ErrHasChildren
-			}
 			return fmt.Errorf("failed to delete entity: %w", err)
 		}
 		return nil
@@ -376,12 +403,24 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 	}
 	_, err = sp.Exec(ctx, `
 		INSERT INTO hatamoto_entities (id, schema_id, name, slug, locale, status, attributes, metadata, version,
-			created_by, updated_by, created_at, parent_id, author_id, byline_person_id, byline_org, published_at, origin)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+			created_by, updated_by, created_at, parent_id, author_id, byline_person_id, byline_org, published_at, origin,
+			translation_group, translation_original, variant_key)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
 		id, snap.SchemaID, snap.Name, snap.Slug, snap.Locale, snap.Status, snap.Attributes, snap.Metadata, snap.Version,
 		snap.CreatedBy, snap.UpdatedBy, snap.CreatedAt, snap.ParentID, snap.AuthorID, snap.BylinePersonID, snap.BylineOrg,
-		snap.PublishedAt, snap.Origin)
-	return restoreErr(err)
+		snap.PublishedAt, snap.Origin, snap.TranslationGroup, snap.TranslationOriginal, snap.VariantKey)
+	if err != nil {
+		return restoreErr(err)
+	}
+	if len(snap.Terms) > 0 {
+		// A term deleted since is simply not linked again.
+		if _, err := sp.Exec(ctx, `
+			INSERT INTO hatamoto_entity_terms (entity_id, term_id)
+			SELECT $1, id FROM hatamoto_terms WHERE id = ANY($2) ON CONFLICT DO NOTHING`, id, snap.Terms); err != nil {
+			return fmt.Errorf("failed to restore term links: %w", err)
+		}
+	}
+	return nil
 }
 
 func restoreErr(err error) error {
