@@ -199,6 +199,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     for (const { key, value, bp: b = at } of todo) remember(key, value, b);
     syncVisibility(todo.map((w) => w.key), "hide");
     paintGroups();
+    for (const { key } of todo) repaints.get(key)?.();
     return true;
   }
   /** The group headers' "set here" dot: any key of the group has a value at the style-map key being edited. */
@@ -212,6 +213,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
   const boxModels = []; // the Spacing group's box model
   const typePresets = []; // the Text style select's paint: it follows fs and fw
   const widthRows = []; // the paint functions of the Width buttons: they follow every maxw write
+  const repaints = new Map(); // key -> repaint of its field from the node's value, for a batch that wrote the key behind the field's back
   const applies = new Map(); // key -> the apply function of its field, for a control that writes another control's key
   let position = null; // the Position block: its pos field stays, the offsets after it follow pos
   if (only === "visibility") {
@@ -532,6 +534,10 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     if (input && !len && !col) input.addEventListener("change", () => apply(input.value.trim() || null));
     const label = inline ? null : grouped ? h("span", { class: "hm-field__label hm-bs-lbl", id: `${id}-l`, text: name }) : h("label", { class: "hm-field__label hm-bs-lbl", for: id, text: name });
     applies.set(entry.key, apply);
+    repaints.set(entry.key, () => {
+      own = ownValue(cur, bp, entry.key);
+      paint();
+    });
     const view = inline ? inlineView() : row({
       id,
       name,

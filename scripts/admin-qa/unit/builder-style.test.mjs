@@ -381,3 +381,20 @@ test("Fill keeps the colour field and the theme pills; Fill's other keys are beh
   assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", g).length > 0, true);
   assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
 });
+
+test("the Text style select repaints the Sz and Wt fields from the batch it wrote, still one commit", () => {
+  const node = heading({ fs: "16px", fw: "normal" });
+  const m = mount(node);
+  const field = (short) => {
+    const lb = m.find((n) => n.className?.includes("hm-bs-fld__lb") && n.kids[0]?.textContent === short)[0];
+    return m.find((n) => n.attrs?.id === lb.attrs.for && n.tag !== "label")[0];
+  };
+  const sel = m.find((n) => n.tag === "select" && n.kids.some((o) => o.textContent === "Custom"), m.group("Typography"))[0];
+  assert.equal(field("Sz").value, "16");
+  sel.value = "2xl";
+  sel.fire("change");
+  assert.equal(m.calls.length, 1, "one batch");
+  assert.notEqual(field("Sz").value, "16", "the size field shows the preset, so a scrub starts from it");
+  const wt = m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "bold") && n.value === "bold", m.group("Typography"));
+  assert.equal(wt.length, 1, "the weight control shows bold");
+});
