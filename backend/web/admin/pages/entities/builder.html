@@ -54,7 +54,7 @@
 </div></div>
 <div class="hm-bs__lpanel" role="tabpanel" id="hm-bs-lp-nav" aria-labelledby="hm-bs-ltab-nav" data-hm-bs-lpanel="nav"><nav aria-label="Navigator">
 <div class="hm-bs__navbar" hidden data-hm-bs-js data-hm-bs-navbar><span class="hm-bs__search"><span data-hm-bs-searchico>{{icon "search"}}</span><input type="search" placeholder="Find a layer…" aria-label="Find a layer" data-hm-bs-filter></span></div>
-<div class="hm-bs__lhead" hidden data-hm-bs-js data-hm-bs-lhead><span data-hm-bs-count></span>{{template "hm/button" (dict "Label" "Collapse" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-collapse" ""))}}</div>
+<div class="hm-bs__lhead" hidden data-hm-bs-js data-hm-bs-lhead><span data-hm-bs-count></span>{{template "hm/button" (dict "Label" "Collapse" "AriaLabel" "Collapse all sections" "Variant" "ghost" "Size" "sm" "Attrs" (attrmap "data-hm-bs-collapse" ""))}}</div>
 <div class="hm-bs-page" hidden data-hm-bs-js data-hm-bs-pagerow>{{icon "layout"}}<span data-hm-bs-pagetitle></span></div>
 <div data-hm-bs-tree></div></nav>
 {{if .Data.Shell.UsageLoaded}}<details class="hm-bs__usage" data-hm-bs-usage><summary>{{.Data.Shell.UsageLabel}}</summary>

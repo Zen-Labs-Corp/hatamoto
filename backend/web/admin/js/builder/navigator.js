@@ -295,7 +295,11 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const n = doc.nodes.length;
     if (countEl) countEl.textContent = `PAGE · ${n} SECTION${n === 1 ? "" : "S"}`; // typed uppercase: the design check bans text-transform
     if (pageTitleEl) pageTitleEl.textContent = getPageName();
-    if (collapseBtn) collapseBtn.querySelector("span").textContent = allCollapsed(doc, collapsed, fieldsOf) ? "Expand" : "Collapse";
+    if (collapseBtn) {
+      const all = allCollapsed(doc, collapsed, fieldsOf);
+      collapseBtn.querySelector("span").textContent = all ? "Expand" : "Collapse";
+      collapseBtn.setAttribute("aria-label", all ? "Expand all sections" : "Collapse all sections"); // the short visible word names no object
+    }
     const active = document.activeElement;
     if (force && !root.contains(active)) ff = null; // focus came from elsewhere (a palette add, a canvas pick): the new selection takes the tab stop
     const hadFocus = root.contains(active) || force || (wantFocus && (!active || active === document.body));

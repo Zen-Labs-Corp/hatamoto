@@ -129,9 +129,11 @@ test("Collapse all collapses everything while any parent is open; the label flip
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 2, "collapses everything, not expands");
   assert.equal(label(), "Expand");
+  assert.equal(m.collapse.attrs["aria-label"], "Expand all sections");
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 5);
   assert.equal(label(), "Collapse");
+  assert.equal(m.collapse.attrs["aria-label"], "Collapse all sections");
 });
 
 test("a theme section reads the same everywhere: a plain title-case name, with or without the sections table", async () => {
