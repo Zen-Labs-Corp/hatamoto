@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 func TestSEOKnowledgeGraphPreviewIsTheSiteGraph(t *testing.T) {
@@ -61,7 +63,8 @@ func TestSEOKnowledgeGraphOwnerOnlyAndReadOnly(t *testing.T) {
 
 // The profile count is the sameAs union of the Organization node: theme social
 // links, business profile links and the Google Business Profile URL, each once,
-// http(s) only; the row links to General.
+// http(s) only; the row links to the Business details tab, where the default
+// locale's card holds them.
 func TestSEOKnowledgeGraphProfileLinksCount(t *testing.T) {
 	s := newSEORig(t, newFakeSEO())
 	cfg := &s.a.deps.Site.(*fakeSite).cfg
@@ -70,7 +73,30 @@ func TestSEOKnowledgeGraphProfileLinksCount(t *testing.T) {
 	body := s.get(t, "/admin/settings/seo/knowledge-graph")
 	i := strings.Index(body, "Profile links")
 	row := body[i : i+strings.Index(body[i:], "</tr>")]
-	if !strings.Contains(row, ">4<") || !strings.Contains(row, `href="/admin/settings/general"`) {
-		t.Errorf("profile row = %s, want 4 links and a General link", row)
+	if !strings.Contains(row, ">4<") || !strings.Contains(row, `href="/admin/settings/locales/business"`) || strings.Contains(row, `href="/admin/settings/general"`) {
+		t.Errorf("profile row = %s, want 4 links and a Business details link", row)
+	}
+	// The name and the logo stay in General.
+	for _, label := range []string{"Organization name", "Logo"} {
+		i := strings.Index(body, label)
+		if r := body[i : i+strings.Index(body[i:], "</tr>")]; !strings.Contains(r, `href="/admin/settings/general"`) {
+			t.Errorf("%s row = %s, want a General link", label, r)
+		}
+	}
+}
+
+// The count of locales with their own business details leaves the default
+// locale out, even when a stray card is stored under its tag.
+func TestSEOKnowledgeGraphLocaleCountSkipsTheDefault(t *testing.T) {
+	s := newSEORig(t, newFakeSEO())
+	cfg := &s.a.deps.Site.(*fakeSite).cfg
+	cfg.Language = "en"
+	cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "aa", Segment: "aa"}, {Tag: "ab", Segment: "ab"}}
+	cfg.LocaleProfiles = []byte(`{"en":{"address":{"street":"1 Example Street"}},"aa":{"address":{"city":"Exampleton"}},"ab":{"phone":"555 0100"}}`)
+	body := s.get(t, "/admin/settings/seo/knowledge-graph")
+	i := strings.Index(body, "Locales with their own business details")
+	row := body[i : i+strings.Index(body[i:], "</tr>")]
+	if !strings.Contains(row, ">1<") {
+		t.Errorf("locales row = %s, want a count of 1", row)
 	}
 }

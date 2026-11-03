@@ -17,7 +17,8 @@ type Resolved struct {
 //
 // Name is the card's own override only; the caller falls back to the site name.
 // Rating, lists and text fall back to the site-wide value when the card's is
-// empty.
+// empty, except for the fields listed in the card's NoInherit, which never fall
+// back.
 func Resolve(site Profile, loc *Profile) Resolved {
 	if !hasOffice(loc) {
 		return Resolved{}
@@ -35,6 +36,15 @@ func ResolveContact(site Profile, loc *Profile) Resolved {
 		card = *loc
 	}
 	return Resolved{Office: hasOffice(loc), Profile: merge(site, card)}
+}
+
+// ResolveDefault resolves the default business f for the default locale's own
+// page: the local business is printed only when the Office switch is on and f
+// has a street or a city.
+func ResolveDefault(f Profile) Resolved {
+	loc := f
+	loc.NoOffice = !f.Office
+	return Resolve(f, &loc)
 }
 
 func hasOffice(loc *Profile) bool {
@@ -103,6 +113,7 @@ func merge(site, loc Profile) Profile {
 	if loc.Rating.Value != "" {
 		out.Rating = loc.Rating
 	}
+	keepOwn(&out, loc)
 	return out
 }
 

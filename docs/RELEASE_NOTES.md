@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased: Business details live per locale
+
+Every locale, the default one included, now has its own business details, edited under Settings > Locales > Business details. The default locale's card comes first and is your organisation and the fallback for the others. Settings > General keeps Identity, Homepage and Email, and the notification email moved into its Email card.
+
+- **Upgrade.** A migration folds the card stored for the default locale into the default business, and copies the values it overrode into the other cards so those locales print what they printed before. A site whose default locale card differed from the site-wide details may see its Organization change once. Read the upgrade note before you move: [Business details live per locale](UPGRADES.md#business-details-live-per-locale).
+- **Office switch.** The default card has **This locale has an office**. The upgrade turns it on where the old default card had an office, so a default page that printed a local business keeps it.
+- **Not inherited.** A field that the old default card set but the site-wide details left empty is marked "Not inherited, empty" on the other cards, with a switch to inherit again.
+- **Default locale change.** Changing the Language in Settings > General folds the new default locale's card into the default business and keeps the old default's own details (address, office, name and the rest) as its card.
+- **REST (client-visible change).** `business_profile` is the default locale's business, so besides today's keys it now carries `office` and the locale-only fields (`name`, `country_name`, `image`, `business_type`, and the address extras). `locale_profiles` holds the other locales only, and a card may carry `no_inherit`. Clients must tolerate these new keys. A write of a non-null card under the default locale's tag in `locale_profiles`, which used to succeed, now answers 422: write it to `business_profile` instead. A `null` still deletes a stored leftover.
+- No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.** The previous release runs against the migrated data; see the upgrade note for what it shows.
+
 ## Unreleased: SEO settings over the API and MCP
 
 An owner, or a script with an API key, can now read and change the site's SEO settings through `GET` and `PATCH /api/v1/settings/seo`, and an MCP client can do the same with five new tools. This is a minor, additive release.

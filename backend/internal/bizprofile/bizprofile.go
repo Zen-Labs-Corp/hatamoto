@@ -130,7 +130,10 @@ type Profile struct {
 	TaxID        string `json:"tax_id,omitempty"`
 	BusinessType string `json:"business_type,omitempty"`
 	// NoOffice marks a locale without an office: it prints no local business.
-	NoOffice      bool           `json:"no_office,omitempty"`
+	NoOffice bool `json:"no_office,omitempty"`
+	// Office is set on the default business only: the default locale prints a
+	// local business when it is on and the address has a street or a city.
+	Office        bool           `json:"office,omitempty"`
 	Address       Address        `json:"address"`
 	Phone         string         `json:"phone,omitempty"`
 	Fax           string         `json:"fax,omitempty"`
@@ -145,6 +148,10 @@ type Profile struct {
 	GeoRegion     string         `json:"geo_region,omitempty"`
 	SameAs        []string       `json:"sameas,omitempty"`
 	Rating        Rating         `json:"rating"`
+	// NoInherit lists the JSON keys of inheritable fields this card leaves
+	// deliberately empty: they do not fall back to the default business. Set on
+	// non-default cards only; see Inherits.
+	NoInherit []string `json:"no_inherit,omitempty"`
 
 	// Organisation details. Description, VATID, CountryName and Image also
 	// apply to a locale card; the rest is site-wide only.

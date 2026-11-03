@@ -5,18 +5,16 @@ import (
 	"html/template"
 	"net/http"
 
-	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
-	"hatamoto.dev/core/internal/siteconfig"
 )
 
-// generalData is the General settings page: identity, homepage, contact and
-// email on one narrow page. A section a failed save re-renders
-// carries its submitted values and errors; the others show saved state.
+// generalData is the General settings page: identity, homepage and email on
+// one narrow page. A section a failed save re-renders carries its submitted
+// values and errors; the others show saved state.
 type generalData struct {
-	Ident   *settingsData
-	Contact *settingsData
-	Home    *homepageData
+	Ident  *settingsData
+	Notify *notifyData
+	Home   *homepageData
 
 	MailOn bool
 
@@ -24,16 +22,6 @@ type generalData struct {
 	// its link to Theme colours, built here so the href is escaped once.
 	Tabs      []ui.Tab
 	IdentNote template.HTML
-
-	// bizValues, bizErrs and bizOpen carry a failed or structural save of the
-	// site-wide business form back into the page.
-	bizValues map[string]any
-	bizErrs   schemaform.Errors
-	bizOpen   string
-	// Multi is true when the site has two or more locales.
-	Multi bool
-	// LocalesHref is the Locales settings tab.
-	LocalesHref string
 }
 
 func (a *Admin) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -53,34 +41,18 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 		d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
 		g.Ident = &d
 	}
-	if g.Contact == nil {
-		g.Contact = &settingsData{Contact: contactForm{NotifyEmail: cfg.NotificationEmail}}
+	if g.Notify == nil {
+		g.Notify = &notifyData{Value: cfg.NotificationEmail}
 	}
-	if g.bizValues == nil {
-		p, err := siteProfile(cfg)
-		if err != nil {
-			a.logger().Warn("stored business profile is unreadable, showing the legacy fields", "err", err)
-			p, _ = siteProfile(&siteconfig.Config{Phone: cfg.Phone, BusinessHours: cfg.BusinessHours, PostalAddress: cfg.PostalAddress})
-		}
-		g.bizValues = profileValues(p)
-	}
-	biz, err := siteBusinessHTML(g.bizValues, g.bizErrs, g.bizOpen)
-	if err != nil {
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be shown.")
-		return
-	}
-	g.Contact.Biz, g.Contact.BizHint = biz, !localeSetOf(cfg).Multi()
 	if g.Home == nil {
 		h := a.homepageCurrent(r, cfg)
 		g.Home = &h
 	}
 	g.MailOn = a.mailConfigured()
-	g.Multi, g.LocalesHref = localeSetOf(cfg).Multi(), a.url("settings", "locales")
 
 	g.Tabs = []ui.Tab{
 		{Label: "Identity", Href: "#identity", Active: true},
 		{Label: "Homepage", Href: "#homepage-section"},
-		{Label: "Business details", Href: "#contact"},
 	}
 	g.IdentNote = template.HTML("The name, address and language of your site. Brand colours live in Theme › <a href=\"" +
 		html.EscapeString(a.url("theme", "colours")) + "\">Colours and fonts</a>.")

@@ -29,6 +29,14 @@ import (
 // singleton row and returns a store on it.
 func scratchStore(t *testing.T) *siteconfig.Store {
 	t.Helper()
+	s, _ := scratchStoreDB(t)
+	return s
+}
+
+// scratchStoreDB is scratchStore plus the database, for tests that read or
+// write columns the store does not expose as NULL.
+func scratchStoreDB(t *testing.T) (*siteconfig.Store, *database.DB) {
+	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set, skipping integration test")
@@ -73,7 +81,7 @@ func scratchStore(t *testing.T) *siteconfig.Store {
 	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Example')`); err != nil {
 		t.Fatal(err)
 	}
-	return siteconfig.NewStore(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return siteconfig.NewStore(db, slog.New(slog.NewTextHandler(io.Discard, nil))), db
 }
 
 func TestLocalesDefaultsAreEmpty(t *testing.T) {

@@ -37,8 +37,9 @@ Entity types and taxonomies are described in [Entity types and taxonomies](entit
 
 - **Identity**: site name, tagline, **site address**, optional custom domain, **language**, **time zone** and a logo address. The site address is the public origin, like `https://example.com`, and is used in links and emails. The time zone is what schedule fields and dates use.
 - **Homepage**: which entity is served at `/`.
-- **Contact details**: notification email (where form messages and alerts go), phone, business hours and a postal address.
-- **Email**: whether outgoing mail is set up, with a link to **Settings > Email**. See [Email](#email).
+- **Email**: the **notification email** (where form messages and alerts go), and whether outgoing mail is set up, with a link to **Settings > Email**. See [Email](#email).
+
+The business details (phone, hours, address and the rest) are not on this page. They live per language under **Settings > Locales > Business details**, where the default locale's card is your organisation. See the locales section of the admin guide.
 
 A Hatamoto site serves one language. The Language setting declares it for markup and feeds; it does not create language-prefixed addresses. See [One site, one language](../getting-started/one-site-one-language.md).
 

@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// Settings > General (unslop2): the page nav is the shared hm/tabs strip (Identity, Homepage, Business
-// details; no Email anchor), the Identity description links to Theme colours through an escaped
-// href built in Go, and the three form cards opt in to a sticky footer. Reverting any of these
+// Settings > General (unslop2): the page nav is the shared hm/tabs strip (Identity, Homepage;
+// no Email anchor; the business details live under Locales), the Identity description links to Theme colours through an escaped
+// href built in Go, and the two tabbed form cards opt in to a sticky footer. Reverting any of these
 // fails here.
 func TestSettingsGeneralStripAndStickySave(t *testing.T) {
 	t.Parallel()
@@ -19,8 +19,8 @@ func TestSettingsGeneralStripAndStickySave(t *testing.T) {
 			t.Errorf("general.html lacks %q", want)
 		}
 	}
-	if n := strings.Count(page, "hm-card--sticky-foot"); n < 3 {
-		t.Errorf("general.html: %d sticky-footer cards, want at least 3", n)
+	if n := strings.Count(page, "hm-card--sticky-foot"); n < 2 {
+		t.Errorf("general.html: %d sticky-footer cards, want at least 2", n)
 	}
 	for _, bad := range []string{"hm-jumpnav", `href="#email"`, "live in Appearance"} {
 		if strings.Contains(page, bad) {

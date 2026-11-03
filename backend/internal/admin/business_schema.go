@@ -36,6 +36,7 @@ const businessSchemaTpl = `{"type":"object","properties":{
 "image":{"type":"string","title":"Image","format":"uri","x-hm-group":"Organisation"},
 "logo_object":{"type":"boolean","title":"Print the logo with its width and height","default":false,"x-hm-group":"Organisation"},
 "no_office":{"type":"boolean","title":"No office in this locale","default":false,"x-hm-group":"Organisation"},
+"office":{"type":"boolean","title":"This locale has an office","default":false,"x-hm-group":"Address"},
 "naics":{"type":"string","title":"NAICS code","x-hm-group":"Organisation"},
 "isic":{"type":"string","title":"ISIC code","x-hm-group":"Organisation"},
 "duns":{"type":"string","title":"D-U-N-S number","x-hm-group":"Organisation"},
@@ -134,11 +135,13 @@ const localeAddressProps = `
  "lng":{"type":"string","title":"Longitude"},
  "map_url":{"type":"string","title":"Map address","format":"uri"},`
 
-// locale-only property names, dropped from the site-wide form.
-var localeOnlyProps = []string{"business_type", "no_office", "country_name", "image"}
-
 // site-only property names, dropped from a locale card.
 var siteOnlyProps = []string{"alternate_name", "slogan", "founding_date", "employees_min", "employees_max", "logo_object", "parent_organisation"}
+
+// defaultOnlyProps are the properties only the default card has: the default
+// business is the organisation, and this switch decides whether the default
+// locale's pages also print a local business.
+var defaultOnlyProps = []string{"office"}
 
 // notStated labels the empty choice of a tri-state field: unset, so nothing is
 // printed (and a locale card inherits the site-wide answer).
@@ -239,10 +242,20 @@ func plusIcon() template.HTML {
 	return svg
 }
 
-// businessSchema is the form of a locale card: the site-only properties are
-// left out.
+// businessSchema is the form of a non-default locale card: the site-only and
+// default-only properties are left out.
 func businessSchema() json.RawMessage {
-	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), siteOnlyProps...)
+	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), append(slices.Clone(siteOnlyProps), defaultOnlyProps...)...)
+	if err != nil {
+		return businessSchemaWith(localeAddressProps)
+	}
+	return s
+}
+
+// defaultSchema is the form of the default locale's card: every property but
+// no_office, since the default business is the organisation itself.
+func defaultSchema() json.RawMessage {
+	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), "no_office")
 	if err != nil {
 		return businessSchemaWith(localeAddressProps)
 	}
@@ -255,13 +268,21 @@ func businessSchemaWith(addressProps string) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
 }
 
-// siteSchema is the site-wide form: the locale-only properties are dropped.
-func siteSchema() (json.RawMessage, error) {
-	s, err := schemaform.WithoutProperties(businessSchemaWith(""), localeOnlyProps...)
-	if err != nil {
-		return nil, err
+// defaultUI is businessUI plus the help the default card needs: the fields a
+// locale card describes as inheriting are plain fields here, and the office
+// switch only exists on this card.
+func defaultUI() map[string]schemaform.UIHint {
+	h := make(map[string]schemaform.UIHint, len(businessUI)+7)
+	for k, v := range businessUI {
+		h[k] = v
 	}
-	return s, nil
+	h["business_type"] = schemaform.UIHint{Help: "Empty prints " + bizprofile.DefaultType + "."}
+	h["office"] = schemaform.UIHint{Help: "Prints a LocalBusiness on this locale's pages when it has a street or city. A site with one language prints none."}
+	h["name"] = schemaform.UIHint{Help: "Names your organisation and is printed as its legal name. Empty uses the site name."}
+	h["country_name"] = schemaform.UIHint{Help: "The country name printed in the areas served, like France."}
+	h["service_radius_km"] = schemaform.UIHint{Help: "Kilometres around the coordinates. Needs both coordinates."}
+	h["image"] = schemaform.UIHint{Help: "A photo of this business."}
+	return h
 }
 
 // localeDisplayName is the English name of a BCP 47 tag ("French (Canada)"), or

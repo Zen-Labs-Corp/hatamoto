@@ -14,7 +14,7 @@ import (
 func TestListPublishedFiltered_SearchExcludesSchemaSlugs(t *testing.T) {
 	ctx := context.Background()
 	db := newIntegrationDB(t)
-	sfx := uuid.NewString()[:8]
+	sfx := searchToken()
 	id := uuid.New()
 	name := "person-" + sfx
 	if _, err := db.Pool().Exec(ctx, `

@@ -114,9 +114,18 @@ func ParseDecimal(v string) (float64, bool) {
 
 // Validate checks a profile and returns a message per offending field, keyed by
 // the dotted JSON path (list items carry their index: "opening_hours.0.opens").
-// An empty map means the profile is valid.
+// An empty map means the profile is valid. NoInherit keys must name inheritable
+// fields, once each.
 func Validate(p Profile) map[string]string {
 	errs := map[string]string{}
+	seen := map[string]bool{}
+	for _, k := range p.NoInherit {
+		if _, ok := inheritPaths[k]; !ok || seen[k] {
+			errs["no_inherit"] = "Use each inheritable field at most once."
+			break
+		}
+		seen[k] = true
+	}
 	text := func(path, v string) {
 		if utf8.RuneCountInString(v) > maxTextLen {
 			errs[path] = fmt.Sprintf("Use at most %d characters.", maxTextLen)
@@ -388,6 +397,16 @@ func Validate(p Profile) map[string]string {
 		} else if p.Rating.Value == "" {
 			errs["rating.value"] = "Enter the rating value."
 		}
+	}
+	return errs
+}
+
+// ValidateDefault validates the default business: like Validate, and it may
+// not carry NoInherit, since nothing sits above it to inherit from.
+func ValidateDefault(p Profile) map[string]string {
+	errs := Validate(p)
+	if len(p.NoInherit) > 0 {
+		errs["no_inherit"] = "The default business inherits nothing."
 	}
 	return errs
 }

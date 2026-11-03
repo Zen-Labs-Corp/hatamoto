@@ -24,12 +24,12 @@ func TestGeneralSaveLeavesLocalesUntouched(t *testing.T) {
 	}
 }
 
-func TestGeneralSingleLocaleShowsAddLanguagesLink(t *testing.T) {
+func TestGeneralHasNoLocalesField(t *testing.T) {
 	t.Parallel()
 	g := newOwnerRig(t, true)
 	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Add languages") || !strings.Contains(body, `href="/admin/settings/locales"`) || strings.Contains(body, `name="locales"`) {
-		t.Error("General lacks the Add languages link or still has the locales field")
+	if strings.Contains(body, "Add languages") || strings.Contains(body, `name="locales"`) {
+		t.Error("General still has the Add languages callout or the locales field")
 	}
 }
 

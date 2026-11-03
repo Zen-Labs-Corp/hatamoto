@@ -90,14 +90,104 @@ func TestSiteSettings_ProfileRoundTrip(t *testing.T) {
 }
 
 func TestSiteSettings_ProfileCardsKeepOthers(t *testing.T) {
-	store := twoLocaleStore()
+	store := &localeStore{fakeSiteStore{cfg: siteconfig.Config{
+		Language: "en",
+		Locales:  []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr-CA", Segment: "qc"}, {Tag: "de-XX", Segment: "dx"}},
+	}}}
 	h := localeRouter(store, nil)
-	doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"fr-CA":{"catalog_name":"Offres"},"en":{"catalog_name":"Offers"}}}`)
-	rec := doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"en":{"catalog_name":"Plans"}}}`)
+	doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"fr-CA":{"catalog_name":"Offres"},"de-XX":{"catalog_name":"Angebote"}}}`)
+	rec := doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"de-XX":{"catalog_name":"Plans"}}}`)
 	testutil.Equal(t, http.StatusOK, rec.Code)
 	got := decodeProfileResp(t, rec.Body.String())
 	testutil.Equal(t, "Offres", got.LocaleProfiles["fr-CA"]["catalog_name"])
-	testutil.Equal(t, "Plans", got.LocaleProfiles["en"]["catalog_name"])
+	testutil.Equal(t, "Plans", got.LocaleProfiles["de-XX"]["catalog_name"])
+}
+
+// The default locale's business is business_profile: a write to its tag is a
+// 422 that says so, a stored leftover can be deleted, and GET never lists it.
+func TestSiteSettings_ProfileDefaultTagRule(t *testing.T) {
+	store := twoLocaleStore()
+	h := localeRouter(store, nil)
+	for _, body := range []string{
+		`{"locale_profiles":{"en":{"catalog_name":"Offers"}}}`,
+		`{"locale_profiles":{"en":{}}}`,
+		`{"locale_profiles":{"en":null}}`,
+	} {
+		rec := doSite(h, http.MethodPatch, profilePath, body)
+		testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, body)
+		if msg := decodeProfileResp(t, rec.Body.String()).Fields["locale_profiles.en"]; !strings.Contains(msg, "business_profile") {
+			t.Errorf("%s: fields = %s, want a pointer to business_profile", body, rec.Body)
+		}
+	}
+
+	store.cfg.LocaleProfiles = json.RawMessage(`{"en":{"catalog_name":"Orphan"},"fr-CA":{"catalog_name":"Offres"}}`)
+	rec := doSite(h, http.MethodGet, profilePath, "")
+	testutil.Equal(t, http.StatusOK, rec.Code)
+	got := decodeProfileResp(t, rec.Body.String())
+	if _, ok := got.LocaleProfiles["en"]; ok || got.LocaleProfiles["fr-CA"]["catalog_name"] != "Offres" {
+		t.Errorf("GET locale_profiles = %v, want the other locales only", got.LocaleProfiles)
+	}
+
+	rec = doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"en":null}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	testutil.Equal(t, "en", strings.Join(store.cardWrites, ","), "the leftover is deleted")
+
+	// A language change moves the rule: the new default takes no card, the old one may.
+	store.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en", Segment: "ee"}, {Tag: "fr-CA", Segment: "qc"}}
+	rec = doSite(h, http.MethodPatch, profilePath, `{"language":"fr-CA","locale_profiles":{"fr-CA":{"catalog_name":"x"}}}`)
+	testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+	rec = doSite(h, http.MethodPatch, profilePath, `{"language":"fr-CA","locale_profiles":{"en":{"catalog_name":"x"}}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+}
+
+// business_profile is the default locale's whole business: the locale-only
+// fields, the office switch and the map fields are accepted; the default
+// business inherits nothing, so it takes no no_inherit.
+func TestSiteSettings_BusinessProfileIsTheDefaultBusiness(t *testing.T) {
+	h := localeRouter(twoLocaleStore(), nil)
+	rec := doSite(h, http.MethodPatch, profilePath, `{"business_profile":{"office":true,"business_type":"Restaurant","country_name":"Exampleland","image":"/media/a.jpg","address":{"lat":"1.5","lng":"2.5","map_url":"https://example.test/map"}}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	bp := decodeProfileResp(t, rec.Body.String()).BusinessProfile
+	for k, want := range map[string]any{"office": true, "business_type": "Restaurant", "country_name": "Exampleland", "image": "/media/a.jpg"} {
+		testutil.Equal(t, want, bp[k], k)
+	}
+	if addr, _ := bp["address"].(map[string]any); addr["lat"] != "1.5" || addr["map_url"] != "https://example.test/map" {
+		t.Errorf("address = %v", bp["address"])
+	}
+
+	rec = doSite(h, http.MethodPatch, profilePath, `{"business_profile":{"no_inherit":["tax_id"]}}`)
+	testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+	if decodeProfileResp(t, rec.Body.String()).Fields["business_profile.no_inherit"] == "" {
+		t.Errorf("no_inherit on the default business not refused: %s", rec.Body)
+	}
+}
+
+// A card of another locale takes no_inherit (validated) and returns it.
+func TestSiteSettings_CardNoInherit(t *testing.T) {
+	h := localeRouter(twoLocaleStore(), nil)
+	rec := doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"fr-CA":{"no_inherit":["tax_id","hours_note"]}}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	got := decodeProfileResp(t, rec.Body.String()).LocaleProfiles["fr-CA"]["no_inherit"]
+	testutil.Equal(t, "tax_id,hours_note", strings.Join(anyStrings(got), ","))
+	for _, body := range []string{
+		`{"locale_profiles":{"fr-CA":{"no_inherit":["name"]}}}`,
+		`{"locale_profiles":{"fr-CA":{"no_inherit":["tax_id","tax_id"]}}}`,
+	} {
+		rec = doSite(h, http.MethodPatch, profilePath, body)
+		testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, body)
+		if decodeProfileResp(t, rec.Body.String()).Fields["locale_profiles.fr-CA.no_inherit"] == "" {
+			t.Errorf("%s: no_inherit not keyed: %s", body, rec.Body)
+		}
+	}
+}
+
+func anyStrings(v any) []string {
+	list, _ := v.([]any)
+	out := make([]string, 0, len(list))
+	for _, e := range list {
+		out = append(out, e.(string))
+	}
+	return out
 }
 
 func TestSiteSettings_ProfileLocalesAndCardInOnePatch(t *testing.T) {
@@ -156,8 +246,13 @@ func TestSiteSettings_ProfileUnknownTagAndSingleLocale(t *testing.T) {
 	testutil.Equal(t, 2, len(store.cfg.Locales), "locales untouched")
 
 	single := &localeStore{fakeSiteStore{cfg: siteconfig.Config{Language: "en"}}}
-	rec = doSite(localeRouter(single, nil), http.MethodPatch, profilePath, `{"locale_profiles":{"en":{"catalog_name":"x"}}}`)
-	testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+	for _, body := range []string{
+		`{"locale_profiles":{"en":{"catalog_name":"x"}}}`,
+		`{"locale_profiles":{"fr-CA":{"catalog_name":"x"}}}`,
+	} {
+		rec = doSite(localeRouter(single, nil), http.MethodPatch, profilePath, body)
+		testutil.Equal(t, http.StatusUnprocessableEntity, rec.Code, body)
+	}
 }
 
 func TestSiteSettings_ProfileNullSiteWide400(t *testing.T) {
@@ -185,11 +280,11 @@ func TestSiteSettings_ProfileInvalidatesOnce(t *testing.T) {
 	store := twoLocaleStore()
 	var inv int
 	h := siteSettingsRouter("owner", &store.fakeSiteStore, &inv)
-	store.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr-CA", Segment: "qc"}}
-	rec := doSite(h, http.MethodPatch, profilePath, `{"business_profile":{"catalog_name":"Offers"},"locale_profiles":{"fr-CA":{"catalog_name":"Offres"},"en":{"catalog_name":"Offers"}}}`)
+	store.cfg.Locales = []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr-CA", Segment: "qc"}, {Tag: "de-XX", Segment: "dx"}}
+	rec := doSite(h, http.MethodPatch, profilePath, `{"business_profile":{"catalog_name":"Offers"},"locale_profiles":{"fr-CA":{"catalog_name":"Offres"},"de-XX":{"catalog_name":"Angebote"}}}`)
 	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	testutil.Equal(t, 1, inv)
-	testutil.Equal(t, "en,fr-CA", strings.Join(store.cardWrites, ","), "cards written in sorted order")
+	testutil.Equal(t, "de-XX,fr-CA", strings.Join(store.cardWrites, ","), "cards written in sorted order")
 }
 
 func TestSiteSettings_ProfileRejectedWritesNothing(t *testing.T) {

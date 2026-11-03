@@ -17,7 +17,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 )
 
 // cacheTTL is the read-cache lifetime. Site config changes rarely; 60s is
@@ -384,7 +387,29 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		preloadInterval = *in.PagePreloadIntervalSeconds
 	}
 
-	_, err = conn.Exec(ctx, `
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin site config update: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var oldLanguage string
+	if in.Language != nil {
+		// The row lock keeps a concurrent language change from folding twice.
+		if err := tx.QueryRow(ctx, `SELECT language FROM hatamoto_site_config WHERE id = TRUE FOR UPDATE`).Scan(&oldLanguage); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("read site language: %w", err)
+		}
+	}
+
+	// A language change swaps the business first; the request's own business
+	// fields are written afterwards, so they land on the new default.
+	var late [4]any
+	if in.Language != nil {
+		late = [4]any{postalAddress, phone, businessHours, businessProfile}
+		postalAddress, phone, businessHours, businessProfile = nil, nil, nil, nil
+	}
+
+	_, err = tx.Exec(ctx, `
 		UPDATE hatamoto_site_config SET
 		  company_name       = COALESCE($1, company_name),
 		  logo_url           = COALESCE($2, logo_url),
@@ -425,10 +450,120 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
+	if in.Language != nil {
+		if err := foldDefaultBusiness(ctx, tx, oldLanguage, *in.Language); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE hatamoto_site_config SET
+			  postal_address   = COALESCE($1, postal_address),
+			  phone            = COALESCE($2, phone),
+			  business_hours   = COALESCE($3, business_hours),
+			  business_profile = COALESCE($4, business_profile)
+			WHERE id = TRUE`, late[0], late[1], late[2], late[3]); err != nil {
+			return nil, fmt.Errorf("update business fields: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit site config update: %w", err)
+	}
 
 	// Invalidate cache before re-load so callers don't see stale data.
 	s.Invalidate()
 	return s.Get(ctx)
+}
+
+// foldDefaultBusiness runs when the default locale changes. The old default's
+// business becomes that locale's card (bizprofile.SwapDefault), so its pages keep
+// their LocalBusiness, and the card the new default locale had is folded into
+// the default business (bizprofile.Fold): the column keeps meaning "the default
+// locale's business". The swap only happens on a site with several locales that
+// still lists the old default; on a single-language site there is no page left
+// for a card. It changes nothing when the language is the same, or when there
+// is neither a swap nor a card under the new default. It runs in the caller's
+// transaction, after the UPDATE; the business fields of the same request are
+// written after it.
+func foldDefaultBusiness(ctx context.Context, tx pgx.Tx, oldLanguage, newLanguage string) error {
+	oldTag, errOld := entity.NormalizeLocale(oldLanguage)
+	newTag, errNew := entity.NormalizeLocale(newLanguage)
+	if errNew != nil || (errOld == nil && oldTag == newTag) {
+		return nil
+	}
+	var (
+		profile, cards, address, locales []byte
+		phone, hours                     sql.NullString
+	)
+	err := tx.QueryRow(ctx, `
+		SELECT business_profile, locale_profiles, phone, business_hours, postal_address, locales
+		FROM hatamoto_site_config WHERE id = TRUE`).Scan(&profile, &cards, &phone, &hours, &address, &locales)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read business profile: %w", err)
+	}
+	cards, err = normaliseCardKeys(cards)
+	if err != nil {
+		return fmt.Errorf("fold default business: %w", err)
+	}
+	previous, keep := swappedDefault(oldTag, errOld, locales)
+	out, changed, err := bizprofile.FoldRow(bizprofile.Row{
+		Default: newTag, BusinessProfile: profile, LocaleProfiles: cards,
+		Phone: phone.String, BusinessHours: hours.String, PostalAddress: address,
+		Previous: previous, DropPrevious: previous != "" && !keep,
+	})
+	if err != nil {
+		return fmt.Errorf("fold default business: %w", err)
+	}
+	if !changed {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE hatamoto_site_config SET business_profile = $1, locale_profiles = $2,
+		  phone = $3, business_hours = $4, postal_address = $5, updated_at = NOW()
+		WHERE id = TRUE`, out.BusinessProfile, out.LocaleProfiles, nullIfEmpty(out.Phone, phone), nullIfEmpty(out.BusinessHours, hours), []byte(out.PostalAddress)); err != nil {
+		return fmt.Errorf("write folded business profile: %w", err)
+	}
+	return nil
+}
+
+// nullIfEmpty writes an empty value back as NULL when the column held NULL, so
+// a language change does not turn an untouched legacy column into ”.
+func nullIfEmpty(v string, was sql.NullString) any {
+	if v == "" && !was.Valid {
+		return nil
+	}
+	return v
+}
+
+// swappedDefault is the old default tag when the old default business must be
+// moved out of the default business: the site has a list of several locales and either
+// the old default is still listed next to another locale (keep is true: it
+// gets a card), or it was removed from the list in the same request (keep is
+// false: it has no pages, so no card is stored, but the new default must still
+// not print its address). Otherwise it is "".
+func swappedDefault(oldTag string, errOld error, rawLocales []byte) (tag string, keep bool) {
+	var list []LocaleEntry
+	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) < 2 {
+		return "", false
+	}
+	for _, e := range list {
+		if t, err := entity.NormalizeLocale(e.Tag); err == nil && t == oldTag {
+			return oldTag, true
+		}
+	}
+	return oldTag, false
+}
+
+// normaliseCardKeys re-keys the stored cards with entity.NormalizeLocale (older
+// rows can hold un-normalised tags such as en-UK). A key that is not a valid tag
+// stays as it is.
+func normaliseCardKeys(raw []byte) ([]byte, error) {
+	var in map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &in) != nil {
+		return raw, nil
+	}
+	return json.Marshal(bizprofile.CanonicalKeys(in, entity.NormalizeLocale))
 }
 
 // SetLocaleProfile stores the business details of one locale, keyed by its

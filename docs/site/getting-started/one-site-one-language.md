@@ -48,27 +48,28 @@ Owners can read and change these over the API with `GET` and `PATCH` on `/api/v1
 
 ### Business details over the API
 
-The same endpoint carries the business details that Settings > General > Business details edits:
+The same endpoint carries the business details that Settings > Locales > Business details edits:
 
 | Field | Meaning |
 |---|---|
-| `business_profile` | The site-wide business profile, as one object. |
-| `locale_profiles` | An object of locale cards, keyed by language tag such as `fr-CA`. |
+| `business_profile` | The default locale's business, as one object. It is also the organisation and the fallback for the other locales. It holds the locale-only fields too: `office` (true when the default locale's pages print a local business), `business_type`, `country_name`, `image`, and the latitude, longitude and map address. |
+| `locale_profiles` | An object of cards for the other locales, keyed by language tag such as `fr-CA`. The default locale's tag is never in it. |
 
 `GET` returns both. `PATCH` follows the same rules as the other fields:
 
 - A field you leave out stays as it is.
 - `business_profile` is replaced whole: send every value you want to keep.
-- A tag in `locale_profiles` replaces that locale's card. `null` deletes the card, and so does an empty object `{}`. Tags you leave out are untouched.
+- A tag in `locale_profiles` replaces that locale's card, and the default locale's tag is refused, because that locale's business is `business_profile`. Write it there. The answer is 422 with `fields` naming the tag and the message `The default locale's business is business_profile; write it there.` Changing `language` and the cards in one request works: the new default locale's card is folded into `business_profile` first, and the cards of the same request are applied after the fold. `null` deletes the card, and so does an empty object `{}`. Tags you leave out are untouched.
 - An unknown key anywhere in a profile is refused.
-- On a site with several locales, each tag must be in the locale list once this request's `locales` change is applied. A tag that is not listed is refused. A site with one language refuses `locale_profiles`, because no card applies. A card that is still stored for a locale you removed shows up in `GET`, and `null` deletes it.
+- On a site with several locales, each tag must be in the locale list once this request's `locales` change is applied. A tag that is not listed is refused. A site with one language has no other locale, so it takes no card in `locale_profiles`. A card that is still stored for a locale you removed shows up in `GET`, and `null` deletes it.
+- A card can carry `no_inherit`, a list of the field keys (such as `phone` or `opening_hours`) that the card deliberately leaves empty instead of using the default locale's value. Only fields that normally inherit are accepted, each at most once, and the default business refuses it. A field in `no_inherit` that you then give a value should be taken out of the list; `GET` returns the key as stored.
 - A profile that does not validate answers 422 and nothing is saved. The body names each field by its path:
 
 ```json
 {"error":"validation failed","fields":{"locale_profiles.fr-CA.services.0.url":"Enter a full web address starting with http:// or https://, or a path starting with a single /, such as /services/seo."}}
 ```
 
-Inside `business_profile`, `phone`, `hours_note` and the address `street`, `city`, `state`, `postal_code` and `country` are always replaced by the `phone`, `business_hours` and `address` settings above, even when those are empty. Set those settings instead. The structured `opening_hours` is not replaced.
+Inside `business_profile` (the default locale's business), `phone`, `hours_note` and the address `street`, `city`, `state`, `postal_code` and `country` are always replaced by the `phone`, `business_hours` and `address` settings above, even when those are empty. Set those settings instead. The structured `opening_hours` is not replaced.
 
 ```bash
 curl -X PATCH https://example.com/api/v1/settings/site \

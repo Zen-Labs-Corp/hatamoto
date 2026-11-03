@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 )
@@ -259,6 +261,9 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 		}
 	}
 	res.Users = res.Rows["hatamoto_users"]
+	if err := foldDefaultBusiness(ctx, tx); err != nil {
+		return nil, fmt.Errorf("fold the default locale's business details: %w", err)
+	}
 	if err := stage.place(); err != nil {
 		return nil, err
 	}
@@ -266,6 +271,61 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 		return nil, err
 	}
 	return res, nil
+}
+
+// foldDefaultBusiness folds a locale card stored under the default locale's tag
+// into the default business, as the migration does for a live database: an
+// archive from before that change still carries one, and migrations do not run
+// on import. The fold is idempotent, so an archive that is already folded (or
+// has no such card) is left as it is.
+func foldDefaultBusiness(ctx context.Context, tx pgx.Tx) error {
+	var (
+		language      string
+		phone, hours  *string
+		profile, locs []byte
+		addr          []byte
+	)
+	err := tx.QueryRow(ctx, `SELECT language, business_profile, locale_profiles, phone, business_hours, postal_address
+		FROM hatamoto_site_config LIMIT 1 FOR UPDATE`).Scan(&language, &profile, &locs, &phone, &hours, &addr)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	def, err := entity.NormalizeLocale(language)
+	if err != nil {
+		return nil
+	}
+	cards, err := bizprofile.ParseLocales(locs)
+	if err != nil {
+		return err
+	}
+	if locs, err = json.Marshal(bizprofile.CanonicalKeys(cards, entity.NormalizeLocale)); err != nil {
+		return err
+	}
+	row := bizprofile.Row{Default: def, BusinessProfile: profile, LocaleProfiles: locs, PostalAddress: addr}
+	if phone != nil {
+		row.Phone = *phone
+	}
+	if hours != nil {
+		row.BusinessHours = *hours
+	}
+	out, changed, err := bizprofile.FoldRow(row)
+	if err != nil || !changed {
+		return err
+	}
+	var outPhone, outHours *string
+	if out.Phone != "" || phone != nil {
+		outPhone = &out.Phone
+	}
+	if out.BusinessHours != "" || hours != nil {
+		outHours = &out.BusinessHours
+	}
+	_, err = tx.Exec(ctx, `UPDATE hatamoto_site_config
+		SET business_profile = $1::jsonb, locale_profiles = $2::jsonb, phone = $3, business_hours = $4, postal_address = $5::jsonb`,
+		out.BusinessProfile, out.LocaleProfiles, outPhone, outHours, out.PostalAddress)
+	return err
 }
 
 func readHeader(tr *tar.Reader) (*Header, error) {

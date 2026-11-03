@@ -185,7 +185,7 @@ func TestOwnerOnlyScreens(t *testing.T) {
 		}
 	}
 	for _, p := range []string{"/admin/settings/users/invite", "/admin/settings/users", "/admin/settings/users/" + g.editor.ID.String(), "/admin/settings/users/" + g.editor.ID.String() + "/reset",
-		"/admin/settings/users/" + g.editor.ID.String() + "/delete", "/admin/settings/general/identity", "/admin/settings/general/contact", "/admin/settings/general/homepage", "/admin/settings/email/test", "/admin/settings/email/reset", "/admin/settings/email",
+		"/admin/settings/users/" + g.editor.ID.String() + "/delete", "/admin/settings/general/identity", "/admin/settings/general/email", "/admin/settings/general/homepage", "/admin/settings/email/test", "/admin/settings/email/reset", "/admin/settings/email",
 		"/admin/settings/api-keys", "/admin/settings/api-keys/" + g.keyID.String() + "/revoke"} {
 		if rec := g.do("POST", p, "editor-token", url.Values{"email": {"x@example.com"}}, nil); rec.Code != 403 {
 			t.Errorf("editor POST %s = %d, want 403", p, rec.Code)
@@ -436,93 +436,73 @@ func TestSiteSettings(t *testing.T) {
 	}
 }
 
-func TestBusinessDetailsSettings(t *testing.T) {
+// The business details live on the Locales tab: General has none of them and
+// the old save route is gone.
+func TestGeneralHasNoBusinessDetails(t *testing.T) {
 	t.Parallel()
 
 	g := newOwnerRig(t, true)
-	page := g.do("GET", "/admin/settings/general", "owner-token", nil, nil)
-	body := page.Body.String()
+	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	for _, gone := range []string{"Business details", `href="#contact"`, "Opening hours", "Profiles &amp; rating", "Add languages", "/general/contact"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("General still has %q", gone)
+		}
+	}
+	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{"notify": {"boss@example.com"}}, nil); rec.Code != 404 && rec.Code != 405 {
+		t.Errorf("the old business save route = %d, want it gone", rec.Code)
+	}
+}
+
+func TestNotificationEmailSave(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	site := g.a.deps.Site.(*fakeSite)
+	rec := g.do("POST", "/admin/settings/general/email", "owner-token", url.Values{"notify": {" boss@example.com "}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/general#email" {
+		t.Fatalf("save: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if site.cfg.NotificationEmail != "boss@example.com" || g.flushed != 1 {
+		t.Errorf("email = %q, flushed %d", site.cfg.NotificationEmail, g.flushed)
+	}
+	if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `value="boss@example.com"`) || !strings.Contains(body, `action="/admin/settings/general/email"`) {
+		t.Error("the Email card does not show the saved address")
+	}
+	// Empty clears it.
+	if rec := g.do("POST", "/admin/settings/general/email", "owner-token", url.Values{"notify": {""}}, nil); rec.Code != 303 || site.cfg.NotificationEmail != "" {
+		t.Errorf("clear: %d %q", rec.Code, site.cfg.NotificationEmail)
+	}
+}
+
+func TestNotificationEmailInvalidKeepsValue(t *testing.T) {
+	t.Parallel()
+
+	g := newOwnerRig(t, true)
+	site := g.a.deps.Site.(*fakeSite)
+	site.cfg.NotificationEmail = "old@example.com"
+	rec := g.do("POST", "/admin/settings/general/email", "owner-token", url.Values{"notify": {"bad"}}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, `value="bad"`) || !strings.Contains(body, `href="#notify"`) || !strings.Contains(body, "Enter a valid email address") {
+		t.Fatalf("invalid: %d", rec.Code)
+	}
+	if site.cfg.NotificationEmail != "old@example.com" || g.flushed != 0 {
+		t.Error("a failed save changed the stored email")
+	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	for _, want := range []string{"Business details", `href="#contact"`, "Save business details", "Opening hours", "Profiles &amp; rating", "Commerce", "Add languages"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("General lacks %q", want)
-		}
-	}
-	if !strings.Contains(body, "Contact points, opening hours, area served, currency, price range and geo region are used on locale pages.") ||
-		strings.Contains(body, "map addresses") {
-		t.Error("the single-locale hint does not name the locale-only fields")
-	}
-	if strings.Contains(body, "Contact details") {
-		t.Error("General still says Contact details")
-	}
-	form := url.Values{
-		"notify": {"boss@example.com"}, "biz.phone": {"+1 555 0100"}, "biz.hours_note": {"Mon-Fri 9-5"},
-		"biz.address.street": {"1 Main St"}, "biz.address.city": {"Springfield"}, "biz.address.state": {"IL"},
-		"biz.address.postal_code": {"62701"}, "biz.address.country": {"Exampleland"},
-		"biz.tax_id": {"TX-1"}, "biz.currency": {"USD"},
-		"_present.biz.opening_hours": {"1"}, "_present.biz.opening_hours.0.days": {"1"},
-		"biz.opening_hours.0.days": {"Monday, Friday"}, "biz.opening_hours.0.opens": {"09:00"}, "biz.opening_hours.0.closes": {"17:00"},
-	}
-	if rec := g.do("POST", "/admin/settings/general/contact", "owner-token", form, nil); rec.Code != 303 {
-		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
-	}
-	if g.flushed != 1 {
-		t.Errorf("render cache invalidated %d times, want 1", g.flushed)
-	}
-	cfg := g.a.deps.Site.(*fakeSite).cfg
-	if cfg.Phone != "+1 555 0100" || cfg.BusinessHours != "Mon-Fri 9-5" || !strings.Contains(string(cfg.PostalAddress), `"city":"Springfield"`) {
-		t.Errorf("legacy columns = %q %q %s", cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
-	}
-	for _, mustNot := range []string{"Springfield", "0100", "Mon-Fri"} {
-		if strings.Contains(string(cfg.BusinessProfile), mustNot) {
-			t.Errorf("profile column repeats a legacy value %q: %s", mustNot, cfg.BusinessProfile)
-		}
-	}
-	if !strings.Contains(string(cfg.BusinessProfile), `"tax_id":"TX-1"`) || !strings.Contains(string(cfg.BusinessProfile), `"Monday"`) {
-		t.Errorf("profile column = %s", cfg.BusinessProfile)
-	}
-	again := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`value="boss@example.com"`, `value="Springfield"`, `value="62701"`, `value="&#43;1 555 0100"`, `value="TX-1"`, `value="Monday, Friday"`, `value="17:00"`} {
-		if !strings.Contains(again, want) {
-			t.Errorf("not persisted: %s", want)
-		}
-	}
 }
 
-// Coordinates and the map address are locale card fields: a site-wide save
-// neither validates nor stores them.
-func TestBusinessDetailsSaveIgnoresSiteWideCoordinates(t *testing.T) {
-	t.Parallel()
-
-	g := newOwnerRig(t, true)
-	g.a.deps.Site.(*fakeSite).cfg.BusinessProfile = []byte(`{"address":{"lat":"12.5","map_url":"https://example.test/map","po_box":"PO 1"}}`)
-	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
-		"biz.address.lat": {"999"}, "biz.address.lng": {"12"}, "biz.address.map_url": {"https://example.test/m"}, "biz.address.po_box": {"PO 2"},
-	}, nil)
-	if rec.Code != 303 {
-		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
-	}
-	got := string(g.a.deps.Site.(*fakeSite).cfg.BusinessProfile)
-	for _, gone := range []string{"lat", "lng", "map_url", "12.5", "example.test/m"} {
-		if strings.Contains(got, gone) {
-			t.Errorf("profile column keeps %q: %s", gone, got)
-		}
-	}
-	if !strings.Contains(got, `"po_box":"PO 2"`) {
-		t.Errorf("PO box not saved: %s", got)
-	}
-}
-
-func TestBusinessDetailsPrefillFromLegacyColumns(t *testing.T) {
+// The default card shows the legacy columns a site saved before the profile
+// held them.
+func TestDefaultBusinessCardPrefillsFromLegacyColumns(t *testing.T) {
 	t.Parallel()
 
 	g := newOwnerRig(t, true)
 	site := g.a.deps.Site.(*fakeSite)
 	site.cfg.Phone, site.cfg.BusinessHours = "555 0199", "Weekdays"
 	site.cfg.PostalAddress = []byte(`{"street":"2 Old Road","city":"Oldtown","state":"","postal_code":"9","country":"Exampleland"}`)
-	body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/settings/locales/business", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{`value="555 0199"`, `value="Weekdays"`, `value="2 Old Road"`, `value="Oldtown"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("upgrade lost %s", want)
@@ -530,18 +510,18 @@ func TestBusinessDetailsPrefillFromLegacyColumns(t *testing.T) {
 	}
 }
 
-func TestBusinessDetailsInvalidSaveKeepsValues(t *testing.T) {
+func TestDefaultBusinessCardInvalidSaveKeepsValues(t *testing.T) {
 	t.Parallel()
 
 	g := newOwnerRig(t, true)
-	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
-		"notify": {"bad"}, "biz.phone": {strings.Repeat("1", 51)}, "biz.rating.value": {"9"}, "biz.address.city": {"Keepville"},
+	rec := g.do("POST", "/admin/settings/locales/business/en", "owner-token", url.Values{
+		"loc_en.phone": {strings.Repeat("1", 51)}, "loc_en.rating.value": {"9"}, "loc_en.address.city": {"Keepville"},
 	}, nil)
 	if rec.Code != 422 {
 		t.Fatalf("invalid: %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{`value="Keepville"`, `href="#sf-biz-rating-value"`, `href="#notify"`, "Enter a number between 0 and 5."} {
+	for _, want := range []string{`value="Keepville"`, `href="#sf-loc_en-rating-value"`, "Enter a number between 0 and 5."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("422 page lacks %q", want)
 		}
@@ -554,12 +534,12 @@ func TestBusinessDetailsInvalidSaveKeepsValues(t *testing.T) {
 	}
 }
 
-func TestBusinessDetailsAddRowReRendersWithoutSaving(t *testing.T) {
+func TestDefaultBusinessCardAddRowReRendersWithoutSaving(t *testing.T) {
 	t.Parallel()
 
 	g := newOwnerRig(t, true)
-	rec := g.do("POST", "/admin/settings/general/contact", "owner-token", url.Values{
-		"biz.tax_id": {"TX-9"}, "_present.biz.opening_hours": {"1"}, "_add.biz.opening_hours": {"1"},
+	rec := g.do("POST", "/admin/settings/locales/business/en", "owner-token", url.Values{
+		"loc_en.tax_id": {"TX-9"}, "_present.loc_en.opening_hours": {"1"}, "_add.loc_en.opening_hours": {"1"},
 	}, nil)
 	if rec.Code != 200 {
 		t.Fatalf("add row: %d", rec.Code)

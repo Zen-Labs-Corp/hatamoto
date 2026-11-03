@@ -3,13 +3,11 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
@@ -27,28 +25,6 @@ type settingsData struct {
 	LogoURL   string
 	Tagline   string
 	Domain    string
-	// business details: the notification email plus the site-wide profile form
-	Contact     contactForm
-	ContactErrs map[string]string
-	Biz         template.HTML
-	// BizHint is set on a site without a Locales list, where the office-only
-	// fields feed no output yet.
-	BizHint bool
-}
-
-type contactForm struct {
-	NotifyEmail string
-}
-
-// bizPrefix namespaces the fields of the site-wide business form.
-const bizPrefix = "biz."
-
-type address struct {
-	Street     string `json:"street"`
-	City       string `json:"city"`
-	State      string `json:"state"`
-	PostalCode string `json:"postal_code"`
-	Country    string `json:"country"`
 }
 
 func (a *Admin) mountSettings(authed *httpx.Group) {
@@ -67,7 +43,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountLocaleSettings(owner)
 	owner.HandleFunc("GET /settings/general", a.handleGeneral)
 	owner.HandleFunc("POST /settings/general/identity", a.handleSiteSave)
-	owner.HandleFunc("POST /settings/general/contact", a.handleContactSave)
+	owner.HandleFunc("POST /settings/general/email", a.handleNotifySave)
 	a.mountAPIKeys(owner)
 	a.mountWebhooks(owner)
 }
@@ -199,78 +175,27 @@ func localeSetOf(c *siteconfig.Config) *entity.LocaleSet {
 	return set
 }
 
-func (a *Admin) renderContact(w http.ResponseWriter, r *http.Request, status int, f contactForm, errs map[string]string, vals map[string]any, perrs schemaform.Errors) {
-	d := settingsData{Contact: f, ContactErrs: errs}
-	if m := errs["notify"]; m != "" {
-		d.Summary = append(d.Summary, ui.FieldError{ID: "notify", Label: "Notification email", Message: m})
-	}
-	d.Summary = append(d.Summary, formErrors(bizPrefix, perrs)...)
-	a.renderGeneral(w, r, status, generalData{Contact: &d, bizValues: vals, bizErrs: perrs, bizOpen: openAfterAdd(r.PostForm, bizPrefix, vals)})
+// notifyData is the notification email form of the General page's Email card.
+type notifyData struct {
+	Value, Error string
+	Summary      []ui.FieldError
 }
 
-// siteBusinessHTML renders the site-wide business form.
-func siteBusinessHTML(vals map[string]any, errs schemaform.Errors, open string) (template.HTML, error) {
-	schema, err := siteSchema()
-	if err != nil {
-		return "", err
-	}
-	return schemaform.Render(schema, vals, schemaform.Options{Sections: true, AddIcon: plusIcon(), Prefix: bizPrefix, UI: businessUI, Errors: errs, OpenPath: open})
-}
-
-func (a *Admin) handleContactSave(w http.ResponseWriter, r *http.Request) {
-	cfg, err := a.loadSite(r.Context())
-	if err != nil {
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
+func (a *Admin) handleNotifySave(w http.ResponseWriter, r *http.Request) {
+	value := strings.TrimSpace(r.PostFormValue("notify"))
+	if value != "" && (!strings.Contains(value, "@") || strings.ContainsAny(value, " <>")) {
+		a.renderGeneral(w, r, http.StatusUnprocessableEntity, generalData{Notify: &notifyData{Value: value, Error: "Enter a valid email address",
+			Summary: []ui.FieldError{{ID: "notify", Label: "Notification email", Message: "Enter a valid email address"}}}})
 		return
 	}
-	prev, err := siteProfile(cfg)
-	if err != nil {
-		prev = bizprofile.Profile{}
-	}
-	schema, err := siteSchema()
-	if err != nil {
-		a.logger().Error("business schema failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The business details could not be saved.")
-		return
-	}
-	f := contactForm{NotifyEmail: strings.TrimSpace(r.PostFormValue("notify"))}
-	errs := map[string]string{}
-	if f.NotifyEmail != "" && (!strings.Contains(f.NotifyEmail, "@") || strings.ContainsAny(f.NotifyEmail, " <>")) {
-		errs["notify"] = "Enter a valid email address"
-	}
-	vals, perrs := schemaform.Decode(schema, r.PostForm, profileValues(prev), schemaform.Options{Prefix: bizPrefix})
-	p, perr := valuesProfile(vals)
-	p.Lei = strings.ToUpper(p.Lei)
-	// Coordinates and the map address belong to a locale card; a stored
-	// site-wide value is ignored and dropped on save.
-	p.Address.Lat, p.Address.Lng, p.Address.MapURL = "", "", ""
-	if schemaform.Structural(r.PostForm) {
-		a.renderContact(w, r, http.StatusOK, f, nil, vals, nil)
-		return
-	}
-	if perr == nil && len(perrs) == 0 {
-		perrs = profileErrors(bizprofile.Validate(p))
-	}
-	if len(errs) > 0 || len(perrs) > 0 || perr != nil {
-		a.renderContact(w, r, http.StatusUnprocessableEntity, f, errs, vals, perrs)
-		return
-	}
-	raw, _ := json.Marshal(address{Street: p.Address.Street, City: p.Address.City, State: p.Address.State, PostalCode: p.Address.PostalCode, Country: p.Address.Country})
-	// The legacy columns hold phone, hours note and the five address keys; the
-	// profile column holds everything else.
-	stored := p
-	stored.Phone, stored.HoursNote = "", ""
-	stored.Address.Street, stored.Address.City, stored.Address.State, stored.Address.PostalCode, stored.Address.Country = "", "", "", "", ""
-	profileRaw, _ := json.Marshal(stored)
-	_, err = a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{NotificationEmail: &f.NotifyEmail, Phone: &p.Phone, BusinessHours: &p.HoursNote, PostalAddress: raw, BusinessProfile: profileRaw})
-	if err != nil {
-		a.logger().Error("save business details failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The business details could not be saved.")
+	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{NotificationEmail: &value}); err != nil {
+		a.logger().Error("save notification email failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The notification email could not be saved.")
 		return
 	}
 	if a.deps.Invalidate != nil {
 		a.deps.Invalidate(r.Context())
 	}
-	a.SetFlash(w, r, "success", "Business details saved.")
-	http.Redirect(w, r, a.adminPath+"/settings/general#contact", http.StatusSeeOther)
+	a.SetFlash(w, r, "success", "Notification email saved.")
+	http.Redirect(w, r, a.adminPath+"/settings/general#email", http.StatusSeeOther)
 }
