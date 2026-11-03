@@ -32,6 +32,7 @@ const pages = [
   { id: "a", title: "Home", path: "/", editHref: "/admin/entities/a/edit", status: "published", current: true },
   { id: "b", title: "Pricing", path: "/pricing", editHref: "/admin/entities/b/edit", status: "published" },
   { id: "c", title: "Next launch", path: "", editHref: "/admin/entities/c/edit", status: "draft" },
+  { id: "d", title: "Spring sale", path: "", editHref: "/admin/entities/d/edit", status: "scheduled" },
 ];
 const links = (host) => host.walk().filter((n) => n.tag === "a");
 
@@ -40,14 +41,15 @@ test("one link per page, the current page is aria-current, a draft says Draft", 
   mountPages(host, { pages });
   const a = links(host);
   assert.deepEqual(a.map((n) => n.attrs.href), pages.map((p) => p.editHref));
-  assert.deepEqual(a.map((n) => n.attrs["aria-current"] ?? null), ["page", null, null]);
+  assert.deepEqual(a.map((n) => n.attrs["aria-current"] ?? null), ["page", null, null, null]);
   assert.match(a[2].textContent, /Next launch.*Draft/);
+  assert.match(a[3].textContent, /Spring sale.*Scheduled/);
 });
 
 test("the filter matches title and path; no match and no pages say so", () => {
   assert.deepEqual(filterPages(pages, "PRIC").map((p) => p.id), ["b"]);
   assert.deepEqual(filterPages(pages, "/").map((p) => p.id), ["a", "b"]);
-  assert.equal(filterPages(pages, "  ").length, 3);
+  assert.equal(filterPages(pages, "  ").length, pages.length);
   const host = new El("div");
   const ui = mountPages(host, { pages });
   const input = host.walk().find((n) => n.tag === "input");

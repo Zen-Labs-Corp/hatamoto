@@ -19,6 +19,7 @@ export function mountPages(host, { pages = [], announce = () => {} } = {}) {
   const note = h("p", { class: "hm-muted hm-bs-pages__empty", hidden: true });
   const el = h("div", { class: "hm-bs-pages__body" }, h("div", { class: "hm-bs-pages__q" }, h("span", { class: "hm-bs__search" }, h("span", { "data-hm-bs-searchico": "", "aria-hidden": "true" }, ico), search)), list, note);
   host.replaceChildren(el);
+  const unpublished = (status) => (status === "scheduled" ? "Scheduled" : status === "published" ? "" : "Draft"); // a live page without a path is the capped current page: no false Draft
   const row = (p) =>
     h(
       "li",
@@ -27,7 +28,7 @@ export function mountPages(host, { pages = [], announce = () => {} } = {}) {
         "a",
         { class: "hm-bs-page", href: p.editHref, "aria-current": p.current ? "page" : false },
         h("span", { class: "hm-bs-page__title", text: p.title || "Untitled" }),
-        h("span", { class: "hm-bs-page__path", text: p.path || "Draft" }),
+        h("span", { class: "hm-bs-page__path", text: p.path || unpublished(p.status) }),
       ),
     );
   function draw() {
