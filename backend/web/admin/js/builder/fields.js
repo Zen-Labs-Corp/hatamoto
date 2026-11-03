@@ -37,6 +37,17 @@ export function applyOnly(form, node, keys) {
 }
 
 /**
+ * Enter in a one-line input would submit the form through its first submit button, a repeater's add, remove or move (possibly in a hidden block). Cancel it.
+ * Returns true when it cancelled the key.
+ */
+export function noImplicitSubmit(e) {
+  const t = e.target;
+  if (e.key !== "Enter" || e.defaultPrevented || t?.tagName !== "INPUT" || /^(submit|button|reset|checkbox|radio)$/.test(t.type)) return false;
+  e.preventDefault();
+  return true;
+}
+
+/**
  * mountFields(host, {node, type, getContent, urls, csrf, onContent, only}) -> {destroy}
  * only: [key, ...aliases] of one content field: the form shows just that field (applyOnly), again after every adopt().
 
@@ -128,6 +139,7 @@ export function mountFields(host, { node, type, getContent, urls, csrf, onConten
   };
   form.addEventListener("input", later);
   form.addEventListener("change", later);
+  form.addEventListener("keydown", noImplicitSubmit);
   form.addEventListener("focusout", () => dirty && decode());
   // Repeater buttons (add, remove, move) post as the clicked button: its name/value ride along untouched.
   form.addEventListener("submit", (e) => {

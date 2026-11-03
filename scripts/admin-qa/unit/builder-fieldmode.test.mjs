@@ -13,7 +13,7 @@ register(
       return next(s, c);
     }`),
 );
-const { applyOnly } = await import(new URL("builder/fields.js", root));
+const { applyOnly, noImplicitSubmit } = await import(new URL("builder/fields.js", root));
 
 // A just-enough form: top-level blocks with controls (name) and widgets (data-path).
 const control = (name) => ({ getAttribute: (k) => (k === "name" ? name : null), disabled: false });
@@ -85,4 +85,16 @@ test("applyOnly keeps a block that carries a validation error visible", () => {
   blocks.headline.invalid = true;
   applyOnly(form, "c1", ["eyebrow"]);
   assert.deepEqual(shown(blocks), ["eyebrow", "headline"]);
+});
+
+test("Enter in a one-line input is cancelled so no hidden list button is pressed", () => {
+  const key = (tag, type, k = "Enter") => {
+    const e = { key: k, defaultPrevented: false, target: { tagName: tag, type }, preventDefault() { this.defaultPrevented = true; } };
+    return [noImplicitSubmit(e), e.defaultPrevented];
+  };
+  assert.deepEqual(key("INPUT", "text"), [true, true]);
+  assert.deepEqual(key("INPUT", "text", "a"), [false, false]);
+  assert.deepEqual(key("TEXTAREA", "textarea"), [false, false], "a new line in a textarea");
+  assert.deepEqual(key("BUTTON", "submit"), [false, false], "a repeater button still activates");
+  assert.deepEqual(key("INPUT", "checkbox"), [false, false]);
 });
