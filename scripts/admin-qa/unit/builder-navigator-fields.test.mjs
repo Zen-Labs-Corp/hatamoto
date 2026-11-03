@@ -172,7 +172,7 @@ test("metaOf counts field rows when the component has no blocks", () => {
   const r = rows();
   assert.equal(metaOf(r[0]), "4 blocks · #102030");
   assert.equal(metaOf(r.find((x) => x.id === "s2")), "1 block");
-  assert.equal(metaOf(r.find((x) => x.id === "s3")), "");
+  assert.equal(metaOf(r.find((x) => x.id === "s3")), "Empty");
   assert.equal(metaOf(r[1]), "");
 });
 

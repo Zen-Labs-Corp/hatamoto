@@ -126,16 +126,16 @@ export function nameSource(node, top = true) {
 
 const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 
-/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill; colourOf(token) -> "#hex" | null names the hex a token background stands for). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
+/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill; colourOf(token) -> "#hex" | null names the hex a token background stands for). A section without blocks reads "Empty", so every section row has two lines; the background is omitted when none is set. "" for other rows. */
 export function metaOf(row, quiet = false, colourOf = () => null) {
   if (!row.section) return "";
   const node = row.node;
   const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length || row.fields; // a component without blocks counts its field rows, filtered out or not
   const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
-  const bg = node.s?.base?.bg;
+  const bg = thumbOf(node, row.collapsed).bg;
   const bgText = typeof bg === "string" && bg.trim() ? (colourOf(bg.trim()) ?? bg.trim()) : "";
   const tail = quiet ? bgText : off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : bgText;
-  return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
+  return [count ? pluralBlocks(count) : "Empty", tail].filter(Boolean).join(" · ");
 }
 
 /** What a section row's thumbnail shows: the container's base background (a hex or a token name as written; null when none) and its text alignment. */

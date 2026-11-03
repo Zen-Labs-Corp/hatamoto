@@ -202,12 +202,12 @@ test("a token background resolves through getTokenColour for the thumbnail and t
   const d = { v: 2, nodes: [sec("s", [comp("c")], { base: { bg: "muted" } }), sec("t", [comp("d")], { base: { bg: "accent" } })] };
   const rows = mount({ d, getTokenColour: (n) => ({ muted: "#eeeeee" })[n] ?? null }).rows();
   assert.deepEqual(withClass(rows[0], "hm-bs-row__thumb")[0].props, { "--bs-thumb": "#eeeeee", "--bs-thumb-fg": "black" });
-  assert.equal(withClass(rows[0], "hm-bs-row__meta")[0].text, "#eeeeee");
+  assert.equal(withClass(rows[0], "hm-bs-row__meta")[0].text, "Empty · #eeeeee");
   assert.deepEqual(withClass(rows[1], "hm-bs-row__thumb")[0].props, {}); // unknown token: today's default thumbnail
-  assert.equal(withClass(rows[1], "hm-bs-row__meta")[0].text, "accent");
+  assert.equal(withClass(rows[1], "hm-bs-row__meta")[0].text, "Empty · accent");
   const plain = mount({ d }).rows();
   assert.deepEqual(withClass(plain[0], "hm-bs-row__thumb")[0].props, {});
-  assert.equal(withClass(plain[0], "hm-bs-row__meta")[0].text, "muted");
+  assert.equal(withClass(plain[0], "hm-bs-row__meta")[0].text, "Empty · muted");
 });
 
 test("a hidden section shows the open eye-off icon and the hidden class", () => {
