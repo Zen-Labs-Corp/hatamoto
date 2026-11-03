@@ -29,9 +29,9 @@ globalThis.document = { createElement: (t) => new El(t) };
 const { mountPages, filterPages } = await import(new URL("builder/pagestab.js", root));
 
 const pages = [
-  { id: "a", title: "Home", path: "/", editHref: "/authentication/entities/a/edit", status: "published", current: true },
-  { id: "b", title: "Pricing", path: "/pricing", editHref: "/authentication/entities/b/edit", status: "published" },
-  { id: "c", title: "Next launch", path: "", editHref: "/authentication/entities/c/edit", status: "draft" },
+  { id: "a", title: "Home", path: "/", editHref: "/admin/entities/a/edit", status: "published", current: true },
+  { id: "b", title: "Pricing", path: "/pricing", editHref: "/admin/entities/b/edit", status: "published" },
+  { id: "c", title: "Next launch", path: "", editHref: "/admin/entities/c/edit", status: "draft" },
 ];
 const links = (host) => host.walk().filter((n) => n.tag === "a");
 
