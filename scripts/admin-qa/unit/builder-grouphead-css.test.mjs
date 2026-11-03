@@ -19,3 +19,9 @@ test("the inspector pane has no padding of its own: tabs, header and groups are 
   assert.match(css, /^\.hm-bs__inspector \.hm-bs-header \{[^}]*border-block-end: 1px solid var\(--border\);/m);
   assert.doesNotMatch(css, /\.hm-bs__device[ [:{]/, "the top-bar device chip rules are gone");
 });
+
+test("the Advanced tab uses the Design tab's type scale: group titles and field text are text-xs", () => {
+  const own = readFileSync(new URL("../../../backend/web/admin/css/pages/builderinspector.css", import.meta.url), "utf8");
+  assert.match(own, /^\.hm-bs-advanced, \.hm-bs-advanced :is\([^)]*\.hm-field__control[^)]*\) \{ font-size: var\(--text-xs\);/m);
+  assert.match(own, /^\.hm-bs-advanced \.hm-bs-grp__hd[^{]*\{[^}]*font-size: var\(--text-xs\);/m);
+});
