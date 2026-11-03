@@ -40,3 +40,35 @@ test("the ring caption has its own band above the top number and the size text w
   assert.match(el, /overflow:\s*hidden/);
   assert.match(css, /^\.hm-bs-bm__c:has\(> \.hm-bs-bm__el\) \{[^}]*overflow:\s*hidden/m, "what does not fit is clipped, never painted over the side numbers");
 });
+
+test("a box model number has a visible resting edge from a token", () => {
+  const rule = /^\.hm-bs-bm__n \{([^}]*)\}/m.exec(css)?.[1] ?? "";
+  assert.match(rule, /border:\s*1px solid var\(--border\)/);
+  assert.doesNotMatch(rule, /transparent/);
+});
+
+test("the ring caption total and the hint line have rules", () => {
+  assert.match(css, /^\.hm-bs-bm__tot \{/m);
+  assert.match(css, /^\.hm-bs-hint \{/m);
+});
+
+test("every class the compact fields and More toggles render has a rule and the label column is 4.5rem", () => {
+  for (const cls of ["hm-bs-r2", "hm-bs-fldbox", "hm-bs-fld", "hm-bs-fld__lb", "hm-bs-fld__n", "hm-bs-fld__u", "hm-bs-more__w", "hm-bs-morebtn", "hm-bs-grp__more", "hm-bs-grp__hd", "hm-bs-classnote"]) {
+    assert.ok(new RegExp("\\." + cls + "\\b").test(css), cls);
+  }
+  assert.match(css, /grid-template-columns:\s*4\.5rem minmax\(0, 1fr\)/);
+});
+
+test("the 28px field is the control height token and a scrub label drags sideways", () => {
+  assert.match(/^\.hm-bs-style \.hm-bs-fld \{([^}]*)\}/m.exec(css)?.[1] ?? "", /block-size:\s*var\(--control-h-xs\)/);
+  assert.match(css, /\.hm-bs-fld__lb\.hm-bs-scrub \{[^}]*cursor:\s*ew-resize/);
+});
+
+test("the context pill is coloured per device from the admin device tokens", () => {
+  assert.match(css, /\.hm-bs-ctx__bp\[data-device="md"\] \{[^}]*var\(--color-device-tablet\)[^}]*var\(--color-device-tablet-soft\)/);
+  assert.match(css, /\.hm-bs-ctx__bp\[data-device="sm"\] \{[^}]*var\(--color-device-phone\)[^}]*var\(--color-device-phone-soft\)/);
+});
+
+test("no literal colour, no text-transform", () => {
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b|\brgba?\(|text-transform/);
+});
