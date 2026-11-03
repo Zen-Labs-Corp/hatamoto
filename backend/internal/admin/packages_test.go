@@ -945,6 +945,26 @@ func TestPluginAdminRoutesAreOwnerOnly(t *testing.T) {
 	}
 }
 
+// A plugin that is not running cannot have its permissions saved: the button
+// is disabled, and enabled again for a running plugin.
+func TestPermissionsSaveDisabledForFailedPlugin(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list,
+		PluginInfo{Name: "old-sync", Version: "1.0.0", Permissions: []string{"kv"}, Package: &PackageMeta{Enabled: true, LoadError: "not loaded"}},
+		PluginInfo{Name: "running", Version: "1.0.0", Loaded: true, Permissions: []string{"kv"}, Package: &PackageMeta{Enabled: true}},
+	)
+	save := regexp.MustCompile(`<button[^>]*?(disabled)?[^>]*><span>Save permissions</span>`)
+	for name, want := range map[string]bool{"old-sync": true, "running": false} {
+		body := g.do("GET", "/admin/plugins/"+name+"/permissions", "owner-token", nil, nil).Body.String()
+		m := save.FindString(body)
+		if m == "" || strings.Contains(m, " disabled") != want {
+			t.Errorf("%s: save button %q, want disabled=%v", name, m, want)
+		}
+	}
+}
+
 // A plugin that still requests a removed write permission shows it as removed
 // and disabled, not as a permission the owner can tick.
 func TestPermissionsPageRefusesRemovedPermission(t *testing.T) {
