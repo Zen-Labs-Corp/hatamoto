@@ -211,7 +211,9 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row[aria-selected="true"] .hm-bs-row__act:hover { background: transparent; color: var(--bs-nav-on-accent); }
 .hm-bs-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row[aria-selected="true"]:focus-visible { outline: 2px solid var(--bs-nav-on-accent); outline-offset: -4px; } /* the ring is drawn inward in paper: the outer one would vanish on the band */
-[data-pointer] > .hm-bs-tree .hm-bs-row:focus-visible, [data-pointer] > .hm-bs-tree .hm-bs-row[aria-selected="true"]:focus-visible { outline: none; } /* a mouse click: the solid row is the cue, no second ring; the next key brings the ring back */
+@media not (forced-colors: active) {
+  [data-pointer] > .hm-bs-tree .hm-bs-row:focus-visible, [data-pointer] > .hm-bs-tree .hm-bs-row[aria-selected="true"]:focus-visible { outline: none; } /* a mouse click: the solid row is the cue, no second ring; the next key brings the ring back */
+}
 @media (forced-colors: active) { .hm-bs-row[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }
 .hm-bs-row__caret { flex: none; display: inline-flex; align-items: center; justify-content: center; inline-size: calc(1em + var(--space-1)); color: var(--text-muted); }
 .hm-bs-row__caret .hm-icon { inline-size: 14px; block-size: 14px; stroke-width: 1.5; } /* a thin chevron, not a filled triangle */

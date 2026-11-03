@@ -41,6 +41,14 @@ test("no focus ring after a mouse click, still the paper ring on a selected row 
   assert.match(rule('.hm-bs-row[aria-selected="true"]:focus-visible'), /outline: 2px solid var\(--bs-nav-on-accent\)/);
 });
 
+test("the no-ring-after-click rule is off in forced-colors, where the outline is the only selected cue", () => {
+  const at = css.indexOf("@media not (forced-colors: active)");
+  const hit = css.indexOf("[data-pointer] > .hm-bs-tree .hm-bs-row:focus-visible");
+  assert.ok(at >= 0 && hit > at, "rule must sit inside @media not (forced-colors: active)");
+  assert.ok(css.indexOf("}\n", hit) < css.indexOf("@media (forced-colors: active) { .hm-bs-row[aria-selected", hit));
+  assert.match(css, /@media \(forced-colors: active\) \{ \.hm-bs-row\[aria-selected="true"\] \{ outline: 2px solid Highlight/);
+});
+
 test("chevron and Collapse are quiet: muted thin chevron, muted regular-weight Collapse", () => {
   assert.match(rule(".hm-bs-row__caret"), /color: var\(--text-muted\)/);
   assert.match(rule(".hm-bs-row__caret .hm-icon"), /stroke-width: 1\.5/);
