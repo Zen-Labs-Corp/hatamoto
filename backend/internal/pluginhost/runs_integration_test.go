@@ -470,3 +470,61 @@ func TestRunRecoveredPeriodically(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+// A database error on the driver's first read of the run is retried like the
+// other driver paths; the driver does not return and leave the run running.
+// The runtime's store gets a connection that gives up on a lock after 50 ms;
+// the test holds a table lock across the first read and then lets go.
+func TestRunDriverRetriesFirstRead(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	oldTries, oldWait := driverTries, driverRetryWait
+	driverTries, driverRetryWait = 5, 100*time.Millisecond
+	t.Cleanup(func() { driverTries, driverRetryWait = oldTries, oldWait })
+
+	dsn := os.Getenv("DATABASE_URL")
+	sep := "?"
+	if strings.Contains(dsn, "?") {
+		sep = "&"
+	}
+	short, err := database.New(ctx, config.DatabaseConfig{URL: dsn + sep + "lock_timeout=50", MaxConnections: 2, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(short.Close)
+
+	run, err := r.runs.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import",
+		Params: json.RawMessage(`{"schema":"` + r.schema + `","tag":"` + r.tag + `"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs, err := r.eng.Begin(ctx, run.ID, runnerPlugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.runs.SetChangeset(ctx, run.ID, cs); err != nil {
+		t.Fatal(err)
+	}
+	r.rt.Configure(Config{Services: Services{Runs: &plugrun.Store{DB: short}, Changesets: r.eng}})
+
+	tx, err := r.db.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err := tx.Exec(ctx, `LOCK TABLE hatamoto_runs IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); r.rt.drive(run.ID) }()
+	time.Sleep(150 * time.Millisecond) // the first read has failed by now
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+	got, _ := r.runs.Get(ctx, run.ID)
+	if got.State != plugrun.StateFinished {
+		t.Fatalf("run %s: %q", got.State, got.Reason)
+	}
+}

@@ -266,11 +266,8 @@ func (r *Runtime) drive(runID uuid.UUID) {
 	runs := r.caps.api.svc.Runs
 	bg := context.Background()
 	for {
-		run, err := runs.Get(bg, runID)
-		if err != nil {
-			if !errors.Is(err, plugrun.ErrNotFound) { // the database is down: recovery takes over
-				r.log.Error("run: driver stopped", slog.String("run", runID.String()), slog.Any("error", err))
-			}
+		var run plugrun.Run
+		if !r.try(runID, "read the run", func() (err error) { run, err = runs.Get(bg, runID); return }) {
 			return
 		}
 		if run.State != plugrun.StateRunning {
@@ -290,7 +287,7 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			return
 		}
 		var n int
-		if !r.try(run, "count the step", func() (err error) { n, err = runs.BumpSteps(bg, runID); return }) {
+		if !r.try(runID, "count the step", func() (err error) { n, err = runs.BumpSteps(bg, runID); return }) {
 			return
 		}
 		if n > plugrun.MaxRunSteps {
@@ -319,11 +316,11 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			r.failRunCtx(bg, run, fail)
 			return
 		case finish && run.Phase == plugrun.PhaseFetch:
-			if !r.try(run, "advance the phase", func() error { return runs.AdvancePhase(bg, runID, plugrun.PhaseTransform) }) {
+			if !r.try(runID, "advance the phase", func() error { return runs.AdvancePhase(bg, runID, plugrun.PhaseTransform) }) {
 				return
 			}
 		case finish:
-			r.try(run, "finish the run", func() error { return runs.Finish(bg, runID, summary) })
+			r.try(runID, "finish the run", func() error { return runs.Finish(bg, runID, summary) })
 			return
 		}
 	}
@@ -342,8 +339,8 @@ var (
 // discarded), so no run stays running without a driver; if even that cannot
 // be written the database is down, and RecoverRunsEvery fails the run once it has
 // been quiet for RecoverAfter. A run that ended elsewhere (ErrNotRunning) is
-// left alone.
-func (r *Runtime) try(run plugrun.Run, what string, op func() error) bool {
+// left alone, as is one that is gone.
+func (r *Runtime) try(runID uuid.UUID, what string, op func() error) bool {
 	var err error
 	for i := 0; i < driverTries; i++ {
 		if i > 0 {
@@ -352,11 +349,11 @@ func (r *Runtime) try(run plugrun.Run, what string, op func() error) bool {
 		if err = op(); err == nil {
 			return true
 		}
-		if errors.Is(err, plugrun.ErrNotRunning) {
+		if errors.Is(err, plugrun.ErrNotRunning) || errors.Is(err, plugrun.ErrNotFound) {
 			return false
 		}
 	}
-	r.failRunCtx(context.Background(), run, fmt.Sprintf("could not %s: %v", what, err))
+	r.failRun(runID, fmt.Sprintf("could not %s: %v", what, err))
 	return false
 }
 
