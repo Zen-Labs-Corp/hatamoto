@@ -121,7 +121,7 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 @media not all and (max-width: 40rem) { /* the exact complement of the phone rules below: at 640px only the phone layout applies */
   .hm-editor-bar:has([data-hm-bs-title]) { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr); column-gap: var(--space-2); }
   .hm-editor-bar:has([data-hm-bs-title]) .hm-bs__end { justify-self: end; }
-  @media (max-width: 75rem) { .hm-bs__dlong { display: none; } .hm-bs__dshort { display: inline; } } /* laptops: Desktop / Tablet / Phone without the pixel limits, so the three groups fit */
+  @media (max-width: 75rem) { .hm-bs__dlong { display: none; } .hm-bs__dshort { display: inline; } .hm-bs__tools [data-hm-bs-preview] > span { display: none; } } /* laptops: Desktop / Tablet / Phone without the pixel limits and Preview as an icon (it keeps its aria-label), so the three groups fit */
 }
 /* Update, with changes that are not on the live page yet: a dot in the text colour (the forced-colors block below keeps it: system colours replace backgrounds). */
 .hm-editor-bar:has([data-hm-bs-title]) [data-hm-bs-save][data-hm-bs-dirty]::after { content: ""; display: inline-block; inline-size: 0.5em; block-size: 0.5em; margin-inline-start: var(--space-2); border-radius: 50%; background: currentColor; }

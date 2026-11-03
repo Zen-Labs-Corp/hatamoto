@@ -109,12 +109,12 @@ func TestBuilderBarPreview(t *testing.T) {
 	r.ent.Status = entity.StatusPublished
 	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
 	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
-	has(t, body, `href="/`+r.ent.Slug+`" data-hm-bs-preview="" rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]">Preview</button>`)
+	has(t, body, `href="/`+r.ent.Slug+`" aria-label="Preview" data-hm-bs-preview="" rel="noopener" target="_blank" title="Preview the live page"`, `data-hm-bs-proxy="[data-hm-bs-preview]">Preview</button>`)
 	lacks(t, body, `title="Publish to view"`)
 
 	r.ent.Status = entity.StatusDraft
 	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
-	has(t, body, `aria-disabled="true" data-hm-bs-preview="" disabled="disabled" title="Publish to view"`)
+	has(t, body, `aria-label="Preview" aria-disabled="true" data-hm-bs-preview="" disabled="disabled" title="Publish to view"`)
 	lacks(t, body, `rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]"`)
 }
 
