@@ -71,3 +71,12 @@ test("a site whose only page is the current one says there are no other pages", 
   mountPages(many, { pages });
   assert.equal(many.walk().find((n) => n.tag === "p").textContent, "");
 });
+
+test("the filter field sits in the same search wrapper (icon + inset) as the Layers search", () => {
+  const host = new El("div");
+  mountPages(host, { pages });
+  const wrap = host.walk().find((n) => n.attrs.class === "hm-bs__search");
+  assert.ok(wrap, "no .hm-bs__search wrapper");
+  assert.ok(wrap.walk().some((n) => "data-hm-bs-searchico" in n.attrs), "no search icon");
+  assert.ok(wrap.walk().some((n) => n.tag === "input"));
+});

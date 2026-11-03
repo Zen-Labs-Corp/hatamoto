@@ -14,9 +14,10 @@ export function filterPages(pages, q) {
  */
 export function mountPages(host, { pages = [], announce = () => {} } = {}) {
   const search = h("input", { type: "search", class: "hm-field__control", id: "hm-bs-pages-q", placeholder: "Find a page…", autocomplete: "off", "aria-label": "Find a page", "aria-controls": "hm-bs-pages-list" });
+  const ico = document.querySelector?.("template[data-hm-bs-ico]")?.content?.querySelector('[data-ico="search"]')?.cloneNode(true) ?? h("span", { "data-ico": "search" }); // the server-rendered icon, as on the Layers search
   const list = h("ul", { class: "hm-bs-pages", id: "hm-bs-pages-list" });
   const note = h("p", { class: "hm-muted hm-bs-pages__empty", hidden: true });
-  const el = h("div", { class: "hm-bs-pages__body" }, h("div", { class: "hm-bs-pages__q" }, search), list, note);
+  const el = h("div", { class: "hm-bs-pages__body" }, h("div", { class: "hm-bs-pages__q" }, h("span", { class: "hm-bs__search" }, h("span", { "data-hm-bs-searchico": "", "aria-hidden": "true" }, ico), search)), list, note);
   host.replaceChildren(el);
   const row = (p) =>
     h(
