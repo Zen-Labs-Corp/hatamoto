@@ -348,6 +348,9 @@ func (w MenuWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(con
 			return nil, fmt.Errorf("%w: target %q", ErrInvalidItem, it.TargetID)
 		}
 		_, err = w.Svc.ApplyChangesetTx(ctx, tx, menu.MenuOp{ID: id, Delete: true})
+		if errors.Is(err, menu.ErrMenuHasLocation) {
+			return nil, fmt.Errorf("%w: %v", ErrRevertConflict, err)
+		}
 		return nil, err
 	}
 	return nil, w.Svc.RestoreChangesetTx(ctx, tx, it.Before)

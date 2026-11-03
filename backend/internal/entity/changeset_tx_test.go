@@ -386,3 +386,35 @@ func TestChangesetTxRestoreCreateRefusesWithChildren(t *testing.T) {
 		t.Errorf("child re-rooted: %+v %v", got, err)
 	}
 }
+
+func TestChangesetTxRestoreDeleteLeavesOriginalMarkWithTheOtherMember(t *testing.T) {
+	f := newCSFixture(t)
+	mk := func(slug, locale string) *Entity {
+		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{"content":"x"}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	orig, other := mk("tr-orig", "en"), mk("tr-other", "fr")
+	group := uuid.New()
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET translation_group = $1, translation_original = (id = $2) WHERE id IN ($2, $3)`, group, orig.ID, other.ID); err != nil {
+		t.Fatal(err)
+	}
+	del, err := f.apply(TxOp{ID: &orig.ID, Delete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The owner names the other member the original, then the delete is reverted.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET translation_original = true WHERE id = $1`, other.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.inTx(func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(f.ctx, tx, orig.ID, del.Before) }); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	var n int
+	f.db.Pool().QueryRow(f.ctx, `SELECT count(*) FROM hatamoto_entities WHERE translation_group = $1 AND translation_original`, group).Scan(&n)
+	if n != 1 {
+		t.Errorf("%d originals in the group, want the owner's one", n)
+	}
+}

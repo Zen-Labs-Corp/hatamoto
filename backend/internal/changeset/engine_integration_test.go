@@ -1044,3 +1044,34 @@ func TestChangesetRedirectSourceRules(t *testing.T) {
 		t.Errorf("state = %s", got)
 	}
 }
+
+// Restoring a create whose menu got a location is a revert conflict (the item
+// is skipped), not an error that aborts the revert.
+func TestChangesetMenuRestoreWithLocationIsConflict(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	f.stage(cs, Item{Kind: KindMenu, Op: OpUpsert, SourceKey: "m-" + f.tag, Payload: raw(map[string]any{"name": "M", "slug": f.tag + "-loc"})})
+	f.publish(cs)
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_menus WHERE slug = $1`, f.tag+"-loc").Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_menus SET location = $2 WHERE id = $1`, id, "loc-"+f.tag); err != nil {
+		t.Fatal(err)
+	}
+	_, err := f.eng.Writers[KindMenu].Restore(f.ctx, f.mustTx(), StoredItem{Item: Item{Kind: KindMenu, TargetID: id}})
+	if !errors.Is(err, ErrRevertConflict) {
+		t.Fatalf("restore = %v, want ErrRevertConflict", err)
+	}
+}
+
+// mustTx opens a transaction that rolls back with the test.
+func (f *fixture) mustTx() Tx {
+	f.t.Helper()
+	tx, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	return tx
+}

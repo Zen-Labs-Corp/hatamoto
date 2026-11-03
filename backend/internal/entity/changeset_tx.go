@@ -408,7 +408,9 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 		INSERT INTO hatamoto_entities (id, schema_id, name, slug, locale, status, attributes, metadata, version,
 			created_by, updated_by, created_at, parent_id, author_id, byline_person_id, byline_org, published_at, origin,
 			translation_group, translation_original, variant_key)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+			-- the owner may have named another member the original since
+			$20::boolean AND NOT EXISTS (SELECT 1 FROM hatamoto_entities WHERE translation_group = $19::uuid AND translation_original), $21)`,
 		id, snap.SchemaID, snap.Name, snap.Slug, snap.Locale, snap.Status, snap.Attributes, snap.Metadata, snap.Version,
 		snap.CreatedBy, snap.UpdatedBy, snap.CreatedAt, snap.ParentID, snap.AuthorID, snap.BylinePersonID, snap.BylineOrg,
 		snap.PublishedAt, snap.Origin, snap.TranslationGroup, snap.TranslationOriginal, snap.VariantKey)
