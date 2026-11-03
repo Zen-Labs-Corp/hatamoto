@@ -227,7 +227,7 @@ test("a section's Layout shows Width, Max width, Align and Gap/Height without a 
   assert.deepEqual(labels, ["W", "Gap", "H"]);
   const widths = m.find((n) => n.dataset?.v && ["full", "wide", "text"].includes(n.dataset.v), layout).map((b) => b.textContent);
   assert.deepEqual(widths, ["Full", "Wide", "Text"]);
-  const toggle = m.find((n) => n.className === "hm-bs-more", layout)[0];
+  const toggle = m.find((n) => n.className === "hm-bs-morebtn", layout)[0];
   assert.equal(toggle.textContent, "More layout options");
   assert.equal(toggle.attrs["aria-expanded"], "false");
   assert.equal(more.hidden, true);
@@ -236,17 +236,17 @@ test("a section's Layout shows Width, Max width, Align and Gap/Height without a 
 
 test("More opens by itself when a key behind it has a value here, not for a primary key", () => {
   const withMore = mount(section({ rgap: "8px" }));
-  const t = withMore.find((n) => n.className === "hm-bs-more", withMore.group("Layout"))[0];
+  const t = withMore.find((n) => n.className === "hm-bs-morebtn", withMore.group("Layout"))[0];
   assert.equal(t.attrs["aria-expanded"], "true");
   assert.equal(withMore.find((n) => n.className === "hm-bs-grp__more", withMore.group("Layout"))[0].hidden, false);
   const primaryOnly = mount(section({ maxw: "full" }));
-  assert.equal(primaryOnly.find((n) => n.className === "hm-bs-more", primaryOnly.group("Layout"))[0].attrs["aria-expanded"], "false");
+  assert.equal(primaryOnly.find((n) => n.className === "hm-bs-morebtn", primaryOnly.group("Layout"))[0].attrs["aria-expanded"], "false");
 });
 
 test("the More toggle shows and hides its rows", () => {
   const m = mount(section());
   const layout = m.group("Layout");
-  const t = m.find((n) => n.className === "hm-bs-more", layout)[0];
+  const t = m.find((n) => n.className === "hm-bs-morebtn", layout)[0];
   const box = m.find((n) => n.className === "hm-bs-grp__more", layout)[0];
   t.fire("click");
   assert.equal(t.attrs["aria-expanded"], "true");
@@ -287,7 +287,7 @@ test("a block that is not a section keeps its Layout behind More", () => {
   const m = mount({ id: "i", t: "image", s: { base: {} } }, { parent: section() });
   const layout = m.group("Layout");
   assert.equal(m.find((n) => n.dataset?.v === "full", layout).length, 0, "no Width buttons");
-  assert.equal(m.find((n) => n.className === "hm-bs-more", layout).length, 1);
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", layout).length, 1);
 });
 
 // ---- Corners, Effects, Typography and a text block's Spacing -------------------------------
@@ -317,7 +317,7 @@ test("Effects: Shadow is None|S|M|L buttons writing none|sm|md|lg; the active on
   press(m, "None", "Effects").fire("click");
   assert.equal(m.calls.at(-1).value, null, "pressing the active one unsets");
   assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Opacity slider" || n.attrs?.["aria-label"] === "Reset Opacity", g).length > 0, true, "opacity stays reachable");
-  assert.equal(m.find((n) => n.className === "hm-bs-more", g)[0].textContent, "More effects options");
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].textContent, "More effects options");
 });
 
 test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto|L|C|R", () => {
@@ -372,12 +372,12 @@ test("a section keeps the box model in Spacing, no More", () => {
   const m = mount(section());
   const g = m.group("Spacing");
   assert.equal(m.find((n) => n.className === "hm-bs-bm hm-bs-bm--nested", g).length, 1);
-  assert.equal(m.find((n) => n.className === "hm-bs-more", g).length, 0);
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g).length, 0);
 });
 
 test("Fill keeps the colour field and the theme pills; Fill's other keys are behind More", () => {
   const m = mount(section({ bgimg: "/media/a.jpg" }));
   const g = m.group("Fill");
   assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", g).length > 0, true);
-  assert.equal(m.find((n) => n.className === "hm-bs-more", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
+  assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
 });

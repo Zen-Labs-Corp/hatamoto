@@ -311,7 +311,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const keep = new Set(entries);
     const key = `${g.name}:more`;
     const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
-    const toggle = h("button", { type: "button", class: "hm-bs-more", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
+    const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
     const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open });
     toggle.addEventListener("click", () => {
       const now = toggle.getAttribute("aria-expanded") !== "true";
