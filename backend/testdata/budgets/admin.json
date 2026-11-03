@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 63056,
+      "value": 64038,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 103783,
+      "value": 104404,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 103900
+      "cap": 105428
     },
     "editor_js_total_gzip": {
-      "value": 274966,
+      "value": 275587,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 275262
+      "cap": 276611
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder canvas direct manipulation",
-      "date": "2026-10-31"
-    },
     {
       "reason": "builder JS: canvas direct manipulation (select, drag, resize, inline edit) and its visual fixes; editor_js_first_gzip 99901 (main) -\u003e 101122, editor_js_total_gzip 251655 (main) -\u003e 262338, measured",
       "date": "2026-10-31"
@@ -119,6 +115,10 @@
     {
       "reason": "menus-real-data: optgroup select and menu location picker grow the editor bundle",
       "date": "2026-11-02"
+    },
+    {
+      "reason": "builder Layers panel (part 1): navigator rows, thumbnails and caption; editor_js_first_gzip 103783 -\u003e 104404, editor_js_total_gzip 274966 -\u003e 275587, measured",
+      "date": "2026-11-03"
     }
   ]
 }
