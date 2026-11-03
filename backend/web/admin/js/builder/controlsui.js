@@ -13,20 +13,22 @@ import { sourceOf, probe, splitValue, joinValue, boundsFor, stepFor, stepValue, 
  * scrub {get() -> number, apply(n, opts), step, bounds, short}: dragging the label sideways changes the value (1 step per
  * pixel, Shift x10, one undo step per drag); the field stays the keyboard path. short is the label's visible short form
  * ("Sz"); the full name stays its accessible name.
+ * compact: elements for a one-line row with no label (the Fill row): they sit in one 28px field with the reset button at its end, the body and chip under it.
  * paint(state) takes a controls.rowState() result (with classValue) and fills the source chip.
  */
-export function row({ id, name, label, body, status, note, onReset, scrub }) {
+export function row({ id, name, label, body, status, note, onReset, scrub, compact = null }) {
   if (scrub) scrubLabel(label, { id, name, ...scrub });
   const dot = h("span", { class: "hm-bs-dot", "aria-hidden": "true" });
   const src = chip("", { class: "hm-bs-src", hidden: true });
   const reset = actButton("", { class: "hm-bs-reset", "aria-label": `Reset ${name}`, "aria-describedby": `${id}-s`, onclick: onReset });
-  const el = h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, dot, label, reset), ...body, src, status, note);
+  const line = compact && h("div", { class: "hm-bs-fld hm-bs-fill" }, ...compact, reset);
+  const el = compact ? h("div", { class: "hm-field hm-bs-field hm-bs-fillrow" }, line, ...body, src, status, note) : h("div", { class: "hm-field hm-bs-field" }, h("div", { class: "hm-bs-head" }, dot, label, reset), ...body, src, status, note);
   return {
     el,
     reset,
     paint(state) {
       const s = sourceOf(state);
-      dot.dataset.dot = state.dot;
+      (line ?? dot).dataset.dot = state.dot;
       src.dataset.source = s.kind;
       src.textContent = s.text;
       src.hidden = !s.text;
@@ -244,7 +246,7 @@ let openColour = null; // the key whose popover was open when its panel was rebu
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled])";
 
 /**
- * colourControl({id, entry, name, palette, describe, apply}) -> {el, hex, sync(own, shown), close()}: a swatch button that opens
+ * colourControl({id, entry, name, palette, describe, apply}) -> {el, hex, text, sync(own, shown), close()}: a swatch button that opens
  * a popover (the admin's .hm-popover-panel and Popover API: Esc and an outside click close it, focus returns to the
  * swatch) with the site's colours, a native colour input, a hex field and Clear. Choosing a palette colour commits its
  * token name, never its hex. Tab wraps inside the panel: the popover is non-modal, so without this Tab would walk
@@ -279,6 +281,8 @@ export function colourControl({ id, entry, name, palette, describe, apply, user 
   const remember = (v) => /^#[0-9a-f]{3,8}$/i.test(v ?? "") && (pushRecent(user, v), paintRecent());
   const site = onEditSiteColours ? actButton("Edit site colours", { class: "hm-bs-site", onclick: () => (close(), onEditSiteColours()) }) : null;
   const noneLabel = h("span", { class: "hm-bs-none-l hm-muted", text: "None" });
+  const text = h("span", { class: "hm-bs-colour__t", "aria-hidden": "true" }); // the swatch's colour or token name, for a one-line row (the swatch button names it for a screen reader)
+  text.addEventListener("click", () => swatch.click());
   const opts = palette.colors.map((c) => {
     const dot = h("span", { class: "hm-bs-sw", "aria-hidden": "true" });
     paintSw(dot, c.hex || c.css);
@@ -306,6 +310,8 @@ export function colourControl({ id, entry, name, palette, describe, apply, user 
     const token = v !== null && Object.hasOwn(entry.tokens ?? {}, v) ? v : null;
     const resolved = token ? (palette.colors.find((c) => c.name === token)?.hex ?? "") : (v ?? "");
     paintSw(swatch, resolved || null);
+    text.textContent = v === null ? "None" : token ? (palette.colors.find((c) => c.name === token)?.label ?? token) : (resolved || v);
+    text.toggleAttribute("data-none", v === null);
     swatch.toggleAttribute("data-empty", !resolved);
     swatch.toggleAttribute("data-none", v === null); // the word None is shown only when the name says so too
     swatch.setAttribute("aria-label", v === null ? `${name}, None, not set` : `${name}, ${token ? (palette.colors.find((c) => c.name === token)?.label ?? token) : "custom"}, ${resolved || v}${own === null ? ", inherited" : ""}`);
@@ -351,5 +357,5 @@ export function colourControl({ id, entry, name, palette, describe, apply, user 
       if (swatch.isConnected && (!document.activeElement || document.activeElement === document.body)) swatch.focus();
       openColour = null;
     });
-  return { el, hex, sync, close };
+  return { el, hex, text, sync, close };
 }

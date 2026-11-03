@@ -558,7 +558,8 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
       name,
       label,
       scrub: len && !inline && canScrub(entry) ? scrubOf(entry, () => own ?? inh?.value ?? fromPreset, apply, palette) : undefined,
-      body: [el, pills?.el, stops?.el, datalist],
+      body: [...(pills ? [] : [el]), pills?.el, stops?.el, datalist],
+      compact: pills ? [el, col.text] : null, // the Fill row: [swatch  Brand], no label (the group says it), the pills under it
       status,
       note,
       onReset: () => {

@@ -64,7 +64,7 @@ const mount = (node, { bp = "base", state = "", table: tbl = table } = {}) => {
   const row = (name) => {
     const reset = find((n) => n.attrs["aria-label"] === `Reset ${name}`)[0];
     const head = reset.parent;
-    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")), src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
+    return { reset, dot: head.kids.find((k) => k.className.startsWith("hm-bs-dot")) ?? head, /* the one-line Fill row carries the dot on its field */ src: head.parent.kids.find((k) => k.className.startsWith("hm-bs-src")), input: (() => { const r = []; head.parent.walk((n) => n.tag === "input" && n.attrs.id && r.push(n)); return r[0]; })(), head };
   };
   return { el, calls, row, groupDot: () => find((n) => n.className === "hm-bs-dot" && n.dataset.dot === "set")[0], find };
 };

@@ -194,11 +194,11 @@ const { readFileSync } = await import("node:fs");
 const full = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 
 const FS = { sm: "0.875rem", md: "1rem", xl: "1.5rem", "2xl": "2rem" };
-const mount = (node, { bp = "base", state = "", parent = null, fs = FS } = {}) => {
+const mount = (node, { bp = "base", state = "", parent = null, fs = FS, colors = [] } = {}) => {
   const calls = [];
   const el = mountStyle({
     node, parent, table: full, bp, state, display: "block", presets: [],
-    palette: { colors: [], space: { 4: "1rem" }, fs },
+    palette: { colors, space: { 4: "1rem" }, fs },
     commit: (key, value, at, opts) => (calls.push({ key, value, at, opts }), true),
     commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
   });
@@ -385,6 +385,19 @@ test("Fill keeps the colour field and the theme pills; Fill's other keys are beh
   const g = m.group("Fill");
   assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", g).length > 0, true);
   assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].attrs["aria-expanded"], "true", "a set background image opens More");
+});
+
+test("Fill is one row: [swatch name] with the colour or token name, no label, the reset inside the row", () => {
+  const rowOf = (m) => m.find((n) => n.className === "hm-field hm-bs-field hm-bs-fillrow", m.group("Fill"))[0];
+  const m = mount(section({ bg: "#112233" }));
+  const row = rowOf(m);
+  assert.ok(row, "the Fill row");
+  assert.equal(m.find((n) => n.className?.includes("hm-bs-lbl"), row).length, 0, "no wrapping label");
+  assert.equal(m.find((n) => n.className === "hm-bs-colour__t", row)[0].textContent, "#112233", "a custom colour shows its hex");
+  assert.equal(m.find((n) => n.attrs?.["aria-label"] === "Reset Background", row.kids[0]).length, 1, "the reset sits in the row's field");
+  const none = mount(section());
+  assert.equal(none.find((n) => n.className === "hm-bs-colour__t", rowOf(none))[0].textContent, "None");
+  assert.equal(none.find((n) => n.attrs?.["aria-label"] === "Reset Background", rowOf(none)).every((b) => b.hidden), true, "nothing to reset when unset");
 });
 
 test("the Text style select repaints the Sz and Wt fields from the batch it wrote, still one commit", () => {
