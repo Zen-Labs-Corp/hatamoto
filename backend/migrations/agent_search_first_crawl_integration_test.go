@@ -56,8 +56,8 @@ func TestRelabelCDNEdgeSpoofed(t *testing.T) {
 	seedHit(t, db, "googlebot", "104.16.1.3", "verified") // edge, not spoofed: untouched
 	if _, err := db.Exec(`INSERT INTO hatamoto_agent_daily
 		(day, agent_id, path, status, hits, verified_hits, spoofed_hits)
-		VALUES (current_date, 'googlebot', '/post/example-slug', 200, 4, 1, 3),
-		       (current_date, 'bingbot', '/post/example-slug', 200, 1, 0, 1)`); err != nil {
+		VALUES ((now() AT TIME ZONE 'UTC')::date, 'googlebot', '/post/example-slug', 200, 4, 1, 3),
+		       ((now() AT TIME ZONE 'UTC')::date, 'bingbot', '/post/example-slug', 200, 1, 0, 1)`); err != nil {
 		t.Fatal(err)
 	}
 
