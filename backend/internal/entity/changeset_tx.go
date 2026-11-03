@@ -347,18 +347,32 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 	if snap.ID != id {
 		return fmt.Errorf("pre-image is for entity %s, not %s", snap.ID, id)
 	}
-	tag, err := sp.Exec(ctx, `
-		UPDATE hatamoto_entities
-		SET name = $2, slug = $3, locale = $4, status = $5, attributes = $6, metadata = $7, version = $8,
-		    parent_id = $9, author_id = $10, byline_person_id = $11, byline_org = $12, published_at = $13, origin = $14
-		WHERE id = $1`,
-		id, snap.Name, snap.Slug, snap.Locale, snap.Status, snap.Attributes, snap.Metadata, snap.Version,
-		snap.ParentID, snap.AuthorID, snap.BylinePersonID, snap.BylineOrg, snap.PublishedAt, snap.Origin)
-	if err != nil {
+	// The restore is a new write: the version never rewinds (history keeps a
+	// unique row per version). When the attributes differ, the live ones are
+	// snapshotted and the version moves on.
+	var curVersion int
+	var curAttrs json.RawMessage
+	switch err := sp.QueryRow(ctx, `SELECT version, attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, id).Scan(&curVersion, &curAttrs); {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return fmt.Errorf("failed to read entity: %w", err)
+	default:
+		changed := !jsonRawEqual(curAttrs, snap.Attributes)
+		if changed {
+			if _, err := sp.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes) VALUES ($1, $2, $3)`,
+				id, curVersion, curAttrs); err != nil {
+				return fmt.Errorf("failed to create version snapshot: %w", err)
+			}
+		}
+		_, err := sp.Exec(ctx, `
+			UPDATE hatamoto_entities
+			SET name = $2, slug = $3, locale = $4, status = $5, attributes = $6, metadata = $7,
+			    parent_id = $8, author_id = $9, byline_person_id = $10, byline_org = $11, published_at = $12, origin = $13,
+			    version = CASE WHEN $14 THEN version + 1 ELSE version END
+			WHERE id = $1`,
+			id, snap.Name, snap.Slug, snap.Locale, snap.Status, snap.Attributes, snap.Metadata,
+			snap.ParentID, snap.AuthorID, snap.BylinePersonID, snap.BylineOrg, snap.PublishedAt, snap.Origin, changed)
 		return restoreErr(err)
-	}
-	if tag.RowsAffected() > 0 {
-		return nil
 	}
 	_, err = sp.Exec(ctx, `
 		INSERT INTO hatamoto_entities (id, schema_id, name, slug, locale, status, attributes, metadata, version,

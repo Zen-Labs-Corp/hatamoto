@@ -243,8 +243,19 @@ func TestChangesetTxRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := f.repo.GetByID(f.ctx, e.ID)
-	if got.Name != "R" || !jsonRawEqual(got.Attributes, e.Attributes) || got.Version != e.Version {
+	if got.Name != "R" || !jsonRawEqual(got.Attributes, e.Attributes) || got.Version <= e.Version+1 {
 		t.Errorf("after restore: %s %s v%d", got.Name, got.Attributes, got.Version)
+	}
+	// The version never rewinds: a normal save after the revert must work.
+	three, four := json.RawMessage(`{"content":"three"}`), json.RawMessage(`{"content":"four"}`)
+	if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: &three}); err != nil {
+		t.Fatalf("save after restore: %v", err)
+	}
+	if _, err := f.apply(TxOp{ID: &e.ID, Attributes: four}); err != nil {
+		t.Fatalf("changeset update after restore: %v", err)
+	}
+	if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: &three}); err != nil {
+		t.Fatal(err)
 	}
 	var origin string
 	f.db.Pool().QueryRow(f.ctx, `SELECT origin FROM hatamoto_entities WHERE id = $1`, e.ID).Scan(&origin)
