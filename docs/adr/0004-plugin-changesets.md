@@ -7,7 +7,7 @@ feature table: the importer leaves core and becomes a first-party plugin built
 on this design).
 
 Breaks: the plugin contract in [`docs/PLUGIN_API.md`](../PLUGIN_API.md). This
-ships as SDK 2.0 and core 2.0.
+ships as core 1.1.0 and SDK 0.17.
 
 ## The rules in plain words
 
@@ -250,12 +250,12 @@ These exist today and stay binding for run steps:
   connect.
 - **Input.** Host function arguments are decoded strictly (an unknown field is
   `invalid_argument`), capped at 1 MiB per request and 2 MiB per result, with a
-  nesting depth limit (core 2.0 adds it to any decoder that lacks one). No host
+  nesting depth limit (core 1.1.0 adds it to any decoder that lacks one). No host
   function takes a filesystem path.
 
 ### 9. Host functions
 
-**Removed in SDK 2.0:** `entities.create`, `entities.update`,
+**Removed in SDK 0.17:** `entities.create`, `entities.update`,
 `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`,
 `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`,
 `redirects.create`, `redirects.delete`, and the permissions `entities.write`,
@@ -293,13 +293,13 @@ content writes outside a run.
 
 ### 10. Breaking change and migration
 
-- SDK 2.0 removes the write functions and permissions above and adds the run,
-  buffer and changeset functions. Core 2.0 refuses to load a plugin whose
+- SDK 0.17 removes the write functions and permissions above and adds the run,
+  buffer and changeset functions. Core 1.1.0 refuses to load a plugin whose
   manifest requests a removed permission, with a message naming the replacement.
 - No first-party plugin uses the removed functions today; the WordPress importer
   is the first plugin written for the new model.
 - Standing approvals and changesets need new core tables; that migration is part
-  of core 2.0.
+  of core 1.1.0.
 
 ### 11. Data-level boundaries (headless-ready, not headless)
 
@@ -378,8 +378,8 @@ under a signed binary.
 **Negative**
 
 - A large core change: origins on every content table, changesets, merge,
-  the preview origin, the diff engine, standing approvals, and SDK 2.0.
-- A major release of core and the SDK. Third-party plugins that write content
+  the preview origin, the diff engine, standing approvals, and SDK 0.17.
+- A minor release of core and the SDK, a one-time owner exception. Third-party plugins that write content
   must be rewritten.
 - Imports take effect only after an owner reviews them, and plugins can no longer
   change content in the background except through Layer 1 or a standing
@@ -388,7 +388,7 @@ under a signed binary.
 ## Implementation order
 
 1. This ADR.
-2. Core 2.0: run engine and changesets, origins and merge, the preview origin
+2. Core 1.1.0: run engine and changesets, origins and merge, the preview origin
    and risk-weighted diff, standing approvals, removal of direct writes.
 3. Supply chain ADR and its implementation.
 4. The first-party WordPress import plugin on the new API.

@@ -72,6 +72,14 @@ change under the same version (`scripts/publish-sdk.sh` refuses to retag a diffe
   rename, retype) needs a major release. See "Release and update protocol".
 - From 1.0 the usual semantic versioning applies: no breaking change inside a major version.
 
+### One-time exception: core 1.1.0 and SDK 0.17
+
+Core 1.1.0 and SDK 0.17 make one deliberate hard break: the direct content write
+functions of the plugin API are removed in favour of changesets, with no
+compatibility shim. This is a one-time exception granted by the owner, so it
+ships as a minor release of core and the SDK. It is tracked by
+[ADR 0004](docs/adr/0004-plugin-changesets.md) and is not a precedent.
+
 The change rules in the table are:
 
 - **SDK rule**: the deprecation notice for an SDK change appears in one SDK minor, and the change
@@ -107,6 +115,8 @@ matches none of them.
 - A new permission for a new capability is additive and ships in an SDK minor.
 - Gating an existing capability behind a permission is a behaviour change. It needs an SDK minor bump,
   a release note and, unless it is a security exception, a deprecation notice first.
+- Removing the direct content write permissions in SDK 0.17 is the one-time exception described under
+  "What 0.x means", not a precedent.
 - A permission is never granted automatically: the owner grants it under Plugins > Permissions. An
   update that widens reach (new allowed hosts, `http.fetch.any`, `builder.island`, `site.scripts`) also
   needs the owner's confirmation before it installs (`ConfirmationRequired` in

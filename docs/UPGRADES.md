@@ -101,6 +101,11 @@ binary does not know the column: it reads only the on/off flag, so an allowance 
 stays on until someone turns it off. After such a rollback, check **Plugins > Package security**
 (or turn the allowance off before rolling back).
 
+The release that adds changesets (core 1.1.0, SDK 0.17) migrates the data by expanding the schema only, so
+the n-1 check passes. It also removes the direct content write functions of the plugin API, which an older
+binary still serves to plugins that rely on them. Set `rollback_floor` for that release consciously
+instead of taking the previous minor by default.
+
 ### Squashing migrations
 
 The migration chain is folded into a new baseline only at a major release, never in a patch or
