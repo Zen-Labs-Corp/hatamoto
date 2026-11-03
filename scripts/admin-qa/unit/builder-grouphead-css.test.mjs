@@ -22,6 +22,7 @@ test("the inspector pane has no padding of its own: tabs, header and groups are 
 
 test("the Advanced tab uses the Design tab's type scale: group titles and field text are text-xs", () => {
   const own = readFileSync(new URL("../../../backend/web/admin/css/pages/builderinspector.css", import.meta.url), "utf8");
-  assert.match(own, /^\.hm-bs-advanced, \.hm-bs-advanced :is\([^)]*\.hm-field__control[^)]*\) \{ font-size: var\(--text-xs\);/m);
+  assert.match(own, /^\.hm-bs-advanced, \.hm-bs-advanced :is\(\.hm-bs-fs, [^)]*\) \{ font-size: var\(--text-xs\);/m);
+  assert.doesNotMatch(own, /\.hm-bs-advanced[^{]*\.hm-(field__|switch)[^{]*\{[^}]*font-size/, "builder-owned classes only: no shared-component font-size override");
   assert.match(own, /^\.hm-bs-advanced \.hm-bs-grp__hd[^{]*\{[^}]*font-size: var\(--text-xs\);/m);
 });

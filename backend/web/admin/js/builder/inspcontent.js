@@ -348,6 +348,12 @@ export function createContent(ctx) {
     return panel;
   }
 
+  /** The Advanced tab's type scale: its shared fields keep their own classes and take the builder's `hm-bs-fs` (see builderinspector.css). */
+  const scaled = (el) => {
+    for (const f of el.querySelectorAll(".hm-field__control, .hm-field__label, .hm-field__check, .hm-switch, .hm-muted")) f.classList.add("hm-bs-fs");
+    return el;
+  };
+
   function advancedPanel(node) {
     const panel = h("div", { class: "hm-bs-advanced" });
     const idf = `hm-bs-id${++uid}`;
@@ -360,11 +366,11 @@ export function createContent(ctx) {
     panel.append(visibility);
     const mine = gen();
     visibilityGroup(node)
-      .then((group) => mine === gen() && visibility.isConnected && visibility.replaceWith(group))
+      .then((group) => mine === gen() && visibility.isConnected && visibility.replaceWith(scaled(group)))
       .catch(console.error);
     panel.append(h("h4", { class: "hm-bs-grp__hd", text: "Anchor & attributes" }));
-    import("@hm/builder/elementsettings").then((m) => m.advancedExtras(node, panel, { api, commit })).catch(console.error);
-    return panel;
+    import("@hm/builder/elementsettings").then((m) => (m.advancedExtras(node, panel, { api, commit }), scaled(panel))).catch(console.error);
+    return scaled(panel);
   }
 
   return { propField, contentPanel, advancedPanel };

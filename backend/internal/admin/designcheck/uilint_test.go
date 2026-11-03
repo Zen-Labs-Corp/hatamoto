@@ -202,7 +202,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-06", File: "css/partials/select.css", Needle: ".hm-listbar", Reason: "the list toolbar row sets the select trigger to 32px and the md radius; listbar_css_test.go asserts it"},
 	{Rule: "UI-06", File: "css/partials/segmented.css", Needle: ".hm-listbar", Max: 3, Reason: "the list toolbar row sets the status segment track to 32px; listbar_css_test.go asserts it"},
 	{Rule: "UI-06", File: "css/partials/tabs.css", Needle: ".hm-listbar", Max: 3, Reason: "the list toolbar row sets a segmented tab track to 32px; listbar_css_test.go asserts it"},
-	{Rule: "UI-06", File: "css/pages/builderinspector.css", Needle: ".hm-bs-advanced :is(", Reason: "the builder Advanced tab renders server-built shared fields; they take the Design tab's text-xs scale here, builder-grouphead-css.test.mjs asserts it"},
 	// UI-06: editor and chip scope.
 	{Rule: "UI-06", File: "css/partials/danger-confirm.css", Needle: ".hm-danger-confirm__card .hm-card__title", Reason: "danger title colour like .hm-dialog--danger; hm/card-start has no title class hook"},
 	{Rule: "UI-06", File: "css/partials/table.css", Needle: ".hm-card__body > .hm-tablecard", Reason: "a list table nested in a titled card is its content, not a second card"},
