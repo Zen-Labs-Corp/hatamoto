@@ -104,12 +104,28 @@ func (r *Runtime) StartRun(ctx context.Context, plugin, name string, in StartRun
 		r.failRun(run.ID, "could not open the changeset: "+err.Error())
 		return uuid.Nil, fmt.Errorf("failed to start run: %w", err)
 	}
+	if !r.spawnDriver(run.ID) {
+		r.failRun(run.ID, reasonShutdown)
+		return uuid.Nil, ErrRunsUnavailable
+	}
+	return run.ID, nil
+}
+
+// spawnDriver starts the driver of a run unless the runtime is closing. The
+// check and the WaitGroup Add happen under runMu, which Close also takes
+// before it waits, so a driver is never added while Close is waiting.
+func (r *Runtime) spawnDriver(runID uuid.UUID) bool {
+	r.runMu.Lock()
+	defer r.runMu.Unlock()
+	if r.runsClosed {
+		return false
+	}
 	r.runWG.Add(1)
 	go func() {
 		defer r.runWG.Done()
-		r.drive(run.ID)
+		r.drive(runID)
 	}()
-	return run.ID, nil
+	return true
 }
 
 // WaitRuns blocks until every driver started by StartRun has returned.

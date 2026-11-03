@@ -528,3 +528,27 @@ func TestRunDriverRetriesFirstRead(t *testing.T) {
 		t.Fatalf("run %s: %q", got.State, got.Reason)
 	}
 }
+
+// Starting a run once the runtime is closing returns an error and starts no
+// driver, so it cannot Add to the WaitGroup while Close waits on it.
+func TestRunStartAfterCloseRefused(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	r.rt.Close(ctx)
+	if _, err := r.start(""); !errors.Is(err, ErrRunsUnavailable) {
+		t.Fatalf("start after close: %v", err)
+	}
+	// A start that passed the early check before Close ran gets as far as
+	// spawning its driver.
+	run, err := r.runs.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.rt.spawnDriver(run.ID) {
+		t.Fatal("a driver was started on a closed runtime")
+	}
+	r.rt.WaitRuns()
+	if got, _ := r.runs.Get(ctx, run.ID); got.State != plugrun.StateRunning {
+		t.Fatalf("run %s: nothing should have driven it", got.State)
+	}
+}

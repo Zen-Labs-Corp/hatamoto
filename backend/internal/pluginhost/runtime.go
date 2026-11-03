@@ -70,6 +70,9 @@ type Runtime struct {
 	statuses []Status
 
 	runWG sync.WaitGroup // drivers started by StartRun
+	// runMu guards runsClosed and the WaitGroup Add against Close's Wait.
+	runMu      sync.Mutex
+	runsClosed bool
 	// runCtx ends when the runtime closes: drivers stop between steps, cut
 	// the step in flight and fail their run (see Close).
 	runCtx   context.Context
@@ -100,6 +103,9 @@ const runShutdownWait = 15 * time.Second
 // interrupted, so the run does not wait for recovery), then unloads every
 // plugin.
 func (r *Runtime) Close(ctx context.Context) {
+	r.runMu.Lock()
+	r.runsClosed = true
+	r.runMu.Unlock()
 	r.stopRuns()
 	done := make(chan struct{})
 	go func() { r.runWG.Wait(); close(done) }()
