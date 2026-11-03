@@ -427,21 +427,20 @@ func TestChangesetRevert(t *testing.T) {
 		t.Errorf("state = %s", got)
 	}
 
-	// Reverting the second changeset wrote entity, term, menu and redirect again,
-	// so the first one no longer owns them: revert leaves them and reports it.
+	// Reverting the second changeset handed its restored tokens to the first
+	// one, so the first reverts whole: nothing but the engine wrote them.
 	res, err := f.eng.Revert(f.ctx, create)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Applied != 1 || res.Skipped != 4 {
-		t.Fatalf("create revert result = %+v, want only the media removed", res)
+	if res.Applied != 5 || res.Skipped != 0 {
+		t.Fatalf("create revert result = %+v, want all five items removed", res)
 	}
-	if f.entities() != 1 ||
-		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rev") != 1 ||
-		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-rev") != 1 ||
-		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-rev") != 1 ||
-		f.count(`SELECT count(*) FROM hatamoto_media WHERE original_filename = 'r.png' AND origin = 'owner' AND created_at > $1`, time.Now().Add(-time.Minute)) != 0 {
-		t.Fatal("unexpected rows after the first changeset's revert")
+	if f.entities() != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rev") != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_menus WHERE slug = $1`, f.tag+"-rev") != 0 ||
+		f.count(`SELECT count(*) FROM hatamoto_redirects WHERE source_path = $1`, "/"+f.tag+"-rev") != 0 {
+		t.Fatal("rows left after the first changeset's revert")
 	}
 	if n := f.liveFiles(); n != 0 {
 		t.Errorf("%d media files survived the revert", n)
@@ -763,5 +762,116 @@ func TestChangesetStageRefusesForeignBlobKeys(t *testing.T) {
 	}
 	if !f.fileExists(foreign) {
 		t.Error("the foreign file is gone")
+	}
+}
+
+// Two changesets that touched the same objects revert newest first with no
+// false conflict, and leave the state from before both.
+func TestChangesetRevertReverseOrder(t *testing.T) {
+	f := newFixture(t)
+	base := f.begin("")
+	f.stage(base, f.entityItem("e-"+f.tag, "ro-"+f.tag, "v0"))
+	f.stage(base, Item{Kind: KindTerm, Op: OpUpsert, SourceKey: "t-" + f.tag, Payload: raw(map[string]any{"kind": "tag", "name": "N0", "slug": f.tag + "-ro"})})
+	f.stage(base, Item{Kind: KindRedirect, Op: OpUpsert, SourceKey: "r-" + f.tag, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-ro", "target": "/v0"})})
+	f.publish(base)
+	// Stable ids; the base changeset is the owner's from here on.
+	var eid, tid, rid string
+	for q, dst := range map[string]*string{
+		`SELECT id FROM hatamoto_entities WHERE schema_id = $1`: &eid, `SELECT id FROM hatamoto_terms WHERE slug = $1`: &tid,
+		`SELECT id FROM hatamoto_redirects WHERE source_path = $1`: &rid,
+	} {
+		var arg any = f.tag + "-ro"
+		if dst == &eid {
+			arg = f.schema.ID
+		} else if dst == &rid {
+			arg = "/" + f.tag + "-ro"
+		}
+		if err := f.db.Pool().QueryRow(f.ctx, q, arg).Scan(dst); err != nil {
+			t.Fatal(err)
+		}
+	}
+	round := func(n string) int64 {
+		cs := f.begin("")
+		e := f.entityItem("", "", n)
+		e.TargetID = eid
+		e.Payload = raw(map[string]any{"attributes": map[string]any{"content": n}})
+		f.stage(cs, e)
+		f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, TargetID: tid, Payload: raw(map[string]any{"name": "N" + n, "slug": f.tag + "-ro"})})
+		f.stage(cs, Item{Kind: KindRedirect, Op: OpUpsert, TargetID: rid, Payload: raw(map[string]any{"source_path": "/" + f.tag + "-ro", "target": "/" + n})})
+		if res := f.publish(cs); res.Applied != 3 {
+			t.Fatalf("publish %s: %+v", n, res)
+		}
+		return cs
+	}
+	a, b := round("a"), round("b")
+	for _, cs := range []int64{b, a} {
+		res, err := f.eng.Revert(f.ctx, cs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Skipped != 0 || res.Applied != 3 || len(res.Conflicts) != 0 {
+			t.Fatalf("revert of %d = %+v", cs, res)
+		}
+		if got := f.state(cs); got != StateReverted {
+			t.Errorf("state of %d = %s", cs, got)
+		}
+	}
+	var content, tname, target string
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT attributes->>'content' FROM hatamoto_entities WHERE id = $1`, eid).Scan(&content)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT name FROM hatamoto_terms WHERE id = $1`, tid).Scan(&tname)
+	_ = f.db.Pool().QueryRow(f.ctx, `SELECT target_url FROM hatamoto_redirects WHERE id = $1`, rid).Scan(&target)
+	if content != "v0" || tname != "N0" || target != "/v0" {
+		t.Fatalf("original state not back: content=%q term=%q redirect=%q", content, tname, target)
+	}
+}
+
+// A revert with a conflict keeps the changeset published; once the conflict is
+// gone a second revert finishes it and does not touch what the first restored.
+func TestChangesetRevertWithConflictCanRetry(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("")
+	f.stage(cs, f.entityItem("e-"+f.tag, "rt-"+f.tag, "x"))
+	f.stage(cs, Item{Kind: KindTerm, Op: OpUpsert, SourceKey: "t-" + f.tag, Payload: raw(map[string]any{"kind": "tag", "name": "T", "slug": f.tag + "-rt"})})
+	f.publish(cs)
+	var afterTok string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT after_token FROM hatamoto_changeset_items WHERE changeset_id = $1 AND kind = 'term'`, cs).Scan(&afterTok); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_terms SET name = 'Owner', updated_at = now() WHERE slug = $1`, f.tag+"-rt"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.eng.Revert(f.ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Applied != 1 || res.Skipped != 1 {
+		t.Fatalf("first revert = %+v", res)
+	}
+	if got := f.state(cs); got != StatePublished {
+		t.Fatalf("state after a conflicted revert = %s, want published", got)
+	}
+	if f.entities() != 0 {
+		t.Fatal("the entity was not restored")
+	}
+	// The owner's edit is undone (the token is back); the entity item is not retried.
+	at, err := time.Parse(time.RFC3339Nano, afterTok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_terms SET updated_at = $2 WHERE slug = $1`, f.tag+"-rt", at); err != nil {
+		t.Fatal(err)
+	}
+	res, err = f.eng.Revert(f.ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Applied != 1 || res.Skipped != 0 {
+		t.Fatalf("second revert = %+v", res)
+	}
+	if got := f.state(cs); got != StateReverted {
+		t.Errorf("state = %s, want reverted", got)
+	}
+	if f.count(`SELECT count(*) FROM hatamoto_terms WHERE slug = $1`, f.tag+"-rt") != 0 {
+		t.Error("term survived the second revert")
 	}
 }

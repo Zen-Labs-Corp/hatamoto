@@ -91,11 +91,18 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 	if err := e.checkOwnership(ctx, tx, plugin, it.Kind, target); errors.Is(err, ErrNotOwned) {
 		res.Skipped++
 		res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: ReasonNotOwned})
-		return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil)
+		return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil, "")
 	} else if err != nil {
 		return err
 	}
 	origin := Origin(plugin)
+	beforeTok := ""
+	if target != "" {
+		var err error
+		if beforeTok, err = liveToken(ctx, tx, it.Kind, target); err != nil {
+			return err
+		}
+	}
 	out, err := w.Apply(ctx, tx, origin, it.Item, target)
 	if out.Undo != nil {
 		*undos = append(*undos, out.Undo)
@@ -106,9 +113,9 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 	if out.Conflict {
 		res.Skipped++
 		res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: out.Detail})
-		return recordResult(ctx, tx, it.ID, ResultSkippedConflict, out.Detail, target, nil)
+		return recordResult(ctx, tx, it.ID, ResultSkippedConflict, out.Detail, target, nil, "")
 	}
-	if err := recordResult(ctx, tx, it.ID, ResultApplied, out.Detail, out.TargetID, out.Before); err != nil {
+	if err := recordResult(ctx, tx, it.ID, ResultApplied, out.Detail, out.TargetID, out.Before, beforeTok); err != nil {
 		return err
 	}
 	if it.SourceKey != "" {
@@ -126,11 +133,11 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 	return nil
 }
 
-func recordResult(ctx context.Context, tx pgx.Tx, itemID int64, result, detail, target string, before []byte) error {
+func recordResult(ctx context.Context, tx pgx.Tx, itemID int64, result, detail, target string, before []byte, beforeToken string) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE hatamoto_changeset_items
-		SET result = $2, result_detail = NULLIF($3, ''), target_id = NULLIF($4, ''), before = $5
-		WHERE id = $1`, itemID, result, detail, target, before)
+		SET result = $2, result_detail = NULLIF($3, ''), target_id = NULLIF($4, ''), before = $5, before_token = NULLIF($6, '')
+		WHERE id = $1`, itemID, result, detail, target, before, beforeToken)
 	if err != nil {
 		return fmt.Errorf("failed to record result: %w", err)
 	}

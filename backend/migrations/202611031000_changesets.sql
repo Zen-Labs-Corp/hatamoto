@@ -59,8 +59,9 @@ CREATE TABLE IF NOT EXISTS hatamoto_changeset_items (
     payload       jsonb NOT NULL DEFAULT '{}'::jsonb,
     before        jsonb,                         -- pre-image, written at publish, used by revert
     after_token   text,                          -- token of the live object when the publish ended; revert skips an object that moved since
+    before_token  text,                          -- token of the live object just before the publish; lets revert hand the restored token to the changeset built on this one
     blob_keys     text[] NOT NULL DEFAULT '{}',
-    result        text,                          -- applied|skipped_conflict|skipped_other
+    result        text,                          -- applied|skipped_conflict|skipped_other|reverted
     result_detail text
 );
 CREATE INDEX IF NOT EXISTS idx_changeset_items_changeset ON hatamoto_changeset_items (changeset_id, seq);

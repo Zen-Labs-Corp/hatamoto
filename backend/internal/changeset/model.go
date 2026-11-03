@@ -51,6 +51,9 @@ const (
 	ResultApplied         = "applied"
 	ResultSkippedConflict = "skipped_conflict"
 	ResultSkippedOther    = "skipped_other"
+	// ResultReverted marks an item a revert already restored, so a retry of a
+	// partly conflicted revert leaves it alone.
+	ResultReverted = "reverted"
 )
 
 // Errors of the engine.
@@ -101,6 +104,7 @@ type StoredItem struct {
 	Seq          int
 	Before       json.RawMessage
 	AfterToken   string // live token when the publish ended; empty when none was recorded
+	BeforeToken  string // live token just before the publish applied the item; empty for a create
 	Result       string
 	ResultDetail string
 }
