@@ -60,6 +60,7 @@ test("the Fit menu drives the canvas zoom, the Shortcuts item closes ⋯ before 
   assert.match(src, /\[data-hm-bs-keys\]"\)\?\.addEventListener\("click", \(e\) => \{\s*e\.currentTarget\.closest\("\[popover\]"\)\?\.hidePopover\?\.\(\);[^\n]*\n\s*dispatch\("sheet"\)/);
   assert.match(src, /b\.append\(h\("span", \{ class: "hm-bs__dlong" \}/);
   assert.doesNotMatch(src, /b\.replaceChildren\(h\("span", \{ class: "hm-bs__dlong"/);
+  assert.match(src, /nodeType === 3\)\.forEach\(\(n\) => n\.remove\(\)\)[^\n]*\n\s*b\.append\(h\("span", \{ class: "hm-bs__dlong"/); // the template's own label text goes: no doubled name
 });
 
 test('"/" opens the section popover with a selection and falls back to the Insert tab on a phone or with none', () => {

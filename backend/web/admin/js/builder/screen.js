@@ -1126,6 +1126,7 @@ function start(root, boot) {
   $$(bar, "[data-hm-bs-device]").forEach((b) => {
     const d = b.dataset.hmBsDevice; // the icon stays; real widths (muted) in the label, the short name on a phone (CSS)
     const limit = BREAKPOINT_MAX[d];
+    [...b.childNodes].filter((n) => n.nodeType === 3).forEach((n) => n.remove()); // the template's plain label: the spans below carry it
     b.append(h("span", { class: "hm-bs__dlong" }, BP_NAME[d], ...(limit ? [" ", h("span", { class: "hm-bs__dmute", text: `≤${limit}` })] : [])), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
     b.addEventListener("click", () => {
       device = d;
