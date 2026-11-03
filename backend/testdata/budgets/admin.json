@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 104404,
+      "value": 106251,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 105428
+      "cap": 107275
     },
     "editor_js_total_gzip": {
-      "value": 275587,
+      "value": 278389,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 276611
+      "cap": 279413
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -118,6 +118,10 @@
     },
     {
       "reason": "builder Layers panel (part 1): navigator rows, thumbnails and caption; editor_js_first_gzip 103783 -\u003e 104404, editor_js_total_gzip 274966 -\u003e 275587, measured",
+      "date": "2026-11-03"
+    },
+    {
+      "reason": "builder Layers panel (part 1): field selection, inspector field mode and the canvas field outline; editor_js_first_gzip 104404 -\u003e 106251, editor_js_total_gzip 275587 -\u003e 278389, measured",
       "date": "2026-11-03"
     }
   ]
