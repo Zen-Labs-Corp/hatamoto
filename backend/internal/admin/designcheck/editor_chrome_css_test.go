@@ -41,7 +41,7 @@ func TestEditorsCSSRules(t *testing.T) {
 	if !strings.Contains(css, "--bs-nav-band: color-mix(in srgb, var(--color-accent) ") {
 		t.Error("the Layers band (--bs-nav-band) must be an accent tint (accent-soft is grey in the admin palette), lighter than the solid selected row")
 	}
-	if !strings.Contains(css, ".hm-bs-row--band::before") {
+	if !strings.Contains(css, ".hm-bs-row--band { box-shadow: inset 2px 0 0 var(--bs-nav-accent); }") {
 		t.Error("the Layers band needs its accent edge, a cue that is not colour alone")
 	}
 

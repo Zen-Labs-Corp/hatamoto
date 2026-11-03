@@ -195,7 +195,8 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row:hover { background: var(--surface-hover); }
 .hm-bs-row--band { background: var(--bs-nav-band); }
 .hm-bs-row--band:hover { background: color-mix(in srgb, var(--color-accent) 18%, var(--surface)); }
-.hm-bs-row--band::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 2px; background: var(--bs-nav-accent); } /* a non-colour cue: the accent edge marks the section that holds the selection */
+.hm-bs-row--band { box-shadow: inset 2px 0 0 var(--bs-nav-accent); } /* a non-colour cue on every row of the band (the guide line keeps ::before): the accent edge marks the section that holds the selection */
+.hm-bs-row--band:dir(rtl) { box-shadow: inset -2px 0 0 var(--bs-nav-accent); }
 .hm-bs-row--band .hm-bs-row__meta, .hm-bs-row--band .hm-bs-row__kind { color: var(--text-body); } /* the tint is darker than the panel: muted text would drop under 4.5:1 */
 .hm-bs-row--band-first { border-start-start-radius: var(--radius-md); border-start-end-radius: var(--radius-md); }
 .hm-bs-row--band-last { border-end-start-radius: var(--radius-md); border-end-end-radius: var(--radius-md); }
