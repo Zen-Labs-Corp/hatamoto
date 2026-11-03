@@ -4,21 +4,21 @@ nav_title: Host API
 description: Every function a plugin can call on the server, the permission each one needs, its arguments, its result and its errors.
 ---
 
-The **host API** is the set of functions a plugin calls to work with your site: read and write content, store data, send mail or fetch a web address. This page lists the SDK, how a call works, every permission and every function. To make your first call, follow [Keep data and add a route](keep-data-and-routes.md).
+The **host API** is the set of functions a plugin calls to work with your site: read content, stage content changes in a run, store data, send mail or fetch a web address. This page lists the SDK, how a call works, every permission and every function. To make your first call, follow [Keep data and add a route](keep-data-and-routes.md).
 
 A plugin reaches the server through one imported function, `hm_call`, in the wasm module `extism:host/user`. Every capability behind it is checked against a permission the owner granted. The definitions live in `backend/pkg/sdk/hostapi.go` and `permissions.go`.
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.16.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.16.0` and also plugins built for `0.5.0` to `0.15.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.17.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.17.0` and also plugins built for `0.5.0` to `0.16.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.16.0"
+const Version = "0.17.0"
 var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.16.0`. SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.16.0` is the git tag `v0.16.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.17.0`. SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.17.0` is the git tag `v0.17.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -33,15 +33,11 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | Permission | Host functions |
 |---|---|
 | `entities.read` | `entities.get`, `entities.list`, `entities.translations` |
-| `entities.write` | `entities.create`, `entities.update`, `entities.set_status`, `entities.delete` |
 | `terms.read` | `terms.list`, `terms.get` |
-| `terms.write` | `terms.save`, `terms.delete` |
 | `menus.read` | `menus.list`, `menus.get` |
-| `menus.write` | `menus.save`, `menus.add_item`, `menus.delete_item` |
 | `media.read` | `media.get`, `media.list` |
-| `media.write` | `media.upload` |
 | `redirects.read` | `redirects.list` |
-| `redirects.write` | `redirects.create`, `redirects.delete` |
+| removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
@@ -88,11 +84,13 @@ if name, denied := guest.CapabilityDenied(err); denied {
 | `not_found` | The target does not exist. |
 | `rate_limited` | A per-plugin rate limit was hit. |
 | `blocked` | Refused by policy: the `http.fetch` allowlist or address guard, the SQL guard, or database privileges. |
-| `reentrant` | A write made while already inside the hooks of a plugin write. |
+| `reentrant` | No longer returned since 0.17 (plugins do not write directly). |
 | `timeout` | The call's deadline passed. |
-| `unavailable` | The backing service is not configured, or the plugin's database role is missing. |
+| `unavailable` | The backing service is not configured, or the plugin's database role is missing. Also a call to a function removed in 0.17; the message names its replacement. |
 | `internal` | An unexpected host error. |
 | `unknown_function` | No such function. |
+| `phase_denied` | The function is not available in the current run phase, or is a run function called outside a run. |
+| `not_owned` | A run tried to change an object the owner or another source owns. |
 
 Every call has a deadline of at most 15 seconds and never longer than the hook call that is running. A request is at most 1 MiB and a result at most 2 MiB, so ask for less with `limit` and `cursor`.
 
@@ -102,21 +100,11 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 |---|---|---|
 | `entities.get` | `{ "id" }`, `{ "path" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "limit"? (50, max 200), "cursor"? }` | `{ "items", "next_cursor" }` |
-| `entities.create` | `{ "schema_slug", "name", "slug"?, "locale"? (required on a multi-locale site for schemas that have translations, for plugins declaring 0.15 or later), "translation_of"? (entity id), "parent_id"?, "attributes"? }` | Entity |
-| `entities.update` | `{ "id", "name"?, "slug"?, "locale"?, "parent_id"? (`null` makes a root), "attributes"? }` | Entity |
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]`, the entity's translation group ordered by locale, `[]` when it has none or is alone |
-| `entities.set_status` | `{ "id", "status" }` | Entity |
-| `entities.delete` | `{ "id" }` | `{}` |
 | `terms.list` / `terms.get` | `{ "kind"?, "search"?, "limit"? }` / `{ "kind", "slug" }` | `{ "items", "total" }` / Term |
-| `terms.save` / `terms.delete` | `{ "kind", "slug"?, "name" }` / `{ "kind", "slug" }` | Term / `{}` |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
-| `menus.save` | `{ "slug"?, "name", "location"? }` | Menu |
-| `menus.add_item` | `{ "menu_slug", "label", "link_type", "url"?, "entity_id"?, "parent_id"?, "open_in_new_tab"? }` | MenuItem |
-| `menus.delete_item` | `{ "id" }` | `{}` |
 | `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media |
-| `media.upload` | `{ "filename", "mime_type", "data_b64" }` | media |
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
-| `redirects.create` / `redirects.delete` | `{ "source_path", "target_url", "status_code"? (301) }` / `{ "id" }` | Redirect / `{}` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items", "total" }`, never with IP or user agent |
 | `settings.get` | `{}` | the plugin's settings, schema defaults merged in |
@@ -130,18 +118,56 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 
 Notes on specific functions:
 
-- **`terms.save`** never reads or changes a term's `seo`. A Term result carries it, but sending it back does nothing: the search appearance of a term is edited on its admin page only.
-- **`media.upload`** stores a file whose type is sniffed from the bytes (`mime_type` is advisory). It must be an allowed type (images except SVG, PDF, MP4 or WebM) whose extension matches the filename. The 1 MiB request cap means about 750 KB of file.
+- **Term `seo`** is read-only. A Term result carries it; the search appearance of a term is edited on its admin page only.
 - **`log`** allows 10 lines per second (burst 20), then `rate_limited`. Messages are cut at 4 KiB.
 - **`mail.send`** goes through the site's mail service and From identity, allows 6 recipients per minute (burst 10), and answers `unavailable` when mail is not configured.
 - **`kv.set`** values are any JSON up to 256 KiB. A plugin may hold 10,000 keys and 64 MiB of values.
 - **`db.query`** returns at most 1,000 rows and 1 MiB. See [Data, routes and cron](data-routes-cron.md).
 
-## Entity writes and trees
+## Runs and changesets
 
-Entity writes go through the same service as the admin API, so schema validation, HTML sanitising, slug rules, `entity.before_save` and events all apply. A write from a plugin sets a re-entrancy depth of 1 on everything it triggers. A plugin that writes from inside a hook of an editor's save is allowed one level, while a write made inside the hooks of a plugin write fails with `reentrant`. Reads are never guarded.
+Content changes are made by a **run** the owner starts. The plugin declares it in the manifest (`runs`, see [The manifest](manifest.md#runs)) and exports `on_run_step`. The host calls the export in two phases, **fetch** (network, the owner's upload and a buffer, no site data) and **transform** (the buffer and the published site, no network), until the plugin calls `run.finish` in both. The plugin **stages** objects into a changeset; nothing is live until the owner publishes it. Runs need no permission. Full contract, including every argument: [Plugin API](../../PLUGIN_API.md#runs-and-changesets).
 
-An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `path` is the canonical public path the site serves it at, and `url` is that path behind the public origin when it is known. `entities.create` and `entities.update` follow the same page rules as MCP: a changed `page_sections` on a page that has a `page_doc` fails with `page_sections_removed`, so send `attributes.page_doc` instead (see [Behaviour worth knowing](../ai-seo/mcp.md#behaviour-worth-knowing)). They take `parent_id` under the admin's rules: the parent must exist, an entity cannot become its own ancestor and the chain may be at most 8 levels deep. On update, omit `parent_id` to keep the parent and send `null` to make a root. `locale` is a BCP 47 tag such as `en` or `fr`; empty on create stores the site language (a plugin declaring 0.15 or later must send it on a multi-locale site for schemas that have translations). Slugs are unique per schema and locale, so a lookup by `{ "slug", "parent_id", "schema_slug" }` can match one row per locale: the site-language row comes first (`"parent_id": null` means a root), and rows in other locales are reached by `id` or by their locale-prefixed path only. `{ "path": "/a/b" }` resolves a URL with the router the public site uses and finds published entities only; for a plugin declaring 0.15 or later, on a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale and a hidden locale's path is `not_found`; plugins built for `^0.14` or older get no prefix handling. An Entity also carries `translation_group` (SDK 0.15), the id its translations share, absent when it has none (a missing field always means ungrouped; a failed group lookup in `entities.get`, `entities.list`, `entities.create`, `entities.update` or `entities.status` returns `internal`, and for create, update and status the write has already happened). `entities.create` with `translation_of` joins the new entity to the group of that entity (same schema, a different `locale` is required, `invalid_argument` otherwise); create then link is not atomic, so a failed link deletes the new entity again. A link failure is `invalid_argument` only for an invalid group, `timeout` when the link runs out of time, otherwise `internal` with a generic message.
+| Functions | fetch | transform |
+|---|---|---|
+| `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
+| `http.fetch`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
+| `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, published reads, `changeset.*` | no | yes |
+| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | no | no |
+
+A function not allowed in the current phase fails with `phase_denied`, and so does a run function called outside a run.
+
+| Function | Phase | Arguments | Result |
+|---|---|---|---|
+| `run.info` | both | `{}` | `{ "run_id", "name", "phase", "cursor", "params"?, "hosts"?, "upload_id"? }` |
+| `run.checkpoint` / `run.progress` | both | `{ "cursor" }` / `{ "done", "total"?, "message"? }` | `{}` |
+| `run.finish` / `run.fail` | both | `{ "summary"? }` / `{ "reason" }` | `{}` |
+| `upload.read` | fetch | `{ "upload_id", "offset", "len" }` (at most 256 KiB) | `{ "data_b64", "size", "eof" }` |
+| `buffer.put` | fetch | `{ "key", "value_b64" }` | `{}` |
+| `buffer.get` / `buffer.list` | transform | `{ "key" }` / `{ "prefix"?, "after"?, "limit"? }` | `{ "found", "value_b64"? }` / `{ "keys", "next"? }` |
+| `media.import_url` | fetch | `{ "url", "filename"? }` | `{ "handle" }` |
+| `site.info` | transform | `{}` | `{ "title", "tagline"?, "time_zone", "language", "locales"?, "url_patterns"? }` |
+| `entities.slug_taken` | transform | `{ "schema", "slug", "locale"? }` | `{ "taken" }`, published public entities only |
+| `changeset.entity.upsert` | transform | `{ "source_key", "schema", "slug"?, "parent_key"?, "locale"?, "name", "attributes"?, "seo"? }` | `{ "source_key", "created" }` |
+| `changeset.term.upsert` / `changeset.person.upsert` | transform | `{ "source_key", "kind", "slug", "name", "description"? }` / `{ "source_key", "slug", "name", "bio"? }` | `{ "source_key", "created" }` |
+| `changeset.media.attach` | transform | `{ "source_key", "handle", "alt"? }` | `{ "source_key", "created" }` |
+| `changeset.menu.upsert` | transform | `{ "source_key", "slug", "name", "items"? }` | `{ "source_key", "created" }` |
+| `changeset.redirect.upsert` | transform | `{ "source_key", "from", "to", "status_code"? }` | `{ "source_key", "created" }` |
+| `changeset.delete` | transform | `{ "kind", "source_key" }` | `{ "source_key", "created" }` |
+| `changeset.propose` | transform | `{ "kind", "payload" }` | `{}` |
+
+- **One active run per plugin.** A failed step, `run.fail` or a crash fails the run and discards its changeset.
+- **Hosts.** The owner confirms the hosts at start. In the fetch phase they replace `allowed_hosts` for `http.fetch` (which still needs the `http.fetch` grant) and bound `media.import_url`.
+- **Ownership.** A run changes only objects it created, found by `source_key`. An object made by the owner or another source gives `not_owned`.
+- **`changeset.person.upsert`** stages a byline, never a user account; it is a term of the byline kind, and is `unavailable` on a site without one.
+- **`changeset.propose`** kinds are `site_settings` (title, tagline, time zone, language only), `url_patterns`, `home_page` and `menu_location`, and must be listed in the run's `proposes`.
+- **Buffer quota.** 64 MiB, 10,000 keys per run; a value is at most 1 MiB.
+
+## Entity trees and reads
+
+A plugin does not write entities directly. It stages them in a run and the owner publishes the changeset, through the same service as the admin API, so schema validation, HTML sanitising, slug rules and events all apply. `entity.before_save` filters are not run on changeset content yet. Reads are never guarded.
+
+An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?, path?, url?, attributes, published_at?, updated_at }`. `path` is the canonical public path the site serves it at, and `url` is that path behind the public origin when it is known. Staged entities follow the same page rules as MCP: send `attributes.page_doc`, not `page_sections` (see [Behaviour worth knowing](../ai-seo/mcp.md#behaviour-worth-knowing)). A staged entity names its parent with `parent_key` (the source key of an entity staged earlier in the run or created by an earlier run), under the admin's rules: an entity cannot become its own ancestor and the chain may be at most 8 levels deep. `locale` is a BCP 47 tag such as `en` or `fr`. Slugs are unique per schema and locale, so a lookup by `{ "slug", "parent_id", "schema_slug" }` can match one row per locale: the site-language row comes first (`"parent_id": null` means a root), and rows in other locales are reached by `id` or by their locale-prefixed path only. `{ "path": "/a/b" }` resolves a URL with the router the public site uses and finds published entities only; for a plugin declaring 0.15 or later, on a multi-locale site a locale-prefixed path such as `/xx/a/b` is read in that locale and a hidden locale's path is `not_found`; plugins built for `^0.14` or older get no prefix handling. An Entity also carries `translation_group` (SDK 0.15), the id its translations share, absent when it has none (a missing field always means ungrouped; a failed group lookup in `entities.get` or `entities.list` returns `internal`).
 
 ## http.fetch
 
@@ -156,4 +182,4 @@ Request and response bodies are capped at 1 MiB (`truncated` means the response 
 
 ## Cached pages and plugin data
 
-What a plugin renders into a public page (template functions, `render.head` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, allowed 30 seconds to 30 days), including values a function read with `kv.get` or `db.query`. A plugin cannot purge the page cache. New data reaches cached pages when the TTL expires or when anything else clears the cache, such as an entity write, a settings save or a menu change. See [Performance and cache](../admin/performance-cache.md).
+What a plugin renders into a public page (template functions, `render.head` and `render.page` output) is cached with the page for `HATAMOTO_PAGE_CACHE_TTL` (default 5 minutes, allowed 30 seconds to 30 days), including values a function read with `kv.get` or `db.query`. A plugin cannot purge the page cache. New data reaches cached pages when the TTL expires or when anything else clears the cache, such as publishing a changeset, a settings save or a menu change. See [Performance and cache](../admin/performance-cache.md).

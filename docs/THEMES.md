@@ -768,7 +768,7 @@ everything that can change public HTML clears the whole page cache (and the
 sitemaps) at once, not at TTL expiry:
 
 - entities: create, update, publish, unpublish, delete, from the admin, REST API
-  keys, MCP and plugins (`entities.write`); a **scheduled publish** by the
+  keys, MCP and published plugin changesets; a **scheduled publish** by the
   worker, so the page and every listing change the moment its time comes;
   imports;
 - terms (create, edit, delete, assignment), authors, media (alt text, caption,

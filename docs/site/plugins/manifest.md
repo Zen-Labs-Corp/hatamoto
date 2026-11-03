@@ -51,6 +51,7 @@ A manifest that uses most fields:
 | `render_page` | no | `{ "full_blocks": true }` sends `render.page` whole blocks (SDK 0.9 and later). |
 | `funcs` | no | Template functions, at most 64. |
 | `ui` | no | An admin page shipped in `ui/`. |
+| `runs` | no | Runs the owner can start, at most 8 (SDK 0.17 and later); see [Runs](#runs). |
 | `builder_sources` | no | Data sources the plugin offers to the page builder, at most 8 (SDK 0.11 and later). |
 | `limits` | no | Resource limits; every field is optional. |
 | `settings_schema` | no | JSON Schema (draft 2020-12) for the plugin's settings. |
@@ -59,16 +60,15 @@ A manifest that uses most fields:
 
 The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` and `~x`, and several comparators separated by spaces must all hold. Before 1.0 a caret stops at the next minor, so `^0.8` contains `0.8.x` only.
 
-The server serves SDK `0.16.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.15.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.17.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.16.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
-The permission names are the constants in `backend/pkg/sdk/permissions.go`. The list is fixed and an unknown name is a load error. What each permission unlocks is listed on [The host API](host-api.md#permissions).
+The permission names are the constants in `backend/pkg/sdk/permissions.go`. The list is fixed and an unknown name is a load error. The write permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` were removed in SDK 0.17 (Hatamoto 1.1): a manifest that lists one is refused with a message naming the `changeset.*` function that replaces it. Runs need no permission. What each permission unlocks is listed on [The host API](host-api.md#permissions).
 
 ```text
-entities.read  entities.write  terms.read  terms.write
-menus.read  menus.write  media.read  media.write
-redirects.read  redirects.write  forms.read
+entities.read  terms.read  menus.read  media.read
+redirects.read  forms.read
 settings  log  mail.send  http.fetch  http.fetch.any  kv  db
 builder.data  builder.island  site.scripts
 ```
@@ -164,6 +164,18 @@ Older plugins keep working, with these changes to be aware of:
 - **0.14:** `FormSubmittedEvent` carries `attribution` (first and last touch). Purely additive.
 - **0.15:** locale support: `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, the `entities.translations` host function and locale-prefixed paths in `entities.get` (the prefix is read only for a plugin whose range requires 0.15 or later). Additive for plugins built for 0.14 or older, which keep creating entities without `locale` (the site language). A plugin declaring 0.15 or later must pass `locale` to `entities.create` on a multi-locale site for schemas that have translations.
 - **0.16:** the `render.site_graph` filter. Purely additive.
+- **0.17 (breaking, Hatamoto 1.1):** content writes move into runs and changesets. The five `*.write` permissions and the twelve direct write functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create`, `redirects.delete`) are removed. Added: the `runs` field, the `on_run_step` export, the run, upload, buffer and changeset host functions (see [The host API](host-api.md#runs-and-changesets)) and the error codes `phase_denied` and `not_owned`. A plugin that requests a removed permission is refused at load.
+
+## Runs
+
+`runs` declares the jobs an owner can start. Each entry is `{ "name", "title", "inputs"?, "stages", "proposes"? }`:
+
+- `name` follows the same pattern as other identifiers and is unique in the plugin; `title` is required.
+- `inputs` (at most 16) are `{ "name", "label", "type"?, "required"?, "options"? }`; `type` is `text` (the default), `url`, `number`, `bool` or `select`.
+- `stages` must be exactly `["fetch", "transform"]`.
+- `proposes` lists the proposal kinds the run may submit: `site_settings`, `url_patterns`, `home_page`, `menu_location`.
+
+A plugin with `runs` must export `on_run_step`, or it is refused at load. Its timeout is 10 seconds by default and can be set in `limits.hook_timeouts_ms["on_run_step"]`. How a run works is on [The host API](host-api.md#runs-and-changesets).
 
 ## Limits and errors
 

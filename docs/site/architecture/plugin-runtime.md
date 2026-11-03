@@ -10,7 +10,7 @@ This page describes what the server does with a plugin once it is installed: the
 
 Hatamoto plugins are not compiled into the server and they do not run as trusted Go code. Each plugin is a WebAssembly module executed by [Extism](https://extism.org) on the pure-Go `wazero` runtime. An earlier design linked native Go plugins into a custom build, which needed a Go toolchain, gave plugins full access to the database and process, and could not be installed with a click. The sandboxed design keeps one binary, needs no compiler on the server, and limits a plugin to what the owner granted.
 
-The plugin contract is a small Go module, `hatamoto.dev/sdk` (version `0.16.0` in `backend/pkg/sdk/version.go`; plugins built against 0.5 to 0.15 are still accepted, and `hatamoto version --json` prints both). It holds the manifest format, hook names, payload types, the permission list and the export-name rules. It is published as the public repository `Zen-Labs-Corp/hatamoto-sdk` (plain `vX.Y.Z` tags; core is the source of truth). Its root package depends only on the standard library, so the server and guest code share it. Plugins are written in standard Go with the SDK's `guest` package, or in any language with an Extism plugin kit. How to write one is in the plugins section; this page describes what the server does with it.
+The plugin contract is a small Go module, `hatamoto.dev/sdk` (version `0.17.0` in `backend/pkg/sdk/version.go`; plugins built against 0.5 to 0.16 are still accepted, and `hatamoto version --json` prints both). It holds the manifest format, hook names, payload types, the permission list and the export-name rules. It is published as the public repository `Zen-Labs-Corp/hatamoto-sdk` (plain `vX.Y.Z` tags; core is the source of truth). Its root package depends only on the standard library, so the server and guest code share it. Plugins are written in standard Go with the SDK's `guest` package, or in any language with an Extism plugin kit. How to write one is in the plugins section; this page describes what the server does with it.
 
 ## Layers
 
@@ -49,17 +49,19 @@ Nothing is available to a plugin by default. The manifest lists the permissions 
 
 | Permission | Allows |
 |---|---|
-| `entities.read`, `entities.write` | read or change content |
-| `terms.read`, `terms.write` | tags and categories |
-| `menus.read`, `menus.write` | navigation menus |
-| `media.read`, `media.write` | media records |
-| `redirects.read`, `redirects.write` | redirect rules |
+| `entities.read` | read content |
+| `terms.read` | tags and categories |
+| `menus.read` | navigation menus |
+| `media.read` | media records |
+| `redirects.read` | redirect rules |
 | `forms.read` | form definitions and submissions |
 | `settings` | the plugin's own settings |
 | `log` | write to the server log |
 | `mail.send` | send mail through the site's SMTP settings |
 | `http.fetch` | outbound HTTP to hosts listed in the manifest's `allowed_hosts` |
 | `http.fetch.any` | outbound HTTP to any public address; a separate permission so the install prompt can warn about it |
+
+A plugin has no permission to change content. Since SDK 0.17 (Hatamoto 1.1) the five `*.write` permissions no longer exist, and a manifest that lists one is refused at load with a message naming its replacement. Content changes come from **runs**: the owner starts one, the host calls the plugin's `on_run_step` export, and the plugin stages items into a changeset that goes live only when the owner publishes it. A run has two phases. In **fetch** the plugin reaches the network (the hosts the owner confirmed for the run replace `allowed_hosts`; `http.fetch` still needs its grant) and an uploaded file, and fills a buffer; it sees no site data. In **transform** it reads the buffer and the published site and stages items, with no network. `kv`, `db`, `mail.send` and private form data are closed in both phases. One run is active per plugin, each step has the usual timeout, and a failed step fails the run and discards its changeset. One gate checks every host call against the run phase and denies anything not classified, with `phase_denied`. Host call arguments are also capped at 1 MiB and 32 levels of nesting for every function. See [The host API](../plugins/host-api.md#runs-and-changesets).
 | `kv` | a small key-value store |
 | `db` | SQL on the plugin's own schema |
 | `builder.data` | answer data requests for the plugin's declared builder sources |
