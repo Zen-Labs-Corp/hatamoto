@@ -68,7 +68,8 @@ test("Insert tab: section cards (thumbnail, name, hint) and a block grid of data
   assert.equal(cards.length, 1);
   assert.ok(cards[0].walk().some((n) => n.tag === "svg"), "a thumbnail");
   const spans = cards[0].walk().filter((n) => n.tag === "span");
-  assert.deepEqual(spans.map((n) => n.textContent), ["Hero", "Theme section"]);
+  assert.deepEqual(spans.map((n) => n.textContent), ["Hero", "Big headline + buttons"]);
+  assert.ok(!cards[0].attrs.class.includes("--dark"));
   const blocks = groups[1].walk().filter((n) => n.tag === "button");
   assert.deepEqual(blocks.map((b) => b.dataset.pal), ["container", "heading"]);
   assert.ok(blocks.every((b) => b.attrs.class.includes("hm-bs-pal__blk")));

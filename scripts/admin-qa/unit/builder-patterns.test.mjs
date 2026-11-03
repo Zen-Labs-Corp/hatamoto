@@ -87,3 +87,11 @@ test("patternRow is one short row until all patterns are asked for", () => {
   assert.equal(P.patternRow(items, true).shown.length, 14);
   assert.deepEqual(P.patternRow(items.slice(0, 3)).more, false, "nothing to expand");
 });
+
+test("blurbOf names what a section type is and isDark flags only call-to-action bands", () => {
+  assert.equal(P.blurbOf("hero_split"), P.BLURB.hero);
+  assert.equal(P.blurbOf("faq"), "Questions and answers");
+  assert.equal(P.blurbOf("zzz"), "Theme section");
+  assert.equal(P.isDark("cta_band"), true);
+  assert.equal(P.isDark("hero"), false);
+});
