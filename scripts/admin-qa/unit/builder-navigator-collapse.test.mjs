@@ -70,17 +70,22 @@ test("meta: block count and background", () => {
   assert.equal(metaFor(sec("s", blocks, {}, { base: { bg: "#ffffff" } })), "2 blocks · #ffffff");
   assert.equal(metaFor(sec("s", [comp("c", {}, [head("a", "A")])], {}, { base: { bg: "surface" } })), "1 block · surface");
   assert.equal(metaFor(sec("s", blocks)), "2 blocks");
-  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { bg: "#000" } })), "#000");
-  assert.equal(metaFor(sec("s", [comp("c")])), "");
+  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { bg: "#000" } })), "Empty · #000");
+  assert.equal(metaFor(sec("s", [comp("c")])), "Empty"); // every section row keeps two lines
   assert.equal(metaFor(sec("s", [head("a", "A"), head("b", "B"), head("c", "C")])), "3 blocks");
+});
+
+test("meta: the component's background stands in when the wrapper has none", () => {
+  const inner = { ...comp("c", {}, [head("a", "A")]), s: { base: { bg: "#445566" } } };
+  assert.equal(metaFor(sec("s", [inner])), "1 block · #445566");
 });
 
 test("meta: hidden replaces the background and lists the devices", () => {
   const hidSm = sec("s", [comp("c", {}, [head("a", "A")])], {}, { base: { bg: "#fff" }, sm: { hide: true } });
   assert.equal(metaFor(hidSm), "1 block · Hidden on Phone");
-  assert.equal(metaFor(sec("s", [comp("c")], {}, { md: { hide: true } })), "Hidden on Tablet, Phone");
-  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { hide: true }, md: { display: "block" } })), "Hidden on Desktop");
-  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { hide: true } })), "Hidden");
+  assert.equal(metaFor(sec("s", [comp("c")], {}, { md: { hide: true } })), "Empty · Hidden on Tablet, Phone");
+  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { hide: true }, md: { display: "block" } })), "Empty · Hidden on Desktop");
+  assert.equal(metaFor(sec("s", [comp("c")], {}, { base: { hide: true } })), "Empty · Hidden");
 });
 
 test("meta is empty for block rows", () => {
@@ -93,6 +98,12 @@ test("thumbOf: background and alignment", () => {
   assert.deepEqual(thumbOf(sec("s", [], {}, { base: { bg: "accent", ta: "right" } })), { bg: "accent", align: "right" });
   assert.deepEqual(thumbOf(sec("s", [])), { bg: null, align: "left" });
   assert.equal(thumbOf(sec("s", [], {}, { base: { ta: "justify" } })).align, "left");
+});
+
+test("thumbOf: a collapsed section falls back to its component's background; the wrapper's wins", () => {
+  const inner = { ...comp("c"), s: { base: { bg: "#445566", ta: "right" } } };
+  assert.deepEqual(thumbOf(sec("s", [inner]), inner), { bg: "#445566", align: "right" });
+  assert.equal(thumbOf(sec("s", [inner], {}, { base: { bg: "#112233" } }), inner).bg, "#112233");
 });
 
 test("collapse all counts only rows with blocks", () => {

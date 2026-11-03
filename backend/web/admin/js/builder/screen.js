@@ -4,7 +4,7 @@ import { createCanvas, styleDecls } from "@hm/canvas/host";
 import { createStore, commit, undo, redo, jump, canUndo, canRedo, find, moveSubject, canEditText, ownsText, setChildKinds, locate, takesParentHover, siblings, newId, v1Shaped, duplicateOps, flat } from "@hm/builder/store";
 import { makeKindNames } from "@hm/builder/kindnames";
 import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from "@hm/builder/navigator";
-import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf } from "@hm/builder/selinfo";
+import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf, fieldId, escapeTarget, fieldGuard } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
 import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
@@ -47,6 +47,7 @@ function start(root, boot) {
   let st = createStore(boot.doc);
   let selected = null; // the primary selection: the element the inspector shows (the last one picked)
   let selection = new Set(); // every selected id, the primary included
+  let selectedField = null; // {componentId, key} | null: a content field picked in the Navigator, UI-only (never in the document); selected stays its component
   let addTarget = null; // {parent, index}: where a "+" asked the Insert tab to insert; the next insert uses it
   let anchor = null; // where a Shift-click range starts
   let device = "base";
@@ -132,7 +133,8 @@ function start(root, boot) {
     onMenu: (id, x, y) => showMenu(id, x, y),
     onAdd: (btn) => addAt({ parent: "", index: 0 }, btn),
     onAddAt: (index, el) => addAt({ parent: "", index }, el),
-    onField: (id, key) => toField(id, key), // a field row of a theme section: the Inspector focuses that field
+    getSelectedField: () => selectedField,
+    onSelectField: (id, key, o) => toField(id, key, o), // a field row of a theme section: it becomes the selection and the Inspector focuses that field
     onRename: rename,
     getNote: (n) => presetNote(n, design.presets),
     getBlocks: () => boot.reuse?.blocks ?? [],
@@ -142,15 +144,16 @@ function start(root, boot) {
       const hex = design.palette?.colors?.[name] ?? /^var\([^,]+,\s*(#[0-9a-f]{3,6})\)$/i.exec(styleTable?.find((e) => e.key === "bg")?.tokens?.[name] ?? "")?.[1]; // the site's colour, else the table's default
       return typeof hex === "string" ? hex : null;
     },
-    bar: $(root, "[data-hm-bs-navbar]"),
+    bar: $(root, '[data-hm-bs-lpanel="nav"]'),
+    getPageName: () => nameInput?.value ?? boot.name,
     announce,
   });
-  $(root, "[data-hm-bs-rename]")?.addEventListener("click", () => dispatch("rename"));
 
   const inspector = drawInspector(panel, {
     getDoc: () => st.doc,
     getSelected: () => selected,
     getSelectionCount: () => selection.size,
+    getField: () => selectedField,
     kinds: boot.kinds,
     sections: boot.sections,
     options: boot.options ?? {},
@@ -197,14 +200,22 @@ function start(root, boot) {
   const inline = lazy(() => import("@hm/builder/inlinehtml").then((m) => (ui.i = m.mountInline({ run, doc: () => st.doc, renderer }))));
   const repatch = (id) => inline().then((i) => i.repatch(id)).catch(() => renderer.stage());
   const fieldJump = lazy(() => import("@hm/builder/fieldjump"));
-  const toField = (id, path, fix) => {
+  /** Selects a content field of a component (a Navigator field row); keys: arrowing onto it, so focus stays in the tree. */
+  const toField = (id, key, { keys = false } = {}) => {
+    select(id, false, { pick: !keys }, true, { componentId: id, key });
+    if (keys) return;
+    panes.toggle("insp", true);
+    phonePane("insp");
+    fieldJump().then((m) => m.focusField(panel, id, key, announce));
+  };
+  const jumpTo = (id, path, fix) => {
     select(id);
     panes.toggle("insp", true); // not dispatch("inspect"): that focuses the panel's first editor (the Body), which then takes the keys typed before focusField reaches the field
     phonePane("insp");
     if (fix) repatch(id);
     fieldJump().then((m) => m.focusField(panel, id, path, announce));
   };
-  const edited = (id, path) => toField(id, path, 1);
+  const edited = (id, path) => jumpTo(id, path, 1);
   // The bar needs the page list only for its link row: that chunk failing leaves the bar working with no list.
   let linkPages = null;
   const fmtBar = lazy(() => {
@@ -245,7 +256,7 @@ function start(root, boot) {
       },
       onEdit: edited,
       onEditText: edited,
-      onRichOpen: (id, path) => toField(id, path),
+      onRichOpen: (id, path) => jumpTo(id, path),
       onSelection: (m) => withBar((b) => b.show(m)),
       onNodeTextLimit: () => warn("This text is at the 20,000-character limit. Nothing more can be added."),
       onNodeTextEnd: (id) => {
@@ -335,17 +346,20 @@ function start(root, boot) {
     }),
   );
   const openPalette = (patterns = false) => paletteChunk().then((p) => (patterns ? p.showPatterns() : p.open())).catch(() => warn("The Insert tab did not load. Reload the page."));
-  // Phone: the dock opens the left pane (on its Navigator or Add tab) or the Inspector as a sheet over the page.
+  // Phone: the dock opens the left pane (on its Layers, Insert or Pages tab) or the Inspector as a sheet over the page.
   const dock = mountDock(root, (name) => name !== "insp" && leftTabs.pick(name));
   const phonePane = (name) => dock.stacked() && dock.pick(name);
+  // The Pages tab body is a lazy chunk too, mounted the first time the tab shows.
+  let pagesUI = null;
   const leftTabs = mountLeftTabs(root, (name) => {
     if (name === "add") paletteChunk().catch(() => warn("The Insert tab did not load. Reload the page."));
-    if (dock.stacked() && ["nav", "add"].includes(root.dataset.hmBsTab)) dock.show(name); // the tab inside the sheet follows the dock
+    if (name === "pages" && !pagesUI)
+      import("@hm/builder/pagestab")
+        .then((m) => (pagesUI ??= m.mountPages($(root, "[data-hm-bs-pages]"), { pages: boot.pageList ?? [], announce })))
+        .catch(() => warn("The Pages tab did not load. Reload the page."));
+    if (dock.stacked() && ["nav", "add", "pages"].includes(root.dataset.hmBsTab)) dock.show(name); // the tab inside the sheet follows the dock
   });
   $(root, "[data-hm-bs-addbtn]")?.addEventListener("click", () => dispatch("palette"));
-  const cmdkBtn = $(root, "[data-hm-bs-cmdk]");
-  cmdkBtn?.addEventListener("click", () => dispatch("commandk"));
-  if (cmdkBtn && /Mac|iPhone|iPad/.test(navigator.platform)) ($(cmdkBtn, "span").textContent = "⌘K"), cmdkBtn.setAttribute("aria-label", "⌘K: open command palette");
   // The reuse UI is a lazy chunk, mounted on arrival; the palette's groups come from reusecore.js.
   let reuseUI = null;
   const RELOAD_REUSE = "Templates and blocks did not load. Reload the page.";
@@ -669,17 +683,25 @@ function start(root, boot) {
   }
 
   /** Selects id; Ctrl/Cmd toggles, Shift extends the sibling range (clipops chunk). */
-  function select(id, fromCanvas = false, mods = {}, scroll = !fromCanvas) {
+  function select(id, fromCanvas = false, mods = {}, scroll = !fromCanvas, field = null) {
     addTarget = null;
     const known = id && find(st.doc, id);
     const user = fromCanvas || !!mods.pick; // a person's own pick, not an insert or an undo selecting something
     if (known && (mods.shift || mods.ctrl)) return loadClip().then((C) => C && choose(C.pickSelection(st.doc, selection, anchor, id, mods), fromCanvas, scroll, user));
-    choose(known ? { selection: new Set([id]), primary: id, anchor: id } : { selection: new Set(), primary: null, anchor: null }, fromCanvas, scroll, user);
+    choose(known ? { selection: new Set([id]), primary: id, anchor: id } : { selection: new Set(), primary: null, anchor: null }, fromCanvas, scroll, user, known ? field : null);
+  }
+
+  /** The frame message for a selected field: its section and the data-hm-field paths that make it up (the key, then its aliases). */
+  function fieldRef({ componentId, key }) {
+    const comp = find(st.doc, componentId);
+    const def = boot.sections?.find((x) => x.type === comp?.p?.type)?.fields?.find((f) => f.key === key);
+    return { sel: "section", key: componentId, paths: [key, ...(def?.alias ?? [])].slice(0, 6) };
   }
 
   // scroll: bring the node into view in the frame; off when the pointer is already on it.
-  function choose(r, fromCanvas = false, scroll = !fromCanvas, userPick = false) {
+  function choose(r, fromCanvas = false, scroll = !fromCanvas, userPick = false, field = null) {
     const was = selection.size;
+    selectedField = field; // every other way of selecting passes none, which clears it
     selection = r.selection;
     selected = r.primary;
     anchor = r.anchor;
@@ -692,6 +714,7 @@ function start(root, boot) {
       const { sel, key } = frameRef(n, l);
       canvas.setSelectedNode(selected && key, { sel, scroll });
     }
+    canvas.setSelectedField(selectedField && fieldRef(selectedField));
     inspector.show();
     if (shouldOpenInspector({ stacked: dock.stacked(), selected, userPick })) dock.pick("insp");
     reuseUI?.refresh();
@@ -716,6 +739,8 @@ function start(root, boot) {
     loadClip().then((C) => C?.[fn]({ doc: st.doc, run, select: (id) => select(id), selectAll: (ids) => choose({ selection: new Set(ids), primary: ids[ids.length - 1], anchor: ids[0] }), announce, refuse: warn, selected, kinds: boot.kinds, csrf, url: boot.urls.paste }, [...selection], opts));
 
   function removeSelected() {
+    const note = fieldGuard("remove", selectedField);
+    if (note) return announce(note);
     if (selection.size > 1) return bulk("removeMany");
     const target = selectionInfo(st.doc, selected)?.subject ?? selected; // a collapsed section selected as its component goes whole (as Move does), never leaving an empty shell
     const at = locate(st.doc, target);
@@ -902,7 +927,7 @@ function start(root, boot) {
       case "indent":
         return moveSelected(action);
       case "parent":
-        return select(parentOf(st.doc, selected));
+        return select(escapeTarget(st.doc, selected, selectedField));
       case "prevsection":
       case "nextsection":
         return select(stepSection(st.doc, selected, action === "prevsection" ? -1 : 1));
@@ -917,7 +942,8 @@ function start(root, boot) {
         // a canvas pick names the whole v1 section; in the tree the focused row is renamed
         return tree.rename(fromCanvas ? moveSubject(st.doc, selected) : selected);
       default:
-        if (CLIP[action]) bulk(CLIP[action]);
+        if (fieldGuard(action, selectedField)) announce(fieldGuard(action, selectedField));
+        else if (CLIP[action]) bulk(CLIP[action]);
         else tree.act(action);
     }
   }
@@ -927,7 +953,7 @@ function start(root, boot) {
     const n = selected && find(st.doc, selected);
     switch (action) {
       case "parent":
-        return !!parentOf(st.doc, selected) && !document.querySelector(":popover-open, dialog[open]");
+        return (!!selectedField || !!parentOf(st.doc, selected)) && !document.querySelector(":popover-open, dialog[open]");
       case "prevsection":
       case "nextsection":
         return !!stepSection(st.doc, selected, action === "prevsection" ? -1 : 1);
@@ -1086,7 +1112,7 @@ function start(root, boot) {
 
   if (new URLSearchParams(location.search).get("qa") === "1") {
     root.dataset.hmQa = "";
-    window.__hmBuilder = { doc: () => st.doc, selected: () => selected, selection: () => [...selection], insertAt: (pos, what) => api.insertAt(pos, what) };
+    window.__hmBuilder = { doc: () => st.doc, selected: () => selected, selectedField: () => (selectedField ? fieldId(selectedField.componentId, selectedField.key) : null), selection: () => [...selection], insertAt: (pos, what) => api.insertAt(pos, what) };
   }
 
   const kept = takeNote(noteKey);

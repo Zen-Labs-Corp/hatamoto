@@ -35,7 +35,7 @@ function el(tag) {
 const all = (e, out = []) => (out.push(e), e.kids.forEach((k) => typeof k !== "string" && all(k, out)), out);
 const withAttr = (e, a) => all(e).filter((x) => a in x.attrs);
 const withClass = (e, c) => all(e).filter((x) => (x.attrs.class ?? "").split(" ").includes(c));
-globalThis.document = { createElement: el, activeElement: null };
+globalThis.document = { createElement: el, activeElement: null, listeners: {}, addEventListener(t, f) { this.listeners[t] = f; } };
 globalThis.requestAnimationFrame = (f) => (f(), 0);
 const { mountNavigator } = await import(new URL("builder/navigator.js", root));
 
@@ -51,6 +51,7 @@ function mount({ selected = null, filterText = "", d = doc, getTokenColour } = {
   const rootEl = {
     closest: () => ({ querySelector: (q) => (q.includes("data-hm-bs-ico") ? tpl : null) }),
     contains: () => false, replaceChildren: (...k) => painted.push(k), listeners: {}, addEventListener(t, f) { this.listeners[t] = f; },
+    attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); }, removeAttribute(k) { delete this.attrs[k]; },
     querySelector: () => null, querySelectorAll: () => [],
   };
   const calls = [];
@@ -125,14 +126,24 @@ test("selecting the component from the canvas selects its collapsed row and take
   assert.equal(rows.filter((r) => r.attrs.tabindex === "0").length, 1);
 });
 
-test("a section holding the selection gets the band, with its blocks; the selected row does not", () => {
+test("a section holding the selection is banded on every row, its own included; the first and last row carry the corner classes", () => {
   const rows = mount({ selected: "h1" }).rows();
-  assert.match(rows[0].attrs.class, /hm-bs-row--band/);
-  assert.doesNotMatch(rows[1].attrs.class, /hm-bs-row--band/); // the selected block itself
-  assert.doesNotMatch(rows[2].attrs.class, /hm-bs-row--band/);
+  assert.match(rows[0].attrs.class, /hm-bs-row--band\b/);
+  assert.match(rows[0].attrs.class, /hm-bs-row--band-first/);
+  assert.match(rows[1].attrs.class, /hm-bs-row--band\b/); // the selected block itself
+  assert.match(rows[1].attrs.class, /hm-bs-row--band-last/);
+  assert.doesNotMatch(rows[1].attrs.class, /band-first/);
+  assert.doesNotMatch(rows[2].attrs.class, /hm-bs-row--band/); // the next section
   const own = mount({ selected: "s1" }).rows();
-  assert.doesNotMatch(own[0].attrs.class, /hm-bs-row--band/);
-  assert.doesNotMatch(own[1].attrs.class, /hm-bs-row--band/); // the row itself is solid; no band around it
+  assert.match(own[0].attrs.class, /hm-bs-row--band\b/);
+  assert.match(own[1].attrs.class, /hm-bs-row--band\b/);
+  assert.equal(own.filter((r) => /band-last/.test(r.attrs.class)).length, 1);
+});
+
+test("a section thumbnail draws three lines whose widths follow its first blocks", () => {
+  const d = { v: 2, nodes: [sec("s", [comp("c", [head("h", "H")])])] };
+  const lines = all(withClass(mount({ d }).rows()[0], "hm-bs-row__thumb")[0]).filter((e) => e.tag === "i");
+  assert.deepEqual(lines.map((l) => l.props["--w"]), ["70%", "90%", "90%"]);
 });
 
 test("clicking the collapsed row selects the container with pick", () => {
@@ -157,7 +168,8 @@ test("the gap calls onAddAt with the section index; the last row adds the traili
   assert.equal(m.rows().at(-1).kids.at(-1), gaps.at(-1), "trailing gap sits at the foot of the last row");
   click(m, { "[data-hm-bs-gap]": gaps[3] });
   assert.deepEqual(m.calls, [["addAt", 3, gaps[3]]]);
-  assert.match(gaps[0].text, /Add section here/);
+  assert.equal(gaps[0].text, "", "the gap shows only the plus");
+  assert.equal(withClass(gaps[0], "hm-bs-gap__btn")[0].attrs.title, "Add section here");
 });
 
 test("no gap while a filter is active", () => {
@@ -191,12 +203,12 @@ test("a token background resolves through getTokenColour for the thumbnail and t
   const d = { v: 2, nodes: [sec("s", [comp("c")], { base: { bg: "muted" } }), sec("t", [comp("d")], { base: { bg: "accent" } })] };
   const rows = mount({ d, getTokenColour: (n) => ({ muted: "#eeeeee" })[n] ?? null }).rows();
   assert.deepEqual(withClass(rows[0], "hm-bs-row__thumb")[0].props, { "--bs-thumb": "#eeeeee", "--bs-thumb-fg": "black" });
-  assert.equal(withClass(rows[0], "hm-bs-row__meta")[0].text, "#eeeeee");
+  assert.equal(withClass(rows[0], "hm-bs-row__meta")[0].text, "Empty · #eeeeee");
   assert.deepEqual(withClass(rows[1], "hm-bs-row__thumb")[0].props, {}); // unknown token: today's default thumbnail
-  assert.equal(withClass(rows[1], "hm-bs-row__meta")[0].text, "accent");
+  assert.equal(withClass(rows[1], "hm-bs-row__meta")[0].text, "Empty · accent");
   const plain = mount({ d }).rows();
   assert.deepEqual(withClass(plain[0], "hm-bs-row__thumb")[0].props, {});
-  assert.equal(withClass(plain[0], "hm-bs-row__meta")[0].text, "muted");
+  assert.equal(withClass(plain[0], "hm-bs-row__meta")[0].text, "Empty · muted");
 });
 
 test("a hidden section shows the open eye-off icon and the hidden class", () => {
@@ -225,4 +237,28 @@ test("every row carries its depth as --space-bs-level, and every row has a caret
   assert.deepEqual(rows.map((r) => [r.attrs["data-id"], r.props["--space-bs-level"]]), [["d", "1"], ["g", "2"], ["k", "3"], ["x", "4"], ["y", "3"]]);
   for (const r of rows) assert.equal(withClass(r, "hm-bs-row__caret").length, 1, r.attrs["data-id"]);
   assert.deepEqual(rows.map((r) => withAttr(r, "data-caret").length), [1, 1, 1, 0, 0]);
+});
+
+test("a pointer press hides the focus ring (data-pointer) until the next key", () => {
+  const m = mount();
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
+  m.rootEl.listeners.pointerdown();
+  assert.equal("data-pointer" in m.rootEl.attrs, true);
+  document.listeners.keydown({ key: "ArrowDown", target: { closest: () => null } });
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
+});
+
+test("a key pressed outside the tree also brings the focus ring back", () => {
+  const m = mount();
+  m.rootEl.listeners.pointerdown();
+  assert.equal("data-pointer" in m.rootEl.attrs, true);
+  document.listeners.keydown({ key: "Tab", target: {} }); // Shift+Tab from the Inspector, or Escape out of the menu
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
+});
+
+test("a row with blocks shows a thin chevron icon: right when closed, down when open", () => {
+  const caret = (row) => withClass(row, "hm-bs-row__caret")[0];
+  const closed = mount().rows();
+  assert.equal(withAttr(caret(closed[0]), "data-ico")[0].attrs["data-ico"], "chevron-down"); // s1 has a block and starts open
+  assert.equal(withAttr(caret(closed[1]), "data-ico").length, 0); // no blocks: an empty slot keeps the columns
 });

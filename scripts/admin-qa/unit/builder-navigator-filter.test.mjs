@@ -57,24 +57,27 @@ function mount(selected) {
   const collapse = el("button");
   collapse.kids = [el("span")];
   collapse.querySelector = () => collapse.kids[0];
-  const rename = el("button");
-  const bar = { querySelector: (q) => ({ "[data-hm-bs-filter]": input, "[data-hm-bs-collapse]": collapse, "[data-hm-bs-rename]": rename })[q] };
+  const count = el("span");
+  const title = el("span");
+  const bar = { querySelector: (q) => ({ "[data-hm-bs-filter]": input, "[data-hm-bs-collapse]": collapse, "[data-hm-bs-count]": count, "[data-hm-bs-pagetitle]": title })[q] };
   const painted = [];
   const said = [];
   const rootEl = { closest: () => ({ querySelector: () => null }), contains: () => false, replaceChildren: (...k) => painted.push(k), listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, querySelector: () => null, querySelectorAll: () => [] };
   const picks = [];
   const warn = console.warn;
   console.warn = () => {};
-  const tree = mountNavigator(rootEl, { getDoc: () => doc, getSelected: () => selected, onSelect: (id, mods) => picks.push([id, mods]), bar, announce: (m) => said.push(m) });
+  const tree = mountNavigator(rootEl, { getDoc: () => doc, getSelected: () => selected, onSelect: (id, mods) => picks.push([id, mods]), bar, getPageName: () => "Landing", announce: (m) => said.push(m) });
   console.warn = warn;
-  return { tree, input, collapse, rename, painted, said, picks, rootEl };
+  return { tree, input, collapse, count, title, painted, said, picks, rootEl };
 }
 
 const rowCount = (painted) => painted.at(-1)[0].kids.length;
 
-test("Rename is disabled without a selection", () => {
-  assert.equal((() => { const m = mount(null); m.tree.draw(); return m.rename.disabled; })(), true);
-  assert.equal((() => { const m = mount("h1"); m.tree.draw(); return m.rename.disabled; })(), false);
+test("the caption counts the top-level sections and the page row shows the page title", () => {
+  const m = mount(null);
+  m.tree.draw();
+  assert.match(m.count.kids[0], /^PAGE · \d+ SECTIONS?$/);
+  assert.equal(m.title.kids[0], "Landing");
 });
 
 test("typing filters the tree, announces the count, Escape clears", async () => {
@@ -94,12 +97,12 @@ test("typing filters the tree, announces the count, Escape clears", async () => 
   assert.match(m.painted.at(-1)[0].kids[0], /No elements match/);
 });
 
-test("Collapse all collapses every parent, then expands them again", () => {
+test("Collapse collapses every parent, then expands them again", () => {
   const m = mount("h1");
   m.tree.draw();
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 2);
-  assert.equal(m.collapse.kids[0].kids[0], "Expand all");
+  assert.equal(m.collapse.kids[0].kids[0], "Expand");
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 5);
 });
@@ -122,13 +125,15 @@ test("Collapse all collapses everything while any parent is open; the label flip
   m.tree.draw();
   const label = () => m.collapse.kids[0].kids[0];
   m.rootEl.listeners.click({ target: { closest: (q) => (q === "[data-caret]" ? {} : q === "[data-id]" ? { dataset: { id: "b" } } : null) } }); // one caret: "b" collapses
-  assert.equal(label(), "Collapse all", "one collapsed row is not all collapsed");
+  assert.equal(label(), "Collapse", "one collapsed row is not all collapsed");
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 2, "collapses everything, not expands");
-  assert.equal(label(), "Expand all");
+  assert.equal(label(), "Expand");
+  assert.equal(m.collapse.attrs["aria-label"], "Expand all sections");
   m.collapse.listeners.click();
   assert.equal(rowCount(m.painted), 5);
-  assert.equal(label(), "Collapse all");
+  assert.equal(label(), "Collapse");
+  assert.equal(m.collapse.attrs["aria-label"], "Collapse all sections");
 });
 
 test("a theme section reads the same everywhere: a plain title-case name, with or without the sections table", async () => {

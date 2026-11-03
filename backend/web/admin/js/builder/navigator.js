@@ -5,7 +5,7 @@
 import { h } from "@hm/builder/dom";
 import { locate, siblings, find } from "@hm/builder/store";
 import { BP_NAME, BPS, hiddenAt } from "@hm/builder/bp";
-import { isCollapsed, rowIdOf, sectionOf, inSection } from "@hm/builder/selinfo";
+import { isCollapsed, rowIdOf, sectionOf } from "@hm/builder/selinfo";
 import { refLabel } from "@hm/builder/reuseops";
 import { makeKindNames, SEP } from "@hm/builder/kindnames";
 
@@ -46,13 +46,13 @@ export function sectionName(container, blocks, kindName = shared.kindName, secti
   return label(container.c[0], blocks, kindName, sections);
 }
 
-/** The non-empty top-level content fields as [{key,label,kind,text}]: text is the value without HTML cut to 40 characters ("N items" for a list; an object's first string). `fields` come from the boot sections (schema order). */
-export const fieldRows = (content, fields) =>
-  (fields ?? []).flatMap((f) => {
+/** The non-empty top-level content fields as [{key,label,kind,text}]: text is the value without HTML cut to 40 characters ("N items" for a list; an object's first string). `fields` come from the boot sections (schema order); a settings field (enum, boolean, number, url) has no row. The field keepKey (the selected one) keeps its row when its value is emptied. */
+export const fieldRows = (content, fields, keepKey = null) =>
+  (fields ?? []).filter((f) => !f.setting).flatMap((f) => {
     const v = content?.[[f.key, ...(f.alias ?? [])].find((k) => content && k in content)]; // the key, else its x-hm-alias (as the Inspector reads it)
     const s = typeof v === "boolean" ? "" : Array.isArray(v) ? (v.length ? `${v.length} items` : "") : v && typeof v === "object" ? (Object.values(v).find((x) => typeof x === "string") ?? "") : v == null ? "" : String(v);
     const text = s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
-    return text ? [{ ...f, text }] : [];
+    return text || f.key === keepKey ? [{ ...f, text }] : [];
   });
 
 /**
@@ -126,23 +126,24 @@ export function nameSource(node, top = true) {
 
 const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 
-/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill; colourOf(token) -> "#hex" | null names the hex a token background stands for). The count is omitted when there are no blocks, the background when none is set. "" for other rows. */
+/** A section row's meta line: "N blocks · <background>", or "Hidden on <Devices>" in place of the background ("Hidden" when every device; quiet: the background only, for a row that already carries the Hidden pill; colourOf(token) -> "#hex" | null names the hex a token background stands for). A section without blocks reads "Empty", so every section row has two lines; the background is omitted when none is set. "" for other rows. */
 export function metaOf(row, quiet = false, colourOf = () => null) {
   if (!row.section) return "";
   const node = row.node;
   const count = (row.collapsed ? (row.collapsed.c ?? []) : (node.c ?? [])).length || row.fields; // a component without blocks counts its field rows, filtered out or not
   const off = BPS.filter((bp) => hiddenAt(node, bp) || (row.collapsed && hiddenAt(row.collapsed, bp))); // a hidden component hides the section too
-  const bg = node.s?.base?.bg;
+  const bg = thumbOf(node, row.collapsed).bg;
   const bgText = typeof bg === "string" && bg.trim() ? (colourOf(bg.trim()) ?? bg.trim()) : "";
   const tail = quiet ? bgText : off.length === BPS.length ? "Hidden" : off.length ? `Hidden on ${off.map((bp) => BP_NAME[bp]).join(", ")}` : bgText;
-  return [count ? pluralBlocks(count) : "", tail].filter(Boolean).join(" · ");
+  return [count ? pluralBlocks(count) : "Empty", tail].filter(Boolean).join(" · ");
 }
 
 /** What a section row's thumbnail shows: the container's base background (a hex or a token name as written; null when none) and its text alignment. */
-export function thumbOf(container) {
-  const base = container.s?.base ?? {};
-  const bg = typeof base.bg === "string" && base.bg.trim() ? base.bg.trim() : null;
-  return { bg, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
+export function thumbOf(container, inner = null) {
+  const set = (b) => typeof b?.bg === "string" && b.bg.trim();
+  const own = [container.s?.base, inner?.s?.base].find(set) ?? {};
+  const base = { ...(inner?.s?.base ?? {}), ...(container.s?.base ?? {}) };
+  return { bg: set(own) ? own.bg.trim() : null, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
 }
 
 /**
@@ -207,8 +208,24 @@ export function hiddenBadge(tpl, device) {
 }
 
 /** The Lucide icon (by name) shown on a block row, by kind; a plugin's kind (none of the stock ones) reads as a puzzle piece. */
-export const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "list", stat: "layers", buttons: "link", icon: "image", video: "image", accordion: "list", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text", quote: "quote", list: "list" };
-const FIELD_ICON = { richtext: "file-text", image: "image", link: "link", list: "list", object: "layers", code: "code", text: "heading" };
+export const ICON_FOR = { heading: "heading", text: "file-text", button: "link", image: "image", divider: "minus", spacer: "maximize", container: "layout", component: "layers", ref: "copy", loop: "list", loopempty: "list", slot: "puzzle", code: "code", columns: "layout", gallery: "image", table: "table", stat: "analytics", buttons: "link", icon: "image", video: "image", accordion: "help", tabs: "list", tabpanel: "layers", menu: "list", breadcrumbs: "list", html: "code", richtext: "file-text", form: "file-text", quote: "quote", list: "list" };
+const FIELD_ICON = { richtext: "file-text", image: "image", link: "link", list: "list", object: "layers", code: "code" };
+const WORDS = [
+  [/eyebrow|kicker|overline/i, "tag"],
+  [/button|cta|action/i, "link"],
+  [/stat|metric/i, "analytics"],
+  [/step|process|timeline/i, "list-ordered"],
+  [/faq|question/i, "help"],
+  [/table/i, "table"],
+  [/card|feature/i, "layout"],
+  [/head|title/i, "heading"],
+];
+
+/** The Lucide icon (by name) of a content-field row: its key or label says what it is ("eyebrow", "stats", "faqs"), else its kind. */
+export const fieldIcon = (f) => WORDS.find(([re]) => re.test(`${f.key} ${f.label}`))?.[1] ?? FIELD_ICON[f.kind] ?? "file-text";
+
+/** How wide a thumbnail line is (percent) for a block kind or a field: a heading is long, buttons short, an eyebrow shortest. */
+export const lineWidth = (key) => (/eyebrow|kicker|overline/i.test(key) ? 30 : /button|cta|action/i.test(key) ? 40 : /head|title/i.test(key) ? 70 : 90);
 
 /** A thumbnail's CSS values for a hex background: the colour and a readable foreground (keywords, no literals). Anything else (a token name no resolver knows) leaves the thumbnail at its default. */
 export function thumbColours(bg) {
@@ -223,7 +240,7 @@ export function thumbColours(bg) {
  * mountNavigator(root, {getDoc, getSelected, onSelect, getDevice, onToggleHide}) -> {draw, reveal, act, focus}
  * getSelection() lists every selected id (the primary one is getSelected()); onSelect(id, {shift, ctrl}) reports the modifiers of a click.
  * kindName(kind) is the plain name of a kind (kindnames.js); getSections() lists the theme sections for component rows.
- * bar holds the toolbar outside the tree: the Filter input, Collapse all and Rename (enabled with a selection); announce(text) reports the match count.
+ * bar holds the panel around the tree: the Filter input, the "PAGE · N SECTIONS" caption, the Collapse button and the page row (getPageName() is its title); announce(text) reports the match count.
  * getBlocks() is the synced block list for a ref row's name. getNote(node) is the preset note appended to a row's text ("preset card, differs"; no nested control).
  * onMenu(id, x, y) opens the actions menu at a page point (right-click on a row); rect(id) is a row's box.
  * getTokenColour(name) -> "#hex" | null: what a token background (muted, accent) stands for, for the thumbnail and the meta line; null (or no resolver) keeps the token's name and the default thumbnail.
@@ -231,13 +248,14 @@ export function thumbColours(bg) {
  * Rows: a section is one numbered row (index, thumbnail, name, meta line); a block is a smaller row with a type icon, its opening text and its kind. The eye and more
  * buttons on a row and the gap are mouse affordances only: aria-hidden, no focus, no data-id (keyboard: h, the context menu, the footer's Add). Their icons are cloned
  * from template[data-hm-bs-ico] (UI-05); getSelected() may be a component id from the canvas: its collapsed section's row is the selected one.
- * onField(componentId, key) opens the Inspector on a content-field row (Click/Enter); such a row never reaches onSelect, onRename, onToggleHide or a drag, and its menu is its section's.
+ * getSelectedField() -> {componentId,key} | null is the selected content field: its row is the selected one (its section row is only banded) and keeps its row even when its value is empty.
+ * onSelectField(componentId, key, {keys}) selects a content-field row (Click/Enter, or an arrow onto it with keys: true); such a row never reaches onSelect, onRename, onToggleHide or a drag, and its menu is its section's.
  * onRename(id, value, innerId) saves a name typed in a row (double-click or F2; value "" removes it); innerId is the component whose old name the row was showing (clear it too, in the same step).
  * getDevice() is the active breakpoint: rows hidden at it carry a badge. The h key on a row calls onToggleHide(id).
  * draw() repaints on the next frame (keeping focus when it was in the tree; draw(true) moves focus to the selected row);
  * act(action) runs a navigation key and returns whether it was one.
  */
-export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], onField = () => {}, getTokenColour = () => null, bar = null, announce = () => {} }) {
+export function mountNavigator(root, { getDoc, getSelected, getSelection = () => [], onSelect, getDevice = () => "base", onRename = () => {}, onMenu = () => {}, onAdd = () => {}, onAddAt = () => {}, onToggleHide = () => {}, getNote = () => "", getBlocks = () => [], kindName = plain, getSections = () => [], getSelectedField = () => null, onSelectField = () => {}, getPageName = () => "", getTokenColour = () => null, bar = null, announce = () => {} }) {
   const collapsed = new Set();
   const badgeTpl = root.closest("[data-hm-builder]")?.querySelector("template[data-hm-bs-hidden-badge]"); // the server-rendered pill
   if (!badgeTpl) console.warn("builder navigator: template[data-hm-bs-hidden-badge] not found inside [data-hm-builder]; Hidden rows lose the pill look");
@@ -253,12 +271,16 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   const nameOf = (n, top = false) => (top && isCollapsed(n) ? sectionName(n, getBlocks(), kindName, getSections()) : label(n, getBlocks(), kindName, getSections()));
   /** A background as a hex: a hex as written, a token through getTokenColour (null when unknown). */
   const hexOf = (bg) => (thumbColours(bg) ? bg : (getTokenColour(bg) ?? null));
-  const fieldsOf = (c) => fieldRows(c.p?.content, getSections().find((s) => s.type === c.p?.type)?.fields);
+  const fieldsOf = (c) => {
+    const sf = getSelectedField();
+    return fieldRows(c.p?.content, getSections().find((s) => s.type === c.p?.type)?.fields, sf?.componentId === c.id ? sf.key : null);
+  };
   const rowsNow = () => rowsOf(getDoc(), collapsed, filter, nameOf, fieldsOf);
   let ff = null; // the focused field row: it keeps the tab stop and the focus through a repaint
   const filterEl = bar?.querySelector("[data-hm-bs-filter]");
   const collapseBtn = bar?.querySelector("[data-hm-bs-collapse]");
-  const renameBtn = bar?.querySelector("[data-hm-bs-rename]");
+  const countEl = bar?.querySelector("[data-hm-bs-count]");
+  const pageTitleEl = bar?.querySelector("[data-hm-bs-pagetitle]");
 
   function paint() {
     raf = 0;
@@ -268,8 +290,17 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const selRow = sel ? rowIdOf(doc, sel) : null; // the canvas selects a collapsed section by its component: the row is the container
     const members = new Set(getSelection().map((id) => rowIdOf(doc, id) ?? id));
     const rows = rowsNow();
-    if (renameBtn) renameBtn.disabled = !sel;
-    if (collapseBtn) collapseBtn.querySelector("span").textContent = allCollapsed(doc, collapsed, fieldsOf) ? "Expand all" : "Collapse all";
+    const sf = getSelectedField();
+    const sfRow = sf && rowIdOf(doc, sf.componentId) ? `${rowIdOf(doc, sf.componentId)}#${sf.key}` : null;
+    const fieldSel = sfRow && rows.some((r) => r.id === sfRow) ? sfRow : null; // a selected field row replaces its section as the selected row
+    const n = doc.nodes.length;
+    if (countEl) countEl.textContent = `PAGE · ${n} SECTION${n === 1 ? "" : "S"}`; // typed uppercase: the design check bans text-transform
+    if (pageTitleEl) pageTitleEl.textContent = getPageName();
+    if (collapseBtn) {
+      const all = allCollapsed(doc, collapsed, fieldsOf);
+      collapseBtn.querySelector("span").textContent = all ? "Expand" : "Collapse";
+      collapseBtn.setAttribute("aria-label", all ? "Expand all sections" : "Collapse all sections"); // the short visible word names no object
+    }
     const active = document.activeElement;
     if (force && !root.contains(active)) ff = null; // focus came from elsewhere (a palette add, a canvas pick): the new selection takes the tab stop
     const hadFocus = root.contains(active) || force || (wantFocus && (!active || active === document.body));
@@ -283,10 +314,11 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       return;
     }
     if (renaming && !rows.some((r) => r.id === renaming)) renaming = field = null;
-    const stop = rows.some((r) => r.id === ff) ? ff : rows.some((r) => r.id === selRow) ? selRow : rows[0].id;
+    const stop = rows.some((r) => r.id === ff) ? ff : fieldSel ? fieldSel : rows.some((r) => r.id === selRow) ? selRow : rows[0].id;
     const device = getDevice();
-    const band = selRow && sel ? ((s) => (s && inSection(doc, s.id, sel) ? s.id : null))(sectionOf(doc, sel)) : null; // the section holding the selection (once per draw)
+    const band = sel ? (sectionOf(doc, sel)?.id ?? null) : null; // the section holding the selection (once per draw)
     const last = rows.length - 1;
+    const endsSection = (i) => i === last || rows[i + 1].section; // the last row of a section
     let top = "";
     const items = rows.map((r, i) => {
       if (r.section) top = r.id;
@@ -295,14 +327,14 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       const kn = f ? f.label : kindName(r.node.t);
       const name = f ? `${kn}${SEP}${f.text}` : rowName(r.node, getNote(r.node), getBlocks(), kindName, getSections(), r.section);
       const li = h("li", {
-        class: ["hm-bs-row", r.section ? "hm-bs-row--section" : "hm-bs-row--block", top === band && r.id !== selRow && "hm-bs-row--band", hidden && "hm-bs-row--hidden"].filter(Boolean).join(" "),
+        class: ["hm-bs-row", r.section ? "hm-bs-row--section" : "hm-bs-row--block", top === band && "hm-bs-row--band", top === band && r.section && "hm-bs-row--band-first", top === band && endsSection(i) && "hm-bs-row--band-last", hidden && "hm-bs-row--hidden"].filter(Boolean).join(" "),
         role: "treeitem",
         tabindex: r.id === stop ? "0" : "-1",
         "data-id": r.id,
         "aria-level": String(r.level),
         "aria-setsize": String(r.size),
         "aria-posinset": String(r.pos),
-        "aria-selected": String(r.id === selRow || members.has(r.id)),
+        "aria-selected": String(fieldSel ? r.id === fieldSel : r.id === selRow || members.has(r.id)),
         "aria-expanded": r.kids ? String(r.expanded) : false,
         "data-field": f?.key ?? false,
         "data-comp": f?.componentId ?? false,
@@ -311,9 +343,9 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       if (r.id === renaming) return li.append((field = renameField(r.node, r.section))), li;
       const kids = [];
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
-      kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
-      if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node));
-      else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(f ? (FIELD_ICON[f.kind] ?? "puzzle") : (ICON_FOR[r.node.t] ?? "puzzle"))));
+      kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }, icon(r.expanded ? "chevron-down" : "chevron-right")) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
+      if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node, thumbLines(r), r.collapsed));
+      else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(f ? fieldIcon(f) : (ICON_FOR[r.node.t] ?? "puzzle"))));
       const text = h("span", { class: "hm-bs-row__text" });
       const prefix = `${kn}${SEP}`;
       const typed = !r.section && name.startsWith(prefix); // "Heading · Build pages": the kind moves to its own muted column
@@ -336,17 +368,30 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     else if (hadFocus) focus();
   }
 
-  /** The thumbnail of a section row: its background and text alignment through CSS custom properties (the admin CSP has no inline style attribute). */
-  function thumb(node) {
-    const { bg, align } = thumbOf(node);
+  /** The widths (percent) of a section thumbnail's three lines: from its first blocks, else its first content fields. */
+  function thumbLines(r) {
+    const comp = r.collapsed ?? r.node;
+    const blocks = (comp.c ?? []).map((b) => lineWidth(b.t));
+    const keys = blocks.length ? blocks : fieldsOf(comp).map((f) => lineWidth(`${f.key} ${f.label}`));
+    return [0, 1, 2].map((i) => keys[i] ?? 90);
+  }
+
+  /** The thumbnail of a section row: its background, text alignment and three lines through CSS custom properties (the admin CSP has no inline style attribute). */
+  function thumb(node, lines = [90, 90, 90], inner = null) {
+    const { bg, align } = thumbOf(node, inner);
     const e = h("span", { class: "hm-bs-row__thumb", "data-align": align, "aria-hidden": "true" });
+    for (const w of lines) {
+      const line = h("i");
+      line.style.setProperty("--w", `${w}%`);
+      e.append(line);
+    }
     const c = thumbColours(bg && hexOf(bg));
     if (c) (e.style.setProperty("--bs-thumb", c.bg), e.style.setProperty("--bs-thumb-fg", c.fg));
     return e;
   }
 
   /** The "+ add section here" strip on a row's edge, before the section at `index` (a click opens the picker there). */
-  const gap = (index) => h("span", { class: "hm-bs-gap", "aria-hidden": "true", "data-hm-bs-gap": String(index) }, h("span", { class: "hm-bs-gap__btn" }, icon("plus"), h("span", { text: "Add section here" })));
+  const gap = (index) => h("span", { class: "hm-bs-gap", "aria-hidden": "true", "data-hm-bs-gap": String(index) }, h("span", { class: "hm-bs-gap__btn", title: "Add section here" }, icon("plus")));
 
   /** The input that replaces a row's text: Enter saves, Esc cancels, leaving saves; the keymap ignores keys typed in it. */
   function renameField(node, top) {
@@ -409,7 +454,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     const rows = rowsNow();
     if (action === "rename") return rename(sel), true;
     const at = document.activeElement;
-    const from = root.contains(at) && at.dataset?.field != null ? at.dataset.id : sel; // a focused field row is where keys start
+    const sf = getSelectedField();
+    const from = root.contains(at) && at.dataset?.field != null ? at.dataset.id : (rows.find((r) => r.field && sf && r.field.componentId === sf.componentId && r.field.key === sf.key)?.id ?? sel); // a focused or selected field row is where keys start
     if (!["prev", "next", "first", "last", "collapse", "expand"].includes(action)) return false;
     const r = step(rows, from, action);
     if (!r) return true;
@@ -418,13 +464,12 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     else if (r.expand) collapsed.delete(r.expand);
     ff = null;
     if (r.select?.includes("#")) {
-      // onto a field row: DOM focus stays on it (ff keeps the tab stop through the repaint), its section is the selection so Delete, F2 and the menu act on it
+      // onto a field row: it becomes the selection; DOM focus stays on it (ff keeps the tab stop through the repaint)
       ff = r.select;
-      const owner = r.select.split("#")[0];
-      if (owner !== sel) onSelect(owner);
-      else paint(), focus();
+      const f = rows.find((x) => x.id === r.select).field;
+      onSelectField(f.componentId, f.key, { keys: true });
     }
-    else if (r.select && r.select === sel && from !== sel) paint(), focus(); // back to the section already selected
+    else if (r.select && r.select === sel && from !== sel && !sf) paint(), focus(); // back to the section already selected
     else if (r.select) onSelect(r.select);
     else paint();
     return true;
@@ -468,7 +513,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
     }
     const row = e.target.closest?.("[data-id]");
     if (!row) return;
-    if (row.dataset.field != null) return onField(row.dataset.comp, row.dataset.field);
+    if (row.dataset.field != null) return onSelectField(row.dataset.comp, row.dataset.field);
     wantFocus = true;
     if (e.target.closest("[data-caret]")) return toggle(row.dataset.id);
     // pick: a plain click or tap. Modifier clicks (multi-select) and the second click of a double-click are not a pick, and neither are keys.
@@ -476,9 +521,11 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   });
   root.addEventListener("focusin", (e) => (ff = e.target.dataset?.field != null ? e.target.dataset.id : null));
   root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
+  root.addEventListener("pointerdown", () => root.setAttribute("data-pointer", ""));
+  document.addEventListener("keydown", () => root.removeAttribute("data-pointer"), true); // any key, even one outside the tree (Tab back in, Escape out of a menu): the ring shows again
   root.addEventListener("keydown", (e) => {
     const row = e.target.closest?.("[data-id]");
-    if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onField(row.dataset.comp, row.dataset.field)) : undefined;
+    if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onSelectField(row.dataset.comp, row.dataset.field)) : undefined;
     if (!row || e.target !== row || e.key !== "h" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     e.preventDefault();
     onToggleHide(row.dataset.id);

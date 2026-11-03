@@ -15,12 +15,48 @@ export function prefetch() {
   import("@hm/content").catch(() => {});
 }
 
+const INVALID = ".hm-field--invalid, .hm-field__error, [aria-invalid=\"true\"]";
+
 /**
- * mountFields(host, {node, type, getContent, urls, csrf, onContent}) -> {destroy}
+ * Shows only the top-level form blocks that hold the content field `keys` ([key, ...aliases]) of component `node`, and hides the rest
+ * (the other fields and the group headings). Hidden, never removed or disabled: a hidden control is still submitted, so the decode keeps every other value.
+ * A block belongs to the field when one of its controls (or the block itself) is named, or has data-path, "n.<node>.c.<key>" or below it.
+ */
+export function applyOnly(form, node, keys) {
+  const names = keys.map((k) => `n.${node}.c.${k}`);
+  const owns = (name) => {
+    const n = (name ?? "").replace(/^_[a-z]+\./, ""); // _present., _add., _move. markers name the same field
+    return names.some((p) => n === p || n.startsWith(`${p}.`));
+  };
+  const mine = (el) => [el, ...el.querySelectorAll("[name], [data-path]")].some((x) => owns(x.getAttribute("name")) || owns(x.getAttribute("data-path")));
+  for (const el of Array.from(form.children)) {
+    const show = mine(el) || !!el.querySelector(INVALID); // an error is never hidden: the decode refuses to commit while it stands
+    el.hidden = !show;
+    el.style.display = show ? "" : "none"; // the CSSOM (CSP-safe): a theme class may override the hidden attribute
+  }
+}
+
+/**
+ * Enter in a one-line input would submit the form through its first submit button, a repeater's add, remove or move (possibly in a hidden block). Cancel it.
+ * An input of another form nested in this one (the rich text editor's Link and Image rows) submits that form itself: leave it be.
+ * Returns true when it cancelled the key.
+ */
+export function noImplicitSubmit(e) {
+  const t = e.target;
+  if (e.key !== "Enter" || e.defaultPrevented || t?.tagName !== "INPUT" || /^(submit|button|reset|checkbox|radio)$/.test(t.type)) return false;
+  if (t.form && t.form !== e.currentTarget) return false;
+  e.preventDefault();
+  return true;
+}
+
+/**
+ * mountFields(host, {node, type, getContent, urls, csrf, onContent, only}) -> {destroy}
+ * only: [key, ...aliases] of one content field: the form shows just that field (applyOnly), again after every adopt().
+
  * onContent(content): a decoded content object to commit as the node's content.
  * destroy() sends any pending edit before it leaves, so a selection change loses nothing.
  */
-export function mountFields(host, { node, type, getContent, urls, csrf, onContent }) {
+export function mountFields(host, { node, type, getContent, urls, csrf, onContent, only = null }) {
   const form = h("form", { class: "hm-bs-fields", novalidate: true, "aria-busy": "true" });
   const status = h("p", { class: "hm-muted", role: "status", text: LOADING });
   host.append(status, form);
@@ -46,6 +82,7 @@ export function mountFields(host, { node, type, getContent, urls, csrf, onConten
     const at = focus?.id;
     const range = focus && "selectionStart" in focus ? [focus.selectionStart, focus.selectionEnd] : null;
     form.innerHTML = html;
+    if (only) applyOnly(form, node, only); // before the widgets start: the other fields never flash
     window.htmx?.process(form);
     form.dispatchEvent(new CustomEvent("htmx:afterSettle", { bubbles: true, detail: {} }));
     // Loaded on first use, after the settle event above: initialise them explicitly (the inits are idempotent).
@@ -104,6 +141,7 @@ export function mountFields(host, { node, type, getContent, urls, csrf, onConten
   };
   form.addEventListener("input", later);
   form.addEventListener("change", later);
+  form.addEventListener("keydown", noImplicitSubmit);
   form.addEventListener("focusout", () => dirty && decode());
   // Repeater buttons (add, remove, move) post as the clicked button: its name/value ride along untouched.
   form.addEventListener("submit", (e) => {

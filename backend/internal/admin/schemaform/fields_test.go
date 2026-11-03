@@ -70,3 +70,27 @@ func TestTopFieldsNone(t *testing.T) {
 		}
 	}
 }
+
+func TestTopFieldsSetting(t *testing.T) {
+	t.Parallel()
+
+	const schema = `{"type":"object","properties":{
+	 "layout":{"type":"string","enum":["a","b"]},
+	 "flag":{"type":"boolean"},
+	 "count":{"type":"integer"},
+	 "ratio":{"type":"number"},
+	 "href":{"type":"string","x-hm-field":"url"},
+	 "plain":{"type":"string","x-hm-field":"plaintext"},
+	 "body":{"type":"string","x-hm-field":"richtext"},
+	 "photo":{"type":"string","x-hm-field":"image"},
+	 "items":{"type":"array","items":{"type":"object"}},
+	 "panel":{"type":"object","properties":{"title":{"type":"string"}}},
+	 "code":{"type":"string","x-hm-field":"code"},
+	 "eyebrow":{"type":"string"}}}`
+	want := map[string]bool{"layout": true, "flag": true, "count": true, "ratio": true, "href": true}
+	for _, f := range TopFields(json.RawMessage(schema)) {
+		if f.Setting != want[f.Key] {
+			t.Errorf("%s Setting = %v, want %v", f.Key, f.Setting, want[f.Key])
+		}
+	}
+}

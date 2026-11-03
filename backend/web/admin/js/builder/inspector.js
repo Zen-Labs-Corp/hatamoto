@@ -15,12 +15,13 @@ let uid = 0;
 
 /**
  * mountInspector(root, api) -> {draw, show, refresh, focus, prefetch, attach}
- * api: {getDoc, getSelected, kinds, sections, urls, csrf, device, styleTable, commit(ops, opts) -> bool, copyStyle(), pasteStyle(), design: {tokens, presets, canCreate}, reload(), reuse (boot.reuse), select(id), announce(msg), user (the boot user id: scopes remembered panel state)}
+ * api: {getDoc, getSelected, getField() -> {componentId, key} | null (the selected content field: the panel then edits that one field), kinds, sections, urls, csrf, device, styleTable, commit(ops, opts) -> bool, copyStyle(), pasteStyle(), design: {tokens, presets, canCreate}, reload(), reuse (boot.reuse), select(id), announce(msg), user (the boot user id: scopes remembered panel state)}
  */
 export function mountInspector(root, api) {
   let tab = "content";
   let state = ""; // the Style tab's State switch ("" = Normal); lives here so in-place commits keep it
   let drawnId = null;
+  let drawnKey = null; // the content field the panel was drawn for (field mode), else null
   let drawnNode = null;
   let busy = false;
   let fields = null;
@@ -74,7 +75,7 @@ export function mountInspector(root, api) {
     return slot;
   }
 
-  const contentPanel = (node) => lazyPanel("hm-bs-content", (c) => c.contentPanel(node));
+  const contentPanel = (node, only) => lazyPanel("hm-bs-content", (c) => c.contentPanel(node, { only }));
   const advancedPanel = (node) => lazyPanel("hm-bs-advanced", (c) => c.advancedPanel(node));
 
   // The Style tab body is a lazy chunk (literal import() so the budget walks see it).
@@ -151,7 +152,10 @@ export function mountInspector(root, api) {
     const node = sel && find(api.getDoc(), sel);
     if ((node ? sel : null) !== drawnId) setState("");
     if (state === "parent-hover" && !takesParentHover(locate(api.getDoc(), sel)?.parent)) setState("");
+    const fld = node ? api.getField?.() : null;
+    const def = fld && fld.componentId === sel ? api.sections.find((s) => s.type === node.p?.type)?.fields?.find((f) => f.key === fld.key) : null;
     drawnId = node ? sel : null;
+    drawnKey = def ? def.key : null;
     drawnNode = node || null;
     info = null;
     if (!node) {
@@ -159,6 +163,7 @@ export function mountInspector(root, api) {
       tabs = [];
       return;
     }
+    if (def) return drawField(node, def);
     const base = `hm-bs-i${++uid}`;
     const list = h("div", { role: "tablist", "aria-label": "Inspector sections", class: "hm-tablist hm-bs-sections" });
     tabs = TABS.map(([key, name]) => h("button", { type: "button", role: "tab", class: "hm-tablist__tab", id: `${base}-${key}-t`, "aria-controls": `${base}-${key}`, "aria-selected": String(key === tab), tabindex: key === tab ? "0" : "-1", "data-tab": key, text: name }));
@@ -197,6 +202,20 @@ export function mountInspector(root, api) {
     });
   }
 
+  /** Field mode: the header names the field and its section, then that field's editor alone (no tabs, class row or style). */
+  function drawField(node, def) {
+    const name = plainLabel(label(node, api.reuse?.blocks));
+    const alias = def.alias ?? [];
+    const panel = h("div", { class: "hm-bs-panel", tabindex: "0" }, contentPanel(node, [def.key, ...alias]));
+    const head = h("div", { class: "hm-bs-header" }, h("h3", { class: "hm-bs-name", text: plainLabel(def.label || def.key) }));
+    const drawn = gen;
+    headerChunk()
+      .then((m) => drawn === gen && head.isConnected && head.replaceWith(m.header({ node, api, name, field: { ...def, sectionId: node.id, sectionName: name } })))
+      .catch(console.error);
+    tabs = [];
+    root.replaceChildren(head, slot, panel);
+  }
+
   function activate(key, focus) {
     if (key === tab) return;
     tab = key;
@@ -216,7 +235,7 @@ export function mountInspector(root, api) {
     },
     /** Selection changed: redraw only when it is another element. */
     show() {
-      if (api.getSelected() !== drawnId) draw();
+      if (api.getSelected() !== drawnId || (api.getField?.()?.key ?? null) !== drawnKey) draw();
     },
     /** After any commit: redraw when the selected element changed from outside. */
     refresh() {

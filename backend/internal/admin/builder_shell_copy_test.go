@@ -17,7 +17,7 @@ var copyTerms = regexp.MustCompile(`(?i)\b(node|nodes|kind|kinds|ref|refs|slot|s
 
 var shellCopyJS = []string{
 	"addtab", "banners", "clipops", "coachmarks", "colournames", "commandk", "history", "historylabel", "keys", "kindnames", "navigator",
-	"palette", "panes", "patterns", "phone", "recent", "reuse", "reusecore", "reuseops", "savedialog", "screen", "search", "sitestyles", "startpanel",
+	"pagestab", "palette", "panes", "patterns", "phone", "recent", "reuse", "reusecore", "reuseops", "savedialog", "screen", "search", "sitestyles", "startpanel",
 }
 
 // inspectorCopyJS and canvasCopyJS are the inspector and canvas files of builder-ux-canvas-inspector, scanned the same way.

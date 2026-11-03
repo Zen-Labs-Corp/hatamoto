@@ -267,3 +267,30 @@ test("the device label is not a live region (it is repainted on every hover) and
   assert.match(band.textContent, /^Tablet · editing styles/);
   assert.ok(!strip.children[0].children.some((c) => c === band), "not inside the crumbs nav");
 });
+
+test("a selected field is outlined by its reported box in place of the section; no box keeps the section outline", () => {
+  const { host, canvas, frame } = rig();
+  const box = { x: 0, y: 0, w: 100, h: 20 };
+  const layout = (field) => ({ hm: 2, type: "layout", docH: 400, main: { x: 0, y: 0, w: 100, h: 400 }, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }], ...(field && { field }) });
+  const outlines = () => {
+    const out = [];
+    const walk = (e) => { if (e.attrs?.["data-hm-pe-outline"] !== undefined) out.push(e); (e.children ?? []).forEach(walk); };
+    walk(host);
+    return out;
+  };
+  const classes = () => outlines().map((o) => o.attrs.class);
+  canvas.setSelectedNode("s1", { sel: "section" });
+  dom.deliver(host, layout());
+  assert.deepEqual(classes(), ["hm-pe__outline"]);
+  const before = frame.posted.length;
+  canvas.setSelectedField({ sel: "section", key: "s1", paths: ["eyebrow", "kicker"] });
+  assert.deepEqual(frame.posted.slice(before), [{ hm: 2, type: "field", sel: "section", key: "s1", paths: ["eyebrow", "kicker"] }]);
+  dom.deliver(host, layout({ x: 5, y: 6, w: 40, h: 8 }));
+  assert.deepEqual(classes(), ["hm-pe__outline hm-pe__outline--field"], "the field outline replaces the section's");
+  dom.deliver(host, layout()); // the theme marks nothing for it
+  assert.deepEqual(classes(), ["hm-pe__outline"], "fallback to the section outline");
+  dom.deliver(host, layout({ x: 5, y: 6, w: 40, h: 8 }));
+  canvas.setSelectedField(null);
+  assert.deepEqual(frame.posted.at(-1), { hm: 2, type: "field", sel: "section", key: "s1", paths: null });
+  assert.deepEqual(classes(), ["hm-pe__outline"], "cleared");
+});

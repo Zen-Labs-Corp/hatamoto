@@ -37,7 +37,7 @@ globalThis.document = { querySelector: () => null, createElement: (t) => new El(
 globalThis.window = globalThis;
 
 
-const { header, headerModel } = await import(new URL("builder/inspheader.js", root));
+const { header, headerModel, fieldHeaderModel } = await import(new URL("builder/inspheader.js", root));
 const { clipboard } = await import(new URL("builder/design.js", root));
 
 const leaf = (id, t = "heading", p = {}) => ({ id, t, p, c: [] });
@@ -108,4 +108,23 @@ test("Restore from an earlier version appears only when the screen offers it, an
   assert.ok(row);
   row.on.click[0]();
   assert.equal(got, "a");
+});
+
+test("fieldHeaderModel: the field's label, a per-kind icon and its section", () => {
+  const f = { key: "eyebrow", label: "Eyebrow", kind: "text", sectionId: "c1", sectionName: "Hero" };
+  assert.deepEqual(fieldHeaderModel(f), { icon: "tag", title: "Eyebrow", section: { id: "c1", name: "Hero" } });
+  assert.equal(fieldHeaderModel({ ...f, key: "body", label: "Body (long)", kind: "richtext" }).title, "Body", "a trailing (variant) is dropped like in the section name");
+});
+
+test("a field header reads \"<Label>\" and \"Field in <Section>\"; the section name selects the section; no name input, no menu", () => {
+  let picked = null;
+  const field = { key: "eyebrow", label: "Eyebrow", kind: "text", sectionId: "c1", sectionName: "Hero" };
+  const el = header({ node: doc.nodes[0], api: api({ select: (id) => (picked = id) }), name: "Hero", field });
+  assert.equal(text(all(el).find((n) => n.attrs.class === "hm-bs-name")), "Eyebrow");
+  assert.ok(all(sub(el)).some((n) => n.textContent === "Field in "));
+  const link = all(el).find((n) => n.tag === "button" && n.attrs.class === "hm-bs-sublink");
+  assert.equal(text(link), "Hero");
+  link.on.click[0]();
+  assert.equal(picked, "c1");
+  assert.equal(all(el).some((n) => n.tag === "input" || n.attrs.role === "menu" || n.attrs.popovertarget), false);
 });

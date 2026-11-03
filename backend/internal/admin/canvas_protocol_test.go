@@ -76,9 +76,10 @@ func refClone(v any) any {
 }
 
 var (
-	refIDRe       = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
-	refPropRe     = regexp.MustCompile(`^[a-z-]{1,40}$`)
-	refTextPropRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,40}$`)
+	refIDRe        = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	refPropRe      = regexp.MustCompile(`^[a-z-]{1,40}$`)
+	refFieldPathRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,100}$`)
+	refTextPropRe  = regexp.MustCompile(`^[A-Za-z0-9_-]{1,40}$`)
 )
 
 type refObj = map[string]any
@@ -184,6 +185,13 @@ func refParseV2(typ string, m refObj) refObj {
 		}
 		o := out("docH")
 		o["nodes"], o["main"] = typed, refPick(mainBox, "x", "y", "w", "h")
+		if f, has := m["field"]; has {
+			fb, ok := refIsObj(f)
+			if !ok || !refNums(fb, "x", "y", "w", "h") {
+				return nil
+			}
+			o["field"] = refPick(fb, "x", "y", "w", "h")
+		}
 		return o
 	case "hover":
 		if m["id"] == nil {
@@ -483,6 +491,21 @@ func refValidOut(data any) bool {
 		return subject() && ok
 	case "scrollTo":
 		return refIsNum(m["y"])
+	case "field":
+		if m["paths"] == nil {
+			_, has := m["paths"]
+			return subject() && has
+		}
+		paths, ok := m["paths"].([]any)
+		if !subject() || !ok || len(paths) < 1 || len(paths) > 6 {
+			return false
+		}
+		for _, p := range paths {
+			if s, ok := refIsStr(p); !ok || !refFieldPathRe.MatchString(s) {
+				return false
+			}
+		}
+		return true
 	case "format":
 		cmd, ok := refIsStr(m["cmd"])
 		if !subject() || !ok || !refFormatCmds[cmd] {
@@ -567,7 +590,7 @@ func TestProtocolFixtureCoversEveryType(t *testing.T) {
 			t.Errorf("no valid inbound case for %q", typ)
 		}
 	}
-	for _, typ := range []string{"init", "patch", "insert", "move", "remove", "setVar", "css", "edit", "select", "scrollTo", "force", "format"} {
+	for _, typ := range []string{"init", "patch", "insert", "move", "remove", "setVar", "css", "edit", "select", "scrollTo", "field", "force", "format"} {
 		if !out[typ] {
 			t.Errorf("no valid outbound case for %q", typ)
 		}

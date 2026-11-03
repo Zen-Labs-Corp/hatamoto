@@ -24,6 +24,9 @@ export const MAX_CSS_RULE = 100_000;
 export const MAX_DECLS = 50;
 export const MAX_DECL_VALUE = 200;
 const PROP_RE = /^[a-z-]{1,40}$/;
+/** The paths of a v2 `field` message: up to 6, the data-hm-field grammar. */
+export const MAX_FIELD_PATHS = 6;
+const FIELD_PATH_RE = /^[A-Za-z0-9_.-]{1,100}$/;
 const TEXT_PROP_RE = /^[A-Za-z0-9_-]{1,40}$/;
 /** Inline marks the bridge reports in `selection`, and the commands of `format`. */
 export const MARKS = ["bold", "italic", "underline", "strike", "code", "link"];
@@ -63,9 +66,11 @@ function parseV2(data) {
     case "layout":
       if (!isNum(data.docH) || !isRect4(data.main) || !Array.isArray(data.nodes)) return null;
       if (data.nodes.length > MAX_NODES || !data.nodes.every(isLayoutNode)) return null;
+      if (data.field !== undefined && !isRect4(data.field)) return null;
       return {
         hm: 2, type: "layout", docH: data.docH, nodes: data.nodes.map(layoutNode),
         main: { x: data.main.x, y: data.main.y, w: data.main.w, h: data.main.h },
+        ...(data.field && { field: { x: data.field.x, y: data.field.y, w: data.field.w, h: data.field.h } }),
       };
     case "hover":
       if (data.id === null) return { hm: 2, type: "hover", id: null };
@@ -200,6 +205,8 @@ const okDecls = (d) =>
   d.every((x) => Array.isArray(x) && x.length === 2 && isStr(x[0]) && PROP_RE.test(x[0]) &&
     (x[1] === null || (isStr(x[1]) && x[1].length <= MAX_DECL_VALUE)));
 
+const okFieldPaths = (p) => p === null || (Array.isArray(p) && p.length >= 1 && p.length <= MAX_FIELD_PATHS && p.every((x) => isStr(x) && FIELD_PATH_RE.test(x)));
+
 // href is required for link only; where given it is a string of 1..MAX_HREF characters.
 const okFormatArgs = (m) =>
   (m.href === undefined ? m.cmd !== "link" : isStr(m.href) && m.href.length >= 1 && m.href.length <= MAX_HREF) &&
@@ -229,6 +236,8 @@ export function validToBridge(msg) {
       return isNodeRef(msg.sel, msg.key) && typeof msg.scrollIntoView === "boolean";
     case "scrollTo":
       return isNum(msg.y);
+    case "field":
+      return isNodeRef(msg.sel, msg.key) && okFieldPaths(msg.paths);
     case "format":
       return isNodeRef(msg.sel, msg.key) && FORMAT_CMDS.includes(msg.cmd) && okFormatArgs(msg);
     case "force":
@@ -261,4 +270,5 @@ export const toBridge = {
   format: (o) =>
     withSeq({ hm: 2, type: "format", sel: o.sel, key: o.key, cmd: o.cmd, ...(o.href !== undefined ? { href: o.href } : {}), ...(o.newTab !== undefined ? { newTab: o.newTab } : {}) }, o),
   scrollTo: (o) => withSeq({ hm: 2, type: "scrollTo", y: o.y }, o),
+  field: (o) => withSeq({ hm: 2, type: "field", sel: o.sel, key: o.key, paths: o.paths ?? null }, o),
 };

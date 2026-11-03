@@ -1,4 +1,4 @@
-// The builder's phone-facing pieces: the preview loading and unavailable panel and the dock (Navigator, Add, Inspector). DOM-light (dom.js only) so node can unit test them.
+// The builder's phone-facing pieces: the preview loading and unavailable panel and the dock (Layers, Insert, Pages, Inspector). DOM-light (dom.js only) so node can unit test them.
 import { h, actButton, $, $$ } from "@hm/builder/dom";
 
 export const PREVIEW_TIMEOUT = 8000;
@@ -50,7 +50,7 @@ export function createPreviewState(canvasEl, retry) {
 export const shouldOpenInspector = ({ stacked, selected, userPick }) => !!(stacked && selected && userPick);
 
 /**
- * The phone dock (Navigator, Add, Inspector): the page is the base view and a tab opens one pane as a sheet over it
+ * The phone dock (Layers, Insert, Pages, Inspector): the page is the base view and a tab opens one pane as a sheet over it
  * ([data-hm-bs-tab] on the root: nav, add, insp, or canvas for none). The open tab or Escape closes it.
  * onPick(name) runs when a sheet opens. Returns {pick, show (no onPick), toggle, close, stacked}.
  */

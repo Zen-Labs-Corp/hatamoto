@@ -94,6 +94,8 @@ export function createCanvas(root, handlers, opts = {}) {
   let nodes = [];
   let hoverId = null;
   let selectedNode = null;
+  let fieldReq = null; // {sel, key, paths}: the selected content field, re-sent to a new frame
+  let fieldRect = null; // its marker box from the latest layout (document space), null when the theme marks none
   let editingId = null; // node edited inline (from `selection`)
   const v2Ready = [false, false];
   let topSections = []; // top-level section ids of the latest v2 layout
@@ -195,6 +197,7 @@ export function createCanvas(root, handlers, opts = {}) {
     post(idx, { hm: 1, type: "hm:init", selectedId, editable, openDetails });
     if (v2) postV2(idx, toBridge.init({ editable, selectedKey: ID_RE.test(selectedId ?? "") ? selectedId : null }));
     if (v2 && forced) postV2(idx, toBridge.force(forced));
+    if (v2 && fieldReq) postV2(idx, toBridge.field(fieldReq));
     handlers.onSwap?.(revs[idx]);
   }
   frames.forEach((f, i) => f.addEventListener("load", () => onLoad(i)));
@@ -267,6 +270,7 @@ export function createCanvas(root, handlers, opts = {}) {
     if (m.type === "layout") {
       if (!isActive && idx !== loading) return; // not from the outgoing document
       nodes = m.nodes;
+      fieldRect = fieldReq ? (m.field ?? null) : null;
       topSections = nodes.filter((n) => n.k === "s" && n.p === "").map((n) => n.id);
       const bottom = m.main.y + m.main.h;
       layout = {
@@ -352,7 +356,12 @@ export function createCanvas(root, handlers, opts = {}) {
     const sel = i >= 0 ? secs[i] : null;
     // A selected non-section node (v2) is outlined by its own rect, sections as before.
     const node = v2 && selectedNode?.k === "n" ? nodes.find((n) => n.id === selectedNode.id) : null;
-    if (sel || node) {
+    if (fieldRect && (sel || node)) {
+      // A field marker is outlined instead of its section; a theme without one keeps the section outline.
+      const fo = h("div", { class: "hm-pe__outline hm-pe__outline--field", "data-hm-pe-outline": "", "data-hm-pe-outline-field": "" });
+      fo.style.cssText = `top:${fieldRect.y * scale}px;height:${fieldRect.h * scale}px;left:${fieldRect.x * scale}px;width:${fieldRect.w * scale}px;right:auto`;
+      marks.append(fo);
+    } else if (sel || node) {
       const outline = h("div", { class: "hm-pe__outline", "data-hm-pe-outline": "" });
       const box = node ? { top: node.y, height: node.h } : sel;
       outline.style.top = `${box.top * scale}px`;
@@ -440,6 +449,16 @@ export function createCanvas(root, handlers, opts = {}) {
       drawMarks();
       const box = id && scroll ? nodes.find((n) => n.id === id) : null;
       if (box) root.scrollTo?.({ top: box.y * scale, behavior: "smooth" });
+    },
+    /** Marks a content field of the selected section (paths: the data-hm-field paths that make it up, at most 6) or clears it with null. The frame reports its box in the next layout. */
+    setSelectedField(req) {
+      if (!v2) return;
+      const was = fieldReq;
+      fieldReq = req && req.paths?.length ? { sel: req.sel, key: req.key, paths: req.paths.slice(0, 6) } : null;
+      if (!fieldReq) fieldRect = null;
+      const send = fieldReq ?? (was && { sel: was.sel, key: was.key, paths: null });
+      if (send) postV2(active, toBridge.field(send));
+      drawMarks();
     },
     /** The reported box of a node, in document space ({x, y, w, h}; multiply by `scale` for the pane), or null. */
     nodeRect(id) {

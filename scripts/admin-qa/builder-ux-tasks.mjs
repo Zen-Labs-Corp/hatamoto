@@ -1020,10 +1020,11 @@ await check("more-menu-order: Versions, Page settings, Site styles (owner), Keyb
   return items.join(" | ");
 });
 
-await check("add-tab: Navigator | Insert is a tab list with roving focus; the Insert tab lists Sections and searches", async () => {
+await check("add-tab: Layers | Insert | Pages is a tab list with roving focus; the Insert tab lists Sections and searches", async () => {
   const id = await seeded(main, ["heading"]);
   const tabs = main.locator("[data-hm-bs-ltabs] [role=tab]");
-  need((await tabs.count()) === 2, "two tabs expected");
+  need((await tabs.count()) === 3, "three tabs expected");
+  need((await tabs.allInnerTexts()).map((t) => t.trim()).join("|") === "Layers|Insert|Pages", "tab names: " + (await tabs.allInnerTexts()).join("|"));
   await main.locator('[data-hm-bs-ltab="nav"]').click();
   need((await main.locator('[data-hm-bs-ltab="add"]').getAttribute("tabindex")) === "-1", "the inactive tab is in the tab order");
   await main.locator('[data-hm-bs-ltab="nav"]').focus();
@@ -1144,7 +1145,7 @@ await check("coachmarks-once: the hint bar shows on first use, dismisses for goo
   return `${n} hint(s) shown once`;
 });
 
-await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
+await check("phone-dock: Layers, Insert, Pages and Inspector sit in a dock; picking an element opens the Inspector sheet", async () => {
   const id = await seeded(main, ["heading", "text"]);
   await main.setViewportSize({ width: 390, height: 844 });
   await settle(main, 400);
@@ -1152,7 +1153,7 @@ await check("phone-dock: Navigator, Insert and Inspector sit in a dock; picking 
     const dock = main.locator("[data-hm-bs-dock]");
     need(await dock.first().isVisible(), "no dock");
     const names = (await main.locator("[data-hm-bs-dock] button").allInnerTexts()).map((t) => t.trim());
-    need(names.join() === "Navigator,Insert,Inspector", "dock: " + names.join());
+    need(names.join() === "Layers,Insert,Pages,Inspector", "dock: " + names.join());
     await main.locator('[data-hm-bs-dock="nav"]').click();
     await (await rowOfKind(main, "heading")).click();
     await settle(main, 400);
@@ -1285,21 +1286,22 @@ await check("add-tab-compact: one short Sections row with a toggle, blocks in vi
   return `${n} pattern tiles, Heading in view, he + Enter inserted ${t}`;
 });
 
-await check("footer-hints: the / key sits inside Add element, and the palette button is named and shows its key", async () => {
+await check("footer-hints: one dashed Add section button holds the / key, and Ctrl K still opens the command palette", async () => {
   const id = await newDraft(main);
   await openBuilder(main, id);
   const add = main.locator("[data-hm-bs-addbtn]");
-  const pal = main.getByRole("button", { name: /open command palette$/ });
-  need(await pal.isVisible(), "no button whose name ends in open command palette (the visible Ctrl K leads the name: WCAG 2.5.3)");
-  const hint = (await pal.innerText()).trim();
-  need(/^(Ctrl K|⌘K)$/.test(hint), "the key hint reads " + hint);
+  need((await add.count()) === 1 && (await add.innerText()).trim() === "Add section", "the footer button is not named Add section");
+  need((await main.locator("[data-hm-bs-cmdk]").count()) === 0, "a separate Ctrl K button is left in the footer");
   const after = await add.evaluate((b) => getComputedStyle(b, "::after").content);
   need(/^"\/"/.test(after), "the / keycap is not drawn in the button: " + after);
   const kbd = await main.locator(".hm-bs__navfoot kbd").count();
   need(kbd === 0, "a loose <kbd> is left outside the button");
-  need((await add.getAttribute("aria-keyshortcuts")) === "/", "no aria-keyshortcuts on Add element");
+  need((await add.getAttribute("aria-keyshortcuts")) === "/", "no aria-keyshortcuts on Add section");
+  await main.keyboard.press("Control+k");
+  need(await main.locator("#hm-bs-cmdk").isVisible(), "Ctrl K did not open the command palette");
+  await main.keyboard.press("Escape");
   await drop(main, id);
-  return `Add element draws ${after}; palette button reads ${hint}`;
+  return `Add section draws ${after}; Ctrl K opens the palette`;
 });
 
 await check("start-blank: Start blank removes the panel and puts the focus in the Add search", async () => {

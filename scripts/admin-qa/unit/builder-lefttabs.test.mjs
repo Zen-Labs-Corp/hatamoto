@@ -1,4 +1,4 @@
-// The left pane's Navigator | Insert tabs: roles, roving tabindex, arrows, the panel that shows.
+// The left pane's Layers | Insert | Pages tabs: roles, roving tabindex, arrows, the panel that shows.
 // dom.js builds elements through `document`, so a tiny element stub stands in for the DOM.
 // Run: node --test scripts/admin-qa/unit/builder-lefttabs.test.mjs
 import { register } from "node:module";
@@ -39,16 +39,21 @@ function rig() {
   const nav = new El({ hmBsLtab: "nav" });
   const add = new El({ hmBsLtab: "add" });
   add.tabIndex = -1;
+  const pages = new El({ hmBsLtab: "pages" });
+  pages.tabIndex = -1;
   const list = new El();
-  list.find = () => [nav, add];
+  list.find = () => [nav, add, pages];
   const pNav = new El({ hmBsLpanel: "nav" });
   const pAdd = new El({ hmBsLpanel: "add" });
   pAdd.hidden = true;
+  const pPages = new El({ hmBsLpanel: "pages" });
+  pPages.hidden = true;
   const rootEl = new El();
-  rootEl.find = (sel) => (sel === "[data-hm-bs-ltabs]" ? [list] : sel === "[data-hm-bs-lpanel]" ? [pNav, pAdd] : []);
+  rootEl.find = (sel) => (sel === "[data-hm-bs-ltabs]" ? [list] : sel === "[data-hm-bs-navfoot]" ? [foot] : sel === "[data-hm-bs-lpanel]" ? [pNav, pAdd, pPages] : []);
+  const foot = new El();
   const picked = [];
   const tabs = mountLeftTabs(rootEl, (n) => picked.push(n));
-  return { nav, add, list, pNav, pAdd, tabs, picked };
+  return { foot, nav, add, pages, list, pNav, pAdd, pPages, tabs, picked };
 }
 
 test("pick shows one panel, marks one tab selected and roves tabindex", () => {
@@ -56,9 +61,17 @@ test("pick shows one panel, marks one tab selected and roves tabindex", () => {
   r.tabs.pick("add");
   assert.equal(r.add.attrs["aria-selected"], "true");
   assert.equal(r.nav.attrs["aria-selected"], "false");
-  assert.deepEqual([r.nav.tabIndex, r.add.tabIndex], [-1, 0]);
-  assert.deepEqual([r.pNav.hidden, r.pAdd.hidden], [true, false]);
+  assert.deepEqual([r.nav.tabIndex, r.add.tabIndex, r.pages.tabIndex], [-1, 0, -1]);
+  assert.deepEqual([r.pNav.hidden, r.pAdd.hidden, r.pPages.hidden], [true, false, true]);
   assert.deepEqual(r.picked, ["add"]);
+});
+
+test("the Add section footer shows on Layers only", () => {
+  const r = rig();
+  for (const [name, hidden] of [["add", true], ["pages", true], ["nav", false]]) {
+    r.tabs.pick(name);
+    assert.equal(r.foot.hidden, hidden, name);
+  }
 });
 
 test("arrows, Home and End move between the tabs and wrap", () => {
@@ -68,9 +81,16 @@ test("arrows, Home and End move between the tabs and wrap", () => {
   assert.equal(globalThis.document.activeElement, r.add);
   assert.equal(r.pAdd.hidden, false);
   r.list.fire("keydown", { key: "ArrowRight" });
+  assert.equal(globalThis.document.activeElement, r.pages);
+  assert.equal(r.pPages.hidden, false);
+  r.list.fire("keydown", { key: "ArrowRight" });
   assert.equal(globalThis.document.activeElement, r.nav, "wraps");
+  r.list.fire("keydown", { key: "ArrowLeft" });
+  assert.equal(globalThis.document.activeElement, r.pages, "wraps backwards");
+  r.list.fire("keydown", { key: "Home" });
+  assert.equal(globalThis.document.activeElement, r.nav);
   r.list.fire("keydown", { key: "End" });
-  assert.equal(globalThis.document.activeElement, r.add);
+  assert.equal(globalThis.document.activeElement, r.pages);
   r.list.fire("keydown", { key: "Home" });
   assert.equal(globalThis.document.activeElement, r.nav);
 });

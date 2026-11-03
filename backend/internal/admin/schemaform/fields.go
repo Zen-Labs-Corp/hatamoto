@@ -11,6 +11,9 @@ type TopField struct {
 	Kind  string `json:"kind"`
 	// Alias lists the x-hm-alias content keys the Inspector falls back to.
 	Alias []string `json:"alias,omitempty"`
+	// Setting marks a configuration field (enum, boolean, number, url): the
+	// Navigator shows no row for it, the Content tab still edits it.
+	Setting bool `json:"setting,omitempty"`
 }
 
 // TopFields lists the top-level properties of a schema in the order the
@@ -27,7 +30,7 @@ func TopFields(raw json.RawMessage) []TopField {
 	}
 	out := make([]TopField, 0, len(props))
 	for _, p := range props {
-		out = append(out, TopField{Key: p.Name, Label: p.Node.label(p.Name), Kind: fieldKind(p.Node), Alias: p.Node.Alias})
+		out = append(out, TopField{Key: p.Name, Label: p.Node.label(p.Name), Kind: fieldKind(p.Node), Alias: p.Node.Alias, Setting: isSetting(p.Node)})
 	}
 	return out
 }
@@ -50,4 +53,9 @@ func fieldKind(n *Node) string {
 		return "object"
 	}
 	return "text"
+}
+
+// isSetting reports whether a property is configuration rather than content.
+func isSetting(n *Node) bool {
+	return len(n.Enum) > 0 || n.Type == "boolean" || n.Type == "integer" || n.Type == "number" || fieldKind(n) == "link"
 }
