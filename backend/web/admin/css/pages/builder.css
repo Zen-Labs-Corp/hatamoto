@@ -54,6 +54,9 @@
 .hm-bs__search input, .hm-bs-pages__q input { inline-size: 100%; block-size: var(--control-h-sm); border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface-hover); }
 .hm-bs__search input:focus, .hm-bs-pages__q input:focus { background: var(--surface); border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
 .hm-bs__lhead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1-5) var(--space-3) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-muted); }
+.hm-bs__collapse { appearance: none; min-block-size: 24px; border: 0; background: none; cursor: pointer; padding: var(--space-0-5) var(--space-1); border-radius: var(--radius-sm); font: inherit; font-weight: var(--weight-regular); color: var(--text-muted); } /* a quiet text button, not a heading */
+.hm-bs__collapse:hover { color: var(--text); background: var(--surface-hover); }
+.hm-bs__collapse:focus-visible { outline: var(--focus-ring); outline-offset: -2px; } /* "Collapse" reads as a quiet link, not a heading */
 .hm-bs__lhead[hidden], .hm-bs-page[hidden] { display: none; }
 .hm-bs-page { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1-5) var(--space-2); border-radius: var(--radius-sm); color: var(--text-muted); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; }
 .hm-bs-pages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -210,9 +213,10 @@ a.hm-bs-page:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .hm-bs-row[aria-selected="true"]:focus-visible { outline: 2px solid var(--bs-nav-on-accent); outline-offset: -4px; } /* the ring is drawn inward in paper: the outer one would vanish on the band */
 [data-pointer] > .hm-bs-tree .hm-bs-row:focus-visible, [data-pointer] > .hm-bs-tree .hm-bs-row[aria-selected="true"]:focus-visible { outline: none; } /* a mouse click: the solid row is the cue, no second ring; the next key brings the ring back */
 @media (forced-colors: active) { .hm-bs-row[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }
-.hm-bs-row__caret { flex: none; display: inline-block; inline-size: calc(1em + var(--space-1)); }
-.hm-bs-row [data-caret]::before { content: "\25B8"; display: inline-block; width: 1em; }
-.hm-bs-row[aria-expanded="true"] [data-caret]::before { content: "\25BE"; }
+.hm-bs-row__caret { flex: none; display: inline-flex; align-items: center; justify-content: center; inline-size: calc(1em + var(--space-1)); color: var(--text-muted); }
+.hm-bs-row__caret .hm-icon { inline-size: 14px; block-size: 14px; stroke-width: 1.5; } /* a thin chevron, not a filled triangle */
+.hm-bs-row[aria-selected="true"] .hm-bs-row__caret { color: var(--bs-nav-on-accent); }
+.hm-bs-row--band:not([aria-selected="true"]) .hm-bs-row__caret { color: var(--text-body); }
 .hm-bs-rename { width: 100%; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); padding: 0 var(--space-1); user-select: text; }
 .hm-bs-sheet__q { flex: none; } /* the dialog panel is a shrinking column: the search field keeps its height */
 .hm-bs-keys { width: 100%; border-collapse: collapse; margin-block-end: var(--space-4); }

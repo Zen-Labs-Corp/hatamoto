@@ -247,3 +247,10 @@ test("a pointer press hides the focus ring (data-pointer) until the next key", (
   m.rootEl.listeners.keydown({ key: "ArrowDown", target: { closest: () => null } });
   assert.equal("data-pointer" in m.rootEl.attrs, false);
 });
+
+test("a row with blocks shows a thin chevron icon: right when closed, down when open", () => {
+  const caret = (row) => withClass(row, "hm-bs-row__caret")[0];
+  const closed = mount().rows();
+  assert.equal(withAttr(caret(closed[0]), "data-ico")[0].attrs["data-ico"], "chevron-down"); // s1 has a block and starts open
+  assert.equal(withAttr(caret(closed[1]), "data-ico").length, 0); // no blocks: an empty slot keeps the columns
+});

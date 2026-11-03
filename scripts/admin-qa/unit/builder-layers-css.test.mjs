@@ -40,3 +40,12 @@ test("no focus ring after a mouse click, still the paper ring on a selected row 
   assert.match(css, /\[data-pointer\] > \.hm-bs-tree \.hm-bs-row:focus-visible[^{]*\{ outline: none; \}/);
   assert.match(rule('.hm-bs-row[aria-selected="true"]:focus-visible'), /outline: 2px solid var\(--bs-nav-on-accent\)/);
 });
+
+test("chevron and Collapse are quiet: muted thin chevron, muted regular-weight Collapse", () => {
+  assert.match(rule(".hm-bs-row__caret"), /color: var\(--text-muted\)/);
+  assert.match(rule(".hm-bs-row__caret .hm-icon"), /stroke-width: 1\.5/);
+  assert.doesNotMatch(css, /\\25B[8E]/); // the filled triangles are gone
+  const c = rule(".hm-bs__collapse");
+  assert.match(c, /color: var\(--text-muted\)/);
+  assert.match(c, /font-weight: var\(--weight-regular\)/);
+});
