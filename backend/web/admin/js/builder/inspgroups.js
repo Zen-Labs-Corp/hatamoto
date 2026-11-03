@@ -71,8 +71,8 @@ export const groupHasValue = (entries, own) => groupDot(entries, own);
 /** Whether any entry of a group's More list has a value set here: the disclosure then starts open. */
 export const moreHasValue = (g, own) => groupDot(g.more, own);
 
-/** A group starts open when it has a value set here; Layout and Spacing also start open on a container (a section), Typography and Spacing on a text kind. */
-export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing")) || (isTextKind(node) && (name === "Typography" || name === "Spacing"));
+/** A group starts open when it has a value set here; Layout, Spacing and Corners & border also start open on a container (a section), Typography and Spacing on a text kind. */
+export const initialOpen = (name, hasValue, node) => hasValue || (node?.t === "container" && (name === "Layout" || name === "Spacing" || name === "Corners & border")) || (isTextKind(node) && (name === "Typography" || name === "Spacing"));
 
 /** Short field labels for the scrub handles; the full name stays the accessible name. */
 export const SHORT = { w: "W", maxw: "W", h: "H", minh: "H", gap: "Gap", fs: "Sz", fw: "Wt", lh: "LH", ls: "LS", radius: "R", bw: "B", mt: "↑", mb: "↓" };

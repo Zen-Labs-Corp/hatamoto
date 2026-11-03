@@ -248,10 +248,10 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     groups.push({ entries: g.entries, dot, vh });
     const boxed = g.name === "Spacing" && !isTextKind(cur); // the box model shows every side: nothing goes behind More
     body.append(...primaryRows(g, boxed));
-    if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
     const more = boxed ? [] : g.more;
     const again = boxed ? [] : g.primary.filter((e) => ALSO_IN_MORE.has(e.key));
     if (more.length || again.length) body.append(moreBlock(g, more, gid, again));
+    else if (GROUP_HINTS[g.name]) body.append(h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] }));
   }
   paintGroups();
   if (refocus) {
@@ -334,7 +334,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     const key = `${g.name}:more`;
     const open = openGroups.get(key) ?? moreHasValue({ more: entries }, (k) => ownValue(cur, bp, k));
     const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": `${gid}-m`, text: `More ${g.name.toLowerCase()} options` });
-    const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open });
+    const box = h("div", { class: "hm-bs-grp__more", id: `${gid}-m`, hidden: !open }, ...(GROUP_HINTS[g.name] ? [h("p", { class: "hm-muted", text: GROUP_HINTS[g.name] })] : [])); // the hint sits with the rows it is about (border style and sides)
     toggle.addEventListener("click", () => {
       const now = toggle.getAttribute("aria-expanded") !== "true";
       toggle.setAttribute("aria-expanded", String(now));

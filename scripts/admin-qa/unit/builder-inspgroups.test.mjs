@@ -88,6 +88,8 @@ test("open state: a value set here opens a group, none starts it closed, a secti
   assert.equal(initialOpen("Fill", false, { t: "container" }), false);
   assert.equal(initialOpen("Layout", false, { t: "container" }), true);
   assert.equal(initialOpen("Spacing", false, { t: "container" }), true);
+  assert.equal(initialOpen("Corners & border", false, { t: "container" }), true, "a section opens Corners & border");
+  assert.equal(initialOpen("Corners & border", false, { t: "heading" }), false);
   assert.equal(initialOpen("Spacing", false, { t: "heading" }), true, "a text block opens Spacing (margins and the Gap note)");
   assert.equal(initialOpen("Spacing", false, { t: "image" }), false);
   assert.equal(initialOpen("Effects", false, null), false);
