@@ -120,7 +120,7 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 	case err != nil:
 		return Outcome{}, err
 	}
-	return Outcome{TargetID: res.ID.String(), Before: res.Before, Created: res.Created, Deleted: res.Deleted}, nil
+	return Outcome{TargetID: res.ID.String(), Before: res.Before, Created: res.Created, Deleted: res.Deleted, PathMoved: res.PathMoved}, nil
 }
 
 func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(context.Context), error) {
@@ -131,7 +131,7 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 	// An overwritten row may move back to another path: remember where it is.
 	var post func(context.Context)
 	if len(it.Before) > 0 {
-		if prev, err := w.Svc.PathStateTx(ctx, tx, id); err == nil {
+		if prev, err := w.Svc.PathStateTx(ctx, tx, id); err == nil && moves(prev, it.Before) {
 			post = func(ctx context.Context) { w.Svc.AfterPathChange(ctx, []entity.PathState{prev}) }
 		}
 	}
@@ -140,6 +140,12 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 		return nil, fmt.Errorf("%w: %v", ErrRevertConflict, err)
 	}
 	return post, err
+}
+
+// moves reports whether restoring the pre-image puts the entity at another path than live.
+func moves(live entity.PathState, before json.RawMessage) bool {
+	to, err := entity.PathStateOf(before)
+	return err == nil && live.Moved(to)
 }
 
 func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {
@@ -157,7 +163,7 @@ func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {
 			deleted = append(deleted, id)
 		default:
 			updated = append(updated, id)
-			if len(a.Before) > 0 {
+			if a.PathMoved && len(a.Before) > 0 {
 				if st, err := entity.PathStateOf(a.Before); err == nil {
 					prev = append(prev, st)
 				}

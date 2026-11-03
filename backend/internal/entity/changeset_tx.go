@@ -57,6 +57,9 @@ type TxResult struct {
 	Conflict bool
 	Created  bool
 	Deleted  bool
+	// PathMoved: an update changed the slug or the parent, so the entity's
+	// URL moved.
+	PathMoved bool
 }
 
 // entitySnapshot is the stored pre-image of an entity row.
@@ -323,7 +326,7 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 			if err = sp.Commit(ctx); err != nil {
 				return TxResult{}, fmt.Errorf("failed to release savepoint: %w", err)
 			}
-			return TxResult{ID: cur.ID, Slug: cand, Before: before}, nil
+			return TxResult{ID: cur.ID, Slug: cand, Before: before, PathMoved: cand != cur.Slug || !sameParent(parent, cur.ParentID)}, nil
 		}
 		_ = sp.Rollback(ctx)
 		switch {
@@ -445,6 +448,15 @@ type PathState struct {
 	Status   EntityStatus
 }
 
+func sameParent(a, b *uuid.UUID) bool {
+	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
+}
+
+// Moved reports whether to is at another path than p (slug or parent).
+func (p PathState) Moved(to PathState) bool {
+	return p.Slug != to.Slug || !sameParent(p.ParentID, to.ParentID)
+}
+
 // PathStateOf reads the PathState out of the pre-image ApplyChangesetTx returned.
 func PathStateOf(before json.RawMessage) (PathState, error) {
 	var snap entitySnapshot
@@ -470,8 +482,10 @@ func (s *Service) PathStateTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (Pat
 
 // AfterPathChange runs what a normal save runs when it moved a published
 // entity: the path observer (automatic redirects, inbound link rewrite) and
-// link sync. Call it after the commit with the pre-write state of each entity;
-// an entity whose slug and parent did not change is left alone by both.
+// the link rewrite for installs without an observer. Call it after the commit
+// with the pre-write state of the entities whose path moved; one whose slug
+// and parent did not change is left alone. It does not reindex links: the
+// caller does that in one serial pass.
 func (s *Service) AfterPathChange(ctx context.Context, prev []PathState) {
 	for _, p := range prev {
 		after, err := s.entityRepo.GetByID(ctx, p.ID)
@@ -480,30 +494,20 @@ func (s *Service) AfterPathChange(ctx context.Context, prev []PathState) {
 		}
 		before := *after
 		before.Slug, before.ParentID, before.Locale, before.Status = p.Slug, p.ParentID, p.Locale, p.Status
-		s.fireLinkSync(&before, after, nil)
+		s.fireLinkRewrite(&before, after, nil)
 		s.firePathChange(ctx, &before, after, nil)
 	}
 }
 
 // AfterChangeset runs the side effects of a committed changeset: link-index
 // refresh, the live observer and ONE batch event (import.completed with
-// source ChangesetSource, never a per-entity event). prev holds the pre-write
-// PathState of the updated entities; those get AfterPathChange instead of a
-// plain reindex. Call it only after the transaction committed; on rollback
+// source ChangesetSource, never a per-entity event). Links are reindexed in
+// one serial pass. prev holds the pre-write PathState of the updated entities
+// whose slug or parent changed; only those get AfterPathChange. Call it only after the transaction committed; on rollback
 // call nothing.
 func (s *Service) AfterChangeset(ctx context.Context, created, updated, deleted []uuid.UUID, prev []PathState) {
 	stored := append(append([]uuid.UUID{}, created...), updated...)
-	had := make(map[uuid.UUID]bool, len(prev))
-	for _, p := range prev {
-		had[p.ID] = true
-	}
-	var plain []uuid.UUID
-	for _, id := range stored {
-		if !had[id] {
-			plain = append(plain, id)
-		}
-	}
-	s.reindexLinks(plain)
+	s.reindexLinks(stored)
 	s.AfterPathChange(ctx, prev)
 	s.fireLive(ctx, stored...)
 	if s.events != nil && len(stored)+len(deleted) > 0 {

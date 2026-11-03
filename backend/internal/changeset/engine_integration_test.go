@@ -928,3 +928,78 @@ func TestChangesetRevertSkipsMenuAfterItemEdit(t *testing.T) {
 		})
 	}
 }
+
+type reindexLog struct {
+	mu  sync.Mutex
+	ids map[uuid.UUID]int
+}
+
+func (l *reindexLog) Reindex(_ context.Context, id uuid.UUID) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.ids[id]++
+	return nil
+}
+func (l *reindexLog) RewriteForEntity(context.Context, uuid.UUID, string, string, *uuid.UUID) error {
+	return nil
+}
+func (l *reindexLog) ResolveCanonical(*entity.Entity) (string, error) { return "/x", nil }
+func (l *reindexLog) n(id string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.ids[uuid.MustParse(id)]
+}
+
+// Only an entity whose slug or parent changed gets the path step, and every
+// entity is reindexed once per publish or revert, not once per hook.
+func TestChangesetPathStepOnlyForMovedEntities(t *testing.T) {
+	f := newFixture(t)
+	idx := &reindexLog{ids: map[uuid.UUID]int{}}
+	f.ent.SetLinkSync(idx)
+	var moved []string
+	f.ent.SetPathObserver(func(_ context.Context, before, _ *entity.Entity, _ *uuid.UUID) { moved = append(moved, before.Slug) })
+	first := f.begin("")
+	for _, s := range []string{"a", "b", "c"} {
+		it := f.entityItem("e"+s+"-"+f.tag, s+"-"+f.tag, "x")
+		it.Payload = raw(map[string]any{"schema": f.schema.Slug, "name": s, "slug": s + "-" + f.tag, "status": "published", "attributes": map[string]any{"content": "x"}})
+		f.stage(first, it)
+	}
+	f.publish(first)
+	ids := map[string]string{}
+	for _, s := range []string{"a", "b", "c"} {
+		var id string
+		if err := f.db.Pool().QueryRow(f.ctx, `SELECT id FROM hatamoto_entities WHERE slug = $1`, s+"-"+f.tag).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids[s] = id
+	}
+	waitFor := func(id string, want int) {
+		t.Helper()
+		for i := 0; i < 300 && idx.n(id) < want; i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
+		time.Sleep(100 * time.Millisecond) // room for an unwanted extra reindex
+		if got := idx.n(id); got != want {
+			t.Fatalf("entity %s reindexed %d times, want %d", id, got, want)
+		}
+	}
+	second := f.begin("")
+	for _, s := range []string{"a", "b"} {
+		f.stage(second, Item{Kind: KindEntity, Op: OpUpsert, TargetID: ids[s], Payload: raw(map[string]any{"attributes": map[string]any{"content": "y"}})})
+	}
+	f.stage(second, Item{Kind: KindEntity, Op: OpUpsert, TargetID: ids["c"], Payload: raw(map[string]any{"slug": "moved-" + f.tag})})
+	f.publish(second)
+	if len(moved) != 1 || moved[0] != "c-"+f.tag {
+		t.Fatalf("path step ran for %v, want only c", moved)
+	}
+	waitFor(ids["a"], 2)
+	waitFor(ids["c"], 2)
+	if _, err := f.eng.Revert(f.ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	if len(moved) != 2 || moved[1] != "moved-"+f.tag {
+		t.Fatalf("path step after revert ran for %v", moved)
+	}
+	waitFor(ids["a"], 3)
+	waitFor(ids["c"], 3) // not 4: the revert's path step does not reindex again
+}

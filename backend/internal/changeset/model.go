@@ -120,7 +120,9 @@ type Outcome struct {
 	Deleted  bool
 	Conflict bool
 	Detail   string
-	Undo     func(ctx context.Context)
+	// PathMoved: an entity update changed the slug or the parent.
+	PathMoved bool
+	Undo      func(ctx context.Context)
 }
 
 // AppliedItem is a change that committed, for the writers' After hooks.
@@ -131,6 +133,8 @@ type AppliedItem struct {
 	Deleted  bool
 	// Before is the pre-image of an update or delete (nil for a create).
 	Before json.RawMessage
+	// PathMoved: an entity update changed the slug or the parent.
+	PathMoved bool
 }
 
 // KindWriter applies and restores items of one kind inside the engine's

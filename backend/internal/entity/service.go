@@ -560,7 +560,14 @@ func (s *Service) fireLinkSync(before, after *Entity, actor *uuid.UUID) {
 		}
 	}()
 
-	if before.Slug == after.Slug {
+	s.fireLinkRewrite(before, after, actor)
+}
+
+// fireLinkRewrite rewrites the inbound links of an entity whose slug changed,
+// unless a path observer does it.
+func (s *Service) fireLinkRewrite(before, after *Entity, actor *uuid.UUID) {
+	sync := s.linkSync
+	if sync == nil || before.Slug == after.Slug {
 		return
 	}
 	// With a path observer installed it rewrites the inbound links of a
