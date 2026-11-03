@@ -67,6 +67,8 @@ type Runtime struct {
 
 	mu       sync.Mutex
 	statuses []Status
+
+	runWG sync.WaitGroup // drivers started by StartRun
 }
 
 // NewRuntime returns a Runtime. cacheDir is the compiled-code cache ("" =
@@ -243,6 +245,10 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	}
 	if err := r.host.Load(ctx, m, wasm); err != nil {
 		return fail(err)
+	}
+	if len(m.Runs) > 0 && !r.host.HasExport(m.Name, sdk.RunStepExport) {
+		r.Unload(ctx, m.Name) // the module just loaded is unusable; do not keep it or an older version
+		return fail(fmt.Errorf("plugin %q declares runs but does not export %s", m.Name, sdk.RunStepExport))
 	}
 	r.engine.RemovePlugin(m.Name) // a re-load replaced the module: drop the old module's hooks
 	st.Loaded = true
