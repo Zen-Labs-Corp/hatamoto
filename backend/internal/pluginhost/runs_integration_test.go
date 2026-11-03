@@ -341,3 +341,33 @@ func TestRunCircuitOpenFailsRun(t *testing.T) {
 		t.Fatalf("changeset %s", s)
 	}
 }
+
+// A database error the driver cannot get past (here: the move to the
+// transform phase) fails the run and discards its changeset. The driver does
+// not just return and leave a running row behind.
+func TestRunDriverDatabaseErrorFailsRun(t *testing.T) {
+	r := newDriverRig(t)
+	ctx := context.Background()
+	if _, err := r.db.Pool().Exec(ctx, `
+		CREATE OR REPLACE FUNCTION hatamoto_test_block_advance() RETURNS trigger AS $$
+		BEGIN RAISE EXCEPTION 'blocked by test'; END $$ LANGUAGE plpgsql;
+		CREATE TRIGGER hatamoto_test_block_advance BEFORE UPDATE ON hatamoto_runs
+		FOR EACH ROW WHEN (NEW.plugin = 'runner' AND NEW.phase = 'transform' AND OLD.phase = 'fetch')
+		EXECUTE FUNCTION hatamoto_test_block_advance()`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = r.db.Pool().Exec(context.Background(), `DROP TRIGGER IF EXISTS hatamoto_test_block_advance ON hatamoto_runs; DROP FUNCTION IF EXISTS hatamoto_test_block_advance()`)
+	})
+	oldTries, oldWait := driverTries, driverRetryWait
+	driverTries, driverRetryWait = 2, time.Millisecond
+	t.Cleanup(func() { driverTries, driverRetryWait = oldTries, oldWait })
+
+	run := r.finished("")
+	if run.State != plugrun.StateFailed || !strings.Contains(run.Reason, "advance the phase") {
+		t.Fatalf("run %s %q", run.State, run.Reason)
+	}
+	if s := r.changesetState(*run.ChangesetID); s != changeset.StateDiscarded {
+		t.Fatalf("changeset %s", s)
+	}
+}

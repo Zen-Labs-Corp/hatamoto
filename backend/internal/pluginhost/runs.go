@@ -231,7 +231,9 @@ func checkRunHosts(hosts []string) ([]string, error) {
 // drive runs the steps of one run: it calls on_run_step with the run's phase
 // and cursor until the plugin finishes the transform phase or the run fails.
 // A step that errors, a tripped circuit breaker, run.fail and the step cap
-// all fail the run; a failed step is never retried. Every step runs on a
+// all fail the run; a failed step is never retried. A database error is
+// retried, then fails the run too: the driver never returns and leaves the run
+// running (see try). Every step runs on a
 // cold instance that is closed afterwards (ADR 0004 inv. 4): guest memory
 // must not carry data across phases, runs or into ordinary hooks. The cost
 // is one module instantiation per step, small against a step's own work
@@ -241,16 +243,22 @@ func (r *Runtime) drive(runID uuid.UUID) {
 	bg := context.Background()
 	for {
 		run, err := runs.Get(bg, runID)
-		if err != nil || run.State != plugrun.StateRunning {
-			return // ended elsewhere (recovery) or the row is gone
+		if err != nil {
+			if !errors.Is(err, plugrun.ErrNotFound) { // the database is down: recovery takes over
+				r.log.Error("run: driver stopped", slog.String("run", runID.String()), slog.Any("error", err))
+			}
+			return
+		}
+		if run.State != plugrun.StateRunning {
+			return // ended elsewhere (recovery)
 		}
 		m, ok := r.manifest(run.Plugin)
 		if !ok {
 			r.failRunCtx(bg, run, "the plugin was unloaded")
 			return
 		}
-		n, err := runs.BumpSteps(bg, runID)
-		if err != nil {
+		var n int
+		if !r.try(run, "count the step", func() (err error) { n, err = runs.BumpSteps(bg, runID); return }) {
 			return
 		}
 		if n > plugrun.MaxRunSteps {
@@ -277,17 +285,43 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			r.failRunCtx(bg, run, fail)
 			return
 		case finish && run.Phase == plugrun.PhaseFetch:
-			err = runs.AdvancePhase(bg, runID, plugrun.PhaseTransform)
-		case finish:
-			if err := runs.Finish(bg, runID, summary); err != nil {
-				r.log.Error("run: failed to finish", slog.String("run", runID.String()), slog.Any("error", err))
+			if !r.try(run, "advance the phase", func() error { return runs.AdvancePhase(bg, runID, plugrun.PhaseTransform) }) {
+				return
 			}
-			return
-		}
-		if err != nil {
+		case finish:
+			r.try(run, "finish the run", func() error { return runs.Finish(bg, runID, summary) })
 			return
 		}
 	}
+}
+
+// Database errors the driver retries before it gives the run up.
+var (
+	driverTries     = 3
+	driverRetryWait = 2 * time.Second
+)
+
+// try runs op, retrying a database error a few times. It reports whether op
+// succeeded. When it keeps failing the run is failed (and its changeset
+// discarded), so no run stays running without a driver; if even that cannot
+// be written the database is down, and RecoverRuns fails the run once it has
+// been quiet for RecoverAfter. A run that ended elsewhere (ErrNotRunning) is
+// left alone.
+func (r *Runtime) try(run plugrun.Run, what string, op func() error) bool {
+	var err error
+	for i := 0; i < driverTries; i++ {
+		if i > 0 {
+			time.Sleep(driverRetryWait)
+		}
+		if err = op(); err == nil {
+			return true
+		}
+		if errors.Is(err, plugrun.ErrNotRunning) {
+			return false
+		}
+	}
+	r.failRunCtx(context.Background(), run, fmt.Sprintf("could not %s: %v", what, err))
+	return false
 }
 
 // failRun marks a run failed and discards its changeset.
