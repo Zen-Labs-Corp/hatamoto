@@ -987,7 +987,7 @@ is stored.
 * **Canvas chrome** (lazy `canvas/chrome.js`, pure geometry in `canvas/points.js`, loaded after first paint, not in
   the canvas bridge). Built once and moved, never rebuilt by the marks redraw (the picker anchor survives). A sticky
   stage bar: breadcrumbs from the layout parent ids (a crumb selects that ancestor, "Page" selects nothing) and a
-  readout of the page width and scale (`1440px · 75%`). The zoom choice (**Fit / 100 / 75 / 50**, in the top bar's Fit
+  readout of the page width and scale (`1440px · 75%`). The zoom choice (**Fit / 50 / 75 / 100**, in the top bar's Fit
   menu; an explicit zoom survives `fit()`; never below 0.5, except Fit in the phone shell) is not on the strip. Below it a 4 px
   Tablet or Phone **band** with its label. One outline layer: with a v2 parent the parent draws hover (1 px accent outline with a name tag)
   and selection; the frame's own outlines are v1-only, and the host ignores a v1 `hm:select` that would
