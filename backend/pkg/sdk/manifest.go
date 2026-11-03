@@ -100,6 +100,11 @@ type Manifest struct {
 	// builder is ext.<plugin>.<name>. Needs the builder.data permission.
 	BuilderSources []BuilderSource `json:"builder_sources,omitempty"`
 
+	// Runs declares the runs the owner can start (fetch phase, then transform
+	// phase). A plugin with runs must export on_run_step. Runs need no
+	// permission.
+	Runs []Run `json:"runs,omitempty"`
+
 	Limits Limits `json:"limits,omitempty"`
 
 	// SettingsSchema is an optional JSON Schema (draft 2020-12) object
@@ -314,6 +319,9 @@ func (m Manifest) Validate() error {
 	if err := m.validateBuilderSources(); err != nil {
 		return err
 	}
+	if err := m.validateRuns(); err != nil {
+		return err
+	}
 	if slices.Contains(m.AllowedHosts, "*") && !slices.Contains(m.Permissions, PermHTTPFetchAny) {
 		return fmt.Errorf("sdk: plugin %q: allowed_hosts \"*\" needs the %q permission", m.Name, PermHTTPFetchAny)
 	}
@@ -340,7 +348,7 @@ func (m Manifest) validateHookTimeouts() error {
 }
 
 func (m Manifest) knownTimeoutKey(key string) bool {
-	if key == "http_handle" || slices.Contains(ActionNames, key) || slices.Contains(FilterNames, key) {
+	if key == "http_handle" || key == RunStepExport || slices.Contains(ActionNames, key) || slices.Contains(FilterNames, key) {
 		return true
 	}
 	if job, ok := strings.CutPrefix(key, "on_cron_"); ok {
@@ -387,6 +395,11 @@ func hookOfExport(export string) string {
 func (m Manifest) validateCapabilities() error {
 	seen := map[string]bool{}
 	for _, p := range m.Permissions {
+		if repl, gone := removedPermissions[p]; gone {
+			return fmt.Errorf("plugin %q not loaded: permission %q was removed in Hatamoto 1.1.\n"+
+				"  Replace it with a run: declare a \"runs\" block in plugin.json and call %s\n"+
+				"  from on_run_step. See docs/PLUGIN_API.md \"Runs and changesets\".", m.Name, p, repl)
+		}
 		if !ValidPermission(p) {
 			return fmt.Errorf("sdk: plugin %q: unknown permission %q", m.Name, p)
 		}

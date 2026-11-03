@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
@@ -43,11 +43,11 @@ func newHostCall(t *testing.T, r *nestedRig, base string) *hostCall {
 	r.srv.cfg = &config.Config{}
 	r.srv.cfg.PublicSite.BaseURL = base
 	rt.Configure(pluginhost.Config{Services: pluginhost.Services{Entities: r.svc, Paths: pluginEntityPaths{r.srv}}})
-	m := sdk.Manifest{Name: "capa", Version: "0.1.0", SDK: "^0.6", Permissions: []string{sdk.PermEntitiesRead, sdk.PermEntitiesWrite}}
+	m := sdk.Manifest{Name: "capa", Version: "0.1.0", SDK: "^0.6", Permissions: []string{sdk.PermEntitiesRead}}
 	if st := rt.Load(r.ctx, m, plugintest.Build(t, "capa")); !st.Loaded {
 		t.Fatalf("capa not loaded: %s", st.Error)
 	}
-	if _, err := rt.Grant(r.ctx, "capa", []string{sdk.PermEntitiesRead, sdk.PermEntitiesWrite}); err != nil {
+	if _, err := rt.Grant(r.ctx, "capa", []string{sdk.PermEntitiesRead}); err != nil {
 		t.Fatal(err)
 	}
 	return &hostCall{t: t, rt: rt}
@@ -97,30 +97,46 @@ func (h *hostCall) fails(fn string, args any, code string) {
 	}
 }
 
-// A plugin builds a tree under a parent, reads each node's path and url, and
-// finds nodes again by path or by parent and slug; the tree rules are the
-// entity service's.
+// create adds an entity through the entity service (plugins no longer write
+// content directly) and returns it as the plugin sees it.
+func (h *hostCall) create(r *nestedRig, schema uuid.UUID, slug string, parent *uuid.UUID, publish bool) dtoView {
+	h.t.Helper()
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: schema, Name: slug, Slug: slug, ParentID: parent, Attributes: json.RawMessage(`{}`)})
+	if err != nil {
+		h.t.Fatalf("create %s: %v", slug, err)
+	}
+	if publish {
+		if _, err := r.svc.UpdateEntityStatus(r.ctx, e.ID, nil, entity.StatusPublished); err != nil {
+			h.t.Fatalf("publish %s: %v", slug, err)
+		}
+	}
+	return h.ok(sdk.FnEntitiesGet, map[string]any{"id": e.ID.String()})
+}
+
+// A plugin reads a tree under a parent, each node's path and url, and finds
+// nodes again by path or by parent and slug.
 func TestPluginEntityTree_Integration(t *testing.T) {
 	r := newNestedRig(t)
 	h := newHostCall(t, r, "https://site.test/")
 	services := r.page("services", nil)
 
-	mk := func(slug string, parent string) dtoView {
-		args := map[string]any{"schema_slug": "nested-page", "name": slug, "slug": slug}
+	mk := func(slug string, parent string, publish bool) dtoView {
+		var pid *uuid.UUID
 		if parent != "" {
-			args["parent_id"] = parent
+			id := uuid.MustParse(parent)
+			pid = &id
 		}
-		return h.ok(sdk.FnEntitiesCreate, args)
+		return h.create(r, r.pageSch, slug, pid, publish)
 	}
-	seo := mk("seo", services.ID.String())
+	seo := mk("seo", services.ID.String(), false)
 	if seo.ParentID != services.ID.String() || seo.Path != "/services/seo" || seo.URL != "https://site.test/services/seo" {
-		t.Fatalf("created child = %+v", seo)
+		t.Fatalf("child = %+v", seo)
 	}
-	local := mk("local", seo.ID)
+	local := mk("local", seo.ID, false)
 	if local.Path != "/services/seo/local" {
 		t.Fatalf("grandchild path = %q", local.Path)
 	}
-	root := mk("loose", "")
+	root := mk("loose", "", false)
 	if root.ParentID != "" || root.Path != "/loose" {
 		t.Fatalf("root = %+v", root)
 	}
@@ -137,7 +153,7 @@ func TestPluginEntityTree_Integration(t *testing.T) {
 		t.Fatalf("get root by slug = %+v", got)
 	}
 	// Slugs are unique per schema: a note and a page may share a root slug.
-	note := h.ok(sdk.FnEntitiesCreate, map[string]any{"schema_slug": "note", "name": "loose", "slug": "loose"})
+	note := h.create(r, r.noteSch, "loose", nil, false)
 	h.fails(sdk.FnEntitiesGet, map[string]any{"parent_id": nil, "slug": "loose"}, sdk.ErrInvalidArgument)
 	if got := h.ok(sdk.FnEntitiesGet, map[string]any{"parent_id": nil, "slug": "loose", "schema_slug": "nested-page"}); got.ID != root.ID {
 		t.Fatalf("get root page by schema = %+v", got)
@@ -153,8 +169,9 @@ func TestPluginEntityTree_Integration(t *testing.T) {
 
 	// By path: the public resolver serves published pages only.
 	h.fails(sdk.FnEntitiesGet, map[string]any{"path": "/services/seo/local"}, sdk.ErrNotFound)
-	h.ok(sdk.FnEntitiesUpdate, map[string]any{"id": local.ID, "name": "local"}) // still a draft
-	h.ok(sdk.FnEntitiesStatus, map[string]any{"id": local.ID, "status": "published"})
+	if _, err := r.svc.UpdateEntityStatus(r.ctx, uuid.MustParse(local.ID), nil, entity.StatusPublished); err != nil {
+		t.Fatal(err)
+	}
 	if got := h.ok(sdk.FnEntitiesGet, map[string]any{"path": "/services/seo/local/"}); got.ID != local.ID || got.Status != "published" {
 		t.Fatalf("get by path = %+v", got)
 	}
@@ -162,37 +179,21 @@ func TestPluginEntityTree_Integration(t *testing.T) {
 	h.fails(sdk.FnEntitiesGet, map[string]any{"path": "/a?b=1"}, sdk.ErrInvalidArgument)
 	h.fails(sdk.FnEntitiesGet, map[string]any{"path": "/nope"}, sdk.ErrNotFound)
 
-	// Update moves under another parent (the path follows), null makes a root.
-	moved := h.ok(sdk.FnEntitiesUpdate, map[string]any{"id": local.ID, "parent_id": services.ID.String()})
-	if moved.ParentID != services.ID.String() || moved.Path != "/services/local" {
+	// A move made by the owner shows in the plugin's read: the path follows the parent.
+	svcID := services.ID
+	if _, err := r.svc.UpdateEntity(r.ctx, uuid.MustParse(local.ID), nil, &entity.UpdateEntityInput{ParentID: &svcID}); err != nil {
+		t.Fatal(err)
+	}
+	if moved := h.ok(sdk.FnEntitiesGet, map[string]any{"id": local.ID}); moved.ParentID != services.ID.String() || moved.Path != "/services/local" {
 		t.Fatalf("moved = %+v", moved)
 	}
-	up := h.ok(sdk.FnEntitiesUpdate, map[string]any{"id": local.ID, "parent_id": nil})
-	if up.ParentID != "" || up.Path != "/local" {
-		t.Fatalf("made root = %+v", up)
-	}
-	kept := h.ok(sdk.FnEntitiesUpdate, map[string]any{"id": seo.ID, "name": "SEO"}) // parent untouched
-	if kept.ParentID != services.ID.String() {
-		t.Fatalf("an update without parent_id changed the parent: %+v", kept)
-	}
-
-	// Validation is the service's: missing parent, cycle, own parent, too deep.
-	h.fails(sdk.FnEntitiesCreate, map[string]any{"schema_slug": "nested-page", "name": "x", "parent_id": uuid.NewString()}, sdk.ErrInvalidArgument)
-	h.fails(sdk.FnEntitiesCreate, map[string]any{"schema_slug": "nested-page", "name": "x", "parent_id": "nope"}, sdk.ErrInvalidArgument)
-	h.fails(sdk.FnEntitiesUpdate, map[string]any{"id": services.ID.String(), "parent_id": seo.ID}, sdk.ErrInvalidArgument)
-	h.fails(sdk.FnEntitiesUpdate, map[string]any{"id": seo.ID, "parent_id": seo.ID}, sdk.ErrInvalidArgument)
-	parent := root.ID
-	for i := 0; i < 7; i++ { // /loose + 7 = the 8 levels a URL can express
-		parent = mk("d"+strings.Repeat("x", i+1), parent).ID
-	}
-	h.fails(sdk.FnEntitiesCreate, map[string]any{"schema_slug": "nested-page", "name": "deep", "parent_id": parent}, sdk.ErrInvalidArgument)
 }
 
 // Without a configured origin the url is the path.
 func TestPluginEntityURLWithoutBase_Integration(t *testing.T) {
 	r := newNestedRig(t)
 	h := newHostCall(t, r, "")
-	e := h.ok(sdk.FnEntitiesCreate, map[string]any{"schema_slug": "nested-page", "name": "solo", "slug": "solo"})
+	e := h.create(r, r.pageSch, "solo", nil, false)
 	if e.Path != "/solo" || e.URL != "/solo" {
 		t.Fatalf("no base: %+v", e)
 	}

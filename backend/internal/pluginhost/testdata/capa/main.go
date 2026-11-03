@@ -92,19 +92,6 @@ func init() {
 		p.SetCookies = append(p.SetCookies, sdk.SetCookie{Name: name, Value: "1", MaxAge: 3600})
 		return p, nil
 	})
-
-	// entity.before_save: create a child entity from inside the hook (the
-	// re-entrancy guard allows one level) and tag the draft with the outcome.
-	guest.OnFilter(sdk.EntityBeforeSave, func(d sdk.EntityDraft) (sdk.EntityDraft, error) {
-		o := callHost(sdk.FnEntitiesCreate, map[string]any{"schema_slug": d.SchemaSlug, "name": "child-of-" + d.Name})
-		switch o.Code {
-		case "":
-			d.Name += "[child-ok]"
-		default:
-			d.Name += "[" + o.Code + "]"
-		}
-		return d, nil
-	})
 }
 
 //go:wasmexport http_handle
@@ -121,9 +108,6 @@ func onFormSubmitted() int32 { return guest.Run(sdk.FormSubmitted.Export()) }
 
 //go:wasmexport filter_render_page
 func filterRenderPage() int32 { return guest.Run(sdk.RenderPage.Export()) }
-
-//go:wasmexport filter_entity_before_save
-func filterEntityBeforeSave() int32 { return guest.Run(sdk.EntityBeforeSave.Export()) }
 
 // call_host: input is a CallRequest; output an outcome.
 //

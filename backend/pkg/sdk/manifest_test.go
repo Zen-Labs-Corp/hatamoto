@@ -44,6 +44,8 @@ func TestManifestValidate(t *testing.T) {
 		}, "http.fetch.any"},
 		{"http.fetch.any without http.fetch", func(m *Manifest) { m.Permissions = []string{PermHTTPFetchAny} }, "needs"},
 		{"unknown permission", func(m *Manifest) { m.Permissions = []string{"root"} }, "unknown permission"},
+		{"removed permission refused with the replacement", func(m *Manifest) { m.Permissions = []string{"terms.write"} }, "changeset.term.upsert"},
+		{"removed permission says removed", func(m *Manifest) { m.Permissions = []string{"entities.write"} }, "was removed in Hatamoto 1.1"},
 		{"duplicate permission", func(m *Manifest) { m.Permissions = []string{PermKV, PermKV} }, "duplicate permission"},
 		{"routes", func(m *Manifest) {
 			m.Routes = []Route{{Method: "GET", Path: "/a"}, {Method: "POST", Path: "/a", Roles: []string{"editor"}}, {Method: "GET", Path: "/f/{rest...}", Public: true}}
@@ -117,7 +119,7 @@ func TestManifestValidate(t *testing.T) {
 }
 
 func TestCompatible(t *testing.T) {
-	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": false} {
+	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": true, "^0.18": false} {
 		got, err := Manifest{SDK: rng}.Compatible()
 		if err != nil || got != want {
 			t.Errorf("Compatible(%s) = %v,%v want %v", rng, got, err, want)

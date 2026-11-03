@@ -145,7 +145,7 @@ func newCapaRig(t *testing.T) *capaRig {
 
 func capaManifest(mutate func(*sdk.Manifest)) sdk.Manifest {
 	m := sdk.Manifest{Name: "capa", Version: "0.1.0", SDK: "^0.6",
-		Permissions: []string{sdk.PermEntitiesRead, sdk.PermEntitiesWrite, sdk.PermKV, sdk.PermFormsRead, sdk.PermHTTPFetch, sdk.PermDB, sdk.PermLog},
+		Permissions: []string{sdk.PermEntitiesRead, sdk.PermKV, sdk.PermFormsRead, sdk.PermHTTPFetch, sdk.PermDB, sdk.PermLog},
 		Cookies:     []string{"unlock", "visited"}, Funcs: []string{"shout"},
 		Cron: []sdk.CronJob{{Name: "tick", Every: "5m"}},
 		Routes: []sdk.Route{
@@ -218,7 +218,6 @@ func TestDeniedUntilGranted(t *testing.T) {
 		args any
 		perm string
 	}{
-		{sdk.FnEntitiesCreate, map[string]any{"schema_slug": "post", "name": "x"}, sdk.PermEntitiesWrite},
 		{sdk.FnEntitiesList, map[string]any{}, sdk.PermEntitiesRead},
 		{sdk.FnKVGet, map[string]any{"key": "k"}, sdk.PermKV},
 		{sdk.FnHTTPFetch, map[string]any{"url": "http://example.com/"}, sdk.PermHTTPFetch},
@@ -228,9 +227,6 @@ func TestDeniedUntilGranted(t *testing.T) {
 		{sdk.FnSettingsGet, map[string]any{}, sdk.PermSettings},
 		{sdk.FnLog, map[string]any{"level": "info", "message": "x"}, sdk.PermLog},
 		{sdk.FnMediaGet, map[string]any{}, sdk.PermMediaRead},
-		{sdk.FnTermsSave, map[string]any{}, sdk.PermTermsWrite},
-		{sdk.FnMenusSave, map[string]any{}, sdk.PermMenusWrite},
-		{sdk.FnRedirectsCreate, map[string]any{}, sdk.PermRedirectsWrite},
 	} {
 		o := r.do(t, c.fn, c.args)
 		if o.Code != sdk.ErrCapabilityDenied || o.Cap != c.perm || !strings.Contains(o.Msg, c.perm) {
@@ -238,10 +234,11 @@ func TestDeniedUntilGranted(t *testing.T) {
 		}
 	}
 	// Every permissioned host function is denied without its grant: a new
-	// function that forgot its perm fails here (only "permissions" is open).
+	// function that forgot its perm fails here (only "permissions" and the
+	// run-only functions, gated by the run context, are open).
 	for fn, h := range hostFns {
 		if h.perm == "" {
-			if fn != "permissions" {
+			if fn != "permissions" && !runOnly[fn] {
 				t.Errorf("host function %q has no permission", fn)
 			}
 			continue
@@ -254,9 +251,9 @@ func TestDeniedUntilGranted(t *testing.T) {
 		t.Fatal("a denied write reached the entity service")
 	}
 
-	r.grant(t, sdk.PermEntitiesWrite, sdk.PermEntitiesRead)
-	if o := r.do(t, sdk.FnEntitiesCreate, map[string]any{"schema_slug": "post", "name": "Hello"}); o.Code != "" {
-		t.Fatalf("create after grant: %+v", o)
+	r.grant(t, sdk.PermEntitiesRead)
+	if o := r.do(t, sdk.FnEntitiesGet, map[string]any{"id": uuid.NewString()}); o.Code != sdk.ErrNotFound {
+		t.Fatalf("get after grant: %+v", o)
 	}
 	// Other capabilities stay denied.
 	if o := r.do(t, sdk.FnKVGet, map[string]any{"key": "k"}); o.Code != sdk.ErrCapabilityDenied {
@@ -272,7 +269,7 @@ func TestDeniedUntilGranted(t *testing.T) {
 func TestGrantMustBeRequested(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, func(m *sdk.Manifest) { m.Permissions = []string{sdk.PermKV} })
-	if _, err := r.rt.Grant(context.Background(), "capa", []string{sdk.PermEntitiesWrite}); !errors.Is(err, ErrNotRequested) {
+	if _, err := r.rt.Grant(context.Background(), "capa", []string{sdk.PermEntitiesRead}); !errors.Is(err, ErrNotRequested) {
 		t.Fatalf("granting an unrequested permission: %v", err)
 	}
 	if _, err := r.rt.Grant(context.Background(), "capa", []string{"nope"}); err == nil {
@@ -289,75 +286,24 @@ func TestGrantMustBeRequested(t *testing.T) {
 func TestTypedErrors(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, nil)
-	r.grant(t, sdk.PermEntitiesRead, sdk.PermEntitiesWrite, sdk.PermKV, sdk.PermHTTPFetch)
+	r.grant(t, sdk.PermEntitiesRead, sdk.PermKV, sdk.PermHTTPFetch)
 
 	for name, c := range map[string]struct {
 		fn   string
 		args any
 		code string
 	}{
-		"unknown function":   {"nope.nope", map[string]any{}, sdk.ErrUnknownFunction},
-		"bad id":             {sdk.FnEntitiesGet, map[string]any{"id": "not-a-uuid"}, sdk.ErrInvalidArgument},
-		"missing id":         {sdk.FnEntitiesGet, map[string]any{}, sdk.ErrInvalidArgument},
-		"unknown field":      {sdk.FnEntitiesGet, map[string]any{"idd": "x"}, sdk.ErrInvalidArgument},
-		"not found":          {sdk.FnEntitiesGet, map[string]any{"id": uuid.NewString()}, sdk.ErrNotFound},
-		"unknown schema":     {sdk.FnEntitiesCreate, map[string]any{"schema_slug": "nope", "name": "x"}, sdk.ErrNotFound},
-		"invalid attributes": {sdk.FnEntitiesCreate, map[string]any{"schema_slug": "post", "name": "x", "attributes": map[string]any{"bogus": 1}}, sdk.ErrInvalidArgument},
-		"no database":        {sdk.FnKVGet, map[string]any{"key": "k"}, sdk.ErrUnavailable},
-		"blocked host":       {sdk.FnHTTPFetch, map[string]any{"url": "http://127.0.0.1/"}, sdk.ErrBlocked},
+		"unknown function": {"nope.nope", map[string]any{}, sdk.ErrUnknownFunction},
+		"bad id":           {sdk.FnEntitiesGet, map[string]any{"id": "not-a-uuid"}, sdk.ErrInvalidArgument},
+		"missing id":       {sdk.FnEntitiesGet, map[string]any{}, sdk.ErrInvalidArgument},
+		"unknown field":    {sdk.FnEntitiesGet, map[string]any{"idd": "x"}, sdk.ErrInvalidArgument},
+		"not found":        {sdk.FnEntitiesGet, map[string]any{"id": uuid.NewString()}, sdk.ErrNotFound},
+		"no database":      {sdk.FnKVGet, map[string]any{"key": "k"}, sdk.ErrUnavailable},
+		"blocked host":     {sdk.FnHTTPFetch, map[string]any{"url": "http://127.0.0.1/"}, sdk.ErrBlocked},
 	} {
 		if o := r.do(t, c.fn, c.args); o.Code != c.code {
 			t.Errorf("%s: %+v, want code %s", name, o, c.code)
 		}
-	}
-}
-
-func TestEntityWriteGuardAndReentrancy(t *testing.T) {
-	r := newCapaRig(t)
-	r.load(t, nil)
-	r.grant(t, sdk.PermEntitiesWrite, sdk.PermEntitiesRead)
-	ctx := context.Background()
-
-	schema, _ := r.svc.GetSchemaBySlug(ctx, "post")
-	// An editor's save runs entity.before_save; the plugin writes a child from
-	// inside it (depth 1: allowed), and the child's own before_save may not
-	// write again.
-	ent, err := r.svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: schema.ID, Name: "x", Attributes: json.RawMessage(`{}`)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := r.ents.names()
-	if len(got) != 2 {
-		t.Fatalf("entities = %v, want the child and the parent only (recursion cut at depth 1)", got)
-	}
-	if got[0] != "child-of-x[reentrant]" || got[1] != "x[child-ok]" {
-		t.Fatalf("names = %q", got)
-	}
-	if ent.Name != "x[child-ok]" {
-		t.Fatalf("the saved entity = %q", ent.Name)
-	}
-
-	// A write made while already inside a plugin write is refused at once.
-	nested := context.WithValue(ctx, depthKey{}, 1)
-	if o := r.doCtx(t, nested, sdk.FnEntitiesCreate, map[string]any{"schema_slug": "post", "name": "y"}); o.Code != sdk.ErrReentrant {
-		t.Fatalf("nested write: %+v", o)
-	}
-	// Reads are not guarded.
-	if o := r.doCtx(t, nested, sdk.FnEntitiesGet, map[string]any{"id": ent.ID.String()}); o.Code != "" {
-		t.Fatalf("nested read: %+v", o)
-	}
-}
-
-func TestEntityActionsInheritWriteDepth(t *testing.T) {
-	// An entity.created action fired by a plugin write sees depth 1, so a
-	// plugin writing from its entity.created handler cannot loop.
-	engine := hooks.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	seen := make(chan int, 1)
-	engine.AddAction("entity.created", 0, func(ctx context.Context, _ any) { seen <- entityWriteDepth(ctx) })
-	engine.Fire(context.WithValue(context.Background(), depthKey{}, 1), "entity.created", struct{}{})
-	engine.Wait()
-	if d := <-seen; d != 1 {
-		t.Fatalf("action saw depth %d, want 1", d)
 	}
 }
 

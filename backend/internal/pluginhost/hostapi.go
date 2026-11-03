@@ -3,7 +3,6 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/time/rate"
 
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/media"
@@ -78,6 +78,17 @@ type Services struct {
 	// FetchPerMinute caps one plugin's outbound http.fetch requests per
 	// minute; 0 means DefaultFetchPerMinute.
 	FetchPerMinute int
+
+	// Run services. A nil one makes the functions that need it unavailable.
+	Changesets *changeset.Engine
+	Uploads    UploadReader
+	Site       SiteSource
+	// SlugTaken reports whether a published, public entity holds the slug.
+	SlugTaken func(ctx context.Context, schema, slug, locale string) (bool, error)
+	// LivePath reports whether path is served by live content now; a staged
+	// redirect may not start there.
+	LivePath func(ctx context.Context, path string) bool
+	Blobs    StagedBlobs
 }
 
 // DefaultFetchPerMinute is the outbound request cap per plugin.
@@ -90,14 +101,10 @@ const hostCallTimeout = 15 * time.Second
 // maxHostResultBytes bounds what one host function returns to a guest.
 const maxHostResultBytes = 2 << 20
 
-type depthKey struct{}
-
-// entityWriteDepth is how many plugin entity writes the current call chain is
-// inside: a write sets it to 1 for the hooks it triggers.
-func entityWriteDepth(ctx context.Context) int {
-	d, _ := ctx.Value(depthKey{}).(int)
-	return d
-}
+// maxRequestBytes bounds one host call's request. The wasm host enforces the
+// same limit; it is repeated here so a call that does not come through it is
+// bounded too.
+const maxRequestBytes = 1 << 20
 
 // API answers a plugin's hm_call requests. Every call is permission checked
 // against the plugin's grants and bound to a deadline.
@@ -193,6 +200,13 @@ func (a *API) toHostError(plugin string, err error) *sdk.HostError {
 		return herr(sdk.ErrBlocked, "%s", err.Error())
 	case errors.Is(err, ErrRoleUnavailable):
 		return herr(sdk.ErrUnavailable, "%s", err.Error())
+	case errors.Is(err, changeset.ErrNotOwned):
+		return herr(sdk.ErrNotOwned, "object belongs to the owner")
+	case errors.Is(err, changeset.ErrNotStaged), errors.Is(err, changeset.ErrExpired):
+		return herr(sdk.ErrUnavailable, "%s", err.Error())
+	case errors.Is(err, changeset.ErrSingleton), errors.Is(err, changeset.ErrInvalidItem), errors.Is(err, changeset.ErrUnknownKind),
+		errors.Is(err, changeset.ErrUnsupportedOp), errors.Is(err, changeset.ErrNoWriter):
+		return herr(sdk.ErrInvalidArgument, "%s", err.Error())
 	case isNotFound(err):
 		return herr(sdk.ErrNotFound, "%s", err.Error())
 	case isInvalid(err):
@@ -216,7 +230,7 @@ func isNotFound(err error) bool {
 	for _, e := range []error{
 		entity.ErrEntityNotFound, entity.ErrSchemaNotFound, taxonomy.ErrTermNotFound, menu.ErrMenuNotFound,
 		menu.ErrMenuItemNotFound, media.ErrMediaNotFound, redirect.ErrRedirectNotFound, form.ErrFormNotFound,
-		form.ErrSubmissionNotFound,
+		form.ErrSubmissionNotFound, changeset.ErrNotFound,
 	} {
 		if errors.Is(err, e) {
 			return true
@@ -242,9 +256,18 @@ func isInvalid(err error) bool {
 }
 
 func (a *API) dispatch(ctx context.Context, plugin string, in []byte) (any, error) {
+	if len(in) > maxRequestBytes {
+		return nil, herr(sdk.ErrInvalidArgument, "request too large (over %d bytes)", maxRequestBytes)
+	}
 	var req sdk.CallRequest
 	if err := json.Unmarshal(in, &req); err != nil {
 		return nil, herr(sdk.ErrInvalidArgument, "request is not a JSON {fn, args}")
+	}
+	if err := defaultShape.check(req.Args); err != nil {
+		return nil, herr(sdk.ErrInvalidArgument, "arguments: %v", err)
+	}
+	if repl, gone := removedFns[req.Fn]; gone {
+		return nil, herr(sdk.ErrUnavailable, "%s was removed in SDK 0.17; use %s inside a run", req.Fn, repl)
 	}
 	fn, ok := hostFns[req.Fn]
 	if !ok {
@@ -258,6 +281,9 @@ func (a *API) dispatch(ctx context.Context, plugin string, in []byte) (any, erro
 	m, ok := a.manifest(plugin)
 	if !ok {
 		return nil, herr(sdk.ErrUnavailable, "plugin not loaded")
+	}
+	if err := phaseGate(ctx, req.Fn); err != nil {
+		return nil, err
 	}
 	return fn.run(ctx, a, &callEnv{plugin: plugin, manifest: m}, req.Args)
 }
@@ -327,25 +353,13 @@ var hostFns = map[string]hostFn{
 	sdk.FnEntitiesGet:          {perm: sdk.PermEntitiesRead, run: fnEntitiesGet},
 	sdk.FnEntitiesList:         {perm: sdk.PermEntitiesRead, run: fnEntitiesList},
 	sdk.FnEntitiesTranslations: {perm: sdk.PermEntitiesRead, run: fnEntitiesTranslations},
-	sdk.FnEntitiesCreate:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesCreate},
-	sdk.FnEntitiesUpdate:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesUpdate},
-	sdk.FnEntitiesStatus:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesStatus},
-	sdk.FnEntitiesDelete:       {perm: sdk.PermEntitiesWrite, run: fnEntitiesDelete},
 	sdk.FnTermsList:            {perm: sdk.PermTermsRead, run: fnTermsList},
 	sdk.FnTermsGet:             {perm: sdk.PermTermsRead, run: fnTermsGet},
-	sdk.FnTermsSave:            {perm: sdk.PermTermsWrite, run: fnTermsSave},
-	sdk.FnTermsDel:             {perm: sdk.PermTermsWrite, run: fnTermsDelete},
 	sdk.FnMenusList:            {perm: sdk.PermMenusRead, run: fnMenusList},
 	sdk.FnMenusGet:             {perm: sdk.PermMenusRead, run: fnMenusGet},
-	sdk.FnMenusSave:            {perm: sdk.PermMenusWrite, run: fnMenusSave},
-	sdk.FnMenusAddItem:         {perm: sdk.PermMenusWrite, run: fnMenusAddItem},
-	sdk.FnMenusDelItem:         {perm: sdk.PermMenusWrite, run: fnMenusDeleteItem},
 	sdk.FnMediaGet:             {perm: sdk.PermMediaRead, run: fnMediaGet},
 	sdk.FnMediaList:            {perm: sdk.PermMediaRead, run: fnMediaList},
-	sdk.FnMediaUpload:          {perm: sdk.PermMediaWrite, run: fnMediaUpload},
 	sdk.FnRedirectsList:        {perm: sdk.PermRedirectsRead, run: fnRedirectsList},
-	sdk.FnRedirectsCreate:      {perm: sdk.PermRedirectsWrite, run: fnRedirectsCreate},
-	sdk.FnRedirectsDelete:      {perm: sdk.PermRedirectsWrite, run: fnRedirectsDelete},
 	sdk.FnFormsList:            {perm: sdk.PermFormsRead, run: fnFormsList},
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 }
@@ -450,7 +464,7 @@ func fnHTTPFetch(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (
 	if !a.limits(e.plugin).fetch.Allow() {
 		return nil, herr(sdk.ErrRateLimited, "http.fetch rate limit for this plugin reached; try again shortly")
 	}
-	hosts := e.manifest.AllowedHosts
+	hosts := effectiveHosts(ctx, e.manifest.AllowedHosts)
 	if !a.grants.Has(e.plugin, sdk.PermHTTPFetchAny) {
 		hosts = withoutWildcard(hosts) // "*" is honoured only with its own grant
 	}
@@ -666,15 +680,6 @@ func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) (entityDTO
 	return dto, nil
 }
 
-// multiLocale reports whether the site serves two or more locales.
-func (a *API) multiLocale(ctx context.Context) (bool, error) {
-	snap, err := a.svc.Entities.URLRegistry().Snapshot(ctx)
-	if err != nil {
-		return false, err
-	}
-	return snap.Locales().Multi(), nil
-}
-
 // optionalID reads an optional entity id argument that may be explicitly null
 // (or empty), which means "no parent". set is false when the argument was not
 // sent at all.
@@ -825,99 +830,6 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 	return map[string]any{"items": items, "next_cursor": res.NextCursor}, nil
 }
 
-// beginEntityWrite enforces the re-entrancy guard: a plugin write may trigger
-// hooks (entity.before_save, entity.created, ...), but a write made from inside
-// those hooks is refused, so plugins cannot recurse.
-func beginEntityWrite(ctx context.Context) (context.Context, error) {
-	if entityWriteDepth(ctx) >= 1 {
-		return nil, herr(sdk.ErrReentrant, "entity writes from inside an entity hook of a plugin write are not allowed")
-	}
-	return context.WithValue(ctx, depthKey{}, 1), nil
-}
-
-func fnEntitiesCreate(ctx context.Context, a *API, env *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		SchemaSlug string          `json:"schema_slug"`
-		Name       string          `json:"name"`
-		Slug       string          `json:"slug"`
-		Locale     string          `json:"locale"`
-		ParentID   json.RawMessage `json:"parent_id"`
-		Attributes json.RawMessage `json:"attributes"`
-		// TranslationOf is an entity to become a translation of: the new
-		// entity joins its translation group (created when it has none).
-		TranslationOf string `json:"translation_of"`
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Entities == nil {
-		return nil, unavailable("entities")
-	}
-	parent, _, err := optionalID(args.ParentID)
-	if err != nil {
-		return nil, err
-	}
-	if args.Name == "" || args.SchemaSlug == "" {
-		return nil, herr(sdk.ErrInvalidArgument, "schema_slug and name are required")
-	}
-	if len(args.Attributes) == 0 {
-		args.Attributes = json.RawMessage(`{}`)
-	}
-	ctx, err = beginEntityWrite(ctx)
-	if err != nil {
-		return nil, err
-	}
-	schema, err := a.svc.Entities.GetSchemaBySlug(ctx, args.SchemaSlug)
-	if err != nil {
-		return nil, err
-	}
-	if args.Locale == "" && requiresLocale(env) && entity.CanCopy(&entity.Entity{Schema: schema}) {
-		multi, err := a.multiLocale(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if multi {
-			return nil, herr(sdk.ErrInvalidArgument, "locale is required when the site has several locales")
-		}
-	}
-	var target *entity.Entity
-	if args.TranslationOf != "" {
-		if target, err = a.translationTarget(ctx, schema, args.TranslationOf, args.Locale); err != nil {
-			return nil, err
-		}
-	}
-	ent, err := a.svc.Entities.CreateEntity(ctx, nil, &entity.CreateEntityInput{
-		SchemaID: schema.ID, Name: args.Name, Slug: args.Slug, Locale: args.Locale, Attributes: args.Attributes, ParentID: parent,
-	})
-	if err != nil {
-		return nil, err
-	}
-	ent.Schema = schema
-	if target != nil {
-		// Create then link is not atomic: a failed link deletes the new entity
-		// again (the pattern of entity.CopyService).
-		if _, err := a.svc.Groups.Link(ctx, target.ID, ent.ID); err != nil {
-			// The call's context may be what failed the link (its deadline): the
-			// cleanup must outlive it, or the new entity stays behind.
-			delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			delErr := a.svc.Entities.DeleteEntity(delCtx, ent.ID)
-			cancel()
-			if delErr != nil {
-				a.log.Warn("delete entity after failed translation link", slog.String("entity_id", ent.ID.String()), slog.Any("error", delErr))
-			}
-			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-				return nil, herr(sdk.ErrTimeout, "call timed out")
-			}
-			if errors.Is(err, entity.ErrInvalidGroup) {
-				return nil, herr(sdk.ErrInvalidArgument, "translation_of: %v", err)
-			}
-			a.log.Warn("translation link failed", slog.String("entity_id", ent.ID.String()), slog.Any("error", err))
-			return nil, herr(sdk.ErrInternal, "translation_of: could not link the translation")
-		}
-	}
-	return a.entityDTOGrouped(ctx, ent)
-}
-
 // localeRequiredSince is the first SDK version whose plugins must name the
 // locale of the entities they create.
 const localeRequiredSince = "0.15.0"
@@ -949,51 +861,6 @@ func rangeRequiresLocale(rng string, compatible []string) bool {
 		admitsNew = true
 	}
 	return admitsNew
-}
-
-// translationTarget loads and checks the entity a new entity of schema in
-// locale is to become a translation of.
-func (a *API) translationTarget(ctx context.Context, schema *entity.EntitySchema, id, locale string) (*entity.Entity, error) {
-	if a.svc.Groups == nil {
-		return nil, unavailable("translations")
-	}
-	tid, err := parseID(id)
-	if err != nil {
-		return nil, err
-	}
-	target, err := a.svc.Entities.GetEntity(ctx, tid)
-	if err != nil {
-		return nil, err
-	}
-	if target.SchemaID != schema.ID {
-		return nil, herr(sdk.ErrInvalidArgument, "translation_of must be an entity of the same schema")
-	}
-	if !entity.CanCopy(&entity.Entity{Schema: schema, Locale: target.Locale}) {
-		return nil, herr(sdk.ErrInvalidArgument, "entities of this schema have no translations")
-	}
-	if locale == "" {
-		return nil, herr(sdk.ErrInvalidArgument, "locale is required with translation_of")
-	}
-	norm, err := entity.NormalizeLocale(locale)
-	if err != nil {
-		return nil, err
-	}
-	if norm == target.Locale {
-		return nil, herr(sdk.ErrInvalidArgument, "locale must differ from the locale of translation_of")
-	}
-	// Refuse before creating anything: a taken locale would otherwise create the
-	// entity (and fire its events) only to delete it again. Link still checks
-	// for a concurrent writer.
-	members, err := a.svc.Groups.Members(ctx, target.ID)
-	if err != nil {
-		return nil, err
-	}
-	for _, m := range members {
-		if m.Locale == norm {
-			return nil, herr(sdk.ErrInvalidArgument, "translation_of already has a translation in locale %s", norm)
-		}
-	}
-	return target, nil
 }
 
 type translationDTO struct {
@@ -1051,86 +918,6 @@ func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.Ra
 	return out, nil
 }
 
-func fnEntitiesUpdate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		ID         string           `json:"id"`
-		Name       *string          `json:"name"`
-		Slug       *string          `json:"slug"`
-		Locale     *string          `json:"locale"`
-		ParentID   json.RawMessage  `json:"parent_id"`
-		Attributes *json.RawMessage `json:"attributes"`
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Entities == nil {
-		return nil, unavailable("entities")
-	}
-	id, err := parseID(args.ID)
-	if err != nil {
-		return nil, err
-	}
-	parent, parentSet, err := optionalID(args.ParentID)
-	if err != nil {
-		return nil, err
-	}
-	if ctx, err = beginEntityWrite(ctx); err != nil {
-		return nil, err
-	}
-	ent, err := a.svc.Entities.UpdateEntity(ctx, id, nil, &entity.UpdateEntityInput{
-		Name: args.Name, Slug: args.Slug, Locale: args.Locale, Attributes: args.Attributes,
-		ParentID: parent, ClearParent: parentSet && parent == nil,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return a.entityDTOGrouped(ctx, ent)
-}
-
-func fnEntitiesStatus(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ ID, Status string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Entities == nil {
-		return nil, unavailable("entities")
-	}
-	id, err := parseID(args.ID)
-	if err != nil {
-		return nil, err
-	}
-	st := entity.EntityStatus(args.Status)
-	if !entity.ValidStatus(st) {
-		return nil, herr(sdk.ErrInvalidArgument, "status %q", args.Status)
-	}
-	if ctx, err = beginEntityWrite(ctx); err != nil {
-		return nil, err
-	}
-	ent, err := a.svc.Entities.UpdateEntityStatus(ctx, id, nil, st)
-	if err != nil {
-		return nil, err
-	}
-	return a.entityDTOGrouped(ctx, ent)
-}
-
-func fnEntitiesDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ ID string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Entities == nil {
-		return nil, unavailable("entities")
-	}
-	id, err := parseID(args.ID)
-	if err != nil {
-		return nil, err
-	}
-	if ctx, err = beginEntityWrite(ctx); err != nil {
-		return nil, err
-	}
-	return map[string]any{}, a.svc.Entities.DeleteEntity(ctx, id)
-}
-
 // --- terms ----------------------------------------------------------------------
 
 func fnTermsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -1162,42 +949,6 @@ func fnTermsGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (a
 	return a.svc.Terms.GetTermBySlug(ctx, args.Kind, args.Slug)
 }
 
-func fnTermsSave(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ Kind, Slug, Name string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Terms == nil {
-		return nil, unavailable("terms")
-	}
-	if args.Kind == "" || args.Name == "" {
-		return nil, herr(sdk.ErrInvalidArgument, "kind and name are required")
-	}
-	if args.Slug != "" {
-		if cur, err := a.svc.Terms.GetTermBySlug(ctx, args.Kind, args.Slug); err == nil {
-			return a.svc.Terms.UpdateTerm(ctx, taxonomy.UpdateTermInput{ID: cur.ID, Name: args.Name, Slug: args.Slug})
-		} else if !errors.Is(err, taxonomy.ErrTermNotFound) {
-			return nil, err
-		}
-	}
-	return a.svc.Terms.CreateTerm(ctx, taxonomy.CreateTermInput{Kind: args.Kind, Name: args.Name, Slug: args.Slug})
-}
-
-func fnTermsDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ Kind, Slug string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Terms == nil {
-		return nil, unavailable("terms")
-	}
-	t, err := a.svc.Terms.GetTermBySlug(ctx, args.Kind, args.Slug)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{}, a.svc.Terms.DeleteTerm(ctx, t.ID)
-}
-
 // --- menus ----------------------------------------------------------------------
 
 func fnMenusList(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any, error) {
@@ -1221,88 +972,6 @@ func fnMenusGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (a
 		return nil, err
 	}
 	return a.svc.Menus.GetMenuWithItems(ctx, m.ID)
-}
-
-func fnMenusSave(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		Slug, Name string
-		Location   *string
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Menus == nil {
-		return nil, unavailable("menus")
-	}
-	if args.Slug != "" {
-		cur, err := a.svc.Menus.GetMenuBySlug(ctx, args.Slug)
-		if err == nil {
-			in := &menu.UpdateMenuInput{Location: args.Location}
-			if args.Name != "" {
-				in.Name = &args.Name
-			}
-			return a.svc.Menus.UpdateMenu(ctx, cur.ID, in)
-		} else if !errors.Is(err, menu.ErrMenuNotFound) {
-			return nil, err
-		}
-	}
-	if args.Name == "" {
-		return nil, herr(sdk.ErrInvalidArgument, "name is required to create a menu")
-	}
-	return a.svc.Menus.CreateMenu(ctx, &menu.CreateMenuInput{Name: args.Name, Slug: args.Slug, Location: args.Location})
-}
-
-func fnMenusAddItem(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		MenuSlug     string  `json:"menu_slug"`
-		ParentID     *string `json:"parent_id"`
-		Label        string  `json:"label"`
-		LinkType     string  `json:"link_type"`
-		EntityID     *string `json:"entity_id"`
-		URL          *string `json:"url"`
-		OpenInNewTab bool    `json:"open_in_new_tab"`
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Menus == nil {
-		return nil, unavailable("menus")
-	}
-	m, err := a.svc.Menus.GetMenuBySlug(ctx, args.MenuSlug)
-	if err != nil {
-		return nil, err
-	}
-	in := &menu.CreateMenuItemInput{Label: args.Label, LinkType: args.LinkType, URL: args.URL, OpenInNewTab: args.OpenInNewTab}
-	if args.ParentID != nil {
-		id, err := parseID(*args.ParentID)
-		if err != nil {
-			return nil, err
-		}
-		in.ParentID = &id
-	}
-	if args.EntityID != nil {
-		id, err := parseID(*args.EntityID)
-		if err != nil {
-			return nil, err
-		}
-		in.EntityID = &id
-	}
-	return a.svc.Menus.CreateMenuItem(ctx, m.ID, in)
-}
-
-func fnMenusDeleteItem(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ ID string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Menus == nil {
-		return nil, unavailable("menus")
-	}
-	id, err := parseID(args.ID)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{}, a.svc.Menus.DeleteMenuItem(ctx, id)
 }
 
 // --- media ----------------------------------------------------------------------
@@ -1366,29 +1035,6 @@ func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	return map[string]any{"items": items, "total": res.Total}, nil
 }
 
-func fnMediaUpload(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		Filename string `json:"filename"`
-		MimeType string `json:"mime_type"`
-		DataB64  string `json:"data_b64"`
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Media == nil {
-		return nil, unavailable("media")
-	}
-	data, err := base64.StdEncoding.DecodeString(args.DataB64)
-	if err != nil || len(data) == 0 || args.Filename == "" || args.MimeType == "" {
-		return nil, herr(sdk.ErrInvalidArgument, "filename, mime_type and data_b64 are required")
-	}
-	m, err := a.svc.Media.Upload(ctx, nil, bytes.NewReader(data), args.Filename, args.MimeType, int64(len(data)))
-	if err != nil {
-		return nil, err
-	}
-	return toMediaDTO(m), nil
-}
-
 // --- redirects ------------------------------------------------------------------
 
 func fnRedirectsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -1409,40 +1055,6 @@ func fnRedirectsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessag
 		return nil, err
 	}
 	return map[string]any{"items": items, "total": total}, nil
-}
-
-func fnRedirectsCreate(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct {
-		SourcePath string `json:"source_path"`
-		TargetURL  string `json:"target_url"`
-		StatusCode int    `json:"status_code"`
-	}](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Redirects == nil {
-		return nil, unavailable("redirects")
-	}
-	if args.StatusCode == 0 {
-		args.StatusCode = 301
-	}
-	return a.svc.Redirects.CreateRedirect(ctx, &redirect.CreateRedirectInput{
-		SourcePath: args.SourcePath, TargetURL: args.TargetURL, StatusCode: args.StatusCode})
-}
-
-func fnRedirectsDelete(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
-	args, err := decodeArgs[struct{ ID string }](raw)
-	if err != nil {
-		return nil, err
-	}
-	if a.svc.Redirects == nil {
-		return nil, unavailable("redirects")
-	}
-	id, err := parseID(args.ID)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{}, a.svc.Redirects.DeleteRedirect(ctx, id)
 }
 
 // --- forms ----------------------------------------------------------------------
