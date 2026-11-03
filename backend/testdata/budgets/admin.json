@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 64406,
+      "value": 65543,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 106337,
+      "value": 106987,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 107275
     },
     "editor_js_total_gzip": {
-      "value": 279460,
+      "value": 285115,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 280484
+      "cap": 286139
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -118,6 +118,10 @@
     },
     {
       "reason": "builder Layers panel (part 1): Pages tab (lazy), solid row and Layers CSS; editor_js_first_gzip 106251 -\u003e 106337, editor_js_total_gzip 278389 -\u003e 279460, admin_css_gzip 64038 -\u003e 64406, canvas_host_gzip 8050 -\u003e 8410 (canvas field outline), measured",
+      "date": "2026-11-03"
+    },
+    {
+      "reason": "builder inspector restyle (part 2): editor_js_total_gzip 279460 -> 285115 (+5655 B), editor_js_first_gzip 106337 -> 106987 (+650 B), admin_css_gzip 64406 -> 65543 (+1137 B), measured",
       "date": "2026-11-03"
     }
   ]

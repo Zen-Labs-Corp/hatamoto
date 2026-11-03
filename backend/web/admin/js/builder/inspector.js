@@ -117,7 +117,6 @@ export function mountInspector(root, api) {
   const visibilityGroup = (node) => styleChunk().then(({ mountStyle }) => mountStyle({ ...styleArgs(node), only: "visibility" }));
 
   function stylePanel(node) {
-    const current = () => find(api.getDoc(), node.id);
     const slot = h("div", { class: "hm-bs-styleslot" });
     const mine = gen;
     // Busy text only when the chunk is slow (usually it was prefetched when idle).
