@@ -992,9 +992,9 @@ is stored.
   Tablet or Phone **band** with its label. One outline layer: with a v2 parent the parent draws hover (1 px accent outline with a name tag)
   and selection; the frame's own outlines are v1-only, and the host ignores a v1 `hm:select` that would
   replace a deeper v2 selection. The empty-node floor is 64 px.
-* **Toolbar.** A `role=toolbar` (roving tabindex) outside the selected element: handle, name, **Parent**,
+* **Toolbar.** A `role=toolbar` (roving tabindex) outside the selected element: handle, then the name chip ("Name ↑ Parent", one button that selects the parent),
   **Duplicate**, **Wrap** (accessible name "Wrap in container"), **Hide** ("Hide on this device" or "Show on this
-  device"), **Delete**, **More** ("More element actions", the element menu). It sits above, below at the top edge,
+  device"), **Delete**, **More** ("More element actions", the element menu). It sits above, inside at the top edge (below only while editing text),
   clamped, and shrinks while editing text so the format bar stays clear. The handle press is delegated on the stage.
 * **"+" handles.** From `canvas/points.js`: page level, the selection's container and its parent, the last hovered
   container, and always inside an empty container; a keyed pool of 32 px buttons with an insertion line on hover. The

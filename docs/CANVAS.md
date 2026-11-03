@@ -211,7 +211,7 @@ select the component, open the inspector and focus that field (the parent re-ren
 The parent page draws the editing chrome over the frame, so the bridge stays small and the public markup never carries
 it: one hover outline (1 px, accent) with the element's name tag and one selection outline with corner handles and a
 centred **W × H** size badge from the `layout` rects, the element toolbar (above the element, inside it at the top edge),
-a thin **Add section** line that shows on the boundary between sections when the pointer is near, the padding handles
+a thin **Add section** line that shows on the boundaries of the hovered section, and always after the selected section (and before it when it is first), the padding handles
 (pills centred in the padding bands, shown in the guide-pad colour), the stage bar (breadcrumbs, and the page width and
 scale as `1440px · 75%`), the Tablet or Phone band and the round "+" handles. They are built by the lazy
 `canvas/chrome.js` (geometry in `canvas/points.js`) from `layout` (`id`, `k`, `p`, `c`, `dir`, boxes), `hover` and
