@@ -62,7 +62,7 @@ const PRESETS = 4;
 // Enum keys edited as a short row of buttons: [value, visible text, accessible name]. An empty value is "Auto": pressing it unsets.
 const BUTTON_ROWS = {
   shadow: [["none", "None", "None"], ["sm", "S", "Small"], ["md", "M", "Medium"], ["lg", "L", "Large"]],
-  ta: [["", "Auto", "Auto"], ["left", "L", "Left"], ["center", "C", "Center"], ["right", "R", "Right"]],
+  ta: [["", "Auto", "Auto"], ["left", "L", "Left"], ["center", "C", "Center"], ["right", "R", "Right"], ["justify", "J", "Justify"]],
 };
 // Parents whose children are laid out by the container controls (span, align self).
 const HOSTS = new Set(["container", "columns"]);

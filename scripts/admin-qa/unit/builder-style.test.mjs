@@ -320,7 +320,7 @@ test("Effects: Shadow is None|S|M|L buttons writing none|sm|md|lg; the active on
   assert.equal(m.find((n) => n.className === "hm-bs-morebtn", g)[0].textContent, "More effects options");
 });
 
-test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto|L|C|R", () => {
+test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; Align has Auto|L|C|R|J", () => {
   const m = mount(heading(), { parent: section() });
   const groups = m.find((n) => n.className === "hm-bs-grp").map((g) => g.kids[0].kids[0].kids[0].kids[0].textContent);
   assert.equal(groups[0], "Typography");
@@ -328,7 +328,7 @@ test("a heading: Typography is first and open; Sz and Wt, LH and LS are two-up; 
   assert.equal(typo.kids[0].kids[0].kids[0].attrs["aria-expanded"], "true");
   const r2 = m.find((n) => n.className === "hm-bs-r2", typo);
   assert.equal(r2.length, 2);
-  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.textContent), ["Auto", "L", "C", "R"]);
+  assert.deepEqual(m.find((n) => n.className === "hm-bs-opts" && n.kids[0]?.textContent === "Auto", typo)[0].kids.map((b) => b.textContent), ["Auto", "L", "C", "R", "J"]);
   press(m, "Center", "Typography").fire("click");
   assert.deepEqual(m.calls.at(-1), { key: "ta", value: "center", at: "base", opts: { label: "Change Text align" } });
   press(m, "Auto", "Typography").fire("click");
@@ -397,4 +397,13 @@ test("the Text style select repaints the Sz and Wt fields from the batch it wrot
   assert.notEqual(field("Sz").value, "16", "the size field shows the preset, so a scrub starts from it");
   const wt = m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "bold") && n.value === "bold", m.group("Typography"));
   assert.equal(wt.length, 1, "the weight control shows bold");
+});
+
+test("Align reaches every ta value: Justify writes justify and shows pressed when ta is justify", () => {
+  const m = mount(heading(), { parent: section() });
+  press(m, "Justify", "Typography").fire("click");
+  assert.deepEqual(m.calls.at(-1), { key: "ta", value: "justify", at: "base", opts: { label: "Change Text align" } });
+  const on = mount(heading({ ta: "justify" }), { parent: section() });
+  assert.equal(press(on, "Justify", "Typography").attrs["aria-pressed"], "true");
+  assert.equal(press(on, "Left", "Typography").attrs["aria-pressed"], "false");
 });
