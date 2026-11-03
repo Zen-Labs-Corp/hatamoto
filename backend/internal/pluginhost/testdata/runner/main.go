@@ -4,7 +4,8 @@
 // buffers records while fetching and stages them as changeset items while
 // transforming. The run's params steer its behaviour: "schema" (the entity
 // schema to stage into), "mode" ("fail" calls run.fail in the first step,
-// "error" returns an error from it).
+// "error" returns an error from it, "leak" marks the guest's memory and fails
+// any later call that finds the mark, so a pooled instance is caught).
 package main
 
 import (
@@ -24,8 +25,14 @@ type params struct {
 	Mode   string `json:"mode"`
 }
 
+// marked is a guest global that only a "leak" run sets.
+var marked bool
+
 func init() {
 	guest.OnRunStep(func(step sdk.RunStep) (sdk.RunStepResult, error) {
+		if marked { // before RunInfoHost: an ordinary call outside a run reaches here too
+			return sdk.RunStepResult{}, errors.New("guest memory leaked")
+		}
 		info, err := guest.RunInfoHost()
 		if err != nil { // outside a run: trap, which the test uses to open the circuit breaker
 			panic(err)
@@ -33,6 +40,8 @@ func init() {
 		var p params
 		_ = json.Unmarshal(info.Params, &p)
 		switch p.Mode {
+		case "leak":
+			marked = true
 		case "error":
 			return sdk.RunStepResult{}, errors.New("boom")
 		case "fail":

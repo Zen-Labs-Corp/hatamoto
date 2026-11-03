@@ -430,3 +430,19 @@ func TestRunShutdownFailsRun(t *testing.T) {
 		t.Fatalf("start after close: %v", err)
 	}
 }
+
+// Every run step and every ordinary call gets a cold instance: a guest global
+// set in one step is not seen by the next step or by a hook call afterwards
+// (ADR 0004 inv. 4). The "leak" run marks guest memory and fails any call
+// that finds the mark, so this fails if drive stops using a fresh instance.
+func TestRunStepsDoNotShareGuestMemory(t *testing.T) {
+	r := newDriverRig(t)
+	run := r.finished("leak")
+	if run.State != plugrun.StateFinished || run.Steps != 3 {
+		t.Fatalf("run %s steps=%d reason=%q", run.State, run.Steps, run.Reason)
+	}
+	_, err := r.rt.Host().Call(context.Background(), runnerPlugin, sdk.RunStepExport, []byte(`{}`))
+	if err == nil || strings.Contains(err.Error(), "leaked") {
+		t.Fatalf("an ordinary call after the run: %v", err) // want the trap of a call outside a run, not the mark
+	}
+}
