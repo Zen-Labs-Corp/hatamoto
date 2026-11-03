@@ -81,6 +81,25 @@ test("an explicit zoom survives fit(); Fit follows the pane again; the scale nev
   assert.equal(canvas.scale, 0.5, "the floor");
 });
 
+test("the stage bar readout follows the viewport, the zoom and the pane", async () => {
+  const { host, canvas } = rig();
+  let strip = null;
+  canvas.stage.parentElement = { insertBefore: (e) => (strip = e), addEventListener() {}, removeEventListener() {}, scrollTop: 0 }; // the stub has no parent links: catch the strip
+  const box = { x: 0, y: 0, w: 10, h: 10 };
+  dom.deliver(host, { hm: 2, type: "layout", docH: 100, main: box, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }] });
+  await new Promise((r) => setTimeout(r, 150)); // the strip is a lazy chunk
+  const dims = () => strip.children.find((c) => c.attrs["data-hm-pe-dims"] !== undefined);
+  assert.ok(dims(), "the readout is mounted in the strip");
+  canvas.setViewport(1280, 2000);
+  canvas.setZoom(75);
+  assert.equal(dims().textContent, "1280px \u00b7 75%");
+  canvas.setViewport(390, 2000);
+  assert.equal(dims().textContent, "390px \u00b7 75%", "a device change");
+  canvas.setZoom("fit");
+  canvas.fit(195);
+  assert.equal(dims().textContent, "390px \u00b7 50%", "a pane resize under Fit");
+});
+
 test("nodeChain reads the parent ids of the latest layout", () => {
   const { canvas, host } = rig();
   const box = { x: 0, y: 0, w: 10, h: 10 };
@@ -259,7 +278,7 @@ test("the strip carries no device band label (the inspector context line shows t
   const { mountStrip } = await import(new URL("../../../backend/web/admin/js/canvas/chrome.js", import.meta.url));
   let strip = null;
   const stage = { parentElement: { insertBefore: (e) => (strip = e) }, parentNode: null };
-  const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", setInset() {}, setZoom() {}, stage };
+  const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", viewport: 1280, scale: 1, setInset() {}, stage };
   mountStrip(canvas, {});
   assert.ok(!strip.children.some((c) => c.attrs.class === "hm-pe__bandlabel"), "no band label element");
 });

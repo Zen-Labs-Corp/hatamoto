@@ -2,7 +2,7 @@
 .hm-pe__stage { position: relative; margin: 0 auto; }
 .hm-pe__frame { position: absolute; left: 0; top: 0; border: 0; background: #fff; transform-origin: top left; }
 .hm-pe__frame--idle { visibility: hidden; pointer-events: none; }
-/* The strip (breadcrumbs, zoom, device label) is sticky over the scroller and takes no clicks itself; its buttons do. */
+/* The strip (breadcrumbs left, the width and scale readout right) is sticky over the scroller and takes no clicks itself; its buttons do. */
 .hm-pe__strip { position: sticky; top: calc(-1 * var(--space-3)); z-index: var(--z-raised); display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2); padding: var(--space-1) var(--space-3); background: var(--color-kasumi); pointer-events: none; }
 .hm-pe__strip > * { pointer-events: auto; }
 .hm-pe__crumbnav { min-width: 0; overflow: hidden; }
@@ -14,7 +14,7 @@
 .hm-pe__crumb[aria-current="true"] { color: var(--text); font-weight: var(--weight-semibold); cursor: default; }
 .hm-pe__crumb:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .hm-pe__crumbnav { flex: 1 1 14rem; }
-.hm-pe__zoom { flex: 0 0 auto; align-self: center; }
+.hm-pe__dims { flex: 0 0 auto; margin-inline-start: auto; font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: var(--text-muted); }
 /* The device band: a 4 px bar over the page and its label. An absent data-hm-device is Desktop (no band). */
 [data-hm-device="md"] .hm-pe__stage::before, [data-hm-device="sm"] .hm-pe__stage::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 4px; pointer-events: none; }
 [data-hm-device="md"] .hm-pe__stage::before { background: var(--color-device-tablet); }
