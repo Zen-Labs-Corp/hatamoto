@@ -181,6 +181,9 @@ func TestSiteAndChangesetFunctions(t *testing.T) {
 			t.Errorf("%s: %v, host saw %q, want %q", name, err, h.fn, c.fn)
 		}
 	}
+	if err := Propose(call, sdk.ProposeSiteSettings, map[string]string{"title": "T"}); err != nil {
+		t.Fatal(err)
+	}
 	h.sent(t, sdk.FnChangesetPropose, `{"kind":"site_settings","payload":{"title":"T"}}`)
 }
 
