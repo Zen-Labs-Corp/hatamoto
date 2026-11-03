@@ -7,6 +7,7 @@ import { find } from "@hm/builder/store";
 import { ICON_FOR, label } from "@hm/builder/navigator";
 import { isCollapsed, parentOf } from "@hm/builder/selinfo";
 import { plainLabel } from "@hm/builder/inspector";
+import { fieldIcon } from "@hm/builder/navigator";
 
 let uid = 0;
 
@@ -28,11 +29,22 @@ const pluralBlocks = (n) => `${n} block${n === 1 ? "" : "s"}`;
 /** The type icon, cloned from the server-rendered template; a bare marker span when the template is missing. */
 const typeIcon = (name) => document.querySelector("template[data-hm-bs-ico]")?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true) ?? h("span", { "data-ico": name });
 
+/** What the header of a selected content field shows: {icon, title, sub: "Field in", section: {id, name}}. `field` is {key, label, kind, sectionId, sectionName}. */
+export const fieldHeaderModel = (field) => ({ icon: fieldIcon(field), title: plainLabel(field.label || field.key), section: { id: field.sectionId, name: field.sectionName } });
+
+/** The header of a content field: its icon, its label (read only: renaming belongs to the section) and a link to its section. No menu: copy/paste style and restore act on the section. */
+function fieldHeader({ field, api }) {
+  const model = fieldHeaderModel(field);
+  const sub = h("small", { class: "hm-bs-sub" }, h("span", { text: "Field in " }), h("button", { type: "button", class: "hm-bs-sublink", text: model.section.name, onclick: () => api.select(model.section.id) }));
+  return h("div", { class: "hm-bs-header" }, h("span", { class: "hm-bs-ico", "aria-hidden": "true" }, typeIcon(model.icon)), h("div", { class: "hm-bs-heading" }, h("h3", { class: "hm-bs-name", text: model.title }), sub));
+}
+
 /**
- * header({node, api, name}) -> the header element: icon tile, editable name, subtitle, "..." menu (in that focus order).
+ * header({node, api, name, field}) -> the header element: icon tile, editable name, subtitle, "..." menu (in that focus order).
  * api: {getDoc(), reuse?, select(id), rename(id, value), copyStyle(), pasteStyle(), restore?(id)}. The restore row shows only when the screen offers it.
  */
-export function header({ node, api, name }) {
+export function header({ node, api, name, field: picked = null }) {
+  if (picked) return fieldHeader({ field: picked, api });
   const id = `hm-bs-hm${++uid}`;
   const model = headerModel({ node, doc: api.getDoc(), blocks: api.reuse?.blocks });
   const field = h("input", { class: "hm-bs-nameinput", type: "text", maxlength: "80", "aria-label": "Name" });

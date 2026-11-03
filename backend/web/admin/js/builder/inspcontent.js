@@ -268,7 +268,8 @@ export function createContent(ctx) {
     return holder;
   }
 
-  function contentPanel(node) {
+  /** opts.only: [key, ...aliases] of the one content field to show (the Inspector's field mode); the other fields stay in the form, hidden. */
+  function contentPanel(node, opts = {}) {
     if (node.t === "ref") {
       // The ref panel is a lazy chunk (reuse.js); the slot is filled unless the panel was redrawn meanwhile.
       const slot = h("div", { class: "hm-bs-content" });
@@ -330,6 +331,7 @@ export function createContent(ctx) {
               getContent: () => find(api.getDoc(), id)?.p?.content,
               urls: api.urls,
               csrf: api.csrf,
+              only: opts.only ?? null,
               onContent: (content) => {
                 const now = find(api.getDoc(), id);
                 if (!now || JSON.stringify(now.p?.content ?? {}) === JSON.stringify(content)) return;

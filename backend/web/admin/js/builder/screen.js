@@ -153,6 +153,7 @@ function start(root, boot) {
     getDoc: () => st.doc,
     getSelected: () => selected,
     getSelectionCount: () => selection.size,
+    getField: () => selectedField,
     kinds: boot.kinds,
     sections: boot.sections,
     options: boot.options ?? {},
