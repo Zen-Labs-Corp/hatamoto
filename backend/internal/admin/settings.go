@@ -27,14 +27,6 @@ type settingsData struct {
 	Domain    string
 }
 
-type address struct {
-	Street     string `json:"street"`
-	City       string `json:"city"`
-	State      string `json:"state"`
-	PostalCode string `json:"postal_code"`
-	Country    string `json:"country"`
-}
-
 func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountSettingsFrame(authed)
 	owner := authed.Group("", a.RequireRole("owner"))
