@@ -476,7 +476,7 @@ export function mountStyle({ node, parent = null, table, bp: device, state = "",
     let pills = null; // the Fill group's theme colour pills (the background only)
 
     if (c.kind === "select") {
-      el = h("select", { id, class: "hm-field__control hm-bs-ctl", "aria-describedby": describe }, h("option", { value: "", text: unset }));
+      el = h("select", { id, class: "hm-field__control hm-bs-ctl", "aria-describedby": describe }, h("option", { value: "", text: inline && fromPreset !== null ? `From class: ${c.options.find(([v]) => v === fromPreset)?.[1] ?? fromPreset}` : unset })); // the inline field has no source chip: the empty option says where the value comes from
       for (const [v, label] of c.options) el.append(h("option", { value: v, text: label }));
       sync = () => {
         if (own !== null && !c.options.some(([v]) => v === own) && !el.querySelector(`option[value="${CSS.escape(own)}"]`)) el.append(h("option", { value: own, text: `${own} (custom)` }));

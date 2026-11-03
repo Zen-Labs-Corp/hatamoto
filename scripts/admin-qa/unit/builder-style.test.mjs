@@ -194,10 +194,10 @@ const { readFileSync } = await import("node:fs");
 const full = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
 
 const FS = { sm: "0.875rem", md: "1rem", xl: "1.5rem", "2xl": "2rem" };
-const mount = (node, { bp = "base", state = "", parent = null, fs = FS, colors = [] } = {}) => {
+const mount = (node, { bp = "base", state = "", parent = null, fs = FS, colors = [], presets = [] } = {}) => {
   const calls = [];
   const el = mountStyle({
-    node, parent, table: full, bp, state, display: "block", presets: [],
+    node, parent, table: full, bp, state, display: "block", presets,
     palette: { colors, space: { 4: "1rem" }, fs },
     commit: (key, value, at, opts) => (calls.push({ key, value, at, opts }), true),
     commitMany: (writes, at, opts) => (calls.push({ batch: writes, at, opts }), true),
@@ -495,4 +495,11 @@ test("a group the user opened on one element does not open on the next: kind def
   head(a).fire("click");
   assert.equal(fill(mount({ id: "memo-a", t: "container", s: { base: {} } })), "true", "sticky for the same element across re-renders");
   assert.equal(fill(mount({ id: "memo-b", t: "heading", s: { base: {} } }, { parent: section() })), "false", "a later element starts from its kind's default");
+});
+
+test("Wt shows 'From class' when the node's class gives the weight", () => {
+  const wt = (m) => m.find((n) => n.tag === "select" && n.kids.some((o) => o.attrs?.value === "bold"), m.group("Typography"))[0];
+  const classed = mount({ id: "wt-a", t: "heading", p: { preset: "lead" }, s: { base: {} } }, { parent: section(), presets: [{ name: "lead", label: "Lead", s: { base: { fw: "bold" } } }] });
+  assert.match(wt(classed).kids[0].textContent, /^From class: /);
+  assert.equal(wt(mount({ id: "wt-b", t: "heading", s: { base: {} } }, { parent: section() })).kids[0].textContent, "Not set");
 });
