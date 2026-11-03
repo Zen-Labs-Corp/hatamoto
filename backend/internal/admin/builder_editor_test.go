@@ -459,12 +459,8 @@ func TestBuilderPageList(t *testing.T) {
 	r.ents.addEntity(71, r.page, "Pricing", "pricing", entity.StatusPublished, `{"body":"x"}`, t0)
 	r.ents.addEntity(72, r.page, "Secret", "secret", entity.StatusDraft, `{"body":"x"}`, t0)
 	r.ents.addEntity(73, r.page, "Old", "old", entity.StatusArchived, `{"body":"x"}`, t0)
-	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string {
-		if e.Status != entity.StatusPublished {
-			return ""
-		}
-		return "/" + e.Slug
-	}
+	// like production: the would-be address, whatever the status
+	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
 	req := httptest.NewRequest("GET", "/", nil)
 	byTitle := map[string]bootPage{}
 	for _, p := range r.a.builderPageList(req, r.ent) {

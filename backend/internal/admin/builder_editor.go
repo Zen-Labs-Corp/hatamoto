@@ -301,6 +301,9 @@ func (a *Admin) builderPageList(r *http.Request, cur *entity.Entity) []bootPage 
 	out := []bootPage{}
 	row := func(e *entity.Entity, p string) bootPage {
 		id := e.ID.String()
+		if e.Status != entity.StatusPublished {
+			p = "" // PublicPaths answers the would-be address of a draft too; only a live page has a path
+		}
 		return bootPage{ID: id, Title: e.Name, Path: p, EditHref: a.adminPath + "/entities/" + id + "/edit", Status: string(e.Status), Current: cur != nil && e.ID == cur.ID}
 	}
 	found := false
