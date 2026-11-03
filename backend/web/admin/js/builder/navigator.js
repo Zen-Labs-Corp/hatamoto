@@ -139,10 +139,11 @@ export function metaOf(row, quiet = false, colourOf = () => null) {
 }
 
 /** What a section row's thumbnail shows: the container's base background (a hex or a token name as written; null when none) and its text alignment. */
-export function thumbOf(container) {
-  const base = container.s?.base ?? {};
-  const bg = typeof base.bg === "string" && base.bg.trim() ? base.bg.trim() : null;
-  return { bg, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
+export function thumbOf(container, inner = null) {
+  const set = (b) => typeof b?.bg === "string" && b.bg.trim();
+  const own = [container.s?.base, inner?.s?.base].find(set) ?? {}; // the wrapper's background, else the component's own
+  const base = { ...(inner?.s?.base ?? {}), ...(container.s?.base ?? {}) };
+  return { bg: set(own) ? own.bg.trim() : null, align: ["left", "center", "right"].includes(base.ta) ? base.ta : "left" };
 }
 
 /**
@@ -343,7 +344,7 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
       const kids = [];
       if (r.section && !filter) kids.push(gap(doc.nodes.indexOf(r.node)));
       kids.push(r.kids ? h("span", { class: "hm-bs-row__caret", "data-caret": "", "aria-hidden": "true" }) : h("span", { class: "hm-bs-row__caret", "aria-hidden": "true" })); // a row without blocks keeps the slot, so siblings line up
-      if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node, thumbLines(r)));
+      if (r.section) kids.push(h("span", { class: "hm-bs-row__idx", "aria-hidden": "true", text: String(r.index).padStart(2, "0") }), thumb(r.node, thumbLines(r), r.collapsed));
       else kids.push(h("span", { class: "hm-bs-row__ico", "aria-hidden": "true" }, icon(f ? fieldIcon(f) : (ICON_FOR[r.node.t] ?? "puzzle"))));
       const text = h("span", { class: "hm-bs-row__text" });
       const prefix = `${kn}${SEP}`;
@@ -376,8 +377,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   }
 
   /** The thumbnail of a section row: its background, text alignment and three lines through CSS custom properties (the admin CSP has no inline style attribute). */
-  function thumb(node, lines = [90, 90, 90]) {
-    const { bg, align } = thumbOf(node);
+  function thumb(node, lines = [90, 90, 90], inner = null) {
+    const { bg, align } = thumbOf(node, inner);
     const e = h("span", { class: "hm-bs-row__thumb", "data-align": align, "aria-hidden": "true" });
     for (const w of lines) {
       const line = h("i");

@@ -95,6 +95,12 @@ test("thumbOf: background and alignment", () => {
   assert.equal(thumbOf(sec("s", [], {}, { base: { ta: "justify" } })).align, "left");
 });
 
+test("thumbOf: a collapsed section falls back to its component's background; the wrapper's wins", () => {
+  const inner = { ...comp("c"), s: { base: { bg: "#445566", ta: "right" } } };
+  assert.deepEqual(thumbOf(sec("s", [inner]), inner), { bg: "#445566", align: "right" });
+  assert.equal(thumbOf(sec("s", [inner], {}, { base: { bg: "#112233" } }), inner).bg, "#112233");
+});
+
 test("collapse all counts only rows with blocks", () => {
   const doc = { v: 2, nodes: [sec("s", [comp("c")]), sec("t", [comp("d", {}, [head("h", "H")])])] };
   assert.deepEqual([...collapseAll(doc)], ["t"]);
