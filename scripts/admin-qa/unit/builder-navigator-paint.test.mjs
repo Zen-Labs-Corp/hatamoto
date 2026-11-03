@@ -125,14 +125,24 @@ test("selecting the component from the canvas selects its collapsed row and take
   assert.equal(rows.filter((r) => r.attrs.tabindex === "0").length, 1);
 });
 
-test("a section holding the selection gets the band, with its blocks; the selected row does not", () => {
+test("a section holding the selection is banded on every row, its own included; the first and last row carry the corner classes", () => {
   const rows = mount({ selected: "h1" }).rows();
-  assert.match(rows[0].attrs.class, /hm-bs-row--band/);
-  assert.doesNotMatch(rows[1].attrs.class, /hm-bs-row--band/); // the selected block itself
-  assert.doesNotMatch(rows[2].attrs.class, /hm-bs-row--band/);
+  assert.match(rows[0].attrs.class, /hm-bs-row--band\b/);
+  assert.match(rows[0].attrs.class, /hm-bs-row--band-first/);
+  assert.match(rows[1].attrs.class, /hm-bs-row--band\b/); // the selected block itself
+  assert.match(rows[1].attrs.class, /hm-bs-row--band-last/);
+  assert.doesNotMatch(rows[1].attrs.class, /band-first/);
+  assert.doesNotMatch(rows[2].attrs.class, /hm-bs-row--band/); // the next section
   const own = mount({ selected: "s1" }).rows();
-  assert.doesNotMatch(own[0].attrs.class, /hm-bs-row--band/);
-  assert.doesNotMatch(own[1].attrs.class, /hm-bs-row--band/); // the row itself is solid; no band around it
+  assert.match(own[0].attrs.class, /hm-bs-row--band\b/);
+  assert.match(own[1].attrs.class, /hm-bs-row--band\b/);
+  assert.equal(own.filter((r) => /band-last/.test(r.attrs.class)).length, 1);
+});
+
+test("a section thumbnail draws three lines whose widths follow its first blocks", () => {
+  const d = { v: 2, nodes: [sec("s", [comp("c", [head("h", "H")])])] };
+  const lines = all(withClass(mount({ d }).rows()[0], "hm-bs-row__thumb")[0]).filter((e) => e.tag === "i");
+  assert.deepEqual(lines.map((l) => l.props["--w"]), ["70%", "90%", "90%"]);
 });
 
 test("clicking the collapsed row selects the container with pick", () => {
@@ -157,7 +167,8 @@ test("the gap calls onAddAt with the section index; the last row adds the traili
   assert.equal(m.rows().at(-1).kids.at(-1), gaps.at(-1), "trailing gap sits at the foot of the last row");
   click(m, { "[data-hm-bs-gap]": gaps[3] });
   assert.deepEqual(m.calls, [["addAt", 3, gaps[3]]]);
-  assert.match(gaps[0].text, /Add section here/);
+  assert.equal(gaps[0].text, "", "the gap shows only the plus");
+  assert.equal(withClass(gaps[0], "hm-bs-gap__btn")[0].attrs.title, "Add section here");
 });
 
 test("no gap while a filter is active", () => {

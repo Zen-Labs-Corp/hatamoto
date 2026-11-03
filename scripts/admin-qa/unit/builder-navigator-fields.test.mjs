@@ -38,7 +38,7 @@ const withAttr = (e, a) => all(e).filter((x) => a in x.attrs);
 const withClass = (e, c) => all(e).filter((x) => (x.attrs.class ?? "").split(" ").includes(c));
 globalThis.document = { createElement: el, activeElement: null };
 globalThis.requestAnimationFrame = (f) => (f(), 0);
-const { mountNavigator, rowsOf, fieldRows, step, collapseAll, allCollapsed, metaOf } = await import(new URL("builder/navigator.js", root));
+const { mountNavigator, rowsOf, fieldRows, fieldIcon, lineWidth, step, collapseAll, allCollapsed, metaOf } = await import(new URL("builder/navigator.js", root));
 
 
 const FIELDS = [
@@ -72,6 +72,29 @@ test("fieldRows reads an x-hm-alias key when the schema key is absent; the key w
   assert.deepEqual(fieldRows({ heading: "Legacy" }, f).map((r) => r.text), ["Legacy"]);
   assert.deepEqual(fieldRows({ h1: "Second", title: "Own" }, f).map((r) => r.text), ["Own"]);
   assert.deepEqual(fieldRows({}, f), []);
+});
+
+test("fieldRows drops settings fields; the kept key keeps its row when emptied", () => {
+  const f = [{ key: "a", label: "A", kind: "text" }, { key: "layout", label: "Layout", kind: "text", setting: true }, { key: "href", label: "Href", kind: "link", setting: true }];
+  assert.deepEqual(fieldRows({ a: "x", layout: "wide", href: "/x" }, f).map((r) => r.key), ["a"]);
+  assert.deepEqual(fieldRows({ a: "" }, f), []);
+  assert.deepEqual(fieldRows({ a: "" }, f, "a").map((r) => [r.key, r.text]), [["a", ""]]);
+  assert.deepEqual(fieldRows({ layout: "wide" }, f, "layout"), [], "a settings field never gets a row");
+});
+
+test("fieldIcon: each content kind gets its own icon, by key, label or kind", () => {
+  const icon = (key, kind = "text", label = key) => fieldIcon({ key, label, kind });
+  assert.deepEqual(
+    ["eyebrow", "heading", "text", "buttons", "stats", "steps", "faqs", "image", "table", "cards"].map((k) => icon(k, k === "image" ? "image" : "text", k === "text" ? "Intro" : k)),
+    ["tag", "heading", "file-text", "link", "analytics", "list-ordered", "help", "image", "table", "layout"],
+  );
+  assert.equal(icon("body", "richtext"), "file-text");
+  assert.equal(icon("items", "list"), "list");
+  assert.equal(new Set(["eyebrow", "buttons", "stats", "steps", "faqs", "table", "cards"].map((k) => icon(k))).size, 7);
+});
+
+test("lineWidth: heading long, buttons short, eyebrow shortest", () => {
+  assert.deepEqual(["eyebrow", "headline", "cta", "body"].map(lineWidth), [30, 70, 40, 90]);
 });
 
 test("fieldRows skips booleans: no true/false rows", () => {
@@ -196,7 +219,7 @@ test("paint: a field row is a level-2 treeitem named 'Label · text' with a mute
   assert.equal(withAttr(li, "data-ico")[0].attrs["data-ico"], "file-text", "rich text is not the heading icon");
   assert.equal(withClass(li, "hm-bs-row__acts").length, 0);
   const icos = Object.fromEntries(mount().rows().filter((r) => r.attrs["data-field"]).map((r) => [r.attrs["data-field"], withAttr(r, "data-ico")[0].attrs["data-ico"]]));
-  assert.deepEqual(icos, { headline: "heading", body: "file-text", cta: "link", cards: "list" });
+  assert.deepEqual(icos, { headline: "heading", body: "file-text", cta: "link", cards: "layout" });
   assert.equal(mount().rows()[0].attrs["aria-expanded"], "true");
   assert.equal(withClass(mount().rows()[0], "hm-bs-row__meta")[0].text, "4 blocks · #102030");
 });

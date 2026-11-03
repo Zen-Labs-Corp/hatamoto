@@ -142,7 +142,8 @@ function start(root, boot) {
       const hex = design.palette?.colors?.[name] ?? /^var\([^,]+,\s*(#[0-9a-f]{3,6})\)$/i.exec(styleTable?.find((e) => e.key === "bg")?.tokens?.[name] ?? "")?.[1]; // the site's colour, else the table's default
       return typeof hex === "string" ? hex : null;
     },
-    bar: $(root, "[data-hm-bs-navbar]"),
+    bar: $(root, '[data-hm-bs-lpanel="nav"]'),
+    getPageName: () => nameInput?.value ?? boot.name,
     announce,
   });
   $(root, "[data-hm-bs-rename]")?.addEventListener("click", () => dispatch("rename"));
