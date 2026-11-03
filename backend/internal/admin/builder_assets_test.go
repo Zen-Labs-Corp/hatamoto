@@ -44,6 +44,10 @@ func TestBuilderBootJSON(t *testing.T) {
 		BindSources []struct{ Source, Class string } `json:"bindSources"`
 		Sections    []struct{ Type, Title string }
 		URLs        map[string]string `json:"urls"`
+		PageList    []struct {
+			ID, Title, Path, EditHref, Status string
+			Current                           bool
+		} `json:"pageList"`
 	}
 	if err := json.Unmarshal([]byte(m[1]), &boot); err != nil {
 		t.Fatalf("boot is not JSON: %v", err)
@@ -58,6 +62,18 @@ func TestBuilderBootJSON(t *testing.T) {
 	}
 	if boot.Version != r.ent.Version || boot.Status != "draft" || boot.Name != "Landing" {
 		t.Errorf("boot meta = %d %q %q", boot.Version, boot.Status, boot.Name)
+	}
+	cur := 0
+	for _, p := range boot.PageList {
+		if p.Current {
+			cur++
+			if p.Title != "Landing" || p.EditHref != "/admin/entities/"+r.ent.ID.String()+"/edit" {
+				t.Errorf("current page row = %+v", p)
+			}
+		}
+	}
+	if len(boot.PageList) < 2 || cur != 1 {
+		t.Errorf("pageList = %+v, want several pages, one current", boot.PageList)
 	}
 	if len(boot.BindSources) < 20 {
 		t.Errorf("bindSources: %d rows", len(boot.BindSources))

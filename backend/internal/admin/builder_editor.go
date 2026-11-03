@@ -126,7 +126,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	}
 	bootMap := map[string]any{
 		"doc": doc, "version": e.Version, "status": string(e.Status), "name": e.Name, "user": user, "entity": id,
-		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
+		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "pageList": a.builderPageList(r, e), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
 		"urls": map[string]string{
 			"stage": base + "/builder/stage", "render": base + "/edit/render", "component": base + "/builder/component",
 			"save": base + "/builder/save", "seo": base + "/builder/seo", "analyze": base + "/builder/analyze", "nodeVersions": base + "/builder/node-versions", "paste": base + "/builder/paste", "stylespec": a.adminPath + "/builder/stylespec", "presets": a.adminPath + "/builder/presets", "details": base, "versions": sh.VersionsHref, "view": sh.ViewHref, "theme": a.adminPath + "/theme/colours",
@@ -207,26 +207,24 @@ func (a *Admin) builderOptions(r *http.Request) map[string][]string {
 	return out
 }
 
-// builderPages lists the public paths of published entities (blocks and theme
-// parts excluded), type "page" first, capped at maxBuilderPages, for the link
-// field's datalist. Only schemas with a public URL are listed, and a page of
-// entities is resolved in one batch rather than one query per entity. Empty
-// when the entity or path services are not wired.
-func (a *Admin) builderPages(r *http.Request) []string {
-	out := []string{}
+// walkRoutable calls visit for every entity of a schema that has a public URL
+// (blocks and theme parts excluded, type "page" first) with its public path
+// ("" when unknown), until visit returns false. status filters the entities
+// (nil: any). Entities are listed one page per schema page and their paths are
+// resolved in one batch per list, never one query per entity. Nothing is
+// visited when the entity or path services are not wired.
+func (a *Admin) walkRoutable(r *http.Request, status *entity.EntityStatus, visit func(e *entity.Entity, path string) bool) {
 	c := a.deps.Content
 	if c.Entities == nil || (c.PublicPath == nil && c.PublicPaths == nil) {
-		return out
+		return
 	}
 	schemas, err := c.Entities.ListSchemas(r.Context())
 	if err != nil {
-		return out
+		return
 	}
 	slices.SortStableFunc(schemas, func(x, y *entity.EntitySchema) int {
 		return cmp.Compare(btoi(x.Slug != "page"), btoi(y.Slug != "page")) // pages first
 	})
-	pub := entity.StatusPublished
-	seen := map[string]bool{}
 	for _, sc := range schemas {
 		if entity.IsReuseSchema(sc) {
 			continue
@@ -236,11 +234,11 @@ func (a *Admin) builderPages(r *http.Request) []string {
 				continue
 			}
 		}
-		for page := 1; len(out) < maxBuilderPages; page++ {
+		for page := 1; ; page++ {
 			// the repository serves at most 100 a page (a larger limit falls back to 20)
-			res, err := c.Entities.ListEntitiesWithOffset(r.Context(), &entity.ListEntitiesFilter{SchemaID: &sc.ID, Status: &pub}, &entity.OffsetPage{Page: page, Limit: 100})
+			res, err := c.Entities.ListEntitiesWithOffset(r.Context(), &entity.ListEntitiesFilter{SchemaID: &sc.ID, Status: status}, &entity.OffsetPage{Page: page, Limit: 100})
 			if err != nil {
-				return out
+				return
 			}
 			for _, e := range res.Items {
 				e.Schema = sc
@@ -253,16 +251,70 @@ func (a *Admin) builderPages(r *http.Request) []string {
 					paths = append(paths, c.PublicPath(r.Context(), e))
 				}
 			}
-			for _, p := range paths {
-				if p != "" && !seen[p] && len(out) < maxBuilderPages {
-					seen[p] = true
-					out = append(out, p)
+			for i, e := range res.Items {
+				p := ""
+				if i < len(paths) {
+					p = paths[i]
+				}
+				if !visit(e, p) {
+					return
 				}
 			}
 			if page >= res.TotalPages {
 				break
 			}
 		}
+	}
+}
+
+// builderPages lists the public paths of published entities, type "page"
+// first, capped at maxBuilderPages, for the link field's datalist. Empty when
+// the entity or path services are not wired.
+func (a *Admin) builderPages(r *http.Request) []string {
+	out := []string{}
+	pub := entity.StatusPublished
+	seen := map[string]bool{}
+	a.walkRoutable(r, &pub, func(_ *entity.Entity, p string) bool {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+		return len(out) < maxBuilderPages
+	})
+	return out
+}
+
+// bootPage is one row of the builder's Pages tab.
+type bootPage struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Path     string `json:"path"`
+	EditHref string `json:"editHref"`
+	Status   string `json:"status"`
+	Current  bool   `json:"current,omitempty"`
+}
+
+// builderPageList lists the routable, non-archived entities (drafts included,
+// path "" for an unpublished one) for the Pages tab, capped at maxBuilderPages.
+// The page being edited is added when the walk did not reach it.
+func (a *Admin) builderPageList(r *http.Request, cur *entity.Entity) []bootPage {
+	out := []bootPage{}
+	row := func(e *entity.Entity, p string) bootPage {
+		id := e.ID.String()
+		return bootPage{ID: id, Title: e.Name, Path: p, EditHref: a.adminPath + "/entities/" + id + "/edit", Status: string(e.Status), Current: cur != nil && e.ID == cur.ID}
+	}
+	found := false
+	a.walkRoutable(r, nil, func(e *entity.Entity, p string) bool {
+		if e.Status == entity.StatusArchived {
+			return true
+		}
+		pg := row(e, p)
+		found = found || pg.Current
+		out = append(out, pg)
+		return len(out) < maxBuilderPages
+	})
+	if cur != nil && !found {
+		out = append(out, row(cur, ""))
 	}
 	return out
 }

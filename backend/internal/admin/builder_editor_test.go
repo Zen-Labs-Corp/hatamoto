@@ -448,3 +448,48 @@ func TestBuilderBootSectionsCarryFields(t *testing.T) {
 		t.Errorf("sections missing from boot: %v", want)
 	}
 }
+
+// The Pages tab lists drafts too, marks the page being edited, skips archived
+// entities and adds the current page when the walk misses it; options.pages
+// stays the published paths only.
+func TestBuilderPageList(t *testing.T) {
+	t.Parallel()
+
+	r := newEditorRig(t)
+	r.ents.addEntity(71, r.page, "Pricing", "pricing", entity.StatusPublished, `{"body":"x"}`, t0)
+	r.ents.addEntity(72, r.page, "Secret", "secret", entity.StatusDraft, `{"body":"x"}`, t0)
+	r.ents.addEntity(73, r.page, "Old", "old", entity.StatusArchived, `{"body":"x"}`, t0)
+	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string {
+		if e.Status != entity.StatusPublished {
+			return ""
+		}
+		return "/" + e.Slug
+	}
+	req := httptest.NewRequest("GET", "/", nil)
+	byTitle := map[string]bootPage{}
+	for _, p := range r.a.builderPageList(req, r.ent) {
+		byTitle[p.Title] = p
+	}
+	if _, ok := byTitle["Old"]; ok || len(byTitle) < 3 {
+		t.Fatalf("page list = %+v, want Landing, Pricing and Secret but not the archived Old", byTitle)
+	}
+	if p := byTitle["Landing"]; !p.Current || p.Status != "draft" || p.EditHref != "/admin/entities/"+r.ent.ID.String()+"/edit" {
+		t.Errorf("current page = %+v", p)
+	}
+	if p := byTitle["Secret"]; p.Current || p.Path != "" || p.Status != "draft" {
+		t.Errorf("draft page = %+v", p)
+	}
+	if p := byTitle["Pricing"]; p.Current || p.Path != "/pricing" {
+		t.Errorf("published page = %+v", p)
+	}
+	// a page the schemas do not route is still listed as the current one
+	other := &entity.Entity{ID: r.ent.ID, Name: "Elsewhere", Status: entity.StatusDraft}
+	r.a.deps.Content.PublicPath = nil
+	got := r.a.builderPageList(req, other)
+	if len(got) != 1 || !got[0].Current || got[0].Title != "Elsewhere" {
+		t.Errorf("unrouted current page = %+v", got)
+	}
+	if pubs := r.a.builderPages(req); len(pubs) != 0 {
+		t.Errorf("options.pages = %v with no path service", pubs)
+	}
+}
