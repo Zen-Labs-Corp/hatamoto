@@ -522,8 +522,8 @@ export function mountNavigator(root, { getDoc, getSelected, getSelection = () =>
   root.addEventListener("focusin", (e) => (ff = e.target.dataset?.field != null ? e.target.dataset.id : null));
   root.addEventListener("focusout", (e) => e.relatedTarget && !root.contains(e.relatedTarget) && (ff = null)); // focus left the tree
   root.addEventListener("pointerdown", () => root.setAttribute("data-pointer", ""));
+  document.addEventListener("keydown", () => root.removeAttribute("data-pointer"), true); // any key, even one outside the tree (Tab back in, Escape out of a menu): the ring shows again
   root.addEventListener("keydown", (e) => {
-    root.removeAttribute("data-pointer");
     const row = e.target.closest?.("[data-id]");
     if (row?.dataset.field != null && e.target === row) return e.key === "Enter" || e.key === " " ? (e.preventDefault(), e.stopPropagation(), onSelectField(row.dataset.comp, row.dataset.field)) : undefined;
     if (!row || e.target !== row || e.key !== "h" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;

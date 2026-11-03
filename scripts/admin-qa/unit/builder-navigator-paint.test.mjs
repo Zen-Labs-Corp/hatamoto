@@ -35,7 +35,7 @@ function el(tag) {
 const all = (e, out = []) => (out.push(e), e.kids.forEach((k) => typeof k !== "string" && all(k, out)), out);
 const withAttr = (e, a) => all(e).filter((x) => a in x.attrs);
 const withClass = (e, c) => all(e).filter((x) => (x.attrs.class ?? "").split(" ").includes(c));
-globalThis.document = { createElement: el, activeElement: null };
+globalThis.document = { createElement: el, activeElement: null, listeners: {}, addEventListener(t, f) { this.listeners[t] = f; } };
 globalThis.requestAnimationFrame = (f) => (f(), 0);
 const { mountNavigator } = await import(new URL("builder/navigator.js", root));
 
@@ -244,7 +244,15 @@ test("a pointer press hides the focus ring (data-pointer) until the next key", (
   assert.equal("data-pointer" in m.rootEl.attrs, false);
   m.rootEl.listeners.pointerdown();
   assert.equal("data-pointer" in m.rootEl.attrs, true);
-  m.rootEl.listeners.keydown({ key: "ArrowDown", target: { closest: () => null } });
+  document.listeners.keydown({ key: "ArrowDown", target: { closest: () => null } });
+  assert.equal("data-pointer" in m.rootEl.attrs, false);
+});
+
+test("a key pressed outside the tree also brings the focus ring back", () => {
+  const m = mount();
+  m.rootEl.listeners.pointerdown();
+  assert.equal("data-pointer" in m.rootEl.attrs, true);
+  document.listeners.keydown({ key: "Tab", target: {} }); // Shift+Tab from the Inspector, or Escape out of the menu
   assert.equal("data-pointer" in m.rootEl.attrs, false);
 });
 
