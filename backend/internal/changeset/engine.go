@@ -14,16 +14,11 @@ import (
 	"hatamoto.dev/core/internal/database"
 )
 
-// BlobCleaner deletes staged files (media.Service implements it).
-type BlobCleaner interface {
-	DeleteStaged(ctx context.Context, keys []string) error
-}
-
 // Engine stages, publishes, discards, reverts and expires changesets.
 type Engine struct {
 	DB      *database.DB
 	Writers map[Kind]KindWriter
-	Blobs   BlobCleaner
+	Blobs   StagedFiles
 	// Audit records an action after it committed; nil skips it.
 	Audit  func(ctx context.Context, action, target string, detail map[string]any)
 	Now    func() time.Time // clock seam; nil is time.Now

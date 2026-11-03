@@ -234,3 +234,16 @@ func (s *Service) ListStagedKeys(ctx context.Context) ([]string, error) {
 	}
 	return keys, nil
 }
+
+// StagedKeyModTime is when the staged file at key was last written, for the
+// sweeper's grace period. Only keys under the staged directory are accepted.
+func (s *Service) StagedKeyModTime(key string) (time.Time, error) {
+	if err := checkKey(key); err != nil || !isStagedKey(key) {
+		return time.Time{}, fmt.Errorf("not a staged blob key %q", key)
+	}
+	fi, err := os.Stat(s.local.localPath(key))
+	if err != nil {
+		return time.Time{}, err
+	}
+	return fi.ModTime(), nil
+}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -127,5 +128,23 @@ func TestPrepareAttachRefusesNonStagedKey(t *testing.T) {
 		if _, err := svc.prepareAttach(context.Background(), MediaOp{StagedKey: k, Filename: "x.png"}); err == nil {
 			t.Errorf("prepareAttach(%q) accepted", k)
 		}
+	}
+}
+
+func TestStagedKeyModTime(t *testing.T) {
+	svc := newTestService(t, Config{})
+	key, err := svc.StageBlob(context.Background(), uuid.New(), bytes.NewReader(pngBytes(t, 8, 8)), "pic.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mt, err := svc.StagedKeyModTime(key)
+	if err != nil || time.Since(mt) > time.Minute {
+		t.Fatalf("mod time = %v, %v", mt, err)
+	}
+	if _, err := svc.StagedKeyModTime("media/../etc/passwd"); err == nil {
+		t.Error("a key outside the staged directory was accepted")
+	}
+	if _, err := svc.StagedKeyModTime(legacyMediaTenantDir + "/live.png"); err == nil {
+		t.Error("a published file key was accepted")
 	}
 }
