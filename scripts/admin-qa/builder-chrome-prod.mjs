@@ -329,6 +329,8 @@ await check("insert a scratch section after the selection from the Insert tab, a
   head = flat([(await tops()).find((n) => n.id === sec.id)]).find((n) => n.t === "heading");
   if (!head) throw new Error("no heading inside the scratch section");
   await clickCanvas(sec.id);
+  await p.mouse.move(800, 20, { steps: 4 }); // off the canvas: the at-rest state, without the hover pills
+  await settle(300);
   await shot("chrome-section.png");
   return `section ${sec.id}, heading ${head.id}`;
 });
