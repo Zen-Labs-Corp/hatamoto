@@ -9,6 +9,36 @@ on this design).
 Breaks: the plugin contract in [`docs/PLUGIN_API.md`](../PLUGIN_API.md). This
 ships as SDK 2.0 and core 2.0.
 
+## The rules in plain words
+
+1. A plugin never changes the live site. It prepares a changeset; the owner
+   previews the site with it, then publishes or discards it. A published
+   changeset can be undone as a whole.
+2. A changeset nobody publishes or discards within 72 hours is deleted, with its
+   staged files.
+3. Risky changes (links to new sites, redirects, hidden characters, deletions,
+   slug changes) are listed one by one and approved one by one.
+4. Site-wide things (site settings, URL patterns, home page, menu locations)
+   can only be proposed. Each proposal is approved on its own, after the owner
+   signs in again.
+5. A plugin can change only what it created. A human edit to the body, slug,
+   parent, template or SEO fields makes the object the owner's.
+6. The part of a run that reaches the internet cannot see the site, and the
+   part that sees the site cannot reach the internet.
+7. There is no way to write to the live site directly: no legacy function, no
+   compatibility mode, no switch.
+8. Settings that weaken these rules exist only on the server, never in the
+   admin.
+9. Every plugin gets the same limits, first-party plugins included.
+10. Background updates either keep data in the plugin's own storage and show it
+    through template functions, or use a standing approval limited to numbers,
+    yes/no, dates and fixed choices on the plugin's own objects. Any plugin
+    update voids the approval.
+11. Tools that change the owner's own content are core features and use the
+    same preview, diff and undo.
+12. Hatamoto stays non-headless in this release; changesets, risk checks and
+    plugin output stay structured data so a content API can come later.
+
 ## Context
 
 Plugins can write to the live site today, and they can do it from anywhere: hooks
