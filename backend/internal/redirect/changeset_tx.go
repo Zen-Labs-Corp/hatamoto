@@ -25,6 +25,7 @@ const (
 	ConflictSourceTaken = "source_taken" // another redirect owns this exact source_path
 	ConflictMoved       = "moved"        // the live row changed since the base token was taken
 	ConflictGone        = "gone"         // the live row no longer exists
+	ConflictSourceLive  = "source_live"  // the source path is a live page: a redirect would shadow it
 )
 
 // RedirectOp is one create, update or delete of a redirect inside a changeset.
@@ -40,6 +41,24 @@ type RedirectOp struct {
 	Delete        bool
 	// SameHostOnly refuses an absolute target (the public demo rule).
 	SameHostOnly bool
+	// SourceLive reports whether a path is served by a live page. A source that
+	// is only allowed on a path nothing serves (every origin but the owner) is
+	// checked with it; nil skips the check.
+	SourceLive func(ctx context.Context, path string) (bool, error)
+}
+
+// ownerOrigin is the origin of the site owner's own writes.
+const ownerOrigin = "owner"
+
+func isOwner(origin string) bool { return origin == "" || origin == ownerOrigin }
+
+// sourceLive reports whether op, written by a non-owner origin, would put a
+// redirect on a live page.
+func (op RedirectOp) sourceLive(ctx context.Context, source string) (bool, error) {
+	if isOwner(op.Origin) || op.SourceLive == nil {
+		return false, nil
+	}
+	return op.SourceLive(ctx, source)
 }
 
 // Preimage is a redirect row as stored, enough to put it back.
@@ -82,14 +101,16 @@ func ApplyChangesetTx(ctx context.Context, tx pgx.Tx, op RedirectOp) (Result, er
 	return updateChangesetTx(ctx, tx, op)
 }
 
-func checkOp(source, target string, sameHostOnly bool) error {
+// checkOp validates a redirect. Only the owner may point it off-site: a
+// plugin's redirect target must be a path of this site.
+func checkOp(source, target, origin string, sameHostOnly bool) error {
 	if !strings.HasPrefix(source, "/") {
 		return ErrInvalidSourcePath
 	}
 	if err := ValidatePatternRule(source, target); err != nil {
 		return err
 	}
-	if !SafeLocation(target, !sameHostOnly) {
+	if !SafeLocation(target, !sameHostOnly && isOwner(origin)) {
 		return ErrInvalidTarget
 	}
 	return nil
@@ -100,7 +121,7 @@ func createChangesetTx(ctx context.Context, tx pgx.Tx, op RedirectOp) (Result, e
 	if status == 0 {
 		status = 301
 	}
-	if err := checkOp(op.SourcePath, op.Target, op.SameHostOnly); err != nil {
+	if err := checkOp(op.SourcePath, op.Target, op.Origin, op.SameHostOnly); err != nil {
 		return Result{}, err
 	}
 	origin := op.Origin
@@ -113,6 +134,11 @@ func createChangesetTx(ctx context.Context, tx pgx.Tx, op RedirectOp) (Result, e
 	}
 	if taken {
 		return Result{Conflict: ConflictSourceTaken}, nil
+	}
+	if live, err := op.sourceLive(ctx, op.SourcePath); err != nil {
+		return Result{}, err
+	} else if live {
+		return Result{Conflict: ConflictSourceLive}, nil
 	}
 	var res Result
 	err = inSavepoint(ctx, tx, func(sp pgx.Tx) error {
@@ -145,7 +171,7 @@ func updateChangesetTx(ctx context.Context, tx pgx.Tx, op RedirectOp) (Result, e
 	if op.Status != 0 {
 		status = op.Status
 	}
-	if err := checkOp(source, target, op.SameHostOnly); err != nil {
+	if err := checkOp(source, target, op.Origin, op.SameHostOnly); err != nil {
 		return Result{}, err
 	}
 	if source != before.SourcePath {
@@ -155,6 +181,11 @@ func updateChangesetTx(ctx context.Context, tx pgx.Tx, op RedirectOp) (Result, e
 		}
 		if taken {
 			return Result{Conflict: ConflictSourceTaken}, nil
+		}
+		if live, err := op.sourceLive(ctx, source); err != nil {
+			return Result{}, err
+		} else if live {
+			return Result{Conflict: ConflictSourceLive}, nil
 		}
 	}
 	res := Result{ID: before.ID, Before: before}

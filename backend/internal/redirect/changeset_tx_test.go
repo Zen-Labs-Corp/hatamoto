@@ -181,3 +181,41 @@ func TestChangesetTxRefusesInvalid_Integration(t *testing.T) {
 		t.Errorf("refused ops wrote %d rows, %v", n, err)
 	}
 }
+
+func TestChangesetTxPluginRedirectStaysOnSite_Integration(t *testing.T) {
+	ctx, tx := rollbackTx(t)
+	ext := "https://example.com/x"
+	if _, err := ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-ext", Target: ext, Origin: "plugin:acme"}); !errors.Is(err, ErrInvalidTarget) {
+		t.Errorf("plugin create with external target = %v, want ErrInvalidTarget", err)
+	}
+	own, err := ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-own", Target: "/ok", Origin: "plugin:acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyChangesetTx(ctx, tx, RedirectOp{ID: &own.ID, Target: ext, Origin: "plugin:acme"}); !errors.Is(err, ErrInvalidTarget) {
+		t.Errorf("plugin update to an external target = %v, want ErrInvalidTarget", err)
+	}
+	if _, err := ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-owner-ext", Target: ext, Origin: "owner"}); err != nil {
+		t.Errorf("owner external target: %v", err)
+	}
+}
+
+func TestChangesetTxPluginSourceOnLivePage_Integration(t *testing.T) {
+	ctx, tx := rollbackTx(t)
+	live := func(_ context.Context, p string) (bool, error) { return p == "/cs-page", nil }
+	res, err := ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-page", Target: "/x", Origin: "plugin:acme", SourceLive: live})
+	if err != nil || res.Conflict != ConflictSourceLive {
+		t.Fatalf("plugin create over a live page = %+v, %v", res, err)
+	}
+	ok, err := ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-free", Target: "/x", Origin: "plugin:acme", SourceLive: live})
+	if err != nil || ok.Conflict != "" {
+		t.Fatalf("plugin create on a free path = %+v, %v", ok, err)
+	}
+	res, err = ApplyChangesetTx(ctx, tx, RedirectOp{ID: &ok.ID, SourcePath: "/cs-page", Origin: "plugin:acme", SourceLive: live})
+	if err != nil || res.Conflict != ConflictSourceLive {
+		t.Fatalf("plugin move onto a live page = %+v, %v", res, err)
+	}
+	if res, err = ApplyChangesetTx(ctx, tx, RedirectOp{SourcePath: "/cs-page", Target: "/x", Origin: "owner", SourceLive: live}); err != nil || res.Conflict != "" {
+		t.Errorf("owner redirect over a page = %+v, %v", res, err)
+	}
+}

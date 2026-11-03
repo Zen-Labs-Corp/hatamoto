@@ -7,6 +7,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 )
 
 // changesetSweepJob is the WORKER_DISABLE_JOBS name of the hourly changeset
@@ -26,7 +27,7 @@ func (s *Server) setupChangesets() {
 			changeset.KindEntity:   changeset.EntityWriter{Svc: s.entityService},
 			changeset.KindTerm:     changeset.TermWriter{Svc: s.taxonomyService},
 			changeset.KindMenu:     changeset.MenuWriter{Svc: s.menuService},
-			changeset.KindRedirect: changeset.RedirectWriter{Svc: s.redirectService, SameHostOnly: s.demoOn()},
+			changeset.KindRedirect: changeset.RedirectWriter{Svc: s.redirectService, SameHostOnly: s.demoOn(), SourceLive: s.pathIsLivePage},
 			changeset.KindMedia:    changeset.MediaWriter{Svc: s.mediaService},
 		},
 	}
@@ -56,4 +57,12 @@ func (s *Server) changesetAudit(ctx context.Context, action, target string, deta
 		e.ActorID, e.Actor = id.String(), id.String()
 	}
 	s.adminAudit(ctx, e)
+}
+
+// pathIsLivePage reports whether a published entity is served at path. The
+// changeset redirect writer refuses a plugin redirect there: redirects are
+// matched before pages, so it would shadow the owner's page.
+func (s *Server) pathIsLivePage(ctx context.Context, path string) (bool, error) {
+	page, err := resolveEntity(ctx, entity.NewPostgresPublicRepository(s.db), s.urlSnapshot(ctx), path)
+	return page != nil && page.Entity != nil, err
 }

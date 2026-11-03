@@ -224,6 +224,9 @@ func (w TermWriter) After(ctx context.Context, _ []AppliedItem) { w.Svc.NotifyCh
 type RedirectWriter struct {
 	Svc          *redirect.Service
 	SameHostOnly bool
+	// SourceLive reports whether a path is served by a live page (see
+	// redirect.RedirectOp); nil skips the check.
+	SourceLive func(ctx context.Context, path string) (bool, error)
 }
 
 type redirectPayload struct {
@@ -246,7 +249,7 @@ func (w RedirectWriter) Apply(ctx context.Context, tx Tx, origin string, it Item
 		return Outcome{}, err
 	}
 	res, err := redirect.ApplyChangesetTx(ctx, tx, redirect.RedirectOp{ID: id, SourcePath: p.SourcePath, Target: p.Target,
-		Status: p.Status, BaseUpdatedAt: at, Origin: origin, Delete: it.Op == OpDelete, SameHostOnly: w.SameHostOnly})
+		Status: p.Status, BaseUpdatedAt: at, Origin: origin, Delete: it.Op == OpDelete, SameHostOnly: w.SameHostOnly, SourceLive: w.SourceLive})
 	if err != nil {
 		return Outcome{}, err
 	}
