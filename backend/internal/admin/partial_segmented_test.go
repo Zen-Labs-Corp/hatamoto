@@ -75,3 +75,19 @@ func renderSeg(t *testing.T, a *Admin, v ui.Segmented) string {
 	}
 	return string(s)
 }
+
+func TestPartialSegmentedIcon(t *testing.T) {
+	t.Parallel()
+
+	a := newPartialAdmin(t)
+	b := renderSeg(t, a, ui.Segmented{Mode: "buttons", Label: "Preview width", Items: []ui.SegmentedItem{
+		{Label: "Tablet", Icon: "tablet", Attrs: map[string]string{"data-hm-bs-device": "md"}}, {Label: "Phone"},
+	}})
+	if !strings.Contains(b, `data-hm-bs-device="md"><svg`) || !strings.Contains(b, `</svg>Tablet</button>`) || !strings.Contains(b, `aria-pressed="false">Phone</button>`) {
+		t.Errorf("buttons mode icon: %s", b)
+	}
+	r := renderSeg(t, a, ui.Segmented{Mode: "radio", Label: "Access", Name: "n", Items: []ui.SegmentedItem{{Label: "Allow", Value: "a", Icon: "tablet"}}})
+	if !strings.Contains(r, `<span class="hm-segmented__btn"><svg`) {
+		t.Errorf("radio mode icon: %s", r)
+	}
+}
