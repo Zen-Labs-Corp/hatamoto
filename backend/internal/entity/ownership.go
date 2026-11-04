@@ -22,6 +22,12 @@ func isStructuralKey(k string) bool {
 	return strings.HasPrefix(k, "og_") || containsString(structuralKeys, k)
 }
 
+// IsSEOAttr reports whether k is one of the SEO attributes: the structural
+// keys other than the body text and the page doc.
+func IsSEOAttr(k string) bool {
+	return isStructuralKey(k) && k != "content" && k != "body" && k != keyDoc && k != keySections
+}
+
 func containsString(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {

@@ -59,3 +59,14 @@ func TestStructuralChangeCarriesStoredDoc(t *testing.T) {
 		}
 	}
 }
+
+func TestIsSEOAttr(t *testing.T) {
+	for k, want := range map[string]bool{
+		"meta_title": true, "og_image": true, "seo": true, "custom_jsonld": true,
+		"content": false, "body": false, "page_doc": false, "page_sections": false, "title": false,
+	} {
+		if got := IsSEOAttr(k); got != want {
+			t.Errorf("IsSEOAttr(%q) = %v, want %v", k, got, want)
+		}
+	}
+}
