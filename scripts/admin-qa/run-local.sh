@@ -84,7 +84,7 @@ export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
 # The dev override loads this fixture (a plugin with an admin page and runs; its wasm is built below). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*)
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*|*" ownership-ui.mjs "*)
   if [ -z "$PLUGIN_DIR" ]; then
     # The fixture declares runs, so core wants its wasm to export on_run_step: build the
     # run driver's test plugin (backend/internal/pluginhost/testdata/runner) as the module.

@@ -179,7 +179,9 @@ export const screens = [
 //  - the plugin Runs tab, the run progress page and the changeset pages
 //    (/admin/plugins/{name}/runs, .../runs/{id}, .../changesets/{id} and its /preview) need a plugin
 //    with runs and a staged changeset. runs-screens.mjs and review-flow.mjs seed them on the
-//    frameplug fixture and click through; their markup is pinned by Go goldens.
+//    frameplug fixture and click through; their markup is pinned by Go goldens;
+//  - the ownership card of the entity editors ("Imported, tracked by" / "Yours") needs a page a
+//    plugin imported; ownership-ui.mjs seeds one on the frameplug fixture and clicks the hand-back.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.
