@@ -496,6 +496,14 @@ func (r *changesetReviewer) History(ctx context.Context, limit, offset int) ([]a
 	if err != nil {
 		return nil, err
 	}
+	ids := make([]int64, len(rows))
+	for i, h := range rows {
+		ids[i] = h.ID
+	}
+	by, err := r.publishers(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]admin.HistoryRow, 0, len(rows))
 	for _, h := range rows {
 		when := h.ExpiresAt.Add(-changeset.TTL) // created
@@ -505,11 +513,40 @@ func (r *changesetReviewer) History(ctx context.Context, limit, offset int) ([]a
 		case h.PublishedAt != nil:
 			when = *h.PublishedAt
 		}
-		out = append(out, admin.HistoryRow{ID: h.ID, Plugin: h.Plugin, RunName: h.RunName, State: h.State,
+		out = append(out, admin.HistoryRow{ID: h.ID, Plugin: h.Plugin, RunName: h.RunName, State: h.State, By: by[h.ID],
 			Building: h.State == changeset.StateStaged && h.RunState != plugrun.StateFinished,
 			When:     when, Applied: h.Applied, Skipped: h.Skipped, Dropped: h.Dropped})
 	}
 	return out, nil
+}
+
+// publishers names who published each of the changesets: the signed-in user
+// of the newest publish in the audit log, by name or else by email. A
+// changeset that was never published, or whose publisher is gone, is absent.
+func (r *changesetReviewer) publishers(ctx context.Context, ids []int64) (map[int64]string, error) {
+	out := map[int64]string{}
+	if len(ids) == 0 || r.runs == nil || r.runs.DB == nil {
+		return out, nil
+	}
+	rows, err := r.runs.DB.Pool().Query(ctx, `
+		SELECT DISTINCT ON (t.id) t.id, coalesce(nullif(u.name, ''), u.email)
+		FROM unnest($1::bigint[]) AS t(id)
+		JOIN hatamoto_admin_audit a ON a.action = 'changeset.publish' AND a.target IN (t.id::text, 'changeset:' || t.id)
+		JOIN hatamoto_users u ON u.id = a.actor_id
+		ORDER BY t.id, a.at DESC, a.id DESC`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read who published the changesets: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var who string
+		if err := rows.Scan(&id, &who); err != nil {
+			return nil, fmt.Errorf("failed to read who published a changeset: %w", err)
+		}
+		out[id] = who
+	}
+	return out, rows.Err()
 }
 
 // appliedSuggestions are the approved suggestions of a changeset's run that

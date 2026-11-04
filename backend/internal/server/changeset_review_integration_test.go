@@ -172,6 +172,22 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatalf("tagline = %q after publish, want the approved one", cfg.Tagline)
 	}
 
+	// The history names who published it: the signed-in user of the audit row.
+	uid := uuid.New()
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_users (id, email, name) VALUES ($1, $2, 'Pat Publisher')`, uid, "pub-"+tag+"@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_admin_audit WHERE actor_id = $1`, uid)
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_users WHERE id = $1`, uid)
+	})
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target) VALUES ($1, 'x', 'changeset.publish', $2)`, uid, changesetTarget(cs)); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || h[0].By != "Pat Publisher" {
+		t.Fatalf("history by = %+v, %v", h, err)
+	}
+
 	// The owner edits one page, then undoes the changeset.
 	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET name = 'Owner edit' WHERE schema_id = $1 AND slug = $2`, sc.ID, "rv-b-"+tag); err != nil {
 		t.Fatal(err)
