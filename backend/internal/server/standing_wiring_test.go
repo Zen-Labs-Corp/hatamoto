@@ -19,6 +19,7 @@ type fakeStandingStore struct {
 	active   *standing.Approval
 	voided   *standing.Voided
 	approved []standing.Approval
+	waiting  []standing.WaitingRun
 }
 
 func (f *fakeStandingStore) Active(context.Context, string, string) (*standing.Approval, error) {
@@ -36,7 +37,12 @@ func (f *fakeStandingStore) Approve(_ context.Context, plugin, run string, p sta
 }
 
 func (f *fakeStandingStore) Waiting(context.Context, string) ([]standing.WaitingRun, error) {
-	return nil, nil
+	return f.waiting, nil
+}
+
+func (f *fakeStandingStore) Void(_ context.Context, _, reason string) error {
+	f.active, f.voided = nil, &standing.Voided{Reason: reason}
+	return nil
 }
 
 func (f *fakeStandingStore) LastVoided(context.Context, string, string) (*standing.Voided, error) {
@@ -240,5 +246,57 @@ func TestApproveRefusesAReleaseTheOwnerDidNotRead(t *testing.T) {
 	}
 	if len(r.store.approved) != 0 {
 		t.Fatalf("%d approvals recorded", len(r.store.approved))
+	}
+}
+
+// The tick starts nothing while a run of the plugin is still waiting for
+// review, so a run that keeps being refused never piles up changesets.
+func TestCronTickWaitsWhileARunIsWaiting(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	gate := standingGate{r.svc}
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	if on, err := gate.Active(ctx, "pricer", "prices"); err != nil || !on {
+		t.Fatalf("nothing waiting: %v %v", on, err)
+	}
+	r.store.waiting = []standing.WaitingRun{{Run: "prices", ChangesetID: 3, Items: 1}}
+	if on, err := gate.Active(ctx, "pricer", "prices"); err != nil || on {
+		t.Fatalf("a run is waiting: %v %v", on, err)
+	}
+	if r.store.active == nil {
+		t.Fatal("waiting must not end the approval")
+	}
+}
+
+// An approval that no longer matches ends with a reason, so the tab shows the
+// paused state and the tick stops asking.
+func TestCronTickVoidsAnApprovalThatNoLongerMatches(t *testing.T) {
+	for name, tc := range map[string]struct {
+		mutate func(r standingRig)
+		reason string
+	}{
+		"plugin updated": {func(r standingRig) { *r.version = "1.1.0" }, "plugin updated"},
+		"schema changed": {func(r standingRig) { *r.schema = `{"type":"object","properties":{"x":{}}}` }, "schema changed"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newStandingRig()
+			ctx := context.Background()
+			gate := standingGate{r.svc}
+			if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+				t.Fatal(err)
+			}
+			tc.mutate(r)
+			if on, err := gate.Active(ctx, "pricer", "prices"); err != nil || on {
+				t.Fatalf("Active = %v, %v", on, err)
+			}
+			if r.store.voided == nil || r.store.voided.Reason != tc.reason || r.store.active != nil {
+				t.Fatalf("voided = %+v, active = %v", r.store.voided, r.store.active)
+			}
+			if last := (*r.audits)[len(*r.audits)-1]; last != "standing.void" {
+				t.Fatalf("last audit = %s", last)
+			}
+		})
 	}
 }

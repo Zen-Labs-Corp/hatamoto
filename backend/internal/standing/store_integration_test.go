@@ -196,3 +196,20 @@ func TestLastVoided(t *testing.T) {
 		t.Fatalf("after approving again = %+v, %v", v, err)
 	}
 }
+
+func TestVoidEndsTheActiveApproval(t *testing.T) {
+	s, ctx := newStore(t)
+	p := testPlugin(t, s, ctx)
+	if _, err := s.Approve(ctx, p, "sync", samplePolicy(), sampleFP("1.0.0"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Void(ctx, p, "schema changed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Active(ctx, p, "sync"); !errors.Is(err, ErrNoApproval) {
+		t.Fatalf("active after a void: %v", err)
+	}
+	if v, err := s.LastVoided(ctx, p, "sync"); err != nil || v == nil || v.Reason != "schema changed" {
+		t.Fatalf("last void = %+v, %v", v, err)
+	}
+}

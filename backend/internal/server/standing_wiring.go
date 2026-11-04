@@ -29,6 +29,7 @@ type standingStore interface {
 	Approve(ctx context.Context, plugin, run string, p standing.Policy, fp standing.Fingerprint, by string) (standing.Approval, error)
 	Waiting(ctx context.Context, plugin string) ([]standing.WaitingRun, error)
 	LastVoided(ctx context.Context, plugin, run string) (*standing.Voided, error)
+	Void(ctx context.Context, plugin, reason string) error
 }
 
 // installedPlugin is the plugin as installed right now: its version and the
@@ -202,8 +203,45 @@ func (g *standingService) activeForCron(ctx context.Context, plugin, run string)
 // returns the approval for the admin, the gate's only a yes or no).
 type standingGate struct{ *standingService }
 
+// Active is whether the tick may start the run: an approval is in force, it
+// still matches the plugin and schemas, and no earlier run of it is waiting
+// for review (back pressure: a refused run is never followed by more). An
+// approval that no longer matches is voided with a reason, so the tab shows
+// the paused state instead of "on" while every run is refused.
 func (g standingGate) Active(ctx context.Context, plugin, run string) (bool, error) {
-	return g.activeForCron(ctx, plugin, run)
+	ok, err := g.activeForCron(ctx, plugin, run)
+	if err != nil || !ok {
+		return false, err
+	}
+	a, err := g.standingService.Active(ctx, plugin, run)
+	if err != nil || a == nil {
+		return false, err
+	}
+	cur, err := g.currentFingerprint(ctx, plugin, a.Policy.Schemas)
+	if err != nil {
+		return false, err
+	}
+	if !a.Matches(cur) {
+		reason := "schema changed"
+		if a.FP.Version != cur.Version || a.FP.ManifestHash != cur.ManifestHash {
+			reason = "plugin updated"
+		}
+		if err := g.store.Void(ctx, plugin, reason); err != nil {
+			return false, err
+		}
+		g.audit(ctx, "standing.void", "plugin:"+plugin, map[string]any{"run": run, "approval_id": a.ID, "reason": reason})
+		return false, nil
+	}
+	waiting, err := g.store.Waiting(ctx, plugin)
+	if err != nil {
+		return false, err
+	}
+	for _, w := range waiting {
+		if w.Run == run {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (g standingGate) AutoPublish(ctx context.Context, plugin, run string, csID int64) error {
