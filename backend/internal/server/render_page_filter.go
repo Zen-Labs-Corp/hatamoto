@@ -50,20 +50,3 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 	v.Sections = sections
 	return out.SetCookies
 }
-
-// setPluginCookies writes the cookies a render.page plugin set. The names were
-// checked against the manifest and namespaced (pluginhost.PluginCookieName); the
-// attributes are fixed here.
-func setPluginCookies(w http.ResponseWriter, r *http.Request, cookies []sdk.SetCookie) {
-	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-	for _, c := range cookies {
-		path := c.Path
-		if path == "" {
-			path = "/"
-		}
-		http.SetCookie(w, &http.Cookie{
-			Name: c.Name, Value: c.Value, Path: path, MaxAge: c.MaxAge,
-			HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
-		})
-	}
-}

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -396,6 +397,39 @@ func (a *Admin) handlePluginEnable(w http.ResponseWriter, r *http.Request) {
 type uninstallData struct {
 	Name        string
 	DataOptions []ui.Option
+	// Types are the content types the plugin installed; the switch to remove
+	// them shows only when there are some.
+	Types []ContentTypeUse
+	// Danger is the typed confirmation shown before content types are removed.
+	Danger *ui.DangerConfirm
+}
+
+// uninstallDanger is the typed confirmation for removing a plugin's content
+// types and their entries: the plugin name, repeated back by the owner.
+func (a *Admin) uninstallDanger(r *http.Request, name string, drop bool, types []ContentTypeUse) ui.DangerConfirm {
+	entries := 0
+	for _, t := range types {
+		entries += t.Entries
+	}
+	dataVal := "0"
+	if drop {
+		dataVal = "1"
+	}
+	return ui.DangerConfirm{
+		ID:     "dc-plugin-uninstall",
+		Title:  "Delete content types and their content?",
+		Phrase: name,
+		Prompt: "To remove them, type " + name + " below.",
+		Action: a.adminPath + "/plugins/" + name + "/uninstall",
+		Back:   a.adminPath + "/plugins/" + name + "/uninstall",
+		Label:  "Uninstall and delete content",
+		CSRF:   csrfToken(r.Context()),
+		Body: []ui.DangerText{
+			{Parts: []ui.DangerPart{{Text: fmt.Sprintf("%d entries of %d content types are deleted for good, including entries you wrote yourself. Webhooks and other subscribers are told about each deletion.", entries, len(types))}}},
+			{Parts: []ui.DangerPart{{Text: "This cannot be undone."}}},
+		},
+		Hidden: []ui.ConfirmHidden{{Name: "drop_data", Value: dataVal}, {Name: "drop_content_types", Value: "1"}},
+	}
 }
 
 // uninstallDataOptions are the two answers to what happens to the plugin's
@@ -413,7 +447,8 @@ func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request
 	}
 	v := a.NewView(w, r, "Uninstall "+r.PathValue("name"))
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: r.PathValue("name")}}
-	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions()}
+	pk, _ := a.packageAdmin(w, r)
+	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
 	a.Render(w, r, http.StatusOK, "settings/pluginuninstall", v)
 }
 
@@ -424,7 +459,31 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	drop := r.PostFormValue("drop_data") == "1"
-	if err := pk.Uninstall(r.Context(), "plugin", name, drop); err != nil {
+	dropTypes := r.PostFormValue("drop_content_types") == "1"
+	if dropTypes {
+		// Deleting content is irreversible: step-up auth, then the typed name.
+		if sess := sessionFrom(r.Context()); sess == nil || !a.sudo.store.Active(sess.ID) {
+			a.toSudo(w, r)
+			return
+		}
+		types := pk.ContentTypes(r.Context(), name)
+		if len(types) > 0 {
+			dc := a.uninstallDanger(r, name, drop, types)
+			if checked, ok := CheckDangerPhrase(r, dc); !ok {
+				// The first visit (no phrase typed yet) is not an error.
+				status := http.StatusUnprocessableEntity
+				if r.PostFormValue("confirm_phrase") == "" {
+					status, checked.Error = http.StatusOK, ""
+				}
+				v := a.NewView(w, r, "Uninstall "+name)
+				v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: name}}
+				v.Data = uninstallData{Name: name, Danger: &checked}
+				a.Render(w, r, status, "settings/pluginuninstall", v)
+				return
+			}
+		}
+	}
+	if err := pk.Uninstall(r.Context(), "plugin", name, drop, dropTypes); err != nil {
 		a.logger().Error("uninstall plugin failed", "plugin", name, "err", err)
 		a.ErrorBack(w, r, http.StatusInternalServerError, "Not uninstalled", "The plugin could not be removed. It may not be installed from a package.", a.adminPath+"/plugins", "Back to plugins")
 		return
@@ -433,6 +492,9 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	msg := name + " was uninstalled. Its data was kept; installing it again brings it back."
 	if drop {
 		msg = name + " was uninstalled and its data was deleted. Your pages and content were not touched."
+	}
+	if dropTypes {
+		msg += " The content types it installed and their content were removed."
 	}
 	a.SetFlash(w, r, "success", msg)
 	http.Redirect(w, r, a.adminPath+"/plugins", http.StatusSeeOther)

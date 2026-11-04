@@ -173,6 +173,11 @@ func MediaAttach(call Caller, in sdk.MediaAttach) (sdk.UpsertResult, error) {
 	return stage(call, sdk.FnChangesetMediaAttach, in)
 }
 
+// MediaAlt stages an alt text change for an owner media item (the run declares "media_alt").
+func MediaAlt(call Caller, in sdk.MediaAlt) (sdk.UpsertResult, error) {
+	return stage(call, sdk.FnChangesetMediaAlt, in)
+}
+
 // MenuUpsert stages a menu.
 func MenuUpsert(call Caller, in sdk.MenuUpsert) (sdk.UpsertResult, error) {
 	return stage(call, sdk.FnChangesetMenuUpsert, in)

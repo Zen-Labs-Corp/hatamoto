@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -129,7 +130,7 @@ func TestRunPhaseIsolation(t *testing.T) {
 	// with a later change is not registered yet and is skipped; the loop above
 	// covers it from the day it is.
 	for phase, fns := range map[string][]string{
-		sdk.RunPhaseFetch:     {sdk.FnBufferGet, sdk.FnBufferList, sdk.FnSiteInfo, sdk.FnEntitiesSlugTaken, sdk.FnEntitiesGet, sdk.FnTermsList, sdk.FnMenusList, sdk.FnMediaList, sdk.FnRedirectsList, sdk.FnKVGet, sdk.FnDBQuery},
+		sdk.RunPhaseFetch:     {sdk.FnBufferGet, sdk.FnBufferList, sdk.FnSiteInfo, sdk.FnEntitiesSlugTaken, sdk.FnTermsList, sdk.FnMenusList, sdk.FnRedirectsList, sdk.FnKVGet, sdk.FnDBQuery},
 		sdk.RunPhaseTransform: {sdk.FnHTTPFetch, sdk.FnUploadRead, sdk.FnBufferPut, sdk.FnMediaImportURL, sdk.FnKVSet, sdk.FnDBExec},
 	} {
 		rc := run
@@ -223,5 +224,33 @@ func TestChangesetArgsUnknownField(t *testing.T) {
 	resp := callLog(t, a, `{"level":"info","message":"x","bogus":1}`)
 	if resp.OK || resp.Error.Code != sdk.ErrInvalidArgument {
 		t.Fatalf("unknown field: %+v", resp)
+	}
+}
+
+// Content reads are open in fetch, terms and the rest stay closed, and a fetch
+// step is limited to MaxFetchReads reads.
+func TestFetchPhaseContentReads(t *testing.T) {
+	for _, fn := range []string{sdk.FnEntitiesGet, sdk.FnEntitiesList, sdk.FnEntitiesTranslations, sdk.FnMediaGet, sdk.FnMediaList} {
+		if !fnPhases[fn].allows(sdk.RunPhaseFetch) || !fnPhases[fn].allows(sdk.RunPhaseTransform) {
+			t.Errorf("%s must be open in both phases", fn)
+		}
+	}
+	for _, fn := range []string{sdk.FnTermsList, sdk.FnTermsGet, sdk.FnMenusGet, sdk.FnMenusList, sdk.FnRedirectsList, sdk.FnFormsList} {
+		if fnPhases[fn].allows(sdk.RunPhaseFetch) {
+			t.Errorf("%s must stay closed in fetch", fn)
+		}
+	}
+	rc := RunCtx{Phase: sdk.RunPhaseFetch, Reads: new(atomic.Int32)}
+	ctx := WithRun(context.Background(), rc)
+	for i := 0; i < MaxFetchReads; i++ {
+		if err := phaseGate(ctx, sdk.FnEntitiesGet); err != nil {
+			t.Fatalf("read %d: %v", i, err)
+		}
+	}
+	if err := phaseGate(ctx, sdk.FnMediaList); err == nil {
+		t.Error("read over the limit allowed")
+	}
+	if err := phaseGate(ctx, sdk.FnHTTPFetch); err != nil {
+		t.Errorf("http.fetch: %v", err)
 	}
 }

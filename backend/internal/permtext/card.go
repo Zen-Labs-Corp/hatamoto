@@ -3,6 +3,8 @@ package permtext
 import (
 	"slices"
 	"strings"
+
+	"hatamoto.dev/sdk"
 )
 
 // Line is one permission of a directory card in plain English. Field names,
@@ -35,4 +37,49 @@ func ForCard(perms []string) Card {
 	}
 	c.Count = len(perms)
 	return c
+}
+
+// CSPLine is one directive of a plugin's csp block in plain English.
+type CSPLine struct {
+	// Name is the label ("Scripts", "Frames", "Connections", "Images").
+	Name  string
+	Hosts []string
+}
+
+// CSPPrompt is the sentence a permission prompt puts before the CSPLines.
+const CSPPrompt = "Add these sites to your public pages' security policy"
+
+// CSPLines lists the non-empty lists of c, in a fixed order.
+func CSPLines(c *sdk.CSP) []CSPLine {
+	if c == nil {
+		return nil
+	}
+	var out []CSPLine
+	for _, l := range []CSPLine{
+		{"Scripts", c.ScriptSrc}, {"Frames", c.FrameSrc}, {"Connections", c.ConnectSrc}, {"Images", c.ImgSrc},
+	} {
+		if len(l.Hosts) > 0 {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// ContentTypesLine is the prompt sentence for the entity types a plugin
+// installs, "Create the content types Product and Order".
+func ContentTypesLine(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	label := "type"
+	if len(names) > 1 {
+		label = "types"
+	}
+	switch len(names) {
+	case 1:
+		return "Create the content " + label + " " + names[0]
+	case 2:
+		return "Create the content " + label + " " + names[0] + " and " + names[1]
+	}
+	return "Create the content " + label + " " + strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }

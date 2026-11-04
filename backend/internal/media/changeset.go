@@ -49,6 +49,7 @@ type MediaOp struct {
 	Origin  string
 	AltText *string
 	Caption *string
+	Credit  *string
 	// Folder defaults to "/".
 	Folder     string
 	UploadedBy *uuid.UUID
@@ -157,6 +158,7 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 		PublicURL:        &publicURL,
 		AltText:          op.AltText,
 		Caption:          op.Caption,
+		Credit:           op.Credit,
 		Folder:           folder,
 		UploadedBy:       op.UploadedBy,
 		CreatedAt:        now,

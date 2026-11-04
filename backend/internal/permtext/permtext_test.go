@@ -79,3 +79,29 @@ func TestForCard(t *testing.T) {
 		t.Errorf("unknown text = %q", l.Text)
 	}
 }
+
+func TestCSPLines(t *testing.T) {
+	if got := CSPLines(nil); got != nil {
+		t.Fatalf("nil csp: %v", got)
+	}
+	got := CSPLines(&sdk.CSP{ImgSrc: []string{"https://*.example.com"}, ScriptSrc: []string{"https://js.example.com"}})
+	if len(got) != 2 || got[0].Name != "Scripts" || got[1].Name != "Images" || got[1].Hosts[0] != "https://*.example.com" {
+		t.Fatalf("lines = %+v", got)
+	}
+}
+
+func TestContentTypesLine(t *testing.T) {
+	for _, c := range []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"Product"}, "Create the content type Product"},
+		{[]string{"Product", "Order"}, "Create the content types Product and Order"},
+		{[]string{"A", "B", "C"}, "Create the content types A, B and C"},
+	} {
+		if got := ContentTypesLine(c.in); got != c.want {
+			t.Errorf("ContentTypesLine(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

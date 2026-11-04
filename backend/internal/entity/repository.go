@@ -80,8 +80,8 @@ func (r *PostgresSchemaRepository) Create(ctx context.Context, input *CreateSche
 
 	query := `
 		INSERT INTO hatamoto_entity_schemas (
-			id, name, slug, description, schema, is_builtin, created_at, updated_at, settings
-		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)
+			id, name, slug, description, schema, is_builtin, created_at, updated_at, settings, origin_plugin
+		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8, NULLIF($9, ''))
 		RETURNING id, name, slug, description, schema, is_builtin, created_at, updated_at, settings
 	`
 
@@ -92,7 +92,7 @@ func (r *PostgresSchemaRepository) Create(ctx context.Context, input *CreateSche
 
 	var s EntitySchema
 	err = conn.QueryRow(ctx, query,
-		id, input.Name, input.Slug, input.Description, input.Schema, now, now, settings,
+		id, input.Name, input.Slug, input.Description, input.Schema, now, now, settings, input.OriginPlugin,
 	).Scan(&s.ID, &s.Name, &s.Slug, &s.Description, &s.Schema, &s.IsBuiltin, &s.CreatedAt, &s.UpdatedAt, &s.Settings)
 
 	if err != nil {

@@ -77,7 +77,8 @@ network, its own database role). This ADR does the same for plugin *effects*.
    approved in core's own UI.
 2. **Network and state separation.** Code that can reach the network cannot read
    site state, and code that can read site state cannot reach the network,
-   within one run.
+   within one run. The one carve-out (SDK 0.18): the fetch phase may read what
+   an anonymous visitor can already read (section 2).
 3. **Questions owners can answer.** Replace "grant `entities.write`?" with
    "does this preview of your site look right?".
 4. **Deterministic sandboxing.** Every run step has a time limit, a memory
@@ -116,7 +117,12 @@ Hooks, routes and cron cannot write content. They keep the plugin's own data
 | Network | `http.fetch` to the run's hosts only (the source origin and the media hosts the owner confirmed on the scan report; this replaces the manifest's `allowed_hosts` for the run) | none |
 | Reads | `upload.read` (the file the owner uploaded through core's UI), `run.info` | `buffer.get`, `buffer.list`, `site.info`, published entity reads, `entities.slug_taken` |
 | Writes | `buffer.put` (write-only staging buffer, quota per run), `media.import_url` (staged media) | `changeset.*` |
+
 | Plugin `kv`/`db` | not available | not available |
+
+SDK 0.18 lets the fetch phase read what an anonymous visitor can read, and nothing more: entities and translations that pass the public visibility rule (published, not a variant, in a locale the site serves, not a hidden person or a layout block) and the media files a public page uses, at most 200 reads per step. Drafts, scheduled content, terms, menus, redirects, forms and unused library files stay closed to it. Data an anonymous visitor can already fetch is not a secret a fetch-phase `http.fetch` can leak.
+
+SDK 0.18 adds `changeset.media.alt` to the transform writes: a run that declares `proposes: ["media_alt"]` stages an alt text change on media the owner uploaded. It is an ordinary reviewed item, not a singleton proposal, and it changes no other field. Every alt text change is high risk: the review lists each one as old text and new text and the owner decides on it. Publish applies it and revert restores the old text.
 
 The phases share nothing but the run's buffer, which flows one way: fetch writes
 it, transform reads it. The plugin's own `kv` and `db` are unavailable in both
@@ -219,9 +225,15 @@ These are binding; tests pin each one.
    anything a crash left behind.
 4. **Phase isolation.** No host function is available in both phases if it reads
    site state in one and reaches the network in the other; no plugin `kv`/`db` in
-   either phase.
+   either phase. The exception is the public content reads (`entities.get`,
+   `entities.list`, `entities.translations`, `media.get`, `media.list`): in the
+   fetch phase the host narrows them to what an anonymous visitor sees, using
+   the same predicates as public rendering.
 5. **Ownership.** A changeset never updates or deletes an object of another
-   origin, and never assigns a singleton.
+   origin, and never assigns a singleton. The two exceptions are an alt text change on
+   media the owner uploaded, and `translation_of`, which records the translation
+   group on the source entity (a one-member group counts as no group, and revert
+   restores only the staged entity).
 6. **Operator-only switches.** Settings that weaken these rules (trusted signing
    keys, raised limits) exist only in the server's environment or config, never
    in the web admin. Core refuses them when the config file is writable by the
@@ -276,6 +288,8 @@ and `http.fetch` against the manifest's `allowed_hosts` outside runs.
 | `upload.read {upload_id, offset, len}` | fetch | chunked read of an owner upload |
 | `buffer.put {key, data}` | fetch | write-only, quota per run |
 | `media.import_url {url}` | fetch | the host downloads into staged media; returns a handle |
+| `entities.get`, `entities.list`, `entities.translations` | both | in fetch only what an anonymous visitor sees; at most 200 content reads per step |
+| `media.get`, `media.list` | both | in fetch only files a public page uses |
 | `buffer.get`, `buffer.list` | transform | read-only |
 | `site.info` | transform | locales, URL patterns, title, time zone; read-only, no secrets |
 | `entities.slug_taken {schema, slug, locale}` | transform | published, public entities only |
@@ -339,6 +353,11 @@ and reach the network in the same task. That combination is the exfiltration
 path section 2 closes. Allowing it needs its own consent model (which objects,
 sent to which host, for one run), and that is left to a later ADR. It fits
 this design as a new run scope with no change to the host functions above.
+
+Alt text runs under SDK 0.18 are not that combination: the fetch phase sees only
+public content and public media (nothing the visitor could not already read),
+the transform phase cannot reach the network, and every alt text change is a
+reviewed item the owner decides on. They need no consent model of their own.
 
 ## Out of scope: separate threat surface
 

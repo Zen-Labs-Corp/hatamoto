@@ -45,6 +45,31 @@ func checkScriptsGrant(o Origin, perms []string) error {
 	return nil
 }
 
+// ErrCommunityCSP is the refusal for a community package whose csp block asks
+// for more than image hosts.
+var ErrCommunityCSP error = communityCSPError{}
+
+type communityCSPError struct{}
+
+func (communityCSPError) Error() string { return "Community plugins may only add image hosts." }
+
+// checkCommunityCSP refuses script, connection and frame hosts in a community
+// package's csp block: they would widen what the site's pages may load.
+func checkCommunityCSP(o Origin, m sdk.Manifest) error {
+	if refuseCommunityScripts && o == OriginCommunity && m.CSP != nil &&
+		len(m.CSP.ScriptSrc)+len(m.CSP.ConnectSrc)+len(m.CSP.FrameSrc) > 0 {
+		return ErrCommunityCSP
+	}
+	return nil
+}
+
+// CheckCommunityCSP is checkCommunityCSP for a parsed package, for the install
+// prompt.
+func CheckCommunityCSP(p *Package) error {
+	m, _ := p.PluginManifest()
+	return checkCommunityCSP(Classify(p.Name, signerOf(p)), m)
+}
+
 // RefusedPermissions is the part of a plugin package's requested permissions
 // that policy would refuse to grant it (site.scripts and builder.island for a
 // community package), so a prompt can say so instead of posting them.

@@ -78,11 +78,11 @@ func insertMediaTx(ctx context.Context, tx pgx.Tx, m *Media, origin string) erro
 		INSERT INTO hatamoto_media (
 			id, filename, original_filename, mime_type, file_size,
 			storage_provider, storage_path, public_url, width, height, variants,
-			alt_text, caption, folder, uploaded_by, created_at, updated_at, origin
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+			alt_text, caption, credit, folder, uploaded_by, created_at, updated_at, origin
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $19, $14, $15, $16, $17, $18)`,
 		m.ID, m.Filename, m.OriginalFilename, m.MimeType, m.FileSize,
 		m.StorageProvider, m.StoragePath, m.PublicURL, m.Width, m.Height, variants,
-		m.AltText, m.Caption, m.Folder, m.UploadedBy, m.CreatedAt, m.UpdatedAt, origin)
+		m.AltText, m.Caption, m.Folder, m.UploadedBy, m.CreatedAt, m.UpdatedAt, origin, m.Credit)
 	if err != nil {
 		return fmt.Errorf("failed to create media: %w", err)
 	}
@@ -100,7 +100,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Media,
 	query := `
 		SELECT id, filename, original_filename, mime_type, file_size,
 		       storage_provider, storage_path, public_url, width, height, variants,
-		       alt_text, caption, folder, uploaded_by, created_at, updated_at
+		       alt_text, caption, credit, folder, uploaded_by, created_at, updated_at
 		FROM hatamoto_media
 		WHERE id = $1
 	`
@@ -111,7 +111,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Media,
 	err = conn.QueryRow(ctx, query, id).Scan(
 		&m.ID, &m.Filename, &m.OriginalFilename, &m.MimeType, &m.FileSize,
 		&m.StorageProvider, &m.StoragePath, &m.PublicURL, &m.Width, &m.Height, &variants,
-		&m.AltText, &m.Caption, &m.Folder, &m.UploadedBy, &m.CreatedAt, &m.UpdatedAt,
+		&m.AltText, &m.Caption, &m.Credit, &m.Folder, &m.UploadedBy, &m.CreatedAt, &m.UpdatedAt,
 	)
 
 	if err != nil {
@@ -140,7 +140,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 	baseQuery := `
 		SELECT id, filename, original_filename, mime_type, file_size,
 		       storage_provider, storage_path, public_url, width, height, variants,
-		       alt_text, caption, folder, uploaded_by, created_at, updated_at
+		       alt_text, caption, credit, folder, uploaded_by, created_at, updated_at
 		FROM hatamoto_media
 		WHERE run_id IS NULL
 	`
@@ -199,7 +199,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 		if err := rows.Scan(
 			&m.ID, &m.Filename, &m.OriginalFilename, &m.MimeType, &m.FileSize,
 			&m.StorageProvider, &m.StoragePath, &m.PublicURL, &m.Width, &m.Height, &variants,
-			&m.AltText, &m.Caption, &m.Folder, &m.UploadedBy, &m.CreatedAt, &m.UpdatedAt,
+			&m.AltText, &m.Caption, &m.Credit, &m.Folder, &m.UploadedBy, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan media: %w", err)
 		}
@@ -246,14 +246,15 @@ func (r *PostgresRepository) Update(ctx context.Context, m *Media) error {
 		    alt_text = $7,
 		    caption = $8,
 		    folder = $9,
-		    updated_at = $10
+		    updated_at = $10,
+		    credit = $11
 		WHERE id = $1
 		RETURNING updated_at
 	`
 
 	result, err := conn.Exec(ctx, query,
 		m.ID, m.Filename, m.PublicURL, m.Width, m.Height, variants,
-		m.AltText, m.Caption, m.Folder, m.UpdatedAt,
+		m.AltText, m.Caption, m.Folder, m.UpdatedAt, m.Credit,
 	)
 
 	if err != nil {

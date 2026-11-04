@@ -3,12 +3,14 @@ package pluginhost
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
@@ -23,6 +25,7 @@ import (
 // engine decides ownership from the source key, so an object the owner made
 // or took over answers not_owned.
 func init() {
+	hostFns[sdk.FnChangesetMediaAlt] = hostFn{run: fnChangesetMediaAlt}
 	hostFns[sdk.FnChangesetEntityUpsert] = hostFn{run: fnChangesetEntityUpsert}
 	hostFns[sdk.FnChangesetTermUpsert] = hostFn{run: fnChangesetTermUpsert}
 	hostFns[sdk.FnChangesetPersonUpsert] = hostFn{run: fnChangesetPersonUpsert}
@@ -128,6 +131,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		text("slug", in.Slug, maxSlugLen, false),
 		text("parent_key", in.ParentKey, maxSourceKeyLen, false),
 		text("locale", in.Locale, maxLocaleLen, false),
+		text("translation_of", in.TranslationOf, maxSourceKeyLen, false),
 	} {
 		if c != nil {
 			return nil, c
@@ -139,9 +143,28 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 	if in.ParentKey == in.SourceKey && in.ParentKey != "" {
 		return nil, invalid("an entity cannot be its own parent")
 	}
+	if in.TranslationOf != "" {
+		switch {
+		case in.TranslationOf == in.SourceKey:
+			return nil, invalid("an entity cannot be a translation of itself")
+		case strings.TrimSpace(in.Locale) == "":
+			return nil, invalid("locale is required with translation_of")
+		}
+	}
 	s, err := a.stager(ctx, e.plugin)
 	if err != nil {
 		return nil, err
+	}
+	if in.TranslationOf != "" {
+		if _, isID := parseUUID(in.TranslationOf); !isID {
+			ok, err := s.known(ctx, changeset.KindEntity, in.TranslationOf)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, invalid("translation_of %q is neither an entity id, nor published by an earlier run, nor staged earlier in this one; stage the source first", in.TranslationOf)
+			}
+		}
 	}
 	if in.ParentKey != "" {
 		ok, err := s.known(ctx, changeset.KindEntity, in.ParentKey)
@@ -153,7 +176,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		}
 	}
 	p := map[string]any{"schema": in.Schema, "name": in.Name}
-	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale} {
+	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf} {
 		if v != "" {
 			p[k] = v
 		}
@@ -167,6 +190,11 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		p["seo"] = in.SEO
 	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: payload(p)})
+}
+
+func parseUUID(s string) (uuid.UUID, bool) {
+	id, err := uuid.Parse(s)
+	return id, err == nil
 }
 
 func isJSONObject(raw json.RawMessage) bool {
@@ -219,7 +247,7 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 	if err != nil {
 		return nil, err
 	}
-	for _, c := range []error{sourceKey(in.SourceKey), text("alt", in.Alt, 1024, false), text("handle", in.Handle, maxPathLen, true)} {
+	for _, c := range []error{sourceKey(in.SourceKey), text("alt", in.Alt, 1024, false), text("caption", in.Caption, 2000, false), text("credit", in.Credit, 500, false), text("handle", in.Handle, maxPathLen, true)} {
 		if c != nil {
 			return nil, c
 		}
@@ -241,8 +269,61 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 	if in.Alt != "" {
 		p["alt_text"] = in.Alt
 	}
+	if in.Caption != "" {
+		p["caption"] = in.Caption
+	}
+	if in.Credit != "" {
+		p["credit"] = in.Credit
+	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
 		BlobKeys: []string{in.Handle}, Payload: payload(p)})
+}
+
+// fnChangesetMediaAlt stages a new alt text for an owner media item. It is a
+// reviewed change like any other item: the owner publishes it, a revert puts
+// the old text back. The engine refuses media the owner did not upload.
+func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+	in, err := decodeArgs[sdk.MediaAlt](raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := text("alt", in.Alt, 1024, false); err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(in.MediaID)
+	if err != nil {
+		return nil, invalid("media_id is not an id")
+	}
+	s, err := a.stager(ctx, e.plugin)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(s.rc.Proposes, sdk.ProposeMediaAlt) {
+		return nil, invalid("run %q did not declare it proposes %q", s.rc.Name, sdk.ProposeMediaAlt)
+	}
+	if a.svc.Media == nil {
+		return nil, unavailable("media")
+	}
+	m, err := a.svc.Media.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	oldAlt := ""
+	if m.AltText != nil {
+		oldAlt = *m.AltText
+	}
+	// The name and the old text are for the review screen, which shows every
+	// alt text change as "old -> new". No source key: the item changes an
+	// owner row, so it leaves no mapping.
+	err = a.svc.Changesets.Stage(ctx, s.csID, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert,
+		TargetID: id.String(), Payload: payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})})
+	if errors.Is(err, changeset.ErrNotOwned) {
+		return nil, herr(sdk.ErrNotOwned, "media %s was not uploaded by the owner", id)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return sdk.UpsertResult{SourceKey: "alt:" + id.String()}, nil
 }
 
 func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
@@ -408,6 +489,9 @@ func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMes
 	rc, ok := RunFrom(ctx)
 	if !ok {
 		return nil, herr(sdk.ErrPhaseDenied, "only available inside a run")
+	}
+	if in.Kind == sdk.ProposeMediaAlt {
+		return nil, invalid("alt text changes are staged with changeset.media.alt")
 	}
 	if !slices.Contains(rc.Proposes, in.Kind) {
 		return nil, invalid("run %q did not declare it proposes %q", rc.Name, in.Kind)

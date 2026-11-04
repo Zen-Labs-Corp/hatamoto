@@ -119,7 +119,7 @@ func TestManifestValidate(t *testing.T) {
 }
 
 func TestCompatible(t *testing.T) {
-	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": true, "^0.18": false} {
+	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": true, "^0.18": true, "^0.19": false} {
 		got, err := Manifest{SDK: rng}.Compatible()
 		if err != nil || got != want {
 			t.Errorf("Compatible(%s) = %v,%v want %v", rng, got, err, want)
@@ -241,5 +241,72 @@ func TestValidateAcceptsSiteScriptsUnderOldRange(t *testing.T) {
 	m := Manifest{Name: "hello-world", Version: "0.1.0", SDK: "^0.11", Permissions: []string{PermSiteScripts}}
 	if err := m.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)
+	}
+}
+
+func TestManifestRequestHeaders(t *testing.T) {
+	base := Manifest{Name: "hook-plugin", Version: "1.0.0", SDK: "^0.7"}
+	for name, hs := range map[string][]string{
+		"ok":            {"Stripe-Signature", "x-hook-id"},
+		"authorization": {"Authorization"},
+		"cookie":        {"COOKIE"},
+		"proxy auth":    {"proxy-authorization"},
+		"address":       {"x-forwarded-for"},
+		"real ip":       {"X-Real-IP"},
+		"forwarded":     {"forwarded"},
+		"cf":            {"cf-connecting-ip"},
+		"true client":   {"True-Client-IP"},
+		"cf v6":         {"CF-Connecting-IPv6"},
+		"cf pseudo":     {"CF-Pseudo-IPv4"},
+		"fastly":        {"Fastly-Client-IP"},
+		"fly":           {"Fly-Client-IP"},
+		"x client":      {"X-Client-IP"},
+		"cluster":       {"X-Cluster-Client-IP"},
+		"orig fwd":      {"X-Original-Forwarded-For"},
+		"envoy":         {"X-Envoy-External-Address"},
+		"hop":           {"Transfer-Encoding"},
+		"proxy prefix":  {"Proxy-Connection"},
+		"duplicate":     {"x-a", "X-A"},
+		"not a token":   {"bad header"},
+		"empty":         {""},
+		"too many":      {"a", "b", "c", "d", "e", "f", "g", "h", "i"},
+	} {
+		m := base
+		m.RequestHeaders = hs
+		if err := m.Validate(); (err == nil) != (name == "ok") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestManifestCSP(t *testing.T) {
+	base := Manifest{Name: "pay-plugin", Version: "1.0.0", SDK: "^0.7"}
+	for name, c := range map[string]*CSP{
+		"ok":           {ScriptSrc: []string{"https://js.example.com"}, ConnectSrc: []string{"https://api.example.com"}, ImgSrc: []string{"https://*.example.com"}, FrameSrc: []string{"https://js.example.com"}},
+		"ok empty":     {},
+		"http":         {ScriptSrc: []string{"http://js.example.com"}},
+		"keyword":      {ScriptSrc: []string{"'unsafe-eval'"}},
+		"star":         {ConnectSrc: []string{"*"}},
+		"scheme star":  {ConnectSrc: []string{"https://*"}},
+		"tld wildcard": {ConnectSrc: []string{"https://*.com"}},
+		"double wild":  {ConnectSrc: []string{"https://*.*.example.com"}},
+		"inner wild":   {ConnectSrc: []string{"https://a.*.example.com"}},
+		"script wild":  {ScriptSrc: []string{"https://*.example.com"}},
+		"one label":    {ConnectSrc: []string{"https://*.github.io"}},
+		"s3 wild":      {ImgSrc: []string{"https://*.amazonaws.com"}},
+		"ip literal":   {ConnectSrc: []string{"https://10.0.0.1"}},
+		"path":         {ImgSrc: []string{"https://example.com/x"}},
+		"port":         {ImgSrc: []string{"https://example.com:8443"}},
+		"semicolon":    {ImgSrc: []string{"https://example.com; script-src *"}},
+		"upper":        {ImgSrc: []string{"https://Example.com"}},
+		"bare":         {FrameSrc: []string{"example.com"}},
+		"duplicate":    {FrameSrc: []string{"https://a.example.com", "https://a.example.com"}},
+		"too many":     {ImgSrc: []string{"https://a.example.com", "https://b.example.com", "https://c.example.com", "https://d.example.com", "https://e.example.com", "https://f.example.com", "https://g.example.com", "https://h.example.com", "https://i.example.com"}},
+	} {
+		m := base
+		m.CSP = c
+		if err := m.Validate(); (err == nil) != strings.HasPrefix(name, "ok") {
+			t.Errorf("%s: err = %v", name, err)
+		}
 	}
 }

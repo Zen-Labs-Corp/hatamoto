@@ -33,3 +33,13 @@ func TestUpdateAndDeleteNotifyChangeObserver(t *testing.T) {
 		t.Fatalf("delete: err=%v calls=%d", err, calls)
 	}
 }
+
+// The owner can edit the credit a plugin or an upload set.
+func TestUpdateSetsCredit(t *testing.T) {
+	svc := NewService(&changeRepo{m: &Media{ID: uuid.New(), StoragePath: "x.png"}}, Config{UploadDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	credit := "Photo: A. Writer"
+	m, err := svc.Update(context.Background(), uuid.New(), &UpdateMediaInput{Credit: &credit})
+	if err != nil || m.Credit == nil || *m.Credit != credit {
+		t.Fatalf("credit = %v, %v", m.Credit, err)
+	}
+}

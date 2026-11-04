@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
 )
@@ -244,6 +245,8 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		m, _ := pkg.PluginManifest()
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
 		sum.Refused = packages.RefusedPermissions(pkg)
+		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
+		sum.ContentTypes = packages.ContentTypeNames(pkg)
 		sum.DeclaresRuns = len(m.Runs) > 0
 		for _, r := range m.Runs {
 			sum.Proposes = sum.Proposes || len(r.Proposes) > 0
@@ -257,6 +260,11 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	}
 	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
 		sum.Problem = err.Error()
+	}
+	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
+		if err := packages.CheckCommunityCSP(pkg); err != nil {
+			sum.Problem = err.Error()
+		}
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
 		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
@@ -275,7 +283,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
-			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts,
+			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders,
 			OldVersion: need.OldVersion, NewVersion: need.NewVersion, OldSigner: need.OldSigner, NewSigner: need.NewSigner}
 		for _, m := range need.Missing {
 			c.Missing = append(c.Missing, admin.MissingSection{Type: m.Type, Uses: m.Uses})
@@ -306,12 +314,24 @@ func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) err
 	return p.mgr().SetEnabled(actorCtx(ctx), name, on)
 }
 
-func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData bool) error {
-	err := p.mgr().Uninstall(actorCtx(ctx), packages.Kind(kind), name, dropData)
+func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error {
+	err := p.mgr().Uninstall(actorCtx(ctx), packages.Kind(kind), name, packages.UninstallOpts{DropData: dropData, DropContentTypes: dropContentTypes})
 	if errors.Is(err, packages.ErrThemeActive) {
 		return admin.ErrThemeActive
 	}
 	return err
+}
+
+func (p *packageAdmin) ContentTypes(ctx context.Context, name string) []admin.ContentTypeUse {
+	uses, err := p.mgr().ContentTypeUses(ctx, name)
+	if err != nil {
+		return nil
+	}
+	out := make([]admin.ContentTypeUse, len(uses))
+	for i, u := range uses {
+		out[i] = admin.ContentTypeUse{Slug: u.Slug, Name: u.Name, Entries: u.Entries}
+	}
+	return out
 }
 
 func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {

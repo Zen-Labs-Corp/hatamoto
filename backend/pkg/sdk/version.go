@@ -54,9 +54,17 @@ package sdk
 // with `phase_denied`; changing an object the owner or another source owns
 // fails with `not_owned`. Plugins that never wrote content are unaffected and
 // keep loading.
-const Version = "0.17.0"
+//
+// 0.18.0 is additive over 0.17 and adds eight things first-party plugins need:
+// `request_headers` and `csp` in plugin.json, declared cookies on public routes
+// (HTTPRequest.Cookies, HTTPResponse.SetCookies), `translation_of` on
+// changeset.entity.upsert, `caption` and `credit` on changeset.media.attach,
+// the changeset.media.alt proposal, public content reads in the run fetch phase
+// (entities.get, entities.list, entities.translations, media.get, media.list),
+// and content types shipped as schemas/<name>.json in a plugin package.
+const Version = "0.18.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0"}

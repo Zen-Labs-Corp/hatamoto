@@ -635,3 +635,29 @@ func freeSlugTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID, parent, self
 		}
 	}
 }
+
+// RestoreTranslationTx puts the translation group of the pre-image back on the
+// live row, undoing a link a changeset made to an entity that already existed.
+// RestoreChangesetTx leaves the group alone: a plain edit never touches it.
+func (s *Service) RestoreTranslationTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before json.RawMessage) error {
+	var snap entitySnapshot
+	if err := json.Unmarshal(before, &snap); err != nil {
+		return fmt.Errorf("invalid pre-image: %w", err)
+	}
+	if snap.ID != id {
+		return fmt.Errorf("pre-image is for entity %s, not %s", snap.ID, id)
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('hm_translation_group'))`); err != nil {
+		return fmt.Errorf("lock translation groups: %w", err)
+	}
+	// The owner may have named another member the original since.
+	if _, err := tx.Exec(ctx, `
+		UPDATE hatamoto_entities
+		SET translation_group = $2::uuid,
+		    translation_original = $3::boolean AND $2::uuid IS NOT NULL AND NOT EXISTS (
+		        SELECT 1 FROM hatamoto_entities o WHERE o.translation_group = $2::uuid AND o.translation_original AND o.id <> $1)
+		WHERE id = $1`, id, snap.TranslationGroup, snap.TranslationOriginal); err != nil {
+		return fmt.Errorf("failed to restore translation group: %w", err)
+	}
+	return nil
+}

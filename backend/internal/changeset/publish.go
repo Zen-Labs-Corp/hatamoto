@@ -143,7 +143,7 @@ func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it S
 		}
 	}
 	// The object may have changed hands since the item was staged.
-	if err := e.checkOwnership(ctx, tx, plugin, it.Kind, target); errors.Is(err, ErrNotOwned) {
+	if err := e.checkOwnership(ctx, tx, ownerPlugin(plugin, it.Item), it.Kind, target); errors.Is(err, ErrNotOwned) {
 		res.Skipped++
 		res.Conflicts = append(res.Conflicts, ConflictItem{Seq: it.Seq, Kind: it.Kind, SourceKey: it.SourceKey, TargetID: target, Reason: ReasonNotOwned})
 		return recordResult(ctx, tx, it.ID, ResultSkippedOther, ReasonNotOwned, target, nil, "")

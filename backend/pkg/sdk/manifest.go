@@ -82,6 +82,17 @@ type Manifest struct {
 	// Cookies are the cookie names a render.page filter may read and set.
 	Cookies []string `json:"cookies,omitempty"`
 
+	// RequestHeaders are extra request header names (for example a webhook
+	// signature) passed to this plugin's routes, on top of the fixed list.
+	// Credentials and the visitor's address can never be listed
+	// (see forbiddenRequestHeaders). At most MaxRequestHeaders.
+	RequestHeaders []string `json:"request_headers,omitempty"`
+
+	// CSP lists the https hosts the plugin needs added to the public pages'
+	// Content-Security-Policy. The owner sees them in the permission prompt;
+	// they apply only while the plugin is enabled. See CSP.
+	CSP *CSP `json:"csp,omitempty"`
+
 	// RenderPage tunes the render.page filter (see PageOptions).
 	RenderPage *PageOptions `json:"render_page,omitempty"`
 
@@ -110,6 +121,79 @@ type Manifest struct {
 	// SettingsSchema is an optional JSON Schema (draft 2020-12) object
 	// describing the plugin's settings.
 	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+}
+
+// CSP is the set of hosts a plugin asks to have added to the public pages'
+// Content-Security-Policy, per directive. Each entry is an https origin
+// ("https://api.example.com") or one with a leading wildcard label
+// ("https://*.example.com"): no keywords, no "*", no path or port, at most
+// MaxCSPHosts per list. Only script-src and connect-src change what a page may
+// do today (the base policy already allows https images and frames); community
+// plugins may list image hosts only.
+type CSP struct {
+	FrameSrc   []string `json:"frame_src,omitempty"`
+	ImgSrc     []string `json:"img_src,omitempty"`
+	ScriptSrc  []string `json:"script_src,omitempty"`
+	ConnectSrc []string `json:"connect_src,omitempty"`
+}
+
+// MaxCSPHosts caps each list of CSP.
+const MaxCSPHosts = 8
+
+// cspHostPattern is an https origin, optionally with one leading wildcard
+// label: scheme, DNS labels, no port, path or query.
+var cspHostPattern = regexp.MustCompile(`^https://(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+
+// Empty reports whether c lists no host.
+func (c *CSP) Empty() bool {
+	return c == nil || len(c.FrameSrc)+len(c.ImgSrc)+len(c.ScriptSrc)+len(c.ConnectSrc) == 0
+}
+
+func (c *CSP) validate() error {
+	for name, list := range map[string][]string{"frame_src": c.FrameSrc, "img_src": c.ImgSrc, "script_src": c.ScriptSrc, "connect_src": c.ConnectSrc} {
+		if len(list) > MaxCSPHosts {
+			return fmt.Errorf("csp.%s: more than %d hosts", name, MaxCSPHosts)
+		}
+		seen := map[string]bool{}
+		for _, h := range list {
+			if !cspHostPattern.MatchString(h) {
+				return fmt.Errorf("csp.%s: %q is not an https host (want https://host or https://*.host)", name, h)
+			}
+			if seen[h] {
+				return fmt.Errorf("csp.%s: duplicate host %q", name, h)
+			}
+			if err := checkCSPHost(name, h); err != nil {
+				return err
+			}
+			seen[h] = true
+		}
+	}
+	return nil
+}
+
+// sharedHostSuffixes are public suffixes and multi-tenant platforms where
+// anyone can register a subdomain, so a wildcard over them trusts strangers.
+var sharedHostSuffixes = []string{"github.io", "githubusercontent.com", "herokuapp.com", "amazonaws.com", "cloudfront.net", "netlify.app", "vercel.app", "pages.dev", "workers.dev", "web.app", "firebaseapp.com", "blogspot.com", "azurewebsites.net", "appspot.com", "co.uk", "com.au", "co.jp", "co.nz", "org.uk"}
+
+// checkCSPHost refuses hosts a well-formed pattern still makes unsafe: a
+// wildcard in script-src, a wildcard over a shared suffix or with fewer than
+// two labels after it, and IP literals.
+func checkCSPHost(list, h string) error {
+	host := strings.TrimPrefix(h, "https://")
+	wild := strings.HasPrefix(host, "*.")
+	if wild && list == "script_src" {
+		return fmt.Errorf("csp.%s: wildcard host %q is not allowed in script_src", list, h)
+	}
+	if wild && strings.Count(host, ".") < 2 {
+		return fmt.Errorf("csp.%s: wildcard host %q needs at least two labels after the *", list, h)
+	}
+	if wild && slices.Contains(sharedHostSuffixes, strings.TrimPrefix(host, "*.")) {
+		return fmt.Errorf("csp.%s: wildcard host %q covers hosts anyone can register", list, h)
+	}
+	if last := host[strings.LastIndex(host, ".")+1:]; last[0] >= '0' && last[0] <= '9' {
+		return fmt.Errorf("csp.%s: %q is an IP address, not a host name", list, h)
+	}
+	return nil
 }
 
 // BuilderSource is one data source a plugin offers to the page builder.
@@ -257,11 +341,13 @@ type CronJob struct {
 
 // Limits on the manifest's lists.
 const (
-	MaxRoutes    = 64
-	MaxCronJobs  = 16
-	MaxFuncs     = 64
-	MaxCookies   = 8
-	MinCronEvery = time.Minute
+	MaxRoutes   = 64
+	MaxCronJobs = 16
+	MaxFuncs    = 64
+	MaxCookies  = 8
+	// MaxRequestHeaders caps Manifest.RequestHeaders.
+	MaxRequestHeaders = 8
+	MinCronEvery      = time.Minute
 )
 
 // identPattern is a cron job, template func or section name.
@@ -269,6 +355,30 @@ var identPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // cookieNamePattern restricts declared cookie names to a safe token.
 var cookieNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// headerNamePattern is an HTTP header field name (a token), as declared in
+// request_headers.
+var headerNamePattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+
+// forbiddenRequestHeaders never reach a plugin: credentials and every header
+// that carries the visitor's address.
+var forbiddenRequestHeaders = []string{"authorization", "cookie", "proxy-authorization", "x-forwarded-for", "x-real-ip", "forwarded", "cf-connecting-ip",
+	"connection", "te", "upgrade", "keep-alive", "transfer-encoding", "host", "content-length", "via", "trailer"}
+
+// forbiddenHeaderTokens are dash-separated words that mark a header as one a
+// proxy or CDN uses to carry the visitor's address (True-Client-IP,
+// Fastly-Client-IP, X-Envoy-External-Address, ...). Refusing by shape covers
+// the vendor headers the explicit list cannot name.
+var forbiddenHeaderTokens = []string{"ip", "ips", "ipv4", "ipv6", "addr", "address", "forwarded", "client", "real", "for", "connecting", "remote", "via"}
+
+// forbiddenRequestHeader reports whether the lower-case header name is never
+// passed to plugins.
+func forbiddenRequestHeader(lc string) bool {
+	if slices.Contains(forbiddenRequestHeaders, lc) || strings.HasPrefix(lc, "proxy-") || strings.Contains(lc, "forwarded") {
+		return true
+	}
+	return slices.ContainsFunc(strings.Split(lc, "-"), func(t string) bool { return slices.Contains(forbiddenHeaderTokens, t) })
+}
 
 // WithDefaults returns m with zero limits replaced by the defaults.
 func (m Manifest) WithDefaults() Manifest {
@@ -460,6 +570,36 @@ func (m Manifest) validateCapabilities() error {
 		if lc := strings.ToLower(c); strings.HasPrefix(lc, "hatamoto_") || strings.HasPrefix(lc, "__host-") || strings.HasPrefix(lc, "__secure-") || strings.HasPrefix(lc, "hmp_") {
 			return fmt.Errorf("sdk: plugin %q: cookie name %q is reserved", m.Name, c)
 		}
+	}
+	if err := m.validateRequestHeaders(); err != nil {
+		return err
+	}
+	if m.CSP != nil {
+		if err := m.CSP.validate(); err != nil {
+			return fmt.Errorf("sdk: plugin %q: %w", m.Name, err)
+		}
+	}
+	return nil
+}
+
+// validateRequestHeaders checks the declared request header names.
+func (m Manifest) validateRequestHeaders() error {
+	if len(m.RequestHeaders) > MaxRequestHeaders {
+		return fmt.Errorf("sdk: plugin %q: more than %d request headers", m.Name, MaxRequestHeaders)
+	}
+	seen := map[string]bool{}
+	for _, h := range m.RequestHeaders {
+		lc := strings.ToLower(h)
+		if !headerNamePattern.MatchString(h) {
+			return fmt.Errorf("sdk: plugin %q: request header name %q", m.Name, h)
+		}
+		if forbiddenRequestHeader(lc) {
+			return fmt.Errorf("sdk: plugin %q: request header %q is never passed to plugins", m.Name, h)
+		}
+		if seen[lc] {
+			return fmt.Errorf("sdk: plugin %q: duplicate request header %q", m.Name, h)
+		}
+		seen[lc] = true
 	}
 	return nil
 }

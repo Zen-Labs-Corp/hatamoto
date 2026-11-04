@@ -21,7 +21,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/standing"
@@ -77,7 +79,13 @@ type ConfirmationRequired struct {
 	NewIsland bool
 	// NewScripts: the update newly asks for site.scripts.
 	NewScripts bool
-	Missing    []MissingSection
+	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
+	// widened access too.
+	NewCSPHosts []string
+	// NewRequestHeaders are request headers the update asks to receive that
+	// the installed version did not; they count as widened access too.
+	NewRequestHeaders []string
+	Missing           []MissingSection
 }
 
 func (e *ConfirmationRequired) Error() string {
@@ -141,7 +149,10 @@ type Options struct {
 	Plugins  PluginRuntime
 	Grants   pluginhost.Grants
 	Dropper  DataDropper
-	Engine   ThemeEngine
+	// Schemas creates and removes the entity types a plugin package ships. nil
+	// (the CLI) installs none.
+	Schemas SchemaStore
+	Engine  ThemeEngine
 	// NewPreview builds a second engine for previewing an installed theme.
 	NewPreview func(layers []fs.FS, settings map[string]any) (*render.Engine, error)
 	// AllowDev lets packages from `hatamoto theme dev` be installed and loaded.
@@ -288,7 +299,13 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.SDKRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := checkCommunityCSP(Classify(p.Name, signerOf(p)), man); err != nil {
+			return nil, err
+		}
 		if err := validateWidgets(p); err != nil {
+			return nil, err
+		}
+		if _, err := p.EntitySchemas(); err != nil {
 			return nil, err
 		}
 		for _, g := range req.Grant {
@@ -313,6 +330,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	// a new install is refused.
 	if !updating && p.Kind == KindPlugin && slices.Contains(reservedPluginPaths, p.Name) {
 		return nil, ErrReservedName
+	}
+	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
+		if err := m.checkSchemas(ctx, p); err != nil {
+			return nil, err
+		}
 	}
 	var need *ConfirmationRequired
 	if updating {
@@ -370,6 +392,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	if grants != nil && m.Grants != nil {
 		if err := m.Grants.Set(ctx, p.Name, grants); err != nil { // refreshes the in-memory copy
 			m.Logger.Error("packages: grants saved but not applied; they apply at the next restart", "plugin", p.Name, "error", err)
+		}
+	}
+	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
+		if err := m.installSchemas(ctx, p); err != nil {
+			m.Logger.Error("packages: content types not installed; they install when the plugin is enabled again", "plugin", p.Name, "error", err)
 		}
 	}
 	m.reconcile(ctx)
@@ -484,7 +511,9 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	}
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts
+		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
+		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -511,6 +540,54 @@ func widenedAccess(installed json.RawMessage, p *Package) (hosts []string, fetch
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// newRequestHeaders lists the request_headers (lower case) the update declares
+// that the installed manifest did not.
+func newRequestHeaders(installed json.RawMessage, p *Package) []string {
+	var old sdk.Manifest
+	_ = json.Unmarshal(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil {
+		return nil
+	}
+	has := map[string]bool{}
+	for _, h := range old.RequestHeaders {
+		has[strings.ToLower(h)] = true
+	}
+	var out []string
+	for _, h := range next.RequestHeaders {
+		if h = strings.ToLower(h); !has[h] {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// newCSPHosts lists the csp hosts (per directive, "directive host") the update
+// asks for that the installed manifest did not.
+func newCSPHosts(installed json.RawMessage, p *Package) []string {
+	var old sdk.Manifest
+	_ = json.Unmarshal(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil || next.CSP.Empty() {
+		return nil
+	}
+	has := map[string]bool{}
+	for _, l := range permtext.CSPLines(old.CSP) {
+		for _, h := range l.Hosts {
+			has[l.Name+" "+h] = true
+		}
+	}
+	var out []string
+	for _, l := range permtext.CSPLines(next.CSP) {
+		for _, h := range l.Hosts {
+			if !has[l.Name+" "+h] {
+				out = append(out, h)
+			}
+		}
+	}
+	return out
 }
 
 // CheckPolicy says whether p may be installed from src: signed by a trusted
@@ -586,13 +663,24 @@ func (m *Manager) InstallFromRegistry(ctx context.Context, kind Kind, name strin
 
 // --- remove, enable, activate ------------------------------------------------
 
+// UninstallOpts chooses what a plugin uninstall removes besides the plugin.
+type UninstallOpts struct {
+	// DropData removes the plugin's own schema, role, stored values and settings.
+	DropData bool
+	// DropContentTypes removes the entity types the plugin installed and every
+	// entity of those types.
+	DropContentTypes bool
+}
+
 // Uninstall removes a package. A theme is deleted at once. A plugin goes in a
 // recoverable order: its row is marked uninstalling (so it is unloaded and
 // cannot be installed over), its permissions are revoked, with dropData its
 // schema, role, stored values and settings are dropped, and only then is the row
-// deleted. A failure leaves the row uninstalling; call Uninstall again. Core
-// content is never touched.
-func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropData bool) error {
+// deleted. With DropContentTypes the entity types the plugin installed and
+// their content go too (types the owner made are never touched). A failure
+// leaves the row uninstalling; call Uninstall again. Core content is never
+// touched.
+func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts UninstallOpts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, err := m.store.Get(ctx, kind, name)
@@ -630,7 +718,13 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropDat
 	if _, err := m.Pool.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin = $1`, name); err != nil {
 		return err
 	}
-	if dropData {
+	var droppedTypes []string
+	if opts.DropContentTypes && m.Schemas != nil {
+		if droppedTypes, err = m.Schemas.RemovePluginSchemas(ctx, name); err != nil {
+			return fmt.Errorf("removing the content types of %q (uninstall is unfinished; try again): %w", name, err)
+		}
+	}
+	if opts.DropData {
 		if m.Dropper != nil {
 			if err := m.Dropper.Drop(ctx, name); err != nil {
 				return fmt.Errorf("dropping the data of %q (uninstall is unfinished; try again): %w", name, err)
@@ -643,8 +737,24 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropDat
 	if err := m.store.Delete(ctx, kind, name); err != nil {
 		return err
 	}
-	m.Audit(ctx, "package.uninstall", "plugin:"+name, map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": dropData, "widgets": nwidgets})
+	detail := map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": opts.DropData, "widgets": nwidgets, "content_types_dropped": len(droppedTypes) > 0}
+	if len(droppedTypes) > 0 {
+		detail["content_types"] = droppedTypes
+	}
+	m.Audit(ctx, "package.uninstall", "plugin:"+name, detail)
+	for _, slug := range droppedTypes {
+		m.Audit(ctx, "package.content_type.remove", "plugin:"+name, map[string]any{"content_type": slug})
+	}
 	return nil
+}
+
+// ContentTypeUses lists the content types the plugin installed and how many
+// entries each holds, for the uninstall screen.
+func (m *Manager) ContentTypeUses(ctx context.Context, name string) ([]entity.PluginSchemaUse, error) {
+	if m.Schemas == nil {
+		return nil, nil
+	}
+	return m.Schemas.PluginSchemaUses(ctx, name)
 }
 
 // SetEnabled turns an installed plugin on or off without uninstalling it.
@@ -652,6 +762,18 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	nwidgets := m.widgetCount(name)
+	if on {
+		p, _, err := m.store.Load(ctx, KindPlugin, name)
+		if err != nil {
+			return err
+		}
+		// A plugin installed before content types existed may ship a schema the
+		// rules refuse, or one whose name the owner has since taken. That must
+		// not keep a working plugin switched off.
+		if err := m.installSchemas(ctx, p); err != nil {
+			m.Logger.Error("packages: content types not installed; the plugin is enabled without them", "plugin", name, "error", err)
+		}
+	}
 	if err := m.store.SetEnabled(ctx, KindPlugin, name, on); err != nil {
 		return err
 	}

@@ -11,43 +11,22 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new tables.
 
-## Unreleased: Duplicate a page or post
+## Unreleased: Plugin SDK 0.18.0 adds eight things first-party plugins need
 
-- **Admin.** Entities has a **Duplicate** row action, and the editor has the same item under **More actions**. It creates a draft copy named "Copy of ..." (slug `-copy`, then `-copy-2`) in the same language and under the same parent, with the content, search details (not the canonical address), image, byline and terms. Status, dates and translations are not copied. People and reusable blocks cannot be duplicated.
-- **MCP.** New tool `entities_duplicate` (scope `write:entities`, audited, not destructive) returns `id`, `name`, `slug` and `status` of the draft.
-- No migration, SDK or plugin change. **Rollback floor: unchanged.**
+SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep loading. The first publish takes the public SDK repository from v0.13.0 to v0.18.0 in one commit.
 
-## Unreleased: Email log and resend
+- **Request headers.** `request_headers` in `plugin.json` lists extra request headers (a webhook signature, say) passed to the plugin's routes. `Authorization`, `Cookie`, hop-by-hop headers and any header that carries the visitor's address (`X-Forwarded-For`, `True-Client-IP`, `CF-Connecting-IP`, `Fastly-Client-IP` and the like, refused by name and by shape) are never passed. An update that adds a request header asks for confirmation. The plugin page lists them.
+- **Cookies on public routes.** The cookies a plugin declares in `cookies` reach its public routes (`HTTPRequest.Cookies`) and the route may set them (`HTTPResponse.SetCookies`) under `hmp_<plugin>_<name>`, with the limits and flags `render.page` already uses. Responses that set a cookie are never cached, and a public route of a plugin that declares cookies is never shared-cacheable (`Cache-Control: private`, `Vary: Cookie`). Plugins built for older ranges that already declare `cookies` now receive them on public routes too.
+- **Page security hosts (`csp`).** `plugin.json` can list https hosts for `script_src`, `connect_src`, `frame_src` and `img_src`. The permission prompt and the plugin page show them, and an update that adds one asks for confirmation. A community plugin may only list image hosts. Wildcard hosts are refused in `script_src`, and everywhere over a shared suffix (`*.github.io`) or an IP address. The hosts join the public pages' policy while the plugin is enabled (`script_src` and `connect_src` take effect; images and frames are already open to https).
+- **Translations from a run.** `changeset.entity.upsert` takes `translation_of` (an entity id or the source key of an earlier entity). Publishing joins the staged entity to the source's translation group; reverting undoes the link.
+- **Caption and credit on media.** `changeset.media.attach` takes `caption` and `credit`; publishing stores both on the media record (new nullable `credit` column). The owner edits the credit on the media page, and `media.get`/`media.list` return caption and credit.
+- **Reviewed alt text changes.** `changeset.media.alt { media_id, alt }` stages a new alt text for a media item the owner uploaded; the run declares `proposes: ["media_alt"]`. Every change is listed in the review as old text and new text, and the owner decides on each. Publishing applies it, reverting restores the old text. Nothing else on the media row changes.
+- **Content reads in the fetch phase.** `entities.get`, `entities.list`, `entities.translations`, `media.get` and `media.list` now work while a run fetches, and return only what an anonymous visitor can see: drafts, scheduled and archived entities, variants, hidden people, locales the site does not serve and media no public page uses are never returned. A fetch step may make 200 such reads. Terms, menus, redirects and forms stay transform only, and `http.fetch` is unchanged.
+- **Content types from a plugin.** A plugin package can ship `schemas/<name>.json` without a section template. The type is created when the plugin is enabled (the prompt says "Create the content types ..."), is never overwritten, and stays when the plugin is disabled or uninstalled. Uninstall has an off-by-default option, "Also remove content types and their content", that removes only the types the plugin installed. It needs a recent sign-in and the plugin name typed back, and deletes each entry like a normal delete, so webhooks and other subscribers hear about it. New nullable `origin_plugin` column (expand-only).
 
-**Settings > Email > Email log** lists every email the server hands to the mail server, or drops because email is off. Filter by status (Sent, Failed, Suppressed), open an entry to read it, and resend a failed or lost one to the same recipients. Each entry shows its kind, such as a form notification or `Plugin: <id>` for a plugin's mail, and for a refused send a short error with no credentials.
+**Rollback floor: unchanged.** The previous release ignores the new `credit` and `origin_plugin` columns. Content types a plugin installed stay as ordinary types after a rollback, and a translation link made by a changeset stays.
 
-- **Bodies.** Form mails keep their text for 30 days and their log entry for 90 days; both are set under **Settings > Email** (1 to 365 days, bodies no longer than entries). Password reset, invitation and admin address mails never keep a body, so they cannot be resent.
-- **Personal data.** A stored form notification holds what the visitor typed. Lower the body days if that is more than you want to keep.
-- **Migration:** adds `hatamoto_email_log` and two columns on `hatamoto_site_config` (expand-only). The previous release ignores them.
-- No SDK, hook or plugin manifest change. A plugin's `mail.send` behaves as before and is now logged.
-
-**Rollback floor: unchanged.** The previous release runs against the migrated data and writes no log.
-
-## Unreleased: Two-step sign-in
-
-Users can add an authenticator app, recovery codes and passkeys under Profile > Security. After the password, sign-in asks for a code, a recovery code or a passkey. Passkeys can also sign in on their own.
-
-- **Policy.** Settings > Users has optional, required for owners and required for everyone. The users list shows a 2-step column.
-- **Sudo mode.** Confirming your password also asks for the code when you have an authenticator app.
-- **JSON login.** `POST` login takes a `code` field for users with a second factor; a password alone no longer signs them in. API keys are unaffected.
-- **CLI.** `hatamoto user reset-2fa --email E` removes a user's factors.
-- **Passkeys and the site address.** Passkeys are tied to the site address; the address change screen warns about it.
-- **Migration.** New tables and one column (expand-only).
-
-**Rollback floor: unchanged.** The previous binary ignores the new tables and column. Rolling back signs everyone in with the password only, so second factors stop being asked.
-
-## Unreleased: Search and replace
-
-Owners get a new tool at **Settings > Tools > Search and replace**. It finds plain text or a web address across content, page builder text, SEO fields, other fields and menus, shows a preview with context, and applies only the matches you leave ticked. Each changed item gets one restorable version; menus have no version history. Plugin-owned items start unticked because replacing in them takes ownership. See [Search and replace](site/admin/content.md#search-and-replace).
-
-- **Migration.** None.
-- **Rollback floor: unchanged.** No data format changed.
-- **SDK.** No change.
+A plugin that uses `csp`, `request_headers`, `translation_of`, `media_alt` or content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error.
 
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 

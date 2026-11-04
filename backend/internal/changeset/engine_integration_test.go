@@ -1110,3 +1110,167 @@ func TestChangesetStageQuota(t *testing.T) {
 		t.Fatalf("second big item: %v, want ErrQuotaExceeded", err)
 	}
 }
+
+func (f *fixture) groupOf(id string) *string {
+	f.t.Helper()
+	var g *string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT translation_group::text FROM hatamoto_entities WHERE id = $1`, id).Scan(&g); err != nil {
+		f.t.Fatal(err)
+	}
+	return g
+}
+
+func (f *fixture) idOfSlug(slug string) string {
+	f.t.Helper()
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id::text FROM hatamoto_entities WHERE schema_id = $1 AND slug = $2`, f.schema.ID, slug).Scan(&id); err != nil {
+		f.t.Fatal(err)
+	}
+	return id
+}
+
+func (f *fixture) localizedItem(key, slug, locale string, extra map[string]any) Item {
+	it := f.entityItem(key, slug, "c")
+	p := map[string]any{"locale": locale}
+	_ = json.Unmarshal(it.Payload, &p)
+	p["locale"] = locale
+	for k, v := range extra {
+		p[k] = v
+	}
+	it.Payload = raw(p)
+	return it
+}
+
+// translation_of joins the staged copy to the source's translation group at
+// publish, and a revert puts the group back.
+func TestChangesetTranslationOf(t *testing.T) {
+	f := newFixture(t)
+	src, copyKey := "src-"+f.tag, "copy-"+f.tag
+
+	// The source and its translation come in one changeset, the source first.
+	cs := f.begin("")
+	f.stage(cs, f.localizedItem(src, "en-"+f.tag, "en", nil))
+	f.stage(cs, f.localizedItem(copyKey, "es-"+f.tag, "es", map[string]any{"translation_of": src}))
+	f.publish(cs)
+	en, es := f.idOfSlug("en-"+f.tag), f.idOfSlug("es-"+f.tag)
+	g1, g2 := f.groupOf(en), f.groupOf(es)
+	if g1 == nil || g2 == nil || *g1 != *g2 {
+		t.Fatalf("groups after publish: source=%v copy=%v", g1, g2)
+	}
+
+	// An existing entity of this origin joins the source's group in a later
+	// changeset (by id), and a revert undoes the link with the row.
+	solo := f.begin("")
+	f.stage(solo, f.localizedItem("solo-"+f.tag, "fr-"+f.tag, "fr", nil))
+	f.publish(solo)
+	fr := f.idOfSlug("fr-" + f.tag)
+	if f.groupOf(fr) != nil {
+		t.Fatal("an unlinked entity has a group")
+	}
+	link := f.begin("")
+	up := f.localizedItem("solo-"+f.tag, "fr-"+f.tag, "fr", map[string]any{"translation_of": en})
+	up.TargetID = fr
+	up.BaseToken = f.entityToken(fr)
+	f.stage(link, up)
+	f.publish(link)
+	if g := f.groupOf(fr); g == nil || *g != *g1 {
+		t.Fatalf("fr group = %v, want %s", g, *g1)
+	}
+	if _, err := f.eng.Revert(f.ctx, link); err != nil {
+		t.Fatal(err)
+	}
+	if g := f.groupOf(fr); g != nil {
+		t.Errorf("revert left fr in group %s", *g)
+	}
+	if g := f.groupOf(en); g == nil || *g != *g1 {
+		t.Errorf("revert disturbed the source's group: %v", g)
+	}
+
+	// A source that does not exist, or a locale the group has, is a conflict
+	// and applies nothing.
+	bad := f.begin("")
+	f.stage(bad, f.localizedItem("b1-"+f.tag, "x1-"+f.tag, "it", map[string]any{"translation_of": "nope-" + f.tag}))
+	f.stage(bad, f.localizedItem("b2-"+f.tag, "x2-"+f.tag, "es", map[string]any{"translation_of": en}))
+	before := f.entities()
+	res := f.publish(bad)
+	if res.Skipped != 2 || len(res.Conflicts) != 2 || f.entities() != before {
+		t.Fatalf("result = %+v, entities %d -> %d", res, before, f.entities())
+	}
+}
+
+// A staged media item publishes its alt text, caption and credit.
+func TestChangesetMediaCaptionCredit(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	cs, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, SourceKey: "cc-" + f.tag, BlobKeys: []string{f.stageFile(run, "cc.png")},
+		Payload: raw(map[string]any{"filename": "cc.png", "alt_text": "An alt", "caption": "A caption", "credit": "A credit"})})
+	f.publish(cs)
+	var alt, caption, credit string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT alt_text, caption, credit FROM hatamoto_media WHERE original_filename = 'cc.png' ORDER BY created_at DESC LIMIT 1`).Scan(&alt, &caption, &credit); err != nil {
+		t.Fatal(err)
+	}
+	if alt != "An alt" || caption != "A caption" || credit != "A credit" {
+		t.Errorf("alt=%q caption=%q credit=%q", alt, caption, credit)
+	}
+}
+
+// An alt text change on an owner media row publishes and reverts; media a
+// plugin owns is refused at staging, and nothing else on the row moves.
+func TestChangesetMediaAltChange(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	first, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stage(first, Item{Kind: KindMedia, Op: OpUpsert, SourceKey: "al-" + f.tag, BlobKeys: []string{f.stageFile(run, "al.png")},
+		Payload: raw(map[string]any{"filename": "al.png", "alt_text": "old", "caption": "keep"})})
+	f.publish(first)
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id::text FROM hatamoto_media WHERE original_filename = 'al.png' ORDER BY created_at DESC LIMIT 1`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+
+	// Owner media: a plugin changeset may change its alt text.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_media SET origin = 'owner' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	cs := f.begin("alt-plugin")
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"name": "al.png", "old_alt": "old", "alt_text": "new"})})
+	// The owner sees the change itself, never only a count.
+	if err := f.eng.Classify(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	risky, err := f.eng.ReviewRiskyItems(f.ctx, cs, 10, 0)
+	if err != nil || len(risky) != 1 || risky[0].Reason != string(ReasonAltText) || risky[0].Label != "al.png" || risky[0].Old != "old" || risky[0].New != "new" {
+		t.Fatalf("review rows = %+v, %v", risky, err)
+	}
+	f.publish(cs)
+	read := func() (alt, caption string) {
+		_ = f.db.Pool().QueryRow(f.ctx, `SELECT COALESCE(alt_text, ''), COALESCE(caption, '') FROM hatamoto_media WHERE id = $1`, id).Scan(&alt, &caption)
+		return
+	}
+	if alt, caption := read(); alt != "new" || caption != "keep" {
+		t.Fatalf("after publish alt=%q caption=%q", alt, caption)
+	}
+	if _, err := f.eng.Revert(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if alt, _ := read(); alt != "old" {
+		t.Errorf("after revert alt=%q", alt)
+	}
+
+	// Media another plugin owns is not_owned.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_media SET origin = 'plugin:other' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	bad := f.begin("alt-plugin")
+	err = f.eng.Stage(f.ctx, bad, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"alt_text": "x"})})
+	if !errors.Is(err, ErrNotOwned) {
+		t.Errorf("stage on foreign media = %v, want ErrNotOwned", err)
+	}
+}

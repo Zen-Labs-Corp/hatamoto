@@ -31,7 +31,8 @@ func (p phaseSet) allows(phase string) bool {
 // test fails when a registered function has no entry.
 //
 //   - fetch collects data from the outside: network, the owner's upload, the
-//     buffer it fills. It sees no site data.
+//     buffer it fills. Of the site it reads only public published entities
+//     and media (SDK 0.18), never drafts, terms, menus, redirects or forms.
 //   - transform turns the buffer into staged content. It reads the published
 //     site but cannot reach the network.
 //   - plugin storage (kv, db), mail and private form data are closed in both.
@@ -55,15 +56,18 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnSiteInfo:          phTransform,
 	sdk.FnEntitiesSlugTaken: phTransform,
 
-	sdk.FnEntitiesGet:          phTransform,
-	sdk.FnEntitiesList:         phTransform,
-	sdk.FnEntitiesTranslations: phTransform,
+	// Content reads are open in fetch too, but there they see only what an
+	// anonymous visitor sees (runSeesOnlyPublished and the run checks in the
+	// handlers) and each step may make MaxFetchReads of them.
+	sdk.FnEntitiesGet:          phBoth,
+	sdk.FnEntitiesList:         phBoth,
+	sdk.FnEntitiesTranslations: phBoth,
 	sdk.FnTermsList:            phTransform,
 	sdk.FnTermsGet:             phTransform,
 	sdk.FnMenusGet:             phTransform,
 	sdk.FnMenusList:            phTransform,
-	sdk.FnMediaGet:             phTransform,
-	sdk.FnMediaList:            phTransform,
+	sdk.FnMediaGet:             phBoth,
+	sdk.FnMediaList:            phBoth,
 	sdk.FnRedirectsList:        phTransform,
 
 	sdk.FnChangesetEntityUpsert:   phTransform,
@@ -74,6 +78,7 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnChangesetRedirectUpsert: phTransform,
 	sdk.FnChangesetDelete:         phTransform,
 	sdk.FnChangesetPropose:        phTransform,
+	sdk.FnChangesetMediaAlt:       phTransform,
 
 	sdk.FnKVGet:            phNone,
 	sdk.FnKVSet:            phNone,
@@ -94,7 +99,7 @@ var runOnly = map[string]bool{
 	sdk.FnMediaImportURL: true, sdk.FnSiteInfo: true, sdk.FnEntitiesSlugTaken: true,
 	sdk.FnChangesetEntityUpsert: true, sdk.FnChangesetTermUpsert: true, sdk.FnChangesetPersonUpsert: true,
 	sdk.FnChangesetMediaAttach: true, sdk.FnChangesetMenuUpsert: true, sdk.FnChangesetRedirectUpsert: true,
-	sdk.FnChangesetDelete: true, sdk.FnChangesetPropose: true,
+	sdk.FnChangesetDelete: true, sdk.FnChangesetPropose: true, sdk.FnChangesetMediaAlt: true,
 }
 
 // removedFns are the direct write functions SDK 0.17 removed, with the
@@ -115,6 +120,15 @@ var removedFns = map[string]string{
 	"redirects.delete":    sdk.FnChangesetDelete,
 }
 
+// MaxFetchReads is how many content reads one fetch step may make.
+const MaxFetchReads = 200
+
+// fetchReads are the content reads that count against MaxFetchReads.
+var fetchReads = map[string]bool{
+	sdk.FnEntitiesGet: true, sdk.FnEntitiesList: true, sdk.FnEntitiesTranslations: true,
+	sdk.FnMediaGet: true, sdk.FnMediaList: true,
+}
+
 // phaseGate is the single run/phase check every host call passes. Outside a
 // run, run-only functions are refused and everything else behaves as it
 // always did. Inside a run only the functions classified for the current
@@ -129,6 +143,9 @@ func phaseGate(ctx context.Context, name string) error {
 	}
 	if !fnPhases[name].allows(rc.Phase) {
 		return herr(sdk.ErrPhaseDenied, "%s is not available in the %s phase", name, rc.Phase)
+	}
+	if rc.Phase == sdk.RunPhaseFetch && fetchReads[name] && rc.Reads != nil && rc.Reads.Add(1) > MaxFetchReads {
+		return herr(sdk.ErrRateLimited, "a fetch step may make at most %d content reads", MaxFetchReads)
 	}
 	return nil
 }

@@ -179,7 +179,7 @@ func TestWidgetPackLifecycleWithoutRestart(t *testing.T) {
 	}
 
 	// Uninstall.
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "promo", false); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "promo", UninstallOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	if hasKind("promo_banner") || !strings.Contains(r.pageOf(false), "not installed") {

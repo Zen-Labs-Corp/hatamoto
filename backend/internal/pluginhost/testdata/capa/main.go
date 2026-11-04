@@ -40,6 +40,13 @@ func init() {
 		case req.Path == "/echo":
 			b, _ := json.Marshal(req)
 			return sdk.HTTPResponse{Status: 201, Headers: map[string]string{"Content-Type": "application/json", "Set-Cookie": "x=1", "X-Evil": "1"}, Body: string(b)}, nil
+		case req.Path == "/ck": // reports the cookies it was given and sets those named in ?set=
+			b, _ := json.Marshal(req.Cookies)
+			res := sdk.HTTPResponse{Body: string(b)}
+			for _, n := range req.Query["set"] {
+				res.SetCookies = append(res.SetCookies, sdk.SetCookie{Name: n, Value: "v-" + n, MaxAge: 60})
+			}
+			return res, nil
 		case req.Path == "/redirect":
 			return sdk.HTTPResponse{Status: 302, Headers: map[string]string{"Location": req.Query["to"][0]}}, nil
 		case req.Path == "/cache":

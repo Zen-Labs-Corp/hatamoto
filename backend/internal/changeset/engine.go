@@ -133,14 +133,14 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 				return err
 			}
 		}
-		if err := e.checkOwnership(ctx, tx, cs.Plugin, it.Kind, target); err != nil {
+		if err := e.checkOwnership(ctx, tx, ownerPlugin(cs.Plugin, it), it.Kind, target); err != nil {
 			return err
 		}
 		if err := checkBlobKeys(cs.RunID, it); err != nil {
 			return err
 		}
-		if it.Kind == KindMedia && (it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1) {
-			return fmt.Errorf("%w: media items create one file", ErrUnsupportedOp)
+		if it.Kind == KindMedia && !(it.Op == OpUpsert && ((target == "" && len(it.BlobKeys) == 1) || isAltChange(it))) {
+			return fmt.Errorf("%w: media items create one file or change an alt text", ErrUnsupportedOp)
 		}
 		if cs.Items >= int64(maxStagedItems) || cs.PayloadBytes+int64(len(payload)) > maxStagedBytes {
 			return fmt.Errorf("%w: at most %d items and %d MiB", ErrQuotaExceeded, maxStagedItems, maxStagedBytes>>20)

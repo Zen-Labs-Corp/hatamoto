@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -315,7 +316,7 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			return
 		}
 		sig := &RunSignal{}
-		rc := RunCtx{RunID: runID, Plugin: run.Plugin, Name: run.Name, Phase: run.Phase, Hosts: run.Hosts, Signal: sig}
+		rc := RunCtx{RunID: runID, Plugin: run.Plugin, Name: run.Name, Phase: run.Phase, Hosts: run.Hosts, Signal: sig, Reads: new(atomic.Int32)}
 		if i := slices.IndexFunc(m.Runs, func(d sdk.Run) bool { return d.Name == run.Name }); i >= 0 {
 			rc.Proposes = m.Runs[i].Proposes
 		}

@@ -194,7 +194,7 @@ func TestAFailedUninstallCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.mgr.Dropper = &flakyDropper{DataDropper: r.mgr.Dropper}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", true); err == nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", UninstallOpts{DropData: true}); err == nil {
 		t.Fatal("the first uninstall should fail")
 	}
 	row, err := r.mgr.Store().Get(ctx, KindPlugin, "capa")
@@ -207,7 +207,7 @@ func TestAFailedUninstallCanBeRetried(t *testing.T) {
 	if _, err := r.install(r.pack(r.plugin("1.1.0"), &r.key), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrUninstalling) {
 		t.Fatalf("installing over an unfinished uninstall: %v", err)
 	}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", true); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", UninstallOpts{DropData: true}); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
 	var gone bool
@@ -227,7 +227,7 @@ func TestPackageChangesAreAudited(t *testing.T) {
 	if _, err := r.mgr.Install(ctx, b, InstallRequest{Source: SourceUpload, Grant: []string{sdk.PermKV}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", false); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", UninstallOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, action := range []string{"package.allow_unsigned", "package.install", "package.uninstall"} {
@@ -380,7 +380,7 @@ func TestPluginNamedWebhooksCanStillBeUninstalled(t *testing.T) {
 		VALUES ('plugin', 'webhooks', '0.1.0', '{"name":"webhooks","version":"0.1.0"}', '\x00', 'x', 'upload')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, ReservedPluginName, true); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, ReservedPluginName, UninstallOpts{DropData: true}); err != nil {
 		t.Fatalf("uninstall: %v", err)
 	}
 	var n int

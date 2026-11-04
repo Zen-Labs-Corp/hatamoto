@@ -106,7 +106,7 @@ func (s *Server) retireWebhooksPlugin(ctx context.Context) {
 	}
 
 	uninstalled := false
-	if err := s.packages.Uninstall(ctx, packages.KindPlugin, legacyWebhooksPlugin, true); err != nil {
+	if err := s.packages.Uninstall(ctx, packages.KindPlugin, legacyWebhooksPlugin, packages.UninstallOpts{DropData: true}); err != nil {
 		log.Error("webhooks: uninstalling the old plugin failed; it is retried next start", slog.Any("error", err))
 	} else {
 		uninstalled = true

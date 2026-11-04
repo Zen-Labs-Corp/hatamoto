@@ -457,7 +457,7 @@ func (a *Admin) fail(w http.ResponseWriter, r *http.Request, status int, msg str
 type mediaDetailData struct {
 	ID, Name, URL, Filename, Mime, Size, Dims, Uploaded string
 	IsImage                                             bool
-	Alt, Caption                                        string
+	Alt, Caption, Credit                                string
 	Variants                                            []media.ImageVariant
 	Usage                                               []usageView
 	UsageErr                                            bool
@@ -505,13 +505,13 @@ func (a *Admin) loadMedia(w http.ResponseWriter, r *http.Request) (*media.Media,
 	return m, true
 }
 
-func (a *Admin) renderMediaDetail(w http.ResponseWriter, r *http.Request, status int, m *media.Media, alt, caption, errMsg string) {
+func (a *Admin) renderMediaDetail(w http.ResponseWriter, r *http.Request, status int, m *media.Media, alt, caption, credit, errMsg string) {
 	name := m.OriginalFilename
 	if name == "" {
 		name = m.Filename
 	}
 	d := mediaDetailData{ID: m.ID.String(), Name: name, URL: mediaURL(m), Filename: m.Filename, Mime: m.MimeType, Size: humanSize(m.FileSize),
-		IsImage: m.IsImage(), Alt: alt, Caption: caption, Variants: m.Variants, Error: errMsg,
+		IsImage: m.IsImage(), Alt: alt, Caption: caption, Credit: credit, Variants: m.Variants, Error: errMsg,
 		Uploaded: fmtDateTime(m.CreatedAt.In(a.siteLocation(r.Context()))), Crumbs: a.areaCrumbs("media", Crumb{Label: name})}
 	if m.Width != nil && m.Height != nil {
 		d.Dims = fmt.Sprintf("%d × %d px", *m.Width, *m.Height)
@@ -528,14 +528,17 @@ func (a *Admin) handleMediaDetail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	alt, caption := "", ""
+	alt, caption, credit := "", "", ""
 	if m.AltText != nil {
 		alt = *m.AltText
 	}
 	if m.Caption != nil {
 		caption = *m.Caption
 	}
-	a.renderMediaDetail(w, r, http.StatusOK, m, alt, caption, "")
+	if m.Credit != nil {
+		credit = *m.Credit
+	}
+	a.renderMediaDetail(w, r, http.StatusOK, m, alt, caption, credit, "")
 }
 
 func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
@@ -543,12 +546,12 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	alt, caption := strings.TrimSpace(r.PostFormValue("alt_text")), strings.TrimSpace(r.PostFormValue("caption"))
-	if len([]rune(alt)) > 500 || len([]rune(caption)) > 2000 {
-		a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, "Alt text can be up to 500 characters and the caption up to 2000.")
+	alt, caption, credit := strings.TrimSpace(r.PostFormValue("alt_text")), strings.TrimSpace(r.PostFormValue("caption")), strings.TrimSpace(r.PostFormValue("credit"))
+	if len([]rune(alt)) > 500 || len([]rune(caption)) > 2000 || len([]rune(credit)) > 500 {
+		a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "Alt text can be up to 500 characters, the caption up to 2000 and the credit up to 500.")
 		return
 	}
-	if _, err := a.deps.Content.Media.Update(r.Context(), m.ID, &media.UpdateMediaInput{AltText: &alt, Caption: &caption}); err != nil {
+	if _, err := a.deps.Content.Media.Update(r.Context(), m.ID, &media.UpdateMediaInput{AltText: &alt, Caption: &caption, Credit: &credit}); err != nil {
 		a.serverError(w, r, "The file could not be saved", err)
 		return
 	}

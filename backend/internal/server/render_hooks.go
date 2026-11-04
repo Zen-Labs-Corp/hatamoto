@@ -217,3 +217,13 @@ func (s *Server) communityScriptsLive() bool {
 func (s *Server) communityPlugin(name string) bool {
 	return s.packages != nil && s.packages.CommunityPlugin(name)
 }
+
+// pluginCSPHosts is what the enabled plugins add to the public pages' policy.
+// A community plugin contributes image hosts only (policy refuses the rest at
+// install; this keeps it so whatever a stored manifest says).
+func (s *Server) pluginCSPHosts() pluginhost.CSPSet {
+	if s.plugins == nil {
+		return pluginhost.CSPSet{}
+	}
+	return s.plugins.CSPHosts(s.communityPlugin)
+}

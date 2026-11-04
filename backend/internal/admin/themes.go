@@ -201,7 +201,7 @@ func (a *Admin) handleThemeUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if err := pk.Uninstall(r.Context(), "theme", name, false); err != nil {
+	if err := pk.Uninstall(r.Context(), "theme", name, false, false); err != nil {
 		if errors.Is(err, ErrThemeActive) {
 			a.ErrorBack(w, r, http.StatusConflict, "Theme is active", "Activate another theme first, then uninstall this one.", a.adminPath+"/theme/themes", "Back to themes")
 			return

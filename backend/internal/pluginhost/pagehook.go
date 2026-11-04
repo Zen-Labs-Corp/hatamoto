@@ -14,21 +14,9 @@ import (
 
 // Limits on what a render.page filter may return.
 const (
-	maxPageBlocks  = 200
-	maxSetCookies  = 8
-	maxCookieValue = 2048
-	maxCookieAge   = 365 * 24 * 3600
-	maxFieldLen    = 64 // longest string a slim block carries as a field
+	maxPageBlocks = 200
+	maxFieldLen   = 64 // longest string a slim block carries as a field
 )
-
-// CookiePrefix starts the name of every cookie a plugin may read or set.
-const CookiePrefix = "hmp_"
-
-// PluginCookieName is the browser cookie name of a plugin's cookie: plugins
-// are confined to the namespace hmp_<plugin>_<name>, so they can neither read
-// nor set the session cookie, the CSRF cookie or another plugin's cookies.
-// The plugin itself only ever sees and uses <name>.
-func PluginCookieName(plugin, name string) string { return CookiePrefix + plugin + "_" + name }
 
 // hookFilter returns the filter adapter for a hook: render.page needs the
 // plugin's manifest (declared cookies), every other filter is the generic one.
@@ -136,22 +124,8 @@ func mergePageResult(cur, res sdk.PageContext, m sdk.Manifest) (sdk.PageContext,
 	if len(res.Blocks) > maxPageBlocks {
 		return cur, fmt.Errorf("more than %d blocks", maxPageBlocks)
 	}
-	if len(res.SetCookies) > maxSetCookies {
-		return cur, fmt.Errorf("more than %d cookies", maxSetCookies)
-	}
-	for _, c := range res.SetCookies {
-		if !slices.Contains(m.Cookies, c.Name) {
-			return cur, fmt.Errorf("cookie %q is not declared in the manifest", c.Name)
-		}
-		if len(c.Value) > maxCookieValue || c.MaxAge < 0 || c.MaxAge > maxCookieAge {
-			return cur, fmt.Errorf("cookie %q: value over %d bytes or max_age outside 0..%d", c.Name, maxCookieValue, maxCookieAge)
-		}
-		if !validCookieValue(c.Value) {
-			return cur, fmt.Errorf("cookie %q: value has characters outside the cookie-safe set", c.Name)
-		}
-		if c.Path != "" && (c.Path[0] != '/' || len(c.Path) > 256) {
-			return cur, fmt.Errorf("cookie %q: bad path", c.Name)
-		}
+	if err := checkSetCookies(m, res.SetCookies); err != nil {
+		return cur, err
 	}
 	next := cur
 	byID := make(map[string]sdk.Block, len(cur.Blocks))
@@ -193,16 +167,6 @@ func mergePageResult(cur, res sdk.PageContext, m sdk.Manifest) (sdk.PageContext,
 	}
 	next.Hide = nil
 	return next, nil
-}
-
-func validCookieValue(v string) bool {
-	for i := 0; i < len(v); i++ {
-		c := v[i]
-		if c <= 0x20 || c >= 0x7f || c == '"' || c == ',' || c == ';' || c == '\\' {
-			return false
-		}
-	}
-	return true
 }
 
 // PageFilter applies the render.page chain. Cookies are the request's plugin

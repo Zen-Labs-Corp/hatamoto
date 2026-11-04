@@ -749,6 +749,9 @@ func (f *fakeMedia) Update(_ context.Context, id uuid.UUID, in *media.UpdateMedi
 			if in.Caption != nil {
 				m.Caption = in.Caption
 			}
+			if in.Credit != nil {
+				m.Credit = in.Credit
+			}
 			c := *m
 			return &c, nil
 		}

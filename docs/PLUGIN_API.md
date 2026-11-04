@@ -1,6 +1,10 @@
-# Plugin API (SDK 0.17)
+# Plugin API (SDK 0.18)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
+
+> **0.18 needs `^0.18`.** A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error and the plugin would run without them.
+>
+> **0.18 changes (additive over 0.17).** `request_headers` and `csp` in `plugin.json`; `cookies` reach public routes (`HTTPRequest.Cookies`, `HTTPResponse.SetCookies`); `translation_of` on `changeset.entity.upsert`; `caption` and `credit` on `changeset.media.attach`; `changeset.media.alt` (proposal kind `media_alt`); public content reads (`entities.get`, `entities.list`, `entities.translations`, `media.get`, `media.list`) in the run fetch phase, limited to what an anonymous visitor sees (the same visibility rule as public pages; media only when a public page uses the file); and content types shipped as `schemas/<name>.json` without a section template, created when the plugin is enabled.
 
 > **0.17 changes (breaking).** Content writes move into **runs** and **changesets** (see [Runs and changesets](#runs-and-changesets) and [ADR 0004](adr/0004-plugin-changesets.md)), shipped with core 1.1.0. The twelve direct write functions are removed with no shim: `entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create` and `redirects.delete`. So are the five permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write`. Replacements: the `changeset.*` functions for content, `media.import_url` with `changeset.media.attach` for media. A manifest that requests a removed permission is refused at load with a message naming the replacement; a call to a removed function returns `unavailable` naming it. New: the `runs` manifest block, the `on_run_step` export, `run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`, and the error codes `phase_denied` and `not_owned`. The run and changeset functions (`run.*`, `buffer.*`, `upload.read`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`) reject arguments nested deeper than 32 levels, arrays of more than 10,000 elements and requests of more than 200,000 JSON tokens with `invalid_argument`; the other functions keep their existing limits (a request is at most 1 MiB). Stored grants for a removed permission are left in place and ignored. The changelog entries below are history: they name functions that 0.17 removed. A plugin built for `^0.5` to `^0.16` that never wrote content loads and runs as before.
 
@@ -121,13 +125,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.17.0`; plugins built for `^0.5` to `^0.16` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.18.0`; plugins built for `^0.5` to `^0.17` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.17.0
+go get hatamoto.dev/sdk@v0.18.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -137,7 +141,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.17.0` is the git tag `v0.17.0`. The core repository stays
+plain release tags: version `0.18.0` is the git tag `v0.18.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -154,7 +158,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.17 is current.
+> SDK 0.18 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -422,7 +426,9 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 | `allowed_hosts` | allowlist for `http.fetch`: exact hosts, `*.suffix` (subdomains only, not the apex), `host:port`, or `*` (any public host, for plugins that call URLs the owner configures). Without a port only 80 and 443 are allowed, `*` included; `*:8443` lists a port explicitly. A `*` entry needs the separate `http.fetch.any` permission (below) in `permissions`, and works only while the owner has granted it. The address guard still refuses private addresses. It does nothing unless `http.fetch` is granted |
 | `routes` | HTTP routes the plugin serves; see [Routes](#routes) (at most 64) |
 | `cron` | scheduled calls; see [Cron](#cron) (at most 16) |
-| `cookies` | cookie names `render.page` may read and set (at most 8; `[A-Za-z0-9_-]`) |
+| `cookies` | cookie names `render.page` and the plugin's public routes may read and set (at most 8; `[A-Za-z0-9_-]`) |
+| `request_headers` | extra request header names passed to the plugin's routes, at most 8 (SDK 0.18). `authorization`, `cookie`, `proxy-authorization`, `x-forwarded-for`, `x-real-ip`, `forwarded` and `cf-connecting-ip` are refused by name, and so is any header whose name carries an address (`ip`, `client`, `real`, `for`, `addr`, `forwarded` as a word, such as `true-client-ip` or `fastly-client-ip`), `proxy-*` and the hop-by-hop headers |
+| `csp` | `{ "script_src": [], "connect_src": [], "frame_src": [], "img_src": [] }`, each at most 8 entries of `https://host` or `https://*.host` (SDK 0.18; no wildcard in `script_src`, none over a shared suffix such as `*.github.io`, no IP address). The hosts join the public pages' Content-Security-Policy only while the plugin is installed and enabled: `script-src` and `connect-src` change what a page may load; `img-src` and `frame-src` are accepted and shown but change nothing while the base policy allows every https origin there. A community plugin may only list `img_src` (other lists are refused at install). An update that adds a host asks the owner to confirm. Composed in one place (`cspWithExtras` in the render handlers), per response, so enabling or disabling applies at once |
 | `render_page` | optional; `{ "full_blocks": true }` sends `render.page` the whole block content (SDK 0.9+; older plugins always get it) |
 | `builder_sources` | data sources for the page builder (at most 8; needs the `builder.data` permission): `[{ "name", "label", "kind": "value"\|"items", "class": "text"\|"url"\|"image" }]` (`class` defaults to `text`; value sources only); see [builder.data](#builderdata) |
 | `funcs` | template functions; see [Templates](#template-functions-partials-and-sections) (at most 64; `^[a-z][a-z0-9_]{0,31}$`) |
@@ -631,10 +637,11 @@ All run in the transform phase and stage an item; each returns `{ "source_key", 
 
 | Function | Arguments |
 |---|---|
-| `changeset.entity.upsert` | `{ "source_key", "schema", "slug"?, "parent_key"?, "locale"? (a new entity with none gets the site language, or `und` for a type marked "Shared across languages"), "name", "attributes"?, "seo"? }`; `parent_key` is the source key of a parent staged earlier in the run or mapped by an earlier run; `seo` is `{ "meta_title", "meta_description", "canonical", "robots" }` |
+| `changeset.entity.upsert` | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"? (an entity id or the source key of an entity staged earlier or published by an earlier run: at publish the entity joins the source's translation group, so `locale` is required and must differ from the source's; a missing source or a refused link skips the item as a conflict, and a revert puts the previous group back; SDK 0.18), "locale"? (a new entity with none gets the site language, or `und` for a type marked "Shared across languages"), "name", "attributes"?, "seo"? }`; `parent_key` is the source key of a parent staged earlier in the run or mapped by an earlier run; `seo` is `{ "meta_title", "meta_description", "canonical", "robots" }` |
 | `changeset.term.upsert` | `{ "source_key", "kind", "slug", "name", "description"? }` |
 | `changeset.person.upsert` | `{ "source_key", "slug", "name", "bio"? }`: a byline, never a user account. It is a term of the byline kind; where the site has none, the call is `unavailable` |
-| `changeset.media.attach` | `{ "source_key", "handle", "alt"? }`; the handle comes from this run's `media.import_url` |
+| `changeset.media.alt` | `{ "media_id", "alt" }` (SDK 0.18): stages a new alt text for media the owner uploaded; the run must declare `proposes: ["media_alt"]`; media another source owns is `not_owned`, a missing one `not_found`; publish applies it and revert restores the old text |
+| `changeset.media.attach` | `{ "source_key", "handle", "alt"?, "caption"?, "credit"? (stored on the media record at publish; SDK 0.18) }`; the handle comes from this run's `media.import_url` |
 | `changeset.menu.upsert` | `{ "source_key", "slug", "name", "items"? }`, items `{ "label", "url"?, "entity_key"?, "children"? }`; the plugin's own menus, never a menu location |
 | `changeset.redirect.upsert` | `{ "source_key", "from", "to", "status_code"? }`; the target is on the same site, and `from` may not be a live path |
 | `changeset.delete` | `{ "kind", "source_key" }`; `kind` is `entity`, `term`, `menu`, `media` or `redirect`; only objects a run created |
@@ -712,7 +719,7 @@ The request is JSON on the `http_handle` input and the response JSON on its outp
 { "status": 200, "headers": { "Content-Type": "application/json" }, "body": "{...}", "body_b64": "" }
 ```
 
-`user` is absent on public routes. `pattern` is the manifest route that matched (e.g. `/items/{id}`) and `path_values` its wildcard values; `path` is exactly the path the route was matched and authorised on: a path the router would clean or redirect (`..`, `//`, a missing trailing slash) is `404`, never another route. Request headers passed are `Accept`, `Accept-Language`, `Content-Type`, `User-Agent`, `Referer`, `Origin`, `X-Request-Id` (never `Authorization`, cookies or the client address); the body is at most 1 MiB (`413` beyond) and arrives as `body`, or as `body_b64` when it is not UTF-8. Response headers passed are `Content-Type`, `Cache-Control`, `Location`, `Content-Disposition`, `ETag` (no `Set-Cookie`); `status` defaults to 200 and must be 200 to 599. Every plugin response is `Cache-Control: no-store` unless the plugin sets it (on the authenticated `/api/v1/p/` mount `public`/`s-maxage` are replaced by `no-store` and the rest is made `private`), and carries `Content-Security-Policy: sandbox; default-src 'none'; ...` and `X-Content-Type-Options: nosniff`, so HTML a plugin returns runs without scripts in an opaque origin. `Location` may only be a same-site path (`/x`, not `//host` or an absolute URL): anything else is a `502`, so a route cannot become an open redirect on the site's origin. A trap, timeout or error is a `502` (`503` when the plugin is saturated or switched off by the circuit breaker) with `{"error":"plugin error"}`; details go to the host log.
+`user` is absent on public routes. `pattern` is the manifest route that matched (e.g. `/items/{id}`) and `path_values` its wildcard values; `path` is exactly the path the route was matched and authorised on: a path the router would clean or redirect (`..`, `//`, a missing trailing slash) is `404`, never another route. Request headers passed are `Accept`, `Accept-Language`, `Content-Type`, `User-Agent`, `Referer`, `Origin`, `X-Request-Id` (never `Authorization`, cookies or the client address); plus the names in the manifest's `request_headers` (passed unchanged); on public routes the declared `cookies` arrive in `cookies` (short names) and the response may carry `set_cookies` (same names, limits and flags as `render.page`: namespaced `hmp_<plugin>_<name>`, `HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS; an invalid set is a `502`, a response that sets a cookie is never cached, and with declared `cookies` a public response is never shared-cacheable: `public`/`s-maxage` become `no-store`, the rest `private`, plus `Vary: Cookie`); the body is at most 1 MiB (`413` beyond) and arrives as `body`, or as `body_b64` when it is not UTF-8. Response headers passed are `Content-Type`, `Cache-Control`, `Location`, `Content-Disposition`, `ETag` (no `Set-Cookie`); `status` defaults to 200 and must be 200 to 599. Every plugin response is `Cache-Control: no-store` unless the plugin sets it (on the authenticated `/api/v1/p/` mount `public`/`s-maxage` are replaced by `no-store` and the rest is made `private`), and carries `Content-Security-Policy: sandbox; default-src 'none'; ...` and `X-Content-Type-Options: nosniff`, so HTML a plugin returns runs without scripts in an opaque origin. `Location` may only be a same-site path (`/x`, not `//host` or an absolute URL): anything else is a `502`, so a route cannot become an open redirect on the site's origin. A trap, timeout or error is a `502` (`503` when the plugin is saturated or switched off by the circuit breaker) with `{"error":"plugin error"}`; details go to the host log.
 
 ## Cron
 

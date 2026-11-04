@@ -42,6 +42,9 @@ func (s *Server) setupPackages() {
 		OnChange: s.invalidateRendered,
 		Logger:   s.logger,
 	}
+	if s.entityService != nil {
+		opts.Schemas = s.entityService
+	}
 	if s.menuService != nil {
 		opts.MenuSeeder = s.menuService
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/permtext"
 )
 
 // The types and interface below are what the Plugins and Themes pages need of
@@ -22,6 +23,9 @@ var ErrThemeActive = errors.New("theme is active")
 // Refusal is a package that was refused for a reason the owner should read
 // (bad signature, unsigned, unknown permission, a theme that does not render).
 type Refusal struct{ Msg string }
+
+// ContentTypesLine is the prompt sentence for ContentTypes ("" when none).
+func (s PackageSummary) ContentTypesLine() string { return permtext.ContentTypesLine(s.ContentTypes) }
 
 func (e *Refusal) Error() string { return e.Msg }
 
@@ -131,6 +135,8 @@ type ConfirmInfo struct {
 	NewFetchAny            bool
 	NewIsland              bool
 	NewScripts             bool
+	NewCSPHosts            []string
+	NewRequestHeaders      []string
 	OldVersion, NewVersion string
 	OldSigner, NewSigner   string
 	// Missing are section types the active theme would lose.
@@ -152,6 +158,12 @@ type PluginUIInfo struct {
 type PackageSummary struct {
 	Kind, Name, Version, Description string
 	Permissions, AllowedHosts        []string
+	// RequestHeaders and CSP are what the plugin asks to receive and to add to
+	// the public pages' security policy.
+	RequestHeaders []string
+	// ContentTypes are the names of the entity types the plugin installs.
+	ContentTypes []string
+	CSP          []permtext.CSPLine
 	// Refused is the part of Permissions that policy will not grant this
 	// package; the install prompt says so and does not post them.
 	Refused []string
@@ -199,6 +211,12 @@ type RouteResult struct {
 	Body        []byte
 }
 
+// ContentTypeUse is a content type a plugin installed and its entry count.
+type ContentTypeUse struct {
+	Slug, Name string
+	Entries    int
+}
+
 // PackageAdmin is the package manager as the Plugins and Themes pages use it.
 type PackageAdmin interface {
 	Registry(ctx context.Context) RegistryView
@@ -214,7 +232,10 @@ type PackageAdmin interface {
 	// Summary.Confirm. Reasons the owner should read come back as *Refusal.
 	Install(ctx context.Context, data []byte, source string, grant []string, confirm bool) error
 	SetEnabled(ctx context.Context, name string, on bool) error
-	Uninstall(ctx context.Context, kind, name string, dropData bool) error
+	Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error
+	// ContentTypes lists the content types the plugin installed, with their
+	// entry counts (what "remove content types" would delete).
+	ContentTypes(ctx context.Context, name string) []ContentTypeUse
 	AllowUnsigned(ctx context.Context) bool
 	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
 	UnsignedState(ctx context.Context) UnsignedState

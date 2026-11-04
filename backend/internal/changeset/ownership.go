@@ -41,6 +41,21 @@ var originTables = map[Kind]string{
 	KindMedia:    "hatamoto_media",
 }
 
+// isAltChange reports whether it edits the alt text of an existing media item.
+func isAltChange(it Item) bool {
+	return it.Kind == KindMedia && it.Op == OpUpsert && it.TargetID != "" && len(it.BlobKeys) == 0
+}
+
+// ownerPlugin is the plugin whose origin an item's target must carry. A plugin
+// changeset touches only what the plugin made, except an alt text change,
+// which is made for media the owner uploaded.
+func ownerPlugin(plugin string, it Item) string {
+	if isAltChange(it) {
+		return ""
+	}
+	return plugin
+}
+
 // checkOwnership refuses an update or delete of an object whose origin is not
 // the changeset's: a plugin changeset only touches what that plugin created,
 // and the owner's changeset only what the owner owns. A target that does not

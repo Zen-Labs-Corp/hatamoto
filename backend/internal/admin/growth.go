@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/searchperf"
 	"hatamoto.dev/core/internal/sectiontemplate"
@@ -194,7 +195,13 @@ type PluginInfo struct {
 	// community plugin and its scripts); the page shows them unticked.
 	Refused                      []string
 	Routes, Cron, Cookies, Funcs []string // one human line each
-	SettingsSchema               []byte
+	// RequestHeaders are the extra request headers its routes receive.
+	RequestHeaders []string
+	// ContentTypes are the entity types the plugin installs when enabled.
+	ContentTypes []string
+	// CSP is what it adds to the public pages' security policy.
+	CSP            []permtext.CSPLine
+	SettingsSchema []byte
 	// Package is set for a plugin installed from a package (nil for one loaded
 	// from HATAMOTO_PLUGIN_DIR); UI for one that ships an admin page.
 	Package *PackageMeta

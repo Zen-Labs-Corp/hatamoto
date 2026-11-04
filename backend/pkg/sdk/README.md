@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.17.0
+go get hatamoto.dev/sdk@v0.18.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (today `"sdk": "^0.11"`, so hosts before v0.31.0 still lo
 
 | SDK | Change |
 |---|---|
+| 0.18.0 | Additive over 0.17: `request_headers` and `csp` in `plugin.json`, declared cookies on public routes, `translation_of` on `changeset.entity.upsert`, `caption` and `credit` on `changeset.media.attach`, `changeset.media.alt`, public content reads in the run fetch phase, content types shipped as `schemas/<name>.json`. Purely additive |
 | 0.17.0 | Runs. The 12 direct write host functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create`, `redirects.delete`) and the five `*.write` permissions are removed; a manifest asking for one is refused. A plugin declares a `runs` block and exports `on_run_step`; `run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken` and `changeset.*` stage content into a changeset the owner publishes. New error codes `phase_denied` and `not_owned`; guest wrappers in `guest`. A break for plugins that wrote content |
 | 0.16.0 | `render.site_graph` filter (`SiteGraph`): add keys to the Organization, LocalBusiness and WebSite nodes of the site graph and append nodes. Purely additive |
 | 0.15.0 | `locale` and `segment` on `HeadContext`, `segment` and `file` on `SitemapURLs`, `translation_group` on entities, `translation_of` on `entities.create`, `entities.translations`, locale-prefixed `entities.get` paths (only for plugins requiring 0.15 or later). Additive for plugins on 0.14 or older; a plugin declaring 0.15 or later must pass `locale` to `entities.create` on a multi-locale site |

@@ -37,10 +37,14 @@ const (
 	ProposeURLPatterns  = "url_patterns"
 	ProposeHomePage     = "home_page"
 	ProposeMenuLocation = "menu_location"
+	// ProposeMediaAlt lets a run stage reviewed alt text changes on owner
+	// media with changeset.media.alt (SDK 0.18). It is not a singleton
+	// proposal: changeset.propose refuses it.
+	ProposeMediaAlt = "media_alt"
 )
 
 // proposalKinds lists every valid Run.Proposes entry.
-var proposalKinds = []string{ProposeSiteSettings, ProposeURLPatterns, ProposeHomePage, ProposeMenuLocation}
+var proposalKinds = []string{ProposeSiteSettings, ProposeURLPatterns, ProposeHomePage, ProposeMenuLocation, ProposeMediaAlt}
 
 // Run is one run a plugin declares in the "runs" block of plugin.json.
 type Run struct {
@@ -307,16 +311,21 @@ type SEO struct {
 // EntityUpsert stages the creation or update of an entity. SourceKey is the
 // plugin's own stable key for the object: the same key on a later run updates
 // the entity the first run created. ParentKey names an earlier staged or
-// mapped entity by its source key.
+// mapped entity by its source key. TranslationOf names the entity this one is
+// a translation of, by its id or by the source key of an entity staged earlier
+// (or published by an earlier run); at publish the two join one translation
+// group, so Locale is required and must differ from the source's.
 type EntityUpsert struct {
-	SourceKey  string          `json:"source_key"`
-	Schema     string          `json:"schema"`
-	Slug       string          `json:"slug,omitempty"`
-	ParentKey  string          `json:"parent_key,omitempty"`
-	Locale     string          `json:"locale,omitempty"`
-	Name       string          `json:"name"`
-	Attributes json.RawMessage `json:"attributes,omitempty"`
-	SEO        *SEO            `json:"seo,omitempty"`
+	SourceKey string `json:"source_key"`
+	Schema    string `json:"schema"`
+	Slug      string `json:"slug,omitempty"`
+	ParentKey string `json:"parent_key,omitempty"`
+	Locale    string `json:"locale,omitempty"`
+	// TranslationOf links the entity into the translation group of another.
+	TranslationOf string          `json:"translation_of,omitempty"`
+	Name          string          `json:"name"`
+	Attributes    json.RawMessage `json:"attributes,omitempty"`
+	SEO           *SEO            `json:"seo,omitempty"`
 }
 
 // TermUpsert stages a category, tag or other term.
@@ -341,6 +350,17 @@ type MediaAttach struct {
 	SourceKey string `json:"source_key"`
 	Handle    string `json:"handle"`
 	Alt       string `json:"alt,omitempty"`
+	// Caption and Credit are stored on the media record when it is published
+	// (SDK 0.18).
+	Caption string `json:"caption,omitempty"`
+	Credit  string `json:"credit,omitempty"`
+}
+
+// MediaAlt stages a new alt text for a media item the owner uploaded. The run
+// must declare "media_alt" in proposes. Alt text is the only field it changes.
+type MediaAlt struct {
+	MediaID string `json:"media_id"`
+	Alt     string `json:"alt"`
 }
 
 // MenuUpsert stages a menu and its items.
