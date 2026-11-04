@@ -15,11 +15,17 @@ const (
 )
 
 // previewChangeStyle outlines marked parts and styles the banner. Inline, no
-// script, no reference to admin CSS.
+// script, no reference to admin CSS. Outlines sit inside the element (negative
+// offset) so the frame edge and the theme header and footer never clip them.
+// A marked <main> outlines its title and its top-level blocks too, so an
+// attribute-only change (title, body fields) still shows what it touches.
 const previewChangeStyle = `<style data-hm-preview-style>` +
-	`[data-hm-change=new]{outline:2px solid #2f6b4f;outline-offset:2px}` +
-	`[data-hm-change=changed]{outline:2px solid #b7791f;outline-offset:2px}` +
-	`.hm-preview-banner{margin:0;padding:.5rem 1rem;background:#1f2937;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}` +
+	`[data-hm-change=new]{outline:2px solid #2f6b4f;outline-offset:-2px}` +
+	`[data-hm-change=changed]{outline:2px solid #b7791f;outline-offset:-2px}` +
+	`main[data-hm-change=new] h1,main[data-hm-change=new]>*{outline:2px solid #2f6b4f;outline-offset:-2px}` +
+	`main[data-hm-change=changed] h1,main[data-hm-change=changed]>*{outline:2px solid #b7791f;outline-offset:-2px}` +
+	`.hm-preview-banner{margin:0;padding:.6rem 1rem;background:#8a5a14;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}` +
+	`.hm-preview-banner strong{font-weight:700}` +
 	`</style>`
 
 var (
@@ -60,6 +66,9 @@ func markPreviewChanges(out []byte, v *PageView) []byte {
 		}
 		needle := []byte(`data-hm-section="` + html.EscapeString(id) + `"`)
 		out = bytes.ReplaceAll(out, needle, append([]byte(attr[1:]+" "), needle...))
+		// A builder node carries its id as the last class token.
+		cls := []byte(` hm-n-` + html.EscapeString(id) + `"`)
+		out = bytes.ReplaceAll(out, cls, append(append([]byte{}, cls...), attr...))
 	}
 	if attr := changeAttrValue(v.Changes.Page); attr != "" {
 		out = mainOpenRe.ReplaceAllFunc(out, func(m []byte) []byte {
@@ -70,8 +79,8 @@ func markPreviewChanges(out []byte, v *PageView) []byte {
 	if i := bytes.Index(out, []byte("</head>")); i >= 0 {
 		out = spliceAt(out, i, []byte(previewChangeStyle))
 	}
-	banner := `<p class="hm-preview-banner" role="note">Preview of changeset ` + html.EscapeString(v.Changes.Label) +
-		`, not live. Nobody else can see this.</p>`
+	banner := `<p class="hm-preview-banner" role="note"><strong>Preview of changeset ` + html.EscapeString(v.Changes.Label) +
+		`, not live.</strong> Nobody else can see this.</p>`
 	if loc := bodyOpenRe.FindIndex(out); loc != nil {
 		out = spliceAt(out, loc[1], []byte(banner))
 	}

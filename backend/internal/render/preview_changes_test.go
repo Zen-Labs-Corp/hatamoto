@@ -41,7 +41,7 @@ func TestPreviewChangesMarks(t *testing.T) {
 	for _, want := range []string{
 		`data-hm-change="new"`,
 		`data-hm-change="changed"`,
-		`Preview of changeset #42, not live. Nobody else can see this.`,
+		`<strong>Preview of changeset #42, not live.</strong> Nobody else can see this.`,
 		`<style data-hm-preview-style>`,
 	} {
 		if !strings.Contains(out, want) {
@@ -72,5 +72,48 @@ func TestPreviewChangesPageAndSectionMarks(t *testing.T) {
 	}
 	if !strings.Contains(out, `data-hm-change="changed" data-hm-section="hero"`) {
 		t.Errorf("section not marked:\n%s", out)
+	}
+}
+
+func TestPreviewChangesVisibleMarks(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	v := previewChangesView()
+	v.Preview = true
+	v.Changes = &PageChanges{Page: "changed", Nodes: map[string]string{"fresh": "new", "keep": "changed"}, Label: "#9"}
+	out := renderToString(t, e, v)
+	for _, want := range []string{
+		`hm-n-fresh" data-hm-change="new"`,
+		`hm-n-keep" data-hm-change="changed"`,
+		`data-hm-change="changed" data-hm-entity="ent-1"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	for _, want := range []string{
+		`[data-hm-change=new]{outline:2px solid #2f6b4f;outline-offset:-2px}`,
+		`[data-hm-change=changed]{outline:2px solid #b7791f;outline-offset:-2px}`,
+		`main[data-hm-change=changed] h1,main[data-hm-change=changed]>*{outline:2px solid #b7791f;outline-offset:-2px}`,
+		`background:#8a5a14`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("style missing %q", want)
+		}
+	}
+	if strings.Contains(out, "outline-offset:2px") {
+		t.Error("outward outline offset would be clipped by the frame")
+	}
+
+	v = previewChangesView()
+	v.Preview = true
+	v.Changes = &PageChanges{Page: "new", Label: "#9"}
+	if out := renderToString(t, e, v); !strings.Contains(out, `data-hm-change="new" data-hm-entity="ent-1"`) {
+		t.Error("created page main not marked new")
+	}
+
+	v = previewChangesView()
+	v.Preview = true
+	if out := renderToString(t, e, v); strings.Contains(out, "data-hm-change") || strings.Contains(out, "hm-preview-style") {
+		t.Error("marks emitted without Changes")
 	}
 }
