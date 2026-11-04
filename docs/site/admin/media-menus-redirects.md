@@ -22,6 +22,16 @@ In this guide you do four everyday jobs that affect the whole site: upload an im
 
 2. Open the image you uploaded. Fill in its **Alt text**, a short description for people who cannot see the picture, and a **Caption** if you want one, then save. The library shows a **Missing** badge on every image that still has no alt text. You rarely need the library to insert a picture later: image fields and both editors open it as a picker, with search and an upload button.
 
+### Modern image formats and rebuilding
+
+When you upload a JPEG, PNG or WebP image, Hatamoto also makes WebP copies of its medium and large sizes, and AVIF copies where they are smaller. A copy is kept only when it is smaller than the copy in the original format. Pages send these copies in a `<picture>` element, so browsers that support them use them and all others get the original format. The copies of a WebP upload are real `.webp` files.
+
+1. Open **Settings > Media**. The **Image formats** card (owners only) has a switch for WebP copies and one for AVIF copies. Save after you change them.
+
+2. Press **Rebuild copies** to apply the settings to images you uploaded earlier. The rebuild replaces the existing resized copies of every image. It runs in the background, so you can leave the page; reload the page to see progress. If the server restarts, the rebuild continues where it stopped.
+
+3. Images that cannot be processed are skipped and listed on the card, up to 20 of them.
+
 ### Build a menu
 
 1. Open **Theme > Menus** (`<admin>/theme/menus`) and press **New menu**. Give it a name, such as "Main", and a **Location**: Header, Footer, Sidebar or No location. Your theme decides which locations it shows.
