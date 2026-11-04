@@ -33,3 +33,29 @@ func TestStructuralAttrsChanged(t *testing.T) {
 		}
 	}
 }
+
+// A caller that leaves page_doc out, or sends derived page_sections instead of
+// the stored copy, is not editing the doc: the service carries it over.
+func TestStructuralChangeCarriesStoredDoc(t *testing.T) {
+	t.Parallel()
+	stored := `{"page_sections":` + secsA + `,"page_doc":` + fromSecs(t, secsA) + `,"content":"x"}`
+	ex := &Entity{Schema: &EntitySchema{Slug: "page", Schema: json.RawMessage(`{}`)}, Attributes: json.RawMessage(stored)}
+	docOnly := &Entity{Schema: ex.Schema, Attributes: json.RawMessage(`{"page_doc":` + twoCol + `,"content":"x"}`)}
+	cases := []struct {
+		name   string
+		ex     *Entity
+		caller string
+		want   bool
+	}{
+		{"doc omitted", ex, `{"content":"x","excerpt":"e","featured":true}`, false},
+		{"doc omitted on a builder-only page", docOnly, `{"content":"x","excerpt":"e"}`, false},
+		{"derived sections only", ex, `{"content":"x","page_sections":` + secsA + `}`, false},
+		{"doc omitted, body edited", ex, `{"content":"y"}`, true},
+		{"doc edited", ex, `{"content":"x","page_doc":` + twoCol + `}`, true},
+	}
+	for _, c := range cases {
+		if got := structuralChange(c.ex, &UpdateEntityInput{}, json.RawMessage(c.caller)); got != c.want {
+			t.Errorf("%s: changed = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

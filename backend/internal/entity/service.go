@@ -641,7 +641,31 @@ func structuralChange(ex *Entity, in *UpdateEntityInput, callerAttrs json.RawMes
 	if in.ParentID != nil && !in.ClearParent && (ex.ParentID == nil || *in.ParentID != *ex.ParentID) {
 		return true
 	}
-	return callerAttrs != nil && structuralAttrsChanged(ex.Schema, callerAttrs, ex.Attributes)
+	return callerAttrs != nil && structuralAttrsChanged(ex.Schema, carryStoredDoc(ex, callerAttrs), ex.Attributes)
+}
+
+// carryStoredDoc puts the stored page_doc and page_sections into a caller blob
+// that left the doc out or sent the stored one, with derived sections: the
+// service carries them over, so they are not an edit. Any other blob is
+// returned as sent.
+func carryStoredDoc(ex *Entity, caller json.RawMessage) json.RawMessage {
+	stored, ok := decodeObject(ex.Attributes)
+	if !ok {
+		return caller
+	}
+	in, ok := decodeObject(caller)
+	if !ok {
+		return caller
+	}
+	storedDoc, hasStored := stored[keyDoc]
+	if inDoc, hasIn := in[keyDoc]; !hasStored || (hasIn && !sameJSON(inDoc, storedDoc)) {
+		return caller
+	}
+	carried, err := normalizeDocRaw(docWrite, ex.Attributes, caller, EligibleForPageDoc(ex.Schema))
+	if err != nil {
+		return caller
+	}
+	return carried
 }
 
 // UpdateEntityStatus changes an entity's status.
