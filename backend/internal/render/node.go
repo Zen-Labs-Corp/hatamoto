@@ -405,6 +405,9 @@ func nodeAttrs(b *bytes.Buffer, v *PageView, n *builder.Node, extra string, canv
 			b.WriteString(` title="` + html.EscapeString(t) + `"`)
 		}
 	}
+	if v != nil {
+		b.WriteString(changeAttr(v, n.ID))
+	}
 	if canvas {
 		b.WriteString(" " + nodeMarker(n.ID) + " " + kindMarker(n.T))
 		if builder.TakesChildren(n.T) {
