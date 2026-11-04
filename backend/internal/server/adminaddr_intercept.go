@@ -435,9 +435,7 @@ func (w *nfChargeWriter) WriteHeader(code int) {
 func (w *nfChargeWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (w *nfChargeWriter) Flush() {
-	if f, ok := w.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
+	_ = http.NewResponseController(w.ResponseWriter).Flush()
 }
 
 const ownerCacheTTL = 5 * time.Second

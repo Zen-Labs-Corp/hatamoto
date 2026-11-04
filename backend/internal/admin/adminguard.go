@@ -440,9 +440,7 @@ func (s *sealWriter) Write(b []byte) (int, error) {
 
 func (s *sealWriter) Flush() {
 	s.seal()
-	if f, ok := s.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
+	_ = http.NewResponseController(s.ResponseWriter).Flush()
 }
 
 func (s *sealWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }
