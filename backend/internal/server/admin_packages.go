@@ -283,7 +283,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
-			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders,
+			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
 			OldVersion: need.OldVersion, NewVersion: need.NewVersion, OldSigner: need.OldSigner, NewSigner: need.NewSigner}
 		for _, m := range need.Missing {
 			c.Missing = append(c.Missing, admin.MissingSection{Type: m.Type, Uses: m.Uses})

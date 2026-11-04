@@ -85,7 +85,12 @@ type ConfirmationRequired struct {
 	// NewRequestHeaders are request headers the update asks to receive that
 	// the installed version did not; they count as widened access too.
 	NewRequestHeaders []string
-	Missing           []MissingSection
+	// NewTagHosts are page-policy origins a tag pack update adds;
+	// TagCategoryChanged is set when one of its tags moved to another consent
+	// category. Both count as widened access too.
+	NewTagHosts        []string
+	TagCategoryChanged bool
+	Missing            []MissingSection
 }
 
 func (e *ConfirmationRequired) Error() string {
@@ -97,7 +102,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -196,6 +201,8 @@ type Manager struct {
 	// widgetCounts is plugin name -> widgets the last reconcile found, for
 	// readers that do not hold mu (the admin plugin list).
 	widgetCounts atomic.Pointer[map[string]int]
+	// tagPacks is what reconcile published to the tag registry.
+	tagPacks tagState
 }
 
 type loadedPlugin struct {
@@ -304,6 +311,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		}
 		if err := validateWidgets(p); err != nil {
 			return nil, err
+		}
+		if err := validateTagPack(p); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
 		}
 		if _, err := p.EntitySchemas(); err != nil {
 			return nil, err
@@ -438,6 +448,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if ws, err := p.Widgets(); err == nil {
 			detail["widgets"] = len(ws.Items)
 		}
+		addTagDetail(detail, p)
 		if need != nil && need.WidenedAccess {
 			detail["confirmed_widened_access"] = true
 		}
@@ -513,7 +524,10 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0
+		if prevPkg, _, err := m.store.Load(ctx, KindPlugin, p.Name); err == nil {
+			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
+		}
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -699,7 +713,7 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		m.Audit(ctx, "package.uninstall", "theme:"+name, map[string]any{"version": row.Version, "signer": row.SignerKeyID})
 		return nil
 	}
-	nwidgets := m.widgetCount(name)
+	nwidgets, ntags := m.widgetCount(name), tagPackCount(name)
 	if err := m.store.SetState(ctx, kind, name, StateUninstalling); err != nil {
 		return err
 	}
@@ -737,7 +751,7 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 	if err := m.store.Delete(ctx, kind, name); err != nil {
 		return err
 	}
-	detail := map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": opts.DropData, "widgets": nwidgets, "content_types_dropped": len(droppedTypes) > 0}
+	detail := map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": opts.DropData, "widgets": nwidgets, "tags": ntags, "content_types_dropped": len(droppedTypes) > 0}
 	if len(droppedTypes) > 0 {
 		detail["content_types"] = droppedTypes
 	}
@@ -761,7 +775,7 @@ func (m *Manager) ContentTypeUses(ctx context.Context, name string) ([]entity.Pl
 func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	nwidgets := m.widgetCount(name)
+	nwidgets, ntags := m.widgetCount(name), tagPackCount(name)
 	if on {
 		p, _, err := m.store.Load(ctx, KindPlugin, name)
 		if err != nil {
@@ -779,9 +793,9 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	}
 	m.reconcile(ctx)
 	if on {
-		nwidgets = m.widgetCount(name)
+		nwidgets, ntags = m.widgetCount(name), tagPackCount(name)
 	}
-	m.Audit(ctx, map[bool]string{true: "package.enable", false: "package.disable"}[on], "plugin:"+name, map[string]any{"widgets": nwidgets})
+	m.Audit(ctx, map[bool]string{true: "package.enable", false: "package.disable"}[on], "plugin:"+name, map[string]any{"widgets": nwidgets, "tags": ntags})
 	return nil
 }
 
@@ -1237,6 +1251,7 @@ func (m *Manager) reconcile(ctx context.Context) {
 		changed = m.reconcilePlugins(ctx, rows)
 	}
 	changed = m.reconcileWidgets(ctx, rows) || changed
+	changed = m.reconcileTagPacks(ctx, rows) || changed
 	if m.Engine != nil {
 		changed = m.reconcileTheme(ctx, rows) || changed
 	}

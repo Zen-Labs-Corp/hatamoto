@@ -137,6 +137,8 @@ type ConfirmInfo struct {
 	NewScripts             bool
 	NewCSPHosts            []string
 	NewRequestHeaders      []string
+	NewTagHosts            []string
+	TagCategoryChanged     bool
 	OldVersion, NewVersion string
 	OldSigner, NewSigner   string
 	// Missing are section types the active theme would lose.
