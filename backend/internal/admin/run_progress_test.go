@@ -167,7 +167,7 @@ func TestAbandonedNote(t *testing.T) {
 		if tc.csState != "" {
 			rv.ChangesetID = 7
 		}
-		got := abandonedNote(rv)
+		got := abandonedNote(rv, time.UTC)
 		if got != tc.want || strings.Contains(got, "Deleted") {
 			t.Errorf("%s: %q, want %q", tc.name, got, tc.want)
 		}
@@ -265,6 +265,8 @@ func TestStepTimeout(t *testing.T) {
 		time.Second:             "1 second",
 		1500 * time.Millisecond: "1.5 seconds",
 		10 * time.Second:        "10 seconds",
+		9999 * time.Millisecond: "9.9 seconds",
+		1001 * time.Millisecond: "1 second",
 	} {
 		if got := stepTimeout(d); got != want {
 			t.Errorf("stepTimeout(%v) = %q, want %q", d, got, want)

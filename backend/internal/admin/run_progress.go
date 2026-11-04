@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -53,7 +54,7 @@ type runLimit struct{ Label, Value string }
 // runLimits lists the limits that hold for a run, each from the value core
 // enforces. The step limits come from the plugin runtime, so they are left out
 // when the plugin is not loaded.
-func (a *Admin) runLimits(rv RunView) []runLimit {
+func (a *Admin) runLimits(ctx context.Context, rv RunView) []runLimit {
 	var out []runLimit
 	if rl := a.deps.Growth.RunLimits; rl != nil {
 		if l, ok := rl.RunLimitsFor(rv.Plugin); ok {
@@ -67,19 +68,19 @@ func (a *Admin) runLimits(rv RunView) []runLimit {
 		runLimit{"Staging space", humanSize(rv.StagedBytes) + " of " + humanSize(changeset.MaxStagedBytes) + " for this run"},
 		runLimit{"Longest run", countNoun(int(pluginhost.MaxRunAge/time.Hour), "hour") + ", then it is stopped"},
 		runLimit{"Most steps", thousands(plugrun.MaxRunSteps) + " in one run"},
-		runLimit{"If abandoned", abandonedNote(rv)})
+		runLimit{"If abandoned", abandonedNote(rv, a.siteLocation(ctx))})
 }
 
 // abandonedNote says what becomes of the run's changes. The countdown holds
 // only while the changeset is staged: the clock starts when the changeset
 // opens, not when the run ends, so it is the changeset's own expiry once there
 // is one, and the run's start until then. Any other state says what happened.
-func abandonedNote(rv RunView) string {
+func abandonedNote(rv RunView, loc *time.Location) string {
 	const tail = " if nobody publishes or discards it"
 	switch rv.ChangesetState {
 	case changeset.StateStaged:
 		if !rv.ExpiresAt.IsZero() {
-			return fmt.Sprintf("Deleted in %d h (%s)%s", max(1, int((time.Until(rv.ExpiresAt)+time.Hour-1)/time.Hour)), rv.ExpiresAt.UTC().Format("2 Jan 15:04 UTC"), tail)
+			return fmt.Sprintf("Deleted in %d h (%s)%s", max(1, int((time.Until(rv.ExpiresAt)+time.Hour-1)/time.Hour)), fmtDateTime(rv.ExpiresAt.In(loc)), tail)
 		}
 	case changeset.StatePublished:
 		return "Published, nothing to delete"
@@ -148,7 +149,7 @@ func (a *Admin) handleRunProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	d := runProgressData{
 		Title: title, Badge: runStateBadge(rv), Running: running, Message: rv.Message, RunsHref: a.pluginURL(rv.Plugin, "runs"),
-		Limits: a.runLimits(rv),
+		Limits: a.runLimits(r.Context(), rv),
 	}
 	runPath := a.pluginURL(rv.Plugin, "runs/"+rv.ID.String())
 	if running {
@@ -259,8 +260,9 @@ func stepTimeout(d time.Duration) string {
 	if d < time.Second {
 		return fmt.Sprintf("%d ms", d.Milliseconds())
 	}
-	if s := d.Seconds(); s != float64(int(s)) {
-		return fmt.Sprintf("%.1f seconds", s)
+	// Truncate to tenths so 9999 ms never reads as 10 seconds.
+	if tenths := d.Milliseconds() / 100; tenths%10 != 0 {
+		return fmt.Sprintf("%d.%d seconds", tenths/10, tenths%10)
 	}
 	return countNoun(int(d/time.Second), "second")
 }
