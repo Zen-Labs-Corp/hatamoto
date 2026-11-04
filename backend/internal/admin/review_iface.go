@@ -32,6 +32,7 @@ type RunView struct {
 	StagedBytes                        int64
 	StagedItems                        int
 	CreatedAt, UpdatedAt               time.Time
+	ChangesetState                     string    // state of its changeset; empty until the run has one
 	ExpiresAt                          time.Time // when its changeset is deleted; zero until the run has one
 }
 

@@ -133,7 +133,7 @@ func TestRunProgressLimits(t *testing.T) {
 		}
 	}
 
-	rv.ChangesetID, rv.ExpiresAt = 7, time.Now().Add(30*time.Hour+30*time.Minute)
+	rv.ChangesetID, rv.ChangesetState, rv.ExpiresAt = 7, "staged", time.Now().Add(30*time.Hour+30*time.Minute)
 	g, _, _, _ = newRunsRig(t, rv)
 	body = g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "Deleted in 31 h (") || strings.Contains(body, "after the run started") {
@@ -144,6 +144,33 @@ func TestRunProgressLimits(t *testing.T) {
 	body = g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
 	if strings.Contains(body, "Each step") || !strings.Contains(body, "If abandoned") {
 		t.Error("an unloaded plugin shows no step limits but keeps the rest")
+	}
+}
+
+// The expiry countdown belongs to a staged changeset only; every other state
+// says what happened to the changes instead.
+func TestAbandonedNote(t *testing.T) {
+	t.Parallel()
+
+	past := time.Now().Add(-4 * 24 * time.Hour)
+	for _, tc := range []struct {
+		name, runState, csState, want string
+	}{
+		{"published", "finished", "published", "Published, nothing to delete"},
+		{"reverted", "finished", "reverted", "Published, then reverted"},
+		{"discarded after cancel", "cancelled", "discarded", "Discarded, nothing kept"},
+		{"expired", "finished", "expired", "Expired, nothing kept"},
+		{"failed before staging", "failed", "", "Nothing kept"},
+		{"finished without a changeset", "finished", "", "Nothing was staged"},
+	} {
+		rv := RunView{State: tc.runState, ChangesetState: tc.csState, ExpiresAt: past}
+		if tc.csState != "" {
+			rv.ChangesetID = 7
+		}
+		got := abandonedNote(rv)
+		if got != tc.want || strings.Contains(got, "Deleted") {
+			t.Errorf("%s: %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }
 

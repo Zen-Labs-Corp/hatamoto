@@ -126,8 +126,8 @@ func (r *changesetReviewer) Run(ctx context.Context, id uuid.UUID) (admin.RunVie
 	}
 	v := runView(run)
 	if run.ChangesetID != nil {
-		if err := r.eng.DB.Pool().QueryRow(ctx, `SELECT item_count, payload_bytes, expires_at FROM hatamoto_changesets WHERE id = $1`, *run.ChangesetID).
-			Scan(&v.StagedItems, &v.StagedBytes, &v.ExpiresAt); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := r.eng.DB.Pool().QueryRow(ctx, `SELECT item_count, payload_bytes, expires_at, state FROM hatamoto_changesets WHERE id = $1`, *run.ChangesetID).
+			Scan(&v.StagedItems, &v.StagedBytes, &v.ExpiresAt, &v.ChangesetState); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return v, fmt.Errorf("failed to read staged size: %w", err)
 		}
 	}

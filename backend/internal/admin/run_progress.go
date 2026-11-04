@@ -70,15 +70,33 @@ func (a *Admin) runLimits(rv RunView) []runLimit {
 		runLimit{"If abandoned", abandonedNote(rv)})
 }
 
-// abandonedNote says when an unpublished changeset is deleted. The clock starts
-// when the changeset opens, not when the run ends, so it is the changeset's own
-// expiry once there is one, and the run's start until then.
+// abandonedNote says what becomes of the run's changes. The countdown holds
+// only while the changeset is staged: the clock starts when the changeset
+// opens, not when the run ends, so it is the changeset's own expiry once there
+// is one, and the run's start until then. Any other state says what happened.
 func abandonedNote(rv RunView) string {
 	const tail = " if nobody publishes or discards it"
-	if rv.ChangesetID != 0 && !rv.ExpiresAt.IsZero() {
-		return fmt.Sprintf("Deleted in %d h (%s)%s", max(1, int((time.Until(rv.ExpiresAt)+time.Hour-1)/time.Hour)), rv.ExpiresAt.UTC().Format("2 Jan 15:04 UTC"), tail)
+	switch rv.ChangesetState {
+	case changeset.StateStaged:
+		if !rv.ExpiresAt.IsZero() {
+			return fmt.Sprintf("Deleted in %d h (%s)%s", max(1, int((time.Until(rv.ExpiresAt)+time.Hour-1)/time.Hour)), rv.ExpiresAt.UTC().Format("2 Jan 15:04 UTC"), tail)
+		}
+	case changeset.StatePublished:
+		return "Published, nothing to delete"
+	case changeset.StateReverted:
+		return "Published, then reverted"
+	case changeset.StateDiscarded:
+		return "Discarded, nothing kept"
+	case changeset.StateExpired:
+		return "Expired, nothing kept"
 	}
-	return fmt.Sprintf("Deleted %s after the run started%s", countNoun(int(changeset.TTL/time.Hour), "hour"), tail)
+	switch rv.State {
+	case "running":
+		return fmt.Sprintf("Deleted %s after the run started%s", countNoun(int(changeset.TTL/time.Hour), "hour"), tail)
+	case "finished":
+		return "Nothing was staged"
+	}
+	return "Nothing kept"
 }
 
 // runPage loads the run named by the path for the plugin named by the path;
