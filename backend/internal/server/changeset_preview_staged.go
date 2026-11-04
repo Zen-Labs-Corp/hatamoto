@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
@@ -320,9 +319,6 @@ func applyStagedEntity(ctx context.Context, ent *entity.Entity) {
 		*ent = *staged
 	}
 }
-
-// errNoPreviewItem means the changeset has nothing the preview can show.
-var errNoPreviewItem = errors.New("changeset has no previewable page")
 
 // stagedByScope is the staged entity a scoped page load names, nil outside a
 // changeset preview.

@@ -79,8 +79,12 @@ func TestChangesetPreviewStagedBuild(t *testing.T) {
 	if live[liveID].Name != "About" {
 		t.Error("staged set modified the live row")
 	}
-	if stagedID(testRunID, "a") == stagedID(testRunID, "b") || stagedID(testRunID, "a") != stagedID(testRunID, "a") {
+	idA, idAAgain := stagedID(testRunID, "a"), stagedID(testRunID, "a")
+	if idA != idAAgain {
 		t.Error("synthetic id is not stable per key")
+	}
+	if idA == stagedID(testRunID, "b") {
+		t.Error("synthetic id collides across keys")
 	}
 }
 
