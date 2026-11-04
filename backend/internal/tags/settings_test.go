@@ -90,3 +90,54 @@ func TestHostsMergeOnlyEnabled(t *testing.T) {
 		t.Errorf("defaults hosts = %+v", got)
 	}
 }
+
+// A stored key of an uninstalled pack must not block saving the page, and is
+// dropped by the next save; a dot-free unknown key is still an error.
+func TestOrphanPackKeyIsPrunedNotRejected(t *testing.T) {
+	s := Settings{Vendors: map[string]VendorState{
+		"gone.pack": {Enabled: true, ID: "123456"},
+		"ga4":       {Enabled: true, ID: "G-ABC123XYZ9"},
+	}}
+	if errs := s.Validate(); len(errs) != 0 {
+		t.Fatalf("orphan pack key rejected: %v", errs)
+	}
+	n := s.Normalize()
+	if _, ok := n.Vendors["gone.pack"]; ok || len(n.Vendors) != 1 {
+		t.Fatalf("normalized = %+v", n.Vendors)
+	}
+	if len(s.Enabled()) != 1 {
+		t.Fatalf("enabled = %+v", s.Enabled())
+	}
+	bad := Settings{Vendors: map[string]VendorState{"nope": {ID: "1"}}}
+	if errs := bad.Validate(); len(errs) != 1 || errs[0].Field != "nope" {
+		t.Fatalf("unknown key errs = %v", errs)
+	}
+}
+
+func TestPackVendorValidatedEnabledAndHosts(t *testing.T) {
+	t.Cleanup(func() { SetPacks(nil) })
+	v, err := ParseDecl("acme", "stats", []byte(goodDecl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetPacks([]PackVendor{{Vendor: v, PluginVersion: "1.0.0"}})
+	on := Settings{Vendors: map[string]VendorState{"acme.stats": {Enabled: true, ID: "123456"}}}
+	if errs := on.Validate(); len(errs) != 0 {
+		t.Fatalf("errs = %v", errs)
+	}
+	if e := on.Enabled(); len(e) != 1 || e[0].ID != "acme.stats" || e[0].ValueID != "123456" {
+		t.Fatalf("enabled = %+v", e)
+	}
+	if h := on.Hosts(); len(h.Script) != 2 || len(h.Connect) != 4 {
+		t.Fatalf("hosts = %+v", h)
+	}
+	bad := Settings{Vendors: map[string]VendorState{"acme.stats": {Enabled: true, ID: "x"}}}
+	if errs := bad.Validate(); len(errs) != 1 || errs[0].Field != "acme.stats" {
+		t.Fatalf("errs = %v", errs)
+	}
+	// Disabled again: no enabled vendor, no hosts.
+	SetPacks(nil)
+	if len(on.Enabled()) != 0 || len(on.Hosts().Script) != 0 {
+		t.Fatal("pack vendor still enabled after SetPacks(nil)")
+	}
+}

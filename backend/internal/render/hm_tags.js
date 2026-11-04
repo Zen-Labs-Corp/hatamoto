@@ -139,7 +139,9 @@
       load(v.src);
     },
     hubspot: function (v) { w._hsq = w._hsq || []; load(v.src); },
-    adsense: function (v) { load(v.src, { crossorigin: 'anonymous' }); }
+    adsense: function (v) { load(v.src, { crossorigin: 'anonymous' }); },
+    // Tag packs: the script URL is all a declaration provides.
+    generic: function (v) { load(v.src); }
   };
 
   // What a form conversion means to each vendor. Vendors without an entry

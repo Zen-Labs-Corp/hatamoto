@@ -59,14 +59,19 @@ func Decode(raw []byte) (Settings, error) {
 
 // Normalize returns a copy with every known vendor's ids trimmed and, where
 // the vendor is case-insensitive, upper-cased. Unknown keys are kept so
-// Validate can report them.
+// Validate can report them, except pack keys whose pack is gone: those are
+// dropped, so an uninstalled pack never blocks a later save.
 func (s Settings) Normalize() Settings {
 	out := s
 	out.Vendors = make(map[string]VendorState, len(s.Vendors))
 	for k, st := range s.Vendors {
-		if v, ok := ByID(k); ok {
+		v, ok := ByID(k)
+		switch {
+		case ok:
 			st.ID = v.NormalizeID(st.ID)
 			st.Aux = strings.TrimSpace(st.Aux)
+		case IsPackKey(k):
+			continue
 		}
 		out.Vendors[k] = st
 	}
@@ -78,7 +83,7 @@ func (s Settings) Normalize() Settings {
 func (s Settings) Validate() []FieldError {
 	n := s.Normalize()
 	var errs []FieldError
-	for _, v := range Vendors {
+	for _, v := range All() {
 		st, ok := n.Vendors[v.ID]
 		if !ok {
 			continue
@@ -115,7 +120,7 @@ func (s Settings) Validate() []FieldError {
 func (s Settings) Enabled() []EnabledVendor {
 	n := s.Normalize()
 	var out []EnabledVendor
-	for _, v := range Vendors {
+	for _, v := range All() {
 		st := n.Vendors[v.ID]
 		if st.Enabled && st.ID != "" {
 			out = append(out, EnabledVendor{Vendor: v, ValueID: st.ID, AuxID: st.Aux})

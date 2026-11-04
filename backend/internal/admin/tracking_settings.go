@@ -57,7 +57,7 @@ func trackingFromForm(r *http.Request, stored tags.Settings) tags.Settings {
 	if f.Has("exclude_signed_in") {
 		s.ExcludeSignedIn = f.Get("exclude_signed_in") == "true"
 	}
-	for _, v := range tags.Vendors {
+	for _, v := range tags.All() {
 		if !f.Has(v.ID + "_present") {
 			continue
 		}
@@ -153,7 +153,7 @@ func (a *Admin) handleTrackingNotice(w http.ResponseWriter, r *http.Request) {
 // changed (an id or second id edited on a vendor that is on before and after).
 func trackingDiff(before, after tags.Settings) (enabled, disabled, changed []string) {
 	enabled, disabled, changed = []string{}, []string{}, []string{}
-	for _, v := range tags.Vendors {
+	for _, v := range tags.All() {
 		b, a := before.Vendors[v.ID], after.Vendors[v.ID]
 		switch {
 		case a.Enabled && !b.Enabled:
@@ -230,7 +230,7 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 	if a.deps.TrackingNeverLoads != nil {
 		never = a.deps.TrackingNeverLoads(r.Context())
 	}
-	for _, v := range tags.Vendors {
+	for _, v := range tags.All() {
 		st := set.Vendors[v.ID]
 		row := trackingRow{
 			Key: v.ID, Label: v.Label, Enabled: st.Enabled, Value: st.ID, Aux: st.Aux,
