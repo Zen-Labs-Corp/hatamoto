@@ -53,3 +53,29 @@ func TestRouteRequestHeaders(t *testing.T) {
 		t.Error("authorization must be refused at Validate")
 	}
 }
+
+// A public response of a plugin that reads cookies is per visitor: a shared
+// cache must not store it, and it varies on Cookie.
+func TestPublicRouteWithCookiesIsNotSharedCacheable(t *testing.T) {
+	for name, tc := range map[string]struct {
+		cookies []string
+		cc      string
+		want    string
+		vary    bool
+	}{
+		"cookies, public":   {[]string{"cart"}, "public, max-age=60", "no-store", true},
+		"cookies, s-maxage": {[]string{"cart"}, "s-maxage=60", "no-store", true},
+		"no cookies":        {nil, "public, max-age=60", "public, max-age=60", false},
+	} {
+		g := &RouteRegistry{public: true}
+		rec := httptest.NewRecorder()
+		res := sdk.HTTPResponse{Body: "x"}
+		if tc.cc != "" {
+			res.Headers = map[string]string{"Cache-Control": tc.cc}
+		}
+		g.writeRouteResponse(rec, httptest.NewRequest("GET", "/x", nil), res, sdk.Manifest{Name: "capa", Cookies: tc.cookies})
+		if got := rec.Header().Get("Cache-Control"); got != tc.want || (rec.Header().Get("Vary") == "Cookie") != tc.vary {
+			t.Errorf("%s: Cache-Control=%q Vary=%q", name, rec.Header().Get("Cache-Control"), rec.Header().Get("Vary"))
+		}
+	}
+}

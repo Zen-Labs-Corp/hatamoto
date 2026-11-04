@@ -261,12 +261,16 @@ func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Reques
 	if len(res.SetCookies) > 0 {
 		h.Set("Cache-Control", "no-store") // a response that sets a cookie is never cached
 	}
-	if !g.public {
-		// Admin responses are per user: never shared-cacheable.
+	if !g.public || len(m.Cookies) > 0 {
+		// Admin responses are per user, and so is a public response of a
+		// plugin that reads cookies: never shared-cacheable.
 		if cc := strings.ToLower(h.Get("Cache-Control")); strings.Contains(cc, "public") || strings.Contains(cc, "s-maxage") {
 			h.Set("Cache-Control", "no-store")
 		} else if !strings.Contains(cc, "private") && !strings.Contains(cc, "no-store") {
 			h.Set("Cache-Control", "private, "+h.Get("Cache-Control"))
+		}
+		if g.public {
+			h.Add("Vary", "Cookie")
 		}
 	}
 	if h.Get("Content-Type") == "" && len(body) > 0 {
