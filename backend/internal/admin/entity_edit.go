@@ -736,8 +736,8 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.Actions = append(f.Actions, ui.Button{Label: "Visual editor", Href: f.EditorURL})
 	}
 	f.Overflow = nil
-	if !f.New && a.deps.Content.Duplicator != nil && canEditTranslations(r) && entity.CanDuplicate(sc) {
-		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: a.adminPath + "/entities/" + f.ID + "/duplicate"})
+	if href := a.duplicateHref(r, sc, f.ID); !f.New && href != "" {
+		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: href})
 	}
 	if f.Errors == nil {
 		f.Errors = map[string]string{}
@@ -1388,4 +1388,13 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, a.adminPath+"/entities/"+e.ID.String())
+}
+
+// duplicateHref is the POST address of the Duplicate item, "" when this
+// caller or schema cannot duplicate or the site has no duplicator.
+func (a *Admin) duplicateHref(r *http.Request, sc *entity.EntitySchema, id string) string {
+	if a.deps.Content.Duplicator == nil || !canEditTranslations(r) || !entity.CanDuplicate(sc) {
+		return ""
+	}
+	return a.adminPath + "/entities/" + id + "/duplicate"
 }
