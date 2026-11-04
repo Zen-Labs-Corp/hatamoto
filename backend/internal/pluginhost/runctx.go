@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -29,6 +30,8 @@ type RunCtx struct {
 	// Signal is where run.finish and run.fail leave their outcome for the
 	// driver to read after the step returns.
 	Signal *RunSignal
+	// Reads counts the content reads of this fetch step; nil means uncounted.
+	Reads *atomic.Int32
 }
 
 // RunSignal records how a step asked to end: finish the phase, or fail the run.

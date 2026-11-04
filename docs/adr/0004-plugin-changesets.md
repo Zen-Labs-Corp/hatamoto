@@ -117,6 +117,8 @@ Hooks, routes and cron cannot write content. They keep the plugin's own data
 | Reads | `upload.read` (the file the owner uploaded through core's UI), `run.info` | `buffer.get`, `buffer.list`, `site.info`, published entity reads, `entities.slug_taken` |
 | Writes | `buffer.put` (write-only staging buffer, quota per run), `media.import_url` (staged media) | `changeset.*` |
 
+SDK 0.18 lets the fetch phase read what an anonymous visitor can read: published entities, their translations and the media library (at most 200 reads per step). Drafts, terms, menus, redirects and forms stay closed to it.
+
 SDK 0.18 adds `changeset.media.alt` to the transform writes: a run that declares `proposes: ["media_alt"]` stages an alt text change on media the owner uploaded. It is an ordinary reviewed item (low risk, applied at publish, restored by revert), not a singleton proposal, and it changes no other field.
 | Plugin `kv`/`db` | not available | not available |
 
