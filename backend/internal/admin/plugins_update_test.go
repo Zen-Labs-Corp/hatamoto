@@ -386,6 +386,10 @@ func TestPluginHeadUpdateReviewCallout(t *testing.T) {
 	if !strings.Contains(body, `action="/admin/plugins/beta/update"`) {
 		t.Error("Review update posts to the update prompt")
 	}
+	// The action sits below the callout, not inside it.
+	if c := strings.Index(body, `id="update-review"`); c < 0 || !strings.Contains(body[c:], "keeps running.</p></div></div></div>") || strings.Index(body[c:], "Review update") < strings.Index(body[c:], "keeps running.</p></div></div></div>") {
+		t.Error("Review update must follow the callout, not sit inside it")
+	}
 	if len(pk.installed) != 0 {
 		t.Errorf("the callout installed something: %+v", pk.installed)
 	}
