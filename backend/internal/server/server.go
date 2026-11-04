@@ -228,6 +228,11 @@ type Server struct {
 	renderHandlers *renderHandlers
 	pageCache      *pageCacheService
 
+	// compressOn is the live "Compress responses" switch read by the
+	// compression middleware. New turns it on; the stored setting overrides it
+	// once loaded. The zero value (test shells) is off.
+	compressOn atomic.Bool
+
 	// renderErr is a failed theme load with rendering enabled; Start returns it.
 	renderErr error
 
@@ -252,6 +257,7 @@ func New(cfg *config.Config, db *database.DB, logger *slog.Logger) *Server {
 		mux:    http.NewServeMux(),
 		logger: logger,
 	}
+	s.compressOn.Store(true)
 
 	s.setupInfrastructure()
 	s.setupDependencies()
@@ -635,6 +641,9 @@ func (s *Server) buildHandler() http.Handler {
 		middleware.RequestLogger(s.logger, s.redactAdminPath),
 		requestIDMiddleware,
 		expireLegacyCookies(legacy, s.logger),
+		// Outside the intercept and the demo banner (which needs plain bytes), inside
+		// the request logger so the logged size is what goes on the wire.
+		httpx.Compress(s.compressOn.Load),
 		// Before the demo middlewares and the mux: it answers scanner probes and
 		// signed-out admin requests with the standard 404, and nothing between it
 		// and the mux may change a response.
