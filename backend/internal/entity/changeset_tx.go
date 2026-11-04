@@ -187,7 +187,7 @@ func (s *Service) createTx(ctx context.Context, tx pgx.Tx, op TxOp) (TxResult, e
 			return TxResult{}, err
 		}
 	}
-	locale = schema.DefaultLocale(locale, s.siteIsMulti(ctx))
+	locale = schema.DefaultLocale(locale, func() bool { return s.siteIsMulti(ctx) })
 	if err := s.validator.ValidateAttributes(schema.Schema, op.Attributes); err != nil {
 		return TxResult{}, err
 	}

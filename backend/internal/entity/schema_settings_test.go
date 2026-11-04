@@ -229,6 +229,24 @@ func TestBuildURLSnapshot_BadLocaleNeutralKeepsURLConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultLocaleSkipsMultiUnlessFlagged(t *testing.T) {
+	t.Parallel()
+	multi := func() bool { t.Error("multi evaluated"); return true }
+	flagged := &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":true}`)}
+	for _, c := range []struct {
+		name     string
+		s        *EntitySchema
+		explicit string
+	}{
+		{"unflagged", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, ""},
+		{"empty settings", &EntitySchema{}, ""},
+		{"nil schema", nil, ""},
+		{"flagged explicit", flagged, "en-AU"},
+	} {
+		c.s.DefaultLocale(c.explicit, multi)
+	}
+}
+
 func TestDefaultLocale(t *testing.T) {
 	t.Parallel()
 	flagged := &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":true}`)}
@@ -247,7 +265,7 @@ func TestDefaultLocale(t *testing.T) {
 		{"empty settings", &EntitySchema{}, "", true, ""},
 		{"nil schema", nil, "", true, ""},
 	} {
-		if got := c.s.DefaultLocale(c.explicit, c.multi); got != c.want {
+		if got := c.s.DefaultLocale(c.explicit, func() bool { return c.multi }); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
 		}
 	}

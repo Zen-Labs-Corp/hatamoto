@@ -82,14 +82,14 @@ func (st SchemaURLSettings) IsLocaleNeutral() bool { return bool(st.LocaleNeutra
 
 // DefaultLocale returns the locale a new entry of this type gets: the explicit
 // one when given, else the shared locale for a locale-neutral type on a
-// multi-language site (multi), else "" (the repository then stores the site
+// multi-language site (multi is only called then), else "" (the repository then stores the site
 // language; a single-language site never serves und entries). Call it after
 // NormalizeLocale so a user-supplied und is still rejected.
-func (s *EntitySchema) DefaultLocale(explicit string, multi bool) string {
+func (s *EntitySchema) DefaultLocale(explicit string, multi func() bool) string {
 	if explicit != "" {
 		return explicit
 	}
-	if st, err := s.URLSettings(); err == nil && multi && st.IsLocaleNeutral() {
+	if st, err := s.URLSettings(); err == nil && st.IsLocaleNeutral() && multi() {
 		return LocaleShared
 	}
 	return ""

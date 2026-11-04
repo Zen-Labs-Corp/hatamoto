@@ -308,7 +308,7 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 	if err != nil {
 		return nil, err
 	}
-	input.Locale = schema.DefaultLocale(input.Locale, s.siteIsMulti(ctx))
+	input.Locale = schema.DefaultLocale(input.Locale, func() bool { return s.siteIsMulti(ctx) })
 
 	// Validate attributes against schema
 	if err := s.validator.ValidateAttributes(schema.Schema, input.Attributes); err != nil {
