@@ -167,6 +167,10 @@ var ErrInvalidSitemapNaming = errors.New("invalid sitemap naming")
 // ErrInvalidPageCache is returned by Update for out-of-range page cache values.
 var ErrInvalidPageCache = errors.New("invalid page cache setting")
 
+// ErrInvalidThemeExtra is returned by PatchThemeExtra for an empty key or a
+// value that is not JSON.
+var ErrInvalidThemeExtra = errors.New("invalid theme_extra patch")
+
 // ErrNotConfigured is returned when the singleton row has not been seeded.
 // Code paths that hit this should fall back to safe defaults (the
 // pre-Path-B WhiteLabelConfig was JSONB-nullable too — same blast radius).
@@ -660,6 +664,30 @@ func (s *Store) SetSiteAccess(ctx context.Context, a siteaccess.Settings) error 
 		WHERE id = TRUE`,
 		string(a.Mode), a.RetryAfter, a.PasswordHash, a.Epoch, a.Heading, a.Message); err != nil {
 		return fmt.Errorf("set site access: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
+// PatchThemeExtra sets one top-level key of theme_extra to raw (a JSON value)
+// and leaves every other key as it is. The merge happens in SQL, so a job that
+// saves its progress cannot overwrite a design save made meanwhile.
+func (s *Store) PatchThemeExtra(ctx context.Context, key string, raw json.RawMessage) error {
+	if key == "" || !json.Valid(raw) {
+		return fmt.Errorf("%w: theme_extra key %q", ErrInvalidThemeExtra, key)
+	}
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config
+		SET theme_extra = jsonb_set(COALESCE(theme_extra, '{}'::jsonb), ARRAY[$1::text], $2::jsonb, true),
+		    updated_at = NOW()
+		WHERE id = TRUE`, key, []byte(raw)); err != nil {
+		return fmt.Errorf("patch theme_extra: %w", err)
 	}
 	s.Invalidate()
 	return nil

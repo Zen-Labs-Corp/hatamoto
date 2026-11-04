@@ -190,3 +190,30 @@ func TestSiteAccessDefaultAndSet(t *testing.T) {
 		t.Fatalf("got %+v %v", cfg.SiteAccess, err)
 	}
 }
+
+// PatchThemeExtra sets one top-level key and leaves the others, and a second
+// patch of the same key replaces only that key.
+func TestPatchThemeExtraKeepsOtherKeys(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{ThemeExtra: json.RawMessage(`{"builder":{"x":1}}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PatchThemeExtra(ctx, "media_rebuild", json.RawMessage(`{"running":true,"done":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PatchThemeExtra(ctx, "media_rebuild", json.RawMessage(`{"running":true,"done":2}`)); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonEq(t, "ThemeExtra", cfg.ThemeExtra, `{"builder":{"x":1},"media_rebuild":{"running":true,"done":2}}`)
+	if err := s.PatchThemeExtra(ctx, "", json.RawMessage(`1`)); err == nil {
+		t.Error("an empty key must be refused")
+	}
+	if err := s.PatchThemeExtra(ctx, "k", json.RawMessage(`{nope`)); err == nil {
+		t.Error("invalid JSON must be refused")
+	}
+}

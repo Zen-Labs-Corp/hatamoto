@@ -80,7 +80,9 @@ type Server struct {
 	routes *httpx.Group
 	router http.Handler
 	logger *slog.Logger
-	// formatPolicy answers mediaFormats; nil means every format is on.
+	// mediaFormats stores the modern-format switches and the rebuild state.
+	mediaFormats mediaFormatStore
+	// formatPolicy answers currentMediaFormats; nil means every format is on.
 	formatPolicy func(context.Context) media.Formats
 	sessionStore *session.Store
 	userTokens   *auth.UserTokens
@@ -432,6 +434,9 @@ func (s *Server) setupDependencies() {
 		s.logoSizes.reset()
 		s.invalidateRendered(ctx)
 	})
+	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
+	s.formatPolicy = s.mediaFormats.policy
+	s.mediaService.SetFormatPolicy(s.formatPolicy)
 
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
@@ -864,10 +869,10 @@ func (s *Server) setupRoutes() {
 	s.mountRenderRoutes(s.routes)
 }
 
-// mediaFormats is the set of modern image formats pages may offer: the owner's
+// currentMediaFormats is the set of modern image formats pages may offer: the owner's
 // switches, and only formats this build can encode. Before the policy is wired
 // (tests) everything is on.
-func (s *Server) mediaFormats(ctx context.Context) media.Formats {
+func (s *Server) currentMediaFormats(ctx context.Context) media.Formats {
 	if s.formatPolicy == nil {
 		return media.Formats{WebP: true, AVIF: true}
 	}

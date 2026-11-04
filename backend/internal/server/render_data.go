@@ -277,7 +277,7 @@ func (d *renderData) ImageVariants(u string) []render.ImageVariant {
 // filterFormats drops copies in formats the owner has switched off. The
 // lookup cache keeps them, so a settings change needs no purge of it.
 func (d *renderData) filterFormats(list []render.ImageVariant) []render.ImageVariant {
-	f := d.s.mediaFormats(context.Background())
+	f := d.s.currentMediaFormats(context.Background())
 	if f.WebP && f.AVIF {
 		return list
 	}

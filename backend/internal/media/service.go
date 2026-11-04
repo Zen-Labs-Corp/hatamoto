@@ -101,6 +101,10 @@ func (s *Service) uploadRoot() string {
 // disables it.
 func (s *Service) SetChangeObserver(f func(ctx context.Context)) { s.changed = f }
 
+// NotifyChanged runs the change observer; callers that change many images at
+// once (the rebuild job) call it once at the end.
+func (s *Service) NotifyChanged(ctx context.Context) { s.notifyChanged(ctx) }
+
 func (s *Service) notifyChanged(ctx context.Context) {
 	if s.changed != nil {
 		s.changed(ctx)
