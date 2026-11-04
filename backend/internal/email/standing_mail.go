@@ -39,5 +39,5 @@ func (s *Service) SendRunDigest(ctx context.Context, to string, data RunDigestDa
 		fmt.Fprintf(&b, "%s, %s: %d %s\n%s\n\n", r.Plugin, r.Run, r.Changes, noun, r.URL)
 	}
 	fmt.Fprintf(&b, "See the full history:\n%s\n", data.HistoryURL)
-	return s.sendAuth(ctx, to, data.SiteName, "Automatic updates on "+data.SiteName, html, b.String())
+	return s.sendAuth(ctx, KindRunDigest, to, data.SiteName, "Automatic updates on "+data.SiteName, html, b.String())
 }
