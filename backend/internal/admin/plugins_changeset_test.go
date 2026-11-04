@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -19,13 +20,36 @@ import (
 type fakeChangesets struct {
 	h     changeset.Header
 	items []changeset.StoredItem
+	pages [][2]int // limit, offset of each ItemPage call
 }
 
-func (f *fakeChangesets) Get(_ context.Context, id int64) (changeset.Header, []changeset.StoredItem, error) {
+func (f *fakeChangesets) Header(_ context.Context, id int64) (changeset.Header, error) {
 	if id != f.h.ID {
-		return changeset.Header{}, nil, changeset.ErrNotFound
+		return changeset.Header{}, changeset.ErrNotFound
 	}
-	return f.h, f.items, nil
+	return f.h, nil
+}
+
+func (f *fakeChangesets) ItemPage(_ context.Context, _ int64, limit, offset int) ([]changeset.ItemSummary, error) {
+	f.pages = append(f.pages, [2]int{limit, offset})
+	var out []changeset.ItemSummary
+	for i := offset; i < len(f.items) && i < offset+limit; i++ {
+		it := f.items[i]
+		var p struct{ Name string }
+		_ = json.Unmarshal(it.Payload, &p)
+		out = append(out, changeset.ItemSummary{Seq: it.Seq, Kind: it.Kind, Op: it.Op, SourceKey: it.SourceKey, TargetID: it.TargetID, Label: p.Name})
+	}
+	return out, nil
+}
+
+func (f *fakeChangesets) PreviewSeqs(context.Context, int64) ([]int, error) {
+	var out []int
+	for _, it := range f.items {
+		if it.Op == changeset.OpUpsert && (it.Kind == changeset.KindEntity || it.Kind == changeset.KindRedirect) {
+			out = append(out, it.Seq)
+		}
+	}
+	return out, nil
 }
 
 type fakePreviewer struct {
@@ -371,5 +395,27 @@ func TestChangesetFrameLoadsTheme(t *testing.T) {
 				t.Errorf("host %q: body lacks %s: %s", host, want, body)
 			}
 		}
+	}
+}
+
+// The changeset page reads one page of summaries, never the whole item set.
+func TestChangesetPagePaginates(t *testing.T) {
+	t.Parallel()
+
+	g, cs, _ := newChangesetRig(t, "")
+	cs.items = nil
+	for i := 1; i <= 120; i++ {
+		cs.items = append(cs.items, csItem(i, changeset.KindEntity, changeset.OpUpsert, fmt.Sprintf("Page %03d", i)))
+	}
+	cs.h.ItemCount = len(cs.items)
+	body := g.do("GET", "/admin/plugins/hello/changesets/42?page=2", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Page 051") || !strings.Contains(body, "Page 100") || strings.Contains(body, "Page 050") || strings.Contains(body, "Page 101") {
+		t.Errorf("page 2 does not show exactly items 51 to 100")
+	}
+	if len(cs.pages) != 1 || cs.pages[0] != [2]int{changesetItemsPer, changesetItemsPer} {
+		t.Errorf("ItemPage calls = %v, want one bounded page read", cs.pages)
+	}
+	if rec := g.do("GET", "/admin/plugins/hello/changesets/42?page=99999999999", "owner-token", nil, nil); rec.Code != 200 {
+		t.Errorf("huge page: %d", rec.Code)
 	}
 }

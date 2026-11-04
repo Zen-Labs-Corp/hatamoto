@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -21,8 +20,15 @@ import (
 
 // ChangesetReader reads a staged changeset. The changeset engine implements it.
 type ChangesetReader interface {
-	Get(ctx context.Context, id int64) (changeset.Header, []changeset.StoredItem, error)
+	Header(ctx context.Context, id int64) (changeset.Header, error)
+	// ItemPage reads item summaries (no payloads) for one page of the list.
+	ItemPage(ctx context.Context, id int64, limit, offset int) ([]changeset.ItemSummary, error)
+	// PreviewSeqs lists the seq of every item the preview can open.
+	PreviewSeqs(ctx context.Context, id int64) ([]int, error)
 }
+
+// changesetItemsPer is the page size of the changeset page's item list.
+const changesetItemsPer = 50
 
 // ChangesetPreviewer renders one item of a staged changeset as the site would
 // show it once published: a complete HTML document, from the changeset's own
@@ -60,32 +66,33 @@ func (a *Admin) changesetURL(plugin string, id int64, page string) string {
 
 // loadChangeset reads the changeset named by the path for the plugin named by
 // the path; any other plugin's changeset is "not found".
-func (a *Admin) loadChangeset(w http.ResponseWriter, r *http.Request) (changeset.Header, []changeset.StoredItem, bool) {
+func (a *Admin) loadChangeset(w http.ResponseWriter, r *http.Request) (changeset.Header, bool) {
 	if a.deps.Growth.Changesets == nil {
 		a.unavailable(w, r, "Changesets")
-		return changeset.Header{}, nil, false
+		return changeset.Header{}, false
 	}
 	back, label := a.adminPath+"/plugins", "Back to plugins"
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
 		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", back, label)
-		return changeset.Header{}, nil, false
+		return changeset.Header{}, false
 	}
-	h, items, err := a.deps.Growth.Changesets.Get(r.Context(), id)
+	h, err := a.deps.Growth.Changesets.Header(r.Context(), id)
 	switch {
 	case errors.Is(err, changeset.ErrNotFound), err == nil && h.Plugin != r.PathValue("name"):
 		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", back, label)
-		return h, nil, false
+		return h, false
 	case err != nil:
 		a.serverError(w, r, "The changeset could not be loaded", err)
-		return h, nil, false
+		return h, false
 	}
-	return h, items, true
+	return h, true
 }
 
 // previewable is what the preview can show for an item: an entity that is
-// added or changed, or a redirect.
-func previewable(it changeset.StoredItem) bool {
+// added or changed, or a redirect. changeset.Engine.PreviewSeqs applies the
+// same rule in SQL.
+func previewable(it changeset.ItemSummary) bool {
 	return it.Op == changeset.OpUpsert && (it.Kind == changeset.KindEntity || it.Kind == changeset.KindRedirect)
 }
 
@@ -96,12 +103,8 @@ func stagedNow(h changeset.Header) bool {
 
 // itemLabel names an item for people: its title, else its address, else the
 // key the plugin staged it under.
-func itemLabel(it changeset.StoredItem) string {
-	var p struct {
-		Name, Title, Slug, SourcePath string
-	}
-	_ = json.Unmarshal(it.Payload, &p)
-	for _, s := range []string{p.Name, p.Title, p.SourcePath, p.Slug, it.SourceKey} {
+func itemLabel(it changeset.ItemSummary) string {
+	for _, s := range []string{it.Label, it.SourceKey} {
 		if s != "" {
 			return s
 		}
@@ -109,7 +112,7 @@ func itemLabel(it changeset.StoredItem) string {
 	return "Item " + strconv.Itoa(it.Seq)
 }
 
-func itemChange(it changeset.StoredItem) string {
+func itemChange(it changeset.ItemSummary) string {
 	switch {
 	case it.Op == changeset.OpDelete:
 		return "Delete"
@@ -144,8 +147,14 @@ type changesetPage struct {
 // handleChangeset is the plain changeset page: what it holds, and the way to
 // its preview. It stands in until the review screen replaces it.
 func (a *Admin) handleChangeset(w http.ResponseWriter, r *http.Request) {
-	h, items, ok := a.loadChangeset(w, r)
+	h, ok := a.loadChangeset(w, r)
 	if !ok {
+		return
+	}
+	page := min(pageParam(r), max(1, (h.ItemCount+changesetItemsPer-1)/changesetItemsPer))
+	items, err := a.deps.Growth.Changesets.ItemPage(r.Context(), h.ID, changesetItemsPer, (page-1)*changesetItemsPer)
+	if err != nil {
+		a.serverError(w, r, "The changeset could not be loaded", err)
 		return
 	}
 	d := changesetPage{ID: h.ID, Badge: stateBadge(h.State), Intro: "Staged by " + h.Plugin + "."}
@@ -159,6 +168,8 @@ func (a *Admin) handleChangeset(w http.ResponseWriter, r *http.Request) {
 		ID: "changes", Caption: "Changes in this changeset",
 		Columns: []ui.Col{{Key: "name", Label: "Name", Role: "title"}, {Key: "kind", Label: "Kind"}, {Key: "change", Label: "Change"}},
 		Empty:   ui.Empty{Icon: "file-text", Title: "Nothing staged.", Body: "This changeset holds no changes."},
+		BaseURL: a.changesetURL(h.Plugin, h.ID, ""),
+		Page:    ui.Pagination{Page: page, PerPage: changesetItemsPer, Total: h.ItemCount, BaseURL: a.changesetURL(h.Plugin, h.ID, "")},
 	}
 	for _, it := range items {
 		row := ui.Row{ID: strconv.Itoa(it.Seq), Label: itemLabel(it), Cells: []ui.Cell{
@@ -199,7 +210,7 @@ type changesetPreviewPage struct {
 // change of a staged changeset and the way to the others. Each view mints a
 // fresh one-time ticket, so a reload of this page re-opens the frame.
 func (a *Admin) handleChangesetPreview(w http.ResponseWriter, r *http.Request) {
-	h, items, ok := a.loadChangeset(w, r)
+	h, ok := a.loadChangeset(w, r)
 	if !ok {
 		return
 	}
@@ -212,11 +223,10 @@ func (a *Admin) handleChangesetPreview(w http.ResponseWriter, r *http.Request) {
 		a.unavailable(w, r, "Changeset preview")
 		return
 	}
-	var seqs []int
-	for _, it := range items {
-		if previewable(it) {
-			seqs = append(seqs, it.Seq)
-		}
+	seqs, err := a.deps.Growth.Changesets.PreviewSeqs(r.Context(), h.ID)
+	if err != nil {
+		a.serverError(w, r, "The changeset could not be loaded", err)
+		return
 	}
 	title := "Preview changeset #" + strconv.FormatInt(h.ID, 10)
 	d := changesetPreviewPage{ID: h.ID, Badge: stateBadge(h.State), Back: back, Empty: len(seqs) == 0,

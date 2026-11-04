@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -240,5 +242,63 @@ func TestChangesetPreviewParentFromEarlierRunAndDroppedItem(t *testing.T) {
 	}
 	if got := o.pick(0); got == nil || got.Seq != 1 {
 		t.Errorf("pick(0) = %+v, want the first item", got)
+	}
+}
+
+// The source-key lookups for N items are batched: one read per kind, none per
+// item.
+func TestChangesetPreviewBatchesMappingLookups(t *testing.T) {
+	parentID := uuid.New()
+	live := map[uuid.UUID]*entity.Entity{parentID: liveEntity(parentID, "Docs", "docs")}
+	for _, n := range []int{10, 300} {
+		var batches, singles int
+		src := testSource(live, map[string]uuid.UUID{"docs": parentID})
+		src.mapped = func(context.Context, string, changeset.Kind, string) (uuid.UUID, bool, error) {
+			singles++
+			return uuid.Nil, false, nil
+		}
+		src.mappedMany = func(_ context.Context, _ string, _ changeset.Kind, keys []string) (map[string]uuid.UUID, error) {
+			batches++
+			out := map[string]uuid.UUID{}
+			for _, k := range keys {
+				if k == "docs" {
+					out[k] = parentID
+				}
+			}
+			return out, nil
+		}
+		var items []changeset.StoredItem
+		for i := 1; i <= n; i++ {
+			items = append(items, item(i, changeset.OpUpsert, "", fmt.Sprintf("k%d", i), `{"schema":"page","name":"P","parent_key":"docs"}`))
+		}
+		o := newStagedChangeset(context.Background(), changeset.Header{ID: 1, RunID: testRunID, Plugin: "p"}, items, src)
+		if len(o.items) != n || batches != 1 || singles != 0 {
+			t.Errorf("n=%d: items=%d batches=%d singles=%d, want all items, 1 batch, 0 single lookups", n, len(o.items), batches, singles)
+		}
+	}
+}
+
+// Stepping through items reuses the built set for the same changeset version.
+func TestChangesetPreviewCachesStagedSet(t *testing.T) {
+	var c stagedCache
+	h := changeset.Header{ID: 5, RunID: testRunID, ItemCount: 3, ExpiresAt: time.Now().Add(time.Hour)}
+	builds := 0
+	build := func() (*stagedChangeset, error) { builds++; return &stagedChangeset{header: h}, nil }
+	a, _ := c.get(h, build)
+	b, _ := c.get(h, build)
+	if builds != 1 || a != b {
+		t.Fatalf("builds = %d, want the second load served from the cache", builds)
+	}
+	h.ItemCount = 4 // more items staged: a new version
+	if _, _ = c.get(h, build); builds != 2 {
+		t.Errorf("builds = %d, a changed item count must rebuild", builds)
+	}
+	for id := int64(10); id < 30; id++ {
+		hh := h
+		hh.ID = id
+		_, _ = c.get(hh, build)
+	}
+	if len(c.entries) > stagedCacheEntries {
+		t.Errorf("cache holds %d entries, want at most %d", len(c.entries), stagedCacheEntries)
 	}
 }

@@ -77,9 +77,12 @@ func stagedFrom(ctx context.Context) *stagedChangeset {
 // stagedSource is what the staged set reads to resolve items: live rows and
 // source-key mappings. All reads.
 type stagedSource struct {
-	entity     func(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
-	schema     func(ctx context.Context, slug string) (*entity.EntitySchema, error)
-	mapped     func(ctx context.Context, origin string, kind changeset.Kind, sourceKey string) (uuid.UUID, bool, error)
+	entity func(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
+	schema func(ctx context.Context, slug string) (*entity.EntitySchema, error)
+	mapped func(ctx context.Context, origin string, kind changeset.Kind, sourceKey string) (uuid.UUID, bool, error)
+	// mappedMany answers many source keys of one kind in a single read: the keys
+	// it returns are the mapped ones, the others have no mapping. Optional.
+	mappedMany func(ctx context.Context, origin string, kind changeset.Kind, sourceKeys []string) (map[string]uuid.UUID, error)
 	menuBySlug func(ctx context.Context, slug string) (uuid.UUID, bool)
 	snapshot   *entity.URLSnapshot
 	ancestors  func(ctx context.Context, parent uuid.UUID) []string
@@ -110,6 +113,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 	o := &stagedChangeset{header: h, ents: map[uuid.UUID]*stagedEntity{}, byPath: map[string]*stagedEntity{}, deleted: map[uuid.UUID]bool{},
 		keys: map[string]uuid.UUID{}, menus: map[uuid.UUID][]menu.ReplaceItem{}, menuLinks: map[uuid.UUID]map[int]string{}, media: map[string]bool{}}
 	origin := changeset.Origin(h.Plugin)
+	src = prefetchMapped(ctx, src, origin, items)
 	keys := o.keys // source key -> id, for parent_key and menu links
 	for _, it := range items {
 		if it.Kind != changeset.KindEntity {
@@ -346,4 +350,73 @@ func resolveStagedOrLive(ctx context.Context, repo resolveRepo, snap *entity.URL
 		return nil, nil
 	}
 	return res, err
+}
+
+// prefetchMapped reads the source-key mappings every item can ask for (its own
+// key, a parent_key, a menu's entity keys and its own key) with one query per
+// kind instead of one per item, and answers src.mapped from them. A key it did
+// not collect still goes to the original lookup.
+func prefetchMapped(ctx context.Context, src stagedSource, origin string, items []changeset.StoredItem) stagedSource {
+	if src.mappedMany == nil || src.mapped == nil {
+		return src
+	}
+	want := map[changeset.Kind]map[string]struct{}{}
+	add := func(k changeset.Kind, key string) {
+		if key == "" {
+			return
+		}
+		if want[k] == nil {
+			want[k] = map[string]struct{}{}
+		}
+		want[k][key] = struct{}{}
+	}
+	for _, it := range items {
+		switch it.Kind {
+		case changeset.KindEntity:
+			if it.TargetID == "" {
+				add(changeset.KindEntity, it.SourceKey)
+			}
+			var p struct {
+				ParentKey string `json:"parent_key"`
+			}
+			if json.Unmarshal(it.Payload, &p) == nil {
+				add(changeset.KindEntity, p.ParentKey)
+			}
+		case changeset.KindMenu:
+			if it.TargetID == "" {
+				add(changeset.KindMenu, it.SourceKey)
+			}
+			var p struct {
+				EntityKeys map[int]string `json:"entity_keys"`
+			}
+			if json.Unmarshal(it.Payload, &p) == nil {
+				for _, k := range p.EntityKeys {
+					add(changeset.KindEntity, k)
+				}
+			}
+		}
+	}
+	got := map[changeset.Kind]map[string]uuid.UUID{}
+	for kind, set := range want {
+		keys := make([]string, 0, len(set))
+		for k := range set {
+			keys = append(keys, k)
+		}
+		m, err := src.mappedMany(ctx, origin, kind, keys)
+		if err != nil {
+			continue // fall back to the single lookups, which report the error
+		}
+		got[kind] = m
+	}
+	single := src.mapped
+	src.mapped = func(ctx context.Context, o string, kind changeset.Kind, key string) (uuid.UUID, bool, error) {
+		if m, ok := got[kind]; ok && o == origin {
+			if _, asked := want[kind][key]; asked {
+				id, found := m[key]
+				return id, found, nil
+			}
+		}
+		return single(ctx, o, kind, key)
+	}
+	return src
 }

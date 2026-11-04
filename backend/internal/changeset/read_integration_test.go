@@ -32,3 +32,22 @@ func TestGetReadsChangesetAndItems(t *testing.T) {
 		t.Fatalf("unknown id: %v", err)
 	}
 }
+
+func TestItemPageAndPreviewSeqsReadNoPayload(t *testing.T) {
+	f := newFixture(t)
+	cs := f.begin("reader")
+	for _, k := range []string{"a", "b", "c"} {
+		f.stage(cs, f.entityItem(f.tag+"-"+k, f.tag+"-"+k, "name-"+k))
+	}
+	page, err := f.eng.ItemPage(f.ctx, cs, 2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page) != 2 || page[0].Seq >= page[1].Seq || page[0].SourceKey != f.tag+"-b" || page[0].Kind != KindEntity || page[0].Label == "" {
+		t.Fatalf("page = %+v, want items 2 and 3 with their labels", page)
+	}
+	seqs, err := f.eng.PreviewSeqs(f.ctx, cs)
+	if err != nil || len(seqs) != 3 || seqs[0] >= seqs[1] {
+		t.Fatalf("PreviewSeqs = %v %v", seqs, err)
+	}
+}

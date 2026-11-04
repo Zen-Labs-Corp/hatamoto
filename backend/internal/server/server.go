@@ -149,6 +149,7 @@ type Server struct {
 	// webhooks queues and manages outgoing webhooks; webhookDeliverer sends them.
 	webhooks         *webhook.Service
 	changesets       *changeset.Engine
+	stagedSets       stagedCache
 	webhookDeliverer *webhook.Deliverer
 	// webhookDeliveryOn is true when a scheduled job will send queued webhooks.
 	webhookDeliveryOn bool

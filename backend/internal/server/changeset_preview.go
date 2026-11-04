@@ -8,6 +8,7 @@ import (
 	"html"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ func (s *Server) PreviewChangeset(ctx context.Context, id int64, seq int) ([]byt
 	if s.changesets == nil || s.renderEngine == nil {
 		return nil, errors.New("changeset preview is not available")
 	}
-	h, items, err := s.changesets.Get(ctx, id)
+	h, err := s.changesets.Header(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,16 @@ func (s *Server) PreviewChangeset(ctx context.Context, id int64, seq int) ([]byt
 	if !h.ExpiresAt.IsZero() && !h.ExpiresAt.After(time.Now()) {
 		return nil, changeset.ErrExpired
 	}
-	o := newStagedChangeset(ctx, h, items, s.stagedSource(ctx))
+	o, err := s.stagedSets.get(h, func() (*stagedChangeset, error) {
+		_, items, err := s.changesets.Get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return newStagedChangeset(ctx, h, items, s.stagedSource(ctx)), nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	if r := o.redirectBySeq(seq); r != nil {
 		return redirectNotice(r.Source, r.Target, r.Status), nil
 	}
@@ -108,6 +118,25 @@ func (s *Server) stagedSource(ctx context.Context) stagedSource {
 			}
 			id, err := uuid.Parse(target)
 			return id, err == nil, err
+		},
+		mappedMany: func(ctx context.Context, origin string, kind changeset.Kind, keys []string) (map[string]uuid.UUID, error) {
+			rows, err := s.db.Pool().Query(ctx, `SELECT source_key, target_id FROM hatamoto_changeset_source_keys WHERE origin = $1 AND kind = $2 AND source_key = ANY($3)`,
+				origin, string(kind), keys)
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			out := make(map[string]uuid.UUID, len(keys))
+			for rows.Next() {
+				var key, target string
+				if err := rows.Scan(&key, &target); err != nil {
+					return nil, err
+				}
+				if id, err := uuid.Parse(target); err == nil {
+					out[key] = id
+				}
+			}
+			return out, rows.Err()
 		},
 		ancestors: func(ctx context.Context, parent uuid.UUID) []string {
 			path, err := repo.GetEntityPath(ctx, parent)
@@ -210,4 +239,54 @@ func markNode(c *render.PageChanges, id, kind string) *render.PageChanges {
 // render. No script, no external reference.
 func previewNotice(msg string) []byte {
 	return []byte(fmt.Sprintf(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Preview</title></head><body style="font:16px/1.5 system-ui,sans-serif;margin:3rem;color:#333"><p>%s</p></body></html>`, html.EscapeString(msg)))
+}
+
+const (
+	stagedCacheTTL     = 30 * time.Second
+	stagedCacheEntries = 4
+)
+
+// stagedCache keeps the few most recently built staged sets, so stepping
+// through a changeset's items does not rebuild it (and re-read every payload)
+// on each frame load. An entry is only used for the same changeset version
+// (run, item count, expiry) and for a short time, since live rows can change.
+// A staged set is read-only once built, so it is shared.
+type stagedCache struct {
+	mu      sync.Mutex
+	entries []stagedCacheEntry
+}
+
+type stagedCacheEntry struct {
+	h   changeset.Header
+	at  time.Time
+	set *stagedChangeset
+}
+
+func (c *stagedCache) get(h changeset.Header, build func() (*stagedChangeset, error)) (*stagedChangeset, error) {
+	now := time.Now()
+	c.mu.Lock()
+	for _, e := range c.entries {
+		if e.h.ID == h.ID && e.h.RunID == h.RunID && e.h.ItemCount == h.ItemCount && e.h.ExpiresAt.Equal(h.ExpiresAt) && now.Sub(e.at) < stagedCacheTTL {
+			c.mu.Unlock()
+			return e.set, nil
+		}
+	}
+	c.mu.Unlock()
+	set, err := build()
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	kept := c.entries[:0:0]
+	for _, e := range c.entries {
+		if e.h.ID != h.ID && now.Sub(e.at) < stagedCacheTTL {
+			kept = append(kept, e)
+		}
+	}
+	if len(kept) >= stagedCacheEntries {
+		kept = kept[len(kept)-stagedCacheEntries+1:]
+	}
+	c.entries = append(kept, stagedCacheEntry{h: h, at: now, set: set})
+	return set, nil
 }
