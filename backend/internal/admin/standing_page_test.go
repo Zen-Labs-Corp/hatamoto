@@ -251,7 +251,14 @@ func TestStandingTabPausedState(t *testing.T) {
 	fs := &fakeStanding{rule: standingRule, paused: &StandingPaused{At: stamp, Reason: "plugin updated"},
 		digest: []StandingDigestRow{{Plugin: "shop-sync", Changes: 300}, {Plugin: "shop-sync", Changes: 11}, {Plugin: "event-feed", Changes: 12}}}
 	g := newStandingRig(t, fs)
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "waiting for your review") {
+		t.Error("no run is waiting, so the paused notice says nothing about runs")
+	}
+	fs.waiting = []StandingWaiting{{RunID: uuid.New(), Run: "prices", ChangesetID: 44, Items: 15, At: stamp}}
 	body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `1 run waiting for your review.</a>`) || !strings.Contains(body, `href="/admin/plugins/shop-sync/changesets/44">1 run`) {
+		t.Errorf("a paused tab names the run that waits:\n%s", body)
+	}
 	for _, want := range []string{
 		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="` + standingPath + `?review=1"`,
 		"Keep paused", `href="/admin/plugins/shop-sync/settings"`,

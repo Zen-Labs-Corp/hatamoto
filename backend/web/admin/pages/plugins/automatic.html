@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{template "hm/pluginhead" .}}
-{{with .Data}}{{with .Paused}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "paused" "Title" .Title)}}{{.Body}}{{template "hm/callout-end"}}
+{{with .Data}}{{with .Paused}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "paused" "Title" .Title)}}{{.Body}}{{with .Waiting}} <a href="{{$.Data.Paused.WaitingHref}}">{{.}}</a>{{end}}{{template "hm/callout-end"}}
 <div class="hm-row">{{template "hm/button" dict "Label" "Review and allow again" "Variant" "primary" "Href" .Allow}}{{template "hm/button" dict "Label" "Keep paused" "Href" .Keep}}</div>{{end}}
 {{if .ShowRule}}{{template "hm/card-start" dict "ID" "opt1" "Title" "Option 1: no approval needed" "Heading" "h2"}}<p>The plugin keeps the value in its own notes and your page shows it.</p>
 <pre class="hm-code" tabindex="0">{{.Sample}}</pre>

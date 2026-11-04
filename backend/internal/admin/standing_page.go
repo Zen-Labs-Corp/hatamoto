@@ -62,6 +62,8 @@ type standingData struct {
 // pausedNotice is the callout shown after an approval ended.
 type pausedNotice struct {
 	Title, Body, Allow, Keep string
+	// Waiting says how many runs are held for review, with a link to them.
+	Waiting, WaitingHref string
 }
 
 // pausedTitle says what ended the approval, in words for the owner.
@@ -142,6 +144,13 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 			body = "You turned them off. Until you allow them again, its automatic runs do not start."
 		}
 		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: d.Action + "?review=1", Keep: d.Cancel}
+		if len(waiting) > 0 {
+			d.Paused.Waiting = countNoun(len(waiting), "run") + " waiting for your review."
+			d.Paused.WaitingHref = a.pluginURL(p.Name, "runs")
+			if len(waiting) == 1 {
+				d.Paused.WaitingHref = a.changesetURL(p.Name, waiting[0].ChangesetID, "")
+			}
+		}
 	}
 	d.ShowRule = d.Paused == nil || r.URL.Query().Get("review") != ""
 	if d.ShowRule {
