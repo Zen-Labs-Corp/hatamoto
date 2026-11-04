@@ -40,6 +40,7 @@ type SessionStore interface {
 	Validate(ctx context.Context, token string) (*session.Session, error)
 	Revoke(ctx context.Context, id uuid.UUID) error
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
+	RevokeOthersForUser(ctx context.Context, userID, keep uuid.UUID) error
 }
 
 // UserReader loads the signed-in user.

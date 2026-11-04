@@ -53,6 +53,16 @@ func (f *fakeSessions) Revoke(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 func (f *fakeSessions) RevokeAllForUser(context.Context, uuid.UUID) error { return nil }
+func (f *fakeSessions) RevokeOthersForUser(_ context.Context, uid, keep uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for tok, s := range f.byToken {
+		if s.UserID != nil && *s.UserID == uid && s.ID != keep {
+			delete(f.byToken, tok)
+		}
+	}
+	return nil
+}
 
 type fakeUsers map[uuid.UUID]*user.User
 

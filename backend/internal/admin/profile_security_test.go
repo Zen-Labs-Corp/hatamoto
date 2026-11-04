@@ -265,3 +265,23 @@ func TestSecurityFirstPasskeyGetsRecoveryCodes(t *testing.T) {
 		t.Fatalf("existing codes were replaced: %s left=%d", rec.Body, g2.tf.left)
 	}
 }
+
+func TestSecurityChangesSignOutOtherSessions(t *testing.T) {
+	t.Parallel()
+
+	for _, p := range []string{"/admin/profile/security/totp/remove", "/admin/profile/security/codes"} {
+		g := newTwoFactorSecRig(t)
+		g.tf.totpOn = true
+		g.grant()
+		if rec := g.do("POST", p, "owner-token", url.Values{}, nil); rec.Code != 303 {
+			t.Fatalf("%s: %d", p, rec.Code)
+		}
+		g.sessions.mu.Lock()
+		_, other := g.sessions.byToken["idle-token"]
+		_, own := g.sessions.byToken["owner-token"]
+		g.sessions.mu.Unlock()
+		if other || !own {
+			t.Errorf("%s: other session alive=%v, own session alive=%v", p, other, own)
+		}
+	}
+}

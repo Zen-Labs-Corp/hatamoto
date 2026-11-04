@@ -281,7 +281,21 @@ func (a *Admin) handleCodesRegenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.audit(r, "user.recovery_codes.regenerate", userFrom(r.Context()).Email, nil)
+	a.signOutOthers(r, uid)
 	a.showCodes(w, r, codes)
+}
+
+// signOutOthers ends the user's other sessions after a second factor was
+// removed or the recovery codes were replaced: whoever held them loses access.
+// Best effort; a failure is logged and the change stands.
+func (a *Admin) signOutOthers(r *http.Request, uid uuid.UUID) {
+	s := sessionFrom(r.Context())
+	if s == nil || a.deps.Sessions == nil {
+		return
+	}
+	if err := a.deps.Sessions.RevokeOthersForUser(r.Context(), uid, s.ID); err != nil {
+		a.logger().Error("sign out other sessions failed", "err", err)
+	}
 }
 
 // removalAllowed refuses a removal that would leave a user without any factor
@@ -317,6 +331,7 @@ func (a *Admin) handleTOTPRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.audit(r, "user.totp.disable", userFrom(r.Context()).Email, nil)
+	a.signOutOthers(r, uid)
 	a.SetFlash(w, r, "success", "Authenticator app removed.")
 	http.Redirect(w, r, a.securityURL(), http.StatusSeeOther)
 }
@@ -350,6 +365,7 @@ func (a *Admin) handlePasskeyRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	if removed {
 		a.audit(r, "user.passkey.remove", userFrom(r.Context()).Email, nil)
+		a.signOutOthers(r, uid)
 		a.SetFlash(w, r, "success", "Passkey removed.")
 	}
 	http.Redirect(w, r, a.securityURL(), http.StatusSeeOther)

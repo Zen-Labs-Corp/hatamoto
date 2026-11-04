@@ -240,6 +240,18 @@ func (s *Store) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {
 	return err
 }
 
+// RevokeOthersForUser deletes every admin and API session of a user except
+// keep. Used when a second factor changes: the session that did it stays.
+func (s *Store) RevokeOthersForUser(ctx context.Context, userID, keep uuid.UUID) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+	_, err = conn.Exec(ctx, `DELETE FROM hatamoto_sessions WHERE user_id = $1 AND kind IN ('admin','api') AND id <> $2`, userID, keep)
+	return err
+}
+
 // PurgeExpired removes all sessions whose expires_at is in the past.
 // Run periodically (e.g. via the scheduler) to keep the table bounded.
 func (s *Store) PurgeExpired(ctx context.Context) (int64, error) {
