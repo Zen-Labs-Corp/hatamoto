@@ -482,6 +482,11 @@ func TestEngineRenderAccess(t *testing.T) {
 		v := minimalView()
 		v.Page.Title = ""
 		v.Access = &c.a
+		v.Site.Nav = []NavItem{{Label: "Secret Pricing", Href: "/secret-pricing"}}
+		v.Site.FooterNav = []NavItem{{Label: "Secret Investors", Href: "/secret-investors"}}
+		v.Site.SocialLinks = []Link{{Label: "Secret Social", URL: "https://social.example/secret"}}
+		v.Site.HeaderCTA = &Link{Label: "Secret Buy", URL: "/secret-buy"}
+		v.Site.Feeds = []FeedLink{{Title: "Secret Feed", Href: "/secret-feed.xml"}}
 		var b bytes.Buffer
 		if err := e.RenderAccess(&b, v, c.status); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
@@ -492,7 +497,7 @@ func TestEngineRenderAccess(t *testing.T) {
 				t.Errorf("%s: missing %q in:\n%s", c.name, w, o)
 			}
 		}
-		for _, d := range append(c.deny, "hm.js", "<script src", "<script>", " style=") {
+		for _, d := range append(c.deny, "Secret", "secret-", "hm.js", "<script src", "<script>", " style=") {
 			if strings.Contains(o, d) {
 				t.Errorf("%s: unexpected %q in:\n%s", c.name, d, o)
 			}

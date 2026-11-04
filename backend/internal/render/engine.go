@@ -787,6 +787,11 @@ func (e *Engine) RenderAccess(w io.Writer, v *PageView, status int) error {
 	nv.Sections, nv.Doc = nil, nil
 	nv.Kind = KindPage
 	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
+	// The notice stands in for a site the visitor may not see: no menus, header
+	// button, social links, feeds or theme parts that could list its content.
+	nv.NoParts = true
+	nv.Site.Nav, nv.Site.FooterNav, nv.Site.SocialLinks = nil, nil, nil
+	nv.Site.HeaderCTA, nv.Site.Feeds = nil, nil
 	if nv.Access == nil {
 		nv.Access = &AccessView{}
 	}
