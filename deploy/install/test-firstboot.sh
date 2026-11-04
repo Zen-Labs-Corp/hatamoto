@@ -169,34 +169,36 @@ for bad in "K7M2-RT9P" "AAAA-AAAA-AAAA" "ABAB-ABAB-ABAB" "K7M2 RT9P QW4X" 'K7M2-
 done
 pass "override codes: accepted and rejected"
 
+# grep -q exits on its first match, so a producer still writing gets EPIPE and
+# pipefail fails the pipeline. grepq reads all its input and only reports status.
+grepq() { grep "$@" >/dev/null; }
+
 env_out="$(pure fb_render_env pw123 sec456 K7M2-RT9P-QW4X https://x.example.com)"
 for want in 'DATABASE_URL=postgres://hatamoto:pw123@127.0.0.1:5432/hatamoto?sslmode=disable' ENVIRONMENT=production \
   PUBLIC_BASE_URL=https://x.example.com API_HOST=127.0.0.1 MEDIA_UPLOAD_DIR=/opt/hatamoto/uploads \
   HATAMOTO_CONFIG_FILE=/opt/hatamoto/config/hatamoto.env HATAMOTO_SETUP_CODE=K7M2-RT9P-QW4X HATAMOTO_SECRET=sec456; do
-  printf '%s\n' "$env_out" | grep -qxF "$want" || fail "env lacks $want"
+  printf '%s\n' "$env_out" | grepq -xF "$want" || fail "env lacks $want"
 done
-if printf '%s\n' "$env_out" | grep -q 'HATAMOTO_UPDATES'; then fail "env sets HATAMOTO_UPDATES"; fi
+if printf '%s\n' "$env_out" | grepq 'HATAMOTO_UPDATES'; then fail "env sets HATAMOTO_UPDATES"; fi
 pass "env content"
 
-# Render fully before printing: a `| grep -q` reader that exits on its first
-# match must not SIGPIPE a producer that is still writing (pipefail -> 141).
 cf() { local out; out="$(pure fb_render_caddyfile "$@")"; printf '%s\n' "$out"; }
-cf h.example auto "" | grep -qx 'h.example {' || fail "auto caddyfile"
-if cf h.example auto "" | grep -Eq 'tls internal|email'; then fail "auto caddyfile has extras"; fi
-cf h.example auto ops@example.com | grep -qxP '\temail ops@example.com' || fail "email missing"
-cf h.example internal "" | grep -qxP '\ttls internal' || fail "tls internal missing"
-cf h.example off ops@example.com | grep -qx 'http://h.example {' || fail "off caddyfile"
-if cf h.example off ops@example.com | grep -q email; then fail "off caddyfile carries an email"; fi
-cf h.example auto "" | grep -qxP '\treverse_proxy 127.0.0.1:8090' || fail "reverse_proxy missing"
+cf h.example auto "" | grepq -x 'h.example {' || fail "auto caddyfile"
+if cf h.example auto "" | grepq -E 'tls internal|email'; then fail "auto caddyfile has extras"; fi
+cf h.example auto ops@example.com | grepq -xP '\temail ops@example.com' || fail "email missing"
+cf h.example internal "" | grepq -xP '\ttls internal' || fail "tls internal missing"
+cf h.example off ops@example.com | grepq -x 'http://h.example {' || fail "off caddyfile"
+if cf h.example off ops@example.com | grepq email; then fail "off caddyfile carries an email"; fi
+cf h.example auto "" | grepq -xP '\treverse_proxy 127.0.0.1:8090' || fail "reverse_proxy missing"
 pass "Caddyfile for each TLS mode, with and without email"
 
-cf h.example auto "" old.example | grep -qx 'old.example {' || fail "redirect site missing"
-cf h.example auto "" old.example | grep -qxP '\tredir https://h.example\{uri\} permanent' || fail "redirect target"
+cf h.example auto "" old.example | grepq -x 'old.example {' || fail "redirect site missing"
+cf h.example auto "" old.example | grepq -xP '\tredir https://h.example\{uri\} permanent' || fail "redirect target"
 [ "$(cf h.example auto "" old.example | grep -c reverse_proxy)" = 1 ] || fail "old host proxied"
-cf h.example internal "" old.example | awk '/^old.example/{f=1} f' | grep -qxP '\ttls internal' || fail "redirect site lacks tls internal"
-cf h.example off "" old.example | grep -qx 'http://old.example {' || fail "off redirect site"
-cf h.example off "" old.example | grep -qxP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
-if cf h.example auto "" h.example | grep -q redir; then fail "same-host redirect"; fi
+cf h.example internal "" old.example | awk '/^old.example/{f=1} f' | grepq -xP '\ttls internal' || fail "redirect site lacks tls internal"
+cf h.example off "" old.example | grepq -x 'http://old.example {' || fail "off redirect site"
+cf h.example off "" old.example | grepq -xP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
+if cf h.example auto "" h.example | grepq redir; then fail "same-host redirect"; fi
 [ "$(cf h.example auto "")" = "$(cf h.example auto "" "")" ] || fail "3-arg output changed"
 pass "Caddyfile old-host redirect for each TLS mode"
 

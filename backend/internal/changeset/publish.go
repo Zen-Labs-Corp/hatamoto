@@ -16,11 +16,28 @@ import (
 // clean-up run only after the commit. A changeset past its expiry is closed
 // and refused, so installs without the sweeper never publish stale work.
 func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
+	res, _, err := e.publish(ctx, csID, publishAll)
+	return res, err
+}
+
+// publishMode says which items a publish applies.
+type publishMode int
+
+const (
+	// publishAll applies every item, whatever its risk or decision.
+	publishAll publishMode = iota
+	// publishReviewed honours the decisions: dropped items are skipped, and a
+	// high or critical item that is not approved refuses the publish.
+	publishReviewed
+)
+
+func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode) (Result, int, error) {
 	var (
-		res   Result
-		keys  []string
-		undos []func(context.Context)
-		stale bool
+		res     Result
+		keys    []string
+		undos   []func(context.Context)
+		stale   bool
+		dropped int
 	)
 	err := e.DB.WithTx(ctx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
@@ -38,9 +55,28 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 		if err != nil {
 			return err
 		}
+		var review map[int]reviewState
+		if mode == publishReviewed {
+			if err := e.ensureClassified(ctx, tx, csID, cs.Plugin); err != nil {
+				return err
+			}
+			if review, err = loadReviewStates(ctx, tx, csID); err != nil {
+				return err
+			}
+			if err := checkDecided(review); err != nil {
+				return err
+			}
+		}
 		var applied []appliedRef
 		for _, it := range items {
 			keys = append(keys, it.BlobKeys...)
+			if detail, drop := review[it.Seq].dropped(review); drop {
+				dropped++
+				if err := recordResult(ctx, tx, it.ID, ResultDropped, detail, it.TargetID, nil, ""); err != nil {
+					return err
+				}
+				continue
+			}
 			n := len(res.Items)
 			if err := e.publishItem(ctx, tx, cs.Plugin, it, &res, &undos); err != nil {
 				return fmt.Errorf("item %d (%s): %w", it.Seq, it.Kind, err)
@@ -66,13 +102,17 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 				e.logger().Warn("changeset: failed to expire", "changeset", csID, "error", cerr.Error())
 			}
 		}
-		return Result{}, err
+		return Result{}, 0, err
 	}
 	e.afterCommit(ctx, res.Items)
 	e.deleteBlobs(ctx, keys)
 	e.logger().Info("changeset published: " + res.summary())
-	e.audit(ctx, "changeset.publish", csID, map[string]any{"applied": res.Applied, "skipped": res.Skipped})
-	return res, nil
+	detail := map[string]any{"applied": res.Applied, "skipped": res.Skipped}
+	if mode == publishReviewed {
+		detail["dropped"] = dropped
+	}
+	e.audit(ctx, "changeset.publish", csID, detail)
+	return res, dropped, nil
 }
 
 func (e *Engine) publishItem(ctx context.Context, tx pgx.Tx, plugin string, it StoredItem, res *Result, undos *[]func(context.Context)) error {

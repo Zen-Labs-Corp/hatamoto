@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -142,13 +143,20 @@ type changesetPage struct {
 	Intro   string
 	Preview string // "" when the changeset can no longer be previewed
 	Table   ui.Table
+	// Review is set when a reviewer is wired: the review screen replaces the plain list.
+	Review *reviewPage
 }
 
-// handleChangeset is the plain changeset page: what it holds, and the way to
-// its preview. It stands in until the review screen replaces it.
+// handleChangeset is the changeset page. With a reviewer it is the review
+// screen; without one it is the plain list of what the changeset holds and the
+// way to its preview.
 func (a *Admin) handleChangeset(w http.ResponseWriter, r *http.Request) {
 	h, ok := a.loadChangeset(w, r)
 	if !ok {
+		return
+	}
+	if a.deps.Growth.Reviewer != nil {
+		a.renderReview(w, r, h)
 		return
 	}
 	page := min(pageParam(r), max(1, (h.ItemCount+changesetItemsPer-1)/changesetItemsPer))
@@ -405,4 +413,236 @@ func (a *Admin) serveChangesetFrame(w http.ResponseWriter, r *http.Request, id i
 	hd.Set("Referrer-Policy", "no-referrer")
 	hd.Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write(body)
+}
+
+// reviewReasons say, in the owner's words, why a staged item needs a decision.
+var reviewReasons = map[string]string{
+	string(changeset.ReasonLinkHost):    "Links to a site this one does not link to yet",
+	string(changeset.ReasonLinkQuery):   "A link keeps its address but changes its query",
+	string(changeset.ReasonEmbed):       "Embeds content from outside",
+	string(changeset.ReasonHiddenChar):  "Hides a character the reader cannot see",
+	string(changeset.ReasonRedirect):    "Sends visitors from one address to another",
+	string(changeset.ReasonSlug):        "Changes the address or the parent of a page",
+	string(changeset.ReasonDelete):      "Removes content from the site",
+	string(changeset.ReasonMenuLink):    "A menu links to a site this one does not link to yet",
+	string(changeset.ReasonUnparseable): "Its content could not be checked",
+}
+
+// reviewPage is the review screen of a staged changeset.
+type reviewPage struct {
+	ID         int64
+	Title      string
+	Badge      ui.Badge
+	ChipBadges []ui.Badge
+	Actions    []ui.Button
+	// Closed is the read-only summary of a changeset that is no longer open for
+	// review: published, discarded, undone or expired.
+	Closed         bool
+	ClosedNote     string
+	ChangesHref    string
+	Expiry         string
+	SkippedNote    string
+	Suggestions    []reviewSuggestion
+	SuggestionsURL string
+	Risky          []reviewRisk
+	Pager          ui.Pagination
+	Group          *reviewGroup
+	Decided        ui.Badge
+	Kinds          ui.Table
+	Skipped        ui.Table
+	DecideURL      string
+	PublishURL     string
+	DiscardURL     string
+	PublishLabel   string
+	CanPublish     bool
+	Note           string
+	Preview        string
+}
+
+type reviewSuggestion struct {
+	ID         int64
+	Title      string
+	Applicable bool
+	Decided    bool
+	Fields     []SuggestionField
+	Seg        ui.Segmented
+}
+
+type reviewRisk struct {
+	Label, Reason string
+	Old, New      string
+	Hidden        bool // the marker badge of a hidden character
+	Seg           ui.Segmented
+}
+
+type reviewGroup struct {
+	Label, Sub, Open string
+	Seg              ui.Segmented
+}
+
+// reviewPageNumber is the page of the risky list the request asks for.
+func reviewPageNumber(r *http.Request) int {
+	n, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	return max(n, 1)
+}
+
+// reviewSegmented is the Keep or Drop choice of one risky item; keep names the
+// first choice and drop the second.
+func reviewSegmented(label, name, decision, keep, drop string) ui.Segmented {
+	items := []ui.SegmentedItem{{Label: keep, Value: "approved", Pressed: decision == "approved"}, {Label: drop, Value: "dropped", Pressed: decision == "dropped"}}
+	return ui.Segmented{Mode: "radio", Label: label, Name: name, Items: items}
+}
+
+// renderReview shows the review screen, or the read-only summary once the
+// changeset is closed.
+func (a *Admin) renderReview(w http.ResponseWriter, r *http.Request, h changeset.Header) {
+	title := "Changeset #" + strconv.FormatInt(h.ID, 10)
+	back := a.adminPath + "/settings/changes"
+	page := &reviewPage{ID: h.ID, Title: title, Badge: stateBadge(h.State), ChangesHref: back}
+	v := a.NewView(w, r, title)
+	v.Width = "wide"
+	v.Crumbs = a.changesetCrumbs(h, Crumb{Label: title})
+	if !stagedNow(h) {
+		page.Closed = true
+		switch {
+		case h.State == changeset.StateStaged:
+			page.Badge = stateBadge(changeset.StateExpired)
+			page.ClosedNote = "Nobody decided in time, so these changes expired and were deleted. Nothing reached the site."
+		case h.State == changeset.StatePublished:
+			page.ClosedNote = "These changes are live. You can undo the whole run from Settings, Changes."
+		case h.State == changeset.StateReverted:
+			page.ClosedNote = "These changes were published and then undone."
+		default:
+			page.ClosedNote = "These changes were thrown away. Nothing reached the site."
+		}
+		v.Data = changesetPage{ID: h.ID, Badge: page.Badge, Review: page}
+		a.Render(w, r, http.StatusOK, "plugins/changeset", v)
+		return
+	}
+	rd, err := a.deps.Growth.Reviewer.Review(r.Context(), h.ID, reviewPageNumber(r))
+	switch {
+	case errors.Is(err, ErrReviewNotFound):
+		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", a.adminPath+"/plugins", "Back to plugins")
+		return
+	case errors.Is(err, ErrReviewRunning):
+		page.Closed, page.Badge = true, ui.Badge{Label: "Running", Kind: "info"}
+		page.ClosedNote = "The run has not finished. You can review these changes once it has. Nothing reached the site."
+		v.Data = changesetPage{ID: h.ID, Badge: page.Badge, Review: page}
+		a.Render(w, r, http.StatusOK, "plugins/changeset", v)
+		return
+	case errors.Is(err, ErrReviewNotStaged), errors.Is(err, ErrReviewExpired):
+		http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
+		return
+	case err != nil:
+		a.serverError(w, r, "The changeset could not be loaded", err)
+		return
+	}
+	a.fillReview(page, h, rd)
+	page.Title += ": " + rd.RunName
+	v.Title = page.Title
+	v.Data = changesetPage{ID: h.ID, Badge: page.Badge, Review: page}
+	a.Render(w, r, http.StatusOK, "plugins/changeset", v)
+}
+
+// fillReview turns the reviewer's data into the screen's rows.
+func (a *Admin) fillReview(p *reviewPage, h changeset.Header, rd ReviewData) {
+	p.Badge = ui.Badge{Label: "Waiting for you", Kind: "warning"}
+	p.DecideURL = a.changesetURL(h.Plugin, h.ID, "decide")
+	if rd.RiskyPage > 1 {
+		p.DecideURL += "?page=" + strconv.Itoa(rd.RiskyPage)
+	}
+	p.Pager = ui.Pagination{Page: max(rd.RiskyPage, 1), PerPage: rd.RiskyPerPage, Total: rd.RiskyTotal, BaseURL: a.changesetURL(h.Plugin, h.ID, "")}
+	p.PublishURL = a.changesetURL(h.Plugin, h.ID, "publish")
+	p.DiscardURL = a.changesetURL(h.Plugin, h.ID, "discard")
+	p.SuggestionsURL = a.changesetURL(h.Plugin, h.ID, "suggestions")
+	if rd.Previewable {
+		p.Preview = a.changesetURL(h.Plugin, h.ID, "preview")
+		p.Actions = []ui.Button{{Label: "Open preview", Href: p.Preview, Icon: "eye"}}
+	}
+	if !rd.ExpiresAt.IsZero() {
+		p.Expiry = fmt.Sprintf("Deleted in %d h if not decided", max(1, int((time.Until(rd.ExpiresAt)+time.Hour-1)/time.Hour)))
+	}
+	if n := len(rd.Skipped); n > 0 {
+		p.SkippedNote = fmt.Sprintf("%d skipped (you edited them)", n)
+	}
+	undecidedSuggestions := 0
+	for _, s := range rd.Suggestions {
+		row := reviewSuggestion{ID: s.ID, Title: s.Title, Applicable: s.Applicable, Decided: s.Decision != "", Fields: s.Fields}
+		name := "suggestion_" + strconv.FormatInt(s.ID, 10)
+		row.Seg = ui.Segmented{Mode: "radio", Label: "Decision for " + s.Title, Name: name, Items: []ui.SegmentedItem{
+			{Label: "Approve", Value: "approved", Pressed: s.Decision == "approved", Disabled: !s.Applicable || s.Decision != ""},
+			{Label: "Reject", Value: "rejected", Pressed: s.Decision == "rejected", Disabled: s.Decision != ""},
+		}}
+		if !s.Applicable {
+			row.Seg.Items = row.Seg.Items[1:]
+		}
+		if s.Decision == "" {
+			undecidedSuggestions++
+		}
+		p.Suggestions = append(p.Suggestions, row)
+	}
+	for _, it := range rd.Risky {
+		label := it.Label
+		drop := "Drop"
+		if it.Reason == string(changeset.ReasonHiddenChar) {
+			drop = "Remove it"
+		}
+		p.Risky = append(p.Risky, reviewRisk{
+			Label: label, Reason: reviewReasons[it.Reason], Old: it.Old, New: it.New, Hidden: it.Reason == string(changeset.ReasonHiddenChar),
+			Seg: reviewSegmented("Decision for "+label, "item_"+strconv.Itoa(it.Seq), it.Decision, "Keep", drop),
+		})
+	}
+	if g := rd.RedirectGroup; g != nil && g.Count > 0 && rd.RiskyPage <= 1 {
+		label := fmt.Sprintf("%s redirects", thousands(g.Count))
+		if g.Count == 1 {
+			label = "1 redirect"
+		}
+		p.Group = &reviewGroup{Label: label, Sub: "All to pages in this changeset", Seg: reviewSegmented("Decision for "+label, "group_redirects", g.Decision, "Keep", "Drop")}
+		if p.Preview != "" && len(g.Seqs) > 0 {
+			p.Group.Open = p.Preview + "?item=" + strconv.Itoa(g.Seqs[0])
+		}
+	}
+	total := rd.High + rd.Critical
+	p.Decided = ui.Badge{Label: fmt.Sprintf("%d of %d decided", rd.HighDecided, total), Kind: "warning"}
+	if rd.HighDecided >= total {
+		p.Decided.Kind = "success"
+	}
+	p.Kinds = ui.Table{
+		ID: "ordinary", Caption: "Ordinary changes",
+		Columns: []ui.Col{{Key: "what", Label: "What", Role: "title"}, {Key: "new", Label: "New", Role: "num"}, {Key: "updated", Label: "Updated", Role: "num"}, {Key: "removed", Label: "Removed", Role: "num"}},
+		Empty:   ui.Empty{Icon: "file-text", Title: "Nothing else.", Body: "Every change in this run needs a decision."},
+	}
+	for _, k := range rd.Kinds {
+		p.Kinds.Rows = append(p.Kinds.Rows, ui.Row{ID: k.Label, Label: k.Label, Cells: []ui.Cell{{Text: k.Label}, {Text: thousands(k.New)}, {Text: thousands(k.Updated)}, {Text: thousands(k.Removed)}}})
+	}
+	p.Skipped = ui.Table{
+		ID: "skipped", Caption: "Skipped changes",
+		Columns: []ui.Col{{Key: "page", Label: "Page", Role: "title"}, {Key: "why", Label: "Why"}},
+		Empty:   ui.Empty{Icon: "file-text", Title: "Nothing skipped."},
+	}
+	for i, s := range rd.Skipped {
+		p.Skipped.Rows = append(p.Skipped.Rows, ui.Row{ID: strconv.Itoa(i), Label: s.Label, Cells: []ui.Cell{{Text: s.Label}, {Text: s.Why}}})
+	}
+	p.CanPublish = rd.CanPublish
+	p.PublishLabel = "Publish " + thousands(rd.PublishCount) + " changes"
+	if rd.PublishCount == 1 {
+		p.PublishLabel = "Publish 1 change"
+	}
+	undecidedRisky := max(0, total-rd.HighDecided)
+	switch {
+	case rd.CanPublish:
+		p.Note = "Everything is decided. Publishing makes these changes live."
+		if rd.DroppedCount > 0 {
+			p.Note = fmt.Sprintf("Everything is decided. %d will be dropped.", rd.DroppedCount)
+		}
+	default:
+		p.Note = fmt.Sprintf("%s and %s still need a decision.", countNoun(undecidedRisky, "risky item"), countNoun(undecidedSuggestions, "suggestion"))
+	}
+	p.ChipBadges = []ui.Badge{{Label: thousands(rd.Items) + " changes", Plain: true}}
+	if n := len(rd.Suggestions); n > 0 {
+		p.ChipBadges = append(p.ChipBadges, ui.Badge{Label: countNoun(n, "suggestion"), Kind: "warning"})
+	}
+	if total > 0 {
+		p.ChipBadges = append(p.ChipBadges, ui.Badge{Label: fmt.Sprintf("%d risky", total), Kind: "danger"})
+	}
 }

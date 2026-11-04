@@ -111,6 +111,8 @@ again on the server); functions it was not granted answer `capability_denied`.
 The bridge is rate limited per user and plugin. Nothing else crosses: the page
 cannot read the user, the session, the CSRF token or other plugins.
 
+**Run inputs.** A plugin whose page lets the owner fill in a run's inputs calls `hatamoto.runInputs({name: value, ...})`. The admin page keeps the values in its own start form, outside the frame, and makes no request: only the inputs the run declares are kept (anything else is ignored), each value is cut at 4096 characters, and a value that is not an object is refused. The owner then starts the run with the admin's Start button. The hosts the run may reach are ticked by the owner in the admin, never chosen by the page.
+
 The bridge serves only the first document loaded in the frame, and every request
 carries a per-load nonce. If the page navigates the frame elsewhere, the host
 stops relaying and blanks the frame (its ticket is spent, so a reload inside the

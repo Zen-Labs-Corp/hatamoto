@@ -9,6 +9,7 @@ import (
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/plugrun"
 )
 
 // changesetSweepJob is the WORKER_DISABLE_JOBS name of the hourly changeset
@@ -33,6 +34,18 @@ func (s *Server) setupChangesets() {
 		},
 	}
 	s.scheduleChangesetSweep()
+}
+
+// changesetReviewer builds the admin's review service on the engine; nil until
+// the engine, the run store's database and the site settings exist.
+func (s *Server) changesetReviewer() *changesetReviewer {
+	if s.changesets == nil || s.db == nil || s.siteConfig == nil {
+		return nil
+	}
+	return &changesetReviewer{
+		eng: s.changesets, runs: &plugrun.Store{DB: s.db}, settings: s.siteConfig,
+		invalidate: s.invalidateSiteSettings, audit: s.changesetAudit,
+	}
 }
 
 // scheduleChangesetSweep schedules the sweep unless there is no scheduler

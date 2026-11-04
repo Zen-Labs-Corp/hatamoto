@@ -5,6 +5,8 @@
 /* In the list toolbar the track is one 32px control: its buttons take what the border and padding leave. */
 .hm-listbar .hm-segmented { align-self: auto; flex-wrap: nowrap; height: var(--control-h-sm); box-sizing: border-box; border-radius: var(--radius-md); }
 .hm-listbar .hm-segmented__btn { height: calc(var(--control-h-sm) - 2 * var(--space-px) - 2 * var(--space-0-5)); }
+/* In a table's decision cell the narrow column must not wrap the two options into a stack: the track stays one row. */
+.hm-table__actions .hm-segmented { flex-wrap: nowrap; }
 /* On a phone the five options do not fit: the track scrolls sideways inside the card instead of overflowing it. */
 @media (max-width: 640px) {
   .hm-listbar .hm-segmented { max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }

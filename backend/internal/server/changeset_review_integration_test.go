@@ -1,0 +1,457 @@
+//go:build integration
+
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/plugrun"
+	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/siteconfig"
+)
+
+// The review service against a real database: a staged changeset with a risky
+// redirect and two suggestions. Publish waits for every decision, an approved
+// site_settings suggestion is applied, an unsupported kind can only be
+// rejected, and Undo restores the setting and leaves an edited page alone.
+func TestChangesetReviewIntegration(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	tag := uuid.NewString()[:8]
+	schemas := entity.NewPostgresSchemaRepository(db)
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "rv " + tag, Slug: "rv-" + tag,
+		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entSvc := entity.NewService(schemas, entity.NewPostgresEntityRepository(db), logger)
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Review IT') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	store := siteconfig.NewStore(db, logger)
+	orig, err := store.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origTagline := orig.Tagline
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = store.Update(bg, siteconfig.UpdateInput{Tagline: &origTagline})
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+		_ = schemas.Delete(bg, sc.ID)
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`, tag)
+	})
+
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindEntity:   changeset.EntityWriter{Svc: entSvc},
+		changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, logger)},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, settings: store, audit: func(context.Context, string, string, map[string]any) {}}
+
+	plugin := "rv" + tag
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := func(key, slug string) changeset.Item {
+		p, _ := json.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": "x"}})
+		return changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: key, Payload: p}
+	}
+	redirect, _ := json.Marshal(map[string]any{"source_path": "/" + tag + "-old", "target": "/elsewhere"})
+	for _, it := range []changeset.Item{
+		item("a-"+tag, "rv-a-"+tag), item("b-"+tag, "rv-b-"+tag),
+		{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: "r-" + tag, Payload: redirect},
+	} {
+		if err := eng.Stage(ctx, cs, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	newTagline := "Reviewed " + tag
+	if err := runs.AddProposal(ctx, run.ID, "site_settings", json.RawMessage(`{"tagline":"`+newTagline+`"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := runs.AddProposal(ctx, run.ID, "url_patterns", json.RawMessage(`{"x":"/{slug}"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	// The run is still staging: nothing can be reviewed, decided or published.
+	if _, err := rev.Review(ctx, cs, 1); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("review of a running run: %v", err)
+	}
+	if err := rev.Decide(ctx, cs, []int{3}, "approved"); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("decide on a running run: %v", err)
+	}
+	if _, _, err := rev.Publish(ctx, cs); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("publish of a running run: %v", err)
+	}
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || !h[0].Building {
+		t.Fatalf("history of a running run = %+v, %v", h, err)
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	// The counts come from the items themselves, not the changeset's stored counter.
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_changesets SET item_count = 0 WHERE id = $1`, cs); err != nil {
+		t.Fatal(err)
+	}
+	d, err := rev.Review(ctx, cs, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.PublishCount != 3 || d.DroppedCount != 0 {
+		t.Fatalf("publish count = %d, dropped = %d, want 3 and 0", d.PublishCount, d.DroppedCount)
+	}
+	if d.RunName != "import" || d.Items != 3 || d.Pending != 1 || d.CanPublish || len(d.Risky) != 1 || len(d.Suggestions) != 2 {
+		t.Fatalf("review = %+v", d)
+	}
+	site, other := d.Suggestions[0], d.Suggestions[1]
+	if !site.Applicable || len(site.Fields) != 1 || site.Fields[0].Old != origTagline || site.Fields[0].New != newTagline || other.Applicable {
+		t.Fatalf("suggestions = %+v", d.Suggestions)
+	}
+
+	// Nothing is decided: publish is refused and writes nothing.
+	if _, _, err := rev.Publish(ctx, cs); !errors.Is(err, admin.ErrReviewUndecided) {
+		t.Fatalf("publish undecided: %v", err)
+	}
+	if err := rev.Decide(ctx, cs, []int{3}, "dropped"); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ = rev.Review(ctx, cs, 1); d.Items != 3 || d.PublishCount != 2 || d.DroppedCount != 1 {
+		t.Fatalf("after a drop: total %d, publish %d, dropped %d, want 3, 2, 1", d.Items, d.PublishCount, d.DroppedCount)
+	}
+	if err := rev.Decide(ctx, cs, []int{3}, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	// The items are decided, the suggestions are not.
+	if _, _, err := rev.Publish(ctx, cs); !errors.Is(err, admin.ErrReviewUndecided) {
+		t.Fatalf("publish with undecided suggestions: %v", err)
+	}
+	// An unsupported kind cannot be approved, only rejected.
+	if err := rev.DecideSuggestion(ctx, cs, other.ID, plugrun.ProposalApproved); !errors.Is(err, admin.ErrReviewNotApplicable) {
+		t.Fatalf("approve unsupported: %v", err)
+	}
+	if err := rev.DecideSuggestion(ctx, cs, other.ID, plugrun.ProposalRejected); err != nil {
+		t.Fatal(err)
+	}
+	if err := rev.DecideSuggestion(ctx, cs, site.ID, plugrun.ProposalApproved); err != nil {
+		t.Fatal(err)
+	}
+	// An approval only records the decision: the setting changes at publish.
+	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
+		t.Fatalf("tagline = %q after approval, want it untouched until publish", cfg.Tagline)
+	}
+	if d, _ = rev.Review(ctx, cs, 1); !d.CanPublish {
+		t.Fatalf("cannot publish: %+v", d)
+	}
+	applied, dropped, err := rev.Publish(ctx, cs)
+	if err != nil || applied != 3 || dropped != 0 {
+		t.Fatalf("publish = %d, %d, %v", applied, dropped, err)
+	}
+	if cfg, _ := store.Get(ctx); cfg.Tagline != newTagline {
+		t.Fatalf("tagline = %q after publish, want the approved one", cfg.Tagline)
+	}
+
+	// The history names who published it: the signed-in user of the audit row.
+	uid := uuid.New()
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_users (id, email, name) VALUES ($1, $2, 'Pat Publisher')`, uid, "pub-"+tag+"@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_admin_audit WHERE actor_id = $1`, uid)
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_users WHERE id = $1`, uid)
+	})
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target) VALUES ($1, 'x', 'changeset.publish', $2)`, uid, changesetTarget(cs)); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || h[0].By != "Pat Publisher" {
+		t.Fatalf("history by = %+v, %v", h, err)
+	}
+
+	// The owner edits one page, then undoes the changeset.
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET name = 'Owner edit' WHERE schema_id = $1 AND slug = $2`, sc.ID, "rv-b-"+tag); err != nil {
+		t.Fatal(err)
+	}
+	pre, err := rev.UndoPreview(ctx, cs)
+	if err != nil || pre.Applied != 3 || pre.EditedSince != 1 || pre.Settings != 1 {
+		t.Fatalf("preview = %+v, %v", pre, err)
+	}
+	restored, kept, err := rev.Undo(ctx, cs)
+	if err != nil || restored != 2 || kept != 1 {
+		t.Fatalf("undo = %d, %d, %v", restored, kept, err)
+	}
+	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
+		t.Errorf("tagline = %q after undo, want %q", cfg.Tagline, origTagline)
+	}
+	var n int
+	db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1 AND name = 'Owner edit'`, sc.ID).Scan(&n)
+	if n != 1 {
+		t.Errorf("the edited page was removed by the undo")
+	}
+	// A revert that left an edited page stays open, so the owner can retry.
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || h[0].State != changeset.StatePublished || h[0].Applied != 3 {
+		t.Errorf("history = %+v, %v", h, err)
+	}
+	if restored, kept, err := rev.Undo(ctx, cs); err != nil || restored != 0 || kept != 1 {
+		t.Errorf("second undo = %d, %d, %v", restored, kept, err)
+	}
+	if _, _, err := rev.Undo(ctx, cs+1000000); !errors.Is(err, admin.ErrReviewNotFound) {
+		t.Errorf("undo of an unknown changeset: %v", err)
+	}
+}
+
+// An approved suggestion changes nothing until publish, so discarding the
+// changeset afterwards leaves the site settings as they were.
+func TestChangesetReviewDiscardKeepsApprovedSettingsOut(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Review IT') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	store := siteconfig.NewStore(db, logger)
+	orig, err := store.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origTagline := orig.Tagline
+	t.Cleanup(func() { _, _ = store.Update(context.Background(), siteconfig.UpdateInput{Tagline: &origTagline}) })
+
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, settings: store, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "rd" + uuid.NewString()[:8]
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runs.AddProposal(ctx, run.ID, "site_settings", json.RawMessage(`{"tagline":"Discarded tagline"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	props, err := runs.Proposals(ctx, run.ID)
+	if err != nil || len(props) != 1 {
+		t.Fatalf("proposals = %+v, %v", props, err)
+	}
+	if err := rev.DecideSuggestion(ctx, cs, props[0].ID, plugrun.ProposalApproved); err != nil {
+		t.Fatal(err)
+	}
+	if err := rev.Discard(ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
+		t.Fatalf("tagline = %q after discard, want %q", cfg.Tagline, origTagline)
+	}
+}
+
+// More risky items than one review page holds: every page is reachable, so all
+// of them can be decided and the changeset can be published.
+func TestChangesetReviewPagesRiskyItems(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	tag := uuid.NewString()[:8]
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`, tag)
+	})
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, logger)},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "pg" + tag
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := reviewRiskyLimit + 50
+	for i := range total {
+		p, _ := json.Marshal(map[string]any{"source_path": fmt.Sprintf("/%s-%d", tag, i), "target": "/elsewhere"})
+		if err := eng.Stage(ctx, cs, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: fmt.Sprintf("r-%s-%d", tag, i), Payload: p}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	var seen []int
+	for page, want := range map[int]int{1: reviewRiskyLimit, 2: 50, 3: 0} {
+		d, err := rev.Review(ctx, cs, page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Risky) != want || d.RiskyTotal != total || d.RiskyPerPage != reviewRiskyLimit {
+			t.Fatalf("page %d: %d rows (want %d), total %d, per page %d", page, len(d.Risky), want, d.RiskyTotal, d.RiskyPerPage)
+		}
+		for _, it := range d.Risky {
+			seen = append(seen, it.Seq)
+		}
+	}
+	if len(slices.Compact(slices.Sorted(slices.Values(seen)))) != total {
+		t.Fatalf("pages overlap or miss rows: %d distinct of %d", len(slices.Compact(slices.Sorted(slices.Values(seen)))), total)
+	}
+	if err := rev.Decide(ctx, cs, seen, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := rev.Review(ctx, cs, 1); !d.CanPublish {
+		t.Fatalf("cannot publish once every page is decided: %+v", d)
+	}
+	if applied, _, err := rev.Publish(ctx, cs); err != nil || applied != total {
+		t.Fatalf("publish = %d, %v", applied, err)
+	}
+}
+
+// A redirect that is dropped along with its page counts as dropped, so the
+// numbers on the review page are what the publish applies.
+func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	tag := uuid.NewString()[:8]
+	schemas := entity.NewPostgresSchemaRepository(db)
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "rg " + tag, Slug: "rg-" + tag,
+		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entSvc := entity.NewService(schemas, entity.NewPostgresEntityRepository(db), logger)
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+		_ = schemas.Delete(bg, sc.ID)
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`, tag)
+	})
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindEntity:   changeset.EntityWriter{Svc: entSvc},
+		changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, logger)},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "rg" + tag
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := func(slug, content string) changeset.Item {
+		p, _ := json.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": content}})
+		return changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: slug, Payload: p}
+	}
+	redir := func(from, to string) changeset.Item {
+		p, _ := json.Marshal(map[string]any{"source_path": "/" + tag + from, "target": "/" + to})
+		return changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: tag + from, Payload: p}
+	}
+	embed, plain := "rg-embed-"+tag, "rg-plain-"+tag
+	// Seqs 1 and 2 are the pages, 3 and 4 the redirects to them.
+	for _, it := range []changeset.Item{
+		page(embed, `<iframe src="https://example.com/v"></iframe>`), page(plain, "x"),
+		redir("-old-embed", embed), redir("-old-plain", plain),
+	} {
+		if err := eng.Stage(ctx, cs, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rev.Review(ctx, cs, 1); err != nil {
+		t.Fatal(err)
+	}
+	// Keep both redirects, drop the page the first one points to.
+	if err := rev.Decide(ctx, cs, []int{3, 4}, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rev.Decide(ctx, cs, []int{1}, "dropped"); err != nil {
+		t.Fatal(err)
+	}
+	d, err := rev.Review(ctx, cs, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Items != 4 || d.DroppedCount != 2 || d.PublishCount != 2 {
+		t.Fatalf("review: items %d, dropped %d, publish %d, want 4, 2, 2", d.Items, d.DroppedCount, d.PublishCount)
+	}
+	applied, dropped, err := rev.Publish(ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != d.PublishCount || dropped != d.DroppedCount {
+		t.Fatalf("publish applied %d and dropped %d, but the review said %d and %d", applied, dropped, d.PublishCount, d.DroppedCount)
+	}
+}

@@ -69,6 +69,8 @@ GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm
 GET /admin/plugins/{name}/changesets/{id} -> admin.(*Admin).handleChangeset-fm
 GET /admin/plugins/{name}/changesets/{id}/preview -> admin.(*Admin).handleChangesetPreview-fm
 GET /admin/plugins/{name}/permissions -> admin.(*Admin).handlePluginPermissions-fm
+GET /admin/plugins/{name}/runs -> admin.(*Admin).handlePluginRuns-fm
+GET /admin/plugins/{name}/runs/{id} -> admin.(*Admin).handleRunProgress-fm
 GET /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettings-fm
 GET /admin/plugins/{name}/ui -> admin.(*Admin).handlePluginUIRedirect-fm
 GET /admin/plugins/{name}/uninstall -> admin.(*Admin).handlePluginUninstallForm-fm
@@ -84,6 +86,7 @@ GET /admin/settings/api-keys/{id}/{action} -> admin.(*Admin).handleAPIKeyConfirm
 GET /admin/settings/backups -> admin.(*Admin).handleBackups-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
+GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/email -> admin.(*Admin).handleEmail-fm
 GET /admin/settings/entity-models -> admin.(*Admin).mountSettingsFrame.func1
@@ -262,9 +265,14 @@ POST /admin/plugins/unsigned/off -> admin.(*Admin).handleStopUnsigned-fm
 POST /admin/plugins/update-all -> admin.(*Admin).handlePluginUpdateAll-fm
 POST /admin/plugins/upload -> admin.(*Admin).handlePackageUpload-fm
 POST /admin/plugins/{name}/bridge -> admin.(*Admin).handlePluginBridge-fm
+POST /admin/plugins/{name}/changesets/{id}/decide -> admin.(*Admin).handleReviewDecide-fm
+POST /admin/plugins/{name}/changesets/{id}/discard -> admin.(*Admin).handleReviewDiscard-fm
+POST /admin/plugins/{name}/changesets/{id}/publish -> admin.(*Admin).handleReviewPublish-fm
+POST /admin/plugins/{name}/changesets/{id}/suggestions -> admin.(*Admin).handleReviewSuggestions-fm
 POST /admin/plugins/{name}/disable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/enable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/grant -> admin.(*Admin).handlePluginGrant-fm
+POST /admin/plugins/{name}/runs/{id}/cancel -> admin.(*Admin).handleRunCancel-fm
 POST /admin/plugins/{name}/runs/{run}/start -> admin.(*Admin).handlePluginRunStart-fm
 POST /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettingsSave-fm
 POST /admin/plugins/{name}/uninstall -> admin.(*Admin).handlePluginUninstall-fm
@@ -279,6 +287,7 @@ POST /admin/settings/api-keys/{id}/regenerate -> admin.(*Admin).handleAPIKeyRege
 POST /admin/settings/api-keys/{id}/revoke -> admin.(*Admin).handleAPIKeyRevoke-fm
 POST /admin/settings/backups -> admin.(*Admin).handleBackupStart-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
+POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
 POST /admin/settings/email/reset -> admin.(*Admin).handleEmailReset-fm
 POST /admin/settings/email/test -> admin.(*Admin).handleEmailSettingsTest-fm

@@ -50,6 +50,11 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	}
 	g.Plugins = pluginAdmin{s: s}
 	g.PluginRuns = pluginRunStarter{s}
+	g.RunCancel = pluginRunCanceller{s}
+	g.RunLimits = pluginRunLimits{s}
+	if rv := s.changesetReviewer(); rv != nil {
+		g.Reviewer, g.RunReader = rv, rv
+	}
 	if s.changesets != nil {
 		g.Changesets = s.changesets
 		g.ChangesetPreview = s
@@ -352,8 +357,13 @@ type pluginAdmin struct {
 
 func (p pluginAdmin) Plugins() []admin.PluginInfo {
 	var out []admin.PluginInfo
+	runs := map[string][]sdk.Run{}
+	for _, st := range p.s.pluginStatuses() {
+		runs[st.Name] = st.Manifest.Runs
+	}
 	for _, v := range p.s.pluginViews() {
 		info := admin.PluginInfo{
+			Runs: runDecls(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, Loaded: v.Loaded,
 			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),

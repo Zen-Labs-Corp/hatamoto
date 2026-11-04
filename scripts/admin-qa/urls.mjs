@@ -92,6 +92,7 @@ export const screens = [
   { name: "settings-locale-business", path: "/admin/settings/locales/business", mock: "s1", roles: O },
   { name: "settings-performance", path: "/admin/settings/performance", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },
+  { name: "settings-changes", path: "/admin/settings/changes", mock: null, roles: O }, // empty without plugin runs; review-flow.mjs walks the populated page and Undo
   // Pinned by HATAMOTO_ADMIN_PATH in this harness, so the page shows the read-only text. The change and Keep screens
   // need an unpinned install: shots-address.mjs walks them (wizard, change, banner, keep) against a fresh database.
   { name: "settings-security-admin-address", path: "/admin/settings/security/admin-address", legacy: null, mock: null, roles: O },
@@ -175,9 +176,10 @@ export const screens = [
 //    WordPress scan, i.e. a WordPress export or site to upload;
 //  - plugin settings (/admin/plugins/{name}/settings) needs an installed plugin, and
 //    the seeded instance has none. The static lint (UI-01..06) still covers both templates;
-//  - the changeset pages (/admin/plugins/{name}/changesets/{id} and its /preview) need a plugin
-//    run that staged a changeset. Their markup is pinned by TestChangesetPageGoldens. The
-//    sealed frame's browser behaviour is not scripted yet: it is left to visual acceptance.
+//  - the plugin Runs tab, the run progress page and the changeset pages
+//    (/admin/plugins/{name}/runs, .../runs/{id}, .../changesets/{id} and its /preview) need a plugin
+//    with runs and a staged changeset. runs-screens.mjs and review-flow.mjs seed them on the
+//    frameplug fixture and click through; their markup is pinned by Go goldens.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.

@@ -342,7 +342,15 @@
     "selector": ".hm-table",
     "owner": "css/partials/table.css",
     "partial": "hm/table",
-    "props": {}
+    "props": {},
+    "variants": {
+      "wrap": ".hm-table--wrap"
+    },
+    "variantProps": {
+      "wrap": {
+        "white-space": "normal"
+      }
+    }
   },
   "status": {
     "selector": ".hm-status",
@@ -390,6 +398,16 @@
     "selector": ".hm-statcard .hm-statcard__value--sm",
     "owner": "css/partials/chart.css",
     "partial": "hm/stat",
+    "props": {}
+  },
+  "rooms": {
+    "selector": ".hm-rooms",
+    "owner": "css/pages/pluginruns.css",
+    "props": {}
+  },
+  "valuediff": {
+    "selector": ".hm-valuediff",
+    "owner": "css/partials/diff.css",
     "props": {}
   }
 }

@@ -281,6 +281,8 @@ func checkRunHosts(hosts []string) ([]string, error) {
 func (r *Runtime) drive(runID uuid.UUID) {
 	runs := r.caps.api.svc.Runs
 	bg := context.Background()
+	stepCtx, deregister := registerRunCancel(r.runCtx, runID)
+	defer deregister()
 	for {
 		var run plugrun.Run
 		if !r.try(runID, "read the run", func() (err error) { run, err = runs.Get(bg, runID); return }) {
@@ -316,7 +318,7 @@ func (r *Runtime) drive(runID uuid.UUID) {
 			rc.Proposes = m.Runs[i].Proposes
 		}
 		in, _ := json.Marshal(sdk.RunStep{RunID: runID.String(), Phase: run.Phase, Cursor: run.Cursor})
-		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(r.runCtx, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
+		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(stepCtx, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
 			reason := "step failed: " + err.Error()
 			if r.runCtx.Err() != nil {
 				reason = reasonShutdown

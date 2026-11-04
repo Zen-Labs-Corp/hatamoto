@@ -7,6 +7,7 @@
 //   iframe -> {hm:1, id, op:"ready"}                         -> {hm:1, type:"hello", plugin, functions, nonce}
 //   iframe -> {hm:1, id, nonce, op:"route", method, path, query, body}  (the plugin's own routes)
 //   iframe -> {hm:1, id, nonce, op:"host", fn, args}                    (a granted host function; owner only)
+//   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
 // frame can still navigate itself, and the next document has the same opaque
@@ -43,9 +44,26 @@ function init() {
     if (!dead && loads <= 1) frame.contentWindow?.postMessage({ hm: 1, ...msg }, "*");
   };
 
+  // The run inputs the page collected go into the hidden fields of core's own
+  // start form, only for the names the form declares, and never over the network:
+  // the owner starts the run with core's button, outside the frame.
+  const MAX_INPUT = 4096;
+  function setRunInputs(values) {
+    if (!values || typeof values !== "object" || Array.isArray(values)) throw new Error("values must be an object");
+    const form = document.querySelector("[data-hm-run-form]");
+    if (!form) throw new Error("no run form on this page");
+    for (const name of (form.dataset.hmRunInputNames || "").split(" ").filter(Boolean)) {
+      const field = form.querySelector(`input[name="input_${CSS.escape(name)}"]`);
+      if (field) field.value = String(values[name] ?? "").slice(0, MAX_INPUT);
+    }
+    return { ok: true };
+  }
+
   async function forward(m) {
     let body;
-    if (m.op === "route") {
+    if (m.op === "inputs") {
+      return setRunInputs(m.values);
+    } else if (m.op === "route") {
       if (typeof m.path !== "string" || !m.path.startsWith("/")) throw new Error("path must start with /");
       body = { op: "route", method: String(m.method || "GET").toUpperCase(), path: m.path, query: m.query || {}, body: typeof m.body === "string" ? m.body : m.body == null ? "" : JSON.stringify(m.body) };
     } else if (m.op === "host") {

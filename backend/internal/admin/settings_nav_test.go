@@ -233,7 +233,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	for g, want := range map[string]string{
 		"Site":    "general locales email users",
 		"Content": "media entity-models forms seo redirects linking",
-		"System":  "api webhooks performance updates backups import-export security",
+		"System":  "api webhooks performance updates backups changes import-export security",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)

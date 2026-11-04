@@ -263,7 +263,23 @@ type Proposal struct {
 	Kind      string
 	Payload   json.RawMessage
 	CreatedAt time.Time
+	// Decision is "" until the owner decides, then one of the Proposal*
+	// constants. Before is the pre-image stored when a proposal was approved
+	// (nil otherwise); DecidedAt is nil while undecided.
+	Decision  string
+	Before    json.RawMessage
+	DecidedAt *time.Time
 }
+
+// Proposal decisions.
+const (
+	ProposalApproved = "approved"
+	ProposalRejected = "rejected"
+	ProposalReverted = "reverted"
+)
+
+// ErrProposalDecided means the proposal already carries a decision.
+var ErrProposalDecided = errors.New("proposal already decided")
 
 // AddProposal stores a proposal of a running run; ErrQuota past MaxProposals.
 func (s *Store) AddProposal(ctx context.Context, id uuid.UUID, kind string, payload json.RawMessage) error {
@@ -292,7 +308,8 @@ func (s *Store) AddProposal(ctx context.Context, id uuid.UUID, kind string, payl
 // Proposals lists the proposals of a run in the order they were made.
 func (s *Store) Proposals(ctx context.Context, id uuid.UUID) ([]Proposal, error) {
 	rows, err := s.DB.Pool().Query(ctx,
-		`SELECT id, kind, payload, created_at FROM hatamoto_run_proposals WHERE run_id = $1 ORDER BY id`, id)
+		`SELECT id, kind, payload, created_at, COALESCE(decision, ''), before, decided_at
+		 FROM hatamoto_run_proposals WHERE run_id = $1 ORDER BY id`, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list proposals: %w", err)
 	}
@@ -300,12 +317,125 @@ func (s *Store) Proposals(ctx context.Context, id uuid.UUID) ([]Proposal, error)
 	var out []Proposal
 	for rows.Next() {
 		var p Proposal
-		var payload []byte
-		if err := rows.Scan(&p.ID, &p.Kind, &payload, &p.CreatedAt); err != nil {
+		var payload, before []byte
+		if err := rows.Scan(&p.ID, &p.Kind, &payload, &p.CreatedAt, &p.Decision, &before, &p.DecidedAt); err != nil {
 			return nil, err
 		}
 		p.Payload = payload
+		if before != nil {
+			p.Before = before
+		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SetProposalDecision records the owner's decision (ProposalApproved or
+// ProposalRejected) on a proposal of run runID. before is the pre-image kept
+// for Undo; it is stored for approvals only. A proposal that already has a
+// decision yields ErrProposalDecided, a missing one ErrNotFound.
+func (s *Store) SetProposalDecision(ctx context.Context, runID uuid.UUID, id int64, decision string, before json.RawMessage) error {
+	if decision != ProposalApproved && decision != ProposalRejected {
+		return fmt.Errorf("%w: decision", ErrInvalid)
+	}
+	var b []byte
+	if decision == ProposalApproved && len(before) > 0 {
+		if !json.Valid(before) {
+			return fmt.Errorf("%w: before", ErrInvalid)
+		}
+		b = before
+	}
+	tag, err := s.DB.Pool().Exec(ctx, `
+		UPDATE hatamoto_run_proposals SET decision = $3, before = $4, decided_at = $5
+		WHERE run_id = $1 AND id = $2 AND decision IS NULL`, runID, id, decision, b, s.now())
+	if err != nil {
+		return fmt.Errorf("failed to decide proposal: %w", err)
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	return s.proposalMissOrDecided(ctx, runID, id)
+}
+
+func (s *Store) proposalMissOrDecided(ctx context.Context, runID uuid.UUID, id int64) error {
+	var ok bool
+	if err := s.DB.Pool().QueryRow(ctx,
+		`SELECT true FROM hatamoto_run_proposals WHERE run_id = $1 AND id = $2`, runID, id).Scan(&ok); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("failed to read proposal: %w", err)
+	}
+	return ErrProposalDecided
+}
+
+// SetProposalBefore stores the pre-image of an approved proposal at the moment
+// its change is applied, for Undo. It yields ErrNotFound unless the proposal is
+// approved and has no pre-image yet.
+func (s *Store) SetProposalBefore(ctx context.Context, runID uuid.UUID, id int64, before json.RawMessage) error {
+	if !json.Valid(before) {
+		return fmt.Errorf("%w: before", ErrInvalid)
+	}
+	tag, err := s.DB.Pool().Exec(ctx, `
+		UPDATE hatamoto_run_proposals SET before = $3
+		WHERE run_id = $1 AND id = $2 AND decision = 'approved' AND before IS NULL`, runID, id, []byte(before))
+	if err != nil {
+		return fmt.Errorf("failed to store pre-image: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UndecidedProposals counts the proposals of a run without a decision.
+func (s *Store) UndecidedProposals(ctx context.Context, runID uuid.UUID) (int, error) {
+	var n int
+	if err := s.DB.Pool().QueryRow(ctx,
+		`SELECT count(*) FROM hatamoto_run_proposals WHERE run_id = $1 AND decision IS NULL`, runID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("failed to count undecided proposals: %w", err)
+	}
+	return n, nil
+}
+
+// ClearProposalDecision marks an approved proposal as reverted after Undo
+// restored its pre-image. The decision becomes ProposalReverted and Before is
+// kept. Anything but an approved proposal yields ErrNotFound.
+func (s *Store) ClearProposalDecision(ctx context.Context, runID uuid.UUID, id int64) error {
+	tag, err := s.DB.Pool().Exec(ctx, `
+		UPDATE hatamoto_run_proposals SET decision = 'reverted', decided_at = $3
+		WHERE run_id = $1 AND id = $2 AND decision = 'approved'`, runID, id, s.now())
+	if err != nil {
+		return fmt.Errorf("failed to revert proposal: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Recent lists runs newest first; plugin "" means all plugins. limit is
+// clamped to 1..200.
+func (s *Store) Recent(ctx context.Context, plugin string, limit int) ([]Run, error) {
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	rows, err := s.DB.Pool().Query(ctx,
+		`SELECT `+runColumns+` FROM hatamoto_runs WHERE $1 = '' OR plugin = $1 ORDER BY created_at DESC, id LIMIT $2`,
+		plugin, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list runs: %w", err)
+	}
+	defer rows.Close()
+	var out []Run
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
 	}
 	return out, rows.Err()
 }

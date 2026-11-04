@@ -479,7 +479,7 @@ func (p *packageAdmin) decoratePlugins(infos []admin.PluginInfo) []admin.PluginI
 		infos = append(infos, admin.PluginInfo{
 			Name: r.Name, Version: m.Version, SDK: m.SDK, Description: m.Description, Permissions: m.Permissions,
 			Granted: p.grantedOf(r.Name), AllowedHosts: m.AllowedHosts, Package: meta,
-			Refused: p.s.refusedPermissions(r.Name, m.Permissions),
+			Refused: p.s.refusedPermissions(r.Name, m.Permissions), Runs: runDecls(m.Runs),
 		})
 	}
 	return infos

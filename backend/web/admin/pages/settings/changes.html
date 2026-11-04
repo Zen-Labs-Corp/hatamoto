@@ -1,0 +1,10 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $}}
+<p class="hm-muted">What plugin runs staged and published. Undo removes a whole run's published changes.</p>
+{{template "hm/table" .Table}}
+{{range .Dialogs}}{{template "hm/dialog-start" dict "ID" .ID "Title" .Title "Danger" true}}
+<p>{{.Body}}</p>
+{{if .Callout}}{{template "hm/callout" (dict "Kind" "info" "Body" .Callout)}}{{end}}
+<form id="{{.FormID}}" method="post" action="{{.Action}}">{{template "hm/csrf" $}}</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Undo run" "PrimaryVariant" "danger" "PrimaryAttrs" (attrmap "form" .FormID)}}
+{{end}}{{end}}{{end}}

@@ -1,0 +1,20 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{template "hm/pluginhead" .}}
+{{with .Data}}{{with .UI}}{{template "hm/card-start" dict "ID" "plugin-page" "Title" .Title "Heading" "h2"}}<div class="hm-pluginframe-host" data-hm-pluginframe data-src="{{.Src}}" data-plugin="{{.Name}}" data-bridge="{{.Bridge}}" data-functions="{{.Functions}}">
+<template><iframe class="hm-pluginframe" sandbox="allow-scripts" title="{{.Title}}" referrerpolicy="no-referrer"></iframe></template>
+<div role="alert">{{template "hm/callout" (dict "Kind" "warning" "Title" "Plugin page disconnected" "Body" "This plugin page navigated away from itself, so it was disconnected from the admin and reset. Reload the page to use it again." "Attrs" (attrmap "data-hm-pluginframe-notice" "" "hidden" "hidden"))}}</div>
+</div>
+<noscript><p class="hm-muted">This page needs JavaScript.</p></noscript>{{template "hm/card-end"}}{{end}}
+{{with .Form}}<form id="run-form" method="post" action="{{.Action}}" class="hm-stack" data-hm-run-form data-hm-run-input-names="{{.InputNames}}">
+{{template "hm/csrf" $}}
+{{range .Run.Inputs}}<input type="hidden" name="input_{{.Name}}">
+{{end}}{{template "hm/card-start" dict "ID" "shown-by-core" "Title" "Shown by core" "Description" "Core, not the plugin page, decides what a run may reach." "Heading" "h2"}}
+{{if .Hosts}}<fieldset class="hm-field__group"><legend class="hm-field__label">Hosts this run may reach</legend>
+<ul class="hm-badgelist">{{range $i, $h := .Hosts}}<li>{{if .Fixed}}<input type="hidden" name="hosts" value="{{.Host}}">{{end}}{{template "hm/field" (dict "ID" (printf "run-host-%d" $i) "Control" "chip" "Name" "hosts" "Value" .Host "Label" .Host "Mono" true "Checked" .Fixed "Disabled" .Fixed)}}{{if .Unusual}} {{template "hm/badge" (dict "Label" "unusual" "Kind" "warning")}}{{end}}</li>
+{{end}}</ul></fieldset>
+{{else}}<p class="hm-muted">This run needs no outside host.</p>{{end}}
+{{template "hm/callout" (dict "Kind" "info" "Title" "Only for this import" "Body" "Hosts you tick here are open to this run only. Nothing stays allowed once it ends.")}}
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Cancel" "Href" .Cancel)}}{{template "hm/button" (dict "Label" .StartLabel "Variant" "primary" "Type" "submit")}}{{template "hm/card-foot-end"}}
+</form>{{end}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

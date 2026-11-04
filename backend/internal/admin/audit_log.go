@@ -41,6 +41,12 @@ var auditLabels = map[string]string{
 	"updates.apply":                "Started an update",
 	"updates.apply_without_backup": "Started an update without a backup",
 	"updates.unpin":                "Removed the version pin",
+	"changeset.publish":            "Published plugin changes",
+	"changeset.discard":            "Discarded plugin changes",
+	"changeset.revert":             "Undid plugin changes",
+	"changeset.suggestion.approve": "Approved a plugin suggestion",
+	"changeset.suggestion.reject":  "Rejected a plugin suggestion",
+	"plugin.run.cancel":            "Cancelled a plugin run",
 	"package.allow_unsigned":       "Changed the unsigned packages setting",
 }
 

@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/entity"
@@ -110,4 +113,107 @@ func (p pluginRunStarter) StartRun(ctx context.Context, plugin, run string, in a
 	}
 	p.s.changesetAudit(ctx, "plugin.run.start", "plugin:"+plugin, map[string]any{"run": run, "run_id": id.String()})
 	return id, nil
+}
+
+// Run reads one run for the run pages.
+func (r *changesetReviewer) Run(ctx context.Context, id uuid.UUID) (admin.RunView, error) {
+	run, err := r.runs.Get(ctx, id)
+	if errors.Is(err, plugrun.ErrNotFound) {
+		return admin.RunView{}, admin.ErrRunNotFound
+	}
+	if err != nil {
+		return admin.RunView{}, err
+	}
+	v := runView(run)
+	if run.ChangesetID != nil {
+		if err := r.eng.DB.Pool().QueryRow(ctx, `SELECT item_count, payload_bytes, expires_at, state FROM hatamoto_changesets WHERE id = $1`, *run.ChangesetID).
+			Scan(&v.StagedItems, &v.StagedBytes, &v.ExpiresAt, &v.ChangesetState); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return v, fmt.Errorf("failed to read staged size: %w", err)
+		}
+	}
+	return v, nil
+}
+
+// Recent lists runs newest first; plugin "" is every plugin.
+func (r *changesetReviewer) Recent(ctx context.Context, plugin string, limit int) ([]admin.RunView, error) {
+	runs, err := r.runs.Recent(ctx, plugin, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]admin.RunView, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, runView(run))
+	}
+	return out, nil
+}
+
+func runView(run plugrun.Run) admin.RunView {
+	v := admin.RunView{ID: run.ID, Plugin: run.Plugin, Name: run.Name, State: run.State, Phase: run.Phase, Reason: run.Reason,
+		Steps: run.Steps, Hosts: run.Hosts, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt}
+	var p struct {
+		Done, Total int
+		Message     string
+	}
+	if json.Unmarshal(run.Progress, &p) == nil {
+		v.Done, v.Total, v.Message = p.Done, p.Total, p.Message
+	}
+	if run.ChangesetID != nil {
+		v.ChangesetID = *run.ChangesetID
+	}
+	return v
+}
+
+// pluginRunCanceller is the admin's way to cancel a run; like the starter it
+// reads the runtime at call time.
+type pluginRunCanceller struct{ s *Server }
+
+// cancelErr maps the runtime's answer to the admin's. A run that already ended
+// is left as it is and reported as admin.ErrRunNotCancellable.
+func cancelErr(err error) error {
+	switch {
+	case errors.Is(err, plugrun.ErrNotFound):
+		return admin.ErrRunNotFound
+	case errors.Is(err, pluginhost.ErrRunsUnavailable):
+		return admin.ErrRunsUnavailable
+	case errors.Is(err, pluginhost.ErrRunNotCancellable):
+		return admin.ErrRunNotCancellable
+	}
+	return err
+}
+
+// CancelRun ends a running run.
+func (c pluginRunCanceller) CancelRun(ctx context.Context, plugin string, id uuid.UUID) error {
+	if c.s.plugins == nil {
+		return admin.ErrRunsUnavailable
+	}
+	if err := cancelErr(c.s.plugins.CancelRun(ctx, plugin, id)); err != nil {
+		return err
+	}
+	c.s.changesetAudit(ctx, "plugin.run.cancel", "plugin:"+plugin, map[string]any{"run_id": id.String()})
+	return nil
+}
+
+// pluginRunLimits is the admin's view of the runtime's step limits.
+type pluginRunLimits struct{ s *Server }
+
+// RunLimitsFor returns the step limits of a loaded plugin.
+func (l pluginRunLimits) RunLimitsFor(plugin string) (admin.RunStepLimits, bool) {
+	if l.s.plugins == nil {
+		return admin.RunStepLimits{}, false
+	}
+	lim, ok := l.s.plugins.RunLimitsFor(plugin)
+	return admin.RunStepLimits{StepTimeout: lim.StepTimeout, MemoryBytes: lim.MemoryBytes}, ok
+}
+
+// runDecls maps the runs a manifest declares for the Plugins page.
+func runDecls(runs []sdk.Run) []admin.RunDecl {
+	out := make([]admin.RunDecl, 0, len(runs))
+	for _, r := range runs {
+		d := admin.RunDecl{Name: r.Name, Title: r.Title}
+		for _, in := range r.Inputs {
+			d.Inputs = append(d.Inputs, admin.RunInputDecl{Name: in.Name, Label: in.Label, Type: in.Type, Required: in.Required, Options: in.Options})
+		}
+		out = append(out, d)
+	}
+	return out
 }

@@ -48,6 +48,10 @@
 .hm-table__viewsrow { display: flex; justify-content: flex-end; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
 /* Row buttons and the row menu opener (also .hm-btn) sit in one cell; the menu popover itself is out of flow. */
 .hm-table__actions .hm-btn + .hm-btn { margin-inline-start: var(--space-2); }
+/* Wrap variant: review rows hold sentences, so cells wrap; the actions column stays on one line. */
+.hm-table--wrap { white-space: normal; }
+.hm-table--wrap th, .hm-table--wrap td { white-space: normal; }
+.hm-table--wrap .hm-table__actions { white-space: nowrap; }
 .hm-table__sort { display: inline-flex; align-items: center; gap: var(--space-1); color: inherit; text-decoration: none; }
 .hm-table__sort .hm-icon { width: 12px; height: 12px; opacity: .6; }
 .hm-table__sort:hover { color: var(--color-sumi); }
@@ -79,7 +83,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards .hm-table__group th { flex: 1 1 100%; padding: var(--space-5) 0 var(--space-2); }
   .hm-table--cards th, .hm-table--cards td { display: block; padding: var(--space-0-5) 0; border-bottom: 0; white-space: normal; text-align: left; }
   .hm-table--cards .hm-col-title { width: auto; min-width: 0; }
-  .hm-table--cards td { order: 3; flex: none; color: var(--color-hai); }
+  .hm-table--cards td { order: 3; flex: 0 1 auto; min-width: 0; max-width: 100%; color: var(--color-hai); }
   .hm-table--cards td.hm-col-wide { display: none; }
   .hm-table--cards td:empty { display: none; }
   .hm-table--cards td[data-label]::before { content: attr(data-label) ": "; color: var(--text-muted); font-size: var(--text-xs); }
