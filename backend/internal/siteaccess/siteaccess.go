@@ -86,6 +86,8 @@ var bypassExact = map[string]bool{
 	"/api/v1/track": true,
 	// The MCP endpoint authenticates API keys itself.
 	"/mcp": true,
+	// Machine ingest of agent access logs, authenticated by its own secret.
+	"/api/v1/public/agent-logs": true,
 }
 
 const publicAPI = "/api/v1/public"
@@ -95,6 +97,9 @@ const publicAPI = "/api/v1/public"
 // /api/v1 only the authenticated JSON API passes; the anonymous public API
 // (/api/v1/public) serves published content and follows the mode.
 func Bypass(path string) bool {
+	if bypassExact[path] {
+		return true
+	}
 	if path == publicAPI || strings.HasPrefix(path, publicAPI+"/") {
 		return false
 	}

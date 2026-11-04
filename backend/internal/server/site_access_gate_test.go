@@ -301,6 +301,26 @@ func TestSiteAccessPublicAPIPrefixAndPass(t *testing.T) {
 	}
 }
 
+// The agent access-log ingest authenticates itself and must keep working in
+// every mode, at /api/v1/public and under the public API prefix.
+func TestSiteAccessLeavesAgentLogIngestOpen(t *testing.T) {
+	x := newGateFixture(t)
+	x.gate.apiPrefix = "/api/feed"
+	for _, mode := range []siteaccess.Mode{siteaccess.ModeComingSoon, siteaccess.ModePassword, siteaccess.ModeMaintenance} {
+		x.set.Mode = mode
+		before := x.reach
+		for _, p := range []string{"/api/v1/public/agent-logs", "/api/feed/agent-logs"} {
+			x.do("POST", p, "")
+		}
+		if x.reach != before+2 {
+			t.Errorf("%s: ingest reached %d of 2", mode, x.reach-before)
+		}
+		if w := x.do("GET", "/api/v1/public/llms.txt", ""); w.Code == 200 {
+			t.Errorf("%s: public API no longer gated", mode)
+		}
+	}
+}
+
 // A failed settings read must not open the gate: with a mode already read it
 // keeps that mode, with none yet it holds visitors back, and a site without a
 // config row is open.

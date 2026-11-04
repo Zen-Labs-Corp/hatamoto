@@ -119,7 +119,7 @@ func (g *siteAccessGate) wrap(next http.Handler) http.Handler {
 			return
 		}
 		path := r.URL.Path
-		if !g.publicAPI(path) && siteaccess.Bypass(path) {
+		if g.agentLogs(path) || (!g.publicAPI(path) && siteaccess.Bypass(path)) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -152,6 +152,12 @@ func (g *siteAccessGate) hasCookie(r *http.Request, set siteaccess.Settings) boo
 // PUBLIC_API_PREFIX mount): it serves published content, so it follows the mode.
 func (g *siteAccessGate) publicAPI(p string) bool {
 	return g.apiPrefix != "" && (p == g.apiPrefix || strings.HasPrefix(p, g.apiPrefix+"/"))
+}
+
+// agentLogs reports the access-log ingest route, which has its own secret and
+// stays open at /api/v1/public and under the public API prefix.
+func (g *siteAccessGate) agentLogs(p string) bool {
+	return p == "/api/v1/public/agent-logs" || (g.apiPrefix != "" && p == g.apiPrefix+"/agent-logs")
 }
 
 // machinePath reports the paths that get no themed notice: sitemaps, feeds,

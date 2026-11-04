@@ -39,7 +39,7 @@ func TestBypass(t *testing.T) {
 		"/api/other": false, "/api": false,
 		"/p/plugin/x": true, "/.well-known/security.txt": true,
 		"/media/a.png": true, "/theme/assets/a.css": true,
-		"/favicon.ico": true, "/auth/login": true, "/mcp": true, "/mcpx": false,
+		"/favicon.ico": true, "/auth/login": true, "/mcp": true, "/api/v1/public/agent-logs": true, "/api/v1/public/agent-logs/x": false, "/mcpx": false,
 		"/": false, "/about": false, "/sitemap.xml": false,
 		"/robots.txt": false, "/apiary": false, "/-/site-access": false,
 	} {
