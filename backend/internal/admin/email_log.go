@@ -115,7 +115,7 @@ func (a *Admin) handleEmailLog(w http.ResponseWriter, r *http.Request) {
 	base := a.adminPath + emailLogPath
 	t := ui.Table{
 		ID: "email-log", Caption: "Email log", BaseURL: base, CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "when", Label: "When"}, {Key: "to", Label: "To"}, {Key: "subject", Label: "Subject"}, {Key: "kind", Label: "Kind"}, {Key: "status", Label: "Status"}},
+		Columns: []ui.Col{{Key: "when", Label: "When"}, {Key: "to", Label: "To"}, {Key: "subject", Label: "Subject", Role: "title"}, {Key: "kind", Label: "Kind"}, {Key: "status", Label: "Status"}},
 		PrimaryFilters: []ui.Filter{{Name: "status", Label: "Status", Options: []ui.Option{
 			{Value: "", Label: "All statuses", Selected: status == ""},
 			{Value: email.StatusSent, Label: "Sent", Selected: status == email.StatusSent},
@@ -130,7 +130,7 @@ func (a *Admin) handleEmailLog(w http.ResponseWriter, r *http.Request) {
 		t.Rows = append(t.Rows, ui.Row{ID: strconv.FormatInt(e.ID, 10), Label: e.Subject + " to " + joinAddresses(e.Recipients), Cells: []ui.Cell{
 			{Text: fmtDateTime(e.CreatedAt.UTC()), Nowrap: true},
 			{Text: joinAddresses(e.Recipients), Clip: true},
-			{Text: e.Subject, Link: base + "/" + strconv.FormatInt(e.ID, 10), Clip: true},
+			{Text: e.Subject, Link: base + "/" + strconv.FormatInt(e.ID, 10)},
 			{Text: emailKindLabel(e.Kind, e.Plugin)},
 			{Badge: &badge},
 		}})
