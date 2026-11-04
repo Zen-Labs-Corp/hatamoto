@@ -426,6 +426,10 @@ func TestPromptRefusesPermissionsTheRegistryDidNotReview(t *testing.T) {
 	if strings.Contains(body, "Install plugin") {
 		t.Errorf("an unreviewed package must have no Install button")
 	}
+	// The refused permission is not listed as something it will be able to do.
+	if strings.Contains(body, "It will be able to") || strings.Contains(body, "Send email") || strings.Contains(body, `name="permission"`) {
+		t.Errorf("a refused package must not list its permissions as granted:\n%s", body)
+	}
 }
 
 func readFileT(t *testing.T, path string) []byte {
