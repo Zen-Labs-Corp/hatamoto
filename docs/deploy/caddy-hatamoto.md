@@ -11,7 +11,7 @@ Everything (pages, `<admin>`, `/api/*`, `/media/*`, `/health`, `robots.txt`, sit
 `llms.txt`, `/theme/assets/*`, site icons, `/sitemap.xsl`, `/forms/*`) goes to Go
 on :8090. The old Next sign-in URLs (`/auth/*`) are redirected to `<admin>/login`
 by Go itself. Caddy keeps only what a proxy should own: TLS, the security
-headers, `encode gzip` and the `www` to apex redirect. It also serves static files
+headers, `encode zstd gzip` and the `www` to apex redirect. It also serves static files
 itself: `/releases/**`, the package registry (`/registry.json`, `/packages/*`) and
 and the append-only `/archive/*`, the last two from
 `/opt/hatamoto/registry` (see [`registry/README.md`](../../registry/README.md)).
