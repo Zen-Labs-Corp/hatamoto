@@ -8,7 +8,7 @@
 {{template "hm/field" dict "ID" "sr-mode" "Name" "mode" "Label" "Match" "Control" "radio" "Options" .Modes}}
 {{template "hm/field" dict "ID" "sr-case" "Name" "match_case" "Label" "Match upper and lower case" "Control" "switch" "Value" "1" "Checked" .Q.MatchCase}}
 <div class="hm-field{{if index .Errs "sr-in-content"}} hm-field--invalid{{end}}"><fieldset class="hm-field__group"{{if index .Errs "sr-in-content"}} aria-describedby="sr-in-content-error"{{end}}><legend class="hm-field__label">Look in</legend>
-{{range .Places}}{{template "hm/field" dict "ID" (printf "sr-in-%s" .Value) "Name" "in" "Label" .Label "Control" "checkbox" "Value" .Value "Checked" .Checked}}
+{{range .Places}}{{template "hm/field" dict "ID" (printf "sr-in-%s" .Value) "Name" "in" "Label" .Label "Control" "switch" "Value" .Value "Checked" .Checked}}
 {{end}}
 {{with index .Errs "sr-in-content"}}<p class="hm-field__error" id="sr-in-content-error">{{.}}</p>{{end}}
 </fieldset></div>
@@ -26,7 +26,7 @@
 {{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
 {{end}}
 {{template "hm/card-start" dict "ID" "sr-matches" "Title" "Matches" "Heading" "h2"}}<div class="hm-stack">
-{{range .Groups}}<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">{{.Title}} <span class="hm-muted">({{.Count}})</span></legend>
+{{range .Groups}}<div class="hm-field"><fieldset class="hm-field__group" data-multipick><legend class="hm-field__label">{{.Title}} <span class="hm-muted">({{.Count}})</span></legend>
 {{with .Note}}<p class="hm-muted">{{.}}</p>{{end}}
 {{range .Matches}}<label class="hm-field__check" for="{{.ID}}"><input class="hm-field__box" type="checkbox" id="{{.ID}}" name="sel" value="{{.Token}}"{{if .Checked}} checked{{end}}><span><span class="hm-muted">{{.Label}}:</span> {{.Context}}</span></label>
 {{end}}</fieldset></div>

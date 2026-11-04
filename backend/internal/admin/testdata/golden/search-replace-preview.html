@@ -75,6 +75,7 @@
 <li><a class="hm-subnav__link" href="/admin/settings/general"><span>General</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/settings/locales"><span>Locales</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/settings/email"><span>Email</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/settings/privacy"><span>Privacy</span></a></li>
 <li><a class="hm-subnav__link" href="/admin/settings/users"><span>Users</span></a></li>
 <li class="hm-subnav__group" role="presentation">Content</li>
 <li><a class="hm-subnav__link" href="/admin/settings/media"><span>Media</span></a></li>
@@ -128,16 +129,16 @@
 </div>
 <div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Look in</legend>
 <div class="hm-field">
-<label class="hm-field__check" for="sr-in-content"><input class="hm-field__box" type="checkbox" id="sr-in-content" name="in" value="content" checked><span>Content: text and page builder text</span></label>
+<label class="hm-field__check hm-switch" for="sr-in-content"><input class="hm-field__box" type="checkbox" role="switch" id="sr-in-content" name="in" value="content" checked><span>Content: text and page builder text</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="sr-in-seo"><input class="hm-field__box" type="checkbox" id="sr-in-seo" name="in" value="seo" checked><span>SEO fields: titles, descriptions and social text</span></label>
+<label class="hm-field__check hm-switch" for="sr-in-seo"><input class="hm-field__box" type="checkbox" role="switch" id="sr-in-seo" name="in" value="seo" checked><span>SEO fields: titles, descriptions and social text</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="sr-in-other"><input class="hm-field__box" type="checkbox" id="sr-in-other" name="in" value="other" checked><span>Other fields: excerpts and custom fields</span></label>
+<label class="hm-field__check hm-switch" for="sr-in-other"><input class="hm-field__box" type="checkbox" role="switch" id="sr-in-other" name="in" value="other" checked><span>Other fields: excerpts and custom fields</span></label>
 </div>
 <div class="hm-field">
-<label class="hm-field__check" for="sr-in-menus"><input class="hm-field__box" type="checkbox" id="sr-in-menus" name="in" value="menus" checked><span>Menus: item labels and links</span></label>
+<label class="hm-field__check hm-switch" for="sr-in-menus"><input class="hm-field__box" type="checkbox" role="switch" id="sr-in-menus" name="in" value="menus" checked><span>Menus: item labels and links</span></label>
 </div>
 
 
@@ -167,7 +168,7 @@
 <section class="hm-card" id="sr-matches" aria-labelledby="sr-matches-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="sr-matches-title">Matches</h2></div>
 <div class="hm-card__body"><div class="hm-stack">
-<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">Alpha service <span class="hm-muted">(1)</span></legend>
+<div class="hm-field"><fieldset class="hm-field__group" data-multipick><legend class="hm-field__label">Alpha service <span class="hm-muted">(1)</span></legend>
 
 <label class="hm-field__check" for="sr-m-1"><input class="hm-field__box" type="checkbox" id="sr-m-1" name="sel" value="e|00000000-0000-0000-0000-000000000011|1|%2Fsummary|0" checked><span><span class="hm-muted">Summary:</span> The first</span></label>
 </fieldset></div>
