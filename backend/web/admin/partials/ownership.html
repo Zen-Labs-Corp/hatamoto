@@ -1,4 +1,4 @@
-{{/* hm/ownership-card: the ownership panel of the entity editors (a *ownershipPanel; nil renders nothing): who tracks the page, then the card that lists what a plugin can never own. hm/ownership-form: its one-button hand-back form (P, CSRF), placed after the editor's own form so the card's button can submit it with form=. */}}
+{{/* hm/ownership-card: the ownership panel of the entity editors (a *ownershipPanel; nil renders nothing): who tracks the page, then the card that lists what a plugin can never own. hm/ownership-form: its one-button hand-back form (P, CSRF; only when there is something to hand back), placed after the editor's own form so the card's button can submit it with form=. */}}
 {{define "hm/ownership-card"}}{{with .}}{{template "hm/card-start" dict "ID" .CardID "Title" .Title}}
 <div class="hm-stack">
 {{template "hm/badge" (dict "Label" .BadgeLabel "Kind" .BadgeKind "Wrap" true)}}
@@ -15,4 +15,4 @@
 {{template "hm/callout" (dict "Kind" "info" "Body" "A prepared page whose link would clash with one of your pages, a core address or a reserved path is refused before it is staged. Your pages always win.")}}
 </div>
 {{template "hm/card-end"}}{{end}}{{end}}
-{{define "hm/ownership-form"}}{{with .P}}<form method="post" action="{{.ActionURL}}" id="{{.FormID}}">{{template "hm/csrf" $}}</form>{{end}}{{end}}
+{{define "hm/ownership-form"}}{{with .P}}{{if .ButtonLabel}}<form method="post" action="{{.ActionURL}}" id="{{.FormID}}">{{template "hm/csrf" $}}</form>{{end}}{{end}}{{end}}
