@@ -1,7 +1,9 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Uninstall %s?" .Name) "CSRF" $.CSRF}}
-{{template "hm/confirmcard-start" dict "Post" (printf "%s/plugins/%s/uninstall" adminPath .Name) "CSRF" $.CSRF}}<p>The plugin stops working at once. Your pages, posts, media and settings of the site are not touched.</p>
+{{if .Danger}}{{template "hm/danger-confirm" .Danger}}{{else}}
+{{template "hm/confirmcard-start" dict "Post" (printf "%s/plugins/%s/uninstall" adminPath .Name) "CSRF" $.CSRF}}<p>The plugin stops working at once. Your pages, posts, media and settings of the site are not touched{{if .Types}}, unless you also remove its content types below{{end}}.</p>
 {{template "hm/field" dict "ID" "drop-data" "Name" "drop_data" "Label" "What happens to the plugin's data" "Control" "radio" "Options" .DataOptions}}
-{{template "hm/field" dict "ID" "drop-content-types" "Name" "drop_content_types" "Control" "switch" "Value" "1" "Label" "Also remove content types and their content" "Help" "Off by default. Removes the content types this plugin installed and every entry of those types. Types you created yourself are never removed. This cannot be undone."}}
-{{template "hm/confirmcard-end" dict "Back" (adminPath "plugins") "Label" "Uninstall" "Danger" true}}
+{{if .Types}}<p>This plugin installed {{range $i, $t := .Types}}{{if $i}}, {{end}}<strong>{{$t.Name}}</strong> ({{$t.Entries}} {{if eq $t.Entries 1}}entry{{else}}entries{{end}}){{end}}.</p>
+{{template "hm/field" dict "ID" "drop-content-types" "Name" "drop_content_types" "Control" "switch" "Value" "1" "Label" "Also remove content types and their content" "Help" "Off by default. Removes the content types listed above and every entry of those types, including entries you wrote yourself. You are asked to confirm to re-confirm it is you and to type the plugin name. This cannot be undone."}}{{end}}
+{{template "hm/confirmcard-end" dict "Back" (adminPath "plugins") "Label" "Uninstall" "Danger" true}}{{end}}
 {{end}}{{end}}

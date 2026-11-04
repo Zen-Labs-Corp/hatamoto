@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"hatamoto.dev/core/internal/database"
@@ -106,6 +107,10 @@ func TestPluginContentTypeNameTakenRefuses(t *testing.T) {
 	}
 }
 
+type recordSink struct{ deleted []entity.EventKind }
+
+func (r *recordSink) Emit(_ context.Context, ev entity.Event) { r.deleted = append(r.deleted, ev.Kind) }
+
 func TestUninstallContentTypes(t *testing.T) {
 	for _, drop := range []bool{false, true} {
 		name := map[bool]string{false: "keep", true: "remove"}[drop]
@@ -127,8 +132,13 @@ func TestUninstallContentTypes(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			sink := &recordSink{}
+			svc.SetEvents(sink)
 			if err := r.mgr.Uninstall(ctx, KindPlugin, "shop", UninstallOpts{DropContentTypes: drop}); err != nil {
 				t.Fatal(err)
+			}
+			if got := slices.Contains(sink.deleted, entity.EventDeleted); got != drop {
+				t.Fatalf("drop=%v: entity.deleted emitted = %v (subscribers must hear about removed entries)", drop, got)
 			}
 			_, found := r.typeOwner("product")
 			var entities int

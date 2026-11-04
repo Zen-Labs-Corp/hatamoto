@@ -322,6 +322,18 @@ func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropDat
 	return err
 }
 
+func (p *packageAdmin) ContentTypes(ctx context.Context, name string) []admin.ContentTypeUse {
+	uses, err := p.mgr().ContentTypeUses(ctx, name)
+	if err != nil {
+		return nil
+	}
+	out := make([]admin.ContentTypeUse, len(uses))
+	for i, u := range uses {
+		out[i] = admin.ContentTypeUse{Slug: u.Slug, Name: u.Name, Entries: u.Entries}
+	}
+	return out
+}
+
 func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
 	cfg, err := p.mgr().Store().Config(ctx)
 	return err == nil && cfg.AllowUnsigned

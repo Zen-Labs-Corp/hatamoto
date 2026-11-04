@@ -154,6 +154,9 @@ func (f *fakePackages) Uninstall(_ context.Context, kind, name string, drop, dro
 	f.removed, f.dropped, f.droppedTypes = append(f.removed, kind+"/"+name), drop, dropTypes
 	return nil
 }
+func (f *fakePackages) ContentTypes(context.Context, string) []ContentTypeUse {
+	return []ContentTypeUse{{Slug: "product", Name: "Product", Entries: 3}}
+}
 func (f *fakePackages) AllowUnsigned(context.Context) bool { return f.unsigned }
 func (f *fakePackages) UnsignedState(context.Context) UnsignedState {
 	return UnsignedState{On: f.unsigned, Until: f.unsignedEnd}
@@ -482,7 +485,7 @@ func TestPluginEnableDisableUninstall(t *testing.T) {
 
 	rec := g.do("GET", "/admin/plugins/hello/uninstall", "owner-token", nil, nil)
 	body := rec.Body.String()
-	for _, want := range []string{"Uninstall hello?", "Keep its data", "Delete its data too", "database schema", "not touched"} {
+	for _, want := range []string{"Uninstall hello?", "Keep its data", "Delete its data too", "database schema", "not touched", "Product", "3 entries"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("uninstall page missing %q", want)
 		}
@@ -502,7 +505,25 @@ func TestPluginEnableDisableUninstall(t *testing.T) {
 	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 303 || !pk.dropped {
 		t.Fatalf("drop data: %d dropped=%v", rec.Code, pk.dropped)
 	}
-	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_content_types": {"1"}}, nil); rec.Code != 303 || !pk.droppedTypes || pk.dropped {
+	// Removing content types needs sudo and the plugin name typed back.
+	dropTypes := func(extra ...string) *httptest.ResponseRecorder {
+		v := url.Values{"drop_content_types": {"1"}}
+		if len(extra) > 0 {
+			v.Set("confirm_phrase", extra[0])
+		}
+		return g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", v, nil)
+	}
+	if rec := dropTypes("hello"); rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), g.a.sudoPath()) || pk.droppedTypes {
+		t.Fatalf("no sudo: %d %q types=%v", rec.Code, rec.Header().Get("Location"), pk.droppedTypes)
+	}
+	grantSudo(g)
+	if rec := dropTypes(); rec.Code != 200 || pk.droppedTypes || !strings.Contains(rec.Body.String(), "data-hm-danger-confirm") {
+		t.Fatalf("no phrase: %d types=%v", rec.Code, pk.droppedTypes)
+	}
+	if rec := dropTypes("Hello"); rec.Code != 422 || pk.droppedTypes {
+		t.Fatalf("wrong phrase: %d types=%v", rec.Code, pk.droppedTypes)
+	}
+	if rec := dropTypes("hello"); rec.Code != 303 || !pk.droppedTypes || pk.dropped {
 		t.Fatalf("drop content types only: %d types=%v data=%v", rec.Code, pk.droppedTypes, pk.dropped)
 	}
 	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "editor-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 403 {

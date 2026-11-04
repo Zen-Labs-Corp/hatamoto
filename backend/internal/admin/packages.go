@@ -210,6 +210,12 @@ type RouteResult struct {
 	Body        []byte
 }
 
+// ContentTypeUse is a content type a plugin installed and its entry count.
+type ContentTypeUse struct {
+	Slug, Name string
+	Entries    int
+}
+
 // PackageAdmin is the package manager as the Plugins and Themes pages use it.
 type PackageAdmin interface {
 	Registry(ctx context.Context) RegistryView
@@ -226,6 +232,9 @@ type PackageAdmin interface {
 	Install(ctx context.Context, data []byte, source string, grant []string, confirm bool) error
 	SetEnabled(ctx context.Context, name string, on bool) error
 	Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error
+	// ContentTypes lists the content types the plugin installed, with their
+	// entry counts (what "remove content types" would delete).
+	ContentTypes(ctx context.Context, name string) []ContentTypeUse
 	AllowUnsigned(ctx context.Context) bool
 	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
 	UnsignedState(ctx context.Context) UnsignedState

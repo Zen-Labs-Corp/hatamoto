@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
@@ -719,6 +720,15 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		m.Audit(ctx, "package.content_type.remove", "plugin:"+name, map[string]any{"content_type": slug})
 	}
 	return nil
+}
+
+// ContentTypeUses lists the content types the plugin installed and how many
+// entries each holds, for the uninstall screen.
+func (m *Manager) ContentTypeUses(ctx context.Context, name string) ([]entity.PluginSchemaUse, error) {
+	if m.Schemas == nil {
+		return nil, nil
+	}
+	return m.Schemas.PluginSchemaUses(ctx, name)
 }
 
 // SetEnabled turns an installed plugin on or off without uninstalling it.

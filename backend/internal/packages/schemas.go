@@ -34,6 +34,7 @@ var schemaSlugRe = regexp.MustCompile(`^[a-z]([a-z0-9]|-[a-z0-9]){0,63}$`)
 type SchemaStore interface {
 	CreateSchema(ctx context.Context, input *entity.CreateSchemaInput) (*entity.EntitySchema, error)
 	RemovePluginSchemas(ctx context.Context, plugin string) ([]string, error)
+	PluginSchemaUses(ctx context.Context, plugin string) ([]entity.PluginSchemaUse, error)
 }
 
 // ContentType is an entity type a package installs.
