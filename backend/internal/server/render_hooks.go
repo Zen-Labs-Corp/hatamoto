@@ -174,6 +174,17 @@ func (s *Server) invalidateRendered(ctx context.Context) {
 	s.pageCache.notifyContentChanged()
 }
 
+// onMediaChange runs when stored media changes: the cached logo sizes and
+// image variant lookups go first, so a page rendered after the purge cannot
+// name a copy that was replaced or deleted.
+func (s *Server) onMediaChange(ctx context.Context) {
+	s.logoSizes.reset()
+	if s.renderData != nil {
+		s.renderData.resetVariants()
+	}
+	s.invalidateRendered(ctx)
+}
+
 // purgeRendered drops cached pages and sitemaps without scheduling a preload
 // (Clear cache and switching the cache off use it).
 func (s *Server) purgeRendered(ctx context.Context) {

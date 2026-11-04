@@ -433,10 +433,7 @@ func (s *Server) setupDependencies() {
 		mediaConfig.MaxTotalBytes = int64(s.cfg.Demo.MediaQuotaMB) * 1024 * 1024
 	}
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
-	s.mediaService.SetChangeObserver(func(ctx context.Context) {
-		s.logoSizes.reset()
-		s.invalidateRendered(ctx)
-	})
+	s.mediaService.SetChangeObserver(s.onMediaChange)
 	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
 	s.formatPolicy = s.mediaFormats.policy
 	s.mediaService.SetFormatPolicy(s.formatPolicy)

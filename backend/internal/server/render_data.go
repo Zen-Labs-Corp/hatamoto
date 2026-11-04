@@ -52,6 +52,14 @@ const (
 
 func newRenderData(s *Server) *renderData { return &renderData{s: s} }
 
+// resetVariants drops the cached media lookups, so the next render reads the
+// current copies (a purge must not leave paths of deleted files behind).
+func (d *renderData) resetVariants() {
+	d.mu.Lock()
+	d.variants = nil
+	d.mu.Unlock()
+}
+
 // ctx bounds a data func call. On a multi-locale site the context carries the visible locales (default plus
 // shared), so lists keep shared content that the bare site-language fallback
 // would hide. Single-locale sites get an unscoped context.
