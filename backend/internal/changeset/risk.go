@@ -33,6 +33,7 @@ const (
 	ReasonDelete      RiskReason = "delete"
 	ReasonMenuLink    RiskReason = "menu_link"
 	ReasonUnparseable RiskReason = "unparseable"
+	ReasonAltText     RiskReason = "alt_text"
 )
 
 // Live is what the engine knows of the object an item updates. A nil *Live
@@ -80,6 +81,11 @@ func Classify(it Item, live *Live, env Env) Verdict {
 		return Verdict{Risk: RiskHigh, Reason: ReasonRedirect, Ref: env.StagedPaths[p.Target]}
 	case KindEntity:
 		return classifyEntity(it, live, env)
+	case KindMedia:
+		// A new alt text goes onto an owner's file: the owner reads each one.
+		if isAltChange(it) {
+			return high(ReasonAltText)
+		}
 	case KindMenu:
 		var p struct {
 			Items []struct {

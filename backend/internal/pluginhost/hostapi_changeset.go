@@ -304,12 +304,19 @@ func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMe
 	if a.svc.Media == nil {
 		return nil, unavailable("media")
 	}
-	if _, err := a.svc.Media.Get(ctx, id); err != nil {
+	m, err := a.svc.Media.Get(ctx, id)
+	if err != nil {
 		return nil, err
 	}
-	// No source key: the item changes an owner row, so it leaves no mapping.
+	oldAlt := ""
+	if m.AltText != nil {
+		oldAlt = *m.AltText
+	}
+	// The name and the old text are for the review screen, which shows every
+	// alt text change as "old -> new". No source key: the item changes an
+	// owner row, so it leaves no mapping.
 	err = a.svc.Changesets.Stage(ctx, s.csID, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert,
-		TargetID: id.String(), Payload: payload(map[string]string{"alt_text": in.Alt})})
+		TargetID: id.String(), Payload: payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})})
 	if errors.Is(err, changeset.ErrNotOwned) {
 		return nil, herr(sdk.ErrNotOwned, "media %s was not uploaded by the owner", id)
 	}

@@ -207,6 +207,8 @@ func (e *Engine) reviewItems(ctx context.Context, csID int64, risks []string, it
 func displayChange(it Item, reason RiskReason, live *Live, label string) (oldS, newS string) {
 	var p struct {
 		Slug       string          `json:"slug"`
+		OldAlt     string          `json:"old_alt"`
+		AltText    string          `json:"alt_text"`
 		SourcePath string          `json:"source_path"`
 		Target     string          `json:"target"`
 		Attributes json.RawMessage `json:"attributes"`
@@ -225,6 +227,8 @@ func displayChange(it Item, reason RiskReason, live *Live, label string) (oldS, 
 		return p.SourcePath, p.Target
 	case ReasonDelete:
 		return label, ""
+	case ReasonAltText:
+		return p.OldAlt, p.AltText
 	case ReasonMenuLink:
 		for _, mi := range p.Items {
 			if mi.URL != nil {

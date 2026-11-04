@@ -425,6 +425,7 @@ var reviewReasons = map[string]string{
 	string(changeset.ReasonSlug):        "Changes the address or the parent of a page",
 	string(changeset.ReasonDelete):      "Removes content from the site",
 	string(changeset.ReasonMenuLink):    "A menu links to a site this one does not link to yet",
+	string(changeset.ReasonAltText):     "Changes the alt text of one of your images",
 	string(changeset.ReasonUnparseable): "Its content could not be checked",
 }
 

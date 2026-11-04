@@ -1240,7 +1240,15 @@ func TestChangesetMediaAltChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	cs := f.begin("alt-plugin")
-	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"alt_text": "new"})})
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"name": "al.png", "old_alt": "old", "alt_text": "new"})})
+	// The owner sees the change itself, never only a count.
+	if err := f.eng.Classify(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	risky, err := f.eng.ReviewRiskyItems(f.ctx, cs, 10, 0)
+	if err != nil || len(risky) != 1 || risky[0].Reason != string(ReasonAltText) || risky[0].Label != "al.png" || risky[0].Old != "old" || risky[0].New != "new" {
+		t.Fatalf("review rows = %+v, %v", risky, err)
+	}
 	f.publish(cs)
 	read := func() (alt, caption string) {
 		_ = f.db.Pool().QueryRow(f.ctx, `SELECT COALESCE(alt_text, ''), COALESCE(caption, '') FROM hatamoto_media WHERE id = $1`, id).Scan(&alt, &caption)
