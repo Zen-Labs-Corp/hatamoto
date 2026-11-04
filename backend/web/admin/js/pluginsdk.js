@@ -5,6 +5,8 @@
 //                                      -> {status, content_type, body} (body is text)
 //   hatamoto.host(fn, args)            call a host function the owner granted
 //                                      -> {ok, result|error}   (owner only; an editor's page uses routes)
+//   hatamoto.runInputs(values)         hand the run's input values to core's start form
+//                                      -> {ok:true}   (declared inputs only; core starts the run)
 // The page has no network access of its own; this is its only way out.
 (() => {
   const pending = new Map();
@@ -43,6 +45,7 @@
     ready,
     route: (method, path, body, query) => send({ op: "route", method, path, body, query }),
     host: (fn, args) => send({ op: "host", fn, args }),
+    runInputs: (values) => send({ op: "inputs", values }),
   };
   parent.postMessage({ hm: 1, op: "ready" }, "*");
 })();
