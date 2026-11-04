@@ -69,6 +69,7 @@ func probeCompression(ctx context.Context, url string) (plain bool, err error) {
 	// Content-Encoding from us.
 	req.Header.Set("Accept-Encoding", "zstd, gzip")
 	client := safefetch.NewClient(safefetch.ClientOptions{Timeout: compressionCheckTimeout, AllowPrivate: true})
+	defer client.CloseIdleConnections()
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err
