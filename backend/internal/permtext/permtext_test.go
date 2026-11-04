@@ -105,3 +105,21 @@ func TestContentTypesLine(t *testing.T) {
 		}
 	}
 }
+
+func TestTagLinesSayItRunsNoCode(t *testing.T) {
+	ls := TagLines("Site ID", []string{"a.example", "*.b.example"}, "marketing", true)
+	if len(ls) != 3 {
+		t.Fatalf("lines = %+v", ls)
+	}
+	for _, want := range []string{"runs no code", "a.example, *.b.example", "WebSocket"} {
+		if !strings.Contains(ls[0].Text, want) {
+			t.Errorf("script line lacks %q: %s", want, ls[0].Text)
+		}
+	}
+	if !strings.Contains(ls[1].Text, "Marketing") || !strings.Contains(ls[2].Text, "Site ID") {
+		t.Errorf("lines = %+v", ls)
+	}
+	if got := TagLines("", []string{"a.example"}, "analytics", false); len(got) != 2 || strings.Contains(got[0].Text, "WebSocket") {
+		t.Errorf("minimal = %+v", got)
+	}
+}

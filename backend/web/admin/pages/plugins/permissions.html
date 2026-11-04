@@ -1,7 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{template "hm/pluginhead" .}}
 {{with .Data}}{{$p := .Plugin}}
-{{template "hm/card-start" dict "ID" "hooks-card" "Title" "Hooks" "Heading" "h2"}}{{if $p.Hooks}}<ul class="hm-badgelist" role="list">{{range $p.Hooks}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{else}}<p class="hm-muted">It handles no hooks.</p>{{end}}{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "hooks-card" "Title" "Hooks" "Heading" "h2"}}{{if and $p.Package $p.Package.TagPack}}<p class="hm-muted">It is a tag pack: it runs no code and handles no hooks.</p>{{else if $p.Hooks}}<ul class="hm-badgelist" role="list">{{range $p.Hooks}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{else}}<p class="hm-muted">It handles no hooks.</p>{{end}}{{template "hm/card-end"}}
 {{if .Perms}}<form method="post" action="{{adminPath}}/plugins/{{$p.Name}}/grant" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "Title" "Permissions" "ID" "perm-card" "Heading" "h2"}}{{with .Granted}}{{template "hm/progress" .}}{{end}}

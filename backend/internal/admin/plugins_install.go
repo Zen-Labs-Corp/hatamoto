@@ -76,6 +76,22 @@ type promptData struct {
 	Unsigned bool
 	Title    string     // "Install <Name> <version>?"
 	Chips    []ui.Badge // the signature, first-party and replaced-version badges beside the title
+	Tags     []tagCard  // the tags of a tag pack, shown instead of permissions
+}
+
+// tagCard is one tag of a tag pack on the install prompt or the browse detail.
+type tagCard struct {
+	Name  string
+	Lines []permtext.Line
+}
+
+// tagCards shapes tag infos for a prompt: the lines say the tag runs no code.
+func tagCards(in []TagInfo) []tagCard {
+	out := make([]tagCard, len(in))
+	for i, t := range in {
+		out[i] = tagCard{Name: t.Name, Lines: permtext.TagLines(t.IDLabel, t.Hosts, t.Category, t.Websockets)}
+	}
+	return out
 }
 
 // statementIcon is the glyph of a statement kind.
@@ -321,6 +337,10 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 		verb = "Update"
 	}
 	d.Title = strings.TrimSpace(verb+" "+sum.Name+" "+sum.Version) + "?"
+	if len(sum.Tags) > 0 {
+		d.Tags = tagCards(sum.Tags)
+		d.Chips = append(d.Chips, ui.Badge{Label: "Tracking tag", Plain: true})
+	}
 	if sum.Signed {
 		chip := ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"}
 		if sum.Problem != "" {
@@ -397,6 +417,9 @@ func (a *Admin) handlePluginEnable(w http.ResponseWriter, r *http.Request) {
 type uninstallData struct {
 	Name        string
 	DataOptions []ui.Option
+	// TagPack replaces the keep/delete choice with one sentence: uninstalling a
+	// tag pack always clears its saved IDs and enabled state.
+	TagPack bool
 	// Types are the content types the plugin installed; the switch to remove
 	// them shows only when there are some.
 	Types []ContentTypeUse
@@ -448,7 +471,7 @@ func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request
 	v := a.NewView(w, r, "Uninstall "+r.PathValue("name"))
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: r.PathValue("name")}}
 	pk, _ := a.packageAdmin(w, r)
-	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
+	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), TagPack: pk.IsTagPack(r.Context(), r.PathValue("name")), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
 	a.Render(w, r, http.StatusOK, "settings/pluginuninstall", v)
 }
 
@@ -458,7 +481,8 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	drop := r.PostFormValue("drop_data") == "1"
+	tagPack := pk.IsTagPack(r.Context(), name)
+	drop := r.PostFormValue("drop_data") == "1" && !tagPack
 	dropTypes := r.PostFormValue("drop_content_types") == "1"
 	if dropTypes {
 		// Deleting content is irreversible: step-up auth, then the typed name.
@@ -490,6 +514,9 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	msg := name + " was uninstalled. Its data was kept; installing it again brings it back."
+	if tagPack {
+		msg = name + " was uninstalled. Its saved IDs were removed."
+	}
 	if drop {
 		msg = name + " was uninstalled and its data was deleted. Your pages and content were not touched."
 	}

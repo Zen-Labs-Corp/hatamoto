@@ -308,3 +308,23 @@ func TestTagsDOMConversionIgnoredForUnloadedVendors(t *testing.T) {
 		t.Errorf("calls without consent: %v", r.Calls)
 	}
 }
+
+// A tag pack vendor boots through "generic": its script loads once, only after
+// its category is allowed, and a conversion maps to nothing.
+func TestTagsDOMGenericPackVendorLoadsOnlyWhenAllowed(t *testing.T) {
+	t.Parallel()
+	cfg := TagsConfig{ExcludeSignedIn: true, Member: "hm_member", Vendors: []TagVendor{
+		{ID: "acme.stats", Boot: "generic", Category: "analytics", Src: "https://t.test/acme-1.js", Value: "1"},
+	}}
+	r := runTagsDOM(t, cfg, "CONSENT=1", `GRANT={"marketing":true}`)
+	if len(r.Before) != 0 || len(r.After) != 0 {
+		t.Errorf("loaded for a category that was not granted: %+v", r)
+	}
+	r = runTagsDOM(t, cfg, "CONSENT=1", `GRANT={"analytics":true}`)
+	if len(r.Before) != 0 || len(r.After) != 1 || r.After[0] != "https://t.test/acme-1.js" {
+		t.Errorf("granted: %+v", r)
+	}
+	if len(r.Calls) != 0 {
+		t.Errorf("generic vendor recorded a conversion: %v", r.Calls)
+	}
+}

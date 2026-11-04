@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,4 +116,35 @@ func (s *Store) Save(ctx context.Context, set Settings) error {
 	}
 	s.Invalidate()
 	return nil
+}
+
+// DropPack removes the saved state of every tag of the plugin (keys
+// "<plugin>.<tag>") and returns the keys removed. Called when the plugin is
+// uninstalled, so a later install of the same name starts off.
+func (s *Store) DropPack(ctx context.Context, plugin string) ([]string, error) {
+	s.Invalidate()
+	set, err := s.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var dropped []string
+	for k := range set.Vendors {
+		if strings.HasPrefix(k, plugin+".") {
+			dropped = append(dropped, k)
+			delete(set.Vendors, k)
+		}
+	}
+	if len(dropped) == 0 {
+		return nil, nil
+	}
+	sort.Strings(dropped)
+	raw, err := json.Marshal(set)
+	if err != nil {
+		return nil, fmt.Errorf("encode tracking settings: %w", err)
+	}
+	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_tracking_settings SET settings = $1::jsonb, updated_at = now() WHERE id`, string(raw)); err != nil {
+		return nil, fmt.Errorf("clear tag pack settings: %w", err)
+	}
+	s.Invalidate()
+	return dropped, nil
 }

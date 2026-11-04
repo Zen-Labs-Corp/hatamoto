@@ -48,6 +48,9 @@ func PackDir(dir string, key *Key) ([]byte, error) {
 		if rest, ok := strings.CutPrefix(p, widgetsDir+"/"); ok && !widgetFileSet[path.Base(rest)] {
 			return nil // a stray file next to a widget's own files is not packed
 		}
+		if rest, ok := strings.CutPrefix(p, tagsDir+"/"); ok && (strings.Contains(rest, "/") || !strings.HasSuffix(rest, ".json")) {
+			return nil // only tags/<name>.json is packed
+		}
 		b, err := fs.ReadFile(root, p)
 		if err != nil {
 			return err

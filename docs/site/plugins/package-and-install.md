@@ -12,6 +12,8 @@ So far your plugins ran from a development folder. In this guide you turn the `c
 - The `counter` plugin from [Add an admin page](add-an-admin-page.md), built into its `build` directory.
 - The `hatamoto` program on your machine, and a site you can sign in to as an owner. To install from the command line you also need a shell on the server with its `DATABASE_URL` set.
 
+A package that only adds a tracking tag is a [tag pack](tag-packs.md).
+
 A **package** is one `.hmp` file that holds a whole plugin. **Signing** proves who made it and that nobody changed it. A **trusted key** is a public key your server accepts signatures from. A server refuses a package signed by a key it does not trust.
 
 ## Steps

@@ -187,3 +187,66 @@ func TestTagsScriptKnowsWhetherTheBannerIsOn(t *testing.T) {
 		t.Errorf("banner off: script lacks consent=false: %.300s", got)
 	}
 }
+
+const packDecl = `{"name":"Acme","id":{"label":"Site ID","pattern":"^[0-9]{6,9}$"},"script":"https://static.acme.example/c/acme-{id}.js","hosts":["*.acme.example"],"websockets":true,"category":"analytics"}`
+
+func publishPack(t *testing.T) string {
+	t.Helper()
+	v, err := tags.ParseDecl("acme-pack", "acme", []byte(packDecl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags.SetPacks([]tags.PackVendor{{Vendor: v, PluginVersion: "1.0.0"}})
+	t.Cleanup(func() { tags.SetPacks(nil) })
+	return `{"vendors":{"` + v.ID + `":{"enabled":true,"id":"1234567"}}}`
+}
+
+func TestTagsPackHostsOnlyWhileInstalledAndEnabled(t *testing.T) {
+	state := publishPack(t)
+	page, csp := tagsPage(t, docQuerier{tracking: state, privacy: `{}`})
+	if !strings.Contains(page, "hm-tags.js") {
+		t.Fatal("no tag script for an enabled pack tag")
+	}
+	for _, want := range []string{"https://*.acme.example", "wss://*.acme.example"} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("CSP lacks %s: %s", want, csp)
+		}
+	}
+	e, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	e.AssetHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, render.AssetPrefix+render.TagsScriptName, nil))
+	if body := rec.Body.String(); !strings.Contains(body, `"boot":"generic"`) || !strings.Contains(body, `"src":"https://static.acme.example/c/acme-1234567.js"`) {
+		t.Errorf("config lacks the generic boot or expanded src: %.300s", body)
+	}
+
+	// Disabled in settings: hosts gone, page equals baseline.
+	off := strings.Replace(state, `"enabled":true`, `"enabled":false`, 1)
+	if page, csp := tagsPage(t, docQuerier{tracking: off, privacy: `{}`}); strings.Contains(page, "hm-tags") || csp != renderCSPStrict {
+		t.Errorf("a pack tag that is off changed the page or CSP: %s", csp)
+	}
+
+	// Uninstalled or blocked pack: the leftover enabled key adds nothing.
+	tags.SetPacks(nil)
+	if page, csp := tagsPage(t, docQuerier{tracking: state, privacy: `{}`}); strings.Contains(page, "hm-tags") || csp != renderCSPStrict {
+		t.Errorf("a removed pack still shapes the page or CSP: %s", csp)
+	}
+}
+
+func TestTagsPackNoscriptOnlyWithoutBanner(t *testing.T) {
+	v, err := tags.ParseDecl("acme-pack", "acme", []byte(strings.Replace(packDecl, `"category"`, `"noscript":"https://static.acme.example/ns.gif?id={id}","category"`, 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags.SetPacks([]tags.PackVendor{{Vendor: v, PluginVersion: "1.0.0"}})
+	t.Cleanup(func() { tags.SetPacks(nil) })
+	state := `{"vendors":{"` + v.ID + `":{"enabled":true,"id":"1234567"}}}`
+	if page, _ := tagsPage(t, docQuerier{tracking: state, privacy: `{}`}); !strings.Contains(page, "static.acme.example/ns.gif?id=1234567") {
+		t.Error("no noscript image with the banner off")
+	}
+	if page, _ := tagsPage(t, docQuerier{tracking: state, privacy: consentO}); strings.Contains(page, "ns.gif") {
+		t.Error("noscript image shown with the banner on")
+	}
+}

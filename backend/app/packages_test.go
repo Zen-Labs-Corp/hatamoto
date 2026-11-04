@@ -115,3 +115,21 @@ func TestDirFingerprintChangesWithContent(t *testing.T) {
 		t.Error("a changed file must change the fingerprint")
 	}
 }
+
+func TestPackTagPackPrintsSummaryAndRefusesBadDeclaration(t *testing.T) {
+	const manifest = `{"name":"acme","version":"1.0.0","sdk":"^0.11"}`
+	const decl = `{"name":"Acme","id":{"label":"Site ID","pattern":"^[0-9]{4,9}$"},"script":"https://cdn.acme.example/{id}.js","hosts":["cdn.acme.example","*.acme.example"],"category":"analytics"}`
+	dir := writeDir(t, map[string]string{"plugin.json": manifest, "tags/acme.json": decl})
+	var out bytes.Buffer
+	if err := runPack(packages.KindPlugin, []string{dir, "--out", filepath.Join(t.TempDir(), "acme.hmp")}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "(1 tag: acme, hosts 2, category analytics)") {
+		t.Errorf("summary missing:\n%s", out.String())
+	}
+	bad := writeDir(t, map[string]string{"plugin.json": manifest, "tags/acme.json": strings.Replace(decl, "analytics", "necessary", 1)})
+	err := runPack(packages.KindPlugin, []string{bad, "--out", filepath.Join(t.TempDir(), "x.hmp")}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "tags/acme.json: category must be one of") {
+		t.Errorf("bad declaration packed: %v", err)
+	}
+}

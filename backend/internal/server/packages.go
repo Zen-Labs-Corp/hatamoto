@@ -42,6 +42,9 @@ func (s *Server) setupPackages() {
 		OnChange: s.invalidateRendered,
 		Logger:   s.logger,
 	}
+	if s.tagsStore != nil {
+		opts.DropTagSettings = s.tagsStore.DropPack
+	}
 	if s.entityService != nil {
 		opts.Schemas = s.entityService
 	}

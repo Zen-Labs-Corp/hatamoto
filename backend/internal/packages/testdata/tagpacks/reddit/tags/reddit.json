@@ -1,0 +1,8 @@
+{
+  "name": "Reddit Pixel",
+  "id": {"label": "Pixel ID", "pattern": "^(t2_)?[a-z0-9]{4,12}$"},
+  "script": "https://www.redditstatic.com/ads/pixel.js",
+  "hosts": ["www.redditstatic.com", "alb.reddit.com", "pixel-config.reddit.com"],
+  "category": "marketing",
+  "noscript": "https://alb.reddit.com/rp.gif?ts=0&id={id}&event=PageView&v=rdc-1"
+}

@@ -58,8 +58,10 @@ func Decode(raw []byte) (Settings, error) {
 }
 
 // Normalize returns a copy with every known vendor's ids trimmed and, where
-// the vendor is case-insensitive, upper-cased. Unknown keys are kept so
-// Validate can report them.
+// the vendor is case-insensitive, upper-cased. Unknown keys are kept. A pack
+// key whose pack is not live (off, blocked, unreadable, not yet reconciled)
+// keeps its state untouched; only uninstalling the pack removes it (see
+// Store.DropPack).
 func (s Settings) Normalize() Settings {
 	out := s
 	out.Vendors = make(map[string]VendorState, len(s.Vendors))
@@ -78,7 +80,7 @@ func (s Settings) Normalize() Settings {
 func (s Settings) Validate() []FieldError {
 	n := s.Normalize()
 	var errs []FieldError
-	for _, v := range Vendors {
+	for _, v := range All() {
 		st, ok := n.Vendors[v.ID]
 		if !ok {
 			continue
@@ -99,7 +101,7 @@ func (s Settings) Validate() []FieldError {
 	}
 	var unknown []string
 	for k := range n.Vendors {
-		if _, ok := ByID(k); !ok {
+		if _, ok := ByID(k); !ok && !IsPackKey(k) {
 			unknown = append(unknown, k)
 		}
 	}
@@ -111,13 +113,14 @@ func (s Settings) Validate() []FieldError {
 }
 
 // Enabled lists the enabled vendors in table order with normalized ids.
-// Entries without an id are skipped.
+// Entries without an id, or with one the vendor's pattern refuses (a stored id
+// is never trusted over the live declaration), are skipped.
 func (s Settings) Enabled() []EnabledVendor {
 	n := s.Normalize()
 	var out []EnabledVendor
-	for _, v := range Vendors {
+	for _, v := range All() {
 		st := n.Vendors[v.ID]
-		if st.Enabled && st.ID != "" {
+		if st.Enabled && st.ID != "" && v.ValidID(st.ID) {
 			out = append(out, EnabledVendor{Vendor: v, ValueID: st.ID, AuxID: st.Aux})
 		}
 	}

@@ -225,6 +225,9 @@ func (a *Admin) browseCard(e RegistryEntry) browseCard {
 	default:
 		c.Meta = fmt.Sprintf("%d permissions", n)
 	}
+	if len(e.Tags) > 0 {
+		c.Meta = "Tag pack · Runs no code"
+	}
 	if c.FirstParty {
 		c.Meta = "First-party · " + c.Meta
 	}
@@ -284,6 +287,7 @@ type pluginDetailPage struct {
 	Badge    *ui.Badge
 	About    []string
 	Can      []promptStatement
+	Tags     []tagCard // tag pack: shown instead of the permission list
 	Size     string
 	Homepage string
 	Source   string
@@ -341,6 +345,7 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.Can = promptStatements(permtext.Group(e.Permissions, false, false).Can, nil)
+	d.Tags = tagCards(e.Tags)
 	fetch := a.adminPath + "/plugins/fetch"
 	switch {
 	case e.Update:

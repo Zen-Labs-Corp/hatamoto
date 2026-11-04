@@ -192,7 +192,7 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 			Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
 			Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
 			Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
-			Features: e.Features, Size: e.Size, Featured: e.Featured,
+			Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
 			Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
 		})
 	}
@@ -247,6 +247,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		sum.Refused = packages.RefusedPermissions(pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
 		sum.ContentTypes = packages.ContentTypeNames(pkg)
+		sum.Tags = tagInfos(pkg)
 		sum.DeclaresRuns = len(m.Runs) > 0
 		for _, r := range m.Runs {
 			sum.Proposes = sum.Proposes || len(r.Proposes) > 0
@@ -283,7 +284,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
-			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders,
+			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
 			OldVersion: need.OldVersion, NewVersion: need.NewVersion, OldSigner: need.OldSigner, NewSigner: need.NewSigner}
 		for _, m := range need.Missing {
 			c.Missing = append(c.Missing, admin.MissingSection{Type: m.Type, Uses: m.Uses})
@@ -332,6 +333,10 @@ func (p *packageAdmin) ContentTypes(ctx context.Context, name string) []admin.Co
 		out[i] = admin.ContentTypeUse{Slug: u.Slug, Name: u.Name, Entries: u.Entries}
 	}
 	return out
+}
+
+func (p *packageAdmin) IsTagPack(ctx context.Context, name string) bool {
+	return p.mgr().IsTagPack(ctx, name)
 }
 
 func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
@@ -544,6 +549,7 @@ func (p *packageAdmin) decoratePlugins(infos []admin.PluginInfo) []admin.PluginI
 		_ = json.Unmarshal(r.Manifest, &m)
 		meta := p.meta(ctx, r)
 		meta.WidgetOnly = p.mgr().WidgetCount(r.Name) > 0 // no runtime status: a pack without wasm
+		meta.TagPack = p.mgr().TagCount(r.Name) > 0
 		infos = append(infos, admin.PluginInfo{
 			Name: r.Name, Version: m.Version, SDK: m.SDK, Description: m.Description, Permissions: m.Permissions,
 			Granted: p.grantedOf(r.Name), AllowedHosts: m.AllowedHosts, Package: meta,
@@ -589,4 +595,36 @@ func (p *packageAdmin) uiInfo(ui *sdk.AdminUI, granted []string) *admin.PluginUI
 		entry = sdk.DefaultUIEntry
 	}
 	return &admin.PluginUIInfo{Title: ui.Title, Entry: entry, Roles: ui.Roles, Functions: pluginhost.HostFunctionsFor(slices.Clone(granted))}
+}
+
+// tagInfos lists the tags of a tag pack for the install prompt; a package that
+// holds none (or whose tags do not validate, which Install refuses) lists none.
+func tagInfos(pkg *packages.Package) []admin.TagInfo {
+	vs, err := pkg.TagVendors()
+	if err != nil {
+		return nil
+	}
+	var out []admin.TagInfo
+	for _, v := range vs {
+		t := admin.TagInfo{Name: v.Label, IDLabel: v.IDLabel, Category: v.Category}
+		for _, h := range v.Script {
+			t.Hosts = append(t.Hosts, strings.TrimPrefix(h, "https://"))
+		}
+		for _, h := range v.Connect {
+			t.Websockets = t.Websockets || strings.HasPrefix(h, "wss://")
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+// registryTags maps the tag summaries of an index entry. The index does not
+// carry the id label or the live-connection flag: the prompt shows both after
+// the package is downloaded.
+func registryTags(in []packages.TagSummary) []admin.TagInfo {
+	var out []admin.TagInfo
+	for _, t := range in {
+		out = append(out, admin.TagInfo{Name: t.Name, Category: t.Category, Hosts: slices.Clone(t.Hosts)})
+	}
+	return out
 }

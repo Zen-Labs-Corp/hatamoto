@@ -71,7 +71,7 @@ var DefaultLimits = Limits{
 // topDirs are the directories a package may hold. Anything else is refused.
 var topDirs = map[string]bool{
 	"sections": true, "schemas": true, "layouts": true, "partials": true,
-	"assets": true, "migrations": true, "ui": true, "widgets": true,
+	"assets": true, "migrations": true, "ui": true, "widgets": true, "tags": true,
 }
 
 // topFiles are the files allowed at the root next to the directories.
@@ -293,7 +293,12 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		// anyWidgets: an entry under widgets/ (a theme may hold none);
 		// hasWidgetFiles: a file there (a widget-only plugin needs one).
 		anyWidgets, hasWidgetFiles bool
-		assets                     = map[string][]byte{} // assets/ contents, for the screenshot check
+		// anyTags: an entry under tags/; tagFiles: the files there; otherDir:
+		// the first other package directory (a tag pack may hold none).
+		anyTags  bool
+		tagFiles int
+		otherDir string
+		assets   = map[string][]byte{} // assets/ contents, for the screenshot check
 	)
 	for _, f := range zr.File {
 		name := f.Name
@@ -328,6 +333,17 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 			if !isDir {
 				hasWidgetFiles = true
 			}
+		}
+		if clean == tagsDir || strings.HasPrefix(clean, tagsDir+"/") {
+			if err := checkTagEntry(clean, isDir); err != nil {
+				return nil, err
+			}
+			anyTags = true
+			if !isDir {
+				tagFiles++
+			}
+		} else if top := strings.SplitN(clean, "/", 2)[0]; (isDir || strings.Contains(clean, "/")) && otherDir == "" {
+			otherDir = top + "/"
 		}
 		if isDir {
 			if f.UncompressedSize64 != 0 {
@@ -377,8 +393,21 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 	p := &Package{Kind: kinds[0], Manifest: manifest, data: raw, zr: zr}
 	switch p.Kind {
 	case KindPlugin:
-		if !hasWasm && !hasWidgetFiles {
-			return nil, refuse("a plugin package needs %s (or widgets/)", PluginWasm)
+		if anyTags {
+			if err := tagPackContentError(otherDir, hasWasm); err != nil {
+				return nil, err
+			}
+			if tagFiles == 0 {
+				return nil, refuse("tags/: holds no tag files")
+			}
+			if tagFiles > maxPackTags {
+				return nil, refuse("tags/: a package holds at most %d tag files", maxPackTags)
+			}
+			if err := p.tagPackManifestError(); err != nil {
+				return nil, err
+			}
+		} else if !hasWasm && !hasWidgetFiles {
+			return nil, refuse("a plugin package needs %s (or widgets/ or tags/)", PluginWasm)
 		}
 		m, err := p.PluginManifest()
 		if err != nil {
@@ -394,6 +423,9 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		}
 		if anyWidgets {
 			return nil, refuse("a theme package cannot hold widgets/")
+		}
+		if anyTags {
+			return nil, refuse("a theme package cannot hold tags/")
 		}
 		m, err := p.ThemeMeta()
 		if err != nil {

@@ -50,6 +50,16 @@ type RegistryEntry struct {
 	// Active marks the live theme. Registry never sets it: the theme Browse
 	// handler sets it from ThemeInfo.
 	Active bool
+	// Tags are the tags of a tag pack, as the index lists them.
+	Tags []TagInfo
+}
+
+// TagInfo is one tag of a tag pack as the owner is shown it: what it is called,
+// the id it needs, its consent category and the hosts its script comes from.
+type TagInfo struct {
+	Name, IDLabel, Category string
+	Hosts                   []string
+	Websockets              bool
 }
 
 // RegistryView is what browsing the registry returned.
@@ -86,8 +96,11 @@ type PackageMeta struct {
 	// WidgetOnly is set for a package that ships widgets and no plugin code:
 	// the runtime has no status for it, and that is healthy.
 	WidgetOnly bool
-	Signed     bool
-	Signer     string
+	// TagPack is set for a package that only declares tracking tags: it has no
+	// code and no runtime status, and that is healthy.
+	TagPack bool
+	Signed  bool
+	Signer  string
 	// FirstParty is set when the package is signed by one of the project's own keys
 	// (whether that key is still trusted is Blocked's business).
 	FirstParty bool
@@ -137,6 +150,8 @@ type ConfirmInfo struct {
 	NewScripts             bool
 	NewCSPHosts            []string
 	NewRequestHeaders      []string
+	NewTagHosts            []string
+	TagCategoryChanged     bool
 	OldVersion, NewVersion string
 	OldSigner, NewSigner   string
 	// Missing are section types the active theme would lose.
@@ -164,6 +179,9 @@ type PackageSummary struct {
 	// ContentTypes are the names of the entity types the plugin installs.
 	ContentTypes []string
 	CSP          []permtext.CSPLine
+	// Tags are the tags of a tag pack; the prompt shows them instead of
+	// permissions.
+	Tags []TagInfo
 	// Refused is the part of Permissions that policy will not grant this
 	// package; the install prompt says so and does not post them.
 	Refused []string
@@ -236,6 +254,9 @@ type PackageAdmin interface {
 	// ContentTypes lists the content types the plugin installed, with their
 	// entry counts (what "remove content types" would delete).
 	ContentTypes(ctx context.Context, name string) []ContentTypeUse
+	// IsTagPack reports whether the stored package holds tags, in any state
+	// (off, blocked, no longer valid).
+	IsTagPack(ctx context.Context, name string) bool
 	AllowUnsigned(ctx context.Context) bool
 	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
 	UnsignedState(ctx context.Context) UnsignedState

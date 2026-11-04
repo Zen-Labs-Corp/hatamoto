@@ -1,0 +1,8 @@
+{
+  "name": "Hotjar",
+  "id": {"label": "Site ID", "pattern": "^[0-9]{6,9}$"},
+  "script": "https://static.hotjar.com/c/hotjar-{id}.js?sv=6",
+  "hosts": ["*.hotjar.com", "*.hotjar.io"],
+  "websockets": true,
+  "category": "analytics"
+}
