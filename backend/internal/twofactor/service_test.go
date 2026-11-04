@@ -17,7 +17,6 @@ type fakeUsers struct {
 	mu     sync.Mutex
 	failed map[uuid.UUID]int
 	locked map[uuid.UUID]time.Time
-	max    int
 }
 
 func newFakeUsers() *fakeUsers {

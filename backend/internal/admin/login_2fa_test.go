@@ -55,7 +55,6 @@ type fakeTwoFactor struct {
 	left     int
 	confirm  string
 	removedP int
-	newCodes []string
 }
 
 func (f *fakeTwoFactor) HasAnyFactor(_ context.Context, id uuid.UUID) (bool, error) {

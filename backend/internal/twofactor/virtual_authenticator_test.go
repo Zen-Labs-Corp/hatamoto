@@ -55,8 +55,11 @@ func (v *virtualAuthenticator) flags(extra byte) byte {
 }
 
 func (v *virtualAuthenticator) coseKey() []byte {
-	x := v.key.PublicKey.X.FillBytes(make([]byte, 32))
-	y := v.key.PublicKey.Y.FillBytes(make([]byte, 32))
+	pub, err := v.key.PublicKey.Bytes() // uncompressed point: 0x04 || X || Y
+	if err != nil {
+		v.t.Fatal(err)
+	}
+	x, y := pub[1:33], pub[33:65]
 	b, err := cbor.CTAP2EncOptions().EncMode()
 	if err != nil {
 		v.t.Fatal(err)
