@@ -1,0 +1,6 @@
+{
+  "name": "reddit",
+  "version": "1.0.0",
+  "sdk": "^0.11",
+  "description": "Adds a Reddit Pixel to your public pages. It runs no code of its own."
+}

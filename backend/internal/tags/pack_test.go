@@ -45,7 +45,7 @@ func TestParseDeclValid(t *testing.T) {
 
 func TestParseDeclNoWebsocketsNoNoscript(t *testing.T) {
 	raw := `{"name":"A","id":{"label":"ID","pattern":"^[a-z]+$"},"script":"https://a.example/x.js","hosts":["a.example"],"category":"functional"}`
-	v, err := ParseDecl("p", "a", []byte(raw))
+	v, err := ParseDecl("pk", "a", []byte(raw))
 	if err != nil {
 		t.Fatal(err)
 	}

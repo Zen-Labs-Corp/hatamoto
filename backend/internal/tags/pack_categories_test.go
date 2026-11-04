@@ -11,12 +11,12 @@ import (
 func TestPackCategoriesMatchConsent(t *testing.T) {
 	for _, c := range consent.Categories {
 		raw := `{"name":"A","id":{"label":"ID","pattern":"^[a-z]+$"},"script":"https://a.example/x.js","hosts":["a.example"],"category":"` + c + `"}`
-		if _, err := tags.ParseDecl("p", "a", []byte(raw)); err != nil {
+		if _, err := tags.ParseDecl("pk", "a", []byte(raw)); err != nil {
 			t.Fatalf("category %q refused: %v", c, err)
 		}
 	}
 	raw := `{"name":"A","id":{"label":"ID","pattern":"^[a-z]+$"},"script":"https://a.example/x.js","hosts":["a.example"],"category":"necessary"}`
-	if _, err := tags.ParseDecl("p", "a", []byte(raw)); err == nil {
+	if _, err := tags.ParseDecl("pk", "a", []byte(raw)); err == nil {
 		t.Fatal("necessary accepted")
 	}
 }

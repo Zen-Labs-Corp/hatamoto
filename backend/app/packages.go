@@ -35,7 +35,7 @@ const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed2551
                                            the same from an author archive or a packed .hmp (registry builders)
   theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
                                            validate a theme without a key (--registry: the directory rules)
-  plugin pack <dir> [--key F] [--out F]    build a .hmp plugin package (the dir holds plugin.json and plugin.wasm and/or widgets/)
+  plugin pack <dir> [--key F] [--out F]    build a .hmp plugin package (the dir holds plugin.json and plugin.wasm and/or widgets/, or only plugin.json and tags/*.json for a tag pack)
   theme dev <dir> --dev [--no-activate] [--confirm]
                                            push a theme directory as an unsigned dev package and again on every change (never in production)
   registry index <dir> --key F [--out F] [--url-prefix P] [--valid-days N] [--meta F]
@@ -223,6 +223,10 @@ func runPack(kind packages.Kind, args []string, out io.Writer) error {
 	if p.Kind != kind {
 		return fmt.Errorf("%s holds a %s, not a %s: use `hatamoto %s pack`", pos[0], p.Kind, kind, p.Kind)
 	}
+	tagLine, err := packages.TagSummaryLine(p)
+	if err != nil {
+		return err
+	}
 	if outFile == "" {
 		outFile = p.Name + "-" + p.Version + packages.Extension
 	}
@@ -231,6 +235,9 @@ func runPack(kind packages.Kind, args []string, out io.Writer) error {
 	}
 	sum := p.SHA256()
 	fmt.Fprintf(out, "%s\n  %s %s v%s, %d bytes\n  sha256 %s\n", outFile, p.Kind, p.Name, p.Version, len(raw), hex.EncodeToString(sum[:]))
+	if tagLine != "" {
+		fmt.Fprintf(out, "  (%s)\n", tagLine)
+	}
 	if key != nil {
 		fmt.Fprintf(out, "  signed by %s\n", key.ID)
 	} else {

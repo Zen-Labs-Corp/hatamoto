@@ -33,7 +33,7 @@ var (
 	exactHostRE  = regexp.MustCompile(`^` + hostLabel + `(?:\.` + hostLabel + `)+$`)
 	wildHostRE   = regexp.MustCompile(`^\*\.` + hostLabel + `(?:\.` + hostLabel + `)+$`)
 	stemRE       = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,30}$`)
-	pluginNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+	pluginNameRE = regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`) // sdk.NamePattern
 )
 
 // Decl is the JSON a package carries in tags/<stem>.json. It holds data

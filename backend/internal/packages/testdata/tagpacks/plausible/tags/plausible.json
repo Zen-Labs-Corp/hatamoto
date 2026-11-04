@@ -1,0 +1,7 @@
+{
+  "name": "Plausible Analytics",
+  "id": {"label": "Script ID", "pattern": "^[A-Za-z0-9_-]{10,40}$"},
+  "script": "https://plausible.io/js/pa-{id}.js",
+  "hosts": ["plausible.io"],
+  "category": "analytics"
+}
