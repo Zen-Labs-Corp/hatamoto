@@ -896,7 +896,7 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		Attributes:    &restoredAttrs,
 		ChangeSummary: &changeSummary,
 		Status:        lockedStatus(existing.Schema, restoredAttrs),
-		TakeOwnership: structuralAttrsChanged(existing.Schema, restoredAttrs, existing.Attributes),
+		TakeOwnership: structuralAttrsChanged(existing.Schema, ver.Attributes, existing.Attributes),
 	})
 	if err != nil {
 		s.logger.Error("failed to restore entity version",

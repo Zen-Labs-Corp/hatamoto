@@ -3,6 +3,7 @@
 package entity
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -121,6 +122,26 @@ func TestOwnershipHandOver(t *testing.T) {
 			t.Fatal(err)
 		}
 		if got := f.origin(e.ID); got != "owner" {
+			t.Errorf("origin = %q", got)
+		}
+	})
+
+	// The restore compares the version as stored, like an update compares what
+	// the caller sent: a hook that stamps an SEO key is not an edit.
+	t.Run("restore of an unchanged body with a stamping hook", func(t *testing.T) {
+		e := f.demoEntity("rh-" + uuid.NewString()[:8])
+		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"one","excerpt":"short"}`))}); err != nil {
+			t.Fatal(err)
+		}
+		f.svc.SetBeforeSave(func(_ context.Context, in *BeforeSaveInput) error {
+			in.Attributes = json.RawMessage(`{"content":"one","meta_description":"stamped"}`)
+			return nil
+		})
+		t.Cleanup(func() { f.svc.SetBeforeSave(nil) })
+		if _, err := f.svc.RestoreVersion(f.ctx, e.ID, nil, e.Version); err != nil {
+			t.Fatal(err)
+		}
+		if got := f.origin(e.ID); got != demoOrigin {
 			t.Errorf("origin = %q", got)
 		}
 	})
