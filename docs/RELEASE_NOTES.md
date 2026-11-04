@@ -41,6 +41,14 @@ Users can add an authenticator app, recovery codes and passkeys under Profile > 
 
 **Rollback floor: unchanged.** The previous binary ignores the new tables and column. Rolling back signs everyone in with the password only, so second factors stop being asked.
 
+## Unreleased: Search and replace
+
+Owners get a new tool at **Settings > Tools > Search and replace**. It finds plain text or a web address across content, page builder text, SEO fields, other fields and menus, shows a preview with context, and applies only the matches you leave ticked. Each changed item gets one restorable version; menus have no version history. Plugin-owned items start unticked because replacing in them takes ownership. See [Search and replace](site/admin/content.md#search-and-replace).
+
+- **Migration.** None.
+- **Rollback floor: unchanged.** No data format changed.
+- **SDK.** No change.
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

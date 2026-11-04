@@ -67,3 +67,23 @@ Your item shows **Published** in the list, and **View on site** opens it at its 
 If the public address shows "not found", the item is probably still a draft or scheduled for later: check the **Status** column. If the address is different from what you expected, the content type decides the pattern; an owner can see it under **Settings > Entity models**, described in [Entity types and taxonomies](entity-types-and-taxonomies.md).
 
 Editors can choose existing terms but cannot create new ones. Ask an owner to add a category or tag, or to change a content type's fields.
+
+## Search and replace
+
+Owners can change a word, a phrase or a web address across the whole site in one pass. Open **Settings > Tools > Search and replace**. Editors do not see this page.
+
+1. Type the text to **Find** and what to **Replace with**. Leave the second box empty to remove the text.
+2. Choose how to match. **Plain text** finds the text anywhere, even inside a longer word. **Whole word** skips matches that are part of a longer word. **Match upper and lower case** is on by default. There is no regular expression mode.
+3. Tick the places to **Look in**: content text (including page builder text), SEO fields, other fields such as excerpts and custom fields, and menus.
+4. Select **Preview**. The page lists every match with the text around it and changes nothing.
+5. Untick any match you want to keep, then select the **Replace** button.
+
+What to know before you apply:
+
+- **Each changed item gets one new version.** Open the item's **Versions** tab to restore the earlier text. The change summary names the find and replace text.
+- **Links and addresses are covered.** Matches inside a link address and an image address are replaced. Page builder structure, ids and styles are never touched, only the visible text.
+- **Plugin-owned items start unticked.** Replacing in one takes ownership from the plugin, so the plugin stops updating it. Tick it only if you mean that.
+- **Menus have no version history.** Menu matches can be replaced, but the old label or address cannot be restored.
+- **Items edited since the preview are skipped.** If someone saves an item between your preview and your replace, that item is left alone and the result message counts it. Preview again to include it.
+- **Limits.** The preview counts up to 10,000 matches and lists the first 500. If there are more, refine your search and run it again.
+- **The audit log records the run**, with the find and replace text and the counts of matches, items, menu items and skipped items.
