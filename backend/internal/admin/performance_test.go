@@ -108,7 +108,7 @@ func TestPerformancePage(t *testing.T) {
 
 	p := newPerfRig(t, newPerfFake())
 	body := p.get(t)
-	for _, want := range []string{"~180 MB of 300 MB", "Pages cached", "1,144", "Cache use", "set here (server default: 5 min)", "1,144 pages · 0 errors · 64 s", "(stopped early: size limit reached)", "Edits made here clear the cache at once; changes made elsewhere", "Pages to build", "After content changes", "Only missing skips pages that are already cached, so it does not refresh them."} {
+	for _, want := range []string{"~180 MB of 300 MB", "Pages cached", "1,144", "Cache use", "set here (server default: 5 min)", "1,144 pages · 0 errors · 64 s", "(stopped early: size limit reached)", "Edits made here clear the cache at once; changes made elsewhere", "Compress responses", "Pages to build", "After content changes", "Only missing skips pages that are already cached, so it does not refresh them."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}

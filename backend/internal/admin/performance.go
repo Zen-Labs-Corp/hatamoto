@@ -21,7 +21,7 @@ type performanceData struct {
 	Errs    map[string]string
 
 	Enabled, PreloadEnabled     bool
-	AfterChanges                bool
+	AfterChanges, Compress      bool
 	TTLOptions, IntervalOptions []ui.Option
 	MaxMB                       string
 	TTLSource                   string
@@ -150,6 +150,7 @@ func (a *Admin) renderPerformance(w http.ResponseWriter, r *http.Request, status
 			{Value: siteconfig.PreloadModeAll, Label: "Refresh all", Selected: s.PreloadMode == siteconfig.PreloadModeAll},
 		},
 		AfterChanges:    s.PreloadAfterChanges,
+		Compress:        s.CompressResponses,
 		TTLOptions:      durationOptions(ttlPresets, ttl),
 		IntervalOptions: durationOptions(intervalPresets, interval),
 		MaxMB:           maxMBText(maxMB),
@@ -195,6 +196,7 @@ func settingsDetail(s PageCacheSettings) map[string]any {
 		"enabled": s.Enabled, "ttl_seconds": s.TTLSeconds, "max_mb": s.MaxMB,
 		"preload_enabled": s.PreloadEnabled, "preload_interval_seconds": s.PreloadIntervalSeconds,
 		"preload_mode": s.PreloadMode, "preload_after_changes": s.PreloadAfterChanges,
+		"compress_responses": s.CompressResponses,
 	}
 }
 

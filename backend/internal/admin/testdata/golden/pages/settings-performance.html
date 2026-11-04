@@ -134,6 +134,14 @@
 </div>
 <div class="hm-setrow__control"><input class="hm-field__control" type="number" id="max-mb" name="max_mb" value="300" min="1" max="102400" step="1" aria-describedby="max-mb-help max-mb-unit"><span class="hm-setrow__unit" id="max-mb-unit">MB</span></div>
 </div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="compress">Compress responses</label>
+<p class="hm-field__help">Sends pages, feeds, CSS and JS as zstd or gzip when the browser supports it.</p>
+</div>
+<div class="hm-setrow__control"><div class="hm-field">
+<label class="hm-field__check hm-switch" for="compress"><input class="hm-field__box" type="checkbox" role="switch" id="compress" name="compress" value="on" checked></label><input type="hidden" name="compress" value="off">
+</div></div>
+</div>
 </div></div><footer class="hm-card__foot"><span class="hm-card__foot-note"><button type="submit" class="hm-btn hm-btn--secondary" form="clear-form"><span>Clear cache</span></button></span><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 <section class="hm-card" id="preload-card" aria-labelledby="preload-card-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="preload-card-title">Preload</h2><p class="hm-muted">Builds pages ahead of visitors.</p></div>

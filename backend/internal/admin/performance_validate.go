@@ -57,6 +57,19 @@ func validatePerformance(form url.Values, stored PageCacheSettings) (PageCacheSe
 		out.TTLSeconds = n
 	}
 
+	// The compression switch is independent of the cache, so it is read before
+	// the cache-off early return. A key absent from the form keeps the stored value.
+	switch compress := form.Get("compress"); {
+	case !form.Has("compress"):
+		// keep stored
+	case compress == "on":
+		out.CompressResponses = true
+	case compress == "off":
+		out.CompressResponses = false
+	default:
+		bad("compress", "Compress responses", "Choose On or Off.")
+	}
+
 	if !out.Enabled {
 		return out, errs
 	}
