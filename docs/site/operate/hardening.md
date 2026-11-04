@@ -46,6 +46,10 @@ In this guide you work through the checklist for an instance that faces the inte
 
 The full header list, the policy text and what a captcha provider adds to it are in the [configuration reference](configuration-reference.md).
 
+### Keep a site private while you build it
+
+Before launch, or during a risky change, set Settings > Site access to Coming soon, Maintenance or Password. Visitors and crawlers get a `noindex` page that is never cached, `robots.txt` says `Disallow: /`, and the admin address, `/health`, `/ready`, `/api/`, `/media/` and plugin pages under `/p/` stay reachable, so monitoring and plugins keep working. Signed-in admin users see the real site. Put the password gate behind HTTPS so the cookie is `Secure`, and set the mode back to Open before you announce the site.
+
 ### Plugins, files and outbound calls
 
 1. Unset `HATAMOTO_PLUGIN_DIR`. It loads unsigned plugins from a directory and is for development only.

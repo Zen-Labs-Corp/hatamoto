@@ -27,6 +27,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Users | `users` | owner |
 | API | `api-keys` | owner |
 | Webhooks | `webhooks`, `webhooks/deliveries` | owner |
+| Site access | `site-access` | owner |
 | Performance | `performance` | owner |
 | Updates | `updates` | owner |
 | Import & export | `import`, `export` | owner |
@@ -197,6 +198,29 @@ Keys can also be created on the server with `hatamoto apikey create --name <name
 ## Webhooks
 
 `<admin>/settings/webhooks` sends a signed `POST` to an address you choose when content changes, and keeps a delivery log at `<admin>/settings/webhooks/deliveries`. Owners only. See [Webhooks](webhooks.md).
+
+## Site access
+
+`<admin>/settings/site-access` (owners only) chooses who can see the public site. It has four modes:
+
+| Mode | What visitors get |
+|---|---|
+| Open | The normal site. |
+| Coming soon | A themed page with status 200, `noindex`, and no caching. |
+| Maintenance | The same page with status 503 and a `Retry-After` header (15 minutes, 1, 6 or 24 hours, your choice), so search engines come back later instead of dropping pages. |
+| Password | A page with a password form, status 401. One shared password for the whole site, not per page. |
+
+The heading and message are plain text for the default language of the site; empty fields use a standard text. Your theme can restyle the page by shipping `layouts/coming-soon.html`; without it the built-in layout is used.
+
+What always stays the same, in every mode:
+
+- **You still see the real site.** Anyone signed in to the admin sees the live pages, so you can check your work. Those responses are marked `private, no-store` so a CDN never keeps them. The sign-in cookie is `SameSite=Strict`, so if you arrive from another site by a link, you see the gate once; open the site again.
+- **Open paths.** The admin address, `/health`, `/ready`, `/api/`, `/p/` (plugin pages), `/.well-known/`, `/media/`, `/theme/assets/` and the site icons are never gated. Public form submits are gated like pages. Plugin routes under `/p/` stay open, so a plugin that serves a public page there is still reachable.
+- **Robots.** `/robots.txt` always answers and says `Disallow: /` while a mode is on. The sitemap, its parts, the feeds and `llms.txt` answer 404 in coming soon and password mode, and 503 with `Retry-After` in maintenance mode.
+- **Caches.** The page cache is cleared whenever you save, and gate pages are never cached. IndexNow pings are skipped while the mode is not open.
+- **Password mode.** A correct password sets a signed cookie for 30 days (`HttpOnly`, `SameSite=Lax`, `Secure` on https). Setting a new password signs every visitor out. Wrong guesses are limited per client address (429 with `Retry-After`). The password is stored as a hash and never shown again; leave the field empty to keep it.
+
+While the mode is not open, owners and editors see a banner on every admin page. Each change is written to the audit log with the old and new mode, never the password.
 
 ## Performance
 
