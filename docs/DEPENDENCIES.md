@@ -31,6 +31,8 @@ tests are the acceptance test for the runtime.
 |---|---|---|---|---|
 | `github.com/extism/go-sdk` | v1.7.1 | BSD-3-Clause | WASM plugin runtime (host side, on wazero); see [Extism](#extism-and-the-binary-size) | `go get github.com/extism/go-sdk@latest` |
 | `github.com/tetratelabs/wazero` | v1.9.0 | Apache-2.0 | WebAssembly runtime under Extism; compile cache. We use its compilation cache. **Held at v1.9.0 on purpose:** v1.12.0 passes the sandbox tests but its warm compile-cache load measured 124-205 ms on CI runners against the 100 ms plan criterion (`TestCompileCacheWarmLoad`); v1.9.0 passes. Revisit with the next Extism release | `go get github.com/tetratelabs/wazero@latest` |
+| `github.com/gen2brain/webp` | v0.5.5 | MIT | WebP encoder (libwebp as WebAssembly on wazero), used only by `internal/media/modern`. **Pinned to v0.5.5:** v0.6.x drops wazero for generated Go source, which is fine but a different trade; v0.5.5 is the last release that asks for wazero v1.9.0. See [Image encoders](#image-encoders-and-the-binary-size) | `go get github.com/gen2brain/webp@v0.5.5` |
+| `github.com/gen2brain/avif` | v0.4.4 | MIT | AVIF encoder (libavif as WebAssembly on wazero), used only by `internal/media/modern`. **Pinned to v0.4.4:** v0.5 and later require wazero v1.12.0, which would raise the held wazero | `go get github.com/gen2brain/avif@v0.4.4` |
 | `github.com/jackc/pgx/v5` | v5.11.0 | MIT | PostgreSQL driver and pool | `go get github.com/jackc/pgx/v5@latest` |
 | `github.com/pressly/goose/v3` | v3.29.0 | MIT | Database migrations (`hatamoto migrate`) | `go get github.com/pressly/goose/v3@latest` |
 | `github.com/google/uuid` | v1.6.0 | BSD-3-Clause | UUID identifiers | `go get github.com/google/uuid@latest` |
@@ -68,6 +70,7 @@ tests are the acceptance test for the runtime.
 | `github.com/yosida95/uritemplate/v3` | v3.0.2 | BSD-3-Clause | MCP go-sdk |
 | `golang.org/x/oauth2` | v0.37.0 | BSD-3-Clause | MCP go-sdk |
 | `golang.org/x/sync` | v0.24.0 | BSD-3-Clause | goose, MCP go-sdk |
+| `github.com/ebitengine/purego` | v0.8.3 | Apache-2.0 | gen2brain/webp and avif (system library loader; disabled by the `nodynamic` build tag) |
 | `golang.org/x/sys` | v0.49.0 | BSD-3-Clause | wazero, pgx, x/crypto |
 | `github.com/dylibso/observe-sdk/go` | v0.0.0-20240828172851-9145d8ad07e1 | Apache-2.0 | Extism go-sdk (tracing adapter, unused) |
 | `github.com/gobwas/glob` | v1.0.0 | MIT | Extism go-sdk (allowed-host patterns) |
@@ -155,6 +158,47 @@ binary. An upstream issue asking Extism for an optional observe adapter (a build
 separate module) is **to be filed by a human**; revisit this decision when it lands. wazero
 is held at v1.9.0 (see the table): the spike's optional mmap allocator used its
 `experimental` API, which can change between minors, so re-run the sandbox tests on a bump.
+
+## Image encoders and the binary size
+
+Resized copies are also written as WebP and AVIF (`internal/media/modern`). Encoders:
+`gen2brain/webp` v0.5.5 and `gen2brain/avif` v0.4.4, libwebp and libavif compiled to
+WebAssembly and run on a wazero runtime that belongs to the package (separate from the plugin
+runtime). No cgo and no external process. The versions are the last ones that accept the held
+wazero v1.9.0.
+
+**Static linking trap.** Both modules link `ebitengine/purego` and by default try to load a
+system libwebp or libavif at run time. Built with `CGO_ENABLED=0` and without a tag, the
+product binary becomes a *dynamically linked* ELF that needs `ld.so`, which breaks the single
+static binary of ADR 0002. Every product build therefore passes `-tags nodynamic` (Makefile,
+Dockerfile, CI and the e2e scripts), and `modern.StaticBuild` lets the server warn when a
+binary was built without it. Building from source: `go build -tags nodynamic ./cmd/hatamoto`.
+
+Measured with Go 1.26, `CGO_ENABLED=0`, `-ldflags "-s -w"`, `./cmd/hatamoto`:
+
+| Build | Size | Delta |
+|---|---|---|
+| main without the encoders | 45.53 MB | |
+| with webp and avif, `-tags nodynamic` | 46.88 MB | +1.35 MB, statically linked |
+| same without the tag | 47.14 MB | dynamically linked (rejected) |
+
+Wazero is already linked for plugins, so the delta is the two wasm payloads and glue.
+Benchmark on one 12 MP synthetic photo (4000x3000, resized with CatmullRom first), one core of
+a desktop CPU, `go test -tags nodynamic ./internal/media/modern -bench . -benchtime 1x`:
+
+| Operation | Time |
+|---|---|
+| WebP encode, 1024 px, quality 80 | 0.24 s |
+| WebP encode, 300 px | 0.04 s |
+| AVIF encode, 1024 px, quality 60, speed 8 | 0.41 s |
+| AVIF encode, 300 px | 0.10 s |
+| WebP decode, 1024 px (`x/image/webp`) | 0.01 s |
+
+Decision: **WebP in, AVIF in.** Both deltas are far under the 3 MB budget and a 1024 px
+encode is well under the one second (WebP) and three second (AVIF) limits. The synthetic
+image is easy to compress, so real photos take longer; the upload path still limits AVIF
+encoding to a time budget and leaves the rest to the Rebuild job. A copy is only kept when it
+is smaller than the fallback copy of the same width.
 
 ## Vendored JavaScript and CSS (admin)
 
