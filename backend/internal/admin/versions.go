@@ -299,7 +299,8 @@ func (a *Admin) handleVersionRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := e.ID.String()
-	if _, err := a.deps.Content.Entities.RestoreVersion(r.Context(), e.ID, actorID(r), n); err != nil {
+	restored, err := a.deps.Content.Entities.RestoreVersion(r.Context(), e.ID, actorID(r), n)
+	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrVersionNotFound):
 			a.ErrorBack(w, r, http.StatusNotFound, "Version not found", "That version no longer exists.", a.adminPath+"/entities/"+id+"/versions", "Back to versions")
@@ -314,7 +315,11 @@ func (a *Admin) handleVersionRestore(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	a.auditEntity(r, auditEntityRestoreVersion, e.ID, e, map[string]any{"version": n})
+	detail := map[string]any{"version": n}
+	if restored.TookOwnership {
+		detail["took_ownership"] = true
+	}
+	a.auditEntity(r, auditEntityRestoreVersion, e.ID, e, detail)
 	a.SetFlash(w, r, "success", fmt.Sprintf("Restored version %d.", n))
 	Redirect(w, r, a.adminPath+"/entities/"+id)
 }

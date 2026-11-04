@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
@@ -168,6 +169,63 @@ func TestEditorsTakePluginPageOnStructuralSave(t *testing.T) {
 		}
 		if p.owned(r.ent.ID) {
 			t.Error("an SEO edit left the post with its plugin")
+		}
+	})
+}
+
+// Every admin path that can take a plugin's page over leaves a trace in the
+// audit log: the explicit saves and the SEO and restore actions carry
+// took_ownership in their detail, and an autosave writes entity.take_over.
+func TestTakeOverIsAudited(t *testing.T) {
+	t.Parallel()
+
+	t.Run("inline SEO", func(t *testing.T) {
+		t.Parallel()
+		c := newContentRig(t)
+		c.ents.tookOwnership = true
+		rows := c.record()
+		form := url.Values{"title": {"Alpha for search"}, "orig_title": {""}, "description": {""}, "orig_description": {""}, "orig_noindex": {""}}
+		if rec := c.seoPost(11, "editor-token", form, true); rec.Code != 200 {
+			t.Fatalf("save: %d %s", rec.Code, rec.Body)
+		}
+		if got := rows(); len(got) != 1 || got[0].Action != "entity.update" || got[0].Detail["took_ownership"] != true {
+			t.Errorf("audit = %+v", got)
+		}
+	})
+
+	t.Run("version restore", func(t *testing.T) {
+		t.Parallel()
+		c := newContentRig(t)
+		c.ents.versions[fid(11)] = []*entity.EntityVersion{{ID: fid(900), EntityID: fid(11), Version: 1, Attributes: []byte(`{"summary":"Old"}`), CreatedAt: t0}}
+		c.ents.tookOwnership = true
+		rows := c.record()
+		if rec := c.post("/admin/entities/"+fid(11).String()+"/versions/1/restore", url.Values{}); rec.Code != 303 {
+			t.Fatalf("restore: %d %s", rec.Code, rec.Body)
+		}
+		wantAudit(t, rows(), "entity.restore_version")
+		if rows()[0].Detail["took_ownership"] != true {
+			t.Errorf("detail = %v", rows()[0].Detail)
+		}
+	})
+
+	t.Run("autosave", func(t *testing.T) {
+		t.Parallel()
+		for _, took := range []bool{true, false} {
+			r := newBlogRig(t)
+			r.ents.tookOwnership = took
+			rows := r.record()
+			rec := r.post(r.path()+"/autosave", url.Values{"version": {"1"}, "name": {"Go servers"}, "content": {"<p>Typing</p>"}})
+			if rec.Code != 200 {
+				t.Fatalf("autosave: %d %s", rec.Code, rec.Body)
+			}
+			if !took {
+				wantAudit(t, rows())
+				continue
+			}
+			wantAudit(t, rows(), "entity.take_over")
+			if rows()[0].Detail["autosave"] != true {
+				t.Errorf("detail = %v", rows()[0].Detail)
+			}
 		}
 	})
 }

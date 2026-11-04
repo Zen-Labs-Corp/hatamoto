@@ -133,7 +133,11 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 				fail(http.StatusUnprocessableEntity, seoFieldsOf(attrsMap(e.Attributes)), entityErrorText(err))
 				return
 			}
-			a.auditEntity(r, auditEntityUpdate, e.ID, updated, map[string]any{"schema": sc.Slug, "bulk": false, "inline": true, "fields": res.Changed})
+			detail := map[string]any{"schema": sc.Slug, "bulk": false, "inline": true, "fields": res.Changed}
+			if updated.TookOwnership {
+				detail["took_ownership"] = true
+			}
+			a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 		}
 		out := seoInlineReply{Status: "saved", Values: res.Current, Counters: seoCounters(res.Current), Message: "Saved SEO for " + e.Name + "."}
 		status := http.StatusOK

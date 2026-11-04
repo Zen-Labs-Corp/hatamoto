@@ -270,6 +270,20 @@ func (s *Server) logAPIKeyWrite(r *http.Request, op string, entityID string) {
 	}
 }
 
+// logTookOwnership records that a REST write took a plugin's entity over: this
+// API has no audit table, so the log line is the trace (api_key_* names the key
+// when one made the call).
+func (s *Server) logTookOwnership(r *http.Request, op string, ent *entity.Entity, userID uuid.UUID) {
+	if ent == nil || !ent.TookOwnership {
+		return
+	}
+	args := []any{"op", op, "entity_id", ent.ID.String(), "user_id", userID.String()}
+	if k, ok := middleware.GetAPIKey(r.Context()); ok {
+		args = append(args, "api_key_id", k.ID, "api_key_name", k.Name)
+	}
+	s.logger.Info("entity taken over from its plugin", args...)
+}
+
 // handleCreateEntity creates a new entity.
 func (s *Server) handleCreateEntity(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetClaims(r.Context())
@@ -383,6 +397,7 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update entity")
 		return
 	}
+	s.logTookOwnership(r, "update", ent, claims.UserID)
 
 	writeJSON(w, http.StatusOK, ent)
 }
@@ -562,6 +577,7 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, "failed to restore version")
 		return
 	}
+	s.logTookOwnership(r, "restore", ent, claims.UserID)
 
 	writeJSON(w, http.StatusOK, ent)
 }

@@ -730,7 +730,8 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Autosave is not audited: it runs on every pause in typing. Only the explicit
-	// save in handleBlogSave writes an audit row.
+	// save in handleBlogSave writes an audit row, and the one autosave that takes
+	// a plugin's page over (it happens once per page).
 	updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), in)
 	if err != nil {
 		if errors.Is(err, entity.ErrSlugAlreadyExists) && in.Slug != nil {
@@ -747,6 +748,9 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("blog autosave failed", "err", err)
 		reply(http.StatusInternalServerError, autosaveReply{Version: e.Version, Error: "The draft could not be saved."})
 		return
+	}
+	if updated.TookOwnership {
+		a.auditEntity(r, auditEntityTakeOver, e.ID, updated, map[string]any{"schema": sc.Slug, "autosave": true})
 	}
 	reply(http.StatusOK, autosaveReply{OK: true, Version: updated.Version, SavedAt: time.Now().UTC().Format(time.RFC3339)})
 }
