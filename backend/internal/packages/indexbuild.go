@@ -254,6 +254,11 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 				return nil, fmt.Errorf("%s: %w", f, err)
 			}
 			e.Description, e.Permissions = m.Description, m.Permissions
+			vs, err := p.TagVendors()
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", f, err)
+			}
+			e.Tags = tagSummaries(vs)
 		case KindTheme:
 			m, err := p.ThemeMeta()
 			if err != nil {

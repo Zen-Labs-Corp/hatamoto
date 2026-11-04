@@ -287,3 +287,67 @@ func TestParseIndexToleratesWrongSiteTypeAndFlagsTypes(t *testing.T) {
 		t.Errorf("valid values lost: %+v", e)
 	}
 }
+
+func TestParseIndexSanitisesTags(t *testing.T) {
+	key := newKey(t)
+	long := strings.Repeat("x", 61)
+	hosts := []string{"a.example", "a.example", "UPPER.example", "*.b.example", "*.com", "x.example/path", "localhost", "c1.example", "c2.example", "c3.example", "c4.example", "c5.example", "c6.example", "c7.example"}
+	doc := signedIndex(t, key, func(i *Index) {
+		i.Packages = []Entry{
+			{Kind: KindPlugin, Name: "pack", Version: "1.0.0", URL: "p/pack.hmp", SHA256: strings.Repeat("a", 64), Tags: []TagSummary{
+				{Name: "Good", Category: "analytics", Hosts: hosts},
+				{Name: "Necessary", Category: "necessary", Hosts: []string{"a.example"}},
+				{Name: "<b>Markup</b>", Category: "marketing", Hosts: []string{"a.example"}},
+				{Name: long, Category: "marketing", Hosts: []string{"a.example"}},
+				{Name: "NoHosts", Category: "marketing", Hosts: []string{"*.com", "bad host"}},
+				{Name: "Two", Category: "functional", Hosts: []string{"two.example"}},
+				{Name: "Three", Category: "functional", Hosts: []string{"three.example"}},
+				{Name: "Four", Category: "functional", Hosts: []string{"four.example"}},
+				{Name: "Five", Category: "functional", Hosts: []string{"five.example"}},
+			}},
+			{Kind: KindTheme, Name: "theme", Version: "1.0.0", URL: "p/theme.hmp", SHA256: strings.Repeat("b", 64), Tags: []TagSummary{{Name: "X", Category: "analytics", Hosts: []string{"a.example"}}}},
+		}
+	})
+	idx, err := ParseIndex(doc, trust(t, key), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := idx.Find(KindPlugin, "pack")
+	if len(e.Tags) != 4 || e.Tags[0].Name != "Good" || e.Tags[1].Name != "Two" || e.Tags[3].Name != "Four" {
+		t.Fatalf("tags = %+v", e.Tags)
+	}
+	if got, want := e.Tags[0].Hosts, []string{"a.example", "*.b.example", "c1.example", "c2.example", "c3.example", "c4.example", "c5.example", "c6.example"}; !slices.Equal(got, want) {
+		t.Fatalf("hosts = %v, want %v", got, want)
+	}
+	if th, _ := idx.Find(KindTheme, "theme"); th.Tags != nil {
+		t.Fatalf("theme kept tags: %+v", th.Tags)
+	}
+}
+
+func TestParseIndexToleratesWrongTagsType(t *testing.T) {
+	key := newKey(t)
+	raw, err := json.Marshal(Index{Version: 1, IssuedAt: time.Now().Add(-time.Minute).UTC().Format(time.RFC3339), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = []byte(strings.Replace(string(raw), `"packages":null`, `"packages":[{"kind":"plugin","name":"alpha","version":"1.0.0","url":"p/a.hmp","sha256":"`+strings.Repeat("a", 64)+`","tags":"nope"},{"kind":"plugin","name":"beta","version":"1.0.0","url":"p/b.hmp","sha256":"`+strings.Repeat("b", 64)+`","tags":[{"name":5}]}]`, 1))
+	signed, err := SignIndex(raw, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := ParseIndex(signed, trust(t, key), time.Now())
+	if err != nil || len(idx.Packages) != 2 {
+		t.Fatalf("index = %+v, %v", idx, err)
+	}
+	for _, e := range idx.Packages {
+		if e.Tags != nil {
+			t.Errorf("%s kept tags %+v", e.Name, e.Tags)
+		}
+	}
+}
+
+func TestIndexWithoutTagsUnchanged(t *testing.T) {
+	if strings.Contains(string(signedIndex(t, newKey(t), nil)), `"tags"`) {
+		t.Error("index without tag packs contains tags")
+	}
+}

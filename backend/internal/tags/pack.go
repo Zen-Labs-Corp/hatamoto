@@ -282,3 +282,16 @@ func All() []Vendor {
 // IsPackKey reports whether a settings key can only belong to a pack vendor.
 // Built-in ids never contain a dot.
 func IsPackKey(k string) bool { return strings.Contains(k, ".") }
+
+// ValidHost reports whether h is a host a declaration may list: a lower-case
+// hostname or "*.name.tld".
+func ValidHost(h string) bool { return exactHostRE.MatchString(h) || wildHostRE.MatchString(h) }
+
+// ValidCategory reports whether c is a consent category a tag may use.
+func ValidCategory(c string) bool { return validCategory(c) }
+
+// ValidName reports whether s is acceptable as a vendor display name.
+func ValidName(s string) bool { return shortText("name", s, maxNameLen) == nil }
+
+// MaxPackHosts is the most hosts one declaration may list.
+const MaxPackHosts = maxPackHosts

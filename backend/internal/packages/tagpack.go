@@ -130,3 +130,16 @@ func TagSummaryLine(p *Package) (string, error) {
 	}
 	return fmt.Sprintf("%d %s: %s", len(vs), noun, strings.Join(parts, "; ")), nil
 }
+
+// tagSummaries lists the vendors of a tag pack the way a registry entry does.
+func tagSummaries(vs []tags.Vendor) []TagSummary {
+	var out []TagSummary
+	for _, v := range vs {
+		hosts := make([]string, len(v.Script))
+		for i, h := range v.Script {
+			hosts[i] = strings.TrimPrefix(h, "https://")
+		}
+		out = append(out, TagSummary{Name: v.Label, Category: v.Category, Hosts: hosts})
+	}
+	return out
+}

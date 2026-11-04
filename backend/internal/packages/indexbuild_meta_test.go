@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -369,5 +370,55 @@ func TestIndexWithoutSiteTypeFlagsUnchanged(t *testing.T) {
 		if strings.Contains(string(raw), k) {
 			t.Errorf("index without site_type/flags contains %s", k)
 		}
+	}
+}
+
+// A directory holding a tag pack lists it as a plugin with its tags; the
+// summary comes from the package, never from --meta, and other entries carry
+// no tags key.
+func TestBuildIndexListsTagPackSummary(t *testing.T) {
+	dir := metaDir(t)
+	pack := packForMeta(t, map[string][]byte{
+		PluginManifest:   []byte(`{"name":"acme","version":"1.0.0","sdk":"^0.11","description":"Acme tag"}`),
+		"tags/acme.json": []byte(tagDeclWith(`"cdn.acme.example","*.acme.example"`, "marketing")),
+	})
+	if err := os.WriteFile(filepath.Join(dir, "acme.hmp"), pack, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := buildMeta(t, dir, map[string]Meta{"acme": goodMeta()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		t.Fatal(err)
+	}
+	e, ok := idx.Find(KindPlugin, "acme")
+	if !ok || e.Description != "Acme tag" || len(e.Permissions) != 0 {
+		t.Fatalf("entry = %+v", e)
+	}
+	want := []TagSummary{{Name: "Acme", Category: "marketing", Hosts: []string{"cdn.acme.example", "*.acme.example"}}}
+	if !reflect.DeepEqual(e.Tags, want) {
+		t.Fatalf("tags = %+v, want %+v", e.Tags, want)
+	}
+	if h, _ := idx.Find(KindPlugin, "hello"); h.Tags != nil {
+		t.Errorf("a wasm plugin gained tags: %+v", h.Tags)
+	}
+	if strings.Count(string(raw), `"tags"`) != 1 {
+		t.Errorf("tags key count in index: %s", raw)
+	}
+}
+
+func TestBuildIndexRefusesBadTagPack(t *testing.T) {
+	dir := t.TempDir()
+	pack := packForMeta(t, map[string][]byte{
+		PluginManifest:   []byte(`{"name":"acme","version":"1.0.0","sdk":"^0.11"}`),
+		"tags/acme.json": []byte(tagDeclWith(`"other.example"`, "analytics")),
+	})
+	if err := os.WriteFile(filepath.Join(dir, "acme.hmp"), pack, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildMeta(t, dir, nil); err == nil || !strings.Contains(err.Error(), "tags/acme.json: script host") {
+		t.Fatalf("err = %v", err)
 	}
 }

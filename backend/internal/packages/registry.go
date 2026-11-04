@@ -18,6 +18,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/tags"
 )
 
 // Entry is one package a registry offers.
@@ -57,16 +59,58 @@ type Entry struct {
 	// theme Browse page. Both are optional: unknown values are dropped.
 	SiteType string   `json:"site_type,omitempty"`
 	Flags    []string `json:"flags,omitempty"`
+	// Tags summarises the tag declarations of a tag pack, read from the
+	// package by the index builder, so the directory and the install prompt
+	// can show hosts and consent category before any download. Optional:
+	// servers that predate it ignore the key.
+	Tags []TagSummary `json:"tags,omitempty"`
+}
+
+// TagSummary is one tag of a tag pack as a registry lists it: the display
+// name, the consent category and the bare hosts it loads from.
+type TagSummary struct {
+	Name     string   `json:"name"`
+	Category string   `json:"category"`
+	Hosts    []string `json:"hosts"`
+}
+
+// maxEntryTags is the most tags a registry entry lists (a package holds at most four).
+const maxEntryTags = 4
+
+// cleanTags keeps the well-formed tag summaries of an entry. The index is
+// displayed before download, so nothing here is trusted: bad entries and bad
+// hosts are dropped, never repaired.
+func cleanTags(in []TagSummary) []TagSummary {
+	var out []TagSummary
+	for _, t := range in {
+		if len(out) == maxEntryTags {
+			break
+		}
+		if !tags.ValidName(t.Name) || !tags.ValidCategory(t.Category) {
+			continue
+		}
+		var hosts []string
+		for _, h := range t.Hosts {
+			if len(hosts) < tags.MaxPackHosts && tags.ValidHost(h) && !slices.Contains(hosts, h) {
+				hosts = append(hosts, h)
+			}
+		}
+		if len(hosts) > 0 {
+			out = append(out, TagSummary{Name: t.Name, Category: t.Category, Hosts: hosts})
+		}
+	}
+	return out
 }
 
 // UnmarshalJSON decodes an entry, dropping a site_type or flags value of the
-// wrong JSON type instead of failing the whole index.
+// wrong JSON type (and tags of one) instead of failing the whole index.
 func (e *Entry) UnmarshalJSON(data []byte) error {
 	type plain Entry
 	aux := struct {
 		*plain
 		SiteType json.RawMessage `json:"site_type"`
 		Flags    json.RawMessage `json:"flags"`
+		Tags     json.RawMessage `json:"tags"`
 	}{plain: (*plain)(e)}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -75,6 +119,10 @@ func (e *Entry) UnmarshalJSON(data []byte) error {
 	_ = json.Unmarshal(aux.SiteType, &e.SiteType)
 	if json.Unmarshal(aux.Flags, &e.Flags) != nil {
 		e.Flags = nil
+	}
+	e.Tags = nil
+	if json.Unmarshal(aux.Tags, &e.Tags) != nil {
+		e.Tags = nil
 	}
 	return nil
 }
@@ -322,6 +370,11 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 			}
 			e.Flags = cleanFlags(e.Flags)
 			e.About, e.Features = cleanAbout(e.About), cleanFeatures(e.Features)
+			if e.Kind == KindPlugin {
+				e.Tags = cleanTags(e.Tags)
+			} else {
+				e.Tags = nil
+			}
 			valid = append(valid, e)
 		}
 	}
