@@ -101,6 +101,7 @@ The field editor builds the schema from rows. You can drag rows to reorder them 
 | `archive_path`, `archive_title`, `archive_description` | The listing page for the type |
 | `archive_crumb_label` | The section label in an entry's breadcrumb (falls back to the archive title, then the type name; the BreadcrumbList data uses it) |
 | Sitemap group and JSON-LD type | How the entries appear in the sitemap and in structured data |
+| Shared across languages | A switch (`locale_neutral`, off by default). When on, a new entry with no language gets "all languages" instead of the site language, whether it is made in the admin, the API, MCP, a plugin or an import. The New form then offers an **All languages (shared)** choice. Existing entries do not change, and a language you pick on purpose is kept. Read-only on built-in types. |
 | Editor | Form, or Post editor to edit entries like blog posts. The types `post`, `article`, `blog_post` and `blog` always use the post editor. |
 
 **Built-in types are read-only, except `person`.** You can add fields to `person` and change its settings, but its core fields (job title, short bio, bio, photo, public, public email, website, LinkedIn, X, GitHub, expertise, on team) are locked, and the type cannot be deleted. The server enforces this for the REST API too.

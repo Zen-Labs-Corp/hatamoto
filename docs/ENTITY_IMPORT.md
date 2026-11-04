@@ -16,11 +16,15 @@ res, err := svc.Import(ctx, actor, entity.ImportBatch{
         Attributes:  attrs,                 // validated against the schema, sanitised
         ParentKey:   "wp:page:7",           // or ParentID; a row of this or an earlier batch
         AuthorName:  "Jane Guest",          // or AuthorID; found or created by slug
+        Locale:      "",                   // empty: site language, or und for a shared type; create only
         CreatedAt:   created, UpdatedAt: updated, PublishedAt: published,
     }},
 })
 ```
 
+* **Locale** is applied on create only. An empty one gets the site language, or
+  `und` (all languages) when the type is marked "Shared across languages"; an
+  explicit locale is stored as sent. A re-run never changes the stored locale.
 * **Dates are kept.** `created_at`, `updated_at` and `published_at` are stored as
   given (UTC); missing ones default to now, to `created_at`, and (for a
   published or archived row) to `created_at`. The `updated_at` trigger is

@@ -42,7 +42,9 @@ in a 1.x minor, in phases; this ADR covers the design all phases share.
   reserved locale `und` (the column stays NOT NULL, so a previous binary keeps
   reading and writing rows). It has one unprefixed URL, is visible from every
   locale and has no hreflang. `NormalizeLocale` still rejects `und`, so it cannot
-  be set by accident.
+  be set by accident. The one internal path that stores `und` is the per-type
+  setting `locale_neutral`: a new entry of such a type with no locale gets `und`,
+  and a locale sent by the caller is validated and kept as sent.
 - **Translation groups.** A nullable `translation_group` column on entities
   links one copy per locale. Membership is stored in the column, never as an
   attribute, and hreflang alternates are computed, never stored. Each copy keeps
