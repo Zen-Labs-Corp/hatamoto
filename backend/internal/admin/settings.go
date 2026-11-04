@@ -37,6 +37,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountEmailSettings(owner)
 	a.mountUpdatesSettings(owner)
 	a.mountBackupsSettings(owner)
+	a.mountChangesSettings(owner)
 	a.mountAuditLog(owner)
 	a.mountSecuritySettings(owner)
 	a.mountLocaleConvert(owner)

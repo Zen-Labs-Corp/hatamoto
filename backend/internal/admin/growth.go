@@ -197,6 +197,8 @@ type PluginInfo struct {
 	// from HATAMOTO_PLUGIN_DIR); UI for one that ships an admin page.
 	Package *PackageMeta
 	UI      *PluginUIInfo
+	// Runs are the runs the plugin declares (the Runs tab shows when any).
+	Runs []RunDecl
 }
 
 // PluginAdmin is the plugin runtime as the plugins page uses it.
@@ -242,8 +244,14 @@ type GrowthDeps struct {
 	Changesets ChangesetReader
 	// ChangesetPreview renders one item of a staged changeset (nil = no preview).
 	ChangesetPreview ChangesetPreviewer
-	Packages         PackageAdmin
-	FormMail         FormMailer
+	// Reviewer reviews, publishes and undoes changesets (nil = unavailable).
+	Reviewer ChangesetReviewer
+	// RunReader reads plugin runs (nil = the run pages are unavailable).
+	RunReader RunReader
+	// RunCancel cancels a running plugin run (nil = no cancel).
+	RunCancel RunCanceller
+	Packages  PackageAdmin
+	FormMail  FormMailer
 	// AgentRegistry names the crawlers (agents.Default() when nil).
 	AgentRegistry *agents.Registry
 }

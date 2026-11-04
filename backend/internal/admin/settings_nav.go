@@ -55,7 +55,7 @@ var settingsLive = map[string]bool{
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "api": true, "updates": true, "backups": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
+	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
 }
@@ -131,6 +131,9 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "backups", Label: "Backups", Icon: "archive", Desc: "Download a full copy of your site, database and files.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "backups", Label: "Backups", Final: "/settings/backups", Roles: ownerOnly},
+	}},
+	{ID: "changes", Label: "Changes", Icon: "list", Desc: "Imports and other plugin runs, and undoing them.", Group: "System", Tabs: []settingsTabDef{
+		{ID: "changes", Label: "Changes", Final: "/settings/changes", Roles: ownerOnly},
 	}},
 	{ID: "import-export", Label: "Import & export", Icon: "import-export", Desc: "Bring a site in from WordPress or take yours out.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "import", Label: "WordPress import", Final: "/settings/import", Roles: ownerOnly},

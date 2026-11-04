@@ -152,7 +152,7 @@ func TestSecurityAddressLocked(t *testing.T) {
 	pinned.Lock, pinned.Pinned = AddressLockedEnv, "HATAMOTO_ADMIN_PATH"
 	g, _ := securityRig(t, pinned)
 	body := g.do("GET", securityPath, "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Set by the server environment (HATAMOTO_ADMIN_PATH).") || strings.Contains(body, "Change address") || strings.Contains(body, "/change") {
+	if !strings.Contains(body, "Set by the server environment (HATAMOTO_ADMIN_PATH).") || strings.Contains(body, "Change address") || strings.Contains(body, securityPath+"/change") {
 		t.Errorf("pinned page:\n%s", body)
 	}
 	compareGolden(t, "pages/settings-security-admin-address-pinned.html", normalizePage(body))

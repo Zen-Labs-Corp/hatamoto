@@ -36,6 +36,9 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	a.mountPluginBrowse(owner)
 	a.mountPluginSecurity(owner)
 	a.mountPluginUIScreens(authed)
+	a.mountRunPages(owner)
+	a.mountRunProgress(owner)
+	a.mountReviewActions(owner)
 	// "go" is a literal segment: it wins over {name} in the mux.
 	both.HandleFunc("GET /plugins/go", a.handlePluginsGo)
 	both.HandleFunc("GET /plugins/{name}", a.handlePluginRedirect)
@@ -157,11 +160,15 @@ type pluginHead struct {
 	Tabs   []ui.Tab
 }
 
-func (a *Admin) newPluginHead(p PluginInfo, tab string) pluginHead {
-	return pluginHead{Plugin: p, State: pluginStatus(p), Tabs: []ui.Tab{
+func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
+	tabs := []ui.Tab{
 		{Label: "Settings", Href: a.pluginURL(p.Name, "settings"), Active: tab == "settings"},
 		{Label: "Permissions", Href: a.pluginURL(p.Name, "permissions"), Active: tab == "permissions"},
-	}}
+	}
+	if owner && len(p.Runs) > 0 {
+		tabs = append(tabs, ui.Tab{Label: "Runs", Href: a.pluginURL(p.Name, "runs"), Active: tab == "runs"})
+	}
+	return pluginHead{Plugin: p, State: pluginStatus(p), Tabs: tabs}
 }
 
 func (a *Admin) pluginAdmin(w http.ResponseWriter, r *http.Request) (PluginAdmin, bool) {
@@ -408,7 +415,7 @@ type pluginPageData struct {
 // settings schema).
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
-	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || !p.Package.WidgetOnly)}
+	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", role == "owner"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || !p.Package.WidgetOnly)}
 	title := p.Name + " settings"
 	if !d.Owner && d.UI != nil {
 		title = d.UI.Title
@@ -492,7 +499,7 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed.", a.adminPath+"/plugins", "Back to plugins")
 		return
 	}
-	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions"), HooksText: strings.Join(p.Hooks, ", ")}
+	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions", true), HooksText: strings.Join(p.Hooks, ", ")}
 	for _, perm := range p.Permissions {
 		removed := sdk.RemovedPermission(sdk.Permission(perm))
 		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
