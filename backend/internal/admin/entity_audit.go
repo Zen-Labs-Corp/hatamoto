@@ -24,6 +24,7 @@ const (
 	auditEntityDelete         = "entity.delete"
 	auditEntityRestoreVersion = "entity.restore_version"
 	auditEntityCreateCopy     = "entity.create_copy"
+	auditEntityDuplicate      = "entity.duplicate"
 	auditEntityHandBack       = "entity.hand_back"
 	auditEntityTakeOver       = "entity.take_over"
 )

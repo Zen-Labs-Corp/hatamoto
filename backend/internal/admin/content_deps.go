@@ -60,6 +60,11 @@ type EntityCopier interface {
 	MissingParents(ctx context.Context, srcID uuid.UUID, locale string) ([]entity.MissingParent, error)
 }
 
+// EntityDuplicator is entity.Duplicator as the Duplicate action uses it.
+type EntityDuplicator interface {
+	Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*entity.Entity, error)
+}
+
 // EntityOwnership is changeset.OwnershipService as the entity editors use it:
 // who owns a page, and the hand-back to the plugin that imported it.
 type EntityOwnership interface {
@@ -136,6 +141,8 @@ type ContentDeps struct {
 	// Copier creates linked copies in other locales. Nil turns Create copy
 	// off everywhere (dialog, bulk, Start with).
 	Copier EntityCopier
+	// Duplicator copies an entry into a new draft. Nil turns Duplicate off.
+	Duplicator EntityDuplicator
 	// Ownership shows which plugin tracks a page and hands a page back to it.
 	// Nil hides the ownership card and turns the hand-back off.
 	Ownership EntityOwnership

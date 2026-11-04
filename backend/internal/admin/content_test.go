@@ -66,7 +66,7 @@ func newContentRig(t *testing.T) *contentRig {
 		if os.Getenv("DUMP") != "" {
 			d.Logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		}
-		d.Content = ContentDeps{Entities: c.ents, Terms: c.terms, Media: c.media, Authors: c.authors,
+		d.Content = ContentDeps{Entities: c.ents, Duplicator: &fakeDuplicator{ents: c.ents}, Terms: c.terms, Media: c.media, Authors: c.authors,
 			PublicPath: func(_ context.Context, e *entity.Entity) string { return "/services/" + e.Slug }}
 	})
 	return c

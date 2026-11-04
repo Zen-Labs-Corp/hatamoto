@@ -29,6 +29,12 @@ func NewDuplicator(svc *Service, terms CopyTerms) *Duplicator {
 	return &Duplicator{svc: svc, terms: terms}
 }
 
+// CanDuplicate reports whether an entity of schema sc may be duplicated:
+// people and reusable blocks may not.
+func CanDuplicate(sc *EntitySchema) bool {
+	return sc == nil || (sc.Slug != personSchemaSlug && !IsReuseSchema(sc))
+}
+
 // Duplicate creates a draft copy of srcID in the source's locale and parent,
 // named "Copy of <name>" with the slug "<slug>-copy" ("-copy-2", ...). It
 // keeps the attributes (without canonical_url), metadata, byline and terms,
@@ -39,7 +45,7 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if err != nil {
 		return nil, err
 	}
-	if src.Schema != nil && (src.Schema.Slug == personSchemaSlug || IsReuseSchema(src.Schema)) {
+	if !CanDuplicate(src.Schema) {
 		return nil, ErrDuplicateUnsupported
 	}
 	attrs, err := withoutCanonical(src.Attributes)
