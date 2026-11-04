@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -197,9 +198,12 @@ func TestSiteAccessGatePassword(t *testing.T) {
 	}
 
 	// https sets Secure; an off-site next never redirects away.
-	w = x.do("POST", siteaccess.SubmitPath, url.Values{"password": {"secret"}, "next": {"//evil.test"}}.Encode(), func(r *http.Request) { r.Header.Set("X-Forwarded-Proto", "https"); r.TLS = nil })
+	w = x.do("POST", siteaccess.SubmitPath, url.Values{"password": {"secret"}, "next": {"//evil.test"}}.Encode(), func(r *http.Request) { r.TLS = &tls.ConnectionState{} })
 	if w.Header().Get("Location") != "/" {
 		t.Errorf("unsafe next: %q", w.Header().Get("Location"))
+	}
+	if cs := w.Result().Cookies(); len(cs) != 1 || !cs[0].Secure {
+		t.Errorf("cookie over https is not Secure: %+v", cs)
 	}
 
 	// The submit path is dead outside password mode.
@@ -315,5 +319,23 @@ func TestSiteAccessSettingsFailClosed(t *testing.T) {
 	err = siteconfig.ErrNotConfigured
 	if got := s.siteAccessSettings(ctx); got.Mode != siteaccess.ModeOpen {
 		t.Fatalf("no config row: mode %q, want open", got.Mode)
+	}
+}
+
+// With the page cache full of real pages and the settings unreadable, a
+// visitor still gets the gate, never a cached page.
+func TestSiteAccessUnreadableSettingsNeverServeCachedPages(t *testing.T) {
+	x := newGateFixture(t)
+	if w := x.do("GET", "/about", ""); w.Code != 200 || len(x.f.cache.data) == 0 {
+		t.Fatalf("open: %d, cache %v", w.Code, x.f.cache.sets)
+	}
+	s := &Server{accessSettings: func(context.Context) (siteaccess.Settings, error) {
+		return siteaccess.Settings{}, errors.New("db down")
+	}}
+	x.gate.settings = s.siteAccessSettings
+	before := x.reach
+	w := x.do("GET", "/about", "")
+	if w.Code != 503 || strings.Contains(w.Body.String(), "About") || x.reach != before {
+		t.Fatalf("unreadable settings: %d reached %d %q", w.Code, x.reach-before, w.Body.String())
 	}
 }
