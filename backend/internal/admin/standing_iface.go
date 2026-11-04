@@ -22,6 +22,13 @@ type StandingApproval struct {
 	At time.Time
 }
 
+// StandingPaused says an approval ended and why ("plugin updated" or
+// "schema changed").
+type StandingPaused struct {
+	At     time.Time
+	Reason string
+}
+
 // StandingWaiting is a finished automatic run whose changes wait for review.
 type StandingWaiting struct {
 	RunID       uuid.UUID
@@ -44,6 +51,9 @@ type StandingApprovals interface {
 	Rule(plugin string) (StandingRule, bool)
 	// Active is the plugin's active approval for the run, nil when none.
 	Active(ctx context.Context, plugin, run string) (*StandingApproval, error)
+	// Paused says when and why the run's approval ended; nil while it is
+	// active and when it never existed.
+	Paused(ctx context.Context, plugin, run string) (*StandingPaused, error)
 	// Approve records the approval of the rule the plugin declares now. The
 	// caller passes no rule: the implementation reads it from the plugin.
 	Approve(ctx context.Context, plugin, run, by string) error

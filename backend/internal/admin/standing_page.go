@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/permtext"
 )
@@ -40,6 +43,25 @@ type standingData struct {
 	Waiting    []waitingRun
 	// WaitingMore counts waiting runs past the ones listed.
 	WaitingMore int
+	// Paused is set while an ended approval has not been given again.
+	Paused *pausedNotice
+	// Summary is the daily summary table; SummaryTitle is "" when no run
+	// published itself in the last day.
+	Summary      ui.Table
+	SummaryTitle string
+}
+
+// pausedNotice is the callout shown after an approval ended.
+type pausedNotice struct {
+	Title, Body, Allow, Keep string
+}
+
+// pausedTitle says what ended the approval, in words for the owner.
+func pausedTitle(p PluginInfo, reason string) string {
+	if reason == "schema changed" {
+		return "A content type " + p.Name + " updates was changed. Its automatic updates are paused."
+	}
+	return p.Name + " was updated to " + p.Version + ". Its automatic updates are paused."
 }
 
 // standingPlugin loads the plugin and its rule for the tab and its POST; it
@@ -86,9 +108,28 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The waiting runs could not be loaded", err)
 		return
 	}
+	paused, err := sa.Paused(r.Context(), p.Name, rule.Run)
+	if err != nil {
+		a.serverError(w, r, "The automatic update rule could not be loaded", err)
+		return
+	}
+	digest, err := sa.Digest(r.Context(), pluginsNow().Add(-24*time.Hour))
+	if err != nil {
+		a.serverError(w, r, "The daily summary could not be loaded", err)
+		return
+	}
 	d := standingData{pluginHead: a.newPluginHead(p, standingRel, true), Rule: rule, Lines: ruleLines(rule),
 		Sample: "{{ plugin_" + strings.ReplaceAll(p.Name, "-", "_") + "_<function> \"key\" }}",
 		Action: a.pluginURL(p.Name, standingRel), Cancel: a.pluginURL(p.Name, "settings"), Approval: active}
+	if paused != nil && active == nil {
+		d.State.Badge = ui.Badge{Label: "Updated", Kind: "info"}
+		d.Paused = &pausedNotice{
+			Title: pausedTitle(p, paused.Reason),
+			Body:  "Approvals end whenever the plugin or a content type it updates changes, so a new version can\u2019t inherit one. Until you allow it again, its automatic runs do not start.",
+			Allow: "#opt2", Keep: d.Cancel,
+		}
+	}
+	d.SummaryTitle, d.Summary = a.standingSummary(r.Context(), digest)
 	if active != nil {
 		d.ApprovedOn = fmtDate(active.At.In(a.siteLocation(r.Context())))
 	}
@@ -108,6 +149,35 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name, Href: a.pluginURL(p.Name, "settings")}, {Label: "Automatic updates"}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/automatic", v)
+}
+
+// standingSummary groups the last day's automatic runs by plugin.
+func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (string, ui.Table) {
+	if len(rows) == 0 {
+		return "", ui.Table{}
+	}
+	type sum struct{ runs, changes int }
+	var order []string
+	by := map[string]*sum{}
+	for _, d := range rows {
+		if by[d.Plugin] == nil {
+			by[d.Plugin] = &sum{}
+			order = append(order, d.Plugin)
+		}
+		by[d.Plugin].runs++
+		by[d.Plugin].changes += d.Changes
+	}
+	title := "Daily summary, " + fmtDate(pluginsNow().In(a.siteLocation(ctx)))
+	t := ui.Table{
+		ID: "summary", Caption: title,
+		Columns: []ui.Col{{Key: "plugin", Label: "Plugin", Role: "title"}, {Key: "runs", Label: "Automatic runs", Role: "num"}, {Key: "changes", Label: "Changes", Role: "num"}},
+	}
+	for _, name := range order {
+		s := by[name]
+		t.Rows = append(t.Rows, ui.Row{ID: name, Label: name, Cells: []ui.Cell{{Text: name}, {Text: thousands(s.runs)}, {Text: thousands(s.changes)}},
+			Actions: []ui.Action{{Label: "See runs", Href: a.pluginURL(name, "runs"), Button: true, AriaLabel: "See runs of " + name}}})
+	}
+	return title, t
 }
 
 // handleStandingApprove records the owner's approval. The form carries only

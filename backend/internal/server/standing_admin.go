@@ -55,6 +55,18 @@ func (a standingAdmin) Active(ctx context.Context, plugin, run string) (*admin.S
 	return &admin.StandingApproval{By: ap.ApprovedBy, At: ap.ApprovedAt}, nil
 }
 
+func (a standingAdmin) Paused(ctx context.Context, plugin, run string) (*admin.StandingPaused, error) {
+	svc := a.svc()
+	if svc == nil {
+		return nil, ErrStandingUnavailable
+	}
+	v, err := svc.Paused(ctx, plugin, run)
+	if err != nil || v == nil {
+		return nil, err
+	}
+	return &admin.StandingPaused{At: v.At, Reason: v.Reason}, nil
+}
+
 func (a standingAdmin) Approve(ctx context.Context, plugin, run, by string) error {
 	svc := a.svc()
 	if svc == nil {

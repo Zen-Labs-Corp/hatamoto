@@ -29,6 +29,7 @@ type standingStore interface {
 	Active(ctx context.Context, plugin, run string) (*standing.Approval, error)
 	Approve(ctx context.Context, plugin, run string, p standing.Policy, fp standing.Fingerprint, by string) (standing.Approval, error)
 	Waiting(ctx context.Context, plugin string) ([]standing.WaitingRun, error)
+	LastVoided(ctx context.Context, plugin, run string) (*standing.Voided, error)
 }
 
 // installedPlugin is the plugin as installed right now: its version and the
@@ -122,6 +123,12 @@ func (g *standingService) Active(ctx context.Context, plugin, run string) (*stan
 		return nil, nil
 	}
 	return a, err
+}
+
+// Paused says when and why the run's approval ended, nil when it is active
+// or never existed.
+func (g *standingService) Paused(ctx context.Context, plugin, run string) (*standing.Voided, error) {
+	return g.store.LastVoided(ctx, plugin, run)
 }
 
 // Waiting lists the runs held back for review.

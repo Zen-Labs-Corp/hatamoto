@@ -166,3 +166,33 @@ func TestApprovalMatches(t *testing.T) {
 		}
 	}
 }
+
+func TestLastVoided(t *testing.T) {
+	s, ctx := newStore(t)
+	p := testPlugin(t, s, ctx)
+	if v, err := s.LastVoided(ctx, p, "sync"); err != nil || v != nil {
+		t.Fatalf("before any approval = %+v, %v", v, err)
+	}
+	if _, err := s.Approve(ctx, p, "sync", samplePolicy(), sampleFP("1.0.0"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := s.LastVoided(ctx, p, "sync"); err != nil || v != nil {
+		t.Fatalf("while active = %+v, %v", v, err)
+	}
+	err := pgx.BeginFunc(ctx, s.DB.Pool(), func(tx pgx.Tx) error {
+		_, err := VoidTx(ctx, tx, p, "plugin updated")
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, err := s.LastVoided(ctx, p, "sync"); err != nil || v == nil || v.Reason != "plugin updated" {
+		t.Fatalf("after a void = %+v, %v", v, err)
+	}
+	if _, err := s.Approve(ctx, p, "sync", samplePolicy(), sampleFP("2.0.0"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := s.LastVoided(ctx, p, "sync"); err != nil || v != nil {
+		t.Fatalf("after approving again = %+v, %v", v, err)
+	}
+}

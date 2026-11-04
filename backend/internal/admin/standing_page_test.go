@@ -16,6 +16,8 @@ type fakeStanding struct {
 	rule     StandingRule
 	active   *StandingApproval
 	waiting  []StandingWaiting
+	paused   *StandingPaused
+	digest   []StandingDigestRow
 	approved []string // plugin/run of each Approve
 }
 
@@ -31,7 +33,10 @@ func (f *fakeStanding) Waiting(context.Context, string) ([]StandingWaiting, erro
 	return f.waiting, nil
 }
 func (f *fakeStanding) Digest(context.Context, time.Time) ([]StandingDigestRow, error) {
-	return nil, nil
+	return f.digest, nil
+}
+func (f *fakeStanding) Paused(context.Context, string, string) (*StandingPaused, error) {
+	return f.paused, nil
 }
 
 var standingPlugin = PluginInfo{
@@ -154,5 +159,48 @@ func TestStandingApprovalSaveNeedsSudo(t *testing.T) {
 	}
 	if rec := g.do("POST", standingPath, "editor-token", form, nil); rec.Code != 403 {
 		t.Errorf("editor: %d, want 403", rec.Code)
+	}
+}
+
+func TestStandingTabPausedState(t *testing.T) {
+	stamp := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	pluginsNow = func() time.Time { return stamp }
+	t.Cleanup(func() { pluginsNow = time.Now })
+	fs := &fakeStanding{rule: standingRule, paused: &StandingPaused{At: stamp, Reason: "plugin updated"},
+		digest: []StandingDigestRow{{Plugin: "shop-sync", Changes: 300}, {Plugin: "shop-sync", Changes: 11}, {Plugin: "event-feed", Changes: 12}}}
+	g := newStandingRig(t, fs)
+	body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+	for _, want := range []string{
+		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="#opt2"`,
+		"Keep paused", `href="/admin/plugins/shop-sync/settings"`, "Sign in again and allow",
+		"Daily summary, 2 Nov 2026", "Automatic runs", "<td", ">311<", ">12<", "See runs",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("paused tab lacks %q", want)
+		}
+	}
+	if strings.Count(body, `>See runs<`) != 2 {
+		t.Errorf("want one See runs per plugin, got %d", strings.Count(body, `>See runs<`))
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	compareGolden(t, "pages/plugins-automatic-paused.html", normalizePage(body))
+
+	fs.paused.Reason = "schema changed"
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); !strings.Contains(body, "A content type shop-sync updates was changed.") {
+		t.Error("a schema change is worded as one")
+	}
+	// Allowed again: the paused callout and badge are gone.
+	fs.active = &StandingApproval{By: "owner@example.com", At: stamp}
+	body = g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "Review and allow again") || strings.Contains(body, "paused") {
+		t.Error("an active approval shows no paused notice")
+	}
+	// Never approved and nothing published: no notice, no summary.
+	g2 := newStandingRig(t, &fakeStanding{rule: standingRule})
+	body = g2.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "Review and allow again") || strings.Contains(body, "Daily summary") {
+		t.Error("the fresh state shows neither the paused notice nor the summary")
 	}
 }

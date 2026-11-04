@@ -1,6 +1,8 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{template "hm/pluginhead" .}}
-{{with .Data}}{{template "hm/card-start" dict "ID" "opt1" "Title" "Option 1: no approval needed" "Heading" "h2"}}<p>The plugin keeps the value in its own notes and your page shows it.</p>
+{{with .Data}}{{with .Paused}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "paused" "Title" .Title)}}{{.Body}}{{template "hm/callout-end"}}
+<div class="hm-row">{{template "hm/button" dict "Label" "Review and allow again" "Variant" "primary" "Href" .Allow}}{{template "hm/button" dict "Label" "Keep paused" "Href" .Keep}}</div>{{end}}
+{{template "hm/card-start" dict "ID" "opt1" "Title" "Option 1: no approval needed" "Heading" "h2"}}<p>The plugin keeps the value in its own notes and your page shows it.</p>
 <pre class="hm-code" tabindex="0">{{.Sample}}</pre>
 {{template "hm/callout" (dict "Kind" "success" "Body" "Shown as plain text, escaped by core. It cannot add links, markup or scripts. Your content is not edited.")}}{{template "hm/card-end"}}
 {{if not .Approval}}<form method="post" action="{{.Action}}" class="hm-stack">{{template "hm/csrf" $}}<input type="hidden" name="run" value="{{.Rule.Run}}">{{end}}
@@ -10,4 +12,5 @@
 {{template "hm/card-start" dict "ID" "outside" "Title" "When a run steps outside the rule" "Heading" "h2"}}{{range .Waiting}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" .Title)}}{{.Body}} <a href="{{.Review}}">Review</a>{{template "hm/callout-end"}}
 {{else}}<p class="hm-muted">No run is waiting for you. A run that goes outside the rule is held back, and nothing from it is published.</p>{{end}}
 {{if .WaitingMore}}<p class="hm-muted">{{.WaitingMore}} more waiting. They are listed on the Runs tab.</p>{{end}}{{template "hm/card-end"}}
+{{if .SummaryTitle}}{{template "hm/card-start" dict "ID" "summary-card" "Title" .SummaryTitle "Heading" "h2"}}{{template "hm/table" .Summary}}{{template "hm/card-end"}}{{end}}
 {{end}}{{end}}

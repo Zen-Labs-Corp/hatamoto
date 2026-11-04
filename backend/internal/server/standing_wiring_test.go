@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/standing"
@@ -15,6 +16,7 @@ import (
 
 type fakeStandingStore struct {
 	active   *standing.Approval
+	voided   *standing.Voided
 	approved []standing.Approval
 }
 
@@ -34,6 +36,10 @@ func (f *fakeStandingStore) Approve(_ context.Context, plugin, run string, p sta
 
 func (f *fakeStandingStore) Waiting(context.Context, string) ([]standing.WaitingRun, error) {
 	return nil, nil
+}
+
+func (f *fakeStandingStore) LastVoided(context.Context, string, string) (*standing.Voided, error) {
+	return f.voided, nil
 }
 
 type fakeStandingEngine struct {
@@ -209,5 +215,16 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 	}
 	if err := none.Approve(ctx, "pricer", "prices", "x"); !errors.Is(err, ErrStandingUnavailable) {
 		t.Fatalf("Approve without the service = %v", err)
+	}
+}
+
+func TestStandingAdminPausedAfterVoid(t *testing.T) {
+	r := newStandingRig()
+	voidedAt := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	r.store.voided = &standing.Voided{At: voidedAt, Reason: "plugin updated"}
+	a := standingAdmin{svc: func() *standingService { return r.svc }}
+	got, err := a.Paused(context.Background(), "pricer", "prices")
+	if err != nil || got == nil || got.Reason != "plugin updated" || !got.At.Equal(voidedAt) {
+		t.Fatalf("Paused = %+v, %v", got, err)
 	}
 }
