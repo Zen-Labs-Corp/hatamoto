@@ -479,7 +479,7 @@ func (a *Admin) Mount(r *httpx.Group) {
 	own := g.Group("", secureHeaders, a.demoGuard)
 	own.HandleFunc("POST /theme", a.handleTheme)
 
-	authed := own.Group("", a.RequireSession, a.RequireProfile)
+	authed := own.Group("", a.RequireSession, a.RequireTwoFactor, a.RequireProfile)
 	authed.HandleFunc("GET /", a.handleHome)
 
 	a.mountScreens(own, authed)

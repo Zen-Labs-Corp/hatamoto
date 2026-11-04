@@ -122,6 +122,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if in.PublicBaseURL != nil {
 		f.cfg.PublicBaseURL = *in.PublicBaseURL
 	}
+	if in.TwoFactorPolicy != nil {
+		f.cfg.TwoFactorPolicy = *in.TwoFactorPolicy
+	}
 	if in.PrimaryColor != nil {
 		f.cfg.PrimaryColor = *in.PrimaryColor
 	}

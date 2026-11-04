@@ -83,25 +83,39 @@ func (a *Admin) securityFail(w http.ResponseWriter, r *http.Request, what string
 	a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "That did not work. Try again in a moment.")
 }
 
-// requiresFactor reports whether the site policy makes a second factor
-// mandatory for role. An unreadable policy counts as required: it only decides
-// whether a removal is refused.
-func (a *Admin) requiresFactor(ctx context.Context, role string) bool {
-	if a.deps.Site == nil {
-		return false
-	}
-	c, err := a.deps.Site.Get(ctx)
-	if err != nil {
-		a.logger().Error("read two-factor policy failed", "err", err)
-		return true
-	}
-	switch c.TwoFactorPolicy {
+// policyBinds reports whether policy makes a second factor mandatory for role.
+func policyBinds(policy, role string) bool {
+	switch policy {
 	case siteconfig.TwoFactorEveryone:
 		return true
 	case siteconfig.TwoFactorOwners:
 		return role == "owner"
 	}
 	return false
+}
+
+// twoFactorPolicy is the site's sign-in policy ("optional" when nothing is wired).
+func (a *Admin) twoFactorPolicy(ctx context.Context) (string, error) {
+	if a.deps.Site == nil {
+		return siteconfig.TwoFactorOptional, nil
+	}
+	c, err := a.deps.Site.Get(ctx)
+	if err != nil {
+		return "", err
+	}
+	return c.TwoFactorPolicy, nil
+}
+
+// requiresFactor reports whether the site policy makes a second factor
+// mandatory for role. An unreadable policy counts as required: it only decides
+// whether a removal is refused.
+func (a *Admin) requiresFactor(ctx context.Context, role string) bool {
+	p, err := a.twoFactorPolicy(ctx)
+	if err != nil {
+		a.logger().Error("read two-factor policy failed", "err", err)
+		return true
+	}
+	return policyBinds(p, role)
 }
 
 func (a *Admin) renderSecurity(w http.ResponseWriter, r *http.Request, status int, page, title string, d securityData) {

@@ -106,6 +106,9 @@ func TestSecurityEnrolmentFlow(t *testing.T) {
 	if !strings.Contains(cb, "AAAA-BBBB-CCCC") || codes.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("codes page: %d", codes.Code)
 	}
+	if issues := a11y.Check(cb, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("codes a11y: %v", issues)
+	}
 	compareGolden(t, "pages/profile-security-codes.html", normalizePage(cb))
 	if again := g.do("GET", loc, "owner-token", nil, nil).Body.String(); strings.Contains(again, "AAAA-BBBB-CCCC") {
 		t.Error("recovery codes shown twice")
@@ -209,5 +212,22 @@ func TestSecurityPasskeyEnrolmentJSON(t *testing.T) {
 	rec := g.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"ceremony"`) {
 		t.Fatalf("begin: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSecurityPasskeyAddPage(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoFactorSecRig(t)
+	if rec := g.do("GET", "/admin/profile/security/passkeys/add", "owner-token", nil, nil); rec.Code != 303 {
+		t.Fatalf("without sudo: %d", rec.Code)
+	}
+	g.grant()
+	rec := g.do("GET", "/admin/profile/security/passkeys/add", "owner-token", nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "data-passkey-register") {
+		t.Fatalf("add page: %d", rec.Code)
+	}
+	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
 	}
 }

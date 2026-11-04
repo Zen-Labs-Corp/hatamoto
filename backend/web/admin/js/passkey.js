@@ -1,3 +1,5 @@
+import { adminURL } from "@hm/adminpath";
+
 // Passkey sign-in. Progressive enhancement: the button is hidden in the HTML and
 // shown only when the browser can do WebAuthn; the password and code forms work without it.
 const b64uToBuf = (s) => {
@@ -37,9 +39,8 @@ const assertionJSON = (cred) => ({
   },
 });
 
-const base = document.querySelector('meta[name="admin-base"]')?.content ?? "/admin";
 const postJSON = (path, body) =>
-  fetch(base + path, {
+  fetch(adminURL(path), {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
