@@ -135,6 +135,7 @@
     announce();
     count();
     removeBanner();
+    onReady(ensureReopen);
   }
 
   // ---- UI
@@ -338,8 +339,8 @@
   // ---- Start
   function startUI() {
     onReady(function () {
-      ensureReopen();
-      showBanner();
+      if (state.decided) ensureReopen();
+      else showBanner();
     });
   }
 
