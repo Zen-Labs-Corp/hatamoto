@@ -32,22 +32,23 @@ type installCall struct {
 }
 
 type fakePackages struct {
-	registry    RegistryView
-	unsigned    bool
-	unsignedEnd *time.Time // end of a timed opt-in, with unsigned
-	signers     []SignerInfo
-	refreshed   int // RefreshRegistry calls
-	installed   []installCall
-	enabled     map[string]bool
-	removed     []string
-	dropped     bool
-	themes      []ThemeInfo
-	themeSchema []byte // overrides themeSchemaJSON when set
-	activateErr error  // makes Activate fail
-	missing     []MissingSection
-	activated   string
-	settings    map[string]any
-	saved       []map[string]any
+	registry     RegistryView
+	unsigned     bool
+	unsignedEnd  *time.Time // end of a timed opt-in, with unsigned
+	signers      []SignerInfo
+	refreshed    int // RefreshRegistry calls
+	installed    []installCall
+	enabled      map[string]bool
+	removed      []string
+	dropped      bool
+	droppedTypes bool
+	themes       []ThemeInfo
+	themeSchema  []byte // overrides themeSchemaJSON when set
+	activateErr  error  // makes Activate fail
+	missing      []MissingSection
+	activated    string
+	settings     map[string]any
+	saved        []map[string]any
 	// plugin ui
 	uiFiles   map[string]string
 	routeCall []string
@@ -146,11 +147,11 @@ func (f *fakePackages) SetEnabled(_ context.Context, name string, on bool) error
 	f.enabled[name] = on
 	return nil
 }
-func (f *fakePackages) Uninstall(_ context.Context, kind, name string, drop bool) error {
+func (f *fakePackages) Uninstall(_ context.Context, kind, name string, drop, dropTypes bool) error {
 	if kind == "theme" && name == "sunrise" {
 		return ErrThemeActive
 	}
-	f.removed, f.dropped = append(f.removed, kind+"/"+name), drop
+	f.removed, f.dropped, f.droppedTypes = append(f.removed, kind+"/"+name), drop, dropTypes
 	return nil
 }
 func (f *fakePackages) AllowUnsigned(context.Context) bool { return f.unsigned }
@@ -487,7 +488,7 @@ func TestPluginEnableDisableUninstall(t *testing.T) {
 		}
 	}
 	a11yOK(t, body)
-	for _, want := range []string{`class="hm-confirmcard"`, `name="drop_data" value="0" checked`, `name="drop_data" value="1"`, `hm-btn--danger`} {
+	for _, want := range []string{`class="hm-confirmcard"`, `name="drop_data" value="0" checked`, `name="drop_data" value="1"`, `name="drop_content_types" value="1"`, `hm-btn--danger`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("uninstall confirm card lacks %q", want)
 		}
@@ -495,11 +496,14 @@ func TestPluginEnableDisableUninstall(t *testing.T) {
 	if len(pk.removed) != 0 {
 		t.Fatal("a GET must not uninstall")
 	}
-	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_data": {"0"}}, nil); rec.Code != 303 || pk.dropped || !slices.Equal(pk.removed, []string{"plugin/hello"}) {
+	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_data": {"0"}}, nil); rec.Code != 303 || pk.dropped || pk.droppedTypes || !slices.Equal(pk.removed, []string{"plugin/hello"}) {
 		t.Fatalf("keep data: %d %v dropped=%v", rec.Code, pk.removed, pk.dropped)
 	}
 	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 303 || !pk.dropped {
 		t.Fatalf("drop data: %d dropped=%v", rec.Code, pk.dropped)
+	}
+	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "owner-token", url.Values{"drop_content_types": {"1"}}, nil); rec.Code != 303 || !pk.droppedTypes || pk.dropped {
+		t.Fatalf("drop content types only: %d types=%v data=%v", rec.Code, pk.droppedTypes, pk.dropped)
 	}
 	if rec := g.do("POST", "/admin/plugins/hello/uninstall", "editor-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 403 {
 		t.Errorf("editor: %d", rec.Code)

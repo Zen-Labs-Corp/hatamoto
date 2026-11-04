@@ -324,7 +324,7 @@ func TestPluginAndThemeInstallFromSignedRegistryWithoutRestart(t *testing.T) {
 	if out := r.page(); !strings.Contains(out, "accent=rose") {
 		t.Fatalf("settings not live:\n%s", out)
 	}
-	if err := r.mgr.Uninstall(ctx, KindTheme, "sunrise", false); !errors.Is(err, ErrThemeActive) {
+	if err := r.mgr.Uninstall(ctx, KindTheme, "sunrise", UninstallOpts{}); !errors.Is(err, ErrThemeActive) {
 		t.Fatalf("an active theme cannot be uninstalled: %v", err)
 	}
 	if err := r.mgr.Activate(ctx, "", false); err != nil {
@@ -333,7 +333,7 @@ func TestPluginAndThemeInstallFromSignedRegistryWithoutRestart(t *testing.T) {
 	if strings.Contains(r.page(), `id="sunrise"`) {
 		t.Fatal("default theme not restored")
 	}
-	if err := r.mgr.Uninstall(ctx, KindTheme, "sunrise", false); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindTheme, "sunrise", UninstallOpts{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -354,7 +354,7 @@ func TestPluginAndThemeInstallFromSignedRegistryWithoutRestart(t *testing.T) {
 	if g := r.rt.Grants().Granted("capa"); len(g) != 2 {
 		t.Fatalf("an update keeps the owner's grants: %v", g)
 	}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", true); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "capa", UninstallOpts{DropData: true}); err != nil {
 		t.Fatal(err)
 	}
 	_ = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = $1)`, pluginhost.SchemaName("capa")).Scan(&schemaExists)
@@ -413,7 +413,7 @@ func TestHostilePackagesAreNotInstalled(t *testing.T) {
 		if _, err := r.mgr.Install(ctx, raw, InstallRequest{Source: SourceUpload}); err != nil {
 			t.Fatalf("opted in: %v", err)
 		}
-		_ = r.mgr.Uninstall(ctx, KindTheme, "sunrise", false)
+		_ = r.mgr.Uninstall(ctx, KindTheme, "sunrise", UninstallOpts{})
 		_ = r.mgr.SetAllowUnsigned(ctx, false, nil, "")
 	})
 	t.Run("wrong signer", func(t *testing.T) {

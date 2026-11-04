@@ -70,7 +70,7 @@ func TestExpiredUnsignedAllowanceRefusesInstall(t *testing.T) {
 	if _, err := r.mgr.Install(ctx, raw, InstallRequest{Source: SourceUpload}); err != nil {
 		t.Fatalf("allowance still running: %v", err)
 	}
-	_ = r.mgr.Uninstall(ctx, KindTheme, "sunrise", false)
+	_ = r.mgr.Uninstall(ctx, KindTheme, "sunrise", UninstallOpts{})
 	if _, err := r.pool.Exec(ctx, `UPDATE hatamoto_package_config SET allow_unsigned_until = now() - interval '1 minute' WHERE singleton`); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestInstalledReservedNameStillUpdatesAndUninstalls(t *testing.T) {
 	if _, err := r.mgr.Install(ctx, pack("1.1.0"), InstallRequest{Source: SourceUpload}); err != nil {
 		t.Fatalf("update of an installed reserved name: %v", err)
 	}
-	if err := r.mgr.Uninstall(ctx, KindPlugin, "browse", false); err != nil {
+	if err := r.mgr.Uninstall(ctx, KindPlugin, "browse", UninstallOpts{}); err != nil {
 		t.Fatalf("uninstall: %v", err)
 	}
 	if _, err := r.mgr.Install(ctx, pack("1.0.0"), InstallRequest{Source: SourceUpload}); !errors.Is(err, ErrReservedName) {

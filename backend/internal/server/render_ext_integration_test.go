@@ -147,8 +147,8 @@ func TestExamples_Integration(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() {
-		_ = mgr.Uninstall(r.ctx, packages.KindPlugin, "widgetpack-demo", true)
-		_ = mgr.Uninstall(r.ctx, packages.KindPlugin, "datasource-demo", true)
+		_ = mgr.Uninstall(r.ctx, packages.KindPlugin, "widgetpack-demo", packages.UninstallOpts{DropData: true})
+		_ = mgr.Uninstall(r.ctx, packages.KindPlugin, "datasource-demo", packages.UninstallOpts{DropData: true})
 	})
 	install(wpPack, "builder.island")
 	install(dsPack, "builder.data")
@@ -218,7 +218,7 @@ func TestExamples_Integration(t *testing.T) {
 	}
 
 	// uninstall degrades, the page keeps working and the doc still saves
-	if err := mgr.Uninstall(r.ctx, packages.KindPlugin, "widgetpack-demo", true); err != nil {
+	if err := mgr.Uninstall(r.ctx, packages.KindPlugin, "widgetpack-demo", packages.UninstallOpts{DropData: true}); err != nil {
 		t.Fatal(err)
 	}
 	body = r.get(path).Body.String()

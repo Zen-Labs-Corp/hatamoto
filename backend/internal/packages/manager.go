@@ -145,7 +145,10 @@ type Options struct {
 	Plugins  PluginRuntime
 	Grants   pluginhost.Grants
 	Dropper  DataDropper
-	Engine   ThemeEngine
+	// Schemas creates and removes the entity types a plugin package ships. nil
+	// (the CLI) installs none.
+	Schemas SchemaStore
+	Engine  ThemeEngine
 	// NewPreview builds a second engine for previewing an installed theme.
 	NewPreview func(layers []fs.FS, settings map[string]any) (*render.Engine, error)
 	// AllowDev lets packages from `hatamoto theme dev` be installed and loaded.
@@ -298,6 +301,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := validateWidgets(p); err != nil {
 			return nil, err
 		}
+		if _, err := p.EntitySchemas(); err != nil {
+			return nil, err
+		}
 		for _, g := range req.Grant {
 			if !slices.Contains(man.Permissions, g) {
 				return nil, fmt.Errorf("%w: %q", ErrPermission, g)
@@ -320,6 +326,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	// a new install is refused.
 	if !updating && p.Kind == KindPlugin && slices.Contains(reservedPluginPaths, p.Name) {
 		return nil, ErrReservedName
+	}
+	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
+		if err := m.checkSchemas(ctx, p); err != nil {
+			return nil, err
+		}
 	}
 	var need *ConfirmationRequired
 	if updating {
@@ -377,6 +388,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	if grants != nil && m.Grants != nil {
 		if err := m.Grants.Set(ctx, p.Name, grants); err != nil { // refreshes the in-memory copy
 			m.Logger.Error("packages: grants saved but not applied; they apply at the next restart", "plugin", p.Name, "error", err)
+		}
+	}
+	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
+		if err := m.installSchemas(ctx, p); err != nil {
+			m.Logger.Error("packages: content types not installed; they install when the plugin is enabled again", "plugin", p.Name, "error", err)
 		}
 	}
 	m.reconcile(ctx)
@@ -620,13 +636,24 @@ func (m *Manager) InstallFromRegistry(ctx context.Context, kind Kind, name strin
 
 // --- remove, enable, activate ------------------------------------------------
 
+// UninstallOpts chooses what a plugin uninstall removes besides the plugin.
+type UninstallOpts struct {
+	// DropData removes the plugin's own schema, role, stored values and settings.
+	DropData bool
+	// DropContentTypes removes the entity types the plugin installed and every
+	// entity of those types.
+	DropContentTypes bool
+}
+
 // Uninstall removes a package. A theme is deleted at once. A plugin goes in a
 // recoverable order: its row is marked uninstalling (so it is unloaded and
 // cannot be installed over), its permissions are revoked, with dropData its
 // schema, role, stored values and settings are dropped, and only then is the row
-// deleted. A failure leaves the row uninstalling; call Uninstall again. Core
-// content is never touched.
-func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropData bool) error {
+// deleted. With DropContentTypes the entity types the plugin installed and
+// their content go too (types the owner made are never touched). A failure
+// leaves the row uninstalling; call Uninstall again. Core content is never
+// touched.
+func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts UninstallOpts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, err := m.store.Get(ctx, kind, name)
@@ -664,7 +691,13 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropDat
 	if _, err := m.Pool.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin = $1`, name); err != nil {
 		return err
 	}
-	if dropData {
+	var droppedTypes []string
+	if opts.DropContentTypes && m.Schemas != nil {
+		if droppedTypes, err = m.Schemas.RemovePluginSchemas(ctx, name); err != nil {
+			return fmt.Errorf("removing the content types of %q (uninstall is unfinished; try again): %w", name, err)
+		}
+	}
+	if opts.DropData {
 		if m.Dropper != nil {
 			if err := m.Dropper.Drop(ctx, name); err != nil {
 				return fmt.Errorf("dropping the data of %q (uninstall is unfinished; try again): %w", name, err)
@@ -677,7 +710,14 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropDat
 	if err := m.store.Delete(ctx, kind, name); err != nil {
 		return err
 	}
-	m.Audit(ctx, "package.uninstall", "plugin:"+name, map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": dropData, "widgets": nwidgets})
+	detail := map[string]any{"version": row.Version, "signer": row.SignerKeyID, "data_dropped": opts.DropData, "widgets": nwidgets, "content_types_dropped": len(droppedTypes) > 0}
+	if len(droppedTypes) > 0 {
+		detail["content_types"] = droppedTypes
+	}
+	m.Audit(ctx, "package.uninstall", "plugin:"+name, detail)
+	for _, slug := range droppedTypes {
+		m.Audit(ctx, "package.content_type.remove", "plugin:"+name, map[string]any{"content_type": slug})
+	}
 	return nil
 }
 
@@ -686,6 +726,15 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	nwidgets := m.widgetCount(name)
+	if on {
+		p, _, err := m.store.Load(ctx, KindPlugin, name)
+		if err != nil {
+			return err
+		}
+		if err := m.installSchemas(ctx, p); err != nil {
+			return err
+		}
+	}
 	if err := m.store.SetEnabled(ctx, KindPlugin, name, on); err != nil {
 		return err
 	}

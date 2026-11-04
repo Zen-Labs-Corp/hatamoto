@@ -64,3 +64,22 @@ func CSPLines(c *sdk.CSP) []CSPLine {
 	}
 	return out
 }
+
+// ContentTypesLine is the prompt sentence for the entity types a plugin
+// installs, "Create the content types Product and Order".
+func ContentTypesLine(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	label := "type"
+	if len(names) > 1 {
+		label = "types"
+	}
+	switch len(names) {
+	case 1:
+		return "Create the content " + label + " " + names[0]
+	case 2:
+		return "Create the content " + label + " " + names[0] + " and " + names[1]
+	}
+	return "Create the content " + label + " " + strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+}

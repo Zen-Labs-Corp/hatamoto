@@ -74,7 +74,7 @@ func TestStandingApprovalVoid(t *testing.T) {
 
 	t.Run("uninstall", func(t *testing.T) {
 		r.approve("capa")
-		if err := r.mgr.Uninstall(context.Background(), KindPlugin, "capa", false); err != nil {
+		if err := r.mgr.Uninstall(context.Background(), KindPlugin, "capa", UninstallOpts{}); err != nil {
 			t.Fatal(err)
 		}
 		if got := r.activeApprovals("capa"); got != 0 {

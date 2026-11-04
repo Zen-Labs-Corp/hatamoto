@@ -133,6 +133,9 @@ type CreateSchemaInput struct {
 	Description *string         `json:"description,omitempty"`
 	Schema      json.RawMessage `json:"schema"`
 	Settings    json.RawMessage `json:"settings,omitempty"`
+	// OriginPlugin names the plugin whose package installs the type ("" for an
+	// owner-created one). Only the package manager sets it.
+	OriginPlugin string `json:"-"`
 }
 
 // UpdateSchemaInput represents input for updating an entity schema.

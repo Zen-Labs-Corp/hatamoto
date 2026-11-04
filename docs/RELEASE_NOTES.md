@@ -22,6 +22,7 @@ SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep
 - **Caption and credit on media.** `changeset.media.attach` takes `caption` and `credit`; publishing stores both on the media record (new nullable `credit` column).
 - **Reviewed alt text changes.** `changeset.media.alt { media_id, alt }` stages a new alt text for a media item the owner uploaded; the run declares `proposes: ["media_alt"]`. Publishing applies it, reverting restores the old text. Nothing else on the media row changes.
 - **Content reads in the fetch phase.** `entities.get`, `entities.list`, `entities.translations`, `media.get` and `media.list` now work while a run fetches, and return only published public content (drafts, scheduled and archived entities are never returned). A fetch step may make 200 such reads. Terms, menus, redirects and forms stay transform only, and `http.fetch` is unchanged.
+- **Content types from a plugin.** A plugin package can ship `schemas/<name>.json` without a section template. The type is created when the plugin is enabled (the prompt says "Create the content types ..."), is never overwritten, and stays when the plugin is disabled or uninstalled. Uninstall has an off-by-default option, "Also remove content types and their content", that removes only the types the plugin installed. New nullable `origin_plugin` column (expand-only).
 
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 

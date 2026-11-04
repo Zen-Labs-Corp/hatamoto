@@ -246,6 +246,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
 		sum.Refused = packages.RefusedPermissions(pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
+		sum.ContentTypes = packages.ContentTypeNames(pkg)
 		sum.DeclaresRuns = len(m.Runs) > 0
 		for _, r := range m.Runs {
 			sum.Proposes = sum.Proposes || len(r.Proposes) > 0
@@ -313,8 +314,8 @@ func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) err
 	return p.mgr().SetEnabled(actorCtx(ctx), name, on)
 }
 
-func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData bool) error {
-	err := p.mgr().Uninstall(actorCtx(ctx), packages.Kind(kind), name, dropData)
+func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error {
+	err := p.mgr().Uninstall(actorCtx(ctx), packages.Kind(kind), name, packages.UninstallOpts{DropData: dropData, DropContentTypes: dropContentTypes})
 	if errors.Is(err, packages.ErrThemeActive) {
 		return admin.ErrThemeActive
 	}

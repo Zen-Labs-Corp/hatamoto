@@ -197,6 +197,8 @@ type PluginInfo struct {
 	Routes, Cron, Cookies, Funcs []string // one human line each
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string
+	// ContentTypes are the entity types the plugin installs when enabled.
+	ContentTypes []string
 	// CSP is what it adds to the public pages' security policy.
 	CSP            []permtext.CSPLine
 	SettingsSchema []byte

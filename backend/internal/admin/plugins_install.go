@@ -424,7 +424,8 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	drop := r.PostFormValue("drop_data") == "1"
-	if err := pk.Uninstall(r.Context(), "plugin", name, drop); err != nil {
+	dropTypes := r.PostFormValue("drop_content_types") == "1"
+	if err := pk.Uninstall(r.Context(), "plugin", name, drop, dropTypes); err != nil {
 		a.logger().Error("uninstall plugin failed", "plugin", name, "err", err)
 		a.ErrorBack(w, r, http.StatusInternalServerError, "Not uninstalled", "The plugin could not be removed. It may not be installed from a package.", a.adminPath+"/plugins", "Back to plugins")
 		return
@@ -433,6 +434,9 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	msg := name + " was uninstalled. Its data was kept; installing it again brings it back."
 	if drop {
 		msg = name + " was uninstalled and its data was deleted. Your pages and content were not touched."
+	}
+	if dropTypes {
+		msg += " The content types it installed and their content were removed."
 	}
 	a.SetFlash(w, r, "success", msg)
 	http.Redirect(w, r, a.adminPath+"/plugins", http.StatusSeeOther)

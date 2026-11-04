@@ -24,6 +24,9 @@ var ErrThemeActive = errors.New("theme is active")
 // (bad signature, unsigned, unknown permission, a theme that does not render).
 type Refusal struct{ Msg string }
 
+// ContentTypesLine is the prompt sentence for ContentTypes ("" when none).
+func (s PackageSummary) ContentTypesLine() string { return permtext.ContentTypesLine(s.ContentTypes) }
+
 func (e *Refusal) Error() string { return e.Msg }
 
 // RegistryEntry is one package the registry lists.
@@ -157,7 +160,9 @@ type PackageSummary struct {
 	// RequestHeaders and CSP are what the plugin asks to receive and to add to
 	// the public pages' security policy.
 	RequestHeaders []string
-	CSP            []permtext.CSPLine
+	// ContentTypes are the names of the entity types the plugin installs.
+	ContentTypes []string
+	CSP          []permtext.CSPLine
 	// Refused is the part of Permissions that policy will not grant this
 	// package; the install prompt says so and does not post them.
 	Refused []string
@@ -220,7 +225,7 @@ type PackageAdmin interface {
 	// Summary.Confirm. Reasons the owner should read come back as *Refusal.
 	Install(ctx context.Context, data []byte, source string, grant []string, confirm bool) error
 	SetEnabled(ctx context.Context, name string, on bool) error
-	Uninstall(ctx context.Context, kind, name string, dropData bool) error
+	Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error
 	AllowUnsigned(ctx context.Context) bool
 	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
 	UnsignedState(ctx context.Context) UnsignedState

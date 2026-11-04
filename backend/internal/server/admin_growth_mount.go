@@ -374,6 +374,11 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),
 		}
+		if p.s.packages != nil {
+			if pkg := p.s.packages.PluginPackage(v.Name); pkg != nil {
+				info.ContentTypes = packages.ContentTypeNames(pkg)
+			}
+		}
 		for _, r := range v.Routes {
 			line := r.Method + " " + r.Path
 			if r.Public {

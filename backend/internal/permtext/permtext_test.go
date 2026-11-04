@@ -89,3 +89,19 @@ func TestCSPLines(t *testing.T) {
 		t.Fatalf("lines = %+v", got)
 	}
 }
+
+func TestContentTypesLine(t *testing.T) {
+	for _, c := range []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"Product"}, "Create the content type Product"},
+		{[]string{"Product", "Order"}, "Create the content types Product and Order"},
+		{[]string{"A", "B", "C"}, "Create the content types A, B and C"},
+	} {
+		if got := ContentTypesLine(c.in); got != c.want {
+			t.Errorf("ContentTypesLine(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
