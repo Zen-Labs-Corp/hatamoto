@@ -84,6 +84,8 @@ var bypassExact = map[string]bool{
 	"/manifest.webmanifest": true, "/site.webmanifest": true,
 	// The pageview beacon.
 	"/api/v1/track": true,
+	// The MCP endpoint authenticates API keys itself.
+	"/mcp": true,
 }
 
 const publicAPI = "/api/v1/public"

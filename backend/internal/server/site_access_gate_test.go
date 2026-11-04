@@ -266,8 +266,14 @@ func TestSiteAccessGatesPublicAPIOnRealMux(t *testing.T) {
 				t.Errorf("%s GET %s: %d %q %v", mode, p, w.Code, w.Body.String(), w.Header())
 			}
 		}
-		// The authenticated API still reaches its own guard (401), not the gate.
+		// The MCP endpoint authenticates API keys itself, so it reaches its own 401.
 		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("POST", "/mcp", nil))
+		if w.Code != 401 {
+			t.Errorf("%s: /mcp answered %d, want its own 401", mode, w.Code)
+		}
+		// The authenticated API still reaches its own guard (401), not the gate.
+		w = httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/entities", nil))
 		if w.Code != 401 {
 			t.Errorf("%s: admin API answered %d, want its own 401", mode, w.Code)
