@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/media/modern"
 
 	_ "golang.org/x/image/webp" // Register WebP decoder
 )
@@ -43,6 +44,9 @@ type Config struct {
 	// MaxTotalBytes caps everything under UploadDir (originals and variants);
 	// 0 = no cap. Set by the public demo so visitors cannot fill the disk.
 	MaxTotalBytes int64
+	// AVIFBudget bounds the AVIF encode time of one upload; 0 = 10 s. Copies
+	// that do not fit are made by the rebuild job.
+	AVIFBudget time.Duration
 }
 
 // DefaultConfig returns the default media configuration.
@@ -81,6 +85,8 @@ type Service struct {
 	// the one place the local driver leaks; OpenFile needs an *os.File too.
 	store BlobStore
 	local *localStore
+	// formats decides which modern formats are written; nil = WebP only.
+	formats func(context.Context) Formats
 }
 
 // uploadRoot is the resolved upload directory.
@@ -408,8 +414,62 @@ func (s *Service) getImageDimensions(path string) (int, int, error) {
 	return config.Width, config.Height, nil
 }
 
-// createVariants generates resized versions of an image.
+// Formats says which modern formats are produced next to the original-format
+// copies.
+type Formats struct{ WebP, AVIF bool }
+
+// SetFormatPolicy installs the function that decides, per call, which modern
+// formats to write. nil means WebP only, if the encoder is available.
+func (s *Service) SetFormatPolicy(f func(context.Context) Formats) { s.formats = f }
+
+// formatsFor lists the modern formats to write for an original of mimeType,
+// WebP first. A format the original already has is not repeated.
+func (s *Service) formatsFor(ctx context.Context, mimeType string) []modern.Format {
+	pol := Formats{WebP: true}
+	if s.formats != nil {
+		pol = s.formats(ctx)
+	}
+	var out []modern.Format
+	for _, c := range []struct {
+		on bool
+		f  modern.Format
+	}{{pol.WebP, modern.WebP}, {pol.AVIF, modern.AVIF}} {
+		if c.on && string(c.f) != mimeType && modern.Available(c.f) {
+			out = append(out, c.f)
+		}
+	}
+	return out
+}
+
+// Quality of the modern copies.
+const (
+	webpQuality = 80
+	avifQuality = 60
+)
+
+// defaultAVIFBudget bounds the AVIF encode time of one upload; copies that do
+// not fit are left to the rebuild job.
+const defaultAVIFBudget = 10 * time.Second
+
+// variantOrder is the order copies are made in.
+var variantOrder = []string{"thumbnail", "medium", "large"}
+
+// createVariants generates the resized copies of an image on upload. AVIF
+// copies stop once the per-upload time budget is spent.
 func (s *Service) createVariants(ctx context.Context, m *Media, sourcePath string) ([]ImageVariant, error) {
+	budget := s.config.AVIFBudget
+	if budget <= 0 {
+		budget = defaultAVIFBudget
+	}
+	return s.buildVariants(ctx, m, sourcePath, budget)
+}
+
+// buildVariants writes every copy of the image at sourcePath: the
+// original-format copies (thumbnail, medium, large) and, for each modern
+// format, a copy of medium and large that is kept only when it is smaller.
+// An image of at most 1024 px has no large copy, so it gets a full-size
+// modern copy instead. avifBudget <= 0 means no time limit.
+func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string, avifBudget time.Duration) ([]ImageVariant, error) {
 	var variants []ImageVariant
 
 	// Open source image
@@ -438,7 +498,74 @@ func (s *Service) createVariants(ctx context.Context, m *Media, sourcePath strin
 		return nil, ErrImageTooLarge
 	}
 
-	for sizeName, sizeConfig := range VariantSizes {
+	base := strings.TrimSuffix(m.Filename, filepath.Ext(m.Filename))
+	ext := filepath.Ext(m.Filename)
+	dir := filepath.Dir(m.StoragePath)
+	formats := s.formatsFor(ctx, m.MimeType)
+	var avifSpent time.Duration
+
+	// put stores data under path. It reports false, and stores nothing, when
+	// the total quota has no room; the caller then stops making copies.
+	put := func(path string, data *bytes.Buffer) (stored bool, err error) {
+		if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) >= s.config.MaxTotalBytes {
+			return false, nil
+		}
+		if _, err = s.store.Put(ctx, path, data); err != nil {
+			return false, err
+		}
+		if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) > s.config.MaxTotalBytes {
+			s.removeBlob(ctx, path)
+			return false, nil
+		}
+		return true, nil
+	}
+
+	// addModern writes the modern copies of img named <base>_<size>.<ext>,
+	// keeping each only when smaller than the fallback bytes of the same
+	// width. It reports false once the quota is full.
+	addModern := func(sizeName string, img image.Image, width, height int, fallbackLen int) bool {
+		for _, f := range formats {
+			if f == modern.AVIF && avifBudget > 0 && avifSpent >= avifBudget {
+				continue
+			}
+			q := webpQuality
+			if f == modern.AVIF {
+				q = avifQuality
+			}
+			var enc bytes.Buffer
+			start := time.Now()
+			err := modern.Encode(ctx, &enc, img, f, q)
+			if f == modern.AVIF {
+				avifSpent += time.Since(start)
+			}
+			if err != nil {
+				s.logger.Warn("failed to encode modern copy",
+					slog.String("size", sizeName), slog.String("format", string(f)), slog.String("error", err.Error()))
+				continue
+			}
+			if enc.Len() >= fallbackLen {
+				continue
+			}
+			path := filepath.Join(dir, fmt.Sprintf("%s_%s%s", base, sizeName, modern.Ext(f)))
+			ok, err := put(path, &enc)
+			if err != nil {
+				s.logger.Warn("failed to save variant",
+					slog.String("size", sizeName), slog.String("format", string(f)), slog.String("error", err.Error()))
+				continue
+			}
+			if !ok {
+				return false
+			}
+			variants = append(variants, ImageVariant{
+				Size: sizeName, Format: string(f), Path: path, URL: s.store.URL(path), Width: width, Height: height,
+			})
+		}
+		return true
+	}
+
+	hasLarge := false
+	for _, sizeName := range variantOrder {
+		sizeConfig := VariantSizes[sizeName]
 		// Skip if source is smaller than variant
 		if srcWidth <= sizeConfig.MaxWidth && srcHeight <= sizeConfig.MaxHeight && !sizeConfig.Crop {
 			continue
@@ -462,57 +589,98 @@ func (s *Service) createVariants(ctx context.Context, m *Media, sourcePath strin
 			}
 		}
 
-		// Generate variant filename
-		variantFilename := fmt.Sprintf("%s_%s%s", strings.TrimSuffix(m.Filename, filepath.Ext(m.Filename)), sizeName, variantExt(m.MimeType, filepath.Ext(m.Filename)))
-		variantPath := filepath.Join(filepath.Dir(m.StoragePath), variantFilename)
-
-		// Create resized image using simple nearest-neighbor for now
-		// In production, use golang.org/x/image/draw with better interpolation
+		variantPath := filepath.Join(dir, fmt.Sprintf("%s_%s%s", base, sizeName, variantExt(m.MimeType, ext)))
 		resizedImg := resizeImage(srcImg, newWidth, newHeight, sizeConfig.Crop)
 
 		// Save variant; under a total quota only while there is room, and a
 		// variant that crosses it is taken back.
-		if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) >= s.config.MaxTotalBytes {
-			break
-		}
 		var encoded bytes.Buffer
-		err := encodeImage(&encoded, resizedImg, m.MimeType)
-		if err == nil {
-			_, err = s.store.Put(ctx, variantPath, &encoded)
+		if err := encodeImage(ctx, &encoded, resizedImg, m.MimeType); err != nil {
+			s.logger.Warn("failed to save variant",
+				slog.String("size", sizeName),
+				slog.String("error", err.Error()))
+			continue
 		}
+		fallbackLen := encoded.Len()
+		ok, err := put(variantPath, &encoded)
 		if err != nil {
 			s.logger.Warn("failed to save variant",
 				slog.String("size", sizeName),
 				slog.String("error", err.Error()))
 			continue
 		}
-
-		if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) > s.config.MaxTotalBytes {
-			s.removeBlob(ctx, variantPath)
+		if !ok {
 			break
 		}
-		variantURL := s.store.URL(variantPath)
 		variants = append(variants, ImageVariant{
 			Size:   sizeName,
 			Path:   variantPath,
-			URL:    variantURL,
+			URL:    s.store.URL(variantPath),
 			Width:  newWidth,
 			Height: newHeight,
 		})
+		if sizeName == "large" {
+			hasLarge = true
+		}
+		if sizeConfig.Crop {
+			continue // thumbnails get no modern copy
+		}
+		if !addModern(sizeName, resizedImg, newWidth, newHeight, fallbackLen) {
+			break
+		}
+	}
+
+	// Up to 1024 px there is no large copy; a full-size modern copy still gives
+	// <picture> a 1x source. It must beat the original file.
+	medium := VariantSizes["medium"]
+	if !hasLarge && (srcWidth > medium.MaxWidth || srcHeight > medium.MaxHeight) && len(formats) > 0 {
+		if fi, err := os.Stat(sourcePath); err == nil {
+			addModern("full", srcImg, srcWidth, srcHeight, int(fi.Size()))
+		}
 	}
 
 	return variants, nil
 }
 
-// variantExt is the extension of a resized copy. WebP originals are resized to
-// JPEG bytes (no pure-Go WebP encoder), so the copy is named .jpg: the name
-// must say what the bytes are.
-func variantExt(mimeType, origExt string) string {
-	if mimeType == "image/webp" {
-		return ".jpg"
+// RegenerateVariants rebuilds every resized copy of an image from its stored
+// original, stores the new variant list and deletes copies the new list no
+// longer names (for example the .jpg copies an old WebP upload got). The
+// original is never touched. It does not notify the change observer: a caller
+// that rebuilds many images does that once.
+func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media, error) {
+	m, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
 	}
-	return origExt
+	if !m.SupportsVariants() {
+		return m, nil
+	}
+	variants, err := s.buildVariants(ctx, m, s.local.localPath(m.StoragePath), 0)
+	if err != nil {
+		return nil, err
+	}
+	old := m.Variants
+	m.Variants = variants
+	if m.Variants == nil {
+		m.Variants = []ImageVariant{}
+	}
+	if err := s.repo.Update(ctx, m); err != nil {
+		return nil, err
+	}
+	keep := make(map[string]bool, len(variants))
+	for _, v := range variants {
+		keep[v.Path] = true
+	}
+	for _, v := range old {
+		if !keep[v.Path] {
+			s.removeBlob(ctx, v.Path)
+		}
+	}
+	return m, nil
 }
+
+// variantExt is the extension of a resized copy in the original's format.
+func variantExt(_, origExt string) string { return origExt }
 
 // dirSize is the total size of the regular files under dir.
 func dirSize(dir string) int64 {

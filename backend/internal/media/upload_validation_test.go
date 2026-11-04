@@ -23,8 +23,8 @@ func TestImageTypeAndExtensionAllowed(t *testing.T) {
 	}
 }
 
-func TestVariantExtNamesWebPByRealFormat(t *testing.T) {
-	if variantExt("image/webp", ".webp") != ".jpg" || variantExt("image/png", ".png") != ".png" {
+func TestVariantExtKeepsTheOriginalExtension(t *testing.T) {
+	if variantExt("image/webp", ".webp") != ".webp" || variantExt("image/png", ".png") != ".png" {
 		t.Error("variantExt wrong")
 	}
 }
