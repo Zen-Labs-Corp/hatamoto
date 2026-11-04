@@ -1217,3 +1217,52 @@ func TestChangesetMediaCaptionCredit(t *testing.T) {
 		t.Errorf("alt=%q caption=%q credit=%q", alt, caption, credit)
 	}
 }
+
+// An alt text change on an owner media row publishes and reverts; media a
+// plugin owns is refused at staging, and nothing else on the row moves.
+func TestChangesetMediaAltChange(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	first, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stage(first, Item{Kind: KindMedia, Op: OpUpsert, SourceKey: "al-" + f.tag, BlobKeys: []string{f.stageFile(run, "al.png")},
+		Payload: raw(map[string]any{"filename": "al.png", "alt_text": "old", "caption": "keep"})})
+	f.publish(first)
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id::text FROM hatamoto_media WHERE original_filename = 'al.png' ORDER BY created_at DESC LIMIT 1`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+
+	// Owner media: a plugin changeset may change its alt text.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_media SET origin = 'owner' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	cs := f.begin("alt-plugin")
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"alt_text": "new"})})
+	f.publish(cs)
+	read := func() (alt, caption string) {
+		_ = f.db.Pool().QueryRow(f.ctx, `SELECT COALESCE(alt_text, ''), COALESCE(caption, '') FROM hatamoto_media WHERE id = $1`, id).Scan(&alt, &caption)
+		return
+	}
+	if alt, caption := read(); alt != "new" || caption != "keep" {
+		t.Fatalf("after publish alt=%q caption=%q", alt, caption)
+	}
+	if _, err := f.eng.Revert(f.ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if alt, _ := read(); alt != "old" {
+		t.Errorf("after revert alt=%q", alt)
+	}
+
+	// Media another plugin owns is not_owned.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_media SET origin = 'plugin:other' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	bad := f.begin("alt-plugin")
+	err = f.eng.Stage(f.ctx, bad, Item{Kind: KindMedia, Op: OpUpsert, TargetID: id, Payload: raw(map[string]any{"alt_text": "x"})})
+	if !errors.Is(err, ErrNotOwned) {
+		t.Errorf("stage on foreign media = %v, want ErrNotOwned", err)
+	}
+}

@@ -3,6 +3,7 @@ package pluginhost
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 	"slices"
 	"strings"
@@ -24,6 +25,7 @@ import (
 // engine decides ownership from the source key, so an object the owner made
 // or took over answers not_owned.
 func init() {
+	hostFns[sdk.FnChangesetMediaAlt] = hostFn{run: fnChangesetMediaAlt}
 	hostFns[sdk.FnChangesetEntityUpsert] = hostFn{run: fnChangesetEntityUpsert}
 	hostFns[sdk.FnChangesetTermUpsert] = hostFn{run: fnChangesetTermUpsert}
 	hostFns[sdk.FnChangesetPersonUpsert] = hostFn{run: fnChangesetPersonUpsert}
@@ -277,6 +279,46 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 		BlobKeys: []string{in.Handle}, Payload: payload(p)})
 }
 
+// fnChangesetMediaAlt stages a new alt text for an owner media item. It is a
+// reviewed change like any other item: the owner publishes it, a revert puts
+// the old text back. The engine refuses media the owner did not upload.
+func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+	in, err := decodeArgs[sdk.MediaAlt](raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := text("alt", in.Alt, 1024, false); err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(in.MediaID)
+	if err != nil {
+		return nil, invalid("media_id is not an id")
+	}
+	s, err := a.stager(ctx, e.plugin)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(s.rc.Proposes, sdk.ProposeMediaAlt) {
+		return nil, invalid("run %q did not declare it proposes %q", s.rc.Name, sdk.ProposeMediaAlt)
+	}
+	if a.svc.Media == nil {
+		return nil, unavailable("media")
+	}
+	if _, err := a.svc.Media.Get(ctx, id); err != nil {
+		return nil, err
+	}
+	// No source key: the item changes an owner row, so it leaves no mapping.
+	err = a.svc.Changesets.Stage(ctx, s.csID, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert,
+		TargetID: id.String(), Payload: payload(map[string]string{"alt_text": in.Alt})})
+	if errors.Is(err, changeset.ErrNotOwned) {
+		return nil, herr(sdk.ErrNotOwned, "media %s was not uploaded by the owner", id)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return sdk.UpsertResult{SourceKey: "alt:" + id.String()}, nil
+}
+
 func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
 	in, err := decodeArgs[sdk.MenuUpsert](raw)
 	if err != nil {
@@ -440,6 +482,9 @@ func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMes
 	rc, ok := RunFrom(ctx)
 	if !ok {
 		return nil, herr(sdk.ErrPhaseDenied, "only available inside a run")
+	}
+	if in.Kind == sdk.ProposeMediaAlt {
+		return nil, invalid("alt text changes are staged with changeset.media.alt")
 	}
 	if !slices.Contains(rc.Proposes, in.Kind) {
 		return nil, invalid("run %q did not declare it proposes %q", rc.Name, in.Kind)

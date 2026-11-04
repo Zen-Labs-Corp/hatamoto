@@ -107,6 +107,8 @@ func TestChangesetArgsValidation(t *testing.T) {
 		"entity self parent":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", ParentKey: "k"}},
 		"entity translation without locale": {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", TranslationOf: "src"}},
 		"entity translation of itself":      {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Locale: "es", TranslationOf: "k"}},
+		"media alt bad id":                  {sdk.FnChangesetMediaAlt, sdk.MediaAlt{MediaID: "x", Alt: "a"}},
+		"propose media_alt":                 {sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeMediaAlt, Payload: json.RawMessage(`{}`)}},
 		"term bad kind":                     {sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: "k", Kind: "Bad Kind", Slug: "s", Name: "N"}},
 		"menu both":                         {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "/a", EntityKey: "e"}}}},
 		"menu js url":                       {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "javascript:alert(1)"}}}},

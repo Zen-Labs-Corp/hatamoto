@@ -150,6 +150,7 @@ A function not allowed in the current phase fails with `phase_denied`, and so do
 | `entities.slug_taken` | transform | `{ "schema", "slug", "locale"? }` | `{ "taken" }`, published public entities only |
 | `changeset.entity.upsert` | transform | `{ "source_key", "schema", "slug"?, "parent_key"?, "translation_of"?, "locale"?, "name", "attributes"?, "seo"? }` | `{ "source_key", "created" }` |
 | `changeset.term.upsert` / `changeset.person.upsert` | transform | `{ "source_key", "kind", "slug", "name", "description"? }` / `{ "source_key", "slug", "name", "bio"? }` | `{ "source_key", "created" }` |
+| `changeset.media.alt` | transform | `{ "media_id", "alt" }`; the run declares `proposes: ["media_alt"]` | `{ "source_key", "created" }` |
 | `changeset.media.attach` | transform | `{ "source_key", "handle", "alt"?, "caption"?, "credit"? }` | `{ "source_key", "created" }` |
 | `changeset.menu.upsert` | transform | `{ "source_key", "slug", "name", "items"? }` | `{ "source_key", "created" }` |
 | `changeset.redirect.upsert` | transform | `{ "source_key", "from", "to", "status_code"? }` | `{ "source_key", "created" }` |

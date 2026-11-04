@@ -74,6 +74,7 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnChangesetRedirectUpsert: phTransform,
 	sdk.FnChangesetDelete:         phTransform,
 	sdk.FnChangesetPropose:        phTransform,
+	sdk.FnChangesetMediaAlt:       phTransform,
 
 	sdk.FnKVGet:            phNone,
 	sdk.FnKVSet:            phNone,
@@ -94,7 +95,7 @@ var runOnly = map[string]bool{
 	sdk.FnMediaImportURL: true, sdk.FnSiteInfo: true, sdk.FnEntitiesSlugTaken: true,
 	sdk.FnChangesetEntityUpsert: true, sdk.FnChangesetTermUpsert: true, sdk.FnChangesetPersonUpsert: true,
 	sdk.FnChangesetMediaAttach: true, sdk.FnChangesetMenuUpsert: true, sdk.FnChangesetRedirectUpsert: true,
-	sdk.FnChangesetDelete: true, sdk.FnChangesetPropose: true,
+	sdk.FnChangesetDelete: true, sdk.FnChangesetPropose: true, sdk.FnChangesetMediaAlt: true,
 }
 
 // removedFns are the direct write functions SDK 0.17 removed, with the

@@ -20,6 +20,7 @@ SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep
 - **Page security hosts (`csp`).** `plugin.json` can list https hosts for `script_src`, `connect_src`, `frame_src` and `img_src`. The permission prompt and the plugin page show them, and an update that adds one asks for confirmation. A community plugin may only list image hosts. The hosts join the public pages' policy while the plugin is enabled (`script_src` and `connect_src` take effect; images and frames are already open to https).
 - **Translations from a run.** `changeset.entity.upsert` takes `translation_of` (an entity id or the source key of an earlier entity). Publishing joins the staged entity to the source's translation group; reverting undoes the link.
 - **Caption and credit on media.** `changeset.media.attach` takes `caption` and `credit`; publishing stores both on the media record (new nullable `credit` column).
+- **Reviewed alt text changes.** `changeset.media.alt { media_id, alt }` stages a new alt text for a media item the owner uploaded; the run declares `proposes: ["media_alt"]`. Publishing applies it, reverting restores the old text. Nothing else on the media row changes.
 
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 

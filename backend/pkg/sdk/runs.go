@@ -37,10 +37,14 @@ const (
 	ProposeURLPatterns  = "url_patterns"
 	ProposeHomePage     = "home_page"
 	ProposeMenuLocation = "menu_location"
+	// ProposeMediaAlt lets a run stage reviewed alt text changes on owner
+	// media with changeset.media.alt (SDK 0.18). It is not a singleton
+	// proposal: changeset.propose refuses it.
+	ProposeMediaAlt = "media_alt"
 )
 
 // proposalKinds lists every valid Run.Proposes entry.
-var proposalKinds = []string{ProposeSiteSettings, ProposeURLPatterns, ProposeHomePage, ProposeMenuLocation}
+var proposalKinds = []string{ProposeSiteSettings, ProposeURLPatterns, ProposeHomePage, ProposeMenuLocation, ProposeMediaAlt}
 
 // Run is one run a plugin declares in the "runs" block of plugin.json.
 type Run struct {
@@ -350,6 +354,13 @@ type MediaAttach struct {
 	// (SDK 0.18).
 	Caption string `json:"caption,omitempty"`
 	Credit  string `json:"credit,omitempty"`
+}
+
+// MediaAlt stages a new alt text for a media item the owner uploaded. The run
+// must declare "media_alt" in proposes. Alt text is the only field it changes.
+type MediaAlt struct {
+	MediaID string `json:"media_id"`
+	Alt     string `json:"alt"`
 }
 
 // MenuUpsert stages a menu and its items.

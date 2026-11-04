@@ -116,6 +116,8 @@ Hooks, routes and cron cannot write content. They keep the plugin's own data
 | Network | `http.fetch` to the run's hosts only (the source origin and the media hosts the owner confirmed on the scan report; this replaces the manifest's `allowed_hosts` for the run) | none |
 | Reads | `upload.read` (the file the owner uploaded through core's UI), `run.info` | `buffer.get`, `buffer.list`, `site.info`, published entity reads, `entities.slug_taken` |
 | Writes | `buffer.put` (write-only staging buffer, quota per run), `media.import_url` (staged media) | `changeset.*` |
+
+SDK 0.18 adds `changeset.media.alt` to the transform writes: a run that declares `proposes: ["media_alt"]` stages an alt text change on media the owner uploaded. It is an ordinary reviewed item (low risk, applied at publish, restored by revert), not a singleton proposal, and it changes no other field.
 | Plugin `kv`/`db` | not available | not available |
 
 The phases share nothing but the run's buffer, which flows one way: fetch writes

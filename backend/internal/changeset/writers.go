@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
@@ -570,12 +571,15 @@ type mediaPayload struct {
 }
 
 func (w MediaWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
-	if it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1 {
-		return Outcome{}, ErrUnsupportedOp
-	}
 	var p mediaPayload
 	if err := decodePayload(it.Payload, &p); err != nil {
 		return Outcome{}, err
+	}
+	if isAltChange(it) {
+		return w.applyAlt(ctx, tx, target, p)
+	}
+	if it.Op == OpDelete || target != "" || len(it.BlobKeys) != 1 {
+		return Outcome{}, ErrUnsupportedOp
 	}
 	m, err := w.Svc.AttachStagedTx(ctx, tx, media.MediaOp{StagedKey: it.BlobKeys[0], Filename: p.Filename,
 		Origin: origin, AltText: p.AltText, Caption: p.Caption, Credit: p.Credit, Folder: p.Folder})
@@ -585,11 +589,48 @@ func (w MediaWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, t
 	return Outcome{TargetID: m.ID.String(), Created: true, Undo: func(ctx context.Context) { w.Svc.RemoveFiles(ctx, m) }}, nil
 }
 
-// Restore removes the record a changeset created, and its files after the commit.
+// applyAlt sets the alt text of an existing media row and keeps the old text
+// as the pre-image. Only alt_text changes; a row that is gone is a conflict.
+func (w MediaWriter) applyAlt(ctx context.Context, tx Tx, target string, p mediaPayload) (Outcome, error) {
+	id, err := uuid.Parse(target)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("%w: target %q", ErrInvalidItem, target)
+	}
+	var old *string
+	if err := tx.QueryRow(ctx, `SELECT alt_text FROM hatamoto_media WHERE id = $1 AND run_id IS NULL FOR UPDATE`, id).Scan(&old); errors.Is(err, pgx.ErrNoRows) {
+		return Outcome{Conflict: true, Detail: reasonGone}, nil
+	} else if err != nil {
+		return Outcome{}, fmt.Errorf("failed to read media: %w", err)
+	}
+	alt := ""
+	if p.AltText != nil {
+		alt = *p.AltText
+	}
+	if _, err := tx.Exec(ctx, `UPDATE hatamoto_media SET alt_text = NULLIF($2, ''), updated_at = now() WHERE id = $1`, id, alt); err != nil {
+		return Outcome{}, fmt.Errorf("failed to set alt text: %w", err)
+	}
+	before, _ := json.Marshal(map[string]*string{"alt_text": old})
+	return Outcome{TargetID: id.String(), Before: before}, nil
+}
+
+// Restore removes the record a changeset created, and its files after the
+// commit; for an alt text change it puts the old text back.
 func (w MediaWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(context.Context), error) {
 	id, err := uuid.Parse(it.TargetID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: target %q", ErrInvalidItem, it.TargetID)
+	}
+	if len(it.Before) > 0 {
+		var b struct {
+			AltText *string `json:"alt_text"`
+		}
+		if err := json.Unmarshal(it.Before, &b); err != nil {
+			return nil, fmt.Errorf("invalid pre-image: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE hatamoto_media SET alt_text = $2, updated_at = now() WHERE id = $1`, id, b.AltText); err != nil {
+			return nil, fmt.Errorf("failed to restore alt text: %w", err)
+		}
+		return nil, nil
 	}
 	m, err := w.Svc.Get(ctx, id)
 	if err != nil {

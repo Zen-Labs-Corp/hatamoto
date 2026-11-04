@@ -113,6 +113,7 @@ const (
 	FnChangesetRedirectUpsert = "changeset.redirect.upsert" // transform: RedirectUpsert -> UpsertResult
 	FnChangesetDelete         = "changeset.delete"          // transform: {kind, source_key} -> UpsertResult
 	FnChangesetPropose        = "changeset.propose"         // transform: Proposal -> {}
+	FnChangesetMediaAlt       = "changeset.media.alt"       // transform: MediaAlt -> UpsertResult
 )
 
 // HTTPRequest is the input of an `http_handle` export: a request to one of the
