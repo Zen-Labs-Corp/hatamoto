@@ -98,7 +98,7 @@ fb_render_caddyfile() {
     *) printf '%s {\n' "$1" ;;
   esac
   [ "$2" != internal ] || printf '\ttls internal\n'
-  printf '\treverse_proxy 127.0.0.1:%s\n}\n' "$APP_PORT"
+  printf '\tencode zstd gzip\n\treverse_proxy 127.0.0.1:%s\n}\n' "$APP_PORT"
   if [ -n "${4:-}" ] && [ "$4" != "$1" ]; then
     case "$2" in
       off) printf '\nhttp://%s {\n\tredir http://%s{uri} permanent\n}\n' "$4" "$1" ;;

@@ -190,6 +190,9 @@ cf h.example internal "" | grepq -xP '\ttls internal' || fail "tls internal miss
 cf h.example off ops@example.com | grepq -x 'http://h.example {' || fail "off caddyfile"
 if cf h.example off ops@example.com | grepq email; then fail "off caddyfile carries an email"; fi
 cf h.example auto "" | grepq -xP '\treverse_proxy 127.0.0.1:8090' || fail "reverse_proxy missing"
+for m in auto internal off; do
+  cf h.example $m "" | grepq -xP '\tencode zstd gzip' || fail "encode missing ($m)"
+done
 pass "Caddyfile for each TLS mode, with and without email"
 
 cf h.example auto "" old.example | grepq -x 'old.example {' || fail "redirect site missing"
@@ -200,6 +203,7 @@ cf h.example off "" old.example | grepq -x 'http://old.example {' || fail "off r
 cf h.example off "" old.example | grepq -xP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
 if cf h.example auto "" h.example | grepq redir; then fail "same-host redirect"; fi
 [ "$(cf h.example auto "")" = "$(cf h.example auto "" "")" ] || fail "3-arg output changed"
+[ "$(cf h.example auto "" old.example | grep -c 'encode zstd gzip')" = 1 ] || fail "old host encodes"
 pass "Caddyfile old-host redirect for each TLS mode"
 
 # --- full run ---------------------------------------------------------------------
