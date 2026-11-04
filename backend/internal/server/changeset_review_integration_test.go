@@ -363,3 +363,95 @@ func TestChangesetReviewPagesRiskyItems(t *testing.T) {
 		t.Fatalf("publish = %d, %v", applied, err)
 	}
 }
+
+// A redirect that is dropped along with its page counts as dropped, so the
+// numbers on the review page are what the publish applies.
+func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	tag := uuid.NewString()[:8]
+	schemas := entity.NewPostgresSchemaRepository(db)
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "rg " + tag, Slug: "rg-" + tag,
+		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entSvc := entity.NewService(schemas, entity.NewPostgresEntityRepository(db), logger)
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+		_ = schemas.Delete(bg, sc.ID)
+		_, _ = db.Pool().Exec(bg, `DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`, tag)
+	})
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindEntity:   changeset.EntityWriter{Svc: entSvc},
+		changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, logger)},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "rg" + tag
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := func(slug, content string) changeset.Item {
+		p, _ := json.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": content}})
+		return changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: slug, Payload: p}
+	}
+	redir := func(from, to string) changeset.Item {
+		p, _ := json.Marshal(map[string]any{"source_path": "/" + tag + from, "target": "/" + to})
+		return changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: tag + from, Payload: p}
+	}
+	embed, plain := "rg-embed-"+tag, "rg-plain-"+tag
+	// Seqs 1 and 2 are the pages, 3 and 4 the redirects to them.
+	for _, it := range []changeset.Item{
+		page(embed, `<iframe src="https://example.com/v"></iframe>`), page(plain, "x"),
+		redir("-old-embed", embed), redir("-old-plain", plain),
+	} {
+		if err := eng.Stage(ctx, cs, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rev.Review(ctx, cs, 1); err != nil {
+		t.Fatal(err)
+	}
+	// Keep both redirects, drop the page the first one points to.
+	if err := rev.Decide(ctx, cs, []int{3, 4}, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rev.Decide(ctx, cs, []int{1}, "dropped"); err != nil {
+		t.Fatal(err)
+	}
+	d, err := rev.Review(ctx, cs, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Items != 4 || d.DroppedCount != 2 || d.PublishCount != 2 {
+		t.Fatalf("review: items %d, dropped %d, publish %d, want 4, 2, 2", d.Items, d.DroppedCount, d.PublishCount)
+	}
+	applied, dropped, err := rev.Publish(ctx, cs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != d.PublishCount || dropped != d.DroppedCount {
+		t.Fatalf("publish applied %d and dropped %d, but the review said %d and %d", applied, dropped, d.PublishCount, d.DroppedCount)
+	}
+}

@@ -58,7 +58,10 @@ func (e *Engine) ReviewCounts(ctx context.Context, csID int64) (ReviewCounts, er
 		       count(*) FILTER (WHERE i.risk = 'high'),
 		       count(*) FILTER (WHERE i.risk = 'critical'),
 		       count(*) FILTER (WHERE i.risk IN ('high', 'critical') AND i.decision IS NOT NULL),
-		       count(*) FILTER (WHERE i.decision = 'dropped' OR i.result = 'dropped')
+		       count(*) FILTER (WHERE i.decision = 'dropped' OR i.result = 'dropped'
+		            OR (i.risk_reason = 'redirect' AND COALESCE(i.risk_ref, 0) > 0 AND EXISTS (
+		                SELECT 1 FROM hatamoto_changeset_items p
+		                WHERE p.changeset_id = i.changeset_id AND p.seq = i.risk_ref AND p.decision = 'dropped')))
 		FROM hatamoto_changesets c LEFT JOIN hatamoto_changeset_items i ON i.changeset_id = c.id
 		WHERE c.id = $1 GROUP BY c.id`, csID).
 		Scan(&c.PayloadBytes, &unclassified, &c.Low, &c.High, &c.Critical, &c.HighDecided, &c.Dropped)
