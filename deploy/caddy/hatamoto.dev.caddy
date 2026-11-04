@@ -72,7 +72,7 @@ hatamoto.dev {
         header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
         respond "{err.status_code} {err.status_text}"
     }
-    encode gzip
+    encode zstd gzip
     @registry path /registry.json /packages/*
     handle @registry {
         root * /opt/hatamoto/registry

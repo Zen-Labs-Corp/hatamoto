@@ -25,7 +25,7 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
    }
 
    example.com {
-       encode gzip
+       encode zstd gzip
        reverse_proxy localhost:8090
    }
    ```
@@ -45,6 +45,10 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
        server_name example.com;
        # ssl_certificate and ssl_certificate_key go here
 
+       gzip on;
+       gzip_vary on;
+       gzip_types text/css text/javascript application/javascript application/json application/ld+json application/xml application/rss+xml application/atom+xml text/xsl text/plain image/svg+xml;
+
        location / {
            proxy_pass http://127.0.0.1:8090;
            proxy_set_header Host $host;
@@ -55,6 +59,8 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
        }
    }
    ```
+
+   nginx has no built-in zstd, so this compresses with gzip only (`text/html` is always compressed once `gzip on;` is set).
 
 4. Do not repeat Hatamoto's security headers in the proxy. It already sends them (see [Harden an instance](hardening.md)), and a different value set in the proxy replaces Hatamoto's. For example, public pages send `X-Frame-Options: SAMEORIGIN` so the admin preview can show them; a proxy that sets `DENY` breaks that preview.
 
