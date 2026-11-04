@@ -465,7 +465,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.logger.ErrorContext(r.Context(), "render: page degraded", "path", path)
 	}
 	private := degraded || filtered || h.uncached
-	setPluginCookies(w, r, cookies)
+	pluginhost.WriteSetCookies(w, r, cookies)
 	h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
 	if cacheable && !private && !v.Preview && !v.Dynamic && (pageN == 0 || (v.PagedLoop != nil && *v.PagedLoop)) {
 		if _, err := h.cache.SetIfGeneration(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen); err != nil {

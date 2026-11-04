@@ -48,7 +48,7 @@ A manifest that uses most fields:
 | `routes` | no | HTTP routes, at most 64. |
 | `cron` | no | Scheduled calls, at most 16. |
 | `request_headers` | no | Extra request header names passed to this plugin's routes (for example `Stripe-Signature`), at most 8. `Authorization`, `Cookie`, `Proxy-Authorization` and every header that carries the visitor's address are refused. The plugin page lists them. |
-| `cookies` | no | Cookie names `render.page` may read and set, at most 8. |
+| `cookies` | no | Cookie names `render.page` and the plugin's public routes may read and set, at most 8. |
 | `render_page` | no | `{ "full_blocks": true }` sends `render.page` whole blocks (SDK 0.9 and later). |
 | `funcs` | no | Template functions, at most 64. |
 | `ui` | no | An admin page shipped in `ui/`. |
@@ -98,7 +98,7 @@ How a route is called and answered is on [Data, routes and cron](data-routes-cro
 
 ## cookies and funcs
 
-Cookie names match `^[A-Za-z0-9_-]{1,64}$`. Names that start with `hatamoto_`, `__Host-`, `__Secure-` or `hmp_` (compared case-insensitively) are reserved and refused. The browser cookie is stored as `hmp_<plugin>_<name>`.
+Cookie names match `^[A-Za-z0-9_-]{1,64}$`. Names that start with `hatamoto_`, `__Host-`, `__Secure-` or `hmp_` (compared case-insensitively) are reserved and refused. The browser cookie is stored as `hmp_<plugin>_<name>`. The same list lets the plugin's public routes read and set these cookies (see [Data, routes and cron](data-routes-cron.md)).
 
 Each func name matches `^[a-z][a-z0-9_]{0,31}$`, is unique, and is called from a theme as `plugin_<name>_<func>`. See [Admin pages and templates](admin-pages-and-templates.md).
 

@@ -150,6 +150,7 @@ func capaManifest(mutate func(*sdk.Manifest)) sdk.Manifest {
 		Cron: []sdk.CronJob{{Name: "tick", Every: "5m"}},
 		Routes: []sdk.Route{
 			{Method: "GET", Path: "/echo"},
+			{Method: "GET", Path: "/ck", Public: true},
 			{Method: "POST", Path: "/echo", Roles: []string{"owner", "editor"}},
 			{Method: "GET", Path: "/who/{name}", Public: true},
 			{Method: "GET", Path: "/redirect"},

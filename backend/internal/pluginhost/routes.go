@@ -51,9 +51,8 @@ type Caller func(ctx context.Context, plugin, export string, in []byte) ([]byte,
 type pluginRouter struct {
 	mux    *http.ServeMux
 	routes map[string]sdk.Route // by "METHOD /path" pattern
-	// extraHeaders are the request headers the manifest declares, lower-case,
-	// passed on top of requestHeaders.
-	extraHeaders []string
+	// m is the plugin's manifest: its declared request headers and cookies.
+	m sdk.Manifest
 }
 
 // RouteRegistry holds the per-plugin routers of one mount (admin or public).
@@ -91,7 +90,7 @@ func (g *RouteRegistry) Set(plugin string, m *sdk.Manifest) {
 			continue
 		}
 		if pr == nil {
-			pr = &pluginRouter{mux: http.NewServeMux(), routes: map[string]sdk.Route{}, extraHeaders: m.RequestHeaders}
+			pr = &pluginRouter{mux: http.NewServeMux(), routes: map[string]sdk.Route{}, m: *m}
 		}
 		pattern := r.Method + " " + r.Path
 		pr.mux.HandleFunc(pattern, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }) // matcher only; validated by the manifest
@@ -182,10 +181,13 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 	}
 	req := sdk.HTTPRequest{Method: r.Method, Path: path, Pattern: route.Path, PathValues: pathValues(route.Path, probe),
 		Query: r.URL.Query(), Headers: map[string]string{}, User: user}
-	for _, h := range append(slices.Clone(requestHeaders), pr.extraHeaders...) {
+	for _, h := range append(slices.Clone(requestHeaders), pr.m.RequestHeaders...) {
 		if v := r.Header.Get(h); v != "" {
 			req.Headers[strings.ToLower(h)] = v
 		}
+	}
+	if g.public {
+		req.Cookies = routeCookies(r, pr.m)
 	}
 	if utf8.Valid(body) {
 		req.Body = string(body)
@@ -209,15 +211,25 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
-	g.writeRouteResponse(w, r, res)
+	g.writeRouteResponse(w, r, res, pr.m)
 }
 
-func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse) {
+func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Request, res sdk.HTTPResponse, m sdk.Manifest) {
 	status := res.Status
 	if status == 0 {
 		status = http.StatusOK
 	}
 	if status < 200 || status > 599 {
+		writeJSONError(w, http.StatusBadGateway, "plugin error")
+		return
+	}
+	if len(res.SetCookies) > 0 && !g.public {
+		g.log.Warn("plugin route: set_cookies on an admin route", slog.String("plugin", m.Name))
+		writeJSONError(w, http.StatusBadGateway, "plugin error")
+		return
+	}
+	if err := checkSetCookies(m, res.SetCookies); err != nil {
+		g.log.Warn("plugin route: bad set_cookies", slog.String("plugin", m.Name), slog.Any("error", err))
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
@@ -246,6 +258,9 @@ func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Reques
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return
 	}
+	if len(res.SetCookies) > 0 {
+		h.Set("Cache-Control", "no-store") // a response that sets a cookie is never cached
+	}
 	if !g.public {
 		// Admin responses are per user: never shared-cacheable.
 		if cc := strings.ToLower(h.Get("Cache-Control")); strings.Contains(cc, "public") || strings.Contains(cc, "s-maxage") {
@@ -259,6 +274,10 @@ func (g *RouteRegistry) writeRouteResponse(w http.ResponseWriter, r *http.Reques
 	}
 	h.Set("Content-Security-Policy", pluginSandboxCSP)
 	h.Set("X-Content-Type-Options", "nosniff")
+	for i := range res.SetCookies {
+		res.SetCookies[i].Name = PluginCookieName(m.Name, res.SetCookies[i].Name)
+	}
+	WriteSetCookies(w, r, res.SetCookies)
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(body)
@@ -329,4 +348,20 @@ func hasControlByte(v string) bool {
 		}
 	}
 	return false
+}
+
+// routeCookies returns the request cookies the plugin declared, by their short
+// names, read from the namespaced browser cookies hmp_<plugin>_<name>. No
+// other cookie is ever passed.
+func routeCookies(r *http.Request, m sdk.Manifest) map[string]string {
+	var out map[string]string
+	for _, name := range m.Cookies {
+		if c, err := r.Cookie(PluginCookieName(m.Name, name)); err == nil {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[name] = c.Value
+		}
+	}
+	return out
 }

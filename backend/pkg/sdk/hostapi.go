@@ -129,6 +129,9 @@ type HTTPRequest struct {
 	Body       string              `json:"body,omitempty"`
 	BodyB64    string              `json:"body_b64,omitempty"` // set instead of Body when the body is not UTF-8
 	User       *HTTPUser           `json:"user,omitempty"`     // nil on public routes
+	// Cookies are the request cookies the manifest's `cookies` list declares,
+	// by their short names. Public routes only.
+	Cookies map[string]string `json:"cookies,omitempty"`
 }
 
 // HTTPUser is the signed-in user behind an admin route request.
@@ -145,6 +148,10 @@ type HTTPResponse struct {
 	Headers map[string]string `json:"headers,omitempty"`
 	Body    string            `json:"body,omitempty"`
 	BodyB64 string            `json:"body_b64,omitempty"`
+	// SetCookies are cookies to set on a public route's response: declared
+	// names only, stored as hmp_<plugin>_<name>, with the limits and flags of
+	// render.page's cookies. An admin route that sets one fails.
+	SetCookies []SetCookie `json:"set_cookies,omitempty"`
 }
 
 // CronEvent is the input of an `on_cron_<name>` export.
