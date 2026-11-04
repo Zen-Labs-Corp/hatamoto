@@ -83,6 +83,7 @@
         "data-routes-cron",
         "admin-pages-and-templates",
         "packaging-signing",
+        "tag-packs",
         "first-party-and-other-languages"
       ]
     },

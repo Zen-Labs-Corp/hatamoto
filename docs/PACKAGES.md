@@ -56,6 +56,15 @@ island is served only while the owner grants it. The signature covers `widgets/`
 widget kinds. Widgets apply and disappear with install, enable, disable and uninstall, without a restart; saved pages
 keep their nodes as placeholders. Details: [WIDGET_PACKS.md](WIDGET_PACKS.md).
 
+### Tag packs
+
+A plugin package with a `tags/` directory and no `plugin.wasm`, `widgets/` or `ui/` is a **tag pack**: each
+`tags/<name>.json` declares one tracking tag (name, ID label and pattern, `https` script template, hosts, consent
+category, optional websockets and noscript image) that appears in Settings > Tracking as `<plugin>.<name>`. It runs no
+code and asks for no permissions; its manifest may hold only `name`, `version`, `sdk` and `description`. At most 4 tags
+per package. Install refuses a broken declaration with `tags/<name>.json: <rule>`; an update that adds a host or changes
+a category needs confirmation. Registry entries carry a `tags` summary. Guide: [site/plugins/tag-packs.md](site/plugins/tag-packs.md).
+
 ## Safety rules for the archive
 
 Parsing is hostile-input safe and runs before anything else (including the
