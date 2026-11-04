@@ -94,3 +94,16 @@ func TestComparePath(t *testing.T) {
 		t.Fatal("order")
 	}
 }
+
+func TestWalkPlainPropWithLessThan(t *testing.T) {
+	attrs := json.RawMessage(`{"meta_description":"Compare old.example plans if a<b","page_doc":{"v":2,"nodes":[{"id":"a","t":"heading","p":{"text":"Kids <12 eat free at Joe's old.example & co"}}]}}`)
+	out, _, n, err := Walk(attrs, Options{Find: "old.example", Replace: "new.example"}, ScopeContent|ScopeSEO, func(string, int) bool { return true })
+	if err != nil || n != 2 {
+		t.Fatalf("err=%v n=%d", err, n)
+	}
+	for _, want := range []string{`Compare new.example plans if a<b`, `Kids <12 eat free at Joe's new.example & co`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("missing %q in %s", want, out)
+		}
+	}
+}

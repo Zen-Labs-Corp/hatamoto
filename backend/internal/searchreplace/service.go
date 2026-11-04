@@ -172,7 +172,7 @@ func (s *Service) previewMenus(ctx context.Context, o Options, p *Preview) error
 		g := Group{IsMenu: true, ID: m.ID, Name: m.Name}
 		walkItems(full.Items, func(it *menu.MenuItem) {
 			for _, f := range menuFields(it) {
-				_, hits, _ := transform(f.value, o, nil)
+				_, hits, _ := transform(f.value, o, false, nil)
 				for _, h := range hits {
 					g.Count++
 					if p.Total >= CountCap {
@@ -349,7 +349,7 @@ func (s *Service) applyMenus(ctx context.Context, o Options, sel Selection, rep 
 			rep.Skipped++
 			continue
 		}
-		out, _, n := transform(value, o, func(i int) bool { return ms.picks[i] })
+		out, _, n := transform(value, o, false, func(i int) bool { return ms.picks[i] })
 		if n == 0 {
 			rep.Skipped++
 			continue

@@ -47,7 +47,8 @@ type walker struct {
 
 // shape tells how far the walk may descend below a page_doc key. The builder
 // doc holds ids, kinds, styles and bindings next to the text, none of which
-// is ever edited: only node props (p) are read, through nodes and children.
+// is ever edited: only the text props of a node (p) are read, through nodes
+// and children.
 type shape uint8
 
 const (
@@ -84,7 +85,7 @@ func Walk(attrs json.RawMessage, o Options, scopes Scope, pick func(path string,
 		if k == "page_doc" {
 			sh = shapeDoc
 		}
-		root[k] = w.visit(v, "/"+escapeKey(k), scope, sh)
+		root[k] = w.visit(v, "/"+escapeKey(k), scope, sh, isHTMLKey(k))
 	}
 	sortHits(w.hits)
 	if w.n == 0 {
@@ -117,20 +118,20 @@ func escapeKey(k string) string {
 	return strings.NewReplacer("~", "~0", "/", "~1").Replace(k)
 }
 
-func (w *walker) visit(v any, path string, scope Scope, sh shape) any {
+func (w *walker) visit(v any, path string, scope Scope, sh shape, isHTML bool) any {
 	switch x := v.(type) {
 	case string:
 		if sh != shapeFree {
 			return x
 		}
-		return w.str(x, path, scope)
+		return w.str(x, path, scope, isHTML)
 	case map[string]any:
 		for k, child := range x {
 			csh, ok := childShape(sh, k)
 			if !ok {
 				continue
 			}
-			x[k] = w.visit(child, path+"/"+escapeKey(k), scope, csh)
+			x[k] = w.visit(child, path+"/"+escapeKey(k), scope, csh, isHTMLKey(k))
 		}
 		return x
 	case []any:
@@ -139,7 +140,7 @@ func (w *walker) visit(v any, path string, scope Scope, sh shape) any {
 			if sh == shapeNodeList {
 				csh = shapeNode
 			}
-			x[i] = w.visit(child, path+"/"+strconv.Itoa(i), scope, csh)
+			x[i] = w.visit(child, path+"/"+strconv.Itoa(i), scope, csh, isHTML)
 		}
 		return x
 	}
@@ -155,7 +156,7 @@ func childShape(sh shape, k string) (shape, bool) {
 		return shapeNodeList, k == "nodes"
 	case shapeNode:
 		switch k {
-		case "p":
+		case "p": // visited by visitProps
 			return shapeFree, true
 		case "c":
 			return shapeNodeList, true
@@ -164,12 +165,18 @@ func childShape(sh shape, k string) (shape, bool) {
 	return 0, false
 }
 
-func (w *walker) str(s, path string, scope Scope) string {
+// isHTMLKey says a string under key k is markup: the rich-text body and the
+// html prop. Every other string is plain text.
+func isHTMLKey(k string) bool {
+	return k == "content" || k == "body" || k == "html"
+}
+
+func (w *walker) str(s, path string, scope Scope, isHTML bool) string {
 	var pick func(int) bool
 	if w.pick != nil {
 		pick = func(i int) bool { return w.pick(path, i) }
 	}
-	out, hits, n := transform(s, w.o, pick)
+	out, hits, n := transform(s, w.o, isHTML, pick)
 	for _, h := range hits {
 		w.hits = append(w.hits, FieldHit{Path: path, Scope: scope, Hit: h})
 	}

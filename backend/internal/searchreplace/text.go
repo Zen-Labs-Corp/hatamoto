@@ -13,15 +13,16 @@ import (
 // occurrences pick accepts and returns the new string and how many were
 // replaced; s is returned as is when nothing was.
 //
-// A string holding markup is edited token by token: only text and href/src
-// values can change, script and style bodies and every other byte stay as
-// they were.
-func transform(s string, o Options, pick func(i int) bool) (out string, hits []Hit, replaced int) {
+// isHTML says the field holds markup (a rich-text body, a builder html prop).
+// Such a value is edited token by token: only text and href/src values can
+// change, raw-text bodies and every other byte stay as they were. Any other
+// value is plain text and is never parsed or escaped, whatever it contains.
+func transform(s string, o Options, isHTML bool, pick func(i int) bool) (out string, hits []Hit, replaced int) {
 	if o.Find == "" {
 		return s, nil, 0
 	}
 	sc := &scanner{o: o, pick: pick}
-	if strings.Contains(s, "<") {
+	if isHTML {
 		out = sc.markup(s)
 	} else {
 		out = sc.text(s)
@@ -71,7 +72,8 @@ func (sc *scanner) text(s string) string {
 func (sc *scanner) markup(s string) string {
 	z := xhtml.NewTokenizer(strings.NewReader(s))
 	var b strings.Builder
-	rawText := false // inside script or style
+	rawText := false // inside script, style or another raw-text element
+	consumed := 0    // input bytes read by the tokens written so far
 	for {
 		tt := z.Next()
 		if tt == xhtml.ErrorToken {
@@ -79,9 +81,12 @@ func (sc *scanner) markup(s string) string {
 				sc.hits, sc.replaced = nil, 0
 				return s
 			}
-			return b.String()
+			// An unfinished tag at the end ends the tokenizer without a
+			// token: keep those bytes as they are.
+			return b.String() + s[consumed:]
 		}
 		raw := string(z.Raw())
+		consumed += len(raw)
 		switch tt {
 		case xhtml.TextToken:
 			if rawText {
@@ -94,7 +99,7 @@ func (sc *scanner) markup(s string) string {
 		case xhtml.StartTagToken, xhtml.SelfClosingTagToken:
 			var name string
 			name, raw = sc.tag(z, tt, raw)
-			rawText = tt == xhtml.StartTagToken && (name == "script" || name == "style")
+			rawText = tt == xhtml.StartTagToken && rawTextTags[name]
 		case xhtml.EndTagToken:
 			rawText = false
 		}
@@ -129,4 +134,11 @@ func (sc *scanner) tag(z *xhtml.Tokenizer, tt xhtml.TokenType, raw string) (stri
 	}
 	b.WriteString(">")
 	return name, b.String()
+}
+
+// rawTextTags are the elements whose body the tokenizer returns as is, not as
+// text: it is script, style or markup kept as data, never prose to edit.
+var rawTextTags = map[string]bool{
+	"script": true, "style": true, "iframe": true, "noscript": true,
+	"noembed": true, "noframes": true, "xmp": true, "plaintext": true,
 }
