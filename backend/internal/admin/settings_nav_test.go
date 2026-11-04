@@ -25,7 +25,7 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy": "privacy", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
+		"general": "general", "privacy": "privacy", "tracking": "tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "api": "api",
 		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
 	} {
@@ -231,7 +231,7 @@ func TestSettingsNavGroups(t *testing.T) {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general locales email privacy users",
+		"Site":    "general locales email privacy tracking users",
 		"Content": "media entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups changes import-export security",
 		"Tools":   "search-replace",

@@ -91,6 +91,8 @@ func (s *Server) setupPackages() {
 	// The webhooks plugin moved into core: copy its subscriptions and uninstall
 	// it before anything loads it or the scheduler starts (no double sends).
 	s.retireWebhooksPlugin(ctx)
+	// The gtm and google-analytics plugins moved into Settings > Tracking.
+	s.retireTrackingPlugins(ctx)
 	s.packages.Reconcile(ctx)
 	if s.cfg.Plugins.Dir != "" {
 		s.logger.Warn("packages: HATAMOTO_PLUGIN_DIR is a development override; do not use it in production", slog.String("dir", s.cfg.Plugins.Dir))

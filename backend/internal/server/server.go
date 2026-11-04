@@ -55,6 +55,7 @@ import (
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
+	"hatamoto.dev/core/internal/tags"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/updater"
@@ -107,6 +108,7 @@ type Server struct {
 	seoStore               *seo.Store     // site-wide SEO templates; nil in tests that skip them
 	consentStore           *consent.Store // cookie consent settings; nil in tests that skip them
 	consentCounter         *consent.Counter
+	tagsStore              *tags.Store // tracking (tag manager) settings; nil in tests that skip them
 	seoLogOnce             sync.Once
 	indexNow               *indexnow.Runner // nil in demo mode
 	indexNowBaseWarn       sync.Once
@@ -444,6 +446,7 @@ func (s *Server) setupDependencies() {
 	s.seoStore = seo.NewStore(s.db.Pool())
 	s.consentStore = consent.NewStore(s.db.Pool())
 	s.consentCounter = consent.NewCounter(s.db.Pool())
+	s.tagsStore = tags.NewStore(s.db.Pool())
 	spamStore := spam.NewStore(s.db.Pool())
 	spamVerifier := spam.NewHTTPVerifier(spam.NewClient(), nil)
 	s.spamStore, s.spamVerifier = spamStore, spamVerifier

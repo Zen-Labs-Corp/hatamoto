@@ -632,6 +632,11 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if cfg, ok := consentConfig(ctxOrBackground(v.Ctx)); ok && !editor {
 		consent = consentTag(cfg)
 	}
+	var tagsHTML template.HTML
+	if cfg, ok := tagsConfig(ctxOrBackground(v.Ctx)); ok && !editor {
+		tagsHTML = tagsMarkup(cfg)
+		d.PluginBody += tagsHTML
+	}
 	d.Body = template.HTML(RewriteEntityLinks(string(sanitisedHTML(v.Attrs["content"])), v.EntityLinks)) // #nosec G203 -- sanitised, only href replaced
 	if d.Related == nil {
 		// Views with no entity (404, error, archive) still let a shared partial
@@ -667,6 +672,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	}
 	if track != "" && !bytes.Contains(out, []byte(track)) {
 		out = spliceBody(out, track) // the theme never printed plugin-body
+	}
+	if tagsHTML != "" && !bytes.Contains(out, []byte(tagsHTML)) {
+		out = spliceBody(out, tagsHTML) // the theme never printed plugin-body
 	}
 	if consent != "" {
 		out = spliceHeadStart(out, consent) // first in <head>: the Consent Mode defaults precede every other script

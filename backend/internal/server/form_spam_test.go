@@ -358,3 +358,21 @@ func TestSpamRemoteIPIgnoresSpoofedForwardedFor(t *testing.T) {
 		t.Errorf("remoteip sent to provider = %q, want the peer address", v.ips[0])
 	}
 }
+
+// hm.js fires hm:conversion for a response that carries a submission id, so a
+// submission classed as spam must not carry one.
+func TestSpamSubmissionResponseHasNoSubmissionID(t *testing.T) {
+	t.Parallel()
+	srv, repo := newSpamServer(t, spam.Defaults(), nil)
+	rec := postJSON(srv, map[string]any{"name": "Ada", "hm_ts": tokenAgo(srv, time.Second)})
+	if rec.Code != 201 || len(repo.subs) != 1 || repo.subs[0].Status != form.SubmissionStatusSpam {
+		t.Fatalf("fast submit: %d %v", rec.Code, repo.subs)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if _, has := body["submission_id"]; has || body["success"] != true {
+		t.Errorf("spam response = %s, want success with no submission_id", rec.Body.String())
+	}
+}

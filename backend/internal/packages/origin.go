@@ -21,7 +21,7 @@ const (
 
 // FirstPartyPlugins are the plugins the core team maintains. The list is the
 // rule; the author is not checked.
-var FirstPartyPlugins = []string{"searchconsole", "gtm"}
+var FirstPartyPlugins = []string{"searchconsole"}
 
 // FirstPartyKeyIDs are the key ids first-party packages were ever signed under:
 // the key rotated out on 2026-10-16 (docs/PACKAGES.md) and the one that replaced

@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased: Tag manager in Settings > Tracking
+
+Settings > Tracking loads 13 common tags (Google Analytics 4, Tag Manager, Ads, Meta, Clarity, UET, LinkedIn, TikTok, Pinterest, Tawk.to, Crisp, HubSpot, AdSense) from one fingerprinted script, after cookie consent, with the page policy widened only for the tags you turn on.
+
+- **Off by default.** With no tag on, public HTML and the policy header are byte-identical to before.
+- **Signed-in users.** A shared switch (on by default) skips tags when the new `hm_member` cookie is present. Previews and the editor never load tags.
+- **Conversions.** One `hm:conversion` event per form success carries the submission id.
+- **Plugins moved into core.** The first-party `gtm` and `google-analytics` plugins are folded into this page on upgrade and removed; a one-time notice and audit entries record it. The tag is turned on only if the plugin was really running; an ID that is not valid for the tag leaves the plugin installed.
+- **Migration.** One new table (expand-only).
+
+**Rollback floor: unchanged.** The previous release ignores the new table; the removed plugins would have to be installed again and their IDs entered again, because their settings are deleted with them.
+
 ## Unreleased: Cookie consent banner and Consent Mode v2
 
 Settings > Privacy adds an optional cookie banner. Visitors can accept all, reject all or choose Analytics, Marketing and Functional, and the choice is announced to your scripts through `window.hm.consent`, the `hm:consent` event and Google Consent Mode v2. A choice is remembered for 12 months; the page shows daily counts of the choices without storing any visitor data.

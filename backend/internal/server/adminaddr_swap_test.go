@@ -398,7 +398,8 @@ func TestAdminRoutesRecordedOnRouteShell(t *testing.T) {
 func TestSessionCookieIsNotPrefixBound(t *testing.T) {
 	rec := httptest.NewRecorder()
 	auth.SetSessionCookie(rec, "tok", false)
-	if c := rec.Result().Cookies(); len(c) != 1 || c[0].Path != "/" {
+	// The session cookie and the hm_member marker, both at the site root.
+	if c := rec.Result().Cookies(); len(c) != 2 || c[0].Path != "/" || c[1].Path != "/" {
 		t.Errorf("cookies = %v", c)
 	}
 }

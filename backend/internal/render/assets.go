@@ -161,6 +161,13 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.serve(w, r, name, consentScript(cfg), cacheShort)
+	case name == TagsScriptName:
+		cfg, ok := tagsConfig(r.Context())
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		h.serve(w, r, name, tagsScript(cfg), cacheShort)
 	case name == "hm.js" && len(h.js) > 0:
 		h.serve(w, r, name, h.js, cacheShort)
 	case strings.HasPrefix(name, IslandPrefix):

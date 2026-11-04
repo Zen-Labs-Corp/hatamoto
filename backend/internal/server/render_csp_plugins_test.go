@@ -40,13 +40,13 @@ func TestRenderCSPPluginHosts(t *testing.T) {
 	}
 
 	// Plugin hosts and the captcha provider share the one builder.
-	f.h.captchaProvider = func(_ context.Context) string { return "turnstile" }
+	f.h.cspExtras = func(context.Context) cspExtras { return captchaExtras("turnstile") }
 	if csp = cspOf(f.get("/about")); !strings.Contains(csp, "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.example.com;") {
 		t.Errorf("provider + plugin CSP = %q", csp)
 	}
 
 	// Disabled (no hosts left): back to the default.
-	f.h.captchaProvider = nil
+	f.h.cspExtras = nil
 	set = pluginhost.CSPSet{}
 	if got := cspOf(f.get("/about")); got != renderCSP {
 		t.Errorf("after disabling: CSP = %q", got)
@@ -65,7 +65,7 @@ func TestRenderCSPPluginHostsStrictTheme(t *testing.T) {
 
 func TestAddSourcesImgWithoutHTTPS(t *testing.T) {
 	base := "default-src 'self'; img-src 'self' data:; frame-src 'self'"
-	got := cspWithExtras(base, "", pluginhost.CSPSet{Img: []string{"https://i.example.com"}, Frame: []string{"https://f.example.com"}})
+	got := cspWithExtras(base, pluginExtras(pluginhost.CSPSet{Img: []string{"https://i.example.com"}, Frame: []string{"https://f.example.com"}}))
 	if got != "default-src 'self'; img-src 'self' data: https://i.example.com; frame-src 'self' https://f.example.com" {
 		t.Errorf("got %q", got)
 	}

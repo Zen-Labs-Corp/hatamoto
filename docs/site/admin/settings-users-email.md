@@ -17,6 +17,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | General | `general` | owner |
 | Email | `email` | owner |
 | Privacy | `privacy` | owner |
+| Tracking | `tracking` | owner |
 | Media | `media` | owner, editor |
 | Entity models | `types`, `taxonomies` | owner |
 | Forms | `forms`, `submissions` | owner, editor |
@@ -240,6 +241,27 @@ A visitor's choice is stored for 12 months in the `hm_consent` cookie, a necessa
 Under the form, a table shows how many visitors chose Accept all, Reject all or Custom each day for the last 30 days. Only these daily totals are stored. There is no IP address, user agent or visitor id, and no record of who chose what. Saving the page clears the page cache so the change shows at once.
 
 **Upgrade:** nothing changes until you turn the switch on. The migration adds two tables and nothing else.
+
+## Tracking: analytics, ad and chat tags
+
+`<admin>/settings/tracking` (the Tracking section of Settings, owners only) loads third-party tags on your public pages from one place. It is **off by default**: until you turn a tag on, your page HTML and its Content-Security-Policy header are byte-identical to before.
+
+Each of the 13 tags has a switch and an ID field: Google Analytics 4, Google Tag Manager, Google Ads, Meta Pixel, Microsoft Clarity, Microsoft UET, LinkedIn Insight, TikTok Pixel, Pinterest Tag, Tawk.to, Crisp, HubSpot and Google AdSense. The page shows the format of each ID, the consent category of the tag and the hosts it adds to the page policy. An ID that does not match the format shows an error next to the field, linked from the summary at the top, and nothing is saved. A tag that is on needs an ID.
+
+| Field | Meaning |
+|---|---|
+| Do not load tags for signed-in users | On by default. When a browser holds the `hm_member` cookie, which is set at sign-in and cleared at sign-out, no tag loads. Pages are cached and identical for everyone, so the browser makes this choice. |
+| A tag's switch and ID | Turns the tag on with its ID. Analytics tags are in the Analytics category, ad tags in Marketing, chat tags in Functional. |
+
+How it works:
+
+- One script, `/theme/assets/hm-tags.<hash>.js`, is added to public pages. It loads the tags that are on, and each one waits for the visitor's choice in Settings > Privacy when the banner is on. Nothing is loaded in the editor or in previews.
+- The page policy allows only the hosts of the tags that are on.
+- Google Tag Manager also adds a `noscript` frame, only when the consent banner is off (with the banner on, a category it does not ask is never allowed).
+- After a form is sent, the page dispatches one `hm:conversion` event on `document` with the submission id in `detail.id`. Google Analytics 4 receives `generate_lead` and Meta Pixel `Lead`, with the submission id as the event ID.
+- Every change is recorded in the audit log with the tags turned on, turned off or edited. IDs are not written there. Saving clears the page cache.
+
+**Upgrade:** the Google Tag Manager and Google Analytics plugins are replaced by this page. At the next start, an ID stored in a plugin signed by the first-party key is copied here (turned on only if the plugin was installed, on, allowed to add scripts and granted that permission, so an upgrade never starts a tracker that was not running), the plugin is uninstalled and the audit log records `tracking.import_plugin`. A **Moved into core** notice shows once on the page until you dismiss it. A plugin with these names that is not first-party signed is left alone, and so is a plugin whose ID is not a valid ID for the tag (it is not uninstalled and its settings are kept): enter its ID here, then remove it from Plugins. The migration adds one table.
 
 ## Visitor consent API
 

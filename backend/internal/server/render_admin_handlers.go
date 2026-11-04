@@ -57,16 +57,16 @@ type renderAdminHandlers struct {
 	// seoSettings is the site's SEO templates, so an attributes-only preview
 	// resolves the same title and description as the live page. Nil means none.
 	seoSettings func(ctx context.Context) *seo.Settings
-	// captchaProvider is the configured captcha provider, so the preview's CSP
-	// lets the widget load as it does on the public site. Nil means none.
-	captchaProvider func(ctx context.Context) string
+	// cspExtras are the captcha and tag origins, so the preview's CSP lets
+	// the widget load as it does on the public site. Nil means none.
+	cspExtras func(ctx context.Context) cspExtras
 }
 
 func (s *Server) newRenderAdminHandlers(engine themeRenderer) *renderAdminHandlers {
 	return &renderAdminHandlers{
-		engine:          engine,
-		logger:          s.logger,
-		captchaProvider: s.captchaProvider,
+		engine:    engine,
+		logger:    s.logger,
+		cspExtras: s.cspExtras,
 		chrome: func(ctx context.Context, sections []render.Section) (render.SiteView, map[string]render.FormView, error) {
 			site, err := s.buildSiteView(ctx)
 			if err != nil {
@@ -155,7 +155,7 @@ func (h *renderAdminHandlers) handleRenderPreview(w http.ResponseWriter, r *http
 	hd.Set("Content-Type", "text/html; charset=utf-8")
 	hd.Set("Cache-Control", "no-store")
 	hd.Set("X-Frame-Options", "SAMEORIGIN")
-	hd.Set("Content-Security-Policy", cspWithProvider(renderCSP, providerOf(r.Context(), h.captchaProvider)))
+	hd.Set("Content-Security-Policy", cspWithExtras(renderCSP, extrasOf(r.Context(), h.cspExtras)))
 	hd.Add("Content-Security-Policy", previewSandboxCSP+scriptSrc) // a second header: every CSP header is enforced
 	hd.Set("X-Robots-Tag", "noindex")
 	hd.Set(previewContextHeader, previewContext)
@@ -341,7 +341,7 @@ func (s *Server) renderMenuPreview(r *http.Request, location string, m *menu.Men
 	if err := s.renderEngine.RenderPage(&buf, menuPreviewView(ctx, links, site, s.publicBaseURL(r), location, m)); err != nil {
 		return nil, "", err
 	}
-	return buf.Bytes(), cspWithProvider(renderCSP, providerOf(ctx, s.captchaProvider)), nil
+	return buf.Bytes(), cspWithExtras(renderCSP, s.cspExtras(ctx)), nil
 }
 
 // menuPreviewView is the page of a menu preview: site with m in place of the

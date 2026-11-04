@@ -116,3 +116,28 @@ func TestHmJSPublicAPIPrefix(t *testing.T) {
 		t.Error("default hm.js changed")
 	}
 }
+
+func TestHmJSDispatchesConversionOnSuccess(t *testing.T) {
+	t.Parallel()
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	e.AssetHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, AssetPrefix+"hm.js", nil))
+	js := rec.Body.String()
+	if n := strings.Count(js, "'hm:conversion'"); n != 1 {
+		t.Fatalf("hm.js dispatches hm:conversion %d times, want once", n)
+	}
+	for _, want := range []string{"detail: { id: body.submission_id, form: slug, value: null }", "if (body && body.submission_id)"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("hm.js lacks %q", want)
+		}
+	}
+	// The honeypot path returns before the fetch, so a bot never dispatches.
+	hp := strings.Index(js, "form.elements.hm_website")
+	ev := strings.Index(js, "'hm:conversion'")
+	if hp < 0 || ev < hp {
+		t.Error("the conversion event must sit after the honeypot early return")
+	}
+}

@@ -32,10 +32,16 @@ func UseNeutralCookieNames(secure bool) {
 	APISessionCookieName = "a"
 }
 
+// MemberMarkerName is a readable cookie set next to the session cookie. It
+// carries no secret and no id: the public tag script only checks that it is
+// there, to skip tags for signed-in users on pages that are cached and cannot
+// vary per visitor. A stale marker only suppresses tags in that browser.
+const MemberMarkerName = "hm_member"
+
 // sessionCookieMaxAge mirrors adminSessionTTL (30 days).
 const sessionCookieMaxAge = int(30 * 24 * time.Hour / time.Second)
 
-// SetSessionCookie writes the admin session cookie. HttpOnly (no JS access),
+// SetSessionCookie writes the admin session cookie and the member marker. HttpOnly (no JS access),
 // Secure (configurable for local HTTP dev), SameSite=Strict (admin + API are
 // same-origin via the Next rewrite, so Strict is safe and strongest), Path=/.
 func SetSessionCookie(w http.ResponseWriter, token string, secure bool) {
@@ -46,6 +52,14 @@ func SetSessionCookie(w http.ResponseWriter, token string, secure bool) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   sessionCookieMaxAge,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     MemberMarkerName,
+		Value:    "1",
+		Path:     "/",
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   sessionCookieMaxAge,
 	})
 }
@@ -61,6 +75,14 @@ func ClearSessionCookie(w http.ResponseWriter, secure bool) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     MemberMarkerName,
+		Value:    "",
+		Path:     "/",
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
 }

@@ -509,6 +509,7 @@ type submitMeta struct {
 // submitResult is the outcome of a stored submission.
 type submitResult struct {
 	SubmissionID string
+	Spam         bool // stored as spam: the client must not learn the id (it would count as a conversion)
 	Message      string
 	RedirectURL  string
 }
@@ -609,6 +610,7 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 
 	return &submitResult{
 		SubmissionID: submission.ID.String(),
+		Spam:         status == form.SubmissionStatusSpam,
 		Message:      formObj.Settings.SuccessMessage,
 		RedirectURL:  formObj.Settings.SuccessRedirectURL,
 	}, nil
@@ -823,6 +825,11 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 		"success":       true,
 		"message":       res.Message,
 		"submission_id": res.SubmissionID,
+	}
+	if res.Spam {
+		// hm.js fires hm:conversion only when it gets an id, so spam, which is
+		// kept for review, never reaches ad and analytics tags.
+		delete(response, "submission_id")
 	}
 
 	if res.RedirectURL != "" {
