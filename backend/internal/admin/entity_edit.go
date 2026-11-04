@@ -119,6 +119,7 @@ type entityForm struct {
 	// is false on a single-locale site and for a shared entry, which gets SharedNote.
 	Locale               string
 	LocaleOptions        []ui.Option
+	LocaleHelp           string
 	ShowLocale           bool
 	SharedNote           bool
 	ShowParent           bool
@@ -173,13 +174,39 @@ func (a *Admin) fillLocale(ctx context.Context, f *entityForm, self *entity.Enti
 	if !slices.Contains(tags, self.Locale) { // a locale removed from the settings still shows as the current one
 		tags = append(tags, self.Locale)
 	}
+	f.LocaleOptions = siteLocaleOptions(set, tags, f.Locale)
+	f.LocaleHelp = "Changing it moves this page to another locale's address space."
+}
+
+// siteLocaleOptions lists tags as select options, marking selected.
+func siteLocaleOptions(set *entity.LocaleSet, tags []string, selected string) []ui.Option {
+	var out []ui.Option
 	for _, tag := range tags {
 		label := set.Name(tag)
 		if label == "" {
 			label = localeDisplayName(tag)
 		}
-		f.LocaleOptions = append(f.LocaleOptions, ui.Option{Value: tag, Label: label + " (" + tag + ")", Selected: tag == f.Locale})
+		out = append(out, ui.Option{Value: tag, Label: label + " (" + tag + ")", Selected: tag == selected})
 	}
+	return out
+}
+
+// sharedChoiceLocales returns the site's locales when the New form of sc
+// offers the shared option: the type is locale neutral and the site has
+// several locales. Otherwise it returns nil and the form has no locale field.
+func (a *Admin) sharedChoiceLocales(ctx context.Context, sc *entity.EntitySchema) *entity.LocaleSet {
+	st, err := sc.URLSettings()
+	if err != nil || !st.IsLocaleNeutral() {
+		return nil
+	}
+	cfg, err := a.loadSite(ctx)
+	if err != nil {
+		return nil
+	}
+	if set := localeSetOf(cfg); set != nil && set.Multi() {
+		return set
+	}
+	return nil
 }
 
 // validateLocale checks a typed locale change on an entry's Details form. A
@@ -513,6 +540,13 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	f.IsPerson = sc.Slug == person.SchemaSlug
 	if self != nil && !f.New {
 		a.fillLocale(ctx, f, self)
+	}
+	if f.New {
+		if set := a.sharedChoiceLocales(ctx, sc); set != nil {
+			f.ShowLocale = true
+			f.LocaleOptions = append([]ui.Option{{Value: "", Label: "All languages (shared)", Selected: f.Locale == ""}}, siteLocaleOptions(set, set.Tags(), f.Locale)...)
+			f.LocaleHelp = "Choose one language, or share the entry across all of them."
+		}
 	}
 
 	if schemaIsNested(sc) && c.Entities != nil {
@@ -1050,8 +1084,20 @@ func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderEntityForm(w, r, status, p.f, nil, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 		return
 	}
+	// Only a locale-neutral type on a multi-locale site shows the select; for
+	// others a posted locale is ignored. The empty choice is the shared entry
+	// and reaches the service as no locale, which defaults it. und is refused.
+	var locale string
+	if set := a.sharedChoiceLocales(r.Context(), sc); set != nil && p.f.Locale != "" {
+		if !slices.Contains(set.Tags(), p.f.Locale) {
+			p.f.Errors["locale"] = "Choose one of the site languages."
+			a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, nil, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
+			return
+		}
+		locale = p.f.Locale
+	}
 	raw, _ := json.Marshal(p.attrs)
-	in := &entity.CreateEntityInput{SchemaID: sc.ID, Name: p.f.Name, Slug: p.f.Slug, Attributes: raw}
+	in := &entity.CreateEntityInput{SchemaID: sc.ID, Name: p.f.Name, Slug: p.f.Slug, Locale: locale, Attributes: raw}
 	if p.f.Name != "" && schemaIsNested(sc) {
 		if id, err := uuid.Parse(p.parentID); err == nil {
 			in.ParentID = &id
